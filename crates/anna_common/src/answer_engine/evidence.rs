@@ -1,7 +1,9 @@
-//! Evidence model for Anna v0.10.0
+//! Evidence model for Anna v0.14.0
 //!
 //! Every probe result is wrapped in structured evidence.
 //! LLM-A and LLM-B see only this structured evidence, never raw shell access.
+//!
+//! v0.14.0: Aligned catalog to reality - only 6 probes that actually exist.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -85,171 +87,84 @@ impl EvidenceStatus {
     }
 }
 
-/// v0.10.0 Probe catalog - registered probes only
+/// v0.14.0 Probe catalog - ONLY the 6 probes that actually exist
+///
+/// IMPORTANT: Do not add probes here that don't have matching JSON files
+/// in the probes/ directory. The LLM prompts are aligned to these 6 probes.
 #[derive(Debug, Clone)]
 pub struct ProbeCatalog {
     probes: HashMap<String, ProbeDefinitionV10>,
 }
 
 impl ProbeCatalog {
-    /// Create the standard probe catalog
+    /// Create the standard probe catalog with the 6 REAL probes
+    ///
+    /// v0.14.0: Shrunk from 14 to 6 probes to match reality
     pub fn standard() -> Self {
         let mut probes = HashMap::new();
 
-        // CPU info
+        // CPU info - lscpu style JSON
         probes.insert(
             "cpu.info".to_string(),
             ProbeDefinitionV10 {
                 probe_id: "cpu.info".to_string(),
-                description: "CPU information from /proc/cpuinfo and lscpu".to_string(),
+                description: "CPU information (model, threads, flags) from lscpu".to_string(),
                 commands: vec!["lscpu -J".to_string()],
                 cost: ProbeCost::Cheap,
             },
         );
 
-        // Memory info
+        // Memory info - /proc/meminfo text
         probes.insert(
             "mem.info".to_string(),
             ProbeDefinitionV10 {
                 probe_id: "mem.info".to_string(),
-                description: "Memory usage from /proc/meminfo".to_string(),
+                description: "Memory usage from /proc/meminfo (RAM total/free in kB)".to_string(),
                 commands: vec!["cat /proc/meminfo".to_string()],
                 cost: ProbeCost::Cheap,
             },
         );
 
-        // Disk/block devices
+        // Disk/block devices - lsblk JSON
         probes.insert(
             "disk.lsblk".to_string(),
             ProbeDefinitionV10 {
                 probe_id: "disk.lsblk".to_string(),
-                description: "Block device information from lsblk".to_string(),
+                description: "Block device information (partitions, sizes) from lsblk".to_string(),
                 commands: vec!["lsblk -J -b -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT".to_string()],
                 cost: ProbeCost::Cheap,
             },
         );
 
-        // Filesystem usage
+        // GPU detection
         probes.insert(
-            "fs.usage_root".to_string(),
+            "hardware.gpu".to_string(),
             ProbeDefinitionV10 {
-                probe_id: "fs.usage_root".to_string(),
-                description: "Filesystem usage for root partition".to_string(),
-                commands: vec!["df -h /".to_string()],
+                probe_id: "hardware.gpu".to_string(),
+                description: "GPU presence and basic model/vendor detection".to_string(),
+                commands: vec!["lspci -v | grep -i vga".to_string()],
                 cost: ProbeCost::Cheap,
             },
         );
 
-        // Network links
+        // GPU drivers
         probes.insert(
-            "net.links".to_string(),
+            "drivers.gpu".to_string(),
             ProbeDefinitionV10 {
-                probe_id: "net.links".to_string(),
-                description: "Network interface link status".to_string(),
-                commands: vec!["ip -j link show".to_string()],
+                probe_id: "drivers.gpu".to_string(),
+                description: "GPU driver stack summary".to_string(),
+                commands: vec!["lsmod | grep -E 'nvidia|amdgpu|i915|nouveau'".to_string()],
                 cost: ProbeCost::Cheap,
             },
         );
 
-        // Network addresses
+        // RAM summary
         probes.insert(
-            "net.addr".to_string(),
+            "hardware.ram".to_string(),
             ProbeDefinitionV10 {
-                probe_id: "net.addr".to_string(),
-                description: "Network interface addresses".to_string(),
-                commands: vec!["ip -j addr show".to_string()],
-                cost: ProbeCost::Cheap,
-            },
-        );
-
-        // Network routes
-        probes.insert(
-            "net.routes".to_string(),
-            ProbeDefinitionV10 {
-                probe_id: "net.routes".to_string(),
-                description: "Network routing table".to_string(),
-                commands: vec!["ip -j route show".to_string()],
-                cost: ProbeCost::Cheap,
-            },
-        );
-
-        // DNS configuration
-        probes.insert(
-            "dns.resolv".to_string(),
-            ProbeDefinitionV10 {
-                probe_id: "dns.resolv".to_string(),
-                description: "DNS resolver configuration".to_string(),
-                commands: vec!["cat /etc/resolv.conf".to_string()],
-                cost: ProbeCost::Cheap,
-            },
-        );
-
-        // Pacman updates
-        probes.insert(
-            "pkg.pacman_updates".to_string(),
-            ProbeDefinitionV10 {
-                probe_id: "pkg.pacman_updates".to_string(),
-                description: "Available pacman package updates".to_string(),
-                commands: vec!["checkupdates".to_string()],
-                cost: ProbeCost::Medium,
-            },
-        );
-
-        // AUR updates (yay)
-        probes.insert(
-            "pkg.yay_updates".to_string(),
-            ProbeDefinitionV10 {
-                probe_id: "pkg.yay_updates".to_string(),
-                description: "Available AUR package updates via yay".to_string(),
-                commands: vec!["yay -Qua".to_string()],
-                cost: ProbeCost::Medium,
-            },
-        );
-
-        // Games/Steam packages
-        probes.insert(
-            "pkg.games".to_string(),
-            ProbeDefinitionV10 {
-                probe_id: "pkg.games".to_string(),
-                description: "Installed game-related packages".to_string(),
-                commands: vec![
-                    "pacman -Qs steam".to_string(),
-                    "pacman -Qs lutris".to_string(),
-                    "pacman -Qs wine".to_string(),
-                ],
-                cost: ProbeCost::Medium,
-            },
-        );
-
-        // System kernel
-        probes.insert(
-            "system.kernel".to_string(),
-            ProbeDefinitionV10 {
-                probe_id: "system.kernel".to_string(),
-                description: "Kernel and system information".to_string(),
-                commands: vec!["uname -a".to_string()],
-                cost: ProbeCost::Cheap,
-            },
-        );
-
-        // Journal slice (recent logs)
-        probes.insert(
-            "system.journal_slice".to_string(),
-            ProbeDefinitionV10 {
-                probe_id: "system.journal_slice".to_string(),
-                description: "Recent system journal entries".to_string(),
-                commands: vec!["journalctl -n 50 --no-pager".to_string()],
-                cost: ProbeCost::Medium,
-            },
-        );
-
-        // Anna self-health
-        probes.insert(
-            "anna.self_health".to_string(),
-            ProbeDefinitionV10 {
-                probe_id: "anna.self_health".to_string(),
-                description: "Anna daemon self-health check".to_string(),
-                commands: vec!["internal:self_health".to_string()],
+                probe_id: "hardware.ram".to_string(),
+                description: "High level RAM summary (total capacity, slot info)".to_string(),
+                commands: vec!["dmidecode -t memory 2>/dev/null || cat /proc/meminfo".to_string()],
                 cost: ProbeCost::Cheap,
             },
         );
@@ -270,6 +185,16 @@ impl ProbeCatalog {
     /// List all available probes
     pub fn list(&self) -> Vec<&ProbeDefinitionV10> {
         self.probes.values().collect()
+    }
+
+    /// Get number of probes in catalog
+    pub fn len(&self) -> usize {
+        self.probes.len()
+    }
+
+    /// Check if catalog is empty
+    pub fn is_empty(&self) -> bool {
+        self.probes.is_empty()
     }
 
     /// Get available probes as serializable format for LLM
@@ -300,10 +225,23 @@ mod tests {
     #[test]
     fn test_probe_catalog_standard() {
         let catalog = ProbeCatalog::standard();
+        // v0.14.0: Exactly 6 probes
+        assert_eq!(catalog.len(), 6);
+
+        // The 6 real probes
         assert!(catalog.is_valid("cpu.info"));
         assert!(catalog.is_valid("mem.info"));
-        assert!(catalog.is_valid("net.links"));
-        assert!(catalog.is_valid("anna.self_health"));
+        assert!(catalog.is_valid("disk.lsblk"));
+        assert!(catalog.is_valid("hardware.gpu"));
+        assert!(catalog.is_valid("drivers.gpu"));
+        assert!(catalog.is_valid("hardware.ram"));
+
+        // These should NOT exist anymore
+        assert!(!catalog.is_valid("net.links"));
+        assert!(!catalog.is_valid("net.addr"));
+        assert!(!catalog.is_valid("pkg.games"));
+        assert!(!catalog.is_valid("system.kernel"));
+        assert!(!catalog.is_valid("anna.self_health"));
         assert!(!catalog.is_valid("nonexistent.probe"));
     }
 
@@ -324,7 +262,9 @@ mod tests {
     fn test_available_probes() {
         let catalog = ProbeCatalog::standard();
         let probes = catalog.available_probes();
-        assert!(!probes.is_empty());
+        // v0.14.0: Exactly 6 probes
+        assert_eq!(probes.len(), 6);
         assert!(probes.iter().any(|p| p.probe_id == "cpu.info"));
+        assert!(probes.iter().any(|p| p.probe_id == "hardware.gpu"));
     }
 }

@@ -1,46 +1,77 @@
-# Anna v0.12.2
+# Anna v0.14.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.12.2
+## What's New in v0.14.0
 
-- **Iteration-Aware Prompting** - LLM-A now knows which iteration it's on, must answer on iteration 2+
-- **Fallback Answer Extraction** - When LLM fails, extracts facts directly from evidence (CPU flags, memory, etc.)
-- **Stronger Answer Requirements** - Absolute rules that force answers when evidence exists
-- **Better CPU Flag Detection** - Fallback can parse lscpu flags for SSE2, AVX, AVX2 support
+- **Aligned to Reality** - Probe catalog shrunk from 14 to 6 actual working probes
+- **Explicit Unsupported Domains** - Honest refusal for network, packages, kernel (no probes yet)
+- **Stronger Evidence Discipline** - "If no probe, you do not know" enforced in prompts
+- **Cleaner Heuristics Separation** - Heuristics clearly marked, evidence <= 0.4 when used
+- **Auto-Update Enabled by Default** - Fresh installs have auto-update on (v10.4.1)
+- **Fixed Installer** - Proper architecture detection, tarball-based installation
 
-## Previous in v0.12.1
+## v0.14.0 Probe Catalog (6 Real Probes)
 
-- **Flexible JSON Parsing** - Handles null draft_answer, null text, missing fields gracefully
-- **Clearer LLM-A Prompts** - Explicit instruction to produce draft_answer when evidence exists
-- **Evidence-Aware Prompting** - User prompt now explicitly tells LLM-A when evidence is available
-- **Better Defaults** - Approves with low confidence on parse errors instead of refusing
+| probe_id      | description                                    | cache  |
+|---------------|------------------------------------------------|--------|
+| cpu.info      | CPU info (model, threads, flags) from lscpu    | STATIC |
+| mem.info      | Memory from /proc/meminfo (RAM in kB)          | STATIC |
+| disk.lsblk    | Block devices from lsblk -J                    | STATIC |
+| hardware.gpu  | GPU presence and basic model/vendor            | STATIC |
+| drivers.gpu   | GPU driver stack summary                       | STATIC |
+| hardware.ram  | High level RAM summary (total, slots)          | STATIC |
 
-## Previous in v0.12.0
+### Unsupported Domains (No Probes Yet)
 
-- **Strict Probe Catalog** - Hard-frozen 14-probe catalog embedded in prompts, no invented probes
-- **fix_and_accept Verdict** - LLM-B can fix minor issues without requesting new probes
-- **Partial Answer Fallback** - Returns honest low-confidence answers instead of total refusal
-- **Scoring Formula Update** - overall = min(evidence, reasoning, coverage) for stricter evaluation
+- Network status, WiFi, DNS
+- Package installation state, updates
+- Desktop environment, window manager
+- Config file locations (Hyprland, VS Code, etc.)
+- Per-folder/file disk usage
+- System logs, kernel version
 
-## Previous in v0.11.0
+Questions in these areas get honest "no probe for this" responses with optional heuristics.
 
-- **Knowledge Store** - SQLite-backed persistent fact storage with entity/attribute/value model
-- **Event-Driven Learning** - Watches pacman.log for package changes, triggers learning jobs
-- **System Mapping** - Initial hardware/software discovery on first install
-- **User Telemetry** - Tracks query topics to prioritize learning (local only, private)
-- **Knowledge Hygiene** - Detects stale/conflicting facts, schedules revalidation
-- **Knowledge API** - New `/v1/knowledge/query` and `/v1/knowledge/stats` endpoints
+## Previous Versions
 
-## Previous in v0.10.0
+<details>
+<summary>v0.13.0 - Strict Evidence Discipline</summary>
 
-- **Evidence-Based Answer Engine** - LLM-A/LLM-B supervised audit loop with strict JSON protocol
-- **Probe Catalog** - 14 registered probes with cost estimation (cheap/medium/expensive)
-- **Strict Evidence Discipline** - Every answer must cite probe evidence
-- **Reliability Scoring** - Transparent scoring with confidence levels
-- **Confidence Levels** - GREEN (>=0.90), YELLOW (0.70-0.90), RED (<0.70)
+- No hardcoded knowledge - evidence only
+- Intent mapping for common questions
+- Explicit "no probe → you do not know" rule
+
+</details>
+
+<details>
+<summary>v0.12.x - Iteration-Aware Prompts</summary>
+
+- LLM-A must answer on iteration 2+
+- Fallback answer extraction from evidence
+- fix_and_accept verdict
+
+</details>
+
+<details>
+<summary>v0.11.0 - Knowledge Store</summary>
+
+- SQLite-backed fact storage
+- Event-driven learning framework
+- System mapping phases
+
+</details>
+
+<details>
+<summary>v0.10.0 - Evidence-Based Engine</summary>
+
+- LLM-A/LLM-B supervised audit loop
+- Reliability scoring (GREEN/YELLOW/RED)
+- Probe catalog system
+
+</details>
 
 ## Architecture
 
@@ -61,30 +92,11 @@ Anna is a two-LLM system that provides reliable, evidence-based answers about yo
                 v            v            v
          +----------+ +----------+ +----------+
          |  Probes  | |Knowledge | |  Brain   |
-         |(14 tools)| |  Store   | | (Learn)  |
+         | (6 tools)| |  Store   | | (Learn)  |
          +----------+ +----------+ +----------+
 ```
 
-## v0.12.0 LLM Protocol
-
-### Hard-Frozen Probe Catalog
-
-| probe_id             | description                      | cost   |
-|----------------------|----------------------------------|--------|
-| cpu.info             | CPU info from lscpu              | cheap  |
-| mem.info             | Memory from /proc/meminfo        | cheap  |
-| disk.lsblk           | Block devices from lsblk         | cheap  |
-| fs.usage_root        | Root filesystem usage (df /)     | cheap  |
-| net.links            | Network link status (ip link)    | cheap  |
-| net.addr             | Network addresses (ip addr)      | cheap  |
-| net.routes           | Routing table (ip route)         | cheap  |
-| dns.resolv           | DNS config (/etc/resolv.conf)    | cheap  |
-| pkg.pacman_updates   | Available pacman updates         | medium |
-| pkg.yay_updates      | Available AUR updates            | medium |
-| pkg.games            | Game packages (steam/lutris/wine)| medium |
-| system.kernel        | Kernel info (uname -a)           | cheap  |
-| system.journal_slice | Recent journal entries           | medium |
-| anna.self_health     | Anna daemon health check         | cheap  |
+## LLM Protocol
 
 ### LLM-B Verdicts
 
@@ -165,7 +177,7 @@ fallback_model = "llama3.2:3b"
 selection_mode = "auto"   # auto or manual
 
 [update]
-enabled = false
+enabled = true            # Auto-update enabled by default (v0.14.0)
 interval_seconds = 86400  # Minimum 600 (10 minutes)
 channel = "main"          # main, stable, beta, or dev
 ```
@@ -181,11 +193,11 @@ channel = "main"          # main, stable, beta, or dev
 
 ## Core Principles
 
-1. **Zero hardcoded knowledge** - Only facts from probe catalog
+1. **Zero hardcoded knowledge** - Only facts from the 6 real probes
 2. **100% reliability** - No hallucinations, no guesses
 3. **Evidence-based** - Every claim must have a citation
-4. **Hard-frozen probe catalog** - Only 14 registered probes allowed
-5. **Partial answers over refusal** - Honest confidence better than blocking
+4. **Aligned to reality** - Only 6 probes that actually exist
+5. **Honest about limitations** - Clear "no probe for this" when unsupported
 6. **Supervised audit loop** - LLM-B validates LLM-A's work
 7. **Learn from THIS machine** - Knowledge store captures facts from your system
 
@@ -224,4 +236,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.12.2 - Iteration-aware prompts, fallback answer extraction, stronger answer requirements.
+This is version 0.14.0 - Aligned to reality with 6 real probes, honest unsupported domain handling.
