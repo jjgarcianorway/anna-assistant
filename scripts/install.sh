@@ -296,12 +296,8 @@ confirm_action() {
     if [[ "$INTERACTIVE" == "false" ]]; then
         # Non-interactive defaults
         case "$action" in
-            install|update)
-                return 0  # Proceed
-                ;;
-            reinstall)
-                log_info "Same version already installed, skipping (use -i for interactive)"
-                return 1  # Skip
+            install|update|reinstall)
+                return 0  # Proceed - always allow install/update/reinstall
                 ;;
             downgrade)
                 log_warn "Downgrade not allowed in non-interactive mode"
@@ -649,13 +645,31 @@ main() {
         log_to_file "Installer: action=${PLANNED_ACTION} result=partial_success version=${LATEST_VERSION}"
     fi
 
+    # Start daemon
+    print_header "STARTING DAEMON"
+    log_info "Starting annad service..."
+    if $SUDO systemctl restart annad 2>/dev/null; then
+        sleep 1
+        if $SUDO systemctl is-active --quiet annad; then
+            log_ok "annad is running"
+        else
+            log_warn "annad failed to start, check: journalctl -u annad"
+        fi
+    else
+        log_warn "Could not start annad service"
+    fi
+
+    # Enable at boot
+    if ! $SUDO systemctl is-enabled --quiet annad 2>/dev/null; then
+        $SUDO systemctl enable annad 2>/dev/null && log_ok "Enabled annad at boot" || true
+    fi
+
     # Final message
     print_header "COMPLETE"
-    printf "  Anna v%s installed successfully.\n" "$LATEST_VERSION"
+    printf "  Anna v%s installed and running.\n" "$LATEST_VERSION"
     printf "\n"
-    printf "  Start daemon:    ${CYAN}sudo systemctl start annad${NC}\n"
-    printf "  Enable at boot:  ${CYAN}sudo systemctl enable annad${NC}\n"
     printf "  Check status:    ${CYAN}annactl status${NC}\n"
+    printf "  Ask a question:  ${CYAN}annactl \"How many CPU cores?\"${NC}\n"
     printf "\n"
     print_line
 }
