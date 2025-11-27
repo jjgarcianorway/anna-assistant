@@ -472,11 +472,9 @@ install_systemd_service() {
 
     local service_file="/etc/systemd/system/annad.service"
 
-    # Check if service exists and is different
-    if [[ -f "$service_file" ]] && [[ "$RESET_MODE" == "false" ]]; then
-        log_ok "Systemd service exists (preserving)"
-    else
-        $SUDO tee "$service_file" > /dev/null << 'EOF'
+    # Always update the service file to ensure correct restart behavior
+    # (Unlike config, service file has no user customizations to preserve)
+    $SUDO tee "$service_file" > /dev/null << 'EOF'
 [Unit]
 Description=Anna Daemon - Evidence Oracle
 Documentation=https://github.com/jjgarcianorway/anna-assistant
@@ -511,9 +509,8 @@ ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
 [Install]
 WantedBy=multi-user.target
 EOF
-        $SUDO systemctl daemon-reload
-        log_ok "Installed systemd service"
-    fi
+    $SUDO systemctl daemon-reload
+    log_ok "Installed systemd service"
 }
 
 write_config() {

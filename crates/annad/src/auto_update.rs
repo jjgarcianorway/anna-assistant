@@ -363,13 +363,15 @@ impl AutoUpdateScheduler {
             warn!("⚠️  Failed to write restart marker: {}", e);
         }
 
-        // The actual restart is handled by systemd's Restart=on-failure
-        // or by an external watcher. We just signal the intent here.
-        info!("📋  Restart marker written. Daemon will restart on next cycle.");
+        info!("🔄  Update applied - restarting daemon to load new version...");
 
-        // Give time for logs to flush, then exit cleanly
+        // Give time for logs to flush
         tokio::time::sleep(Duration::from_secs(1)).await;
-        std::process::exit(0);
+
+        // Exit with code 42 (special code for "restart after update")
+        // systemd with Restart=always will restart us with the new binary
+        // Code 42 chosen to be distinct from error codes (1) and success (0)
+        std::process::exit(42);
     }
 
     /// Get current update state for reporting
