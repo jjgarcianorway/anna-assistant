@@ -588,6 +588,23 @@ verify_installation() {
         log_warn "Configuration file missing"
     fi
 
+    # Check for stray binaries that could shadow the installed ones
+    local stray_paths=("$HOME/.local/bin" "$HOME/bin" "$HOME/.cargo/bin")
+    for dir in "${stray_paths[@]}"; do
+        if [[ -x "${dir}/annactl" ]] || [[ -x "${dir}/annad" ]]; then
+            log_warn "Found anna binaries in ${dir} - these may shadow /usr/local/bin"
+            log_warn "Run: rm -f ${dir}/annactl ${dir}/annad"
+        fi
+    done
+
+    # Verify PATH order
+    local which_annactl
+    which_annactl=$(command -v annactl 2>/dev/null || true)
+    if [[ -n "$which_annactl" && "$which_annactl" != "${INSTALL_DIR}/annactl" ]]; then
+        log_warn "PATH issue: 'annactl' resolves to ${which_annactl}"
+        log_warn "Expected: ${INSTALL_DIR}/annactl"
+    fi
+
     return $errors
 }
 
