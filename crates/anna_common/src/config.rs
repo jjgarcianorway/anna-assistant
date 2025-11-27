@@ -118,11 +118,11 @@ pub struct LlmConfig {
 }
 
 fn default_preferred_model() -> String {
-    "llama3.1:8b".to_string()
+    "qwen3:8b".to_string() // v0.16.0: Qwen3 is better for JSON/agent tasks
 }
 
 fn default_fallback_model() -> String {
-    "llama3.2:3b".to_string()
+    "qwen3:1.7b".to_string() // v0.16.0: Fast fallback model
 }
 
 impl LlmConfig {
@@ -145,16 +145,21 @@ impl LlmConfig {
 
     /// Suggest optimal junior model based on senior model
     /// Junior needs speed, so use smaller model when senior is large
+    /// v0.16.0: Updated to use Qwen3 models
     pub fn suggest_junior_model(&self) -> String {
         let senior = self.get_senior_model();
 
-        // If senior is a large model, use medium for junior
-        if senior.contains("70b") || senior.contains("32b") ||
-           senior.contains("30b") || senior.contains("14b") {
-            "llama3.1:8b".to_string()
-        } else {
-            // Default: fast 3B model for junior
-            "llama3.2:3b".to_string()
+        // If senior is a very large model (70B+), use 8B for junior
+        if senior.contains("70b") || senior.contains("72b") {
+            "qwen3:8b".to_string()
+        }
+        // If senior is a large model (14B-32B), use 4B for junior
+        else if senior.contains("32b") || senior.contains("30b") || senior.contains("14b") {
+            "qwen3:4b".to_string()
+        }
+        // Default: fast 1.7B model for junior (great for routing/probes)
+        else {
+            "qwen3:1.7b".to_string()
         }
     }
 }
@@ -315,9 +320,9 @@ mod tests {
     fn test_llm_config_default() {
         let config = LlmConfig::default();
         assert_eq!(config.selection_mode, LlmSelectionMode::Auto);
-        // v0.15.18: Default preferred model is now llama3.1:8b (faster for loops)
-        assert_eq!(config.preferred_model, "llama3.1:8b");
-        assert_eq!(config.fallback_model, "llama3.2:3b");
+        // v0.16.0: Default models now use Qwen3 (better JSON/agent support)
+        assert_eq!(config.preferred_model, "qwen3:8b");
+        assert_eq!(config.fallback_model, "qwen3:1.7b");
         // Role-specific models are None by default (legacy configs)
         assert!(config.junior_model.is_none());
         assert!(config.senior_model.is_none());

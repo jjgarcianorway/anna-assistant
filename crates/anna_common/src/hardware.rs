@@ -1,19 +1,41 @@
-//! Hardware and Driver Detection for Anna v0.5.0
+//! Hardware and Driver Detection for Anna v0.16.0
 //!
 //! Detects hardware capabilities and driver status for model selection.
 //! GPU with working drivers = GPU model. GPU without drivers = CPU model.
+//!
+//! v0.16.0: Updated model recommendations based on 2025 landscape:
+//! - Qwen3 as primary family (excellent JSON/agent support)
+//! - Granular VRAM tiers (6-12GB, 16-24GB, 32-48GB, datacenter)
+//! - Role-specific recommendations (junior=fast, senior=smart)
 
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::process::Command;
 
-/// CPU model tiers for selection
-pub const CPU_MODEL_SMALL: &str = "llama3.2:3b";
-pub const CPU_MODEL_MEDIUM: &str = "qwen2.5:7b";
+// =============================================================================
+// Model Tiers by Hardware Class (2025 recommendations)
+// =============================================================================
 
-/// GPU model tiers for selection
-pub const GPU_MODEL_MEDIUM: &str = "qwen2.5:14b";
-pub const GPU_MODEL_LARGE: &str = "qwen2.5:32b";
+// CPU-only or tiny GPU (<6GB VRAM)
+pub const CPU_MODEL_TINY: &str = "qwen3:0.6b";      // Ultra-light, router tasks
+pub const CPU_MODEL_SMALL: &str = "qwen3:1.7b";     // Light assistant, fast
+pub const CPU_MODEL_MEDIUM: &str = "qwen3:4b";      // Good balance CPU-only
+
+// Mid-range GPU (6-12GB VRAM) - Sweet spot for most users
+pub const GPU_MODEL_SMALL: &str = "qwen3:4b";       // Junior role, fast
+pub const GPU_MODEL_MEDIUM: &str = "qwen3:8b";      // Main assistant, excellent
+
+// Strong GPU (16-24GB VRAM) - RTX 3090/4090 class
+pub const GPU_MODEL_LARGE: &str = "qwen3:14b";      // High-quality reasoning
+pub const GPU_MODEL_XL: &str = "qwen3:32b";         // Very strong, needs 24GB+
+
+// Datacenter (32GB+ VRAM) - A100/H100 class
+pub const GPU_MODEL_DC: &str = "qwen3:32b";         // 32B for 32-48GB
+pub const GPU_MODEL_DC_XL: &str = "qwen2.5:72b";    // 72B for 80GB+
+
+// Legacy fallbacks (still widely available)
+pub const LEGACY_CPU_SMALL: &str = "llama3.2:3b";
+pub const LEGACY_GPU_MEDIUM: &str = "qwen2.5:14b";
 
 /// Performance profile based on hardware
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -228,58 +250,102 @@ impl HardwareProfile {
     }
 
     /// Select the appropriate model based on hardware
+    /// Returns a single model recommendation (senior/main model)
     pub fn select_model(&self) -> ModelRecommendation {
-        let (model, reason) = if self.gpu_driver_functional {
-            // GPU with working drivers
-            if self.vram_gb.unwrap_or(0) >= 16 && self.ram_gb >= 32 {
-                (GPU_MODEL_LARGE, "GPU detected with sufficient VRAM")
+        let roles = self.select_role_models();
+        ModelRecommendation {
+            model: roles.senior_model.clone(),
+            fallback: LEGACY_CPU_SMALL.to_string(),
+            reason: roles.reason.clone(),
+            can_upgrade: roles.can_upgrade,
+            upgrade_trigger: roles.upgrade_trigger.clone(),
+        }
+    }
+
+    /// Select role-specific models (junior for speed, senior for quality)
+    /// v0.16.0: More granular hardware-based selection
+    pub fn select_role_models(&self) -> RoleModelRecommendation {
+        let vram = self.vram_gb.unwrap_or(0);
+
+        // Determine hardware tier
+        let tier = if self.gpu_driver_functional {
+            if vram >= 80 {
+                HardwareTier::Datacenter
+            } else if vram >= 32 {
+                HardwareTier::DatacenterEntry
+            } else if vram >= 16 {
+                HardwareTier::HighEndGpu
+            } else if vram >= 6 {
+                HardwareTier::MidRangeGpu
             } else {
-                (GPU_MODEL_MEDIUM, "GPU detected with moderate VRAM")
+                HardwareTier::LowGpu
             }
-        } else if self.gpu_vendor != GpuVendor::None && !self.gpu_driver_loaded {
-            // GPU exists but driver not loaded - check CPU capability
-            if self.ram_gb >= 16 && self.cpu_cores >= 8 {
-                (
-                    CPU_MODEL_MEDIUM,
-                    "GPU detected but driver not loaded - using CPU model (7b)",
-                )
-            } else {
-                (
-                    CPU_MODEL_SMALL,
-                    "GPU detected but driver not loaded - using CPU model (3b)",
-                )
-            }
-        } else if self.gpu_vendor != GpuVendor::None && !self.gpu_driver_functional {
-            // GPU exists, driver loaded but not functional - check CPU capability
-            if self.ram_gb >= 16 && self.cpu_cores >= 8 {
-                (
-                    CPU_MODEL_MEDIUM,
-                    "GPU driver not functional - using CPU model (7b)",
-                )
-            } else {
-                (
-                    CPU_MODEL_SMALL,
-                    "GPU driver not functional - using CPU model (3b)",
-                )
-            }
-        } else if self.ram_gb >= 16 && self.cpu_cores >= 8 {
-            // Good CPU system without GPU
-            (CPU_MODEL_MEDIUM, "High-performance CPU system")
+        } else if self.ram_gb >= 32 && self.cpu_cores >= 8 {
+            HardwareTier::HighCpu
+        } else if self.ram_gb >= 16 && self.cpu_cores >= 4 {
+            HardwareTier::MidCpu
         } else {
-            // Low-end system
-            (CPU_MODEL_SMALL, "Standard CPU system")
+            HardwareTier::LowCpu
         };
 
-        ModelRecommendation {
-            model: model.to_string(),
-            fallback: CPU_MODEL_SMALL.to_string(),
+        // Select models based on tier
+        let (junior, senior, reason) = match tier {
+            HardwareTier::Datacenter => (
+                GPU_MODEL_MEDIUM,      // 8B junior for speed
+                GPU_MODEL_DC_XL,       // 72B senior for quality
+                "Datacenter hardware - using Qwen3 8B/72B"
+            ),
+            HardwareTier::DatacenterEntry => (
+                GPU_MODEL_SMALL,       // 4B junior
+                GPU_MODEL_DC,          // 32B senior
+                "High-end GPU (32GB+) - using Qwen3 4B/32B"
+            ),
+            HardwareTier::HighEndGpu => (
+                GPU_MODEL_SMALL,       // 4B junior for speed
+                GPU_MODEL_LARGE,       // 14B senior
+                "Strong GPU (16-24GB) - using Qwen3 4B/14B"
+            ),
+            HardwareTier::MidRangeGpu => (
+                CPU_MODEL_SMALL,       // 1.7B junior (very fast)
+                GPU_MODEL_MEDIUM,      // 8B senior (great quality)
+                "Mid-range GPU (6-12GB) - using Qwen3 1.7B/8B"
+            ),
+            HardwareTier::LowGpu => (
+                CPU_MODEL_TINY,        // 0.6B junior
+                GPU_MODEL_SMALL,       // 4B senior
+                "Low VRAM GPU - using Qwen3 0.6B/4B"
+            ),
+            HardwareTier::HighCpu => (
+                CPU_MODEL_SMALL,       // 1.7B junior
+                CPU_MODEL_MEDIUM,      // 4B senior
+                "High-performance CPU - using Qwen3 1.7B/4B"
+            ),
+            HardwareTier::MidCpu => (
+                CPU_MODEL_TINY,        // 0.6B junior
+                CPU_MODEL_SMALL,       // 1.7B senior
+                "Mid-range CPU - using Qwen3 0.6B/1.7B"
+            ),
+            HardwareTier::LowCpu => (
+                CPU_MODEL_TINY,        // 0.6B both
+                CPU_MODEL_TINY,
+                "Low-end system - using Qwen3 0.6B"
+            ),
+        };
+
+        let can_upgrade = !self.gpu_driver_functional && self.gpu_vendor != GpuVendor::None;
+        let upgrade_trigger = if can_upgrade {
+            Some("Install GPU drivers to unlock larger models".to_string())
+        } else {
+            None
+        };
+
+        RoleModelRecommendation {
+            junior_model: junior.to_string(),
+            senior_model: senior.to_string(),
+            tier,
             reason: reason.to_string(),
-            can_upgrade: !self.gpu_driver_functional && self.gpu_vendor != GpuVendor::None,
-            upgrade_trigger: if !self.gpu_driver_functional && self.gpu_vendor != GpuVendor::None {
-                Some("Install GPU drivers to unlock larger models".to_string())
-            } else {
-                None
-            },
+            can_upgrade,
+            upgrade_trigger,
         }
     }
 
@@ -332,6 +398,74 @@ pub struct ModelRecommendation {
     pub fallback: String,
     pub reason: String,
     pub can_upgrade: bool,
+    pub upgrade_trigger: Option<String>,
+}
+
+/// Hardware tier for model selection
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HardwareTier {
+    /// Datacenter: 80GB+ VRAM (A100/H100)
+    Datacenter,
+    /// Datacenter entry: 32-48GB VRAM (A6000, dual GPUs)
+    DatacenterEntry,
+    /// High-end GPU: 16-24GB VRAM (RTX 3090/4090)
+    HighEndGpu,
+    /// Mid-range GPU: 6-12GB VRAM (RTX 3060/4060)
+    MidRangeGpu,
+    /// Low GPU: <6GB VRAM or driver issues
+    LowGpu,
+    /// High CPU: 32GB+ RAM, 8+ cores, no GPU
+    HighCpu,
+    /// Mid CPU: 16GB+ RAM, 4+ cores
+    MidCpu,
+    /// Low CPU: <16GB RAM or <4 cores
+    LowCpu,
+}
+
+impl HardwareTier {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            HardwareTier::Datacenter => "datacenter",
+            HardwareTier::DatacenterEntry => "datacenter_entry",
+            HardwareTier::HighEndGpu => "high_end_gpu",
+            HardwareTier::MidRangeGpu => "mid_range_gpu",
+            HardwareTier::LowGpu => "low_gpu",
+            HardwareTier::HighCpu => "high_cpu",
+            HardwareTier::MidCpu => "mid_cpu",
+            HardwareTier::LowCpu => "low_cpu",
+        }
+    }
+
+    /// Human-readable description
+    pub fn description(&self) -> &'static str {
+        match self {
+            HardwareTier::Datacenter => "Datacenter (80GB+ VRAM)",
+            HardwareTier::DatacenterEntry => "Datacenter Entry (32-48GB VRAM)",
+            HardwareTier::HighEndGpu => "High-End GPU (16-24GB VRAM)",
+            HardwareTier::MidRangeGpu => "Mid-Range GPU (6-12GB VRAM)",
+            HardwareTier::LowGpu => "Low GPU (<6GB VRAM)",
+            HardwareTier::HighCpu => "High-Perf CPU (32GB+ RAM)",
+            HardwareTier::MidCpu => "Mid-Range CPU (16GB+ RAM)",
+            HardwareTier::LowCpu => "Low-End System",
+        }
+    }
+}
+
+/// Role-specific model recommendation (junior=fast, senior=quality)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoleModelRecommendation {
+    /// Fast model for LLM-A (probe execution, routing)
+    pub junior_model: String,
+    /// Quality model for LLM-B (reasoning, synthesis)
+    pub senior_model: String,
+    /// Detected hardware tier
+    pub tier: HardwareTier,
+    /// Human-readable reason for selection
+    pub reason: String,
+    /// Can upgrade with driver installation?
+    pub can_upgrade: bool,
+    /// What to do to upgrade
     pub upgrade_trigger: Option<String>,
 }
 
@@ -404,12 +538,13 @@ mod tests {
             ..Default::default()
         };
         let rec = profile.select_model();
-        assert_eq!(rec.model, CPU_MODEL_SMALL);
+        // Low CPU tier -> Qwen3 0.6B
+        assert_eq!(rec.model, CPU_MODEL_TINY);
     }
 
     #[test]
     fn test_model_selection_gpu_without_driver_good_cpu() {
-        // GPU without driver but good CPU - should use 7b model
+        // GPU without driver but good CPU - should use CPU model
         let profile = HardwareProfile {
             cpu_cores: 8,
             ram_gb: 32,
@@ -420,7 +555,7 @@ mod tests {
             ..Default::default()
         };
         let rec = profile.select_model();
-        // Should use CPU_MODEL_MEDIUM (7b) because CPU is capable
+        // High CPU tier -> Qwen3 4B senior
         assert_eq!(rec.model, CPU_MODEL_MEDIUM);
         assert!(rec.can_upgrade);
         assert!(rec.upgrade_trigger.is_some());
@@ -428,7 +563,7 @@ mod tests {
 
     #[test]
     fn test_model_selection_gpu_without_driver_weak_cpu() {
-        // GPU without driver and weak CPU - should use 3b model
+        // GPU without driver and weak CPU - should use small model
         let profile = HardwareProfile {
             cpu_cores: 4,
             ram_gb: 8,
@@ -439,8 +574,8 @@ mod tests {
             ..Default::default()
         };
         let rec = profile.select_model();
-        // Should use CPU_MODEL_SMALL (3b) because CPU is not capable
-        assert_eq!(rec.model, CPU_MODEL_SMALL);
+        // Low CPU tier -> Qwen3 0.6B
+        assert_eq!(rec.model, CPU_MODEL_TINY);
         assert!(rec.can_upgrade);
         assert!(rec.upgrade_trigger.is_some());
     }
@@ -459,6 +594,7 @@ mod tests {
             ..Default::default()
         };
         let rec = profile.select_model();
+        // Mid-range GPU (6-12GB) -> Qwen3 8B senior
         assert_eq!(rec.model, GPU_MODEL_MEDIUM);
         assert!(!rec.can_upgrade);
     }
@@ -476,7 +612,42 @@ mod tests {
             ..Default::default()
         };
         let rec = profile.select_model();
+        // High-end GPU (16-24GB) -> Qwen3 14B senior
         assert_eq!(rec.model, GPU_MODEL_LARGE);
+    }
+
+    #[test]
+    fn test_role_model_selection() {
+        // Mid-range GPU should get 1.7B junior + 8B senior
+        let profile = HardwareProfile {
+            cpu_cores: 8,
+            ram_gb: 32,
+            gpu_vendor: GpuVendor::Nvidia,
+            vram_gb: Some(12),
+            gpu_driver_loaded: true,
+            gpu_driver_functional: true,
+            ..Default::default()
+        };
+        let roles = profile.select_role_models();
+        assert_eq!(roles.junior_model, CPU_MODEL_SMALL);  // 1.7B
+        assert_eq!(roles.senior_model, GPU_MODEL_MEDIUM); // 8B
+        assert_eq!(roles.tier, HardwareTier::MidRangeGpu);
+    }
+
+    #[test]
+    fn test_hardware_tier_datacenter() {
+        let profile = HardwareProfile {
+            cpu_cores: 64,
+            ram_gb: 256,
+            gpu_vendor: GpuVendor::Nvidia,
+            vram_gb: Some(80),
+            gpu_driver_loaded: true,
+            gpu_driver_functional: true,
+            ..Default::default()
+        };
+        let roles = profile.select_role_models();
+        assert_eq!(roles.tier, HardwareTier::Datacenter);
+        assert_eq!(roles.senior_model, GPU_MODEL_DC_XL);  // 72B
     }
 
     #[test]

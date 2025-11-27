@@ -524,51 +524,52 @@ select_model() {
     # Note: Llama 3 8B is ~3x faster than Qwen 2 7B at similar quality!
     # For agent communication loops, speed matters as much as quality.
     #
-    # Large models (14B+) - excellent quality, need 12GB+ VRAM
+    # Large models (14B+) - excellent quality, need 16GB+ VRAM
     # MoE models like qwen3:30b-a3b have many params but fewer active (efficient)
+    # 2025 update: Qwen3 is prioritized for JSON/agent tasks
     local large_models=(
-        "llama3.1:70b"
         "qwen3:30b-a3b"
-        "qwen2.5:14b"
-        "qwen2.5:32b"
-        "qwen3:14b"
         "qwen3:32b"
+        "qwen3:14b"
+        "qwen2.5:72b"
+        "qwen2.5:32b"
+        "qwen2.5:14b"
+        "llama3.1:70b"
         "mixtral:8x7b"
         "deepseek-coder:33b"
-        "codellama:34b"
+        "gemma3:27b"
     )
 
     # Medium models (7-8B) - the sweet spot for most users
-    # Llama 3/3.1 8B prioritized for SPEED + quality balance
-    # These run on 8GB VRAM or 16GB system RAM (4-bit quantized)
+    # 2025 update: Qwen3 8B prioritized for JSON reliability + agent tasks
+    # These run on 6-12GB VRAM or 16GB system RAM (4-bit quantized)
     local medium_models=(
+        "qwen3:8b"
+        "qwen3:4b"
+        "qwen2.5:7b"
         "llama3.1:8b"
         "llama3:8b"
+        "gemma3:9b"
+        "gemma2:9b"
         "mistral:7b-instruct"
         "mistral:7b"
-        "qwen2.5:7b"
-        "qwen3:8b"
-        "qwen3-coder:8b"
-        "mistral-nemo:latest"
-        "gemma2:9b"
         "deepseek-coder:6.7b"
         "codellama:7b"
-        "codestral:latest"
-        "starcoder2:7b"
         "phi3:medium"
     )
 
-    # Small models (3-4B) - for low VRAM/CPU, still good JSON output
-    # Can run on 4GB VRAM or 8GB system RAM
+    # Small models (1-4B) - for low VRAM/CPU, still good JSON output
+    # 2025 update: Qwen3 tiny models excellent for routing/junior tasks
+    # Can run on <6GB VRAM or 8GB system RAM
     local small_models=(
-        "llama3.2:3b"
-        "qwen3:4b"
-        "qwen2.5:3b"
         "qwen3:1.7b"
-        "nemotron-mini:4b"
-        "phi3:mini"
+        "qwen3:0.6b"
+        "qwen3:4b"
+        "llama3.2:3b"
+        "qwen2.5:3b"
+        "gemma3:1b"
         "gemma2:2b"
-        "starcoder2:3b"
+        "phi3:mini"
     )
 
     # Check for already-installed large models first
@@ -607,36 +608,42 @@ select_model() {
     fi
 
     # No suitable model installed, select based on VRAM and download
-    # Priority: SPEED for agent loops + quality for JSON reliability
-    # Llama 3/3.1 8B is ~3x faster than Qwen 7B at similar quality!
+    # 2025 update: Qwen3 preferred for JSON/agent tasks (better structured output)
     #
     # VRAM requirements (4-bit quantized):
-    #   - 8B models: 4-8GB VRAM or 16GB system RAM
-    #   - 14B models: 8-12GB VRAM or 32GB system RAM
-    #   - 70B models: 24GB+ VRAM
-    if [[ "$vram_mb" -ge 24000 ]]; then
-        # 24GB+ VRAM: Can run large models, use MoE for quality+efficiency
-        SELECTED_MODEL="qwen3:30b-a3b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen3:30b-a3b (MoE - flagship quality)"
-    elif [[ "$vram_mb" -ge 12000 ]]; then
-        # 12-24GB VRAM: 14B runs comfortably
-        SELECTED_MODEL="qwen2.5:14b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:14b"
+    #   - 0.6-1.7B: <4GB VRAM or CPU-only
+    #   - 4B: 4-6GB VRAM
+    #   - 8B: 6-12GB VRAM
+    #   - 14B: 12-16GB VRAM
+    #   - 32B: 24GB+ VRAM
+    #   - 72B: 48GB+ VRAM (datacenter)
+    if [[ "$vram_mb" -ge 48000 ]]; then
+        # 48GB+ VRAM: Datacenter - use 72B
+        SELECTED_MODEL="qwen2.5:72b"
+        log_ok "Datacenter GPU (${vram_mb}MB VRAM) - will download qwen2.5:72b"
+    elif [[ "$vram_mb" -ge 24000 ]]; then
+        # 24-48GB VRAM: Use 32B or MoE 30B
+        SELECTED_MODEL="qwen3:32b"
+        log_ok "High-end GPU (${vram_mb}MB VRAM) - will download qwen3:32b"
+    elif [[ "$vram_mb" -ge 16000 ]]; then
+        # 16-24GB VRAM: 14B runs comfortably (RTX 3090/4090 class)
+        SELECTED_MODEL="qwen3:14b"
+        log_ok "Strong GPU (${vram_mb}MB VRAM) - will download qwen3:14b"
     elif [[ "$vram_mb" -ge 6000 ]]; then
-        # 6-12GB VRAM: Llama 3.1 8B is fastest, runs great
-        SELECTED_MODEL="llama3.1:8b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download llama3.1:8b (fast + reliable)"
+        # 6-16GB VRAM: Sweet spot - Qwen3 8B excellent for agents
+        SELECTED_MODEL="qwen3:8b"
+        log_ok "Mid-range GPU (${vram_mb}MB VRAM) - will download qwen3:8b (great for agents)"
     elif [[ "$vram_mb" -ge 4000 ]]; then
-        # 4-6GB VRAM: 8B still works in 4-bit, tight but doable
-        SELECTED_MODEL="llama3.1:8b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download llama3.1:8b (4-bit quantized)"
+        # 4-6GB VRAM: Qwen3 4B runs well
+        SELECTED_MODEL="qwen3:4b"
+        log_ok "Low-mid GPU (${vram_mb}MB VRAM) - will download qwen3:4b"
     else
-        # CPU only or very low VRAM: Use 3B model for speed
-        SELECTED_MODEL="llama3.2:3b"
+        # CPU only or very low VRAM: Use 1.7B model (fast + good JSON)
+        SELECTED_MODEL="qwen3:1.7b"
         if [[ "$vram_mb" -eq 0 ]]; then
-            log_warn "No GPU detected - will download llama3.2:3b (CPU mode, fast)"
+            log_warn "No GPU detected - will download qwen3:1.7b (CPU mode, fast)"
         else
-            log_ok "Low GPU memory (${vram_mb}MB) - will download llama3.2:3b"
+            log_ok "Low GPU memory (${vram_mb}MB) - will download qwen3:1.7b"
         fi
     fi
 }
@@ -680,13 +687,31 @@ install_ollama() {
     select_model
 
     # Determine junior/senior models based on hardware
+    # 2025: Use Qwen3 for better JSON/agent support
     local senior_model="$SELECTED_MODEL"
-    local junior_model="llama3.2:3b"  # Default fast model for junior
+    local junior_model="qwen3:1.7b"  # Default: fast 1.7B for junior (great for routing)
 
-    # If user has large senior model, use 8B for junior
+    # Adjust junior based on senior model size
     case "$senior_model" in
-        *70b*|*32b*|*30b*|*14b*)
-            junior_model="llama3.1:8b"
+        *72b*|*70b*)
+            # Very large senior -> use 8B junior for balance
+            junior_model="qwen3:8b"
+            ;;
+        *32b*|*30b*)
+            # Large senior -> use 4B junior
+            junior_model="qwen3:4b"
+            ;;
+        *14b*)
+            # Medium-large senior -> use 4B junior
+            junior_model="qwen3:4b"
+            ;;
+        *8b*|*9b*)
+            # Medium senior -> use 1.7B junior (fast)
+            junior_model="qwen3:1.7b"
+            ;;
+        *)
+            # Small senior -> junior same as senior (single model mode)
+            junior_model="$senior_model"
             ;;
     esac
 
@@ -800,8 +825,9 @@ write_config() {
     local config_file="${CONFIG_DIR}/config.toml"
 
     # Use models selected by install_ollama (set as global vars)
-    local junior_model="${JUNIOR_MODEL:-llama3.2:3b}"
-    local senior_model="${SENIOR_MODEL:-llama3.1:8b}"
+    # 2025 defaults: Qwen3 for better JSON/agent support
+    local junior_model="${JUNIOR_MODEL:-qwen3:1.7b}"
+    local senior_model="${SENIOR_MODEL:-qwen3:8b}"
 
     # Check if existing config needs migration (no junior/senior models)
     if [[ -f "$config_file" ]] && [[ "$RESET_MODE" == "false" ]]; then
@@ -834,7 +860,7 @@ junior_model = "${junior_model}"
 senior_model = "${senior_model}"
 # Legacy/fallback (used if junior/senior not set)
 preferred_model = "${senior_model}"
-fallback_model = "llama3.2:3b"
+fallback_model = "qwen3:1.7b"
 selection_mode = "auto"
 
 [update]
