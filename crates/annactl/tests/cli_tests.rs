@@ -90,10 +90,10 @@ fn test_annactl_version_word_detailed_output() {
     // v0.14.4+: 'version' word goes through daemon for detailed output
     // Either shows detailed version OR connection error if daemon not running
     assert!(
-        stdout.contains("Anna Assistant v")
+        stdout.contains("annactl v")
             || stderr.contains("daemon")
             || stderr.contains("connection"),
-        "Expected detailed version or daemon connection error, got stdout: {}, stderr: {}",
+        "Expected version info or daemon connection error, got stdout: {}, stderr: {}",
         stdout,
         stderr
     );
@@ -324,7 +324,7 @@ fn test_annactl_version_word_case_insensitive() {
 
         // All should show version info or connection error
         assert!(
-            stdout.contains("Anna Assistant v")
+            stdout.contains("annactl v")
                 || stderr.contains("daemon")
                 || stderr.contains("connection"),
             "'{}' should show version, got stdout: {}, stderr: {}",
