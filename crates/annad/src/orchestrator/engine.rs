@@ -71,7 +71,15 @@ impl AnswerEngine {
             );
             let llm_a_response = self.llm_client.call_llm_a(&llm_a_prompt).await?;
 
-            debug!("LLM-A response: {:?}", llm_a_response);
+            info!("🤖  LLM-A parsed: intent={}, probes={}, draft={}, needs_more={}, refuse={}",
+                llm_a_response.plan.intent,
+                llm_a_response.plan.probe_requests.len(),
+                llm_a_response.draft_answer.is_some(),
+                llm_a_response.needs_more_probes,
+                llm_a_response.refuse_to_answer);
+            if let Some(ref draft) = llm_a_response.draft_answer {
+                info!("📄  Draft answer: {}", &draft.text[..200.min(draft.text.len())]);
+            }
 
             // Check for immediate refusal
             if llm_a_response.refuse_to_answer {
@@ -142,7 +150,13 @@ impl AnswerEngine {
                 generate_llm_b_prompt(question, &draft_answer, &evidence, &self_scores);
             let llm_b_response = self.llm_client.call_llm_b(&llm_b_prompt).await?;
 
-            debug!("LLM-B response: {:?}", llm_b_response);
+            info!("🔍  LLM-B parsed: verdict={:?}, score={:.2}, problems={}",
+                llm_b_response.verdict,
+                llm_b_response.scores.overall,
+                llm_b_response.problems.len());
+            if let Some(ref fix) = llm_b_response.fixed_answer {
+                info!("🔧  Fixed answer: {}", &fix[..200.min(fix.len())]);
+            }
 
             loop_state.record_score(llm_b_response.scores.overall);
             last_scores = Some(llm_b_response.scores.clone());

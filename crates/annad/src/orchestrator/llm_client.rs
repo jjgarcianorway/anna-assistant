@@ -13,7 +13,7 @@ use anna_common::{
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::time::Duration;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 const DEFAULT_MODEL: &str = "llama3.2:3b";
@@ -75,7 +75,9 @@ impl OllamaClient {
             format: Some("json".to_string()),
         };
 
-        debug!("Calling Ollama model: {}", self.model);
+        info!("📤  LLM CALL [{}]", self.model);
+        info!("📝  SYSTEM PROMPT ({} chars): {}", system_prompt.len(), &system_prompt[..200.min(system_prompt.len())]);
+        info!("📝  USER PROMPT ({} chars): {}", user_prompt.len(), &user_prompt[..500.min(user_prompt.len())]);
 
         let response = self
             .http_client
@@ -88,6 +90,7 @@ impl OllamaClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
+            error!("❌  Ollama error {}: {}", status, error_text);
             anyhow::bail!("Ollama returned error {}: {}", status, error_text);
         }
 
@@ -95,6 +98,10 @@ impl OllamaClient {
             .json()
             .await
             .context("Failed to parse Ollama response")?;
+
+        info!("📥  LLM RESPONSE ({} chars): {}",
+            chat_response.message.content.len(),
+            &chat_response.message.content[..1000.min(chat_response.message.content.len())]);
 
         Ok(chat_response.message.content)
     }
