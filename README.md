@@ -1,171 +1,173 @@
-# Anna v0.14.0
+# Anna v0.15.0
 
-**Your Intelligent Linux Assistant**
+**Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
+Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
-## What's New in v0.14.0
+---
 
-- **Aligned to Reality** - Probe catalog shrunk from 14 to 6 actual working probes
-- **Explicit Unsupported Domains** - Honest refusal for network, packages, kernel (no probes yet)
-- **Stronger Evidence Discipline** - "If no probe, you do not know" enforced in prompts
-- **Cleaner Heuristics Separation** - Heuristics clearly marked, evidence <= 0.4 when used
-- **Auto-Update Enabled by Default** - Fresh installs have auto-update on (v10.4.1)
-- **Fixed Installer** - Proper architecture detection, tarball-based installation
+## 📋  What Anna Is
 
-## v0.14.0 Probe Catalog (6 Real Probes)
+- **Evidence Oracle** - Answers based on command output from YOUR machine
+- **Dual-LLM Architecture** - Junior (LLM-A) proposes, Senior (LLM-B) verifies
+- **Zero Hallucinations** - If she can't measure it, she says so
+- **Command Whitelist** - 40+ safe commands, no arbitrary shell
+- **Learning System** - Remembers facts about your specific machine
+- **Self-Updating** - Auto-updates enabled by default
 
-| probe_id      | description                                    | cache  |
-|---------------|------------------------------------------------|--------|
-| cpu.info      | CPU info (model, threads, flags) from lscpu    | STATIC |
-| mem.info      | Memory from /proc/meminfo (RAM in kB)          | STATIC |
-| disk.lsblk    | Block devices from lsblk -J                    | STATIC |
-| hardware.gpu  | GPU presence and basic model/vendor            | STATIC |
-| drivers.gpu   | GPU driver stack summary                       | STATIC |
-| hardware.ram  | High level RAM summary (total, slots)          | STATIC |
+## ❌  What Anna Is NOT
 
-### Unsupported Domains (No Probes Yet)
+- Not a general chatbot (won't discuss weather, politics, recipes)
+- Not a code generator (won't write your Python scripts)
+- Not omniscient (won't guess what she can't measure)
+- Not cloud-based (runs 100% locally via Ollama)
+- Not destructive (high-risk commands require explicit approval)
 
-- Network status, WiFi, DNS
-- Package installation state, updates
-- Desktop environment, window manager
-- Config file locations (Hyprland, VS Code, etc.)
-- Per-folder/file disk usage
-- System logs, kernel version
+---
 
-Questions in these areas get honest "no probe for this" responses with optional heuristics.
-
-## Previous Versions
-
-<details>
-<summary>v0.13.0 - Strict Evidence Discipline</summary>
-
-- No hardcoded knowledge - evidence only
-- Intent mapping for common questions
-- Explicit "no probe → you do not know" rule
-
-</details>
-
-<details>
-<summary>v0.12.x - Iteration-Aware Prompts</summary>
-
-- LLM-A must answer on iteration 2+
-- Fallback answer extraction from evidence
-- fix_and_accept verdict
-
-</details>
-
-<details>
-<summary>v0.11.0 - Knowledge Store</summary>
-
-- SQLite-backed fact storage
-- Event-driven learning framework
-- System mapping phases
-
-</details>
-
-<details>
-<summary>v0.10.0 - Evidence-Based Engine</summary>
-
-- LLM-A/LLM-B supervised audit loop
-- Reliability scoring (GREEN/YELLOW/RED)
-- Probe catalog system
-
-</details>
-
-## Architecture
+## 🏗️  Architecture
 
 ```
-+----------------+     +----------------+     +----------------+
-|   annactl      |---->|    LLM-A       |---->|    LLM-B       |
-|  (CLI UI)      |     |  Planner/      |     |   Auditor/     |
-|                |     |  Answerer      |     |   Skeptic      |
-+----------------+     +----------------+     +----------------+
-                             |                      |
-                             v                      |
-                      +----------------+            |
-                      |    annad       |<-----------+
-                      |   (Daemon)     |
-                      +----------------+
-                             |
-                +------------+------------+
-                v            v            v
-         +----------+ +----------+ +----------+
-         |  Probes  | |Knowledge | |  Brain   |
-         | (6 tools)| |  Store   | | (Learn)  |
-         +----------+ +----------+ +----------+
+┌─────────────────┐
+│     annactl     │  User interface (CLI only)
+│  (REPL / CLI)   │
+└────────┬────────┘
+         │ HTTP :7865
+         ▼
+┌─────────────────┐     ┌─────────────────┐
+│      annad      │────▶│   Ollama LLM    │
+│    (Daemon)     │     │  (Local Only)   │
+└────────┬────────┘     └─────────────────┘
+         │
+    ┌────┴────┬───────────┬────────────┐
+    ▼         ▼           ▼            ▼
+┌───────┐ ┌───────┐ ┌──────────┐ ┌──────────┐
+│LLM-A  │ │LLM-B  │ │ Command  │ │Knowledge │
+│Junior │ │Senior │ │Whitelist │ │  Store   │
+└───────┘ └───────┘ └──────────┘ └──────────┘
 ```
 
-## LLM Protocol
+### Components
+
+| Component | Role |
+|-----------|------|
+| **annactl** | CLI wrapper. REPL mode or one-shot questions. Locked surface. |
+| **annad** | Evidence Oracle. Daemon that orchestrates everything. |
+| **LLM-A** | Junior Researcher. Plans checks, drafts answers, asks questions. |
+| **LLM-B** | Senior Verifier. Reviews plans, approves commands, scores answers. |
+| **Command Whitelist** | Rust-compiled list of allowed commands. No exceptions. |
+| **Knowledge Store** | SQLite-backed facts learned from YOUR machine. |
+
+---
+
+## 🔒  Security Model
+
+### Command Whitelist
+
+Anna cannot execute arbitrary shell commands. Only these 40+ whitelisted commands:
+
+```
+HARDWARE:     lscpu -J, cat /proc/meminfo, lspci, lsusb
+STORAGE:      lsblk -J, df -P /, mount
+NETWORK:      ip -j link show, ip -j addr, ip -j route, ss -tuln
+PACKAGES:     pacman -Qi {pkg}, pacman -Q, pacman -Ss {pattern}
+SERVICES:     systemctl status {svc}, systemctl list-units
+FILES:        cat {file}, head/tail {file}, ls -la {path}, grep {pattern} {file}
+PROCESS:      ps aux, uptime, who
+CONFIG:       cat /etc/os-release, hostname, timedatectl, locale, env
+```
+
+### Risk Levels
+
+| Risk Level | Auto-Approve | User Confirm | Examples |
+|------------|--------------|--------------|----------|
+| 🟢  **Low** | Normal mode | Never | `lscpu -J`, `pacman -Qi vim` |
+| 🟡  **Medium** | Dev mode | Normal mode | `mkdir -p`, `cp backup` |
+| 🔴  **High** | Never | Always | `pacman -S`, `systemctl start` |
+
+### Injection Prevention
+
+- Parameters are validated against shell metacharacters
+- No `|`, `;`, `&`, `` ` ``, `$`, `()`, `<>`, newlines
+- Templates are compiled into binary—cannot be changed at runtime
+
+---
+
+## 🔄  Dual-LLM Protocol
+
+### Research Loop (max 6 iterations)
+
+```
+1. User asks question
+2. LLM-A (Junior) proposes checks from whitelist
+3. LLM-B (Senior) reviews and approves/denies each check
+4. Engine runs approved checks
+5. LLM-A drafts answer with evidence
+6. LLM-B verifies answer grounding
+7. If more evidence needed, loop (max 6 times)
+8. Final answer delivered with confidence score
+```
 
 ### LLM-B Verdicts
 
-| Verdict          | Meaning                                           |
-|------------------|---------------------------------------------------|
-| approve          | Answer is adequately grounded, deliver as-is      |
-| fix_and_accept   | Minor issues fixed, use fixed_answer              |
-| needs_more_probes| Specific catalog probes would improve answer      |
-| refuse           | No catalog probes can help (very rare)            |
+| Verdict | Meaning |
+|---------|---------|
+| `accept` | Answer is properly grounded, deliver as-is |
+| `fix_and_accept` | Minor corrections, use LLM-B's fixed answer |
+| `needs_more_checks` | Run more whitelisted commands before answering |
+| `mentor_retry` | LLM-A should try again with specific feedback |
+| `refuse` | Cannot answer safely (very rare) |
 
-### Scoring
+### Confidence Scoring
 
 ```
 overall = min(evidence, reasoning, coverage)
 
->= 0.90: GREEN  (high confidence) - approve
->= 0.70: YELLOW (medium)          - approve or fix_and_accept
-<  0.70: RED    (low)             - partial answer with disclaimer
+>= 0.90: GREEN  (high confidence)
+>= 0.70: YELLOW (medium confidence)
+<  0.70: RED    (low confidence, includes disclaimer)
 ```
 
-## Usage
+---
+
+## 💬  CLI Surface (Locked)
 
 ```bash
-# Start interactive REPL
+# Interactive REPL mode
 annactl
 
-# Ask a question (one-shot)
+# One-shot question
 annactl "How many CPU cores do I have?"
 
-# Show status (daemon, LLM, update state, self-health)
+# System status (daemon, LLM, update, self-health)
 annactl status
 
-# Show version (includes update status)
+# Version (instant, no daemon needed)
 annactl -V
 annactl --version
-annactl version       # Case-insensitive
 
-# Show help
+# Version with details (requires daemon)
+annactl version
+
+# Help
 annactl -h
 annactl --help
-annactl help          # Case-insensitive
+annactl help
 ```
 
-**That's it.** The CLI surface is locked. No other commands exist.
+**That's it.** No other flags or subcommands exist. The CLI surface is intentionally locked.
 
-## Natural Language Configuration
+---
 
-Configure Anna by talking to her - no manual config editing needed:
+## ⚙️  Configuration
 
-```bash
-# Enable dev auto-update every 10 minutes
-annactl "enable dev auto-update every 10 minutes"
+### Location
 
-# Switch to a specific model
-annactl "switch to manual model selection and use qwen2.5:14b"
+Configuration is stored at **`/etc/anna/config.toml`** (system-wide only).
 
-# Go back to automatic model selection
-annactl "go back to automatic model selection"
+This is intentional: the system administrator controls Anna's settings (LLM model, update policy), not individual users.
 
-# Disable auto-update
-annactl "turn off auto update"
-
-# Show current configuration
-annactl "show me your current configuration"
-```
-
-### Config Schema
-
-Configuration is stored in `~/.config/anna/config.toml`:
+### Schema
 
 ```toml
 [core]
@@ -177,31 +179,128 @@ fallback_model = "llama3.2:3b"
 selection_mode = "auto"   # auto or manual
 
 [update]
-enabled = true            # Auto-update enabled by default (v0.14.0)
-interval_seconds = 86400  # Minimum 600 (10 minutes)
+enabled = true            # Auto-update enabled by default
+interval_seconds = 86400  # Check daily (minimum 600 = 10 minutes)
 channel = "main"          # main, stable, beta, or dev
+
+[log]
+level = "info"            # trace, debug, info, warn, error
 ```
 
-## Components
+### Natural Language Configuration
 
-| Component | Role |
-|-----------|------|
-| **annad** | Evidence Oracle. Executes probes, orchestrates LLM-A/LLM-B loop, manages knowledge store. |
-| **annactl** | CLI wrapper. Clean output with citations and confidence. |
-| **LLM-A** | Planner/Answerer. Plans probes, produces draft answers, self-scores. |
-| **LLM-B** | Auditor/Skeptic. Verifies evidence grounding, can fix or request more probes. |
+You can change settings by asking Anna:
 
-## Core Principles
+```bash
+# Enable dev mode with frequent updates
+annactl "enable dev auto-update every 10 minutes"
 
-1. **Zero hardcoded knowledge** - Only facts from the 6 real probes
-2. **100% reliability** - No hallucinations, no guesses
-3. **Evidence-based** - Every claim must have a citation
-4. **Aligned to reality** - Only 6 probes that actually exist
-5. **Honest about limitations** - Clear "no probe for this" when unsupported
-6. **Supervised audit loop** - LLM-B validates LLM-A's work
-7. **Learn from THIS machine** - Knowledge store captures facts from your system
+# Switch to a specific model
+annactl "use qwen2.5:14b manually"
 
-## Installation
+# Show current configuration
+annactl "show your configuration"
+```
+
+---
+
+## 🔄  Auto-Update Engine
+
+- **Enabled by default** - Fresh installs auto-update daily
+- **Tarball-based** - Both annad and annactl update together
+- **Atomic** - Downloads to temp, verifies checksum, then replaces
+- **Restart** - Daemon restarts automatically after update
+- **Dev mode** - Can check every 10 minutes for rapid iteration
+
+### Update Flow
+
+1. Daemon checks GitHub releases at configured interval
+2. If newer version found, downloads tarball
+3. Verifies SHA256 checksum
+4. Extracts and replaces binaries atomically
+5. Daemon exits with code 42 to trigger systemd restart
+
+---
+
+## 🧠  Knowledge Store
+
+Anna learns facts about YOUR specific machine and stores them in SQLite.
+
+### Fact Sources
+
+| Source | Trust Level | Example |
+|--------|-------------|---------|
+| **Measured** | 1.0 | "CPU has 8 cores" (from `lscpu`) |
+| **User-asserted** | 0.7 | "I use Vim" (user said so) |
+| **Inferred** | 0.5 | "Likely Arch-based" (from package manager) |
+
+### What Gets Stored
+
+- Hardware characteristics (static, cached)
+- Package installation states (verified on demand)
+- Config file locations discovered during research
+- User preferences stated in conversation
+
+---
+
+## 🏥  Self-Health & Auto-Repair
+
+Anna monitors her own health and can auto-repair common issues:
+
+```bash
+annactl status
+```
+
+### Health Checks
+
+| Component | What's Checked |
+|-----------|----------------|
+| Daemon | Process running, responding to requests |
+| Ollama | Service available, models loaded |
+| Config | File exists, valid TOML syntax |
+| Permissions | Log/state directories writable |
+| Logging | Writers functional, rotation working |
+
+### Auto-Repair Actions
+
+- Restart daemon if unresponsive
+- Regenerate default config if missing
+- Create log directories if missing
+
+---
+
+## 📊  Telemetry & Logging
+
+### JSONL Logs
+
+All LLM interactions are logged for debugging:
+
+```
+/var/log/anna/daemon.jsonl     # Daemon operations
+/var/log/anna/requests.jsonl   # User requests
+/var/log/anna/llm.jsonl        # LLM-A/LLM-B exchanges
+```
+
+### Reasoning Traces
+
+Each research loop produces a trace:
+
+```json
+{
+  "trace_id": "uuid",
+  "steps": [
+    {"type": "user_request", "text": "..."},
+    {"type": "llm_a_plan", "checks": [...]},
+    {"type": "check_executed", "result": {...}},
+    {"type": "llm_b_eval", "verdict": "accept"},
+    {"type": "final_answer", "confidence": 0.92}
+  ]
+}
+```
+
+---
+
+## 📦  Installation
 
 ### Quick Install (curl)
 
@@ -209,31 +308,79 @@ channel = "main"          # main, stable, beta, or dev
 curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
 ```
 
+### What the Installer Does
+
+1. Downloads latest release tarball
+2. Verifies SHA256 checksum
+3. Installs binaries to `/usr/local/bin`
+4. Creates systemd service file
+5. Creates config directory at `/etc/anna`
+6. Creates log directory at `/var/log/anna`
+7. Creates state directory at `/var/lib/anna`
+8. Starts and enables the daemon
+
 ### Build from Source
 
 ```bash
+git clone https://github.com/jjgarcianorway/anna-assistant.git
+cd anna-assistant
 cargo build --release
 sudo ./scripts/install.sh
 ```
 
-### Start the Daemon
+### Uninstall
 
 ```bash
-sudo systemctl start annad
-sudo systemctl enable annad  # Enable at boot
-annactl -V                   # Verify
+curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/uninstall.sh | bash
 ```
 
-## Requirements
+---
 
-- Linux (x86_64 or aarch64)
-- Rust 1.70+
-- [Ollama](https://ollama.ai) for LLM inference
+## 📋  Requirements
 
-## License
+- **OS**: Linux (x86_64 or aarch64)
+- **LLM**: [Ollama](https://ollama.ai) with at least one model
+- **Rust**: 1.70+ (for building from source)
+- **Systemd**: For daemon management
+
+### Recommended Models
+
+| Model | Size | Speed | Quality |
+|-------|------|-------|---------|
+| `llama3.2:3b` | 2GB | Fast | Good for basic queries |
+| `qwen2.5:7b` | 4GB | Medium | Better reasoning |
+| `qwen2.5:14b` | 8GB | Slow | Best quality |
+
+---
+
+## 🏷️  Version History
+
+| Version | Milestone |
+|---------|-----------|
+| v0.15.0 | Research Loop Engine with command whitelist |
+| v0.14.0 | Aligned to reality with 6 real probes |
+| v0.13.0 | Strict evidence discipline |
+| v0.12.0 | Iteration-aware prompts, fix_and_accept |
+| v0.11.0 | Knowledge store, event-driven learning |
+| v0.10.0 | LLM-A/LLM-B supervised audit loop |
+
+---
+
+## 📜  License
 
 GPL-3.0-or-later
 
-## Contributing
+---
 
-This is version 0.14.0 - Aligned to reality with 6 real probes, honest unsupported domain handling.
+## 🤝  Contributing
+
+Issues and PRs welcome at: https://github.com/jjgarcianorway/anna-assistant
+
+**Core Design Principles:**
+
+1. Zero hardcoded knowledge - only measured facts
+2. Command whitelist - no arbitrary shell
+3. Dual-LLM verification - Junior proposes, Senior approves
+4. System-wide config - admin controls settings
+5. Auto-update by default - always fresh
+6. Honest about limitations - "no data" over hallucination
