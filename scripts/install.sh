@@ -22,13 +22,15 @@
 #   1 = Error
 #   2 = User declined
 
-set -euo pipefail
+# Note: Using set -u (undefined vars) but NOT set -e (exit on error)
+# because we handle errors explicitly and set -e can cause unexpected exits
+set -uo pipefail
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="0.11.0"
+INSTALLER_VERSION="0.12.2"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -165,10 +167,10 @@ detect_installed_version() {
     INSTALLED_VERSION=""
 
     # Try annactl -V first (primary method)
+    # Use timeout and redirect stdin to /dev/null to prevent any stdin reading
     if command -v annactl &>/dev/null; then
         local output
-        # Use timeout to avoid hanging on LLM-based version
-        output=$(timeout 5 annactl -V 2>&1 | head -20 || true)
+        output=$(timeout 5 annactl -V </dev/null 2>&1 | head -20) || true
         # Look for "Anna Assistant vX.Y.Z" or "v0.X.Y" pattern specifically
         if [[ "$output" =~ Anna[[:space:]]+(Assistant[[:space:]]+)?v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             INSTALLED_VERSION="${BASH_REMATCH[2]}"
@@ -180,7 +182,7 @@ detect_installed_version() {
     if [[ -z "$INSTALLED_VERSION" ]] && [[ -x "${INSTALL_DIR}/annactl" ]]; then
         local output
         # Look specifically for Anna version patterns in the binary
-        output=$(strings "${INSTALL_DIR}/annactl" 2>/dev/null | grep -E 'Anna.*[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+        output=$(strings "${INSTALL_DIR}/annactl" 2>/dev/null | grep -E 'Anna.*[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || true
         if [[ -n "$output" ]]; then
             INSTALLED_VERSION="$output"
         fi
@@ -541,9 +543,9 @@ verify_installation() {
     fi
 
     if [[ -x "${INSTALL_DIR}/annactl" ]]; then
-        # Quick version check
+        # Quick version check - use timeout and stdin redirect
         local version
-        version=$("${INSTALL_DIR}/annactl" -V 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown")
+        version=$(timeout 5 "${INSTALL_DIR}/annactl" -V </dev/null 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || version="unknown"
         if [[ "$version" == "$LATEST_VERSION" ]]; then
             log_ok "annactl v${version} OK"
         else
@@ -551,7 +553,7 @@ verify_installation() {
         fi
     else
         log_error "annactl binary missing or not executable"
-        ((errors++))
+        ((errors++)) || true
     fi
 
     # Check config
