@@ -52,9 +52,36 @@ async fn main() -> Result<()> {
     let anna_brain = Arc::new(brain::AnnaBrain::new(knowledge_store));
     let brain_clone = Arc::clone(&anna_brain);
 
-    // Load probes
-    let probe_registry = probe::registry::ProbeRegistry::load_from_dir("probes")?;
-    info!("🔧  Loaded {} probes", probe_registry.count());
+    // Load probes - try multiple paths in order of preference
+    let probe_paths = [
+        "/usr/share/anna/probes",  // System install location
+        "/var/lib/anna/probes",    // Data directory fallback
+        "probes",                   // Development/local fallback
+    ];
+
+    let mut probe_registry = None;
+    for path in &probe_paths {
+        if std::path::Path::new(path).exists() {
+            match probe::registry::ProbeRegistry::load_from_dir(path) {
+                Ok(registry) if registry.count() > 0 => {
+                    info!("🔧  Loaded {} probes from {}", registry.count(), path);
+                    probe_registry = Some(registry);
+                    break;
+                }
+                Ok(_) => {
+                    info!("📂  Found {} but it's empty, trying next...", path);
+                }
+                Err(e) => {
+                    warn!("⚠️  Failed to load probes from {}: {}", path, e);
+                }
+            }
+        }
+    }
+
+    let probe_registry = probe_registry.unwrap_or_else(|| {
+        warn!("⚠️  No probes found in any location! Using empty registry.");
+        probe::registry::ProbeRegistry::default()
+    });
 
     // Create state manager
     let state_manager = state::StateManager::new();
