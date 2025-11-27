@@ -64,20 +64,36 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create checksums
+      - name: Extract binaries and create checksums
         run: |
           cd artifacts
+
+          # Extract x86_64 binaries for direct download
+          mkdir -p x86_64_extracted
+          tar -xzf anna-linux-x86_64/anna-linux-x86_64.tar.gz -C x86_64_extracted
+          cp x86_64_extracted/annad .
+          cp x86_64_extracted/annactl .
+
+          # Create checksums for tar.gz archives
           for dir in */; do
-            cd "$dir"
-            sha256sum *.tar.gz >> ../SHA256SUMS
-            cd ..
+            if [ -d "$dir" ] && ls "$dir"/*.tar.gz 1> /dev/null 2>&1; then
+              cd "$dir"
+              sha256sum *.tar.gz >> ../SHA256SUMS
+              cd ..
+            fi
           done
+
+          # Add individual binary checksums (for installer compatibility)
+          sha256sum annad >> SHA256SUMS
+          sha256sum annactl >> SHA256SUMS
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             artifacts/**/*.tar.gz
+            artifacts/annad
+            artifacts/annactl
             artifacts/SHA256SUMS
           generate_release_notes: true
         env:
