@@ -462,8 +462,9 @@ create_user_and_dirs() {
     # v0.11.0: Knowledge store directory
     $SUDO mkdir -p "${DATA_DIR}/knowledge"
 
-    # Set ownership
-    $SUDO chown -R anna:anna "$DATA_DIR" "$LOG_DIR" "$RUN_DIR"
+    # Set permissions - config readable by all, data/log owned by root (daemon runs as root)
+    $SUDO chmod 755 "$CONFIG_DIR"
+    $SUDO chown -R root:root "$DATA_DIR" "$LOG_DIR" "$RUN_DIR"
 
     log_ok "Created directories"
     log_ok "Knowledge store: ${DATA_DIR}/knowledge"
