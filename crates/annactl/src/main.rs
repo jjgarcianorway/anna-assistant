@@ -6,12 +6,14 @@
 //! v0.6.0: ASCII-only sysadmin style, multi-round reliability refinement
 //! v0.7.0: Self-health monitoring with auto-repair and REPL notifications
 //! v0.8.0: Observability and debug logging with JSONL output
+//! v0.9.0: Version-aware installer, fully automatic auto-update, status command
 //!
-//! Only these commands exist:
-//!   - annactl "<question>"    Ask Anna anything
-//!   - annactl                 Start interactive REPL
-//!   - annactl -V | --version  Show version (via LLM)
-//!   - annactl -h | --help     Show help (via LLM)
+//! Allowed CLI surface (case-insensitive):
+//!   - annactl                           Start interactive REPL
+//!   - annactl <request>                 One-shot natural language request
+//!   - annactl status                    Compact status summary
+//!   - annactl -V | --version | version  Show version info
+//!   - annactl -h | --help | help        Show help info
 
 mod client;
 mod llm_client;
@@ -56,13 +58,24 @@ async fn main() -> Result<()> {
         // No arguments - start REPL
         [] => run_repl().await,
 
-        // Version flags - route through LLM
-        [flag] if flag == "-V" || flag == "--version" || flag == "version" => {
+        // v0.9.0: Status command (case-insensitive)
+        [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
+
+        // Version flags - route through LLM (case-insensitive)
+        [flag]
+            if flag.eq_ignore_ascii_case("-v")
+                || flag.eq_ignore_ascii_case("--version")
+                || flag.eq_ignore_ascii_case("version") =>
+        {
             run_version_via_llm().await
         }
 
-        // Help flags - route through LLM
-        [flag] if flag == "-h" || flag == "--help" || flag == "help" => {
+        // Help flags - route through LLM (case-insensitive)
+        [flag]
+            if flag.eq_ignore_ascii_case("-h")
+                || flag.eq_ignore_ascii_case("--help")
+                || flag.eq_ignore_ascii_case("help") =>
+        {
             run_help_via_llm().await
         }
 
@@ -121,13 +134,17 @@ async fn run_repl() -> Result<()> {
             break;
         }
 
-        // Handle version/help in REPL too
+        // Handle version/help/status in REPL too (case-insensitive)
         if matches!(input.to_lowercase().as_str(), "version" | "-v" | "--version") {
             run_version_via_llm().await?;
             continue;
         }
         if matches!(input.to_lowercase().as_str(), "help" | "-h" | "--help") {
             run_help_via_llm().await?;
+            continue;
+        }
+        if input.eq_ignore_ascii_case("status") {
+            run_status().await?;
             continue;
         }
 
@@ -301,6 +318,204 @@ async fn run_help_via_llm() -> Result<()> {
 
     output::display_response(&result);
     Ok(())
+}
+
+/// v0.9.0: Status command - compact summary of daemon, LLM, probes, update state
+async fn run_status() -> Result<()> {
+    use anna_common::THIN_SEPARATOR;
+
+    let daemon = client::DaemonClient::new();
+    let config = AnnaConfigV5::load();
+
+    println!();
+    println!("{}", "ANNA STATUS".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    // Version info
+    println!(
+        "  {}  annactl v{}",
+        "*".cyan(),
+        env!("CARGO_PKG_VERSION")
+    );
+
+    // Daemon status
+    if daemon.is_healthy().await {
+        match daemon.health().await {
+            Ok(health) => {
+                println!(
+                    "  {}  annad v{} (uptime: {}s)",
+                    "+".bright_green(),
+                    health.version,
+                    health.uptime_seconds
+                );
+                println!(
+                    "  {}  {} probes available",
+                    "+".bright_green(),
+                    health.probes_available
+                );
+            }
+            Err(_) => {
+                println!("  {}  annad running (details unavailable)", "~".yellow());
+            }
+        }
+    } else {
+        println!("  {}  annad not running", "!".bright_red());
+    }
+
+    // LLM status
+    let llm_status = check_llm_status();
+    match llm_status.as_str() {
+        "running" => println!("  {}  Ollama: running", "+".bright_green()),
+        "stopped" => println!("  {}  Ollama: stopped", "!".bright_red()),
+        other => println!("  {}  Ollama: {}", "~".yellow(), other),
+    }
+
+    // Model info
+    println!(
+        "  {}  Model: {} ({})",
+        "*".cyan(),
+        config.llm.preferred_model,
+        config.llm.selection_mode.as_str()
+    );
+
+    println!("{}", THIN_SEPARATOR);
+
+    // Update state
+    println!("{}", "UPDATE STATE".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    // Get update state from daemon if available
+    if daemon.is_healthy().await {
+        match daemon.update_state().await {
+            Ok(state) => {
+                println!(
+                    "  {}  Current: v{}",
+                    "*".cyan(),
+                    env!("CARGO_PKG_VERSION")
+                );
+                if let Some(latest) = &state.latest_version {
+                    if latest != env!("CARGO_PKG_VERSION") {
+                        println!(
+                            "  {}  Available: v{} ({})",
+                            "^".bright_green(),
+                            latest,
+                            state.status
+                        );
+                    } else {
+                        println!("  {}  Up to date", "+".bright_green());
+                    }
+                } else {
+                    println!("  {}  Latest version: unknown", "?".dimmed());
+                }
+
+                // Show update mode
+                if config.update.enabled {
+                    println!(
+                        "  {}  Auto-update: {} (every {}s)",
+                        "*".cyan(),
+                        if config.core.mode == anna_common::CoreMode::Dev {
+                            "dev mode"
+                        } else {
+                            "enabled"
+                        },
+                        config.update.effective_interval()
+                    );
+                } else {
+                    println!("  {}  Auto-update: disabled", "-".dimmed());
+                }
+
+                // Show last check time
+                if let Some(last_check) = &state.last_check {
+                    println!("  {}  Last check: {}", "*".cyan(), last_check);
+                }
+            }
+            Err(_) => {
+                println!("  {}  Update state unavailable", "?".dimmed());
+            }
+        }
+    } else {
+        println!("  {}  Daemon not running, update state unavailable", "!".bright_red());
+    }
+
+    println!("{}", THIN_SEPARATOR);
+
+    // Self-health summary (compact)
+    let health_report = self_health::run_all_probes();
+    println!("{}", "SELF-HEALTH".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+    match health_report.overall {
+        OverallHealth::Healthy => {
+            println!(
+                "  {}  All components healthy ({} checked)",
+                "+".bright_green(),
+                health_report.components.len()
+            );
+        }
+        OverallHealth::Degraded => {
+            let degraded: Vec<_> = health_report
+                .components
+                .iter()
+                .filter(|c| !c.status.is_healthy())
+                .collect();
+            println!(
+                "  {}  Degraded: {}",
+                "~".yellow(),
+                degraded
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        OverallHealth::Critical => {
+            let critical: Vec<_> = health_report
+                .components
+                .iter()
+                .filter(|c| c.status == anna_common::ComponentStatus::Critical)
+                .collect();
+            println!(
+                "  {}  Critical: {}",
+                "!".bright_red(),
+                critical
+                    .iter()
+                    .map(|c| c.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        OverallHealth::Unknown => {
+            println!("  {}  Status unknown", "?".dimmed());
+        }
+    }
+    println!("{}", THIN_SEPARATOR);
+    println!();
+
+    Ok(())
+}
+
+/// Check if Ollama is running
+fn check_llm_status() -> String {
+    use std::process::Command;
+
+    // Try systemctl first
+    if let Ok(output) = Command::new("systemctl")
+        .args(["is-active", "ollama"])
+        .output()
+    {
+        let status = String::from_utf8_lossy(&output.stdout);
+        if status.trim() == "active" {
+            return "running".to_string();
+        }
+    }
+
+    // Try pgrep
+    if let Ok(output) = Command::new("pgrep").arg("ollama").output() {
+        if output.status.success() {
+            return "running".to_string();
+        }
+    }
+
+    "stopped".to_string()
 }
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};

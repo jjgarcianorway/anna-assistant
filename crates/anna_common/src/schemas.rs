@@ -118,3 +118,45 @@ pub struct AnnaResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warning: Option<String>,
 }
+
+/// v0.9.0: Update state response for status command
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateStateResponse {
+    /// Latest known version
+    pub latest_version: Option<String>,
+    /// Current update status description
+    pub status: String,
+    /// Last check timestamp (RFC 3339)
+    pub last_check: Option<String>,
+    /// Is an update download in progress?
+    pub download_in_progress: bool,
+    /// Downloaded bytes if in progress
+    pub download_progress_bytes: Option<u64>,
+    /// Total bytes if known
+    pub download_total_bytes: Option<u64>,
+    /// Is update ready to apply?
+    pub ready_to_apply: bool,
+    /// Is daemon currently busy (serving request)?
+    pub daemon_busy: bool,
+    /// Next retry time if update failed
+    pub next_retry: Option<String>,
+    /// Last failure reason if any
+    pub last_failure: Option<String>,
+}
+
+impl Default for UpdateStateResponse {
+    fn default() -> Self {
+        Self {
+            latest_version: None,
+            status: "unknown".to_string(),
+            last_check: None,
+            download_in_progress: false,
+            download_progress_bytes: None,
+            download_total_bytes: None,
+            ready_to_apply: false,
+            daemon_busy: false,
+            next_retry: None,
+            last_failure: None,
+        }
+    }
+}

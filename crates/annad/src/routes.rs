@@ -1,10 +1,13 @@
 //! API routes for annad
+//!
+//! v0.9.0: Added /v1/update/state endpoint for status command
 
 use crate::probe::executor::ProbeExecutor;
 use crate::server::AppState;
 use anna_common::{
-    GetStateRequest, HealthResponse, InvalidateRequest, ListProbesResponse, ProbeInfo,
-    ProbeResult, RunProbeRequest, SetStateRequest, StateResponse,
+    load_update_state, AnnaConfigV5, GetStateRequest, HealthResponse, InvalidateRequest,
+    ListProbesResponse, ProbeInfo, ProbeResult, RunProbeRequest, SetStateRequest, StateResponse,
+    UpdateStateResponse,
 };
 use axum::{
     extract::State,
@@ -153,5 +156,61 @@ async fn health_check(State(state): State<AppStateArc>) -> Json<HealthResponse> 
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_seconds: state.start_time.elapsed().as_secs(),
         probes_available: registry.count(),
+    })
+}
+
+// ============================================================================
+// Update Routes (v0.9.0)
+// ============================================================================
+
+pub fn update_routes() -> Router<AppStateArc> {
+    Router::new().route("/v1/update/state", get(update_state))
+}
+
+/// v0.9.0: Get current update state for status command
+async fn update_state(State(_state): State<AppStateArc>) -> Json<UpdateStateResponse> {
+    // Load update state from persistent storage
+    let update_state = load_update_state();
+    let config = AnnaConfigV5::load();
+
+    // Build response from current state
+    let last_check = update_state.last_check.map(|ts| {
+        chrono::DateTime::from_timestamp(ts, 0)
+            .map(|dt| dt.to_rfc3339())
+            .unwrap_or_else(|| "unknown".to_string())
+    });
+
+    // v0.9.0: next_retry not yet implemented, derive from failed update timestamp
+    let next_retry = update_state.last_failed_update.map(|ts| {
+        // Default retry after 10 minutes from last failure
+        let retry_ts = ts + 600;
+        chrono::DateTime::from_timestamp(retry_ts, 0)
+            .map(|dt| dt.to_rfc3339())
+            .unwrap_or_else(|| "unknown".to_string())
+    });
+
+    // Determine status description
+    let status = if !config.is_dev_auto_update_active() {
+        "disabled".to_string()
+    } else if update_state.last_check.is_none() {
+        "never_checked".to_string()
+    } else {
+        match &update_state.last_result {
+            Some(r) => format!("{:?}", r).to_lowercase(),
+            None => "idle".to_string(),
+        }
+    };
+
+    Json(UpdateStateResponse {
+        latest_version: update_state.last_version_after.clone(),
+        status,
+        last_check,
+        download_in_progress: false, // v0.9.0: Not yet tracking in-progress downloads
+        download_progress_bytes: None,
+        download_total_bytes: None,
+        ready_to_apply: false,
+        daemon_busy: false, // v0.9.0: Not yet tracking busy state
+        next_retry,
+        last_failure: update_state.last_failure_reason.clone(),
     })
 }

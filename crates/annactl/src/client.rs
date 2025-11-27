@@ -1,6 +1,6 @@
 //! Daemon client - communicates with annad
 
-use anna_common::{HealthResponse, ListProbesResponse, ProbeResult, RunProbeRequest};
+use anna_common::{HealthResponse, ListProbesResponse, ProbeResult, RunProbeRequest, UpdateStateResponse};
 use anyhow::{Context, Result};
 
 const DAEMON_URL: &str = "http://127.0.0.1:7865";
@@ -93,6 +93,27 @@ impl DaemonClient {
             }
         }
         Ok(results)
+    }
+
+    /// v0.9.0: Get update state from daemon
+    pub async fn update_state(&self) -> Result<UpdateStateResponse> {
+        let url = format!("{}/v1/update/state", self.base_url);
+        let resp = self
+            .client
+            .get(&url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+            .context("Failed to connect to daemon")?;
+
+        if resp.status().is_success() {
+            resp.json()
+                .await
+                .context("Failed to parse update state response")
+        } else {
+            // Return default state if endpoint not available
+            Ok(UpdateStateResponse::default())
+        }
     }
 }
 

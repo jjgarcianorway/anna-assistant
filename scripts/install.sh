@@ -1,89 +1,212 @@
 #!/bin/bash
-# Anna v0.8.0 - Installation Script
-# Downloads from GitHub, detects hardware, selects models, installs components
-# Requests sudo only when needed - not for the entire script
+# Anna v0.9.0 - Version-Aware Idempotent Installer
+#
+# Behavior:
+#   - Detects installed version (if any)
+#   - Fetches latest version from GitHub
+#   - Compares and shows planned action
+#   - Non-interactive default: update if newer, skip if same/older
+#   - Interactive mode (-i): prompt for confirmation
+#   - Never clobbers config/data unless --reset is passed
+#   - Logs all actions to /var/log/anna/install.log
+#
+# Usage:
+#   curl -sSL https://raw.githubusercontent.com/.../install.sh | bash
+#   curl -sSL ... | bash -s -- -i          # Interactive mode
+#   curl -sSL ... | bash -s -- --reset     # Full reinstall (wipes config)
+#
+# Exit codes:
+#   0 = Success or no action needed
+#   1 = Error
+#   2 = User declined
 
 set -euo pipefail
 
-# Colors
-RED=$'\033[0;31m'
-GREEN=$'\033[0;32m'
-YELLOW=$'\033[1;33m'
-BLUE=$'\033[0;34m'
-MAGENTA=$'\033[0;35m'
-CYAN=$'\033[0;36m'
-NC=$'\033[0m'
-BOLD=$'\033[1m'
+# ============================================================
+# CONFIGURATION
+# ============================================================
 
-# Icons
-ICON_CHECK="✓"
-ICON_CROSS="✗"
-ICON_INFO="ℹ"
-ICON_WARN="⚠"
-ICON_ROCKET="🚀"
-ICON_DOWN="⬇"
-ICON_LOCK="🔒"
-
-VERSION="0.8.0"
+INSTALLER_VERSION="0.9.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
+CONFIG_DIR="/etc/anna"
+DATA_DIR="/var/lib/anna"
+LOG_DIR="/var/log/anna"
+RUN_DIR="/run/anna"
+PROBES_DIR="/usr/share/anna/probes"
 
-# Temp directory for downloads
+# ============================================================
+# COLORS AND FORMATTING (ASCII-only, sysadmin style)
+# ============================================================
+
+BOLD=$'\033[1m'
+DIM=$'\033[2m'
+RED=$'\033[31m'
+GREEN=$'\033[32m'
+YELLOW=$'\033[33m'
+BLUE=$'\033[34m'
+CYAN=$'\033[36m'
+NC=$'\033[0m'
+
+# ============================================================
+# VARIABLES
+# ============================================================
+
 TMP_DIR=""
+INTERACTIVE=false
+RESET_MODE=false
+INSTALLED_VERSION=""
+LATEST_VERSION=""
+SUDO=""
 
-print_banner() {
-    printf "\n${MAGENTA}${BOLD}  Anna v${VERSION}${NC}\n"
-    printf "   Your intelligent Linux assistant\n\n"
+# ============================================================
+# LOGGING
+# ============================================================
+
+log_to_file() {
+    local msg="$1"
+    local log_file="/var/log/anna/install.log"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Create log dir if missing (best effort)
+    if [[ -w "$(dirname "$log_file")" ]] || sudo mkdir -p "$(dirname "$log_file")" 2>/dev/null; then
+        echo "[$timestamp] $msg" | sudo tee -a "$log_file" >/dev/null 2>/dev/null || true
+    fi
+}
+
+print_line() {
+    printf "%s\n" "------------------------------------------------------------"
+}
+
+print_header() {
+    printf "\n${BOLD}%s${NC}\n" "$1"
+    print_line
 }
 
 log_info() {
-    printf "${BLUE}${ICON_INFO}${NC}  %s\n" "$1"
+    printf "  ${BLUE}*${NC}  %s\n" "$1"
 }
 
-log_success() {
-    printf "${GREEN}${ICON_CHECK}${NC}  %s\n" "$1"
+log_ok() {
+    printf "  ${GREEN}+${NC}  %s\n" "$1"
 }
 
 log_warn() {
-    printf "${YELLOW}${ICON_WARN}${NC}  %s\n" "$1"
+    printf "  ${YELLOW}~${NC}  %s\n" "$1"
 }
 
 log_error() {
-    printf "${RED}${ICON_CROSS}${NC}  %s\n" "$1"
+    printf "  ${RED}!${NC}  %s\n" "$1"
 }
 
-# Check if we can use sudo
+# ============================================================
+# UTILITY FUNCTIONS
+# ============================================================
+
+cleanup() {
+    if [[ -n "$TMP_DIR" ]] && [[ -d "$TMP_DIR" ]]; then
+        rm -rf "$TMP_DIR"
+    fi
+}
+
 check_sudo() {
-    if command -v sudo &> /dev/null; then
+    if command -v sudo &>/dev/null; then
         SUDO="sudo"
-        log_info "Will use ${CYAN}sudo${NC} for privileged operations"
     elif [[ $EUID -eq 0 ]]; then
         SUDO=""
-        log_info "Running as root"
     else
         log_error "sudo not found and not running as root"
-        echo "   Please install sudo or run as root"
         exit 1
     fi
 }
 
-# Request sudo upfront to cache credentials
 request_sudo() {
     if [[ -n "$SUDO" ]]; then
-        printf "\n${ICON_LOCK}  ${BOLD}Sudo access required for installation${NC}\n"
-        echo "   This will install binaries to ${INSTALL_DIR}"
-        echo "   and create system directories/services"
-        echo ""
+        printf "\n  Sudo required for installation to ${INSTALL_DIR}\n"
         $SUDO -v || {
-            log_error "Failed to obtain sudo access"
+            log_error "Failed to obtain sudo"
             exit 1
         }
-        log_success "Sudo access granted"
-        echo ""
     fi
 }
 
-# Detect architecture
+# Compare semantic versions: returns 0 if $1 < $2, 1 if $1 == $2, 2 if $1 > $2
+version_compare() {
+    local v1="$1"
+    local v2="$2"
+
+    # Strip leading 'v' if present
+    v1="${v1#v}"
+    v2="${v2#v}"
+
+    if [[ "$v1" == "$v2" ]]; then
+        echo 1
+        return
+    fi
+
+    # Compare using sort -V
+    local sorted
+    sorted=$(printf '%s\n%s' "$v1" "$v2" | sort -V | head -1)
+    if [[ "$sorted" == "$v1" ]]; then
+        echo 0  # v1 < v2
+    else
+        echo 2  # v1 > v2
+    fi
+}
+
+# ============================================================
+# VERSION DETECTION
+# ============================================================
+
+detect_installed_version() {
+    INSTALLED_VERSION=""
+
+    # Try annactl -V first
+    if command -v annactl &>/dev/null; then
+        local output
+        # Use timeout to avoid hanging on LLM-based version
+        output=$(timeout 3 annactl -V 2>&1 | head -5 || true)
+        # Extract version number (e.g., "v0.8.0" or "0.8.0")
+        if [[ "$output" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            INSTALLED_VERSION="${BASH_REMATCH[1]}"
+        fi
+    fi
+
+    # Fallback: check binary directly
+    if [[ -z "$INSTALLED_VERSION" ]] && [[ -x "${INSTALL_DIR}/annactl" ]]; then
+        local output
+        output=$(strings "${INSTALL_DIR}/annactl" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+        if [[ -n "$output" ]]; then
+            INSTALLED_VERSION="$output"
+        fi
+    fi
+}
+
+fetch_latest_version() {
+    LATEST_VERSION=""
+
+    local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+    local response
+
+    if command -v curl &>/dev/null; then
+        response=$(curl -fsSL "$api_url" 2>/dev/null || true)
+    elif command -v wget &>/dev/null; then
+        response=$(wget -qO- "$api_url" 2>/dev/null || true)
+    fi
+
+    if [[ -n "$response" ]]; then
+        # Extract tag_name from JSON
+        LATEST_VERSION=$(echo "$response" | grep -oP '"tag_name":\s*"v?\K[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+    fi
+
+    # Fallback to hardcoded version if API fails
+    if [[ -z "$LATEST_VERSION" ]]; then
+        LATEST_VERSION="$INSTALLER_VERSION"
+        log_warn "Could not fetch latest version, using installer version"
+    fi
+}
+
 detect_arch() {
     ARCH=$(uname -m)
     case "$ARCH" in
@@ -98,238 +221,228 @@ detect_arch() {
             exit 1
             ;;
     esac
-    log_info "Architecture: ${ARCH} (${ARCH_NAME})"
 }
 
-# Detect hardware
-detect_hardware() {
-    log_info "Detecting hardware..."
+# ============================================================
+# DISPLAY FUNCTIONS
+# ============================================================
 
-    # RAM
-    RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    RAM_GB=$((RAM_KB / 1024 / 1024))
-    echo "   RAM: ${RAM_GB} GB"
-
-    # CPU cores (physical) and threads
-    CPU_THREADS=$(nproc)
-    CPU_CORES_PHYSICAL=$(lscpu 2>/dev/null | awk '/^Core\(s\) per socket:/ {print $4}')
-    CPU_SOCKETS=$(lscpu 2>/dev/null | awk '/^Socket\(s\):/ {print $2}')
-    if [ -n "$CPU_CORES_PHYSICAL" ] && [ -n "$CPU_SOCKETS" ] && [ "$CPU_CORES_PHYSICAL" -gt 0 ] 2>/dev/null; then
-        CPU_CORES=$((CPU_CORES_PHYSICAL * CPU_SOCKETS))
-        printf "   CPU: ${CYAN}%d${NC} cores (${CYAN}%d${NC} threads)\n" "$CPU_CORES" "$CPU_THREADS"
-    else
-        CPU_CORES=$CPU_THREADS
-        printf "   CPU: ${CYAN}%d${NC} threads\n" "$CPU_CORES"
-    fi
-
-    # GPU detection
-    HAS_GPU=false
-    VRAM_GB=0
-
-    if command -v nvidia-smi &> /dev/null; then
-        if nvidia-smi &> /dev/null; then
-            HAS_GPU=true
-            VRAM_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)
-            VRAM_GB=$((VRAM_MB / 1024))
-            echo "   GPU: NVIDIA (${VRAM_GB} GB VRAM)"
-        fi
-    elif [[ -d /sys/class/drm/card0 ]]; then
-        HAS_GPU=true
-        echo "   GPU: Detected (DRM)"
-    else
-        echo "   GPU: None detected"
-    fi
+print_banner() {
+    printf "\n${BOLD}Anna Assistant Installer${NC}\n"
+    print_line
+    printf "  Installer version: %s\n" "$INSTALLER_VERSION"
+    printf "  Architecture: %s\n" "$ARCH_NAME"
+    print_line
 }
 
-# Select LLM models based on hardware
-select_models() {
-    log_info "Selecting optimal LLM models..."
+print_version_summary() {
+    print_header "VERSION INFORMATION"
 
-    # LLM-A (Orchestrator) - fast, stable
-    if [[ "$HAS_GPU" == "true" ]]; then
-        LLM_A="mistral-nemo"
-    elif [[ $CPU_CORES -ge 8 ]]; then
-        LLM_A="qwen2.5:3b"
+    if [[ -z "$INSTALLED_VERSION" ]]; then
+        printf "  Installed version : ${DIM}(none)${NC}\n"
     else
-        LLM_A="llama3.2:3b"
+        printf "  Installed version : v%s\n" "$INSTALLED_VERSION"
     fi
 
-    # LLM-B (Expert) - based on RAM
-    if [[ $RAM_GB -ge 32 ]] && [[ "$HAS_GPU" == "true" ]]; then
-        LLM_B="qwen2.5:32b"
-    elif [[ $RAM_GB -ge 16 ]]; then
-        LLM_B="qwen2.5:14b"
-    else
-        LLM_B="qwen2.5:7b"
-    fi
-
-    printf "   Orchestrator (LLM-A): ${CYAN}%s${NC}\n" "$LLM_A"
-    printf "   Expert (LLM-B): ${CYAN}%s${NC}\n" "$LLM_B"
+    printf "  Available version : v%s\n" "$LATEST_VERSION"
+    printf "\n"
 }
 
-# Check dependencies
-check_dependencies() {
-    log_info "Checking dependencies..."
+print_planned_action() {
+    print_header "PLANNED ACTION"
 
-    # Check for curl or wget
-    if command -v curl &> /dev/null; then
-        DOWNLOADER="curl"
-        log_success "curl found"
-    elif command -v wget &> /dev/null; then
-        DOWNLOADER="wget"
-        log_success "wget found"
+    if [[ -z "$INSTALLED_VERSION" ]]; then
+        printf "  ${GREEN}Fresh install${NC} - Anna will be installed\n"
+        PLANNED_ACTION="install"
     else
-        log_error "Neither curl nor wget found. Please install one."
-        exit 1
+        local cmp
+        cmp=$(version_compare "$INSTALLED_VERSION" "$LATEST_VERSION")
+
+        case "$cmp" in
+            0)  # Installed < Latest
+                printf "  ${GREEN}Update available${NC} - v%s -> v%s\n" "$INSTALLED_VERSION" "$LATEST_VERSION"
+                PLANNED_ACTION="update"
+                ;;
+            1)  # Installed == Latest
+                printf "  ${CYAN}Same version${NC} - v%s already installed\n" "$INSTALLED_VERSION"
+                PLANNED_ACTION="reinstall"
+                ;;
+            2)  # Installed > Latest
+                printf "  ${YELLOW}Downgrade${NC} - v%s -> v%s (not recommended)\n" "$INSTALLED_VERSION" "$LATEST_VERSION"
+                PLANNED_ACTION="downgrade"
+                ;;
+        esac
     fi
 
-    # Check for Ollama
-    if ! command -v ollama &> /dev/null; then
-        log_warn "Ollama not found"
-        echo "   Install from: https://ollama.ai"
-        echo "   Run: curl -fsSL https://ollama.ai/install.sh | sh"
-        OLLAMA_MISSING=true
-    else
-        log_success "Ollama found"
-        OLLAMA_MISSING=false
-    fi
+    printf "\n  Target paths:\n"
+    printf "    Binaries: %s\n" "$INSTALL_DIR"
+    printf "    Config:   %s\n" "$CONFIG_DIR"
+    printf "    Data:     %s\n" "$DATA_DIR"
+    printf "    Logs:     %s\n" "$LOG_DIR"
+    print_line
 }
 
-# Download file helper
-download_file() {
-    local url="$1"
-    local output="$2"
+# ============================================================
+# USER INTERACTION
+# ============================================================
 
-    printf "   ${ICON_DOWN}  Downloading %s...\n" "$(basename "$output")"
+confirm_action() {
+    local action="$1"
 
-    if [[ "$DOWNLOADER" == "curl" ]]; then
-        curl -fsSL "$url" -o "$output"
-    else
-        wget -q "$url" -O "$output"
+    if [[ "$INTERACTIVE" == "false" ]]; then
+        # Non-interactive defaults
+        case "$action" in
+            install|update)
+                return 0  # Proceed
+                ;;
+            reinstall)
+                log_info "Same version already installed, skipping (use -i for interactive)"
+                return 1  # Skip
+                ;;
+            downgrade)
+                log_warn "Downgrade not allowed in non-interactive mode"
+                return 1  # Skip
+                ;;
+        esac
     fi
+
+    # Interactive mode
+    local prompt=""
+    local default=""
+
+    case "$action" in
+        install)
+            prompt="Proceed with installation? (Y/n)"
+            default="y"
+            ;;
+        update)
+            prompt="Proceed with update? (Y/n)"
+            default="y"
+            ;;
+        reinstall)
+            prompt="Reinstall same version? (y/N)"
+            default="n"
+            ;;
+        downgrade)
+            prompt="Downgrade to older version? (y/N)"
+            default="n"
+            ;;
+    esac
+
+    printf "\n  %s " "$prompt"
+    read -r answer
+    answer="${answer:-$default}"
+
+    case "${answer,,}" in
+        y|yes)
+            return 0
+            ;;
+        *)
+            log_info "Installation cancelled by user"
+            return 1
+            ;;
+    esac
 }
 
-# Download binaries to temp directory (no sudo needed)
+# ============================================================
+# INSTALLATION FUNCTIONS
+# ============================================================
+
 download_binaries() {
-    log_info "Downloading binaries from GitHub..."
+    log_info "Downloading binaries..."
 
-    local base_url="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}"
-
-    # Create temp directory
+    local base_url="https://github.com/${GITHUB_REPO}/releases/download/v${LATEST_VERSION}"
     TMP_DIR=$(mktemp -d)
 
-    # Download annad
-    download_file "${base_url}/annad-${VERSION}-${ARCH_NAME}" "${TMP_DIR}/annad"
+    local annad_file="annad-${LATEST_VERSION}-${ARCH_NAME}"
+    local annactl_file="annactl-${LATEST_VERSION}-${ARCH_NAME}"
 
-    # Download annactl
-    download_file "${base_url}/annactl-${VERSION}-${ARCH_NAME}" "${TMP_DIR}/annactl"
+    # Download files
+    if command -v curl &>/dev/null; then
+        curl -fsSL "${base_url}/${annad_file}" -o "${TMP_DIR}/annad" || {
+            log_error "Failed to download annad"
+            return 1
+        }
+        curl -fsSL "${base_url}/${annactl_file}" -o "${TMP_DIR}/annactl" || {
+            log_error "Failed to download annactl"
+            return 1
+        }
+        curl -fsSL "${base_url}/SHA256SUMS" -o "${TMP_DIR}/SHA256SUMS" || {
+            log_error "Failed to download checksums"
+            return 1
+        }
+    else
+        wget -q "${base_url}/${annad_file}" -O "${TMP_DIR}/annad" || return 1
+        wget -q "${base_url}/${annactl_file}" -O "${TMP_DIR}/annactl" || return 1
+        wget -q "${base_url}/SHA256SUMS" -O "${TMP_DIR}/SHA256SUMS" || return 1
+    fi
 
-    # Download checksums
-    download_file "${base_url}/SHA256SUMS" "${TMP_DIR}/SHA256SUMS"
+    log_ok "Downloaded binaries"
 
     # Verify checksums
     log_info "Verifying checksums..."
     cd "$TMP_DIR"
-    if grep -q "$(sha256sum annad | awk '{print $1}')" SHA256SUMS && \
-       grep -q "$(sha256sum annactl | awk '{print $1}')" SHA256SUMS; then
-        log_success "Checksums verified"
+
+    local annad_sum annactl_sum
+    annad_sum=$(sha256sum annad | awk '{print $1}')
+    annactl_sum=$(sha256sum annactl | awk '{print $1}')
+
+    if grep -q "$annad_sum" SHA256SUMS && grep -q "$annactl_sum" SHA256SUMS; then
+        log_ok "Checksums verified"
     else
         log_error "Checksum verification failed!"
-        rm -rf "$TMP_DIR"
-        exit 1
+        return 1
     fi
-
-    log_success "Downloaded and verified binaries"
 }
 
-# Install binaries (requires sudo)
 install_binaries() {
-    log_info "Installing binaries to ${INSTALL_DIR}..."
+    log_info "Installing binaries..."
 
+    # Backup existing if updating
+    if [[ -f "${INSTALL_DIR}/annad" ]]; then
+        $SUDO cp "${INSTALL_DIR}/annad" "${INSTALL_DIR}/annad.bak" 2>/dev/null || true
+    fi
+    if [[ -f "${INSTALL_DIR}/annactl" ]]; then
+        $SUDO cp "${INSTALL_DIR}/annactl" "${INSTALL_DIR}/annactl.bak" 2>/dev/null || true
+    fi
+
+    # Install (atomic move)
     $SUDO mv "${TMP_DIR}/annad" "${INSTALL_DIR}/annad"
     $SUDO mv "${TMP_DIR}/annactl" "${INSTALL_DIR}/annactl"
     $SUDO chmod 755 "${INSTALL_DIR}/annad"
     $SUDO chmod 755 "${INSTALL_DIR}/annactl"
 
-    log_success "Installed annad and annactl"
+    log_ok "Installed binaries to ${INSTALL_DIR}"
 }
 
-# Download LLM models (no sudo needed)
-download_models() {
-    if [ "$OLLAMA_MISSING" = "true" ]; then
-        log_warn "Skipping model download (Ollama not installed)"
-        return
-    fi
+create_user_and_dirs() {
+    log_info "Creating user and directories..."
 
-    log_info "Downloading LLM models (this may take a while)..."
-    echo ""
-
-    # Pull model with progress
-    pull_model() {
-        model="$1"
-        printf "   ${CYAN}⬇${NC}  Pulling ${BOLD}%s${NC}...\n" "$model"
-
-        # Use 'script' to create a pseudo-TTY for ollama progress bar
-        if command -v script >/dev/null 2>&1; then
-            # script command exists - use it for TTY emulation
-            if script -q -c "ollama pull '$model'" /dev/null; then
-                log_success "Downloaded ${model}"
-                return 0
-            else
-                log_warn "Failed to download ${model}"
-                return 1
-            fi
-        else
-            # Fallback without progress bar
-            if ollama pull "$model"; then
-                log_success "Downloaded ${model}"
-                return 0
-            else
-                log_warn "Failed to download ${model}"
-                return 1
-            fi
-        fi
-    }
-
-    pull_model "$LLM_A"
-    echo ""
-    pull_model "$LLM_B"
-}
-
-# Create anna user (requires sudo)
-create_user() {
-    log_info "Creating anna user..."
-
-    if id "anna" &>/dev/null; then
-        log_success "User 'anna' already exists"
+    # Create anna user if not exists
+    if ! id "anna" &>/dev/null; then
+        $SUDO useradd -r -s /bin/false -d "$DATA_DIR" anna 2>/dev/null || true
+        log_ok "Created user 'anna'"
     else
-        $SUDO useradd -r -s /bin/false -d /var/lib/anna anna
-        log_success "Created user 'anna'"
+        log_ok "User 'anna' exists"
     fi
+
+    # Create directories (never wipe existing)
+    $SUDO mkdir -p "$DATA_DIR" "$LOG_DIR" "$RUN_DIR" "$CONFIG_DIR" "$PROBES_DIR"
+    $SUDO chown anna:anna "$DATA_DIR" "$LOG_DIR" "$RUN_DIR"
+
+    log_ok "Created directories"
 }
 
-# Create directories (requires sudo)
-create_directories() {
-    log_info "Creating directories..."
-
-    $SUDO mkdir -p /var/lib/anna
-    $SUDO mkdir -p /var/log/anna
-    $SUDO mkdir -p /run/anna
-    $SUDO mkdir -p /etc/anna
-    $SUDO mkdir -p /usr/share/anna/probes
-
-    $SUDO chown anna:anna /var/lib/anna
-    $SUDO chown anna:anna /var/log/anna
-    $SUDO chown anna:anna /run/anna
-
-    log_success "Created directories"
-}
-
-# Install systemd service (requires sudo)
-install_service() {
+install_systemd_service() {
     log_info "Installing systemd service..."
 
-    $SUDO tee /etc/systemd/system/annad.service > /dev/null << 'EOF'
+    local service_file="/etc/systemd/system/annad.service"
+
+    # Check if service exists and is different
+    if [[ -f "$service_file" ]] && [[ "$RESET_MODE" == "false" ]]; then
+        log_ok "Systemd service exists (preserving)"
+    else
+        $SUDO tee "$service_file" > /dev/null << 'EOF'
 [Unit]
 Description=Anna Daemon - Evidence Oracle
 Documentation=https://github.com/jjgarcianorway/anna-assistant
@@ -355,6 +468,7 @@ ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 
 # Allow reading system info
 ReadOnlyPaths=/proc /sys
@@ -363,151 +477,176 @@ ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
 [Install]
 WantedBy=multi-user.target
 EOF
-
-    $SUDO systemctl daemon-reload
-    log_success "Installed systemd service"
+        $SUDO systemctl daemon-reload
+        log_ok "Installed systemd service"
+    fi
 }
 
-# Write configuration (requires sudo)
 write_config() {
-    log_info "Writing configuration..."
+    local config_file="${CONFIG_DIR}/config.toml"
 
-    $SUDO tee /etc/anna/config.toml > /dev/null << EOF
-# Anna v${VERSION} Configuration
+    # Never overwrite existing config unless --reset
+    if [[ -f "$config_file" ]] && [[ "$RESET_MODE" == "false" ]]; then
+        log_ok "Config exists (preserving)"
+        return
+    fi
 
-[general]
-version = "${VERSION}"
+    log_info "Writing default configuration..."
 
-[models]
-orchestrator = "${LLM_A}"
-expert = "${LLM_B}"
+    $SUDO tee "$config_file" > /dev/null << EOF
+# Anna v${LATEST_VERSION} Configuration
+# This file was auto-generated. Feel free to customize.
 
-[daemon]
-listen_addr = "127.0.0.1:7865"
-probes_dir = "/usr/share/anna/probes"
+[core]
+mode = "normal"
 
-[ollama]
-url = "http://127.0.0.1:11434"
+[llm]
+preferred_model = "llama3.2:3b"
+fallback_model = "llama3.2:3b"
+selection_mode = "auto"
+
+[update]
+enabled = false
+interval_seconds = 86400
+channel = "main"
+
+[log]
+level = "debug"
+daemon_enabled = true
+requests_enabled = true
+llm_enabled = true
 EOF
 
-    log_success "Configuration written to /etc/anna/config.toml"
+    log_ok "Configuration written to ${config_file}"
 }
 
-# Install probes from GitHub (requires sudo)
-install_probes() {
-    log_info "Installing probes..."
+verify_installation() {
+    log_info "Verifying installation..."
 
-    local base_url="https://raw.githubusercontent.com/${GITHUB_REPO}/v${VERSION}/probes"
+    local errors=0
 
-    # Download to temp then move with sudo
-    local probe_tmp=$(mktemp -d)
-
-    download_file "${base_url}/cpu.info.json" "${probe_tmp}/cpu.info.json"
-    download_file "${base_url}/mem.info.json" "${probe_tmp}/mem.info.json"
-    download_file "${base_url}/disk.lsblk.json" "${probe_tmp}/disk.lsblk.json"
-
-    $SUDO mv "${probe_tmp}"/*.json /usr/share/anna/probes/
-    rm -rf "${probe_tmp}"
-
-    log_success "Installed probes"
-}
-
-# Run self-test
-run_self_test() {
-    log_info "Running self-test..."
-
-    # Test 1: Check daemon binary
+    # Check binaries
     if [[ -x "${INSTALL_DIR}/annad" ]]; then
-        log_success "Test 1: annad binary OK"
+        log_ok "annad binary OK"
     else
-        log_error "Test 1: annad binary FAILED"
-        return 1
+        log_error "annad binary missing or not executable"
+        ((errors++))
     fi
 
-    # Test 2: Check annactl binary
     if [[ -x "${INSTALL_DIR}/annactl" ]]; then
+        # Quick version check
         local version
-        version=$(${INSTALL_DIR}/annactl --version 2>&1)
-        log_success "Test 2: annactl binary OK (${version})"
+        version=$("${INSTALL_DIR}/annactl" -V 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown")
+        if [[ "$version" == "$LATEST_VERSION" ]]; then
+            log_ok "annactl v${version} OK"
+        else
+            log_warn "annactl version mismatch: expected ${LATEST_VERSION}, got ${version}"
+        fi
     else
-        log_error "Test 2: annactl binary FAILED"
-        return 1
+        log_error "annactl binary missing or not executable"
+        ((errors++))
     fi
 
-    # Test 3: Check config (use sudo to test file exists)
-    if $SUDO test -f "/etc/anna/config.toml"; then
-        log_success "Test 3: Configuration OK"
+    # Check config
+    if [[ -f "${CONFIG_DIR}/config.toml" ]]; then
+        log_ok "Configuration OK"
     else
-        log_error "Test 3: Configuration FAILED"
-        return 1
+        log_warn "Configuration file missing"
     fi
 
-    # Test 4: Check probes (use sudo to test file exists)
-    if $SUDO test -f "/usr/share/anna/probes/cpu.info.json"; then
-        log_success "Test 4: Probes OK"
-    else
-        log_error "Test 4: Probes FAILED"
-        return 1
-    fi
+    return $errors
 }
 
-# Cleanup
-cleanup() {
-    if [[ -n "$TMP_DIR" ]] && [[ -d "$TMP_DIR" ]]; then
-        rm -rf "$TMP_DIR"
-    fi
-}
+# ============================================================
+# MAIN
+# ============================================================
 
-# Main installation
 main() {
     trap cleanup EXIT
 
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -i|--interactive)
+                INTERACTIVE=true
+                shift
+                ;;
+            --reset)
+                RESET_MODE=true
+                shift
+                ;;
+            -h|--help)
+                printf "Usage: install.sh [-i|--interactive] [--reset]\n"
+                printf "  -i, --interactive  Prompt before actions\n"
+                printf "  --reset            Full reinstall (wipes config)\n"
+                exit 0
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    # Detect architecture
+    detect_arch
+
+    # Print banner
     print_banner
 
-    # Phase 1: Detection (no sudo needed)
-    detect_arch
-    detect_hardware
-    select_models
-    check_dependencies
+    # Detect versions
+    detect_installed_version
+    fetch_latest_version
 
-    # Phase 2: Download (no sudo needed)
-    download_binaries
+    # Show version summary
+    print_version_summary
 
-    # Phase 3: Request sudo for installation
+    # Determine and show planned action
+    print_planned_action
+
+    # Confirm action
+    if ! confirm_action "$PLANNED_ACTION"; then
+        log_to_file "Installer: action=${PLANNED_ACTION} result=declined installed=${INSTALLED_VERSION:-none} target=${LATEST_VERSION}"
+        exit 0
+    fi
+
+    # Request sudo
     check_sudo
     request_sudo
 
-    # Phase 4: Install (requires sudo)
-    create_user
-    create_directories
+    # Log start
+    log_to_file "Installer: action=${PLANNED_ACTION} starting installed=${INSTALLED_VERSION:-none} target=${LATEST_VERSION}"
+
+    print_header "INSTALLING"
+
+    # Download
+    if ! download_binaries; then
+        log_to_file "Installer: action=${PLANNED_ACTION} result=download_failed"
+        exit 1
+    fi
+
+    # Install
+    create_user_and_dirs
     install_binaries
-    install_service
+    install_systemd_service
     write_config
-    install_probes
 
-    # Phase 5: Download models (no sudo needed)
-    download_models
+    # Verify
+    print_header "VERIFICATION"
+    if verify_installation; then
+        log_to_file "Installer: action=${PLANNED_ACTION} result=success version=${LATEST_VERSION}"
+    else
+        log_to_file "Installer: action=${PLANNED_ACTION} result=partial_success version=${LATEST_VERSION}"
+    fi
 
-    # Phase 6: Verify
-    run_self_test
-
-    echo ""
-    log_success "${BOLD}Installation complete!${NC}"
-    echo ""
-    printf "   Start the daemon:\n"
-    printf "   ${CYAN}sudo systemctl start annad${NC}\n"
-    echo ""
-    printf "   Enable at boot:\n"
-    printf "   ${CYAN}sudo systemctl enable annad${NC}\n"
-    echo ""
-    printf "   Check status:\n"
-    printf "   ${CYAN}annactl status${NC}\n"
-    echo ""
-    printf "   Update Anna:\n"
-    printf "   ${CYAN}annactl update${NC}\n"
-    echo ""
-    printf "${MAGENTA}${ICON_ROCKET}${NC}  ${BOLD}Welcome to Anna!${NC}\n"
-    echo ""
+    # Final message
+    print_header "COMPLETE"
+    printf "  Anna v%s installed successfully.\n" "$LATEST_VERSION"
+    printf "\n"
+    printf "  Start daemon:    ${CYAN}sudo systemctl start annad${NC}\n"
+    printf "  Enable at boot:  ${CYAN}sudo systemctl enable annad${NC}\n"
+    printf "  Check status:    ${CYAN}annactl status${NC}\n"
+    printf "\n"
+    print_line
 }
 
 main "$@"

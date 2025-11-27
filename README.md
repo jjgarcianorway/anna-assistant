@@ -1,30 +1,39 @@
-# Anna v0.7.0
+# Anna v0.9.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.7.0
+## What's New in v0.9.0
 
-- **Self-Health Monitoring** - Anna monitors her own components (daemon, LLM, models, tools, permissions, config)
-- **Auto-Repair Engine** - Automatically fixes safe issues (restart services, pull models, fix permissions)
+- **Locked CLI Surface** - Only 5 commands: REPL, request, status, version, help
+- **Status Command** - `annactl status` shows daemon, LLM, update state, and self-health
+- **Case-Insensitive Commands** - version/VERSION/Version all work, same for help/status
+- **Version-Aware Installer** - Idempotent installer shows planned action before execution
+- **Update State Endpoint** - `/v1/update/state` API for querying update status
+
+## Previous in v0.8.0
+
+- **Observability Pipeline** - Structured logging with redaction and request tracing
+- **Debug Mode** - Enable per-request tracing via config or natural language
+
+## Previous in v0.7.0
+
+- **Self-Health Monitoring** - Anna monitors her own components
+- **Auto-Repair Engine** - Automatically fixes safe issues
 - **Safety Rules** - Clear separation between auto-repair and warn-only actions
-- **[SELF-HEALTH] Section** - New output section showing component status and repairs
-- **REPL Notifications** - Real-time notifications when auto-repair events occur
 
 ## Previous in v0.6.0
 
-- **ASCII-Only Sysadmin Style** - Professional output, no emojis, old-school terminal look
+- **ASCII-Only Sysadmin Style** - Professional output, no emojis
 - **Structured Reports** - [SUMMARY], [DETAILS], [EVIDENCE], [RELIABILITY] sections
 - **Multi-Round Refinement** - LLM-A/LLM-B iterate up to 3 passes for accuracy
 - **Reliability Scoring** - Green (>=0.9), Yellow (0.7-0.9), Red (<0.7) confidence levels
-- **Terminal Hyperlinks** - Clickable links to Arch Wiki and official docs
 
 ## Previous in v0.5.0
 
 - Natural Language Configuration - Configure Anna by talking to her
 - Hardware-Aware Model Selection - Automatically picks the right model
-- GPU Driver Detection - Safe fallback when drivers missing
 - Dev Auto-Update - 600 second minimum interval
 
 ## Architecture
@@ -51,22 +60,27 @@ Anna is a two-LLM system that provides reliable, evidence-based answers about yo
 ## Usage
 
 ```bash
-# Ask a question
-annactl "How many CPU cores do I have?"
-
 # Start interactive REPL
 annactl
+
+# Ask a question (one-shot)
+annactl "How many CPU cores do I have?"
+
+# Show status (daemon, LLM, update state, self-health)
+annactl status
 
 # Show version (includes update status)
 annactl -V
 annactl --version
+annactl version       # Case-insensitive
 
 # Show help
 annactl -h
 annactl --help
+annactl help          # Case-insensitive
 ```
 
-**That's it.** No other commands exist.
+**That's it.** The CLI surface is locked. No other commands exist.
 
 ## Natural Language Configuration (v0.5.0)
 
@@ -124,7 +138,7 @@ When GPU drivers become available, Anna can automatically upgrade to a larger mo
 ### Version Output
 
 ```
-Anna Assistant v0.7.0
+Anna Assistant v0.9.0
 Mode: normal [source: config.core]
 Update: manual (main, every 86400s) [source: config.update]
 LLM:
@@ -132,9 +146,24 @@ LLM:
   active_model: llama3.2:3b [source: config.llm]
   fallback_model: llama3.2:3b [source: config.llm]
   hardware_recommendation: Standard CPU system [source: hardware.profile]
-Daemon: running (v0.7.0, uptime: 3600s, 6 probes) [source: system.version]
+Daemon: running (v0.9.0, uptime: 3600s, 6 probes) [source: system.version]
 Tool catalog: 6 probes registered [source: system.version]
 Self-health: OK (all components healthy) [source: self_health]
+```
+
+### Status Output
+
+```
+==================================================
+ ANNA STATUS
+==================================================
+
+Daemon:        + running  v0.9.0  uptime: 3600s
+LLM Backend:   + ok       ollama (llama3.2:3b)
+Update:        * disabled (manual)
+Self-Health:   + OK       all components healthy
+
+==================================================
 ```
 
 ## Components
@@ -208,4 +237,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.7.0 - Self-health and auto-repair release.
+This is version 0.9.0 - Locked CLI surface and status command release.
