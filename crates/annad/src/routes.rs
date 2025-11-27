@@ -206,7 +206,7 @@ async fn update_state(State(_state): State<AppStateArc>) -> Json<UpdateStateResp
     };
 
     Json(UpdateStateResponse {
-        latest_version: update_state.last_version_after.clone(),
+        latest_version: update_state.latest_available_version.clone(),
         status,
         last_check,
         download_in_progress: false, // v0.9.0: Not yet tracking in-progress downloads

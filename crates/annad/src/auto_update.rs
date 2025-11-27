@@ -92,7 +92,7 @@ impl AutoUpdateScheduler {
                             // After successful update, the daemon should restart
                         }
                         Ok(false) => {
-                            debug!("📋  No update available");
+                            info!("📋  No update available - already on latest version");
                         }
                         Err(e) => {
                             error!("❌  Update check failed: {}", e);
@@ -115,15 +115,17 @@ impl AutoUpdateScheduler {
         let release = self.fetch_latest_release(&config).await?;
         let check_result = UpdateCheckResult::from_release(CURRENT_VERSION, &release);
 
-        // Update state with check timestamp
+        // Update state with check timestamp and latest available version
         {
             let mut state = self.state.write().await;
             state.last_check = Some(chrono::Utc::now().timestamp());
+            state.latest_available_version = Some(check_result.info.latest.clone());
         }
 
         if !check_result.info.update_available {
-            // No update available
+            // No update available - still save the latest version we found
             let mut state = self.state.write().await;
+            state.latest_available_version = Some(check_result.info.latest.clone());
             record_update_check(&mut state, UpdateResult::NoUpdate, None);
             let _ = save_update_state(&state);
             return Ok(false);
@@ -168,28 +170,35 @@ impl AutoUpdateScheduler {
         let url = "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/latest"
             .to_string();
 
+        info!(
+            "📡  Fetching release info from GitHub (channel: {})",
+            config.update.channel.as_str()
+        );
+
         let resp = self
             .http_client
             .get(&url)
             .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", format!("Anna/{}", CURRENT_VERSION))
             .send()
             .await
             .context("Failed to fetch releases")?;
 
         if !resp.status().is_success() {
-            anyhow::bail!("GitHub API returned {}", resp.status());
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            error!("❌  GitHub API error {}: {}", status, body);
+            anyhow::bail!("GitHub API returned {}: {}", status, body);
         }
 
-        // For v0.5.0, all channels use the latest release
-        // Channel value is stored but doesn't affect endpoint yet
-        debug!(
-            "Fetching release for channel: {}",
-            config.update.channel.as_str()
+        let release: GitHubRelease = resp.json().await.context("Failed to parse release JSON")?;
+
+        info!(
+            "📦  Latest release: {} (current: {})",
+            release.tag_name, CURRENT_VERSION
         );
 
-        resp.json::<GitHubRelease>()
-            .await
-            .context("Failed to parse release")
+        Ok(release)
     }
 
     /// Apply the update atomically by downloading tarball

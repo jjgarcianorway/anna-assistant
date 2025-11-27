@@ -213,7 +213,7 @@ impl UpdateConfig {
     }
 }
 
-/// Update state persistence (v0.4.0)
+/// Update state persistence (v0.4.0, v0.15.3)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UpdateState {
     /// Last update check timestamp (Unix epoch)
@@ -222,6 +222,9 @@ pub struct UpdateState {
     /// Last update result
     #[serde(default)]
     pub last_result: Option<UpdateResult>,
+    /// Latest version available on GitHub (v0.15.3)
+    #[serde(default)]
+    pub latest_available_version: Option<String>,
     /// Version before last update
     #[serde(default)]
     pub last_version_before: Option<String>,
@@ -446,6 +449,7 @@ mod tests {
         let state = UpdateState::default();
         assert!(state.last_check.is_none());
         assert!(state.last_result.is_none());
+        assert!(state.latest_available_version.is_none());
         assert!(state.last_version_before.is_none());
         assert!(state.last_version_after.is_none());
     }

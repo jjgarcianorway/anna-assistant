@@ -237,17 +237,31 @@ impl HardwareProfile {
                 (GPU_MODEL_MEDIUM, "GPU detected with moderate VRAM")
             }
         } else if self.gpu_vendor != GpuVendor::None && !self.gpu_driver_loaded {
-            // GPU exists but driver not loaded
-            (
-                CPU_MODEL_SMALL,
-                "GPU detected but driver not loaded - using CPU model",
-            )
+            // GPU exists but driver not loaded - check CPU capability
+            if self.ram_gb >= 16 && self.cpu_cores >= 8 {
+                (
+                    CPU_MODEL_MEDIUM,
+                    "GPU detected but driver not loaded - using CPU model (7b)",
+                )
+            } else {
+                (
+                    CPU_MODEL_SMALL,
+                    "GPU detected but driver not loaded - using CPU model (3b)",
+                )
+            }
         } else if self.gpu_vendor != GpuVendor::None && !self.gpu_driver_functional {
-            // GPU exists, driver loaded but not functional
-            (
-                CPU_MODEL_SMALL,
-                "GPU driver loaded but not functional - using CPU model",
-            )
+            // GPU exists, driver loaded but not functional - check CPU capability
+            if self.ram_gb >= 16 && self.cpu_cores >= 8 {
+                (
+                    CPU_MODEL_MEDIUM,
+                    "GPU driver not functional - using CPU model (7b)",
+                )
+            } else {
+                (
+                    CPU_MODEL_SMALL,
+                    "GPU driver not functional - using CPU model (3b)",
+                )
+            }
         } else if self.ram_gb >= 16 && self.cpu_cores >= 8 {
             // Good CPU system without GPU
             (CPU_MODEL_MEDIUM, "High-performance CPU system")
@@ -394,7 +408,8 @@ mod tests {
     }
 
     #[test]
-    fn test_model_selection_gpu_without_driver() {
+    fn test_model_selection_gpu_without_driver_good_cpu() {
+        // GPU without driver but good CPU - should use 7b model
         let profile = HardwareProfile {
             cpu_cores: 8,
             ram_gb: 32,
@@ -405,7 +420,26 @@ mod tests {
             ..Default::default()
         };
         let rec = profile.select_model();
-        // Should use CPU model because driver is not functional
+        // Should use CPU_MODEL_MEDIUM (7b) because CPU is capable
+        assert_eq!(rec.model, CPU_MODEL_MEDIUM);
+        assert!(rec.can_upgrade);
+        assert!(rec.upgrade_trigger.is_some());
+    }
+
+    #[test]
+    fn test_model_selection_gpu_without_driver_weak_cpu() {
+        // GPU without driver and weak CPU - should use 3b model
+        let profile = HardwareProfile {
+            cpu_cores: 4,
+            ram_gb: 8,
+            gpu_vendor: GpuVendor::Nvidia,
+            gpu_name: Some("GeForce GTX 1050".to_string()),
+            gpu_driver_loaded: false,
+            gpu_driver_functional: false,
+            ..Default::default()
+        };
+        let rec = profile.select_model();
+        // Should use CPU_MODEL_SMALL (3b) because CPU is not capable
         assert_eq!(rec.model, CPU_MODEL_SMALL);
         assert!(rec.can_upgrade);
         assert!(rec.upgrade_trigger.is_some());
