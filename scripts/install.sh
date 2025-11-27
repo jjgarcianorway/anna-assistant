@@ -1,5 +1,5 @@
 #!/bin/bash
-# Anna v0.10.0 - Version-Aware Idempotent Installer
+# Anna v0.11.0 - Version-Aware Idempotent Installer
 #
 # Behavior:
 #   - Detects installed version (if any)
@@ -9,6 +9,8 @@
 #   - Interactive mode (-i): prompt for confirmation
 #   - Never clobbers config/data unless --reset is passed
 #   - Logs all actions to /var/log/anna/install.log
+#
+# v0.11.0: Knowledge store directory setup
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/.../install.sh | bash
@@ -26,7 +28,7 @@ set -euo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="0.10.0"
+INSTALLER_VERSION="0.11.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -354,8 +356,9 @@ download_binaries() {
     local base_url="https://github.com/${GITHUB_REPO}/releases/download/v${LATEST_VERSION}"
     TMP_DIR=$(mktemp -d)
 
-    local annad_file="annad-${LATEST_VERSION}-${ARCH_NAME}"
-    local annactl_file="annactl-${LATEST_VERSION}-${ARCH_NAME}"
+    # v0.11.0: Binaries are named simply annad/annactl (no arch suffix)
+    local annad_file="annad"
+    local annactl_file="annactl"
 
     # Download files
     if command -v curl &>/dev/null; then
@@ -428,9 +431,15 @@ create_user_and_dirs() {
 
     # Create directories (never wipe existing)
     $SUDO mkdir -p "$DATA_DIR" "$LOG_DIR" "$RUN_DIR" "$CONFIG_DIR" "$PROBES_DIR"
-    $SUDO chown anna:anna "$DATA_DIR" "$LOG_DIR" "$RUN_DIR"
+
+    # v0.11.0: Knowledge store directory
+    $SUDO mkdir -p "${DATA_DIR}/knowledge"
+
+    # Set ownership
+    $SUDO chown -R anna:anna "$DATA_DIR" "$LOG_DIR" "$RUN_DIR"
 
     log_ok "Created directories"
+    log_ok "Knowledge store: ${DATA_DIR}/knowledge"
 }
 
 install_systemd_service() {
