@@ -65,6 +65,8 @@ RESET_MODE=false
 INSTALLED_VERSION=""
 LATEST_VERSION=""
 SUDO=""
+JUNIOR_MODEL=""
+SENIOR_MODEL=""
 
 # ============================================================
 # LOGGING
@@ -674,28 +676,69 @@ install_ollama() {
         fi
     fi
 
-    # Select appropriate model based on hardware
+    # Select appropriate model based on hardware (sets SELECTED_MODEL)
     select_model
 
-    # Check if exact model is already pulled
-    log_info "Checking for ${SELECTED_MODEL}..."
+    # Determine junior/senior models based on hardware
+    local senior_model="$SELECTED_MODEL"
+    local junior_model="llama3.2:3b"  # Default fast model for junior
 
-    # Extract model name and tag for exact matching
-    local model_name="${SELECTED_MODEL%%:*}"
-    local model_tag="${SELECTED_MODEL##*:}"
+    # If user has large senior model, use 8B for junior
+    case "$senior_model" in
+        *70b*|*32b*|*30b*|*14b*)
+            junior_model="llama3.1:8b"
+            ;;
+    esac
 
-    # Check for exact match (e.g., "qwen2.5:7b" not just "qwen2.5")
-    if ollama list 2>/dev/null | grep -E "^${model_name}:${model_tag}[[:space:]]" >/dev/null 2>&1; then
-        log_ok "Model ${SELECTED_MODEL} already available"
+    # Export for use in write_config
+    JUNIOR_MODEL="$junior_model"
+    SENIOR_MODEL="$senior_model"
+
+    # Show role-specific model selection
+    print_header "MODEL SELECTION"
+    log_info "Anna uses TWO models for optimal performance:"
+    log_info "  Junior (LLM-A): Fast model for quick probe execution"
+    log_info "  Senior (LLM-B): Smarter model for reasoning & synthesis"
+    log_info ""
+    log_ok "Selected models for your hardware:"
+    log_ok "  Junior: ${junior_model}"
+    log_ok "  Senior: ${senior_model}"
+    log_info ""
+
+    # Pull BOTH models
+    print_header "DOWNLOADING MODELS"
+
+    # Pull junior model
+    pull_model_if_needed "$junior_model" "junior"
+
+    # Pull senior model (if different from junior)
+    if [[ "$senior_model" != "$junior_model" ]]; then
+        pull_model_if_needed "$senior_model" "senior"
     else
-        log_info "Pulling ${SELECTED_MODEL} (this may take a few minutes)..."
+        log_ok "Senior model same as junior (${senior_model})"
+    fi
+}
 
-        # Pull the model
-        if ollama pull "$SELECTED_MODEL" 2>&1; then
-            log_ok "Model ${SELECTED_MODEL} downloaded successfully"
+# Helper: Pull model if not already available
+pull_model_if_needed() {
+    local model="$1"
+    local role="$2"
+
+    local model_name="${model%%:*}"
+    local model_tag="${model##*:}"
+
+    log_info "Checking ${role} model: ${model}..."
+
+    if ollama list 2>/dev/null | grep -E "^${model_name}:${model_tag}[[:space:]]" >/dev/null 2>&1; then
+        log_ok "${role^} model ${model} already available"
+    else
+        log_info "Pulling ${role} model ${model} (this may take a few minutes)..."
+
+        if ollama pull "$model" 2>&1; then
+            log_ok "${role^} model ${model} downloaded successfully"
         else
-            log_error "Failed to pull model ${SELECTED_MODEL}"
-            log_warn "You can manually pull later: ollama pull ${SELECTED_MODEL}"
+            log_error "Failed to pull ${role} model ${model}"
+            log_warn "You can manually pull later: ollama pull ${model}"
         fi
     fi
 }
@@ -756,26 +799,25 @@ EOF
 write_config() {
     local config_file="${CONFIG_DIR}/config.toml"
 
-    # Never overwrite existing config unless --reset
+    # Use models selected by install_ollama (set as global vars)
+    local junior_model="${JUNIOR_MODEL:-llama3.2:3b}"
+    local senior_model="${SENIOR_MODEL:-llama3.1:8b}"
+
+    # Check if existing config needs migration (no junior/senior models)
     if [[ -f "$config_file" ]] && [[ "$RESET_MODE" == "false" ]]; then
-        log_ok "Config exists (preserving)"
-        return
+        if grep -q "junior_model" "$config_file" 2>/dev/null; then
+            log_ok "Config exists with role-specific models (preserving)"
+            return
+        else
+            log_warn "Config exists but needs migration to role-specific models"
+            log_info "Updating config with junior_model and senior_model..."
+            # Fall through to write new config
+        fi
     fi
 
-    log_info "Writing default configuration..."
-
-    # Use selected model or default to llama3.1:8b (fast + reliable)
-    # Junior (LLM-A): Fast model for probe execution - use smaller model
-    # Senior (LLM-B): Smart model for reasoning - use the selected model
-    local senior_model="${SELECTED_MODEL:-llama3.1:8b}"
-    local junior_model="llama3.2:3b"  # Always fast for probe execution
-
-    # If user has a large model, use medium for junior
-    case "$senior_model" in
-        *70b*|*32b*|*30b*|*14b*)
-            junior_model="llama3.1:8b"  # Use 8B for junior when senior is large
-            ;;
-    esac
+    log_info "Writing configuration..."
+    log_info "  Junior model (fast): ${junior_model}"
+    log_info "  Senior model (smart): ${senior_model}"
 
     $SUDO tee "$config_file" > /dev/null << EOF
 # Anna v${LATEST_VERSION} Configuration

@@ -315,7 +315,12 @@ mod tests {
     fn test_llm_config_default() {
         let config = LlmConfig::default();
         assert_eq!(config.selection_mode, LlmSelectionMode::Auto);
-        assert_eq!(config.preferred_model, "llama3.2:3b");
+        // v0.15.18: Default preferred model is now llama3.1:8b (faster for loops)
+        assert_eq!(config.preferred_model, "llama3.1:8b");
+        assert_eq!(config.fallback_model, "llama3.2:3b");
+        // Role-specific models are None by default (legacy configs)
+        assert!(config.junior_model.is_none());
+        assert!(config.senior_model.is_none());
     }
 
     #[test]
