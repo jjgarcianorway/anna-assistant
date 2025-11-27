@@ -23,14 +23,22 @@ use tracing::{debug, info, warn};
 pub struct AnswerEngine {
     llm_client: OllamaClient,
     catalog: ProbeCatalog,
+    model_name: String,
 }
 
 impl AnswerEngine {
     pub fn new(model: Option<String>) -> Self {
+        let model_name = model.clone().unwrap_or_else(|| "llama3.2:3b".to_string());
         Self {
             llm_client: OllamaClient::new(model),
             catalog: ProbeCatalog::standard(),
+            model_name,
         }
+    }
+
+    /// Get the model name being used
+    pub fn model(&self) -> &str {
+        &self.model_name
     }
 
     /// Filter probe IDs to only valid ones from catalog
@@ -303,6 +311,7 @@ impl AnswerEngine {
             confidence_level,
             problems: vec![],
             loop_iterations,
+            model_used: Some(self.model_name.clone()),
         }
     }
 
@@ -331,6 +340,7 @@ impl AnswerEngine {
             confidence_level,
             problems: vec!["Reached maximum verification loops".to_string()],
             loop_iterations,
+            model_used: Some(self.model_name.clone()),
         }
     }
 
@@ -351,6 +361,7 @@ impl AnswerEngine {
             confidence_level: ConfidenceLevel::Red,
             problems: vec![reason.to_string()],
             loop_iterations,
+            model_used: Some(self.model_name.clone()),
         }
     }
 

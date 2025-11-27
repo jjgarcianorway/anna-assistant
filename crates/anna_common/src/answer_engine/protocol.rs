@@ -262,6 +262,9 @@ pub struct FinalAnswer {
     /// Number of LLM-A/LLM-B loop iterations used
     #[serde(default)]
     pub loop_iterations: usize,
+    /// LLM model used for this answer (v0.15.7)
+    #[serde(default)]
+    pub model_used: Option<String>,
 }
 
 /// Confidence level derived from overall score

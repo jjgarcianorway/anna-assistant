@@ -287,13 +287,14 @@ Configuration (via natural language):
             let health_summary = self_health::summary_line(&health_report);
 
             let version_text = format!(
-                "{sep}\nAnna Assistant v{version}\n{sep}\n\n[SUMMARY]\n  * Mode: {mode} [source: config.core]\n  * Update: {update} [source: config.update]\n  * Self-health: {health} [source: self_health]\n\n[DETAILS]\n  * LLM:\n    - selection_mode: {sel_mode} [source: config.llm]\n    - active_model: {active} [source: config.llm]\n    - fallback_model: {fallback} [source: config.llm]\n  * Hardware:\n    - CPU: {cpu_cores} cores [source: hardware.profile]\n    - RAM: {ram_gb} GB [source: hardware.profile]\n    - GPU: {gpu_status} [source: hardware.profile]\n    - recommendation: {rec} [source: hardware.profile]\n  * Daemon: {daemon} [source: system.version]\n  * Tool catalog: {probes} probes registered [source: system.version]\n\n[RELIABILITY]\n  * score: 0.95 (green)\n  * internal_passes: 1\n  * threshold_reached: yes\n\n{sep}",
+                "{sep}\nAnna Assistant v{version}\n{sep}\n\n[SUMMARY]\n  * Mode: {mode} [source: config.core]\n  * Update: {update} [source: config.update]\n  * Self-health: {health} [source: self_health]\n\n[DETAILS]\n  * LLM:\n    - selection_mode: {sel_mode} [source: config.llm]\n    - ACTIVE MODEL: {auto_model} [source: hardware auto-select]\n    - reason: {rec} [source: hardware.profile]\n    - config preferred: {active} [source: config.llm]\n    - fallback_model: {fallback} [source: config.llm]\n  * Hardware:\n    - CPU: {cpu_cores} cores [source: hardware.profile]\n    - RAM: {ram_gb} GB [source: hardware.profile]\n    - GPU: {gpu_status} [source: hardware.profile]\n  * Daemon: {daemon} [source: system.version]\n  * Tool catalog: {probes} probes registered [source: system.version]\n\n[RELIABILITY]\n  * score: 0.95 (green)\n  * internal_passes: 1\n  * threshold_reached: yes\n\n{sep}",
                 sep = SEPARATOR,
                 version = version,
                 mode = config.core.mode.as_str(),
                 update = update_info,
                 health = health_summary,
                 sel_mode = config.llm.selection_mode.as_str(),
+                auto_model = model_rec.model,
                 active = config.llm.preferred_model,
                 fallback = config.llm.fallback_model,
                 cpu_cores = hardware.cpu_cores,

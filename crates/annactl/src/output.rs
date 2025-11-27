@@ -234,6 +234,10 @@ pub fn display_final_answer(answer: &FinalAnswer) {
         "{}",
         "==================================================".cyan()
     );
+    // Show model used
+    if let Some(ref model) = answer.model_used {
+        println!("{}  {}", "Model:".dimmed(), model.bright_blue());
+    }
     if !answer.is_refusal {
         println!(
             "{}",
