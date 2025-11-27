@@ -18,9 +18,6 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: anna-linux-x86_64
-          - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            artifact: anna-linux-aarch64
 
     steps:
       - uses: actions/checkout@v4
@@ -34,20 +31,27 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Package binaries
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/annad dist/
-          cp target/${{ matrix.target }}/release/annactl dist/
-          cp -r probes dist/
-          cp README.md LICENSE dist/
-          tar -czvf ${{ matrix.artifact }}.tar.gz -C dist .
+          # Copy binaries with versioned names (e.g., annad-0.16.2-x86_64-unknown-linux-gnu)
+          cp target/${{ matrix.target }}/release/annad "dist/annad-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}"
+          cp target/${{ matrix.target }}/release/annactl "dist/annactl-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}"
+
+          # Generate checksums with versioned filenames
+          cd dist
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.tar.gz
+          path: dist/*
 
   release:
     name: Release
@@ -64,37 +68,29 @@ jobs:
         with:
           path: artifacts
 
-      - name: Extract binaries and create checksums
+      - name: Prepare release files
         run: |
-          cd artifacts
-
-          # Extract x86_64 binaries for direct download
-          mkdir -p x86_64_extracted
-          tar -xzf anna-linux-x86_64/anna-linux-x86_64.tar.gz -C x86_64_extracted
-          cp x86_64_extracted/annad .
-          cp x86_64_extracted/annactl .
-
-          # Create checksums for tar.gz archives
-          for dir in */; do
-            if [ -d "$dir" ] && ls "$dir"/*.tar.gz 1> /dev/null 2>&1; then
-              cd "$dir"
-              sha256sum *.tar.gz >> ../SHA256SUMS
-              cd ..
-            fi
+          mkdir -p release
+          # Copy all files from artifact directories
+          find artifacts -type f | while read f; do
+            cp "$f" release/
           done
 
-          # Add individual binary checksums (for installer compatibility)
-          sha256sum annad >> SHA256SUMS
-          sha256sum annactl >> SHA256SUMS
+          # Create combined SHA256SUMS
+          cd release
+          rm -f SHA256SUMS
+          sha256sum annad-* annactl-* > SHA256SUMS
+
+          echo "=== Release contents ==="
+          ls -la
+          echo ""
+          echo "=== SHA256SUMS ==="
+          cat SHA256SUMS
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            artifacts/**/*.tar.gz
-            artifacts/annad
-            artifacts/annactl
-            artifacts/SHA256SUMS
-          generate_release_notes: true
+          files: release/*
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
