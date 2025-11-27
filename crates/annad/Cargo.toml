@@ -26,3 +26,5 @@ regex.workspace = true
 reqwest.workspace = true
 sha2 = "0.10"
 tempfile = "3.10"
+flate2 = "1.0"
+tar = "0.4"

@@ -39,7 +39,11 @@ pub struct GitHubAsset {
 #[derive(Debug, Clone)]
 pub struct UpdateCheckResult {
     pub info: VersionInfo,
+    /// Tarball containing both binaries (preferred)
+    pub tarball_url: Option<String>,
+    /// Individual annad binary URL (fallback)
     pub annad_url: Option<String>,
+    /// Individual annactl binary URL (fallback)
     pub annactl_url: Option<String>,
     pub checksums_url: Option<String>,
 }
@@ -57,6 +61,20 @@ impl UpdateCheckResult {
             _ => "x86_64-unknown-linux-gnu",
         };
 
+        // Preferred: tarball containing both binaries
+        let tarball_name = match arch {
+            "x86_64" => "anna-linux-x86_64.tar.gz",
+            "aarch64" => "anna-linux-aarch64.tar.gz",
+            _ => "anna-linux-x86_64.tar.gz",
+        };
+
+        let tarball_url = release
+            .assets
+            .iter()
+            .find(|a| a.name == tarball_name)
+            .map(|a| a.browser_download_url.clone());
+
+        // Fallback: individual binaries
         let annad_name = format!("annad-{}-{}", latest, target);
         let annactl_name = format!("annactl-{}-{}", latest, target);
 
@@ -86,6 +104,7 @@ impl UpdateCheckResult {
                 release_notes: release.body.clone(),
                 download_url: Some(release.html_url.clone()),
             },
+            tarball_url,
             annad_url,
             annactl_url,
             checksums_url,

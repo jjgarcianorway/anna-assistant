@@ -1,19 +1,22 @@
-//! Auto-update scheduler for Anna v0.5.0
+//! Auto-update scheduler for Anna v0.14.2
 //!
 //! Runs in the background and checks for updates based on config.
-//! Dev mode: Every 10 minutes (600s minimum) when enabled.
+//! Downloads tarball to ensure annad and annactl stay in sync.
 
 use anna_common::{
     load_update_state, record_update_check, save_update_state, AnnaConfigV5, GitHubRelease,
     UpdateCheckResult, UpdateResult, UpdateState, MIN_UPDATE_INTERVAL,
 };
 use anyhow::{Context, Result};
+use flate2::read::GzDecoder;
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use tar::Archive;
 use tempfile::TempDir;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -189,17 +192,13 @@ impl AutoUpdateScheduler {
             .context("Failed to parse release")
     }
 
-    /// Apply the update atomically
+    /// Apply the update atomically by downloading tarball
     async fn apply_update(&self, check_result: &UpdateCheckResult) -> Result<()> {
-        // Need both binaries
-        let annad_url = check_result
-            .annad_url
+        // Prefer tarball (ensures both binaries are same version)
+        let tarball_url = check_result
+            .tarball_url
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No annad binary URL"))?;
-        let annactl_url = check_result
-            .annactl_url
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No annactl binary URL"))?;
+            .ok_or_else(|| anyhow::anyhow!("No tarball URL in release"))?;
         let checksums_url = check_result
             .checksums_url
             .as_ref()
@@ -212,40 +211,85 @@ impl AutoUpdateScheduler {
         info!("📥  Downloading checksums...");
         let checksums = self.download_text(checksums_url).await?;
 
-        // Download binaries
-        info!("📥  Downloading annad...");
+        // Download tarball
+        info!("📥  Downloading Anna update package...");
+        let tarball_data = self.download_binary(tarball_url).await?;
+
+        // Verify tarball checksum
+        info!("🔐  Verifying package integrity...");
+        self.verify_tarball_checksum(&tarball_data, &checksums)?;
+
+        // Extract tarball
+        info!("📦  Extracting package...");
+        let decoder = GzDecoder::new(&tarball_data[..]);
+        let mut archive = Archive::new(decoder);
+
+        for entry in archive.entries().context("Failed to read tarball")? {
+            let mut entry = entry.context("Failed to read entry")?;
+            let path = entry.path().context("Failed to get path")?;
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+
+            if name == "annad" || name == "annactl" {
+                let dest = temp_dir.path().join(&name);
+                let mut file = fs::File::create(&dest)
+                    .context(format!("Failed to create {}", name))?;
+                std::io::copy(&mut entry, &mut file)
+                    .context(format!("Failed to extract {}", name))?;
+                fs::set_permissions(&dest, fs::Permissions::from_mode(0o755))?;
+            }
+        }
+
+        // Verify both binaries exist
         let annad_path = temp_dir.path().join("annad");
-        let annad_data = self.download_binary(annad_url).await?;
-
-        info!("📥  Downloading annactl...");
         let annactl_path = temp_dir.path().join("annactl");
-        let annactl_data = self.download_binary(annactl_url).await?;
 
-        // Verify checksums
-        info!("🔐  Verifying checksums...");
-        self.verify_checksum(&annad_data, "annad", &checksums, &check_result.info.latest)?;
-        self.verify_checksum(
-            &annactl_data,
-            "annactl",
-            &checksums,
-            &check_result.info.latest,
-        )?;
+        if !annad_path.exists() || !annactl_path.exists() {
+            anyhow::bail!("Tarball missing required binaries");
+        }
 
-        // Write binaries to temp
-        fs::write(&annad_path, &annad_data).context("Failed to write annad")?;
-        fs::write(&annactl_path, &annactl_data).context("Failed to write annactl")?;
-
-        // Set executable permissions
-        fs::set_permissions(&annad_path, fs::Permissions::from_mode(0o755))?;
-        fs::set_permissions(&annactl_path, fs::Permissions::from_mode(0o755))?;
-
-        // Atomic swap
-        info!("🔄  Installing binaries...");
+        // Atomic swap - both at once
+        info!("🔄  Installing update...");
         self.atomic_replace("/usr/local/bin/annad", &annad_path)?;
         self.atomic_replace("/usr/local/bin/annactl", &annactl_path)?;
 
-        info!("✅  Binaries updated successfully");
+        info!("✅  Anna updated successfully");
         Ok(())
+    }
+
+    /// Verify tarball checksum
+    fn verify_tarball_checksum(&self, data: &[u8], checksums: &str) -> Result<()> {
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        let hash = hasher.finalize();
+        let calculated = format!("{:x}", hash);
+
+        // Look for tarball checksum in SHA256SUMS
+        for line in checksums.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let expected_hash = parts[0];
+                let filename = parts[1];
+
+                if filename.contains("anna-linux") && filename.ends_with(".tar.gz") {
+                    if calculated == expected_hash {
+                        debug!("Tarball checksum verified");
+                        return Ok(());
+                    } else {
+                        anyhow::bail!(
+                            "Tarball checksum mismatch: expected {}, got {}",
+                            expected_hash,
+                            calculated
+                        );
+                    }
+                }
+            }
+        }
+
+        anyhow::bail!("Tarball checksum not found in SHA256SUMS")
     }
 
     /// Download text content
@@ -281,50 +325,6 @@ impl AutoUpdateScheduler {
             .await
             .map(|b| b.to_vec())
             .context("Failed to read response")
-    }
-
-    /// Verify checksum
-    /// SHA256SUMS format: <hash>  <filename>
-    /// We look for lines ending with the binary name (annad or annactl)
-    fn verify_checksum(
-        &self,
-        data: &[u8],
-        name: &str,
-        checksums: &str,
-        _version: &str,
-    ) -> Result<()> {
-        // Calculate SHA256
-        let mut hasher = Sha256::new();
-        hasher.update(data);
-        let hash = hasher.finalize();
-        let calculated = format!("{:x}", hash);
-
-        // Find expected checksum - look for simple filename match
-        // SHA256SUMS format is: "hash  filename" (two spaces)
-        for line in checksums.lines() {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                let expected_hash = parts[0];
-                let filename = parts[1];
-
-                // Match if filename is exactly the binary name
-                if filename == name {
-                    if calculated == expected_hash {
-                        debug!("Checksum verified for {}", name);
-                        return Ok(());
-                    } else {
-                        anyhow::bail!(
-                            "Checksum mismatch for {}: expected {}, got {}",
-                            name,
-                            expected_hash,
-                            calculated
-                        );
-                    }
-                }
-            }
-        }
-
-        anyhow::bail!("Checksum not found for {} in SHA256SUMS", name)
     }
 
     /// Atomic file replacement with backup
