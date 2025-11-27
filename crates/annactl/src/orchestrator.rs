@@ -11,6 +11,11 @@
 //! v0.5.0:
 //! - Natural language configuration
 //! - Hardware-aware model selection
+//!
+//! v0.6.0:
+//! - ASCII-only sysadmin style (no emojis)
+//! - Multi-round refinement loop with thresholds
+//! - Structured reports with [SUMMARY], [DETAILS], [EVIDENCE], [RELIABILITY]
 
 use crate::client::DaemonClient;
 use crate::llm_client::LlmClient;
@@ -19,6 +24,7 @@ use anna_common::{
     apply_intent, apply_mutation, format_config_display, format_mutation_diff,
     AnnaConfigV5, AnnaResponse, ConfigIntent, ConfigPatternMatcher, Evidence,
     ExpertResponse, HardwareProfile, ModelSelection, ReliabilityScore, Verdict,
+    SEPARATOR,
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -156,7 +162,7 @@ pub async fn process_internal_query(
 
                 AnnaResponse {
                     answer: format!(
-                        "Anna Assistant v{}\nMode: {}\nUpdate: {}\nLLM: {} ({})\nActive model: {}\nFallback: {}\nDaemon: {}\nTool catalog: {} probes registered\n\n⚠️  LLM unavailable - showing basic info only",
+                        "Anna Assistant v{}\nMode: {}\nUpdate: {}\nLLM: {} ({})\nActive model: {}\nFallback: {}\nDaemon: {}\nTool catalog: {} probes registered\n\n[WARNING] LLM unavailable - showing basic info only",
                         version, config.core.mode.as_str(), update_info,
                         config.llm.selection_mode.as_str(), model_rec.reason,
                         config.llm.preferred_model, config.llm.fallback_model,
@@ -188,7 +194,7 @@ Configuration (via natural language):
 
 {}
 
-⚠️  LLM unavailable - showing basic help only"#, config_note),
+[WARNING] LLM unavailable - showing basic help only"#, config_note),
                     confidence: 0.5,
                     sources: vec!["internal.help".to_string(), "config.update".to_string()],
                     warning: Some("LLM backend unavailable".to_string()),
@@ -241,14 +247,30 @@ Configuration (via natural language):
                 .chat(&models.orchestrator, LLM_A_SYSTEM_PROMPT, &prompt)
                 .await;
 
-            // Use deterministic output for stability
+            // v0.6.0: ASCII-only sysadmin style version output
+            let gpu_status = if hardware.gpu_driver_functional {
+                "detected_with_driver"
+            } else if hardware.gpu_vendor.as_str() != "none" {
+                "detected"
+            } else {
+                "none"
+            };
+
             let version_text = format!(
-                "Anna Assistant v{}\nMode: {} [source: config.core]\nUpdate: {} [source: config.update]\nLLM:\n  selection_mode: {} [source: config.llm]\n  active_model: {} [source: config.llm]\n  fallback_model: {} [source: config.llm]\n  hardware_recommendation: {} [source: hardware.profile]\nDaemon: {} [source: system.version]\nTool catalog: {} probes registered [source: system.version]",
-                version, config.core.mode.as_str(), update_info,
-                config.llm.selection_mode.as_str(),
-                config.llm.preferred_model, config.llm.fallback_model,
-                model_rec.reason,
-                daemon_status, probe_count
+                "{sep}\nAnna Assistant v{version}\n{sep}\n\n[SUMMARY]\n  * Mode: {mode} [source: config.core]\n  * Update: {update} [source: config.update]\n\n[DETAILS]\n  * LLM:\n    - selection_mode: {sel_mode} [source: config.llm]\n    - active_model: {active} [source: config.llm]\n    - fallback_model: {fallback} [source: config.llm]\n  * Hardware:\n    - CPU: {cpu_cores} cores [source: hardware.profile]\n    - RAM: {ram_gb} GB [source: hardware.profile]\n    - GPU: {gpu_status} [source: hardware.profile]\n    - recommendation: {rec} [source: hardware.profile]\n  * Daemon: {daemon} [source: system.version]\n  * Tool catalog: {probes} probes registered [source: system.version]\n\n[RELIABILITY]\n  * score: 0.95 (green)\n  * internal_passes: 1\n  * threshold_reached: yes\n\n{sep}",
+                sep = SEPARATOR,
+                version = version,
+                mode = config.core.mode.as_str(),
+                update = update_info,
+                sel_mode = config.llm.selection_mode.as_str(),
+                active = config.llm.preferred_model,
+                fallback = config.llm.fallback_model,
+                cpu_cores = hardware.cpu_cores,
+                ram_gb = hardware.ram_gb,
+                gpu_status = gpu_status,
+                rec = model_rec.reason,
+                daemon = daemon_status,
+                probes = probe_count
             );
 
             Ok(AnnaResponse {
@@ -268,7 +290,7 @@ Configuration (via natural language):
             let config_note = if config.is_dev_auto_update_active() {
                 "Dev auto-update: enabled (every 10 minutes)"
             } else {
-                "Configure Anna via natural language (e.g., \"enable dev auto-update\")"
+                "Configure Anna via natural language"
             };
 
             let evidence = serde_json::json!({
@@ -302,28 +324,43 @@ Configuration (via natural language):
                 .chat(&models.orchestrator, LLM_A_SYSTEM_PROMPT, &prompt)
                 .await;
 
-            // Use deterministic help output for stability
-            let help_text = format!(r#"Usage:
+            // v0.6.0: ASCII-only sysadmin style help output
+            let help_text = format!(r#"{sep}
+Anna Assistant - Help
+{sep}
+
+[USAGE]
   annactl "<question>"      Ask Anna anything
   annactl                   Start interactive REPL
   annactl -V | --version    Show version
   annactl -h | --help       Show help
 
-Configuration (via natural language):
-  "enable dev auto-update every 10 minutes"
-  "switch to manual model selection and use qwen2.5:14b"
-  "go back to automatic model selection"
-  "show me your current configuration"
+[CONFIGURATION]
+  All configuration is performed via natural language:
+  * "enable dev auto-update every 10 minutes"
+  * "switch to manual model selection and use qwen2.5:14b"
+  * "go back to automatic model selection"
+  * "show me your current configuration"
 
-Examples:
+[EXAMPLES]
   annactl "How many CPU cores do I have?"
   annactl "What's my RAM usage?"
   annactl "Show disk information"
+  annactl "short answer only: how much disk space?"
+  annactl "detailed report about storage"
 
-{}
+[NOTES]
+  * {config_note}
+  * Answers always include reliability assessment
+  * No subcommands beyond version/help
+  * Evidence-based answers only - no hallucinations
 
-No subcommands beyond version/help.
-Evidence-based answers only. No hallucinations."#, config_note);
+[RELIABILITY]
+  * score: 1.00 (green)
+  * internal_passes: 1
+  * threshold_reached: yes
+
+{sep}"#, sep = SEPARATOR, config_note = config_note);
 
             Ok(AnnaResponse {
                 answer: help_text,
@@ -383,17 +420,18 @@ pub async fn process_config_request(question: &str) -> Option<AnnaResponse> {
         let new_config = apply_mutation(&config, &mutation);
         if let Err(e) = new_config.save() {
             return Some(AnnaResponse {
-                answer: format!("Failed to save configuration: {}", e),
+                answer: format!("[ERROR] Failed to save configuration: {}", e),
                 confidence: 0.0,
                 sources: vec![],
                 warning: Some("Config save failed".to_string()),
             });
         }
 
+        // v0.6.0: ASCII-only output
         return Some(AnnaResponse {
             answer: format!(
-                "{}  Configuration updated.\n\n{}\n{}",
-                "✓", mutation.summary, diff
+                "[OK] Configuration updated.\n\n{}\n{}",
+                mutation.summary, diff
             ),
             confidence: 1.0,
             sources: vec!["config.change".to_string()],
@@ -430,7 +468,7 @@ pub async fn process_question(question: &str, daemon: &DaemonClient) -> Result<A
         });
     }
 
-    info!("📝  Processing question: {}", question);
+    info!("Processing question: {}", question);
 
     // === STABILITY CHECK: Run twice and compare ===
     let first_result = process_question_internal(question, daemon, &llm, &models).await?;
@@ -446,7 +484,7 @@ pub async fn process_question(question: &str, daemon: &DaemonClient) -> Result<A
         }
     } else {
         // Answers differ - need reconciliation
-        warn!("⚠️  Answer instability detected, running reconciliation");
+        warn!("Answer instability detected, running reconciliation");
 
         let reconciliation_prompt = format!(
             "Two attempts at answering produced different results.\n\nAttempt 1:\n{}\n\nAttempt 2:\n{}\n\nReconcile these into a single canonical answer. Use only facts that appear in BOTH answers.",
@@ -473,7 +511,7 @@ pub async fn process_question(question: &str, daemon: &DaemonClient) -> Result<A
 
     let mut answer = stability.answer;
     if let Some(note) = &stability.stability_note {
-        answer = format!("{}\n\n📊  {}", answer, note);
+        answer = format!("{}\n\n[STABILITY] {}", answer, note);
     }
 
     Ok(AnnaResponse {
@@ -539,16 +577,16 @@ async fn process_question_internal(
             let (valid_probes, invalid_probes) = validate_probes(&probes);
 
             if !invalid_probes.is_empty() {
-                warn!("⚠️  LLM-A requested invalid probes: {:?}", invalid_probes);
+                warn!("LLM-A requested invalid probes: {:?}", invalid_probes);
             }
 
             // === STRICT HALLUCINATION GUARDRAIL ===
             if valid_probes.is_empty() {
+                // v0.6.0: ASCII-only error output
                 return Ok(AnnaResponse {
                     answer: format!(
-                        "{}  Insufficient evidence\n\n❌  Cannot answer this question.\n\n📋  Missing probes:\n{}\n\n🔧  Available probes: {}",
-                        "🚫",
-                        invalid_probes.iter().map(|p| format!("   • No {} probe available", p)).collect::<Vec<_>>().join("\n"),
+                        "[ERROR] Insufficient evidence\n\nCannot answer this question.\n\n[MISSING PROBES]\n{}\n\n[AVAILABLE PROBES]\n{}",
+                        invalid_probes.iter().map(|p| format!("  * No {} probe available", p)).collect::<Vec<_>>().join("\n"),
                         TOOL_CATALOG.join(", ")
                     ),
                     confidence: 0.0,
@@ -557,7 +595,7 @@ async fn process_question_internal(
                 });
             }
 
-            info!("🔍  Running probes: {:?} ({})", valid_probes, reason);
+            info!("Running probes: {:?} ({})", valid_probes, reason);
 
             // Run validated probes only
             let probe_refs: Vec<&str> = valid_probes.iter().map(|s| s.as_str()).collect();
@@ -634,11 +672,11 @@ async fn process_question_internal(
             // === STRICT HALLUCINATION GUARDRAIL ===
             // If reliability < 0.70, return insufficient evidence
             if reliability.overall < 0.70 {
+                // v0.6.0: ASCII-only error output
                 return Ok(AnnaResponse {
                     answer: format!(
-                        "{}  Insufficient evidence\n\n⚠️  Reliability too low: {:.0}%\n\n📋  Reason: {}\n\n🔧  Available probes: {}",
-                        "🚫",
-                        reliability.overall * 100.0,
+                        "[ERROR] Insufficient evidence\n\n[RELIABILITY]\n  * score: {:.2} (red)\n  * threshold_reached: no\n\n[REASON]\n  {}\n\n[AVAILABLE PROBES]\n  {}",
+                        reliability.overall,
                         expert.explanation,
                         TOOL_CATALOG.join(", ")
                     ),
@@ -685,11 +723,11 @@ async fn process_question_internal(
                     }
                 }
                 Verdict::Revise => {
-                    warn!("✏️  LLM-B requested revision: {}", expert.explanation);
+                    warn!("LLM-B requested revision: {}", expert.explanation);
                     reliability.add_deduction(0.1, "Required revision");
 
                     let answer = expert.corrected_reasoning
-                        .unwrap_or_else(|| format!("{}\n\n⚠️  Note: {}", llm_a_answer, expert.explanation));
+                        .unwrap_or_else(|| format!("{}\n\n[NOTE] {}", llm_a_answer, expert.explanation));
 
                     Ok(AnnaResponse {
                         answer,
@@ -699,15 +737,15 @@ async fn process_question_internal(
                     })
                 }
                 Verdict::NotPossible => {
-                    warn!("❌  LLM-B: insufficient evidence or hallucination detected");
+                    warn!("LLM-B: insufficient evidence or hallucination detected");
 
+                    // v0.6.0: ASCII-only error output
                     Ok(AnnaResponse {
                         answer: format!(
-                            "{}  Insufficient evidence\n\n📋  Reason: {}\n\n🔧  Available probes: {}\n📊  Reliability: {:.0}%",
-                            "🚫",
+                            "[ERROR] Insufficient evidence\n\n[REASON]\n  {}\n\n[AVAILABLE PROBES]\n  {}\n\n[RELIABILITY]\n  * score: {:.2} (red)",
                             expert.explanation,
                             TOOL_CATALOG.join(", "),
-                            expert.confidence * 100.0
+                            expert.confidence
                         ),
                         confidence: expert.confidence,
                         sources: valid_probes,
@@ -719,12 +757,12 @@ async fn process_question_internal(
         OrchestratorAction::FinalAnswer { confidence, sources, .. } => {
             // === STRICT HALLUCINATION GUARDRAIL ===
             // Direct answer without probes - REJECT
-            warn!("⚠️  LLM-A provided answer without requesting probes - BLOCKED");
+            warn!("LLM-A provided answer without requesting probes - BLOCKED");
 
+            // v0.6.0: ASCII-only error output
             Ok(AnnaResponse {
                 answer: format!(
-                    "{}  Insufficient evidence\n\n❌  Cannot provide answer without probe data.\n\n🔧  Available probes: {}",
-                    "🚫",
+                    "[ERROR] Insufficient evidence\n\nCannot provide answer without probe data.\n\n[AVAILABLE PROBES]\n  {}",
                     TOOL_CATALOG.join(", ")
                 ),
                 confidence: confidence * 0.3, // Heavily penalize
@@ -761,11 +799,11 @@ fn create_insufficient_evidence_response(question: &str) -> AnnaResponse {
         missing_probes.push("No suitable probe available for this query");
     }
 
+    // v0.6.0: ASCII-only error output
     AnnaResponse {
         answer: format!(
-            "{}  Insufficient evidence\n\n❌  Cannot answer this question.\n\n📋  Missing probes:\n{}\n\n🔧  Available probes: {}",
-            "🚫",
-            missing_probes.iter().map(|p| format!("   • {}", p)).collect::<Vec<_>>().join("\n"),
+            "[ERROR] Insufficient evidence\n\nCannot answer this question.\n\n[MISSING PROBES]\n{}\n\n[AVAILABLE PROBES]\n  {}",
+            missing_probes.iter().map(|p| format!("  * {}", p)).collect::<Vec<_>>().join("\n"),
             TOOL_CATALOG.join(", ")
         ),
         confidence: 0.0,

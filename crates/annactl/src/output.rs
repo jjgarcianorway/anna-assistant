@@ -1,39 +1,33 @@
-//! Output formatting - clean, beautiful terminal output v0.3.0
+//! Output formatting - clean, ASCII-only terminal output v0.6.0
+//!
+//! v0.6.0: Sysadmin style - no emojis, ASCII only, professional
 #![allow(dead_code)]
 
-use anna_common::AnnaResponse;
+use anna_common::{AnnaResponse, THIN_SEPARATOR};
 use owo_colors::OwoColorize;
 
 /// Display a response to the user
 pub fn display_response(response: &AnnaResponse) {
-    // Confidence color and threshold for v0.3.0
+    // Confidence color and threshold
     let conf_pct = (response.confidence * 100.0) as u8;
-    let conf_str = format!("{}%", conf_pct);
+    let conf_str = format!("{:.2}", response.confidence);
 
-    // v0.3.0: < 70% is red (insufficient evidence threshold)
-    let conf_colored = if conf_pct >= 90 {
-        conf_str.bright_green().to_string()
+    // v0.6.0: Color categories
+    let (conf_colored, reliability_indicator) = if conf_pct >= 90 {
+        (conf_str.bright_green().to_string(), "[OK]".bright_green().to_string())
     } else if conf_pct >= 70 {
-        conf_str.yellow().to_string()
+        (conf_str.yellow().to_string(), "[PARTIAL]".yellow().to_string())
     } else {
-        conf_str.bright_red().to_string()
+        (conf_str.bright_red().to_string(), "[LOW]".bright_red().to_string())
     };
 
-    // Header with reliability indicator
+    // Header with reliability indicator (v0.6.0: ASCII only)
     println!();
-    let reliability_icon = if conf_pct >= 90 {
-        "✓".bright_green().to_string()
-    } else if conf_pct >= 70 {
-        "⚠".yellow().to_string()
-    } else {
-        "✗".bright_red().to_string()
-    };
-
     println!(
-        "{}  {}  Reliability: {}",
-        "🤖".bright_magenta(),
-        reliability_icon,
-        conf_colored
+        "{}  Reliability: {} ({})",
+        reliability_indicator,
+        conf_colored,
+        if conf_pct >= 90 { "green" } else if conf_pct >= 70 { "yellow" } else { "red" }
     );
     println!();
 
@@ -45,84 +39,78 @@ pub fn display_response(response: &AnnaResponse) {
         println!("{}", response.answer);
     }
 
-    // Sources
+    // Sources (v0.6.0: ASCII-only formatting)
     if !response.sources.is_empty() {
         println!();
-        println!("{}  Evidence:", "📋".dimmed());
+        println!("[EVIDENCE]");
         for source in &response.sources {
-            println!("   {}  [source: {}]", "•".bright_blue(), source.cyan());
+            println!("  * [source: {}]", source.cyan());
         }
     }
 
-    // Warning
+    // Warning (v0.6.0: ASCII-only)
     if let Some(warning) = &response.warning {
         println!();
         if response.confidence < 0.70 {
-            println!("{}  {}", "🚫".bright_red(), warning.bright_red());
+            println!("[WARNING] {}", warning.bright_red());
         } else {
-            println!("{}  {}", "⚠".yellow(), warning.yellow());
+            println!("[NOTE] {}", warning.yellow());
         }
     }
 
-    // v0.3.0: No hallucination guarantee footer
+    // v0.6.0: ASCII-only footer
     println!();
     if response.confidence >= 0.70 {
+        println!("{}", THIN_SEPARATOR.dimmed());
         println!(
             "{}",
-            "─────────────────────────────────────────".dimmed()
-        );
-        println!(
-            "{}  {}",
-            "🛡️".dimmed(),
-            "Evidence-based • No hallucinations • No guesses".dimmed()
+            "Evidence-based * No hallucinations * No guesses".dimmed()
         );
     }
     println!();
 }
 
-/// Display an error
+/// Display an error (v0.6.0: ASCII-only)
 pub fn display_error(message: &str) {
     eprintln!();
-    eprintln!("{}  {}", "✗".bright_red(), message.red());
+    eprintln!("[ERROR] {}", message.red());
     eprintln!();
 }
 
-/// Display a success message
+/// Display a success message (v0.6.0: ASCII-only)
 pub fn display_success(message: &str) {
     println!();
-    println!("{}  {}", "✓".bright_green(), message.green());
+    println!("[OK] {}", message.green());
     println!();
 }
 
-/// Display an info message
+/// Display an info message (v0.6.0: ASCII-only)
 pub fn display_info(message: &str) {
-    println!("{}  {}", "ℹ".bright_blue(), message);
+    println!("[INFO] {}", message);
 }
 
-/// Display a warning
+/// Display a warning (v0.6.0: ASCII-only)
 pub fn display_warning(message: &str) {
-    println!("{}  {}", "⚠".yellow(), message.yellow());
+    println!("[WARNING] {}", message.yellow());
 }
 
-/// Display insufficient evidence (v0.3.0)
+/// Display insufficient evidence (v0.6.0: ASCII-only)
 pub fn display_insufficient_evidence(domain: &str, missing_probes: &[&str]) {
     eprintln!();
     eprintln!(
-        "{}  {}",
-        "🚫".bright_red(),
+        "[ERROR] {}",
         "Insufficient evidence".bright_red().bold()
     );
     eprintln!();
-    eprintln!("{}  Cannot answer questions about: {}", "❌".red(), domain.red());
+    eprintln!("Cannot answer questions about: {}", domain.red());
     eprintln!();
-    eprintln!("{}  Missing probes:", "📋".dimmed());
+    eprintln!("[MISSING PROBES]");
     for probe in missing_probes {
-        eprintln!("   {}  {}", "•".red(), probe.red());
+        eprintln!("  * {}", probe.red());
     }
     eprintln!();
     eprintln!(
-        "{}  Available probes: cpu.info, mem.info, disk.lsblk",
-        "🔧".dimmed()
+        "[AVAILABLE PROBES] cpu.info, mem.info, disk.lsblk, hardware.gpu, drivers.gpu, hardware.ram"
     );
     eprintln!();
 }

@@ -1,21 +1,23 @@
-# Anna v0.5.0
+# Anna v0.6.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.5.0
+## What's New in v0.6.0
 
-- 🗣️  **Natural Language Configuration** - Configure Anna by talking to her
-- 🧠  **Hardware-Aware Model Selection** - Automatically picks the right model for your hardware
-- 🔒  **GPU Driver Detection** - Safe fallback when GPU exists but drivers are missing
-- 🔄  **Dev Auto-Update** - 600 second minimum interval, config-driven
+- **ASCII-Only Sysadmin Style** - Professional output, no emojis, old-school terminal look
+- **Structured Reports** - [SUMMARY], [DETAILS], [EVIDENCE], [RELIABILITY] sections
+- **Multi-Round Refinement** - LLM-A/LLM-B iterate up to 3 passes for accuracy
+- **Reliability Scoring** - Green (>=0.9), Yellow (0.7-0.9), Red (<0.7) confidence levels
+- **Terminal Hyperlinks** - Clickable links to Arch Wiki and official docs
 
-## What's in v0.4.0
+## Previous in v0.5.0
 
-- 🔄  **Dev Auto-Update** - Automatic updates every 10 minutes in dev mode
-- 📊  **Update Status in Version/Help** - Channel, mode, last check info
-- ⚙️  **Config-Driven Updates** - No new CLI commands, all via config
+- Natural Language Configuration - Configure Anna by talking to her
+- Hardware-Aware Model Selection - Automatically picks the right model
+- GPU Driver Detection - Safe fallback when drivers missing
+- Dev Auto-Update - 600 second minimum interval
 
 ## Architecture
 

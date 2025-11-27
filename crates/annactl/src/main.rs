@@ -3,6 +3,7 @@
 //! v0.3.0: Strict CLI with LLM-orchestrated help/version
 //! v0.4.0: Update status in version/help output
 //! v0.5.0: Natural language configuration, hardware-aware model selection
+//! v0.6.0: ASCII-only sysadmin style, multi-round reliability refinement
 //!
 //! Only these commands exist:
 //!   - annactl "<question>"    Ask Anna anything
@@ -65,9 +66,10 @@ async fn main() -> Result<()> {
 /// Run the interactive REPL
 async fn run_repl() -> Result<()> {
     print_banner();
+    // v0.6.0: ASCII-only output
     println!(
         "{}  Interactive mode. Type {} to exit.\n",
-        "🗣️".cyan(),
+        ">>".cyan(),
         "quit".yellow()
     );
 
@@ -96,7 +98,8 @@ async fn run_repl() -> Result<()> {
             input.to_lowercase().as_str(),
             "quit" | "exit" | "q" | ":q"
         ) {
-            println!("\n{}  Goodbye!\n", "👋".bright_magenta());
+            // v0.6.0: ASCII-only output
+            println!("\nGoodbye.\n");
             break;
         }
 
@@ -112,7 +115,7 @@ async fn run_repl() -> Result<()> {
 
         // Process question
         if let Err(e) = run_ask(input).await {
-            eprintln!("{}  Error: {}", "✗".red(), e);
+            eprintln!("[ERROR] {}", e);
         }
     }
 
@@ -120,9 +123,10 @@ async fn run_repl() -> Result<()> {
 }
 
 fn print_banner() {
+    // v0.6.0: ASCII-only banner
     println!(
         "\n{}  {}",
-        "🤖".bright_magenta(),
+        ">>".bright_magenta(),
         format!("Anna v{}", env!("CARGO_PKG_VERSION")).bright_white().bold()
     );
     println!("   Your intelligent Linux assistant\n");
@@ -134,7 +138,8 @@ async fn run_ask(question: &str) -> Result<()> {
 
     // Check daemon health
     if !daemon.is_healthy().await {
-        eprintln!("{}  Anna daemon is not running", "✗".red());
+        // v0.6.0: ASCII-only error output
+        eprintln!("[ERROR] Anna daemon is not running");
         eprintln!(
             "   Run: {} to start",
             "sudo systemctl start annad".cyan()
