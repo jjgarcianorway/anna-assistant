@@ -33,7 +33,7 @@ set -uo pipefail
 # ============================================================
 
 # Installer version (independent from Anna version)
-INSTALLER_VERSION="2.2.0"
+INSTALLER_VERSION="2.3.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -520,10 +520,13 @@ select_model() {
     # Criteria: reasoning ability, JSON output reliability, Linux/technical knowledge
     #
     # Large models (14B+) - excellent quality, need 12GB+ VRAM
+    # Note: MoE models like qwen3:30b-a3b have many params but fewer active, so they're efficient
     local large_models=(
+        "qwen3:30b-a3b"
         "qwen2.5:14b"
         "qwen2.5:32b"
         "qwen3:14b"
+        "qwen3:32b"
         "deepseek-coder:33b"
         "codellama:34b"
         "llama3.1:70b"
@@ -535,6 +538,7 @@ select_model() {
     local medium_models=(
         "qwen2.5:7b"
         "qwen3:8b"
+        "qwen3-coder:8b"
         "mistral:7b-instruct"
         "mistral:7b"
         "mistral-nemo:latest"
@@ -549,10 +553,11 @@ select_model() {
 
     # Small models (3-4B) - acceptable for low VRAM/CPU, good JSON output
     local small_models=(
+        "qwen3:4b"
+        "qwen2.5:3b"
+        "qwen3:1.7b"
         "nemotron-mini:4b"
         "llama3.2:3b"
-        "qwen2.5:3b"
-        "qwen3:4b"
         "phi3:mini"
         "gemma2:2b"
         "starcoder2:3b"
@@ -596,33 +601,34 @@ select_model() {
     # No suitable model installed, select based on VRAM and download
     # Recommendation: Pick a model that runs COMFORTABLY, not just "technically works"
     # Rule of thumb: model size (GB) should be ~60-70% of VRAM for smooth operation
+    # MoE models (like qwen3:30b-a3b) are efficient - 30B params but only 3B active!
     if [[ "$vram_mb" -ge 24000 ]]; then
-        # 24GB+ VRAM: Use 14B model comfortably
-        SELECTED_MODEL="qwen2.5:14b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:14b (excellent quality)"
+        # 24GB+ VRAM: Use qwen3 MoE model - flagship quality with efficiency
+        SELECTED_MODEL="qwen3:30b-a3b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen3:30b-a3b (MoE - excellent quality)"
     elif [[ "$vram_mb" -ge 12000 ]]; then
-        # 12-24GB VRAM: 14B works but 7B is smoother
+        # 12-24GB VRAM: 14B works well
         SELECTED_MODEL="qwen2.5:14b"
         log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:14b"
     elif [[ "$vram_mb" -ge 8000 ]]; then
-        # 8-12GB VRAM: 7B runs great, 14B would sweat
-        SELECTED_MODEL="qwen2.5:7b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:7b (best for your GPU)"
+        # 8-12GB VRAM: 7B/8B runs great
+        SELECTED_MODEL="qwen3:8b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen3:8b (best for your GPU)"
     elif [[ "$vram_mb" -ge 6000 ]]; then
-        # 6-8GB VRAM: 7B works but tight, 3B is smoother
+        # 6-8GB VRAM: 7B works but tight
         SELECTED_MODEL="qwen2.5:7b"
         log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:7b"
     elif [[ "$vram_mb" -ge 4000 ]]; then
-        # 4-6GB VRAM: Use 3B model
-        SELECTED_MODEL="qwen2.5:3b"
-        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen2.5:3b"
+        # 4-6GB VRAM: Use 4B model
+        SELECTED_MODEL="qwen3:4b"
+        log_ok "GPU with ${vram_mb}MB VRAM - will download qwen3:4b"
     else
-        # CPU only or low VRAM: Use 3B model (qwen2.5 better than llama for structured tasks)
-        SELECTED_MODEL="qwen2.5:3b"
+        # CPU only or low VRAM: Use small model
+        SELECTED_MODEL="qwen3:4b"
         if [[ "$vram_mb" -eq 0 ]]; then
-            log_warn "No GPU detected - will download qwen2.5:3b (CPU mode)"
+            log_warn "No GPU detected - will download qwen3:4b (CPU mode)"
         else
-            log_ok "Low GPU memory (${vram_mb}MB) - will download qwen2.5:3b"
+            log_ok "Low GPU memory (${vram_mb}MB) - will download qwen3:4b"
         fi
     fi
 }
@@ -752,8 +758,8 @@ write_config() {
 
     log_info "Writing default configuration..."
 
-    # Use selected model or default to llama3.2:3b
-    local model="${SELECTED_MODEL:-llama3.2:3b}"
+    # Use selected model or default to qwen3:4b
+    local model="${SELECTED_MODEL:-qwen3:4b}"
 
     $SUDO tee "$config_file" > /dev/null << EOF
 # Anna v${LATEST_VERSION} Configuration
@@ -764,7 +770,7 @@ mode = "normal"
 
 [llm]
 preferred_model = "${model}"
-fallback_model = "llama3.2:3b"
+fallback_model = "qwen3:4b"
 selection_mode = "auto"
 
 [update]
