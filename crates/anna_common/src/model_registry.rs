@@ -273,7 +273,9 @@ mod tests {
     fn test_builtin_registry() {
         let registry = ModelRegistry::builtin();
         assert!(!registry.recommended_by_tier.is_empty());
-        assert!(registry.get_recommendation(HardwareTier::MidRangeGpu).is_some());
+        assert!(registry
+            .get_recommendation(HardwareTier::MidRangeGpu)
+            .is_some());
     }
 
     #[test]
@@ -294,7 +296,9 @@ mod tests {
     #[test]
     fn test_tier_recommendation() {
         let registry = ModelRegistry::builtin();
-        let rec = registry.get_recommendation(HardwareTier::MidRangeGpu).unwrap();
+        let rec = registry
+            .get_recommendation(HardwareTier::MidRangeGpu)
+            .unwrap();
         assert_eq!(rec.senior, "qwen3:8b");
         assert_eq!(rec.junior, "qwen3:1.7b");
     }

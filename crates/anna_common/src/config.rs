@@ -129,13 +129,17 @@ impl LlmConfig {
     /// Get the model for junior role (LLM-A)
     /// Falls back to preferred_model if junior_model not set
     pub fn get_junior_model(&self) -> &str {
-        self.junior_model.as_deref().unwrap_or(&self.preferred_model)
+        self.junior_model
+            .as_deref()
+            .unwrap_or(&self.preferred_model)
     }
 
     /// Get the model for senior role (LLM-B)
     /// Falls back to preferred_model if senior_model not set
     pub fn get_senior_model(&self) -> &str {
-        self.senior_model.as_deref().unwrap_or(&self.preferred_model)
+        self.senior_model
+            .as_deref()
+            .unwrap_or(&self.preferred_model)
     }
 
     /// Check if this is an old config without role-specific models

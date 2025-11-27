@@ -1,13 +1,13 @@
-//! Answer Engine v0.16.3
+//! Answer Engine v0.16.4
 //!
 //! The main orchestration loop:
 //! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/fix/retry
 //!
-//! Key v0.16.3 changes:
+//! Key v0.16.4 changes:
+//! - Real-time debug output with [JUNIOR model] and [SENIOR model] labels
+//! - Iteration headers showing progress through the research loop
 //! - Debug trace captures full LLM dialog for development troubleshooting
 //! - Iteration-aware prompting (forces answer on iteration 2+)
-//! - Fallback answer extraction from raw evidence
-//! - More aggressive answer generation when evidence exists
 
 use super::fallback;
 use super::llm_client::OllamaClient;
@@ -20,6 +20,83 @@ use anna_common::{
 use anyhow::Result;
 use std::time::Instant;
 use tracing::{debug, info, warn};
+
+/// Check if debug mode is enabled
+fn is_debug_mode() -> bool {
+    std::env::var("ANNA_DEBUG").is_ok()
+}
+
+/// Print iteration header for debug mode
+fn print_iteration_header(iteration: usize, junior_model: &str, senior_model: &str) {
+    use std::io::Write;
+    let mut stderr = std::io::stderr();
+
+    let _ = writeln!(stderr);
+    let _ = writeln!(
+        stderr,
+        "████████████████████████████████████████████████████████████████████████████████"
+    );
+    let _ = writeln!(
+        stderr,
+        "██  ITERATION {}/{}  ██  Junior: {}  ██  Senior: {}  ██",
+        iteration, MAX_LOOPS, junior_model, senior_model
+    );
+    let _ = writeln!(
+        stderr,
+        "████████████████████████████████████████████████████████████████████████████████"
+    );
+    let _ = stderr.flush();
+}
+
+/// Print probe execution info for debug mode
+fn print_probes_executed(probes: &[String]) {
+    use std::io::Write;
+    let mut stderr = std::io::stderr();
+
+    let _ = writeln!(stderr);
+    let _ = writeln!(
+        stderr,
+        "┌─ 🔬  PROBES EXECUTED ──────────────────────────────────────────────────────────┐"
+    );
+    for probe in probes {
+        let _ = writeln!(stderr, "│  • {}", probe);
+    }
+    let _ = writeln!(
+        stderr,
+        "└────────────────────────────────────────────────────────────────────────────────┘"
+    );
+    let _ = stderr.flush();
+}
+
+/// Print verdict summary for debug mode
+fn print_verdict_summary(verdict: &AuditVerdict, confidence: f64) {
+    use std::io::Write;
+    let mut stderr = std::io::stderr();
+
+    let verdict_str = match verdict {
+        AuditVerdict::Approve => "✅  APPROVE",
+        AuditVerdict::FixAndAccept => "🔧  FIX_AND_ACCEPT",
+        AuditVerdict::NeedsMoreProbes => "🔄  NEEDS_MORE_PROBES",
+        AuditVerdict::Refuse => "❌  REFUSE",
+    };
+
+    let _ = writeln!(stderr);
+    let _ = writeln!(
+        stderr,
+        "╔══════════════════════════════════════════════════════════════════════════════╗"
+    );
+    let _ = writeln!(
+        stderr,
+        "║  VERDICT: {}  │  Confidence: {:.0}%",
+        verdict_str,
+        confidence * 100.0
+    );
+    let _ = writeln!(
+        stderr,
+        "╚══════════════════════════════════════════════════════════════════════════════╝"
+    );
+    let _ = stderr.flush();
+}
 
 /// Answer engine - orchestrates the LLM-A/LLM-B loop
 ///
@@ -99,6 +176,15 @@ impl AnswerEngine {
         while loop_state.can_continue() {
             loop_state.next_iteration();
             info!("Loop iteration {}/{}", loop_state.iteration, MAX_LOOPS);
+
+            // v0.16.4: Print iteration header in debug mode
+            if is_debug_mode() {
+                print_iteration_header(
+                    loop_state.iteration,
+                    self.junior_model(),
+                    self.senior_model(),
+                );
+            }
 
             // Initialize debug iteration
             let mut debug_iter = DebugIteration {
@@ -187,6 +273,12 @@ impl AnswerEngine {
                     );
                     // Capture executed probes for debug
                     debug_iter.probes_executed = valid_probes.clone();
+
+                    // v0.16.4: Show probes being executed in debug mode
+                    if is_debug_mode() {
+                        print_probes_executed(&valid_probes);
+                    }
+
                     let new_evidence =
                         probe_executor::execute_probes(&self.catalog, &valid_probes).await;
                     evidence.extend(new_evidence);
@@ -238,6 +330,11 @@ impl AnswerEngine {
             );
             if let Some(ref fix) = llm_b_response.fixed_answer {
                 info!("🔧  Fixed answer: {}", &fix[..200.min(fix.len())]);
+            }
+
+            // v0.16.4: Show verdict summary in debug mode
+            if is_debug_mode() {
+                print_verdict_summary(&llm_b_response.verdict, llm_b_response.scores.overall);
             }
 
             loop_state.record_score(llm_b_response.scores.overall);
@@ -558,7 +655,11 @@ fn truncate_for_debug(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        format!("{}...[truncated {} chars]", &s[..max_len], s.len() - max_len)
+        format!(
+            "{}...[truncated {} chars]",
+            &s[..max_len],
+            s.len() - max_len
+        )
     }
 }
 

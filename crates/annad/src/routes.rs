@@ -252,7 +252,10 @@ async fn answer_question(
         // Explicit junior/senior models configured - always use them
         let junior = config.llm.get_junior_model().to_string();
         let senior = config.llm.get_senior_model().to_string();
-        info!("🎯  Using configured models - Junior: {}, Senior: {}", junior, senior);
+        info!(
+            "🎯  Using configured models - Junior: {}, Senior: {}",
+            junior, senior
+        );
         (Some(junior), Some(senior))
     } else if config.llm.selection_mode.as_str() == "manual" {
         // Manual mode without role-specific: use preferred_model for both
@@ -271,11 +274,18 @@ async fn answer_question(
             profile.vram_gb,
             profile.gpu_driver_functional
         );
-        (Some(recommendation.model.clone()), Some(recommendation.model))
+        (
+            Some(recommendation.model.clone()),
+            Some(recommendation.model),
+        )
     };
 
     let engine = AnswerEngine::with_role_models(junior_model, senior_model);
-    info!("🤖  Engine ready - Junior: {}, Senior: {}", engine.junior_model(), engine.senior_model());
+    info!(
+        "🤖  Engine ready - Junior: {}, Senior: {}",
+        engine.junior_model(),
+        engine.senior_model()
+    );
 
     // Check if LLM is available
     if !engine.is_available().await {

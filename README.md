@@ -1,4 +1,4 @@
-# Anna v0.16.3
+# Anna v0.16.4
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
@@ -357,6 +357,7 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| v0.16.4 | Real-time debug output with [JUNIOR model] and [SENIOR model] labels |
 | v0.16.3 | Debug trace output for development troubleshooting |
 | v0.15.0 | Research Loop Engine with command whitelist |
 | v0.14.0 | Aligned to reality with 6 real probes |

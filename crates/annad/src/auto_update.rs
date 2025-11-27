@@ -6,8 +6,8 @@
 
 use anna_common::{
     load_update_state, model_registry, record_update_check, save_update_state, AnnaConfigV5,
-    GitHubRelease, ModelRegistry, UpdateCheckResult, UpdateResult, UpdateState, MIN_UPDATE_INTERVAL,
-    REGISTRY_URL,
+    GitHubRelease, ModelRegistry, UpdateCheckResult, UpdateResult, UpdateState,
+    MIN_UPDATE_INTERVAL, REGISTRY_URL,
 };
 use anyhow::{Context, Result};
 use flate2::read::GzDecoder;
@@ -226,10 +226,16 @@ impl AutoUpdateScheduler {
         // Try tarball first, fall back to individual binaries
         if let Some(tarball_url) = &check_result.tarball_url {
             info!("📥  Downloading Anna update package (tarball)...");
-            match self.apply_update_tarball(tarball_url, &checksums, &temp_dir).await {
+            match self
+                .apply_update_tarball(tarball_url, &checksums, &temp_dir)
+                .await
+            {
                 Ok(()) => return Ok(()),
                 Err(e) => {
-                    warn!("⚠️  Tarball update failed: {}, trying individual binaries...", e);
+                    warn!(
+                        "⚠️  Tarball update failed: {}, trying individual binaries...",
+                        e
+                    );
                 }
             }
         }
@@ -245,7 +251,8 @@ impl AutoUpdateScheduler {
             .ok_or_else(|| anyhow::anyhow!("No annactl binary URL in release"))?;
 
         info!("📥  Downloading individual binaries...");
-        self.apply_update_binaries(annad_url, annactl_url, &checksums, &temp_dir).await
+        self.apply_update_binaries(annad_url, annactl_url, &checksums, &temp_dir)
+            .await
     }
 
     /// Apply update from tarball
@@ -345,7 +352,12 @@ impl AutoUpdateScheduler {
     }
 
     /// Verify individual binary checksum
-    fn verify_binary_checksum(&self, data: &[u8], checksums: &str, binary_name: &str) -> Result<()> {
+    fn verify_binary_checksum(
+        &self,
+        data: &[u8],
+        checksums: &str,
+        binary_name: &str,
+    ) -> Result<()> {
         let mut hasher = Sha256::new();
         hasher.update(data);
         let hash = hasher.finalize();

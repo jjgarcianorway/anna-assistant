@@ -28,7 +28,12 @@ impl Spinner {
         let message = message.to_string();
 
         // Print the initial line
-        print!("\r{}  {} {}", "[anna]".bright_cyan(), SPINNER_FRAMES[0].bright_yellow(), message.dimmed());
+        print!(
+            "\r{}  {} {}",
+            "[anna]".bright_cyan(),
+            SPINNER_FRAMES[0].bright_yellow(),
+            message.dimmed()
+        );
         let _ = io::stdout().flush();
 
         let handle = std::thread::spawn(move || {
@@ -37,7 +42,12 @@ impl Spinner {
 
             while running_clone.load(Ordering::Relaxed) {
                 frame = (frame + 1) % frames.len();
-                print!("\r{}  {} {}", "[anna]".bright_cyan(), frames[frame].bright_yellow(), message.dimmed());
+                print!(
+                    "\r{}  {} {}",
+                    "[anna]".bright_cyan(),
+                    frames[frame].bright_yellow(),
+                    message.dimmed()
+                );
                 let _ = io::stdout().flush();
                 std::thread::sleep(Duration::from_millis(80));
             }
@@ -91,9 +101,5 @@ impl Drop for Spinner {
 
 /// Print user question in styled format
 pub fn print_question(question: &str) {
-    println!(
-        "{}  {}",
-        "[you]".bright_green(),
-        question.white()
-    );
+    println!("{}  {}", "[you]".bright_green(), question.white());
 }

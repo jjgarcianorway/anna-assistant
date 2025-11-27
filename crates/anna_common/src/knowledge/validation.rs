@@ -128,7 +128,10 @@ impl FactValidator {
             // High confidence LLM/user fact - accept with note
             return ValidationResult::Valid {
                 confidence_adjustment: -0.05, // Slight penalty for non-probe source
-                notes: Some(format!("Accepted from {} source", if is_llm_source { "LLM" } else { "user" })),
+                notes: Some(format!(
+                    "Accepted from {} source",
+                    if is_llm_source { "LLM" } else { "user" }
+                )),
             };
         }
 
@@ -180,7 +183,10 @@ impl FactValidator {
             } => {
                 // Mark as conflicted
                 fact.status = FactStatus::Conflicted;
-                fact.notes = Some(format!("CONFLICT: {} (existing: {})", reason, existing_value));
+                fact.notes = Some(format!(
+                    "CONFLICT: {} (existing: {})",
+                    reason, existing_value
+                ));
                 Some(fact) // Still store but mark conflicted
             }
             ValidationResult::NeedsVerification { reason, .. } => {
@@ -189,7 +195,7 @@ impl FactValidator {
                 fact.notes = Some(format!("UNVERIFIED: {}", reason));
                 Some(fact) // Store with lower confidence
             }
-            ValidationResult::Rejected { reason: _ } => None
+            ValidationResult::Rejected { reason: _ } => None,
         }
     }
 }
@@ -224,8 +230,14 @@ pub fn looks_valid(entity: &str, attribute: &str, value: &str) -> bool {
     // Entity-specific validation
     let prefix = entity.split(':').next().unwrap_or("");
     match (prefix, attribute) {
-        ("cpu", "cores") => value.parse::<u32>().map(|n| n > 0 && n <= 1024).unwrap_or(false),
-        ("cpu", "frequency_mhz") => value.parse::<f64>().map(|n| n > 100.0 && n < 10000.0).unwrap_or(false),
+        ("cpu", "cores") => value
+            .parse::<u32>()
+            .map(|n| n > 0 && n <= 1024)
+            .unwrap_or(false),
+        ("cpu", "frequency_mhz") => value
+            .parse::<f64>()
+            .map(|n| n > 100.0 && n < 10000.0)
+            .unwrap_or(false),
         ("disk", "size_bytes") => value.parse::<u64>().is_ok(),
         ("pkg", "version") => !value.is_empty() && value.len() < 100,
         ("svc", "state") => ["running", "stopped", "inactive", "active", "failed"].contains(&value),
@@ -263,7 +275,10 @@ mod tests {
         let fact = make_probe_fact("cpu:0", "cores", "8", 0.95);
 
         match validator.validate(&fact, None) {
-            ValidationResult::Valid { confidence_adjustment, .. } => {
+            ValidationResult::Valid {
+                confidence_adjustment,
+                ..
+            } => {
                 assert_eq!(confidence_adjustment, 0.0);
             }
             _ => panic!("Expected Valid result"),
@@ -276,7 +291,9 @@ mod tests {
         let fact = make_llm_fact("cpu:0", "cores", "8", 0.6);
 
         match validator.validate(&fact, None) {
-            ValidationResult::NeedsVerification { suggested_probe, .. } => {
+            ValidationResult::NeedsVerification {
+                suggested_probe, ..
+            } => {
                 assert_eq!(suggested_probe, Some("cpu.info".to_string()));
             }
             _ => panic!("Expected NeedsVerification result"),
@@ -289,7 +306,10 @@ mod tests {
         let fact = make_llm_fact("cpu:0", "cores", "8", 0.9);
 
         match validator.validate(&fact, None) {
-            ValidationResult::Valid { confidence_adjustment, .. } => {
+            ValidationResult::Valid {
+                confidence_adjustment,
+                ..
+            } => {
                 assert!(confidence_adjustment < 0.0); // Slight penalty for LLM source
             }
             _ => panic!("Expected Valid result"),
@@ -317,7 +337,10 @@ mod tests {
         let new_fact = make_llm_fact("cpu:0", "cores", "8", 0.8);
 
         match validator.validate(&new_fact, Some(&existing)) {
-            ValidationResult::Valid { confidence_adjustment, notes } => {
+            ValidationResult::Valid {
+                confidence_adjustment,
+                notes,
+            } => {
                 assert!(confidence_adjustment > 0.0); // Boost for confirmation
                 assert!(notes.is_some());
             }

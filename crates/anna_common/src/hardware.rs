@@ -17,21 +17,21 @@ use std::process::Command;
 // =============================================================================
 
 // CPU-only or tiny GPU (<6GB VRAM)
-pub const CPU_MODEL_TINY: &str = "qwen3:0.6b";      // Ultra-light, router tasks
-pub const CPU_MODEL_SMALL: &str = "qwen3:1.7b";     // Light assistant, fast
-pub const CPU_MODEL_MEDIUM: &str = "qwen3:4b";      // Good balance CPU-only
+pub const CPU_MODEL_TINY: &str = "qwen3:0.6b"; // Ultra-light, router tasks
+pub const CPU_MODEL_SMALL: &str = "qwen3:1.7b"; // Light assistant, fast
+pub const CPU_MODEL_MEDIUM: &str = "qwen3:4b"; // Good balance CPU-only
 
 // Mid-range GPU (6-12GB VRAM) - Sweet spot for most users
-pub const GPU_MODEL_SMALL: &str = "qwen3:4b";       // Junior role, fast
-pub const GPU_MODEL_MEDIUM: &str = "qwen3:8b";      // Main assistant, excellent
+pub const GPU_MODEL_SMALL: &str = "qwen3:4b"; // Junior role, fast
+pub const GPU_MODEL_MEDIUM: &str = "qwen3:8b"; // Main assistant, excellent
 
 // Strong GPU (16-24GB VRAM) - RTX 3090/4090 class
-pub const GPU_MODEL_LARGE: &str = "qwen3:14b";      // High-quality reasoning
-pub const GPU_MODEL_XL: &str = "qwen3:32b";         // Very strong, needs 24GB+
+pub const GPU_MODEL_LARGE: &str = "qwen3:14b"; // High-quality reasoning
+pub const GPU_MODEL_XL: &str = "qwen3:32b"; // Very strong, needs 24GB+
 
 // Datacenter (32GB+ VRAM) - A100/H100 class
-pub const GPU_MODEL_DC: &str = "qwen3:32b";         // 32B for 32-48GB
-pub const GPU_MODEL_DC_XL: &str = "qwen2.5:72b";    // 72B for 80GB+
+pub const GPU_MODEL_DC: &str = "qwen3:32b"; // 32B for 32-48GB
+pub const GPU_MODEL_DC_XL: &str = "qwen2.5:72b"; // 72B for 80GB+
 
 // Legacy fallbacks (still widely available)
 pub const LEGACY_CPU_SMALL: &str = "llama3.2:3b";
@@ -291,44 +291,44 @@ impl HardwareProfile {
         // Select models based on tier
         let (junior, senior, reason) = match tier {
             HardwareTier::Datacenter => (
-                GPU_MODEL_MEDIUM,      // 8B junior for speed
-                GPU_MODEL_DC_XL,       // 72B senior for quality
-                "Datacenter hardware - using Qwen3 8B/72B"
+                GPU_MODEL_MEDIUM, // 8B junior for speed
+                GPU_MODEL_DC_XL,  // 72B senior for quality
+                "Datacenter hardware - using Qwen3 8B/72B",
             ),
             HardwareTier::DatacenterEntry => (
-                GPU_MODEL_SMALL,       // 4B junior
-                GPU_MODEL_DC,          // 32B senior
-                "High-end GPU (32GB+) - using Qwen3 4B/32B"
+                GPU_MODEL_SMALL, // 4B junior
+                GPU_MODEL_DC,    // 32B senior
+                "High-end GPU (32GB+) - using Qwen3 4B/32B",
             ),
             HardwareTier::HighEndGpu => (
-                GPU_MODEL_SMALL,       // 4B junior for speed
-                GPU_MODEL_LARGE,       // 14B senior
-                "Strong GPU (16-24GB) - using Qwen3 4B/14B"
+                GPU_MODEL_SMALL, // 4B junior for speed
+                GPU_MODEL_LARGE, // 14B senior
+                "Strong GPU (16-24GB) - using Qwen3 4B/14B",
             ),
             HardwareTier::MidRangeGpu => (
-                CPU_MODEL_SMALL,       // 1.7B junior (very fast)
-                GPU_MODEL_MEDIUM,      // 8B senior (great quality)
-                "Mid-range GPU (6-12GB) - using Qwen3 1.7B/8B"
+                CPU_MODEL_SMALL,  // 1.7B junior (very fast)
+                GPU_MODEL_MEDIUM, // 8B senior (great quality)
+                "Mid-range GPU (6-12GB) - using Qwen3 1.7B/8B",
             ),
             HardwareTier::LowGpu => (
-                CPU_MODEL_TINY,        // 0.6B junior
-                GPU_MODEL_SMALL,       // 4B senior
-                "Low VRAM GPU - using Qwen3 0.6B/4B"
+                CPU_MODEL_TINY,  // 0.6B junior
+                GPU_MODEL_SMALL, // 4B senior
+                "Low VRAM GPU - using Qwen3 0.6B/4B",
             ),
             HardwareTier::HighCpu => (
-                CPU_MODEL_SMALL,       // 1.7B junior
-                CPU_MODEL_MEDIUM,      // 4B senior
-                "High-performance CPU - using Qwen3 1.7B/4B"
+                CPU_MODEL_SMALL,  // 1.7B junior
+                CPU_MODEL_MEDIUM, // 4B senior
+                "High-performance CPU - using Qwen3 1.7B/4B",
             ),
             HardwareTier::MidCpu => (
-                CPU_MODEL_TINY,        // 0.6B junior
-                CPU_MODEL_SMALL,       // 1.7B senior
-                "Mid-range CPU - using Qwen3 0.6B/1.7B"
+                CPU_MODEL_TINY,  // 0.6B junior
+                CPU_MODEL_SMALL, // 1.7B senior
+                "Mid-range CPU - using Qwen3 0.6B/1.7B",
             ),
             HardwareTier::LowCpu => (
-                CPU_MODEL_TINY,        // 0.6B both
+                CPU_MODEL_TINY, // 0.6B both
                 CPU_MODEL_TINY,
-                "Low-end system - using Qwen3 0.6B"
+                "Low-end system - using Qwen3 0.6B",
             ),
         };
 
@@ -629,7 +629,7 @@ mod tests {
             ..Default::default()
         };
         let roles = profile.select_role_models();
-        assert_eq!(roles.junior_model, CPU_MODEL_SMALL);  // 1.7B
+        assert_eq!(roles.junior_model, CPU_MODEL_SMALL); // 1.7B
         assert_eq!(roles.senior_model, GPU_MODEL_MEDIUM); // 8B
         assert_eq!(roles.tier, HardwareTier::MidRangeGpu);
     }
@@ -647,7 +647,7 @@ mod tests {
         };
         let roles = profile.select_role_models();
         assert_eq!(roles.tier, HardwareTier::Datacenter);
-        assert_eq!(roles.senior_model, GPU_MODEL_DC_XL);  // 72B
+        assert_eq!(roles.senior_model, GPU_MODEL_DC_XL); // 72B
     }
 
     #[test]

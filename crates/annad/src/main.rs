@@ -54,9 +54,9 @@ async fn main() -> Result<()> {
 
     // Load probes - try multiple paths in order of preference
     let probe_paths = [
-        "/usr/share/anna/probes",  // System install location
-        "/var/lib/anna/probes",    // Data directory fallback
-        "probes",                   // Development/local fallback
+        "/usr/share/anna/probes", // System install location
+        "/var/lib/anna/probes",   // Data directory fallback
+        "probes",                 // Development/local fallback
     ];
 
     let mut probe_registry = None;
@@ -112,8 +112,7 @@ async fn main() -> Result<()> {
         warn!("    curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash");
         warn!(
             "    Or manually add to config.toml: junior_model = \"{}\", senior_model = \"{}\"",
-            suggested_junior,
-            config.llm.preferred_model
+            suggested_junior, config.llm.preferred_model
         );
         info!(
             "🧠  LLM: selection_mode={}, preferred={} (used for both junior/senior), fallback={}",

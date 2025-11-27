@@ -1,4 +1,4 @@
-//! Ollama LLM Client v0.16.1
+//! Ollama LLM Client v0.16.4
 //!
 //! Robust JSON parsing that handles common LLM output variations:
 //! - "draft_answer": null
@@ -6,6 +6,7 @@
 //! - Missing optional fields
 //!
 //! v0.16.1: On-demand model loading with keep_alive parameter to save resources.
+//! v0.16.4: Real-time debug output with [JUNIOR model] and [SENIOR model] labels
 
 use anna_common::{
     AuditScores, AuditVerdict, Citation, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
@@ -16,6 +17,103 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::time::Duration;
 use tracing::{debug, error, info, warn};
+
+/// Check if debug mode is enabled via ANNA_DEBUG environment variable
+fn is_debug_mode() -> bool {
+    std::env::var("ANNA_DEBUG").is_ok()
+}
+
+/// v0.16.4: Print debug prompt with clear [ROLE model] label
+/// This prints to stderr so it appears in real-time in journalctl/terminal
+fn print_debug_prompt(role: &str, model: &str, prompt: &str) {
+    use std::io::Write;
+    let mut stderr = std::io::stderr();
+
+    // Header with role and model
+    let _ = writeln!(stderr);
+    let _ = writeln!(
+        stderr,
+        "╔══════════════════════════════════════════════════════════════════════════════╗"
+    );
+    let _ = writeln!(stderr, "║  [{} {}]  📤  PROMPT", role, model);
+    let _ = writeln!(
+        stderr,
+        "╚══════════════════════════════════════════════════════════════════════════════╝"
+    );
+
+    // Print prompt content (limit to 2000 chars for readability)
+    let display_prompt = if prompt.len() > 2000 {
+        format!(
+            "{}...\n[truncated {} chars]",
+            &prompt[..2000],
+            prompt.len() - 2000
+        )
+    } else {
+        prompt.to_string()
+    };
+
+    for line in display_prompt.lines() {
+        let _ = writeln!(stderr, "  {}", line);
+    }
+    let _ = writeln!(
+        stderr,
+        "────────────────────────────────────────────────────────────────────────────────"
+    );
+    let _ = stderr.flush();
+}
+
+/// v0.16.4: Print debug response with clear [ROLE model] label
+/// This prints to stderr so it appears in real-time in journalctl/terminal
+fn print_debug_response(role: &str, model: &str, response: &str) {
+    use std::io::Write;
+    let mut stderr = std::io::stderr();
+
+    // Header with role and model
+    let _ = writeln!(stderr);
+    let _ = writeln!(
+        stderr,
+        "╔══════════════════════════════════════════════════════════════════════════════╗"
+    );
+    let _ = writeln!(stderr, "║  [{} {}]  📥  RESPONSE", role, model);
+    let _ = writeln!(
+        stderr,
+        "╚══════════════════════════════════════════════════════════════════════════════╝"
+    );
+
+    // Try to pretty-print JSON if valid
+    if let Ok(json_value) = serde_json::from_str::<Value>(response) {
+        if let Ok(pretty) = serde_json::to_string_pretty(&json_value) {
+            for line in pretty.lines() {
+                let _ = writeln!(stderr, "  {}", line);
+            }
+        } else {
+            // Fallback to raw output
+            for line in response.lines() {
+                let _ = writeln!(stderr, "  {}", line);
+            }
+        }
+    } else {
+        // Not valid JSON - print raw (limit to 3000 chars)
+        let display_response = if response.len() > 3000 {
+            format!(
+                "{}...\n[truncated {} chars]",
+                &response[..3000],
+                response.len() - 3000
+            )
+        } else {
+            response.to_string()
+        };
+        for line in display_response.lines() {
+            let _ = writeln!(stderr, "  {}", line);
+        }
+    }
+
+    let _ = writeln!(
+        stderr,
+        "════════════════════════════════════════════════════════════════════════════════"
+    );
+    let _ = stderr.flush();
+}
 
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 const DEFAULT_JUNIOR_MODEL: &str = "qwen3:4b";
@@ -91,10 +189,20 @@ impl OllamaClient {
     /// Call LLM-A (junior) with the given prompt
     /// Returns (parsed response, raw response text) for debug tracing
     pub async fn call_llm_a(&self, user_prompt: &str) -> Result<(LlmAResponse, String)> {
+        // v0.16.4: Print debug output with clear model label
+        if is_debug_mode() {
+            print_debug_prompt("JUNIOR", &self.junior_model, user_prompt);
+        }
+
         let response_text = self
             .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT, user_prompt)
             .await
             .context("LLM-A call failed")?;
+
+        // v0.16.4: Print raw response with clear model label
+        if is_debug_mode() {
+            print_debug_response("JUNIOR", &self.junior_model, &response_text);
+        }
 
         let parsed = self.parse_llm_a_response(&response_text)?;
         Ok((parsed, response_text))
@@ -103,10 +211,20 @@ impl OllamaClient {
     /// Call LLM-B (senior) with the given prompt
     /// Returns (parsed response, raw response text) for debug tracing
     pub async fn call_llm_b(&self, user_prompt: &str) -> Result<(LlmBResponse, String)> {
+        // v0.16.4: Print debug output with clear model label
+        if is_debug_mode() {
+            print_debug_prompt("SENIOR", &self.senior_model, user_prompt);
+        }
+
         let response_text = self
             .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT, user_prompt)
             .await
             .context("LLM-B call failed")?;
+
+        // v0.16.4: Print raw response with clear model label
+        if is_debug_mode() {
+            print_debug_response("SENIOR", &self.senior_model, &response_text);
+        }
 
         let parsed = self.parse_llm_b_response(&response_text)?;
         Ok((parsed, response_text))
@@ -114,7 +232,12 @@ impl OllamaClient {
 
     /// Raw Ollama API call with specified model
     /// Uses keep_alive to control how long the model stays loaded in VRAM
-    async fn call_ollama(&self, model: &str, system_prompt: &str, user_prompt: &str) -> Result<String> {
+    async fn call_ollama(
+        &self,
+        model: &str,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<String> {
         let url = format!("{}/api/chat", OLLAMA_URL);
 
         let request = OllamaChatRequest {
@@ -462,12 +585,7 @@ impl OllamaClient {
         info!("🔌  Unloading model [{}] from VRAM", model);
 
         // We don't care about the response, just trigger the unload
-        let _ = self
-            .http_client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await;
+        let _ = self.http_client.post(&url).json(&request).send().await;
 
         Ok(())
     }

@@ -3,9 +3,7 @@
 //! Async fetching of the model registry from GitHub.
 //! Uses a 24-hour cache to avoid repeated fetches.
 
-use anna_common::model_registry::{
-    cache_path, ModelRegistry, CACHE_DURATION_SECS, REGISTRY_URL,
-};
+use anna_common::model_registry::{cache_path, ModelRegistry, CACHE_DURATION_SECS, REGISTRY_URL};
 use std::time::{Duration, SystemTime};
 use tracing::{debug, info, warn};
 
