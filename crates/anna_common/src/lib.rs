@@ -50,6 +50,8 @@ pub use presentation::*;
 pub use prompts::{
     generate_llm_a_prompt, generate_llm_a_prompt_with_iteration, generate_llm_b_prompt,
     LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT,
+    // v0.18.0 prompts
+    generate_junior_prompt, generate_senior_prompt, LLM_A_SYSTEM_PROMPT_V18, LLM_B_SYSTEM_PROMPT_V18,
 };
 pub use reliability::*;
 pub use safety::*;

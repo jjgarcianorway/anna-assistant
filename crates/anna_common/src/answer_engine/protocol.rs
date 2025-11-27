@@ -179,6 +179,9 @@ pub struct LlmBResponse {
     /// Corrected answer text if verdict is fix_and_accept
     #[serde(default)]
     pub fixed_answer: Option<String>,
+    /// v0.17.0: Senior's synthesized answer text (preferred over draft)
+    #[serde(default)]
+    pub text: Option<String>,
 }
 
 /// Audit verdict

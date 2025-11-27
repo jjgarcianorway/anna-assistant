@@ -67,8 +67,14 @@ async fn main() -> Result<()> {
         // v0.9.0: Status command (case-insensitive)
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
 
-        // v0.16.5: Version command only (removed -V flag)
-        [flag] if flag.eq_ignore_ascii_case("version") => run_version_instant().await,
+        // v0.18.0: Version flags and command - instant, no daemon required
+        [flag]
+            if flag == "-V"
+                || flag == "--version"
+                || flag.eq_ignore_ascii_case("version") =>
+        {
+            run_version_instant().await
+        }
 
         // Help flags - route through LLM (case-insensitive)
         [flag]
@@ -132,8 +138,11 @@ async fn run_repl() -> Result<()> {
         }
 
         // Handle version/help/status in REPL too (case-insensitive)
-        // v0.16.5: Only "version" command, removed -v/--version flags
-        if input.eq_ignore_ascii_case("version") {
+        // v0.18.0: Support -V/--version flags and "version" word
+        if input == "-V"
+            || input == "--version"
+            || input.eq_ignore_ascii_case("version")
+        {
             run_version_instant().await?;
             continue;
         }

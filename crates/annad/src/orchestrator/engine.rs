@@ -1,13 +1,13 @@
-//! Answer Engine v0.16.4
+//! Answer Engine v0.17.0
 //!
 //! The main orchestration loop:
 //! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/fix/retry
 //!
-//! Key v0.16.4 changes:
-//! - Real-time debug output with [JUNIOR model] and [SENIOR model] labels
-//! - Iteration headers showing progress through the research loop
-//! - Debug trace captures full LLM dialog for development troubleshooting
-//! - Iteration-aware prompting (forces answer on iteration 2+)
+//! Key v0.17.0 changes:
+//! - Use Senior's synthesized answer (text field) instead of Junior's draft
+//! - Senior can now provide a direct answer that gets displayed to user
+//! - Priority: Senior text > Senior fixed_answer > Junior draft_answer
+//! - Fixes issue where useless "I will run probe..." answers were shown
 
 use super::fallback;
 use super::llm_client::OllamaClient;
@@ -341,14 +341,21 @@ impl AnswerEngine {
             last_scores = Some(llm_b_response.scores.clone());
 
             // Step 5: Handle verdict
+            // v0.17.0: Prefer Senior's answer (text/fixed_answer) over Junior's draft
             match llm_b_response.verdict {
                 AuditVerdict::Approve => {
                     loop_state.mark_approved();
+                    // v0.17.0: Use Senior's text if provided, otherwise fall back to draft
+                    let answer_text = llm_b_response
+                        .text
+                        .as_deref()
+                        .or(llm_b_response.fixed_answer.as_deref())
+                        .unwrap_or(&draft_answer.text);
                     debug_trace.iterations.push(debug_iter);
                     debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
                     return Ok(self.build_final_answer_with_trace(
                         question,
-                        &draft_answer.text,
+                        answer_text,
                         evidence,
                         llm_b_response.scores,
                         loop_state.iteration,
@@ -358,9 +365,11 @@ impl AnswerEngine {
                 AuditVerdict::FixAndAccept => {
                     // LLM-B provided a fixed answer
                     loop_state.mark_approved();
+                    // v0.17.0: Prefer text > fixed_answer > draft
                     let answer_text = llm_b_response
-                        .fixed_answer
+                        .text
                         .as_deref()
+                        .or(llm_b_response.fixed_answer.as_deref())
                         .unwrap_or(&draft_answer.text);
                     debug_trace.iterations.push(debug_iter);
                     debug_trace.duration_secs = start_time.elapsed().as_secs_f64();

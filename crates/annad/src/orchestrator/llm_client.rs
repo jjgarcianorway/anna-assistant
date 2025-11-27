@@ -1,4 +1,4 @@
-//! Ollama LLM Client v0.16.4
+//! Ollama LLM Client v0.17.0
 //!
 //! Robust JSON parsing that handles common LLM output variations:
 //! - "draft_answer": null
@@ -367,6 +367,7 @@ impl OllamaClient {
                     problems: vec!["Parse error - approving with low confidence".to_string()],
                     suggested_fix: None,
                     fixed_answer: None,
+                    text: None,
                 })
             }
         }
@@ -513,6 +514,12 @@ impl OllamaClient {
             .and_then(|x| if x.is_null() { None } else { x.as_str() })
             .map(|s| s.to_string());
 
+        // v0.17.0: Extract Senior's synthesized answer text
+        let text = v
+            .get("text")
+            .and_then(|x| if x.is_null() { None } else { x.as_str() })
+            .map(|s| s.to_string());
+
         LlmBResponse {
             verdict,
             scores,
@@ -520,6 +527,7 @@ impl OllamaClient {
             problems,
             suggested_fix,
             fixed_answer,
+            text,
         }
     }
 

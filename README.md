@@ -1,4 +1,4 @@
-# Anna v0.16.5
+# Anna v0.18.0
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
@@ -353,6 +353,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| v0.18.0 | Step-by-step orchestration - one action per Junior iteration |
+| v0.17.0 | Use Senior's synthesized answer instead of Junior's draft |
 | v0.16.5 | Enhanced status: human-readable uptime, probe names, detailed health |
 | v0.16.4 | Real-time debug output with [JUNIOR model] and [SENIOR model] labels |
 | v0.16.3 | Debug trace output for development troubleshooting |
