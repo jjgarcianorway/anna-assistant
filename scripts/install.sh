@@ -516,46 +516,91 @@ select_model() {
     local installed_models
     installed_models=$(ollama list 2>/dev/null || echo "")
 
-    # Check for already-installed preferred models (best to worst)
-    if echo "$installed_models" | grep -qE "^qwen2\.5:14b[[:space:]]"; then
-        SELECTED_MODEL="qwen2.5:14b"
-        log_ok "Using already installed qwen2.5:14b"
-        return
-    fi
-    if echo "$installed_models" | grep -qE "^qwen2\.5:7b[[:space:]]"; then
-        SELECTED_MODEL="qwen2.5:7b"
-        log_ok "Using already installed qwen2.5:7b"
-        return
-    fi
-    if echo "$installed_models" | grep -qE "^llama3\.2:3b[[:space:]]"; then
-        # Only use 3b if we don't have VRAM for bigger models
-        if [[ "$vram_mb" -lt 8000 ]]; then
-            SELECTED_MODEL="llama3.2:3b"
-            log_ok "Using already installed llama3.2:3b"
+    # Prioritized list of known-good models for Anna (best to acceptable)
+    # Large models (14B+) - excellent quality, need 12GB+ VRAM
+    local large_models=(
+        "qwen2.5:14b"
+        "qwen2.5:32b"
+        "deepseek-coder:33b"
+        "codellama:34b"
+        "llama3.1:70b"
+    )
+
+    # Medium models (7-8B) - great balance, need 8GB+ VRAM
+    local medium_models=(
+        "qwen2.5:7b"
+        "llama3.1:8b"
+        "mistral:7b"
+        "mistral-nemo:latest"
+        "deepseek-coder:6.7b"
+        "codellama:7b"
+        "gemma2:9b"
+        "phi3:medium"
+    )
+
+    # Small models (3-4B) - acceptable for low VRAM/CPU
+    local small_models=(
+        "llama3.2:3b"
+        "phi3:mini"
+        "gemma2:2b"
+        "qwen2.5:3b"
+    )
+
+    # Check for already-installed large models first
+    for model in "${large_models[@]}"; do
+        local model_name="${model%%:*}"
+        local model_tag="${model##*:}"
+        if echo "$installed_models" | grep -qE "^${model_name}:${model_tag}[[:space:]]"; then
+            SELECTED_MODEL="$model"
+            log_ok "Using already installed ${model} (large model - excellent quality)"
             return
         fi
+    done
+
+    # Check for medium models
+    for model in "${medium_models[@]}"; do
+        local model_name="${model%%:*}"
+        local model_tag="${model##*:}"
+        if echo "$installed_models" | grep -qE "^${model_name}:${model_tag}[[:space:]]"; then
+            SELECTED_MODEL="$model"
+            log_ok "Using already installed ${model} (medium model - good quality)"
+            return
+        fi
+    done
+
+    # Check for small models (only if we don't have much VRAM)
+    if [[ "$vram_mb" -lt 8000 ]]; then
+        for model in "${small_models[@]}"; do
+            local model_name="${model%%:*}"
+            local model_tag="${model##*:}"
+            if echo "$installed_models" | grep -qE "^${model_name}:${model_tag}[[:space:]]"; then
+                SELECTED_MODEL="$model"
+                log_ok "Using already installed ${model} (small model)"
+                return
+            fi
+        done
     fi
 
-    # No good model installed, select based on VRAM
+    # No suitable model installed, select based on VRAM and download
     if [[ "$vram_mb" -ge 16000 ]]; then
         # 16GB+ VRAM: Use 14B model
         SELECTED_MODEL="qwen2.5:14b"
-        log_ok "GPU detected with ${vram_mb}MB VRAM - selecting qwen2.5:14b"
+        log_ok "GPU detected with ${vram_mb}MB VRAM - will download qwen2.5:14b"
     elif [[ "$vram_mb" -ge 8000 ]]; then
         # 8-16GB VRAM: Use 7B model
         SELECTED_MODEL="qwen2.5:7b"
-        log_ok "GPU detected with ${vram_mb}MB VRAM - selecting qwen2.5:7b"
+        log_ok "GPU detected with ${vram_mb}MB VRAM - will download qwen2.5:7b"
     elif [[ "$vram_mb" -ge 4000 ]]; then
         # 4-8GB VRAM: Use 3B model
         SELECTED_MODEL="llama3.2:3b"
-        log_ok "GPU detected with ${vram_mb}MB VRAM - selecting llama3.2:3b"
+        log_ok "GPU detected with ${vram_mb}MB VRAM - will download llama3.2:3b"
     else
         # CPU only or low VRAM: Use 3B model
         SELECTED_MODEL="llama3.2:3b"
         if [[ "$vram_mb" -eq 0 ]]; then
-            log_warn "No GPU detected - selecting llama3.2:3b (CPU mode)"
+            log_warn "No GPU detected - will download llama3.2:3b (CPU mode)"
         else
-            log_ok "Low GPU memory (${vram_mb}MB) - selecting llama3.2:3b"
+            log_ok "Low GPU memory (${vram_mb}MB) - will download llama3.2:3b"
         fi
     fi
 }
