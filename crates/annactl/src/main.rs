@@ -5,6 +5,7 @@
 //! v0.5.0: Natural language configuration, hardware-aware model selection
 //! v0.6.0: ASCII-only sysadmin style, multi-round reliability refinement
 //! v0.7.0: Self-health monitoring with auto-repair and REPL notifications
+//! v0.8.0: Observability and debug logging with JSONL output
 //!
 //! Only these commands exist:
 //!   - annactl "<question>"    Ask Anna anything
@@ -17,7 +18,12 @@ mod llm_client;
 mod orchestrator;
 mod output;
 
-use anna_common::{AnnaConfigV5, HardwareProfile, self_health, OverallHealth, RepairSafety};
+use anna_common::{
+    AnnaConfigV5, HardwareProfile, OverallHealth, RepairSafety,
+    generate_request_id, init_logger, log_request, logging, self_health,
+    LogComponent, LogEntry, LogLevel, RequestContext, RequestStatus,
+    clear_current_request, set_current_request,
+};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
@@ -36,6 +42,13 @@ async fn main() -> Result<()> {
                 .with_target(false),
         )
         .init();
+
+    // v0.8.0: Initialize logging subsystem
+    let config = AnnaConfigV5::load();
+    init_logger(config.log.clone());
+
+    // Log startup
+    logging::logger().info(LogComponent::Request, "annactl starting");
 
     let args: Vec<String> = env::args().skip(1).collect();
 
@@ -139,21 +152,76 @@ fn print_banner() {
 
 /// Ask Anna a question - the core function
 async fn run_ask(question: &str) -> Result<()> {
+    // v0.8.0: Create request context with correlation ID
+    let request_id = generate_request_id();
+    let sanitized_query = logging::sanitize_query(question);
+    let ctx = RequestContext::new(request_id.clone(), sanitized_query.clone());
+    set_current_request(ctx);
+
+    // Log request start
+    logging::logger().write_daemon(
+        &LogEntry::new(LogLevel::Debug, LogComponent::Request, "Processing question")
+            .with_request_id(&request_id)
+            .with_fields(serde_json::json!({
+                "query_length": question.len(),
+                "query_preview": if question.len() > 50 { &question[..50] } else { question }
+            })),
+    );
+
     let daemon = client::DaemonClient::new();
 
     // Check daemon health
     if !daemon.is_healthy().await {
+        // Log daemon unavailable
+        logging::logger().write_daemon(
+            &LogEntry::new(LogLevel::Error, LogComponent::Request, "Daemon not available")
+                .with_request_id(&request_id),
+        );
+
         // v0.6.0: ASCII-only error output
         eprintln!("[ERROR] Anna daemon is not running");
         eprintln!(
             "   Run: {} to start",
             "sudo systemctl start annad".cyan()
         );
+
+        // Log and clear request context
+        logging::with_current_request(|ctx| {
+            ctx.set_result(0.0, RequestStatus::Failed);
+            log_request(&ctx.to_trace());
+        });
+        clear_current_request();
+
         std::process::exit(1);
     }
 
     // Run orchestrator with stability check
     let result = orchestrator::process_question(question, &daemon).await?;
+
+    // v0.8.0: Log request completion and trace
+    logging::with_current_request(|ctx| {
+        let status = if result.confidence >= 0.9 {
+            RequestStatus::Ok
+        } else if result.confidence >= 0.7 {
+            RequestStatus::Degraded
+        } else {
+            RequestStatus::Failed
+        };
+        ctx.set_result(result.confidence, status);
+        log_request(&ctx.to_trace());
+    });
+
+    // Log completion
+    logging::logger().write_daemon(
+        &LogEntry::new(LogLevel::Info, LogComponent::Request, "Request completed")
+            .with_request_id(&request_id)
+            .with_fields(serde_json::json!({
+                "confidence": result.confidence,
+                "sources_count": result.sources.len()
+            })),
+    );
+
+    clear_current_request();
 
     // Output result
     output::display_response(&result);

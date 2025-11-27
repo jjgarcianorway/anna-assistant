@@ -1,12 +1,14 @@
-//! Natural Language Configuration Mapper for Anna v0.5.0
+//! Natural Language Configuration Mapper for Anna v0.8.0
 //!
 //! Maps user natural language requests to structured config changes.
 //! LLM-A classifies requests, LLM-B validates changes.
+//! v0.8.0: Added log configuration support.
 
 use crate::config::{
     AnnaConfigV5, Channel, ConfigChange, ConfigMutation, CoreMode, LlmSelectionMode,
     MIN_UPDATE_INTERVAL,
 };
+use crate::logging::{parse_log_config_intent, LogConfigIntent, LogLevel};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +29,16 @@ pub enum ConfigIntent {
     ShowConfig,
     /// Set mode (normal/dev)
     SetMode { mode: CoreMode },
+    /// v0.8.0: Set log level
+    SetLogLevel { level: LogLevel },
+    /// v0.8.0: Enable/disable LLM logging
+    SetLlmLogging { enabled: bool },
+    /// v0.8.0: Enable/disable daemon logging
+    SetDaemonLogging { enabled: bool },
+    /// v0.8.0: Enable/disable request logging
+    SetRequestLogging { enabled: bool },
+    /// v0.8.0: Show log configuration
+    ShowLogConfig,
     /// Unknown/not a config request
     NotConfigRequest,
 }
@@ -127,6 +139,49 @@ impl ConfigPatternMatcher {
     /// Classify user input to determine config intent
     pub fn classify(&self, input: &str) -> IntentResult {
         let input_lower = input.to_lowercase();
+
+        // v0.8.0: Check for log configuration intents first
+        let log_intent = parse_log_config_intent(input);
+        match log_intent {
+            LogConfigIntent::SetLevel(level) => {
+                return IntentResult {
+                    intent: ConfigIntent::SetLogLevel { level },
+                    confidence: 0.9,
+                    matched_pattern: Some("log level pattern".to_string()),
+                };
+            }
+            LogConfigIntent::SetLlmEnabled(enabled) => {
+                return IntentResult {
+                    intent: ConfigIntent::SetLlmLogging { enabled },
+                    confidence: 0.9,
+                    matched_pattern: Some("llm logging pattern".to_string()),
+                };
+            }
+            LogConfigIntent::SetDaemonEnabled(enabled) => {
+                return IntentResult {
+                    intent: ConfigIntent::SetDaemonLogging { enabled },
+                    confidence: 0.9,
+                    matched_pattern: Some("daemon logging pattern".to_string()),
+                };
+            }
+            LogConfigIntent::SetRequestsEnabled(enabled) => {
+                return IntentResult {
+                    intent: ConfigIntent::SetRequestLogging { enabled },
+                    confidence: 0.9,
+                    matched_pattern: Some("request logging pattern".to_string()),
+                };
+            }
+            LogConfigIntent::ShowConfig => {
+                return IntentResult {
+                    intent: ConfigIntent::ShowLogConfig,
+                    confidence: 0.9,
+                    matched_pattern: Some("show log config pattern".to_string()),
+                };
+            }
+            LogConfigIntent::NotLogConfig => {
+                // Continue with other config patterns
+            }
+        }
 
         // Check for interval specification
         let interval = self.extract_interval(&input_lower);
@@ -370,7 +425,82 @@ pub fn apply_intent(config: &AnnaConfigV5, intent: &ConfigIntent) -> Option<Conf
             })
         }
 
-        ConfigIntent::ShowConfig | ConfigIntent::NotConfigRequest => None,
+        ConfigIntent::SetLogLevel { level } => {
+            if config.log.level == *level {
+                return None;
+            }
+
+            Some(ConfigMutation {
+                changes: vec![ConfigChange::new(
+                    "log.level",
+                    config.log.level.as_str(),
+                    level.as_str(),
+                )],
+                summary: format!("Setting log level to {}.", level.as_str()),
+                requires_confirmation: false,
+            })
+        }
+
+        ConfigIntent::SetLlmLogging { enabled } => {
+            if config.log.llm_enabled == *enabled {
+                return None;
+            }
+
+            Some(ConfigMutation {
+                changes: vec![ConfigChange::new(
+                    "log.llm_enabled",
+                    config.log.llm_enabled,
+                    enabled,
+                )],
+                summary: format!(
+                    "{} LLM orchestration logging.",
+                    if *enabled { "Enabling" } else { "Disabling" }
+                ),
+                requires_confirmation: false,
+            })
+        }
+
+        ConfigIntent::SetDaemonLogging { enabled } => {
+            if config.log.daemon_enabled == *enabled {
+                return None;
+            }
+
+            Some(ConfigMutation {
+                changes: vec![ConfigChange::new(
+                    "log.daemon_enabled",
+                    config.log.daemon_enabled,
+                    enabled,
+                )],
+                summary: format!(
+                    "{} daemon logging.",
+                    if *enabled { "Enabling" } else { "Disabling" }
+                ),
+                requires_confirmation: false,
+            })
+        }
+
+        ConfigIntent::SetRequestLogging { enabled } => {
+            if config.log.requests_enabled == *enabled {
+                return None;
+            }
+
+            Some(ConfigMutation {
+                changes: vec![ConfigChange::new(
+                    "log.requests_enabled",
+                    config.log.requests_enabled,
+                    enabled,
+                )],
+                summary: format!(
+                    "{} request logging.",
+                    if *enabled { "Enabling" } else { "Disabling" }
+                ),
+                requires_confirmation: false,
+            })
+        }
+
+        ConfigIntent::ShowConfig | ConfigIntent::ShowLogConfig | ConfigIntent::NotConfigRequest => {
+            None
+        }
     }
 }
 
@@ -411,6 +541,26 @@ pub fn apply_mutation(config: &AnnaConfigV5, mutation: &ConfigMutation) -> AnnaC
                     _ => Channel::Main,
                 };
             }
+            // v0.8.0: Log configuration changes
+            "log.level" => {
+                new_config.log.level = match change.to.as_str() {
+                    "trace" => LogLevel::Trace,
+                    "debug" => LogLevel::Debug,
+                    "info" => LogLevel::Info,
+                    "warn" => LogLevel::Warn,
+                    "error" => LogLevel::Error,
+                    _ => LogLevel::Debug,
+                };
+            }
+            "log.llm_enabled" => {
+                new_config.log.llm_enabled = change.to == "true";
+            }
+            "log.daemon_enabled" => {
+                new_config.log.daemon_enabled = change.to == "true";
+            }
+            "log.requests_enabled" => {
+                new_config.log.requests_enabled = change.to == "true";
+            }
             _ => {}
         }
     }
@@ -432,14 +582,28 @@ pub fn format_config_display(config: &AnnaConfigV5) -> String {
 [source: config.update]
   enabled: {}
   interval_seconds: {}
-  channel: {}"#,
+  channel: {}
+
+[source: config.log]
+  level: {}
+  daemon_enabled: {}
+  requests_enabled: {}
+  llm_enabled: {}
+  log_dir: {}
+  journal_enabled: {}"#,
         config.core.mode.as_str(),
         config.llm.selection_mode.as_str(),
         config.llm.preferred_model,
         config.llm.fallback_model,
         config.update.enabled,
         config.update.interval_seconds,
-        config.update.channel.as_str()
+        config.update.channel.as_str(),
+        config.log.level.as_str(),
+        config.log.daemon_enabled,
+        config.log.requests_enabled,
+        config.log.llm_enabled,
+        config.log.log_dir.display(),
+        config.log.journal_enabled
     )
 }
 
@@ -574,6 +738,7 @@ mod tests {
         assert!(display.contains("[source: config.core]"));
         assert!(display.contains("[source: config.llm]"));
         assert!(display.contains("[source: config.update]"));
+        assert!(display.contains("[source: config.log]"));
     }
 
     #[test]
@@ -587,5 +752,78 @@ mod tests {
         let diff = format_mutation_diff(&mutation);
         assert!(diff.contains("[config.change]"));
         assert!(diff.contains("update.enabled"));
+    }
+
+    // v0.8.0: Log configuration tests
+    #[test]
+    fn test_classify_set_log_level() {
+        let matcher = ConfigPatternMatcher::new();
+
+        let result = matcher.classify("set log level to info");
+        assert!(matches!(
+            result.intent,
+            ConfigIntent::SetLogLevel { level: LogLevel::Info }
+        ));
+
+        let result = matcher.classify("set logging level to debug");
+        assert!(matches!(
+            result.intent,
+            ConfigIntent::SetLogLevel { level: LogLevel::Debug }
+        ));
+    }
+
+    #[test]
+    fn test_classify_show_log_config() {
+        let matcher = ConfigPatternMatcher::new();
+
+        let result = matcher.classify("show current logging configuration");
+        assert_eq!(result.intent, ConfigIntent::ShowLogConfig);
+
+        let result = matcher.classify("what is the log level");
+        assert_eq!(result.intent, ConfigIntent::ShowLogConfig);
+    }
+
+    #[test]
+    fn test_classify_enable_llm_logging() {
+        let matcher = ConfigPatternMatcher::new();
+
+        let result = matcher.classify("enable detailed llm logging");
+        assert!(matches!(
+            result.intent,
+            ConfigIntent::SetLlmLogging { enabled: true }
+        ));
+
+        let result = matcher.classify("disable llm logging");
+        assert!(matches!(
+            result.intent,
+            ConfigIntent::SetLlmLogging { enabled: false }
+        ));
+    }
+
+    #[test]
+    fn test_apply_set_log_level() {
+        let config = AnnaConfigV5::default();
+        let intent = ConfigIntent::SetLogLevel { level: LogLevel::Info };
+
+        let mutation = apply_intent(&config, &intent).unwrap();
+        assert!(!mutation.changes.is_empty());
+        assert!(mutation.summary.contains("INFO"));
+    }
+
+    #[test]
+    fn test_apply_log_mutation() {
+        let config = AnnaConfigV5::default();
+        let mutation = ConfigMutation {
+            changes: vec![
+                ConfigChange::new("log.level", "debug", "info"),
+                ConfigChange::new("log.llm_enabled", "true", "false"),
+            ],
+            summary: "Test".to_string(),
+            requires_confirmation: false,
+        };
+
+        let new_config = apply_mutation(&config, &mutation);
+        assert_eq!(new_config.log.level, LogLevel::Info);
+        assert!(!new_config.log.llm_enabled);
     }
 }

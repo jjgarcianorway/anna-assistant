@@ -1,8 +1,10 @@
-//! Anna Configuration Schema v0.5.0
+//! Anna Configuration Schema v0.8.0
 //!
 //! Natural language configuration via annactl.
 //! All configuration is manipulated through natural language prompts.
+//! v0.8.0: Added logging configuration.
 
+use crate::logging::LogConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -149,7 +151,7 @@ impl UpdateSettings {
     }
 }
 
-/// Complete Anna configuration schema v0.5.0
+/// Complete Anna configuration schema v0.8.0
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnnaConfigV5 {
     #[serde(default)]
@@ -158,6 +160,8 @@ pub struct AnnaConfigV5 {
     pub llm: LlmConfig,
     #[serde(default)]
     pub update: UpdateSettings,
+    #[serde(default)]
+    pub log: LogConfig,
 }
 
 impl AnnaConfigV5 {
@@ -331,6 +335,7 @@ mod tests {
         assert!(toml_str.contains("[core]"));
         assert!(toml_str.contains("[llm]"));
         assert!(toml_str.contains("[update]"));
+        assert!(toml_str.contains("[log]"));
     }
 
     #[test]

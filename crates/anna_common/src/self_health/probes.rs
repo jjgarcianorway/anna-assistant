@@ -1,12 +1,13 @@
-//! Self-Health Probes v0.7.0
+//! Self-Health Probes v0.8.0
 //!
-//! Six probes to monitor Anna's own health:
+//! Seven probes to monitor Anna's own health:
 //! - daemon: Is annad running and responding?
 //! - llm: Is Ollama backend accessible?
 //! - model: Are required models available?
 //! - tools: Is the probe catalog valid?
 //! - permissions: Are directories writable?
 //! - config: Is the config file valid?
+//! - logging: Is the logging subsystem working? (v0.8.0)
 
 use super::types::{ComponentHealth, ComponentStatus};
 use std::fs;
@@ -419,6 +420,99 @@ pub fn check_config() -> ComponentHealth {
     }
 }
 
+/// v0.8.0: Check if logging subsystem is working
+pub fn check_logging() -> ComponentHealth {
+    use crate::logging::{config::default_log_dir, logger, WriterStatus};
+
+    let log_dir = default_log_dir();
+    let mut issues = Vec::new();
+    let mut info = Vec::new();
+
+    // Check if log directory exists and is writable
+    if !log_dir.exists() {
+        // Try to create it
+        if let Err(e) = fs::create_dir_all(&log_dir) {
+            issues.push(format!("Cannot create log directory: {}", e));
+        } else {
+            info.push(format!("Created log directory: {}", log_dir.display()));
+        }
+    } else {
+        info.push(format!("Log directory exists: {}", log_dir.display()));
+
+        // Check write permission
+        let test_file = log_dir.join(".write_test");
+        match fs::write(&test_file, "test") {
+            Ok(_) => {
+                let _ = fs::remove_file(&test_file);
+                info.push("Log directory is writable".to_string());
+            }
+            Err(e) => {
+                issues.push(format!("Log directory not writable: {}", e));
+            }
+        }
+    }
+
+    // Check expected log files
+    let log_files = ["anna-daemon.log", "anna-requests.log", "anna-llm.log"];
+    let mut found_logs = Vec::new();
+    for file in &log_files {
+        let path = log_dir.join(file);
+        if path.exists() {
+            if let Ok(meta) = fs::metadata(&path) {
+                found_logs.push(format!("{} ({} bytes)", file, meta.len()));
+            } else {
+                found_logs.push(file.to_string());
+            }
+        }
+    }
+
+    // Check logger status
+    let logger_status = logger().status();
+    let status_str = match &logger_status {
+        WriterStatus::Healthy => "healthy",
+        WriterStatus::Degraded(msg) => {
+            issues.push(format!("Logger degraded: {}", msg));
+            "degraded"
+        }
+        WriterStatus::Failed(msg) => {
+            issues.push(format!("Logger failed: {}", msg));
+            "failed"
+        }
+    };
+
+    // Determine overall status
+    let status = if issues.is_empty() {
+        ComponentStatus::Healthy
+    } else if matches!(logger_status, WriterStatus::Failed(_)) {
+        ComponentStatus::Critical
+    } else {
+        ComponentStatus::Degraded
+    };
+
+    let message = if issues.is_empty() {
+        format!(
+            "Logging active ({} log files, status: {})",
+            found_logs.len(),
+            status_str
+        )
+    } else {
+        format!("{} logging issue(s)", issues.len())
+    };
+
+    ComponentHealth {
+        name: "logging".to_string(),
+        status,
+        message,
+        details: Some(serde_json::json!({
+            "log_dir": log_dir.display().to_string(),
+            "logger_status": status_str,
+            "log_files": found_logs,
+            "info": info,
+            "issues": issues
+        })),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -447,5 +541,13 @@ mod tests {
         let health = check_permissions();
         // Should return valid status
         assert_eq!(health.name, "permissions");
+    }
+
+    #[test]
+    fn test_check_logging() {
+        let health = check_logging();
+        assert_eq!(health.name, "logging");
+        // Should return valid status regardless of actual logging state
+        assert!(!health.message.is_empty());
     }
 }

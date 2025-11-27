@@ -1,7 +1,7 @@
-//! Self-Health Module v0.7.0
+//! Self-Health Module v0.8.0
 //!
 //! Anna monitors her own health and can auto-repair safe issues.
-//! Components monitored: daemon, llm, model, tools, permissions, config.
+//! Components monitored: daemon, llm, model, tools, permissions, config, logging.
 
 pub mod probes;
 pub mod repair;
@@ -22,8 +22,9 @@ pub fn run_all_probes() -> SelfHealthReport {
     let tools = probes::check_tools_catalog();
     let permissions = probes::check_permissions();
     let config = probes::check_config();
+    let logging = probes::check_logging(); // v0.8.0
 
-    let components = vec![daemon, llm, model, tools, permissions, config];
+    let components = vec![daemon, llm, model, tools, permissions, config, logging];
 
     let overall_status = if components.iter().all(|c| c.status == ComponentStatus::Healthy) {
         OverallHealth::Healthy
