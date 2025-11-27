@@ -24,7 +24,7 @@ ICON_ROCKET="🚀"
 ICON_DOWN="⬇"
 ICON_LOCK="🔒"
 
-VERSION="0.3.0"
+VERSION="0.4.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 

@@ -1,6 +1,7 @@
 //! Anna CLI (annactl) - User interface wrapper
 //!
 //! v0.3.0: Strict CLI with LLM-orchestrated help/version
+//! v0.4.0: Update status in version/help output
 //!
 //! Only these commands exist:
 //!   - annactl "<question>"    Ask Anna anything
@@ -13,6 +14,7 @@ mod llm_client;
 mod orchestrator;
 mod output;
 
+use anna_common::{load_update_config, load_update_state};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
@@ -120,7 +122,7 @@ fn print_banner() {
     println!(
         "\n{}  {}",
         "🤖".bright_magenta(),
-        "Anna v0.3.0".bright_white().bold()
+        format!("Anna v{}", env!("CARGO_PKG_VERSION")).bright_white().bold()
     );
     println!("   Your intelligent Linux assistant\n");
 }
@@ -153,7 +155,7 @@ async fn run_version_via_llm() -> Result<()> {
     let daemon = client::DaemonClient::new();
 
     // Build internal question for version info
-    let version_question = "What is your version? Report: Anna version, daemon status, model name, and tool catalog count.";
+    let version_question = "What is your version? Report: Anna version, channel, update status, daemon status, model name, and tool catalog count.";
 
     // Check if daemon is healthy and get status
     let daemon_status = if daemon.is_healthy().await {
@@ -179,6 +181,10 @@ async fn run_version_via_llm() -> Result<()> {
         0
     };
 
+    // Load update config and state
+    let update_config = load_update_config();
+    let update_state = load_update_state();
+
     // Process through orchestrator for consistent formatting
     let result = orchestrator::process_internal_query(
         version_question,
@@ -187,6 +193,8 @@ async fn run_version_via_llm() -> Result<()> {
             version: env!("CARGO_PKG_VERSION").to_string(),
             daemon_status,
             probe_count,
+            update_config,
+            update_state,
         },
     )
     .await?;
@@ -199,13 +207,16 @@ async fn run_version_via_llm() -> Result<()> {
 async fn run_help_via_llm() -> Result<()> {
     let daemon = client::DaemonClient::new();
 
-    let help_question = "How do I use Anna? Show usage, available commands, and examples.";
+    let help_question = "How do I use Anna? Show usage, available commands, examples, and auto-update configuration.";
+
+    // Load update config
+    let update_config = load_update_config();
 
     // Process through orchestrator for consistent formatting
     let result = orchestrator::process_internal_query(
         help_question,
         &daemon,
-        orchestrator::InternalQueryType::Help,
+        orchestrator::InternalQueryType::Help { update_config },
     )
     .await?;
 

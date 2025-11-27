@@ -4,11 +4,17 @@
 //! - Help/Version via LLM pipeline
 //! - Stable Repeated Answers with reconciliation
 //! - Strict Hallucination Guardrails
+//!
+//! v0.4.0:
+//! - Update status in version/help output
 
 use crate::client::DaemonClient;
 use crate::llm_client::LlmClient;
 use anna_common::prompts::{LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT};
-use anna_common::{AnnaResponse, Evidence, ExpertResponse, ModelSelection, ReliabilityScore, Verdict};
+use anna_common::{
+    AnnaResponse, Evidence, ExpertResponse, ModelSelection, ReliabilityScore, UpdateConfig,
+    UpdateResult, UpdateState, Verdict,
+};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -24,8 +30,12 @@ pub enum InternalQueryType {
         version: String,
         daemon_status: String,
         probe_count: usize,
+        update_config: UpdateConfig,
+        update_state: UpdateState,
     },
-    Help,
+    Help {
+        update_config: UpdateConfig,
+    },
 }
 
 /// LLM-A action request
@@ -107,6 +117,37 @@ fn answers_match(answer1: &str, answer2: &str) -> bool {
     similarity > 0.8
 }
 
+/// Format update state for display
+fn format_update_state(state: &UpdateState) -> (String, String) {
+    let last_check = state
+        .last_check
+        .map(|ts| {
+            chrono::DateTime::from_timestamp(ts, 0)
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                .unwrap_or_else(|| "invalid".to_string())
+        })
+        .unwrap_or_else(|| "never".to_string());
+
+    let last_result = state
+        .last_result
+        .map(|r| match r {
+            UpdateResult::Ok => "ok".to_string(),
+            UpdateResult::Failed => format!(
+                "failed{}",
+                state
+                    .last_failure_reason
+                    .as_ref()
+                    .map(|r| format!(" ({})", r))
+                    .unwrap_or_default()
+            ),
+            UpdateResult::NoUpdate => "no update".to_string(),
+            UpdateResult::Unknown => "unknown".to_string(),
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+
+    (last_check, last_result)
+}
+
 /// Process internal queries (help/version) via LLM pipeline
 pub async fn process_internal_query(
     _question: &str,
@@ -120,28 +161,39 @@ pub async fn process_internal_query(
     if !llm.is_available().await {
         // Fallback for when LLM is not available
         return Ok(match query_type {
-            InternalQueryType::Version { version, daemon_status, probe_count } => {
+            InternalQueryType::Version { version, daemon_status, probe_count, update_config, update_state } => {
+                let (last_check, last_result) = format_update_state(&update_state);
+                let update_mode = if update_config.auto { "auto" } else { "manual" };
+
                 AnnaResponse {
                     answer: format!(
-                        "Anna Assistant v{}\nDaemon: {}\nTool catalog: {} probes registered\n\n⚠️  LLM unavailable - showing basic info only",
-                        version, daemon_status, probe_count
+                        "Anna Assistant v{}\nChannel: {}\nUpdate mode: {}\nLast update check: {}\nLast update result: {}\nDaemon: {}\nTool catalog: {} probes registered\n\n⚠️  LLM unavailable - showing basic info only",
+                        version, update_config.channel.as_str(), update_mode, last_check, last_result, daemon_status, probe_count
                     ),
                     confidence: 0.5,
-                    sources: vec!["internal.state".to_string()],
+                    sources: vec!["internal.state".to_string(), "update.config".to_string(), "update.state".to_string()],
                     warning: Some("LLM backend unavailable".to_string()),
                 }
             }
-            InternalQueryType::Help => {
+            InternalQueryType::Help { update_config } => {
+                let auto_update_note = if update_config.auto && update_config.channel == anna_common::UpdateChannel::Dev {
+                    "\n\nAuto-update: enabled (dev mode, every 10 minutes)"
+                } else if update_config.auto {
+                    "\n\nAuto-update: enabled (controlled via config)"
+                } else {
+                    "\n\nAuto-update: disabled (configure via ~/.config/anna/config.toml)"
+                };
+
                 AnnaResponse {
-                    answer: r#"Usage:
+                    answer: format!(r#"Usage:
   annactl "<question>"      Ask Anna anything
   annactl                   Start interactive REPL
   annactl -V | --version    Show version
-  annactl -h | --help       Show help
+  annactl -h | --help       Show help{}
 
-⚠️  LLM unavailable - showing basic help only"#.to_string(),
+⚠️  LLM unavailable - showing basic help only"#, auto_update_note),
                     confidence: 0.5,
-                    sources: vec!["internal.help".to_string()],
+                    sources: vec!["internal.help".to_string(), "update.config".to_string()],
                     warning: Some("LLM backend unavailable".to_string()),
                 }
             }
@@ -149,9 +201,11 @@ pub async fn process_internal_query(
     }
 
     match query_type {
-        InternalQueryType::Version { version, daemon_status, probe_count } => {
+        InternalQueryType::Version { version, daemon_status, probe_count, update_config, update_state } => {
             // Get model info
             let model_name = &models.orchestrator;
+            let (last_check, last_result) = format_update_state(&update_state);
+            let update_mode = if update_config.auto { "auto" } else { "manual" };
 
             // Build evidence for version query
             let evidence = serde_json::json!({
@@ -161,11 +215,20 @@ pub async fn process_internal_query(
                     "model": model_name,
                     "tool_catalog_count": probe_count,
                     "tool_catalog": TOOL_CATALOG,
+                },
+                "update.config": {
+                    "channel": update_config.channel.as_str(),
+                    "auto": update_config.auto,
+                    "interval_seconds": update_config.effective_interval(),
+                },
+                "update.state": {
+                    "last_check": last_check,
+                    "last_result": last_result,
                 }
             });
 
             let prompt = format!(
-                "You are reporting your own version information. Use ONLY this evidence:\n{}\n\nFormat your response EXACTLY as:\nAnna Assistant v<version>\nDaemon: <status>\nModel: <model>\nTool catalog: <n> probes registered\n\nThen add Evidence and Reliability sections.",
+                "You are reporting your own version information. Use ONLY this evidence:\n{}\n\nFormat your response EXACTLY as:\nAnna Assistant v<version>\nChannel: <channel>\nUpdate mode: <auto|manual>\nLast update check: <timestamp>\nLast update result: <result>\nDaemon: <status>\nModel: <model>\nTool catalog: <n> probes registered",
                 serde_json::to_string_pretty(&evidence)?
             );
 
@@ -173,8 +236,8 @@ pub async fn process_internal_query(
                 .chat(&models.orchestrator, LLM_A_SYSTEM_PROMPT, &prompt)
                 .await
                 .unwrap_or_else(|_| format!(
-                    "Anna Assistant v{}\nDaemon: {}\nModel: {}\nTool catalog: {} probes registered",
-                    version, daemon_status, model_name, probe_count
+                    "Anna Assistant v{}\nChannel: {}\nUpdate mode: {}\nLast update check: {}\nLast update result: {}\nDaemon: {}\nModel: {}\nTool catalog: {} probes registered",
+                    version, update_config.channel.as_str(), update_mode, last_check, last_result, daemon_status, model_name, probe_count
                 ));
 
             // Validate with LLM-B
@@ -188,20 +251,38 @@ pub async fn process_internal_query(
                 .chat(&models.expert, LLM_B_SYSTEM_PROMPT, &validation_prompt)
                 .await;
 
-            let confidence = if expert_response.is_ok() { 0.95 } else { 0.85 };
+            // Calculate confidence based on evidence coverage
+            let mut confidence = if expert_response.is_ok() { 0.95 } else { 0.85 };
+
+            // Reduce confidence if update state is missing
+            if update_state.last_check.is_none() {
+                confidence -= 0.05;
+            }
 
             Ok(AnnaResponse {
                 answer: format!(
-                    "Anna Assistant v{}\nDaemon: {}\nModel: {}\nTool catalog: {} probes registered",
-                    version, daemon_status, model_name, probe_count
+                    "Anna Assistant v{}\nChannel: {}\nUpdate mode: {}\nLast update check: {}\nLast update result: {}\nDaemon: {}\nModel: {}\nTool catalog: {} probes registered",
+                    version, update_config.channel.as_str(), update_mode, last_check, last_result, daemon_status, model_name, probe_count
                 ),
                 confidence,
-                sources: vec!["internal.version".to_string()],
+                sources: vec![
+                    "internal.version".to_string(),
+                    "update.config".to_string(),
+                    "update.state".to_string(),
+                ],
                 warning: None,
             })
         }
-        InternalQueryType::Help => {
+        InternalQueryType::Help { update_config } => {
             // Build help evidence
+            let auto_update_note = if update_config.auto && update_config.channel == anna_common::UpdateChannel::Dev {
+                "Auto-update: enabled (dev mode, updates every 10 minutes when new version available)"
+            } else if update_config.auto {
+                "Auto-update: enabled (controlled via config)"
+            } else {
+                "Auto-update: disabled (configure via ~/.config/anna/config.toml)"
+            };
+
             let evidence = serde_json::json!({
                 "internal.help": {
                     "commands": [
@@ -211,11 +292,16 @@ pub async fn process_internal_query(
                         {"usage": "annactl -h | --help", "description": "Show help"},
                     ],
                     "tool_catalog": TOOL_CATALOG,
+                },
+                "update.config": {
+                    "channel": update_config.channel.as_str(),
+                    "auto": update_config.auto,
+                    "note": auto_update_note,
                 }
             });
 
             let prompt = format!(
-                "You are explaining how to use yourself. Use ONLY this evidence:\n{}\n\nFormat as a clean help message with Usage section and examples.",
+                "You are explaining how to use yourself. Use ONLY this evidence:\n{}\n\nFormat as a clean help message with Usage section and examples. Mention the auto-update configuration.",
                 serde_json::to_string_pretty(&evidence)?
             );
 
@@ -224,7 +310,7 @@ pub async fn process_internal_query(
                 .await;
 
             // Use deterministic help output for stability
-            let help_text = r#"Usage:
+            let help_text = format!(r#"Usage:
   annactl "<question>"      Ask Anna anything
   annactl                   Start interactive REPL
   annactl -V | --version    Show version
@@ -235,12 +321,14 @@ Examples:
   annactl "What's my RAM usage?"
   annactl "Show disk information"
 
-Evidence-based answers only. No hallucinations. No guesses."#;
+{}
+
+Evidence-based answers only. No hallucinations. No guesses."#, auto_update_note);
 
             Ok(AnnaResponse {
-                answer: help_text.to_string(),
+                answer: help_text,
                 confidence: 1.0,
-                sources: vec!["internal.help".to_string()],
+                sources: vec!["internal.help".to_string(), "update.config".to_string()],
                 warning: None,
             })
         }

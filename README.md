@@ -1,10 +1,16 @@
-# Anna v0.3.0
+# Anna v0.4.0
 
 **Your Intelligent Linux Assistant**
 
 Anna is a two-LLM system that provides reliable, evidence-based answers about your Linux system. Zero hallucinations. Only facts from probes.
 
-## What's New in v0.3.0
+## What's New in v0.4.0
+
+- 🔄  **Dev Auto-Update** - Automatic updates every 10 minutes in dev mode
+- 📊  **Update Status in Version/Help** - Channel, mode, last check info
+- ⚙️  **Config-Driven Updates** - No new CLI commands, all via config
+
+## What's in v0.3.0
 
 - 🛡️  **Strict Hallucination Guardrails** - Zero tolerance for unsupported claims
 - 🔄  **Stable Repeated Answers** - Reconciliation when answers differ
@@ -18,18 +24,18 @@ Anna is a two-LLM system that provides reliable, evidence-based answers about yo
 │   annactl    │────▶│    LLM-A     │────▶│    LLM-B     │
 │  (CLI UI)    │     │ Orchestrator │     │   Expert     │
 └──────────────┘     └──────────────┘     └──────────────┘
-                            │                    │
-                            ▼                    │
-                     ┌──────────────┐            │
-                     │    annad     │◀───────────┘
-                     │   (Daemon)   │
-                     └──────────────┘
-                            │
-                            ▼
-                     ┌──────────────┐
-                     │    Probes    │
-                     │ (Evidence)   │
-                     └──────────────┘
+                           │                    │
+                           ▼                    │
+                    ┌──────────────┐            │
+                    │    annad     │◀───────────┘
+                    │   (Daemon)   │
+                    └──────────────┘
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │    Probes    │
+                    │ (Evidence)   │
+                    └──────────────┘
 ```
 
 ## Usage
@@ -41,16 +47,71 @@ annactl "How many CPU cores do I have?"
 # Start interactive REPL
 annactl
 
-# Show version (via LLM pipeline)
+# Show version (includes update status)
 annactl -V
 annactl --version
 
-# Show help (via LLM pipeline)
+# Show help (mentions auto-update config)
 annactl -h
 annactl --help
 ```
 
 **That's it.** No other commands exist.
+
+## Auto-Update (v0.4.0)
+
+Anna can automatically update itself. Configuration is done via config file, not CLI:
+
+### Config Location
+
+- User config: `~/.config/anna/config.toml`
+- System config: `/etc/anna/config.toml`
+
+### Config Options
+
+```toml
+[update]
+channel = "stable"        # stable, beta, or dev
+auto = false              # Enable auto-updates
+interval_seconds = 86400  # Check interval (optional)
+```
+
+### Channels
+
+| Channel | Default Interval | Description |
+|---------|-----------------|-------------|
+| `stable` | 24 hours | Production releases only |
+| `beta` | 12 hours | Pre-release versions |
+| `dev` | 10 minutes | Development versions |
+
+### Dev Mode Auto-Update
+
+To enable automatic updates every 10 minutes:
+
+```toml
+[update]
+channel = "dev"
+auto = true
+```
+
+When enabled:
+- Checks for new versions every 10 minutes
+- Downloads and verifies binaries atomically
+- Restarts daemon automatically
+- Rolls back on failure
+
+### Version Output
+
+```
+Anna Assistant v0.4.0
+Channel: stable
+Update mode: manual
+Last update check: 2025-01-15 10:30:00 UTC
+Last update result: ok
+Daemon: running (v0.4.0, uptime: 3600s, 3 probes)
+Model: llama3.2:3b
+Tool catalog: 3 probes registered
+```
 
 ## Components
 
@@ -69,25 +130,6 @@ annactl --help
 4. **70% threshold** - Below 70% reliability = insufficient evidence
 5. **Tool catalog enforcement** - Only registered probes allowed
 6. **Stability check** - Run twice, reconcile if different
-
-## Hallucination Guardrails (v0.3.0)
-
-If Anna does not have a probe for a domain:
-
-- Immediate return: "Insufficient evidence"
-- Reliability < 70% = red warning
-- Explicit list of missing probes:
-  - "No gpu.info probe available"
-  - "No network.info probe available"
-  - "No package.info probe available"
-
-## Stable Repeated Answers (v0.3.0)
-
-Every question runs twice through the LLM pipeline:
-
-- If answers match: +10% stability bonus
-- If answers differ: reconciliation → +5% stability bonus
-- Stability status shown in output
 
 ## Installation
 
@@ -140,4 +182,4 @@ GPL-3.0-or-later
 
 ## Contributing
 
-This is version 0.3.0 - Strict hallucination guardrails release.
+This is version 0.4.0 - Dev auto-update release.

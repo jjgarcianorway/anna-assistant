@@ -1,4 +1,6 @@
-//! Core types for Anna v0.2.0
+//! Core types for Anna v0.4.0
+//!
+//! v0.4.0: Dev auto-update every 10 minutes
 
 use serde::{Deserialize, Serialize};
 
@@ -124,10 +126,9 @@ pub struct AnnaConfig {
     pub models: ModelSelection,
     pub daemon_socket: String,
     pub ollama_url: String,
+    /// Update configuration (v0.4.0)
     #[serde(default)]
-    pub auto_update: bool,
-    #[serde(default)]
-    pub update_channel: UpdateChannel,
+    pub update: UpdateConfig,
 }
 
 impl Default for AnnaConfig {
@@ -137,8 +138,7 @@ impl Default for AnnaConfig {
             models: ModelSelection::default(),
             daemon_socket: "/run/anna/annad.sock".to_string(),
             ollama_url: "http://localhost:11434".to_string(),
-            auto_update: true,
-            update_channel: UpdateChannel::Stable,
+            update: UpdateConfig::default(),
         }
     }
 }
@@ -150,6 +150,100 @@ pub enum UpdateChannel {
     #[default]
     Stable,
     Beta,
+    Dev,
+}
+
+impl UpdateChannel {
+    /// Get the default update interval in seconds for this channel
+    pub fn default_interval_seconds(&self) -> u64 {
+        match self {
+            UpdateChannel::Stable => 86400, // 24 hours
+            UpdateChannel::Beta => 43200,   // 12 hours
+            UpdateChannel::Dev => 600,      // 10 minutes
+        }
+    }
+
+    /// Get display name
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UpdateChannel::Stable => "stable",
+            UpdateChannel::Beta => "beta",
+            UpdateChannel::Dev => "dev",
+        }
+    }
+}
+
+/// Update configuration (v0.4.0)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateConfig {
+    /// Update channel: stable, beta, or dev
+    #[serde(default)]
+    pub channel: UpdateChannel,
+    /// Whether auto-update is enabled
+    #[serde(default)]
+    pub auto: bool,
+    /// Update check interval in seconds (default based on channel)
+    #[serde(default)]
+    pub interval_seconds: Option<u64>,
+}
+
+impl Default for UpdateConfig {
+    fn default() -> Self {
+        Self {
+            channel: UpdateChannel::Stable,
+            auto: false, // Disabled by default for normal users
+            interval_seconds: None, // Will use channel default
+        }
+    }
+}
+
+impl UpdateConfig {
+    /// Get effective interval (uses channel default if not set)
+    pub fn effective_interval(&self) -> u64 {
+        self.interval_seconds
+            .unwrap_or_else(|| self.channel.default_interval_seconds())
+    }
+
+    /// Check if dev auto-update is active
+    pub fn is_dev_auto_update(&self) -> bool {
+        self.auto && self.channel == UpdateChannel::Dev
+    }
+}
+
+/// Update state persistence (v0.4.0)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UpdateState {
+    /// Last update check timestamp (Unix epoch)
+    #[serde(default)]
+    pub last_check: Option<i64>,
+    /// Last update result
+    #[serde(default)]
+    pub last_result: Option<UpdateResult>,
+    /// Version before last update
+    #[serde(default)]
+    pub last_version_before: Option<String>,
+    /// Version after last update
+    #[serde(default)]
+    pub last_version_after: Option<String>,
+    /// Last successful update timestamp
+    #[serde(default)]
+    pub last_successful_update: Option<i64>,
+    /// Last failed update timestamp
+    #[serde(default)]
+    pub last_failed_update: Option<i64>,
+    /// Last failure reason
+    #[serde(default)]
+    pub last_failure_reason: Option<String>,
+}
+
+/// Update result status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdateResult {
+    Ok,
+    Failed,
+    NoUpdate,
+    Unknown,
 }
 
 /// Evidence item - structured proof from probes
@@ -275,5 +369,79 @@ mod tests {
         let models = hw.select_models();
         assert_eq!(models.orchestrator, "mistral-nemo");
         assert_eq!(models.expert, "qwen2.5:32b");
+    }
+
+    // v0.4.0: Update config tests
+    #[test]
+    fn test_update_channel_intervals() {
+        assert_eq!(UpdateChannel::Stable.default_interval_seconds(), 86400);
+        assert_eq!(UpdateChannel::Beta.default_interval_seconds(), 43200);
+        assert_eq!(UpdateChannel::Dev.default_interval_seconds(), 600);
+    }
+
+    #[test]
+    fn test_update_channel_as_str() {
+        assert_eq!(UpdateChannel::Stable.as_str(), "stable");
+        assert_eq!(UpdateChannel::Beta.as_str(), "beta");
+        assert_eq!(UpdateChannel::Dev.as_str(), "dev");
+    }
+
+    #[test]
+    fn test_update_config_default() {
+        let config = UpdateConfig::default();
+        assert_eq!(config.channel, UpdateChannel::Stable);
+        assert!(!config.auto);
+        assert!(config.interval_seconds.is_none());
+    }
+
+    #[test]
+    fn test_update_config_effective_interval() {
+        // Default interval from channel
+        let config = UpdateConfig::default();
+        assert_eq!(config.effective_interval(), 86400);
+
+        // Custom interval overrides channel default
+        let config = UpdateConfig {
+            channel: UpdateChannel::Dev,
+            auto: true,
+            interval_seconds: Some(300),
+        };
+        assert_eq!(config.effective_interval(), 300);
+    }
+
+    #[test]
+    fn test_update_config_is_dev_auto_update() {
+        // Not dev auto-update if auto is false
+        let config = UpdateConfig {
+            channel: UpdateChannel::Dev,
+            auto: false,
+            interval_seconds: None,
+        };
+        assert!(!config.is_dev_auto_update());
+
+        // Not dev auto-update if channel is not dev
+        let config = UpdateConfig {
+            channel: UpdateChannel::Stable,
+            auto: true,
+            interval_seconds: None,
+        };
+        assert!(!config.is_dev_auto_update());
+
+        // Is dev auto-update
+        let config = UpdateConfig {
+            channel: UpdateChannel::Dev,
+            auto: true,
+            interval_seconds: None,
+        };
+        assert!(config.is_dev_auto_update());
+    }
+
+    #[test]
+    fn test_update_state_default() {
+        let state = UpdateState::default();
+        assert!(state.last_check.is_none());
+        assert!(state.last_result.is_none());
+        assert!(state.last_version_before.is_none());
+        assert!(state.last_version_after.is_none());
     }
 }
