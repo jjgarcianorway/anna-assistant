@@ -33,7 +33,7 @@ set -uo pipefail
 # ============================================================
 
 # Installer version (independent from Anna version)
-INSTALLER_VERSION="2.1.0"
+INSTALLER_VERSION="2.2.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -357,19 +357,21 @@ confirm_action() {
 # ============================================================
 
 download_binaries() {
-    log_info "Downloading release package..."
+    log_info "Downloading binaries..."
 
     local base_url="https://github.com/${GITHUB_REPO}/releases/download/v${LATEST_VERSION}"
     TMP_DIR=$(mktemp -d)
 
-    # Determine tarball name based on architecture
-    local tarball_name
+    # Determine binary names based on architecture
+    local annad_name annactl_name
     case "$ARCH" in
         x86_64|x86_64-unknown-linux-gnu)
-            tarball_name="anna-linux-x86_64.tar.gz"
+            annad_name="annad-${LATEST_VERSION}-x86_64-unknown-linux-gnu"
+            annactl_name="annactl-${LATEST_VERSION}-x86_64-unknown-linux-gnu"
             ;;
         aarch64|aarch64-unknown-linux-gnu)
-            tarball_name="anna-linux-aarch64.tar.gz"
+            annad_name="annad-${LATEST_VERSION}-aarch64-unknown-linux-gnu"
+            annactl_name="annactl-${LATEST_VERSION}-aarch64-unknown-linux-gnu"
             ;;
         *)
             log_error "Unsupported architecture: $ARCH"
@@ -377,44 +379,58 @@ download_binaries() {
             ;;
     esac
 
-    # Download tarball and checksums
+    # Download individual binaries and checksums
+    log_info "Downloading annad..."
     if command -v curl &>/dev/null; then
-        curl -fsSL "${base_url}/${tarball_name}" -o "${TMP_DIR}/${tarball_name}" || {
-            log_error "Failed to download ${tarball_name}"
+        curl -fsSL "${base_url}/${annad_name}" -o "${TMP_DIR}/annad" || {
+            log_error "Failed to download ${annad_name}"
             return 1
         }
+        log_info "Downloading annactl..."
+        curl -fsSL "${base_url}/${annactl_name}" -o "${TMP_DIR}/annactl" || {
+            log_error "Failed to download ${annactl_name}"
+            return 1
+        }
+        log_info "Downloading checksums..."
         curl -fsSL "${base_url}/SHA256SUMS" -o "${TMP_DIR}/SHA256SUMS" || {
             log_error "Failed to download checksums"
             return 1
         }
     else
-        wget -q "${base_url}/${tarball_name}" -O "${TMP_DIR}/${tarball_name}" || return 1
+        wget -q "${base_url}/${annad_name}" -O "${TMP_DIR}/annad" || return 1
+        wget -q "${base_url}/${annactl_name}" -O "${TMP_DIR}/annactl" || return 1
         wget -q "${base_url}/SHA256SUMS" -O "${TMP_DIR}/SHA256SUMS" || return 1
     fi
 
-    log_ok "Downloaded release package"
+    log_ok "Downloaded binaries"
 
-    # Verify checksum
+    # Verify checksums
     log_info "Verifying checksums..."
     cd "$TMP_DIR"
 
-    local tarball_sum
-    tarball_sum=$(sha256sum "${tarball_name}" | awk '{print $1}')
+    local annad_sum annactl_sum
+    annad_sum=$(sha256sum "annad" | awk '{print $1}')
+    annactl_sum=$(sha256sum "annactl" | awk '{print $1}')
 
-    if grep -q "$tarball_sum" SHA256SUMS; then
-        log_ok "Checksums verified"
+    # Check annad checksum
+    if grep -q "$annad_sum" SHA256SUMS; then
+        log_ok "annad checksum verified"
     else
-        log_error "Checksum verification failed!"
+        log_error "annad checksum verification failed!"
         return 1
     fi
 
-    # Extract tarball
-    log_info "Extracting release package..."
-    tar -xzf "${tarball_name}" || {
-        log_error "Failed to extract tarball"
+    # Check annactl checksum
+    if grep -q "$annactl_sum" SHA256SUMS; then
+        log_ok "annactl checksum verified"
+    else
+        log_error "annactl checksum verification failed!"
         return 1
-    }
-    log_ok "Extracted release package"
+    fi
+
+    # Set execute permissions
+    chmod 755 "${TMP_DIR}/annad" "${TMP_DIR}/annactl"
+    log_ok "Binaries ready for installation"
 }
 
 install_binaries() {
@@ -442,6 +458,135 @@ install_binaries() {
         $SUDO mkdir -p "$PROBES_DIR"
         $SUDO cp -r "${TMP_DIR}/probes/"* "$PROBES_DIR/" 2>/dev/null || true
         log_ok "Installed probe definitions to ${PROBES_DIR}"
+    fi
+}
+
+# ============================================================
+# OLLAMA AND MODEL INSTALLATION
+# ============================================================
+
+SELECTED_MODEL=""
+
+detect_gpu() {
+    local vram_mb=0
+
+    # Check for NVIDIA GPU with nvidia-smi
+    if command -v nvidia-smi &>/dev/null; then
+        local gpu_info
+        gpu_info=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1) || true
+        if [[ -n "$gpu_info" ]] && [[ "$gpu_info" =~ ^[0-9]+$ ]]; then
+            vram_mb="$gpu_info"
+            echo "$vram_mb"
+            return 0
+        fi
+    fi
+
+    # Check for AMD GPU via rocm-smi
+    if command -v rocm-smi &>/dev/null; then
+        local amd_vram
+        amd_vram=$(rocm-smi --showmeminfo vram 2>/dev/null | grep -oE '[0-9]+' | head -1) || true
+        if [[ -n "$amd_vram" ]] && [[ "$amd_vram" -gt 0 ]]; then
+            # rocm-smi reports in bytes, convert to MB
+            vram_mb=$((amd_vram / 1024 / 1024))
+            echo "$vram_mb"
+            return 0
+        fi
+    fi
+
+    # Fallback: Check lspci for GPU presence (helps detect if drivers are missing)
+    if command -v lspci &>/dev/null; then
+        if lspci | grep -qi "NVIDIA"; then
+            log_warn "NVIDIA GPU detected but nvidia-smi not working - drivers may be missing"
+            log_warn "Install NVIDIA drivers for GPU acceleration, or Anna will use CPU mode"
+        fi
+        if lspci | grep -qi "AMD.*Radeon"; then
+            log_warn "AMD GPU detected but rocm-smi not working - ROCm may not be installed"
+            log_warn "Install ROCm for GPU acceleration, or Anna will use CPU mode"
+        fi
+    fi
+
+    echo "0"
+}
+
+select_model() {
+    local vram_mb
+    vram_mb=$(detect_gpu)
+
+    if [[ "$vram_mb" -ge 16000 ]]; then
+        # 16GB+ VRAM: Use 14B model
+        SELECTED_MODEL="qwen2.5:14b"
+        log_ok "GPU detected with ${vram_mb}MB VRAM - selecting qwen2.5:14b"
+    elif [[ "$vram_mb" -ge 8000 ]]; then
+        # 8-16GB VRAM: Use 7B model
+        SELECTED_MODEL="qwen2.5:7b"
+        log_ok "GPU detected with ${vram_mb}MB VRAM - selecting qwen2.5:7b"
+    elif [[ "$vram_mb" -ge 4000 ]]; then
+        # 4-8GB VRAM: Use 3B model
+        SELECTED_MODEL="llama3.2:3b"
+        log_ok "GPU detected with ${vram_mb}MB VRAM - selecting llama3.2:3b"
+    else
+        # CPU only or low VRAM: Use 3B model
+        SELECTED_MODEL="llama3.2:3b"
+        if [[ "$vram_mb" -eq 0 ]]; then
+            log_warn "No GPU detected - selecting llama3.2:3b (CPU mode)"
+        else
+            log_ok "Low GPU memory (${vram_mb}MB) - selecting llama3.2:3b"
+        fi
+    fi
+}
+
+install_ollama() {
+    print_header "OLLAMA SETUP"
+
+    # Check if Ollama is installed
+    if command -v ollama &>/dev/null; then
+        local ollama_version
+        ollama_version=$(ollama --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || ollama_version="unknown"
+        log_ok "Ollama v${ollama_version} already installed"
+    else
+        log_info "Installing Ollama..."
+
+        # Use official Ollama installer
+        if command -v curl &>/dev/null; then
+            curl -fsSL https://ollama.com/install.sh | $SUDO sh || {
+                log_error "Failed to install Ollama"
+                log_warn "Install manually: https://ollama.com/download"
+                return 1
+            }
+        else
+            wget -qO- https://ollama.com/install.sh | $SUDO sh || {
+                log_error "Failed to install Ollama"
+                return 1
+            }
+        fi
+
+        log_ok "Ollama installed successfully"
+
+        # Start Ollama service
+        if command -v systemctl &>/dev/null; then
+            $SUDO systemctl enable ollama 2>/dev/null || true
+            $SUDO systemctl start ollama 2>/dev/null || true
+            sleep 2  # Give Ollama time to start
+        fi
+    fi
+
+    # Select appropriate model based on hardware
+    select_model
+
+    # Check if model is already pulled
+    log_info "Checking for ${SELECTED_MODEL}..."
+    if ollama list 2>/dev/null | grep -q "${SELECTED_MODEL%%:*}"; then
+        log_ok "Model ${SELECTED_MODEL} already available"
+    else
+        log_info "Pulling ${SELECTED_MODEL} (this may take a few minutes)..."
+
+        # Pull the model
+        if ollama pull "$SELECTED_MODEL" 2>&1; then
+            log_ok "Model ${SELECTED_MODEL} downloaded successfully"
+        else
+            log_error "Failed to pull model ${SELECTED_MODEL}"
+            log_warn "You can manually pull later: ollama pull ${SELECTED_MODEL}"
+        fi
     fi
 }
 
@@ -509,6 +654,9 @@ write_config() {
 
     log_info "Writing default configuration..."
 
+    # Use selected model or default to llama3.2:3b
+    local model="${SELECTED_MODEL:-llama3.2:3b}"
+
     $SUDO tee "$config_file" > /dev/null << EOF
 # Anna v${LATEST_VERSION} Configuration
 # This file was auto-generated. Feel free to customize.
@@ -517,7 +665,7 @@ write_config() {
 mode = "normal"
 
 [llm]
-preferred_model = "llama3.2:3b"
+preferred_model = "${model}"
 fallback_model = "llama3.2:3b"
 selection_mode = "auto"
 
@@ -659,7 +807,10 @@ main() {
         exit 1
     fi
 
-    # Install
+    # Install Ollama and select model (before config so model is known)
+    install_ollama
+
+    # Install Anna
     create_user_and_dirs
     install_binaries
     install_systemd_service
