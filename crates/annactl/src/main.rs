@@ -488,9 +488,10 @@ async fn run_status() -> Result<()> {
                     println!("  {}  Auto-update: disabled", "-".dimmed());
                 }
 
-                // Show last check time
+                // Show last check time with human-readable "ago" format
                 if let Some(last_check) = &state.last_check {
-                    println!("  {}  Last check: {}", "*".cyan(), last_check);
+                    let ago = format_time_ago(last_check);
+                    println!("  {}  Last check: {}", "*".cyan(), ago.dimmed());
                 }
             }
             Err(_) => {
@@ -558,6 +559,44 @@ async fn run_status() -> Result<()> {
     println!();
 
     Ok(())
+}
+
+/// v0.15.9: Format timestamp as human-readable "X ago"
+fn format_time_ago(rfc3339: &str) -> String {
+    use chrono::{DateTime, Utc};
+
+    // Parse RFC 3339 timestamp
+    let parsed: Result<DateTime<Utc>, _> = rfc3339.parse();
+
+    match parsed {
+        Ok(timestamp) => {
+            let now = Utc::now();
+            let duration = now.signed_duration_since(timestamp);
+            let secs = duration.num_seconds();
+
+            if secs < 0 {
+                // Future time - shouldn't happen
+                rfc3339.to_string()
+            } else if secs < 60 {
+                format!("{}s ago", secs)
+            } else if secs < 3600 {
+                let mins = secs / 60;
+                format!("{}m ago", mins)
+            } else if secs < 86400 {
+                let hours = secs / 3600;
+                let mins = (secs % 3600) / 60;
+                if mins > 0 {
+                    format!("{}h {}m ago", hours, mins)
+                } else {
+                    format!("{}h ago", hours)
+                }
+            } else {
+                let days = secs / 86400;
+                format!("{}d ago", days)
+            }
+        }
+        Err(_) => rfc3339.to_string(), // Fallback to raw timestamp
+    }
 }
 
 /// Check if Ollama is running
