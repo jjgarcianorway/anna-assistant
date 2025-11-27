@@ -201,13 +201,9 @@ impl AutoUpdateScheduler {
         Ok(release)
     }
 
-    /// Apply the update atomically by downloading tarball
+    /// Apply the update atomically
+    /// v0.15.10: Falls back to individual binaries if tarball not available
     async fn apply_update(&self, check_result: &UpdateCheckResult) -> Result<()> {
-        // Prefer tarball (ensures both binaries are same version)
-        let tarball_url = check_result
-            .tarball_url
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No tarball URL in release"))?;
         let checksums_url = check_result
             .checksums_url
             .as_ref()
@@ -220,13 +216,44 @@ impl AutoUpdateScheduler {
         info!("📥  Downloading checksums...");
         let checksums = self.download_text(checksums_url).await?;
 
+        // Try tarball first, fall back to individual binaries
+        if let Some(tarball_url) = &check_result.tarball_url {
+            info!("📥  Downloading Anna update package (tarball)...");
+            match self.apply_update_tarball(tarball_url, &checksums, &temp_dir).await {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    warn!("⚠️  Tarball update failed: {}, trying individual binaries...", e);
+                }
+            }
+        }
+
+        // Fallback: individual binaries
+        let annad_url = check_result
+            .annad_url
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No annad binary URL in release"))?;
+        let annactl_url = check_result
+            .annactl_url
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No annactl binary URL in release"))?;
+
+        info!("📥  Downloading individual binaries...");
+        self.apply_update_binaries(annad_url, annactl_url, &checksums, &temp_dir).await
+    }
+
+    /// Apply update from tarball
+    async fn apply_update_tarball(
+        &self,
+        tarball_url: &str,
+        checksums: &str,
+        temp_dir: &TempDir,
+    ) -> Result<()> {
         // Download tarball
-        info!("📥  Downloading Anna update package...");
         let tarball_data = self.download_binary(tarball_url).await?;
 
         // Verify tarball checksum
         info!("🔐  Verifying package integrity...");
-        self.verify_tarball_checksum(&tarball_data, &checksums)?;
+        self.verify_tarball_checksum(&tarball_data, checksums)?;
 
         // Extract tarball
         info!("📦  Extracting package...");
@@ -261,12 +288,87 @@ impl AutoUpdateScheduler {
         }
 
         // Atomic swap - both at once
-        info!("🔄  Installing update...");
+        info!("🔄  Installing update from tarball...");
         self.atomic_replace("/usr/local/bin/annad", &annad_path)?;
         self.atomic_replace("/usr/local/bin/annactl", &annactl_path)?;
 
         info!("✅  Anna updated successfully");
         Ok(())
+    }
+
+    /// Apply update from individual binaries
+    async fn apply_update_binaries(
+        &self,
+        annad_url: &str,
+        annactl_url: &str,
+        checksums: &str,
+        temp_dir: &TempDir,
+    ) -> Result<()> {
+        // Download annad
+        info!("📥  Downloading annad...");
+        let annad_data = self.download_binary(annad_url).await?;
+
+        // Download annactl
+        info!("📥  Downloading annactl...");
+        let annactl_data = self.download_binary(annactl_url).await?;
+
+        // Verify checksums
+        info!("🔐  Verifying binary checksums...");
+        self.verify_binary_checksum(&annad_data, checksums, "annad")?;
+        self.verify_binary_checksum(&annactl_data, checksums, "annactl")?;
+
+        // Write binaries to temp dir
+        let annad_path = temp_dir.path().join("annad");
+        let annactl_path = temp_dir.path().join("annactl");
+
+        fs::write(&annad_path, &annad_data).context("Failed to write annad")?;
+        fs::write(&annactl_path, &annactl_data).context("Failed to write annactl")?;
+
+        // Set permissions
+        fs::set_permissions(&annad_path, fs::Permissions::from_mode(0o755))?;
+        fs::set_permissions(&annactl_path, fs::Permissions::from_mode(0o755))?;
+
+        // Atomic swap - both at once
+        info!("🔄  Installing update from binaries...");
+        self.atomic_replace("/usr/local/bin/annad", &annad_path)?;
+        self.atomic_replace("/usr/local/bin/annactl", &annactl_path)?;
+
+        info!("✅  Anna updated successfully");
+        Ok(())
+    }
+
+    /// Verify individual binary checksum
+    fn verify_binary_checksum(&self, data: &[u8], checksums: &str, binary_name: &str) -> Result<()> {
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        let hash = hasher.finalize();
+        let calculated = format!("{:x}", hash);
+
+        // Look for binary checksum in SHA256SUMS
+        for line in checksums.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let expected_hash = parts[0];
+                let filename = parts[1];
+
+                // Match binary name (e.g., "annad-0.15.9-x86_64-unknown-linux-gnu" contains "annad")
+                if filename.starts_with(binary_name) && !filename.contains(".tar.gz") {
+                    if calculated == expected_hash {
+                        debug!("{} checksum verified", binary_name);
+                        return Ok(());
+                    } else {
+                        anyhow::bail!(
+                            "{} checksum mismatch: expected {}, got {}",
+                            binary_name,
+                            expected_hash,
+                            calculated
+                        );
+                    }
+                }
+            }
+        }
+
+        anyhow::bail!("{} checksum not found in SHA256SUMS", binary_name)
     }
 
     /// Verify tarball checksum
