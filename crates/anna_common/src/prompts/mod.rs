@@ -1,4 +1,9 @@
-//! System prompts for LLM-A and LLM-B v0.12.2
+//! System prompts for LLM-A and LLM-B v0.13.0
+//!
+//! v0.13.0: Strict Evidence Discipline
+//! - Hard rule: "If there is no probe, you do not know it"
+//! - Mandatory fix_and_accept for contradictions
+//! - Intent mapping for common questions
 
 pub mod llm_a;
 pub mod llm_b;
