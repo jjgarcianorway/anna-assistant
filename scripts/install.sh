@@ -494,7 +494,8 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-PrivateDevices=yes
+# PrivateDevices=no to allow GPU detection (nvidia-smi needs /dev/nvidia*)
+PrivateDevices=no
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
@@ -502,9 +503,11 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 
-# Allow reading system info
+# Allow reading system info and GPU devices
 ReadOnlyPaths=/proc /sys
 ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
+DeviceAllow=/dev/nvidia* rw
+DeviceAllow=/dev/dri/* rw
 
 [Install]
 WantedBy=multi-user.target

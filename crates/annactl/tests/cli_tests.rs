@@ -90,9 +90,7 @@ fn test_annactl_version_word_detailed_output() {
     // v0.14.4+: 'version' word goes through daemon for detailed output
     // Either shows detailed version OR connection error if daemon not running
     assert!(
-        stdout.contains("annactl v")
-            || stderr.contains("daemon")
-            || stderr.contains("connection"),
+        stdout.contains("annactl v") || stderr.contains("daemon") || stderr.contains("connection"),
         "Expected version info or daemon connection error, got stdout: {}, stderr: {}",
         stdout,
         stderr

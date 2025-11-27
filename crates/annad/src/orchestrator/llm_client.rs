@@ -76,8 +76,16 @@ impl OllamaClient {
         };
 
         info!("📤  LLM CALL [{}]", self.model);
-        info!("📝  SYSTEM PROMPT ({} chars): {}", system_prompt.len(), &system_prompt[..200.min(system_prompt.len())]);
-        info!("📝  USER PROMPT ({} chars): {}", user_prompt.len(), &user_prompt[..500.min(user_prompt.len())]);
+        info!(
+            "📝  SYSTEM PROMPT ({} chars): {}",
+            system_prompt.len(),
+            &system_prompt[..200.min(system_prompt.len())]
+        );
+        info!(
+            "📝  USER PROMPT ({} chars): {}",
+            user_prompt.len(),
+            &user_prompt[..500.min(user_prompt.len())]
+        );
 
         let response = self
             .http_client
@@ -99,9 +107,11 @@ impl OllamaClient {
             .await
             .context("Failed to parse Ollama response")?;
 
-        info!("📥  LLM RESPONSE ({} chars): {}",
+        info!(
+            "📥  LLM RESPONSE ({} chars): {}",
             chat_response.message.content.len(),
-            &chat_response.message.content[..1000.min(chat_response.message.content.len())]);
+            &chat_response.message.content[..1000.min(chat_response.message.content.len())]
+        );
 
         Ok(chat_response.message.content)
     }

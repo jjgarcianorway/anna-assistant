@@ -248,11 +248,20 @@ async fn answer_question(
     // Get model from config
     let config = AnnaConfigV5::load();
     let model = if config.llm.selection_mode.as_str() == "manual" {
+        info!("🎯  Using manual model: {}", config.llm.preferred_model);
         Some(config.llm.preferred_model.clone())
     } else {
         // Auto selection - use hardware profile
         let profile = anna_common::HardwareProfile::detect();
         let recommendation = profile.select_model();
+        info!(
+            "🎯  Auto-selected model: {} (reason: {}, GPU: {:?}, VRAM: {:?}GB, driver_functional: {})",
+            recommendation.model,
+            recommendation.reason,
+            profile.gpu_vendor,
+            profile.vram_gb,
+            profile.gpu_driver_functional
+        );
         Some(recommendation.model)
     };
 
