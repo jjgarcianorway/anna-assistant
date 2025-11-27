@@ -5,15 +5,15 @@
 
 set -euo pipefail
 
-# Colors (using printf for sh compatibility)
-RED=$(printf '\033[0;31m')
-GREEN=$(printf '\033[0;32m')
-YELLOW=$(printf '\033[1;33m')
-BLUE=$(printf '\033[0;34m')
-MAGENTA=$(printf '\033[0;35m')
-CYAN=$(printf '\033[0;36m')
-NC=$(printf '\033[0m')
-BOLD=$(printf '\033[1m')
+# Colors
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+BLUE=$'\033[0;34m'
+MAGENTA=$'\033[0;35m'
+CYAN=$'\033[0;36m'
+NC=$'\033[0m'
+BOLD=$'\033[1m'
 
 # Icons
 ICON_CHECK="✓"
@@ -32,24 +32,24 @@ INSTALL_DIR="/usr/local/bin"
 TMP_DIR=""
 
 print_banner() {
-    echo -e "\n${MAGENTA}${BOLD}  Anna v${VERSION}${NC}"
-    echo -e "   Your intelligent Linux assistant\n"
+    printf "\n${MAGENTA}${BOLD}  Anna v${VERSION}${NC}\n"
+    printf "   Your intelligent Linux assistant\n\n"
 }
 
 log_info() {
-    echo -e "${BLUE}${ICON_INFO}${NC}  $1"
+    printf "${BLUE}${ICON_INFO}${NC}  %s\n" "$1"
 }
 
 log_success() {
-    echo -e "${GREEN}${ICON_CHECK}${NC}  $1"
+    printf "${GREEN}${ICON_CHECK}${NC}  %s\n" "$1"
 }
 
 log_warn() {
-    echo -e "${YELLOW}${ICON_WARN}${NC}  $1"
+    printf "${YELLOW}${ICON_WARN}${NC}  %s\n" "$1"
 }
 
 log_error() {
-    echo -e "${RED}${ICON_CROSS}${NC}  $1"
+    printf "${RED}${ICON_CROSS}${NC}  %s\n" "$1"
 }
 
 # Check if we can use sudo
@@ -70,7 +70,7 @@ check_sudo() {
 # Request sudo upfront to cache credentials
 request_sudo() {
     if [[ -n "$SUDO" ]]; then
-        echo -e "\n${ICON_LOCK}  ${BOLD}Sudo access required for installation${NC}"
+        printf "\n${ICON_LOCK}  ${BOLD}Sudo access required for installation${NC}\n"
         echo "   This will install binaries to ${INSTALL_DIR}"
         echo "   and create system directories/services"
         echo ""
@@ -139,7 +139,7 @@ select_models() {
 
     # LLM-A (Orchestrator) - fast, stable
     if [[ "$HAS_GPU" == "true" ]]; then
-        LLM_A="mistral-nemo-instruct"
+        LLM_A="mistral-nemo"
     elif [[ $CPU_CORES -ge 8 ]]; then
         LLM_A="qwen2.5:3b"
     else
@@ -155,8 +155,8 @@ select_models() {
         LLM_B="qwen2.5:7b"
     fi
 
-    echo "   Orchestrator (LLM-A): ${CYAN}${LLM_A}${NC}"
-    echo "   Expert (LLM-B): ${CYAN}${LLM_B}${NC}"
+    printf "   Orchestrator (LLM-A): ${CYAN}%s${NC}\n" "$LLM_A"
+    printf "   Expert (LLM-B): ${CYAN}%s${NC}\n" "$LLM_B"
 }
 
 # Check dependencies
@@ -192,7 +192,7 @@ download_file() {
     local url="$1"
     local output="$2"
 
-    echo -e "   ${ICON_DOWN}  Downloading $(basename "$output")..."
+    printf "   ${ICON_DOWN}  Downloading %s...\n" "$(basename "$output")"
 
     if [[ "$DOWNLOADER" == "curl" ]]; then
         curl -fsSL "$url" -o "$output"
@@ -400,23 +400,24 @@ run_self_test() {
 
     # Test 2: Check annactl binary
     if [[ -x "${INSTALL_DIR}/annactl" ]]; then
-        local version=$(${INSTALL_DIR}/annactl --version 2>&1)
+        local version
+        version=$(${INSTALL_DIR}/annactl --version 2>&1)
         log_success "Test 2: annactl binary OK (${version})"
     else
         log_error "Test 2: annactl binary FAILED"
         return 1
     fi
 
-    # Test 3: Check config
-    if [[ -f "/etc/anna/config.toml" ]]; then
+    # Test 3: Check config (use sudo to test file exists)
+    if $SUDO test -f "/etc/anna/config.toml"; then
         log_success "Test 3: Configuration OK"
     else
         log_error "Test 3: Configuration FAILED"
         return 1
     fi
 
-    # Test 4: Check probes
-    if [[ -f "/usr/share/anna/probes/cpu.info.json" ]]; then
+    # Test 4: Check probes (use sudo to test file exists)
+    if $SUDO test -f "/usr/share/anna/probes/cpu.info.json"; then
         log_success "Test 4: Probes OK"
     else
         log_error "Test 4: Probes FAILED"
@@ -467,19 +468,19 @@ main() {
     echo ""
     log_success "${BOLD}Installation complete!${NC}"
     echo ""
-    echo "   Start the daemon:"
-    echo "   ${CYAN}sudo systemctl start annad${NC}"
+    printf "   Start the daemon:\n"
+    printf "   ${CYAN}sudo systemctl start annad${NC}\n"
     echo ""
-    echo "   Enable at boot:"
-    echo "   ${CYAN}sudo systemctl enable annad${NC}"
+    printf "   Enable at boot:\n"
+    printf "   ${CYAN}sudo systemctl enable annad${NC}\n"
     echo ""
-    echo "   Check status:"
-    echo "   ${CYAN}annactl status${NC}"
+    printf "   Check status:\n"
+    printf "   ${CYAN}annactl status${NC}\n"
     echo ""
-    echo "   Update Anna:"
-    echo "   ${CYAN}annactl update${NC}"
+    printf "   Update Anna:\n"
+    printf "   ${CYAN}annactl update${NC}\n"
     echo ""
-    echo -e "${MAGENTA}${ICON_ROCKET}${NC}  ${BOLD}Welcome to Anna!${NC}"
+    printf "${MAGENTA}${ICON_ROCKET}${NC}  ${BOLD}Welcome to Anna!${NC}\n"
     echo ""
 }
 

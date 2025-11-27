@@ -98,7 +98,7 @@ impl HardwareInfo {
     /// Select appropriate models based on hardware
     pub fn select_models(&self) -> ModelSelection {
         let orchestrator = if self.has_gpu {
-            "mistral-nemo-instruct".to_string()
+            "mistral-nemo".to_string()
         } else if self.cpu_cores >= 8 {
             "qwen2.5:3b".to_string()
         } else {
@@ -273,7 +273,7 @@ mod tests {
             vram_gb: Some(24),
         };
         let models = hw.select_models();
-        assert_eq!(models.orchestrator, "mistral-nemo-instruct");
+        assert_eq!(models.orchestrator, "mistral-nemo");
         assert_eq!(models.expert, "qwen2.5:32b");
     }
 }

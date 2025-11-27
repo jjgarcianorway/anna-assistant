@@ -161,7 +161,7 @@ Anna automatically selects models based on your hardware:
 
 **LLM-A (Orchestrator):**
 - Default: `llama3.2:3b`
-- With GPU: `mistral-nemo-instruct`
+- With GPU: `mistral-nemo`
 - 8+ CPU cores: `qwen2.5:3b`
 
 **LLM-B (Expert):**
