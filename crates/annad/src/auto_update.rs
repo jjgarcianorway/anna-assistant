@@ -398,15 +398,16 @@ mod tests {
         let scheduler = AutoUpdateScheduler::new();
         // Should not panic and have default config
         let config = scheduler.config.try_read().unwrap();
-        assert!(!config.update.enabled);
+        assert!(config.update.enabled); // Auto-update enabled by default
     }
 
     #[test]
-    fn test_should_check_for_updates_dev_disabled() {
+    fn test_should_check_for_updates_requires_dev_mode() {
         let config = AnnaConfigV5::default();
         let state = UpdateState::default();
 
-        // Default config is not dev mode, should not check
+        // Default config has auto-update enabled but is in Normal mode
+        // Auto-update scheduler only runs in Dev mode
         assert!(!AutoUpdateScheduler::should_check_for_updates(
             &config, &state
         ));
@@ -435,8 +436,10 @@ mod tests {
         config.update.interval_seconds = MIN_UPDATE_INTERVAL;
 
         // Last check was 60 seconds ago
-        let mut state = UpdateState::default();
-        state.last_check = Some(chrono::Utc::now().timestamp() - 60);
+        let state = UpdateState {
+            last_check: Some(chrono::Utc::now().timestamp() - 60),
+            ..Default::default()
+        };
 
         // Interval (600s) hasn't passed - should not check
         assert!(!AutoUpdateScheduler::should_check_for_updates(
@@ -452,8 +455,10 @@ mod tests {
         config.update.interval_seconds = MIN_UPDATE_INTERVAL;
 
         // Last check was 700 seconds ago
-        let mut state = UpdateState::default();
-        state.last_check = Some(chrono::Utc::now().timestamp() - 700);
+        let state = UpdateState {
+            last_check: Some(chrono::Utc::now().timestamp() - 700),
+            ..Default::default()
+        };
 
         // Interval (600s) has passed - should check
         assert!(AutoUpdateScheduler::should_check_for_updates(
@@ -469,8 +474,10 @@ mod tests {
         config.update.interval_seconds = 100; // Below minimum
 
         // Last check was 200 seconds ago (above requested but below minimum)
-        let mut state = UpdateState::default();
-        state.last_check = Some(chrono::Utc::now().timestamp() - 200);
+        let state = UpdateState {
+            last_check: Some(chrono::Utc::now().timestamp() - 200),
+            ..Default::default()
+        };
 
         // Even though 200 > 100 requested, minimum of 600 is enforced
         assert!(!AutoUpdateScheduler::should_check_for_updates(

@@ -259,7 +259,7 @@ fallback_model = "llama3.2:3b"
 selection_mode = "auto"
 
 [update]
-enabled = false
+enabled = true
 interval_seconds = 86400
 channel = "main"
 "#;

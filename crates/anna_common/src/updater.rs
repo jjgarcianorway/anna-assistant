@@ -322,8 +322,10 @@ mod tests {
         };
 
         // Last check was 120 seconds ago
-        let mut state = UpdateState::default();
-        state.last_check = Some(chrono::Utc::now().timestamp() - 120);
+        let state = UpdateState {
+            last_check: Some(chrono::Utc::now().timestamp() - 120),
+            ..Default::default()
+        };
 
         // Should check because interval has passed
         assert!(should_check_for_updates(&config, &state));
@@ -338,8 +340,10 @@ mod tests {
         };
 
         // Last check was 60 seconds ago
-        let mut state = UpdateState::default();
-        state.last_check = Some(chrono::Utc::now().timestamp() - 60);
+        let state = UpdateState {
+            last_check: Some(chrono::Utc::now().timestamp() - 60),
+            ..Default::default()
+        };
 
         // Should not check because interval has not passed
         assert!(!should_check_for_updates(&config, &state));

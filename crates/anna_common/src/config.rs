@@ -137,7 +137,7 @@ fn default_interval_seconds() -> u64 {
 impl Default for UpdateSettings {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true, // Auto-update always enabled by default
             interval_seconds: default_interval_seconds(),
             channel: Channel::Main,
         }
@@ -274,7 +274,7 @@ mod tests {
     #[test]
     fn test_update_settings_default() {
         let settings = UpdateSettings::default();
-        assert!(!settings.enabled);
+        assert!(settings.enabled); // Auto-update enabled by default
         assert_eq!(settings.interval_seconds, 86400);
         assert_eq!(settings.channel, Channel::Main);
     }
@@ -294,21 +294,26 @@ mod tests {
         let config = AnnaConfigV5::default();
         assert_eq!(config.core.mode, CoreMode::Normal);
         assert_eq!(config.llm.selection_mode, LlmSelectionMode::Auto);
-        assert!(!config.update.enabled);
+        assert!(config.update.enabled); // Auto-update enabled by default
     }
 
     #[test]
     fn test_is_dev_auto_update_active() {
         let mut config = AnnaConfigV5::default();
+        // Default: enabled=true, mode=Normal -> not dev auto-update
         assert!(!config.is_dev_auto_update_active());
 
         config.core.mode = CoreMode::Dev;
+        // Dev mode with enabled=true -> is dev auto-update active
+        assert!(config.is_dev_auto_update_active());
+
+        config.update.enabled = false;
+        // Dev mode but disabled -> not active
         assert!(!config.is_dev_auto_update_active());
 
         config.update.enabled = true;
-        assert!(config.is_dev_auto_update_active());
-
         config.core.mode = CoreMode::Normal;
+        // Normal mode with enabled=true -> not dev auto-update (just normal auto-update)
         assert!(!config.is_dev_auto_update_active());
     }
 

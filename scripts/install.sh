@@ -363,10 +363,10 @@ download_binaries() {
     # Determine tarball name based on architecture
     local tarball_name
     case "$ARCH" in
-        x86_64-unknown-linux-gnu)
+        x86_64|x86_64-unknown-linux-gnu)
             tarball_name="anna-linux-x86_64.tar.gz"
             ;;
-        aarch64-unknown-linux-gnu)
+        aarch64|aarch64-unknown-linux-gnu)
             tarball_name="anna-linux-aarch64.tar.gz"
             ;;
         *)
@@ -540,7 +540,7 @@ fallback_model = "llama3.2:3b"
 selection_mode = "auto"
 
 [update]
-enabled = false
+enabled = true
 interval_seconds = 86400
 channel = "main"
 
