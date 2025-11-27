@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Anna v0.0.1 - Installation Script
+# Anna v0.2.0 - Installation Script
 # Downloads from GitHub, detects hardware, selects models, installs components
+# Requests sudo only when needed - not for the entire script
 
 set -euo pipefail
 
@@ -21,10 +22,14 @@ ICON_INFO="ℹ"
 ICON_WARN="⚠"
 ICON_ROCKET="🚀"
 ICON_DOWN="⬇"
+ICON_LOCK="🔒"
 
 VERSION="0.2.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
+
+# Temp directory for downloads
+TMP_DIR=""
 
 print_banner() {
     echo -e "\n${MAGENTA}${BOLD}  Anna v${VERSION}${NC}"
@@ -47,12 +52,34 @@ log_error() {
     echo -e "${RED}${ICON_CROSS}${NC}  $1"
 }
 
-# Check if running as root
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        log_error "This script must be run as root"
-        echo "   Run: sudo $0"
+# Check if we can use sudo
+check_sudo() {
+    if command -v sudo &> /dev/null; then
+        SUDO="sudo"
+        log_info "Will use ${CYAN}sudo${NC} for privileged operations"
+    elif [[ $EUID -eq 0 ]]; then
+        SUDO=""
+        log_info "Running as root"
+    else
+        log_error "sudo not found and not running as root"
+        echo "   Please install sudo or run as root"
         exit 1
+    fi
+}
+
+# Request sudo upfront to cache credentials
+request_sudo() {
+    if [[ -n "$SUDO" ]]; then
+        echo -e "\n${ICON_LOCK}  ${BOLD}Sudo access required for installation${NC}"
+        echo "   This will install binaries to ${INSTALL_DIR}"
+        echo "   and create system directories/services"
+        echo ""
+        $SUDO -v || {
+            log_error "Failed to obtain sudo access"
+            exit 1
+        }
+        log_success "Sudo access granted"
+        echo ""
     fi
 }
 
@@ -168,53 +195,58 @@ download_file() {
     echo -e "   ${ICON_DOWN}  Downloading $(basename "$output")..."
 
     if [[ "$DOWNLOADER" == "curl" ]]; then
-        curl -sL "$url" -o "$output"
+        curl -fsSL "$url" -o "$output"
     else
         wget -q "$url" -O "$output"
     fi
 }
 
-# Download and install binaries from GitHub
-install_binaries() {
+# Download binaries to temp directory (no sudo needed)
+download_binaries() {
     log_info "Downloading binaries from GitHub..."
 
     local base_url="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}"
 
     # Create temp directory
-    local tmp_dir=$(mktemp -d)
-    trap "rm -rf $tmp_dir" EXIT
+    TMP_DIR=$(mktemp -d)
 
     # Download annad
-    download_file "${base_url}/annad-${VERSION}-${ARCH_NAME}" "${tmp_dir}/annad"
+    download_file "${base_url}/annad-${VERSION}-${ARCH_NAME}" "${TMP_DIR}/annad"
 
     # Download annactl
-    download_file "${base_url}/annactl-${VERSION}-${ARCH_NAME}" "${tmp_dir}/annactl"
+    download_file "${base_url}/annactl-${VERSION}-${ARCH_NAME}" "${TMP_DIR}/annactl"
 
     # Download checksums
-    download_file "${base_url}/SHA256SUMS" "${tmp_dir}/SHA256SUMS"
+    download_file "${base_url}/SHA256SUMS" "${TMP_DIR}/SHA256SUMS"
 
     # Verify checksums
     log_info "Verifying checksums..."
-    cd "$tmp_dir"
+    cd "$TMP_DIR"
     if grep -q "$(sha256sum annad | awk '{print $1}')" SHA256SUMS && \
        grep -q "$(sha256sum annactl | awk '{print $1}')" SHA256SUMS; then
         log_success "Checksums verified"
     else
         log_error "Checksum verification failed!"
+        rm -rf "$TMP_DIR"
         exit 1
     fi
 
-    # Install binaries
-    log_info "Installing binaries..."
-    mv annad "${INSTALL_DIR}/annad"
-    mv annactl "${INSTALL_DIR}/annactl"
-    chmod 755 "${INSTALL_DIR}/annad"
-    chmod 755 "${INSTALL_DIR}/annactl"
-
-    log_success "Installed annad and annactl to ${INSTALL_DIR}"
+    log_success "Downloaded and verified binaries"
 }
 
-# Download LLM models
+# Install binaries (requires sudo)
+install_binaries() {
+    log_info "Installing binaries to ${INSTALL_DIR}..."
+
+    $SUDO mv "${TMP_DIR}/annad" "${INSTALL_DIR}/annad"
+    $SUDO mv "${TMP_DIR}/annactl" "${INSTALL_DIR}/annactl"
+    $SUDO chmod 755 "${INSTALL_DIR}/annad"
+    $SUDO chmod 755 "${INSTALL_DIR}/annactl"
+
+    log_success "Installed annad and annactl"
+}
+
+# Download LLM models (no sudo needed)
 download_models() {
     if [[ "$OLLAMA_MISSING" == "true" ]]; then
         log_warn "Skipping model download (Ollama not installed)"
@@ -238,40 +270,40 @@ download_models() {
     fi
 }
 
-# Create anna user
+# Create anna user (requires sudo)
 create_user() {
     log_info "Creating anna user..."
 
     if id "anna" &>/dev/null; then
         log_success "User 'anna' already exists"
     else
-        useradd -r -s /bin/false -d /var/lib/anna anna
+        $SUDO useradd -r -s /bin/false -d /var/lib/anna anna
         log_success "Created user 'anna'"
     fi
 }
 
-# Create directories
+# Create directories (requires sudo)
 create_directories() {
     log_info "Creating directories..."
 
-    mkdir -p /var/lib/anna
-    mkdir -p /var/log/anna
-    mkdir -p /run/anna
-    mkdir -p /etc/anna
-    mkdir -p /usr/share/anna/probes
+    $SUDO mkdir -p /var/lib/anna
+    $SUDO mkdir -p /var/log/anna
+    $SUDO mkdir -p /run/anna
+    $SUDO mkdir -p /etc/anna
+    $SUDO mkdir -p /usr/share/anna/probes
 
-    chown anna:anna /var/lib/anna
-    chown anna:anna /var/log/anna
-    chown anna:anna /run/anna
+    $SUDO chown anna:anna /var/lib/anna
+    $SUDO chown anna:anna /var/log/anna
+    $SUDO chown anna:anna /run/anna
 
     log_success "Created directories"
 }
 
-# Install systemd service
+# Install systemd service (requires sudo)
 install_service() {
     log_info "Installing systemd service..."
 
-    cat > /etc/systemd/system/annad.service << 'EOF'
+    $SUDO tee /etc/systemd/system/annad.service > /dev/null << 'EOF'
 [Unit]
 Description=Anna Daemon - Evidence Oracle
 Documentation=https://github.com/jjgarcianorway/anna-assistant
@@ -306,15 +338,15 @@ ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
 WantedBy=multi-user.target
 EOF
 
-    systemctl daemon-reload
+    $SUDO systemctl daemon-reload
     log_success "Installed systemd service"
 }
 
-# Write configuration
+# Write configuration (requires sudo)
 write_config() {
     log_info "Writing configuration..."
 
-    cat > /etc/anna/config.toml << EOF
+    $SUDO tee /etc/anna/config.toml > /dev/null << EOF
 # Anna v${VERSION} Configuration
 
 [general]
@@ -335,15 +367,21 @@ EOF
     log_success "Configuration written to /etc/anna/config.toml"
 }
 
-# Install probes from GitHub
+# Install probes from GitHub (requires sudo)
 install_probes() {
     log_info "Installing probes..."
 
     local base_url="https://raw.githubusercontent.com/${GITHUB_REPO}/v${VERSION}/probes"
 
-    download_file "${base_url}/cpu.info.json" "/usr/share/anna/probes/cpu.info.json"
-    download_file "${base_url}/mem.info.json" "/usr/share/anna/probes/mem.info.json"
-    download_file "${base_url}/disk.lsblk.json" "/usr/share/anna/probes/disk.lsblk.json"
+    # Download to temp then move with sudo
+    local probe_tmp=$(mktemp -d)
+
+    download_file "${base_url}/cpu.info.json" "${probe_tmp}/cpu.info.json"
+    download_file "${base_url}/mem.info.json" "${probe_tmp}/mem.info.json"
+    download_file "${base_url}/disk.lsblk.json" "${probe_tmp}/disk.lsblk.json"
+
+    $SUDO mv "${probe_tmp}"/*.json /usr/share/anna/probes/
+    rm -rf "${probe_tmp}"
 
     log_success "Installed probes"
 }
@@ -386,22 +424,44 @@ run_self_test() {
     fi
 }
 
+# Cleanup
+cleanup() {
+    if [[ -n "$TMP_DIR" ]] && [[ -d "$TMP_DIR" ]]; then
+        rm -rf "$TMP_DIR"
+    fi
+}
+
 # Main installation
 main() {
+    trap cleanup EXIT
+
     print_banner
 
-    check_root
+    # Phase 1: Detection (no sudo needed)
     detect_arch
     detect_hardware
     select_models
     check_dependencies
+
+    # Phase 2: Download (no sudo needed)
+    download_binaries
+
+    # Phase 3: Request sudo for installation
+    check_sudo
+    request_sudo
+
+    # Phase 4: Install (requires sudo)
     create_user
     create_directories
     install_binaries
     install_service
     write_config
     install_probes
+
+    # Phase 5: Download models (no sudo needed)
     download_models
+
+    # Phase 6: Verify
     run_self_test
 
     echo ""
@@ -415,6 +475,9 @@ main() {
     echo ""
     echo "   Check status:"
     echo "   ${CYAN}annactl status${NC}"
+    echo ""
+    echo "   Update Anna:"
+    echo "   ${CYAN}annactl update${NC}"
     echo ""
     echo -e "${MAGENTA}${ICON_ROCKET}${NC}  ${BOLD}Welcome to Anna!${NC}"
     echo ""
