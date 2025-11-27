@@ -10,11 +10,13 @@
 pub mod config;
 pub mod redaction;
 pub mod request;
+pub mod research_trace;
 pub mod writer;
 
 pub use config::*;
 pub use redaction::*;
 pub use request::*;
+pub use research_trace::*;
 pub use writer::*;
 
 use chrono::{DateTime, Utc};
@@ -69,6 +71,7 @@ pub enum LogComponent {
     Update,
     Config,
     SelfHealth,
+    Research,
 }
 
 impl LogComponent {
@@ -83,6 +86,7 @@ impl LogComponent {
             LogComponent::Update => "update",
             LogComponent::Config => "config",
             LogComponent::SelfHealth => "self_health",
+            LogComponent::Research => "research",
         }
     }
 }
