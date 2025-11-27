@@ -137,6 +137,26 @@ impl LlmConfig {
     pub fn get_senior_model(&self) -> &str {
         self.senior_model.as_deref().unwrap_or(&self.preferred_model)
     }
+
+    /// Check if this is an old config without role-specific models
+    pub fn needs_role_model_migration(&self) -> bool {
+        self.junior_model.is_none() && self.senior_model.is_none()
+    }
+
+    /// Suggest optimal junior model based on senior model
+    /// Junior needs speed, so use smaller model when senior is large
+    pub fn suggest_junior_model(&self) -> String {
+        let senior = self.get_senior_model();
+
+        // If senior is a large model, use medium for junior
+        if senior.contains("70b") || senior.contains("32b") ||
+           senior.contains("30b") || senior.contains("14b") {
+            "llama3.1:8b".to_string()
+        } else {
+            // Default: fast 3B model for junior
+            "llama3.2:3b".to_string()
+        }
+    }
 }
 
 impl Default for LlmConfig {

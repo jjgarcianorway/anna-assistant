@@ -438,13 +438,31 @@ async fn run_status() -> Result<()> {
         other => println!("  {}  Ollama: {}", "~".yellow(), other),
     }
 
-    // Model info
-    println!(
-        "  {}  Model: {} ({})",
-        "*".cyan(),
-        config.llm.preferred_model,
-        config.llm.selection_mode.as_str()
-    );
+    // Model info - show role-specific models if configured
+    if config.llm.needs_role_model_migration() {
+        println!(
+            "  {}  Model: {} ({})",
+            "*".cyan(),
+            config.llm.preferred_model,
+            config.llm.selection_mode.as_str()
+        );
+        println!(
+            "  {}  {} (run installer to optimize)",
+            "~".yellow(),
+            "Legacy single-model config".yellow()
+        );
+    } else {
+        println!(
+            "  {}  Junior: {} (fast)",
+            "*".cyan(),
+            config.llm.get_junior_model()
+        );
+        println!(
+            "  {}  Senior: {} (smart)",
+            "*".cyan(),
+            config.llm.get_senior_model()
+        );
+    }
 
     println!("{}", THIN_SEPARATOR);
 
