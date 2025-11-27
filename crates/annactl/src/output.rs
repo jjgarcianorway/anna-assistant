@@ -11,9 +11,9 @@ use std::time::Duration;
 
 /// Display a response to the user
 pub fn display_response(response: &AnnaResponse) {
-    // Confidence color and threshold
+    // Confidence as percentage (v0.15.21)
     let conf_pct = (response.confidence * 100.0) as u8;
-    let conf_str = format!("{:.2}", response.confidence);
+    let conf_str = format!("{}%", conf_pct);
 
     // v0.6.0: Color categories
     let (conf_colored, reliability_indicator) = if conf_pct >= 90 {
@@ -36,16 +36,9 @@ pub fn display_response(response: &AnnaResponse) {
     // Header with reliability indicator (v0.6.0: ASCII only)
     println!();
     println!(
-        "{}  Reliability: {} ({})",
+        "{}  Reliability: {}",
         reliability_indicator,
-        conf_colored,
-        if conf_pct >= 90 {
-            "green"
-        } else if conf_pct >= 70 {
-            "yellow"
-        } else {
-            "red"
-        }
+        conf_colored
     );
     println!();
 
@@ -211,14 +204,15 @@ pub fn display_final_answer(answer: &FinalAnswer) {
     let reasoning = answer.scores.reasoning;
     let coverage = answer.scores.coverage;
 
+    // v0.15.21: Show as percentage
     println!(
-        "{}  [{}] {:.2} (evidence {:.2}, reasoning {:.2}, coverage {:.2})",
+        "{}  [{}] {:.0}%  (evidence {:.0}%, reasoning {:.0}%, coverage {:.0}%)",
         "Confidence:".bold().bright_white(),
         level_colored,
-        overall,
-        evidence,
-        reasoning,
-        coverage
+        overall * 100.0,
+        evidence * 100.0,
+        reasoning * 100.0,
+        coverage * 100.0
     );
 
     // Loop iterations info if multiple rounds
@@ -329,6 +323,16 @@ pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
         level_colored,
         answer.scores.overall * 100.0
     );
+
+    // v0.15.21: Show clarification question if needed
+    if let Some(ref clarification) = answer.clarification_needed {
+        println!();
+        println!(
+            "{}",
+            "─ Clarification Needed ─".yellow().bold()
+        );
+        println!("  {}  {}", "?".yellow().bold(), clarification.bright_white());
+    }
 
     // Footer
     println!();

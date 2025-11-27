@@ -332,6 +332,7 @@ impl AnswerEngine {
             problems: vec![],
             loop_iterations,
             model_used: Some(self.senior_model().to_string()),
+            clarification_needed: None,
         }
     }
 
@@ -361,6 +362,7 @@ impl AnswerEngine {
             problems: vec!["Reached maximum verification loops".to_string()],
             loop_iterations,
             model_used: Some(self.senior_model().to_string()),
+            clarification_needed: None,
         }
     }
 
@@ -382,6 +384,7 @@ impl AnswerEngine {
             problems: vec![reason.to_string()],
             loop_iterations,
             model_used: Some(self.senior_model().to_string()),
+            clarification_needed: None,
         }
     }
 

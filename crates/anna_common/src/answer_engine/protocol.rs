@@ -265,6 +265,9 @@ pub struct FinalAnswer {
     /// LLM model used for this answer (v0.15.7)
     #[serde(default)]
     pub model_used: Option<String>,
+    /// v0.15.21: Clarification question to ask user (if answer needs more info)
+    #[serde(default)]
+    pub clarification_needed: Option<String>,
 }
 
 /// Confidence level derived from overall score
