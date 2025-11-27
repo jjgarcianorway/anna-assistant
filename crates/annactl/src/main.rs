@@ -25,6 +25,7 @@ mod client;
 mod llm_client;
 mod orchestrator;
 mod output;
+mod spinner;
 
 use anna_common::{
     clear_current_request, generate_request_id, init_logger, log_request, logging, self_health,
@@ -198,6 +199,9 @@ async fn run_ask(question: &str) -> Result<()> {
         })),
     );
 
+    // v0.15.8: Show user question with old-school style
+    spinner::print_question(question);
+
     let daemon = client::DaemonClient::new();
 
     // Check daemon health
@@ -225,6 +229,9 @@ async fn run_ask(question: &str) -> Result<()> {
 
         std::process::exit(1);
     }
+
+    // v0.15.8: Start spinner while thinking
+    let thinking = spinner::Spinner::new("thinking...");
 
     // v0.10.0: Use evidence-based answer engine
     match daemon.answer(question).await {
@@ -258,11 +265,17 @@ async fn run_ask(question: &str) -> Result<()> {
 
             clear_current_request();
 
-            // v0.10.0: Display evidence-based answer
-            output::display_final_answer(&final_answer);
+            // v0.15.8: Stop spinner and show timing
+            let elapsed = thinking.finish();
+
+            // v0.10.0: Display evidence-based answer with elapsed time
+            output::display_final_answer_with_time(&final_answer, elapsed);
             Ok(())
         }
         Err(e) => {
+            // v0.15.8: Stop spinner on error
+            thinking.stop();
+
             // Log error
             logging::logger().write_daemon(
                 &LogEntry::new(

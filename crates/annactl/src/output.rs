@@ -2,10 +2,12 @@
 //!
 //! v0.6.0: Sysadmin style - no emojis, ASCII only, professional
 //! v0.10.0: Evidence-based answers with citations and confidence scores
+//! v0.15.8: Timing display for spinner UX
 #![allow(dead_code)]
 
 use anna_common::{AnnaResponse, ConfidenceLevel, FinalAnswer, THIN_SEPARATOR};
 use owo_colors::OwoColorize;
+use std::time::Duration;
 
 /// Display a response to the user
 pub fn display_response(response: &AnnaResponse) {
@@ -247,6 +249,115 @@ pub fn display_final_answer(answer: &FinalAnswer) {
         println!(
             "{}",
             "Refused due to insufficient evidence or low confidence".dimmed()
+        );
+    }
+    println!();
+}
+
+/// Display an evidence-based answer with elapsed time (v0.15.8)
+/// Old-school hacker aesthetic with timing info
+pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
+    // Header with timing
+    println!();
+    println!(
+        "{}",
+        "══════════════════════════════════════════════════".cyan()
+    );
+    println!(
+        "  {}  Anna  {}",
+        "▶".bright_cyan(),
+        format!("({:.1}s)", elapsed.as_secs_f64()).dimmed()
+    );
+    println!(
+        "{}",
+        "══════════════════════════════════════════════════".cyan()
+    );
+    println!();
+
+    // Answer or refusal - this is the main content
+    if answer.is_refusal {
+        println!("{}", answer.answer.bright_red());
+    } else {
+        println!("{}", answer.answer.bright_white());
+    }
+
+    // Evidence citations (compact)
+    if !answer.citations.is_empty() {
+        println!();
+        println!("{}", "─ Evidence ─".dimmed());
+        for citation in &answer.citations {
+            let status_icon = match citation.status {
+                anna_common::EvidenceStatus::Ok => "✓".bright_green().to_string(),
+                anna_common::EvidenceStatus::Error => "✗".bright_red().to_string(),
+                anna_common::EvidenceStatus::NotFound => "?".yellow().to_string(),
+                anna_common::EvidenceStatus::Timeout => "⧖".yellow().to_string(),
+            };
+            // Compact: [probe_id] → first line summary
+            let summary = citation
+                .raw
+                .as_ref()
+                .map(|r| {
+                    let line = r.lines().next().unwrap_or("");
+                    if line.len() > 60 {
+                        format!("{}...", &line[..57])
+                    } else {
+                        line.to_string()
+                    }
+                })
+                .unwrap_or_else(|| "no output".to_string());
+
+            println!(
+                "  {}  {}  {}",
+                status_icon,
+                format!("[{}]", citation.probe_id).cyan(),
+                summary.dimmed()
+            );
+        }
+    }
+
+    // Confidence score with colored level
+    println!();
+    let level_colored = match answer.confidence_level {
+        ConfidenceLevel::Green => "GREEN".bright_green().bold().to_string(),
+        ConfidenceLevel::Yellow => "YELLOW".yellow().bold().to_string(),
+        ConfidenceLevel::Red => "RED".bright_red().bold().to_string(),
+    };
+
+    println!(
+        "{}  [{}] {:.0}%",
+        "Confidence:".dimmed(),
+        level_colored,
+        answer.scores.overall * 100.0
+    );
+
+    // Footer
+    println!();
+    println!(
+        "{}",
+        "══════════════════════════════════════════════════".cyan()
+    );
+
+    // Model and meta info on one line
+    let mut meta_parts: Vec<String> = vec![];
+    if let Some(ref model) = answer.model_used {
+        meta_parts.push(format!("Model: {}", model.bright_blue()));
+    }
+    if answer.loop_iterations > 1 {
+        meta_parts.push(format!("Loops: {}", answer.loop_iterations));
+    }
+    if !meta_parts.is_empty() {
+        println!("{}", meta_parts.join("  │  ").dimmed());
+    }
+
+    if !answer.is_refusal {
+        println!(
+            "{}",
+            "Evidence-based  ·  LLM audited  ·  No hallucinations".dimmed()
+        );
+    } else {
+        println!(
+            "{}",
+            "Refused: insufficient evidence or low confidence".dimmed()
         );
     }
     println!();
