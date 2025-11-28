@@ -357,9 +357,19 @@ impl AnswerEngine {
             // Store for potential partial answer
             last_draft_answer = Some(draft_answer.text.clone());
 
+            // v0.73.0: CRITICAL - Must have evidence before sending to Senior
+            // An answer without probe evidence is worthless - force another iteration
+            if evidence.is_empty() {
+                warn!("Draft answer has no evidence - cannot send to Senior without probes");
+                debug_trace.iterations.push(debug_iter);
+                // Loop continues - LLM-A must request probes in next iteration
+                continue;
+            }
+
+            // v0.73.0: If Junior didn't self-score, use 0 (not 50%) to be honest with Senior
             let self_scores = llm_a_response
                 .self_scores
-                .unwrap_or_else(|| ReliabilityScores::new(0.5, 0.5, 0.5));
+                .unwrap_or_else(|| ReliabilityScores::new(0.0, 0.0, 0.0));
 
             // Step 4: Call LLM-B to audit
             let llm_b_prompt =
@@ -454,9 +464,10 @@ impl AnswerEngine {
                             debug_trace,
                         ));
                     }
-                    // If we have evidence, try partial answer with low confidence
-                    warn!("LLM-B wants to refuse but we have evidence - will try partial answer");
-                    last_scores = Some(AuditScores::new(0.5, 0.5, 0.5));
+                    // v0.73.0: LLM-B refused - we must honor that decision, not rubber-stamp
+                    // If we have evidence but Senior refused, the scores must be 0 (unverified)
+                    warn!("LLM-B refused - scores set to 0 (no rubber-stamping)");
+                    last_scores = Some(AuditScores::new(0.0, 0.0, 0.0));
                     // Continue to see if we can improve
                     debug_trace.iterations.push(debug_iter);
                 }
@@ -490,9 +501,36 @@ impl AnswerEngine {
         loop_state.mark_exhausted();
         debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
 
+        // v0.73.0: CRITICAL - No answer without evidence
+        // If we exhausted the loop without ever gathering evidence, refuse
+        if evidence.is_empty() {
+            warn!("Loop exhausted with no evidence - no probes were ever executed");
+            return Ok(self.build_refusal_with_trace(
+                question,
+                "Unable to answer - no evidence was gathered (no probes executed)",
+                &evidence,
+                loop_state.iteration,
+                debug_trace,
+            ));
+        }
+
         // If we have a draft answer, return it with honest low confidence
         if let Some(answer_text) = last_draft_answer {
-            let scores = last_scores.unwrap_or_else(|| AuditScores::new(0.5, 0.5, 0.5));
+            // v0.73.0: No more rubber-stamping - use actual scores or 0
+            let scores = last_scores.unwrap_or_else(|| AuditScores::new(0.0, 0.0, 0.0));
+
+            // v0.73.0: Reject answers with overall score 0
+            if scores.overall < 0.01 {
+                warn!("Draft answer has 0 score - refusing to deliver unverified answer");
+                return Ok(self.build_refusal_with_trace(
+                    question,
+                    "Answer could not be verified (0% confidence)",
+                    &evidence,
+                    loop_state.iteration,
+                    debug_trace,
+                ));
+            }
+
             info!(
                 "Max loops reached - returning partial answer with confidence {:.2}",
                 scores.overall
@@ -508,17 +546,13 @@ impl AnswerEngine {
         }
 
         // No draft answer - try to extract basic facts from evidence as fallback
+        // v0.73.0: Fallback answers are NOT Senior-reviewed, so they get 0 scores
+        // This means they will be rejected by the 0-score check above - no rubber-stamping
         if !evidence.is_empty() {
-            if let Some(fallback) = fallback::extract_fallback_answer(question, &evidence) {
-                info!("Using fallback answer extracted from evidence");
-                return Ok(self.build_partial_answer_with_trace(
-                    question,
-                    &fallback,
-                    evidence,
-                    AuditScores::new(0.6, 0.6, 0.6),
-                    loop_state.iteration,
-                    debug_trace,
-                ));
+            if let Some(_fallback) = fallback::extract_fallback_answer(question, &evidence) {
+                warn!("Fallback answer extracted but not Senior-verified - cannot deliver");
+                // Note: We could return the fallback with 0 scores, but it would be rejected.
+                // Instead, fall through to the refusal path for clearer error messaging.
             }
         }
 
@@ -819,14 +853,18 @@ impl AnswerEngine {
             }],
         };
 
+        // v0.73.0 WARNING: Fast path is UNTRUSTED - no Senior review!
+        // These scores are fabricated. After core pipeline is fixed and tested,
+        // fast path should either: (a) route through Senior, or (b) use lower scores
+        // For now, marking with a problem note to indicate lack of verification.
         Ok(FinalAnswer {
             question: question.to_string(),
             answer,
             is_refusal: false,
             citations: evidence,
-            scores: AuditScores::new(0.95, 0.95, 0.95),
+            scores: AuditScores::new(0.95, 0.95, 0.95), // WARNING: Fabricated - no Senior review
             confidence_level: ConfidenceLevel::Green,
-            problems: vec![],
+            problems: vec!["[UNTRUSTED] Fast path - not Senior-reviewed".to_string()],
             loop_iterations: 1,
             model_used: Some("fast_path".to_string()),
             clarification_needed: None,

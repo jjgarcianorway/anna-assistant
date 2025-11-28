@@ -10,7 +10,7 @@ use anna_common::{
 use anyhow::{Context, Result};
 use serde_json::Value;
 use std::time::Duration;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 const DEFAULT_JUNIOR_MODEL: &str = "qwen3:4b";
@@ -337,21 +337,25 @@ impl LlmClientV18 {
             }
 
             _ => {
-                // Default to approve with medium scores
-                Ok(SeniorResponse::ApproveAnswer {
-                    scores: SeniorScores::new(70, 70, 70, "parse error - defaulting to approve"),
+                // v0.73.0: Parse failures must NOT rubber-stamp approval
+                // Return Refuse instead of silently approving
+                error!("Senior response parse failed - refusing to rubber-stamp");
+                Ok(SeniorResponse::Refuse {
+                    reason: "Senior response could not be parsed - cannot verify answer".to_string(),
+                    probes_attempted: vec![],
                 })
             }
         }
     }
 
     /// Parse Senior's scores
+    /// v0.73.0: Missing scores default to 0, not 70 - no rubber-stamping
     fn parse_senior_scores(&self, v: &Value) -> SeniorScores {
         SeniorScores::new(
-            v["evidence"].as_u64().unwrap_or(70) as u8,
-            v["reasoning"].as_u64().unwrap_or(70) as u8,
-            v["coverage"].as_u64().unwrap_or(70) as u8,
-            v["reliability_note"].as_str().unwrap_or(""),
+            v["evidence"].as_u64().unwrap_or(0) as u8,
+            v["reasoning"].as_u64().unwrap_or(0) as u8,
+            v["coverage"].as_u64().unwrap_or(0) as u8,
+            v["reliability_note"].as_str().unwrap_or("scores not provided by Senior"),
         )
     }
 

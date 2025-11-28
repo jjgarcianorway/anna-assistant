@@ -358,16 +358,16 @@ impl OllamaClient {
                 Ok(response)
             }
             Err(e) => {
-                warn!(
-                    "Failed to parse LLM-B response as JSON: {} - text: {}",
+                // v0.73.0: Parse failures must NOT rubber-stamp approval
+                error!(
+                    "Failed to parse LLM-B response as JSON: {} - refusing to rubber-stamp. Text: {}",
                     e, text
                 );
-                // Return approve with low scores to keep the loop going
                 Ok(LlmBResponse {
-                    verdict: AuditVerdict::Approve,
-                    scores: AuditScores::new(0.6, 0.6, 0.6),
+                    verdict: AuditVerdict::Refuse,
+                    scores: AuditScores::new(0.0, 0.0, 0.0),
                     probe_requests: vec![],
-                    problems: vec!["Parse error - approving with low confidence".to_string()],
+                    problems: vec!["Parse error - cannot verify answer".to_string()],
                     suggested_fix: None,
                     fixed_answer: None,
                     text: None,
@@ -473,25 +473,30 @@ impl OllamaClient {
             .and_then(|x| x.as_str())
             .unwrap_or("approve");
 
+        // v0.73.0: Unknown verdict must NOT rubber-stamp approval
         let verdict = match verdict_str {
             "approve" => AuditVerdict::Approve,
             "fix_and_accept" => AuditVerdict::FixAndAccept,
             "needs_more_probes" => AuditVerdict::NeedsMoreProbes,
             "refuse" => AuditVerdict::Refuse,
-            _ => AuditVerdict::Approve, // Default to approve for unknown
+            _ => {
+                warn!("Unknown verdict '{}' - refusing to rubber-stamp", verdict_str);
+                AuditVerdict::Refuse
+            }
         };
 
         // Parse scores
+        // v0.73.0: Missing scores default to 0.0, not 0.7 - no rubber-stamping
         let scores = v
             .get("scores")
             .map(|s| {
                 AuditScores::new(
-                    s.get("evidence").and_then(|x| x.as_f64()).unwrap_or(0.7),
-                    s.get("reasoning").and_then(|x| x.as_f64()).unwrap_or(0.7),
-                    s.get("coverage").and_then(|x| x.as_f64()).unwrap_or(0.7),
+                    s.get("evidence").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                    s.get("reasoning").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                    s.get("coverage").and_then(|x| x.as_f64()).unwrap_or(0.0),
                 )
             })
-            .unwrap_or(AuditScores::new(0.7, 0.7, 0.7));
+            .unwrap_or(AuditScores::new(0.0, 0.0, 0.0));
 
         // Parse probe_requests
         let probe_requests = self.parse_probe_requests(v.get("probe_requests"));

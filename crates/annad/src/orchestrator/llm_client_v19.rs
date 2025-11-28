@@ -13,7 +13,7 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 /// Default model for Junior
 const DEFAULT_JUNIOR_MODEL: &str = "llama3.2:3b";
@@ -311,11 +311,9 @@ fn parse_senior_mentor_lenient(json_str: &str) -> Result<SeniorMentor> {
             suggested_merges: vec![],
         })
     } else {
-        // Default to approve approach
-        warn!("Unrecognized Senior response, defaulting to approve");
-        Ok(SeniorMentor::ApproveApproach {
-            feedback: "Proceeding with current approach".to_string(),
-        })
+        // v0.73.0: Parse failures must NOT rubber-stamp approval
+        error!("Unrecognized Senior response - cannot rubber-stamp approval");
+        Err(anyhow::anyhow!("Senior response could not be parsed - refusing to proceed without verification"))
     }
 }
 
