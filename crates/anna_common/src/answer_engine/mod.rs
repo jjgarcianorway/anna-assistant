@@ -6,6 +6,7 @@
 //! v0.19.0: Subproblem decomposition, fact-aware planning, Senior as mentor
 //! v0.21.0: Hybrid answer pipeline (fast-first, selective probing, no loops)
 //! v0.22.0: Fact Brain & Question Decomposition (TTLs, validated facts)
+//! v0.23.0: System Brain, User Brain & Idle Learning
 //!
 //! Features:
 //! - Deterministic probe usage
@@ -18,14 +19,18 @@
 //! - v0.19.0: Subproblem decomposition, mentor-style Senior
 //! - v0.21.0: Fast-first from facts, selective probing, no iteration loops
 //! - v0.22.0: TTL-based facts, question decomposition, semantic linking
+//! - v0.23.0: System/User knowledge layers, idle learning, safe file scanning
 
 pub mod evidence;
+pub mod file_scanner;
+pub mod idle_learning;
 pub mod protocol;
 pub mod protocol_v15;
 pub mod protocol_v18;
 pub mod protocol_v19;
 pub mod protocol_v21;
 pub mod protocol_v22;
+pub mod protocol_v23;
 pub mod scoring;
 
 pub use evidence::*;
@@ -66,10 +71,30 @@ pub use protocol_v21::{
     MAX_PROBES_V21, PROBE_TIMEOUT_MS,
 };
 
-// v0.22.0 protocol types (current)
+// v0.22.0 protocol types (legacy)
 pub use protocol_v22::{
     AggregateOp, AnalyzeQuestionRequest, AnalyzeQuestionResponse, FactBrain, FactSourceV22,
     FactTtlCategory, QuestionDecomposition, QuestionType, RequiredFact, SemanticLink,
     SemanticRelation, Subquestion, SynthesisStrategy, TtlFact, ValidationResult, ValidationStatus,
     DEFAULT_FACT_CONFIDENCE, MAX_SUBQUESTIONS, MIN_LINK_STRENGTH,
+};
+
+// v0.23.0 protocol types (current)
+pub use protocol_v23::{
+    DualBrain, FactSourceV23, FactValue, KnowledgeScope, SystemFact, SystemIdentity, UserFact,
+    UserIdentity, PROTOCOL_VERSION_V23,
+};
+
+// v0.23.0 idle learning
+pub use idle_learning::{
+    IdleConditions, IdleLearningConfig, IdleState, LearningMission, MissionQueue, MissionStatus,
+    DEFAULT_CPU_THRESHOLD, DEFAULT_IDLE_INTERVAL_SECS, DEFAULT_MAX_BYTES_PER_CYCLE,
+    DEFAULT_MAX_FILES_PER_CYCLE, DEFAULT_MAX_PROBES_PER_CYCLE, DEFAULT_MAX_SCAN_TIME_MS,
+};
+
+// v0.23.0 file scanner
+pub use file_scanner::{
+    KnownPattern, PathValidation, ScanConfig, ScanResult, ScannedFile, get_allowed_base_dirs,
+    get_known_patterns, validate_path, MAX_BYTES_PER_SCAN, MAX_FILES_PER_SCAN, MAX_FILE_SIZE,
+    SYSTEM_ALLOWED_PATHS, USER_ALLOWED_RELATIVE_PATHS,
 };

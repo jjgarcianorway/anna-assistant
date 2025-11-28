@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.22.0
+//! Anna Common - Shared types and schemas for Anna v0.23.0
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -21,6 +21,7 @@
 //! v0.20.0: Background telemetry, warm-up learning, fact store integration.
 //! v0.21.0: Hybrid answer pipeline (fast-first, selective probing, no loops).
 //! v0.22.0: Fact Brain & Question Decomposition (TTLs, validated facts).
+//! v0.23.0: System Brain, User Brain & Idle Learning.
 
 // Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
