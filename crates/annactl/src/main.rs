@@ -33,7 +33,7 @@ use anna_common::{
     clear_current_request, generate_request_id, init_logger, is_version_newer, log_request,
     logging, self_health, set_current_request, AnnaConfigV5, HardwareProfile, LogComponent,
     LogEntry, LogLevel, OverallHealth, RepairSafety, RequestContext, RequestStatus,
-    StatsEngine,
+    StatsEngine, XpLog,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -69,6 +69,13 @@ async fn main() -> Result<()> {
 
         // v0.9.0: Status command (case-insensitive)
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
+
+        // v0.84.0: XP log command - show recent XP events
+        [cmd] if cmd.eq_ignore_ascii_case("xp-log") => run_xp_log(20).await,
+        [cmd, limit] if cmd.eq_ignore_ascii_case("xp-log") => {
+            let n: usize = limit.parse().unwrap_or(20);
+            run_xp_log(n).await
+        }
 
         // v0.18.0: Version flags and command - instant, no daemon required
         [flag]
@@ -155,6 +162,14 @@ async fn run_repl() -> Result<()> {
         }
         if input.eq_ignore_ascii_case("status") {
             run_status().await?;
+            continue;
+        }
+        // v0.84.0: xp-log command in REPL
+        if input.eq_ignore_ascii_case("xp-log") || input.starts_with("xp-log ") {
+            let limit = input.strip_prefix("xp-log")
+                .map(|s| s.trim().parse::<usize>().unwrap_or(20))
+                .unwrap_or(20);
+            run_xp_log(limit).await?;
             continue;
         }
 
@@ -1043,6 +1058,41 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
     }
 
     println!("{}", THIN_SEPARATOR);
+
+    // v0.84.0: 24-hour XP metrics
+    println!("{}", "24-HOUR XP METRICS".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    let xp_log = XpLog::new();
+    let metrics = xp_log.metrics_24h();
+
+    if metrics.total_events == 0 {
+        println!("  {}  No XP events in the last 24 hours", "?".dimmed());
+    } else {
+        // Net XP with color
+        let net_str = if metrics.net_xp >= 0 {
+            format!("+{}", metrics.net_xp).bright_green().to_string()
+        } else {
+            format!("{}", metrics.net_xp).bright_red().to_string()
+        };
+
+        println!("  {}  Net XP (24h): {}", "*".cyan(), net_str);
+        println!(
+            "  {}  Gained: +{} | Lost: -{}",
+            "*".cyan(),
+            format!("{}", metrics.xp_gained).bright_green(),
+            format!("{}", metrics.xp_lost).bright_red()
+        );
+        println!(
+            "  {}  Events: {} ({} positive, {} negative)",
+            "*".cyan(),
+            metrics.total_events,
+            metrics.positive_events,
+            metrics.negative_events
+        );
+    }
+
+    println!("{}", THIN_SEPARATOR);
 }
 
 /// Format XP with comma separators for readability
@@ -1059,4 +1109,103 @@ fn format_xp(xp: u64) -> String {
             xp % 1000
         )
     }
+}
+
+/// v0.84.0: Display recent XP events
+async fn run_xp_log(limit: usize) -> Result<()> {
+    use anna_common::THIN_SEPARATOR;
+
+    println!();
+    println!("{}", "XP EVENT LOG".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    let xp_log = XpLog::new();
+    let events = xp_log.read_recent(limit);
+
+    if events.is_empty() {
+        println!("  {}  No XP events recorded yet", "?".dimmed());
+    } else {
+        for event in &events {
+            // Parse timestamp and format as relative time
+            let time_ago = format_time_ago(&event.timestamp);
+
+            // Format XP change with color
+            let xp_str = if event.xp_change >= 0 {
+                format!("+{}", event.xp_change).bright_green().to_string()
+            } else {
+                format!("{}", event.xp_change).bright_red().to_string()
+            };
+
+            // Truncate question if too long
+            let q_preview = if event.question.len() > 40 {
+                format!("{}...", &event.question[..37])
+            } else {
+                event.question.clone()
+            };
+
+            // Print event line
+            let icon = if event.xp_change >= 0 {
+                "+".bright_green().to_string()
+            } else {
+                "-".bright_red().to_string()
+            };
+            println!(
+                "  {}  {} {} - \"{}\"",
+                icon,
+                xp_str,
+                event.event_type.dimmed(),
+                q_preview
+            );
+            println!("       {} ago", time_ago.dimmed());
+        }
+    }
+
+    println!("{}", THIN_SEPARATOR);
+
+    // Show 24h summary
+    let metrics = xp_log.metrics_24h();
+    println!("{}", "24-HOUR SUMMARY".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    if metrics.total_events == 0 {
+        println!("  {}  No events in the last 24 hours", "?".dimmed());
+    } else {
+        // Net XP with color
+        let net_str = if metrics.net_xp >= 0 {
+            format!("+{}", metrics.net_xp).bright_green().to_string()
+        } else {
+            format!("{}", metrics.net_xp).bright_red().to_string()
+        };
+
+        println!("  {}  Net XP: {}", "*".cyan(), net_str);
+        println!(
+            "  {}  Gained: +{} ({} events)",
+            "+".bright_green(),
+            metrics.xp_gained,
+            metrics.positive_events
+        );
+        println!(
+            "  {}  Lost: -{} ({} events)",
+            "-".bright_red(),
+            metrics.xp_lost,
+            metrics.negative_events
+        );
+        println!(
+            "  {}  Questions answered: {}",
+            "*".cyan(),
+            metrics.questions_answered
+        );
+
+        if let Some(top_pos) = &metrics.top_positive {
+            println!("  {}  Top positive: {}", "+".bright_green(), top_pos.dimmed());
+        }
+        if let Some(top_neg) = &metrics.top_negative {
+            println!("  {}  Top negative: {}", "-".bright_red(), top_neg.dimmed());
+        }
+    }
+
+    println!("{}", THIN_SEPARATOR);
+    println!();
+
+    Ok(())
 }

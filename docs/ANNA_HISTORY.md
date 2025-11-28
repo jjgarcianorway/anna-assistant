@@ -21,6 +21,34 @@ Every completed task with date, version, summary, code changes, tests, and known
 
 ## Completed Tasks
 
+### [T009] v0.85.1 XP Log Command and 24h Metrics
+- **Date**: 2025-11-28
+- **Version**: 0.85.1
+- **Summary**: Implemented XP event logging, xp-log command, and 24h metrics in status (completing v0.84.0 pending tasks)
+- **Code Changes**:
+  - `crates/anna_common/src/xp_log.rs` - NEW: XP log module with JSONL storage, 24h metrics, event history
+  - `crates/anna_common/src/lib.rs` - Export xp_log module and types
+  - `crates/annactl/src/main.rs` - Added xp-log command and 24h XP metrics section in status
+  - `Cargo.toml` - Version bump to 0.85.1
+- **Tests Added**:
+  - test_stored_xp_event_from, test_xp_log_append_and_read, test_read_recent_limit, test_metrics_24h in xp_log.rs
+- **Known Issues**: None
+- **Reasoning**: Completing v0.84.0 Known Issues: "XP log command and 24h metrics in status command pending"
+
+### New CLI Commands (v0.85.1)
+
+| Command | Description |
+|---------|-------------|
+| `annactl xp-log` | Show last 20 XP events with 24h summary |
+| `annactl xp-log N` | Show last N XP events with 24h summary |
+
+### 24h Metrics (v0.85.1)
+
+The status command now shows 24-hour XP metrics:
+- Net XP (gained - lost)
+- Total events (positive/negative breakdown)
+- XP gained and lost totals
+
 ### [T008] v0.85.0 Architecture Optimisation - Brain Layer and LLM Reduction
 - **Date**: 2025-11-28
 - **Version**: 0.85.0
@@ -89,7 +117,7 @@ Every completed task with date, version, summary, code changes, tests, and known
   - `Cargo.toml` - Version bump to 0.84.0
 - **Tests Added**:
   - test_failure_cause_roundtrip, test_timing_breakdown, test_budget_violations, test_benchmark_event_default in bench.rs
-- **Known Issues**: XP log command and 24h metrics in status command pending
+- **Known Issues**: None (XP log and 24h metrics implemented in v0.85.1)
 - **Reasoning**: Need observable, testable behavior to prove reliability and performance improvements
 
 ### Failure Cause Classification

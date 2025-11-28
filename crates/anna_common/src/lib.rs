@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.85.0
+//! Anna Common - Shared types and schemas for Anna v0.85.1
 //!
+//! v0.85.1: XP Log Command - xp-log command, 24h metrics in status, completing v0.84.0 tasks
 //! v0.85.0: Architecture Optimisation - Brain layer, LLM reduction, self-sufficiency
 //! v0.84.0: Hard Test Harness - benchmarks, metrics, reliability validation
 //! v0.83.0: Performance Focus - compact prompts, 15s target latency
@@ -66,6 +67,7 @@ pub mod command_whitelist;
 pub mod llm_validator;
 pub mod performance;
 pub mod xp_events;
+pub mod xp_log;
 pub mod cpu_summary;
 pub mod mem_summary;
 pub mod events;
@@ -190,3 +192,5 @@ pub use trace::{
 pub use structured_answer::{
     StructuredAnswer, DialogTrace, QaOutput, LatencyBudget, is_simple_question,
 };
+// XP Log exports (v0.84.0)
+pub use xp_log::{XpLog, StoredXpEvent, Metrics24h, XP_LOG_DIR, XP_LOG_FILE};
