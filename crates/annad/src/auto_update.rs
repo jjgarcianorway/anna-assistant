@@ -69,7 +69,7 @@ impl AutoUpdateScheduler {
 
     /// Start the auto-update loop
     pub async fn start(self: Arc<Self>) {
-        info!("🔄  Auto-update scheduler started");
+        info!("[*]  Auto-update scheduler started");
 
         loop {
             // Reload config each iteration (allows runtime changes via NL)
@@ -82,7 +82,7 @@ impl AutoUpdateScheduler {
                 if Self::should_check_for_updates(&config, &state) {
                     let interval = config.update.effective_interval();
                     info!(
-                        "🔍  Checking for updates (mode: {}, channel: {}, interval: {}s)",
+                        "[*]  Checking for updates (mode: {}, channel: {}, interval: {}s)",
                         config.core.mode.as_str(),
                         config.update.channel.as_str(),
                         interval
@@ -90,14 +90,14 @@ impl AutoUpdateScheduler {
 
                     match self.check_and_update().await {
                         Ok(true) => {
-                            info!("✅  Update applied successfully");
+                            info!("[+]  Update applied successfully");
                             // After successful update, the daemon should restart
                         }
                         Ok(false) => {
-                            info!("📋  No update available - already on latest version");
+                            info!("[=]  No update available - already on latest version");
                         }
                         Err(e) => {
-                            error!("❌  Update check failed: {}", e);
+                            error!("[-]  Update check failed: {}", e);
                         }
                     }
 
@@ -139,7 +139,7 @@ impl AutoUpdateScheduler {
         }
 
         info!(
-            "📦  New version available: {} -> {}",
+            "[+]  New version available: {} -> {}",
             check_result.info.current, check_result.info.latest
         );
 
@@ -153,14 +153,14 @@ impl AutoUpdateScheduler {
                 let _ = save_update_state(&state);
 
                 // Request daemon restart
-                info!("🔄  Requesting daemon restart...");
+                info!("[*]  Requesting daemon restart...");
                 self.request_restart().await;
 
                 Ok(true)
             }
             Err(e) => {
                 let error_msg = e.to_string();
-                error!("❌  Update failed: {}", error_msg);
+                error!("[-]  Update failed: {}", error_msg);
 
                 let mut state = self.state.write().await;
                 record_update_check(&mut state, UpdateResult::Failed, Some(error_msg));
@@ -178,7 +178,7 @@ impl AutoUpdateScheduler {
             .to_string();
 
         info!(
-            "📡  Fetching release info from GitHub (channel: {})",
+            "[*]Fetching release info from GitHub (channel: {})",
             config.update.channel.as_str()
         );
 
@@ -194,14 +194,14 @@ impl AutoUpdateScheduler {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            error!("❌  GitHub API error {}: {}", status, body);
+            error!("[-]GitHub API error {}: {}", status, body);
             anyhow::bail!("GitHub API returned {}: {}", status, body);
         }
 
         let release: GitHubRelease = resp.json().await.context("Failed to parse release JSON")?;
 
         info!(
-            "📦  Latest release: {} (current: {})",
+            "[*]Latest release: {} (current: {})",
             release.tag_name, CURRENT_VERSION
         );
 
@@ -220,12 +220,12 @@ impl AutoUpdateScheduler {
         let temp_dir = TempDir::new().context("Failed to create temp directory")?;
 
         // Download checksums first
-        info!("📥  Downloading checksums...");
+        info!("[>]Downloading checksums...");
         let checksums = self.download_text(checksums_url).await?;
 
         // Try tarball first, fall back to individual binaries
         if let Some(tarball_url) = &check_result.tarball_url {
-            info!("📥  Downloading Anna update package (tarball)...");
+            info!("[>]Downloading Anna update package (tarball)...");
             match self
                 .apply_update_tarball(tarball_url, &checksums, &temp_dir)
                 .await
@@ -233,7 +233,7 @@ impl AutoUpdateScheduler {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     warn!(
-                        "⚠️  Tarball update failed: {}, trying individual binaries...",
+                        "[!]Tarball update failed: {}, trying individual binaries...",
                         e
                     );
                 }
@@ -250,7 +250,7 @@ impl AutoUpdateScheduler {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No annactl binary URL in release"))?;
 
-        info!("📥  Downloading individual binaries...");
+        info!("[>]Downloading individual binaries...");
         self.apply_update_binaries(annad_url, annactl_url, &checksums, &temp_dir)
             .await
     }
@@ -266,11 +266,11 @@ impl AutoUpdateScheduler {
         let tarball_data = self.download_binary(tarball_url).await?;
 
         // Verify tarball checksum
-        info!("🔐  Verifying package integrity...");
+        info!("[#]Verifying package integrity...");
         self.verify_tarball_checksum(&tarball_data, checksums)?;
 
         // Extract tarball
-        info!("📦  Extracting package...");
+        info!("[*]Extracting package...");
         let decoder = GzDecoder::new(&tarball_data[..]);
         let mut archive = Archive::new(decoder);
 
@@ -302,11 +302,11 @@ impl AutoUpdateScheduler {
         }
 
         // Atomic swap - both at once
-        info!("🔄  Installing update from tarball...");
+        info!("[*]Installing update from tarball...");
         self.atomic_replace("/usr/local/bin/annad", &annad_path)?;
         self.atomic_replace("/usr/local/bin/annactl", &annactl_path)?;
 
-        info!("✅  Anna updated successfully");
+        info!("[+]Anna updated successfully");
         Ok(())
     }
 
@@ -319,15 +319,15 @@ impl AutoUpdateScheduler {
         temp_dir: &TempDir,
     ) -> Result<()> {
         // Download annad
-        info!("📥  Downloading annad...");
+        info!("[>]Downloading annad...");
         let annad_data = self.download_binary(annad_url).await?;
 
         // Download annactl
-        info!("📥  Downloading annactl...");
+        info!("[>]Downloading annactl...");
         let annactl_data = self.download_binary(annactl_url).await?;
 
         // Verify checksums
-        info!("🔐  Verifying binary checksums...");
+        info!("[#]Verifying binary checksums...");
         self.verify_binary_checksum(&annad_data, checksums, "annad")?;
         self.verify_binary_checksum(&annactl_data, checksums, "annactl")?;
 
@@ -343,11 +343,11 @@ impl AutoUpdateScheduler {
         fs::set_permissions(&annactl_path, fs::Permissions::from_mode(0o755))?;
 
         // Atomic swap - both at once
-        info!("🔄  Installing update from binaries...");
+        info!("[*]Installing update from binaries...");
         self.atomic_replace("/usr/local/bin/annad", &annad_path)?;
         self.atomic_replace("/usr/local/bin/annactl", &annactl_path)?;
 
-        info!("✅  Anna updated successfully");
+        info!("[+]Anna updated successfully");
         Ok(())
     }
 
@@ -458,6 +458,7 @@ impl AutoUpdateScheduler {
     }
 
     /// Atomic file replacement with backup
+    /// v0.28.0: Handle cross-device link error (EXDEV) by using copy+delete
     fn atomic_replace(&self, target: &str, source: &PathBuf) -> Result<()> {
         let target_path = PathBuf::from(target);
         let backup_path = target_path.with_extension("bak");
@@ -467,16 +468,42 @@ impl AutoUpdateScheduler {
             fs::copy(&target_path, &backup_path).context("Failed to create backup")?;
         }
 
-        // Attempt atomic replace
+        // Attempt atomic replace (rename is atomic on same filesystem)
         match fs::rename(source, &target_path) {
             Ok(()) => {
                 // Success - remove backup
                 let _ = fs::remove_file(&backup_path);
+                debug!("Replaced {} via rename", target);
                 Ok(())
             }
+            Err(e) if e.raw_os_error() == Some(18) => {
+                // EXDEV (error 18): Cross-device link - /tmp and /usr/local/bin on different filesystems
+                // Fall back to copy + delete
+                debug!("Cross-device link, falling back to copy for {}", target);
+                match fs::copy(source, &target_path) {
+                    Ok(_) => {
+                        // Set permissions after copy
+                        fs::set_permissions(&target_path, fs::Permissions::from_mode(0o755))?;
+                        // Remove source and backup
+                        let _ = fs::remove_file(source);
+                        let _ = fs::remove_file(&backup_path);
+                        debug!("Replaced {} via copy", target);
+                        Ok(())
+                    }
+                    Err(copy_err) => {
+                        // Copy failed - restore backup
+                        warn!("[!]  Copy failed, restoring backup: {}", copy_err);
+                        if backup_path.exists() {
+                            let _ = fs::copy(&backup_path, &target_path);
+                            let _ = fs::remove_file(&backup_path);
+                        }
+                        Err(copy_err).context("Copy replace failed")
+                    }
+                }
+            }
             Err(e) => {
-                // Failed - restore backup
-                warn!("⚠️  Replace failed, restoring backup: {}", e);
+                // Other error - restore backup
+                warn!("[!]  Replace failed, restoring backup: {}", e);
                 if backup_path.exists() {
                     let _ = fs::rename(&backup_path, &target_path);
                 }
@@ -487,7 +514,7 @@ impl AutoUpdateScheduler {
 
     /// Update model registry from GitHub
     async fn update_model_registry(&self) -> Result<()> {
-        debug!("📋  Fetching model registry from {}", REGISTRY_URL);
+        debug!("[=]Fetching model registry from {}", REGISTRY_URL);
 
         let resp = self
             .http_client
@@ -511,7 +538,7 @@ impl AutoUpdateScheduler {
             .context("Failed to cache model registry")?;
 
         info!(
-            "📋  Model registry updated (version: {}, updated: {})",
+            "[=]Model registry updated (version: {}, updated: {})",
             registry.schema_version, registry.last_updated
         );
 
@@ -523,10 +550,10 @@ impl AutoUpdateScheduler {
         // Write restart marker file
         let marker = PathBuf::from("/var/lib/anna/restart_requested");
         if let Err(e) = fs::write(&marker, chrono::Utc::now().to_rfc3339()) {
-            warn!("⚠️  Failed to write restart marker: {}", e);
+            warn!("[!]Failed to write restart marker: {}", e);
         }
 
-        info!("🔄  Update applied - restarting daemon to load new version...");
+        info!("[*]Update applied - restarting daemon to load new version...");
 
         // Give time for logs to flush
         tokio::time::sleep(Duration::from_secs(1)).await;
