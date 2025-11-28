@@ -33,7 +33,7 @@ set -uo pipefail
 # ============================================================
 
 # Installer version (independent from Anna version)
-INSTALLER_VERSION="2.3.0"
+INSTALLER_VERSION="2.4.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -469,46 +469,240 @@ install_binaries() {
 
 SELECTED_MODEL=""
 
-detect_gpu() {
-    local vram_mb=0
+# ============================================================
+# GPU DETECTION v2.4.0
+# ============================================================
+# Comprehensive GPU detection:
+# - Detects ALL GPUs via lspci
+# - Checks driver status for each vendor
+# - Shows clear summary
+# - NEVER installs drivers (just reports)
 
-    # Check for NVIDIA GPU with nvidia-smi
+# Arrays to store detected GPUs and their status
+declare -a DETECTED_GPUS=()
+declare -a GPU_STATUS=()
+declare -a GPU_VRAM=()
+BEST_VRAM_MB=0
+BEST_GPU_TYPE=""
+
+detect_all_gpus() {
+    # Reset globals
+    DETECTED_GPUS=()
+    GPU_STATUS=()
+    GPU_VRAM=()
+    BEST_VRAM_MB=0
+    BEST_GPU_TYPE=""
+
+    if ! command -v lspci &>/dev/null; then
+        # No lspci - try nvidia-smi/rocm-smi directly
+        check_nvidia_driver
+        check_amd_driver
+        return
+    fi
+
+    # Detect NVIDIA GPUs (VGA and 3D controllers)
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+            local gpu_name
+            gpu_name=$(echo "$line" | sed 's/.*: //')
+            DETECTED_GPUS+=("NVIDIA: $gpu_name")
+            GPU_STATUS+=("checking")
+            GPU_VRAM+=("0")
+        fi
+    done < <(lspci 2>/dev/null | grep -iE "(VGA|3D).*NVIDIA" || true)
+
+    # Detect AMD GPUs (discrete and integrated)
+    # NOTE: Use word boundaries (\b) to avoid false matches like "compatible" containing "ati"
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+            local gpu_name
+            gpu_name=$(echo "$line" | sed 's/.*: //')
+            # Check if it's an integrated GPU (APU)
+            if echo "$gpu_name" | grep -qiE "Renoir|Cezanne|Barcelo|Rembrandt|Phoenix|Raphael|Hawk|Strix"; then
+                DETECTED_GPUS+=("AMD iGPU: $gpu_name")
+            else
+                DETECTED_GPUS+=("AMD: $gpu_name")
+            fi
+            GPU_STATUS+=("checking")
+            GPU_VRAM+=("0")
+        fi
+    done < <(lspci 2>/dev/null | grep -iE "(VGA|3D).*(\bAMD\b|\bATI\b|Radeon)" || true)
+
+    # Detect Intel GPUs (integrated)
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+            local gpu_name
+            gpu_name=$(echo "$line" | sed 's/.*: //')
+            DETECTED_GPUS+=("Intel iGPU: $gpu_name")
+            GPU_STATUS+=("no-ollama-support")
+            GPU_VRAM+=("0")
+        fi
+    done < <(lspci 2>/dev/null | grep -iE "(VGA|3D).*Intel" || true)
+
+    # Now check driver status for each GPU
+    check_nvidia_driver
+    check_amd_driver
+}
+
+check_nvidia_driver() {
+    local nvidia_vram=0
+
     if command -v nvidia-smi &>/dev/null; then
         local gpu_info
         gpu_info=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1) || true
         if [[ -n "$gpu_info" ]] && [[ "$gpu_info" =~ ^[0-9]+$ ]]; then
-            vram_mb="$gpu_info"
-            echo "$vram_mb"
-            return 0
+            nvidia_vram="$gpu_info"
         fi
     fi
 
-    # Check for AMD GPU via rocm-smi
+    # Update status for all NVIDIA GPUs
+    for i in "${!DETECTED_GPUS[@]}"; do
+        if [[ "${DETECTED_GPUS[$i]}" == NVIDIA:* ]]; then
+            if [[ "$nvidia_vram" -gt 0 ]]; then
+                GPU_STATUS[$i]="driver-ok"
+                GPU_VRAM[$i]="$nvidia_vram"
+                if [[ "$nvidia_vram" -gt "$BEST_VRAM_MB" ]]; then
+                    BEST_VRAM_MB="$nvidia_vram"
+                    BEST_GPU_TYPE="nvidia"
+                fi
+            else
+                GPU_STATUS[$i]="no-driver"
+            fi
+        fi
+    done
+
+    # If no lspci but nvidia-smi works, add the GPU
+    if [[ "${#DETECTED_GPUS[@]}" -eq 0 ]] && [[ "$nvidia_vram" -gt 0 ]]; then
+        DETECTED_GPUS+=("NVIDIA GPU (detected via nvidia-smi)")
+        GPU_STATUS+=("driver-ok")
+        GPU_VRAM+=("$nvidia_vram")
+        BEST_VRAM_MB="$nvidia_vram"
+        BEST_GPU_TYPE="nvidia"
+    fi
+}
+
+check_amd_driver() {
+    local amd_vram=0
+
     if command -v rocm-smi &>/dev/null; then
-        local amd_vram
-        amd_vram=$(rocm-smi --showmeminfo vram 2>/dev/null | grep -oE '[0-9]+' | head -1) || true
-        if [[ -n "$amd_vram" ]] && [[ "$amd_vram" -gt 0 ]]; then
+        local vram_bytes
+        vram_bytes=$(rocm-smi --showmeminfo vram 2>/dev/null | grep -oE '[0-9]+' | head -1) || true
+        if [[ -n "$vram_bytes" ]] && [[ "$vram_bytes" -gt 0 ]]; then
             # rocm-smi reports in bytes, convert to MB
-            vram_mb=$((amd_vram / 1024 / 1024))
-            echo "$vram_mb"
-            return 0
+            amd_vram=$((vram_bytes / 1024 / 1024))
         fi
     fi
 
-    # Fallback: Check lspci for GPU presence (helps detect if drivers are missing)
-    # NOTE: Use >&2 to send warnings to stderr, not stdout (stdout is used for return value)
-    if command -v lspci &>/dev/null; then
-        if lspci | grep -qi "NVIDIA"; then
-            log_warn "NVIDIA GPU detected but nvidia-smi not working - drivers may be missing" >&2
-            log_warn "Install NVIDIA drivers for GPU acceleration, or Anna will use CPU mode" >&2
+    # Update status for all AMD GPUs (discrete only, not iGPU)
+    for i in "${!DETECTED_GPUS[@]}"; do
+        if [[ "${DETECTED_GPUS[$i]}" == AMD:* ]] && [[ "${DETECTED_GPUS[$i]}" != *iGPU* ]]; then
+            if [[ "$amd_vram" -gt 0 ]]; then
+                GPU_STATUS[$i]="driver-ok"
+                GPU_VRAM[$i]="$amd_vram"
+                if [[ "$amd_vram" -gt "$BEST_VRAM_MB" ]]; then
+                    BEST_VRAM_MB="$amd_vram"
+                    BEST_GPU_TYPE="amd"
+                fi
+            else
+                GPU_STATUS[$i]="no-driver"
+            fi
+        elif [[ "${DETECTED_GPUS[$i]}" == *"AMD iGPU"* ]]; then
+            # iGPUs use shared system RAM, not dedicated VRAM
+            GPU_STATUS[$i]="igpu-shared-ram"
         fi
-        if lspci | grep -qi "AMD.*Radeon"; then
-            log_warn "AMD GPU detected but rocm-smi not working - ROCm may not be installed" >&2
-            log_warn "Install ROCm for GPU acceleration, or Anna will use CPU mode" >&2
+    done
+}
+
+print_gpu_detection() {
+    print_header "GPU DETECTION"
+
+    if [[ "${#DETECTED_GPUS[@]}" -eq 0 ]]; then
+        log_info "No discrete GPU detected"
+        log_info "Ollama will use CPU mode"
+        printf "\n"
+        return
+    fi
+
+    # Print each GPU with status
+    for i in "${!DETECTED_GPUS[@]}"; do
+        local gpu="${DETECTED_GPUS[$i]}"
+        local status="${GPU_STATUS[$i]}"
+        local vram="${GPU_VRAM[$i]}"
+
+        case "$status" in
+            driver-ok)
+                if [[ "$vram" -gt 0 ]]; then
+                    log_ok "$gpu"
+                    log_info "    VRAM: ${vram}MB | Driver: OK"
+                else
+                    log_ok "$gpu"
+                    log_info "    Driver: OK"
+                fi
+                ;;
+            no-driver)
+                log_warn "$gpu"
+                log_info "    Driver: NOT FOUND"
+                ;;
+            no-ollama-support)
+                log_info "$gpu"
+                log_info "    Status: No Ollama GPU support"
+                ;;
+            igpu-shared-ram)
+                log_info "$gpu"
+                log_info "    Status: Integrated (uses system RAM)"
+                ;;
+            *)
+                log_info "$gpu"
+                log_info "    Status: Unknown"
+                ;;
+        esac
+    done
+
+    printf "\n"
+
+    # Explain what Ollama will use
+    if [[ "$BEST_VRAM_MB" -gt 0 ]]; then
+        log_ok "Ollama will use: ${BEST_GPU_TYPE^^} GPU (${BEST_VRAM_MB}MB VRAM)"
+    else
+        # Check if we have GPUs but no working drivers
+        local has_nvidia=false
+        local has_amd=false
+        for i in "${!DETECTED_GPUS[@]}"; do
+            if [[ "${GPU_STATUS[$i]}" == "no-driver" ]]; then
+                if [[ "${DETECTED_GPUS[$i]}" == NVIDIA:* ]]; then
+                    has_nvidia=true
+                elif [[ "${DETECTED_GPUS[$i]}" == AMD:* ]]; then
+                    has_amd=true
+                fi
+            fi
+        done
+
+        if $has_nvidia || $has_amd; then
+            log_warn "GPU detected but drivers not working"
+            log_info "Ollama will use: CPU mode"
+            printf "\n"
+            log_info "To enable GPU acceleration, install drivers:"
+            if $has_nvidia; then
+                log_info "  NVIDIA: Install nvidia-driver package"
+            fi
+            if $has_amd; then
+                log_info "  AMD: Install ROCm (rocm-smi)"
+            fi
+        else
+            log_info "Ollama will use: CPU mode"
         fi
     fi
 
-    echo "0"
+    printf "\n"
+}
+
+# Legacy function for compatibility - returns VRAM for model selection
+detect_gpu() {
+    # Run full detection if not already done
+    if [[ "${#DETECTED_GPUS[@]}" -eq 0 ]]; then
+        detect_all_gpus
+    fi
+    echo "$BEST_VRAM_MB"
 }
 
 select_model() {
@@ -650,6 +844,10 @@ select_model() {
 }
 
 install_ollama() {
+    # Detect all GPUs FIRST and show summary
+    detect_all_gpus
+    print_gpu_detection
+
     print_header "OLLAMA SETUP"
 
     # Check if Ollama is installed
@@ -684,7 +882,7 @@ install_ollama() {
         fi
     fi
 
-    # Select appropriate model based on hardware (sets SELECTED_MODEL)
+    # Select appropriate model based on detected GPU (uses BEST_VRAM_MB from detect_all_gpus)
     select_model
 
     # Determine junior/senior models based on hardware
