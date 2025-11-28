@@ -459,6 +459,7 @@ impl AutoUpdateScheduler {
 
     /// Atomic file replacement with backup
     /// v0.28.0: Handle cross-device link error (EXDEV) by using copy+delete
+    /// v0.30.0: Fix "Text file busy" (ETXTBSY) by deleting target before copy
     fn atomic_replace(&self, target: &str, source: &PathBuf) -> Result<()> {
         let target_path = PathBuf::from(target);
         let backup_path = target_path.with_extension("bak");
@@ -478,8 +479,19 @@ impl AutoUpdateScheduler {
             }
             Err(e) if e.raw_os_error() == Some(18) => {
                 // EXDEV (error 18): Cross-device link - /tmp and /usr/local/bin on different filesystems
-                // Fall back to copy + delete
-                debug!("Cross-device link, falling back to copy for {}", target);
+                // Fall back to delete + copy (delete first to avoid ETXTBSY "Text file busy")
+                debug!("Cross-device link, falling back to delete+copy for {}", target);
+
+                // v0.30.0: Delete target first to avoid "Text file busy" error
+                // On Linux, you can delete a running binary - the kernel keeps the inode
+                // until the process exits, but the directory entry is removed
+                if target_path.exists() {
+                    if let Err(del_err) = fs::remove_file(&target_path) {
+                        warn!("[!]  Failed to delete target before copy: {}", del_err);
+                        // Continue anyway, copy might still work
+                    }
+                }
+
                 match fs::copy(source, &target_path) {
                     Ok(_) => {
                         // Set permissions after copy
@@ -487,14 +499,17 @@ impl AutoUpdateScheduler {
                         // Remove source and backup
                         let _ = fs::remove_file(source);
                         let _ = fs::remove_file(&backup_path);
-                        debug!("Replaced {} via copy", target);
+                        debug!("Replaced {} via delete+copy", target);
                         Ok(())
                     }
                     Err(copy_err) => {
                         // Copy failed - restore backup
                         warn!("[!]  Copy failed, restoring backup: {}", copy_err);
                         if backup_path.exists() {
+                            // Delete target (if it exists partially) and restore from backup
+                            let _ = fs::remove_file(&target_path);
                             let _ = fs::copy(&backup_path, &target_path);
+                            let _ = fs::set_permissions(&target_path, fs::Permissions::from_mode(0o755));
                             let _ = fs::remove_file(&backup_path);
                         }
                         Err(copy_err).context("Copy replace failed")

@@ -1,4 +1,10 @@
-//! Anna Common - Shared types and schemas for Anna v0.26.0
+//! Anna Common - Shared types and schemas for Anna v0.30.0
+//!
+//! v0.27.0: Qwen inference, reliability improvements.
+//! v0.28.0: Auto-update improvements, installer fixes.
+//! v0.28.1: Emoji removal, ASCII-only aesthetic.
+//! v0.29.0: Fast-path for unsupported questions (no 100s LLM waits).
+//! v0.30.0: Journalctl probe, question classifier, auto-update fix (ETXTBSY).
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.

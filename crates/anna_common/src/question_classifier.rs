@@ -1,4 +1,4 @@
-//! Question Classifier v0.29.0
+//! Question Classifier v0.30.0
 //!
 //! Fast pre-LLM classification to instantly reject questions outside Anna's domain.
 //! This avoids 100+ second LLM calls for obviously unsupported questions.
@@ -10,6 +10,7 @@
 //! - GPU hardware (hardware.gpu): presence, vendor, model
 //! - GPU drivers (drivers.gpu): nvidia, amd, intel drivers
 //! - RAM hardware (hardware.ram): slot info, physical capacity
+//! - System logs (logs.journalctl): service logs, errors, systemd journal
 
 use std::collections::HashSet;
 
@@ -34,6 +35,8 @@ pub struct QuestionClassifier {
     disk_keywords: HashSet<&'static str>,
     /// Keywords that indicate GPU-related questions
     gpu_keywords: HashSet<&'static str>,
+    /// Keywords that indicate logs/service-related questions
+    logs_keywords: HashSet<&'static str>,
     /// Keywords that indicate DEFINITELY unsupported domains
     unsupported_keywords: HashSet<&'static str>,
     /// Phrases that indicate general knowledge (not system queries)
@@ -68,6 +71,12 @@ impl QuestionClassifier {
                 "opengl", "vulkan", "display", "vram",
             ].into_iter().collect(),
 
+            logs_keywords: [
+                "log", "logs", "journalctl", "journal", "syslog", "error",
+                "warning", "critical", "emerg", "alert", "notice", "debug",
+                "service", "daemon", "systemd", "unit", "failed",
+            ].into_iter().collect(),
+
             unsupported_keywords: [
                 // Network
                 "network", "wifi", "ethernet", "ip", "dns", "dhcp", "router",
@@ -76,9 +85,8 @@ impl QuestionClassifier {
                 // Users/Accounts
                 "user", "account", "password", "login", "sudo", "root",
                 "permission", "chmod", "chown", "group",
-                // Processes/Services
-                "process", "service", "daemon", "systemd", "running", "pid",
-                "kill", "restart", "status", "journalctl", "logs",
+                // Processes (but not service logs which we support)
+                "process", "running", "pid", "kill", "restart", "status",
                 // Packages
                 "package", "install", "apt", "pacman", "dnf", "yum", "brew",
                 "npm", "pip", "cargo", "update", "upgrade",
@@ -175,6 +183,12 @@ impl QuestionClassifier {
         if words_set.intersection(&self.gpu_keywords).next().is_some() {
             likely_probes.push("hardware.gpu".to_string());
             likely_probes.push("drivers.gpu".to_string());
+            confidence = confidence.saturating_add(30);
+        }
+
+        // Logs/service detection
+        if words_set.intersection(&self.logs_keywords).next().is_some() {
+            likely_probes.push("logs.journalctl".to_string());
             confidence = confidence.saturating_add(30);
         }
 
@@ -284,6 +298,23 @@ mod tests {
     }
 
     #[test]
+    fn test_logs_questions() {
+        let classifier = QuestionClassifier::new();
+
+        let result = classifier.classify("Show me system logs");
+        assert!(matches!(result, QuestionDomain::Supported { .. }));
+
+        let result = classifier.classify("What errors are in journalctl?");
+        assert!(matches!(result, QuestionDomain::Supported { .. }));
+
+        let result = classifier.classify("Is my systemd service failing?");
+        assert!(matches!(result, QuestionDomain::Supported { .. }));
+
+        let result = classifier.classify("Show failed services");
+        assert!(matches!(result, QuestionDomain::Supported { .. }));
+    }
+
+    #[test]
     fn test_unsupported_network() {
         let classifier = QuestionClassifier::new();
 
@@ -320,7 +351,7 @@ mod tests {
     fn test_unsupported_math() {
         let classifier = QuestionClassifier::new();
 
-        let result = classifier.classify("What is 2 + 2?");
+        let _result = classifier.classify("What is 2 + 2?");
         // "+" gets split, but "add" would be caught
         // This might be Uncertain, which is fine - LLM will handle
 
@@ -339,6 +370,8 @@ mod tests {
         // Should NOT reject
         assert!(classifier.should_fast_reject("How many CPU cores?").is_none());
         assert!(classifier.should_fast_reject("What's my disk usage?").is_none());
+        assert!(classifier.should_fast_reject("Show me system logs").is_none());
+        assert!(classifier.should_fast_reject("What services have failed?").is_none());
     }
 
     #[test]
