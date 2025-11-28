@@ -496,14 +496,15 @@ detect_gpu() {
     fi
 
     # Fallback: Check lspci for GPU presence (helps detect if drivers are missing)
+    # NOTE: Use >&2 to send warnings to stderr, not stdout (stdout is used for return value)
     if command -v lspci &>/dev/null; then
         if lspci | grep -qi "NVIDIA"; then
-            log_warn "NVIDIA GPU detected but nvidia-smi not working - drivers may be missing"
-            log_warn "Install NVIDIA drivers for GPU acceleration, or Anna will use CPU mode"
+            log_warn "NVIDIA GPU detected but nvidia-smi not working - drivers may be missing" >&2
+            log_warn "Install NVIDIA drivers for GPU acceleration, or Anna will use CPU mode" >&2
         fi
         if lspci | grep -qi "AMD.*Radeon"; then
-            log_warn "AMD GPU detected but rocm-smi not working - ROCm may not be installed"
-            log_warn "Install ROCm for GPU acceleration, or Anna will use CPU mode"
+            log_warn "AMD GPU detected but rocm-smi not working - ROCm may not be installed" >&2
+            log_warn "Install ROCm for GPU acceleration, or Anna will use CPU mode" >&2
         fi
     fi
 
