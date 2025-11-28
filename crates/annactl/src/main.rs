@@ -34,6 +34,10 @@ use anna_common::{
     logging, self_health, set_current_request, AnnaConfigV5, HardwareProfile, LogComponent,
     LogEntry, LogLevel, OverallHealth, RepairSafety, RequestContext, RequestStatus,
     StatsEngine, XpLog,
+    // v0.86.0: XP tracking
+    XpStore,
+    // v0.87.0: Brain fast path
+    try_fast_answer, FastQuestionType,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -217,6 +221,33 @@ async fn run_ask(question: &str) -> Result<()> {
             "query_preview": if question.len() > 50 { &question[..50] } else { question }
         })),
     );
+
+    // v0.87.0: Try Brain fast path for simple questions (RAM, CPU, disk, health)
+    // This bypasses LLM entirely for known patterns
+    if let Some(fast_answer) = try_fast_answer(question) {
+        // Show the question
+        spinner::print_question(question);
+        println!();
+
+        // Print the answer in the new format
+        print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
+
+        // Update XP store
+        let mut xp_store = XpStore::load();
+        let xp_line = xp_store.anna_self_solve(question);
+        if streaming_debug::is_debug_enabled() {
+            println!("{}", xp_line);
+        }
+
+        // Log completion
+        logging::with_current_request(|ctx| {
+            ctx.set_result(fast_answer.reliability, RequestStatus::Ok);
+            log_request(&ctx.to_trace());
+        });
+        clear_current_request();
+
+        return Ok(());
+    }
 
     // v0.43.0: Check if debug streaming is enabled
     if streaming_debug::is_debug_enabled() {
@@ -582,6 +613,9 @@ async fn run_status() -> Result<()> {
     // v0.40.1: RPG Progression section
     // v0.71.0: Now async to fetch stats from daemon API
     display_progression_section(&daemon).await;
+
+    // v0.86.0: LLM Agents section
+    display_llm_agents_section();
 
     // Update state
     println!("{}", "UPDATE STATE".bright_white().bold());
@@ -1208,4 +1242,122 @@ async fn run_xp_log(limit: usize) -> Result<()> {
     println!();
 
     Ok(())
+}
+
+// ============================================================================
+// v0.87.0: Print Final Answer - Always visible answer block
+// ============================================================================
+
+/// Print the final answer in the standardized format
+/// This ensures every question gets a clear, visible answer
+fn print_final_answer(text: &str, reliability: f64, origin: &str, duration_ms: u64) {
+    use anna_common::THIN_SEPARATOR;
+
+    println!();
+    println!("{}", THIN_SEPARATOR);
+    println!("{}", "Anna".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+    println!();
+    println!("{}", text);
+    println!();
+    println!("{}", THIN_SEPARATOR);
+
+    // Reliability with color
+    let rel_pct = format!("{:.0}%", reliability * 100.0);
+    let rel_label = if reliability >= 0.9 {
+        format!("{} ({})", rel_pct.bright_green(), "Green".bright_green())
+    } else if reliability >= 0.7 {
+        format!("{} ({})", rel_pct.yellow(), "Yellow".yellow())
+    } else {
+        format!("{} ({})", rel_pct.bright_red(), "Red".bright_red())
+    };
+    println!("Reliability: {}", rel_label);
+
+    // Origin
+    println!("Origin: {}", origin.cyan());
+
+    // Duration
+    let dur_str = if duration_ms < 1000 {
+        format!("{}ms", duration_ms)
+    } else {
+        format!("{:.2}s", duration_ms as f64 / 1000.0)
+    };
+    println!("Duration: {}", dur_str);
+
+    println!("{}", THIN_SEPARATOR);
+    println!();
+}
+
+// ============================================================================
+// v0.86.0: Display LLM Agents Section for Status
+// ============================================================================
+
+/// Display the LLM agents XP section in status
+fn display_llm_agents_section() {
+    use anna_common::THIN_SEPARATOR;
+
+    let xp_store = XpStore::load();
+
+    println!();
+    println!("{}", "LLM AGENTS".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    // Junior
+    let junior_trust = format!("trust {}", xp_store.junior.trust_pct());
+    let junior_trust_color = if xp_store.junior.is_high_trust() {
+        junior_trust.bright_green().to_string()
+    } else if xp_store.junior.is_low_trust() {
+        junior_trust.bright_red().to_string()
+    } else {
+        junior_trust.yellow().to_string()
+    };
+
+    println!(
+        "  {}  Junior: Level {} - {} ({})",
+        "*".cyan(),
+        xp_store.junior.level,
+        xp_store.junior.title(),
+        junior_trust_color
+    );
+    println!(
+        "       Good plans: {}   Bad plans: {}   Timeouts: {}",
+        xp_store.junior_stats.good_plans.to_string().bright_green(),
+        xp_store.junior_stats.bad_plans.to_string().bright_red(),
+        xp_store.junior_stats.timeouts.to_string().yellow()
+    );
+
+    // Senior
+    let senior_trust = format!("trust {}", xp_store.senior.trust_pct());
+    let senior_trust_color = if xp_store.senior.is_high_trust() {
+        senior_trust.bright_green().to_string()
+    } else if xp_store.senior.is_low_trust() {
+        senior_trust.bright_red().to_string()
+    } else {
+        senior_trust.yellow().to_string()
+    };
+
+    println!(
+        "  {}  Senior: Level {} - {} ({})",
+        "*".cyan(),
+        xp_store.senior.level,
+        xp_store.senior.title(),
+        senior_trust_color
+    );
+    println!(
+        "       Approvals: {}    Fix&Accept: {}  Rubber-stamps blocked: {}",
+        xp_store.senior_stats.approvals.to_string().bright_green(),
+        xp_store.senior_stats.fix_and_accept.to_string().yellow(),
+        xp_store.senior_stats.rubber_stamps_blocked.to_string().bright_red()
+    );
+
+    println!("{}", THIN_SEPARATOR);
+
+    // Low trust warnings
+    if let Some(warning) = xp_store.low_trust_warning() {
+        println!();
+        println!("{}", "[!] Trust Warning".bright_red().bold());
+        for line in warning.lines() {
+            println!("    {}", line.dimmed());
+        }
+    }
 }

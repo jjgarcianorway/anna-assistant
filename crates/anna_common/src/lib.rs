@@ -1,5 +1,7 @@
-//! Anna Common - Shared types and schemas for Anna v0.85.1
+//! Anna Common - Shared types and schemas for Anna v0.87.0
 //!
+//! v0.87.0: Latency Cuts & Brain Fast Path - <3s simple questions, hard fallback, always visible answer
+//! v0.86.0: XP Reinforcement - Anna/Junior/Senior XP tracking, trust, ranks, behaviour bias
 //! v0.85.1: XP Log Command - xp-log command, 24h metrics in status, completing v0.84.0 tasks
 //! v0.85.0: Architecture Optimisation - Brain layer, LLM reduction, self-sufficiency
 //! v0.84.0: Hard Test Harness - benchmarks, metrics, reliability validation
@@ -63,11 +65,13 @@
 pub mod answer_engine;
 pub mod bench;
 pub mod brain;
+pub mod brain_fast;
 pub mod command_whitelist;
 pub mod llm_validator;
 pub mod performance;
 pub mod xp_events;
 pub mod xp_log;
+pub mod xp_track;
 pub mod cpu_summary;
 pub mod mem_summary;
 pub mod events;
@@ -194,3 +198,14 @@ pub use structured_answer::{
 };
 // XP Log exports (v0.84.0)
 pub use xp_log::{XpLog, StoredXpEvent, Metrics24h, XP_LOG_DIR, XP_LOG_FILE};
+// XP Track exports (v0.86.0)
+pub use xp_track::{
+    XpTrack, XpStore, JuniorStats as XpJuniorStats, SeniorStats as XpSeniorStats,
+    AnnaStats as XpAnnaStats, get_title, xp_for_level, XP_DIR,
+};
+// Brain Fast Path exports (v0.87.0)
+pub use brain_fast::{
+    FastQuestionType, FastAnswer, try_fast_answer, create_fallback_answer, create_partial_answer,
+    TimingSummary, BRAIN_BUDGET_MS, LLM_A_BUDGET_MS, LLM_B_BUDGET_MS,
+    GLOBAL_SOFT_LIMIT_MS, GLOBAL_HARD_LIMIT_MS,
+};
