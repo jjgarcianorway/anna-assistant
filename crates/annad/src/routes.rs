@@ -258,21 +258,21 @@ async fn answer_question(
         let junior = config.llm.get_junior_model().to_string();
         let senior = config.llm.get_senior_model().to_string();
         info!(
-            "🎯  Using configured models - Junior: {}, Senior: {}",
+            "[M]  Using configured models - Junior: {}, Senior: {}",
             junior, senior
         );
         (Some(junior), Some(senior))
     } else if config.llm.selection_mode.as_str() == "manual" {
         // Manual mode without role-specific: use preferred_model for both
         let model = config.llm.preferred_model.clone();
-        info!("🎯  Using manual mode - Model: {} (for both roles)", model);
+        info!("[M]  Using manual mode - Model: {} (for both roles)", model);
         (Some(model.clone()), Some(model))
     } else {
         // Auto selection - use hardware profile (no explicit models configured)
         let profile = anna_common::HardwareProfile::detect();
         let recommendation = profile.select_model();
         info!(
-            "🎯  Auto-selected model: {} (reason: {}, GPU: {:?}, VRAM: {:?}GB, driver_functional: {})",
+            "[M]  Auto-selected model: {} (reason: {}, GPU: {:?}, VRAM: {:?}GB, driver_functional: {})",
             recommendation.model,
             recommendation.reason,
             profile.gpu_vendor,
@@ -287,7 +287,7 @@ async fn answer_question(
 
     let engine = AnswerEngine::with_role_models(junior_model, senior_model);
     info!(
-        "🤖  Engine ready - Junior: {}, Senior: {}",
+        "[E]  Engine ready - Junior: {}, Senior: {}",
         engine.junior_model(),
         engine.senior_model()
     );

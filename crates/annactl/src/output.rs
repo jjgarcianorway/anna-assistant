@@ -1,10 +1,11 @@
-//! Output formatting - clean, ASCII-only terminal output v0.16.4
+//! Output formatting - clean, ASCII-only terminal output v0.28.0
 //!
 //! v0.6.0: Sysadmin style - no emojis, ASCII only, professional
 //! v0.10.0: Evidence-based answers with citations and confidence scores
 //! v0.15.8: Timing display for spinner UX
 //! v0.16.3: Debug trace display for development troubleshooting
 //! v0.16.4: Improved debug trace with [JUNIOR model] and [SENIOR model] labels
+//! v0.28.0: Strict ASCII - removed all emojis for hacker aesthetic
 #![allow(dead_code)]
 
 use anna_common::{AnnaResponse, ConfidenceLevel, DebugTrace, FinalAnswer, THIN_SEPARATOR};
@@ -133,7 +134,7 @@ pub fn display_final_answer(answer: &FinalAnswer) {
         "{}",
         "==================================================".cyan()
     );
-    println!("  {}  Anna Answer", "📋".bright_cyan());
+    println!("  {}  Anna Answer", "[>]".bright_cyan());
     println!(
         "{}",
         "==================================================".cyan()
@@ -164,7 +165,7 @@ pub fn display_final_answer(answer: &FinalAnswer) {
                 anna_common::EvidenceStatus::Ok => "✓".bright_green().to_string(),
                 anna_common::EvidenceStatus::Error => "✗".bright_red().to_string(),
                 anna_common::EvidenceStatus::NotFound => "?".yellow().to_string(),
-                anna_common::EvidenceStatus::Timeout => "⧖".yellow().to_string(),
+                anna_common::EvidenceStatus::Timeout => "[T]".yellow().to_string(),
             };
             // Format: [probe_id] → summary
             let summary = citation
@@ -257,7 +258,7 @@ pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
     );
     println!(
         "  {}  Anna  {}",
-        "▶".bright_cyan(),
+        "[>]".bright_cyan(),
         format!("({:.1}s)", elapsed.as_secs_f64()).dimmed()
     );
     println!(
@@ -282,7 +283,7 @@ pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
                 anna_common::EvidenceStatus::Ok => "✓".bright_green().to_string(),
                 anna_common::EvidenceStatus::Error => "✗".bright_red().to_string(),
                 anna_common::EvidenceStatus::NotFound => "?".yellow().to_string(),
-                anna_common::EvidenceStatus::Timeout => "⧖".yellow().to_string(),
+                anna_common::EvidenceStatus::Timeout => "[T]".yellow().to_string(),
             };
             // Compact: [probe_id] → first line summary
             let summary = citation
@@ -389,7 +390,7 @@ pub fn display_debug_trace(trace: &DebugTrace) {
     );
     println!(
         "{}",
-        "║  🔍  DEBUG TRACE SUMMARY (see stderr for real-time output)                  ║"
+        "║  [?]  DEBUG TRACE SUMMARY (see stderr for real-time output)                ║"
             .bright_magenta()
     );
     println!(
@@ -444,19 +445,19 @@ pub fn display_debug_trace(trace: &DebugTrace) {
         println!();
 
         // LLM-A Prompt (truncated)
-        println!("{}:", "📤  PROMPT".bold().bright_white());
+        println!("{}:", "[>]  PROMPT".bold().bright_white());
         display_wrapped_text(&iter.llm_a_prompt, "    ", 74);
         println!();
 
         // LLM-A Response
-        println!("{}:", "📥  RESPONSE".bold().bright_white());
+        println!("{}:", "[<]  RESPONSE".bold().bright_white());
         display_wrapped_text(&iter.llm_a_response, "    ", 74);
         println!();
 
         // LLM-A Parsed Summary
         println!(
             "{}  intent={}, probes={:?}, has_draft={}",
-            "📊  Parsed:".bold().dimmed(),
+            "[=]  Parsed:".bold().dimmed(),
             iter.llm_a_intent.cyan(),
             iter.llm_a_probes,
             iter.llm_a_has_draft
@@ -466,7 +467,7 @@ pub fn display_debug_trace(trace: &DebugTrace) {
         if !iter.probes_executed.is_empty() {
             println!(
                 "{}  {:?}",
-                "🔬  Probes Executed:".bold().dimmed(),
+                "[P]  Probes Executed:".bold().dimmed(),
                 iter.probes_executed
             );
         }
@@ -489,14 +490,14 @@ pub fn display_debug_trace(trace: &DebugTrace) {
 
             // LLM-B Prompt
             if let Some(ref prompt) = iter.llm_b_prompt {
-                println!("{}:", "📤  PROMPT".bold().bright_white());
+                println!("{}:", "[>]  PROMPT".bold().bright_white());
                 display_wrapped_text(prompt, "    ", 74);
                 println!();
             }
 
             // LLM-B Response
             if let Some(ref response) = iter.llm_b_response {
-                println!("{}:", "📥  RESPONSE".bold().bright_white());
+                println!("{}:", "[<]  RESPONSE".bold().bright_white());
                 display_wrapped_text(response, "    ", 74);
                 println!();
             }
@@ -504,15 +505,15 @@ pub fn display_debug_trace(trace: &DebugTrace) {
             // LLM-B Parsed Summary with verdict
             if let Some(ref verdict) = iter.llm_b_verdict {
                 let verdict_colored = match verdict.as_str() {
-                    "approve" => format!("✅  {}", verdict).bright_green().to_string(),
-                    "fix_and_accept" => format!("🔧  {}", verdict).yellow().to_string(),
-                    "needs_more_probes" => format!("🔄  {}", verdict).cyan().to_string(),
-                    "refuse" => format!("❌  {}", verdict).bright_red().to_string(),
+                    "approve" => format!("[+]  {}", verdict).bright_green().to_string(),
+                    "fix_and_accept" => format!("[~]  {}", verdict).yellow().to_string(),
+                    "needs_more_probes" => format!("[~]  {}", verdict).cyan().to_string(),
+                    "refuse" => format!("[-]  {}", verdict).bright_red().to_string(),
                     _ => verdict.to_string(),
                 };
                 print!(
                     "{}  verdict={}, ",
-                    "📊  Parsed:".bold().dimmed(),
+                    "[=]  Parsed:".bold().dimmed(),
                     verdict_colored
                 );
                 if let Some(conf) = iter.llm_b_confidence {

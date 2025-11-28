@@ -85,7 +85,7 @@ impl RegistryFetcher {
             .map_err(|e| format!("Failed to parse registry JSON: {}", e))?;
 
         info!(
-            "✅  Model registry fetched: v{}, {} tiers, {} known models",
+            "[+]  Model registry fetched: v{}, {} tiers, {} known models",
             registry.schema_version,
             registry.recommended_by_tier.len(),
             registry.known_good_models.len()

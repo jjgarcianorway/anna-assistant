@@ -56,7 +56,7 @@ fn print_probes_executed(probes: &[String]) {
     let _ = writeln!(stderr);
     let _ = writeln!(
         stderr,
-        "┌─ 🔬  PROBES EXECUTED ──────────────────────────────────────────────────────────┐"
+        "┌─ [P]  PROBES EXECUTED ─────────────────────────────────────────────────────────┐"
     );
     for probe in probes {
         let _ = writeln!(stderr, "│  • {}", probe);
@@ -74,10 +74,10 @@ fn print_verdict_summary(verdict: &AuditVerdict, confidence: f64) {
     let mut stderr = std::io::stderr();
 
     let verdict_str = match verdict {
-        AuditVerdict::Approve => "✅  APPROVE",
-        AuditVerdict::FixAndAccept => "🔧  FIX_AND_ACCEPT",
-        AuditVerdict::NeedsMoreProbes => "🔄  NEEDS_MORE_PROBES",
-        AuditVerdict::Refuse => "❌  REFUSE",
+        AuditVerdict::Approve => "[+]  APPROVE",
+        AuditVerdict::FixAndAccept => "[~]  FIX_AND_ACCEPT",
+        AuditVerdict::NeedsMoreProbes => "[~]  NEEDS_MORE_PROBES",
+        AuditVerdict::Refuse => "[-]  REFUSE",
     };
 
     let _ = writeln!(stderr);
@@ -217,7 +217,7 @@ impl AnswerEngine {
             debug_iter.llm_a_has_draft = llm_a_response.draft_answer.is_some();
 
             info!(
-                "🤖  LLM-A parsed: intent={}, probes={}, draft={}, needs_more={}, refuse={}",
+                "[A]  LLM-A parsed: intent={}, probes={}, draft={}, needs_more={}, refuse={}",
                 llm_a_response.plan.intent,
                 llm_a_response.plan.probe_requests.len(),
                 llm_a_response.draft_answer.is_some(),
@@ -226,7 +226,7 @@ impl AnswerEngine {
             );
             if let Some(ref draft) = llm_a_response.draft_answer {
                 info!(
-                    "📄  Draft answer: {}",
+                    "[D]  Draft answer: {}",
                     &draft.text[..200.min(draft.text.len())]
                 );
             }
@@ -323,13 +323,13 @@ impl AnswerEngine {
             debug_iter.llm_b_confidence = Some(llm_b_response.scores.overall);
 
             info!(
-                "🔍  LLM-B parsed: verdict={:?}, score={:.2}, problems={}",
+                "[=]  LLM-B parsed: verdict={:?}, score={:.2}, problems={}",
                 llm_b_response.verdict,
                 llm_b_response.scores.overall,
                 llm_b_response.problems.len()
             );
             if let Some(ref fix) = llm_b_response.fixed_answer {
-                info!("🔧  Fixed answer: {}", &fix[..200.min(fix.len())]);
+                info!("[~]  Fixed answer: {}", &fix[..200.min(fix.len())]);
             }
 
             // v0.16.4: Show verdict summary in debug mode

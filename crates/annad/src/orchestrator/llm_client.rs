@@ -35,7 +35,7 @@ fn print_debug_prompt(role: &str, model: &str, prompt: &str) {
         stderr,
         "╔══════════════════════════════════════════════════════════════════════════════╗"
     );
-    let _ = writeln!(stderr, "║  [{} {}]  📤  PROMPT", role, model);
+    let _ = writeln!(stderr, "║  [{} {}]  [>]  PROMPT", role, model);
     let _ = writeln!(
         stderr,
         "╚══════════════════════════════════════════════════════════════════════════════╝"
@@ -74,7 +74,7 @@ fn print_debug_response(role: &str, model: &str, response: &str) {
         stderr,
         "╔══════════════════════════════════════════════════════════════════════════════╗"
     );
-    let _ = writeln!(stderr, "║  [{} {}]  📥  RESPONSE", role, model);
+    let _ = writeln!(stderr, "║  [{} {}]  [<]  RESPONSE", role, model);
     let _ = writeln!(
         stderr,
         "╚══════════════════════════════════════════════════════════════════════════════╝"
@@ -257,14 +257,14 @@ impl OllamaClient {
             keep_alive: Some(self.keep_alive.clone()),
         };
 
-        info!("📤  LLM CALL [{}] (keep_alive: {})", model, self.keep_alive);
+        info!("[>]  LLM CALL [{}] (keep_alive: {})", model, self.keep_alive);
         info!(
-            "📝  SYSTEM PROMPT ({} chars): {}",
+            "[S]  SYSTEM PROMPT ({} chars): {}",
             system_prompt.len(),
             &system_prompt[..200.min(system_prompt.len())]
         );
         info!(
-            "📝  USER PROMPT ({} chars): {}",
+            "[U]  USER PROMPT ({} chars): {}",
             user_prompt.len(),
             &user_prompt[..500.min(user_prompt.len())]
         );
@@ -280,7 +280,7 @@ impl OllamaClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            error!("❌  Ollama error {}: {}", status, error_text);
+            error!("[-]  Ollama error {}: {}", status, error_text);
             anyhow::bail!("Ollama returned error {}: {}", status, error_text);
         }
 
@@ -290,7 +290,7 @@ impl OllamaClient {
             .context("Failed to parse Ollama response")?;
 
         info!(
-            "📥  LLM RESPONSE ({} chars): {}",
+            "[<]  LLM RESPONSE ({} chars): {}",
             chat_response.message.content.len(),
             &chat_response.message.content[..1000.min(chat_response.message.content.len())]
         );

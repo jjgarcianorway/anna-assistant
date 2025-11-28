@@ -40,13 +40,13 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    info!("🤖  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
-    info!("📋  Evidence Oracle starting...");
+    info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
+    info!("[>]  Evidence Oracle starting...");
 
     // v0.11.0: Initialize knowledge store
     let knowledge_store = KnowledgeStore::open_default()?;
     let fact_count = knowledge_store.count()?;
-    info!("🧠  Knowledge store: {} facts", fact_count);
+    info!("[K]  Knowledge store: {} facts", fact_count);
 
     // v0.11.0: Initialize Anna's brain
     let anna_brain = Arc::new(brain::AnnaBrain::new(knowledge_store));
@@ -64,22 +64,22 @@ async fn main() -> Result<()> {
         if std::path::Path::new(path).exists() {
             match probe::registry::ProbeRegistry::load_from_dir(path) {
                 Ok(registry) if registry.count() > 0 => {
-                    info!("🔧  Loaded {} probes from {}", registry.count(), path);
+                    info!("[+]  Loaded {} probes from {}", registry.count(), path);
                     probe_registry = Some(registry);
                     break;
                 }
                 Ok(_) => {
-                    info!("📂  Found {} but it's empty, trying next...", path);
+                    info!("[~]  Found {} but it's empty, trying next...", path);
                 }
                 Err(e) => {
-                    warn!("⚠️  Failed to load probes from {}: {}", path, e);
+                    warn!("[!]  Failed to load probes from {}: {}", path, e);
                 }
             }
         }
     }
 
     let probe_registry = probe_registry.unwrap_or_else(|| {
-        warn!("⚠️  No probes found in any location! Using empty registry.");
+        warn!("[!]  No probes found in any location! Using empty registry.");
         probe::registry::ProbeRegistry::default()
     });
 
@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
     // Log config
     let config = AnnaConfigV5::load();
     info!(
-        "⚙️  Config: mode={}, update.enabled={}, update.channel={}, update.interval={}s",
+        "[C]  Config: mode={}, update.enabled={}, update.channel={}, update.interval={}s",
         config.core.mode.as_str(),
         config.update.enabled,
         config.update.channel.as_str(),
@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
     if config.llm.needs_role_model_migration() {
         let suggested_junior = config.llm.suggest_junior_model();
         warn!(
-            "⚠️  Config uses legacy single-model setup. For optimal performance, run the installer to get role-specific models:"
+            "[!]  Config uses legacy single-model setup. For optimal performance, run the installer to get role-specific models:"
         );
         warn!("    curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash");
         warn!(
@@ -115,14 +115,14 @@ async fn main() -> Result<()> {
             suggested_junior, config.llm.preferred_model
         );
         info!(
-            "🧠  LLM: selection_mode={}, preferred={} (used for both junior/senior), fallback={}",
+            "[L]  LLM: selection_mode={}, preferred={} (used for both junior/senior), fallback={}",
             config.llm.selection_mode.as_str(),
             config.llm.preferred_model,
             config.llm.fallback_model
         );
     } else {
         info!(
-            "🧠  LLM: selection_mode={}, junior={}, senior={}, fallback={}",
+            "[L]  LLM: selection_mode={}, junior={}, senior={}, fallback={}",
             config.llm.selection_mode.as_str(),
             config.llm.get_junior_model(),
             config.llm.get_senior_model(),

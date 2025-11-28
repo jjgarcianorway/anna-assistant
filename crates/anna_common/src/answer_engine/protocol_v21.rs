@@ -280,12 +280,12 @@ pub enum AnswerSource {
 }
 
 impl AnswerSource {
-    pub fn emoji(&self) -> &'static str {
+    pub fn indicator(&self) -> &'static str {
         match self {
-            Self::CachedFacts => "⚡",
-            Self::FactsWithProbing => "🔍",
-            Self::ProbingBased => "🔬",
-            Self::Partial => "⚠️",
+            Self::CachedFacts => "[F]",
+            Self::FactsWithProbing => "[?]",
+            Self::ProbingBased => "[P]",
+            Self::Partial => "[!]",
         }
     }
 
@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn test_answer_source_descriptions() {
-        assert_eq!(AnswerSource::CachedFacts.emoji(), "⚡");
+        assert_eq!(AnswerSource::CachedFacts.indicator(), "[F]");
         assert!(AnswerSource::CachedFacts.description().contains("instant"));
     }
 

@@ -37,11 +37,11 @@ impl CommandRisk {
         }
     }
 
-    pub fn emoji(&self) -> &'static str {
+    pub fn indicator(&self) -> &'static str {
         match self {
-            CommandRisk::Low => "🟢",
-            CommandRisk::Medium => "🟡",
-            CommandRisk::High => "🔴",
+            CommandRisk::Low => "[+]",
+            CommandRisk::Medium => "[~]",
+            CommandRisk::High => "[!]",
         }
     }
 
@@ -127,18 +127,18 @@ impl CommandCategory {
         }
     }
 
-    pub fn emoji(&self) -> &'static str {
+    pub fn indicator(&self) -> &'static str {
         match self {
-            CommandCategory::Hardware => "🖥️",
-            CommandCategory::Storage => "💾",
-            CommandCategory::Network => "🌐",
-            CommandCategory::PackageQuery => "📦",
-            CommandCategory::PackageInstall => "📥",
-            CommandCategory::Service => "⚙️",
-            CommandCategory::FileRead => "📄",
-            CommandCategory::FileWrite => "✏️",
-            CommandCategory::Process => "📊",
-            CommandCategory::Config => "🔧",
+            CommandCategory::Hardware => "[H]",
+            CommandCategory::Storage => "[S]",
+            CommandCategory::Network => "[N]",
+            CommandCategory::PackageQuery => "[Q]",
+            CommandCategory::PackageInstall => "[I]",
+            CommandCategory::Service => "[V]",
+            CommandCategory::FileRead => "[R]",
+            CommandCategory::FileWrite => "[W]",
+            CommandCategory::Process => "[P]",
+            CommandCategory::Config => "[C]",
         }
     }
 }
@@ -788,13 +788,13 @@ pub enum WhitelistError {
 
 impl std::fmt::Display for CommandRisk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}  {}", self.emoji(), self.as_str())
+        write!(f, "{}  {}", self.indicator(), self.as_str())
     }
 }
 
 impl std::fmt::Display for CommandCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}  {}", self.emoji(), self.as_str())
+        write!(f, "{}  {}", self.indicator(), self.as_str())
     }
 }
 
