@@ -201,17 +201,19 @@ impl AnswerEngine {
             });
         }
 
-        // v0.71.0: Fast path for simple probe-only questions (cpu, ram, disk)
-        // This bypasses LLM orchestration entirely for <1 second answers
-        if let Some((probe_id, topic)) = self.try_fast_path(question) {
-            match self.execute_fast_path(question, probe_id, topic, start_time).await {
-                Ok(answer) => return Ok(answer),
-                Err(e) => {
-                    // Fast path failed, fall through to normal orchestration
-                    warn!("[!]  Fast path failed ({}), using normal orchestration", e);
-                }
-            }
-        }
+        // v0.73.0: Fast path DISABLED for Engineering Reset testing
+        // The fast path bypasses Junior→Senior loop and rubber-stamps 95% scores
+        // TODO: Re-enable after fixing fast path answer formatting
+        // if let Some((probe_id, topic)) = self.try_fast_path(question) {
+        //     match self.execute_fast_path(question, probe_id, topic, start_time).await {
+        //         Ok(answer) => return Ok(answer),
+        //         Err(e) => {
+        //             // Fast path failed, fall through to normal orchestration
+        //             warn!("[!]  Fast path failed ({}), using normal orchestration", e);
+        //         }
+        //     }
+        // }
+        info!("[*]  Fast path disabled - using full Junior→Senior orchestration");
 
         let mut loop_state = LoopState::default();
         let mut evidence: Vec<ProbeEvidenceV10> = vec![];
