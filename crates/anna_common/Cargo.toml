@@ -16,6 +16,7 @@ regex.workspace = true
 owo-colors.workspace = true
 rusqlite.workspace = true
 uuid.workspace = true
+tracing.workspace = true
 dirs = "5.0"
 tokio = { workspace = true }
 

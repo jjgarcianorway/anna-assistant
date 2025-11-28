@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.70.0
+//! Anna Common - Shared types and schemas for Anna v0.75.0
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.
@@ -15,6 +15,7 @@
 //! v0.60.0: Conversational UX - live progress events, conversation logging, persona messaging.
 //! v0.65.0: Reliability Patch - confidence gating (60% min), stats tracking, daemon robustness.
 //! v0.70.0: Evidence Oracle - structured LLM protocol, difficulty routing, knowledge-first.
+//! v0.74.0: Structured Trace Pipeline - JSON traces, debug output, canonical questions.
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -68,6 +69,7 @@ pub mod safety;
 pub mod schemas;
 pub mod self_health;
 pub mod skills;
+pub mod trace;
 pub mod types;
 pub mod updater;
 
@@ -137,4 +139,14 @@ pub use llm_protocol::{
     LlmADraftAnswer, LlmAOutput,
     KnowledgeUpdate, LlmBOutput,
     CommandTemplate,
+};
+// Trace module exports (v0.74.0 + v0.75.0)
+pub use trace::{
+    // v0.74.0 types
+    QuestionTrace, JuniorPlan, ProbeTrace, SeniorVerdict,
+    generate_correlation_id, is_debug_mode as trace_is_debug_mode,
+    // v0.75.0 DebugBlock types
+    DebugBlock, InputSection, JuniorPlanSection, ProbesSection,
+    ProbeExecution, ProbeFailure, SeniorVerdictSection, VerdictScores,
+    FinalAnswerSection, RawLlmMessages,
 };

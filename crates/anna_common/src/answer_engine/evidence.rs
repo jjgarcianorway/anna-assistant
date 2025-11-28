@@ -169,6 +169,52 @@ impl ProbeCatalog {
             },
         );
 
+        // v0.74.0: Additional probes for canonical questions
+
+        // System/OS info (Q1 full answer)
+        probes.insert(
+            "system.os".to_string(),
+            ProbeDefinitionV10 {
+                probe_id: "system.os".to_string(),
+                description: "Operating system info (distro, kernel version)".to_string(),
+                commands: vec!["cat /etc/os-release && uname -r".to_string()],
+                cost: ProbeCost::Cheap,
+            },
+        );
+
+        // Annad service logs (Q3)
+        probes.insert(
+            "logs.annad".to_string(),
+            ProbeDefinitionV10 {
+                probe_id: "logs.annad".to_string(),
+                description: "Anna daemon logs from journalctl (last 6 hours)".to_string(),
+                commands: vec!["journalctl -u annad --since '6 hours ago' --no-pager -n 200".to_string()],
+                cost: ProbeCost::Medium,
+            },
+        );
+
+        // Pending system updates (Q4)
+        probes.insert(
+            "updates.pending".to_string(),
+            ProbeDefinitionV10 {
+                probe_id: "updates.pending".to_string(),
+                description: "List of pending package updates (pacman or apt)".to_string(),
+                commands: vec!["pacman -Qu 2>/dev/null || apt list --upgradable 2>/dev/null || echo 'No package manager found'".to_string()],
+                cost: ProbeCost::Medium,
+            },
+        );
+
+        // Anna self-health (Q5)
+        probes.insert(
+            "anna.self_health".to_string(),
+            ProbeDefinitionV10 {
+                probe_id: "anna.self_health".to_string(),
+                description: "Anna self-diagnostic (daemon, Ollama, models, permissions)".to_string(),
+                commands: vec!["internal:self_health".to_string()],
+                cost: ProbeCost::Cheap,
+            },
+        );
+
         Self { probes }
     }
 
@@ -225,10 +271,10 @@ mod tests {
     #[test]
     fn test_probe_catalog_standard() {
         let catalog = ProbeCatalog::standard();
-        // v0.14.0: Exactly 6 probes
-        assert_eq!(catalog.len(), 6);
+        // v0.74.0: 10 probes total (6 original + 4 for canonical questions)
+        assert_eq!(catalog.len(), 10);
 
-        // The 6 real probes
+        // Original 6 probes
         assert!(catalog.is_valid("cpu.info"));
         assert!(catalog.is_valid("mem.info"));
         assert!(catalog.is_valid("disk.lsblk"));
@@ -236,12 +282,16 @@ mod tests {
         assert!(catalog.is_valid("drivers.gpu"));
         assert!(catalog.is_valid("hardware.ram"));
 
-        // These should NOT exist anymore
+        // v0.74.0: 4 new probes for canonical questions
+        assert!(catalog.is_valid("system.os"));
+        assert!(catalog.is_valid("logs.annad"));
+        assert!(catalog.is_valid("updates.pending"));
+        assert!(catalog.is_valid("anna.self_health"));
+
+        // These should NOT exist
         assert!(!catalog.is_valid("net.links"));
         assert!(!catalog.is_valid("net.addr"));
         assert!(!catalog.is_valid("pkg.games"));
-        assert!(!catalog.is_valid("system.kernel"));
-        assert!(!catalog.is_valid("anna.self_health"));
         assert!(!catalog.is_valid("nonexistent.probe"));
     }
 
@@ -262,9 +312,11 @@ mod tests {
     fn test_available_probes() {
         let catalog = ProbeCatalog::standard();
         let probes = catalog.available_probes();
-        // v0.14.0: Exactly 6 probes
-        assert_eq!(probes.len(), 6);
+        // v0.74.0: 10 probes (6 original + 4 for canonical questions)
+        assert_eq!(probes.len(), 10);
         assert!(probes.iter().any(|p| p.probe_id == "cpu.info"));
         assert!(probes.iter().any(|p| p.probe_id == "hardware.gpu"));
+        assert!(probes.iter().any(|p| p.probe_id == "system.os"));
+        assert!(probes.iter().any(|p| p.probe_id == "logs.annad"));
     }
 }

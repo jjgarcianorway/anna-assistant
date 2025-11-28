@@ -1,4 +1,4 @@
-//! Answer Engine v0.71.0
+//! Answer Engine v0.75.0
 //!
 //! The main orchestration loop:
 //! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/fix/retry
@@ -21,6 +21,8 @@ use anna_common::{
     generate_llm_a_prompt_with_iteration, generate_llm_b_prompt, AuditScores, AuditVerdict,
     ConfidenceLevel, DebugIteration, DebugTrace, FinalAnswer, LoopState, ProbeCatalog,
     ProbeEvidenceV10, QuestionClassifier, QuestionDomain, ReliabilityScores, MAX_LOOPS,
+    // v0.75.0: Complete Debug Output Contract
+    DebugBlock, trace_is_debug_mode,
 };
 use anyhow::Result;
 use std::time::Instant;
@@ -165,6 +167,9 @@ impl AnswerEngine {
         info!("Processing question: {}", question);
         let start_time = Instant::now();
 
+        // v0.75.0: Initialize complete debug block
+        let mut debug_block = DebugBlock::new(question, self.junior_model(), self.senior_model());
+
         // v0.29.0: Fast-path rejection for obviously unsupported questions
         // This avoids 100+ second LLM calls for questions like "what's the weather?"
         let classifier = QuestionClassifier::new();
@@ -286,6 +291,27 @@ impl AnswerEngine {
                 );
             }
 
+            // v0.75.0: Capture Junior's plan in debug block
+            let requested_probes: Vec<String> = llm_a_response.plan.probe_requests
+                .iter()
+                .map(|p| p.probe_id.clone())
+                .collect();
+            // Use draft answer text as reasoning if available
+            let junior_reasoning = llm_a_response.draft_answer
+                .as_ref()
+                .map(|d| d.text.chars().take(200).collect::<String>())
+                .unwrap_or_default();
+            debug_block.set_junior_plan(
+                &llm_a_response.plan.intent,
+                requested_probes,
+                &debug_iter.llm_a_response, // Use the already-stored raw response
+                &junior_reasoning,
+                llm_a_response.self_scores.as_ref().map(|s| s.overall()).unwrap_or(0.0),
+            );
+            // Capture raw Junior message for forensic log
+            debug_block.raw_messages.junior_prompt = debug_iter.llm_a_prompt.clone();
+            debug_block.raw_messages.junior_response = debug_iter.llm_a_response.clone();
+
             // Check for immediate refusal
             if llm_a_response.refuse_to_answer {
                 // Only refuse if no evidence at all - otherwise try partial answer
@@ -334,8 +360,27 @@ impl AnswerEngine {
                         print_probes_executed(&valid_probes);
                     }
 
+                    let probe_start = Instant::now();
                     let new_evidence =
                         probe_executor::execute_probes(&self.catalog, &valid_probes).await;
+                    let probe_duration = probe_start.elapsed().as_millis() as u64;
+
+                    // v0.75.0: Add probe executions to debug block
+                    for ev in &new_evidence {
+                        let per_probe_duration = probe_duration / new_evidence.len().max(1) as u64;
+                        if ev.status.is_ok() {
+                            let summary = ev.raw.as_deref().unwrap_or("");
+                            debug_block.add_probe_execution(
+                                &ev.probe_id,
+                                &ev.command,
+                                per_probe_duration,
+                                summary,
+                            );
+                        } else {
+                            debug_block.add_probe_failure(&ev.probe_id, ev.status.as_str());
+                        }
+                    }
+
                     evidence.extend(new_evidence);
                 }
 
@@ -397,6 +442,22 @@ impl AnswerEngine {
                 info!("[~]  Fixed answer: {}", &fix[..200.min(fix.len())]);
             }
 
+            // v0.75.0: Capture Senior verdict in debug block
+            let citations: Vec<String> = evidence.iter().map(|e| e.probe_id.clone()).collect();
+            debug_block.set_senior_verdict(
+                llm_b_response.verdict.as_str(),
+                &llm_b_response.problems.join("; "),
+                llm_b_response.fixed_answer.clone(),
+                citations,
+                llm_b_response.scores.evidence,
+                llm_b_response.scores.reasoning,
+                llm_b_response.scores.coverage,
+            );
+            debug_block.input.iterations_used = loop_state.iteration;
+            // Capture raw Senior message for forensic log
+            debug_block.raw_messages.senior_prompt = debug_iter.llm_b_prompt.clone().unwrap_or_default();
+            debug_block.raw_messages.senior_response = debug_iter.llm_b_response.clone().unwrap_or_default();
+
             // v0.16.4: Show verdict summary in debug mode
             if is_debug_mode() {
                 print_verdict_summary(&llm_b_response.verdict, llm_b_response.scores.overall);
@@ -418,6 +479,14 @@ impl AnswerEngine {
                         .unwrap_or(&draft_answer.text);
                     debug_trace.iterations.push(debug_iter);
                     debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
+
+                    // v0.75.0: Finalize debug block and emit
+                    debug_block.set_final_answer(answer_text, llm_b_response.scores.overall);
+                    let _ = debug_block.write_all_logs();
+                    if trace_is_debug_mode() {
+                        eprintln!("{}", debug_block.format_cli());
+                    }
+
                     return Ok(self.build_final_answer_with_trace(
                         question,
                         answer_text,
@@ -438,6 +507,14 @@ impl AnswerEngine {
                         .unwrap_or(&draft_answer.text);
                     debug_trace.iterations.push(debug_iter);
                     debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
+
+                    // v0.75.0: Finalize debug block and emit
+                    debug_block.set_final_answer(answer_text, llm_b_response.scores.overall);
+                    let _ = debug_block.write_all_logs();
+                    if trace_is_debug_mode() {
+                        eprintln!("{}", debug_block.format_cli());
+                    }
+
                     return Ok(self.build_final_answer_with_trace(
                         question,
                         answer_text,
@@ -537,6 +614,14 @@ impl AnswerEngine {
                 "Max loops reached - returning partial answer with confidence {:.2}",
                 scores.overall
             );
+
+            // v0.75.0: Finalize debug block and emit
+            debug_block.set_final_answer(&answer_text, scores.overall);
+            let _ = debug_block.write_all_logs();
+            if trace_is_debug_mode() {
+                eprintln!("{}", debug_block.format_cli());
+            }
+
             return Ok(self.build_partial_answer_with_trace(
                 question,
                 &answer_text,
