@@ -217,7 +217,72 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
-## v0.73.0 - Planned
+## v0.73.0 - Rubber-Stamping Fix
 
-[ ] Enhanced stats persistence with journaling
-[ ] Additional probe types
+[x] Fix Senior parse failures that silently approved with 70/70/70
+[x] Reject 0-score answers instead of delivering unverified content
+[x] Require probe evidence before delivering answers
+
+---
+
+## v0.74.0 - Structured Trace Pipeline
+
+[x] JSON traces with correlation IDs
+[x] Debug output system
+[x] Canonical questions
+
+---
+
+## v0.76.0-v0.80.0 - LLM Prompt Optimizations
+
+[x] Minimal Junior Planner prompt (v0.76.0)
+[x] Dialog View events for streaming (v0.76.2, v0.77.0)
+[x] Minimal Senior Auditor prompt (v0.78.0)
+[x] CPU semantics and scoring fix (v0.79.0)
+[x] Razorback Fast Path <5s response (v0.80.0)
+
+---
+
+## v0.81.0-v0.82.0 - QA Harness
+
+[x] Structured answer format (headline/details/evidence)
+[x] QaOutput JSON schema
+[x] Benchmark script with canonical questions
+[x] Acceptance thresholds
+
+---
+
+## v0.83.0 - Performance Focus
+
+[x] Explicit time budgets (15s target)
+[x] Compact Junior/Senior prompts (<600 chars)
+
+---
+
+## v0.84.0 - Hard Test Harness
+
+[x] TEST_PLAN_v0.84.md formal test plan
+[x] Benchmark script with timing/JSON
+[x] FailureCause classification
+[x] XpEvent types
+
+---
+
+## v0.85.0 - Architecture Optimisation
+
+[x] Brain layer (COMMAND_LIBRARY, OUTPUT_PARSERS, FAILURE_MEMORY)
+[x] Performance budget enforcement (12s total)
+[x] Ultra-compact prompts (<2KB Junior, <4KB Senior)
+[x] LLM output validation
+[x] Extended XP events
+
+---
+
+## v0.85.1 - XP Log Command
+
+[x] `annactl xp-log [N]` command
+[x] 24h XP metrics in status command
+[x] JSONL-based XP event storage
+
+**Tests**: 740 passed, 0 failed
+**Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.85.1
