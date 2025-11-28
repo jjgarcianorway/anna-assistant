@@ -125,3 +125,65 @@ Question → Classify → Route:
 - **Junior (Fast)**: Command parsing, probe execution, draft answers
 - **Senior (Smart)**: Reasoning, synthesis, verification, user-facing answers
 - Local tools first: `--help`, `man`, local docs before LLM calls
+
+## 🎭  v0.60.0 Conversational UX Spec
+
+### Principles
+
+1. **No frozen UI**: Progress messages for any operation > 1s
+2. **No extra LLM tokens**: Narrative from structured events, not LLM calls
+3. **Readable conversation logs**: Anna/Junior/Senior dialog from real steps
+4. **No slowdowns**: Event generation must be cheap (templates only)
+
+### Actors (Narrative Personas)
+
+| Actor | Role | Style |
+|-------|------|-------|
+| **Anna** | Orchestrator, user voice | Short, clear, occasional dry humor |
+| **Junior** | Planning, probe selection | Technical, step-by-step |
+| **Senior** | Supervisor, auditor | Only when reviewing/scoring |
+
+### Event Types
+
+```rust
+enum EventKind {
+    QuestionReceived,       // User asked something
+    ClassificationStarted,  // Analyzing question
+    ClassificationDone,     // Type determined
+    ProbesPlanned,          // Commands selected
+    CommandRunning,         // Executing command
+    CommandDone,            // Command finished
+    SeniorReviewStarted,    // Senior checking
+    SeniorReviewDone,       // Review complete
+    UserClarificationNeeded,// Need user input
+    AnswerSynthesizing,     // Building answer
+    AnswerReady,            // Done
+}
+```
+
+### Progress Message Templates
+
+```
+[Anna]   Reading your question and planning next steps.
+[Junior] Classifying question: looks like a simple safe probe.
+[Anna]   Running safe command: journalctl -u annad --since '6 hours ago'.
+[Senior] Double-checking the answer and scoring reliability.
+[Anna]   Done. Reliability: 93% (GREEN).
+```
+
+### Conversation Log (Debug Mode)
+
+```
+[Anna]   I parsed your question and handed it to Junior.
+[Junior] I classified it as a simple safe probe (journalctl).
+[Anna]   I ran: journalctl -u annad --since '6 hours ago'.
+[Senior] I reviewed the logs - reliable at 93%.
+[Anna]   I summarized the key lines for you.
+```
+
+### Rules
+
+- Messages: Short, informative, no fluff
+- No LLM calls for formatting events
+- Progress lines streamed in order
+- Conversation log from real events only

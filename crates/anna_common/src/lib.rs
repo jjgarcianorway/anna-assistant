@@ -12,6 +12,7 @@
 //! v0.42.0: Negative Feedback, Skill Pain, Remediation Engine.
 //! v0.43.0: Live Debug Streaming View.
 //! v0.50.0: Brain Upgrade - 5-type classification, safe command policy, generic probes.
+//! v0.60.0: Conversational UX - live progress events, conversation logging, persona messaging.
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -45,6 +46,7 @@
 
 pub mod answer_engine;
 pub mod command_whitelist;
+pub mod events;
 pub mod config;
 pub mod config_mapper;
 pub mod hardware;
@@ -111,4 +113,12 @@ pub use pain::{PainEvent, PainLog, PainType, PAIN_DIR};
 // Roles module exports
 pub use roles::{
     JuniorRank, JuniorStats, RoleStats, SeniorRank, SeniorStats, ROLES_DIR,
+};
+// Events module exports (v0.60.0)
+pub use events::{
+    Actor, EventKind, AnnaEvent, ConversationLog, ConversationSummary,
+    question_received, classification_started, classification_done,
+    probes_planned, command_running, command_done,
+    senior_review_started, senior_review_done,
+    user_clarification_needed, answer_synthesizing, answer_ready, error_event,
 };

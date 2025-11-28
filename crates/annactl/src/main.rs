@@ -25,6 +25,7 @@ mod client;
 mod llm_client;
 mod orchestrator;
 mod output;
+mod progress_display;
 mod spinner;
 mod streaming_debug;
 
