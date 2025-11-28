@@ -28,9 +28,9 @@ mod output;
 mod spinner;
 
 use anna_common::{
-    clear_current_request, generate_request_id, init_logger, log_request, logging, self_health,
-    set_current_request, AnnaConfigV5, HardwareProfile, LogComponent, LogEntry, LogLevel,
-    OverallHealth, RepairSafety, RequestContext, RequestStatus,
+    clear_current_request, generate_request_id, init_logger, is_version_newer, log_request,
+    logging, self_health, set_current_request, AnnaConfigV5, HardwareProfile, LogComponent,
+    LogEntry, LogLevel, OverallHealth, RepairSafety, RequestContext, RequestStatus,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -489,7 +489,9 @@ async fn run_status() -> Result<()> {
             Ok(state) => {
                 println!("  {}  Current: v{}", "*".cyan(), env!("CARGO_PKG_VERSION"));
                 if let Some(latest) = &state.latest_version {
-                    if latest != env!("CARGO_PKG_VERSION") {
+                    // v0.30.2: Use proper semantic version comparison
+                    // Only show "Available" if the latest version is actually newer
+                    if is_version_newer(latest, env!("CARGO_PKG_VERSION")) {
                         println!(
                             "  {}  Available: v{} ({})",
                             "^".bright_green(),

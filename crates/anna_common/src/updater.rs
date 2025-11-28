@@ -150,6 +150,44 @@ impl UpdateCheckResult {
     }
 }
 
+/// v0.30.2: Public version comparison function
+/// Returns true if `latest` is newer than `current` using semantic versioning
+pub fn is_version_newer(latest: &str, current: &str) -> bool {
+    let parse = |v: &str| -> (u32, u32, u32, bool) {
+        let parts: Vec<&str> = v.split('.').collect();
+        let major = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
+        let minor = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let (patch, is_prerelease) = parts
+            .get(2)
+            .map(|s| {
+                if s.contains('-') {
+                    let p = s
+                        .split('-')
+                        .next()
+                        .and_then(|p| p.parse().ok())
+                        .unwrap_or(0);
+                    (p, true)
+                } else {
+                    (s.parse().ok().unwrap_or(0), false)
+                }
+            })
+            .unwrap_or((0, false));
+        (major, minor, patch, is_prerelease)
+    };
+
+    let (lmaj, lmin, lpat, l_pre) = parse(latest);
+    let (cmaj, cmin, cpat, c_pre) = parse(current);
+
+    match (lmaj, lmin, lpat).cmp(&(cmaj, cmin, cpat)) {
+        std::cmp::Ordering::Greater => true,
+        std::cmp::Ordering::Less => false,
+        std::cmp::Ordering::Equal => {
+            // Same version: release is newer than prerelease
+            c_pre && !l_pre
+        }
+    }
+}
+
 /// Get the releases API URL
 pub fn releases_url() -> String {
     format!("{}/repos/{}/releases", GITHUB_API, GITHUB_REPO)
@@ -282,6 +320,22 @@ mod tests {
     fn test_version_with_prerelease() {
         assert!(UpdateCheckResult::version_newer("0.2.0", "0.2.0-beta"));
         assert!(UpdateCheckResult::version_newer("0.2.0-beta", "0.1.0"));
+    }
+
+    // v0.30.2: Tests for public is_version_newer function
+    #[test]
+    fn test_is_version_newer_basic() {
+        assert!(is_version_newer("0.30.2", "0.30.1"));
+        assert!(is_version_newer("0.31.0", "0.30.1"));
+        assert!(is_version_newer("1.0.0", "0.30.1"));
+        assert!(!is_version_newer("0.30.0", "0.30.1")); // Bug fix test case
+        assert!(!is_version_newer("0.30.1", "0.30.1")); // Same version
+    }
+
+    #[test]
+    fn test_is_version_newer_prerelease() {
+        assert!(is_version_newer("0.30.2", "0.30.2-beta"));
+        assert!(!is_version_newer("0.30.2-beta", "0.30.2"));
     }
 
     // v0.4.0: Update scheduler tests

@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.30.1
+//! Anna Common - Shared types and schemas for Anna v0.30.2
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.
@@ -6,6 +6,7 @@
 //! v0.29.0: Fast-path for unsupported questions (no 100s LLM waits).
 //! v0.30.0: Journalctl probe, question classifier, auto-update fix (ETXTBSY).
 //! v0.30.1: Debug output limit increased from 2000 to 8000 chars.
+//! v0.30.2: Fix update status display - use semver comparison, not string equality.
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
