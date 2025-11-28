@@ -13,27 +13,31 @@
 ### [FIXED] Spinner causes SSH session crashes during long LLM calls
 
 **Found in**: v0.26.0
-**Fixed in**: v0.27.0
+**Fixed in**: v0.27.0, further improved in v0.27.1
 **Impact**: SSH window crashes when running multiple annactl queries
 
 **Details**: The spinner animation in annactl updated every 80ms with ANSI color escape codes. During long LLM calls (2+ minutes per query), this generated thousands of rapid prints with escape sequences. When running multiple queries (e.g., a test script with 10 questions), the accumulated terminal output caused SSH sessions to become unresponsive or crash.
 
-**Fix**:
+**Fix v0.27.0**:
 1. Increased spinner update interval from 80ms to 200ms (2.5x slower)
 2. Added TTY detection - if stdout is not a terminal (piped, scripted), skip spinner animation entirely
 3. Non-TTY mode prints static messages without escape codes
 
-```rust
-// Before: Always animated, rapid updates
-std::thread::sleep(Duration::from_millis(80));
+**Fix v0.27.1** (additional hardening):
+1. Increased spinner update interval further to 500ms (6x slower than original)
+2. Added ANNA_NO_SPINNER=1 environment variable to completely disable animation
+3. For batch runs: `ANNA_NO_SPINNER=1 ./test_script.sh`
 
-// After: TTY detection, slower updates
-let is_tty = io::stdout().is_terminal();
-if !is_tty {
+```rust
+// v0.27.1: Very conservative spinner settings
+const SPINNER_INTERVAL_MS: u64 = 500;  // 6x slower than original 80ms
+
+// Check ANNA_NO_SPINNER to completely disable
+let no_spinner = std::env::var("ANNA_NO_SPINNER").is_ok();
+if !is_tty || no_spinner {
     println!("[anna]  ... {}", message);  // Static output
     return;
 }
-std::thread::sleep(Duration::from_millis(200));  // 2.5x slower
 ```
 
 ---

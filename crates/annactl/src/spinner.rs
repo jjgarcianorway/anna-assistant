@@ -1,6 +1,7 @@
 //! Terminal spinner for thinking animation
 //! v0.15.8: Old-school hacker aesthetic
 //! v0.27.0: SSH-friendly with TTY detection and slower updates
+//! v0.27.1: Even more conservative - 500ms interval, ANNA_NO_SPINNER option
 
 use owo_colors::OwoColorize;
 use std::io::{self, IsTerminal, Write};
@@ -14,8 +15,9 @@ const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦
 /// ASCII fallback spinner
 const ASCII_FRAMES: &[&str] = &["|", "/", "-", "\\"];
 
-/// Spinner update interval (ms) - slower for SSH stability
-const SPINNER_INTERVAL_MS: u64 = 200;
+/// Spinner update interval (ms) - very slow for SSH stability
+/// v0.27.1: Increased from 200ms to 500ms
+const SPINNER_INTERVAL_MS: u64 = 500;
 
 /// Spinner for showing thinking state
 pub struct Spinner {
@@ -27,14 +29,18 @@ pub struct Spinner {
 
 impl Spinner {
     /// Start a new spinner with message
+    /// v0.27.1: Check ANNA_NO_SPINNER env var to completely disable animation
     pub fn new(message: &str) -> Self {
         let running = Arc::new(AtomicBool::new(true));
         let running_clone = running.clone();
         let message = message.to_string();
         let is_tty = io::stdout().is_terminal();
 
-        // For non-TTY (piped output, scripts), just print once without spinner
-        if !is_tty {
+        // v0.27.1: ANNA_NO_SPINNER=1 completely disables spinner animation
+        let no_spinner = std::env::var("ANNA_NO_SPINNER").is_ok();
+
+        // For non-TTY (piped output, scripts) or explicit disable, just print once
+        if !is_tty || no_spinner {
             println!("[anna]  ... {}", message);
             return Self {
                 running,
