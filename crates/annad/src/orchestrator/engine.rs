@@ -1,4 +1,6 @@
-//! Answer Engine v0.75.1
+//! Answer Engine v0.76.0
+//!
+//! v0.76.0: Minimal Junior Planner - radically reduced prompt for 4B model performance
 //!
 //! The main orchestration loop:
 //! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/fix/retry
@@ -18,11 +20,13 @@ use super::fallback;
 use super::llm_client::OllamaClient;
 use super::probe_executor;
 use anna_common::{
-    generate_llm_a_prompt_with_iteration, generate_llm_b_prompt, AuditScores, AuditVerdict,
+    generate_llm_b_prompt, AuditScores, AuditVerdict,
     ConfidenceLevel, DebugIteration, DebugTrace, FinalAnswer, LoopState, ProbeCatalog,
     ProbeEvidenceV10, QuestionClassifier, QuestionDomain, ReliabilityScores, MAX_LOOPS,
     // v0.75.0: Complete Debug Output Contract
     DebugBlock, trace_is_debug_mode,
+    // v0.76.0: Minimal Junior Planner
+    generate_junior_prompt_v76,
 };
 use anyhow::Result;
 use std::time::Instant;
@@ -277,8 +281,8 @@ impl AnswerEngine {
                 ..Default::default()
             };
 
-            // Step 1: Call LLM-A with iteration awareness
-            let llm_a_prompt = generate_llm_a_prompt_with_iteration(
+            // Step 1: Call LLM-A with v0.76.0 minimal prompt
+            let llm_a_prompt = generate_junior_prompt_v76(
                 question,
                 &self.catalog.available_probes(),
                 &evidence,

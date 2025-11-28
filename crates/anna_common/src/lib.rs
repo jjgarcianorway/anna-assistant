@@ -1,4 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.75.1
+//! Anna Common - Shared types and schemas for Anna v0.76.0
+//!
+//! v0.76.0: Minimal Junior Planner - radically reduced prompt for 4B model performance
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.
@@ -91,6 +93,8 @@ pub use prompts::{
     generate_junior_decomposition_prompt, generate_junior_post_mentor_prompt,
     generate_junior_work_prompt, generate_senior_mentor_prompt, generate_senior_review_prompt,
     LLM_A_SYSTEM_PROMPT_V19, LLM_B_SYSTEM_PROMPT_V19,
+    // v0.76.0 prompts - Minimal Junior Planner
+    generate_junior_prompt_v76, LLM_A_SYSTEM_PROMPT_V76, PROBE_LIST_V76,
 };
 pub use question_classifier::*;
 pub use reliability::*;

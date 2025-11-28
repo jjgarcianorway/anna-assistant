@@ -1,4 +1,6 @@
-//! Ollama LLM Client v0.71.0
+//! Ollama LLM Client v0.76.0
+//!
+//! v0.76.0: Minimal Junior prompt - radically reduced context for 4B models
 //!
 //! Robust JSON parsing that handles common LLM output variations:
 //! - "draft_answer": null
@@ -12,7 +14,7 @@
 use anna_common::{
     AuditScores, AuditVerdict, Citation, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
     OllamaChatRequest, OllamaChatResponse, OllamaMessage, ProbeRequest, ReliabilityScores,
-    LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT,
+    LLM_A_SYSTEM_PROMPT_V76, LLM_B_SYSTEM_PROMPT,
 };
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -197,8 +199,9 @@ impl OllamaClient {
             print_debug_prompt("JUNIOR", &self.junior_model, user_prompt);
         }
 
+        // v0.76.0: Use minimal system prompt for 4B model performance
         let response_text = self
-            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT, user_prompt)
+            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT_V76, user_prompt)
             .await
             .context("LLM-A call failed")?;
 
