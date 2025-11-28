@@ -1,4 +1,4 @@
-# Anna v0.22.0
+# Anna v0.23.0
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
@@ -353,6 +353,7 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| v0.23.0 | System Brain, User Brain & Idle Learning |
 | v0.22.0 | Fact Brain & Question Decomposition (TTLs, validated facts) |
 | v0.21.0 | Hybrid answer pipeline (fast-first, selective probing, no loops) |
 | v0.20.0 | Background telemetry, warm-up learning, fact store integration |
