@@ -21,6 +21,64 @@ Every completed task with date, version, summary, code changes, tests, and known
 
 ## Completed Tasks
 
+### [T006] v0.83.0 Performance Budget and Compact Prompts
+- **Date**: 2025-11-28
+- **Version**: 0.83.0
+- **Summary**: Implemented explicit time budgets and compact Junior/Senior prompts for 15-second target on razorback
+- **Code Changes**:
+  - `crates/anna_common/src/structured_answer.rs` - New LatencyBudget with explicit time budgets (500ms self-solve, 5s junior, 3s command, 6s senior)
+  - `crates/anna_common/src/prompts/llm_a_v83.rs` - NEW: Compact Junior prompt (<600 chars) with score 0-100, decisive output
+  - `crates/anna_common/src/prompts/llm_b_v83.rs` - NEW: Compact Senior prompt (<700 chars) for escalation only
+  - `crates/anna_common/src/prompts/mod.rs` - Export v0.83.0 prompts
+  - `crates/anna_common/src/lib.rs` - Export v83 prompts at crate level
+  - `crates/annad/src/orchestrator/llm_client.rs` - Updated to use v83 prompts instead of v76/v79
+- **Tests Added**:
+  - test_latency_budget_default, test_latency_budget_complex in structured_answer.rs
+  - test_v83_prompt_is_compact, test_v83_prompt_has_score in llm_a_v83.rs
+  - test_v83_senior_prompt_is_compact, test_v83_senior_prompt_has_verdicts in llm_b_v83.rs
+- **Known Issues**: None - v83 prompts now wired into llm_client.rs
+- **Reasoning**: Current LLM latency (>45s) is unacceptable. New budgets enforce 15s total target. Compact prompts reduce token count for faster responses.
+
+### Performance Budget (razorback profile)
+| Stage | Budget |
+|-------|--------|
+| Self-solve | 500ms |
+| Junior reasoning | 5000ms |
+| Command pipeline | 3000ms |
+| Senior reasoning | 6000ms |
+| **Total** | **14500ms** |
+
+### [T005] v0.82.0 Benchmark Harness and QA JSON Schema
+- **Date**: 2025-11-28
+- **Version**: 0.82.0
+- **Summary**: Added automated benchmark script with canonical questions, aggregation, and acceptance thresholds
+- **Code Changes**:
+  - `crates/anna_common/src/structured_answer.rs` - Extended QaOutput with score_overall, probes_used, error_kind; added QaOutput::error() and QaOutput::timeout() helpers
+  - `crates/anna_common/src/answer_engine/protocol.rs` - Updated to_qa_output() to populate new fields from FinalAnswer
+  - `scripts/anna_bench.sh` - NEW: Comprehensive benchmark script with canonical questions Q001-Q008
+  - `docs/ANNA_QA.md` - Updated with QA JSON schema v0.82.0, canonical questions, razorback acceptance thresholds
+- **Tests Added**: Updated test_qa_output_serialization and test_qa_output_error in structured_answer.rs
+- **Known Issues**: None
+- **Reasoning**: Need automated regression testing and trend analysis; stable schema enables CI integration and performance tracking
+
+### [T004] v0.81.0 Structured Answers and QA Harness
+- **Date**: 2025-11-28
+- **Version**: 0.81.0
+- **Summary**: Added structured answer format with headline/details/evidence/reliability and QA testing harness
+- **Code Changes**:
+  - `crates/anna_common/src/structured_answer.rs` - New module: StructuredAnswer, DialogTrace, QaOutput schemas
+  - `crates/anna_common/src/lib.rs` - Export structured_answer module
+  - `crates/anna_common/src/answer_engine/protocol.rs` - Added timing fields (junior_ms, senior_ms, junior_probes, junior_had_draft, senior_verdict) to FinalAnswer, Default impl, to_structured_answer() and to_qa_output() methods
+  - `crates/annad/src/orchestrator/engine_v80.rs` - Track junior/senior timing, populate new FinalAnswer fields
+  - `crates/annad/src/orchestrator/engine.rs` - Added ..Default::default() to legacy FinalAnswer instantiations
+  - `crates/annactl/src/output.rs` - Added display_structured_answer() function for TUI
+  - `crates/annactl/src/main.rs` - Use display_structured_answer() for normal mode, JSON output for ANNA_QA_MODE
+  - `scripts/anna_qa.sh` - New QA test harness script
+  - `docs/ANNA_QA.md` - New QA harness documentation
+- **Tests Added**: Unit tests in structured_answer.rs for all schema types
+- **Known Issues**: None
+- **Reasoning**: Needed machine-parseable answer format for QA automation and consistent TUI rendering
+
 ### [T001] Fix rubber-stamping: Senior parse failures
 - **Date**: 2025-11-28
 - **Version**: 0.73.0

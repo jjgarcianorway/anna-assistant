@@ -1,5 +1,6 @@
-//! Ollama LLM Client v0.79.0
+//! Ollama LLM Client v0.83.0
 //!
+//! v0.83.0: Performance Focus - compact v83 prompts, 15s target latency
 //! v0.79.0: CPU semantics and evidence scoring fix - probe-backed = Green
 //! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
 //! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl (not logs)
@@ -18,7 +19,7 @@
 use anna_common::{
     AuditScores, AuditVerdict, Citation, DebugEventEmitter, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
     OllamaChatRequest, OllamaChatResponse, OllamaMessage, ProbeRequest, ReliabilityScores,
-    LLM_A_SYSTEM_PROMPT_V76, LLM_B_SYSTEM_PROMPT_V79,
+    LLM_A_SYSTEM_PROMPT_V83, LLM_B_SYSTEM_PROMPT_V83,
 };
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -184,8 +185,8 @@ impl OllamaClient {
         // v0.76.0: Show FULL system prompt + user prompt
         if is_debug_mode() {
             let mut stderr = std::io::stderr();
-            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO JUNIOR ({} chars):", LLM_A_SYSTEM_PROMPT_V76.len());
-            let _ = writeln!(stderr, "{}", LLM_A_SYSTEM_PROMPT_V76);
+            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO JUNIOR ({} chars):", LLM_A_SYSTEM_PROMPT_V83.len());
+            let _ = writeln!(stderr, "{}", LLM_A_SYSTEM_PROMPT_V83);
             let _ = stderr.flush();
             print_debug_prompt("JUNIOR", &self.junior_model, user_prompt);
             let _ = writeln!(stderr, "\n>>> WAITING FOR JUNIOR LLM RESPONSE...");
@@ -196,7 +197,7 @@ impl OllamaClient {
 
         // v0.76.0: Use minimal system prompt for 4B model performance
         let response_text = self
-            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT_V76, user_prompt)
+            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT_V83, user_prompt)
             .await
             .context("LLM-A call failed")?;
 
@@ -227,14 +228,14 @@ impl OllamaClient {
             iteration,
             "junior",
             &self.junior_model,
-            LLM_A_SYSTEM_PROMPT_V76,
+            LLM_A_SYSTEM_PROMPT_V83,
             user_prompt,
         );
 
         let start = std::time::Instant::now();
 
         let response_text = self
-            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT_V76, user_prompt)
+            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT_V83, user_prompt)
             .await
             .context("LLM-A call failed")?;
 
@@ -261,8 +262,8 @@ impl OllamaClient {
         // v0.79.0: Use v79 Senior prompt with CPU semantics and scoring rules
         if is_debug_mode() {
             let mut stderr = std::io::stderr();
-            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO SENIOR ({} chars):", LLM_B_SYSTEM_PROMPT_V79.len());
-            let _ = writeln!(stderr, "{}", LLM_B_SYSTEM_PROMPT_V79);
+            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO SENIOR ({} chars):", LLM_B_SYSTEM_PROMPT_V83.len());
+            let _ = writeln!(stderr, "{}", LLM_B_SYSTEM_PROMPT_V83);
             let _ = stderr.flush();
             print_debug_prompt("SENIOR", &self.senior_model, user_prompt);
             let _ = writeln!(stderr, "\n>>> WAITING FOR SENIOR LLM RESPONSE...");
@@ -273,7 +274,7 @@ impl OllamaClient {
 
         // v0.79.0: Use v79 Senior prompt with CPU semantics and scoring rules
         let response_text = self
-            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V79, user_prompt)
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V83, user_prompt)
             .await
             .context("LLM-B call failed")?;
 
@@ -304,7 +305,7 @@ impl OllamaClient {
             iteration,
             "senior",
             &self.senior_model,
-            LLM_B_SYSTEM_PROMPT_V79,
+            LLM_B_SYSTEM_PROMPT_V83,
             user_prompt,
         );
 
@@ -312,7 +313,7 @@ impl OllamaClient {
 
         // v0.79.0: Use v79 Senior prompt with CPU semantics and scoring rules
         let response_text = self
-            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V79, user_prompt)
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V83, user_prompt)
             .await
             .context("LLM-B call failed")?;
 

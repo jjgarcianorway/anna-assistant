@@ -1,4 +1,4 @@
-//! Answer Engine v0.80.0 - Razorback Fast Path
+//! Answer Engine v0.81.0 - Razorback Fast Path
 //!
 //! Optimized orchestrator for the razorback-fast profile.
 //! Goal: Complete simple questions in <5 seconds with maximum reliability.
@@ -10,6 +10,8 @@
 //! 4. Senior call 1 (with compact summaries) → approve/fix
 //!
 //! Max: 2 Junior calls, 1 Senior call, 5-second budget
+//!
+//! v0.81.0: Timing tracking for QA (junior_ms, senior_ms, dialog_trace)
 
 use super::llm_client::OllamaClient;
 use super::probe_executor;
@@ -74,7 +76,11 @@ impl RazorbackEngine {
     /// 4. Senior call 1 → approve/fix
     pub async fn process_question(&self, question: &str) -> Result<FinalAnswer> {
         let start_time = Instant::now();
-        info!("[*]  v0.80.0 Razorback fast path: {}", question);
+        info!("[*]  v0.81.0 Razorback fast path: {}", question);
+
+        // v0.81.0: Track timing for QA
+        let mut junior_total_ms: u64 = 0;
+        let mut senior_total_ms: u64 = 0;
 
         // Available probes for Junior (extract probe_id strings)
         let available_probes: Vec<String> = self.catalog.available_probes()
@@ -91,12 +97,14 @@ impl RazorbackEngine {
             eprintln!("[RB]  Junior prompt 1 ({} chars)", junior_prompt_1.len());
         }
 
+        let junior_start = Instant::now();
         let (junior_response_1, _raw) = self.llm_client.call_junior_v80(&junior_prompt_1).await?;
+        junior_total_ms += junior_start.elapsed().as_millis() as u64;
 
         // Check timeout
         if start_time.elapsed() > self.timeout {
             warn!("[RB]  Timeout after Junior call 1");
-            return Ok(self.build_timeout_answer(question, start_time.elapsed()));
+            return Ok(self.build_timeout_answer(question, start_time.elapsed(), junior_total_ms, senior_total_ms));
         }
 
         // Extract probe requests
@@ -140,7 +148,7 @@ impl RazorbackEngine {
         // Check timeout
         if start_time.elapsed() > self.timeout {
             warn!("[RB]  Timeout after probe execution");
-            return Ok(self.build_timeout_answer(question, start_time.elapsed()));
+            return Ok(self.build_timeout_answer(question, start_time.elapsed(), junior_total_ms, senior_total_ms));
         }
 
         if is_debug_mode() {
@@ -156,20 +164,33 @@ impl RazorbackEngine {
             eprintln!("[RB]  Junior prompt 2 ({} chars)", junior_prompt_2.len());
         }
 
+        let junior_start_2 = Instant::now();
         let (junior_response_2, _raw) = self.llm_client.call_junior_v80(&junior_prompt_2).await?;
+        junior_total_ms += junior_start_2.elapsed().as_millis() as u64;
 
         // Check timeout
         if start_time.elapsed() > self.timeout {
             warn!("[RB]  Timeout after Junior call 2");
-            return Ok(self.build_timeout_answer(question, start_time.elapsed()));
+            return Ok(self.build_timeout_answer(question, start_time.elapsed(), junior_total_ms, senior_total_ms));
         }
 
         // Get draft answer
+        let junior_had_draft = junior_response_2.draft_answer.is_some()
+            && junior_response_2.draft_answer.as_ref().map(|d| !d.text.is_empty() && d.text != "null").unwrap_or(false);
+
         let draft_text = match &junior_response_2.draft_answer {
             Some(draft) if draft.text != "null" && !draft.text.is_empty() => draft.text.clone(),
             _ => {
                 warn!("[RB]  No draft answer from Junior - refusing");
-                return Ok(self.build_refusal(question, "Could not generate answer", &evidence));
+                return Ok(self.build_refusal(
+                    question,
+                    "Could not generate answer",
+                    &evidence,
+                    &probe_ids,
+                    junior_had_draft,
+                    junior_total_ms,
+                    senior_total_ms
+                ));
             }
         };
 
@@ -191,7 +212,9 @@ impl RazorbackEngine {
             eprintln!("[RB]  Senior prompt ({} chars)", senior_prompt.len());
         }
 
+        let senior_start = Instant::now();
         let (senior_response, _raw) = self.llm_client.call_senior_v80(&senior_prompt).await?;
+        senior_total_ms = senior_start.elapsed().as_millis() as u64;
 
         // Check timeout (but still return answer if we have one)
         let elapsed = start_time.elapsed();
@@ -202,6 +225,7 @@ impl RazorbackEngine {
         // ============================================================
         // STEP 5: Build final answer
         // ============================================================
+        let senior_verdict = senior_response.verdict.clone();
         let final_text = match senior_response.verdict.as_str() {
             "approve" => senior_response.fixed_answer.unwrap_or(draft_text),
             "fix_and_accept" => senior_response.fixed_answer.unwrap_or(draft_text),
@@ -210,6 +234,10 @@ impl RazorbackEngine {
                     question,
                     &senior_response.fixed_answer.unwrap_or_else(|| "Senior refused".to_string()),
                     &evidence,
+                    &probe_ids,
+                    junior_had_draft,
+                    junior_total_ms,
+                    senior_total_ms,
                 ));
             }
             _ => draft_text,
@@ -221,7 +249,7 @@ impl RazorbackEngine {
         info!(
             "[RB]  Done in {:.2}s - verdict={}, confidence={:.0}%",
             elapsed.as_secs_f64(),
-            senior_response.verdict,
+            senior_verdict,
             confidence * 100.0
         );
 
@@ -237,6 +265,12 @@ impl RazorbackEngine {
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
             debug_trace: None,
+            // v0.81.0: Timing and dialog trace fields
+            junior_ms: junior_total_ms,
+            senior_ms: senior_total_ms,
+            junior_probes: probe_ids,
+            junior_had_draft,
+            senior_verdict: Some(senior_verdict),
         })
     }
 
@@ -282,6 +316,10 @@ impl RazorbackEngine {
         question: &str,
         reason: &str,
         evidence: &[ProbeEvidenceV10],
+        junior_probes: &[String],
+        junior_had_draft: bool,
+        junior_ms: u64,
+        senior_ms: u64,
     ) -> FinalAnswer {
         FinalAnswer {
             question: question.to_string(),
@@ -295,11 +333,17 @@ impl RazorbackEngine {
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
             debug_trace: None,
+            // v0.81.0: Timing and dialog trace fields
+            junior_ms,
+            senior_ms,
+            junior_probes: junior_probes.to_vec(),
+            junior_had_draft,
+            senior_verdict: Some("refuse".to_string()),
         }
     }
 
     /// Build a timeout answer
-    fn build_timeout_answer(&self, question: &str, elapsed: Duration) -> FinalAnswer {
+    fn build_timeout_answer(&self, question: &str, elapsed: Duration, junior_ms: u64, senior_ms: u64) -> FinalAnswer {
         FinalAnswer {
             question: question.to_string(),
             answer: format!(
@@ -317,6 +361,12 @@ impl RazorbackEngine {
             model_used: None,
             clarification_needed: None,
             debug_trace: None,
+            // v0.81.0: Timing and dialog trace fields
+            junior_ms,
+            senior_ms,
+            junior_probes: vec![],
+            junior_had_draft: false,
+            senior_verdict: None,
         }
     }
 
@@ -382,8 +432,21 @@ SwapTotal:       8000000 kB
     #[test]
     fn test_build_refusal() {
         let engine = RazorbackEngine::default();
-        let answer = engine.build_refusal("test?", "no evidence", &[]);
+        let answer = engine.build_refusal("test?", "no evidence", &[], &["cpu.info".to_string()], false, 100, 200);
         assert!(answer.is_refusal);
         assert_eq!(answer.confidence_level, ConfidenceLevel::Red);
+        assert_eq!(answer.junior_ms, 100);
+        assert_eq!(answer.senior_ms, 200);
+        assert_eq!(answer.senior_verdict, Some("refuse".to_string()));
+    }
+
+    #[test]
+    fn test_build_timeout_answer() {
+        let engine = RazorbackEngine::default();
+        let answer = engine.build_timeout_answer("test?", Duration::from_secs(6), 500, 0);
+        assert!(answer.is_refusal);
+        assert_eq!(answer.confidence_level, ConfidenceLevel::Red);
+        assert_eq!(answer.junior_ms, 500);
+        assert_eq!(answer.senior_ms, 0);
     }
 }

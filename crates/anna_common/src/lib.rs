@@ -1,5 +1,7 @@
-//! Anna Common - Shared types and schemas for Anna v0.80.0
+//! Anna Common - Shared types and schemas for Anna v0.83.0
 //!
+//! v0.83.0: Performance Focus - compact prompts, 15s target latency
+//! v0.81.0: Structured Answers - headline/details/evidence format, latency budgets
 //! v0.80.0: Razorback Fast Path - <5s response for simple questions
 //! v0.79.0: CPU semantics and evidence scoring fix - probe-backed = Green
 //! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
@@ -79,6 +81,7 @@ pub mod safety;
 pub mod schemas;
 pub mod self_health;
 pub mod skills;
+pub mod structured_answer;
 pub mod trace;
 pub mod types;
 pub mod updater;
@@ -110,6 +113,9 @@ pub use prompts::{
     // v0.80.0 prompts - Razorback Fast Path
     generate_junior_prompt_v80, generate_senior_prompt_v80,
     LLM_A_SYSTEM_PROMPT_V80, LLM_B_SYSTEM_PROMPT_V80, ProbeSummary,
+    // v0.83.0 prompts - Performance Focus (compact, decisive, 15s target)
+    generate_junior_prompt_v83, generate_senior_prompt_v83,
+    LLM_A_SYSTEM_PROMPT_V83, LLM_B_SYSTEM_PROMPT_V83,
 };
 // CPU Summary helper (v0.79.0)
 pub use cpu_summary::{CpuSummary, summarize_cpu, summarize_cpu_from_text};
@@ -172,4 +178,8 @@ pub use trace::{
     DebugBlock, InputSection, JuniorPlanSection, ProbesSection,
     ProbeExecution, ProbeFailure, SeniorVerdictSection, VerdictScores,
     FinalAnswerSection, RawLlmMessages,
+};
+// Structured Answer exports (v0.81.0)
+pub use structured_answer::{
+    StructuredAnswer, DialogTrace, QaOutput, LatencyBudget, is_simple_question,
 };

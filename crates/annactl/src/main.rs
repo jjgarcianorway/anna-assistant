@@ -277,8 +277,15 @@ async fn run_ask(question: &str) -> Result<()> {
             // v0.15.8: Stop spinner and show timing
             let elapsed = thinking.finish();
 
-            // v0.10.0: Display evidence-based answer with elapsed time
-            output::display_final_answer_with_time(&final_answer, elapsed);
+            // v0.81.0: Check for QA mode - output JSON instead of TUI
+            if std::env::var("ANNA_QA_MODE").is_ok() {
+                // QA mode: output machine-readable JSON with timing and dialog trace
+                let qa_output = final_answer.to_qa_output();
+                println!("{}", serde_json::to_string_pretty(&qa_output).unwrap_or_default());
+            } else {
+                // Normal mode: Display structured answer with headline/details/evidence/reliability
+                output::display_structured_answer(&final_answer, elapsed);
+            }
             Ok(())
         }
         Err(e) => {

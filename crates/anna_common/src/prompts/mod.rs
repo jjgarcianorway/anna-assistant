@@ -82,3 +82,15 @@ pub use llm_a_v80::{
 pub use llm_b_v80::{
     generate_senior_prompt_v80, LLM_B_SYSTEM_PROMPT_V80,
 };
+
+// v0.83.0 - Performance Focus (compact, decisive, 15s target)
+pub mod llm_a_v83;
+pub mod llm_b_v83;
+
+// Re-export v0.83.0 - Performance Focus
+pub use llm_a_v83::{
+    generate_junior_prompt_v83, LLM_A_SYSTEM_PROMPT_V83,
+};
+pub use llm_b_v83::{
+    generate_senior_prompt_v83, LLM_B_SYSTEM_PROMPT_V83,
+};

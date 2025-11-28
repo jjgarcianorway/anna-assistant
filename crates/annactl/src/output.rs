@@ -1,4 +1,4 @@
-//! Output formatting - clean, ASCII-only terminal output v0.72.0
+//! Output formatting - clean, ASCII-only terminal output v0.81.0
 //!
 //! v0.6.0: Sysadmin style - no emojis, ASCII only, professional
 //! v0.10.0: Evidence-based answers with citations and confidence scores
@@ -7,9 +7,10 @@
 //! v0.16.4: Improved debug trace with [JUNIOR model] and [SENIOR model] labels
 //! v0.28.0: Strict ASCII - removed all emojis for hacker aesthetic
 //! v0.72.0: Clear answer output block with Anna header, Evidence, Reliability sections
+//! v0.81.0: Structured answer format - headline, details[], evidence[], reliability_label
 #![allow(dead_code)]
 
-use anna_common::{AnnaResponse, ConfidenceLevel, DebugTrace, FinalAnswer, THIN_SEPARATOR};
+use anna_common::{AnnaResponse, ConfidenceLevel, DebugTrace, FinalAnswer, StructuredAnswer, THIN_SEPARATOR};
 use owo_colors::OwoColorize;
 use std::time::Duration;
 
@@ -342,6 +343,91 @@ pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
         println!("  {}  {}", "?".yellow().bold(), clarification);
     }
 
+    println!();
+}
+
+// ============================================================================
+// v0.81.0: Structured Answer Display
+// ============================================================================
+
+/// Display a structured answer (v0.81.0)
+/// Shows: headline, details[], evidence[], reliability_label
+pub fn display_structured_answer(answer: &FinalAnswer, elapsed: std::time::Duration) {
+    let structured = answer.to_structured_answer();
+    display_structured_answer_direct(&structured, elapsed, answer.loop_iterations as u32);
+}
+
+/// Display a structured answer directly from StructuredAnswer struct
+pub fn display_structured_answer_direct(
+    structured: &StructuredAnswer,
+    elapsed: std::time::Duration,
+    iterations: u32,
+) {
+    // Header
+    println!();
+    println!(
+        "{}",
+        "==============================================================================".cyan()
+    );
+    println!("  {}", "Anna".bright_white().bold());
+    println!(
+        "{}",
+        "==============================================================================".cyan()
+    );
+    println!();
+
+    // Headline - colored by reliability
+    let headline_display = match structured.reliability_label.as_str() {
+        "Green" => structured.headline.bright_green().bold().to_string(),
+        "Yellow" => structured.headline.yellow().bold().to_string(),
+        "Red" => structured.headline.bright_red().bold().to_string(),
+        _ => structured.headline.bold().to_string(),
+    };
+    println!("{}", headline_display);
+    println!();
+
+    // Details (bullet points)
+    if !structured.details.is_empty() {
+        println!("{}", "Details".bold());
+        println!("{}", THIN_SEPARATOR);
+        for detail in &structured.details {
+            println!("  *  {}", detail);
+        }
+        println!();
+    }
+
+    // Evidence
+    if !structured.evidence.is_empty() {
+        println!("{}", "Evidence".bold());
+        println!("{}", THIN_SEPARATOR);
+        for ev in &structured.evidence {
+            println!("  {}", ev.cyan());
+        }
+        println!();
+    }
+
+    // Reliability label
+    println!("{}", "Reliability".bold());
+    println!("{}", THIN_SEPARATOR);
+    let label_colored = match structured.reliability_label.as_str() {
+        "Green" => structured.reliability_label.bright_green().bold().to_string(),
+        "Yellow" => structured.reliability_label.yellow().bold().to_string(),
+        "Red" => structured.reliability_label.bright_red().bold().to_string(),
+        _ => structured.reliability_label.bold().to_string(),
+    };
+    println!("  {}", label_colored);
+
+    // Timing footer
+    let elapsed_str = if elapsed.as_millis() < 1000 {
+        format!("{}ms", elapsed.as_millis())
+    } else {
+        format!("{:.2}s", elapsed.as_secs_f64())
+    };
+    println!();
+    println!(
+        "{}",
+        format!("Duration: {}  |  Iterations: {}", elapsed_str, iterations).dimmed()
+    );
     println!();
 }
 

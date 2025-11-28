@@ -1,10 +1,13 @@
-//! LLM Protocol v0.12.0
+//! LLM Protocol v0.81.0
 //!
 //! Strict JSON request/response protocol between annad and LLM-A / LLM-B.
 //! No prose allowed in responses - only valid JSON.
+//!
+//! v0.81.0: Added timing fields and StructuredAnswer conversion
 
 use super::evidence::{AvailableProbe, ProbeEvidenceV10};
 use super::scoring::ReliabilityScores;
+use crate::structured_answer::{DialogTrace, QaOutput, StructuredAnswer};
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -318,10 +321,48 @@ pub struct FinalAnswer {
     /// v0.16.3: Debug trace showing full LLM dialog (for development)
     #[serde(default)]
     pub debug_trace: Option<DebugTrace>,
+    /// v0.81.0: Junior LLM latency in milliseconds
+    #[serde(default)]
+    pub junior_ms: u64,
+    /// v0.81.0: Senior LLM latency in milliseconds
+    #[serde(default)]
+    pub senior_ms: u64,
+    /// v0.81.0: Probes requested by Junior
+    #[serde(default)]
+    pub junior_probes: Vec<String>,
+    /// v0.81.0: Whether Junior provided a draft answer
+    #[serde(default)]
+    pub junior_had_draft: bool,
+    /// v0.81.0: Senior's verdict (approve, fix_and_accept, refuse)
+    #[serde(default)]
+    pub senior_verdict: Option<String>,
+}
+
+impl Default for FinalAnswer {
+    fn default() -> Self {
+        Self {
+            question: String::new(),
+            answer: String::new(),
+            is_refusal: false,
+            citations: Vec::new(),
+            scores: AuditScores::new(0.0, 0.0, 0.0),
+            confidence_level: ConfidenceLevel::Red,
+            problems: Vec::new(),
+            loop_iterations: 0,
+            model_used: None,
+            clarification_needed: None,
+            debug_trace: None,
+            junior_ms: 0,
+            senior_ms: 0,
+            junior_probes: Vec::new(),
+            junior_had_draft: false,
+            senior_verdict: None,
+        }
+    }
 }
 
 /// Confidence level derived from overall score
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ConfidenceLevel {
     /// High confidence (>= 0.90)
@@ -329,6 +370,7 @@ pub enum ConfidenceLevel {
     /// Medium confidence (0.70 - 0.90)
     Yellow,
     /// Low confidence (< 0.70)
+    #[default]
     Red,
 }
 
@@ -349,6 +391,105 @@ impl ConfidenceLevel {
             ConfidenceLevel::Yellow => "YELLOW",
             ConfidenceLevel::Red => "RED",
         }
+    }
+}
+
+// ============================================================================
+// FinalAnswer Implementation (v0.81.0)
+// ============================================================================
+
+impl FinalAnswer {
+    /// Convert to StructuredAnswer format for TUI and QA output
+    pub fn to_structured_answer(&self) -> StructuredAnswer {
+        let reliability_label = match self.confidence_level {
+            ConfidenceLevel::Green => "Green".to_string(),
+            ConfidenceLevel::Yellow => "Yellow".to_string(),
+            ConfidenceLevel::Red => "Red".to_string(),
+        };
+
+        // Build headline - direct answer for Green, cautious for Yellow/Red
+        let headline = if self.is_refusal {
+            "Unable to answer this question".to_string()
+        } else {
+            // Use first sentence of answer as headline
+            self.answer
+                .split(|c| c == '.' || c == '\n')
+                .next()
+                .unwrap_or(&self.answer)
+                .trim()
+                .to_string()
+        };
+
+        // Build details from answer (split into bullet points)
+        let details: Vec<String> = if self.is_refusal {
+            self.problems.clone()
+        } else {
+            // Split answer into lines, filter empty
+            self.answer
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .map(|l| l.trim().to_string())
+                .collect()
+        };
+
+        // Build evidence summaries from citations
+        let evidence: Vec<String> = self
+            .citations
+            .iter()
+            .map(|c| {
+                let summary = c.raw.as_ref().map(|r| {
+                    let first_line = r.lines().next().unwrap_or("");
+                    if first_line.len() > 60 {
+                        format!("{}...", &first_line[..57])
+                    } else {
+                        first_line.to_string()
+                    }
+                }).unwrap_or_else(|| "no output".to_string());
+                format!("{}: {}", c.probe_id, summary)
+            })
+            .collect();
+
+        StructuredAnswer::new(headline, details, evidence, reliability_label)
+    }
+
+    /// Convert to QA JSON output format (v0.82.0)
+    pub fn to_qa_output(&self) -> QaOutput {
+        let answer = self.to_structured_answer();
+        let dialog_trace = DialogTrace::new(
+            self.junior_probes.clone(),
+            self.junior_had_draft,
+            self.senior_verdict.as_deref().unwrap_or("unknown"),
+        );
+
+        // Determine error_kind based on answer state
+        let error_kind = if self.is_refusal {
+            if self.answer.to_lowercase().contains("time") {
+                Some("timeout".to_string())
+            } else {
+                Some("refused".to_string())
+            }
+        } else if self.scores.overall == 0.0 {
+            Some("llm_parse_error".to_string())
+        } else {
+            None
+        };
+
+        // probes_used = unique probes from citations
+        let probes_used: Vec<String> = self.citations
+            .iter()
+            .map(|c| c.probe_id.clone())
+            .collect();
+
+        QaOutput::new(
+            answer,
+            self.scores.overall,
+            self.junior_ms,
+            self.senior_ms,
+            self.loop_iterations as u32,
+            probes_used,
+            error_kind,
+            dialog_trace,
+        )
     }
 }
 

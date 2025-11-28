@@ -283,6 +283,7 @@ impl AnswerEngine {
                     duration_secs: start_time.elapsed().as_secs_f64(),
                     iterations: vec![],
                 }),
+                ..Default::default()
             });
         }
 
@@ -906,6 +907,7 @@ impl AnswerEngine {
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
             debug_trace: Some(debug_trace),
+            ..Default::default()
         }
     }
 
@@ -938,6 +940,7 @@ impl AnswerEngine {
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
             debug_trace: Some(debug_trace),
+            ..Default::default()
         }
     }
 
@@ -962,6 +965,7 @@ impl AnswerEngine {
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
             debug_trace: Some(debug_trace),
+            ..Default::default()
         }
     }
 
@@ -988,6 +992,7 @@ impl AnswerEngine {
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
             debug_trace: None,
+            ..Default::default()
         }
     }
 
@@ -1019,6 +1024,7 @@ impl AnswerEngine {
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
             debug_trace: None,
+            ..Default::default()
         }
     }
 
@@ -1042,6 +1048,7 @@ impl AnswerEngine {
             model_used: Some(self.senior_model().to_string()),
             clarification_needed: None,
             debug_trace: None,
+            ..Default::default()
         }
     }
 
@@ -1185,6 +1192,7 @@ impl AnswerEngine {
             model_used: Some("fast_path".to_string()),
             clarification_needed: None,
             debug_trace: Some(debug_trace),
+            ..Default::default()
         })
     }
 
@@ -1444,6 +1452,7 @@ impl AnswerEngine {
             model_used: Some("fast_path_self_health".to_string()),
             clarification_needed: None,
             debug_trace: Some(debug_trace),
+            ..Default::default()
         })
     }
 
