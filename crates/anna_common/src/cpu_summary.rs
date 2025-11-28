@@ -46,6 +46,17 @@ impl CpuSummary {
         }
         lines.join("\n")
     }
+
+    /// v0.80.0: Format as compact JSON for probe summary
+    pub fn to_compact_json(&self) -> String {
+        let model = self.model_name.as_deref().unwrap_or("unknown");
+        format!(
+            r#"{{"threads_total":{},"physical_cores":{},"model":"{}"}}"#,
+            self.logical_cpus,
+            self.physical_cores(),
+            model.replace('"', "'")
+        )
+    }
 }
 
 /// Parse lscpu -J output to extract CPU summary

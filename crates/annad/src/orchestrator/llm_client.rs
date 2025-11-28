@@ -738,6 +738,162 @@ impl OllamaClient {
         }
         Ok(())
     }
+
+    // ========================================================================
+    // v0.80.0: Razorback Fast Path methods
+    // ========================================================================
+
+    /// v0.80.0: Call Junior with razorback-fast minimal prompt
+    pub async fn call_junior_v80(&self, user_prompt: &str) -> Result<(JuniorResponseV80, String)> {
+        use anna_common::LLM_A_SYSTEM_PROMPT_V80;
+
+        if is_debug_mode() {
+            eprintln!("[RB-J]  Calling Junior ({})", self.junior_model);
+        }
+
+        let response_text = self
+            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT_V80, user_prompt)
+            .await
+            .context("Junior v80 call failed")?;
+
+        let parsed = self.parse_junior_v80_response(&response_text)?;
+        Ok((parsed, response_text))
+    }
+
+    /// v0.80.0: Call Senior with razorback-fast minimal prompt
+    pub async fn call_senior_v80(&self, user_prompt: &str) -> Result<(SeniorResponseV80, String)> {
+        use anna_common::LLM_B_SYSTEM_PROMPT_V80;
+
+        if is_debug_mode() {
+            eprintln!("[RB-S]  Calling Senior ({})", self.senior_model);
+        }
+
+        let response_text = self
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V80, user_prompt)
+            .await
+            .context("Senior v80 call failed")?;
+
+        let parsed = self.parse_senior_v80_response(&response_text)?;
+        Ok((parsed, response_text))
+    }
+
+    /// v0.80.0: Parse Junior razorback-fast response
+    fn parse_junior_v80_response(&self, text: &str) -> Result<JuniorResponseV80> {
+        let json_text = self.extract_json(text);
+
+        match serde_json::from_str::<Value>(&json_text) {
+            Ok(v) => {
+                // Parse probe_requests
+                let probe_requests = self.parse_probe_requests(v.get("probe_requests"));
+
+                // Parse draft_answer
+                let draft_answer = v.get("draft_answer").and_then(|da| {
+                    if da.is_null() {
+                        return None;
+                    }
+                    let text = da.get("text").and_then(|t| {
+                        if t.is_null() {
+                            None
+                        } else {
+                            t.as_str().map(|s| s.to_string())
+                        }
+                    });
+                    text.filter(|t| !t.is_empty() && t != "null").map(|t| DraftAnswerV80 {
+                        text: t,
+                        citations: da
+                            .get("citations")
+                            .and_then(|c| c.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                                    .collect()
+                            })
+                            .unwrap_or_default(),
+                    })
+                });
+
+                Ok(JuniorResponseV80 {
+                    probe_requests,
+                    draft_answer,
+                })
+            }
+            Err(e) => {
+                warn!("v80: Junior parse error: {} - text: {}", e, text);
+                // Return empty response to allow loop to continue
+                Ok(JuniorResponseV80 {
+                    probe_requests: vec![],
+                    draft_answer: None,
+                })
+            }
+        }
+    }
+
+    /// v0.80.0: Parse Senior razorback-fast response
+    fn parse_senior_v80_response(&self, text: &str) -> Result<SeniorResponseV80> {
+        let json_text = self.extract_json(text);
+
+        match serde_json::from_str::<Value>(&json_text) {
+            Ok(v) => {
+                let verdict = v
+                    .get("verdict")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("approve")
+                    .to_string();
+
+                let fixed_answer = v.get("fixed_answer").and_then(|fa| {
+                    if fa.is_null() {
+                        None
+                    } else {
+                        fa.as_str().map(|s| s.to_string())
+                    }
+                });
+
+                // Parse scores.overall
+                let scores_overall = v
+                    .get("scores")
+                    .and_then(|s| s.get("overall"))
+                    .and_then(|x| x.as_f64())
+                    .unwrap_or(0.75); // Default conservative
+
+                Ok(SeniorResponseV80 {
+                    verdict,
+                    fixed_answer,
+                    scores_overall,
+                })
+            }
+            Err(e) => {
+                warn!("v80: Senior parse error: {} - text: {}", e, text);
+                // Return refuse on parse error (no rubber-stamping)
+                Ok(SeniorResponseV80 {
+                    verdict: "refuse".to_string(),
+                    fixed_answer: Some("Parse error".to_string()),
+                    scores_overall: 0.0,
+                })
+            }
+        }
+    }
+}
+
+/// v0.80.0: Simplified Junior response for razorback-fast profile
+#[derive(Debug, Clone)]
+pub struct JuniorResponseV80 {
+    pub probe_requests: Vec<ProbeRequest>,
+    pub draft_answer: Option<DraftAnswerV80>,
+}
+
+/// v0.80.0: Simplified draft answer for razorback-fast profile
+#[derive(Debug, Clone)]
+pub struct DraftAnswerV80 {
+    pub text: String,
+    pub citations: Vec<String>,
+}
+
+/// v0.80.0: Simplified Senior response for razorback-fast profile
+#[derive(Debug, Clone)]
+pub struct SeniorResponseV80 {
+    pub verdict: String,
+    pub fixed_answer: Option<String>,
+    pub scores_overall: f64,
 }
 
 impl Default for OllamaClient {

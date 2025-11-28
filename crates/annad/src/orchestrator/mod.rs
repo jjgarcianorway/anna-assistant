@@ -1,4 +1,4 @@
-//! Answer Orchestration v0.19.0
+//! Answer Orchestration v0.80.0
 //!
 //! The orchestrator manages the LLM-A -> Probe -> LLM-B loop:
 //! 1. Parse question with LLM-A
@@ -11,6 +11,7 @@
 //! v0.15.0: Research loop engine with command whitelist
 //! v0.18.0: Step-by-step orchestration (one action per iteration)
 //! v0.19.0: Subproblem decomposition, fact-aware planning, Senior as mentor
+//! v0.80.0: Razorback Fast Path - <5s response time for simple questions
 
 // Legacy engines
 pub mod engine;
@@ -23,9 +24,12 @@ pub mod research_engine;
 pub mod engine_v18;
 pub mod llm_client_v18;
 
-// v0.19.0 subproblem decomposition engine (current)
+// v0.19.0 subproblem decomposition engine (legacy)
 pub mod engine_v19;
 pub mod llm_client_v19;
+
+// v0.80.0 razorback fast path engine (current)
+pub mod engine_v80;
 
 // v0.43.0 streaming debug
 pub mod streaming;
@@ -40,8 +44,12 @@ pub use research_engine::{
 // v0.18.0 exports (legacy)
 pub use engine_v18::AnswerEngineV18;
 
-// v0.19.0 exports (current)
+// v0.19.0 exports (legacy)
 pub use engine_v19::AnswerEngineV19;
+
+// v0.80.0 exports (current) - Razorback Fast Path
+pub use engine_v80::RazorbackEngine;
+pub use llm_client::{JuniorResponseV80, SeniorResponseV80, DraftAnswerV80};
 
 // v0.43.0 streaming exports
 pub use streaming::{

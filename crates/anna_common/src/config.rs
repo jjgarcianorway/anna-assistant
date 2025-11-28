@@ -1,4 +1,4 @@
-//! Anna Configuration Schema v0.15.0
+//! Anna Configuration Schema v0.80.0
 //!
 //! System-wide configuration managed by administrators.
 //! Configuration lives in /etc/anna/config.toml - not per-user.
@@ -7,6 +7,7 @@
 //!
 //! v0.8.0: Added logging configuration.
 //! v0.15.0: Simplified to system-only config (no user override).
+//! v0.80.0: Added orchestration profile (razorback-fast for fast path).
 
 use crate::logging::LogConfig;
 use serde::{Deserialize, Serialize};
@@ -75,6 +76,64 @@ impl Channel {
             Channel::Stable => "stable",
             Channel::Beta => "beta",
             Channel::Dev => "dev",
+        }
+    }
+}
+
+/// v0.80.0: Orchestration profile for per-host optimization
+///
+/// Profiles control how the Junior→Senior loop behaves:
+/// - `default`: Original behavior (up to 3 iterations, full prompts)
+/// - `razorback_fast`: Optimized for fast hardware (max 1 iteration, minimal prompts, 5s budget)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum OrchestrationProfile {
+    #[default]
+    Default,
+    RazorbackFast,
+}
+
+impl OrchestrationProfile {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OrchestrationProfile::Default => "default",
+            OrchestrationProfile::RazorbackFast => "razorback-fast",
+        }
+    }
+
+    pub fn is_razorback_fast(&self) -> bool {
+        matches!(self, OrchestrationProfile::RazorbackFast)
+    }
+
+    /// Get the max iterations for this profile
+    pub fn max_iterations(&self) -> usize {
+        match self {
+            OrchestrationProfile::Default => 3,
+            OrchestrationProfile::RazorbackFast => 1, // Single pass for simple questions
+        }
+    }
+
+    /// Get the timeout budget in seconds
+    pub fn timeout_budget_secs(&self) -> u64 {
+        match self {
+            OrchestrationProfile::Default => 60,
+            OrchestrationProfile::RazorbackFast => 5, // Hard 5-second budget
+        }
+    }
+}
+
+/// v0.80.0: Orchestration configuration section
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrchestrationConfig {
+    /// Which orchestration profile to use
+    #[serde(default)]
+    pub profile: OrchestrationProfile,
+}
+
+impl Default for OrchestrationConfig {
+    fn default() -> Self {
+        Self {
+            profile: OrchestrationProfile::Default,
         }
     }
 }
@@ -212,7 +271,7 @@ impl UpdateSettings {
     }
 }
 
-/// Complete Anna configuration schema v0.8.0
+/// Complete Anna configuration schema v0.80.0
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnnaConfigV5 {
     #[serde(default)]
@@ -223,6 +282,9 @@ pub struct AnnaConfigV5 {
     pub update: UpdateSettings,
     #[serde(default)]
     pub log: LogConfig,
+    /// v0.80.0: Orchestration profile for per-host optimization
+    #[serde(default)]
+    pub orchestration: OrchestrationConfig,
 }
 
 impl AnnaConfigV5 {

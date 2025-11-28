@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.79.0
+//! Anna Common - Shared types and schemas for Anna v0.80.0
 //!
+//! v0.80.0: Razorback Fast Path - <5s response for simple questions
 //! v0.79.0: CPU semantics and evidence scoring fix - probe-backed = Green
 //! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
 //! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl (not logs)
@@ -57,6 +58,7 @@
 pub mod answer_engine;
 pub mod command_whitelist;
 pub mod cpu_summary;
+pub mod mem_summary;
 pub mod events;
 pub mod config;
 pub mod config_mapper;
@@ -105,9 +107,14 @@ pub use prompts::{
     generate_senior_prompt_v78, LLM_B_SYSTEM_PROMPT_V78,
     // v0.79.0 prompts - CPU semantics and scoring fix
     generate_senior_prompt_v79, LLM_B_SYSTEM_PROMPT_V79,
+    // v0.80.0 prompts - Razorback Fast Path
+    generate_junior_prompt_v80, generate_senior_prompt_v80,
+    LLM_A_SYSTEM_PROMPT_V80, LLM_B_SYSTEM_PROMPT_V80, ProbeSummary,
 };
 // CPU Summary helper (v0.79.0)
 pub use cpu_summary::{CpuSummary, summarize_cpu, summarize_cpu_from_text};
+// Memory Summary helper (v0.80.0)
+pub use mem_summary::{MemSummary, summarize_mem_from_text};
 pub use question_classifier::*;
 pub use reliability::*;
 pub use safety::*;

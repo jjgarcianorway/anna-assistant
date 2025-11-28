@@ -70,3 +70,15 @@ pub use llm_b_v78::{
 pub use llm_b_v79::{
     generate_senior_prompt_v79, LLM_B_SYSTEM_PROMPT_V79,
 };
+
+// v0.80.0 - Razorback Fast Path (minimal prompts for <5s response)
+pub mod llm_a_v80;
+pub mod llm_b_v80;
+
+// Re-export v0.80.0 - Razorback Fast Path
+pub use llm_a_v80::{
+    generate_junior_prompt_v80, LLM_A_SYSTEM_PROMPT_V80, ProbeSummary,
+};
+pub use llm_b_v80::{
+    generate_senior_prompt_v80, LLM_B_SYSTEM_PROMPT_V80,
+};
