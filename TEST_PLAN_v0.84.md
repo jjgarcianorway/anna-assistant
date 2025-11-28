@@ -235,8 +235,70 @@ When answers fail or have low confidence, they are tagged with a root cause:
 
 ---
 
-## 8. Version History
+## 8. v0.85 Architecture Tests
+
+v0.85.0 introduces the Brain layer for self-sufficient answers. These tests validate the new architecture.
+
+### 8.1 Simple Recall Tests
+
+| Test ID | Procedure | Expected Result |
+|---------|-----------|-----------------|
+| ARCH-01 | Ask "how many CPU cores?" 5 times consecutively | First call uses Junior+Senior, later calls skip LLM and use Brain only |
+| ARCH-02 | Check debug output for `[ANNA_BRAIN]` entries | Brain summary shows pattern_match and decision |
+| ARCH-03 | Measure latency improvement on repeat | 3rd+ call should be <2s |
+
+### 8.2 Command Refinement Tests
+
+| Test ID | Procedure | Expected Result |
+|---------|-----------|-----------------|
+| ARCH-04 | Force JSON parse error (mock lscpu -J failure) | Brain tries fallback to plain lscpu |
+| ARCH-05 | Check COMMAND_LIBRARY after successful answer | Pattern is stored with reliability score |
+| ARCH-06 | Check FAILURE_MEMORY after bad command | Command is recorded to avoid repeat |
+
+### 8.3 Timeout Simulation
+
+| Test ID | Procedure | Expected Result |
+|---------|-----------|-----------------|
+| ARCH-07 | Set ANNA_SIMULATE_LLM_SLOW=1 | Fallback to Brain with failure_cause=llm_timeout |
+| ARCH-08 | Check error message | "LLM timeout, here is the best evidence I can provide" |
+
+### 8.4 Reinforcement Stability
+
+| Test ID | Procedure | Expected Result |
+|---------|-----------|-----------------|
+| ARCH-09 | Generate BrainSelfSolve event | XP increases by +15 |
+| ARCH-10 | Generate JuniorBadCommand event | XP decreases by -8 |
+| ARCH-11 | Generate SeniorGreenApproval event | XP increases by +12 |
+
+### 8.5 Prompt Size Validation
+
+| Test ID | Check | Threshold |
+|---------|-------|-----------|
+| ARCH-12 | Junior system prompt size | < 2 KB |
+| ARCH-13 | Senior system prompt size | < 4 KB |
+
+### 8.6 Performance Budget Enforcement
+
+| Test ID | Check | Threshold |
+|---------|-------|-----------|
+| ARCH-14 | Total question time | < 12s |
+| ARCH-15 | Junior LLM time | < 3s |
+| ARCH-16 | Senior LLM time | < 4s |
+| ARCH-17 | LLM calls for simple question | <= 1 |
+
+### 8.7 Reliability Thresholds
+
+| Test ID | Check | Threshold |
+|---------|-------|-----------|
+| ARCH-18 | Evidence score | >= 80% |
+| ARCH-19 | Coverage score | >= 90% |
+| ARCH-20 | Reasoning score | >= 90% |
+
+---
+
+## 9. Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v0.85.0 | 2025-11-28 | Added v0.85 Architecture Tests (Brain, performance, XP) |
 | v0.84.0 | 2025-11-28 | Initial test plan creation |

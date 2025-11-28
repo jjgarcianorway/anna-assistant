@@ -94,3 +94,15 @@ pub use llm_a_v83::{
 pub use llm_b_v83::{
     generate_senior_prompt_v83, LLM_B_SYSTEM_PROMPT_V83,
 };
+
+// v0.85.0 - Architecture Optimisation (ultra-compact, Brain-aware)
+pub mod llm_a_v85;
+pub mod llm_b_v85;
+
+// Re-export v0.85.0 - Architecture Optimisation
+pub use llm_a_v85::{
+    generate_junior_prompt_v85, LLM_A_SYSTEM_PROMPT_V85,
+};
+pub use llm_b_v85::{
+    generate_senior_prompt_v85, LLM_B_SYSTEM_PROMPT_V85, SeniorResponseV85,
+};

@@ -21,6 +21,61 @@ Every completed task with date, version, summary, code changes, tests, and known
 
 ## Completed Tasks
 
+### [T008] v0.85.0 Architecture Optimisation - Brain Layer and LLM Reduction
+- **Date**: 2025-11-28
+- **Version**: 0.85.0
+- **Summary**: Major architecture upgrade introducing Brain layer for self-sufficient answers, reduced LLM usage, performance ceilings, and flattened prompts
+- **Code Changes**:
+  - `crates/anna_common/src/brain.rs` - NEW: Core Brain module with COMMAND_LIBRARY, OUTPUT_PARSERS, FAILURE_MEMORY
+  - `crates/anna_common/src/performance.rs` - NEW: Performance budget enforcement (12s total, 3s junior, 4s senior)
+  - `crates/anna_common/src/xp_events.rs` - NEW: Extended XP events (BrainSelfSolve, JuniorBadCommand, etc.)
+  - `crates/anna_common/src/llm_validator.rs` - NEW: LLM output validation and hallucination detection
+  - `crates/anna_common/src/prompts/llm_a_v85.rs` - NEW: Ultra-compact Junior prompt (<2KB)
+  - `crates/anna_common/src/prompts/llm_b_v85.rs` - NEW: Ultra-compact Senior prompt (<4KB, audit only)
+  - `crates/anna_common/src/lib.rs` - Export new modules, version bump to 0.85.0
+  - `crates/anna_common/src/prompts/mod.rs` - Export v85 prompts
+  - `TEST_PLAN_v0.84.md` - Added v0.85 Architecture Tests (ARCH-01 to ARCH-20)
+  - `Cargo.toml` - Version bump to 0.85.0
+- **Tests Added**:
+  - brain.rs: test_command_pattern_reliability, test_normalize_question, test_command_library_registration, test_failure_memory, test_brain_escalate_no_pattern, test_output_parsers_builtins, test_brain_suggested_commands
+  - performance.rs: test_performance_budget_default, test_tracker_violations, test_reliability_thresholds, test_tracker_log_format, test_can_call_llm
+  - xp_events.rs: test_xp_event_types, test_xp_event_creation, test_xp_event_multiplier, test_xp_calculator, test_xp_log_format
+  - llm_validator.rs: test_validate_junior_valid, test_validate_junior_missing_action, test_validate_senior_valid, test_validate_senior_contradiction, test_extract_json, test_retry_strategy, test_hallucination_check
+  - llm_a_v85.rs: test_v85_prompt_under_2kb, test_v85_prompt_has_json, test_generate_with_brain_hint
+  - llm_b_v85.rs: test_v85_senior_prompt_under_4kb, test_v85_senior_has_verdicts, test_parse_senior_response, test_parse_senior_fail_thresholds
+- **Known Issues**: Brain layer infrastructure ready, integration with engine pending
+- **Reasoning**: v0.84.0 established testing infrastructure; v0.85.0 focuses on making Anna faster and more self-sufficient by reducing LLM dependency
+
+### Performance Limits (v0.85.0)
+| Stage | Budget |
+|-------|--------|
+| Total | 12000ms |
+| Brain | 500ms |
+| Junior | 3000ms |
+| Senior | 4000ms |
+| Command | 4000ms |
+
+### Reliability Thresholds (v0.85.0)
+| Metric | Minimum |
+|--------|---------|
+| Evidence | 80% |
+| Coverage | 90% |
+| Reasoning | 90% |
+
+### XP Events (v0.85.0)
+| Event | XP Change |
+|-------|-----------|
+| BrainSelfSolve | +15 |
+| BrainPartialSolve | +8 |
+| JuniorCleanProposal | +10 |
+| SeniorGreenApproval | +12 |
+| StablePatternDetected | +20 |
+| JuniorBadCommand | -8 |
+| JuniorWrongDomain | -5 |
+| SeniorRepeatedFix | -10 |
+| LlmTimeoutFallback | -5 |
+| UnstablePatternPenalized | -12 |
+
 ### [T007] v0.84.0 Hard Test Harness and Reliability Validation
 - **Date**: 2025-11-28
 - **Version**: 0.84.0
