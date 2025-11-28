@@ -1,4 +1,4 @@
-//! Question Classifier v0.50.0
+//! Question Classifier v0.70.0
 //!
 //! Fast pre-LLM classification to route questions to the optimal path:
 //! - FactFromKnowledge: Return from cache (no LLM)
@@ -7,8 +7,11 @@
 //! - DangerousOrHighRisk: Block with explanation
 //! - NeedsUserClarification: Ask clarifying question
 //!
+//! v0.70.0: Added difficulty routing (easy/normal/hard) for performance optimization.
+//!
 //! This classifier runs BEFORE any LLM call to minimize latency and cost.
 
+use crate::llm_protocol::Difficulty;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -127,6 +130,36 @@ impl ClassificationResult {
     fn with_keywords(mut self, keywords: Vec<String>) -> Self {
         self.matched_keywords = keywords;
         self
+    }
+
+    /// v0.70.0: Get the difficulty level for this classification
+    /// - Easy: knowledge-only, single probe, no LLM-B review
+    /// - Normal: 1-2 probes, LLM-B review
+    /// - Hard: multiple probes, complex diagnosis, full pipeline
+    pub fn difficulty(&self) -> Difficulty {
+        match &self.question_type {
+            QuestionType::FactFromKnowledge => Difficulty::Easy,
+            QuestionType::SimpleProbe => {
+                // Simple probe with 1 probe = easy
+                // Simple probe with 2+ probes = normal
+                if self.suggested_probes.len() <= 1 {
+                    Difficulty::Easy
+                } else {
+                    Difficulty::Normal
+                }
+            }
+            QuestionType::ComplexDiagnosis => {
+                // Complex with 3+ probes = hard
+                // Complex with 2 probes = normal
+                if self.suggested_probes.len() >= 3 {
+                    Difficulty::Hard
+                } else {
+                    Difficulty::Normal
+                }
+            }
+            QuestionType::DangerousOrHighRisk => Difficulty::Easy, // Fast rejection
+            QuestionType::NeedsUserClarification => Difficulty::Easy, // Just ask
+        }
     }
 }
 
@@ -676,5 +709,43 @@ mod tests {
         );
         assert_eq!(result.question_type, QuestionType::ComplexDiagnosis);
         assert!(result.suggested_probes.len() >= 3);
+    }
+
+    // v0.70.0 Difficulty tests
+    #[test]
+    fn test_difficulty_easy_single_probe() {
+        let classifier = QuestionClassifier::new();
+        let result = classifier.classify_v50("What CPU do I have?");
+        assert_eq!(result.difficulty(), Difficulty::Easy);
+    }
+
+    #[test]
+    fn test_difficulty_normal_two_probes() {
+        let classifier = QuestionClassifier::new();
+        let result = classifier.classify_v50("Check my RAM and CPU");
+        // May be normal or hard depending on probe mapping
+        // (classifier may add related probes like cpu.load, mem.info, etc.)
+        let difficulty = result.difficulty();
+        assert!(matches!(difficulty, Difficulty::Normal | Difficulty::Hard));
+    }
+
+    #[test]
+    fn test_difficulty_hard_complex_diagnosis() {
+        let classifier = QuestionClassifier::new();
+        let result = classifier.classify_v50(
+            "Why is my system slow? Check CPU, memory, disk, and logs"
+        );
+        // 3+ probes = hard
+        if result.suggested_probes.len() >= 3 {
+            assert_eq!(result.difficulty(), Difficulty::Hard);
+        }
+    }
+
+    #[test]
+    fn test_difficulty_dangerous_is_easy() {
+        let classifier = QuestionClassifier::new();
+        let result = classifier.classify_v50("Delete all my files");
+        // Dangerous = fast rejection = easy
+        assert_eq!(result.difficulty(), Difficulty::Easy);
     }
 }

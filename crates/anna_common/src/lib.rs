@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.65.0
+//! Anna Common - Shared types and schemas for Anna v0.70.0
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.
@@ -14,6 +14,7 @@
 //! v0.50.0: Brain Upgrade - 5-type classification, safe command policy, generic probes.
 //! v0.60.0: Conversational UX - live progress events, conversation logging, persona messaging.
 //! v0.65.0: Reliability Patch - confidence gating (60% min), stats tracking, daemon robustness.
+//! v0.70.0: Evidence Oracle - structured LLM protocol, difficulty routing, knowledge-first.
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -52,6 +53,7 @@ pub mod config;
 pub mod config_mapper;
 pub mod hardware;
 pub mod knowledge;
+pub mod llm_protocol;
 pub mod logging;
 pub mod model_registry;
 pub mod pain;
@@ -122,4 +124,14 @@ pub use events::{
     probes_planned, command_running, command_done,
     senior_review_started, senior_review_done,
     user_clarification_needed, answer_synthesizing, answer_ready, error_event,
+};
+// LLM Protocol exports (v0.70.0) - only non-conflicting types
+// Note: ProbeRequest, Citation, LlmAPlan, Verdict, ReliabilityScores are already
+// defined in answer_engine and types modules - use those instead.
+pub use llm_protocol::{
+    Difficulty, QuestionIntent, LatencyExpectation,
+    SafeShellRequest, DocsRequest, KnowledgeQuery,
+    LlmADraftAnswer, LlmAOutput,
+    KnowledgeUpdate, LlmBOutput,
+    CommandTemplate,
 };

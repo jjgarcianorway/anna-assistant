@@ -1,4 +1,4 @@
-# Anna v0.26.0
+# Anna v0.70.0
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
@@ -353,23 +353,16 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| v0.70.0 | Evidence Oracle - Structured LLM protocol, difficulty routing, knowledge-first |
+| v0.65.0 | Reliability Patch - Confidence gating (60% min), stats tracking, daemon robustness |
+| v0.60.0 | Conversational UX - Live progress events, conversation logging, persona messaging |
+| v0.50.0 | Brain Upgrade - 5-type classification, safe command policy, generic probes |
+| v0.43.0 | Live Debug Streaming View |
+| v0.42.0 | Negative Feedback, Skill Pain, Remediation Engine |
+| v0.40.0 | Generic skills, parameterized commands, skill learning, no probe zoo |
+| v0.30.0 | Journalctl probe, question classifier, auto-update fix |
 | v0.26.0 | Auto-update Reliability, Self-Healing Watchdog, Structured Tracing |
-| v0.25.0 | Relevance First, Usage Tracking, Session Awareness, Disambiguation |
-| v0.24.0 | App Awareness, Stats Engine, Faster Answers, Default Apps Registry |
-| v0.23.0 | System Brain, User Brain & Idle Learning |
-| v0.22.0 | Fact Brain & Question Decomposition (TTLs, validated facts) |
-| v0.21.0 | Hybrid answer pipeline (fast-first, selective probing, no loops) |
-| v0.20.0 | Background telemetry, warm-up learning, fact store integration |
-| v0.19.0 | Subproblem decomposition, fact-aware planning, Senior as mentor |
-| v0.18.0 | Step-by-step orchestration - one action per Junior iteration |
-| v0.17.0 | Use Senior's synthesized answer instead of Junior's draft |
-| v0.16.5 | Enhanced status: human-readable uptime, probe names, detailed health |
-| v0.16.4 | Real-time debug output with [JUNIOR model] and [SENIOR model] labels |
-| v0.16.3 | Debug trace output for development troubleshooting |
 | v0.15.0 | Research Loop Engine with command whitelist |
-| v0.14.0 | Aligned to reality with 6 real probes |
-| v0.13.0 | Strict evidence discipline |
-| v0.12.0 | Iteration-aware prompts, fix_and_accept |
 | v0.11.0 | Knowledge store, event-driven learning |
 | v0.10.0 | LLM-A/LLM-B supervised audit loop |
 
