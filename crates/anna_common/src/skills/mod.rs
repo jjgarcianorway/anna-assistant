@@ -56,6 +56,8 @@ pub use builtins::{builtin_skills, init_builtin_skills};
 pub use executor::{
     execute_safe_command, execute_safe_command_async, execute_skill, validate_params,
     SkillExecutionResult,
+    // v0.50.0: Generic command runner
+    execute_generic_command, execute_generic_command_sync, GenericCommandResult,
 };
 pub use schema::{
     AnnaLevel, ParamSchema, ParamType, Skill, SkillQuery, SkillStats, SystemStats,

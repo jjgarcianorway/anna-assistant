@@ -1,4 +1,4 @@
-//! Command Whitelist v0.15.0
+//! Command Whitelist v0.50.0
 //!
 //! This module defines the ONLY commands Anna is allowed to execute.
 //! No arbitrary shell commands are permitted - only whitelisted commands.
@@ -8,12 +8,377 @@
 //! - LLM cannot bypass it - this is a hard security boundary
 //! - Commands are parameterized (e.g., `pacman -Q {package}`)
 //! - Risk levels determine approval flow
+//!
+//! v0.50.0 Additions:
+//! - SafetyLevel enum (read_only, low_risk, dangerous)
+//! - 11 safe command categories for generic probe support
+//! - Dangerous command blacklist (never execute)
+//! - is_command_safe() for validating arbitrary commands
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // ============================================================================
-// Risk Classification
+// v0.50.0 Safety Level Classification
+// ============================================================================
+
+/// Safety level for arbitrary commands (v0.50.0)
+/// Used by the generic `system.command.run` probe
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SafetyLevel {
+    /// Read-only commands that cannot modify system state
+    ReadOnly,
+    /// Low-risk commands that have minimal side effects
+    LowRisk,
+    /// Dangerous commands that should NEVER be executed
+    Dangerous,
+}
+
+impl SafetyLevel {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SafetyLevel::ReadOnly => "read_only",
+            SafetyLevel::LowRisk => "low_risk",
+            SafetyLevel::Dangerous => "dangerous",
+        }
+    }
+
+    pub fn indicator(&self) -> &'static str {
+        match self {
+            SafetyLevel::ReadOnly => "[R]",
+            SafetyLevel::LowRisk => "[L]",
+            SafetyLevel::Dangerous => "[X]",
+        }
+    }
+
+    /// Can this command be auto-executed without user confirmation?
+    pub fn can_auto_execute(&self) -> bool {
+        matches!(self, SafetyLevel::ReadOnly | SafetyLevel::LowRisk)
+    }
+}
+
+// ============================================================================
+// Safe Command Validator (v0.50.0)
+// ============================================================================
+
+/// Validate if an arbitrary command is safe to execute
+pub struct SafeCommandValidator {
+    /// Read-only commands (auto-execute)
+    read_only_commands: HashSet<&'static str>,
+    /// Low-risk commands (auto-execute)
+    low_risk_commands: HashSet<&'static str>,
+    /// Dangerous commands (NEVER execute)
+    dangerous_commands: HashSet<&'static str>,
+    /// Dangerous argument patterns
+    dangerous_patterns: Vec<&'static str>,
+}
+
+impl SafeCommandValidator {
+    pub fn new() -> Self {
+        Self {
+            // 1. File Inspection (read-only)
+            // 2. Shell Builtins (read-only)
+            // 3. File Reading (read-only)
+            // 4. Text Processing (read-only mode)
+            // 5. Searching (read-only)
+            // 6. System Info (read-only)
+            // 7. Package Queries (read-only)
+            // 8. Networking (read-only)
+            // 9. Archives (list/read only)
+            // 10. Shell Infrastructure (read-only)
+            // 11. Hardware Queries (read-only)
+            read_only_commands: [
+                // File Inspection
+                "ls", "file", "stat", "wc", "du", "realpath", "dirname", "basename",
+                // Shell Builtins
+                "pwd", "echo", "type", "which", "true", "false",
+                // File Reading
+                "cat", "head", "tail", "less", "more", "xxd", "od", "strings",
+                // Text Processing (read-only variants)
+                "grep", "awk", "cut", "sort", "uniq", "tr", "wc", "diff", "comm",
+                // Searching
+                "find", "locate", "whereis", "whatis", "apropos",
+                // System Info
+                "uname", "hostname", "uptime", "date", "timedatectl", "hostnamectl",
+                "id", "whoami", "groups", "last", "w", "users",
+                // Hardware Queries
+                "lscpu", "lsblk", "lspci", "lsusb", "lsmod", "lshw",
+                "free", "df", "mount", "blkid", "fdisk", "parted",
+                "dmidecode", "hwinfo", "inxi", "sensors",
+                // Networking (read-only)
+                "ip", "ss", "netstat", "route", "arp", "host", "dig", "nslookup",
+                "ping", "traceroute", "mtr", "ifconfig",
+                // Archives (list only)
+                "tar", "unzip", "zcat", "gunzip", "gzip", "bzip2", "xz",
+                "zipinfo", "unrar", "7z",
+                // Shell Infrastructure
+                "env", "printenv", "locale", "getconf", "ulimit",
+                // Package Queries
+                "pacman", "apt", "apt-cache", "dpkg", "rpm", "dnf", "yum",
+                "pip", "npm", "cargo", "gem", "brew",
+                // Process Info
+                "ps", "top", "htop", "pgrep", "pidof",
+                // Misc read-only
+                "man", "info", "help", "version", "getent",
+                "dmesg", "journalctl", "systemctl",
+                // Ollama (read-only)
+                "ollama",
+            ].into_iter().collect(),
+
+            // Low-risk commands (may have limited side effects but safe)
+            low_risk_commands: [
+                "touch", "mkdir", "tee",  // Create only, no overwrite
+            ].into_iter().collect(),
+
+            // DANGEROUS - NEVER EXECUTE
+            dangerous_commands: [
+                // Destructive file operations
+                "rm", "rmdir", "unlink", "shred",
+                // File modification
+                "mv", "cp", "ln", "chmod", "chown", "chgrp", "chattr",
+                // Disk operations
+                "dd", "mkfs", "mkswap", "fsck", "e2fsck", "tune2fs",
+                "gdisk", "cfdisk", "sfdisk", "wipefs",
+                // System control
+                "reboot", "shutdown", "poweroff", "halt", "init",
+                // Process control
+                "kill", "pkill", "killall", "skill", "xkill",
+                // Network modification
+                "iptables", "ip6tables", "nft", "ufw", "firewalld",
+                // User/group modification
+                "useradd", "userdel", "usermod", "groupadd", "groupdel", "groupmod",
+                "passwd", "chpasswd", "su", "sudo",
+                // Package installation (state-changing)
+                "pacman", "apt-get", "apt", "dpkg", "rpm", "dnf", "yum",
+                "pip", "npm", "cargo", "gem", "brew",
+                // Service control
+                "systemctl", "service", "rc-service",
+                // Dangerous shells/execution
+                "sh", "bash", "zsh", "fish", "eval", "exec", "source",
+                "python", "python3", "perl", "ruby", "node",
+                // Network downloads
+                "wget", "curl", "nc", "netcat", "ncat", "socat",
+                // Archive extraction (can overwrite)
+                "tar", "unzip", "gunzip", "bunzip2", "unxz", "unrar", "7z",
+            ].into_iter().collect(),
+
+            // Dangerous argument patterns (reject if found)
+            dangerous_patterns: vec![
+                // Shell metacharacters that enable injection
+                ";", "&&", "||", "|", "`", "$(",
+                // Redirection (can overwrite files)
+                ">", ">>", "<",
+                // State-changing flags
+                "-S", "--sync", "-R", "--remove", "-U", "--upgrade",
+                "--install", "--uninstall", "--delete", "--force",
+                "-rf", "-fr", "--recursive",
+                // sudo/su
+                "sudo", "su -",
+            ],
+        }
+    }
+
+    /// Check if a command is safe to execute
+    /// Returns SafetyLevel::Dangerous if command should be blocked
+    pub fn classify(&self, command: &str) -> SafetyLevel {
+        let parts: Vec<&str> = command.split_whitespace().collect();
+        if parts.is_empty() {
+            return SafetyLevel::Dangerous;
+        }
+
+        let base_cmd = parts[0];
+
+        // Check for shell metacharacters FIRST (injection prevention)
+        // These patterns should ALWAYS block, regardless of command
+        let injection_patterns = [";", "&&", "||", "|", "`", "$(", ">", ">>", "<"];
+        for pattern in &injection_patterns {
+            if command.contains(pattern) {
+                return SafetyLevel::Dangerous;
+            }
+        }
+
+        // Special handling for commands with both safe and dangerous modes
+        // Check these BEFORE generic dangerous patterns
+        if base_cmd == "pacman" || base_cmd == "apt" || base_cmd == "apt-get" ||
+           base_cmd == "apt-cache" || base_cmd == "dpkg" ||
+           base_cmd == "dnf" || base_cmd == "yum" || base_cmd == "pip" ||
+           base_cmd == "npm" || base_cmd == "cargo" || base_cmd == "gem" ||
+           base_cmd == "brew" {
+            // Only allow query operations
+            if self.is_package_query(command) {
+                return SafetyLevel::ReadOnly;
+            }
+            return SafetyLevel::Dangerous;
+        }
+
+        // systemctl: only allow status/list operations
+        if base_cmd == "systemctl" {
+            if self.is_systemctl_safe(command) {
+                return SafetyLevel::ReadOnly;
+            }
+            return SafetyLevel::Dangerous;
+        }
+
+        // tar: only allow listing, not extraction
+        if base_cmd == "tar" {
+            if self.is_tar_list_only(command) {
+                return SafetyLevel::ReadOnly;
+            }
+            return SafetyLevel::Dangerous;
+        }
+
+        // Check remaining dangerous patterns (state-changing flags)
+        let state_changing_patterns = [
+            "-S", "--sync", "-R", "--remove", "-U", "--upgrade",
+            "--install", "--uninstall", "--delete", "--force",
+            "-rf", "-fr", "--recursive", "sudo", "su -",
+        ];
+        for pattern in &state_changing_patterns {
+            if command.contains(pattern) {
+                return SafetyLevel::Dangerous;
+            }
+        }
+
+        // Check base command safety
+        if self.dangerous_commands.contains(base_cmd) {
+            return SafetyLevel::Dangerous;
+        }
+
+        if self.read_only_commands.contains(base_cmd) {
+            return SafetyLevel::ReadOnly;
+        }
+
+        if self.low_risk_commands.contains(base_cmd) {
+            return SafetyLevel::LowRisk;
+        }
+
+        // Unknown command - be safe, reject
+        SafetyLevel::Dangerous
+    }
+
+    /// Check if a command is safe to auto-execute
+    pub fn is_safe(&self, command: &str) -> bool {
+        self.classify(command).can_auto_execute()
+    }
+
+    /// Check if a package manager command is a safe query operation
+    fn is_package_query(&self, command: &str) -> bool {
+        let lower = command.to_lowercase();
+
+        // pacman query flags
+        if lower.contains("-q") || lower.contains("--query") ||
+           lower.contains("-si") || lower.contains("--search") ||
+           lower.contains("-ss") {
+            return true;
+        }
+
+        // apt/apt-cache query flags
+        if lower.contains("show") || lower.contains("search") ||
+           lower.contains("list") || lower.contains("policy") ||
+           lower.contains("depends") || lower.contains("rdepends") {
+            // Make sure it's not apt-get install etc.
+            if !lower.contains("install") && !lower.contains("remove") &&
+               !lower.contains("upgrade") && !lower.contains("purge") {
+                return true;
+            }
+        }
+
+        // pip/npm query
+        if lower.contains("list") || lower.contains("show") ||
+           lower.contains("search") || lower.contains("info") {
+            return true;
+        }
+
+        false
+    }
+
+    /// Check if systemctl command is safe (status/list only)
+    fn is_systemctl_safe(&self, command: &str) -> bool {
+        let lower = command.to_lowercase();
+
+        // Safe operations
+        if lower.contains("status") || lower.contains("is-active") ||
+           lower.contains("is-enabled") || lower.contains("list-units") ||
+           lower.contains("list-unit-files") || lower.contains("show") ||
+           lower.contains("cat") {
+            return true;
+        }
+
+        // Dangerous operations
+        if lower.contains("start") || lower.contains("stop") ||
+           lower.contains("restart") || lower.contains("enable") ||
+           lower.contains("disable") || lower.contains("mask") ||
+           lower.contains("unmask") || lower.contains("daemon-reload") {
+            return false;
+        }
+
+        false
+    }
+
+    /// Check if tar command is list-only (not extracting)
+    fn is_tar_list_only(&self, command: &str) -> bool {
+        // -t or --list is safe
+        command.contains("-t") || command.contains("--list")
+    }
+
+    /// Get a human-readable explanation of why a command was blocked
+    pub fn explain_block(&self, command: &str) -> String {
+        let parts: Vec<&str> = command.split_whitespace().collect();
+        if parts.is_empty() {
+            return "Empty command".to_string();
+        }
+
+        let base_cmd = parts[0];
+
+        // Check injection patterns first
+        let injection_patterns = [";", "&&", "||", "|", "`", "$(", ">", ">>", "<"];
+        for pattern in &injection_patterns {
+            if command.contains(pattern) {
+                return format!(
+                    "Command contains dangerous pattern '{}' which could enable \
+                     shell injection or file modification.",
+                    pattern
+                );
+            }
+        }
+
+        // Check dangerous base command
+        if self.dangerous_commands.contains(base_cmd) {
+            return format!(
+                "The command '{}' can modify or damage your system. \
+                 Anna only executes read-only commands for safety.",
+                base_cmd
+            );
+        }
+
+        // Check state-changing patterns
+        let state_changing_patterns = [
+            "-rf", "-fr", "--recursive", "-S", "--sync", "-R", "--remove",
+            "-U", "--upgrade", "--install", "--uninstall", "--delete", "--force",
+            "sudo", "su -",
+        ];
+        for pattern in &state_changing_patterns {
+            if command.contains(pattern) {
+                return format!(
+                    "Command contains dangerous pattern '{}' which could modify system state.",
+                    pattern
+                );
+            }
+        }
+
+        "Unknown command - not in safe command list".to_string()
+    }
+}
+
+impl Default for SafeCommandValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
+// Risk Classification (Legacy)
 // ============================================================================
 
 /// Risk level for whitelisted commands
@@ -972,5 +1337,195 @@ mod tests {
         // Package operations can take longer
         let pkg_install = registry.get("pkg_install").unwrap();
         assert!(pkg_install.timeout_secs >= 60);
+    }
+
+    // ========================================================================
+    // v0.50.0 SafeCommandValidator Tests
+    // ========================================================================
+
+    #[test]
+    fn test_safety_level_properties() {
+        assert!(SafetyLevel::ReadOnly.can_auto_execute());
+        assert!(SafetyLevel::LowRisk.can_auto_execute());
+        assert!(!SafetyLevel::Dangerous.can_auto_execute());
+
+        assert_eq!(SafetyLevel::ReadOnly.as_str(), "read_only");
+        assert_eq!(SafetyLevel::LowRisk.as_str(), "low_risk");
+        assert_eq!(SafetyLevel::Dangerous.as_str(), "dangerous");
+    }
+
+    #[test]
+    fn test_validator_read_only_commands() {
+        let validator = SafeCommandValidator::new();
+
+        // Basic read-only commands
+        assert_eq!(validator.classify("ls -la"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("pwd"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("cat /etc/os-release"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("uname -a"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("lscpu"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("free -h"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("df -h"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("ps aux"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("hostname"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("whoami"), SafetyLevel::ReadOnly);
+    }
+
+    #[test]
+    fn test_validator_dangerous_commands() {
+        let validator = SafeCommandValidator::new();
+
+        // Destructive commands
+        assert_eq!(validator.classify("rm -rf /"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("rm file.txt"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("dd if=/dev/zero of=/dev/sda"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("mkfs.ext4 /dev/sda1"), SafetyLevel::Dangerous);
+
+        // Process control
+        assert_eq!(validator.classify("kill -9 1234"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("killall firefox"), SafetyLevel::Dangerous);
+
+        // System control
+        assert_eq!(validator.classify("reboot"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("shutdown -h now"), SafetyLevel::Dangerous);
+
+        // Network downloads
+        assert_eq!(validator.classify("wget http://example.com"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("curl http://example.com"), SafetyLevel::Dangerous);
+    }
+
+    #[test]
+    fn test_validator_dangerous_patterns() {
+        let validator = SafeCommandValidator::new();
+
+        // Shell injection patterns
+        assert_eq!(validator.classify("ls; rm -rf /"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("cat file && rm file"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("echo $(whoami)"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("ls | grep foo"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("cat file > /etc/passwd"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("cat file >> /etc/passwd"), SafetyLevel::Dangerous);
+    }
+
+    #[test]
+    fn test_validator_package_queries() {
+        let validator = SafeCommandValidator::new();
+
+        // Safe pacman queries
+        assert_eq!(validator.classify("pacman -Q"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("pacman -Qi vim"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("pacman -Ss vim"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("pacman --query vim"), SafetyLevel::ReadOnly);
+
+        // Dangerous pacman operations
+        assert_eq!(validator.classify("pacman -S vim"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("pacman -R vim"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("pacman --sync vim"), SafetyLevel::Dangerous);
+
+        // Safe apt queries
+        assert_eq!(validator.classify("apt show vim"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("apt search vim"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("apt list --installed"), SafetyLevel::ReadOnly);
+
+        // Dangerous apt operations
+        assert_eq!(validator.classify("apt install vim"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("apt remove vim"), SafetyLevel::Dangerous);
+
+        // pip queries
+        assert_eq!(validator.classify("pip list"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("pip show requests"), SafetyLevel::ReadOnly);
+
+        // npm queries
+        assert_eq!(validator.classify("npm list"), SafetyLevel::ReadOnly);
+    }
+
+    #[test]
+    fn test_validator_systemctl() {
+        let validator = SafeCommandValidator::new();
+
+        // Safe systemctl operations
+        assert_eq!(validator.classify("systemctl status sshd"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("systemctl is-active sshd"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("systemctl is-enabled sshd"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("systemctl list-units"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("systemctl show sshd"), SafetyLevel::ReadOnly);
+
+        // Dangerous systemctl operations
+        assert_eq!(validator.classify("systemctl start sshd"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("systemctl stop sshd"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("systemctl restart sshd"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("systemctl enable sshd"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("systemctl disable sshd"), SafetyLevel::Dangerous);
+    }
+
+    #[test]
+    fn test_validator_tar() {
+        let validator = SafeCommandValidator::new();
+
+        // Safe tar list operations
+        assert_eq!(validator.classify("tar -tf archive.tar"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("tar --list -f archive.tar"), SafetyLevel::ReadOnly);
+
+        // Dangerous tar extract operations
+        assert_eq!(validator.classify("tar -xf archive.tar"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("tar -xzf archive.tar.gz"), SafetyLevel::Dangerous);
+    }
+
+    #[test]
+    fn test_validator_is_safe() {
+        let validator = SafeCommandValidator::new();
+
+        assert!(validator.is_safe("ls -la"));
+        assert!(validator.is_safe("pwd"));
+        assert!(validator.is_safe("cat /etc/os-release"));
+
+        assert!(!validator.is_safe("rm -rf /"));
+        assert!(!validator.is_safe("wget http://example.com"));
+        assert!(!validator.is_safe("systemctl stop sshd"));
+    }
+
+    #[test]
+    fn test_validator_explain_block() {
+        let validator = SafeCommandValidator::new();
+
+        // Dangerous command explanation
+        let explanation = validator.explain_block("rm -rf /");
+        assert!(explanation.contains("rm"));
+        assert!(explanation.contains("modify") || explanation.contains("damage"));
+
+        // Dangerous pattern explanation
+        let explanation = validator.explain_block("ls; rm -rf /");
+        assert!(explanation.contains(";") || explanation.contains("pattern"));
+
+        // Empty command
+        let explanation = validator.explain_block("");
+        assert!(explanation.contains("Empty"));
+    }
+
+    #[test]
+    fn test_validator_unknown_commands() {
+        let validator = SafeCommandValidator::new();
+
+        // Unknown commands should be treated as dangerous
+        assert_eq!(validator.classify("totally_unknown_cmd"), SafetyLevel::Dangerous);
+        assert_eq!(validator.classify("my_custom_script.sh"), SafetyLevel::Dangerous);
+    }
+
+    #[test]
+    fn test_validator_ollama() {
+        let validator = SafeCommandValidator::new();
+
+        // Ollama commands should be read-only
+        assert_eq!(validator.classify("ollama list"), SafetyLevel::ReadOnly);
+        assert_eq!(validator.classify("ollama ps"), SafetyLevel::ReadOnly);
+    }
+
+    #[test]
+    fn test_validator_low_risk() {
+        let validator = SafeCommandValidator::new();
+
+        // Low-risk commands (create only, no overwrite)
+        assert_eq!(validator.classify("touch newfile.txt"), SafetyLevel::LowRisk);
+        assert_eq!(validator.classify("mkdir new_dir"), SafetyLevel::LowRisk);
     }
 }

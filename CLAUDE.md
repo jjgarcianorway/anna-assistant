@@ -49,3 +49,79 @@
 - No hardcoded system facts - probes and learned facts only
 - Separate system knowledge from user knowledge
 - Command whitelist only - no arbitrary shell execution
+
+## 🧠  v0.50.0 Brain Upgrade Spec
+
+### Question Classification (5 Types)
+
+```rust
+enum QuestionType {
+    FactFromKnowledge,      // Answerable from stored knowledge
+    SimpleProbe,            // Single probe needed (e.g., "What CPU?")
+    ComplexDiagnosis,       // Multiple probes + reasoning
+    DangerousOrHighRisk,    // Safety check required
+    NeedsUserClarification, // Ambiguous question
+}
+```
+
+### Safe Command Policy
+
+Commands are classified by safety level:
+
+| Safety Level | Auto-Execute | Examples |
+|-------------|--------------|----------|
+| `read_only` | ✅ Yes | `ls`, `cat`, `lscpu`, `free`, `df` |
+| `low_risk` | ✅ Yes | `pacman -Q`, `systemctl status` |
+| `dangerous` | ❌ Never | `rm`, `mv`, `chmod`, `dd`, `kill` |
+
+### 11 Safe Command Categories
+
+1. **File Inspection**: `ls`, `file`, `stat`, `wc`, `du`
+2. **Shell Builtins**: `pwd`, `echo`, `type`, `which`
+3. **File Reading**: `cat`, `head`, `tail`, `less`
+4. **Text Processing**: `grep`, `awk`, `sed` (read-only), `cut`, `sort`, `uniq`
+5. **Searching**: `find`, `locate`, `whereis`
+6. **System Info**: `uname`, `hostname`, `uptime`, `date`, `timedatectl`
+7. **Package Queries**: `pacman -Q`, `pacman -Si`, `dpkg -l`, `rpm -qi`
+8. **Networking**: `ip addr`, `ip route`, `ss`, `ping` (limited)
+9. **Archives**: `tar -tf`, `unzip -l`, `zcat`, `gunzip -c`
+10. **Shell Infrastructure**: `env`, `printenv`, `locale`
+11. **Hardware Queries**: `lscpu`, `lsblk`, `lspci`, `lsusb`, `free`, `df`
+
+### Generic Command Probe
+
+```json
+{
+  "probe_id": "system.command.run",
+  "params": {
+    "command": "pacman -Qi linux",
+    "timeout_secs": 30
+  }
+}
+```
+
+### Never Safe Commands (Dangerous)
+
+```
+rm, mv, cp, chmod, chown, chgrp, dd, mkfs, fdisk,
+parted, mount, umount, kill, pkill, killall, reboot,
+shutdown, poweroff, systemctl start/stop/enable/disable,
+pacman -S, pacman -R, apt install, apt remove
+```
+
+### LLM Orchestration Flow
+
+```
+Question → Classify → Route:
+  ├─ FactFromKnowledge → Return from cache (no LLM)
+  ├─ SimpleProbe → Execute probe → Junior summarize
+  ├─ ComplexDiagnosis → Junior plan → Execute → Senior synthesize
+  ├─ DangerousOrHighRisk → Block with explanation
+  └─ NeedsUserClarification → Ask clarifying question
+```
+
+### Junior/Senior Optimization
+
+- **Junior (Fast)**: Command parsing, probe execution, draft answers
+- **Senior (Smart)**: Reasoning, synthesis, verification, user-facing answers
+- Local tools first: `--help`, `man`, local docs before LLM calls
