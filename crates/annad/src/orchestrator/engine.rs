@@ -15,7 +15,7 @@ use super::probe_executor;
 use anna_common::{
     generate_llm_a_prompt_with_iteration, generate_llm_b_prompt, AuditScores, AuditVerdict,
     ConfidenceLevel, DebugIteration, DebugTrace, FinalAnswer, LoopState, ProbeCatalog,
-    ProbeEvidenceV10, ReliabilityScores, MAX_LOOPS,
+    ProbeEvidenceV10, QuestionClassifier, QuestionDomain, ReliabilityScores, MAX_LOOPS,
 };
 use anyhow::Result;
 use std::time::Instant;
@@ -159,6 +159,42 @@ impl AnswerEngine {
     pub async fn process_question(&self, question: &str) -> Result<FinalAnswer> {
         info!("Processing question: {}", question);
         let start_time = Instant::now();
+
+        // v0.29.0: Fast-path rejection for obviously unsupported questions
+        // This avoids 100+ second LLM calls for questions like "what's the weather?"
+        let classifier = QuestionClassifier::new();
+        if let QuestionDomain::Unsupported { reason } = classifier.classify(question) {
+            info!("[!]  Fast-path rejection: {}", reason);
+            return Ok(FinalAnswer {
+                question: question.to_string(),
+                answer: format!(
+                    "I cannot answer this question.\n\n\
+                     Reason: {}\n\n\
+                     My available probes are:\n  \
+                     - cpu.info (CPU model, cores, threads)\n  \
+                     - mem.info (memory usage)\n  \
+                     - disk.lsblk (partitions, filesystems)\n  \
+                     - hardware.gpu (GPU detection)\n  \
+                     - drivers.gpu (GPU drivers)\n  \
+                     - hardware.ram (RAM capacity)",
+                    reason
+                ),
+                is_refusal: true,
+                citations: vec![],
+                scores: AuditScores::new(0.0, 0.0, 0.0),
+                confidence_level: ConfidenceLevel::Red,
+                problems: vec![reason],
+                loop_iterations: 0,
+                model_used: None,
+                clarification_needed: None,
+                debug_trace: Some(DebugTrace {
+                    junior_model: self.junior_model().to_string(),
+                    senior_model: self.senior_model().to_string(),
+                    duration_secs: start_time.elapsed().as_secs_f64(),
+                    iterations: vec![],
+                }),
+            });
+        }
 
         let mut loop_state = LoopState::default();
         let mut evidence: Vec<ProbeEvidenceV10> = vec![];

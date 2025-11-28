@@ -40,6 +40,7 @@ pub mod logging;
 pub mod model_registry;
 pub mod presentation;
 pub mod prompts;
+pub mod question_classifier;
 pub mod reliability;
 pub mod safety;
 pub mod schemas;
@@ -66,6 +67,7 @@ pub use prompts::{
     generate_junior_work_prompt, generate_senior_mentor_prompt, generate_senior_review_prompt,
     LLM_A_SYSTEM_PROMPT_V19, LLM_B_SYSTEM_PROMPT_V19,
 };
+pub use question_classifier::*;
 pub use reliability::*;
 pub use safety::*;
 pub use schemas::*;
