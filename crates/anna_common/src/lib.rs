@@ -51,6 +51,7 @@ pub mod command_whitelist;
 pub mod events;
 pub mod config;
 pub mod config_mapper;
+pub mod first_run;
 pub mod hardware;
 pub mod knowledge;
 pub mod llm_protocol;
@@ -104,6 +105,8 @@ pub use skills::{
 pub use skills::SystemStats as SkillSystemStats;
 pub use types::*;
 pub use updater::*;
+// First-run detection (v0.72.0)
+pub use first_run::{is_first_run, is_initialized, mark_initialized, MARKER_FILE};
 // Explicit progression exports to avoid conflicts
 pub use progression::{
     AnnaProgression, Level, Title, TITLE_BANDS,

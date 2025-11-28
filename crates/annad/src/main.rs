@@ -25,7 +25,7 @@ mod routes;
 mod server;
 mod state;
 
-use anna_common::{AnnaConfigV5, KnowledgeStore};
+use anna_common::{AnnaConfigV5, KnowledgeStore, is_first_run, mark_initialized};
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -132,6 +132,14 @@ async fn main() -> Result<()> {
             config.llm.get_senior_model(),
             config.llm.fallback_model
         );
+    }
+
+    // v0.72.0: Mark system as initialized (create marker file)
+    if is_first_run() {
+        info!("[+]  First run detected - creating initialization marker");
+        if let Err(e) = mark_initialized() {
+            warn!("[!]  Failed to create initialization marker: {}", e);
+        }
     }
 
     // Start auto-update in background

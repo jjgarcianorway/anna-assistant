@@ -1002,22 +1002,28 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
         };
         println!("  {}  Success rate: {}", "*".cyan(), rate_colored);
 
-        // Average reliability
-        let reliability_str = format!("{:.2}", global.avg_reliability);
-        let rel_colored = if global.avg_reliability >= 0.9 {
+        // Average reliability (v0.72.0: show as percentage)
+        let reliability_pct = (global.avg_reliability * 100.0).round() as u32;
+        let reliability_str = format!("{}%", reliability_pct);
+        let rel_colored = if reliability_pct >= 90 {
             reliability_str.bright_green().to_string()
-        } else if global.avg_reliability >= 0.7 {
+        } else if reliability_pct >= 70 {
             reliability_str.bright_cyan().to_string()
         } else {
             reliability_str.yellow().to_string()
         };
         println!("  {}  Avg reliability: {}", "*".cyan(), rel_colored);
 
-        // Average latency
+        // Average latency (v0.72.0: human-friendly format)
+        let latency_str = if global.avg_latency_ms < 1000.0 {
+            format!("{}ms", global.avg_latency_ms.round() as u64)
+        } else {
+            format!("{:.1}s", global.avg_latency_ms / 1000.0)
+        };
         println!(
-            "  {}  Avg latency: {}ms",
+            "  {}  Avg latency: {}",
             "*".cyan(),
-            format!("{:.0}", global.avg_latency_ms)
+            latency_str
         );
 
         // Patterns tracked

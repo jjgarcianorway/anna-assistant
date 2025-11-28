@@ -1,4 +1,4 @@
-//! Protocol v0.43.0 - Live Debug Streaming
+//! Protocol v0.72.0 - Live Debug Streaming
 //!
 //! Real-time streaming debug events for the Junior/Senior orchestration loop.
 //! Events are emitted as they happen, not buffered until the end.
@@ -7,10 +7,11 @@
 //!
 //! - ITERATION_STARTED: New iteration beginning
 //! - JUNIOR_PLAN_STARTED: Junior LLM starting to plan
-//! - JUNIOR_PLAN_DONE: Junior LLM finished planning
-//! - PROBES_EXECUTED: Probes executed and results collected
+//! - JUNIOR_PLAN_DONE: Junior LLM finished planning (with intent summary)
+//! - ANNA_PROBE: Anna executing a probe/command
+//! - PROBES_EXECUTED: All probes executed and results collected
 //! - SENIOR_REVIEW_STARTED: Senior LLM starting review
-//! - SENIOR_REVIEW_DONE: Senior LLM finished with verdict
+//! - SENIOR_REVIEW_DONE: Senior LLM finished with verdict (with percentage)
 //! - RETRY_STARTED: Starting retry iteration
 //! - ANSWER_READY: Final answer synthesized
 //!
@@ -28,8 +29,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Protocol version for v0.43.0
-pub const PROTOCOL_VERSION_V43: &str = "0.43.0";
+/// Protocol version for v0.72.0
+pub const PROTOCOL_VERSION_V43: &str = "0.72.0";
 
 /// Debug event types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,6 +42,8 @@ pub enum DebugEventType {
     JuniorPlanStarted,
     /// Junior LLM finished planning
     JuniorPlanDone,
+    /// Anna executing a single probe/command
+    AnnaProbe,
     /// Probes executed, evidence collected
     ProbesExecuted,
     /// Senior LLM starting review
@@ -60,20 +63,21 @@ pub enum DebugEventType {
 }
 
 impl DebugEventType {
-    /// Get human-readable label for display
+    /// Get human-readable label for display (v0.72.0 conversational voice)
     pub fn as_label(&self) -> &'static str {
         match self {
-            Self::IterationStarted => "ITERATION STARTED",
-            Self::JuniorPlanStarted => "JUNIOR: PLANNING",
-            Self::JuniorPlanDone => "JUNIOR: DONE",
-            Self::ProbesExecuted => "PROBES: EXECUTED",
-            Self::SeniorReviewStarted => "SENIOR: REVIEWING",
+            Self::IterationStarted => "ITERATION",
+            Self::JuniorPlanStarted => "JUNIOR: PLAN",
+            Self::JuniorPlanDone => "JUNIOR: PLAN",
+            Self::AnnaProbe => "ANNA: PROBE",
+            Self::ProbesExecuted => "ANNA: PROBES",
+            Self::SeniorReviewStarted => "SENIOR: REVIEW",
             Self::SeniorReviewDone => "SENIOR: VERDICT",
-            Self::RetryStarted => "RETRY: STARTING",
-            Self::AnswerReady => "ANSWER: READY",
+            Self::RetryStarted => "RETRY",
+            Self::AnswerReady => "ANNA: DONE",
             Self::Error => "ERROR",
-            Self::StreamStarted => "STREAM: STARTED",
-            Self::StreamEnded => "STREAM: ENDED",
+            Self::StreamStarted => "STREAM: START",
+            Self::StreamEnded => "STREAM: END",
         }
     }
 
@@ -83,6 +87,7 @@ impl DebugEventType {
             Self::IterationStarted => "\x1b[38;2;100;149;237m",  // Cornflower blue
             Self::JuniorPlanStarted => "\x1b[38;2;255;165;0m",   // Orange
             Self::JuniorPlanDone => "\x1b[38;2;50;205;50m",      // Lime green
+            Self::AnnaProbe => "\x1b[38;2;0;191;255m",           // Deep sky blue
             Self::ProbesExecuted => "\x1b[38;2;138;43;226m",     // Blue violet
             Self::SeniorReviewStarted => "\x1b[38;2;255;215;0m", // Gold
             Self::SeniorReviewDone => "\x1b[38;2;0;255;127m",    // Spring green
@@ -196,6 +201,13 @@ pub enum DebugEventData {
         probes_requested: Vec<String>,
         has_draft: bool,
     },
+    /// Single probe execution (v0.72.0)
+    AnnaProbe {
+        probe_id: String,
+        command: String,
+        latency_ms: u64,
+        success: bool,
+    },
     /// Probe execution results
     ProbeResults {
         probes: Vec<ProbeResultSnippet>,
@@ -218,7 +230,7 @@ pub enum DebugEventData {
         score: f64,
         iterations_used: usize,
     },
-    /// Stream metadata
+    /// Stream metadata (v0.72.0: full question, no truncation)
     StreamMeta {
         question: String,
         junior_model: String,
@@ -246,6 +258,17 @@ impl DebugEventData {
                 }
                 out.push_str(&format!("{pad}{dim}Has draft:{reset} {}\n", if *has_draft { "yes" } else { "no" }));
                 out
+            }
+            Self::AnnaProbe { probe_id, command, latency_ms, success } => {
+                let status = if *success {
+                    "\x1b[38;2;0;255;0m[OK]\x1b[0m"
+                } else {
+                    "\x1b[38;2;255;0;0m[FAIL]\x1b[0m"
+                };
+                format!(
+                    "{pad}{status} {cyan}{probe_id}{reset} ({dim}{latency_ms}ms{reset})\n\
+                     {pad}{dim}cmd:{reset} {command}\n"
+                )
             }
             Self::ProbeResults { probes, total_ms } => {
                 let mut out = String::new();
@@ -308,11 +331,11 @@ impl DebugEventData {
                 )
             }
             Self::StreamMeta { question, junior_model, senior_model } => {
+                // v0.72.0: Full question, no truncation
                 format!(
-                    "{pad}{dim}Question:{reset} {}\n\
+                    "{pad}{dim}Question:{reset} {question}\n\
                      {pad}{dim}Junior:{reset} {junior_model}\n\
-                     {pad}{dim}Senior:{reset} {senior_model}\n",
-                    truncate_str(question, 60)
+                     {pad}{dim}Senior:{reset} {senior_model}\n"
                 )
             }
             Self::KeyValue { pairs } => {
@@ -418,6 +441,23 @@ pub trait DebugEventEmitter: Send + Sync {
                 intent: intent.to_string(),
                 probes_requested: probes.to_vec(),
                 has_draft,
+            }));
+        }
+    }
+
+    /// Emit single probe execution (v0.72.0)
+    fn anna_probe(&self, iteration: usize, probe_id: &str, command: &str, latency_ms: u64, success: bool) {
+        if self.is_active() {
+            let status = if success { "ok" } else { "failed" };
+            self.emit(DebugEvent::new(
+                DebugEventType::AnnaProbe,
+                iteration,
+                format!("Ran {}: {}", probe_id, status),
+            ).with_data(DebugEventData::AnnaProbe {
+                probe_id: probe_id.to_string(),
+                command: command.to_string(),
+                latency_ms,
+                success,
             }));
         }
     }
@@ -542,9 +582,10 @@ mod tests {
 
     #[test]
     fn test_event_type_labels() {
-        assert_eq!(DebugEventType::JuniorPlanStarted.as_label(), "JUNIOR: PLANNING");
+        assert_eq!(DebugEventType::JuniorPlanStarted.as_label(), "JUNIOR: PLAN");
         assert_eq!(DebugEventType::SeniorReviewDone.as_label(), "SENIOR: VERDICT");
-        assert_eq!(DebugEventType::ProbesExecuted.as_label(), "PROBES: EXECUTED");
+        assert_eq!(DebugEventType::ProbesExecuted.as_label(), "ANNA: PROBES");
+        assert_eq!(DebugEventType::AnnaProbe.as_label(), "ANNA: PROBE");
     }
 
     #[test]
@@ -556,7 +597,7 @@ mod tests {
         );
 
         let output = event.format_terminal();
-        assert!(output.contains("ITERATION STARTED"));
+        assert!(output.contains("ITERATION"));  // v0.72.0: Label is now just "ITERATION"
         assert!(output.contains("iter 1"));
     }
 

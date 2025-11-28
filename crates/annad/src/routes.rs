@@ -402,8 +402,10 @@ async fn answer_question_stream(
     }
 
     let question = req.question.clone();
+    let question_for_stats = req.question.clone();
     let junior = junior_model.clone();
     let senior = senior_model.clone();
+    let state_for_stats = state.clone();
 
     // Spawn orchestration task
     tokio::spawn(async move {
@@ -439,6 +441,37 @@ async fn answer_question_stream(
         match engine.process_question_with_emitter(&question, emitter.as_ref()).await {
             Ok(answer) => {
                 let duration = start.elapsed().as_secs_f64();
+                let latency_ms = start.elapsed().as_millis() as u64;
+                let reliability = answer.scores.overall;
+                let iterations = answer.debug_trace.as_ref().map(|d| d.iterations.len()).unwrap_or(1) as u32;
+                let answer_success = reliability >= 0.60;
+
+                // v0.72.0: Record stats for streaming answers too
+                {
+                    let mut stats = state_for_stats.stats_engine.write().await;
+                    let xp_gain = stats.record_answer(
+                        &question_for_stats,
+                        reliability,
+                        latency_ms,
+                        iterations,
+                        1, // skills_used
+                        false, // was_decomposed
+                        answer_success,
+                    );
+                    if let Err(e) = stats.save_default() {
+                        error!("[STREAM]  Failed to save stats: {}", e);
+                    }
+                    if xp_gain.total > 0 {
+                        info!(
+                            "[STREAM]  +{}XP  Level {} ({})  Reliability: {:.0}%",
+                            xp_gain.total,
+                            stats.level(),
+                            stats.title(),
+                            reliability * 100.0
+                        );
+                    }
+                }
+
                 emitter.emit(
                     DebugEvent::new(DebugEventType::AnswerReady, 0, "Answer ready").with_data(
                         DebugEventData::AnswerSummary {

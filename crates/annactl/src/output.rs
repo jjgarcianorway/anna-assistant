@@ -1,4 +1,4 @@
-//! Output formatting - clean, ASCII-only terminal output v0.28.0
+//! Output formatting - clean, ASCII-only terminal output v0.72.0
 //!
 //! v0.6.0: Sysadmin style - no emojis, ASCII only, professional
 //! v0.10.0: Evidence-based answers with citations and confidence scores
@@ -6,6 +6,7 @@
 //! v0.16.3: Debug trace display for development troubleshooting
 //! v0.16.4: Improved debug trace with [JUNIOR model] and [SENIOR model] labels
 //! v0.28.0: Strict ASCII - removed all emojis for hacker aesthetic
+//! v0.72.0: Clear answer output block with Anna header, Evidence, Reliability sections
 #![allow(dead_code)]
 
 use anna_common::{AnnaResponse, ConfidenceLevel, DebugTrace, FinalAnswer, THIN_SEPARATOR};
@@ -247,131 +248,101 @@ pub fn display_final_answer(answer: &FinalAnswer) {
     println!();
 }
 
-/// Display an evidence-based answer with elapsed time (v0.15.8)
-/// Old-school hacker aesthetic with timing info
+/// Display an evidence-based answer with elapsed time (v0.72.0)
+/// Clear answer output block with Anna header, Evidence, Reliability sections
 pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
-    // Header with timing
+    // v0.72.0: Clear Anna header block
     println!();
     println!(
         "{}",
-        "══════════════════════════════════════════════════".cyan()
+        "==============================================================================".cyan()
     );
     println!(
-        "  {}  Anna  {}",
-        "[>]".bright_cyan(),
-        format!("({:.1}s)", elapsed.as_secs_f64()).dimmed()
+        "  {}",
+        "Anna".bright_white().bold()
     );
     println!(
         "{}",
-        "══════════════════════════════════════════════════".cyan()
+        "==============================================================================".cyan()
     );
-    println!();
 
-    // Answer or refusal - this is the main content
+    // Final answer text - plain text, the main content
     if answer.is_refusal {
         println!("{}", answer.answer.bright_red());
     } else {
-        println!("{}", answer.answer.bright_white());
+        println!("{}", answer.answer);
     }
 
-    // Evidence citations (compact)
+    // v0.72.0: Evidence section - show probes and commands with status
     if !answer.citations.is_empty() {
         println!();
-        println!("{}", "─ Evidence ─".dimmed());
+        println!("{}", "Evidence");
+        println!("{}", THIN_SEPARATOR);
         for citation in &answer.citations {
-            let status_icon = match citation.status {
-                anna_common::EvidenceStatus::Ok => "✓".bright_green().to_string(),
-                anna_common::EvidenceStatus::Error => "✗".bright_red().to_string(),
-                anna_common::EvidenceStatus::NotFound => "?".yellow().to_string(),
-                anna_common::EvidenceStatus::Timeout => "[T]".yellow().to_string(),
+            let status_str = match citation.status {
+                anna_common::EvidenceStatus::Ok => "ok".bright_green().to_string(),
+                anna_common::EvidenceStatus::Error => "error".bright_red().to_string(),
+                anna_common::EvidenceStatus::NotFound => "not_found".yellow().to_string(),
+                anna_common::EvidenceStatus::Timeout => "timeout".yellow().to_string(),
             };
-            // Compact: [probe_id] → first line summary
-            let summary = citation
-                .raw
-                .as_ref()
-                .map(|r| {
-                    let line = r.lines().next().unwrap_or("");
-                    if line.len() > 60 {
-                        format!("{}...", &line[..57])
-                    } else {
-                        line.to_string()
-                    }
-                })
-                .unwrap_or_else(|| "no output".to_string());
-
+            // v0.72.0: Show probe_id, command, and status
             println!(
-                "  {}  {}  {}",
-                status_icon,
-                format!("[{}]", citation.probe_id).cyan(),
-                summary.dimmed()
+                "  [{}]   command: {}   status: {}",
+                citation.probe_id.cyan(),
+                citation.command.dimmed(),
+                status_str
             );
         }
     }
 
-    // Confidence score with colored level
+    // v0.72.0: Reliability section with percentage and color
     println!();
-    let level_colored = match answer.confidence_level {
-        ConfidenceLevel::Green => "GREEN".bright_green().bold().to_string(),
-        ConfidenceLevel::Yellow => "YELLOW".yellow().bold().to_string(),
-        ConfidenceLevel::Red => "RED".bright_red().bold().to_string(),
+    println!("{}", "Reliability");
+    println!("{}", THIN_SEPARATOR);
+
+    let overall_pct = (answer.scores.overall * 100.0).round() as u32;
+    let (color_str, pct_colored) = match answer.confidence_level {
+        ConfidenceLevel::Green => (
+            "Green".bright_green().to_string(),
+            format!("{}%", overall_pct).bright_green().to_string(),
+        ),
+        ConfidenceLevel::Yellow => (
+            "Yellow".yellow().to_string(),
+            format!("{}%", overall_pct).yellow().to_string(),
+        ),
+        ConfidenceLevel::Red => (
+            "Red".bright_red().to_string(),
+            format!("{}%", overall_pct).bright_red().to_string(),
+        ),
     };
 
     println!(
-        "{}  [{}] {:.0}%",
-        "Confidence:".dimmed(),
-        level_colored,
-        answer.scores.overall * 100.0
+        "  Overall: {} ({})",
+        pct_colored,
+        color_str
+    );
+
+    // v0.72.0: Show timing info at bottom
+    let elapsed_str = if elapsed.as_millis() < 1000 {
+        format!("{}ms", elapsed.as_millis())
+    } else {
+        format!("{:.2}s", elapsed.as_secs_f64())
+    };
+    println!();
+    println!(
+        "{}",
+        format!("Duration: {}  |  Iterations: {}", elapsed_str, answer.loop_iterations).dimmed()
     );
 
     // v0.15.21: Show clarification question if needed
     if let Some(ref clarification) = answer.clarification_needed {
         println!();
-        println!("{}", "─ Clarification Needed ─".yellow().bold());
-        println!(
-            "  {}  {}",
-            "?".yellow().bold(),
-            clarification.bright_white()
-        );
+        println!("{}", "Clarification Needed");
+        println!("{}", THIN_SEPARATOR);
+        println!("  {}  {}", "?".yellow().bold(), clarification);
     }
 
-    // Footer
     println!();
-    println!(
-        "{}",
-        "══════════════════════════════════════════════════".cyan()
-    );
-
-    // Model and meta info on one line
-    let mut meta_parts: Vec<String> = vec![];
-    if let Some(ref model) = answer.model_used {
-        meta_parts.push(format!("Model: {}", model.bright_blue()));
-    }
-    if answer.loop_iterations > 1 {
-        meta_parts.push(format!("Loops: {}", answer.loop_iterations));
-    }
-    if !meta_parts.is_empty() {
-        println!("{}", meta_parts.join("  │  ").dimmed());
-    }
-
-    if !answer.is_refusal {
-        println!(
-            "{}",
-            "Evidence-based  ·  LLM audited  ·  No hallucinations".dimmed()
-        );
-    } else {
-        println!(
-            "{}",
-            "Refused: insufficient evidence or low confidence".dimmed()
-        );
-    }
-    println!();
-
-    // v0.16.3: Show debug trace if present and ANNA_DEBUG is set
-    if std::env::var("ANNA_DEBUG").is_ok() {
-        if let Some(ref trace) = answer.debug_trace {
-            display_debug_trace(trace);
-        }
-    }
 }
 
 // ============================================================================

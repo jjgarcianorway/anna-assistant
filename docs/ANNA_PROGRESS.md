@@ -196,8 +196,28 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
-## v0.72.0 - Planned
+## v0.72.0 - Answer & Debug Transcript Patch
 
-[ ] Improved debug stream detail (probe lists, difficulty, iterations)
-[ ] First-run detection fix
+[x] Clear answer output block with Anna header, Evidence, Reliability sections
+[x] Upgraded debug stream with detailed transcript (Junior plan, Anna probe, Senior verdict)
+[x] Stats formatting: percentages, human-friendly latency (ms/s)
+[x] Live stats update after each answer (streaming route fix)
+[x] First-run detection with marker file
+[x] Protocol version updated to 0.72.0
+[x] 90 tests passing
+
+**Key Changes**:
+- Answer output now shows clear blocks: header, evidence with commands, reliability with %
+- Debug stream uses conversational labels: [JUNIOR: PLAN], [ANNA: PROBE], [SENIOR: VERDICT]
+- Stats show "92%" instead of "0.92", latency shows "1.2s" instead of "1200ms"
+- Streaming answers now update stats (was missing in v0.71.0)
+- Marker file /var/lib/anna/.initialized tracks first-run state
+
+**Tests**: 90 passed, 0 failed
+
+---
+
+## v0.73.0 - Planned
+
 [ ] Enhanced stats persistence with journaling
+[ ] Additional probe types
