@@ -37,7 +37,7 @@ fn is_debug_mode() -> bool {
     std::env::var("ANNA_DEBUG").is_ok()
 }
 
-/// v0.75.1: Print debug step with clear labeling
+/// v0.76.0: Print debug step with clear labeling - FULL OUTPUT, NO TRUNCATION
 fn debug_print(actor: &str, action: &str, content: &str) {
     if !is_debug_mode() {
         return;
@@ -46,15 +46,10 @@ fn debug_print(actor: &str, action: &str, content: &str) {
     let mut stderr = std::io::stderr();
     let separator = "=".repeat(78);
     let _ = writeln!(stderr, "\n{}", separator);
-    let _ = writeln!(stderr, "[{}] {}", actor, action);
+    let _ = writeln!(stderr, "[{}] {} ({} chars)", actor, action, content.len());
     let _ = writeln!(stderr, "{}", separator);
-    // Show content, truncated if very long
-    let display = if content.len() > 4000 {
-        format!("{}...\n[TRUNCATED - {} more chars]", &content[..4000], content.len() - 4000)
-    } else {
-        content.to_string()
-    };
-    let _ = writeln!(stderr, "{}", display);
+    // v0.76.0: FULL OUTPUT - NO TRUNCATION
+    let _ = writeln!(stderr, "{}", content);
     let _ = writeln!(stderr, "{}", separator);
     let _ = stderr.flush();
 }

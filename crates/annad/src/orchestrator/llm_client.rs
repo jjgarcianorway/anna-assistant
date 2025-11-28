@@ -26,7 +26,7 @@ fn is_debug_mode() -> bool {
     std::env::var("ANNA_DEBUG").is_ok()
 }
 
-/// v0.16.4: Print debug prompt with clear [ROLE model] label
+/// v0.76.0: Print debug prompt with clear [ROLE model] label - FULL OUTPUT
 /// This prints to stderr so it appears in real-time in journalctl/terminal
 fn print_debug_prompt(role: &str, model: &str, prompt: &str) {
     use std::io::Write;
@@ -38,24 +38,14 @@ fn print_debug_prompt(role: &str, model: &str, prompt: &str) {
         stderr,
         "╔══════════════════════════════════════════════════════════════════════════════╗"
     );
-    let _ = writeln!(stderr, "║  [{} {}]  [>]  PROMPT", role, model);
+    let _ = writeln!(stderr, "║  [{} {}]  [>]  PROMPT ({} chars)", role, model, prompt.len());
     let _ = writeln!(
         stderr,
         "╚══════════════════════════════════════════════════════════════════════════════╝"
     );
 
-    // Print prompt content (limit to 2000 chars for readability)
-    let display_prompt = if prompt.len() > 2000 {
-        format!(
-            "{}...\n[truncated {} chars]",
-            &prompt[..2000],
-            prompt.len() - 2000
-        )
-    } else {
-        prompt.to_string()
-    };
-
-    for line in display_prompt.lines() {
+    // v0.76.0: FULL OUTPUT - NO TRUNCATION
+    for line in prompt.lines() {
         let _ = writeln!(stderr, "  {}", line);
     }
     let _ = writeln!(
@@ -65,7 +55,7 @@ fn print_debug_prompt(role: &str, model: &str, prompt: &str) {
     let _ = stderr.flush();
 }
 
-/// v0.16.4: Print debug response with clear [ROLE model] label
+/// v0.76.0: Print debug response with clear [ROLE model] label - FULL OUTPUT
 /// This prints to stderr so it appears in real-time in journalctl/terminal
 fn print_debug_response(role: &str, model: &str, response: &str) {
     use std::io::Write;
@@ -77,12 +67,13 @@ fn print_debug_response(role: &str, model: &str, response: &str) {
         stderr,
         "╔══════════════════════════════════════════════════════════════════════════════╗"
     );
-    let _ = writeln!(stderr, "║  [{} {}]  [<]  RESPONSE", role, model);
+    let _ = writeln!(stderr, "║  [{} {}]  [<]  RESPONSE ({} chars)", role, model, response.len());
     let _ = writeln!(
         stderr,
         "╚══════════════════════════════════════════════════════════════════════════════╝"
     );
 
+    // v0.76.0: FULL OUTPUT - NO TRUNCATION
     // Try to pretty-print JSON if valid
     if let Ok(json_value) = serde_json::from_str::<Value>(response) {
         if let Ok(pretty) = serde_json::to_string_pretty(&json_value) {
@@ -90,23 +81,13 @@ fn print_debug_response(role: &str, model: &str, response: &str) {
                 let _ = writeln!(stderr, "  {}", line);
             }
         } else {
-            // Fallback to raw output
             for line in response.lines() {
                 let _ = writeln!(stderr, "  {}", line);
             }
         }
     } else {
-        // Not valid JSON - print raw (limit to 3000 chars)
-        let display_response = if response.len() > 3000 {
-            format!(
-                "{}...\n[truncated {} chars]",
-                &response[..3000],
-                response.len() - 3000
-            )
-        } else {
-            response.to_string()
-        };
-        for line in display_response.lines() {
+        // Not valid JSON - print raw FULL output
+        for line in response.lines() {
             let _ = writeln!(stderr, "  {}", line);
         }
     }
@@ -194,10 +175,20 @@ impl OllamaClient {
     /// Call LLM-A (junior) with the given prompt
     /// Returns (parsed response, raw response text) for debug tracing
     pub async fn call_llm_a(&self, user_prompt: &str) -> Result<(LlmAResponse, String)> {
-        // v0.16.4: Print debug output with clear model label
+        use std::io::Write;
+
+        // v0.76.0: Show FULL system prompt + user prompt
         if is_debug_mode() {
+            let mut stderr = std::io::stderr();
+            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO JUNIOR ({} chars):", LLM_A_SYSTEM_PROMPT_V76.len());
+            let _ = writeln!(stderr, "{}", LLM_A_SYSTEM_PROMPT_V76);
+            let _ = stderr.flush();
             print_debug_prompt("JUNIOR", &self.junior_model, user_prompt);
+            let _ = writeln!(stderr, "\n>>> WAITING FOR JUNIOR LLM RESPONSE...");
+            let _ = stderr.flush();
         }
+
+        let start = std::time::Instant::now();
 
         // v0.76.0: Use minimal system prompt for 4B model performance
         let response_text = self
@@ -205,8 +196,13 @@ impl OllamaClient {
             .await
             .context("LLM-A call failed")?;
 
-        // v0.16.4: Print raw response with clear model label
+        let elapsed = start.elapsed();
+
+        // v0.76.0: Print response with timing
         if is_debug_mode() {
+            let mut stderr = std::io::stderr();
+            let _ = writeln!(stderr, "\n>>> JUNIOR RESPONDED IN {:.2}s", elapsed.as_secs_f64());
+            let _ = stderr.flush();
             print_debug_response("JUNIOR", &self.junior_model, &response_text);
         }
 
@@ -217,18 +213,33 @@ impl OllamaClient {
     /// Call LLM-B (senior) with the given prompt
     /// Returns (parsed response, raw response text) for debug tracing
     pub async fn call_llm_b(&self, user_prompt: &str) -> Result<(LlmBResponse, String)> {
-        // v0.16.4: Print debug output with clear model label
+        use std::io::Write;
+
+        // v0.76.0: Show timing and prompts
         if is_debug_mode() {
+            let mut stderr = std::io::stderr();
+            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO SENIOR ({} chars):", LLM_B_SYSTEM_PROMPT.len());
+            let _ = writeln!(stderr, "{}", LLM_B_SYSTEM_PROMPT);
+            let _ = stderr.flush();
             print_debug_prompt("SENIOR", &self.senior_model, user_prompt);
+            let _ = writeln!(stderr, "\n>>> WAITING FOR SENIOR LLM RESPONSE...");
+            let _ = stderr.flush();
         }
+
+        let start = std::time::Instant::now();
 
         let response_text = self
             .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT, user_prompt)
             .await
             .context("LLM-B call failed")?;
 
-        // v0.16.4: Print raw response with clear model label
+        let elapsed = start.elapsed();
+
+        // v0.76.0: Print response with timing
         if is_debug_mode() {
+            let mut stderr = std::io::stderr();
+            let _ = writeln!(stderr, "\n>>> SENIOR RESPONDED IN {:.2}s", elapsed.as_secs_f64());
+            let _ = stderr.flush();
             print_debug_response("SENIOR", &self.senior_model, &response_text);
         }
 

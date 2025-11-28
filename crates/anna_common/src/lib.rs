@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.76.0
+//! Anna Common - Shared types and schemas for Anna v0.76.1
 //!
+//! v0.76.1: Full Debug Output - no truncation, show system prompts, show timing
 //! v0.76.0: Minimal Junior Planner - radically reduced prompt for 4B model performance
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
