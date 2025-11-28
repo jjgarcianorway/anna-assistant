@@ -123,7 +123,30 @@
 
 ---
 
-## v0.27.0 - Planned
+## v0.27.0 - SSH-Friendly Spinner
+
+[x] TTY detection for spinner (skip animation for piped output)
+[x] Slower spinner update interval (80ms → 200ms)
+[x] Non-TTY mode prints static messages without escape codes
+
+**Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.27.0
+
+## v0.27.1 - SSH Stability Hardening
+
+[x] Even slower spinner (200ms → 500ms, 6x slower than original)
+[x] ANNA_NO_SPINNER environment variable to completely disable animation
+[x] Batch-run friendly for test scripts
+
+**Usage for batch runs**:
+```bash
+ANNA_NO_SPINNER=1 ./test_script.sh
+```
+
+**Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.27.1
+
+---
+
+## v0.28.0 - Planned
 
 [ ] Real-time auto-update integration testing
 [ ] Watchdog runtime integration with annad
