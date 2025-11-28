@@ -60,6 +60,10 @@ pub enum DebugEventType {
     StreamStarted,
     /// Stream ending (final event)
     StreamEnded,
+    /// v0.76.2: LLM prompt being sent (full dialog view)
+    LlmPromptSent,
+    /// v0.76.2: LLM response received (full dialog view)
+    LlmResponseReceived,
 }
 
 impl DebugEventType {
@@ -78,6 +82,8 @@ impl DebugEventType {
             Self::Error => "ERROR",
             Self::StreamStarted => "STREAM: START",
             Self::StreamEnded => "STREAM: END",
+            Self::LlmPromptSent => "LLM: PROMPT",
+            Self::LlmResponseReceived => "LLM: RESPONSE",
         }
     }
 
@@ -96,6 +102,8 @@ impl DebugEventType {
             Self::Error => "\x1b[38;2;255;0;0m",                 // Red
             Self::StreamStarted => "\x1b[38;2;169;169;169m",     // Dark gray
             Self::StreamEnded => "\x1b[38;2;169;169;169m",       // Dark gray
+            Self::LlmPromptSent => "\x1b[38;2;0;255;255m",       // Cyan (prompt going out)
+            Self::LlmResponseReceived => "\x1b[38;2;255;0;255m", // Magenta (response coming in)
         }
     }
 }
@@ -240,6 +248,20 @@ pub enum DebugEventData {
     KeyValue {
         pairs: Vec<(String, String)>,
     },
+    /// v0.76.2: Full LLM prompt being sent (NO TRUNCATION)
+    LlmPrompt {
+        role: String,           // "junior" or "senior"
+        model: String,          // model name
+        system_prompt: String,  // FULL system prompt
+        user_prompt: String,    // FULL user prompt
+    },
+    /// v0.76.2: Full LLM response received (NO TRUNCATION)
+    LlmResponse {
+        role: String,           // "junior" or "senior"
+        model: String,          // model name
+        response: String,       // FULL response
+        elapsed_ms: u64,        // how long it took
+    },
 }
 
 impl DebugEventData {
@@ -343,6 +365,42 @@ impl DebugEventData {
                 for (k, v) in pairs {
                     out.push_str(&format!("{pad}{dim}{}:{reset} {}\n", k, v));
                 }
+                out
+            }
+            // v0.76.2: Full LLM prompt display - dialog style
+            Self::LlmPrompt { role, model, system_prompt, user_prompt } => {
+                let role_color = if role == "junior" {
+                    "\x1b[38;2;100;149;237m" // Cornflower blue
+                } else {
+                    "\x1b[38;2;255;165;0m" // Orange
+                };
+                let mut out = format!(
+                    "\n{pad}╔══════════════════════════════════════════════════════════════════════════════╗\n\
+                     {pad}║  {role_color}[{} -> {}]{reset}\n\
+                     {pad}╚══════════════════════════════════════════════════════════════════════════════╝\n",
+                    role.to_uppercase(), model
+                );
+                out.push_str(&format!("{pad}{dim}SYSTEM PROMPT ({} chars):{reset}\n", system_prompt.len()));
+                out.push_str(&format!("{pad}{cyan}{}{reset}\n", system_prompt));
+                out.push_str(&format!("{pad}{dim}USER PROMPT ({} chars):{reset}\n", user_prompt.len()));
+                out.push_str(&format!("{pad}{cyan}{}{reset}\n", user_prompt));
+                out
+            }
+            // v0.76.2: Full LLM response display - dialog style
+            Self::LlmResponse { role, model, response, elapsed_ms } => {
+                let role_color = if role == "junior" {
+                    "\x1b[38;2;100;149;237m" // Cornflower blue
+                } else {
+                    "\x1b[38;2;255;165;0m" // Orange
+                };
+                let mut out = format!(
+                    "\n{pad}╔══════════════════════════════════════════════════════════════════════════════╗\n\
+                     {pad}║  {role_color}[{} <- {}]{reset} ({elapsed_ms}ms)\n\
+                     {pad}╚══════════════════════════════════════════════════════════════════════════════╝\n",
+                    role.to_uppercase(), model
+                );
+                out.push_str(&format!("{pad}{dim}RESPONSE ({} chars):{reset}\n", response.len()));
+                out.push_str(&format!("{pad}{cyan}{}{reset}\n", response));
                 out
             }
         }

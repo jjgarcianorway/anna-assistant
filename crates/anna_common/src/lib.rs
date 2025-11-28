@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.76.1
+//! Anna Common - Shared types and schemas for Anna v0.76.2
 //!
+//! v0.76.2: Dialog View - LLM prompt/response events for real-time streaming
 //! v0.76.1: Full Debug Output - no truncation, show system prompts, show timing
 //! v0.76.0: Minimal Junior Planner - radically reduced prompt for 4B model performance
 //!
