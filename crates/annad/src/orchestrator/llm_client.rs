@@ -1,5 +1,6 @@
-//! Ollama LLM Client v0.76.0
+//! Ollama LLM Client v0.77.0
 //!
+//! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl (not logs)
 //! v0.76.0: Minimal Junior prompt - radically reduced context for 4B models
 //!
 //! Robust JSON parsing that handles common LLM output variations:
@@ -12,7 +13,7 @@
 //! v0.73.2: Increased timeout to 120s for full Junior→Senior orchestration
 
 use anna_common::{
-    AuditScores, AuditVerdict, Citation, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
+    AuditScores, AuditVerdict, Citation, DebugEventEmitter, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
     OllamaChatRequest, OllamaChatResponse, OllamaMessage, ProbeRequest, ReliabilityScores,
     LLM_A_SYSTEM_PROMPT_V76, LLM_B_SYSTEM_PROMPT,
 };
@@ -210,6 +211,45 @@ impl OllamaClient {
         Ok((parsed, response_text))
     }
 
+    /// v0.77.0: Call LLM-A (junior) with streaming emitter for dialog view in annactl
+    /// Events are emitted through the streaming system, not to stderr/logs
+    pub async fn call_llm_a_with_emitter(
+        &self,
+        user_prompt: &str,
+        iteration: usize,
+        emitter: &dyn DebugEventEmitter,
+    ) -> Result<(LlmAResponse, String)> {
+        // v0.77.0: Emit prompt to streaming (displays in annactl, not logs)
+        emitter.llm_prompt_sent(
+            iteration,
+            "junior",
+            &self.junior_model,
+            LLM_A_SYSTEM_PROMPT_V76,
+            user_prompt,
+        );
+
+        let start = std::time::Instant::now();
+
+        let response_text = self
+            .call_ollama(&self.junior_model, LLM_A_SYSTEM_PROMPT_V76, user_prompt)
+            .await
+            .context("LLM-A call failed")?;
+
+        let elapsed_ms = start.elapsed().as_millis() as u64;
+
+        // v0.77.0: Emit response to streaming (displays in annactl)
+        emitter.llm_response_received(
+            iteration,
+            "junior",
+            &self.junior_model,
+            &response_text,
+            elapsed_ms,
+        );
+
+        let parsed = self.parse_llm_a_response(&response_text)?;
+        Ok((parsed, response_text))
+    }
+
     /// Call LLM-B (senior) with the given prompt
     /// Returns (parsed response, raw response text) for debug tracing
     pub async fn call_llm_b(&self, user_prompt: &str) -> Result<(LlmBResponse, String)> {
@@ -242,6 +282,45 @@ impl OllamaClient {
             let _ = stderr.flush();
             print_debug_response("SENIOR", &self.senior_model, &response_text);
         }
+
+        let parsed = self.parse_llm_b_response(&response_text)?;
+        Ok((parsed, response_text))
+    }
+
+    /// v0.77.0: Call LLM-B (senior) with streaming emitter for dialog view in annactl
+    /// Events are emitted through the streaming system, not to stderr/logs
+    pub async fn call_llm_b_with_emitter(
+        &self,
+        user_prompt: &str,
+        iteration: usize,
+        emitter: &dyn DebugEventEmitter,
+    ) -> Result<(LlmBResponse, String)> {
+        // v0.77.0: Emit prompt to streaming (displays in annactl, not logs)
+        emitter.llm_prompt_sent(
+            iteration,
+            "senior",
+            &self.senior_model,
+            LLM_B_SYSTEM_PROMPT,
+            user_prompt,
+        );
+
+        let start = std::time::Instant::now();
+
+        let response_text = self
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT, user_prompt)
+            .await
+            .context("LLM-B call failed")?;
+
+        let elapsed_ms = start.elapsed().as_millis() as u64;
+
+        // v0.77.0: Emit response to streaming (displays in annactl)
+        emitter.llm_response_received(
+            iteration,
+            "senior",
+            &self.senior_model,
+            &response_text,
+            elapsed_ms,
+        );
 
         let parsed = self.parse_llm_b_response(&response_text)?;
         Ok((parsed, response_text))

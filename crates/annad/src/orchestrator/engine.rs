@@ -1,5 +1,6 @@
-//! Answer Engine v0.76.0
+//! Answer Engine v0.77.0
 //!
+//! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl in real-time
 //! v0.76.0: Minimal Junior Planner - radically reduced prompt for 4B model performance
 //!
 //! The main orchestration loop:
@@ -185,6 +186,15 @@ impl AnswerEngine {
 
     /// Process a user question and return the final answer
     pub async fn process_question(&self, question: &str) -> Result<FinalAnswer> {
+        self.process_question_with_optional_emitter(question, None).await
+    }
+
+    /// v0.77.0: Internal processing with optional emitter for streaming LLM dialog
+    async fn process_question_with_optional_emitter(
+        &self,
+        question: &str,
+        emitter: Option<&dyn anna_common::DebugEventEmitter>,
+    ) -> Result<FinalAnswer> {
         info!("Processing question: {}", question);
         let start_time = Instant::now();
 
@@ -290,7 +300,12 @@ impl AnswerEngine {
             // Capture prompt for debug (truncated for very large prompts)
             debug_iter.llm_a_prompt = truncate_for_debug(&llm_a_prompt, 8000);
 
-            let (llm_a_response, llm_a_raw) = self.llm_client.call_llm_a(&llm_a_prompt).await?;
+            // v0.77.0: Use emitter-enabled call if available (streams to annactl)
+            let (llm_a_response, llm_a_raw) = if let Some(em) = emitter {
+                self.llm_client.call_llm_a_with_emitter(&llm_a_prompt, loop_state.iteration, em).await?
+            } else {
+                self.llm_client.call_llm_a(&llm_a_prompt).await?
+            };
 
             // v0.75.1: Show what Junior returned (raw)
             debug_print("JUNIOR", "RAW RESPONSE", &llm_a_raw);
@@ -490,7 +505,12 @@ impl AnswerEngine {
             // Capture LLM-B prompt for debug (truncated for very large prompts)
             debug_iter.llm_b_prompt = Some(truncate_for_debug(&llm_b_prompt, 8000));
 
-            let (llm_b_response, llm_b_raw) = self.llm_client.call_llm_b(&llm_b_prompt).await?;
+            // v0.77.0: Use emitter-enabled call if available (streams to annactl)
+            let (llm_b_response, llm_b_raw) = if let Some(em) = emitter {
+                self.llm_client.call_llm_b_with_emitter(&llm_b_prompt, loop_state.iteration, em).await?
+            } else {
+                self.llm_client.call_llm_b(&llm_b_prompt).await?
+            };
 
             // v0.75.1: Show what Senior returned (raw)
             debug_print("SENIOR", "RAW RESPONSE", &llm_b_raw);
@@ -1367,10 +1387,10 @@ impl AnswerEngine {
         })
     }
 
-    /// v0.43.0: Process a question with debug event emission for streaming
+    /// v0.77.0: Process a question with debug event emission for streaming
     ///
-    /// This wrapper emits streaming debug events during the orchestration loop.
-    /// The emitter receives real-time updates as the Junior/Senior LLM loop progresses.
+    /// This passes the emitter through to LLM calls, which emit prompts and responses
+    /// as streaming events. The LLM dialog appears directly in annactl, not in logs.
     pub async fn process_question_with_emitter(
         &self,
         question: &str,
@@ -1378,75 +1398,38 @@ impl AnswerEngine {
     ) -> Result<FinalAnswer> {
         use anna_common::{DebugEvent, DebugEventData, DebugEventType};
 
-        // Emit iteration start
+        // Emit stream started event
         emitter.emit(DebugEvent::new(
-            DebugEventType::IterationStarted,
-            1,
-            "Starting orchestration",
-        ));
+            DebugEventType::StreamStarted,
+            0,
+            "Starting LLM orchestration",
+        ).with_data(DebugEventData::StreamMeta {
+            question: question.to_string(),
+            junior_model: self.junior_model().to_string(),
+            senior_model: self.senior_model().to_string(),
+        }));
 
-        // Emit junior plan start
-        emitter.emit(DebugEvent::new(
-            DebugEventType::JuniorPlanStarted,
-            1,
-            "Junior LLM analyzing question",
-        ));
-
-        // Call the main process_question
-        let result = self.process_question(question).await;
+        // v0.77.0: Call internal method with emitter - LLM events stream to annactl
+        let result = self.process_question_with_optional_emitter(question, Some(emitter)).await;
 
         // Emit completion events based on result
         match &result {
             Ok(answer) => {
-                // Extract debug info from the answer if available
                 let iterations = answer
                     .debug_trace
                     .as_ref()
                     .map(|t| t.iterations.len())
                     .unwrap_or(1);
 
-                // Emit probes executed event
-                let probes: Vec<String> = answer
-                    .citations
-                    .iter()
-                    .map(|c| c.probe_id.clone())
-                    .collect();
-                if !probes.is_empty() {
-                    let probe_results: Vec<anna_common::ProbeResultSnippet> = probes
-                        .iter()
-                        .map(|id| anna_common::ProbeResultSnippet {
-                            probe_id: id.clone(),
-                            success: true,
-                            latency_ms: 0, // Not tracked at this level
-                            snippet: "...".to_string(),
-                        })
-                        .collect();
-                    emitter.emit(
-                        DebugEvent::new(
-                            DebugEventType::ProbesExecuted,
-                            iterations,
-                            "Probes executed",
-                        )
-                        .with_data(DebugEventData::ProbeResults {
-                            probes: probe_results,
-                            total_ms: 0,
-                        }),
-                    );
-                }
-
-                // Emit senior review
-                emitter.emit(DebugEvent::new(
-                    DebugEventType::SeniorReviewDone,
+                // Emit answer ready
+                emitter.answer_ready(
+                    &format!("{:?}", answer.confidence_level),
+                    answer.scores.overall,
                     iterations,
-                    &format!("Senior review: {:?}", answer.confidence_level),
-                ));
+                );
             }
             Err(e) => {
-                emitter.emit(DebugEvent::new(
-                    DebugEventType::Error,
-                    1,
-                    &format!("Error: {}", e),
-                ));
+                emitter.error(&format!("{}", e), false);
             }
         }
 

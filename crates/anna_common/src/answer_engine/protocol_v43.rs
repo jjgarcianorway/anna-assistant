@@ -601,6 +601,38 @@ pub trait DebugEventEmitter: Send + Sync {
             }));
         }
     }
+
+    /// v0.77.0: Emit LLM prompt being sent (full dialog view in annactl)
+    fn llm_prompt_sent(&self, iteration: usize, role: &str, model: &str, system_prompt: &str, user_prompt: &str) {
+        if self.is_active() {
+            self.emit(DebugEvent::new(
+                DebugEventType::LlmPromptSent,
+                iteration,
+                format!("Sending prompt to {} ({})", role, model),
+            ).with_data(DebugEventData::LlmPrompt {
+                role: role.to_string(),
+                model: model.to_string(),
+                system_prompt: system_prompt.to_string(),
+                user_prompt: user_prompt.to_string(),
+            }));
+        }
+    }
+
+    /// v0.77.0: Emit LLM response received (full dialog view in annactl)
+    fn llm_response_received(&self, iteration: usize, role: &str, model: &str, response: &str, elapsed_ms: u64) {
+        if self.is_active() {
+            self.emit(DebugEvent::new(
+                DebugEventType::LlmResponseReceived,
+                iteration,
+                format!("{} responded in {}ms", role, elapsed_ms),
+            ).with_data(DebugEventData::LlmResponse {
+                role: role.to_string(),
+                model: model.to_string(),
+                response: response.to_string(),
+                elapsed_ms,
+            }));
+        }
+    }
 }
 
 /// Helper: truncate string with ellipsis
