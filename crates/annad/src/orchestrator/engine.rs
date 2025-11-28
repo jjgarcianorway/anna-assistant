@@ -236,8 +236,8 @@ impl AnswerEngine {
                 loop_state.iteration,
             );
 
-            // Capture prompt for debug (truncated)
-            debug_iter.llm_a_prompt = truncate_for_debug(&llm_a_prompt, 2000);
+            // Capture prompt for debug (truncated for very large prompts)
+            debug_iter.llm_a_prompt = truncate_for_debug(&llm_a_prompt, 8000);
 
             let (llm_a_response, llm_a_raw) = self.llm_client.call_llm_a(&llm_a_prompt).await?;
 
@@ -348,8 +348,8 @@ impl AnswerEngine {
             let llm_b_prompt =
                 generate_llm_b_prompt(question, &draft_answer, &evidence, &self_scores);
 
-            // Capture LLM-B prompt for debug
-            debug_iter.llm_b_prompt = Some(truncate_for_debug(&llm_b_prompt, 2000));
+            // Capture LLM-B prompt for debug (truncated for very large prompts)
+            debug_iter.llm_b_prompt = Some(truncate_for_debug(&llm_b_prompt, 8000));
 
             let (llm_b_response, llm_b_raw) = self.llm_client.call_llm_b(&llm_b_prompt).await?;
 
