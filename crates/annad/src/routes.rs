@@ -4,22 +4,27 @@
 //! v0.10.0: Added /v1/answer endpoint for evidence-based answers
 //! v0.11.0: Added /v1/knowledge routes for fact queries
 
+use crate::orchestrator::streaming::{create_channel_emitter, response::debug_stream_response, ChannelEmitter};
 use crate::orchestrator::AnswerEngine;
 use crate::probe::executor::ProbeExecutor;
 use crate::server::AppState;
 use anna_common::{
-    load_update_state, AnnaConfigV5, Fact, FactQuery, FinalAnswer, GetStateRequest, HealthResponse,
-    InvalidateRequest, ListProbesResponse, ProbeInfo, ProbeResult, RunProbeRequest,
-    SetStateRequest, StateResponse, UpdateStateResponse,
+    load_update_state, AnnaConfigV5, DebugEvent, DebugEventData, DebugEventEmitter, DebugEventType,
+    Fact, FactQuery, FinalAnswer, GetStateRequest, HealthResponse, InvalidateRequest,
+    ListProbesResponse, ProbeInfo, ProbeResult, RunProbeRequest, SetStateRequest, StateResponse,
+    UpdateStateResponse,
 };
 use axum::{
     extract::State,
     http::StatusCode,
+    response::Response,
     routing::{get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::Instant;
+use tokio::sync::mpsc;
 use tracing::{error, info};
 
 type AppStateArc = Arc<AppState>;
@@ -235,7 +240,9 @@ pub struct AnswerRequest {
 }
 
 pub fn answer_routes() -> Router<AppStateArc> {
-    Router::new().route("/v1/answer", post(answer_question))
+    Router::new()
+        .route("/v1/answer", post(answer_question))
+        .route("/v1/answer/stream", post(answer_question_stream))
 }
 
 /// v0.10.0: Process a question through the LLM-A/LLM-B audit loop
@@ -314,6 +321,123 @@ async fn answer_question(
             Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
         }
     }
+}
+
+/// v0.43.0: Request for streaming debug answer
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamAnswerRequest {
+    pub question: String,
+    #[serde(default)]
+    pub debug: bool,
+}
+
+/// v0.43.0: Process a question with streaming debug events
+async fn answer_question_stream(
+    State(state): State<AppStateArc>,
+    Json(req): Json<StreamAnswerRequest>,
+) -> Response {
+    let start = Instant::now();
+    info!("[STREAM]  Processing question: {}", req.question);
+
+    // Create debug event channel
+    let (tx, rx) = mpsc::unbounded_channel::<DebugEvent>();
+    let emitter = create_channel_emitter(tx, req.debug);
+
+    // Get models from config
+    let config = AnnaConfigV5::load();
+    let (junior_model, senior_model) = if !config.llm.needs_role_model_migration() {
+        let junior = config.llm.get_junior_model().to_string();
+        let senior = config.llm.get_senior_model().to_string();
+        (junior, senior)
+    } else if config.llm.selection_mode.as_str() == "manual" {
+        let model = config.llm.preferred_model.clone();
+        (model.clone(), model)
+    } else {
+        let profile = anna_common::HardwareProfile::detect();
+        let recommendation = profile.select_model();
+        (recommendation.model.clone(), recommendation.model)
+    };
+
+    // Record query for telemetry
+    if let Some(brain) = &state.brain {
+        brain.record_query(&req.question).await;
+    }
+
+    let question = req.question.clone();
+    let junior = junior_model.clone();
+    let senior = senior_model.clone();
+
+    // Spawn orchestration task
+    tokio::spawn(async move {
+        // Emit stream started
+        emitter.emit(
+            DebugEvent::new(DebugEventType::StreamStarted, 0, "Debug stream started").with_data(
+                DebugEventData::StreamMeta {
+                    question: question.clone(),
+                    junior_model: junior.clone(),
+                    senior_model: senior.clone(),
+                },
+            ),
+        );
+
+        let engine = AnswerEngine::with_role_models(Some(junior.clone()), Some(senior.clone()));
+
+        // Check if LLM is available
+        if !engine.is_available().await {
+            emitter.emit(DebugEvent::new(
+                DebugEventType::Error,
+                0,
+                "LLM backend (Ollama) is not available",
+            ));
+            emitter.emit(DebugEvent::new(
+                DebugEventType::StreamEnded,
+                0,
+                "Stream ended with error",
+            ));
+            return;
+        }
+
+        // Process the question with debug events
+        match engine.process_question_with_emitter(&question, emitter.as_ref()).await {
+            Ok(answer) => {
+                let duration = start.elapsed().as_secs_f64();
+                emitter.emit(
+                    DebugEvent::new(DebugEventType::AnswerReady, 0, "Answer ready").with_data(
+                        DebugEventData::AnswerSummary {
+                            confidence: format!("{:?}", answer.confidence_level),
+                            score: answer.scores.overall,
+                            iterations_used: answer.debug_trace.as_ref().map(|d| d.iterations.len()).unwrap_or(0),
+                        },
+                    ),
+                );
+                emitter.emit(
+                    DebugEvent::new(DebugEventType::StreamEnded, 0, "Stream ended").with_data(
+                        DebugEventData::KeyValue {
+                            pairs: vec![("duration_secs".to_string(), format!("{:.2}", duration))],
+                        },
+                    ),
+                );
+            }
+            Err(e) => {
+                error!("[STREAM]  Failed to process question: {}", e);
+                emitter.emit(
+                    DebugEvent::new(DebugEventType::Error, 0, &e.to_string()).with_data(
+                        DebugEventData::KeyValue {
+                            pairs: vec![("error".to_string(), e.to_string())],
+                        },
+                    ),
+                );
+                emitter.emit(DebugEvent::new(
+                    DebugEventType::StreamEnded,
+                    0,
+                    "Stream ended with error",
+                ));
+            }
+        }
+    });
+
+    // Return streaming response immediately
+    debug_stream_response(rx)
 }
 
 // ============================================================================

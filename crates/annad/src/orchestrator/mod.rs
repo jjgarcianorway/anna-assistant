@@ -27,6 +27,9 @@ pub mod llm_client_v18;
 pub mod engine_v19;
 pub mod llm_client_v19;
 
+// v0.43.0 streaming debug
+pub mod streaming;
+
 // Legacy exports
 pub use engine::AnswerEngine;
 pub use research_engine::{
@@ -39,3 +42,9 @@ pub use engine_v18::AnswerEngineV18;
 
 // v0.19.0 exports (current)
 pub use engine_v19::AnswerEngineV19;
+
+// v0.43.0 streaming exports
+pub use streaming::{
+    create_channel_emitter, create_noop_emitter, response::debug_stream_response,
+    ChannelEmitter, NoopEmitter, SharedEmitter,
+};

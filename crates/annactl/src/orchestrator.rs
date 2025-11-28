@@ -146,12 +146,39 @@ fn format_update_info(config: &AnnaConfigV5) -> String {
         "manual"
     };
     let interval = config.update.effective_interval();
+    let interval_str = format_interval_human(interval);
     format!(
-        "{} ({}, every {}s)",
+        "{} ({}, every {})",
         mode,
         config.update.channel.as_str(),
-        interval
+        interval_str
     )
+}
+
+/// Format interval seconds as human-readable (e.g., "10m", "1h", "2h 30m")
+fn format_interval_human(seconds: u64) -> String {
+    const MINUTE: u64 = 60;
+    const HOUR: u64 = 60 * MINUTE;
+
+    if seconds < MINUTE {
+        format!("{}s", seconds)
+    } else if seconds < HOUR {
+        let mins = seconds / MINUTE;
+        let secs = seconds % MINUTE;
+        if secs > 0 {
+            format!("{}m {}s", mins, secs)
+        } else {
+            format!("{}m", mins)
+        }
+    } else {
+        let hours = seconds / HOUR;
+        let mins = (seconds % HOUR) / MINUTE;
+        if mins > 0 {
+            format!("{}h {}m", hours, mins)
+        } else {
+            format!("{}h", hours)
+        }
+    }
 }
 
 /// Process internal queries (help/version) via LLM pipeline

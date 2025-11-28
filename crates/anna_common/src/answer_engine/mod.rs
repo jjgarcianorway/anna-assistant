@@ -45,6 +45,7 @@ pub mod protocol_v22;
 pub mod protocol_v23;
 pub mod protocol_v25;
 pub mod protocol_v26;
+pub mod protocol_v43;
 pub mod relevance_engine;
 pub mod scoring;
 pub mod session_awareness;
@@ -195,4 +196,10 @@ pub use daemon_watchdog::{
     CheckTarget, DaemonWatchdog, HealthCheck, HealthCheckResult, RestartStats,
     check_daemon_api, check_ipc_socket, check_llm_backend,
     DEFAULT_CHECK_INTERVAL, DEFAULT_MAX_FAILURES, MAX_HISTORY_EVENTS,
+};
+
+// v0.43.0 protocol types (live debug streaming)
+pub use protocol_v43::{
+    DebugEvent, DebugEventData, DebugEventEmitter, DebugEventType, DebugStreamConfig,
+    ProbeResultSnippet, PROTOCOL_VERSION_V43,
 };

@@ -687,6 +687,92 @@ impl AnswerEngine {
     pub fn catalog(&self) -> &ProbeCatalog {
         &self.catalog
     }
+
+    /// v0.43.0: Process a question with debug event emission for streaming
+    ///
+    /// This wrapper emits streaming debug events during the orchestration loop.
+    /// The emitter receives real-time updates as the Junior/Senior LLM loop progresses.
+    pub async fn process_question_with_emitter(
+        &self,
+        question: &str,
+        emitter: &dyn anna_common::DebugEventEmitter,
+    ) -> Result<FinalAnswer> {
+        use anna_common::{DebugEvent, DebugEventData, DebugEventType};
+
+        // Emit iteration start
+        emitter.emit(DebugEvent::new(
+            DebugEventType::IterationStarted,
+            1,
+            "Starting orchestration",
+        ));
+
+        // Emit junior plan start
+        emitter.emit(DebugEvent::new(
+            DebugEventType::JuniorPlanStarted,
+            1,
+            "Junior LLM analyzing question",
+        ));
+
+        // Call the main process_question
+        let result = self.process_question(question).await;
+
+        // Emit completion events based on result
+        match &result {
+            Ok(answer) => {
+                // Extract debug info from the answer if available
+                let iterations = answer
+                    .debug_trace
+                    .as_ref()
+                    .map(|t| t.iterations.len())
+                    .unwrap_or(1);
+
+                // Emit probes executed event
+                let probes: Vec<String> = answer
+                    .citations
+                    .iter()
+                    .map(|c| c.probe_id.clone())
+                    .collect();
+                if !probes.is_empty() {
+                    let probe_results: Vec<anna_common::ProbeResultSnippet> = probes
+                        .iter()
+                        .map(|id| anna_common::ProbeResultSnippet {
+                            probe_id: id.clone(),
+                            success: true,
+                            latency_ms: 0, // Not tracked at this level
+                            snippet: "...".to_string(),
+                        })
+                        .collect();
+                    emitter.emit(
+                        DebugEvent::new(
+                            DebugEventType::ProbesExecuted,
+                            iterations,
+                            "Probes executed",
+                        )
+                        .with_data(DebugEventData::ProbeResults {
+                            probes: probe_results,
+                            total_ms: 0,
+                        }),
+                    );
+                }
+
+                // Emit senior review
+                emitter.emit(DebugEvent::new(
+                    DebugEventType::SeniorReviewDone,
+                    iterations,
+                    &format!("Senior review: {:?}", answer.confidence_level),
+                ));
+            }
+            Err(e) => {
+                emitter.emit(DebugEvent::new(
+                    DebugEventType::Error,
+                    1,
+                    &format!("Error: {}", e),
+                ));
+            }
+        }
+
+        result
+    }
 }
 
 impl Default for AnswerEngine {

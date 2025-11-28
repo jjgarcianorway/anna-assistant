@@ -26,6 +26,7 @@ mod llm_client;
 mod orchestrator;
 mod output;
 mod spinner;
+mod streaming_debug;
 
 use anna_common::{
     clear_current_request, generate_request_id, init_logger, is_version_newer, log_request,
@@ -179,6 +180,7 @@ fn print_banner() {
 
 /// Ask Anna a question - the core function
 /// v0.10.0: Uses evidence-based answer engine with LLM-A/LLM-B audit loop
+/// v0.43.0: Added live debug streaming with ANNA_DEBUG=1
 async fn run_ask(question: &str) -> Result<()> {
     // v0.8.0: Create request context with correlation ID
     let request_id = generate_request_id();
@@ -199,6 +201,11 @@ async fn run_ask(question: &str) -> Result<()> {
             "query_preview": if question.len() > 50 { &question[..50] } else { question }
         })),
     );
+
+    // v0.43.0: Check if debug streaming is enabled
+    if streaming_debug::is_debug_enabled() {
+        return run_ask_with_debug_stream(question, &request_id).await;
+    }
 
     // v0.15.8: Show user question with old-school style
     spinner::print_question(question);
@@ -298,6 +305,75 @@ async fn run_ask(question: &str) -> Result<()> {
 
             // Display error
             output::display_error(&format!("Failed to get answer: {}", e));
+            Err(e)
+        }
+    }
+}
+
+/// v0.43.0: Ask with live debug streaming
+/// Uses the streaming endpoint to display real-time debug events
+async fn run_ask_with_debug_stream(question: &str, request_id: &str) -> Result<()> {
+    let daemon = client::DaemonClient::new();
+
+    // Check daemon health first
+    if !daemon.is_healthy().await {
+        // Log daemon unavailable
+        logging::logger().write_daemon(
+            &LogEntry::new(
+                LogLevel::Error,
+                LogComponent::Request,
+                "Daemon not available",
+            )
+            .with_request_id(request_id),
+        );
+
+        // v0.6.0: ASCII-only error output
+        eprintln!("[ERROR] Anna daemon is not running");
+        eprintln!("   Run: {} to start", "sudo systemctl start annad".cyan());
+
+        // Log and clear request context
+        logging::with_current_request(|ctx| {
+            ctx.set_result(0.0, RequestStatus::Failed);
+            log_request(&ctx.to_trace());
+        });
+        clear_current_request();
+
+        std::process::exit(1);
+    }
+
+    // Stream debug events
+    match streaming_debug::stream_answer_with_debug(question).await {
+        Ok(_) => {
+            // v0.43.0: Log request completion
+            logging::with_current_request(|ctx| {
+                ctx.set_result(0.9, RequestStatus::Ok);
+                log_request(&ctx.to_trace());
+            });
+            clear_current_request();
+            Ok(())
+        }
+        Err(e) => {
+            // Log error
+            logging::logger().write_daemon(
+                &LogEntry::new(
+                    LogLevel::Error,
+                    LogComponent::Request,
+                    "Debug stream failed",
+                )
+                .with_request_id(request_id)
+                .with_fields(serde_json::json!({
+                    "error": e.to_string()
+                })),
+            );
+
+            logging::with_current_request(|ctx| {
+                ctx.set_result(0.0, RequestStatus::Failed);
+                log_request(&ctx.to_trace());
+            });
+            clear_current_request();
+
+            // Display error
+            output::display_error(&format!("Debug stream failed: {}", e));
             Err(e)
         }
     }
@@ -512,14 +588,14 @@ async fn run_status() -> Result<()> {
                 // Show update mode
                 if config.update.enabled {
                     println!(
-                        "  {}  Auto-update: {} (every {}s)",
+                        "  {}  Auto-update: {} (every {})",
                         "*".cyan(),
                         if config.core.mode == anna_common::CoreMode::Dev {
                             "dev mode"
                         } else {
                             "enabled"
                         },
-                        config.update.effective_interval()
+                        format_uptime_human(config.update.effective_interval())
                     );
                 } else {
                     println!("  {}  Auto-update: disabled", "-".dimmed());
