@@ -1,5 +1,6 @@
-//! Ollama LLM Client v0.77.0
+//! Ollama LLM Client v0.78.0
 //!
+//! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
 //! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl (not logs)
 //! v0.76.0: Minimal Junior prompt - radically reduced context for 4B models
 //!
@@ -7,6 +8,7 @@
 //! - "draft_answer": null
 //! - "text": null inside draft_answer
 //! - Missing optional fields
+//! - v0.78.0: Scores at top level OR nested under "scores"
 //!
 //! v0.16.1: On-demand model loading with keep_alive parameter to save resources.
 //! v0.16.4: Real-time debug output with [JUNIOR model] and [SENIOR model] labels
@@ -15,7 +17,7 @@
 use anna_common::{
     AuditScores, AuditVerdict, Citation, DebugEventEmitter, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
     OllamaChatRequest, OllamaChatResponse, OllamaMessage, ProbeRequest, ReliabilityScores,
-    LLM_A_SYSTEM_PROMPT_V76, LLM_B_SYSTEM_PROMPT,
+    LLM_A_SYSTEM_PROMPT_V76, LLM_B_SYSTEM_PROMPT_V78,
 };
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -255,11 +257,11 @@ impl OllamaClient {
     pub async fn call_llm_b(&self, user_prompt: &str) -> Result<(LlmBResponse, String)> {
         use std::io::Write;
 
-        // v0.76.0: Show timing and prompts
+        // v0.78.0: Use minimal Senior prompt for better compliance
         if is_debug_mode() {
             let mut stderr = std::io::stderr();
-            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO SENIOR ({} chars):", LLM_B_SYSTEM_PROMPT.len());
-            let _ = writeln!(stderr, "{}", LLM_B_SYSTEM_PROMPT);
+            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO SENIOR ({} chars):", LLM_B_SYSTEM_PROMPT_V78.len());
+            let _ = writeln!(stderr, "{}", LLM_B_SYSTEM_PROMPT_V78);
             let _ = stderr.flush();
             print_debug_prompt("SENIOR", &self.senior_model, user_prompt);
             let _ = writeln!(stderr, "\n>>> WAITING FOR SENIOR LLM RESPONSE...");
@@ -268,8 +270,9 @@ impl OllamaClient {
 
         let start = std::time::Instant::now();
 
+        // v0.78.0: Use minimal v78 Senior prompt
         let response_text = self
-            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT, user_prompt)
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V78, user_prompt)
             .await
             .context("LLM-B call failed")?;
 
@@ -295,19 +298,20 @@ impl OllamaClient {
         iteration: usize,
         emitter: &dyn DebugEventEmitter,
     ) -> Result<(LlmBResponse, String)> {
-        // v0.77.0: Emit prompt to streaming (displays in annactl, not logs)
+        // v0.78.0: Use minimal v78 Senior prompt, emit to streaming
         emitter.llm_prompt_sent(
             iteration,
             "senior",
             &self.senior_model,
-            LLM_B_SYSTEM_PROMPT,
+            LLM_B_SYSTEM_PROMPT_V78,
             user_prompt,
         );
 
         let start = std::time::Instant::now();
 
+        // v0.78.0: Use minimal v78 Senior prompt
         let response_text = self
-            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT, user_prompt)
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V78, user_prompt)
             .await
             .context("LLM-B call failed")?;
 
@@ -559,6 +563,7 @@ impl OllamaClient {
     }
 
     /// Convert serde_json::Value to LlmBResponse with null handling
+    /// v0.78.0: Senior JSON contract fix - handle both nested and top-level scores
     fn value_to_llm_b_response(&self, v: &Value) -> LlmBResponse {
         // Parse verdict - default to approve if unclear
         let verdict_str = v
@@ -578,18 +583,33 @@ impl OllamaClient {
             }
         };
 
-        // Parse scores
-        // v0.73.0: Missing scores default to 0.0, not 0.7 - no rubber-stamping
-        let scores = v
-            .get("scores")
-            .map(|s| {
-                AuditScores::new(
-                    s.get("evidence").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                    s.get("reasoning").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                    s.get("coverage").and_then(|x| x.as_f64()).unwrap_or(0.0),
-                )
-            })
-            .unwrap_or(AuditScores::new(0.0, 0.0, 0.0));
+        // v0.78.0: Parse scores - try nested "scores" object first, then top-level
+        // Previously we only checked v.get("scores") which failed when model returned
+        // {"evidence": 0.8, "reasoning": 1.0, "coverage": 1.0} at top level
+        let scores = if let Some(s) = v.get("scores") {
+            // Standard nested format: {"scores": {"evidence": 0.9, ...}}
+            AuditScores::new(
+                s.get("evidence").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                s.get("reasoning").and_then(|x| x.as_f64()).unwrap_or(0.0),
+                s.get("coverage").and_then(|x| x.as_f64()).unwrap_or(0.0),
+            )
+        } else {
+            // v0.78.0: Fallback - try top-level scores (model non-compliance)
+            let evidence = v.get("evidence").and_then(|x| x.as_f64()).unwrap_or(0.0);
+            let reasoning = v.get("reasoning").and_then(|x| x.as_f64()).unwrap_or(0.0);
+            let coverage = v.get("coverage").and_then(|x| x.as_f64()).unwrap_or(0.0);
+
+            // If any score was found at top level, use them
+            if evidence > 0.0 || reasoning > 0.0 || coverage > 0.0 {
+                info!("v0.78.0: Found scores at top-level (model non-compliance), using them");
+                AuditScores::new(evidence, reasoning, coverage)
+            } else {
+                // No scores found - default to conservative Yellow (0.75) not 0.0
+                // This prevents punishing good Junior answers due to Senior format issues
+                warn!("v0.78.0: No scores found - defaulting to conservative 0.75");
+                AuditScores::new(0.75, 0.75, 0.75)
+            }
+        };
 
         // Parse probe_requests
         let probe_requests = self.parse_probe_requests(v.get("probe_requests"));
@@ -610,10 +630,20 @@ impl OllamaClient {
             .and_then(|x| if x.is_null() { None } else { x.as_str() })
             .map(|s| s.to_string());
 
-        let fixed_answer = v
-            .get("fixed_answer")
-            .and_then(|x| if x.is_null() { None } else { x.as_str() })
-            .map(|s| s.to_string());
+        // v0.78.0: fixed_answer can be string OR object with {text, citations}
+        let fixed_answer = v.get("fixed_answer").and_then(|fa| {
+            if fa.is_null() {
+                None
+            } else if let Some(s) = fa.as_str() {
+                // Simple string format
+                Some(s.to_string())
+            } else if let Some(text) = fa.get("text").and_then(|t| t.as_str()) {
+                // Object format: {"text": "...", "citations": [...]}
+                Some(text.to_string())
+            } else {
+                None
+            }
+        });
 
         // v0.17.0: Extract Senior's synthesized answer text
         let text = v

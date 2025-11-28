@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.77.0
+//! Anna Common - Shared types and schemas for Anna v0.78.0
 //!
+//! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
 //! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl (not logs)
 //! v0.76.2: Dialog View events - LLM prompt/response events for real-time streaming
 //! v0.76.1: Full Debug Output - no truncation, show system prompts, show timing
@@ -98,6 +99,8 @@ pub use prompts::{
     LLM_A_SYSTEM_PROMPT_V19, LLM_B_SYSTEM_PROMPT_V19,
     // v0.76.0 prompts - Minimal Junior Planner
     generate_junior_prompt_v76, LLM_A_SYSTEM_PROMPT_V76, PROBE_LIST_V76,
+    // v0.78.0 prompts - Minimal Senior Auditor
+    generate_senior_prompt_v78, LLM_B_SYSTEM_PROMPT_V78,
 };
 pub use question_classifier::*;
 pub use reliability::*;

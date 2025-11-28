@@ -1,5 +1,7 @@
-//! Answer Engine v0.77.0
+//! Answer Engine v0.78.0
 //!
+//! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
+//!   Previously Senior ignored schema and we scored 0 even for correct answers.
 //! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl in real-time
 //! v0.76.0: Minimal Junior Planner - radically reduced prompt for 4B model performance
 //!
