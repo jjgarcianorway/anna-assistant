@@ -1,21 +1,29 @@
-//! Reliability Scoring v0.10.0
+//! Reliability Scoring v0.65.0
 //!
 //! Scoring formula: overall = 0.4 * evidence + 0.3 * reasoning + 0.3 * coverage
-//! Thresholds:
-//! - >= 0.90: GREEN (high confidence)
-//! - 0.70 - 0.90: YELLOW (medium confidence)
-//! - < 0.70: RED (refuse to answer)
+//!
+//! v0.65.0 Confidence Thresholds:
+//! - >= 90%: GREEN (high confidence) - answer with confidence
+//! - 70% - 89%: YELLOW (medium confidence) - answer with caveats
+//! - 60% - 69%: RED (low confidence) - warn user, may be unreliable
+//! - < 60%: REFUSED - hard gate, do not answer
+//!
+//! Display: Always show percentages, never raw floats.
 
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
-// Thresholds
+// Thresholds (v0.65.0)
 // ============================================================================
 
-/// Minimum score to accept an answer (below this = refuse)
+/// Hard minimum confidence to provide ANY answer (below this = refuse entirely)
+/// v0.65.0: This is a HARD GATE - answers below 60% are refused with a clear message
+pub const MIN_CONFIDENCE_TO_ANSWER: f64 = 0.60;
+
+/// Minimum score to accept as "reliable" (yellow zone floor)
 pub const MINIMUM_ACCEPTABLE_SCORE: f64 = 0.70;
 
-/// High confidence threshold (green)
+/// High confidence threshold (green zone floor)
 pub const HIGH_CONFIDENCE_THRESHOLD: f64 = 0.90;
 
 /// Maximum number of probe-audit loops before giving up
@@ -69,9 +77,15 @@ impl ReliabilityScores {
             + COVERAGE_WEIGHT * self.coverage
     }
 
-    /// Check if scores meet minimum threshold
+    /// Check if scores meet minimum threshold for reliable answer (70%+)
     pub fn is_acceptable(&self) -> bool {
         self.overall() >= MINIMUM_ACCEPTABLE_SCORE
+    }
+
+    /// v0.65.0: Check if confidence is above hard minimum (60%+)
+    /// Answers below this threshold should be REFUSED entirely
+    pub fn is_above_min_confidence(&self) -> bool {
+        self.overall() >= MIN_CONFIDENCE_TO_ANSWER
     }
 
     /// Check if scores indicate high confidence
@@ -79,29 +93,38 @@ impl ReliabilityScores {
         self.overall() >= HIGH_CONFIDENCE_THRESHOLD
     }
 
-    /// Get confidence level
+    /// Get confidence level with v0.65.0 thresholds
     pub fn confidence_level(&self) -> ScoreConfidence {
         let overall = self.overall();
         if overall >= HIGH_CONFIDENCE_THRESHOLD {
             ScoreConfidence::High
         } else if overall >= MINIMUM_ACCEPTABLE_SCORE {
             ScoreConfidence::Medium
-        } else {
+        } else if overall >= MIN_CONFIDENCE_TO_ANSWER {
             ScoreConfidence::Low
+        } else {
+            ScoreConfidence::Refused
         }
+    }
+
+    /// v0.65.0: Format confidence as percentage string (e.g., "85%")
+    pub fn as_percentage(&self) -> String {
+        format!("{:.0}%", self.overall() * 100.0)
     }
 }
 
-/// Score confidence level
+/// Score confidence level (v0.65.0)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ScoreConfidence {
-    /// >= 0.90
+    /// >= 90% - GREEN (high confidence)
     High,
-    /// 0.70 - 0.90
+    /// 70% - 89% - YELLOW (medium confidence)
     Medium,
-    /// < 0.70
+    /// 60% - 69% - RED (low confidence, warn user)
     Low,
+    /// < 60% - REFUSED (hard gate, do not answer)
+    Refused,
 }
 
 impl ScoreConfidence {
@@ -110,6 +133,17 @@ impl ScoreConfidence {
             ScoreConfidence::High => "HIGH",
             ScoreConfidence::Medium => "MEDIUM",
             ScoreConfidence::Low => "LOW",
+            ScoreConfidence::Refused => "REFUSED",
+        }
+    }
+
+    /// v0.65.0: Get display label with percentage ranges
+    pub fn display_label(&self) -> &'static str {
+        match self {
+            ScoreConfidence::High => "GREEN",
+            ScoreConfidence::Medium => "YELLOW",
+            ScoreConfidence::Low => "RED",
+            ScoreConfidence::Refused => "REFUSED",
         }
     }
 
@@ -119,7 +153,18 @@ impl ScoreConfidence {
             ScoreConfidence::High => "\x1b[32m",   // Green
             ScoreConfidence::Medium => "\x1b[33m", // Yellow
             ScoreConfidence::Low => "\x1b[31m",    // Red
+            ScoreConfidence::Refused => "\x1b[91m", // Bright Red
         }
+    }
+
+    /// v0.65.0: Check if this confidence level is acceptable (at least 60%)
+    pub fn is_acceptable(&self) -> bool {
+        !matches!(self, ScoreConfidence::Refused)
+    }
+
+    /// v0.65.0: Check if confidence requires a warning (red zone)
+    pub fn requires_warning(&self) -> bool {
+        matches!(self, ScoreConfidence::Low)
     }
 }
 
@@ -206,6 +251,7 @@ mod tests {
 
     #[test]
     fn test_thresholds() {
+        assert!((MIN_CONFIDENCE_TO_ANSWER - 0.60).abs() < 0.001);
         assert!((MINIMUM_ACCEPTABLE_SCORE - 0.70).abs() < 0.001);
         assert!((HIGH_CONFIDENCE_THRESHOLD - 0.90).abs() < 0.001);
         assert_eq!(MAX_LOOPS, 3);
@@ -246,14 +292,41 @@ mod tests {
 
     #[test]
     fn test_confidence_level() {
+        // >= 90% = High (GREEN)
         let high = ReliabilityScores::new(0.95, 0.95, 0.95);
         assert_eq!(high.confidence_level(), ScoreConfidence::High);
 
+        // 70% - 89% = Medium (YELLOW)
         let medium = ReliabilityScores::new(0.80, 0.80, 0.80);
         assert_eq!(medium.confidence_level(), ScoreConfidence::Medium);
 
-        let low = ReliabilityScores::new(0.50, 0.50, 0.50);
+        // 60% - 69% = Low (RED)
+        let low = ReliabilityScores::new(0.65, 0.65, 0.65);
         assert_eq!(low.confidence_level(), ScoreConfidence::Low);
+
+        // < 60% = Refused (HARD GATE)
+        let refused = ReliabilityScores::new(0.50, 0.50, 0.50);
+        assert_eq!(refused.confidence_level(), ScoreConfidence::Refused);
+    }
+
+    #[test]
+    fn test_is_above_min_confidence() {
+        // 65% should be above min (60%)
+        let above = ReliabilityScores::new(0.65, 0.65, 0.65);
+        assert!(above.is_above_min_confidence());
+
+        // 55% should be below min (60%)
+        let below = ReliabilityScores::new(0.55, 0.55, 0.55);
+        assert!(!below.is_above_min_confidence());
+    }
+
+    #[test]
+    fn test_as_percentage() {
+        let scores = ReliabilityScores::new(0.85, 0.85, 0.85);
+        assert_eq!(scores.as_percentage(), "85%");
+
+        let low = ReliabilityScores::new(0.654, 0.654, 0.654);
+        assert_eq!(low.as_percentage(), "65%");
     }
 
     #[test]
@@ -289,5 +362,22 @@ mod tests {
         assert_eq!(ScoreConfidence::High.ansi_color(), "\x1b[32m");
         assert_eq!(ScoreConfidence::Medium.ansi_color(), "\x1b[33m");
         assert_eq!(ScoreConfidence::Low.ansi_color(), "\x1b[31m");
+        assert_eq!(ScoreConfidence::Refused.ansi_color(), "\x1b[91m");
+    }
+
+    #[test]
+    fn test_score_confidence_acceptable() {
+        assert!(ScoreConfidence::High.is_acceptable());
+        assert!(ScoreConfidence::Medium.is_acceptable());
+        assert!(ScoreConfidence::Low.is_acceptable());
+        assert!(!ScoreConfidence::Refused.is_acceptable());
+    }
+
+    #[test]
+    fn test_score_confidence_requires_warning() {
+        assert!(!ScoreConfidence::High.requires_warning());
+        assert!(!ScoreConfidence::Medium.requires_warning());
+        assert!(ScoreConfidence::Low.requires_warning());
+        assert!(!ScoreConfidence::Refused.requires_warning()); // Refused isn't a warning, it's a hard gate
     }
 }

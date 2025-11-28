@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.50.0
+//! Anna Common - Shared types and schemas for Anna v0.65.0
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.
@@ -13,6 +13,7 @@
 //! v0.43.0: Live Debug Streaming View.
 //! v0.50.0: Brain Upgrade - 5-type classification, safe command policy, generic probes.
 //! v0.60.0: Conversational UX - live progress events, conversation logging, persona messaging.
+//! v0.65.0: Reliability Patch - confidence gating (60% min), stats tracking, daemon robustness.
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.

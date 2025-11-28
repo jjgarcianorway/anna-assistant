@@ -3,6 +3,7 @@
 //! v0.9.0: Added /v1/update/state endpoint for status command
 //! v0.10.0: Added /v1/answer endpoint for evidence-based answers
 //! v0.11.0: Added /v1/knowledge routes for fact queries
+//! v0.65.0: Added /v1/stats endpoint and stats recording for answer routes
 
 use crate::orchestrator::streaming::{create_channel_emitter, response::debug_stream_response, ChannelEmitter};
 use crate::orchestrator::AnswerEngine;
@@ -11,8 +12,8 @@ use crate::server::AppState;
 use anna_common::{
     load_update_state, AnnaConfigV5, DebugEvent, DebugEventData, DebugEventEmitter, DebugEventType,
     Fact, FactQuery, FinalAnswer, GetStateRequest, HealthResponse, InvalidateRequest,
-    ListProbesResponse, ProbeInfo, ProbeResult, RunProbeRequest, SetStateRequest, StateResponse,
-    UpdateStateResponse,
+    ListProbesResponse, PerformanceSnapshot, ProbeInfo, ProbeResult, RunProbeRequest,
+    SetStateRequest, StateResponse, UpdateStateResponse,
 };
 use axum::{
     extract::State,
@@ -246,11 +247,13 @@ pub fn answer_routes() -> Router<AppStateArc> {
 }
 
 /// v0.10.0: Process a question through the LLM-A/LLM-B audit loop
+/// v0.65.0: Records stats after each answer for progression tracking
 async fn answer_question(
     State(state): State<AppStateArc>,
     Json(req): Json<AnswerRequest>,
 ) -> Result<Json<FinalAnswer>, (StatusCode, String)> {
-    info!("Processing question: {}", req.question);
+    let start = Instant::now();
+    info!("[Q]  Processing: {}", req.question);
 
     // v0.11.0: Record query for telemetry
     if let Some(brain) = &state.brain {
@@ -308,16 +311,51 @@ async fn answer_question(
     }
 
     // Process the question
+    let question_clone = req.question.clone();
     match engine.process_question(&req.question).await {
         Ok(answer) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            let reliability = answer.scores.overall;
+            let iterations = answer.debug_trace.as_ref().map(|d| d.iterations.len()).unwrap_or(1) as u32;
+            // Note: DebugTrace only has iterations, junior_model, senior_model, duration_secs
+            let skills_used = 1u32; // Default for now
+            let was_decomposed = false; // Not tracked in current DebugTrace
+            let answer_success = reliability >= 0.60;
+
+            // v0.65.0: Record stats and persist
+            {
+                let mut stats = state.stats_engine.write().await;
+                let xp_gain = stats.record_answer(
+                    &question_clone,
+                    reliability,
+                    latency_ms,
+                    iterations,
+                    skills_used,
+                    was_decomposed,
+                    answer_success,
+                );
+                if let Err(e) = stats.save_default() {
+                    error!("[S]  Failed to save stats: {}", e);
+                }
+                if xp_gain.total > 0 {
+                    info!(
+                        "[S]  +{}XP  Level {} ({})  Reliability: {:.0}%",
+                        xp_gain.total,
+                        stats.level(),
+                        stats.title(),
+                        reliability * 100.0
+                    );
+                }
+            }
+
             info!(
-                "Answer ready: confidence={} ({:?})",
-                answer.scores.overall, answer.confidence_level
+                "[A]  Done in {}ms  Confidence: {:.0}% ({:?})",
+                latency_ms, reliability * 100.0, answer.confidence_level
             );
             Ok(Json(answer))
         }
         Err(e) => {
-            error!("Failed to process question: {}", e);
+            error!("[E]  Failed: {}", e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
         }
     }
@@ -573,4 +611,18 @@ async fn knowledge_stats(
         entity_types,
         last_updated,
     }))
+}
+
+// ============================================================================
+// Stats Routes (v0.65.0)
+// ============================================================================
+
+pub fn stats_routes() -> Router<AppStateArc> {
+    Router::new().route("/v1/stats", get(get_stats))
+}
+
+/// v0.65.0: Get performance stats and progression
+async fn get_stats(State(state): State<AppStateArc>) -> Json<PerformanceSnapshot> {
+    let stats = state.stats_engine.read().await;
+    Json(stats.snapshot())
 }

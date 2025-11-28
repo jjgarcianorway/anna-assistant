@@ -1,7 +1,9 @@
-//! Progress Display Module v0.60.0
+//! Progress Display Module v0.65.0
 //!
 //! Renders Anna events with beautiful terminal colors.
 //! Uses TRUE COLOR for rich visual feedback.
+//!
+//! v0.65.0: Updated thresholds - GREEN >= 90%, YELLOW 70-89%, RED 60-69%, REFUSED < 60%
 
 use anna_common::events::{Actor, AnnaEvent, ConversationLog, EventKind};
 use owo_colors::OwoColorize;
@@ -13,10 +15,15 @@ const JUNIOR_COLOR: (u8, u8, u8) = (100, 149, 237); // Cornflower blue
 const SENIOR_COLOR: (u8, u8, u8) = (255, 165, 0);   // Orange
 const SYSTEM_COLOR: (u8, u8, u8) = (128, 128, 128); // Gray
 
-/// Reliability colors
+/// Reliability colors (v0.65.0 thresholds)
+/// GREEN: >= 90% (high confidence)
+/// YELLOW: 70-89% (medium confidence)
+/// RED: 60-69% (low confidence, warn user)
+/// REFUSED: < 60% (hard gate, do not answer)
 const GREEN_COLOR: (u8, u8, u8) = (50, 205, 50);    // Lime green
 const YELLOW_COLOR: (u8, u8, u8) = (255, 215, 0);   // Gold
 const RED_COLOR: (u8, u8, u8) = (255, 69, 0);       // Red-orange
+const REFUSED_COLOR: (u8, u8, u8) = (220, 20, 60);  // Crimson (hard gate)
 
 /// Print a progress event with colors
 pub fn print_progress(event: &AnnaEvent) {

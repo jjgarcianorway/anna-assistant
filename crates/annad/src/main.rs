@@ -9,6 +9,7 @@
 //! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop.
 //! v0.11.0: Knowledge store, event-driven learning, user telemetry.
 //! v0.16.1: Dynamic model registry, on-demand LLM loading.
+//! v0.65.0: Daemon robustness - panic hooks, graceful shutdown.
 
 // Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
@@ -27,11 +28,14 @@ mod state;
 use anna_common::{AnnaConfigV5, KnowledgeStore};
 use anyhow::Result;
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // v0.65.0: Set up panic hook for robust error handling
+    setup_panic_hook();
+
     // Initialize tracing
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
@@ -142,4 +146,36 @@ async fn main() -> Result<()> {
 
     // Start server
     server::run(app_state).await
+}
+
+/// v0.65.0: Set up a panic hook for robust error handling
+/// Ensures panics are logged and don't silently kill the daemon
+fn setup_panic_hook() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        // Log the panic with full details
+        let location = panic_info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown location".to_string());
+
+        let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "unknown panic".to_string()
+        };
+
+        // Write to stderr (will be captured by systemd)
+        eprintln!();
+        eprintln!("[!!!]  PANIC in Anna Daemon");
+        eprintln!("[!!!]  Location: {}", location);
+        eprintln!("[!!!]  Message: {}", message);
+        eprintln!("[!!!]  v0.65.0: Daemon will exit. Check journalctl -u annad for details.");
+        eprintln!();
+
+        // Also call the default hook for backtrace
+        default_hook(panic_info);
+    }));
 }
