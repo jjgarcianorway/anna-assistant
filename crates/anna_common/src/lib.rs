@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.30.2
+//! Anna Common - Shared types and schemas for Anna v0.40.0
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.
@@ -7,6 +7,7 @@
 //! v0.30.0: Journalctl probe, question classifier, auto-update fix (ETXTBSY).
 //! v0.30.1: Debug output limit increased from 2000 to 8000 chars.
 //! v0.30.2: Fix update status display - use semver comparison, not string equality.
+//! v0.40.0: Generic skills, parameterized commands, skill learning, no probe zoo.
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -53,6 +54,7 @@ pub mod reliability;
 pub mod safety;
 pub mod schemas;
 pub mod self_health;
+pub mod skills;
 pub mod types;
 pub mod updater;
 
@@ -80,5 +82,13 @@ pub use reliability::*;
 pub use safety::*;
 pub use schemas::*;
 pub use self_health::*;
+// Explicit skills exports to avoid naming conflicts
+pub use skills::{
+    builtin_skills, execute_safe_command, execute_safe_command_async, execute_skill,
+    init_builtin_skills, validate_params, AnnaLevel, ParamSchema, ParamType, Skill, SkillExecutionResult,
+    SkillQuery, SkillStats, SkillStore, SKILLS_DIR, SKILL_SCHEMA_VERSION,
+};
+// Alias the skills SystemStats to avoid conflict with knowledge::SystemStats
+pub use skills::SystemStats as SkillSystemStats;
 pub use types::*;
 pub use updater::*;

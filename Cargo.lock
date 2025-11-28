@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "0.30.2"
+version = "0.40.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -52,13 +52,14 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror",
+ "tokio",
  "toml",
  "uuid",
 ]
 
 [[package]]
 name = "annactl"
-version = "0.30.2"
+version = "0.40.0"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -79,7 +80,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.30.2"
+version = "0.40.0"
 dependencies = [
  "anna_common",
  "anyhow",
