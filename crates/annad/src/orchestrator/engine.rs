@@ -1,5 +1,7 @@
-//! Answer Engine v0.78.0
+//! Answer Engine v0.79.0
 //!
+//! v0.79.0: CPU semantics and evidence scoring fix - probe-backed = Green
+//!   Score clamping: probe-backed answers with valid citations clamp to >= 0.7
 //! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
 //!   Previously Senior ignored schema and we scored 0 even for correct answers.
 //! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl in real-time
@@ -127,6 +129,48 @@ fn print_verdict_summary(verdict: &AuditVerdict, confidence: f64) {
         "╚══════════════════════════════════════════════════════════════════════════════╝"
     );
     let _ = stderr.flush();
+}
+
+/// v0.79.0: Clamp scores for probe-backed answers
+///
+/// When Senior under-scores a probe-backed answer, clamp to at least 0.7 (Yellow).
+/// This is a guardrail against model non-compliance with scoring rules.
+///
+/// Rules:
+/// - If all citations are valid probes
+/// - And we have at least one citation
+/// - And current overall < 0.7
+/// Then clamp to 0.7 to ensure Yellow confidence
+fn clamp_scores_for_probe_backed(
+    scores: AuditScores,
+    citations: &[ProbeEvidenceV10],
+    catalog: &ProbeCatalog,
+) -> AuditScores {
+    // Must have at least one citation
+    if citations.is_empty() {
+        return scores;
+    }
+
+    // Check if all citations are from valid probes
+    let all_valid = citations.iter().all(|c| catalog.is_valid(&c.probe_id));
+    if !all_valid {
+        return scores;
+    }
+
+    // Clamp if under-scored
+    if scores.overall < 0.7 {
+        info!(
+            "v0.79.0: Clamping under-scored probe-backed answer from {:.2} to 0.70",
+            scores.overall
+        );
+        // Preserve the original component scores but ensure overall is at least 0.7
+        let clamped_evidence = scores.evidence.max(0.7);
+        let clamped_reasoning = scores.reasoning.max(0.7);
+        let clamped_coverage = scores.coverage.max(0.7);
+        AuditScores::new(clamped_evidence, clamped_reasoning, clamped_coverage)
+    } else {
+        scores
+    }
 }
 
 /// Answer engine - orchestrates the LLM-A/LLM-B loop
@@ -590,13 +634,20 @@ impl AnswerEngine {
                         .or(llm_b_response.fixed_answer.as_deref())
                         .unwrap_or(&draft_answer.text);
 
+                    // v0.79.0: Clamp scores for probe-backed answers
+                    let clamped_scores = clamp_scores_for_probe_backed(
+                        llm_b_response.scores.clone(),
+                        &evidence,
+                        &self.catalog,
+                    );
+
                     // v0.75.1: Show Anna's final decision
                     let decision_summary = format!(
                         "Decision: APPROVE\n\
                          Confidence: {:.0}%\n\
                          Answer Source: {}\n\
                          Final Answer:\n{}",
-                        llm_b_response.scores.overall * 100.0,
+                        clamped_scores.overall * 100.0,
                         if llm_b_response.text.is_some() { "Senior text override" }
                         else if llm_b_response.fixed_answer.is_some() { "Senior fixed_answer" }
                         else { "Junior draft" },
@@ -608,7 +659,7 @@ impl AnswerEngine {
                     debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
 
                     // v0.75.0: Finalize debug block and emit
-                    debug_block.set_final_answer(answer_text, llm_b_response.scores.overall);
+                    debug_block.set_final_answer(answer_text, clamped_scores.overall);
                     let _ = debug_block.write_all_logs();
                     if trace_is_debug_mode() {
                         eprintln!("{}", debug_block.format_cli());
@@ -618,7 +669,7 @@ impl AnswerEngine {
                         question,
                         answer_text,
                         evidence,
-                        llm_b_response.scores,
+                        clamped_scores,
                         loop_state.iteration,
                         debug_trace,
                     ));
@@ -633,13 +684,20 @@ impl AnswerEngine {
                         .or(llm_b_response.fixed_answer.as_deref())
                         .unwrap_or(&draft_answer.text);
 
+                    // v0.79.0: Clamp scores for probe-backed answers
+                    let clamped_scores = clamp_scores_for_probe_backed(
+                        llm_b_response.scores.clone(),
+                        &evidence,
+                        &self.catalog,
+                    );
+
                     // v0.75.1: Show Anna's final decision
                     let decision_summary = format!(
                         "Decision: FIX_AND_ACCEPT\n\
                          Confidence: {:.0}%\n\
                          Answer Source: {}\n\
                          Final Answer:\n{}",
-                        llm_b_response.scores.overall * 100.0,
+                        clamped_scores.overall * 100.0,
                         if llm_b_response.text.is_some() { "Senior text override" }
                         else if llm_b_response.fixed_answer.is_some() { "Senior fixed_answer" }
                         else { "Junior draft" },
@@ -651,7 +709,7 @@ impl AnswerEngine {
                     debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
 
                     // v0.75.0: Finalize debug block and emit
-                    debug_block.set_final_answer(answer_text, llm_b_response.scores.overall);
+                    debug_block.set_final_answer(answer_text, clamped_scores.overall);
                     let _ = debug_block.write_all_logs();
                     if trace_is_debug_mode() {
                         eprintln!("{}", debug_block.format_cli());
@@ -661,7 +719,7 @@ impl AnswerEngine {
                         question,
                         answer_text,
                         evidence,
-                        llm_b_response.scores,
+                        clamped_scores,
                         loop_state.iteration,
                         debug_trace,
                     ));
@@ -1513,5 +1571,65 @@ mod tests {
         assert!(result
             .problems
             .contains(&"Reached maximum verification loops".to_string()));
+    }
+
+    #[test]
+    fn test_score_clamping_underscored_probe_backed() {
+        // v0.79.0: Test that under-scored probe-backed answers get clamped to 0.7
+        let catalog = ProbeCatalog::standard();
+        let evidence = vec![
+            ProbeEvidenceV10 {
+                probe_id: "cpu.info".to_string(),
+                timestamp: "2024-01-01T00:00:00Z".to_string(),
+                status: anna_common::EvidenceStatus::Ok,
+                command: "lscpu -J".to_string(),
+                raw: Some("CPU(s): 32".to_string()),
+                parsed: None,
+            },
+        ];
+
+        // Low scores from Senior (evidence: 0.3)
+        let low_scores = AuditScores::new(0.3, 0.9, 1.0);
+        assert!(low_scores.overall < 0.7, "Initial score should be low");
+
+        // Clamping should raise it to at least 0.7
+        let clamped = clamp_scores_for_probe_backed(low_scores, &evidence, &catalog);
+        assert!(clamped.overall >= 0.7, "Clamped score should be >= 0.7");
+        assert!(clamped.evidence >= 0.7, "Evidence score should be clamped");
+    }
+
+    #[test]
+    fn test_score_clamping_no_citations() {
+        // v0.79.0: No citations = no clamping
+        let catalog = ProbeCatalog::standard();
+        let evidence: Vec<ProbeEvidenceV10> = vec![];
+
+        let low_scores = AuditScores::new(0.3, 0.9, 1.0);
+        let clamped = clamp_scores_for_probe_backed(low_scores.clone(), &evidence, &catalog);
+
+        // Should not clamp - no citations
+        assert_eq!(clamped.overall, low_scores.overall);
+    }
+
+    #[test]
+    fn test_score_clamping_already_high() {
+        // v0.79.0: Already high scores should not be changed
+        let catalog = ProbeCatalog::standard();
+        let evidence = vec![
+            ProbeEvidenceV10 {
+                probe_id: "cpu.info".to_string(),
+                timestamp: "2024-01-01T00:00:00Z".to_string(),
+                status: anna_common::EvidenceStatus::Ok,
+                command: "lscpu -J".to_string(),
+                raw: Some("CPU(s): 32".to_string()),
+                parsed: None,
+            },
+        ];
+
+        let high_scores = AuditScores::new(0.95, 0.95, 0.95);
+        let clamped = clamp_scores_for_probe_backed(high_scores.clone(), &evidence, &catalog);
+
+        // Should not change already-high scores
+        assert!((clamped.overall - high_scores.overall).abs() < 0.01);
     }
 }

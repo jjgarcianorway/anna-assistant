@@ -29,8 +29,11 @@ pub mod llm_b_v19;
 // v0.76.0 - Minimal Junior Planner (current)
 pub mod llm_a_v76;
 
-// v0.78.0 - Minimal Senior Auditor (current)
+// v0.78.0 - Minimal Senior Auditor (legacy)
 pub mod llm_b_v78;
+
+// v0.79.0 - CPU semantics and scoring fix (current)
+pub mod llm_b_v79;
 
 // Re-export v0.14.0 (legacy)
 pub use llm_a::{generate_llm_a_prompt, generate_llm_a_prompt_with_iteration, LLM_A_SYSTEM_PROMPT};
@@ -58,7 +61,12 @@ pub use llm_a_v76::{
     generate_junior_prompt_v76, LLM_A_SYSTEM_PROMPT_V76, PROBE_LIST_V76,
 };
 
-// Re-export v0.78.0 (current) - Minimal Senior Auditor
+// Re-export v0.78.0 (legacy) - Minimal Senior Auditor
 pub use llm_b_v78::{
     generate_senior_prompt_v78, LLM_B_SYSTEM_PROMPT_V78,
+};
+
+// Re-export v0.79.0 (current) - CPU semantics and scoring fix
+pub use llm_b_v79::{
+    generate_senior_prompt_v79, LLM_B_SYSTEM_PROMPT_V79,
 };

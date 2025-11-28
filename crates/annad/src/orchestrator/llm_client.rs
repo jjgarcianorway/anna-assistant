@@ -1,5 +1,6 @@
-//! Ollama LLM Client v0.78.0
+//! Ollama LLM Client v0.79.0
 //!
+//! v0.79.0: CPU semantics and evidence scoring fix - probe-backed = Green
 //! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
 //! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl (not logs)
 //! v0.76.0: Minimal Junior prompt - radically reduced context for 4B models
@@ -17,7 +18,7 @@
 use anna_common::{
     AuditScores, AuditVerdict, Citation, DebugEventEmitter, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
     OllamaChatRequest, OllamaChatResponse, OllamaMessage, ProbeRequest, ReliabilityScores,
-    LLM_A_SYSTEM_PROMPT_V76, LLM_B_SYSTEM_PROMPT_V78,
+    LLM_A_SYSTEM_PROMPT_V76, LLM_B_SYSTEM_PROMPT_V79,
 };
 use anyhow::{Context, Result};
 use serde_json::Value;
@@ -257,11 +258,11 @@ impl OllamaClient {
     pub async fn call_llm_b(&self, user_prompt: &str) -> Result<(LlmBResponse, String)> {
         use std::io::Write;
 
-        // v0.78.0: Use minimal Senior prompt for better compliance
+        // v0.79.0: Use v79 Senior prompt with CPU semantics and scoring rules
         if is_debug_mode() {
             let mut stderr = std::io::stderr();
-            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO SENIOR ({} chars):", LLM_B_SYSTEM_PROMPT_V78.len());
-            let _ = writeln!(stderr, "{}", LLM_B_SYSTEM_PROMPT_V78);
+            let _ = writeln!(stderr, "\n>>> SYSTEM PROMPT TO SENIOR ({} chars):", LLM_B_SYSTEM_PROMPT_V79.len());
+            let _ = writeln!(stderr, "{}", LLM_B_SYSTEM_PROMPT_V79);
             let _ = stderr.flush();
             print_debug_prompt("SENIOR", &self.senior_model, user_prompt);
             let _ = writeln!(stderr, "\n>>> WAITING FOR SENIOR LLM RESPONSE...");
@@ -270,9 +271,9 @@ impl OllamaClient {
 
         let start = std::time::Instant::now();
 
-        // v0.78.0: Use minimal v78 Senior prompt
+        // v0.79.0: Use v79 Senior prompt with CPU semantics and scoring rules
         let response_text = self
-            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V78, user_prompt)
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V79, user_prompt)
             .await
             .context("LLM-B call failed")?;
 
@@ -298,20 +299,20 @@ impl OllamaClient {
         iteration: usize,
         emitter: &dyn DebugEventEmitter,
     ) -> Result<(LlmBResponse, String)> {
-        // v0.78.0: Use minimal v78 Senior prompt, emit to streaming
+        // v0.79.0: Use v79 Senior prompt with CPU semantics and scoring rules, emit to streaming
         emitter.llm_prompt_sent(
             iteration,
             "senior",
             &self.senior_model,
-            LLM_B_SYSTEM_PROMPT_V78,
+            LLM_B_SYSTEM_PROMPT_V79,
             user_prompt,
         );
 
         let start = std::time::Instant::now();
 
-        // v0.78.0: Use minimal v78 Senior prompt
+        // v0.79.0: Use v79 Senior prompt with CPU semantics and scoring rules
         let response_text = self
-            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V78, user_prompt)
+            .call_ollama(&self.senior_model, LLM_B_SYSTEM_PROMPT_V79, user_prompt)
             .await
             .context("LLM-B call failed")?;
 

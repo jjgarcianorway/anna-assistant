@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.78.0
+//! Anna Common - Shared types and schemas for Anna v0.79.0
 //!
+//! v0.79.0: CPU semantics and evidence scoring fix - probe-backed = Green
 //! v0.78.0: Senior JSON Fix - minimal prompt, robust parsing, fallback scoring
 //! v0.77.0: Dialog View - LLM prompts/responses streamed to annactl (not logs)
 //! v0.76.2: Dialog View events - LLM prompt/response events for real-time streaming
@@ -55,6 +56,7 @@
 
 pub mod answer_engine;
 pub mod command_whitelist;
+pub mod cpu_summary;
 pub mod events;
 pub mod config;
 pub mod config_mapper;
@@ -99,9 +101,13 @@ pub use prompts::{
     LLM_A_SYSTEM_PROMPT_V19, LLM_B_SYSTEM_PROMPT_V19,
     // v0.76.0 prompts - Minimal Junior Planner
     generate_junior_prompt_v76, LLM_A_SYSTEM_PROMPT_V76, PROBE_LIST_V76,
-    // v0.78.0 prompts - Minimal Senior Auditor
+    // v0.78.0 prompts - Minimal Senior Auditor (legacy)
     generate_senior_prompt_v78, LLM_B_SYSTEM_PROMPT_V78,
+    // v0.79.0 prompts - CPU semantics and scoring fix
+    generate_senior_prompt_v79, LLM_B_SYSTEM_PROMPT_V79,
 };
+// CPU Summary helper (v0.79.0)
+pub use cpu_summary::{CpuSummary, summarize_cpu, summarize_cpu_from_text};
 pub use question_classifier::*;
 pub use reliability::*;
 pub use safety::*;
