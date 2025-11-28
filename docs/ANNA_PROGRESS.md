@@ -146,7 +146,19 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
-## v0.28.0 - Planned
+## v0.28.0 - Cross-Device Auto-Update Fix & ASCII Aesthetic
+
+[x] Fixed EXDEV error 18 (cross-device link) in auto-update
+[x] Copy fallback when /tmp and /usr/local/bin on different filesystems
+[x] Replaced all emojis with ASCII indicators for hacker aesthetic
+[x] Log output now uses [*], [+], [-], [!], [>], [#] instead of emojis
+
+**Tests**: 75 passed, 0 failed
+**Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.28.0
+
+---
+
+## v0.29.0 - Planned
 
 [ ] Real-time auto-update integration testing
 [ ] Watchdog runtime integration with annad

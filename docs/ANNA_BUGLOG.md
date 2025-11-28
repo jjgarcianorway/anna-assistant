@@ -10,6 +10,33 @@
 
 ## Current Issues
 
+### [FIXED] Cross-device link error breaks auto-update
+
+**Found in**: v0.26.0
+**Fixed in**: v0.28.0
+**Impact**: Auto-update downloads but fails to replace binaries
+
+**Details**: The auto-update feature downloaded new binaries to `/tmp` but `fs::rename()` failed when trying to move files to `/usr/local/bin` because they are on different filesystems. Linux's rename syscall doesn't work across filesystem boundaries.
+
+**Error message**: `Invalid cross-device link (os error 18)` (EXDEV)
+
+**Fix**: Detect EXDEV error and fall back to copy+delete strategy:
+
+```rust
+match fs::rename(source, &target_path) {
+    Ok(()) => { /* success */ }
+    Err(e) if e.raw_os_error() == Some(18) => {
+        // EXDEV: Cross-device link - fall back to copy
+        fs::copy(source, &target_path)?;
+        fs::set_permissions(&target_path, fs::Permissions::from_mode(0o755))?;
+        fs::remove_file(source)?;
+    }
+    Err(e) => { /* restore backup */ }
+}
+```
+
+---
+
 ### [FIXED] Spinner causes SSH session crashes during long LLM calls
 
 **Found in**: v0.26.0
