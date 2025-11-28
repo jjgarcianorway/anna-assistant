@@ -1,4 +1,4 @@
-# Anna v0.23.0
+# Anna v0.26.0
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
@@ -353,6 +353,9 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| v0.26.0 | Auto-update Reliability, Self-Healing Watchdog, Structured Tracing |
+| v0.25.0 | Relevance First, Usage Tracking, Session Awareness, Disambiguation |
+| v0.24.0 | App Awareness, Stats Engine, Faster Answers, Default Apps Registry |
 | v0.23.0 | System Brain, User Brain & Idle Learning |
 | v0.22.0 | Fact Brain & Question Decomposition (TTLs, validated facts) |
 | v0.21.0 | Hybrid answer pipeline (fast-first, selective probing, no loops) |

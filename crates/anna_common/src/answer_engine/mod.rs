@@ -8,6 +8,8 @@
 //! v0.22.0: Fact Brain & Question Decomposition (TTLs, validated facts)
 //! v0.23.0: System Brain, User Brain & Idle Learning
 //! v0.24.0: App Awareness, Stats & Faster Answers
+//! v0.25.0: Relevance First, Idle Learning, No Hard-Coding
+//! v0.26.0: Auto-update Reliability, Self-Healing, Logging
 //!
 //! Features:
 //! - Deterministic probe usage
@@ -22,8 +24,13 @@
 //! - v0.22.0: TTL-based facts, question decomposition, semantic linking
 //! - v0.23.0: System/User knowledge layers, idle learning, safe file scanning
 //! - v0.24.0: WM/app awareness, MIME defaults, stats engine, answer caching
+//! - v0.25.0: Relevance-first, usage tracking, session awareness, disambiguation
+//! - v0.26.0: Auto-update manager, daemon watchdog, self-healing, tracing
 
+pub mod ambiguity_resolver;
 pub mod app_awareness;
+pub mod auto_update;
+pub mod daemon_watchdog;
 pub mod default_apps;
 pub mod evidence;
 pub mod faster_answers;
@@ -36,8 +43,13 @@ pub mod protocol_v19;
 pub mod protocol_v21;
 pub mod protocol_v22;
 pub mod protocol_v23;
+pub mod protocol_v25;
+pub mod protocol_v26;
+pub mod relevance_engine;
 pub mod scoring;
+pub mod session_awareness;
 pub mod stats_engine;
+pub mod usage_tracking;
 
 pub use evidence::*;
 pub use protocol::*;
@@ -131,4 +143,56 @@ pub use faster_answers::{
     CachedAnswer, ClassifiedQuestion, DetectedEntity, EntityType as FastEntityType,
     FastAnswerConfig, FastPath, FastPathResult as FastPathAnswerResult, QuestionPattern,
     QuestionType as FastQuestionType,
+};
+
+// v0.25.0 protocol types (current)
+pub use protocol_v25::{
+    AmbiguityCandidate, AmbiguityResolution, AmbiguityType, AnswerPath, DetectedAmbiguity,
+    DiscoverySource, RankedEntity, RankedEntityType, RelevanceFactors, RelevanceScore,
+    RelevantAnswerStrategy, RelevantMission, UsageEvent, UsageEventType, PROTOCOL_VERSION_V25,
+};
+
+// v0.25.0 relevance engine
+pub use relevance_engine::{
+    EntityMetadata, RankingEngine, RelevanceCalculator, RelevanceConfig, UsageStats,
+    DEFAULT_MIN_USAGE_FOR_FREQUENCY, DEFAULT_RECENCY_HALFLIFE_SECS, DEFAULT_SCORE_REFRESH_INTERVAL,
+};
+
+// v0.25.0 usage tracking
+pub use usage_tracking::{
+    EntityUsageStats, PatternDetector, SequencePattern, UsageTracker, UsageTrackingConfig,
+    DEFAULT_BATCH_SIZE, DEFAULT_MAX_EVENTS, DEFAULT_PERIOD_WINDOW_SECS,
+};
+
+// v0.25.0 session awareness
+pub use session_awareness::{
+    AppSessionUsage, FocusedApp, SessionConfig, SessionContext, SessionManager, SessionState,
+    SessionSummary, WorkspaceInfo, DEFAULT_MAX_SESSIONS, DEFAULT_SESSION_TIMEOUT_SECS,
+};
+
+// v0.25.0 ambiguity resolver
+pub use ambiguity_resolver::{
+    AmbiguityConfig, AmbiguityDetector, DisambiguationPrompt, PromptBuilder, PromptOption,
+    RememberedResolution, ResolutionMemory, DEFAULT_MAX_CANDIDATES, DEFAULT_MAX_REMEMBERED,
+    DEFAULT_UNAMBIGUOUS_THRESHOLD,
+};
+
+// v0.26.0 protocol types (current)
+pub use protocol_v26::{
+    BinaryChecksum, DownloadState, HealingEvent, HealingEventType, HealingTrace, InstallStrategy,
+    LogComponentV26, UpdateEvent, UpdateEventType, UpdateProgress, UpdateResultV26, UpdateTrace,
+    WatchdogConfig, WatchdogState, PROTOCOL_VERSION_V26,
+};
+
+// v0.26.0 auto-update manager
+pub use auto_update::{
+    AutoUpdateConfig, AutoUpdateManager, DownloadedBinary, verify_checksum,
+    DEFAULT_CHUNK_SIZE, DEFAULT_DOWNLOAD_DIR, DEFAULT_MAX_RETRIES, DEFAULT_STAGING_DIR,
+};
+
+// v0.26.0 daemon watchdog
+pub use daemon_watchdog::{
+    CheckTarget, DaemonWatchdog, HealthCheck, HealthCheckResult, RestartStats,
+    check_daemon_api, check_ipc_socket, check_llm_backend,
+    DEFAULT_CHECK_INTERVAL, DEFAULT_MAX_FAILURES, MAX_HISTORY_EVENTS,
 };
