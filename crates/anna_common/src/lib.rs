@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.16.1
+//! Anna Common - Shared types and schemas for Anna v0.19.0
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -16,6 +16,8 @@
 //! v0.15.0: Research Loop Engine - Junior/Senior LLM with command whitelist.
 //! v0.16.0: Qwen3 default, granular hardware tiers.
 //! v0.16.1: Dynamic model registry, on-demand LLM loading, fact validation.
+//! v0.18.0: Step-by-step orchestration (one action per iteration).
+//! v0.19.0: Subproblem decomposition, fact-aware planning, Senior as mentor.
 
 // Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
@@ -52,6 +54,10 @@ pub use prompts::{
     LLM_A_SYSTEM_PROMPT, LLM_B_SYSTEM_PROMPT,
     // v0.18.0 prompts
     generate_junior_prompt, generate_senior_prompt, LLM_A_SYSTEM_PROMPT_V18, LLM_B_SYSTEM_PROMPT_V18,
+    // v0.19.0 prompts
+    generate_junior_decomposition_prompt, generate_junior_post_mentor_prompt,
+    generate_junior_work_prompt, generate_senior_mentor_prompt, generate_senior_review_prompt,
+    LLM_A_SYSTEM_PROMPT_V19, LLM_B_SYSTEM_PROMPT_V19,
 };
 pub use reliability::*;
 pub use safety::*;

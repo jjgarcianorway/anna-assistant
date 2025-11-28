@@ -1,4 +1,4 @@
-//! Answer Orchestration v0.18.0
+//! Answer Orchestration v0.19.0
 //!
 //! The orchestrator manages the LLM-A -> Probe -> LLM-B loop:
 //! 1. Parse question with LLM-A
@@ -10,6 +10,7 @@
 //! v0.12.2: Added fallback answer extraction when LLM fails
 //! v0.15.0: Research loop engine with command whitelist
 //! v0.18.0: Step-by-step orchestration (one action per iteration)
+//! v0.19.0: Subproblem decomposition, fact-aware planning, Senior as mentor
 
 // Legacy engines
 pub mod engine;
@@ -18,9 +19,13 @@ pub mod llm_client;
 pub mod probe_executor;
 pub mod research_engine;
 
-// v0.18.0 step-by-step engine
+// v0.18.0 step-by-step engine (legacy)
 pub mod engine_v18;
 pub mod llm_client_v18;
+
+// v0.19.0 subproblem decomposition engine (current)
+pub mod engine_v19;
+pub mod llm_client_v19;
 
 // Legacy exports
 pub use engine::AnswerEngine;
@@ -29,5 +34,8 @@ pub use research_engine::{
     MAX_LLM_B_PASSES,
 };
 
-// v0.18.0 exports
+// v0.18.0 exports (legacy)
 pub use engine_v18::AnswerEngineV18;
+
+// v0.19.0 exports (current)
+pub use engine_v19::AnswerEngineV19;
