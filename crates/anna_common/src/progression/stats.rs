@@ -1,4 +1,4 @@
-//! Statistics Engine v0.40.1
+//! Statistics Engine v0.42.0
 //!
 //! Tracks Anna's performance metrics for RPG progression and self-improvement.
 //!
@@ -7,6 +7,8 @@
 //! - Global: total questions, success rate, avg reliability, latency, iterations
 //! - Per-question patterns: improvement tracking for repeated questions
 //! - Skill usage: integrated with SkillStore
+//!
+//! v0.42.0: Added strike_count and difficulty_score for pain-driven learning.
 
 use super::levels::AnnaProgression;
 use super::xp::{XpCalculator, XpGain, XpInput};
@@ -104,12 +106,33 @@ pub struct PatternStats {
     pub last_seen: DateTime<Utc>,
     /// Whether this pattern has improved over time
     pub has_improved: bool,
+    /// v0.42.0: Strike count (consecutive low reliability answers)
+    /// Increases when R < 0.70, resets on R >= 0.70
+    #[serde(default)]
+    pub strike_count: u32,
+    /// v0.42.0: Difficulty score [0.0, 1.0]
+    /// Higher = harder question, based on failure history
+    #[serde(default)]
+    pub difficulty_score: f64,
 }
 
 impl PatternStats {
+    /// Strike threshold - below this reliability, add a strike
+    pub const STRIKE_THRESHOLD: f64 = 0.70;
+    /// Max difficulty score
+    pub const MAX_DIFFICULTY: f64 = 1.0;
+    /// Difficulty increase per strike
+    pub const DIFFICULTY_PER_STRIKE: f64 = 0.1;
+
     /// Create new pattern stats
     pub fn new(pattern_hash: &str, reliability: f64, latency_ms: u64) -> Self {
         let now = Utc::now();
+        let initial_strike = if reliability < Self::STRIKE_THRESHOLD { 1 } else { 0 };
+        let initial_difficulty = if reliability < Self::STRIKE_THRESHOLD {
+            Self::DIFFICULTY_PER_STRIKE
+        } else {
+            0.0
+        };
         Self {
             pattern_hash: pattern_hash.to_string(),
             times_seen: 1,
@@ -120,6 +143,8 @@ impl PatternStats {
             first_seen: now,
             last_seen: now,
             has_improved: false,
+            strike_count: initial_strike,
+            difficulty_score: initial_difficulty,
         }
     }
 
@@ -140,10 +165,32 @@ impl PatternStats {
             self.best_latency_ms = latency_ms;
         }
 
+        // v0.42.0: Update strike count and difficulty
+        if reliability < Self::STRIKE_THRESHOLD {
+            self.strike_count += 1;
+            self.difficulty_score = (self.difficulty_score + Self::DIFFICULTY_PER_STRIKE)
+                .min(Self::MAX_DIFFICULTY);
+        } else {
+            // Reset strike count on successful answer
+            self.strike_count = 0;
+            // Slowly reduce difficulty on success
+            self.difficulty_score = (self.difficulty_score - 0.05).max(0.0);
+        }
+
         // Update currents
         self.last_reliability = reliability;
         self.last_latency_ms = latency_ms;
         self.last_seen = Utc::now();
+    }
+
+    /// Check if pattern is "difficult" (difficulty_score >= 0.5)
+    pub fn is_difficult(&self) -> bool {
+        self.difficulty_score >= 0.5
+    }
+
+    /// Check if pattern needs remediation (3+ strikes)
+    pub fn needs_remediation(&self) -> bool {
+        self.strike_count >= 3
     }
 }
 

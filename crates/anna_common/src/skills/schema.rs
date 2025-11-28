@@ -1,7 +1,9 @@
-//! Skill Schema v0.40.0
+//! Skill Schema v0.42.0
 //!
 //! Defines the data structures for Anna's learned skills.
 //! Skills are parameterized command templates that can be reused.
+//!
+//! v0.42.0: Added trust_score for pain-driven learning.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -72,6 +74,10 @@ pub struct SkillStats {
     pub avg_latency_ms: u64,
     /// Reliability score [0.0, 1.0]
     pub reliability_score: f64,
+    /// Trust score [0, 100] - v0.42.0 pain tracking
+    /// Starts at 50, increases on success, decreases on failure
+    /// Skill is "untrusted" if trust_score < 40
+    pub trust_score: u8,
     /// Last used timestamp
     pub last_used: Option<DateTime<Utc>>,
     /// First learned timestamp
@@ -79,12 +85,22 @@ pub struct SkillStats {
 }
 
 impl SkillStats {
+    /// Trust threshold - below this, skill is "untrusted"
+    pub const UNTRUSTED_THRESHOLD: u8 = 40;
+    /// Default starting trust
+    pub const DEFAULT_TRUST: u8 = 50;
+    /// Trust gain on success
+    pub const TRUST_GAIN: u8 = 5;
+    /// Trust loss on failure
+    pub const TRUST_LOSS: u8 = 10;
+
     pub fn new() -> Self {
         Self {
             success_count: 0,
             failure_count: 0,
             avg_latency_ms: 0,
             reliability_score: 0.5, // Start neutral
+            trust_score: Self::DEFAULT_TRUST,
             last_used: None,
             first_learned: Utc::now(),
         }
@@ -101,6 +117,8 @@ impl SkillStats {
         self.success_count += 1;
         self.last_used = Some(Utc::now());
         self.update_reliability();
+        // Increase trust on success (capped at 100)
+        self.trust_score = self.trust_score.saturating_add(Self::TRUST_GAIN).min(100);
     }
 
     /// Record a failed execution
@@ -108,6 +126,8 @@ impl SkillStats {
         self.failure_count += 1;
         self.last_used = Some(Utc::now());
         self.update_reliability();
+        // Decrease trust on failure (floored at 0)
+        self.trust_score = self.trust_score.saturating_sub(Self::TRUST_LOSS);
     }
 
     fn update_reliability(&mut self) {
@@ -124,11 +144,21 @@ impl SkillStats {
         total >= 3 && self.reliability_score >= 0.7
     }
 
+    /// Check if skill is trusted (trust_score >= 40)
+    pub fn is_trusted(&self) -> bool {
+        self.trust_score >= Self::UNTRUSTED_THRESHOLD
+    }
+
     /// Check if skill should be retried (not completely broken)
     pub fn should_retry(&self) -> bool {
         // Don't retry if 5+ failures and <30% success
         let total = self.success_count + self.failure_count;
         !(total >= 5 && self.reliability_score < 0.3)
+    }
+
+    /// Get trust level as percentage (0-100)
+    pub fn trust_percent(&self) -> u8 {
+        self.trust_score
     }
 }
 

@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.40.1
+//! Anna Common - Shared types and schemas for Anna v0.42.0
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.
@@ -9,6 +9,7 @@
 //! v0.30.2: Fix update status display - use semver comparison, not string equality.
 //! v0.40.0: Generic skills, parameterized commands, skill learning, no probe zoo.
 //! v0.40.1: RPG progression system - levels, XP, titles, performance statistics.
+//! v0.42.0: Negative Feedback, Skill Pain, Remediation Engine.
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -48,11 +49,13 @@ pub mod hardware;
 pub mod knowledge;
 pub mod logging;
 pub mod model_registry;
+pub mod pain;
 pub mod presentation;
 pub mod progression;
 pub mod prompts;
 pub mod question_classifier;
 pub mod reliability;
+pub mod roles;
 pub mod safety;
 pub mod schemas;
 pub mod self_health;
@@ -99,5 +102,11 @@ pub use progression::{
     AnnaProgression, Level, Title, TITLE_BANDS,
     GlobalStats as ProgressionGlobalStats, PatternStats, PerformanceSnapshot,
     QuestionPattern, StatsEngine, STATS_DIR,
-    XpCalculator, XpGain, XpInput, XP_CONFIG,
+    XpCalculator, XpGain, XpInput, XpPenalty, XP_CONFIG,
+};
+// Pain module exports
+pub use pain::{PainEvent, PainLog, PainType, PAIN_DIR};
+// Roles module exports
+pub use roles::{
+    JuniorRank, JuniorStats, RoleStats, SeniorRank, SeniorStats, ROLES_DIR,
 };

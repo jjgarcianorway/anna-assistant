@@ -1,4 +1,4 @@
-//! XP Calculator v0.40.1
+//! XP Calculator v0.42.0
 //!
 //! Calculates experience points earned from answered questions based on:
 //! - Reliability score (primary factor)
@@ -6,17 +6,19 @@
 //!
 //! ## XP Earning Rules
 //!
-//! | Reliability (R) | XP Earned    |
-//! |-----------------|--------------|
-//! | R < 0.40        | 0 XP         |
-//! | 0.40 <= R < 0.70| Small (5-15) |
-//! | 0.70 <= R < 0.90| Medium (20-40)|
-//! | R >= 0.90       | High (50-100)|
+//! | Reliability (R) | XP Earned    | XP Penalty        |
+//! |-----------------|--------------|-------------------|
+//! | R < 0.40        | 0 XP         | (0.40-R) * 100 XP |
+//! | 0.40 <= R < 0.70| Small (5-15) | 0                 |
+//! | 0.70 <= R < 0.90| Medium (20-40)| 0                |
+//! | R >= 0.90       | High (50-100)| 0                 |
 //!
 //! Complexity bonuses:
 //! - +5 XP per skill used (max +20)
 //! - +2 XP for multi-step decomposition
 //! - -5 XP penalty for high iterations with low reliability
+//!
+//! v0.42.0: Added XP penalties for R < 0.40 (pain-driven learning)
 
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +47,9 @@ pub struct XpConfig {
     pub iteration_penalty: u64,
     /// Iteration threshold for penalty
     pub iteration_penalty_threshold: u32,
+    /// v0.42.0: Penalty multiplier for R < min_reliability
+    /// Penalty = (min_reliability - R) * penalty_multiplier
+    pub penalty_multiplier: f64,
 }
 
 impl Default for XpConfig {
@@ -61,6 +66,7 @@ impl Default for XpConfig {
             decomposition_bonus: 10,
             iteration_penalty: 5,
             iteration_penalty_threshold: 3,
+            penalty_multiplier: 100.0, // (0.40-R) * 100 = max 40 XP penalty
         }
     }
 }
@@ -78,6 +84,7 @@ pub const XP_CONFIG: XpConfig = XpConfig {
     decomposition_bonus: 10,
     iteration_penalty: 5,
     iteration_penalty_threshold: 3,
+    penalty_multiplier: 100.0,
 };
 
 /// Input for XP calculation
@@ -129,6 +136,9 @@ pub struct XpGain {
     pub iteration_penalty: u64,
     /// Reliability tier used
     pub reliability_tier: ReliabilityTier,
+    /// v0.42.0: XP penalty for low reliability (R < 0.40)
+    #[serde(default)]
+    pub xp_penalty: Option<XpPenalty>,
 }
 
 impl XpGain {
@@ -142,6 +152,45 @@ impl XpGain {
             decomposition_bonus: 0,
             iteration_penalty: 0,
             reliability_tier: ReliabilityTier::Failed,
+            xp_penalty: None,
+        }
+    }
+
+    /// No XP earned with penalty
+    pub fn with_penalty(penalty: XpPenalty) -> Self {
+        Self {
+            total: 0,
+            base_xp: 0,
+            skill_bonus: 0,
+            decomposition_bonus: 0,
+            iteration_penalty: 0,
+            reliability_tier: ReliabilityTier::Failed,
+            xp_penalty: Some(penalty),
+        }
+    }
+}
+
+/// v0.42.0: XP Penalty for low reliability answers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct XpPenalty {
+    /// Amount of XP to subtract from total
+    pub amount: u64,
+    /// The reliability that caused the penalty
+    pub reliability: f64,
+    /// Description of penalty reason
+    pub reason: String,
+}
+
+impl XpPenalty {
+    /// Calculate penalty for reliability below threshold
+    /// Penalty = (threshold - reliability) * penalty_multiplier
+    pub fn from_reliability(reliability: f64, threshold: f64, multiplier: f64) -> Self {
+        let gap = (threshold - reliability).max(0.0);
+        let amount = (gap * multiplier) as u64;
+        Self {
+            amount,
+            reliability,
+            reason: format!("R={:.2} below {:.2} threshold", reliability, threshold),
         }
     }
 }
@@ -213,9 +262,14 @@ impl XpCalculator {
         // Determine reliability tier
         let tier = ReliabilityTier::from_reliability(input.reliability, &self.config);
 
-        // No XP for failed reliability
+        // v0.42.0: Apply XP penalty for very low reliability (R < 0.40)
         if tier == ReliabilityTier::Failed {
-            return XpGain::zero("reliability_too_low");
+            let penalty = XpPenalty::from_reliability(
+                input.reliability,
+                self.config.min_reliability,
+                self.config.penalty_multiplier,
+            );
+            return XpGain::with_penalty(penalty);
         }
 
         // Calculate base XP from reliability tier
@@ -265,6 +319,7 @@ impl XpCalculator {
             decomposition_bonus,
             iteration_penalty,
             reliability_tier: tier,
+            xp_penalty: None,
         }
     }
 
