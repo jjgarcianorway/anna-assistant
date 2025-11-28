@@ -1,8 +1,9 @@
 //! Terminal spinner for thinking animation
 //! v0.15.8: Old-school hacker aesthetic
+//! v0.27.0: SSH-friendly with TTY detection and slower updates
 
 use owo_colors::OwoColorize;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -13,11 +14,15 @@ const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦
 /// ASCII fallback spinner
 const ASCII_FRAMES: &[&str] = &["|", "/", "-", "\\"];
 
+/// Spinner update interval (ms) - slower for SSH stability
+const SPINNER_INTERVAL_MS: u64 = 200;
+
 /// Spinner for showing thinking state
 pub struct Spinner {
     running: Arc<AtomicBool>,
     handle: Option<std::thread::JoinHandle<()>>,
     start_time: Instant,
+    is_tty: bool,
 }
 
 impl Spinner {
@@ -26,6 +31,18 @@ impl Spinner {
         let running = Arc::new(AtomicBool::new(true));
         let running_clone = running.clone();
         let message = message.to_string();
+        let is_tty = io::stdout().is_terminal();
+
+        // For non-TTY (piped output, scripts), just print once without spinner
+        if !is_tty {
+            println!("[anna]  ... {}", message);
+            return Self {
+                running,
+                handle: None,
+                start_time: Instant::now(),
+                is_tty: false,
+            };
+        }
 
         // Print the initial line
         print!(
@@ -49,7 +66,8 @@ impl Spinner {
                     message.dimmed()
                 );
                 let _ = io::stdout().flush();
-                std::thread::sleep(Duration::from_millis(80));
+                // v0.27.0: Slower updates for SSH stability
+                std::thread::sleep(Duration::from_millis(SPINNER_INTERVAL_MS));
             }
         });
 
@@ -57,6 +75,7 @@ impl Spinner {
             running,
             handle: Some(handle),
             start_time: Instant::now(),
+            is_tty,
         }
     }
 
@@ -69,24 +88,32 @@ impl Spinner {
 
         let elapsed = self.start_time.elapsed();
 
-        // Clear the spinner line
-        print!("\r{}\r", " ".repeat(80));
-        let _ = io::stdout().flush();
+        // Only clear line if we have a TTY
+        if self.is_tty {
+            // Clear the spinner line
+            print!("\r{}\r", " ".repeat(80));
+            let _ = io::stdout().flush();
+        }
 
         elapsed
     }
 
     /// Stop spinner and show completion with timing
     pub fn finish(self) -> Duration {
+        let is_tty = self.is_tty;
         let elapsed = self.stop();
 
         // Print completion line
-        println!(
-            "{}  {} {}",
-            "[anna]".bright_cyan(),
-            "✓".bright_green(),
-            format!("({:.1}s)", elapsed.as_secs_f64()).dimmed()
-        );
+        if is_tty {
+            println!(
+                "{}  {} {}",
+                "[anna]".bright_cyan(),
+                "✓".bright_green(),
+                format!("({:.1}s)", elapsed.as_secs_f64()).dimmed()
+            );
+        } else {
+            println!("[anna]  done ({:.1}s)", elapsed.as_secs_f64());
+        }
         println!();
 
         elapsed
