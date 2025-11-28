@@ -1,4 +1,4 @@
-# Anna v0.18.0
+# Anna v0.22.0
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
@@ -353,6 +353,10 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| v0.22.0 | Fact Brain & Question Decomposition (TTLs, validated facts) |
+| v0.21.0 | Hybrid answer pipeline (fast-first, selective probing, no loops) |
+| v0.20.0 | Background telemetry, warm-up learning, fact store integration |
+| v0.19.0 | Subproblem decomposition, fact-aware planning, Senior as mentor |
 | v0.18.0 | Step-by-step orchestration - one action per Junior iteration |
 | v0.17.0 | Use Senior's synthesized answer instead of Junior's draft |
 | v0.16.5 | Enhanced status: human-readable uptime, probe names, detailed health |
