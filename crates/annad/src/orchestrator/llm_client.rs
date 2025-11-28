@@ -7,7 +7,7 @@
 //!
 //! v0.16.1: On-demand model loading with keep_alive parameter to save resources.
 //! v0.16.4: Real-time debug output with [JUNIOR model] and [SENIOR model] labels
-//! v0.71.0: Reduced default timeout to 30s for better responsiveness
+//! v0.73.2: Increased timeout to 120s for full Junior→Senior orchestration
 
 use anna_common::{
     AuditScores, AuditVerdict, Citation, DraftAnswer, LlmAPlan, LlmAResponse, LlmBResponse,
@@ -140,12 +140,12 @@ pub struct OllamaClient {
 
 impl OllamaClient {
     /// Create client with a single model for both roles (legacy/backwards compat)
-    /// v0.71.0: Reduced timeout from 120s to 30s for better responsiveness
+    /// v0.73.2: Increased timeout to 120s for full Junior→Senior orchestration
     pub fn new(model: Option<String>) -> Self {
         let m = model.unwrap_or_else(|| DEFAULT_JUNIOR_MODEL.to_string());
         Self {
             http_client: reqwest::Client::builder()
-                .timeout(Duration::from_secs(30))
+                .timeout(Duration::from_secs(120))
                 .build()
                 .unwrap_or_default(),
             junior_model: m.clone(),
@@ -155,11 +155,11 @@ impl OllamaClient {
     }
 
     /// Create client with separate models for junior (LLM-A) and senior (LLM-B) roles
-    /// v0.71.0: Reduced timeout from 120s to 30s for better responsiveness
+    /// v0.73.2: Increased timeout to 120s for full Junior→Senior orchestration
     pub fn with_role_models(junior: Option<String>, senior: Option<String>) -> Self {
         Self {
             http_client: reqwest::Client::builder()
-                .timeout(Duration::from_secs(30))
+                .timeout(Duration::from_secs(120))
                 .build()
                 .unwrap_or_default(),
             junior_model: junior.unwrap_or_else(|| DEFAULT_JUNIOR_MODEL.to_string()),
