@@ -558,7 +558,8 @@ async fn run_status() -> Result<()> {
     println!("{}", THIN_SEPARATOR);
 
     // v0.40.1: RPG Progression section
-    display_progression_section();
+    // v0.71.0: Now async to fetch stats from daemon API
+    display_progression_section(&daemon).await;
 
     // Update state
     println!("{}", "UPDATE STATE".bright_white().bold());
@@ -884,15 +885,27 @@ fn run_startup_health_check() {
 }
 
 /// v0.40.1: Display RPG progression section in status output
-fn display_progression_section() {
+/// v0.71.0: Now async, fetches stats from daemon API to solve permission issues
+async fn display_progression_section(daemon: &client::DaemonClient) {
     use anna_common::THIN_SEPARATOR;
 
     println!("{}", "ANNA PROGRESSION".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
 
-    // Load stats engine
-    let engine = StatsEngine::load_default().unwrap_or_default();
-    let snapshot = engine.snapshot();
+    // v0.71.0: Try to fetch stats from daemon first (authoritative source)
+    // Falls back to local file if daemon unavailable
+    let snapshot = if daemon.is_healthy().await {
+        match daemon.stats().await {
+            Ok(stats) => stats,
+            Err(_) => {
+                // Fallback to local file
+                StatsEngine::load_default().unwrap_or_default().snapshot()
+            }
+        }
+    } else {
+        // Daemon not running - use local file
+        StatsEngine::load_default().unwrap_or_default().snapshot()
+    };
 
     // Level and Title
     let level = snapshot.progression.level.value();

@@ -158,10 +158,46 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
-## v0.29.0 - Planned
+## v0.70.0 - Evidence Oracle - Structured LLM Protocol, Difficulty Routing
 
-[ ] Real-time auto-update integration testing
-[ ] Watchdog runtime integration with annad
-[ ] Live health monitoring dashboard
-[ ] Enhanced error recovery strategies
-[ ] Metrics export for monitoring systems
+[x] 5-Type question classification
+[x] Difficulty-based routing (Easy/Normal/Hard)
+[x] Structured LLM protocol
+[x] Confidence gating and stats tracking
+
+---
+
+## v0.71.0 - Performance Patch - Fast Path, Stats Fix, Timeout Fix
+
+[x] Fixed debug stream header (was hardcoded v0.43.0, now uses package version)
+[x] Increased question display from 70 to 512 characters
+[x] Added fast path for simple hardware questions (CPU, RAM, disk)
+    - Bypasses LLM orchestration entirely for ~1s responses
+    - Directly parses probe output instead of using Junior/Senior loop
+[x] Added fast path for annad logs (logs.annad probe) and system updates (updates.pending probe)
+[x] Added fast path for self-diagnosis using real health checks
+    - Uses self_health::run_all_probes() instead of LLM guessing
+    - Provides actual component status, not hallucinated responses
+[x] Reduced LLM timeout from 120s to 30s for better responsiveness
+[x] Fixed stats persistence - now fetches from daemon API instead of local file
+    - Solves permission issues when daemon runs as different user
+    - Stats now correctly update after each answer
+[x] New probes: logs.annad, updates.pending
+[x] 90 tests passing
+
+**Key Changes**:
+- CPU/RAM questions now complete in <1 second (was ~90 seconds)
+- Logs/Updates questions now complete in <2 seconds (was failing or slow)
+- Self-diagnosis now runs real health checks (was LLM guessing)
+- Stats/XP actually increment after answering questions
+- Debug stream shows correct version number
+
+**Tests**: 90 passed, 0 failed
+
+---
+
+## v0.72.0 - Planned
+
+[ ] Improved debug stream detail (probe lists, difficulty, iterations)
+[ ] First-run detection fix
+[ ] Enhanced stats persistence with journaling

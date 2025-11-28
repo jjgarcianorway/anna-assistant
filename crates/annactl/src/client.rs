@@ -2,10 +2,11 @@
 //!
 //! v0.10.0: Added answer() method for evidence-based answers
 //! v0.15.0: Added interactive question flow with answer_interactive()
+//! v0.71.0: Added stats() method for fetching progression data from daemon
 
 use anna_common::{
     AnswerContinueRequest, AnswerSessionResponse, AnswerStartRequest, ConfirmCommandRequest,
-    FinalAnswer, HealthResponse, ListProbesResponse, ProbeResult, RunProbeRequest,
+    FinalAnswer, HealthResponse, ListProbesResponse, PerformanceSnapshot, ProbeResult, RunProbeRequest,
     UpdateStateResponse, UserAnswer,
 };
 use anyhow::{Context, Result};
@@ -115,6 +116,28 @@ impl DaemonClient {
         } else {
             // Return default state if endpoint not available
             Ok(UpdateStateResponse::default())
+        }
+    }
+
+    /// v0.71.0: Get stats and progression from daemon
+    /// This reads from the daemon's authoritative stats, not a local file.
+    pub async fn stats(&self) -> Result<PerformanceSnapshot> {
+        let url = format!("{}/v1/stats", self.base_url);
+        let resp = self
+            .client
+            .get(&url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+            .context("Failed to connect to daemon")?;
+
+        if resp.status().is_success() {
+            resp.json()
+                .await
+                .context("Failed to parse stats response")
+        } else {
+            // Return default snapshot if endpoint not available
+            anyhow::bail!("Stats endpoint not available")
         }
     }
 

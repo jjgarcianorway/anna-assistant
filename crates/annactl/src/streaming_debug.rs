@@ -1,4 +1,4 @@
-//! Streaming Debug Client v0.43.0
+//! Streaming Debug Client v0.71.0
 //!
 //! Real-time consumption of debug events from annad.
 //! Processes NDJSON stream line by line and displays events as they arrive.
@@ -6,6 +6,8 @@
 //! Activation:
 //! - ANNA_DEBUG=1 environment variable
 //! - config debug.live_view = true
+//!
+//! v0.71.0: Fixed version header, increased question display length
 
 use anna_common::{DebugEvent, DebugStreamConfig, FinalAnswer};
 use anyhow::{Context, Result};
@@ -113,6 +115,7 @@ pub async fn stream_answer_with_debug(question: &str) -> Result<Option<FinalAnsw
 }
 
 /// Display header for debug stream
+/// v0.71.0: Use package version instead of hardcoded string
 fn print_debug_header(question: &str) {
     let reset = "\x1b[0m";
     let bold = "\x1b[1m";
@@ -125,20 +128,22 @@ fn print_debug_header(question: &str) {
         "{}{}============================================================================{}",
         bold, magenta, reset
     );
+    // v0.71.0: Use CARGO_PKG_VERSION instead of hardcoded version
     println!(
-        "{}{}  [DEBUG]  Live Debug Stream v0.43.0{}",
-        bold, magenta, reset
+        "{}{}  [DEBUG]  Live Debug Stream v{}{}",
+        bold, magenta, env!("CARGO_PKG_VERSION"), reset
     );
     println!(
         "{}{}============================================================================{}",
         bold, magenta, reset
     );
     println!();
+    // v0.71.0: Increased truncation from 70 to 512 chars to show full questions
     println!(
         "{}Question:{} {}",
         dim,
         reset,
-        truncate_str(question, 70)
+        truncate_str(question, 512)
     );
     println!();
     println!(
