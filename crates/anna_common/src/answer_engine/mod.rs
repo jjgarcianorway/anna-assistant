@@ -7,6 +7,7 @@
 //! v0.21.0: Hybrid answer pipeline (fast-first, selective probing, no loops)
 //! v0.22.0: Fact Brain & Question Decomposition (TTLs, validated facts)
 //! v0.23.0: System Brain, User Brain & Idle Learning
+//! v0.24.0: App Awareness, Stats & Faster Answers
 //!
 //! Features:
 //! - Deterministic probe usage
@@ -20,8 +21,12 @@
 //! - v0.21.0: Fast-first from facts, selective probing, no iteration loops
 //! - v0.22.0: TTL-based facts, question decomposition, semantic linking
 //! - v0.23.0: System/User knowledge layers, idle learning, safe file scanning
+//! - v0.24.0: WM/app awareness, MIME defaults, stats engine, answer caching
 
+pub mod app_awareness;
+pub mod default_apps;
 pub mod evidence;
+pub mod faster_answers;
 pub mod file_scanner;
 pub mod idle_learning;
 pub mod protocol;
@@ -32,6 +37,7 @@ pub mod protocol_v21;
 pub mod protocol_v22;
 pub mod protocol_v23;
 pub mod scoring;
+pub mod stats_engine;
 
 pub use evidence::*;
 pub use protocol::*;
@@ -97,4 +103,32 @@ pub use file_scanner::{
     KnownPattern, PathValidation, ScanConfig, ScanResult, ScannedFile, get_allowed_base_dirs,
     get_known_patterns, validate_path, MAX_BYTES_PER_SCAN, MAX_FILES_PER_SCAN, MAX_FILE_SIZE,
     SYSTEM_ALLOWED_PATHS, USER_ALLOWED_RELATIVE_PATHS,
+};
+
+// v0.24.0 app awareness
+pub use app_awareness::{
+    AppCategory, AppDetectionProbe, AppDetectionTarget, DesktopEnvironment, DesktopSession,
+    DisplayProtocol, OutputParser, RunningApp, SessionType, SuggestionSource, UserSession,
+    WindowManagerInfo, WindowManagerType, WmAwareSuggestion, PROTOCOL_VERSION_V24,
+};
+
+// v0.24.0 default apps
+pub use default_apps::{
+    AppRole, DefaultApp, DefaultAppProbe, DefaultAppProbeTarget, DefaultAppSource,
+    DefaultAppsRegistry, DesktopEntry, DesktopParseResult, MimeCategory, MimeType, XdgPaths,
+};
+
+// v0.24.0 stats engine
+pub use stats_engine::{
+    AnnaStats, CacheStats as StatsCacheStats, CpuStats, DaemonStats, DiskStats, InterfaceStats,
+    KnowledgeStats, LlmStats, MemoryStats, MountStats, NetworkStats, PipelineStats, ProbeStats,
+    StatsCategory, StatsQuery, StatsSnapshot, SystemStats, UserStats,
+};
+
+// v0.24.0 faster answers
+pub use faster_answers::{
+    AnswerCache, AnswerStrategy, CacheConfig as FastCacheConfig, CacheStatistics,
+    CachedAnswer, ClassifiedQuestion, DetectedEntity, EntityType as FastEntityType,
+    FastAnswerConfig, FastPath, FastPathResult as FastPathAnswerResult, QuestionPattern,
+    QuestionType as FastQuestionType,
 };
