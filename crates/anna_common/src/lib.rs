@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.40.0
+//! Anna Common - Shared types and schemas for Anna v0.40.1
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.
@@ -8,6 +8,7 @@
 //! v0.30.1: Debug output limit increased from 2000 to 8000 chars.
 //! v0.30.2: Fix update status display - use semver comparison, not string equality.
 //! v0.40.0: Generic skills, parameterized commands, skill learning, no probe zoo.
+//! v0.40.1: RPG progression system - levels, XP, titles, performance statistics.
 //!
 //! Zero hardcoded knowledge. Only evidence-based facts.
 //! v0.3.0: Strict hallucination guardrails, stable repeated answers, LLM-orchestrated help/version.
@@ -48,6 +49,7 @@ pub mod knowledge;
 pub mod logging;
 pub mod model_registry;
 pub mod presentation;
+pub mod progression;
 pub mod prompts;
 pub mod question_classifier;
 pub mod reliability;
@@ -92,3 +94,10 @@ pub use skills::{
 pub use skills::SystemStats as SkillSystemStats;
 pub use types::*;
 pub use updater::*;
+// Explicit progression exports to avoid conflicts
+pub use progression::{
+    AnnaProgression, Level, Title, TITLE_BANDS,
+    GlobalStats as ProgressionGlobalStats, PatternStats, PerformanceSnapshot,
+    QuestionPattern, StatsEngine, STATS_DIR,
+    XpCalculator, XpGain, XpInput, XP_CONFIG,
+};

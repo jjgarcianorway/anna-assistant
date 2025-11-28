@@ -31,6 +31,7 @@ use anna_common::{
     clear_current_request, generate_request_id, init_logger, is_version_newer, log_request,
     logging, self_health, set_current_request, AnnaConfigV5, HardwareProfile, LogComponent,
     LogEntry, LogLevel, OverallHealth, RepairSafety, RequestContext, RequestStatus,
+    StatsEngine,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -479,6 +480,9 @@ async fn run_status() -> Result<()> {
 
     println!("{}", THIN_SEPARATOR);
 
+    // v0.40.1: RPG Progression section
+    display_progression_section();
+
     // Update state
     println!("{}", "UPDATE STATE".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
@@ -799,5 +803,157 @@ fn run_startup_health_check() {
             );
         }
         println!();
+    }
+}
+
+/// v0.40.1: Display RPG progression section in status output
+fn display_progression_section() {
+    use anna_common::THIN_SEPARATOR;
+
+    println!("{}", "ANNA PROGRESSION".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    // Load stats engine
+    let engine = StatsEngine::load_default().unwrap_or_default();
+    let snapshot = engine.snapshot();
+
+    // Level and Title
+    let level = snapshot.progression.level.value();
+    let title = snapshot.progression.title.to_string();
+    let total_xp = snapshot.progression.total_xp;
+
+    // Color title based on level bands
+    let title_colored = if level < 5 {
+        title.dimmed().to_string()
+    } else if level < 15 {
+        title.cyan().to_string()
+    } else if level < 30 {
+        title.bright_cyan().to_string()
+    } else if level < 50 {
+        title.bright_green().to_string()
+    } else if level < 70 {
+        title.bright_yellow().to_string()
+    } else if level < 90 {
+        title.bright_magenta().to_string()
+    } else {
+        title.bright_red().bold().to_string()
+    };
+
+    println!(
+        "  {}  Level {} - {}",
+        "*".cyan(),
+        format!("{}", level).bright_white().bold(),
+        title_colored
+    );
+
+    // XP Progress bar
+    let progress_pct = snapshot.progression.progress_percent() as usize;
+    let xp_to_next = snapshot.progression.xp_to_next_level();
+
+    // Build progress bar (20 chars wide)
+    let bar_width = 20;
+    let filled = (progress_pct * bar_width) / 100;
+    let empty = bar_width - filled;
+    let bar = format!(
+        "[{}{}]",
+        "=".repeat(filled).bright_green(),
+        "-".repeat(empty).dimmed()
+    );
+
+    if level < 99 {
+        println!(
+            "  {}  {} {}% ({} XP to next)",
+            "*".cyan(),
+            bar,
+            progress_pct,
+            xp_to_next
+        );
+    } else {
+        println!(
+            "  {}  {} MAX LEVEL",
+            "+".bright_green(),
+            bar.bright_yellow()
+        );
+    }
+
+    // Total XP
+    println!("  {}  Total XP: {}", "*".cyan(), format_xp(total_xp));
+
+    println!("{}", THIN_SEPARATOR);
+
+    // Statistics section
+    println!("{}", "PERFORMANCE STATS".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    let global = &snapshot.global;
+
+    if global.total_questions == 0 {
+        println!("  {}  No questions answered yet", "?".dimmed());
+    } else {
+        // Questions answered
+        println!(
+            "  {}  Questions: {} ({} successful)",
+            "*".cyan(),
+            global.total_questions,
+            global.total_successful
+        );
+
+        // Success rate with color coding
+        let success_rate = global.success_rate();
+        let rate_str = format!("{:.1}%", success_rate);
+        let rate_colored = if success_rate >= 90.0 {
+            rate_str.bright_green().to_string()
+        } else if success_rate >= 70.0 {
+            rate_str.bright_cyan().to_string()
+        } else if success_rate >= 50.0 {
+            rate_str.yellow().to_string()
+        } else {
+            rate_str.bright_red().to_string()
+        };
+        println!("  {}  Success rate: {}", "*".cyan(), rate_colored);
+
+        // Average reliability
+        let reliability_str = format!("{:.2}", global.avg_reliability);
+        let rel_colored = if global.avg_reliability >= 0.9 {
+            reliability_str.bright_green().to_string()
+        } else if global.avg_reliability >= 0.7 {
+            reliability_str.bright_cyan().to_string()
+        } else {
+            reliability_str.yellow().to_string()
+        };
+        println!("  {}  Avg reliability: {}", "*".cyan(), rel_colored);
+
+        // Average latency
+        println!(
+            "  {}  Avg latency: {}ms",
+            "*".cyan(),
+            format!("{:.0}", global.avg_latency_ms)
+        );
+
+        // Patterns tracked
+        println!(
+            "  {}  Patterns tracked: {} ({} improved)",
+            "*".cyan(),
+            global.distinct_patterns,
+            global.patterns_improved
+        );
+    }
+
+    println!("{}", THIN_SEPARATOR);
+}
+
+/// Format XP with comma separators for readability
+fn format_xp(xp: u64) -> String {
+    if xp < 1000 {
+        format!("{}", xp)
+    } else if xp < 1_000_000 {
+        format!("{},{:03}", xp / 1000, xp % 1000)
+    } else {
+        format!(
+            "{},{:03},{:03}",
+            xp / 1_000_000,
+            (xp % 1_000_000) / 1000,
+            xp % 1000
+        )
     }
 }
