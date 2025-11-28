@@ -271,6 +271,7 @@ impl RazorbackEngine {
             junior_probes: probe_ids,
             junior_had_draft,
             senior_verdict: Some(senior_verdict),
+            failure_cause: None, // v0.84.0: Success - no failure
         })
     }
 
@@ -339,6 +340,7 @@ impl RazorbackEngine {
             junior_probes: junior_probes.to_vec(),
             junior_had_draft,
             senior_verdict: Some("refuse".to_string()),
+            failure_cause: Some("unsupported_domain".to_string()), // v0.84.0
         }
     }
 
@@ -367,6 +369,7 @@ impl RazorbackEngine {
             junior_probes: vec![],
             junior_had_draft: false,
             senior_verdict: None,
+            failure_cause: Some("timeout_or_latency".to_string()), // v0.84.0
         }
     }
 

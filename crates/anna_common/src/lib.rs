@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.83.0
+//! Anna Common - Shared types and schemas for Anna v0.84.0
 //!
+//! v0.84.0: Hard Test Harness - benchmarks, metrics, reliability validation
 //! v0.83.0: Performance Focus - compact prompts, 15s target latency
 //! v0.81.0: Structured Answers - headline/details/evidence format, latency budgets
 //! v0.80.0: Razorback Fast Path - <5s response for simple questions
@@ -58,6 +59,7 @@
 #![allow(unused_imports)]
 
 pub mod answer_engine;
+pub mod bench;
 pub mod command_whitelist;
 pub mod cpu_summary;
 pub mod mem_summary;

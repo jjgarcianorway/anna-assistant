@@ -21,6 +21,33 @@ Every completed task with date, version, summary, code changes, tests, and known
 
 ## Completed Tasks
 
+### [T007] v0.84.0 Hard Test Harness and Reliability Validation
+- **Date**: 2025-11-28
+- **Version**: 0.84.0
+- **Summary**: Created formal test plan, benchmark script, structured metrics logging, and failure cause classification
+- **Code Changes**:
+  - `TEST_PLAN_v0.84.md` - NEW: Formal test plan with scope, environments, test suites, metrics, pass/fail criteria
+  - `scripts/anna-bench-v0.84.sh` - NEW: Benchmark script with fixed questions, timing, JSON output
+  - `crates/anna_common/src/bench.rs` - NEW: Benchmark logging module with FailureCause enum, TimingBreakdown, XpEvent
+  - `crates/anna_common/src/lib.rs` - Export bench module, version bump to 0.84.0
+  - `crates/anna_common/src/answer_engine/protocol.rs` - Added failure_cause field to FinalAnswer
+  - `Cargo.toml` - Version bump to 0.84.0
+- **Tests Added**:
+  - test_failure_cause_roundtrip, test_timing_breakdown, test_budget_violations, test_benchmark_event_default in bench.rs
+- **Known Issues**: XP log command and 24h metrics in status command pending
+- **Reasoning**: Need observable, testable behavior to prove reliability and performance improvements
+
+### Failure Cause Classification
+| Cause | Description |
+|-------|-------------|
+| no_probe_available | Question requires a probe that doesn't exist |
+| probe_data_misread | Probe ran but data was misinterpreted |
+| llm_hallucination | LLM fabricated information not in evidence |
+| timeout_or_latency | Exceeded time budget |
+| unsupported_domain | Question is outside Anna's scope |
+| orchestration_bug | Internal error in answer pipeline |
+| bad_command_proposal | Junior proposed unsafe or invalid command |
+
 ### [T006] v0.83.0 Performance Budget and Compact Prompts
 - **Date**: 2025-11-28
 - **Version**: 0.83.0

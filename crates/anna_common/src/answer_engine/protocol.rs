@@ -336,6 +336,11 @@ pub struct FinalAnswer {
     /// v0.81.0: Senior's verdict (approve, fix_and_accept, refuse)
     #[serde(default)]
     pub senior_verdict: Option<String>,
+    /// v0.84.0: Failure cause classification for reliability analysis
+    /// Values: no_probe_available, probe_data_misread, llm_hallucination,
+    /// timeout_or_latency, unsupported_domain, orchestration_bug, bad_command_proposal
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_cause: Option<String>,
 }
 
 impl Default for FinalAnswer {
@@ -357,6 +362,7 @@ impl Default for FinalAnswer {
             junior_probes: Vec::new(),
             junior_had_draft: false,
             senior_verdict: None,
+            failure_cause: None,
         }
     }
 }
