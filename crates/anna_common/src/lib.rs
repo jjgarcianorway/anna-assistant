@@ -1,4 +1,4 @@
-//! Anna Common - Shared types and schemas for Anna v0.75.0
+//! Anna Common - Shared types and schemas for Anna v0.75.1
 //!
 //! v0.27.0: Qwen inference, reliability improvements.
 //! v0.28.0: Auto-update improvements, installer fixes.

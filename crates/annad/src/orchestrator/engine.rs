@@ -1,4 +1,4 @@
-//! Answer Engine v0.75.0
+//! Answer Engine v0.75.1
 //!
 //! The main orchestration loop:
 //! LLM-A (plan) -> Probes -> LLM-A (answer) -> LLM-B (audit) -> approve/fix/retry
@@ -31,6 +31,28 @@ use tracing::{debug, info, warn};
 /// Check if debug mode is enabled
 fn is_debug_mode() -> bool {
     std::env::var("ANNA_DEBUG").is_ok()
+}
+
+/// v0.75.1: Print debug step with clear labeling
+fn debug_print(actor: &str, action: &str, content: &str) {
+    if !is_debug_mode() {
+        return;
+    }
+    use std::io::Write;
+    let mut stderr = std::io::stderr();
+    let separator = "=".repeat(78);
+    let _ = writeln!(stderr, "\n{}", separator);
+    let _ = writeln!(stderr, "[{}] {}", actor, action);
+    let _ = writeln!(stderr, "{}", separator);
+    // Show content, truncated if very long
+    let display = if content.len() > 4000 {
+        format!("{}...\n[TRUNCATED - {} more chars]", &content[..4000], content.len() - 4000)
+    } else {
+        content.to_string()
+    };
+    let _ = writeln!(stderr, "{}", display);
+    let _ = writeln!(stderr, "{}", separator);
+    let _ = stderr.flush();
 }
 
 /// Print iteration header for debug mode
@@ -167,6 +189,9 @@ impl AnswerEngine {
         info!("Processing question: {}", question);
         let start_time = Instant::now();
 
+        // v0.75.1: Show what Anna received
+        debug_print("ANNA", "RECEIVED QUESTION", question);
+
         // v0.75.0: Initialize complete debug block
         let mut debug_block = DebugBlock::new(question, self.junior_model(), self.senior_model());
 
@@ -260,10 +285,16 @@ impl AnswerEngine {
                 loop_state.iteration,
             );
 
+            // v0.75.1: Show what Anna sends to Junior
+            debug_print("ANNA", &format!("SENDING TO JUNIOR ({})", self.junior_model()), &llm_a_prompt);
+
             // Capture prompt for debug (truncated for very large prompts)
             debug_iter.llm_a_prompt = truncate_for_debug(&llm_a_prompt, 8000);
 
             let (llm_a_response, llm_a_raw) = self.llm_client.call_llm_a(&llm_a_prompt).await?;
+
+            // v0.75.1: Show what Junior returned (raw)
+            debug_print("JUNIOR", "RAW RESPONSE", &llm_a_raw);
 
             // Capture raw response for debug
             debug_iter.llm_a_response = llm_a_raw;
@@ -284,6 +315,24 @@ impl AnswerEngine {
                 llm_a_response.needs_more_probes,
                 llm_a_response.refuse_to_answer
             );
+
+            // v0.75.1: Show what Anna parsed from Junior
+            let parsed_summary = format!(
+                "Intent: {}\n\
+                 Probes requested: {:?}\n\
+                 Has draft answer: {}\n\
+                 Needs more probes: {}\n\
+                 Refuses to answer: {}\n\
+                 Draft: {}",
+                llm_a_response.plan.intent,
+                llm_a_response.plan.probe_requests.iter().map(|p| &p.probe_id).collect::<Vec<_>>(),
+                llm_a_response.draft_answer.is_some(),
+                llm_a_response.needs_more_probes,
+                llm_a_response.refuse_to_answer,
+                llm_a_response.draft_answer.as_ref().map(|d| d.text.chars().take(500).collect::<String>()).unwrap_or_else(|| "(none)".to_string())
+            );
+            debug_print("ANNA", "PARSED FROM JUNIOR", &parsed_summary);
+
             if let Some(ref draft) = llm_a_response.draft_answer {
                 info!(
                     "[D]  Draft answer: {}",
@@ -381,6 +430,20 @@ impl AnswerEngine {
                         }
                     }
 
+                    // v0.75.1: Show probe results
+                    let probe_results_summary = new_evidence.iter()
+                        .map(|ev| {
+                            let status = if ev.status.is_ok() { "OK" } else { "FAIL" };
+                            let output_preview = ev.raw.as_deref()
+                                .unwrap_or("(no output)")
+                                .chars().take(500).collect::<String>();
+                            format!("  [{}] {}\n    Command: {}\n    Output: {}",
+                                status, ev.probe_id, ev.command, output_preview)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n\n");
+                    debug_print("PROBES", "EXECUTION RESULTS", &probe_results_summary);
+
                     evidence.extend(new_evidence);
                 }
 
@@ -422,10 +485,16 @@ impl AnswerEngine {
             let llm_b_prompt =
                 generate_llm_b_prompt(question, &draft_answer, &evidence, &self_scores);
 
+            // v0.75.1: Show what Anna sends to Senior
+            debug_print("ANNA", &format!("SENDING TO SENIOR ({})", self.senior_model()), &llm_b_prompt);
+
             // Capture LLM-B prompt for debug (truncated for very large prompts)
             debug_iter.llm_b_prompt = Some(truncate_for_debug(&llm_b_prompt, 8000));
 
             let (llm_b_response, llm_b_raw) = self.llm_client.call_llm_b(&llm_b_prompt).await?;
+
+            // v0.75.1: Show what Senior returned (raw)
+            debug_print("SENIOR", "RAW RESPONSE", &llm_b_raw);
 
             // Capture LLM-B response for debug
             debug_iter.llm_b_response = Some(llm_b_raw);
@@ -441,6 +510,28 @@ impl AnswerEngine {
             if let Some(ref fix) = llm_b_response.fixed_answer {
                 info!("[~]  Fixed answer: {}", &fix[..200.min(fix.len())]);
             }
+
+            // v0.75.1: Show what Anna parsed from Senior
+            let senior_parsed_summary = format!(
+                "Verdict: {:?}\n\
+                 Scores:\n\
+                   - Evidence: {:.2}\n\
+                   - Reasoning: {:.2}\n\
+                   - Coverage: {:.2}\n\
+                   - Overall: {:.2}\n\
+                 Problems: {:?}\n\
+                 Fixed Answer: {}\n\
+                 Text Override: {}",
+                llm_b_response.verdict,
+                llm_b_response.scores.evidence,
+                llm_b_response.scores.reasoning,
+                llm_b_response.scores.coverage,
+                llm_b_response.scores.overall,
+                llm_b_response.problems,
+                llm_b_response.fixed_answer.as_deref().unwrap_or("(none)"),
+                llm_b_response.text.as_deref().unwrap_or("(none)")
+            );
+            debug_print("ANNA", "PARSED FROM SENIOR", &senior_parsed_summary);
 
             // v0.75.0: Capture Senior verdict in debug block
             let citations: Vec<String> = evidence.iter().map(|e| e.probe_id.clone()).collect();
@@ -477,6 +568,21 @@ impl AnswerEngine {
                         .as_deref()
                         .or(llm_b_response.fixed_answer.as_deref())
                         .unwrap_or(&draft_answer.text);
+
+                    // v0.75.1: Show Anna's final decision
+                    let decision_summary = format!(
+                        "Decision: APPROVE\n\
+                         Confidence: {:.0}%\n\
+                         Answer Source: {}\n\
+                         Final Answer:\n{}",
+                        llm_b_response.scores.overall * 100.0,
+                        if llm_b_response.text.is_some() { "Senior text override" }
+                        else if llm_b_response.fixed_answer.is_some() { "Senior fixed_answer" }
+                        else { "Junior draft" },
+                        answer_text
+                    );
+                    debug_print("ANNA", "FINAL DECISION", &decision_summary);
+
                     debug_trace.iterations.push(debug_iter);
                     debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
 
@@ -505,6 +611,21 @@ impl AnswerEngine {
                         .as_deref()
                         .or(llm_b_response.fixed_answer.as_deref())
                         .unwrap_or(&draft_answer.text);
+
+                    // v0.75.1: Show Anna's final decision
+                    let decision_summary = format!(
+                        "Decision: FIX_AND_ACCEPT\n\
+                         Confidence: {:.0}%\n\
+                         Answer Source: {}\n\
+                         Final Answer:\n{}",
+                        llm_b_response.scores.overall * 100.0,
+                        if llm_b_response.text.is_some() { "Senior text override" }
+                        else if llm_b_response.fixed_answer.is_some() { "Senior fixed_answer" }
+                        else { "Junior draft" },
+                        answer_text
+                    );
+                    debug_print("ANNA", "FINAL DECISION", &decision_summary);
+
                     debug_trace.iterations.push(debug_iter);
                     debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
 
@@ -533,6 +654,15 @@ impl AnswerEngine {
                             .first()
                             .map(|s| s.as_str())
                             .unwrap_or("Auditor determined answer cannot be safely provided");
+
+                        // v0.75.1: Show Anna's final decision
+                        let decision_summary = format!(
+                            "Decision: REFUSE (no evidence)\n\
+                             Reason: {}",
+                            reason
+                        );
+                        debug_print("ANNA", "FINAL DECISION", &decision_summary);
+
                         debug_trace.iterations.push(debug_iter);
                         debug_trace.duration_secs = start_time.elapsed().as_secs_f64();
                         return Ok(self.build_refusal_with_trace(
@@ -546,6 +676,16 @@ impl AnswerEngine {
                     // v0.73.0: LLM-B refused - we must honor that decision, not rubber-stamp
                     // If we have evidence but Senior refused, the scores must be 0 (unverified)
                     warn!("LLM-B refused - scores set to 0 (no rubber-stamping)");
+
+                    // v0.75.1: Show Anna's decision to continue
+                    let decision_summary = format!(
+                        "Decision: REFUSE (but has evidence - will retry)\n\
+                         Problems: {:?}\n\
+                         Setting scores to 0 - will try again",
+                        llm_b_response.problems
+                    );
+                    debug_print("ANNA", "ITERATION DECISION", &decision_summary);
+
                     last_scores = Some(AuditScores::new(0.0, 0.0, 0.0));
                     // Continue to see if we can improve
                     debug_trace.iterations.push(debug_iter);
@@ -557,6 +697,16 @@ impl AnswerEngine {
                         .iter()
                         .map(|p| p.probe_id.clone())
                         .collect();
+
+                    // v0.75.1: Show Anna's decision to gather more evidence
+                    let decision_summary = format!(
+                        "Decision: NEEDS_MORE_PROBES\n\
+                         Senior requested: {:?}\n\
+                         Problems: {:?}",
+                        probe_ids,
+                        llm_b_response.problems
+                    );
+                    debug_print("ANNA", "ITERATION DECISION", &decision_summary);
 
                     let valid_probes = self.filter_valid_probes(&probe_ids);
 
