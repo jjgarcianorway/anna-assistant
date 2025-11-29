@@ -1,4 +1,9 @@
-//! Answer Engine v0.18.0
+//! DEPRECATED: Legacy Answer Engine v0.18.0
+//!
+//! **WARNING**: This file is deprecated. Use `engine_v90.rs` (UnifiedEngine) instead.
+//! See `docs/architecture.md` Section 9 for details.
+//!
+//! This module remains for backward compatibility but is not called in production.
 //!
 //! Step-by-step orchestration:
 //! - ONE action per Junior iteration (probe, clarification, answer, escalate)

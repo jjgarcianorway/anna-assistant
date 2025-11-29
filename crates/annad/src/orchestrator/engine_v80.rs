@@ -1,4 +1,9 @@
-//! Answer Engine v0.81.0 - Razorback Fast Path
+//! DEPRECATED: Legacy Answer Engine v0.81.0 - Razorback Fast Path
+//!
+//! **WARNING**: This file is deprecated. Use `engine_v90.rs` (UnifiedEngine) instead.
+//! See `docs/architecture.md` Section 9 for details.
+//!
+//! This module remains for backward compatibility but is not called in production.
 //!
 //! Optimized orchestrator for the razorback-fast profile.
 //! Goal: Complete simple questions in <5 seconds with maximum reliability.

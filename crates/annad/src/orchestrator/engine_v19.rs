@@ -1,4 +1,9 @@
-//! Answer Engine v0.19.0 - Subproblem Decomposition
+//! DEPRECATED: Legacy Answer Engine v0.19.0 - Subproblem Decomposition
+//!
+//! **WARNING**: This file is deprecated. Use `engine_v90.rs` (UnifiedEngine) instead.
+//! See `docs/architecture.md` Section 9 for details.
+//!
+//! This module remains for backward compatibility but is not called in production.
 //!
 //! Key features:
 //! - Junior decomposes questions into subproblems

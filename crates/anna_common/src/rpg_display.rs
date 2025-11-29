@@ -1,7 +1,19 @@
-//! RPG Display Module for v0.95.0
+//! RPG Display Module v1.0.0
 //!
 //! Handles RPG-style presentation of Anna, Junior, and Senior stats.
 //! Provides mood text, progress bars, and encouraging but honest messages.
+//!
+//! ## Architecture Note (v1.0.0)
+//!
+//! This module provides DISPLAY and FORMATTING for the XP system:
+//! - `get_rpg_title()`: Title from level
+//! - `get_title_color()`: Color code for title
+//! - `TrustLevel`: Trust classification and colors
+//! - `ReliabilityScale`: Scaling factors for XP/trust based on reliability
+//! - `progress_bar()`: Progress bar generation
+//!
+//! For XP EVENT TYPES and BASE VALUES, see `xp_events.rs` (canonical source).
+//! For XP TRACKING/STATE, see `xp_track.rs`.
 
 use serde::{Deserialize, Serialize};
 

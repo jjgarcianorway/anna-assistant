@@ -1,4 +1,4 @@
-//! Output formatting - clean, ASCII-only terminal output v0.81.0
+//! Output formatting - clean, ASCII-only terminal output v1.0.0
 //!
 //! v0.6.0: Sysadmin style - no emojis, ASCII only, professional
 //! v0.10.0: Evidence-based answers with citations and confidence scores
@@ -8,9 +8,15 @@
 //! v0.28.0: Strict ASCII - removed all emojis for hacker aesthetic
 //! v0.72.0: Clear answer output block with Anna header, Evidence, Reliability sections
 //! v0.81.0: Structured answer format - headline, details[], evidence[], reliability_label
+//! v1.0.0: Unified UX - Reliability/Origin/Duration, fly-on-the-wall trace, explain-last-answer
 #![allow(dead_code)]
 
-use anna_common::{AnnaResponse, ConfidenceLevel, DebugTrace, FinalAnswer, StructuredAnswer, THIN_SEPARATOR};
+use anna_common::{
+    AnnaResponse, ConfidenceLevel, DebugTrace, FinalAnswer, StructuredAnswer, THIN_SEPARATOR,
+    // v1.0.0: Conversation trace types
+    FinalAnswerDisplay, ReliabilityLevel, debug_is_enabled, store_last_answer,
+    is_explain_request, explain_last_answer,
+};
 use owo_colors::OwoColorize;
 use std::time::Duration;
 
@@ -623,5 +629,100 @@ fn display_wrapped_text(text: &str, prefix: &str, width: usize) {
             line.to_string()
         };
         println!("{}{}", prefix, display_line.dimmed());
+    }
+}
+
+// ============================================================================
+// v1.0.0: Unified Answer Display with Conversation Trace
+// ============================================================================
+
+/// v1.0.0: Display answer with unified UX (Reliability/Origin/Duration)
+/// Stores answer for explain-last-answer and shows debug trace if enabled.
+pub fn display_final_answer_v100(answer: &FinalAnswer, elapsed: Duration) {
+    let elapsed_ms = elapsed.as_millis() as u64;
+    let display = FinalAnswerDisplay::from_final_answer(answer, elapsed_ms);
+
+    // Store for explain-last-answer
+    store_last_answer(display.clone());
+
+    // Header
+    println!();
+    println!(
+        "{}",
+        "==============================================================================".cyan()
+    );
+    println!("  {}", "Anna".bright_white().bold());
+    println!(
+        "{}",
+        "==============================================================================".cyan()
+    );
+    println!();
+
+    // Answer text
+    if display.is_refusal {
+        println!("{}", display.text.bright_red());
+    } else {
+        println!("{}", display.text);
+    }
+
+    // v1.0.0: Unified footer with Reliability, Origin, Duration
+    println!();
+    println!("{}", THIN_SEPARATOR);
+
+    let reliability_pct = display.reliability_pct();
+    let level = display.reliability_level();
+    let origin_label = display.origin.label();
+
+    let (reliability_colored, level_colored) = match level {
+        ReliabilityLevel::Green => (
+            reliability_pct.bright_green().to_string(),
+            "Green".bright_green().bold().to_string(),
+        ),
+        ReliabilityLevel::Yellow => (
+            reliability_pct.yellow().to_string(),
+            "Yellow".yellow().bold().to_string(),
+        ),
+        ReliabilityLevel::Red => (
+            reliability_pct.bright_red().to_string(),
+            "Red".bright_red().bold().to_string(),
+        ),
+    };
+
+    let duration_str = if elapsed_ms < 1000 {
+        format!("{}ms", elapsed_ms)
+    } else {
+        format!("{:.2}s", elapsed.as_secs_f64())
+    };
+
+    println!(
+        "Reliability: {} ({}) | Origin: {} | Duration: {}",
+        reliability_colored,
+        level_colored,
+        origin_label.cyan(),
+        duration_str.dimmed()
+    );
+    println!("{}", THIN_SEPARATOR);
+
+    // v1.0.0: Show debug trace if debug mode is enabled
+    if debug_is_enabled() {
+        if let Some(ref trace) = display.trace {
+            println!();
+            println!("{}", trace.to_narrative().dimmed());
+        }
+    }
+
+    println!();
+}
+
+/// v1.0.0: Check if question is an explain request and handle it
+/// Returns true if it was an explain request (and displayed the explanation)
+pub fn handle_explain_request(question: &str) -> bool {
+    if is_explain_request(question) {
+        println!();
+        println!("{}", explain_last_answer());
+        println!();
+        true
+    } else {
+        false
     }
 }

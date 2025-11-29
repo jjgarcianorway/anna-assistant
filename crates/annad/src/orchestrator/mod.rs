@@ -34,6 +34,12 @@ pub mod engine_v80;
 // v0.90.0 unified architecture engine (current)
 pub mod engine_v90;
 
+// v1.0.0 LLM trait abstraction for testing
+pub mod llm_trait;
+
+// v1.0.0 Probe trait abstraction for testing
+pub mod probe_trait;
+
 // v0.43.0 streaming debug
 pub mod streaming;
 
@@ -56,6 +62,17 @@ pub use llm_client::{JuniorResponseV80, SeniorResponseV80, DraftAnswerV80};
 
 // v0.90.0 exports (current) - Unified Architecture
 pub use engine_v90::UnifiedEngine;
+
+// v1.0.0 LLM trait exports - for testing
+pub use llm_trait::{
+    FakeJuniorResponse, FakeLlmClient, FakeLlmClientBuilder, FakeSeniorResponse, LlmClient,
+};
+
+// v1.0.0 Probe trait exports - for testing
+pub use probe_trait::{
+    FakeProbeExecutor, FakeProbeExecutorBuilder, FakeProbeResponse, ProbeExecutor,
+    RealProbeExecutor,
+};
 
 // v0.43.0 streaming exports
 pub use streaming::{

@@ -539,6 +539,27 @@ async fn run_help_via_llm() -> Result<()> {
 }
 
 /// v0.9.0: Status command - compact summary of daemon, LLM, probes, update state
+///
+/// ## Architecture Note (v1.0.0) - Data Sources
+///
+/// The status command aggregates data from multiple sources:
+///
+/// | Data              | Primary Source            | Fallback               |
+/// |-------------------|---------------------------|------------------------|
+/// | Daemon health     | `/v1/health` API          | N/A (shows "not running") |
+/// | Progression/Stats | `/v1/stats` API           | `StatsEngine::load_default()` |
+/// | XP Store          | `XpStore::load()` (file)  | N/A |
+/// | XP Log metrics    | `XpLog::new()` (file)     | N/A |
+/// | Decision Policy   | `DecisionPolicy::load()` (file) | N/A |
+/// | Self-health       | `self_health::run_all_probes()` | N/A |
+///
+/// **Note**: XP data is read directly from files because:
+/// 1. annactl may update XP during Brain fast-path (no daemon call)
+/// 2. Files are the authoritative store, daemon just reads from them
+/// 3. Adding `/v1/xp` endpoint is deferred to post-v1.0.0
+///
+/// The daemon IS the authoritative source for progression stats because
+/// it holds the live StatsEngine in memory.
 async fn run_status() -> Result<()> {
     use anna_common::THIN_SEPARATOR;
 
@@ -964,6 +985,10 @@ fn run_startup_health_check() {
 
 /// v0.40.1: Display RPG progression section in status output
 /// v0.71.0: Now async, fetches stats from daemon API to solve permission issues
+///
+/// ## Data Sources (v1.0.0)
+/// - **Progression/Stats**: Daemon `/v1/stats` API (authoritative), fallback to local file
+/// - **XpStore** (trust, streaks): Direct file load - see Architecture Note above
 async fn display_progression_section(daemon: &client::DaemonClient) {
     use anna_common::THIN_SEPARATOR;
 
@@ -1273,9 +1298,17 @@ fn handle_debug_intent(_question: &str, intent: DebugIntent) -> String {
 // ============================================================================
 
 /// Display the LLM agents XP section in status
+///
+/// ## Data Sources (v1.0.0)
+/// - **XpStore**: Direct file load (`~/.local/share/anna/xp_store.json`)
+/// - **DecisionPolicy**: Direct file load (`~/.local/share/anna/decision_policy.json`)
+///
+/// These are loaded directly from files because they are the authoritative
+/// source. The daemon reads from these same files and does not cache them.
 fn display_llm_agents_section() {
     use anna_common::THIN_SEPARATOR;
 
+    // v1.0.0: Files are authoritative source for XP and policy data
     let xp_store = XpStore::load();
     let policy = DecisionPolicy::load();
 

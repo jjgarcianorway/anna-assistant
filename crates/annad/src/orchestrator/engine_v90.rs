@@ -1,23 +1,30 @@
-//! Answer Engine v0.92.0 - Decision Policy Architecture
+//! Answer Engine v1.0.0 - Unified Orchestration
 //!
-//! v0.92.0: Decision Policy - central routing, circuit breaker, per-path metrics
+//! This is the CANONICAL orchestration entry point for Anna.
+//! See `docs/architecture.md` for the complete mental model.
 //!
-//! Implements the specification from ANNA_SPEC.md:
-//! 1. Decision Policy - choose path based on domain, XP/trust, agent health
-//! 2. Brain Fast Path (NO LLMs) for simple questions (<150ms)
-//! 3. Junior Planning (first LLM call) - discover needed probes
-//! 4. Run probes (exactly once)
-//! 5. Junior Draft Answer (second LLM call) - with evidence
-//! 6. Senior Audit (optional for simple questions with score >= 80)
-//! 7. Final Answer Assembly
-//! 8. XP/Trust updates for all three actors
+//! ## Flow Summary (from docs/architecture.md Section 1)
 //!
-//! Key constraints:
-//! - Max 2 Junior calls, 1 Senior call
-//! - Hard 30s time budget (extended from 10s)
-//! - No infinite loops
-//! - No repeated identical prompts
-//! - Circuit breaker for Junior/Senior degradation
+//! ```text
+//! Question → Brain → (miss) → Junior Plan → Probes → Junior Draft → Senior → Answer
+//! ```
+//!
+//! ## Invariants (from docs/architecture.md Section 10)
+//!
+//! 1. Max LLM calls: 2 Junior + 1 Senior = 3 total
+//! 2. Hard timeout: 30 seconds, enforced at each step
+//! 3. No loops: Each step executes exactly once
+//! 4. Safe commands only: Probes use whitelist
+//! 5. XP recorded: Every answer generates at least one XP event
+//! 6. Origin tracked: Every answer has model_used set
+//!
+//! ## Answer Origins (from docs/architecture.md Section 2)
+//!
+//! | Origin | Latency | LLM Calls |
+//! |--------|---------|-----------|
+//! | Brain  | <150ms  | 0         |
+//! | Junior | <15s    | 2         |
+//! | Senior | <30s    | 3         |
 
 use super::llm_client::OllamaClient;
 use super::probe_executor;

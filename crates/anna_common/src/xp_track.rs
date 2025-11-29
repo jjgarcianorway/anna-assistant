@@ -1,8 +1,20 @@
-//! XP Tracking System for v0.95.0
+//! XP Tracking System v1.0.0
 //!
 //! Unified XP model for Anna, Junior, and Senior agents.
 //! Tracks levels, XP, trust, and streaks for reinforcement learning.
+//!
+//! ## Architecture Note (v1.0.0)
+//!
+//! This module provides XP TRACKING (state management):
+//! - `XpTrack`: Tracks a single agent's level, XP, trust, streaks
+//! - `XpStore`: Combined store for all agents (Anna, Junior, Senior)
+//! - `*Stats`: Statistics structs for each agent
+//!
+//! For XP EVENT TYPES and BASE VALUES, see `xp_events.rs` (canonical source).
+//! For DISPLAY/FORMATTING, see `rpg_display.rs`.
+//!
 //! v0.95.0: Expanded RPG title bands, reliability-based XP scaling.
+//! v1.0.0: Added architecture documentation, canonical source references.
 
 use crate::rpg_display::{get_rpg_title, ReliabilityScale, TrustLevel};
 use serde::{Deserialize, Serialize};

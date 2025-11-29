@@ -1,29 +1,24 @@
-//! Progress Display Module v0.65.0
+//! Progress Display Module v1.0.0
 //!
 //! Renders Anna events with beautiful terminal colors.
 //! Uses TRUE COLOR for rich visual feedback.
 //!
+//! v1.0.0: Uses centralized ui_colors module for all color definitions
 //! v0.65.0: Updated thresholds - GREEN >= 90%, YELLOW 70-89%, RED 60-69%, REFUSED < 60%
 
 use anna_common::events::{Actor, AnnaEvent, ConversationLog, EventKind};
+use anna_common::ui_colors::{
+    // Actor colors
+    COLOR_ANNA, COLOR_JUNIOR, COLOR_SENIOR, COLOR_SYSTEM,
+    // Reliability colors
+    COLOR_GREEN, COLOR_YELLOW, COLOR_RED,
+    // Thresholds
+    THRESHOLD_GREEN, THRESHOLD_YELLOW,
+    // Helper function
+    reliability_display_f32,
+};
 use owo_colors::OwoColorize;
 use std::io::{self, Write};
-
-/// ANSI true colors for actors
-const ANNA_COLOR: (u8, u8, u8) = (147, 112, 219);   // Medium purple
-const JUNIOR_COLOR: (u8, u8, u8) = (100, 149, 237); // Cornflower blue
-const SENIOR_COLOR: (u8, u8, u8) = (255, 165, 0);   // Orange
-const SYSTEM_COLOR: (u8, u8, u8) = (128, 128, 128); // Gray
-
-/// Reliability colors (v0.65.0 thresholds)
-/// GREEN: >= 90% (high confidence)
-/// YELLOW: 70-89% (medium confidence)
-/// RED: 60-69% (low confidence, warn user)
-/// REFUSED: < 60% (hard gate, do not answer)
-const GREEN_COLOR: (u8, u8, u8) = (50, 205, 50);    // Lime green
-const YELLOW_COLOR: (u8, u8, u8) = (255, 215, 0);   // Gold
-const RED_COLOR: (u8, u8, u8) = (255, 69, 0);       // Red-orange
-const REFUSED_COLOR: (u8, u8, u8) = (220, 20, 60);  // Crimson (hard gate)
 
 /// Print a progress event with colors
 pub fn print_progress(event: &AnnaEvent) {
@@ -61,12 +56,13 @@ fn format_event_message(kind: &EventKind) -> String {
         EventKind::ClassificationDone { question_type, confidence } => {
             let conf_pct = confidence * 100.0;
             let conf_str = format!("{:.0}%", conf_pct);
-            let conf_colored = if *confidence >= 0.8 {
-                conf_str.truecolor(GREEN_COLOR.0, GREEN_COLOR.1, GREEN_COLOR.2).to_string()
-            } else if *confidence >= 0.5 {
-                conf_str.truecolor(YELLOW_COLOR.0, YELLOW_COLOR.1, YELLOW_COLOR.2).to_string()
+            // Use canonical thresholds from ui_colors
+            let conf_colored = if *confidence >= THRESHOLD_GREEN as f32 {
+                conf_str.truecolor(COLOR_GREEN.0, COLOR_GREEN.1, COLOR_GREEN.2).to_string()
+            } else if *confidence >= THRESHOLD_YELLOW as f32 {
+                conf_str.truecolor(COLOR_YELLOW.0, COLOR_YELLOW.1, COLOR_YELLOW.2).to_string()
             } else {
-                conf_str.truecolor(RED_COLOR.0, RED_COLOR.1, RED_COLOR.2).to_string()
+                conf_str.truecolor(COLOR_RED.0, COLOR_RED.1, COLOR_RED.2).to_string()
             };
             format!("Classified as {} ({}).", question_type.cyan(), conf_colored)
         }
@@ -137,22 +133,17 @@ fn format_event_message(kind: &EventKind) -> String {
 /// Get color for an actor
 fn actor_color(actor: &Actor) -> (u8, u8, u8) {
     match actor {
-        Actor::Anna => ANNA_COLOR,
-        Actor::Junior => JUNIOR_COLOR,
-        Actor::Senior => SENIOR_COLOR,
-        Actor::System => SYSTEM_COLOR,
+        Actor::Anna => COLOR_ANNA,
+        Actor::Junior => COLOR_JUNIOR,
+        Actor::Senior => COLOR_SENIOR,
+        Actor::System => COLOR_SYSTEM,
     }
 }
 
 /// Get color and label for reliability score
+/// Uses centralized thresholds from ui_colors module
 fn reliability_display(score: f32) -> ((u8, u8, u8), &'static str) {
-    if score >= 0.8 {
-        (GREEN_COLOR, "GREEN")
-    } else if score >= 0.5 {
-        (YELLOW_COLOR, "YELLOW")
-    } else {
-        (RED_COLOR, "RED")
-    }
+    reliability_display_f32(score)
 }
 
 /// Truncate command for display
@@ -240,28 +231,35 @@ pub fn print_answer(answer: &str, reliability: Option<f32>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anna_common::ui_colors::COLOR_REFUSED;
 
     #[test]
     fn test_actor_color() {
-        assert_eq!(actor_color(&Actor::Anna), ANNA_COLOR);
-        assert_eq!(actor_color(&Actor::Junior), JUNIOR_COLOR);
-        assert_eq!(actor_color(&Actor::Senior), SENIOR_COLOR);
-        assert_eq!(actor_color(&Actor::System), SYSTEM_COLOR);
+        // Uses centralized colors from ui_colors
+        assert_eq!(actor_color(&Actor::Anna), COLOR_ANNA);
+        assert_eq!(actor_color(&Actor::Junior), COLOR_JUNIOR);
+        assert_eq!(actor_color(&Actor::Senior), COLOR_SENIOR);
+        assert_eq!(actor_color(&Actor::System), COLOR_SYSTEM);
     }
 
     #[test]
     fn test_reliability_display() {
+        // Uses centralized thresholds from ui_colors
         let (color, label) = reliability_display(0.95);
-        assert_eq!(color, GREEN_COLOR);
+        assert_eq!(color, COLOR_GREEN);
         assert_eq!(label, "GREEN");
 
-        let (color, label) = reliability_display(0.7);
-        assert_eq!(color, YELLOW_COLOR);
+        let (color, label) = reliability_display(0.75);
+        assert_eq!(color, COLOR_YELLOW);
         assert_eq!(label, "YELLOW");
 
-        let (color, label) = reliability_display(0.3);
-        assert_eq!(color, RED_COLOR);
+        let (color, label) = reliability_display(0.55);
+        assert_eq!(color, COLOR_RED);
         assert_eq!(label, "RED");
+
+        let (color, label) = reliability_display(0.3);
+        assert_eq!(color, COLOR_REFUSED);
+        assert_eq!(label, "REFUSED");
     }
 
     #[test]

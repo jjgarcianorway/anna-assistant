@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.95.0
+//! Anna Common - Shared types and schemas for Anna v1.0.0
 //!
+//! v1.0.0: Anna the Movie - Fly-on-the-wall conversation traces, unified answer UX
 //! v0.95.0: RPG Display System - expanded titles, reliability-scaled XP, mood text
 //! v0.92.0: Decision Policy - central routing logic, circuit breaker, per-path metrics
 //! v0.91.0: Natural Language Debug Mode Control - persistent toggle via natural language
@@ -106,6 +107,8 @@ pub mod structured_answer;
 pub mod trace;
 pub mod types;
 pub mod updater;
+pub mod conversation_trace;
+pub mod ui_colors;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -234,4 +237,29 @@ pub use rpg_display::{
     progress_bar, progress_bar_with_text,
     TrustLevel, ReliabilityScale, RPG_TITLE_BANDS,
     AnnaXpEvent, JuniorXpEvent, SeniorXpEvent,
+};
+// Conversation Trace exports (v1.0.0)
+pub use conversation_trace::{
+    AnswerOrigin, OrchestrationTrace, ProbeExecTrace, ProbeStatus,
+    JuniorPlanTrace, SeniorReviewTrace, SeniorVerdictType,
+    ReliabilityLevel, FinalAnswerDisplay,
+    store_last_answer, get_last_answer, clear_last_answer, has_last_answer,
+    is_explain_request, explain_last_answer,
+};
+// UI Colors exports (v1.0.0) - Canonical color definitions
+pub use ui_colors::{
+    // Thresholds (canonical from docs/architecture.md)
+    THRESHOLD_GREEN, THRESHOLD_YELLOW, THRESHOLD_RED,
+    // Actor colors
+    COLOR_ANNA, COLOR_JUNIOR, COLOR_SENIOR, COLOR_SYSTEM,
+    // Reliability colors
+    COLOR_GREEN, COLOR_YELLOW, COLOR_RED, COLOR_REFUSED,
+    // Status colors
+    COLOR_OK, COLOR_ERROR, COLOR_WARNING, COLOR_MUTED,
+    // Types (use UiReliabilityLevel to avoid conflict with conversation_trace::ReliabilityLevel)
+    ReliabilityLevel as UiReliabilityLevel,
+    Actor as UiActor,
+    // Helper functions
+    format_score_colored, format_score_with_label,
+    reliability_display, reliability_display_f32,
 };

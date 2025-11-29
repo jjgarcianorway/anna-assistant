@@ -354,3 +354,48 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 **Tests**: 771 passed, 0 failed
 **Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.89.0
+
+---
+
+## v1.0.0 "Snow Leopard" - Stabilization Release
+
+**Theme**: Robustness, predictability, testing. No new user features.
+
+### Phase 1: Architecture Freeze
+[x] Created docs/architecture.md - canonical reference for all code
+[x] Documented Brain/Junior/Senior orchestration paths
+[x] Defined latency targets and reliability thresholds
+
+### Phase 2: Deterministic Tests
+[x] Created LlmClient trait abstraction for testing
+[x] Created FakeLlmClient with canned responses
+[x] Created FakeProbeEngine for deterministic probe results
+[x] Added orchestration tests for Brain, Junior+Senior paths
+
+### Phase 3: XP Consolidation
+[x] Single source of truth for XP events in xp_events.rs
+[x] Fixed annactl status consistency
+
+### Phase 4: Performance Baseline Tests
+[x] Created baseline_tests.rs with latency assertions
+[x] Brain path: <150ms latency, Green reliability
+[x] Reliability scaling tests (Green/Yellow/Orange/Red)
+
+### Phase 5: CLI Formatting Centralization
+[x] Created ui_colors.rs as CANONICAL source for all colors
+[x] Centralized reliability thresholds: GREEN >= 90%, YELLOW >= 70%, RED >= 50%
+[x] Centralized actor colors (Anna, Junior, Senior, System)
+[x] Updated progress_display.rs to use centralized colors
+
+### Phase 6: Security Hardening
+[x] Path traversal protection (`..` blocked)
+[x] Null byte injection protection
+[x] Parameter length limit (4KB max)
+[x] Security test suite (29 command_whitelist tests)
+
+**Tests**: 948 passed, 0 failed
+**Key Files**:
+- docs/architecture.md - Architecture reference
+- crates/anna_common/src/ui_colors.rs - Canonical colors/thresholds
+- crates/annad/tests/baseline_tests.rs - Performance baselines
+- crates/annad/tests/orchestration_tests.rs - Deterministic tests

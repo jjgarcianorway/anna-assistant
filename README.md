@@ -1,6 +1,8 @@
-# Anna v0.92.0
+# Anna v1.0.0 "Snow Leopard"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
+
+> v1.0.0 is a stabilization release focused on robustness, predictability, and testing. No new user features - just a rock-solid foundation.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -85,10 +87,13 @@ CONFIG:       cat /etc/os-release, hostname, timedatectl, locale, env
 | 🟡  **Medium** | Dev mode | Normal mode | `mkdir -p`, `cp backup` |
 | 🔴  **High** | Never | Always | `pacman -S`, `systemctl start` |
 
-### Injection Prevention
+### Injection Prevention (v1.0.0 Hardened)
 
 - Parameters are validated against shell metacharacters
 - No `|`, `;`, `&`, `` ` ``, `$`, `()`, `<>`, newlines
+- Path traversal blocked (`..` sequences rejected)
+- Null byte injection blocked
+- Maximum parameter length enforced (4KB)
 - Templates are compiled into binary—cannot be changed at runtime
 
 ---

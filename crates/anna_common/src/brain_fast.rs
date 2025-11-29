@@ -1,7 +1,16 @@
-//! Brain Fast Path for v0.89.0
+//! Brain Fast Path v1.0.0
 //!
-//! Direct answer generation for simple questions without LLM calls.
-//! Handles: RAM, CPU cores, disk usage, Anna health, debug mode toggle.
+//! Zero-LLM fast path for simple questions. See `docs/architecture.md` Section 3.
+//!
+//! ## Supported Question Types
+//!
+//! | Type | Latency | Command |
+//! |------|---------|---------|
+//! | RAM | <50ms | `cat /proc/meminfo` |
+//! | CPU | <50ms | `lscpu` |
+//! | Disk | <50ms | `df -h /` |
+//! | Health | <100ms | `pgrep`, `curl` |
+//! | Debug | <10ms | State file |
 
 use regex::Regex;
 use std::process::Command;

@@ -1,6 +1,32 @@
-//! XP Events for v0.85.0
+//! XP Events v1.0.0 - CANONICAL SOURCE
 //!
-//! Extended XP logic with Brain-aware events.
+//! XP event types and values. See `docs/architecture.md` Section 6.
+//!
+//! Events track Anna, Junior, and Senior performance for trust-based routing.
+//!
+//! ## Architecture Note (v1.0.0)
+//!
+//! This module is the CANONICAL source for XP event types and base values.
+//! Other XP-related modules should import from here:
+//! - `xp_track.rs`: Uses these events for XpStore tracking
+//! - `rpg_display.rs`: Provides display/formatting for these events
+//! - `progression/`: Legacy module, deprecated in favor of this
+//!
+//! ## XP Event Categories
+//!
+//! | Event Type              | Base XP | Trust Delta | Agent   |
+//! |-------------------------|---------|-------------|---------|
+//! | BrainSelfSolve          | +15     | +0.02       | Anna    |
+//! | BrainPartialSolve       | +8      | +0.01       | Anna    |
+//! | JuniorCleanProposal     | +10     | +0.02       | Junior  |
+//! | SeniorGreenApproval     | +12     | +0.02       | Senior  |
+//! | StablePatternDetected   | +20     | +0.03       | Anna    |
+//! | JuniorBadCommand        | -8      | -0.05       | Junior  |
+//! | JuniorWrongDomain       | -5      | -0.03       | Junior  |
+//! | SeniorRepeatedFix       | -10     | -0.05       | Senior  |
+//! | LlmTimeoutFallback      | -5      | -0.03       | Anna    |
+//! | UnstablePatternPenalized| -12     | -0.05       | Anna    |
+//! | LowReliabilityRefusal   | -3      | -0.02       | Anna    |
 
 use serde::{Deserialize, Serialize};
 

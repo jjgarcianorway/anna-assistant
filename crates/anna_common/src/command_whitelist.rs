@@ -19,6 +19,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 // ============================================================================
+// Security Constants (v1.0.0)
+// ============================================================================
+
+/// Maximum allowed length for command parameters (security hardening)
+/// Prevents buffer overflow-style attacks and limits resource usage
+pub const MAX_PARAMETER_LENGTH: usize = 4096;
+
+// ============================================================================
 // v0.50.0 Safety Level Classification
 // ============================================================================
 
@@ -1092,6 +1100,10 @@ impl CommandRegistry {
             if !result.contains(&placeholder) {
                 return Err(WhitelistError::UnknownParameter(key.clone()));
             }
+            // Length check - prevent excessive input
+            if value.len() > MAX_PARAMETER_LENGTH {
+                return Err(WhitelistError::ParameterTooLong(value.len(), MAX_PARAMETER_LENGTH));
+            }
             // Basic injection prevention: reject if value contains shell metacharacters
             if Self::contains_shell_metachar(value) {
                 return Err(WhitelistError::UnsafeParameter(value.clone()));
@@ -1107,11 +1119,22 @@ impl CommandRegistry {
         Ok(result)
     }
 
-    /// Check for shell metacharacters that could enable injection
+    /// Check for shell metacharacters or path traversal patterns that could enable injection
     fn contains_shell_metachar(s: &str) -> bool {
         // Dangerous characters that could enable command injection
         let dangerous = ['|', ';', '&', '`', '$', '(', ')', '<', '>', '\n', '\r'];
-        s.chars().any(|c| dangerous.contains(&c))
+        if s.chars().any(|c| dangerous.contains(&c)) {
+            return true;
+        }
+        // Path traversal protection - block ".." sequences
+        if s.contains("..") {
+            return true;
+        }
+        // Block null bytes (can truncate paths in some contexts)
+        if s.contains('\0') {
+            return true;
+        }
+        false
     }
 }
 
@@ -1142,6 +1165,9 @@ pub enum WhitelistError {
 
     #[error("Unsafe parameter value (contains shell metacharacters): {0}")]
     UnsafeParameter(String),
+
+    #[error("Parameter too long ({0} chars, max {1})")]
+    ParameterTooLong(usize, usize),
 
     #[error("Command execution denied by policy")]
     DeniedByPolicy,
@@ -1251,6 +1277,61 @@ mod tests {
 
         let result = registry.build_command("pkg_query", &params);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_command_path_traversal() {
+        let registry = CommandRegistry::new();
+
+        // Test path traversal attack via ".."
+        let mut params = HashMap::new();
+        params.insert("filepath".to_string(), "/etc/../etc/shadow".to_string());
+
+        // Find a command that accepts filepath (file_read)
+        let result = registry.build_command("file_read", &params);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(WhitelistError::UnsafeParameter(_))));
+
+        // Also test with package name containing ".."
+        let mut params = HashMap::new();
+        params.insert("package".to_string(), "../../etc/passwd".to_string());
+
+        let result = registry.build_command("pkg_query", &params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_command_null_byte() {
+        let registry = CommandRegistry::new();
+
+        // Test null byte injection
+        let mut params = HashMap::new();
+        params.insert("package".to_string(), "vim\0; rm -rf /".to_string());
+
+        let result = registry.build_command("pkg_query", &params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_command_parameter_too_long() {
+        let registry = CommandRegistry::new();
+
+        // Test parameter length limit
+        let mut params = HashMap::new();
+        let long_value = "a".repeat(MAX_PARAMETER_LENGTH + 1);
+        params.insert("package".to_string(), long_value);
+
+        let result = registry.build_command("pkg_query", &params);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(WhitelistError::ParameterTooLong(_, _))));
+
+        // Verify that exactly MAX_PARAMETER_LENGTH is allowed
+        let mut params = HashMap::new();
+        let exact_value = "a".repeat(MAX_PARAMETER_LENGTH);
+        params.insert("package".to_string(), exact_value);
+
+        let result = registry.build_command("pkg_query", &params);
+        assert!(result.is_ok());
     }
 
     #[test]

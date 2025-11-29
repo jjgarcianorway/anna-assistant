@@ -40,11 +40,12 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "0.95.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
  "dirs",
+ "lazy_static",
  "owo-colors",
  "regex",
  "rusqlite",
@@ -60,7 +61,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.95.0"
+version = "1.0.0"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -82,10 +83,11 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.95.0"
+version = "1.0.0"
 dependencies = [
  "anna_common",
  "anyhow",
+ "async-trait",
  "axum",
  "chrono",
  "flate2",

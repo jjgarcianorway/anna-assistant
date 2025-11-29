@@ -1,7 +1,17 @@
-//! Anna Presentation Layer v0.12.0
+//! Anna Presentation Layer v1.0.0
 //!
 //! ASCII-only, sysadmin-style output formatting.
 //! No emojis. No Unicode box characters. Professional and compact.
+//!
+//! ## Architecture Note (v1.0.0)
+//!
+//! For color definitions and reliability thresholds, see `ui_colors.rs` which is
+//! the CANONICAL source for:
+//! - Actor colors (Anna, Junior, Senior, System)
+//! - Reliability colors (Green, Yellow, Red, Refused)
+//! - Reliability thresholds (90%, 70%, 50%)
+//!
+//! This module provides higher-level presentation utilities like `ReportBuilder`.
 
 use owo_colors::OwoColorize;
 

@@ -1,4 +1,9 @@
-//! Research Loop Engine v0.15.0
+//! DEPRECATED: Research Loop Engine v0.15.0
+//!
+//! **WARNING**: This file is deprecated. Use `engine_v90.rs` (UnifiedEngine) instead.
+//! See `docs/architecture.md` Section 9 for details.
+//!
+//! This module remains for backward compatibility but is not called in production.
 //!
 //! Junior (LLM-A) / Senior (LLM-B) architecture with:
 //! - Command whitelist (no arbitrary shell)

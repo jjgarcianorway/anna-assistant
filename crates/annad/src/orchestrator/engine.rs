@@ -1,4 +1,9 @@
-//! Answer Engine v0.79.0
+//! DEPRECATED: Legacy Answer Engine v0.79.0
+//!
+//! **WARNING**: This file is deprecated. Use `engine_v90.rs` (UnifiedEngine) instead.
+//! See `docs/architecture.md` Section 9 for details.
+//!
+//! This module remains for backward compatibility but is not called in production.
 //!
 //! v0.79.0: CPU semantics and evidence scoring fix - probe-backed = Green
 //!   Score clamping: probe-backed answers with valid citations clamp to >= 0.7
