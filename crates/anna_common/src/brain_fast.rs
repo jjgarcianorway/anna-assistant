@@ -1,11 +1,13 @@
-//! Brain Fast Path for v0.87.0
+//! Brain Fast Path for v0.89.0
 //!
 //! Direct answer generation for simple questions without LLM calls.
-//! Handles: RAM, CPU cores, disk usage, Anna health.
+//! Handles: RAM, CPU cores, disk usage, Anna health, debug mode toggle.
 
 use regex::Regex;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+
+use crate::debug_state::{DebugIntent, DebugState, debug_is_enabled, debug_set_enabled};
 
 /// Time budget for Brain fast path (150ms)
 pub const BRAIN_BUDGET_MS: u64 = 150;
@@ -31,6 +33,12 @@ pub enum FastQuestionType {
     RootDiskSpace,
     /// Anna self-health check
     AnnaHealth,
+    /// Enable debug mode (v0.89.0)
+    DebugEnable,
+    /// Disable debug mode (v0.89.0)
+    DebugDisable,
+    /// Check debug mode status (v0.89.0)
+    DebugStatus,
     /// Not a fast-path question
     Unknown,
 }
@@ -79,6 +87,14 @@ impl FastQuestionType {
         }
         if q.contains("are you") && (q.contains("ok") || q.contains("working") || q.contains("healthy")) {
             return Self::AnnaHealth;
+        }
+
+        // Debug mode patterns (v0.89.0) - check before Unknown
+        match DebugIntent::classify(question) {
+            DebugIntent::Enable => return Self::DebugEnable,
+            DebugIntent::Disable => return Self::DebugDisable,
+            DebugIntent::Status => return Self::DebugStatus,
+            DebugIntent::None => {}
         }
 
         Self::Unknown
@@ -149,6 +165,9 @@ pub fn try_fast_answer(question: &str) -> Option<FastAnswer> {
         FastQuestionType::CpuCores => fast_cpu_answer(),
         FastQuestionType::RootDiskSpace => fast_disk_answer(),
         FastQuestionType::AnnaHealth => fast_health_answer(),
+        FastQuestionType::DebugEnable => fast_debug_enable(),
+        FastQuestionType::DebugDisable => fast_debug_disable(),
+        FastQuestionType::DebugStatus => fast_debug_status(),
         FastQuestionType::Unknown => return None,
     };
 
@@ -346,6 +365,52 @@ fn fast_health_answer() -> Option<FastAnswer> {
 }
 
 // ============================================================================
+// Debug Mode Handlers (v0.89.0)
+// ============================================================================
+
+/// Enable debug mode
+fn fast_debug_enable() -> Option<FastAnswer> {
+    match debug_set_enabled(true, "user_command") {
+        Ok(()) => Some(FastAnswer::new(
+            &DebugState::format_enable_message(),
+            vec!["debug_state.json"],
+            0.99,
+        )),
+        Err(_) => Some(FastAnswer::new(
+            "Failed to enable debug mode. Check file permissions.",
+            vec!["debug_state.json"],
+            0.50,
+        )),
+    }
+}
+
+/// Disable debug mode
+fn fast_debug_disable() -> Option<FastAnswer> {
+    match debug_set_enabled(false, "user_command") {
+        Ok(()) => Some(FastAnswer::new(
+            &DebugState::format_disable_message(),
+            vec!["debug_state.json"],
+            0.99,
+        )),
+        Err(_) => Some(FastAnswer::new(
+            "Failed to disable debug mode. Check file permissions.",
+            vec!["debug_state.json"],
+            0.50,
+        )),
+    }
+}
+
+/// Check debug mode status
+fn fast_debug_status() -> Option<FastAnswer> {
+    let state = DebugState::load();
+    Some(FastAnswer::new(
+        &state.format_status(),
+        vec!["debug_state.json"],
+        0.99,
+    ))
+}
+
+// ============================================================================
 // Timing Summary
 // ============================================================================
 
@@ -503,6 +568,30 @@ mod tests {
     fn test_classify_unknown() {
         assert_eq!(FastQuestionType::classify("what is the weather?"), FastQuestionType::Unknown);
         assert_eq!(FastQuestionType::classify("tell me a joke"), FastQuestionType::Unknown);
+    }
+
+    #[test]
+    fn test_classify_debug_enable() {
+        assert_eq!(FastQuestionType::classify("enable debug mode"), FastQuestionType::DebugEnable);
+        assert_eq!(FastQuestionType::classify("turn debug mode on"), FastQuestionType::DebugEnable);
+        assert_eq!(FastQuestionType::classify("activate debug"), FastQuestionType::DebugEnable);
+        assert_eq!(FastQuestionType::classify("start debug mode"), FastQuestionType::DebugEnable);
+    }
+
+    #[test]
+    fn test_classify_debug_disable() {
+        assert_eq!(FastQuestionType::classify("disable debug mode"), FastQuestionType::DebugDisable);
+        assert_eq!(FastQuestionType::classify("turn debug mode off"), FastQuestionType::DebugDisable);
+        assert_eq!(FastQuestionType::classify("deactivate debug"), FastQuestionType::DebugDisable);
+        assert_eq!(FastQuestionType::classify("stop debug mode"), FastQuestionType::DebugDisable);
+    }
+
+    #[test]
+    fn test_classify_debug_status() {
+        assert_eq!(FastQuestionType::classify("is debug mode enabled?"), FastQuestionType::DebugStatus);
+        assert_eq!(FastQuestionType::classify("is debug on?"), FastQuestionType::DebugStatus);
+        assert_eq!(FastQuestionType::classify("debug status"), FastQuestionType::DebugStatus);
+        assert_eq!(FastQuestionType::classify("what is your debug mode state?"), FastQuestionType::DebugStatus);
     }
 
     #[test]

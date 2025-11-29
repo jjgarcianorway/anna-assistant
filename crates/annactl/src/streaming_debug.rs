@@ -1,16 +1,18 @@
-//! Streaming Debug Client v0.72.0
+//! Streaming Debug Client v0.89.0
 //!
 //! Real-time consumption of debug events from annad.
 //! Processes NDJSON stream line by line and displays events as they arrive.
 //!
-//! Activation:
+//! Activation (v0.89.0 - any of these):
+//! - Persistent debug mode: `annactl "enable debug mode"`
 //! - ANNA_DEBUG=1 environment variable
 //! - config debug.live_view = true
 //!
 //! v0.71.0: Fixed version header, increased question display length
 //! v0.72.0: Full question display, upgraded transcript format
+//! v0.89.0: Persistent debug mode via natural language
 
-use anna_common::{DebugEvent, DebugStreamConfig, FinalAnswer};
+use anna_common::{debug_is_enabled as persistent_debug_enabled, DebugEvent, DebugStreamConfig, FinalAnswer};
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use owo_colors::OwoColorize;
@@ -20,7 +22,13 @@ use std::time::Instant;
 const DAEMON_URL: &str = "http://127.0.0.1:7865";
 
 /// Check if debug streaming is enabled
+/// v0.89.0: Also checks persistent debug mode from natural language toggle
 pub fn is_debug_enabled() -> bool {
+    // Check persistent state first (v0.89.0)
+    if persistent_debug_enabled() {
+        return true;
+    }
+    // Fall back to environment/config check
     DebugStreamConfig::from_env().enabled
 }
 

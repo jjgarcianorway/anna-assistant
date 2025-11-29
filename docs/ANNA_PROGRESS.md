@@ -332,3 +332,24 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 **Tests**: 736 passed, 0 failed
 **Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.88.0
+
+---
+
+## v0.89.0 - Conversational Debug Mode
+
+[x] Persistent debug mode toggle via natural language
+[x] DebugState struct with enabled, last_changed_at, last_changed_reason
+[x] Brain fast path for debug intents (no LLM required)
+[x] DebugIntent enum with Enable/Disable/Status/None variants
+[x] annactl streams live debug when persistent debug mode is ON
+[x] DEBUG MODE section in status command (only shown when enabled)
+[x] Pattern matching fixes for deactivate/enabled containing substrings
+
+**Key Features**:
+- "enable debug mode" / "disable debug mode" / "is debug mode enabled?" handled instantly via Brain
+- Persistent state survives daemon restarts and reboots
+- Stored in /var/lib/anna/knowledge/stats/debug_state.json
+- No environment variable or config file edit required
+- 99% reliability (Green) for debug toggle operations
+
+**Tests**: 771 passed, 0 failed

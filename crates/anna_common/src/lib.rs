@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.88.0
+//! Anna Common - Shared types and schemas for Anna v0.89.0
 //!
+//! v0.89.0: Conversational Debug Mode - persistent toggle via natural language, Brain fast path
 //! v0.88.0: Dynamic Probe Catalog & XP Wiring - single source of truth for probes, Junior/Senior XP events
 //! v0.87.0: Latency Cuts & Brain Fast Path - <3s simple questions, hard fallback, always visible answer
 //! v0.86.0: XP Reinforcement - Anna/Junior/Senior XP tracking, trust, ranks, behaviour bias
@@ -68,6 +69,7 @@ pub mod bench;
 pub mod brain;
 pub mod brain_fast;
 pub mod command_whitelist;
+pub mod debug_state;
 pub mod llm_validator;
 pub mod performance;
 pub mod xp_events;
@@ -211,4 +213,9 @@ pub use brain_fast::{
     FastQuestionType, FastAnswer, try_fast_answer, create_fallback_answer, create_partial_answer,
     TimingSummary, BRAIN_BUDGET_MS, LLM_A_BUDGET_MS, LLM_B_BUDGET_MS,
     GLOBAL_SOFT_LIMIT_MS, GLOBAL_HARD_LIMIT_MS,
+};
+// Debug State exports (v0.89.0)
+pub use debug_state::{
+    DebugState, DebugIntent, debug_is_enabled, debug_set_enabled, debug_get_state,
+    DEBUG_STATE_DIR, DEBUG_STATE_FILE,
 };

@@ -40,6 +40,8 @@ use anna_common::{
     try_fast_answer, FastQuestionType,
     // v0.88.0: XP events for Junior/Senior
     XpEvent, XpEventType, FinalAnswer,
+    // v0.89.0: Persistent debug mode
+    debug_is_enabled,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -606,6 +608,15 @@ async fn run_status() -> Result<()> {
 
     // v0.86.0: LLM Agents section
     display_llm_agents_section();
+
+    // v0.89.0: Debug Mode section (only shown when enabled)
+    if debug_is_enabled() {
+        println!("{}", "DEBUG MODE".bright_white().bold());
+        println!("{}", THIN_SEPARATOR);
+        println!("  {}  Live debug stream: {}", "*".cyan(), "ENABLED".bright_green());
+        println!("{}", THIN_SEPARATOR);
+        println!();
+    }
 
     // Update state
     println!("{}", "UPDATE STATE".bright_white().bold());
