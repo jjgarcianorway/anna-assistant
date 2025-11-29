@@ -1,8 +1,8 @@
-# Anna v1.0.0 "Snow Leopard"
+# Anna v2.2.0 "First Light"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v1.0.0 is a stabilization release focused on robustness, predictability, and testing. No new user features - just a rock-solid foundation.
+> v2.2.0 introduces First Light self-testing after reset, XP/Telemetry sanity validation, and daily check-in commands for a predictable, validated post-reset state.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -358,6 +358,12 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| **v2.2.0** | **First Light** - Post-reset self-test, XP/Telemetry sanity validation, daily check-in |
+| v2.1.0 | Permissions Fix - XP/Telemetry persistence, installer permissions, reset pipeline |
+| v2.0.0 | Autoprovision - Self-provisioning LLM models, auto-install, auto-benchmark |
+| v1.1.0 | Adaptive LLM Provisioning - Model benchmarking, skill routing |
+| v1.0.0 | Snow Leopard - Stabilization, deterministic tests, security hardening |
+| v0.89.0 | Conversational Debug Mode - Natural language debug toggle |
 | v0.88.0 | Dynamic Probe Catalog & XP Wiring - Single source of truth for probes, Junior/Senior XP events |
 | v0.87.0 | Latency Cuts & Brain Fast Path - <3s simple questions, hard fallback, always visible answer |
 | v0.86.0 | XP Reinforcement - Anna/Junior/Senior XP tracking, trust, ranks, behaviour bias |

@@ -413,6 +413,57 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
+## v2.2.0 "First Light" - Post-Reset Validation & Daily Check-In
+
+**Theme**: Predictable, validated, measurable post-reset state. Ready for Snow Leopard benchmark cycles.
+
+### First Light Self-Test (v2.2.0)
+[x] New `first_light.rs` module with First Light framework
+[x] `FIRST_LIGHT_QUESTIONS` - 5 canonical questions (CPU, RAM, Disk, Health, LLM)
+[x] `FirstLightQuestion` struct - tracks success/failure/reliability/latency/xp
+[x] `FirstLightResult` struct - aggregated test results with stats
+[x] `FirstLightResult::new()` - calculates all_passed, avg_reliability, avg_latency, total_xp
+[x] `FirstLightResult::format_display()` - TRUE COLOR formatted output
+[x] `FirstLightQuestion::success/failure()` - factory methods for results
+
+### XP/Telemetry Sanity Validation (v2.2.0)
+[x] `SanityCheckResult` struct - comprehensive validation results
+[x] `run_sanity_checks()` - validates XP file, Telemetry file, Stats directory
+[x] `SanityCheckResult::format_display()` - colored status output
+[x] Checks: file existence, writability, JSON parsability, reasonable values
+
+### Daily Check-In Command (v2.2.0)
+[x] `DailyCheckIn` struct - generates daily status report
+[x] `is_daily_checkin_question()` - pattern matching for triggers
+[x] Natural language triggers: "daily check in", "show today's check in"
+[x] Natural language triggers: "how are you today", "daily status"
+[x] `DailyCheckIn::generate()` - creates check-in from current state
+[x] `DailyCheckIn::format_display()` - TRUE COLOR formatted output
+[x] `FastQuestionType::DailyCheckIn` - Brain fast path classification
+[x] `fast_daily_checkin()` - handles check-in without LLM
+
+### Reset Confirmation UX (v2.2.0)
+[x] Improved confirmation prompts with clearer instructions
+[x] Soft reset accepts: "yes", "y", "confirm", "ok", "yes, soft reset"
+[x] Hard reset accepts: "I UNDERSTAND AND CONFIRM FACTORY RESET", "yes, hard reset"
+[x] Confirmation messages show exact required input
+
+### Tests (v2.2.0)
+[x] `test_first_light_question_success` - success factory method
+[x] `test_first_light_question_failure` - failure factory method
+[x] `test_first_light_result_stats` - aggregation calculations
+[x] `test_sanity_checks_empty_dir` - sanity on missing files
+[x] `test_daily_checkin_triggers` - pattern matching
+[x] `test_daily_checkin_generate` - generation and display
+[x] All workspace tests passing (827+)
+
+**Key Files**:
+- crates/anna_common/src/first_light.rs - New First Light module
+- crates/anna_common/src/brain_fast.rs - DailyCheckIn classification, reset UX
+- crates/anna_common/src/lib.rs - first_light export
+
+---
+
 ## v2.0.0 "Autoprovision" - Fully Self-Provisioning LLM Models
 
 **Theme**: Anna now manages her own LLM models - detects, installs, benchmarks, and switches automatically.

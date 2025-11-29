@@ -139,6 +139,8 @@ pub enum FastQuestionType {
     BenchmarkHistory,
     /// Compare benchmarks / show delta (v1.5.0)
     BenchmarkDelta,
+    /// Daily check-in (v2.2.0)
+    DailyCheckIn,
     /// Not a fast-path question
     Unknown,
 }
@@ -262,6 +264,13 @@ impl FastQuestionType {
             DebugIntent::Disable => return Self::DebugDisable,
             DebugIntent::Status => return Self::DebugStatus,
             DebugIntent::None => {}
+        }
+
+        // =================================================================
+        // Daily Check-In (v2.2.0)
+        // =================================================================
+        if crate::first_light::is_daily_checkin_question(&q) {
+            return Self::DailyCheckIn;
         }
 
         // =================================================================
@@ -582,6 +591,7 @@ pub fn try_fast_answer(question: &str) -> Option<FastAnswer> {
         FastQuestionType::BenchmarkQuick => fast_benchmark_response(true),
         FastQuestionType::BenchmarkHistory => fast_benchmark_history(),
         FastQuestionType::BenchmarkDelta => fast_benchmark_delta(),
+        FastQuestionType::DailyCheckIn => fast_daily_checkin(),
         FastQuestionType::Unknown => return None,
     };
 
@@ -1069,6 +1079,7 @@ pub fn fast_debug_status() -> Option<FastAnswer> {
 // ============================================================================
 
 /// Ask for confirmation before experience reset (soft reset)
+/// v2.2.0: Improved UX with clearer confirmation
 pub fn fast_reset_experience_confirm() -> Option<FastAnswer> {
     use crate::experience_reset::{ExperiencePaths, ExperienceSnapshot};
 
@@ -1076,20 +1087,28 @@ pub fn fast_reset_experience_confirm() -> Option<FastAnswer> {
     let snapshot = ExperienceSnapshot::capture(&paths);
 
     let text = format!(
-        "This will reset XP, trust, and counters to baseline (level 1, trust 0.5).\n\
-         Telemetry and stats will be cleared. Knowledge is preserved.\n\n\
-         Current state:\n\
-         - Anna level: {}, XP: {}\n\
-         - Questions answered: {}\n\
-         - Telemetry events: {}\n\n\
-         Type 'yes' to confirm.",
-        snapshot.anna_level, snapshot.anna_xp, snapshot.total_questions, snapshot.telemetry_line_count
+        "═══════════════════════════════════════════\n\
+         🔄  SOFT RESET REQUESTED\n\
+         ═══════════════════════════════════════════\n\n\
+         This clears short-term memory and patterns but keeps XP.\n\n\
+         What will be reset:\n\
+         - Trust scores → 0.5 (neutral)\n\
+         - Streaks → 0\n\
+         - Stats counters → 0\n\
+         - Telemetry history ({} events)\n\n\
+         What will be preserved:\n\
+         - XP and levels (currently: level {}, {} XP)\n\
+         - Knowledge base\n\n\
+         ───────────────────────────────────────────\n\
+         Type: yes, soft reset",
+        snapshot.telemetry_line_count, snapshot.anna_level, snapshot.anna_xp
     );
 
     Some(FastAnswer::new(&text, vec!["experience_reset"], 0.99).with_experience_reset_pending())
 }
 
 /// Ask for confirmation before factory reset (hard reset)
+/// v2.2.0: Improved UX with clearer confirmation
 pub fn fast_reset_factory_confirm() -> Option<FastAnswer> {
     use crate::experience_reset::{ExperiencePaths, ExperienceSnapshot};
 
@@ -1097,15 +1116,22 @@ pub fn fast_reset_factory_confirm() -> Option<FastAnswer> {
     let snapshot = ExperienceSnapshot::capture(&paths);
 
     let text = format!(
-        "⚠️  FACTORY RESET WARNING ⚠️\n\n\
-         This will delete ALL learned data including:\n\
-         - XP, levels, trust, streaks (reset to baseline)\n\
+        "═══════════════════════════════════════════\n\
+         ⚠️   HARD RESET REQUESTED\n\
+         ═══════════════════════════════════════════\n\n\
+         This will erase XP, telemetry, stats, patterns and all learning.\n\n\
+         What will be DELETED:\n\
+         - XP, levels, trust, streaks → reset to baseline\n\
          - Telemetry history ({} events)\n\
          - Stats and learning artifacts\n\
-         - Knowledge base and learned facts ({} files)\n\n\
-         Current state: Level {}, {} XP, {} questions answered\n\n\
-         This is IRREVERSIBLE. To confirm, type exactly:\n\
-         I UNDERSTAND AND CONFIRM FACTORY RESET",
+         - Knowledge base ({} files)\n\
+         - All patterns and learning\n\n\
+         Current state you will LOSE:\n\
+         - Level {}, {} XP, {} questions answered\n\n\
+         This is IRREVERSIBLE.\n\n\
+         ───────────────────────────────────────────\n\
+         Are you absolutely sure?\n\
+         Type: yes, hard reset",
         snapshot.telemetry_line_count,
         snapshot.knowledge_file_count,
         snapshot.anna_level,
@@ -1210,15 +1236,19 @@ pub fn execute_factory_reset() -> FastAnswer {
     }
 }
 
-/// Check if a response is a simple confirmation ("yes")
+/// Check if a response is a soft reset confirmation (v2.2.0 - improved UX)
 pub fn is_confirmation(response: &str) -> bool {
     let r = response.trim().to_lowercase();
-    r == "yes" || r == "y" || r == "confirm" || r == "ok"
+    r == "yes" || r == "y" || r == "confirm" || r == "ok" ||
+    r == "yes, soft reset" || r == "yes soft reset"
 }
 
-/// Check if a response is a factory reset confirmation
+/// Check if a response is a factory/hard reset confirmation (v2.2.0 - improved UX)
 pub fn is_factory_reset_confirmation(response: &str) -> bool {
-    response.trim() == "I UNDERSTAND AND CONFIRM FACTORY RESET"
+    let r = response.trim().to_lowercase();
+    // Accept both old and new formats
+    response.trim() == "I UNDERSTAND AND CONFIRM FACTORY RESET" ||
+    r == "yes, hard reset" || r == "yes hard reset"
 }
 
 // ============================================================================
@@ -1335,6 +1365,20 @@ impl TimingSummary {
             self.total_ms
         )
     }
+}
+
+// ============================================================================
+// Daily Check-In (v2.2.0)
+// ============================================================================
+
+/// Generate daily check-in response
+pub fn fast_daily_checkin() -> Option<FastAnswer> {
+    use crate::first_light::DailyCheckIn;
+
+    let checkin = DailyCheckIn::generate();
+    let text = checkin.format_display();
+
+    Some(FastAnswer::new(&text, vec!["daily_checkin"], 0.99))
 }
 
 // ============================================================================

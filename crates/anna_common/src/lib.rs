@@ -118,6 +118,7 @@ pub mod bench_snow_leopard;
 pub mod auto_tune;
 pub mod llm_provision;
 pub mod permissions;
+pub mod first_light;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
