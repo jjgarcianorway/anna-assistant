@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.87.0
+//! Anna Common - Shared types and schemas for Anna v0.88.0
 //!
+//! v0.88.0: Dynamic Probe Catalog & XP Wiring - single source of truth for probes, Junior/Senior XP events
 //! v0.87.0: Latency Cuts & Brain Fast Path - <3s simple questions, hard fallback, always visible answer
 //! v0.86.0: XP Reinforcement - Anna/Junior/Senior XP tracking, trust, ranks, behaviour bias
 //! v0.85.1: XP Log Command - xp-log command, 24h metrics in status, completing v0.84.0 tasks
@@ -198,6 +199,8 @@ pub use structured_answer::{
 };
 // XP Log exports (v0.84.0)
 pub use xp_log::{XpLog, StoredXpEvent, Metrics24h, XP_LOG_DIR, XP_LOG_FILE};
+// XP Events exports (v0.88.0)
+pub use xp_events::{XpEvent, XpEventType};
 // XP Track exports (v0.86.0)
 pub use xp_track::{
     XpTrack, XpStore, JuniorStats as XpJuniorStats, SeniorStats as XpSeniorStats,

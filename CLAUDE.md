@@ -187,3 +187,4 @@ enum EventKind {
 - No LLM calls for formatting events
 - Progress lines streamed in order
 - Conversation log from real events only
+- Always update README.md and other documents in GitHub when you release a new version. Keep the repository updated and clean.

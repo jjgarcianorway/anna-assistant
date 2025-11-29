@@ -10,7 +10,8 @@
 
 use crate::answer_engine::{AvailableProbe, ProbeEvidenceV10};
 
-/// v0.83.0 Junior system prompt - compact, decisive, fast
+/// v0.88.0 Junior system prompt - compact, decisive, fast
+/// NOTE: Probe list is passed dynamically via user prompt (P: line), NOT hardcoded here
 pub const LLM_A_SYSTEM_PROMPT_V83: &str = r#"You are Junior. Validate Linux system questions. Be FAST and COMPACT.
 
 OUTPUT (strict JSON only):
@@ -19,9 +20,9 @@ OUTPUT (strict JSON only):
 RULES:
 - score 0-100 (0=refuse, 100=perfect)
 - If evidence exists AND sufficient: answer_ready=true, provide draft, score>=80
-- If no evidence: answer_ready=false, request probes
+- If no evidence: answer_ready=false, request probes from P: list
 - Fabricated claims: score=0, refuse=true
-- probes: cpu.info, mem.info, disk.lsblk, hardware.gpu, drivers.gpu, hardware.ram
+- Only use probes from the P: list in the user message
 - KEEP ANSWERS SHORT. Max 2 sentences.
 "#;
 

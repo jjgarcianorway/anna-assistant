@@ -254,6 +254,21 @@ impl ProbeCatalog {
             })
             .collect()
     }
+
+    /// v0.88.0: Get probe IDs as comma-separated string for LLM prompts
+    /// This is the SINGLE SOURCE OF TRUTH for probe lists in prompts
+    pub fn probe_ids_string(&self) -> String {
+        let mut ids: Vec<&str> = self.probes.keys().map(|s| s.as_str()).collect();
+        ids.sort(); // Consistent ordering
+        ids.join(", ")
+    }
+
+    /// v0.88.0: Get probe IDs as vector of strings
+    pub fn probe_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self.probes.keys().cloned().collect();
+        ids.sort();
+        ids
+    }
 }
 
 /// Simplified probe info for LLM context
@@ -318,5 +333,29 @@ mod tests {
         assert!(probes.iter().any(|p| p.probe_id == "hardware.gpu"));
         assert!(probes.iter().any(|p| p.probe_id == "system.os"));
         assert!(probes.iter().any(|p| p.probe_id == "logs.annad"));
+    }
+
+    #[test]
+    fn test_probe_ids_string() {
+        let catalog = ProbeCatalog::standard();
+        let ids = catalog.probe_ids_string();
+        // v0.88.0: All 10 probes should be listed
+        assert!(ids.contains("cpu.info"));
+        assert!(ids.contains("mem.info"));
+        assert!(ids.contains("logs.annad"));
+        assert!(ids.contains("updates.pending"));
+        assert!(ids.contains("anna.self_health"));
+        assert!(ids.contains("system.os"));
+        // Should be comma-separated
+        assert!(ids.contains(", "));
+    }
+
+    #[test]
+    fn test_probe_ids_vector() {
+        let catalog = ProbeCatalog::standard();
+        let ids = catalog.probe_ids();
+        assert_eq!(ids.len(), 10);
+        assert!(ids.contains(&"logs.annad".to_string()));
+        assert!(ids.contains(&"updates.pending".to_string()));
     }
 }

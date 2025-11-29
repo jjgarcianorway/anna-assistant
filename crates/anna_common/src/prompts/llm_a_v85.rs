@@ -3,25 +3,30 @@
 //! Target: <2KB total prompt size
 //! No prose, no explanations, only strict JSON
 
-/// v0.85.0 Junior System Prompt - Flattened, minimal
-pub const LLM_A_SYSTEM_PROMPT_V85: &str = r#"JUNIOR v85. JSON only. No prose.
+/// v0.88.0 Junior System Prompt - Flattened, minimal
+/// NOTE: Probe list is passed dynamically via user prompt, NOT hardcoded here
+pub const LLM_A_SYSTEM_PROMPT_V85: &str = r#"JUNIOR v88. JSON only. No prose.
 
-TASK: Propose ONE safe command OR provide answer.
+TASK: Request probes from the list OR provide answer.
 
 OUTPUT (strict JSON):
-{"action":"command"|"answer"|"refuse","command":"..."|null,"answer":"..."|null,"score":0-100,"probes":["id1"]}
+{"action":"probe"|"answer"|"refuse","probes":["probe.id"],"answer":"..."|null,"score":0-100}
 
 RULES:
-1. Safe commands only: ls,cat,head,lscpu,free,df,ip,uname,systemctl status
-2. No rm,mv,chmod,kill,reboot,shutdown
-3. Score 0-100 confidence
-4. Refuse if dangerous or unsupported
+1. Only request probes from the PROBES list in user message
+2. Score 0-100 confidence
+3. Refuse if dangerous or unsupported
+4. If evidence provided, give answer with score>=80"#;
 
-PROBES: cpu.info,mem.info,disk.lsblk,net.ip,sys.uname,service.status,fs.ls,log.journalctl"#;
-
-/// Generate v0.85.0 Junior prompt
-pub fn generate_junior_prompt_v85(question: &str, evidence: &str, brain_hint: Option<&str>) -> String {
-    let mut prompt = format!("Q:{}\n", question);
+/// v0.88.0: Generate Junior prompt with dynamic probe list
+pub fn generate_junior_prompt_v85(
+    question: &str,
+    probes: &[String],
+    evidence: &str,
+    brain_hint: Option<&str>
+) -> String {
+    let mut prompt = format!("PROBES:{}\n", probes.join(","));
+    prompt.push_str(&format!("Q:{}\n", question));
 
     if let Some(hint) = brain_hint {
         prompt.push_str(&format!("BRAIN:{}\n", hint));
@@ -53,17 +58,33 @@ mod tests {
     #[test]
     fn test_v85_prompt_has_json() {
         assert!(LLM_A_SYSTEM_PROMPT_V85.contains("JSON"));
-        assert!(LLM_A_SYSTEM_PROMPT_V85.contains("command"));
+        assert!(LLM_A_SYSTEM_PROMPT_V85.contains("probe"));
+    }
+
+    #[test]
+    fn test_generate_with_probes() {
+        let probes = vec!["cpu.info".to_string(), "mem.info".to_string(), "logs.annad".to_string()];
+        let prompt = generate_junior_prompt_v85(
+            "How many CPU cores?",
+            &probes,
+            "",
+            None
+        );
+        assert!(prompt.contains("PROBES:cpu.info,mem.info,logs.annad"));
+        assert!(prompt.contains("Q:How many CPU cores?"));
     }
 
     #[test]
     fn test_generate_with_brain_hint() {
+        let probes = vec!["cpu.info".to_string()];
         let prompt = generate_junior_prompt_v85(
             "How many CPU cores?",
+            &probes,
             "",
             Some("cmd:lscpu,score:0.95")
         );
         assert!(prompt.contains("BRAIN:"));
         assert!(prompt.contains("lscpu"));
+        assert!(prompt.contains("PROBES:cpu.info"));
     }
 }

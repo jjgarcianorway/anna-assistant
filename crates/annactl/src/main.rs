@@ -38,6 +38,8 @@ use anna_common::{
     XpStore,
     // v0.87.0: Brain fast path
     try_fast_answer, FastQuestionType,
+    // v0.88.0: XP events for Junior/Senior
+    XpEvent, XpEventType, FinalAnswer,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -73,13 +75,6 @@ async fn main() -> Result<()> {
 
         // v0.9.0: Status command (case-insensitive)
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
-
-        // v0.84.0: XP log command - show recent XP events
-        [cmd] if cmd.eq_ignore_ascii_case("xp-log") => run_xp_log(20).await,
-        [cmd, limit] if cmd.eq_ignore_ascii_case("xp-log") => {
-            let n: usize = limit.parse().unwrap_or(20);
-            run_xp_log(n).await
-        }
 
         // v0.18.0: Version flags and command - instant, no daemon required
         [flag]
@@ -166,14 +161,6 @@ async fn run_repl() -> Result<()> {
         }
         if input.eq_ignore_ascii_case("status") {
             run_status().await?;
-            continue;
-        }
-        // v0.84.0: xp-log command in REPL
-        if input.eq_ignore_ascii_case("xp-log") || input.starts_with("xp-log ") {
-            let limit = input.strip_prefix("xp-log")
-                .map(|s| s.trim().parse::<usize>().unwrap_or(20))
-                .unwrap_or(20);
-            run_xp_log(limit).await?;
             continue;
         }
 
@@ -317,6 +304,9 @@ async fn run_ask(question: &str) -> Result<()> {
                         "loop_iterations": final_answer.loop_iterations
                     })),
             );
+
+            // v0.88.0: Process XP events for Junior/Senior (wires to XpLog for 24h metrics)
+            process_llm_xp_events(question, &final_answer);
 
             clear_current_request();
 
@@ -1145,105 +1135,6 @@ fn format_xp(xp: u64) -> String {
     }
 }
 
-/// v0.84.0: Display recent XP events
-async fn run_xp_log(limit: usize) -> Result<()> {
-    use anna_common::THIN_SEPARATOR;
-
-    println!();
-    println!("{}", "XP EVENT LOG".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
-
-    let xp_log = XpLog::new();
-    let events = xp_log.read_recent(limit);
-
-    if events.is_empty() {
-        println!("  {}  No XP events recorded yet", "?".dimmed());
-    } else {
-        for event in &events {
-            // Parse timestamp and format as relative time
-            let time_ago = format_time_ago(&event.timestamp);
-
-            // Format XP change with color
-            let xp_str = if event.xp_change >= 0 {
-                format!("+{}", event.xp_change).bright_green().to_string()
-            } else {
-                format!("{}", event.xp_change).bright_red().to_string()
-            };
-
-            // Truncate question if too long
-            let q_preview = if event.question.len() > 40 {
-                format!("{}...", &event.question[..37])
-            } else {
-                event.question.clone()
-            };
-
-            // Print event line
-            let icon = if event.xp_change >= 0 {
-                "+".bright_green().to_string()
-            } else {
-                "-".bright_red().to_string()
-            };
-            println!(
-                "  {}  {} {} - \"{}\"",
-                icon,
-                xp_str,
-                event.event_type.dimmed(),
-                q_preview
-            );
-            println!("       {} ago", time_ago.dimmed());
-        }
-    }
-
-    println!("{}", THIN_SEPARATOR);
-
-    // Show 24h summary
-    let metrics = xp_log.metrics_24h();
-    println!("{}", "24-HOUR SUMMARY".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
-
-    if metrics.total_events == 0 {
-        println!("  {}  No events in the last 24 hours", "?".dimmed());
-    } else {
-        // Net XP with color
-        let net_str = if metrics.net_xp >= 0 {
-            format!("+{}", metrics.net_xp).bright_green().to_string()
-        } else {
-            format!("{}", metrics.net_xp).bright_red().to_string()
-        };
-
-        println!("  {}  Net XP: {}", "*".cyan(), net_str);
-        println!(
-            "  {}  Gained: +{} ({} events)",
-            "+".bright_green(),
-            metrics.xp_gained,
-            metrics.positive_events
-        );
-        println!(
-            "  {}  Lost: -{} ({} events)",
-            "-".bright_red(),
-            metrics.xp_lost,
-            metrics.negative_events
-        );
-        println!(
-            "  {}  Questions answered: {}",
-            "*".cyan(),
-            metrics.questions_answered
-        );
-
-        if let Some(top_pos) = &metrics.top_positive {
-            println!("  {}  Top positive: {}", "+".bright_green(), top_pos.dimmed());
-        }
-        if let Some(top_neg) = &metrics.top_negative {
-            println!("  {}  Top negative: {}", "-".bright_red(), top_neg.dimmed());
-        }
-    }
-
-    println!("{}", THIN_SEPARATOR);
-    println!();
-
-    Ok(())
-}
-
 // ============================================================================
 // v0.87.0: Print Final Answer - Always visible answer block
 // ============================================================================
@@ -1358,6 +1249,106 @@ fn display_llm_agents_section() {
         println!("{}", "[!] Trust Warning".bright_red().bold());
         for line in warning.lines() {
             println!("    {}", line.dimmed());
+        }
+    }
+}
+
+// ============================================================================
+// v0.88.0: XP Event Processing for Junior/Senior
+// ============================================================================
+
+/// Process XP events from a FinalAnswer and log them
+/// This wires up the Junior and Senior XP events that were previously missing
+fn process_llm_xp_events(question: &str, answer: &FinalAnswer) {
+    let xp_log = XpLog::new();
+    let mut xp_store = XpStore::load();
+
+    // Determine Junior event based on senior verdict
+    let senior_verdict = answer.senior_verdict.as_deref().unwrap_or("unknown");
+    let junior_had_draft = answer.junior_had_draft;
+    let confidence = answer.scores.overall;
+
+    // Junior XP events
+    if junior_had_draft && (senior_verdict == "approve" || senior_verdict == "fix_and_accept") {
+        // Junior provided a draft that was accepted
+        let event = XpEvent::new(XpEventType::JuniorCleanProposal, question)
+            .with_context(&format!("verdict={}", senior_verdict));
+        let _ = xp_log.append(&event);
+        let _ = xp_store.junior_plan_good("");
+
+        if streaming_debug::is_debug_enabled() {
+            println!("{}", event.format_log());
+        }
+    } else if !junior_had_draft || senior_verdict == "refuse" {
+        // Junior failed to provide a usable draft
+        let event = XpEvent::new(XpEventType::JuniorBadCommand, question)
+            .with_context(&format!("verdict={}", senior_verdict));
+        let _ = xp_log.append(&event);
+        let _ = xp_store.junior_plan_bad();
+
+        if streaming_debug::is_debug_enabled() {
+            println!("{}", event.format_log());
+        }
+    }
+
+    // Senior XP events based on verdict and confidence
+    match senior_verdict {
+        "approve" if confidence >= 0.9 => {
+            // Green approval
+            let event = XpEvent::new(XpEventType::SeniorGreenApproval, question)
+                .with_context(&format!("score={:.0}%", confidence * 100.0));
+            let _ = xp_log.append(&event);
+            let _ = xp_store.senior_approve_correct(confidence);
+
+            if streaming_debug::is_debug_enabled() {
+                println!("{}", event.format_log());
+            }
+        }
+        "fix_and_accept" => {
+            // Senior fixed Junior's work
+            let _ = xp_store.senior_fix_accept_good();
+            let _ = xp_store.junior_needs_fix();
+
+            if streaming_debug::is_debug_enabled() {
+                println!("[XP] Senior: +4 XP (fix_and_accept_good)");
+            }
+        }
+        "refuse" => {
+            let _ = xp_store.senior_refusal();
+
+            if streaming_debug::is_debug_enabled() {
+                println!("[XP] Senior: refusal recorded");
+            }
+        }
+        _ => {
+            // Unknown verdict or approve with lower confidence
+            if confidence >= 0.7 {
+                let _ = xp_store.senior_approve_correct(confidence);
+            }
+        }
+    }
+
+    // Handle timeout/failure cases
+    if let Some(ref failure_cause) = answer.failure_cause {
+        match failure_cause.as_str() {
+            "timeout_or_latency" => {
+                let event = XpEvent::new(XpEventType::LlmTimeoutFallback, question);
+                let _ = xp_log.append(&event);
+                let _ = xp_store.anna_timeout();
+
+                if streaming_debug::is_debug_enabled() {
+                    println!("{}", event.format_log());
+                }
+            }
+            "unsupported_domain" => {
+                let event = XpEvent::new(XpEventType::LowReliabilityRefusal, question);
+                let _ = xp_log.append(&event);
+
+                if streaming_debug::is_debug_enabled() {
+                    println!("{}", event.format_log());
+                }
+            }
+            _ => {}
         }
     }
 }

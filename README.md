@@ -1,4 +1,4 @@
-# Anna v0.70.0
+# Anna v0.88.0
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
@@ -353,6 +353,12 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
+| v0.88.0 | Dynamic Probe Catalog & XP Wiring - Single source of truth for probes, Junior/Senior XP events |
+| v0.87.0 | Latency Cuts & Brain Fast Path - <3s simple questions, hard fallback, always visible answer |
+| v0.86.0 | XP Reinforcement - Anna/Junior/Senior XP tracking, trust, ranks, behaviour bias |
+| v0.85.0 | Architecture Optimisation - Brain layer, LLM reduction, self-sufficiency |
+| v0.83.0 | Performance Focus - Compact prompts, 15s target latency |
+| v0.80.0 | Razorback Fast Path - <5s response for simple questions |
 | v0.70.0 | Evidence Oracle - Structured LLM protocol, difficulty routing, knowledge-first |
 | v0.65.0 | Reliability Patch - Confidence gating (60% min), stats tracking, daemon robustness |
 | v0.60.0 | Conversational UX - Live progress events, conversation logging, persona messaging |
