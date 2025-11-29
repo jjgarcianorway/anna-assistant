@@ -280,9 +280,55 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ## v0.85.1 - XP Log Command
 
-[x] `annactl xp-log [N]` command
+[x] `annactl xp-log [N]` command (removed in v0.88.0 per CLI surface policy)
 [x] 24h XP metrics in status command
 [x] JSONL-based XP event storage
 
 **Tests**: 740 passed, 0 failed
 **Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.85.1
+
+---
+
+## v0.86.0 - XP Reinforcement
+
+[x] Anna/Junior/Senior XP tracking
+[x] Trust levels and ranks
+[x] Behaviour bias based on XP performance
+
+**Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.86.0
+
+---
+
+## v0.87.0 - Latency Cuts & Brain Fast Path
+
+[x] Brain fast path for simple questions (<3s response)
+[x] Hard fallback when LLM fails
+[x] Always visible answer block
+[x] Anna XP events for self_solve
+
+**Key Changes**:
+- CPU/RAM questions complete in <9ms via Brain fast path
+- 99% reliability (Green) for simple hardware questions
+- No LLM required for cached knowledge
+
+**Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.87.0
+
+---
+
+## v0.88.0 - Dynamic Probe Catalog & XP Wiring
+
+[x] Dynamic probe catalog - single source of truth for probe lists
+[x] probe_ids_string() and probe_ids() methods in ProbeCatalog
+[x] Removed hardcoded probe lists from LLM prompts
+[x] Wire Junior/Senior XP events via process_llm_xp_events()
+[x] XP events now append to XpLog for 24-hour metrics
+[x] Removed xp-log command (CLI surface: help, version, status only)
+[x] Export XpEvent and XpEventType from anna_common root
+
+**Fixes**:
+- Junior no longer loops on logs.annad (probes now passed dynamically)
+- 24-hour XP metrics now correctly display events from LLM answers
+- XP events properly recorded for Junior/Senior verdicts
+
+**Tests**: 736 passed, 0 failed
+**Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.88.0
