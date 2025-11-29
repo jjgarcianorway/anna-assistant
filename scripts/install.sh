@@ -38,7 +38,7 @@ set -uo pipefail
 # ============================================================
 
 # Installer version (independent from Anna version)
-INSTALLER_VERSION="3.0.0"
+INSTALLER_VERSION="3.1.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -975,12 +975,23 @@ pull_model_if_needed() {
 create_user_and_dirs() {
     log_info "Creating user and directories..."
 
-    # Create anna user if not exists
+    # v2.1.0: Detect runtime user - who will run annactl
+    # This is typically the user who invoked the installer (via sudo)
+    local runtime_user="${SUDO_USER:-root}"
+    local runtime_group
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        runtime_group=$(id -gn "$SUDO_USER" 2>/dev/null || echo "$SUDO_USER")
+    else
+        runtime_group="root"
+    fi
+    log_info "Runtime user detected: ${runtime_user}:${runtime_group}"
+
+    # Create anna system user if not exists (for daemon)
     if ! id "anna" &>/dev/null; then
         $SUDO useradd -r -s /bin/false -d "$DATA_DIR" anna 2>/dev/null || true
-        log_ok "Created user 'anna'"
+        log_ok "Created system user 'anna'"
     else
-        log_ok "User 'anna' exists"
+        log_ok "System user 'anna' exists"
     fi
 
     # Create directories (never wipe existing)
@@ -993,12 +1004,35 @@ create_user_and_dirs() {
     $SUDO mkdir -p "${DATA_DIR}/xp"
     $SUDO mkdir -p "${DATA_DIR}/knowledge/stats"
 
-    # Set permissions - config readable by all, data/log owned by root (daemon runs as root)
-    $SUDO chmod 755 "$CONFIG_DIR"
-    $SUDO chown -R root:root "$DATA_DIR" "$LOG_DIR" "$RUN_DIR"
+    # v2.0.0: LLM autoprovision directories
+    $SUDO mkdir -p "${DATA_DIR}/llm"
+    $SUDO mkdir -p "${DATA_DIR}/llm/benchmarks"
 
-    log_ok "Created directories"
-    log_ok "Knowledge store: ${DATA_DIR}/knowledge"
+    # v2.1.0: Set permissions - CRITICAL for XP and telemetry to work
+    # Config: readable by all
+    $SUDO chmod 755 "$CONFIG_DIR"
+
+    # Data directory: writable by runtime user (for annactl XP tracking)
+    # and readable/writable by root (for annad daemon)
+    $SUDO chmod 755 "$DATA_DIR"
+    $SUDO chown -R "${runtime_user}:${runtime_group}" "$DATA_DIR"
+    # Make data accessible to root daemon as well
+    $SUDO chmod -R g+rw "$DATA_DIR"
+
+    # Log directory: writable by runtime user (for telemetry)
+    $SUDO chmod 755 "$LOG_DIR"
+    $SUDO chown -R "${runtime_user}:${runtime_group}" "$LOG_DIR"
+    $SUDO chmod -R g+rw "$LOG_DIR"
+
+    # Run directory: root only (for daemon socket)
+    $SUDO chown root:root "$RUN_DIR"
+    $SUDO chmod 755 "$RUN_DIR"
+
+    log_ok "Created directories with correct permissions"
+    log_ok "  Data: ${DATA_DIR} (owner: ${runtime_user})"
+    log_ok "  Logs: ${LOG_DIR} (owner: ${runtime_user})"
+    log_ok "  XP: ${DATA_DIR}/xp"
+    log_ok "  Knowledge: ${DATA_DIR}/knowledge"
 }
 
 install_systemd_service() {

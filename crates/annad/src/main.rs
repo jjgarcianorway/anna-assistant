@@ -28,6 +28,7 @@ mod state;
 use anna_common::{
     AnnaConfigV5, KnowledgeStore, is_first_run, mark_initialized,
     llm_provision::{needs_autoprovision, run_full_autoprovision, LlmSelection},
+    permissions::{auto_fix_permissions, PermissionsHealthCheck},
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -49,6 +50,33 @@ async fn main() -> Result<()> {
 
     info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
     info!("[>]  Evidence Oracle starting...");
+
+    // v2.1.0: Permissions health check and auto-fix
+    let health = PermissionsHealthCheck::run();
+    if !health.all_ok {
+        warn!("[!]  Permissions issues detected, attempting auto-fix...");
+        let fixes = auto_fix_permissions();
+        for fix in &fixes {
+            if fix.success {
+                info!("[+]  {}: {}", fix.path.display(), fix.action);
+            } else {
+                warn!("[!]  Failed to fix {}: {:?}", fix.path.display(), fix.error);
+            }
+        }
+        // Re-check
+        let health2 = PermissionsHealthCheck::run();
+        if health2.all_ok {
+            info!("[+]  All permissions issues resolved");
+        } else {
+            warn!("[!]  Some permissions issues remain:");
+            for issue in health2.issues() {
+                warn!("      - {}", issue);
+            }
+            warn!("[!]  XP/telemetry may not persist. Run: sudo chmod -R 777 /var/lib/anna /var/log/anna");
+        }
+    } else {
+        info!("[+]  Permissions OK");
+    }
 
     // v0.11.0: Initialize knowledge store
     let knowledge_store = KnowledgeStore::open_default()?;

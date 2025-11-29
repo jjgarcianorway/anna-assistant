@@ -367,12 +367,23 @@ fn is_benchmark_delta_question(q: &str) -> bool {
 }
 
 /// Check if question is asking for factory reset (hard reset, deletes knowledge) (v1.3.0)
+/// v2.1.0: Added more natural language triggers
 fn is_factory_reset_question(q: &str) -> bool {
     // Factory reset requires explicit "factory reset" phrase or explicit "delete knowledge/everything"
     // This is the HARD reset that deletes knowledge
 
     // Direct factory reset phrase
     if q.contains("factory reset") {
+        return true;
+    }
+
+    // v2.1.0: "hard reset" as explicit trigger
+    if q.contains("hard reset") {
+        return true;
+    }
+
+    // v2.1.0: "reset everything" / "reset all"
+    if q.contains("reset") && (q.contains("everything") || q.contains(" all")) {
         return true;
     }
 
@@ -399,7 +410,18 @@ fn is_factory_reset_question(q: &str) -> bool {
 }
 
 /// Check if question is asking for experience reset (soft reset, keeps knowledge) (v1.3.0)
+/// v2.1.0: Added more natural language triggers including "soft reset", "clear memory"
 fn is_reset_experience_question(q: &str) -> bool {
+    // v2.1.0: Direct "soft reset" trigger
+    if q.contains("soft reset") {
+        return true;
+    }
+
+    // v2.1.0: "clear your memory" / "clear memory" (soft reset, not factory)
+    if q.contains("clear") && q.contains("memory") && !q.contains("everything") && !q.contains("knowledge") {
+        return true;
+    }
+
     // Must contain a reset verb
     let has_reset_verb = q.contains("reset")
         || q.contains("clear")
@@ -428,7 +450,8 @@ fn is_reset_experience_question(q: &str) -> bool {
         || q.contains("clean slate");
 
     // Exclude if it's asking about knowledge (that's factory reset)
-    let excludes_knowledge = !q.contains("knowledge");
+    // Also exclude if it's "reset everything" (that's factory reset)
+    let excludes_knowledge = !q.contains("knowledge") && !q.contains("everything");
 
     has_target && excludes_knowledge
 }
@@ -1567,6 +1590,20 @@ mod tests {
             FastQuestionType::ResetExperience
         );
 
+        // v2.1.0: New soft reset triggers
+        assert_eq!(
+            FastQuestionType::classify("soft reset"),
+            FastQuestionType::ResetExperience
+        );
+        assert_eq!(
+            FastQuestionType::classify("clear your memory"),
+            FastQuestionType::ResetExperience
+        );
+        assert_eq!(
+            FastQuestionType::classify("clear memory"),
+            FastQuestionType::ResetExperience
+        );
+
         // Should NOT match experience reset
         assert_ne!(
             FastQuestionType::classify("reset my computer"),
@@ -1611,6 +1648,20 @@ mod tests {
         );
         assert_eq!(
             FastQuestionType::classify("wipe your knowledge base"),
+            FastQuestionType::ResetFactory
+        );
+
+        // v2.1.0: New hard reset triggers
+        assert_eq!(
+            FastQuestionType::classify("hard reset"),
+            FastQuestionType::ResetFactory
+        );
+        assert_eq!(
+            FastQuestionType::classify("reset everything"),
+            FastQuestionType::ResetFactory
+        );
+        assert_eq!(
+            FastQuestionType::classify("reset all"),
             FastQuestionType::ResetFactory
         );
 

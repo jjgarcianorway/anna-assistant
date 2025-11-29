@@ -117,6 +117,7 @@ pub mod experience_reset;
 pub mod bench_snow_leopard;
 pub mod auto_tune;
 pub mod llm_provision;
+pub mod permissions;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;

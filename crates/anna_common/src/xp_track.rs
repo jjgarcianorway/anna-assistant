@@ -327,12 +327,42 @@ impl XpStore {
         }
     }
 
-    /// Save to disk
+    /// Save to disk with atomic write
     pub fn save(&self) -> std::io::Result<()> {
         let path = PathBuf::from(XP_DIR).join("xp_store.json");
-        fs::create_dir_all(XP_DIR)?;
+
+        // v2.1.0: Use atomic write for safe persistence
+        // First ensure directory exists
+        if !PathBuf::from(XP_DIR).exists() {
+            fs::create_dir_all(XP_DIR)?;
+            // Try to make writable for all users
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = fs::set_permissions(XP_DIR, fs::Permissions::from_mode(0o777));
+            }
+        }
+
         let data = serde_json::to_string_pretty(self)?;
-        fs::write(path, data)
+
+        // Atomic write: temp file + rename
+        let temp_path = path.with_extension("tmp");
+        fs::write(&temp_path, &data)?;
+        fs::rename(&temp_path, &path)?;
+
+        Ok(())
+    }
+
+    /// Save with error reporting (for better debugging)
+    pub fn save_with_error(&self) -> Result<(), String> {
+        self.save().map_err(|e| {
+            format!(
+                "Failed to save XP store to {}: {}. Run: sudo chmod -R 777 {}",
+                PathBuf::from(XP_DIR).join("xp_store.json").display(),
+                e,
+                XP_DIR
+            )
+        })
     }
 
     // ========== Anna Events ==========

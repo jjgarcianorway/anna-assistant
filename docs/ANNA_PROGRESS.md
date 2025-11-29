@@ -357,6 +357,62 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
+## v2.1.0 "Permissions Fix" - XP/Telemetry Persistence & Reset Pipeline
+
+**Theme**: Bulletproof persistence for XP and telemetry, proper permissions, comprehensive reset system.
+
+### Permissions Health Check (v2.1.0)
+[x] New `permissions.rs` module with health check and auto-fix
+[x] `PermissionsHealthCheck::run()` - checks all Anna directories
+[x] `auto_fix_permissions()` - attempts to fix permission issues
+[x] `atomic_write()` - safe persistence with temp file + rename
+[x] `safe_append()` - safe append for telemetry JSONL
+[x] `ensure_writable_dir()` - creates directories if missing
+
+### Installer Permissions Fix (v2.1.0)
+[x] Installer v3.1.0 - detects runtime user (SUDO_USER or root)
+[x] Creates all directories with correct ownership
+[x] `/var/lib/anna/` owned by runtime user (for annactl XP tracking)
+[x] `/var/log/anna/` owned by runtime user (for telemetry)
+[x] No manual chown ever needed
+
+### Daemon Startup Health Check (v2.1.0)
+[x] annad runs `PermissionsHealthCheck::run()` at startup
+[x] Auto-fix attempted if issues detected
+[x] Warning logged with manual fix instructions if auto-fix fails
+
+### XP Persistence Fix (v2.1.0)
+[x] `XpStore::save()` now uses atomic write (temp file + rename)
+[x] Auto-creates XP directory if missing
+[x] Sets 777 permissions on new directories
+
+### Reset Pipeline (v2.1.0)
+[x] True Hard Reset (factory reset) - wipes XP, telemetry, stats, knowledge
+[x] True Soft Reset (experience reset) - preserves knowledge
+[x] Natural language triggers: "hard reset", "soft reset", "reset everything"
+[x] Natural language triggers: "clear memory", "factory reset anna"
+[x] Confirmation required for both reset types
+
+### Autoprovision Display Fix (v2.1.0)
+[x] `annactl status` shows "not yet run" when autoprovision hasn't run
+[x] Helpful message: "Run annactl and ask a question to trigger"
+[x] Scores show "not benchmarked" instead of 0.00 when unprovisioned
+
+### Tests (v2.1.0)
+[x] 8 permissions tests (atomic write, safe append, health check)
+[x] 13 experience_reset tests (hard reset, soft reset, confirmation)
+[x] Reset trigger tests for new natural language patterns
+[x] All workspace tests passing
+
+**Key Files**:
+- crates/anna_common/src/permissions.rs - New permissions module
+- crates/anna_common/src/xp_track.rs - Atomic save
+- crates/anna_common/src/brain_fast.rs - Reset triggers
+- crates/annad/src/main.rs - Startup health check
+- scripts/install.sh v3.1.0 - Permission fixes
+
+---
+
 ## v2.0.0 "Autoprovision" - Fully Self-Provisioning LLM Models
 
 **Theme**: Anna now manages her own LLM models - detects, installs, benchmarks, and switches automatically.

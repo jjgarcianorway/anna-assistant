@@ -1845,28 +1845,38 @@ fn display_auto_tuning_section() {
 // ============================================================================
 
 /// Display LLM autoprovision status (model selection, benchmarks, fallback policy)
+/// v2.1.0: Improved display for unprovisioned state
 fn display_autoprovision_section() {
     use anna_common::THIN_SEPARATOR;
 
     // Load selection (returns default if file doesn't exist)
     let selection = LlmSelection::load();
 
-    // Only show if autoprovision is enabled or we have valid selections
-    if !selection.autoprovision_enabled && selection.junior_score == 0.0 {
-        return; // Skip if not configured
-    }
-
+    // Always show section now - even if not provisioned
     println!();
     println!("{}", "LLM AUTOPROVISION".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
 
+    // v2.1.0: Check if we've actually run autoprovision
+    let needs_provision = selection.last_benchmark.is_empty() && selection.junior_score == 0.0;
+
     // Status
-    let status_str = if selection.autoprovision_enabled {
+    let status_str = if needs_provision {
+        "not yet run".yellow().to_string()
+    } else if selection.autoprovision_enabled {
         "enabled".bright_green().to_string()
     } else {
         "disabled".dimmed().to_string()
     };
     println!("  ⚙️   Autoprovision: {}", status_str);
+
+    if needs_provision {
+        // v2.1.0: Show helpful message when not provisioned
+        println!("  📝  Models not yet benchmarked");
+        println!("  💡  Run 'annactl' and ask a question to trigger autoprovision");
+        println!("{}", THIN_SEPARATOR);
+        return;
+    }
 
     // Junior model
     let jr_score = format!("{:.2}", selection.junior_score);
@@ -1874,8 +1884,10 @@ fn display_autoprovision_section() {
         jr_score.bright_green().to_string()
     } else if selection.junior_score >= 0.5 {
         jr_score.yellow().to_string()
-    } else {
+    } else if selection.junior_score > 0.0 {
         jr_score.bright_red().to_string()
+    } else {
+        "not benchmarked".dimmed().to_string()
     };
     println!(
         "  👶  Junior: {} (score {})",
@@ -1889,8 +1901,10 @@ fn display_autoprovision_section() {
         sr_score.bright_green().to_string()
     } else if selection.senior_score >= 0.5 {
         sr_score.yellow().to_string()
-    } else {
+    } else if selection.senior_score > 0.0 {
         sr_score.bright_red().to_string()
+    } else {
+        "not benchmarked".dimmed().to_string()
     };
     println!(
         "  👴  Senior: {} (score {})",
