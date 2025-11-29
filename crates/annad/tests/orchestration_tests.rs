@@ -35,10 +35,15 @@ fn test_brain_classifies_cpu_question() {
     assert_eq!(qt, FastQuestionType::CpuCores);
 
     let qt = FastQuestionType::classify("What processor do I have?");
-    // This should be Unknown since it's asking about processor type, not count
-    // The pattern requires "how many" or similar
-    // Let's check the actual behavior
-    assert!(qt == FastQuestionType::Unknown || qt == FastQuestionType::CpuCores);
+    // v1.1.0: This now classifies as CpuModel (asking about processor type)
+    // Previously Unknown or CpuCores, now we have a dedicated type
+    assert!(
+        qt == FastQuestionType::Unknown
+            || qt == FastQuestionType::CpuCores
+            || qt == FastQuestionType::CpuModel,
+        "Expected Unknown, CpuCores, or CpuModel but got {:?}",
+        qt
+    );
 
     let qt = FastQuestionType::classify("number of cpu threads");
     assert_eq!(qt, FastQuestionType::CpuCores);

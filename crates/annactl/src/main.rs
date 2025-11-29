@@ -48,6 +48,17 @@ use anna_common::{
     DecisionPolicy,
     // v0.95.0: RPG Display System
     get_title_color, get_mood_text, get_streak_text, TrustLevel,
+    // v1.1.0: Unified XP recording
+    record_brain_self_solve, UnifiedXpRecorder,
+    // v1.1.0: Telemetry for status warnings
+    telemetry_get_24h_summary,
+    // v1.3.0: Experience and Factory reset
+    brain_fast::{
+        PendingActionType, is_confirmation, is_factory_reset_confirmation,
+        execute_experience_reset, execute_factory_reset,
+    },
+    // v1.7.0: LLM Autoprovision
+    llm_provision::{LlmSelection, JUNIOR_FALLBACK_TIMEOUT_MS},
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -102,15 +113,31 @@ async fn main() -> Result<()> {
             run_help_via_llm().await
         }
 
+        // v1.1.0: Explain request (e.g., "explain", "why", "how did you know?")
+        [question] if output::handle_explain_request(question) => Ok(()),
+
         // Single quoted question
         [question] => run_ask(question).await,
 
         // Multiple words as question
         words => {
             let question = words.join(" ");
-            run_ask(&question).await
+            // v1.1.0: Check for explain request first
+            if output::handle_explain_request(&question) {
+                Ok(())
+            } else {
+                run_ask(&question).await
+            }
         }
     }
+}
+
+/// v1.3.0: Pending action for confirmation flow
+/// Wraps PendingActionType from brain_fast to handle REPL state
+#[derive(Debug, Clone, PartialEq)]
+enum PendingAction {
+    None,
+    Reset(PendingActionType),
 }
 
 /// Run the interactive REPL
@@ -129,6 +156,9 @@ async fn run_repl() -> Result<()> {
 
     let stdin = io::stdin();
     let mut stdout = io::stdout();
+
+    // v1.2.0: Track pending actions for confirmation flow
+    let mut pending_action = PendingAction::None;
 
     loop {
         // Prompt
@@ -154,6 +184,34 @@ async fn run_repl() -> Result<()> {
             break;
         }
 
+        // v1.3.0: Handle pending confirmation
+        if let PendingAction::Reset(ref action_type) = pending_action {
+            if action_type.is_confirmed(input) {
+                // Execute the confirmed action
+                let result = match action_type {
+                    PendingActionType::ExperienceReset => execute_experience_reset(),
+                    PendingActionType::FactoryReset => execute_factory_reset(),
+                };
+                println!();
+                print_final_answer(&result.text, result.reliability, &result.origin, result.duration_ms);
+                println!();
+            } else {
+                // Confirmation not matched
+                let action_name = match action_type {
+                    PendingActionType::ExperienceReset => "Experience reset",
+                    PendingActionType::FactoryReset => "Factory reset",
+                };
+                println!();
+                println!("  {}  {} cancelled.", "x".bright_red(), action_name);
+                if matches!(action_type, PendingActionType::FactoryReset) {
+                    println!("       (Requires exact phrase: {})", "I UNDERSTAND AND CONFIRM FACTORY RESET".dimmed());
+                }
+                println!();
+            }
+            pending_action = PendingAction::None;
+            continue;
+        }
+
         // Handle version/help/status in REPL too (case-insensitive)
         // v0.18.0: Support -V/--version flags and "version" word
         if input == "-V"
@@ -172,9 +230,20 @@ async fn run_repl() -> Result<()> {
             continue;
         }
 
+        // v1.1.0: Handle explain request (e.g., "explain", "why", "how did you know?")
+        if output::handle_explain_request(input) {
+            continue;
+        }
+
         // Process question
-        if let Err(e) = run_ask(input).await {
-            eprintln!("[ERROR] {}", e);
+        match run_ask_with_pending(input).await {
+            Ok(Some(action)) => {
+                pending_action = action;
+            }
+            Ok(None) => {}
+            Err(e) => {
+                eprintln!("[ERROR] {}", e);
+            }
         }
     }
 
@@ -193,10 +262,16 @@ fn print_banner() {
     println!("   Your intelligent Linux assistant\n");
 }
 
-/// Ask Anna a question - the core function
+/// Ask Anna a question - the core function (non-REPL version)
 /// v0.10.0: Uses evidence-based answer engine with LLM-A/LLM-B audit loop
 /// v0.43.0: Added live debug streaming with ANNA_DEBUG=1
 async fn run_ask(question: &str) -> Result<()> {
+    run_ask_with_pending(question).await.map(|_| ())
+}
+
+/// Ask Anna a question - version that returns pending action for REPL
+/// v1.2.0: Added pending action support for confirmation flows
+async fn run_ask_with_pending(question: &str) -> Result<Option<PendingAction>> {
     // v0.8.0: Create request context with correlation ID
     let request_id = generate_request_id();
     let sanitized_query = logging::sanitize_query(question);
@@ -226,7 +301,7 @@ async fn run_ask(question: &str) -> Result<()> {
         println!();
         print_final_answer(&response, 1.0, "Brain", 1);
         clear_current_request();
-        return Ok(());
+        return Ok(None);
     }
 
     // v0.87.0: Try Brain fast path for simple questions (RAM, CPU, disk, health)
@@ -236,12 +311,25 @@ async fn run_ask(question: &str) -> Result<()> {
         spinner::print_question(question);
         println!();
 
+        // v1.3.0: Check if this answer requires confirmation
+        if fast_answer.pending_confirmation {
+            print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
+            println!();
+            clear_current_request();
+
+            // Return pending action based on pending_action type
+            if let Some(action_type) = fast_answer.pending_action {
+                return Ok(Some(PendingAction::Reset(action_type)));
+            }
+            return Ok(None);
+        }
+
         // Print the answer in the new format
         print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
 
-        // Update XP store and show mini XP log (v0.95.0)
-        let mut xp_store = XpStore::load();
-        let xp_line = xp_store.anna_self_solve(question);
+        // v1.1.0: Use unified XP recorder - updates BOTH XpLog AND XpStore
+        // This fixes the "No XP events in 24 hours" issue for Brain fast path answers
+        let xp_line = record_brain_self_solve(question, &fast_answer.origin);
         // Always show the XP line - dimmed in normal mode, bright in debug
         if streaming_debug::is_debug_enabled() {
             println!("{}", xp_line);
@@ -256,12 +344,13 @@ async fn run_ask(question: &str) -> Result<()> {
         });
         clear_current_request();
 
-        return Ok(());
+        return Ok(None);
     }
 
     // v0.43.0: Check if debug streaming is enabled
     if streaming_debug::is_debug_enabled() {
-        return run_ask_with_debug_stream(question, &request_id).await;
+        run_ask_with_debug_stream(question, &request_id).await?;
+        return Ok(None);
     }
 
     // v0.15.8: Show user question with old-school style
@@ -342,10 +431,11 @@ async fn run_ask(question: &str) -> Result<()> {
                 let qa_output = final_answer.to_qa_output();
                 println!("{}", serde_json::to_string_pretty(&qa_output).unwrap_or_default());
             } else {
-                // Normal mode: Display structured answer with headline/details/evidence/reliability
-                output::display_structured_answer(&final_answer, elapsed);
+                // v1.1.0: Use unified v100 display with conversation trace support
+                // Stores answer for explain-last-answer, shows debug trace if enabled
+                output::display_final_answer_v100(&final_answer, elapsed);
             }
-            Ok(())
+            Ok(None)
         }
         Err(e) => {
             // v0.15.8: Stop spinner on error
@@ -650,6 +740,18 @@ async fn run_status() -> Result<()> {
 
     // v0.86.0: LLM Agents section
     display_llm_agents_section();
+
+    // v1.1.0: Telemetry Health section
+    display_telemetry_health_section();
+
+    // v1.4.0: Last Benchmark section (only shown if benchmark has been run)
+    display_last_benchmark_section();
+
+    // v1.5.0: Auto-Tuning section (only shown if tuning has been applied)
+    display_auto_tuning_section();
+
+    // v1.7.0: LLM Autoprovision section
+    display_autoprovision_section();
 
     // v0.89.0: Debug Mode section (only shown when enabled)
     if debug_is_enabled() {
@@ -1452,14 +1554,385 @@ fn display_llm_agents_section() {
 }
 
 // ============================================================================
-// v0.88.0: XP Event Processing for Junior/Senior
+// v1.1.0: Telemetry Health Section (Part 5: Status Warnings)
+// ============================================================================
+
+/// Display telemetry health summary with warning if Anna is struggling
+fn display_telemetry_health_section() {
+    use anna_common::telemetry::{TelemetryReader, DEFAULT_WINDOW_SIZE, BRAIN_TARGET_MS};
+    use anna_common::THIN_SEPARATOR;
+
+    let reader = TelemetryReader::default_path();
+    let complete = reader.complete_summary(DEFAULT_WINDOW_SIZE);
+
+    println!();
+    println!("{}", "PERFORMANCE TELEMETRY".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    // v1.2.0: Show helpful message when no telemetry data (e.g., after reset)
+    if !complete.has_data {
+        println!("  📊  No telemetry yet. Ask a few questions to gather data.");
+        println!("{}", THIN_SEPARATOR);
+        return;
+    }
+
+    // Lifetime stats
+    println!(
+        "  📊  Lifetime: {} questions, {:.0}% success rate",
+        complete.lifetime.total.to_string().cyan(),
+        complete.lifetime.success_rate * 100.0
+    );
+
+    // Window stats (recent performance)
+    let window_size = complete.window_size.min(complete.window.total as usize);
+    let rate_pct = complete.window.success_rate * 100.0;
+    let rate_str = format!("{:.0}%", rate_pct);
+    let rate_colored = if rate_pct >= 80.0 {
+        rate_str.bright_green().to_string()
+    } else if rate_pct >= 50.0 {
+        rate_str.yellow().to_string()
+    } else {
+        rate_str.bright_red().to_string()
+    };
+
+    let status_icon = if rate_pct >= 50.0 {
+        "+".bright_green().to_string()
+    } else {
+        "!".bright_red().to_string()
+    };
+
+    println!(
+        "  {}  Recent (last {}): {}/{} success ({}), avg {}ms",
+        status_icon,
+        window_size,
+        complete.window.successes,
+        complete.window.total,
+        rate_colored,
+        complete.window.avg_latency_ms
+    );
+
+    // Per-origin breakdown with detailed stats
+    println!();
+    println!("  {}", "── Per-Origin Performance ──".dimmed());
+
+    // Brain stats
+    if complete.brain_stats.count > 0 {
+        let brain_latency = complete.brain_stats.avg_latency_ms;
+        let brain_icon = if brain_latency <= BRAIN_TARGET_MS {
+            "⚡".to_string()  // Fast
+        } else {
+            "🧠".to_string()  // Normal
+        };
+        let brain_rate = format!("{:.0}%", complete.brain_stats.success_rate * 100.0);
+        let brain_rate_colored = if complete.brain_stats.success_rate >= 0.8 {
+            brain_rate.bright_green().to_string()
+        } else {
+            brain_rate.yellow().to_string()
+        };
+        println!(
+            "  {}  Brain:  {} questions, {} success, {}ms avg",
+            brain_icon,
+            complete.brain_stats.count.to_string().bright_green(),
+            brain_rate_colored,
+            brain_latency
+        );
+    }
+
+    // Junior stats
+    if complete.junior_stats.count > 0 {
+        let jr_rate = format!("{:.0}%", complete.junior_stats.success_rate * 100.0);
+        let jr_rate_colored = if complete.junior_stats.success_rate >= 0.8 {
+            jr_rate.bright_green().to_string()
+        } else if complete.junior_stats.success_rate >= 0.5 {
+            jr_rate.yellow().to_string()
+        } else {
+            jr_rate.bright_red().to_string()
+        };
+        println!(
+            "  👶  Junior: {} questions, {} success, {}ms avg",
+            complete.junior_stats.count.to_string().cyan(),
+            jr_rate_colored,
+            complete.junior_stats.avg_latency_ms
+        );
+    }
+
+    // Senior stats
+    if complete.senior_stats.count > 0 {
+        let sr_rate = format!("{:.0}%", complete.senior_stats.success_rate * 100.0);
+        let sr_rate_colored = if complete.senior_stats.success_rate >= 0.8 {
+            sr_rate.bright_green().to_string()
+        } else if complete.senior_stats.success_rate >= 0.5 {
+            sr_rate.yellow().to_string()
+        } else {
+            sr_rate.bright_red().to_string()
+        };
+        println!(
+            "  👴  Senior: {} questions, {} success, {}ms avg",
+            complete.senior_stats.count.to_string().yellow(),
+            sr_rate_colored,
+            complete.senior_stats.avg_latency_ms
+        );
+    }
+
+    // Issues breakdown (only if there are issues)
+    let window = &complete.window;
+    if window.failures > 0 || window.timeouts > 0 || window.refusals > 0 {
+        println!();
+        println!(
+            "  {}  Issues: {} failures, {} timeouts, {} refusals",
+            "-".dimmed(),
+            window.failures.to_string().bright_red(),
+            window.timeouts.to_string().yellow(),
+            window.refusals.to_string().dimmed()
+        );
+        if let Some(top_failure) = &window.top_failure {
+            println!("       Top cause: {}", top_failure.bright_red());
+        }
+    }
+
+    println!("{}", THIN_SEPARATOR);
+
+    // Status hint - always show for context
+    let hint_icon = if rate_pct >= 80.0 {
+        "💡".to_string()
+    } else if rate_pct >= 50.0 {
+        "📝".to_string()
+    } else {
+        "⚠️".to_string()
+    };
+    println!("  {}  {}", hint_icon, complete.status_hint.dimmed());
+
+    // STRUGGLING WARNING - prominently displayed
+    if window.is_struggling() {
+        println!();
+        println!("{}", "[!] ANNA IS STRUGGLING".bright_red().bold());
+        println!(
+            "    Success rate {:.0}% is below 50% threshold",
+            rate_pct
+        );
+        println!("    Consider checking: LLM model availability, Ollama status, network");
+    }
+}
+
+// ============================================================================
+// v1.4.0: Last Benchmark Display
+// ============================================================================
+
+/// Display last Snow Leopard benchmark results (if any)
+fn display_last_benchmark_section() {
+    use anna_common::bench_snow_leopard::LastBenchmarkSummary;
+    use anna_common::THIN_SEPARATOR;
+
+    // Only show if we have benchmark data
+    let summary = match LastBenchmarkSummary::load() {
+        Some(s) => s,
+        None => return, // No benchmark run yet, skip section silently
+    };
+
+    println!();
+    println!("{}", "SNOW LEOPARD BENCHMARK".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    // Mode and timing
+    let mode_str = match summary.mode {
+        anna_common::BenchmarkMode::Full => "full",
+        anna_common::BenchmarkMode::Quick => "quick",
+    };
+    println!(
+        "  📊  Last run: {} ({} mode)",
+        summary.timestamp.dimmed(),
+        mode_str.cyan()
+    );
+
+    // Success rate with color coding
+    let rate_pct = summary.success_rate;
+    let rate_str = format!("{:.0}%", rate_pct);
+    let rate_colored = if rate_pct >= 90.0 {
+        rate_str.bright_green().to_string()
+    } else if rate_pct >= 70.0 {
+        rate_str.yellow().to_string()
+    } else {
+        rate_str.bright_red().to_string()
+    };
+
+    let status_icon = if rate_pct >= 90.0 {
+        "🏆"
+    } else if rate_pct >= 70.0 {
+        "✓"
+    } else {
+        "!"
+    };
+
+    println!(
+        "  {}  {} phases, {} questions, {} success",
+        status_icon,
+        summary.phases,
+        summary.total_questions,
+        rate_colored
+    );
+
+    // Latency and path usage
+    println!(
+        "  ⚡  Avg latency: {}ms | Brain: {:.0}% | LLM: {:.0}%",
+        summary.avg_latency_ms,
+        summary.brain_usage_pct,
+        summary.llm_usage_pct
+    );
+
+    // Status hint
+    println!("  💡  {}", summary.status_hint.dimmed());
+
+    // Report path if available
+    if let Some(path) = &summary.report_path {
+        println!("  📄  Report: {}", path.dimmed());
+    }
+
+    println!("{}", THIN_SEPARATOR);
+}
+
+// ============================================================================
+// v1.5.0: Auto-Tuning Display
+// ============================================================================
+
+/// Display auto-tuning status (only if tuning has been applied)
+fn display_auto_tuning_section() {
+    use anna_common::auto_tune::AutoTuneState;
+    use anna_common::THIN_SEPARATOR;
+
+    // Only show if auto-tuning has been applied
+    let state = AutoTuneState::load();
+    if !state.has_been_tuned() {
+        return; // Skip section silently
+    }
+
+    println!();
+    println!("{}", "AUTO-TUNING".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    // Current thresholds
+    println!(
+        "  ⚙️   Brain confidence: {:.2} | LLM confidence: {:.2}",
+        state.brain_conf_threshold,
+        state.llm_conf_threshold
+    );
+
+    // Tuning history
+    println!(
+        "  📊  Tuning steps: {}",
+        state.tuning_steps_applied.to_string().cyan()
+    );
+
+    if let Some(ts) = &state.last_tuned_at {
+        println!("  🕐  Last tuned: {}", ts.dimmed());
+    }
+
+    // Last decision
+    if let Some(decision) = &state.last_decision {
+        // Truncate long decisions
+        let truncated = if decision.len() > 120 {
+            format!("{}...", &decision[..120])
+        } else {
+            decision.clone()
+        };
+        println!("  💡  {}", truncated.dimmed());
+    }
+
+    println!("{}", THIN_SEPARATOR);
+}
+
+// ============================================================================
+// v1.7.0: LLM Autoprovision Section
+// ============================================================================
+
+/// Display LLM autoprovision status (model selection, benchmarks, fallback policy)
+fn display_autoprovision_section() {
+    use anna_common::THIN_SEPARATOR;
+
+    // Load selection (returns default if file doesn't exist)
+    let selection = LlmSelection::load();
+
+    // Only show if autoprovision is enabled or we have valid selections
+    if !selection.autoprovision_enabled && selection.junior_score == 0.0 {
+        return; // Skip if not configured
+    }
+
+    println!();
+    println!("{}", "LLM AUTOPROVISION".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+
+    // Status
+    let status_str = if selection.autoprovision_enabled {
+        "enabled".bright_green().to_string()
+    } else {
+        "disabled".dimmed().to_string()
+    };
+    println!("  ⚙️   Autoprovision: {}", status_str);
+
+    // Junior model
+    let jr_score = format!("{:.2}", selection.junior_score);
+    let jr_score_colored = if selection.junior_score >= 0.8 {
+        jr_score.bright_green().to_string()
+    } else if selection.junior_score >= 0.5 {
+        jr_score.yellow().to_string()
+    } else {
+        jr_score.bright_red().to_string()
+    };
+    println!(
+        "  👶  Junior: {} (score {})",
+        selection.junior_model.cyan(),
+        jr_score_colored
+    );
+
+    // Senior model
+    let sr_score = format!("{:.2}", selection.senior_score);
+    let sr_score_colored = if selection.senior_score >= 0.8 {
+        sr_score.bright_green().to_string()
+    } else if selection.senior_score >= 0.5 {
+        sr_score.yellow().to_string()
+    } else {
+        sr_score.bright_red().to_string()
+    };
+    println!(
+        "  👴  Senior: {} (score {})",
+        selection.senior_model.cyan(),
+        sr_score_colored
+    );
+
+    // Fallback policy
+    println!(
+        "  ⏱️   Fallback timeout: {}ms",
+        JUNIOR_FALLBACK_TIMEOUT_MS.to_string().dimmed()
+    );
+
+    // Last benchmark
+    if !selection.last_benchmark.is_empty() {
+        println!(
+            "  📊  Last benchmark: {}",
+            selection.last_benchmark.dimmed()
+        );
+    }
+
+    // Suggestions
+    if !selection.suggestions.is_empty() {
+        println!();
+        println!("  💡  Suggestions:");
+        for s in &selection.suggestions {
+            println!("      - {}", s.dimmed());
+        }
+    }
+
+    println!("{}", THIN_SEPARATOR);
+}
+
+// ============================================================================
+// v1.1.0: XP Event Processing for Junior/Senior (Unified)
 // ============================================================================
 
 /// Process XP events from a FinalAnswer and log them
-/// This wires up the Junior and Senior XP events that were previously missing
+/// v1.1.0: Uses UnifiedXpRecorder to update BOTH XpLog AND XpStore atomically
+/// This fixes the "good_plans=0" and "No XP events in 24 hours" issues
 fn process_llm_xp_events(question: &str, answer: &FinalAnswer) {
-    let xp_log = XpLog::new();
-    let mut xp_store = XpStore::load();
+    let recorder = UnifiedXpRecorder::new();
 
     // Determine Junior event based on senior verdict
     let senior_verdict = answer.senior_verdict.as_deref().unwrap_or("unknown");
@@ -1469,23 +1942,15 @@ fn process_llm_xp_events(question: &str, answer: &FinalAnswer) {
     // Junior XP events
     if junior_had_draft && (senior_verdict == "approve" || senior_verdict == "fix_and_accept") {
         // Junior provided a draft that was accepted
-        let event = XpEvent::new(XpEventType::JuniorCleanProposal, question)
-            .with_context(&format!("verdict={}", senior_verdict));
-        let _ = xp_log.append(&event);
-        let _ = xp_store.junior_plan_good("");
-
+        let xp_line = recorder.junior_clean_proposal(question, "");
         if streaming_debug::is_debug_enabled() {
-            println!("{}", event.format_log());
+            println!("{}", xp_line);
         }
     } else if !junior_had_draft || senior_verdict == "refuse" {
         // Junior failed to provide a usable draft
-        let event = XpEvent::new(XpEventType::JuniorBadCommand, question)
-            .with_context(&format!("verdict={}", senior_verdict));
-        let _ = xp_log.append(&event);
-        let _ = xp_store.junior_plan_bad();
-
+        let xp_line = recorder.junior_bad_command(question, "", &format!("verdict={}", senior_verdict));
         if streaming_debug::is_debug_enabled() {
-            println!("{}", event.format_log());
+            println!("{}", xp_line);
         }
     }
 
@@ -1493,35 +1958,31 @@ fn process_llm_xp_events(question: &str, answer: &FinalAnswer) {
     match senior_verdict {
         "approve" if confidence >= 0.9 => {
             // Green approval
-            let event = XpEvent::new(XpEventType::SeniorGreenApproval, question)
-                .with_context(&format!("score={:.0}%", confidence * 100.0));
-            let _ = xp_log.append(&event);
-            let _ = xp_store.senior_approve_correct(confidence);
-
+            let xp_line = recorder.senior_green_approval(question, confidence);
             if streaming_debug::is_debug_enabled() {
-                println!("{}", event.format_log());
+                println!("{}", xp_line);
             }
         }
         "fix_and_accept" => {
             // Senior fixed Junior's work
-            let _ = xp_store.senior_fix_accept_good();
-            let _ = xp_store.junior_needs_fix();
-
+            let xp_line = recorder.senior_fix_and_accept(question);
             if streaming_debug::is_debug_enabled() {
-                println!("[XP] Senior: +4 XP (fix_and_accept_good)");
+                println!("{}", xp_line);
             }
         }
         "refuse" => {
-            let _ = xp_store.senior_refusal();
-
+            let xp_line = recorder.low_reliability_refusal(question);
             if streaming_debug::is_debug_enabled() {
-                println!("[XP] Senior: refusal recorded");
+                println!("{}", xp_line);
             }
         }
         _ => {
             // Unknown verdict or approve with lower confidence
             if confidence >= 0.7 {
-                let _ = xp_store.senior_approve_correct(confidence);
+                let xp_line = recorder.senior_green_approval(question, confidence);
+                if streaming_debug::is_debug_enabled() {
+                    println!("{}", xp_line);
+                }
             }
         }
     }
@@ -1530,20 +1991,15 @@ fn process_llm_xp_events(question: &str, answer: &FinalAnswer) {
     if let Some(ref failure_cause) = answer.failure_cause {
         match failure_cause.as_str() {
             "timeout_or_latency" => {
-                let event = XpEvent::new(XpEventType::LlmTimeoutFallback, question);
-                let _ = xp_log.append(&event);
-                let _ = xp_store.anna_timeout();
-
+                let xp_line = recorder.llm_timeout(question, 0);
                 if streaming_debug::is_debug_enabled() {
-                    println!("{}", event.format_log());
+                    println!("{}", xp_line);
                 }
             }
             "unsupported_domain" => {
-                let event = XpEvent::new(XpEventType::LowReliabilityRefusal, question);
-                let _ = xp_log.append(&event);
-
+                let xp_line = recorder.low_reliability_refusal(question);
                 if streaming_debug::is_debug_enabled() {
-                    println!("{}", event.format_log());
+                    println!("{}", xp_line);
                 }
             }
             _ => {}

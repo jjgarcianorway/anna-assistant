@@ -70,6 +70,7 @@ pub async fn run(state: AppState) -> Result<()> {
         .merge(routes::answer_routes()) // v0.10.0: Answer engine endpoint
         .merge(routes::knowledge_routes()) // v0.11.0: Knowledge store endpoints
         .merge(routes::stats_routes()) // v0.65.0: Stats and progression endpoint
+        .merge(routes::benchmark_routes()) // v1.4.0: Snow Leopard benchmark
         .with_state(state)
         .layer(TraceLayer::new_for_http());
 

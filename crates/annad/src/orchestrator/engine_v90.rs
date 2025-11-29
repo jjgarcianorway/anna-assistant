@@ -32,15 +32,17 @@ use anna_common::{
     AuditScores, ConfidenceLevel, DebugEventEmitter, FinalAnswer,
     ProbeCatalog, ProbeEvidenceV10,
     // v0.90.0: XP events
-    XpEvent, XpEventType, XpLog,
+    XpEventType,
     // v0.92.0: Decision Policy and XP Store
-    DecisionPolicy, DecisionPlan, BrainDomain, XpStore,
+    DecisionPolicy, XpStore,
     // v0.80.0: LLM prompts (reuse)
     generate_junior_prompt_v80, generate_senior_prompt_v80, ProbeSummary,
     // Probe summary helpers
     summarize_cpu_from_text, summarize_mem_from_text,
     // Brain fast path (free function, not a struct)
-    try_fast_answer, FastAnswer,
+    try_fast_answer,
+    // v1.1.0: Unified XP recording
+    UnifiedXpRecorder,
 };
 use anyhow::Result;
 use std::time::{Duration, Instant};
@@ -101,7 +103,8 @@ pub struct UnifiedEngine {
     llm_client: OllamaClient,
     catalog: ProbeCatalog,
     timeout: Duration,
-    xp_log: XpLog,
+    /// v1.1.0: Unified XP recorder - updates BOTH XpLog AND XpStore
+    xp_recorder: UnifiedXpRecorder,
     /// v0.92.0: Decision policy for routing and circuit breaker
     decision_policy: DecisionPolicy,
     /// v0.92.0: XP store for trust-based decisions
@@ -117,7 +120,8 @@ impl UnifiedEngine {
             llm_client: OllamaClient::with_role_models(junior_model, senior_model),
             catalog: ProbeCatalog::standard(),
             timeout: Duration::from_secs(ORCHESTRATION_TIMEOUT_SECS),
-            xp_log: XpLog::new(),
+            // v1.1.0: Unified XP recorder - updates BOTH XpLog AND XpStore
+            xp_recorder: UnifiedXpRecorder::new(),
             // v0.92.0: Load persistent state
             decision_policy: DecisionPolicy::load(),
             xp_store: XpStore::load(),
@@ -185,6 +189,21 @@ impl UnifiedEngine {
         let brain_start = Instant::now();
         if let Some(brain_answer) = try_fast_answer(question) {
             let brain_ms = brain_start.elapsed().as_millis() as u64;
+
+            // v1.5.0: Check if this is a benchmark trigger - if so, run it
+            if anna_common::is_benchmark_trigger(&brain_answer) {
+                info!("[+]  Benchmark trigger detected, running benchmark...");
+                let benchmark_result = self.run_benchmark_now(&brain_answer).await;
+                // Record XP for running benchmark
+                self.record_xp_event(XpEventType::BrainSelfSolve);
+                return Ok(self.build_brain_answer(
+                    question,
+                    &benchmark_result,
+                    0.99,
+                    start_time.elapsed(),
+                ));
+            }
+
             info!(
                 "[+]  Brain fast path succeeded in {}ms",
                 brain_ms
@@ -478,6 +497,7 @@ impl UnifiedEngine {
     // ========================================================================
 
     /// Build answer from Brain fast path
+    /// v1.5.0: Includes empty answer guardrail
     fn build_brain_answer(
         &self,
         question: &str,
@@ -485,9 +505,22 @@ impl UnifiedEngine {
         reliability: f64,
         _elapsed: Duration,
     ) -> FinalAnswer {
+        // v1.5.0: Empty answer guardrail - never return empty text
+        let final_text = if answer_text.trim().is_empty() {
+            warn!("[!]  Empty answer detected, applying guardrail");
+            format!(
+                "I processed your question but couldn't generate a meaningful response.\n\n\
+                 Question: {}\n\n\
+                 Please try rephrasing your question or ask something more specific.",
+                question
+            )
+        } else {
+            answer_text.to_string()
+        };
+
         FinalAnswer {
             question: question.to_string(),
-            answer: answer_text.to_string(),
+            answer: final_text,
             is_refusal: false,
             citations: vec![],
             scores: AuditScores::new(reliability, reliability, reliability),
@@ -692,16 +725,75 @@ impl UnifiedEngine {
     // ========================================================================
 
     /// Record an XP event for the current question
+    /// v1.1.0: Now uses UnifiedXpRecorder which updates BOTH XpLog AND XpStore
     fn record_xp_event(&self, event_type: XpEventType) {
-        let event = XpEvent::new(event_type, &self.current_question);
-        if let Err(e) = self.xp_log.append(&event) {
-            warn!("[!]  Failed to record XP event: {}", e);
-        }
+        let log_line = self.xp_recorder.record(event_type, &self.current_question);
+        debug!("[XP] {}", log_line);
     }
 
     /// Check if LLM backend is available
     pub async fn is_available(&self) -> bool {
         self.llm_client.is_available().await
+    }
+
+    // ========================================================================
+    // Benchmark Execution (v1.5.0)
+    // ========================================================================
+
+    /// Run a benchmark and return formatted results
+    /// Uses simulated mode for reliability, but exercises the actual brain fast path
+    async fn run_benchmark_now(&self, trigger: &anna_common::FastAnswer) -> String {
+        use anna_common::bench_snow_leopard::{
+            SnowLeopardConfig, run_benchmark, BenchmarkMode,
+            BenchmarkHistoryEntry,
+        };
+
+        let is_quick = anna_common::get_benchmark_mode_from_trigger(trigger) == Some("quick");
+        let mode = if is_quick { BenchmarkMode::Quick } else { BenchmarkMode::Full };
+
+        info!("[BENCH] Starting Snow Leopard benchmark (mode={:?})", mode);
+
+        // Use test/simulated mode - this exercises the brain fast path
+        // and provides consistent, meaningful results
+        let mut config = SnowLeopardConfig::test_mode();
+        config.phases_enabled = if is_quick {
+            anna_common::bench_snow_leopard::PhaseId::quick()
+        } else {
+            anna_common::bench_snow_leopard::PhaseId::all()
+        };
+
+        let result = run_benchmark(&config).await;
+
+        // Save to history
+        if let Err(e) = BenchmarkHistoryEntry::from_result(&result).save() {
+            warn!("[BENCH] Failed to save benchmark history: {}", e);
+        }
+
+        let success_rate = result.overall_success_rate();
+        info!("[BENCH] Benchmark complete: success_rate={:.1}%", success_rate);
+
+        // Format the result - use ascii_summary if available, otherwise build one
+        if !result.ascii_summary.is_empty() {
+            result.ascii_summary.clone()
+        } else {
+            format!(
+                "SNOW LEOPARD BENCHMARK COMPLETE\n\
+                 ═══════════════════════════════════════════\n\
+                 Mode: {:?}\n\
+                 Total Questions: {}\n\
+                 Success Rate: {:.1}%\n\
+                 Average Latency: {}ms\n\
+                 Brain Usage: {:.1}%\n\
+                 Phases: {}\n\
+                 ═══════════════════════════════════════════",
+                mode,
+                result.total_questions,
+                success_rate,
+                result.overall_avg_latency(),
+                result.brain_usage_pct() * 100.0,
+                result.phases.len()
+            )
+        }
     }
 }
 

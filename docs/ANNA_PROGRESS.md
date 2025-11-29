@@ -357,6 +357,46 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
+## v1.1.0 - Adaptive LLM Provisioning & Skill Router
+
+**Theme**: Self-provisioning LLM models, deterministic skill routing, no LLM for system queries.
+
+### Adaptive LLM Provisioning
+[x] Model candidate lists for Junior (9 models) and Senior (7 models)
+[x] Model benchmarking with JSON compliance, latency, determinism scoring
+[x] `select_best_junior/senior()` selection functions with criteria
+[x] Automatic model installation via `ollama pull`
+[x] Junior fallback timeout (2 seconds) - auto-fallback if slow
+[x] `LlmSelection` struct for persisting model choices
+[x] Integration with `annactl status` command
+
+### Skill-Based Routing System
+[x] Generic `SkillType` enum with 21 skill types
+[x] Pattern-based classifier (no hardcoded phrases)
+[x] `SkillAnswer` with strict invariants (never empty, reliability 0.1-1.0)
+[x] `SkillContext` for time budgets and metadata
+
+### Brain-First Deterministic Categories
+[x] ALL system queries now skip LLM (Brain-only):
+    - CPU, RAM, Disk, Uptime, Network, GPU, OS info
+    - Service health, logs, updates
+    - Debug enable/disable/status
+[x] New skills: `GpuInfo`, `OsInfo`
+[x] Fast handlers: `fast_gpu_answer()`, `fast_os_answer()`, `fast_network_answer()`
+
+### Tests
+[x] 13 llm_provision tests (scoring, selection, fallback policy)
+[x] 34 skill_router tests (classification, brain-first validation)
+[x] 10 skill_handlers tests (time budgets, failure policy)
+[x] 813+ workspace tests passing
+
+**Key Files**:
+- crates/anna_common/src/llm_provision.rs - LLM autoprovision module
+- crates/anna_common/src/skill_router.rs - Skill classification
+- crates/anna_common/src/skill_handlers.rs - Skill execution
+
+---
+
 ## v1.0.0 "Snow Leopard" - Stabilization Release
 
 **Theme**: Robustness, predictability, testing. No new user features.

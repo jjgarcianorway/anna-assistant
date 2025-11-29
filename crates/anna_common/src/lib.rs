@@ -81,6 +81,7 @@ pub mod rpg_display;
 pub mod xp_events;
 pub mod xp_log;
 pub mod xp_track;
+pub mod xp_unified;
 pub mod cpu_summary;
 pub mod mem_summary;
 pub mod events;
@@ -102,6 +103,8 @@ pub mod roles;
 pub mod safety;
 pub mod schemas;
 pub mod self_health;
+pub mod skill_handlers;
+pub mod skill_router;
 pub mod skills;
 pub mod structured_answer;
 pub mod trace;
@@ -109,6 +112,11 @@ pub mod types;
 pub mod updater;
 pub mod conversation_trace;
 pub mod ui_colors;
+pub mod telemetry;
+pub mod experience_reset;
+pub mod bench_snow_leopard;
+pub mod auto_tune;
+pub mod llm_provision;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -216,11 +224,16 @@ pub use xp_track::{
     XpTrack, XpStore, JuniorStats as XpJuniorStats, SeniorStats as XpSeniorStats,
     AnnaStats as XpAnnaStats, get_title, xp_for_level, XP_DIR,
 };
-// Brain Fast Path exports (v0.87.0)
+// Brain Fast Path exports (v1.3.0 + v1.4.0)
 pub use brain_fast::{
     FastQuestionType, FastAnswer, try_fast_answer, create_fallback_answer, create_partial_answer,
     TimingSummary, BRAIN_BUDGET_MS, LLM_A_BUDGET_MS, LLM_B_BUDGET_MS,
     GLOBAL_SOFT_LIMIT_MS, GLOBAL_HARD_LIMIT_MS,
+    // Reset functions (v1.3.0)
+    PendingActionType, execute_experience_reset, execute_factory_reset,
+    is_confirmation, is_factory_reset_confirmation,
+    // Benchmark helpers (v1.4.0)
+    is_benchmark_trigger, get_benchmark_mode_from_trigger,
 };
 // Debug State exports (v0.89.0)
 pub use debug_state::{
@@ -263,3 +276,62 @@ pub use ui_colors::{
     format_score_colored, format_score_with_label,
     reliability_display, reliability_display_f32,
 };
+// XP Unified exports (v1.1.0) - Single source of truth for XP recording
+pub use xp_unified::{
+    UnifiedXpRecorder,
+    record_brain_self_solve, record_junior_proposal, record_junior_bad_command,
+    record_senior_approval, record_senior_fix_accept, record_llm_timeout,
+};
+// Telemetry exports (v1.1.0) - Local-only performance diagnostics
+pub use telemetry::{
+    TelemetryEvent, TelemetryRecorder, TelemetrySummary,
+    Outcome as TelemetryOutcome, Origin as TelemetryOrigin,
+    record_success as telemetry_record_success,
+    record_brain_answer as telemetry_record_brain,
+    record_failure as telemetry_record_failure,
+    record_timeout as telemetry_record_timeout,
+    record_refusal as telemetry_record_refusal,
+    get_24h_summary as telemetry_get_24h_summary,
+    TELEMETRY_FILE,
+};
+
+// Experience reset exports (v1.3.0) - Soft and hard reset modes
+pub use experience_reset::{
+    ExperiencePaths, ExperienceResetResult, ExperienceSnapshot, ResetType,
+    reset_experience, reset_experience_default, has_experience_data,
+    reset_factory, reset_factory_default, has_knowledge_data,
+    reset_experience_for_tests, reset_factory_for_tests,
+};
+
+// Snow Leopard Benchmark exports (v1.4.0 + v1.5.0) - Real performance measurement
+pub use bench_snow_leopard::{
+    // Config and result types
+    SnowLeopardConfig, SnowLeopardResult, BenchmarkMode, PhaseId,
+    QuestionResult as BenchQuestionResult, PhaseResult as BenchPhaseResult,
+    XpSnapshot as BenchXpSnapshot, XpDelta as BenchXpDelta,
+    // API functions
+    run_benchmark, is_benchmark_request, parse_benchmark_mode,
+    // Status integration
+    LastBenchmarkSummary,
+    // v1.5.0: History and delta comparison
+    BenchmarkHistoryEntry, BenchmarkHistoryListItem,
+    SnowLeopardDelta, PhaseDelta,
+    compare_benchmarks, format_benchmark_delta,
+    get_last_two_benchmarks, compare_last_two_benchmarks,
+    format_benchmark_history,
+    // Question sets (for tests)
+    CANONICAL_QUESTIONS, PARAPHRASED_QUESTIONS, NOVEL_QUESTIONS, LEARNING_QUESTIONS,
+};
+
+// Auto-Tuning exports (v1.5.0) - Data-driven performance tuning
+pub use auto_tune::{
+    AutoTuneConfig, AutoTuneState, AutoTuneDecision,
+    auto_tune_from_benchmark,
+};
+
+// Skill Router exports (v1.6.0) - Generic skill-based routing
+pub use skill_router::{
+    SkillType, AnswerOrigin as SkillAnswerOrigin, SkillAnswer, SkillContext,
+    classify_skill, extract_time_window,
+};
+pub use skill_handlers::handle_skill;

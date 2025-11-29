@@ -15,9 +15,12 @@ use anna_common::{
     Fact, FactQuery, FinalAnswer, GetStateRequest, HealthResponse, InvalidateRequest,
     ListProbesResponse, PerformanceSnapshot, ProbeInfo, ProbeResult, RunProbeRequest,
     SetStateRequest, StateResponse, UpdateStateResponse,
+    // v1.1.0: Telemetry imports
+    telemetry_record_success, telemetry_record_failure, telemetry_record_refusal,
+    TelemetryOrigin,
 };
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     response::Response,
     routing::{get, post},
@@ -27,7 +30,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 type AppStateArc = Arc<AppState>;
 
@@ -350,6 +353,30 @@ async fn answer_question(
                 }
             }
 
+            // v1.1.0: Record telemetry for successful answer
+            let origin = if iterations <= 1 {
+                TelemetryOrigin::Junior
+            } else {
+                TelemetryOrigin::Senior
+            };
+
+            // Check if refusal (low reliability)
+            if reliability < 0.60 {
+                telemetry_record_refusal(&question_clone, reliability, latency_ms);
+            } else {
+                telemetry_record_success(
+                    &question_clone,
+                    origin,
+                    reliability,
+                    latency_ms,
+                    0,  // junior_ms (not tracked separately here)
+                    0,  // senior_ms (not tracked separately here)
+                    answer.debug_trace.as_ref()
+                        .map(|d| d.iterations.len() as u32)
+                        .unwrap_or(1),
+                );
+            }
+
             info!(
                 "[A]  Done in {}ms  Confidence: {:.0}% ({:?})",
                 latency_ms, reliability * 100.0, answer.confidence_level
@@ -357,6 +384,10 @@ async fn answer_question(
             Ok(Json(answer))
         }
         Err(e) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            // v1.1.0: Record telemetry for failure
+            telemetry_record_failure(&question_clone, &e.to_string(), latency_ms);
+
             error!("[E]  Failed: {}", e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
         }
@@ -475,6 +506,46 @@ async fn answer_question_stream(
                     }
                 }
 
+                // v1.1.0: Record telemetry for streaming answer
+                let origin = if iterations <= 1 {
+                    TelemetryOrigin::Junior
+                } else {
+                    TelemetryOrigin::Senior
+                };
+                if reliability < 0.60 {
+                    telemetry_record_refusal(&question, reliability, latency_ms);
+                } else {
+                    telemetry_record_success(
+                        &question,
+                        origin,
+                        reliability,
+                        latency_ms,
+                        0, 0, iterations,
+                    );
+                }
+
+                // v1.5.0: Emit the final answer text so streaming clients can display it
+                // Apply empty answer guardrail
+                let answer_origin = if iterations <= 1 { "junior" } else { "senior" };
+                let final_answer_text = if answer.answer.trim().is_empty() {
+                    warn!("[STREAM]  Empty answer detected, applying guardrail");
+                    format!(
+                        "I processed your question but couldn't generate a meaningful response.\n\n\
+                         Question: {}\n\n\
+                         Please try rephrasing your question or ask something more specific.",
+                        question
+                    )
+                } else {
+                    answer.answer.clone()
+                };
+                emitter.emit(
+                    DebugEvent::new(DebugEventType::AnswerReady, 0, "Final answer").with_data(
+                        DebugEventData::FinalAnswer {
+                            answer: final_answer_text,
+                            origin: answer_origin.to_string(),
+                        },
+                    ),
+                );
                 emitter.emit(
                     DebugEvent::new(DebugEventType::AnswerReady, 0, "Answer ready").with_data(
                         DebugEventData::AnswerSummary {
@@ -493,6 +564,9 @@ async fn answer_question_stream(
                 );
             }
             Err(e) => {
+                let fail_latency_ms = start.elapsed().as_millis() as u64;
+                // v1.1.0: Record telemetry for streaming failure
+                telemetry_record_failure(&question, &e.to_string(), fail_latency_ms);
                 error!("[STREAM]  Failed to process question: {}", e);
                 emitter.emit(
                     DebugEvent::new(DebugEventType::Error, 0, &e.to_string()).with_data(
@@ -654,11 +728,231 @@ async fn knowledge_stats(
 // ============================================================================
 
 pub fn stats_routes() -> Router<AppStateArc> {
-    Router::new().route("/v1/stats", get(get_stats))
+    Router::new()
+        .route("/v1/stats", get(get_stats))
+        .route("/v1/stats/telemetry", get(get_telemetry_stats))
 }
 
 /// v0.65.0: Get performance stats and progression
 async fn get_stats(State(state): State<AppStateArc>) -> Json<PerformanceSnapshot> {
     let stats = state.stats_engine.read().await;
     Json(stats.snapshot())
+}
+
+/// v1.2.0: Get telemetry-based performance stats
+async fn get_telemetry_stats(
+    State(_state): State<AppStateArc>,
+) -> Json<anna_common::telemetry::TelemetrySummaryComplete> {
+    use anna_common::telemetry::{TelemetryReader, DEFAULT_WINDOW_SIZE};
+
+    let reader = TelemetryReader::default_path();
+    Json(reader.complete_summary(DEFAULT_WINDOW_SIZE))
+}
+
+// ============================================================================
+// Benchmark Routes (v1.4.0) - Snow Leopard Benchmark
+// ============================================================================
+
+/// Request to run Snow Leopard benchmark
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BenchmarkRequest {
+    /// Benchmark mode: "full" or "quick"
+    #[serde(default = "default_benchmark_mode")]
+    pub mode: String,
+}
+
+fn default_benchmark_mode() -> String {
+    "full".to_string()
+}
+
+/// Response from benchmark execution
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BenchmarkResponse {
+    pub success: bool,
+    pub mode: String,
+    pub timestamp: String,
+    pub phases: usize,
+    pub total_questions: usize,
+    pub success_rate: f64,
+    pub avg_latency_ms: u64,
+    pub brain_usage_pct: f64,
+    pub llm_usage_pct: f64,
+    pub total_xp_anna: i64,
+    pub total_xp_junior: i64,
+    pub total_xp_senior: i64,
+    pub report_path: Option<String>,
+    pub ascii_summary: String,
+    pub warnings: Vec<String>,
+}
+
+pub fn benchmark_routes() -> Router<AppStateArc> {
+    Router::new()
+        .route("/v1/bench/snow_leopard", post(run_snow_leopard_benchmark))
+        .route("/v1/bench/last", get(get_last_benchmark))
+        // v1.5.0: History and delta endpoints
+        .route("/v1/bench/history", get(get_benchmark_history))
+        .route("/v1/bench/delta", get(get_benchmark_delta))
+}
+
+/// v1.4.0: Run Snow Leopard benchmark
+async fn run_snow_leopard_benchmark(
+    State(_state): State<AppStateArc>,
+    Json(req): Json<BenchmarkRequest>,
+) -> Result<Json<BenchmarkResponse>, (StatusCode, String)> {
+    use anna_common::bench_snow_leopard::{
+        BenchmarkMode, SnowLeopardConfig, run_benchmark, BenchmarkHistoryEntry,
+    };
+
+    info!("[BENCH]  Starting Snow Leopard benchmark (mode: {})", req.mode);
+
+    // Parse mode
+    let mode = BenchmarkMode::from_str(&req.mode);
+
+    // Build config
+    let config = match mode {
+        BenchmarkMode::Full => SnowLeopardConfig::runtime_mode(),
+        BenchmarkMode::Quick => SnowLeopardConfig::quick_mode(),
+    };
+
+    // Run benchmark
+    let result = run_benchmark(&config).await;
+
+    // v1.5.0: Save to history (includes last_benchmark.json)
+    let history_entry = BenchmarkHistoryEntry::from_result(&result);
+    if let Err(e) = history_entry.save() {
+        error!("[BENCH]  Failed to save benchmark history: {}", e);
+    }
+
+    info!(
+        "[BENCH]  Completed: {} questions, {:.0}% success, {}ms avg latency",
+        result.total_questions,
+        result.overall_success_rate(),
+        result.overall_avg_latency()
+    );
+
+    // v1.5.0: Auto-tuning - only for Full benchmarks
+    if mode == BenchmarkMode::Full {
+        use anna_common::auto_tune::{AutoTuneConfig, AutoTuneState, auto_tune_from_benchmark};
+        use anna_common::telemetry::TelemetryReader;
+
+        // Load telemetry and current state
+        let telemetry = TelemetryReader::default_path().complete_summary(50);
+        let auto_tune_config = AutoTuneConfig::default();
+        let mut auto_tune_state = AutoTuneState::load();
+
+        // Apply auto-tuning
+        let decision = auto_tune_from_benchmark(&telemetry, &result, &mut auto_tune_state, &auto_tune_config);
+
+        if decision.changed {
+            info!("[AUTO-TUNE]  {}", decision.explanation);
+            if let Err(e) = auto_tune_state.save() {
+                error!("[AUTO-TUNE]  Failed to save state: {}", e);
+            }
+        } else {
+            info!("[AUTO-TUNE]  No tuning needed: {}", decision.explanation);
+        }
+    }
+
+    // Calculate methods before moving owned fields
+    let success_rate = result.overall_success_rate();
+    let avg_latency_ms = result.overall_avg_latency();
+    let brain_usage_pct = result.brain_usage_pct();
+    let llm_usage_pct = result.llm_usage_pct();
+
+    Ok(Json(BenchmarkResponse {
+        success: result.ux_consistency_passed && result.warnings.is_empty(),
+        mode: format!("{:?}", result.mode).to_lowercase(),
+        timestamp: result.timestamp,
+        phases: result.phases.len(),
+        total_questions: result.total_questions,
+        success_rate,
+        avg_latency_ms,
+        brain_usage_pct,
+        llm_usage_pct,
+        total_xp_anna: result.total_xp.anna,
+        total_xp_junior: result.total_xp.junior,
+        total_xp_senior: result.total_xp.senior,
+        report_path: result.report_path,
+        ascii_summary: result.ascii_summary,
+        warnings: result.warnings,
+    }))
+}
+
+/// v1.4.0: Get last benchmark summary (for status display)
+async fn get_last_benchmark(
+    State(_state): State<AppStateArc>,
+) -> Result<Json<anna_common::bench_snow_leopard::LastBenchmarkSummary>, StatusCode> {
+    use anna_common::bench_snow_leopard::LastBenchmarkSummary;
+
+    match LastBenchmarkSummary::load() {
+        Some(summary) => Ok(Json(summary)),
+        None => Err(StatusCode::NOT_FOUND),
+    }
+}
+
+// ============================================================================
+// v1.5.0: History and Delta Endpoints
+// ============================================================================
+
+/// Query params for history endpoint
+#[derive(Debug, Deserialize)]
+pub struct HistoryQuery {
+    /// Number of entries to return (default 10, max 50)
+    pub limit: Option<usize>,
+}
+
+/// Query params for delta endpoint
+#[derive(Debug, Deserialize)]
+pub struct DeltaQuery {
+    /// ID of older benchmark (optional, defaults to second-to-last)
+    pub from: Option<String>,
+    /// ID of newer benchmark (optional, defaults to last)
+    pub to: Option<String>,
+}
+
+/// v1.5.0: Get benchmark history (last N runs)
+async fn get_benchmark_history(
+    State(_state): State<AppStateArc>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<Vec<anna_common::bench_snow_leopard::BenchmarkHistoryListItem>>, StatusCode> {
+    use anna_common::bench_snow_leopard::BenchmarkHistoryEntry;
+
+    let limit = query.limit.unwrap_or(10).min(50);
+    let entries = BenchmarkHistoryEntry::list_recent(limit);
+
+    if entries.is_empty() {
+        Err(StatusCode::NOT_FOUND)
+    } else {
+        Ok(Json(entries))
+    }
+}
+
+/// v1.5.0: Get delta between two benchmarks
+async fn get_benchmark_delta(
+    State(_state): State<AppStateArc>,
+    Query(query): Query<DeltaQuery>,
+) -> Result<Json<anna_common::bench_snow_leopard::SnowLeopardDelta>, (StatusCode, String)> {
+    use anna_common::bench_snow_leopard::{
+        BenchmarkHistoryEntry, compare_benchmarks, compare_last_two_benchmarks,
+    };
+
+    // If both from and to specified, compare those specific benchmarks
+    if let (Some(from_id), Some(to_id)) = (&query.from, &query.to) {
+        let older = BenchmarkHistoryEntry::load(from_id)
+            .ok_or((StatusCode::NOT_FOUND, format!("Benchmark '{}' not found", from_id)))?;
+        let newer = BenchmarkHistoryEntry::load(to_id)
+            .ok_or((StatusCode::NOT_FOUND, format!("Benchmark '{}' not found", to_id)))?;
+
+        let delta = compare_benchmarks(&older.full_result, &newer.full_result);
+        return Ok(Json(delta));
+    }
+
+    // Default: compare last two benchmarks
+    match compare_last_two_benchmarks() {
+        Some(delta) => Ok(Json(delta)),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            "Need at least 2 benchmark runs to compute delta".to_string(),
+        )),
+    }
 }

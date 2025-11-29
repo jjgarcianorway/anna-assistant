@@ -262,6 +262,11 @@ pub enum DebugEventData {
         response: String,       // FULL response
         elapsed_ms: u64,        // how long it took
     },
+    /// v1.5.0: Final answer text for streaming clients
+    FinalAnswer {
+        answer: String,         // Full answer text
+        origin: String,         // "brain", "junior", "senior", etc.
+    },
 }
 
 impl DebugEventData {
@@ -401,6 +406,18 @@ impl DebugEventData {
                 );
                 out.push_str(&format!("{pad}{dim}RESPONSE ({} chars):{reset}\n", response.len()));
                 out.push_str(&format!("{pad}{cyan}{}{reset}\n", response));
+                out
+            }
+            // v1.5.0: Final answer text display
+            Self::FinalAnswer { answer, origin } => {
+                let green = "\x1b[38;2;0;255;0m";
+                let mut out = format!(
+                    "\n{pad}╔══════════════════════════════════════════════════════════════════════════════╗\n\
+                     {pad}║  {green}ANSWER{reset} (from {origin})\n\
+                     {pad}╚══════════════════════════════════════════════════════════════════════════════╝\n\n"
+                );
+                out.push_str(answer);
+                out.push_str("\n");
                 out
             }
         }
