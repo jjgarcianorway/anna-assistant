@@ -357,6 +357,57 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
+## v2.0.0 "Autoprovision" - Fully Self-Provisioning LLM Models
+
+**Theme**: Anna now manages her own LLM models - detects, installs, benchmarks, and switches automatically.
+
+### Runtime Autoprovision
+[x] Automatic Ollama detection and installation on first startup
+[x] `is_ollama_installed()`, `is_ollama_running()`, `install_ollama()`, `start_ollama_service()`
+[x] `ensure_ollama_ready()` - handles full Ollama setup
+[x] `run_full_autoprovision<F>(on_progress)` - main entry point with progress callback
+[x] `needs_autoprovision()` - quick check if provisioning is needed
+[x] Wired into annad startup at `is_first_run()` check
+
+### Model Benchmarking at Startup
+[x] Dynamic model candidate lists (8 Junior, 6 Senior candidates)
+[x] JSON compliance scoring with structured test prompts
+[x] Reasoning/logic scoring for Senior models
+[x] Determinism scoring across 3 runs
+[x] Latency thresholds (Junior: 8s max, Senior: 15s max)
+[x] Composite score calculation for role suitability
+
+### Automatic Model Selection
+[x] `select_best_junior()` - picks fastest JSON-compliant model
+[x] `select_best_senior()` - picks best reasoning model
+[x] `AutoprovisionResult` struct with installation/benchmark details
+[x] Selection persisted to `/var/lib/anna/llm/selection.json`
+[x] Benchmark results saved to `/var/lib/anna/llm/benchmarks/`
+
+### Runtime Model Switching
+[x] `ModelSwitchResult` struct for tracking switches
+[x] `try_switch_junior_model()` - switch to faster model on timeouts
+[x] `try_switch_senior_model()` - switch on poor performance
+[x] `handle_model_failure()` - main entry for runtime adaptation
+[x] Automatic switch after 3 consecutive failures
+[x] Suggestions added to status output
+
+### Integration
+[x] Installer v3.0.0 - mentions autoprovision in post-install message
+[x] `annactl status` shows LLM AUTOPROVISION section with model scores
+[x] Junior fallback timeout (2 seconds) integrated
+
+### Tests
+[x] 15 llm_provision tests (scoring, selection, fallback, switching)
+[x] All workspace tests passing
+
+**Key Files**:
+- crates/anna_common/src/llm_provision.rs - Full autoprovision module
+- crates/annad/src/main.rs - Startup autoprovision hook
+- scripts/install.sh v3.0.0 - Updated installer
+
+---
+
 ## v1.1.0 - Adaptive LLM Provisioning & Skill Router
 
 **Theme**: Self-provisioning LLM models, deterministic skill routing, no LLM for system queries.

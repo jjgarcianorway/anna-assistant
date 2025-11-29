@@ -1,8 +1,8 @@
 #!/bin/bash
-# Anna Installer v2.0.0
+# Anna Installer v3.0.0
 #
 # This installer is versioned INDEPENDENTLY from Anna itself.
-# Installer version: 2.x.x
+# Installer version: 3.x.x
 # Anna version: fetched from GitHub releases
 #
 # Behavior:
@@ -13,6 +13,11 @@
 #   - Interactive mode (-i): prompt for confirmation
 #   - Never clobbers config/data unless --reset is passed
 #   - Logs all actions to /var/log/anna/install.log
+#
+# v3.0.0 (Autoprovision):
+#   - Anna now self-provisions LLM models at first run
+#   - Installer just ensures Ollama is available
+#   - annad benchmarks and selects best Junior/Senior models automatically
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/.../install.sh | bash
@@ -33,7 +38,7 @@ set -uo pipefail
 # ============================================================
 
 # Installer version (independent from Anna version)
-INSTALLER_VERSION="2.4.0"
+INSTALLER_VERSION="3.0.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -1243,6 +1248,10 @@ main() {
     # Final message
     print_header "COMPLETE"
     printf "  Anna v%s installed and running.\n" "$LATEST_VERSION"
+    printf "\n"
+    printf "  ${YELLOW}*${NC}  First run: Anna will benchmark available models\n"
+    printf "     and select the best Junior/Senior combination.\n"
+    printf "     This happens automatically - just ask your first question!\n"
     printf "\n"
     printf "  Check status:    ${CYAN}annactl status${NC}\n"
     printf "  Ask a question:  ${CYAN}annactl \"How many CPU cores?\"${NC}\n"

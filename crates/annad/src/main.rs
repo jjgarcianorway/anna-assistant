@@ -25,7 +25,10 @@ mod routes;
 mod server;
 mod state;
 
-use anna_common::{AnnaConfigV5, KnowledgeStore, is_first_run, mark_initialized};
+use anna_common::{
+    AnnaConfigV5, KnowledgeStore, is_first_run, mark_initialized,
+    llm_provision::{needs_autoprovision, run_full_autoprovision, LlmSelection},
+};
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -134,12 +137,46 @@ async fn main() -> Result<()> {
         );
     }
 
-    // v0.72.0: Mark system as initialized (create marker file)
-    if is_first_run() {
-        info!("[+]  First run detected - creating initialization marker");
+    // v2.0.0: LLM Autoprovision - self-provisioning models
+    if is_first_run() || needs_autoprovision() {
+        info!("[*]  Running LLM autoprovision...");
+        let result = run_full_autoprovision(|msg| {
+            info!("[P]  {}", msg);
+        });
+
+        if result.ollama_installed {
+            info!("[+]  Ollama was installed during autoprovision");
+        }
+        if !result.models_installed.is_empty() {
+            info!("[+]  Installed models: {:?}", result.models_installed);
+        }
+        info!(
+            "[+]  Selected: Junior={} (score {:.2}), Senior={} (score {:.2})",
+            result.selection.junior_model,
+            result.selection.junior_score,
+            result.selection.senior_model,
+            result.selection.senior_score
+        );
+        if !result.errors.is_empty() {
+            for err in &result.errors {
+                warn!("[!]  Autoprovision error: {}", err);
+            }
+        }
+
+        // Mark as initialized after successful autoprovision
         if let Err(e) = mark_initialized() {
             warn!("[!]  Failed to create initialization marker: {}", e);
         }
+    } else {
+        // Not first run - load existing selection
+        let selection = LlmSelection::load();
+        info!(
+            "[L]  LLM Selection: Junior={} (score {:.2}), Senior={} (score {:.2})",
+            selection.junior_model,
+            selection.junior_score,
+            selection.senior_model,
+            selection.senior_score
+        );
     }
 
     // Start auto-update in background

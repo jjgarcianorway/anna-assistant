@@ -744,6 +744,427 @@ pub fn should_reprovision(selection: &LlmSelection) -> bool {
 }
 
 // ============================================================================
+// RUNTIME MODEL SWITCHING
+// ============================================================================
+
+/// Result of a model switch attempt
+#[derive(Debug, Clone)]
+pub struct ModelSwitchResult {
+    pub switched: bool,
+    pub old_model: String,
+    pub new_model: Option<String>,
+    pub reason: String,
+}
+
+impl ModelSwitchResult {
+    /// No switch needed
+    pub fn no_switch(current: &str) -> Self {
+        Self {
+            switched: false,
+            old_model: current.to_string(),
+            new_model: None,
+            reason: "No switch needed".to_string(),
+        }
+    }
+
+    /// Switch occurred
+    pub fn switched(old: &str, new: &str, reason: &str) -> Self {
+        Self {
+            switched: true,
+            old_model: old.to_string(),
+            new_model: Some(new.to_string()),
+            reason: reason.to_string(),
+        }
+    }
+}
+
+/// Try to switch to a better Junior model after repeated failures
+///
+/// This is called when Junior keeps timing out or failing.
+/// It tries to find a faster/smaller model from the candidate list.
+pub fn try_switch_junior_model(selection: &mut LlmSelection) -> ModelSwitchResult {
+    let current = &selection.junior_model;
+
+    // Find next faster candidate
+    let faster_models: Vec<&str> = JUNIOR_CANDIDATES
+        .iter()
+        .filter(|m| {
+            // Only consider models that are:
+            // 1. Different from current
+            // 2. Available in Ollama
+            // 3. Smaller (by name heuristic - lower numbers = smaller)
+            **m != current && is_model_available(m)
+        })
+        .take(3)
+        .copied()
+        .collect();
+
+    if faster_models.is_empty() {
+        return ModelSwitchResult::no_switch(current);
+    }
+
+    // Try the first available faster model
+    let new_model = faster_models[0];
+    let old_model = selection.junior_model.clone();
+
+    selection.junior_model = new_model.to_string();
+    selection.junior_score = 0.5; // Reset score - needs re-evaluation
+    selection.suggestions.push(format!(
+        "Switched Junior from {} to {} due to performance issues",
+        old_model, new_model
+    ));
+
+    if let Err(e) = selection.save() {
+        tracing::warn!("Failed to save selection after switch: {}", e);
+    }
+
+    ModelSwitchResult::switched(
+        &old_model,
+        new_model,
+        "Junior model was timing out frequently",
+    )
+}
+
+/// Try to switch to a better Senior model after repeated failures
+pub fn try_switch_senior_model(selection: &mut LlmSelection) -> ModelSwitchResult {
+    let current = &selection.senior_model;
+
+    // Find alternative candidates
+    let alt_models: Vec<&str> = SENIOR_CANDIDATES
+        .iter()
+        .filter(|m| **m != current && is_model_available(m))
+        .take(3)
+        .copied()
+        .collect();
+
+    if alt_models.is_empty() {
+        return ModelSwitchResult::no_switch(current);
+    }
+
+    // Try the first available alternative
+    let new_model = alt_models[0];
+    let old_model = selection.senior_model.clone();
+
+    selection.senior_model = new_model.to_string();
+    selection.senior_score = 0.5; // Reset score
+    selection.suggestions.push(format!(
+        "Switched Senior from {} to {} due to performance issues",
+        old_model, new_model
+    ));
+
+    if let Err(e) = selection.save() {
+        tracing::warn!("Failed to save selection after switch: {}", e);
+    }
+
+    ModelSwitchResult::switched(
+        &old_model,
+        new_model,
+        "Senior model was performing poorly",
+    )
+}
+
+/// Record a model failure and potentially trigger a switch
+///
+/// This is the main entry point for runtime model adaptation.
+/// Call this when a model fails or times out repeatedly.
+pub fn handle_model_failure(
+    selection: &mut LlmSelection,
+    is_junior: bool,
+    failure_count: usize,
+) -> Option<ModelSwitchResult> {
+    const SWITCH_THRESHOLD: usize = 3; // Switch after 3 consecutive failures
+
+    if failure_count < SWITCH_THRESHOLD {
+        // Not enough failures yet
+        if is_junior {
+            record_junior_timeout(selection);
+        }
+        return None;
+    }
+
+    // Too many failures - try to switch
+    let result = if is_junior {
+        try_switch_junior_model(selection)
+    } else {
+        try_switch_senior_model(selection)
+    };
+
+    if result.switched {
+        Some(result)
+    } else {
+        None
+    }
+}
+
+// ============================================================================
+// OLLAMA DETECTION AND INSTALLATION
+// ============================================================================
+
+/// Check if Ollama is installed on the system
+pub fn is_ollama_installed() -> bool {
+    Command::new("which")
+        .arg("ollama")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Check if Ollama service is running
+pub fn is_ollama_running() -> bool {
+    Command::new("ollama")
+        .arg("list")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Install Ollama using the official installer script
+pub fn install_ollama() -> Result<(), String> {
+    if is_ollama_installed() {
+        return Ok(()); // Already installed
+    }
+
+    // Use official Ollama installer
+    let output = Command::new("sh")
+        .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+        .output()
+        .map_err(|e| format!("Failed to run Ollama installer: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Ollama installation failed: {}", stderr))
+    }
+}
+
+/// Start Ollama service (if using systemd)
+pub fn start_ollama_service() -> Result<(), String> {
+    // Try systemd first
+    let systemd_result = Command::new("systemctl")
+        .args(["start", "ollama"])
+        .output();
+
+    if let Ok(output) = systemd_result {
+        if output.status.success() {
+            // Give it time to start
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            return Ok(());
+        }
+    }
+
+    // If systemd fails, try running ollama serve in background
+    // This handles non-systemd systems
+    let _ = Command::new("sh")
+        .args(["-c", "ollama serve &>/dev/null &"])
+        .spawn();
+
+    std::thread::sleep(std::time::Duration::from_secs(2));
+
+    if is_ollama_running() {
+        Ok(())
+    } else {
+        Err("Could not start Ollama service".to_string())
+    }
+}
+
+/// Ensure Ollama is installed and running
+pub fn ensure_ollama_ready() -> Result<(), String> {
+    if !is_ollama_installed() {
+        install_ollama()?;
+    }
+
+    if !is_ollama_running() {
+        start_ollama_service()?;
+    }
+
+    if is_ollama_running() {
+        Ok(())
+    } else {
+        Err("Ollama is installed but not responding".to_string())
+    }
+}
+
+// ============================================================================
+// FULL AUTOPROVISION WITH INSTALLATION
+// ============================================================================
+
+/// Result of the full autoprovision process
+#[derive(Debug, Clone)]
+pub struct AutoprovisionResult {
+    pub selection: LlmSelection,
+    pub ollama_installed: bool,
+    pub models_installed: Vec<String>,
+    pub benchmarks_run: usize,
+    pub errors: Vec<String>,
+}
+
+/// Run full autoprovision including Ollama and model installation
+///
+/// This is the main entry point for Anna's self-provisioning.
+/// It will:
+/// 1. Ensure Ollama is installed and running
+/// 2. Install best candidate models if missing
+/// 3. Benchmark all available models
+/// 4. Select and save the best Junior/Senior combination
+pub fn run_full_autoprovision<F>(on_progress: F) -> AutoprovisionResult
+where
+    F: Fn(&str),
+{
+    let mut result = AutoprovisionResult {
+        selection: LlmSelection::default(),
+        ollama_installed: false,
+        models_installed: Vec::new(),
+        benchmarks_run: 0,
+        errors: Vec::new(),
+    };
+
+    // Step 1: Ensure Ollama is ready
+    on_progress("Checking Ollama installation...");
+    if !is_ollama_installed() {
+        on_progress("Installing Ollama...");
+        match install_ollama() {
+            Ok(()) => {
+                result.ollama_installed = true;
+                on_progress("Ollama installed successfully");
+            }
+            Err(e) => {
+                result.errors.push(format!("Ollama install failed: {}", e));
+                return result;
+            }
+        }
+    }
+
+    if !is_ollama_running() {
+        on_progress("Starting Ollama service...");
+        if let Err(e) = start_ollama_service() {
+            result.errors.push(format!("Ollama start failed: {}", e));
+            return result;
+        }
+    }
+    on_progress("Ollama is ready");
+
+    // Step 2: Install priority models if missing
+    on_progress("Checking model availability...");
+    let priority_models = [
+        "qwen2.5:1.5b-instruct",  // Fast Junior
+        "qwen2.5:7b-instruct",    // Balanced Senior
+    ];
+
+    for model in priority_models {
+        if !is_model_available(model) {
+            on_progress(&format!("Installing {}...", model));
+            match pull_model(model) {
+                Ok(()) => {
+                    result.models_installed.push(model.to_string());
+                    on_progress(&format!("{} installed", model));
+                }
+                Err(e) => {
+                    result.errors.push(format!("Failed to install {}: {}", model, e));
+                }
+            }
+        }
+    }
+
+    // Step 3: Benchmark all available models
+    on_progress("Benchmarking models...");
+    let mut all_benchmarks: Vec<ModelBenchmark> = Vec::new();
+    let mut suggestions: Vec<String> = Vec::new();
+
+    // Benchmark Junior candidates
+    for candidate in JUNIOR_CANDIDATES {
+        if is_model_available(candidate) {
+            on_progress(&format!("Benchmarking {} (Junior candidate)...", candidate));
+            let benchmark = benchmark_model(candidate);
+            result.benchmarks_run += 1;
+            all_benchmarks.push(benchmark);
+        } else {
+            suggestions.push(format!("Consider installing {} for Junior", candidate));
+        }
+    }
+
+    // Benchmark Senior candidates
+    for candidate in SENIOR_CANDIDATES {
+        if all_benchmarks.iter().any(|b| b.model_name == *candidate) {
+            continue; // Already benchmarked
+        }
+        if is_model_available(candidate) {
+            on_progress(&format!("Benchmarking {} (Senior candidate)...", candidate));
+            let benchmark = benchmark_model(candidate);
+            result.benchmarks_run += 1;
+            all_benchmarks.push(benchmark);
+        } else {
+            suggestions.push(format!("Consider installing {} for Senior", candidate));
+        }
+    }
+
+    // Step 4: Select best models
+    on_progress("Selecting optimal models...");
+    let junior = select_best_junior(&all_benchmarks)
+        .map(|b| (b.model_name.clone(), b.junior_score))
+        .unwrap_or_else(|| (FALLBACK_MODEL.to_string(), 0.0));
+
+    let senior = select_best_senior(&all_benchmarks)
+        .map(|b| (b.model_name.clone(), b.senior_score))
+        .unwrap_or_else(|| (FALLBACK_MODEL.to_string(), 0.0));
+
+    // Add performance suggestions
+    if junior.1 < 0.5 {
+        suggestions.push("Junior model performance is poor. Consider installing qwen2.5:1.5b-instruct".to_string());
+    }
+    if senior.1 < 0.5 {
+        suggestions.push("Senior model performance is poor. Consider installing qwen2.5:7b-instruct".to_string());
+    }
+
+    result.selection = LlmSelection {
+        junior_model: junior.0.clone(),
+        junior_score: junior.1,
+        senior_model: senior.0.clone(),
+        senior_score: senior.1,
+        last_benchmark: chrono::Utc::now().to_rfc3339(),
+        autoprovision_enabled: true,
+        suggestions,
+    };
+
+    // Save selection
+    if let Err(e) = result.selection.save() {
+        result.errors.push(format!("Could not save selection: {}", e));
+    }
+
+    // Save benchmarks
+    save_benchmarks(&all_benchmarks);
+
+    on_progress(&format!(
+        "Autoprovision complete: Junior={} (score {:.2}), Senior={} (score {:.2})",
+        junior.0, junior.1, senior.0, senior.1
+    ));
+
+    result
+}
+
+/// Quick check if autoprovision is needed
+pub fn needs_autoprovision() -> bool {
+    // Check if selection file exists
+    let selection = LlmSelection::load();
+
+    // If default fallback model is selected, we need to provision
+    if selection.junior_model == FALLBACK_MODEL && selection.junior_score == 0.0 {
+        return true;
+    }
+
+    // Check if models are still available
+    if !is_model_available(&selection.junior_model) {
+        return true;
+    }
+    if !is_model_available(&selection.senior_model) {
+        return true;
+    }
+
+    // Check if re-provision is needed based on performance
+    should_reprovision(&selection)
+}
+
+// ============================================================================
 // TESTS
 // ============================================================================
 
@@ -964,5 +1385,42 @@ mod tests {
         let decision = evaluate_junior_fallback(2_500);
         assert!(decision.use_fallback);
         assert_eq!(decision.latency_ms, Some(2_500));
+    }
+
+    #[test]
+    fn test_model_switch_result() {
+        // No switch
+        let result = ModelSwitchResult::no_switch("test-model");
+        assert!(!result.switched);
+        assert_eq!(result.old_model, "test-model");
+        assert!(result.new_model.is_none());
+
+        // Switch occurred
+        let result = ModelSwitchResult::switched("old-model", "new-model", "performance issues");
+        assert!(result.switched);
+        assert_eq!(result.old_model, "old-model");
+        assert_eq!(result.new_model, Some("new-model".to_string()));
+        assert!(result.reason.contains("performance"));
+    }
+
+    #[test]
+    fn test_handle_model_failure_under_threshold() {
+        // Create a test selection
+        let mut selection = LlmSelection {
+            junior_model: "test-junior".to_string(),
+            junior_score: 0.8,
+            senior_model: "test-senior".to_string(),
+            senior_score: 0.8,
+            last_benchmark: chrono::Utc::now().to_rfc3339(),
+            autoprovision_enabled: true,
+            suggestions: vec![],
+        };
+
+        // Under threshold (3 failures needed)
+        let result = handle_model_failure(&mut selection, true, 1);
+        assert!(result.is_none());
+
+        let result = handle_model_failure(&mut selection, true, 2);
+        assert!(result.is_none());
     }
 }
