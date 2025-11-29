@@ -4,9 +4,10 @@
 //! v0.10.0: Added /v1/answer endpoint for evidence-based answers
 //! v0.11.0: Added /v1/knowledge routes for fact queries
 //! v0.65.0: Added /v1/stats endpoint and stats recording for answer routes
+//! v0.90.0: Unified Architecture - replaced AnswerEngine with UnifiedEngine
 
 use crate::orchestrator::streaming::{create_channel_emitter, response::debug_stream_response, ChannelEmitter};
-use crate::orchestrator::AnswerEngine;
+use crate::orchestrator::UnifiedEngine;  // v0.90.0 unified architecture
 use crate::probe::executor::ProbeExecutor;
 use crate::server::AppState;
 use anna_common::{
@@ -295,9 +296,10 @@ async fn answer_question(
         )
     };
 
-    let engine = AnswerEngine::with_role_models(junior_model, senior_model);
+    // v0.90.0: UnifiedEngine with unified architecture
+    let mut engine = UnifiedEngine::new(junior_model, senior_model);
     info!(
-        "[E]  Engine ready - Junior: {}, Senior: {}",
+        "[E]  v0.90.0 UnifiedEngine ready - Junior: {}, Senior: {}",
         engine.junior_model(),
         engine.senior_model()
     );
@@ -310,7 +312,7 @@ async fn answer_question(
         ));
     }
 
-    // Process the question
+    // Process the question via v0.90.0 unified flow
     let question_clone = req.question.clone();
     match engine.process_question(&req.question).await {
         Ok(answer) => {
@@ -420,7 +422,8 @@ async fn answer_question_stream(
             ),
         );
 
-        let engine = AnswerEngine::with_role_models(Some(junior.clone()), Some(senior.clone()));
+        // v0.90.0: UnifiedEngine with unified architecture
+        let mut engine = UnifiedEngine::new(Some(junior.clone()), Some(senior.clone()));
 
         // Check if LLM is available
         if !engine.is_available().await {
@@ -437,8 +440,8 @@ async fn answer_question_stream(
             return;
         }
 
-        // Process the question with debug events
-        match engine.process_question_with_emitter(&question, emitter.as_ref()).await {
+        // Process the question with debug events via v0.90.0 unified flow
+        match engine.process_question_with_emitter(&question, Some(emitter.as_ref())).await {
             Ok(answer) => {
                 let duration = start.elapsed().as_secs_f64();
                 let latency_ms = start.elapsed().as_millis() as u64;

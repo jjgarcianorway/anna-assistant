@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "0.89.0"
+version = "0.90.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -60,7 +60,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.89.0"
+version = "0.90.0"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -82,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.89.0"
+version = "0.90.0"
 dependencies = [
  "anna_common",
  "anyhow",

@@ -1,4 +1,4 @@
-//! Answer Orchestration v0.80.0
+//! Answer Orchestration v0.90.0
 //!
 //! The orchestrator manages the LLM-A -> Probe -> LLM-B loop:
 //! 1. Parse question with LLM-A
@@ -28,8 +28,11 @@ pub mod llm_client_v18;
 pub mod engine_v19;
 pub mod llm_client_v19;
 
-// v0.80.0 razorback fast path engine (current)
+// v0.80.0 razorback fast path engine
 pub mod engine_v80;
+
+// v0.90.0 unified architecture engine (current)
+pub mod engine_v90;
 
 // v0.43.0 streaming debug
 pub mod streaming;
@@ -47,9 +50,12 @@ pub use engine_v18::AnswerEngineV18;
 // v0.19.0 exports (legacy)
 pub use engine_v19::AnswerEngineV19;
 
-// v0.80.0 exports (current) - Razorback Fast Path
+// v0.80.0 exports - Razorback Fast Path
 pub use engine_v80::RazorbackEngine;
 pub use llm_client::{JuniorResponseV80, SeniorResponseV80, DraftAnswerV80};
+
+// v0.90.0 exports (current) - Unified Architecture
+pub use engine_v90::UnifiedEngine;
 
 // v0.43.0 streaming exports
 pub use streaming::{
