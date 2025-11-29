@@ -42,6 +42,8 @@ use anna_common::{
     XpEvent, XpEventType, FinalAnswer,
     // v0.89.0: Persistent debug mode
     debug_is_enabled,
+    // v0.91.0: Natural language debug control
+    DebugIntent, DebugState, debug_set_enabled, debug_get_state,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -210,6 +212,18 @@ async fn run_ask(question: &str) -> Result<()> {
             "query_preview": if question.len() > 50 { &question[..50] } else { question }
         })),
     );
+
+    // v0.91.0: Handle debug mode control via natural language (no LLM needed)
+    // This must come BEFORE try_fast_answer to intercept debug commands
+    let debug_intent = DebugIntent::classify(question);
+    if debug_intent.is_debug_intent() {
+        let response = handle_debug_intent(question, debug_intent);
+        spinner::print_question(question);
+        println!();
+        print_final_answer(&response, 1.0, "Brain", 1);
+        clear_current_request();
+        return Ok(());
+    }
 
     // v0.87.0: Try Brain fast path for simple questions (RAM, CPU, disk, health)
     // This bypasses LLM entirely for known patterns
@@ -1188,6 +1202,37 @@ fn print_final_answer(text: &str, reliability: f64, origin: &str, duration_ms: u
 
     println!("{}", THIN_SEPARATOR);
     println!();
+}
+
+// ============================================================================
+// v0.91.0: Debug Intent Handling (Brain Fast Path)
+// ============================================================================
+
+/// Handle debug mode control commands directly in Brain layer (no LLM)
+/// Returns a human-readable response for the debug intent
+fn handle_debug_intent(_question: &str, intent: DebugIntent) -> String {
+    match intent {
+        DebugIntent::Enable => {
+            if let Err(e) = debug_set_enabled(true, "user_command") {
+                return format!("Failed to enable debug mode: {}", e);
+            }
+            DebugState::format_enable_message()
+        }
+        DebugIntent::Disable => {
+            if let Err(e) = debug_set_enabled(false, "user_command") {
+                return format!("Failed to disable debug mode: {}", e);
+            }
+            DebugState::format_disable_message()
+        }
+        DebugIntent::Status => {
+            let state = debug_get_state();
+            state.format_status()
+        }
+        DebugIntent::None => {
+            // This shouldn't happen - is_debug_intent() check guards against it
+            "Not a debug command.".to_string()
+        }
+    }
 }
 
 // ============================================================================

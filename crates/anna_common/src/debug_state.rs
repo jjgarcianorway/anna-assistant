@@ -8,8 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-/// Debug state storage directory (same as XP)
-pub const DEBUG_STATE_DIR: &str = "/var/lib/anna/knowledge/stats";
+/// Debug state storage directory
+/// v0.91.0: Changed to user-local ~/.config/anna for CLI writability
+pub const DEBUG_STATE_DIR: &str = ".config/anna";
 
 /// Debug state file
 pub const DEBUG_STATE_FILE: &str = "debug_state.json";
@@ -46,8 +47,10 @@ impl DebugState {
     }
 
     /// Get the path to the debug state file
+    /// Uses $HOME/.config/anna/debug_state.json for user writability
     fn file_path() -> PathBuf {
-        PathBuf::from(DEBUG_STATE_DIR).join(DEBUG_STATE_FILE)
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        PathBuf::from(home).join(DEBUG_STATE_DIR).join(DEBUG_STATE_FILE)
     }
 
     /// Load debug state from disk
