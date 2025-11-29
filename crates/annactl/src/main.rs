@@ -46,6 +46,8 @@ use anna_common::{
     DebugIntent, DebugState, debug_set_enabled, debug_get_state,
     // v0.92.0: Decision Policy
     DecisionPolicy,
+    // v0.95.0: RPG Display System
+    get_title_color, get_mood_text, get_streak_text, TrustLevel,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -237,11 +239,14 @@ async fn run_ask(question: &str) -> Result<()> {
         // Print the answer in the new format
         print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
 
-        // Update XP store
+        // Update XP store and show mini XP log (v0.95.0)
         let mut xp_store = XpStore::load();
         let xp_line = xp_store.anna_self_solve(question);
+        // Always show the XP line - dimmed in normal mode, bright in debug
         if streaming_debug::is_debug_enabled() {
             println!("{}", xp_line);
+        } else {
+            println!("{}", xp_line.dimmed());
         }
 
         // Log completion
@@ -985,21 +990,18 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
     let title = snapshot.progression.title.to_string();
     let total_xp = snapshot.progression.total_xp;
 
-    // Color title based on level bands
-    let title_colored = if level < 5 {
-        title.dimmed().to_string()
-    } else if level < 15 {
-        title.cyan().to_string()
-    } else if level < 30 {
-        title.bright_cyan().to_string()
-    } else if level < 50 {
-        title.bright_green().to_string()
-    } else if level < 70 {
-        title.bright_yellow().to_string()
-    } else if level < 90 {
-        title.bright_magenta().to_string()
-    } else {
-        title.bright_red().bold().to_string()
+    // v0.95.0: Use rpg_display for consistent title coloring
+    let title_color = get_title_color(level as u8);
+    let title_colored = match title_color {
+        "dim" => title.dimmed().to_string(),
+        "cyan" => title.cyan().to_string(),
+        "bright_cyan" => title.bright_cyan().to_string(),
+        "green" => title.bright_green().to_string(),
+        "yellow" => title.yellow().to_string(),
+        "bright_yellow" => title.bright_yellow().to_string(),
+        "magenta" => title.bright_magenta().to_string(),
+        "red" => title.bright_red().bold().to_string(),
+        _ => title.to_string(),
     };
 
     println!(
@@ -1041,6 +1043,30 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
 
     // Total XP
     println!("  {}  Total XP: {}", "*".cyan(), format_xp(total_xp));
+
+    // v0.95.0: Trust and Streak info from XpStore
+    let xp_store = XpStore::load();
+
+    // Trust with label
+    let trust_level = TrustLevel::from_trust(xp_store.anna.trust);
+    let trust_str = format!("{:.2} ({})", xp_store.anna.trust, trust_level.label());
+    let trust_colored = match trust_level {
+        TrustLevel::Low => trust_str.bright_red().to_string(),
+        TrustLevel::Normal => trust_str.yellow().to_string(),
+        TrustLevel::High => trust_str.bright_green().to_string(),
+    };
+    println!("  {}  Trust: {}", "*".cyan(), trust_colored);
+
+    // Recent streak
+    let streak_text = get_streak_text(xp_store.anna.streak_good, xp_store.anna.streak_bad);
+    let streak_colored = if xp_store.anna.streak_good > 0 {
+        streak_text.bright_green().to_string()
+    } else if xp_store.anna.streak_bad > 0 {
+        streak_text.bright_red().to_string()
+    } else {
+        streak_text.dimmed().to_string()
+    };
+    println!("  {}  Recent streak: {}", "*".cyan(), streak_colored);
 
     println!("{}", THIN_SEPARATOR);
 
@@ -1106,6 +1132,11 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
             global.distinct_patterns,
             global.patterns_improved
         );
+
+        // v0.95.0: Mood text based on success rate
+        let mood = get_mood_text(success_rate);
+        println!();
+        println!("  {}", mood.dimmed().italic());
     }
 
     println!("{}", THIN_SEPARATOR);

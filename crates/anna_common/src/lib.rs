@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v0.92.0
+//! Anna Common - Shared types and schemas for Anna v0.95.0
 //!
+//! v0.95.0: RPG Display System - expanded titles, reliability-scaled XP, mood text
 //! v0.92.0: Decision Policy - central routing logic, circuit breaker, per-path metrics
 //! v0.91.0: Natural Language Debug Mode Control - persistent toggle via natural language
 //! v0.89.0: Conversational Debug Mode - persistent toggle via natural language, Brain fast path
@@ -75,6 +76,7 @@ pub mod debug_state;
 pub mod decision_policy;
 pub mod llm_validator;
 pub mod performance;
+pub mod rpg_display;
 pub mod xp_events;
 pub mod xp_log;
 pub mod xp_track;
@@ -225,4 +227,11 @@ pub use debug_state::{
 // Decision Policy exports (v0.92.0)
 pub use decision_policy::{
     BrainDomain, DecisionPlan, DecisionPolicy, AgentHealth, PathMetrics,
+};
+// RPG Display exports (v0.95.0)
+pub use rpg_display::{
+    get_rpg_title, get_title_color, get_mood_text, get_streak_text,
+    progress_bar, progress_bar_with_text,
+    TrustLevel, ReliabilityScale, RPG_TITLE_BANDS,
+    AnnaXpEvent, JuniorXpEvent, SeniorXpEvent,
 };

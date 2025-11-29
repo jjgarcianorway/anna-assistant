@@ -715,7 +715,8 @@ mod tests {
     #[test]
     fn test_engine_creation() {
         let engine = UnifiedEngine::default();
-        assert_eq!(engine.timeout, Duration::from_secs(10));
+        // v0.92.0: Timeout increased to 30s for full orchestration
+        assert_eq!(engine.timeout, Duration::from_secs(30));
     }
 
     #[test]

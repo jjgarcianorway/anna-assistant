@@ -1,8 +1,10 @@
-//! XP Tracking System for v0.86.0
+//! XP Tracking System for v0.95.0
 //!
 //! Unified XP model for Anna, Junior, and Senior agents.
 //! Tracks levels, XP, trust, and streaks for reinforcement learning.
+//! v0.95.0: Expanded RPG title bands, reliability-based XP scaling.
 
+use crate::rpg_display::{get_rpg_title, ReliabilityScale, TrustLevel};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -12,27 +14,32 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub const XP_DIR: &str = "/var/lib/anna/xp";
 
 // ============================================================================
-// Title and Level System
+// Title and Level System (v0.95.0: Expanded)
 // ============================================================================
 
-/// Title bands based on level
+/// Title bands based on level (v0.95.0 expanded)
+/// Level 1-4: Intern
+/// Level 5-9: Junior Specialist
+/// Level 10-19: Specialist
+/// Level 20-34: Senior Specialist
+/// Level 35-49: Lead
+/// Level 50-69: Principal
+/// Level 70-89: Archon
+/// Level 90-99: Mythic
 pub const TITLE_BANDS: &[(u8, u8, &str)] = &[
-    (1, 9, "Intern"),
-    (10, 19, "Junior Specialist"),
-    (20, 29, "Senior Specialist"),
-    (30, 39, "Lead"),
-    (40, 49, "Principal"),
-    (50, 99, "Archon"),
+    (1, 4, "Intern"),
+    (5, 9, "Junior Specialist"),
+    (10, 19, "Specialist"),
+    (20, 34, "Senior Specialist"),
+    (35, 49, "Lead"),
+    (50, 69, "Principal"),
+    (70, 89, "Archon"),
+    (90, 99, "Mythic"),
 ];
 
-/// Get title for a level
+/// Get title for a level (uses rpg_display module)
 pub fn get_title(level: u8) -> &'static str {
-    for (min, max, title) in TITLE_BANDS {
-        if level >= *min && level <= *max {
-            return title;
-        }
-    }
-    "Unknown"
+    get_rpg_title(level)
 }
 
 /// Calculate XP needed for next level
@@ -180,6 +187,34 @@ impl XpTrack {
     /// Is trust considered high?
     pub fn is_high_trust(&self) -> bool {
         self.trust >= 0.7
+    }
+
+    /// Get trust level classification (v0.95.0)
+    pub fn trust_level(&self) -> TrustLevel {
+        TrustLevel::from_trust(self.trust)
+    }
+
+    /// Get trust label (low/normal/high)
+    pub fn trust_label(&self) -> &'static str {
+        self.trust_level().label()
+    }
+
+    /// Record a good event with reliability scaling (v0.95.0)
+    /// XP and trust are scaled based on answer reliability
+    pub fn record_good_with_reliability(&mut self, base_xp: u64, base_trust: f32, reliability: f64) -> u64 {
+        let scale = ReliabilityScale::from_reliability(reliability);
+        let actual_xp = scale.scale_xp(base_xp);
+        let actual_trust = scale.scale_trust(base_trust);
+
+        self.xp += actual_xp;
+        self.trust = (self.trust + actual_trust).min(1.0).max(0.0);
+        self.streak_good += 1;
+        self.streak_bad = self.decay_streak(self.streak_bad);
+        self.total_good += 1;
+        self.last_update = Self::now();
+        self.check_level_up();
+
+        actual_xp
     }
 
     /// Format as summary line
@@ -457,6 +492,42 @@ impl XpStore {
         let _ = self.save();
     }
 
+    // ========== v0.95.0: Reliability-Scaled XP Events ==========
+
+    /// Anna LLM orchestration completed with reliability-scaled XP
+    /// Uses ReliabilityScale to adjust XP and trust based on answer quality
+    pub fn anna_llm_orchestration_ok(&mut self, reliability: f64) -> String {
+        let base_xp = 4u64;
+        let base_trust = 0.015f32;
+
+        let actual_xp = self.anna.record_good_with_reliability(base_xp, base_trust, reliability);
+        self.anna_stats.llm_answers += 1;
+        self.anna_stats.total_questions += 1;
+        let _ = self.save();
+
+        format!(
+            "[XP] Anna: +{} XP ({} @ {}%)   Level {} ({})  trust={:.2}",
+            actual_xp, "llm_ok", (reliability * 100.0).round() as u32,
+            self.anna.level, self.anna.title(), self.anna.trust
+        )
+    }
+
+    /// Anna answered with partial evidence (low reliability but honest)
+    pub fn anna_partial_answer(&mut self, reliability: f64) -> String {
+        let base_xp = 1u64;
+        let base_trust = 0.005f32;
+
+        let actual_xp = self.anna.record_good_with_reliability(base_xp, base_trust, reliability);
+        self.anna_stats.total_questions += 1;
+        let _ = self.save();
+
+        format!(
+            "[XP] Anna: +{} XP ({} @ {}%)   Level {} ({})  trust={:.2}",
+            actual_xp, "partial", (reliability * 100.0).round() as u32,
+            self.anna.level, self.anna.title(), self.anna.trust
+        )
+    }
+
     // ========== Trust-Based Behaviour Hints ==========
 
     /// Should Anna use Brain more aggressively?
@@ -544,13 +615,16 @@ mod tests {
 
     #[test]
     fn test_title_bands() {
+        // v0.95.0: Updated title bands
         assert_eq!(get_title(1), "Intern");
-        assert_eq!(get_title(9), "Intern");
-        assert_eq!(get_title(10), "Junior Specialist");
-        assert_eq!(get_title(25), "Senior Specialist");
+        assert_eq!(get_title(4), "Intern");
+        assert_eq!(get_title(5), "Junior Specialist");
+        assert_eq!(get_title(10), "Specialist");
+        assert_eq!(get_title(20), "Senior Specialist");
         assert_eq!(get_title(35), "Lead");
-        assert_eq!(get_title(45), "Principal");
-        assert_eq!(get_title(50), "Archon");
+        assert_eq!(get_title(50), "Principal");
+        assert_eq!(get_title(70), "Archon");
+        assert_eq!(get_title(90), "Mythic");
     }
 
     #[test]
