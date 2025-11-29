@@ -353,3 +353,4 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 - 99% reliability (Green) for debug toggle operations
 
 **Tests**: 771 passed, 0 failed
+**Release**: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.89.0
