@@ -1,19 +1,23 @@
-//! Answer Engine v0.90.0 - Unified Orchestration Architecture
+//! Answer Engine v0.92.0 - Decision Policy Architecture
+//!
+//! v0.92.0: Decision Policy - central routing, circuit breaker, per-path metrics
 //!
 //! Implements the specification from ANNA_SPEC.md:
-//! 1. Brain Fast Path (NO LLMs) for simple questions (<150ms)
-//! 2. Junior Planning (first LLM call) - discover needed probes
-//! 3. Run probes (exactly once)
-//! 4. Junior Draft Answer (second LLM call) - with evidence
-//! 5. Senior Audit (optional for simple questions with score >= 80)
-//! 6. Final Answer Assembly
-//! 7. XP/Trust updates for all three actors
+//! 1. Decision Policy - choose path based on domain, XP/trust, agent health
+//! 2. Brain Fast Path (NO LLMs) for simple questions (<150ms)
+//! 3. Junior Planning (first LLM call) - discover needed probes
+//! 4. Run probes (exactly once)
+//! 5. Junior Draft Answer (second LLM call) - with evidence
+//! 6. Senior Audit (optional for simple questions with score >= 80)
+//! 7. Final Answer Assembly
+//! 8. XP/Trust updates for all three actors
 //!
 //! Key constraints:
 //! - Max 2 Junior calls, 1 Senior call
-//! - Hard 10s time budget
+//! - Hard 30s time budget (extended from 10s)
 //! - No infinite loops
 //! - No repeated identical prompts
+//! - Circuit breaker for Junior/Senior degradation
 
 use super::llm_client::OllamaClient;
 use super::probe_executor;
@@ -22,6 +26,8 @@ use anna_common::{
     ProbeCatalog, ProbeEvidenceV10,
     // v0.90.0: XP events
     XpEvent, XpEventType, XpLog,
+    // v0.92.0: Decision Policy and XP Store
+    DecisionPolicy, DecisionPlan, BrainDomain, XpStore,
     // v0.80.0: LLM prompts (reuse)
     generate_junior_prompt_v80, generate_senior_prompt_v80, ProbeSummary,
     // Probe summary helpers
@@ -37,8 +43,11 @@ use tracing::{debug, info, warn};
 // Constants
 // ============================================================================
 
-/// v0.90.0: Hard time budget (10 seconds for full orchestration)
-const ORCHESTRATION_TIMEOUT_SECS: u64 = 10;
+/// v0.92.0: Hard time budget (30 seconds for full orchestration)
+const ORCHESTRATION_TIMEOUT_SECS: u64 = 30;
+
+/// v0.92.0: Soft time budget for warning
+const ORCHESTRATION_SOFT_LIMIT_SECS: u64 = 20;
 
 /// v0.90.0: Brain fast path timeout (150ms target)
 const BRAIN_TIMEOUT_MS: u64 = 150;
@@ -77,15 +86,19 @@ impl AnswerOrigin {
 // Unified Engine v0.90.0
 // ============================================================================
 
-/// v0.90.0: Unified Answer Engine
+/// v0.92.0: Unified Answer Engine with Decision Policy
 ///
 /// Implements the exact flow specified in ANNA_SPEC.md:
-/// Brain → Junior Plan → Probes → Junior Draft → Senior Audit → Answer
+/// Decision Policy → Brain → Junior Plan → Probes → Junior Draft → Senior Audit → Answer
 pub struct UnifiedEngine {
     llm_client: OllamaClient,
     catalog: ProbeCatalog,
     timeout: Duration,
     xp_log: XpLog,
+    /// v0.92.0: Decision policy for routing and circuit breaker
+    decision_policy: DecisionPolicy,
+    /// v0.92.0: XP store for trust-based decisions
+    xp_store: XpStore,
     /// Current question for XP event logging
     current_question: String,
 }
@@ -98,8 +111,21 @@ impl UnifiedEngine {
             catalog: ProbeCatalog::standard(),
             timeout: Duration::from_secs(ORCHESTRATION_TIMEOUT_SECS),
             xp_log: XpLog::new(),
+            // v0.92.0: Load persistent state
+            decision_policy: DecisionPolicy::load(),
+            xp_store: XpStore::load(),
             current_question: String::new(),
         }
+    }
+
+    /// Get the decision policy (for status display)
+    pub fn decision_policy(&self) -> &DecisionPolicy {
+        &self.decision_policy
+    }
+
+    /// Get the XP store (for status display)
+    pub fn xp_store(&self) -> &XpStore {
+        &self.xp_store
     }
 
     /// Get the junior model name

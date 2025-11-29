@@ -44,6 +44,8 @@ use anna_common::{
     debug_is_enabled,
     // v0.91.0: Natural language debug control
     DebugIntent, DebugState, debug_set_enabled, debug_get_state,
+    // v0.92.0: Decision Policy
+    DecisionPolicy,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -1244,12 +1246,13 @@ fn display_llm_agents_section() {
     use anna_common::THIN_SEPARATOR;
 
     let xp_store = XpStore::load();
+    let policy = DecisionPolicy::load();
 
     println!();
     println!("{}", "LLM AGENTS".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
 
-    // Junior
+    // Junior with circuit breaker status
     let junior_trust = format!("trust {}", xp_store.junior.trust_pct());
     let junior_trust_color = if xp_store.junior.is_high_trust() {
         junior_trust.bright_green().to_string()
@@ -1259,12 +1262,19 @@ fn display_llm_agents_section() {
         junior_trust.yellow().to_string()
     };
 
+    let junior_health = if policy.junior_health.is_degraded {
+        "DEGRADED".bright_red().to_string()
+    } else {
+        "OK".bright_green().to_string()
+    };
+
     println!(
-        "  {}  Junior: Level {} - {} ({})",
+        "  {}  Junior: Level {} - {} ({}) [{}]",
         "*".cyan(),
         xp_store.junior.level,
         xp_store.junior.title(),
-        junior_trust_color
+        junior_trust_color,
+        junior_health
     );
     println!(
         "       Good plans: {}   Bad plans: {}   Timeouts: {}",
@@ -1272,8 +1282,15 @@ fn display_llm_agents_section() {
         xp_store.junior_stats.bad_plans.to_string().bright_red(),
         xp_store.junior_stats.timeouts.to_string().yellow()
     );
+    if policy.path_metrics.junior_calls > 0 {
+        println!(
+            "       Avg latency: {}ms ({} calls)",
+            policy.path_metrics.junior_latency_avg_ms.to_string().dimmed(),
+            policy.path_metrics.junior_calls.to_string().dimmed()
+        );
+    }
 
-    // Senior
+    // Senior with circuit breaker status
     let senior_trust = format!("trust {}", xp_store.senior.trust_pct());
     let senior_trust_color = if xp_store.senior.is_high_trust() {
         senior_trust.bright_green().to_string()
@@ -1283,12 +1300,19 @@ fn display_llm_agents_section() {
         senior_trust.yellow().to_string()
     };
 
+    let senior_health = if policy.senior_health.is_degraded {
+        "DEGRADED".bright_red().to_string()
+    } else {
+        "OK".bright_green().to_string()
+    };
+
     println!(
-        "  {}  Senior: Level {} - {} ({})",
+        "  {}  Senior: Level {} - {} ({}) [{}]",
         "*".cyan(),
         xp_store.senior.level,
         xp_store.senior.title(),
-        senior_trust_color
+        senior_trust_color,
+        senior_health
     );
     println!(
         "       Approvals: {}    Fix&Accept: {}  Rubber-stamps blocked: {}",
@@ -1296,8 +1320,40 @@ fn display_llm_agents_section() {
         xp_store.senior_stats.fix_and_accept.to_string().yellow(),
         xp_store.senior_stats.rubber_stamps_blocked.to_string().bright_red()
     );
+    if policy.path_metrics.senior_calls > 0 {
+        println!(
+            "       Avg latency: {}ms ({} calls)",
+            policy.path_metrics.senior_latency_avg_ms.to_string().dimmed(),
+            policy.path_metrics.senior_calls.to_string().dimmed()
+        );
+    }
 
     println!("{}", THIN_SEPARATOR);
+
+    // v0.92.0: Path Metrics summary
+    if policy.path_metrics.brain_calls > 0 || policy.path_metrics.full_calls > 0 {
+        println!();
+        println!("{}", "PATH METRICS".bright_white().bold());
+        println!("{}", THIN_SEPARATOR);
+
+        if policy.path_metrics.brain_calls > 0 {
+            println!(
+                "  {}  Brain: {}ms avg ({} calls)",
+                "+".bright_green(),
+                policy.path_metrics.brain_latency_avg_ms,
+                policy.path_metrics.brain_calls
+            );
+        }
+        if policy.path_metrics.full_calls > 0 {
+            println!(
+                "  {}  Full orchestration: {}ms avg ({} calls)",
+                "*".cyan(),
+                policy.path_metrics.full_latency_avg_ms,
+                policy.path_metrics.full_calls
+            );
+        }
+        println!("{}", THIN_SEPARATOR);
+    }
 
     // Low trust warnings
     if let Some(warning) = xp_store.low_trust_warning() {
@@ -1305,6 +1361,28 @@ fn display_llm_agents_section() {
         println!("{}", "[!] Trust Warning".bright_red().bold());
         for line in warning.lines() {
             println!("    {}", line.dimmed());
+        }
+    }
+
+    // Circuit breaker warnings
+    if policy.junior_health.is_degraded || policy.senior_health.is_degraded {
+        println!();
+        println!("{}", "[!] Circuit Breaker Warning".bright_red().bold());
+        if policy.junior_health.is_degraded {
+            println!(
+                "    {} Junior is in degraded state (timeouts={}, failures={})",
+                "!".bright_red(),
+                policy.junior_health.recent_timeouts,
+                policy.junior_health.recent_failures
+            );
+        }
+        if policy.senior_health.is_degraded {
+            println!(
+                "    {} Senior is in degraded state (timeouts={}, failures={})",
+                "!".bright_red(),
+                policy.senior_health.recent_timeouts,
+                policy.senior_health.recent_failures
+            );
         }
     }
 }

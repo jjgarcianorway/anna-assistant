@@ -1,5 +1,7 @@
-//! Anna Common - Shared types and schemas for Anna v0.89.0
+//! Anna Common - Shared types and schemas for Anna v0.92.0
 //!
+//! v0.92.0: Decision Policy - central routing logic, circuit breaker, per-path metrics
+//! v0.91.0: Natural Language Debug Mode Control - persistent toggle via natural language
 //! v0.89.0: Conversational Debug Mode - persistent toggle via natural language, Brain fast path
 //! v0.88.0: Dynamic Probe Catalog & XP Wiring - single source of truth for probes, Junior/Senior XP events
 //! v0.87.0: Latency Cuts & Brain Fast Path - <3s simple questions, hard fallback, always visible answer
@@ -70,6 +72,7 @@ pub mod brain;
 pub mod brain_fast;
 pub mod command_whitelist;
 pub mod debug_state;
+pub mod decision_policy;
 pub mod llm_validator;
 pub mod performance;
 pub mod xp_events;
@@ -218,4 +221,8 @@ pub use brain_fast::{
 pub use debug_state::{
     DebugState, DebugIntent, debug_is_enabled, debug_set_enabled, debug_get_state,
     DEBUG_STATE_DIR, DEBUG_STATE_FILE,
+};
+// Decision Policy exports (v0.92.0)
+pub use decision_policy::{
+    BrainDomain, DecisionPlan, DecisionPolicy, AgentHealth, PathMetrics,
 };
