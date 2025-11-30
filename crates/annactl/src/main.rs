@@ -1,5 +1,6 @@
 //! Anna CLI (annactl) - User interface wrapper
 //!
+//! v3.14.2: Split status/stats - status is quick health, stats is detailed
 //! v3.14.0: Clean Status - single source of truth, no contradictions
 //! v3.1.0: Pipeline Purity - removed legacy LLM-A/B orchestrator from annactl
 //! v3.0.0: Brain First - Unified Brain -> Recipe -> Junior -> Senior pipeline
@@ -13,7 +14,8 @@
 //! Allowed CLI surface (case-insensitive):
 //!   - annactl                           Start interactive REPL
 //!   - annactl <request>                 One-shot natural language request
-//!   - annactl status                    Compact status summary
+//!   - annactl status                    Quick health check
+//!   - annactl stats                     Detailed XP/performance/models
 //!   - annactl version                   Show version info
 //!   - annactl -h | --help | help        Show help info
 
@@ -67,6 +69,7 @@ async fn main() -> Result<()> {
     match args.as_slice() {
         [] => run_repl().await,
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
+        [cmd] if cmd.eq_ignore_ascii_case("stats") => run_stats().await,
         [flag] if flag == "-V" || flag == "--version" || flag.eq_ignore_ascii_case("version") => {
             run_version().await
         }
@@ -156,6 +159,10 @@ async fn run_repl() -> Result<()> {
         }
         if input.eq_ignore_ascii_case("status") {
             run_status().await?;
+            continue;
+        }
+        if input.eq_ignore_ascii_case("stats") {
+            run_stats().await?;
             continue;
         }
         if output::handle_explain_request(input) {
@@ -358,15 +365,16 @@ fn run_help() -> Result<()> {
     println!("{}", "ANNA HELP".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
     println!();
-    println!("{}", "[USAGE]".bright_cyan());
+    println!("{}", "[COMMANDS]".cyan());
+    println!("  annactl                   Interactive REPL");
     println!("  annactl \"<question>\"      Ask Anna anything");
-    println!("  annactl                   Start interactive REPL");
-    println!("  annactl status            Show status");
-    println!("  annactl version           Show version");
-    println!("  annactl help              Show this help");
+    println!("  annactl status            Quick health check");
+    println!("  annactl stats             Detailed statistics");
+    println!("  annactl version           Version info");
+    println!("  annactl help              This help");
     println!();
-    println!("{}", "[EXAMPLES]".bright_cyan());
-    println!("  annactl \"How many CPU cores do I have?\"");
+    println!("{}", "[EXAMPLES]".cyan());
+    println!("  annactl \"How many CPU cores?\"");
     println!("  annactl \"What's my RAM usage?\"");
     println!("  annactl \"enable debug mode\"");
     println!();
@@ -376,85 +384,93 @@ fn run_help() -> Result<()> {
 }
 
 // ============================================================================
-// STATUS COMMAND - v3.14.1: Useful info, single source of truth
+// STATUS COMMAND - v3.14.2: Anna's self-status and health
 // ============================================================================
+// Color legend:
+//   GREEN  = healthy/running/good
+//   YELLOW = degraded/warning
+//   RED    = down/error/critical
+//   CYAN   = informational
+//   DIM    = context/secondary
 
-/// Status command - useful info without contradictions
+/// Status command - Anna's health and system status
 async fn run_status() -> Result<()> {
     let daemon = client::DaemonClient::new();
 
     println!();
-    println!("{}", format!("ANNA v{}", env!("CARGO_PKG_VERSION")).bright_white().bold());
+    println!("{}", "ANNA STATUS".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
 
-    // Daemon status
+    // SELF section - Anna's core components
+    println!("{}", "[SELF]".cyan());
+
+    // Daemon
     let daemon_running = daemon.is_healthy().await;
     if daemon_running {
         if let Ok(health) = daemon.health().await {
             println!(
-                "  {}  Daemon: running ({})",
-                "+".bright_green(),
-                format_uptime(health.uptime_seconds)
+                "  Daemon:   {} {}",
+                "running".bright_green(),
+                format!("(up {})", format_uptime(health.uptime_seconds)).dimmed()
             );
         } else {
-            println!("  {}  Daemon: running", "+".bright_green());
+            println!("  Daemon:   {}", "running".bright_green());
         }
     } else {
-        println!("  {}  Daemon: not running", "!".bright_red());
+        println!("  Daemon:   {}", "DOWN".bright_red());
     }
 
-    // LLM status - ONE source: the autoprovision selection
+    // Ollama/LLM
     let selection = LlmSelection::load();
     let llm_running = check_llm_running();
 
     if llm_running {
-        if selection.autoprovision_status == "completed" {
-            println!(
-                "  {}  LLM: {} (ready)",
-                "+".bright_green(),
-                selection.junior_model.cyan()
-            );
-        } else if selection.autoprovision_status.is_empty() {
-            println!(
-                "  {}  LLM: Ollama running, not configured",
-                "~".yellow()
-            );
-        } else {
-            println!(
-                "  {}  LLM: {} ({})",
-                "~".yellow(),
-                selection.junior_model,
-                selection.autoprovision_status
-            );
-        }
+        println!("  Ollama:   {}", "running".bright_green());
     } else {
-        println!("  {}  LLM: Ollama not running", "!".bright_red());
+        println!("  Ollama:   {}", "DOWN".bright_red());
     }
 
-    // Health
+    // Models
+    if selection.autoprovision_status == "completed" {
+        println!("  Models:   {}", "ready".bright_green());
+    } else if selection.autoprovision_status.is_empty() {
+        println!("  Models:   {}", "not configured".yellow());
+    } else {
+        println!("  Models:   {}", "failed".bright_red());
+    }
+
+    println!();
+    println!("{}", "[HEALTH]".cyan());
+
+    // Run health probes
     let health_report = self_health::run_all_probes();
+
+    // Overall health
     match health_report.overall {
-        OverallHealth::Healthy => println!("  {}  Health: OK", "+".bright_green()),
-        OverallHealth::Degraded => println!("  {}  Health: DEGRADED", "~".yellow()),
-        OverallHealth::Critical => println!("  {}  Health: CRITICAL", "!".bright_red()),
-        OverallHealth::Unknown => println!("  {}  Health: unknown", "?".dimmed()),
+        OverallHealth::Healthy => println!("  Overall:  {}", "OK".bright_green()),
+        OverallHealth::Degraded => println!("  Overall:  {}", "DEGRADED".yellow()),
+        OverallHealth::Critical => println!("  Overall:  {}", "CRITICAL".bright_red()),
+        OverallHealth::Unknown => println!("  Overall:  {}", "unknown".dimmed()),
     }
 
-    println!("{}", THIN_SEPARATOR);
+    // Individual probe results (only show non-healthy)
+    for component in &health_report.components {
+        if !component.status.is_healthy() {
+            let status = match component.status {
+                anna_common::self_health::ComponentStatus::Degraded => "degraded".yellow().to_string(),
+                anna_common::self_health::ComponentStatus::Critical => "failed".bright_red().to_string(),
+                _ => "unknown".dimmed().to_string(),
+            };
+            println!("  {}:  {} - {}", component.name, status, component.message.dimmed());
+        }
+    }
 
-    // PROGRESSION - XP/Level/Trust from XpStore (single source)
-    println!("{}", "PROGRESSION".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
+    println!();
+    println!("{}", "[IDENTITY]".cyan());
 
+    // XP/Level summary
     let xp_store = XpStore::load();
-
-    // Level and XP
     let level = xp_store.anna.level;
-    let xp = xp_store.anna.xp;
-    let xp_to_next = xp_store.anna.xp_to_next;
-    let xp_pct = if xp_to_next > 0 { (xp as f64 / xp_to_next as f64 * 100.0) as u32 } else { 0 };
-
-    // Title based on level
     let title = match level {
         0 => "Novice",
         1 => "Apprentice",
@@ -464,148 +480,163 @@ async fn run_status() -> Result<()> {
         5 => "Master",
         _ => "Grandmaster",
     };
-
-    println!(
-        "  Level {} {} - {} XP ({}% to next)",
-        level.to_string().bright_cyan(),
-        format!("({})", title).dimmed(),
-        xp.to_string().bright_white(),
-        xp_pct
-    );
+    println!("  Level:    {} {}", level, format!("({})", title).dimmed());
 
     // Trust
     let trust_pct = (xp_store.anna.trust * 100.0).round() as i32;
-    let trust_str = format!("{}%", trust_pct);
     let trust_colored = if trust_pct >= 70 {
-        trust_str.bright_green().to_string()
+        format!("{}%", trust_pct).bright_green().to_string()
     } else if trust_pct >= 40 {
-        trust_str.yellow().to_string()
+        format!("{}%", trust_pct).yellow().to_string()
     } else {
-        trust_str.bright_red().to_string()
+        format!("{}%", trust_pct).bright_red().to_string()
     };
+    println!("  Trust:    {}", trust_colored);
 
-    // Streak
-    let streak_text = if xp_store.anna.streak_good > 0 {
-        format!("{} good streak", xp_store.anna.streak_good).bright_green().to_string()
-    } else if xp_store.anna.streak_bad > 0 {
-        format!("{} bad streak", xp_store.anna.streak_bad).bright_red().to_string()
-    } else {
-        "neutral".dimmed().to_string()
-    };
-
-    println!("  Trust: {} ({})", trust_colored, streak_text);
+    // XP progress
+    let xp = xp_store.anna.xp;
+    let xp_to_next = xp_store.anna.xp_to_next;
+    let xp_pct = if xp_to_next > 0 { (xp as f64 / xp_to_next as f64 * 100.0).round() as i32 } else { 0 };
+    println!("  XP:       {}/{} ({}%)", xp, xp_to_next, xp_pct);
 
     println!("{}", THIN_SEPARATOR);
 
-    // PERFORMANCE - from XpStore stats
-    println!("{}", "PERFORMANCE".bright_white().bold());
+    // Hint
+    println!("  Run {} for interaction statistics", "annactl stats".cyan());
+
+    // Debug mode
+    if debug_is_enabled() {
+        println!();
+        println!("  {}", "[DEBUG MODE ACTIVE]".bright_cyan());
+    }
+
+    println!();
+    Ok(())
+}
+
+// ============================================================================
+// STATS COMMAND - v3.14.2: User + LLM + Anna statistics
+// ============================================================================
+
+/// Stats command - all statistics in one view
+async fn run_stats() -> Result<()> {
+    println!();
+    println!("{}", "ANNA STATS".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
+
+    let xp_store = XpStore::load();
+    let selection = LlmSelection::load();
+
+    // USER INTERACTIONS
+    println!("{}", "[USER INTERACTIONS]".cyan());
 
     let total_good = xp_store.anna.total_good;
     let total_bad = xp_store.anna.total_bad;
-    let total_attempts = total_good + total_bad;
+    let total = total_good + total_bad;
 
-    if total_attempts == 0 {
-        println!("  {}  No interactions yet", "?".dimmed());
+    if total > 0 {
+        println!("  Total:      {}", total);
+        println!("  Successful: {} {}", total_good.to_string().bright_green(), format!("({}%)", (total_good as f64 / total as f64 * 100.0).round() as i32).dimmed());
+        println!("  Failed:     {} {}", total_bad.to_string().bright_red(), format!("({}%)", (total_bad as f64 / total as f64 * 100.0).round() as i32).dimmed());
+
+        // Streak
+        if xp_store.anna.streak_good > 0 {
+            println!("  Streak:     {} {}", xp_store.anna.streak_good.to_string().bright_green(), "good".dimmed());
+        } else if xp_store.anna.streak_bad > 0 {
+            println!("  Streak:     {} {}", xp_store.anna.streak_bad.to_string().bright_red(), "bad".dimmed());
+        }
     } else {
-        let success_rate = (total_good as f64 / total_attempts as f64) * 100.0;
-        let rate_str = format!("{:.0}%", success_rate);
-        let rate_colored = if success_rate >= 70.0 {
-            rate_str.bright_green().to_string()
-        } else if success_rate >= 50.0 {
-            rate_str.yellow().to_string()
-        } else {
-            rate_str.bright_red().to_string()
-        };
-
-        println!(
-            "  Lifetime: {} good / {} bad ({})",
-            total_good.to_string().bright_green(),
-            total_bad.to_string().bright_red(),
-            rate_colored
-        );
+        println!("  No interactions yet");
     }
 
-    // Brain stats
-    let brain_solves = xp_store.anna_stats.self_solves;
-    let llm_answers = xp_store.anna_stats.llm_answers;
-    let timeouts = xp_store.anna_stats.timeouts;
+    // ANSWER ORIGIN
+    println!();
+    println!("{}", "[ANSWER ORIGIN]".cyan());
 
-    if brain_solves > 0 || llm_answers > 0 {
-        println!(
-            "  Brain: {} self-solves, LLM: {} answers",
-            brain_solves.to_string().cyan(),
-            llm_answers.to_string().cyan()
-        );
+    let brain = xp_store.anna_stats.self_solves;
+    let llm = xp_store.anna_stats.llm_answers;
+    let timeouts = xp_store.anna_stats.timeouts;
+    let origin_total = brain + llm;
+
+    if origin_total > 0 {
+        let brain_pct = (brain as f64 / origin_total as f64 * 100.0).round() as i32;
+        let llm_pct = (llm as f64 / origin_total as f64 * 100.0).round() as i32;
+        println!("  Brain:      {} ({}%)", brain, brain_pct);
+        println!("  LLM:        {} ({}%)", llm, llm_pct);
+    } else {
+        println!("  Brain:      {}", brain);
+        println!("  LLM:        {}", llm);
     }
     if timeouts > 0 {
-        println!("  Timeouts: {}", timeouts.to_string().bright_red());
+        println!("  Timeouts:   {}", timeouts.to_string().bright_red());
     }
 
-    println!("{}", THIN_SEPARATOR);
+    // LLM PERFORMANCE
+    println!();
+    println!("{}", "[LLM PERFORMANCE]".cyan());
 
-    // LLM MODELS - show all three roles
-    println!("{}", "LLM MODELS".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
+    // Junior
+    let junior_total = xp_store.junior_stats.good_plans + xp_store.junior_stats.bad_plans;
+    let junior_rate = if junior_total > 0 {
+        (xp_store.junior_stats.good_plans as f64 / junior_total as f64 * 100.0).round() as i32
+    } else { 0 };
+    let junior_trust = (xp_store.junior.trust * 100.0).round() as i32;
+
+    println!("  Junior:");
+    println!("    Trust:    {}%", junior_trust);
+    println!("    Good:     {}", xp_store.junior_stats.good_plans.to_string().bright_green());
+    println!("    Bad:      {}", xp_store.junior_stats.bad_plans.to_string().bright_red());
+    if junior_total > 0 {
+        let rate_colored = if junior_rate >= 70 {
+            format!("{}%", junior_rate).bright_green().to_string()
+        } else if junior_rate >= 50 {
+            format!("{}%", junior_rate).yellow().to_string()
+        } else {
+            format!("{}%", junior_rate).bright_red().to_string()
+        };
+        println!("    Rate:     {}", rate_colored);
+    }
+
+    // Senior
+    let senior_trust = (xp_store.senior.trust * 100.0).round() as i32;
+    let _senior_total = xp_store.senior_stats.approvals + xp_store.senior_stats.fix_and_accept + xp_store.senior_stats.refusals;
+
+    println!("  Senior:");
+    println!("    Trust:    {}%", senior_trust);
+    println!("    Approved: {}", xp_store.senior_stats.approvals.to_string().bright_green());
+    println!("    Fixed:    {}", xp_store.senior_stats.fix_and_accept.to_string().yellow());
+    println!("    Refused:  {}", xp_store.senior_stats.refusals.to_string().bright_red());
+
+    // LLM MODELS
+    println!();
+    println!("{}", "[LLM MODELS]".cyan());
 
     if selection.autoprovision_status == "completed" {
-        // Hardware tier
         if let Some(ref tier) = selection.hardware_tier {
-            println!("  Hardware: {:?}", tier);
+            println!("  Tier:       {:?}", tier);
         }
 
-        // Router
-        if selection.router_score > 0.0 {
-            println!(
-                "  Router: {} (score {:.0}%)",
-                selection.router_model.cyan(),
-                selection.router_score * 100.0
-            );
-        }
+        let router_score = (selection.router_score * 100.0).round() as i32;
+        let junior_score = (selection.junior_score * 100.0).round() as i32;
+        let senior_score = (selection.senior_score * 100.0).round() as i32;
 
-        // Junior
-        println!(
-            "  Junior: {} (score {:.0}%)",
-            selection.junior_model.cyan(),
-            selection.junior_score * 100.0
-        );
+        println!("  Router:     {} ({}%)", selection.router_model, router_score);
+        println!("  Junior:     {} ({}%)", selection.junior_model, junior_score);
+        println!("  Senior:     {} ({}%)", selection.senior_model, senior_score);
 
-        // Senior
-        println!(
-            "  Senior: {} (score {:.0}%)",
-            selection.senior_model.cyan(),
-            selection.senior_score * 100.0
-        );
-
-        // Last benchmark
         if !selection.last_benchmark.is_empty() {
-            // Parse and format the timestamp nicely
             if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&selection.last_benchmark) {
                 let local = dt.with_timezone(&chrono::Local);
-                println!("  Last benchmark: {}", local.format("%Y-%m-%d %H:%M").to_string().dimmed());
+                println!("  Benchmark:  {}", local.format("%Y-%m-%d %H:%M"));
             }
         }
     } else if selection.autoprovision_status.is_empty() {
-        println!("  {}  Not yet configured - ask Anna a question", "?".dimmed());
+        println!("  Not configured");
     } else {
-        println!("  {}  {}", "!".bright_red(), selection.autoprovision_status);
+        println!("  {}", selection.autoprovision_status.bright_red());
     }
 
     println!("{}", THIN_SEPARATOR);
-
-    // Warnings/Notes section
-    if !llm_running {
-        println!();
-        println!("{}", "[!] Ollama not running".bright_red().bold());
-        println!("    Run: sudo systemctl start ollama");
-    }
-
-    // Debug mode indicator
-    if debug_is_enabled() {
-        println!();
-        println!("{}", "[DEBUG MODE ENABLED]".bright_cyan());
-    }
-
     println!();
     Ok(())
 }
