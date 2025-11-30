@@ -9,6 +9,27 @@ use super::types::{
 };
 use std::process::Command;
 
+/// Default HOME for ollama when running under systemd without user environment
+/// v3.13.3: Fix "$HOME is not defined" error
+const ANNA_HOME_DIR: &str = "/var/lib/anna";
+
+/// Create an ollama command with proper environment variables
+fn ollama_command() -> Command {
+    let mut cmd = Command::new("ollama");
+
+    // Always set HOME - systemd services may not have it
+    if std::env::var("HOME").is_err() {
+        cmd.env("HOME", ANNA_HOME_DIR);
+    }
+
+    // Set OLLAMA_MODELS to a known location
+    if std::env::var("OLLAMA_MODELS").is_err() {
+        cmd.env("OLLAMA_MODELS", format!("{}/models", ANNA_HOME_DIR));
+    }
+
+    cmd
+}
+
 /// Plan a repair for a degraded or critical component
 pub fn plan_repair(component: &ComponentHealth) -> Option<RepairPlan> {
     match component.name.as_str() {
@@ -192,7 +213,8 @@ fn execute_restart_ollama() -> Result<RepairResult, String> {
 
 fn execute_pull_model(model: &str) -> Result<RepairResult, String> {
     // This is safe to auto-execute
-    let output = Command::new("ollama")
+    // v3.13.3: Use ollama_command() for proper HOME environment
+    let output = ollama_command()
         .args(["pull", model])
         .output()
         .map_err(|e| format!("Failed to run ollama: {}", e))?;

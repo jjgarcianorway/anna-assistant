@@ -128,6 +128,7 @@ pub mod recipe;
 pub mod invariants;
 pub mod perf_timing;
 pub mod status_coherence;
+pub mod state_manager;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -390,4 +391,23 @@ pub use status_coherence::{
     CoherentStatus, StatusInconsistency, InconsistencyCode,
     ResetHistory, ResetEvent, RESET_HISTORY_FILE,
     telemetry_status_message, xp_events_status_message, autoprovision_status_message,
+};
+
+// State Manager exports (v3.13.3) - Unified state handling with atomic operations
+pub use state_manager::{
+    // Path constants (aliased to avoid conflicts with progression module)
+    DATA_DIR, LOG_DIR as STATE_LOG_DIR, XP_STORE_FILE, TELEMETRY_FILE as STATE_TELEMETRY_FILE,
+    XP_EVENTS_FILE, KNOWLEDGE_DIR, STATS_DIR as STATE_STATS_DIR,
+    LLM_STATE_DIR, BENCHMARKS_DIR, MODEL_REGISTRY_FILE,
+    // Atomic operations
+    atomic_write, atomic_write_str, safe_truncate, safe_delete, safe_delete_dir, clear_directory,
+    // State types
+    StateVerification, ResetResult as StateResetResult,
+    // State manager
+    AnnaStateManager, state_manager,
+    // Reset functions
+    reset_soft as state_reset_soft, reset_hard as state_reset_hard,
+    verify_permissions as state_verify_permissions,
+    // XP baseline
+    baseline_xp_store,
 };

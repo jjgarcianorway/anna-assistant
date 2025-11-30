@@ -1300,17 +1300,20 @@ pub fn fast_reset_factory_confirm() -> Option<FastAnswer> {
 }
 
 /// Execute experience reset (called after confirmation)
+/// v3.13.3: Uses StateManager for atomic operations and verification
 pub fn execute_experience_reset() -> FastAnswer {
-    use crate::experience_reset::{reset_experience_default, ExperienceSnapshot, ExperiencePaths};
+    use crate::state_manager::AnnaStateManager;
+    use crate::experience_reset::{ExperienceSnapshot, ExperiencePaths};
 
     // Capture pre-reset snapshot for summary
     let paths = ExperiencePaths::default();
     let snapshot = ExperienceSnapshot::capture(&paths);
 
-    // Perform reset
-    let result = reset_experience_default();
+    // Use StateManager for atomic reset with verification
+    let mgr = AnnaStateManager::new();
+    let result = mgr.reset_soft();
 
-    if result.success {
+    if result.success && result.verification.all_verified {
         let text = format!(
             "Experience reset complete. XP, telemetry, and stats have been reset to baseline.\n\
              Knowledge has been preserved.\n\n\
@@ -1322,7 +1325,8 @@ pub fn execute_experience_reset() -> FastAnswer {
              - XP: {} (now 0)\n\
              - Trust: (now 0.5)\n\
              - Questions answered: {} (now 0)\n\
-             - Telemetry events: {} (now 0)",
+             - Telemetry events: {} (now 0)\n\n\
+             Verification: ALL PASSED",
             result.components_reset.len(),
             result.components_clean.len(),
             snapshot.anna_level,
@@ -1333,13 +1337,28 @@ pub fn execute_experience_reset() -> FastAnswer {
 
         FastAnswer::new(&text, vec!["experience_reset"], 0.99)
     } else {
+        // Build verification status
+        let v = &result.verification;
+        let verif_status = format!(
+            "- XP reset: {}\n\
+             - Telemetry reset: {}\n\
+             - XP events reset: {}\n\
+             - Stats reset: {}",
+            if v.xp_reset { "✓" } else { "✗" },
+            if v.telemetry_reset { "✓" } else { "✗" },
+            if v.xp_events_reset { "✓" } else { "✗" },
+            if v.stats_reset { "✓" } else { "✗" }
+        );
+
         let text = format!(
-            "Experience reset completed with errors:\n{}\n\n\
+            "Experience reset completed with issues:\n{}\n\n\
              Components reset: {:?}\n\
-             Components clean: {:?}",
+             Components clean: {:?}\n\n\
+             Verification:\n{}",
             result.errors.join("\n"),
             result.components_reset,
-            result.components_clean
+            result.components_clean,
+            verif_status
         );
 
         FastAnswer::new(&text, vec!["experience_reset"], 0.70)
@@ -1347,17 +1366,20 @@ pub fn execute_experience_reset() -> FastAnswer {
 }
 
 /// Execute factory reset (called after confirmation)
+/// v3.13.3: Uses StateManager for atomic operations and verification
 pub fn execute_factory_reset() -> FastAnswer {
-    use crate::experience_reset::{reset_factory_default, ExperienceSnapshot, ExperiencePaths};
+    use crate::state_manager::AnnaStateManager;
+    use crate::experience_reset::{ExperienceSnapshot, ExperiencePaths};
 
     // Capture pre-reset snapshot for summary
     let paths = ExperiencePaths::default();
     let snapshot = ExperienceSnapshot::capture(&paths);
 
-    // Perform factory reset
-    let result = reset_factory_default();
+    // Use StateManager for atomic reset with verification
+    let mgr = AnnaStateManager::new();
+    let result = mgr.reset_hard();
 
-    if result.success {
+    if result.success && result.verification.all_verified {
         let text = format!(
             "Factory reset complete. ALL data has been deleted.\n\n\
              Reset summary:\n\
@@ -1368,7 +1390,10 @@ pub fn execute_factory_reset() -> FastAnswer {
              - XP: {} (now 0)\n\
              - Questions answered: {}\n\
              - Telemetry events: {}\n\
-             - Knowledge files: {} (deleted)",
+             - Knowledge files: {} (deleted)\n\
+             - LLM state: cleared (autoprovision will re-run)\n\
+             - Benchmarks: cleared\n\n\
+             Verification: ALL PASSED",
             result.components_reset.len(),
             result.components_clean.len(),
             snapshot.anna_level,
@@ -1380,13 +1405,34 @@ pub fn execute_factory_reset() -> FastAnswer {
 
         FastAnswer::new(&text, vec!["factory_reset"], 0.99)
     } else {
+        // Build verification status
+        let v = &result.verification;
+        let verif_status = format!(
+            "- XP reset: {}\n\
+             - Telemetry reset: {}\n\
+             - XP events reset: {}\n\
+             - Stats reset: {}\n\
+             - Knowledge reset: {}\n\
+             - LLM state reset: {}\n\
+             - Benchmarks reset: {}",
+            if v.xp_reset { "✓" } else { "✗" },
+            if v.telemetry_reset { "✓" } else { "✗" },
+            if v.xp_events_reset { "✓" } else { "✗" },
+            if v.stats_reset { "✓" } else { "✗" },
+            if v.knowledge_reset { "✓" } else { "✗" },
+            if v.llm_state_reset { "✓" } else { "✗" },
+            if v.benchmarks_reset { "✓" } else { "✗" }
+        );
+
         let text = format!(
-            "Factory reset completed with errors:\n{}\n\n\
+            "Factory reset completed with issues:\n{}\n\n\
              Components reset: {:?}\n\
-             Components clean: {:?}",
+             Components clean: {:?}\n\n\
+             Verification:\n{}",
             result.errors.join("\n"),
             result.components_reset,
-            result.components_clean
+            result.components_clean,
+            verif_status
         );
 
         FastAnswer::new(&text, vec!["factory_reset"], 0.70)

@@ -71,6 +71,32 @@ pub const SENIOR_MIN_REASONING_SCORE: f64 = 0.85;
 /// Number of test runs for determinism check
 pub const DETERMINISM_RUNS: usize = 3;
 
+/// Default HOME for ollama when running under systemd without user environment
+/// v3.13.3: Fix "$HOME is not defined" error in autoprovision
+pub const ANNA_HOME_DIR: &str = "/var/lib/anna";
+
+// ============================================================================
+// OLLAMA COMMAND WRAPPER (v3.13.3)
+// ============================================================================
+
+/// Create an ollama command with proper environment variables
+/// This ensures HOME and OLLAMA_MODELS are set even when running under systemd
+fn ollama_command() -> Command {
+    let mut cmd = Command::new("ollama");
+
+    // Always set HOME - systemd services may not have it
+    if std::env::var("HOME").is_err() {
+        cmd.env("HOME", ANNA_HOME_DIR);
+    }
+
+    // Set OLLAMA_MODELS to a known location
+    if std::env::var("OLLAMA_MODELS").is_err() {
+        cmd.env("OLLAMA_MODELS", format!("{}/models", ANNA_HOME_DIR));
+    }
+
+    cmd
+}
+
 // ============================================================================
 // MODEL CANDIDATES
 // ============================================================================
@@ -483,8 +509,9 @@ pub fn evaluate_junior_fallback(latency_ms: u64) -> FallbackDecision {
 // ============================================================================
 
 /// List all models currently available in Ollama
+/// v3.13.3: Uses ollama_command() for proper HOME environment
 pub fn list_ollama_models() -> Vec<String> {
-    let output = Command::new("ollama")
+    let output = ollama_command()
         .arg("list")
         .output();
 
@@ -509,8 +536,9 @@ pub fn is_model_available(model: &str) -> bool {
 }
 
 /// Pull a model from Ollama registry
+/// v3.13.3: Uses ollama_command() for proper HOME environment
 pub fn pull_model(model: &str) -> Result<(), String> {
-    let output = Command::new("ollama")
+    let output = ollama_command()
         .args(["pull", model])
         .output()
         .map_err(|e| format!("Failed to run ollama pull: {}", e))?;
@@ -625,10 +653,11 @@ pub fn benchmark_model(model: &str) -> ModelBenchmark {
 }
 
 /// Run a single Ollama test and measure latency
+/// v3.13.3: Uses ollama_command() for proper HOME environment
 fn run_ollama_test(model: &str, prompt: &str, timeout_ms: u64) -> Result<(String, u64, u64), String> {
     let start = Instant::now();
 
-    let output = Command::new("ollama")
+    let output = ollama_command()
         .args(["run", model, prompt])
         .output()
         .map_err(|e| format!("Failed to run ollama: {}", e))?;
@@ -1164,8 +1193,9 @@ pub fn is_ollama_installed() -> bool {
 }
 
 /// Check if Ollama service is running
+/// v3.13.3: Uses ollama_command() for proper HOME environment
 pub fn is_ollama_running() -> bool {
-    Command::new("ollama")
+    ollama_command()
         .arg("list")
         .output()
         .map(|o| o.status.success())

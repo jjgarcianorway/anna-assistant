@@ -15,6 +15,27 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
+/// Default HOME for ollama when running under systemd without user environment
+/// v3.13.3: Fix "$HOME is not defined" error
+const ANNA_HOME_DIR: &str = "/var/lib/anna";
+
+/// Create an ollama command with proper environment variables
+fn ollama_command() -> Command {
+    let mut cmd = Command::new("ollama");
+
+    // Always set HOME - systemd services may not have it
+    if std::env::var("HOME").is_err() {
+        cmd.env("HOME", ANNA_HOME_DIR);
+    }
+
+    // Set OLLAMA_MODELS to a known location
+    if std::env::var("OLLAMA_MODELS").is_err() {
+        cmd.env("OLLAMA_MODELS", format!("{}/models", ANNA_HOME_DIR));
+    }
+
+    cmd
+}
+
 /// Daemon endpoint for health checks
 const DAEMON_URL: &str = "http://127.0.0.1:7865";
 /// Ollama endpoint
@@ -151,9 +172,10 @@ pub fn check_llm_backend() -> ComponentHealth {
 }
 
 /// Check if required LLM models are available
+/// v3.13.3: Uses ollama_command() for proper HOME environment
 pub fn check_model_availability() -> ComponentHealth {
     // Run ollama list to get available models
-    let output = Command::new("ollama").arg("list").output();
+    let output = ollama_command().arg("list").output();
 
     match output {
         Ok(output) if output.status.success() => {
