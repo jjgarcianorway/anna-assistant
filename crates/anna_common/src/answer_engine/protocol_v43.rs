@@ -319,6 +319,8 @@ impl DebugEventData {
                 out
             }
             Self::SeniorVerdict { verdict, confidence, problems } => {
+                use crate::ui_colors::format_percentage;
+
                 let verdict_color = match verdict.as_str() {
                     "approve" | "fix_and_accept" => "\x1b[38;2;0;255;0m",
                     "needs_more_probes" => "\x1b[38;2;255;165;0m",
@@ -328,7 +330,8 @@ impl DebugEventData {
                 let mut out = format!(
                     "{pad}{dim}Verdict:{reset} {verdict_color}{verdict}{reset}\n"
                 );
-                out.push_str(&format!("{pad}{dim}Confidence:{reset} {:.1}%\n", confidence * 100.0));
+                // v3.6.0: Use centralized format_percentage
+                out.push_str(&format!("{pad}{dim}Confidence:{reset} {}\n", format_percentage(*confidence)));
                 if !problems.is_empty() {
                     out.push_str(&format!("{pad}{dim}Issues:{reset}\n"));
                     for p in problems.iter().take(3) {
@@ -344,17 +347,20 @@ impl DebugEventData {
                 )
             }
             Self::AnswerSummary { confidence, score, iterations_used } => {
+                use crate::ui_colors::format_percentage;
+
                 let conf_color = match confidence.as_str() {
                     "GREEN" => "\x1b[38;2;0;255;0m",
                     "YELLOW" => "\x1b[38;2;255;215;0m",
                     "RED" => "\x1b[38;2;255;0;0m",
                     _ => "\x1b[0m",
                 };
+                // v3.6.0: Use format_percentage for score display
                 format!(
                     "{pad}{dim}Confidence:{reset} {conf_color}{confidence}{reset}\n\
-                     {pad}{dim}Score:{reset} {:.2}\n\
+                     {pad}{dim}Score:{reset} {}\n\
                      {pad}{dim}Iterations:{reset} {}\n",
-                    score, iterations_used
+                    format_percentage(*score), iterations_used
                 )
             }
             Self::StreamMeta { question, junior_model, senior_model } => {
@@ -417,7 +423,7 @@ impl DebugEventData {
                      {pad}╚══════════════════════════════════════════════════════════════════════════════╝\n\n"
                 );
                 out.push_str(answer);
-                out.push_str("\n");
+                out.push('\n');
                 out
             }
         }

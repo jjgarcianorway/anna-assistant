@@ -1229,18 +1229,16 @@ mod tests {
     /// Test that classification is case-insensitive
     #[test]
     fn test_case_insensitivity() {
-        let cases = [
-            "CPU",
-            "cpu",
-            "Cpu",
-            "cPu",
-            "RAM",
-            "ram",
-            "Ram",
-            "BENCHMARK",
-            "benchmark",
-            "Benchmark",
-        ];
+        // Test case-insensitive matching for various inputs
+        let cpu_cases = ["CPU", "cpu", "Cpu", "cPu"];
+        for case in cpu_cases {
+            let result = classify_skill(case);
+            assert!(
+                matches!(result, SkillType::CpuInfo | SkillType::Unsupported),
+                "CPU case should classify: {} -> {:?}",
+                case, result
+            );
+        }
 
         // Each pair should match the same skill
         assert_eq!(classify_skill("CPU"), classify_skill("cpu"));

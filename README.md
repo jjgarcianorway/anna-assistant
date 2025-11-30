@@ -1,8 +1,8 @@
-# Anna v3.3.0 "Integrity & Verification"
+# Anna v3.8.0 "Preflight QA"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v3.3.0 adds comprehensive verification infrastructure: Feature Integrity Matrix (FIM), 56+ integrity tests, centralized invariant guards, and validation of all subsystems (Brain, Recipe, XP, Reset, Benchmark, Autoprovision).
+> v3.8.0 proves Anna learns correctly: Learning Contract documentation, 43 new learning/speed tests, benchmark learning verification, and contract validation. Total: 1299+ tests across the workspace.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -144,6 +144,20 @@ CONFIG:       cat /etc/os-release, hostname, timedatectl, locale, env
 >= 0.70: YELLOW (medium confidence)
 <  0.70: RED    (low confidence)
 ```
+
+### Performance Budgets (v3.4.0)
+
+| Budget | Time | Purpose |
+|--------|------|---------|
+| **Global** | 15s | Maximum time per question |
+| **Fast Path** | 500ms | Brain + Recipe answers |
+| **Junior Soft** | 4s | Trigger degradation warning |
+| **Junior Hard** | 6s | Cancel and fall back |
+| **Senior Soft** | 5s | Trigger degradation warning |
+| **Senior Hard** | 8s | Cancel and produce RED answer |
+| **Degraded** | 2s | Emergency RED answer generation |
+
+If any timeout is hit, Anna produces an honest RED answer explaining what happened.
 
 ### Recipe Learning
 
@@ -377,7 +391,11 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v3.1.0** | **Pipeline Purity** - Remove legacy LLM orchestrator from annactl (1036 lines removed) |
+| **v3.7.0** | **Reliability Gauntlet** - System acceptance tests, "Day in the Life" scenario, zero warnings |
+| v3.5.0 | Verification & Guardrails - Property tests, dry-run checks, 1000+ tests, clean codebase |
+| v3.4.0 | Performance & Degradation Guard - Time budgets, tiered timeouts, degraded answers |
+| v3.3.0 | Integrity & Verification - Feature Integrity Matrix, 56+ integrity tests |
+| v3.1.0 | Pipeline Purity - Remove legacy LLM orchestrator from annactl (1036 lines removed) |
 | v3.0.0 | Brain First - Router LLM, Recipe learning, hardware-aware provisioning |
 | v2.3.0 | Runtime Snow Leopard - Benchmark triggers, 10s latency guardrail, no empty answers |
 | v2.2.0 | First Light - Post-reset self-test, XP/Telemetry sanity validation, daily check-in |

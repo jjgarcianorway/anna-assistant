@@ -168,7 +168,7 @@ pub fn get_allowed_base_dirs(scope: KnowledgeScope, home_dir: Option<&Path>) -> 
     match scope {
         KnowledgeScope::System => {
             SYSTEM_ALLOWED_PATHS.iter()
-                .map(|p| PathBuf::from(p))
+                .map(PathBuf::from)
                 .collect()
         }
         KnowledgeScope::User => {

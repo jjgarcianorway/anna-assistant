@@ -380,7 +380,7 @@ pub fn validate_answer(
     }
 
     // INV-ANS-002: Reliability range
-    if reliability < 0.0 || reliability > 1.0 || reliability.is_nan() {
+    if !(0.0..=1.0).contains(&reliability) || reliability.is_nan() {
         result.add_violation(&format!("INV-ANS-002: Invalid reliability {}", reliability));
     }
 

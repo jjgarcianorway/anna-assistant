@@ -61,6 +61,8 @@ use anna_common::{
     },
     // v1.7.0: LLM Autoprovision
     llm_provision::{LlmSelection, JUNIOR_FALLBACK_TIMEOUT_MS},
+    // v3.6.0: Percentage formatting
+    format_percentage,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -1146,7 +1148,7 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
     let total_xp = snapshot.progression.total_xp;
 
     // v0.95.0: Use rpg_display for consistent title coloring
-    let title_color = get_title_color(level as u8);
+    let title_color = get_title_color(level);
     let title_colored = match title_color {
         "dim" => title.dimmed().to_string(),
         "cyan" => title.cyan().to_string(),
@@ -1256,12 +1258,11 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
         };
         println!("  {}  Success rate: {}", "*".cyan(), rate_colored);
 
-        // Average reliability (v0.72.0: show as percentage)
-        let reliability_pct = (global.avg_reliability * 100.0).round() as u32;
-        let reliability_str = format!("{}%", reliability_pct);
-        let rel_colored = if reliability_pct >= 90 {
+        // Average reliability (v3.6.0: use format_percentage)
+        let reliability_str = format_percentage(global.avg_reliability);
+        let rel_colored = if global.avg_reliability >= 0.90 {
             reliability_str.bright_green().to_string()
-        } else if reliability_pct >= 70 {
+        } else if global.avg_reliability >= 0.70 {
             reliability_str.bright_cyan().to_string()
         } else {
             reliability_str.yellow().to_string()
@@ -1366,8 +1367,8 @@ fn print_final_answer(text: &str, reliability: f64, origin: &str, duration_ms: u
     println!();
     println!("{}", THIN_SEPARATOR);
 
-    // Reliability with color
-    let rel_pct = format!("{:.0}%", reliability * 100.0);
+    // Reliability with color (v3.6.0: use format_percentage)
+    let rel_pct = format_percentage(reliability);
     let rel_label = if reliability >= 0.9 {
         format!("{} ({})", rel_pct.bright_green(), "Green".bright_green())
     } else if reliability >= 0.7 {
@@ -1604,26 +1605,25 @@ fn display_telemetry_health_section() {
         return;
     }
 
-    // Lifetime stats
+    // Lifetime stats (v3.6.0: use format_percentage)
     println!(
-        "  📊  Lifetime: {} questions, {:.0}% success rate",
+        "  📊  Lifetime: {} questions, {} success rate",
         complete.lifetime.total.to_string().cyan(),
-        complete.lifetime.success_rate * 100.0
+        format_percentage(complete.lifetime.success_rate)
     );
 
-    // Window stats (recent performance)
+    // Window stats (recent performance) (v3.6.0: use format_percentage)
     let window_size = complete.window_size.min(complete.window.total as usize);
-    let rate_pct = complete.window.success_rate * 100.0;
-    let rate_str = format!("{:.0}%", rate_pct);
-    let rate_colored = if rate_pct >= 80.0 {
+    let rate_str = format_percentage(complete.window.success_rate);
+    let rate_colored = if complete.window.success_rate >= 0.80 {
         rate_str.bright_green().to_string()
-    } else if rate_pct >= 50.0 {
+    } else if complete.window.success_rate >= 0.50 {
         rate_str.yellow().to_string()
     } else {
         rate_str.bright_red().to_string()
     };
 
-    let status_icon = if rate_pct >= 50.0 {
+    let status_icon = if complete.window.success_rate >= 0.50 {
         "+".bright_green().to_string()
     } else {
         "!".bright_red().to_string()
@@ -1651,7 +1651,8 @@ fn display_telemetry_health_section() {
         } else {
             "🧠".to_string()  // Normal
         };
-        let brain_rate = format!("{:.0}%", complete.brain_stats.success_rate * 100.0);
+        // v3.6.0: use format_percentage
+        let brain_rate = format_percentage(complete.brain_stats.success_rate);
         let brain_rate_colored = if complete.brain_stats.success_rate >= 0.8 {
             brain_rate.bright_green().to_string()
         } else {
@@ -1666,9 +1667,9 @@ fn display_telemetry_health_section() {
         );
     }
 
-    // Junior stats
+    // Junior stats (v3.6.0: use format_percentage)
     if complete.junior_stats.count > 0 {
-        let jr_rate = format!("{:.0}%", complete.junior_stats.success_rate * 100.0);
+        let jr_rate = format_percentage(complete.junior_stats.success_rate);
         let jr_rate_colored = if complete.junior_stats.success_rate >= 0.8 {
             jr_rate.bright_green().to_string()
         } else if complete.junior_stats.success_rate >= 0.5 {
@@ -1684,9 +1685,9 @@ fn display_telemetry_health_section() {
         );
     }
 
-    // Senior stats
+    // Senior stats (v3.6.0: use format_percentage)
     if complete.senior_stats.count > 0 {
-        let sr_rate = format!("{:.0}%", complete.senior_stats.success_rate * 100.0);
+        let sr_rate = format_percentage(complete.senior_stats.success_rate);
         let sr_rate_colored = if complete.senior_stats.success_rate >= 0.8 {
             sr_rate.bright_green().to_string()
         } else if complete.senior_stats.success_rate >= 0.5 {
@@ -1720,23 +1721,23 @@ fn display_telemetry_health_section() {
 
     println!("{}", THIN_SEPARATOR);
 
-    // Status hint - always show for context
-    let hint_icon = if rate_pct >= 80.0 {
+    // Status hint - always show for context (v3.6.0: use success_rate directly)
+    let hint_icon = if complete.window.success_rate >= 0.80 {
         "💡".to_string()
-    } else if rate_pct >= 50.0 {
+    } else if complete.window.success_rate >= 0.50 {
         "📝".to_string()
     } else {
         "⚠️".to_string()
     };
     println!("  {}  {}", hint_icon, complete.status_hint.dimmed());
 
-    // STRUGGLING WARNING - prominently displayed
+    // STRUGGLING WARNING - prominently displayed (v3.6.0: use format_percentage)
     if window.is_struggling() {
         println!();
         println!("{}", "[!] ANNA IS STRUGGLING".bright_red().bold());
         println!(
-            "    Success rate {:.0}% is below 50% threshold",
-            rate_pct
+            "    Success rate {} is below 50% threshold",
+            format_percentage(complete.window.success_rate)
         );
         println!("    Consider checking: LLM model availability, Ollama status, network");
     }

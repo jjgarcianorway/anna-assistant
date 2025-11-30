@@ -133,7 +133,7 @@ pub async fn execute_safe_command_async(
     let latency_ms = start.elapsed().as_millis() as u64;
 
     match result {
-        Ok(output) => Ok(output_to_result(output.into(), command_parts.to_vec(), latency_ms)),
+        Ok(output) => Ok(output_to_result(output, command_parts.to_vec(), latency_ms)),
         Err(e) => Ok(SkillExecutionResult {
             success: false,
             command: command_parts.to_vec(),

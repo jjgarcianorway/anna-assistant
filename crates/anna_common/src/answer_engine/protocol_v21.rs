@@ -227,8 +227,10 @@ impl HybridPipeline {
 /// Pipeline stages
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PipelineStage {
     /// Checking facts for fast-path answer
+    #[default]
     FastPath,
     /// Analyzing what knowledge gaps exist
     GapAnalysis,
@@ -240,11 +242,6 @@ pub enum PipelineStage {
     Complete,
 }
 
-impl Default for PipelineStage {
-    fn default() -> Self {
-        Self::FastPath
-    }
-}
 
 /// The final hybrid answer
 #[derive(Debug, Clone, Serialize, Deserialize)]

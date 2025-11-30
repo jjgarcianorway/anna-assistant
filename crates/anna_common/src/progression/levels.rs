@@ -29,6 +29,7 @@ pub const TITLE_BANDS: &[(u8, u8, &str)] = &[
 
 /// Anna's current level (0-99)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Level(pub u8);
 
 impl Level {
@@ -92,11 +93,6 @@ impl Level {
     }
 }
 
-impl Default for Level {
-    fn default() -> Self {
-        Self(0)
-    }
-}
 
 impl std::fmt::Display for Level {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

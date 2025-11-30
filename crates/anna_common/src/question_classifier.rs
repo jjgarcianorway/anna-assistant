@@ -358,15 +358,13 @@ impl QuestionClassifier {
 
                 if !has_specific_context {
                     return ClassificationResult::new(QuestionType::NeedsUserClarification, 0.8)
-                        .with_clarification(format!(
-                            "Could you be more specific? What aspect of your system \
+                        .with_clarification("Could you be more specific? What aspect of your system \
                              are you concerned about?\n\
                              - CPU and processor performance\n\
                              - Memory and RAM usage\n\
                              - Disk and storage space\n\
                              - GPU and graphics\n\
-                             - Network connectivity"
-                        ))
+                             - Network connectivity".to_string())
                         .with_keywords(vec![pattern.to_string()]);
                 }
             }

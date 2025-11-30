@@ -49,19 +49,19 @@ impl LlmValidator {
         };
 
         // Check required fields
-        if !json.get("action").is_some() {
+        if json.get("action").is_none() {
             return ValidationResult::SchemaMismatch("Missing 'action' field".to_string());
         }
 
         let action = json.get("action").and_then(|a| a.as_str()).unwrap_or("");
         match action {
             "command" => {
-                if !json.get("command").is_some() {
+                if json.get("command").is_none() {
                     return ValidationResult::SchemaMismatch("Action 'command' requires 'command' field".to_string());
                 }
             }
             "answer" => {
-                if !json.get("answer").is_some() {
+                if json.get("answer").is_none() {
                     return ValidationResult::SchemaMismatch("Action 'answer' requires 'answer' field".to_string());
                 }
             }
@@ -76,7 +76,7 @@ impl LlmValidator {
         // Check for score
         if let Some(score) = json.get("score") {
             if let Some(s) = score.as_i64() {
-                if s < 0 || s > 100 {
+                if !(0..=100).contains(&s) {
                     return ValidationResult::Invalid(format!("Score {} out of range 0-100", s));
                 }
             }
@@ -105,7 +105,7 @@ impl LlmValidator {
         };
 
         // Check required fields
-        if !json.get("verdict").is_some() {
+        if json.get("verdict").is_none() {
             return ValidationResult::SchemaMismatch("Missing 'verdict' field".to_string());
         }
 
@@ -118,7 +118,7 @@ impl LlmValidator {
         for field in ["evidence", "coverage", "reasoning"] {
             if let Some(score) = json.get(field) {
                 if let Some(s) = score.as_i64() {
-                    if s < 0 || s > 100 {
+                    if !(0..=100).contains(&s) {
                         return ValidationResult::Invalid(format!("{} score {} out of range 0-100", field, s));
                     }
                 }

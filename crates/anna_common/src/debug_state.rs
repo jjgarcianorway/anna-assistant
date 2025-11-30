@@ -21,6 +21,7 @@ pub const DEBUG_STATE_FILE: &str = "debug_state.json";
 
 /// Persistent debug mode state
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct DebugState {
     /// Whether debug mode is enabled
     pub enabled: bool,
@@ -30,15 +31,6 @@ pub struct DebugState {
     pub last_changed_reason: Option<String>,
 }
 
-impl Default for DebugState {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            last_changed_at: None,
-            last_changed_reason: None,
-        }
-    }
-}
 
 impl DebugState {
     /// Create a new debug state

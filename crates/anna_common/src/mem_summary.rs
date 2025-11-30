@@ -91,7 +91,7 @@ pub fn summarize_mem_from_text(text: &str) -> MemSummary {
         if let Some((key, value)) = line.split_once(':') {
             let key = key.trim();
             // Value is like "32768000 kB" - extract just the number
-            let value = value.trim().split_whitespace().next().unwrap_or("0");
+            let value = value.split_whitespace().next().unwrap_or("0");
             let value_kb: u64 = value.parse().unwrap_or(0);
 
             match key {

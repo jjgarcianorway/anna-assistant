@@ -639,12 +639,7 @@ impl OllamaClient {
             } else if let Some(s) = fa.as_str() {
                 // Simple string format
                 Some(s.to_string())
-            } else if let Some(text) = fa.get("text").and_then(|t| t.as_str()) {
-                // Object format: {"text": "...", "citations": [...]}
-                Some(text.to_string())
-            } else {
-                None
-            }
+            } else { fa.get("text").and_then(|t| t.as_str()).map(|text| text.to_string()) }
         });
 
         // v0.17.0: Extract Senior's synthesized answer text

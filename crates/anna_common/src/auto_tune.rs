@@ -397,6 +397,8 @@ mod tests {
                 junior_count: 30,
                 senior_count: 20,
                 top_failure: None,
+                // v3.6.0: New stats fields
+                ..Default::default()
             },
             window: TelemetrySummary {
                 total: 20,
@@ -410,6 +412,8 @@ mod tests {
                 junior_count: 6,
                 senior_count: 4,
                 top_failure: None,
+                // v3.6.0: New stats fields
+                ..Default::default()
             },
             window_size: 20,
             brain_stats: OriginStats {
@@ -420,6 +424,8 @@ mod tests {
                 min_latency_ms: 20,
                 max_latency_ms: 100,
                 avg_reliability: 0.95,
+                // v3.6.0: New stats fields
+                ..Default::default()
             },
             junior_stats: OriginStats {
                 count: 5,
@@ -429,6 +435,8 @@ mod tests {
                 min_latency_ms: 300,
                 max_latency_ms: 800,
                 avg_reliability: 0.85,
+                // v3.6.0: New stats fields
+                ..Default::default()
             },
             senior_stats: OriginStats {
                 count: 5,
@@ -438,8 +446,14 @@ mod tests {
                 min_latency_ms: 600,
                 max_latency_ms: 1200,
                 avg_reliability: 0.92,
+                // v3.6.0: New stats fields
+                ..Default::default()
             },
             status_hint: "Performing well".to_string(),
+            // v3.4.0: Rolling stats for performance hints
+            rolling_avg_latency_ms: 300,
+            rolling_failure_rate: 0.05,
+            rolling_timeout_rate: 0.02,
         }
     }
 
@@ -504,7 +518,7 @@ mod tests {
         let bench = create_mock_benchmark(95.0, 50.0, 300);
         let telemetry = create_mock_telemetry(10, 10);
 
-        let decision = auto_tune_from_benchmark(&telemetry, &bench, &mut state, &config);
+        let _decision = auto_tune_from_benchmark(&telemetry, &bench, &mut state, &config);
 
         // Should not increase beyond max
         assert!(state.brain_conf_threshold <= config.brain_threshold_range.1);

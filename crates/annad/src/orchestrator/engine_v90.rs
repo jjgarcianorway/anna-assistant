@@ -206,7 +206,7 @@ impl UnifiedEngine {
         let mut junior_total_ms: u64 = 0;
         let mut senior_total_ms: u64 = 0;
         let mut _origin = AnswerOrigin::Brain;
-        let probe_ids: Vec<String>;
+        
 
         // ================================================================
         // STEP 1: Brain Fast Path (NO LLMs)
@@ -342,7 +342,7 @@ impl UnifiedEngine {
         junior_total_ms += junior_start_1.elapsed().as_millis() as u64;
 
         // Extract requested probes
-        probe_ids = junior_response_1
+        let probe_ids: Vec<String> = junior_response_1
             .probe_requests
             .iter()
             .map(|p| p.probe_id.clone())
@@ -1077,7 +1077,7 @@ impl UnifiedEngine {
         let result = match panic::catch_unwind(panic::AssertUnwindSafe(|| {
             // We need to block on the async function since catch_unwind doesn't work with async
             // So we just run it directly and handle errors at the Result level
-            ()
+            
         })) {
             Ok(_) => {
                 // Actually run the benchmark
@@ -1137,7 +1137,7 @@ impl UnifiedEngine {
         output.push_str(&format!("  📝  Total Questions: {}\n", result.total_questions));
 
         // v2.3.0: Status interpretation
-        output.push_str("\n");
+        output.push('\n');
         if success_rate >= 90.0 {
             output.push_str("  ✅  STATUS: Excellent - Anna is performing well!\n");
         } else if success_rate >= 70.0 {

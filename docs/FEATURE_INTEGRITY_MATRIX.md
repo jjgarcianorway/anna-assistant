@@ -1,4 +1,4 @@
-# Feature Integrity Matrix (FIM) v3.3.0
+# Feature Integrity Matrix (FIM) v3.4.0
 
 **Contract of Correctness for Anna Assistant**
 
@@ -707,8 +707,41 @@ When any invariant is violated:
 
 ---
 
+## 14. PERFORMANCE BUDGETS (v3.4.0)
+
+### Intended Behavior
+All pipeline operations complete within defined time budgets. When budgets are exceeded, produce fast degraded answers with honest reliability scores.
+
+### Required Invariants
+- **INV-PERF-001**: Global budget MUST be 10-20 seconds (currently 15s)
+- **INV-PERF-002**: Fast path MUST complete in <1 second
+- **INV-PERF-003**: Junior soft timeout < Junior hard timeout
+- **INV-PERF-004**: Senior soft timeout < Senior hard timeout
+- **INV-PERF-005**: Degraded answer MUST generate in <2 seconds
+- **INV-PERF-006**: GlobalBudget MUST track remaining time accurately
+- **INV-PERF-007**: Performance hints MUST be computed from rolling stats
+
+### Timeout Hierarchy
+| Tier | Timeout | Response |
+|------|---------|----------|
+| Junior Soft | 4s | Warning logged, degradation hint |
+| Junior Hard | 6s | Cancel LLM, use partial evidence |
+| Senior Soft | 5s | Warning logged, degradation hint |
+| Senior Hard | 8s | Cancel LLM, produce RED answer |
+| Global | 15s | Emergency fallback |
+| Degraded | 2s | Fast RED answer generation |
+
+### Anti-Hardcoding Policy
+- **INV-PERF-015**: Brain MUST use generic pattern matching
+- **INV-PERF-015**: NO question-specific string matching
+- **INV-PERF-015**: Case-insensitive patterns only
+- Variations of same question MUST route to same handler
+
+---
+
 ## REVISION HISTORY
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.4.0 | 2025-11-30 | Added Performance Budgets section, anti-hardcoding policy |
 | 3.3.0 | 2025-11-30 | Initial FIM creation |

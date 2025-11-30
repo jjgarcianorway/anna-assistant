@@ -120,10 +120,11 @@ impl AnnaEvent {
                 "Analyzing your question...".to_string()
             }
             EventKind::ClassificationDone { question_type, confidence } => {
+                use crate::ui_colors::format_percentage_f32;
                 format!(
-                    "Classified as {} (confidence: {:.0}%).",
+                    "Classified as {} (confidence: {}).",
                     question_type,
-                    confidence * 100.0
+                    format_percentage_f32(*confidence)
                 )
             }
             EventKind::ProbesPlanned { probe_ids } => {
@@ -153,10 +154,11 @@ impl AnnaEvent {
                 "Double-checking the answer and scoring reliability.".to_string()
             }
             EventKind::SeniorReviewDone { reliability_score } => {
+                use crate::ui_colors::format_percentage_f32;
                 let color = reliability_color(*reliability_score);
                 format!(
-                    "Review complete. Reliability: {:.0}% ({}).",
-                    reliability_score * 100.0,
+                    "Review complete. Reliability: {} ({}).",
+                    format_percentage_f32(*reliability_score),
                     color
                 )
             }
@@ -167,10 +169,11 @@ impl AnnaEvent {
                 "Preparing your answer...".to_string()
             }
             EventKind::AnswerReady { reliability_score } => {
+                use crate::ui_colors::format_percentage_f32;
                 let color = reliability_color(*reliability_score);
                 format!(
-                    "Done. Reliability: {:.0}% ({}).",
-                    reliability_score * 100.0,
+                    "Done. Reliability: {} ({}).",
+                    format_percentage_f32(*reliability_score),
                     color
                 )
             }
@@ -212,9 +215,10 @@ impl AnnaEvent {
                 "I started reviewing the evidence for reliability.".to_string()
             }
             EventKind::SeniorReviewDone { reliability_score } => {
+                use crate::ui_colors::format_percentage_f32;
                 format!(
-                    "I completed the review - reliability is {:.0}%.",
-                    reliability_score * 100.0
+                    "I completed the review - reliability is {}.",
+                    format_percentage_f32(*reliability_score)
                 )
             }
             EventKind::UserClarificationNeeded { question } => {
@@ -224,10 +228,11 @@ impl AnnaEvent {
                 "I began synthesizing the final answer.".to_string()
             }
             EventKind::AnswerReady { reliability_score } => {
+                use crate::ui_colors::format_percentage_f32;
                 let color = reliability_color(*reliability_score);
                 format!(
-                    "I delivered the answer with {:.0}% reliability ({}).",
-                    reliability_score * 100.0,
+                    "I delivered the answer with {} reliability ({}).",
+                    format_percentage_f32(*reliability_score),
                     color
                 )
             }

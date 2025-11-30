@@ -16,23 +16,24 @@ use anna_common::{
     // v1.0.0: Conversation trace types
     FinalAnswerDisplay, ReliabilityLevel, debug_is_enabled, store_last_answer,
     is_explain_request, explain_last_answer,
+    // v3.6.0: Percentage formatting
+    format_percentage,
 };
 use owo_colors::OwoColorize;
 use std::time::Duration;
 
 /// Display a response to the user
 pub fn display_response(response: &AnnaResponse) {
-    // Confidence as percentage (v0.15.21)
-    let conf_pct = (response.confidence * 100.0) as u8;
-    let conf_str = format!("{}%", conf_pct);
+    // Confidence as percentage (v3.6.0: use format_percentage)
+    let conf_str = format_percentage(response.confidence);
 
-    // v0.6.0: Color categories
-    let (conf_colored, reliability_indicator) = if conf_pct >= 90 {
+    // v0.6.0: Color categories (v3.6.0: compare against float thresholds)
+    let (conf_colored, reliability_indicator) = if response.confidence >= 0.90 {
         (
             conf_str.bright_green().to_string(),
             "[OK]".bright_green().to_string(),
         )
-    } else if conf_pct >= 70 {
+    } else if response.confidence >= 0.70 {
         (
             conf_str.yellow().to_string(),
             "[PARTIAL]".yellow().to_string(),
@@ -211,15 +212,15 @@ pub fn display_final_answer(answer: &FinalAnswer) {
     let reasoning = answer.scores.reasoning;
     let coverage = answer.scores.coverage;
 
-    // v0.15.21: Show as percentage
+    // v3.6.0: Show as percentage using format_percentage
     println!(
-        "{}  [{}] {:.0}%  (evidence {:.0}%, reasoning {:.0}%, coverage {:.0}%)",
+        "{}  [{}] {}  (evidence {}, reasoning {}, coverage {})",
         "Confidence:".bold().bright_white(),
         level_colored,
-        overall * 100.0,
-        evidence * 100.0,
-        reasoning * 100.0,
-        coverage * 100.0
+        format_percentage(overall),
+        format_percentage(evidence),
+        format_percentage(reasoning),
+        format_percentage(coverage)
     );
 
     // Loop iterations info if multiple rounds
@@ -283,7 +284,7 @@ pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
     // v0.72.0: Evidence section - show probes and commands with status
     if !answer.citations.is_empty() {
         println!();
-        println!("{}", "Evidence");
+        println!("Evidence");
         println!("{}", THIN_SEPARATOR);
         for citation in &answer.citations {
             let status_str = match citation.status {
@@ -304,22 +305,23 @@ pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
 
     // v0.72.0: Reliability section with percentage and color
     println!();
-    println!("{}", "Reliability");
+    println!("Reliability");
     println!("{}", THIN_SEPARATOR);
 
-    let overall_pct = (answer.scores.overall * 100.0).round() as u32;
+    // v3.6.0: use format_percentage
+    let overall_str = format_percentage(answer.scores.overall);
     let (color_str, pct_colored) = match answer.confidence_level {
         ConfidenceLevel::Green => (
             "Green".bright_green().to_string(),
-            format!("{}%", overall_pct).bright_green().to_string(),
+            overall_str.bright_green().to_string(),
         ),
         ConfidenceLevel::Yellow => (
             "Yellow".yellow().to_string(),
-            format!("{}%", overall_pct).yellow().to_string(),
+            overall_str.yellow().to_string(),
         ),
         ConfidenceLevel::Red => (
             "Red".bright_red().to_string(),
-            format!("{}%", overall_pct).bright_red().to_string(),
+            overall_str.bright_red().to_string(),
         ),
     };
 
@@ -344,7 +346,7 @@ pub fn display_final_answer_with_time(answer: &FinalAnswer, elapsed: Duration) {
     // v0.15.21: Show clarification question if needed
     if let Some(ref clarification) = answer.clarification_needed {
         println!();
-        println!("{}", "Clarification Needed");
+        println!("Clarification Needed");
         println!("{}", THIN_SEPARATOR);
         println!("  {}  {}", "?".yellow().bold(), clarification);
     }
@@ -579,8 +581,9 @@ pub fn display_debug_trace(trace: &DebugTrace) {
                     "[=]  Parsed:".bold().dimmed(),
                     verdict_colored
                 );
+                // v3.6.0: use format_percentage
                 if let Some(conf) = iter.llm_b_confidence {
-                    println!("confidence={:.0}%", conf * 100.0);
+                    println!("confidence={}", format_percentage(conf));
                 } else {
                     println!();
                 }

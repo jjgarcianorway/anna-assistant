@@ -1,5 +1,6 @@
-//! Anna Common - Shared types and schemas for Anna v1.0.0
+//! Anna Common - Shared types and schemas for Anna v3.4.0
 //!
+//! v3.4.0: Performance & Degradation Guard - PerfSpan timing, global budgets, tiered timeouts, fast RED answers
 //! v1.0.0: Anna the Movie - Fly-on-the-wall conversation traces, unified answer UX
 //! v0.95.0: RPG Display System - expanded titles, reliability-scaled XP, mood text
 //! v0.92.0: Decision Policy - central routing logic, circuit breaker, per-path metrics
@@ -67,6 +68,9 @@
 // Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
 #![allow(unused_imports)]
+// Allow ambiguous glob re-exports (multiple modules define the same items)
+// TODO(v3.6.0): Refactor to use explicit imports and remove duplicates
+#![allow(ambiguous_glob_reexports)]
 
 pub mod answer_engine;
 pub mod bench;
@@ -122,6 +126,7 @@ pub mod first_light;
 pub mod router_llm;
 pub mod recipe;
 pub mod invariants;
+pub mod perf_timing;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -264,7 +269,7 @@ pub use conversation_trace::{
     store_last_answer, get_last_answer, clear_last_answer, has_last_answer,
     is_explain_request, explain_last_answer,
 };
-// UI Colors exports (v1.0.0) - Canonical color definitions
+// UI Colors exports (v1.0.0 + v3.6.0) - Canonical color definitions and percentage formatting
 pub use ui_colors::{
     // Thresholds (canonical from docs/architecture.md)
     THRESHOLD_GREEN, THRESHOLD_YELLOW, THRESHOLD_RED,
@@ -277,7 +282,10 @@ pub use ui_colors::{
     // Types (use UiReliabilityLevel to avoid conflict with conversation_trace::ReliabilityLevel)
     ReliabilityLevel as UiReliabilityLevel,
     Actor as UiActor,
-    // Helper functions
+    // Percentage formatting (v3.6.0) - CANONICAL for all 0-1 value display
+    format_percentage, format_percentage_decimals, format_percentage_f32,
+    format_percentage_colored, format_percentage_colored_f32,
+    // Legacy helper functions (now use format_percentage internally)
     format_score_colored, format_score_with_label,
     reliability_display, reliability_display_f32,
 };
@@ -287,9 +295,10 @@ pub use xp_unified::{
     record_brain_self_solve, record_junior_proposal, record_junior_bad_command,
     record_senior_approval, record_senior_fix_accept, record_llm_timeout,
 };
-// Telemetry exports (v1.1.0) - Local-only performance diagnostics
+// Telemetry exports (v1.1.0 + v3.4.0) - Local-only performance diagnostics
 pub use telemetry::{
     TelemetryEvent, TelemetryRecorder, TelemetrySummary,
+    TelemetrySummaryComplete, TelemetryReader, OriginStats,
     Outcome as TelemetryOutcome, Origin as TelemetryOrigin,
     record_success as telemetry_record_success,
     record_brain_answer as telemetry_record_brain,
@@ -297,7 +306,9 @@ pub use telemetry::{
     record_timeout as telemetry_record_timeout,
     record_refusal as telemetry_record_refusal,
     get_24h_summary as telemetry_get_24h_summary,
-    TELEMETRY_FILE,
+    // v3.4.0: Performance hint integration
+    RollingStats, get_performance_hint, get_rolling_stats,
+    TELEMETRY_FILE, DEFAULT_WINDOW_SIZE,
 };
 
 // Experience reset exports (v1.3.0) - Soft and hard reset modes
@@ -353,4 +364,22 @@ pub use recipe::{
     Recipe, RecipeStore, RecipeStats,
     extract_recipe,
     RECIPE_STORE_PATH, MIN_RECIPE_RELIABILITY, RECIPE_MATCH_THRESHOLD,
+};
+
+// Performance Timing exports (v3.4.0) - Pipeline instrumentation and budgets
+pub use perf_timing::{
+    // Timing helpers
+    PerfSpan, PipelineTimings,
+    // Global budget enforcement
+    GlobalBudget, DEFAULT_GLOBAL_BUDGET_MS, FAST_PATH_BUDGET_MS, PROBE_BUDGET_MS,
+    // LLM timeouts
+    JUNIOR_SOFT_TIMEOUT_MS, JUNIOR_HARD_TIMEOUT_MS,
+    SENIOR_SOFT_TIMEOUT_MS, SENIOR_HARD_TIMEOUT_MS,
+    DEGRADED_ANSWER_BUDGET_MS, UNSUPPORTED_FAIL_FAST_MS,
+    // Performance hints
+    PerformanceHint, LlmTimeoutResult,
+    // Unsupported question detection
+    UnsupportedResult, UnsupportedReason, classify_unsupported,
+    // Fast degraded answers (v3.4.0)
+    DegradedAnswer, DegradationReason,
 };

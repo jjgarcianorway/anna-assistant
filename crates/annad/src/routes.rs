@@ -569,7 +569,7 @@ async fn answer_question_stream(
                 telemetry_record_failure(&question, &e.to_string(), fail_latency_ms);
                 error!("[STREAM]  Failed to process question: {}", e);
                 emitter.emit(
-                    DebugEvent::new(DebugEventType::Error, 0, &e.to_string()).with_data(
+                    DebugEvent::new(DebugEventType::Error, 0, e.to_string()).with_data(
                         DebugEventData::KeyValue {
                             pairs: vec![("error".to_string(), e.to_string())],
                         },

@@ -27,8 +27,8 @@ pub const THRESHOLD_YELLOW: f64 = 0.70;
 /// Red reliability threshold (>= 50% confidence) - warn user
 pub const THRESHOLD_RED: f64 = 0.50;
 
-/// Below 50% = REFUSED (hard gate, do not answer)
-/// This is not a threshold but a policy: anything below THRESHOLD_RED is refused
+// Note: Below 50% = REFUSED (hard gate, do not answer)
+// This is not a threshold but a policy: anything below THRESHOLD_RED is refused
 
 // ============================================================================
 // Actor Colors (RGB tuples for true color terminals)
@@ -156,22 +156,101 @@ impl ReliabilityLevel {
 }
 
 // ============================================================================
-// Formatting Helpers
+// Percentage Formatting - CANONICAL (v3.6.0)
+// ============================================================================
+//
+// GLOBAL RULE: Any value conceptually between 0 and 1 shown to the user
+// must be converted to a percentage between 0 and 100 with a percent sign.
+//
+// Examples:
+//   Reliability 0.83 -> "83%"
+//   Trust 0.50 -> "50%"
+//   Success rate 0.921 -> "92%"
+//
+// All display code MUST use these helpers instead of inline formatting.
+
+/// Format a 0-1 float value as a percentage string.
+/// Uses standard rounding (0.5 rounds up).
+///
+/// # Arguments
+/// * `value` - A float between 0.0 and 1.0
+///
+/// # Returns
+/// A string like "83%" with no decimal places (default)
+///
+/// # Examples
+/// ```
+/// use anna_common::ui_colors::format_percentage;
+/// assert_eq!(format_percentage(0.0), "0%");
+/// assert_eq!(format_percentage(0.5), "50%");
+/// assert_eq!(format_percentage(0.923), "92%");
+/// assert_eq!(format_percentage(1.0), "100%");
+/// ```
+pub fn format_percentage(value: f64) -> String {
+    format!("{:.0}%", value * 100.0)
+}
+
+/// Format a 0-1 float as percentage with specified decimal places.
+///
+/// # Arguments
+/// * `value` - A float between 0.0 and 1.0
+/// * `decimals` - Number of decimal places (0, 1, or 2)
+///
+/// # Examples
+/// ```
+/// use anna_common::ui_colors::format_percentage_decimals;
+/// assert_eq!(format_percentage_decimals(0.923, 0), "92%");
+/// assert_eq!(format_percentage_decimals(0.923, 1), "92.3%");
+/// assert_eq!(format_percentage_decimals(0.9234, 2), "92.34%");
+/// ```
+pub fn format_percentage_decimals(value: f64, decimals: usize) -> String {
+    match decimals {
+        0 => format!("{:.0}%", value * 100.0),
+        1 => format!("{:.1}%", value * 100.0),
+        2 => format!("{:.2}%", value * 100.0),
+        _ => format!("{:.0}%", value * 100.0), // Default to 0 decimals
+    }
+}
+
+/// Format a 0-1 f32 value as a percentage string.
+/// Convenience wrapper for f32 inputs.
+pub fn format_percentage_f32(value: f32) -> String {
+    format_percentage(value as f64)
+}
+
+/// Format a percentage with color based on reliability thresholds.
+/// Uses the canonical reliability colors (Green/Yellow/Red).
+pub fn format_percentage_colored(value: f64) -> String {
+    let level = ReliabilityLevel::from_score(value);
+    let (r, g, b) = level.color();
+    let pct = format_percentage(value);
+    pct.truecolor(r, g, b).bold().to_string()
+}
+
+/// Format a percentage with color, accepting f32.
+pub fn format_percentage_colored_f32(value: f32) -> String {
+    format_percentage_colored(value as f64)
+}
+
+// ============================================================================
+// Formatting Helpers (Legacy - now use format_percentage internally)
 // ============================================================================
 
 /// Format a score with color using owo_colors
+/// Note: Now uses format_percentage internally for consistency.
 pub fn format_score_colored(score: f64) -> String {
     let level = ReliabilityLevel::from_score(score);
     let (r, g, b) = level.color();
-    let score_str = format!("{:.0}%", score * 100.0);
+    let score_str = format_percentage(score);
     score_str.truecolor(r, g, b).bold().to_string()
 }
 
 /// Format a score with color and label
+/// Note: Now uses format_percentage internally for consistency.
 pub fn format_score_with_label(score: f64) -> String {
     let level = ReliabilityLevel::from_score(score);
     let (r, g, b) = level.color();
-    let score_str = format!("{:.0}%", score * 100.0);
+    let score_str = format_percentage(score);
     format!(
         "{} ({})",
         score_str.truecolor(r, g, b).bold(),
@@ -284,5 +363,90 @@ mod tests {
         let (color, label) = reliability_display(0.30);
         assert_eq!(color, COLOR_REFUSED);
         assert_eq!(label, "REFUSED");
+    }
+
+    // ========================================================================
+    // Percentage Formatting Tests (v3.6.0)
+    // ========================================================================
+
+    #[test]
+    fn test_format_percentage_boundary_values() {
+        // Exact boundaries
+        assert_eq!(format_percentage(0.0), "0%");
+        assert_eq!(format_percentage(1.0), "100%");
+        assert_eq!(format_percentage(0.5), "50%");
+    }
+
+    #[test]
+    fn test_format_percentage_typical_values() {
+        // Common reliability scores
+        assert_eq!(format_percentage(0.83), "83%");
+        assert_eq!(format_percentage(0.923), "92%"); // 92.3 rounds to 92
+        assert_eq!(format_percentage(0.926), "93%"); // 92.6 rounds to 93
+        assert_eq!(format_percentage(0.70), "70%");
+        assert_eq!(format_percentage(0.90), "90%");
+    }
+
+    #[test]
+    fn test_format_percentage_small_values() {
+        // Near-zero values - Rust uses "round half to even" (banker's rounding)
+        assert_eq!(format_percentage(0.001), "0%"); // 0.1 rounds to 0
+        assert_eq!(format_percentage(0.006), "1%"); // 0.6 rounds to 1
+        assert_eq!(format_percentage(0.009), "1%"); // 0.9 rounds to 1
+        assert_eq!(format_percentage(0.01), "1%");  // exactly 1
+    }
+
+    #[test]
+    fn test_format_percentage_near_100() {
+        // Near-100 values
+        assert_eq!(format_percentage(0.99), "99%");
+        assert_eq!(format_percentage(0.995), "100%"); // Rounds up
+        assert_eq!(format_percentage(0.999), "100%");
+    }
+
+    #[test]
+    fn test_format_percentage_decimals() {
+        // 0 decimal places
+        assert_eq!(format_percentage_decimals(0.923, 0), "92%");
+
+        // 1 decimal place
+        assert_eq!(format_percentage_decimals(0.923, 1), "92.3%");
+        assert_eq!(format_percentage_decimals(0.9236, 1), "92.4%"); // 92.36 rounds to 92.4
+
+        // 2 decimal places
+        assert_eq!(format_percentage_decimals(0.9234, 2), "92.34%");
+        assert_eq!(format_percentage_decimals(0.92346, 2), "92.35%"); // 92.346 rounds to 92.35
+
+        // Invalid decimals (defaults to 0)
+        assert_eq!(format_percentage_decimals(0.923, 5), "92%");
+    }
+
+    #[test]
+    fn test_format_percentage_f32() {
+        // f32 convenience wrapper
+        assert_eq!(format_percentage_f32(0.5_f32), "50%");
+        assert_eq!(format_percentage_f32(0.83_f32), "83%");
+        assert_eq!(format_percentage_f32(1.0_f32), "100%");
+    }
+
+    #[test]
+    fn test_format_percentage_colored_contains_percent() {
+        // Colored output should still contain the percentage
+        let colored = format_percentage_colored(0.95);
+        assert!(colored.contains("95%"), "Colored output should contain '95%'");
+
+        let colored = format_percentage_colored(0.50);
+        assert!(colored.contains("50%"), "Colored output should contain '50%'");
+    }
+
+    #[test]
+    fn test_no_raw_floats_in_formatted_output() {
+        // Ensure no 0.XX format appears in output (common bug)
+        let values = [0.0, 0.1, 0.5, 0.83, 0.923, 1.0];
+        for v in values {
+            let result = format_percentage(v);
+            assert!(!result.contains("0."), "Output '{}' contains raw float for value {}", result, v);
+            assert!(result.ends_with('%'), "Output '{}' should end with %", result);
+        }
     }
 }

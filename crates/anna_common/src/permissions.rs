@@ -260,8 +260,8 @@ pub fn auto_fix_permissions() -> Vec<AutoFixResult> {
                 error: None,
             });
         }
-    } else if !is_file_writable(telemetry_path) {
-        if set_world_writable(telemetry_path) {
+    } else if !is_file_writable(telemetry_path)
+        && set_world_writable(telemetry_path) {
             results.push(AutoFixResult {
                 path: telemetry_path.to_path_buf(),
                 action: "Fixed telemetry file permissions".to_string(),
@@ -269,7 +269,6 @@ pub fn auto_fix_permissions() -> Vec<AutoFixResult> {
                 error: None,
             });
         }
-    }
 
     results
 }
@@ -289,7 +288,7 @@ fn is_file_writable(path: &Path) -> bool {
 
     // Try to open for append
     fs::OpenOptions::new()
-        .write(true)
+        
         .append(true)
         .open(path)
         .is_ok()

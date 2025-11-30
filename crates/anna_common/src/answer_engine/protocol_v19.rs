@@ -30,8 +30,10 @@ pub struct Subproblem {
 /// Status of a subproblem
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SubproblemStatus {
     /// Not yet started
+    #[default]
     Pending,
     /// Currently gathering evidence
     InProgress,
@@ -41,11 +43,6 @@ pub enum SubproblemStatus {
     Blocked,
 }
 
-impl Default for SubproblemStatus {
-    fn default() -> Self {
-        Self::Pending
-    }
-}
 
 /// Junior's decomposition of the question into subproblems
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,6 +133,7 @@ pub struct MentorContext {
 
 /// Junior's self-assessment scores for v0.19.0
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct JuniorScoresV19 {
     /// How complete is the evidence coverage (0-100)
     pub evidence_coverage: u8,
@@ -147,16 +145,6 @@ pub struct JuniorScoresV19 {
     pub overall: u8,
 }
 
-impl Default for JuniorScoresV19 {
-    fn default() -> Self {
-        Self {
-            evidence_coverage: 0,
-            reasoning_confidence: 0,
-            subproblem_coverage: 0,
-            overall: 0,
-        }
-    }
-}
 
 /// Senior's mentoring response for v0.19.0
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,6 +206,7 @@ pub struct SubproblemMerge {
 
 /// Senior's scores for v0.19.0
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SeniorScoresV19 {
     /// Evidence grounding (0-100)
     pub evidence: u8,
@@ -231,17 +220,6 @@ pub struct SeniorScoresV19 {
     pub reliability_note: String,
 }
 
-impl Default for SeniorScoresV19 {
-    fn default() -> Self {
-        Self {
-            evidence: 0,
-            reasoning: 0,
-            completeness: 0,
-            overall: 0,
-            reliability_note: String::new(),
-        }
-    }
-}
 
 /// State for v0.19.0 question processing
 #[derive(Debug, Clone, Default)]

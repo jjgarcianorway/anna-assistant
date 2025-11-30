@@ -102,10 +102,12 @@ pub struct WindowManagerInfo {
 
 /// Display protocol
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Default)]
 pub enum DisplayProtocol {
     X11,
     Wayland,
     Tty,
+    #[default]
     Unknown,
 }
 
@@ -199,11 +201,6 @@ pub struct DesktopSession {
     pub captured_at: i64,
 }
 
-impl Default for DisplayProtocol {
-    fn default() -> Self {
-        Self::Unknown
-    }
-}
 
 /// Session type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

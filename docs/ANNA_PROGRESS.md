@@ -766,3 +766,251 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 - crates/anna_common/src/ui_colors.rs - Canonical colors/thresholds
 - crates/annad/tests/baseline_tests.rs - Performance baselines
 - crates/annad/tests/orchestration_tests.rs - Deterministic tests
+
+---
+
+## v3.8.0 "Preflight QA" - Learning Contract & Speed Verification
+
+**Theme**: Prove Anna learns correctly before public release. Comprehensive learning tests, speed verification, contract documentation.
+
+### Learning Contract Documentation (v3.8.0)
+[x] docs/ANNA_LEARNING_CONTRACT.md - Formal learning guarantees specification
+[x] First Time Behavior section - correctness, honesty, speed guarantees
+[x] Second Time Behavior section - learning mechanics, recipe extraction, speed improvement
+[x] Reset Behavior section - soft reset (XP) vs hard reset (factory)
+[x] Debug Mode section - output structure guarantees
+[x] Reliability & Honesty Guarantees section - scoring rules, no fake Green
+[x] Telemetry Consistency section - origin tracking, stats matching
+[x] Implementation Invariants table - threshold values with code enforcement
+
+### Learning Speed Test Harness (v3.8.0)
+[x] crates/annad/tests/learning_speed_canonical.rs - 13 learning speed tests
+[x] Round 1→2→3 pattern for canonical questions
+[x] Brain fast path latency tests (<200ms target)
+[x] No latency regression on repeat questions
+[x] Recipe extraction and matching tests
+[x] RecipeStore operations tests (add, find_match)
+[x] Telemetry shows learning trend (Brain count increases)
+[x] No silent failures test
+[x] Percentage formatting (no raw floats) test
+[x] Paraphrased intent mapping tests
+
+### Snow Leopard Benchmark Learning Integration (v3.8.0)
+[x] crates/annad/tests/benchmark_snow_leopard.rs - 8 new learning verification tests
+[x] test_learning_phase_reports_brain_trend - Phase 6 learning verification
+[x] test_benchmark_reports_origin_distribution - Brain vs LLM usage percentages
+[x] test_no_silent_benchmark_failures - every question has answer, reliability, origin
+[x] test_reliability_percentages_no_raw_floats - ASCII summary uses %
+[x] test_warm_state_vs_hard_reset_comparison - Phase 1 vs Phase 2 comparison
+[x] test_skill_summary_populated - skill tracking validation
+[x] test_ux_consistency_rules - answer quality checks
+
+### Learning Contract Test Suite (v3.8.0)
+[x] crates/annad/tests/learning_contract_tests.rs - 22 contract validation tests
+[x] Debug intent classification tests (enable/disable/status/none patterns)
+[x] Debug state serialization tests
+[x] Soft reset preserves knowledge test
+[x] Hard reset clears knowledge test
+[x] Reset confirmation strings test
+[x] Experience snapshot capture test
+[x] Telemetry tracks failures test
+[x] Reliability bounds test (MIN_RECIPE_RELIABILITY, RECIPE_MATCH_THRESHOLD)
+[x] Origin tracking consistency test
+[x] Percentage formatting tests
+[x] Brain handles hardware questions test
+[x] Brain handles health questions test
+[x] FastQuestionType classification test
+[x] RecipeStore operations test
+[x] Recipe matching threshold test
+[x] Recipe reliability minimum test
+[x] Learning contract compliance summary test
+
+### Constraints (v3.8.0)
+[x] NO new user-visible features
+[x] NO new commands
+[x] NO new RPCs
+[x] ONLY: Tests, Fixes, Performance improvements, Cleanup
+
+### Tests (v3.8.0)
+[x] 13 learning speed canonical tests (all passing)
+[x] 17 benchmark snow leopard tests (+8 new, all passing)
+[x] 22 learning contract tests (all passing)
+[x] All workspace tests passing (1299+)
+[x] Zero compiler warnings
+
+**Key Files**:
+- docs/ANNA_LEARNING_CONTRACT.md - Formal learning guarantees
+- crates/annad/tests/learning_speed_canonical.rs - Learning speed tests
+- crates/annad/tests/benchmark_snow_leopard.rs - Benchmark learning integration
+- crates/annad/tests/learning_contract_tests.rs - Contract validation tests
+
+---
+
+## v3.7.0 "Reliability Gauntlet" - System Acceptance & Production Validation
+
+**Theme**: Comprehensive test and validation layer. NO new features, ONLY fixes, tests, cleanup.
+
+### System Acceptance Test Harness (v3.7.0)
+[x] crates/annad/tests/system_acceptance.rs - 19 comprehensive acceptance tests
+[x] "Day in the Life" scenario - full journey from fresh install to power user
+[x] Fresh install state validation (XP baseline, trust levels)
+[x] First Light self-test execution and validation
+[x] Canonical questions coverage (CPU, RAM, disk, health, LLM)
+[x] Learning improvement verification (repeated questions faster)
+[x] Natural language intent mapping tests
+[x] Soft reset behavior validation (preserves knowledge, resets XP)
+[x] Hard reset behavior validation (factory reset to fresh state)
+[x] Debug mode output structure verification
+[x] Percentage formatting validation (no raw floats in output)
+[x] Stats/telemetry consistency verification
+
+### Test Plan Documentation (v3.7.0)
+[x] docs/ANNA_TEST_PLAN.md - Comprehensive test plan document
+[x] 11 test scenarios with detailed assertions
+[x] "Day in the Life" journey definition
+[x] Performance assertions and acceptance criteria
+[x] Snapshot/golden output testing patterns
+
+### Warning Fixes & Code Cleanup (v3.7.0)
+[x] Fixed unused variable warnings in integrity_suite.rs
+[x] Fixed "comparison is useless" warnings for u64 types
+[x] Fixed unused import warnings (chrono::Utc)
+[x] Fixed unused field warnings (latency_ms)
+[x] Fixed skill_router.rs test using unused variables
+[x] Fixed auto_tune.rs unused decision variable
+[x] Replaced SkillType::Unknown with SkillType::Unsupported
+
+### Constraints (v3.7.0)
+[x] NO new user-visible features
+[x] NO new command line flags
+[x] NO new RPCs
+[x] ONLY: Fixes, Tests, Performance/reliability improvements, Cleanup/hardening
+
+### Tests (v3.7.0)
+[x] 19 system acceptance tests (all passing)
+[x] 102 integrity suite tests (all passing)
+[x] 15 property-based tests (all passing)
+[x] 15 dry-run checker tests (all passing)
+[x] All workspace tests passing (898+)
+[x] Zero compiler warnings
+
+**Key Files**:
+- docs/ANNA_TEST_PLAN.md - Test plan document
+- crates/annad/tests/system_acceptance.rs - Main acceptance harness
+- crates/annad/tests/integrity_suite.rs - Warning fixes
+- crates/annad/tests/property_tests.rs - Warning fixes
+- crates/annad/tests/dry_run_checker.rs - Warning fixes
+- crates/anna_common/src/skill_router.rs - Warning fixes
+- crates/anna_common/src/auto_tune.rs - Warning fixes
+
+---
+
+## v3.5.0 "Verification & Guardrails"
+
+**Theme**: Comprehensive verification infrastructure. Property tests, dry-run checks, clean codebase.
+
+### Feature Verification Matrix Update (v3.5.0)
+[x] docs/FEATURE_VERIFICATION_MATRIX.md - Updated with all v3.5.0 test coverage
+[x] Maps all 13 subsystems to their verification tests
+[x] Each feature has: implementation file, test file, test count, invariants checked
+
+### Property-Based Tests (v3.5.0)
+[x] crates/annad/tests/property_tests.rs - 15 property-based tests
+[x] PROP-TEL-001/002: Telemetry counter monotonicity
+[x] PROP-XP-001/002/003: XP invariants (level bounds 0-99, total XP monotonic)
+[x] PROP-REL-001/002: Reliability always in [0.0, 1.0]
+[x] PROP-RECIPE-001/002: Threshold bounds validation
+[x] PROP-BUDGET-001/002/003: Time budget invariants
+[x] PROP-BRAIN-001/002: Brain answer consistency
+
+### Dry-Run Integrity Checker (v3.5.0)
+[x] crates/annad/tests/dry_run_checker.rs - 15 dry-run tests
+[x] DRY-RUN-001: Brain fast path coverage (canonical questions)
+[x] DRY-RUN-002: Recipe store operations (safe load/stats)
+[x] DRY-RUN-003: XP system operations (progression add/from_xp)
+[x] DRY-RUN-004: Telemetry counter safety
+[x] DRY-RUN-005: Benchmark system validation (configs, question sets, phases)
+[x] DRY-RUN-006: Performance budget creation
+[x] DRY-RUN-007: Config system validation
+[x] DRY-RUN-008: Integration mock pipeline
+
+### Integrity Suite Expansion (v3.5.0)
+[x] crates/annad/tests/integrity_suite.rs - Expanded to 102 tests
+[x] Fixed type assertions (Level newtype, progression starting at 0)
+[x] Added snapshot tests for status output formatting
+[x] Added degradation harness tests (slow LLM, hard timeout, probe failures)
+[x] Added regression detection tests
+
+### Code Quality (v3.5.0)
+[x] Fixed clippy warnings (unused parentheses, unused variables)
+[x] Added `#![allow(ambiguous_glob_reexports)]` with TODO for v3.6.0
+[x] All workspace tests passing (1000+)
+
+### Tests (v3.5.0)
+[x] 102 integrity suite tests
+[x] 15 property-based tests
+[x] 15 dry-run checker tests
+[x] 24 orchestration tests
+[x] All workspace tests passing
+
+**Key Files**:
+- docs/FEATURE_VERIFICATION_MATRIX.md - Updated verification matrix
+- crates/annad/tests/property_tests.rs - Property-based tests
+- crates/annad/tests/dry_run_checker.rs - Dry-run integrity checker
+- crates/annad/tests/integrity_suite.rs - Expanded integrity tests
+
+---
+
+## v3.4.0 "Performance & Degradation Guard"
+
+**Theme**: Performance infrastructure, time budgets, graceful degradation.
+
+### Phase 1: PerfSpan Timing Helpers
+[x] Created perf_timing.rs module with timing infrastructure
+[x] PerfSpan RAII helper for measuring execution time
+[x] PipelineTimings struct for aggregating pipeline metrics
+[x] Tracing integration for automatic logging
+
+### Phase 2: Global Time Budget
+[x] DEFAULT_GLOBAL_BUDGET_MS = 15,000ms (15 seconds max per question)
+[x] FAST_PATH_BUDGET_MS = 500ms (Brain + Recipe target)
+[x] GlobalBudget struct with exhaustion detection
+[x] Degraded mode detection when budget exceeded
+
+### Phase 3: Tiered LLM Timeouts
+[x] JUNIOR_SOFT_TIMEOUT_MS = 4,000ms (trigger degradation warning)
+[x] JUNIOR_HARD_TIMEOUT_MS = 6,000ms (cancel and fallback)
+[x] SENIOR_SOFT_TIMEOUT_MS = 5,000ms (trigger degradation warning)
+[x] SENIOR_HARD_TIMEOUT_MS = 8,000ms (cancel and produce RED answer)
+[x] LlmTimeoutResult enum: Success, SoftTimeout, HardTimeout
+
+### Phase 4: Fail-Fast for Unsupported Questions
+[x] UnsupportedResult and UnsupportedReason types
+[x] classify_unsupported() function (<500ms classification)
+[x] Detection for: EmptyInput, Gibberish, Conversational, BeyondCapability, Greeting
+[x] Fast honest explanations for unsupported questions
+
+### Phase 5: Fast Degraded Answers
+[x] DegradedAnswer and DegradationReason types
+[x] DEGRADED_ANSWER_BUDGET_MS = 2,000ms (emergency answer budget)
+[x] Reasons: LlmTimeout, BudgetExhausted, LlmInvalid, ProbesFailed, BackendUnavailable
+[x] Emergency fallback path (instantaneous)
+[x] Partial evidence preservation in degraded answers
+
+### Phase 6: Telemetry-Driven Performance Hints
+[x] RollingStats struct (avg_latency, failure_rate, timeout_rate)
+[x] get_performance_hint() and get_rolling_stats() functions
+[x] PerformanceHint enum: Good, Degraded, Critical
+[x] Extended TelemetrySummaryComplete with rolling metrics
+
+### Phase 7: Integrity Tests
+[x] 19 performance integrity tests (INV-PERF-001 through INV-PERF-019)
+[x] Tests for: global budget, fast path, timeout ordering, PerfSpan accuracy
+[x] Tests for: budget tracking, exhaustion, performance hints, LLM timeout evaluation
+[x] Tests for: unsupported detection, degraded answer speed, partial evidence
+
+**Tests**: 75+ integrity tests, all passing
+**Key Files**:
+- crates/anna_common/src/perf_timing.rs - Performance timing infrastructure
+- crates/anna_common/src/telemetry.rs - Extended with rolling stats
+- crates/annad/tests/integrity_suite.rs - Performance integrity tests

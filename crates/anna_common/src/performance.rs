@@ -148,11 +148,7 @@ impl PerformanceTracker {
     /// Check remaining time budget
     pub fn remaining_ms(&self) -> u64 {
         let elapsed = self.start.elapsed().as_millis() as u64;
-        if elapsed >= self.budget.max_total_ms {
-            0
-        } else {
-            self.budget.max_total_ms - elapsed
-        }
+        self.budget.max_total_ms.saturating_sub(elapsed)
     }
 
     /// Record Brain time

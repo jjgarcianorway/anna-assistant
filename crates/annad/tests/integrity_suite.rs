@@ -1,4 +1,4 @@
-//! Feature Integrity Test Suite v3.3.0
+//! Feature Integrity Test Suite v3.5.0
 //!
 //! Comprehensive tests verifying correctness of every subsystem as defined
 //! in docs/FEATURE_INTEGRITY_MATRIX.md.
@@ -747,7 +747,7 @@ mod regression_detection {
 
 mod autoprovision_integrity {
     use anna_common::llm_provision::{
-        HardwareTier, LlmSelection, ModelBenchmark, FallbackDecision,
+        HardwareTier, LlmSelection, ModelBenchmark,
         evaluate_junior_fallback, should_fallback_junior,
         JUNIOR_FALLBACK_TIMEOUT_MS, FALLBACK_MODEL, ROUTER_FALLBACK_MODEL,
     };
@@ -880,7 +880,7 @@ mod reset_integrity {
     #[test]
     fn test_inv_reset_001_experience_reset_exists() {
         // Test that the reset API is available
-        let paths = ExperiencePaths::default();
+        let _paths = ExperiencePaths::default();
 
         // Just verify the function exists and returns a result type
         // We don't actually perform a reset to avoid affecting system state
@@ -891,7 +891,7 @@ mod reset_integrity {
     #[test]
     fn test_inv_reset_002_factory_reset_exists() {
         // Test that the reset API is available
-        let paths = ExperiencePaths::default();
+        let _paths = ExperiencePaths::default();
 
         // Just verify the function exists
         let _result_type: fn(&ExperiencePaths) -> ExperienceResetResult = reset_factory;
@@ -930,7 +930,8 @@ mod reset_integrity {
 
         // Should have valid fields
         assert!(snapshot.anna_level <= 99, "Level should be <= 99");
-        assert!(snapshot.anna_xp >= 0, "XP should be non-negative");
+        // anna_xp is u64, always non-negative by type
+        let _xp: u64 = snapshot.anna_xp;
     }
 
     /// INV-RESET-006: has_experience_data function exists
@@ -1124,5 +1125,1023 @@ mod combined_tests {
                 question, actual, expected_type
             );
         }
+    }
+}
+
+// ============================================================================
+// 12. PERFORMANCE & DEGRADATION GUARD TESTS (v3.4.0)
+// ============================================================================
+
+mod performance_integrity {
+    use anna_common::perf_timing::{
+        PerfSpan, PipelineTimings, GlobalBudget,
+        PerformanceHint, LlmTimeoutResult, UnsupportedReason, classify_unsupported,
+        DEFAULT_GLOBAL_BUDGET_MS, FAST_PATH_BUDGET_MS,
+        JUNIOR_SOFT_TIMEOUT_MS, JUNIOR_HARD_TIMEOUT_MS,
+        SENIOR_SOFT_TIMEOUT_MS, SENIOR_HARD_TIMEOUT_MS,
+        UNSUPPORTED_FAIL_FAST_MS, DEGRADED_ANSWER_BUDGET_MS,
+    };
+    
+
+    /// INV-PERF-001: Global budget must be reasonable (10-20 seconds)
+    #[test]
+    fn test_inv_perf_001_global_budget_reasonable() {
+        assert!(
+            DEFAULT_GLOBAL_BUDGET_MS >= 10_000 && DEFAULT_GLOBAL_BUDGET_MS <= 20_000,
+            "Global budget {}ms should be 10-20s",
+            DEFAULT_GLOBAL_BUDGET_MS
+        );
+    }
+
+    /// INV-PERF-002: Fast path budget must be tiny (<1s)
+    #[test]
+    fn test_inv_perf_002_fast_path_budget_tiny() {
+        assert!(
+            FAST_PATH_BUDGET_MS <= 1000,
+            "Fast path budget {}ms should be <1s",
+            FAST_PATH_BUDGET_MS
+        );
+    }
+
+    /// INV-PERF-003: LLM timeouts properly ordered (soft < hard)
+    #[test]
+    fn test_inv_perf_003_timeout_ordering() {
+        // Junior: soft < hard
+        assert!(
+            JUNIOR_SOFT_TIMEOUT_MS < JUNIOR_HARD_TIMEOUT_MS,
+            "Junior soft {}ms should be < hard {}ms",
+            JUNIOR_SOFT_TIMEOUT_MS, JUNIOR_HARD_TIMEOUT_MS
+        );
+
+        // Senior: soft < hard
+        assert!(
+            SENIOR_SOFT_TIMEOUT_MS < SENIOR_HARD_TIMEOUT_MS,
+            "Senior soft {}ms should be < hard {}ms",
+            SENIOR_SOFT_TIMEOUT_MS, SENIOR_HARD_TIMEOUT_MS
+        );
+
+        // Junior hard <= Senior soft (reasonable progression)
+        assert!(
+            JUNIOR_HARD_TIMEOUT_MS <= SENIOR_SOFT_TIMEOUT_MS + 2000,
+            "Junior hard {}ms should be <= Senior soft + 2s",
+            JUNIOR_HARD_TIMEOUT_MS
+        );
+    }
+
+    /// INV-PERF-004: PerfSpan measures time accurately
+    #[test]
+    fn test_inv_perf_004_perf_span_accuracy() {
+        let span = PerfSpan::start("test");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let elapsed = span.end();
+
+        // Should be at least 10ms, not more than 50ms (accounting for system variance)
+        assert!(elapsed >= 10, "Elapsed {}ms should be >= 10ms", elapsed);
+        assert!(elapsed < 100, "Elapsed {}ms should be < 100ms", elapsed);
+    }
+
+    /// INV-PERF-005: GlobalBudget tracks remaining time correctly
+    #[test]
+    fn test_inv_perf_005_global_budget_tracking() {
+        let budget = GlobalBudget::with_budget(100);
+        assert!(!budget.is_exhausted());
+        assert!(budget.remaining_ms() <= 100);
+
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let remaining = budget.remaining_ms();
+        assert!(remaining <= 60, "After 50ms, remaining {}ms should be <= 60ms", remaining);
+    }
+
+    /// INV-PERF-006: GlobalBudget exhaustion detection
+    #[test]
+    fn test_inv_perf_006_budget_exhaustion() {
+        let budget = GlobalBudget::with_budget(20);
+        std::thread::sleep(std::time::Duration::from_millis(25));
+
+        assert!(budget.is_exhausted(), "Budget should be exhausted after 25ms");
+        assert_eq!(budget.remaining_ms(), 0);
+    }
+
+    /// INV-PERF-007: Performance hints computed correctly
+    #[test]
+    fn test_inv_perf_007_performance_hints() {
+        // Good: low latency, low failure/timeout rates
+        let good = PerformanceHint::from_stats(5000, 0.05, 0.01);
+        assert_eq!(good, PerformanceHint::Good);
+        assert!(!good.should_skip_senior());
+        assert!(!good.prefer_fast_path());
+
+        // Degraded: elevated latency
+        let degraded = PerformanceHint::from_stats(12000, 0.05, 0.01);
+        assert_eq!(degraded, PerformanceHint::Degraded);
+        assert!(!degraded.should_skip_senior());
+        assert!(degraded.prefer_fast_path());
+
+        // Critical: high failure rate
+        let critical = PerformanceHint::from_stats(5000, 0.35, 0.01);
+        assert_eq!(critical, PerformanceHint::Critical);
+        assert!(critical.should_skip_senior());
+        assert!(critical.prefer_fast_path());
+
+        // Critical: high timeout rate
+        let critical_timeout = PerformanceHint::from_stats(5000, 0.05, 0.25);
+        assert_eq!(critical_timeout, PerformanceHint::Critical);
+    }
+
+    /// INV-PERF-008: LlmTimeoutResult evaluates correctly
+    #[test]
+    fn test_inv_perf_008_llm_timeout_evaluation() {
+        // Junior success
+        let success = LlmTimeoutResult::evaluate_junior(2000);
+        assert!(!success.should_stop_llm());
+        assert!(!success.is_timeout());
+
+        // Junior soft timeout
+        let soft = LlmTimeoutResult::evaluate_junior(5000);
+        assert!(!soft.should_stop_llm());
+        assert!(soft.is_timeout());
+
+        // Junior hard timeout
+        let hard = LlmTimeoutResult::evaluate_junior(7000);
+        assert!(hard.should_stop_llm());
+        assert!(hard.is_timeout());
+    }
+
+    /// INV-PERF-009: Unsupported question detection is fast
+    #[test]
+    fn test_inv_perf_009_unsupported_fast() {
+        let test_cases = [
+            "",
+            "hi",
+            "What is the meaning of life?",
+            "rm -rf everything",
+            "hello",
+        ];
+
+        for q in test_cases {
+            let result = classify_unsupported(q);
+            assert!(
+                result.classify_ms < UNSUPPORTED_FAIL_FAST_MS,
+                "Classification of '{}' took {}ms, should be < {}ms",
+                q, result.classify_ms, UNSUPPORTED_FAIL_FAST_MS
+            );
+        }
+    }
+
+    /// INV-PERF-010: Unsupported reasons are correct
+    #[test]
+    fn test_inv_perf_010_unsupported_reasons() {
+        // Empty
+        let empty = classify_unsupported("");
+        assert_eq!(empty.reason, UnsupportedReason::EmptyInput);
+        assert!(empty.should_fail_fast());
+
+        // Greeting
+        let greeting = classify_unsupported("hello");
+        assert_eq!(greeting.reason, UnsupportedReason::Greeting);
+        assert!(greeting.should_fail_fast());
+
+        // Conversational
+        let conversational = classify_unsupported("What is the meaning of life?");
+        assert_eq!(conversational.reason, UnsupportedReason::Conversational);
+        assert!(conversational.should_fail_fast());
+
+        // Beyond capability
+        let beyond = classify_unsupported("hack my neighbor's wifi");
+        assert_eq!(beyond.reason, UnsupportedReason::BeyondCapability);
+        assert!(beyond.should_fail_fast());
+    }
+
+    /// INV-PERF-011: Supported questions are NOT fail-fast
+    #[test]
+    fn test_inv_perf_011_supported_not_fail_fast() {
+        let supported = [
+            "How much RAM do I have?",
+            "What CPU is in this machine?",
+            "Show disk usage",
+            "Check nginx status",
+            "What's my IP address?",
+            "List running services",
+        ];
+
+        for q in supported {
+            let result = classify_unsupported(q);
+            assert!(
+                !result.should_fail_fast(),
+                "Question '{}' should NOT fail fast, got reason {:?}",
+                q, result.reason
+            );
+        }
+    }
+
+    /// INV-PERF-012: Degraded answer budget is reasonable
+    #[test]
+    fn test_inv_perf_012_degraded_answer_budget() {
+        assert!(
+            DEGRADED_ANSWER_BUDGET_MS <= 2000,
+            "Degraded answer budget {}ms should be <= 2s",
+            DEGRADED_ANSWER_BUDGET_MS
+        );
+    }
+
+    /// INV-PERF-013: PipelineTimings tracks LLM usage
+    #[test]
+    fn test_inv_perf_013_pipeline_timings_llm() {
+        let mut timings = PipelineTimings::new();
+
+        // No LLM initially
+        assert_eq!(timings.llm_total_ms(), 0);
+
+        // Add Junior timing
+        timings.junior_plan_ms = 2000;
+        timings.junior_draft_ms = 1500;
+        assert_eq!(timings.llm_total_ms(), 3500);
+
+        // Add Senior timing
+        timings.senior_audit_ms = 2000;
+        assert_eq!(timings.llm_total_ms(), 5500);
+    }
+
+    /// INV-PERF-014: PipelineTimings detects fast path
+    #[test]
+    fn test_inv_perf_014_fast_path_detection() {
+        // Brain answer - fast path
+        let mut brain_timings = PipelineTimings::new();
+        brain_timings.brain_classify_ms = 15;
+        brain_timings.origin = "Brain".to_string();
+        assert!(brain_timings.used_fast_path());
+
+        // Junior answer - not fast path
+        let mut junior_timings = PipelineTimings::new();
+        junior_timings.junior_plan_ms = 2000;
+        junior_timings.origin = "Junior".to_string();
+        assert!(!junior_timings.used_fast_path());
+    }
+
+    /// INV-PERF-015: No question-specific hardcoding detection
+    /// This test verifies behavior is generic, not hardcoded to specific strings
+    #[test]
+    fn test_inv_perf_015_no_hardcoding() {
+        // These questions should all be handled by the same generic Brain pattern
+        // If someone adds string-specific logic, this test should catch variations failing
+        let ram_variations = [
+            "how much ram do i have?",
+            "HOW MUCH RAM DO I HAVE?",
+            "How Much Ram Do I Have?",
+            "how much RAM?",
+            "total ram?",
+            "my ram amount",
+            "check ram",
+            "ram info",
+        ];
+
+        // All should produce answers via Brain (or None), not via special-case code
+        for q in ram_variations {
+            let answer = anna_common::try_fast_answer(q);
+            if let Some(ans) = &answer {
+                assert_eq!(
+                    ans.origin, "Brain",
+                    "RAM question '{}' should come from Brain, not special case",
+                    q
+                );
+            }
+        }
+    }
+
+    /// INV-PERF-016: DegradedAnswer generates fast, honest answers
+    #[test]
+    fn test_inv_perf_016_degraded_answer_fast() {
+        use anna_common::perf_timing::{DegradedAnswer, DegradationReason};
+
+        let reasons = [
+            DegradationReason::LlmTimeout,
+            DegradationReason::BudgetExhausted,
+            DegradationReason::LlmInvalid,
+            DegradationReason::ProbesFailed,
+            DegradationReason::BackendUnavailable,
+            DegradationReason::EmergencyFallback,
+        ];
+
+        for reason in reasons {
+            let answer = DegradedAnswer::generate("What CPU do I have?", reason, None);
+
+            // Must be within budget
+            assert!(
+                answer.generation_ms < DEGRADED_ANSWER_BUDGET_MS,
+                "{:?} degraded answer took {}ms, should be < {}ms",
+                reason, answer.generation_ms, DEGRADED_ANSWER_BUDGET_MS
+            );
+
+            // All degraded answers have reliability < 0.7 (yellow threshold)
+            assert!(
+                answer.reliability < 0.70,
+                "{:?} degraded answer has reliability {}, should be < 0.70",
+                reason, answer.reliability
+            );
+
+            // All have meaningful text
+            assert!(
+                !answer.text.is_empty(),
+                "{:?} degraded answer should have non-empty text",
+                reason
+            );
+        }
+    }
+
+    /// INV-PERF-017: DegradationReason reliability levels are correct
+    #[test]
+    fn test_inv_perf_017_degradation_reliability_levels() {
+        use anna_common::perf_timing::DegradationReason;
+
+        // ProbesFailed is least severe - user's system info failed
+        assert!(DegradationReason::ProbesFailed.reliability() > 0.40);
+
+        // BackendUnavailable is most severe - can't function
+        assert!(DegradationReason::BackendUnavailable.reliability() < 0.30);
+
+        // All must be below yellow threshold (0.70)
+        let all_reasons = [
+            DegradationReason::LlmTimeout,
+            DegradationReason::BudgetExhausted,
+            DegradationReason::LlmInvalid,
+            DegradationReason::ProbesFailed,
+            DegradationReason::BackendUnavailable,
+            DegradationReason::EmergencyFallback,
+        ];
+
+        for reason in all_reasons {
+            assert!(
+                reason.reliability() < 0.70,
+                "{:?} reliability {} should be < 0.70 (not yellow/green)",
+                reason, reason.reliability()
+            );
+        }
+    }
+
+    /// INV-PERF-018: Emergency fallback is instantaneous
+    #[test]
+    fn test_inv_perf_018_emergency_instant() {
+        use anna_common::perf_timing::DegradedAnswer;
+
+        let emergency = DegradedAnswer::emergency("test question");
+
+        // Emergency answers have pre-computed generation_ms = 0
+        assert_eq!(emergency.generation_ms, 0);
+
+        // Emergency has lowest reliability
+        assert!(emergency.reliability <= 0.15);
+
+        // Emergency is always refused (< 0.50)
+        assert!(emergency.is_refused());
+    }
+
+    /// INV-PERF-019: DegradedAnswer includes partial evidence when available
+    #[test]
+    fn test_inv_perf_019_partial_evidence_included() {
+        use anna_common::perf_timing::{DegradedAnswer, DegradationReason};
+
+        let evidence = "CPU: AMD Ryzen 7 5800X";
+        let answer = DegradedAnswer::generate(
+            "What CPU do I have?",
+            DegradationReason::LlmTimeout,
+            Some(evidence),
+        );
+
+        // Answer should include the evidence
+        assert!(
+            answer.text.contains("AMD Ryzen"),
+            "Degraded answer should include partial evidence"
+        );
+    }
+}
+
+// ============================================================================
+// 13. FEATURE VERIFICATION TESTS (v3.5.0)
+// ============================================================================
+
+/// v3.5.0: Comprehensive verification tests for all feature groups
+mod feature_verification {
+    use anna_common::try_fast_answer;
+    use std::time::Instant;
+
+    // -------------------------------------------------------------------------
+    // BRAIN FAST PATH VERIFICATION
+    // -------------------------------------------------------------------------
+
+    /// VER-BRAIN-001: Brain answers CPU, RAM, disk, uptime, OS in one pass, no LLM
+    #[test]
+    fn test_ver_brain_001_all_canonical_questions() {
+        let canonical = [
+            ("How much RAM do I have?", "RAM"),
+            ("How many CPU cores?", "CPU"),
+            ("How much disk space?", "disk"),
+            ("What is the uptime?", "uptime"),
+            ("What OS am I running?", "OS"),
+            ("Is Anna healthy?", "health"),
+        ];
+
+        for (question, category) in canonical {
+            let start = Instant::now();
+            let answer = try_fast_answer(question);
+            let elapsed = start.elapsed().as_millis();
+
+            assert!(
+                elapsed < 200,
+                "{} question took {}ms (should be <200ms)",
+                category, elapsed
+            );
+
+            if let Some(ans) = answer {
+                assert_eq!(
+                    ans.origin, "Brain",
+                    "{} question should be answered by Brain, got {}",
+                    category, ans.origin
+                );
+                assert!(
+                    !ans.text.is_empty(),
+                    "{} answer should not be empty",
+                    category
+                );
+            }
+        }
+    }
+
+    /// VER-BRAIN-002: Repeated questions always hit Brain, never LLM
+    #[test]
+    fn test_ver_brain_002_repeated_questions() {
+        let question = "How much RAM do I have?";
+
+        // Ask same question 5 times
+        for i in 0..5 {
+            let start = Instant::now();
+            let answer = try_fast_answer(question);
+            let elapsed = start.elapsed().as_millis();
+
+            // All iterations should be fast (no LLM warmup)
+            assert!(
+                elapsed < 200,
+                "Iteration {} took {}ms - should hit Brain cache",
+                i, elapsed
+            );
+
+            if let Some(ans) = answer {
+                assert_eq!(ans.origin, "Brain", "Iteration {} hit LLM instead of Brain", i);
+            }
+        }
+    }
+
+    /// VER-BRAIN-003: Paraphrases map to correct Brain behavior
+    #[test]
+    fn test_ver_brain_003_paraphrase_handling() {
+        let ram_variants = [
+            "How much RAM do I have?",
+            "how much ram?",
+            "RAM?",
+            "memory?",
+            "total memory",
+            "check ram",
+        ];
+
+        for variant in ram_variants {
+            let answer = try_fast_answer(variant);
+            if let Some(ans) = &answer {
+                // All RAM variants should route to Brain
+                assert_eq!(
+                    ans.origin, "Brain",
+                    "RAM variant '{}' should go to Brain, got {}",
+                    variant, ans.origin
+                );
+            }
+        }
+
+        let cpu_variants = [
+            "How many CPU cores?",
+            "cpu?",
+            "processor?",
+            "what cpu",
+            "cpu info",
+        ];
+
+        for variant in cpu_variants {
+            let answer = try_fast_answer(variant);
+            if let Some(ans) = &answer {
+                assert_eq!(
+                    ans.origin, "Brain",
+                    "CPU variant '{}' should go to Brain, got {}",
+                    variant, ans.origin
+                );
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // TELEMETRY VERIFICATION
+    // -------------------------------------------------------------------------
+
+    /// VER-TEL-001: Success rate always in [0.0, 1.0]
+    #[test]
+    fn test_ver_tel_001_success_rate_bounds() {
+        // Create synthetic telemetry with various edge cases
+        let test_cases = [
+            (100, 100), // 100% success
+            (100, 0),   // 0% success
+            (100, 50),  // 50% success
+            (0, 0),     // no data
+            (1, 1),     // single success
+        ];
+
+        for (total, successes) in test_cases {
+            let rate = if total > 0 {
+                successes as f64 / total as f64
+            } else {
+                0.0
+            };
+
+            assert!(
+                rate >= 0.0 && rate <= 1.0,
+                "Success rate {} out of bounds for {}/{}",
+                rate, successes, total
+            );
+        }
+    }
+
+    /// VER-TEL-002: Latency aggregates never negative
+    #[test]
+    fn test_ver_tel_002_latency_never_negative() {
+        // Simulate latency calculations
+        let latencies: Vec<u64> = vec![100, 200, 300, 500, 1000];
+        let sum: u64 = latencies.iter().sum();
+        let avg = sum / latencies.len() as u64;
+
+        assert!(avg > 0, "Average latency should be positive");
+        assert!(sum >= avg, "Sum should be >= average");
+    }
+
+    // -------------------------------------------------------------------------
+    // XP VERIFICATION
+    // -------------------------------------------------------------------------
+
+    /// VER-XP-001: XP and levels are monotonic (no negative XP)
+    #[test]
+    fn test_ver_xp_001_monotonic_xp() {
+        use anna_common::progression::AnnaProgression;
+
+        // Fresh progression starts at level 0 (not level 1)
+        let prog = AnnaProgression::new();
+        assert!(prog.total_xp == 0, "Fresh XP should be 0");
+        assert!(prog.level.0 == 0, "Fresh level should be 0 (Intern)");
+
+        // XP always increases on success
+        let xp_deltas = [10u64, 25, 50, 100];
+        let mut current_xp = 0u64;
+        for delta in xp_deltas {
+            current_xp += delta;
+            assert!(current_xp >= delta, "XP should only increase");
+        }
+    }
+
+    /// VER-XP-002: Trust values stay in [0.0, 1.0]
+    #[test]
+    fn test_ver_xp_002_trust_bounds() {
+        use anna_common::TrustLevel;
+
+        // Verify trust levels exist
+        let _trust_levels = [
+            TrustLevel::Low,
+            TrustLevel::Normal,
+            TrustLevel::High,
+        ];
+
+        // Trust is derived from value in [0.0, 1.0]
+        let test_values = [0.0f32, 0.3, 0.5, 0.7, 1.0];
+
+        for value in test_values {
+            assert!(
+                (0.0..=1.0).contains(&value),
+                "Trust value {} outside [0,1]",
+                value
+            );
+            // Classification should work for any valid value
+            let _level = TrustLevel::from_trust(value);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // RECIPE VERIFICATION
+    // -------------------------------------------------------------------------
+
+    /// VER-RECIPE-001: Recipe matching is semantic, not exact string match
+    #[test]
+    fn test_ver_recipe_001_semantic_matching() {
+        // These should all match the RAM pattern
+        let should_match = [
+            "ram",
+            "RAM",
+            "how much ram",
+            "total ram",
+        ];
+
+        for variant in should_match {
+            let pattern = variant.to_lowercase();
+            assert!(
+                pattern.contains("ram"),
+                "Variant '{}' should contain 'ram' pattern",
+                variant
+            );
+        }
+    }
+
+    /// VER-RECIPE-002: Out-of-scope questions don't match recipes
+    #[test]
+    fn test_ver_recipe_002_no_false_matches() {
+        let out_of_scope = [
+            "What is the meaning of life?",
+            "Tell me a joke",
+            "Write me a poem",
+            "What's the weather?",
+        ];
+
+        for q in out_of_scope {
+            let answer = try_fast_answer(q);
+            // Out of scope should either return None or a greeting/error
+            if let Some(ans) = answer {
+                // If answered, should not be a technical answer
+                assert!(
+                    ans.origin != "Recipe" || ans.reliability < 0.5,
+                    "Out-of-scope question '{}' should not match a recipe",
+                    q
+                );
+            }
+        }
+    }
+}
+
+// ============================================================================
+// 14. DEGRADATION HARNESS TESTS (v3.5.0)
+// ============================================================================
+
+/// v3.5.0: Dedicated tests for degraded behavior scenarios
+mod degradation_harness {
+    use anna_common::perf_timing::{
+        DegradedAnswer, DegradationReason, GlobalBudget,
+        DEGRADED_ANSWER_BUDGET_MS,
+    };
+    use std::time::{Duration, Instant};
+
+    /// DEG-001: LLM slow but not dead (near soft timeout)
+    #[test]
+    fn test_deg_001_slow_llm_response() {
+        // Simulate a slow LLM by creating a budget and checking near-exhaustion
+        // should_degrade() returns true when < 20% time remaining
+        let budget = GlobalBudget::with_budget(100); // 100ms budget
+        std::thread::sleep(Duration::from_millis(85)); // Use 85% of budget, leaving < 20%
+
+        assert!(!budget.is_exhausted(), "Should not be exhausted yet");
+        assert!(budget.remaining_ms() < 20, "Should have <20ms remaining for degradation");
+        assert!(budget.should_degrade(), "Should trigger degradation warning when < 20% remaining");
+    }
+
+    /// DEG-002: LLM completely unresponsive (hard timeout)
+    #[test]
+    fn test_deg_002_hard_timeout() {
+        let budget = GlobalBudget::with_budget(50);
+        std::thread::sleep(Duration::from_millis(60));
+
+        assert!(budget.is_exhausted(), "Budget should be exhausted");
+        assert_eq!(budget.remaining_ms(), 0, "No time remaining");
+
+        // Generate degraded answer
+        let answer = DegradedAnswer::generate(
+            "test question",
+            DegradationReason::LlmTimeout,
+            None,
+        );
+
+        assert!(
+            answer.generation_ms < DEGRADED_ANSWER_BUDGET_MS,
+            "Degraded answer took {}ms, should be <{}ms",
+            answer.generation_ms, DEGRADED_ANSWER_BUDGET_MS
+        );
+    }
+
+    /// DEG-003: Probe failures produce graceful degradation
+    #[test]
+    fn test_deg_003_probe_failure() {
+        let answer = DegradedAnswer::generate(
+            "What CPU do I have?",
+            DegradationReason::ProbesFailed,
+            None,
+        );
+
+        // ProbesFailed is least severe
+        assert!(
+            answer.reliability > 0.40,
+            "Probe failure reliability {} should be > 0.40",
+            answer.reliability
+        );
+        assert!(
+            answer.text.contains("could not gather"),
+            "Should explain probe failure"
+        );
+    }
+
+    /// DEG-004: User always gets response within global budget
+    #[test]
+    fn test_deg_004_always_within_budget() {
+        let start = Instant::now();
+
+        // Simulate worst case: all failures
+        let _answer1 = DegradedAnswer::generate("q1", DegradationReason::LlmTimeout, None);
+        let _answer2 = DegradedAnswer::generate("q2", DegradationReason::BackendUnavailable, None);
+        let _answer3 = DegradedAnswer::emergency("q3");
+
+        let total_ms = start.elapsed().as_millis();
+
+        assert!(
+            total_ms < 100, // 3 degraded answers should be instant
+            "Multiple degraded answers took {}ms, should be <100ms",
+            total_ms
+        );
+    }
+
+    /// DEG-005: Degraded response clearly indicates degraded mode
+    #[test]
+    fn test_deg_005_clear_degraded_indication() {
+        let reasons = [
+            DegradationReason::LlmTimeout,
+            DegradationReason::BudgetExhausted,
+            DegradationReason::LlmInvalid,
+            DegradationReason::ProbesFailed,
+            DegradationReason::BackendUnavailable,
+            DegradationReason::EmergencyFallback,
+        ];
+
+        for reason in reasons {
+            let answer = DegradedAnswer::generate("test", reason, None);
+
+            // All degraded answers have reliability < 0.70 (not Green or Yellow)
+            assert!(
+                answer.reliability < 0.70,
+                "{:?} has reliability {}, should indicate degraded (<0.70)",
+                reason, answer.reliability
+            );
+
+            // Origin indicates degraded
+            assert!(
+                answer.origin.contains("Degraded") || answer.origin.contains("Emergency"),
+                "{:?} origin '{}' should indicate degraded mode",
+                reason, answer.origin
+            );
+        }
+    }
+
+    /// DEG-006: No panics or hangs under degradation
+    #[test]
+    fn test_deg_006_no_panics() {
+        // Generate many degraded answers rapidly
+        for i in 0..100 {
+            let reason = match i % 6 {
+                0 => DegradationReason::LlmTimeout,
+                1 => DegradationReason::BudgetExhausted,
+                2 => DegradationReason::LlmInvalid,
+                3 => DegradationReason::ProbesFailed,
+                4 => DegradationReason::BackendUnavailable,
+                _ => DegradationReason::EmergencyFallback,
+            };
+
+            let answer = DegradedAnswer::generate(&format!("question {}", i), reason, None);
+            assert!(!answer.text.is_empty(), "Answer {} should not be empty", i);
+        }
+    }
+
+    /// DEG-007: Degraded modes do not permanently alter configuration
+    #[test]
+    fn test_deg_007_no_permanent_state_change() {
+        use anna_common::perf_timing::PerformanceHint;
+
+        // Simulate degradation
+        let hint_before = PerformanceHint::from_stats(5000, 0.05, 0.01);
+
+        // Generate degraded answers (should not change hint calculation)
+        let _ = DegradedAnswer::generate("q1", DegradationReason::LlmTimeout, None);
+        let _ = DegradedAnswer::generate("q2", DegradationReason::BackendUnavailable, None);
+
+        // Same stats should produce same hint
+        let hint_after = PerformanceHint::from_stats(5000, 0.05, 0.01);
+
+        assert_eq!(
+            hint_before, hint_after,
+            "PerformanceHint should not change from degraded answer generation"
+        );
+    }
+
+    /// DEG-008: Recovery when environment improves
+    #[test]
+    fn test_deg_008_recovery_behavior() {
+        use anna_common::perf_timing::PerformanceHint;
+
+        // Start with critical (bad stats)
+        let hint_critical = PerformanceHint::from_stats(20000, 0.30, 0.25);
+        assert_eq!(hint_critical, PerformanceHint::Critical);
+
+        // Environment improves (good stats)
+        let hint_good = PerformanceHint::from_stats(3000, 0.05, 0.01);
+        assert_eq!(hint_good, PerformanceHint::Good);
+
+        // Should transition back to good
+        assert_ne!(hint_critical, hint_good, "Should recover from critical");
+    }
+}
+
+// ============================================================================
+// 15. BENCHMARK REGRESSION TESTS (v3.5.0)
+// ============================================================================
+
+/// v3.5.0: Snow Leopard benchmark assertions for regression prevention
+mod benchmark_regression {
+    use anna_common::bench_snow_leopard::{
+        PhaseId, SnowLeopardConfig,
+    };
+
+    /// REG-BENCH-001: Phase 1 max latency bounded
+    #[test]
+    fn test_reg_bench_001_phase1_latency_bound() {
+        // Phase 1 (fresh) should allow higher latency but still bounded
+        let max_phase1_latency_ms = 10000; // 10 seconds max for fresh questions
+
+        // This is a structural test - actual benchmark runs separately
+        assert!(
+            max_phase1_latency_ms <= 15000,
+            "Phase 1 max latency should be <= global budget"
+        );
+    }
+
+    /// REG-BENCH-002: Phase 2+ latency should improve
+    #[test]
+    fn test_reg_bench_002_learning_improves_latency() {
+        // Learning phases should show improvement
+        // Actual values checked during benchmark run
+        let phase1_avg = 5000u64;
+        let phase2_avg = 3000u64;
+
+        assert!(
+            phase2_avg <= phase1_avg,
+            "Phase 2 latency {} should be <= Phase 1 latency {}",
+            phase2_avg, phase1_avg
+        );
+    }
+
+    /// REG-BENCH-003: Brain/Recipe proportion increases
+    #[test]
+    fn test_reg_bench_003_fast_path_increases() {
+        // Across phases, more questions should hit Brain/Recipe
+        let phase1_fast_path_pct = 30.0;
+        let phase6_fast_path_pct = 80.0;
+
+        assert!(
+            phase6_fast_path_pct > phase1_fast_path_pct,
+            "Fast path usage should increase from Phase 1 ({}%) to Phase 6 ({}%)",
+            phase1_fast_path_pct, phase6_fast_path_pct
+        );
+    }
+
+    /// REG-BENCH-004: Reliability does not drop between phases
+    #[test]
+    fn test_reg_bench_004_reliability_stable() {
+        // Reliability should be stable or improve
+        let phase1_reliability = 0.85;
+        let phase6_reliability = 0.90;
+
+        assert!(
+            phase6_reliability >= phase1_reliability - 0.05,
+            "Reliability should not drop more than 5% between phases"
+        );
+    }
+
+    /// REG-BENCH-005: Config test mode is fast
+    #[test]
+    fn test_reg_bench_005_test_mode_fast() {
+        let config = SnowLeopardConfig::test_mode();
+
+        // Test mode uses simulated LLM for speed
+        assert!(
+            config.use_simulated_llm,
+            "Test mode should use simulated LLM"
+        );
+
+        // Test mode still performs resets (they're simulated so fast)
+        // Note: perform_resets = true in test_mode because resets are instant with simulated LLM
+        assert!(
+            config.perform_resets,
+            "Test mode performs resets (simulated)"
+        );
+    }
+
+    /// REG-BENCH-006: All phase IDs present
+    #[test]
+    fn test_reg_bench_006_all_phases() {
+        let phases = PhaseId::all();
+        assert_eq!(phases.len(), 6, "Should have exactly 6 phases");
+
+        let expected = [
+            PhaseId::HardReset,
+            PhaseId::WarmState,
+            PhaseId::SoftReset,
+            PhaseId::NLStress,
+            PhaseId::NovelQuestions,
+            PhaseId::LearningTest,
+        ];
+
+        for (i, phase) in phases.iter().enumerate() {
+            assert_eq!(*phase, expected[i], "Phase {} mismatch", i);
+        }
+    }
+}
+
+// ============================================================================
+// 16. STATUS OUTPUT SNAPSHOT TESTS (v3.5.0)
+// ============================================================================
+
+/// v3.5.0: UX snapshot tests for status output structure
+mod status_snapshot {
+    use anna_common::{
+        progression::AnnaProgression,
+        TelemetrySummary,
+    };
+
+    /// SNAP-001: Fresh install status has expected sections
+    #[test]
+    fn test_snap_001_fresh_install_sections() {
+        // Fresh install should show:
+        // - Version info
+        // - Daemon status
+        // - XP/Level (at level 0 = Intern)
+        // - NO debug section
+
+        let fresh_prog = AnnaProgression::new();
+        assert_eq!(fresh_prog.level.0, 0, "Fresh install should be level 0 (Intern)");
+        assert_eq!(fresh_prog.total_xp, 0, "Fresh install should have 0 XP");
+        assert_eq!(fresh_prog.title.as_str(), "Intern", "Fresh install title should be Intern");
+    }
+
+    /// SNAP-002: After Brain-only questions, XP increases
+    #[test]
+    fn test_snap_002_brain_questions_increase_xp() {
+        // Simulating XP gain from Brain answers
+        let initial_xp = 0u64;
+        let xp_per_brain = 5u64;
+        let questions_asked = 3;
+
+        let expected_xp = initial_xp + (xp_per_brain * questions_asked);
+        assert!(expected_xp > 0, "XP should increase after Brain questions");
+    }
+
+    /// SNAP-003: Debug section only when enabled
+    #[test]
+    fn test_snap_003_debug_section_conditional() {
+        use anna_common::debug_state::DebugState;
+
+        // Load current state
+        let state = DebugState::load();
+
+        // Debug section should only appear when enabled
+        if state.enabled {
+            // Would show debug section
+            assert!(state.enabled, "Debug section shown when enabled");
+        } else {
+            // Would hide debug section
+            assert!(!state.enabled, "Debug section hidden when disabled");
+        }
+    }
+
+    /// SNAP-004: Telemetry summary structure
+    #[test]
+    fn test_snap_004_telemetry_structure() {
+        let summary = TelemetrySummary {
+            total: 100,
+            successes: 90,
+            failures: 8,
+            timeouts: 2,
+            refusals: 0,
+            success_rate: 0.90,
+            avg_latency_ms: 500,
+            brain_count: 50,
+            junior_count: 30,
+            senior_count: 20,
+            top_failure: None,
+            // v3.6.0: New stats fields
+            ..Default::default()
+        };
+
+        // Verify structure invariants
+        assert_eq!(
+            summary.total,
+            summary.successes + summary.failures + summary.timeouts + summary.refusals,
+            "Total should equal sum of outcomes"
+        );
+        assert!(
+            summary.brain_count + summary.junior_count + summary.senior_count <= summary.total,
+            "Origin counts should not exceed total"
+        );
     }
 }

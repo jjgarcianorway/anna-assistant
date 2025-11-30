@@ -152,7 +152,7 @@ impl CommandLibrary {
     /// Register or update a command for a pattern
     pub fn register_command(&mut self, question: &str, command: &str, success: bool) {
         let key = Self::normalize_question(question);
-        let commands = self.patterns.entry(key).or_insert_with(Vec::new);
+        let commands = self.patterns.entry(key).or_default();
 
         if let Some(cmd) = commands.iter_mut().find(|c| c.command == command) {
             if success {

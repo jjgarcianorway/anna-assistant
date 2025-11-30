@@ -419,7 +419,7 @@ impl FinalAnswer {
         } else {
             // Use first sentence of answer as headline
             self.answer
-                .split(|c| c == '.' || c == '\n')
+                .split(['.', '\n'])
                 .next()
                 .unwrap_or(&self.answer)
                 .trim()

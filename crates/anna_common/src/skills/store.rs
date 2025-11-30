@@ -366,7 +366,7 @@ impl SkillStore {
         latency_ms: u64,
     ) -> Result<Skill> {
         // Generate skill ID from intent
-        let skill_id = format!("{}.learned_{}", intent, uuid::Uuid::new_v4().to_string()[..8].to_string());
+        let skill_id = format!("{}.learned_{}", intent, &uuid::Uuid::new_v4().to_string()[..8]);
 
         // Join command parts back into template
         let command_template = command_parts.join(" ");

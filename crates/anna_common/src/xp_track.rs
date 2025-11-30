@@ -119,7 +119,7 @@ impl XpTrack {
     /// Get XP progress within current level (0.0-1.0)
     pub fn level_progress(&self) -> f64 {
         let level_start = if self.level > 1 {
-            (1..self.level).map(|l| xp_for_level(l)).sum()
+            (1..self.level).map(xp_for_level).sum()
         } else {
             0
         };
@@ -176,7 +176,7 @@ impl XpTrack {
     fn check_level_up(&mut self) {
         while self.level < 99 {
             // Total XP needed to reach next level
-            let total_xp_for_next: u64 = (1..=self.level).map(|l| xp_for_level(l)).sum();
+            let total_xp_for_next: u64 = (1..=self.level).map(xp_for_level).sum();
             if self.xp >= total_xp_for_next {
                 self.level += 1;
                 self.xp_to_next = xp_for_level(self.level);
@@ -368,7 +368,7 @@ impl XpStore {
     // ========== Anna Events ==========
 
     /// Anna self-solved without LLM
-    pub fn anna_self_solve(&mut self, question: &str) -> String {
+    pub fn anna_self_solve(&mut self, _question: &str) -> String {
         self.anna.record_good(5, 0.02);
         self.anna_stats.self_solves += 1;
         self.anna_stats.total_questions += 1;
@@ -417,7 +417,7 @@ impl XpStore {
     // ========== Junior Events ==========
 
     /// Junior plan was good
-    pub fn junior_plan_good(&mut self, command: &str) -> String {
+    pub fn junior_plan_good(&mut self, _command: &str) -> String {
         self.junior.record_good(3, 0.02);
         self.junior_stats.good_plans += 1;
         let _ = self.save();

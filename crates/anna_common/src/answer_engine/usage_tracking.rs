@@ -63,6 +63,7 @@ impl Default for UsageTrackingConfig {
 
 /// Main usage tracker
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct UsageTracker {
     /// Configuration
     pub config: UsageTrackingConfig,
@@ -78,18 +79,6 @@ pub struct UsageTracker {
     pub pending_count: usize,
 }
 
-impl Default for UsageTracker {
-    fn default() -> Self {
-        Self {
-            config: UsageTrackingConfig::default(),
-            events: VecDeque::new(),
-            entity_stats: HashMap::new(),
-            patterns: PatternDetector::default(),
-            current_session: None,
-            pending_count: 0,
-        }
-    }
-}
 
 impl UsageTracker {
     /// Create with config

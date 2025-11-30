@@ -254,6 +254,7 @@ impl CacheConfig {
 
 /// Answer cache state
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AnswerCache {
     /// Cached answers by key
     pub entries: HashMap<String, CachedAnswer>,
@@ -265,16 +266,6 @@ pub struct AnswerCache {
     pub config: CacheConfig,
 }
 
-impl Default for AnswerCache {
-    fn default() -> Self {
-        Self {
-            entries: HashMap::new(),
-            lru_order: Vec::new(),
-            stats: CacheStatistics::default(),
-            config: CacheConfig::default(),
-        }
-    }
-}
 
 /// Cache statistics
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

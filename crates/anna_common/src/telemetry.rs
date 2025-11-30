@@ -33,6 +33,40 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
 // ============================================================================
+// Median Computation Helpers (v3.6.0)
+// ============================================================================
+
+/// Compute median of u64 values (sorts in place)
+fn compute_median_u64(values: &mut [u64]) -> u64 {
+    if values.is_empty() {
+        return 0;
+    }
+    values.sort_unstable();
+    let mid = values.len() / 2;
+    if values.len() % 2 == 0 {
+        // Even count: average of two middle values
+        (values[mid - 1] + values[mid]) / 2
+    } else {
+        values[mid]
+    }
+}
+
+/// Compute median of f64 values (sorts in place)
+fn compute_median_f64(values: &mut [f64]) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mid = values.len() / 2;
+    if values.len() % 2 == 0 {
+        // Even count: average of two middle values
+        (values[mid - 1] + values[mid]) / 2.0
+    } else {
+        values[mid]
+    }
+}
+
+// ============================================================================
 // Latency Budget Constants (v1.2.0)
 // ============================================================================
 
@@ -284,6 +318,7 @@ impl TelemetryRecorder {
 }
 
 /// Summary of telemetry metrics
+/// v3.6.0: Added worst/best/median stats
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TelemetrySummary {
     /// Total questions in period
@@ -300,6 +335,20 @@ pub struct TelemetrySummary {
     pub success_rate: f64,
     /// Average latency for successful answers (ms)
     pub avg_latency_ms: u64,
+    /// Min latency (best) - v3.6.0
+    pub min_latency_ms: u64,
+    /// Max latency (worst) - v3.6.0
+    pub max_latency_ms: u64,
+    /// Median latency - v3.6.0
+    pub median_latency_ms: u64,
+    /// Average reliability (0.0 - 1.0)
+    pub avg_reliability: f64,
+    /// Min reliability (worst) - v3.6.0
+    pub min_reliability: f64,
+    /// Max reliability (best) - v3.6.0
+    pub max_reliability: f64,
+    /// Median reliability - v3.6.0
+    pub median_reliability: f64,
     /// Questions answered by Brain
     pub brain_count: u64,
     /// Questions answered by Junior
@@ -312,6 +361,7 @@ pub struct TelemetrySummary {
 
 impl TelemetrySummary {
     /// Create summary from events
+    /// v3.6.0: Now computes worst/best/median stats
     pub fn from_events(events: &[TelemetryEvent]) -> Self {
         if events.is_empty() {
             return Self::default();
@@ -329,12 +379,27 @@ impl TelemetrySummary {
             0.0
         };
 
-        // Average latency of successful answers
+        // Latency stats (from successful answers only)
         let successful: Vec<_> = events.iter().filter(|e| e.outcome == Outcome::Success).collect();
-        let avg_latency_ms = if !successful.is_empty() {
-            successful.iter().map(|e| e.latency_ms).sum::<u64>() / successful.len() as u64
+        let (avg_latency_ms, min_latency_ms, max_latency_ms, median_latency_ms) = if !successful.is_empty() {
+            let mut latencies: Vec<u64> = successful.iter().map(|e| e.latency_ms).collect();
+            let avg = latencies.iter().sum::<u64>() / latencies.len() as u64;
+            let min = *latencies.iter().min().unwrap_or(&0);
+            let max = *latencies.iter().max().unwrap_or(&0);
+            let median = compute_median_u64(&mut latencies);
+            (avg, min, max, median)
         } else {
-            0
+            (0, 0, 0, 0)
+        };
+
+        // Reliability stats (from all events)
+        let (avg_reliability, min_reliability, max_reliability, median_reliability) = {
+            let mut reliabilities: Vec<f64> = events.iter().map(|e| e.reliability).collect();
+            let avg = reliabilities.iter().sum::<f64>() / reliabilities.len() as f64;
+            let min = reliabilities.iter().cloned().fold(f64::INFINITY, f64::min);
+            let max = reliabilities.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let median = compute_median_f64(&mut reliabilities);
+            (avg, min, max, median)
         };
 
         // Origin counts
@@ -362,6 +427,13 @@ impl TelemetrySummary {
             refusals,
             success_rate,
             avg_latency_ms,
+            min_latency_ms,
+            max_latency_ms,
+            median_latency_ms,
+            avg_reliability,
+            min_reliability,
+            max_reliability,
+            median_reliability,
             brain_count,
             junior_count,
             senior_count,
@@ -375,13 +447,23 @@ impl TelemetrySummary {
     }
 
     /// Format for display
+    /// v3.6.0: Now shows worst/best/median stats with percentages
     pub fn display(&self) -> String {
+        use crate::ui_colors::format_percentage;
+
         format!(
-            "Last 24h: {}/{} successful ({:.0}%), avg latency {}ms\n\
+            "Last 24h: {}/{} successful ({}), avg latency {}ms\n\
+             Latency: best {}ms, worst {}ms, median {}ms\n\
+             Reliability: best {}, worst {}, median {}, avg {}\n\
              Origins: Brain={}, Junior={}, Senior={}\n\
              Issues: {} failures, {} timeouts, {} refusals{}",
-            self.successes, self.total, self.success_rate * 100.0,
+            self.successes, self.total, format_percentage(self.success_rate),
             self.avg_latency_ms,
+            self.min_latency_ms, self.max_latency_ms, self.median_latency_ms,
+            format_percentage(self.max_reliability),
+            format_percentage(self.min_reliability),
+            format_percentage(self.median_reliability),
+            format_percentage(self.avg_reliability),
             self.brain_count, self.junior_count, self.senior_count,
             self.failures, self.timeouts, self.refusals,
             self.top_failure.as_ref().map(|f| format!(" (top: {})", f)).unwrap_or_default()
@@ -407,6 +489,7 @@ impl TelemetrySummary {
 // ============================================================================
 
 /// Detailed stats for a single origin (Brain/Junior/Senior)
+/// v3.6.0: Added worst/best/median stats for complete picture
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OriginStats {
     /// Number of questions handled by this origin
@@ -417,16 +500,25 @@ pub struct OriginStats {
     pub success_rate: f64,
     /// Average latency (ms)
     pub avg_latency_ms: u64,
-    /// Min latency seen
+    /// Min latency seen (best)
     pub min_latency_ms: u64,
-    /// Max latency seen
+    /// Max latency seen (worst)
     pub max_latency_ms: u64,
+    /// Median latency (ms) - v3.6.0
+    pub median_latency_ms: u64,
     /// Average reliability score
     pub avg_reliability: f64,
+    /// Min reliability (worst) - v3.6.0
+    pub min_reliability: f64,
+    /// Max reliability (best) - v3.6.0
+    pub max_reliability: f64,
+    /// Median reliability - v3.6.0
+    pub median_reliability: f64,
 }
 
 impl OriginStats {
     /// Create stats from events for a specific origin
+    /// v3.6.0: Now computes worst/best/median stats
     pub fn from_events(events: &[TelemetryEvent], origin: Origin) -> Self {
         let filtered: Vec<_> = events.iter().filter(|e| e.origin == origin).collect();
 
@@ -438,13 +530,19 @@ impl OriginStats {
         let successes = filtered.iter().filter(|e| e.outcome == Outcome::Success).count() as u64;
         let success_rate = successes as f64 / count as f64;
 
-        let latencies: Vec<u64> = filtered.iter().map(|e| e.latency_ms).collect();
+        // Latency stats
+        let mut latencies: Vec<u64> = filtered.iter().map(|e| e.latency_ms).collect();
         let avg_latency_ms = latencies.iter().sum::<u64>() / count;
         let min_latency_ms = *latencies.iter().min().unwrap_or(&0);
         let max_latency_ms = *latencies.iter().max().unwrap_or(&0);
+        let median_latency_ms = compute_median_u64(&mut latencies);
 
-        let reliabilities: Vec<f64> = filtered.iter().map(|e| e.reliability).collect();
+        // Reliability stats
+        let mut reliabilities: Vec<f64> = filtered.iter().map(|e| e.reliability).collect();
         let avg_reliability = reliabilities.iter().sum::<f64>() / count as f64;
+        let min_reliability = reliabilities.iter().cloned().fold(f64::INFINITY, f64::min);
+        let max_reliability = reliabilities.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let median_reliability = compute_median_f64(&mut reliabilities);
 
         Self {
             count,
@@ -453,20 +551,50 @@ impl OriginStats {
             avg_latency_ms,
             min_latency_ms,
             max_latency_ms,
+            median_latency_ms,
             avg_reliability,
+            min_reliability,
+            max_reliability,
+            median_reliability,
         }
     }
 
     /// Format for single-line display
+    /// v3.6.0: Updated to use format_percentage
     pub fn display_line(&self, name: &str) -> String {
+        use crate::ui_colors::format_percentage;
+
         if self.count == 0 {
             format!("  {}:  No data", name)
         } else {
             format!(
-                "  {}:  {} questions, {:.0}% success, {}ms avg latency",
-                name, self.count, self.success_rate * 100.0, self.avg_latency_ms
+                "  {}:  {} questions, {} success, {}ms avg latency",
+                name, self.count, format_percentage(self.success_rate), self.avg_latency_ms
             )
         }
+    }
+
+    /// Format for detailed multi-line display (v3.6.0)
+    pub fn display_detailed(&self, name: &str) -> String {
+        use crate::ui_colors::format_percentage;
+
+        if self.count == 0 {
+            return format!("  {}:  No data\n", name);
+        }
+
+        format!(
+            "  {}:  {} questions, {} success\n\
+             {}    Latency: avg {}ms, best {}ms, worst {}ms, median {}ms\n\
+             {}    Reliability: avg {}, best {}, worst {}, median {}",
+            name, self.count, format_percentage(self.success_rate),
+            " ".repeat(name.len()),
+            self.avg_latency_ms, self.min_latency_ms, self.max_latency_ms, self.median_latency_ms,
+            " ".repeat(name.len()),
+            format_percentage(self.avg_reliability),
+            format_percentage(self.max_reliability),
+            format_percentage(self.min_reliability),
+            format_percentage(self.median_reliability)
+        )
     }
 }
 
@@ -491,11 +619,21 @@ pub struct TelemetrySummaryComplete {
     pub has_data: bool,
     /// Status hint based on recent performance
     pub status_hint: String,
+    // v3.4.0: Rolling stats for performance hints
+    /// Rolling average latency (last 50 questions)
+    pub rolling_avg_latency_ms: u64,
+    /// Rolling failure rate (last 50 questions)
+    pub rolling_failure_rate: f64,
+    /// Rolling timeout rate (last 50 questions)
+    pub rolling_timeout_rate: f64,
 }
 
 impl TelemetrySummaryComplete {
     /// Format the complete summary for status display
+    /// v3.6.0: Enhanced with best/worst/median stats and percentages
     pub fn display(&self) -> String {
+        use crate::ui_colors::format_percentage;
+
         if !self.has_data {
             return "  📊  No telemetry data available yet.\n".to_string();
         }
@@ -504,17 +642,33 @@ impl TelemetrySummaryComplete {
 
         // Lifetime stats
         out.push_str(&format!(
-            "  📊  Lifetime:  {} questions, {:.0}% success rate\n",
-            self.lifetime.total, self.lifetime.success_rate * 100.0
+            "  📊  Lifetime:  {} questions, {} success rate\n",
+            self.lifetime.total, format_percentage(self.lifetime.success_rate)
         ));
 
-        // Window stats
+        // Window stats with reliability
         out.push_str(&format!(
-            "  📈  Recent (last {}):  {}/{} success ({:.0}%), {}ms avg\n",
+            "  📈  Recent (last {}):  {}/{} success ({}), {}ms avg\n",
             self.window_size.min(self.window.total as usize),
             self.window.successes, self.window.total,
-            self.window.success_rate * 100.0,
+            format_percentage(self.window.success_rate),
             self.window.avg_latency_ms
+        ));
+
+        // Reliability stats (v3.6.0)
+        out.push_str(&format!(
+            "  🎯  Reliability:  best {}, worst {}, median {}\n",
+            format_percentage(self.window.max_reliability),
+            format_percentage(self.window.min_reliability),
+            format_percentage(self.window.median_reliability)
+        ));
+
+        // Latency stats (v3.6.0)
+        out.push_str(&format!(
+            "  ⏱️  Latency:  best {}ms, worst {}ms, median {}ms\n",
+            self.window.min_latency_ms,
+            self.window.max_latency_ms,
+            self.window.median_latency_ms
         ));
 
         // Per-origin breakdown
@@ -530,6 +684,49 @@ impl TelemetrySummaryComplete {
         out.push_str(&format!("\n  💡  {}\n", self.status_hint));
 
         out
+    }
+}
+
+// ============================================================================
+// Rolling Stats (v3.4.0) - For Performance Hints
+// ============================================================================
+
+/// Rolling statistics for performance hint calculation
+#[derive(Debug, Clone, Default)]
+pub struct RollingStats {
+    /// Average latency in milliseconds
+    pub avg_latency_ms: u64,
+    /// Failure rate (0.0-1.0)
+    pub failure_rate: f64,
+    /// Timeout rate (0.0-1.0)
+    pub timeout_rate: f64,
+    /// Total events in the rolling window
+    pub count: usize,
+}
+
+impl RollingStats {
+    /// Compute rolling stats from events
+    pub fn from_events(events: &[TelemetryEvent]) -> Self {
+        if events.is_empty() {
+            return Self::default();
+        }
+
+        let count = events.len();
+        let total_latency: u64 = events.iter().map(|e| e.latency_ms).sum();
+        let avg_latency_ms = total_latency / count as u64;
+
+        let failures = events.iter().filter(|e| e.outcome == Outcome::Failure).count();
+        let timeouts = events.iter().filter(|e| e.outcome == Outcome::Timeout).count();
+
+        let failure_rate = failures as f64 / count as f64;
+        let timeout_rate = timeouts as f64 / count as f64;
+
+        Self {
+            avg_latency_ms,
+            failure_rate,
+            timeout_rate,
+            count,
+        }
     }
 }
 
@@ -642,6 +839,14 @@ impl TelemetryReader {
         let junior_stats = OriginStats::from_events(&window_events, Origin::Junior);
         let senior_stats = OriginStats::from_events(&window_events, Origin::Senior);
 
+        // v3.4.0: Compute rolling stats for performance hints (last 50)
+        let rolling_events: Vec<_> = if all_events.len() > 50 {
+            all_events[all_events.len() - 50..].to_vec()
+        } else {
+            all_events.clone()
+        };
+        let rolling_stats = RollingStats::from_events(&rolling_events);
+
         TelemetrySummaryComplete {
             lifetime,
             window,
@@ -651,6 +856,9 @@ impl TelemetryReader {
             senior_stats,
             has_data: true,
             status_hint,
+            rolling_avg_latency_ms: rolling_stats.avg_latency_ms,
+            rolling_failure_rate: rolling_stats.failure_rate,
+            rolling_timeout_rate: rolling_stats.timeout_rate,
         }
     }
 
@@ -755,6 +963,25 @@ pub fn get_24h_summary() -> TelemetrySummary {
     TelemetryRecorder::new().summary(24)
 }
 
+/// v3.4.0: Get performance hint from recent telemetry
+pub fn get_performance_hint() -> crate::perf_timing::PerformanceHint {
+    let reader = TelemetryReader::default_path();
+    let summary = reader.complete_summary(DEFAULT_WINDOW_SIZE);
+
+    crate::perf_timing::PerformanceHint::from_stats(
+        summary.rolling_avg_latency_ms,
+        summary.rolling_failure_rate,
+        summary.rolling_timeout_rate,
+    )
+}
+
+/// v3.4.0: Get rolling stats for last 50 questions
+pub fn get_rolling_stats() -> RollingStats {
+    let reader = TelemetryReader::default_path();
+    let events = reader.read_last_n(50);
+    RollingStats::from_events(&events)
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -763,6 +990,62 @@ pub fn get_24h_summary() -> TelemetrySummary {
 mod tests {
     use super::*;
     use tempfile::NamedTempFile;
+
+    // ========================================================================
+    // Median Calculation Tests (v3.6.0)
+    // ========================================================================
+
+    #[test]
+    fn test_median_u64_odd_count() {
+        let mut values = vec![3, 1, 5, 2, 4];
+        assert_eq!(compute_median_u64(&mut values), 3);
+    }
+
+    #[test]
+    fn test_median_u64_even_count() {
+        let mut values = vec![1, 2, 3, 4];
+        assert_eq!(compute_median_u64(&mut values), 2); // (2+3)/2 = 2 (integer division)
+    }
+
+    #[test]
+    fn test_median_u64_single() {
+        let mut values = vec![42];
+        assert_eq!(compute_median_u64(&mut values), 42);
+    }
+
+    #[test]
+    fn test_median_u64_empty() {
+        let mut values: Vec<u64> = vec![];
+        assert_eq!(compute_median_u64(&mut values), 0);
+    }
+
+    #[test]
+    fn test_median_f64_odd_count() {
+        let mut values = vec![3.0, 1.0, 5.0, 2.0, 4.0];
+        assert!((compute_median_f64(&mut values) - 3.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_median_f64_even_count() {
+        let mut values = vec![1.0, 2.0, 3.0, 4.0];
+        assert!((compute_median_f64(&mut values) - 2.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_median_f64_single() {
+        let mut values = vec![0.75];
+        assert!((compute_median_f64(&mut values) - 0.75).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_median_f64_empty() {
+        let mut values: Vec<f64> = vec![];
+        assert!((compute_median_f64(&mut values) - 0.0).abs() < 0.001);
+    }
+
+    // ========================================================================
+    // Telemetry Event Tests
+    // ========================================================================
 
     #[test]
     fn test_telemetry_event_creation() {
@@ -879,14 +1162,46 @@ mod tests {
         assert_eq!(brain_stats.avg_latency_ms, 20); // (10+20+30)/3
         assert_eq!(brain_stats.min_latency_ms, 10);
         assert_eq!(brain_stats.max_latency_ms, 30);
+        assert_eq!(brain_stats.median_latency_ms, 20); // sorted: [10, 20, 30], median = 20
+
+        // v3.6.0: Test reliability stats
+        assert!((brain_stats.min_reliability - 0.30).abs() < 0.01); // worst
+        assert!((brain_stats.max_reliability - 0.99).abs() < 0.01); // best
+        assert!((brain_stats.median_reliability - 0.95).abs() < 0.01); // median of [0.30, 0.95, 0.99]
 
         let junior_stats = OriginStats::from_events(&events, Origin::Junior);
         assert_eq!(junior_stats.count, 1);
         assert_eq!(junior_stats.successes, 1);
         assert_eq!(junior_stats.avg_latency_ms, 5000);
+        assert_eq!(junior_stats.median_latency_ms, 5000); // single value
+        assert!((junior_stats.median_reliability - 0.80).abs() < 0.01);
 
         let senior_stats = OriginStats::from_events(&events, Origin::Senior);
         assert_eq!(senior_stats.count, 0); // No Senior events
+    }
+
+    #[test]
+    fn test_telemetry_summary_new_stats() {
+        // v3.6.0: Test the new worst/best/median stats
+        let events = vec![
+            TelemetryEvent::new("q1", Outcome::Success, Origin::Brain, 0.99, 100),
+            TelemetryEvent::new("q2", Outcome::Success, Origin::Junior, 0.85, 500),
+            TelemetryEvent::new("q3", Outcome::Success, Origin::Senior, 0.70, 200),
+            TelemetryEvent::new("q4", Outcome::Failure, Origin::Error, 0.0, 1000),
+        ];
+
+        let summary = TelemetrySummary::from_events(&events);
+
+        // Latency stats (from successful events only)
+        assert_eq!(summary.min_latency_ms, 100);  // best
+        assert_eq!(summary.max_latency_ms, 500);  // worst
+        assert_eq!(summary.median_latency_ms, 200); // median of [100, 200, 500]
+
+        // Reliability stats (from all events)
+        assert!((summary.min_reliability - 0.0).abs() < 0.01);  // worst
+        assert!((summary.max_reliability - 0.99).abs() < 0.01); // best
+        // median of [0.0, 0.70, 0.85, 0.99] = (0.70 + 0.85) / 2 = 0.775
+        assert!((summary.median_reliability - 0.775).abs() < 0.01);
     }
 
     #[test]

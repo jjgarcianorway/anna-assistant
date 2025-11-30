@@ -124,6 +124,7 @@ impl UsageStats {
 
 /// Calculator for relevance scores
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct RelevanceCalculator {
     /// Configuration
     pub config: RelevanceConfig,
@@ -133,15 +134,6 @@ pub struct RelevanceCalculator {
     pub user_preferences: HashMap<String, f32>,
 }
 
-impl Default for RelevanceCalculator {
-    fn default() -> Self {
-        Self {
-            config: RelevanceConfig::default(),
-            current_session: None,
-            user_preferences: HashMap::new(),
-        }
-    }
-}
 
 impl RelevanceCalculator {
     /// Create with custom config

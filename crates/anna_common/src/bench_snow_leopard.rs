@@ -700,7 +700,7 @@ impl BenchmarkEngine {
 
         let is_success = reliability >= 0.7;
         let is_fallback = reliability < 0.7;
-        let is_partial = reliability >= 0.5 && reliability < 0.7;
+        let is_partial = (0.5..0.7).contains(&reliability);
         let origin = if probes.is_empty() { "Brain" } else { "Junior+Senior" };
 
         (answer, origin.to_string(), reliability, probes, is_success, is_fallback, is_partial)
@@ -711,7 +711,7 @@ impl BenchmarkEngine {
         let phase_name = phase_id.name().to_string();
         self.log(&format!("\n{}", "=".repeat(60)));
         self.log(&format!("PHASE {}: {}", phase_id.number(), phase_name));
-        self.log(&format!("{}", "=".repeat(60)));
+        self.log(&"=".repeat(60).to_string());
 
         let phase_start = Instant::now();
         let xp_before = XpSnapshot::capture();
@@ -755,7 +755,7 @@ impl BenchmarkEngine {
         let phase_id = PhaseId::LearningTest;
         self.log(&format!("\n{}", "=".repeat(60)));
         self.log(&format!("PHASE {}: {}", phase_id.number(), phase_id.name()));
-        self.log(&format!("{}", "=".repeat(60)));
+        self.log(&"=".repeat(60).to_string());
 
         let phase_start = Instant::now();
         let xp_before = XpSnapshot::capture();
@@ -799,9 +799,9 @@ impl BenchmarkEngine {
         };
 
         self.log(&format!("\n{}", "═".repeat(60)));
-        self.log(&format!("  SNOW LEOPARD BENCHMARK v1.4.0"));
+        self.log(&"  SNOW LEOPARD BENCHMARK v1.4.0".to_string());
         self.log(&format!("  Mode: {:?}", mode));
-        self.log(&format!("{}", "═".repeat(60)));
+        self.log(&"═".repeat(60).to_string());
 
         let xp_start = XpSnapshot::capture();
 
@@ -985,7 +985,7 @@ impl BenchmarkEngine {
         timestamp: &str,
         total_questions: usize,
         total_xp: &XpDelta,
-        total_probes: usize,
+        _total_probes: usize,
         origin_summary: &HashMap<String, usize>,
         latency_evolution: &[(String, u64)],
         reliability_evolution: &[(String, f64)],
@@ -1474,9 +1474,9 @@ pub fn compare_benchmarks(older: &SnowLeopardResult, newer: &SnowLeopardResult) 
     let delta_brain = newer.brain_usage_pct() - older.brain_usage_pct();
     let delta_llm = newer.llm_usage_pct() - older.llm_usage_pct();
 
-    let delta_xp_anna = newer.total_xp.anna as i64 - older.total_xp.anna as i64;
-    let delta_xp_junior = newer.total_xp.junior as i64 - older.total_xp.junior as i64;
-    let delta_xp_senior = newer.total_xp.senior as i64 - older.total_xp.senior as i64;
+    let delta_xp_anna = newer.total_xp.anna - older.total_xp.anna;
+    let delta_xp_junior = newer.total_xp.junior - older.total_xp.junior;
+    let delta_xp_senior = newer.total_xp.senior - older.total_xp.senior;
 
     // Per-phase deltas
     let mut phase_deltas = Vec::new();

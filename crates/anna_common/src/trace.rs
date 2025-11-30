@@ -265,7 +265,7 @@ impl DebugBlock {
         let mut out = String::new();
 
         // Header
-        out.push_str("\n");
+        out.push('\n');
         out.push_str("+==============================================================================+\n");
         out.push_str("|                           ANNA DEBUG OUTPUT v0.75.0                         |\n");
         out.push_str("+==============================================================================+\n");

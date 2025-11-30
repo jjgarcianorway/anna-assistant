@@ -171,7 +171,7 @@ impl FastQuestionType {
             return Self::Ram;
         }
         // Short forms: "ram?", "memory?"
-        if (q == "ram?" || q == "ram" || q == "memory?" || q == "memory") {
+        if q == "ram?" || q == "ram" || q == "memory?" || q == "memory" {
             return Self::Ram;
         }
 
@@ -270,17 +270,17 @@ impl FastQuestionType {
         // =================================================================
         // Daily Check-In (v2.2.0)
         // =================================================================
-        if crate::first_light::is_daily_checkin_question(&q) {
+        if crate::first_light::is_daily_checkin_question(q) {
             return Self::DailyCheckIn;
         }
 
         // =================================================================
         // Reset patterns (v1.3.0 - Experience vs Factory)
         // =================================================================
-        if is_factory_reset_question(&q) {
+        if is_factory_reset_question(q) {
             return Self::ResetFactory;
         }
-        if is_reset_experience_question(&q) {
+        if is_reset_experience_question(q) {
             return Self::ResetExperience;
         }
 
@@ -289,15 +289,15 @@ impl FastQuestionType {
         // =================================================================
         // v1.5.0: Check delta FIRST (more specific than history)
         // "show benchmark delta" should be delta, not history
-        if is_benchmark_delta_question(&q) {
+        if is_benchmark_delta_question(q) {
             return Self::BenchmarkDelta;
         }
-        if is_benchmark_history_question(&q) {
+        if is_benchmark_history_question(q) {
             return Self::BenchmarkHistory;
         }
         // Run benchmark
-        if is_benchmark_question(&q) {
-            if is_quick_benchmark(&q) {
+        if is_benchmark_question(q) {
+            if is_quick_benchmark(q) {
                 return Self::BenchmarkQuick;
             }
             return Self::BenchmarkFull;
@@ -1396,7 +1396,7 @@ pub fn fast_daily_checkin() -> Option<FastAnswer> {
 // ============================================================================
 
 /// Create a fallback answer when everything fails
-pub fn create_fallback_answer(question: &str, evidence: Option<&str>, error: &str) -> FastAnswer {
+pub fn create_fallback_answer(_question: &str, evidence: Option<&str>, error: &str) -> FastAnswer {
     let text = if let Some(ev) = evidence {
         format!(
             "I could not answer this question reliably because {}.\n\nEvidence I collected:\n{}",
@@ -1422,7 +1422,7 @@ pub fn create_fallback_answer(question: &str, evidence: Option<&str>, error: &st
 }
 
 /// Create a partial answer from available evidence
-pub fn create_partial_answer(question: &str, evidence: &str, probe_used: &str) -> Option<FastAnswer> {
+pub fn create_partial_answer(question: &str, evidence: &str, _probe_used: &str) -> Option<FastAnswer> {
     let qtype = FastQuestionType::classify(question);
 
     match qtype {

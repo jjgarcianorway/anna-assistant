@@ -14,8 +14,10 @@ pub const PROTOCOL_VERSION_V26: &str = "0.26.0";
 /// Update download state
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum DownloadState {
     /// Not downloading
+    #[default]
     Idle,
     /// Checking for updates
     Checking,
@@ -31,11 +33,6 @@ pub enum DownloadState {
     Failed { reason: String },
 }
 
-impl Default for DownloadState {
-    fn default() -> Self {
-        Self::Idle
-    }
-}
 
 /// Update installation strategy
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
