@@ -1,4 +1,4 @@
-//! Anna State Manager v3.13.3
+//! Anna State Manager v3.13.5
 //!
 //! Unified state management for Anna with atomic operations and proper permissions.
 //!
@@ -58,6 +58,12 @@ pub const BENCHMARKS_DIR: &str = "/var/lib/anna/benchmarks";
 
 /// Model registry file
 pub const MODEL_REGISTRY_FILE: &str = "/var/lib/anna/model_registry.json";
+
+/// Anna stats file (StatsEngine) - CRITICAL: status reads from this
+pub const ANNA_STATS_FILE: &str = "/var/lib/anna/knowledge/stats/anna_stats.json";
+
+/// Telemetry fallback file - CRITICAL: used when /var/log/anna not writable
+pub const TELEMETRY_FALLBACK_FILE: &str = "/tmp/anna-telemetry.jsonl";
 
 // ============================================================================
 // Atomic File Operations
@@ -168,6 +174,7 @@ pub struct StateVerification {
     pub telemetry_reset: bool,
     pub xp_events_reset: bool,
     pub stats_reset: bool,
+    pub anna_stats_reset: bool,  // v3.13.5: StatsEngine file
     pub knowledge_reset: bool,
     pub llm_state_reset: bool,
     pub benchmarks_reset: bool,
@@ -182,6 +189,7 @@ impl StateVerification {
             telemetry_reset: false,
             xp_events_reset: false,
             stats_reset: false,
+            anna_stats_reset: false,
             knowledge_reset: false,
             llm_state_reset: false,
             benchmarks_reset: false,
@@ -194,7 +202,8 @@ impl StateVerification {
         self.all_verified = self.xp_reset
             && self.telemetry_reset
             && self.xp_events_reset
-            && self.stats_reset;
+            && self.stats_reset
+            && self.anna_stats_reset;
     }
 
     pub fn verify_hard_reset(&mut self) {
@@ -202,6 +211,7 @@ impl StateVerification {
             && self.telemetry_reset
             && self.xp_events_reset
             && self.stats_reset
+            && self.anna_stats_reset
             && self.knowledge_reset
             && self.llm_state_reset
             && self.benchmarks_reset;
@@ -340,7 +350,9 @@ pub fn baseline_xp_store() -> String {
 pub struct AnnaStateManager {
     pub xp_store_path: PathBuf,
     pub telemetry_path: PathBuf,
+    pub telemetry_fallback_path: PathBuf,  // v3.13.5: /tmp fallback
     pub xp_events_path: PathBuf,
+    pub anna_stats_path: PathBuf,          // v3.13.5: StatsEngine file
     pub stats_dir: PathBuf,
     pub knowledge_dir: PathBuf,
     pub llm_state_dir: PathBuf,
@@ -359,7 +371,9 @@ impl AnnaStateManager {
         Self {
             xp_store_path: PathBuf::from(XP_STORE_FILE),
             telemetry_path: PathBuf::from(TELEMETRY_FILE),
+            telemetry_fallback_path: PathBuf::from(TELEMETRY_FALLBACK_FILE),
             xp_events_path: PathBuf::from(XP_EVENTS_FILE),
+            anna_stats_path: PathBuf::from(ANNA_STATS_FILE),
             stats_dir: PathBuf::from(STATS_DIR),
             knowledge_dir: PathBuf::from(KNOWLEDGE_DIR),
             llm_state_dir: PathBuf::from(LLM_STATE_DIR),
@@ -372,7 +386,9 @@ impl AnnaStateManager {
         Self {
             xp_store_path: root.join("var/lib/anna/xp/xp_store.json"),
             telemetry_path: root.join("var/log/anna/telemetry.jsonl"),
+            telemetry_fallback_path: root.join("tmp/anna-telemetry.jsonl"),
             xp_events_path: root.join("var/lib/anna/knowledge/stats/xp_events.jsonl"),
+            anna_stats_path: root.join("var/lib/anna/knowledge/stats/anna_stats.json"),
             stats_dir: root.join("var/lib/anna/knowledge/stats"),
             knowledge_dir: root.join("var/lib/anna/knowledge"),
             llm_state_dir: root.join("var/lib/anna/llm"),
@@ -486,31 +502,51 @@ impl AnnaStateManager {
     }
 
     /// Reset telemetry (truncate to empty)
+    /// v3.13.5: Also clears the fallback path (/tmp/anna-telemetry.jsonl)
     pub fn reset_telemetry(&self) -> io::Result<()> {
+        // Clear primary telemetry file
         if self.telemetry_path.exists() {
-            // Truncate by creating empty file
             File::create(&self.telemetry_path)?;
+        }
+        // v3.13.5: Also clear fallback telemetry file
+        if self.telemetry_fallback_path.exists() {
+            File::create(&self.telemetry_fallback_path)?;
         }
         Ok(())
     }
 
-    /// Get telemetry line count
+    /// Get telemetry line count (checks both primary and fallback)
     pub fn telemetry_line_count(&self) -> usize {
-        if let Ok(content) = fs::read_to_string(&self.telemetry_path) {
+        let primary = if let Ok(content) = fs::read_to_string(&self.telemetry_path) {
             content.lines().count()
         } else {
             0
-        }
+        };
+        let fallback = if let Ok(content) = fs::read_to_string(&self.telemetry_fallback_path) {
+            content.lines().count()
+        } else {
+            0
+        };
+        primary + fallback
     }
 
-    /// Verify telemetry is empty
+    /// Verify telemetry is empty (both primary and fallback)
     pub fn verify_telemetry_empty(&self) -> bool {
-        if self.telemetry_path.exists() {
-            if let Ok(meta) = fs::metadata(&self.telemetry_path) {
-                return meta.len() == 0;
-            }
-        }
-        true // No file = empty
+        let primary_empty = if self.telemetry_path.exists() {
+            fs::metadata(&self.telemetry_path)
+                .map(|m| m.len() == 0)
+                .unwrap_or(true)
+        } else {
+            true
+        };
+        let fallback_empty = if self.telemetry_fallback_path.exists() {
+            fs::metadata(&self.telemetry_fallback_path)
+                .map(|m| m.len() == 0)
+                .unwrap_or(true)
+        } else {
+            true
+        };
+        primary_empty && fallback_empty
     }
 
     // ========================================================================
@@ -568,6 +604,24 @@ impl AnnaStateManager {
             }
         }
         true
+    }
+
+    // ========================================================================
+    // Anna Stats Operations (v3.13.5)
+    // ========================================================================
+
+    /// Reset anna_stats.json (StatsEngine) to empty/baseline
+    /// This is the file that `anna status` reads for progression data
+    pub fn reset_anna_stats(&self) -> io::Result<()> {
+        if self.anna_stats_path.exists() {
+            safe_delete(&self.anna_stats_path)?;
+        }
+        Ok(())
+    }
+
+    /// Verify anna_stats.json does not exist or is empty
+    pub fn verify_anna_stats_reset(&self) -> bool {
+        !self.anna_stats_path.exists()
     }
 
     // ========================================================================
@@ -649,6 +703,7 @@ impl AnnaStateManager {
     // ========================================================================
 
     /// Soft reset: XP to baseline, clear telemetry/stats, preserve knowledge
+    /// v3.13.5: Now also clears anna_stats.json and telemetry fallback
     pub fn reset_soft(&self) -> ResetResult {
         let mut result = ResetResult::new("soft");
 
@@ -663,9 +718,9 @@ impl AnnaStateManager {
             Err(e) => result.add_error(&format!("Failed to reset XP store: {}", e)),
         }
 
-        // 2. Reset telemetry
+        // 2. Reset telemetry (primary + fallback)
         match self.reset_telemetry() {
-            Ok(_) => result.add_reset("Telemetry"),
+            Ok(_) => result.add_reset("Telemetry (primary + fallback)"),
             Err(e) => result.add_error(&format!("Failed to reset telemetry: {}", e)),
         }
 
@@ -677,8 +732,14 @@ impl AnnaStateManager {
 
         // 4. Reset stats directory
         match self.reset_stats() {
-            Ok(_) => result.add_reset("Stats"),
+            Ok(_) => result.add_reset("Stats directory"),
             Err(e) => result.add_error(&format!("Failed to reset stats: {}", e)),
+        }
+
+        // 5. v3.13.5: Reset anna_stats.json (StatsEngine file)
+        match self.reset_anna_stats() {
+            Ok(_) => result.add_reset("Anna stats (StatsEngine)"),
+            Err(e) => result.add_error(&format!("Failed to reset anna_stats: {}", e)),
         }
 
         // Verify reset
@@ -691,6 +752,7 @@ impl AnnaStateManager {
     }
 
     /// Hard reset: Everything including knowledge, LLM state, benchmarks
+    /// v3.13.5: Now also clears anna_stats.json and telemetry fallback
     pub fn reset_hard(&self) -> ResetResult {
         let mut result = ResetResult::new("hard");
 
@@ -705,9 +767,9 @@ impl AnnaStateManager {
             Err(e) => result.add_error(&format!("Failed to reset XP store: {}", e)),
         }
 
-        // 2. Reset telemetry
+        // 2. Reset telemetry (primary + fallback)
         match self.reset_telemetry() {
-            Ok(_) => result.add_reset("Telemetry"),
+            Ok(_) => result.add_reset("Telemetry (primary + fallback)"),
             Err(e) => result.add_error(&format!("Failed to reset telemetry: {}", e)),
         }
 
@@ -719,23 +781,29 @@ impl AnnaStateManager {
 
         // 4. Reset stats directory
         match self.reset_stats() {
-            Ok(_) => result.add_reset("Stats"),
+            Ok(_) => result.add_reset("Stats directory"),
             Err(e) => result.add_error(&format!("Failed to reset stats: {}", e)),
         }
 
-        // 5. Reset knowledge (hard reset only)
+        // 5. v3.13.5: Reset anna_stats.json (StatsEngine file)
+        match self.reset_anna_stats() {
+            Ok(_) => result.add_reset("Anna stats (StatsEngine)"),
+            Err(e) => result.add_error(&format!("Failed to reset anna_stats: {}", e)),
+        }
+
+        // 6. Reset knowledge (hard reset only)
         match self.reset_knowledge() {
             Ok(_) => result.add_reset("Knowledge"),
             Err(e) => result.add_error(&format!("Failed to reset knowledge: {}", e)),
         }
 
-        // 6. Reset LLM state / autoprovision
+        // 7. Reset LLM state / autoprovision
         match self.reset_llm_state() {
             Ok(_) => result.add_reset("LLM state"),
             Err(e) => result.add_error(&format!("Failed to reset LLM state: {}", e)),
         }
 
-        // 7. Reset benchmarks
+        // 8. Reset benchmarks
         match self.reset_benchmarks() {
             Ok(_) => result.add_reset("Benchmarks"),
             Err(e) => result.add_error(&format!("Failed to reset benchmarks: {}", e)),
@@ -751,6 +819,7 @@ impl AnnaStateManager {
     }
 
     /// Verify soft reset completed
+    /// v3.13.5: Now also checks anna_stats.json
     pub fn verify_soft_reset(&self) -> StateVerification {
         let mut v = StateVerification::new();
 
@@ -758,17 +827,20 @@ impl AnnaStateManager {
         v.telemetry_reset = self.verify_telemetry_empty();
         v.xp_events_reset = self.verify_xp_events_empty();
         v.stats_reset = self.verify_stats_empty();
+        v.anna_stats_reset = self.verify_anna_stats_reset();
 
         if !v.xp_reset { v.errors.push("XP not at baseline".to_string()); }
-        if !v.telemetry_reset { v.errors.push("Telemetry not empty".to_string()); }
+        if !v.telemetry_reset { v.errors.push("Telemetry not empty (check both primary and /tmp fallback)".to_string()); }
         if !v.xp_events_reset { v.errors.push("XP events not empty".to_string()); }
-        if !v.stats_reset { v.errors.push("Stats not empty".to_string()); }
+        if !v.stats_reset { v.errors.push("Stats directory not empty".to_string()); }
+        if !v.anna_stats_reset { v.errors.push("anna_stats.json still exists".to_string()); }
 
         v.verify_soft_reset();
         v
     }
 
     /// Verify hard reset completed
+    /// v3.13.5: Now also checks anna_stats.json
     pub fn verify_hard_reset(&self) -> StateVerification {
         let mut v = StateVerification::new();
 
@@ -776,14 +848,16 @@ impl AnnaStateManager {
         v.telemetry_reset = self.verify_telemetry_empty();
         v.xp_events_reset = self.verify_xp_events_empty();
         v.stats_reset = self.verify_stats_empty();
+        v.anna_stats_reset = self.verify_anna_stats_reset();
         v.knowledge_reset = self.verify_knowledge_empty();
         v.llm_state_reset = self.verify_llm_state_empty();
         v.benchmarks_reset = self.verify_benchmarks_empty();
 
         if !v.xp_reset { v.errors.push("XP not at baseline".to_string()); }
-        if !v.telemetry_reset { v.errors.push("Telemetry not empty".to_string()); }
+        if !v.telemetry_reset { v.errors.push("Telemetry not empty (check both primary and /tmp fallback)".to_string()); }
         if !v.xp_events_reset { v.errors.push("XP events not empty".to_string()); }
-        if !v.stats_reset { v.errors.push("Stats not empty".to_string()); }
+        if !v.stats_reset { v.errors.push("Stats directory not empty".to_string()); }
+        if !v.anna_stats_reset { v.errors.push("anna_stats.json still exists".to_string()); }
         if !v.knowledge_reset { v.errors.push("Knowledge not empty".to_string()); }
         if !v.llm_state_reset { v.errors.push("LLM state not empty".to_string()); }
         if !v.benchmarks_reset { v.errors.push("Benchmarks not empty".to_string()); }
