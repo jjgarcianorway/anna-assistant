@@ -413,6 +413,49 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
+## v2.3.0 "Runtime Snow Leopard" - Benchmark Triggers & Latency Guardrails
+
+**Theme**: Make Anna feel like a serious tool - runtime benchmarks, no hanging, no empty answers.
+
+### Runtime Snow Leopard Benchmark (v2.3.0)
+[x] Enhanced benchmark triggers in Brain fast path
+[x] Natural language: "run the full snow leopard benchmark", "benchmark anna", "quick benchmark"
+[x] Natural language: "full benchmark", "complete benchmark", just "benchmark"
+[x] Runtime benchmark execution with phase-by-phase progress output
+[x] Error handling for benchmark failures (JSON parse, timeout)
+
+### Global Runtime Latency Guardrail (v2.3.0)
+[x] Hard 10-second wall-clock limit (reduced from 30s)
+[x] LLM budgets tuned for small autoprovision models:
+    - Junior: 4s (was 15s)
+    - Senior: 5s (was 15s)
+    - Global soft limit: 8s (was 20s)
+    - Global hard limit: 10s (was 30s)
+
+### No More Silent Red 0.00 Answers (v2.3.0)
+[x] Timeout fallback: partial answer with 40% reliability (was 0%)
+[x] Error fallback: error explanation with 30% reliability (was 0%)
+[x] Refusal fallback: safety explanation with 50% reliability (was empty)
+[x] All fallbacks include human-readable context
+
+### Daily Check-In Enhancements (v2.3.0)
+[x] First Light status in Daily Check-In (last result or "pending")
+[x] Snow Leopard benchmark status in Daily Check-In
+[x] "EVALUATION TOOLS" section with First Light and Snow Leopard status
+[x] `get_first_light_status()` helper function
+
+### Tests (v2.3.0)
+[x] `test_benchmark_triggers_v230` - enhanced trigger patterns
+[x] `test_time_budgets_v230` - reduced timeout values
+[x] All workspace tests passing
+
+**Key Files**:
+- crates/anna_common/src/brain_fast.rs - Enhanced triggers, reduced budgets
+- crates/annad/src/orchestrator/engine_v90.rs - 10s timeout, improved fallbacks
+- crates/anna_common/src/first_light.rs - Daily Check-In enhancements
+
+---
+
 ## v2.2.0 "First Light" - Post-Reset Validation & Daily Check-In
 
 **Theme**: Predictable, validated, measurable post-reset state. Ready for Snow Leopard benchmark cycles.

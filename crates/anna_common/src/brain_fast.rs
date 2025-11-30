@@ -98,11 +98,12 @@ fn get_cached_ram_total() -> Option<u64> {
 /// Time budget for Brain fast path (150ms)
 pub const BRAIN_BUDGET_MS: u64 = 150;
 
-/// v0.87.0 time budgets
-pub const LLM_A_BUDGET_MS: u64 = 15000;  // Junior: 15 seconds
-pub const LLM_B_BUDGET_MS: u64 = 15000;  // Senior: 15 seconds
-pub const GLOBAL_SOFT_LIMIT_MS: u64 = 20000;  // 20 second soft target
-pub const GLOBAL_HARD_LIMIT_MS: u64 = 30000;  // 30 second hard cutoff
+/// v2.3.0: Reduced time budgets for small autoprovision models
+/// These models (qwen2.5:1.5b-instruct) should respond in 2-3 seconds
+pub const LLM_A_BUDGET_MS: u64 = 4000;   // Junior: 4 seconds (was 15s)
+pub const LLM_B_BUDGET_MS: u64 = 5000;   // Senior: 5 seconds (was 15s)
+pub const GLOBAL_SOFT_LIMIT_MS: u64 = 8000;   // 8 second soft target (was 20s)
+pub const GLOBAL_HARD_LIMIT_MS: u64 = 10000;  // 10 second hard cutoff (was 30s)
 
 // ============================================================================
 // Question Pattern Matching
@@ -307,26 +308,35 @@ impl FastQuestionType {
 }
 
 /// Check if question is asking for Snow Leopard benchmark (v1.4.0)
+/// v2.3.0: Enhanced triggers for "run the full snow leopard benchmark", etc.
 fn is_benchmark_question(q: &str) -> bool {
     // "snow leopard benchmark" / "snow leopard test"
     if q.contains("snow leopard") && (q.contains("benchmark") || q.contains("test")) {
         return true;
     }
-    // "run benchmark" / "run the benchmark"
+    // "run benchmark" / "run the benchmark" / "run a benchmark"
     if q.contains("run") && q.contains("benchmark") {
         return true;
     }
-    // "run the snow leopard"
+    // "run the snow leopard" / "run snow leopard"
     if q.contains("run") && q.contains("snow leopard") {
         return true;
     }
-    // "benchmark anna" / "benchmark yourself"
-    if q.contains("benchmark") && (q.contains("anna") || q.contains("yourself")) {
+    // "benchmark anna" / "benchmark yourself" / "benchmark me"
+    if q.contains("benchmark") && (q.contains("anna") || q.contains("yourself") || q.contains(" me")) {
         return true;
     }
     // "sanity benchmark" / "quick benchmark" / "fast benchmark" / "short benchmark"
     if q.contains("benchmark") && (q.contains("sanity") || q.contains("quick")
         || q.contains("fast") || q.contains("short")) {
+        return true;
+    }
+    // v2.3.0: "full benchmark" / "complete benchmark"
+    if q.contains("benchmark") && (q.contains("full") || q.contains("complete")) {
+        return true;
+    }
+    // v2.3.0: Just "benchmark" alone (interpreted as full)
+    if q.trim() == "benchmark" || q.trim() == "benchmark!" {
         return true;
     }
     false
@@ -1878,5 +1888,64 @@ mod tests {
             FastQuestionType::classify("has benchmark improved"),
             FastQuestionType::BenchmarkDelta
         );
+    }
+
+    // v2.3.0: Enhanced benchmark trigger tests
+    #[test]
+    fn test_v230_enhanced_benchmark_triggers() {
+        // "run the full snow leopard benchmark" - should be full
+        assert_eq!(
+            FastQuestionType::classify("run the full snow leopard benchmark"),
+            FastQuestionType::BenchmarkFull
+        );
+
+        // "benchmark anna" - should be full
+        assert_eq!(
+            FastQuestionType::classify("benchmark anna"),
+            FastQuestionType::BenchmarkFull
+        );
+
+        // Just "benchmark" alone - should be full
+        assert_eq!(
+            FastQuestionType::classify("benchmark"),
+            FastQuestionType::BenchmarkFull
+        );
+
+        // "run a quick benchmark" - should be quick
+        assert_eq!(
+            FastQuestionType::classify("run a quick benchmark"),
+            FastQuestionType::BenchmarkQuick
+        );
+
+        // "full benchmark" - should be full
+        assert_eq!(
+            FastQuestionType::classify("full benchmark"),
+            FastQuestionType::BenchmarkFull
+        );
+
+        // "complete benchmark" - should be full
+        assert_eq!(
+            FastQuestionType::classify("complete benchmark"),
+            FastQuestionType::BenchmarkFull
+        );
+    }
+
+    // v2.3.0: Test reduced time budgets
+    #[test]
+    fn test_v230_reduced_time_budgets() {
+        // Junior budget should be 4 seconds (was 15s)
+        assert_eq!(LLM_A_BUDGET_MS, 4000);
+
+        // Senior budget should be 5 seconds (was 15s)
+        assert_eq!(LLM_B_BUDGET_MS, 5000);
+
+        // Global hard limit should be 10 seconds (was 30s)
+        assert_eq!(GLOBAL_HARD_LIMIT_MS, 10000);
+
+        // Global soft limit should be 8 seconds (was 20s)
+        assert_eq!(GLOBAL_SOFT_LIMIT_MS, 8000);
+
+        // Brain budget remains unchanged at 150ms
+        assert_eq!(BRAIN_BUDGET_MS, 150);
     }
 }

@@ -417,7 +417,7 @@ fn check_telemetry_sanity(repairs: &mut Vec<String>) -> (bool, String) {
 // Daily Check-In
 // ============================================================================
 
-/// Daily check-in summary
+/// Daily check-in summary (v2.3.0: enhanced with First Light and Snow Leopard)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DailyCheckIn {
     /// System uptime
@@ -438,12 +438,17 @@ pub struct DailyCheckIn {
     pub model_rating: u32,
     /// Overall status
     pub status: String,
+    /// v2.3.0: First Light status
+    pub first_light_status: String,
+    /// v2.3.0: Last Snow Leopard benchmark status
+    pub snow_leopard_status: String,
 }
 
 impl DailyCheckIn {
-    /// Generate daily check-in from current state
+    /// Generate daily check-in from current state (v2.3.0: enhanced)
     pub fn generate() -> Self {
         use crate::xp_track::XpStore;
+        use crate::bench_snow_leopard::LastBenchmarkSummary;
 
         let store = XpStore::load();
 
@@ -492,6 +497,23 @@ impl DailyCheckIn {
             "🔴  Needs attention".to_string()
         };
 
+        // v2.3.0: First Light status
+        let first_light_status = get_first_light_status();
+
+        // v2.3.0: Snow Leopard status
+        let snow_leopard_status = match LastBenchmarkSummary::load() {
+            Some(summary) => {
+                format!(
+                    "Last run: {} ({:?}, {:.1}% success, {}ms avg)",
+                    summary.timestamp,
+                    summary.mode,
+                    summary.success_rate,
+                    summary.avg_latency_ms
+                )
+            }
+            None => "Not run yet. Try: \"run the snow leopard benchmark\"".to_string(),
+        };
+
         Self {
             uptime,
             xp_today: store.anna.xp, // TODO: track daily XP
@@ -502,10 +524,12 @@ impl DailyCheckIn {
             repairs_today: 0, // TODO: track repairs
             model_rating,
             status,
+            first_light_status,
+            snow_leopard_status,
         }
     }
 
-    /// Format for display
+    /// Format for display (v2.3.0: enhanced with First Light and Snow Leopard)
     pub fn format_display(&self) -> String {
         let mut lines = Vec::new();
 
@@ -515,6 +539,7 @@ impl DailyCheckIn {
         lines.push("═══════════════════════════════════════════".to_string());
         lines.push(String::new());
 
+        // Core stats
         lines.push(format!("  ⏰  Uptime: {}", self.uptime));
         lines.push(format!("  🎮  XP Today: +{}", self.xp_today));
         lines.push(format!(
@@ -531,11 +556,51 @@ impl DailyCheckIn {
         lines.push(format!("  🤖  Model Rating: {}%", self.model_rating));
 
         lines.push(String::new());
-        lines.push(format!("  Status: {}", self.status));
-        lines.push(String::new());
+        lines.push("───────────────────────────────────────────".to_string());
+        lines.push("  EVALUATION TOOLS".to_string());
         lines.push("───────────────────────────────────────────".to_string());
 
+        // v2.3.0: First Light status
+        lines.push(format!("  🌅  First Light: {}", self.first_light_status));
+
+        // v2.3.0: Snow Leopard status
+        lines.push(format!("  🐆  Snow Leopard: {}", self.snow_leopard_status));
+
+        lines.push(String::new());
+        lines.push("───────────────────────────────────────────".to_string());
+        lines.push(format!("  Status: {}", self.status));
+        lines.push("═══════════════════════════════════════════".to_string());
+
         lines.join("\n")
+    }
+}
+
+/// Get First Light status (v2.3.0)
+/// Checks if First Light self-test has been run and returns summary
+fn get_first_light_status() -> String {
+    // First Light results are stored in /var/lib/anna/first_light/last_result.json
+    let first_light_path = Path::new("/var/lib/anna/first_light/last_result.json");
+
+    if first_light_path.exists() {
+        if let Ok(content) = fs::read_to_string(first_light_path) {
+            // Try to parse and extract key info
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                let all_passed = json.get("all_passed").and_then(|v| v.as_bool()).unwrap_or(false);
+                let total_xp = json.get("total_xp").and_then(|v| v.as_u64()).unwrap_or(0);
+                let timestamp = json.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown");
+
+                let status = if all_passed { "✅" } else { "⚠️" };
+                return format!("{} Run at {}, +{} XP", status, timestamp, total_xp);
+            }
+        }
+    }
+
+    // Check if hard reset was done recently (first light should have run)
+    let init_marker = Path::new("/var/lib/anna/.initialized");
+    if init_marker.exists() {
+        "Not yet run. Will auto-run after hard reset.".to_string()
+    } else {
+        "Pending (fresh install, awaiting first run)".to_string()
     }
 }
 
@@ -662,5 +727,35 @@ mod tests {
         let result = run_sanity_checks();
         // XP should be valid on a fresh system
         assert!(!result.xp_message.is_empty());
+    }
+
+    // v2.3.0: Test daily check-in has First Light and Snow Leopard fields
+    #[test]
+    fn test_v230_daily_checkin_fields() {
+        let checkin = DailyCheckIn::generate();
+
+        // v2.3.0: New fields should exist and not be empty
+        assert!(!checkin.first_light_status.is_empty());
+        assert!(!checkin.snow_leopard_status.is_empty());
+
+        // Format display should include new sections
+        let display = checkin.format_display();
+        assert!(display.contains("EVALUATION TOOLS"));
+        assert!(display.contains("First Light:"));
+        assert!(display.contains("Snow Leopard:"));
+    }
+
+    // v2.3.0: Test First Light status helper
+    #[test]
+    fn test_v230_first_light_status() {
+        let status = get_first_light_status();
+        // Should return something reasonable
+        assert!(!status.is_empty());
+        // Should contain one of the expected states
+        assert!(
+            status.contains("Run at") ||
+            status.contains("Not yet run") ||
+            status.contains("Pending")
+        );
     }
 }
