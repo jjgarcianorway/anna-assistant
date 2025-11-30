@@ -505,6 +505,19 @@ async fn run_status() -> Result<()> {
                 println!("  Configured: {}", local.format("%Y-%m-%d %H:%M").to_string().dimmed());
             }
         }
+
+        // v4.3.0: Show if models are downgraded
+        if selection.is_downgraded() {
+            println!("  {}  {}", "⚡".yellow(), "Auto-downgraded due to timeouts".yellow());
+            if let Some(orig) = &selection.original_junior_model {
+                println!("       Original: {}", orig.dimmed());
+            }
+        }
+
+        // Show timeout count if any
+        if selection.consecutive_timeouts > 0 {
+            println!("  {}  {} consecutive timeouts", "⏱".bright_red(), selection.consecutive_timeouts);
+        }
     } else if selection.autoprovision_status.is_empty() {
         println!("  {}", "Not configured - run benchmark to auto-provision".yellow());
     } else {
@@ -516,24 +529,24 @@ async fn run_status() -> Result<()> {
     println!("{}", "[FOLDERS]".cyan());
 
     let folders = [
-        ("/var/lib/anna", "Data directory"),
-        ("/var/lib/anna/xp", "XP storage"),
-        ("/var/lib/anna/knowledge", "Knowledge base"),
-        ("/var/lib/anna/llm", "LLM configs"),
+        ("/var/lib/anna", "Data", "📁"),
+        ("/var/lib/anna/xp", "XP", "⭐"),
+        ("/var/lib/anna/knowledge", "Knowledge", "🧠"),
+        ("/var/lib/anna/llm", "LLM", "🤖"),
     ];
 
-    for (path, desc) in folders {
+    for (path, desc, icon) in folders {
         let exists = std::path::Path::new(path).exists();
         if exists {
-            // Get Unix permissions
             let perms = get_unix_permissions(path);
+            let perm_display = format_permissions_nice(&perms);
             if perms.contains('w') {
-                println!("  {}  {} {} {}", "+".bright_green(), path, perms.dimmed(), desc.dimmed());
+                println!("  {}  {}  {} {}", icon, perm_display.bright_green(), path.dimmed(), desc.dimmed());
             } else {
-                println!("  {}  {} {} {}", "!".yellow(), path, perms.dimmed(), desc.dimmed());
+                println!("  {}  {}  {} {} {}", icon, perm_display.yellow(), path.dimmed(), desc.dimmed(), "(read-only)".yellow());
             }
         } else {
-            println!("  {}  {} {} {}", "x".bright_red(), path, "---".dimmed(), format!("{} (missing)", desc).bright_red());
+            println!("  {}  {}  {} {}", icon, "---".bright_red(), path.dimmed(), format!("{} MISSING", desc).bright_red());
         }
     }
 
@@ -640,6 +653,13 @@ fn get_unix_permissions(path: &str) -> String {
     } else {
         "---".to_string()
     }
+}
+
+/// Format permissions nicely for display (e.g., "R/W" or "R/-")
+fn format_permissions_nice(perms: &str) -> String {
+    let r = if perms.contains('r') { "R" } else { "-" };
+    let w = if perms.contains('w') { "W" } else { "-" };
+    format!("{}/{}", r, w)
 }
 
 /// Check if we can write to a directory by testing file creation
@@ -1088,38 +1108,24 @@ fn process_llm_xp_events(question: &str, answer: &FinalAnswer) {
 // RESET COMMAND - v4.0.0: Factory reset (testing only)
 // ============================================================================
 
-/// Reset command - complete factory reset (for testing)
+/// Reset command - complete factory reset via daemon (has root permissions)
 async fn run_reset() -> Result<()> {
+    let daemon = client::DaemonClient::new();
+
     println!();
     println!("{}", "ANNA RESET".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
     println!();
 
-    // Check if we have write access to both data and log directories
-    let can_write_data = check_write_access("/var/lib/anna/xp");
-    let can_write_logs = check_write_access("/var/log/anna");
-
-    if !can_write_data || !can_write_logs {
-        println!("{}  Some directories require root permissions:", "[NOTE]".yellow());
-        if !can_write_data {
-            println!("   - /var/lib/anna (data)");
-        }
-        if !can_write_logs {
-            println!("   - /var/log/anna (logs)");
-        }
+    // Check if daemon is running
+    if !daemon.is_healthy().await {
+        println!("{}  Daemon not running", "[ERROR]".bright_red());
         println!();
-        println!("  For a complete reset, use:");
-        println!("    {}", "sudo annactl reset".cyan());
+        println!("  The daemon (annad) must be running to perform reset.");
+        println!("  Start it with: {}", "sudo systemctl start annad".cyan());
         println!();
-        if !can_write_data {
-            println!("{}  Cannot proceed - data directory not writable.", "[ERROR]".bright_red());
-            println!();
-            println!("{}", THIN_SEPARATOR);
-            println!();
-            return Ok(());
-        }
-        println!("  Proceeding with partial reset (logs will be skipped)...");
-        println!();
+        println!("{}", THIN_SEPARATOR);
+        return Ok(());
     }
 
     // Show warning
@@ -1130,22 +1136,41 @@ async fn run_reset() -> Result<()> {
     println!("   - Benchmarks and stats");
     println!("   - Telemetry and logs");
     println!();
+    println!("  Sending reset request to daemon (has root permissions)...");
+    println!();
 
-    // Execute factory reset directly
-    let result = execute_factory_reset();
-
-    if result.reliability >= 0.9 {
-        println!("{}  Reset complete", "[OK]".bright_green());
-        println!();
-        println!("{}", result.text);
-    } else {
-        println!("{}  Reset completed with issues", "[WARN]".yellow());
-        println!();
-        println!("{}", result.text);
+    // Execute factory reset via daemon
+    match daemon.factory_reset().await {
+        Ok(result) => {
+            if result.success {
+                println!("{}  Factory reset complete!", "[OK]".bright_green());
+                println!();
+                println!("  Components reset:");
+                for comp in &result.components_reset {
+                    println!("    {}  {}", "+".bright_green(), comp);
+                }
+            } else {
+                println!("{}  Reset completed with issues", "[WARN]".yellow());
+                println!();
+                println!("  Components reset:");
+                for comp in &result.components_reset {
+                    println!("    {}  {}", "+".bright_green(), comp);
+                }
+                if !result.components_failed.is_empty() {
+                    println!();
+                    println!("  Failed:");
+                    for comp in &result.components_failed {
+                        println!("    {}  {}", "x".bright_red(), comp);
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("{}  Reset failed: {}", "[ERROR]".bright_red(), e);
+        }
     }
 
     println!();
     println!("{}", THIN_SEPARATOR);
-    println!();
     Ok(())
 }

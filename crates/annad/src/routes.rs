@@ -956,3 +956,65 @@ async fn get_benchmark_delta(
         )),
     }
 }
+
+// ============================================================================
+// v4.3.0: Reset Routes (Factory Reset via Daemon)
+// ============================================================================
+
+pub fn reset_routes() -> Router<AppStateArc> {
+    Router::new()
+        .route("/v1/reset/factory", post(factory_reset))
+}
+
+/// Response from factory reset
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResetResponse {
+    pub success: bool,
+    pub components_reset: Vec<String>,
+    pub components_failed: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+/// v4.3.0: Execute factory reset (daemon has root permissions)
+async fn factory_reset(
+    State(_state): State<AppStateArc>,
+) -> Result<Json<ResetResponse>, (StatusCode, String)> {
+    use anna_common::execute_factory_reset;
+
+    info!("[RESET]  Factory reset requested via daemon API");
+
+    let result = execute_factory_reset();
+
+    if result.reliability >= 0.9 {
+        info!("[RESET]  Factory reset completed successfully");
+        Ok(Json(ResetResponse {
+            success: true,
+            components_reset: vec![
+                "XP store".to_string(),
+                "XP events".to_string(),
+                "Stats".to_string(),
+                "Knowledge".to_string(),
+                "LLM state".to_string(),
+                "Benchmarks".to_string(),
+                "Telemetry".to_string(),
+            ],
+            components_failed: vec![],
+            errors: vec![],
+        }))
+    } else {
+        // Parse errors from result text
+        let errors: Vec<String> = result.text
+            .lines()
+            .filter(|l| l.contains("Failed"))
+            .map(|l| l.to_string())
+            .collect();
+
+        warn!("[RESET]  Factory reset completed with issues: {:?}", errors);
+        Ok(Json(ResetResponse {
+            success: false,
+            components_reset: vec!["XP store".to_string(), "Stats".to_string(), "Knowledge".to_string()],
+            components_failed: errors.clone(),
+            errors,
+        }))
+    }
+}

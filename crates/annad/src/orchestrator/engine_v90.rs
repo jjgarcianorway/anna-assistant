@@ -52,10 +52,114 @@ use anna_common::{
     router_llm::QuestionType,
     // v4.2.0: Debug events
     DebugEvent, DebugEventType, DebugEventData,
+    // v4.3.0: LLM selection for timeout tracking
+    llm_provision::LlmSelection,
 };
 use anyhow::Result;
-use std::time::{Duration, Instant};
+use std::collections::HashMap;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tracing::{debug, info, warn};
+
+// ============================================================================
+// v4.3.0: Answer Cache for Repeated Questions
+// ============================================================================
+
+/// Cache entry for a previously answered question
+#[derive(Clone)]
+struct CachedAnswer {
+    answer: FinalAnswer,
+    created_at: u64, // unix timestamp
+    hit_count: u32,
+}
+
+/// Answer cache with TTL and LRU eviction
+struct AnswerCache {
+    entries: HashMap<String, CachedAnswer>,
+    max_size: usize,
+    ttl_secs: u64,
+}
+
+impl AnswerCache {
+    fn new(max_size: usize, ttl_secs: u64) -> Self {
+        Self {
+            entries: HashMap::new(),
+            max_size,
+            ttl_secs,
+        }
+    }
+
+    /// Normalize question for cache key (lowercase, trim, collapse whitespace)
+    fn normalize_key(question: &str) -> String {
+        question
+            .to_lowercase()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Get cached answer if valid
+    fn get(&mut self, question: &str) -> Option<&FinalAnswer> {
+        let key = Self::normalize_key(question);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        if let Some(entry) = self.entries.get_mut(&key) {
+            // Check TTL
+            if now - entry.created_at < self.ttl_secs {
+                entry.hit_count += 1;
+                return Some(&entry.answer);
+            }
+            // Expired, will be removed on next insert
+        }
+        None
+    }
+
+    /// Cache an answer
+    fn put(&mut self, question: &str, answer: FinalAnswer) {
+        // Only cache successful, high-reliability answers
+        if answer.is_refusal || answer.scores.overall < 0.7 {
+            return;
+        }
+
+        let key = Self::normalize_key(question);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        // Evict expired entries
+        self.entries.retain(|_, v| now - v.created_at < self.ttl_secs);
+
+        // Evict LRU if at capacity
+        if self.entries.len() >= self.max_size {
+            if let Some(lru_key) = self
+                .entries
+                .iter()
+                .min_by_key(|(_, v)| v.created_at)
+                .map(|(k, _)| k.clone())
+            {
+                self.entries.remove(&lru_key);
+            }
+        }
+
+        self.entries.insert(
+            key,
+            CachedAnswer {
+                answer,
+                created_at: now,
+                hit_count: 0,
+            },
+        );
+    }
+
+    /// Get cache stats
+    fn stats(&self) -> (usize, u32) {
+        let total_hits: u32 = self.entries.values().map(|e| e.hit_count).sum();
+        (self.entries.len(), total_hits)
+    }
+}
 
 /// v4.2.0: Truncate string for debug display
 fn truncate_for_debug(s: &str, max_len: usize) -> String {
@@ -148,11 +252,17 @@ pub struct UnifiedEngine {
     recipe_store: RecipeStore,
     /// Current question for XP event logging
     current_question: String,
+    /// v4.3.0: LLM selection for timeout tracking and auto-downgrade
+    llm_selection: LlmSelection,
+    /// v4.3.0: Answer cache for repeated questions (100 entries, 5 min TTL)
+    answer_cache: AnswerCache,
 }
 
 impl UnifiedEngine {
     /// Create engine with role-specific models
     pub fn new(junior_model: Option<String>, senior_model: Option<String>) -> Self {
+        // v4.3.0: Load LLM selection for timeout tracking
+        let llm_selection = LlmSelection::load();
         Self {
             llm_client: OllamaClient::with_role_models(junior_model, senior_model),
             catalog: ProbeCatalog::standard(),
@@ -165,6 +275,9 @@ impl UnifiedEngine {
             // v3.0.0: Recipe store for learned patterns
             recipe_store: RecipeStore::load(),
             current_question: String::new(),
+            llm_selection,
+            // v4.3.0: Answer cache - 100 entries, 5 minute TTL
+            answer_cache: AnswerCache::new(100, 300),
         }
     }
 
@@ -191,6 +304,36 @@ impl UnifiedEngine {
     /// Get the senior model name
     pub fn senior_model(&self) -> &str {
         self.llm_client.senior_model()
+    }
+
+    /// v4.3.0: Get the LLM selection (for status display)
+    pub fn llm_selection(&self) -> &LlmSelection {
+        &self.llm_selection
+    }
+
+    /// v4.3.0: Get answer cache stats (entries, total hits)
+    pub fn cache_stats(&self) -> (usize, u32) {
+        self.answer_cache.stats()
+    }
+
+    /// v4.3.0: Handle timeout by recording it and potentially downgrading models
+    /// Returns true if models were downgraded
+    fn handle_timeout(&mut self) -> bool {
+        let downgraded = self.llm_selection.record_timeout();
+        if downgraded {
+            info!("[!]  ⚡ Auto-downgraded to faster models after consecutive timeouts");
+            // Reload LLM client with new models
+            self.llm_client = OllamaClient::with_role_models(
+                Some(self.llm_selection.junior_model.clone()),
+                Some(self.llm_selection.senior_model.clone()),
+            );
+        }
+        downgraded
+    }
+
+    /// v4.3.0: Handle success by resetting timeout counter
+    fn handle_success(&mut self) {
+        self.llm_selection.record_success();
     }
 
     /// Process a question following the v0.90.0 unified flow
@@ -220,13 +363,26 @@ impl UnifiedEngine {
         info!("[*]  v4.2.0 Unified Engine: {}", question);
 
         // v4.2.0: Emit start event
+        // v4.3.0: Include routing decision info (why these models?)
         if let Some(e) = emitter {
+            let routing_reason = if self.llm_selection.is_downgraded() {
+                format!("⚡ Downgraded (was {} -> now {})",
+                    self.llm_selection.original_junior_model.as_deref().unwrap_or("?"),
+                    self.llm_client.junior_model())
+            } else if self.llm_selection.autoprovision_status.contains("success") {
+                format!("Auto-provisioned for {:?}", self.llm_selection.hardware_tier)
+            } else {
+                format!("Default models (score: J={:.2} S={:.2})",
+                    self.llm_selection.junior_score, self.llm_selection.senior_score)
+            };
             e.emit(DebugEvent::new(DebugEventType::IterationStarted, 1, "USER --> ANNA: Question received")
                 .with_data(DebugEventData::KeyValue {
                     pairs: vec![
                         ("input".to_string(), question.to_string()),
                         ("junior".to_string(), self.llm_client.junior_model().to_string()),
                         ("senior".to_string(), self.llm_client.senior_model().to_string()),
+                        ("routing".to_string(), routing_reason),
+                        ("timeouts".to_string(), self.llm_selection.consecutive_timeouts.to_string()),
                     ],
                 }));
         }
@@ -237,7 +393,34 @@ impl UnifiedEngine {
         let mut junior_total_ms: u64 = 0;
         let mut senior_total_ms: u64 = 0;
         let mut _origin = AnswerOrigin::Brain;
-        
+
+        // ================================================================
+        // STEP 0.5: Answer Cache Check (v4.3.0)
+        // ================================================================
+        // Check if we've recently answered this exact question
+        if let Some(cached) = self.answer_cache.get(question) {
+            let cache_ms = start_time.elapsed().as_millis() as u64;
+            info!("[+]  Cache hit! Returning cached answer in {}ms", cache_ms);
+
+            // v4.3.0: Emit cache hit event
+            if let Some(e) = emitter {
+                e.emit(DebugEvent::new(DebugEventType::JuniorPlanDone, 1,
+                        format!("CACHE --> ANNA: Hit! Answered in {}ms", cache_ms))
+                    .with_elapsed(cache_ms)
+                    .with_data(DebugEventData::KeyValue {
+                        pairs: vec![
+                            ("origin".to_string(), "Cache".to_string()),
+                            ("reliability".to_string(), format!("{}%", (cached.scores.overall * 100.0).round())),
+                        ],
+                    }));
+            }
+
+            // Return clone with updated model_used to indicate cache
+            let mut cached_answer = cached.clone();
+            cached_answer.model_used = Some("Cache:answer_cache".to_string());
+            self.record_xp_event(XpEventType::BrainSelfSolve); // Cache counts as Brain-level
+            return Ok(cached_answer);
+        }
 
         // ================================================================
         // STEP 1: Brain Fast Path (NO LLMs)
@@ -420,9 +603,15 @@ impl UnifiedEngine {
                 // v3.12.0: Junior timeout exceeded
                 let elapsed_ms = junior_start_1.elapsed().as_millis() as u64;
                 warn!("[!]  Junior planning timeout after {}ms (budget: {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS);
+                // v4.3.0: Record timeout for auto-downgrade
+                let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
-                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
-                            format!("JUNIOR --> ANNA: TIMEOUT after {}ms (budget {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS))
+                    let msg = if downgraded {
+                        format!("JUNIOR --> ANNA: TIMEOUT after {}ms ⚡ Auto-downgraded", elapsed_ms)
+                    } else {
+                        format!("JUNIOR --> ANNA: TIMEOUT after {}ms (budget {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS)
+                    };
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1, msg)
                         .with_elapsed(elapsed_ms));
                 }
                 self.record_xp_event(XpEventType::LlmTimeoutFallback);
@@ -551,9 +740,15 @@ impl UnifiedEngine {
                 // v3.12.0: Junior timeout exceeded
                 let elapsed_ms = junior_start_2.elapsed().as_millis() as u64;
                 warn!("[!]  Junior draft timeout after {}ms (budget: {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS);
+                // v4.3.0: Record timeout for auto-downgrade
+                let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
-                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
-                            format!("JUNIOR --> ANNA: DRAFT TIMEOUT after {}ms", elapsed_ms))
+                    let msg = if downgraded {
+                        format!("JUNIOR --> ANNA: DRAFT TIMEOUT after {}ms ⚡ Auto-downgraded", elapsed_ms)
+                    } else {
+                        format!("JUNIOR --> ANNA: DRAFT TIMEOUT after {}ms", elapsed_ms)
+                    };
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1, msg)
                         .with_elapsed(elapsed_ms));
                 }
                 self.record_xp_event(XpEventType::LlmTimeoutFallback);
@@ -714,9 +909,15 @@ impl UnifiedEngine {
                 // v3.12.0: Senior timeout exceeded - fall back to Junior answer
                 let elapsed_ms = senior_start.elapsed().as_millis() as u64;
                 warn!("[!]  Senior audit timeout after {}ms (budget: {}ms)", elapsed_ms, SENIOR_TIMEOUT_MS);
+                // v4.3.0: Record timeout for auto-downgrade
+                let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
-                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
-                            format!("SENIOR --> ANNA: TIMEOUT after {}ms", elapsed_ms))
+                    let msg = if downgraded {
+                        format!("SENIOR --> ANNA: TIMEOUT after {}ms ⚡ Auto-downgraded", elapsed_ms)
+                    } else {
+                        format!("SENIOR --> ANNA: TIMEOUT after {}ms", elapsed_ms)
+                    };
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1, msg)
                         .with_elapsed(elapsed_ms));
                 }
                 _origin = AnswerOrigin::Junior;
@@ -736,6 +937,8 @@ impl UnifiedEngine {
         };
         senior_total_ms = senior_start.elapsed().as_millis() as u64;
         _origin = AnswerOrigin::Senior;
+        // v4.3.0: Record success on completed answer
+        self.handle_success();
 
         // v4.2.0: Emit Senior response
         if let Some(e) = emitter {
@@ -804,7 +1007,7 @@ impl UnifiedEngine {
         // Extract recipe from successful high-reliability answers
         self.maybe_extract_recipe(question, &question_type, &probe_ids, &final_text, confidence);
 
-        Ok(FinalAnswer {
+        let final_answer = FinalAnswer {
             question: question.to_string(),
             answer: final_text,
             is_refusal: false,
@@ -822,7 +1025,12 @@ impl UnifiedEngine {
             junior_had_draft,
             senior_verdict: Some(senior_verdict),
             failure_cause: None,
-        })
+        };
+
+        // v4.3.0: Cache successful answers for repeated questions
+        self.answer_cache.put(question, final_answer.clone());
+
+        Ok(final_answer)
     }
 
     // ========================================================================

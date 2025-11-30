@@ -71,6 +71,7 @@ pub async fn run(state: AppState) -> Result<()> {
         .merge(routes::knowledge_routes()) // v0.11.0: Knowledge store endpoints
         .merge(routes::stats_routes()) // v0.65.0: Stats and progression endpoint
         .merge(routes::benchmark_routes()) // v1.4.0: Snow Leopard benchmark
+        .merge(routes::reset_routes()) // v4.3.0: Factory reset via daemon
         .with_state(state)
         .layer(TraceLayer::new_for_http());
 

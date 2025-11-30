@@ -348,6 +348,14 @@ pub struct LlmSelection {
     /// v3.13.0: Explicit autoprovision status ("completed", "failed:<reason>", or empty for not run)
     #[serde(default)]
     pub autoprovision_status: String,
+    /// v4.3.0: Consecutive timeout count for auto-downgrade
+    #[serde(default)]
+    pub consecutive_timeouts: u32,
+    /// v4.3.0: Original models before downgrade (to restore after success)
+    #[serde(default)]
+    pub original_junior_model: Option<String>,
+    #[serde(default)]
+    pub original_senior_model: Option<String>,
 }
 
 fn default_router_model() -> String {
@@ -367,7 +375,10 @@ impl Default for LlmSelection {
             autoprovision_enabled: true,
             suggestions: vec![],
             hardware_tier: None,
-            autoprovision_status: String::new(), // v3.13.0: empty = not yet run
+            autoprovision_status: String::new(),
+            consecutive_timeouts: 0,
+            original_junior_model: None,
+            original_senior_model: None,
         }
     }
 }
@@ -387,6 +398,77 @@ impl LlmSelection {
         fs::create_dir_all(LLM_STATE_DIR)?;
         let json = serde_json::to_string_pretty(self)?;
         fs::write(SELECTION_FILE, json)
+    }
+
+    /// v4.3.0: Record a timeout and potentially downgrade models
+    /// Returns true if models were downgraded
+    pub fn record_timeout(&mut self) -> bool {
+        self.consecutive_timeouts += 1;
+
+        // After 2 consecutive timeouts, downgrade to faster models
+        if self.consecutive_timeouts >= 2 {
+            return self.downgrade_models();
+        }
+        false
+    }
+
+    /// v4.3.0: Record a success and reset timeout counter
+    /// Optionally restores original models after sustained success
+    pub fn record_success(&mut self) {
+        // Reset timeout counter on success
+        if self.consecutive_timeouts > 0 {
+            self.consecutive_timeouts = 0;
+            let _ = self.save();
+        }
+    }
+
+    /// v4.3.0: Downgrade to smaller/faster models
+    /// Returns true if downgrade happened
+    pub fn downgrade_models(&mut self) -> bool {
+        // Save original models if not already saved
+        if self.original_junior_model.is_none() {
+            self.original_junior_model = Some(self.junior_model.clone());
+            self.original_senior_model = Some(self.senior_model.clone());
+        }
+
+        // Define downgrade path - smaller models
+        let faster_model = "qwen2.5:0.5b-instruct";
+
+        // Only downgrade if not already at minimum
+        if self.junior_model != faster_model {
+            self.junior_model = faster_model.to_string();
+            self.junior_score = 0.8; // Estimated
+            self.senior_model = faster_model.to_string();
+            self.senior_score = 0.8;
+            self.consecutive_timeouts = 0;
+            self.suggestions.push(format!(
+                "Auto-downgraded to {} due to {} timeouts",
+                faster_model, 2
+            ));
+            let _ = self.save();
+            return true;
+        }
+        false
+    }
+
+    /// v4.3.0: Check if models are in downgraded state
+    pub fn is_downgraded(&self) -> bool {
+        self.original_junior_model.is_some()
+    }
+
+    /// v4.3.0: Restore original models (after benchmark or manual request)
+    pub fn restore_original_models(&mut self) -> bool {
+        if let (Some(junior), Some(senior)) = (&self.original_junior_model, &self.original_senior_model) {
+            self.junior_model = junior.clone();
+            self.senior_model = senior.clone();
+            self.original_junior_model = None;
+            self.original_senior_model = None;
+            self.consecutive_timeouts = 0;
+            self.suggestions.retain(|s| !s.contains("Auto-downgraded"));
+            let _ = self.save();
+            return true;
+        }
+        false
     }
 
     /// Format for status display
@@ -924,7 +1006,10 @@ pub fn run_autoprovision() -> LlmSelection {
         autoprovision_enabled: true,
         suggestions,
         hardware_tier: Some(hardware_tier),
-        autoprovision_status: "completed".to_string(), // v3.13.0: Mark as completed
+        autoprovision_status: "completed".to_string(),
+        consecutive_timeouts: 0,
+        original_junior_model: None,
+        original_senior_model: None,
     };
 
     // Save selection
@@ -1469,7 +1554,10 @@ where
         autoprovision_enabled: true,
         suggestions,
         hardware_tier: Some(hardware_tier),
-        autoprovision_status, // v3.13.0: Explicit status
+        autoprovision_status,
+        consecutive_timeouts: 0,
+        original_junior_model: None,
+        original_senior_model: None,
     };
 
     // Save selection
@@ -1626,6 +1714,9 @@ mod tests {
             suggestions: vec!["Consider upgrading".to_string()],
             hardware_tier: Some(HardwareTier::Standard),
             autoprovision_status: "completed".to_string(),
+            consecutive_timeouts: 0,
+            original_junior_model: None,
+            original_senior_model: None,
         };
 
         let status = selection.format_status();
@@ -1791,6 +1882,9 @@ mod tests {
             suggestions: vec![],
             hardware_tier: Some(HardwareTier::Standard),
             autoprovision_status: "completed".to_string(),
+            consecutive_timeouts: 0,
+            original_junior_model: None,
+            original_senior_model: None,
         };
 
         // Under threshold (3 failures needed)

@@ -263,6 +263,36 @@ impl DaemonClient {
 
         resp.json().await.context("Failed to parse answer response")
     }
+
+    /// v4.3.0: Factory reset via daemon (has root permissions)
+    pub async fn factory_reset(&self) -> Result<ResetResponse> {
+        let url = format!("{}/v1/reset/factory", self.base_url);
+
+        let resp = self
+            .client
+            .post(&url)
+            .timeout(std::time::Duration::from_secs(30))
+            .send()
+            .await
+            .context("Failed to connect to daemon for reset")?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Factory reset failed ({}): {}", status, text);
+        }
+
+        resp.json().await.context("Failed to parse reset response")
+    }
+}
+
+/// v4.3.0: Reset response from daemon
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct ResetResponse {
+    pub success: bool,
+    pub components_reset: Vec<String>,
+    pub components_failed: Vec<String>,
+    pub errors: Vec<String>,
 }
 
 impl Default for DaemonClient {
