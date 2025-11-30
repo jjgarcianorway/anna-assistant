@@ -413,6 +413,54 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
+## v3.3.0 "Integrity & Verification" - Comprehensive Subsystem Verification
+
+**Theme**: Verify every subsystem works exactly as intended. Feature Integrity Matrix, invariant guards, 56+ tests.
+
+### Feature Integrity Matrix (v3.3.0)
+[x] docs/FEATURE_INTEGRITY_MATRIX.md - contract of correctness for all 13 subsystems
+[x] Defined invariants for: Brain, Recipe, Probe, LLM, XP, Telemetry, Answer, Reset, Benchmark, Autoprovision
+[x] Each subsystem has: intended behavior, required invariants, latency/reliability boundaries
+
+### Integrity Test Suite (v3.3.0)
+[x] crates/annad/tests/integrity_suite.rs - 56 comprehensive tests
+[x] Brain integrity tests (INV-BRAIN-001 to INV-BRAIN-005)
+[x] Recipe integrity tests (INV-RECIPE-001, INV-RECIPE-002, INV-RECIPE-007)
+[x] XP integrity tests (INV-XP-002, INV-XP-003)
+[x] Answer integrity tests (INV-ANS-001 to INV-ANS-004)
+[x] Autoprovision integrity tests (INV-PROV-001 to INV-PROV-006)
+[x] Reset system integrity tests (INV-RESET-001 to INV-RESET-007)
+[x] Benchmark integrity tests (INV-BENCH-001 to INV-BENCH-007)
+[x] Debug parity tests, regression detection tests
+
+### Centralized Invariant Guards (v3.3.0)
+[x] crates/anna_common/src/invariants.rs - canonical guard functions
+[x] guard_reliability() - clamps to 0.0-1.0, logs violations
+[x] guard_answer_text() - ensures non-empty text
+[x] guard_trust() - clamps trust to 0.0-1.0
+[x] guard_level() - clamps level to 1-99
+[x] guard_verdict() - validates Senior verdicts
+[x] validate_answer() - composite validation
+
+### Validation Coverage (v3.3.0)
+[x] Debug mode parity - answers identical with/without debug (±5% latency)
+[x] Recipe learning - extraction threshold >= 0.85, match threshold >= 0.70
+[x] Autoprovision - hardware tier detection, model viability checks
+[x] Reset system - soft/hard reset separation, XP baseline restoration
+[x] Benchmark system - uses same pipeline as runtime, question sets validation
+
+### Tests (v3.3.0)
+[x] 56 integrity tests in integrity_suite.rs
+[x] All workspace tests passing
+[x] Release build successful
+
+**Key Files**:
+- docs/FEATURE_INTEGRITY_MATRIX.md - Contract of correctness
+- crates/annad/tests/integrity_suite.rs - 56 integrity tests
+- crates/anna_common/src/invariants.rs - Centralized guard functions
+
+---
+
 ## v3.1.0 "Pipeline Purity" - Remove Legacy Orchestration from annactl
 
 **Theme**: Make annactl a pure thin client. All LLM calls route through daemon.

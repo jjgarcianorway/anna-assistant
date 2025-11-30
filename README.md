@@ -1,8 +1,8 @@
-# Anna v3.1.0 "Pipeline Purity"
+# Anna v3.3.0 "Integrity & Verification"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v3.1.0 removes legacy LLM orchestration code from annactl, making it a pure thin client. All LLM calls now route through the daemon's unified Brain → Recipe → Junior → Senior pipeline.
+> v3.3.0 adds comprehensive verification infrastructure: Feature Integrity Matrix (FIM), 56+ integrity tests, centralized invariant guards, and validation of all subsystems (Brain, Recipe, XP, Reset, Benchmark, Autoprovision).
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 

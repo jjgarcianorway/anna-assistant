@@ -121,6 +121,7 @@ pub mod permissions;
 pub mod first_light;
 pub mod router_llm;
 pub mod recipe;
+pub mod invariants;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
