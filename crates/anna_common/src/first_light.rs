@@ -885,6 +885,21 @@ pub fn is_daily_checkin_question(q: &str) -> bool {
     q.contains("daily status")
 }
 
+/// v3.13.1: Check if a question is asking for First Light self-test
+/// These questions should bypass the LLM and run directly via Brain
+pub fn is_first_light_question(q: &str) -> bool {
+    let q = q.to_lowercase();
+
+    // "first light" / "run first light" / "first light test"
+    q.contains("first light") ||
+    // "self test" / "self-test" / "selftest" / "run self test"
+    q.contains("self test") || q.contains("self-test") || q.contains("selftest") ||
+    // "post reset test" / "post-reset test"
+    (q.contains("post") && q.contains("reset") && q.contains("test")) ||
+    // "run diagnostics" / "run diagnostic test"
+    (q.contains("run") && q.contains("diagnostic"))
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -1039,5 +1054,25 @@ mod tests {
         assert_eq!(llm_q.origin, "Junior/Senior");
         assert!(llm_q.success);
         assert_eq!(llm_q.latency_ms, 1500);
+    }
+
+    // v3.13.1: Test First Light question detection
+    #[test]
+    fn test_v3131_is_first_light_question() {
+        // Should match
+        assert!(is_first_light_question("run first light"));
+        assert!(is_first_light_question("first light test"));
+        assert!(is_first_light_question("run the first light self test"));
+        assert!(is_first_light_question("run self test"));
+        assert!(is_first_light_question("self-test"));
+        assert!(is_first_light_question("selftest"));
+        assert!(is_first_light_question("post reset test"));
+        assert!(is_first_light_question("run diagnostics"));
+        assert!(is_first_light_question("run diagnostic tests"));
+
+        // Should NOT match
+        assert!(!is_first_light_question("what is the weather"));
+        assert!(!is_first_light_question("how much ram"));
+        assert!(!is_first_light_question("daily check in"));  // Different feature
     }
 }

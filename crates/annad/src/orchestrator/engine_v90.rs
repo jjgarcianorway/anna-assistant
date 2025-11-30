@@ -59,23 +59,23 @@ use tracing::{debug, info, warn};
 // Constants
 // ============================================================================
 
-/// v3.13.0: Hard time budget (20 seconds for full orchestration)
-/// Increased to accommodate 4b-14b models which need more time
-const ORCHESTRATION_TIMEOUT_SECS: u64 = 20;
+/// v3.13.1: Hard time budget (45 seconds for full orchestration)
+/// Increased to accommodate qwen3:4b which can take 16-20s with thinking
+const ORCHESTRATION_TIMEOUT_SECS: u64 = 45;
 
-/// v3.13.0: Soft time budget for warning (15 seconds)
-const ORCHESTRATION_SOFT_LIMIT_SECS: u64 = 15;
+/// v3.13.1: Soft time budget for warning (30 seconds)
+const ORCHESTRATION_SOFT_LIMIT_SECS: u64 = 30;
 
 /// v0.90.0: Brain fast path timeout (150ms target)
 const BRAIN_TIMEOUT_MS: u64 = 150;
 
-/// v3.13.0: Junior LLM call timeout (10 seconds per call)
-/// Realistic for 4b+ models like qwen3:4b
-const JUNIOR_TIMEOUT_MS: u64 = 10000;
+/// v3.13.1: Junior LLM call timeout (25 seconds per call)
+/// qwen3:4b can take 16-20s with verbose "thinking" output
+const JUNIOR_TIMEOUT_MS: u64 = 25000;
 
-/// v3.13.0: Senior LLM call timeout (12 seconds per call)
-/// Realistic for 14b models like qwen2.5:14b
-const SENIOR_TIMEOUT_MS: u64 = 12000;
+/// v3.13.1: Senior LLM call timeout (30 seconds per call)
+/// 14b models need even more time for reasoning
+const SENIOR_TIMEOUT_MS: u64 = 30000;
 
 /// v0.90.0: High confidence threshold - skip Senior if Junior >= 80%
 const SKIP_SENIOR_THRESHOLD: f64 = 0.80;
@@ -1239,8 +1239,8 @@ mod tests {
     #[test]
     fn test_engine_creation() {
         let engine = UnifiedEngine::default();
-        // v3.13.0: Timeout increased to 20s for realistic 4b-14b model response times
-        assert_eq!(engine.timeout, Duration::from_secs(20));
+        // v3.13.1: Timeout increased to 45s for qwen3:4b with verbose thinking
+        assert_eq!(engine.timeout, Duration::from_secs(45));
     }
 
     #[test]

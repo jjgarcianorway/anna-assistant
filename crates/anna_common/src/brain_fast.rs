@@ -158,6 +158,8 @@ pub enum FastQuestionType {
     ResetFactoryConfirm,
     /// v3.13.0: Experience reset confirmation (executes reset immediately)
     ResetExperienceConfirm,
+    /// v3.13.1: First Light self-test (Brain-only, no LLM)
+    FirstLight,
     /// Not a fast-path question
     Unknown,
 }
@@ -334,6 +336,13 @@ impl FastQuestionType {
         // =================================================================
         if crate::first_light::is_daily_checkin_question(q) {
             return Self::DailyCheckIn;
+        }
+
+        // =================================================================
+        // First Light self-test (v3.13.1 - Brain-only, no LLM)
+        // =================================================================
+        if crate::first_light::is_first_light_question(q) {
+            return Self::FirstLight;
         }
 
         // =================================================================
@@ -731,6 +740,7 @@ pub fn try_fast_answer(question: &str) -> Option<FastAnswer> {
         FastQuestionType::DailyCheckIn => fast_daily_checkin(),
         FastQuestionType::GpuInfo => fast_gpu_answer(),
         FastQuestionType::NetworkInfo => fast_network_answer(),
+        FastQuestionType::FirstLight => fast_first_light(),
         FastQuestionType::Unknown => return None,
     };
 
@@ -1530,6 +1540,26 @@ pub fn fast_daily_checkin() -> Option<FastAnswer> {
     let text = checkin.format_display();
 
     Some(FastAnswer::new(&text, vec!["daily_checkin"], 0.99))
+}
+
+/// v3.13.1: First Light self-test (Brain-only, bypasses LLM entirely)
+/// Runs the diagnostic tests locally using system commands
+pub fn fast_first_light() -> Option<FastAnswer> {
+    use crate::first_light::run_first_light;
+
+    let result = run_first_light();
+    let text = result.format_summary();
+
+    // Calculate reliability based on test pass rate
+    let reliability = if result.all_passed {
+        0.99
+    } else {
+        let passed = result.questions.iter().filter(|q| q.success).count();
+        let total = result.questions.len();
+        (passed as f64 / total as f64) * 0.99
+    };
+
+    Some(FastAnswer::new(&text, vec!["first_light"], reliability))
 }
 
 // ============================================================================

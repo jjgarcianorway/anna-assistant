@@ -9,11 +9,11 @@ use std::time::{Duration, Instant};
 // Part 4: Performance Ceilings
 // ============================================================================
 
-/// v3.13.0 performance limits for razorback profile (updated for 4b-14b models)
-pub const MAX_TOTAL_MS: u64 = 20000;     // 20 seconds total
+/// v3.13.1 performance limits for razorback profile (updated for qwen3:4b thinking)
+pub const MAX_TOTAL_MS: u64 = 45000;     // 45 seconds total
 pub const MAX_BRAIN_MS: u64 = 500;       // 500ms for Brain
-pub const MAX_JUNIOR_MS: u64 = 10000;    // 10 seconds Junior (4b+ models)
-pub const MAX_SENIOR_MS: u64 = 12000;    // 12 seconds Senior (14b models)
+pub const MAX_JUNIOR_MS: u64 = 25000;    // 25 seconds Junior (qwen3:4b with thinking)
+pub const MAX_SENIOR_MS: u64 = 30000;    // 30 seconds Senior (14b models)
 pub const MAX_CMD_MS: u64 = 5000;        // 5 seconds command execution
 
 /// Maximum LLM calls per question type
