@@ -35,9 +35,9 @@ use anna_common::{
 #[tokio::test]
 #[ignore] // Run with: cargo test --test benchmark_snow_leopard snow_leopard_benchmark_full -- --nocapture --ignored
 async fn snow_leopard_benchmark_full() {
-    println!("\n{}", "═".repeat(70));
+    println!("\n{}", "=".repeat(70));
     println!("  SNOW LEOPARD BENCHMARK TEST (Simulated Mode)");
-    println!("{}", "═".repeat(70));
+    println!("{}", "=".repeat(70));
 
     let config = SnowLeopardConfig::test_mode();
     let result = run_benchmark(&config).await;

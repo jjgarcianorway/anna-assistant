@@ -114,7 +114,7 @@ impl Spinner {
             println!(
                 "{}  {} {}",
                 "[anna]".bright_cyan(),
-                "✓".bright_green(),
+                "+".bright_green(),
                 format!("({:.1}s)", elapsed.as_secs_f64()).dimmed()
             );
         } else {

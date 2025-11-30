@@ -635,20 +635,20 @@ impl TelemetrySummaryComplete {
         use crate::ui_colors::format_percentage;
 
         if !self.has_data {
-            return "  📊  No telemetry data available yet.\n".to_string();
+            return "  *  No telemetry data available yet.\n".to_string();
         }
 
         let mut out = String::new();
 
         // Lifetime stats
         out.push_str(&format!(
-            "  📊  Lifetime:  {} questions, {} success rate\n",
+            "  *  Lifetime:  {} questions, {} success rate\n",
             self.lifetime.total, format_percentage(self.lifetime.success_rate)
         ));
 
         // Window stats with reliability
         out.push_str(&format!(
-            "  📈  Recent (last {}):  {}/{} success ({}), {}ms avg\n",
+            "  [STATS]  Recent (last {}):  {}/{} success ({}), {}ms avg\n",
             self.window_size.min(self.window.total as usize),
             self.window.successes, self.window.total,
             format_percentage(self.window.success_rate),
@@ -657,7 +657,7 @@ impl TelemetrySummaryComplete {
 
         // Reliability stats (v3.6.0)
         out.push_str(&format!(
-            "  🎯  Reliability:  best {}, worst {}, median {}\n",
+            "  [TARGET]  Reliability:  best {}, worst {}, median {}\n",
             format_percentage(self.window.max_reliability),
             format_percentage(self.window.min_reliability),
             format_percentage(self.window.median_reliability)
@@ -665,23 +665,23 @@ impl TelemetrySummaryComplete {
 
         // Latency stats (v3.6.0)
         out.push_str(&format!(
-            "  ⏱️  Latency:  best {}ms, worst {}ms, median {}ms\n",
+            "  [TIME]  Latency:  best {}ms, worst {}ms, median {}ms\n",
             self.window.min_latency_ms,
             self.window.max_latency_ms,
             self.window.median_latency_ms
         ));
 
         // Per-origin breakdown
-        out.push_str("\n  ── Per-Origin Performance ──\n");
-        out.push_str(&self.brain_stats.display_line("🧠  Brain "));
+        out.push_str("\n  -- Per-Origin Performance --\n");
+        out.push_str(&self.brain_stats.display_line("[BRAIN]  Brain "));
         out.push('\n');
-        out.push_str(&self.junior_stats.display_line("👶  Junior"));
+        out.push_str(&self.junior_stats.display_line("JR  Junior"));
         out.push('\n');
-        out.push_str(&self.senior_stats.display_line("👴  Senior"));
+        out.push_str(&self.senior_stats.display_line("SR  Senior"));
         out.push('\n');
 
         // Status hint
-        out.push_str(&format!("\n  💡  {}\n", self.status_hint));
+        out.push_str(&format!("\n  [HINT]  {}\n", self.status_hint));
 
         out
     }

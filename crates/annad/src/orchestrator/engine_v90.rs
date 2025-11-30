@@ -1112,9 +1112,9 @@ impl UnifiedEngine {
 
         // v2.3.0: Build progress header
         let mut output = String::new();
-        output.push_str("\n═══════════════════════════════════════════\n");
-        output.push_str("  🐆  SNOW LEOPARD BENCHMARK\n");
-        output.push_str("═══════════════════════════════════════════\n\n");
+        output.push_str("\n===========================================\n");
+        output.push_str("  [BENCH]  SNOW LEOPARD BENCHMARK\n");
+        output.push_str("===========================================\n\n");
         output.push_str(&format!("  Mode: {:?} ({} phases)\n\n", mode, total_phases));
 
         // Use test/simulated mode - exercises the brain fast path
@@ -1137,7 +1137,7 @@ impl UnifiedEngine {
                 output.push_str("  ❌  BENCHMARK FAILED\n");
                 output.push_str("      Internal error during benchmark setup.\n");
                 output.push_str("      Please check logs and try again.\n\n");
-                output.push_str("═══════════════════════════════════════════\n");
+                output.push_str("===========================================\n");
                 return output;
             }
         };
@@ -1170,30 +1170,30 @@ impl UnifiedEngine {
             ));
         }
 
-        output.push_str("\n───────────────────────────────────────────\n");
+        output.push_str("\n---------------------------------------------------------------------------------------------\n");
         output.push_str("  SUMMARY\n");
-        output.push_str("───────────────────────────────────────────\n");
+        output.push_str("---------------------------------------------------------------------------------------------\n");
 
         let success_rate = result.overall_success_rate();
         let avg_latency = result.overall_avg_latency();
         let brain_pct = result.brain_usage_pct();
 
-        output.push_str(&format!("  📊  Success Rate: {:.1}%\n", success_rate));
-        output.push_str(&format!("  ⏱️   Avg Latency: {}ms\n", avg_latency));
-        output.push_str(&format!("  🧠  Brain Usage: {:.1}%\n", brain_pct));
-        output.push_str(&format!("  🤖  LLM Usage: {:.1}%\n", result.llm_usage_pct()));
-        output.push_str(&format!("  📝  Total Questions: {}\n", result.total_questions));
+        output.push_str(&format!("  *  Success Rate: {:.1}%\n", success_rate));
+        output.push_str(&format!("  [TIME]   Avg Latency: {}ms\n", avg_latency));
+        output.push_str(&format!("  [BRAIN]  Brain Usage: {:.1}%\n", brain_pct));
+        output.push_str(&format!("  [LLM]  LLM Usage: {:.1}%\n", result.llm_usage_pct()));
+        output.push_str(&format!("  [NOTE]  Total Questions: {}\n", result.total_questions));
 
         // v2.3.0: Status interpretation
         output.push('\n');
         if success_rate >= 90.0 {
             output.push_str("  ✅  STATUS: Excellent - Anna is performing well!\n");
         } else if success_rate >= 70.0 {
-            output.push_str("  🟡  STATUS: Good - Some questions need improvement.\n");
+            output.push_str("  [YELLOW]  STATUS: Good - Some questions need improvement.\n");
         } else if success_rate >= 50.0 {
-            output.push_str("  🟠  STATUS: Fair - Anna is still learning.\n");
+            output.push_str("  [ORANGE]  STATUS: Fair - Anna is still learning.\n");
         } else {
-            output.push_str("  🔴  STATUS: Needs Attention - Review configuration.\n");
+            output.push_str("  [RED]  STATUS: Needs Attention - Review configuration.\n");
         }
 
         // v2.3.0: Report any warnings
@@ -1204,7 +1204,7 @@ impl UnifiedEngine {
             }
         }
 
-        output.push_str("\n═══════════════════════════════════════════\n");
+        output.push_str("\n===========================================\n");
 
         // Save to history
         if let Err(e) = BenchmarkHistoryEntry::from_result(&result).save() {

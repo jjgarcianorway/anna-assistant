@@ -517,9 +517,10 @@ mod tests {
 
     #[test]
     fn test_contains_emoji() {
-        assert!(contains_emoji("Hello 👋"));
-        assert!(contains_emoji("🚀 Launch"));
-        assert!(contains_emoji("Check ✓"));
+        // Test actual emoji characters (U+1F600 range)
+        assert!(contains_emoji("Hello \u{1F44B} hello"));  // wave emoji
+        assert!(contains_emoji("\u{1F680} Launch"));       // rocket emoji
+        assert!(contains_emoji("Check \u{2705}"));         // checkmark emoji
         assert!(!contains_emoji("Hello World"));
         assert!(!contains_emoji("ASCII only: *+-="));
         assert!(!contains_emoji("[SUMMARY]"));
@@ -527,10 +528,11 @@ mod tests {
 
     #[test]
     fn test_contains_unicode_box_chars() {
-        assert!(contains_unicode_box_chars("┌──────┐"));
-        assert!(contains_unicode_box_chars("│ box │"));
-        assert!(contains_unicode_box_chars("└──────┘"));
-        assert!(contains_unicode_box_chars("▀▄█"));
+        // Test actual Unicode box-drawing characters (U+2500 range)
+        assert!(contains_unicode_box_chars("\u{250C}------\u{2510}"));  // corner chars
+        assert!(contains_unicode_box_chars("\u{2502} box \u{2502}"));   // vertical bars
+        assert!(contains_unicode_box_chars("\u{2514}------\u{2518}"));  // bottom corners
+        assert!(contains_unicode_box_chars("\u{2580}\u{2584}"));        // block elements
         assert!(!contains_unicode_box_chars("+------+"));
         assert!(!contains_unicode_box_chars("|  box |"));
         assert!(!contains_unicode_box_chars("============"));

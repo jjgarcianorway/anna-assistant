@@ -205,7 +205,7 @@ pub fn print_conversation_log(log: &ConversationLog) {
 
 /// Print a separator line
 pub fn print_separator() {
-    println!("{}", "─".repeat(60).dimmed());
+    println!("{}", "-".repeat(60).dimmed());
 }
 
 /// Print the final answer with formatting

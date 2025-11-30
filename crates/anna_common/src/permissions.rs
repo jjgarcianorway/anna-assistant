@@ -158,7 +158,7 @@ impl PermissionsHealthCheck {
         if self.all_ok {
             lines.push("  ✅  All directories OK".to_string());
         } else {
-            lines.push(format!("  ⚠️   {} issues found:", self.issues_count));
+            lines.push(format!("  !   {} issues found:", self.issues_count));
             for check in &self.checks {
                 if let Some(issue) = &check.issue {
                     lines.push(format!("      - {}", issue));

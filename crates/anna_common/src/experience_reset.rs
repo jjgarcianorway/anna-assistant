@@ -130,7 +130,7 @@ impl ResetType {
                  Type 'yes' to confirm."
             }
             ResetType::Factory => {
-                "⚠️  FACTORY RESET WARNING ⚠️\n\n\
+                "!  FACTORY RESET WARNING !\n\n\
                  This will delete ALL learned data including:\n\
                  - XP, levels, trust, streaks (reset to baseline)\n\
                  - Telemetry history\n\

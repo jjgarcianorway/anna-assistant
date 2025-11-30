@@ -63,7 +63,7 @@ impl RegistryFetcher {
 
     /// Fetch registry from remote URL
     pub async fn fetch_remote(&self) -> Result<ModelRegistry, String> {
-        info!("📡  Fetching model registry from {}", REGISTRY_URL);
+        info!("[NET]  Fetching model registry from {}", REGISTRY_URL);
 
         let response = self
             .client

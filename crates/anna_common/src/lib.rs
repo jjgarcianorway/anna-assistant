@@ -129,6 +129,7 @@ pub mod invariants;
 pub mod perf_timing;
 pub mod status_coherence;
 pub mod state_manager;
+pub mod ui_theme;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -410,4 +411,11 @@ pub use state_manager::{
     verify_permissions as state_verify_permissions,
     // XP baseline
     baseline_xp_store,
+};
+
+// UI Theme exports (v3.13.4) - ASCII/Unicode mode, honest state reporting
+pub use ui_theme::{
+    UiMode, UiTheme, DaemonState, DataFreshness,
+    set_ui_mode, get_ui_mode, current_theme,
+    print_section, print_banner, format_status_line,
 };

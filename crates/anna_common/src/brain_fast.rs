@@ -1244,9 +1244,9 @@ pub fn fast_reset_experience_confirm() -> Option<FastAnswer> {
     let snapshot = ExperienceSnapshot::capture(&paths);
 
     let text = format!(
-        "═══════════════════════════════════════════\n\
-         🔄  SOFT RESET REQUESTED\n\
-         ═══════════════════════════════════════════\n\n\
+        "===========================================\n\
+         [RESET]  SOFT RESET REQUESTED\n\
+         ===========================================\n\n\
          This clears short-term memory and patterns but keeps XP.\n\n\
          What will be reset:\n\
          - Trust scores → 0.5 (neutral)\n\
@@ -1256,7 +1256,7 @@ pub fn fast_reset_experience_confirm() -> Option<FastAnswer> {
          What will be preserved:\n\
          - XP and levels (currently: level {}, {} XP)\n\
          - Knowledge base\n\n\
-         ───────────────────────────────────────────\n\
+         -------------------------------------------\n\
          Type: yes, soft reset",
         snapshot.telemetry_line_count, snapshot.anna_level, snapshot.anna_xp
     );
@@ -1273,9 +1273,9 @@ pub fn fast_reset_factory_confirm() -> Option<FastAnswer> {
     let snapshot = ExperienceSnapshot::capture(&paths);
 
     let text = format!(
-        "═══════════════════════════════════════════\n\
-         ⚠️   HARD RESET REQUESTED\n\
-         ═══════════════════════════════════════════\n\n\
+        "===========================================\n\
+         !   HARD RESET REQUESTED\n\
+         ===========================================\n\n\
          This will erase XP, telemetry, stats, patterns and all learning.\n\n\
          What will be DELETED:\n\
          - XP, levels, trust, streaks → reset to baseline\n\
@@ -1286,7 +1286,7 @@ pub fn fast_reset_factory_confirm() -> Option<FastAnswer> {
          Current state you will LOSE:\n\
          - Level {}, {} XP, {} questions answered\n\n\
          This is IRREVERSIBLE.\n\n\
-         ───────────────────────────────────────────\n\
+         -------------------------------------------\n\
          Are you absolutely sure?\n\
          Type: yes, hard reset",
         snapshot.telemetry_line_count,
@@ -1344,10 +1344,10 @@ pub fn execute_experience_reset() -> FastAnswer {
              - Telemetry reset: {}\n\
              - XP events reset: {}\n\
              - Stats reset: {}",
-            if v.xp_reset { "✓" } else { "✗" },
-            if v.telemetry_reset { "✓" } else { "✗" },
-            if v.xp_events_reset { "✓" } else { "✗" },
-            if v.stats_reset { "✓" } else { "✗" }
+            if v.xp_reset { "+" } else { "X" },
+            if v.telemetry_reset { "+" } else { "X" },
+            if v.xp_events_reset { "+" } else { "X" },
+            if v.stats_reset { "+" } else { "X" }
         );
 
         let text = format!(
@@ -1415,13 +1415,13 @@ pub fn execute_factory_reset() -> FastAnswer {
              - Knowledge reset: {}\n\
              - LLM state reset: {}\n\
              - Benchmarks reset: {}",
-            if v.xp_reset { "✓" } else { "✗" },
-            if v.telemetry_reset { "✓" } else { "✗" },
-            if v.xp_events_reset { "✓" } else { "✗" },
-            if v.stats_reset { "✓" } else { "✗" },
-            if v.knowledge_reset { "✓" } else { "✗" },
-            if v.llm_state_reset { "✓" } else { "✗" },
-            if v.benchmarks_reset { "✓" } else { "✗" }
+            if v.xp_reset { "+" } else { "X" },
+            if v.telemetry_reset { "+" } else { "X" },
+            if v.xp_events_reset { "+" } else { "X" },
+            if v.stats_reset { "+" } else { "X" },
+            if v.knowledge_reset { "+" } else { "X" },
+            if v.llm_state_reset { "+" } else { "X" },
+            if v.benchmarks_reset { "+" } else { "X" }
         );
 
         let text = format!(

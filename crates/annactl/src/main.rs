@@ -1623,14 +1623,14 @@ fn display_telemetry_health_section() {
     if !complete.has_data {
         let coherent_status = CoherentStatus::capture();
         let msg = telemetry_status_message(&coherent_status);
-        println!("  📊  {}", msg);
+        println!("  *  {}", msg);
         println!("{}", THIN_SEPARATOR);
         return;
     }
 
     // Lifetime stats (v3.6.0: use format_percentage)
     println!(
-        "  📊  Lifetime: {} questions, {} success rate",
+        "  *  Lifetime: {} questions, {} success rate",
         complete.lifetime.total.to_string().cyan(),
         format_percentage(complete.lifetime.success_rate)
     );
@@ -1664,15 +1664,15 @@ fn display_telemetry_health_section() {
 
     // Per-origin breakdown with detailed stats
     println!();
-    println!("  {}", "── Per-Origin Performance ──".dimmed());
+    println!("  {}", "-- Per-Origin Performance --".dimmed());
 
     // Brain stats
     if complete.brain_stats.count > 0 {
         let brain_latency = complete.brain_stats.avg_latency_ms;
         let brain_icon = if brain_latency <= BRAIN_TARGET_MS {
-            "⚡".to_string()  // Fast
+            "[FAST]".to_string()  // Fast
         } else {
-            "🧠".to_string()  // Normal
+            "[BRAIN]".to_string()  // Normal
         };
         // v3.6.0: use format_percentage
         let brain_rate = format_percentage(complete.brain_stats.success_rate);
@@ -1701,7 +1701,7 @@ fn display_telemetry_health_section() {
             jr_rate.bright_red().to_string()
         };
         println!(
-            "  👶  Junior: {} questions, {} success, {}ms avg",
+            "  JR  Junior: {} questions, {} success, {}ms avg",
             complete.junior_stats.count.to_string().cyan(),
             jr_rate_colored,
             complete.junior_stats.avg_latency_ms
@@ -1719,7 +1719,7 @@ fn display_telemetry_health_section() {
             sr_rate.bright_red().to_string()
         };
         println!(
-            "  👴  Senior: {} questions, {} success, {}ms avg",
+            "  SR  Senior: {} questions, {} success, {}ms avg",
             complete.senior_stats.count.to_string().yellow(),
             sr_rate_colored,
             complete.senior_stats.avg_latency_ms
@@ -1746,11 +1746,11 @@ fn display_telemetry_health_section() {
 
     // Status hint - always show for context (v3.6.0: use success_rate directly)
     let hint_icon = if complete.window.success_rate >= 0.80 {
-        "💡".to_string()
+        "[HINT]".to_string()
     } else if complete.window.success_rate >= 0.50 {
-        "📝".to_string()
+        "[NOTE]".to_string()
     } else {
-        "⚠️".to_string()
+        "!".to_string()
     };
     println!("  {}  {}", hint_icon, complete.status_hint.dimmed());
 
@@ -1791,7 +1791,7 @@ fn display_last_benchmark_section() {
         anna_common::BenchmarkMode::Quick => "quick",
     };
     println!(
-        "  📊  Last run: {} ({} mode)",
+        "  *  Last run: {} ({} mode)",
         summary.timestamp.dimmed(),
         mode_str.cyan()
     );
@@ -1808,9 +1808,9 @@ fn display_last_benchmark_section() {
     };
 
     let status_icon = if rate_pct >= 90.0 {
-        "🏆"
+        "[TROPHY]"
     } else if rate_pct >= 70.0 {
-        "✓"
+        "+"
     } else {
         "!"
     };
@@ -1825,18 +1825,18 @@ fn display_last_benchmark_section() {
 
     // Latency and path usage
     println!(
-        "  ⚡  Avg latency: {}ms | Brain: {:.0}% | LLM: {:.0}%",
+        "  [FAST]  Avg latency: {}ms | Brain: {:.0}% | LLM: {:.0}%",
         summary.avg_latency_ms,
         summary.brain_usage_pct,
         summary.llm_usage_pct
     );
 
     // Status hint
-    println!("  💡  {}", summary.status_hint.dimmed());
+    println!("  [HINT]  {}", summary.status_hint.dimmed());
 
     // Report path if available
     if let Some(path) = &summary.report_path {
-        println!("  📄  Report: {}", path.dimmed());
+        println!("  [FILE]  Report: {}", path.dimmed());
     }
 
     println!("{}", THIN_SEPARATOR);
@@ -1863,19 +1863,19 @@ fn display_auto_tuning_section() {
 
     // Current thresholds
     println!(
-        "  ⚙️   Brain confidence: {:.2} | LLM confidence: {:.2}",
+        "  *   Brain confidence: {:.2} | LLM confidence: {:.2}",
         state.brain_conf_threshold,
         state.llm_conf_threshold
     );
 
     // Tuning history
     println!(
-        "  📊  Tuning steps: {}",
+        "  *  Tuning steps: {}",
         state.tuning_steps_applied.to_string().cyan()
     );
 
     if let Some(ts) = &state.last_tuned_at {
-        println!("  🕐  Last tuned: {}", ts.dimmed());
+        println!("  [TIME]  Last tuned: {}", ts.dimmed());
     }
 
     // Last decision
@@ -1886,7 +1886,7 @@ fn display_auto_tuning_section() {
         } else {
             decision.clone()
         };
-        println!("  💡  {}", truncated.dimmed());
+        println!("  [HINT]  {}", truncated.dimmed());
     }
 
     println!("{}", THIN_SEPARATOR);
@@ -1923,7 +1923,7 @@ fn display_autoprovision_section() {
     } else {
         selection.autoprovision_status.cyan().to_string()
     };
-    println!("  ⚙️   Status: {}", status_str);
+    println!("  *   Status: {}", status_str);
 
     // v3.12.0: Hardware tier
     if let Some(tier) = &selection.hardware_tier {
@@ -1934,19 +1934,19 @@ fn display_autoprovision_section() {
             anna_common::llm_provision::HardwareTier::Basic => tier_str.yellow().to_string(),
             anna_common::llm_provision::HardwareTier::Minimal => tier_str.bright_red().to_string(),
         };
-        println!("  🖥️   Hardware tier: {}", tier_colored);
+        println!("  [HW]   Hardware tier: {}", tier_colored);
     }
 
     // v3.13.0: Handle not-yet-run and failed states
     if needs_provision {
-        println!("  📝  Models not yet benchmarked");
-        println!("  💡  Run 'annactl' and ask a question to trigger autoprovision");
+        println!("  [NOTE]  Models not yet benchmarked");
+        println!("  [HINT]  Run 'annactl' and ask a question to trigger autoprovision");
         println!("{}", THIN_SEPARATOR);
         return;
     }
     if is_failed {
-        println!("  ⚠️   Autoprovision encountered errors");
-        println!("  💡  Run 'annactl' and ask a question to retry");
+        println!("  !   Autoprovision encountered errors");
+        println!("  [HINT]  Run 'annactl' and ask a question to retry");
         println!("{}", THIN_SEPARATOR);
         return;
     }
@@ -1962,7 +1962,7 @@ fn display_autoprovision_section() {
             rt_score.bright_red().to_string()
         };
         println!(
-            "  🔀  Router: {} (score {})",
+            "  [ROUTER]  Router: {} (score {})",
             selection.router_model.cyan(),
             rt_score_colored
         );
@@ -1980,7 +1980,7 @@ fn display_autoprovision_section() {
         "not benchmarked".dimmed().to_string()
     };
     println!(
-        "  👶  Junior: {} (score {})",
+        "  JR  Junior: {} (score {})",
         selection.junior_model.cyan(),
         jr_score_colored
     );
@@ -1997,21 +1997,21 @@ fn display_autoprovision_section() {
         "not benchmarked".dimmed().to_string()
     };
     println!(
-        "  👴  Senior: {} (score {})",
+        "  SR  Senior: {} (score {})",
         selection.senior_model.cyan(),
         sr_score_colored
     );
 
     // Fallback policy
     println!(
-        "  ⏱️   Fallback timeout: {}ms",
+        "  [TIME]   Fallback timeout: {}ms",
         JUNIOR_FALLBACK_TIMEOUT_MS.to_string().dimmed()
     );
 
     // Last benchmark
     if !selection.last_benchmark.is_empty() {
         println!(
-            "  📊  Last benchmark: {}",
+            "  *  Last benchmark: {}",
             selection.last_benchmark.dimmed()
         );
     }
@@ -2019,7 +2019,7 @@ fn display_autoprovision_section() {
     // Suggestions
     if !selection.suggestions.is_empty() {
         println!();
-        println!("  💡  Suggestions:");
+        println!("  [HINT]  Suggestions:");
         for s in &selection.suggestions {
             println!("      - {}", s.dimmed());
         }

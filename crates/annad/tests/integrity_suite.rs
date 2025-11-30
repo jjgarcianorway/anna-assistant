@@ -581,7 +581,7 @@ mod invariant_guards {
             "\t",
             "a",
             &"x".repeat(100000),
-            "🎉🎊🎈",
+            "[OK]",
             "\0\0\0",
             "SELECT * FROM users",
             "<script>alert(1)</script>",

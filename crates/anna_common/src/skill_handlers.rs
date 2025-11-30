@@ -129,14 +129,14 @@ async fn handle_benchmark_run(is_quick: bool, ctx: &SkillContext) -> SkillAnswer
     } else {
         format!(
             "SNOW LEOPARD BENCHMARK COMPLETE\n\
-             ═══════════════════════════════════════════\n\
+             ===========================================\n\
              Mode: {:?}\n\
              Total Questions: {}\n\
              Success Rate: {:.1}%\n\
              Average Latency: {}ms\n\
              Brain Usage: {:.1}%\n\
              Phases: {}\n\
-             ═══════════════════════════════════════════",
+             ===========================================",
             mode,
             result.total_questions,
             success_rate,

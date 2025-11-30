@@ -213,9 +213,9 @@ impl FirstLightResult {
         let mut lines = Vec::new();
 
         lines.push(String::new());
-        lines.push("═══════════════════════════════════════════".to_string());
-        lines.push("  🌅  FIRST LIGHT SELF-TEST COMPLETE".to_string());
-        lines.push("═══════════════════════════════════════════".to_string());
+        lines.push("===========================================".to_string());
+        lines.push("  *  FIRST LIGHT SELF-TEST COMPLETE".to_string());
+        lines.push("===========================================".to_string());
         lines.push(String::new());
 
         // Question results
@@ -229,15 +229,15 @@ impl FirstLightResult {
         let status = if self.all_passed {
             "✅  ALL TESTS PASSED"
         } else {
-            "⚠️   SOME TESTS FAILED"
+            "!   SOME TESTS FAILED"
         };
         lines.push(format!("  {}", status));
         lines.push(format!(
-            "  📊  Avg Reliability: {:.0}%",
+            "  *  Avg Reliability: {:.0}%",
             self.avg_reliability * 100.0
         ));
-        lines.push(format!("  ⏱️   Avg Latency: {}ms", self.avg_latency_ms));
-        lines.push(format!("  🎮  Total XP: +{}", self.total_xp));
+        lines.push(format!("  [TIME]   Avg Latency: {}ms", self.avg_latency_ms));
+        lines.push(format!("  [XP]  Total XP: +{}", self.total_xp));
         lines.push(format!(
             "  ⏰  Total Duration: {}ms",
             self.total_duration_ms
@@ -249,7 +249,7 @@ impl FirstLightResult {
             let sanity_status = if self.sanity_passed {
                 "✅  SANITY CHECKS PASSED"
             } else {
-                "⚠️   SANITY ISSUES DETECTED"
+                "!   SANITY ISSUES DETECTED"
             };
             lines.push(format!("  {}", sanity_status));
             for detail in &self.sanity_details {
@@ -306,7 +306,7 @@ impl SanityCheckResult {
         }
 
         if !self.repairs_attempted.is_empty() {
-            msgs.push("🔧  Auto-repairs attempted:".to_string());
+            msgs.push("[FIX]  Auto-repairs attempted:".to_string());
             for repair in &self.repairs_attempted {
                 msgs.push(format!("      - {}", repair));
             }
@@ -488,13 +488,13 @@ impl DailyCheckIn {
 
         // Overall status
         let status = if avg_reliability_recent >= 0.8 && model_rating >= 70 {
-            "🟢  Excellent".to_string()
+            "[GREEN]  Excellent".to_string()
         } else if avg_reliability_recent >= 0.6 && model_rating >= 50 {
-            "🟡  Good".to_string()
+            "[YELLOW]  Good".to_string()
         } else if avg_reliability_recent >= 0.4 {
-            "🟠  Fair".to_string()
+            "[ORANGE]  Fair".to_string()
         } else {
-            "🔴  Needs attention".to_string()
+            "[RED]  Needs attention".to_string()
         };
 
         // v2.3.0: First Light status
@@ -534,26 +534,26 @@ impl DailyCheckIn {
         let mut lines = Vec::new();
 
         lines.push(String::new());
-        lines.push("═══════════════════════════════════════════".to_string());
-        lines.push("  📋  DAILY CHECK-IN".to_string());
-        lines.push("═══════════════════════════════════════════".to_string());
+        lines.push("===========================================".to_string());
+        lines.push("  *  DAILY CHECK-IN".to_string());
+        lines.push("===========================================".to_string());
         lines.push(String::new());
 
         // Core stats
         lines.push(format!("  ⏰  Uptime: {}", self.uptime));
-        lines.push(format!("  🎮  XP Today: +{}", self.xp_today));
+        lines.push(format!("  [XP]  XP Today: +{}", self.xp_today));
         lines.push(format!(
-            "  📊  Reliability: {:.0}%",
+            "  *  Reliability: {:.0}%",
             self.avg_reliability_recent * 100.0
         ));
         lines.push(format!(
-            "  🧠  Brain/LLM: {:.0}% / {:.0}%",
+            "  [BRAIN]  Brain/LLM: {:.0}% / {:.0}%",
             self.brain_ratio * 100.0,
             self.llm_ratio * 100.0
         ));
         lines.push(format!("  ❌  Errors: {}", self.errors_today));
-        lines.push(format!("  🔧  Repairs: {}", self.repairs_today));
-        lines.push(format!("  🤖  Model Rating: {}%", self.model_rating));
+        lines.push(format!("  [FIX]  Repairs: {}", self.repairs_today));
+        lines.push(format!("  [LLM]  Model Rating: {}%", self.model_rating));
 
         lines.push(String::new());
         lines.push("───────────────────────────────────────────".to_string());
@@ -561,15 +561,15 @@ impl DailyCheckIn {
         lines.push("───────────────────────────────────────────".to_string());
 
         // v2.3.0: First Light status
-        lines.push(format!("  🌅  First Light: {}", self.first_light_status));
+        lines.push(format!("  *  First Light: {}", self.first_light_status));
 
         // v2.3.0: Snow Leopard status
-        lines.push(format!("  🐆  Snow Leopard: {}", self.snow_leopard_status));
+        lines.push(format!("  [BENCH]  Snow Leopard: {}", self.snow_leopard_status));
 
         lines.push(String::new());
         lines.push("───────────────────────────────────────────".to_string());
         lines.push(format!("  Status: {}", self.status));
-        lines.push("═══════════════════════════════════════════".to_string());
+        lines.push("===========================================".to_string());
 
         lines.join("\n")
     }
@@ -589,7 +589,7 @@ fn get_first_light_status() -> String {
                 let total_xp = json.get("total_xp").and_then(|v| v.as_u64()).unwrap_or(0);
                 let timestamp = json.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown");
 
-                let status = if all_passed { "✅" } else { "⚠️" };
+                let status = if all_passed { "✅" } else { "!" };
                 return format!("{} Run at {}, +{} XP", status, timestamp, total_xp);
             }
         }

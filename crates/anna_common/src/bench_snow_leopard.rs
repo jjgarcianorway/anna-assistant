@@ -798,10 +798,10 @@ impl BenchmarkEngine {
             BenchmarkMode::Full
         };
 
-        self.log(&format!("\n{}", "═".repeat(60)));
+        self.log(&format!("\n{}", "=".repeat(60)));
         self.log(&"  SNOW LEOPARD BENCHMARK v1.4.0".to_string());
         self.log(&format!("  Mode: {:?}", mode));
-        self.log(&"═".repeat(60).to_string());
+        self.log(&"=".repeat(60).to_string());
 
         let xp_start = XpSnapshot::capture();
 
@@ -1389,28 +1389,28 @@ impl SnowLeopardDelta {
     pub fn format_ascii(&self) -> String {
         let mut s = String::new();
         s.push_str("SNOW LEOPARD BENCHMARK DELTA\n");
-        s.push_str(&format!("{}\n", "─".repeat(60)));
+        s.push_str(&format!("{}\n", "-".repeat(60)));
         s.push_str(&format!(
             "  Comparing: {} → {}\n",
             &self.older_timestamp[..16.min(self.older_timestamp.len())],
             &self.newer_timestamp[..16.min(self.newer_timestamp.len())]
         ));
-        s.push_str(&format!("{}\n", "─".repeat(60)));
+        s.push_str(&format!("{}\n", "-".repeat(60)));
 
         // Overall changes
         s.push_str("\n  OVERALL CHANGES:\n");
         s.push_str(&format!(
             "    Success rate:  {:+.1}%  {}\n",
             self.delta_success_rate,
-            if self.delta_success_rate > 0.0 { "📈" }
-            else if self.delta_success_rate < 0.0 { "📉" }
+            if self.delta_success_rate > 0.0 { "[STATS]" }
+            else if self.delta_success_rate < 0.0 { "[DOWN]" }
             else { "━" }
         ));
         s.push_str(&format!(
             "    Avg latency:   {:+}ms  {}\n",
             self.delta_avg_latency,
-            if self.delta_avg_latency < 0 { "⚡" }
-            else if self.delta_avg_latency > 0 { "🐢" }
+            if self.delta_avg_latency < 0 { "[FAST]" }
+            else if self.delta_avg_latency > 0 { "[SLOW]" }
             else { "━" }
         ));
         s.push_str(&format!(
@@ -1445,13 +1445,13 @@ impl SnowLeopardDelta {
         }
 
         // Summary
-        s.push_str(&format!("\n{}\n", "─".repeat(60)));
+        s.push_str(&format!("\n{}\n", "-".repeat(60)));
         let summary_icon = if self.improved_reliability && self.improved_latency {
-            "🏆"
+            "[TROPHY]"
         } else if self.regression_detected {
-            "⚠️"
+            "!"
         } else if self.improved_reliability || self.improved_latency {
-            "📈"
+            "[STATS]"
         } else {
             "━"
         };
@@ -1578,12 +1578,12 @@ pub fn compare_last_two_benchmarks() -> Option<SnowLeopardDelta> {
 pub fn format_benchmark_history(entries: &[BenchmarkHistoryListItem]) -> String {
     let mut s = String::new();
     s.push_str("SNOW LEOPARD BENCHMARK HISTORY\n");
-    s.push_str(&format!("{}\n", "─".repeat(80)));
+    s.push_str(&format!("{}\n", "-".repeat(80)));
     s.push_str(&format!(
         "{:<20} {:>6} {:>10} {:>10} {:>8} {:>8}\n",
         "Timestamp", "Mode", "Success", "Latency", "Brain%", "LLM%"
     ));
-    s.push_str(&format!("{}\n", "─".repeat(80)));
+    s.push_str(&format!("{}\n", "-".repeat(80)));
 
     for entry in entries {
         let mode_str = match entry.mode {
@@ -1598,7 +1598,7 @@ pub fn format_benchmark_history(entries: &[BenchmarkHistoryListItem]) -> String 
         ));
     }
 
-    s.push_str(&format!("{}\n", "─".repeat(80)));
+    s.push_str(&format!("{}\n", "-".repeat(80)));
     s.push_str(&format!("  {} entries shown\n", entries.len()));
     s
 }
@@ -1724,7 +1724,7 @@ mod tests {
         assert!(formatted.contains("Success rate"));
         assert!(formatted.contains("Avg latency"));
         assert!(formatted.contains("Brain usage"));
-        assert!(formatted.contains("📈") || formatted.contains("🏆"));  // Improvement indicator
+        assert!(formatted.contains("[STATS]") || formatted.contains("[TROPHY]"));  // Improvement indicator
     }
 
     #[test]

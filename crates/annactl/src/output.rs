@@ -171,8 +171,8 @@ pub fn display_final_answer(answer: &FinalAnswer) {
         println!("{}:", "Evidence".bold().bright_white());
         for citation in &answer.citations {
             let status_icon = match citation.status {
-                anna_common::EvidenceStatus::Ok => "✓".bright_green().to_string(),
-                anna_common::EvidenceStatus::Error => "✗".bright_red().to_string(),
+                anna_common::EvidenceStatus::Ok => "+".bright_green().to_string(),
+                anna_common::EvidenceStatus::Error => "X".bright_red().to_string(),
                 anna_common::EvidenceStatus::NotFound => "?".yellow().to_string(),
                 anna_common::EvidenceStatus::Timeout => "[T]".yellow().to_string(),
             };
@@ -450,30 +450,30 @@ pub fn display_debug_trace(trace: &DebugTrace) {
     println!();
     println!(
         "{}",
-        "╔══════════════════════════════════════════════════════════════════════════════╗"
+        "+==============================================================================+"
             .bright_magenta()
     );
     println!(
         "{}",
-        "║  [?]  DEBUG TRACE SUMMARY (see stderr for real-time output)                ║"
+        "|  [?]  DEBUG TRACE SUMMARY (see stderr for real-time output)                |"
             .bright_magenta()
     );
     println!(
         "{}",
-        "╚══════════════════════════════════════════════════════════════════════════════╝"
+        "+==============================================================================+"
             .bright_magenta()
     );
     println!();
 
     // Models used with clear labels
     println!(
-        "{}  [JUNIOR {}]  │  [SENIOR {}]",
+        "{}  [JUNIOR {}]  |  [SENIOR {}]",
         "Models:".bold().bright_white(),
         trace.junior_model.bright_green(),
         trace.senior_model.bright_blue()
     );
     println!(
-        "{}  {:.2}s  │  {} iterations",
+        "{}  {:.2}s  |  {} iterations",
         "Duration:".bold().bright_white(),
         trace.duration_secs,
         trace.iterations.len()
@@ -484,16 +484,16 @@ pub fn display_debug_trace(trace: &DebugTrace) {
     for iter in &trace.iterations {
         println!(
             "{}",
-            "████████████████████████████████████████████████████████████████████████████████"
+            "################################################################################"
                 .bright_yellow()
         );
         println!(
-            "██  ITERATION {}/6  ██",
+            "##  ITERATION {}/6  ##",
             iter.iteration.to_string().bold().bright_yellow()
         );
         println!(
             "{}",
-            "████████████████████████████████████████████████████████████████████████████████"
+            "################################################################################"
                 .bright_yellow()
         );
         println!();
@@ -502,7 +502,7 @@ pub fn display_debug_trace(trace: &DebugTrace) {
         println!(
             "{}",
             format!(
-                "┌─ [JUNIOR {}] ──────────────────────────────────────────────────────────────┐",
+                "+- [JUNIOR {}] --------------------------------------------------------------+",
                 trace.junior_model
             )
             .bright_green()
@@ -539,7 +539,7 @@ pub fn display_debug_trace(trace: &DebugTrace) {
         println!();
         println!(
             "{}",
-            "└──────────────────────────────────────────────────────────────────────────────┘"
+            "+------------------------------------------------------------------------------+"
                 .bright_green()
         );
         println!();
@@ -548,7 +548,7 @@ pub fn display_debug_trace(trace: &DebugTrace) {
         if iter.llm_b_prompt.is_some() || iter.llm_b_response.is_some() {
             println!(
                 "{}",
-                format!("┌─ [SENIOR {}] ──────────────────────────────────────────────────────────────┐", trace.senior_model)
+                format!("+- [SENIOR {}] --------------------------------------------------------------+", trace.senior_model)
                     .bright_blue()
             );
             println!();
@@ -591,7 +591,7 @@ pub fn display_debug_trace(trace: &DebugTrace) {
             println!();
             println!(
                 "{}",
-                "└──────────────────────────────────────────────────────────────────────────────┘"
+                "+------------------------------------------------------------------------------+"
                     .bright_blue()
             );
             println!();
@@ -600,7 +600,7 @@ pub fn display_debug_trace(trace: &DebugTrace) {
 
     println!(
         "{}",
-        "════════════════════════════════════════════════════════════════════════════════"
+        "================================================================================"
             .bright_magenta()
     );
     println!(
