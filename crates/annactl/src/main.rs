@@ -63,6 +63,8 @@ use anna_common::{
     llm_provision::{LlmSelection, JUNIOR_FALLBACK_TIMEOUT_MS},
     // v3.6.0: Percentage formatting
     format_percentage,
+    // v3.9.0: Status coherence
+    CoherentStatus, xp_events_status_message, telemetry_status_message,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -1297,15 +1299,19 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
 
     println!("{}", THIN_SEPARATOR);
 
-    // v0.84.0: 24-hour XP metrics
+    // v0.84.0 + v3.9.0: 24-hour XP metrics with coherent status
     println!("{}", "24-HOUR XP METRICS".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
 
+    // v3.9.0: Use coherent status for context-aware messages
+    let coherent_status = CoherentStatus::capture();
     let xp_log = XpLog::new();
     let metrics = xp_log.metrics_24h();
 
     if metrics.total_events == 0 {
-        println!("  {}  No XP events in the last 24 hours", "?".dimmed());
+        // v3.9.0: Show contextual message explaining why there's no data
+        let msg = xp_events_status_message(&coherent_status);
+        println!("  {}  {}", "?".dimmed(), msg.dimmed());
     } else {
         // Net XP with color
         let net_str = if metrics.net_xp >= 0 {
@@ -1598,9 +1604,11 @@ fn display_telemetry_health_section() {
     println!("{}", "PERFORMANCE TELEMETRY".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
 
-    // v1.2.0: Show helpful message when no telemetry data (e.g., after reset)
+    // v1.2.0 + v3.9.0: Show contextual message when no telemetry data
     if !complete.has_data {
-        println!("  📊  No telemetry yet. Ask a few questions to gather data.");
+        let coherent_status = CoherentStatus::capture();
+        let msg = telemetry_status_message(&coherent_status);
+        println!("  📊  {}", msg);
         println!("{}", THIN_SEPARATOR);
         return;
     }

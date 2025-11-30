@@ -127,6 +127,7 @@ pub mod router_llm;
 pub mod recipe;
 pub mod invariants;
 pub mod perf_timing;
+pub mod status_coherence;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -382,4 +383,11 @@ pub use perf_timing::{
     UnsupportedResult, UnsupportedReason, classify_unsupported,
     // Fast degraded answers (v3.4.0)
     DegradedAnswer, DegradationReason,
+};
+
+// Status Coherence exports (v3.9.0) - Consistent status data across all stores
+pub use status_coherence::{
+    CoherentStatus, StatusInconsistency, InconsistencyCode,
+    ResetHistory, ResetEvent, RESET_HISTORY_FILE,
+    telemetry_status_message, xp_events_status_message, autoprovision_status_message,
 };

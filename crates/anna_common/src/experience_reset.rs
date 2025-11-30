@@ -298,6 +298,9 @@ fn baseline_xp_store_json() -> String {
 pub fn reset_experience(paths: &ExperiencePaths) -> ExperienceResetResult {
     let mut result = ExperienceResetResult::new(ResetType::Experience);
 
+    // v3.9.0: Capture snapshot before reset for history
+    let snapshot = ExperienceSnapshot::capture(paths);
+
     // 1. Reset XP store to baseline
     reset_xp_store_to_baseline(paths, &mut result);
 
@@ -306,6 +309,15 @@ pub fn reset_experience(paths: &ExperiencePaths) -> ExperienceResetResult {
 
     // 3. Reset stats directory
     reset_stats_dir(paths, &mut result);
+
+    // v3.9.0: Record reset in history
+    if result.success {
+        let _ = crate::status_coherence::ResetHistory::record_reset(
+            "experience",
+            snapshot.total_questions,
+            snapshot.anna_xp,
+        );
+    }
 
     result.finalize();
     result
@@ -448,6 +460,9 @@ fn reset_stats_dir(paths: &ExperiencePaths, result: &mut ExperienceResetResult) 
 pub fn reset_factory(paths: &ExperiencePaths) -> ExperienceResetResult {
     let mut result = ExperienceResetResult::new(ResetType::Factory);
 
+    // v3.9.0: Capture snapshot before reset for history
+    let snapshot = ExperienceSnapshot::capture(paths);
+
     // 1. Reset XP store to baseline
     reset_xp_store_to_baseline(paths, &mut result);
 
@@ -456,6 +471,15 @@ pub fn reset_factory(paths: &ExperiencePaths) -> ExperienceResetResult {
 
     // 3. Delete knowledge directory (not just stats)
     reset_knowledge_dir(paths, &mut result);
+
+    // v3.9.0: Record reset in history
+    if result.success {
+        let _ = crate::status_coherence::ResetHistory::record_reset(
+            "factory",
+            snapshot.total_questions,
+            snapshot.anna_xp,
+        );
+    }
 
     result.finalize();
     result

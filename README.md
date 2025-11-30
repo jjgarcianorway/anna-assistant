@@ -1,8 +1,8 @@
-# Anna v3.8.0 "Preflight QA"
+# Anna v3.9.0 "Consistency & Migration"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v3.8.0 proves Anna learns correctly: Learning Contract documentation, 43 new learning/speed tests, benchmark learning verification, and contract validation. Total: 1299+ tests across the workspace.
+> v3.9.0 ensures status output is honest and self-consistent. No more contradictions like "Questions: 200" + "No telemetry yet". Reset history tracking, coherent status messages, 8 new consistency tests. Total: 1307+ tests across the workspace.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,9 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v3.7.0** | **Reliability Gauntlet** - System acceptance tests, "Day in the Life" scenario, zero warnings |
+| **v3.9.0** | **Consistency & Migration** - Honest status output, reset history tracking, coherent messages |
+| v3.8.0 | Preflight QA - Learning Contract, 43 learning tests, benchmark verification |
+| v3.7.0 | Reliability Gauntlet - System acceptance tests, "Day in the Life" scenario, zero warnings |
 | v3.5.0 | Verification & Guardrails - Property tests, dry-run checks, 1000+ tests, clean codebase |
 | v3.4.0 | Performance & Degradation Guard - Time budgets, tiered timeouts, degraded answers |
 | v3.3.0 | Integrity & Verification - Feature Integrity Matrix, 56+ integrity tests |
