@@ -71,7 +71,15 @@ impl UnifiedXpRecorder {
 
         // 2. Append to XpLog (for 24h metrics)
         if let Err(e) = self.xp_log.append(&event) {
-            eprintln!("[!] Failed to append XP event to log: {}", e);
+            // v3.10.0: Clearer error message for permission issues
+            let err_str = e.to_string();
+            if err_str.contains("Permission denied") || err_str.contains("os error 13") {
+                // Don't spam permission errors - they happen on every Brain answer
+                // The issue is directory ownership, fix with reinstall
+                tracing::debug!("XP log permission denied (reinstall to fix): {}", e);
+            } else {
+                eprintln!("[!] Failed to append XP event to log: {}", e);
+            }
         }
 
         // 3. Update XpStore (for LLM agent stats)
@@ -111,7 +119,13 @@ impl UnifiedXpRecorder {
 
         // 4. CRITICAL: Save XpStore to disk (fixes "No XP events in 24 hours" bug)
         if let Err(e) = xp_store.save() {
-            eprintln!("[!] Failed to save XP store: {}", e);
+            // v3.10.0: Quieter error for permission issues
+            let err_str = e.to_string();
+            if err_str.contains("Permission denied") || err_str.contains("os error 13") {
+                tracing::debug!("XP store permission denied (reinstall to fix): {}", e);
+            } else {
+                eprintln!("[!] Failed to save XP store: {}", e);
+            }
         }
 
         log_line

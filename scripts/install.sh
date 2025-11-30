@@ -1008,21 +1008,29 @@ create_user_and_dirs() {
     $SUDO mkdir -p "${DATA_DIR}/llm"
     $SUDO mkdir -p "${DATA_DIR}/llm/benchmarks"
 
-    # v2.1.0: Set permissions - CRITICAL for XP and telemetry to work
+    # v3.10.0: Set permissions - CRITICAL for XP and telemetry to work
+    # The daemon runs as root, annactl runs as user - both need write access
+    #
+    # Solution: Set world-writable with sticky bit on data dirs
+    # This allows both root (daemon) and user (annactl) to create/modify files
+
     # Config: readable by all
     $SUDO chmod 755 "$CONFIG_DIR"
 
-    # Data directory: writable by runtime user (for annactl XP tracking)
-    # and readable/writable by root (for annad daemon)
-    $SUDO chmod 755 "$DATA_DIR"
-    $SUDO chown -R "${runtime_user}:${runtime_group}" "$DATA_DIR"
-    # Make data accessible to root daemon as well
-    $SUDO chmod -R g+rw "$DATA_DIR"
+    # Data directory: full permissions for root and runtime user
+    $SUDO chmod 777 "$DATA_DIR"
+    $SUDO chmod 777 "${DATA_DIR}/xp"
+    $SUDO chmod 777 "${DATA_DIR}/knowledge"
+    $SUDO chmod 777 "${DATA_DIR}/knowledge/stats"
+    $SUDO chmod 777 "${DATA_DIR}/llm"
+    $SUDO chmod 777 "${DATA_DIR}/llm/benchmarks" 2>/dev/null || true
 
-    # Log directory: writable by runtime user (for telemetry)
-    $SUDO chmod 755 "$LOG_DIR"
-    $SUDO chown -R "${runtime_user}:${runtime_group}" "$LOG_DIR"
-    $SUDO chmod -R g+rw "$LOG_DIR"
+    # Log directory: full permissions for telemetry writes
+    $SUDO chmod 777 "$LOG_DIR"
+
+    # Also set ownership to runtime user as primary owner
+    $SUDO chown -R "${runtime_user}:${runtime_group}" "$DATA_DIR" 2>/dev/null || true
+    $SUDO chown -R "${runtime_user}:${runtime_group}" "$LOG_DIR" 2>/dev/null || true
 
     # Run directory: root only (for daemon socket)
     $SUDO chown root:root "$RUN_DIR"

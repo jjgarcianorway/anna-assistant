@@ -120,6 +120,10 @@ pub enum FastQuestionType {
     CpuModel,
     /// How much disk space on root?
     RootDiskSpace,
+    /// What OS/distro/kernel? (v3.10.0)
+    OsInfo,
+    /// System uptime (v3.10.0)
+    Uptime,
     /// Anna self-health check
     AnnaHealth,
     /// Enable debug mode (v0.89.0)
@@ -173,6 +177,52 @@ impl FastQuestionType {
         // Short forms: "ram?", "memory?"
         if q == "ram?" || q == "ram" || q == "memory?" || q == "memory" {
             return Self::Ram;
+        }
+
+        // =================================================================
+        // OS/Kernel patterns (v3.10.0 - NEW)
+        // =================================================================
+        // "what os" / "which os" / "what operating system"
+        if (q.contains("what") || q.contains("which"))
+            && (q.contains(" os") || q.contains("os ") || q.contains("operating system"))
+        {
+            return Self::OsInfo;
+        }
+        // "what distro" / "which distro" / "what distribution" / "linux distribution"
+        if (q.contains("distro") || q.contains("distribution"))
+            && (q.contains("what") || q.contains("which") || q.contains("linux") || q.contains("my"))
+        {
+            return Self::OsInfo;
+        }
+        // "what kernel" / "kernel version" / "which kernel"
+        if q.contains("kernel")
+            && (q.contains("what") || q.contains("which") || q.contains("version") || q.contains("running"))
+        {
+            return Self::OsInfo;
+        }
+        // Combined: "what os and kernel" / "os and kernel version"
+        if q.contains("os") && q.contains("kernel") {
+            return Self::OsInfo;
+        }
+        // "uname" direct command
+        if q.trim() == "uname" || q.contains("uname -") {
+            return Self::OsInfo;
+        }
+        // Short forms
+        if q == "os?" || q == "kernel?" || q == "distro?" {
+            return Self::OsInfo;
+        }
+
+        // =================================================================
+        // Uptime patterns (v3.10.0 - NEW)
+        // =================================================================
+        if q.contains("uptime") || q.contains("how long")
+            && (q.contains("running") || q.contains("been up") || q.contains("on for"))
+        {
+            return Self::Uptime;
+        }
+        if q == "uptime?" || q == "uptime" {
+            return Self::Uptime;
         }
 
         // =================================================================
@@ -591,6 +641,8 @@ pub fn try_fast_answer(question: &str) -> Option<FastAnswer> {
         FastQuestionType::CpuCores => fast_cpu_answer(),
         FastQuestionType::CpuModel => fast_cpu_model_answer(),
         FastQuestionType::RootDiskSpace => fast_disk_answer(),
+        FastQuestionType::OsInfo => fast_os_answer(),
+        FastQuestionType::Uptime => fast_uptime_answer(),
         FastQuestionType::AnnaHealth => fast_health_answer(),
         FastQuestionType::DebugEnable => fast_debug_enable(),
         FastQuestionType::DebugDisable => fast_debug_disable(),
@@ -973,6 +1025,7 @@ pub fn fast_updates_check() -> Option<FastAnswer> {
 }
 
 /// Check Anna health fast
+/// v3.10.0: Fixed to be honest - can't say "healthy" if API isn't responding
 pub fn fast_health_answer() -> Option<FastAnswer> {
     // Check if annad is running
     let annad_running = Command::new("pgrep")
@@ -988,43 +1041,44 @@ pub fn fast_health_answer() -> Option<FastAnswer> {
         .map(|o| o.status.success())
         .unwrap_or(false);
 
-    // Check daemon port
+    // Check daemon port (use port 7865 which is the actual annad port)
     let port_open = Command::new("curl")
-        .args(["-s", "-o", "/dev/null", "-w", "%{http_code}", "http://127.0.0.1:8080/health"])
+        .args(["-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", "http://127.0.0.1:7865/health"])
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).contains("200"))
         .unwrap_or(false);
 
     let mut status_parts = Vec::new();
-    let mut all_ok = true;
+    let mut issues = 0;
 
     if annad_running {
         status_parts.push("annad daemon is running");
     } else {
         status_parts.push("annad daemon is NOT running");
-        all_ok = false;
+        issues += 1;
     }
 
     if ollama_running {
         status_parts.push("Ollama LLM service is running");
     } else {
         status_parts.push("Ollama LLM service is NOT running");
-        all_ok = false;
+        issues += 1;
     }
 
     if port_open {
         status_parts.push("API endpoint is responding");
     } else {
-        status_parts.push("API endpoint is not responding");
-        // Not critical if annad is running
+        status_parts.push("API endpoint is NOT responding");
+        // v3.10.0: This IS a problem - count it as an issue
+        issues += 1;
     }
 
-    let summary = if all_ok {
-        "I'm healthy and operational."
-    } else if annad_running {
-        "I'm partially operational with some issues."
-    } else {
-        "I'm experiencing issues."
+    // v3.10.0: Be honest about health status
+    let summary = match issues {
+        0 => "I'm healthy and fully operational.",
+        1 => "I'm partially operational with one issue.",
+        2 => "I'm degraded with multiple issues.",
+        _ => "I'm experiencing significant issues.",
     };
 
     let text = format!(
@@ -1033,7 +1087,13 @@ pub fn fast_health_answer() -> Option<FastAnswer> {
         status_parts.join("\n- ")
     );
 
-    let reliability = if all_ok { 0.99 } else if annad_running { 0.85 } else { 0.70 };
+    // v3.10.0: Reliability reflects actual health
+    let reliability = match issues {
+        0 => 0.99,
+        1 => 0.75,
+        2 => 0.50,
+        _ => 0.30,
+    };
 
     Some(FastAnswer::new(&text, vec!["pgrep annad", "pgrep ollama", "curl /health"], reliability))
 }
@@ -1947,5 +2007,76 @@ mod tests {
 
         // Brain budget remains unchanged at 150ms
         assert_eq!(BRAIN_BUDGET_MS, 150);
+    }
+
+    // v3.10.0: OS/Kernel classification tests
+    #[test]
+    fn test_classify_os_kernel() {
+        // OS patterns
+        assert_eq!(
+            FastQuestionType::classify("what os am i running?"),
+            FastQuestionType::OsInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("what operating system is this?"),
+            FastQuestionType::OsInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("which os?"),
+            FastQuestionType::OsInfo
+        );
+
+        // Kernel patterns
+        assert_eq!(
+            FastQuestionType::classify("what kernel version?"),
+            FastQuestionType::OsInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("which kernel am i running?"),
+            FastQuestionType::OsInfo
+        );
+
+        // Combined patterns
+        assert_eq!(
+            FastQuestionType::classify("what os and kernel version am i running?"),
+            FastQuestionType::OsInfo
+        );
+
+        // Distro patterns
+        assert_eq!(
+            FastQuestionType::classify("what distro is this?"),
+            FastQuestionType::OsInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("which linux distribution?"),
+            FastQuestionType::OsInfo
+        );
+
+        // Short forms
+        assert_eq!(
+            FastQuestionType::classify("os?"),
+            FastQuestionType::OsInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("kernel?"),
+            FastQuestionType::OsInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("distro?"),
+            FastQuestionType::OsInfo
+        );
+    }
+
+    // v3.10.0: Uptime classification tests
+    #[test]
+    fn test_classify_uptime() {
+        assert_eq!(
+            FastQuestionType::classify("uptime"),
+            FastQuestionType::Uptime
+        );
+        assert_eq!(
+            FastQuestionType::classify("uptime?"),
+            FastQuestionType::Uptime
+        );
     }
 }

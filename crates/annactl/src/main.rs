@@ -1206,9 +1206,9 @@ async fn display_progression_section(daemon: &client::DaemonClient) {
     // v0.95.0: Trust and Streak info from XpStore
     let xp_store = XpStore::load();
 
-    // Trust with label
+    // Trust with label (v3.10.0: Display as percentage not decimal)
     let trust_level = TrustLevel::from_trust(xp_store.anna.trust);
-    let trust_str = format!("{:.2} ({})", xp_store.anna.trust, trust_level.label());
+    let trust_str = format!("{} ({})", xp_store.anna.trust_pct(), trust_level.label());
     let trust_colored = match trust_level {
         TrustLevel::Low => trust_str.bright_red().to_string(),
         TrustLevel::Normal => trust_str.yellow().to_string(),
