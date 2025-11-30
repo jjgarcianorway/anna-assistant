@@ -54,11 +54,15 @@ use anna_common::{
     record_brain_self_solve, UnifiedXpRecorder,
     // v1.1.0: Telemetry for status warnings
     telemetry_get_24h_summary,
+    // v3.11.0: Record telemetry for Brain fast path answers
+    telemetry_record_brain,
     // v1.3.0: Experience and Factory reset
     brain_fast::{
         PendingActionType, is_confirmation, is_factory_reset_confirmation,
         execute_experience_reset, execute_factory_reset,
     },
+    // v3.11.0: Benchmark trigger detection - must route to daemon
+    is_benchmark_trigger,
     // v1.7.0: LLM Autoprovision
     llm_provision::{LlmSelection, JUNIOR_FALLBACK_TIMEOUT_MS},
     // v3.6.0: Percentage formatting
@@ -313,44 +317,55 @@ async fn run_ask_with_pending(question: &str) -> Result<Option<PendingAction>> {
     // v0.87.0: Try Brain fast path for simple questions (RAM, CPU, disk, health)
     // This bypasses LLM entirely for known patterns
     if let Some(fast_answer) = try_fast_answer(question) {
-        // Show the question
-        spinner::print_question(question);
-        println!();
-
-        // v1.3.0: Check if this answer requires confirmation
-        if fast_answer.pending_confirmation {
-            print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
+        // v3.11.0: Benchmark triggers MUST go to daemon - they need to run the actual benchmark
+        // Don't handle locally, let them fall through to daemon request
+        if is_benchmark_trigger(&fast_answer) {
+            // Fall through to daemon - benchmark runs there
+            // Do nothing here, let code continue to daemon request below
+        } else {
+            // Show the question
+            spinner::print_question(question);
             println!();
+
+            // v1.3.0: Check if this answer requires confirmation
+            if fast_answer.pending_confirmation {
+                print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
+                println!();
+                clear_current_request();
+
+                // Return pending action based on pending_action type
+                if let Some(action_type) = fast_answer.pending_action {
+                    return Ok(Some(PendingAction::Reset(action_type)));
+                }
+                return Ok(None);
+            }
+
+            // Print the answer in the new format
+            print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
+
+            // v3.11.0: Record telemetry for Brain fast path answers
+            // This fixes "No telemetry yet" showing even after many Brain answers
+            telemetry_record_brain(question, fast_answer.reliability, fast_answer.duration_ms);
+
+            // v1.1.0: Use unified XP recorder - updates BOTH XpLog AND XpStore
+            // This fixes the "No XP events in 24 hours" issue for Brain fast path answers
+            let xp_line = record_brain_self_solve(question, &fast_answer.origin);
+            // Always show the XP line - dimmed in normal mode, bright in debug
+            if streaming_debug::is_debug_enabled() {
+                println!("{}", xp_line);
+            } else {
+                println!("{}", xp_line.dimmed());
+            }
+
+            // Log completion
+            logging::with_current_request(|ctx| {
+                ctx.set_result(fast_answer.reliability, RequestStatus::Ok);
+                log_request(&ctx.to_trace());
+            });
             clear_current_request();
 
-            // Return pending action based on pending_action type
-            if let Some(action_type) = fast_answer.pending_action {
-                return Ok(Some(PendingAction::Reset(action_type)));
-            }
             return Ok(None);
         }
-
-        // Print the answer in the new format
-        print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
-
-        // v1.1.0: Use unified XP recorder - updates BOTH XpLog AND XpStore
-        // This fixes the "No XP events in 24 hours" issue for Brain fast path answers
-        let xp_line = record_brain_self_solve(question, &fast_answer.origin);
-        // Always show the XP line - dimmed in normal mode, bright in debug
-        if streaming_debug::is_debug_enabled() {
-            println!("{}", xp_line);
-        } else {
-            println!("{}", xp_line.dimmed());
-        }
-
-        // Log completion
-        logging::with_current_request(|ctx| {
-            ctx.set_result(fast_answer.reliability, RequestStatus::Ok);
-            log_request(&ctx.to_trace());
-        });
-        clear_current_request();
-
-        return Ok(None);
     }
 
     // v0.43.0: Check if debug streaming is enabled

@@ -1,8 +1,8 @@
-# Anna v3.10.0 "Correctness Patch"
+# Anna v3.11.0 "Lifecycle Correctness"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v3.10.0 fixes critical bugs: OS/kernel questions now use Brain fast path (ms instead of 30s timeout), self-health no longer lies ("healthy" only when truly healthy), trust displays as percentages (50% not 0.50), permission errors handled gracefully, installer fixes directory permissions.
+> v3.11.0 fixes lifecycle correctness: Benchmark triggers now route to daemon (actually run benchmarks), Brain answers record telemetry (fixes "No telemetry yet"), lifecycle correctness tests verify XP/telemetry/reset behavior end-to-end.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v3.10.0** | **Correctness Patch** - OS/kernel Brain fast path, honest self-health, percentage display, permission fixes |
+| **v3.11.0** | **Lifecycle Correctness** - Benchmark triggers route to daemon, Brain telemetry recording, lifecycle tests |
+| v3.10.0 | Correctness Patch - OS/kernel Brain fast path, honest self-health, percentage display, permission fixes |
 | v3.9.0 | Consistency & Migration - Honest status output, reset history tracking, coherent messages |
 | v3.8.0 | Preflight QA - Learning Contract, 43 learning tests, benchmark verification |
 | v3.7.0 | Reliability Gauntlet - System acceptance tests, "Day in the Life" scenario, zero warnings |
