@@ -1,5 +1,10 @@
 //! Anna CLI (annactl) - User interface wrapper
 //!
+//! v4.2.0: Real Debug Mode - Actual request/response tracing
+//!   - Debug shows: USER-->ANNA-->BRAIN/JUNIOR/SENIOR with timing
+//!   - Each LLM call shows prompt and response
+//!   - Folders show Unix permissions (rwx)
+//!
 //! v4.1.0: Simplified Health - Detailed Dependencies, No Trust, Simple RPG
 //!   - status shows: version, services, models per role, folders, success rate, level
 //!   - Removed Trust metric - replaced with Success Rate
@@ -519,16 +524,16 @@ async fn run_status() -> Result<()> {
 
     for (path, desc) in folders {
         let exists = std::path::Path::new(path).exists();
-        let writable = std::fs::metadata(path)
-            .map(|m| !m.permissions().readonly())
-            .unwrap_or(false);
-
-        if exists && writable {
-            println!("  {}  {} {}", "+".bright_green(), path, desc.dimmed());
-        } else if exists {
-            println!("  {}  {} {} {}", "!".yellow(), path, desc.dimmed(), "(read-only)".yellow());
+        if exists {
+            // Get Unix permissions
+            let perms = get_unix_permissions(path);
+            if perms.contains('w') {
+                println!("  {}  {} {} {}", "+".bright_green(), path, perms.dimmed(), desc.dimmed());
+            } else {
+                println!("  {}  {} {} {}", "!".yellow(), path, perms.dimmed(), desc.dimmed());
+            }
         } else {
-            println!("  {}  {} {} {}", "x".bright_red(), path, desc.dimmed(), "(missing)".bright_red());
+            println!("  {}  {} {} {}", "x".bright_red(), path, "---".dimmed(), format!("{} (missing)", desc).bright_red());
         }
     }
 
@@ -621,6 +626,38 @@ fn check_ollama_activity() -> Option<String> {
     None
 }
 
+/// Get Unix-style permission string for a path (e.g., "rwx" or "r-x")
+fn get_unix_permissions(path: &str) -> String {
+    use std::os::unix::fs::PermissionsExt;
+
+    if let Ok(metadata) = std::fs::metadata(path) {
+        let mode = metadata.permissions().mode();
+        // Check user permissions (we care about effective access)
+        let r = if mode & 0o400 != 0 { 'r' } else { '-' };
+        let w = if mode & 0o200 != 0 { 'w' } else { '-' };
+        let x = if mode & 0o100 != 0 { 'x' } else { '-' };
+        format!("{}{}{}", r, w, x)
+    } else {
+        "---".to_string()
+    }
+}
+
+/// Check if we can write to a directory by testing file creation
+fn check_write_access(dir_path: &str) -> bool {
+    let test_file = format!("{}/.write_test_{}", dir_path, std::process::id());
+    let test_path = std::path::Path::new(&test_file);
+
+    // Try to create a test file
+    match std::fs::File::create(test_path) {
+        Ok(_) => {
+            // Clean up
+            let _ = std::fs::remove_file(test_path);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
 // ============================================================================
 // STATS COMMAND - v4.0.0: User + LLM + Anna statistics + Learning Analytics
 // ============================================================================
@@ -657,31 +694,65 @@ async fn run_stats() -> Result<()> {
         println!("  No interactions yet");
     }
 
-    // ANSWER ORIGIN
+    // ANSWER ORIGIN - where successful answers came from
     println!();
     println!("{}", "[ANSWER ORIGIN]".cyan());
 
     let brain = xp_store.anna_stats.self_solves;
     let llm = xp_store.anna_stats.llm_answers;
-    let timeouts = xp_store.anna_stats.timeouts;
     let origin_total = brain + llm;
 
     if origin_total > 0 {
         let brain_pct = (brain as f64 / origin_total as f64 * 100.0).round() as i32;
         let llm_pct = (llm as f64 / origin_total as f64 * 100.0).round() as i32;
-        println!("  Brain:      {} ({}%)", brain, brain_pct);
-        println!("  LLM:        {} ({}%)", llm, llm_pct);
+        println!("  Brain:      {} {}", brain.to_string().bright_green(), format!("({}%)", brain_pct).dimmed());
+        println!("  LLM:        {} {}", llm, format!("({}%)", llm_pct).dimmed());
     } else {
         println!("  Brain:      {}", brain);
         println!("  LLM:        {}", llm);
     }
-    if timeouts > 0 {
-        println!("  Timeouts:   {}", timeouts.to_string().bright_red());
+
+    // FAILURE ANALYSIS - where things go wrong
+    println!();
+    println!("{}", "[FAILURE ANALYSIS]".cyan());
+
+    let timeouts = xp_store.anna_stats.timeouts;
+    let junior_bad = xp_store.junior_stats.bad_plans;
+    let senior_refused = xp_store.senior_stats.refusals;
+    let total_failures = timeouts + junior_bad + senior_refused;
+
+    if total_failures > 0 {
+        // Show failures by component
+        if timeouts > 0 {
+            let pct = (timeouts as f64 / total_failures as f64 * 100.0).round() as i32;
+            println!("  Timeouts:   {} {} {}", timeouts.to_string().bright_red(), format!("({}%)", pct).dimmed(), "LLM too slow".dimmed());
+        }
+        if junior_bad > 0 {
+            let pct = (junior_bad as f64 / total_failures as f64 * 100.0).round() as i32;
+            println!("  Junior:     {} {} {}", junior_bad.to_string().bright_red(), format!("({}%)", pct).dimmed(), "bad plan/draft".dimmed());
+        }
+        if senior_refused > 0 {
+            let pct = (senior_refused as f64 / total_failures as f64 * 100.0).round() as i32;
+            println!("  Senior:     {} {} {}", senior_refused.to_string().bright_red(), format!("({}%)", pct).dimmed(), "refused answer".dimmed());
+        }
+
+        // Identify main culprit
+        let main_issue = if timeouts >= junior_bad && timeouts >= senior_refused {
+            "LLM latency (try smaller models)"
+        } else if junior_bad >= senior_refused {
+            "Junior quality (model may be too small)"
+        } else {
+            "Senior rejections (review prompts)"
+        };
+        println!();
+        println!("  {}  Main issue: {}", "!".yellow(), main_issue.yellow());
+    } else {
+        println!("  No failures recorded");
     }
 
-    // LLM PERFORMANCE
+    // COMPONENT SUCCESS RATES
     println!();
-    println!("{}", "[LLM PERFORMANCE]".cyan());
+    println!("{}", "[COMPONENT SUCCESS]".cyan());
 
     // Junior
     let junior_total = xp_store.junior_stats.good_plans + xp_store.junior_stats.bad_plans;
@@ -689,9 +760,6 @@ async fn run_stats() -> Result<()> {
         (xp_store.junior_stats.good_plans as f64 / junior_total as f64 * 100.0).round() as i32
     } else { 0 };
 
-    println!("  Junior:");
-    println!("    Good:     {}", xp_store.junior_stats.good_plans.to_string().bright_green());
-    println!("    Bad:      {}", xp_store.junior_stats.bad_plans.to_string().bright_red());
     if junior_total > 0 {
         let rate_colored = if junior_rate >= 70 {
             format!("{}%", junior_rate).bright_green().to_string()
@@ -700,7 +768,9 @@ async fn run_stats() -> Result<()> {
         } else {
             format!("{}%", junior_rate).bright_red().to_string()
         };
-        println!("    Success:  {}", rate_colored);
+        println!("  Junior:     {} {}", rate_colored, format!("({}/{} plans)", xp_store.junior_stats.good_plans, junior_total).dimmed());
+    } else {
+        println!("  Junior:     {} (no data)", "---".dimmed());
     }
 
     // Senior
@@ -709,10 +779,6 @@ async fn run_stats() -> Result<()> {
         ((xp_store.senior_stats.approvals + xp_store.senior_stats.fix_and_accept) as f64 / senior_total as f64 * 100.0).round() as i32
     } else { 0 };
 
-    println!("  Senior:");
-    println!("    Approved: {}", xp_store.senior_stats.approvals.to_string().bright_green());
-    println!("    Fixed:    {}", xp_store.senior_stats.fix_and_accept.to_string().yellow());
-    println!("    Refused:  {}", xp_store.senior_stats.refusals.to_string().bright_red());
     if senior_total > 0 {
         let rate_colored = if senior_rate >= 70 {
             format!("{}%", senior_rate).bright_green().to_string()
@@ -721,7 +787,9 @@ async fn run_stats() -> Result<()> {
         } else {
             format!("{}%", senior_rate).bright_red().to_string()
         };
-        println!("    Success:  {}", rate_colored);
+        println!("  Senior:     {} {}", rate_colored, format!("({} ok, {} fix, {} refuse)", xp_store.senior_stats.approvals, xp_store.senior_stats.fix_and_accept, xp_store.senior_stats.refusals).dimmed());
+    } else {
+        println!("  Senior:     {} (no data)", "---".dimmed());
     }
 
     // LLM MODELS
@@ -1027,6 +1095,33 @@ async fn run_reset() -> Result<()> {
     println!("{}", THIN_SEPARATOR);
     println!();
 
+    // Check if we have write access to both data and log directories
+    let can_write_data = check_write_access("/var/lib/anna/xp");
+    let can_write_logs = check_write_access("/var/log/anna");
+
+    if !can_write_data || !can_write_logs {
+        println!("{}  Some directories require root permissions:", "[NOTE]".yellow());
+        if !can_write_data {
+            println!("   - /var/lib/anna (data)");
+        }
+        if !can_write_logs {
+            println!("   - /var/log/anna (logs)");
+        }
+        println!();
+        println!("  For a complete reset, use:");
+        println!("    {}", "sudo annactl reset".cyan());
+        println!();
+        if !can_write_data {
+            println!("{}  Cannot proceed - data directory not writable.", "[ERROR]".bright_red());
+            println!();
+            println!("{}", THIN_SEPARATOR);
+            println!();
+            return Ok(());
+        }
+        println!("  Proceeding with partial reset (logs will be skipped)...");
+        println!();
+    }
+
     // Show warning
     println!("{}  This will delete ALL data:", "[WARNING]".bright_red());
     println!("   - XP and progression");
@@ -1044,7 +1139,7 @@ async fn run_reset() -> Result<()> {
         println!();
         println!("{}", result.text);
     } else {
-        println!("{}  Reset failed", "[ERROR]".bright_red());
+        println!("{}  Reset completed with issues", "[WARN]".yellow());
         println!();
         println!("{}", result.text);
     }

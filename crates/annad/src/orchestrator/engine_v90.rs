@@ -50,10 +50,21 @@ use anna_common::{
     RecipeStore, extract_recipe, MIN_RECIPE_RELIABILITY,
     // v3.0.0: Router LLM for question classification
     router_llm::QuestionType,
+    // v4.2.0: Debug events
+    DebugEvent, DebugEventType, DebugEventData,
 };
 use anyhow::Result;
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
+
+/// v4.2.0: Truncate string for debug display
+fn truncate_for_debug(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...[{}B total]", &s[..max_len], s.len())
+    }
+}
 
 // ============================================================================
 // Constants
@@ -200,13 +211,25 @@ impl UnifiedEngine {
     pub async fn process_question_with_emitter(
         &mut self,
         question: &str,
-        _emitter: Option<&dyn DebugEventEmitter>,
+        emitter: Option<&dyn DebugEventEmitter>,
     ) -> Result<FinalAnswer> {
         // ================================================================
         // STEP 0: Start timer and bookkeeping
         // ================================================================
         let start_time = Instant::now();
-        info!("[*]  v0.90.0 Unified Engine: {}", question);
+        info!("[*]  v4.2.0 Unified Engine: {}", question);
+
+        // v4.2.0: Emit start event
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::IterationStarted, 1, "USER --> ANNA: Question received")
+                .with_data(DebugEventData::KeyValue {
+                    pairs: vec![
+                        ("input".to_string(), question.to_string()),
+                        ("junior".to_string(), self.llm_client.junior_model().to_string()),
+                        ("senior".to_string(), self.llm_client.senior_model().to_string()),
+                    ],
+                }));
+        }
 
         // Store current question for XP event logging
         self.current_question = question.to_string();
@@ -219,6 +242,10 @@ impl UnifiedEngine {
         // ================================================================
         // STEP 1: Brain Fast Path (NO LLMs)
         // ================================================================
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::JuniorPlanStarted, 1, "ANNA --> BRAIN: Checking fast path")
+                .with_elapsed(0));
+        }
         let brain_start = Instant::now();
         if let Some(brain_answer) = try_fast_answer(question) {
             let brain_ms = brain_start.elapsed().as_millis() as u64;
@@ -226,6 +253,10 @@ impl UnifiedEngine {
             // v1.5.0: Check if this is a benchmark trigger - if so, run it
             if anna_common::is_benchmark_trigger(&brain_answer) {
                 info!("[+]  Benchmark trigger detected, running benchmark...");
+                if let Some(e) = emitter {
+                    e.emit(DebugEvent::new(DebugEventType::JuniorPlanDone, 1, "BRAIN --> ANNA: Benchmark trigger")
+                        .with_elapsed(brain_ms));
+                }
                 let benchmark_result = self.run_benchmark_now(&brain_answer).await;
                 // Record XP for running benchmark
                 self.record_xp_event(XpEventType::BrainSelfSolve);
@@ -242,6 +273,19 @@ impl UnifiedEngine {
                 brain_ms
             );
 
+            // v4.2.0: Emit brain success
+            if let Some(e) = emitter {
+                e.emit(DebugEvent::new(DebugEventType::JuniorPlanDone, 1, "BRAIN --> ANNA: Fast path matched!")
+                    .with_elapsed(brain_ms)
+                    .with_data(DebugEventData::KeyValue {
+                        pairs: vec![
+                            ("origin".to_string(), brain_answer.origin.clone()),
+                            ("reliability".to_string(), format!("{}%", (brain_answer.reliability * 100.0).round())),
+                            ("output".to_string(), truncate_for_debug(&brain_answer.text, 200)),
+                        ],
+                    }));
+            }
+
             // Record Anna XP for self-solve
             self.record_xp_event(XpEventType::BrainSelfSolve);
 
@@ -254,6 +298,12 @@ impl UnifiedEngine {
         }
         let brain_ms = brain_start.elapsed().as_millis() as u64;
         info!("[*]  Brain fast path did not match ({}ms)", brain_ms);
+
+        // v4.2.0: Emit brain miss
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::JuniorPlanDone, 1, "BRAIN --> ANNA: No fast path match, routing to LLM")
+                .with_elapsed(brain_ms));
+        }
 
         // ================================================================
         // STEP 1.5: Recipe Match (NO LLMs, learned patterns)
@@ -338,14 +388,31 @@ impl UnifiedEngine {
         let junior_prompt_1 = generate_junior_prompt_v80(question, &available_probes, &[]);
         info!("[J1] Junior planning ({} chars)", junior_prompt_1.len());
 
+        // v4.2.0: Emit Junior planning start with prompt
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::LlmPromptSent, 1,
+                    format!("ANNA --> JUNIOR ({}): Planning request", self.llm_client.junior_model()))
+                .with_data(DebugEventData::LlmPrompt {
+                    role: "junior".to_string(),
+                    model: self.llm_client.junior_model().to_string(),
+                    system_prompt: "See prompt structure".to_string(),
+                    user_prompt: truncate_for_debug(&junior_prompt_1, 500),
+                }));
+        }
+
         let junior_start_1 = Instant::now();
         // v3.12.0: Wrap Junior call with timeout
         let junior_timeout = Duration::from_millis(JUNIOR_TIMEOUT_MS);
         let junior_call_1 = self.llm_client.call_junior_v80(&junior_prompt_1);
-        let (junior_response_1, _raw) = match tokio::time::timeout(junior_timeout, junior_call_1).await {
+        let (junior_response_1, raw_1) = match tokio::time::timeout(junior_timeout, junior_call_1).await {
             Ok(Ok(resp)) => resp,
             Ok(Err(e)) => {
                 warn!("[!]  Junior planning failed: {}", e);
+                if let Some(em) = emitter {
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
+                            format!("JUNIOR --> ANNA: ERROR - {}", e))
+                        .with_elapsed(junior_start_1.elapsed().as_millis() as u64));
+                }
                 self.record_xp_event(XpEventType::JuniorBadCommand);
                 return Ok(self.build_error_answer(question, &e.to_string(), start_time.elapsed()));
             }
@@ -353,11 +420,17 @@ impl UnifiedEngine {
                 // v3.12.0: Junior timeout exceeded
                 let elapsed_ms = junior_start_1.elapsed().as_millis() as u64;
                 warn!("[!]  Junior planning timeout after {}ms (budget: {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS);
+                if let Some(em) = emitter {
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
+                            format!("JUNIOR --> ANNA: TIMEOUT after {}ms (budget {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS))
+                        .with_elapsed(elapsed_ms));
+                }
                 self.record_xp_event(XpEventType::LlmTimeoutFallback);
                 return Ok(self.build_timeout_answer(question, start_time.elapsed(), elapsed_ms, 0));
             }
         };
-        junior_total_ms += junior_start_1.elapsed().as_millis() as u64;
+        let junior_1_ms = junior_start_1.elapsed().as_millis() as u64;
+        junior_total_ms += junior_1_ms;
 
         // Extract requested probes
         let probe_ids: Vec<String> = junior_response_1
@@ -366,6 +439,19 @@ impl UnifiedEngine {
             .map(|p| p.probe_id.clone())
             .collect();
         info!("[J1] Junior requested {} probes: {:?}", probe_ids.len(), probe_ids);
+
+        // v4.2.0: Emit Junior response
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::LlmResponseReceived, 1,
+                    format!("JUNIOR --> ANNA: Planned {} probes in {}ms", probe_ids.len(), junior_1_ms))
+                .with_elapsed(junior_1_ms)
+                .with_data(DebugEventData::LlmResponse {
+                    role: "junior".to_string(),
+                    model: self.llm_client.junior_model().to_string(),
+                    response: truncate_for_debug(&raw_1, 300),
+                    elapsed_ms: junior_1_ms,
+                }));
+        }
 
         // ================================================================
         // STEP 3: Run probes (exactly once)
@@ -385,8 +471,19 @@ impl UnifiedEngine {
                 .collect();
 
             if !valid_probes.is_empty() {
+                // v4.2.0: Emit probe execution start
+                if let Some(e) = emitter {
+                    e.emit(DebugEvent::new(DebugEventType::AnnaProbe, 1,
+                            format!("ANNA --> PROBES: Executing {} commands", valid_probes.len()))
+                        .with_data(DebugEventData::KeyValue {
+                            pairs: vec![("probes".to_string(), valid_probes.join(", "))],
+                        }));
+                }
+
                 info!("[P]  Executing {} probes", valid_probes.len());
+                let probe_start = Instant::now();
                 evidence = probe_executor::execute_probes(&self.catalog, &valid_probes).await;
+                let probe_ms = probe_start.elapsed().as_millis() as u64;
 
                 // Precompute compact summaries for Junior
                 for ev in &evidence {
@@ -396,6 +493,19 @@ impl UnifiedEngine {
                     }
                 }
                 info!("[P]  Collected {} evidence items", evidence.len());
+
+                // v4.2.0: Emit probe results
+                if let Some(e) = emitter {
+                    let results: Vec<String> = evidence.iter()
+                        .map(|ev| format!("{}={:?}", ev.probe_id, ev.status))
+                        .collect();
+                    e.emit(DebugEvent::new(DebugEventType::ProbesExecuted, 1,
+                            format!("PROBES --> ANNA: {} results in {}ms", evidence.len(), probe_ms))
+                        .with_elapsed(probe_ms)
+                        .with_data(DebugEventData::KeyValue {
+                            pairs: vec![("results".to_string(), results.join(", "))],
+                        }));
+                }
             }
         }
 
@@ -409,13 +519,31 @@ impl UnifiedEngine {
         let junior_prompt_2 = generate_junior_prompt_v80(question, &available_probes, &summaries);
         info!("[J2] Junior drafting ({} chars)", junior_prompt_2.len());
 
+        // v4.2.0: Emit Junior draft start
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::LlmPromptSent, 1,
+                    format!("ANNA --> JUNIOR ({}): Draft request with {} evidence",
+                            self.llm_client.junior_model(), summaries.len()))
+                .with_data(DebugEventData::LlmPrompt {
+                    role: "junior".to_string(),
+                    model: self.llm_client.junior_model().to_string(),
+                    system_prompt: "See prompt structure".to_string(),
+                    user_prompt: truncate_for_debug(&junior_prompt_2, 500),
+                }));
+        }
+
         let junior_start_2 = Instant::now();
         // v3.12.0: Wrap Junior call with timeout
         let junior_call_2 = self.llm_client.call_junior_v80(&junior_prompt_2);
-        let (junior_response_2, _raw) = match tokio::time::timeout(junior_timeout, junior_call_2).await {
+        let (junior_response_2, raw_2) = match tokio::time::timeout(junior_timeout, junior_call_2).await {
             Ok(Ok(resp)) => resp,
             Ok(Err(e)) => {
                 warn!("[!]  Junior draft failed: {}", e);
+                if let Some(em) = emitter {
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
+                            format!("JUNIOR --> ANNA: DRAFT ERROR - {}", e))
+                        .with_elapsed(junior_start_2.elapsed().as_millis() as u64));
+                }
                 self.record_xp_event(XpEventType::JuniorBadCommand);
                 return Ok(self.build_error_answer(question, &e.to_string(), start_time.elapsed()));
             }
@@ -423,11 +551,17 @@ impl UnifiedEngine {
                 // v3.12.0: Junior timeout exceeded
                 let elapsed_ms = junior_start_2.elapsed().as_millis() as u64;
                 warn!("[!]  Junior draft timeout after {}ms (budget: {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS);
+                if let Some(em) = emitter {
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
+                            format!("JUNIOR --> ANNA: DRAFT TIMEOUT after {}ms", elapsed_ms))
+                        .with_elapsed(elapsed_ms));
+                }
                 self.record_xp_event(XpEventType::LlmTimeoutFallback);
                 return Ok(self.build_timeout_answer(question, start_time.elapsed(), junior_total_ms + elapsed_ms, 0));
             }
         };
-        junior_total_ms += junior_start_2.elapsed().as_millis() as u64;
+        let junior_2_ms = junior_start_2.elapsed().as_millis() as u64;
+        junior_total_ms += junior_2_ms;
 
         // Check if Junior has a draft answer
         let junior_had_draft = junior_response_2.draft_answer.is_some()
@@ -439,6 +573,11 @@ impl UnifiedEngine {
             Some(draft) if draft.text != "null" && !draft.text.is_empty() => draft.text.clone(),
             _ => {
                 warn!("[!]  Junior did not provide draft answer");
+                if let Some(em) = emitter {
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
+                            "JUNIOR --> ANNA: NO DRAFT - failed to generate answer")
+                        .with_elapsed(junior_2_ms));
+                }
                 self.record_xp_event(XpEventType::JuniorBadCommand);
                 return Ok(self.build_refusal(
                     question,
@@ -461,6 +600,19 @@ impl UnifiedEngine {
             draft_text.len(),
             junior_confidence * 100.0
         );
+
+        // v4.2.0: Emit Junior draft response
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::LlmResponseReceived, 1,
+                    format!("JUNIOR --> ANNA: Draft ready ({} chars) in {}ms", draft_text.len(), junior_2_ms))
+                .with_elapsed(junior_2_ms)
+                .with_data(DebugEventData::LlmResponse {
+                    role: "junior".to_string(),
+                    model: self.llm_client.junior_model().to_string(),
+                    response: truncate_for_debug(&raw_2, 300),
+                    elapsed_ms: junior_2_ms,
+                }));
+        }
 
         // ================================================================
         // STEP 5: Senior Audit (optional for high-confidence simple questions)
@@ -518,14 +670,31 @@ impl UnifiedEngine {
         let senior_prompt = generate_senior_prompt_v80(question, &draft_text, &probe_summary_pairs);
         info!("[S]  Senior auditing ({} chars)", senior_prompt.len());
 
+        // v4.2.0: Emit Senior audit start
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::LlmPromptSent, 1,
+                    format!("ANNA --> SENIOR ({}): Audit request", self.llm_client.senior_model()))
+                .with_data(DebugEventData::LlmPrompt {
+                    role: "senior".to_string(),
+                    model: self.llm_client.senior_model().to_string(),
+                    system_prompt: "See prompt structure".to_string(),
+                    user_prompt: truncate_for_debug(&senior_prompt, 500),
+                }));
+        }
+
         let senior_start = Instant::now();
         // v3.12.0: Wrap Senior call with timeout
         let senior_timeout = Duration::from_millis(SENIOR_TIMEOUT_MS);
         let senior_call = self.llm_client.call_senior_v80(&senior_prompt);
-        let (senior_response, _raw) = match tokio::time::timeout(senior_timeout, senior_call).await {
+        let (senior_response, raw_senior) = match tokio::time::timeout(senior_timeout, senior_call).await {
             Ok(Ok(resp)) => resp,
             Ok(Err(e)) => {
                 warn!("[!]  Senior audit failed: {}", e);
+                if let Some(em) = emitter {
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
+                            format!("SENIOR --> ANNA: AUDIT ERROR - {}", e))
+                        .with_elapsed(senior_start.elapsed().as_millis() as u64));
+                }
                 // Fall back to Junior answer with reduced confidence
                 _origin = AnswerOrigin::Junior;
                 self.record_xp_event(XpEventType::LlmTimeoutFallback);
@@ -545,6 +714,11 @@ impl UnifiedEngine {
                 // v3.12.0: Senior timeout exceeded - fall back to Junior answer
                 let elapsed_ms = senior_start.elapsed().as_millis() as u64;
                 warn!("[!]  Senior audit timeout after {}ms (budget: {}ms)", elapsed_ms, SENIOR_TIMEOUT_MS);
+                if let Some(em) = emitter {
+                    em.emit(DebugEvent::new(DebugEventType::Error, 1,
+                            format!("SENIOR --> ANNA: TIMEOUT after {}ms", elapsed_ms))
+                        .with_elapsed(elapsed_ms));
+                }
                 _origin = AnswerOrigin::Junior;
                 self.record_xp_event(XpEventType::LlmTimeoutFallback);
                 return Ok(self.build_junior_answer(
@@ -562,6 +736,19 @@ impl UnifiedEngine {
         };
         senior_total_ms = senior_start.elapsed().as_millis() as u64;
         _origin = AnswerOrigin::Senior;
+
+        // v4.2.0: Emit Senior response
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::LlmResponseReceived, 1,
+                    format!("SENIOR --> ANNA: Verdict '{}' in {}ms", senior_response.verdict, senior_total_ms))
+                .with_elapsed(senior_total_ms)
+                .with_data(DebugEventData::LlmResponse {
+                    role: "senior".to_string(),
+                    model: self.llm_client.senior_model().to_string(),
+                    response: truncate_for_debug(&raw_senior, 300),
+                    elapsed_ms: senior_total_ms,
+                }));
+        }
 
         // ================================================================
         // STEP 6: Final Answer Assembly
