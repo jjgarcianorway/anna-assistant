@@ -1,13 +1,17 @@
 //! Anna CLI (annactl) - User interface wrapper
 //!
-//! v0.3.0: Strict CLI with LLM-orchestrated help/version
-//! v0.4.0: Update status in version/help output
-//! v0.5.0: Natural language configuration, hardware-aware model selection
-//! v0.6.0: ASCII-only sysadmin style, multi-round reliability refinement
-//! v0.7.0: Self-health monitoring with auto-repair and REPL notifications
-//! v0.8.0: Observability and debug logging with JSONL output
+//! v3.1.0: Pipeline Purity - removed legacy LLM-A/B orchestrator from annactl
+//! v3.0.0: Brain First - Unified Brain → Recipe → Junior → Senior pipeline
+//! v0.10.0: Evidence-based answers with LLM-A/LLM-B audit loop (daemon)
 //! v0.9.0: Version-aware installer, fully automatic auto-update, status command
-//! v0.10.0: Evidence-based answers with LLM-A/LLM-B audit loop
+//! v0.8.0: Observability and debug logging with JSONL output
+//! v0.7.0: Self-health monitoring with auto-repair and REPL notifications
+//!
+//! Architecture (v3.1.0):
+//!   - annactl is a THIN CLIENT - no LLM calls happen here
+//!   - All questions route through the daemon API
+//!   - Brain fast path handles simple questions locally (no LLM)
+//!   - Help/version are static (no LLM needed)
 //!
 //! Allowed CLI surface (case-insensitive):
 //!   - annactl                           Start interactive REPL
@@ -22,8 +26,6 @@
 
 mod ask_user;
 mod client;
-mod llm_client;
-mod orchestrator;
 mod output;
 mod progress_display;
 mod spinner;
@@ -606,25 +608,51 @@ fn check_ollama_version() -> Option<String> {
     }
 }
 
-/// Help via LLM pipeline - Anna explains how to use herself
+/// Help display - static help message (v3.1.0: no LLM needed)
 async fn run_help_via_llm() -> Result<()> {
-    let daemon = client::DaemonClient::new();
+    use anna_common::THIN_SEPARATOR;
 
-    let help_question =
-        "How do I use Anna? Show usage, natural language configuration, and examples.";
-
-    // Load v0.5.0 config
     let config = AnnaConfigV5::load();
 
-    // Process through orchestrator for consistent formatting
-    let result = orchestrator::process_internal_query(
-        help_question,
-        &daemon,
-        orchestrator::InternalQueryType::Help { config },
-    )
-    .await?;
+    // v3.1.0: Static help - no LLM call needed
+    let config_note = if config.is_dev_auto_update_active() {
+        "Dev auto-update: enabled (every 10 minutes)"
+    } else {
+        "Configure Anna via natural language"
+    };
 
-    output::display_response(&result);
+    println!();
+    println!("{}", "ANNA HELP".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+    println!();
+    println!("{}", "[USAGE]".bright_cyan());
+    println!("  annactl \"<question>\"      Ask Anna anything");
+    println!("  annactl                   Start interactive REPL");
+    println!("  annactl status            Show status and progression");
+    println!("  annactl version           Show version");
+    println!("  annactl help              Show this help");
+    println!();
+    println!("{}", "[CONFIGURATION]".bright_cyan());
+    println!("  All configuration is via natural language:");
+    println!("  * \"enable dev auto-update every 10 minutes\"");
+    println!("  * \"switch to manual model selection and use qwen2.5:14b\"");
+    println!("  * \"show me your current configuration\"");
+    println!();
+    println!("{}", "[EXAMPLES]".bright_cyan());
+    println!("  annactl \"How many CPU cores do I have?\"");
+    println!("  annactl \"What's my RAM usage?\"");
+    println!("  annactl \"Show disk information\"");
+    println!("  annactl \"enable debug mode\"");
+    println!();
+    println!("{}", "[NOTES]".bright_cyan());
+    println!("  * {}", config_note);
+    println!("  * Answers include reliability assessment");
+    println!("  * Evidence-based answers only - no hallucinations");
+    println!("  * Brain fast path: <150ms for simple questions");
+    println!();
+    println!("{}", THIN_SEPARATOR);
+    println!();
+
     Ok(())
 }
 

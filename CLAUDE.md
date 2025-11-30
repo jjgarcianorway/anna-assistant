@@ -188,3 +188,4 @@ enum EventKind {
 - Progress lines streamed in order
 - Conversation log from real events only
 - Always update README.md and other documents in GitHub when you release a new version. Keep the repository updated and clean.
+- per each new prompt i send you, plan the implementation, and bump the release version

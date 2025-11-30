@@ -413,6 +413,40 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
+## v3.1.0 "Pipeline Purity" - Remove Legacy Orchestration from annactl
+
+**Theme**: Make annactl a pure thin client. All LLM calls route through daemon.
+
+### Legacy Code Removal (v3.1.0)
+[x] Removed crates/annactl/src/orchestrator.rs (902 lines) - legacy LLM-A/B pipeline
+[x] Removed crates/annactl/src/llm_client.rs (134 lines) - duplicate Ollama client
+[x] Total: 1036 lines of legacy code removed from annactl
+
+### Architecture Purity (v3.1.0)
+[x] annactl is now a THIN CLIENT - no LLM calls happen locally
+[x] All questions route through daemon API (/v1/answer)
+[x] Brain fast path handles simple questions locally (no LLM)
+[x] Help/version are now static (no LLM calls needed)
+
+### Documentation (v3.1.0)
+[x] Updated annactl/main.rs module docs with v3.1.0 architecture
+[x] Static help display in run_help_via_llm() - cleaner, faster
+[x] Updated README.md version history
+[x] Updated ANNA_PROGRESS.md
+
+### Tests (v3.1.0)
+[x] All workspace tests passing (same test count - no functionality removed)
+[x] Build successful
+
+**Key Files Modified**:
+- crates/annactl/src/main.rs - Removed orchestrator/llm_client imports, static help
+
+**Key Files Deleted**:
+- crates/annactl/src/orchestrator.rs (902 lines)
+- crates/annactl/src/llm_client.rs (134 lines)
+
+---
+
 ## v3.0.0 "Brain First" - Unified Pipeline, Recipe Learning, Legacy Cleanup
 
 **Theme**: Single unified pipeline. Brain → Recipe → Junior → Senior. No legacy code paths.
