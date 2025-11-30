@@ -15,12 +15,15 @@ TimeoutStartSec=10
 TimeoutStopSec=10
 
 # Environment
+# v3.13.0: HOME is needed for ollama to find model storage
 Environment=RUST_LOG=annad=info
+Environment=HOME=/var/lib/anna
 
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
-ProtectHome=yes
+# v3.13.0: Allow home access so ollama can store models in standard location
+ProtectHome=read-only
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes

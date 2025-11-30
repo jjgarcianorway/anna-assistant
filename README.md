@@ -1,8 +1,8 @@
-# Anna v3.13.0 "Lifecycle Integrity"
+# Anna v3.13.1 "Lifecycle Integrity"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v3.13.0 fixes lifecycle integrity: Hard reset now properly accepts natural confirmations (not just exact strings), LLM timeouts increased to realistic values (10s Junior, 12s Senior) for 4b-14b models, autoprovision tracks explicit status (completed/failed/not yet run), factory reset clears benchmarks and LLM state.
+> v3.13.1 fixes lifecycle integrity: Hard reset now executes on confirmation (not just shows dialog), LLM timeouts updated in ALL locations (engine, performance, timing), systemd service sets HOME for ollama, 20s global timeout for 4b-14b models.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v3.13.0** | **Lifecycle Integrity** - Flexible hard reset confirmation, realistic LLM timeouts (8-15s), explicit autoprovision status, factory reset clears benchmarks/LLM state |
+| **v3.13.1** | **Lifecycle Integrity** - Hard reset executes on confirmation, timeouts fixed everywhere (10s/12s/20s), systemd HOME fix for ollama, confirmation patterns |
+| v3.13.0 | Lifecycle Integrity (broken) - Partial fixes, timeouts not updated in engine |
 | v3.12.0 | Performance & Consistency - GPU/Network Brain handlers, First Light uses Brain, per-call LLM timeouts, hardware tier in status |
 | v3.11.0 | Lifecycle Correctness - Benchmark triggers route to daemon, Brain telemetry recording, lifecycle tests |
 | v3.10.0 | Correctness Patch - OS/kernel Brain fast path, honest self-health, percentage display, permission fixes |

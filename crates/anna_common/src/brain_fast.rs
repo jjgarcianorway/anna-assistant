@@ -154,6 +154,10 @@ pub enum FastQuestionType {
     GpuInfo,
     /// Network interfaces (v3.12.0)
     NetworkInfo,
+    /// v3.13.0: Factory reset confirmation (executes reset immediately)
+    ResetFactoryConfirm,
+    /// v3.13.0: Experience reset confirmation (executes reset immediately)
+    ResetExperienceConfirm,
     /// Not a fast-path question
     Unknown,
 }
@@ -334,7 +338,17 @@ impl FastQuestionType {
 
         // =================================================================
         // Reset patterns (v1.3.0 - Experience vs Factory)
+        // v3.13.0: Check confirmations FIRST (before new reset requests)
         // =================================================================
+        // v3.13.0: Confirmation patterns - execute reset immediately
+        if is_factory_reset_confirmation(q) {
+            return Self::ResetFactoryConfirm;
+        }
+        if is_confirmation(q) {
+            // Bare "yes" / "y" confirms soft reset
+            return Self::ResetExperienceConfirm;
+        }
+        // New reset requests (not confirmations)
         if is_factory_reset_question(q) {
             return Self::ResetFactory;
         }
@@ -480,7 +494,14 @@ fn is_benchmark_delta_question(q: &str) -> bool {
 
 /// Check if question is asking for factory reset (hard reset, deletes knowledge) (v1.3.0)
 /// v2.1.0: Added more natural language triggers
+/// v3.13.0: Skip if starts with "yes" (that's a confirmation, not a new request)
 fn is_factory_reset_question(q: &str) -> bool {
+    // v3.13.0: If the message starts with "yes", it's a confirmation, not a new reset request
+    // This prevents "yes, hard reset everything" from triggering a NEW reset dialog
+    if q.trim_start().starts_with("yes") {
+        return false;
+    }
+
     // Factory reset requires explicit "factory reset" phrase or explicit "delete knowledge/everything"
     // This is the HARD reset that deletes knowledge
 
@@ -523,7 +544,13 @@ fn is_factory_reset_question(q: &str) -> bool {
 
 /// Check if question is asking for experience reset (soft reset, keeps knowledge) (v1.3.0)
 /// v2.1.0: Added more natural language triggers including "soft reset", "clear memory"
+/// v3.13.0: Skip if starts with "yes" (that's a confirmation, not a new request)
 fn is_reset_experience_question(q: &str) -> bool {
+    // v3.13.0: If the message starts with "yes", it's a confirmation, not a new reset request
+    if q.trim_start().starts_with("yes") {
+        return false;
+    }
+
     // v2.1.0: Direct "soft reset" trigger
     if q.contains("soft reset") {
         return true;
@@ -694,6 +721,9 @@ pub fn try_fast_answer(question: &str) -> Option<FastAnswer> {
         FastQuestionType::DebugStatus => fast_debug_status(),
         FastQuestionType::ResetExperience => fast_reset_experience_confirm(),
         FastQuestionType::ResetFactory => fast_reset_factory_confirm(),
+        // v3.13.0: Direct confirmation handlers - execute reset immediately
+        FastQuestionType::ResetFactoryConfirm => Some(execute_factory_reset()),
+        FastQuestionType::ResetExperienceConfirm => Some(execute_experience_reset()),
         FastQuestionType::BenchmarkFull => fast_benchmark_response(false),
         FastQuestionType::BenchmarkQuick => fast_benchmark_response(true),
         FastQuestionType::BenchmarkHistory => fast_benchmark_history(),

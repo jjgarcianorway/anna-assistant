@@ -59,21 +59,23 @@ use tracing::{debug, info, warn};
 // Constants
 // ============================================================================
 
-/// v2.3.0: Hard time budget (10 seconds for full orchestration)
-/// Reduced from 30s to ensure responsive UX with small models
-const ORCHESTRATION_TIMEOUT_SECS: u64 = 10;
+/// v3.13.0: Hard time budget (20 seconds for full orchestration)
+/// Increased to accommodate 4b-14b models which need more time
+const ORCHESTRATION_TIMEOUT_SECS: u64 = 20;
 
-/// v2.3.0: Soft time budget for warning (8 seconds)
-const ORCHESTRATION_SOFT_LIMIT_SECS: u64 = 8;
+/// v3.13.0: Soft time budget for warning (15 seconds)
+const ORCHESTRATION_SOFT_LIMIT_SECS: u64 = 15;
 
 /// v0.90.0: Brain fast path timeout (150ms target)
 const BRAIN_TIMEOUT_MS: u64 = 150;
 
-/// v3.12.0: Junior LLM call timeout (4 seconds per call)
-const JUNIOR_TIMEOUT_MS: u64 = 4000;
+/// v3.13.0: Junior LLM call timeout (10 seconds per call)
+/// Realistic for 4b+ models like qwen3:4b
+const JUNIOR_TIMEOUT_MS: u64 = 10000;
 
-/// v3.12.0: Senior LLM call timeout (5 seconds per call)
-const SENIOR_TIMEOUT_MS: u64 = 5000;
+/// v3.13.0: Senior LLM call timeout (12 seconds per call)
+/// Realistic for 14b models like qwen2.5:14b
+const SENIOR_TIMEOUT_MS: u64 = 12000;
 
 /// v0.90.0: High confidence threshold - skip Senior if Junior >= 80%
 const SKIP_SENIOR_THRESHOLD: f64 = 0.80;
@@ -1237,8 +1239,8 @@ mod tests {
     #[test]
     fn test_engine_creation() {
         let engine = UnifiedEngine::default();
-        // v2.3.0: Timeout reduced to 10s for responsive UX
-        assert_eq!(engine.timeout, Duration::from_secs(10));
+        // v3.13.0: Timeout increased to 20s for realistic 4b-14b model response times
+        assert_eq!(engine.timeout, Duration::from_secs(20));
     }
 
     #[test]
