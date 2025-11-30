@@ -27,7 +27,7 @@ Anna is a dual-LLM system that provides reliable, evidence-based answers about y
 
 ---
 
-## 🏗️  Architecture
+## 🏗️  Architecture (v3.0.0)
 
 ```
 ┌─────────────────┐
@@ -36,29 +36,43 @@ Anna is a dual-LLM system that provides reliable, evidence-based answers about y
 └────────┬────────┘
          │ HTTP :7865
          ▼
-┌─────────────────┐     ┌─────────────────┐
-│      annad      │────▶│   Ollama LLM    │
-│    (Daemon)     │     │  (Local Only)   │
-└────────┬────────┘     └─────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                      annad                          │
+│  ┌─────────────────────────────────────────────┐   │
+│  │               Unified Pipeline               │   │
+│  │  Question → Brain → Recipe → Junior → Senior │   │
+│  └─────────────────────────────────────────────┘   │
+└────────┬───────────────────────────────────────────┘
          │
-    ┌────┴────┬───────────┬────────────┐
-    ▼         ▼           ▼            ▼
-┌───────┐ ┌───────┐ ┌──────────┐ ┌──────────┐
-│LLM-A  │ │LLM-B  │ │ Command  │ │Knowledge │
-│Junior │ │Senior │ │Whitelist │ │  Store   │
-└───────┘ └───────┘ └──────────┘ └──────────┘
+    ┌────┴────┬───────────┬───────────┬────────────┐
+    ▼         ▼           ▼           ▼            ▼
+┌───────┐ ┌───────┐ ┌──────────┐ ┌──────────┐ ┌────────┐
+│ Brain │ │Recipe │ │  Junior  │ │  Senior  │ │Ollama  │
+│<150ms │ │<500ms │ │   <8s    │ │  <10s    │ │ LLM    │
+│0 LLMs │ │0 LLMs │ │  2 LLMs  │ │  3 LLMs  │ │(Local) │
+└───────┘ └───────┘ └──────────┘ └──────────┘ └────────┘
 ```
+
+### Answer Origins (v3.0.0)
+
+| Origin | Latency | LLM Calls | Description |
+|--------|---------|-----------|-------------|
+| **Brain** | <150ms | 0 | Fast pattern match for CPU, RAM, disk, health |
+| **Recipe** | <500ms | 0 | Learned pattern + probe execution |
+| **Junior** | <8s | 2 | Junior plan + draft (Senior skipped) |
+| **Senior** | <10s | 3 | Full Junior + Senior audit |
 
 ### Components
 
 | Component | Role |
 |-----------|------|
-| **annactl** | CLI wrapper. REPL mode or one-shot questions. Locked surface. |
-| **annad** | Evidence Oracle. Daemon that orchestrates everything. |
-| **LLM-A** | Junior Researcher. Plans checks, drafts answers, asks questions. |
-| **LLM-B** | Senior Verifier. Reviews plans, approves commands, scores answers. |
-| **Command Whitelist** | Rust-compiled list of allowed commands. No exceptions. |
-| **Knowledge Store** | SQLite-backed facts learned from YOUR machine. |
+| **annactl** | CLI wrapper. REPL mode or one-shot questions. |
+| **annad** | Evidence Oracle. Daemon with unified pipeline. |
+| **Brain** | Pattern matcher. <150ms, no LLM. Hardware/health/debug. |
+| **Recipe** | Learned patterns. Extracts and reuses successful answers. |
+| **Junior** | Researcher. Plans probes, drafts answers. |
+| **Senior** | Auditor. Reviews Junior work, scores reliability. |
+| **Ollama** | Local LLM backend. Auto-provisioned models. |
 
 ---
 
@@ -98,40 +112,45 @@ CONFIG:       cat /etc/os-release, hostname, timedatectl, locale, env
 
 ---
 
-## 🔄  Dual-LLM Protocol
+## 🔄  Unified Pipeline (v3.0.0)
 
-### Research Loop (max 6 iterations)
+### Answer Flow
 
 ```
-1. User asks question
-2. LLM-A (Junior) proposes checks from whitelist
-3. LLM-B (Senior) reviews and approves/denies each check
-4. Engine runs approved checks
-5. LLM-A drafts answer with evidence
-6. LLM-B verifies answer grounding
-7. If more evidence needed, loop (max 6 times)
-8. Final answer delivered with confidence score
+1. Question arrives
+2. Brain fast path: Pattern match for hardware/health/debug (<150ms)
+3. Recipe match: Check learned patterns from previous answers (<500ms)
+4. Junior planning: Select probes to run (1st LLM call)
+5. Probe execution: Run whitelisted commands
+6. Junior draft: Generate answer with evidence (2nd LLM call)
+7. Senior audit: Review and score (3rd LLM call, optional)
+8. Recipe extraction: Learn from high-reliability answers
+9. Final answer with origin, reliability, timing
 ```
 
-### LLM-B Verdicts
+### Senior Verdicts
 
 | Verdict | Meaning |
 |---------|---------|
-| `accept` | Answer is properly grounded, deliver as-is |
-| `fix_and_accept` | Minor corrections, use LLM-B's fixed answer |
-| `needs_more_checks` | Run more whitelisted commands before answering |
-| `mentor_retry` | LLM-A should try again with specific feedback |
-| `refuse` | Cannot answer safely (very rare) |
+| `approve` | Answer is properly grounded, deliver as-is |
+| `fix_and_accept` | Minor corrections applied |
+| `refuse` | Cannot answer safely (rare) |
+| `skipped` | Senior skipped (Junior confidence >= 80%) |
 
-### Confidence Scoring
+### Reliability Scoring
 
 ```
-overall = min(evidence, reasoning, coverage)
-
 >= 0.90: GREEN  (high confidence)
 >= 0.70: YELLOW (medium confidence)
-<  0.70: RED    (low confidence, includes disclaimer)
+<  0.70: RED    (low confidence)
 ```
+
+### Recipe Learning
+
+When Junior/Senior produces a high-reliability answer (>=85%):
+- Recipe extracted: question type + probes + answer template
+- Stored for future matching
+- Similar questions answered by Recipe (no LLM needed)
 
 ---
 

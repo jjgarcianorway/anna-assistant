@@ -1,30 +1,33 @@
-//! Answer Engine v1.0.0 - Unified Orchestration
+//! Answer Engine v3.0.0 - Unified Orchestration
 //!
 //! This is the CANONICAL orchestration entry point for Anna.
-//! See `docs/architecture.md` for the complete mental model.
 //!
-//! ## Flow Summary (from docs/architecture.md Section 1)
+//! ## Flow Summary (v3.0.0)
 //!
 //! ```text
-//! Question → Brain → (miss) → Junior Plan → Probes → Junior Draft → Senior → Answer
+//! Question → Brain → Recipe → Junior Plan → Probes → Junior Draft → Senior → Answer
+//!                      ↓                                                 ↓
+//!                 (if match)                                    (extract recipe)
 //! ```
 //!
-//! ## Invariants (from docs/architecture.md Section 10)
+//! ## Invariants
 //!
 //! 1. Max LLM calls: 2 Junior + 1 Senior = 3 total
-//! 2. Hard timeout: 30 seconds, enforced at each step
+//! 2. Hard timeout: 10 seconds (reduced from 30s in v2.3.0)
 //! 3. No loops: Each step executes exactly once
 //! 4. Safe commands only: Probes use whitelist
 //! 5. XP recorded: Every answer generates at least one XP event
 //! 6. Origin tracked: Every answer has model_used set
+//! 7. Recipe extraction: High-reliability answers create recipes
 //!
-//! ## Answer Origins (from docs/architecture.md Section 2)
+//! ## Answer Origins (v3.0.0)
 //!
-//! | Origin | Latency | LLM Calls |
-//! |--------|---------|-----------|
-//! | Brain  | <150ms  | 0         |
-//! | Junior | <15s    | 2         |
-//! | Senior | <30s    | 3         |
+//! | Origin | Latency | LLM Calls | Description                    |
+//! |--------|---------|-----------|--------------------------------|
+//! | Brain  | <150ms  | 0         | Fast path pattern match        |
+//! | Recipe | <500ms  | 0         | Learned pattern + probe        |
+//! | Junior | <8s     | 2         | Junior plan + draft            |
+//! | Senior | <10s    | 3         | Junior + Senior audit          |
 
 use super::llm_client::OllamaClient;
 use super::probe_executor;
@@ -43,6 +46,10 @@ use anna_common::{
     try_fast_answer,
     // v1.1.0: Unified XP recording
     UnifiedXpRecorder,
+    // v3.0.0: Recipe system for learning
+    RecipeStore, extract_recipe, MIN_RECIPE_RELIABILITY,
+    // v3.0.0: Router LLM for question classification
+    router_llm::QuestionType,
 };
 use anyhow::Result;
 use std::time::{Duration, Instant};
@@ -65,8 +72,9 @@ const BRAIN_TIMEOUT_MS: u64 = 150;
 /// v0.90.0: High confidence threshold - skip Senior if Junior >= 80%
 const SKIP_SENIOR_THRESHOLD: f64 = 0.80;
 
-/// v0.90.0: Origin labels
+/// v3.0.0: Origin labels
 const ORIGIN_BRAIN: &str = "Brain";
+const ORIGIN_RECIPE: &str = "Recipe";
 const ORIGIN_JUNIOR: &str = "Junior";
 const ORIGIN_SENIOR: &str = "Senior";
 
@@ -74,11 +82,16 @@ const ORIGIN_SENIOR: &str = "Senior";
 // Answer Origin
 // ============================================================================
 
-/// v0.90.0: Track where the answer came from
+/// v3.0.0: Track where the answer came from
 #[derive(Debug, Clone, PartialEq)]
 pub enum AnswerOrigin {
+    /// Fast pattern match, no LLM, <150ms
     Brain,
+    /// Learned recipe + probe execution, no LLM, <500ms
+    Recipe,
+    /// Junior plan + draft, 2 LLM calls, <8s
     Junior,
+    /// Junior + Senior audit, 3 LLM calls, <10s
     Senior,
 }
 
@@ -86,6 +99,7 @@ impl AnswerOrigin {
     pub fn as_str(&self) -> &'static str {
         match self {
             AnswerOrigin::Brain => ORIGIN_BRAIN,
+            AnswerOrigin::Recipe => ORIGIN_RECIPE,
             AnswerOrigin::Junior => ORIGIN_JUNIOR,
             AnswerOrigin::Senior => ORIGIN_SENIOR,
         }
@@ -96,10 +110,11 @@ impl AnswerOrigin {
 // Unified Engine v0.90.0
 // ============================================================================
 
-/// v0.92.0: Unified Answer Engine with Decision Policy
+/// v3.0.0: Unified Answer Engine with Recipe Learning
 ///
-/// Implements the exact flow specified in ANNA_SPEC.md:
-/// Decision Policy → Brain → Junior Plan → Probes → Junior Draft → Senior Audit → Answer
+/// Flow: Brain → Recipe → Junior Plan → Probes → Junior Draft → Senior Audit → Answer
+///                                                                      ↓
+///                                                              (extract recipe)
 pub struct UnifiedEngine {
     llm_client: OllamaClient,
     catalog: ProbeCatalog,
@@ -110,6 +125,8 @@ pub struct UnifiedEngine {
     decision_policy: DecisionPolicy,
     /// v0.92.0: XP store for trust-based decisions
     xp_store: XpStore,
+    /// v3.0.0: Recipe store for learned patterns
+    recipe_store: RecipeStore,
     /// Current question for XP event logging
     current_question: String,
 }
@@ -126,8 +143,15 @@ impl UnifiedEngine {
             // v0.92.0: Load persistent state
             decision_policy: DecisionPolicy::load(),
             xp_store: XpStore::load(),
+            // v3.0.0: Recipe store for learned patterns
+            recipe_store: RecipeStore::load(),
             current_question: String::new(),
         }
+    }
+
+    /// Get the recipe store (for status display)
+    pub fn recipe_store(&self) -> &RecipeStore {
+        &self.recipe_store
     }
 
     /// Get the decision policy (for status display)
@@ -222,6 +246,73 @@ impl UnifiedEngine {
         }
         let brain_ms = brain_start.elapsed().as_millis() as u64;
         info!("[*]  Brain fast path did not match ({}ms)", brain_ms);
+
+        // ================================================================
+        // STEP 1.5: Recipe Match (NO LLMs, learned patterns)
+        // ================================================================
+        // Try to match against learned recipes before calling LLM
+        let question_type = self.classify_question(question);
+        if let Some(recipe) = self.recipe_store.find_match(question, &question_type) {
+            // Clone recipe data to avoid borrow issues
+            let recipe_id = recipe.id.clone();
+            let recipe_intent = recipe.intent.clone();
+            let recipe_score = recipe.last_success_score;
+            let recipe_probes = recipe.probes.clone();
+            let recipe_params = recipe.parameters.clone();
+            let recipe_template = recipe.answer_template.clone();
+
+            info!("[R]  Recipe match found: {} (score={:.2})", recipe_intent, recipe_score);
+
+            // Execute probes from recipe
+            let valid_probes: Vec<String> = recipe_probes
+                .iter()
+                .filter(|id| self.catalog.is_valid(id))
+                .cloned()
+                .collect();
+
+            if !valid_probes.is_empty() {
+                let recipe_evidence = probe_executor::execute_probes(&self.catalog, &valid_probes).await;
+
+                // Build evidence map for template substitution
+                let mut evidence_map = std::collections::HashMap::new();
+                for ev in &recipe_evidence {
+                    if let Some(raw) = &ev.raw {
+                        // Extract key values from probe output
+                        evidence_map.insert(ev.probe_id.clone(), self.precompute_summary(&ev.probe_id, raw));
+                    }
+                }
+
+                // Also add recipe parameters
+                for (key, value) in &recipe_params {
+                    evidence_map.insert(key.clone(), value.clone());
+                }
+
+                // Apply recipe template
+                let mut recipe_answer = recipe_template.clone();
+                for (key, value) in &evidence_map {
+                    recipe_answer = recipe_answer.replace(&format!("{{{}}}", key), value);
+                }
+                let recipe_ms = start_time.elapsed().as_millis() as u64;
+
+                if !recipe_answer.trim().is_empty() && !recipe_answer.contains('{') {
+                    // Recipe produced valid answer (no unfilled placeholders)
+                    info!("[+]  Recipe answer generated in {}ms", recipe_ms);
+
+                    // Record recipe application
+                    self.recipe_store.record_application(&recipe_id);
+                    self.record_xp_event(XpEventType::BrainSelfSolve); // Recipe counts as Brain-level
+
+                    return Ok(self.build_recipe_answer(
+                        question,
+                        &recipe_answer,
+                        recipe_score,
+                        &recipe_id,
+                        start_time.elapsed(),
+                    ));
+                }
+            }
+            info!("[*]  Recipe match did not produce valid answer, falling through to Junior");
+        }
 
         // ================================================================
         // STEP 2: Junior Planning (First LLM call)
@@ -472,6 +563,12 @@ impl UnifiedEngine {
         // ================================================================
         // Note: XP events are saved automatically on each append() call
 
+        // ================================================================
+        // STEP 8: Recipe Extraction (v3.0.0)
+        // ================================================================
+        // Extract recipe from successful high-reliability answers
+        self.maybe_extract_recipe(question, &question_type, &probe_ids, &final_text, confidence);
+
         Ok(FinalAnswer {
             question: question.to_string(),
             answer: final_text,
@@ -537,6 +634,119 @@ impl UnifiedEngine {
             junior_had_draft: false,
             senior_verdict: None,
             failure_cause: None,
+        }
+    }
+
+    // ========================================================================
+    // Recipe Support (v3.0.0)
+    // ========================================================================
+
+    /// Simple question classification for recipe matching
+    fn classify_question(&self, question: &str) -> QuestionType {
+        let q = question.to_lowercase();
+
+        // CPU related
+        if q.contains("cpu") || q.contains("processor") || q.contains("core") || q.contains("thread") {
+            return QuestionType::CpuInfo;
+        }
+
+        // RAM related
+        if q.contains("ram") || q.contains("memory") {
+            return QuestionType::RamInfo;
+        }
+
+        // Disk related
+        if q.contains("disk") || q.contains("storage") || q.contains("space") || q.contains("filesystem") {
+            return QuestionType::DiskInfo;
+        }
+
+        // Network related
+        if q.contains("network") || q.contains("ip") || q.contains("interface") {
+            return QuestionType::NetworkInfo;
+        }
+
+        // GPU related
+        if q.contains("gpu") || q.contains("graphics") || q.contains("nvidia") || q.contains("amd") {
+            return QuestionType::GpuInfo;
+        }
+
+        // OS related
+        if q.contains("os") || q.contains("distro") || q.contains("linux") || q.contains("arch") {
+            return QuestionType::OsInfo;
+        }
+
+        // Uptime
+        if q.contains("uptime") || q.contains("running") {
+            return QuestionType::UptimeInfo;
+        }
+
+        // Logs
+        if q.contains("log") || q.contains("annad") {
+            return QuestionType::SelfLogs;
+        }
+
+        // Health
+        if q.contains("health") || q.contains("status") {
+            return QuestionType::SelfHealth;
+        }
+
+        QuestionType::Unknown
+    }
+
+    /// Build answer from Recipe match
+    fn build_recipe_answer(
+        &self,
+        question: &str,
+        answer_text: &str,
+        reliability: f64,
+        recipe_id: &str,
+        _elapsed: Duration,
+    ) -> FinalAnswer {
+        FinalAnswer {
+            question: question.to_string(),
+            answer: answer_text.to_string(),
+            is_refusal: false,
+            citations: vec![],
+            scores: AuditScores::new(reliability, reliability, reliability),
+            confidence_level: ConfidenceLevel::from_score(reliability),
+            problems: vec![],
+            loop_iterations: 0,
+            model_used: Some(format!("{}:{}", ORIGIN_RECIPE, recipe_id)),
+            clarification_needed: None,
+            debug_trace: None,
+            junior_ms: 0,
+            senior_ms: 0,
+            junior_probes: vec![],
+            junior_had_draft: false,
+            senior_verdict: None,
+            failure_cause: None,
+        }
+    }
+
+    /// Extract and store a recipe from a successful answer
+    fn maybe_extract_recipe(
+        &mut self,
+        question: &str,
+        question_type: &QuestionType,
+        probes_used: &[String],
+        answer: &str,
+        reliability: f64,
+    ) {
+        // Only extract recipes from high-reliability answers
+        if reliability < MIN_RECIPE_RELIABILITY {
+            debug!("[R]  Not extracting recipe: reliability {:.2} < {:.2}", reliability, MIN_RECIPE_RELIABILITY);
+            return;
+        }
+
+        // Don't create recipes for Unknown question types
+        if *question_type == QuestionType::Unknown {
+            debug!("[R]  Not extracting recipe: Unknown question type");
+            return;
+        }
+
+        if let Some(recipe) = extract_recipe(question, question_type.clone(), probes_used, answer, reliability) {
+            info!("[R]  Extracted recipe: {} (reliability={:.2})", recipe.intent, reliability);
+            self.recipe_store.add(recipe);
         }
     }
 

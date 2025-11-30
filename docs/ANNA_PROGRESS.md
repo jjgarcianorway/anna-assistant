@@ -413,43 +413,47 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
-## v3.0.0 "Brain First" - Router LLM, Recipe Learning, Hardware-Aware Provisioning
+## v3.0.0 "Brain First" - Unified Pipeline, Recipe Learning, Legacy Cleanup
 
-**Theme**: Reliability and performance first. Brain answers questions without LLM when possible.
+**Theme**: Single unified pipeline. Brain → Recipe → Junior → Senior. No legacy code paths.
 
-### Architecture (v3.0.0)
-[x] Router LLM for fast question classification (<1s budget)
-[x] QuestionType enum with 20+ types (CPU, RAM, disk, health, debug, reset, benchmark, etc.)
-[x] Brain heuristic classifier (no LLM needed for known patterns)
-[x] Hardware-aware model selection (Minimal, Basic, Standard, Power tiers)
+### Unified Pipeline (v3.0.0)
+[x] Single orchestration entry point: UnifiedEngine in engine_v90.rs
+[x] Removed legacy engines: engine.rs, engine_v18.rs, engine_v19.rs, engine_v80.rs, research_engine.rs
+[x] Removed legacy LLM clients: llm_client_v18.rs, llm_client_v19.rs
+[x] Answer origin enum: Brain, Recipe, Junior, Senior
+[x] Flow: Brain fast path → Recipe match → Junior plan/draft → Senior audit
 
-### Recipe Learning System (v3.0.0)
-[x] Recipe struct - captures how to answer question types
-[x] RecipeStore - persists recipes to disk (/var/lib/anna/recipes/store.json)
-[x] Recipe extraction from high-reliability answers (>85%)
-[x] Recipe matching with type + key tokens + recency scoring
-[x] Maximum 20 recipes per question type (oldest pruned)
+### Recipe Learning Integration (v3.0.0)
+[x] RecipeStore integrated into UnifiedEngine
+[x] Recipe check after Brain fast path, before Junior
+[x] Recipe extraction after successful Senior answers (reliability >=85%)
+[x] Recipe answer building with origin tracking
+[x] classify_question() for simple question type detection
+
+### Architecture Cleanup (v3.0.0)
+[x] Removed 7 legacy engine/client files (~5000 lines)
+[x] Updated orchestrator/mod.rs exports
+[x] Single pipeline documentation in engine_v90.rs header
+[x] Updated README.md with v3.0.0 architecture diagram
 
 ### LLM Provisioning (v3.0.0)
 [x] HardwareTier enum (Minimal, Basic, Standard, Power)
 [x] Hardware detection (CPU cores, RAM GB, NVIDIA GPU)
 [x] Router model candidates (qwen2.5:0.5b, qwen2.5:1.5b, phi3:mini, etc.)
-[x] Tier-specific model selection:
-    - Minimal: Brain only, no LLM
-    - Basic: Router + Junior only
-    - Standard: Router + Junior + Senior
-    - Power: Larger models, GPU acceleration
+[x] Tier-specific model selection
 
 ### Tests (v3.0.0)
-[x] router_llm tests (13 tests - classification, parsing, Brain heuristics)
-[x] recipe tests (10 tests - creation, matching, extraction, store)
-[x] llm_provision tests (hardware tier detection, capabilities)
-[x] All 1100+ workspace tests passing
+[x] All orchestration tests passing (24 tests)
+[x] Recipe system tests (10 tests)
+[x] router_llm tests (13 tests)
+[x] Full workspace: 827+ tests passing
 
 **Key Files**:
-- crates/anna_common/src/router_llm.rs - Router LLM and QuestionType
+- crates/annad/src/orchestrator/mod.rs - Unified orchestration module
+- crates/annad/src/orchestrator/engine_v90.rs - Canonical engine with Recipe integration
 - crates/anna_common/src/recipe.rs - Recipe system
-- crates/anna_common/src/llm_provision.rs - Hardware-aware provisioning
+- crates/anna_common/src/router_llm.rs - QuestionType classification
 
 ---
 
