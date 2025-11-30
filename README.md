@@ -1,8 +1,8 @@
-# Anna v2.3.0 "Runtime Snow Leopard"
+# Anna v3.0.0 "Brain First"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v2.3.0 brings runtime benchmark triggers, hard 10-second latency guardrail, and no more silent empty answers. Anna now feels like a serious tool.
+> v3.0.0 introduces a complete architecture overhaul focused on reliability and performance: Router LLM for fast classification, Recipe system for learning from success, hardware-aware model selection, and Brain-first answering.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -358,7 +358,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v2.3.0** | **Runtime Snow Leopard** - Benchmark triggers, 10s latency guardrail, no empty answers |
+| **v3.0.0** | **Brain First** - Router LLM, Recipe learning, hardware-aware provisioning |
+| v2.3.0 | Runtime Snow Leopard - Benchmark triggers, 10s latency guardrail, no empty answers |
 | v2.2.0 | First Light - Post-reset self-test, XP/Telemetry sanity validation, daily check-in |
 | v2.1.0 | Permissions Fix - XP/Telemetry persistence, installer permissions, reset pipeline |
 | v2.0.0 | Autoprovision - Self-provisioning LLM models, auto-install, auto-benchmark |

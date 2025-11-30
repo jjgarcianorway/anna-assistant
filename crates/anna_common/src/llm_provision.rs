@@ -1,4 +1,4 @@
-//! Adaptive LLM Provisioning v2.0
+//! Adaptive LLM Provisioning v3.0
 //!
 //! This module gives Anna full control over her own LLM model selection,
 //! installation, and optimization. No hardcoding - fully dynamic.
@@ -9,18 +9,24 @@
 //! 2. **Adaptive**: Re-evaluates models based on performance telemetry
 //! 3. **Fail-safe**: Always has fallback to Brain for deterministic tasks
 //! 4. **No manual tuning**: Optimal choice at runtime
+//! 5. **Hardware-aware**: Selects models based on CPU/RAM/GPU capabilities
 //!
-//! ## Model Selection Flow
+//! ## Model Selection Flow (v3.0)
 //!
 //! ```text
 //! First Launch / Reset
+//!        ↓
+//! Detect hardware (CPU cores, RAM, GPU)
+//!        ↓
+//! Determine hardware tier (Minimal, Basic, Standard, Power)
 //!        ↓
 //! List available Ollama models
 //!        ↓
 //! Benchmark each candidate
 //!        ↓
+//! Select best Router (tiny, fast)
 //! Select best Junior (JSON-fast)
-//! Select best Senior (reasoning)
+//! Select best Senior (reasoning) - optional for high-end
 //!        ↓
 //! Save selection to config
 //!        ↓
@@ -91,8 +97,146 @@ pub const SENIOR_CANDIDATES: &[&str] = &[
     "deepseek-coder:6.7b",
 ];
 
+/// v3.0: Router model candidates - tiny and fast for classification only
+pub const ROUTER_CANDIDATES: &[&str] = &[
+    "qwen2.5:0.5b-instruct",
+    "qwen2.5:1.5b-instruct",
+    "phi3:mini",
+    "gemma2:2b",
+    "llama3.2:1b",
+];
+
 /// Fallback model if nothing else works
 pub const FALLBACK_MODEL: &str = "qwen2.5:1.5b-instruct";
+
+/// v3.0: Fallback router model (same as junior fallback)
+pub const ROUTER_FALLBACK_MODEL: &str = "qwen2.5:1.5b-instruct";
+
+// ============================================================================
+// HARDWARE TIERS (v3.0)
+// ============================================================================
+
+/// Hardware tier determines which models are appropriate
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HardwareTier {
+    /// <4 cores, <4GB RAM - Brain only, no LLM
+    Minimal,
+    /// 4-7 cores, 4-8GB RAM - Router + Junior only
+    Basic,
+    /// 8-15 cores, 8-16GB RAM - Router + Junior + Senior
+    Standard,
+    /// 16+ cores, 16GB+ RAM, or GPU - All models, larger options
+    Power,
+}
+
+impl HardwareTier {
+    /// Detect hardware tier from system probes
+    pub fn detect() -> Self {
+        let cores = detect_cpu_cores();
+        let ram_gb = detect_ram_gb();
+        let has_gpu = detect_nvidia_gpu();
+
+        // GPU always means Power tier
+        if has_gpu {
+            return HardwareTier::Power;
+        }
+
+        // Use cores and RAM to determine tier
+        match (cores, ram_gb) {
+            (c, r) if c >= 16 && r >= 16 => HardwareTier::Power,
+            (c, r) if c >= 8 && r >= 8 => HardwareTier::Standard,
+            (c, r) if c >= 4 && r >= 4 => HardwareTier::Basic,
+            _ => HardwareTier::Minimal,
+        }
+    }
+
+    /// Is Senior model recommended for this tier?
+    pub fn has_senior(&self) -> bool {
+        matches!(self, HardwareTier::Standard | HardwareTier::Power)
+    }
+
+    /// Is Router model recommended for this tier?
+    pub fn has_router(&self) -> bool {
+        !matches!(self, HardwareTier::Minimal)
+    }
+
+    /// Get recommended model sizes for this tier
+    pub fn model_sizes(&self) -> ModelSizeRecommendation {
+        match self {
+            HardwareTier::Minimal => ModelSizeRecommendation {
+                router_max_params: 0,  // No router
+                junior_max_params: 0,  // Brain only
+                senior_max_params: 0,
+            },
+            HardwareTier::Basic => ModelSizeRecommendation {
+                router_max_params: 1_500_000_000,  // 1.5B max
+                junior_max_params: 3_000_000_000,  // 3B max
+                senior_max_params: 0,              // No senior
+            },
+            HardwareTier::Standard => ModelSizeRecommendation {
+                router_max_params: 1_500_000_000,  // 1.5B max
+                junior_max_params: 7_000_000_000,  // 7B max
+                senior_max_params: 14_000_000_000, // 14B max
+            },
+            HardwareTier::Power => ModelSizeRecommendation {
+                router_max_params: 3_000_000_000,  // 3B max
+                junior_max_params: 14_000_000_000, // 14B max
+                senior_max_params: 70_000_000_000, // 70B max
+            },
+        }
+    }
+}
+
+/// Model size recommendations per tier
+#[derive(Debug, Clone)]
+pub struct ModelSizeRecommendation {
+    pub router_max_params: u64,
+    pub junior_max_params: u64,
+    pub senior_max_params: u64,
+}
+
+/// Detect number of CPU cores
+fn detect_cpu_cores() -> usize {
+    let output = Command::new("nproc")
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let text = String::from_utf8_lossy(&out.stdout);
+            text.trim().parse().unwrap_or(1)
+        }
+        _ => 1,
+    }
+}
+
+/// Detect RAM in GB
+fn detect_ram_gb() -> usize {
+    let output = Command::new("sh")
+        .args(["-c", "grep MemTotal /proc/meminfo | awk '{print int($2/1024/1024)}'"])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let text = String::from_utf8_lossy(&out.stdout);
+            text.trim().parse().unwrap_or(1)
+        }
+        _ => 1,
+    }
+}
+
+/// Detect if NVIDIA GPU is present
+fn detect_nvidia_gpu() -> bool {
+    let output = Command::new("lspci")
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let text = String::from_utf8_lossy(&out.stdout);
+            text.to_lowercase().contains("nvidia")
+        }
+        _ => false,
+    }
+}
 
 // ============================================================================
 // DATA STRUCTURES
@@ -160,6 +304,11 @@ impl ModelBenchmark {
 /// Current LLM selection state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmSelection {
+    /// v3.0: Router model for classification (tiny, fast)
+    #[serde(default = "default_router_model")]
+    pub router_model: String,
+    #[serde(default)]
+    pub router_score: f64,
     pub junior_model: String,
     pub junior_score: f64,
     pub senior_model: String,
@@ -167,11 +316,20 @@ pub struct LlmSelection {
     pub last_benchmark: String,
     pub autoprovision_enabled: bool,
     pub suggestions: Vec<String>,
+    /// v3.0: Detected hardware tier
+    #[serde(default)]
+    pub hardware_tier: Option<HardwareTier>,
+}
+
+fn default_router_model() -> String {
+    ROUTER_FALLBACK_MODEL.to_string()
 }
 
 impl Default for LlmSelection {
     fn default() -> Self {
         Self {
+            router_model: ROUTER_FALLBACK_MODEL.to_string(),
+            router_score: 0.0,
             junior_model: FALLBACK_MODEL.to_string(),
             junior_score: 0.0,
             senior_model: FALLBACK_MODEL.to_string(),
@@ -179,6 +337,7 @@ impl Default for LlmSelection {
             last_benchmark: String::new(),
             autoprovision_enabled: true,
             suggestions: vec![],
+            hardware_tier: None,
         }
     }
 }
@@ -203,8 +362,20 @@ impl LlmSelection {
     /// Format for status display
     pub fn format_status(&self) -> String {
         let mut output = String::new();
-        output.push_str("LLM AUTOPROVISION\n");
+        output.push_str("LLM AUTOPROVISION (v3.0)\n");
         output.push_str("──────────────────────────────────────────\n");
+
+        // v3.0: Hardware tier
+        if let Some(tier) = &self.hardware_tier {
+            output.push_str(&format!("Hardware tier: {:?}\n", tier));
+        }
+
+        // v3.0: Router model
+        if self.router_score > 0.0 {
+            output.push_str(&format!("Router model: {} (score {:.2})\n",
+                self.router_model, self.router_score));
+        }
+
         output.push_str(&format!("Junior model: {} (score {:.2})\n",
             self.junior_model, self.junior_score));
         output.push_str(&format!("Senior model: {} (score {:.2})\n",
@@ -589,52 +760,119 @@ pub fn select_best_senior(benchmarks: &[ModelBenchmark]) -> Option<&ModelBenchma
         .max_by(|a, b| a.senior_score.partial_cmp(&b.senior_score).unwrap())
 }
 
+/// v3.0: Select the best Router model (prioritize speed over quality)
+pub fn select_best_router(benchmarks: &[ModelBenchmark]) -> Option<&ModelBenchmark> {
+    benchmarks
+        .iter()
+        .filter(|b| {
+            b.is_available
+                && b.avg_latency_ms <= 1000  // Must respond in <1s
+                && b.json_compliance >= 0.80  // Decent JSON compliance
+        })
+        .max_by(|a, b| {
+            // Prioritize speed over quality for router
+            let a_score = (1.0 - (a.avg_latency_ms as f64 / 1000.0)).max(0.0) * 0.6
+                + a.json_compliance * 0.4;
+            let b_score = (1.0 - (b.avg_latency_ms as f64 / 1000.0)).max(0.0) * 0.6
+                + b.json_compliance * 0.4;
+            a_score.partial_cmp(&b_score).unwrap()
+        })
+}
+
 /// Run full autoprovision: benchmark all candidates and select best
+/// v3.0: Now includes Router model and hardware tier detection
 pub fn run_autoprovision() -> LlmSelection {
-    let available_models = list_ollama_models();
     let mut all_benchmarks: Vec<ModelBenchmark> = Vec::new();
     let mut suggestions: Vec<String> = Vec::new();
 
+    // v3.0: Detect hardware tier first
+    let hardware_tier = HardwareTier::detect();
+
+    // v3.0: Benchmark Router candidates (if hardware supports it)
+    if hardware_tier.has_router() {
+        for candidate in ROUTER_CANDIDATES {
+            if !all_benchmarks.iter().any(|b| b.model_name == *candidate) {
+                let benchmark = benchmark_model(candidate);
+                if !benchmark.is_available {
+                    suggestions.push(format!("Consider installing {} for Router role", candidate));
+                }
+                all_benchmarks.push(benchmark);
+            }
+        }
+    }
+
     // Benchmark Junior candidates
     for candidate in JUNIOR_CANDIDATES {
-        let benchmark = benchmark_model(candidate);
-        if !benchmark.is_available {
-            suggestions.push(format!("Consider installing {} for Junior role", candidate));
+        if !all_benchmarks.iter().any(|b| b.model_name == *candidate) {
+            let benchmark = benchmark_model(candidate);
+            if !benchmark.is_available {
+                suggestions.push(format!("Consider installing {} for Junior role", candidate));
+            }
+            all_benchmarks.push(benchmark);
         }
-        all_benchmarks.push(benchmark);
     }
 
-    // Benchmark Senior candidates
-    for candidate in SENIOR_CANDIDATES {
-        // Skip if already benchmarked as Junior candidate
-        if all_benchmarks.iter().any(|b| b.model_name == *candidate) {
-            continue;
+    // Benchmark Senior candidates (only if hardware supports it)
+    if hardware_tier.has_senior() {
+        for candidate in SENIOR_CANDIDATES {
+            if !all_benchmarks.iter().any(|b| b.model_name == *candidate) {
+                let benchmark = benchmark_model(candidate);
+                if !benchmark.is_available {
+                    suggestions.push(format!("Consider installing {} for Senior role", candidate));
+                }
+                all_benchmarks.push(benchmark);
+            }
         }
-        let benchmark = benchmark_model(candidate);
-        if !benchmark.is_available {
-            suggestions.push(format!("Consider installing {} for Senior role", candidate));
-        }
-        all_benchmarks.push(benchmark);
     }
 
-    // Select best models
+    // v3.0: Select best Router
+    let router = if hardware_tier.has_router() {
+        select_best_router(&all_benchmarks)
+            .map(|b| (b.model_name.clone(), b.junior_score))
+            .unwrap_or_else(|| (ROUTER_FALLBACK_MODEL.to_string(), 0.0))
+    } else {
+        (ROUTER_FALLBACK_MODEL.to_string(), 0.0)
+    };
+
+    // Select best Junior
     let junior = select_best_junior(&all_benchmarks)
         .map(|b| (b.model_name.clone(), b.junior_score))
         .unwrap_or_else(|| (FALLBACK_MODEL.to_string(), 0.0));
 
-    let senior = select_best_senior(&all_benchmarks)
-        .map(|b| (b.model_name.clone(), b.senior_score))
-        .unwrap_or_else(|| (FALLBACK_MODEL.to_string(), 0.0));
+    // Select best Senior (only if hardware supports it)
+    let senior = if hardware_tier.has_senior() {
+        select_best_senior(&all_benchmarks)
+            .map(|b| (b.model_name.clone(), b.senior_score))
+            .unwrap_or_else(|| (FALLBACK_MODEL.to_string(), 0.0))
+    } else {
+        (FALLBACK_MODEL.to_string(), 0.0)
+    };
 
     // Add performance suggestions
+    if hardware_tier.has_router() && router.1 < 0.5 {
+        suggestions.push("Router model performance is poor. Consider installing qwen2.5:0.5b-instruct".to_string());
+    }
     if junior.1 < 0.5 {
         suggestions.push("Junior model performance is poor. Consider installing qwen2.5:1.5b-instruct".to_string());
     }
-    if senior.1 < 0.5 {
+    if hardware_tier.has_senior() && senior.1 < 0.5 {
         suggestions.push("Senior model performance is poor. Consider installing qwen2.5:7b-instruct".to_string());
     }
 
+    // v3.0: Tier-specific suggestions
+    match hardware_tier {
+        HardwareTier::Minimal => {
+            suggestions.push("Minimal hardware detected - using Brain-only mode (no LLM)".to_string());
+        }
+        HardwareTier::Basic => {
+            suggestions.push("Basic hardware - Senior model disabled for performance".to_string());
+        }
+        _ => {}
+    }
+
     let selection = LlmSelection {
+        router_model: router.0,
+        router_score: router.1,
         junior_model: junior.0,
         junior_score: junior.1,
         senior_model: senior.0,
@@ -642,6 +880,7 @@ pub fn run_autoprovision() -> LlmSelection {
         last_benchmark: chrono::Utc::now().to_rfc3339(),
         autoprovision_enabled: true,
         suggestions,
+        hardware_tier: Some(hardware_tier),
     };
 
     // Save selection
@@ -1002,11 +1241,13 @@ pub struct AutoprovisionResult {
 /// Run full autoprovision including Ollama and model installation
 ///
 /// This is the main entry point for Anna's self-provisioning.
+/// v3.0: Now includes Router model, hardware tier detection
 /// It will:
-/// 1. Ensure Ollama is installed and running
-/// 2. Install best candidate models if missing
-/// 3. Benchmark all available models
-/// 4. Select and save the best Junior/Senior combination
+/// 1. Detect hardware tier
+/// 2. Ensure Ollama is installed and running
+/// 3. Install best candidate models if missing
+/// 4. Benchmark all available models
+/// 5. Select and save the best Router/Junior/Senior combination
 pub fn run_full_autoprovision<F>(on_progress: F) -> AutoprovisionResult
 where
     F: Fn(&str),
@@ -1018,6 +1259,11 @@ where
         benchmarks_run: 0,
         errors: Vec::new(),
     };
+
+    // v3.0: Detect hardware tier first
+    on_progress("Detecting hardware capabilities...");
+    let hardware_tier = HardwareTier::detect();
+    on_progress(&format!("Hardware tier: {:?}", hardware_tier));
 
     // Step 1: Ensure Ollama is ready
     on_progress("Checking Ollama installation...");
@@ -1044,12 +1290,25 @@ where
     }
     on_progress("Ollama is ready");
 
-    // Step 2: Install priority models if missing
+    // Step 2: Install priority models based on hardware tier
     on_progress("Checking model availability...");
-    let priority_models = [
-        "qwen2.5:1.5b-instruct",  // Fast Junior
-        "qwen2.5:7b-instruct",    // Balanced Senior
-    ];
+    let priority_models: Vec<&str> = match hardware_tier {
+        HardwareTier::Minimal => vec![],  // Brain only
+        HardwareTier::Basic => vec![
+            "qwen2.5:0.5b-instruct",  // Router
+            "qwen2.5:1.5b-instruct",  // Junior
+        ],
+        HardwareTier::Standard => vec![
+            "qwen2.5:0.5b-instruct",  // Router
+            "qwen2.5:1.5b-instruct",  // Junior
+            "qwen2.5:7b-instruct",    // Senior
+        ],
+        HardwareTier::Power => vec![
+            "qwen2.5:1.5b-instruct",  // Router (slightly larger)
+            "qwen2.5:3b-instruct",    // Junior (larger)
+            "qwen2.5:14b-instruct",   // Senior (larger)
+        ],
+    };
 
     for model in priority_models {
         if !is_model_available(model) {
@@ -1071,52 +1330,85 @@ where
     let mut all_benchmarks: Vec<ModelBenchmark> = Vec::new();
     let mut suggestions: Vec<String> = Vec::new();
 
+    // v3.0: Benchmark Router candidates (if hardware supports)
+    if hardware_tier.has_router() {
+        for candidate in ROUTER_CANDIDATES {
+            if is_model_available(candidate) && !all_benchmarks.iter().any(|b| b.model_name == *candidate) {
+                on_progress(&format!("Benchmarking {} (Router candidate)...", candidate));
+                let benchmark = benchmark_model(candidate);
+                result.benchmarks_run += 1;
+                all_benchmarks.push(benchmark);
+            }
+        }
+    }
+
     // Benchmark Junior candidates
     for candidate in JUNIOR_CANDIDATES {
-        if is_model_available(candidate) {
+        if is_model_available(candidate) && !all_benchmarks.iter().any(|b| b.model_name == *candidate) {
             on_progress(&format!("Benchmarking {} (Junior candidate)...", candidate));
             let benchmark = benchmark_model(candidate);
             result.benchmarks_run += 1;
             all_benchmarks.push(benchmark);
-        } else {
+        } else if !is_model_available(candidate) {
             suggestions.push(format!("Consider installing {} for Junior", candidate));
         }
     }
 
-    // Benchmark Senior candidates
-    for candidate in SENIOR_CANDIDATES {
-        if all_benchmarks.iter().any(|b| b.model_name == *candidate) {
-            continue; // Already benchmarked
-        }
-        if is_model_available(candidate) {
-            on_progress(&format!("Benchmarking {} (Senior candidate)...", candidate));
-            let benchmark = benchmark_model(candidate);
-            result.benchmarks_run += 1;
-            all_benchmarks.push(benchmark);
-        } else {
-            suggestions.push(format!("Consider installing {} for Senior", candidate));
+    // Benchmark Senior candidates (only if hardware supports)
+    if hardware_tier.has_senior() {
+        for candidate in SENIOR_CANDIDATES {
+            if all_benchmarks.iter().any(|b| b.model_name == *candidate) {
+                continue; // Already benchmarked
+            }
+            if is_model_available(candidate) {
+                on_progress(&format!("Benchmarking {} (Senior candidate)...", candidate));
+                let benchmark = benchmark_model(candidate);
+                result.benchmarks_run += 1;
+                all_benchmarks.push(benchmark);
+            } else {
+                suggestions.push(format!("Consider installing {} for Senior", candidate));
+            }
         }
     }
 
     // Step 4: Select best models
     on_progress("Selecting optimal models...");
+
+    // v3.0: Select best Router
+    let router = if hardware_tier.has_router() {
+        select_best_router(&all_benchmarks)
+            .map(|b| (b.model_name.clone(), b.junior_score))
+            .unwrap_or_else(|| (ROUTER_FALLBACK_MODEL.to_string(), 0.0))
+    } else {
+        (ROUTER_FALLBACK_MODEL.to_string(), 0.0)
+    };
+
     let junior = select_best_junior(&all_benchmarks)
         .map(|b| (b.model_name.clone(), b.junior_score))
         .unwrap_or_else(|| (FALLBACK_MODEL.to_string(), 0.0));
 
-    let senior = select_best_senior(&all_benchmarks)
-        .map(|b| (b.model_name.clone(), b.senior_score))
-        .unwrap_or_else(|| (FALLBACK_MODEL.to_string(), 0.0));
+    let senior = if hardware_tier.has_senior() {
+        select_best_senior(&all_benchmarks)
+            .map(|b| (b.model_name.clone(), b.senior_score))
+            .unwrap_or_else(|| (FALLBACK_MODEL.to_string(), 0.0))
+    } else {
+        (FALLBACK_MODEL.to_string(), 0.0)
+    };
 
     // Add performance suggestions
+    if hardware_tier.has_router() && router.1 < 0.5 {
+        suggestions.push("Router model performance is poor. Consider installing qwen2.5:0.5b-instruct".to_string());
+    }
     if junior.1 < 0.5 {
         suggestions.push("Junior model performance is poor. Consider installing qwen2.5:1.5b-instruct".to_string());
     }
-    if senior.1 < 0.5 {
+    if hardware_tier.has_senior() && senior.1 < 0.5 {
         suggestions.push("Senior model performance is poor. Consider installing qwen2.5:7b-instruct".to_string());
     }
 
     result.selection = LlmSelection {
+        router_model: router.0.clone(),
+        router_score: router.1,
         junior_model: junior.0.clone(),
         junior_score: junior.1,
         senior_model: senior.0.clone(),
@@ -1124,6 +1416,7 @@ where
         last_benchmark: chrono::Utc::now().to_rfc3339(),
         autoprovision_enabled: true,
         suggestions,
+        hardware_tier: Some(hardware_tier),
     };
 
     // Save selection
@@ -1135,8 +1428,8 @@ where
     save_benchmarks(&all_benchmarks);
 
     on_progress(&format!(
-        "Autoprovision complete: Junior={} (score {:.2}), Senior={} (score {:.2})",
-        junior.0, junior.1, senior.0, senior.1
+        "Autoprovision complete: Router={}, Junior={} (score {:.2}), Senior={} (score {:.2})",
+        router.0, junior.0, junior.1, senior.0, senior.1
     ));
 
     result
@@ -1267,6 +1560,8 @@ mod tests {
     #[test]
     fn test_selection_format_status() {
         let selection = LlmSelection {
+            router_model: "test-router".to_string(),
+            router_score: 0.75,
             junior_model: "test-junior".to_string(),
             junior_score: 0.85,
             senior_model: "test-senior".to_string(),
@@ -1274,6 +1569,7 @@ mod tests {
             last_benchmark: "2025-11-29T12:00:00Z".to_string(),
             autoprovision_enabled: true,
             suggestions: vec!["Consider upgrading".to_string()],
+            hardware_tier: Some(HardwareTier::Standard),
         };
 
         let status = selection.format_status();
@@ -1407,6 +1703,8 @@ mod tests {
     fn test_handle_model_failure_under_threshold() {
         // Create a test selection
         let mut selection = LlmSelection {
+            router_model: "test-router".to_string(),
+            router_score: 0.7,
             junior_model: "test-junior".to_string(),
             junior_score: 0.8,
             senior_model: "test-senior".to_string(),
@@ -1414,6 +1712,7 @@ mod tests {
             last_benchmark: chrono::Utc::now().to_rfc3339(),
             autoprovision_enabled: true,
             suggestions: vec![],
+            hardware_tier: Some(HardwareTier::Standard),
         };
 
         // Under threshold (3 failures needed)
@@ -1422,5 +1721,30 @@ mod tests {
 
         let result = handle_model_failure(&mut selection, true, 2);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_hardware_tier_detection() {
+        // Test that tier detection works (returns a valid tier)
+        let tier = HardwareTier::detect();
+        assert!(matches!(
+            tier,
+            HardwareTier::Minimal | HardwareTier::Basic | HardwareTier::Standard | HardwareTier::Power
+        ));
+    }
+
+    #[test]
+    fn test_hardware_tier_capabilities() {
+        assert!(!HardwareTier::Minimal.has_router());
+        assert!(!HardwareTier::Minimal.has_senior());
+
+        assert!(HardwareTier::Basic.has_router());
+        assert!(!HardwareTier::Basic.has_senior());
+
+        assert!(HardwareTier::Standard.has_router());
+        assert!(HardwareTier::Standard.has_senior());
+
+        assert!(HardwareTier::Power.has_router());
+        assert!(HardwareTier::Power.has_senior());
     }
 }

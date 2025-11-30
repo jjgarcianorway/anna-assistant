@@ -413,6 +413,46 @@ ANNA_NO_SPINNER=1 ./test_script.sh
 
 ---
 
+## v3.0.0 "Brain First" - Router LLM, Recipe Learning, Hardware-Aware Provisioning
+
+**Theme**: Reliability and performance first. Brain answers questions without LLM when possible.
+
+### Architecture (v3.0.0)
+[x] Router LLM for fast question classification (<1s budget)
+[x] QuestionType enum with 20+ types (CPU, RAM, disk, health, debug, reset, benchmark, etc.)
+[x] Brain heuristic classifier (no LLM needed for known patterns)
+[x] Hardware-aware model selection (Minimal, Basic, Standard, Power tiers)
+
+### Recipe Learning System (v3.0.0)
+[x] Recipe struct - captures how to answer question types
+[x] RecipeStore - persists recipes to disk (/var/lib/anna/recipes/store.json)
+[x] Recipe extraction from high-reliability answers (>85%)
+[x] Recipe matching with type + key tokens + recency scoring
+[x] Maximum 20 recipes per question type (oldest pruned)
+
+### LLM Provisioning (v3.0.0)
+[x] HardwareTier enum (Minimal, Basic, Standard, Power)
+[x] Hardware detection (CPU cores, RAM GB, NVIDIA GPU)
+[x] Router model candidates (qwen2.5:0.5b, qwen2.5:1.5b, phi3:mini, etc.)
+[x] Tier-specific model selection:
+    - Minimal: Brain only, no LLM
+    - Basic: Router + Junior only
+    - Standard: Router + Junior + Senior
+    - Power: Larger models, GPU acceleration
+
+### Tests (v3.0.0)
+[x] router_llm tests (13 tests - classification, parsing, Brain heuristics)
+[x] recipe tests (10 tests - creation, matching, extraction, store)
+[x] llm_provision tests (hardware tier detection, capabilities)
+[x] All 1100+ workspace tests passing
+
+**Key Files**:
+- crates/anna_common/src/router_llm.rs - Router LLM and QuestionType
+- crates/anna_common/src/recipe.rs - Recipe system
+- crates/anna_common/src/llm_provision.rs - Hardware-aware provisioning
+
+---
+
 ## v2.3.0 "Runtime Snow Leopard" - Benchmark Triggers & Latency Guardrails
 
 **Theme**: Make Anna feel like a serious tool - runtime benchmarks, no hanging, no empty answers.

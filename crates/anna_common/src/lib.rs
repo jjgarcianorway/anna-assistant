@@ -119,6 +119,8 @@ pub mod auto_tune;
 pub mod llm_provision;
 pub mod permissions;
 pub mod first_light;
+pub mod router_llm;
+pub mod recipe;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -337,3 +339,17 @@ pub use skill_router::{
     classify_skill, extract_time_window,
 };
 pub use skill_handlers::handle_skill;
+
+// Router LLM exports (v3.0) - Tiny question classifier
+pub use router_llm::{
+    QuestionType, RouterClassification,
+    classify_with_brain, classify_with_router, classify_question,
+    ROUTER_MODEL, ROUTER_FALLBACK_MODEL, ROUTER_BUDGET_MS, ROUTER_TARGET_MS,
+};
+
+// Recipe exports (v3.0) - Learning from success
+pub use recipe::{
+    Recipe, RecipeStore, RecipeStats,
+    extract_recipe,
+    RECIPE_STORE_PATH, MIN_RECIPE_RELIABILITY, RECIPE_MATCH_THRESHOLD,
+};
