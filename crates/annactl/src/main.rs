@@ -1,9 +1,12 @@
 //! Anna CLI (annactl) - User interface wrapper
 //!
+//! v4.0.0: Debug Tracing, Reset Command, Learning Analytics
+//!   - Enhanced debug mode with detailed message tracing and timing
+//!   - `annactl reset` - factory reset command (for testing)
+//!   - Learning analytics in stats (similar questions, delta improvements)
+//!
 //! v3.14.2: Split status/stats - status is quick health, stats is detailed
 //! v3.14.0: Clean Status - single source of truth, no contradictions
-//! v3.1.0: Pipeline Purity - removed legacy LLM-A/B orchestrator from annactl
-//! v3.0.0: Brain First - Unified Brain -> Recipe -> Junior -> Senior pipeline
 //!
 //! Architecture:
 //!   - annactl is a THIN CLIENT - no LLM calls happen here
@@ -15,7 +18,8 @@
 //!   - annactl                           Start interactive REPL
 //!   - annactl <request>                 One-shot natural language request
 //!   - annactl status                    Quick health check
-//!   - annactl stats                     Detailed XP/performance/models
+//!   - annactl stats                     Detailed statistics + learning
+//!   - annactl reset                     Factory reset (testing only)
 //!   - annactl version                   Show version info
 //!   - annactl -h | --help | help        Show help info
 
@@ -44,6 +48,7 @@ use anna_common::{
     llm_provision::LlmSelection,
     format_percentage,
     THIN_SEPARATOR,
+    xp_log::XpLog,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -70,6 +75,7 @@ async fn main() -> Result<()> {
         [] => run_repl().await,
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
         [cmd] if cmd.eq_ignore_ascii_case("stats") => run_stats().await,
+        [cmd] if cmd.eq_ignore_ascii_case("reset") => run_reset().await,
         [flag] if flag == "-V" || flag == "--version" || flag.eq_ignore_ascii_case("version") => {
             run_version().await
         }
@@ -163,6 +169,10 @@ async fn run_repl() -> Result<()> {
         }
         if input.eq_ignore_ascii_case("stats") {
             run_stats().await?;
+            continue;
+        }
+        if input.eq_ignore_ascii_case("reset") {
+            run_reset().await?;
             continue;
         }
         if output::handle_explain_request(input) {
@@ -370,13 +380,17 @@ fn run_help() -> Result<()> {
     println!("  annactl \"<question>\"      Ask Anna anything");
     println!("  annactl status            Quick health check");
     println!("  annactl stats             Detailed statistics");
+    println!("  annactl reset             {} (testing)", "Factory reset".bright_red());
     println!("  annactl version           Version info");
     println!("  annactl help              This help");
+    println!();
+    println!("{}", "[DEBUG MODE]".cyan());
+    println!("  \"enable debug mode\"       Show detailed tracing");
+    println!("  \"disable debug mode\"      Normal operation");
     println!();
     println!("{}", "[EXAMPLES]".cyan());
     println!("  annactl \"How many CPU cores?\"");
     println!("  annactl \"What's my RAM usage?\"");
-    println!("  annactl \"enable debug mode\"");
     println!();
     println!("{}", THIN_SEPARATOR);
     println!();
@@ -515,7 +529,7 @@ async fn run_status() -> Result<()> {
 }
 
 // ============================================================================
-// STATS COMMAND - v3.14.2: User + LLM + Anna statistics
+// STATS COMMAND - v4.0.0: User + LLM + Anna statistics + Learning Analytics
 // ============================================================================
 
 /// Stats command - all statistics in one view
@@ -526,6 +540,7 @@ async fn run_stats() -> Result<()> {
 
     let xp_store = XpStore::load();
     let selection = LlmSelection::load();
+    let xp_log = XpLog::new();
 
     // USER INTERACTIONS
     println!("{}", "[USER INTERACTIONS]".cyan());
@@ -634,6 +649,56 @@ async fn run_stats() -> Result<()> {
         println!("  Not configured");
     } else {
         println!("  {}", selection.autoprovision_status.bright_red());
+    }
+
+    // LEARNING (24h metrics)
+    println!();
+    println!("{}", "[LEARNING (24h)]".cyan());
+
+    let metrics = xp_log.metrics_24h();
+
+    if metrics.total_events > 0 {
+        // Net XP change
+        let net_colored = if metrics.net_xp >= 0 {
+            format!("+{}", metrics.net_xp).bright_green().to_string()
+        } else {
+            format!("{}", metrics.net_xp).bright_red().to_string()
+        };
+        println!("  XP Net:     {} (gained {} / lost {})", net_colored, metrics.xp_gained, metrics.xp_lost);
+        println!("  Events:     {} (+{} / -{})", metrics.total_events, metrics.positive_events, metrics.negative_events);
+        println!("  Questions:  {}", metrics.questions_answered);
+
+        // Top event types
+        if let Some(ref top_pos) = metrics.top_positive {
+            println!("  Best:       {}", top_pos.bright_green());
+        }
+        if let Some(ref top_neg) = metrics.top_negative {
+            println!("  Worst:      {}", top_neg.bright_red());
+        }
+    } else {
+        println!("  No learning events in past 24h");
+    }
+
+    // Recent XP events (last 5)
+    let recent = xp_log.read_recent(5);
+    if !recent.is_empty() {
+        println!();
+        println!("{}", "[RECENT EVENTS]".cyan());
+        for event in recent.iter().take(5) {
+            let xp_str = if event.xp_change >= 0 {
+                format!("+{}", event.xp_change).bright_green().to_string()
+            } else {
+                format!("{}", event.xp_change).bright_red().to_string()
+            };
+            // Truncate question to 30 chars
+            let q: String = event.question.chars().take(30).collect();
+            let q_display = if event.question.len() > 30 {
+                format!("{}...", q)
+            } else {
+                q
+            };
+            println!("  {} {:>4}  {}", event.event_type.dimmed(), xp_str, q_display.dimmed());
+        }
     }
 
     println!("{}", THIN_SEPARATOR);
@@ -847,4 +912,43 @@ fn process_llm_xp_events(question: &str, answer: &FinalAnswer) {
             _ => {}
         }
     }
+}
+
+// ============================================================================
+// RESET COMMAND - v4.0.0: Factory reset (testing only)
+// ============================================================================
+
+/// Reset command - complete factory reset (for testing)
+async fn run_reset() -> Result<()> {
+    println!();
+    println!("{}", "ANNA RESET".bright_white().bold());
+    println!("{}", THIN_SEPARATOR);
+    println!();
+
+    // Show warning
+    println!("{}  This will delete ALL data:", "[WARNING]".bright_red());
+    println!("   - XP and progression");
+    println!("   - Knowledge and facts");
+    println!("   - LLM configurations");
+    println!("   - Benchmarks and stats");
+    println!("   - Telemetry and logs");
+    println!();
+
+    // Execute factory reset directly
+    let result = execute_factory_reset();
+
+    if result.reliability >= 0.9 {
+        println!("{}  Reset complete", "[OK]".bright_green());
+        println!();
+        println!("{}", result.text);
+    } else {
+        println!("{}  Reset failed", "[ERROR]".bright_red());
+        println!();
+        println!("{}", result.text);
+    }
+
+    println!();
+    println!("{}", THIN_SEPARATOR);
+    println!();
+    Ok(())
 }
