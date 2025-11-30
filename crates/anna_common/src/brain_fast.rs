@@ -1,4 +1,4 @@
-//! Brain Fast Path v1.3.0
+//! Brain Fast Path v3.12.0
 //!
 //! Zero-LLM fast path for simple questions. See `docs/architecture.md` Section 3.
 //!
@@ -9,6 +9,10 @@
 //! | RAM | <50ms | `cat /proc/meminfo` |
 //! | CPU | <50ms | `lscpu` (cached 60s) |
 //! | Disk | <50ms | `df -h /` |
+//! | OS/Kernel | <50ms | `uname`, `/etc/os-release` |
+//! | Uptime | <50ms | `uptime -p` |
+//! | GPU | <100ms | `lspci`, `nvidia-smi` |
+//! | Network | <100ms | `ip addr show` |
 //! | Health | <100ms | `pgrep`, `curl` |
 //! | Debug | <10ms | State file |
 //! | Reset | <50ms | Experience/Factory reset |
@@ -146,6 +150,10 @@ pub enum FastQuestionType {
     BenchmarkDelta,
     /// Daily check-in (v2.2.0)
     DailyCheckIn,
+    /// GPU information (v3.12.0)
+    GpuInfo,
+    /// Network interfaces (v3.12.0)
+    NetworkInfo,
     /// Not a fast-path question
     Unknown,
 }
@@ -351,6 +359,41 @@ impl FastQuestionType {
                 return Self::BenchmarkQuick;
             }
             return Self::BenchmarkFull;
+        }
+
+        // =================================================================
+        // GPU patterns (v3.12.0 - NEW)
+        // =================================================================
+        // "what gpu" / "which gpu" / "gpu info" / "graphics card"
+        if (q.contains("gpu") || q.contains("graphics card") || q.contains("video card"))
+            && (q.contains("what") || q.contains("which") || q.contains("my")
+                || q.contains("info") || q.contains("have") || q.contains("show"))
+        {
+            return Self::GpuInfo;
+        }
+        // Short forms
+        if q == "gpu?" || q == "gpu" || q == "graphics?" {
+            return Self::GpuInfo;
+        }
+
+        // =================================================================
+        // Network patterns (v3.12.0 - NEW)
+        // =================================================================
+        // "network interfaces" / "my ip" / "what's my ip" / "network info"
+        if (q.contains("network") || q.contains("interface"))
+            && (q.contains("what") || q.contains("show") || q.contains("list") || q.contains("my"))
+        {
+            return Self::NetworkInfo;
+        }
+        // IP address questions
+        if (q.contains("ip") && (q.contains("address") || q.contains("my") || q.contains("what")))
+            || q.contains("my ip")
+        {
+            return Self::NetworkInfo;
+        }
+        // Short forms
+        if q == "network?" || q == "interfaces?" || q == "ip?" {
+            return Self::NetworkInfo;
         }
 
         Self::Unknown
@@ -654,6 +697,8 @@ pub fn try_fast_answer(question: &str) -> Option<FastAnswer> {
         FastQuestionType::BenchmarkHistory => fast_benchmark_history(),
         FastQuestionType::BenchmarkDelta => fast_benchmark_delta(),
         FastQuestionType::DailyCheckIn => fast_daily_checkin(),
+        FastQuestionType::GpuInfo => fast_gpu_answer(),
+        FastQuestionType::NetworkInfo => fast_network_answer(),
         FastQuestionType::Unknown => return None,
     };
 
@@ -2077,6 +2122,72 @@ mod tests {
         assert_eq!(
             FastQuestionType::classify("uptime?"),
             FastQuestionType::Uptime
+        );
+    }
+
+    // v3.12.0: GPU classification tests
+    #[test]
+    fn test_classify_gpu() {
+        assert_eq!(
+            FastQuestionType::classify("what gpu do I have?"),
+            FastQuestionType::GpuInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("which gpu?"),
+            FastQuestionType::GpuInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("my gpu"),
+            FastQuestionType::GpuInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("show gpu info"),
+            FastQuestionType::GpuInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("what graphics card do I have?"),
+            FastQuestionType::GpuInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("gpu?"),
+            FastQuestionType::GpuInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("gpu"),
+            FastQuestionType::GpuInfo
+        );
+    }
+
+    // v3.12.0: Network classification tests
+    #[test]
+    fn test_classify_network() {
+        assert_eq!(
+            FastQuestionType::classify("what are my network interfaces?"),
+            FastQuestionType::NetworkInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("show network interfaces"),
+            FastQuestionType::NetworkInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("my ip address"),
+            FastQuestionType::NetworkInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("what's my ip?"),
+            FastQuestionType::NetworkInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("what is my ip address"),
+            FastQuestionType::NetworkInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("network?"),
+            FastQuestionType::NetworkInfo
+        );
+        assert_eq!(
+            FastQuestionType::classify("ip?"),
+            FastQuestionType::NetworkInfo
         );
     }
 }

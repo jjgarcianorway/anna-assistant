@@ -1,8 +1,8 @@
-# Anna v3.11.0 "Lifecycle Correctness"
+# Anna v3.12.0 "Performance & Consistency"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v3.11.0 fixes lifecycle correctness: Benchmark triggers now route to daemon (actually run benchmarks), Brain answers record telemetry (fixes "No telemetry yet"), lifecycle correctness tests verify XP/telemetry/reset behavior end-to-end.
+> v3.12.0 improves performance and consistency: Brain fast path now handles GPU and network queries, First Light uses Brain directly for fast questions, realistic LLM timeouts (4s Junior, 5s Senior) enforced per-call, autoprovision status shows hardware tier and router model.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v3.11.0** | **Lifecycle Correctness** - Benchmark triggers route to daemon, Brain telemetry recording, lifecycle tests |
+| **v3.12.0** | **Performance & Consistency** - GPU/Network Brain handlers, First Light uses Brain, per-call LLM timeouts, hardware tier in status |
+| v3.11.0 | Lifecycle Correctness - Benchmark triggers route to daemon, Brain telemetry recording, lifecycle tests |
 | v3.10.0 | Correctness Patch - OS/kernel Brain fast path, honest self-health, percentage display, permission fixes |
 | v3.9.0 | Consistency & Migration - Honest status output, reset history tracking, coherent messages |
 | v3.8.0 | Preflight QA - Learning Contract, 43 learning tests, benchmark verification |

@@ -1,4 +1,4 @@
-//! First Light Self-Test Module v2.2.0
+//! First Light Self-Test Module v3.12.0
 //!
 //! After a hard reset, Anna runs a "First Light" self-test to verify
 //! the system is working correctly. This provides a clean baseline
@@ -629,6 +629,246 @@ fn get_system_uptime() -> String {
 }
 
 // ============================================================================
+// First Light Runner (v3.12.0)
+// ============================================================================
+
+/// Run First Light self-test using Brain handlers directly for fast questions
+/// This avoids the LLM pipeline for questions that Brain can answer
+pub fn run_first_light() -> FirstLightResult {
+    use crate::brain_fast::{
+        fast_cpu_answer, fast_ram_answer, fast_disk_answer, fast_health_answer,
+    };
+    use std::time::Instant;
+
+    let start = Instant::now();
+    let mut questions = Vec::new();
+
+    // Question 1: CPU - use Brain fast_cpu_answer directly
+    let cpu_start = Instant::now();
+    let cpu_result = match fast_cpu_answer() {
+        Some(answer) => FirstLightQuestion::success(
+            "cpu",
+            FIRST_LIGHT_QUESTIONS[0].1,
+            answer.reliability,
+            cpu_start.elapsed().as_millis() as u64,
+            "Brain",
+            5,
+            &answer.text,
+        ),
+        None => FirstLightQuestion::failure(
+            "cpu",
+            FIRST_LIGHT_QUESTIONS[0].1,
+            cpu_start.elapsed().as_millis() as u64,
+            "Brain handler returned None",
+        ),
+    };
+    questions.push(cpu_result);
+
+    // Question 2: RAM - use Brain fast_ram_answer directly
+    let ram_start = Instant::now();
+    let ram_result = match fast_ram_answer() {
+        Some(answer) => FirstLightQuestion::success(
+            "ram",
+            FIRST_LIGHT_QUESTIONS[1].1,
+            answer.reliability,
+            ram_start.elapsed().as_millis() as u64,
+            "Brain",
+            5,
+            &answer.text,
+        ),
+        None => FirstLightQuestion::failure(
+            "ram",
+            FIRST_LIGHT_QUESTIONS[1].1,
+            ram_start.elapsed().as_millis() as u64,
+            "Brain handler returned None",
+        ),
+    };
+    questions.push(ram_result);
+
+    // Question 3: Disk - use Brain fast_disk_answer directly
+    let disk_start = Instant::now();
+    let disk_result = match fast_disk_answer() {
+        Some(answer) => FirstLightQuestion::success(
+            "disk",
+            FIRST_LIGHT_QUESTIONS[2].1,
+            answer.reliability,
+            disk_start.elapsed().as_millis() as u64,
+            "Brain",
+            5,
+            &answer.text,
+        ),
+        None => FirstLightQuestion::failure(
+            "disk",
+            FIRST_LIGHT_QUESTIONS[2].1,
+            disk_start.elapsed().as_millis() as u64,
+            "Brain handler returned None",
+        ),
+    };
+    questions.push(disk_result);
+
+    // Question 4: Health - use Brain fast_health_answer directly
+    let health_start = Instant::now();
+    let health_result = match fast_health_answer() {
+        Some(answer) => FirstLightQuestion::success(
+            "health",
+            FIRST_LIGHT_QUESTIONS[3].1,
+            answer.reliability,
+            health_start.elapsed().as_millis() as u64,
+            "Brain",
+            5,
+            &answer.text,
+        ),
+        None => FirstLightQuestion::failure(
+            "health",
+            FIRST_LIGHT_QUESTIONS[3].1,
+            health_start.elapsed().as_millis() as u64,
+            "Brain handler returned None",
+        ),
+    };
+    questions.push(health_result);
+
+    // Question 5: LLM connectivity - this one needs actual LLM check
+    // We mark it as pending - the daemon should fill this in when it runs
+    let llm_start = Instant::now();
+    let llm_result = FirstLightQuestion {
+        id: "llm".to_string(),
+        question: FIRST_LIGHT_QUESTIONS[4].1.to_string(),
+        success: true,
+        reliability: 0.5, // Neutral until daemon verifies
+        latency_ms: llm_start.elapsed().as_millis() as u64,
+        origin: "Pending".to_string(),
+        xp_awarded: 0,
+        error: None,
+        answer_summary: "LLM check pending - daemon will verify".to_string(),
+    };
+    questions.push(llm_result);
+
+    let total_duration = start.elapsed().as_millis() as u64;
+    FirstLightResult::new(questions, total_duration)
+}
+
+/// Run First Light with LLM verification callback
+/// The callback should return (success, latency_ms, summary) for the LLM check
+pub fn run_first_light_with_llm_check<F>(llm_check: F) -> FirstLightResult
+where
+    F: FnOnce() -> (bool, u64, String),
+{
+    use crate::brain_fast::{
+        fast_cpu_answer, fast_ram_answer, fast_disk_answer, fast_health_answer,
+    };
+    use std::time::Instant;
+
+    let start = Instant::now();
+    let mut questions = Vec::new();
+
+    // Questions 1-4: Use Brain handlers directly
+    let cpu_start = Instant::now();
+    let cpu_result = match fast_cpu_answer() {
+        Some(answer) => FirstLightQuestion::success(
+            "cpu",
+            FIRST_LIGHT_QUESTIONS[0].1,
+            answer.reliability,
+            cpu_start.elapsed().as_millis() as u64,
+            "Brain",
+            5,
+            &answer.text,
+        ),
+        None => FirstLightQuestion::failure(
+            "cpu",
+            FIRST_LIGHT_QUESTIONS[0].1,
+            cpu_start.elapsed().as_millis() as u64,
+            "Brain handler returned None",
+        ),
+    };
+    questions.push(cpu_result);
+
+    let ram_start = Instant::now();
+    let ram_result = match fast_ram_answer() {
+        Some(answer) => FirstLightQuestion::success(
+            "ram",
+            FIRST_LIGHT_QUESTIONS[1].1,
+            answer.reliability,
+            ram_start.elapsed().as_millis() as u64,
+            "Brain",
+            5,
+            &answer.text,
+        ),
+        None => FirstLightQuestion::failure(
+            "ram",
+            FIRST_LIGHT_QUESTIONS[1].1,
+            ram_start.elapsed().as_millis() as u64,
+            "Brain handler returned None",
+        ),
+    };
+    questions.push(ram_result);
+
+    let disk_start = Instant::now();
+    let disk_result = match fast_disk_answer() {
+        Some(answer) => FirstLightQuestion::success(
+            "disk",
+            FIRST_LIGHT_QUESTIONS[2].1,
+            answer.reliability,
+            disk_start.elapsed().as_millis() as u64,
+            "Brain",
+            5,
+            &answer.text,
+        ),
+        None => FirstLightQuestion::failure(
+            "disk",
+            FIRST_LIGHT_QUESTIONS[2].1,
+            disk_start.elapsed().as_millis() as u64,
+            "Brain handler returned None",
+        ),
+    };
+    questions.push(disk_result);
+
+    let health_start = Instant::now();
+    let health_result = match fast_health_answer() {
+        Some(answer) => FirstLightQuestion::success(
+            "health",
+            FIRST_LIGHT_QUESTIONS[3].1,
+            answer.reliability,
+            health_start.elapsed().as_millis() as u64,
+            "Brain",
+            5,
+            &answer.text,
+        ),
+        None => FirstLightQuestion::failure(
+            "health",
+            FIRST_LIGHT_QUESTIONS[3].1,
+            health_start.elapsed().as_millis() as u64,
+            "Brain handler returned None",
+        ),
+    };
+    questions.push(health_result);
+
+    // Question 5: LLM check via callback
+    let (llm_success, llm_latency, llm_summary) = llm_check();
+    let llm_result = if llm_success {
+        FirstLightQuestion::success(
+            "llm",
+            FIRST_LIGHT_QUESTIONS[4].1,
+            0.95,
+            llm_latency,
+            "Junior/Senior",
+            5,
+            &llm_summary,
+        )
+    } else {
+        FirstLightQuestion::failure(
+            "llm",
+            FIRST_LIGHT_QUESTIONS[4].1,
+            llm_latency,
+            &llm_summary,
+        )
+    };
+    questions.push(llm_result);
+
+    let total_duration = start.elapsed().as_millis() as u64;
+    FirstLightResult::new(questions, total_duration)
+}
+
+// ============================================================================
 // Check Question Types
 // ============================================================================
 
@@ -757,5 +997,47 @@ mod tests {
             status.contains("Not yet run") ||
             status.contains("Pending")
         );
+    }
+
+    // v3.12.0: Test First Light runner uses Brain directly
+    #[test]
+    fn test_v312_run_first_light_uses_brain() {
+        let result = run_first_light();
+
+        // Should have 5 questions
+        assert_eq!(result.questions.len(), 5);
+
+        // First 4 questions should use Brain origin and be fast (<150ms each)
+        for (i, q) in result.questions.iter().take(4).enumerate() {
+            assert_eq!(q.origin, "Brain", "Question {} should be Brain origin", i);
+            // Brain answers should be very fast
+            assert!(q.latency_ms < 500, "Question {} latency {}ms should be <500ms", i, q.latency_ms);
+        }
+
+        // Question 5 (llm) should be pending
+        let llm_q = &result.questions[4];
+        assert_eq!(llm_q.id, "llm");
+        assert_eq!(llm_q.origin, "Pending");
+    }
+
+    // v3.12.0: Test First Light with LLM callback
+    #[test]
+    fn test_v312_run_first_light_with_llm_check() {
+        let result = run_first_light_with_llm_check(|| {
+            (true, 1500, "Junior and Senior both responding".to_string())
+        });
+
+        // Should have 5 questions
+        assert_eq!(result.questions.len(), 5);
+
+        // All should pass
+        assert!(result.all_passed);
+
+        // Question 5 should have the LLM check result
+        let llm_q = &result.questions[4];
+        assert_eq!(llm_q.id, "llm");
+        assert_eq!(llm_q.origin, "Junior/Senior");
+        assert!(llm_q.success);
+        assert_eq!(llm_q.latency_ms, 1500);
     }
 }

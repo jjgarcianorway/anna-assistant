@@ -1,4 +1,4 @@
-//! Answer Engine v3.0.0 - Unified Orchestration
+//! Answer Engine v3.12.0 - Unified Orchestration with Per-Call Timeouts
 //!
 //! This is the CANONICAL orchestration entry point for Anna.
 //!
@@ -68,6 +68,12 @@ const ORCHESTRATION_SOFT_LIMIT_SECS: u64 = 8;
 
 /// v0.90.0: Brain fast path timeout (150ms target)
 const BRAIN_TIMEOUT_MS: u64 = 150;
+
+/// v3.12.0: Junior LLM call timeout (4 seconds per call)
+const JUNIOR_TIMEOUT_MS: u64 = 4000;
+
+/// v3.12.0: Senior LLM call timeout (5 seconds per call)
+const SENIOR_TIMEOUT_MS: u64 = 5000;
 
 /// v0.90.0: High confidence threshold - skip Senior if Junior >= 80%
 const SKIP_SENIOR_THRESHOLD: f64 = 0.80;
@@ -331,12 +337,22 @@ impl UnifiedEngine {
         info!("[J1] Junior planning ({} chars)", junior_prompt_1.len());
 
         let junior_start_1 = Instant::now();
-        let (junior_response_1, _raw) = match self.llm_client.call_junior_v80(&junior_prompt_1).await {
-            Ok(resp) => resp,
-            Err(e) => {
+        // v3.12.0: Wrap Junior call with timeout
+        let junior_timeout = Duration::from_millis(JUNIOR_TIMEOUT_MS);
+        let junior_call_1 = self.llm_client.call_junior_v80(&junior_prompt_1);
+        let (junior_response_1, _raw) = match tokio::time::timeout(junior_timeout, junior_call_1).await {
+            Ok(Ok(resp)) => resp,
+            Ok(Err(e)) => {
                 warn!("[!]  Junior planning failed: {}", e);
                 self.record_xp_event(XpEventType::JuniorBadCommand);
                 return Ok(self.build_error_answer(question, &e.to_string(), start_time.elapsed()));
+            }
+            Err(_) => {
+                // v3.12.0: Junior timeout exceeded
+                let elapsed_ms = junior_start_1.elapsed().as_millis() as u64;
+                warn!("[!]  Junior planning timeout after {}ms (budget: {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS);
+                self.record_xp_event(XpEventType::LlmTimeoutFallback);
+                return Ok(self.build_timeout_answer(question, start_time.elapsed(), elapsed_ms, 0));
             }
         };
         junior_total_ms += junior_start_1.elapsed().as_millis() as u64;
@@ -392,12 +408,21 @@ impl UnifiedEngine {
         info!("[J2] Junior drafting ({} chars)", junior_prompt_2.len());
 
         let junior_start_2 = Instant::now();
-        let (junior_response_2, _raw) = match self.llm_client.call_junior_v80(&junior_prompt_2).await {
-            Ok(resp) => resp,
-            Err(e) => {
+        // v3.12.0: Wrap Junior call with timeout
+        let junior_call_2 = self.llm_client.call_junior_v80(&junior_prompt_2);
+        let (junior_response_2, _raw) = match tokio::time::timeout(junior_timeout, junior_call_2).await {
+            Ok(Ok(resp)) => resp,
+            Ok(Err(e)) => {
                 warn!("[!]  Junior draft failed: {}", e);
                 self.record_xp_event(XpEventType::JuniorBadCommand);
                 return Ok(self.build_error_answer(question, &e.to_string(), start_time.elapsed()));
+            }
+            Err(_) => {
+                // v3.12.0: Junior timeout exceeded
+                let elapsed_ms = junior_start_2.elapsed().as_millis() as u64;
+                warn!("[!]  Junior draft timeout after {}ms (budget: {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS);
+                self.record_xp_event(XpEventType::LlmTimeoutFallback);
+                return Ok(self.build_timeout_answer(question, start_time.elapsed(), junior_total_ms + elapsed_ms, 0));
             }
         };
         junior_total_ms += junior_start_2.elapsed().as_millis() as u64;
@@ -492,9 +517,12 @@ impl UnifiedEngine {
         info!("[S]  Senior auditing ({} chars)", senior_prompt.len());
 
         let senior_start = Instant::now();
-        let (senior_response, _raw) = match self.llm_client.call_senior_v80(&senior_prompt).await {
-            Ok(resp) => resp,
-            Err(e) => {
+        // v3.12.0: Wrap Senior call with timeout
+        let senior_timeout = Duration::from_millis(SENIOR_TIMEOUT_MS);
+        let senior_call = self.llm_client.call_senior_v80(&senior_prompt);
+        let (senior_response, _raw) = match tokio::time::timeout(senior_timeout, senior_call).await {
+            Ok(Ok(resp)) => resp,
+            Ok(Err(e)) => {
                 warn!("[!]  Senior audit failed: {}", e);
                 // Fall back to Junior answer with reduced confidence
                 _origin = AnswerOrigin::Junior;
@@ -508,6 +536,24 @@ impl UnifiedEngine {
                     junior_had_draft,
                     junior_total_ms,
                     0,
+                    start_time.elapsed(),
+                ));
+            }
+            Err(_) => {
+                // v3.12.0: Senior timeout exceeded - fall back to Junior answer
+                let elapsed_ms = senior_start.elapsed().as_millis() as u64;
+                warn!("[!]  Senior audit timeout after {}ms (budget: {}ms)", elapsed_ms, SENIOR_TIMEOUT_MS);
+                _origin = AnswerOrigin::Junior;
+                self.record_xp_event(XpEventType::LlmTimeoutFallback);
+                return Ok(self.build_junior_answer(
+                    question,
+                    &draft_text,
+                    junior_confidence * 0.7,
+                    &evidence,
+                    &probe_ids,
+                    junior_had_draft,
+                    junior_total_ms,
+                    elapsed_ms,
                     start_time.elapsed(),
                 ));
             }

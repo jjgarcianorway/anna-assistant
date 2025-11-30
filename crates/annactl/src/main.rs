@@ -1922,12 +1922,41 @@ fn display_autoprovision_section() {
     };
     println!("  ⚙️   Autoprovision: {}", status_str);
 
+    // v3.12.0: Hardware tier
+    if let Some(tier) = &selection.hardware_tier {
+        let tier_str = format!("{:?}", tier);
+        let tier_colored = match tier {
+            anna_common::llm_provision::HardwareTier::Power => tier_str.bright_green().to_string(),
+            anna_common::llm_provision::HardwareTier::Standard => tier_str.cyan().to_string(),
+            anna_common::llm_provision::HardwareTier::Basic => tier_str.yellow().to_string(),
+            anna_common::llm_provision::HardwareTier::Minimal => tier_str.bright_red().to_string(),
+        };
+        println!("  🖥️   Hardware tier: {}", tier_colored);
+    }
+
     if needs_provision {
         // v2.1.0: Show helpful message when not provisioned
         println!("  📝  Models not yet benchmarked");
         println!("  💡  Run 'annactl' and ask a question to trigger autoprovision");
         println!("{}", THIN_SEPARATOR);
         return;
+    }
+
+    // v3.12.0: Router model (if score > 0)
+    if selection.router_score > 0.0 {
+        let rt_score = format!("{:.2}", selection.router_score);
+        let rt_score_colored = if selection.router_score >= 0.8 {
+            rt_score.bright_green().to_string()
+        } else if selection.router_score >= 0.5 {
+            rt_score.yellow().to_string()
+        } else {
+            rt_score.bright_red().to_string()
+        };
+        println!(
+            "  🔀  Router: {} (score {})",
+            selection.router_model.cyan(),
+            rt_score_colored
+        );
     }
 
     // Junior model
