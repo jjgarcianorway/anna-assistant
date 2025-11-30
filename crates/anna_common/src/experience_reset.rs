@@ -1,4 +1,4 @@
-//! Experience Reset Module v1.3.0
+//! Experience Reset Module v3.13.0
 //!
 //! Provides two reset modes for Anna's learned state:
 //!
@@ -40,6 +40,7 @@ use std::path::{Path, PathBuf};
 // ============================================================================
 
 /// Paths that can be reset (configurable for testing)
+/// v3.13.0: Added benchmark and autoprovision paths
 #[derive(Debug, Clone)]
 pub struct ExperiencePaths {
     /// XP store directory (contains xp_store.json)
@@ -50,6 +51,10 @@ pub struct ExperiencePaths {
     pub stats_dir: PathBuf,
     /// Knowledge directory (for factory reset)
     pub knowledge_dir: PathBuf,
+    /// v3.13.0: Snow Leopard benchmark directory
+    pub benchmark_dir: PathBuf,
+    /// v3.13.0: LLM autoprovision state directory
+    pub llm_state_dir: PathBuf,
 }
 
 impl Default for ExperiencePaths {
@@ -59,6 +64,8 @@ impl Default for ExperiencePaths {
             telemetry_file: PathBuf::from("/var/log/anna/telemetry.jsonl"),
             stats_dir: PathBuf::from("/var/lib/anna/knowledge/stats"),
             knowledge_dir: PathBuf::from("/var/lib/anna/knowledge"),
+            benchmark_dir: PathBuf::from("/var/lib/anna/benchmarks"),
+            llm_state_dir: PathBuf::from("/var/lib/anna/llm"),
         }
     }
 }
@@ -71,12 +78,24 @@ impl ExperiencePaths {
             telemetry_file: root.join("var/log/anna/telemetry.jsonl"),
             stats_dir: root.join("var/lib/anna/knowledge/stats"),
             knowledge_dir: root.join("var/lib/anna/knowledge"),
+            benchmark_dir: root.join("var/lib/anna/benchmarks"),
+            llm_state_dir: root.join("var/lib/anna/llm"),
         }
     }
 
     /// XP store file path
     pub fn xp_store_file(&self) -> PathBuf {
         self.xp_dir.join("xp_store.json")
+    }
+
+    /// v3.13.0: LLM selection file path
+    pub fn llm_selection_file(&self) -> PathBuf {
+        self.llm_state_dir.join("selection.json")
+    }
+
+    /// v3.13.0: Last benchmark summary file path
+    pub fn last_benchmark_file(&self) -> PathBuf {
+        self.benchmark_dir.join("last_benchmark.json")
     }
 }
 
@@ -446,13 +465,17 @@ fn reset_stats_dir(paths: &ExperiencePaths, result: &mut ExperienceResetResult) 
 // Factory Reset Implementation (Hard Reset)
 // ============================================================================
 
-/// Factory reset: Experience reset + delete knowledge
+/// Factory reset: Experience reset + delete knowledge + benchmarks + autoprovision
+///
+/// v3.13.0: Now also clears benchmark history and autoprovision state
 ///
 /// This resets EVERYTHING:
 /// - XP store to baseline
 /// - Telemetry (cleared)
 /// - Stats (cleared)
 /// - Knowledge directory (deleted)
+/// - Benchmark history (deleted)
+/// - LLM autoprovision state (deleted)
 ///
 /// This preserves:
 /// - Config files
@@ -471,6 +494,12 @@ pub fn reset_factory(paths: &ExperiencePaths) -> ExperienceResetResult {
 
     // 3. Delete knowledge directory (not just stats)
     reset_knowledge_dir(paths, &mut result);
+
+    // v3.13.0: Clear benchmark history
+    reset_benchmark_dir(paths, &mut result);
+
+    // v3.13.0: Clear LLM autoprovision state
+    reset_llm_state_dir(paths, &mut result);
 
     // v3.9.0: Record reset in history
     if result.success {
@@ -540,6 +569,124 @@ fn reset_knowledge_dir(paths: &ExperiencePaths, result: &mut ExperienceResetResu
         }
         Err(e) => {
             result.add_error(&format!("Failed to read knowledge directory: {}", e));
+        }
+    }
+}
+
+/// v3.13.0: Clear benchmark history directory (factory reset only)
+fn reset_benchmark_dir(paths: &ExperiencePaths, result: &mut ExperienceResetResult) {
+    let benchmark_dir = &paths.benchmark_dir;
+
+    if !benchmark_dir.exists() {
+        result.add_clean("Benchmarks");
+        return;
+    }
+
+    // Count files before deletion
+    let file_count = match fs::read_dir(benchmark_dir) {
+        Ok(entries) => entries.count(),
+        Err(_) => 0,
+    };
+
+    if file_count == 0 {
+        result.add_clean("Benchmarks");
+        return;
+    }
+
+    // Remove all contents (but keep the directory)
+    match fs::read_dir(benchmark_dir) {
+        Ok(entries) => {
+            let mut removed = 0;
+            let mut errors = 0;
+
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.is_file() {
+                    if fs::remove_file(&path).is_ok() {
+                        removed += 1;
+                    } else {
+                        errors += 1;
+                    }
+                } else if path.is_dir() {
+                    if fs::remove_dir_all(&path).is_ok() {
+                        removed += 1;
+                    } else {
+                        errors += 1;
+                    }
+                }
+            }
+
+            if errors > 0 {
+                result.add_error(&format!(
+                    "Failed to remove {} items in benchmark directory",
+                    errors
+                ));
+            }
+            if removed > 0 {
+                result.add_reset(&format!("Benchmarks ({} items)", removed));
+            }
+        }
+        Err(e) => {
+            result.add_error(&format!("Failed to read benchmark directory: {}", e));
+        }
+    }
+}
+
+/// v3.13.0: Clear LLM autoprovision state directory (factory reset only)
+fn reset_llm_state_dir(paths: &ExperiencePaths, result: &mut ExperienceResetResult) {
+    let llm_dir = &paths.llm_state_dir;
+
+    if !llm_dir.exists() {
+        result.add_clean("LLM Autoprovision");
+        return;
+    }
+
+    // Count files before deletion
+    let file_count = match fs::read_dir(llm_dir) {
+        Ok(entries) => entries.count(),
+        Err(_) => 0,
+    };
+
+    if file_count == 0 {
+        result.add_clean("LLM Autoprovision");
+        return;
+    }
+
+    // Remove all contents (but keep the directory)
+    match fs::read_dir(llm_dir) {
+        Ok(entries) => {
+            let mut removed = 0;
+            let mut errors = 0;
+
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.is_file() {
+                    if fs::remove_file(&path).is_ok() {
+                        removed += 1;
+                    } else {
+                        errors += 1;
+                    }
+                } else if path.is_dir() {
+                    if fs::remove_dir_all(&path).is_ok() {
+                        removed += 1;
+                    } else {
+                        errors += 1;
+                    }
+                }
+            }
+
+            if errors > 0 {
+                result.add_error(&format!(
+                    "Failed to remove {} items in LLM state directory",
+                    errors
+                ));
+            }
+            if removed > 0 {
+                result.add_reset(&format!("LLM Autoprovision ({} items)", removed));
+            }
+        }
+        Err(e) => {
+            result.add_error(&format!("Failed to read LLM state directory: {}", e));
         }
     }
 }
@@ -822,6 +969,9 @@ mod tests {
         fs::create_dir_all(paths.telemetry_file.parent().unwrap()).unwrap();
         fs::create_dir_all(&paths.stats_dir).unwrap();
         fs::create_dir_all(&paths.knowledge_dir).unwrap();
+        // v3.13.0: Create benchmark and LLM state dirs
+        fs::create_dir_all(&paths.benchmark_dir).unwrap();
+        fs::create_dir_all(&paths.llm_state_dir).unwrap();
 
         (temp, paths)
     }
@@ -1046,5 +1196,141 @@ mod tests {
         assert_eq!(parsed["anna"]["level"], 1);
         assert_eq!(parsed["anna"]["xp"], 0);
         assert_eq!(parsed["anna"]["trust"], 0.5);
+    }
+
+    // ========================================================================
+    // v3.13.0: Tests for benchmark and autoprovision reset
+    // ========================================================================
+
+    #[test]
+    fn test_v313_factory_reset_clears_benchmarks() {
+        let (_temp, paths) = setup_test_paths();
+
+        // Create benchmark files
+        let last_benchmark = r#"{"mode":"Full","timestamp":"2024-01-01T00:00:00Z"}"#;
+        fs::write(paths.last_benchmark_file(), last_benchmark).unwrap();
+        fs::write(paths.benchmark_dir.join("history_001.json"), "{}").unwrap();
+        fs::write(paths.benchmark_dir.join("history_002.json"), "{}").unwrap();
+
+        // Verify files exist
+        assert!(paths.last_benchmark_file().exists());
+        assert_eq!(fs::read_dir(&paths.benchmark_dir).unwrap().count(), 3);
+
+        // Factory reset should clear benchmarks
+        let result = reset_factory(&paths);
+        assert!(result.success);
+        assert!(result.components_reset.iter().any(|c| c.contains("Benchmarks")));
+
+        // Benchmark directory should be empty
+        assert_eq!(fs::read_dir(&paths.benchmark_dir).unwrap().count(), 0);
+        assert!(!paths.last_benchmark_file().exists());
+    }
+
+    #[test]
+    fn test_v313_factory_reset_clears_autoprovision() {
+        let (_temp, paths) = setup_test_paths();
+
+        // Create LLM selection file
+        let selection = r#"{"junior_model":"llama3:8b","junior_score":0.85}"#;
+        fs::write(paths.llm_selection_file(), selection).unwrap();
+        fs::create_dir_all(paths.llm_state_dir.join("benchmarks")).unwrap();
+        fs::write(paths.llm_state_dir.join("benchmarks/model_001.json"), "{}").unwrap();
+
+        // Verify files exist
+        assert!(paths.llm_selection_file().exists());
+
+        // Factory reset should clear LLM state
+        let result = reset_factory(&paths);
+        assert!(result.success);
+        assert!(result.components_reset.iter().any(|c| c.contains("LLM Autoprovision")));
+
+        // LLM state directory should be empty
+        assert_eq!(fs::read_dir(&paths.llm_state_dir).unwrap().count(), 0);
+        assert!(!paths.llm_selection_file().exists());
+    }
+
+    #[test]
+    fn test_v313_experience_reset_preserves_benchmarks() {
+        let (_temp, paths) = setup_test_paths();
+
+        // Create benchmark files
+        let last_benchmark = r#"{"mode":"Full","timestamp":"2024-01-01T00:00:00Z"}"#;
+        fs::write(paths.last_benchmark_file(), last_benchmark).unwrap();
+
+        // Experience reset (soft) should preserve benchmarks
+        let result = reset_experience(&paths);
+        assert!(result.success);
+
+        // Benchmark file should still exist
+        assert!(paths.last_benchmark_file().exists());
+    }
+
+    #[test]
+    fn test_v313_experience_reset_preserves_autoprovision() {
+        let (_temp, paths) = setup_test_paths();
+
+        // Create LLM selection file
+        let selection = r#"{"junior_model":"llama3:8b","junior_score":0.85}"#;
+        fs::write(paths.llm_selection_file(), selection).unwrap();
+
+        // Experience reset (soft) should preserve LLM state
+        let result = reset_experience(&paths);
+        assert!(result.success);
+
+        // LLM selection file should still exist
+        assert!(paths.llm_selection_file().exists());
+        let content = fs::read_to_string(paths.llm_selection_file()).unwrap();
+        assert!(content.contains("llama3:8b"));
+    }
+
+    #[test]
+    fn test_v313_factory_reset_complete_lifecycle_reset() {
+        let (_temp, paths) = setup_test_paths();
+
+        // Set up a complete lifecycle state
+        // 1. XP with progress
+        let xp_data = r#"{"anna":{"level":5,"xp":500},"anna_stats":{"total_questions":50}}"#;
+        fs::write(paths.xp_store_file(), xp_data).unwrap();
+
+        // 2. Telemetry
+        fs::write(&paths.telemetry_file, "line1\nline2\nline3").unwrap();
+
+        // 3. Stats
+        fs::write(paths.stats_dir.join("metrics.json"), "{}").unwrap();
+
+        // 4. Knowledge
+        fs::write(paths.knowledge_dir.join("learned.db"), "data").unwrap();
+
+        // 5. Benchmarks
+        fs::write(paths.last_benchmark_file(), "{}").unwrap();
+        fs::write(paths.benchmark_dir.join("history.json"), "{}").unwrap();
+
+        // 6. LLM autoprovision
+        fs::write(paths.llm_selection_file(), "{}").unwrap();
+
+        // Factory reset should clear everything
+        let result = reset_factory(&paths);
+        assert!(result.success);
+
+        // Verify all are cleared
+        // XP should be at baseline
+        let xp_content = fs::read_to_string(paths.xp_store_file()).unwrap();
+        assert!(xp_content.contains("\"level\": 1"));
+        assert!(xp_content.contains("\"xp\": 0"));
+
+        // Telemetry should be empty
+        assert_eq!(fs::read_to_string(&paths.telemetry_file).unwrap(), "");
+
+        // Knowledge should be empty (stats is a subdirectory, deleted with knowledge)
+        // Note: knowledge_dir itself still exists but is empty
+        if paths.knowledge_dir.exists() {
+            assert_eq!(fs::read_dir(&paths.knowledge_dir).unwrap().count(), 0);
+        }
+
+        // Benchmarks should be empty
+        assert_eq!(fs::read_dir(&paths.benchmark_dir).unwrap().count(), 0);
+
+        // LLM state should be empty
+        assert_eq!(fs::read_dir(&paths.llm_state_dir).unwrap().count(), 0);
     }
 }

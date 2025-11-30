@@ -35,16 +35,20 @@ pub const FAST_PATH_BUDGET_MS: u64 = 500;
 pub const PROBE_BUDGET_MS: u64 = 4_000;
 
 /// Junior LLM soft timeout (triggers fallback consideration)
-pub const JUNIOR_SOFT_TIMEOUT_MS: u64 = 4_000;
+/// v3.13.0: Increased for realistic LLM response times (4b-7b models)
+pub const JUNIOR_SOFT_TIMEOUT_MS: u64 = 8_000;
 
 /// Junior LLM hard timeout (stops retries)
-pub const JUNIOR_HARD_TIMEOUT_MS: u64 = 6_000;
+/// v3.13.0: Increased for realistic LLM response times
+pub const JUNIOR_HARD_TIMEOUT_MS: u64 = 12_000;
 
 /// Senior LLM soft timeout (triggers skip consideration)
-pub const SENIOR_SOFT_TIMEOUT_MS: u64 = 5_000;
+/// v3.13.0: Increased for realistic LLM response times (14b models)
+pub const SENIOR_SOFT_TIMEOUT_MS: u64 = 10_000;
 
 /// Senior LLM hard timeout (use Junior answer as-is)
-pub const SENIOR_HARD_TIMEOUT_MS: u64 = 8_000;
+/// v3.13.0: Increased for realistic LLM response times
+pub const SENIOR_HARD_TIMEOUT_MS: u64 = 15_000;
 
 /// Maximum time to produce a degraded answer after timeout decision
 pub const DEGRADED_ANSWER_BUDGET_MS: u64 = 2_000;
@@ -789,15 +793,16 @@ mod tests {
 
     #[test]
     fn test_llm_timeout_result_junior() {
-        let success = LlmTimeoutResult::evaluate_junior(2000);
+        // v3.13.0: Updated for realistic timeouts (8s soft, 12s hard)
+        let success = LlmTimeoutResult::evaluate_junior(6000);
         assert!(matches!(success, LlmTimeoutResult::Success { .. }));
         assert!(!success.should_stop_llm());
 
-        let soft = LlmTimeoutResult::evaluate_junior(5000);
+        let soft = LlmTimeoutResult::evaluate_junior(10000);
         assert!(matches!(soft, LlmTimeoutResult::SoftTimeout { .. }));
         assert!(!soft.should_stop_llm());
 
-        let hard = LlmTimeoutResult::evaluate_junior(7000);
+        let hard = LlmTimeoutResult::evaluate_junior(15000);
         assert!(matches!(hard, LlmTimeoutResult::HardTimeout { .. }));
         assert!(hard.should_stop_llm());
     }

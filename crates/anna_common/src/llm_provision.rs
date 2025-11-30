@@ -319,6 +319,9 @@ pub struct LlmSelection {
     /// v3.0: Detected hardware tier
     #[serde(default)]
     pub hardware_tier: Option<HardwareTier>,
+    /// v3.13.0: Explicit autoprovision status ("completed", "failed:<reason>", or empty for not run)
+    #[serde(default)]
+    pub autoprovision_status: String,
 }
 
 fn default_router_model() -> String {
@@ -338,6 +341,7 @@ impl Default for LlmSelection {
             autoprovision_enabled: true,
             suggestions: vec![],
             hardware_tier: None,
+            autoprovision_status: String::new(), // v3.13.0: empty = not yet run
         }
     }
 }
@@ -362,8 +366,18 @@ impl LlmSelection {
     /// Format for status display
     pub fn format_status(&self) -> String {
         let mut output = String::new();
-        output.push_str("LLM AUTOPROVISION (v3.0)\n");
+        output.push_str("LLM AUTOPROVISION (v3.13)\n");
         output.push_str("──────────────────────────────────────────\n");
+
+        // v3.13.0: Autoprovision status (explicit)
+        let status_display = if self.autoprovision_status.is_empty() {
+            "Not yet run"
+        } else if self.autoprovision_status.starts_with("failed") {
+            &self.autoprovision_status
+        } else {
+            &self.autoprovision_status
+        };
+        output.push_str(&format!("Status: {}\n", status_display));
 
         // v3.0: Hardware tier
         if let Some(tier) = &self.hardware_tier {
@@ -881,6 +895,7 @@ pub fn run_autoprovision() -> LlmSelection {
         autoprovision_enabled: true,
         suggestions,
         hardware_tier: Some(hardware_tier),
+        autoprovision_status: "completed".to_string(), // v3.13.0: Mark as completed
     };
 
     // Save selection
@@ -1406,6 +1421,13 @@ where
         suggestions.push("Senior model performance is poor. Consider installing qwen2.5:7b-instruct".to_string());
     }
 
+    // v3.13.0: Determine autoprovision status based on errors
+    let autoprovision_status = if result.errors.is_empty() {
+        "completed".to_string()
+    } else {
+        format!("failed: {}", result.errors.join("; "))
+    };
+
     result.selection = LlmSelection {
         router_model: router.0.clone(),
         router_score: router.1,
@@ -1417,11 +1439,14 @@ where
         autoprovision_enabled: true,
         suggestions,
         hardware_tier: Some(hardware_tier),
+        autoprovision_status, // v3.13.0: Explicit status
     };
 
     // Save selection
     if let Err(e) = result.selection.save() {
         result.errors.push(format!("Could not save selection: {}", e));
+        // Update status to reflect save failure
+        result.selection.autoprovision_status = format!("failed: Could not save selection: {}", e);
     }
 
     // Save benchmarks
@@ -1570,6 +1595,7 @@ mod tests {
             autoprovision_enabled: true,
             suggestions: vec!["Consider upgrading".to_string()],
             hardware_tier: Some(HardwareTier::Standard),
+            autoprovision_status: "completed".to_string(),
         };
 
         let status = selection.format_status();
@@ -1577,6 +1603,27 @@ mod tests {
         assert!(status.contains("test-senior"));
         assert!(status.contains("0.85"));
         assert!(status.contains("Consider upgrading"));
+        assert!(status.contains("Status: completed")); // v3.13.0
+    }
+
+    #[test]
+    fn test_v313_autoprovision_status_display() {
+        // Test "Not yet run" for empty status
+        let selection = LlmSelection::default();
+        let status = selection.format_status();
+        assert!(status.contains("Status: Not yet run"), "Default should show 'Not yet run', got: {}", status);
+
+        // Test "completed" status
+        let mut selection = LlmSelection::default();
+        selection.autoprovision_status = "completed".to_string();
+        let status = selection.format_status();
+        assert!(status.contains("Status: completed"), "Should show 'completed', got: {}", status);
+
+        // Test "failed" status
+        let mut selection = LlmSelection::default();
+        selection.autoprovision_status = "failed: Ollama not running".to_string();
+        let status = selection.format_status();
+        assert!(status.contains("Status: failed: Ollama not running"), "Should show failure reason, got: {}", status);
     }
 
     #[test]
@@ -1713,6 +1760,7 @@ mod tests {
             autoprovision_enabled: true,
             suggestions: vec![],
             hardware_tier: Some(HardwareTier::Standard),
+            autoprovision_status: "completed".to_string(),
         };
 
         // Under threshold (3 failures needed)

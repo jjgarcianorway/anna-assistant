@@ -1249,20 +1249,21 @@ mod performance_integrity {
     }
 
     /// INV-PERF-008: LlmTimeoutResult evaluates correctly
+    /// v3.13.0: Updated for realistic timeouts (8s soft, 12s hard for Junior)
     #[test]
     fn test_inv_perf_008_llm_timeout_evaluation() {
-        // Junior success
-        let success = LlmTimeoutResult::evaluate_junior(2000);
+        // Junior success (under soft timeout)
+        let success = LlmTimeoutResult::evaluate_junior(6000);
         assert!(!success.should_stop_llm());
         assert!(!success.is_timeout());
 
-        // Junior soft timeout
-        let soft = LlmTimeoutResult::evaluate_junior(5000);
+        // Junior soft timeout (8s soft threshold)
+        let soft = LlmTimeoutResult::evaluate_junior(10000);
         assert!(!soft.should_stop_llm());
         assert!(soft.is_timeout());
 
-        // Junior hard timeout
-        let hard = LlmTimeoutResult::evaluate_junior(7000);
+        // Junior hard timeout (12s hard threshold)
+        let hard = LlmTimeoutResult::evaluate_junior(15000);
         assert!(hard.should_stop_llm());
         assert!(hard.is_timeout());
     }

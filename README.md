@@ -1,8 +1,8 @@
-# Anna v3.12.0 "Performance & Consistency"
+# Anna v3.13.0 "Lifecycle Integrity"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v3.12.0 improves performance and consistency: Brain fast path now handles GPU and network queries, First Light uses Brain directly for fast questions, realistic LLM timeouts (4s Junior, 5s Senior) enforced per-call, autoprovision status shows hardware tier and router model.
+> v3.13.0 fixes lifecycle integrity: Hard reset now properly accepts natural confirmations (not just exact strings), LLM timeouts increased to realistic values (10s Junior, 12s Senior) for 4b-14b models, autoprovision tracks explicit status (completed/failed/not yet run), factory reset clears benchmarks and LLM state.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -145,16 +145,16 @@ CONFIG:       cat /etc/os-release, hostname, timedatectl, locale, env
 <  0.70: RED    (low confidence)
 ```
 
-### Performance Budgets (v3.4.0)
+### Performance Budgets (v3.13.0)
 
 | Budget | Time | Purpose |
 |--------|------|---------|
-| **Global** | 15s | Maximum time per question |
+| **Global** | 20s | Maximum time per question |
 | **Fast Path** | 500ms | Brain + Recipe answers |
-| **Junior Soft** | 4s | Trigger degradation warning |
-| **Junior Hard** | 6s | Cancel and fall back |
-| **Senior Soft** | 5s | Trigger degradation warning |
-| **Senior Hard** | 8s | Cancel and produce RED answer |
+| **Junior Soft** | 8s | Trigger degradation warning |
+| **Junior Hard** | 12s | Cancel and fall back |
+| **Senior Soft** | 10s | Trigger degradation warning |
+| **Senior Hard** | 15s | Cancel and produce RED answer |
 | **Degraded** | 2s | Emergency RED answer generation |
 
 If any timeout is hit, Anna produces an honest RED answer explaining what happened.
@@ -391,7 +391,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v3.12.0** | **Performance & Consistency** - GPU/Network Brain handlers, First Light uses Brain, per-call LLM timeouts, hardware tier in status |
+| **v3.13.0** | **Lifecycle Integrity** - Flexible hard reset confirmation, realistic LLM timeouts (8-15s), explicit autoprovision status, factory reset clears benchmarks/LLM state |
+| v3.12.0 | Performance & Consistency - GPU/Network Brain handlers, First Light uses Brain, per-call LLM timeouts, hardware tier in status |
 | v3.11.0 | Lifecycle Correctness - Benchmark triggers route to daemon, Brain telemetry recording, lifecycle tests |
 | v3.10.0 | Correctness Patch - OS/kernel Brain fast path, honest self-health, percentage display, permission fixes |
 | v3.9.0 | Consistency & Migration - Honest status output, reset history tracking, coherent messages |

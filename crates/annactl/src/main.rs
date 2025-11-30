@@ -1897,7 +1897,7 @@ fn display_auto_tuning_section() {
 // ============================================================================
 
 /// Display LLM autoprovision status (model selection, benchmarks, fallback policy)
-/// v2.1.0: Improved display for unprovisioned state
+/// v3.13.0: Now uses explicit autoprovision_status field
 fn display_autoprovision_section() {
     use anna_common::THIN_SEPARATOR;
 
@@ -1909,18 +1909,21 @@ fn display_autoprovision_section() {
     println!("{}", "LLM AUTOPROVISION".bright_white().bold());
     println!("{}", THIN_SEPARATOR);
 
-    // v2.1.0: Check if we've actually run autoprovision
-    let needs_provision = selection.last_benchmark.is_empty() && selection.junior_score == 0.0;
+    // v3.13.0: Use explicit autoprovision_status field for accurate state
+    let needs_provision = selection.autoprovision_status.is_empty();
+    let is_failed = selection.autoprovision_status.starts_with("failed");
 
-    // Status
+    // Status - v3.13.0: Show explicit status
     let status_str = if needs_provision {
         "not yet run".yellow().to_string()
-    } else if selection.autoprovision_enabled {
-        "enabled".bright_green().to_string()
+    } else if is_failed {
+        selection.autoprovision_status.bright_red().to_string()
+    } else if selection.autoprovision_status == "completed" {
+        "completed".bright_green().to_string()
     } else {
-        "disabled".dimmed().to_string()
+        selection.autoprovision_status.cyan().to_string()
     };
-    println!("  ⚙️   Autoprovision: {}", status_str);
+    println!("  ⚙️   Status: {}", status_str);
 
     // v3.12.0: Hardware tier
     if let Some(tier) = &selection.hardware_tier {
@@ -1934,10 +1937,16 @@ fn display_autoprovision_section() {
         println!("  🖥️   Hardware tier: {}", tier_colored);
     }
 
+    // v3.13.0: Handle not-yet-run and failed states
     if needs_provision {
-        // v2.1.0: Show helpful message when not provisioned
         println!("  📝  Models not yet benchmarked");
         println!("  💡  Run 'annactl' and ask a question to trigger autoprovision");
+        println!("{}", THIN_SEPARATOR);
+        return;
+    }
+    if is_failed {
+        println!("  ⚠️   Autoprovision encountered errors");
+        println!("  💡  Run 'annactl' and ask a question to retry");
         println!("{}", THIN_SEPARATOR);
         return;
     }

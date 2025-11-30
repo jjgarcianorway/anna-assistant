@@ -102,12 +102,12 @@ fn get_cached_ram_total() -> Option<u64> {
 /// Time budget for Brain fast path (150ms)
 pub const BRAIN_BUDGET_MS: u64 = 150;
 
-/// v2.3.0: Reduced time budgets for small autoprovision models
-/// These models (qwen2.5:1.5b-instruct) should respond in 2-3 seconds
-pub const LLM_A_BUDGET_MS: u64 = 4000;   // Junior: 4 seconds (was 15s)
-pub const LLM_B_BUDGET_MS: u64 = 5000;   // Senior: 5 seconds (was 15s)
-pub const GLOBAL_SOFT_LIMIT_MS: u64 = 8000;   // 8 second soft target (was 20s)
-pub const GLOBAL_HARD_LIMIT_MS: u64 = 10000;  // 10 second hard cutoff (was 30s)
+/// v3.13.0: Realistic time budgets for various LLM sizes
+/// Small models (1.5b-3b): 4-6s, Medium (4b-7b): 8-10s, Large (14b+): 10-15s
+pub const LLM_A_BUDGET_MS: u64 = 10000;   // Junior: 10 seconds (realistic for 4b+ models)
+pub const LLM_B_BUDGET_MS: u64 = 12000;   // Senior: 12 seconds (realistic for 14b models)
+pub const GLOBAL_SOFT_LIMIT_MS: u64 = 15000;   // 15 second soft target
+pub const GLOBAL_HARD_LIMIT_MS: u64 = 20000;   // 20 second hard cutoff
 
 // ============================================================================
 // Question Pattern Matching
@@ -610,6 +610,7 @@ impl PendingActionType {
     }
 
     /// Check if the given input confirms this action
+    /// v3.13.0: Factory reset now uses flexible confirmation matching
     pub fn is_confirmed(&self, input: &str) -> bool {
         let trimmed = input.trim();
         match self {
@@ -617,7 +618,8 @@ impl PendingActionType {
                 trimmed.eq_ignore_ascii_case("yes") || trimmed.eq_ignore_ascii_case("y")
             }
             PendingActionType::FactoryReset => {
-                trimmed == "I UNDERSTAND AND CONFIRM FACTORY RESET"
+                // v3.13.0: Use the flexible confirmation matcher
+                is_factory_reset_confirmation(input)
             }
         }
     }
@@ -1358,12 +1360,16 @@ pub fn is_confirmation(response: &str) -> bool {
     r == "yes, soft reset" || r == "yes soft reset"
 }
 
-/// Check if a response is a factory/hard reset confirmation (v2.2.0 - improved UX)
+/// Check if a response is a factory/hard reset confirmation (v3.13.0 - more flexible)
 pub fn is_factory_reset_confirmation(response: &str) -> bool {
     let r = response.trim().to_lowercase();
-    // Accept both old and new formats
+    // Accept various confirmation formats
     response.trim() == "I UNDERSTAND AND CONFIRM FACTORY RESET" ||
-    r == "yes, hard reset" || r == "yes hard reset"
+    r == "yes, hard reset" || r == "yes hard reset" ||
+    // v3.13.0: Accept more natural confirmations (user might add extra words)
+    (r.starts_with("yes") && r.contains("hard") && r.contains("reset")) ||
+    (r.starts_with("yes") && r.contains("factory")) ||
+    r == "yes, factory reset" || r == "yes factory reset"
 }
 
 // ============================================================================
@@ -1850,9 +1856,18 @@ mod tests {
     #[test]
     fn test_factory_reset_confirmation() {
         assert!(is_factory_reset_confirmation("I UNDERSTAND AND CONFIRM FACTORY RESET"));
-        assert!(!is_factory_reset_confirmation("yes"));
-        assert!(!is_factory_reset_confirmation("i understand and confirm factory reset")); // wrong case
+        assert!(!is_factory_reset_confirmation("yes")); // bare "yes" is not enough
+        assert!(!is_factory_reset_confirmation("i understand and confirm factory reset")); // wrong case for old format
         assert!(is_factory_reset_confirmation("  I UNDERSTAND AND CONFIRM FACTORY RESET  ")); // whitespace is trimmed
+
+        // v3.13.0: More flexible formats
+        assert!(is_factory_reset_confirmation("yes, hard reset"));
+        assert!(is_factory_reset_confirmation("yes hard reset"));
+        assert!(is_factory_reset_confirmation("yes, hard reset everything to factory state")); // user's actual input
+        assert!(is_factory_reset_confirmation("yes, factory reset"));
+        assert!(is_factory_reset_confirmation("yes factory reset"));
+        assert!(is_factory_reset_confirmation("yes, do the hard reset"));
+        assert!(is_factory_reset_confirmation("YES, HARD RESET")); // case insensitive
     }
 
     #[test]
@@ -1863,10 +1878,11 @@ mod tests {
         assert!(PendingActionType::ExperienceReset.is_confirmed("y"));
         assert!(!PendingActionType::ExperienceReset.is_confirmed("no"));
 
-        // Factory reset requires exact phrase
+        // Factory reset - v3.13.0: Now accepts flexible confirmations
         assert!(PendingActionType::FactoryReset.is_confirmed("I UNDERSTAND AND CONFIRM FACTORY RESET"));
-        assert!(!PendingActionType::FactoryReset.is_confirmed("yes"));
-        assert!(!PendingActionType::FactoryReset.is_confirmed("i understand and confirm factory reset"));
+        assert!(!PendingActionType::FactoryReset.is_confirmed("yes")); // bare "yes" still not enough
+        assert!(PendingActionType::FactoryReset.is_confirmed("yes, hard reset")); // v3.13.0 flexible
+        assert!(PendingActionType::FactoryReset.is_confirmed("yes, hard reset everything to factory state")); // user's input
     }
 
     #[test]
@@ -2037,18 +2053,18 @@ mod tests {
 
     // v2.3.0: Test reduced time budgets
     #[test]
-    fn test_v230_reduced_time_budgets() {
-        // Junior budget should be 4 seconds (was 15s)
-        assert_eq!(LLM_A_BUDGET_MS, 4000);
+    fn test_v313_realistic_time_budgets() {
+        // v3.13.0: Junior budget should be 10 seconds for 4b+ models
+        assert_eq!(LLM_A_BUDGET_MS, 10000);
 
-        // Senior budget should be 5 seconds (was 15s)
-        assert_eq!(LLM_B_BUDGET_MS, 5000);
+        // v3.13.0: Senior budget should be 12 seconds for 14b models
+        assert_eq!(LLM_B_BUDGET_MS, 12000);
 
-        // Global hard limit should be 10 seconds (was 30s)
-        assert_eq!(GLOBAL_HARD_LIMIT_MS, 10000);
+        // v3.13.0: Global hard limit should be 20 seconds
+        assert_eq!(GLOBAL_HARD_LIMIT_MS, 20000);
 
-        // Global soft limit should be 8 seconds (was 20s)
-        assert_eq!(GLOBAL_SOFT_LIMIT_MS, 8000);
+        // v3.13.0: Global soft limit should be 15 seconds
+        assert_eq!(GLOBAL_SOFT_LIMIT_MS, 15000);
 
         // Brain budget remains unchanged at 150ms
         assert_eq!(BRAIN_BUDGET_MS, 150);

@@ -920,3 +920,223 @@ fn test_brain_latency_budget() {
             q, elapsed, BRAIN_MAX_LATENCY_MS);
     }
 }
+
+// ============================================================================
+// v3.13.0: LIFECYCLE INTEGRITY TESTS
+// ============================================================================
+
+/// v3.13.0: Verifies hard reset clears benchmark history
+#[test]
+fn test_v313_hard_reset_clears_benchmarks() {
+    let temp = TempDir::new().unwrap();
+    let paths = ExperiencePaths::with_root(temp.path());
+
+    // Setup benchmark directory
+    fs::create_dir_all(&paths.benchmark_dir).unwrap();
+    let benchmark_file = paths.benchmark_dir.join("test_benchmark.json");
+    fs::write(&benchmark_file, r#"{"timestamp":"2025-01-01","success_rate":85.0}"#).unwrap();
+    let last_benchmark = paths.last_benchmark_file();
+    fs::write(&last_benchmark, r#"{"timestamp":"2025-01-01"}"#).unwrap();
+
+    assert!(benchmark_file.exists(), "Benchmark file should exist before reset");
+    assert!(last_benchmark.exists(), "Last benchmark should exist before reset");
+
+    // Perform hard reset
+    let result = reset_factory(&paths);
+    assert!(result.success, "Hard reset should succeed");
+
+    // Verify benchmarks are cleared
+    assert!(!benchmark_file.exists(), "Benchmark file should be deleted");
+    assert!(!last_benchmark.exists(), "Last benchmark should be deleted");
+}
+
+/// v3.13.0: Verifies hard reset clears autoprovision state
+#[test]
+fn test_v313_hard_reset_clears_autoprovision() {
+    let temp = TempDir::new().unwrap();
+    let paths = ExperiencePaths::with_root(temp.path());
+
+    // Setup LLM state directory
+    fs::create_dir_all(&paths.llm_state_dir).unwrap();
+    let selection_file = paths.llm_selection_file();
+    fs::write(&selection_file, r#"{"junior_model":"test","autoprovision_status":"completed"}"#).unwrap();
+
+    assert!(selection_file.exists(), "Selection file should exist before reset");
+
+    // Perform hard reset
+    let result = reset_factory(&paths);
+    assert!(result.success, "Hard reset should succeed");
+
+    // Verify autoprovision state is cleared
+    assert!(!selection_file.exists(), "Selection file should be deleted");
+}
+
+/// v3.13.0: Verifies soft reset preserves benchmarks and autoprovision
+#[test]
+fn test_v313_soft_reset_preserves_lifecycle_state() {
+    let temp = TempDir::new().unwrap();
+    let paths = ExperiencePaths::with_root(temp.path());
+
+    // Setup all directories
+    fs::create_dir_all(&paths.xp_dir).unwrap();
+    fs::create_dir_all(paths.telemetry_file.parent().unwrap()).unwrap();
+    fs::create_dir_all(&paths.stats_dir).unwrap();
+    fs::create_dir_all(&paths.benchmark_dir).unwrap();
+    fs::create_dir_all(&paths.llm_state_dir).unwrap();
+    fs::create_dir_all(&paths.knowledge_dir).unwrap();
+
+    // Create XP data (should be reset)
+    fs::write(paths.xp_store_file(),
+        r#"{"anna":{"level":5,"xp":500},"anna_stats":{"total_questions":50}}"#
+    ).unwrap();
+
+    // Create telemetry (should be reset)
+    fs::write(&paths.telemetry_file, "event1\nevent2").unwrap();
+
+    // Create benchmark data (should be preserved)
+    let benchmark_file = paths.benchmark_dir.join("test_benchmark.json");
+    fs::write(&benchmark_file, r#"{"timestamp":"2025-01-01"}"#).unwrap();
+
+    // Create autoprovision data (should be preserved)
+    let selection_file = paths.llm_selection_file();
+    fs::write(&selection_file, r#"{"autoprovision_status":"completed"}"#).unwrap();
+
+    // Create knowledge (should be preserved)
+    let knowledge_file = paths.knowledge_dir.join("learned.db");
+    fs::write(&knowledge_file, "knowledge").unwrap();
+
+    // Perform soft reset
+    let result = reset_experience(&paths);
+    assert!(result.success, "Soft reset should succeed");
+
+    // Verify XP is reset
+    let snapshot = ExperienceSnapshot::capture(&paths);
+    assert_eq!(snapshot.anna_level, 1, "Level should be reset");
+    assert_eq!(snapshot.anna_xp, 0, "XP should be reset");
+    assert_eq!(snapshot.telemetry_line_count, 0, "Telemetry should be cleared");
+
+    // Verify lifecycle state is preserved
+    assert!(benchmark_file.exists(), "Benchmark should be preserved after soft reset");
+    assert!(selection_file.exists(), "Autoprovision selection should be preserved after soft reset");
+    assert!(knowledge_file.exists(), "Knowledge should be preserved after soft reset");
+}
+
+/// v3.13.0: Verifies autoprovision status field exists and works
+#[test]
+fn test_v313_autoprovision_status_field() {
+    use anna_common::llm_provision::LlmSelection;
+
+    // Default selection should have empty status (not yet run)
+    let default = LlmSelection::default();
+    assert!(default.autoprovision_status.is_empty(),
+        "Default selection should have empty autoprovision_status");
+
+    // Check that status field is serialized
+    let json = serde_json::to_string(&default).unwrap();
+    assert!(json.contains("autoprovision_status"),
+        "autoprovision_status should be serialized");
+
+    // Check that we can deserialize old format (without autoprovision_status field)
+    // Note: All required fields must be present, but autoprovision_status has #[serde(default)]
+    let old_json = r#"{"junior_model":"test","junior_score":0.8,"senior_model":"test2","senior_score":0.7,"last_benchmark":"","autoprovision_enabled":false,"suggestions":[]}"#;
+    let loaded: LlmSelection = serde_json::from_str(old_json).unwrap();
+    assert!(loaded.autoprovision_status.is_empty(),
+        "Old format should deserialize with empty status (backward compatible)");
+}
+
+/// v3.13.0: Complete lifecycle flow test
+#[test]
+fn test_v313_complete_lifecycle_flow() {
+    use anna_common::llm_provision::LlmSelection;
+
+    println!("\n=== v3.13.0 LIFECYCLE INTEGRITY TEST ===\n");
+
+    let temp = TempDir::new().unwrap();
+    let paths = ExperiencePaths::with_root(temp.path());
+
+    // Phase 1: Fresh install
+    println!("Phase 1: Fresh Install");
+    fs::create_dir_all(&paths.xp_dir).unwrap();
+    fs::create_dir_all(paths.telemetry_file.parent().unwrap()).unwrap();
+    fs::create_dir_all(&paths.stats_dir).unwrap();
+    fs::create_dir_all(&paths.benchmark_dir).unwrap();
+    fs::create_dir_all(&paths.llm_state_dir).unwrap();
+    fs::create_dir_all(&paths.knowledge_dir).unwrap();
+
+    assert!(!has_experience_data(&paths), "Fresh install should have no data");
+    println!("  [OK] Fresh install verified\n");
+
+    // Phase 2: Simulate autoprovision run
+    println!("Phase 2: Autoprovision Run");
+    let selection = LlmSelection {
+        junior_model: "llama3.2:3b".to_string(),
+        junior_score: 0.85,
+        senior_model: "qwen2.5:7b".to_string(),
+        senior_score: 0.82,
+        autoprovision_status: "completed".to_string(),
+        ..Default::default()
+    };
+    let selection_file = paths.llm_selection_file();
+    fs::write(&selection_file, serde_json::to_string(&selection).unwrap()).unwrap();
+    assert!(selection_file.exists(), "Selection should be saved");
+    println!("  [OK] Autoprovision completed\n");
+
+    // Phase 3: Simulate benchmark run
+    println!("Phase 3: Benchmark Run");
+    let benchmark_file = paths.benchmark_dir.join("benchmark_20250101.json");
+    fs::write(&benchmark_file, r#"{"success_rate":90.0}"#).unwrap();
+    let last_benchmark = paths.last_benchmark_file();
+    fs::write(&last_benchmark, r#"{"success_rate":90.0}"#).unwrap();
+    assert!(benchmark_file.exists(), "Benchmark should be saved");
+    println!("  [OK] Benchmark completed\n");
+
+    // Phase 4: Accumulate XP and telemetry
+    println!("Phase 4: Accumulate Experience");
+    fs::write(paths.xp_store_file(),
+        r#"{"anna":{"level":3,"xp":250},"anna_stats":{"total_questions":25}}"#
+    ).unwrap();
+    fs::write(&paths.telemetry_file, "event1\nevent2\nevent3").unwrap();
+    let knowledge_file = paths.knowledge_dir.join("facts.db");
+    fs::write(&knowledge_file, "learned facts").unwrap();
+    assert!(has_experience_data(&paths), "Should have experience data");
+    println!("  [OK] Experience accumulated\n");
+
+    // Phase 5: Soft reset
+    println!("Phase 5: Soft Reset");
+    let result = reset_experience(&paths);
+    assert!(result.success, "Soft reset should succeed");
+
+    // Verify soft reset behavior
+    let snapshot = ExperienceSnapshot::capture(&paths);
+    assert_eq!(snapshot.anna_level, 1, "XP should be reset");
+    assert_eq!(snapshot.telemetry_line_count, 0, "Telemetry should be cleared");
+    assert!(selection_file.exists(), "Autoprovision should be preserved");
+    assert!(benchmark_file.exists(), "Benchmarks should be preserved");
+    assert!(knowledge_file.exists(), "Knowledge should be preserved");
+    println!("  [OK] Soft reset verified (XP reset, lifecycle preserved)\n");
+
+    // Phase 6: Re-accumulate
+    println!("Phase 6: Re-accumulate Experience");
+    fs::write(paths.xp_store_file(),
+        r#"{"anna":{"level":2,"xp":150},"anna_stats":{"total_questions":15}}"#
+    ).unwrap();
+    fs::write(&paths.telemetry_file, "new_event1\nnew_event2").unwrap();
+    println!("  [OK] New experience accumulated\n");
+
+    // Phase 7: Hard reset
+    println!("Phase 7: Hard Reset (Factory Reset)");
+    let result = reset_factory(&paths);
+    assert!(result.success, "Hard reset should succeed");
+
+    // Verify hard reset behavior
+    let snapshot = ExperienceSnapshot::capture(&paths);
+    assert_eq!(snapshot.anna_level, 1, "XP should be reset");
+    assert_eq!(snapshot.telemetry_line_count, 0, "Telemetry should be cleared");
+    assert!(!selection_file.exists(), "Autoprovision should be cleared");
+    assert!(!benchmark_file.exists(), "Benchmarks should be cleared");
+    assert!(!last_benchmark.exists(), "Last benchmark should be cleared");
+    assert!(!knowledge_file.exists(), "Knowledge should be cleared");
+    println!("  [OK] Hard reset verified (everything cleared)\n");
+
+    println!("=== v3.13.0 LIFECYCLE INTEGRITY TEST PASSED ===\n");
+}
