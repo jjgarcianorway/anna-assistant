@@ -91,7 +91,10 @@ async fn main() -> Result<()> {
     }
 
     // Create app state for health endpoint
-    let app_state = server::AppState::new(Arc::clone(&builder));
+    let app_state = Arc::new(server::AppState::new(Arc::clone(&builder)));
+
+    // Record initial scan completion
+    app_state.record_scan(0).await;
 
     // Spawn process monitoring task (every 15 seconds)
     let builder_process = Arc::clone(&builder);
@@ -146,10 +149,12 @@ async fn main() -> Result<()> {
 
     // Spawn full inventory scan task (every 5 minutes)
     let builder_discovery = Arc::clone(&builder);
+    let app_state_discovery = Arc::clone(&app_state);
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(DISCOVERY_INTERVAL_SECS));
         loop {
             interval.tick().await;
+            let start = std::time::Instant::now();
             let mut b = builder_discovery.write().await;
             let before = b.store().total_objects();
             b.collect_full_inventory();
@@ -157,6 +162,11 @@ async fn main() -> Result<()> {
                 warn!("[!]  Failed to save inventory data: {}", e);
             }
             let after = b.store().total_objects();
+            let duration_ms = start.elapsed().as_millis() as u64;
+
+            // Record scan completion
+            app_state_discovery.record_scan(duration_ms).await;
+
             if after != before {
                 let delta = (after as i64) - (before as i64);
                 info!("[+]  Inventory: {} objects (delta: {:+})", after, delta);

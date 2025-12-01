@@ -314,9 +314,7 @@ async fn reset_handler(
 }
 
 /// Run the HTTP server
-pub async fn run(state: AppState) -> Result<()> {
-    let state = Arc::new(state);
-
+pub async fn run(state: Arc<AppState>) -> Result<()> {
     let app = Router::new()
         .route("/v1/health", get(health_check))
         .route("/v1/stats", get(stats_handler))
