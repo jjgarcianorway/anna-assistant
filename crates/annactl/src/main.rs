@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v5.5.0 - Telemetry Reset
+//! Anna CLI (annactl) v5.5.2 - Ownership Fix
 //!
 //! Pure system intelligence - no LLM, no Q&A.
 //!
@@ -131,18 +131,40 @@ fn run_help() -> Result<()> {
 }
 
 // ============================================================================
-// Reset Command v5.5.0 - Proper Error Handling
+// Reset Command v5.5.2 - Sudo Required
 // ============================================================================
 
 async fn run_reset() -> Result<()> {
+    use std::process::Command;
+
     println!();
     println!("{}", "[RESET]".yellow());
     println!();
 
+    // v5.5.2: Check if running as root/sudo
+    let euid = unsafe { libc::geteuid() };
+    if euid != 0 {
+        println!("  {}  Reset requires sudo privileges.", "ERROR".red());
+        println!();
+        println!("  Anna data is owned by the 'anna' system user.");
+        println!("  To reset, run:");
+        println!();
+        println!("    {}", "sudo annactl reset".cyan());
+        println!();
+        std::process::exit(1);
+    }
+
+    // v5.5.2: Stop the daemon first to prevent race conditions
+    println!("  {} Stopping daemon...", "*".blue());
+    let _ = Command::new("systemctl")
+        .args(["stop", "annad"])
+        .output();
+
     let mut errors_occurred = false;
     let mut failed_paths: Vec<String> = Vec::new();
+    let mut cleared_count = 0;
 
-    // v5.5.0: Complete wipe of ALL anna data
+    // v5.5.2: Complete wipe of ALL anna data directories
     let dirs_to_clear = [
         "/var/lib/anna/knowledge",
         "/var/lib/anna/telemetry",
@@ -152,9 +174,17 @@ async fn run_reset() -> Result<()> {
         if std::path::Path::new(dir).exists() {
             match std::fs::remove_dir_all(dir) {
                 Ok(_) => {
-                    // Recreate the empty directory
+                    // Recreate the empty directory with correct ownership
                     let _ = std::fs::create_dir_all(dir);
+                    // Set ownership to anna:anna
+                    let _ = Command::new("chown")
+                        .args(["anna:anna", dir])
+                        .output();
+                    let _ = Command::new("chmod")
+                        .args(["0750", dir])
+                        .output();
                     println!("  {} Cleared: {}", "+".green(), dir);
+                    cleared_count += 1;
                 }
                 Err(e) => {
                     println!("  {} Failed to clear {}: {}", "!".red(), dir, e);
@@ -165,15 +195,14 @@ async fn run_reset() -> Result<()> {
         }
     }
 
-    // Clear ALL state files
+    // v5.5.2: Clear ALL state files
     let files_to_clear = [
         "/var/lib/anna/telemetry_state.json",
-        "/var/lib/anna/log_scan_state.json",
-        "/var/lib/anna/error_index.json",
-        "/var/lib/anna/intrusion_index.json",
-        "/var/lib/anna/service_index.json",
         "/var/lib/anna/knowledge/knowledge_v5.json",
         "/var/lib/anna/knowledge/telemetry_v5.json",
+        "/var/lib/anna/knowledge/errors_v5.json",
+        "/var/lib/anna/knowledge/intrusion_v5.json",
+        "/var/lib/anna/knowledge/services_v5.json",
         "/var/lib/anna/knowledge/inventory_progress.json",
         "/var/lib/anna/knowledge/log_scan_state.json",
     ];
@@ -181,7 +210,10 @@ async fn run_reset() -> Result<()> {
     for file in &files_to_clear {
         if std::path::Path::new(file).exists() {
             match std::fs::remove_file(file) {
-                Ok(_) => println!("  {} Removed: {}", "+".green(), file),
+                Ok(_) => {
+                    println!("  {} Removed: {}", "+".green(), file);
+                    cleared_count += 1;
+                }
                 Err(e) => {
                     println!("  {} Failed to remove {}: {}", "!".red(), file, e);
                     failed_paths.push(format!("{}: {}", file, e));
@@ -193,24 +225,41 @@ async fn run_reset() -> Result<()> {
 
     println!();
 
-    // v5.5.0: Report status clearly
+    // v5.5.2: Report status clearly
     if errors_occurred {
         println!("  {}  Reset partially failed.", "WARN".yellow());
         println!();
-        println!("  The following paths could not be cleared:");
+        println!("  Cleared {} items, but some paths failed:", cleared_count);
         for path in &failed_paths {
             println!("    - {}", path.red());
         }
         println!();
-        println!("  This usually means permission issues.");
-        println!("  Try running: sudo annactl reset");
-        println!();
-        // Return non-zero exit code for scripts
         std::process::exit(1);
     } else {
-        println!("  {}  Reset complete.", "OK".green());
+        println!("  {}  Reset complete ({} items cleared).", "OK".green(), cleared_count);
         println!();
-        println!("  Daemon will rebuild inventory on restart.");
+
+        // v5.5.2: Restart daemon to rebuild inventory
+        println!("  {} Starting daemon...", "*".blue());
+        match Command::new("systemctl")
+            .args(["start", "annad"])
+            .output()
+        {
+            Ok(output) if output.status.success() => {
+                println!("  {} Daemon started, rebuilding inventory.", "+".green());
+            }
+            _ => {
+                println!("  {} Could not start daemon.", "!".yellow());
+                println!("    Run: sudo systemctl start annad");
+            }
+        }
+
+        println!();
+        println!("  Inventory will show:");
+        println!("    Commands: 0 -> repopulating");
+        println!("    Packages: 0 -> repopulating");
+        println!("    Services: 0 -> repopulating");
+        println!();
         println!("  Use 'annactl status' to monitor progress.");
         println!();
     }

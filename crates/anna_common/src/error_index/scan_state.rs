@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Log scan state path
@@ -67,13 +66,11 @@ impl LogScanState {
         }
     }
 
-    /// Save to disk
+    /// Save to disk using atomic write
+    /// v5.5.2: Uses atomic write (temp file + rename) to prevent corruption
     pub fn save(&self) -> std::io::Result<()> {
-        if let Some(parent) = Path::new(LOG_SCAN_STATE_PATH).parent() {
-            fs::create_dir_all(parent)?;
-        }
         let json = serde_json::to_string_pretty(self)?;
-        fs::write(LOG_SCAN_STATE_PATH, json)
+        crate::atomic_write::atomic_write(LOG_SCAN_STATE_PATH, &json)
     }
 
     /// Record a scan

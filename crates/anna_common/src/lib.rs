@@ -1,9 +1,12 @@
-//! Anna Common v5.3.0 - Telemetry Core
+//! Anna Common v5.5.2 - Telemetry Core
 //!
 //! Pure system intelligence: inventory, telemetry, correlation.
 //! No LLM, no Q&A, no conversational features.
 //!
-//! This is a complete reset - only essential modules remain:
+//! v5.5.2: Added atomic file writes for data integrity
+//!
+//! Modules:
+//! - atomic_write: Atomic file write operations (v5.5.2)
 //! - config: System configuration
 //! - display_format: Output formatting utilities
 //! - error_index: Log scanning and error aggregation
@@ -12,9 +15,10 @@
 //! - knowledge_collector: System discovery (packages, binaries, services)
 //! - object_metadata: Static descriptions and relationships
 //! - service_state: Systemd service tracking
-//! - telemetry: Process monitoring and usage tracking (rebuild pending)
+//! - telemetry: Process monitoring and usage tracking
 
 // Core modules
+pub mod atomic_write;
 pub mod config;
 pub mod display_format;
 pub mod error_index;
@@ -26,6 +30,7 @@ pub mod service_state;
 pub mod telemetry;
 
 // Re-exports for convenience
+pub use atomic_write::{atomic_write, atomic_write_bytes};
 pub use config::*;
 pub use display_format::*;
 pub use error_index::*;

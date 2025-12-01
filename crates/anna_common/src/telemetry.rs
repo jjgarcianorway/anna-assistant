@@ -285,14 +285,11 @@ impl TelemetryState {
         Self::default()
     }
 
-    /// Save to file
+    /// Save to file using atomic write
+    /// v5.5.2: Uses atomic write (temp file + rename) to prevent corruption
     pub fn save(&self) -> std::io::Result<()> {
-        let path = PathBuf::from(TELEMETRY_STATE_FILE);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
         let content = serde_json::to_string_pretty(self)?;
-        fs::write(path, content)
+        crate::atomic_write::atomic_write(TELEMETRY_STATE_FILE, &content)
     }
 
     /// Update daemon start time

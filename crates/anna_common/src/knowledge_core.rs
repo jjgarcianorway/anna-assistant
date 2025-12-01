@@ -15,7 +15,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // ============================================================================
@@ -291,13 +290,11 @@ impl KnowledgeStore {
         }
     }
 
-    /// Save to disk
+    /// Save to disk using atomic write
+    /// v5.5.2: Uses atomic write (temp file + rename) to prevent corruption
     pub fn save(&self) -> std::io::Result<()> {
-        if let Some(parent) = Path::new(KNOWLEDGE_STORE_PATH).parent() {
-            fs::create_dir_all(parent)?;
-        }
         let json = serde_json::to_string_pretty(self)?;
-        fs::write(KNOWLEDGE_STORE_PATH, json)
+        crate::atomic_write::atomic_write(KNOWLEDGE_STORE_PATH, &json)
     }
 
     /// Add or update an object
@@ -673,12 +670,10 @@ impl InventoryProgress {
     }
 
     /// v5.4.0: Save progress to disk
+    /// v5.5.2: Uses atomic write (temp file + rename) to prevent corruption
     pub fn save(&self) -> std::io::Result<()> {
-        if let Some(parent) = Path::new(INVENTORY_PROGRESS_PATH).parent() {
-            fs::create_dir_all(parent)?;
-        }
         let json = serde_json::to_string_pretty(self)?;
-        fs::write(INVENTORY_PROGRESS_PATH, json)
+        crate::atomic_write::atomic_write(INVENTORY_PROGRESS_PATH, &json)
     }
 
     /// v5.4.0: Format ETA for human display
@@ -745,13 +740,11 @@ impl TelemetryAggregates {
         }
     }
 
-    /// Save to disk
+    /// Save to disk using atomic write
+    /// v5.5.2: Uses atomic write (temp file + rename) to prevent corruption
     pub fn save(&self) -> std::io::Result<()> {
-        if let Some(parent) = Path::new(TELEMETRY_STORE_PATH).parent() {
-            fs::create_dir_all(parent)?;
-        }
         let json = serde_json::to_string_pretty(self)?;
-        fs::write(TELEMETRY_STORE_PATH, json)
+        crate::atomic_write::atomic_write(TELEMETRY_STORE_PATH, &json)
     }
 
     /// Record a process observation

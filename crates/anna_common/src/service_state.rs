@@ -11,7 +11,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -469,13 +468,11 @@ impl ServiceIndex {
         }
     }
 
-    /// Save to disk
+    /// Save to disk using atomic write
+    /// v5.5.2: Uses atomic write (temp file + rename) to prevent corruption
     pub fn save(&self) -> std::io::Result<()> {
-        if let Some(parent) = Path::new(SERVICE_STATE_PATH).parent() {
-            fs::create_dir_all(parent)?;
-        }
         let json = serde_json::to_string_pretty(self)?;
-        fs::write(SERVICE_STATE_PATH, json)
+        crate::atomic_write::atomic_write(SERVICE_STATE_PATH, &json)
     }
 
     /// Update a service state

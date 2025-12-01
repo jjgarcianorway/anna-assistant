@@ -1,14 +1,16 @@
 #!/bin/bash
-# Anna Installer v4.0.0 - Telemetry Only
+# Anna Installer v5.0.0 - Ownership Fix
 #
 # This installer is versioned INDEPENDENTLY from Anna itself.
-# Installer version: 4.x.x
+# Installer version: 5.x.x
 # Anna version: fetched from GitHub releases
 #
-# v4.0.0 (Telemetry Reset):
-#   - NO Ollama, NO LLM, NO models
-#   - Anna is a pure telemetry daemon
-#   - Just installs binaries, config, and systemd service
+# v5.0.0 (Ownership Fix):
+#   - Proper anna user/group ownership model
+#   - Directories: 0750 for anna:anna group access
+#   - Files: 0640 for group-readable
+#   - annad runs as anna user with proper privileges
+#   - Reset requires sudo for privileged operations
 #
 # Behavior:
 #   - Detects installed version (if any) via annactl version
@@ -34,7 +36,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="4.0.0"
+INSTALLER_VERSION="5.0.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -457,46 +459,60 @@ install_binaries() {
 create_user_and_dirs() {
     log_info "Creating user and directories..."
 
-    local runtime_user="${SUDO_USER:-root}"
-    local runtime_group
-    if [[ -n "${SUDO_USER:-}" ]]; then
-        runtime_group=$(id -gn "$SUDO_USER" 2>/dev/null || echo "$SUDO_USER")
+    # v5.0.0: Create anna system user and group if not exists
+    if ! getent group anna &>/dev/null; then
+        $SUDO groupadd -r anna 2>/dev/null || true
+        log_ok "Created system group 'anna'"
     else
-        runtime_group="root"
+        log_ok "System group 'anna' exists"
     fi
 
-    # Create anna system user if not exists
     if ! id "anna" &>/dev/null; then
-        $SUDO useradd -r -s /bin/false -d "$DATA_DIR" anna 2>/dev/null || true
+        $SUDO useradd -r -g anna -s /usr/bin/nologin -d "$DATA_DIR" -c "Anna Telemetry Daemon" anna 2>/dev/null || true
         log_ok "Created system user 'anna'"
     else
         log_ok "System user 'anna' exists"
     fi
 
-    # Create directories
+    # v5.0.0: Add current user to anna group for annactl access
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        if ! groups "$SUDO_USER" 2>/dev/null | grep -qw anna; then
+            $SUDO usermod -aG anna "$SUDO_USER" 2>/dev/null || true
+            log_ok "Added $SUDO_USER to anna group"
+        fi
+    fi
+
+    # Create directories with proper permissions
+    # v5.0.0: Mode 0750 = owner rwx, group rx, other none
     $SUDO mkdir -p "$DATA_DIR" "$LOG_DIR" "$RUN_DIR" "$CONFIG_DIR"
     $SUDO mkdir -p "${DATA_DIR}/knowledge"
     $SUDO mkdir -p "${DATA_DIR}/telemetry"
 
-    # Set permissions - anna user owns data, root owns binaries
-    # v5.5.0: Consistent ownership model for reset to work
+    # Data directory: anna:anna with 0750 (daemon writes, group reads)
     $SUDO chown -R anna:anna "$DATA_DIR"
-    $SUDO chmod 755 "$DATA_DIR"
-    $SUDO chmod 755 "${DATA_DIR}/knowledge"
-    $SUDO chmod 755 "${DATA_DIR}/telemetry"
+    $SUDO chmod 0750 "$DATA_DIR"
+    $SUDO chmod 0750 "${DATA_DIR}/knowledge"
+    $SUDO chmod 0750 "${DATA_DIR}/telemetry"
 
-    $SUDO chown root:root "$CONFIG_DIR"
-    $SUDO chmod 755 "$CONFIG_DIR"
+    # Config directory: root:anna with 0750 (root writes, anna/group reads)
+    $SUDO chown root:anna "$CONFIG_DIR"
+    $SUDO chmod 0750 "$CONFIG_DIR"
 
+    # Log directory: anna:anna with 0750
     $SUDO chown -R anna:anna "$LOG_DIR"
-    $SUDO chmod 755 "$LOG_DIR"
+    $SUDO chmod 0750 "$LOG_DIR"
 
-    $SUDO chown root:root "$RUN_DIR"
-    $SUDO chmod 755 "$RUN_DIR"
+    # Run directory: anna:anna with 0750
+    $SUDO chown anna:anna "$RUN_DIR"
+    $SUDO chmod 0750 "$RUN_DIR"
+
+    # Fix existing file permissions in data directory
+    $SUDO find "$DATA_DIR" -type f -exec chmod 0640 {} \; 2>/dev/null || true
 
     log_ok "Created directories with correct permissions"
-    log_ok "  Data: ${DATA_DIR} (owner: anna)"
-    log_ok "  Logs: ${LOG_DIR} (owner: anna)"
+    log_ok "  Data: ${DATA_DIR} (anna:anna 0750)"
+    log_ok "  Logs: ${LOG_DIR} (anna:anna 0750)"
+    log_ok "  Config: ${CONFIG_DIR} (root:anna 0750)"
 }
 
 install_systemd_service() {
@@ -519,11 +535,18 @@ WorkingDirectory=/var/lib/anna
 Restart=always
 RestartSec=5
 
-# Security hardening
+# v5.5.2: Security hardening with required access
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/var/lib/anna /var/log/anna
+ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
+
+# Allow reading system logs and package logs
+ReadOnlyPaths=/var/log/pacman.log /var/log/journal
+
+# Capabilities for log access
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH
 
 [Install]
 WantedBy=multi-user.target

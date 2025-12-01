@@ -26,3 +26,4 @@ sysinfo.workspace = true
 toml.workspace = true
 dirs = "5.0"
 futures-util = "0.3"
+libc = "0.2"
