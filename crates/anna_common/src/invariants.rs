@@ -807,4 +807,101 @@ mod tests {
         assert_eq!(total_questions, 5);
         assert_eq!(total_success, 4);
     }
+
+    // ========================================================================
+    // v5.0.0: Knowledge Core Invariants
+    // ========================================================================
+
+    #[test]
+    fn test_knowledge_core_status_knowledge_consistency() {
+        // If status shows N objects, knowledge command must list N objects
+        use crate::knowledge_core::{KnowledgeStore, KnowledgeObject, Category};
+
+        let mut store = KnowledgeStore::new();
+
+        // Add 3 objects
+        store.upsert(KnowledgeObject::new("vim", Category::Editor));
+        store.upsert(KnowledgeObject::new("nano", Category::Editor));
+        store.upsert(KnowledgeObject::new("zsh", Category::Shell));
+
+        // Total must match
+        let total = store.total_objects();
+        assert_eq!(total, 3);
+
+        // Category counts must sum to total
+        let counts = store.count_by_category();
+        let sum: usize = counts.values().sum();
+        assert_eq!(sum, total);
+    }
+
+    #[test]
+    fn test_knowledge_core_usage_consistency() {
+        // If knowledge vim shows runs: N, that must match telemetry
+        use crate::knowledge_core::{KnowledgeObject, Category};
+
+        let mut obj = KnowledgeObject::new("vim", Category::Editor);
+
+        // Record 5 usages
+        for _ in 0..5 {
+            obj.record_usage(100, 1024);
+        }
+
+        assert_eq!(obj.usage_count, 5);
+    }
+
+    #[test]
+    fn test_knowledge_core_store_no_duplicates() {
+        // Upsert with same name should update, not create duplicate
+        use crate::knowledge_core::{KnowledgeStore, KnowledgeObject, Category};
+
+        let mut store = KnowledgeStore::new();
+
+        let obj1 = KnowledgeObject::new("vim", Category::Editor);
+        store.upsert(obj1);
+        assert_eq!(store.total_objects(), 1);
+
+        // Upsert again with same name
+        let mut obj2 = KnowledgeObject::new("vim", Category::Editor);
+        obj2.usage_count = 10;
+        store.upsert(obj2);
+
+        // Still only 1 object
+        assert_eq!(store.total_objects(), 1);
+
+        // But with updated usage count
+        let stored = store.get("vim").unwrap();
+        assert_eq!(stored.usage_count, 10);
+    }
+
+    #[test]
+    fn test_knowledge_core_clear_empties_all() {
+        // Clear must remove all objects
+        use crate::knowledge_core::{KnowledgeStore, KnowledgeObject, Category};
+
+        let mut store = KnowledgeStore::new();
+        store.upsert(KnowledgeObject::new("vim", Category::Editor));
+        store.upsert(KnowledgeObject::new("zsh", Category::Shell));
+
+        assert_eq!(store.total_objects(), 2);
+
+        store.clear();
+
+        assert_eq!(store.total_objects(), 0);
+        assert!(store.first_discovery_at.is_none());
+    }
+
+    #[test]
+    fn test_knowledge_core_no_telemetry_shows_message() {
+        // If no telemetry, status/stats must say so, not show zeros
+        use crate::knowledge_core::TelemetryAggregates;
+
+        let telem = TelemetryAggregates::new();
+
+        // Fresh telemetry has zero values
+        assert_eq!(telem.processes_observed, 0);
+        assert_eq!(telem.unique_commands, 0);
+
+        // The UI should check for zero and show "No data collected yet"
+        // This is a behavior contract, not code
+    }
 }

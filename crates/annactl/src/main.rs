@@ -1,71 +1,38 @@
-//! Anna CLI (annactl) - User interface wrapper
+//! Anna CLI (annactl) v5.0.0 - Knowledge Core Phase 1
 //!
-//! v4.2.0: Real Debug Mode - Actual request/response tracing
-//!   - Debug shows: USER-->ANNA-->BRAIN/JUNIOR/SENIOR with timing
-//!   - Each LLM call shows prompt and response
-//!   - Folders show Unix permissions (rwx)
+//! Anna is now a pure observer:
+//! - Watches the machine
+//! - Builds structured knowledge base
+//! - No Q&A, no router, no XP, no levels
 //!
-//! v4.1.0: Simplified Health - Detailed Dependencies, No Trust, Simple RPG
-//!   - status shows: version, services, models per role, folders, success rate, level
-//!   - Removed Trust metric - replaced with Success Rate
-//!   - Shows background LLM activity (model downloads)
+//! ## Allowed CLI Commands
 //!
-//! v4.0.0: Debug Tracing, Reset Command, Learning Analytics
-//!   - Enhanced debug mode with detailed message tracing and timing
-//!   - `annactl reset` - factory reset command (for testing)
-//!   - Learning analytics in stats (similar questions, delta improvements)
+//! - annactl status     Quick system and knowledge status
+//! - annactl stats      Detailed knowledge statistics
+//! - annactl knowledge  List all known objects
+//! - annactl knowledge <topic>  Details on one object
+//! - annactl version    Show version info
+//! - annactl help       Show help info
 //!
-//! v3.14.2: Split status/stats - status is quick health, stats is detailed
-//! v3.14.0: Clean Status - single source of truth, no contradictions
-//!
-//! Architecture:
-//!   - annactl is a THIN CLIENT - no LLM calls happen here
-//!   - All questions route through the daemon API
-//!   - Brain fast path handles simple questions locally (no LLM)
-//!   - Help/version are static (no LLM needed)
-//!
-//! Allowed CLI surface (case-insensitive):
-//!   - annactl                           Start interactive REPL
-//!   - annactl <request>                 One-shot natural language request
-//!   - annactl status                    Quick health check
-//!   - annactl stats                     Detailed statistics + learning
-//!   - annactl reset                     Factory reset (testing only)
-//!   - annactl version                   Show version info
-//!   - annactl -h | --help | help        Show help info
+//! Everything else returns a clear message that Q&A is disabled.
 
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod ask_user;
 mod client;
-mod output;
-mod progress_display;
-mod spinner;
-mod streaming_debug;
 
 use anna_common::{
-    clear_current_request, generate_request_id, init_logger, is_version_newer, log_request,
-    logging, self_health, set_current_request, AnnaConfigV5, LogComponent,
-    LogEntry, LogLevel, OverallHealth, RepairSafety, RequestContext, RequestStatus,
-    StatsEngine, XpStore,
-    try_fast_answer, telemetry_record_brain,
-    XpEvent, XpEventType, FinalAnswer,
-    debug_is_enabled, DebugIntent, DebugState, debug_set_enabled, debug_get_state,
-    get_title_color, get_mood_text, get_streak_text, TrustLevel,
-    record_brain_self_solve, UnifiedXpRecorder,
-    brain_fast::{PendingActionType, execute_experience_reset, execute_factory_reset},
-    is_benchmark_trigger,
-    llm_provision::LlmSelection,
-    format_percentage,
-    THIN_SEPARATOR,
-    xp_log::XpLog,
-    telemetry::{TelemetryReader, Outcome},
+    init_logger, AnnaConfigV5, logging, LogComponent,
+    KnowledgeCategory, KnowledgeObject, KnowledgeStore, TelemetryAggregates,
+    KnowledgeBuilder,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
-use std::io::{self, BufRead, Write};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const THIN_SEP: &str = "------------------------------------------------------------";
+const THICK_SEP: &str = "============================================================";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -78,1126 +45,477 @@ async fn main() -> Result<()> {
 
     let config = AnnaConfigV5::load();
     init_logger(config.log.clone());
-    logging::logger().info(LogComponent::Request, "annactl starting");
+    logging::logger().info(LogComponent::Request, "annactl v5 starting");
 
     let args: Vec<String> = env::args().skip(1).collect();
 
     match args.as_slice() {
-        [] => run_repl().await,
+        [] => run_help(),
         [cmd] if cmd.eq_ignore_ascii_case("status") => run_status().await,
         [cmd] if cmd.eq_ignore_ascii_case("stats") => run_stats().await,
-        [cmd] if cmd.eq_ignore_ascii_case("reset") => run_reset().await,
+        [cmd] if cmd.eq_ignore_ascii_case("knowledge") => run_knowledge(None).await,
+        [cmd, topic] if cmd.eq_ignore_ascii_case("knowledge") => run_knowledge(Some(topic)).await,
         [flag] if flag == "-V" || flag == "--version" || flag.eq_ignore_ascii_case("version") => {
-            run_version().await
+            run_version()
         }
         [flag] if flag.eq_ignore_ascii_case("-h") || flag.eq_ignore_ascii_case("--help") || flag.eq_ignore_ascii_case("help") => {
             run_help()
         }
-        [question] if output::handle_explain_request(question) => Ok(()),
-        [question] => run_ask(question).await,
-        words => {
-            let question = words.join(" ");
-            if output::handle_explain_request(&question) {
-                Ok(())
-            } else {
-                run_ask(&question).await
-            }
-        }
+        _ => run_disabled_message(),
     }
 }
 
-/// Pending action for confirmation flow
-#[derive(Debug, Clone, PartialEq)]
-enum PendingAction {
-    None,
-    Reset(PendingActionType),
-}
+// ============================================================================
+// Version Command
+// ============================================================================
 
-/// Run the interactive REPL
-async fn run_repl() -> Result<()> {
-    print_banner();
-    run_startup_health_check();
-
-    println!("{}  Interactive mode. Type {} to exit.\n", ">>".cyan(), "quit".yellow());
-
-    let stdin = io::stdin();
-    let mut stdout = io::stdout();
-    let mut pending_action = PendingAction::None;
-
-    loop {
-        print!("{}  ", "anna>".bright_magenta());
-        stdout.flush()?;
-
-        let mut line = String::new();
-        if stdin.lock().read_line(&mut line)? == 0 {
-            break;
-        }
-
-        let input = line.trim();
-        if input.is_empty() {
-            continue;
-        }
-        if matches!(input.to_lowercase().as_str(), "quit" | "exit" | "q" | ":q") {
-            println!("\nGoodbye.\n");
-            break;
-        }
-
-        // Handle pending confirmation
-        if let PendingAction::Reset(ref action_type) = pending_action {
-            if action_type.is_confirmed(input) {
-                let result = match action_type {
-                    PendingActionType::ExperienceReset => execute_experience_reset(),
-                    PendingActionType::FactoryReset => execute_factory_reset(),
-                };
-                println!();
-                print_final_answer(&result.text, result.reliability, &result.origin, result.duration_ms);
-                println!();
-            } else {
-                let action_name = match action_type {
-                    PendingActionType::ExperienceReset => "Experience reset",
-                    PendingActionType::FactoryReset => "Factory reset",
-                };
-                println!();
-                println!("  {}  {} cancelled.", "x".bright_red(), action_name);
-                println!();
-            }
-            pending_action = PendingAction::None;
-            continue;
-        }
-
-        // Handle special commands in REPL
-        if input == "-V" || input == "--version" || input.eq_ignore_ascii_case("version") {
-            run_version().await?;
-            continue;
-        }
-        if matches!(input.to_lowercase().as_str(), "help" | "-h" | "--help") {
-            run_help()?;
-            continue;
-        }
-        if input.eq_ignore_ascii_case("status") {
-            run_status().await?;
-            continue;
-        }
-        if input.eq_ignore_ascii_case("stats") {
-            run_stats().await?;
-            continue;
-        }
-        if input.eq_ignore_ascii_case("reset") {
-            run_reset().await?;
-            continue;
-        }
-        if output::handle_explain_request(input) {
-            continue;
-        }
-
-        // Process question
-        match run_ask_with_pending(input).await {
-            Ok(Some(action)) => pending_action = action,
-            Ok(None) => {}
-            Err(e) => eprintln!("[ERROR] {}", e),
-        }
-    }
-
-    Ok(())
-}
-
-fn print_banner() {
-    println!(
-        "\n{}  {}",
-        ">>".bright_magenta(),
-        format!("Anna v{}", env!("CARGO_PKG_VERSION")).bright_white().bold()
-    );
-    println!("   Your intelligent Linux assistant\n");
-}
-
-/// Ask Anna a question
-async fn run_ask(question: &str) -> Result<()> {
-    run_ask_with_pending(question).await.map(|_| ())
-}
-
-/// Ask Anna a question - returns pending action for REPL
-async fn run_ask_with_pending(question: &str) -> Result<Option<PendingAction>> {
-    let request_id = generate_request_id();
-    let sanitized_query = logging::sanitize_query(question);
-    let ctx = RequestContext::new(request_id.clone(), sanitized_query.clone());
-    set_current_request(ctx);
-
-    // Handle debug mode control
-    let debug_intent = DebugIntent::classify(question);
-    if debug_intent.is_debug_intent() {
-        let response = handle_debug_intent(debug_intent);
-        spinner::print_question(question);
-        println!();
-        print_final_answer(&response, 1.0, "Brain", 1);
-        clear_current_request();
-        return Ok(None);
-    }
-
-    // Try Brain fast path
-    if let Some(fast_answer) = try_fast_answer(question) {
-        if is_benchmark_trigger(&fast_answer) {
-            // Fall through to daemon for benchmarks
-        } else {
-            spinner::print_question(question);
-            println!();
-
-            if fast_answer.pending_confirmation {
-                print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
-                println!();
-                clear_current_request();
-                if let Some(action_type) = fast_answer.pending_action {
-                    return Ok(Some(PendingAction::Reset(action_type)));
-                }
-                return Ok(None);
-            }
-
-            print_final_answer(&fast_answer.text, fast_answer.reliability, &fast_answer.origin, fast_answer.duration_ms);
-            telemetry_record_brain(question, fast_answer.reliability, fast_answer.duration_ms);
-
-            let xp_line = record_brain_self_solve(question, &fast_answer.origin);
-            if streaming_debug::is_debug_enabled() {
-                println!("{}", xp_line);
-            } else {
-                println!("{}", xp_line.dimmed());
-            }
-
-            clear_current_request();
-            return Ok(None);
-        }
-    }
-
-    // Debug streaming mode
-    if streaming_debug::is_debug_enabled() {
-        run_ask_with_debug_stream(question, &request_id).await?;
-        return Ok(None);
-    }
-
-    spinner::print_question(question);
-    let daemon = client::DaemonClient::new();
-
-    if !daemon.is_healthy().await {
-        eprintln!("[ERROR] Anna daemon is not running");
-        eprintln!("   Run: {} to start", "sudo systemctl start annad".cyan());
-        clear_current_request();
-        std::process::exit(1);
-    }
-
-    let thinking = spinner::Spinner::new("thinking...");
-
-    match daemon.answer(question).await {
-        Ok(final_answer) => {
-            process_llm_xp_events(question, &final_answer);
-            clear_current_request();
-            let elapsed = thinking.finish();
-
-            if std::env::var("ANNA_QA_MODE").is_ok() {
-                let qa_output = final_answer.to_qa_output();
-                println!("{}", serde_json::to_string_pretty(&qa_output).unwrap_or_default());
-            } else {
-                output::display_final_answer_v100(&final_answer, elapsed);
-            }
-            Ok(None)
-        }
-        Err(e) => {
-            thinking.stop();
-            clear_current_request();
-            output::display_error(&format!("Failed to get answer: {}", e));
-            Err(e)
-        }
-    }
-}
-
-/// Ask with live debug streaming
-async fn run_ask_with_debug_stream(question: &str, _request_id: &str) -> Result<()> {
-    let daemon = client::DaemonClient::new();
-
-    if !daemon.is_healthy().await {
-        eprintln!("[ERROR] Anna daemon is not running");
-        eprintln!("   Run: {} to start", "sudo systemctl start annad".cyan());
-        clear_current_request();
-        std::process::exit(1);
-    }
-
-    match streaming_debug::stream_answer_with_debug(question).await {
-        Ok(_) => {
-            clear_current_request();
-            Ok(())
-        }
-        Err(e) => {
-            clear_current_request();
-            output::display_error(&format!("Debug stream failed: {}", e));
-            Err(e)
-        }
-    }
-}
-
-/// Version display
-async fn run_version() -> Result<()> {
-    let daemon = client::DaemonClient::new();
-
+fn run_version() -> Result<()> {
     println!();
-    println!("{}", "ANNA VERSION".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
-    println!("  {}  annactl v{}", "*".cyan(), env!("CARGO_PKG_VERSION"));
-
-    if daemon.is_healthy().await {
-        if let Ok(health) = daemon.health().await {
-            println!(
-                "  {}  annad v{} (uptime {})",
-                "+".bright_green(),
-                health.version,
-                format_uptime(health.uptime_seconds).cyan()
-            );
-        }
-    } else {
-        println!("  {}  annad not running", "!".bright_red());
-    }
-
-    if let Some(ver) = check_ollama_version() {
-        println!("  {}  ollama {}", "+".bright_green(), ver);
-    } else {
-        println!("  {}  ollama not available", "!".bright_red());
-    }
-
-    println!("{}", THIN_SEPARATOR);
+    println!("  annactl v{}", VERSION);
+    println!("  Knowledge Core Phase 1");
     println!();
     Ok(())
 }
 
-fn check_ollama_version() -> Option<String> {
-    use std::process::Command;
-    let output = Command::new("ollama").args(["--version"]).output().ok()?;
-    if output.status.success() {
-        let ver = String::from_utf8_lossy(&output.stdout);
-        let ver = ver.trim();
-        if let Some(v) = ver.strip_prefix("ollama version is ") {
-            Some(format!("v{}", v))
-        } else {
-            Some(ver.to_string())
-        }
-    } else {
-        None
-    }
-}
+// ============================================================================
+// Help Command
+// ============================================================================
 
-/// Help display
 fn run_help() -> Result<()> {
     println!();
-    println!("{}", "ANNA HELP".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
+    println!("{}", "ANNA - Knowledge Core v5.0.0".bold());
+    println!("{}", THIN_SEP);
     println!();
-    println!("{}", "[COMMANDS]".cyan());
-    println!("  annactl                   Interactive REPL");
-    println!("  annactl \"<question>\"      Ask Anna anything");
-    println!("  annactl status            Quick health check");
-    println!("  annactl stats             Detailed statistics");
-    println!("  annactl reset             {} (testing)", "Factory reset".bright_red());
-    println!("  annactl version           Version info");
-    println!("  annactl help              This help");
+    println!("  Anna is a background system profiler that watches your machine");
+    println!("  and builds a structured knowledge base.");
     println!();
-    println!("{}", "[DEBUG MODE]".cyan());
-    println!("  \"enable debug mode\"       Show detailed tracing");
-    println!("  \"disable debug mode\"      Normal operation");
+    println!("{}", "COMMANDS:".bold());
+    println!("  annactl status           Quick system and knowledge status");
+    println!("  annactl stats            Detailed knowledge statistics");
+    println!("  annactl knowledge        List all known software objects");
+    println!("  annactl knowledge <name> Details on one specific object");
+    println!("  annactl version          Show version info");
+    println!("  annactl help             Show this help");
     println!();
-    println!("{}", "[EXAMPLES]".cyan());
-    println!("  annactl \"How many CPU cores?\"");
-    println!("  annactl \"What's my RAM usage?\"");
-    println!();
-    println!("{}", THIN_SEPARATOR);
+    println!("{}", "NOTE:".bold());
+    println!("  Q&A mode is disabled in Knowledge Core phase.");
+    println!("  Use 'annactl knowledge' and 'annactl stats' to explore.");
     println!();
     Ok(())
 }
 
 // ============================================================================
-// STATUS COMMAND - v4.1.0: Detailed health, no trust, simplified RPG
+// Disabled Q&A Message
 // ============================================================================
-// Color legend:
-//   GREEN  = healthy/running/good
-//   YELLOW = degraded/warning
-//   RED    = down/error/critical
-//   CYAN   = informational
-//   DIM    = context/secondary
 
-/// Status command - Anna's health and system status
+fn run_disabled_message() -> Result<()> {
+    println!();
+    println!("{}", "[NOTICE]".yellow());
+    println!();
+    println!("  Q&A is disabled in Knowledge Core phase.");
+    println!();
+    println!("  Available commands:");
+    println!("    annactl status      - Quick system status");
+    println!("    annactl stats       - Detailed statistics");
+    println!("    annactl knowledge   - List known software");
+    println!("    annactl help        - Show all commands");
+    println!();
+    Ok(())
+}
+
+// ============================================================================
+// Status Command (v5.0.0)
+// ============================================================================
+
 async fn run_status() -> Result<()> {
-    let daemon = client::DaemonClient::new();
+    // Load knowledge and telemetry
+    let store = KnowledgeStore::load();
+    let telemetry = TelemetryAggregates::load();
+
+    // Check daemon status
+    let daemon_status = check_daemon_status().await;
+
+    // Count by category
+    let counts = store.count_by_category();
 
     println!();
-    println!("{}", "ANNA STATUS".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
+    println!("{}", "ANNA STATUS".bold());
+    println!("{}", THIN_SEP);
 
-    // VERSION section
+    // Version section
     println!("{}", "[VERSION]".cyan());
-    println!("  annactl:    v{}", env!("CARGO_PKG_VERSION"));
-
-    let daemon_running = daemon.is_healthy().await;
-    if daemon_running {
-        if let Ok(health) = daemon.health().await {
-            println!("  annad:      v{}", health.version);
-        }
-    }
-
-    // SERVICES section
+    println!("  annactl:    v{}", VERSION);
+    println!("  annad:      v{}", VERSION);
     println!();
+
+    // Services section
     println!("{}", "[SERVICES]".cyan());
-
-    // Daemon
-    if daemon_running {
-        if let Ok(health) = daemon.health().await {
-            println!(
-                "  Daemon:     {} {}",
-                "running".bright_green(),
-                format!("(up {})", format_uptime(health.uptime_seconds)).dimmed()
-            );
-        } else {
-            println!("  Daemon:     {}", "running".bright_green());
-        }
+    if daemon_status.running {
+        println!("  Daemon:     {} (up {})", "running".green(), telemetry.uptime_string());
     } else {
-        println!("  Daemon:     {}", "DOWN".bright_red());
+        println!("  Daemon:     {}", "not running".red());
     }
+    println!();
 
-    // Ollama
-    let llm_running = check_llm_running();
-    if llm_running {
-        if let Some(activity) = check_ollama_activity() {
-            println!("  Ollama:     {} {}", "running".bright_green(), format!("({})", activity).yellow());
-        } else {
-            println!("  Ollama:     {}", "running".bright_green());
-        }
+    // Knowledge section
+    println!("{}", "[KNOWLEDGE]".cyan());
+    let total = store.total_objects();
+    if total == 0 {
+        println!("  No data collected yet. Daemon must be running.");
     } else {
-        println!("  Ollama:     {}", "DOWN".bright_red());
+        println!("  Objects:    {} (tools/packages tracked)", total);
+
+        // Show category breakdown
+        let editors = counts.get(&KnowledgeCategory::Editor).unwrap_or(&0);
+        let terminals = counts.get(&KnowledgeCategory::Terminal).unwrap_or(&0);
+        let shells = counts.get(&KnowledgeCategory::Shell).unwrap_or(&0);
+        let wms = counts.get(&KnowledgeCategory::Wm).unwrap_or(&0);
+        let compositors = counts.get(&KnowledgeCategory::Compositor).unwrap_or(&0);
+        let browsers = counts.get(&KnowledgeCategory::Browser).unwrap_or(&0);
+
+        if *editors > 0 { println!("  Editors:    {}", editors); }
+        if *terminals > 0 { println!("  Terminals:  {}", terminals); }
+        if *shells > 0 { println!("  Shells:     {}", shells); }
+        if *wms > 0 || *compositors > 0 {
+            println!("  WMs/Comp:   {}", wms + compositors);
+        }
+        if *browsers > 0 { println!("  Browsers:   {}", browsers); }
     }
-
-    // MODELS section - show each role's model
     println!();
-    println!("{}", "[MODELS]".cyan());
 
-    let selection = LlmSelection::load();
-
-    if selection.autoprovision_status == "completed" {
-        // Router
-        let router_ok = check_model_installed(&selection.router_model);
-        if router_ok {
-            println!("  Router:     {} {}", selection.router_model.bright_green(), format!("({}%)", (selection.router_score * 100.0).round() as i32).dimmed());
-        } else {
-            println!("  Router:     {} {}", selection.router_model.bright_red(), "NOT INSTALLED".bright_red());
-        }
-
-        // Junior
-        let junior_ok = check_model_installed(&selection.junior_model);
-        if junior_ok {
-            println!("  Junior:     {} {}", selection.junior_model.bright_green(), format!("({}%)", (selection.junior_score * 100.0).round() as i32).dimmed());
-        } else {
-            println!("  Junior:     {} {}", selection.junior_model.bright_red(), "NOT INSTALLED".bright_red());
-        }
-
-        // Senior
-        let senior_ok = check_model_installed(&selection.senior_model);
-        if senior_ok {
-            println!("  Senior:     {} {}", selection.senior_model.bright_green(), format!("({}%)", (selection.senior_score * 100.0).round() as i32).dimmed());
-        } else {
-            println!("  Senior:     {} {}", selection.senior_model.bright_red(), "NOT INSTALLED".bright_red());
-        }
-
-        // Last benchmark
-        if !selection.last_benchmark.is_empty() {
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&selection.last_benchmark) {
-                let local = dt.with_timezone(&chrono::Local);
-                println!("  Configured: {}", local.format("%Y-%m-%d %H:%M").to_string().dimmed());
-            }
-        }
-
-        // v4.5.2: Show if models are downgraded (ASCII only)
-        if selection.is_downgraded() {
-            println!("  {}", "AUTO-DOWNGRADED".yellow());
-            if let Some(orig) = &selection.original_junior_model {
-                println!("    Original: {}", orig.dimmed());
-            }
-            println!("    Current:  {}", selection.junior_model.yellow());
-        }
-
-        // v4.5.2: Show timeout streak (ASCII only)
-        if selection.consecutive_timeouts > 0 {
-            println!("  Timeout streak: {}", format!("{}", selection.consecutive_timeouts).bright_red());
-        }
-    } else if selection.autoprovision_status.is_empty() {
-        println!("  {}", "Not configured - run benchmark to auto-provision".yellow());
+    // Telemetry section
+    println!("{}", "[TELEMETRY]".cyan());
+    if telemetry.processes_observed == 0 {
+        println!("  No telemetry collected yet.");
     } else {
-        println!("  {}", format!("Provisioning: {}", selection.autoprovision_status).yellow());
+        println!("  Processes:  {} observed", format_number(telemetry.processes_observed));
+        println!("  Commands:   {} unique", telemetry.unique_commands);
+        println!("  Samples:    {}", format_number(telemetry.total_samples));
     }
-
-    // FOLDERS section
     println!();
-    println!("{}", "[FOLDERS]".cyan());
 
-    // v4.5.5: ASCII only - no emojis
-    let folders = [
-        ("/var/lib/anna", "Data", "[DATA]"),
-        ("/var/lib/anna/xp", "XP", "[XP]"),
-        ("/var/lib/anna/knowledge", "Knowledge", "[KNOW]"),
-        ("/var/lib/anna/llm", "LLM", "[LLM]"),
-    ];
+    // Mode section
+    println!("{}", "[MODE]".cyan());
+    println!("  Phase:      {} (Q&A disabled)", "Knowledge Core".yellow());
 
-    for (path, desc, icon) in folders {
-        let exists = std::path::Path::new(path).exists();
-        if exists {
-            let perms = get_unix_permissions(path);
-            let perm_display = format_permissions_nice(&perms);
-            if perms.contains('w') {
-                println!("  {}  {}  {} {}", icon, perm_display.bright_green(), path.dimmed(), desc.dimmed());
-            } else {
-                println!("  {}  {}  {} {} {}", icon, perm_display.yellow(), path.dimmed(), desc.dimmed(), "(read-only)".yellow());
-            }
-        } else {
-            println!("  {}  {}  {} {}", icon, "---".bright_red(), path.dimmed(), format!("{} MISSING", desc).bright_red());
-        }
-    }
-
-    // PERFORMANCE section - success rate instead of trust
+    println!("{}", THIN_SEP);
     println!();
-    println!("{}", "[PERFORMANCE]".cyan());
-
-    let xp_store = XpStore::load();
-    let total_good = xp_store.anna.total_good;
-    let total_bad = xp_store.anna.total_bad;
-    let total = total_good + total_bad;
-
-    if total > 0 {
-        let success_rate = (total_good as f64 / total as f64 * 100.0).round() as i32;
-        let rate_colored = if success_rate >= 70 {
-            format!("{}%", success_rate).bright_green().to_string()
-        } else if success_rate >= 50 {
-            format!("{}%", success_rate).yellow().to_string()
-        } else {
-            format!("{}%", success_rate).bright_red().to_string()
-        };
-        println!("  Success:    {} ({}/{})", rate_colored, total_good, total);
-    } else {
-        println!("  Success:    {} (no data)", "---".dimmed());
-    }
-
-    // PROGRESSION section - simplified RPG
-    println!();
-    println!("{}", "[PROGRESSION]".cyan());
-
-    let level = xp_store.anna.level;
-    let title = match level {
-        0 => "Novice",
-        1 => "Apprentice",
-        2 => "Assistant",
-        3 => "Specialist",
-        4 => "Expert",
-        5 => "Master",
-        _ => "Grandmaster",
-    };
-    println!("  Level:      {} {}", level, format!("({})", title).dimmed());
-
-    let xp = xp_store.anna.xp;
-    let xp_to_next = xp_store.anna.xp_to_next;
-    let xp_pct = if xp_to_next > 0 { (xp as f64 / xp_to_next as f64 * 100.0).round() as i32 } else { 0 };
-    println!("  XP:         {}/{} ({}%)", xp, xp_to_next, xp_pct);
-
-    println!("{}", THIN_SEPARATOR);
-
-    // Debug mode
-    if debug_is_enabled() {
-        println!("  {}", "[DEBUG MODE ACTIVE]".bright_cyan());
-        println!();
-    }
 
     Ok(())
 }
 
-/// Check if a model is installed in ollama
-fn check_model_installed(model: &str) -> bool {
-    use std::process::Command;
-
-    if let Ok(output) = Command::new("ollama").args(["list"]).output() {
-        let list = String::from_utf8_lossy(&output.stdout);
-        // Model names can be "qwen2.5:3b-instruct" - check if base name matches
-        list.lines().any(|line| line.contains(model.split(':').next().unwrap_or(model)))
-    } else {
-        false
-    }
-}
-
-/// Check if ollama is actively pulling/downloading a model
-fn check_ollama_activity() -> Option<String> {
-    use std::process::Command;
-
-    // Check for ollama pull processes
-    if let Ok(output) = Command::new("pgrep").args(["-a", "ollama"]).output() {
-        let processes = String::from_utf8_lossy(&output.stdout);
-        for line in processes.lines() {
-            if line.contains("pull") {
-                // Extract model name from "ollama pull model:tag"
-                if let Some(idx) = line.find("pull") {
-                    let rest = &line[idx + 4..].trim();
-                    let model = rest.split_whitespace().next().unwrap_or("unknown");
-                    return Some(format!("Downloading: {}", model));
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Get Unix-style permission string for a path (e.g., "rwx" or "r-x")
-fn get_unix_permissions(path: &str) -> String {
-    use std::os::unix::fs::PermissionsExt;
-
-    if let Ok(metadata) = std::fs::metadata(path) {
-        let mode = metadata.permissions().mode();
-        // Check user permissions (we care about effective access)
-        let r = if mode & 0o400 != 0 { 'r' } else { '-' };
-        let w = if mode & 0o200 != 0 { 'w' } else { '-' };
-        let x = if mode & 0o100 != 0 { 'x' } else { '-' };
-        format!("{}{}{}", r, w, x)
-    } else {
-        "---".to_string()
-    }
-}
-
-/// Format permissions nicely for display (e.g., "R/W" or "R/-")
-fn format_permissions_nice(perms: &str) -> String {
-    let r = if perms.contains('r') { "R" } else { "-" };
-    let w = if perms.contains('w') { "W" } else { "-" };
-    format!("{}/{}", r, w)
-}
-
-/// Check if we can write to a directory by testing file creation
-fn check_write_access(dir_path: &str) -> bool {
-    let test_file = format!("{}/.write_test_{}", dir_path, std::process::id());
-    let test_path = std::path::Path::new(&test_file);
-
-    // Try to create a test file
-    match std::fs::File::create(test_path) {
-        Ok(_) => {
-            // Clean up
-            let _ = std::fs::remove_file(test_path);
-            true
-        }
-        Err(_) => false,
-    }
-}
-
 // ============================================================================
-// STATS COMMAND - v4.0.0: User + LLM + Anna statistics + Learning Analytics
+// Stats Command (v5.0.0)
 // ============================================================================
 
-/// Stats command - all statistics in one view
 async fn run_stats() -> Result<()> {
+    // Load knowledge and telemetry
+    let store = KnowledgeStore::load();
+    let telemetry = TelemetryAggregates::load();
+
     println!();
-    println!("{}", "ANNA STATS".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
+    println!("{}", "ANNA STATS".bold());
+    println!("{}", THIN_SEP);
 
-    let xp_store = XpStore::load();
-    let selection = LlmSelection::load();
-    let xp_log = XpLog::new();
+    // Knowledge Coverage section
+    println!("{}", "[KNOWLEDGE COVERAGE]".cyan());
 
-    // USER INTERACTIONS
-    println!("{}", "[USER INTERACTIONS]".cyan());
+    let _counts = store.count_by_category();
+    let total = store.total_objects();
 
-    let total_good = xp_store.anna.total_good;
-    let total_bad = xp_store.anna.total_bad;
-    let total = total_good + total_bad;
-
-    if total > 0 {
-        println!("  Total:      {}", total);
-        println!("  Successful: {} {}", total_good.to_string().bright_green(), format!("({}%)", (total_good as f64 / total as f64 * 100.0).round() as i32).dimmed());
-        println!("  Failed:     {} {}", total_bad.to_string().bright_red(), format!("({}%)", (total_bad as f64 / total as f64 * 100.0).round() as i32).dimmed());
-
-        // Streak
-        if xp_store.anna.streak_good > 0 {
-            println!("  Streak:     {} {}", xp_store.anna.streak_good.to_string().bright_green(), "good".dimmed());
-        } else if xp_store.anna.streak_bad > 0 {
-            println!("  Streak:     {} {}", xp_store.anna.streak_bad.to_string().bright_red(), "bad".dimmed());
-        }
+    if total == 0 {
+        println!("  No data collected yet.");
     } else {
-        println!("  No interactions yet");
-    }
-
-    // ANSWER ORIGIN - where successful answers came from
-    println!();
-    println!("{}", "[ANSWER ORIGIN]".cyan());
-
-    let brain = xp_store.anna_stats.self_solves;
-    let llm = xp_store.anna_stats.llm_answers;
-    let origin_total = brain + llm;
-
-    if origin_total > 0 {
-        let brain_pct = (brain as f64 / origin_total as f64 * 100.0).round() as i32;
-        let llm_pct = (llm as f64 / origin_total as f64 * 100.0).round() as i32;
-        println!("  Brain:      {} {}", brain.to_string().bright_green(), format!("({}%)", brain_pct).dimmed());
-        println!("  LLM:        {} {}", llm, format!("({}%)", llm_pct).dimmed());
-    } else {
-        println!("  Brain:      {}", brain);
-        println!("  LLM:        {}", llm);
-    }
-
-    // FAILURE ANALYSIS - where things go wrong
-    println!();
-    println!("{}", "[FAILURE ANALYSIS]".cyan());
-
-    let timeouts = xp_store.anna_stats.timeouts;
-    let junior_bad = xp_store.junior_stats.bad_plans;
-    let senior_refused = xp_store.senior_stats.refusals;
-    let total_failures = timeouts + junior_bad + senior_refused;
-
-    if total_failures > 0 {
-        // Show failures by component
-        if timeouts > 0 {
-            let pct = (timeouts as f64 / total_failures as f64 * 100.0).round() as i32;
-            println!("  Timeouts:   {} {} {}", timeouts.to_string().bright_red(), format!("({}%)", pct).dimmed(), "LLM too slow".dimmed());
-        }
-        if junior_bad > 0 {
-            let pct = (junior_bad as f64 / total_failures as f64 * 100.0).round() as i32;
-            println!("  Junior:     {} {} {}", junior_bad.to_string().bright_red(), format!("({}%)", pct).dimmed(), "bad plan/draft".dimmed());
-        }
-        if senior_refused > 0 {
-            let pct = (senior_refused as f64 / total_failures as f64 * 100.0).round() as i32;
-            println!("  Senior:     {} {} {}", senior_refused.to_string().bright_red(), format!("({}%)", pct).dimmed(), "refused answer".dimmed());
-        }
-
-        // Identify main culprit
-        let main_issue = if timeouts >= junior_bad && timeouts >= senior_refused {
-            "LLM latency (try smaller models)"
-        } else if junior_bad >= senior_refused {
-            "Junior quality (model may be too small)"
-        } else {
-            "Senior rejections (review prompts)"
-        };
-        println!();
-        println!("  {}  Main issue: {}", "!".yellow(), main_issue.yellow());
-    } else {
-        println!("  No failures recorded");
-    }
-
-    // COMPONENT SUCCESS RATES
-    println!();
-    println!("{}", "[COMPONENT SUCCESS]".cyan());
-
-    // Junior
-    let junior_total = xp_store.junior_stats.good_plans + xp_store.junior_stats.bad_plans;
-    let junior_rate = if junior_total > 0 {
-        (xp_store.junior_stats.good_plans as f64 / junior_total as f64 * 100.0).round() as i32
-    } else { 0 };
-
-    if junior_total > 0 {
-        let rate_colored = if junior_rate >= 70 {
-            format!("{}%", junior_rate).bright_green().to_string()
-        } else if junior_rate >= 50 {
-            format!("{}%", junior_rate).yellow().to_string()
-        } else {
-            format!("{}%", junior_rate).bright_red().to_string()
-        };
-        println!("  Junior:     {} {}", rate_colored, format!("({}/{} plans)", xp_store.junior_stats.good_plans, junior_total).dimmed());
-    } else {
-        println!("  Junior:     {} (no data)", "---".dimmed());
-    }
-
-    // Senior
-    let senior_total = xp_store.senior_stats.approvals + xp_store.senior_stats.fix_and_accept + xp_store.senior_stats.refusals;
-    let senior_rate = if senior_total > 0 {
-        ((xp_store.senior_stats.approvals + xp_store.senior_stats.fix_and_accept) as f64 / senior_total as f64 * 100.0).round() as i32
-    } else { 0 };
-
-    if senior_total > 0 {
-        let rate_colored = if senior_rate >= 70 {
-            format!("{}%", senior_rate).bright_green().to_string()
-        } else if senior_rate >= 50 {
-            format!("{}%", senior_rate).yellow().to_string()
-        } else {
-            format!("{}%", senior_rate).bright_red().to_string()
-        };
-        println!("  Senior:     {} {}", rate_colored, format!("({} ok, {} fix, {} refuse)", xp_store.senior_stats.approvals, xp_store.senior_stats.fix_and_accept, xp_store.senior_stats.refusals).dimmed());
-    } else {
-        println!("  Senior:     {} (no data)", "---".dimmed());
-    }
-
-    // LLM MODELS
-    println!();
-    println!("{}", "[LLM MODELS]".cyan());
-
-    if selection.autoprovision_status == "completed" {
-        if let Some(ref tier) = selection.hardware_tier {
-            println!("  Tier:       {:?}", tier);
-        }
-
-        let router_score = (selection.router_score * 100.0).round() as i32;
-        let junior_score = (selection.junior_score * 100.0).round() as i32;
-        let senior_score = (selection.senior_score * 100.0).round() as i32;
-
-        println!("  Router:     {} ({}%)", selection.router_model, router_score);
-        println!("  Junior:     {} ({}%)", selection.junior_model, junior_score);
-        println!("  Senior:     {} ({}%)", selection.senior_model, senior_score);
-
-        if !selection.last_benchmark.is_empty() {
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&selection.last_benchmark) {
-                let local = dt.with_timezone(&chrono::Local);
-                println!("  Benchmark:  {}", local.format("%Y-%m-%d %H:%M"));
+        // List by category with names
+        for category in &[
+            KnowledgeCategory::Editor,
+            KnowledgeCategory::Terminal,
+            KnowledgeCategory::Shell,
+            KnowledgeCategory::Wm,
+            KnowledgeCategory::Compositor,
+            KnowledgeCategory::Browser,
+        ] {
+            let objs = store.get_by_category(category);
+            if !objs.is_empty() {
+                let names: Vec<_> = objs.iter().map(|o| o.name.as_str()).collect();
+                println!("  {:12}{} ({})",
+                    format!("{}:", category.display_name()),
+                    objs.len(),
+                    names.join(", ")
+                );
             }
         }
-    } else if selection.autoprovision_status.is_empty() {
-        println!("  Not configured");
-    } else {
-        println!("  {}", selection.autoprovision_status.bright_red());
     }
-
-    // v4.5.2: LLM LATENCY section
     println!();
-    println!("{}", "[LLM LATENCY]".cyan());
 
-    // Timeout streak from LlmSelection
-    println!("  Timeout streak:   {}", selection.consecutive_timeouts);
-
-    // Count timeouts in last 24h from telemetry
-    let telemetry = TelemetryReader::default_path();
-    let events_24h = telemetry.read_hours(24);
-    let timeouts_24h = events_24h.iter()
-        .filter(|e| e.outcome == Outcome::Timeout)
-        .count();
-    println!("  Timeouts (24h):   {}", timeouts_24h);
-
-    // Show downgrade status if applicable
-    if selection.is_downgraded() {
-        println!("  Status:           {}", "AUTO-DOWNGRADED".yellow());
-        if let Some(ref orig) = selection.original_junior_model {
-            println!("    Original:       {}", orig.dimmed());
-        }
-        println!("    Current:        {}", selection.junior_model.yellow());
-    }
-
-    // LEARNING (24h metrics)
-    println!();
-    println!("{}", "[LEARNING (24h)]".cyan());
-
-    let metrics = xp_log.metrics_24h();
-
-    if metrics.total_events > 0 {
-        // Net XP change
-        let net_colored = if metrics.net_xp >= 0 {
-            format!("+{}", metrics.net_xp).bright_green().to_string()
+    // Discovery Latency section
+    println!("{}", "[DISCOVERY LATENCY]".cyan());
+    if let (Some(first), Some(last)) = (store.first_discovery_at, store.last_discovery_at) {
+        let daemon_start = telemetry.daemon_start_at;
+        if first >= daemon_start {
+            let first_delay = first - daemon_start;
+            let last_delay = last - daemon_start;
+            println!("  First object discovered:   {}s after daemon start", first_delay);
+            println!("  Last new object:           {} after daemon start", format_duration_secs(last_delay));
         } else {
-            format!("{}", metrics.net_xp).bright_red().to_string()
-        };
-        println!("  XP Net:     {} (gained {} / lost {})", net_colored, metrics.xp_gained, metrics.xp_lost);
-        println!("  Events:     {} (+{} / -{})", metrics.total_events, metrics.positive_events, metrics.negative_events);
-        println!("  Questions:  {}", metrics.questions_answered);
-
-        // Top event types
-        if let Some(ref top_pos) = metrics.top_positive {
-            println!("  Best:       {}", top_pos.bright_green());
-        }
-        if let Some(ref top_neg) = metrics.top_negative {
-            println!("  Worst:      {}", top_neg.bright_red());
+            println!("  First discovery:  historical data");
+            println!("  Last discovery:   historical data");
         }
     } else {
-        println!("  No learning events in past 24h");
+        println!("  No discovery events recorded yet.");
+    }
+    println!();
+
+    // Usage Hotspots section
+    println!("{}", "[USAGE HOTSPOTS]".cyan());
+    if let Some((cmd, count)) = telemetry.most_used_command() {
+        println!("  Most-used command:         {} ({} runs)", cmd, format_number(*count));
     }
 
-    // Recent XP events (last 5)
-    let recent = xp_log.read_recent(5);
-    if !recent.is_empty() {
-        println!();
-        println!("{}", "[RECENT EVENTS]".cyan());
-        for event in recent.iter().take(5) {
-            let xp_str = if event.xp_change >= 0 {
-                format!("+{}", event.xp_change).bright_green().to_string()
-            } else {
-                format!("{}", event.xp_change).bright_red().to_string()
-            };
-            // Truncate question to 30 chars
-            let q: String = event.question.chars().take(30).collect();
-            let q_display = if event.question.len() > 30 {
-                format!("{}...", q)
-            } else {
-                q
-            };
-            println!("  {} {:>4}  {}", event.event_type.dimmed(), xp_str, q_display.dimmed());
+    let top_cpu = store.top_by_cpu(1);
+    if let Some(obj) = top_cpu.first() {
+        if obj.total_cpu_time_ms > 0 {
+            println!("  Heaviest CPU process:      {}", obj.name);
         }
     }
 
-    println!("{}", THIN_SEPARATOR);
+    let top_mem = store.top_by_memory(1);
+    if let Some(obj) = top_mem.first() {
+        if obj.total_mem_bytes_peak > 0 {
+            println!("  Heaviest RAM process:      {}", obj.name);
+        }
+    }
     println!();
+
+    // Top Editors section (example detailed breakdown)
+    let editors = store.get_by_category(&KnowledgeCategory::Editor);
+    if !editors.is_empty() {
+        println!("{}", "[TOP EDITORS]".cyan());
+        let mut sorted_editors: Vec<_> = editors.iter().collect();
+        sorted_editors.sort_by(|a, b| b.usage_count.cmp(&a.usage_count));
+
+        for obj in sorted_editors.iter().take(3) {
+            println!("  {}:", obj.name);
+            println!("    runs:         {}", obj.usage_count);
+            println!("    cpu_time:     {}ms", format_number(obj.total_cpu_time_ms));
+            println!("    max_rss:      {}", format_bytes(obj.total_mem_bytes_peak));
+        }
+    }
+
+    println!("{}", THIN_SEP);
+    println!();
+
     Ok(())
 }
 
-fn check_llm_running() -> bool {
-    use std::process::Command;
+// ============================================================================
+// Knowledge Command (v5.0.0)
+// ============================================================================
 
-    // Try systemctl first
-    if let Ok(output) = Command::new("systemctl").args(["is-active", "ollama"]).output() {
-        if String::from_utf8_lossy(&output.stdout).trim() == "active" {
-            return true;
-        }
-    }
+async fn run_knowledge(topic: Option<&str>) -> Result<()> {
+    let store = KnowledgeStore::load();
 
-    // Try pgrep
-    if let Ok(output) = Command::new("pgrep").arg("ollama").output() {
-        if output.status.success() {
-            return true;
-        }
-    }
-
-    false
-}
-
-fn format_uptime(seconds: u64) -> String {
-    const MINUTE: u64 = 60;
-    const HOUR: u64 = 60 * MINUTE;
-    const DAY: u64 = 24 * HOUR;
-
-    if seconds < MINUTE {
-        format!("{}s", seconds)
-    } else if seconds < HOUR {
-        let mins = seconds / MINUTE;
-        let secs = seconds % MINUTE;
-        if secs > 0 { format!("{}m {}s", mins, secs) } else { format!("{}m", mins) }
-    } else if seconds < DAY {
-        let hours = seconds / HOUR;
-        let mins = (seconds % HOUR) / MINUTE;
-        if mins > 0 { format!("{}h {}m", hours, mins) } else { format!("{}h", hours) }
-    } else {
-        let days = seconds / DAY;
-        let hours = (seconds % DAY) / HOUR;
-        if hours > 0 { format!("{}d {}h", days, hours) } else { format!("{}d", days) }
+    match topic {
+        None => run_knowledge_list(&store),
+        Some(name) => run_knowledge_detail(&store, name),
     }
 }
 
-// ============================================================================
-// Helper functions
-// ============================================================================
+fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
+    println!();
+    println!("{}", "ANNA KNOWLEDGE".bold());
+    println!("{}", THIN_SEP);
 
-fn run_startup_health_check() {
-    let report = self_health::run_with_auto_repair();
-
-    match report.overall {
-        OverallHealth::Healthy => {}
-        OverallHealth::Degraded => {
-            println!("{}  Self-health: {}", "[NOTE]".yellow(), "degraded".yellow());
-            for component in &report.components {
-                if !component.status.is_healthy() {
-                    println!("   * {}: {}", component.name.yellow(), component.message);
-                }
-            }
-            println!();
-        }
-        OverallHealth::Critical => {
-            println!("{}  Self-health: {}", "[WARNING]".bright_red(), "critical".bright_red());
-            for component in &report.components {
-                if !component.status.is_healthy() {
-                    println!("   * {}: {}", component.name.bright_red(), component.message);
-                }
-            }
-            println!();
-        }
-        OverallHealth::Unknown => {
-            println!("{}  Self-health: {}", "[NOTE]".dimmed(), "unknown".dimmed());
-            println!();
-        }
-    }
-
-    if !report.repairs_executed.is_empty() {
-        println!("{}  Auto-repairs executed:", "[AUTO-REPAIR]".bright_green());
-        for repair in &report.repairs_executed {
-            let status = if repair.success { "+".bright_green().to_string() } else { "!".bright_red().to_string() };
-            println!("   {} {}", status, repair.message);
-        }
+    if store.total_objects() == 0 {
         println!();
-    }
-}
-
-fn print_final_answer(text: &str, reliability: f64, origin: &str, duration_ms: u64) {
-    println!();
-    println!("{}", THIN_SEPARATOR);
-    println!("{}", "Anna".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
-    println!();
-    println!("{}", text);
-    println!();
-    println!("{}", THIN_SEPARATOR);
-
-    let rel_pct = format_percentage(reliability);
-    let rel_label = if reliability >= 0.9 {
-        format!("{} ({})", rel_pct.bright_green(), "Green".bright_green())
-    } else if reliability >= 0.7 {
-        format!("{} ({})", rel_pct.yellow(), "Yellow".yellow())
-    } else {
-        format!("{} ({})", rel_pct.bright_red(), "Red".bright_red())
-    };
-    println!("Reliability: {}", rel_label);
-    println!("Origin: {}", origin.cyan());
-
-    let dur_str = if duration_ms < 1000 {
-        format!("{}ms", duration_ms)
-    } else {
-        format!("{:.2}s", duration_ms as f64 / 1000.0)
-    };
-    println!("Duration: {}", dur_str);
-    println!("{}", THIN_SEPARATOR);
-    println!();
-}
-
-fn handle_debug_intent(intent: DebugIntent) -> String {
-    match intent {
-        DebugIntent::Enable => {
-            if let Err(e) = debug_set_enabled(true, "user_command") {
-                return format!("Failed to enable debug mode: {}", e);
-            }
-            DebugState::format_enable_message()
-        }
-        DebugIntent::Disable => {
-            if let Err(e) = debug_set_enabled(false, "user_command") {
-                return format!("Failed to disable debug mode: {}", e);
-            }
-            DebugState::format_disable_message()
-        }
-        DebugIntent::Status => {
-            let state = debug_get_state();
-            state.format_status()
-        }
-        DebugIntent::None => "Not a debug command.".to_string(),
-    }
-}
-
-/// Process XP events from a FinalAnswer
-fn process_llm_xp_events(question: &str, answer: &FinalAnswer) {
-    let recorder = UnifiedXpRecorder::new();
-    let senior_verdict = answer.senior_verdict.as_deref().unwrap_or("unknown");
-    let junior_had_draft = answer.junior_had_draft;
-    let confidence = answer.scores.overall;
-
-    // Junior XP
-    if junior_had_draft && (senior_verdict == "approve" || senior_verdict == "fix_and_accept") {
-        let xp_line = recorder.junior_clean_proposal(question, "");
-        if streaming_debug::is_debug_enabled() {
-            println!("{}", xp_line);
-        }
-    } else if !junior_had_draft || senior_verdict == "refuse" {
-        let xp_line = recorder.junior_bad_command(question, "", &format!("verdict={}", senior_verdict));
-        if streaming_debug::is_debug_enabled() {
-            println!("{}", xp_line);
-        }
-    }
-
-    // Senior XP
-    match senior_verdict {
-        "approve" if confidence >= 0.9 => {
-            let xp_line = recorder.senior_green_approval(question, confidence);
-            if streaming_debug::is_debug_enabled() {
-                println!("{}", xp_line);
-            }
-        }
-        "fix_and_accept" => {
-            let xp_line = recorder.senior_fix_and_accept(question);
-            if streaming_debug::is_debug_enabled() {
-                println!("{}", xp_line);
-            }
-        }
-        "refuse" => {
-            let xp_line = recorder.low_reliability_refusal(question);
-            if streaming_debug::is_debug_enabled() {
-                println!("{}", xp_line);
-            }
-        }
-        _ => {
-            if confidence >= 0.7 {
-                let xp_line = recorder.senior_green_approval(question, confidence);
-                if streaming_debug::is_debug_enabled() {
-                    println!("{}", xp_line);
-                }
-            }
-        }
-    }
-
-    // Handle failures
-    if let Some(ref failure_cause) = answer.failure_cause {
-        match failure_cause.as_str() {
-            "timeout_or_latency" => {
-                let xp_line = recorder.llm_timeout(question, 0);
-                if streaming_debug::is_debug_enabled() {
-                    println!("{}", xp_line);
-                }
-            }
-            "unsupported_domain" => {
-                let xp_line = recorder.low_reliability_refusal(question);
-                if streaming_debug::is_debug_enabled() {
-                    println!("{}", xp_line);
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-// ============================================================================
-// RESET COMMAND - v4.0.0: Factory reset (testing only)
-// ============================================================================
-
-/// Reset command - complete factory reset via daemon (has root permissions)
-async fn run_reset() -> Result<()> {
-    let daemon = client::DaemonClient::new();
-
-    println!();
-    println!("{}", "ANNA RESET".bright_white().bold());
-    println!("{}", THIN_SEPARATOR);
-    println!();
-
-    // Check if daemon is running
-    if !daemon.is_healthy().await {
-        println!("{}  Daemon not running", "[ERROR]".bright_red());
+        println!("  No knowledge collected yet.");
+        println!("  The daemon must be running to collect data.");
         println!();
-        println!("  The daemon (annad) must be running to perform reset.");
-        println!("  Start it with: {}", "sudo systemctl start annad".cyan());
-        println!();
-        println!("{}", THIN_SEPARATOR);
+        println!("{}", THIN_SEP);
         return Ok(());
     }
 
-    // Show warning
-    println!("{}  This will delete ALL data:", "[WARNING]".bright_red());
-    println!("   - XP and progression");
-    println!("   - Knowledge and facts");
-    println!("   - LLM configurations");
-    println!("   - Benchmarks and stats");
-    println!("   - Telemetry and logs");
-    println!();
-    println!("  Sending reset request to daemon (has root permissions)...");
-    println!();
+    // Group by category
+    for category in &[
+        KnowledgeCategory::Editor,
+        KnowledgeCategory::Terminal,
+        KnowledgeCategory::Shell,
+        KnowledgeCategory::Wm,
+        KnowledgeCategory::Compositor,
+        KnowledgeCategory::Browser,
+        KnowledgeCategory::Service,
+        KnowledgeCategory::Tool,
+    ] {
+        let objs = store.get_by_category(category);
+        if !objs.is_empty() {
+            println!("{}", format!("[{}]", category.display_name().to_uppercase()).cyan());
 
-    // Execute factory reset via daemon
-    match daemon.factory_reset().await {
-        Ok(result) => {
-            if result.success {
-                println!("{}  Factory reset complete!", "[OK]".bright_green());
-                println!();
-                println!("  Components reset:");
-                for comp in &result.components_reset {
-                    println!("    {}  {}", "+".bright_green(), comp);
-                }
-            } else {
-                println!("{}  Reset completed with issues", "[WARN]".yellow());
-                println!();
-                println!("  Components reset:");
-                for comp in &result.components_reset {
-                    println!("    {}  {}", "+".bright_green(), comp);
-                }
-                if !result.components_failed.is_empty() {
-                    println!();
-                    println!("  Failed:");
-                    for comp in &result.components_failed {
-                        println!("    {}  {}", "x".bright_red(), comp);
-                    }
-                }
+            let mut sorted: Vec<_> = objs.iter().collect();
+            sorted.sort_by(|a, b| b.usage_count.cmp(&a.usage_count));
+
+            for obj in sorted {
+                let installed = if obj.installed { "yes" } else { "no" };
+                let wiki = obj.wiki_ref.as_deref().unwrap_or("-");
+                println!("  {:<12} installed: {:<3}  runs: {:<6} wiki: {}",
+                    obj.name, installed, obj.usage_count, wiki);
             }
-        }
-        Err(e) => {
-            println!("{}  Reset failed: {}", "[ERROR]".bright_red(), e);
+            println!();
         }
     }
 
+    println!("{}", THIN_SEP);
+    println!("Use 'annactl knowledge <name>' for details on one item.");
     println!();
-    println!("{}", THIN_SEPARATOR);
+
     Ok(())
 }
+
+fn run_knowledge_detail(store: &KnowledgeStore, name: &str) -> Result<()> {
+    println!();
+    println!("{}", format!("ANNA KNOWLEDGE: {}", name).bold());
+    println!("{}", THIN_SEP);
+
+    // Try to find by exact name or lowercase
+    let obj = store.get(name)
+        .or_else(|| store.get(&name.to_lowercase()));
+
+    match obj {
+        Some(obj) => {
+            // Identity section
+            println!("{}", "[IDENTITY]".cyan());
+            println!("  Category:        {}", obj.category.as_str());
+            println!("  Name:            {}", obj.name);
+
+            let detected = match &obj.detected_as {
+                anna_common::DetectionSource::Package => "package".to_string(),
+                anna_common::DetectionSource::Binary => "binary".to_string(),
+                anna_common::DetectionSource::Both => format!(
+                    "package '{}', binary",
+                    obj.package_name.as_deref().unwrap_or(&obj.name)
+                ),
+                anna_common::DetectionSource::Unknown => "unknown".to_string(),
+            };
+            println!("  Detected as:     {}", detected);
+
+            if let Some(wiki) = &obj.wiki_ref {
+                println!("  Wiki:            {}", wiki);
+            }
+            println!();
+
+            // Installation section
+            println!("{}", "[INSTALLATION]".cyan());
+            println!("  Installed:       {}", if obj.installed { "yes" } else { "no" });
+            if let Some(pkg) = &obj.package_name {
+                println!("  Package:         {}", pkg);
+            }
+            if let Some(path) = &obj.binary_path {
+                println!("  Binary path:     {}", path);
+            }
+            println!();
+
+            // Usage section
+            println!("{}", "[USAGE]".cyan());
+            println!("  Runs observed:   {}", obj.usage_count);
+            println!("  First seen:      {}", format_timestamp(obj.first_seen_at));
+            println!("  Last seen:       {}", format_timestamp(obj.last_seen_at));
+            println!("  Total CPU time:  {}ms", format_number(obj.total_cpu_time_ms));
+            println!("  Max RSS:         {}", format_bytes(obj.total_mem_bytes_peak));
+            println!();
+
+            // Config section
+            if !obj.config_paths.is_empty() {
+                println!("{}", "[CONFIG]".cyan());
+                println!("  Config paths:");
+                for path in &obj.config_paths {
+                    println!("    - {}", path);
+                }
+                println!();
+            }
+
+            // Notes
+            println!("{}", "[NOTES]".cyan());
+            println!("  Data collected by anna daemon since installation.");
+        }
+        None => {
+            println!();
+            println!("  Anna has no knowledge about '{}' yet.", name);
+            println!();
+            println!("  It might not be installed, or it has not been observed in use.");
+        }
+    }
+
+    println!("{}", THIN_SEP);
+    println!();
+
+    Ok(())
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+struct DaemonStatus {
+    running: bool,
+}
+
+async fn check_daemon_status() -> DaemonStatus {
+    // Try to connect to daemon API
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(2))
+        .build()
+        .unwrap();
+
+    let result = client
+        .get("http://127.0.0.1:7865/v1/health")
+        .send()
+        .await;
+
+    DaemonStatus {
+        running: result.is_ok(),
+    }
+}
+
+fn format_number(n: u64) -> String {
+    if n >= 1_000_000 {
+        format!("{:.1}M", n as f64 / 1_000_000.0)
+    } else if n >= 1_000 {
+        format!("{:.1}K", n as f64 / 1_000.0)
+    } else {
+        format!("{}", n)
+    }
+}
+
+fn format_bytes(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.1}GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.1}MB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.1}KB", bytes as f64 / 1024.0)
+    } else {
+        format!("{}B", bytes)
+    }
+}
+
+fn format_timestamp(unix_secs: u64) -> String {
+    use chrono::{DateTime, Utc};
+    let dt = DateTime::<Utc>::from_timestamp(unix_secs as i64, 0)
+        .unwrap_or_else(|| DateTime::<Utc>::from_timestamp(0, 0).unwrap());
+    dt.format("%Y-%m-%d %H:%M").to_string()
+}
+
+fn format_duration_secs(secs: u64) -> String {
+    let hours = secs / 3600;
+    let minutes = (secs % 3600) / 60;
+
+    if hours > 0 {
+        format!("{}h {}m", hours, minutes)
+    } else if minutes > 0 {
+        format!("{}m", minutes)
+    } else {
+        format!("{}s", secs)
+    }
+}
+
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;

@@ -131,6 +131,9 @@ pub mod status_coherence;
 pub mod state_manager;
 pub mod ui_theme;
 pub mod learning_engine;
+// v5.0.0: Knowledge Core
+pub mod knowledge_core;
+pub mod knowledge_collector;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -428,4 +431,16 @@ pub use learning_engine::{
     LearningLogEntry, LearningLogType,
     CachedAnswer, question_key,
     PATTERN_STORE_PATH, MIN_LEARN_RELIABILITY, PATTERN_CACHE_TTL_SECS, MIN_CACHE_RELIABILITY,
+};
+
+// Knowledge Core exports (v5.0.0) - System profiler and knowledge engine
+pub use knowledge_core::{
+    Category as KnowledgeCategory, DetectionSource, KnowledgeObject, KnowledgeStore,
+    TelemetryAggregates, classify_tool, get_config_paths,
+    KNOWLEDGE_STORE_PATH, TELEMETRY_STORE_PATH,
+};
+pub use knowledge_collector::{
+    KnowledgeBuilder, ProcessInfo,
+    discover_pacman_packages, discover_binaries, discover_processes,
+    binary_exists, get_pacman_package_info,
 };

@@ -1,43 +1,38 @@
-//! Anna Daemon (annad) - Evidence Oracle
+//! Anna Daemon (annad) v5.0.0 - Knowledge Core Phase 1
 //!
-//! The ONLY source of truth. Runs probes, provides raw JSON.
-//! No interpretation, no formatting.
+//! Anna is now a pure observer:
+//! - Collects system telemetry
+//! - Classifies and normalizes data
+//! - Builds structured knowledge base
 //!
-//! v0.4.0: Auto-update scheduler for dev mode.
-//! v0.5.0: Natural language configuration, hardware-aware model selection.
-//! v0.9.0: Locked CLI surface, status command.
-//! v0.10.0: Strict evidence discipline - LLM-A/LLM-B audit loop.
-//! v0.11.0: Knowledge store, event-driven learning, user telemetry.
-//! v0.16.1: Dynamic model registry, on-demand LLM loading.
-//! v0.65.0: Daemon robustness - panic hooks, graceful shutdown.
+//! No Q&A, no LLM orchestration in this phase.
 
-// Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod auto_update;
-mod brain;
-mod model_registry_fetcher;
-mod orchestrator;
-mod parser;
-mod probe;
 mod routes;
 mod server;
-mod state;
 
 use anna_common::{
-    AnnaConfigV5, KnowledgeStore, is_first_run, mark_initialized,
-    llm_provision::{needs_autoprovision, run_full_autoprovision, LlmSelection},
+    AnnaConfigV5, KnowledgeBuilder, KnowledgeStore, TelemetryAggregates,
     permissions::{auto_fix_permissions, PermissionsHealthCheck},
 };
 use anyhow::Result;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+/// Collection interval for process telemetry (30 seconds)
+const PROCESS_COLLECTION_INTERVAL_SECS: u64 = 30;
+
+/// Collection interval for package/binary discovery (5 minutes)
+const DISCOVERY_COLLECTION_INTERVAL_SECS: u64 = 300;
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    // v0.65.0: Set up panic hook for robust error handling
+    // Set up panic hook
     setup_panic_hook();
 
     // Initialize tracing
@@ -49,9 +44,10 @@ async fn main() -> Result<()> {
         .init();
 
     info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
-    info!("[>]  Evidence Oracle starting...");
+    info!("[>]  Knowledge Core Phase 1 - System Profiler");
+    info!("[>]  Q&A is disabled. Daemon only collects knowledge.");
 
-    // v2.1.0: Permissions health check and auto-fix
+    // Permissions check
     let health = PermissionsHealthCheck::run();
     if !health.all_ok {
         warn!("[!]  Permissions issues detected, attempting auto-fix...");
@@ -63,170 +59,73 @@ async fn main() -> Result<()> {
                 warn!("[!]  Failed to fix {}: {:?}", fix.path.display(), fix.error);
             }
         }
-        // Re-check
-        let health2 = PermissionsHealthCheck::run();
-        if health2.all_ok {
-            info!("[+]  All permissions issues resolved");
-        } else {
-            warn!("[!]  Some permissions issues remain:");
-            for issue in health2.issues() {
-                warn!("      - {}", issue);
-            }
-            warn!("[!]  XP/telemetry may not persist. Run: sudo chmod -R 777 /var/lib/anna /var/log/anna");
-        }
     } else {
         info!("[+]  Permissions OK");
     }
 
-    // v0.11.0: Initialize knowledge store
-    let knowledge_store = KnowledgeStore::open_default()?;
-    let fact_count = knowledge_store.count()?;
-    info!("[K]  Knowledge store: {} facts", fact_count);
+    // Initialize knowledge builder
+    let builder = Arc::new(RwLock::new(KnowledgeBuilder::new()));
 
-    // v0.11.0: Initialize Anna's brain
-    let anna_brain = Arc::new(brain::AnnaBrain::new(knowledge_store));
-    let brain_clone = Arc::clone(&anna_brain);
+    // Run initial collection
+    {
+        let mut b = builder.write().await;
+        info!("[*]  Running initial discovery...");
+        b.collect_packages();
+        b.collect_binaries();
+        b.collect_processes();
+        if let Err(e) = b.save() {
+            warn!("[!]  Failed to save initial knowledge: {}", e);
+        }
+        let store = b.store();
+        info!("[+]  Initial discovery complete: {} objects", store.total_objects());
+    }
 
-    // Load probes - try multiple paths in order of preference
-    let probe_paths = [
-        "/usr/share/anna/probes", // System install location
-        "/var/lib/anna/probes",   // Data directory fallback
-        "probes",                 // Development/local fallback
-    ];
+    // Create app state for health endpoint
+    let app_state = server::AppState::new_v5(Arc::clone(&builder));
 
-    let mut probe_registry = None;
-    for path in &probe_paths {
-        if std::path::Path::new(path).exists() {
-            match probe::registry::ProbeRegistry::load_from_dir(path) {
-                Ok(registry) if registry.count() > 0 => {
-                    info!("[+]  Loaded {} probes from {}", registry.count(), path);
-                    probe_registry = Some(registry);
-                    break;
-                }
-                Ok(_) => {
-                    info!("[~]  Found {} but it's empty, trying next...", path);
-                }
-                Err(e) => {
-                    warn!("[!]  Failed to load probes from {}: {}", path, e);
-                }
+    // Spawn process collection task (every 30 seconds)
+    let builder_process = Arc::clone(&builder);
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(PROCESS_COLLECTION_INTERVAL_SECS));
+        loop {
+            interval.tick().await;
+            let mut b = builder_process.write().await;
+            b.collect_processes();
+            if let Err(e) = b.save() {
+                warn!("[!]  Failed to save process telemetry: {}", e);
             }
         }
-    }
-
-    let probe_registry = probe_registry.unwrap_or_else(|| {
-        warn!("[!]  No probes found in any location! Using empty registry.");
-        probe::registry::ProbeRegistry::default()
     });
 
-    // Create state manager
-    let state_manager = state::StateManager::new();
-
-    // Create app state with brain reference
-    let app_state = server::AppState::new_with_brain(probe_registry, state_manager, anna_brain);
-
-    // Start auto-update scheduler in background
-    let auto_update_scheduler = Arc::new(auto_update::AutoUpdateScheduler::new());
-    let scheduler_clone = Arc::clone(&auto_update_scheduler);
-
-    // Log config
-    let config = AnnaConfigV5::load();
-    info!(
-        "[C]  Config: mode={}, update.enabled={}, update.channel={}, update.interval={}s",
-        config.core.mode.as_str(),
-        config.update.enabled,
-        config.update.channel.as_str(),
-        config.update.effective_interval()
-    );
-
-    // v0.15.18: Check for role-specific model config
-    if config.llm.needs_role_model_migration() {
-        let suggested_junior = config.llm.suggest_junior_model();
-        warn!(
-            "[!]  Config uses legacy single-model setup. For optimal performance, run the installer to get role-specific models:"
-        );
-        warn!("    curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash");
-        warn!(
-            "    Or manually add to config.toml: junior_model = \"{}\", senior_model = \"{}\"",
-            suggested_junior, config.llm.preferred_model
-        );
-        info!(
-            "[L]  LLM: selection_mode={}, preferred={} (used for both junior/senior), fallback={}",
-            config.llm.selection_mode.as_str(),
-            config.llm.preferred_model,
-            config.llm.fallback_model
-        );
-    } else {
-        info!(
-            "[L]  LLM: selection_mode={}, junior={}, senior={}, fallback={}",
-            config.llm.selection_mode.as_str(),
-            config.llm.get_junior_model(),
-            config.llm.get_senior_model(),
-            config.llm.fallback_model
-        );
-    }
-
-    // v2.0.0: LLM Autoprovision - self-provisioning models
-    if is_first_run() || needs_autoprovision() {
-        info!("[*]  Running LLM autoprovision...");
-        let result = run_full_autoprovision(|msg| {
-            info!("[P]  {}", msg);
-        });
-
-        if result.ollama_installed {
-            info!("[+]  Ollama was installed during autoprovision");
-        }
-        if !result.models_installed.is_empty() {
-            info!("[+]  Installed models: {:?}", result.models_installed);
-        }
-        info!(
-            "[+]  Selected: Junior={} (score {:.2}), Senior={} (score {:.2})",
-            result.selection.junior_model,
-            result.selection.junior_score,
-            result.selection.senior_model,
-            result.selection.senior_score
-        );
-        if !result.errors.is_empty() {
-            for err in &result.errors {
-                warn!("[!]  Autoprovision error: {}", err);
+    // Spawn package/binary discovery task (every 5 minutes)
+    let builder_discovery = Arc::clone(&builder);
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(DISCOVERY_COLLECTION_INTERVAL_SECS));
+        loop {
+            interval.tick().await;
+            let mut b = builder_discovery.write().await;
+            let before = b.store().total_objects();
+            b.collect_packages();
+            b.collect_binaries();
+            if let Err(e) = b.save() {
+                warn!("[!]  Failed to save discovery data: {}", e);
+            }
+            let after = b.store().total_objects();
+            if after > before {
+                info!("[+]  Discovery: {} new objects", after - before);
             }
         }
-
-        // Mark as initialized after successful autoprovision
-        if let Err(e) = mark_initialized() {
-            warn!("[!]  Failed to create initialization marker: {}", e);
-        }
-    } else {
-        // Not first run - load existing selection
-        let selection = LlmSelection::load();
-        info!(
-            "[L]  LLM Selection: Junior={} (score {:.2}), Senior={} (score {:.2})",
-            selection.junior_model,
-            selection.junior_score,
-            selection.senior_model,
-            selection.senior_score
-        );
-    }
-
-    // Start auto-update in background
-    tokio::spawn(async move {
-        scheduler_clone.start().await;
     });
 
-    // v0.11.0: Start brain background tasks
-    tokio::spawn(async move {
-        brain_clone.start_background_tasks().await;
-    });
-
-    // Start server
-    server::run(app_state).await
+    // Start HTTP server (minimal - just health endpoint)
+    info!("[*]  Starting HTTP server on 127.0.0.1:7865");
+    server::run_v5(app_state).await
 }
 
-/// v0.65.0: Set up a panic hook for robust error handling
-/// Ensures panics are logged and don't silently kill the daemon
+/// Set up a panic hook for robust error handling
 fn setup_panic_hook() {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
-        // Log the panic with full details
         let location = panic_info
             .location()
             .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
@@ -240,15 +139,12 @@ fn setup_panic_hook() {
             "unknown panic".to_string()
         };
 
-        // Write to stderr (will be captured by systemd)
         eprintln!();
-        eprintln!("[!!!]  PANIC in Anna Daemon");
+        eprintln!("[!!!]  PANIC in Anna Daemon v5");
         eprintln!("[!!!]  Location: {}", location);
         eprintln!("[!!!]  Message: {}", message);
-        eprintln!("[!!!]  v0.65.0: Daemon will exit. Check journalctl -u annad for details.");
         eprintln!();
 
-        // Also call the default hook for backtrace
         default_hook(panic_info);
     }));
 }
