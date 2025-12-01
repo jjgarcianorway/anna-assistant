@@ -1,4 +1,4 @@
-//! Status Command v7.12.0 - Config Intelligence and Log Literacy
+//! Status Command v7.13.0 - Config Intelligence and Log Literacy
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
@@ -24,6 +24,7 @@ use anna_common::config::{AnnaConfig, UpdateState, SYSTEM_CONFIG_DIR, DATA_DIR};
 use anna_common::format_duration_secs;
 use anna_common::{TelemetryDb, DataStatus, WINDOW_24H, format_bytes_human};
 use anna_common::grounded::health::{collect_hardware_alerts, HealthStatus};
+use anna_common::grounded::network::get_network_summary;
 use anna_common::{AnnaNeeds, NeedStatus};
 use anna_common::{OpsLogReader, INTERNAL_DIR, OPS_LOG_FILE};
 
@@ -359,6 +360,10 @@ fn print_inventory_section(stats: &Option<DaemonStats>) {
             println!("  Commands:   {}  {}", s.commands_count, "(from $PATH)".dimmed());
             println!("  Services:   {}  {}", s.services_count, "(from systemctl)".dimmed());
 
+            // v7.13.0: Network summary
+            let net_summary = get_network_summary();
+            println!("  Network:    {}  {}", net_summary.format_compact(), "(from /sys/class/net)".dimmed());
+
             // Sync status
             let sync_str = match s.last_scan_secs_ago {
                 Some(secs) if secs < 60 => {
@@ -380,6 +385,7 @@ fn print_inventory_section(stats: &Option<DaemonStats>) {
             println!("  Packages:   -");
             println!("  Commands:   -");
             println!("  Services:   -");
+            println!("  Network:    -");
             println!("  Sync:       {}", "(daemon not running)".dimmed());
         }
     }

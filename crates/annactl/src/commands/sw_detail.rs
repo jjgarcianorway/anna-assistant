@@ -1,17 +1,18 @@
-//! SW Detail Command v7.12.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.13.0 - Software Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
 //! 2. Category overview (list of objects)
 //!
 //! Sections per profile:
-//! - [IDENTITY]   Name, Type, Description with source
-//! - [PACKAGE]    Version, source, size, date
-//! - [COMMAND]    Path, man description
-//! - [SERVICE]    Unit, state, enabled
-//! - [CONFIG]     Primary/Secondary/Notes structure with proper precedence (v7.12.0)
-//! - [LOGS]       Full deduplication, no truncation, unit-scoped (v7.12.0)
-//! - [TELEMETRY]  Real windows (1h, 24h, 7d, 30d) with State summary line (v7.12.0)
+//! - [IDENTITY]     Name, Type, Description with source
+//! - [PACKAGE]      Version, source, size, date
+//! - [COMMAND]      Path, man description
+//! - [SERVICE]      Unit, state, enabled
+//! - [DEPENDENCIES] Package deps and service relations (v7.13.0)
+//! - [CONFIG]       Primary/Secondary/Notes structure with proper precedence (v7.12.0)
+//! - [LOGS]         Full deduplication, no truncation, unit-scoped (v7.12.0)
+//! - [TELEMETRY]    Real windows (1h, 24h, 7d, 30d) with State summary line (v7.12.0)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -25,6 +26,7 @@ use anna_common::grounded::{
     config::{discover_config_info, discover_service_config},
     category::get_category,
     categoriser::{normalize_category, packages_in_category},
+    deps::{get_package_deps, get_service_deps},
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -376,6 +378,9 @@ fn print_package_profile(pkg: &Package) {
 
     println!();
 
+    // [DEPENDENCIES] - v7.13.0
+    print_package_dependencies_section(&pkg.name);
+
     // [CONFIG] - discovered config files
     print_config_section(&pkg.name);
 
@@ -412,6 +417,10 @@ fn print_command_profile(cmd: &SystemCommand) {
     }
 
     println!();
+
+    // [DEPENDENCIES] - v7.13.0 (use package name if available)
+    let deps_name = cmd.owning_package.as_deref().unwrap_or(&cmd.name);
+    print_package_dependencies_section(deps_name);
 
     // [CONFIG]
     print_config_section(&cmd.name);
@@ -452,6 +461,9 @@ fn print_service_profile(svc: &Service, name: &str) {
         println!("  Version:     {}", pkg.version);
         println!();
     }
+
+    // [DEPENDENCIES] - v7.13.0
+    print_service_dependencies_section(name);
 
     // [CONFIG]
     print_service_config_section(name);
@@ -1243,5 +1255,124 @@ fn get_service_error_count(unit_name: &str) -> usize {
     }
 
     0
+}
+
+// ============================================================================
+// v7.13.0: Dependency Section
+// ============================================================================
+
+/// Print [DEPENDENCIES] section for packages - v7.13.0
+fn print_package_dependencies_section(name: &str) {
+    let pkg_deps = get_package_deps(name);
+    let svc_deps = get_service_deps(name);
+
+    // Only show if we have some data
+    if !pkg_deps.has_data() && !svc_deps.has_data() {
+        return;
+    }
+
+    println!("{}", "[DEPENDENCIES]".cyan());
+
+    // Package dependencies
+    if pkg_deps.has_data() {
+        println!("  Direct package deps:");
+        let deps_display = if pkg_deps.direct.is_empty() {
+            "none".to_string()
+        } else {
+            pkg_deps.direct.join(", ")
+        };
+        println!("    {}", deps_display);
+
+        // Show optional deps if any (limited)
+        if !pkg_deps.optional.is_empty() {
+            println!("    {} {}", "optional:".dimmed(), pkg_deps.optional.join(", ").dimmed());
+        }
+    }
+
+    // Service relations (if this package has a service)
+    if svc_deps.has_data() {
+        println!();
+        println!("  Service relations:");
+
+        if !svc_deps.requires.is_empty() {
+            println!("    Requires:  {}", svc_deps.requires.join(", "));
+        }
+        if !svc_deps.wants.is_empty() {
+            println!("    Wants:     {}", svc_deps.wants.join(", "));
+        }
+        if !svc_deps.part_of.is_empty() {
+            println!("    Part of:   {}", svc_deps.part_of.join(", "));
+        }
+        if !svc_deps.wanted_by.is_empty() {
+            println!("    WantedBy:  {}", svc_deps.wanted_by.join(", "));
+        }
+    }
+
+    println!();
+    println!("  Notes:");
+    println!("    - Package dependencies from pacman.");
+    if svc_deps.has_data() {
+        println!("    - Service dependencies from systemctl show.");
+    }
+    println!("    {}", format!("Source: {}", pkg_deps.source).dimmed());
+
+    println!();
+}
+
+/// Print [DEPENDENCIES] section for services - v7.13.0
+fn print_service_dependencies_section(name: &str) {
+    let base_name = name.trim_end_matches(".service");
+    let svc_deps = get_service_deps(name);
+    let pkg_deps = get_package_deps(base_name);
+
+    // Only show if we have some data
+    if !svc_deps.has_data() && !pkg_deps.has_data() {
+        return;
+    }
+
+    println!("{}", "[DEPENDENCIES]".cyan());
+
+    // Package dependencies (if there's an associated package)
+    if pkg_deps.has_data() {
+        println!("  Direct package deps:");
+        let deps_display = if pkg_deps.direct.is_empty() {
+            "none".to_string()
+        } else {
+            pkg_deps.direct.join(", ")
+        };
+        println!("    {}", deps_display);
+        println!();
+    }
+
+    // Service relations
+    if svc_deps.has_data() {
+        println!("  Service relations:");
+
+        if !svc_deps.requires.is_empty() {
+            println!("    Requires:  {}", svc_deps.requires.join(", "));
+        }
+        if !svc_deps.wants.is_empty() {
+            println!("    Wants:     {}", svc_deps.wants.join(", "));
+        }
+        if !svc_deps.part_of.is_empty() {
+            println!("    Part of:   {}", svc_deps.part_of.join(", "));
+        }
+        if !svc_deps.wanted_by.is_empty() {
+            println!("    WantedBy:  {}", svc_deps.wanted_by.join(", "));
+        }
+        if !svc_deps.required_by.is_empty() {
+            println!("    RequiredBy: {}", svc_deps.required_by.join(", "));
+        }
+    }
+
+    println!();
+    println!("  Notes:");
+    if pkg_deps.has_data() {
+        println!("    - Package dependencies from pacman.");
+    }
+    println!("    - Service dependencies from systemctl show.");
+    println!("    {}", format!("Source: {}", svc_deps.source).dimmed());
+
+    println!();
 }
 

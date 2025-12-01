@@ -1,4 +1,4 @@
-//! Grounded Knowledge System v7.5.0
+//! Grounded Knowledge System v7.13.0
 //!
 //! Every piece of data has a verifiable source.
 //! No invented numbers. No hallucinated descriptions.
@@ -6,6 +6,7 @@
 //! Rule-based categories from descriptions and metadata.
 //! Driver and firmware status from /sys and kernel logs.
 //! Hardware health from sensors, SMART, kernel logs.
+//! v7.13.0: Dependency graph and network awareness.
 
 pub mod packages;
 pub mod commands;
@@ -17,6 +18,8 @@ pub mod arch_wiki;
 pub mod categoriser;
 pub mod drivers;
 pub mod health;
+pub mod deps;
+pub mod network;
 
 pub use packages::*;
 pub use commands::*;
@@ -28,3 +31,5 @@ pub use arch_wiki::*;
 pub use categoriser::*;
 pub use drivers::*;
 pub use health::*;
+pub use deps::*;
+pub use network::*;

@@ -1,8 +1,8 @@
-# Anna v7.12.0 "Config Intelligence and Log Literacy"
+# Anna v7.13.0 "Dependency Graph and Network Awareness"
 
 **System Intelligence Daemon for Linux**
 
-> v7.12.0: Primary/Secondary config structure, full log deduplication with no truncation, telemetry State summaries, ops.log for internal operations.
+> v7.13.0: Dependency graph for packages/services/drivers, network awareness (interfaces, traffic, link state), `[DEPENDENCIES]` in sw and hw profiles, `[INTERFACES]` in hw network profiles.
 
 ---
 
@@ -59,6 +59,73 @@ annactl hw cpu
 annactl hw gpu
 annactl hw storage
 annactl hw network
+```
+
+---
+
+## v7.13.0 Features
+
+### [DEPENDENCIES] in Software Profiles
+
+Software profiles now show dependency relationships:
+
+```
+[DEPENDENCIES]
+  (sources: pacman -Qi, pactree, systemctl show)
+
+  Package deps:
+    glibc, openssl, curl, libssh2, gpgme, archlinux-keyring
+  Service relations:
+    Requires:   dbus.service
+    Wants:      network-online.target
+    WantedBy:   multi-user.target
+```
+
+### [DEPENDENCIES] in Hardware Profiles
+
+Hardware profiles show kernel module dependencies and related services:
+
+```
+[DEPENDENCIES]
+  (sources: lsmod, modinfo, systemctl)
+
+  Driver module chain:
+    iwlwifi  ->  cfg80211
+  Used by:
+    iwlmvm
+  Related services:
+    NetworkManager.service [active]
+    wpa_supplicant.service [active]
+```
+
+### [INTERFACES] in Network Profiles
+
+Network hardware profiles show interface details with traffic:
+
+```
+[INTERFACES]
+  (sources: /sys/class/net, ip addr)
+
+  wlp0s20f3:
+    Type:       wifi
+    Driver:     iwlwifi
+    MAC:        f8:fe:5e:8d:a4:28
+    State:      connected
+    IP:         192.168.1.42/24
+    Traffic:    RX 1.6 GiB / TX 7.7 GiB (since boot)
+```
+
+### Network Summary in Status
+
+Status inventory now includes network interface summary:
+
+```
+[INVENTORY]
+  Packages:   970  (from pacman -Q)
+  Commands:   2654  (from $PATH)
+  Services:   260  (from systemctl)
+  Network:    1 interfaces (wifi: wlp0s20f3 [up])  (from /sys/class/net)
+  Sync:       OK (last full scan 4m ago)
 ```
 
 ---
@@ -138,7 +205,7 @@ annactl hw network
 ------------------------------------------------------------
 
 [VERSION]
-  Anna:       v7.12.0
+  Anna:       v7.13.0
 
 [DAEMON]
   Status:     running
@@ -156,6 +223,7 @@ annactl hw network
   Packages:   972
   Commands:   2656
   Services:   260
+  Network:    1 interfaces (wifi: wlp0s20f3 [up])
   Sync:       OK (last full scan 45s ago)
 
 [TELEMETRY]
@@ -272,8 +340,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.12.0/annad-7.12.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.12.0/annactl-7.12.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.13.0/annad-7.13.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.13.0/annactl-7.13.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 

@@ -1,16 +1,22 @@
-//! CLI integration tests for annactl v7.11.0 "Honest Telemetry and Trends"
+//! CLI integration tests for annactl v7.13.0 "Dependency Graph and Network Awareness"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
-//! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS] (v7.11.0), [ANNA NEEDS]
+//! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [ANNA NEEDS], Network in [INVENTORY]
 //! - annactl sw        software overview with [CATEGORIES] - no duplicates
-//! - annactl sw NAME   software profile with [CONFIG], [TELEMETRY] + health notes (v7.11.0), [LOGS]
-//! - annactl hw        hardware overview with [COMPONENTS], [HW TELEMETRY] (v7.11.0)
-//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER] with module/package
+//! - annactl sw NAME   software profile with [CONFIG], [TELEMETRY], [LOGS], [DEPENDENCIES] (v7.13.0)
+//! - annactl hw        hardware overview with [COMPONENTS], [HW TELEMETRY]
+//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER], [DEPENDENCIES] (v7.13.0), [INTERFACES] (v7.13.0)
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
+//!
+//! Snow Leopard v7.13.0 tests:
+//! - [DEPENDENCIES] section in sw NAME profiles (package, service, module deps)
+//! - [DEPENDENCIES] section in hw wifi/ethernet profiles (module chain, related services)
+//! - [INTERFACES] section in hw wifi/ethernet profiles with State/IP/Traffic
+//! - Network summary in status [INVENTORY] section
 //!
 //! Snow Leopard v7.11.0 tests:
 //! - [RESOURCE HOTSPOTS] section in status with health notes
@@ -2212,5 +2218,361 @@ fn test_snow_leopard_hw_telemetry_state_v712() {
         );
     }
 
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.13.0: Snow Leopard Dependency Graph and Network Awareness Tests
+// ============================================================================
+
+/// Test sw NAME shows [DEPENDENCIES] section (v7.13.0)
+#[test]
+fn test_snow_leopard_sw_dependencies_section_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test with NetworkManager (should have package and service deps)
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: SW profile should show [DEPENDENCIES] section
+    assert!(
+        stdout.contains("[DEPENDENCIES]"),
+        "Expected [DEPENDENCIES] section in sw profile, got: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test sw NAME [DEPENDENCIES] shows Package dependencies (v7.13.0)
+#[test]
+fn test_snow_leopard_sw_dependencies_package_deps_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "pacman"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: [DEPENDENCIES] should show Package deps subsection
+    if stdout.contains("[DEPENDENCIES]") {
+        assert!(
+            stdout.contains("package deps:") || stdout.contains("Package deps:"),
+            "[DEPENDENCIES] should have 'package deps:' subsection: {}",
+            stdout
+        );
+        // Should show source attribution
+        assert!(
+            stdout.contains("pacman") || stdout.contains("pactree"),
+            "[DEPENDENCIES] should mention pacman/pactree source: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test sw service NAME [DEPENDENCIES] shows Service relations (v7.13.0)
+#[test]
+fn test_snow_leopard_sw_dependencies_service_relations_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager.service"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: Service [DEPENDENCIES] should show Service relations
+    if stdout.contains("[DEPENDENCIES]") {
+        assert!(
+            stdout.contains("Service relations:"),
+            "[DEPENDENCIES] should have 'Service relations:' subsection: {}",
+            stdout
+        );
+        // Should show relation types (Requires, Wants, Part of, WantedBy)
+        let has_relations = stdout.contains("Requires:")
+            || stdout.contains("Wants:")
+            || stdout.contains("Part of:")
+            || stdout.contains("WantedBy:");
+        assert!(
+            has_relations || stdout.contains("none"),
+            "[DEPENDENCIES] should show service relations or 'none': {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test hw wifi shows [DEPENDENCIES] section (v7.13.0)
+#[test]
+fn test_snow_leopard_hw_wifi_dependencies_section_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: hw wifi should show [DEPENDENCIES] section (if wifi exists)
+    if !stdout.contains("[NOT FOUND]") {
+        assert!(
+            stdout.contains("[DEPENDENCIES]"),
+            "hw wifi should have [DEPENDENCIES] section: {}",
+            stdout
+        );
+        // Should show module chain or module deps
+        let has_module_info = stdout.contains("Driver module chain:")
+            || stdout.contains("Module depends on:");
+        assert!(
+            has_module_info,
+            "[DEPENDENCIES] should show driver module info: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test hw wifi shows [INTERFACES] section with traffic (v7.13.0)
+#[test]
+fn test_snow_leopard_hw_wifi_interfaces_section_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: hw wifi should show [INTERFACES] section (if wifi exists)
+    if !stdout.contains("[NOT FOUND]") {
+        assert!(
+            stdout.contains("[INTERFACES]"),
+            "hw wifi should have [INTERFACES] section: {}",
+            stdout
+        );
+        // Should show interface details
+        assert!(
+            stdout.contains("Type:") && stdout.contains("State:"),
+            "[INTERFACES] should show Type and State: {}",
+            stdout
+        );
+        // Should show traffic if connected
+        if stdout.contains("connected") {
+            assert!(
+                stdout.contains("Traffic:") || stdout.contains("RX"),
+                "[INTERFACES] should show traffic for connected interface: {}",
+                stdout
+            );
+        }
+    }
+    assert!(output.status.success());
+}
+
+/// Test hw ethernet shows [DEPENDENCIES] and [INTERFACES] sections (v7.13.0)
+#[test]
+fn test_snow_leopard_hw_ethernet_sections_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "ethernet"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: If ethernet exists, should show sections
+    if !stdout.contains("[NOT FOUND]") {
+        assert!(
+            stdout.contains("[DEPENDENCIES]"),
+            "hw ethernet should have [DEPENDENCIES] section: {}",
+            stdout
+        );
+        assert!(
+            stdout.contains("[INTERFACES]"),
+            "hw ethernet should have [INTERFACES] section: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test status [INVENTORY] shows Network summary (v7.13.0)
+#[test]
+fn test_snow_leopard_status_inventory_network_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: [INVENTORY] should show Network line
+    if stdout.contains("[INVENTORY]") {
+        assert!(
+            stdout.contains("Network:"),
+            "[INVENTORY] should have Network: line: {}",
+            stdout
+        );
+        // Should show interface count and names
+        let has_network_info = stdout.contains("interfaces")
+            || stdout.contains("wifi")
+            || stdout.contains("ethernet")
+            || stdout.contains("no physical interfaces");
+        assert!(
+            has_network_info,
+            "Network: should show interface summary: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test [DEPENDENCIES] source attribution (v7.13.0)
+#[test]
+fn test_snow_leopard_dependencies_source_attribution_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "pacman"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: [DEPENDENCIES] should show source attribution
+    if stdout.contains("[DEPENDENCIES]") {
+        assert!(
+            stdout.contains("sources:") || stdout.contains("Source:") || stdout.contains("(from"),
+            "[DEPENDENCIES] should show source attribution: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test hw wifi [DEPENDENCIES] shows Related services (v7.13.0)
+#[test]
+fn test_snow_leopard_hw_dependencies_related_services_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: hw wifi [DEPENDENCIES] should show Related services
+    if !stdout.contains("[NOT FOUND]") && stdout.contains("[DEPENDENCIES]") {
+        // Should show Related services section (NetworkManager, wpa_supplicant, etc.)
+        let has_related = stdout.contains("Related services:")
+            || stdout.contains("NetworkManager")
+            || stdout.contains("wpa_supplicant");
+        assert!(
+            has_related,
+            "[DEPENDENCIES] should show related services for wifi: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test [INTERFACES] shows IP addresses (v7.13.0)
+#[test]
+fn test_snow_leopard_interfaces_show_ip_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: [INTERFACES] should show IP addresses for connected interfaces
+    if !stdout.contains("[NOT FOUND]") && stdout.contains("[INTERFACES]") {
+        if stdout.contains("connected") {
+            // Connected interfaces should show IP address
+            assert!(
+                stdout.contains("IP:"),
+                "[INTERFACES] should show IP: for connected interface: {}",
+                stdout
+            );
+        }
+    }
+    assert!(output.status.success());
+}
+
+/// Test no invented dependency data (v7.13.0)
+#[test]
+fn test_snow_leopard_no_invented_dependencies_v713() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "pacman"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.13.0: [DEPENDENCIES] should NOT contain placeholder or invented data
+    if stdout.contains("[DEPENDENCIES]") {
+        // Should not contain placeholder values
+        assert!(
+            !stdout.contains("TODO") && !stdout.contains("placeholder") && !stdout.contains("unknown dependency"),
+            "[DEPENDENCIES] should not contain placeholder data: {}",
+            stdout
+        );
+        // Should not contain random/invented package names
+        assert!(
+            !stdout.contains("libfoo") && !stdout.contains("libbar"),
+            "[DEPENDENCIES] should not contain invented package names: {}",
+            stdout
+        );
+    }
     assert!(output.status.success());
 }

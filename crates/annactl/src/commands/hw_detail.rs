@@ -1,18 +1,20 @@
-//! HW Detail Command v7.10.0 - Hardware Profiles with Health/Driver/Logs
+//! HW Detail Command v7.13.0 - Hardware Profiles with Health/Driver/Logs
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery)
 //! 2. Specific device profile (gpu0, nvme0n1, wlan0, enp3s0, audio0, wifi, ethernet)
 //!
 //! Profile sections:
-//! - [IDENTITY]   Device identification with Bus/Vendor info
-//! - [DRIVER]     Kernel module, loaded status, driver package, firmware (v7.10.0)
-//! - [HEALTH]     Real health metrics (temps, SMART, errors)
-//! - [SMART]      Disk-specific SMART data
-//! - [CAPACITY]   Battery-specific capacity/wear
-//! - [LINK]       Network-specific link state
-//! - [TELEMETRY]  Anna telemetry if available
-//! - [LOGS]       Deduplicated kernel messages with -p warning..alert (v7.10.0)
+//! - [IDENTITY]     Device identification with Bus/Vendor info
+//! - [DRIVER]       Kernel module, loaded status, driver package, firmware (v7.10.0)
+//! - [DEPENDENCIES] Module chain and related services (v7.13.0)
+//! - [INTERFACES]   Network interface details with state/IP (v7.13.0)
+//! - [HEALTH]       Real health metrics (temps, SMART, errors)
+//! - [SMART]        Disk-specific SMART data
+//! - [CAPACITY]     Battery-specific capacity/wear
+//! - [LINK]         Network-specific link state
+//! - [TELEMETRY]    Anna telemetry if available
+//! - [LOGS]         Deduplicated kernel messages with -p warning..alert (v7.10.0)
 //!
 //! All data from system tools:
 //! - lscpu, /proc/cpuinfo (CPU)
@@ -35,6 +37,10 @@ use anna_common::grounded::drivers::get_pci_device_by_class_index;
 use anna_common::grounded::health::{
     get_cpu_health, get_disk_health, get_battery_health,
     get_network_health, HealthStatus,
+};
+use anna_common::grounded::deps::{get_module_deps, get_driver_related_services};
+use anna_common::grounded::network::{
+    get_interfaces, InterfaceType, format_traffic,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -828,6 +834,17 @@ async fn run_wifi_profile() -> Result<()> {
         return Ok(());
     }
 
+    // [DEPENDENCIES] - v7.13.0
+    // Get the first wifi interface driver for dependencies
+    if let Some(first) = wifi_ifaces.first() {
+        if let Some(ref driver) = first.driver {
+            print_driver_dependencies_section(driver);
+        }
+    }
+
+    // [INTERFACES] - v7.13.0
+    print_interfaces_section(InterfaceType::WiFi);
+
     for iface in wifi_ifaces {
         println!("{}", "[IDENTITY]".cyan());
         println!("  Interface:   {}", iface.interface);
@@ -924,6 +941,17 @@ async fn run_ethernet_profile() -> Result<()> {
         println!();
         return Ok(());
     }
+
+    // [DEPENDENCIES] - v7.13.0
+    // Get the first ethernet interface driver for dependencies
+    if let Some(first) = eth_ifaces.first() {
+        if let Some(ref driver) = first.driver {
+            print_driver_dependencies_section(driver);
+        }
+    }
+
+    // [INTERFACES] - v7.13.0
+    print_interfaces_section(InterfaceType::Ethernet);
 
     for iface in eth_ifaces {
         println!("{}", "[IDENTITY]".cyan());
@@ -1075,6 +1103,11 @@ async fn run_network_interface_profile(name: &str) -> Result<()> {
     }
 
     println!();
+
+    // [DEPENDENCIES] - v7.13.0
+    if let Some(ref drv) = driver_name {
+        print_driver_dependencies_section(drv);
+    }
 
     // [LINK]
     println!("{}", "[LINK]".cyan());
@@ -1621,3 +1654,101 @@ fn get_gpu_firmware_files(driver_name: &str) -> Vec<(String, bool)> {
 
     files
 }
+
+// ============================================================================
+// v7.13.0 Helper Functions for [DEPENDENCIES] and [INTERFACES] sections
+// ============================================================================
+
+/// Print [DEPENDENCIES] section for network drivers - v7.13.0
+fn print_driver_dependencies_section(driver_name: &str) {
+    println!("{}", "[DEPENDENCIES]".cyan());
+    println!("  {}", "(sources: lsmod, modinfo, systemctl)".dimmed());
+    println!();
+
+    // Get module dependencies
+    let mod_deps = get_module_deps(driver_name);
+
+    // Module chain
+    if !mod_deps.chain.is_empty() {
+        println!("  Driver module chain:");
+        println!("    {}", mod_deps.format_chain());
+    } else if !mod_deps.depends.is_empty() {
+        println!("  Module depends on:");
+        println!("    {}", mod_deps.depends.join(", "));
+    } else {
+        println!("  Module depends on:  {}", "none".dimmed());
+    }
+
+    // Used by
+    if !mod_deps.used_by.is_empty() {
+        println!("  Used by:");
+        println!("    {}", mod_deps.used_by.join(", "));
+    }
+
+    // Related services
+    let related_services = get_driver_related_services(driver_name);
+    if !related_services.is_empty() {
+        println!("  Related services:");
+        for svc in &related_services {
+            println!("    {} {}", svc, "[active]".green());
+        }
+    }
+
+    println!();
+}
+
+/// Print [INTERFACES] section with network interfaces - v7.13.0
+fn print_interfaces_section(iface_type: InterfaceType) {
+    println!("{}", "[INTERFACES]".cyan());
+    println!("  {}", "(sources: /sys/class/net, ip addr)".dimmed());
+    println!();
+
+    let interfaces = get_interfaces();
+    let filtered: Vec<_> = interfaces.iter()
+        .filter(|i| i.iface_type == iface_type)
+        .collect();
+
+    if filtered.is_empty() {
+        println!("  (no {} interfaces detected)", iface_type.as_str());
+        println!();
+        return;
+    }
+
+    for iface in filtered {
+        println!("  {}:", iface.name.cyan());
+
+        // Type and driver
+        println!("    Type:       {}", iface.iface_type.as_str());
+        if let Some(ref driver) = iface.driver {
+            println!("    Driver:     {}", driver);
+        }
+
+        // MAC
+        if let Some(ref mac) = iface.mac {
+            println!("    MAC:        {}", mac);
+        }
+
+        // State
+        let state_str = match iface.state {
+            anna_common::grounded::network::LinkState::Up => "connected".green().to_string(),
+            anna_common::grounded::network::LinkState::Down => "disconnected".red().to_string(),
+            anna_common::grounded::network::LinkState::Unknown => "unknown".dimmed().to_string(),
+        };
+        println!("    State:      {}", state_str);
+
+        // IP addresses
+        if !iface.ip_addrs.is_empty() {
+            println!("    IP:         {}", iface.ip_addrs.join(", "));
+        }
+
+        // Traffic (since boot)
+        if iface.rx_bytes > 0 || iface.tx_bytes > 0 {
+            println!("    Traffic:    RX {} / TX {} (since boot)",
+                format_traffic(iface.rx_bytes),
+                format_traffic(iface.tx_bytes));
+        }
+
+        println!();
+    }
+}
+
