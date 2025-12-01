@@ -69,14 +69,32 @@ pub struct TelemetryDb {
 }
 
 impl TelemetryDb {
-    /// Open or create the telemetry database
+    /// Open or create the telemetry database (for daemon use)
     pub fn open() -> Result<Self> {
         Self::open_at(TELEMETRY_DB_PATH)
     }
 
-    /// Open at a specific path (for testing)
+    /// Open database read-only (for CLI use)
+    /// Returns None if file doesn't exist or can't be opened
+    pub fn open_readonly() -> Option<Self> {
+        let path = Path::new(TELEMETRY_DB_PATH);
+        if !path.exists() {
+            return None;
+        }
+        // Open with read-only flag
+        let conn = Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+        ).ok()?;
+        Some(Self { conn })
+    }
+
+    /// Open at a specific path (for testing or daemon)
     pub fn open_at<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let conn = Connection::open(path.as_ref())?;
+        let path_ref = path.as_ref();
+        let is_new = !path_ref.exists();
+
+        let conn = Connection::open(path_ref)?;
 
         // Enable WAL mode for better concurrent access
         conn.execute_batch("PRAGMA journal_mode=WAL;")?;
@@ -103,6 +121,16 @@ impl TelemetryDb {
             );
             "#
         )?;
+
+        // Set world-readable permissions so annactl can read
+        // (only on new database creation)
+        if is_new {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(path_ref, std::fs::Permissions::from_mode(0o644));
+            }
+        }
 
         Ok(Self { conn })
     }

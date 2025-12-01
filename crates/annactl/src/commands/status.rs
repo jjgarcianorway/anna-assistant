@@ -127,9 +127,9 @@ fn print_inventory_section(stats: &Option<DaemonStats>) {
 fn print_telemetry_section() {
     println!("{}", "[TELEMETRY]".cyan());
 
-    // Try to open telemetry database
-    match TelemetryDb::open() {
-        Ok(db) => {
+    // Try to open telemetry database (read-only for CLI)
+    match TelemetryDb::open_readonly() {
+        Some(db) => {
             match db.get_stats() {
                 Ok(stats) => {
                     if stats.total_samples == 0 {
@@ -158,7 +158,7 @@ fn print_telemetry_section() {
                 }
             }
         }
-        Err(_) => {
+        None => {
             println!("  {}", "(telemetry DB not available)".dimmed());
         }
     }
