@@ -1,4 +1,10 @@
-//! Error Index v5.2.0 - Universal Error Model
+//! Error Index v5.2.2 - Precise Error & Intrusion Logs
+//!
+//! v5.2.2: Errors must be concrete, not generic:
+//! - Every error grouped by service/unit/component
+//! - Count, cause summary, and example line for each
+//! - source_ip and username extraction for intrusion patterns
+//! - No generic "check logs" messages - every line traceable
 //!
 //! Every object in Anna's knowledge inventory must include:
 //! - Errors, Warnings, Failures, Misconfigurations
@@ -268,6 +274,17 @@ impl ErrorType {
             return ErrorType::ServiceFailure;
         }
 
+        // v5.2.2: Intrusion/auth errors
+        if lower.contains("authentication failure")
+            || lower.contains("failed password")
+            || lower.contains("invalid user")
+            || lower.contains("failed login")
+            || lower.contains("not in sudoers")
+            || lower.contains("pam:")
+        {
+            return ErrorType::Intrusion;
+        }
+
         ErrorType::Other
     }
 }
@@ -275,6 +292,45 @@ impl ErrorType {
 // ============================================================================
 // Log Entry
 // ============================================================================
+
+/// Log entry category (v5.2.2)
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LogCategory {
+    /// Intrusion or authentication failure
+    Intrusion,
+    /// Service failure (startup, crash, etc.)
+    Failure,
+    /// Configuration issue
+    Config,
+    /// Network related
+    Network,
+    /// Other/unclassified
+    Other,
+}
+
+impl LogCategory {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LogCategory::Intrusion => "intrusion",
+            LogCategory::Failure => "failure",
+            LogCategory::Config => "config",
+            LogCategory::Network => "network",
+            LogCategory::Other => "other",
+        }
+    }
+
+    /// Detect category from error type
+    pub fn from_error_type(error_type: &ErrorType) -> Self {
+        match error_type {
+            ErrorType::Intrusion => LogCategory::Intrusion,
+            ErrorType::ServiceFailure | ErrorType::Crash | ErrorType::Segfault => LogCategory::Failure,
+            ErrorType::Configuration => LogCategory::Config,
+            ErrorType::Network => LogCategory::Network,
+            _ => LogCategory::Other,
+        }
+    }
+}
 
 /// A single log entry from journalctl
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -299,6 +355,18 @@ pub struct LogEntry {
 
     /// Source (journalctl, dmesg, etc.)
     pub source: String,
+
+    /// v5.2.2: Category (intrusion, failure, config, network, other)
+    #[serde(default)]
+    pub category: Option<LogCategory>,
+
+    /// v5.2.2: Source IP (if extracted)
+    #[serde(default)]
+    pub source_ip: Option<String>,
+
+    /// v5.2.2: Username (if extracted)
+    #[serde(default)]
+    pub username: Option<String>,
 }
 
 impl LogEntry {
@@ -310,6 +378,13 @@ impl LogEntry {
             None
         };
 
+        // v5.2.2: Derive category from error type
+        let category = error_type.as_ref().map(LogCategory::from_error_type);
+
+        // v5.2.2: Extract IP and username
+        let source_ip = Self::extract_ip(&message);
+        let username = Self::extract_username(&message);
+
         Self {
             timestamp,
             severity,
@@ -318,6 +393,9 @@ impl LogEntry {
             pid: None,
             error_type,
             source: "journalctl".to_string(),
+            category,
+            source_ip,
+            username,
         }
     }
 
@@ -345,6 +423,13 @@ impl LogEntry {
             None
         };
 
+        // v5.2.2: Derive category
+        let category = error_type.as_ref().map(LogCategory::from_error_type);
+
+        // v5.2.2: Extract IP and username
+        let source_ip = Self::extract_ip(&message);
+        let username = Self::extract_username(&message);
+
         let unit = json
             .get("_SYSTEMD_UNIT")
             .and_then(|v| v.as_str())
@@ -363,7 +448,50 @@ impl LogEntry {
             pid,
             error_type,
             source: "journalctl".to_string(),
+            category,
+            source_ip,
+            username,
         })
+    }
+
+    /// v5.2.2: Extract IP address from message
+    fn extract_ip(message: &str) -> Option<String> {
+        // IPv4 pattern
+        let re = regex::Regex::new(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})").ok()?;
+        re.captures(message)
+            .and_then(|caps| caps.get(1))
+            .map(|m| m.as_str().to_string())
+            .filter(|ip| {
+                // Filter out localhost
+                ip != "127.0.0.1" && ip != "0.0.0.0"
+            })
+    }
+
+    /// v5.2.2: Extract username from message
+    fn extract_username(message: &str) -> Option<String> {
+        // Common patterns
+        let patterns = [
+            r#"user[=:\s]+['"]*(\w+)['"]*"#,
+            r"for\s+(\w+)\s+from",
+            r"Invalid user (\w+)",
+            r"USER=(\w+)",
+            r"authenticating user (\w+)",
+        ];
+
+        for pattern in &patterns {
+            if let Ok(re) = regex::Regex::new(pattern) {
+                if let Some(caps) = re.captures(message) {
+                    if let Some(user) = caps.get(1) {
+                        let username = user.as_str().to_string();
+                        // Filter out false positives
+                        if !["from", "for", "the", "a", "an"].contains(&username.as_str()) {
+                            return Some(username);
+                        }
+                    }
+                }
+            }
+        }
+        None
     }
 
     /// Format for display
@@ -491,6 +619,107 @@ impl ObjectErrors {
         } else {
             false
         }
+    }
+
+    /// v5.2.2: Get errors in the last 24 hours
+    pub fn errors_24h(&self) -> Vec<&LogEntry> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let cutoff = now.saturating_sub(86400);
+
+        self.logs
+            .iter()
+            .filter(|l| l.timestamp >= cutoff && l.severity.is_error())
+            .collect()
+    }
+
+    /// v5.2.2: Get warnings in the last 24 hours
+    pub fn warnings_24h(&self) -> Vec<&LogEntry> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let cutoff = now.saturating_sub(86400);
+
+        self.logs
+            .iter()
+            .filter(|l| l.timestamp >= cutoff && l.severity == LogSeverity::Warning)
+            .collect()
+    }
+
+    /// v5.2.2: Derive a cause summary from errors
+    pub fn derive_cause_summary(&self) -> String {
+        // Look at most common error type
+        if self.error_counts.is_empty() {
+            return "unknown".to_string();
+        }
+
+        // Find the most common error type
+        let top_type = self
+            .error_counts
+            .iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(t, _)| t);
+
+        match top_type {
+            Some(ErrorType::Permission) => "permission denied".to_string(),
+            Some(ErrorType::MissingFile) => "missing file or directory".to_string(),
+            Some(ErrorType::Configuration) => "configuration error".to_string(),
+            Some(ErrorType::ServiceFailure) => "service failure".to_string(),
+            Some(ErrorType::Crash) => "process crash".to_string(),
+            Some(ErrorType::Segfault) => "segmentation fault".to_string(),
+            Some(ErrorType::Network) => "network error".to_string(),
+            Some(ErrorType::Resource) => "resource exhaustion".to_string(),
+            Some(ErrorType::Timeout) => "timeout".to_string(),
+            Some(ErrorType::Dependency) => "dependency failure".to_string(),
+            Some(ErrorType::Intrusion) => "authentication failure".to_string(),
+            _ => {
+                // Try to extract cause from recent error message
+                if let Some(entry) = self.errors_only().last() {
+                    let msg = entry.message.to_lowercase();
+                    if msg.contains("failed to start") {
+                        "startup failure".to_string()
+                    } else if msg.contains("entered failed state") {
+                        "unit failed".to_string()
+                    } else if msg.contains("auth") {
+                        "authentication failure".to_string()
+                    } else {
+                        "error".to_string()
+                    }
+                } else {
+                    "unknown".to_string()
+                }
+            }
+        }
+    }
+
+    /// v5.2.2: Get an example error message (first error in recent logs)
+    pub fn example_error(&self) -> Option<&str> {
+        self.errors_only().last().map(|e| e.message.as_str())
+    }
+
+    /// v5.2.2: Get usage-related errors (permission denied on files)
+    pub fn usage_errors(&self) -> Vec<&LogEntry> {
+        self.logs
+            .iter()
+            .filter(|l| {
+                l.severity.is_error()
+                    && l.error_type.as_ref().map(|t| t == &ErrorType::Permission).unwrap_or(false)
+            })
+            .collect()
+    }
+
+    /// v5.2.2: Get config-related errors
+    pub fn config_errors(&self) -> Vec<&LogEntry> {
+        self.logs
+            .iter()
+            .filter(|l| {
+                l.severity.is_error()
+                    && l.error_type.as_ref().map(|t| t == &ErrorType::Configuration).unwrap_or(false)
+            })
+            .collect()
     }
 }
 
@@ -651,6 +880,70 @@ impl ErrorIndex {
         }
         results
     }
+
+    /// v5.2.2: Get grouped error summary for global view
+    /// Returns: Vec of (service_name, error_count_24h, cause_summary, example_message)
+    pub fn grouped_errors_24h(&self) -> Vec<GroupedErrorSummary> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let cutoff = now.saturating_sub(86400);
+
+        let mut summaries = Vec::new();
+
+        for (name, obj) in &self.objects {
+            let errors_24h: Vec<_> = obj.logs
+                .iter()
+                .filter(|l| l.timestamp >= cutoff && l.severity.is_error())
+                .collect();
+
+            if errors_24h.is_empty() {
+                continue;
+            }
+
+            let count = errors_24h.len() as u64;
+            let cause = obj.derive_cause_summary();
+            let example = errors_24h.last().map(|e| e.message.clone());
+
+            summaries.push(GroupedErrorSummary {
+                service_name: name.clone(),
+                error_count: count,
+                cause_summary: cause,
+                example_message: example,
+            });
+        }
+
+        // Sort by error count descending
+        summaries.sort_by(|a, b| b.error_count.cmp(&a.error_count));
+        summaries
+    }
+
+    /// v5.2.2: Get services with errors in last 24h
+    pub fn services_with_errors_24h(&self) -> Vec<&str> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let cutoff = now.saturating_sub(86400);
+
+        self.objects
+            .iter()
+            .filter(|(_, obj)| {
+                obj.logs.iter().any(|l| l.timestamp >= cutoff && l.severity.is_error())
+            })
+            .map(|(name, _)| name.as_str())
+            .collect()
+    }
+}
+
+/// v5.2.2: Grouped error summary for display
+#[derive(Debug, Clone)]
+pub struct GroupedErrorSummary {
+    pub service_name: String,
+    pub error_count: u64,
+    pub cause_summary: String,
+    pub example_message: Option<String>,
 }
 
 // ============================================================================

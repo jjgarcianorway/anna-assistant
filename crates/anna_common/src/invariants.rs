@@ -1755,4 +1755,162 @@ mod tests {
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].unit_name, "sshd.service");
     }
+
+    // ==========================================================================
+    // v5.2.2: Precise Error & Intrusion Log Invariants
+    // ==========================================================================
+
+    #[test]
+    fn test_log_entry_ip_extraction() {
+        // LogEntry must extract source IP from messages
+        use crate::error_index::{LogEntry, LogSeverity};
+
+        let entry = LogEntry::new(
+            1700000000,
+            LogSeverity::Error,
+            "Failed password for invalid user admin from 192.168.1.100 port 22".to_string(),
+        );
+
+        assert_eq!(entry.source_ip, Some("192.168.1.100".to_string()));
+    }
+
+    #[test]
+    fn test_log_entry_username_extraction() {
+        // LogEntry must extract username from messages
+        use crate::error_index::{LogEntry, LogSeverity};
+
+        let entry = LogEntry::new(
+            1700000000,
+            LogSeverity::Error,
+            "Invalid user testuser from 10.0.0.1".to_string(),
+        );
+
+        assert_eq!(entry.username, Some("testuser".to_string()));
+    }
+
+    #[test]
+    fn test_log_entry_category_derivation() {
+        // LogEntry must derive category from error type
+        use crate::error_index::{LogEntry, LogSeverity, LogCategory};
+
+        let entry = LogEntry::new(
+            1700000000,
+            LogSeverity::Error,
+            "Authentication failure for user root".to_string(),
+        );
+
+        assert!(entry.category.is_some());
+        assert_eq!(entry.category.unwrap(), LogCategory::Intrusion);
+    }
+
+    #[test]
+    fn test_object_errors_derive_cause_summary() {
+        // ObjectErrors must derive meaningful cause summaries
+        use crate::error_index::{ObjectErrors, LogEntry, LogSeverity, ErrorType};
+
+        let mut obj = ObjectErrors::new("sshd");
+
+        // Add an intrusion error
+        let mut entry = LogEntry::new(
+            1700000000,
+            LogSeverity::Error,
+            "PAM: Authentication failure".to_string(),
+        );
+        entry.error_type = Some(ErrorType::Intrusion);
+        obj.add_log(entry);
+
+        let cause = obj.derive_cause_summary();
+        assert_eq!(cause, "authentication failure");
+    }
+
+    #[test]
+    fn test_grouped_error_summary() {
+        // ErrorIndex must produce grouped error summaries
+        use crate::error_index::{ErrorIndex, LogEntry, LogSeverity};
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let mut index = ErrorIndex::new();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Add recent errors
+        let entry1 = LogEntry::new(now - 1000, LogSeverity::Error, "Error 1".to_string());
+        let entry2 = LogEntry::new(now - 2000, LogSeverity::Error, "Error 2".to_string());
+        index.add_log("sshd", entry1);
+        index.add_log("sshd", entry2);
+
+        let summaries = index.grouped_errors_24h();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].service_name, "sshd");
+        assert_eq!(summaries[0].error_count, 2);
+    }
+
+    #[test]
+    fn test_intrusion_analysis_entry() {
+        // IntrusionIndex must produce detailed analysis per IP
+        use crate::intrusion::IntrusionIndex;
+
+        let mut index = IntrusionIndex::new();
+
+        // Add intrusion events from same IP
+        index.check_message(
+            "Failed password for admin from 192.168.1.50 port 22",
+            "sshd",
+            Some("sshd"),
+        );
+        index.check_message(
+            "Failed password for root from 192.168.1.50 port 22",
+            "sshd",
+            Some("sshd"),
+        );
+
+        let analysis = index.intrusion_analysis_for_service("sshd");
+        assert_eq!(analysis.len(), 1);
+        assert_eq!(analysis[0].source_ip, "192.168.1.50");
+        assert_eq!(analysis[0].attempt_count, 2);
+    }
+
+    #[test]
+    fn test_intrusion_grouped_by_service() {
+        // IntrusionIndex must group by service and IP
+        use crate::intrusion::IntrusionIndex;
+
+        let mut index = IntrusionIndex::new();
+
+        index.check_message(
+            "Failed password for user from 10.0.0.1 port 22",
+            "sshd",
+            Some("sshd"),
+        );
+
+        let grouped = index.grouped_intrusions_by_service_24h();
+        assert!(!grouped.is_empty());
+        assert_eq!(grouped[0].service_name, "sshd");
+    }
+
+    #[test]
+    fn test_object_errors_24h_filtering() {
+        // ObjectErrors must filter errors by 24h window
+        use crate::error_index::{ObjectErrors, LogEntry, LogSeverity};
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let mut obj = ObjectErrors::new("nginx");
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Recent error (within 24h)
+        let recent = LogEntry::new(now - 3600, LogSeverity::Error, "Recent".to_string());
+        obj.add_log(recent);
+
+        // Old error (outside 24h)
+        let old = LogEntry::new(now - 100000, LogSeverity::Error, "Old".to_string());
+        obj.add_log(old);
+
+        let errors_24h = obj.errors_24h();
+        assert_eq!(errors_24h.len(), 1);
+    }
 }

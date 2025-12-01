@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v5.2.1 - Knowledge System with Full Service & Error Visibility
+//! Anna Daemon (annad) v5.2.2 - Precise Error & Intrusion Logs
 //!
 //! Anna is now a paranoid archivist with full error tracking:
 //! - Tracks ALL commands on PATH
@@ -11,6 +11,8 @@
 //! - v5.2.0: Intrusion detection patterns
 //! - v5.2.1: Full service statistics (total/active/inactive/enabled/disabled/masked/failed)
 //! - v5.2.1: Log scan state tracking
+//! - v5.2.2: LogEntry with category, source_ip, username fields
+//! - v5.2.2: Intrusion grouping by IP with usernames and timestamps
 //!
 //! No Q&A, no LLM orchestration in this phase.
 

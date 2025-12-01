@@ -1,4 +1,10 @@
-//! Intrusion Detection v5.2.0 - Security Pattern Matching
+//! Intrusion Detection v5.2.2 - Grouped Security Analysis
+//!
+//! v5.2.2: Intrusion patterns grouped by IP and username:
+//! - Track count of attempts per source IP
+//! - Track usernames targeted per IP
+//! - Track first and last seen timestamps
+//! - Full detail in per-service view
 //!
 //! Detect potential security issues and intrusion attempts:
 //! - Failed SSH/authentication attempts
@@ -619,6 +625,116 @@ impl IntrusionIndex {
             .as_secs();
         self.last_updated = now;
     }
+
+    /// v5.2.2: Get intrusion attempts grouped by service for global view
+    pub fn grouped_intrusions_by_service_24h(&self) -> Vec<GroupedIntrusionByService> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let cutoff = now.saturating_sub(86400);
+
+        let mut results = Vec::new();
+
+        for (service, obj) in &self.objects {
+            // Group by source IP
+            let mut ip_counts: HashMap<String, u64> = HashMap::new();
+
+            for event in &obj.events {
+                if event.timestamp >= cutoff {
+                    if let Some(ip) = &event.source_ip {
+                        *ip_counts.entry(ip.clone()).or_insert(0) += 1;
+                    }
+                }
+            }
+
+            if ip_counts.is_empty() {
+                continue;
+            }
+
+            for (ip, count) in ip_counts {
+                results.push(GroupedIntrusionByService {
+                    service_name: service.clone(),
+                    source_ip: ip,
+                    attempt_count: count,
+                });
+            }
+        }
+
+        // Sort by attempt count
+        results.sort_by(|a, b| b.attempt_count.cmp(&a.attempt_count));
+        results
+    }
+
+    /// v5.2.2: Get detailed intrusion analysis for a specific service
+    pub fn intrusion_analysis_for_service(&self, service: &str) -> Vec<IntrusionAnalysisEntry> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let cutoff = now.saturating_sub(86400);
+
+        let obj = match self.objects.get(service) {
+            Some(o) => o,
+            None => return Vec::new(),
+        };
+
+        // Group by source IP
+        let mut ip_analysis: HashMap<String, IntrusionAnalysisEntry> = HashMap::new();
+
+        for event in &obj.events {
+            if event.timestamp < cutoff {
+                continue;
+            }
+
+            let ip = event.source_ip.clone().unwrap_or_else(|| "unknown".to_string());
+
+            let entry = ip_analysis.entry(ip.clone()).or_insert_with(|| IntrusionAnalysisEntry {
+                source_ip: ip,
+                attempt_count: 0,
+                usernames: Vec::new(),
+                first_seen: event.timestamp,
+                last_seen: event.timestamp,
+            });
+
+            entry.attempt_count += 1;
+            if event.timestamp < entry.first_seen {
+                entry.first_seen = event.timestamp;
+            }
+            if event.timestamp > entry.last_seen {
+                entry.last_seen = event.timestamp;
+            }
+
+            // Collect usernames
+            if let Some(user) = &event.username {
+                if !entry.usernames.contains(user) {
+                    entry.usernames.push(user.clone());
+                }
+            }
+        }
+
+        let mut results: Vec<_> = ip_analysis.into_values().collect();
+        results.sort_by(|a, b| b.attempt_count.cmp(&a.attempt_count));
+        results
+    }
+}
+
+/// v5.2.2: Grouped intrusion summary by service for global view
+#[derive(Debug, Clone)]
+pub struct GroupedIntrusionByService {
+    pub service_name: String,
+    pub source_ip: String,
+    pub attempt_count: u64,
+}
+
+/// v5.2.2: Detailed intrusion analysis entry per IP
+#[derive(Debug, Clone)]
+pub struct IntrusionAnalysisEntry {
+    pub source_ip: String,
+    pub attempt_count: u64,
+    pub usernames: Vec<String>,
+    pub first_seen: u64,
+    pub last_seen: u64,
 }
 
 // ============================================================================

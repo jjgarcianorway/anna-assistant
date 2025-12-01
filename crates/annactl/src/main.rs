@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v5.2.1 - Knowledge System with Full Service & Error Visibility
+//! Anna CLI (annactl) v5.2.2 - Precise Error & Intrusion Logs
 //!
 //! Anna is now a paranoid archivist with full error tracking:
 //! - Tracks ALL commands on PATH
@@ -12,6 +12,9 @@
 //! - v5.2.1: Full service summary (total/active/inactive/enabled/disabled/masked/failed)
 //! - v5.2.1: Log scan state tracking
 //! - v5.2.1: Per-object DISCOVERY status for priority scans
+//! - v5.2.2: Concrete grouped errors with cause/example per service
+//! - v5.2.2: Intrusion analysis grouped by IP/username
+//! - v5.2.2: No generic messages - every error traceable to real logs
 //!
 //! ## Allowed CLI Commands
 //!
@@ -40,6 +43,8 @@ use anna_common::{
     IntrusionIndex, IntrusionType,
     // v5.2.1: Log scan state
     LogScanState,
+    // v5.2.2: Grouped errors and intrusion analysis
+    GroupedErrorSummary, GroupedIntrusionByService, IntrusionAnalysisEntry,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -98,7 +103,7 @@ fn run_version() -> Result<()> {
 
 fn run_help() -> Result<()> {
     println!();
-    println!("{}", "ANNA - Knowledge System with Full Service & Error Visibility v5.2.1".bold());
+    println!("{}", "ANNA - Precise Error & Intrusion Logs v5.2.2".bold());
     println!("{}", THIN_SEP);
     println!();
     println!("  Anna is a paranoid archivist that tracks every executable,");
@@ -118,13 +123,13 @@ fn run_help() -> Result<()> {
     println!("  - ALL systemd services (active/enabled/masked/failed)");
     println!("  - Package install/remove events");
     println!("  - Errors and warnings from journalctl");
-    println!("  - Intrusion detection patterns");
+    println!("  - Intrusion detection patterns (grouped by IP)");
     println!("  - Log signatures indexed");
     println!();
-    println!("{}", "v5.2.1 FULL VISIBILITY:".bold());
-    println!("  Every object shows its errors, warnings, failures,");
-    println!("  and intrusion attempts. No filtering. No guessing.");
-    println!("  Services show: total/active/inactive/enabled/disabled/masked/failed.");
+    println!("{}", "v5.2.2 PRECISE ERRORS:".bold());
+    println!("  Every error grouped by service with cause summary and example.");
+    println!("  Intrusion attempts grouped by IP with usernames and timestamps.");
+    println!("  No generic messages - every line traceable to real logs.");
     println!();
     Ok(())
 }
@@ -482,28 +487,48 @@ fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
     }
     println!();
 
-    // v5.2.1: ERRORS section
+    // v5.2.2: ERRORS section - concrete grouped errors
     println!("{}", "[ERRORS]".cyan());
-    // Failed services
-    let failed_services = service_index.get_failed();
-    if !failed_services.is_empty() {
-        println!("  Failed services:");
-        for svc in failed_services.iter().take(5) {
-            let reason = svc.failure_reason.as_deref().unwrap_or("Unit failed");
-            println!("    - {:<20} ({})", svc.unit_name.trim_end_matches(".service").red(), reason);
+
+    // Failed services (24h) with cause and example
+    let grouped_errors = error_index.grouped_errors_24h();
+    if !grouped_errors.is_empty() {
+        println!("  Failed services (24h):");
+        for summary in grouped_errors.iter().take(5) {
+            let events_str = if summary.error_count == 1 { "event" } else { "events" };
+            println!("    - {} ({} {})",
+                summary.service_name.red(),
+                summary.error_count,
+                events_str);
+            println!("        Cause: {}", summary.cause_summary);
+            if let Some(ref example) = summary.example_message {
+                println!("        Example: {}", truncate_str(example, 55));
+            }
+        }
+        // Show truncation notice if more
+        if grouped_errors.len() > 5 {
+            println!("    (... {} more services with errors omitted)", grouped_errors.len() - 5);
         }
     } else {
-        println!("  Failed services:    (none)");
+        println!("  Failed services (24h):  (none)");
     }
-    // Recent log errors (24h)
-    let recent_errors = error_index.recent_errors_24h();
-    if !recent_errors.is_empty() {
-        println!("  Recent log errors (last 24h):");
-        for (name, entry) in recent_errors.iter().take(5) {
-            println!("    - {}: {}", name, truncate_str(&entry.message, 45));
+
+    // Intrusion-like patterns (24h) grouped by service and IP
+    let intrusion_patterns = intrusion_index.grouped_intrusions_by_service_24h();
+    if !intrusion_patterns.is_empty() {
+        println!();
+        println!("  Intrusion-like patterns (24h):");
+        for pattern in intrusion_patterns.iter().take(5) {
+            let attempts_str = if pattern.attempt_count == 1 { "attempt" } else { "attempts" };
+            println!("    - {}: {} invalid login {} from {}",
+                pattern.service_name,
+                pattern.attempt_count,
+                attempts_str,
+                pattern.source_ip.red());
         }
-    } else {
-        println!("  Recent log errors:  (none in last 24h)");
+        if intrusion_patterns.len() > 5 {
+            println!("    (... {} more intrusion patterns omitted)", intrusion_patterns.len() - 5);
+        }
     }
     println!();
 
@@ -809,88 +834,159 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
                 println!();
             }
 
-            // v5.2.0: Errors section
+            // v5.2.2: ERRORS section - per-object exhaustive view
             let error_index = ErrorIndex::load();
+            let intrusion_index = IntrusionIndex::load();
+
+            // Determine if this is a service
+            let is_service = obj.service_unit.is_some() || obj.object_types.contains(&ObjectType::Service);
+
             if let Some(obj_errors) = error_index.get_object_errors(&obj.name) {
-                if obj_errors.total_errors() > 0 || obj_errors.warning_count > 0 {
-                    println!("{}", "[ERRORS]".red());
-                    println!("  Total errors:    {}", obj_errors.total_errors());
-                    println!("  Total warnings:  {}", obj_errors.warning_count);
+                let errors_24h = obj_errors.errors_24h();
+                let warnings_24h = obj_errors.warnings_24h();
 
-                    // Show error type breakdown
-                    if !obj_errors.error_counts.is_empty() {
-                        println!("  By type:");
-                        for (err_type, count) in &obj_errors.error_counts {
-                            println!("    {}: {}", err_type.as_str(), count);
+                println!("{}", "[ERRORS]".red());
+                println!("  Time range: last 24h");
+                println!("  Total error events: {}", errors_24h.len());
+                println!("  Total warning events: {}", warnings_24h.len());
+
+                // For services: show intrusion attempts if any
+                if is_service {
+                    let analysis = intrusion_index.intrusion_analysis_for_service(&obj.name);
+                    if !analysis.is_empty() {
+                        println!();
+                        println!("  Intrusion attempts:");
+                        for entry in analysis.iter().take(5) {
+                            let usernames = if entry.usernames.is_empty() {
+                                "unknown".to_string()
+                            } else {
+                                entry.usernames.join(", ")
+                            };
+                            println!("    - {} invalid logins from {} (usernames: {})",
+                                entry.attempt_count,
+                                entry.source_ip.red(),
+                                usernames);
+                        }
+                        if analysis.len() > 5 {
+                            println!("    (... {} more IPs omitted, use 'journalctl -u {}' for full log)",
+                                analysis.len() - 5, obj.name);
                         }
                     }
 
-                    // Show recent errors (last 5)
-                    let errors = obj_errors.errors_only();
-                    if !errors.is_empty() {
-                        println!("  Recent errors:");
-                        for entry in errors.iter().rev().take(5) {
-                            let ts = format_timestamp(entry.timestamp);
-                            println!("    [{}] {}", ts, truncate_str(&entry.message, 50));
+                    // Service failures
+                    let service_failures: Vec<_> = errors_24h.iter()
+                        .filter(|e| e.error_type.as_ref().map(|t| t == &anna_common::ErrorType::ServiceFailure).unwrap_or(false))
+                        .collect();
+                    if !service_failures.is_empty() {
+                        println!();
+                        println!("  Service failures:");
+                        for entry in service_failures.iter().take(5) {
+                            println!("    - {}", truncate_str(&entry.message, 60));
                         }
                     }
+                } else {
+                    // For packages/commands: show usage-related errors
+                    let usage_errors = obj_errors.usage_errors();
+                    if !usage_errors.is_empty() {
+                        println!();
+                        println!("  Usage-related errors:");
+                        for entry in usage_errors.iter().take(5) {
+                            println!("    - {}", truncate_str(&entry.message, 60));
+                        }
+                    }
+
+                    // Config issues
+                    let config_errors = obj_errors.config_errors();
+                    if !config_errors.is_empty() {
+                        println!();
+                        println!("  Config issues:");
+                        for entry in config_errors.iter().take(5) {
+                            println!("    - {}", truncate_str(&entry.message, 60));
+                        }
+                    }
+                }
+
+                // Warnings
+                if !warnings_24h.is_empty() {
+                    println!();
+                    println!("  Warnings:");
+                    // Group by message (count duplicates)
+                    let mut warning_counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+                    for w in &warnings_24h {
+                        *warning_counts.entry(truncate_str(&w.message, 50)).or_insert(0) += 1;
+                    }
+                    for (msg, count) in warning_counts.iter().take(5) {
+                        if *count > 1 {
+                            println!("    - {} events: \"{}\"", count, msg);
+                        } else {
+                            println!("    - {}", msg);
+                        }
+                    }
+                }
+
+                println!();
+            } else {
+                // No errors found for this object
+                println!("{}", "[ERRORS]".cyan());
+                println!("  No errors or warnings found for this object in the last 24h");
+                println!();
+            }
+
+            // v5.2.2: INTRUSION ANALYSIS section for services
+            if is_service {
+                let analysis = intrusion_index.intrusion_analysis_for_service(&obj.name);
+                if !analysis.is_empty() {
+                    println!("{}", "[INTRUSION ANALYSIS]".red().bold());
+                    println!("  Suspicious activity (last 24h):");
+                    for entry in analysis.iter().take(5) {
+                        println!("    - {}", entry.source_ip.red());
+                        println!("        Attempts:        {}", entry.attempt_count);
+                        let usernames = if entry.usernames.is_empty() {
+                            "unknown".to_string()
+                        } else {
+                            entry.usernames.join(", ")
+                        };
+                        println!("        Usernames:       {}", usernames);
+                        println!("        First seen:      {}", format_timestamp(entry.first_seen));
+                        println!("        Last seen:       {}", format_timestamp(entry.last_seen));
+                    }
+                    if analysis.len() > 5 {
+                        println!("    (... {} more source IPs omitted)", analysis.len() - 5);
+                    }
+                    println!();
+                } else {
+                    println!("{}", "[INTRUSION ANALYSIS]".cyan());
+                    println!("  No intrusion-like patterns detected for this object in the last 24h");
                     println!();
                 }
             }
 
-            // v5.2.0: Logs section (recent warnings and errors)
-            if let Some(obj_errors) = error_index.get_object_errors(&obj.name) {
-                if !obj_errors.logs.is_empty() {
-                    let recent_logs: Vec<_> = obj_errors.logs.iter()
-                        .filter(|l| l.severity >= LogSeverity::Warning)
-                        .rev()
-                        .take(10)
-                        .collect();
+            // v5.2.0: Legacy Intrusion section (for non-services)
+            if !is_service {
+                if let Some(obj_intrusions) = intrusion_index.get_object_intrusions(&obj.name) {
+                    if !obj_intrusions.events.is_empty() {
+                        println!("{}", "[INTRUSION]".red().bold());
+                        println!("  Total events:    {}", obj_intrusions.total_events());
+                        println!("  Max severity:    {}", obj_intrusions.max_severity);
 
-                    if !recent_logs.is_empty() {
-                        println!("{}", "[LOGS]".yellow());
-                        for entry in &recent_logs {
-                            let ts = format_timestamp(entry.timestamp);
-                            let sev = match entry.severity {
-                                LogSeverity::Warning => entry.severity.as_str().yellow().to_string(),
-                                LogSeverity::Error => entry.severity.as_str().red().to_string(),
-                                LogSeverity::Critical | LogSeverity::Alert | LogSeverity::Emergency => {
-                                    entry.severity.as_str().red().bold().to_string()
-                                }
-                                _ => entry.severity.as_str().to_string(),
-                            };
-                            println!("  [{}] {} {}", ts, sev, truncate_str(&entry.message, 45));
+                        // Type breakdown
+                        if !obj_intrusions.type_counts.is_empty() {
+                            println!("  By type:");
+                            for (int_type, count) in &obj_intrusions.type_counts {
+                                println!("    {}: {}", int_type, count);
+                            }
+                        }
+
+                        // Recent events (last 5)
+                        println!("  Recent events:");
+                        for event in obj_intrusions.events.iter().rev().take(5) {
+                            let ts = format_timestamp(event.timestamp);
+                            let ip = event.source_ip.as_deref().unwrap_or("-");
+                            println!("    [{}] {} (from {})", ts, event.intrusion_type.as_str().red(), ip);
+                            println!("      {}", truncate_str(&event.message, 55));
                         }
                         println!();
                     }
-                }
-            }
-
-            // v5.2.0: Intrusion section
-            let intrusion_index = IntrusionIndex::load();
-            if let Some(obj_intrusions) = intrusion_index.get_object_intrusions(&obj.name) {
-                if !obj_intrusions.events.is_empty() {
-                    println!("{}", "[INTRUSION]".red().bold());
-                    println!("  Total events:    {}", obj_intrusions.total_events());
-                    println!("  Max severity:    {}", obj_intrusions.max_severity);
-
-                    // Type breakdown
-                    if !obj_intrusions.type_counts.is_empty() {
-                        println!("  By type:");
-                        for (int_type, count) in &obj_intrusions.type_counts {
-                            println!("    {}: {}", int_type, count);
-                        }
-                    }
-
-                    // Recent events (last 5)
-                    println!("  Recent events:");
-                    for event in obj_intrusions.events.iter().rev().take(5) {
-                        let ts = format_timestamp(event.timestamp);
-                        let ip = event.source_ip.as_deref().unwrap_or("-");
-                        println!("    [{}] {} (from {})", ts, event.intrusion_type.as_str().red(), ip);
-                        println!("      {}", truncate_str(&event.message, 55));
-                    }
-                    println!();
                 }
             }
 
@@ -917,7 +1013,7 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
 
             // Notes
             println!("{}", "[NOTES]".cyan());
-            println!("  Data collected by anna daemon (v5.2.1 Full Service & Error Visibility).");
+            println!("  Data collected by anna daemon (v5.2.2 Precise Error & Intrusion Logs).");
         }
         None => {
             // v5.2.1: Show ERRORS section even for unknown objects
