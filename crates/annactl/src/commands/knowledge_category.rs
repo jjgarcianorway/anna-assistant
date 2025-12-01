@@ -1,6 +1,6 @@
-//! Knowledge Category Command v5.5.0
+//! Knowledge Category Command v6.0.0 - Grounded Category Listing
 //!
-//! Lists objects in a specific category (editors, terminals, shells, etc).
+//! Lists objects in a specific category using real system queries.
 //!
 //! Usage:
 //!   annactl knowledge editors
@@ -14,76 +14,56 @@
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-use anna_common::{
-    KnowledgeStore, KnowledgeObject, ObjectType, ServiceIndex,
-    KnowledgeCategory, get_description,
+use anna_common::grounded::{
+    packages::get_package_info,
+    commands::{command_exists, get_command_description},
+    services::{list_service_units, get_service_info, ServiceState},
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
-/// Map user-facing category names to internal categories
-fn map_category(name: &str) -> Option<KnowledgeCategory> {
-    match name.to_lowercase().as_str() {
-        "editors" | "editor" => Some(KnowledgeCategory::Editor),
-        "terminals" | "terminal" => Some(KnowledgeCategory::Terminal),
-        "shells" | "shell" => Some(KnowledgeCategory::Shell),
-        "browsers" | "browser" => Some(KnowledgeCategory::Browser),
-        "compositors" | "compositor" => Some(KnowledgeCategory::Compositor),
-        "wms" | "wm" => Some(KnowledgeCategory::Wm),
-        "services" | "service" => Some(KnowledgeCategory::Service),
-        "tools" | "tool" => Some(KnowledgeCategory::Tool),
-        _ => None,
-    }
-}
+// Category detection patterns
+const EDITORS: &[&str] = &["vim", "neovim", "nvim", "nano", "emacs", "helix", "hx", "kate", "gedit", "code", "micro"];
+const TERMINALS: &[&str] = &["alacritty", "kitty", "foot", "wezterm", "gnome-terminal", "konsole", "st", "xterm"];
+const SHELLS: &[&str] = &["bash", "zsh", "fish", "nushell", "dash", "sh"];
+const COMPOSITORS: &[&str] = &["hyprland", "sway", "wayfire", "river", "picom", "weston"];
+const BROWSERS: &[&str] = &["firefox", "chromium", "brave", "vivaldi", "qutebrowser", "librewolf", "epiphany"];
+const TOOLS: &[&str] = &[
+    "git", "curl", "wget", "grep", "awk", "sed", "find", "tar", "gzip", "unzip",
+    "htop", "btop", "top", "ps", "kill", "make", "cmake", "gcc", "clang", "rustc",
+    "python", "node", "npm", "cargo", "docker", "podman", "ssh", "rsync", "tmux",
+    "screen", "less", "more", "cat", "head", "tail", "diff", "patch", "man",
+    "df", "du", "free", "uptime", "uname", "whoami", "id", "groups", "env",
+    "fastfetch", "neofetch", "ffmpeg", "imagemagick", "jq", "yq", "fzf", "ripgrep"
+];
 
 /// Run the knowledge category command
 pub async fn run(category_name: &str) -> Result<()> {
-    let category = match map_category(category_name) {
-        Some(c) => c,
-        None => {
-            println!();
+    let category_lower = category_name.to_lowercase();
+
+    println!();
+    println!("{}", format!("  Anna Knowledge: {}", capitalize(&category_lower)).bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    match category_lower.as_str() {
+        "editors" | "editor" => print_category("editors", EDITORS),
+        "terminals" | "terminal" => print_category("terminals", TERMINALS),
+        "shells" | "shell" => print_category("shells", SHELLS),
+        "browsers" | "browser" => print_category("browsers", BROWSERS),
+        "compositors" | "compositor" => print_category("compositors", COMPOSITORS),
+        "tools" | "tool" => print_category("tools", TOOLS),
+        "services" | "service" => print_services(),
+        _ => {
             println!("  Unknown category: '{}'", category_name);
             println!();
             println!("  Available categories:");
             println!("    editors, terminals, shells, browsers,");
-            println!("    compositors, wms, services, tools");
-            println!();
-            return Ok(());
-        }
-    };
-
-    let store = KnowledgeStore::load();
-    let service_index = ServiceIndex::load();
-
-    // Collect objects in this category that are installed
-    let mut objects: Vec<&KnowledgeObject> = store
-        .objects
-        .values()
-        .filter(|obj| {
-            matches_category(obj, &category) && is_installed_or_active(obj, &category)
-        })
-        .collect();
-
-    // Sort by name
-    objects.sort_by(|a, b| a.name.cmp(&b.name));
-
-    println!();
-    println!("{}", format!("  Anna Knowledge: {}", category.display_name()).bold());
-    println!("{}", THIN_SEP);
-    println!();
-
-    if objects.is_empty() {
-        println!("  No installed {} found.", category_name.to_lowercase());
-        println!();
-    } else {
-        println!("  {} {} installed:", objects.len(), category_name.to_lowercase());
-        println!();
-
-        for obj in &objects {
-            print_object_summary(obj, &service_index);
+            println!("    compositors, services, tools");
         }
     }
 
+    println!();
     println!("{}", THIN_SEP);
     println!();
     println!("  'annactl knowledge <name>' for full profile.");
@@ -92,83 +72,118 @@ pub async fn run(category_name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Check if an object matches the requested category
-fn matches_category(obj: &KnowledgeObject, category: &KnowledgeCategory) -> bool {
-    // For services, check ObjectType::Service since category might be Unknown
-    if *category == KnowledgeCategory::Service {
-        return obj.object_types.contains(&ObjectType::Service);
+fn print_category(name: &str, patterns: &[&str]) {
+    println!("  {}", format!("(detected via which + pacman -Qi)").dimmed());
+    println!();
+
+    let mut found: Vec<(String, String, Option<String>)> = Vec::new();
+
+    for &cmd in patterns {
+        if command_exists(cmd) {
+            let desc = get_command_description(cmd);
+            let version = get_package_info(cmd).map(|p| p.version);
+            found.push((cmd.to_string(), desc, version));
+        }
     }
 
-    // For other categories, check the actual category field
-    obj.category == *category
-}
-
-/// Check if an object should be shown (installed or active service)
-fn is_installed_or_active(obj: &KnowledgeObject, category: &KnowledgeCategory) -> bool {
-    // For services, check if the service exists (not installed flag)
-    if *category == KnowledgeCategory::Service ||
-       obj.object_types.contains(&ObjectType::Service) {
-        return obj.service_unit.is_some();
-    }
-
-    // For commands/packages, check installed flag
-    obj.installed
-}
-
-/// Print a summary line for an object
-fn print_object_summary(obj: &KnowledgeObject, service_index: &ServiceIndex) {
-    let name = &obj.name;
-
-    // Get description
-    let desc = get_description(name)
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| {
-            if obj.object_types.contains(&ObjectType::Service) {
-                "System service".to_string()
-            } else if obj.object_types.contains(&ObjectType::Command) {
-                "Command-line tool".to_string()
-            } else {
-                "Application".to_string()
-            }
-        });
-
-    // Truncate description if needed
-    let desc_display = if desc.len() > 40 {
-        format!("{}...", &desc[..37])
+    if found.is_empty() {
+        println!("  No {} found on this system.", name);
     } else {
-        desc
-    };
+        println!("  {} {} installed:", found.len(), name);
+        println!();
 
-    // For services, show state
-    if obj.object_types.contains(&ObjectType::Service) {
-        if let Some(unit) = &obj.service_unit {
-            if let Some(state) = service_index.services.get(unit) {
-                let state_str = match state.active_state {
-                    anna_common::ActiveState::Active => "running".green().to_string(),
-                    anna_common::ActiveState::Failed => "failed".red().to_string(),
-                    anna_common::ActiveState::Inactive => "inactive".dimmed().to_string(),
-                    _ => state.active_state.as_str().to_string(),
+        for (cmd, desc, version) in &found {
+            let ver_str = version.as_ref()
+                .map(|v| format!(" ({})", v))
+                .unwrap_or_default();
+
+            let desc_display = if desc.is_empty() {
+                "".to_string()
+            } else {
+                // Truncate and clean description
+                let clean = desc.split(" (source:").next().unwrap_or(desc);
+                if clean.len() > 40 {
+                    format!("{}", &clean[..40])
+                } else {
+                    clean.to_string()
+                }
+            };
+
+            println!(
+                "  {:<20} {}{}",
+                cmd.cyan(),
+                desc_display,
+                ver_str.dimmed()
+            );
+        }
+    }
+}
+
+fn print_services() {
+    println!("  {}", "(source: systemctl list-unit-files --type=service)".dimmed());
+    println!();
+
+    let units = list_service_units();
+
+    // Filter to show only enabled/running services (not all 260+)
+    let mut active_services: Vec<(String, String, String)> = Vec::new();
+
+    for (unit, state) in units.iter().take(100) {
+        // Only show enabled services
+        if state == "enabled" || state == "static" {
+            if let Some(svc) = get_service_info(unit.trim_end_matches(".service")) {
+                let state_str = match svc.state {
+                    ServiceState::Active => "running".green().to_string(),
+                    ServiceState::Inactive => "inactive".to_string(),
+                    ServiceState::Failed => "failed".red().to_string(),
+                    ServiceState::Unknown => "unknown".to_string(),
                 };
-                println!(
-                    "  {} {}",
-                    format!("{:<20}", name).cyan(),
-                    format!("[{}] {}", state_str, desc_display)
-                );
-                return;
+
+                let desc = if svc.description.is_empty() {
+                    "".to_string()
+                } else {
+                    let clean = svc.description.split(" (source:").next().unwrap_or(&svc.description);
+                    if clean.len() > 35 {
+                        format!("{}...", &clean[..32])
+                    } else {
+                        clean.to_string()
+                    }
+                };
+
+                active_services.push((unit.clone(), state_str, desc));
             }
         }
     }
 
-    // For packages/commands, show version if available
-    let version_str = obj.package_version
-        .as_ref()
-        .map(|v| format!(" ({})", v))
-        .unwrap_or_default();
+    // Sort by name
+    active_services.sort_by(|a, b| a.0.cmp(&b.0));
 
-    println!(
-        "  {} {}{}",
-        format!("{:<20}", name).cyan(),
-        desc_display,
-        version_str.dimmed()
-    );
+    if active_services.is_empty() {
+        println!("  No enabled services found.");
+    } else {
+        println!("  {} enabled services (showing first 20):", active_services.len());
+        println!();
+
+        for (unit, state, desc) in active_services.iter().take(20) {
+            println!(
+                "  {:<30} [{}] {}",
+                unit.cyan(),
+                state,
+                desc.dimmed()
+            );
+        }
+
+        if active_services.len() > 20 {
+            println!();
+            println!("  ({} more enabled services)", active_services.len() - 20);
+        }
+    }
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().chain(c).collect(),
+    }
 }

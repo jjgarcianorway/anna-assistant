@@ -1,22 +1,16 @@
-//! Knowledge Stats Command v5.2.6 - Coverage and Quality Metrics
+//! Knowledge Stats Command v6.0.0 - Grounded System Statistics
 //!
-//! Shows knowledge coverage and quality statistics.
-//! Focuses on what percentage of the system Anna understands.
-//!
-//! v5.2.6: Every metric has explicit scope/units.
-//!
-//! Sections:
-//! - [COVERAGE] Object coverage (indexed / total on system)
-//! - [QUALITY] Metadata completeness for installed objects
-//! - [TIMELINE] When objects were first discovered
+//! v6.0.0: Shows real system statistics from real sources.
+//! No fake "coverage" or "quality" metrics.
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-use anna_common::{
-    KnowledgeStore,
-    count_path_binaries, count_systemd_services,
-    format_time_ago, format_percent, get_description,
+use anna_common::grounded::{
+    packages::PackageCounts,
+    commands::count_path_executables,
+    services::ServiceCounts,
+    errors::ErrorCounts,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -24,20 +18,21 @@ const THIN_SEP: &str = "--------------------------------------------------------
 /// Run the knowledge stats command
 pub async fn run() -> Result<()> {
     println!();
-    println!("{}", "  Anna Knowledge Statistics".bold());
+    println!("{}", "  Anna System Statistics".bold());
     println!("{}", THIN_SEP);
     println!();
 
-    let store = KnowledgeStore::load();
+    // [PACKAGES] - from pacman
+    print_packages_section();
 
-    // [COVERAGE]
-    print_coverage_section(&store);
+    // [COMMANDS] - from PATH
+    print_commands_section();
 
-    // [QUALITY]
-    print_quality_section(&store);
+    // [SERVICES] - from systemctl
+    print_services_section();
 
-    // [TIMELINE]
-    print_timeline_section(&store);
+    // [SYSTEM HEALTH] - from journalctl
+    print_health_section();
 
     println!("{}", THIN_SEP);
     println!();
@@ -45,185 +40,68 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
-fn print_coverage_section(store: &KnowledgeStore) {
-    println!("{}", "[COVERAGE]".cyan());
-    println!("  {}", "(indexed / total on system)".dimmed());
+fn print_packages_section() {
+    println!("{}", "[PACKAGES]".cyan());
+    println!("  {}", "(source: pacman)".dimmed());
 
-    let total_path_cmds = count_path_binaries();
-    let total_services = count_systemd_services();
-    let (commands, packages, services) = store.count_by_type();
+    let counts = PackageCounts::query();
 
-    // Coverage percentages
-    let cmd_coverage = (commands as f64 / total_path_cmds.max(1) as f64) * 100.0;
-    let svc_coverage = (services as f64 / total_services.max(1) as f64) * 100.0;
-
-    println!(
-        "  Commands:    {}/{} {}",
-        commands,
-        total_path_cmds,
-        format_coverage_bar(cmd_coverage)
-    );
-    println!(
-        "  Services:    {}/{} {}",
-        services,
-        total_services,
-        format_coverage_bar(svc_coverage)
-    );
-    println!("  Packages:    {} (from pacman)", packages);
-
-    // Overall coverage
-    let total_possible = total_path_cmds + total_services;
-    let total_known = store.total_objects();
-    let overall = (total_known as f64 / total_possible.max(1) as f64 * 100.0).min(100.0);
-    println!("  Overall:     {}", format_percent(overall));
+    println!("  Total:       {}", counts.total);
+    println!("  Explicit:    {} (user-installed)", counts.explicit);
+    println!("  Dependency:  {} (auto-installed)", counts.dependency);
+    println!("  AUR/Foreign: {}", counts.aur);
 
     println!();
 }
 
-fn print_quality_section(store: &KnowledgeStore) {
-    println!("{}", "[QUALITY]".cyan());
-    println!("  {}", "(metadata completeness for installed objects)".dimmed());
+fn print_commands_section() {
+    println!("{}", "[COMMANDS]".cyan());
+    println!("  {}", "(source: $PATH directories)".dimmed());
 
-    let installed = store.objects.values().filter(|o| o.installed).count();
-    if installed == 0 {
-        println!("  No installed objects to measure");
-        println!();
-        return;
-    }
-
-    // Count objects with various metadata
-    let mut with_description = 0;
-    let mut with_version = 0;
-    let mut with_config = 0;
-    let mut with_usage = 0;
-
-    for obj in store.objects.values() {
-        if !obj.installed {
-            continue;
-        }
-
-        if get_description(&obj.name).is_some() {
-            with_description += 1;
-        }
-        if obj.package_version.is_some() {
-            with_version += 1;
-        }
-        if !obj.config_paths.is_empty() {
-            with_config += 1;
-        }
-        if obj.usage_count > 0 {
-            with_usage += 1;
-        }
-    }
-
-    let desc_pct = (with_description as f64 / installed as f64) * 100.0;
-    let ver_pct = (with_version as f64 / installed as f64) * 100.0;
-    let cfg_pct = (with_config as f64 / installed as f64) * 100.0;
-    let usage_pct = (with_usage as f64 / installed as f64) * 100.0;
-
-    println!(
-        "  Descriptions:  {}/{} {}",
-        with_description,
-        installed,
-        format_coverage_bar(desc_pct)
-    );
-    println!(
-        "  Versions:      {}/{} {}",
-        with_version,
-        installed,
-        format_coverage_bar(ver_pct)
-    );
-    println!(
-        "  Config paths:  {}/{} {}",
-        with_config,
-        installed,
-        format_coverage_bar(cfg_pct)
-    );
-    println!(
-        "  Usage data:    {}/{} {}",
-        with_usage,
-        installed,
-        format_coverage_bar(usage_pct)
-    );
-
-    // Overall quality score (average of metrics)
-    let quality_score = (desc_pct + ver_pct + cfg_pct + usage_pct) / 4.0;
-    let quality_label = if quality_score >= 80.0 {
-        "excellent".green().to_string()
-    } else if quality_score >= 60.0 {
-        "good".to_string()
-    } else if quality_score >= 40.0 {
-        "fair".yellow().to_string()
-    } else {
-        "needs work".red().to_string()
-    };
-
-    println!(
-        "  Quality:       {} ({})",
-        format_percent(quality_score),
-        quality_label
-    );
+    let count = count_path_executables();
+    println!("  Executables: {}", count);
 
     println!();
 }
 
-fn print_timeline_section(store: &KnowledgeStore) {
-    println!("{}", "[TIMELINE]".cyan());
-    println!("  {}", "(when objects were first discovered)".dimmed());
+fn print_services_section() {
+    println!("{}", "[SERVICES]".cyan());
+    println!("  {}", "(source: systemctl)".dimmed());
 
-    // First and last discovery times
-    let first_seen = store
-        .objects
-        .values()
-        .filter(|o| o.first_seen_at > 0)
-        .map(|o| o.first_seen_at)
-        .min();
+    let counts = ServiceCounts::query();
 
-    let last_seen = store
-        .objects
-        .values()
-        .filter(|o| o.first_seen_at > 0)
-        .map(|o| o.first_seen_at)
-        .max();
+    println!("  Unit files:  {}", counts.total);
+    println!("  Running:     {}", counts.running);
+    println!("  Enabled:     {}", counts.enabled);
 
-    // Objects with usage data
-    let with_usage = store.objects.values().filter(|o| o.usage_count > 0).count();
-
-    if let Some(first) = first_seen {
-        println!("  First indexed: {}", format_time_ago(first));
+    if counts.failed > 0 {
+        println!("  Failed:      {}", counts.failed.to_string().red());
     } else {
-        println!("  First indexed: n/a");
+        println!("  Failed:      {}", "0".green());
     }
-
-    if let Some(last) = last_seen {
-        println!("  Last indexed:  {}", format_time_ago(last));
-    } else {
-        println!("  Last indexed:  n/a");
-    }
-
-    println!("  With usage:    {} objects have been observed running", with_usage);
 
     println!();
 }
 
-/// Format a coverage percentage as a visual bar
-fn format_coverage_bar(pct: f64) -> String {
-    let filled = ((pct / 100.0) * 10.0).round() as usize;
-    let empty = 10 - filled;
+fn print_health_section() {
+    println!("{}", "[SYSTEM HEALTH]".cyan());
+    println!("  {}", "(source: journalctl, last 24h)".dimmed());
 
-    let bar = format!(
-        "[{}{}]",
-        "#".repeat(filled),
-        "-".repeat(empty)
-    );
+    let counts = ErrorCounts::query_24h();
 
-    let pct_str = format_percent(pct);
-
-    if pct >= 80.0 {
-        format!("{} {}", bar.green(), pct_str)
-    } else if pct >= 50.0 {
-        format!("{} {}", bar, pct_str)
+    if counts.errors == 0 && counts.warnings == 0 {
+        println!("  {}", "No errors or warnings".green());
     } else {
-        format!("{} {}", bar.yellow(), pct_str)
+        if counts.errors > 0 {
+            println!("  Errors:      {}", counts.errors.to_string().red());
+        }
+        if counts.warnings > 0 {
+            println!("  Warnings:    {}", counts.warnings.to_string().yellow());
+        }
+        if counts.critical > 0 {
+            println!("  Critical:    {}", counts.critical.to_string().red().bold());
+        }
     }
+
+    println!();
 }

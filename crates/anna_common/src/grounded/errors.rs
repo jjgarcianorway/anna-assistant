@@ -114,16 +114,17 @@ pub struct UnitErrorSummary {
 }
 
 /// Get top error-producing units in last N hours
-/// Source: journalctl --since "N hours ago" -p err
+/// Source: journalctl --since "N hours ago" -p err -o json
 pub fn get_top_error_units(hours: u64, limit: usize) -> Vec<UnitErrorSummary> {
     let since = format!("{} hours ago", hours);
 
+    // Use JSON output for reliable parsing
     let output = Command::new("journalctl")
         .args([
             "--since", &since,
             "-p", "err",
             "--no-pager",
-            "-o", "short",
+            "-o", "json",
             "-q",
         ])
         .output();
@@ -143,19 +144,33 @@ pub fn get_top_error_units(hours: u64, limit: usize) -> Vec<UnitErrorSummary> {
             continue;
         }
 
-        // Parse journalctl short format
-        // "Dec 01 14:30:45 hostname unit[pid]: message"
-        let parts: Vec<&str> = line.splitn(5, ' ').collect();
-        if parts.len() < 5 {
+        // Parse JSON line
+        let json: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        // Get unit name from _SYSTEMD_UNIT or SYSLOG_IDENTIFIER
+        let unit = json.get("_SYSTEMD_UNIT")
+            .or_else(|| json.get("SYSLOG_IDENTIFIER"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        // Skip empty or system units
+        if unit.is_empty() || unit == "unknown" {
             continue;
         }
 
-        // Extract unit name (before [pid]:)
-        let unit_part = parts[3];
-        let unit = unit_part.split('[').next().unwrap_or(unit_part).to_string();
+        let message = json.get("MESSAGE")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
 
-        let message = parts.get(4).unwrap_or(&"").to_string();
-        let time_str = format!("{} {} {}", parts[0], parts[1], parts[2]);
+        let time_str = json.get("__REALTIME_TIMESTAMP")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
 
         let entry = unit_counts.entry(unit).or_insert((0, String::new(), String::new()));
         entry.0 += 1;
