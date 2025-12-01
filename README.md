@@ -1,8 +1,8 @@
-# Anna v5.5.0 "Telemetry Reset"
+# Anna v5.7.2 "Real-time Package Detection"
 
 **System Intelligence Daemon for Linux**
 
-> v5.5.0: Complete telemetry reset. No LLM, no Q&A. Pure observation. Fixed service display, category queries, proper reset, cpu/ram/disk commands.
+> v5.7.2: Fixed package install/removal detection. Fixed stats uptime display. Both stats and status commands show proper daemon uptime from API.
 
 ---
 
