@@ -1,4 +1,4 @@
-//! SW Detail Command v7.13.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.14.0 - Software Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -10,9 +10,10 @@
 //! - [COMMAND]      Path, man description
 //! - [SERVICE]      Unit, state, enabled
 //! - [DEPENDENCIES] Package deps and service relations (v7.13.0)
-//! - [CONFIG]       Primary/Secondary/Notes structure with proper precedence (v7.12.0)
-//! - [LOGS]         Full deduplication, no truncation, unit-scoped (v7.12.0)
-//! - [TELEMETRY]    Real windows (1h, 24h, 7d, 30d) with State summary line (v7.12.0)
+//! - [CONFIG]       Primary/Secondary/Notes + Sanity notes (v7.14.0)
+//! - [LOGS]         Pattern-based grouping with counts and timelines (v7.14.0)
+//! - [TELEMETRY]    Real windows with peak/trend summaries (v7.14.0)
+//! - Cross notes:   Links between logs, telemetry, deps, config (v7.14.0)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -27,6 +28,7 @@ use anna_common::grounded::{
     category::get_category,
     categoriser::{normalize_category, packages_in_category},
     deps::{get_package_deps, get_service_deps},
+    log_patterns::{extract_patterns_for_unit, LogPatternSummary, format_time_short},
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -210,7 +212,8 @@ pub async fn run_object(name: &str) -> Result<()> {
         // Check if it has a related service
         if let Some(svc) = get_service_info(&canonical_name) {
             print_service_section(&svc);
-            print_service_logs(&service_name);
+            let log_summary = print_service_logs(&service_name);
+            print_logs_health_note(&log_summary);
         }
 
         println!("{}", THIN_SEP);
@@ -474,10 +477,14 @@ fn print_service_profile(svc: &Service, name: &str) {
     } else {
         format!("{}.service", svc.name)
     };
-    print_service_logs(&unit_name);
+    let log_summary = print_service_logs(&unit_name);
+    print_logs_health_note(&log_summary);
 
     // [USAGE]
     print_telemetry_section(base_name);
+
+    // v7.14.0: Cross notes - link logs, telemetry, deps, config
+    print_cross_notes_sw(&log_summary, base_name);
 }
 
 fn print_service_section(svc: &Service) {
@@ -511,129 +518,77 @@ fn print_service_section(svc: &Service) {
     println!();
 }
 
-/// Print service logs with full deduplication and no truncation - v7.12.0
-/// Format: timestamp  message (seen N times this boot)
-/// Uses -o cat to avoid journalctl's truncation
-fn print_service_logs(unit_name: &str) {
+/// Print service logs with pattern-based grouping - v7.14.0
+/// Shows patterns with counts and time hints, not raw log lines
+fn print_service_logs(unit_name: &str) -> LogPatternSummary {
     println!("{}", "[LOGS]".cyan());
-    println!("  {}", format!("(journalctl -b -u {} -p warning..alert)", unit_name).dimmed());
 
-    // v7.12.0: Use JSON output to get full messages without truncation
-    // Then parse and deduplicate ourselves
-    let output = Command::new("journalctl")
-        .args([
-            "-b",
-            "-u", unit_name,
-            "-p", "warning..alert",  // warnings and above
-            "-n", "100",  // v7.12.0: up to 100 messages for better deduplication
-            "--no-pager",
-            "-o", "json",
-            "-q",
-        ])
-        .output();
+    // v7.14.0: Use pattern extraction module
+    let summary = extract_patterns_for_unit(unit_name);
 
-    match output {
-        Ok(out) if out.status.success() => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            let entries: Vec<LogEntry> = stdout
-                .lines()
-                .filter_map(|line| serde_json::from_str(line).ok())
-                .collect();
-
-            if entries.is_empty() {
-                println!();
-                println!("  No warnings or errors for this unit in the current boot.");
-                println!("  {}", format!("Source: journalctl current boot, warnings and errors only").dimmed());
-            } else {
-                // v7.12.0: Full deduplication with proper counts
-                let all_dedup = deduplicate_log_entries_v712(&entries);
-
-                println!();
-
-                // v7.12.0 format: timestamp  message (seen N times this boot)
-                // Full message without truncation
-                for entry in all_dedup.iter() {
-                    let msg = entry.message.as_deref().unwrap_or("(no message)");
-                    let timestamp = entry.timestamp.as_deref().unwrap_or("");
-
-                    // v7.12.0: Format count for clarity
-                    let count_str = if entry.count > 1 {
-                        format!("(seen {} times this boot)", entry.count)
-                    } else {
-                        String::new()  // Don't show "(seen 1 time)" - cleaner
-                    };
-
-                    // v7.12.0: Check if message is very long and might need wrapping indicator
-                    // We show full message but add note if it was unusually long
-                    if msg.len() > 200 {
-                        // Show message as-is (full, no truncation)
-                        println!("  {}  {}", timestamp, msg);
-                        if !count_str.is_empty() {
-                            println!("              {}", count_str.dimmed());
-                        }
-                    } else {
-                        if count_str.is_empty() {
-                            println!("  {}  {}", timestamp, msg);
-                        } else {
-                            println!("  {}  {}   {}", timestamp, msg, count_str.dimmed());
-                        }
-                    }
-                }
-
-                println!();
-                println!("  {}", "Source: journalctl current boot, warnings and errors only".dimmed());
-            }
-        }
-        Ok(_) => {
-            println!();
-            println!("  {}", "(no logs available for this unit)".dimmed());
-            println!();
-        }
-        Err(_) => {
-            println!();
-            println!("  {}", "(journalctl not available)".dimmed());
-            println!();
-        }
+    if summary.is_empty() {
+        println!();
+        println!("  No warnings or errors recorded for this component in the current boot.");
+        println!();
+        println!("  {}", format!("Source: {}", summary.source).dimmed());
+        return summary;
     }
 
-    // v7.12.0: Add health note if applicable
-    print_logs_health_note(unit_name);
+    // v7.14.0: Pattern summary header
+    println!();
+    println!("  Patterns (this boot):");
+    println!("    Total warnings/errors: {} ({} patterns)",
+             summary.total_count.to_string().yellow(),
+             summary.pattern_count);
+    println!();
+
+    // v7.14.0: Show top 3 patterns with counts and time hints
+    for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
+        let time_hint = format_time_short(&pattern.last_seen);
+
+        // Truncate pattern for display if too long
+        let display_pattern = if pattern.pattern.len() > 60 {
+            format!("{}...", &pattern.pattern[..57])
+        } else {
+            pattern.pattern.clone()
+        };
+
+        let count_str = if pattern.count == 1 {
+            "seen 1 time".to_string()
+        } else {
+            format!("seen {} times", pattern.count)
+        };
+
+        println!("    {}) \"{}\"", i + 1, display_pattern);
+        println!("       {} ({}, last at {})",
+                 "",
+                 count_str.dimmed(),
+                 time_hint);
+    }
+
+    // Show if there are more patterns
+    if summary.pattern_count > 3 {
+        println!();
+        println!("    {} ({} more patterns not shown)",
+                 "...".dimmed(),
+                 summary.pattern_count - 3);
+    }
+
+    println!();
+    println!("  {}", format!("Source: {}", summary.source).dimmed());
+
+    summary
 }
 
-/// Print health note based on log patterns - v7.12.0
-fn print_logs_health_note(unit_name: &str) {
-    // Count errors for this unit
-    let output = Command::new("journalctl")
-        .args([
-            "-b",
-            "-u", unit_name,
-            "-p", "err..alert",  // Only errors and above
-            "-o", "json",
-            "-q",
-            "--no-pager",
-        ])
-        .output();
-
-    if let Ok(out) = output {
-        if out.status.success() {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            let error_count = stdout.lines().count();
-
-            if error_count > 10 {
-                // Check for repeated patterns
-                let entries: Vec<LogEntry> = stdout
-                    .lines()
-                    .filter_map(|line| serde_json::from_str(line).ok())
-                    .collect();
-
-                let deduped = deduplicate_log_entries_v712(&entries);
-                let max_repeats = deduped.iter().map(|e| e.count).max().unwrap_or(0);
-
-                if max_repeats > 5 {
-                    println!();
-                    println!("  Health note: repeated errors ({} total, {} identical) may indicate ongoing issue.",
-                             error_count, max_repeats);
-                }
+/// Print health note based on log patterns - v7.14.0
+fn print_logs_health_note(summary: &LogPatternSummary) {
+    if summary.total_count > 10 {
+        // Check for repeated patterns
+        if let Some(top) = summary.patterns.first() {
+            if top.count > 5 {
+                println!();
+                println!("  Health note: {} repeated errors (most common: {} occurrences).",
+                         summary.total_count, top.count);
             }
         }
     }
@@ -850,6 +805,10 @@ fn print_config_section(name: &str) {
     }
 
     println!("    {}", format!("Source: {}", info.source_description).dimmed());
+
+    // v7.14.0: Sanity notes section
+    print_config_sanity_notes(&primary_configs, &secondary_configs);
+
     println!();
 }
 
@@ -950,6 +909,106 @@ fn abbreviate_single_source(source: &str) -> String {
         return "filesystem".to_string();
     }
     source.to_string()
+}
+
+/// Print config sanity notes - v7.14.0
+/// Checks: empty files, unreadable, unexpected symlinks, basic metadata
+fn print_config_sanity_notes(
+    primary: &[&anna_common::grounded::config::ConfigFile],
+    _secondary: &[&anna_common::grounded::config::ConfigFile],
+) {
+    let mut sanity_notes: Vec<String> = Vec::new();
+
+    // Check each primary config that exists
+    for cfg in primary.iter().filter(|c| c.exists) {
+        let path = resolve_user_path_display(&cfg.path);
+
+        // Check if file is empty
+        if let Ok(metadata) = std::fs::metadata(&path) {
+            if metadata.is_file() && metadata.len() == 0 {
+                sanity_notes.push(format!("{} exists but is empty (0 bytes).", cfg.path));
+            }
+
+            // Check if it's a symlink (might be unexpected)
+            if metadata.file_type().is_symlink() {
+                if let Ok(target) = std::fs::read_link(&path) {
+                    sanity_notes.push(format!(
+                        "{} is a symlink to {}.",
+                        cfg.path,
+                        target.display()
+                    ));
+                }
+            }
+        }
+
+        // Check readability by current user
+        if std::fs::read(&path).is_err() && !std::fs::read_dir(&path).is_ok() {
+            sanity_notes.push(format!("{} exists but is not readable.", cfg.path));
+        }
+    }
+
+    // Check for any missing primary configs that were expected
+    let missing_count = primary.iter().filter(|c| !c.exists).count();
+    if missing_count > 0 && sanity_notes.is_empty() {
+        // Only note if there are no other issues
+        let present_count = primary.iter().filter(|c| c.exists).count();
+        if present_count > 0 {
+            // Some configs exist, some don't - that's fine
+        }
+    }
+
+    // Print sanity notes section
+    if sanity_notes.is_empty() {
+        println!("  Sanity notes:");
+        println!("    - No obvious issues detected with primary config paths.");
+    } else {
+        println!("  Sanity notes:");
+        for note in sanity_notes.iter().take(3) {
+            println!("    - {}", note.yellow());
+        }
+        if sanity_notes.len() > 3 {
+            println!("    - {} ({} more issues not shown)",
+                     "...".dimmed(),
+                     sanity_notes.len() - 3);
+        }
+    }
+}
+
+/// Print Cross notes section - v7.14.0
+/// Links observations from logs, telemetry, deps, and config
+fn print_cross_notes_sw(log_summary: &LogPatternSummary, _name: &str) {
+    // Only show if there's something interesting to note
+    let mut notes: Vec<String> = Vec::new();
+
+    // Check log patterns vs telemetry
+    if log_summary.total_count > 20 {
+        // High error count
+        notes.push(format!(
+            "Frequent log activity ({} warnings/errors this boot).",
+            log_summary.total_count
+        ));
+    } else if log_summary.total_count == 0 {
+        notes.push("No warnings or errors recorded this boot.".to_string());
+    }
+
+    // Check for recurring patterns
+    if let Some(top) = log_summary.patterns.first() {
+        if top.count > 10 && top.count_last_hour > 0 {
+            notes.push(format!(
+                "Most common pattern seen {} times ({} in last hour).",
+                top.count, top.count_last_hour
+            ));
+        }
+    }
+
+    // Only print if we have 1-2 notes
+    if !notes.is_empty() && notes.len() <= 2 {
+        println!();
+        println!("{}", "Cross notes:".cyan());
+        for note in notes.iter().take(2) {
+            println!("  - {}", note);
+        }
+    }
 }
 
 /// Resolve user paths (~/) to actual home directory for display

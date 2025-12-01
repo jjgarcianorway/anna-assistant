@@ -1,4 +1,4 @@
-//! HW Detail Command v7.13.0 - Hardware Profiles with Health/Driver/Logs
+//! HW Detail Command v7.14.0 - Hardware Profiles with Health/Driver/Logs
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery)
@@ -13,8 +13,9 @@
 //! - [SMART]        Disk-specific SMART data
 //! - [CAPACITY]     Battery-specific capacity/wear
 //! - [LINK]         Network-specific link state
-//! - [TELEMETRY]    Anna telemetry if available
-//! - [LOGS]         Deduplicated kernel messages with -p warning..alert (v7.10.0)
+//! - [TELEMETRY]    Anna telemetry if available (v7.14.0: peak/trend by window)
+//! - [LOGS]         Pattern-based grouping with counts (v7.14.0)
+//! - Cross notes:   Links between components (v7.14.0)
 //!
 //! All data from system tools:
 //! - lscpu, /proc/cpuinfo (CPU)
@@ -30,7 +31,6 @@
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
-use std::collections::HashMap;
 use std::process::Command;
 
 use anna_common::grounded::drivers::get_pci_device_by_class_index;
@@ -41,6 +41,9 @@ use anna_common::grounded::health::{
 use anna_common::grounded::deps::{get_module_deps, get_driver_related_services};
 use anna_common::grounded::network::{
     get_interfaces, InterfaceType, format_traffic,
+};
+use anna_common::grounded::log_patterns::{
+    extract_patterns_for_driver, LogPatternSummary, format_time_short,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -213,85 +216,69 @@ async fn run_cpu_profile() -> Result<()> {
     println!();
 
     // [LOGS]
-    print_device_logs("cpu", &["thermal", "throttl", "mce", "cpu"]);
+    let _log_summary = print_device_logs("cpu", &["thermal", "throttl", "mce", "cpu"]);
 
     println!("{}", THIN_SEP);
     println!();
     Ok(())
 }
 
-/// Print deduplicated kernel logs for a device/topic
-fn print_device_logs(device: &str, keywords: &[&str]) {
+/// Print pattern-based kernel logs for a device/driver - v7.14.0
+fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
     println!("{}", "[LOGS]".cyan());
-    println!("  {}", format!("(journalctl -b | {} related, deduplicated)", device).dimmed());
 
-    let output = Command::new("journalctl")
-        .args(["-b", "-k", "--no-pager", "-q", "-p", "warning..err"])
-        .output();
+    // v7.14.0: Use pattern extraction for driver
+    let summary = extract_patterns_for_driver(device);
 
-    match output {
-        Ok(result) if result.status.success() => {
-            let stdout = String::from_utf8_lossy(&result.stdout);
-            let mut message_counts: HashMap<String, usize> = HashMap::new();
+    if summary.is_empty() {
+        println!();
+        println!("  No warnings or errors recorded for this component in the current boot.");
+        println!();
+        println!("  {}", format!("Source: {}", summary.source).dimmed());
+        return summary;
+    }
 
-            for line in stdout.lines() {
-                let line_lower = line.to_lowercase();
-                let matches = keywords.iter().any(|kw| line_lower.contains(kw));
+    // v7.14.0: Pattern summary header
+    println!();
+    println!("  Patterns (this boot):");
+    println!("    Total warnings/errors: {} ({} patterns)",
+             summary.total_count.to_string().yellow(),
+             summary.pattern_count);
+    println!();
 
-                if matches {
-                    // Normalize message by removing timestamp and PID
-                    let normalized = normalize_log_message(line);
-                    *message_counts.entry(normalized).or_insert(0) += 1;
-                }
-            }
+    // v7.14.0: Show top 3 patterns with counts and time hints
+    for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
+        let time_hint = format_time_short(&pattern.last_seen);
 
-            if message_counts.is_empty() {
-                println!();
-                println!("  (no errors found this boot)");
-            } else {
-                println!();
-                // Sort by count descending
-                let mut sorted: Vec<_> = message_counts.into_iter().collect();
-                sorted.sort_by(|a, b| b.1.cmp(&a.1));
+        // Truncate pattern for display if too long
+        let display_pattern = if pattern.pattern.len() > 55 {
+            format!("{}...", &pattern.pattern[..52])
+        } else {
+            pattern.pattern.clone()
+        };
 
-                for (msg, count) in sorted.iter().take(10) {
-                    let count_str = if *count > 1 {
-                        format!(" (seen {} times)", count).dimmed().to_string()
-                    } else {
-                        String::new()
-                    };
-                    println!("  - {}{}", msg.yellow(), count_str);
-                }
+        let count_str = if pattern.count == 1 {
+            "seen 1 time".to_string()
+        } else {
+            format!("seen {} times", pattern.count)
+        };
 
-                if sorted.len() > 10 {
-                    println!("  ... {} more messages", sorted.len() - 10);
-                }
-            }
-        }
-        _ => {
-            println!();
-            println!("  (journalctl not available)");
-        }
+        println!("    {}) \"{}\"", i + 1, display_pattern);
+        println!("       ({}, last at {})", count_str.dimmed(), time_hint);
+    }
+
+    // Show if there are more patterns
+    if summary.pattern_count > 3 {
+        println!();
+        println!("    {} ({} more patterns not shown)",
+                 "...".dimmed(),
+                 summary.pattern_count - 3);
     }
 
     println!();
-}
+    println!("  {}", format!("Source: {}", summary.source).dimmed());
 
-/// Normalize a log message by removing timestamp and PID
-fn normalize_log_message(line: &str) -> String {
-    // Remove journalctl timestamp prefix (e.g., "Dec 01 10:30:45 hostname kernel:")
-    if let Some(idx) = line.find("kernel:") {
-        return line[idx + 7..].trim().to_string();
-    }
-
-    // Remove dmesg timestamp (e.g., "[    1.234567]")
-    if line.starts_with('[') {
-        if let Some(idx) = line.find(']') {
-            return line[idx + 1..].trim().to_string();
-        }
-    }
-
-    line.trim().to_string()
+    summary
 }
 
 // ============================================================================
@@ -913,7 +900,7 @@ async fn run_wifi_profile() -> Result<()> {
             &iface.interface,
             iface.driver.as_deref().unwrap_or("wifi"),
         ];
-        print_device_logs("wifi", &keywords.iter().map(|s| s.as_ref()).collect::<Vec<_>>());
+        let _log_summary = print_device_logs("wifi", &keywords.iter().map(|s| s.as_ref()).collect::<Vec<_>>());
     }
 
     println!("{}", THIN_SEP);
@@ -1005,7 +992,7 @@ async fn run_ethernet_profile() -> Result<()> {
 
         // [LOGS]
         let driver_kw = iface.driver.as_deref().unwrap_or("ethernet");
-        print_device_logs("ethernet", &[&iface.interface, driver_kw]);
+        let _log_summary = print_device_logs("ethernet", &[&iface.interface, driver_kw]);
     }
 
     println!("{}", THIN_SEP);
@@ -1052,7 +1039,7 @@ async fn run_bluetooth_profile() -> Result<()> {
     }
 
     // [LOGS]
-    print_device_logs("bluetooth", &["bluetooth", "btusb", "hci"]);
+    let _log_summary = print_device_logs("bluetooth", &["bluetooth", "btusb", "hci"]);
 
     println!("{}", THIN_SEP);
     println!();
@@ -1399,7 +1386,7 @@ async fn run_battery_profile() -> Result<()> {
     }
 
     // [LOGS]
-    print_device_logs("battery", &["bat", "battery", "acpi"]);
+    let _log_summary = print_device_logs("battery", &["bat", "battery", "acpi"]);
 
     println!("{}", THIN_SEP);
     println!();

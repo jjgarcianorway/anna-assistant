@@ -1,8 +1,8 @@
-# Anna v7.13.0 "Dependency Graph and Network Awareness"
+# Anna v7.14.0 "Log Patterns and Config Sanity"
 
 **System Intelligence Daemon for Linux**
 
-> v7.13.0: Dependency graph for packages/services/drivers, network awareness (interfaces, traffic, link state), `[DEPENDENCIES]` in sw and hw profiles, `[INTERFACES]` in hw network profiles.
+> v7.14.0: Pattern-based log grouping with counts and timelines, config sanity checks (empty files, readability, symlinks), cross notes linking observations across sections.
 
 ---
 
@@ -60,6 +60,58 @@ annactl hw gpu
 annactl hw storage
 annactl hw network
 ```
+
+---
+
+## v7.14.0 Features
+
+### Pattern-Based [LOGS] Section
+
+Log messages are now normalized into patterns for grouping and counting:
+
+```
+[LOGS]
+  Patterns (this boot):
+    Total warnings/errors: 47 (3 patterns)
+
+    Pattern 1: connection to %IP% timed out  (seen 23 times, last at 14:32)
+    Pattern 2: failed to resolve %DOMAIN%  (seen 18 times, last at 14:30)
+    Pattern 3: link down on interface %IFACE%  (seen 6 times, last at 12:15)
+```
+
+Variable parts like IPs, paths, PIDs, interfaces, and domain names are replaced with placeholders (%IP%, %PATH%, %IFACE%, etc.) to group similar messages.
+
+### Config Sanity Checks
+
+The [CONFIG] section now includes sanity notes:
+
+```
+[CONFIG]
+  Primary:
+    ~/.vimrc                                      [present]   (filesystem)
+    ~/.vim/                                       [present]   (filesystem)
+  Secondary:
+    /usr/share/vim                                [present]   (filesystem)
+  Sanity notes:
+    - ~/.vimrc is a symlink (pointing to dotfiles/vim/vimrc).
+    - /etc/vim/vimrc.local exists but is empty (0 bytes).
+```
+
+Sanity checks include:
+- Empty files (0 bytes)
+- Symlinks (with target)
+- Readability by current user
+
+### Cross Notes Section
+
+When observations from different sections correlate, a cross notes section appears:
+
+```
+Cross notes:
+  - Frequent log activity (47 warnings/errors this boot).
+```
+
+Cross notes link logs, telemetry, dependencies, and config observations when relevant.
 
 ---
 
@@ -205,7 +257,7 @@ Status inventory now includes network interface summary:
 ------------------------------------------------------------
 
 [VERSION]
-  Anna:       v7.13.0
+  Anna:       v7.14.0
 
 [DAEMON]
   Status:     running
@@ -340,8 +392,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.13.0/annad-7.13.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.13.0/annactl-7.13.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.14.0/annad-7.14.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.14.0/annactl-7.14.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -429,7 +481,9 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.12.0** | **Config Intelligence** - Primary/Secondary config, log deduplication, State summaries, ops.log |
+| **v7.14.0** | **Log Patterns and Config Sanity** - Pattern-based log grouping, config sanity checks, cross notes |
+| v7.13.0 | Dependency Graph and Network Awareness - deps for packages/services/drivers, network interfaces |
+| v7.12.0 | Config Intelligence - Primary/Secondary config, log deduplication, State summaries, ops.log |
 | v7.11.0 | Honest Telemetry - Real HW telemetry, resource hotspots, health notes |
 | v7.10.0 | Arch Wiki configs, hardware drivers and firmware visibility |
 | v7.9.0 | Real trends (24h vs 7d), unified telemetry section |

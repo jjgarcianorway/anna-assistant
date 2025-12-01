@@ -1,16 +1,21 @@
-//! CLI integration tests for annactl v7.13.0 "Dependency Graph and Network Awareness"
+//! CLI integration tests for annactl v7.14.0 "Log Patterns, Config Sanity, Cross Notes"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
 //! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [ANNA NEEDS], Network in [INVENTORY]
 //! - annactl sw        software overview with [CATEGORIES] - no duplicates
-//! - annactl sw NAME   software profile with [CONFIG], [TELEMETRY], [LOGS], [DEPENDENCIES] (v7.13.0)
+//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [LOGS] patterns, [DEPENDENCIES], Cross notes (v7.14.0)
 //! - annactl hw        hardware overview with [COMPONENTS], [HW TELEMETRY]
-//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER], [DEPENDENCIES] (v7.13.0), [INTERFACES] (v7.13.0)
+//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER], [DEPENDENCIES], [INTERFACES], [LOGS] patterns (v7.14.0)
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
+//!
+//! Snow Leopard v7.14.0 tests:
+//! - [LOGS] Pattern-based grouping with counts and time hints
+//! - [CONFIG] Sanity notes section for config health
+//! - Cross notes section linking logs/telemetry/deps/config
 //!
 //! Snow Leopard v7.13.0 tests:
 //! - [DEPENDENCIES] section in sw NAME profiles (package, service, module deps)
@@ -2574,5 +2579,277 @@ fn test_snow_leopard_no_invented_dependencies_v713() {
             stdout
         );
     }
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.14.0: Snow Leopard Log Patterns, Config Sanity, Cross Notes Tests
+// ============================================================================
+
+/// Test sw NAME [LOGS] shows pattern-based summary (v7.14.0)
+#[test]
+fn test_snow_leopard_sw_logs_patterns_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager.service"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: [LOGS] should show Patterns summary
+    if stdout.contains("[LOGS]") {
+        // Should have "Patterns (this boot):" or "No warnings"
+        let has_pattern_info = stdout.contains("Patterns (this boot):")
+            || stdout.contains("No warnings or errors");
+        assert!(
+            has_pattern_info,
+            "[LOGS] should have pattern summary or 'No warnings': {}",
+            stdout
+        );
+        // Should show Source line
+        assert!(
+            stdout.contains("Source:"),
+            "[LOGS] should show Source attribution: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test sw NAME [LOGS] shows pattern counts (v7.14.0)
+#[test]
+fn test_snow_leopard_sw_logs_pattern_counts_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager.service"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: If patterns exist, should show counts
+    if stdout.contains("Patterns (this boot):") {
+        // Should have "Total warnings/errors:" with count
+        assert!(
+            stdout.contains("Total warnings/errors:"),
+            "[LOGS] patterns should show total count: {}",
+            stdout
+        );
+        // Should have pattern count "(X patterns)"
+        assert!(
+            stdout.contains("patterns)"),
+            "[LOGS] should show pattern count: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test sw NAME [CONFIG] shows Sanity notes (v7.14.0)
+#[test]
+fn test_snow_leopard_sw_config_sanity_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "vim"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: [CONFIG] should have Sanity notes section
+    if stdout.contains("[CONFIG]") {
+        assert!(
+            stdout.contains("Sanity notes:"),
+            "[CONFIG] should have Sanity notes section: {}",
+            stdout
+        );
+        // Should have some note (either "No obvious issues" or actual issues)
+        let has_sanity_content = stdout.contains("No obvious issues")
+            || stdout.contains("empty")
+            || stdout.contains("symlink")
+            || stdout.contains("readable");
+        assert!(
+            has_sanity_content,
+            "Sanity notes should have descriptive content: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test hw wifi [LOGS] shows pattern-based summary (v7.14.0)
+#[test]
+fn test_snow_leopard_hw_logs_patterns_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: hw wifi [LOGS] should show pattern summary
+    if !stdout.contains("[NOT FOUND]") && stdout.contains("[LOGS]") {
+        let has_pattern_info = stdout.contains("Patterns (this boot):")
+            || stdout.contains("No warnings or errors");
+        assert!(
+            has_pattern_info,
+            "hw wifi [LOGS] should have pattern summary: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test Sanity notes are descriptive not prescriptive (v7.14.0)
+#[test]
+fn test_snow_leopard_sanity_not_prescriptive_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "vim"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: Sanity notes should not contain prescriptive language
+    if stdout.contains("Sanity notes:") {
+        assert!(
+            !stdout.contains("should") && !stdout.contains("recommend") && !stdout.contains("fix"),
+            "Sanity notes should be descriptive, not prescriptive: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test [LOGS] doesn't show init.scope noise (v7.14.0)
+#[test]
+fn test_snow_leopard_logs_no_init_scope_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager.service"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: [LOGS] should not contain unrelated unit noise
+    if stdout.contains("[LOGS]") {
+        assert!(
+            !stdout.contains("init.scope") && !stdout.contains("kernel:"),
+            "[LOGS] should not contain init.scope or raw kernel messages: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test patterns show time hints (v7.14.0)
+#[test]
+fn test_snow_leopard_logs_time_hints_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: Patterns should show "last at" time hints
+    if stdout.contains("Patterns (this boot):") && stdout.contains("1)") {
+        // Should have "last at" time reference
+        assert!(
+            stdout.contains("last at"),
+            "Pattern entries should show 'last at' time hint: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test patterns show "seen X times" counts (v7.14.0)
+#[test]
+fn test_snow_leopard_logs_seen_counts_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: Patterns should show "seen X time(s)" counts
+    if stdout.contains("Patterns (this boot):") && stdout.contains("1)") {
+        // Should have "seen N time" reference
+        assert!(
+            stdout.contains("seen"),
+            "Pattern entries should show 'seen' count: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test no new public commands (v7.14.0)
+#[test]
+fn test_snow_leopard_no_new_commands_v714() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.14.0: Help should still only show the 6 base commands
+    assert!(
+        stdout.contains("annactl") && stdout.contains("status")
+            && stdout.contains("sw") && stdout.contains("hw"),
+        "Help should show base commands: {}",
+        stdout
+    );
+    // Should not have new commands like "log" or "pattern"
+    assert!(
+        !stdout.contains("annactl log") && !stdout.contains("annactl pattern"),
+        "Should not have new log/pattern commands: {}",
+        stdout
+    );
     assert!(output.status.success());
 }
