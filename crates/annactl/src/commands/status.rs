@@ -1,17 +1,12 @@
-//! Status Command v5.2.6 - Anna's Health Only
+//! Status Command v5.3.0 - Daemon Health
 //!
-//! Shows a sysadmin a quick view of Anna's own health and background work.
-//! Strictly about Anna's state - no knowledge lists, no per-object stats.
-//!
-//! v5.2.6: Every metric has explicit time window and units.
+//! Shows Anna daemon health and system coverage.
 //!
 //! Sections:
 //! - [VERSION] annactl/annad versions
-//! - [SERVICES] Daemon state and uptime, Ollama state
-//! - [PERMISSIONS] Directory access status
-//! - [UPDATES] Auto-update state
-//! - [INVENTORY] Scan progress (indexed / total on system)
-//! - [HEALTH] Log pipeline summary (24h window)
+//! - [DAEMON] Daemon state and uptime
+//! - [INVENTORY] Scan progress (indexed / total)
+//! - [HEALTH] Log pipeline summary (24h)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -44,14 +39,8 @@ pub async fn run() -> Result<()> {
     // [VERSION]
     print_version_section();
 
-    // [SERVICES]
-    print_services_section().await;
-
-    // [PERMISSIONS]
-    print_permissions_section();
-
-    // [UPDATES]
-    print_updates_section();
+    // [DAEMON]
+    print_daemon_section().await;
 
     // [INVENTORY]
     print_inventory_section(&store);
@@ -72,64 +61,21 @@ fn print_version_section() {
     println!();
 }
 
-async fn print_services_section() {
-    println!("{}", "[SERVICES]".cyan());
+async fn print_daemon_section() {
+    println!("{}", "[DAEMON]".cyan());
 
-    // Check daemon status
-    let daemon_status = check_daemon_status().await;
-    if daemon_status.running {
+    // Check daemon status via health endpoint
+    let daemon_running = check_daemon_health().await;
+    if daemon_running {
         let uptime = get_daemon_uptime();
-        println!("  Daemon:   {} (up {})", "running".green(), uptime);
+        println!("  Status:   {} (up {})", "running".green(), uptime);
     } else {
-        println!("  Daemon:   {}", "stopped".red());
+        println!("  Status:   {}", "stopped".red());
     }
 
-    // Check ollama status
-    let ollama_running = check_ollama_status().await;
-    if ollama_running {
-        println!("  Ollama:   {}", "running".green());
-    } else {
-        println!("  Ollama:   {}", "not running".yellow());
-    }
-
-    println!();
-}
-
-fn print_permissions_section() {
-    println!("{}", "[PERMISSIONS]".cyan());
-
-    let dirs = [
-        ("Data", "/var/lib/anna"),
-        ("Knowledge", "/var/lib/anna/knowledge"),
-        ("XP", "/var/lib/anna/xp"),
-        ("LLM", "/var/lib/anna/llm"),
-    ];
-
-    for (label, path) in &dirs {
-        let access = check_dir_access(path);
-        println!("  {:<10} {}  {}", format!("{}:", label), access, path);
-    }
-
-    println!();
-}
-
-fn print_updates_section() {
-    println!("{}", "[UPDATES]".cyan());
-
-    // Check auto-update config
-    let config = anna_common::AnnaConfigV5::load();
-    let auto_update = if config.update.enabled {
-        let mins = config.update.interval_seconds / 60;
-        format!("enabled (every {}m)", mins)
-    } else {
-        "disabled".to_string()
-    };
-
-    println!("  Auto-update:  {}", auto_update);
-
-    // Last check time
-    let last_check = get_last_update_check();
-    println!("  Last check:   {}", last_check);
+    // Check data directory
+    let data_access = check_dir_access("/var/lib/anna");
+    println!("  Data:     {}  /var/lib/anna", data_access);
 
     println!();
 }
@@ -215,26 +161,25 @@ fn print_health_section(
     // Get failed services count
     let failed_services = service_index.failed_count;
 
-    // Only show non-zero or important metrics
-    println!("  Errors:          {}", errors_24h);
-    println!("  Warnings:        {}", warnings_24h);
+    println!("  Errors:      {}", errors_24h);
+    println!("  Warnings:    {}", warnings_24h);
 
     if intrusions > 0 {
-        println!("  Intrusions:      {}", intrusions.to_string().red());
+        println!("  Intrusions:  {}", intrusions.to_string().red());
     }
 
     if failed_services > 0 {
-        println!("  Failed services: {}", failed_services.to_string().red());
+        println!("  Failed svcs: {}", failed_services.to_string().red());
     }
 
-    // Log scanner status - simplified
+    // Log scanner status
     let scanner_status = if log_scan_state.running {
         "running".green().to_string()
     } else {
         "idle".to_string()
     };
     let last_scan = format_time_ago(log_scan_state.last_scan_at);
-    println!("  Log scanner:     {} (last scan {})", scanner_status, last_scan);
+    println!("  Scanner:     {} (last {})", scanner_status, last_scan);
 
     println!();
 }
@@ -243,34 +188,14 @@ fn print_health_section(
 // Helper Functions
 // ============================================================================
 
-struct DaemonStatus {
-    running: bool,
-}
-
-async fn check_daemon_status() -> DaemonStatus {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(2))
-        .build()
-        .unwrap();
-
-    let result = client
-        .get("http://127.0.0.1:7865/v1/health")
-        .send()
-        .await;
-
-    DaemonStatus {
-        running: result.is_ok(),
-    }
-}
-
-async fn check_ollama_status() -> bool {
+async fn check_daemon_health() -> bool {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(2))
         .build()
         .unwrap();
 
     client
-        .get("http://127.0.0.1:11434/api/tags")
+        .get("http://127.0.0.1:7865/v1/health")
         .send()
         .await
         .is_ok()
@@ -329,22 +254,4 @@ fn check_dir_access(path: &str) -> String {
         (false, true) => "-/W".yellow().to_string(),
         (false, false) => "---".red().to_string(),
     }
-}
-
-fn get_last_update_check() -> String {
-    let state_path = "/var/lib/anna/update_state.json";
-    if let Ok(content) = fs::read_to_string(state_path) {
-        if let Ok(state) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(ts) = state.get("last_check_at").and_then(|v| v.as_u64()) {
-                let result = if let Some(success) = state.get("last_success").and_then(|v| v.as_bool()) {
-                    if success { "ok" } else { "failed" }
-                } else {
-                    "ok"
-                };
-                return format!("{} ({})", format_time_ago(ts), result);
-            }
-        }
-    }
-
-    "never".to_string()
 }

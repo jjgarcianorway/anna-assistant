@@ -1,12 +1,11 @@
-//! Anna Daemon Library
+//! Anna Daemon Library v5.3.0
 //!
-//! This library exposes internal modules for integration testing.
-//! The main binary is in `main.rs`.
+//! Telemetry Core - no LLM, no Q&A.
 
 // Allow dead code for features planned but not yet fully wired
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(clippy::too_many_arguments)]
-#![allow(clippy::manual_clamp)]
 
-pub mod orchestrator;
+pub mod routes;
+pub mod server;

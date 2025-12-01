@@ -19,7 +19,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 // ============================================================================
 // Package Discovery
@@ -127,7 +127,7 @@ fn parse_pacman_date(date_str: &str) -> Option<u64> {
     // pacman dates look like: "Sun 01 Dec 2024 10:30:00 AM UTC"
     // or "2024-12-01T10:30:00"
     // We'll do a simple heuristic parse
-    use chrono::{DateTime, Utc, NaiveDateTime};
+    use chrono::{DateTime, NaiveDateTime};
 
     // Try RFC2822-ish format first
     if let Ok(dt) = DateTime::parse_from_str(date_str, "%a %d %b %Y %I:%M:%S %p %Z") {
@@ -808,6 +808,23 @@ impl KnowledgeBuilder {
 
                     self.store.upsert(obj);
                 }
+            }
+        }
+    }
+
+    /// v5.3.0: Record a single process observation (for external monitoring)
+    pub fn record_process_observation(&mut self, name: &str) {
+        self.telemetry.record_process(name);
+
+        // Update usage count if known
+        if let Some(obj) = self.store.objects.get_mut(name) {
+            obj.usage_count += 1;
+            obj.last_seen_at = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            if obj.first_seen_at == 0 {
+                obj.first_seen_at = obj.last_seen_at;
             }
         }
     }

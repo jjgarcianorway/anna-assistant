@@ -1,7 +1,3 @@
-//! API routes for annad v5.0.0 - Knowledge Core Phase 1
+//! API routes for annad v5.3.0
 //!
-//! Minimal routes - only health endpoint for now.
-//! Q&A and LLM orchestration are disabled.
-
-// v5.0.0: Routes are defined directly in server.rs for simplicity
-// This file is kept for compatibility but not used.
+//! Routes are defined in server.rs. This file kept for compatibility.

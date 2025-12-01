@@ -1,53 +1,38 @@
-//! Anna Daemon (annad) v5.2.3 - Universal Error Inspection
+//! Anna Daemon (annad) v5.3.0 - Telemetry Core
 //!
-//! Anna is now a paranoid archivist with full error tracking:
+//! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
 //! - Tracks ALL packages with versions
-//! - Tracks ALL systemd services with full state
-//! - Detects package installs/removals
-//! - v5.1.1: Priority scans for user-requested objects
-//! - v5.2.0: Error indexing from journalctl
-//! - v5.2.0: Service state tracking (active/enabled/masked/failed)
-//! - v5.2.0: Intrusion detection patterns
-//! - v5.2.1: Full service statistics (total/active/inactive/enabled/disabled/masked/failed)
-//! - v5.2.1: Log scan state tracking
-//! - v5.2.2: LogEntry with category, source_ip, username fields
-//! - v5.2.2: Intrusion grouping by IP with usernames and timestamps
-//! - v5.2.3: Universal error model for ALL objects
-//! - v5.2.3: Dynamic category detection from log patterns
-//! - v5.2.3: Per-object category sections (intrusion, filesystem, config, etc.)
+//! - Tracks ALL systemd services
+//! - Monitors process activity (CPU/memory)
+//! - Indexes errors from journalctl
+//! - Detects intrusion patterns
 //!
-//! No Q&A, no LLM orchestration in this phase.
-
-#![allow(dead_code)]
-#![allow(unused_imports)]
-#![allow(clippy::too_many_arguments)]
+//! No LLM, no Q&A - just system telemetry.
 
 mod routes;
 mod server;
 
 use anna_common::{
-    AnnaConfigV5, KnowledgeBuilder, KnowledgeStore, TelemetryAggregates,
-    permissions::{auto_fix_permissions, PermissionsHealthCheck},
-    // v5.2.0: Error indexing and service state
-    ErrorIndex, LogEntry, LogSeverity,
-    ServiceIndex, ServiceState,
-    IntrusionIndex,
-    // v5.2.1: Log scan state
-    LogScanState,
+    AnnaConfig, KnowledgeBuilder,
+    ErrorIndex, LogEntry,
+    ServiceIndex, IntrusionIndex, LogScanState,
+    TelemetryWriter, ProcessSample, TelemetryState,
 };
 use anyhow::Result;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use sysinfo::{System, ProcessesToUpdate};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Collection interval for process telemetry (30 seconds)
-const PROCESS_COLLECTION_INTERVAL_SECS: u64 = 30;
+/// Collection interval for process telemetry (15 seconds)
+const PROCESS_SAMPLE_INTERVAL_SECS: u64 = 15;
 
 /// Collection interval for package/binary discovery (5 minutes)
-const DISCOVERY_COLLECTION_INTERVAL_SECS: u64 = 300;
+const DISCOVERY_INTERVAL_SECS: u64 = 300;
 
 /// Collection interval for log scanning (60 seconds)
 const LOG_SCAN_INTERVAL_SECS: u64 = 60;
@@ -69,24 +54,19 @@ async fn main() -> Result<()> {
         .init();
 
     info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
-    info!("[>]  Knowledge System with Full Service & Error Visibility");
-    info!("[>]  Tracks executables, services, errors, intrusions");
+    info!("[>]  Telemetry Core - Pure System Intelligence");
+    info!("[>]  Tracks executables, services, processes, errors");
 
-    // Permissions check
-    let health = PermissionsHealthCheck::run();
-    if !health.all_ok {
-        warn!("[!]  Permissions issues detected, attempting auto-fix...");
-        let fixes = auto_fix_permissions();
-        for fix in &fixes {
-            if fix.success {
-                info!("[+]  {}: {}", fix.path.display(), fix.action);
-            } else {
-                warn!("[!]  Failed to fix {}: {:?}", fix.path.display(), fix.error);
-            }
-        }
-    } else {
-        info!("[+]  Permissions OK");
-    }
+    // Load config
+    let _config = AnnaConfig::load();
+
+    // Ensure data directories exist
+    ensure_data_dirs();
+
+    // Initialize telemetry state
+    let mut telemetry_state = TelemetryState::load();
+    telemetry_state.mark_daemon_start();
+    let _ = telemetry_state.save();
 
     // Initialize knowledge builder
     let builder = Arc::new(RwLock::new(KnowledgeBuilder::new()));
@@ -101,31 +81,65 @@ async fn main() -> Result<()> {
         }
         let store = b.store();
         let (commands, packages, services) = store.count_by_type();
-        info!("[+]  Inventory complete: {} cmds, {} pkgs, {} svcs",
-            commands, packages, services);
+        info!("[+]  Inventory: {} cmds, {} pkgs, {} svcs", commands, packages, services);
     }
 
     // Create app state for health endpoint
-    let app_state = server::AppState::new_v5(Arc::clone(&builder));
+    let app_state = server::AppState::new(Arc::clone(&builder));
 
-    // Spawn process collection task (every 30 seconds)
+    // Spawn process monitoring task (every 15 seconds)
     let builder_process = Arc::clone(&builder);
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(PROCESS_COLLECTION_INTERVAL_SECS));
+        let telemetry_writer = TelemetryWriter::new();
+        let mut system = System::new_all();
+        let mut interval = tokio::time::interval(Duration::from_secs(PROCESS_SAMPLE_INTERVAL_SECS));
+
         loop {
             interval.tick().await;
-            let mut b = builder_process.write().await;
-            b.collect_processes();
-            if let Err(e) = b.save() {
-                warn!("[!]  Failed to save process telemetry: {}", e);
+
+            // Refresh process list
+            system.refresh_processes(ProcessesToUpdate::All, true);
+
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+
+            // Update knowledge store with process observations
+            {
+                let mut b = builder_process.write().await;
+                for (pid, process) in system.processes() {
+                    let name = process.name().to_string_lossy().to_string();
+                    let cpu = process.cpu_usage();
+                    let mem = process.memory();
+
+                    // Record to knowledge store
+                    b.record_process_observation(&name);
+
+                    // Record high-activity processes to telemetry log
+                    if cpu > 5.0 || mem > 100_000_000 {
+                        let sample = ProcessSample {
+                            timestamp: now,
+                            name: name.clone(),
+                            pid: pid.as_u32(),
+                            cpu_percent: cpu,
+                            mem_bytes: mem,
+                        };
+                        let _ = telemetry_writer.record_process(&sample);
+                    }
+                }
+
+                if let Err(e) = b.save() {
+                    warn!("[!]  Failed to save process telemetry: {}", e);
+                }
             }
         }
     });
 
-    // Spawn full inventory scan task (every 5 minutes) - detects changes
+    // Spawn full inventory scan task (every 5 minutes)
     let builder_discovery = Arc::clone(&builder);
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(DISCOVERY_COLLECTION_INTERVAL_SECS));
+        let mut interval = tokio::time::interval(Duration::from_secs(DISCOVERY_INTERVAL_SECS));
         loop {
             interval.tick().await;
             let mut b = builder_discovery.write().await;
@@ -142,10 +156,9 @@ async fn main() -> Result<()> {
         }
     });
 
-    // v5.2.1: Spawn log scanner task (every 60 seconds) with LogScanState tracking
+    // Spawn log scanner task (every 60 seconds)
     let builder_logs = Arc::clone(&builder);
     tokio::spawn(async move {
-        // Initialize error and intrusion indexes and scan state
         let mut error_index = ErrorIndex::load();
         let mut intrusion_index = IntrusionIndex::load();
         let mut log_scan_state = LogScanState::load();
@@ -157,7 +170,6 @@ async fn main() -> Result<()> {
         loop {
             interval.tick().await;
             let entries_before = error_index.total_errors;
-            let warnings_before = error_index.total_warnings;
             let intrusions_before = intrusion_index.total_events;
 
             // Scan journalctl for recent entries
@@ -171,24 +183,22 @@ async fn main() -> Result<()> {
                 warn!("[!]  Failed to save intrusion index: {}", e);
             }
 
-            // v5.2.1: Update and save log scan state
-            let new_errors = error_index.total_errors - entries_before;
-            let new_warnings = error_index.total_warnings - warnings_before;
-            let new_intrusions = intrusion_index.total_events - intrusions_before;
+            // Update log scan state
+            let new_errors = error_index.total_errors.saturating_sub(entries_before);
+            let new_intrusions = intrusion_index.total_events.saturating_sub(intrusions_before);
 
-            log_scan_state.record_scan(new_errors, new_warnings);
+            log_scan_state.record_scan(new_errors, 0);
             if let Err(e) = log_scan_state.save() {
                 warn!("[!]  Failed to save log scan state: {}", e);
             }
 
-            // Log if new entries found
             if new_errors > 0 || new_intrusions > 0 {
-                info!("[+]  Log scan: {} new errors, {} new intrusions", new_errors, new_intrusions);
+                info!("[+]  Log scan: {} errors, {} intrusions", new_errors, new_intrusions);
             }
         }
     });
 
-    // v5.2.0: Spawn service indexer task (every 2 minutes)
+    // Spawn service indexer task (every 2 minutes)
     let builder_services = Arc::clone(&builder);
     tokio::spawn(async move {
         let mut service_index = ServiceIndex::load();
@@ -209,25 +219,38 @@ async fn main() -> Result<()> {
                 }
             }
 
-            // Save index
             if let Err(e) = service_index.save() {
                 warn!("[!]  Failed to save service index: {}", e);
             }
 
-            // Alert on new failures
             let failed_after = service_index.failed_count;
             if failed_after > failed_before {
-                warn!("[!]  {} new service failures detected", failed_after - failed_before);
+                warn!("[!]  {} new service failures", failed_after - failed_before);
             }
         }
     });
 
-    // Start HTTP server (minimal - just health endpoint)
+    // Start HTTP server
     info!("[*]  Starting HTTP server on 127.0.0.1:7865");
-    server::run_v5(app_state).await
+    server::run(app_state).await
 }
 
-/// v5.2.0: Scan journal logs for errors and intrusion patterns
+/// Ensure data directories exist
+fn ensure_data_dirs() {
+    let dirs = [
+        "/var/lib/anna",
+        "/var/lib/anna/knowledge",
+        "/var/lib/anna/telemetry",
+    ];
+
+    for dir in &dirs {
+        if let Err(e) = std::fs::create_dir_all(dir) {
+            warn!("[!]  Failed to create {}: {}", dir, e);
+        }
+    }
+}
+
+/// Scan journal logs for errors and intrusion patterns
 async fn scan_journal_logs(
     builder: &Arc<RwLock<KnowledgeBuilder>>,
     error_index: &mut ErrorIndex,
@@ -235,7 +258,7 @@ async fn scan_journal_logs(
 ) {
     use std::process::Command;
 
-    // Get list of known services/units from knowledge store
+    // Get list of known services from knowledge store
     let known_units: Vec<String> = {
         let b = builder.read().await;
         let store = b.store();
@@ -246,7 +269,7 @@ async fn scan_journal_logs(
             .collect()
     };
 
-    // Scan journalctl for recent entries (last 2 minutes, priorities 0-4 = emergency to warning)
+    // Scan journalctl for recent entries (last 2 minutes, priorities 0-4)
     let output = Command::new("journalctl")
         .args([
             "--since", "2 minutes ago",
@@ -264,7 +287,6 @@ async fn scan_journal_logs(
                 continue;
             }
 
-            // Parse JSON log entry
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
                 if let Some(entry) = LogEntry::from_journal_json(&json) {
                     // Try to associate with a known object
@@ -272,7 +294,6 @@ async fn scan_journal_logs(
                         .unit
                         .as_ref()
                         .and_then(|u| {
-                            // Match unit to known object
                             let unit_base = u.trim_end_matches(".service");
                             if known_units.iter().any(|ku| ku.contains(unit_base)) {
                                 Some(unit_base.to_string())
@@ -285,7 +306,6 @@ async fn scan_journal_logs(
                     if let Some(ref name) = object_name {
                         error_index.add_log(name, entry.clone());
                     } else if let Some(ref unit) = entry.unit {
-                        // Use unit name as object name
                         let name = unit.trim_end_matches(".service");
                         error_index.add_log(name, entry.clone());
                     }
@@ -298,7 +318,7 @@ async fn scan_journal_logs(
         }
     }
 
-    // Also scan auth logs specifically for SSH/sudo intrusion patterns
+    // Scan auth logs specifically
     let auth_output = Command::new("journalctl")
         .args([
             "--since", "2 minutes ago",
@@ -327,14 +347,14 @@ async fn scan_journal_logs(
     }
 }
 
-/// Set up a panic hook for robust error handling
+/// Set up a panic hook
 fn setup_panic_hook() {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         let location = panic_info
             .location()
             .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
-            .unwrap_or_else(|| "unknown location".to_string());
+            .unwrap_or_else(|| "unknown".to_string());
 
         let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
             s.to_string()
@@ -345,7 +365,7 @@ fn setup_panic_hook() {
         };
 
         eprintln!();
-        eprintln!("[!!!]  PANIC in Anna Daemon v5");
+        eprintln!("[!!!]  PANIC in Anna Daemon");
         eprintln!("[!!!]  Location: {}", location);
         eprintln!("[!!!]  Message: {}", message);
         eprintln!();

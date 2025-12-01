@@ -1,10 +1,10 @@
-//! Command modules for annactl v5.2.4
+//! Command modules for annactl v5.3.0
 //!
-//! Commands are separated by responsibility:
-//! - status: Anna's own health and status
-//! - stats: Anna's behavior and history statistics
-//! - knowledge: Overview of what Anna knows
-//! - knowledge_stats: Detailed knowledge statistics
+//! Commands:
+//! - status: Daemon health and status
+//! - stats: Daemon activity statistics
+//! - knowledge: Knowledge overview by category
+//! - knowledge_stats: Coverage and quality statistics
 //! - knowledge_detail: Full profile of a single object
 
 pub mod status;

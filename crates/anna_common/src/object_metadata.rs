@@ -5,7 +5,6 @@
 //! - Relationship detection (e.g., aquamarine -> hyprland)
 //! - Extended category classification
 
-use std::collections::HashMap;
 
 /// Object relationship information
 #[derive(Debug, Clone)]
