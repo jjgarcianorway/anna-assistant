@@ -904,4 +904,218 @@ mod tests {
         // The UI should check for zero and show "No data collected yet"
         // This is a behavior contract, not code
     }
+
+    // ========================================================================
+    // v5.1.0: Full Inventory Invariants
+    // ========================================================================
+
+    #[test]
+    fn test_inventory_object_types_valid() {
+        // ObjectType enum must have exactly 3 values
+        use crate::knowledge_core::ObjectType;
+
+        let types = [ObjectType::Command, ObjectType::Package, ObjectType::Service];
+        assert_eq!(types.len(), 3);
+
+        // Each type has a string representation
+        assert_eq!(ObjectType::Command.as_str(), "command");
+        assert_eq!(ObjectType::Package.as_str(), "package");
+        assert_eq!(ObjectType::Service.as_str(), "service");
+    }
+
+    #[test]
+    fn test_inventory_progress_phases() {
+        // InventoryPhase enum must have exactly 5 values
+        use crate::knowledge_core::InventoryPhase;
+
+        let phases = [
+            InventoryPhase::Idle,
+            InventoryPhase::ScanningPath,
+            InventoryPhase::ScanningPackages,
+            InventoryPhase::ScanningServices,
+            InventoryPhase::Complete,
+        ];
+        assert_eq!(phases.len(), 5);
+    }
+
+    #[test]
+    fn test_inventory_progress_percent_bounds() {
+        // Progress percent must be 0-100
+        use crate::knowledge_core::InventoryProgress;
+
+        let mut progress = InventoryProgress::new();
+
+        // Initial state
+        assert!(progress.percent <= 100);
+
+        // After update
+        progress.items_total = 10;
+        progress.update(5);
+        assert!(progress.percent <= 100);
+
+        progress.update(10);
+        assert!(progress.percent <= 100);
+    }
+
+    #[test]
+    fn test_inventory_progress_complete_marks_done() {
+        // complete() must set initial_scan_complete = true
+        use crate::knowledge_core::{InventoryProgress, InventoryPhase};
+
+        let mut progress = InventoryProgress::new();
+        assert!(!progress.initial_scan_complete);
+
+        progress.complete();
+        assert!(progress.initial_scan_complete);
+        assert_eq!(progress.phase, InventoryPhase::Complete);
+        assert_eq!(progress.percent, 100);
+    }
+
+    #[test]
+    fn test_inventory_count_by_type_consistency() {
+        // count_by_type must return consistent numbers
+        use crate::knowledge_core::{KnowledgeStore, KnowledgeObject, Category, ObjectType};
+
+        let mut store = KnowledgeStore::new();
+
+        // Add objects with different types
+        let mut cmd = KnowledgeObject::new("ls", Category::Tool);
+        cmd.object_types.push(ObjectType::Command);
+        store.upsert(cmd);
+
+        let mut pkg = KnowledgeObject::new("vim", Category::Editor);
+        pkg.object_types.push(ObjectType::Package);
+        store.upsert(pkg);
+
+        let mut svc = KnowledgeObject::new("nginx", Category::Service);
+        svc.object_types.push(ObjectType::Service);
+        store.upsert(svc);
+
+        // Object with multiple types
+        let mut multi = KnowledgeObject::new("systemd", Category::Service);
+        multi.object_types.push(ObjectType::Command);
+        multi.object_types.push(ObjectType::Package);
+        multi.object_types.push(ObjectType::Service);
+        store.upsert(multi);
+
+        let (commands, packages, services) = store.count_by_type();
+
+        // ls + systemd = 2 commands
+        assert_eq!(commands, 2);
+        // vim + systemd = 2 packages
+        assert_eq!(packages, 2);
+        // nginx + systemd = 2 services
+        assert_eq!(services, 2);
+    }
+
+    #[test]
+    fn test_inventory_package_version_tracking() {
+        // Package version must be stored
+        use crate::knowledge_core::{KnowledgeObject, Category};
+
+        let mut obj = KnowledgeObject::new("vim", Category::Editor);
+        assert!(obj.package_version.is_none());
+
+        obj.package_version = Some("9.0.2136-1".to_string());
+        assert_eq!(obj.package_version.as_deref(), Some("9.0.2136-1"));
+    }
+
+    #[test]
+    fn test_inventory_paths_can_be_multiple() {
+        // An object can have multiple paths (symlinks, copies)
+        use crate::knowledge_core::{KnowledgeObject, Category};
+
+        let mut obj = KnowledgeObject::new("python", Category::Tool);
+        obj.paths.push("/usr/bin/python".to_string());
+        obj.paths.push("/usr/bin/python3".to_string());
+        obj.paths.push("/usr/local/bin/python".to_string());
+
+        assert_eq!(obj.paths.len(), 3);
+    }
+
+    #[test]
+    fn test_inventory_service_unit_tracking() {
+        // Service unit must be tracked for services
+        use crate::knowledge_core::{KnowledgeObject, Category};
+
+        let mut obj = KnowledgeObject::new("nginx", Category::Service);
+        obj.service_unit = Some("nginx.service".to_string());
+        obj.service_enabled = Some(true);
+        obj.service_active = Some(true);
+
+        assert_eq!(obj.service_unit.as_deref(), Some("nginx.service"));
+        assert_eq!(obj.service_enabled, Some(true));
+        assert_eq!(obj.service_active, Some(true));
+    }
+
+    #[test]
+    fn test_inventory_source_tracking() {
+        // Inventory sources must track where data came from
+        use crate::knowledge_core::{KnowledgeObject, Category};
+
+        let mut obj = KnowledgeObject::new("vim", Category::Editor);
+        obj.inventory_source.push("path_scan".to_string());
+        obj.inventory_source.push("pacman_db".to_string());
+
+        assert!(obj.inventory_source.contains(&"path_scan".to_string()));
+        assert!(obj.inventory_source.contains(&"pacman_db".to_string()));
+    }
+
+    #[test]
+    fn test_inventory_removed_at_tracking() {
+        // removed_at must be set when package is uninstalled
+        use crate::knowledge_core::{KnowledgeObject, Category};
+
+        let mut obj = KnowledgeObject::new("vim", Category::Editor);
+        obj.installed = true; // Simulate installed package
+
+        // Initially not removed
+        assert!(obj.removed_at.is_none());
+        assert!(obj.installed);
+
+        // Simulate removal
+        obj.installed = false;
+        obj.removed_at = Some(1700000000);
+
+        assert!(!obj.installed);
+        assert!(obj.removed_at.is_some());
+    }
+
+    #[test]
+    fn test_inventory_format_status_phases() {
+        // format_status must return different strings per phase
+        use crate::knowledge_core::{InventoryProgress, InventoryPhase};
+
+        let mut progress = InventoryProgress::new();
+
+        // Idle
+        progress.phase = InventoryPhase::Idle;
+        let status = progress.format_status();
+        assert!(status.contains("Waiting"));
+
+        // Complete
+        progress.phase = InventoryPhase::Complete;
+        progress.initial_scan_complete = true;
+        let status = progress.format_status();
+        assert!(status.contains("Complete"));
+    }
+
+    #[test]
+    fn test_inventory_count_with_usage() {
+        // count_with_usage must count objects with usage_count > 0
+        use crate::knowledge_core::{KnowledgeStore, KnowledgeObject, Category};
+
+        let mut store = KnowledgeStore::new();
+
+        // Object with no usage
+        let obj1 = KnowledgeObject::new("vim", Category::Editor);
+        store.upsert(obj1);
+
+        // Object with usage
+        let mut obj2 = KnowledgeObject::new("zsh", Category::Shell);
+        obj2.usage_count = 5;
+        store.upsert(obj2);
+
+        assert_eq!(store.count_with_usage(), 1);
+    }
 }

@@ -433,14 +433,21 @@ pub use learning_engine::{
     PATTERN_STORE_PATH, MIN_LEARN_RELIABILITY, PATTERN_CACHE_TTL_SECS, MIN_CACHE_RELIABILITY,
 };
 
-// Knowledge Core exports (v5.0.0) - System profiler and knowledge engine
+// Knowledge Core exports (v5.0.0 + v5.1.0) - System profiler and knowledge engine
 pub use knowledge_core::{
     Category as KnowledgeCategory, DetectionSource, KnowledgeObject, KnowledgeStore,
     TelemetryAggregates, classify_tool, get_config_paths,
     KNOWLEDGE_STORE_PATH, TELEMETRY_STORE_PATH,
+    // v5.1.0: Full inventory types
+    ObjectType, InventoryPhase, InventoryProgress,
 };
 pub use knowledge_collector::{
     KnowledgeBuilder, ProcessInfo,
     discover_pacman_packages, discover_binaries, discover_processes,
     binary_exists, get_pacman_package_info,
+    // v5.1.0: Full inventory discovery
+    PackageInfo, SystemdServiceInfo,
+    discover_pacman_packages_full, get_package_files,
+    discover_systemd_services, count_systemd_services,
+    discover_all_binaries, count_path_binaries,
 };

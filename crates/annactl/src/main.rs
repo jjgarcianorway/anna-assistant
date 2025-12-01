@@ -1,14 +1,15 @@
-//! Anna CLI (annactl) v5.0.0 - Knowledge Core Phase 1
+//! Anna CLI (annactl) v5.1.0 - Full Inventory
 //!
-//! Anna is now a pure observer:
-//! - Watches the machine
-//! - Builds structured knowledge base
-//! - No Q&A, no router, no XP, no levels
+//! Anna is now a paranoid archivist:
+//! - Tracks ALL commands on PATH
+//! - Tracks ALL packages with versions
+//! - Tracks ALL systemd services
+//! - Detects package installs/removals
 //!
 //! ## Allowed CLI Commands
 //!
-//! - annactl status     Quick system and knowledge status
-//! - annactl stats      Detailed knowledge statistics
+//! - annactl status     Quick system and knowledge status + inventory progress
+//! - annactl stats      Detailed knowledge statistics + command coverage
 //! - annactl knowledge  List all known objects
 //! - annactl knowledge <topic>  Details on one object
 //! - annactl version    Show version info
@@ -24,7 +25,8 @@ mod client;
 use anna_common::{
     init_logger, AnnaConfigV5, logging, LogComponent,
     KnowledgeCategory, KnowledgeObject, KnowledgeStore, TelemetryAggregates,
-    KnowledgeBuilder,
+    KnowledgeBuilder, ObjectType, InventoryPhase,
+    count_path_binaries, count_systemd_services,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -72,7 +74,7 @@ async fn main() -> Result<()> {
 fn run_version() -> Result<()> {
     println!();
     println!("  annactl v{}", VERSION);
-    println!("  Knowledge Core Phase 1");
+    println!("  Full Inventory - Paranoid Archivist");
     println!();
     Ok(())
 }
@@ -83,23 +85,25 @@ fn run_version() -> Result<()> {
 
 fn run_help() -> Result<()> {
     println!();
-    println!("{}", "ANNA - Knowledge Core v5.0.0".bold());
+    println!("{}", "ANNA - Full Inventory v5.1.0".bold());
     println!("{}", THIN_SEP);
     println!();
-    println!("  Anna is a background system profiler that watches your machine");
-    println!("  and builds a structured knowledge base.");
+    println!("  Anna is a paranoid archivist that tracks every executable,");
+    println!("  package, and service on your Linux system.");
     println!();
     println!("{}", "COMMANDS:".bold());
-    println!("  annactl status           Quick system and knowledge status");
-    println!("  annactl stats            Detailed knowledge statistics");
+    println!("  annactl status           System status + inventory progress");
+    println!("  annactl stats            Knowledge stats + command coverage");
     println!("  annactl knowledge        List all known software objects");
     println!("  annactl knowledge <name> Details on one specific object");
     println!("  annactl version          Show version info");
     println!("  annactl help             Show this help");
     println!();
-    println!("{}", "NOTE:".bold());
-    println!("  Q&A mode is disabled in Knowledge Core phase.");
-    println!("  Use 'annactl knowledge' and 'annactl stats' to explore.");
+    println!("{}", "TRACKING:".bold());
+    println!("  - ALL commands on PATH");
+    println!("  - ALL packages with versions");
+    println!("  - ALL systemd services");
+    println!("  - Package install/remove events");
     println!();
     Ok(())
 }
@@ -131,12 +135,14 @@ async fn run_status() -> Result<()> {
     // Load knowledge and telemetry
     let store = KnowledgeStore::load();
     let telemetry = TelemetryAggregates::load();
+    let builder = KnowledgeBuilder::new();
 
     // Check daemon status
     let daemon_status = check_daemon_status().await;
 
     // Count by category
     let counts = store.count_by_category();
+    let (commands, packages, services) = store.count_by_type();
 
     println!();
     println!("{}", "ANNA STATUS".bold());
@@ -157,14 +163,40 @@ async fn run_status() -> Result<()> {
     }
     println!();
 
-    // Knowledge section
+    // v5.1.0: Inventory section
+    println!("{}", "[INVENTORY]".cyan());
+    let progress = builder.progress();
+    if progress.initial_scan_complete {
+        println!("  Status:     {}", "Complete".green());
+        println!("  Commands:   {} tracked", commands);
+        println!("  Packages:   {} tracked", packages);
+        println!("  Services:   {} tracked", services);
+    } else {
+        // Show current phase and progress
+        let status = progress.format_status();
+        if progress.phase == InventoryPhase::Idle {
+            // Count system totals for context
+            let total_bins = count_path_binaries();
+            let total_svcs = count_systemd_services();
+            println!("  Status:     {} (pending scan)", "Waiting".yellow());
+            println!("  PATH cmds:  ~{} (system)", total_bins);
+            println!("  Services:   ~{} (system)", total_svcs);
+        } else {
+            println!("  Status:     {}", status.yellow());
+            println!("  Progress:   {}%", progress.percent);
+            if let Some(eta) = progress.eta_secs {
+                println!("  ETA:        {}s", eta);
+            }
+        }
+    }
+    println!();
+
+    // Knowledge section (categorized tools)
     println!("{}", "[KNOWLEDGE]".cyan());
     let total = store.total_objects();
     if total == 0 {
         println!("  No data collected yet. Daemon must be running.");
     } else {
-        println!("  Objects:    {} (tools/packages tracked)", total);
-
         // Show category breakdown
         let editors = counts.get(&KnowledgeCategory::Editor).unwrap_or(&0);
         let terminals = counts.get(&KnowledgeCategory::Terminal).unwrap_or(&0);
@@ -173,13 +205,19 @@ async fn run_status() -> Result<()> {
         let compositors = counts.get(&KnowledgeCategory::Compositor).unwrap_or(&0);
         let browsers = counts.get(&KnowledgeCategory::Browser).unwrap_or(&0);
 
-        if *editors > 0 { println!("  Editors:    {}", editors); }
-        if *terminals > 0 { println!("  Terminals:  {}", terminals); }
-        if *shells > 0 { println!("  Shells:     {}", shells); }
+        // Only show categorized (known) tools
+        let known = editors + terminals + shells + wms + compositors + browsers;
+        println!("  Known:      {} (categorized)", known);
+        if *editors > 0 { println!("    Editors:    {}", editors); }
+        if *terminals > 0 { println!("    Terminals:  {}", terminals); }
+        if *shells > 0 { println!("    Shells:     {}", shells); }
         if *wms > 0 || *compositors > 0 {
-            println!("  WMs/Comp:   {}", wms + compositors);
+            println!("    WMs/Comp:   {}", wms + compositors);
         }
-        if *browsers > 0 { println!("  Browsers:   {}", browsers); }
+        if *browsers > 0 { println!("    Browsers:   {}", browsers); }
+
+        let with_usage = store.count_with_usage();
+        println!("  Observed:   {} (with runs)", with_usage);
     }
     println!();
 
@@ -192,11 +230,6 @@ async fn run_status() -> Result<()> {
         println!("  Commands:   {} unique", telemetry.unique_commands);
         println!("  Samples:    {}", format_number(telemetry.total_samples));
     }
-    println!();
-
-    // Mode section
-    println!("{}", "[MODE]".cyan());
-    println!("  Phase:      {} (Q&A disabled)", "Knowledge Core".yellow());
 
     println!("{}", THIN_SEP);
     println!();
@@ -217,10 +250,38 @@ async fn run_stats() -> Result<()> {
     println!("{}", "ANNA STATS".bold());
     println!("{}", THIN_SEP);
 
-    // Knowledge Coverage section
+    // v5.1.0: Command Coverage section
+    println!("{}", "[COMMAND COVERAGE]".cyan());
+    let (commands, packages, services) = store.count_by_type();
+    let total_path = count_path_binaries();
+    let total_svcs = count_systemd_services();
+
+    if commands > 0 || packages > 0 || services > 0 {
+        // Commands coverage
+        let cmd_pct = if total_path > 0 { (commands as f64 / total_path as f64) * 100.0 } else { 0.0 };
+        println!("  Commands:   {}/{} ({:.0}% of PATH)", commands, total_path, cmd_pct);
+
+        // Packages coverage (always 100% if pacman available)
+        println!("  Packages:   {} tracked", packages);
+
+        // Services coverage
+        let svc_pct = if total_svcs > 0 { (services as f64 / total_svcs as f64) * 100.0 } else { 0.0 };
+        println!("  Services:   {}/{} ({:.0}% of systemd)", services, total_svcs, svc_pct);
+
+        // Observed (with usage)
+        let with_usage = store.count_with_usage();
+        let usage_pct = if store.total_objects() > 0 {
+            (with_usage as f64 / store.total_objects() as f64) * 100.0
+        } else { 0.0 };
+        println!("  Observed:   {}/{} ({:.0}% with runs)", with_usage, store.total_objects(), usage_pct);
+    } else {
+        println!("  No inventory data yet. Daemon must be running.");
+    }
+    println!();
+
+    // Knowledge Coverage section (categorized)
     println!("{}", "[KNOWLEDGE COVERAGE]".cyan());
 
-    let _counts = store.count_by_category();
     let total = store.total_objects();
 
     if total == 0 {
@@ -386,6 +447,14 @@ fn run_knowledge_detail(store: &KnowledgeStore, name: &str) -> Result<()> {
             println!("  Category:        {}", obj.category.as_str());
             println!("  Name:            {}", obj.name);
 
+            // v5.1.0: Object types
+            if !obj.object_types.is_empty() {
+                let types: Vec<_> = obj.object_types.iter()
+                    .map(|t| t.as_str())
+                    .collect();
+                println!("  Types:           {}", types.join(", "));
+            }
+
             let detected = match &obj.detected_as {
                 anna_common::DetectionSource::Package => "package".to_string(),
                 anna_common::DetectionSource::Binary => "binary".to_string(),
@@ -400,6 +469,11 @@ fn run_knowledge_detail(store: &KnowledgeStore, name: &str) -> Result<()> {
             if let Some(wiki) = &obj.wiki_ref {
                 println!("  Wiki:            {}", wiki);
             }
+
+            // v5.1.0: Inventory source
+            if !obj.inventory_source.is_empty() {
+                println!("  Sources:         {}", obj.inventory_source.join(", "));
+            }
             println!();
 
             // Installation section
@@ -408,10 +482,44 @@ fn run_knowledge_detail(store: &KnowledgeStore, name: &str) -> Result<()> {
             if let Some(pkg) = &obj.package_name {
                 println!("  Package:         {}", pkg);
             }
+            // v5.1.0: Version
+            if let Some(ver) = &obj.package_version {
+                println!("  Version:         {}", ver);
+            }
+            // v5.1.0: Install date
+            if let Some(ts) = obj.installed_at {
+                println!("  Install date:    {}", format_timestamp(ts));
+            }
+            // v5.1.0: Removal date
+            if let Some(ts) = obj.removed_at {
+                println!("  Removed at:      {}", format_timestamp(ts));
+            }
             if let Some(path) = &obj.binary_path {
                 println!("  Binary path:     {}", path);
             }
+            // v5.1.0: All paths
+            if obj.paths.len() > 1 {
+                println!("  All paths:");
+                for p in &obj.paths {
+                    println!("    - {}", p);
+                }
+            }
             println!();
+
+            // v5.1.0: Service section
+            if obj.service_unit.is_some() || obj.object_types.contains(&ObjectType::Service) {
+                println!("{}", "[SERVICE]".cyan());
+                if let Some(unit) = &obj.service_unit {
+                    println!("  Unit:            {}", unit);
+                }
+                if let Some(enabled) = obj.service_enabled {
+                    println!("  Enabled:         {}", if enabled { "yes" } else { "no" });
+                }
+                if let Some(active) = obj.service_active {
+                    println!("  Active:          {}", if active { "yes" } else { "no" });
+                }
+                println!();
+            }
 
             // Usage section
             println!("{}", "[USAGE]".cyan());
@@ -434,7 +542,7 @@ fn run_knowledge_detail(store: &KnowledgeStore, name: &str) -> Result<()> {
 
             // Notes
             println!("{}", "[NOTES]".cyan());
-            println!("  Data collected by anna daemon since installation.");
+            println!("  Data collected by anna daemon (v5.1.0 Full Inventory).");
         }
         None => {
             println!();

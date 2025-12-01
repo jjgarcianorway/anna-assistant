@@ -1,9 +1,10 @@
-//! Anna Daemon (annad) v5.0.0 - Knowledge Core Phase 1
+//! Anna Daemon (annad) v5.1.0 - Full Inventory
 //!
-//! Anna is now a pure observer:
-//! - Collects system telemetry
-//! - Classifies and normalizes data
-//! - Builds structured knowledge base
+//! Anna is now a paranoid archivist:
+//! - Tracks ALL commands on PATH
+//! - Tracks ALL packages with versions
+//! - Tracks ALL systemd services
+//! - Detects package installs/removals
 //!
 //! No Q&A, no LLM orchestration in this phase.
 
@@ -44,8 +45,8 @@ async fn main() -> Result<()> {
         .init();
 
     info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
-    info!("[>]  Knowledge Core Phase 1 - System Profiler");
-    info!("[>]  Q&A is disabled. Daemon only collects knowledge.");
+    info!("[>]  Full Inventory - Paranoid Archivist");
+    info!("[>]  Q&A is disabled. Daemon tracks all executables.");
 
     // Permissions check
     let health = PermissionsHealthCheck::run();
@@ -66,18 +67,18 @@ async fn main() -> Result<()> {
     // Initialize knowledge builder
     let builder = Arc::new(RwLock::new(KnowledgeBuilder::new()));
 
-    // Run initial collection
+    // Run initial full inventory scan
     {
         let mut b = builder.write().await;
-        info!("[*]  Running initial discovery...");
-        b.collect_packages();
-        b.collect_binaries();
-        b.collect_processes();
+        info!("[*]  Running full inventory scan...");
+        b.collect_full_inventory();
         if let Err(e) = b.save() {
             warn!("[!]  Failed to save initial knowledge: {}", e);
         }
         let store = b.store();
-        info!("[+]  Initial discovery complete: {} objects", store.total_objects());
+        let (commands, packages, services) = store.count_by_type();
+        info!("[+]  Inventory complete: {} cmds, {} pkgs, {} svcs",
+            commands, packages, services);
     }
 
     // Create app state for health endpoint
@@ -97,7 +98,7 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Spawn package/binary discovery task (every 5 minutes)
+    // Spawn full inventory scan task (every 5 minutes) - detects changes
     let builder_discovery = Arc::clone(&builder);
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(DISCOVERY_COLLECTION_INTERVAL_SECS));
@@ -105,14 +106,14 @@ async fn main() -> Result<()> {
             interval.tick().await;
             let mut b = builder_discovery.write().await;
             let before = b.store().total_objects();
-            b.collect_packages();
-            b.collect_binaries();
+            b.collect_full_inventory();
             if let Err(e) = b.save() {
-                warn!("[!]  Failed to save discovery data: {}", e);
+                warn!("[!]  Failed to save inventory data: {}", e);
             }
             let after = b.store().total_objects();
-            if after > before {
-                info!("[+]  Discovery: {} new objects", after - before);
+            if after != before {
+                let delta = (after as i64) - (before as i64);
+                info!("[+]  Inventory: {} objects (delta: {:+})", after, delta);
             }
         }
     });

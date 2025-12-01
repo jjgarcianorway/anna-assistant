@@ -81,7 +81,26 @@ impl Category {
 // Knowledge Object
 // ============================================================================
 
-/// A single piece of knowledge about a tool/package
+/// v5.1.0: Object type classification
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ObjectType {
+    Command,
+    Package,
+    Service,
+}
+
+impl ObjectType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ObjectType::Command => "command",
+            ObjectType::Package => "package",
+            ObjectType::Service => "service",
+        }
+    }
+}
+
+/// A single piece of knowledge about a tool/package/service
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KnowledgeObject {
     /// Canonical name (e.g., "vim", "nano", "hyprland")
@@ -89,6 +108,10 @@ pub struct KnowledgeObject {
 
     /// Category classification
     pub category: Category,
+
+    /// v5.1.0: Object types (can be multiple: command + package + service)
+    #[serde(default)]
+    pub object_types: Vec<ObjectType>,
 
     /// How it was detected
     pub detected_as: DetectionSource,
@@ -99,8 +122,34 @@ pub struct KnowledgeObject {
     /// Package name (if installed via package manager)
     pub package_name: Option<String>,
 
-    /// Binary path (if found)
+    /// v5.1.0: Package version
+    pub package_version: Option<String>,
+
+    /// v5.1.0: Package install time (Unix seconds)
+    pub installed_at: Option<u64>,
+
+    /// v5.1.0: Package removal time (Unix seconds)
+    pub removed_at: Option<u64>,
+
+    /// v5.1.0: All executable paths for this object
+    #[serde(default)]
+    pub paths: Vec<String>,
+
+    /// Binary path (legacy - first path, kept for compatibility)
     pub binary_path: Option<String>,
+
+    /// v5.1.0: Systemd service unit name (if applicable)
+    pub service_unit: Option<String>,
+
+    /// v5.1.0: Service enabled status
+    pub service_enabled: Option<bool>,
+
+    /// v5.1.0: Service active status
+    pub service_active: Option<bool>,
+
+    /// v5.1.0: Inventory source (path_scan, pacman_db, systemd)
+    #[serde(default)]
+    pub inventory_source: Vec<String>,
 
     /// Number of times the binary was seen executed
     pub usage_count: u64,
@@ -120,6 +169,9 @@ pub struct KnowledgeObject {
     /// Known config file paths
     pub config_paths: Vec<String>,
 
+    /// v5.1.0: When configs were discovered
+    pub config_discovered_at: Option<u64>,
+
     /// Arch Wiki reference (e.g., "archwiki:Vim")
     pub wiki_ref: Option<String>,
 }
@@ -134,16 +186,26 @@ impl KnowledgeObject {
         Self {
             name: name.to_string(),
             category,
+            object_types: vec![],
             detected_as: DetectionSource::Unknown,
             installed: false,
             package_name: None,
+            package_version: None,
+            installed_at: None,
+            removed_at: None,
+            paths: vec![],
             binary_path: None,
+            service_unit: None,
+            service_enabled: None,
+            service_active: None,
+            inventory_source: vec![],
             usage_count: 0,
             total_cpu_time_ms: 0,
             total_mem_bytes_peak: 0,
             first_seen_at: now,
             last_seen_at: now,
             config_paths: vec![],
+            config_discovered_at: None,
             wiki_ref: None,
         }
     }
@@ -319,6 +381,185 @@ impl KnowledgeStore {
             .unwrap_or_default()
             .as_secs();
         self.last_updated = now;
+    }
+
+    /// v5.1.0: Count objects by ObjectType
+    pub fn count_by_type(&self) -> (usize, usize, usize) {
+        let mut commands = 0;
+        let mut packages = 0;
+        let mut services = 0;
+
+        for obj in self.objects.values() {
+            if obj.object_types.contains(&ObjectType::Command) {
+                commands += 1;
+            }
+            if obj.object_types.contains(&ObjectType::Package) {
+                packages += 1;
+            }
+            if obj.object_types.contains(&ObjectType::Service) {
+                services += 1;
+            }
+        }
+        (commands, packages, services)
+    }
+
+    /// v5.1.0: Count objects with runs observed
+    pub fn count_with_usage(&self) -> usize {
+        self.objects.values().filter(|o| o.usage_count > 0).count()
+    }
+
+    /// v5.1.0: Get services
+    pub fn get_services(&self) -> Vec<&KnowledgeObject> {
+        self.objects
+            .values()
+            .filter(|o| o.object_types.contains(&ObjectType::Service))
+            .collect()
+    }
+}
+
+// ============================================================================
+// Inventory Progress (v5.1.0)
+// ============================================================================
+
+/// v5.1.0: Inventory scan phase
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InventoryPhase {
+    Idle,
+    ScanningPath,
+    ScanningPackages,
+    ScanningServices,
+    Complete,
+}
+
+impl InventoryPhase {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            InventoryPhase::Idle => "idle",
+            InventoryPhase::ScanningPath => "scanning PATH",
+            InventoryPhase::ScanningPackages => "scanning packages",
+            InventoryPhase::ScanningServices => "scanning services",
+            InventoryPhase::Complete => "complete",
+        }
+    }
+}
+
+/// v5.1.0: Inventory progress tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InventoryProgress {
+    /// Current phase
+    pub phase: InventoryPhase,
+    /// Percent complete (0-100)
+    pub percent: u8,
+    /// Items processed in current phase
+    pub items_processed: usize,
+    /// Total items in current phase
+    pub items_total: usize,
+    /// Estimated time remaining (seconds)
+    pub eta_secs: Option<u64>,
+    /// Scan started at (Unix seconds)
+    pub started_at: Option<u64>,
+    /// Last update timestamp
+    pub last_update: u64,
+    /// Is initial scan complete?
+    pub initial_scan_complete: bool,
+}
+
+impl Default for InventoryProgress {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl InventoryProgress {
+    pub fn new() -> Self {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        Self {
+            phase: InventoryPhase::Idle,
+            percent: 0,
+            items_processed: 0,
+            items_total: 0,
+            eta_secs: None,
+            started_at: None,
+            last_update: now,
+            initial_scan_complete: false,
+        }
+    }
+
+    /// Start a new scan phase
+    pub fn start_phase(&mut self, phase: InventoryPhase, total_items: usize) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        if self.started_at.is_none() {
+            self.started_at = Some(now);
+        }
+        self.phase = phase;
+        self.items_total = total_items;
+        self.items_processed = 0;
+        self.last_update = now;
+        self.update_percent();
+    }
+
+    /// Update progress
+    pub fn update(&mut self, processed: usize) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        self.items_processed = processed;
+        self.last_update = now;
+        self.update_percent();
+
+        // Calculate ETA based on progress
+        if let Some(started) = self.started_at {
+            if self.percent > 0 && self.percent < 100 {
+                let elapsed = now.saturating_sub(started);
+                let estimated_total = (elapsed as f64 * 100.0) / self.percent as f64;
+                self.eta_secs = Some((estimated_total - elapsed as f64) as u64);
+            }
+        }
+    }
+
+    /// Mark scan complete
+    pub fn complete(&mut self) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        self.phase = InventoryPhase::Complete;
+        self.percent = 100;
+        self.eta_secs = None;
+        self.last_update = now;
+        self.initial_scan_complete = true;
+    }
+
+    fn update_percent(&mut self) {
+        if self.items_total > 0 {
+            self.percent = ((self.items_processed as f64 / self.items_total as f64) * 100.0) as u8;
+        }
+    }
+
+    /// Format progress for display
+    pub fn format_status(&self) -> String {
+        if self.initial_scan_complete {
+            "Complete".to_string()
+        } else if self.phase == InventoryPhase::Idle {
+            "Waiting...".to_string()
+        } else {
+            let eta = self.eta_secs
+                .map(|s| format!(" (ETA: {}s)", s))
+                .unwrap_or_default();
+            format!("{} {}%{}", self.phase.as_str(), self.percent, eta)
+        }
     }
 }
 
