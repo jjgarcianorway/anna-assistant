@@ -288,6 +288,31 @@ pub fn list_service_units() -> Vec<(String, String)> {
     }
 }
 
+/// List only enabled service unit files (excludes static, disabled, masked)
+/// Source: systemctl list-unit-files --type=service --state=enabled
+pub fn list_enabled_services() -> Vec<String> {
+    let output = Command::new("systemctl")
+        .args(["list-unit-files", "--type=service", "--state=enabled", "--no-legend"])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .filter_map(|line| {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if !parts.is_empty() {
+                        Some(parts[0].to_string())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -23,7 +23,7 @@ const THIN_SEP: &str = "--------------------------------------------------------
 const EDITORS: &[&str] = &["vim", "nvim", "neovim", "nano", "emacs", "helix", "hx", "kate", "gedit", "code"];
 const TERMINALS: &[&str] = &["alacritty", "kitty", "foot", "wezterm", "gnome-terminal", "konsole", "st", "xterm"];
 const SHELLS: &[&str] = &["bash", "zsh", "fish", "nushell", "dash", "sh"];
-const COMPOSITORS: &[&str] = &["hyprland", "Hyprland", "sway", "wayfire", "river", "gnome-shell", "plasmashell", "i3", "bspwm"];
+const COMPOSITORS: &[&str] = &["hyprland", "sway", "wayfire", "river", "gnome-shell", "plasmashell", "i3", "bspwm"];
 const BROWSERS: &[&str] = &["firefox", "chromium", "brave", "vivaldi", "qutebrowser", "librewolf", "google-chrome-stable"];
 const TOOLS: &[&str] = &[
     "git", "curl", "wget", "grep", "awk", "sed", "tar", "gzip", "unzip",

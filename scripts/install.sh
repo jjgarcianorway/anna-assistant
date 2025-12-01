@@ -36,7 +36,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="6.0.0"
+INSTALLER_VERSION="7.0.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -694,8 +694,8 @@ main() {
     printf "  No LLM, no Q&A - just system observation.\n"
     printf "\n"
     printf "  Check status:    ${CYAN}annactl status${NC}\n"
-    printf "  View knowledge:  ${CYAN}annactl knowledge${NC}\n"
-    printf "  Object details:  ${CYAN}annactl knowledge <name>${NC}\n"
+    printf "  View knowledge:  ${CYAN}annactl kdb${NC}\n"
+    printf "  Object details:  ${CYAN}annactl kdb <name>${NC}\n"
     printf "\n"
     print_line
 }

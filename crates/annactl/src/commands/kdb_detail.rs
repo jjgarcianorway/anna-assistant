@@ -23,7 +23,7 @@ const THIN_SEP: &str = "--------------------------------------------------------
 const EDITORS: &[&str] = &["vim", "nvim", "neovim", "nano", "emacs", "helix", "hx", "kate", "gedit", "code"];
 const TERMINALS: &[&str] = &["alacritty", "kitty", "foot", "wezterm", "gnome-terminal", "konsole", "st", "xterm"];
 const SHELLS: &[&str] = &["bash", "zsh", "fish", "nushell", "dash", "sh"];
-const COMPOSITORS: &[&str] = &["hyprland", "Hyprland", "sway", "wayfire", "river", "gnome-shell", "plasmashell", "i3", "bspwm"];
+const COMPOSITORS: &[&str] = &["hyprland", "sway", "wayfire", "river", "gnome-shell", "plasmashell", "i3", "bspwm"];
 const BROWSERS: &[&str] = &["firefox", "chromium", "brave", "vivaldi", "qutebrowser", "librewolf", "google-chrome-stable"];
 const TOOLS: &[&str] = &[
     "git", "curl", "wget", "grep", "awk", "sed", "tar", "gzip", "unzip",
@@ -115,25 +115,22 @@ pub async fn run_category(category: &str) -> Result<()> {
 
 /// Special handling for services category
 async fn run_services_category() -> Result<()> {
-    use anna_common::grounded::services::list_service_units;
+    use anna_common::grounded::services::list_enabled_services;
 
     println!();
     println!("{}", "  Anna KDB: Services".bold());
     println!("{}", THIN_SEP);
     println!();
 
-    let units = list_service_units();
+    let enabled_units = list_enabled_services();
+    let total = enabled_units.len();
+    let display_count = total.min(20);
 
-    // Filter to enabled services only
-    let enabled: Vec<_> = units.iter()
-        .filter(|(_, state)| state == "enabled" || state == "static")
-        .take(20)
-        .collect();
-
-    println!("  {} enabled services (showing first 20):", enabled.len().min(20));
+    println!("  {} enabled services{}:", total,
+        if total > 20 { format!(" (showing first {})", display_count) } else { String::new() });
     println!();
 
-    for (unit, _) in enabled {
+    for unit in enabled_units.iter().take(20) {
         let name = unit.trim_end_matches(".service");
         if let Some(svc) = get_service_info(name) {
             let state_str = match svc.state {
