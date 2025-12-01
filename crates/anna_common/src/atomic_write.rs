@@ -47,12 +47,14 @@ pub fn atomic_write(path: &str, content: &str) -> io::Result<()> {
 
     // Write to temp file with restricted permissions
     {
+        // v5.7.0: Use 0o644 so annactl (running as regular user) can read
+        // daemon-created files. Data is not sensitive (system inventory).
         #[cfg(unix)]
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .mode(0o640)  // rw-r----- (owner read/write, group read)
+            .mode(0o644)  // rw-r--r-- (world readable)
             .open(&temp_path)?;
 
         #[cfg(not(unix))]
@@ -95,12 +97,13 @@ pub fn atomic_write_bytes(path: &str, content: &[u8]) -> io::Result<()> {
     let temp_path = dir.join(format!(".{}.tmp.{}", filename, std::process::id()));
 
     {
+        // v5.7.0: Use 0o644 so annactl can read daemon files
         #[cfg(unix)]
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .mode(0o640)
+            .mode(0o644)
             .open(&temp_path)?;
 
         #[cfg(not(unix))]
