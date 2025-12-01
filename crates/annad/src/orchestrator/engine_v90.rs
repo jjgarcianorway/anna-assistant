@@ -336,11 +336,25 @@ impl UnifiedEngine {
     }
 
     /// v4.3.0: Handle timeout by recording it and potentially downgrading models
+    /// v4.5.2: Added FALLBACK debug line (ASCII only)
     /// Returns true if models were downgraded
     fn handle_timeout(&mut self) -> bool {
+        let old_junior = self.llm_selection.junior_model.clone();
+        let old_senior = self.llm_selection.senior_model.clone();
+        let streak = self.llm_selection.consecutive_timeouts + 1; // Will be incremented in record_timeout
+
         let downgraded = self.llm_selection.record_timeout();
         if downgraded {
-            info!("[!]  ⚡ Auto-downgraded to faster models after consecutive timeouts");
+            // v4.5.2: Clear FALLBACK debug line (ASCII only)
+            info!(
+                "FALLBACK: Junior {} -> {} ({} timeouts)",
+                old_junior, self.llm_selection.junior_model, streak
+            );
+            info!(
+                "FALLBACK: Senior {} -> {} ({} timeouts)",
+                old_senior, self.llm_selection.senior_model, streak
+            );
+
             // Reload LLM client with new models
             self.llm_client = OllamaClient::with_role_models(
                 Some(self.llm_selection.junior_model.clone()),
@@ -385,7 +399,7 @@ impl UnifiedEngine {
         // v4.3.0: Include routing decision info (why these models?)
         if let Some(e) = emitter {
             let routing_reason = if self.llm_selection.is_downgraded() {
-                format!("⚡ Downgraded (was {} -> now {})",
+                format!("[AUTO-DOWNGRADED] (was {} -> now {})",
                     self.llm_selection.original_junior_model.as_deref().unwrap_or("?"),
                     self.llm_client.junior_model())
             } else if self.llm_selection.autoprovision_status.contains("success") {
@@ -751,7 +765,7 @@ impl UnifiedEngine {
                 let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
                     let msg = if downgraded {
-                        format!("JUNIOR --> ANNA: TIMEOUT after {}ms ⚡ Auto-downgraded", elapsed_ms)
+                        format!("JUNIOR --> ANNA: TIMEOUT after {}ms [AUTO-DOWNGRADED]", elapsed_ms)
                     } else {
                         format!("JUNIOR --> ANNA: TIMEOUT after {}ms (budget {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS)
                     };
@@ -888,7 +902,7 @@ impl UnifiedEngine {
                 let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
                     let msg = if downgraded {
-                        format!("JUNIOR --> ANNA: DRAFT TIMEOUT after {}ms ⚡ Auto-downgraded", elapsed_ms)
+                        format!("JUNIOR --> ANNA: DRAFT TIMEOUT after {}ms [AUTO-DOWNGRADED]", elapsed_ms)
                     } else {
                         format!("JUNIOR --> ANNA: DRAFT TIMEOUT after {}ms", elapsed_ms)
                     };
@@ -1061,7 +1075,7 @@ impl UnifiedEngine {
                 let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
                     let msg = if downgraded {
-                        format!("SENIOR --> ANNA: TIMEOUT after {}ms ⚡ Auto-downgraded", elapsed_ms)
+                        format!("SENIOR --> ANNA: TIMEOUT after {}ms [AUTO-DOWNGRADED]", elapsed_ms)
                     } else {
                         format!("SENIOR --> ANNA: TIMEOUT after {}ms", elapsed_ms)
                     };

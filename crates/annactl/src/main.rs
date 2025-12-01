@@ -59,6 +59,7 @@ use anna_common::{
     format_percentage,
     THIN_SEPARATOR,
     xp_log::XpLog,
+    telemetry::{TelemetryReader, Outcome},
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -506,17 +507,18 @@ async fn run_status() -> Result<()> {
             }
         }
 
-        // v4.3.0: Show if models are downgraded
+        // v4.5.2: Show if models are downgraded (ASCII only)
         if selection.is_downgraded() {
-            println!("  {}  {}", "⚡".yellow(), "Auto-downgraded due to timeouts".yellow());
+            println!("  {}", "AUTO-DOWNGRADED".yellow());
             if let Some(orig) = &selection.original_junior_model {
-                println!("       Original: {}", orig.dimmed());
+                println!("    Original: {}", orig.dimmed());
             }
+            println!("    Current:  {}", selection.junior_model.yellow());
         }
 
-        // Show timeout count if any
+        // v4.5.2: Show timeout streak (ASCII only)
         if selection.consecutive_timeouts > 0 {
-            println!("  {}  {} consecutive timeouts", "⏱".bright_red(), selection.consecutive_timeouts);
+            println!("  Timeout streak: {}", format!("{}", selection.consecutive_timeouts).bright_red());
         }
     } else if selection.autoprovision_status.is_empty() {
         println!("  {}", "Not configured - run benchmark to auto-provision".yellow());
@@ -839,6 +841,30 @@ async fn run_stats() -> Result<()> {
         println!("  Not configured");
     } else {
         println!("  {}", selection.autoprovision_status.bright_red());
+    }
+
+    // v4.5.2: LLM LATENCY section
+    println!();
+    println!("{}", "[LLM LATENCY]".cyan());
+
+    // Timeout streak from LlmSelection
+    println!("  Timeout streak:   {}", selection.consecutive_timeouts);
+
+    // Count timeouts in last 24h from telemetry
+    let telemetry = TelemetryReader::default_path();
+    let events_24h = telemetry.read_hours(24);
+    let timeouts_24h = events_24h.iter()
+        .filter(|e| e.outcome == Outcome::Timeout)
+        .count();
+    println!("  Timeouts (24h):   {}", timeouts_24h);
+
+    // Show downgrade status if applicable
+    if selection.is_downgraded() {
+        println!("  Status:           {}", "AUTO-DOWNGRADED".yellow());
+        if let Some(ref orig) = selection.original_junior_model {
+            println!("    Original:       {}", orig.dimmed());
+        }
+        println!("    Current:        {}", selection.junior_model.yellow());
     }
 
     // LEARNING (24h metrics)
