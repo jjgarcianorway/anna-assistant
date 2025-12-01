@@ -1,17 +1,16 @@
-//! Anna Daemon (annad) v5.4.1 - Telemetry Core
+//! Anna Daemon (annad) v7.1.0 - Telemetry Core
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
 //! - Tracks ALL packages with versions (real-time via pacman.log)
 //! - Tracks ALL systemd services
-//! - Monitors process activity (CPU/memory)
+//! - Monitors process activity (CPU/memory) with SQLite storage
 //! - Indexes errors from journalctl
 //! - Detects intrusion patterns
 //!
-//! v5.4.1 Fixes:
-//! - Real-time package tracking via pacman.log
-//! - Fixed usage_count (no longer inflated by process sampling)
-//! - Binaries on PATH marked as installed
+//! v7.1.0: SQLite telemetry
+//! - Per-process CPU/memory stored in /var/lib/anna/telemetry.db
+//! - Real telemetry aggregates for status and kdb commands
 //!
 //! No LLM, no Q&A - just system telemetry.
 
@@ -24,6 +23,8 @@ use anna_common::{
     ServiceIndex, IntrusionIndex, LogScanState,
     TelemetryWriter, ProcessSample, TelemetryState,
     PackageChangeEvent, PackageChangeType,
+    // v7.1.0: SQLite telemetry
+    TelemetryDb, ProcessTelemetrySample,
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -97,11 +98,42 @@ async fn main() -> Result<()> {
     app_state.record_scan(0).await;
 
     // Spawn process monitoring task (every 15 seconds)
+    // v7.1.0: Uses SQLite for telemetry storage
     let builder_process = Arc::clone(&builder);
     tokio::spawn(async move {
-        let telemetry_writer = TelemetryWriter::new();
+        // Open SQLite telemetry database
+        let telemetry_db = match TelemetryDb::open() {
+            Ok(db) => db,
+            Err(e) => {
+                warn!("[!]  Failed to open telemetry DB: {}. Using log file fallback.", e);
+                // Continue without SQLite - fall back to log file
+                let telemetry_writer = TelemetryWriter::new();
+                let mut system = System::new_all();
+                let mut interval = tokio::time::interval(Duration::from_secs(PROCESS_SAMPLE_INTERVAL_SECS));
+                loop {
+                    interval.tick().await;
+                    system.refresh_processes(ProcessesToUpdate::All, true);
+                    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+                    let mut b = builder_process.write().await;
+                    for (pid, process) in system.processes() {
+                        let name = process.name().to_string_lossy().to_string();
+                        let cpu = process.cpu_usage();
+                        let mem = process.memory();
+                        let cpu_time_ms = (cpu as u64) * PROCESS_SAMPLE_INTERVAL_SECS * 10;
+                        b.record_process_observation(&name, cpu_time_ms, mem);
+                        if cpu > 5.0 || mem > 100_000_000 {
+                            let sample = ProcessSample { timestamp: now, name, pid: pid.as_u32(), cpu_percent: cpu, mem_bytes: mem };
+                            let _ = telemetry_writer.record_process(&sample);
+                        }
+                    }
+                    let _ = b.save();
+                }
+            }
+        };
+
         let mut system = System::new_all();
         let mut interval = tokio::time::interval(Duration::from_secs(PROCESS_SAMPLE_INTERVAL_SECS));
+        let mut sample_batch: Vec<ProcessTelemetrySample> = Vec::with_capacity(256);
 
         loop {
             interval.tick().await;
@@ -114,6 +146,8 @@ async fn main() -> Result<()> {
                 .unwrap_or_default()
                 .as_secs();
 
+            sample_batch.clear();
+
             // Update knowledge store with process observations
             {
                 let mut b = builder_process.write().await;
@@ -122,26 +156,32 @@ async fn main() -> Result<()> {
                     let cpu = process.cpu_usage();
                     let mem = process.memory();
 
-                    // v5.4.1: Pass CPU time and memory to record (no usage_count increment)
-                    // Convert CPU% to approximate CPU time in ms for this sample
+                    // Update knowledge store (in-memory aggregates)
                     let cpu_time_ms = (cpu as u64) * PROCESS_SAMPLE_INTERVAL_SECS * 10;
                     b.record_process_observation(&name, cpu_time_ms, mem);
 
-                    // Record high-activity processes to telemetry log
-                    if cpu > 5.0 || mem > 100_000_000 {
-                        let sample = ProcessSample {
+                    // v7.1.0: Record to SQLite for processes with activity
+                    // Only record processes with measurable activity (CPU > 0.1% or mem > 10MB)
+                    if cpu > 0.1 || mem > 10_000_000 {
+                        sample_batch.push(ProcessTelemetrySample {
                             timestamp: now,
-                            name: name.clone(),
                             pid: pid.as_u32(),
+                            name,
                             cpu_percent: cpu,
                             mem_bytes: mem,
-                        };
-                        let _ = telemetry_writer.record_process(&sample);
+                        });
                     }
                 }
 
                 if let Err(e) = b.save() {
-                    warn!("[!]  Failed to save process telemetry: {}", e);
+                    warn!("[!]  Failed to save knowledge: {}", e);
+                }
+            }
+
+            // Batch insert to SQLite
+            if !sample_batch.is_empty() {
+                if let Err(e) = telemetry_db.record_samples(&sample_batch) {
+                    warn!("[!]  Failed to record telemetry samples: {}", e);
                 }
             }
         }

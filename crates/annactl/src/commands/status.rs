@@ -1,9 +1,10 @@
-//! Status Command v7.0.0 - Anna-only Health
+//! Status Command v7.1.0 - Anna-only Health
 //!
 //! Sections:
 //! - [VERSION]         Single unified Anna version
 //! - [DAEMON]          State, uptime, PID, restarts
 //! - [INVENTORY]       What Anna has indexed + sync status
+//! - [TELEMETRY]       Real telemetry stats from SQLite (v7.1.0)
 //! - [UPDATES]         Auto-update schedule and last result
 //! - [PATHS]           Config, data, logs paths
 //! - [INTERNAL ERRORS] Anna's own pipeline errors
@@ -16,6 +17,7 @@ use std::path::Path;
 
 use anna_common::config::{AnnaConfig, UpdateState, SYSTEM_CONFIG_DIR, DATA_DIR};
 use anna_common::format_duration_secs;
+use anna_common::TelemetryDb;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -39,6 +41,9 @@ pub async fn run() -> Result<()> {
 
     // [INVENTORY]
     print_inventory_section(&daemon_stats);
+
+    // [TELEMETRY] - v7.1.0
+    print_telemetry_section();
 
     // [UPDATES]
     print_updates_section();
@@ -117,6 +122,60 @@ fn print_inventory_section(stats: &Option<DaemonStats>) {
     }
 
     println!();
+}
+
+fn print_telemetry_section() {
+    println!("{}", "[TELEMETRY]".cyan());
+
+    // Try to open telemetry database
+    match TelemetryDb::open() {
+        Ok(db) => {
+            match db.get_stats() {
+                Ok(stats) => {
+                    if stats.total_samples == 0 {
+                        println!("  {}", "(no telemetry collected yet)".dimmed());
+                    } else {
+                        println!("  Samples:    {}  {}", stats.total_samples, "(from SQLite)".dimmed());
+                        println!("  Processes:  {}  {}", stats.unique_processes, "(unique tracked)".dimmed());
+
+                        // Coverage
+                        let coverage_str = if stats.coverage_hours < 1.0 {
+                            format!("{:.0}m", stats.coverage_hours * 60.0)
+                        } else if stats.coverage_hours < 24.0 {
+                            format!("{:.1}h", stats.coverage_hours)
+                        } else {
+                            format!("{:.1}d", stats.coverage_hours / 24.0)
+                        };
+                        println!("  Coverage:   {}", coverage_str);
+
+                        // Database size
+                        let size_str = format_bytes(stats.db_size_bytes);
+                        println!("  DB size:    {}", size_str);
+                    }
+                }
+                Err(_) => {
+                    println!("  {}", "(failed to read telemetry stats)".dimmed());
+                }
+            }
+        }
+        Err(_) => {
+            println!("  {}", "(telemetry DB not available)".dimmed());
+        }
+    }
+
+    println!();
+}
+
+fn format_bytes(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.1} MiB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.1} KiB", bytes as f64 / 1024.0)
+    } else {
+        format!("{} B", bytes)
+    }
 }
 
 fn print_updates_section() {

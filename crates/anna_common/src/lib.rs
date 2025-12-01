@@ -1,22 +1,24 @@
-//! Anna Common v6.0.0 - Grounded System Intelligence
+//! Anna Common v7.1.0 - Grounded System Intelligence
 //!
-//! v6.0.0: Complete epistemological rebuild
+//! v7.1.0: Real telemetry with SQLite storage
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
+//! - Per-process CPU/memory tracking in SQLite
 //!
 //! Modules:
-//! - grounded: NEW - Real data from real system commands
+//! - grounded: Real data from real system commands
 //! - atomic_write: Atomic file write operations
 //! - config: System configuration
 //! - display_format: Output formatting utilities
-//! - error_index: Log scanning and error aggregation (legacy)
+//! - error_index: Log scanning and error aggregation
 //! - intrusion: Security event detection
-//! - knowledge_core: Object inventory and classification (legacy)
-//! - knowledge_collector: System discovery (legacy)
+//! - knowledge_core: Object inventory and classification
+//! - knowledge_collector: System discovery
 //! - object_metadata: Static descriptions and relationships
 //! - service_state: Systemd service tracking
-//! - telemetry: Process monitoring and usage tracking
+//! - telemetry: Process monitoring and usage tracking (log files)
+//! - telemetry_db: SQLite-based telemetry storage (v7.1.0)
 
 // v6.0.0: Grounded knowledge system - every fact has a source
 pub mod grounded;
@@ -32,6 +34,7 @@ pub mod knowledge_core;
 pub mod object_metadata;
 pub mod service_state;
 pub mod telemetry;
+pub mod telemetry_db;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -62,4 +65,9 @@ pub use telemetry::{
     hours_ago, days_ago, now,
     // Stats
     CommandStats, command_stats, top_commands,
+};
+// v7.1.0: SQLite telemetry database exports
+pub use telemetry_db::{
+    TelemetryDb, ProcessTelemetrySample, ObjectTelemetry, TelemetryStats,
+    TELEMETRY_DB_PATH,
 };

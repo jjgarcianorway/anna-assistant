@@ -1,20 +1,24 @@
-//! KDB Detail Command v7.0.0 - Object Profiles and Category Overviews
+//! KDB Detail Command v7.1.0 - Object Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
 //! 2. Category overview (list of objects)
 //!
 //! For services: includes per-unit logs from journalctl with deduplication.
+//! For all objects: includes real [USAGE] telemetry from SQLite.
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::process::Command;
+use anna_common::TelemetryDb;
 
 use anna_common::grounded::{
     packages::{get_package_info, Package, PackageSource, InstallReason},
     commands::{get_command_info, command_exists, SystemCommand},
     services::{get_service_info, Service, ServiceState, EnabledState},
+    config::discover_config_files,
+    category::get_category,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -249,6 +253,12 @@ fn print_package_profile(pkg: &Package) {
         println!("  Description: {}", pkg.description);
         println!("               {}", "(source: pacman -Qi)".dimmed());
     }
+
+    // Dynamic category from real sources
+    if let Some(cat_info) = get_category(&pkg.name) {
+        println!("  Category:    {}", cat_info.category);
+        println!("               {}", format!("(source: {})", cat_info.source).dimmed());
+    }
     println!();
 
     // [PACKAGE]
@@ -280,11 +290,11 @@ fn print_package_profile(pkg: &Package) {
 
     println!();
 
-    // [USAGE] - placeholder for telemetry
-    println!("{}", "[USAGE]".cyan());
-    println!("  {}", "(source: Anna telemetry, when available)".dimmed());
-    println!("  {}", "Telemetry not collected yet".dimmed());
-    println!();
+    // [CONFIG] - discovered config files from pacman/man
+    print_config_section(&pkg.name);
+
+    // [USAGE] - real telemetry from SQLite
+    print_usage_section(&pkg.name);
 }
 
 fn print_command_profile(cmd: &SystemCommand) {
@@ -293,6 +303,12 @@ fn print_command_profile(cmd: &SystemCommand) {
     println!("  Name:        {}", cmd.name.bold());
     if !cmd.description.is_empty() {
         println!("  Description: {}", cmd.description);
+    }
+
+    // Dynamic category from real sources
+    if let Some(cat_info) = get_category(&cmd.name) {
+        println!("  Category:    {}", cat_info.category);
+        println!("               {}", format!("(source: {})", cat_info.source).dimmed());
     }
     println!();
 
@@ -310,11 +326,11 @@ fn print_command_profile(cmd: &SystemCommand) {
 
     println!();
 
-    // [USAGE]
-    println!("{}", "[USAGE]".cyan());
-    println!("  {}", "(source: Anna telemetry, when available)".dimmed());
-    println!("  {}", "Telemetry not collected yet".dimmed());
-    println!();
+    // [CONFIG] - discovered config files from pacman/man
+    print_config_section(&cmd.name);
+
+    // [USAGE] - real telemetry from SQLite
+    print_usage_section(&cmd.name);
 }
 
 fn print_command_section(cmd: &SystemCommand) {
@@ -492,4 +508,104 @@ fn format_size(bytes: u64) -> String {
     } else {
         format!("{} B", bytes)
     }
+}
+
+/// Print [CONFIG] section with config files discovered from pacman/man
+fn print_config_section(name: &str) {
+    println!("{}", "[CONFIG]".cyan());
+
+    let configs = discover_config_files(name);
+
+    if configs.is_empty() {
+        println!("  {}", "(no config files discovered)".dimmed());
+    } else {
+        // Group by source for cleaner output
+        let mut by_source: HashMap<String, Vec<&anna_common::grounded::config::ConfigFile>> = HashMap::new();
+        for cfg in &configs {
+            by_source.entry(cfg.source.clone()).or_default().push(cfg);
+        }
+
+        for (source, files) in &by_source {
+            println!("  {}", format!("(source: {})", source).dimmed());
+            for cfg in files {
+                if cfg.exists {
+                    println!("  {}", cfg.path);
+                } else {
+                    println!("  {} {}", cfg.path, "(missing)".yellow());
+                }
+            }
+        }
+    }
+
+    println!();
+}
+
+/// Print [USAGE] section with real telemetry from SQLite
+fn print_usage_section(name: &str) {
+    println!("{}", "[USAGE]".cyan());
+
+    // Try to open telemetry database
+    match TelemetryDb::open() {
+        Ok(db) => {
+            match db.get_object_telemetry(name) {
+                Ok(telemetry) => {
+                    if telemetry.total_samples == 0 {
+                        println!("  {}", "(source: /var/lib/anna/telemetry.db)".dimmed());
+                        println!("  {}", "(no telemetry recorded for this object)".dimmed());
+                    } else {
+                        println!("  {}", "(source: /var/lib/anna/telemetry.db)".dimmed());
+                        println!("  Samples:     {}", telemetry.total_samples);
+
+                        // Peak CPU
+                        if telemetry.peak_cpu_percent > 0.0 {
+                            println!("  Peak CPU:    {:.1}%", telemetry.peak_cpu_percent);
+                        }
+
+                        // Peak memory
+                        if telemetry.peak_mem_bytes > 0 {
+                            println!("  Peak memory: {}", format_size(telemetry.peak_mem_bytes));
+                        }
+
+                        // Average memory
+                        if telemetry.avg_mem_bytes > 0 {
+                            println!("  Avg memory:  {}", format_size(telemetry.avg_mem_bytes));
+                        }
+
+                        // Total CPU time
+                        if telemetry.total_cpu_time_ms > 0 {
+                            let cpu_secs = telemetry.total_cpu_time_ms / 1000;
+                            let cpu_str = if cpu_secs < 60 {
+                                format!("{}s", cpu_secs)
+                            } else if cpu_secs < 3600 {
+                                format!("{}m {}s", cpu_secs / 60, cpu_secs % 60)
+                            } else {
+                                format!("{}h {}m", cpu_secs / 3600, (cpu_secs % 3600) / 60)
+                            };
+                            println!("  CPU time:    {}", cpu_str);
+                        }
+
+                        // Coverage period
+                        if telemetry.coverage_hours > 0.0 {
+                            let coverage_str = if telemetry.coverage_hours < 1.0 {
+                                format!("{:.0}m", telemetry.coverage_hours * 60.0)
+                            } else if telemetry.coverage_hours < 24.0 {
+                                format!("{:.1}h", telemetry.coverage_hours)
+                            } else {
+                                format!("{:.1}d", telemetry.coverage_hours / 24.0)
+                            };
+                            println!("  Observed:    {}", coverage_str);
+                        }
+                    }
+                }
+                Err(_) => {
+                    println!("  {}", "(failed to query telemetry)".dimmed());
+                }
+            }
+        }
+        Err(_) => {
+            println!("  {}", "(telemetry DB not available)".dimmed());
+        }
+    }
+
+    println!();
 }
