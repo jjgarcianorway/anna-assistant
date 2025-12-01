@@ -1,13 +1,14 @@
-//! Knowledge Detail Command v5.4.1 - Full Object Profile
+//! Knowledge Detail Command v5.5.0 - Full Object Profile
 //!
 //! Shows a complete sysadmin-grade profile of a single object.
-//! Exception: Can show info about non-installed objects when explicitly asked.
 //!
-//! v5.4.1: Truthful metrics - usage_count is actual invocations, not process samples.
+//! v5.5.0: Services properly handled - no "Installed: no" for services.
+//! Services have Service State instead of Installed flag.
 //!
 //! Sections shown only when they have meaningful data:
 //! - [IDENTITY] Name, category, description, ecosystem
-//! - [INSTALLATION] Package, version, paths, service state
+//! - [INSTALLATION] For packages/commands: Installed, package, version, paths
+//! - [SERVICE] For services: State, enabled, unit name
 //! - [RELATIONSHIPS] Related objects (e.g., aquamarine -> hyprland)
 //! - [USAGE] Only if observed running (since daemon start)
 //! - [ERRORS] Only if errors exist (24h window)
@@ -42,8 +43,17 @@ pub async fn run(name: &str) -> Result<()> {
 
     match obj {
         Some(obj) => {
+            let is_service = obj.object_types.contains(&ObjectType::Service);
+
             print_identity_section(obj);
-            print_installation_section(obj, &service_index);
+
+            // v5.5.0: Services get SERVICE section, not INSTALLATION
+            if is_service {
+                print_service_section(obj, &service_index);
+            } else {
+                print_installation_section(obj);
+            }
+
             print_relationships_section(obj);
             print_usage_section(obj);
             print_errors_section(obj, &error_index);
@@ -84,10 +94,18 @@ fn find_object<'a>(store: &'a KnowledgeStore, name: &str) -> Option<&'a Knowledg
         }
     }
 
-    // Service unit match
+    // Service unit match (with or without .service suffix)
+    let service_name = if lower.ends_with(".service") {
+        lower.clone()
+    } else {
+        format!("{}.service", lower)
+    };
+
     for obj in store.objects.values() {
         if let Some(unit) = &obj.service_unit {
-            if unit.to_lowercase() == lower || unit.to_lowercase().starts_with(&lower) {
+            let unit_lower = unit.to_lowercase();
+            if unit_lower == lower || unit_lower == service_name ||
+               unit_lower.starts_with(&format!("{}.", lower)) {
                 return Some(obj);
             }
         }
@@ -108,9 +126,9 @@ fn print_identity_section(obj: &KnowledgeObject) {
 
     println!("  Category:    {}", obj.category.as_str());
 
-    // Object types (only if meaningful)
+    // Object types (show what types this object has)
     let types: Vec<_> = obj.object_types.iter().map(|t| t.as_str()).collect();
-    if !types.is_empty() && types.len() > 1 {
+    if !types.is_empty() {
         println!("  Types:       {}", types.join(", "));
     }
 
@@ -122,7 +140,8 @@ fn print_identity_section(obj: &KnowledgeObject) {
     println!();
 }
 
-fn print_installation_section(obj: &KnowledgeObject, service_index: &ServiceIndex) {
+/// v5.5.0: Installation section for packages/commands (NOT services)
+fn print_installation_section(obj: &KnowledgeObject) {
     println!("{}", "[INSTALLATION]".cyan());
 
     // Installed status
@@ -161,21 +180,76 @@ fn print_installation_section(obj: &KnowledgeObject, service_index: &ServiceInde
         }
     }
 
-    // Service state (only for services)
+    // Timestamps
+    if let Some(at) = obj.installed_at {
+        println!("  Installed:  {}", format_time_ago(at));
+    }
+
+    if let Some(at) = obj.removed_at {
+        println!("  Removed:    {}", format_time_ago(at));
+    }
+
+    println!();
+}
+
+/// v5.5.0: Service section for systemd services
+fn print_service_section(obj: &KnowledgeObject, service_index: &ServiceIndex) {
+    println!("{}", "[SERVICE]".cyan());
+
     if let Some(unit) = &obj.service_unit {
+        println!("  Unit:       {}", unit);
+
+        // Get state from service index
         if let Some(state) = service_index.services.get(unit) {
+            // Active state
             let active_str = match state.active_state {
                 anna_common::ActiveState::Active => "running".green().to_string(),
                 anna_common::ActiveState::Failed => "failed".red().to_string(),
+                anna_common::ActiveState::Inactive => "inactive".dimmed().to_string(),
                 _ => state.active_state.as_str().to_string(),
             };
+            println!("  State:      {}", active_str);
+
+            // Enabled state
             let enabled_str = match state.enabled_state {
-                anna_common::EnabledState::Enabled => "enabled".to_string(),
-                anna_common::EnabledState::Disabled => "disabled".to_string(),
+                anna_common::EnabledState::Enabled => "enabled".green().to_string(),
+                anna_common::EnabledState::Disabled => "disabled".dimmed().to_string(),
                 anna_common::EnabledState::Masked => "masked".yellow().to_string(),
+                anna_common::EnabledState::Static => "static".to_string(),
                 _ => state.enabled_state.as_str().to_string(),
             };
-            println!("  Service:    {} ({}/{})", unit, active_str, enabled_str);
+            println!("  Enabled:    {}", enabled_str);
+        } else {
+            // Fallback to stored values
+            if let Some(active) = obj.service_active {
+                let state_str = if active {
+                    "running".green().to_string()
+                } else {
+                    "inactive".dimmed().to_string()
+                };
+                println!("  State:      {}", state_str);
+            }
+
+            if let Some(enabled) = obj.service_enabled {
+                let enabled_str = if enabled {
+                    "enabled".green().to_string()
+                } else {
+                    "disabled".dimmed().to_string()
+                };
+                println!("  Enabled:    {}", enabled_str);
+            }
+        }
+    } else {
+        // Service without unit info (shouldn't happen but handle gracefully)
+        println!("  Status:     service (unit not indexed)");
+    }
+
+    // Also show package info if available
+    if let Some(pkg) = &obj.package_name {
+        if let Some(ver) = &obj.package_version {
+            println!("  Package:    {} ({})", pkg, ver);
+        } else {
+            println!("  Package:    {}", pkg);
         }
     }
 
@@ -217,7 +291,8 @@ fn print_usage_section(obj: &KnowledgeObject) {
         || obj.first_seen_at > 0;
 
     if !has_usage {
-        // For commands with no observed usage, show a simple message
+        // For installed commands with no observed usage, show a simple message
+        // But NOT for services - they don't need this message
         if obj.installed && !obj.object_types.contains(&ObjectType::Service) {
             println!("{}", "[USAGE]".cyan());
             println!("  {}", "No runtime usage observed yet".dimmed());
@@ -356,9 +431,8 @@ fn print_unknown_object_section(name: &str, error_index: &ErrorIndex) {
         }
 
         println!();
-        println!("{}", "[INSTALLATION]".cyan());
-        println!("  Installed:  {}", "no".red());
-        println!("  Status:     not found on this system");
+        println!("{}", "[STATUS]".cyan());
+        println!("  Not found on this system");
         println!();
     }
 

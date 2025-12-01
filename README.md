@@ -1,8 +1,8 @@
-# Anna v5.4.1 "Truthful Telemetry"
+# Anna v5.5.0 "Telemetry Reset"
 
 **System Intelligence Daemon for Linux**
 
-> v5.4.1 critical fixes: Real-time package tracking via pacman.log, correct usage counting (no longer inflated), proper binary categorization, cursor-based log scanning.
+> v5.5.0: Complete telemetry reset. No LLM, no Q&A. Pure observation. Fixed service display, category queries, proper reset, cpu/ram/disk commands.
 
 ---
 
@@ -43,6 +43,18 @@ annactl knowledge stats
 # Full profile of a specific object
 annactl knowledge <name>
 
+# List objects by category
+annactl knowledge editors
+annactl knowledge shells
+annactl knowledge terminals
+annactl knowledge browsers
+annactl knowledge services
+
+# System information (no LLM needed)
+annactl cpu
+annactl ram
+annactl disk
+
 # Clear all data and restart
 annactl reset
 
@@ -53,7 +65,7 @@ annactl version
 annactl help
 ```
 
-That's it. Seven commands. No flags, no options, no complexity.
+That's it. Clean commands. No flags, no complexity.
 
 ---
 
@@ -66,8 +78,8 @@ That's it. Seven commands. No flags, no options, no complexity.
 ------------------------------------------------------------
 
 [VERSION]
-  annactl:  v5.4.0
-  annad:    v5.4.0
+  annactl:  v5.5.0
+  annad:    v5.5.0
 
 [DAEMON]
   Status:   running (up 3h)
@@ -90,54 +102,103 @@ That's it. Seven commands. No flags, no options, no complexity.
 ------------------------------------------------------------
 ```
 
-### Version
+### Knowledge Category
 
 ```
-  Anna Version
+  Anna Knowledge: Editors
 ------------------------------------------------------------
 
-[VERSION]
-  annactl:  v5.4.0
-  annad:    v5.4.0
+  5 editors installed:
 
-[INSTALL PATHS]
-  Binaries:
-    annactl:  ✓  /usr/local/bin/annactl
-    annad:    ✓  /usr/local/bin/annad
-  Config:
-    ✓  /etc/anna/config.toml
-  Data:
-    ✓  /var/lib/anna
-  Logs:
-    ✓  journalctl -u annad
+  helix                Helix text editor (0.24.0)
+  nano                 GNU Nano text editor (8.0-1)
+  nvim                 Neovim text editor (0.10.1-1)
+  vim                  Vi Improved text editor (9.1.0-1)
+  code                 Visual Studio Code (1.95.0-1)
 
 ------------------------------------------------------------
+
+  'annactl knowledge <name>' for full profile.
 ```
 
-### Knowledge Detail
+### Knowledge Detail (Package)
 
 ```
-  Anna Knowledge: bash
+  Anna Knowledge: nano
 ------------------------------------------------------------
 
 [IDENTITY]
-  Name:        bash
-  Description: Bourne Again Shell
-  Category:    shell
+  Name:        nano
+  Description: GNU Nano text editor
+  Category:    editor
   Types:       command, package
 
 [INSTALLATION]
   Installed:  yes
-  Package:    bash (5.3.3-2)
-  Binary:     /usr/bin/bash
+  Package:    nano (8.0-1)
+  Binary:     /usr/bin/nano
 
 [USAGE]
   (since daemon start)
-  Runs:       2317 observed
+  Runs:       12 observed
   First seen: 3h ago
-  Last seen:  15s ago
-  CPU time:   40.9s (total)
-  Peak memory: 9.9MB
+  Last seen:  5m ago
+  CPU time:   1.2s (total)
+  Peak memory: 8.5MB
+
+------------------------------------------------------------
+```
+
+### Knowledge Detail (Service)
+
+```
+  Anna Knowledge: systemd-journald
+------------------------------------------------------------
+
+[IDENTITY]
+  Name:        systemd-journald
+  Description: System service (systemd service)
+  Category:    service
+  Types:       service
+
+[SERVICE]
+  Unit:       systemd-journald.service
+  State:      running
+  Enabled:    static
+
+[USAGE]
+  (since daemon start)
+  Type:       daemon (long-running process)
+  First seen: 3h ago
+  Last seen:  5s ago
+  CPU time:   15.4s (total)
+  Peak memory: 42.1MB
+
+------------------------------------------------------------
+```
+
+### CPU Info
+
+```
+  CPU Information
+------------------------------------------------------------
+
+[MODEL]
+  AMD Ryzen 9 7950X 16-Core Processor
+
+[CORES]
+  32 logical cores
+
+[LOAD AVERAGE]
+  1m:  0.52
+  5m:  0.61
+  15m: 0.55
+
+[TOP PROCESSES BY CPU]
+  PID %CPU %MEM COMMAND
+  1234 12.5  2.1 firefox
+  5678  8.2  1.5 code
+  9012  3.1  0.8 hyprland
 
 ------------------------------------------------------------
 ```
@@ -192,7 +253,7 @@ annad (daemon)
 ### Data Files
 
 | Path | Content |
-|------|---------|
+|------|---------
 | `/var/lib/anna/knowledge/` | Object inventory (JSON) |
 | `/var/lib/anna/telemetry/` | Event logs (pipe-delimited) |
 | `/etc/anna/config.toml` | Configuration |
@@ -247,9 +308,10 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v5.4.1** | **Truthful Telemetry** - Critical fixes: real-time package tracking, correct usage counting, expanded categorization, cursor-based log scanning. |
-| v5.4.0 | Signal Not Noise - Enhanced version command with install paths, status with ETA, full descriptions, hide empty sections. |
-| v5.3.0 | Telemetry Core - Complete reset. No LLM, no Q&A. Pure telemetry daemon. 7 commands only. |
+| **v5.5.0** | **Telemetry Reset** - No LLM. Fixed service display, category queries, proper reset, cpu/ram/disk commands, error pipeline with top offenders. |
+| v5.4.1 | Truthful Telemetry - Real-time package tracking, correct usage counting, expanded categorization. |
+| v5.4.0 | Signal Not Noise - Enhanced version command, status with ETA, full descriptions. |
+| v5.3.0 | Telemetry Core - Complete reset. No LLM, no Q&A. Pure telemetry daemon. |
 | v5.2.6 | Meaningful Metrics - Every metric has explicit time window/units |
 | v5.2.5 | Knowledge is the Machine - Installed-only views, relationships |
 | v5.2.0 | Knowledge System - System profiler, full inventory |
@@ -274,3 +336,5 @@ Issues and PRs welcome at: https://github.com/jjgarcianorway/anna-assistant
 3. Relevance only - hide empty sections
 4. ASCII output - no Unicode dependencies
 5. Local only - no cloud, no external calls
+6. Services are services - not "installed: no"
+7. Real telemetry only - no fabricated metrics

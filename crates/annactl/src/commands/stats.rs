@@ -1,14 +1,13 @@
-//! Stats Command v5.2.6 - Daemon Activity Only
+//! Stats Command v5.5.0 - Daemon Activity with Top Offenders
 //!
 //! Shows Anna's daemon activity and background work.
-//! Not per-object knowledge - just daemon behavior.
 //!
-//! v5.2.6: Every metric has explicit time window and units.
+//! v5.5.0: Added top offending error sources with counts, timestamps, samples.
 //!
 //! Sections:
 //! - [DAEMON] Uptime, health status
 //! - [LOG SCANNER] Scan cycles and timing
-//! - [ERROR SUMMARY] Errors indexed (24h window)
+//! - [ERROR SUMMARY] Top offenders with counts, timestamps, samples
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -16,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anna_common::{
     ErrorIndex, LogScanState, TelemetryAggregates, IntrusionIndex,
-    format_duration_secs, format_time_ago,
+    format_duration_secs, format_time_ago, truncate_str,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -40,7 +39,7 @@ pub async fn run() -> Result<()> {
     // [LOG SCANNER]
     print_scanner_section(&log_scan_state);
 
-    // [ERROR SUMMARY]
+    // [ERROR SUMMARY] with top offenders
     print_error_summary_section(&error_index, &intrusion_index);
 
     println!("{}", THIN_SEP);
@@ -126,41 +125,105 @@ fn print_error_summary_section(
         .as_secs();
     let cutoff = now.saturating_sub(86400);
 
-    let mut errors_24h = 0u64;
-    let mut warnings_24h = 0u64;
-    let mut objects_with_errors = 0usize;
+    // Collect per-object error stats
+    let mut object_stats: Vec<ErrorObjectStats> = Vec::new();
+    let mut total_errors_24h = 0u64;
+    let mut total_warnings_24h = 0u64;
 
-    for obj in error_index.objects.values() {
-        let mut has_recent_error = false;
+    for (obj_name, obj) in &error_index.objects {
+        let mut obj_errors = 0u64;
+        let mut obj_warnings = 0u64;
+        let mut last_error_ts = 0u64;
+        let mut sample_message = String::new();
+
         for log in &obj.logs {
             if log.timestamp >= cutoff {
                 if log.severity.is_error() {
-                    errors_24h += 1;
-                    has_recent_error = true;
+                    obj_errors += 1;
+                    total_errors_24h += 1;
+                    if log.timestamp > last_error_ts {
+                        last_error_ts = log.timestamp;
+                        sample_message = log.message.clone();
+                    }
                 } else if log.severity == anna_common::LogSeverity::Warning {
-                    warnings_24h += 1;
+                    obj_warnings += 1;
+                    total_warnings_24h += 1;
                 }
             }
         }
-        if has_recent_error {
-            objects_with_errors += 1;
+
+        if obj_errors > 0 || obj_warnings > 0 {
+            object_stats.push(ErrorObjectStats {
+                name: obj_name.clone(),
+                errors: obj_errors,
+                warnings: obj_warnings,
+                last_error_ts,
+                sample: sample_message,
+            });
         }
     }
 
-    println!("  Errors:    {}", errors_24h);
-    println!("  Warnings:  {}", warnings_24h);
+    // Sort by error count descending
+    object_stats.sort_by(|a, b| b.errors.cmp(&a.errors));
 
-    if objects_with_errors > 0 {
-        println!("  Objects:   {} with errors", objects_with_errors);
+    // Show summary
+    if total_errors_24h == 0 && total_warnings_24h == 0 {
+        println!("  {}", "No errors or warnings in last 24h".green());
+    } else {
+        println!("  Errors:    {}", total_errors_24h);
+        println!("  Warnings:  {}", total_warnings_24h);
+
+        // Show top offenders (up to 5)
+        if !object_stats.is_empty() {
+            println!();
+            println!("  {}", "Top offenders:".bold());
+            for stat in object_stats.iter().take(5) {
+                let ts_str = if stat.last_error_ts > 0 {
+                    format_time_ago(stat.last_error_ts)
+                } else {
+                    "n/a".to_string()
+                };
+
+                // Format: "object_name - N errors, last at TIME"
+                println!(
+                    "    {} - {} errors, last {}",
+                    stat.name.cyan(),
+                    stat.errors,
+                    ts_str.dimmed()
+                );
+
+                // Show sample if available
+                if !stat.sample.is_empty() {
+                    let sample = truncate_str(&stat.sample, 50);
+                    println!("      {}", sample.dimmed());
+                }
+            }
+
+            if object_stats.len() > 5 {
+                println!("    ({} more objects with errors)", object_stats.len() - 5);
+            }
+        }
     }
 
     // Intrusions detected (24h)
     let intrusions = intrusion_index.recent_high_severity(86400, 1).len();
     if intrusions > 0 {
-        println!("  Intrusions: {}", intrusions.to_string().red());
+        println!();
+        println!("  {}", "[INTRUSIONS]".red().bold());
+        println!("  Detected:  {}", intrusions.to_string().red());
     }
 
     println!();
+}
+
+/// Stats for error display
+struct ErrorObjectStats {
+    name: String,
+    errors: u64,
+    #[allow(dead_code)]
+    warnings: u64,
+    last_error_ts: u64,
+    sample: String,
 }
 
 // ============================================================================
