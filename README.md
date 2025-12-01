@@ -1,8 +1,8 @@
-# Anna v4.4.0 "Functional Learning"
+# Anna v4.5.0 "Tiered Learning"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v4.4.0 functional learning: Semantic question classification, paraphrase recognition, pattern caching. "What CPU?" and "Tell me my CPU model" are now recognized as the same question class and answered instantly after the first answer. Reset clears all learned patterns.
+> v4.5.0 tiered learning: 3-tier model architecture (Tier 1=Brain, Tier 2=Junior, Tier 3=Senior) with per-class model selection. Patterns now store which tier succeeded and can skip LLM entirely when reliability ≥90% and Brain answered. Enhanced debug output with CLASSIFIED, CACHE, TIER lines showing question routing decisions.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,15 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v3.13.1** | **Lifecycle Integrity** - Hard reset executes on confirmation, timeouts fixed everywhere (10s/12s/20s), systemd HOME fix for ollama, confirmation patterns |
+| **v4.5.0** | **Tiered Learning** - 3-tier model architecture (Brain/Junior/Senior), per-class model selection, skip LLM when reliability ≥90%, enhanced debug (CLASSIFIED/CACHE/TIER lines) |
+| v4.4.0 | Functional Learning - Semantic classification, paraphrase recognition, pattern caching, reset clears patterns |
+| v4.3.2 | Telemetry Fallback - Fixed permission issue on telemetry reset fallback path |
+| v4.3.1 | LLM Answer Counting - Correct answer count tracking, shared answer cache |
+| v4.3.0 | Smart Recovery - Auto-downgrade, answer cache, daemon reset |
+| v4.2.0 | Real Debug Mode - Live request/response tracing, failure analysis |
+| v4.1.0 | Simplified Health - Detailed dependencies, no trust, success rate |
+| v4.0.0 | Debug Tracing - Reset command, learning analytics |
+| v3.13.1 | Lifecycle Integrity - Hard reset executes on confirmation, timeouts fixed everywhere (10s/12s/20s), systemd HOME fix for ollama, confirmation patterns |
 | v3.13.0 | Lifecycle Integrity (broken) - Partial fixes, timeouts not updated in engine |
 | v3.12.0 | Performance & Consistency - GPU/Network Brain handlers, First Light uses Brain, per-call LLM timeouts, hardware tier in status |
 | v3.11.0 | Lifecycle Correctness - Benchmark triggers route to daemon, Brain telemetry recording, lifecycle tests |

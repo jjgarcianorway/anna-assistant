@@ -265,10 +265,23 @@ pub struct LearnedPattern {
 
     /// Last used timestamp (unix secs)
     pub last_used: u64,
+
+    /// v4.5.0: Model tier that succeeded (1=Brain, 2=Junior, 3=Senior)
+    #[serde(default)]
+    pub model_tier: u8,
+
+    /// v4.5.0: Model name that succeeded (for per-class model choice)
+    #[serde(default)]
+    pub model_used: String,
+
+    /// v4.5.0: Can skip LLM entirely (reliability >= 90% and origin is Brain/Cache)
+    #[serde(default)]
+    pub skip_llm: bool,
 }
 
 impl LearnedPattern {
     /// Create a new learned pattern
+    /// v4.5.0: Now includes model_tier and model_used for per-class model choice
     pub fn new(
         class: &QuestionClass,
         question: &str,
@@ -277,11 +290,16 @@ impl LearnedPattern {
         answer: &str,
         reliability: f64,
         latency_ms: u64,
+        model_tier: u8,
+        model_used: &str,
     ) -> Self {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
+
+        // Can skip LLM if reliability >= 90% and answered by Brain (tier 1)
+        let skip_llm = reliability >= 0.90 && model_tier == 1;
 
         Self {
             class: class.canonical(),
@@ -295,6 +313,9 @@ impl LearnedPattern {
             hit_count: 0,
             created_at: now,
             last_used: now,
+            model_tier,
+            model_used: model_used.to_string(),
+            skip_llm,
         }
     }
 
@@ -419,6 +440,7 @@ impl PatternStore {
     }
 
     /// Learn a pattern from a successful answer
+    /// v4.5.0: Now includes model_tier and model_used for per-class model selection
     pub fn learn(
         &mut self,
         question: &str,
@@ -427,6 +449,8 @@ impl PatternStore {
         answer: &str,
         reliability: f64,
         latency_ms: u64,
+        model_tier: u8,
+        model_used: &str,
     ) -> bool {
         // Only learn from high-reliability answers
         if reliability < MIN_LEARN_RELIABILITY {
@@ -460,11 +484,14 @@ impl PatternStore {
             answer,
             reliability,
             latency_ms,
+            model_tier,
+            model_used,
         );
 
+        // v4.5.0: Enhanced debug output
         info!(
-            "LEARNING: NEW PATTERN class={} origin={} reliability={:.2} probes={:?}",
-            key, origin, reliability, probes_used
+            "LEARNING: NEW PATTERN class={} tier={} model={} reliability={:.2} skip_llm={}",
+            key, model_tier, model_used, reliability, pattern.skip_llm
         );
 
         self.patterns.insert(key.clone(), pattern);
@@ -704,7 +731,7 @@ mod tests {
     fn test_pattern_learning() {
         let mut store = PatternStore::default();
 
-        // Learn a pattern
+        // Learn a pattern (tier 1 = Brain)
         let learned = store.learn(
             "what CPU do I have?",
             vec!["lscpu".to_string()],
@@ -712,6 +739,8 @@ mod tests {
             "Your CPU is AMD Ryzen 9 5900X",
             0.99,
             15,
+            1,  // tier 1 = Brain
+            "Brain",
         );
         assert!(learned);
 
@@ -722,6 +751,8 @@ mod tests {
         assert!(fresh);
         assert_eq!(pattern.origin, "Brain");
         assert_eq!(pattern.hit_count, 1);
+        assert_eq!(pattern.model_tier, 1);
+        assert!(pattern.skip_llm); // 99% reliability + tier 1 = skip LLM
     }
 
     #[test]
@@ -736,6 +767,8 @@ mod tests {
             "Your CPU is AMD Ryzen 9 5900X",
             0.99,
             15,
+            1,
+            "Brain",
         );
 
         // Paraphrase should hit the same pattern
@@ -757,6 +790,8 @@ mod tests {
             "Maybe AMD?",
             0.5,
             5000,
+            2,
+            "qwen:3b",
         );
         assert!(!learned);
         assert!(store.patterns.is_empty());
@@ -766,8 +801,8 @@ mod tests {
     fn test_pattern_stats() {
         let mut store = PatternStore::default();
 
-        store.learn("what cpu?", vec![], "Brain", "AMD", 0.99, 10);
-        store.learn("how much ram?", vec![], "Brain", "32GB", 0.99, 10);
+        store.learn("what cpu?", vec![], "Brain", "AMD", 0.99, 10, 1, "Brain");
+        store.learn("how much ram?", vec![], "Brain", "32GB", 0.99, 10, 1, "Brain");
 
         let stats = store.stats();
         assert_eq!(stats.total_patterns, 2);
@@ -779,11 +814,35 @@ mod tests {
     #[test]
     fn test_clear_patterns() {
         let mut store = PatternStore::default();
-        store.learn("what cpu?", vec![], "Brain", "AMD", 0.99, 10);
+        store.learn("what cpu?", vec![], "Brain", "AMD", 0.99, 10, 1, "Brain");
         assert!(!store.is_empty());
 
         store.clear();
         assert!(store.is_empty());
         assert_eq!(store.total_hits, 0);
+    }
+
+    #[test]
+    fn test_skip_llm_logic() {
+        let mut store = PatternStore::default();
+
+        // Tier 1 (Brain) with 99% reliability -> skip_llm = true
+        store.learn("what cpu?", vec![], "Brain", "AMD", 0.99, 10, 1, "Brain");
+        let result = store.get("what cpu?");
+        assert!(result.is_some());
+        let (pattern, _) = result.unwrap();
+        assert!(pattern.skip_llm);
+        assert_eq!(pattern.model_tier, 1);
+
+        // Reset for next test
+        store.clear();
+
+        // Tier 3 (Senior) with 99% reliability -> skip_llm = false (not tier 1)
+        store.learn("what gpu?", vec![], "Senior", "NVIDIA", 0.99, 5000, 3, "qwen:14b");
+        let result = store.get("what gpu?");
+        assert!(result.is_some());
+        let (pattern, _) = result.unwrap();
+        assert!(!pattern.skip_llm); // Not tier 1, so skip_llm = false
+        assert_eq!(pattern.model_tier, 3);
     }
 }

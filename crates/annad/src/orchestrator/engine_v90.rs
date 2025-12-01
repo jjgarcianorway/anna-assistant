@@ -443,29 +443,58 @@ impl UnifiedEngine {
         }
 
         // ================================================================
-        // STEP 0.75: Pattern Store Check (v4.4.0 - Semantic Learning)
+        // STEP 0.75: Semantic Classification (v4.5.0)
+        // ================================================================
+        let question_class = learning_classify_question(question);
+        info!("CLASSIFIED: {}", question_class.canonical());
+
+        // v4.5.0: Emit classification event
+        if let Some(e) = emitter {
+            e.emit(DebugEvent::new(DebugEventType::JuniorPlanStarted, 1,
+                    format!("CLASSIFIED: {} --> {}", question, question_class.canonical()))
+                .with_elapsed(start_time.elapsed().as_millis() as u64));
+        }
+
+        // ================================================================
+        // STEP 0.8: Pattern Store Check (v4.4.0 - Semantic Learning)
         // ================================================================
         // Check if we have a learned pattern for this question CLASS (not just exact match)
         // This enables paraphrase recognition: "what CPU?" and "tell me my CPU" are the same class
         if let Some((pattern, fresh)) = self.pattern_store.get(question) {
             let pattern_ms = start_time.elapsed().as_millis() as u64;
-            let class = learning_classify_question(question);
 
             if fresh {
+                // v4.5.0: Enhanced cache debug with tier info
                 info!(
-                    "LEARNING: CACHE HIT class={} hits={} ({}ms original latency)",
-                    class.canonical(), pattern.hit_count, pattern.latency_ms
+                    "CACHE: HIT class={} tier={} skip_llm={} hits={}",
+                    question_class.canonical(), pattern.model_tier, pattern.skip_llm, pattern.hit_count
                 );
 
-                // v4.4.0: Emit pattern hit event
+                // v4.5.0: TIER debug line - which tier answered this class before
+                let tier_name = match pattern.model_tier {
+                    1 => "Brain (instant)",
+                    2 => "Junior (fast LLM)",
+                    3 => "Senior (verified LLM)",
+                    _ => "Unknown",
+                };
+                info!(
+                    "TIER: using tier {} ({}) for class={} (learned from model={})",
+                    pattern.model_tier, tier_name, question_class.canonical(), pattern.model_used
+                );
+
+                // v4.5.0: Emit cache hit event with tier info
                 if let Some(e) = emitter {
                     e.emit(DebugEvent::new(DebugEventType::JuniorPlanDone, 1,
-                            format!("LEARNING --> ANNA: Pattern hit! class={} ({}ms)", class.canonical(), pattern_ms))
+                            format!("CACHE: HIT class={} tier={} ({}ms)", question_class.canonical(), pattern.model_tier, pattern_ms))
                         .with_elapsed(pattern_ms)
                         .with_data(DebugEventData::KeyValue {
                             pairs: vec![
                                 ("origin".to_string(), format!("Pattern:{}", pattern.origin)),
-                                ("class".to_string(), class.canonical()),
+                                ("class".to_string(), question_class.canonical()),
+                                ("tier".to_string(), pattern.model_tier.to_string()),
+                                ("tier_name".to_string(), tier_name.to_string()),
+                                ("model_used".to_string(), pattern.model_used.clone()),
+                                ("skip_llm".to_string(), pattern.skip_llm.to_string()),
                                 ("hits".to_string(), pattern.hit_count.to_string()),
                                 ("reliability".to_string(), format!("{}%", (pattern.reliability * 100.0).round())),
                             ],
@@ -479,16 +508,18 @@ impl UnifiedEngine {
                     pattern.reliability,
                     start_time.elapsed(),
                 );
-                answer.model_used = Some(format!("Pattern:{}", class.canonical()));
+                answer.model_used = Some(format!("Pattern:{}", question_class.canonical()));
                 self.record_xp_event(XpEventType::BrainSelfSolve);
                 return Ok(answer);
             } else {
                 // Stale pattern - log but continue to refresh
                 info!(
-                    "LEARNING: STALE PATTERN class={} (refreshing)",
-                    class.canonical()
+                    "CACHE: STALE class={} (refreshing)",
+                    question_class.canonical()
                 );
             }
+        } else {
+            info!("CACHE: MISS class={}", question_class.canonical());
         }
 
         // ================================================================
@@ -525,6 +556,12 @@ impl UnifiedEngine {
                 brain_ms
             );
 
+            // v4.5.0: TIER debug line for Brain success
+            info!(
+                "TIER: tier 1 (Brain) succeeded for class={} in {}ms",
+                question_class.canonical(), brain_ms
+            );
+
             // v4.2.0: Emit brain success
             if let Some(e) = emitter {
                 e.emit(DebugEvent::new(DebugEventType::JuniorPlanDone, 1, "BRAIN --> ANNA: Fast path matched!")
@@ -532,6 +569,7 @@ impl UnifiedEngine {
                     .with_data(DebugEventData::KeyValue {
                         pairs: vec![
                             ("origin".to_string(), brain_answer.origin.clone()),
+                            ("tier".to_string(), "1".to_string()),
                             ("reliability".to_string(), format!("{}%", (brain_answer.reliability * 100.0).round())),
                             ("output".to_string(), truncate_for_debug(&brain_answer.text, 200)),
                         ],
@@ -541,7 +579,8 @@ impl UnifiedEngine {
             // Record Anna XP for self-solve
             self.record_xp_event(XpEventType::BrainSelfSolve);
 
-            // v4.4.0: Learn this pattern for future paraphrase hits
+            // v4.5.0: Learn this pattern for future paraphrase hits
+            // Brain = tier 1, model_used = "Brain"
             let learned = self.pattern_store.learn(
                 question,
                 brain_answer.citations.clone(),
@@ -549,12 +588,13 @@ impl UnifiedEngine {
                 &brain_answer.text,
                 brain_answer.reliability,
                 brain_ms,
+                1,       // Tier 1 = Brain (fastest)
+                "Brain", // Model used
             );
             if learned {
-                let class = learning_classify_question(question);
                 info!(
-                    "LEARNING: NEW PATTERN class={} origin={} reliability={:.2}",
-                    class.canonical(), brain_answer.origin, brain_answer.reliability
+                    "LEARNING: NEW PATTERN class={} tier=1 origin={} reliability={:.2}",
+                    question_class.canonical(), brain_answer.origin, brain_answer.reliability
                 );
             }
 
@@ -567,6 +607,12 @@ impl UnifiedEngine {
         }
         let brain_ms = brain_start.elapsed().as_millis() as u64;
         info!("[*]  Brain fast path did not match ({}ms)", brain_ms);
+
+        // v4.5.0: TIER debug line - escalating to LLM tiers
+        info!(
+            "TIER: tier 1 (Brain) miss for class={}, escalating to tier 2/3 (LLM)",
+            question_class.canonical()
+        );
 
         // v4.2.0: Emit brain miss
         if let Some(e) = emitter {
@@ -1280,8 +1326,9 @@ impl UnifiedEngine {
             self.recipe_store.add(recipe);
         }
 
-        // v4.4.0: Also learn pattern for semantic matching
-        // LLM answers are slower, so capture latency estimate of 5000ms
+        // v4.5.0: Also learn pattern for semantic matching
+        // Senior = tier 3, model_used = actual senior model
+        let senior_model_name = self.senior_model().to_string();
         let learned = self.pattern_store.learn(
             question,
             probes_used.to_vec(),
@@ -1289,12 +1336,14 @@ impl UnifiedEngine {
             answer,
             reliability,
             5000,  // Estimated LLM latency
+            3,     // Tier 3 = Senior (slowest, most accurate)
+            &senior_model_name,
         );
         if learned {
             let class = learning_classify_question(question);
             info!(
-                "LEARNING: NEW PATTERN (LLM) class={} reliability={:.2}",
-                class.canonical(), reliability
+                "LEARNING: NEW PATTERN (LLM) class={} tier=3 model={} reliability={:.2}",
+                class.canonical(), senior_model_name, reliability
             );
         }
     }
