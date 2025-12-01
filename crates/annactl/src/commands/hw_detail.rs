@@ -1,21 +1,21 @@
-//! HW Detail Command v7.14.0 - Hardware Profiles with Health/Driver/Logs
+//! HW Detail Command v7.15.0 - Hardware Profiles with Health/Driver/Logs
 //!
 //! Two modes:
-//! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery)
-//! 2. Specific device profile (gpu0, nvme0n1, wlan0, enp3s0, audio0, wifi, ethernet)
+//! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors)
+//! 2. Specific device profile (gpu0, nvme0n1, wlan0, enp3s0, audio0, wifi, ethernet, BAT0)
 //!
 //! Profile sections:
 //! - [IDENTITY]     Device identification with Bus/Vendor info
-//! - [DRIVER]       Kernel module, loaded status, driver package, firmware (v7.10.0)
+//! - [FIRMWARE]     Microcode/firmware status and sources (v7.15.0)
+//! - [DRIVER]       Kernel module, loaded status, driver package
 //! - [DEPENDENCIES] Module chain and related services (v7.13.0)
 //! - [INTERFACES]   Network interface details with state/IP (v7.13.0)
 //! - [HEALTH]       Real health metrics (temps, SMART, errors)
-//! - [SMART]        Disk-specific SMART data
-//! - [CAPACITY]     Battery-specific capacity/wear
-//! - [LINK]         Network-specific link state
-//! - [TELEMETRY]    Anna telemetry if available (v7.14.0: peak/trend by window)
+//! - [CAPACITY]     Battery-specific capacity/wear/cycles (v7.15.0)
+//! - [STATE]        Battery/power current state (v7.15.0)
+//! - [TELEMETRY]    Anna telemetry with windows (v7.15.0: 1h/24h/7d trends)
 //! - [LOGS]         Pattern-based grouping with counts (v7.14.0)
-//! - Cross notes:   Links between components (v7.14.0)
+//! - Cross notes:   Links between components
 //!
 //! All data from system tools:
 //! - lscpu, /proc/cpuinfo (CPU)
@@ -121,16 +121,16 @@ async fn run_cpu_profile() -> Result<()> {
 
     let output = Command::new("lscpu").output();
 
-    let mut min_freq = String::new();
-    let mut max_freq = String::new();
+    let mut model = String::new();
+    let mut sockets = String::new();
+    let mut cores = String::new();
+    let mut threads = String::new();
+    let mut arch = String::new();
+    let mut flags = String::new();
 
     match output {
         Ok(out) if out.status.success() => {
             let stdout = String::from_utf8_lossy(&out.stdout);
-
-            let mut model = String::new();
-            let mut cores = String::new();
-            let mut threads = String::new();
 
             for line in stdout.lines() {
                 let parts: Vec<&str> = line.splitn(2, ':').collect();
@@ -140,26 +140,36 @@ async fn run_cpu_profile() -> Result<()> {
 
                     match key {
                         "Model name" => model = val.to_string(),
+                        "Socket(s)" => sockets = val.to_string(),
                         "Core(s) per socket" => cores = val.to_string(),
                         "CPU(s)" => {
                             if !val.contains("NUMA") && !val.contains("On-line") {
                                 threads = val.to_string();
                             }
                         }
-                        "CPU min MHz" | "CPU MHz min" => min_freq = format!("{} MHz", val.split('.').next().unwrap_or(val)),
-                        "CPU max MHz" | "CPU MHz max" => max_freq = format!("{} MHz", val.split('.').next().unwrap_or(val)),
+                        "Architecture" => arch = val.to_string(),
+                        "Flags" => {
+                            // Extract key flags
+                            let important = ["aes", "avx", "avx2", "avx512f", "fma", "sse4_2"];
+                            let found: Vec<_> = important.iter()
+                                .filter(|f| val.contains(*f))
+                                .map(|s| *s)
+                                .collect();
+                            if !found.is_empty() {
+                                flags = found.join(", ");
+                            }
+                        }
                         _ => {}
                     }
                 }
             }
 
-            println!("  Model:       {}", model);
-            println!("  Cores:       {} physical / {} threads", cores, threads);
-            if !min_freq.is_empty() {
-                println!("  Min freq:    {}", min_freq);
-            }
-            if !max_freq.is_empty() {
-                println!("  Max freq:    {}", max_freq);
+            println!("  Model:          {}", model);
+            println!("  Sockets:        {}", sockets);
+            println!("  Cores:          {} ({} threads)", cores, threads);
+            println!("  Architecture:   {}", arch);
+            if !flags.is_empty() {
+                println!("  Flags:          {}, ...", flags);
             }
         }
         _ => {
@@ -169,13 +179,56 @@ async fn run_cpu_profile() -> Result<()> {
 
     println!();
 
+    // [FIRMWARE] - v7.15.0: Microcode section
+    println!("{}", "[FIRMWARE]".cyan());
+    println!("  {}", "(sources: /sys/devices/system/cpu/microcode, journalctl -b -k)".dimmed());
+    println!();
+
+    // Get microcode version
+    let version_path = "/sys/devices/system/cpu/cpu0/microcode/version";
+    let microcode_version = std::fs::read_to_string(version_path)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    // Determine vendor
+    let cpuinfo = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
+    let vendor = if cpuinfo.contains("GenuineIntel") {
+        "genuineintel"
+    } else if cpuinfo.contains("AuthenticAMD") {
+        "authenticamd"
+    } else {
+        "unknown"
+    };
+
+    if let Some(version) = microcode_version {
+        println!("  Microcode:      {} (version {})", vendor, version);
+        println!("  Source:         /sys/devices/system/cpu/microcode");
+
+        // Check if microcode package is installed
+        let ucode_pkg = if vendor == "genuineintel" { "intel-ucode" } else { "amd-ucode" };
+        let pkg_check = Command::new("pacman")
+            .args(["-Qi", ucode_pkg])
+            .output();
+
+        if let Ok(out) = pkg_check {
+            if out.status.success() {
+                println!("  Loaded from:    {} {}", ucode_pkg, "[installed]".green());
+            }
+        }
+    } else {
+        println!("  Microcode:      {}", "not available".dimmed());
+    }
+
+    println!();
+
     // [DRIVER]
     println!("{}", "[DRIVER]".cyan());
     let cpu_health = get_cpu_health();
     if cpu_health.drivers.is_empty() {
-        println!("  Kernel:      {}", "default".dimmed());
+        println!("  Scaling:        {}", "kernel default".dimmed());
     } else {
-        println!("  Kernel:      {}", cpu_health.drivers.join(", "));
+        println!("  Scaling:        {}", cpu_health.drivers.join(", "));
     }
 
     println!();
@@ -599,55 +652,61 @@ async fn run_storage_profile(name: &str) -> Result<()> {
 
     println!();
 
-    // [SMART]
-    println!("{}", "[SMART]".cyan());
+    // [HEALTH] - v7.15.0 consolidated health/SMART section
+    println!("{}", "[HEALTH]".cyan());
     if health.smart_available {
         if health.device_type == "NVMe" {
-            println!("  {}", "(source: smartctl / nvme smart-log)".dimmed());
+            println!("  {}", "(source: nvme smart-log /dev/...)".dimmed());
         } else {
-            println!("  {}", "(source: smartctl)".dimmed());
+            println!("  {}", "(source: smartctl -H -A /dev/...)".dimmed());
         }
         println!();
 
         // Overall status
         match health.smart_passed {
-            Some(true) => println!("  Overall:      {}", "OK".green()),
-            Some(false) => println!("  Overall:      {}", "FAILED".red()),
-            None => println!("  Overall:      {}", "unknown".dimmed()),
-        }
-
-        // Power-on hours
-        if let Some(hours) = health.power_on_hours {
-            println!("  Power-on hrs: {} h", hours);
-        }
-
-        // NVMe-specific
-        if let Some(media_errors) = health.media_errors {
-            if media_errors > 0 {
-                println!("  Media errors: {}", media_errors.to_string().yellow());
-            } else {
-                println!("  Media errors: {}", "0".green());
-            }
-        }
-        if let Some(unsafe_shutdowns) = health.unsafe_shutdowns {
-            println!("  Unsafe shutdowns: {}", unsafe_shutdowns);
-        }
-
-        // SATA-specific
-        if let Some(reallocated) = health.reallocated_sectors {
-            if reallocated > 0 {
-                println!("  Reallocated sectors: {}", reallocated.to_string().yellow());
-            }
-        }
-        if let Some(pending) = health.pending_sectors {
-            if pending > 0 {
-                println!("  Pending sectors: {}", pending.to_string().yellow());
-            }
+            Some(true) => println!("  Overall:     {}", "SMART OK".green()),
+            Some(false) => println!("  Overall:     {}", "SMART FAILED".red()),
+            None => println!("  Overall:     {}", "unknown".dimmed()),
         }
 
         // Temperature
         if let Some(temp) = health.temperature_c {
-            println!("  Temperature:  {:.0}°C", temp);
+            println!("  Temp:        {:.0}°C now", temp);
+        }
+
+        // Power-on hours
+        if let Some(hours) = health.power_on_hours {
+            println!("  Power on:    {} hours", hours);
+        }
+
+        // Errors - consolidated line
+        let mut errors = Vec::new();
+        if let Some(media_errors) = health.media_errors {
+            errors.push(format!("{} media errors", media_errors));
+        }
+        if let Some(reallocated) = health.reallocated_sectors {
+            errors.push(format!("{} reallocated sectors", reallocated));
+        }
+        if let Some(pending) = health.pending_sectors {
+            errors.push(format!("{} pending sectors", pending));
+        }
+        if !errors.is_empty() {
+            let has_issues = health.media_errors.unwrap_or(0) > 0
+                || health.reallocated_sectors.unwrap_or(0) > 0
+                || health.pending_sectors.unwrap_or(0) > 0;
+            let errors_str = errors.join(", ");
+            if has_issues {
+                println!("  Errors:      {}", errors_str.yellow());
+            } else {
+                println!("  Errors:      {}", errors_str.green());
+            }
+        }
+
+        // Unsafe shutdowns (NVMe only, if high)
+        if let Some(unsafe_shutdowns) = health.unsafe_shutdowns {
+            if unsafe_shutdowns > 5 {
+                println!("  Unsafe shutdowns: {}", unsafe_shutdowns.to_string().yellow());
+            }
         }
     } else if let Some(ref reason) = health.smart_unavailable_reason {
         println!("  {}", format!("SMART unavailable: {}", reason).dimmed());
@@ -655,26 +714,15 @@ async fn run_storage_profile(name: &str) -> Result<()> {
         println!("  {}", "SMART data not available".dimmed());
     }
 
+    // Overall health status
     println!();
-
-    // [HEALTH]
-    println!("{}", "[HEALTH]".cyan());
     let status_str = match health.status {
         HealthStatus::Ok => "OK".green().to_string(),
         HealthStatus::Warning => "WARNING".yellow().to_string(),
         HealthStatus::Critical => "CRITICAL".red().to_string(),
         HealthStatus::Unknown => "UNKNOWN".dimmed().to_string(),
     };
-    println!("  Status:       {}", status_str);
-
-    if health.alerts.is_empty() {
-        println!("  Alerts:       {}", "none".green());
-    } else {
-        for alert in &health.alerts {
-            println!("  Alerts:");
-            println!("    - {}", alert.yellow());
-        }
-    }
+    println!("  Status:      {}", status_str);
 
     println!();
 
@@ -1276,8 +1324,7 @@ async fn run_battery_profile() -> Result<()> {
     println!();
 
     if batteries.is_empty() {
-        println!("{}", "[NOT FOUND]".yellow());
-        println!("  No batteries detected (desktop system?).");
+        println!("  Battery:   {}", "not present".dimmed());
         println!();
         println!("{}", THIN_SEP);
         println!();
@@ -1285,39 +1332,47 @@ async fn run_battery_profile() -> Result<()> {
     }
 
     for bat in &batteries {
-        // [IDENTITY]
+        // [IDENTITY] - v7.15.0
         println!("{}", "[IDENTITY]".cyan());
-        println!("  Name:        {}", bat.name);
+        println!("  Battery:       {}", bat.name);
 
         // Read model info from /sys
         let supply_path = format!("/sys/class/power_supply/{}", bat.name);
         let supply_path = std::path::Path::new(&supply_path);
 
-        if let Ok(model) = std::fs::read_to_string(supply_path.join("model_name")) {
-            println!("  Model:       {}", model.trim());
-        }
         if let Ok(tech) = std::fs::read_to_string(supply_path.join("technology")) {
-            println!("  Technology:  {}", tech.trim());
+            println!("  Type:          {}", tech.trim());
+        }
+        if let Ok(mfg) = std::fs::read_to_string(supply_path.join("manufacturer")) {
+            println!("  Vendor:        {}", mfg.trim());
+        }
+        if let Ok(model) = std::fs::read_to_string(supply_path.join("model_name")) {
+            println!("  Model:         {}", model.trim());
         }
 
         println!();
 
-        // [CAPACITY]
+        // [CAPACITY] - v7.15.0
         println!("{}", "[CAPACITY]".cyan());
         println!("  {}", "(source: /sys/class/power_supply)".dimmed());
         println!();
 
-        // Status
-        let status_colored = match bat.status.as_str() {
-            "Charging" => bat.status.green().to_string(),
-            "Discharging" => bat.status.yellow().to_string(),
-            "Full" => bat.status.cyan().to_string(),
-            _ => bat.status.clone(),
-        };
-        println!("  Status:            {}", status_colored);
+        // Design capacity
+        if let Some(design) = bat.design_capacity_wh {
+            println!("  Design:        {:.0} Wh", design);
+        }
 
-        // Charge
-        if let Some(pct) = bat.capacity_percent {
+        // Full now (actual max charge)
+        if let (Some(full), Some(design)) = (bat.full_capacity_wh, bat.design_capacity_wh) {
+            let pct_of_design = (full / design * 100.0).round();
+            println!("  Full now:      {:.0} Wh ({}% of design)", full, pct_of_design);
+        } else if let Some(full) = bat.full_capacity_wh {
+            println!("  Full now:      {:.0} Wh", full);
+        }
+
+        // Charge now
+        if let (Some(pct), Some(full)) = (bat.capacity_percent, bat.full_capacity_wh) {
+            let charge_wh = full * pct as f32 / 100.0;
             let pct_str = format!("{}%", pct);
             let pct_colored = if pct >= 80 {
                 pct_str.green().to_string()
@@ -1326,45 +1381,58 @@ async fn run_battery_profile() -> Result<()> {
             } else {
                 pct_str.red().to_string()
             };
-            println!("  Charge now:        {}", pct_colored);
-        }
-
-        // Capacity details
-        if let Some(design) = bat.design_capacity_wh {
-            println!("  Design capacity:   {:.1} Wh", design);
-        }
-        if let Some(full) = bat.full_capacity_wh {
-            println!("  Full capacity:     {:.1} Wh", full);
-        }
-
-        // Wear level
-        if let Some(wear) = bat.wear_level_percent {
-            let wear_str = format!("{:.0}%", wear);
-            let wear_colored = if wear > 50.0 {
-                wear_str.red().to_string()
-            } else if wear > 30.0 {
-                wear_str.yellow().to_string()
-            } else {
-                wear_str.green().to_string()
-            };
-
-            if let (Some(full), Some(design)) = (bat.full_capacity_wh, bat.design_capacity_wh) {
-                println!("  Wear level:        {} ({:.1} / {:.1})", wear_colored, full, design);
-            } else {
-                println!("  Wear level:        {}", wear_colored);
-            }
+            println!("  Charge now:    {:.0} Wh ({} of full)", charge_wh, pct_colored);
+        } else if let Some(pct) = bat.capacity_percent {
+            let pct_str = format!("{}%", pct);
+            println!("  Charge now:    {}", pct_str);
         }
 
         // Cycle count
         if let Some(cycles) = bat.cycle_count {
-            if cycles > 0 {
-                println!("  Cycle count:       {}", cycles);
+            println!("  Cycles:        {}", cycles);
+        }
+
+        println!();
+
+        // [STATE] - v7.15.0 new section
+        println!("{}", "[STATE]".cyan());
+
+        // Status
+        let status_colored = match bat.status.as_str() {
+            "Charging" => bat.status.green().to_string(),
+            "Discharging" => bat.status.yellow().to_string(),
+            "Full" => bat.status.cyan().to_string(),
+            "Not charging" => bat.status.dimmed().to_string(),
+            _ => bat.status.clone(),
+        };
+        println!("  Status:        {}", status_colored);
+
+        // Check AC adapter status
+        let power_path = std::path::Path::new("/sys/class/power_supply");
+        if power_path.exists() {
+            if let Ok(entries) = std::fs::read_dir(power_path) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if name.starts_with("AC") || name.starts_with("ADP") {
+                        let online_path = entry.path().join("online");
+                        let online = std::fs::read_to_string(&online_path)
+                            .map(|s| s.trim() == "1")
+                            .unwrap_or(false);
+
+                        if online {
+                            println!("  AC adapter:    {}", "connected".green());
+                        } else {
+                            println!("  AC adapter:    {}", "not connected".dimmed());
+                        }
+                        break;
+                    }
+                }
             }
         }
 
         println!();
 
-        // [HEALTH]
+        // [HEALTH] - v7.15.0 with wear info
         println!("{}", "[HEALTH]".cyan());
         let status_str = match bat.health_status {
             HealthStatus::Ok => "OK".green().to_string(),
@@ -1372,13 +1440,25 @@ async fn run_battery_profile() -> Result<()> {
             HealthStatus::Critical => "CRITICAL".red().to_string(),
             HealthStatus::Unknown => "UNKNOWN".dimmed().to_string(),
         };
-        println!("  Status:            {}", status_str);
+        println!("  Status:        {}", status_str);
 
-        if bat.alerts.is_empty() {
-            println!("  Alerts:            {}", "none".green());
-        } else {
+        // Wear level
+        if let Some(wear) = bat.wear_level_percent {
+            let health_pct = 100.0 - wear;
+            let health_str = format!("{:.0}% remaining", health_pct);
+            let health_colored = if wear > 50.0 {
+                health_str.red().to_string()
+            } else if wear > 30.0 {
+                health_str.yellow().to_string()
+            } else {
+                health_str.green().to_string()
+            };
+            println!("  Capacity:      {}", health_colored);
+        }
+
+        if !bat.alerts.is_empty() {
             for alert in &bat.alerts {
-                println!("  Alerts:            {}", alert.yellow());
+                println!("  Warning:       {}", alert.yellow());
             }
         }
 

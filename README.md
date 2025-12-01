@@ -1,8 +1,8 @@
-# Anna v7.14.0 "Log Patterns and Config Sanity"
+# Anna v7.15.0 "Deeper Hardware Insight"
 
 **System Intelligence Daemon for Linux**
 
-> v7.14.0: Pattern-based log grouping with counts and timelines, config sanity checks (empty files, readability, symlinks), cross notes linking observations across sections.
+> v7.15.0: Structured hardware overview by category, rich profiles for CPU/GPU/storage/battery with firmware and health data, SMART monitoring, microcode status.
 
 ---
 
@@ -59,6 +59,107 @@ annactl hw cpu
 annactl hw gpu
 annactl hw storage
 annactl hw network
+```
+
+---
+
+## v7.15.0 Features
+
+### Structured Hardware Overview
+
+`annactl hw` now shows a complete hardware snapshot organized by category:
+
+```
+  Anna Hardware Inventory
+------------------------------------------------------------
+
+[CPU]
+  Model:        Intel(R) Core(TM) i9-14900HX
+  Sockets:      1
+  Cores:        24 (32 threads)
+  Microcode:    genuineintel (version 0x132)
+
+[GPU]
+  Discrete:   GeForce RTX 4060 Max-Q / Mobile (driver: nvidia)
+
+[MEMORY]
+  Installed:    32 GiB
+  Layout:       2 slots (2 used)
+
+[STORAGE]
+  Devices:      1 NVMe, 1 SATA
+  Root:         nvme0n1p2 (ext4, 512 GiB)
+
+[NETWORK]
+  WiFi:         Intel AX201 (driver: iwlwifi, firmware: loaded)
+  Ethernet:     Realtek RTL8168 (driver: r8169)
+  Bluetooth:    Intel AX201 Bluetooth (driver: btusb)
+
+[AUDIO]
+  Controller:   Intel Alder Lake P High Definition Audio
+  Drivers:      sof-audio-pci-intel-tgl
+
+[INPUT]
+  Keyboard:     AT Translated Set 2 keyboard
+  Touchpad:     ELAN1200 Touchpad
+
+[SENSORS]
+  Providers:    coretemp, nvme, battery
+
+[POWER]
+  Battery:      present (design 80 Wh)
+  AC adapter:   connected
+```
+
+### Rich CPU Profiles with Firmware
+
+`annactl hw cpu` now includes [FIRMWARE] section with microcode status:
+
+```
+[IDENTITY]
+  Model:          Intel(R) Core(TM) i9-14900HX
+  Sockets:        1
+  Cores:          24 (32 threads)
+  Architecture:   x86_64
+  Flags:          aes, avx, avx2, fma, sse4_2, ...
+
+[FIRMWARE]
+  Microcode:      genuineintel (version 0x132)
+  Source:         /sys/devices/system/cpu/microcode
+  Loaded from:    intel-ucode [installed]
+```
+
+### Storage Health with SMART Data
+
+`annactl hw <device>` shows consolidated health information:
+
+```
+[HEALTH]
+  Overall:     SMART OK
+  Temp:        43°C now
+  Power on:    1534 hours
+  Errors:      0 media errors, 0 reallocated sectors
+  Status:      OK
+```
+
+### Battery Profile with Capacity and State
+
+`annactl hw battery` shows detailed battery information:
+
+```
+[CAPACITY]
+  Design:        80 Wh
+  Full now:      78 Wh (97% of design)
+  Charge now:    72 Wh (92% of full)
+  Cycles:        42
+
+[STATE]
+  Status:        Discharging
+  AC adapter:    not connected
+
+[HEALTH]
+  Status:        OK
+  Capacity:      97% remaining
 ```
 
 ---
@@ -257,7 +358,7 @@ Status inventory now includes network interface summary:
 ------------------------------------------------------------
 
 [VERSION]
-  Anna:       v7.14.0
+  Anna:       v7.15.0
 
 [DAEMON]
   Status:     running
@@ -392,8 +493,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.14.0/annad-7.14.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.14.0/annactl-7.14.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.15.0/annad-7.15.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.15.0/annactl-7.15.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -481,7 +582,8 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.14.0** | **Log Patterns and Config Sanity** - Pattern-based log grouping, config sanity checks, cross notes |
+| **v7.15.0** | **Deeper Hardware Insight** - Structured hw overview, firmware/microcode, SMART health, battery profiles |
+| v7.14.0 | Log Patterns and Config Sanity - Pattern-based log grouping, config sanity checks, cross notes |
 | v7.13.0 | Dependency Graph and Network Awareness - deps for packages/services/drivers, network interfaces |
 | v7.12.0 | Config Intelligence - Primary/Secondary config, log deduplication, State summaries, ops.log |
 | v7.11.0 | Honest Telemetry - Real HW telemetry, resource hotspots, health notes |

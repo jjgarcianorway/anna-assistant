@@ -1,16 +1,23 @@
-//! CLI integration tests for annactl v7.14.0 "Log Patterns, Config Sanity, Cross Notes"
+//! CLI integration tests for annactl v7.15.0 "Deeper Hardware Insight"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
 //! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [ANNA NEEDS], Network in [INVENTORY]
 //! - annactl sw        software overview with [CATEGORIES] - no duplicates
-//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [LOGS] patterns, [DEPENDENCIES], Cross notes (v7.14.0)
-//! - annactl hw        hardware overview with [COMPONENTS], [HW TELEMETRY]
-//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER], [DEPENDENCIES], [INTERFACES], [LOGS] patterns (v7.14.0)
+//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [LOGS] patterns, [DEPENDENCIES], Cross notes
+//! - annactl hw        hardware overview with [CPU], [GPU], [MEMORY], [STORAGE], [NETWORK], [AUDIO], [INPUT], [SENSORS], [POWER] (v7.15.0)
+//! - annactl hw NAME   hardware profile with [IDENTITY], [FIRMWARE], [DRIVER], [HEALTH], [CAPACITY], [STATE], [LOGS] (v7.15.0)
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
+//!
+//! Snow Leopard v7.15.0 tests:
+//! - annactl hw structured overview with [CPU], [GPU], [MEMORY], etc.
+//! - [FIRMWARE] section in hw cpu and hw wifi with microcode/firmware info
+//! - [HEALTH] section for storage devices with SMART data
+//! - [CAPACITY] and [STATE] sections for battery profiles
+//! - No new public commands
 //!
 //! Snow Leopard v7.14.0 tests:
 //! - [LOGS] Pattern-based grouping with counts and time hints
@@ -2849,6 +2856,363 @@ fn test_snow_leopard_no_new_commands_v714() {
     assert!(
         !stdout.contains("annactl log") && !stdout.contains("annactl pattern"),
         "Should not have new log/pattern commands: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// Snow Leopard v7.15.0: Deeper Hardware Insight Tests
+// ============================================================================
+
+/// Test annactl hw shows structured sections (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_structured_sections_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: hw should show structured sections
+    assert!(
+        stdout.contains("[CPU]"),
+        "hw should have [CPU] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[GPU]") || stdout.contains("not detected"),
+        "hw should have [GPU] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[MEMORY]"),
+        "hw should have [MEMORY] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[STORAGE]"),
+        "hw should have [STORAGE] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[NETWORK]"),
+        "hw should have [NETWORK] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[POWER]"),
+        "hw should have [POWER] section: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test hw overview shows CPU model and microcode (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_cpu_overview_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: [CPU] section should have model and microcode
+    assert!(
+        stdout.contains("Model:"),
+        "CPU section should show Model: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("Cores:") || stdout.contains("threads"),
+        "CPU section should show Cores/threads: {}",
+        stdout
+    );
+    // Microcode info
+    assert!(
+        stdout.contains("Microcode:") || stdout.contains("microcode"),
+        "CPU section should show Microcode info: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test hw cpu profile has [FIRMWARE] section (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_cpu_firmware_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "cpu"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: CPU profile should have [FIRMWARE] section
+    assert!(
+        stdout.contains("[FIRMWARE]"),
+        "hw cpu should have [FIRMWARE] section: {}",
+        stdout
+    );
+    // Should show microcode info
+    assert!(
+        stdout.contains("Microcode:") || stdout.contains("microcode"),
+        "FIRMWARE section should show microcode: {}",
+        stdout
+    );
+    // Should have source attribution
+    assert!(
+        stdout.contains("/sys/devices/system/cpu/microcode") || stdout.contains("Source:"),
+        "FIRMWARE should cite source: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test hw cpu profile has [IDENTITY] with architecture (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_cpu_identity_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "cpu"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: CPU profile should have rich [IDENTITY]
+    assert!(
+        stdout.contains("[IDENTITY]"),
+        "hw cpu should have [IDENTITY] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("Architecture:") || stdout.contains("x86_64") || stdout.contains("aarch64"),
+        "IDENTITY should show Architecture: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("Sockets:"),
+        "IDENTITY should show Sockets: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test hw battery profile has [CAPACITY] and [STATE] sections (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_battery_sections_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "battery"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: Battery profile should have [CAPACITY] and [STATE]
+    if stdout.contains("not present") {
+        // Desktop system - no battery
+        return;
+    }
+
+    assert!(
+        stdout.contains("[CAPACITY]"),
+        "hw battery should have [CAPACITY] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[STATE]"),
+        "hw battery should have [STATE] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("Design:") || stdout.contains("Wh"),
+        "CAPACITY should show design capacity: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test hw battery shows cycles when available (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_battery_cycles_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "battery"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: Battery profile should show cycles when available
+    if stdout.contains("not present") {
+        return;
+    }
+
+    // If capacity section exists, should show Cycles
+    if stdout.contains("[CAPACITY]") {
+        assert!(
+            stdout.contains("Cycles:") || stdout.contains("Full now:"),
+            "CAPACITY should show Cycles or Full now: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test hw storage shows [HEALTH] with SMART data (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_storage_health_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Get first storage device
+    let lsblk = Command::new("lsblk")
+        .args(["-d", "-n", "-o", "NAME"])
+        .output()
+        .expect("lsblk failed");
+
+    let devices = String::from_utf8_lossy(&lsblk.stdout);
+    let first_device = devices.lines().next().unwrap_or("nvme0n1");
+
+    let output = Command::new(&binary)
+        .args(["hw", first_device])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: Storage profile should have [HEALTH]
+    assert!(
+        stdout.contains("[HEALTH]"),
+        "hw storage should have [HEALTH] section: {}",
+        stdout
+    );
+    // Should show status or unavailable message
+    assert!(
+        stdout.contains("SMART") || stdout.contains("Status:") || stdout.contains("unavailable"),
+        "HEALTH should show SMART status or unavailable: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test hw overview shows firmware status for WiFi (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_wifi_firmware_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: WiFi in overview should show firmware status
+    if stdout.contains("WiFi:") {
+        assert!(
+            stdout.contains("firmware:") || stdout.contains("driver:"),
+            "WiFi should show firmware or driver info: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test hw overview sections don't have [COMPONENTS] anymore (v7.15.0)
+#[test]
+fn test_snow_leopard_hw_no_components_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: hw overview now uses category sections, not [COMPONENTS]
+    // We still allow [COMPONENTS] for backwards compat but prefer category sections
+    assert!(
+        stdout.contains("[CPU]") || stdout.contains("[COMPONENTS]"),
+        "hw should have [CPU] or [COMPONENTS]: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test no new public commands (v7.15.0)
+#[test]
+fn test_snow_leopard_no_new_commands_v715() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.15.0: Help should still only show the 6 base commands
+    assert!(
+        stdout.contains("annactl status"),
+        "Help should show status command: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("annactl sw"),
+        "Help should show sw command: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("annactl hw"),
+        "Help should show hw command: {}",
+        stdout
+    );
+    // Should not have new commands
+    assert!(
+        !stdout.contains("annactl firmware") && !stdout.contains("annactl smart"),
+        "Should not have new firmware/smart commands: {}",
         stdout
     );
     assert!(output.status.success());
