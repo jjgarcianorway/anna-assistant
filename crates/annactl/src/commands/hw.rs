@@ -1,8 +1,8 @@
-//! HW Command v7.11.0 - Anna Hardware Overview
+//! HW Command v7.12.0 - Anna Hardware Overview
 //!
 //! Sections:
 //! - [COMPONENTS]        CPU, GPU, WiFi, Bluetooth, Audio with drivers/firmware
-//! - [HW TELEMETRY]      Real-time temp, utilization, frequencies (v7.11.0)
+//! - [HW TELEMETRY]      Real-time temp, utilization, frequencies with State summary (v7.12.0)
 //! - [HEALTH HIGHLIGHTS] Real health data from sensors/SMART/logs
 //! - [CATEGORIES]        Component identifiers per category
 //! - [DEPENDENCIES]      Hardware tools status
@@ -16,7 +16,7 @@
 //! - lsmod, modinfo (Module info)
 //! - sensors, /sys/class/thermal (Temperatures)
 //! - /sys/class/power_supply (Battery)
-//! - /sys/class/hwmon (Hardware monitoring) - v7.11.0
+//! - /sys/class/hwmon (Hardware monitoring)
 //! - journalctl -b -k / dmesg (Firmware messages)
 //! - pacman -Qo (Driver packages)
 
@@ -573,6 +573,11 @@ fn print_hw_telemetry_section_v711() {
     println!("  {}", "(source: /sys/class/hwmon, /sys/class/thermal, /proc, sensors)".dimmed());
     println!();
 
+    // v7.12.0: State summary line
+    let state = derive_hw_telemetry_state();
+    println!("  State (now):    {}", state);
+    println!();
+
     // CPU telemetry
     print_cpu_telemetry();
 
@@ -586,6 +591,42 @@ fn print_hw_telemetry_section_v711() {
     print_disk_io_telemetry();
 
     println!();
+}
+
+/// v7.12.0: Derive hardware telemetry state summary
+/// Temp thresholds: <70C normal, 70-85C elevated, >85C hot
+fn derive_hw_telemetry_state() -> String {
+    let mut states = Vec::new();
+
+    // Check CPU temp
+    if let Some(temp) = get_cpu_temperature() {
+        let thermal_state = if temp < 70 {
+            "normal thermals"
+        } else if temp <= 85 {
+            "elevated thermals"
+        } else {
+            "hot thermals"
+        };
+        states.push(thermal_state);
+    }
+
+    // Check CPU utilization
+    if let Some(util) = get_cpu_utilization() {
+        let util_state = if util < 30.0 {
+            "normal utilization"
+        } else if util <= 70.0 {
+            "moderate utilization"
+        } else {
+            "high utilization"
+        };
+        states.push(util_state);
+    }
+
+    if states.is_empty() {
+        "unknown".to_string()
+    } else {
+        states.join(", ")
+    }
 }
 
 /// Print CPU telemetry (temp, frequency, utilization)

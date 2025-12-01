@@ -25,6 +25,7 @@
 //! - knowledge_collector: System discovery
 //! - needs: Anna's tool and doc dependencies (v7.6.0+)
 //! - object_metadata: Static descriptions and relationships
+//! - ops_log: Anna's internal operations audit trail (v7.12.0+)
 //! - service_state: Systemd service tracking
 //! - telemetry: Process monitoring and usage tracking (log files)
 //! - telemetry_db: SQLite-based telemetry storage (v7.1.0+)
@@ -43,6 +44,7 @@ pub mod knowledge_collector;
 pub mod knowledge_core;
 pub mod needs;
 pub mod object_metadata;
+pub mod ops_log;
 pub mod service_state;
 pub mod telemetry;
 pub mod telemetry_db;
@@ -109,4 +111,10 @@ pub use needs::{
     HardwareDeps, is_smartctl_available, is_nvme_available, is_sensors_available,
     is_nvidia_smi_available, is_iw_available, is_ethtool_available, is_man_available,
     get_tool_status,
+};
+// v7.12.0: Operations log for Anna's internal tooling audit trail
+pub use ops_log::{
+    OpsAction, OpsEntry, OpsLogWriter, OpsLogReader,
+    OpsActionCounts, OpsLogSummary,
+    INTERNAL_DIR, OPS_LOG_FILE,
 };

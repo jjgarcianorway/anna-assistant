@@ -1,8 +1,8 @@
-# Anna v7.11.0 "Honest Telemetry and Trends"
+# Anna v7.12.0 "Config Intelligence and Log Literacy"
 
 **System Intelligence Daemon for Linux**
 
-> v7.11.0: Real hardware telemetry (CPU/GPU/Memory/Disk I/O), resource hotspots with health notes, telemetry-to-logs correlation.
+> v7.12.0: Primary/Secondary config structure, full log deduplication with no truncation, telemetry State summaries, ops.log for internal operations.
 
 ---
 
@@ -15,6 +15,7 @@ Anna is a system intelligence daemon that:
 - **Tracks** hardware telemetry (temperature, utilization, I/O)
 - **Indexes** errors and warnings from journalctl (per-service only)
 - **Correlates** telemetry with logs for health insights
+- **Records** Anna's own operations in ops.log
 
 ## What Anna Does NOT Do
 
@@ -62,46 +63,68 @@ annactl hw network
 
 ---
 
-## v7.11.0 Features
+## v7.12.0 Features
 
-### [RESOURCE HOTSPOTS] in Status
+### [CONFIG] Primary/Secondary/Notes Structure
 
 ```
-[RESOURCE HOTSPOTS]
-  (top resource consumers in last 24h)
-
-  CPU:        firefox (45.2% peak, web browsing)
-              Note: has errors this boot - see `annactl sw firefox`
-  RAM:        code (2.4 GiB RSS peak)
+[CONFIG]
+  Primary:
+    ~/.vimrc                                      [present]   (filesystem)
+    ~/.vim/                                       [present]   (filesystem)
+    ~/.config/vim/vimrc                           [not present] (man vim)
+  Secondary:
+    /usr/share/vim                                [present]   (filesystem)
+  Notes:
+    - User config is active.
+    - XDG paths take precedence when documented.
+    Source: filesystem, pacman -Ql, man pages, local Arch Wiki
 ```
 
-### [HW TELEMETRY] in Hardware Overview
+### [LOGS] Full Deduplication
+
+```
+[LOGS]
+  (source: journalctl -b -u vim.service -p warning..alert)
+
+  Dec 01 09:15:23  Error loading spellfile: /usr/share/vim/...  (seen 3 times this boot)
+  Dec 01 10:30:45  Warning: plugin deprecated
+```
+
+### [TELEMETRY] State Summary Line
+
+```
+[TELEMETRY]
+  (source: Anna daemon, sampling every 30s)
+
+  State (24h):     mostly active, moderate CPU, moderate RAM
+
+  CPU avg (1h):    12.5 %    (max 45.2 %)
+  RAM avg (1h):    1.2 GiB  (max 2.4 GiB)
+```
+
+### [HW TELEMETRY] State Summary
 
 ```
 [HW TELEMETRY]
   (source: /sys/class/hwmon, /sys/class/thermal, /proc, sensors)
 
-  CPU:        52°C, 3200 MHz, 12.5% util
-  GPU:        45°C, 8% util, 512/8192 MiB VRAM
-  Memory:     8.2/32.0 GiB (26% used)
-  Disk I/O:   25.3 MB/s read, 12.1 MB/s write
+  State (now):    normal thermals, moderate utilization
+
+  CPU:        52C, 3200 MHz, 12.5% util
+  GPU:        45C, 8% util, 512/8192 MiB VRAM
 ```
 
-### Health Notes in [TELEMETRY]
+### [PATHS] with ops.log
 
 ```
-[TELEMETRY]
-  Activity windows:
-    Last 1h:   120 samples active, avg CPU 12.5%, peak 89.3%
-    Last 24h:  2880 samples active, avg CPU 8.2%, peak 95.1%
-
-  Trend:
-    CPU:    higher recently (24h vs 7d)
-    Memory: stable (24h vs 7d)
-
-  Notes:
-    ⚠  High CPU usage detected (peak 95%) - check for runaway processes
-    ⚠  3 error(s) in logs this boot - see [LOGS] section above
+[PATHS]
+  Config:     /etc/anna/config.toml
+  Data:       /var/lib/anna
+  Internal:   /var/lib/anna/internal
+  Ops log:    /var/lib/anna/internal/ops.log (3 installs, 1 configs)
+  Logs:       journalctl -u annad
+  Docs:       arch-wiki-lite, man pages, /usr/share/doc
 ```
 
 ---
@@ -115,7 +138,7 @@ annactl hw network
 ------------------------------------------------------------
 
 [VERSION]
-  Anna:       v7.11.0
+  Anna:       v7.12.0
 
 [DAEMON]
   Status:     running
@@ -124,7 +147,7 @@ annactl hw network
   Restarts:   0 (24h)
 
 [HEALTH]
-  Overall:    ✓ all systems nominal
+  Overall:    all systems nominal
   Daemon:     stable
   Telemetry:  collecting
   Sync:       current
@@ -162,7 +185,10 @@ annactl hw network
 [PATHS]
   Config:     /etc/anna/config.toml
   Data:       /var/lib/anna
+  Internal:   /var/lib/anna/internal
+  Ops log:    /var/lib/anna/internal/ops.log (no operations recorded)
   Logs:       journalctl -u annad
+  Docs:       arch-wiki-lite, man pages, /usr/share/doc
 
 [INTERNAL ERRORS]
   Crashes:          0
@@ -179,52 +205,56 @@ annactl hw network
 ------------------------------------------------------------
 ```
 
-### Hardware Overview
+### Software Object Detail
 
 ```
-  Anna Hardware
+  Anna SW: vim
 ------------------------------------------------------------
 
-[COMPONENTS]
-  (source: lspci -k, lsmod, lscpu, ip link)
+[IDENTITY]
+  Name:        vim
+  Type:        package + command
+  Description: Vi Improved, a highly configurable, improved version of the vi text editor
+               (source: pacman -Qi)
+  Category:    TextEditor
+               (source: /usr/share/applications/vim.desktop -> Categories)
 
-  CPU:        AMD Ryzen 9 5900X, driver: amd_pstate, microcode: amd-ucode [present]
-  GPU:        NVIDIA GeForce RTX 3080, driver: nvidia, firmware: nvidia-utils [present]
-  WiFi:       Intel Wi-Fi 6 AX200, driver: iwlwifi, firmware: linux-firmware [present]
-  Audio:      Starship/Matisse HD Audio Controller, driver: snd_hda_intel
+[PACKAGE]
+  (source: pacman -Qi)
+  Version:     9.1.1908-1
+  Source:      official
+  Installed:   explicit
+  Size:        5.0 MiB
+  Date:        Wed 12 Nov 2025 11:27:12 PM CET
 
-[HW TELEMETRY]
-  (source: /sys/class/hwmon, /sys/class/thermal, /proc, sensors)
+[CONFIG]
+  Primary:
+    ~/.vim                                        [present]   (filesystem)
+    ~/.vimrc                                      [present]   (filesystem)
+    ~/.config/vim/vimrc                           [not present] (man vim)
+  Secondary:
+    /usr/share/vim                                [present]   (filesystem)
+  Notes:
+    - User config is active.
+    - XDG paths take precedence when documented.
+    Source: filesystem, pacman -Ql, man pages, local Arch Wiki
 
-  CPU:        52°C, 3200 MHz, 12.5% util
-  GPU:        45°C, 8% util, 512/8192 MiB VRAM
-  Memory:     8.2/32.0 GiB (26% used)
-  Disk I/O:   25.3 MB/s read, 12.1 MB/s write
+[TELEMETRY]
+  (source: Anna daemon, sampling every 30s)
 
-[HEALTH HIGHLIGHTS]
-  CPU:        normal (52°C)
-  GPU:        normal (45°C)
-  Disks:      normal (all SMART OK)
-  Battery:    not present
-  Network:    normal (2 interfaces up)
+  State (24h):     mostly idle, light CPU, low RAM
 
-[CATEGORIES]
-  CPU:        cpu0
-  Memory:     mem0
-  GPU:        gpu0
-  Storage:    nvme0n1, sda
-  Network:    enp5s0, wlp6s0
-  Audio:      audio0
-  Power:      (no batteries)
+  CPU avg (1h):    0.5 %    (max 2.1 %)
+  RAM avg (1h):    45 MiB  (max 120 MiB)
 
-[DEPENDENCIES]
-  (hardware monitoring tools)
-  Hardware tools:
-    smartctl:    installed (smartmontools) - disk SMART
-    nvme:        installed (nvme-cli) - NVMe health
-    sensors:     installed (lm_sensors) - temperature
-    iw:          installed (iw) - wireless info
-    ethtool:     installed (ethtool) - ethernet info
+  Activity windows:
+    Last 1h:   120 samples, avg CPU 0.5%, peak 2.1%, avg RSS 45 MiB, peak 120 MiB
+    Last 24h:  2880 samples, avg CPU 0.3%, peak 5.2%, avg RSS 42 MiB, peak 150 MiB
+
+[COMMAND]
+  (source: which)
+  Path:        /usr/bin/vim
+  Man:         Vi IMproved, a programmer's text editor (source: man -f)
 
 ------------------------------------------------------------
 ```
@@ -242,8 +272,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.11.0/annad-7.11.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.11.0/annactl-7.11.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.12.0/annad-7.12.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.12.0/annactl-7.12.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -282,6 +312,8 @@ annad (daemon)
 /var/lib/anna/
     +-- knowledge/    Knowledge store
     +-- telemetry/    SQLite telemetry database
+    +-- internal/     Anna's internal operations
+        +-- ops.log   Operations audit trail
 ```
 
 ### Data Files
@@ -290,6 +322,7 @@ annad (daemon)
 |------|---------|
 | `/var/lib/anna/knowledge/` | Object inventory (JSON) |
 | `/var/lib/anna/telemetry.db` | SQLite telemetry database |
+| `/var/lib/anna/internal/ops.log` | Anna operations log |
 | `/etc/anna/config.toml` | Configuration |
 
 ---
@@ -328,7 +361,8 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.11.0** | **Honest Telemetry** - Real HW telemetry, resource hotspots, health notes |
+| **v7.12.0** | **Config Intelligence** - Primary/Secondary config, log deduplication, State summaries, ops.log |
+| v7.11.0 | Honest Telemetry - Real HW telemetry, resource hotspots, health notes |
 | v7.10.0 | Arch Wiki configs, hardware drivers and firmware visibility |
 | v7.9.0 | Real trends (24h vs 7d), unified telemetry section |
 | v7.8.0 | CONFIG hygiene, no ecosystem pollution |
@@ -362,3 +396,4 @@ Issues and PRs welcome at: https://github.com/jjgarcianorway/anna-assistant
 4. Local only - no cloud, no external calls
 5. Clean separation - Anna internals vs host monitoring
 6. Honest telemetry - no invented numbers, real data only
+7. Config intelligence - accurate primary/secondary separation

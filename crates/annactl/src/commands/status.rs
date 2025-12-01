@@ -1,4 +1,4 @@
-//! Status Command v7.11.0 - Honest Telemetry and Trends
+//! Status Command v7.12.0 - Config Intelligence and Log Literacy
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
@@ -6,14 +6,14 @@
 //! - [HEALTH]              Overall health status
 //! - [INVENTORY]           What Anna has indexed + sync status
 //! - [TELEMETRY]           Real telemetry with top CPU/memory and trends
-//! - [RESOURCE HOTSPOTS]   Top resource consumers with health notes (v7.11.0)
+//! - [RESOURCE HOTSPOTS]   Top resource consumers with health notes
 //! - [UPDATES]             Auto-update schedule and last result
-//! - [PATHS]               Config, data, logs paths
+//! - [PATHS]               Config, data, logs, docs paths (v7.12.0: local docs detection)
 //! - [INTERNAL ERRORS]     Anna's own pipeline errors
 //! - [ALERTS]              Hardware alerts from health checks
 //! - [ANNA NEEDS]          Missing tools and docs
 //!
-//! v7.11.0: New [RESOURCE HOTSPOTS] section with health notes
+//! v7.12.0: [PATHS] now shows local docs status
 //! NO journalctl system errors. NO host-wide log counts.
 
 use anyhow::Result;
@@ -25,6 +25,7 @@ use anna_common::format_duration_secs;
 use anna_common::{TelemetryDb, DataStatus, WINDOW_24H, format_bytes_human};
 use anna_common::grounded::health::{collect_hardware_alerts, HealthStatus};
 use anna_common::{AnnaNeeds, NeedStatus};
+use anna_common::{OpsLogReader, INTERNAL_DIR, OPS_LOG_FILE};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -520,10 +521,72 @@ fn print_paths_section() {
         println!("  Data:       {} {}", DATA_DIR, "(missing)".yellow());
     }
 
+    // Internal dir with ops.log
+    let internal_exists = Path::new(INTERNAL_DIR).exists();
+    if internal_exists {
+        println!("  Internal:   {}", INTERNAL_DIR);
+    } else {
+        println!("  Internal:   {} {}", INTERNAL_DIR, "(not created)".dimmed());
+    }
+
+    // v7.12.0: ops.log status
+    let ops_status = get_ops_log_status();
+    println!("  Ops log:    {}", ops_status);
+
     // Logs
     println!("  Logs:       {}", "journalctl -u annad".dimmed());
 
+    // v7.12.0: Local docs detection
+    let docs_status = get_local_docs_status();
+    println!("  Docs:       {}", docs_status);
+
     println!();
+}
+
+/// v7.12.0: Get ops.log status for [PATHS] section
+fn get_ops_log_status() -> String {
+    let reader = OpsLogReader::new();
+
+    if !reader.exists() {
+        return format!("{} {}", OPS_LOG_FILE, "(no operations recorded)".dimmed());
+    }
+
+    let summary = reader.get_summary();
+    if summary.total_entries == 0 {
+        return format!("{} {}", OPS_LOG_FILE, "(empty)".dimmed());
+    }
+
+    format!("{} ({})", OPS_LOG_FILE, summary.format_compact())
+}
+
+/// v7.12.0: Detect local documentation sources for config discovery
+fn get_local_docs_status() -> String {
+    let mut sources = Vec::new();
+
+    // Check for arch-wiki-lite (preferred)
+    if Path::new("/usr/share/doc/arch-wiki/text").exists() {
+        sources.push("arch-wiki-lite");
+    }
+    // Check for arch-wiki-docs
+    else if Path::new("/usr/share/doc/arch-wiki/html").exists() {
+        sources.push("arch-wiki-docs");
+    }
+
+    // Check for man pages
+    if Path::new("/usr/share/man").exists() {
+        sources.push("man pages");
+    }
+
+    // Check for /usr/share/doc
+    if Path::new("/usr/share/doc").exists() {
+        sources.push("/usr/share/doc");
+    }
+
+    if sources.is_empty() {
+        "(no local docs detected)".dimmed().to_string()
+    } else {
+        sources.join(", ")
+    }
 }
 
 fn print_internal_errors_section(stats: &Option<DaemonStats>) {

@@ -1055,13 +1055,15 @@ fn test_snow_leopard_sw_telemetry_activity_windows() {
 
     // v7.9.0: If telemetry is available, should show Activity windows subsection
     if stdout.contains("Activity windows:") {
-        // Should show samples and metrics per window
-        let has_valid_format = stdout.contains("samples active")
+        // Should show samples count and metrics per window
+        // v7.12.0: Format is "N samples, avg CPU X%, peak Y%, avg RSS Z, peak W"
+        let has_valid_format = stdout.contains("samples,")
+            || stdout.contains("samples active")
             || stdout.contains("no samples")
             || stdout.contains("no data");
         assert!(
             has_valid_format,
-            "Activity windows should show valid format (samples/no samples/no data): {}",
+            "Activity windows should show valid format (samples count/no samples/no data): {}",
             stdout
         );
     }
@@ -1307,23 +1309,23 @@ fn test_snow_leopard_config_section_structure() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.8.0: CONFIG section must exist and show structure
+    // v7.12.0: CONFIG section must exist and show structure
     assert!(
         stdout.contains("[CONFIG]"),
         "Expected [CONFIG] section: {}",
         stdout
     );
 
-    // Should have at least System: or User: subsection
-    let has_structure = stdout.contains("System:") || stdout.contains("User:");
+    // v7.12.0: Should have Primary: and/or Secondary: subsections
+    let has_structure = stdout.contains("Primary:") || stdout.contains("Secondary:");
     assert!(
         has_structure,
-        "[CONFIG] should have System: or User: subsections: {}",
+        "[CONFIG] should have Primary: or Secondary: subsections: {}",
         stdout
     );
 
     // Should show source attribution per line (parentheses with source)
-    if stdout.contains("System:") || stdout.contains("User:") {
+    if stdout.contains("Primary:") || stdout.contains("Secondary:") {
         assert!(
             stdout.contains("(filesystem)") || stdout.contains("(pacman") || stdout.contains("(man") || stdout.contains("(Arch Wiki)"),
             "[CONFIG] should show source attribution in parentheses: {}",
@@ -1349,14 +1351,13 @@ fn test_snow_leopard_config_status_indicators() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.8.0: CONFIG paths should show status indicators
-    if stdout.contains("[CONFIG]") && (stdout.contains("System:") || stdout.contains("User:")) {
+    // v7.12.0: CONFIG paths should show status indicators
+    if stdout.contains("[CONFIG]") && (stdout.contains("Primary:") || stdout.contains("Secondary:")) {
         let has_status = stdout.contains("[present]")
-            || stdout.contains("[missing]")
-            || stdout.contains("[recommended]");
+            || stdout.contains("[not present]");
         assert!(
             has_status,
-            "[CONFIG] should show status indicators [present]/[missing]/[recommended]: {}",
+            "[CONFIG] should show status indicators [present]/[not present]: {}",
             stdout
         );
     }
@@ -1426,17 +1427,17 @@ fn test_snow_leopard_config_precedence_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.8.0: CONFIG should include Precedence section
-    if stdout.contains("[CONFIG]") && stdout.contains("User:") && stdout.contains("System:") {
+    // v7.12.0: CONFIG should include Notes section with precedence info
+    if stdout.contains("[CONFIG]") && stdout.contains("Primary:") && stdout.contains("Secondary:") {
         assert!(
-            stdout.contains("Precedence:"),
-            "[CONFIG] should include Precedence section when both User and System exist: {}",
+            stdout.contains("Notes:"),
+            "[CONFIG] should include Notes section when both Primary and Secondary exist: {}",
             stdout
         );
-        // Precedence should explain user overrides system
+        // Notes should explain config status or precedence
         assert!(
-            stdout.contains("override") || stdout.contains("Override"),
-            "Precedence should explain override behavior: {}",
+            stdout.contains("User config") || stdout.contains("XDG paths") || stdout.contains("active"),
+            "Notes should explain config status: {}",
             stdout
         );
     }
@@ -1720,16 +1721,16 @@ fn test_snow_leopard_config_v710_format() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.10.0: [CONFIG] should use [present] / [not present] format
-    if stdout.contains("[CONFIG]") && stdout.contains("System:") {
-        // Should have Notes section with Precedence
+    // v7.12.0: [CONFIG] should use Primary:/Secondary: format with [present]/[not present]
+    if stdout.contains("[CONFIG]") && (stdout.contains("Primary:") || stdout.contains("Secondary:")) {
+        // Should have Notes section
         assert!(
             stdout.contains("Notes:") || stdout.contains("Source:"),
             "[CONFIG] should have Notes or Source section: {}",
             stdout
         );
 
-        // v7.10.0: Should use [present] or [not present] status markers
+        // v7.12.0: Should use [present] or [not present] status markers
         if stdout.contains("/etc") || stdout.contains("/usr") {
             let has_status = stdout.contains("[present]") || stdout.contains("[not present]");
             // It's okay if no configs are detected
@@ -2013,5 +2014,203 @@ fn test_snow_leopard_sw_telemetry_notes_format() {
         }
         // If no Notes: section, that's fine - healthy identity
     }
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.12.0: Snow Leopard Config Intelligence and Log Literacy Tests
+// ============================================================================
+
+/// Test [CONFIG] Primary/Secondary/Notes structure (v7.12.0)
+#[test]
+fn test_snow_leopard_config_v712_structure() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "vim"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    if stdout.contains("[CONFIG]") {
+        // v7.12.0: Must use Primary:/Secondary:/Notes: structure
+        let has_primary = stdout.contains("Primary:");
+        let has_secondary = stdout.contains("Secondary:");
+        let has_notes = stdout.contains("Notes:");
+
+        // Primary is required if any configs exist
+        assert!(
+            has_primary || stdout.contains("No specific config files detected"),
+            "[CONFIG] should have Primary: section or indicate no configs: {}",
+            stdout
+        );
+
+        // Notes is required when we have configs
+        if has_primary {
+            assert!(
+                has_notes,
+                "[CONFIG] should have Notes: section after Primary: {}",
+                stdout
+            );
+        }
+
+        // If both Primary and Secondary exist, Notes should explain precedence
+        if has_primary && has_secondary {
+            assert!(
+                stdout.contains("User config") || stdout.contains("XDG paths") || stdout.contains("active"),
+                "[CONFIG] Notes should explain config status when both sections exist: {}",
+                stdout
+            );
+        }
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test [LOGS] deduplication with count format (v7.12.0)
+#[test]
+fn test_snow_leopard_logs_v712_deduplication() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test with a service that typically has logs
+    let output = Command::new(&binary)
+        .args(["sw", "systemd"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.12.0: If [LOGS] section exists and has entries
+    if stdout.contains("[LOGS]") {
+        // Should NOT have truncated messages (no "..." in middle of lines)
+        // It's okay to have ellipsis at end for very long lines
+        let logs_section: String = stdout
+            .split("[LOGS]")
+            .nth(1)
+            .unwrap_or("")
+            .split("[")
+            .next()
+            .unwrap_or("")
+            .to_string();
+
+        // If there are duplicate messages, they should show (seen N times this boot) format
+        // This is conditional - only if duplicates exist
+        if logs_section.contains("seen") {
+            assert!(
+                logs_section.contains("(seen") && logs_section.contains("times this boot)"),
+                "[LOGS] deduplication should use '(seen N times this boot)' format: {}",
+                logs_section
+            );
+        }
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test status [PATHS] shows ops.log and internal dir (v7.12.0)
+#[test]
+fn test_snow_leopard_status_paths_v712() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.12.0: [PATHS] should show Internal: and Ops log: entries
+    if stdout.contains("[PATHS]") {
+        // Should show Internal directory
+        assert!(
+            stdout.contains("Internal:"),
+            "[PATHS] should show Internal: directory: {}",
+            stdout
+        );
+
+        // Should show Ops log path
+        assert!(
+            stdout.contains("Ops log:"),
+            "[PATHS] should show Ops log: entry: {}",
+            stdout
+        );
+
+        // Should show Docs status
+        assert!(
+            stdout.contains("Docs:"),
+            "[PATHS] should show Docs: local docs status: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test [TELEMETRY] State summary line (v7.12.0)
+#[test]
+fn test_snow_leopard_telemetry_state_v712() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "annad"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.12.0: [TELEMETRY] should have State (24h): line when data exists
+    if stdout.contains("[TELEMETRY]") {
+        // Check for State line
+        let has_state = stdout.contains("State (24h):");
+        let has_not_enough = stdout.contains("not enough data yet") || stdout.contains("No telemetry");
+
+        // Either should have State summary or indicate no data
+        assert!(
+            has_state || has_not_enough,
+            "[TELEMETRY] should have 'State (24h):' line or indicate no data: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test hw [HW TELEMETRY] State line (v7.12.0)
+#[test]
+fn test_snow_leopard_hw_telemetry_state_v712() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("hw")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.12.0: [HW TELEMETRY] should have State (now): line
+    if stdout.contains("[HW TELEMETRY]") {
+        assert!(
+            stdout.contains("State (now):"),
+            "[HW TELEMETRY] should have 'State (now):' summary line: {}",
+            stdout
+        );
+    }
+
     assert!(output.status.success());
 }

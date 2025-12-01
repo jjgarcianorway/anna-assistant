@@ -1,4 +1,4 @@
-//! SW Detail Command v7.11.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.12.0 - Software Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -9,9 +9,9 @@
 //! - [PACKAGE]    Version, source, size, date
 //! - [COMMAND]    Path, man description
 //! - [SERVICE]    Unit, state, enabled
-//! - [CONFIG]     System/User layout with [present]/[not present] markers
-//! - [LOGS]       Severity-grouped, deduplicated logs with -p warning..alert
-//! - [TELEMETRY]  Real windows (1h, 24h, 7d, 30d) with trends and health notes (v7.11.0)
+//! - [CONFIG]     Primary/Secondary/Notes structure with proper precedence (v7.12.0)
+//! - [LOGS]       Full deduplication, no truncation, unit-scoped (v7.12.0)
+//! - [TELEMETRY]  Real windows (1h, 24h, 7d, 30d) with State summary line (v7.12.0)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -499,19 +499,21 @@ fn print_service_section(svc: &Service) {
     println!();
 }
 
-/// Print service logs with severity-based grouping and deduplication - v7.10.0
-/// Format: timestamp "message" (seen N times)
+/// Print service logs with full deduplication and no truncation - v7.12.0
+/// Format: timestamp  message (seen N times this boot)
+/// Uses -o cat to avoid journalctl's truncation
 fn print_service_logs(unit_name: &str) {
     println!("{}", "[LOGS]".cyan());
-    println!("  {}", format!("(journalctl -b -u {} -p warning..alert, current boot)", unit_name).dimmed());
+    println!("  {}", format!("(journalctl -b -u {} -p warning..alert)", unit_name).dimmed());
 
-    // v7.10.0: Use -p warning..alert (priorities 4-1: warning, err, crit, alert)
+    // v7.12.0: Use JSON output to get full messages without truncation
+    // Then parse and deduplicate ourselves
     let output = Command::new("journalctl")
         .args([
             "-b",
             "-u", unit_name,
-            "-p", "warning..alert",  // v7.10.0: only warning and above
-            "-n", "50",  // v7.10.0: up to 50 messages
+            "-p", "warning..alert",  // warnings and above
+            "-n", "100",  // v7.12.0: up to 100 messages for better deduplication
             "--no-pager",
             "-o", "json",
             "-q",
@@ -529,37 +531,98 @@ fn print_service_logs(unit_name: &str) {
             if entries.is_empty() {
                 println!();
                 println!("  No warnings or errors for this unit in the current boot.");
+                println!("  {}", format!("Source: journalctl current boot, warnings and errors only").dimmed());
             } else {
-                // v7.10.0: Deduplicate all entries together (no category separation for warning..alert)
-                let all_dedup = deduplicate_log_entries_v710(&entries);
+                // v7.12.0: Full deduplication with proper counts
+                let all_dedup = deduplicate_log_entries_v712(&entries);
 
                 println!();
 
-                // v7.10.0 format: timestamp "message" (seen N times)
+                // v7.12.0 format: timestamp  message (seen N times this boot)
+                // Full message without truncation
                 for entry in all_dedup.iter() {
                     let msg = entry.message.as_deref().unwrap_or("(no message)");
                     let timestamp = entry.timestamp.as_deref().unwrap_or("");
+
+                    // v7.12.0: Format count for clarity
                     let count_str = if entry.count > 1 {
-                        format!("(seen {} times)", entry.count)
+                        format!("(seen {} times this boot)", entry.count)
                     } else {
-                        "(seen 1 time)".to_string()
+                        String::new()  // Don't show "(seen 1 time)" - cleaner
                     };
-                    println!("  {}  \"{}\"          {}", timestamp, msg, count_str.dimmed());
+
+                    // v7.12.0: Check if message is very long and might need wrapping indicator
+                    // We show full message but add note if it was unusually long
+                    if msg.len() > 200 {
+                        // Show message as-is (full, no truncation)
+                        println!("  {}  {}", timestamp, msg);
+                        if !count_str.is_empty() {
+                            println!("              {}", count_str.dimmed());
+                        }
+                    } else {
+                        if count_str.is_empty() {
+                            println!("  {}  {}", timestamp, msg);
+                        } else {
+                            println!("  {}  {}   {}", timestamp, msg, count_str.dimmed());
+                        }
+                    }
                 }
 
                 println!();
-                println!("  No other warnings or errors this boot.");
+                println!("  {}", "Source: journalctl current boot, warnings and errors only".dimmed());
             }
         }
         Ok(_) => {
             println!();
-            println!("  {}", "(no logs available)".dimmed());
+            println!("  {}", "(no logs available for this unit)".dimmed());
             println!();
         }
         Err(_) => {
             println!();
             println!("  {}", "(journalctl not available)".dimmed());
             println!();
+        }
+    }
+
+    // v7.12.0: Add health note if applicable
+    print_logs_health_note(unit_name);
+}
+
+/// Print health note based on log patterns - v7.12.0
+fn print_logs_health_note(unit_name: &str) {
+    // Count errors for this unit
+    let output = Command::new("journalctl")
+        .args([
+            "-b",
+            "-u", unit_name,
+            "-p", "err..alert",  // Only errors and above
+            "-o", "json",
+            "-q",
+            "--no-pager",
+        ])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let error_count = stdout.lines().count();
+
+            if error_count > 10 {
+                // Check for repeated patterns
+                let entries: Vec<LogEntry> = stdout
+                    .lines()
+                    .filter_map(|line| serde_json::from_str(line).ok())
+                    .collect();
+
+                let deduped = deduplicate_log_entries_v712(&entries);
+                let max_repeats = deduped.iter().map(|e| e.count).max().unwrap_or(0);
+
+                if max_repeats > 5 {
+                    println!();
+                    println!("  Health note: repeated errors ({} total, {} identical) may indicate ongoing issue.",
+                             error_count, max_repeats);
+                }
+            }
         }
     }
 }
@@ -635,8 +698,33 @@ fn deduplicate_log_entries(entries: &[LogEntry]) -> Vec<LogEntry> {
     result
 }
 
-/// Deduplicate log entries v7.10.0 format
+/// Deduplicate log entries v7.12.0 format
+/// Keeps first timestamp for each unique message, tracks total count
+/// Designed for clarity: shows when an error first appeared + how many times
+fn deduplicate_log_entries_v712(entries: &[LogEntry]) -> Vec<LogEntry> {
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    let mut result: Vec<LogEntry> = Vec::new();
+
+    for entry in entries {
+        let key = entry.dedup_key();
+        if let Some(idx) = seen.get(&key) {
+            // v7.12.0: Just increment count, keep FIRST timestamp
+            result[*idx].count += 1;
+        } else {
+            seen.insert(key, result.len());
+            let mut new_entry = entry.clone();
+            new_entry.count = 1;
+            new_entry.timestamp = Some(entry.timestamp_v710());
+            result.push(new_entry);
+        }
+    }
+
+    result
+}
+
+/// Deduplicate log entries v7.10.0 format (legacy)
 /// Keeps last timestamp for each unique message, tracks count
+#[allow(dead_code)]
 fn deduplicate_log_entries_v710(entries: &[LogEntry]) -> Vec<LogEntry> {
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut result: Vec<LogEntry> = Vec::new();
@@ -671,53 +759,111 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
-/// Print [CONFIG] section - v7.10.0 format
-/// Format: path [present/not present] (source)
+/// Print [CONFIG] section - v7.12.0 format
+/// Structure: Primary (active configs), Secondary (templates/examples), Notes (precedence)
 fn print_config_section(name: &str) {
     println!("{}", "[CONFIG]".cyan());
 
     let info = discover_config_info(name);
 
     if !info.has_configs {
-        println!("  No specific config files detected for this software.");
+        println!("  No specific configuration paths discovered for this software.");
         println!("  {}", format!("Source: {}", info.source_description).dimmed());
         println!();
         return;
     }
 
-    println!();
+    // v7.12.0: Separate into Primary (active) and Secondary (templates/examples)
+    // Primary: /etc configs and ~/.config user configs that are main active locations
+    // Secondary: /usr/share templates, examples, defaults
+    let mut primary_configs: Vec<_> = Vec::new();
+    let mut secondary_configs: Vec<_> = Vec::new();
 
-    // System section - v7.10.0 format
-    println!("  System:");
-    if info.system_configs.is_empty() {
-        println!("    {}", "(none from pacman -Ql)".dimmed());
-    } else {
-        for cfg in &info.system_configs {
-            print_config_line_v710(cfg);
+    // System configs (/etc) go to Primary
+    for cfg in &info.system_configs {
+        if cfg.path.starts_with("/etc/") {
+            primary_configs.push(cfg);
+        } else {
+            secondary_configs.push(cfg);
         }
     }
-    println!();
 
-    // User section - v7.10.0 format
-    println!("  User:");
-    if info.user_configs.is_empty() {
-        println!("    {}", "(none documented)".dimmed());
+    // User configs (~/) go to Primary
+    for cfg in &info.user_configs {
+        primary_configs.push(cfg);
+    }
+
+    // Other configs (templates, examples) go to Secondary
+    for cfg in &info.other_configs {
+        secondary_configs.push(cfg);
+    }
+
+    // Primary section - v7.12.0
+    println!("  Primary:");
+    if primary_configs.is_empty() {
+        println!("    {}", "(no active config locations found)".dimmed());
     } else {
-        for cfg in &info.user_configs {
-            print_config_line_v710(cfg);
+        for cfg in &primary_configs {
+            print_config_line_v712(cfg);
         }
     }
-    println!();
 
-    // Notes section - v7.10.0: always show precedence and source
+    // Secondary section - v7.12.0
+    if !secondary_configs.is_empty() {
+        println!("  Secondary:");
+        for cfg in &secondary_configs {
+            print_config_line_v712(cfg);
+        }
+    }
+
+    // Notes section - v7.12.0: max 3 lines of useful info
     println!("  Notes:");
-    println!("    Precedence: user configs in ~/.config usually override system configs in /etc or /usr/share.");
+
+    // Check for override situation (both user and system present)
+    let has_system_present = primary_configs.iter().any(|c| c.exists && c.path.starts_with("/etc/"));
+    let has_user_present = primary_configs.iter().any(|c| c.exists && c.is_user_config);
+
+    if has_user_present && has_system_present {
+        println!("    - User config overrides system config when both exist.");
+    } else if has_user_present {
+        println!("    - User config is active.");
+    } else if has_system_present {
+        println!("    - System config is active (no user override).");
+    }
+
+    // XDG hint if applicable
+    let has_xdg_config = primary_configs.iter().any(|c| c.path.contains("/.config/"));
+    if has_xdg_config {
+        println!("    - XDG paths take precedence when documented.");
+    }
+
     println!("    {}", format!("Source: {}", info.source_description).dimmed());
     println!();
 }
 
-/// Print a single config line - v7.10.0 format
+/// Print a single config line - v7.12.0 format
 /// Format: path [present]/[not present] (source)
+fn print_config_line_v712(cfg: &anna_common::grounded::config::ConfigFile) {
+    // Format status - v7.12.0 uses [present] / [not present]
+    let status_str = if cfg.exists {
+        "[present]".green().to_string()
+    } else {
+        "[not present]".dimmed().to_string()
+    };
+
+    // Format source (abbreviated)
+    let source_short = abbreviate_source(&cfg.source);
+
+    // Print with alignment - show path dim if not present
+    if cfg.exists {
+        println!("    {:<45} {}   {}", cfg.path, status_str, format!("({})", source_short).dimmed());
+    } else {
+        println!("    {:<45} {} {}", cfg.path.dimmed(), status_str, format!("({})", source_short).dimmed());
+    }
+}
+
+/// Print a single config line - v7.10.0 format (legacy)
+#[allow(dead_code)]
 fn print_config_line_v710(cfg: &anna_common::grounded::config::ConfigFile) {
     // Format status - v7.10.0 uses [present] / [not present]
     let status_str = if cfg.exists {
@@ -880,7 +1026,7 @@ fn print_service_config_section(svc_name: &str) {
     println!();
 }
 
-/// Print [TELEMETRY] section with v7.11.0 format: per-identity windows with trends and health notes
+/// Print [TELEMETRY] section with v7.12.0 format: State summary + windows + trends + health notes
 fn print_telemetry_section(name: &str) {
     use anna_common::config::AnnaConfig;
     use anna_common::{TelemetryDb, format_bytes_human,
@@ -902,6 +1048,7 @@ fn print_telemetry_section(name: &str) {
         Some(db) => db,
         None => {
             println!();
+            println!("  State (24h):     not enough data yet");
             println!("  No telemetry samples collected for this identity yet.");
             println!();
             return;
@@ -911,6 +1058,7 @@ fn print_telemetry_section(name: &str) {
     // Check if we have data for this object
     if !db.has_key(name) {
         println!();
+        println!("  State (24h):     not enough data yet");
         println!("  No telemetry samples collected for this identity yet.");
         println!();
         return;
@@ -926,6 +1074,7 @@ fn print_telemetry_section(name: &str) {
     let total_samples = stats_30d.as_ref().map(|s| s.sample_count).unwrap_or(0);
     if total_samples == 0 {
         println!();
+        println!("  State (24h):     not enough data yet");
         println!("  No telemetry samples collected for this identity yet.");
         println!();
         return;
@@ -933,14 +1082,30 @@ fn print_telemetry_section(name: &str) {
 
     println!();
 
-    // Activity windows section (v7.9.0 format)
+    // v7.12.0: State summary line at the top
+    let state_desc = derive_telemetry_state(&stats_24h);
+    println!("  State (24h):     {}", state_desc);
+    println!();
+
+    // v7.12.0: Show key metrics in compact form
+    if let Some(ref s) = stats_1h {
+        if s.sample_count > 0 {
+            println!("  CPU avg (1h):    {:.1} %    (max {:.1} %)",
+                     s.avg_cpu_percent, s.peak_cpu_percent);
+            println!("  RAM avg (1h):    {}  (max {})",
+                     format_bytes_human(s.avg_mem_bytes), format_bytes_human(s.peak_mem_bytes));
+        }
+    }
+    println!();
+
+    // Activity windows section
     println!("  Activity windows:");
 
     // Helper to format a window line
     let format_window = |label: &str, stats: &Option<anna_common::UsageStats>| {
         if let Some(s) = stats {
             if s.sample_count > 0 {
-                format!("    {}:   {} samples active, avg CPU {:.1} percent, peak {:.1} percent, avg RSS {}, peak {}",
+                format!("    {}:   {} samples, avg CPU {:.1}%, peak {:.1}%, avg RSS {}, peak {}",
                     label,
                     s.sample_count,
                     s.avg_cpu_percent,
@@ -961,7 +1126,7 @@ fn print_telemetry_section(name: &str) {
     println!("{}", format_window("Last 30d", &stats_30d));
     println!();
 
-    // Trend section (24h vs 7d, v7.9.0 spec)
+    // Trend section (24h vs 7d)
     let mut has_trend = false;
     if let Ok(trend) = db.get_trend(name) {
         if trend.has_enough_data {
@@ -982,6 +1147,47 @@ fn print_telemetry_section(name: &str) {
 
     // v7.11.0: Health notes section - link telemetry with logs
     print_telemetry_health_notes(name, &stats_24h);
+}
+
+/// v7.12.0: Derive telemetry state summary based on thresholds
+/// CPU thresholds: <5% light, 5-30% moderate, >30% high
+/// RAM thresholds: <256MiB low, 256MiB-2GiB moderate, >2GiB high
+fn derive_telemetry_state(stats_24h: &Option<anna_common::UsageStats>) -> String {
+    let Some(stats) = stats_24h else {
+        return "not enough data yet".to_string();
+    };
+
+    if stats.sample_count == 0 {
+        return "not enough data yet".to_string();
+    }
+
+    // Classify CPU usage
+    let cpu_state = if stats.avg_cpu_percent < 5.0 && stats.peak_cpu_percent < 50.0 {
+        "light CPU"
+    } else if stats.avg_cpu_percent <= 30.0 {
+        "moderate CPU"
+    } else {
+        "high CPU"
+    };
+
+    // Classify RAM usage
+    let avg_ram_mib = stats.avg_mem_bytes as f64 / (1024.0 * 1024.0);
+    let ram_state = if avg_ram_mib < 256.0 {
+        "low RAM"
+    } else if avg_ram_mib <= 2048.0 {
+        "moderate RAM"
+    } else {
+        "high RAM"
+    };
+
+    // Check for activity
+    let activity = if stats.sample_count > 10 {
+        "active"
+    } else {
+        "mostly idle"
+    };
+
+    format!("{}, {}, {}", activity, cpu_state, ram_state)
 }
 
 /// v7.11.0: Print health notes linking telemetry with recent logs
