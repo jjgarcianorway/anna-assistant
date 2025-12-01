@@ -100,13 +100,9 @@ fn print_category(name: &str, patterns: &[&str]) {
             let desc_display = if desc.is_empty() {
                 "".to_string()
             } else {
-                // Truncate and clean description
+                // Truncate and clean description at word boundary
                 let clean = desc.split(" (source:").next().unwrap_or(desc);
-                if clean.len() > 40 {
-                    format!("{}", &clean[..40])
-                } else {
-                    clean.to_string()
-                }
+                truncate_at_word(clean, 40)
             };
 
             println!(
@@ -143,11 +139,7 @@ fn print_services() {
                     "".to_string()
                 } else {
                     let clean = svc.description.split(" (source:").next().unwrap_or(&svc.description);
-                    if clean.len() > 35 {
-                        format!("{}...", &clean[..32])
-                    } else {
-                        clean.to_string()
-                    }
+                    truncate_at_word(clean, 35)
                 };
 
                 active_services.push((unit.clone(), state_str, desc));
@@ -185,5 +177,21 @@ fn capitalize(s: &str) -> String {
     match c.next() {
         None => String::new(),
         Some(f) => f.to_uppercase().chain(c).collect(),
+    }
+}
+
+/// Truncate a string at word boundary, adding "..." if truncated
+fn truncate_at_word(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        return s.to_string();
+    }
+
+    // Find the last space before max_len - 3 (for "...")
+    let search_end = max_len.saturating_sub(3);
+    if let Some(pos) = s[..search_end].rfind(' ') {
+        format!("{}...", &s[..pos])
+    } else {
+        // No space found, just truncate
+        format!("{}...", &s[..search_end])
     }
 }

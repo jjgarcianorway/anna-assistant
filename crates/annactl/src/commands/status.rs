@@ -1,5 +1,6 @@
-//! Status Command v6.0.0 - Grounded System Status
+//! Status Command v6.0.2 - Grounded System Status
 //!
+//! v6.0.2: Added [UPDATES] section for auto-update visibility
 //! v6.0.0: Complete rewrite with real data sources
 //! - Every number comes from a verifiable command
 //! - No invented metrics, no fake percentages
@@ -10,6 +11,7 @@
 //! - Commands: $PATH directory scanning
 //! - Services: systemctl list-unit-files, systemctl --failed
 //! - Errors: journalctl -p err/warning --since "24 hours ago"
+//! - Updates: /var/lib/anna/update_state.json
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -18,8 +20,9 @@ use anna_common::grounded::{
     packages::PackageCounts,
     commands::count_path_executables,
     services::ServiceCounts,
-    errors::ErrorCounts,
+    errors::{ErrorCounts, get_top_error_units},
 };
+use anna_common::config::{AnnaConfig, UpdateState};
 use anna_common::format_duration_secs;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -49,6 +52,9 @@ pub async fn run() -> Result<()> {
 
     // [ERRORS] - real counts from journalctl (24h)
     print_errors_section();
+
+    // [UPDATES] - auto-update status
+    print_updates_section();
 
     println!("{}", THIN_SEP);
     println!();
@@ -155,6 +161,66 @@ fn print_errors_section() {
 
     if counts.critical > 0 {
         println!("  Critical:   {}", counts.critical.to_string().red().bold());
+    }
+
+    // Show dominant error source if there are errors
+    if counts.errors > 0 {
+        let top_units = get_top_error_units(24, 1);
+        if let Some(top) = top_units.first() {
+            println!(
+                "  Top source: {} ({} errors)",
+                top.unit.cyan(),
+                top.error_count
+            );
+        }
+    }
+
+    println!();
+}
+
+fn print_updates_section() {
+    println!("{}", "[UPDATES]".cyan());
+    println!("  {}", "(source: /var/lib/anna/update_state.json)".dimmed());
+
+    let config = AnnaConfig::load();
+    let state = UpdateState::load();
+
+    // Mode
+    let mode_str = if config.update.enabled {
+        "auto".green().to_string()
+    } else {
+        "disabled".yellow().to_string()
+    };
+    println!("  Mode:       {} ({})", mode_str, if config.update.enabled { "enabled" } else { "disabled" });
+
+    // Interval
+    println!("  Interval:   {}m", config.update.interval_minutes);
+
+    // Last check
+    println!("  Last check: {}", state.format_last_check());
+
+    // Last result
+    let result_display = if state.last_result.is_empty() {
+        "n/a".to_string()
+    } else if state.last_result.contains("success") || state.last_result.contains("up to date") {
+        state.last_result.green().to_string()
+    } else if state.last_result.contains("available") {
+        state.last_result.cyan().to_string()
+    } else {
+        state.last_result.clone()
+    };
+    println!("  Result:     {}", result_display);
+
+    // Show latest version if different from current
+    if let Some(ref latest) = state.latest_version {
+        if !state.current_version.is_empty() && latest != &state.current_version {
+            println!("  Update:     {} → {}", state.current_version.dimmed(), latest.cyan());
+        }
+    }
+
+    // Next check
+    if config.update.enabled {
+        println!("  Next check: {}", state.format_next_check());
     }
 
     println!();

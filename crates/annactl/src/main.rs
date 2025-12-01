@@ -97,7 +97,7 @@ fn run_help() -> Result<()> {
     println!("  annactl knowledge           Knowledge overview by category");
     println!("  annactl knowledge stats     Coverage and quality statistics");
     println!("  annactl knowledge <name>    Full object profile");
-    println!("  annactl reset               Clear all data (via daemon)");
+    println!("  annactl reset               Clear Anna's state (not system logs)");
     println!("  annactl version             Show version info");
     println!("  annactl help                Show this help");
     println!();
@@ -120,7 +120,7 @@ fn run_help() -> Result<()> {
 }
 
 // ============================================================================
-// Reset Command v5.6.0 - RPC to Daemon
+// Reset Command v6.0.2 - Clarified Semantics
 // ============================================================================
 
 /// Response from the daemon reset endpoint
@@ -141,6 +141,18 @@ struct ResetRequest {
 async fn run_reset() -> Result<()> {
     println!();
     println!("{}", "[RESET]".yellow());
+    println!();
+
+    // v6.0.2: Clarify what reset actually does
+    println!("  {}  What reset clears:", "INFO".cyan());
+    println!("    - Anna's internal state (knowledge index, cached data)");
+    println!("    - Anna's event logs (/var/lib/anna/events/)");
+    println!("    - Update check state");
+    println!();
+    println!("  {}  What reset does NOT touch:", "INFO".cyan());
+    println!("    - System logs (journalctl) - those are system-wide");
+    println!("    - Installed packages - use pacman for that");
+    println!("    - Running services - use systemctl for that");
     println!();
 
     // v5.6.0: Reset is done via RPC to the daemon (running as root)
@@ -165,7 +177,7 @@ async fn run_reset() -> Result<()> {
                         if result.success {
                             println!("  {}  {}", "OK".green(), result.message);
                             println!();
-                            println!("  Cleared {} items.", result.cleared_items);
+                            println!("  Cleared {} Anna state items.", result.cleared_items);
                         } else {
                             println!("  {}  {}", "WARN".yellow(), result.message);
                             if !result.errors.is_empty() {
@@ -177,7 +189,7 @@ async fn run_reset() -> Result<()> {
                             }
                         }
                         println!();
-                        println!("  Inventory is being rebuilt. Use 'annactl status' to monitor.");
+                        println!("  Anna will re-scan the system on next status check.");
                         println!();
                     }
                     Err(e) => {

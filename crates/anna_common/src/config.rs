@@ -1,13 +1,16 @@
-//! Anna Configuration v5.3.0 - Telemetry Core
+//! Anna Configuration v6.0.2 - Auto-Update Visibility
 //!
 //! Simplified system configuration for the telemetry daemon.
 //! No LLM config - pure system monitoring.
 //!
 //! Configuration lives in /etc/anna/config.toml
+//!
+//! v6.0.2: Added auto-update configuration
 
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// System configuration directory
 pub const SYSTEM_CONFIG_DIR: &str = "/etc/anna";
@@ -116,7 +119,104 @@ impl Default for CoreConfig {
     }
 }
 
-/// Complete Anna configuration v5.3.0
+/// Auto-update configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateConfig {
+    /// Whether auto-update is enabled
+    #[serde(default = "default_update_enabled")]
+    pub enabled: bool,
+
+    /// Check interval in minutes
+    #[serde(default = "default_update_interval")]
+    pub interval_minutes: u64,
+}
+
+fn default_update_enabled() -> bool {
+    true
+}
+
+fn default_update_interval() -> u64 {
+    10 // 10 minutes
+}
+
+impl Default for UpdateConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_update_enabled(),
+            interval_minutes: default_update_interval(),
+        }
+    }
+}
+
+/// Auto-update state (runtime, stored in data dir)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UpdateState {
+    /// Last check timestamp (unix seconds)
+    pub last_check_at: u64,
+    /// Last check result
+    pub last_result: String,
+    /// Current version
+    pub current_version: String,
+    /// Latest available version (if known)
+    pub latest_version: Option<String>,
+    /// Next scheduled check (unix seconds)
+    pub next_check_at: u64,
+}
+
+impl UpdateState {
+    const STATE_FILE: &'static str = "update_state.json";
+
+    pub fn load() -> Self {
+        let path = PathBuf::from(DATA_DIR).join(Self::STATE_FILE);
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(state) = serde_json::from_str(&content) {
+                    return state;
+                }
+            }
+        }
+        Self::default()
+    }
+
+    pub fn save(&self) -> std::io::Result<()> {
+        let path = PathBuf::from(DATA_DIR).join(Self::STATE_FILE);
+        let path_str = path.to_str()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        crate::atomic_write(path_str, &content)
+    }
+
+    /// Format last check time for display
+    pub fn format_last_check(&self) -> String {
+        if self.last_check_at == 0 {
+            return "never".to_string();
+        }
+        crate::format_time_ago(self.last_check_at)
+    }
+
+    /// Format next check time for display
+    pub fn format_next_check(&self) -> String {
+        if self.next_check_at == 0 {
+            return "n/a".to_string();
+        }
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        if self.next_check_at <= now {
+            return "now".to_string();
+        }
+        let secs = self.next_check_at - now;
+        if secs < 60 {
+            format!("in {}s", secs)
+        } else {
+            format!("in {}m", secs / 60)
+        }
+    }
+}
+
+/// Complete Anna configuration v6.0.2
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnnaConfig {
     #[serde(default)]
@@ -127,6 +227,9 @@ pub struct AnnaConfig {
 
     #[serde(default)]
     pub log: LogConfig,
+
+    #[serde(default)]
+    pub update: UpdateConfig,
 }
 
 impl AnnaConfig {
