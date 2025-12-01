@@ -148,6 +148,8 @@ pub mod knowledge_collector;
 pub mod error_index;
 pub mod service_state;
 pub mod intrusion;
+// v5.2.4: Display Formatting
+pub mod display_format;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -493,4 +495,13 @@ pub use intrusion::{
     INTRUSION_PATTERNS, INTRUSION_STORE_PATH,
     FAILED_AUTH_THRESHOLD, SUDO_FAILURE_THRESHOLD,
     GroupedIntrusionByService, IntrusionAnalysisEntry,
+};
+
+// v5.2.4: Display Formatting exports
+pub use display_format::{
+    format_duration_ms, format_duration_secs, format_duration,
+    format_time_ago, format_count, format_with_commas,
+    format_percent, format_ratio_percent, format_bytes,
+    format_eta, truncate_str, format_timestamp, format_timestamp_full,
+    is_ascii_only, strip_non_ascii,
 };
