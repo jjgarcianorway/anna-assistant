@@ -1,11 +1,14 @@
-//! Anna Daemon (annad) v5.1.1 - Priority Knowledge Resolution
+//! Anna Daemon (annad) v5.2.0 - Knowledge UX with Full Error Visibility
 //!
-//! Anna is now a paranoid archivist with priority resolution:
+//! Anna is now a paranoid archivist with full error tracking:
 //! - Tracks ALL commands on PATH
 //! - Tracks ALL packages with versions
-//! - Tracks ALL systemd services
+//! - Tracks ALL systemd services with full state
 //! - Detects package installs/removals
 //! - v5.1.1: Priority scans for user-requested objects
+//! - v5.2.0: Error indexing from journalctl
+//! - v5.2.0: Service state tracking (active/enabled/masked/failed)
+//! - v5.2.0: Intrusion detection patterns
 //!
 //! No Q&A, no LLM orchestration in this phase.
 
@@ -18,6 +21,10 @@ mod server;
 use anna_common::{
     AnnaConfigV5, KnowledgeBuilder, KnowledgeStore, TelemetryAggregates,
     permissions::{auto_fix_permissions, PermissionsHealthCheck},
+    // v5.2.0: Error indexing and service state
+    ErrorIndex, LogEntry, LogSeverity,
+    ServiceIndex, ServiceState,
+    IntrusionIndex,
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -31,6 +38,12 @@ const PROCESS_COLLECTION_INTERVAL_SECS: u64 = 30;
 
 /// Collection interval for package/binary discovery (5 minutes)
 const DISCOVERY_COLLECTION_INTERVAL_SECS: u64 = 300;
+
+/// Collection interval for log scanning (60 seconds)
+const LOG_SCAN_INTERVAL_SECS: u64 = 60;
+
+/// Collection interval for service state indexing (2 minutes)
+const SERVICE_INDEX_INTERVAL_SECS: u64 = 120;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -46,8 +59,8 @@ async fn main() -> Result<()> {
         .init();
 
     info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
-    info!("[>]  Priority Knowledge Resolution");
-    info!("[>]  Q&A disabled. Daemon tracks all executables + priority scans.");
+    info!("[>]  Knowledge UX with Full Error Visibility");
+    info!("[>]  Tracks executables, services, errors, intrusions");
 
     // Permissions check
     let health = PermissionsHealthCheck::run();
@@ -119,9 +132,176 @@ async fn main() -> Result<()> {
         }
     });
 
+    // v5.2.0: Spawn log scanner task (every 60 seconds)
+    let builder_logs = Arc::clone(&builder);
+    tokio::spawn(async move {
+        // Initialize error and intrusion indexes
+        let mut error_index = ErrorIndex::load();
+        let mut intrusion_index = IntrusionIndex::load();
+        let mut interval = tokio::time::interval(Duration::from_secs(LOG_SCAN_INTERVAL_SECS));
+
+        loop {
+            interval.tick().await;
+            let entries_before = error_index.total_errors;
+            let intrusions_before = intrusion_index.total_events;
+
+            // Scan journalctl for recent entries
+            scan_journal_logs(&builder_logs, &mut error_index, &mut intrusion_index).await;
+
+            // Save indexes
+            if let Err(e) = error_index.save() {
+                warn!("[!]  Failed to save error index: {}", e);
+            }
+            if let Err(e) = intrusion_index.save() {
+                warn!("[!]  Failed to save intrusion index: {}", e);
+            }
+
+            // Log if new entries found
+            let new_errors = error_index.total_errors - entries_before;
+            let new_intrusions = intrusion_index.total_events - intrusions_before;
+            if new_errors > 0 || new_intrusions > 0 {
+                info!("[+]  Log scan: {} new errors, {} new intrusions", new_errors, new_intrusions);
+            }
+        }
+    });
+
+    // v5.2.0: Spawn service indexer task (every 2 minutes)
+    let builder_services = Arc::clone(&builder);
+    tokio::spawn(async move {
+        let mut service_index = ServiceIndex::load();
+        let mut interval = tokio::time::interval(Duration::from_secs(SERVICE_INDEX_INTERVAL_SECS));
+
+        loop {
+            interval.tick().await;
+            let failed_before = service_index.failed_count;
+
+            // Update service states from knowledge store
+            {
+                let b = builder_services.read().await;
+                let store = b.store();
+                for obj in store.get_services() {
+                    if let Some(unit) = &obj.service_unit {
+                        service_index.query_and_update(unit);
+                    }
+                }
+            }
+
+            // Save index
+            if let Err(e) = service_index.save() {
+                warn!("[!]  Failed to save service index: {}", e);
+            }
+
+            // Alert on new failures
+            let failed_after = service_index.failed_count;
+            if failed_after > failed_before {
+                warn!("[!]  {} new service failures detected", failed_after - failed_before);
+            }
+        }
+    });
+
     // Start HTTP server (minimal - just health endpoint)
     info!("[*]  Starting HTTP server on 127.0.0.1:7865");
     server::run_v5(app_state).await
+}
+
+/// v5.2.0: Scan journal logs for errors and intrusion patterns
+async fn scan_journal_logs(
+    builder: &Arc<RwLock<KnowledgeBuilder>>,
+    error_index: &mut ErrorIndex,
+    intrusion_index: &mut IntrusionIndex,
+) {
+    use std::process::Command;
+
+    // Get list of known services/units from knowledge store
+    let known_units: Vec<String> = {
+        let b = builder.read().await;
+        let store = b.store();
+        store
+            .get_services()
+            .iter()
+            .filter_map(|obj| obj.service_unit.clone())
+            .collect()
+    };
+
+    // Scan journalctl for recent entries (last 2 minutes, priorities 0-4 = emergency to warning)
+    let output = Command::new("journalctl")
+        .args([
+            "--since", "2 minutes ago",
+            "--priority", "0..4",
+            "--output", "json",
+            "--no-pager",
+        ])
+        .output();
+
+    if let Ok(result) = output {
+        let stdout = String::from_utf8_lossy(&result.stdout);
+
+        for line in stdout.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            // Parse JSON log entry
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                if let Some(entry) = LogEntry::from_journal_json(&json) {
+                    // Try to associate with a known object
+                    let object_name = entry
+                        .unit
+                        .as_ref()
+                        .and_then(|u| {
+                            // Match unit to known object
+                            let unit_base = u.trim_end_matches(".service");
+                            if known_units.iter().any(|ku| ku.contains(unit_base)) {
+                                Some(unit_base.to_string())
+                            } else {
+                                None
+                            }
+                        });
+
+                    // Add to error index
+                    if let Some(ref name) = object_name {
+                        error_index.add_log(name, entry.clone());
+                    } else if let Some(ref unit) = entry.unit {
+                        // Use unit name as object name
+                        let name = unit.trim_end_matches(".service");
+                        error_index.add_log(name, entry.clone());
+                    }
+
+                    // Check for intrusion patterns
+                    let obj_name = object_name.as_deref().or(entry.unit.as_deref());
+                    intrusion_index.check_message(&entry.message, &entry.source, obj_name);
+                }
+            }
+        }
+    }
+
+    // Also scan auth logs specifically for SSH/sudo intrusion patterns
+    let auth_output = Command::new("journalctl")
+        .args([
+            "--since", "2 minutes ago",
+            "-u", "sshd",
+            "-u", "sudo",
+            "--output", "json",
+            "--no-pager",
+        ])
+        .output();
+
+    if let Ok(result) = auth_output {
+        let stdout = String::from_utf8_lossy(&result.stdout);
+
+        for line in stdout.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                if let Some(entry) = LogEntry::from_journal_json(&json) {
+                    let obj_name = entry.unit.as_deref();
+                    intrusion_index.check_message(&entry.message, &entry.source, obj_name);
+                }
+            }
+        }
+    }
 }
 
 /// Set up a panic hook for robust error handling

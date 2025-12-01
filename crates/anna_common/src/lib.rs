@@ -134,6 +134,10 @@ pub mod learning_engine;
 // v5.0.0: Knowledge Core
 pub mod knowledge_core;
 pub mod knowledge_collector;
+// v5.2.0: Error Index, Service State, Intrusion Detection
+pub mod error_index;
+pub mod service_state;
+pub mod intrusion;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -452,4 +456,23 @@ pub use knowledge_collector::{
     discover_pacman_packages_full, get_package_files,
     discover_systemd_services, count_systemd_services,
     discover_all_binaries, count_path_binaries,
+};
+
+// v5.2.0: Error Index exports
+pub use error_index::{
+    LogSeverity, ErrorType, LogEntry, ObjectErrors, ErrorIndex,
+    ERROR_INDEX_PATH, MAX_LOGS_PER_OBJECT, MAX_ERRORS_PER_OBJECT,
+};
+
+// v5.2.0: Service State exports
+pub use service_state::{
+    ActiveState, EnabledState, SubState, ServiceState, ServiceIndex,
+    SERVICE_STATE_PATH,
+};
+
+// v5.2.0: Intrusion Detection exports
+pub use intrusion::{
+    IntrusionType, IntrusionPattern, IntrusionEvent, ObjectIntrusions, IntrusionIndex,
+    INTRUSION_PATTERNS, INTRUSION_STORE_PATH,
+    FAILED_AUTH_THRESHOLD, SUDO_FAILURE_THRESHOLD,
 };

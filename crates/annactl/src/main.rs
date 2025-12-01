@@ -1,18 +1,21 @@
-//! Anna CLI (annactl) v5.1.1 - Priority Knowledge Resolution
+//! Anna CLI (annactl) v5.2.0 - Knowledge UX with Full Error Visibility
 //!
-//! Anna is now a paranoid archivist with priority resolution:
+//! Anna is now a paranoid archivist with full error tracking:
 //! - Tracks ALL commands on PATH
 //! - Tracks ALL packages with versions
-//! - Tracks ALL systemd services
+//! - Tracks ALL systemd services with full state
 //! - Detects package installs/removals
 //! - v5.1.1: Priority scans for user-requested objects
+//! - v5.2.0: Error indexing from journalctl
+//! - v5.2.0: Service state tracking (active/enabled/masked/failed)
+//! - v5.2.0: Intrusion detection patterns
 //!
 //! ## Allowed CLI Commands
 //!
 //! - annactl status     Quick system and knowledge status + inventory progress
 //! - annactl stats      Detailed knowledge statistics + command coverage
-//! - annactl knowledge  List all known objects
-//! - annactl knowledge <topic>  Details on one object (triggers priority scan if needed)
+//! - annactl knowledge  Global knowledge view with errors/intrusions
+//! - annactl knowledge <topic>  Focused view with errors, logs, intrusions
 //! - annactl version    Show version info
 //! - annactl help       Show help info
 //!
@@ -28,6 +31,10 @@ use anna_common::{
     KnowledgeCategory, KnowledgeObject, KnowledgeStore, TelemetryAggregates,
     KnowledgeBuilder, ObjectType, InventoryPhase,
     count_path_binaries, count_systemd_services,
+    // v5.2.0: Error, Service State, Intrusion
+    ErrorIndex, LogSeverity,
+    ServiceIndex, ServiceState, ActiveState, EnabledState,
+    IntrusionIndex, IntrusionType,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -86,7 +93,7 @@ fn run_version() -> Result<()> {
 
 fn run_help() -> Result<()> {
     println!();
-    println!("{}", "ANNA - Priority Knowledge Resolution v5.1.1".bold());
+    println!("{}", "ANNA - Knowledge UX with Full Error Visibility v5.2.0".bold());
     println!("{}", THIN_SEP);
     println!();
     println!("  Anna is a paranoid archivist that tracks every executable,");
@@ -95,20 +102,22 @@ fn run_help() -> Result<()> {
     println!("{}", "COMMANDS:".bold());
     println!("  annactl status           System status + inventory progress");
     println!("  annactl stats            Knowledge stats + command coverage");
-    println!("  annactl knowledge        List all known software objects");
-    println!("  annactl knowledge <name> Details on one specific object");
+    println!("  annactl knowledge        Global knowledge view (all objects)");
+    println!("  annactl knowledge <name> Focused view with errors/logs/state");
     println!("  annactl version          Show version info");
     println!("  annactl help             Show this help");
     println!();
     println!("{}", "TRACKING:".bold());
     println!("  - ALL commands on PATH");
     println!("  - ALL packages with versions");
-    println!("  - ALL systemd services");
+    println!("  - ALL systemd services (active/enabled/masked/failed)");
     println!("  - Package install/remove events");
+    println!("  - Errors and warnings from journalctl");
+    println!("  - Intrusion detection patterns");
     println!();
-    println!("{}", "v5.1.1 PRIORITY SCAN:".bold());
-    println!("  When you query an object, Anna performs targeted discovery");
-    println!("  to ensure up-to-date information before answering.");
+    println!("{}", "v5.2.0 ERROR VISIBILITY:".bold());
+    println!("  Every object shows its errors, warnings, failures,");
+    println!("  and intrusion attempts. No filtering. No guessing.");
     println!();
     Ok(())
 }
@@ -241,6 +250,38 @@ async fn run_status() -> Result<()> {
         println!("  Processes:  {} observed", format_number(telemetry.processes_observed));
         println!("  Commands:   {} unique", telemetry.unique_commands);
         println!("  Samples:    {}", format_number(telemetry.total_samples));
+    }
+    println!();
+
+    // v5.2.0: Error/Intrusion summary
+    let error_index = ErrorIndex::load();
+    let intrusion_index = IntrusionIndex::load();
+    let service_index = ServiceIndex::load();
+
+    println!("{}", "[HEALTH]".cyan());
+    // Errors
+    if error_index.total_errors > 0 {
+        println!("  Errors:     {} indexed", format_number(error_index.total_errors).red());
+    } else {
+        println!("  Errors:     {} indexed", "0".green());
+    }
+    // Warnings
+    if error_index.total_warnings > 0 {
+        println!("  Warnings:   {} indexed", format_number(error_index.total_warnings).yellow());
+    } else {
+        println!("  Warnings:   0 indexed");
+    }
+    // Intrusions
+    if intrusion_index.total_events > 0 {
+        println!("  Intrusions: {} detected", format_number(intrusion_index.total_events).red().bold());
+    } else {
+        println!("  Intrusions: {} detected", "0".green());
+    }
+    // Service failures
+    if service_index.failed_count > 0 {
+        println!("  Failed svc: {}", format!("{}", service_index.failed_count).red());
+    } else {
+        println!("  Failed svc: {}", "0".green());
     }
 
     println!("{}", THIN_SEP);
@@ -400,6 +441,11 @@ async fn run_knowledge(topic: Option<&str>) -> Result<()> {
 }
 
 fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
+    // v5.2.0: Load error and intrusion indexes for global view
+    let error_index = ErrorIndex::load();
+    let intrusion_index = IntrusionIndex::load();
+    let service_index = ServiceIndex::load();
+
     println!();
     println!("{}", "ANNA KNOWLEDGE".bold());
     println!("{}", THIN_SEP);
@@ -413,7 +459,53 @@ fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
         return Ok(());
     }
 
-    // Group by category
+    // v5.2.0: Summary section
+    let (commands, packages, services) = store.count_by_type();
+    println!("{}", "[SUMMARY]".cyan());
+    println!("  Objects:    {} total", store.total_objects());
+    println!("  Commands:   {}", commands);
+    println!("  Packages:   {}", packages);
+    println!("  Services:   {}", services);
+    println!("  Configs:    {}", store.objects.values().filter(|o| !o.config_paths.is_empty()).count());
+    println!("  Errors:     {}", error_index.total_errors);
+    println!("  Intrusions: {}", intrusion_index.total_events);
+    println!();
+
+    // v5.2.0: Failed services section
+    if service_index.failed_count > 0 {
+        println!("{}", "[FAILED SERVICES]".red().bold());
+        for svc in service_index.get_failed() {
+            let reason = svc.failure_reason.as_deref().unwrap_or("unknown");
+            println!("  {} - {}", svc.unit_name.red(), reason);
+        }
+        println!();
+    }
+
+    // v5.2.0: Recent intrusions section
+    let recent_intrusions = intrusion_index.recent_high_severity(3600, 3); // Last hour, severity 3+
+    if !recent_intrusions.is_empty() {
+        println!("{}", "[RECENT INTRUSIONS (1h)]".red().bold());
+        for event in recent_intrusions.iter().take(5) {
+            let ts = format_timestamp(event.timestamp);
+            let ip = event.source_ip.as_deref().unwrap_or("-");
+            println!("  {} [{}] {} (from {})",
+                ts, event.intrusion_type.as_str().red(),
+                truncate_str(&event.message, 40), ip);
+        }
+        println!();
+    }
+
+    // v5.2.0: Top errors section
+    let top_errors = error_index.top_by_errors(5);
+    if !top_errors.is_empty() {
+        println!("{}", "[TOP ERRORS BY OBJECT]".yellow());
+        for (name, count) in &top_errors {
+            println!("  {:<20} {} errors", name, count);
+        }
+        println!();
+    }
+
+    // Group by category (existing)
     for category in &[
         KnowledgeCategory::Editor,
         KnowledgeCategory::Terminal,
@@ -433,19 +525,36 @@ fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
 
             for obj in sorted {
                 let installed = if obj.installed { "yes" } else { "no" };
-                let wiki = obj.wiki_ref.as_deref().unwrap_or("-");
-                println!("  {:<12} installed: {:<3}  runs: {:<6} wiki: {}",
-                    obj.name, installed, obj.usage_count, wiki);
+                // v5.2.0: Show error count per object
+                let err_count = error_index.get_object_errors(&obj.name)
+                    .map(|e| e.total_errors())
+                    .unwrap_or(0);
+                let err_str = if err_count > 0 {
+                    format!("{}", err_count).red().to_string()
+                } else {
+                    "-".to_string()
+                };
+                println!("  {:<12} inst:{:<3} runs:{:<5} errs:{}",
+                    obj.name, installed, obj.usage_count, err_str);
             }
             println!();
         }
     }
 
     println!("{}", THIN_SEP);
-    println!("Use 'annactl knowledge <name>' for details on one item.");
+    println!("Use 'annactl knowledge <name>' for full object details.");
     println!();
 
     Ok(())
+}
+
+/// Truncate string to max length with ellipsis
+fn truncate_str(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
 }
 
 fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str) -> Result<()> {
@@ -539,17 +648,53 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
             }
             println!();
 
-            // v5.1.0: Service section
+            // v5.2.0: Enhanced Service section with full state
             if obj.service_unit.is_some() || obj.object_types.contains(&ObjectType::Service) {
-                println!("{}", "[SERVICE]".cyan());
+                let service_index = ServiceIndex::load();
+                println!("{}", "[SERVICE STATE]".cyan());
+
                 if let Some(unit) = &obj.service_unit {
                     println!("  Unit:            {}", unit);
-                }
-                if let Some(enabled) = obj.service_enabled {
-                    println!("  Enabled:         {}", if enabled { "yes" } else { "no" });
-                }
-                if let Some(active) = obj.service_active {
-                    println!("  Active:          {}", if active { "yes" } else { "no" });
+
+                    // v5.2.0: Get full service state from service index
+                    if let Some(state) = service_index.services.get(unit) {
+                        // Active state with color
+                        let active_str = match state.active_state {
+                            ActiveState::Active => state.active_state.as_str().green().to_string(),
+                            ActiveState::Failed => state.active_state.as_str().red().bold().to_string(),
+                            ActiveState::Inactive => state.active_state.as_str().dimmed().to_string(),
+                            _ => state.active_state.as_str().yellow().to_string(),
+                        };
+                        println!("  Active:          {} ({})", active_str, state.sub_state.as_str());
+
+                        // Enabled state with color
+                        let enabled_str = match state.enabled_state {
+                            EnabledState::Enabled => state.enabled_state.as_str().green().to_string(),
+                            EnabledState::Masked => state.enabled_state.as_str().red().to_string(),
+                            EnabledState::Disabled => state.enabled_state.as_str().yellow().to_string(),
+                            _ => state.enabled_state.as_str().to_string(),
+                        };
+                        println!("  Enabled:         {}", enabled_str);
+
+                        if let Some(pid) = state.main_pid {
+                            println!("  PID:             {}", pid);
+                        }
+                        println!("  Memory:          {}", state.format_memory());
+                        println!("  CPU:             {}", state.format_cpu());
+                        println!("  Restarts:        {}", state.restart_count);
+
+                        if let Some(reason) = &state.failure_reason {
+                            println!("  Failure:         {}", reason.red());
+                        }
+                    } else {
+                        // Fallback to basic info from KnowledgeObject
+                        if let Some(enabled) = obj.service_enabled {
+                            println!("  Enabled:         {}", if enabled { "yes" } else { "no" });
+                        }
+                        if let Some(active) = obj.service_active {
+                            println!("  Active:          {}", if active { "yes" } else { "no" });
+                        }
+                    }
                 }
                 println!();
             }
@@ -573,9 +718,94 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
                 println!();
             }
 
+            // v5.2.0: Errors section
+            let error_index = ErrorIndex::load();
+            if let Some(obj_errors) = error_index.get_object_errors(&obj.name) {
+                if obj_errors.total_errors() > 0 || obj_errors.warning_count > 0 {
+                    println!("{}", "[ERRORS]".red());
+                    println!("  Total errors:    {}", obj_errors.total_errors());
+                    println!("  Total warnings:  {}", obj_errors.warning_count);
+
+                    // Show error type breakdown
+                    if !obj_errors.error_counts.is_empty() {
+                        println!("  By type:");
+                        for (err_type, count) in &obj_errors.error_counts {
+                            println!("    {}: {}", err_type.as_str(), count);
+                        }
+                    }
+
+                    // Show recent errors (last 5)
+                    let errors = obj_errors.errors_only();
+                    if !errors.is_empty() {
+                        println!("  Recent errors:");
+                        for entry in errors.iter().rev().take(5) {
+                            let ts = format_timestamp(entry.timestamp);
+                            println!("    [{}] {}", ts, truncate_str(&entry.message, 50));
+                        }
+                    }
+                    println!();
+                }
+            }
+
+            // v5.2.0: Logs section (recent warnings and errors)
+            if let Some(obj_errors) = error_index.get_object_errors(&obj.name) {
+                if !obj_errors.logs.is_empty() {
+                    let recent_logs: Vec<_> = obj_errors.logs.iter()
+                        .filter(|l| l.severity >= LogSeverity::Warning)
+                        .rev()
+                        .take(10)
+                        .collect();
+
+                    if !recent_logs.is_empty() {
+                        println!("{}", "[LOGS]".yellow());
+                        for entry in &recent_logs {
+                            let ts = format_timestamp(entry.timestamp);
+                            let sev = match entry.severity {
+                                LogSeverity::Warning => entry.severity.as_str().yellow().to_string(),
+                                LogSeverity::Error => entry.severity.as_str().red().to_string(),
+                                LogSeverity::Critical | LogSeverity::Alert | LogSeverity::Emergency => {
+                                    entry.severity.as_str().red().bold().to_string()
+                                }
+                                _ => entry.severity.as_str().to_string(),
+                            };
+                            println!("  [{}] {} {}", ts, sev, truncate_str(&entry.message, 45));
+                        }
+                        println!();
+                    }
+                }
+            }
+
+            // v5.2.0: Intrusion section
+            let intrusion_index = IntrusionIndex::load();
+            if let Some(obj_intrusions) = intrusion_index.get_object_intrusions(&obj.name) {
+                if !obj_intrusions.events.is_empty() {
+                    println!("{}", "[INTRUSION]".red().bold());
+                    println!("  Total events:    {}", obj_intrusions.total_events());
+                    println!("  Max severity:    {}", obj_intrusions.max_severity);
+
+                    // Type breakdown
+                    if !obj_intrusions.type_counts.is_empty() {
+                        println!("  By type:");
+                        for (int_type, count) in &obj_intrusions.type_counts {
+                            println!("    {}: {}", int_type, count);
+                        }
+                    }
+
+                    // Recent events (last 5)
+                    println!("  Recent events:");
+                    for event in obj_intrusions.events.iter().rev().take(5) {
+                        let ts = format_timestamp(event.timestamp);
+                        let ip = event.source_ip.as_deref().unwrap_or("-");
+                        println!("    [{}] {} (from {})", ts, event.intrusion_type.as_str().red(), ip);
+                        println!("      {}", truncate_str(&event.message, 55));
+                    }
+                    println!();
+                }
+            }
+
             // Notes
             println!("{}", "[NOTES]".cyan());
-            println!("  Data collected by anna daemon (v5.1.0 Full Inventory).");
+            println!("  Data collected by anna daemon (v5.2.0 Full Error Visibility).");
         }
         None => {
             println!();

@@ -1289,4 +1289,312 @@ mod tests {
         assert_eq!(progress.phase, InventoryPhase::ScanningPackages);
         assert_eq!(progress.items_processed, 50);
     }
+
+    // v5.2.0: Error Index Invariants
+    // ====================================================================
+
+    #[test]
+    fn test_log_severity_ordering() {
+        // Severity levels must be correctly ordered
+        use crate::error_index::LogSeverity;
+
+        assert!(LogSeverity::Emergency > LogSeverity::Alert);
+        assert!(LogSeverity::Alert > LogSeverity::Critical);
+        assert!(LogSeverity::Critical > LogSeverity::Error);
+        assert!(LogSeverity::Error > LogSeverity::Warning);
+        assert!(LogSeverity::Warning > LogSeverity::Notice);
+        assert!(LogSeverity::Notice > LogSeverity::Info);
+        assert!(LogSeverity::Info > LogSeverity::Debug);
+    }
+
+    #[test]
+    fn test_log_severity_is_error() {
+        // is_error() must return true for Error and above
+        use crate::error_index::LogSeverity;
+
+        assert!(LogSeverity::Error.is_error());
+        assert!(LogSeverity::Critical.is_error());
+        assert!(LogSeverity::Alert.is_error());
+        assert!(LogSeverity::Emergency.is_error());
+
+        assert!(!LogSeverity::Warning.is_error());
+        assert!(!LogSeverity::Notice.is_error());
+        assert!(!LogSeverity::Info.is_error());
+        assert!(!LogSeverity::Debug.is_error());
+    }
+
+    #[test]
+    fn test_error_type_detection_permission() {
+        // Permission errors must be detected
+        use crate::error_index::ErrorType;
+
+        assert_eq!(ErrorType::detect_from_message("Permission denied"), ErrorType::Permission);
+        assert_eq!(ErrorType::detect_from_message("EACCES error"), ErrorType::Permission);
+        assert_eq!(ErrorType::detect_from_message("operation not permitted"), ErrorType::Permission);
+    }
+
+    #[test]
+    fn test_error_type_detection_missing_file() {
+        // Missing file errors must be detected
+        use crate::error_index::ErrorType;
+
+        assert_eq!(ErrorType::detect_from_message("No such file or directory"), ErrorType::MissingFile);
+        assert_eq!(ErrorType::detect_from_message("file not found"), ErrorType::MissingFile);
+        assert_eq!(ErrorType::detect_from_message("ENOENT"), ErrorType::MissingFile);
+    }
+
+    #[test]
+    fn test_error_type_detection_segfault() {
+        // Segfaults must be detected
+        use crate::error_index::ErrorType;
+
+        assert_eq!(ErrorType::detect_from_message("Segmentation fault"), ErrorType::Segfault);
+        assert_eq!(ErrorType::detect_from_message("SIGSEGV received"), ErrorType::Segfault);
+        assert_eq!(ErrorType::detect_from_message("core dumped"), ErrorType::Segfault);
+    }
+
+    #[test]
+    fn test_object_errors_tracking() {
+        // ObjectErrors must track error counts correctly
+        use crate::error_index::{ObjectErrors, LogEntry, LogSeverity};
+
+        let mut obj_errors = ObjectErrors::new("nginx");
+
+        let entry1 = LogEntry::new(1000, LogSeverity::Error, "Permission denied".to_string());
+        let entry2 = LogEntry::new(1001, LogSeverity::Error, "Connection refused".to_string());
+        let entry3 = LogEntry::new(1002, LogSeverity::Warning, "deprecated option".to_string());
+
+        obj_errors.add_log(entry1);
+        obj_errors.add_log(entry2);
+        obj_errors.add_log(entry3);
+
+        assert_eq!(obj_errors.total_errors(), 2);
+        assert_eq!(obj_errors.warning_count, 1);
+        assert_eq!(obj_errors.logs.len(), 3);
+    }
+
+    #[test]
+    fn test_error_index_global_tracking() {
+        // ErrorIndex must track global error counts
+        use crate::error_index::{ErrorIndex, LogEntry, LogSeverity};
+
+        let mut index = ErrorIndex::new();
+
+        let entry1 = LogEntry::new(1000, LogSeverity::Error, "Error 1".to_string());
+        let entry2 = LogEntry::new(1001, LogSeverity::Warning, "Warning 1".to_string());
+
+        index.add_log("sshd", entry1);
+        index.add_log("nginx", entry2);
+
+        assert_eq!(index.total_errors, 1);
+        assert_eq!(index.total_warnings, 1);
+        assert!(index.get_object_errors("sshd").is_some());
+        assert!(index.get_object_errors("nginx").is_some());
+    }
+
+    // v5.2.0: Service State Invariants
+    // ====================================================================
+
+    #[test]
+    fn test_active_state_parsing() {
+        // ActiveState must parse all variants correctly
+        use crate::service_state::ActiveState;
+
+        assert_eq!(ActiveState::from_str("active"), ActiveState::Active);
+        assert_eq!(ActiveState::from_str("inactive"), ActiveState::Inactive);
+        assert_eq!(ActiveState::from_str("failed"), ActiveState::Failed);
+        assert_eq!(ActiveState::from_str("activating"), ActiveState::Activating);
+        assert_eq!(ActiveState::from_str("deactivating"), ActiveState::Deactivating);
+        // Case insensitive
+        assert_eq!(ActiveState::from_str("ACTIVE"), ActiveState::Active);
+    }
+
+    #[test]
+    fn test_enabled_state_parsing() {
+        // EnabledState must parse all variants correctly
+        use crate::service_state::EnabledState;
+
+        assert_eq!(EnabledState::from_str("enabled"), EnabledState::Enabled);
+        assert_eq!(EnabledState::from_str("disabled"), EnabledState::Disabled);
+        assert_eq!(EnabledState::from_str("masked"), EnabledState::Masked);
+        assert_eq!(EnabledState::from_str("static"), EnabledState::Static);
+    }
+
+    #[test]
+    fn test_service_state_is_running() {
+        // is_running() must return true only for Active or Reloading
+        use crate::service_state::ActiveState;
+
+        assert!(ActiveState::Active.is_running());
+        assert!(ActiveState::Reloading.is_running());
+        assert!(!ActiveState::Failed.is_running());
+        assert!(!ActiveState::Inactive.is_running());
+    }
+
+    #[test]
+    fn test_service_index_counts() {
+        // ServiceIndex must track counts correctly
+        use crate::service_state::{ServiceIndex, ServiceState, ActiveState, EnabledState};
+
+        let mut index = ServiceIndex::new();
+
+        let mut state1 = ServiceState::new("running.service");
+        state1.active_state = ActiveState::Active;
+        state1.enabled_state = EnabledState::Enabled;
+
+        let mut state2 = ServiceState::new("failed.service");
+        state2.active_state = ActiveState::Failed;
+        state2.enabled_state = EnabledState::Disabled;
+
+        let mut state3 = ServiceState::new("masked.service");
+        state3.active_state = ActiveState::Inactive;
+        state3.enabled_state = EnabledState::Masked;
+
+        index.update(state1);
+        index.update(state2);
+        index.update(state3);
+
+        assert_eq!(index.running_count, 1);
+        assert_eq!(index.failed_count, 1);
+        assert_eq!(index.masked_count, 1);
+    }
+
+    // v5.2.0: Intrusion Detection Invariants
+    // ====================================================================
+
+    #[test]
+    fn test_intrusion_type_severity() {
+        // Intrusion types must have correct severity levels
+        use crate::intrusion::IntrusionType;
+
+        // High severity (5)
+        assert_eq!(IntrusionType::RootkitIndicator.severity(), 5);
+        assert_eq!(IntrusionType::PrivilegeEscalation.severity(), 5);
+        assert_eq!(IntrusionType::MalwareSignature.severity(), 5);
+        assert_eq!(IntrusionType::LogTampering.severity(), 5);
+
+        // Medium severity (3-4)
+        assert!(IntrusionType::SudoAbuse.severity() >= 3);
+        assert!(IntrusionType::BruteForce.severity() >= 3);
+
+        // Lower severity (2)
+        assert_eq!(IntrusionType::FailedAuth.severity(), 2);
+        assert_eq!(IntrusionType::PortScan.severity(), 2);
+    }
+
+    #[test]
+    fn test_intrusion_pattern_matching() {
+        // IntrusionIndex must detect patterns correctly
+        use crate::intrusion::IntrusionIndex;
+
+        let mut index = IntrusionIndex::new();
+
+        // SSH failed auth
+        index.check_message(
+            "Failed password for invalid user admin from 192.168.1.100 port 22",
+            "sshd",
+            Some("sshd"),
+        );
+
+        assert_eq!(index.total_events, 1);
+        assert!(index.get_object_intrusions("sshd").is_some());
+    }
+
+    #[test]
+    fn test_intrusion_ip_extraction() {
+        // IntrusionEvent must extract source IP
+        use crate::intrusion::{IntrusionEvent, IntrusionType};
+
+        let mut event = IntrusionEvent::new(
+            IntrusionType::FailedAuth,
+            "ssh_failed_auth",
+            "Failed password from 192.168.1.100 port 22".to_string(),
+            "sshd",
+        );
+
+        event.extract_source_ip();
+        assert_eq!(event.source_ip, Some("192.168.1.100".to_string()));
+    }
+
+    #[test]
+    fn test_intrusion_username_extraction() {
+        // IntrusionEvent must extract username
+        use crate::intrusion::{IntrusionEvent, IntrusionType};
+
+        let mut event = IntrusionEvent::new(
+            IntrusionType::FailedAuth,
+            "ssh_failed_auth",
+            "Invalid user admin from 192.168.1.100".to_string(),
+            "sshd",
+        );
+
+        event.extract_username();
+        assert_eq!(event.username, Some("admin".to_string()));
+    }
+
+    #[test]
+    fn test_intrusion_sudo_pattern() {
+        // Sudo abuse patterns must be detected
+        use crate::intrusion::IntrusionIndex;
+
+        let mut index = IntrusionIndex::new();
+
+        index.check_message(
+            "user NOT in sudoers; TTY=pts/0; PWD=/home/user",
+            "sudo",
+            Some("sudo"),
+        );
+
+        assert_eq!(index.total_events, 1);
+        let obj = index.get_object_intrusions("sudo").unwrap();
+        assert!(obj.type_counts.contains_key("sudo_abuse"));
+    }
+
+    #[test]
+    fn test_object_intrusions_max_severity() {
+        // ObjectIntrusions must track max severity correctly
+        use crate::intrusion::{ObjectIntrusions, IntrusionEvent, IntrusionType};
+
+        let mut obj = ObjectIntrusions::new("sshd");
+
+        let low_event = IntrusionEvent::new(
+            IntrusionType::FailedAuth, // severity 2
+            "test",
+            "low severity".to_string(),
+            "sshd",
+        );
+
+        let high_event = IntrusionEvent::new(
+            IntrusionType::PrivilegeEscalation, // severity 5
+            "test",
+            "high severity".to_string(),
+            "sshd",
+        );
+
+        obj.add_event(low_event);
+        assert_eq!(obj.max_severity, 2);
+
+        obj.add_event(high_event);
+        assert_eq!(obj.max_severity, 5);
+    }
+
+    #[test]
+    fn test_intrusion_events_capped() {
+        // ObjectIntrusions must cap events at 50
+        use crate::intrusion::{ObjectIntrusions, IntrusionEvent, IntrusionType};
+
+        let mut obj = ObjectIntrusions::new("test");
+
+        for i in 0..60 {
+            let event = IntrusionEvent::new(
+                IntrusionType::FailedAuth,
+                "test",
+                format!("Event {}", i),
+                "test",
+            );
+            obj.add_event(event);
+        }
+
+        assert!(obj.events.len() <= 50);
+    }
 }
