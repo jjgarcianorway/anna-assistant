@@ -1,11 +1,11 @@
-//! Status Command v5.2.4 - Anna's Health Only
+//! Status Command v5.2.5 - Anna's Health Only
 //!
 //! Shows a sysadmin a quick view of Anna's own health and background work.
-//! No knowledge counts, no telemetry counters - just system health.
+//! Strictly about Anna's state - no knowledge lists, no per-object stats.
 //!
 //! Sections:
 //! - [VERSION] annactl/annad versions
-//! - [SERVICES] Daemon state and uptime
+//! - [SERVICES] Daemon state and uptime, Ollama state
 //! - [PERMISSIONS] Directory access status
 //! - [UPDATES] Auto-update state
 //! - [INVENTORY] Scan progress with ETA
@@ -79,10 +79,10 @@ async fn print_services_section() {
         let uptime = get_daemon_uptime();
         println!("  Daemon:   {} (up {})", "running".green(), uptime);
     } else {
-        println!("  Daemon:   {}", "not running".red());
+        println!("  Daemon:   {}", "stopped".red());
     }
 
-    // Check ollama status (if relevant)
+    // Check ollama status
     let ollama_running = check_ollama_status().await;
     if ollama_running {
         println!("  Ollama:   {}", "running".green());
@@ -98,8 +98,8 @@ fn print_permissions_section() {
 
     let dirs = [
         ("Data dir", "/var/lib/anna"),
-        ("XP dir", "/var/lib/anna/xp"),
         ("Knowledge", "/var/lib/anna/knowledge"),
+        ("XP dir", "/var/lib/anna/xp"),
         ("LLM state", "/var/lib/anna/llm"),
     ];
 
@@ -125,7 +125,7 @@ fn print_updates_section() {
 
     println!("  Auto-update:  {}", auto_update);
 
-    // Last check time - read from state file if exists
+    // Last check time
     let last_check = get_last_update_check();
     println!("  Last check:   {}", last_check);
 
@@ -139,9 +139,9 @@ fn print_inventory_section(store: &KnowledgeStore) {
     let total_path_cmds = count_path_binaries();
     let total_services = count_systemd_services();
     let (commands, packages, services) = store.count_by_type();
-    let total_known = store.total_objects();
 
-    // Calculate progress
+    // Calculate overall progress
+    let total_known = store.total_objects();
     let total_possible = total_path_cmds + total_services;
     let progress = if total_possible > 0 {
         (total_known as f64 / total_possible as f64 * 100.0).min(100.0)
@@ -158,37 +158,39 @@ fn print_inventory_section(store: &KnowledgeStore) {
         "Waiting".to_string()
     };
 
-    println!("  Status:       {}", status);
+    println!("  Status:     {}", status);
     println!(
-        "  Commands:     {}/{} ({})",
+        "  Commands:   {}/{} ({})",
         commands,
         total_path_cmds,
         format_percent((commands as f64 / total_path_cmds.max(1) as f64) * 100.0)
     );
-    println!("  Packages:     {}", packages);
     println!(
-        "  Services:     {}/{} ({})",
+        "  Packages:   {}/{} ({})",
+        packages,
+        packages,  // packages is always 100% of what pacman reports
+        format_percent(100.0)
+    );
+    println!(
+        "  Services:   {}/{} ({})",
         services,
         total_services,
         format_percent((services as f64 / total_services.max(1) as f64) * 100.0)
     );
-    println!("  Progress:     {}", format_percent(progress));
+    println!("  Progress:   {}", format_percent(progress));
 
     // ETA calculation
-    let eta = if progress < 99.0 && progress > 0.0 {
-        // Rough estimate based on typical scan rate
+    if progress < 99.0 && progress > 0.0 {
         let remaining = (100.0 - progress) / 100.0 * total_possible as f64;
         let rate = 50.0; // Assume ~50 items/sec
         let secs = (remaining / rate) as u64;
-        if secs < 60 {
+        let eta = if secs < 60 {
             format!("~{}s", secs)
         } else {
             format!("~{}m", secs / 60)
-        }
-    } else {
-        "n/a".to_string()
-    };
-    println!("  ETA:          {}", eta);
+        };
+        println!("  ETA:        {}", eta);
+    }
 
     println!();
 }
@@ -241,7 +243,7 @@ fn print_health_section(
     };
     let last_scan = format_time_ago(log_scan_state.last_scan_at);
     println!(
-        "  Log scanner:      {} (last scan {}, +{} errors, +{} warnings)",
+        "  Log scanner:      {} (last {}, +{} errors, +{} warnings)",
         scanner_status, last_scan, log_scan_state.new_errors, log_scan_state.new_warnings
     );
 
@@ -286,7 +288,6 @@ async fn check_ollama_status() -> bool {
 }
 
 fn get_daemon_uptime() -> String {
-    // Try to get uptime from systemd
     let output = std::process::Command::new("systemctl")
         .args(["show", "annad", "--property=ActiveEnterTimestamp"])
         .output();
@@ -296,7 +297,6 @@ fn get_daemon_uptime() -> String {
         if let Some(ts_str) = stdout.strip_prefix("ActiveEnterTimestamp=") {
             let ts_str = ts_str.trim();
             if !ts_str.is_empty() && ts_str != "n/a" {
-                // Parse timestamp and calculate uptime
                 if let Ok(dt) = chrono::DateTime::parse_from_str(
                     &format!("{} +0000", ts_str),
                     "%a %Y-%m-%d %H:%M:%S %Z %z",
@@ -343,7 +343,6 @@ fn check_dir_access(path: &str) -> String {
 }
 
 fn get_last_update_check() -> String {
-    // Try to read from update state file
     let state_path = "/var/lib/anna/update_state.json";
     if let Ok(content) = fs::read_to_string(state_path) {
         if let Ok(state) = serde_json::from_str::<serde_json::Value>(&content) {

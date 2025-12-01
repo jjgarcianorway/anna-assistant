@@ -1,20 +1,19 @@
-//! Stats Command v5.2.4 - Anna's Behavior and History
+//! Stats Command v5.2.5 - Daemon Activity Only
 //!
-//! Shows Anna's behavior and evolution over time.
-//! Independent of specific knowledge objects.
+//! Shows Anna's daemon activity and background work.
+//! Not per-object knowledge - just daemon behavior.
 //!
 //! Sections:
-//! - [RUN HISTORY] Daemon uptime, first/last events
-//! - [KNOWLEDGE GROWTH] Object counts and discovery latency
-//! - [ERROR PIPELINE] Error/warning counts with top objects
-//! - [INVENTORY PERFORMANCE] Scan intervals and timing
+//! - [DAEMON ACTIVITY] Uptime, starts, health checks
+//! - [INVENTORY CYCLES] Scan progress and timing
+//! - [ERROR PIPELINE] Log scanning stats
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anna_common::{
-    ErrorIndex, KnowledgeStore, LogScanState, TelemetryAggregates,
+    ErrorIndex, LogScanState, TelemetryAggregates, IntrusionIndex,
     format_duration_secs, format_time_ago,
 };
 
@@ -23,94 +22,109 @@ const THIN_SEP: &str = "--------------------------------------------------------
 /// Run the stats command
 pub async fn run() -> Result<()> {
     println!();
-    println!("{}", "  Anna Statistics".bold());
+    println!("{}", "  Anna Daemon Statistics".bold());
     println!("{}", THIN_SEP);
     println!();
 
     // Load data
-    let store = KnowledgeStore::load();
-    let error_index = ErrorIndex::load();
     let log_scan_state = LogScanState::load();
     let telemetry = TelemetryAggregates::load();
+    let error_index = ErrorIndex::load();
+    let intrusion_index = IntrusionIndex::load();
 
-    // [RUN HISTORY]
-    print_run_history_section(&telemetry);
+    // [DAEMON ACTIVITY]
+    print_daemon_activity_section(&telemetry);
 
-    // [KNOWLEDGE GROWTH]
-    print_knowledge_growth_section(&store);
+    // [INVENTORY CYCLES]
+    print_inventory_cycles_section(&log_scan_state);
 
     // [ERROR PIPELINE]
-    print_error_pipeline_section(&error_index);
-
-    // [INVENTORY PERFORMANCE]
-    print_inventory_performance_section(&log_scan_state);
+    print_error_pipeline_section(&error_index, &log_scan_state, &intrusion_index);
 
     println!("{}", THIN_SEP);
+    println!();
+    println!("  Use 'annactl status' for Anna's health.");
+    println!("  Use 'annactl knowledge' for what Anna knows.");
     println!();
 
     Ok(())
 }
 
-fn print_run_history_section(telemetry: &TelemetryAggregates) {
-    println!("{}", "[RUN HISTORY]".cyan());
-
-    // Q&A is disabled in this phase
-    println!("  Total runs:       Q&A disabled");
+fn print_daemon_activity_section(telemetry: &TelemetryAggregates) {
+    println!("{}", "[DAEMON ACTIVITY]".cyan());
 
     // Daemon uptime from systemd
     let uptime = get_daemon_uptime();
-    println!("  Daemon uptime:    {}", uptime);
+    println!("  Uptime:         {}", uptime);
 
-    // First and last telemetry events - use daemon_start_at and last_updated
+    // Daemon start time
     if telemetry.daemon_start_at > 0 {
-        println!("  First event:      {}", format_time_ago(telemetry.daemon_start_at));
+        println!("  Started:        {}", format_time_ago(telemetry.daemon_start_at));
     } else {
-        println!("  First event:      n/a");
+        println!("  Started:        n/a");
     }
 
+    // Last activity
     if telemetry.last_updated > 0 {
-        println!("  Last event:       {}", format_time_ago(telemetry.last_updated));
+        println!("  Last activity:  {}", format_time_ago(telemetry.last_updated));
     } else {
-        println!("  Last event:       n/a");
+        println!("  Last activity:  n/a");
     }
+
+    // Health check status
+    let health_status = check_daemon_health();
+    let status_str = if health_status {
+        "healthy".green().to_string()
+    } else {
+        "unhealthy".red().to_string()
+    };
+    println!("  Health:         {}", status_str);
 
     println!();
 }
 
-fn print_knowledge_growth_section(store: &KnowledgeStore) {
-    println!("{}", "[KNOWLEDGE GROWTH]".cyan());
+fn print_inventory_cycles_section(log_scan_state: &LogScanState) {
+    println!("{}", "[INVENTORY CYCLES]".cyan());
 
-    let total_objects = store.total_objects();
-    println!("  Objects known:        {}", total_objects);
+    // Total scans
+    println!("  Total scans:    {}", log_scan_state.total_scans);
 
-    // Count objects with usage
-    let objects_with_runs = store
-        .objects
-        .values()
-        .filter(|o| o.usage_count > 0 || o.total_cpu_time_ms > 0)
-        .count();
-    println!("  Objects with runs:    {}", objects_with_runs);
-
-    // Average discovery latency
-    let avg_latency = calculate_avg_discovery_latency(store);
-    if avg_latency > 0 {
-        println!("  Avg discovery latency: {}", format_duration_secs(avg_latency));
+    // Last scan time
+    if log_scan_state.last_scan_at > 0 {
+        println!("  Last scan:      {}", format_time_ago(log_scan_state.last_scan_at));
     } else {
-        println!("  Avg discovery latency: n/a");
+        println!("  Last scan:      n/a");
     }
 
-    // Last new object
-    let last_new = get_last_new_object_time(store);
-    if last_new > 0 {
-        println!("  Last new object:  {}", format_time_ago(last_new));
+    // Average scan interval
+    if log_scan_state.total_scans > 1 && log_scan_state.created_at > 0 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let total_time = now.saturating_sub(log_scan_state.created_at);
+        let avg_interval = total_time / log_scan_state.total_scans;
+        println!("  Avg interval:   {}", format_duration_secs(avg_interval));
     } else {
-        println!("  Last new object:  n/a");
+        println!("  Avg interval:   n/a");
     }
+
+    // Scanner status
+    let scanner_status = if log_scan_state.running {
+        "running".green().to_string()
+    } else {
+        "idle".to_string()
+    };
+    println!("  Scanner:        {}", scanner_status);
 
     println!();
 }
 
-fn print_error_pipeline_section(error_index: &ErrorIndex) {
+fn print_error_pipeline_section(
+    error_index: &ErrorIndex,
+    log_scan_state: &LogScanState,
+    intrusion_index: &IntrusionIndex,
+) {
     println!("{}", "[ERROR PIPELINE]".cyan());
 
     // Get 24h counts
@@ -134,49 +148,29 @@ fn print_error_pipeline_section(error_index: &ErrorIndex) {
         }
     }
 
-    println!("  Errors indexed (24h):   {}", errors_24h);
-    println!("  Warnings indexed (24h): {}", warnings_24h);
+    println!("  Errors (24h):      {}", errors_24h);
+    println!("  Warnings (24h):    {}", warnings_24h);
 
-    // Top error objects
-    let top_errors = error_index.top_by_errors(5);
-    if !top_errors.is_empty() {
-        println!();
-        println!("  Top error objects:");
-        for (name, count) in &top_errors {
-            println!("    {}: {} errors", name, count);
-        }
-    }
+    // New errors/warnings since last scan
+    println!(
+        "  New since scan:    +{} errors, +{} warnings",
+        log_scan_state.new_errors, log_scan_state.new_warnings
+    );
 
-    println!();
-}
-
-fn print_inventory_performance_section(log_scan_state: &LogScanState) {
-    println!("{}", "[INVENTORY PERFORMANCE]".cyan());
-
-    println!("  Full inventory scans:  {}", log_scan_state.total_scans);
-
-    // Time since last full pass
-    if log_scan_state.last_scan_at > 0 {
-        println!("  Last full scan:        {}", format_time_ago(log_scan_state.last_scan_at));
+    // Intrusions detected
+    let intrusions = intrusion_index.recent_high_severity(86400, 1).len();
+    if intrusions > 0 {
+        println!(
+            "  Intrusions (24h):  {} detected",
+            intrusions.to_string().red()
+        );
     } else {
-        println!("  Last full scan:        n/a");
+        println!("  Intrusions (24h):  0");
     }
 
-    // Average scan interval (estimate from total scans and uptime)
-    if log_scan_state.total_scans > 1 {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        let total_time = now.saturating_sub(log_scan_state.created_at);
-        let avg_interval = total_time / log_scan_state.total_scans;
-        println!("  Avg scan interval:     {}", format_duration_secs(avg_interval));
-    } else {
-        println!("  Avg scan interval:     n/a");
-    }
-
-    // Log scan interval (typically every minute)
-    println!("  Log scan interval:     ~1m");
+    // Objects with errors
+    let objects_with_errors = error_index.objects.len();
+    println!("  Objects affected:  {}", objects_with_errors);
 
     println!();
 }
@@ -215,31 +209,16 @@ fn get_daemon_uptime() -> String {
     "unknown".to_string()
 }
 
-fn calculate_avg_discovery_latency(store: &KnowledgeStore) -> u64 {
-    let latencies: Vec<u64> = store
-        .objects
-        .values()
-        .filter_map(|o| {
-            if o.first_seen_at > 0 && o.first_seen_at > store.created_at {
-                Some(o.first_seen_at.saturating_sub(store.created_at))
-            } else {
-                None
-            }
-        })
-        .collect();
+fn check_daemon_health() -> bool {
+    // Quick health check via HTTP
+    let output = std::process::Command::new("curl")
+        .args(["-s", "-o", "/dev/null", "-w", "%{http_code}", "http://127.0.0.1:7865/v1/health"])
+        .output();
 
-    if latencies.is_empty() {
-        0
-    } else {
-        latencies.iter().sum::<u64>() / latencies.len() as u64
+    if let Ok(output) = output {
+        let code = String::from_utf8_lossy(&output.stdout);
+        return code.trim() == "200";
     }
-}
 
-fn get_last_new_object_time(store: &KnowledgeStore) -> u64 {
-    store
-        .objects
-        .values()
-        .map(|o| o.first_seen_at)
-        .max()
-        .unwrap_or(0)
+    false
 }

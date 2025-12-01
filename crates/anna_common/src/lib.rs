@@ -150,6 +150,8 @@ pub mod service_state;
 pub mod intrusion;
 // v5.2.4: Display Formatting
 pub mod display_format;
+// v5.2.5: Object Metadata (descriptions, relationships)
+pub mod object_metadata;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -504,4 +506,10 @@ pub use display_format::{
     format_percent, format_ratio_percent, format_bytes,
     format_eta, truncate_str, format_timestamp, format_timestamp_full,
     is_ascii_only, strip_non_ascii,
+};
+
+// v5.2.5: Object Metadata exports
+pub use object_metadata::{
+    get_description, get_relationship, get_ecosystem, parse_pacman_description,
+    ObjectRelationship, RelationshipType,
 };

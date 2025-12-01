@@ -1,8 +1,8 @@
-# Anna v4.5.4 "LLM Routing Sanity"
+# Anna v5.2.5 "Knowledge is the Machine"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v4.5.4 LLM routing sanity: Predictable routing invariants. Empty Junior plan = PLAN_FAILURE (not success). Consistent ROUTE lines: Brain, Cache, Junior(plan/draft/answer), Senior(audit/answer), Timeout(Junior/Senior), Fallback. 8 new routing invariant tests. ASCII only.
+> v5.2.5 Knowledge refinement: Strict installed-only knowledge views. Command separation (status=Anna health, knowledge=installed objects, stats=daemon activity). Object relationships (aquamarine->hyprland). Description metadata from ArchWiki/man. Relevance filter hides zero metrics. Quality scoring for knowledge completeness.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,10 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v4.5.4** | **LLM Routing Sanity** - Predictable routing invariants, empty plan = failure, consistent ROUTE lines, 8 routing invariant tests, ASCII only |
+| **v5.2.5** | **Knowledge is the Machine** - Strict installed-only views, command separation (status/knowledge/stats), object relationships, description metadata, relevance filter, quality scoring |
+| v5.2.4 | Knowledge Core - Error index, service state, intrusion detection, display formatting |
+| v5.2.0 | Knowledge System - System profiler, knowledge engine, full inventory |
+| v4.5.4 | LLM Routing Sanity - Predictable routing invariants, empty plan = failure, consistent ROUTE lines, 8 routing invariant tests, ASCII only |
 | v4.5.3 | Learning & Fast Reuse - question_key normalization, answer cache (>=90% reliability), 5-min TTL, ROUTE: Cache debug line, instant reuse |
 | v4.5.2 | Latency & Fallback - Timeout streak tracking, auto-switch after 2 timeouts, status/stats show timeout info, FALLBACK debug lines, ASCII-only |
 | v4.5.1 | Debug Spine - Telemetry reads both primary/fallback paths, clear ROUTE lines (Brain/Orchestrator(Junior)/Orchestrator(Senior)), ASCII-only debug, status/stats coherence |
