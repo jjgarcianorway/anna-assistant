@@ -1,4 +1,4 @@
-//! Anna Common v7.1.0 - Grounded System Intelligence
+//! Anna Common v7.2.0 - Grounded System Intelligence
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! - Every number has a verifiable source
@@ -66,8 +66,9 @@ pub use telemetry::{
     // Stats
     CommandStats, command_stats, top_commands,
 };
-// v7.1.0: SQLite telemetry database exports
+// v7.2.0: SQLite telemetry database exports (with aggregations)
 pub use telemetry_db::{
     TelemetryDb, ProcessTelemetrySample, ObjectTelemetry, TelemetryStats,
+    SampleCounts, UsageStats, GlobalPeak, DataStatus,
     TELEMETRY_DB_PATH,
 };

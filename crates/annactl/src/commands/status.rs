@@ -1,8 +1,9 @@
-//! Status Command v7.1.0 - Anna-only Health
+//! Status Command v7.3.0 - Anna-only Health
 //!
 //! Sections:
 //! - [VERSION]         Single unified Anna version
 //! - [DAEMON]          State, uptime, PID, restarts
+//! - [HEALTH]          Overall health indicator (v7.3.0)
 //! - [INVENTORY]       What Anna has indexed + sync status
 //! - [TELEMETRY]       Real telemetry stats from SQLite (v7.1.0)
 //! - [UPDATES]         Auto-update schedule and last result
@@ -17,7 +18,7 @@ use std::path::Path;
 
 use anna_common::config::{AnnaConfig, UpdateState, SYSTEM_CONFIG_DIR, DATA_DIR};
 use anna_common::format_duration_secs;
-use anna_common::TelemetryDb;
+use anna_common::{TelemetryDb, DataStatus};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -38,6 +39,9 @@ pub async fn run() -> Result<()> {
     // [DAEMON]
     let daemon_stats = get_daemon_stats().await;
     print_daemon_section(&daemon_stats);
+
+    // [HEALTH] - v7.3.0
+    print_health_section(&daemon_stats);
 
     // [INVENTORY]
     print_inventory_section(&daemon_stats);
@@ -81,6 +85,139 @@ fn print_daemon_section(stats: &Option<DaemonStats>) {
             println!("  Uptime:     -");
             println!("  PID:        -");
             println!("  Restarts:   -");
+        }
+    }
+
+    println!();
+}
+
+/// Health signal derived from internal metrics (v7.3.0)
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)] // Unknown is for future use
+enum HealthSignal {
+    /// Everything nominal
+    Ok,
+    /// Warning conditions (degraded but working)
+    Warning(String),
+    /// Critical conditions (action needed)
+    Critical(String),
+    /// Cannot determine (daemon not running)
+    Unknown,
+}
+
+fn print_health_section(stats: &Option<DaemonStats>) {
+    println!("{}", "[HEALTH]".cyan());
+
+    match stats {
+        Some(s) => {
+            // Compute health signals
+            let mut warnings = Vec::new();
+            let mut criticals = Vec::new();
+
+            // 1. Daemon restarts (many restarts = unstable)
+            if s.restarts_24h >= 5 {
+                criticals.push(format!("{} restarts in 24h", s.restarts_24h));
+            } else if s.restarts_24h >= 2 {
+                warnings.push(format!("{} restarts in 24h", s.restarts_24h));
+            }
+
+            // 2. Crashes (any crash is concerning)
+            if s.crashes > 0 {
+                criticals.push(format!("{} crashes", s.crashes));
+            }
+
+            // 3. Command failures (high rate = integration issue)
+            if s.command_failures >= 10 {
+                criticals.push(format!("{} command failures", s.command_failures));
+            } else if s.command_failures >= 3 {
+                warnings.push(format!("{} command failures", s.command_failures));
+            }
+
+            // 4. Parse errors (high rate = data quality issue)
+            if s.parse_errors >= 20 {
+                warnings.push(format!("{} parse errors", s.parse_errors));
+            }
+
+            // 5. Sync staleness
+            if let Some(secs) = s.last_scan_secs_ago {
+                if secs > 600 { // More than 10 minutes
+                    warnings.push(format!("sync stale ({}m ago)", secs / 60));
+                }
+            } else {
+                warnings.push("no sync completed".to_string());
+            }
+
+            // 6. Telemetry DB health
+            match TelemetryDb::open_readonly() {
+                Some(db) => {
+                    match db.get_data_status() {
+                        DataStatus::NoData => warnings.push("no telemetry data".to_string()),
+                        DataStatus::NotEnoughData { .. } => warnings.push("limited telemetry".to_string()),
+                        _ => {} // OK
+                    }
+                }
+                None => warnings.push("telemetry DB unavailable".to_string()),
+            }
+
+            // Determine overall status
+            let overall = if !criticals.is_empty() {
+                HealthSignal::Critical(criticals.join(", "))
+            } else if !warnings.is_empty() {
+                HealthSignal::Warning(warnings.join(", "))
+            } else {
+                HealthSignal::Ok
+            };
+
+            // Display overall
+            match &overall {
+                HealthSignal::Ok => {
+                    println!("  Overall:    {} all systems nominal", "✓".green());
+                }
+                HealthSignal::Warning(reason) => {
+                    println!("  Overall:    {} {}", "⚠".yellow(), reason.yellow());
+                }
+                HealthSignal::Critical(reason) => {
+                    println!("  Overall:    {} {}", "✗".red(), reason.red());
+                }
+                HealthSignal::Unknown => {
+                    println!("  Overall:    {}", "-".dimmed());
+                }
+            }
+
+            // Individual health indicators
+            let daemon_health = if s.restarts_24h == 0 && s.crashes == 0 {
+                "stable".green().to_string()
+            } else if s.crashes > 0 {
+                "unstable".red().to_string()
+            } else {
+                "recovering".yellow().to_string()
+            };
+            println!("  Daemon:     {}", daemon_health);
+
+            let telemetry_health = match TelemetryDb::open_readonly() {
+                Some(db) => match db.get_data_status() {
+                    DataStatus::Ok { .. } => "collecting".green().to_string(),
+                    DataStatus::PartialWindow { .. } => "warming up".yellow().to_string(),
+                    DataStatus::NotEnoughData { .. } => "starting".yellow().to_string(),
+                    DataStatus::NoData => "no data".dimmed().to_string(),
+                },
+                None => "unavailable".red().to_string(),
+            };
+            println!("  Telemetry:  {}", telemetry_health);
+
+            let sync_health = match s.last_scan_secs_ago {
+                Some(secs) if secs < STALE_THRESHOLD_SECS => "current".green().to_string(),
+                Some(secs) if secs < 600 => "recent".green().to_string(),
+                Some(_) => "stale".yellow().to_string(),
+                None => "pending".yellow().to_string(),
+            };
+            println!("  Sync:       {}", sync_health);
+        }
+        None => {
+            println!("  Overall:    {} daemon not running", "✗".red());
+            println!("  Daemon:     {}", "stopped".red());
+            println!("  Telemetry:  -");
+            println!("  Sync:       -");
         }
     }
 
@@ -135,18 +272,31 @@ fn print_telemetry_section() {
                     if stats.total_samples == 0 {
                         println!("  {}", "(no telemetry collected yet)".dimmed());
                     } else {
-                        println!("  Samples:    {}  {}", stats.total_samples, "(from SQLite)".dimmed());
-                        println!("  Processes:  {}  {}", stats.unique_processes, "(unique tracked)".dimmed());
+                        // Basic stats
+                        println!("  Samples:    {}  {}", stats.total_samples, format!("({} processes)", stats.unique_processes).dimmed());
 
-                        // Coverage
-                        let coverage_str = if stats.coverage_hours < 1.0 {
-                            format!("{:.0}m", stats.coverage_hours * 60.0)
-                        } else if stats.coverage_hours < 24.0 {
-                            format!("{:.1}h", stats.coverage_hours)
-                        } else {
-                            format!("{:.1}d", stats.coverage_hours / 24.0)
+                        // Data status
+                        let data_status = db.get_data_status();
+                        let status_str = match &data_status {
+                            DataStatus::NoData => "no data".yellow().to_string(),
+                            DataStatus::NotEnoughData { minutes } =>
+                                format!("{} ({:.0}m collected)", "not enough data".yellow(), minutes),
+                            DataStatus::PartialWindow { hours } =>
+                                format!("{} ({:.1}h collected)", "partial window".yellow(), hours),
+                            DataStatus::Ok { hours } =>
+                                format!("{} ({:.1}h)", "OK".green(), hours),
                         };
-                        println!("  Coverage:   {}", coverage_str);
+                        println!("  Status:     {}", status_str);
+
+                        // Global peaks (only show if we have enough data)
+                        if matches!(data_status, DataStatus::PartialWindow { .. } | DataStatus::Ok { .. }) {
+                            if let Ok(Some(cpu_peak)) = db.get_global_peak_cpu_24h() {
+                                println!("  Peak CPU:   {:.1}% ({})", cpu_peak.value, cpu_peak.name.cyan());
+                            }
+                            if let Ok(Some(mem_peak)) = db.get_global_peak_mem_24h() {
+                                println!("  Peak mem:   {} ({})", format_bytes(mem_peak.value as u64), mem_peak.name.cyan());
+                            }
+                        }
 
                         // Database size
                         let size_str = format_bytes(stats.db_size_bytes);

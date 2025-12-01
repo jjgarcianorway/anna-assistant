@@ -1,10 +1,9 @@
-//! KDB Command v7.0.0 - Knowledge Database Overview
+//! KDB Command v7.2.0 - Anna KDB Overview
 //!
 //! Sections:
 //! - [OVERVIEW]          Counts of packages, commands, services
-//! - [CATEGORIES]        Grouped by category with member names
-//! - [USAGE HIGHLIGHTS]  (when telemetry exists) Most used, never used, etc.
-//! - [WARNINGS]          KDB-related issues only
+//! - [CATEGORIES]        Rule-based categories from descriptions
+//! - [USAGE HIGHLIGHTS]  Real telemetry from SQLite
 //!
 //! NO journalctl system errors. NO generic host health.
 
@@ -15,26 +14,17 @@ use anna_common::grounded::{
     packages::PackageCounts,
     commands::count_path_executables,
     services::ServiceCounts,
+    categoriser::get_category_summary,
 };
+use anna_common::{TelemetryDb, DataStatus};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
-
-// Category detection patterns
-const EDITORS: &[&str] = &["vim", "nvim", "neovim", "nano", "emacs", "helix", "hx", "kate", "gedit", "code"];
-const TERMINALS: &[&str] = &["alacritty", "kitty", "foot", "wezterm", "gnome-terminal", "konsole", "st", "xterm"];
-const SHELLS: &[&str] = &["bash", "zsh", "fish", "nushell", "dash", "sh"];
-const COMPOSITORS: &[&str] = &["hyprland", "sway", "wayfire", "river", "gnome-shell", "plasmashell", "i3", "bspwm"];
-const BROWSERS: &[&str] = &["firefox", "chromium", "brave", "vivaldi", "qutebrowser", "librewolf", "google-chrome-stable"];
-const TOOLS: &[&str] = &[
-    "git", "curl", "wget", "grep", "awk", "sed", "tar", "gzip", "unzip",
-    "htop", "btop", "fastfetch", "neofetch", "ffmpeg", "jq", "fzf", "ripgrep", "rg",
-    "make", "cmake", "gcc", "clang", "rustc", "python", "node", "docker", "podman"
-];
+const MAX_CATEGORY_ITEMS: usize = 10;
 
 /// Run the kdb overview command
 pub async fn run() -> Result<()> {
     println!();
-    println!("{}", "  Anna Knowledge Database".bold());
+    println!("{}", "  Anna KDB".bold());
     println!("{}", THIN_SEP);
     println!();
 
@@ -46,9 +36,6 @@ pub async fn run() -> Result<()> {
 
     // [USAGE HIGHLIGHTS]
     print_usage_section();
-
-    // [WARNINGS] - only if there are any
-    print_warnings_section();
 
     println!("{}", THIN_SEP);
     println!();
@@ -72,47 +59,28 @@ fn print_overview_section() {
 
 fn print_categories_section() {
     println!("{}", "[CATEGORIES]".cyan());
+    println!("  {}", "(from pacman descriptions)".dimmed());
 
-    use anna_common::grounded::commands::command_exists;
+    let categories = get_category_summary();
 
-    // Editors
-    let editors: Vec<&str> = EDITORS.iter().filter(|&&cmd| command_exists(cmd)).copied().collect();
-    if !editors.is_empty() {
-        println!("  Editors:          {}", editors.join(", "));
-    }
+    if categories.is_empty() {
+        println!("  {}", "(no categories detected)".dimmed());
+    } else {
+        for (cat_name, packages) in categories {
+            // Skip "Other" in overview
+            if cat_name == "Other" {
+                continue;
+            }
 
-    // Terminals
-    let terminals: Vec<&str> = TERMINALS.iter().filter(|&&cmd| command_exists(cmd)).copied().collect();
-    if !terminals.is_empty() {
-        println!("  Terminals:        {}", terminals.join(", "));
-    }
+            let display: String = if packages.len() <= MAX_CATEGORY_ITEMS {
+                packages.join(", ")
+            } else {
+                format!("{}, ...", packages.iter().take(MAX_CATEGORY_ITEMS).cloned().collect::<Vec<_>>().join(", "))
+            };
 
-    // Shells
-    let shells: Vec<&str> = SHELLS.iter().filter(|&&cmd| command_exists(cmd)).copied().collect();
-    if !shells.is_empty() {
-        println!("  Shells:           {}", shells.join(", "));
-    }
-
-    // Compositors
-    let compositors: Vec<&str> = COMPOSITORS.iter().filter(|&&cmd| command_exists(cmd)).copied().collect();
-    if !compositors.is_empty() {
-        println!("  Compositors:      {}", compositors.join(", "));
-    }
-
-    // Browsers
-    let browsers: Vec<&str> = BROWSERS.iter().filter(|&&cmd| command_exists(cmd)).copied().collect();
-    if !browsers.is_empty() {
-        println!("  Browsers:         {}", browsers.join(", "));
-    }
-
-    // Tools - show first 10 with "..." if more
-    let tools: Vec<&str> = TOOLS.iter().filter(|&&cmd| command_exists(cmd)).copied().collect();
-    if !tools.is_empty() {
-        if tools.len() <= 10 {
-            println!("  Tools:            {}", tools.join(", "));
-        } else {
-            let display: Vec<&str> = tools.iter().take(10).copied().collect();
-            println!("  Tools:            {}, ...", display.join(", "));
+            // Format category name with padding
+            let cat_display = format!("{}:", cat_name);
+            println!("  {:<14} {}", cat_display, display);
         }
     }
 
@@ -122,25 +90,94 @@ fn print_categories_section() {
 fn print_usage_section() {
     println!("{}", "[USAGE HIGHLIGHTS]".cyan());
 
-    // v7.0.0: Telemetry not yet implemented
-    // When implemented, show:
-    // - Most used commands (7d)
-    // - Never used commands
-    // - Most CPU hungry (7d)
-    // - Most RAM hungry (7d)
+    // Try to open telemetry database
+    match TelemetryDb::open_readonly() {
+        Some(db) => {
+            let data_status = db.get_data_status();
 
-    println!("  {}", "Usage telemetry: not collected yet".dimmed());
+            match &data_status {
+                DataStatus::NoData => {
+                    println!("  Telemetry:    {}", "no data".yellow());
+                    println!("  {}", "(daemon needs to collect samples)".dimmed());
+                }
+                DataStatus::NotEnoughData { minutes } => {
+                    println!("  Telemetry:    {} ({:.0}m collected)", "not enough data".yellow(), minutes);
+                    println!("  {}", "(need at least 10 minutes of data)".dimmed());
+                }
+                DataStatus::PartialWindow { hours } | DataStatus::Ok { hours } => {
+                    // Show telemetry status
+                    let status_str = if matches!(data_status, DataStatus::PartialWindow { .. }) {
+                        format!("{} ({:.1}h)", "partial".yellow(), hours)
+                    } else {
+                        format!("{} ({:.1}h)", "OK".green(), hours)
+                    };
+                    println!("  Telemetry:    {}", status_str);
+
+                    // Get stats
+                    if let Ok(stats) = db.get_stats() {
+                        println!("  Samples:      {} total", stats.total_samples);
+
+                        // Data window
+                        if stats.first_sample_at > 0 && stats.last_sample_at > 0 {
+                            let first = TelemetryDb::format_timestamp(stats.first_sample_at);
+                            let last = TelemetryDb::format_timestamp(stats.last_sample_at);
+                            println!("  Window:       {} → {}", first.dimmed(), last.dimmed());
+                        }
+                    }
+
+                    println!();
+
+                    // Top launches (24h)
+                    if let Ok(top_launches) = db.top_by_launches_24h(5) {
+                        if !top_launches.is_empty() {
+                            println!("  Top activity (24h):");
+                            for (i, (name, count)) in top_launches.iter().enumerate() {
+                                println!("    {}) {:<12} {}", i + 1, name.cyan(), count);
+                            }
+                            println!();
+                        }
+                    }
+
+                    // Top CPU (avg, 24h)
+                    if let Ok(top_cpu) = db.top_by_avg_cpu_24h(5) {
+                        if !top_cpu.is_empty() {
+                            println!("  Top CPU avg (24h):");
+                            for (i, (name, avg)) in top_cpu.iter().enumerate() {
+                                println!("    {}) {:<12} {:.1}%", i + 1, name.cyan(), avg);
+                            }
+                            println!();
+                        }
+                    }
+
+                    // Top memory (avg RSS, 24h)
+                    if let Ok(top_mem) = db.top_by_avg_memory_24h(5) {
+                        if !top_mem.is_empty() {
+                            println!("  Top memory avg (24h):");
+                            for (i, (name, bytes)) in top_mem.iter().enumerate() {
+                                println!("    {}) {:<12} {}", i + 1, name.cyan(), format_bytes(*bytes));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None => {
+            println!("  Telemetry:    {}", "unavailable".dimmed());
+            println!("  {}", "(daemon not collecting telemetry)".dimmed());
+        }
+    }
 
     println!();
 }
 
-fn print_warnings_section() {
-    // Only show if there are actual KDB-related warnings
-    // For now, we don't have any real warnings to show
-    // Future: check for missing pacman data, systemctl issues, etc.
-
-    // Example of what this would look like:
-    // println!("{}", "[WARNINGS]".cyan());
-    // println!("  Missing pacman data for 3 commands in PATH.");
-    // println!();
+fn format_bytes(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.1} MiB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.1} KiB", bytes as f64 / 1024.0)
+    } else {
+        format!("{} B", bytes)
+    }
 }

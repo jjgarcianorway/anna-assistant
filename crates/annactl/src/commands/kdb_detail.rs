@@ -1,4 +1,4 @@
-//! KDB Detail Command v7.1.0 - Object Profiles and Category Overviews
+//! KDB Detail Command v7.3.0 - Object Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -19,21 +19,10 @@ use anna_common::grounded::{
     services::{get_service_info, Service, ServiceState, EnabledState},
     config::discover_config_files,
     category::get_category,
+    categoriser::{normalize_category, packages_in_category},
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
-
-// Category detection patterns
-const EDITORS: &[&str] = &["vim", "nvim", "neovim", "nano", "emacs", "helix", "hx", "kate", "gedit", "code"];
-const TERMINALS: &[&str] = &["alacritty", "kitty", "foot", "wezterm", "gnome-terminal", "konsole", "st", "xterm"];
-const SHELLS: &[&str] = &["bash", "zsh", "fish", "nushell", "dash", "sh"];
-const COMPOSITORS: &[&str] = &["hyprland", "sway", "wayfire", "river", "gnome-shell", "plasmashell", "i3", "bspwm"];
-const BROWSERS: &[&str] = &["firefox", "chromium", "brave", "vivaldi", "qutebrowser", "librewolf", "google-chrome-stable"];
-const TOOLS: &[&str] = &[
-    "git", "curl", "wget", "grep", "awk", "sed", "tar", "gzip", "unzip",
-    "htop", "btop", "fastfetch", "neofetch", "ffmpeg", "jq", "fzf", "ripgrep", "rg",
-    "make", "cmake", "gcc", "clang", "rustc", "python", "node", "docker", "podman"
-];
 
 // ============================================================================
 // Category Overview
@@ -41,55 +30,43 @@ const TOOLS: &[&str] = &[
 
 /// Run category overview (e.g., `annactl kdb editors`)
 pub async fn run_category(category: &str) -> Result<()> {
-    let category_lower = category.to_lowercase();
+    // Special case for services
+    if category.eq_ignore_ascii_case("services") || category.eq_ignore_ascii_case("service") {
+        return run_services_category().await;
+    }
 
-    let (category_name, patterns): (&str, &[&str]) = match category_lower.as_str() {
-        "editors" | "editor" => ("Editors", EDITORS),
-        "terminals" | "terminal" => ("Terminals", TERMINALS),
-        "shells" | "shell" => ("Shells", SHELLS),
-        "compositors" | "compositor" => ("Compositors", COMPOSITORS),
-        "browsers" | "browser" => ("Browsers", BROWSERS),
-        "tools" | "tool" => ("Tools", TOOLS),
-        "services" | "service" => {
-            return run_services_category().await;
-        }
-        _ => {
-            eprintln!();
-            eprintln!("  {} Unknown category: '{}'", "error:".red(), category);
-            eprintln!();
-            std::process::exit(1);
-        }
-    };
+    // Try rule-based categorisation
+    if let Some(cat_name) = normalize_category(category) {
+        return run_rule_based_category(&cat_name).await;
+    }
 
+    // Unknown category
+    eprintln!();
+    eprintln!("  {} Unknown category: '{}'", "error:".red(), category);
+    eprintln!();
+    eprintln!("  Valid categories: Editors, Terminals, Shells, Compositors,");
+    eprintln!("                    Browsers, Multimedia, Development, Network,");
+    eprintln!("                    System, Power, Tools, Services");
+    eprintln!();
+    std::process::exit(1);
+}
+
+/// Run category view using rule-based categoriser
+async fn run_rule_based_category(category_name: &str) -> Result<()> {
     println!();
     println!("{}", format!("  Anna KDB: {}", category_name).bold());
     println!("{}", THIN_SEP);
     println!();
 
-    // Find installed members
-    let mut installed: Vec<(&str, String, String)> = Vec::new();
-    for &name in patterns {
-        if command_exists(name) {
-            let desc = get_package_info(name)
-                .map(|p| p.description.clone())
-                .or_else(|| get_command_info(name).map(|c| c.description.clone()))
-                .unwrap_or_default();
+    let packages = packages_in_category(category_name);
 
-            let version = get_package_info(name)
-                .map(|p| p.version.clone())
-                .unwrap_or_default();
-
-            installed.push((name, desc, version));
-        }
-    }
-
-    if installed.is_empty() {
-        println!("  No {} installed.", category_name.to_lowercase());
+    if packages.is_empty() {
+        println!("  No {} found.", category_name.to_lowercase());
     } else {
-        println!("  {} {} installed:", installed.len(), category_name.to_lowercase());
+        println!("  {} {} installed:", packages.len(), category_name.to_lowercase());
         println!();
 
-        for (name, desc, version) in &installed {
+        for (name, desc, version) in &packages {
             let desc_short = if desc.len() > 50 {
                 format!("{}...", &desc[..47])
             } else {
@@ -348,8 +325,8 @@ fn print_service_profile(svc: &Service, name: &str) {
     println!("{}", "[IDENTITY]".cyan());
     println!("  Name:        {}", svc.name.bold());
     if !svc.description.is_empty() {
+        // Description already contains source attribution
         println!("  Description: {}", svc.description);
-        println!("               {}", "(source: systemctl show)".dimmed());
     }
     println!();
 
@@ -365,6 +342,9 @@ fn print_service_profile(svc: &Service, name: &str) {
         println!("  Version:     {}", pkg.version);
         println!();
     }
+
+    // [USAGE] - telemetry for the service
+    print_usage_section(base_name);
 
     // [LOGS]
     let unit_name = if svc.name.ends_with(".service") {
@@ -406,19 +386,20 @@ fn print_service_section(svc: &Service) {
     println!();
 }
 
-/// Print service logs with deduplication
+/// Print service logs with improved deduplication (v7.3.0)
 fn print_service_logs(unit_name: &str) {
     println!("{}", "[LOGS]".cyan());
-    println!("  {}", format!("(journalctl -b -u {} -p warning..alert -n 10)", unit_name).dimmed());
+    println!("  {}", format!("(journalctl -b -u {} -p warning..alert)", unit_name).dimmed());
 
+    // Use JSON output for better parsing
     let output = Command::new("journalctl")
         .args([
             "-b",           // Current boot only
             "-u", unit_name,
             "-p", "warning..alert",
-            "-n", "50",     // Get more for dedup, display 10
+            "-n", "100",    // Get more for dedup
             "--no-pager",
-            "-o", "short",
+            "-o", "json",
             "-q",
         ])
         .output();
@@ -426,22 +407,59 @@ fn print_service_logs(unit_name: &str) {
     match output {
         Ok(out) if out.status.success() => {
             let stdout = String::from_utf8_lossy(&out.stdout);
-            let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
+            let entries: Vec<LogEntry> = stdout
+                .lines()
+                .filter_map(|line| serde_json::from_str(line).ok())
+                .collect();
 
-            if lines.is_empty() {
+            if entries.is_empty() {
                 println!();
-                println!("  {}", "(no warnings or errors this boot)".green());
+                println!("  {}", "✓  no warnings or errors this boot".green());
             } else {
-                // Deduplicate messages
-                let deduped = deduplicate_logs(&lines);
+                // Deduplicate by message content
+                let deduped = deduplicate_log_entries(&entries);
+                let total_unique = deduped.len();
+                let total_raw = entries.len();
 
+                // Show summary
                 println!();
-                for (line, count) in deduped.iter().take(10) {
-                    if *count > 1 {
-                        println!("  {} {}", line, format!("(seen {} times this boot)", count).dimmed());
+                if total_raw != total_unique {
+                    println!("  {} unique messages ({} total, {} deduplicated)",
+                        total_unique, total_raw, total_raw - total_unique);
+                } else {
+                    println!("  {} messages this boot:", total_unique);
+                }
+                println!();
+
+                // Display up to 10 most recent unique messages (wide format)
+                for entry in deduped.iter().take(10) {
+                    // Priority indicator
+                    let prio_icon = match entry.priority.as_deref() {
+                        Some("3") => "⚠".red().to_string(),    // err
+                        Some("4") => "⚠".yellow().to_string(), // warning
+                        Some("1") | Some("2") => "✗".red().to_string(), // alert/crit
+                        _ => "·".dimmed().to_string(),
+                    };
+
+                    // Timestamp (short format)
+                    let time_str = entry.timestamp_short();
+
+                    // Message (full, not truncated)
+                    let msg = entry.message.as_deref().unwrap_or("(no message)");
+
+                    // Count indicator
+                    let count_str = if entry.count > 1 {
+                        format!(" {}", format!("(×{})", entry.count).dimmed())
                     } else {
-                        println!("  {}", line);
-                    }
+                        String::new()
+                    };
+
+                    println!("  {} {} {}{}", prio_icon, time_str.dimmed(), msg, count_str);
+                }
+
+                if total_unique > 10 {
+                    println!();
+                    println!("  {} (and {} more...)", "…".dimmed(), total_unique - 10);
                 }
             }
         }
@@ -458,44 +476,61 @@ fn print_service_logs(unit_name: &str) {
     println!();
 }
 
-/// Deduplicate log messages, preserving order of first occurrence
-fn deduplicate_logs(lines: &[&str]) -> Vec<(String, usize)> {
-    let mut seen: HashMap<String, usize> = HashMap::new();
-    let mut order: Vec<String> = Vec::new();
-
-    for line in lines {
-        // Extract the message part (after timestamp and priority)
-        // Format: "Dec 01 14:20:31 host unit[pid]: message"
-        let key = extract_message_key(line);
-
-        if let Some(count) = seen.get_mut(&key) {
-            *count += 1;
-        } else {
-            seen.insert(key.clone(), 1);
-            order.push(line.to_string());
-        }
-    }
-
-    order.into_iter()
-        .map(|line| {
-            let key = extract_message_key(&line);
-            let count = seen.get(&key).copied().unwrap_or(1);
-            (line, count)
-        })
-        .collect()
+/// Structured log entry from journalctl JSON
+#[derive(Debug, Clone, serde::Deserialize)]
+struct LogEntry {
+    #[serde(rename = "MESSAGE")]
+    message: Option<String>,
+    #[serde(rename = "PRIORITY")]
+    priority: Option<String>,
+    #[serde(rename = "__REALTIME_TIMESTAMP")]
+    realtime_timestamp: Option<String>,
+    #[serde(skip)]
+    count: usize,
 }
 
-/// Extract a key for deduplication (unit + message, ignoring timestamp)
-fn extract_message_key(line: &str) -> String {
-    // Try to skip the timestamp prefix
-    // Format: "Dec 01 14:20:31 host unit[pid]: message"
-    if let Some(pos) = line.find("]: ") {
-        // Include unit name and message
-        if let Some(unit_start) = line[..pos].rfind(' ') {
-            return line[unit_start..].to_string();
+impl LogEntry {
+    /// Get short timestamp (HH:MM:SS)
+    fn timestamp_short(&self) -> String {
+        if let Some(ref ts_str) = self.realtime_timestamp {
+            if let Ok(ts_us) = ts_str.parse::<u64>() {
+                let ts_secs = ts_us / 1_000_000;
+                use chrono::{DateTime, Utc};
+                if let Some(dt) = DateTime::<Utc>::from_timestamp(ts_secs as i64, 0) {
+                    return dt.format("%H:%M:%S").to_string();
+                }
+            }
+        }
+        "??:??:??".to_string()
+    }
+
+    /// Get message key for deduplication
+    fn dedup_key(&self) -> String {
+        self.message.clone().unwrap_or_default()
+    }
+}
+
+/// Deduplicate log entries by message content, preserving most recent
+fn deduplicate_log_entries(entries: &[LogEntry]) -> Vec<LogEntry> {
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    let mut result: Vec<LogEntry> = Vec::new();
+
+    // Process in order (most recent first from journalctl)
+    for entry in entries {
+        let key = entry.dedup_key();
+        if let Some(idx) = seen.get(&key) {
+            // Already seen - increment count on existing entry
+            result[*idx].count += 1;
+        } else {
+            // First occurrence - add to result
+            seen.insert(key, result.len());
+            let mut new_entry = entry.clone();
+            new_entry.count = 1;
+            result.push(new_entry);
         }
     }
-    line.to_string()
+
+    result
 }
 
 fn format_size(bytes: u64) -> String {
@@ -510,29 +545,42 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
-/// Print [CONFIG] section with config files discovered from pacman/man
+/// Print [CONFIG] section with config files discovered from pacman/man/Arch Wiki
 fn print_config_section(name: &str) {
     println!("{}", "[CONFIG]".cyan());
 
     let configs = discover_config_files(name);
 
     if configs.is_empty() {
-        println!("  {}", "(no config files discovered)".dimmed());
+        println!("  {}", "(no config files discovered from pacman, man, or Arch Wiki)".dimmed());
     } else {
-        // Group by source for cleaner output
-        let mut by_source: HashMap<String, Vec<&anna_common::grounded::config::ConfigFile>> = HashMap::new();
-        for cfg in &configs {
-            by_source.entry(cfg.source.clone()).or_default().push(cfg);
+        // Separate system and user configs
+        let system_configs: Vec<_> = configs.iter().filter(|c| !c.is_user_config).collect();
+        let user_configs: Vec<_> = configs.iter().filter(|c| c.is_user_config).collect();
+
+        // Show system configs
+        if !system_configs.is_empty() {
+            println!("  System:");
+            for cfg in system_configs {
+                let status_colored = if cfg.exists {
+                    String::new()
+                } else {
+                    format!(" {}", "(missing)".yellow())
+                };
+                println!("    {}  {}{}", cfg.path, format!("({})", cfg.source).dimmed(), status_colored);
+            }
         }
 
-        for (source, files) in &by_source {
-            println!("  {}", format!("(source: {})", source).dimmed());
-            for cfg in files {
-                if cfg.exists {
-                    println!("  {}", cfg.path);
+        // Show user configs
+        if !user_configs.is_empty() {
+            println!("  User:");
+            for cfg in user_configs {
+                let status_colored = if cfg.exists {
+                    String::new()
                 } else {
-                    println!("  {} {}", cfg.path, "(missing)".yellow());
-                }
+                    format!(" {}", "(missing)".yellow())
+                };
+                println!("    {}  {}{}", cfg.path, format!("({})", cfg.source).dimmed(), status_colored);
             }
         }
     }
@@ -540,60 +588,86 @@ fn print_config_section(name: &str) {
     println!();
 }
 
-/// Print [USAGE] section with real telemetry from SQLite
+/// Print [USAGE] section with real telemetry from SQLite (v7.3.0 - multi-window)
 fn print_usage_section(name: &str) {
     println!("{}", "[USAGE]".cyan());
 
     // Try to open telemetry database (read-only for CLI)
     match TelemetryDb::open_readonly() {
         Some(db) => {
-            match db.get_object_telemetry(name) {
-                Ok(telemetry) => {
-                    if telemetry.total_samples == 0 {
+            // Get windowed stats (1h, 24h, 7d, 30d)
+            match db.get_windowed_stats(name) {
+                Ok(stats) => {
+                    // Check if we have any data
+                    let total_samples = stats.last_30d.sample_count;
+                    if total_samples == 0 {
                         println!("  {}", "(source: /var/lib/anna/telemetry.db)".dimmed());
                         println!("  {}", "(no telemetry recorded for this object)".dimmed());
                     } else {
                         println!("  {}", "(source: /var/lib/anna/telemetry.db)".dimmed());
-                        println!("  Samples:     {}", telemetry.total_samples);
 
-                        // Peak CPU
-                        if telemetry.peak_cpu_percent > 0.0 {
-                            println!("  Peak CPU:    {:.1}%", telemetry.peak_cpu_percent);
-                        }
+                        // Get launch counts too
+                        let launches = db.get_windowed_launches(name).unwrap_or_default();
 
-                        // Peak memory
-                        if telemetry.peak_mem_bytes > 0 {
-                            println!("  Peak memory: {}", format_size(telemetry.peak_mem_bytes));
-                        }
+                        // Sample counts per window
+                        println!();
+                        println!("  {}  {:>8}  {:>8}  {:>8}  {:>8}",
+                            "Window".dimmed(), "1h".dimmed(), "24h".dimmed(), "7d".dimmed(), "30d".dimmed());
+                        println!("  {}",
+                            "─".repeat(50).dimmed());
 
-                        // Average memory
-                        if telemetry.avg_mem_bytes > 0 {
-                            println!("  Avg memory:  {}", format_size(telemetry.avg_mem_bytes));
-                        }
+                        // Launches (distinct PIDs)
+                        println!("  {:<8}  {:>8}  {:>8}  {:>8}  {:>8}",
+                            "Launches",
+                            format_count(launches.last_1h),
+                            format_count(launches.last_24h),
+                            format_count(launches.last_7d),
+                            format_count(launches.last_30d));
 
-                        // Total CPU time
-                        if telemetry.total_cpu_time_ms > 0 {
-                            let cpu_secs = telemetry.total_cpu_time_ms / 1000;
-                            let cpu_str = if cpu_secs < 60 {
-                                format!("{}s", cpu_secs)
-                            } else if cpu_secs < 3600 {
-                                format!("{}m {}s", cpu_secs / 60, cpu_secs % 60)
-                            } else {
-                                format!("{}h {}m", cpu_secs / 3600, (cpu_secs % 3600) / 60)
-                            };
-                            println!("  CPU time:    {}", cpu_str);
-                        }
+                        // Samples
+                        println!("  {:<8}  {:>8}  {:>8}  {:>8}  {:>8}",
+                            "Samples",
+                            format_count(stats.last_1h.sample_count),
+                            format_count(stats.last_24h.sample_count),
+                            format_count(stats.last_7d.sample_count),
+                            format_count(stats.last_30d.sample_count));
 
-                        // Coverage period
-                        if telemetry.coverage_hours > 0.0 {
-                            let coverage_str = if telemetry.coverage_hours < 1.0 {
-                                format!("{:.0}m", telemetry.coverage_hours * 60.0)
-                            } else if telemetry.coverage_hours < 24.0 {
-                                format!("{:.1}h", telemetry.coverage_hours)
-                            } else {
-                                format!("{:.1}d", telemetry.coverage_hours / 24.0)
-                            };
-                            println!("  Observed:    {}", coverage_str);
+                        // CPU average
+                        println!("  {:<8}  {:>7}%  {:>7}%  {:>7}%  {:>7}%",
+                            "Avg CPU",
+                            format_cpu(stats.last_1h.avg_cpu_percent),
+                            format_cpu(stats.last_24h.avg_cpu_percent),
+                            format_cpu(stats.last_7d.avg_cpu_percent),
+                            format_cpu(stats.last_30d.avg_cpu_percent));
+
+                        // CPU peak
+                        println!("  {:<8}  {:>7}%  {:>7}%  {:>7}%  {:>7}%",
+                            "Peak CPU",
+                            format_cpu(stats.last_1h.peak_cpu_percent),
+                            format_cpu(stats.last_24h.peak_cpu_percent),
+                            format_cpu(stats.last_7d.peak_cpu_percent),
+                            format_cpu(stats.last_30d.peak_cpu_percent));
+
+                        // Memory average
+                        println!("  {:<8}  {:>8}  {:>8}  {:>8}  {:>8}",
+                            "Avg Mem",
+                            format_size_compact(stats.last_1h.avg_mem_bytes),
+                            format_size_compact(stats.last_24h.avg_mem_bytes),
+                            format_size_compact(stats.last_7d.avg_mem_bytes),
+                            format_size_compact(stats.last_30d.avg_mem_bytes));
+
+                        // Memory peak
+                        println!("  {:<8}  {:>8}  {:>8}  {:>8}  {:>8}",
+                            "Peak Mem",
+                            format_size_compact(stats.last_1h.peak_mem_bytes),
+                            format_size_compact(stats.last_24h.peak_mem_bytes),
+                            format_size_compact(stats.last_7d.peak_mem_bytes),
+                            format_size_compact(stats.last_30d.peak_mem_bytes));
+
+                        // Data quality note
+                        if !stats.last_24h.has_enough_data && stats.last_24h.sample_count > 0 {
+                            println!();
+                            println!("  {}", "(limited 24h data - less than 10 min observed)".yellow());
                         }
                     }
                 }
@@ -608,4 +682,29 @@ fn print_usage_section(name: &str) {
     }
 
     println!();
+}
+
+/// Format count for display (- if zero)
+fn format_count(n: u64) -> String {
+    if n == 0 { "-".to_string() } else { n.to_string() }
+}
+
+/// Format CPU percentage (- if zero)
+fn format_cpu(pct: f32) -> String {
+    if pct < 0.05 { "-".to_string() } else { format!("{:.1}", pct) }
+}
+
+/// Format size compactly for table (e.g., "1.2G", "512M")
+fn format_size_compact(bytes: u64) -> String {
+    if bytes == 0 {
+        "-".to_string()
+    } else if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.1}G", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.0}M", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.0}K", bytes as f64 / 1024.0)
+    } else {
+        format!("{}B", bytes)
+    }
 }

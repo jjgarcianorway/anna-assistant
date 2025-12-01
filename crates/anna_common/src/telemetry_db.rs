@@ -1,4 +1,4 @@
-//! Telemetry Database v7.1.0 - SQLite-based Process Telemetry
+//! Telemetry Database v7.3.0 - SQLite-based Process Telemetry
 //!
 //! Stores per-process CPU/memory samples over time for:
 //! - Real telemetry display in `annactl kdb <object>` [USAGE] section
@@ -7,6 +7,9 @@
 //! Schema:
 //! - process_samples: PID, name, CPU%, memory, timestamp
 //! - telemetry_meta: key-value metadata (last sample time, etc)
+//!
+//! v7.2.0: Added time-windowed aggregations and global peak queries
+//! v7.3.0: Added multi-window per-object stats for PHASE 9
 
 use anyhow::Result;
 use rusqlite::{Connection, params};
@@ -61,6 +64,62 @@ pub struct TelemetryStats {
     pub db_size_bytes: u64,
     /// Coverage hours (last - first)
     pub coverage_hours: f64,
+}
+
+/// Sample counts for different time windows
+#[derive(Debug, Clone, Default)]
+pub struct SampleCounts {
+    /// Samples in last 1 hour
+    pub last_1h: u64,
+    /// Samples in last 24 hours
+    pub last_24h: u64,
+    /// Samples in last 7 days
+    pub last_7d: u64,
+    /// Samples in last 30 days
+    pub last_30d: u64,
+}
+
+/// Usage statistics for a time window
+#[derive(Debug, Clone, Default)]
+pub struct UsageStats {
+    /// Average CPU percent
+    pub avg_cpu_percent: f32,
+    /// Peak CPU percent
+    pub peak_cpu_percent: f32,
+    /// Average RSS in bytes
+    pub avg_mem_bytes: u64,
+    /// Peak RSS in bytes
+    pub peak_mem_bytes: u64,
+    /// Number of samples in window
+    pub sample_count: u64,
+    /// Whether we have enough data (>= 10 minutes)
+    pub has_enough_data: bool,
+}
+
+/// Global peak information
+#[derive(Debug, Clone, Default)]
+pub struct GlobalPeak {
+    /// Process/command name
+    pub name: String,
+    /// Peak value (CPU% or bytes)
+    pub value: f64,
+    /// Timestamp of peak
+    pub timestamp: u64,
+    /// PID at peak (if available)
+    pub pid: u32,
+}
+
+/// Data status for telemetry
+#[derive(Debug, Clone, PartialEq)]
+pub enum DataStatus {
+    /// No data available
+    NoData,
+    /// Less than 10 minutes of samples
+    NotEnoughData { minutes: f64 },
+    /// Less than 24h of data
+    PartialWindow { hours: f64 },
+    /// 24h+ of samples
+    Ok { hours: f64 },
 }
 
 /// SQLite-backed telemetry database
@@ -356,6 +415,406 @@ impl TelemetryDb {
             .map(|c| c > 0)
             .unwrap_or(false)
     }
+
+    // ========================================================================
+    // PHASE 3: Time-windowed aggregations
+    // ========================================================================
+
+    /// Get current unix timestamp
+    fn now() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+
+    /// Get data status based on coverage
+    pub fn get_data_status(&self) -> DataStatus {
+        let stats = match self.get_stats() {
+            Ok(s) => s,
+            Err(_) => return DataStatus::NoData,
+        };
+
+        if stats.total_samples == 0 {
+            return DataStatus::NoData;
+        }
+
+        let minutes = stats.coverage_hours * 60.0;
+        if minutes < 10.0 {
+            return DataStatus::NotEnoughData { minutes };
+        }
+
+        if stats.coverage_hours < 24.0 {
+            return DataStatus::PartialWindow { hours: stats.coverage_hours };
+        }
+
+        DataStatus::Ok { hours: stats.coverage_hours }
+    }
+
+    /// Get sample counts for a command in different time windows
+    pub fn get_sample_counts(&self, name: &str) -> Result<SampleCounts> {
+        let now = Self::now();
+        let h1 = now.saturating_sub(3600);
+        let h24 = now.saturating_sub(24 * 3600);
+        let d7 = now.saturating_sub(7 * 24 * 3600);
+        let d30 = now.saturating_sub(30 * 24 * 3600);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                SUM(CASE WHEN timestamp >= ?2 THEN 1 ELSE 0 END) as cnt_1h,
+                SUM(CASE WHEN timestamp >= ?3 THEN 1 ELSE 0 END) as cnt_24h,
+                SUM(CASE WHEN timestamp >= ?4 THEN 1 ELSE 0 END) as cnt_7d,
+                SUM(CASE WHEN timestamp >= ?5 THEN 1 ELSE 0 END) as cnt_30d
+            FROM process_samples
+            WHERE name = ?1
+            "#
+        )?;
+
+        stmt.query_row(params![name, h1 as i64, h24 as i64, d7 as i64, d30 as i64], |row| {
+            Ok(SampleCounts {
+                last_1h: row.get::<_, i64>(0).unwrap_or(0) as u64,
+                last_24h: row.get::<_, i64>(1).unwrap_or(0) as u64,
+                last_7d: row.get::<_, i64>(2).unwrap_or(0) as u64,
+                last_30d: row.get::<_, i64>(3).unwrap_or(0) as u64,
+            })
+        }).map_err(|e| e.into())
+    }
+
+    /// Get usage stats for a command in the last 24h
+    pub fn get_usage_stats_24h(&self, name: &str) -> Result<UsageStats> {
+        let now = Self::now();
+        let h24 = now.saturating_sub(24 * 3600);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                COUNT(*) as cnt,
+                AVG(cpu_percent) as avg_cpu,
+                MAX(cpu_percent) as peak_cpu,
+                AVG(mem_bytes) as avg_mem,
+                MAX(mem_bytes) as peak_mem,
+                MIN(timestamp) as first_ts,
+                MAX(timestamp) as last_ts
+            FROM process_samples
+            WHERE name = ?1 AND timestamp >= ?2
+            "#
+        )?;
+
+        stmt.query_row(params![name, h24 as i64], |row| {
+            let cnt: i64 = row.get(0).unwrap_or(0);
+            let first_ts: i64 = row.get(5).unwrap_or(0);
+            let last_ts: i64 = row.get(6).unwrap_or(0);
+
+            // Check if we have at least 10 minutes of data
+            let duration_minutes = if last_ts > first_ts {
+                (last_ts - first_ts) as f64 / 60.0
+            } else {
+                0.0
+            };
+
+            Ok(UsageStats {
+                sample_count: cnt as u64,
+                avg_cpu_percent: row.get::<_, f64>(1).unwrap_or(0.0) as f32,
+                peak_cpu_percent: row.get::<_, f64>(2).unwrap_or(0.0) as f32,
+                avg_mem_bytes: row.get::<_, f64>(3).unwrap_or(0.0) as u64,
+                peak_mem_bytes: row.get::<_, i64>(4).unwrap_or(0) as u64,
+                has_enough_data: duration_minutes >= 10.0 || cnt >= 40, // ~10min at 15s intervals
+            })
+        }).map_err(|e| e.into())
+    }
+
+    /// Get global peak CPU in last 24h
+    pub fn get_global_peak_cpu_24h(&self) -> Result<Option<GlobalPeak>> {
+        let now = Self::now();
+        let h24 = now.saturating_sub(24 * 3600);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT name, cpu_percent, timestamp, pid
+            FROM process_samples
+            WHERE timestamp >= ?1
+            ORDER BY cpu_percent DESC
+            LIMIT 1
+            "#
+        )?;
+
+        let result = stmt.query_row(params![h24 as i64], |row| {
+            Ok(GlobalPeak {
+                name: row.get(0)?,
+                value: row.get::<_, f64>(1)?,
+                timestamp: row.get::<_, i64>(2)? as u64,
+                pid: row.get::<_, i64>(3)? as u32,
+            })
+        });
+
+        match result {
+            Ok(peak) => Ok(Some(peak)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Get global peak memory in last 24h
+    pub fn get_global_peak_mem_24h(&self) -> Result<Option<GlobalPeak>> {
+        let now = Self::now();
+        let h24 = now.saturating_sub(24 * 3600);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT name, mem_bytes, timestamp, pid
+            FROM process_samples
+            WHERE timestamp >= ?1
+            ORDER BY mem_bytes DESC
+            LIMIT 1
+            "#
+        )?;
+
+        let result = stmt.query_row(params![h24 as i64], |row| {
+            Ok(GlobalPeak {
+                name: row.get(0)?,
+                value: row.get::<_, i64>(1)? as f64,
+                timestamp: row.get::<_, i64>(2)? as u64,
+                pid: row.get::<_, i64>(3)? as u32,
+            })
+        });
+
+        match result {
+            Ok(peak) => Ok(Some(peak)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    // ========================================================================
+    // PHASE 8: Top-N helpers for KDB overview
+    // ========================================================================
+
+    /// Get top N processes by sample count (launches) in 24h
+    pub fn top_by_launches_24h(&self, limit: usize) -> Result<Vec<(String, u64)>> {
+        let now = Self::now();
+        let h24 = now.saturating_sub(24 * 3600);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT name, COUNT(*) as cnt
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            ORDER BY cnt DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![h24 as i64, limit as i64], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u64))
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get top N processes by average CPU in 24h
+    pub fn top_by_avg_cpu_24h(&self, limit: usize) -> Result<Vec<(String, f64)>> {
+        let now = Self::now();
+        let h24 = now.saturating_sub(24 * 3600);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT name, AVG(cpu_percent) as avg_cpu
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY avg_cpu DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![h24 as i64, limit as i64], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get top N processes by average memory (RSS) in 24h
+    pub fn top_by_avg_memory_24h(&self, limit: usize) -> Result<Vec<(String, u64)>> {
+        let now = Self::now();
+        let h24 = now.saturating_sub(24 * 3600);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT name, AVG(mem_bytes) as avg_mem
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY avg_mem DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![h24 as i64, limit as i64], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)? as u64))
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get retention window (days of data kept)
+    pub fn get_retention_days(&self) -> f64 {
+        match self.get_stats() {
+            Ok(stats) => stats.coverage_hours / 24.0,
+            Err(_) => 0.0,
+        }
+    }
+
+    /// Format timestamp as human-readable
+    pub fn format_timestamp(ts: u64) -> String {
+        use chrono::{DateTime, Utc};
+        let dt = DateTime::<Utc>::from_timestamp(ts as i64, 0)
+            .unwrap_or_default();
+        dt.format("%Y-%m-%d %H:%M").to_string()
+    }
+
+    // ========================================================================
+    // PHASE 9: Time-windowed per-object telemetry (v7.3.0)
+    // ========================================================================
+
+    /// Get usage stats for a specific time window
+    pub fn get_usage_stats_window(&self, name: &str, window_secs: u64) -> Result<UsageStats> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                COUNT(*) as cnt,
+                AVG(cpu_percent) as avg_cpu,
+                MAX(cpu_percent) as peak_cpu,
+                AVG(mem_bytes) as avg_mem,
+                MAX(mem_bytes) as peak_mem,
+                MIN(timestamp) as first_ts,
+                MAX(timestamp) as last_ts
+            FROM process_samples
+            WHERE name = ?1 AND timestamp >= ?2
+            "#
+        )?;
+
+        stmt.query_row(params![name, since as i64], |row| {
+            let cnt: i64 = row.get(0).unwrap_or(0);
+            let first_ts: i64 = row.get(5).unwrap_or(0);
+            let last_ts: i64 = row.get(6).unwrap_or(0);
+
+            // Check if we have at least 10 minutes of data
+            let duration_minutes = if last_ts > first_ts {
+                (last_ts - first_ts) as f64 / 60.0
+            } else {
+                0.0
+            };
+
+            Ok(UsageStats {
+                sample_count: cnt as u64,
+                avg_cpu_percent: row.get::<_, f64>(1).unwrap_or(0.0) as f32,
+                peak_cpu_percent: row.get::<_, f64>(2).unwrap_or(0.0) as f32,
+                avg_mem_bytes: row.get::<_, f64>(3).unwrap_or(0.0) as u64,
+                peak_mem_bytes: row.get::<_, i64>(4).unwrap_or(0) as u64,
+                has_enough_data: duration_minutes >= 10.0 || cnt >= 40,
+            })
+        }).map_err(|e| e.into())
+    }
+
+    /// Get multi-window stats for an object (1h, 24h, 7d, 30d)
+    pub fn get_windowed_stats(&self, name: &str) -> Result<WindowedStats> {
+        Ok(WindowedStats {
+            last_1h: self.get_usage_stats_window(name, WINDOW_1H)?,
+            last_24h: self.get_usage_stats_window(name, WINDOW_24H)?,
+            last_7d: self.get_usage_stats_window(name, WINDOW_7D)?,
+            last_30d: self.get_usage_stats_window(name, WINDOW_30D)?,
+        })
+    }
+
+    /// Get launch count (number of distinct sessions) in a window
+    pub fn get_launch_count(&self, name: &str, window_secs: u64) -> Result<u64> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        // Count distinct PIDs as proxy for launches
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT COUNT(DISTINCT pid)
+            FROM process_samples
+            WHERE name = ?1 AND timestamp >= ?2
+            "#
+        )?;
+
+        let count: i64 = stmt.query_row(params![name, since as i64], |row| row.get(0))?;
+        Ok(count as u64)
+    }
+
+    /// Get windowed launch counts for an object
+    pub fn get_windowed_launches(&self, name: &str) -> Result<WindowedLaunches> {
+        Ok(WindowedLaunches {
+            last_1h: self.get_launch_count(name, WINDOW_1H)?,
+            last_24h: self.get_launch_count(name, WINDOW_24H)?,
+            last_7d: self.get_launch_count(name, WINDOW_7D)?,
+            last_30d: self.get_launch_count(name, WINDOW_30D)?,
+        })
+    }
+}
+
+// ============================================================================
+// PHASE 9: Time window constants
+// ============================================================================
+
+/// 1 hour window in seconds
+pub const WINDOW_1H: u64 = 3600;
+
+/// 24 hours window in seconds
+pub const WINDOW_24H: u64 = 24 * 3600;
+
+/// 7 days window in seconds
+pub const WINDOW_7D: u64 = 7 * 24 * 3600;
+
+/// 30 days window in seconds
+pub const WINDOW_30D: u64 = 30 * 24 * 3600;
+
+/// Multi-window usage statistics
+#[derive(Debug, Clone, Default)]
+pub struct WindowedStats {
+    /// Stats for last 1 hour
+    pub last_1h: UsageStats,
+    /// Stats for last 24 hours
+    pub last_24h: UsageStats,
+    /// Stats for last 7 days
+    pub last_7d: UsageStats,
+    /// Stats for last 30 days
+    pub last_30d: UsageStats,
+}
+
+/// Multi-window launch counts
+#[derive(Debug, Clone, Default)]
+pub struct WindowedLaunches {
+    /// Launches in last 1 hour
+    pub last_1h: u64,
+    /// Launches in last 24 hours
+    pub last_24h: u64,
+    /// Launches in last 7 days
+    pub last_7d: u64,
+    /// Launches in last 30 days
+    pub last_30d: u64,
 }
 
 #[cfg(test)]

@@ -1,9 +1,9 @@
-//! Anna CLI (annactl) v7.0.0 - Minimal Surface
+//! Anna CLI (annactl) v7.2.0 - Minimal Surface
 //!
 //! Only 4 commands:
 //! - annactl           show help
 //! - annactl status    health and runtime of Anna
-//! - annactl kdb       overview of knowledge database
+//! - annactl kdb       overview of Anna KDB
 //! - annactl kdb NAME  profile for a package, command or category
 
 mod commands;
@@ -14,17 +14,17 @@ use std::env;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+use anna_common::grounded::categoriser::is_valid_category;
+
 const THIN_SEP: &str = "------------------------------------------------------------";
 
-/// Known category names for `kdb <category>` queries
-const CATEGORY_NAMES: [&str; 7] = [
-    "editors", "terminals", "shells", "browsers",
-    "compositors", "tools", "services"
-];
-
+/// Check if name is a category (using rule-based categoriser + services)
 fn is_category(name: &str) -> bool {
-    let lower = name.to_lowercase();
-    CATEGORY_NAMES.contains(&lower.as_str())
+    // Special case: services is always a category
+    if name.eq_ignore_ascii_case("services") || name.eq_ignore_ascii_case("service") {
+        return true;
+    }
+    is_valid_category(name)
 }
 
 #[tokio::main]
@@ -71,7 +71,7 @@ fn run_help() -> Result<()> {
     println!("{}", THIN_SEP);
     println!("  annactl           show this help");
     println!("  annactl status    health and runtime of Anna");
-    println!("  annactl kdb       overview of knowledge database");
+    println!("  annactl kdb       overview of Anna KDB");
     println!("  annactl kdb NAME  profile for a package, command or category");
     println!("{}", THIN_SEP);
     println!();
