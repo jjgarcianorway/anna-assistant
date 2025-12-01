@@ -1,8 +1,9 @@
-//! KDB Command v7.2.0 - Anna KDB Overview
+//! KDB Command v7.4.0 - Anna KDB Overview
 //!
 //! Sections:
 //! - [OVERVIEW]          Counts of packages, commands, services
 //! - [CATEGORIES]        Rule-based categories from descriptions
+//! - [CONFIG HIGHLIGHTS] Config status summary (v7.4.0)
 //! - [USAGE HIGHLIGHTS]  Real telemetry from SQLite
 //!
 //! NO journalctl system errors. NO generic host health.
@@ -13,8 +14,9 @@ use owo_colors::OwoColorize;
 use anna_common::grounded::{
     packages::PackageCounts,
     commands::count_path_executables,
-    services::ServiceCounts,
+    services::{ServiceCounts, list_enabled_services},
     categoriser::get_category_summary,
+    config::get_config_highlights,
 };
 use anna_common::{TelemetryDb, DataStatus};
 
@@ -33,6 +35,9 @@ pub async fn run() -> Result<()> {
 
     // [CATEGORIES]
     print_categories_section();
+
+    // [CONFIG HIGHLIGHTS] (v7.4.0)
+    print_config_highlights_section();
 
     // [USAGE HIGHLIGHTS]
     print_usage_section();
@@ -82,6 +87,66 @@ fn print_categories_section() {
             let cat_display = format!("{}:", cat_name);
             println!("  {:<14} {}", cat_display, display);
         }
+    }
+
+    println!();
+}
+
+fn print_config_highlights_section() {
+    println!("{}", "[CONFIG HIGHLIGHTS]".cyan());
+    println!("  {}", "(from pacman, man, systemctl)".dimmed());
+
+    // Get a list of important packages to check
+    let categories = get_category_summary();
+    let mut important_packages: Vec<String> = Vec::new();
+
+    // Collect packages from key categories
+    for (cat_name, packages) in &categories {
+        if matches!(cat_name.as_str(), "Editors" | "Terminals" | "Shells" | "Compositors" | "Browsers" | "Multimedia" | "Power") {
+            important_packages.extend(packages.iter().take(5).cloned());
+        }
+    }
+    important_packages.truncate(30);
+
+    // Get enabled services
+    let services: Vec<String> = list_enabled_services()
+        .into_iter()
+        .filter(|s| !s.contains('@'))
+        .take(20)
+        .map(|s| s.trim_end_matches(".service").to_string())
+        .collect();
+
+    // Get config highlights
+    let highlights = get_config_highlights(&important_packages, &services);
+
+    let mut has_any = false;
+
+    // User configs present
+    if !highlights.user_configs_present.is_empty() {
+        println!("  User configs present:");
+        println!("    {}", highlights.user_configs_present.join(", ").cyan());
+        has_any = true;
+    }
+
+    // Services with overrides
+    if !highlights.services_with_overrides.is_empty() {
+        if has_any { println!(); }
+        println!("  Services with overrides:");
+        for (svc, desc) in &highlights.services_with_overrides {
+            println!("    {} {}", svc.cyan(), format!("({})", desc).dimmed());
+        }
+        has_any = true;
+    }
+
+    // Default config only
+    if !highlights.default_config_only.is_empty() && !has_any {
+        println!("  Using default config:");
+        println!("    {}", highlights.default_config_only.join(", ").dimmed());
+        has_any = true;
+    }
+
+    if !has_any {
+        println!("  {}", "(no config customizations detected)".dimmed());
     }
 
     println!();

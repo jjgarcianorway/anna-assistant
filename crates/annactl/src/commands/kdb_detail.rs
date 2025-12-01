@@ -1,4 +1,4 @@
-//! KDB Detail Command v7.3.0 - Object Profiles and Category Overviews
+//! KDB Detail Command v7.4.0 - Object Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -6,6 +6,7 @@
 //!
 //! For services: includes per-unit logs from journalctl with deduplication.
 //! For all objects: includes real [USAGE] telemetry from SQLite.
+//! v7.4.0: Enhanced [CONFIG] sections with precedence rules.
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -17,7 +18,7 @@ use anna_common::grounded::{
     packages::{get_package_info, Package, PackageSource, InstallReason},
     commands::{get_command_info, command_exists, SystemCommand},
     services::{get_service_info, Service, ServiceState, EnabledState},
-    config::discover_config_files,
+    config::{discover_config_info, discover_service_config},
     category::get_category,
     categoriser::{normalize_category, packages_in_category},
 };
@@ -343,6 +344,9 @@ fn print_service_profile(svc: &Service, name: &str) {
         println!();
     }
 
+    // [CONFIG] - service unit files and related configs (v7.4.0)
+    print_service_config_section(name);
+
     // [USAGE] - telemetry for the service
     print_usage_section(base_name);
 
@@ -545,44 +549,138 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
-/// Print [CONFIG] section with config files discovered from pacman/man/Arch Wiki
+/// Print [CONFIG] section with config files discovered from pacman/man/Arch Wiki (v7.4.0)
 fn print_config_section(name: &str) {
     println!("{}", "[CONFIG]".cyan());
 
-    let configs = discover_config_files(name);
+    let info = discover_config_info(name);
 
-    if configs.is_empty() {
-        println!("  {}", "(no config files discovered from pacman, man, or Arch Wiki)".dimmed());
+    if !info.has_configs {
+        println!("  No configuration files documented by pacman, man pages, or Arch Wiki.");
     } else {
-        // Separate system and user configs
-        let system_configs: Vec<_> = configs.iter().filter(|c| !c.is_user_config).collect();
-        let user_configs: Vec<_> = configs.iter().filter(|c| c.is_user_config).collect();
-
         // Show system configs
-        if !system_configs.is_empty() {
+        if !info.system_configs.is_empty() {
             println!("  System:");
-            for cfg in system_configs {
-                let status_colored = if cfg.exists {
-                    String::new()
+            for cfg in &info.system_configs {
+                let status = if cfg.exists {
+                    "[present]".green().to_string()
                 } else {
-                    format!(" {}", "(missing)".yellow())
+                    "[not present]".yellow().to_string()
                 };
-                println!("    {}  {}{}", cfg.path, format!("({})", cfg.source).dimmed(), status_colored);
+                println!("    {:<40} {} {}", cfg.path, status, format!("({})", cfg.source).dimmed());
             }
         }
 
         // Show user configs
-        if !user_configs.is_empty() {
+        if !info.user_configs.is_empty() {
             println!("  User:");
-            for cfg in user_configs {
-                let status_colored = if cfg.exists {
-                    String::new()
+            for cfg in &info.user_configs {
+                let status = if cfg.exists {
+                    "[present]".green().to_string()
                 } else {
-                    format!(" {}", "(missing)".yellow())
+                    "[not present]".yellow().to_string()
                 };
-                println!("    {}  {}{}", cfg.path, format!("({})", cfg.source).dimmed(), status_colored);
+                println!("    {:<40} {} {}", cfg.path, status, format!("({})", cfg.source).dimmed());
             }
         }
+
+        // Show precedence notes if any
+        if !info.precedence_rules.is_empty() {
+            println!("  Notes:");
+            for rule in &info.precedence_rules {
+                let prefix = if rule.is_conventional { "Conventional" } else { "Precedence" };
+                println!("    {}: {} {}", prefix, rule.description, format!("({})", rule.source).dimmed());
+            }
+        }
+    }
+
+    println!();
+}
+
+/// Print [CONFIG] section for a service (v7.4.0)
+fn print_service_config_section(svc_name: &str) {
+    println!("{}", "[CONFIG]".cyan());
+
+    let info = discover_service_config(svc_name);
+
+    let mut has_any = false;
+
+    // Unit file section
+    if info.unit_file.is_some() || info.override_unit.is_some() {
+        println!("  Unit file:");
+        if let Some(ref unit) = info.unit_file {
+            let status = if unit.exists {
+                "[present]".green().to_string()
+            } else {
+                "[not present]".yellow().to_string()
+            };
+            println!("    {:<50} {} {}", unit.path, status, format!("({})", unit.source).dimmed());
+            has_any = true;
+        }
+        if let Some(ref override_unit) = info.override_unit {
+            let status = if override_unit.exists {
+                "[present]".green().to_string()
+            } else {
+                "[not present]".yellow().to_string()
+            };
+            println!("    {:<50} {} (user override)", override_unit.path, status);
+            has_any = true;
+        }
+    }
+
+    // Drop-in section
+    if let Some(ref drop_in) = info.drop_in_dir {
+        println!("  Drop-in:");
+        let status = if drop_in.exists {
+            "[present]".green().to_string()
+        } else {
+            "[not present]".yellow().to_string()
+        };
+        println!("    {:<50} {}", drop_in.path, status);
+        has_any = has_any || drop_in.exists;
+
+        for file in &info.drop_in_files {
+            // Show just the filename for drop-in files
+            let file_name = std::path::Path::new(&file.path)
+                .file_name()
+                .map(|f| f.to_string_lossy().to_string())
+                .unwrap_or_else(|| file.path.clone());
+            println!("      {:<48} {}", file_name, "[present]".green());
+        }
+    }
+
+    // Related configs (EnvironmentFile, etc)
+    if !info.related_configs.is_empty() {
+        println!("  Related:");
+        for cfg in &info.related_configs {
+            let status = if cfg.exists {
+                "[present]".green().to_string()
+            } else {
+                "[not present]".yellow().to_string()
+            };
+            println!("    {:<50} {} {}", cfg.path, status, format!("({})", cfg.source).dimmed());
+            has_any = true;
+        }
+    }
+
+    // Package configs if any
+    if info.package_configs.has_configs {
+        if !info.package_configs.system_configs.is_empty() {
+            println!("  Package config:");
+            for cfg in &info.package_configs.system_configs {
+                let status = if cfg.exists {
+                    "[present]".green().to_string()
+                } else {
+                    "[not present]".yellow().to_string()
+                };
+                println!("    {:<50} {} {}", cfg.path, status, format!("({})", cfg.source).dimmed());
+                has_any = true;
+            }
+        }
+    }
+
+    if !has_any {
+        println!("  No configuration files documented.");
     }
 
     println!();
