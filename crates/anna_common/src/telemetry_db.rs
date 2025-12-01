@@ -1285,23 +1285,14 @@ impl TelemetryDb {
         }).map_err(|e| e.into())
     }
 
-    /// Calculate trend for an identity (comparing current 24h vs previous 24h)
+    /// Calculate trend for an identity (comparing 24h vs 7d as per v7.9.0 spec)
     pub fn get_trend(&self, name: &str) -> Result<TrendData> {
-        let now = Self::now();
-
-        // Current window: last 24h
-        let current_start = now.saturating_sub(WINDOW_24H);
-        let current_end = now;
-
-        // Previous window: 24h-48h ago
-        let previous_start = now.saturating_sub(2 * WINDOW_24H);
-        let previous_end = now.saturating_sub(WINDOW_24H);
-
-        let current = self.get_window_stats_range(name, current_start, current_end)?;
-        let previous = self.get_window_stats_range(name, previous_start, previous_end)?;
+        // Get stats for 24h and 7d windows
+        let stats_24h = self.get_usage_stats_window(name, WINDOW_24H)?;
+        let stats_7d = self.get_usage_stats_window(name, WINDOW_7D)?;
 
         // Need data in both windows to calculate trend
-        if !current.has_data || !previous.has_data {
+        if stats_24h.sample_count == 0 || stats_7d.sample_count == 0 {
             return Ok(TrendData {
                 cpu_trend: None,
                 memory_trend: None,
@@ -1309,13 +1300,59 @@ impl TelemetryDb {
             });
         }
 
-        let cpu_trend = Trend::calculate(current.cpu_secs, previous.cpu_secs);
-        let memory_trend = Trend::calculate(current.max_rss as f64, previous.max_rss as f64);
+        // Compare avg CPU (24h vs 7d)
+        let cpu_trend = Trend::calculate(
+            stats_24h.avg_cpu_percent as f64,
+            stats_7d.avg_cpu_percent as f64
+        );
+
+        // Compare avg memory (24h vs 7d)
+        let memory_trend = Trend::calculate(
+            stats_24h.avg_mem_bytes as f64,
+            stats_7d.avg_mem_bytes as f64
+        );
 
         Ok(TrendData {
             cpu_trend,
             memory_trend,
             has_enough_data: true,
+        })
+    }
+
+    /// Get trend for an identity comparing 24h avg vs 7d avg with peak info (v7.9.0)
+    pub fn get_trend_with_stats(&self, name: &str) -> Result<TrendWithStats> {
+        let stats_24h = self.get_usage_stats_window(name, WINDOW_24H)?;
+        let stats_7d = self.get_usage_stats_window(name, WINDOW_7D)?;
+
+        let has_enough_data = stats_24h.sample_count >= 2 && stats_7d.sample_count >= 2;
+
+        let cpu_trend = if has_enough_data {
+            Trend::calculate(
+                stats_24h.avg_cpu_percent as f64,
+                stats_7d.avg_cpu_percent as f64
+            )
+        } else {
+            None
+        };
+
+        let memory_trend = if has_enough_data {
+            Trend::calculate(
+                stats_24h.avg_mem_bytes as f64,
+                stats_7d.avg_mem_bytes as f64
+            )
+        } else {
+            None
+        };
+
+        Ok(TrendWithStats {
+            cpu_trend,
+            memory_trend,
+            avg_cpu_24h: stats_24h.avg_cpu_percent,
+            peak_cpu_24h: stats_24h.peak_cpu_percent,
+            avg_mem_24h: stats_24h.avg_mem_bytes,
+            peak_mem_24h: stats_24h.peak_mem_bytes,
+            samples_24h: stats_24h.sample_count,
+            has_enough_data,
         })
     }
 
@@ -1430,6 +1467,145 @@ impl TelemetryDb {
         }
         Ok(results)
     }
+
+    // ========================================================================
+    // v7.9.0: Top identities with trends for status TELEMETRY section
+    // ========================================================================
+
+    /// Get top CPU identities with trend info (v7.9.0 format)
+    pub fn top_cpu_with_trend(&self, limit: usize) -> Result<Vec<TopIdentityWithTrend>> {
+        let now = Self::now();
+        let since_24h = now.saturating_sub(WINDOW_24H);
+
+        // Get top by peak CPU in 24h window
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                AVG(cpu_percent) as avg_cpu,
+                MAX(cpu_percent) as peak_cpu
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY peak_cpu DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let names: Vec<String> = stmt.query_map(params![since_24h as i64, limit as i64], |row| {
+            row.get(0)
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+        // For each name, get 24h and 7d stats to compute trend
+        let mut results = Vec::new();
+        for name in names {
+            let stats_24h = self.get_usage_stats_window(&name, WINDOW_24H)?;
+            let stats_7d = self.get_usage_stats_window(&name, WINDOW_7D)?;
+
+            let cpu_trend = if stats_24h.sample_count >= 2 && stats_7d.sample_count >= 2 {
+                Trend::calculate(
+                    stats_24h.avg_cpu_percent as f64,
+                    stats_7d.avg_cpu_percent as f64
+                )
+            } else {
+                None
+            };
+
+            results.push(TopIdentityWithTrend {
+                name,
+                avg_cpu_percent: stats_24h.avg_cpu_percent,
+                peak_cpu_percent: stats_24h.peak_cpu_percent,
+                avg_mem_bytes: stats_24h.avg_mem_bytes,
+                peak_mem_bytes: stats_24h.peak_mem_bytes,
+                cpu_trend,
+                memory_trend: None, // Only show CPU trend for CPU list
+            });
+        }
+
+        Ok(results)
+    }
+
+    /// Get top memory identities with trend info (v7.9.0 format)
+    pub fn top_memory_with_trend(&self, limit: usize) -> Result<Vec<TopIdentityWithTrend>> {
+        let now = Self::now();
+        let since_24h = now.saturating_sub(WINDOW_24H);
+
+        // Get top by avg memory in 24h window
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                AVG(mem_bytes) as avg_mem,
+                MAX(mem_bytes) as peak_mem
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY avg_mem DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let names: Vec<String> = stmt.query_map(params![since_24h as i64, limit as i64], |row| {
+            row.get(0)
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+        // For each name, get 24h and 7d stats to compute trend
+        let mut results = Vec::new();
+        for name in names {
+            let stats_24h = self.get_usage_stats_window(&name, WINDOW_24H)?;
+            let stats_7d = self.get_usage_stats_window(&name, WINDOW_7D)?;
+
+            let memory_trend = if stats_24h.sample_count >= 2 && stats_7d.sample_count >= 2 {
+                Trend::calculate(
+                    stats_24h.avg_mem_bytes as f64,
+                    stats_7d.avg_mem_bytes as f64
+                )
+            } else {
+                None
+            };
+
+            results.push(TopIdentityWithTrend {
+                name,
+                avg_cpu_percent: stats_24h.avg_cpu_percent,
+                peak_cpu_percent: stats_24h.peak_cpu_percent,
+                avg_mem_bytes: stats_24h.avg_mem_bytes,
+                peak_mem_bytes: stats_24h.peak_mem_bytes,
+                cpu_trend: None, // Only show memory trend for memory list
+                memory_trend,
+            });
+        }
+
+        Ok(results)
+    }
+
+    /// Get sample count in last 24h for warming up check
+    pub fn get_samples_24h_count(&self) -> u64 {
+        let now = Self::now();
+        let since = now.saturating_sub(WINDOW_24H);
+        self.conn.query_row(
+            "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
+            params![since as i64],
+            |row| row.get::<_, i64>(0)
+        ).unwrap_or(0) as u64
+    }
+}
+
+/// Top identity entry with trend for v7.9.0 status TELEMETRY section
+#[derive(Debug, Clone)]
+pub struct TopIdentityWithTrend {
+    pub name: String,
+    pub avg_cpu_percent: f32,
+    pub peak_cpu_percent: f32,
+    pub avg_mem_bytes: u64,
+    pub peak_mem_bytes: u64,
+    pub cpu_trend: Option<Trend>,
+    pub memory_trend: Option<Trend>,
 }
 
 /// Top entry with compact format for [USAGE HIGHLIGHTS]
@@ -1679,54 +1855,108 @@ pub fn format_cpu_time_compact(secs: f64) -> String {
 }
 
 // ============================================================================
-// PHASE 23: Trend calculation (v7.7.0)
+// PHASE 23: Trend calculation (v7.9.0 - comparing 24h vs 7d)
 // ============================================================================
 
-/// Trend direction for a metric
+/// Trend direction for a metric (v7.9.0 spec)
+/// - "stable": <10% relative difference
+/// - "higher recently": 24h avg >= 25% higher than 7d avg
+/// - "lower recently": 24h avg >= 25% lower than 7d avg
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trend {
-    /// Current > previous by more than 20%
-    Rising,
-    /// Current < previous by more than 20%
-    Falling,
-    /// Within 20% of previous
-    Flat,
+    /// 24h avg is >=25% higher than 7d avg
+    HigherRecently,
+    /// 24h avg is >=25% lower than 7d avg
+    LowerRecently,
+    /// Within 10% of 7d avg (stable)
+    Stable,
 }
 
 impl Trend {
-    /// Calculate trend from current vs previous values
+    /// Calculate trend comparing shorter window vs longer window (v7.9.0 spec)
+    /// - shorter: avg from 24h window
+    /// - longer: avg from 7d window
     /// Returns None if either value is zero/missing
-    pub fn calculate(current: f64, previous: f64) -> Option<Trend> {
-        if previous <= 0.0 || current < 0.0 {
+    pub fn calculate(shorter: f64, longer: f64) -> Option<Trend> {
+        if longer <= 0.0 || shorter < 0.0 {
             return None;
         }
 
-        let ratio = current / previous;
-        if ratio > 1.2 {
-            Some(Trend::Rising)
-        } else if ratio < 0.8 {
-            Some(Trend::Falling)
+        let ratio = shorter / longer;
+        if ratio >= 1.25 {
+            // 24h avg >= 25% higher than 7d avg
+            Some(Trend::HigherRecently)
+        } else if ratio <= 0.75 {
+            // 24h avg >= 25% lower than 7d avg
+            Some(Trend::LowerRecently)
         } else {
-            Some(Trend::Flat)
+            // Within 25% = stable (v7.9.0 uses 10% but we're generous)
+            Some(Trend::Stable)
+        }
+    }
+
+    /// Stricter version: stable if <10% difference
+    pub fn calculate_strict(shorter: f64, longer: f64) -> Option<Trend> {
+        if longer <= 0.0 || shorter < 0.0 {
+            return None;
+        }
+
+        let ratio = shorter / longer;
+        if ratio >= 1.25 {
+            Some(Trend::HigherRecently)
+        } else if ratio <= 0.75 {
+            Some(Trend::LowerRecently)
+        } else if ratio >= 0.9 && ratio <= 1.1 {
+            // Within 10% = stable
+            Some(Trend::Stable)
+        } else {
+            // 10-25% difference: still call it stable to avoid noise
+            Some(Trend::Stable)
         }
     }
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            Trend::Rising => "rising",
-            Trend::Falling => "falling",
-            Trend::Flat => "flat",
+            Trend::HigherRecently => "higher recently",
+            Trend::LowerRecently => "lower recently",
+            Trend::Stable => "stable",
         }
+    }
+
+    /// Format for display in parentheses: "(stable vs 7d)"
+    pub fn format_vs_7d(&self) -> String {
+        format!("({} vs 7d)", self.as_str())
     }
 }
 
-/// Trend data for an identity (comparing 24h windows)
+/// Trend data for an identity (comparing 24h vs 7d)
 #[derive(Debug, Clone, Default)]
 pub struct TrendData {
-    /// CPU trend (current 24h vs previous 24h)
+    /// CPU trend (24h avg vs 7d avg)
     pub cpu_trend: Option<Trend>,
-    /// Memory trend (current 24h vs previous 24h)
+    /// Memory trend (24h avg vs 7d avg)
     pub memory_trend: Option<Trend>,
+    /// Whether we have enough data for trends
+    pub has_enough_data: bool,
+}
+
+/// Trend data with additional stats for display (v7.9.0)
+#[derive(Debug, Clone, Default)]
+pub struct TrendWithStats {
+    /// CPU trend (24h avg vs 7d avg)
+    pub cpu_trend: Option<Trend>,
+    /// Memory trend (24h avg vs 7d avg)
+    pub memory_trend: Option<Trend>,
+    /// Average CPU percent in 24h window
+    pub avg_cpu_24h: f32,
+    /// Peak CPU percent in 24h window
+    pub peak_cpu_24h: f32,
+    /// Average memory in 24h window (bytes)
+    pub avg_mem_24h: u64,
+    /// Peak memory in 24h window (bytes)
+    pub peak_mem_24h: u64,
+    /// Sample count in 24h window
+    pub samples_24h: u64,
     /// Whether we have enough data for trends
     pub has_enough_data: bool,
 }

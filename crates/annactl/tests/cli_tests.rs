@@ -1,21 +1,23 @@
-//! CLI integration tests for annactl v7.8.0 "Config Hygiene and Precise Sources"
+//! CLI integration tests for annactl v7.9.0 "Real Telemetry and Trends"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
-//! - annactl status    health, alerts, [TELEMETRY HIGHLIGHTS] (v7.7.0), [ANNA NEEDS]
+//! - annactl status    health, alerts, [TELEMETRY] with trends (v7.9.0), [ANNA NEEDS]
 //! - annactl sw        software overview with [TOP CPU (24h)] and [TOP RAM (24h)]
-//! - annactl sw NAME   software profile with enhanced [CONFIG] and [TELEMETRY] windows
-//! - annactl hw        hardware overview with [HW TELEMETRY] placeholder (v7.7.0)
+//! - annactl sw NAME   software profile with [CONFIG] (v7.8.0), [TELEMETRY] windows + trends
+//! - annactl hw        hardware overview with [HW TELEMETRY] placeholder
 //! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER], [HEALTH], [LOGS]
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
 //!
-//! Snow Leopard telemetry tests (v7.7.0):
+//! Snow Leopard telemetry tests (v7.9.0):
+//! - Unified [TELEMETRY] section with trends (24h vs 7d)
+//! - Activity windows (Last 1h, 24h, 7d, 30d) with sample counts
+//! - Trend classification: stable, higher recently, lower recently
 //! - Warming up behavior when insufficient data
-//! - Windows section shows proper status
-//! - No invented numbers or fake trends
+//! - No invented numbers, no bullshit labels (spiking, exploding)
 //!
 //! Snow Leopard CONFIG hygiene tests (v7.8.0):
 //! - System/User/Other structure with source attribution
@@ -943,12 +945,12 @@ fn test_annactl_hw_cpu_performance() {
 }
 
 // ============================================================================
-// v7.7.0: Snow Leopard Telemetry Tests
+// v7.9.0: Snow Leopard Telemetry Tests (Real Trends)
 // ============================================================================
 
-/// Test status shows [TELEMETRY HIGHLIGHTS] section
+/// Test status shows [TELEMETRY] section with v7.9.0 format
 #[test]
-fn test_snow_leopard_status_telemetry_highlights_section() {
+fn test_snow_leopard_status_telemetry_section() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -961,19 +963,19 @@ fn test_snow_leopard_status_telemetry_highlights_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.7.0: Status must show [TELEMETRY HIGHLIGHTS] section
+    // v7.9.0: Status must show [TELEMETRY] section
     assert!(
-        stdout.contains("[TELEMETRY HIGHLIGHTS]"),
-        "Expected [TELEMETRY HIGHLIGHTS] section, got: {}",
+        stdout.contains("[TELEMETRY]"),
+        "Expected [TELEMETRY] section, got: {}",
         stdout
     );
     assert!(output.status.success());
 }
 
-/// Test status telemetry highlights shows warming up when insufficient data
-/// OR shows proper structure when data is available
+/// Test status telemetry shows warming up when insufficient data
+/// OR shows proper structure when data is available (v7.9.0)
 #[test]
-fn test_snow_leopard_telemetry_highlights_no_fake_numbers() {
+fn test_snow_leopard_telemetry_no_fake_numbers() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -996,26 +998,33 @@ fn test_snow_leopard_telemetry_highlights_no_fake_numbers() {
             stdout
         );
     } else if stdout.contains("Top CPU identities:") {
-        // If showing data, should have proper format with "percent avg"
+        // v7.9.0: If showing data, should have proper format with "percent" and trend
         assert!(
-            stdout.contains("percent avg"),
-            "Top CPU should show 'percent avg' format: {}",
+            stdout.contains("percent"),
+            "Top CPU should show 'percent' format: {}",
             stdout
         );
-        // Should have runtime
-        assert!(
-            stdout.contains("runtime"),
-            "Top CPU should include runtime: {}",
-            stdout
-        );
+        // v7.9.0: Should show trend classification (vs 7d)
+        let has_trend = stdout.contains("stable vs 7d")
+            || stdout.contains("higher recently vs 7d")
+            || stdout.contains("lower recently vs 7d");
+        // Trend is optional if not enough 7d data
+        if stdout.contains("peak") {
+            // If showing peak data, format should be "avg X percent, peak Y percent"
+            assert!(
+                stdout.contains("avg") && stdout.contains("peak"),
+                "Top CPU should show avg and peak: {}",
+                stdout
+            );
+        }
     }
     // Either case is valid - depends on daemon state
     assert!(output.status.success());
 }
 
-/// Test sw detail shows [TELEMETRY] with Windows section
+/// Test sw detail shows [TELEMETRY] with Activity windows (v7.9.0)
 #[test]
-fn test_snow_leopard_sw_telemetry_windows_section() {
+fn test_snow_leopard_sw_telemetry_activity_windows() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -1028,27 +1037,29 @@ fn test_snow_leopard_sw_telemetry_windows_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.7.0: SW detail should show [TELEMETRY] section
+    // v7.9.0: SW detail should show [TELEMETRY] section
     assert!(
         stdout.contains("[TELEMETRY]"),
         "Expected [TELEMETRY] section, got: {}",
         stdout
     );
 
-    // If telemetry is available, should show Windows subsection with proper status
-    if stdout.contains("Windows:") {
-        // Windows should show either "ready" or "warming up"
-        let has_valid_status = stdout.contains("ready") || stdout.contains("warming up") || stdout.contains("no data");
+    // v7.9.0: If telemetry is available, should show Activity windows subsection
+    if stdout.contains("Activity windows:") {
+        // Should show samples and metrics per window
+        let has_valid_format = stdout.contains("samples active")
+            || stdout.contains("no samples")
+            || stdout.contains("no data");
         assert!(
-            has_valid_status,
-            "Windows section should show valid status (ready/warming up/no data): {}",
+            has_valid_format,
+            "Activity windows should show valid format (samples/no samples/no data): {}",
             stdout
         );
     }
     assert!(output.status.success());
 }
 
-/// Test sw detail telemetry windows show 1h, 24h, 7d, 30d
+/// Test sw detail telemetry windows show Last 1h, Last 24h, Last 7d, Last 30d (v7.9.0)
 #[test]
 fn test_snow_leopard_telemetry_four_windows() {
     let binary = get_binary_path();
@@ -1063,33 +1074,33 @@ fn test_snow_leopard_telemetry_four_windows() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // If Windows section exists, should show all four time windows
-    if stdout.contains("Windows:") {
+    // v7.9.0: If Activity windows section exists, should show all four time windows
+    if stdout.contains("Activity windows:") {
         assert!(
-            stdout.contains("1h:"),
-            "Windows should show 1h window: {}",
+            stdout.contains("Last 1h:"),
+            "Activity windows should show Last 1h: {}",
             stdout
         );
         assert!(
-            stdout.contains("24h:"),
-            "Windows should show 24h window: {}",
+            stdout.contains("Last 24h:"),
+            "Activity windows should show Last 24h: {}",
             stdout
         );
         assert!(
-            stdout.contains("7d:"),
-            "Windows should show 7d window: {}",
+            stdout.contains("Last 7d:"),
+            "Activity windows should show Last 7d: {}",
             stdout
         );
         assert!(
-            stdout.contains("30d:"),
-            "Windows should show 30d window: {}",
+            stdout.contains("Last 30d:"),
+            "Activity windows should show Last 30d: {}",
             stdout
         );
     }
     assert!(output.status.success());
 }
 
-/// Test no invented trends when insufficient history
+/// Test no invented trends when insufficient history (v7.9.0)
 #[test]
 fn test_snow_leopard_no_invented_trends() {
     let binary = get_binary_path();
@@ -1104,27 +1115,47 @@ fn test_snow_leopard_no_invented_trends() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Trend section should only appear if there's enough data
-    // If 7d/30d are "warming up", there should be no trend for those windows
-    if stdout.contains("7d:") && stdout.contains("warming up") {
-        // If 7d is warming up, we shouldn't have 48h+ of data for trends
-        // This is a soft check - depends on actual data state
-    }
-
-    // Trend values must be one of: rising, falling, flat (not invented words)
-    if stdout.contains("Trend (24h vs previous 24h):") {
-        let has_valid_trend = stdout.contains("rising")
-            || stdout.contains("falling")
-            || stdout.contains("flat");
+    // v7.9.0: Trend section compares 24h vs 7d
+    // Trend values must be one of: "stable", "higher recently", "lower recently"
+    if stdout.contains("Trend:") && stdout.contains("24h vs 7d") {
+        let has_valid_trend = stdout.contains("stable")
+            || stdout.contains("higher recently")
+            || stdout.contains("lower recently");
         assert!(
             has_valid_trend,
-            "Trend should only use 'rising', 'falling', or 'flat': {}",
+            "Trend should only use 'stable', 'higher recently', or 'lower recently': {}",
             stdout
         );
-        // Must NOT contain invented labels
+        // Must NOT contain bullshit labels
         assert!(
-            !stdout.contains("hot") && !stdout.contains("noisy") && !stdout.contains("stable"),
-            "Trend should not use invented labels like 'hot', 'noisy', 'stable': {}",
+            !stdout.contains("spiking") && !stdout.contains("exploding") && !stdout.contains("hot"),
+            "Trend should not use invented labels like 'spiking', 'exploding', 'hot': {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test trend shows 24h vs 7d comparison (v7.9.0)
+#[test]
+fn test_snow_leopard_trend_24h_vs_7d() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "pacman"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.9.0: If Trend section exists, should compare 24h vs 7d
+    if stdout.contains("Trend:") && stdout.contains("CPU:") {
+        assert!(
+            stdout.contains("24h vs 7d"),
+            "Trend should compare 24h vs 7d: {}",
             stdout
         );
     }
@@ -1191,7 +1222,7 @@ fn test_snow_leopard_no_html_junk_in_telemetry() {
     assert!(output.status.success());
 }
 
-/// Test telemetry source attribution is shown
+/// Test telemetry source attribution is shown (v7.9.0)
 #[test]
 fn test_snow_leopard_telemetry_source_attribution() {
     let binary = get_binary_path();
@@ -1206,20 +1237,20 @@ fn test_snow_leopard_telemetry_source_attribution() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.7.0: Telemetry section should show source attribution
+    // v7.9.0: Telemetry section should show source attribution
     if stdout.contains("[TELEMETRY]") {
         assert!(
-            stdout.contains("/var/lib/anna") || stdout.contains("Anna telemetry"),
-            "TELEMETRY should attribute data source: {}",
+            stdout.contains("Anna daemon") || stdout.contains("sampling"),
+            "TELEMETRY should attribute data source (Anna daemon, sampling): {}",
             stdout
         );
     }
     assert!(output.status.success());
 }
 
-/// Test status telemetry highlights shows Notes section when data is available
+/// Test status telemetry shows window header when data is available (v7.9.0)
 #[test]
-fn test_snow_leopard_telemetry_highlights_notes() {
+fn test_snow_leopard_telemetry_window_header() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -1232,16 +1263,16 @@ fn test_snow_leopard_telemetry_highlights_notes() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // If TELEMETRY HIGHLIGHTS shows data (not warming up), should include Notes
+    // v7.9.0: If showing data, should show Window header with 24h and sampling interval
     if stdout.contains("Top CPU identities:") {
         assert!(
-            stdout.contains("Notes:"),
-            "TELEMETRY HIGHLIGHTS should include Notes section: {}",
+            stdout.contains("Window: last 24h"),
+            "TELEMETRY should include Window header: {}",
             stdout
         );
         assert!(
-            stdout.contains("never estimated"),
-            "Notes should mention values are not estimated: {}",
+            stdout.contains("sampling every"),
+            "Window header should mention sampling interval: {}",
             stdout
         );
     }

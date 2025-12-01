@@ -886,14 +886,14 @@ fn print_service_config_section(svc_name: &str) {
     println!();
 }
 
-/// Print [TELEMETRY] section with SQLite-based usage stats - v7.7.0 windows format
+/// Print [TELEMETRY] section with v7.9.0 format: per-identity windows with trends
 fn print_telemetry_section(name: &str) {
     use anna_common::config::AnnaConfig;
     use anna_common::{TelemetryDb, format_bytes_human,
                       WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D};
 
     println!("{}", "[TELEMETRY]".cyan());
-    println!("  {}", "(source: Anna telemetry database under /var/lib/anna)".dimmed());
+    println!("  {}", "(source: Anna daemon, sampling every 30s)".dimmed());
 
     let config = AnnaConfig::load();
     if !config.telemetry.enabled {
@@ -908,7 +908,7 @@ fn print_telemetry_section(name: &str) {
         Some(db) => db,
         None => {
             println!();
-            println!("  No telemetry recorded for this identity yet.");
+            println!("  No telemetry samples collected for this identity yet.");
             println!();
             return;
         }
@@ -917,139 +917,71 @@ fn print_telemetry_section(name: &str) {
     // Check if we have data for this object
     if !db.has_key(name) {
         println!();
-        println!("  No telemetry recorded for this identity yet.");
+        println!("  No telemetry samples collected for this identity yet.");
         println!();
         return;
     }
 
-    // Get window status
-    let window_status = db.get_window_status(name);
+    // Get stats for each window
+    let stats_1h = db.get_usage_stats_window(name, WINDOW_1H).ok();
+    let stats_24h = db.get_usage_stats_window(name, WINDOW_24H).ok();
+    let stats_7d = db.get_usage_stats_window(name, WINDOW_7D).ok();
+    let stats_30d = db.get_usage_stats_window(name, WINDOW_30D).ok();
 
-    println!();
-
-    // Windows section
-    println!("  Windows:");
-    println!("    1h:   {}", format_window_status(&window_status, "1h"));
-    println!("    24h:  {}", format_window_status(&window_status, "24h"));
-    println!("    7d:   {}", format_window_status(&window_status, "7d"));
-    println!("    30d:  {}", format_window_status(&window_status, "30d"));
-    println!();
-
-    // CPU section (per window)
-    let windows = [
-        ("Last 1h", WINDOW_1H, window_status.w1h_ready),
-        ("Last 24h", WINDOW_24H, window_status.w24h_ready),
-        ("Last 7d", WINDOW_7D, window_status.w7d_ready),
-        ("Last 30d", WINDOW_30D, window_status.w30d_ready),
-    ];
-
-    let mut has_cpu_data = false;
-    for (label, window_secs, ready) in &windows {
-        if *ready {
-            if let Ok(stats) = db.get_enhanced_usage_stats(name, *window_secs) {
-                if stats.has_data && !has_cpu_data {
-                    println!("  CPU (per identity):");
-                    has_cpu_data = true;
-                }
-                if stats.has_data {
-                    let cpu_avg = if stats.sample_count > 0 {
-                        (stats.cpu_time_total_secs / (stats.sample_count as f64 * 15.0)) * 100.0
-                    } else {
-                        0.0
-                    };
-                    println!("    {}:", label);
-                    println!("      Avg:     {:.1} percent", cpu_avg);
-                    println!("      Peak:    {:.1} percent", stats.cpu_peak_percent);
-                    println!("      Samples: {}", stats.sample_count);
-                }
-            }
-        }
-    }
-    if has_cpu_data {
+    // Check if we have very few samples
+    let total_samples = stats_30d.as_ref().map(|s| s.sample_count).unwrap_or(0);
+    if total_samples == 0 {
         println!();
-    }
-
-    // Memory RSS section
-    let mut has_mem_data = false;
-    for (label, window_secs, ready) in &windows {
-        if *ready {
-            if let Ok(stats) = db.get_enhanced_usage_stats(name, *window_secs) {
-                if stats.has_data && !has_mem_data {
-                    println!("  Memory RSS:");
-                    has_mem_data = true;
-                }
-                if stats.has_data {
-                    println!("    {}:", label);
-                    println!("      Avg:     {}", format_bytes_human(stats.rss_avg_bytes));
-                    println!("      Peak:    {}", format_bytes_human(stats.rss_peak_bytes));
-                }
-            }
-        }
-    }
-    if has_mem_data {
+        println!("  No telemetry samples collected for this identity yet.");
         println!();
+        return;
     }
 
-    // Usage section (invocations and runtime)
-    println!("  Usage:");
-    if let Ok(launches) = db.get_windowed_launches(name) {
-        println!("    Invocations (command runs):");
-        println!("      1h:  {}", launches.last_1h);
-        println!("      24h: {}", launches.last_24h);
-        println!("      7d:  {}", launches.last_7d);
-        println!("      30d: {}", launches.last_30d);
-    }
-
-    // Total runtime per window
-    println!("    Total runtime:");
-    for (label, window_secs, ready) in &windows {
-        if *ready {
-            if let Ok(stats) = db.get_enhanced_usage_stats(name, *window_secs) {
-                if stats.has_data {
-                    // Runtime = sample_count * sample_interval
-                    let runtime_secs = stats.sample_count as f64 * 15.0;
-                    let label_short = label.trim_start_matches("Last ");
-                    println!("      {}: {}", label_short, format_runtime_display(runtime_secs));
-                }
-            }
-        }
-    }
     println!();
 
-    // Trend section (24h vs previous 24h)
+    // Activity windows section (v7.9.0 format)
+    println!("  Activity windows:");
+
+    // Helper to format a window line
+    let format_window = |label: &str, stats: &Option<anna_common::UsageStats>| {
+        if let Some(s) = stats {
+            if s.sample_count > 0 {
+                format!("    {}:   {} samples active, avg CPU {:.1} percent, peak {:.1} percent, avg RSS {}, peak {}",
+                    label,
+                    s.sample_count,
+                    s.avg_cpu_percent,
+                    s.peak_cpu_percent,
+                    format_bytes_human(s.avg_mem_bytes),
+                    format_bytes_human(s.peak_mem_bytes))
+            } else {
+                format!("    {}:   no samples", label)
+            }
+        } else {
+            format!("    {}:   no data", label)
+        }
+    };
+
+    println!("{}", format_window("Last 1h", &stats_1h));
+    println!("{}", format_window("Last 24h", &stats_24h));
+    println!("{}", format_window("Last 7d", &stats_7d));
+    println!("{}", format_window("Last 30d", &stats_30d));
+    println!();
+
+    // Trend section (24h vs 7d, v7.9.0 spec)
     if let Ok(trend) = db.get_trend(name) {
         if trend.has_enough_data {
-            println!("  Trend (24h vs previous 24h):");
+            println!("  Trend:");
             if let Some(cpu_trend) = trend.cpu_trend {
-                println!("    CPU:    {}", cpu_trend.as_str());
+                println!("    CPU:    {} (24h vs 7d)", cpu_trend.as_str());
             }
             if let Some(mem_trend) = trend.memory_trend {
-                println!("    Memory: {}", mem_trend.as_str());
+                println!("    Memory: {} (24h vs 7d)", mem_trend.as_str());
             }
-            println!("    {}", "Note: Trend is calculated by simple numeric comparison of window averages, not guesswork.".dimmed());
+            println!();
+        } else if total_samples < 10 {
+            println!("  Telemetry still warming up for this identity (very few samples available).");
             println!();
         }
     }
 }
 
-/// Format window status for display
-fn format_window_status(status: &anna_common::WindowStatusInfo, window: &str) -> String {
-    status.format_window(window)
-}
-
-/// Format runtime for display (e.g., "52m", "7h 13m", "1d 3h")
-fn format_runtime_display(secs: f64) -> String {
-    if secs < 60.0 {
-        format!("{:.0}s", secs)
-    } else if secs < 3600.0 {
-        format!("{:.0}m", secs / 60.0)
-    } else if secs < 86400.0 {
-        let hours = (secs / 3600.0).floor() as u64;
-        let mins = ((secs % 3600.0) / 60.0).round() as u64;
-        format!("{}h {:02}m", hours, mins)
-    } else {
-        let days = (secs / 86400.0).floor() as u64;
-        let hours = ((secs % 86400.0) / 3600.0).round() as u64;
-        format!("{}d {}h", days, hours)
-    }
-}

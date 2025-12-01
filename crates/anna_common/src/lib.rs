@@ -82,6 +82,7 @@ pub use telemetry::{
 // v7.5.0: Enhanced with CPU time, exec counts, hotspots
 // v7.6.0: Added MaintenanceResult for pruning
 // v7.7.0: Added compact per-window stats (AllWindowStats, WindowStats, TopCompactEntry)
+// v7.9.0: Added trend classification (24h vs 7d), TopIdentityWithTrend, TrendWithStats
 pub use telemetry_db::{
     TelemetryDb, ProcessTelemetrySample, ObjectTelemetry, TelemetryStats,
     SampleCounts, UsageStats, GlobalPeak, DataStatus, MaintenanceResult,
@@ -90,6 +91,8 @@ pub use telemetry_db::{
     WindowStats, AllWindowStats, TopCompactEntry, format_cpu_time_compact,
     // v7.7.0: Trend and window status types
     Trend, TrendData, WindowStatusInfo, TopHighlightEntry,
+    // v7.9.0: Enhanced trend types
+    TrendWithStats, TopIdentityWithTrend,
     TELEMETRY_DB_PATH,
     WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D,
     format_cpu_time, format_bytes_human,

@@ -1,18 +1,18 @@
-//! Status Command v7.7.0 - Anna-only Health with Telemetry Highlights
+//! Status Command v7.9.0 - Real Telemetry with Trends
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
 //! - [DAEMON]              State, uptime, PID, restarts
 //! - [HEALTH]              Overall health + telemetry hotspots
 //! - [INVENTORY]           What Anna has indexed + sync status
-//! - [TELEMETRY]           Real telemetry stats from SQLite
-//! - [TELEMETRY HIGHLIGHTS] Top CPU/memory consumers (v7.7.0)
+//! - [TELEMETRY]           Real telemetry with top CPU/memory and trends (v7.9.0)
 //! - [UPDATES]             Auto-update schedule and last result
 //! - [PATHS]               Config, data, logs paths
 //! - [INTERNAL ERRORS]     Anna's own pipeline errors
 //! - [ALERTS]              Hardware alerts from health checks
 //! - [ANNA NEEDS]          Missing tools and docs (v7.6.0)
 //!
+//! v7.9.0: Unified [TELEMETRY] section with trends (24h vs 7d)
 //! NO journalctl system errors. NO host-wide log counts.
 
 use anyhow::Result;
@@ -51,11 +51,8 @@ pub async fn run() -> Result<()> {
     // [INVENTORY]
     print_inventory_section(&daemon_stats);
 
-    // [TELEMETRY]
-    print_telemetry_section();
-
-    // [TELEMETRY HIGHLIGHTS] - v7.7.0
-    print_telemetry_highlights_section();
+    // [TELEMETRY] - v7.9.0: Unified section with trends
+    print_telemetry_section_v79();
 
     // [UPDATES]
     print_updates_section();
@@ -312,109 +309,21 @@ fn print_inventory_section(stats: &Option<DaemonStats>) {
     println!();
 }
 
-fn print_telemetry_section() {
+
+/// v7.9.0: Unified [TELEMETRY] section with trends
+/// Shows: Window, Top CPU identities, Top memory identities (with trend vs 7d)
+fn print_telemetry_section_v79() {
+    use anna_common::config::AnnaConfig;
+
     println!("{}", "[TELEMETRY]".cyan());
 
-    // Check config for telemetry settings
     let config = AnnaConfig::load();
-
     if !config.telemetry.enabled {
         println!("  {}", "Telemetry disabled in config (/etc/anna/config.toml).".dimmed());
         println!();
         return;
     }
 
-    // Show effective config values
-    let interval = config.telemetry.effective_sample_interval();
-    let retention = config.telemetry.effective_retention_days();
-    let max_keys = config.telemetry.effective_max_keys();
-
-    // Try to open telemetry database (read-only for CLI)
-    match TelemetryDb::open_readonly() {
-        Some(db) => {
-            match db.get_stats() {
-                Ok(stats) => {
-                    if stats.total_samples == 0 {
-                        println!("  {}", "(no telemetry collected yet)".dimmed());
-                        println!("  Config:     {}s interval, {}d retention, {} max keys",
-                            interval, retention, max_keys);
-                    } else {
-                        // Basic stats
-                        println!("  Samples:    {}  {}", stats.total_samples, format!("({} processes)", stats.unique_processes).dimmed());
-
-                        // Data status
-                        let data_status = db.get_data_status();
-                        let status_str = match &data_status {
-                            DataStatus::NoData => "no data".yellow().to_string(),
-                            DataStatus::Disabled => "disabled".dimmed().to_string(),
-                            DataStatus::NotEnoughData { minutes } =>
-                                format!("{} ({:.0}m collected)", "not enough data".yellow(), minutes),
-                            DataStatus::PartialWindow { hours } =>
-                                format!("{} ({:.1}h collected)", "partial window".yellow(), hours),
-                            DataStatus::Ok { hours } =>
-                                format!("{} ({:.1}h)", "OK".green(), hours),
-                        };
-                        println!("  Status:     {}", status_str);
-
-                        // Global peaks (only show if we have enough data)
-                        if matches!(data_status, DataStatus::PartialWindow { .. } | DataStatus::Ok { .. }) {
-                            if let Ok(Some(cpu_peak)) = db.get_global_peak_cpu_24h() {
-                                println!("  Peak CPU:   {:.1}% ({})", cpu_peak.value, cpu_peak.name.cyan());
-                            }
-                            if let Ok(Some(mem_peak)) = db.get_global_peak_mem_24h() {
-                                println!("  Peak mem:   {} ({})", format_bytes(mem_peak.value as u64), mem_peak.name.cyan());
-                            }
-                        }
-
-                        // Database size and config
-                        let size_str = format_bytes(stats.db_size_bytes);
-                        println!("  DB size:    {}", size_str);
-                        println!("  Config:     {}s interval, {}d retention, {} max keys",
-                            interval, retention, max_keys);
-                    }
-                }
-                Err(_) => {
-                    println!("  {}", "(failed to read telemetry stats)".dimmed());
-                }
-            }
-        }
-        None => {
-            println!("  {}", "(telemetry DB not available)".dimmed());
-            println!("  Config:     {}s interval, {}d retention, {} max keys",
-                interval, retention, max_keys);
-        }
-    }
-
-    println!();
-}
-
-fn format_bytes(bytes: u64) -> String {
-    if bytes >= 1024 * 1024 * 1024 {
-        format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
-    } else if bytes >= 1024 * 1024 {
-        format!("{:.1} MiB", bytes as f64 / (1024.0 * 1024.0))
-    } else if bytes >= 1024 {
-        format!("{:.1} KiB", bytes as f64 / 1024.0)
-    } else {
-        format!("{} B", bytes)
-    }
-}
-
-/// Print [TELEMETRY HIGHLIGHTS] section - v7.7.0
-/// Shows top 3 CPU and memory consumers with trends
-fn print_telemetry_highlights_section() {
-    println!("{}", "[TELEMETRY HIGHLIGHTS]".cyan());
-
-    // Check config for telemetry settings
-    let config = AnnaConfig::load();
-
-    if !config.telemetry.enabled {
-        println!("  {}", "(telemetry disabled)".dimmed());
-        println!();
-        return;
-    }
-
-    // Try to open telemetry database (read-only for CLI)
     let db = match TelemetryDb::open_readonly() {
         Some(db) => db,
         None => {
@@ -424,71 +333,59 @@ fn print_telemetry_highlights_section() {
         }
     };
 
-    // Check data status - need at least 2h of samples for meaningful data
-    let data_status = db.get_data_status();
-    let coverage_hours = match &data_status {
-        DataStatus::Ok { hours } | DataStatus::PartialWindow { hours } => *hours,
-        _ => 0.0,
-    };
+    // Check sample count for warming up detection
+    let samples_24h = db.get_samples_24h_count();
+    let interval = config.telemetry.effective_sample_interval();
 
-    if coverage_hours < 2.0 {
-        println!("  Telemetry database still warming up (less than 2h of samples).");
+    // Need at least 20 samples in 24h window to show data
+    if samples_24h < 20 {
+        println!("  Telemetry still warming up (only {} samples collected in the last 24h).",
+            samples_24h);
         println!();
         return;
     }
 
     // Show window header
-    println!("  Window: last 24h");
+    println!("  Window: last 24h (sampling every {}s)", interval);
     println!();
 
-    // Get top CPU consumers (24h window)
-    let top_cpu = db.top_cpu_with_runtime(WINDOW_24H, 3).unwrap_or_default();
-    let top_memory = db.top_memory_with_peak(WINDOW_24H, 3).unwrap_or_default();
-
-    if top_cpu.is_empty() && top_memory.is_empty() {
-        println!("  {}", "(no process data yet)".dimmed());
-        println!();
-        return;
-    }
-
-    // Top CPU identities (with runtime)
-    if !top_cpu.is_empty() {
-        println!("  Top CPU identities:");
-        for (i, entry) in top_cpu.iter().enumerate() {
-            let runtime = format_runtime_short(entry.runtime_secs);
-            println!("    {}. {:<16} {:>5.1} percent avg   {} runtime",
-                i + 1,
-                entry.name.cyan(),
-                entry.avg_cpu_percent,
-                runtime);
+    // Top CPU identities (max 3)
+    if let Ok(top_cpu) = db.top_cpu_with_trend(3) {
+        if !top_cpu.is_empty() {
+            println!("  Top CPU identities:");
+            for entry in &top_cpu {
+                let trend_str = match entry.cpu_trend {
+                    Some(trend) => format!("  {}", trend.format_vs_7d().dimmed()),
+                    None => String::new(),
+                };
+                println!("    {:<16} avg {:.1} percent, peak {:.1} percent{}",
+                    entry.name.cyan(),
+                    entry.avg_cpu_percent,
+                    entry.peak_cpu_percent,
+                    trend_str);
+            }
+            println!();
         }
-        println!();
     }
 
-    // Top memory identities (peak RSS)
-    if !top_memory.is_empty() {
-        println!("  Top memory identities (peak RSS):");
-        for (i, entry) in top_memory.iter().enumerate() {
-            println!("    {}. {:<16} {} peak",
-                i + 1,
-                entry.name.cyan(),
-                format_bytes_human(entry.max_rss));
+    // Top memory identities (max 3)
+    if let Ok(top_mem) = db.top_memory_with_trend(3) {
+        if !top_mem.is_empty() {
+            println!("  Top memory identities:");
+            for entry in &top_mem {
+                let trend_str = match entry.memory_trend {
+                    Some(trend) => format!("  {}", trend.format_vs_7d().dimmed()),
+                    None => String::new(),
+                };
+                println!("    {:<16} avg {}, peak {}{}",
+                    entry.name.cyan(),
+                    format_bytes_human(entry.avg_mem_bytes),
+                    format_bytes_human(entry.peak_mem_bytes),
+                    trend_str);
+            }
+            println!();
         }
-        println!();
     }
-
-    // Notes section
-    println!("  Notes:");
-    println!("    {}", "- Only identities with enough data in the last 24h are listed.".dimmed());
-    println!("    {}", "- Values are derived from samples in /var/lib/anna, never estimated.".dimmed());
-    println!();
-}
-
-/// Format runtime for display (e.g., "0h 47m", "4h 15m")
-fn format_runtime_short(secs: f64) -> String {
-    let hours = (secs / 3600.0).floor() as u64;
-    let mins = ((secs % 3600.0) / 60.0).round() as u64;
-    format!("{}h {:02}m", hours, mins)
 }
 
 fn print_updates_section() {
