@@ -1,8 +1,8 @@
-# Anna v6.0.0 "Grounded System Intelligence"
+# Anna v7.0.0 "Minimal Surface"
 
 **System Intelligence Daemon for Linux**
 
-> v6.0.0: Complete epistemological rebuild. Every number has a verifiable source. No invented metrics, no hallucinated descriptions.
+> v7.0.0: Only 4 commands. Clean separation of Anna-internal metrics from host monitoring. Every number traceable to real system commands.
 
 ---
 
@@ -12,8 +12,7 @@ Anna is a system intelligence daemon that:
 
 - **Inventories** ALL commands on PATH, ALL packages, ALL systemd services
 - **Monitors** process activity (CPU/memory) every 15 seconds
-- **Indexes** errors and warnings from journalctl
-- **Detects** intrusion patterns (SSH failures, sudo violations)
+- **Indexes** errors and warnings from journalctl (per-service only)
 - **Tracks** service state changes and package updates
 
 ## What Anna Does NOT Do
@@ -28,48 +27,46 @@ Anna is a system intelligence daemon that:
 ## Commands
 
 ```bash
-# Daemon health and status
+# Show help
+annactl
+
+# Anna-only health and status
 annactl status
 
-# Daemon activity statistics
-annactl stats
+# Knowledge database overview
+annactl kdb
 
-# Knowledge overview by category
-annactl knowledge
+# Object profile (package, command, or service)
+annactl kdb vim
+annactl kdb systemd-journald
 
-# Coverage and quality statistics
-annactl knowledge stats
-
-# Full profile of a specific object
-annactl knowledge <name>
-
-# List objects by category
-annactl knowledge editors
-annactl knowledge shells
-annactl knowledge terminals
-annactl knowledge browsers
-annactl knowledge services
-
-# System information (no LLM needed)
-annactl cpu
-annactl ram
-annactl disk
-
-# Clear all data and restart
-annactl reset
-
-# Version info
-annactl version
-
-# Help
-annactl help
+# Category overview
+annactl kdb editors
+annactl kdb shells
+annactl kdb terminals
+annactl kdb browsers
+annactl kdb compositors
+annactl kdb tools
+annactl kdb services
 ```
 
-That's it. Clean commands. No flags, no complexity.
+That's it. 4 commands. No flags, no complexity.
 
 ---
 
 ## Example Output
+
+### Help
+
+```
+  Anna CLI
+------------------------------------------------------------
+  annactl           show this help
+  annactl status    health and runtime of Anna
+  annactl kdb       overview of knowledge database
+  annactl kdb NAME  profile for a package, command or category
+------------------------------------------------------------
+```
 
 ### Status
 
@@ -78,127 +75,132 @@ That's it. Clean commands. No flags, no complexity.
 ------------------------------------------------------------
 
 [VERSION]
-  annactl:  v5.5.0
-  annad:    v5.5.0
+  Anna:       v7.0.0
 
 [DAEMON]
-  Status:   running (up 3h)
-  Data:     R/W  /var/lib/anna
+  Status:     running
+  Uptime:     3h 12m
+  PID:        1234
+  Restarts:   0 (24h)
 
 [INVENTORY]
-  Commands:   2656/2685 (99%)
   Packages:   972
-  Services:   260/260 (100%)
-  Status:     complete
+  Commands:   2656
+  Services:   260
+  Sync:       idle (scan 45s ago)
 
-[HEALTH]                          # Only shown if issues exist!
-  (last 24 hours)
-  Errors:      54
-  Warnings:    50
+[UPDATES]
+  Mode:       auto
+  Interval:   10m
+  Last check: 5m ago
+  Result:     ok
+  Next check: 5m
 
-[SCANNER]
-  Status:      running (last 6s ago)
+[PATHS]
+  Config:     /etc/anna/config.toml
+  Data:       /var/lib/anna
+  Logs:       journalctl -u annad
+
+[INTERNAL ERRORS]
+  Crashes:         0
+  Command errors:  0
+  Parse errors:    0
+
+------------------------------------------------------------
+```
+
+### KDB Overview
+
+```
+  Anna Knowledge Database
+------------------------------------------------------------
+
+[OVERVIEW]
+  Packages known:   972
+  Commands known:   2656
+  Services known:   260
+
+[CATEGORIES]
+  Editors:          vim, nvim, code
+  Terminals:        foot, alacritty
+  Shells:           bash, zsh, fish
+  Compositors:      hyprland, sway
+  Browsers:         firefox, chromium
+  Tools:            git, curl, wget, grep, awk, sed, ...
+
+[USAGE HIGHLIGHTS]
+  Usage telemetry: not collected yet
 
 ------------------------------------------------------------
 ```
 
-### Knowledge Category
+### KDB Object (Package)
 
 ```
-  Anna Knowledge: Editors
-------------------------------------------------------------
-
-  5 editors installed:
-
-  helix                Helix text editor (0.24.0)
-  nano                 GNU Nano text editor (8.0-1)
-  nvim                 Neovim text editor (0.10.1-1)
-  vim                  Vi Improved text editor (9.1.0-1)
-  code                 Visual Studio Code (1.95.0-1)
-
-------------------------------------------------------------
-
-  'annactl knowledge <name>' for full profile.
-```
-
-### Knowledge Detail (Package)
-
-```
-  Anna Knowledge: nano
+  Anna KDB: vim
 ------------------------------------------------------------
 
 [IDENTITY]
-  Name:        nano
-  Description: GNU Nano text editor
-  Category:    editor
-  Types:       command, package
+  Name:        vim
+  Description: Vi Improved, a highly configurable...
+               (source: pacman -Qi)
 
-[INSTALLATION]
-  Installed:  yes
-  Package:    nano (8.0-1)
-  Binary:     /usr/bin/nano
+[PACKAGE]
+  (source: pacman -Qi)
+  Version:     9.1.0-1
+  Source:      official
+  Installed:   explicit
+  Size:        5.0 MiB
+  Date:        Wed 12 Nov 2025 11:27:12 PM CET
 
 [USAGE]
-  (since daemon start)
-  Runs:       12 observed
-  First seen: 3h ago
-  Last seen:  5m ago
-  CPU time:   1.2s (total)
-  Peak memory: 8.5MB
+  (source: Anna telemetry, when available)
+  Telemetry not collected yet
+
+[COMMAND]
+  (source: which)
+  Path:        /usr/bin/vim
+  Man:         Vi IMproved, a programmer's text editor
 
 ------------------------------------------------------------
 ```
 
-### Knowledge Detail (Service)
+### KDB Object (Service with Logs)
 
 ```
-  Anna Knowledge: systemd-journald
+  Anna KDB: systemd-journald
 ------------------------------------------------------------
 
 [IDENTITY]
-  Name:        systemd-journald
-  Description: System service (systemd service)
-  Category:    service
-  Types:       service
+  Name:        systemd-journald.service
+  Description: Journal Service
+               (source: systemctl show)
 
 [SERVICE]
-  Unit:       systemd-journald.service
-  State:      running
-  Enabled:    static
+  (source: systemctl)
+  Unit:        systemd-journald.service
+  State:       running
+  Enabled:     static
 
-[USAGE]
-  (since daemon start)
-  Type:       daemon (long-running process)
-  First seen: 3h ago
-  Last seen:  5s ago
-  CPU time:   15.4s (total)
-  Peak memory: 42.1MB
+[LOGS]
+  (journalctl -b -u systemd-journald.service -p warning..alert -n 10)
+
+  (no warnings or errors this boot)
 
 ------------------------------------------------------------
 ```
 
-### CPU Info
+### KDB Category
 
 ```
-  CPU Information
+  Anna KDB: Editors
 ------------------------------------------------------------
 
-[MODEL]
-  AMD Ryzen 9 7950X 16-Core Processor
+  3 editors installed:
 
-[CORES]
-  32 logical cores
-
-[LOAD AVERAGE]
-  1m:  0.52
-  5m:  0.61
-  15m: 0.55
-
-[TOP PROCESSES BY CPU]
-  PID %CPU %MEM COMMAND
-  1234 12.5  2.1 firefox
-  5678  8.2  1.5 code
-  9012  3.1  0.8 hyprland
+  vim         Vi Improved, a highly configurable... (9.1.0-1)
+  nvim        Neovim text editor (0.10.1-1)
+  code        Visual Studio Code (1.95.0-1)
 
 ------------------------------------------------------------
 ```
@@ -211,6 +213,14 @@ That's it. Clean commands. No flags, no complexity.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
+```
+
+### Manual Install
+
+```bash
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.0.0/annad-7.0.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.0.0/annactl-7.0.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
 ### Build from Source
@@ -253,24 +263,10 @@ annad (daemon)
 ### Data Files
 
 | Path | Content |
-|------|---------
+|------|---------|
 | `/var/lib/anna/knowledge/` | Object inventory (JSON) |
 | `/var/lib/anna/telemetry/` | Event logs (pipe-delimited) |
 | `/etc/anna/config.toml` | Configuration |
-
-### Event Log Format
-
-```
-timestamp|type|key|value1|value2|...
-```
-
-Example:
-```
-1733052000|process|firefox|1234|15.5|536870912
-1733052000|command|git|status|0|100
-1733052000|service|sshd|active|active
-1733052000|package|linux|upgraded|6.6.1|6.6.2
-```
 
 ---
 
@@ -308,14 +304,10 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v5.5.0** | **Telemetry Reset** - No LLM. Fixed service display, category queries, proper reset, cpu/ram/disk commands, error pipeline with top offenders. |
-| v5.4.1 | Truthful Telemetry - Real-time package tracking, correct usage counting, expanded categorization. |
-| v5.4.0 | Signal Not Noise - Enhanced version command, status with ETA, full descriptions. |
-| v5.3.0 | Telemetry Core - Complete reset. No LLM, no Q&A. Pure telemetry daemon. |
-| v5.2.6 | Meaningful Metrics - Every metric has explicit time window/units |
-| v5.2.5 | Knowledge is the Machine - Installed-only views, relationships |
-| v5.2.0 | Knowledge System - System profiler, full inventory |
-| v5.1.0 | Knowledge Foundation - Initial inventory system |
+| **v7.0.0** | **Minimal Surface** - Only 4 commands. Clean separation of Anna vs host. Per-service logs only. |
+| v6.1.0 | Clean Separation - status/stats/knowledge split |
+| v6.0.0 | Grounded System Intelligence - Complete rebuild |
+| v5.5.0 | Telemetry Reset - No LLM, pure observation |
 
 ---
 
@@ -332,9 +324,8 @@ Issues and PRs welcome at: https://github.com/jjgarcianorway/anna-assistant
 **Design Principles:**
 
 1. Pure observation - no modification
-2. Explicit time windows - every metric is scoped
-3. Relevance only - hide empty sections
+2. Explicit sources - every number traceable to a real command
+3. Minimal surface - only 4 commands
 4. ASCII output - no Unicode dependencies
 5. Local only - no cloud, no external calls
-6. Services are services - not "installed: no"
-7. Real telemetry only - no fabricated metrics
+6. Clean separation - Anna internals vs host monitoring
