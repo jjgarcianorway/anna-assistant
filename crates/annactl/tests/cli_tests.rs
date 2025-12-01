@@ -1,11 +1,13 @@
-//! CLI integration tests for annactl
+//! CLI integration tests for annactl v5.4.0
 //!
-//! Tests the locked CLI surface:
-//! - annactl - Start REPL
-//! - annactl "<request>" - One-shot natural language request
-//! - annactl status - Compact status summary
-//! - annactl -V / --version / version (case-insensitive) - Show version
-//! - annactl -h / --help / help (case-insensitive) - Show help
+//! Tests the locked CLI surface (pure telemetry daemon):
+//! - annactl status - Daemon status
+//! - annactl stats - Activity stats
+//! - annactl knowledge - Knowledge overview
+//! - annactl knowledge <name> - Object detail
+//! - annactl reset - Clear data
+//! - annactl version - Version info
+//! - annactl help - Help info
 
 use std::env;
 use std::path::PathBuf;
@@ -70,8 +72,8 @@ fn test_annactl_version_short() {
     assert!(output.status.success(), "annactl -V should succeed");
 }
 
-/// Test 'version' word goes through daemon and includes detailed status
-/// Note: -V/--version are now instant (v0.14.4+), only 'version' word uses daemon
+/// Test 'version' word shows detailed version output
+/// v5.4.0: Enhanced version command with install paths
 #[test]
 fn test_annactl_version_word_detailed_output() {
     let binary = get_binary_path();
@@ -85,16 +87,14 @@ fn test_annactl_version_word_detailed_output() {
         .expect("Failed to run annactl");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // v0.14.4+: 'version' word goes through daemon for detailed output
-    // Either shows detailed version OR connection error if daemon not running
+    // v5.4.0: Version command shows [VERSION] section with install paths
     assert!(
-        stdout.contains("annactl v") || stderr.contains("daemon") || stderr.contains("connection"),
-        "Expected version info or daemon connection error, got stdout: {}, stderr: {}",
-        stdout,
-        stderr
+        stdout.contains("Anna Version") && stdout.contains("[VERSION]"),
+        "Expected version info with sections, got stdout: {}",
+        stdout
     );
+    assert!(output.status.success(), "annactl version should succeed");
 }
 
 /// Test --help flag
@@ -252,18 +252,14 @@ fn test_annactl_status_command() {
         .expect("Failed to run annactl");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // v0.11.0: Status command should show ANNA STATUS section or connection error
+    // v5.4.0: Status command shows [VERSION], [DAEMON], [INVENTORY] sections
     assert!(
-        stdout.contains("ANNA STATUS")
-            || stdout.contains("Daemon:")
-            || stderr.contains("daemon")
-            || stderr.contains("connection"),
-        "Expected status output or daemon connection error, got stdout: {}, stderr: {}",
-        stdout,
-        stderr
+        stdout.contains("Anna Status") && stdout.contains("[VERSION]"),
+        "Expected status output with sections, got stdout: {}",
+        stdout
     );
+    assert!(output.status.success(), "annactl status should succeed");
 }
 
 /// Test 'status' command is case-insensitive
@@ -282,18 +278,13 @@ fn test_annactl_status_case_insensitive() {
             .expect("Failed to run annactl");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
 
-        // All should be recognized as status command
+        // All should be recognized as status command - shows [VERSION] section
         assert!(
-            stdout.contains("ANNA STATUS")
-                || stdout.contains("Daemon:")
-                || stderr.contains("daemon")
-                || stderr.contains("connection"),
-            "'{}' should be recognized as status command, got stdout: {}, stderr: {}",
+            stdout.contains("Anna Status") && stdout.contains("[VERSION]"),
+            "'{}' should be recognized as status command, got stdout: {}",
             status_arg,
-            stdout,
-            stderr
+            stdout
         );
     }
 }
@@ -318,17 +309,13 @@ fn test_annactl_version_word_case_insensitive() {
             .expect("Failed to run annactl");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
 
-        // All should show version info or connection error
+        // All should show version info with [VERSION] section
         assert!(
-            stdout.contains("annactl v")
-                || stderr.contains("daemon")
-                || stderr.contains("connection"),
-            "'{}' should show version, got stdout: {}, stderr: {}",
+            stdout.contains("Anna Version") && stdout.contains("[VERSION]"),
+            "'{}' should show version, got stdout: {}",
             version_arg,
-            stdout,
-            stderr
+            stdout
         );
     }
 }

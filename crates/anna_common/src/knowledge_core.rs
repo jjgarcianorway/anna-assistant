@@ -28,6 +28,9 @@ pub const KNOWLEDGE_STORE_PATH: &str = "/var/lib/anna/knowledge/knowledge_v5.jso
 /// Telemetry store path
 pub const TELEMETRY_STORE_PATH: &str = "/var/lib/anna/knowledge/telemetry_v5.json";
 
+/// Inventory progress state path (v5.4.0)
+pub const INVENTORY_PROGRESS_PATH: &str = "/var/lib/anna/knowledge/inventory_progress.json";
+
 // ============================================================================
 // Categories
 // ============================================================================
@@ -654,6 +657,35 @@ impl InventoryProgress {
     /// v5.1.1: Check if in priority scan mode
     pub fn is_priority_scan(&self) -> bool {
         self.phase == InventoryPhase::PriorityScan && self.priority_target.is_some()
+    }
+
+    /// v5.4.0: Load progress from disk
+    pub fn load() -> Self {
+        if let Ok(content) = fs::read_to_string(INVENTORY_PROGRESS_PATH) {
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            Self::new()
+        }
+    }
+
+    /// v5.4.0: Save progress to disk
+    pub fn save(&self) -> std::io::Result<()> {
+        if let Some(parent) = Path::new(INVENTORY_PROGRESS_PATH).parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let json = serde_json::to_string_pretty(self)?;
+        fs::write(INVENTORY_PROGRESS_PATH, json)
+    }
+
+    /// v5.4.0: Format ETA for human display
+    pub fn format_eta(&self) -> String {
+        match self.eta_secs {
+            Some(0) => "< 1s".to_string(),
+            Some(s) if s < 60 => format!("{}s", s),
+            Some(s) if s < 3600 => format!("{}m {}s", s / 60, s % 60),
+            Some(s) => format!("{}h {}m", s / 3600, (s % 3600) / 60),
+            None => "unknown".to_string(),
+        }
     }
 }
 

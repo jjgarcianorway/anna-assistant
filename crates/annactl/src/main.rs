@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v5.3.0 - Telemetry Core
+//! Anna CLI (annactl) v5.4.0 - Telemetry Core
 //!
 //! Pure system intelligence - no LLM, no Q&A.
 //!
@@ -9,7 +9,7 @@
 //! - annactl knowledge stats  Coverage and quality statistics
 //! - annactl knowledge <name> Full object profile
 //! - annactl reset            Clear all data and restart
-//! - annactl version          Show version info
+//! - annactl version          Show version and install info
 //! - annactl help             Show help info
 
 mod commands;
@@ -51,25 +51,13 @@ async fn main() -> Result<()> {
         }
         [cmd] if cmd.eq_ignore_ascii_case("reset") => run_reset().await,
         [flag] if flag == "-V" || flag == "--version" || flag.eq_ignore_ascii_case("version") => {
-            run_version()
+            commands::version::run()
         }
         [flag] if flag == "-h" || flag == "--help" || flag.eq_ignore_ascii_case("help") => {
             run_help()
         }
         _ => run_unknown_command(&args),
     }
-}
-
-// ============================================================================
-// Version Command
-// ============================================================================
-
-fn run_version() -> Result<()> {
-    println!();
-    println!("  annactl v{}", VERSION);
-    println!("  Telemetry Core - Pure System Intelligence");
-    println!();
-    Ok(())
 }
 
 // ============================================================================

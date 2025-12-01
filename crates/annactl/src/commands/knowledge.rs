@@ -1,9 +1,9 @@
-//! Knowledge Command v5.2.6 - Installed Objects Only
+//! Knowledge Command v5.4.0 - Installed Objects Only
 //!
 //! Shows what Anna knows about objects installed on THIS system.
 //! Fundamental rule: Never show non-installed objects here.
 //!
-//! v5.2.6: Clear metrics with explicit time windows.
+//! v5.4.0: Full descriptions (no truncation).
 //! - Usage: "runs" is total observed since daemon start (not per day)
 //! - Errors: 24h window, explicitly stated
 //!
@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anna_common::{
     KnowledgeCategory, KnowledgeObject, KnowledgeStore, ErrorIndex,
-    truncate_str, get_description,
+    get_description,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -132,13 +132,12 @@ fn print_category_block(
 }
 
 fn print_object_line(obj: &KnowledgeObject, error_index: &ErrorIndex, is_service: bool) {
-    let name = truncate_str(&obj.name, 14);
+    // v5.4.0: No name truncation - show full names
+    let name = &obj.name;
     let errors_24h = get_object_errors_24h(error_index, &obj.name);
 
-    // Get description if available
-    let desc = get_description(&obj.name)
-        .map(|d| truncate_str(d, 32))
-        .unwrap_or_default();
+    // v5.4.0: Full descriptions (no truncation)
+    let desc = get_description(&obj.name).unwrap_or_default();
 
     // For services, show state
     // For commands, show if we have usage data
@@ -156,10 +155,10 @@ fn print_object_line(obj: &KnowledgeObject, error_index: &ErrorIndex, is_service
     };
 
     if desc.is_empty() {
-        println!("  {:<14} {}{}", name, usage_info, err_indicator);
+        println!("  {:<18} {}{}", name, usage_info, err_indicator);
     } else {
         println!(
-            "  {:<14} {:<12} {}{}",
+            "  {:<18} {:<12} {}{}",
             name, usage_info,
             desc.dimmed(),
             err_indicator

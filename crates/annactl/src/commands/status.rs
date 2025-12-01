@@ -1,12 +1,12 @@
-//! Status Command v5.3.0 - Daemon Health
+//! Status Command v5.4.0 - Daemon Health
 //!
 //! Shows Anna daemon health and system coverage.
 //!
 //! Sections:
 //! - [VERSION] annactl/annad versions
 //! - [DAEMON] Daemon state and uptime
-//! - [INVENTORY] Scan progress (indexed / total)
-//! - [HEALTH] Log pipeline summary (24h)
+//! - [INVENTORY] Scan progress with ETA
+//! - [HEALTH] Log pipeline summary (24h) - only if issues found
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -15,9 +15,9 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anna_common::{
-    ErrorIndex, ServiceIndex, IntrusionIndex, LogScanState,
+    ErrorIndex, ServiceIndex, IntrusionIndex, LogScanState, InventoryProgress,
     KnowledgeStore, count_path_binaries, count_systemd_services,
-    format_duration_secs, format_time_ago, format_percent,
+    format_duration_secs, format_time_ago, format_percent, InventoryPhase,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -35,6 +35,7 @@ pub async fn run() -> Result<()> {
     let error_index = ErrorIndex::load();
     let service_index = ServiceIndex::load();
     let log_scan_state = LogScanState::load();
+    let inventory_progress = InventoryProgress::load();
 
     // [VERSION]
     print_version_section();
@@ -42,10 +43,10 @@ pub async fn run() -> Result<()> {
     // [DAEMON]
     print_daemon_section().await;
 
-    // [INVENTORY]
-    print_inventory_section(&store);
+    // [INVENTORY] with progress and ETA
+    print_inventory_section(&store, &inventory_progress);
 
-    // [HEALTH]
+    // [HEALTH] - only if issues found (signal not noise)
     print_health_section(&error_index, &service_index, &log_scan_state);
 
     println!("{}", THIN_SEP);
@@ -80,47 +81,63 @@ async fn print_daemon_section() {
     println!();
 }
 
-fn print_inventory_section(store: &KnowledgeStore) {
+fn print_inventory_section(store: &KnowledgeStore, progress: &InventoryProgress) {
     println!("{}", "[INVENTORY]".cyan());
-    println!("  {}", "(indexed / total on system)".dimmed());
 
     // Get counts
     let total_path_cmds = count_path_binaries();
     let total_services = count_systemd_services();
     let (commands, packages, services) = store.count_by_type();
 
-    // Calculate overall progress
-    let total_known = store.total_objects();
-    let total_possible = total_path_cmds + total_services;
-    let progress = if total_possible > 0 {
-        (total_known as f64 / total_possible as f64 * 100.0).min(100.0)
-    } else {
-        0.0
-    };
-
-    // Determine status
-    let status = if progress >= 99.0 {
-        "complete".green().to_string()
-    } else if progress > 0.0 {
-        "scanning".yellow().to_string()
-    } else {
-        "waiting".to_string()
-    };
+    // Calculate coverage percentages
+    let cmd_pct = (commands as f64 / total_path_cmds.max(1) as f64) * 100.0;
+    let svc_pct = (services as f64 / total_services.max(1) as f64) * 100.0;
 
     println!(
         "  Commands:   {}/{} ({})",
         commands,
         total_path_cmds,
-        format_percent((commands as f64 / total_path_cmds.max(1) as f64) * 100.0)
+        format_percent(cmd_pct)
     );
     println!("  Packages:   {}", packages);
     println!(
         "  Services:   {}/{} ({})",
         services,
         total_services,
-        format_percent((services as f64 / total_services.max(1) as f64) * 100.0)
+        format_percent(svc_pct)
     );
-    println!("  Status:     {}", status);
+
+    // Show scan status with ETA if scanning
+    match progress.phase {
+        InventoryPhase::Complete => {
+            println!("  Status:     {}", "complete".green());
+        }
+        InventoryPhase::Idle if progress.initial_scan_complete => {
+            println!("  Status:     {}", "complete".green());
+        }
+        InventoryPhase::Idle => {
+            println!("  Status:     waiting");
+        }
+        InventoryPhase::PriorityScan => {
+            if let Some(target) = &progress.priority_target {
+                println!("  Status:     {} ({})", "priority scan".yellow(), target);
+            } else {
+                println!("  Status:     {}", "priority scan".yellow());
+            }
+        }
+        _ => {
+            // Active scan - show progress and ETA
+            let phase_name = progress.phase.as_str();
+            let pct = progress.percent;
+            let eta = progress.format_eta();
+            println!(
+                "  Status:     {} {}% (ETA: {})",
+                phase_name.yellow(),
+                pct,
+                eta
+            );
+        }
+    }
 
     println!();
 }
@@ -130,9 +147,6 @@ fn print_health_section(
     service_index: &ServiceIndex,
     log_scan_state: &LogScanState,
 ) {
-    println!("{}", "[HEALTH]".cyan());
-    println!("  {}", "(last 24 hours)".dimmed());
-
     // Get 24h counts
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -161,26 +175,38 @@ fn print_health_section(
     // Get failed services count
     let failed_services = service_index.failed_count;
 
-    println!("  Errors:      {}", errors_24h);
-    println!("  Warnings:    {}", warnings_24h);
+    // Signal not noise: only show [HEALTH] section if there's something to report
+    let has_issues = errors_24h > 0 || warnings_24h > 0 || intrusions > 0 || failed_services > 0;
 
-    if intrusions > 0 {
-        println!("  Intrusions:  {}", intrusions.to_string().red());
+    if has_issues {
+        println!("{}", "[HEALTH]".cyan());
+        println!("  {}", "(last 24 hours)".dimmed());
+
+        if errors_24h > 0 {
+            println!("  Errors:      {}", errors_24h.to_string().red());
+        }
+        if warnings_24h > 0 {
+            println!("  Warnings:    {}", warnings_24h.to_string().yellow());
+        }
+        if intrusions > 0 {
+            println!("  Intrusions:  {}", intrusions.to_string().red().bold());
+        }
+        if failed_services > 0 {
+            println!("  Failed svcs: {}", failed_services.to_string().red());
+        }
+
+        println!();
     }
 
-    if failed_services > 0 {
-        println!("  Failed svcs: {}", failed_services.to_string().red());
-    }
-
-    // Log scanner status
+    // Always show scanner status (operational info)
+    println!("{}", "[SCANNER]".cyan());
     let scanner_status = if log_scan_state.running {
         "running".green().to_string()
     } else {
         "idle".to_string()
     };
     let last_scan = format_time_ago(log_scan_state.last_scan_at);
-    println!("  Scanner:     {} (last {})", scanner_status, last_scan);
-
+    println!("  Status:      {} (last {})", scanner_status, last_scan);
     println!();
 }
 

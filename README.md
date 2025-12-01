@@ -1,8 +1,8 @@
-# Anna v5.3.0 "Telemetry Core"
+# Anna v5.4.0 "Signal Not Noise"
 
 **System Intelligence Daemon for Linux**
 
-> v5.3.0 is a complete architectural reset. Anna is now a pure telemetry daemon that inventories, monitors, and explains your system. No LLM, no Q&A, no conversational features - just system intelligence.
+> v5.4.0 refines the telemetry core with better UX: enhanced version/status commands, full descriptions, and "signal not noise" - only show what matters.
 
 ---
 
@@ -66,25 +66,50 @@ That's it. Seven commands. No flags, no options, no complexity.
 ------------------------------------------------------------
 
 [VERSION]
-  annactl:  v5.3.0
-  annad:    v5.3.0
+  annactl:  v5.4.0
+  annad:    v5.4.0
 
 [DAEMON]
   Status:   running (up 3h)
   Data:     R/W  /var/lib/anna
 
 [INVENTORY]
-  (indexed / total on system)
   Commands:   2656/2685 (99%)
   Packages:   972
   Services:   260/260 (100%)
   Status:     complete
 
-[HEALTH]
+[HEALTH]                          # Only shown if issues exist!
   (last 24 hours)
   Errors:      54
   Warnings:    50
-  Scanner:     running (last 6s ago)
+
+[SCANNER]
+  Status:      running (last 6s ago)
+
+------------------------------------------------------------
+```
+
+### Version
+
+```
+  Anna Version
+------------------------------------------------------------
+
+[VERSION]
+  annactl:  v5.4.0
+  annad:    v5.4.0
+
+[INSTALL PATHS]
+  Binaries:
+    annactl:  ✓  /usr/local/bin/annactl
+    annad:    ✓  /usr/local/bin/annad
+  Config:
+    ✓  /etc/anna/config.toml
+  Data:
+    ✓  /var/lib/anna
+  Logs:
+    ✓  journalctl -u annad
 
 ------------------------------------------------------------
 ```
@@ -222,7 +247,8 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v5.3.0** | **Telemetry Core** - Complete reset. No LLM, no Q&A. Pure telemetry daemon. 7 commands only. |
+| **v5.4.0** | **Signal Not Noise** - Enhanced version command with install paths, status with ETA, full descriptions, hide empty sections. |
+| v5.3.0 | Telemetry Core - Complete reset. No LLM, no Q&A. Pure telemetry daemon. 7 commands only. |
 | v5.2.6 | Meaningful Metrics - Every metric has explicit time window/units |
 | v5.2.5 | Knowledge is the Machine - Installed-only views, relationships |
 | v5.2.0 | Knowledge System - System profiler, full inventory |
