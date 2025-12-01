@@ -525,14 +525,14 @@ impl UnifiedEngine {
                     question_class.canonical(), pattern.model_tier, pattern.skip_llm, pattern.hit_count
                 );
 
-                // v4.5.1: Clear ROUTE line for debug mode (ASCII only)
+                // v4.5.4: Clear ROUTE line for debug mode (ASCII only)
                 let route_name = match pattern.model_tier {
                     1 => "Brain",
-                    2 => "Orchestrator(Junior)",
-                    3 => "Orchestrator(Senior)",
-                    _ => "Cache",
+                    2 => "Junior",
+                    3 => "Senior",
+                    _ => "Pattern",
                 };
-                info!("ROUTE: {} (cached)", route_name);
+                info!("ROUTE: Cache({})", route_name);
 
                 // v4.5.0: TIER debug line - which tier answered this class before
                 let tier_name = match pattern.model_tier {
@@ -810,6 +810,10 @@ impl UnifiedEngine {
                 // v3.12.0: Junior timeout exceeded
                 let elapsed_ms = junior_start_1.elapsed().as_millis() as u64;
                 warn!("[!]  Junior planning timeout after {}ms (budget: {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS);
+
+                // v4.5.4: Clear ROUTE line for timeout (ASCII only)
+                info!("ROUTE: Timeout(Junior)");
+
                 // v4.3.0: Record timeout for auto-downgrade
                 let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
@@ -834,7 +838,35 @@ impl UnifiedEngine {
             .iter()
             .map(|p| p.probe_id.clone())
             .collect();
+
+        // v4.5.4: Clear ROUTE line for Junior plan phase
+        info!("ROUTE: Junior(plan)");
         info!("[J1] Junior requested {} probes: {:?}", probe_ids.len(), probe_ids);
+
+        // v4.5.4: ROUTING INVARIANT - Empty plan is a PLAN_FAILURE
+        // If Junior returns zero probes, this is not valid - route to Senior with reason
+        if probe_ids.is_empty() {
+            warn!("[!]  PLAN_FAILURE: Junior returned empty probe plan");
+            info!("ROUTE: Fallback");
+
+            if let Some(em) = emitter {
+                em.emit(DebugEvent::new(DebugEventType::Error, 1,
+                        "JUNIOR --> ANNA: PLAN_FAILURE - empty probe list")
+                    .with_elapsed(junior_1_ms));
+            }
+            self.record_xp_event(XpEventType::JuniorBadCommand);
+
+            // Return fallback error answer
+            return Ok(self.build_refusal(
+                question,
+                "Junior failed to plan probes - unable to gather evidence",
+                &[],
+                &[],
+                false,
+                junior_total_ms,
+                0,
+            ));
+        }
 
         // v4.2.0: Emit Junior response
         if let Some(e) = emitter {
@@ -947,6 +979,10 @@ impl UnifiedEngine {
                 // v3.12.0: Junior timeout exceeded
                 let elapsed_ms = junior_start_2.elapsed().as_millis() as u64;
                 warn!("[!]  Junior draft timeout after {}ms (budget: {}ms)", elapsed_ms, JUNIOR_TIMEOUT_MS);
+
+                // v4.5.4: Clear ROUTE line for timeout (ASCII only)
+                info!("ROUTE: Timeout(Junior)");
+
                 // v4.3.0: Record timeout for auto-downgrade
                 let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
@@ -964,6 +1000,9 @@ impl UnifiedEngine {
         };
         let junior_2_ms = junior_start_2.elapsed().as_millis() as u64;
         junior_total_ms += junior_2_ms;
+
+        // v4.5.4: Clear ROUTE line for Junior draft phase
+        info!("ROUTE: Junior(draft)");
 
         // Check if Junior has a draft answer
         let junior_had_draft = junior_response_2.draft_answer.is_some()
@@ -1029,8 +1068,9 @@ impl UnifiedEngine {
                 junior_confidence * 100.0
             );
 
-            // v4.5.1: Clear ROUTE line for debug mode (ASCII only)
-            info!("ROUTE: Orchestrator(Junior)");
+            // v4.5.4: Clear ROUTE line for debug mode (ASCII only)
+            // Junior skipped Senior = Junior answered
+            info!("ROUTE: Junior(answer)");
 
             _origin = AnswerOrigin::Junior;
             self.record_xp_event(XpEventType::JuniorCleanProposal);
@@ -1074,6 +1114,9 @@ impl UnifiedEngine {
             .collect();
 
         let senior_prompt = generate_senior_prompt_v80(question, &draft_text, &probe_summary_pairs);
+
+        // v4.5.4: Clear ROUTE line for Senior audit phase
+        info!("ROUTE: Senior(audit)");
         info!("[S]  Senior auditing ({} chars)", senior_prompt.len());
 
         // v4.2.0: Emit Senior audit start
@@ -1096,6 +1139,10 @@ impl UnifiedEngine {
             Ok(Ok(resp)) => resp,
             Ok(Err(e)) => {
                 warn!("[!]  Senior audit failed: {}", e);
+
+                // v4.5.4: Clear ROUTE line for fallback (ASCII only)
+                info!("ROUTE: Fallback");
+
                 if let Some(em) = emitter {
                     em.emit(DebugEvent::new(DebugEventType::Error, 1,
                             format!("SENIOR --> ANNA: AUDIT ERROR - {}", e))
@@ -1120,6 +1167,10 @@ impl UnifiedEngine {
                 // v3.12.0: Senior timeout exceeded - fall back to Junior answer
                 let elapsed_ms = senior_start.elapsed().as_millis() as u64;
                 warn!("[!]  Senior audit timeout after {}ms (budget: {}ms)", elapsed_ms, SENIOR_TIMEOUT_MS);
+
+                // v4.5.4: Clear ROUTE line for timeout (ASCII only)
+                info!("ROUTE: Timeout(Senior)");
+
                 // v4.3.0: Record timeout for auto-downgrade
                 let downgraded = self.handle_timeout();
                 if let Some(em) = emitter {
@@ -1151,8 +1202,9 @@ impl UnifiedEngine {
         // v4.3.0: Record success on completed answer
         self.handle_success();
 
-        // v4.5.1: Clear ROUTE line for debug mode (ASCII only)
-        info!("ROUTE: Orchestrator(Senior)");
+        // v4.5.4: Clear ROUTE line for debug mode (ASCII only)
+        // Senior completed audit = Senior answered
+        info!("ROUTE: Senior(answer)");
 
         // v4.2.0: Emit Senior response
         if let Some(e) = emitter {

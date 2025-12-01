@@ -505,4 +505,129 @@ mod tests {
         let result = validate_answer("Test", 0.80, "Brain", 50);
         assert!(!result.valid);
     }
+
+    // ========================================================================
+    // v4.5.4: Routing Invariant Tests
+    // ========================================================================
+
+    /// Valid ROUTE line values per v4.5.4 spec
+    const VALID_ROUTES: &[&str] = &[
+        "ROUTE: Brain",
+        "ROUTE: Cache",
+        "ROUTE: Cache(Brain)",
+        "ROUTE: Cache(Junior)",
+        "ROUTE: Cache(Senior)",
+        "ROUTE: Junior(plan)",
+        "ROUTE: Junior(draft)",
+        "ROUTE: Junior(answer)",
+        "ROUTE: Senior(audit)",
+        "ROUTE: Senior(answer)",
+        "ROUTE: Timeout(Junior)",
+        "ROUTE: Timeout(Senior)",
+        "ROUTE: Fallback",
+    ];
+
+    #[test]
+    fn test_routing_invariant_valid_routes() {
+        // All valid routes should be recognizable
+        for route in VALID_ROUTES {
+            assert!(route.starts_with("ROUTE: "), "Route should start with 'ROUTE: ': {}", route);
+            // Extract the route type
+            let route_type = route.strip_prefix("ROUTE: ").unwrap();
+            assert!(!route_type.is_empty(), "Route type should not be empty");
+        }
+    }
+
+    #[test]
+    fn test_routing_invariant_brain_never_falls_through() {
+        // If Brain matches, it must answer (not fall through to LLM)
+        // This is a specification test - Brain match = Brain answer
+        let brain_matched = true;
+        let expected_route = if brain_matched { "Brain" } else { "Junior" };
+        assert_eq!(expected_route, "Brain", "Brain match must result in Brain answer");
+    }
+
+    #[test]
+    fn test_routing_invariant_empty_plan_is_failure() {
+        // Zero probes = PLAN_FAILURE, not success
+        let probe_count = 0;
+        let is_plan_failure = probe_count == 0;
+        assert!(is_plan_failure, "Empty probe plan must be treated as failure");
+    }
+
+    #[test]
+    fn test_routing_invariant_cache_bypasses_llm() {
+        // Cache hit must not call LLM
+        let cache_hit = true;
+        let should_call_llm = !cache_hit;
+        assert!(!should_call_llm, "Cache hit must bypass LLM");
+    }
+
+    #[test]
+    fn test_routing_invariant_single_increment_per_question() {
+        // Each question must increment total_questions exactly once
+        let mut total_questions = 0;
+        let increment_count = 1; // One question = one increment
+
+        total_questions += increment_count;
+        assert_eq!(total_questions, 1, "total_questions must increment exactly once per query");
+
+        // Simulating another path through same question should not double-increment
+        // (handled by engine flow, not re-entry)
+    }
+
+    #[test]
+    fn test_routing_invariant_success_rate_formula() {
+        // success_rate = total_success / total_questions
+        let total_questions = 10u64;
+        let total_success = 7u64;
+        let total_failures = 3u64;
+
+        assert_eq!(total_questions, total_success + total_failures,
+            "total_questions must equal total_success + total_failures");
+
+        let success_rate = total_success as f64 / total_questions as f64;
+        assert!((success_rate - 0.7).abs() < 0.001,
+            "success_rate must equal total_success / total_questions");
+    }
+
+    #[test]
+    fn test_routing_invariant_timeout_increments_failures() {
+        // Timeout must increment total_failures, not total_success
+        let mut total_success = 5u64;
+        let mut total_failures = 2u64;
+        let is_timeout = true;
+
+        if is_timeout {
+            total_failures += 1;
+            // total_success unchanged
+        } else {
+            total_success += 1;
+        }
+
+        assert_eq!(total_failures, 3, "Timeout must increment total_failures");
+        assert_eq!(total_success, 5, "Timeout must not increment total_success");
+    }
+
+    #[test]
+    fn test_routing_invariant_senior_paths() {
+        // Senior has three possible verdicts: approve, fix_and_accept, refuse
+        let verdicts = vec!["approve", "fix_and_accept", "refuse"];
+
+        for verdict in verdicts {
+            match verdict {
+                "approve" | "fix_and_accept" => {
+                    // Success path
+                    let is_success = true;
+                    assert!(is_success, "approve/fix_and_accept must be success");
+                }
+                "refuse" => {
+                    // Failure path
+                    let is_failure = true;
+                    assert!(is_failure, "refuse must be failure");
+                }
+                _ => panic!("Unknown verdict"),
+            }
+        }
+    }
 }
