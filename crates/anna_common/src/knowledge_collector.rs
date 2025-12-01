@@ -437,7 +437,8 @@ impl KnowledgeBuilder {
         Self {
             store,
             telemetry: TelemetryAggregates::load(),
-            progress: InventoryProgress::new(),
+            // v5.5.1: Load progress from disk to preserve initial_scan_complete flag
+            progress: InventoryProgress::load(),
             prev_packages,
         }
     }
@@ -1041,10 +1042,12 @@ impl KnowledgeBuilder {
         }
     }
 
-    /// Save both stores
+    /// Save all stores including inventory progress
+    /// v5.5.1: Now also saves inventory progress to disk
     pub fn save(&self) -> std::io::Result<()> {
         self.store.save()?;
         self.telemetry.save()?;
+        self.progress.save()?;
         Ok(())
     }
 }

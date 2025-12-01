@@ -302,18 +302,28 @@ print_planned_action() {
 confirm_action() {
     local action="$1"
 
+    # In non-interactive mode (pipe), auto-approve safe actions
     if [[ "$INTERACTIVE" == "false" ]]; then
         case "$action" in
-            install|update|reinstall)
+            install|update)
+                log_info "Auto-approving $action (non-interactive mode)"
+                return 0
+                ;;
+            reinstall)
+                # v5.5.1: Auto-approve reinstall in non-interactive mode
+                # This handles curl | bash for same version
+                log_info "Auto-approving reinstall (non-interactive mode)"
                 return 0
                 ;;
             downgrade)
                 log_warn "Downgrade not allowed in non-interactive mode"
+                log_warn "Use -i flag for interactive mode"
                 return 1
                 ;;
         esac
     fi
 
+    # Interactive mode - prompt user
     local prompt=""
     local default=""
 
@@ -337,7 +347,7 @@ confirm_action() {
     esac
 
     printf "\n  %s " "$prompt"
-    read -r answer
+    read -r answer </dev/tty || answer=""
     answer="${answer:-$default}"
 
     case "${answer,,}" in

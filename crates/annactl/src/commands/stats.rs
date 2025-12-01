@@ -240,17 +240,19 @@ fn get_daemon_uptime() -> String {
         if let Some(ts_str) = stdout.strip_prefix("ActiveEnterTimestamp=") {
             let ts_str = ts_str.trim();
             if !ts_str.is_empty() && ts_str != "n/a" {
-                if let Ok(dt) = chrono::DateTime::parse_from_str(
-                    &format!("{} +0000", ts_str),
-                    "%a %Y-%m-%d %H:%M:%S %Z %z",
-                ) {
-                    let start = dt.timestamp() as u64;
-                    let now = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs();
-                    if now > start {
-                        return format_duration_secs(now - start);
+                // v5.5.1: Parse systemctl timestamp format "Mon 2025-12-01 13:50:39 CET"
+                let parts: Vec<&str> = ts_str.split_whitespace().collect();
+                if parts.len() >= 3 {
+                    let date_time_str = format!("{} {}", parts[1], parts[2]);
+                    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&date_time_str, "%Y-%m-%d %H:%M:%S") {
+                        let start = dt.and_utc().timestamp() as u64;
+                        let now = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs();
+                        if now > start {
+                            return format_duration_secs(now - start);
+                        }
                     }
                 }
             }

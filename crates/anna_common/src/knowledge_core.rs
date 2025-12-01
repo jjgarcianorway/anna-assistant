@@ -387,18 +387,22 @@ impl KnowledgeStore {
     }
 
     /// v5.1.0: Count objects by ObjectType
+    /// v5.5.1: Only count INSTALLED packages (not removed ones)
     pub fn count_by_type(&self) -> (usize, usize, usize) {
         let mut commands = 0;
         let mut packages = 0;
         let mut services = 0;
 
         for obj in self.objects.values() {
-            if obj.object_types.contains(&ObjectType::Command) {
+            // Commands: must exist on PATH (installed = true for binaries)
+            if obj.object_types.contains(&ObjectType::Command) && obj.installed {
                 commands += 1;
             }
-            if obj.object_types.contains(&ObjectType::Package) {
+            // Packages: must be currently installed
+            if obj.object_types.contains(&ObjectType::Package) && obj.installed {
                 packages += 1;
             }
+            // Services: count all (services exist as unit files)
             if obj.object_types.contains(&ObjectType::Service) {
                 services += 1;
             }
