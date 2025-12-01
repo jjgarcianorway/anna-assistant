@@ -1,10 +1,11 @@
-//! Anna Daemon (annad) v5.1.0 - Full Inventory
+//! Anna Daemon (annad) v5.1.1 - Priority Knowledge Resolution
 //!
-//! Anna is now a paranoid archivist:
+//! Anna is now a paranoid archivist with priority resolution:
 //! - Tracks ALL commands on PATH
 //! - Tracks ALL packages with versions
 //! - Tracks ALL systemd services
 //! - Detects package installs/removals
+//! - v5.1.1: Priority scans for user-requested objects
 //!
 //! No Q&A, no LLM orchestration in this phase.
 
@@ -45,8 +46,8 @@ async fn main() -> Result<()> {
         .init();
 
     info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
-    info!("[>]  Full Inventory - Paranoid Archivist");
-    info!("[>]  Q&A is disabled. Daemon tracks all executables.");
+    info!("[>]  Priority Knowledge Resolution");
+    info!("[>]  Q&A disabled. Daemon tracks all executables + priority scans.");
 
     // Permissions check
     let health = PermissionsHealthCheck::run();

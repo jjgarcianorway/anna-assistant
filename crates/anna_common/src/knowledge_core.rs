@@ -429,7 +429,18 @@ pub enum InventoryPhase {
     ScanningPath,
     ScanningPackages,
     ScanningServices,
+    /// v5.1.1: Priority scan for user-requested object
+    PriorityScan,
     Complete,
+}
+
+/// v5.1.1: Inventory job priority
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InventoryPriority {
+    /// User-requested object discovery/refresh
+    High,
+    /// Background full inventory scan
+    Low,
 }
 
 impl InventoryPhase {
@@ -439,12 +450,30 @@ impl InventoryPhase {
             InventoryPhase::ScanningPath => "scanning PATH",
             InventoryPhase::ScanningPackages => "scanning packages",
             InventoryPhase::ScanningServices => "scanning services",
+            InventoryPhase::PriorityScan => "priority_scan",
             InventoryPhase::Complete => "complete",
         }
     }
 }
 
-/// v5.1.0: Inventory progress tracking
+impl InventoryPriority {
+    pub fn is_high(&self) -> bool {
+        matches!(self, InventoryPriority::High)
+    }
+}
+
+/// v5.1.1: Checkpoint for resuming full inventory scan
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ScanCheckpoint {
+    /// Phase we were in
+    pub phase: Option<InventoryPhase>,
+    /// Index/offset where we stopped
+    pub offset: usize,
+    /// Timestamp when paused
+    pub paused_at: u64,
+}
+
+/// v5.1.0 + v5.1.1: Inventory progress tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InventoryProgress {
     /// Current phase
@@ -463,6 +492,12 @@ pub struct InventoryProgress {
     pub last_update: u64,
     /// Is initial scan complete?
     pub initial_scan_complete: bool,
+    /// v5.1.1: Current priority scan target (if any)
+    #[serde(default)]
+    pub priority_target: Option<String>,
+    /// v5.1.1: Checkpoint for resuming full scan
+    #[serde(default)]
+    pub scan_checkpoint: Option<ScanCheckpoint>,
 }
 
 impl Default for InventoryProgress {
@@ -487,6 +522,8 @@ impl InventoryProgress {
             started_at: None,
             last_update: now,
             initial_scan_complete: false,
+            priority_target: None,
+            scan_checkpoint: None,
         }
     }
 
@@ -505,6 +542,54 @@ impl InventoryProgress {
         self.items_processed = 0;
         self.last_update = now;
         self.update_percent();
+    }
+
+    /// v5.1.1: Start a priority scan for a specific object
+    pub fn start_priority_scan(&mut self, target: &str) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        // Save checkpoint if we're in the middle of a scan
+        if self.phase != InventoryPhase::Idle && self.phase != InventoryPhase::Complete {
+            self.scan_checkpoint = Some(ScanCheckpoint {
+                phase: Some(self.phase.clone()),
+                offset: self.items_processed,
+                paused_at: now,
+            });
+        }
+
+        self.phase = InventoryPhase::PriorityScan;
+        self.priority_target = Some(target.to_string());
+        self.last_update = now;
+        self.eta_secs = Some(1); // Priority scans are fast
+    }
+
+    /// v5.1.1: End priority scan and resume normal operation
+    pub fn end_priority_scan(&mut self) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        self.priority_target = None;
+
+        // Resume from checkpoint if available
+        if let Some(checkpoint) = self.scan_checkpoint.take() {
+            if let Some(phase) = checkpoint.phase {
+                self.phase = phase;
+                self.items_processed = checkpoint.offset;
+            } else {
+                self.phase = InventoryPhase::Idle;
+            }
+        } else if self.initial_scan_complete {
+            self.phase = InventoryPhase::Complete;
+        } else {
+            self.phase = InventoryPhase::Idle;
+        }
+
+        self.last_update = now;
     }
 
     /// Update progress
@@ -540,6 +625,8 @@ impl InventoryProgress {
         self.eta_secs = None;
         self.last_update = now;
         self.initial_scan_complete = true;
+        self.priority_target = None;
+        self.scan_checkpoint = None;
     }
 
     fn update_percent(&mut self) {
@@ -550,7 +637,9 @@ impl InventoryProgress {
 
     /// Format progress for display
     pub fn format_status(&self) -> String {
-        if self.initial_scan_complete {
+        if let Some(target) = &self.priority_target {
+            format!("priority_scan ({})", target)
+        } else if self.initial_scan_complete {
             "Complete".to_string()
         } else if self.phase == InventoryPhase::Idle {
             "Waiting...".to_string()
@@ -560,6 +649,11 @@ impl InventoryProgress {
                 .unwrap_or_default();
             format!("{} {}%{}", self.phase.as_str(), self.percent, eta)
         }
+    }
+
+    /// v5.1.1: Check if in priority scan mode
+    pub fn is_priority_scan(&self) -> bool {
+        self.phase == InventoryPhase::PriorityScan && self.priority_target.is_some()
     }
 }
 

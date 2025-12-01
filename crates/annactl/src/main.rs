@@ -1,17 +1,18 @@
-//! Anna CLI (annactl) v5.1.0 - Full Inventory
+//! Anna CLI (annactl) v5.1.1 - Priority Knowledge Resolution
 //!
-//! Anna is now a paranoid archivist:
+//! Anna is now a paranoid archivist with priority resolution:
 //! - Tracks ALL commands on PATH
 //! - Tracks ALL packages with versions
 //! - Tracks ALL systemd services
 //! - Detects package installs/removals
+//! - v5.1.1: Priority scans for user-requested objects
 //!
 //! ## Allowed CLI Commands
 //!
 //! - annactl status     Quick system and knowledge status + inventory progress
 //! - annactl stats      Detailed knowledge statistics + command coverage
 //! - annactl knowledge  List all known objects
-//! - annactl knowledge <topic>  Details on one object
+//! - annactl knowledge <topic>  Details on one object (triggers priority scan if needed)
 //! - annactl version    Show version info
 //! - annactl help       Show help info
 //!
@@ -74,7 +75,7 @@ async fn main() -> Result<()> {
 fn run_version() -> Result<()> {
     println!();
     println!("  annactl v{}", VERSION);
-    println!("  Full Inventory - Paranoid Archivist");
+    println!("  Priority Knowledge Resolution");
     println!();
     Ok(())
 }
@@ -85,7 +86,7 @@ fn run_version() -> Result<()> {
 
 fn run_help() -> Result<()> {
     println!();
-    println!("{}", "ANNA - Full Inventory v5.1.0".bold());
+    println!("{}", "ANNA - Priority Knowledge Resolution v5.1.1".bold());
     println!("{}", THIN_SEP);
     println!();
     println!("  Anna is a paranoid archivist that tracks every executable,");
@@ -104,6 +105,10 @@ fn run_help() -> Result<()> {
     println!("  - ALL packages with versions");
     println!("  - ALL systemd services");
     println!("  - Package install/remove events");
+    println!();
+    println!("{}", "v5.1.1 PRIORITY SCAN:".bold());
+    println!("  When you query an object, Anna performs targeted discovery");
+    println!("  to ensure up-to-date information before answering.");
     println!();
     Ok(())
 }
@@ -163,10 +168,17 @@ async fn run_status() -> Result<()> {
     }
     println!();
 
-    // v5.1.0: Inventory section
+    // v5.1.0 + v5.1.1: Inventory section
     println!("{}", "[INVENTORY]".cyan());
     let progress = builder.progress();
-    if progress.initial_scan_complete {
+    if progress.is_priority_scan() {
+        // v5.1.1: Priority scan in progress
+        let target = progress.priority_target.as_deref().unwrap_or("unknown");
+        println!("  State:      {} ({})", "priority_scan".yellow(), target);
+        println!("  Progress:   scanning object");
+        println!("  ETA:        <1s");
+        println!("  Objects:    {} tracked", store.total_objects());
+    } else if progress.initial_scan_complete {
         println!("  Status:     {}", "Complete".green());
         println!("  Commands:   {} tracked", commands);
         println!("  Packages:   {} tracked", packages);
@@ -370,15 +382,20 @@ async fn run_stats() -> Result<()> {
 }
 
 // ============================================================================
-// Knowledge Command (v5.0.0)
+// Knowledge Command (v5.0.0 + v5.1.1)
 // ============================================================================
 
 async fn run_knowledge(topic: Option<&str>) -> Result<()> {
-    let store = KnowledgeStore::load();
-
     match topic {
-        None => run_knowledge_list(&store),
-        Some(name) => run_knowledge_detail(&store, name),
+        None => {
+            let store = KnowledgeStore::load();
+            run_knowledge_list(&store)
+        }
+        Some(name) => {
+            // v5.1.1: Use builder for priority scan support
+            let mut builder = KnowledgeBuilder::new();
+            run_knowledge_detail_with_builder(&mut builder, name)
+        }
     }
 }
 
@@ -431,12 +448,28 @@ fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
     Ok(())
 }
 
-fn run_knowledge_detail(store: &KnowledgeStore, name: &str) -> Result<()> {
+fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str) -> Result<()> {
     println!();
     println!("{}", format!("ANNA KNOWLEDGE: {}", name).bold());
     println!("{}", THIN_SEP);
 
+    // v5.1.1: Priority scan - ensure object is fresh before answering
+    if !builder.is_object_complete(name) && !builder.is_object_complete(&name.to_lowercase()) {
+        println!("{}", "[PRIORITY SCAN]".yellow());
+        println!("  Scanning for '{}'...", name);
+        let found = builder.targeted_discovery(name);
+        if found {
+            println!("  Found and indexed.");
+        } else {
+            println!("  Not found on system.");
+        }
+        println!();
+        // Save after discovery
+        let _ = builder.save();
+    }
+
     // Try to find by exact name or lowercase
+    let store = builder.store();
     let obj = store.get(name)
         .or_else(|| store.get(&name.to_lowercase()));
 

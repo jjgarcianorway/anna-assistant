@@ -840,6 +840,161 @@ impl KnowledgeBuilder {
             commands, packages, services);
     }
 
+    /// v5.1.1: Targeted discovery for a single object (priority scan)
+    ///
+    /// Performs deep scan for a specific name across:
+    /// - PATH binaries
+    /// - pacman database
+    /// - systemd services
+    /// - config locations
+    ///
+    /// Returns true if the object was found and updated
+    pub fn targeted_discovery(&mut self, name: &str) -> bool {
+        info!("[PRIORITY] Targeted discovery for '{}'", name);
+        self.progress.start_priority_scan(name);
+
+        let mut found = false;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        // Check 1: PATH binary
+        if let Some(path) = binary_exists(name) {
+            found = true;
+            let (category, wiki_ref) = classify_tool(name);
+            let obj = self.store.objects.entry(name.to_string()).or_insert_with(|| {
+                let mut o = KnowledgeObject::new(name, category.clone());
+                o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                o
+            });
+
+            if !obj.object_types.contains(&ObjectType::Command) {
+                obj.object_types.push(ObjectType::Command);
+            }
+            if !obj.paths.contains(&path) {
+                obj.paths.push(path.clone());
+            }
+            if obj.binary_path.is_none() {
+                obj.binary_path = Some(path);
+            }
+            if !obj.inventory_source.contains(&"priority_scan".to_string()) {
+                obj.inventory_source.push("priority_scan".to_string());
+            }
+        }
+
+        // Check 2: pacman package
+        if let Some(pkg_info) = get_pacman_package_info(name) {
+            found = true;
+            let (category, wiki_ref) = classify_tool(name);
+            let obj = self.store.objects.entry(name.to_string()).or_insert_with(|| {
+                let mut o = KnowledgeObject::new(name, category.clone());
+                o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                o
+            });
+
+            obj.installed = true;
+            obj.package_name = Some(name.to_string());
+            if !obj.object_types.contains(&ObjectType::Package) {
+                obj.object_types.push(ObjectType::Package);
+            }
+            if !obj.inventory_source.contains(&"priority_scan".to_string()) {
+                obj.inventory_source.push("priority_scan".to_string());
+            }
+
+            // Parse version from pkg_info
+            for line in pkg_info.lines() {
+                if line.starts_with("Version") {
+                    if let Some(ver) = line.split(':').nth(1) {
+                        obj.package_version = Some(ver.trim().to_string());
+                    }
+                }
+            }
+        }
+
+        // Check 3: systemd service
+        let services = discover_systemd_services();
+        for svc in &services {
+            if svc.name == name || svc.name.starts_with(name) {
+                found = true;
+                let (category, wiki_ref) = classify_tool(name);
+                let obj = self.store.objects.entry(name.to_string()).or_insert_with(|| {
+                    let mut o = KnowledgeObject::new(name, category.clone());
+                    o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                    o
+                });
+
+                if !obj.object_types.contains(&ObjectType::Service) {
+                    obj.object_types.push(ObjectType::Service);
+                }
+                obj.service_unit = Some(svc.unit_file.clone());
+                obj.service_enabled = Some(svc.enabled);
+                obj.service_active = Some(svc.active);
+                if !obj.inventory_source.contains(&"priority_scan".to_string()) {
+                    obj.inventory_source.push("priority_scan".to_string());
+                }
+                break;
+            }
+        }
+
+        // Check 4: Config files
+        let config_paths = get_config_paths(name);
+        for path in config_paths {
+            if Path::new(&path).exists() {
+                if let Some(obj) = self.store.objects.get_mut(name) {
+                    if !obj.config_paths.contains(&path) {
+                        obj.config_paths.push(path);
+                        obj.config_discovered_at = Some(now);
+                    }
+                }
+            }
+        }
+
+        // Update detection source
+        if let Some(obj) = self.store.objects.get_mut(name) {
+            obj.detected_as = if obj.package_name.is_some() && obj.binary_path.is_some() {
+                DetectionSource::Both
+            } else if obj.package_name.is_some() {
+                DetectionSource::Package
+            } else if obj.binary_path.is_some() {
+                DetectionSource::Binary
+            } else {
+                DetectionSource::Unknown
+            };
+            obj.last_seen_at = now;
+        }
+
+        self.progress.end_priority_scan();
+
+        if found {
+            info!("[PRIORITY] Found and updated '{}'", name);
+        } else {
+            debug!("[PRIORITY] '{}' not found on system", name);
+        }
+
+        found
+    }
+
+    /// v5.1.1: Check if an object exists and is complete
+    pub fn is_object_complete(&self, name: &str) -> bool {
+        if let Some(obj) = self.store.get(name) {
+            // Consider complete if we have at least one type and some info
+            !obj.object_types.is_empty() &&
+            (obj.binary_path.is_some() || obj.package_name.is_some() || obj.service_unit.is_some())
+        } else {
+            false
+        }
+    }
+
+    /// v5.1.1: Ensure object is up-to-date, performing targeted discovery if needed
+    pub fn ensure_object_fresh(&mut self, name: &str) -> bool {
+        if !self.is_object_complete(name) {
+            self.targeted_discovery(name)
+        } else {
+            true
+        }
+    }
+
     /// Save both stores
     pub fn save(&self) -> std::io::Result<()> {
         self.store.save()?;

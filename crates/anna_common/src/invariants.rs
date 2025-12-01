@@ -1118,4 +1118,175 @@ mod tests {
 
         assert_eq!(store.count_with_usage(), 1);
     }
+
+    // ========================================================================
+    // v5.1.1: Priority Knowledge Resolution Tests
+    // ========================================================================
+
+    #[test]
+    fn test_priority_scan_starts_correctly() {
+        // start_priority_scan must set phase and target
+        use crate::knowledge_core::{InventoryProgress, InventoryPhase};
+
+        let mut progress = InventoryProgress::new();
+        progress.start_priority_scan("vim");
+
+        assert_eq!(progress.phase, InventoryPhase::PriorityScan);
+        assert_eq!(progress.priority_target, Some("vim".to_string()));
+        assert!(progress.is_priority_scan());
+    }
+
+    #[test]
+    fn test_priority_scan_saves_checkpoint() {
+        // When interrupting a scan, checkpoint must be saved
+        use crate::knowledge_core::{InventoryProgress, InventoryPhase};
+
+        let mut progress = InventoryProgress::new();
+
+        // Start a regular scan
+        progress.start_phase(InventoryPhase::ScanningPath, 100);
+        progress.update(50);
+
+        // Interrupt with priority scan
+        progress.start_priority_scan("docker");
+
+        // Checkpoint should be saved
+        assert!(progress.scan_checkpoint.is_some());
+        let checkpoint = progress.scan_checkpoint.as_ref().unwrap();
+        assert_eq!(checkpoint.phase, Some(InventoryPhase::ScanningPath));
+        assert_eq!(checkpoint.offset, 50);
+    }
+
+    #[test]
+    fn test_priority_scan_resumes_after_completion() {
+        // end_priority_scan must restore previous phase
+        use crate::knowledge_core::{InventoryProgress, InventoryPhase};
+
+        let mut progress = InventoryProgress::new();
+
+        // Start a regular scan
+        progress.start_phase(InventoryPhase::ScanningPackages, 200);
+        progress.update(100);
+
+        // Interrupt with priority scan
+        progress.start_priority_scan("vim");
+        assert_eq!(progress.phase, InventoryPhase::PriorityScan);
+
+        // End priority scan
+        progress.end_priority_scan();
+
+        // Should resume from checkpoint
+        assert_eq!(progress.phase, InventoryPhase::ScanningPackages);
+        assert_eq!(progress.items_processed, 100);
+        assert!(progress.priority_target.is_none());
+    }
+
+    #[test]
+    fn test_priority_scan_format_status() {
+        // format_status must show target during priority scan
+        use crate::knowledge_core::InventoryProgress;
+
+        let mut progress = InventoryProgress::new();
+        progress.start_priority_scan("nginx");
+
+        let status = progress.format_status();
+        assert!(status.contains("priority_scan"));
+        assert!(status.contains("nginx"));
+    }
+
+    #[test]
+    fn test_priority_scan_eta_is_fast() {
+        // Priority scans must have ETA < 2s
+        use crate::knowledge_core::InventoryProgress;
+
+        let mut progress = InventoryProgress::new();
+        progress.start_priority_scan("vim");
+
+        assert!(progress.eta_secs.unwrap_or(0) <= 2);
+    }
+
+    #[test]
+    fn test_priority_from_idle_no_checkpoint() {
+        // If starting priority scan from idle, no checkpoint needed
+        use crate::knowledge_core::{InventoryProgress, InventoryPhase};
+
+        let mut progress = InventoryProgress::new();
+        assert_eq!(progress.phase, InventoryPhase::Idle);
+
+        progress.start_priority_scan("vim");
+        assert!(progress.scan_checkpoint.is_none());
+
+        progress.end_priority_scan();
+        assert_eq!(progress.phase, InventoryPhase::Idle);
+    }
+
+    #[test]
+    fn test_priority_from_complete_no_checkpoint() {
+        // If starting priority scan when complete, no checkpoint needed
+        use crate::knowledge_core::{InventoryProgress, InventoryPhase};
+
+        let mut progress = InventoryProgress::new();
+        progress.complete();
+        assert_eq!(progress.phase, InventoryPhase::Complete);
+
+        progress.start_priority_scan("vim");
+        // No checkpoint because Complete is a terminal state
+        assert!(progress.scan_checkpoint.is_none());
+
+        progress.end_priority_scan();
+        // Should return to Complete
+        assert_eq!(progress.phase, InventoryPhase::Complete);
+    }
+
+    #[test]
+    fn test_scan_checkpoint_struct() {
+        // ScanCheckpoint must store all required fields
+        use crate::knowledge_core::{ScanCheckpoint, InventoryPhase};
+
+        let checkpoint = ScanCheckpoint {
+            phase: Some(InventoryPhase::ScanningServices),
+            offset: 42,
+            paused_at: 1700000000,
+        };
+
+        assert_eq!(checkpoint.phase, Some(InventoryPhase::ScanningServices));
+        assert_eq!(checkpoint.offset, 42);
+        assert_eq!(checkpoint.paused_at, 1700000000);
+    }
+
+    #[test]
+    fn test_inventory_priority_enum() {
+        // InventoryPriority must have High and Low variants
+        use crate::knowledge_core::InventoryPriority;
+
+        let high = InventoryPriority::High;
+        let low = InventoryPriority::Low;
+
+        assert!(high.is_high());
+        assert!(!low.is_high());
+    }
+
+    #[test]
+    fn test_priority_scan_does_not_lose_progress() {
+        // Total scan progress must not reset after priority scan
+        use crate::knowledge_core::{InventoryProgress, InventoryPhase};
+
+        let mut progress = InventoryProgress::new();
+
+        // Complete part of a scan
+        progress.start_phase(InventoryPhase::ScanningPath, 100);
+        progress.update(100);
+        progress.start_phase(InventoryPhase::ScanningPackages, 200);
+        progress.update(50);
+
+        // Interrupt with priority scan
+        progress.start_priority_scan("vim");
+
+        // End priority scan
+        progress.end_priority_scan();
+
+        // Progress should be preserved
+        assert_eq!(progress.phase, InventoryPhase::ScanningPackages);
+        assert_eq!(progress.items_processed, 50);
+    }
 }

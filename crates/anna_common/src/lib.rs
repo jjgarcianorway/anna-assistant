@@ -433,13 +433,15 @@ pub use learning_engine::{
     PATTERN_STORE_PATH, MIN_LEARN_RELIABILITY, PATTERN_CACHE_TTL_SECS, MIN_CACHE_RELIABILITY,
 };
 
-// Knowledge Core exports (v5.0.0 + v5.1.0) - System profiler and knowledge engine
+// Knowledge Core exports (v5.0.0 + v5.1.0 + v5.1.1) - System profiler and knowledge engine
 pub use knowledge_core::{
     Category as KnowledgeCategory, DetectionSource, KnowledgeObject, KnowledgeStore,
     TelemetryAggregates, classify_tool, get_config_paths,
     KNOWLEDGE_STORE_PATH, TELEMETRY_STORE_PATH,
     // v5.1.0: Full inventory types
     ObjectType, InventoryPhase, InventoryProgress,
+    // v5.1.1: Priority scan types
+    InventoryPriority, ScanCheckpoint,
 };
 pub use knowledge_collector::{
     KnowledgeBuilder, ProcessInfo,
