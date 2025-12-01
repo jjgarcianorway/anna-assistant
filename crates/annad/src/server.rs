@@ -1,4 +1,4 @@
-//! HTTP server for annad v6.1.0
+//! HTTP server for annad v7.0.0
 //!
 //! Server with health, stats, reset, and control endpoints.
 //! All state mutations happen here in the daemon (running as root).
@@ -37,9 +37,15 @@ pub struct AppState {
 /// Internal error tracking (Anna's own errors, not system errors)
 #[derive(Default, Clone, Serialize)]
 pub struct InternalErrors {
-    pub subprocess_failures: u32,
-    pub parser_failures: u32,
-    pub unknown_commands: u32,
+    /// Crashes since last boot
+    #[serde(default)]
+    pub crashes: u32,
+    /// Failed subprocess calls (pacman, systemctl, etc)
+    #[serde(alias = "subprocess_failures")]
+    pub command_failures: u32,
+    /// Parser failures (man output, --help, etc)
+    #[serde(alias = "parser_failures")]
+    pub parse_errors: u32,
 }
 
 impl AppState {
@@ -68,9 +74,9 @@ impl AppState {
     pub async fn record_error(&self, error_type: &str) {
         let mut errors = self.internal_errors.write().await;
         match error_type {
-            "subprocess" => errors.subprocess_failures += 1,
-            "parser" => errors.parser_failures += 1,
-            "unknown_command" => errors.unknown_commands += 1,
+            "crash" => errors.crashes += 1,
+            "subprocess" | "command" => errors.command_failures += 1,
+            "parser" | "parse" => errors.parse_errors += 1,
             _ => {}
         }
     }
@@ -92,7 +98,7 @@ pub struct HealthResponse {
     pub objects_tracked: usize,
 }
 
-/// v6.1.0: Extended stats response for annactl stats
+/// v7.0.0: Stats response for annactl status
 #[derive(Serialize)]
 pub struct StatsResponse {
     // Daemon info
@@ -101,9 +107,9 @@ pub struct StatsResponse {
     pub uptime_secs: u64,
     pub pid: u32,
 
-    // Memory (from /proc/self/status)
-    pub memory_rss_kb: u64,
-    pub memory_peak_kb: u64,
+    // Restarts (placeholder - would need systemd integration)
+    #[serde(default)]
+    pub restarts_24h: u32,
 
     // Inventory counts
     pub commands_count: usize,
@@ -112,12 +118,6 @@ pub struct StatsResponse {
 
     // Scan info
     pub last_scan_secs_ago: Option<u64>,
-    pub last_scan_duration_ms: u64,
-    pub scan_count: u32,
-
-    // Request tracking
-    pub cli_requests: u64,
-    pub avg_response_ms: u64,
 
     // Internal errors (Anna's own, not system)
     pub internal_errors: InternalErrors,
@@ -157,6 +157,7 @@ async fn health_check(
 }
 
 /// v6.1.0: Stats handler - detailed daemon telemetry
+/// v7.0.0: Stats handler - Anna-only telemetry
 async fn stats_handler(
     axum::extract::State(state): axum::extract::State<Arc<AppState>>,
 ) -> Json<StatsResponse> {
@@ -166,31 +167,16 @@ async fn stats_handler(
     let last_scan_time = state.last_scan_time.read().await;
     let last_scan_secs_ago = last_scan_time.map(|t| t.elapsed().as_secs());
 
-    let cli_requests = *state.cli_requests.read().await;
-    let total_response_time = *state.total_response_time_ms.read().await;
-    let avg_response_ms = if cli_requests > 0 {
-        total_response_time / cli_requests
-    } else {
-        0
-    };
-
-    let (rss_kb, peak_kb) = get_process_memory();
-
     Json(StatsResponse {
         status: "ok".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_secs: state.start_time.elapsed().as_secs(),
         pid: std::process::id(),
-        memory_rss_kb: rss_kb,
-        memory_peak_kb: peak_kb,
+        restarts_24h: 0, // TODO: query systemd for restart count
         commands_count: commands,
         packages_count: packages,
         services_count: services,
         last_scan_secs_ago,
-        last_scan_duration_ms: *state.last_scan_duration_ms.read().await,
-        scan_count: *state.scan_count.read().await,
-        cli_requests,
-        avg_response_ms,
         internal_errors: state.internal_errors.read().await.clone(),
     })
 }

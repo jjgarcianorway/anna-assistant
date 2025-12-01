@@ -1,21 +1,12 @@
-//! Command modules for annactl v6.0.0
+//! Command modules for annactl v7.0.0
 //!
-//! v6.0.0: Grounded system intelligence
-//! Every command now queries real system sources
+//! v7.0.0: Minimal surface - only 4 commands
 //!
 //! Commands:
-//! - status: System status from real sources (pacman, systemctl, journalctl)
-//! - stats: Daemon activity statistics
-//! - knowledge: Knowledge overview (packages, commands, services)
-//! - knowledge_detail: Full profile from pacman/which/systemctl
-//! - version: Installation and version info
+//! - status: Anna-only health (daemon, inventory, updates, paths, internal errors)
+//! - kdb: Knowledge database overview (packages, commands, services by category)
+//! - kdb_detail: Object profiles and category overviews
 
 pub mod status;
-pub mod stats;
-pub mod knowledge;
-pub mod knowledge_detail;
-pub mod version;
-
-// Legacy commands (kept for backward compatibility, will be removed)
-pub mod knowledge_stats;
-pub mod knowledge_category;
+pub mod kdb;
+pub mod kdb_detail;
