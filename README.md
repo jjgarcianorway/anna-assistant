@@ -1,8 +1,8 @@
-# Anna v4.3.0 "Smart Recovery"
+# Anna v4.3.1 "Stabilization"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v4.3.0 brings smart recovery: Auto-downgrade to faster models after 2 consecutive timeouts, answer cache for instant repeated questions, factory reset via daemon API (root permissions), routing decisions in debug mode, and beautified folder permissions display.
+> v4.3.1 stabilization release: Fixed LLM answers not incrementing total_questions counter, fixed answer cache not persisting between requests, fixed timeout counter not persisting, fixed health check endpoint path, consolidated duplicate baseline functions, daemon now runs as root for proper reset permissions.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 

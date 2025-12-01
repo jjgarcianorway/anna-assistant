@@ -107,9 +107,18 @@ impl UnifiedXpRecorder {
                     .and_then(|s| s.trim_end_matches('%').parse::<f64>().ok())
                     .map(|s| s / 100.0)
                     .unwrap_or(0.9);
+                // v4.3.1: Also increment total_questions for LLM answers
+                // This was missing, causing XpStore.total_questions to only count Brain answers
+                xp_store.anna_stats.llm_answers += 1;
+                xp_store.anna_stats.total_questions += 1;
                 xp_store.senior_approve_correct(score)
             }
-            XpEventType::SeniorRepeatedFix => xp_store.senior_fix_accept_good(),
+            XpEventType::SeniorRepeatedFix => {
+                // v4.3.1: Also increment total_questions for fix-and-accept LLM answers
+                xp_store.anna_stats.llm_answers += 1;
+                xp_store.anna_stats.total_questions += 1;
+                xp_store.senior_fix_accept_good()
+            }
 
             // Neutral/other events - just format the event
             XpEventType::StablePatternDetected | XpEventType::UnstablePatternPenalized => {

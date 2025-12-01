@@ -300,7 +300,8 @@ async fn answer_question(
     };
 
     // v0.90.0: UnifiedEngine with unified architecture
-    let mut engine = UnifiedEngine::new(junior_model, senior_model);
+    // v4.3.1: Pass shared cache from AppState for persistence
+    let mut engine = UnifiedEngine::new(junior_model, senior_model, state.answer_cache.clone());
     info!(
         "[E]  v0.90.0 UnifiedEngine ready - Junior: {}, Senior: {}",
         engine.junior_model(),
@@ -439,6 +440,8 @@ async fn answer_question_stream(
     let junior = junior_model.clone();
     let senior = senior_model.clone();
     let state_for_stats = state.clone();
+    // v4.3.1: Clone answer cache for persistence between requests
+    let answer_cache = state.answer_cache.clone();
 
     // Spawn orchestration task
     tokio::spawn(async move {
@@ -454,7 +457,8 @@ async fn answer_question_stream(
         );
 
         // v0.90.0: UnifiedEngine with unified architecture
-        let mut engine = UnifiedEngine::new(Some(junior.clone()), Some(senior.clone()));
+        // v4.3.1: Pass shared cache for persistence between requests
+        let mut engine = UnifiedEngine::new(Some(junior.clone()), Some(senior.clone()), answer_cache);
 
         // Check if LLM is available
         if !engine.is_available().await {

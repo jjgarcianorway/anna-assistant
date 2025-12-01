@@ -57,7 +57,9 @@ use anna_common::{
 };
 use anyhow::Result;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 // ============================================================================
@@ -66,21 +68,22 @@ use tracing::{debug, info, warn};
 
 /// Cache entry for a previously answered question
 #[derive(Clone)]
-struct CachedAnswer {
+pub struct CachedAnswer {
     answer: FinalAnswer,
     created_at: u64, // unix timestamp
     hit_count: u32,
 }
 
 /// Answer cache with TTL and LRU eviction
-struct AnswerCache {
+/// v4.3.1: Made public to allow sharing via AppState (persists between requests)
+pub struct AnswerCache {
     entries: HashMap<String, CachedAnswer>,
     max_size: usize,
     ttl_secs: u64,
 }
 
 impl AnswerCache {
-    fn new(max_size: usize, ttl_secs: u64) -> Self {
+    pub fn new(max_size: usize, ttl_secs: u64) -> Self {
         Self {
             entries: HashMap::new(),
             max_size,
@@ -89,7 +92,7 @@ impl AnswerCache {
     }
 
     /// Normalize question for cache key (lowercase, trim, collapse whitespace)
-    fn normalize_key(question: &str) -> String {
+    pub fn normalize_key(question: &str) -> String {
         question
             .to_lowercase()
             .split_whitespace()
@@ -98,7 +101,7 @@ impl AnswerCache {
     }
 
     /// Get cached answer if valid
-    fn get(&mut self, question: &str) -> Option<&FinalAnswer> {
+    pub fn get(&mut self, question: &str) -> Option<FinalAnswer> {
         let key = Self::normalize_key(question);
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -109,7 +112,7 @@ impl AnswerCache {
             // Check TTL
             if now - entry.created_at < self.ttl_secs {
                 entry.hit_count += 1;
-                return Some(&entry.answer);
+                return Some(entry.answer.clone());
             }
             // Expired, will be removed on next insert
         }
@@ -117,7 +120,7 @@ impl AnswerCache {
     }
 
     /// Cache an answer
-    fn put(&mut self, question: &str, answer: FinalAnswer) {
+    pub fn put(&mut self, question: &str, answer: FinalAnswer) {
         // Only cache successful, high-reliability answers
         if answer.is_refusal || answer.scores.overall < 0.7 {
             return;
@@ -155,7 +158,7 @@ impl AnswerCache {
     }
 
     /// Get cache stats
-    fn stats(&self) -> (usize, u32) {
+    pub fn stats(&self) -> (usize, u32) {
         let total_hits: u32 = self.entries.values().map(|e| e.hit_count).sum();
         (self.entries.len(), total_hits)
     }
@@ -254,13 +257,18 @@ pub struct UnifiedEngine {
     current_question: String,
     /// v4.3.0: LLM selection for timeout tracking and auto-downgrade
     llm_selection: LlmSelection,
-    /// v4.3.0: Answer cache for repeated questions (100 entries, 5 min TTL)
-    answer_cache: AnswerCache,
+    /// v4.3.1: Shared answer cache (passed from AppState for persistence)
+    answer_cache: Arc<RwLock<AnswerCache>>,
 }
 
 impl UnifiedEngine {
-    /// Create engine with role-specific models
-    pub fn new(junior_model: Option<String>, senior_model: Option<String>) -> Self {
+    /// Create engine with role-specific models and shared answer cache
+    /// v4.3.1: Cache is now shared via AppState for persistence between requests
+    pub fn new(
+        junior_model: Option<String>,
+        senior_model: Option<String>,
+        answer_cache: Arc<RwLock<AnswerCache>>,
+    ) -> Self {
         // v4.3.0: Load LLM selection for timeout tracking
         let llm_selection = LlmSelection::load();
         Self {
@@ -276,8 +284,7 @@ impl UnifiedEngine {
             recipe_store: RecipeStore::load(),
             current_question: String::new(),
             llm_selection,
-            // v4.3.0: Answer cache - 100 entries, 5 minute TTL
-            answer_cache: AnswerCache::new(100, 300),
+            answer_cache,
         }
     }
 
@@ -312,8 +319,9 @@ impl UnifiedEngine {
     }
 
     /// v4.3.0: Get answer cache stats (entries, total hits)
-    pub fn cache_stats(&self) -> (usize, u32) {
-        self.answer_cache.stats()
+    /// v4.3.1: Uses blocking read since this is typically called from sync context
+    pub async fn cache_stats(&self) -> (usize, u32) {
+        self.answer_cache.read().await.stats()
     }
 
     /// v4.3.0: Handle timeout by recording it and potentially downgrading models
@@ -396,9 +404,10 @@ impl UnifiedEngine {
 
         // ================================================================
         // STEP 0.5: Answer Cache Check (v4.3.0)
+        // v4.3.1: Cache is now shared via AppState for persistence
         // ================================================================
         // Check if we've recently answered this exact question
-        if let Some(cached) = self.answer_cache.get(question) {
+        if let Some(cached) = self.answer_cache.write().await.get(question) {
             let cache_ms = start_time.elapsed().as_millis() as u64;
             info!("[+]  Cache hit! Returning cached answer in {}ms", cache_ms);
 
@@ -1028,7 +1037,8 @@ impl UnifiedEngine {
         };
 
         // v4.3.0: Cache successful answers for repeated questions
-        self.answer_cache.put(question, final_answer.clone());
+        // v4.3.1: Use async lock for shared cache
+        self.answer_cache.write().await.put(question, final_answer.clone());
 
         Ok(final_answer)
     }
@@ -1619,7 +1629,9 @@ impl UnifiedEngine {
 
 impl Default for UnifiedEngine {
     fn default() -> Self {
-        Self::new(None, None)
+        // v4.3.1: Create a new local cache for default engine (for tests/standalone use)
+        let cache = Arc::new(RwLock::new(AnswerCache::new(100, 300)));
+        Self::new(None, None, cache)
     }
 }
 

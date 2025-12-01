@@ -30,6 +30,8 @@ pub mod streaming;
 
 // v0.90.0 exports (current) - Unified Architecture
 pub use engine_v90::UnifiedEngine;
+// v4.3.1: Answer cache for persistent caching between requests
+pub use engine_v90::AnswerCache;
 
 // LLM client exports - used by UnifiedEngine
 pub use llm_client::{DraftAnswerV80, JuniorResponseV80, OllamaClient, SeniorResponseV80};

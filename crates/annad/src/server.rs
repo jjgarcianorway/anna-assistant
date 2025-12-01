@@ -1,8 +1,10 @@
 //! HTTP server for annad
 //!
 //! v0.65.0: Added StatsEngine for tracking answer metrics and progression.
+//! v4.3.1: Added AnswerCache for persistent caching between requests.
 
 use crate::brain::AnnaBrain;
+use crate::orchestrator::AnswerCache;
 use crate::probe::registry::ProbeRegistry;
 use crate::routes;
 use crate::state::StateManager;
@@ -24,6 +26,8 @@ pub struct AppState {
     pub brain: Option<Arc<AnnaBrain>>,
     /// v0.65.0: Stats engine for tracking performance and progression
     pub stats_engine: Arc<RwLock<StatsEngine>>,
+    /// v4.3.1: Shared answer cache (persists between requests, 100 entries, 5 min TTL)
+    pub answer_cache: Arc<RwLock<AnswerCache>>,
 }
 
 impl AppState {
@@ -36,11 +40,14 @@ impl AppState {
             start_time: Instant::now(),
             brain: None,
             stats_engine: Arc::new(RwLock::new(stats_engine)),
+            // v4.3.1: Shared answer cache - 100 entries, 5 minute TTL
+            answer_cache: Arc::new(RwLock::new(AnswerCache::new(100, 300))),
         }
     }
 
     /// v0.11.0: Create app state with brain reference
     /// v0.65.0: Also loads StatsEngine for progression tracking
+    /// v4.3.1: Also creates shared AnswerCache
     pub fn new_with_brain(
         probe_registry: ProbeRegistry,
         state_manager: StateManager,
@@ -54,6 +61,8 @@ impl AppState {
             start_time: Instant::now(),
             brain: Some(brain),
             stats_engine: Arc::new(RwLock::new(stats_engine)),
+            // v4.3.1: Shared answer cache - 100 entries, 5 minute TTL
+            answer_cache: Arc::new(RwLock::new(AnswerCache::new(100, 300))),
         }
     }
 }

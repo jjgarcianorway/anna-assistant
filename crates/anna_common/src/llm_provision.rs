@@ -401,6 +401,7 @@ impl LlmSelection {
     }
 
     /// v4.3.0: Record a timeout and potentially downgrade models
+    /// v4.3.1: Now saves immediately to persist counter between requests
     /// Returns true if models were downgraded
     pub fn record_timeout(&mut self) -> bool {
         self.consecutive_timeouts += 1;
@@ -409,6 +410,9 @@ impl LlmSelection {
         if self.consecutive_timeouts >= 2 {
             return self.downgrade_models();
         }
+
+        // v4.3.1: Save counter immediately so it persists between requests
+        let _ = self.save();
         false
     }
 

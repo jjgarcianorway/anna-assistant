@@ -5,8 +5,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=anna
-Group=anna
+# v4.3.1: Run as root to ensure file permissions for reset/cleanup operations
+# The daemon only listens on localhost and has strict security hardening
 ExecStart=/usr/local/bin/annad
 WorkingDirectory=/usr/share/anna
 Restart=on-failure

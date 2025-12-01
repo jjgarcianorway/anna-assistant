@@ -35,6 +35,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+// v4.3.1: Reuse baseline function from state_manager
+use crate::state_manager::baseline_xp_store;
+
 // ============================================================================
 // Path Configuration
 // ============================================================================
@@ -227,77 +230,7 @@ impl ExperienceResetResult {
     }
 }
 
-// ============================================================================
-// Baseline XP Store (fresh state)
-// ============================================================================
-
-/// Generate a fresh XP store JSON with baseline values
-/// This matches XpStore::new() from xp_track.rs
-fn baseline_xp_store_json() -> String {
-    // XpTrack::new() baseline: level 1, xp 0, trust 0.5, all counters 0
-    r#"{
-  "anna": {
-    "name": "Anna",
-    "level": 1,
-    "xp": 0,
-    "xp_to_next": 100,
-    "streak_good": 0,
-    "streak_bad": 0,
-    "trust": 0.5,
-    "total_good": 0,
-    "total_bad": 0,
-    "last_update": 0
-  },
-  "junior": {
-    "name": "Junior",
-    "level": 1,
-    "xp": 0,
-    "xp_to_next": 100,
-    "streak_good": 0,
-    "streak_bad": 0,
-    "trust": 0.5,
-    "total_good": 0,
-    "total_bad": 0,
-    "last_update": 0
-  },
-  "senior": {
-    "name": "Senior",
-    "level": 1,
-    "xp": 0,
-    "xp_to_next": 100,
-    "streak_good": 0,
-    "streak_bad": 0,
-    "trust": 0.5,
-    "total_good": 0,
-    "total_bad": 0,
-    "last_update": 0
-  },
-  "anna_stats": {
-    "self_solves": 0,
-    "brain_assists": 0,
-    "llm_answers": 0,
-    "refusals": 0,
-    "timeouts": 0,
-    "total_questions": 0,
-    "avg_reliability": 0.0,
-    "avg_latency_ms": 0
-  },
-  "junior_stats": {
-    "good_plans": 0,
-    "bad_plans": 0,
-    "timeouts": 0,
-    "needs_fix": 0,
-    "overcomplicated": 0
-  },
-  "senior_stats": {
-    "approvals": 0,
-    "fix_and_accept": 0,
-    "rubber_stamps_blocked": 0,
-    "refusals": 0,
-    "timeouts": 0
-  }
-}"#.to_string()
-}
+// v4.3.1: Consolidated - baseline_xp_store is now imported from state_manager
 
 // ============================================================================
 // Experience Reset Implementation (Soft Reset)
@@ -353,7 +286,7 @@ fn reset_xp_store_to_baseline(paths: &ExperiencePaths, result: &mut ExperienceRe
             result.add_error(&format!("Failed to create XP directory: {}", e));
             return;
         }
-        match fs::write(&xp_file, baseline_xp_store_json()) {
+        match fs::write(&xp_file, baseline_xp_store()) {
             Ok(_) => result.add_clean("XP store (initialized to baseline)"),
             Err(e) => result.add_error(&format!("Failed to write baseline XP store: {}", e)),
         }
@@ -372,7 +305,7 @@ fn reset_xp_store_to_baseline(paths: &ExperiencePaths, result: &mut ExperienceRe
     }
 
     // Write baseline
-    match fs::write(&xp_file, baseline_xp_store_json()) {
+    match fs::write(&xp_file, baseline_xp_store()) {
         Ok(_) => result.add_reset("XP store (reset to level 1, trust 0.5)"),
         Err(e) => result.add_error(&format!("Failed to reset XP store: {}", e)),
     }
@@ -1160,7 +1093,7 @@ mod tests {
         let (_temp, paths) = setup_test_paths();
 
         // Empty state - write baseline
-        fs::write(paths.xp_store_file(), baseline_xp_store_json()).unwrap();
+        fs::write(paths.xp_store_file(), baseline_xp_store()).unwrap();
         assert!(!has_experience_data(&paths)); // Baseline = no experience
 
         // Add non-baseline XP
@@ -1180,8 +1113,9 @@ mod tests {
     }
 
     #[test]
-    fn test_baseline_xp_store_json_valid() {
-        let json = baseline_xp_store_json();
+    fn test_baseline_xp_store_valid() {
+        // v4.3.1: Use consolidated baseline function from state_manager
+        let json = baseline_xp_store();
 
         // Should be valid JSON
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();

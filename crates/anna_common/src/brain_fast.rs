@@ -1128,9 +1128,9 @@ pub fn fast_health_answer() -> Option<FastAnswer> {
         .map(|o| o.status.success())
         .unwrap_or(false);
 
-    // Check daemon port (use port 7865 which is the actual annad port)
+    // v4.3.1: Check daemon port - correct endpoint is /v1/health (not /health)
     let port_open = Command::new("curl")
-        .args(["-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", "http://127.0.0.1:7865/health"])
+        .args(["-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", "http://127.0.0.1:7865/v1/health"])
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).contains("200"))
         .unwrap_or(false);
