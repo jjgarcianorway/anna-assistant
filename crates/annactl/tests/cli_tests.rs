@@ -1,16 +1,21 @@
-//! CLI integration tests for annactl v7.10.0 "Arch Wiki aware configs and hardware drivers"
+//! CLI integration tests for annactl v7.11.0 "Honest Telemetry and Trends"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
-//! - annactl status    health, alerts, [TELEMETRY] with trends (v7.9.0), [ANNA NEEDS]
-//! - annactl sw        software overview with [CATEGORIES] - no duplicates (v7.10.0)
-//! - annactl sw NAME   software profile with [CONFIG] (v7.10.0 format), [TELEMETRY], [LOGS]
-//! - annactl hw        hardware overview with [COMPONENTS] - drivers/firmware (v7.10.0)
-//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER] with module/package (v7.10.0)
+//! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS] (v7.11.0), [ANNA NEEDS]
+//! - annactl sw        software overview with [CATEGORIES] - no duplicates
+//! - annactl sw NAME   software profile with [CONFIG], [TELEMETRY] + health notes (v7.11.0), [LOGS]
+//! - annactl hw        hardware overview with [COMPONENTS], [HW TELEMETRY] (v7.11.0)
+//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER] with module/package
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
+//!
+//! Snow Leopard v7.11.0 tests:
+//! - [RESOURCE HOTSPOTS] section in status with health notes
+//! - [HW TELEMETRY] section in hw with CPU/GPU/Memory/Disk I/O
+//! - [TELEMETRY] Notes subsection linking telemetry with logs
 //!
 //! Snow Leopard v7.10.0 tests:
 //! - [CONFIG] correctness: only paths with identity name, no unrelated tools
@@ -29,7 +34,7 @@
 //!
 //! Snow Leopard CONFIG hygiene tests (v7.8.0):
 //! - System/User/Other structure with source attribution
-//! - Status indicators [present]/[not present] (v7.10.0)
+//! - Status indicators [present]/[not present]
 //! - No ecosystem pollution (mako, uwsm, waybar for hyprland)
 //! - No HTML or junk in config paths
 //! - Filesystem discovery as primary source
@@ -844,9 +849,10 @@ fn test_annactl_status_performance() {
     let elapsed = start.elapsed();
 
     assert!(output.status.success(), "annactl status should succeed");
+    // v7.11.0: Allow 3s for status due to journalctl health note lookups
     assert!(
-        elapsed.as_secs() < 2,
-        "annactl status should complete in <2s, took: {:?}",
+        elapsed.as_secs() < 3,
+        "annactl status should complete in <3s, took: {:?}",
         elapsed
     );
 }
@@ -1773,5 +1779,239 @@ fn test_snow_leopard_logs_v710_format() {
         );
     }
 
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.11.0: Snow Leopard Honest Telemetry Tests
+// ============================================================================
+
+/// Test status shows [RESOURCE HOTSPOTS] section (v7.11.0)
+#[test]
+fn test_snow_leopard_status_resource_hotspots_section() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.11.0: Status must show [RESOURCE HOTSPOTS] section
+    assert!(
+        stdout.contains("[RESOURCE HOTSPOTS]"),
+        "Expected [RESOURCE HOTSPOTS] section, got: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test hw shows [HW TELEMETRY] section (v7.11.0)
+#[test]
+fn test_snow_leopard_hw_telemetry_section() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("hw")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.11.0: HW must show [HW TELEMETRY] section
+    assert!(
+        stdout.contains("[HW TELEMETRY]"),
+        "Expected [HW TELEMETRY] section, got: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test [HW TELEMETRY] shows CPU, GPU, Memory, Disk I/O lines (v7.11.0)
+#[test]
+fn test_snow_leopard_hw_telemetry_content() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("hw")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.11.0: [HW TELEMETRY] should show telemetry for major components
+    if stdout.contains("[HW TELEMETRY]") {
+        // Should have CPU line
+        assert!(
+            stdout.contains("  CPU:"),
+            "[HW TELEMETRY] should have CPU line: {}",
+            stdout
+        );
+        // Should have GPU line
+        assert!(
+            stdout.contains("  GPU:"),
+            "[HW TELEMETRY] should have GPU line: {}",
+            stdout
+        );
+        // Should have Memory line
+        assert!(
+            stdout.contains("  Memory:"),
+            "[HW TELEMETRY] should have Memory line: {}",
+            stdout
+        );
+        // Should have Disk I/O line
+        assert!(
+            stdout.contains("  Disk I/O:"),
+            "[HW TELEMETRY] should have Disk I/O line: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test [HW TELEMETRY] shows source attribution (v7.11.0)
+#[test]
+fn test_snow_leopard_hw_telemetry_source() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("hw")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.11.0: [HW TELEMETRY] should show source (hwmon, thermal, proc)
+    if stdout.contains("[HW TELEMETRY]") {
+        assert!(
+            stdout.contains("hwmon") || stdout.contains("thermal") || stdout.contains("/proc"),
+            "[HW TELEMETRY] should mention source: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test [RESOURCE HOTSPOTS] shows health notes when there are hotspots (v7.11.0)
+#[test]
+fn test_snow_leopard_resource_hotspots_format() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.11.0: [RESOURCE HOTSPOTS] should either:
+    // - Show "warming up" or "no telemetry" message
+    // - Show CPU/RAM hotspots with proper format
+    if stdout.contains("[RESOURCE HOTSPOTS]") {
+        let has_valid_content = stdout.contains("warming up")
+            || stdout.contains("Telemetry disabled")
+            || stdout.contains("telemetry DB not available")
+            || stdout.contains("No significant resource consumers")
+            || stdout.contains("top resource consumers")
+            || (stdout.contains("CPU:") && stdout.contains("[RESOURCE HOTSPOTS]"));
+        
+        assert!(
+            has_valid_content,
+            "[RESOURCE HOTSPOTS] should have valid content: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test hw command performance with telemetry (v7.11.0)
+/// Ensure telemetry sampling doesn't slow down too much
+#[test]
+fn test_snow_leopard_hw_telemetry_performance() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let start = std::time::Instant::now();
+    let output = Command::new(&binary)
+        .arg("hw")
+        .output()
+        .expect("Failed to run annactl");
+
+    let elapsed = start.elapsed();
+
+    assert!(output.status.success(), "annactl hw should succeed");
+    // v7.11.0: Allow slightly more time for telemetry sampling (300ms CPU + disk)
+    // But should still be under 3 seconds
+    assert!(
+        elapsed.as_secs() < 3,
+        "annactl hw should complete in <3s even with telemetry, took: {:?}",
+        elapsed
+    );
+}
+
+/// Test sw NAME [TELEMETRY] Notes subsection (v7.11.0)
+/// Notes should only appear when there are health concerns
+#[test]
+fn test_snow_leopard_sw_telemetry_notes_format() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "systemd"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.11.0: Test passes if:
+    // 1. No "Notes:" subsection (healthy identity - nothing to report)
+    // 2. "Notes:" subsection with actual concerns (errors, high usage)
+    if stdout.contains("[TELEMETRY]") {
+        // Check if there are notes in the TELEMETRY section
+        // Notes should only appear after "Trend:" or "Activity windows:"
+        let telemetry_section: String = stdout
+            .split("[TELEMETRY]")
+            .nth(1)
+            .unwrap_or("")
+            .split("[")
+            .next()
+            .unwrap_or("")
+            .to_string();
+
+        if telemetry_section.contains("Notes:") {
+            // If notes exist, they should contain real concerns
+            let has_real_note = telemetry_section.contains("error")
+                || telemetry_section.contains("High CPU")
+                || telemetry_section.contains("High memory")
+                || telemetry_section.contains("see [LOGS]");
+
+            assert!(
+                has_real_note,
+                "[TELEMETRY] Notes should contain real concerns, got: {}",
+                telemetry_section
+            );
+        }
+        // If no Notes: section, that's fine - healthy identity
+    }
     assert!(output.status.success());
 }

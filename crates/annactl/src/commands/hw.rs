@@ -1,22 +1,24 @@
-//! HW Command v7.10.0 - Anna Hardware Overview
+//! HW Command v7.11.0 - Anna Hardware Overview
 //!
 //! Sections:
-//! - [COMPONENTS]        CPU, GPU, WiFi, Bluetooth, Audio with drivers/firmware (v7.10.0)
+//! - [COMPONENTS]        CPU, GPU, WiFi, Bluetooth, Audio with drivers/firmware
+//! - [HW TELEMETRY]      Real-time temp, utilization, frequencies (v7.11.0)
 //! - [HEALTH HIGHLIGHTS] Real health data from sensors/SMART/logs
 //! - [CATEGORIES]        Component identifiers per category
-//! - [DEPENDENCIES]      Hardware tools status (v7.6.0)
+//! - [DEPENDENCIES]      Hardware tools status
 //!
 //! All data sourced from:
 //! - lscpu, /proc/cpuinfo (CPU)
 //! - free, /proc/meminfo (Memory)
-//! - lspci -k (GPU, Audio controllers, PCI drivers) - v7.10.0
+//! - lspci -k (GPU, Audio controllers, PCI drivers)
 //! - lsblk, smartctl (Storage)
 //! - ip link, nmcli (Network)
-//! - lsmod, modinfo (Module info) - v7.10.0
+//! - lsmod, modinfo (Module info)
 //! - sensors, /sys/class/thermal (Temperatures)
 //! - /sys/class/power_supply (Battery)
+//! - /sys/class/hwmon (Hardware monitoring) - v7.11.0
 //! - journalctl -b -k / dmesg (Firmware messages)
-//! - pacman -Qo (Driver packages) - v7.10.0
+//! - pacman -Qo (Driver packages)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -39,6 +41,9 @@ pub async fn run() -> Result<()> {
 
     // [COMPONENTS] - v7.10.0: replaces [OVERVIEW] and [DRIVERS]
     print_components_section();
+
+    // [HW TELEMETRY] - v7.11.0: Real-time temp, utilization, frequencies
+    print_hw_telemetry_section_v711();
 
     // [HEALTH HIGHLIGHTS]
     print_health_highlights_section();
@@ -561,18 +566,336 @@ fn format_health_status(status: HealthStatus) -> String {
     }
 }
 
-/// Print [HW TELEMETRY] section - v7.7.0 placeholder
-/// Future: Per-component CPU/GPU utilization, temperature history, disk I/O
-#[allow(dead_code)]
-fn print_hw_telemetry_section() {
+/// Print [HW TELEMETRY] section - v7.11.0
+/// Real-time temperature, utilization, and frequencies from hwmon/thermal/proc
+fn print_hw_telemetry_section_v711() {
     println!("{}", "[HW TELEMETRY]".cyan());
-    println!("  {}", "(per-component telemetry - planned for v7.8.0)".dimmed());
-    println!("  Future data:");
-    println!("    - CPU:      utilization %, temperature history");
-    println!("    - GPU:      utilization %, VRAM usage, temperature");
-    println!("    - Disks:    read/write IOPS, throughput");
-    println!("    - Network:  bandwidth usage, packet rates");
+    println!("  {}", "(source: /sys/class/hwmon, /sys/class/thermal, /proc, sensors)".dimmed());
     println!();
+
+    // CPU telemetry
+    print_cpu_telemetry();
+
+    // GPU telemetry
+    print_gpu_telemetry();
+
+    // Memory telemetry
+    print_memory_telemetry();
+
+    // Disk I/O telemetry
+    print_disk_io_telemetry();
+
+    println!();
+}
+
+/// Print CPU telemetry (temp, frequency, utilization)
+fn print_cpu_telemetry() {
+    let mut parts = Vec::new();
+
+    // Get CPU temperature from hwmon or thermal_zone
+    if let Some(temp) = get_cpu_temperature() {
+        parts.push(format!("{}°C", temp));
+    }
+
+    // Get CPU frequency from /sys/devices/system/cpu
+    if let Some(freq) = get_cpu_frequency() {
+        parts.push(format!("{} MHz", freq));
+    }
+
+    // Get CPU utilization from /proc/stat
+    if let Some(util) = get_cpu_utilization() {
+        parts.push(format!("{:.1}% util", util));
+    }
+
+    if parts.is_empty() {
+        println!("  CPU:        {}", "(no telemetry available)".dimmed());
+    } else {
+        println!("  CPU:        {}", parts.join(", "));
+    }
+}
+
+/// Get CPU temperature from hwmon or thermal_zone
+fn get_cpu_temperature() -> Option<i32> {
+    // Try hwmon first (more accurate)
+    let hwmon_path = std::path::Path::new("/sys/class/hwmon");
+    if hwmon_path.exists() {
+        if let Ok(entries) = std::fs::read_dir(hwmon_path) {
+            for entry in entries.flatten() {
+                let name_path = entry.path().join("name");
+                if let Ok(name) = std::fs::read_to_string(&name_path) {
+                    let name = name.trim();
+                    if name == "coretemp" || name == "k10temp" || name == "zenpower" {
+                        // Read temp1_input (CPU package temp)
+                        let temp_path = entry.path().join("temp1_input");
+                        if let Ok(temp_str) = std::fs::read_to_string(&temp_path) {
+                            if let Ok(temp_millidegrees) = temp_str.trim().parse::<i32>() {
+                                return Some(temp_millidegrees / 1000);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback to thermal_zone
+    let thermal_path = std::path::Path::new("/sys/class/thermal");
+    if thermal_path.exists() {
+        if let Ok(entries) = std::fs::read_dir(thermal_path) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with("thermal_zone") {
+                    let type_path = entry.path().join("type");
+                    if let Ok(zone_type) = std::fs::read_to_string(&type_path) {
+                        let zone_type = zone_type.trim().to_lowercase();
+                        if zone_type.contains("cpu") || zone_type.contains("x86_pkg") || zone_type == "acpitz" {
+                            let temp_path = entry.path().join("temp");
+                            if let Ok(temp_str) = std::fs::read_to_string(&temp_path) {
+                                if let Ok(temp_millidegrees) = temp_str.trim().parse::<i32>() {
+                                    return Some(temp_millidegrees / 1000);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Get current CPU frequency (average across cores)
+fn get_cpu_frequency() -> Option<u32> {
+    let cpu_path = std::path::Path::new("/sys/devices/system/cpu");
+    if !cpu_path.exists() {
+        return None;
+    }
+
+    let mut total_freq: u64 = 0;
+    let mut count = 0;
+
+    if let Ok(entries) = std::fs::read_dir(cpu_path) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with("cpu") && name[3..].chars().all(|c| c.is_ascii_digit()) {
+                let freq_path = entry.path().join("cpufreq/scaling_cur_freq");
+                if let Ok(freq_str) = std::fs::read_to_string(&freq_path) {
+                    if let Ok(freq_khz) = freq_str.trim().parse::<u64>() {
+                        total_freq += freq_khz;
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if count > 0 {
+        Some((total_freq / count / 1000) as u32) // Convert kHz to MHz
+    } else {
+        None
+    }
+}
+
+/// Get CPU utilization from /proc/stat (quick snapshot)
+fn get_cpu_utilization() -> Option<f32> {
+    // Read /proc/stat twice with a small delay
+    let stat1 = std::fs::read_to_string("/proc/stat").ok()?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let stat2 = std::fs::read_to_string("/proc/stat").ok()?;
+
+    let parse_cpu_line = |line: &str| -> Option<(u64, u64)> {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 8 || !parts[0].starts_with("cpu") || parts[0] != "cpu" {
+            return None;
+        }
+        // user, nice, system, idle, iowait, irq, softirq
+        let user: u64 = parts[1].parse().ok()?;
+        let nice: u64 = parts[2].parse().ok()?;
+        let system: u64 = parts[3].parse().ok()?;
+        let idle: u64 = parts[4].parse().ok()?;
+        let iowait: u64 = parts[5].parse().ok()?;
+        let irq: u64 = parts[6].parse().ok()?;
+        let softirq: u64 = parts[7].parse().ok()?;
+
+        let active = user + nice + system + irq + softirq;
+        let total = active + idle + iowait;
+        Some((active, total))
+    };
+
+    let line1 = stat1.lines().find(|l| l.starts_with("cpu "))?;
+    let line2 = stat2.lines().find(|l| l.starts_with("cpu "))?;
+
+    let (active1, total1) = parse_cpu_line(line1)?;
+    let (active2, total2) = parse_cpu_line(line2)?;
+
+    let active_diff = active2.saturating_sub(active1);
+    let total_diff = total2.saturating_sub(total1);
+
+    if total_diff > 0 {
+        Some((active_diff as f32 / total_diff as f32) * 100.0)
+    } else {
+        None
+    }
+}
+
+/// Print GPU telemetry (temp, utilization, VRAM)
+fn print_gpu_telemetry() {
+    let mut parts = Vec::new();
+
+    // Try nvidia-smi for NVIDIA GPUs
+    let nvidia_output = Command::new("nvidia-smi")
+        .args(["--query-gpu=temperature.gpu,utilization.gpu,memory.used,memory.total", "--format=csv,noheader,nounits"])
+        .output();
+
+    if let Ok(out) = nvidia_output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            if let Some(line) = stdout.lines().next() {
+                let fields: Vec<&str> = line.split(", ").collect();
+                if fields.len() >= 4 {
+                    if let Ok(temp) = fields[0].trim().parse::<i32>() {
+                        parts.push(format!("{}°C", temp));
+                    }
+                    if let Ok(util) = fields[1].trim().parse::<i32>() {
+                        parts.push(format!("{}% util", util));
+                    }
+                    if let (Ok(used), Ok(total)) = (
+                        fields[2].trim().parse::<u64>(),
+                        fields[3].trim().parse::<u64>()
+                    ) {
+                        parts.push(format!("{}/{} MiB VRAM", used, total));
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: Try AMD GPU via hwmon
+    if parts.is_empty() {
+        if let Some(temp) = get_amd_gpu_temperature() {
+            parts.push(format!("{}°C", temp));
+        }
+    }
+
+    // Fallback: Try Intel GPU (no direct telemetry, skip)
+
+    if parts.is_empty() {
+        println!("  GPU:        {}", "(no telemetry available - need nvidia-smi or AMD hwmon)".dimmed());
+    } else {
+        println!("  GPU:        {}", parts.join(", "));
+    }
+}
+
+/// Get AMD GPU temperature from hwmon
+fn get_amd_gpu_temperature() -> Option<i32> {
+    let hwmon_path = std::path::Path::new("/sys/class/hwmon");
+    if !hwmon_path.exists() {
+        return None;
+    }
+
+    if let Ok(entries) = std::fs::read_dir(hwmon_path) {
+        for entry in entries.flatten() {
+            let name_path = entry.path().join("name");
+            if let Ok(name) = std::fs::read_to_string(&name_path) {
+                let name = name.trim();
+                if name == "amdgpu" {
+                    // Read temp1_input (edge temp)
+                    let temp_path = entry.path().join("temp1_input");
+                    if let Ok(temp_str) = std::fs::read_to_string(&temp_path) {
+                        if let Ok(temp_millidegrees) = temp_str.trim().parse::<i32>() {
+                            return Some(temp_millidegrees / 1000);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Print memory telemetry (usage)
+fn print_memory_telemetry() {
+    if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
+        let mut total: u64 = 0;
+        let mut available: u64 = 0;
+
+        for line in meminfo.lines() {
+            if line.starts_with("MemTotal:") {
+                if let Some(val) = line.split_whitespace().nth(1) {
+                    total = val.parse().unwrap_or(0);
+                }
+            } else if line.starts_with("MemAvailable:") {
+                if let Some(val) = line.split_whitespace().nth(1) {
+                    available = val.parse().unwrap_or(0);
+                }
+            }
+        }
+
+        if total > 0 {
+            let used = total.saturating_sub(available);
+            let used_gib = used as f64 / (1024.0 * 1024.0);
+            let total_gib = total as f64 / (1024.0 * 1024.0);
+            let percent = (used as f64 / total as f64) * 100.0;
+            println!("  Memory:     {:.1}/{:.1} GiB ({:.0}% used)", used_gib, total_gib, percent);
+        } else {
+            println!("  Memory:     {}", "(unavailable)".dimmed());
+        }
+    }
+}
+
+/// Print disk I/O telemetry (read/write rates)
+fn print_disk_io_telemetry() {
+    // Get disk stats from /proc/diskstats
+    let diskstats1 = std::fs::read_to_string("/proc/diskstats").ok();
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let diskstats2 = std::fs::read_to_string("/proc/diskstats").ok();
+
+    let (Some(stats1), Some(stats2)) = (diskstats1, diskstats2) else {
+        println!("  Disk I/O:   {}", "(unavailable)".dimmed());
+        return;
+    };
+
+    // Parse diskstats - only look at main block devices (nvme0n1, sda, etc.)
+    let parse_stats = |content: &str| -> std::collections::HashMap<String, (u64, u64)> {
+        let mut result = std::collections::HashMap::new();
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 10 {
+                let name = parts[2];
+                // Only main devices, not partitions
+                if (name.starts_with("nvme") && name.ends_with("n1"))
+                    || (name.starts_with("sd") && name.len() == 3)
+                {
+                    // Field 6 = sectors read, Field 10 = sectors written
+                    let sectors_read: u64 = parts[5].parse().unwrap_or(0);
+                    let sectors_written: u64 = parts[9].parse().unwrap_or(0);
+                    result.insert(name.to_string(), (sectors_read, sectors_written));
+                }
+            }
+        }
+        result
+    };
+
+    let stats1_map = parse_stats(&stats1);
+    let stats2_map = parse_stats(&stats2);
+
+    let mut total_read_sectors: u64 = 0;
+    let mut total_write_sectors: u64 = 0;
+
+    for (name, (read1, write1)) in &stats1_map {
+        if let Some((read2, write2)) = stats2_map.get(name) {
+            total_read_sectors += read2.saturating_sub(*read1);
+            total_write_sectors += write2.saturating_sub(*write1);
+        }
+    }
+
+    // Convert to MB/s (512 bytes per sector, 100ms sample)
+    let read_mbs = (total_read_sectors * 512) as f64 / (1024.0 * 1024.0) * 10.0;
+    let write_mbs = (total_write_sectors * 512) as f64 / (1024.0 * 1024.0) * 10.0;
+
+    println!("  Disk I/O:   {:.1} MB/s read, {:.1} MB/s write", read_mbs, write_mbs);
 }
 
 fn print_categories_section() {

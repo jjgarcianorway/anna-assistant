@@ -1,4 +1,4 @@
-//! SW Detail Command v7.10.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.11.0 - Software Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -9,9 +9,9 @@
 //! - [PACKAGE]    Version, source, size, date
 //! - [COMMAND]    Path, man description
 //! - [SERVICE]    Unit, state, enabled
-//! - [CONFIG]     System/User layout with [present]/[not present] markers (v7.10.0)
-//! - [LOGS]       Severity-grouped, deduplicated logs with -p warning..alert (v7.10.0)
-//! - [TELEMETRY]  Real windows (1h, 24h, 7d, 30d) with trends (v7.9.0)
+//! - [CONFIG]     System/User layout with [present]/[not present] markers
+//! - [LOGS]       Severity-grouped, deduplicated logs with -p warning..alert
+//! - [TELEMETRY]  Real windows (1h, 24h, 7d, 30d) with trends and health notes (v7.11.0)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -880,7 +880,7 @@ fn print_service_config_section(svc_name: &str) {
     println!();
 }
 
-/// Print [TELEMETRY] section with v7.9.0 format: per-identity windows with trends
+/// Print [TELEMETRY] section with v7.11.0 format: per-identity windows with trends and health notes
 fn print_telemetry_section(name: &str) {
     use anna_common::config::AnnaConfig;
     use anna_common::{TelemetryDb, format_bytes_human,
@@ -962,20 +962,80 @@ fn print_telemetry_section(name: &str) {
     println!();
 
     // Trend section (24h vs 7d, v7.9.0 spec)
+    let mut has_trend = false;
     if let Ok(trend) = db.get_trend(name) {
         if trend.has_enough_data {
             println!("  Trend:");
             if let Some(cpu_trend) = trend.cpu_trend {
                 println!("    CPU:    {} (24h vs 7d)", cpu_trend.as_str());
+                has_trend = true;
             }
             if let Some(mem_trend) = trend.memory_trend {
                 println!("    Memory: {} (24h vs 7d)", mem_trend.as_str());
+                has_trend = true;
             }
-            println!();
-        } else if total_samples < 10 {
-            println!("  Telemetry still warming up for this identity (very few samples available).");
-            println!();
+            if has_trend {
+                println!();
+            }
         }
     }
+
+    // v7.11.0: Health notes section - link telemetry with logs
+    print_telemetry_health_notes(name, &stats_24h);
+}
+
+/// v7.11.0: Print health notes linking telemetry with recent logs
+fn print_telemetry_health_notes(name: &str, stats_24h: &Option<anna_common::UsageStats>) {
+    let mut notes = Vec::new();
+
+    // Check for high CPU usage
+    if let Some(stats) = stats_24h {
+        if stats.peak_cpu_percent > 90.0 {
+            notes.push(format!("High CPU usage detected (peak {:.0}%) - check for runaway processes", stats.peak_cpu_percent));
+        }
+        if stats.peak_mem_bytes > 4 * 1024 * 1024 * 1024 { // 4 GiB
+            let gb = stats.peak_mem_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+            notes.push(format!("High memory usage (peak {:.1} GiB) - consider memory limits", gb));
+        }
+    }
+
+    // Check for service errors in journalctl
+    let unit_name = format!("{}.service", name);
+    let error_count = get_service_error_count(&unit_name);
+    if error_count > 0 {
+        notes.push(format!("{} error(s) in logs this boot - see [LOGS] section above", error_count));
+    }
+
+    // Only show section if we have notes
+    if !notes.is_empty() {
+        println!("  Notes:");
+        for note in &notes {
+            println!("    ⚠  {}", note.yellow());
+        }
+        println!();
+    }
+}
+
+/// Get count of errors for a service unit in current boot
+fn get_service_error_count(unit_name: &str) -> usize {
+    let output = Command::new("journalctl")
+        .args([
+            "-u", unit_name,
+            "-p", "err..alert",
+            "-b",
+            "--no-pager",
+            "-q",
+            "-o", "short",
+        ])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            return stdout.lines().count();
+        }
+    }
+
+    0
 }
 

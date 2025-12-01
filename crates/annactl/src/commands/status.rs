@@ -1,18 +1,19 @@
-//! Status Command v7.9.0 - Real Telemetry with Trends
+//! Status Command v7.11.0 - Honest Telemetry and Trends
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
 //! - [DAEMON]              State, uptime, PID, restarts
-//! - [HEALTH]              Overall health + telemetry hotspots
+//! - [HEALTH]              Overall health status
 //! - [INVENTORY]           What Anna has indexed + sync status
-//! - [TELEMETRY]           Real telemetry with top CPU/memory and trends (v7.9.0)
+//! - [TELEMETRY]           Real telemetry with top CPU/memory and trends
+//! - [RESOURCE HOTSPOTS]   Top resource consumers with health notes (v7.11.0)
 //! - [UPDATES]             Auto-update schedule and last result
 //! - [PATHS]               Config, data, logs paths
 //! - [INTERNAL ERRORS]     Anna's own pipeline errors
 //! - [ALERTS]              Hardware alerts from health checks
-//! - [ANNA NEEDS]          Missing tools and docs (v7.6.0)
+//! - [ANNA NEEDS]          Missing tools and docs
 //!
-//! v7.9.0: Unified [TELEMETRY] section with trends (24h vs 7d)
+//! v7.11.0: New [RESOURCE HOTSPOTS] section with health notes
 //! NO journalctl system errors. NO host-wide log counts.
 
 use anyhow::Result;
@@ -53,6 +54,9 @@ pub async fn run() -> Result<()> {
 
     // [TELEMETRY] - v7.9.0: Unified section with trends
     print_telemetry_section_v79();
+
+    // [RESOURCE HOTSPOTS] - v7.11.0: Top consumers with health notes
+    print_resource_hotspots_section();
 
     // [UPDATES]
     print_updates_section();
@@ -228,9 +232,6 @@ fn print_health_section(stats: &Option<DaemonStats>) {
                 None => "pending".yellow().to_string(),
             };
             println!("  Sync:       {}", sync_health);
-
-            // Hotspots from telemetry (v7.5.0)
-            print_hotspots_subsection();
         }
         None => {
             println!("  Overall:    {} daemon not running", "✗".red());
@@ -243,33 +244,109 @@ fn print_health_section(stats: &Option<DaemonStats>) {
     println!();
 }
 
-/// Print hotspots subsection (v7.5.0)
-fn print_hotspots_subsection() {
-    // Try to get hotspots from telemetry
-    if let Some(db) = TelemetryDb::open_readonly() {
-        let data_status = db.get_data_status();
+/// v7.11.0: [RESOURCE HOTSPOTS] section with health notes
+/// Shows top CPU and RAM consumers with links to recent logs
+fn print_resource_hotspots_section() {
+    use anna_common::config::AnnaConfig;
 
-        // Only show hotspots if we have enough data
-        if matches!(data_status, DataStatus::PartialWindow { .. } | DataStatus::Ok { .. }) {
-            let cpu_hotspot = db.get_cpu_hotspot(WINDOW_24H).ok().flatten();
-            let ram_hotspot = db.get_ram_hotspot(WINDOW_24H).ok().flatten();
+    println!("{}", "[RESOURCE HOTSPOTS]".cyan());
 
-            // Only show section if we have at least one hotspot
-            if cpu_hotspot.is_some() || ram_hotspot.is_some() {
-                println!();
-                println!("  Hotspots (24h):");
+    let config = AnnaConfig::load();
+    if !config.telemetry.enabled {
+        println!("  {}", "Telemetry disabled in config.".dimmed());
+        println!();
+        return;
+    }
 
-                if let Some(cpu) = cpu_hotspot {
-                    let context = cpu.context.map(|c| format!(", {}", c)).unwrap_or_default();
-                    println!("    CPU:      {} ({}{})", cpu.name.cyan(), cpu.display, context);
-                }
+    let db = match TelemetryDb::open_readonly() {
+        Some(db) => db,
+        None => {
+            println!("  {}", "(telemetry DB not available)".dimmed());
+            println!();
+            return;
+        }
+    };
 
-                if let Some(ram) = ram_hotspot {
-                    println!("    RAM:      {} ({} RSS peak)", ram.name.cyan(), ram.display);
-                }
+    let data_status = db.get_data_status();
+
+    // Need enough data
+    if !matches!(data_status, DataStatus::PartialWindow { .. } | DataStatus::Ok { .. }) {
+        println!("  Telemetry warming up. Hotspots available after sufficient data collection.");
+        println!();
+        return;
+    }
+
+    // Get CPU and RAM hotspots
+    let cpu_hotspot = db.get_cpu_hotspot(WINDOW_24H).ok().flatten();
+    let ram_hotspot = db.get_ram_hotspot(WINDOW_24H).ok().flatten();
+
+    if cpu_hotspot.is_none() && ram_hotspot.is_none() {
+        println!("  No significant resource consumers detected in last 24h.");
+        println!();
+        return;
+    }
+
+    println!("  {}", "(top resource consumers in last 24h)".dimmed());
+    println!();
+
+    // CPU hotspot with health note
+    if let Some(cpu) = &cpu_hotspot {
+        let context = cpu.context.as_ref().map(|c| format!(", {}", c)).unwrap_or_default();
+        println!("  CPU:        {} ({}{})", cpu.name.cyan(), cpu.display, context);
+
+        // Check for related errors in journalctl
+        let note = get_health_note_for_process(&cpu.name);
+        if let Some(note_text) = note {
+            println!("              {}", format!("Note: {}", note_text).yellow());
+        }
+    }
+
+    // RAM hotspot with health note
+    if let Some(ram) = &ram_hotspot {
+        println!("  RAM:        {} ({} RSS peak)", ram.name.cyan(), ram.display);
+
+        // Check for related errors in journalctl
+        if cpu_hotspot.as_ref().map(|c| &c.name) != Some(&ram.name) {
+            let note = get_health_note_for_process(&ram.name);
+            if let Some(note_text) = note {
+                println!("              {}", format!("Note: {}", note_text).yellow());
             }
         }
     }
+
+    println!();
+}
+
+/// Get health note for a process by checking recent journalctl errors
+fn get_health_note_for_process(name: &str) -> Option<String> {
+    use std::process::Command;
+
+    // Try to find the service unit for this process
+    let unit_name = format!("{}.service", name);
+
+    // Check for recent errors in journalctl for this unit
+    let output = Command::new("journalctl")
+        .args([
+            "-u", &unit_name,
+            "-p", "err..alert",  // Only errors and above
+            "-b",                // Current boot only
+            "-n", "1",           // Just check if any exist
+            "--no-pager",
+            "-q",
+        ])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let line_count = stdout.lines().count();
+            if line_count > 0 {
+                return Some(format!("has errors this boot - see `annactl sw {}`", name));
+            }
+        }
+    }
+
+    None
 }
 
 fn print_inventory_section(stats: &Option<DaemonStats>) {
