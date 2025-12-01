@@ -470,6 +470,15 @@ impl UnifiedEngine {
                     question_class.canonical(), pattern.model_tier, pattern.skip_llm, pattern.hit_count
                 );
 
+                // v4.5.1: Clear ROUTE line for debug mode (ASCII only)
+                let route_name = match pattern.model_tier {
+                    1 => "Brain",
+                    2 => "Orchestrator(Junior)",
+                    3 => "Orchestrator(Senior)",
+                    _ => "Cache",
+                };
+                info!("ROUTE: {} (cached)", route_name);
+
                 // v4.5.0: TIER debug line - which tier answered this class before
                 let tier_name = match pattern.model_tier {
                     1 => "Brain (instant)",
@@ -555,6 +564,9 @@ impl UnifiedEngine {
                 "[+]  Brain fast path succeeded in {}ms",
                 brain_ms
             );
+
+            // v4.5.1: Clear ROUTE line for debug mode (ASCII only)
+            info!("ROUTE: Brain");
 
             // v4.5.0: TIER debug line for Brain success
             info!(
@@ -953,6 +965,10 @@ impl UnifiedEngine {
                 "[S]  Skipping Senior (simple domain, confidence={:.0}%)",
                 junior_confidence * 100.0
             );
+
+            // v4.5.1: Clear ROUTE line for debug mode (ASCII only)
+            info!("ROUTE: Orchestrator(Junior)");
+
             _origin = AnswerOrigin::Junior;
             self.record_xp_event(XpEventType::JuniorCleanProposal);
 
@@ -1071,6 +1087,9 @@ impl UnifiedEngine {
         _origin = AnswerOrigin::Senior;
         // v4.3.0: Record success on completed answer
         self.handle_success();
+
+        // v4.5.1: Clear ROUTE line for debug mode (ASCII only)
+        info!("ROUTE: Orchestrator(Senior)");
 
         // v4.2.0: Emit Senior response
         if let Some(e) = emitter {

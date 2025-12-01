@@ -1,8 +1,8 @@
-# Anna v4.5.0 "Tiered Learning"
+# Anna v4.5.1 "Debug Spine"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v4.5.0 tiered learning: 3-tier model architecture (Tier 1=Brain, Tier 2=Junior, Tier 3=Senior) with per-class model selection. Patterns now store which tier succeeded and can skip LLM entirely when reliability ≥90% and Brain answered. Enhanced debug output with CLASSIFIED, CACHE, TIER lines showing question routing decisions.
+> v4.5.1 debug spine: Telemetry reads from both primary and fallback paths for consistent data. Clear ROUTE lines in debug mode (Brain, Orchestrator(Junior), Orchestrator(Senior)). ASCII only, no emojis in debug output. Status/stats coherence via unified data sources.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v4.5.0** | **Tiered Learning** - 3-tier model architecture (Brain/Junior/Senior), per-class model selection, skip LLM when reliability ≥90%, enhanced debug (CLASSIFIED/CACHE/TIER lines) |
+| **v4.5.1** | **Debug Spine** - Telemetry reads both primary/fallback paths, clear ROUTE lines (Brain/Orchestrator(Junior)/Orchestrator(Senior)), ASCII-only debug, status/stats coherence |
+| v4.5.0 | Tiered Learning - 3-tier model architecture (Brain/Junior/Senior), per-class model selection, skip LLM when reliability ≥90%, enhanced debug (CLASSIFIED/CACHE/TIER lines) |
 | v4.4.0 | Functional Learning - Semantic classification, paraphrase recognition, pattern caching, reset clears patterns |
 | v4.3.2 | Telemetry Fallback - Fixed permission issue on telemetry reset fallback path |
 | v4.3.1 | LLM Answer Counting - Correct answer count tracking, shared answer cache |

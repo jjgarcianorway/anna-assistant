@@ -735,72 +735,102 @@ impl RollingStats {
 // ============================================================================
 
 /// Read telemetry events efficiently without loading entire file
+/// v4.5.1: Now reads from both primary and fallback paths for consistent data
 pub struct TelemetryReader {
-    file_path: PathBuf,
+    primary_path: PathBuf,
+    fallback_path: PathBuf,
 }
 
 impl TelemetryReader {
     pub fn new(file_path: PathBuf) -> Self {
-        Self { file_path }
+        Self {
+            primary_path: file_path.clone(),
+            // v4.5.1: For single-file readers (e.g., tests), use same path as fallback
+            // to avoid picking up system fallback file
+            fallback_path: file_path,
+        }
+    }
+
+    /// Create a reader that checks both primary and fallback system paths
+    /// v4.5.1: This is the production reader that combines both paths
+    pub fn with_fallback(primary: PathBuf, fallback: PathBuf) -> Self {
+        Self {
+            primary_path: primary,
+            fallback_path: fallback,
+        }
     }
 
     pub fn default_path() -> Self {
-        Self::new(PathBuf::from(TELEMETRY_FILE))
-    }
-
-    /// Check if telemetry file exists and has data
-    pub fn has_data(&self) -> bool {
-        self.file_path.exists() && fs::metadata(&self.file_path)
-            .map(|m| m.len() > 0)
-            .unwrap_or(false)
-    }
-
-    /// Read the last N events from the file (streaming, memory efficient)
-    pub fn read_last_n(&self, n: usize) -> Vec<TelemetryEvent> {
-        if !self.file_path.exists() {
-            return Vec::new();
+        Self {
+            primary_path: PathBuf::from(TELEMETRY_FILE),
+            fallback_path: PathBuf::from(TELEMETRY_FALLBACK),
         }
+    }
 
-        let file = match File::open(&self.file_path) {
-            Ok(f) => f,
-            Err(_) => return Vec::new(),
+    /// Check if any telemetry file exists and has data
+    /// v4.5.1: Checks both primary and fallback (if different)
+    pub fn has_data(&self) -> bool {
+        let primary_has = self.primary_path.exists() && fs::metadata(&self.primary_path)
+            .map(|m| m.len() > 0)
+            .unwrap_or(false);
+
+        // Only check fallback if it's different from primary
+        let fallback_has = if self.fallback_path != self.primary_path {
+            self.fallback_path.exists() && fs::metadata(&self.fallback_path)
+                .map(|m| m.len() > 0)
+                .unwrap_or(false)
+        } else {
+            false
         };
 
-        let reader = BufReader::new(file);
-        let mut events: Vec<TelemetryEvent> = Vec::new();
-
-        for line in reader.lines().map_while(Result::ok) {
-            if let Ok(event) = serde_json::from_str::<TelemetryEvent>(&line) {
-                events.push(event);
-                // Keep only last n
-                if events.len() > n * 2 {
-                    events = events.split_off(events.len() - n);
-                }
-            }
-        }
-
-        // Return exactly last n
-        if events.len() > n {
-            events.split_off(events.len() - n)
-        } else {
-            events
-        }
+        primary_has || fallback_has
     }
 
-    /// Read all events (for lifetime stats - use carefully on large files)
-    pub fn read_all(&self) -> Vec<TelemetryEvent> {
-        if !self.file_path.exists() {
+    /// v4.5.1: Helper to read events from a single file
+    fn read_from_file(path: &PathBuf) -> Vec<TelemetryEvent> {
+        if !path.exists() {
             return Vec::new();
         }
-
-        let content = fs::read_to_string(&self.file_path).unwrap_or_default();
+        let content = fs::read_to_string(path).unwrap_or_default();
         content
             .lines()
             .filter_map(|line| serde_json::from_str::<TelemetryEvent>(line).ok())
             .collect()
     }
 
-    /// Read events from the last N hours
+    /// Read the last N events from both files (streaming, memory efficient)
+    /// v4.5.1: Combines events from primary and fallback paths
+    pub fn read_last_n(&self, n: usize) -> Vec<TelemetryEvent> {
+        let mut all_events = self.read_all();
+
+        // Sort by timestamp descending, take last n
+        all_events.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+        // Return exactly last n
+        if all_events.len() > n {
+            all_events.split_off(all_events.len() - n)
+        } else {
+            all_events
+        }
+    }
+
+    /// Read all events from both primary and fallback files
+    /// v4.5.1: Combines events from both paths for unified view
+    pub fn read_all(&self) -> Vec<TelemetryEvent> {
+        let mut events = Self::read_from_file(&self.primary_path);
+
+        // Only read fallback if it's different from primary
+        if self.fallback_path != self.primary_path {
+            let fallback_events = Self::read_from_file(&self.fallback_path);
+            events.extend(fallback_events);
+        }
+
+        // Sort by timestamp for consistent ordering
+        events.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        events
+    }
+
+    /// Read events from the last N hours (from both files)
     pub fn read_hours(&self, hours: u64) -> Vec<TelemetryEvent> {
         let cutoff = Utc::now() - chrono::Duration::hours(hours as i64);
         let cutoff_str = cutoff.to_rfc3339();
@@ -811,7 +841,8 @@ impl TelemetryReader {
             .collect()
     }
 
-    /// Compute complete summary (lifetime + windowed)
+    /// Compute complete summary (lifetime + windowed) from both files
+    /// v4.5.1: Uses unified data from both primary and fallback
     pub fn complete_summary(&self, window_size: usize) -> TelemetrySummaryComplete {
         if !self.has_data() {
             return TelemetrySummaryComplete {
@@ -862,18 +893,31 @@ impl TelemetryReader {
         }
     }
 
-    /// Count total events without loading all into memory
+    /// Count total events from both primary and fallback files
+    /// v4.5.1: Combines counts from both paths (if different)
     pub fn count_events(&self) -> u64 {
-        if !self.file_path.exists() {
-            return 0;
-        }
-
-        let file = match File::open(&self.file_path) {
-            Ok(f) => f,
-            Err(_) => return 0,
+        let primary_count = if self.primary_path.exists() {
+            let file = match File::open(&self.primary_path) {
+                Ok(f) => f,
+                Err(_) => return 0,
+            };
+            BufReader::new(file).lines().count() as u64
+        } else {
+            0
         };
 
-        BufReader::new(file).lines().count() as u64
+        // Only count fallback if it's different from primary
+        let fallback_count = if self.fallback_path != self.primary_path && self.fallback_path.exists() {
+            let file = match File::open(&self.fallback_path) {
+                Ok(f) => f,
+                Err(_) => return 0,
+            };
+            BufReader::new(file).lines().count() as u64
+        } else {
+            0
+        };
+
+        primary_count + fallback_count
     }
 }
 
