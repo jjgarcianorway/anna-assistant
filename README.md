@@ -1,8 +1,8 @@
-# Anna v7.5.0 "Enhanced Telemetry & Usage Insights"
+# Anna v7.7.0 "Snow Leopard"
 
 **System Intelligence Daemon for Linux**
 
-> v7.5.0: Real CPU time tracking, exec counts, telemetry hotspots in health display. Enhanced log severity breakdown with local timestamps.
+> v7.7.0: Per-window telemetry aggregation, auto-install Arch docs, enhanced name resolution, and performance constraints.
 
 ---
 
@@ -75,7 +75,7 @@ That's it. 4 commands. No flags, no complexity.
 ------------------------------------------------------------
 
 [VERSION]
-  Anna:       v7.5.0
+  Anna:       v7.7.0
 
 [DAEMON]
   Status:     running
@@ -218,8 +218,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.5.0/annad-7.5.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.5.0/annactl-7.5.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.7.0/annad-7.7.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.7.0/annactl-7.7.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -304,7 +304,9 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.5.0** | **Enhanced Telemetry** - CPU time tracking, exec counts, hotspots, enhanced logs |
+| **v7.7.0** | **Snow Leopard** - Per-window telemetry, auto-install docs, name resolution, performance |
+| v7.6.0 | Telemetry Stability - Configurable retention and max_keys |
+| v7.5.0 | Enhanced Telemetry - CPU time tracking, exec counts, hotspots |
 | v7.4.0 | Config Discovery - Multi-source config file detection |
 | v7.3.0 | Health Signals - Overall health with warnings/criticals |
 | v7.2.0 | Telemetry Windows - 1h/24h/7d/30d stats |
