@@ -471,11 +471,13 @@ pub use knowledge_collector::{
 // v5.2.0: Error Index exports
 // v5.2.1: Added LogScanState
 // v5.2.2: Added LogCategory, GroupedErrorSummary
+// v5.2.3: Added UniversalErrorSummary, ObjectErrorEntry
 pub use error_index::{
     LogSeverity, ErrorType, LogEntry, ObjectErrors, ErrorIndex,
     ERROR_INDEX_PATH, MAX_LOGS_PER_OBJECT, MAX_ERRORS_PER_OBJECT,
     LogScanState, LOG_SCAN_STATE_PATH,
     LogCategory, GroupedErrorSummary,
+    UniversalErrorSummary, ObjectErrorEntry,
 };
 
 // v5.2.0: Service State exports

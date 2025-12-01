@@ -45,6 +45,8 @@ use anna_common::{
     LogScanState,
     // v5.2.2: Grouped errors and intrusion analysis
     GroupedErrorSummary, GroupedIntrusionByService, IntrusionAnalysisEntry,
+    // v5.2.3: Universal error inspection
+    LogCategory,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -487,30 +489,100 @@ fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
     }
     println!();
 
-    // v5.2.2: ERRORS section - concrete grouped errors
+    // v5.2.3: ERRORS section - universal error inspection (all object types)
     println!("{}", "[ERRORS]".cyan());
 
-    // Failed services (24h) with cause and example
-    let grouped_errors = error_index.grouped_errors_24h();
-    if !grouped_errors.is_empty() {
-        println!("  Failed services (24h):");
-        for summary in grouped_errors.iter().take(5) {
-            let events_str = if summary.error_count == 1 { "event" } else { "events" };
-            println!("    - {} ({} {})",
-                summary.service_name.red(),
-                summary.error_count,
-                events_str);
-            println!("        Cause: {}", summary.cause_summary);
-            if let Some(ref example) = summary.example_message {
-                println!("        Example: {}", truncate_str(example, 55));
+    let universal_summary = error_index.universal_grouped_errors();
+    if universal_summary.has_errors() {
+        // Services with errors
+        if !universal_summary.services.is_empty() {
+            println!("  Services (24h):");
+            for entry in universal_summary.services.iter().take(5) {
+                let events_str = if entry.error_count == 1 { "event" } else { "events" };
+                println!("    - {} ({} {})",
+                    entry.name.red(),
+                    entry.error_count,
+                    events_str);
+                println!("        Cause: {}", entry.cause);
+                if let Some(ref example) = entry.example {
+                    println!("        Example: {}", truncate_str(example, 55));
+                }
+            }
+            if universal_summary.services.len() > 5 {
+                println!("    (... {} more omitted, use journalctl for full view)",
+                    universal_summary.services.len() - 5);
             }
         }
-        // Show truncation notice if more
-        if grouped_errors.len() > 5 {
-            println!("    (... {} more services with errors omitted)", grouped_errors.len() - 5);
+
+        // Packages with errors
+        if !universal_summary.packages.is_empty() {
+            println!();
+            println!("  Packages (24h):");
+            for entry in universal_summary.packages.iter().take(5) {
+                let events_str = if entry.error_count == 1 { "event" } else { "events" };
+                println!("    - {} ({} {})",
+                    entry.name.yellow(),
+                    entry.error_count,
+                    events_str);
+                println!("        Cause: {}", entry.cause);
+            }
+            if universal_summary.packages.len() > 5 {
+                println!("    (... {} more omitted)", universal_summary.packages.len() - 5);
+            }
+        }
+
+        // Executables with errors
+        if !universal_summary.executables.is_empty() {
+            println!();
+            println!("  Executables (24h):");
+            for entry in universal_summary.executables.iter().take(5) {
+                let events_str = if entry.error_count == 1 { "event" } else { "events" };
+                println!("    - {} ({} {})",
+                    entry.name.yellow(),
+                    entry.error_count,
+                    events_str);
+                println!("        Cause: {}", entry.cause);
+            }
+            if universal_summary.executables.len() > 5 {
+                println!("    (... {} more omitted)", universal_summary.executables.len() - 5);
+            }
+        }
+
+        // Filesystem issues
+        if !universal_summary.filesystem.is_empty() {
+            println!();
+            println!("  Filesystem (24h):");
+            for entry in universal_summary.filesystem.iter().take(5) {
+                let events_str = if entry.error_count == 1 { "event" } else { "events" };
+                println!("    - {} ({} {})",
+                    entry.name.yellow(),
+                    entry.error_count,
+                    events_str);
+                println!("        Cause: {}", entry.cause);
+            }
+            if universal_summary.filesystem.len() > 5 {
+                println!("    (... {} more omitted)", universal_summary.filesystem.len() - 5);
+            }
+        }
+
+        // Kernel issues
+        if !universal_summary.kernel.is_empty() {
+            println!();
+            println!("  Kernel (24h):");
+            for entry in universal_summary.kernel.iter().take(5) {
+                let events_str = if entry.error_count == 1 { "event" } else { "events" };
+                println!("    - {} ({} {})",
+                    entry.name.red().bold(),
+                    entry.error_count,
+                    events_str);
+                println!("        Cause: {}", entry.cause);
+            }
+            if universal_summary.kernel.len() > 5 {
+                println!("    (... {} more omitted)", universal_summary.kernel.len() - 5);
+            }
         }
     } else {
-        println!("  Failed services (24h):  (none)");
+        println!("  No errors or warnings found (24h)");
     }
 
     // Intrusion-like patterns (24h) grouped by service and IP
@@ -527,7 +599,7 @@ fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
                 pattern.source_ip.red());
         }
         if intrusion_patterns.len() > 5 {
-            println!("    (... {} more intrusion patterns omitted)", intrusion_patterns.len() - 5);
+            println!("    (... {} more omitted)", intrusion_patterns.len() - 5);
         }
     }
     println!();
@@ -834,7 +906,7 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
                 println!();
             }
 
-            // v5.2.2: ERRORS section - per-object exhaustive view
+            // v5.2.3: ERRORS section - per-object with category sections
             let error_index = ErrorIndex::load();
             let intrusion_index = IntrusionIndex::load();
 
@@ -850,66 +922,108 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
                 println!("  Total error events: {}", errors_24h.len());
                 println!("  Total warning events: {}", warnings_24h.len());
 
-                // For services: show intrusion attempts if any
-                if is_service {
-                    let analysis = intrusion_index.intrusion_analysis_for_service(&obj.name);
-                    if !analysis.is_empty() {
-                        println!();
-                        println!("  Intrusion attempts:");
-                        for entry in analysis.iter().take(5) {
-                            let usernames = if entry.usernames.is_empty() {
-                                "unknown".to_string()
-                            } else {
-                                entry.usernames.join(", ")
-                            };
-                            println!("    - {} invalid logins from {} (usernames: {})",
-                                entry.attempt_count,
-                                entry.source_ip.red(),
-                                usernames);
-                        }
-                        if analysis.len() > 5 {
-                            println!("    (... {} more IPs omitted, use 'journalctl -u {}' for full log)",
-                                analysis.len() - 5, obj.name);
-                        }
+                // Show related files if any
+                let related_files = obj_errors.all_related_files();
+                if !related_files.is_empty() {
+                    println!("  Related files:");
+                    for f in related_files.iter().take(5) {
+                        println!("    - {}", f);
                     }
+                    if related_files.len() > 5 {
+                        println!("    (... {} more omitted)", related_files.len() - 5);
+                    }
+                }
 
-                    // Service failures
-                    let service_failures: Vec<_> = errors_24h.iter()
-                        .filter(|e| e.error_type.as_ref().map(|t| t == &anna_common::ErrorType::ServiceFailure).unwrap_or(false))
-                        .collect();
-                    if !service_failures.is_empty() {
-                        println!();
-                        println!("  Service failures:");
-                        for entry in service_failures.iter().take(5) {
-                            println!("    - {}", truncate_str(&entry.message, 60));
-                        }
+                // v5.2.3: Category breakdown
+                let cat_counts = obj_errors.category_counts();
+                if !cat_counts.is_empty() {
+                    println!("  By category:");
+                    for (cat, count) in &cat_counts {
+                        println!("    {}: {}", cat.display_name(), count);
                     }
-                } else {
-                    // For packages/commands: show usage-related errors
-                    let usage_errors = obj_errors.usage_errors();
-                    if !usage_errors.is_empty() {
-                        println!();
-                        println!("  Usage-related errors:");
-                        for entry in usage_errors.iter().take(5) {
-                            println!("    - {}", truncate_str(&entry.message, 60));
-                        }
-                    }
+                }
+                println!();
 
-                    // Config issues
-                    let config_errors = obj_errors.config_errors();
-                    if !config_errors.is_empty() {
-                        println!();
-                        println!("  Config issues:");
-                        for entry in config_errors.iter().take(5) {
-                            println!("    - {}", truncate_str(&entry.message, 60));
+                // v5.2.3: [INTRUSION] section
+                let intrusion_errs = obj_errors.intrusion_errors();
+                if !intrusion_errs.is_empty() {
+                    println!("{}", "[INTRUSION]".red().bold());
+                    for entry in intrusion_errs.iter().take(5) {
+                        let ts = format_timestamp(entry.timestamp);
+                        let ip = entry.source_ip.as_deref().unwrap_or("-");
+                        let user = entry.username.as_deref().unwrap_or("-");
+                        println!("  [{}] {} (IP: {}, user: {})",
+                            ts, truncate_str(&entry.message, 45), ip, user);
+                    }
+                    if intrusion_errs.len() > 5 {
+                        println!("  (... {} more omitted, use journalctl for full view)",
+                            intrusion_errs.len() - 5);
+                    }
+                    println!();
+                }
+
+                // v5.2.3: [FILESYSTEM] section
+                let fs_errs = obj_errors.filesystem_errors();
+                if !fs_errs.is_empty() {
+                    println!("{}", "[FILESYSTEM]".yellow());
+                    for entry in fs_errs.iter().take(5) {
+                        let ts = format_timestamp(entry.timestamp);
+                        println!("  [{}] {}", ts, truncate_str(&entry.message, 60));
+                        for f in entry.related_files.iter().take(2) {
+                            println!("      -> {}", f);
                         }
                     }
+                    if fs_errs.len() > 5 {
+                        println!("  (... {} more omitted)", fs_errs.len() - 5);
+                    }
+                    println!();
+                }
+
+                // v5.2.3: [CONFIG] section
+                let config_errs = obj_errors.errors_by_category(LogCategory::Config);
+                if !config_errs.is_empty() {
+                    println!("{}", "[CONFIG]".yellow());
+                    for entry in config_errs.iter().take(5) {
+                        let ts = format_timestamp(entry.timestamp);
+                        println!("  [{}] {}", ts, truncate_str(&entry.message, 60));
+                    }
+                    if config_errs.len() > 5 {
+                        println!("  (... {} more omitted)", config_errs.len() - 5);
+                    }
+                    println!();
+                }
+
+                // v5.2.3: [DEPENDENCIES] section
+                let dep_errs = obj_errors.dependency_errors();
+                if !dep_errs.is_empty() {
+                    println!("{}", "[DEPENDENCIES]".yellow());
+                    for entry in dep_errs.iter().take(5) {
+                        let ts = format_timestamp(entry.timestamp);
+                        println!("  [{}] {}", ts, truncate_str(&entry.message, 60));
+                    }
+                    if dep_errs.len() > 5 {
+                        println!("  (... {} more omitted)", dep_errs.len() - 5);
+                    }
+                    println!();
+                }
+
+                // v5.2.3: [PERFORMANCE ISSUES] section (runtime errors)
+                let perf_errs = obj_errors.runtime_errors();
+                if !perf_errs.is_empty() {
+                    println!("{}", "[PERFORMANCE ISSUES]".yellow());
+                    for entry in perf_errs.iter().take(5) {
+                        let ts = format_timestamp(entry.timestamp);
+                        println!("  [{}] {}", ts, truncate_str(&entry.message, 60));
+                    }
+                    if perf_errs.len() > 5 {
+                        println!("  (... {} more omitted)", perf_errs.len() - 5);
+                    }
+                    println!();
                 }
 
                 // Warnings
                 if !warnings_24h.is_empty() {
-                    println!();
-                    println!("  Warnings:");
+                    println!("{}", "[WARNINGS]".yellow());
                     // Group by message (count duplicates)
                     let mut warning_counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
                     for w in &warnings_24h {
@@ -917,14 +1031,16 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
                     }
                     for (msg, count) in warning_counts.iter().take(5) {
                         if *count > 1 {
-                            println!("    - {} events: \"{}\"", count, msg);
+                            println!("  {} events: \"{}\"", count, msg);
                         } else {
-                            println!("    - {}", msg);
+                            println!("  {}", msg);
                         }
                     }
+                    if warning_counts.len() > 5 {
+                        println!("  (... {} more omitted)", warning_counts.len() - 5);
+                    }
+                    println!();
                 }
-
-                println!();
             } else {
                 // No errors found for this object
                 println!("{}", "[ERRORS]".cyan());
@@ -1013,7 +1129,7 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
 
             // Notes
             println!("{}", "[NOTES]".cyan());
-            println!("  Data collected by anna daemon (v5.2.2 Precise Error & Intrusion Logs).");
+            println!("  Data collected by anna daemon (v5.2.3 Universal Error Inspection).");
         }
         None => {
             // v5.2.1: Show ERRORS section even for unknown objects
@@ -1036,6 +1152,13 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
             println!("  Anna has no knowledge about '{}' yet.", name);
             println!();
             println!("  It might not be installed, or it has not been observed in use.");
+            println!();
+
+            // v5.2.3: Priority indexing display
+            println!("{}", "[PRIORITY INDEX]".yellow());
+            println!("  Indexing priority increased for: {}", name.cyan());
+            println!("  Next scan will prioritize discovering this object.");
+            println!("  Run 'annactl status' again in ~5 minutes to check if indexed.");
         }
     }
 

@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v5.2.2 - Precise Error & Intrusion Logs
+//! Anna Daemon (annad) v5.2.3 - Universal Error Inspection
 //!
 //! Anna is now a paranoid archivist with full error tracking:
 //! - Tracks ALL commands on PATH
@@ -13,6 +13,9 @@
 //! - v5.2.1: Log scan state tracking
 //! - v5.2.2: LogEntry with category, source_ip, username fields
 //! - v5.2.2: Intrusion grouping by IP with usernames and timestamps
+//! - v5.2.3: Universal error model for ALL objects
+//! - v5.2.3: Dynamic category detection from log patterns
+//! - v5.2.3: Per-object category sections (intrusion, filesystem, config, etc.)
 //!
 //! No Q&A, no LLM orchestration in this phase.
 
