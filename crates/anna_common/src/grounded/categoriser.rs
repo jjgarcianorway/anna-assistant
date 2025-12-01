@@ -1,4 +1,4 @@
-//! Rule-Based Categoriser v7.2.0
+//! Rule-Based Categoriser v7.10.0
 //!
 //! Categorises packages/commands based on description text and metadata.
 //! No hardcoded package lists - uses pattern matching on descriptions.
@@ -12,6 +12,7 @@
 //! - Every category is derived from description content
 //! - Multiple categories are possible if multiple rules match
 //! - Falls back to "Other" if no rule matches
+//! - v7.10.0: Normalise names to canonical lowercase form (no duplicates)
 
 use std::process::Command;
 
@@ -289,8 +290,9 @@ pub fn packages_in_category(category: &str) -> Vec<(String, String, String)> {
 
 /// Get category summary for KDB overview
 /// Returns (category_name, list of package names)
+/// v7.10.0: Normalizes names and removes duplicates
 pub fn get_category_summary() -> Vec<(String, Vec<String>)> {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
     // Get list of explicitly installed packages
     let output = Command::new("pacman")
@@ -298,12 +300,21 @@ pub fn get_category_summary() -> Vec<(String, Vec<String>)> {
         .output();
 
     let mut category_packages: HashMap<String, Vec<String>> = HashMap::new();
+    // v7.10.0: Track seen names (case-insensitive) to avoid duplicates
+    let mut seen_names: HashSet<String> = HashSet::new();
 
     if let Ok(out) = output {
         if out.status.success() {
             let stdout = String::from_utf8_lossy(&out.stdout);
             for line in stdout.lines() {
                 if let Some(name) = line.split_whitespace().next() {
+                    // v7.10.0: Normalize to lowercase for deduplication
+                    let name_lower = name.to_lowercase();
+                    if seen_names.contains(&name_lower) {
+                        continue; // Skip duplicate (case-insensitive)
+                    }
+                    seen_names.insert(name_lower);
+
                     let info = PackageInfo::fetch(name);
                     let cats = categorise(&info);
 
@@ -319,9 +330,11 @@ pub fn get_category_summary() -> Vec<(String, Vec<String>)> {
         }
     }
 
-    // Sort packages within each category
+    // Sort packages within each category - v7.10.0: case-insensitive sort
     for packages in category_packages.values_mut() {
         packages.sort_by_key(|a| a.to_lowercase());
+        // v7.10.0: Remove adjacent case-insensitive duplicates
+        packages.dedup_by(|a, b| a.to_lowercase() == b.to_lowercase());
     }
 
     // Return in standard order, only categories with items

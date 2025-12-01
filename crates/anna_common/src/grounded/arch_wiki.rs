@@ -1,56 +1,71 @@
-//! Arch Wiki Config Discovery v7.6.1
+//! Arch Wiki Config Discovery v7.10.0
 //!
-//! Extracts config hints from local arch-wiki-docs package.
+//! Extracts config hints from local Arch Wiki packages.
 //! Does NOT use network - only reads local files.
 //!
-//! Sources:
-//! - pacman -Ql arch-wiki-docs -> lists all wiki HTML files
-//! - Parse HTML for config paths mentioned in "configuration" sections
+//! Sources (in order of preference):
+//! - arch-wiki-lite (compressed text files, no HTML)
+//! - arch-wiki-docs (HTML files, needs stripping)
 //!
 //! Rules:
 //! - Only extract paths that look like real file paths
 //! - Classify as system (/etc, /usr) or user (~/, $HOME)
 //! - Never invent or guess paths
 //! - v7.6.1: Strip HTML before extraction, filter paths by identity
+//! - v7.10.0: Support arch-wiki-lite, use text browsers for HTML
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use regex::Regex;
 
+/// Wiki source type - v7.10.0
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WikiSource {
+    /// arch-wiki-lite: compressed text files (preferred)
+    ArchWikiLite,
+    /// arch-wiki-docs: HTML files (fallback)
+    ArchWikiDocs,
+}
+
 /// Arch Wiki index status
 #[derive(Debug, Clone)]
 pub struct ArchWikiIndex {
-    /// Whether arch-wiki-docs is available
+    /// Whether any wiki source is available
     pub enabled: bool,
+    /// Which wiki source we're using - v7.10.0
+    pub source: Option<WikiSource>,
     /// Root path where wiki docs are installed
     pub root: Option<PathBuf>,
-    /// List of HTML files (cached from pacman -Ql)
+    /// List of wiki files (cached from pacman -Ql)
     files: Vec<String>,
 }
 
 impl ArchWikiIndex {
     /// Detect local Arch Wiki docs package
+    /// v7.10.0: Prefer arch-wiki-lite (text) over arch-wiki-docs (HTML)
     pub fn detect() -> Self {
-        // Try arch-wiki-docs first
-        if let Some(index) = Self::try_package("arch-wiki-docs") {
+        // Try arch-wiki-lite first (preferred - no HTML)
+        if let Some(index) = Self::try_package_lite("arch-wiki-lite") {
             return index;
         }
 
-        // Try arch-wiki-lite as alternative
-        if let Some(index) = Self::try_package("arch-wiki-lite") {
+        // Try arch-wiki-docs as fallback (HTML files)
+        if let Some(index) = Self::try_package_html("arch-wiki-docs") {
             return index;
         }
 
         // Not available
         Self {
             enabled: false,
+            source: None,
             root: None,
             files: Vec::new(),
         }
     }
 
-    fn try_package(package: &str) -> Option<Self> {
+    /// Try to load arch-wiki-lite package (compressed text files) - v7.10.0
+    fn try_package_lite(package: &str) -> Option<Self> {
         // Check if package is installed
         let check = Command::new("pacman")
             .args(["-Qi", package])
@@ -76,13 +91,11 @@ impl ArchWikiIndex {
         let mut root: Option<PathBuf> = None;
 
         for line in stdout.lines() {
-            // Format: "package /path/to/file"
             if let Some(path) = line.split_whitespace().nth(1) {
-                // Look for HTML files
-                if path.ends_with(".html") {
+                // arch-wiki-lite uses .txt or .txt.zst files
+                if path.ends_with(".txt") || path.ends_with(".txt.zst") || path.ends_with(".txt.gz") {
                     files.push(path.to_string());
 
-                    // Detect root from first HTML file
                     if root.is_none() {
                         if let Some(parent) = Path::new(path).parent() {
                             root = Some(parent.to_path_buf());
@@ -98,10 +111,64 @@ impl ArchWikiIndex {
 
         Some(Self {
             enabled: true,
+            source: Some(WikiSource::ArchWikiLite),
             root,
             files,
         })
     }
+
+    /// Try to load arch-wiki-docs package (HTML files)
+    fn try_package_html(package: &str) -> Option<Self> {
+        // Check if package is installed
+        let check = Command::new("pacman")
+            .args(["-Qi", package])
+            .output()
+            .ok()?;
+
+        if !check.status.success() {
+            return None;
+        }
+
+        // Get list of files
+        let output = Command::new("pacman")
+            .args(["-Ql", package])
+            .output()
+            .ok()?;
+
+        if !output.status.success() {
+            return None;
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut files = Vec::new();
+        let mut root: Option<PathBuf> = None;
+
+        for line in stdout.lines() {
+            if let Some(path) = line.split_whitespace().nth(1) {
+                if path.ends_with(".html") {
+                    files.push(path.to_string());
+
+                    if root.is_none() {
+                        if let Some(parent) = Path::new(path).parent() {
+                            root = Some(parent.to_path_buf());
+                        }
+                    }
+                }
+            }
+        }
+
+        if files.is_empty() {
+            return None;
+        }
+
+        Some(Self {
+            enabled: true,
+            source: Some(WikiSource::ArchWikiDocs),
+            root,
+            files,
+        })
+    }
+
 
     /// Find candidate wiki pages for a package/command name
     pub fn find_candidates(&self, name: &str, max: usize) -> Vec<String> {
@@ -132,21 +199,78 @@ impl ArchWikiIndex {
         candidates
     }
 
-    /// Extract config paths from a wiki HTML file
+    /// Extract config paths from a wiki file
     pub fn extract_config_paths(&self, file_path: &str) -> Vec<ConfigHint> {
         self.extract_config_paths_for_identity(file_path, None)
     }
 
-    /// Extract config paths from a wiki HTML file, filtered by identity
-    /// v7.6.1: Identity-focused filtering to avoid unrelated paths
-    pub fn extract_config_paths_for_identity(&self, file_path: &str, identity: Option<&str>) -> Vec<ConfigHint> {
-        let content = match std::fs::read_to_string(file_path) {
-            Ok(c) => c,
-            Err(_) => return Vec::new(),
-        };
+    /// Read wiki file content, handling compression and HTML - v7.10.0
+    fn read_wiki_content(&self, file_path: &str) -> Option<String> {
+        // Handle compressed files (arch-wiki-lite uses .txt.zst or .txt.gz)
+        if file_path.ends_with(".zst") {
+            // Try zstdcat
+            let output = Command::new("zstdcat")
+                .arg(file_path)
+                .output()
+                .ok()?;
+            if output.status.success() {
+                return Some(String::from_utf8_lossy(&output.stdout).to_string());
+            }
+            return None;
+        }
 
-        // v7.6.1: Strip HTML before processing
-        let clean_content = strip_html(&content);
+        if file_path.ends_with(".gz") {
+            // Try zcat/gunzip
+            let output = Command::new("zcat")
+                .arg(file_path)
+                .output()
+                .ok()?;
+            if output.status.success() {
+                return Some(String::from_utf8_lossy(&output.stdout).to_string());
+            }
+            return None;
+        }
+
+        // Plain text or HTML file
+        let content = std::fs::read_to_string(file_path).ok()?;
+
+        // If HTML, strip tags - v7.10.0: prefer text browser if available
+        if file_path.ends_with(".html") {
+            // Try lynx first for better HTML rendering
+            if let Ok(output) = Command::new("lynx")
+                .args(["-dump", "-nolist", "-width=200", file_path])
+                .output()
+            {
+                if output.status.success() {
+                    return Some(String::from_utf8_lossy(&output.stdout).to_string());
+                }
+            }
+
+            // Try w3m as fallback
+            if let Ok(output) = Command::new("w3m")
+                .args(["-dump", "-cols", "200", file_path])
+                .output()
+            {
+                if output.status.success() {
+                    return Some(String::from_utf8_lossy(&output.stdout).to_string());
+                }
+            }
+
+            // Fall back to built-in HTML stripping
+            return Some(strip_html(&content));
+        }
+
+        Some(content)
+    }
+
+    /// Extract config paths from a wiki file, filtered by identity
+    /// v7.6.1: Identity-focused filtering to avoid unrelated paths
+    /// v7.10.0: Support for arch-wiki-lite text files and text browsers
+    pub fn extract_config_paths_for_identity(&self, file_path: &str, identity: Option<&str>) -> Vec<ConfigHint> {
+        let clean_content = match self.read_wiki_content(file_path) {
+            Some(c) => c,
+            None => return Vec::new(),
+        };
 
         let mut hints = Vec::new();
         let mut seen: HashSet<String> = HashSet::new();
@@ -293,18 +417,41 @@ fn path_belongs_to_identity(path: &str, identity: &str) -> bool {
     false
 }
 
-/// Check if path belongs to a different well-known tool - v7.6.1
+/// Check if path belongs to a different well-known tool - v7.10.0 expanded
+/// Used to filter out configs that are for related but separate software
 fn is_path_for_other_tool(path: &str, current_identity: &str) -> bool {
+    // v7.10.0: Expanded list of well-known tools to filter
     let other_tools = [
+        // Wayland ecosystem
         "uwsm", "mako", "waybar", "dunst", "rofi", "wofi", "swaylock",
         "swayidle", "wlogout", "eww", "ags", "nwg", "wlr", "sway",
-        "kitty", "alacritty", "foot", "wezterm",
+        // Terminals
+        "kitty", "alacritty", "foot", "wezterm", "konsole", "gnome-terminal",
+        // Notification daemons
+        "fnott", "deadd", "linux_notification_center",
+        // Launchers
+        "bemenu", "dmenu", "tofi", "fuzzel",
+        // Bar/panels
+        "polybar", "lemonbar", "i3bar", "swaybar",
+        // Lock screens
+        "i3lock", "betterlockscreen", "gtklock", "hyprlock",
+        // Idle managers
+        "xidlehook", "hypridle",
+        // Wallpaper setters
+        "hyprpaper", "swaybg", "nitrogen", "feh",
+        // Screen capture
+        "grim", "slurp", "flameshot", "spectacle",
+        // Clipboard managers
+        "wl-clipboard", "cliphist", "clipman",
+        // Display managers
+        "ly", "greetd", "lightdm", "sddm", "gdm",
     ];
 
     for tool in &other_tools {
         if *tool == current_identity {
             continue;
         }
+        // Check for the tool as a directory segment
         if path.contains(&format!("/{}/", tool)) || path.contains(&format!("/.{}", tool)) {
             return true;
         }

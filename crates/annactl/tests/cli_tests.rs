@@ -1,16 +1,24 @@
-//! CLI integration tests for annactl v7.9.0 "Real Telemetry and Trends"
+//! CLI integration tests for annactl v7.10.0 "Arch Wiki aware configs and hardware drivers"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
 //! - annactl status    health, alerts, [TELEMETRY] with trends (v7.9.0), [ANNA NEEDS]
-//! - annactl sw        software overview with [TOP CPU (24h)] and [TOP RAM (24h)]
-//! - annactl sw NAME   software profile with [CONFIG] (v7.8.0), [TELEMETRY] windows + trends
-//! - annactl hw        hardware overview with [HW TELEMETRY] placeholder
-//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER], [HEALTH], [LOGS]
+//! - annactl sw        software overview with [CATEGORIES] - no duplicates (v7.10.0)
+//! - annactl sw NAME   software profile with [CONFIG] (v7.10.0 format), [TELEMETRY], [LOGS]
+//! - annactl hw        hardware overview with [COMPONENTS] - drivers/firmware (v7.10.0)
+//! - annactl hw NAME   hardware profile with [IDENTITY], [DRIVER] with module/package (v7.10.0)
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
+//!
+//! Snow Leopard v7.10.0 tests:
+//! - [CONFIG] correctness: only paths with identity name, no unrelated tools
+//! - No HTML leakage (no <div, <a href, etc)
+//! - [CATEGORIES] has no duplicates like "hyprland, Hyprland"
+//! - [COMPONENTS] shows driver and firmware for hardware
+//! - [DRIVER] shows kernel module, loaded status, driver package, firmware
+//! - [LOGS] uses -p warning..alert format with deduplication
 //!
 //! Snow Leopard telemetry tests (v7.9.0):
 //! - Unified [TELEMETRY] section with trends (24h vs 7d)
@@ -21,10 +29,9 @@
 //!
 //! Snow Leopard CONFIG hygiene tests (v7.8.0):
 //! - System/User/Other structure with source attribution
-//! - Status indicators [present]/[missing]/[recommended]
+//! - Status indicators [present]/[not present] (v7.10.0)
 //! - No ecosystem pollution (mako, uwsm, waybar for hyprland)
 //! - No HTML or junk in config paths
-//! - Path limits (6 system, 6 user, 4 other)
 //! - Filesystem discovery as primary source
 
 use std::env;
@@ -306,15 +313,10 @@ fn test_annactl_hw_command() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.5.0: HW command shows "Anna Hardware" header with new sections
+    // v7.10.0: HW command shows "Anna Hardware" header with [COMPONENTS] section
     assert!(
-        stdout.contains("Anna Hardware") && stdout.contains("[OVERVIEW]"),
-        "Expected HW output with [OVERVIEW], got stdout: {}",
-        stdout
-    );
-    assert!(
-        stdout.contains("[DRIVERS]"),
-        "Expected [DRIVERS] section, got stdout: {}",
+        stdout.contains("Anna Hardware") && stdout.contains("[COMPONENTS]"),
+        "Expected HW output with [COMPONENTS], got stdout: {}",
         stdout
     );
     assert!(
@@ -382,7 +384,7 @@ fn test_annactl_hw_dependencies_section() {
     );
 }
 
-/// Test 'hw' shows drivers per category
+/// Test 'hw' shows drivers per component - v7.10.0
 #[test]
 fn test_annactl_hw_drivers_section() {
     let binary = get_binary_path();
@@ -397,10 +399,10 @@ fn test_annactl_hw_drivers_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.5.0: Should show drivers per category (CPU, GPU, Disks, Network)
+    // v7.10.0: Should show drivers in [COMPONENTS] section
     assert!(
-        stdout.contains("[DRIVERS]") && stdout.contains("CPU:"),
-        "Expected [DRIVERS] section with category drivers, got stdout: {}",
+        stdout.contains("[COMPONENTS]") && stdout.contains("driver:"),
+        "Expected [COMPONENTS] section with drivers, got stdout: {}",
         stdout
     );
 }
@@ -421,8 +423,9 @@ fn test_annactl_hw_case_insensitive() {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
 
+        // v7.10.0: Now uses [COMPONENTS] instead of [OVERVIEW]
         assert!(
-            stdout.contains("Anna Hardware") && stdout.contains("[OVERVIEW]"),
+            stdout.contains("Anna Hardware") && stdout.contains("[COMPONENTS]"),
             "'{}' should be recognized as hw command, got stdout: {}",
             hw_arg,
             stdout
@@ -1162,9 +1165,9 @@ fn test_snow_leopard_trend_24h_vs_7d() {
     assert!(output.status.success());
 }
 
-/// Test hw command shows [HW TELEMETRY] placeholder section
+/// Test hw command shows [COMPONENTS] section with driver/firmware info - v7.10.0
 #[test]
-fn test_snow_leopard_hw_telemetry_placeholder() {
+fn test_snow_leopard_hw_components_v710() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -1177,16 +1180,16 @@ fn test_snow_leopard_hw_telemetry_placeholder() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.7.0: HW should show [HW TELEMETRY] section
+    // v7.10.0: HW should show [COMPONENTS] section with driver info
     assert!(
-        stdout.contains("[HW TELEMETRY]"),
-        "Expected [HW TELEMETRY] section, got: {}",
+        stdout.contains("[COMPONENTS]"),
+        "Expected [COMPONENTS] section, got: {}",
         stdout
     );
-    // Should indicate planned for future
+    // Should show driver information
     assert!(
-        stdout.contains("planned") || stdout.contains("Future") || stdout.contains("not collected"),
-        "HW TELEMETRY should indicate future/planned status: {}",
+        stdout.contains("driver:"),
+        "[COMPONENTS] should show driver info: {}",
         stdout
     );
     assert!(output.status.success());
@@ -1536,6 +1539,236 @@ fn test_snow_leopard_config_filesystem_priority() {
         assert!(
             stdout.contains("filesystem"),
             "[CONFIG] should include filesystem as a source: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.10.0: Snow Leopard Arch Wiki & Hardware Driver Tests
+// ============================================================================
+
+/// Test sw CATEGORIES has no case-insensitive duplicates like "hyprland, Hyprland"
+#[test]
+fn test_snow_leopard_categories_no_duplicates() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("sw")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.10.0: Check for case-insensitive duplicates
+    // Look for patterns like "Name, name" or "name, Name"
+    let lines: Vec<&str> = stdout.lines().collect();
+    for line in &lines {
+        if line.contains(":") && line.contains(",") {
+            // This is likely a category line with multiple items
+            let parts: Vec<&str> = if let Some(idx) = line.find(":") {
+                line[idx + 1..].split(',').map(|s| s.trim()).collect()
+            } else {
+                continue;
+            };
+
+            // Check for case-insensitive duplicates
+            for i in 0..parts.len() {
+                for j in (i + 1)..parts.len() {
+                    let a = parts[i].to_lowercase();
+                    let b = parts[j].to_lowercase();
+                    assert!(
+                        a != b,
+                        "Found case-insensitive duplicate in categories: '{}' and '{}' in line: {}",
+                        parts[i], parts[j], line
+                    );
+                }
+            }
+        }
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test hw shows [COMPONENTS] section with drivers and firmware (v7.10.0)
+#[test]
+fn test_snow_leopard_hw_components_section() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("hw")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.10.0: hw should show [COMPONENTS] section
+    assert!(
+        stdout.contains("[COMPONENTS]"),
+        "Expected [COMPONENTS] section in hw output, got: {}",
+        stdout
+    );
+
+    // v7.10.0: [COMPONENTS] should mention driver for at least CPU
+    if stdout.contains("CPU:") {
+        assert!(
+            stdout.contains("driver:"),
+            "[COMPONENTS] should show driver for CPU: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test hw NAME shows [DRIVER] section with module, loaded, package (v7.10.0)
+#[test]
+fn test_snow_leopard_hw_driver_section() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "gpu"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.10.0: hw gpu should show [DRIVER] section
+    if stdout.contains("[DRIVER]") {
+        // Should show Kernel module and Loaded status
+        let has_module = stdout.contains("Kernel module:");
+        let has_loaded = stdout.contains("Loaded:");
+
+        // At least one of these should be present
+        assert!(
+            has_module || has_loaded || stdout.contains("none"),
+            "[DRIVER] should show module info or 'none': {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test no HTML tags in any output (v7.10.0)
+#[test]
+fn test_snow_leopard_no_html_leakage() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test several common commands
+    let commands = vec![
+        vec!["sw"],
+        vec!["sw", "vim"],
+        vec!["hw"],
+        vec!["hw", "cpu"],
+    ];
+
+    for cmd_args in commands {
+        let output = Command::new(&binary)
+            .args(&cmd_args)
+            .output()
+            .expect("Failed to run annactl");
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // v7.10.0: Must not contain HTML tags
+        let html_patterns = ["<div", "<a href", "<span", "</div>", "</a>", "<p>", "<br>"];
+        for pattern in &html_patterns {
+            assert!(
+                !stdout.contains(pattern),
+                "Found HTML tag '{}' in output of 'annactl {}': {}",
+                pattern,
+                cmd_args.join(" "),
+                stdout
+            );
+        }
+    }
+}
+
+/// Test sw NAME [CONFIG] uses v7.10.0 format with [present]/[not present]
+#[test]
+fn test_snow_leopard_config_v710_format() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "pacman"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.10.0: [CONFIG] should use [present] / [not present] format
+    if stdout.contains("[CONFIG]") && stdout.contains("System:") {
+        // Should have Notes section with Precedence
+        assert!(
+            stdout.contains("Notes:") || stdout.contains("Source:"),
+            "[CONFIG] should have Notes or Source section: {}",
+            stdout
+        );
+
+        // v7.10.0: Should use [present] or [not present] status markers
+        if stdout.contains("/etc") || stdout.contains("/usr") {
+            let has_status = stdout.contains("[present]") || stdout.contains("[not present]");
+            // It's okay if no configs are detected
+            if !stdout.contains("No specific config files detected") {
+                assert!(
+                    has_status,
+                    "[CONFIG] should use [present]/[not present] markers: {}",
+                    stdout
+                );
+            }
+        }
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test sw NAME [LOGS] shows journalctl command info (v7.10.0)
+#[test]
+fn test_snow_leopard_logs_v710_format() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test with a service that should have logs
+    let output = Command::new(&binary)
+        .args(["sw", "systemd"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.10.0: If [LOGS] section exists, should mention journalctl
+    if stdout.contains("[LOGS]") {
+        assert!(
+            stdout.contains("journalctl"),
+            "[LOGS] should mention journalctl source: {}",
+            stdout
+        );
+
+        // v7.10.0: Should use -p warning..alert (or show "No warnings or errors")
+        let has_warning_filter = stdout.contains("warning") || stdout.contains("No warnings");
+        assert!(
+            has_warning_filter,
+            "[LOGS] should filter by warning priority or show no warnings message: {}",
             stdout
         );
     }

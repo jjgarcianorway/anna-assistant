@@ -1,22 +1,22 @@
-//! HW Command v7.7.0 - Anna Hardware Overview
+//! HW Command v7.10.0 - Anna Hardware Overview
 //!
 //! Sections:
-//! - [OVERVIEW]          Summary of CPU, Memory, GPU, Storage, Network, Audio, Power
-//! - [DRIVERS]           Per-category driver info
+//! - [COMPONENTS]        CPU, GPU, WiFi, Bluetooth, Audio with drivers/firmware (v7.10.0)
 //! - [HEALTH HIGHLIGHTS] Real health data from sensors/SMART/logs
-//! - [HW TELEMETRY]      Per-component usage (placeholder - v7.7.0)
 //! - [CATEGORIES]        Component identifiers per category
 //! - [DEPENDENCIES]      Hardware tools status (v7.6.0)
 //!
 //! All data sourced from:
 //! - lscpu, /proc/cpuinfo (CPU)
 //! - free, /proc/meminfo (Memory)
-//! - lspci (GPU, Audio controllers, PCI drivers)
+//! - lspci -k (GPU, Audio controllers, PCI drivers) - v7.10.0
 //! - lsblk, smartctl (Storage)
 //! - ip link, nmcli (Network)
+//! - lsmod, modinfo (Module info) - v7.10.0
 //! - sensors, /sys/class/thermal (Temperatures)
 //! - /sys/class/power_supply (Battery)
 //! - journalctl -b -k / dmesg (Firmware messages)
+//! - pacman -Qo (Driver packages) - v7.10.0
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -37,17 +37,11 @@ pub async fn run() -> Result<()> {
     println!("{}", THIN_SEP);
     println!();
 
-    // [OVERVIEW]
-    print_overview_section();
-
-    // [DRIVERS]
-    print_drivers_section();
+    // [COMPONENTS] - v7.10.0: replaces [OVERVIEW] and [DRIVERS]
+    print_components_section();
 
     // [HEALTH HIGHLIGHTS]
     print_health_highlights_section();
-
-    // [HW TELEMETRY] - v7.7.0 placeholder
-    print_hw_telemetry_section();
 
     // [CATEGORIES]
     print_categories_section();
@@ -61,6 +55,352 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
+/// Print [COMPONENTS] section - v7.10.0
+/// Format: Component: Model, driver: X, firmware/microcode: Y [present]
+fn print_components_section() {
+    println!("{}", "[COMPONENTS]".cyan());
+    println!("  {}", "(source: lspci -k, lsmod, lscpu, ip link)".dimmed());
+    println!();
+
+    // CPU with driver and microcode
+    print_cpu_component();
+
+    // GPU(s) with driver and firmware
+    print_gpu_components();
+
+    // WiFi with driver and firmware
+    print_wifi_components();
+
+    // Bluetooth with driver
+    print_bluetooth_components();
+
+    // Audio with driver
+    print_audio_components();
+
+    println!();
+}
+
+/// Print CPU component line - v7.10.0
+fn print_cpu_component() {
+    let cpu_info = get_cpu_summary();
+    let cpu_health = get_cpu_health();
+
+    // Get CPU driver (usually intel_pstate or acpi-cpufreq)
+    let driver = if cpu_health.drivers.is_empty() {
+        "kernel default".to_string()
+    } else {
+        cpu_health.drivers.join(", ")
+    };
+
+    // Check for microcode package
+    let microcode = get_cpu_microcode();
+
+    print!("  CPU:        {}, driver: {}", cpu_info, driver);
+    if let Some(mc) = microcode {
+        println!(", microcode: {} {}", mc.0, mc.1);
+    } else {
+        println!();
+    }
+}
+
+/// Get CPU microcode package if installed - v7.10.0
+fn get_cpu_microcode() -> Option<(String, String)> {
+    // Check for intel-ucode
+    let intel = Command::new("pacman")
+        .args(["-Qi", "intel-ucode"])
+        .output();
+    if let Ok(out) = intel {
+        if out.status.success() {
+            return Some(("intel-ucode".to_string(), "[present]".green().to_string()));
+        }
+    }
+
+    // Check for amd-ucode
+    let amd = Command::new("pacman")
+        .args(["-Qi", "amd-ucode"])
+        .output();
+    if let Ok(out) = amd {
+        if out.status.success() {
+            return Some(("amd-ucode".to_string(), "[present]".green().to_string()));
+        }
+    }
+
+    None
+}
+
+/// Print GPU component lines - v7.10.0
+fn print_gpu_components() {
+    // Get GPU info from lspci
+    let output = Command::new("lspci")
+        .args(["-k"])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let mut in_gpu = false;
+            let mut gpu_name = String::new();
+            let mut driver = String::new();
+
+            for line in stdout.lines() {
+                if line.contains("VGA") || line.contains("3D controller") || line.contains("Display controller") {
+                    in_gpu = true;
+                    // Extract name
+                    if let Some(idx) = line.find(": ") {
+                        gpu_name = line[idx + 2..].to_string();
+                        // Shorten if needed
+                        if gpu_name.len() > 50 {
+                            gpu_name = format!("{}...", &gpu_name[..47]);
+                        }
+                    }
+                } else if in_gpu && line.contains("Kernel driver in use:") {
+                    if let Some(drv) = line.split(':').nth(1) {
+                        driver = drv.trim().to_string();
+                    }
+                    // Get firmware status
+                    let firmware = get_gpu_firmware_status(&driver);
+
+                    print!("  GPU:        {}, driver: {}", gpu_name, driver);
+                    if let Some((fw_name, status)) = firmware {
+                        println!(", firmware: {} {}", fw_name, status);
+                    } else {
+                        println!();
+                    }
+                    in_gpu = false;
+                    gpu_name.clear();
+                    driver.clear();
+                }
+            }
+        }
+    }
+}
+
+/// Get GPU firmware status - v7.10.0
+fn get_gpu_firmware_status(driver: &str) -> Option<(String, String)> {
+    // Check firmware based on driver
+    match driver {
+        "nvidia" => {
+            // nvidia-utils or nvidia-dkms
+            let check = Command::new("pacman")
+                .args(["-Qo", "/usr/lib/firmware/nvidia/"])
+                .output();
+            if let Ok(out) = check {
+                if out.status.success() {
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+                    if let Some(pkg) = stdout.split_whitespace().nth(4) {
+                        return Some((pkg.to_string(), "[present]".green().to_string()));
+                    }
+                }
+            }
+            // Check if nvidia firmware exists
+            if std::path::Path::new("/usr/lib/firmware/nvidia").exists() {
+                return Some(("nvidia-firmware".to_string(), "[present]".green().to_string()));
+            }
+            None
+        }
+        "amdgpu" => {
+            // Check linux-firmware
+            let path = std::path::Path::new("/usr/lib/firmware/amdgpu");
+            if path.exists() {
+                return Some(("linux-firmware".to_string(), "[present]".green().to_string()));
+            }
+            Some(("linux-firmware".to_string(), "[missing]".yellow().to_string()))
+        }
+        "i915" => {
+            let path = std::path::Path::new("/usr/lib/firmware/i915");
+            if path.exists() {
+                return Some(("linux-firmware".to_string(), "[present]".green().to_string()));
+            }
+            Some(("linux-firmware".to_string(), "[missing]".yellow().to_string()))
+        }
+        _ => None,
+    }
+}
+
+/// Print WiFi component lines - v7.10.0
+fn print_wifi_components() {
+    let networks = get_network_health();
+    for net in &networks {
+        if net.interface_type != "wifi" {
+            continue;
+        }
+
+        let iface = &net.interface;
+        let driver = net.driver.as_deref().unwrap_or("unknown");
+
+        // Get WiFi device model from lspci if available
+        let model = get_wifi_model(iface).unwrap_or_else(|| "Wi-Fi adapter".to_string());
+
+        // Get firmware status
+        let firmware = get_wifi_firmware_status(driver);
+
+        print!("  WiFi:       {}, driver: {}", model, driver);
+        if let Some((fw_name, status)) = firmware {
+            println!(", firmware: {} {}", fw_name, status);
+        } else {
+            println!();
+        }
+    }
+}
+
+/// Get WiFi device model - v7.10.0
+fn get_wifi_model(iface: &str) -> Option<String> {
+    // Try to get device path from /sys
+    let device_path = format!("/sys/class/net/{}/device", iface);
+    let device = std::path::Path::new(&device_path);
+    if !device.exists() {
+        return None;
+    }
+
+    // Get PCI address from symlink
+    if let Ok(link) = std::fs::read_link(&device_path) {
+        let link_str = link.to_string_lossy();
+        // Extract PCI address (like 0000:00:14.3)
+        if let Some(pci_part) = link_str.split('/').last() {
+            // Look up in lspci
+            let output = Command::new("lspci")
+                .args(["-s", pci_part])
+                .output();
+            if let Ok(out) = output {
+                if out.status.success() {
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+                    if let Some(line) = stdout.lines().next() {
+                        // Extract name after first colon
+                        if let Some(idx) = line.find(": ") {
+                            let name = line[idx + 2..].trim();
+                            // Shorten if needed
+                            if name.len() > 40 {
+                                return Some(format!("{}...", &name[..37]));
+                            }
+                            return Some(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Get WiFi firmware status - v7.10.0
+fn get_wifi_firmware_status(driver: &str) -> Option<(String, String)> {
+    // Common WiFi drivers and their firmware paths
+    let fw_path = match driver {
+        "iwlwifi" => "/usr/lib/firmware/iwlwifi-*.ucode",
+        "ath10k_pci" | "ath10k_core" => "/usr/lib/firmware/ath10k",
+        "ath11k_pci" | "ath11k_core" => "/usr/lib/firmware/ath11k",
+        "brcmfmac" => "/usr/lib/firmware/brcm",
+        "rtw88_pci" | "rtw89_pci" => "/usr/lib/firmware/rtw88",
+        "mt7921e" | "mt7922e" => "/usr/lib/firmware/mediatek",
+        _ => return None,
+    };
+
+    // Check if firmware exists
+    let path = std::path::Path::new(fw_path.trim_end_matches("*"));
+    if path.exists() || std::path::Path::new(&fw_path.replace("*", "")).exists() {
+        return Some(("linux-firmware".to_string(), "[present]".green().to_string()));
+    }
+
+    Some(("linux-firmware".to_string(), "[missing]".yellow().to_string()))
+}
+
+/// Print Bluetooth component lines - v7.10.0
+fn print_bluetooth_components() {
+    let bt_path = std::path::Path::new("/sys/class/bluetooth");
+    if !bt_path.exists() {
+        return;
+    }
+
+    if let Ok(entries) = std::fs::read_dir(bt_path) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            // Get driver
+            let driver_path = entry.path().join("device/driver");
+            let driver = if let Ok(link) = std::fs::read_link(&driver_path) {
+                link.file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "unknown".to_string())
+            } else {
+                "unknown".to_string()
+            };
+
+            // Get firmware status based on driver
+            let firmware = get_bluetooth_firmware_status(&driver);
+
+            print!("  Bluetooth:  {}, driver: {}", name, driver);
+            if let Some((fw_name, status)) = firmware {
+                println!(", firmware: {} {}", fw_name, status);
+            } else {
+                println!();
+            }
+        }
+    }
+}
+
+/// Get Bluetooth firmware status - v7.10.0
+fn get_bluetooth_firmware_status(driver: &str) -> Option<(String, String)> {
+    match driver {
+        "btusb" | "btintel" => {
+            // Intel Bluetooth uses firmware from linux-firmware
+            let path = std::path::Path::new("/usr/lib/firmware/intel");
+            if path.exists() {
+                return Some(("linux-firmware".to_string(), "[present]".green().to_string()));
+            }
+            Some(("linux-firmware".to_string(), "[missing]".yellow().to_string()))
+        }
+        "btqca" => {
+            let path = std::path::Path::new("/usr/lib/firmware/qca");
+            if path.exists() {
+                return Some(("linux-firmware".to_string(), "[present]".green().to_string()));
+            }
+            Some(("linux-firmware".to_string(), "[missing]".yellow().to_string()))
+        }
+        _ => None,
+    }
+}
+
+/// Print Audio component lines - v7.10.0
+fn print_audio_components() {
+    let output = Command::new("lspci")
+        .args(["-k"])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let mut in_audio = false;
+            let mut audio_name = String::new();
+            let mut driver = String::new();
+
+            for line in stdout.lines() {
+                if line.contains("Audio device") || line.contains("Multimedia audio") {
+                    in_audio = true;
+                    // Extract name
+                    if let Some(idx) = line.find(": ") {
+                        audio_name = line[idx + 2..].to_string();
+                        // Shorten if needed
+                        if audio_name.len() > 40 {
+                            audio_name = format!("{}...", &audio_name[..37]);
+                        }
+                    }
+                } else if in_audio && line.contains("Kernel driver in use:") {
+                    if let Some(drv) = line.split(':').nth(1) {
+                        driver = drv.trim().to_string();
+                    }
+                    // Print the audio component
+                    println!("  Audio:      {}, driver: {}", audio_name, driver);
+                    in_audio = false;
+                    audio_name.clear();
+                    driver.clear();
+                }
+            }
+        }
+    }
+}
+
+#[allow(dead_code)]
 fn print_overview_section() {
     println!("{}", "[OVERVIEW]".cyan());
 
@@ -95,6 +435,7 @@ fn print_overview_section() {
     println!();
 }
 
+#[allow(dead_code)]
 fn print_drivers_section() {
     println!("{}", "[DRIVERS]".cyan());
 
@@ -222,6 +563,7 @@ fn format_health_status(status: HealthStatus) -> String {
 
 /// Print [HW TELEMETRY] section - v7.7.0 placeholder
 /// Future: Per-component CPU/GPU utilization, temperature history, disk I/O
+#[allow(dead_code)]
 fn print_hw_telemetry_section() {
     println!("{}", "[HW TELEMETRY]".cyan());
     println!("  {}", "(per-component telemetry - planned for v7.8.0)".dimmed());

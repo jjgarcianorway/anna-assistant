@@ -1,39 +1,37 @@
-//! HW Detail Command v7.5.0 - Hardware Profiles with Health/Driver/Logs
+//! HW Detail Command v7.10.0 - Hardware Profiles with Health/Driver/Logs
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery)
 //! 2. Specific device profile (gpu0, nvme0n1, wlan0, enp3s0, audio0, wifi, ethernet)
 //!
 //! Profile sections:
-//! - [IDENTITY]   Device identification
-//! - [DRIVER]     Kernel driver/module info
+//! - [IDENTITY]   Device identification with Bus/Vendor info
+//! - [DRIVER]     Kernel module, loaded status, driver package, firmware (v7.10.0)
 //! - [HEALTH]     Real health metrics (temps, SMART, errors)
 //! - [SMART]      Disk-specific SMART data
 //! - [CAPACITY]   Battery-specific capacity/wear
 //! - [LINK]       Network-specific link state
 //! - [TELEMETRY]  Anna telemetry if available
-//! - [LOGS]       Deduplicated kernel messages
+//! - [LOGS]       Deduplicated kernel messages with -p warning..alert (v7.10.0)
 //!
 //! All data from system tools:
 //! - lscpu, /proc/cpuinfo (CPU)
 //! - free, /proc/meminfo (Memory)
-//! - lspci, /sys/class/drm, /sys/bus/pci/devices (GPU)
+//! - lspci -k, /sys/class/drm, /sys/bus/pci/devices (GPU)
 //! - lsblk, smartctl, nvme smart-log (Storage)
 //! - ip, nmcli, iw, ethtool, /sys/class/net (Network)
 //! - aplay, pactl (Audio)
 //! - sensors, /sys/class/thermal (Temperatures)
 //! - /sys/class/power_supply, upower (Power/Battery)
-//! - journalctl -b -k, dmesg (Kernel logs)
-//! - lsmod, modinfo (Module info)
+//! - journalctl -b -k -p warning..alert, dmesg (Kernel logs) - v7.10.0
+//! - lsmod, modinfo, pacman -Qo (Module info) - v7.10.0
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::process::Command;
 
-use anna_common::grounded::drivers::{
-    get_device_firmware_messages, get_module_info, get_pci_device_by_class_index,
-};
+use anna_common::grounded::drivers::get_pci_device_by_class_index;
 use anna_common::grounded::health::{
     get_cpu_health, get_disk_health, get_battery_health,
     get_network_health, HealthStatus,
@@ -461,92 +459,59 @@ async fn run_gpu_profile(name: &str) -> Result<()> {
 
     println!();
 
-    // [DRIVER]
+    // [DRIVER] - v7.10.0 format with module, package, firmware
     println!("{}", "[DRIVER]".cyan());
 
-    if let Some(ref dev) = pci_device {
-        println!(
-            "  {}",
-            format!(
-                "(source: /sys/bus/pci/devices/{}/driver, lsmod, modinfo)",
-                dev.address
-            )
-            .dimmed()
-        );
-
-        if let Some(ref driver_name) = dev.driver {
-            println!("  Kernel driver: {}", driver_name.green());
-            println!("  Module:        {}", driver_name);
-
-            // Get module version
-            if let Some(info) = get_module_info(driver_name) {
-                if let Some(version) = info.version {
-                    println!("  Version:       {}", version);
-                }
-            }
-        } else {
-            println!("  Kernel driver: {}", "none".yellow());
-            println!(
-                "  {}",
-                "Note: PCI device present with no bound kernel driver".dimmed()
-            );
-        }
+    let driver_name = if let Some(ref dev) = pci_device {
+        dev.driver.clone()
     } else {
-        // Fallback to checking /sys/class/drm
+        // Try /sys/class/drm
         let card_name = format!("card{}", card_num);
         let drm_path = format!("/sys/class/drm/{}/device/driver", card_name);
-        println!("  {}", "(source: /sys/class/drm)".dimmed());
-
-        if let Ok(link) = std::fs::read_link(&drm_path) {
-            if let Some(driver) = link.file_name() {
-                println!("  Kernel driver: {}", driver.to_string_lossy().green());
-            }
-        } else {
-            println!("  Kernel driver: {}", "none".yellow());
-        }
-    }
-
-    println!();
-
-    // [FIRMWARE]
-    println!("{}", "[FIRMWARE]".cyan());
-    println!("  {}", "(source: journalctl -b -k)".dimmed());
-
-    // Check for GPU-related firmware messages
-    let driver_name = pci_device.as_ref().and_then(|d| d.driver.clone());
-
-    let firmware_msgs = if let Some(ref drv) = driver_name {
-        get_device_firmware_messages(drv)
-    } else {
-        // Try common GPU driver names
-        let mut msgs = get_device_firmware_messages("nvidia");
-        if msgs.is_empty() {
-            msgs = get_device_firmware_messages("amdgpu");
-        }
-        if msgs.is_empty() {
-            msgs = get_device_firmware_messages("i915");
-        }
-        msgs
+        std::fs::read_link(&drm_path)
+            .ok()
+            .and_then(|link| link.file_name().map(|n| n.to_string_lossy().to_string()))
     };
 
-    if firmware_msgs.is_empty() {
-        println!("  No GPU firmware errors detected this boot");
-    } else {
-        for msg in firmware_msgs.iter().take(5) {
-            let count_suffix = if msg.count > 1 {
-                format!(" (seen {} times this boot)", msg.count)
-                    .dimmed()
-                    .to_string()
-            } else {
-                String::new()
-            };
+    if let Some(ref drv) = driver_name {
+        // Check if module is loaded
+        let loaded = is_module_loaded(drv);
+        let loaded_str = if loaded {
+            "yes".green().to_string()
+        } else {
+            "no".yellow().to_string()
+        };
 
-            if msg.is_failure {
-                println!("  {}{}", msg.message.red(), count_suffix);
-            } else {
-                println!("  {}{}", msg.message.yellow(), count_suffix);
+        println!("  Kernel module:   {}", drv);
+        println!("  Loaded:          {} {}", loaded_str, "(lsmod)".dimmed());
+
+        // Get driver package - v7.10.0
+        let pkg = get_driver_package(drv);
+        if let Some(pkg_name) = pkg {
+            println!("  Driver package:  {} {}", pkg_name, "(pacman -Qo)".dimmed());
+        }
+
+        // Firmware section - v7.10.0
+        println!("  Firmware:");
+        let fw_status = get_gpu_firmware_files(drv);
+        if fw_status.is_empty() {
+            println!("    (no firmware files detected)");
+        } else {
+            for (path, present) in fw_status.iter().take(3) {
+                let status = if *present {
+                    "[present]".green().to_string()
+                } else {
+                    "[missing]".yellow().to_string()
+                };
+                println!("    {:<45} {}", path, status);
+            }
+            if fw_status.len() > 3 {
+                println!("    {} more files...", fw_status.len() - 3);
             }
         }
+    } else {
+        println!("  Kernel module:   {}", "none".yellow());
+        println!("  {}", "Note: PCI device present with no bound kernel driver".dimmed());
     }
 
     println!();
@@ -1523,4 +1488,136 @@ fn print_battery_info(supply_path: &std::path::Path) {
             println!("    Cycles:     {}", c);
         }
     }
+}
+
+// ============================================================================
+// v7.10.0 Helper Functions for [DRIVER] section
+// ============================================================================
+
+/// Check if a kernel module is loaded - v7.10.0
+fn is_module_loaded(module_name: &str) -> bool {
+    let output = Command::new("lsmod").output();
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            for line in stdout.lines().skip(1) {
+                if let Some(name) = line.split_whitespace().next() {
+                    if name == module_name || name == module_name.replace('-', "_") {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Get the driver package using pacman -Qo - v7.10.0
+fn get_driver_package(driver_name: &str) -> Option<String> {
+    // Try to find the kernel module file
+    let kernel_version = get_kernel_version()?;
+
+    // Try common paths
+    let paths = [
+        format!("/usr/lib/modules/{}/kernel/drivers/gpu/drm/{}/{}.ko.zst", kernel_version, driver_name, driver_name),
+        format!("/usr/lib/modules/{}/kernel/drivers/gpu/drm/{}/{}.ko", kernel_version, driver_name, driver_name),
+        format!("/usr/lib/modules/{}/extramodules/{}.ko.zst", kernel_version, driver_name),
+        format!("/usr/lib/modules/{}/updates/dkms/{}.ko.zst", kernel_version, driver_name),
+    ];
+
+    for path in &paths {
+        if std::path::Path::new(path).exists() {
+            let output = Command::new("pacman")
+                .args(["-Qo", path])
+                .output();
+            if let Ok(out) = output {
+                if out.status.success() {
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+                    // Format: "/path/file is owned by package version"
+                    if let Some(owned_by) = stdout.find("is owned by ") {
+                        let rest = &stdout[owned_by + 12..];
+                        if let Some(pkg) = rest.split_whitespace().next() {
+                            return Some(pkg.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // For nvidia, try nvidia-utils package directly
+    if driver_name == "nvidia" {
+        let check = Command::new("pacman")
+            .args(["-Qi", "nvidia-utils"])
+            .output();
+        if let Ok(out) = check {
+            if out.status.success() {
+                return Some("nvidia-utils".to_string());
+            }
+        }
+        // Check nvidia-dkms
+        let check = Command::new("pacman")
+            .args(["-Qi", "nvidia-dkms"])
+            .output();
+        if let Ok(out) = check {
+            if out.status.success() {
+                return Some("nvidia-dkms".to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// Get the running kernel version
+fn get_kernel_version() -> Option<String> {
+    let output = Command::new("uname")
+        .arg("-r")
+        .output()
+        .ok()?;
+    if output.status.success() {
+        return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+    }
+    None
+}
+
+/// Get GPU firmware files and their presence status - v7.10.0
+fn get_gpu_firmware_files(driver_name: &str) -> Vec<(String, bool)> {
+    let mut files = Vec::new();
+
+    match driver_name {
+        "nvidia" => {
+            let fw_dir = "/usr/lib/firmware/nvidia";
+            if std::path::Path::new(fw_dir).exists() {
+                files.push((fw_dir.to_string(), true));
+            } else {
+                files.push((fw_dir.to_string(), false));
+            }
+        }
+        "amdgpu" => {
+            let fw_dir = "/usr/lib/firmware/amdgpu";
+            if std::path::Path::new(fw_dir).exists() {
+                // List a few files
+                if let Ok(entries) = std::fs::read_dir(fw_dir) {
+                    for entry in entries.flatten().take(3) {
+                        let path = entry.path().to_string_lossy().to_string();
+                        files.push((path, true));
+                    }
+                }
+            } else {
+                files.push((fw_dir.to_string(), false));
+            }
+        }
+        "i915" => {
+            let fw_dir = "/usr/lib/firmware/i915";
+            if std::path::Path::new(fw_dir).exists() {
+                files.push((fw_dir.to_string(), true));
+            } else {
+                files.push((fw_dir.to_string(), false));
+            }
+        }
+        _ => {}
+    }
+
+    files
 }

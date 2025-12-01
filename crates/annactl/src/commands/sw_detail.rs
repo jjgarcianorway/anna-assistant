@@ -1,4 +1,4 @@
-//! SW Detail Command v7.7.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.10.0 - Software Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -9,9 +9,9 @@
 //! - [PACKAGE]    Version, source, size, date
 //! - [COMMAND]    Path, man description
 //! - [SERVICE]    Unit, state, enabled
-//! - [CONFIG]     Lean System/User layout with ✓/· markers (v7.6.1)
-//! - [LOGS]       Severity-grouped, deduplicated logs (v7.6.0)
-//! - [TELEMETRY]  Real windows (1h, 24h, 7d, 30d) with trends (v7.7.0)
+//! - [CONFIG]     System/User layout with [present]/[not present] markers (v7.10.0)
+//! - [LOGS]       Severity-grouped, deduplicated logs with -p warning..alert (v7.10.0)
+//! - [TELEMETRY]  Real windows (1h, 24h, 7d, 30d) with trends (v7.9.0)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -499,17 +499,19 @@ fn print_service_section(svc: &Service) {
     println!();
 }
 
-/// Print service logs with severity-based grouping and deduplication - v7.6.0
+/// Print service logs with severity-based grouping and deduplication - v7.10.0
+/// Format: timestamp "message" (seen N times)
 fn print_service_logs(unit_name: &str) {
     println!("{}", "[LOGS]".cyan());
-    println!("  {}", format!("(journalctl -b -u {}, grouped and deduplicated)", unit_name).dimmed());
+    println!("  {}", format!("(journalctl -b -u {} -p warning..alert, current boot)", unit_name).dimmed());
 
+    // v7.10.0: Use -p warning..alert (priorities 4-1: warning, err, crit, alert)
     let output = Command::new("journalctl")
         .args([
             "-b",
             "-u", unit_name,
-            "-p", "info",  // Get info and above (info, warning, err, crit)
-            "-n", "300",
+            "-p", "warning..alert",  // v7.10.0: only warning and above
+            "-n", "50",  // v7.10.0: up to 50 messages
             "--no-pager",
             "-o", "json",
             "-q",
@@ -526,88 +528,27 @@ fn print_service_logs(unit_name: &str) {
 
             if entries.is_empty() {
                 println!();
-                println!("  No warnings or errors found for this unit in current boot.");
+                println!("  No warnings or errors for this unit in the current boot.");
             } else {
-                // Separate by severity
-                let mut errors: Vec<LogEntry> = Vec::new();
-                let mut warnings: Vec<LogEntry> = Vec::new();
-                let mut info: Vec<LogEntry> = Vec::new();
-
-                for entry in &entries {
-                    match entry.priority.as_deref() {
-                        Some("0") | Some("1") | Some("2") | Some("3") => errors.push(entry.clone()),
-                        Some("4") => warnings.push(entry.clone()),
-                        Some("5") | Some("6") => info.push(entry.clone()),
-                        _ => info.push(entry.clone()),
-                    }
-                }
-
-                // Deduplicate each category
-                let errors_dedup = deduplicate_log_entries(&errors);
-                let warnings_dedup = deduplicate_log_entries(&warnings);
-                let info_dedup = deduplicate_log_entries(&info);
+                // v7.10.0: Deduplicate all entries together (no category separation for warning..alert)
+                let all_dedup = deduplicate_log_entries_v710(&entries);
 
                 println!();
 
-                // Print errors
-                if !errors_dedup.is_empty() {
-                    println!("  {}:", "Errors".red());
-                    for entry in errors_dedup.iter().take(5) {
-                        let msg = entry.message.as_deref().unwrap_or("(no message)");
-                        let count_str = if entry.count > 1 {
-                            format!(" (seen {} times)", entry.count)
-                        } else {
-                            String::new()
-                        };
-                        println!("    - \"{}\"{}", msg, count_str.dimmed());
-                    }
-                    if errors_dedup.len() > 5 {
-                        println!("    {}", format!("(and {} more errors)", errors_dedup.len() - 5).dimmed());
-                    }
-                    println!();
+                // v7.10.0 format: timestamp "message" (seen N times)
+                for entry in all_dedup.iter() {
+                    let msg = entry.message.as_deref().unwrap_or("(no message)");
+                    let timestamp = entry.timestamp.as_deref().unwrap_or("");
+                    let count_str = if entry.count > 1 {
+                        format!("(seen {} times)", entry.count)
+                    } else {
+                        "(seen 1 time)".to_string()
+                    };
+                    println!("  {}  \"{}\"          {}", timestamp, msg, count_str.dimmed());
                 }
 
-                // Print warnings
-                if !warnings_dedup.is_empty() {
-                    println!("  {}:", "Warnings".yellow());
-                    for entry in warnings_dedup.iter().take(5) {
-                        let msg = entry.message.as_deref().unwrap_or("(no message)");
-                        let count_str = if entry.count > 1 {
-                            format!(" (seen {} times)", entry.count)
-                        } else {
-                            String::new()
-                        };
-                        println!("    - \"{}\"{}", msg, count_str.dimmed());
-                    }
-                    if warnings_dedup.len() > 5 {
-                        println!("    {}", format!("(and {} more warnings)", warnings_dedup.len() - 5).dimmed());
-                    }
-                    println!();
-                }
-
-                // Print info (only if no errors/warnings, or if explicitly verbose)
-                if errors_dedup.is_empty() && warnings_dedup.is_empty() && !info_dedup.is_empty() {
-                    println!("  {}:", "Info".dimmed());
-                    for entry in info_dedup.iter().take(3) {
-                        let msg = entry.message.as_deref().unwrap_or("(no message)");
-                        let count_str = if entry.count > 1 {
-                            format!(" (seen {} times)", entry.count)
-                        } else {
-                            String::new()
-                        };
-                        println!("    - \"{}\"{}", msg, count_str.dimmed());
-                    }
-                    if info_dedup.len() > 3 {
-                        println!("    {}", format!("(and {} more info messages)", info_dedup.len() - 3).dimmed());
-                    }
-                    println!();
-                }
-
-                // No errors or warnings found
-                if errors_dedup.is_empty() && warnings_dedup.is_empty() && info_dedup.is_empty() {
-                    println!("  No warnings or errors found for this unit in current boot.");
-                    println!();
-                }
+                println!();
+                println!("  No other warnings or errors this boot.");
             }
         }
         Ok(_) => {
@@ -633,9 +574,13 @@ struct LogEntry {
     realtime_timestamp: Option<String>,
     #[serde(skip)]
     count: usize,
+    /// v7.10.0: Formatted timestamp string for display
+    #[serde(skip)]
+    timestamp: Option<String>,
 }
 
 impl LogEntry {
+    #[allow(dead_code)]
     fn timestamp_local(&self) -> String {
         if let Some(ref ts_str) = self.realtime_timestamp {
             if let Ok(ts_us) = ts_str.parse::<u64>() {
@@ -650,11 +595,27 @@ impl LogEntry {
         "??:??:??".to_string()
     }
 
+    /// v7.10.0: Format timestamp for display (YYYY-MM-DD HH:MM:SS)
+    fn timestamp_v710(&self) -> String {
+        if let Some(ref ts_str) = self.realtime_timestamp {
+            if let Ok(ts_us) = ts_str.parse::<u64>() {
+                let ts_secs = ts_us / 1_000_000;
+                use chrono::{DateTime, Utc, Local};
+                if let Some(dt) = DateTime::<Utc>::from_timestamp(ts_secs as i64, 0) {
+                    let local: DateTime<Local> = dt.into();
+                    return local.format("%Y-%m-%d %H:%M:%S").to_string();
+                }
+            }
+        }
+        "????-??-?? ??:??:??".to_string()
+    }
+
     fn dedup_key(&self) -> String {
         self.message.clone().unwrap_or_default()
     }
 }
 
+#[allow(dead_code)]
 fn deduplicate_log_entries(entries: &[LogEntry]) -> Vec<LogEntry> {
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut result: Vec<LogEntry> = Vec::new();
@@ -674,6 +635,30 @@ fn deduplicate_log_entries(entries: &[LogEntry]) -> Vec<LogEntry> {
     result
 }
 
+/// Deduplicate log entries v7.10.0 format
+/// Keeps last timestamp for each unique message, tracks count
+fn deduplicate_log_entries_v710(entries: &[LogEntry]) -> Vec<LogEntry> {
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    let mut result: Vec<LogEntry> = Vec::new();
+
+    for entry in entries {
+        let key = entry.dedup_key();
+        if let Some(idx) = seen.get(&key) {
+            result[*idx].count += 1;
+            // v7.10.0: Keep the LAST timestamp (most recent occurrence)
+            result[*idx].timestamp = Some(entry.timestamp_v710());
+        } else {
+            seen.insert(key, result.len());
+            let mut new_entry = entry.clone();
+            new_entry.count = 1;
+            new_entry.timestamp = Some(entry.timestamp_v710());
+            result.push(new_entry);
+        }
+    }
+
+    result
+}
+
 fn format_size(bytes: u64) -> String {
     if bytes >= 1024 * 1024 * 1024 {
         format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
@@ -686,65 +671,74 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
-/// Print [CONFIG] section with sources - v7.8.0 precise sources layout
-/// Format: path [status] (source)
+/// Print [CONFIG] section - v7.10.0 format
+/// Format: path [present/not present] (source)
 fn print_config_section(name: &str) {
     println!("{}", "[CONFIG]".cyan());
 
     let info = discover_config_info(name);
-    println!("  {}", format!("(sources: {})", info.source_description).dimmed());
 
     if !info.has_configs {
-        println!();
-        println!("  No configuration files known for this identity yet.");
+        println!("  No specific config files detected for this software.");
+        println!("  {}", format!("Source: {}", info.source_description).dimmed());
         println!();
         return;
     }
 
     println!();
 
-    // System section
+    // System section - v7.10.0 format
     println!("  System:");
     if info.system_configs.is_empty() {
-        println!("    {}", "(none documented)".dimmed());
+        println!("    {}", "(none from pacman -Ql)".dimmed());
     } else {
         for cfg in &info.system_configs {
-            print_config_line(cfg, false);
+            print_config_line_v710(cfg);
         }
     }
     println!();
 
-    // User section
+    // User section - v7.10.0 format
     println!("  User:");
     if info.user_configs.is_empty() {
         println!("    {}", "(none documented)".dimmed());
     } else {
         for cfg in &info.user_configs {
-            print_config_line(cfg, true);
+            print_config_line_v710(cfg);
         }
     }
     println!();
 
-    // Other common locations section - v7.8.0
-    if !info.other_configs.is_empty() {
-        println!("  Other common locations:");
-        for cfg in &info.other_configs {
-            print_config_line(cfg, false);
-        }
-        println!();
-    }
+    // Notes section - v7.10.0: always show precedence and source
+    println!("  Notes:");
+    println!("    Precedence: user configs in ~/.config usually override system configs in /etc or /usr/share.");
+    println!("    {}", format!("Source: {}", info.source_description).dimmed());
+    println!();
+}
 
-    // Precedence section - v7.8.0
-    let has_present_system = info.system_configs.iter().any(|c| c.exists);
-    let has_present_user = info.user_configs.iter().any(|c| c.exists);
-    if has_present_system || has_present_user {
-        println!("  Precedence:");
-        println!("    User configs (~/.config or $XDG_CONFIG_HOME) override system configs (/etc, /usr/share) when both exist.");
-        println!();
+/// Print a single config line - v7.10.0 format
+/// Format: path [present]/[not present] (source)
+fn print_config_line_v710(cfg: &anna_common::grounded::config::ConfigFile) {
+    // Format status - v7.10.0 uses [present] / [not present]
+    let status_str = if cfg.exists {
+        "[present]".green().to_string()
+    } else {
+        "[not present]".dimmed().to_string()
+    };
+
+    // Format source (abbreviated)
+    let source_short = abbreviate_source(&cfg.source);
+
+    // Print with alignment - show path dim if not present
+    if cfg.exists {
+        println!("    {:<45} {}   {}", cfg.path, status_str, format!("({})", source_short).dimmed());
+    } else {
+        println!("    {:<45} {} {}", cfg.path.dimmed(), status_str, format!("({})", source_short).dimmed());
     }
 }
 
-/// Print a single config line with status and source - v7.8.0
+/// Print a single config line with status and source - v7.8.0 (legacy)
+#[allow(dead_code)]
 fn print_config_line(cfg: &anna_common::grounded::config::ConfigFile, is_user: bool) {
     use anna_common::grounded::config::ConfigStatus;
 

@@ -523,14 +523,34 @@ fn path_belongs_to_identity(path: &str, identity: &str) -> bool {
     false
 }
 
-/// Check if path belongs to a different well-known tool - v7.6.1
+/// Check if path belongs to a different well-known tool - v7.10.0 expanded
 /// Used to filter out paths like /uwsm/env-hyprland from hyprland results
 fn is_path_for_other_tool(path: &str, current_identity: &str) -> bool {
-    // List of well-known tools that might appear in docs but are separate software
+    // v7.10.0: Expanded list of well-known tools to filter
     let other_tools = [
+        // Wayland ecosystem
         "uwsm", "mako", "waybar", "dunst", "rofi", "wofi", "swaylock",
         "swayidle", "wlogout", "eww", "ags", "nwg", "wlr", "sway",
-        "kitty", "alacritty", "foot", "wezterm",
+        // Terminals
+        "kitty", "alacritty", "foot", "wezterm", "konsole", "gnome-terminal",
+        // Notification daemons
+        "fnott", "deadd", "linux_notification_center",
+        // Launchers
+        "bemenu", "dmenu", "tofi", "fuzzel",
+        // Bar/panels
+        "polybar", "lemonbar", "i3bar", "swaybar",
+        // Lock screens
+        "i3lock", "betterlockscreen", "gtklock", "hyprlock",
+        // Idle managers
+        "xidlehook", "hypridle",
+        // Wallpaper setters
+        "hyprpaper", "swaybg", "nitrogen", "feh",
+        // Screen capture
+        "grim", "slurp", "flameshot", "spectacle",
+        // Clipboard managers
+        "wl-clipboard", "cliphist", "clipman",
+        // Display managers
+        "ly", "greetd", "lightdm", "sddm", "gdm",
     ];
 
     for tool in &other_tools {
