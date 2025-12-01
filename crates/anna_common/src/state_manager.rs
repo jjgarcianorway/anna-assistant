@@ -65,6 +65,15 @@ pub const ANNA_STATS_FILE: &str = "/var/lib/anna/knowledge/stats/anna_stats.json
 /// Telemetry fallback file - CRITICAL: used when /var/log/anna not writable
 pub const TELEMETRY_FALLBACK_FILE: &str = "/tmp/anna-telemetry.jsonl";
 
+/// Recipe store file - v3.0.0 recipe learning
+pub const RECIPE_STORE_FILE: &str = "/var/lib/anna/recipes/store.json";
+
+/// Pattern store file - v4.4.0 learning engine
+pub const PATTERN_STORE_FILE: &str = "/var/lib/anna/learning/patterns.json";
+
+/// Learning directory - v4.4.0 learning engine
+pub const LEARNING_DIR: &str = "/var/lib/anna/learning";
+
 // ============================================================================
 // Atomic File Operations
 // ============================================================================
@@ -178,6 +187,7 @@ pub struct StateVerification {
     pub knowledge_reset: bool,
     pub llm_state_reset: bool,
     pub benchmarks_reset: bool,
+    pub learning_reset: bool,    // v4.4.0: Learning engine patterns/recipes
     pub all_verified: bool,
     pub errors: Vec<String>,
 }
@@ -193,6 +203,7 @@ impl StateVerification {
             knowledge_reset: false,
             llm_state_reset: false,
             benchmarks_reset: false,
+            learning_reset: false,
             all_verified: false,
             errors: vec![],
         }
@@ -214,7 +225,8 @@ impl StateVerification {
             && self.anna_stats_reset
             && self.knowledge_reset
             && self.llm_state_reset
-            && self.benchmarks_reset;
+            && self.benchmarks_reset
+            && self.learning_reset;  // v4.4.0
     }
 }
 
@@ -357,6 +369,9 @@ pub struct AnnaStateManager {
     pub knowledge_dir: PathBuf,
     pub llm_state_dir: PathBuf,
     pub benchmarks_dir: PathBuf,
+    pub recipe_store_path: PathBuf,        // v3.0.0: Recipe learning
+    pub pattern_store_path: PathBuf,       // v4.4.0: Learning engine
+    pub learning_dir: PathBuf,             // v4.4.0: Learning engine
 }
 
 impl Default for AnnaStateManager {
@@ -378,6 +393,9 @@ impl AnnaStateManager {
             knowledge_dir: PathBuf::from(KNOWLEDGE_DIR),
             llm_state_dir: PathBuf::from(LLM_STATE_DIR),
             benchmarks_dir: PathBuf::from(BENCHMARKS_DIR),
+            recipe_store_path: PathBuf::from(RECIPE_STORE_FILE),
+            pattern_store_path: PathBuf::from(PATTERN_STORE_FILE),
+            learning_dir: PathBuf::from(LEARNING_DIR),
         }
     }
 
@@ -393,6 +411,9 @@ impl AnnaStateManager {
             knowledge_dir: root.join("var/lib/anna/knowledge"),
             llm_state_dir: root.join("var/lib/anna/llm"),
             benchmarks_dir: root.join("var/lib/anna/benchmarks"),
+            recipe_store_path: root.join("var/lib/anna/recipes/store.json"),
+            pattern_store_path: root.join("var/lib/anna/learning/patterns.json"),
+            learning_dir: root.join("var/lib/anna/learning"),
         }
     }
 
@@ -409,6 +430,8 @@ impl AnnaStateManager {
             &self.knowledge_dir,
             &self.llm_state_dir,
             &self.benchmarks_dir,
+            self.recipe_store_path.parent().unwrap_or(Path::new("/")),  // v3.0.0: Recipes
+            &self.learning_dir,  // v4.4.0: Learning engine
         ];
 
         for dir in dirs {
@@ -709,6 +732,41 @@ impl AnnaStateManager {
     }
 
     // ========================================================================
+    // Learning Operations (v4.4.0)
+    // ========================================================================
+
+    /// Reset recipe store (v3.0.0)
+    pub fn reset_recipes(&self) -> io::Result<()> {
+        if self.recipe_store_path.exists() {
+            safe_delete(&self.recipe_store_path)?;
+        }
+        Ok(())
+    }
+
+    /// Reset pattern store (v4.4.0 learning engine)
+    pub fn reset_patterns(&self) -> io::Result<()> {
+        if self.pattern_store_path.exists() {
+            safe_delete(&self.pattern_store_path)?;
+        }
+        Ok(())
+    }
+
+    /// Reset entire learning directory (v4.4.0)
+    pub fn reset_learning(&self) -> io::Result<()> {
+        // Reset pattern store
+        self.reset_patterns()?;
+        // Clear learning directory
+        clear_directory(&self.learning_dir)
+    }
+
+    /// Verify learning state is empty
+    pub fn verify_learning_empty(&self) -> bool {
+        let pattern_empty = !self.pattern_store_path.exists();
+        let recipe_empty = !self.recipe_store_path.exists();
+        pattern_empty && recipe_empty
+    }
+
+    // ========================================================================
     // Unified Reset Operations
     // ========================================================================
 
@@ -819,6 +877,18 @@ impl AnnaStateManager {
             Err(e) => result.add_error(&format!("Failed to reset benchmarks: {}", e)),
         }
 
+        // 9. v4.4.0: Reset recipes (v3.0.0 recipe learning)
+        match self.reset_recipes() {
+            Ok(_) => result.add_reset("Recipe store"),
+            Err(e) => result.add_error(&format!("Failed to reset recipes: {}", e)),
+        }
+
+        // 10. v4.4.0: Reset learning engine patterns
+        match self.reset_learning() {
+            Ok(_) => result.add_reset("Learning patterns"),
+            Err(e) => result.add_error(&format!("Failed to reset learning: {}", e)),
+        }
+
         // Verify reset
         result.verification = self.verify_hard_reset();
         if !result.verification.all_verified {
@@ -851,6 +921,7 @@ impl AnnaStateManager {
 
     /// Verify hard reset completed
     /// v3.13.5: Now also checks anna_stats.json
+    /// v4.4.0: Now also checks learning patterns and recipes
     pub fn verify_hard_reset(&self) -> StateVerification {
         let mut v = StateVerification::new();
 
@@ -862,6 +933,7 @@ impl AnnaStateManager {
         v.knowledge_reset = self.verify_knowledge_empty();
         v.llm_state_reset = self.verify_llm_state_empty();
         v.benchmarks_reset = self.verify_benchmarks_empty();
+        v.learning_reset = self.verify_learning_empty();  // v4.4.0
 
         if !v.xp_reset { v.errors.push("XP not at baseline".to_string()); }
         if !v.telemetry_reset { v.errors.push("Telemetry not empty (check both primary and /tmp fallback)".to_string()); }
@@ -871,6 +943,7 @@ impl AnnaStateManager {
         if !v.knowledge_reset { v.errors.push("Knowledge not empty".to_string()); }
         if !v.llm_state_reset { v.errors.push("LLM state not empty".to_string()); }
         if !v.benchmarks_reset { v.errors.push("Benchmarks not empty".to_string()); }
+        if !v.learning_reset { v.errors.push("Learning patterns/recipes not cleared".to_string()); }  // v4.4.0
 
         v.verify_hard_reset();
         v

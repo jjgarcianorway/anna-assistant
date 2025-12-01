@@ -54,6 +54,8 @@ use anna_common::{
     DebugEvent, DebugEventType, DebugEventData,
     // v4.3.0: LLM selection for timeout tracking
     llm_provision::LlmSelection,
+    // v4.4.0: Learning Engine - semantic pattern caching
+    PatternStore, learning_classify_question,
 };
 use anyhow::Result;
 use std::collections::HashMap;
@@ -259,6 +261,8 @@ pub struct UnifiedEngine {
     llm_selection: LlmSelection,
     /// v4.3.1: Shared answer cache (passed from AppState for persistence)
     answer_cache: Arc<RwLock<AnswerCache>>,
+    /// v4.4.0: Learning Engine - semantic pattern caching
+    pattern_store: PatternStore,
 }
 
 impl UnifiedEngine {
@@ -285,6 +289,8 @@ impl UnifiedEngine {
             current_question: String::new(),
             llm_selection,
             answer_cache,
+            // v4.4.0: Learning Engine - semantic pattern caching
+            pattern_store: PatternStore::load(),
         }
     }
 
@@ -322,6 +328,11 @@ impl UnifiedEngine {
     /// v4.3.1: Uses blocking read since this is typically called from sync context
     pub async fn cache_stats(&self) -> (usize, u32) {
         self.answer_cache.read().await.stats()
+    }
+
+    /// v4.4.0: Get the pattern store (for status display)
+    pub fn pattern_store(&self) -> &PatternStore {
+        &self.pattern_store
     }
 
     /// v4.3.0: Handle timeout by recording it and potentially downgrading models
@@ -432,6 +443,55 @@ impl UnifiedEngine {
         }
 
         // ================================================================
+        // STEP 0.75: Pattern Store Check (v4.4.0 - Semantic Learning)
+        // ================================================================
+        // Check if we have a learned pattern for this question CLASS (not just exact match)
+        // This enables paraphrase recognition: "what CPU?" and "tell me my CPU" are the same class
+        if let Some((pattern, fresh)) = self.pattern_store.get(question) {
+            let pattern_ms = start_time.elapsed().as_millis() as u64;
+            let class = learning_classify_question(question);
+
+            if fresh {
+                info!(
+                    "LEARNING: CACHE HIT class={} hits={} ({}ms original latency)",
+                    class.canonical(), pattern.hit_count, pattern.latency_ms
+                );
+
+                // v4.4.0: Emit pattern hit event
+                if let Some(e) = emitter {
+                    e.emit(DebugEvent::new(DebugEventType::JuniorPlanDone, 1,
+                            format!("LEARNING --> ANNA: Pattern hit! class={} ({}ms)", class.canonical(), pattern_ms))
+                        .with_elapsed(pattern_ms)
+                        .with_data(DebugEventData::KeyValue {
+                            pairs: vec![
+                                ("origin".to_string(), format!("Pattern:{}", pattern.origin)),
+                                ("class".to_string(), class.canonical()),
+                                ("hits".to_string(), pattern.hit_count.to_string()),
+                                ("reliability".to_string(), format!("{}%", (pattern.reliability * 100.0).round())),
+                            ],
+                        }));
+                }
+
+                // Build answer from cached pattern
+                let mut answer = self.build_brain_answer(
+                    question,
+                    &pattern.cached_answer,
+                    pattern.reliability,
+                    start_time.elapsed(),
+                );
+                answer.model_used = Some(format!("Pattern:{}", class.canonical()));
+                self.record_xp_event(XpEventType::BrainSelfSolve);
+                return Ok(answer);
+            } else {
+                // Stale pattern - log but continue to refresh
+                info!(
+                    "LEARNING: STALE PATTERN class={} (refreshing)",
+                    class.canonical()
+                );
+            }
+        }
+
+        // ================================================================
         // STEP 1: Brain Fast Path (NO LLMs)
         // ================================================================
         if let Some(e) = emitter {
@@ -480,6 +540,23 @@ impl UnifiedEngine {
 
             // Record Anna XP for self-solve
             self.record_xp_event(XpEventType::BrainSelfSolve);
+
+            // v4.4.0: Learn this pattern for future paraphrase hits
+            let learned = self.pattern_store.learn(
+                question,
+                brain_answer.citations.clone(),
+                &brain_answer.origin,
+                &brain_answer.text,
+                brain_answer.reliability,
+                brain_ms,
+            );
+            if learned {
+                let class = learning_classify_question(question);
+                info!(
+                    "LEARNING: NEW PATTERN class={} origin={} reliability={:.2}",
+                    class.canonical(), brain_answer.origin, brain_answer.reliability
+                );
+            }
 
             return Ok(self.build_brain_answer(
                 question,
@@ -1177,6 +1254,7 @@ impl UnifiedEngine {
     }
 
     /// Extract and store a recipe from a successful answer
+    /// v4.4.0: Also learns patterns for the learning engine
     fn maybe_extract_recipe(
         &mut self,
         question: &str,
@@ -1200,6 +1278,24 @@ impl UnifiedEngine {
         if let Some(recipe) = extract_recipe(question, question_type.clone(), probes_used, answer, reliability) {
             info!("[R]  Extracted recipe: {} (reliability={:.2})", recipe.intent, reliability);
             self.recipe_store.add(recipe);
+        }
+
+        // v4.4.0: Also learn pattern for semantic matching
+        // LLM answers are slower, so capture latency estimate of 5000ms
+        let learned = self.pattern_store.learn(
+            question,
+            probes_used.to_vec(),
+            "Senior",  // LLM-verified answer
+            answer,
+            reliability,
+            5000,  // Estimated LLM latency
+        );
+        if learned {
+            let class = learning_classify_question(question);
+            info!(
+                "LEARNING: NEW PATTERN (LLM) class={} reliability={:.2}",
+                class.canonical(), reliability
+            );
         }
     }
 

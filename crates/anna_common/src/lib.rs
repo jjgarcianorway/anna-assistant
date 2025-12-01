@@ -130,6 +130,7 @@ pub mod perf_timing;
 pub mod status_coherence;
 pub mod state_manager;
 pub mod ui_theme;
+pub mod learning_engine;
 
 pub use answer_engine::*;
 pub use command_whitelist::*;
@@ -418,4 +419,12 @@ pub use ui_theme::{
     UiMode, UiTheme, DaemonState, DataFreshness,
     set_ui_mode, get_ui_mode, current_theme,
     print_section, print_banner, format_status_line,
+};
+
+// Learning Engine exports (v4.4.0) - Functional learning with semantic classification
+pub use learning_engine::{
+    QuestionClass, classify_question as learning_classify_question,
+    LearnedPattern, PatternStore, PatternStats as LearningPatternStats,
+    LearningLogEntry, LearningLogType,
+    PATTERN_STORE_PATH, MIN_LEARN_RELIABILITY, PATTERN_CACHE_TTL_SECS,
 };

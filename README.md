@@ -1,8 +1,8 @@
-# Anna v4.3.2 "Full Reset"
+# Anna v4.4.0 "Functional Learning"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v4.3.2 full reset fix: Telemetry fallback file (/tmp/anna-telemetry.jsonl) now properly resets by deleting instead of truncating, fixing permission denied errors when file was owned by different user.
+> v4.4.0 functional learning: Semantic question classification, paraphrase recognition, pattern caching. "What CPU?" and "Tell me my CPU model" are now recognized as the same question class and answered instantly after the first answer. Reset clears all learned patterns.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
