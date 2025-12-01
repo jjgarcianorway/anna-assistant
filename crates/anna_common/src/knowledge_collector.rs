@@ -668,6 +668,7 @@ impl KnowledgeBuilder {
     }
 
     /// v5.1.0: Collect ALL binaries on PATH
+    /// v5.4.1: Mark binaries as installed (they exist on the system)
     pub fn collect_all_binaries(&mut self) {
         info!("[COLLECT] Full PATH scan...");
         let binaries = discover_all_binaries();
@@ -686,6 +687,9 @@ impl KnowledgeBuilder {
                 o.wiki_ref = wiki_ref.map(|s| s.to_string());
                 o
             });
+
+            // v5.4.1: Binary exists on PATH = installed
+            obj.installed = true;
 
             // Add Command type if not present
             if !obj.object_types.contains(&ObjectType::Command) {
@@ -812,19 +816,44 @@ impl KnowledgeBuilder {
         }
     }
 
-    /// v5.3.0: Record a single process observation (for external monitoring)
-    pub fn record_process_observation(&mut self, name: &str) {
+    /// v5.4.1: Record a process observation (called from process sampling)
+    ///
+    /// IMPORTANT: This does NOT increment usage_count - that's for actual invocations.
+    /// This only updates last_seen_at to track that the process is running.
+    pub fn record_process_observation(&mut self, name: &str, cpu_time_ms: u64, mem_bytes: u64) {
         self.telemetry.record_process(name);
 
-        // Update usage count if known
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        // Update resource stats and last_seen, but NOT usage_count
+        if let Some(obj) = self.store.objects.get_mut(name) {
+            obj.last_seen_at = now;
+            if obj.first_seen_at == 0 {
+                obj.first_seen_at = now;
+            }
+            // Track peak CPU time and memory
+            obj.total_cpu_time_ms = obj.total_cpu_time_ms.max(cpu_time_ms);
+            if mem_bytes > obj.total_mem_bytes_peak {
+                obj.total_mem_bytes_peak = mem_bytes;
+            }
+        }
+    }
+
+    /// v5.4.1: Record an actual command invocation (distinct from process observation)
+    pub fn record_command_invocation(&mut self, name: &str) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
         if let Some(obj) = self.store.objects.get_mut(name) {
             obj.usage_count += 1;
-            obj.last_seen_at = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
+            obj.last_seen_at = now;
             if obj.first_seen_at == 0 {
-                obj.first_seen_at = obj.last_seen_at;
+                obj.first_seen_at = now;
             }
         }
     }

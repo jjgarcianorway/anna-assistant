@@ -944,8 +944,85 @@ pub fn classify_tool(name: &str) -> (Category, Option<&'static str>) {
         return (Category::Service, None);
     }
 
-    // Common tools
-    if matches!(lower.as_str(), "git" | "cargo" | "rustc" | "python" | "node" | "npm") {
+    // v5.4.1: Expanded tool categories
+
+    // Development tools
+    if matches!(lower.as_str(),
+        "git" | "cargo" | "rustc" | "rustup" |
+        "python" | "python3" | "pip" | "pip3" |
+        "node" | "nodejs" | "npm" | "npx" | "yarn" | "pnpm" |
+        "go" | "gcc" | "g++" | "clang" | "clang++" |
+        "make" | "cmake" | "meson" | "ninja" |
+        "docker" | "podman" | "kubectl" |
+        "gdb" | "lldb" | "valgrind" | "strace" | "ltrace"
+    ) {
+        return (Category::Tool, None);
+    }
+
+    // Core utilities (coreutils + common Unix tools)
+    if matches!(lower.as_str(),
+        "ls" | "cat" | "cp" | "mv" | "rm" | "mkdir" | "rmdir" |
+        "chmod" | "chown" | "chgrp" | "touch" | "ln" |
+        "head" | "tail" | "less" | "more" |
+        "grep" | "egrep" | "fgrep" | "rg" | "ripgrep" |
+        "find" | "fd" | "locate" | "which" | "whereis" |
+        "sed" | "awk" | "cut" | "sort" | "uniq" | "wc" | "tr" |
+        "tar" | "gzip" | "gunzip" | "zip" | "unzip" | "xz" | "zstd" |
+        "curl" | "wget" | "ssh" | "scp" | "rsync" |
+        "ps" | "top" | "htop" | "btop" | "kill" | "pkill" |
+        "df" | "du" | "free" | "lsblk" | "mount" | "umount" |
+        "date" | "cal" | "uptime" | "hostname" |
+        "echo" | "printf" | "tee" | "xargs" |
+        "diff" | "patch" | "md5sum" | "sha256sum" |
+        "env" | "export" | "source" | "alias" |
+        "man" | "info" | "help" | "whatis" | "apropos"
+    ) {
+        return (Category::Tool, None);
+    }
+
+    // Modern CLI replacements
+    if matches!(lower.as_str(),
+        "eza" | "exa" | "lsd" |         // ls replacements
+        "bat" | "batcat" |               // cat replacement
+        "fzf" | "sk" |                   // fuzzy finders
+        "jq" | "yq" |                    // JSON/YAML tools
+        "delta" |                         // diff replacement
+        "duf" |                           // df replacement
+        "dust" |                          // du replacement
+        "procs" |                         // ps replacement
+        "zoxide" | "z" |                  // cd replacement
+        "starship" |                      // prompt
+        "tldr" |                          // man replacement
+        "neofetch" | "fastfetch" | "pfetch"  // system info
+    ) {
+        return (Category::Tool, None);
+    }
+
+    // Image/media viewers
+    if matches!(lower.as_str(),
+        "swayimg" | "imv" | "feh" | "sxiv" | "nsxiv" |
+        "mpv" | "vlc" | "ffmpeg" | "ffplay" |
+        "fotoxx" | "gimp" | "inkscape"
+    ) {
+        return (Category::Tool, None);
+    }
+
+    // System services
+    if matches!(lower.as_str(),
+        "systemd" | "systemctl" | "journalctl" |
+        "sshd" | "openssh" | "NetworkManager" |
+        "pipewire" | "wireplumber" | "pulseaudio" |
+        "bluetooth" | "bluez" | "cups" |
+        "ollama" | "docker" | "containerd"
+    ) {
+        return (Category::Service, None);
+    }
+
+    // File managers
+    if matches!(lower.as_str(),
+        "ranger" | "lf" | "nnn" | "vifm" |
+        "nautilus" | "dolphin" | "thunar" | "pcmanfm"
+    ) {
         return (Category::Tool, None);
     }
 

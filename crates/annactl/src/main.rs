@@ -102,7 +102,7 @@ async fn run_reset() -> Result<()> {
     println!("{}", "[RESET]".yellow());
     println!();
 
-    // Clear data directories
+    // v5.4.1: Complete wipe of ALL anna data
     let dirs_to_clear = [
         "/var/lib/anna/knowledge",
         "/var/lib/anna/telemetry",
@@ -112,28 +112,34 @@ async fn run_reset() -> Result<()> {
         if std::path::Path::new(dir).exists() {
             match std::fs::remove_dir_all(dir) {
                 Ok(_) => println!("  Cleared: {}", dir),
-                Err(e) => println!("  Failed to clear {}: {}", dir, e),
+                Err(e) => println!("  {} Failed to clear {}: {}", "!".red(), dir, e),
             }
         }
     }
 
-    // Clear state files
+    // Clear ALL state files
     let files_to_clear = [
         "/var/lib/anna/telemetry_state.json",
         "/var/lib/anna/log_scan_state.json",
+        "/var/lib/anna/error_index.json",
+        "/var/lib/anna/intrusion_index.json",
+        "/var/lib/anna/service_index.json",
     ];
 
     for file in &files_to_clear {
         if std::path::Path::new(file).exists() {
             match std::fs::remove_file(file) {
                 Ok(_) => println!("  Removed: {}", file),
-                Err(e) => println!("  Failed to remove {}: {}", file, e),
+                Err(e) => println!("  {} Failed to remove {}: {}", "!".red(), file, e),
             }
         }
     }
 
     println!();
-    println!("  Reset complete. Restart annad to begin fresh discovery.");
+    println!("  {}  Reset complete.", "OK".green());
+    println!();
+    println!("  Daemon will rebuild inventory gradually on restart.");
+    println!("  Use 'annactl status' to monitor scan progress.");
     println!();
     Ok(())
 }

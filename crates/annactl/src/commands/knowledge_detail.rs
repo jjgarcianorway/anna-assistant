@@ -1,9 +1,9 @@
-//! Knowledge Detail Command v5.2.6 - Full Object Profile
+//! Knowledge Detail Command v5.4.1 - Full Object Profile
 //!
 //! Shows a complete sysadmin-grade profile of a single object.
 //! Exception: Can show info about non-installed objects when explicitly asked.
 //!
-//! v5.2.6: Clear metrics - no walls of zeros, explicit time windows.
+//! v5.4.1: Truthful metrics - usage_count is actual invocations, not process samples.
 //!
 //! Sections shown only when they have meaningful data:
 //! - [IDENTITY] Name, category, description, ecosystem

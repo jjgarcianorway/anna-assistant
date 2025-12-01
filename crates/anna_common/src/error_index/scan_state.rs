@@ -1,4 +1,4 @@
-//! Log Scan State - v5.2.1
+//! Log Scan State - v5.4.1
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -28,6 +28,10 @@ pub struct LogScanState {
 
     /// Created at timestamp
     pub created_at: u64,
+
+    /// v5.4.1: Journalctl cursor for incremental scanning
+    #[serde(default)]
+    pub journal_cursor: Option<String>,
 }
 
 impl Default for LogScanState {
@@ -50,6 +54,7 @@ impl LogScanState {
             running: false,
             total_scans: 0,
             created_at: now,
+            journal_cursor: None,
         }
     }
 

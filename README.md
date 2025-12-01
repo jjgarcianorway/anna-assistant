@@ -1,8 +1,8 @@
-# Anna v5.4.0 "Signal Not Noise"
+# Anna v5.4.1 "Truthful Telemetry"
 
 **System Intelligence Daemon for Linux**
 
-> v5.4.0 refines the telemetry core with better UX: enhanced version/status commands, full descriptions, and "signal not noise" - only show what matters.
+> v5.4.1 critical fixes: Real-time package tracking via pacman.log, correct usage counting (no longer inflated), proper binary categorization, cursor-based log scanning.
 
 ---
 
@@ -247,7 +247,8 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v5.4.0** | **Signal Not Noise** - Enhanced version command with install paths, status with ETA, full descriptions, hide empty sections. |
+| **v5.4.1** | **Truthful Telemetry** - Critical fixes: real-time package tracking, correct usage counting, expanded categorization, cursor-based log scanning. |
+| v5.4.0 | Signal Not Noise - Enhanced version command with install paths, status with ETA, full descriptions, hide empty sections. |
 | v5.3.0 | Telemetry Core - Complete reset. No LLM, no Q&A. Pure telemetry daemon. 7 commands only. |
 | v5.2.6 | Meaningful Metrics - Every metric has explicit time window/units |
 | v5.2.5 | Knowledge is the Machine - Installed-only views, relationships |
