@@ -280,21 +280,52 @@ async fn main() -> Result<()> {
                                     // Record to telemetry
                                     let _ = telemetry_writer.record_package_change(&event);
 
-                                    // Trigger targeted discovery for this package
+                                    // v5.7.2: Handle package changes properly
                                     let mut b = builder_pacman.write().await;
+                                    let now = SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap_or_default()
+                                        .as_secs();
+
                                     match event.change_type {
                                         PackageChangeType::Installed | PackageChangeType::Upgraded => {
+                                            // First try targeted discovery
                                             b.targeted_discovery(&event.package);
+
+                                            // Ensure the object exists and is marked installed
+                                            let obj = b.store_mut().objects.entry(event.package.clone())
+                                                .or_insert_with(|| {
+                                                    use anna_common::KnowledgeObject;
+                                                    let (category, wiki_ref) = anna_common::classify_tool(&event.package);
+                                                    let mut o = KnowledgeObject::new(&event.package, category);
+                                                    o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                                                    o
+                                                });
+                                            obj.installed = true;
+                                            obj.removed_at = None;
+                                            if !obj.object_types.contains(&anna_common::ObjectType::Package) {
+                                                obj.object_types.push(anna_common::ObjectType::Package);
+                                            }
+                                            obj.package_name = Some(event.package.clone());
+                                            if let Some(ref ver) = event.to_version {
+                                                obj.package_version = Some(ver.clone());
+                                            }
+                                            obj.installed_at = Some(now);
                                         }
                                         PackageChangeType::Removed => {
-                                            // Mark as removed
-                                            if let Some(obj) = b.store_mut().objects.get_mut(&event.package) {
-                                                let now = SystemTime::now()
-                                                    .duration_since(UNIX_EPOCH)
-                                                    .unwrap_or_default()
-                                                    .as_secs();
-                                                obj.installed = false;
-                                                obj.removed_at = Some(now);
+                                            // Mark as removed - create entry if doesn't exist
+                                            let obj = b.store_mut().objects.entry(event.package.clone())
+                                                .or_insert_with(|| {
+                                                    use anna_common::KnowledgeObject;
+                                                    let (category, wiki_ref) = anna_common::classify_tool(&event.package);
+                                                    let mut o = KnowledgeObject::new(&event.package, category);
+                                                    o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                                                    o
+                                                });
+                                            obj.installed = false;
+                                            obj.removed_at = Some(now);
+                                            if let Some(ref ver) = event.from_version {
+                                                obj.package_version = Some(ver.clone());
                                             }
                                         }
                                     }

@@ -1,8 +1,8 @@
-//! Stats Command v5.5.0 - Daemon Activity with Top Offenders
+//! Stats Command v5.7.2 - Daemon Activity with Top Offenders
 //!
 //! Shows Anna's daemon activity and background work.
 //!
-//! v5.5.0: Added top offending error sources with counts, timestamps, samples.
+//! v5.7.2: Fixed uptime to use daemon API instead of broken systemctl parsing
 //!
 //! Sections:
 //! - [DAEMON] Uptime, health status
@@ -14,9 +14,22 @@ use owo_colors::OwoColorize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anna_common::{
-    ErrorIndex, LogScanState, TelemetryAggregates, IntrusionIndex,
+    ErrorIndex, LogScanState, IntrusionIndex,
     format_duration_secs, format_time_ago, truncate_str,
 };
+
+#[derive(serde::Deserialize)]
+struct HealthResponse {
+    #[allow(dead_code)]
+    status: String,
+    #[allow(dead_code)]
+    version: String,
+    #[allow(dead_code)]
+    phase: String,
+    uptime_secs: u64,
+    #[allow(dead_code)]
+    objects_tracked: usize,
+}
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -29,12 +42,11 @@ pub async fn run() -> Result<()> {
 
     // Load data
     let log_scan_state = LogScanState::load();
-    let telemetry = TelemetryAggregates::load();
     let error_index = ErrorIndex::load();
     let intrusion_index = IntrusionIndex::load();
 
-    // [DAEMON]
-    print_daemon_section(&telemetry);
+    // [DAEMON] - v5.7.2: now async, gets uptime from API
+    print_daemon_section().await;
 
     // [LOG SCANNER]
     print_scanner_section(&log_scan_state);
@@ -51,26 +63,22 @@ pub async fn run() -> Result<()> {
     Ok(())
 }
 
-fn print_daemon_section(telemetry: &TelemetryAggregates) {
+async fn print_daemon_section() {
     println!("{}", "[DAEMON]".cyan());
 
-    // Daemon uptime from systemd
-    let uptime = get_daemon_uptime();
-    println!("  Uptime:    {}", uptime);
-
-    // Daemon start time
-    if telemetry.daemon_start_at > 0 {
-        println!("  Started:   {}", format_time_ago(telemetry.daemon_start_at));
+    // v5.7.2: Get uptime from daemon API (same as status command)
+    match get_daemon_info().await {
+        Some(info) => {
+            let uptime_str = format_duration_secs(info.uptime_secs);
+            println!("  Uptime:    {}", uptime_str);
+            println!("  Objects:   {}", info.objects_tracked);
+            println!("  Health:    {}", "healthy".green());
+        }
+        None => {
+            println!("  Uptime:    {}", "n/a".dimmed());
+            println!("  Health:    {}", "stopped".red());
+        }
     }
-
-    // Health check status
-    let health_status = check_daemon_health();
-    let status_str = if health_status {
-        "healthy".green().to_string()
-    } else {
-        "unhealthy".red().to_string()
-    };
-    println!("  Health:    {}", status_str);
 
     println!();
 }
@@ -230,48 +238,18 @@ struct ErrorObjectStats {
 // Helper Functions
 // ============================================================================
 
-fn get_daemon_uptime() -> String {
-    let output = std::process::Command::new("systemctl")
-        .args(["show", "annad", "--property=ActiveEnterTimestamp"])
-        .output();
+/// v5.7.2: Get daemon info from API (same pattern as status.rs)
+async fn get_daemon_info() -> Option<HealthResponse> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(2))
+        .build()
+        .ok()?;
 
-    if let Ok(output) = output {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if let Some(ts_str) = stdout.strip_prefix("ActiveEnterTimestamp=") {
-            let ts_str = ts_str.trim();
-            if !ts_str.is_empty() && ts_str != "n/a" {
-                // v5.5.1: Parse systemctl timestamp format "Mon 2025-12-01 13:50:39 CET"
-                let parts: Vec<&str> = ts_str.split_whitespace().collect();
-                if parts.len() >= 3 {
-                    let date_time_str = format!("{} {}", parts[1], parts[2]);
-                    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&date_time_str, "%Y-%m-%d %H:%M:%S") {
-                        let start = dt.and_utc().timestamp() as u64;
-                        let now = SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_secs();
-                        if now > start {
-                            return format_duration_secs(now - start);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let response = client
+        .get("http://127.0.0.1:7865/v1/health")
+        .send()
+        .await
+        .ok()?;
 
-    "unknown".to_string()
-}
-
-fn check_daemon_health() -> bool {
-    // Quick health check via HTTP
-    let output = std::process::Command::new("curl")
-        .args(["-s", "-o", "/dev/null", "-w", "%{http_code}", "http://127.0.0.1:7865/v1/health"])
-        .output();
-
-    if let Ok(output) = output {
-        let code = String::from_utf8_lossy(&output.stdout);
-        return code.trim() == "200";
-    }
-
-    false
+    response.json::<HealthResponse>().await.ok()
 }
