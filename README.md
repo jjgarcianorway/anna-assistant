@@ -1,8 +1,8 @@
-# Anna v7.0.0 "Minimal Surface"
+# Anna v7.5.0 "Enhanced Telemetry & Usage Insights"
 
 **System Intelligence Daemon for Linux**
 
-> v7.0.0: Only 4 commands. Clean separation of Anna-internal metrics from host monitoring. Every number traceable to real system commands.
+> v7.5.0: Real CPU time tracking, exec counts, telemetry hotspots in health display. Enhanced log severity breakdown with local timestamps.
 
 ---
 
@@ -75,7 +75,7 @@ That's it. 4 commands. No flags, no complexity.
 ------------------------------------------------------------
 
 [VERSION]
-  Anna:       v7.0.0
+  Anna:       v7.5.0
 
 [DAEMON]
   Status:     running
@@ -218,8 +218,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.0.0/annad-7.0.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.0.0/annactl-7.0.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.5.0/annad-7.5.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.5.0/annactl-7.5.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -304,10 +304,13 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.0.0** | **Minimal Surface** - Only 4 commands. Clean separation of Anna vs host. Per-service logs only. |
-| v6.1.0 | Clean Separation - status/stats/knowledge split |
+| **v7.5.0** | **Enhanced Telemetry** - CPU time tracking, exec counts, hotspots, enhanced logs |
+| v7.4.0 | Config Discovery - Multi-source config file detection |
+| v7.3.0 | Health Signals - Overall health with warnings/criticals |
+| v7.2.0 | Telemetry Windows - 1h/24h/7d/30d stats |
+| v7.1.0 | SQLite Telemetry - Real process metrics in database |
+| v7.0.0 | Minimal Surface - Only 4 commands, clean separation |
 | v6.0.0 | Grounded System Intelligence - Complete rebuild |
-| v5.5.0 | Telemetry Reset - No LLM, pure observation |
 
 ---
 
