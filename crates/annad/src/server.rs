@@ -1,6 +1,6 @@
-//! HTTP server for annad v5.6.0
+//! HTTP server for annad v6.1.0
 //!
-//! Server with health, reset, and control endpoints.
+//! Server with health, stats, reset, and control endpoints.
 //! All state mutations happen here in the daemon (running as root).
 //! annactl is just a remote control that sends RPC requests.
 
@@ -22,6 +22,24 @@ use tracing::{info, warn};
 pub struct AppState {
     pub start_time: Instant,
     pub knowledge_builder: Arc<RwLock<KnowledgeBuilder>>,
+    /// Track scan metadata
+    pub last_scan_time: RwLock<Option<Instant>>,
+    pub last_scan_duration_ms: RwLock<u64>,
+    pub scan_count: RwLock<u32>,
+    /// Track internal errors
+    pub internal_errors: RwLock<InternalErrors>,
+    /// Track request counts
+    pub cli_requests: RwLock<u64>,
+    pub http_requests: RwLock<u64>,
+    pub total_response_time_ms: RwLock<u64>,
+}
+
+/// Internal error tracking (Anna's own errors, not system errors)
+#[derive(Default, Clone, Serialize)]
+pub struct InternalErrors {
+    pub subprocess_failures: u32,
+    pub parser_failures: u32,
+    pub unknown_commands: u32,
 }
 
 impl AppState {
@@ -29,11 +47,42 @@ impl AppState {
         Self {
             start_time: Instant::now(),
             knowledge_builder,
+            last_scan_time: RwLock::new(None),
+            last_scan_duration_ms: RwLock::new(0),
+            scan_count: RwLock::new(0),
+            internal_errors: RwLock::new(InternalErrors::default()),
+            cli_requests: RwLock::new(0),
+            http_requests: RwLock::new(0),
+            total_response_time_ms: RwLock::new(0),
         }
+    }
+
+    /// Record a scan completion
+    pub async fn record_scan(&self, duration_ms: u64) {
+        *self.last_scan_time.write().await = Some(Instant::now());
+        *self.last_scan_duration_ms.write().await = duration_ms;
+        *self.scan_count.write().await += 1;
+    }
+
+    /// Record an internal error
+    pub async fn record_error(&self, error_type: &str) {
+        let mut errors = self.internal_errors.write().await;
+        match error_type {
+            "subprocess" => errors.subprocess_failures += 1,
+            "parser" => errors.parser_failures += 1,
+            "unknown_command" => errors.unknown_commands += 1,
+            _ => {}
+        }
+    }
+
+    /// Record a request
+    pub async fn record_request(&self, response_time_ms: u64) {
+        *self.cli_requests.write().await += 1;
+        *self.total_response_time_ms.write().await += response_time_ms;
     }
 }
 
-/// Health response
+/// Health response (basic)
 #[derive(Serialize)]
 pub struct HealthResponse {
     pub status: String,
@@ -41,6 +90,37 @@ pub struct HealthResponse {
     pub phase: String,
     pub uptime_secs: u64,
     pub objects_tracked: usize,
+}
+
+/// v6.1.0: Extended stats response for annactl stats
+#[derive(Serialize)]
+pub struct StatsResponse {
+    // Daemon info
+    pub status: String,
+    pub version: String,
+    pub uptime_secs: u64,
+    pub pid: u32,
+
+    // Memory (from /proc/self/status)
+    pub memory_rss_kb: u64,
+    pub memory_peak_kb: u64,
+
+    // Inventory counts
+    pub commands_count: usize,
+    pub packages_count: usize,
+    pub services_count: usize,
+
+    // Scan info
+    pub last_scan_secs_ago: Option<u64>,
+    pub last_scan_duration_ms: u64,
+    pub scan_count: u32,
+
+    // Request tracking
+    pub cli_requests: u64,
+    pub avg_response_ms: u64,
+
+    // Internal errors (Anna's own, not system)
+    pub internal_errors: InternalErrors,
 }
 
 /// Reset response
@@ -74,6 +154,66 @@ async fn health_check(
         uptime_secs: state.start_time.elapsed().as_secs(),
         objects_tracked: objects,
     })
+}
+
+/// v6.1.0: Stats handler - detailed daemon telemetry
+async fn stats_handler(
+    axum::extract::State(state): axum::extract::State<Arc<AppState>>,
+) -> Json<StatsResponse> {
+    let builder = state.knowledge_builder.read().await;
+    let (commands, packages, services) = builder.store().count_by_type();
+
+    let last_scan_time = state.last_scan_time.read().await;
+    let last_scan_secs_ago = last_scan_time.map(|t| t.elapsed().as_secs());
+
+    let cli_requests = *state.cli_requests.read().await;
+    let total_response_time = *state.total_response_time_ms.read().await;
+    let avg_response_ms = if cli_requests > 0 {
+        total_response_time / cli_requests
+    } else {
+        0
+    };
+
+    let (rss_kb, peak_kb) = get_process_memory();
+
+    Json(StatsResponse {
+        status: "ok".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        uptime_secs: state.start_time.elapsed().as_secs(),
+        pid: std::process::id(),
+        memory_rss_kb: rss_kb,
+        memory_peak_kb: peak_kb,
+        commands_count: commands,
+        packages_count: packages,
+        services_count: services,
+        last_scan_secs_ago,
+        last_scan_duration_ms: *state.last_scan_duration_ms.read().await,
+        scan_count: *state.scan_count.read().await,
+        cli_requests,
+        avg_response_ms,
+        internal_errors: state.internal_errors.read().await.clone(),
+    })
+}
+
+/// Get process memory from /proc/self/status
+fn get_process_memory() -> (u64, u64) {
+    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let mut rss_kb = 0u64;
+    let mut peak_kb = 0u64;
+
+    for line in status.lines() {
+        if line.starts_with("VmRSS:") {
+            if let Some(val) = line.split_whitespace().nth(1) {
+                rss_kb = val.parse().unwrap_or(0);
+            }
+        } else if line.starts_with("VmPeak:") {
+            if let Some(val) = line.split_whitespace().nth(1) {
+                peak_kb = val.parse().unwrap_or(0);
+            }
+        }
+    }
+
+    (rss_kb, peak_kb)
 }
 
 /// v5.6.0: Reset handler - clears all state and triggers rescan
@@ -193,6 +333,7 @@ pub async fn run(state: AppState) -> Result<()> {
 
     let app = Router::new()
         .route("/v1/health", get(health_check))
+        .route("/v1/stats", get(stats_handler))
         .route("/v1/reset", post(reset_handler))
         .with_state(state)
         .layer(TraceLayer::new_for_http());

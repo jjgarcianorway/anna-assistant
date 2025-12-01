@@ -1,9 +1,11 @@
-//! Knowledge Detail Command v6.0.0 - Grounded Object Details
+//! Knowledge Detail Command v6.1.0 - Grounded Object Details
 //!
+//! v6.1.0: Added service logs from journalctl
 //! v6.0.0: Complete rewrite with real data sources
 //! - Package info from pacman -Qi
 //! - Command info from which + man -f
 //! - Service info from systemctl
+//! - Service logs from journalctl (warnings/errors, last 10)
 //!
 //! Every piece of information has a source attribution.
 
@@ -145,6 +147,14 @@ fn print_service_detail(svc: &Service) {
     println!("{}", "[SERVICE]".cyan());
     println!("  {}", "(source: systemctl)".dimmed());
 
+    // Unit name
+    let unit_name = if svc.name.ends_with(".service") {
+        svc.name.clone()
+    } else {
+        format!("{}.service", svc.name)
+    };
+    println!("  Unit:        {}", unit_name);
+
     // State
     let state_str = match svc.state {
         ServiceState::Active => "running".green().to_string(),
@@ -174,7 +184,61 @@ fn print_service_detail(svc: &Service) {
         println!("  Version:     {}", pkg.version);
     }
 
+    // Show recent logs for this service
     println!();
+    print_service_logs(&unit_name);
+
+    println!();
+}
+
+/// Get recent service logs from journalctl
+fn print_service_logs(unit_name: &str) {
+    use std::process::Command;
+
+    println!("{}", "[LOGS]".cyan());
+    println!("  {}", format!("(journalctl -u {} -p warning..alert -n 10)", unit_name).dimmed());
+
+    let output = Command::new("journalctl")
+        .args([
+            "-u", unit_name,
+            "-p", "warning..alert",
+            "-n", "10",
+            "--no-pager",
+            "-o", "short",
+            "-q",
+        ])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
+
+            if lines.is_empty() {
+                println!("  {}", "(no warnings or errors)".green());
+            } else {
+                println!();
+                for line in lines.iter().take(10) {
+                    // Try to colorize based on priority
+                    let colored_line = if line.contains("error") || line.contains("Error") || line.contains("ERROR") {
+                        format!("  {}", line.red())
+                    } else if line.contains("warning") || line.contains("Warning") || line.contains("WARN") {
+                        format!("  {}", line.yellow())
+                    } else {
+                        format!("  {}", line)
+                    };
+                    println!("{}", colored_line);
+                }
+            }
+        }
+        Ok(_) => {
+            // Non-zero exit but may just mean no logs
+            println!("  {}", "(no logs available)".dimmed());
+        }
+        Err(_) => {
+            println!("  {}", "(journalctl not available)".dimmed());
+        }
+    }
 }
 
 fn print_not_found(name: &str) {

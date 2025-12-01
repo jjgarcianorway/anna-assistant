@@ -1,27 +1,17 @@
-//! Status Command v6.0.2 - Grounded System Status
+//! Status Command v6.1.0 - Anna Status Only
 //!
-//! v6.0.2: Added [UPDATES] section for auto-update visibility
-//! v6.0.0: Complete rewrite with real data sources
-//! - Every number comes from a verifiable command
-//! - No invented metrics, no fake percentages
+//! v6.1.0: Pure Anna status - no host system noise
+//! - Daemon health (running, uptime, PID)
+//! - Inventory sync status
+//! - Auto-update status
+//! - Internal errors (Anna's own, not system)
 //!
-//! Data sources:
-//! - Daemon: HTTP API at :7865/v1/health
-//! - Packages: pacman -Q, pacman -Qe, pacman -Qm
-//! - Commands: $PATH directory scanning
-//! - Services: systemctl list-unit-files, systemctl --failed
-//! - Errors: journalctl -p err/warning --since "24 hours ago"
-//! - Updates: /var/lib/anna/update_state.json
+//! This command answers: "Is Anna healthy?"
+//! NOT: "What's happening on the host system?"
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-use anna_common::grounded::{
-    packages::PackageCounts,
-    commands::count_path_executables,
-    services::ServiceCounts,
-    errors::{ErrorCounts, get_top_error_units},
-};
 use anna_common::config::{AnnaConfig, UpdateState};
 use anna_common::format_duration_secs;
 
@@ -38,23 +28,17 @@ pub async fn run() -> Result<()> {
     // [VERSION]
     print_version_section();
 
-    // [DAEMON]
+    // [DAEMON] - Anna's daemon health
     print_daemon_section().await;
 
-    // [PACKAGES] - real counts from pacman
-    print_packages_section();
+    // [INVENTORY] - What Anna has indexed
+    print_inventory_section().await;
 
-    // [COMMANDS] - real counts from PATH
-    print_commands_section();
-
-    // [SERVICES] - real counts from systemctl
-    print_services_section();
-
-    // [ERRORS] - real counts from journalctl (24h)
-    print_errors_section();
-
-    // [UPDATES] - auto-update status
+    // [UPDATES] - Auto-update status
     print_updates_section();
+
+    // [INTERNAL ERRORS] - Anna's own errors, not system
+    print_internal_errors_section().await;
 
     println!("{}", THIN_SEP);
     println!();
@@ -71,107 +55,48 @@ fn print_version_section() {
 async fn print_daemon_section() {
     println!("{}", "[DAEMON]".cyan());
 
-    match get_daemon_info().await {
-        Some(info) => {
-            let uptime_str = format_duration_secs(info.uptime_secs);
-            println!("  Status:     {} (up {})", "running".green(), uptime_str);
+    match get_daemon_stats().await {
+        Some(stats) => {
+            let uptime_str = format_duration_secs(stats.uptime_secs);
+            println!("  Status:     {}", "running".green());
+            println!("  Uptime:     {}", uptime_str);
+            println!("  PID:        {}", stats.pid);
         }
         None => {
             println!("  Status:     {}", "stopped".red());
+            println!();
+            println!("  Start with: {}", "sudo systemctl start annad".cyan());
         }
     }
 
     println!();
 }
 
-fn print_packages_section() {
-    println!("{}", "[PACKAGES]".cyan());
-    println!("  {}", "(source: pacman -Q)".dimmed());
+async fn print_inventory_section() {
+    println!("{}", "[INVENTORY]".cyan());
 
-    let counts = PackageCounts::query();
+    match get_daemon_stats().await {
+        Some(stats) => {
+            println!("  Packages:   {}  {}", stats.packages_count, "(from pacman -Q)".dimmed());
+            println!("  Commands:   {}  {}", stats.commands_count, "(from $PATH)".dimmed());
+            println!("  Services:   {}  {}", stats.services_count, "(from systemctl)".dimmed());
 
-    println!("  Installed:  {}", counts.total);
-    println!(
-        "  Explicit:   {} ({}%)",
-        counts.explicit,
-        if counts.total > 0 {
-            (counts.explicit * 100) / counts.total
-        } else {
-            0
+            // Sync status
+            let sync_status = if let Some(secs_ago) = stats.last_scan_secs_ago {
+                if secs_ago < 60 {
+                    format!("{} (last scan {}s ago)", "OK".green(), secs_ago)
+                } else if secs_ago < 300 {
+                    format!("{} (last scan {}m ago)", "OK".green(), secs_ago / 60)
+                } else {
+                    format!("{} (last scan {}m ago)", "stale".yellow(), secs_ago / 60)
+                }
+            } else {
+                "pending".yellow().to_string()
+            };
+            println!("  Sync:       {}", sync_status);
         }
-    );
-    println!(
-        "  AUR:        {} ({}%)",
-        counts.aur,
-        if counts.total > 0 {
-            (counts.aur * 100) / counts.total
-        } else {
-            0
-        }
-    );
-
-    println!();
-}
-
-fn print_commands_section() {
-    println!("{}", "[COMMANDS]".cyan());
-    println!("  {}", "(source: $PATH)".dimmed());
-
-    let count = count_path_executables();
-    println!("  In PATH:    {}", count);
-
-    println!();
-}
-
-fn print_services_section() {
-    println!("{}", "[SERVICES]".cyan());
-    println!("  {}", "(source: systemctl)".dimmed());
-
-    let counts = ServiceCounts::query();
-
-    println!("  Total:      {}", counts.total);
-    println!("  Running:    {}", counts.running);
-
-    if counts.failed > 0 {
-        println!("  Failed:     {}", counts.failed.to_string().red());
-    } else {
-        println!("  Failed:     {}", "0".green());
-    }
-
-    println!();
-}
-
-fn print_errors_section() {
-    println!("{}", "[ERRORS]".cyan());
-    println!("  {}", "(source: journalctl, last 24h)".dimmed());
-
-    let counts = ErrorCounts::query_24h();
-
-    if counts.errors > 0 {
-        println!("  Errors:     {}", counts.errors.to_string().red());
-    } else {
-        println!("  Errors:     {}", "0".green());
-    }
-
-    if counts.warnings > 0 {
-        println!("  Warnings:   {}", counts.warnings.to_string().yellow());
-    } else {
-        println!("  Warnings:   0");
-    }
-
-    if counts.critical > 0 {
-        println!("  Critical:   {}", counts.critical.to_string().red().bold());
-    }
-
-    // Show dominant error source if there are errors
-    if counts.errors > 0 {
-        let top_units = get_top_error_units(24, 1);
-        if let Some(top) = top_units.first() {
-            println!(
-                "  Top source: {} ({} errors)",
-                top.unit.cyan(),
-                top.error_count
-            );
+        None => {
+            println!("  {}", "(daemon not running)".dimmed());
         }
     }
 
@@ -180,18 +105,17 @@ fn print_errors_section() {
 
 fn print_updates_section() {
     println!("{}", "[UPDATES]".cyan());
-    println!("  {}", "(source: /var/lib/anna/update_state.json)".dimmed());
 
     let config = AnnaConfig::load();
     let state = UpdateState::load();
 
     // Mode
     let mode_str = if config.update.enabled {
-        "auto".green().to_string()
+        format!("{} (enabled)", "auto".green())
     } else {
-        "disabled".yellow().to_string()
+        format!("{}", "disabled".yellow())
     };
-    println!("  Mode:       {} ({})", mode_str, if config.update.enabled { "enabled" } else { "disabled" });
+    println!("  Mode:       {}", mode_str);
 
     // Interval
     println!("  Interval:   {}m", config.update.interval_minutes);
@@ -226,34 +150,87 @@ fn print_updates_section() {
     println!();
 }
 
+async fn print_internal_errors_section() {
+    println!("{}", "[INTERNAL ERRORS]".cyan());
+    println!("  {}", "(Anna's own errors, not system logs)".dimmed());
+
+    match get_daemon_stats().await {
+        Some(stats) => {
+            let errors = &stats.internal_errors;
+            let total = errors.subprocess_failures + errors.parser_failures + errors.unknown_commands;
+
+            if total == 0 {
+                println!("  Last 24h:   {}", "none".green());
+            } else {
+                println!("  Last 24h:");
+                if errors.subprocess_failures > 0 {
+                    println!("    Command failures: {}", errors.subprocess_failures.to_string().yellow());
+                }
+                if errors.parser_failures > 0 {
+                    println!("    Parse errors:     {}", errors.parser_failures.to_string().yellow());
+                }
+                if errors.unknown_commands > 0 {
+                    println!("    Unknown commands: {}", errors.unknown_commands);
+                }
+            }
+        }
+        None => {
+            println!("  {}", "(daemon not running)".dimmed());
+        }
+    }
+
+    println!();
+}
+
 // ============================================================================
-// Helper Functions
+// Daemon API Client
 // ============================================================================
 
 #[derive(serde::Deserialize)]
-struct HealthResponse {
+struct StatsResponse {
     #[allow(dead_code)]
     status: String,
     #[allow(dead_code)]
     version: String,
-    #[allow(dead_code)]
-    phase: String,
     uptime_secs: u64,
+    pid: u32,
     #[allow(dead_code)]
-    objects_tracked: usize,
+    memory_rss_kb: u64,
+    #[allow(dead_code)]
+    memory_peak_kb: u64,
+    commands_count: usize,
+    packages_count: usize,
+    services_count: usize,
+    last_scan_secs_ago: Option<u64>,
+    #[allow(dead_code)]
+    last_scan_duration_ms: u64,
+    #[allow(dead_code)]
+    scan_count: u32,
+    #[allow(dead_code)]
+    cli_requests: u64,
+    #[allow(dead_code)]
+    avg_response_ms: u64,
+    internal_errors: InternalErrors,
 }
 
-async fn get_daemon_info() -> Option<HealthResponse> {
+#[derive(serde::Deserialize)]
+struct InternalErrors {
+    subprocess_failures: u32,
+    parser_failures: u32,
+    unknown_commands: u32,
+}
+
+async fn get_daemon_stats() -> Option<StatsResponse> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(2))
         .build()
         .ok()?;
 
     let response = client
-        .get("http://127.0.0.1:7865/v1/health")
+        .get("http://127.0.0.1:7865/v1/stats")
         .send()
         .await
         .ok()?;
 
-    response.json::<HealthResponse>().await.ok()
+    response.json::<StatsResponse>().await.ok()
 }

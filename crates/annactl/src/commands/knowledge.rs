@@ -1,30 +1,24 @@
-//! Knowledge Command v6.0.0 - Grounded System Knowledge
+//! Knowledge Command v6.1.0 - System Highlights
 //!
-//! v6.0.0: Complete rewrite with real data sources
-//! - Packages from pacman -Q
-//! - Commands from $PATH
-//! - Services from systemctl
-//! - No invented categories, no fake metrics
+//! v6.1.0: Real highlights about the system Anna learned
+//! - Overview counts
+//! - Desktop environment (compositor, terminal, shell, editors)
+//! - Languages/toolchains detected
+//! - Key services
 //!
-//! Shows what's ACTUALLY on the system, not what Anna "thinks" is there.
+//! This command answers: "What kind of system have I learned I am sitting on?"
+//! NOT: "Here are some raw counts again"
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
 use anna_common::grounded::{
-    packages::PackageCounts,
+    packages::{PackageCounts, get_package_info},
     commands::count_path_executables,
     services::ServiceCounts,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
-
-/// Known categories with their package detection patterns
-const EDITORS: &[&str] = &["vim", "neovim", "nvim", "nano", "emacs", "helix", "hx", "kate", "gedit", "code"];
-const TERMINALS: &[&str] = &["alacritty", "kitty", "foot", "wezterm", "gnome-terminal", "konsole", "st"];
-const SHELLS: &[&str] = &["bash", "zsh", "fish", "nushell"];
-const COMPOSITORS: &[&str] = &["hyprland", "sway", "wayfire", "river", "picom"];
-const BROWSERS: &[&str] = &["firefox", "chromium", "brave", "vivaldi", "qutebrowser", "librewolf"];
 
 /// Run the knowledge overview command
 pub async fn run() -> Result<()> {
@@ -33,15 +27,22 @@ pub async fn run() -> Result<()> {
     println!("{}", THIN_SEP);
     println!();
 
-    // [OVERVIEW] - real counts from real sources
+    // [OVERVIEW] - counts
     print_overview_section();
 
-    // [BY CATEGORY] - only show what's actually installed
-    print_categories_section();
+    // [DESKTOP] - detected desktop environment
+    print_desktop_section();
+
+    // [LANGUAGES / TOOLCHAINS]
+    print_languages_section();
+
+    // [SERVICES]
+    print_services_section();
+
+    // [TIPS]
+    print_tips_section();
 
     println!("{}", THIN_SEP);
-    println!();
-    println!("  'annactl knowledge <name>' for details on a specific package.");
     println!();
 
     Ok(())
@@ -54,116 +55,197 @@ fn print_overview_section() {
     let cmd_count = count_path_executables();
     let svc_counts = ServiceCounts::query();
 
-    println!("  Packages:   {} (source: pacman -Q)", pkg_counts.total);
-    println!("  Commands:   {} (source: $PATH)", cmd_count);
-    println!("  Services:   {} (source: systemctl)", svc_counts.total);
+    println!("  Packages known:   {}", pkg_counts.total);
+    println!("  Commands known:   {}", cmd_count);
+    println!("  Services known:   {}", svc_counts.total);
 
     println!();
 }
 
-fn print_categories_section() {
-    println!("{}", "[BY CATEGORY]".cyan());
-    println!("  {}", "(detected from installed packages)".dimmed());
+fn print_desktop_section() {
+    println!("{}", "[DESKTOP]".cyan());
 
-    // Check which packages are installed and categorize them
-    let installed = get_installed_by_category();
-
-    if !installed.editors.is_empty() {
-        println!(
-            "  Editors:    {} ({})",
-            installed.editors.len(),
-            installed.editors.join(", ")
-        );
-    }
-
-    if !installed.terminals.is_empty() {
-        println!(
-            "  Terminals:  {} ({})",
-            installed.terminals.len(),
-            installed.terminals.join(", ")
-        );
-    }
-
-    if !installed.shells.is_empty() {
-        println!(
-            "  Shells:     {} ({})",
-            installed.shells.len(),
-            installed.shells.join(", ")
-        );
-    }
-
-    if !installed.compositors.is_empty() {
-        println!(
-            "  Compositors: {} ({})",
-            installed.compositors.len(),
-            installed.compositors.join(", ")
-        );
-    }
-
-    if !installed.browsers.is_empty() {
-        println!(
-            "  Browsers:   {} ({})",
-            installed.browsers.len(),
-            installed.browsers.join(", ")
-        );
-    }
-
-    println!();
-}
-
-struct InstalledByCategory {
-    editors: Vec<String>,
-    terminals: Vec<String>,
-    shells: Vec<String>,
-    compositors: Vec<String>,
-    browsers: Vec<String>,
-}
-
-fn get_installed_by_category() -> InstalledByCategory {
     use anna_common::grounded::commands::command_exists;
 
-    let mut result = InstalledByCategory {
-        editors: Vec::new(),
-        terminals: Vec::new(),
-        shells: Vec::new(),
-        compositors: Vec::new(),
-        browsers: Vec::new(),
+    // Compositor
+    let compositor = if command_exists("hyprland") || command_exists("Hyprland") {
+        "hyprland (Wayland)"
+    } else if command_exists("sway") {
+        "sway (Wayland)"
+    } else if command_exists("wayfire") {
+        "wayfire (Wayland)"
+    } else if command_exists("river") {
+        "river (Wayland)"
+    } else if command_exists("gnome-shell") {
+        "GNOME"
+    } else if command_exists("plasmashell") {
+        "KDE Plasma"
+    } else if command_exists("i3") {
+        "i3 (X11)"
+    } else if command_exists("bspwm") {
+        "bspwm (X11)"
+    } else {
+        "unknown"
     };
+    println!("  Compositor:   {}", compositor.cyan());
 
-    // Check editors
-    for &name in EDITORS {
-        if command_exists(name) {
-            result.editors.push(name.to_string());
+    // Terminal
+    let terminal = if command_exists("foot") {
+        "foot"
+    } else if command_exists("alacritty") {
+        "alacritty"
+    } else if command_exists("kitty") {
+        "kitty"
+    } else if command_exists("wezterm") {
+        "wezterm"
+    } else if command_exists("gnome-terminal") {
+        "gnome-terminal"
+    } else if command_exists("konsole") {
+        "konsole"
+    } else {
+        "unknown"
+    };
+    println!("  Terminal:     {}", terminal);
+
+    // Shell
+    let shell = std::env::var("SHELL")
+        .ok()
+        .and_then(|s| s.rsplit('/').next().map(String::from))
+        .unwrap_or_else(|| "unknown".to_string());
+    println!("  Shell:        {}", shell);
+
+    // Editors
+    let mut editors = Vec::new();
+    let editor_candidates = ["nvim", "vim", "code", "helix", "nano", "emacs"];
+    for editor in editor_candidates {
+        if command_exists(editor) {
+            editors.push(editor);
         }
     }
-
-    // Check terminals
-    for &name in TERMINALS {
-        if command_exists(name) {
-            result.terminals.push(name.to_string());
-        }
+    if !editors.is_empty() {
+        println!("  Editors:      {}", editors.join(", "));
     }
 
-    // Check shells
-    for &name in SHELLS {
-        if command_exists(name) {
-            result.shells.push(name.to_string());
+    println!();
+}
+
+fn print_languages_section() {
+    println!("{}", "[LANGUAGES / TOOLCHAINS]".cyan());
+
+    use anna_common::grounded::commands::command_exists;
+
+    // C/C++
+    let mut c_tools = Vec::new();
+    for tool in ["gcc", "clang", "make", "cmake", "gdb"] {
+        if command_exists(tool) {
+            c_tools.push(tool);
         }
     }
-
-    // Check compositors
-    for &name in COMPOSITORS {
-        if command_exists(name) {
-            result.compositors.push(name.to_string());
-        }
+    if !c_tools.is_empty() {
+        println!("  C/C++:        {}", c_tools.join(", "));
     }
 
-    // Check browsers
-    for &name in BROWSERS {
-        if command_exists(name) {
-            result.browsers.push(name.to_string());
-        }
+    // Rust
+    if command_exists("rustc") {
+        let version = get_package_info("rust")
+            .map(|p| p.version)
+            .unwrap_or_else(|| "installed".to_string());
+        println!("  Rust:         rustc {}", version);
     }
 
-    result
+    // Python
+    if command_exists("python") || command_exists("python3") {
+        let version = get_package_info("python")
+            .map(|p| p.version)
+            .unwrap_or_else(|| "installed".to_string());
+        println!("  Python:       python {}", version);
+    }
+
+    // Go
+    if command_exists("go") {
+        let version = get_package_info("go")
+            .map(|p| p.version)
+            .unwrap_or_else(|| "installed".to_string());
+        println!("  Go:           go {}", version);
+    }
+
+    // Node
+    if command_exists("node") {
+        let version = get_package_info("nodejs")
+            .or_else(|| get_package_info("node"))
+            .map(|p| p.version)
+            .unwrap_or_else(|| "installed".to_string());
+        println!("  Node.js:      node {}", version);
+    }
+
+    // Other tools
+    let mut other_tools = Vec::new();
+    for tool in ["git", "docker", "podman", "ffmpeg", "jq", "rsync"] {
+        if command_exists(tool) {
+            other_tools.push(tool);
+        }
+    }
+    if !other_tools.is_empty() {
+        println!("  Other:        {}", other_tools.join(", "));
+    }
+
+    println!();
+}
+
+fn print_services_section() {
+    println!("{}", "[SERVICES]".cyan());
+
+    use anna_common::grounded::services::get_service_info;
+
+    // Anna
+    if let Some(svc) = get_service_info("annad") {
+        let state = match svc.state {
+            anna_common::grounded::services::ServiceState::Active => "running".green().to_string(),
+            _ => "stopped".to_string(),
+        };
+        println!("  Anna:         annad ({})", state);
+    }
+
+    // Audio
+    let mut audio = Vec::new();
+    for svc_name in ["pipewire", "pulseaudio", "wireplumber"] {
+        if get_service_info(svc_name).map(|s| s.state == anna_common::grounded::services::ServiceState::Active).unwrap_or(false) {
+            audio.push(svc_name);
+        }
+    }
+    if !audio.is_empty() {
+        println!("  Audio:        {}", audio.join(", "));
+    }
+
+    // Network
+    let mut network = Vec::new();
+    for svc_name in ["NetworkManager", "systemd-networkd", "sshd", "ssh"] {
+        if get_service_info(svc_name).is_some() {
+            network.push(svc_name);
+        }
+    }
+    if !network.is_empty() {
+        println!("  Network:      {}", network.join(", "));
+    }
+
+    // Display manager
+    let mut dm = Vec::new();
+    for svc_name in ["gdm", "sddm", "lightdm", "greetd"] {
+        if get_service_info(svc_name).is_some() {
+            dm.push(svc_name);
+        }
+    }
+    if !dm.is_empty() {
+        println!("  Display:      {}", dm.join(", "));
+    }
+
+    println!();
+}
+
+fn print_tips_section() {
+    println!("{}", "[TIPS]".cyan());
+    println!("  '{}' - full profile of a command or package", "annactl knowledge vim".dimmed());
+    println!("  '{}' - overview of services", "annactl knowledge services".dimmed());
+    println!("  '{}' - overview of editors", "annactl knowledge editors".dimmed());
+    println!();
 }

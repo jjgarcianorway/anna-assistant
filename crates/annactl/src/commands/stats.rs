@@ -1,32 +1,20 @@
-//! Stats Command v6.0.0 - Daemon Activity Statistics
+//! Stats Command v6.1.0 - Daemon Telemetry Only
 //!
-//! v6.0.0: Grounded stats - uses real data sources
+//! v6.1.0: Pure daemon statistics - no host system noise
+//! - Daemon status, uptime, memory
+//! - Inventory scan history
+//! - Request tracking
+//! - Internal errors (Anna's own pipeline)
 //!
-//! Sections:
-//! - [DAEMON] Uptime, health status
-//! - [ACTIVITY] Real-time system activity from journalctl
-//! - [ERRORS] Top error-producing services from journalctl
+//! This command answers: "How is Anna performing?"
+//! NOT: "What errors are happening on the host?"
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-use anna_common::grounded::errors::{ErrorCounts, get_top_error_units};
 use anna_common::format_duration_secs;
 
 const THIN_SEP: &str = "------------------------------------------------------------";
-
-#[derive(serde::Deserialize)]
-struct HealthResponse {
-    #[allow(dead_code)]
-    status: String,
-    #[allow(dead_code)]
-    version: String,
-    #[allow(dead_code)]
-    phase: String,
-    uptime_secs: u64,
-    #[allow(dead_code)]
-    objects_tracked: usize,
-}
 
 /// Run the stats command
 pub async fn run() -> Result<()> {
@@ -35,86 +23,165 @@ pub async fn run() -> Result<()> {
     println!("{}", THIN_SEP);
     println!();
 
-    // [DAEMON]
-    print_daemon_section().await;
+    match get_daemon_stats().await {
+        Some(stats) => {
+            // [DAEMON]
+            print_daemon_section(&stats);
 
-    // [ERRORS] - from real journalctl
-    print_errors_section();
+            // [INVENTORY]
+            print_inventory_section(&stats);
+
+            // [REQUESTS]
+            print_requests_section(&stats);
+
+            // [INTERNAL ERRORS]
+            print_internal_errors_section(&stats);
+        }
+        None => {
+            println!("{}", "[DAEMON]".cyan());
+            println!("  Status:     {}", "stopped".red());
+            println!();
+            println!("  Start with: {}", "sudo systemctl start annad".cyan());
+            println!();
+        }
+    }
 
     println!("{}", THIN_SEP);
-    println!();
-    println!("  'annactl status' for system status.");
-    println!("  'annactl knowledge' for what's installed.");
     println!();
 
     Ok(())
 }
 
-async fn print_daemon_section() {
+fn print_daemon_section(stats: &StatsResponse) {
     println!("{}", "[DAEMON]".cyan());
 
-    match get_daemon_info().await {
-        Some(info) => {
-            let uptime_str = format_duration_secs(info.uptime_secs);
-            println!("  Status:    {} (up {})", "running".green(), uptime_str);
+    let uptime_str = format_duration_secs(stats.uptime_secs);
+    println!("  Status:     {}", "running".green());
+    println!("  Uptime:     {}", uptime_str);
+    println!("  PID:        {}", stats.pid);
+
+    // Memory
+    let rss_mib = stats.memory_rss_kb as f64 / 1024.0;
+    let peak_mib = stats.memory_peak_kb as f64 / 1024.0;
+    println!("  Memory:     {:.1} MiB (peak {:.1} MiB)", rss_mib, peak_mib);
+
+    println!();
+}
+
+fn print_inventory_section(stats: &StatsResponse) {
+    println!("{}", "[INVENTORY]".cyan());
+
+    // Last scan time
+    let last_scan_str = if let Some(secs_ago) = stats.last_scan_secs_ago {
+        if secs_ago < 60 {
+            format!("{}s ago", secs_ago)
+        } else {
+            format!("{}m ago", secs_ago / 60)
         }
-        None => {
-            println!("  Status:    {}", "stopped".red());
+    } else {
+        "never".to_string()
+    };
+    println!("  Last scan:      {}", last_scan_str);
+
+    // Scan duration
+    if stats.last_scan_duration_ms > 0 {
+        let duration_str = if stats.last_scan_duration_ms < 1000 {
+            format!("{}ms", stats.last_scan_duration_ms)
+        } else {
+            format!("{:.1}s", stats.last_scan_duration_ms as f64 / 1000.0)
+        };
+        println!("  Scan duration:  {}", duration_str);
+    }
+
+    // Total scans
+    println!("  Scans total:    {} (this boot)", stats.scan_count);
+
+    // What was indexed
+    println!("  Indexed:        {} cmds, {} pkgs, {} svcs",
+             stats.commands_count, stats.packages_count, stats.services_count);
+
+    println!();
+}
+
+fn print_requests_section(stats: &StatsResponse) {
+    println!("{}", "[REQUESTS]".cyan());
+
+    println!("  CLI requests:   {}", stats.cli_requests);
+
+    if stats.cli_requests > 0 && stats.avg_response_ms > 0 {
+        println!("  Avg response:   {} ms", stats.avg_response_ms);
+    }
+
+    println!();
+}
+
+fn print_internal_errors_section(stats: &StatsResponse) {
+    println!("{}", "[INTERNAL ERRORS]".cyan());
+    println!("  {}", "(Anna's own pipeline, not system logs)".dimmed());
+
+    let errors = &stats.internal_errors;
+    let total = errors.subprocess_failures + errors.parser_failures + errors.unknown_commands;
+
+    if total == 0 {
+        println!("  This boot:      {}", "none".green());
+    } else {
+        if errors.subprocess_failures > 0 {
+            println!("  Subprocess failures: {}", errors.subprocess_failures.to_string().yellow());
+        }
+        if errors.parser_failures > 0 {
+            println!("  Parser failures:     {}", errors.parser_failures.to_string().yellow());
+        }
+        if errors.unknown_commands > 0 {
+            println!("  Unknown commands:    {}", errors.unknown_commands);
         }
     }
 
     println!();
 }
 
-fn print_errors_section() {
-    println!("{}", "[ERRORS]".cyan());
-    println!("  {}", "(source: journalctl, last 24h)".dimmed());
+// ============================================================================
+// Daemon API Client
+// ============================================================================
 
-    let counts = ErrorCounts::query_24h();
-
-    if counts.errors > 0 {
-        println!("  Errors:    {}", counts.errors.to_string().red());
-    } else {
-        println!("  Errors:    {}", "0".green());
-    }
-
-    if counts.warnings > 0 {
-        println!("  Warnings:  {}", counts.warnings.to_string().yellow());
-    } else {
-        println!("  Warnings:  0");
-    }
-
-    // Top error-producing units
-    let top_units = get_top_error_units(24, 5);
-    if !top_units.is_empty() {
-        println!();
-        println!("  {}", "Top offenders:".bold());
-        for unit in &top_units {
-            println!(
-                "    {} - {} errors",
-                unit.unit.cyan(),
-                unit.error_count
-            );
-            if !unit.sample_message.is_empty() {
-                println!("      {}", unit.sample_message.dimmed());
-            }
-        }
-    }
-
-    println!();
+#[derive(serde::Deserialize)]
+struct StatsResponse {
+    #[allow(dead_code)]
+    status: String,
+    #[allow(dead_code)]
+    version: String,
+    uptime_secs: u64,
+    pid: u32,
+    memory_rss_kb: u64,
+    memory_peak_kb: u64,
+    commands_count: usize,
+    packages_count: usize,
+    services_count: usize,
+    last_scan_secs_ago: Option<u64>,
+    last_scan_duration_ms: u64,
+    scan_count: u32,
+    cli_requests: u64,
+    avg_response_ms: u64,
+    internal_errors: InternalErrors,
 }
 
-async fn get_daemon_info() -> Option<HealthResponse> {
+#[derive(serde::Deserialize)]
+struct InternalErrors {
+    subprocess_failures: u32,
+    parser_failures: u32,
+    unknown_commands: u32,
+}
+
+async fn get_daemon_stats() -> Option<StatsResponse> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(2))
         .build()
         .ok()?;
 
     let response = client
-        .get("http://127.0.0.1:7865/v1/health")
+        .get("http://127.0.0.1:7865/v1/stats")
         .send()
         .await
         .ok()?;
 
-    response.json::<HealthResponse>().await.ok()
+    response.json::<StatsResponse>().await.ok()
 }
