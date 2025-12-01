@@ -1,14 +1,16 @@
-//! Status Command v7.5.0 - Anna-only Health
+//! Status Command v7.6.0 - Anna-only Health
 //!
 //! Sections:
 //! - [VERSION]         Single unified Anna version
 //! - [DAEMON]          State, uptime, PID, restarts
-//! - [HEALTH]          Overall health + telemetry hotspots (v7.5.0)
+//! - [HEALTH]          Overall health + telemetry hotspots (v7.5.0+)
 //! - [INVENTORY]       What Anna has indexed + sync status
 //! - [TELEMETRY]       Real telemetry stats from SQLite (v7.1.0)
 //! - [UPDATES]         Auto-update schedule and last result
 //! - [PATHS]           Config, data, logs paths
 //! - [INTERNAL ERRORS] Anna's own pipeline errors
+//!
+//! v7.6.0: Respects telemetry.enabled, shows config values
 //!
 //! NO journalctl system errors. NO host-wide log counts.
 
@@ -194,14 +196,19 @@ fn print_health_section(stats: &Option<DaemonStats>) {
             };
             println!("  Daemon:     {}", daemon_health);
 
-            let telemetry_health = match TelemetryDb::open_readonly() {
-                Some(db) => match db.get_data_status() {
-                    DataStatus::Ok { .. } => "collecting".green().to_string(),
-                    DataStatus::PartialWindow { .. } => "warming up".yellow().to_string(),
-                    DataStatus::NotEnoughData { .. } => "starting".yellow().to_string(),
-                    DataStatus::NoData => "no data".dimmed().to_string(),
-                },
-                None => "unavailable".red().to_string(),
+            let config = AnnaConfig::load();
+            let telemetry_health = if !config.telemetry.enabled {
+                "disabled".dimmed().to_string()
+            } else {
+                match TelemetryDb::open_readonly() {
+                    Some(db) => match db.get_data_status() {
+                        DataStatus::Ok { .. } => "collecting".green().to_string(),
+                        DataStatus::PartialWindow { .. } => "warming up".yellow().to_string(),
+                        DataStatus::NotEnoughData { .. } => "starting".yellow().to_string(),
+                        DataStatus::NoData | DataStatus::Disabled => "no data".dimmed().to_string(),
+                    },
+                    None => "unavailable".red().to_string(),
+                }
             };
             println!("  Telemetry:  {}", telemetry_health);
 
@@ -296,6 +303,20 @@ fn print_inventory_section(stats: &Option<DaemonStats>) {
 fn print_telemetry_section() {
     println!("{}", "[TELEMETRY]".cyan());
 
+    // Check config for telemetry settings
+    let config = AnnaConfig::load();
+
+    if !config.telemetry.enabled {
+        println!("  {}", "Telemetry disabled in config (/etc/anna/config.toml).".dimmed());
+        println!();
+        return;
+    }
+
+    // Show effective config values
+    let interval = config.telemetry.effective_sample_interval();
+    let retention = config.telemetry.effective_retention_days();
+    let max_keys = config.telemetry.effective_max_keys();
+
     // Try to open telemetry database (read-only for CLI)
     match TelemetryDb::open_readonly() {
         Some(db) => {
@@ -303,6 +324,8 @@ fn print_telemetry_section() {
                 Ok(stats) => {
                     if stats.total_samples == 0 {
                         println!("  {}", "(no telemetry collected yet)".dimmed());
+                        println!("  Config:     {}s interval, {}d retention, {} max keys",
+                            interval, retention, max_keys);
                     } else {
                         // Basic stats
                         println!("  Samples:    {}  {}", stats.total_samples, format!("({} processes)", stats.unique_processes).dimmed());
@@ -311,6 +334,7 @@ fn print_telemetry_section() {
                         let data_status = db.get_data_status();
                         let status_str = match &data_status {
                             DataStatus::NoData => "no data".yellow().to_string(),
+                            DataStatus::Disabled => "disabled".dimmed().to_string(),
                             DataStatus::NotEnoughData { minutes } =>
                                 format!("{} ({:.0}m collected)", "not enough data".yellow(), minutes),
                             DataStatus::PartialWindow { hours } =>
@@ -330,9 +354,11 @@ fn print_telemetry_section() {
                             }
                         }
 
-                        // Database size
+                        // Database size and config
                         let size_str = format_bytes(stats.db_size_bytes);
                         println!("  DB size:    {}", size_str);
+                        println!("  Config:     {}s interval, {}d retention, {} max keys",
+                            interval, retention, max_keys);
                     }
                 }
                 Err(_) => {
@@ -342,6 +368,8 @@ fn print_telemetry_section() {
         }
         None => {
             println!("  {}", "(telemetry DB not available)".dimmed());
+            println!("  Config:     {}s interval, {}d retention, {} max keys",
+                interval, retention, max_keys);
         }
     }
 

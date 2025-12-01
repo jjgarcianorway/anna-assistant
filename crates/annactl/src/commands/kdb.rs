@@ -1,10 +1,12 @@
-//! KDB Command v7.5.0 - Anna KDB Overview
+//! KDB Command v7.6.0 - Anna KDB Overview
 //!
 //! Sections:
 //! - [OVERVIEW]          Counts of packages, commands, services
-//! - [CATEGORIES]        Rule-based categories from descriptions
+//! - [CATEGORIES]        Rule-based categories from descriptions (sorted)
 //! - [CONFIG HIGHLIGHTS] Config status summary (v7.4.0)
-//! - [USAGE HIGHLIGHTS]  Real telemetry from SQLite (v7.5.0 enhanced)
+//! - [USAGE HIGHLIGHTS]  Real telemetry from SQLite (v7.5.0+)
+//!
+//! v7.6.0: Sorted categories, respects telemetry.enabled
 //!
 //! NO journalctl system errors. NO generic host health.
 
@@ -18,6 +20,7 @@ use anna_common::grounded::{
     categoriser::get_category_summary,
     config::get_config_highlights,
 };
+use anna_common::config::AnnaConfig;
 use anna_common::{TelemetryDb, DataStatus, WINDOW_24H, format_cpu_time, format_bytes_human};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -154,7 +157,15 @@ fn print_config_highlights_section() {
 
 fn print_usage_section() {
     println!("{}", "[USAGE HIGHLIGHTS]".cyan());
-    println!("  {}", "(last 24h)".dimmed());
+    println!("  {}", "(last 24h telemetry)".dimmed());
+
+    // Check if telemetry is enabled
+    let config = AnnaConfig::load();
+    if !config.telemetry.enabled {
+        println!("  Telemetry disabled in config (/etc/anna/config.toml).");
+        println!();
+        return;
+    }
 
     // Try to open telemetry database
     match TelemetryDb::open_readonly() {
@@ -162,11 +173,11 @@ fn print_usage_section() {
             let data_status = db.get_data_status();
 
             match &data_status {
-                DataStatus::NoData => {
+                DataStatus::NoData | DataStatus::Disabled => {
                     println!("  Telemetry not collected yet.");
                 }
                 DataStatus::NotEnoughData { minutes } => {
-                    println!("  Telemetry warming up ({:.0}m collected, need more data).", minutes);
+                    println!("  Telemetry still warming up (very few samples available, {:.0}m).", minutes);
                 }
                 DataStatus::PartialWindow { hours } | DataStatus::Ok { hours } => {
                     let horizon = if *hours < 24.0 {

@@ -51,7 +51,7 @@ impl ActiveState {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "active" => ActiveState::Active,
             "inactive" => ActiveState::Inactive,
@@ -116,7 +116,7 @@ impl EnabledState {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "enabled" | "enabled-runtime" => EnabledState::Enabled,
             "disabled" => EnabledState::Disabled,
@@ -170,7 +170,7 @@ impl SubState {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "running" => SubState::Running,
             "dead" => SubState::Dead,
@@ -296,9 +296,9 @@ impl ServiceState {
         for line in stdout.lines() {
             if let Some((key, value)) = line.split_once('=') {
                 match key {
-                    "ActiveState" => state.active_state = ActiveState::from_str(value),
-                    "SubState" => state.sub_state = SubState::from_str(value),
-                    "UnitFileState" => state.enabled_state = EnabledState::from_str(value),
+                    "ActiveState" => state.active_state = ActiveState::parse(value),
+                    "SubState" => state.sub_state = SubState::parse(value),
+                    "UnitFileState" => state.enabled_state = EnabledState::parse(value),
                     "MainPID" => state.main_pid = value.parse().ok().filter(|&p| p > 0),
                     "MemoryCurrent" => {
                         if value != "[not set]" {
@@ -646,26 +646,26 @@ mod tests {
 
     #[test]
     fn test_active_state_parsing() {
-        assert_eq!(ActiveState::from_str("active"), ActiveState::Active);
-        assert_eq!(ActiveState::from_str("failed"), ActiveState::Failed);
-        assert_eq!(ActiveState::from_str("inactive"), ActiveState::Inactive);
-        assert_eq!(ActiveState::from_str("ACTIVE"), ActiveState::Active);
+        assert_eq!(ActiveState::parse("active"), ActiveState::Active);
+        assert_eq!(ActiveState::parse("failed"), ActiveState::Failed);
+        assert_eq!(ActiveState::parse("inactive"), ActiveState::Inactive);
+        assert_eq!(ActiveState::parse("ACTIVE"), ActiveState::Active);
     }
 
     #[test]
     fn test_enabled_state_parsing() {
-        assert_eq!(EnabledState::from_str("enabled"), EnabledState::Enabled);
-        assert_eq!(EnabledState::from_str("disabled"), EnabledState::Disabled);
-        assert_eq!(EnabledState::from_str("masked"), EnabledState::Masked);
-        assert_eq!(EnabledState::from_str("static"), EnabledState::Static);
+        assert_eq!(EnabledState::parse("enabled"), EnabledState::Enabled);
+        assert_eq!(EnabledState::parse("disabled"), EnabledState::Disabled);
+        assert_eq!(EnabledState::parse("masked"), EnabledState::Masked);
+        assert_eq!(EnabledState::parse("static"), EnabledState::Static);
     }
 
     #[test]
     fn test_sub_state_parsing() {
-        assert_eq!(SubState::from_str("running"), SubState::Running);
-        assert_eq!(SubState::from_str("dead"), SubState::Dead);
-        assert_eq!(SubState::from_str("failed"), SubState::Failed);
-        assert_eq!(SubState::from_str("exited"), SubState::Exited);
+        assert_eq!(SubState::parse("running"), SubState::Running);
+        assert_eq!(SubState::parse("dead"), SubState::Dead);
+        assert_eq!(SubState::parse("failed"), SubState::Failed);
+        assert_eq!(SubState::parse("exited"), SubState::Exited);
     }
 
     #[test]

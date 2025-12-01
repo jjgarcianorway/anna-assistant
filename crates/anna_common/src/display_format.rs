@@ -192,7 +192,7 @@ pub fn format_timestamp_full(ts: u64) -> String {
 
 /// Check if a string contains only ASCII characters
 pub fn is_ascii_only(s: &str) -> bool {
-    s.chars().all(|c| c.is_ascii())
+    s.is_ascii()
 }
 
 /// Strip non-ASCII characters from a string

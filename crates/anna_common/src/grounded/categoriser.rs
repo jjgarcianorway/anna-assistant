@@ -321,7 +321,7 @@ pub fn get_category_summary() -> Vec<(String, Vec<String>)> {
 
     // Sort packages within each category
     for packages in category_packages.values_mut() {
-        packages.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+        packages.sort_by_key(|a| a.to_lowercase());
     }
 
     // Return in standard order, only categories with items

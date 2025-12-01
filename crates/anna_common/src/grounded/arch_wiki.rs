@@ -222,12 +222,9 @@ fn looks_like_valid_config_path(path: &str) -> bool {
         return false;
     }
 
-    // Must have something after the prefix
-    let prefix_len = if path.starts_with("/etc/") { 5 }
-        else if path.starts_with("/usr/") { 5 }
-        else { 5 }; // /var/
-
-    if path.len() <= prefix_len {
+    // Must have something after the prefix (all prefixes are 5 chars: /etc/, /usr/, /var/)
+    const PREFIX_LEN: usize = 5;
+    if path.len() <= PREFIX_LEN {
         return false;
     }
 

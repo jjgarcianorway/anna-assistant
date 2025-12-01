@@ -19,6 +19,7 @@ use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
 
 /// Application state
+#[allow(dead_code)]
 pub struct AppState {
     pub start_time: Instant,
     pub knowledge_builder: Arc<RwLock<KnowledgeBuilder>>,
@@ -28,7 +29,7 @@ pub struct AppState {
     pub scan_count: RwLock<u32>,
     /// Track internal errors
     pub internal_errors: RwLock<InternalErrors>,
-    /// Track request counts
+    /// Track request counts (reserved for future metrics endpoint)
     pub cli_requests: RwLock<u64>,
     pub http_requests: RwLock<u64>,
     pub total_response_time_ms: RwLock<u64>,
@@ -70,7 +71,8 @@ impl AppState {
         *self.scan_count.write().await += 1;
     }
 
-    /// Record an internal error
+    /// Record an internal error (reserved for future use)
+    #[allow(dead_code)]
     pub async fn record_error(&self, error_type: &str) {
         let mut errors = self.internal_errors.write().await;
         match error_type {
@@ -81,7 +83,8 @@ impl AppState {
         }
     }
 
-    /// Record a request
+    /// Record a request (reserved for future metrics endpoint)
+    #[allow(dead_code)]
     pub async fn record_request(&self, response_time_ms: u64) {
         *self.cli_requests.write().await += 1;
         *self.total_response_time_ms.write().await += response_time_ms;
@@ -181,7 +184,8 @@ async fn stats_handler(
     })
 }
 
-/// Get process memory from /proc/self/status
+/// Get process memory from /proc/self/status (reserved for future diagnostics)
+#[allow(dead_code)]
 fn get_process_memory() -> (u64, u64) {
     let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
     let mut rss_kb = 0u64;

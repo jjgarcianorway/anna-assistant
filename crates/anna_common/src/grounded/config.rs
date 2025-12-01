@@ -1,9 +1,9 @@
-//! Config Discovery v7.5.0 - Honest Multi-source Config Discovery
+//! Config Discovery v7.6.0 - Honest Multi-source Config Discovery
 //!
 //! Sources (in order):
 //! 1. pacman -Ql <package> - Files under /etc/ and config templates
 //! 2. man pages - FILES and CONFIGURATION sections
-//! 3. Arch Wiki local mirror - Config paths from documentation
+//! 3. Arch Wiki local mirror - Config paths from documentation (if installed)
 //! 4. systemd unit files - For services: unit paths, drop-ins, EnvironmentFile
 //!
 //! Rules:
@@ -13,6 +13,7 @@
 //! - Precedence rules only stated when documented
 //! - Missing files are shown as [not present] if documented
 //! - v7.5.0: Improved path filtering, better deduplication
+//! - v7.6.0: Honest Source reporting when Arch Wiki not available
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -58,6 +59,23 @@ pub struct ConfigInfo {
     pub precedence_rules: Vec<PrecedenceRule>,
     /// Whether any config was discovered
     pub has_configs: bool,
+    /// What sources were used for discovery (v7.6.0)
+    pub source_description: String,
+}
+
+/// Check if local Arch Wiki docs are available
+pub fn is_arch_wiki_available() -> bool {
+    ArchWikiIndex::detect().enabled
+}
+
+/// Get source description based on what's available
+pub fn get_source_description() -> String {
+    let wiki_available = is_arch_wiki_available();
+    if wiki_available {
+        "pacman -Ql, man pages, Arch Wiki".to_string()
+    } else {
+        "pacman -Ql and man pages (local Arch Wiki not available)".to_string()
+    }
 }
 
 /// Service-specific config info
@@ -97,20 +115,12 @@ pub fn discover_from_pacman(package: &str) -> Vec<ConfigFile> {
             for line in stdout.lines() {
                 // Format: "packagename /path/to/file"
                 if let Some(path) = line.split_whitespace().nth(1) {
-                    // /etc files (config files)
-                    if path.starts_with("/etc/") && !path.ends_with('/') {
-                        configs.push(ConfigFile {
-                            path: path.to_string(),
-                            source: source.clone(),
-                            exists: Path::new(path).exists(),
-                            is_user_config: false,
-                            is_directory: false,
-                        });
-                    }
-                    // Config templates in /usr/share/<pkg>/ or /usr/lib/<pkg>/
-                    else if (path.starts_with("/usr/share/") || path.starts_with("/usr/lib/"))
-                        && is_config_template(path)
-                    {
+                    // Include: /etc files (configs) or /usr/{share,lib} templates
+                    let is_etc_config = path.starts_with("/etc/") && !path.ends_with('/');
+                    let is_usr_template = (path.starts_with("/usr/share/") || path.starts_with("/usr/lib/"))
+                        && is_config_template(path);
+
+                    if is_etc_config || is_usr_template {
                         configs.push(ConfigFile {
                             path: path.to_string(),
                             source: source.clone(),
@@ -283,10 +293,10 @@ fn extract_paths_from_text(
 
 /// Normalize user path to tilde form
 fn normalize_user_path(path: &str) -> String {
-    if path.starts_with("$HOME/") {
-        format!("~/{}", &path[6..])
-    } else if path.starts_with("$XDG_CONFIG_HOME/") {
-        format!("~/.config/{}", &path[17..])
+    if let Some(stripped) = path.strip_prefix("$HOME/") {
+        format!("~/{}", stripped)
+    } else if let Some(stripped) = path.strip_prefix("$XDG_CONFIG_HOME/") {
+        format!("~/.config/{}", stripped)
     } else {
         path.to_string()
     }
@@ -620,12 +630,14 @@ pub fn discover_config_info(name: &str) -> ConfigInfo {
     all_precedence.retain(|r| seen_desc.insert(r.description.clone()));
 
     let has_configs = !system_configs.is_empty() || !user_configs.is_empty();
+    let source_description = get_source_description();
 
     ConfigInfo {
         system_configs,
         user_configs,
         precedence_rules: all_precedence,
         has_configs,
+        source_description,
     }
 }
 

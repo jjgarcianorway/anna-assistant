@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v7.1.0 - Telemetry Core
+//! Anna Daemon (annad) v7.6.0 - Telemetry Core
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -11,6 +11,10 @@
 //! v7.1.0: SQLite telemetry
 //! - Per-process CPU/memory stored in /var/lib/anna/telemetry.db
 //! - Real telemetry aggregates for status and kdb commands
+//!
+//! v7.6.0: Telemetry stability
+//! - Configurable telemetry.enabled, sample_interval_secs, retention_days, max_keys
+//! - Automatic pruning and key limit enforcement
 //!
 //! No LLM, no Q&A - just system telemetry.
 
@@ -35,9 +39,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use sysinfo::{System, ProcessesToUpdate};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Collection interval for process telemetry (15 seconds)
-const PROCESS_SAMPLE_INTERVAL_SECS: u64 = 15;
-
 /// Collection interval for package/binary discovery (5 minutes)
 const DISCOVERY_INTERVAL_SECS: u64 = 300;
 
@@ -46,6 +47,9 @@ const LOG_SCAN_INTERVAL_SECS: u64 = 60;
 
 /// Collection interval for service state indexing (2 minutes)
 const SERVICE_INDEX_INTERVAL_SECS: u64 = 120;
+
+/// Interval for telemetry maintenance (prune + enforce limits) - every 5 minutes
+const MAINTENANCE_INTERVAL_SECS: u64 = 300;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -65,7 +69,28 @@ async fn main() -> Result<()> {
     info!("[>]  Tracks executables, services, processes, errors");
 
     // Load config
-    let _config = AnnaConfig::load();
+    let config = AnnaConfig::load();
+
+    // Log telemetry config
+    if config.telemetry.enabled {
+        let sample_interval = config.telemetry.effective_sample_interval();
+        let retention = config.telemetry.effective_retention_days();
+        let max_keys = config.telemetry.effective_max_keys();
+        info!("[>]  Telemetry: enabled, {}s interval, {}d retention, {} max keys",
+            sample_interval, retention, max_keys);
+
+        if config.telemetry.sample_interval_was_clamped() {
+            warn!("[!]  sample_interval_secs out of range, clamped to {}", sample_interval);
+        }
+        if config.telemetry.retention_days_was_clamped() {
+            warn!("[!]  retention_days out of range, clamped to {}", retention);
+        }
+        if config.telemetry.max_keys_was_clamped() {
+            warn!("[!]  max_keys out of range, clamped to {}", max_keys);
+        }
+    } else {
+        info!("[>]  Telemetry: disabled in config");
+    }
 
     // Ensure data directories exist
     ensure_data_dirs();
@@ -97,10 +122,24 @@ async fn main() -> Result<()> {
     // Record initial scan completion
     app_state.record_scan(0).await;
 
-    // Spawn process monitoring task (every 15 seconds)
+    // Spawn process monitoring task
     // v7.1.0: Uses SQLite for telemetry storage
+    // v7.6.0: Respects telemetry.enabled and configurable sample_interval
     let builder_process = Arc::clone(&builder);
+    let telemetry_enabled = config.telemetry.enabled;
+    let sample_interval_secs = config.telemetry.effective_sample_interval();
+    let retention_days = config.telemetry.effective_retention_days();
+    let max_keys = config.telemetry.effective_max_keys();
+
     tokio::spawn(async move {
+        if !telemetry_enabled {
+            info!("[>]  Process telemetry task skipped (disabled in config)");
+            // Just keep the task alive but do nothing
+            loop {
+                tokio::time::sleep(Duration::from_secs(3600)).await;
+            }
+        }
+
         // Open SQLite telemetry database
         let telemetry_db = match TelemetryDb::open() {
             Ok(db) => db,
@@ -109,7 +148,7 @@ async fn main() -> Result<()> {
                 // Continue without SQLite - fall back to log file
                 let telemetry_writer = TelemetryWriter::new();
                 let mut system = System::new_all();
-                let mut interval = tokio::time::interval(Duration::from_secs(PROCESS_SAMPLE_INTERVAL_SECS));
+                let mut interval = tokio::time::interval(Duration::from_secs(sample_interval_secs));
                 loop {
                     interval.tick().await;
                     system.refresh_processes(ProcessesToUpdate::All, true);
@@ -119,7 +158,7 @@ async fn main() -> Result<()> {
                         let name = process.name().to_string_lossy().to_string();
                         let cpu = process.cpu_usage();
                         let mem = process.memory();
-                        let cpu_time_ms = (cpu as u64) * PROCESS_SAMPLE_INTERVAL_SECS * 10;
+                        let cpu_time_ms = (cpu as u64) * sample_interval_secs * 10;
                         b.record_process_observation(&name, cpu_time_ms, mem);
                         if cpu > 5.0 || mem > 100_000_000 {
                             let sample = ProcessSample { timestamp: now, name, pid: pid.as_u32(), cpu_percent: cpu, mem_bytes: mem };
@@ -131,8 +170,21 @@ async fn main() -> Result<()> {
             }
         };
 
+        // Run initial maintenance
+        match telemetry_db.run_maintenance(retention_days, max_keys) {
+            Ok(result) => {
+                if result.samples_pruned_by_age > 0 || result.samples_pruned_by_key_limit > 0 {
+                    info!("[+]  Telemetry maintenance: pruned {} by age, {} by key limit ({} keys)",
+                        result.samples_pruned_by_age, result.samples_pruned_by_key_limit, result.current_key_count);
+                }
+            }
+            Err(e) => warn!("[!]  Telemetry maintenance failed: {}", e),
+        }
+
         let mut system = System::new_all();
-        let mut interval = tokio::time::interval(Duration::from_secs(PROCESS_SAMPLE_INTERVAL_SECS));
+        let mut interval = tokio::time::interval(Duration::from_secs(sample_interval_secs));
+        let mut maintenance_counter: u64 = 0;
+        let maintenance_every = MAINTENANCE_INTERVAL_SECS / sample_interval_secs;
         let mut sample_batch: Vec<ProcessTelemetrySample> = Vec::with_capacity(256);
 
         loop {
@@ -157,7 +209,7 @@ async fn main() -> Result<()> {
                     let mem = process.memory();
 
                     // Update knowledge store (in-memory aggregates)
-                    let cpu_time_ms = (cpu as u64) * PROCESS_SAMPLE_INTERVAL_SECS * 10;
+                    let cpu_time_ms = (cpu as u64) * sample_interval_secs * 10;
                     b.record_process_observation(&name, cpu_time_ms, mem);
 
                     // v7.1.0: Record to SQLite for processes with activity
@@ -182,6 +234,21 @@ async fn main() -> Result<()> {
             if !sample_batch.is_empty() {
                 if let Err(e) = telemetry_db.record_samples(&sample_batch) {
                     warn!("[!]  Failed to record telemetry samples: {}", e);
+                }
+            }
+
+            // Periodic maintenance (prune + enforce limits)
+            maintenance_counter += 1;
+            if maintenance_counter >= maintenance_every {
+                maintenance_counter = 0;
+                match telemetry_db.run_maintenance(retention_days, max_keys) {
+                    Ok(result) => {
+                        if result.samples_pruned_by_age > 0 || result.samples_pruned_by_key_limit > 0 {
+                            info!("[+]  Telemetry maintenance: pruned {} by age, {} by key limit ({} keys)",
+                                result.samples_pruned_by_age, result.samples_pruned_by_key_limit, result.current_key_count);
+                        }
+                    }
+                    Err(e) => warn!("[!]  Telemetry maintenance failed: {}", e),
                 }
             }
         }
@@ -315,7 +382,7 @@ async fn main() -> Result<()> {
 
                         let mut reader = BufReader::new(file);
                         if reader.seek(SeekFrom::Start(last_pos)).is_ok() {
-                            for line in reader.lines().flatten() {
+                            for line in reader.lines().map_while(Result::ok) {
                                 // Parse pacman log lines like:
                                 // [2024-12-01T10:30:00+0000] [ALPM] installed nano (7.2-1)
                                 // [2024-12-01T10:30:00+0000] [ALPM] upgraded linux (6.6.1-1 -> 6.6.2-1)
@@ -530,9 +597,9 @@ fn parse_pacman_log_line(line: &str) -> Option<PackageChangeEvent> {
     let alpm_pos = line.find("[ALPM]")?;
     let after_alpm = &line[alpm_pos + 7..].trim();
 
-    if after_alpm.starts_with("installed ") {
+    if let Some(rest) = after_alpm.strip_prefix("installed ") {
         // installed nano (7.2-1)
-        let rest = &after_alpm[10..]; // skip "installed "
+        // skip "installed "
         let (package, version) = parse_package_version(rest)?;
         Some(PackageChangeEvent {
             timestamp: now,
@@ -541,9 +608,9 @@ fn parse_pacman_log_line(line: &str) -> Option<PackageChangeEvent> {
             from_version: None,
             to_version: Some(version),
         })
-    } else if after_alpm.starts_with("upgraded ") {
+    } else if let Some(rest) = after_alpm.strip_prefix("upgraded ") {
         // upgraded linux (6.6.1-1 -> 6.6.2-1)
-        let rest = &after_alpm[9..]; // skip "upgraded "
+        // skip "upgraded "
         let (package, versions) = parse_package_upgrade(rest)?;
         Some(PackageChangeEvent {
             timestamp: now,
@@ -552,9 +619,9 @@ fn parse_pacman_log_line(line: &str) -> Option<PackageChangeEvent> {
             from_version: Some(versions.0),
             to_version: Some(versions.1),
         })
-    } else if after_alpm.starts_with("removed ") {
+    } else if let Some(rest) = after_alpm.strip_prefix("removed ") {
         // removed nano (7.2-1)
-        let rest = &after_alpm[8..]; // skip "removed "
+        // skip "removed "
         let (package, version) = parse_package_version(rest)?;
         Some(PackageChangeEvent {
             timestamp: now,

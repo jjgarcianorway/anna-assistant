@@ -1,4 +1,4 @@
-//! KDB Detail Command v7.5.0 - Object Profiles and Category Overviews
+//! KDB Detail Command v7.6.0 - Object Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -9,6 +9,7 @@
 //! v7.4.0: Enhanced [CONFIG] sections with precedence rules.
 //! v7.5.0: Enhanced [USAGE] with exec counts, CPU time totals per window.
 //!         Enhanced [LOGS] with severity breakdown and local timestamps.
+//! v7.6.0: Honest Source reporting when Arch Wiki not available.
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -570,7 +571,8 @@ fn print_config_section(name: &str) {
     let info = discover_config_info(name);
 
     if !info.has_configs {
-        println!("  No configuration files documented by pacman, man pages, or Arch Wiki.");
+        println!("  No configuration files documented.");
+        println!("  {}", format!("Source: {}", info.source_description).dimmed());
     } else {
         // Show system configs
         if !info.system_configs.is_empty() {
@@ -678,8 +680,8 @@ fn print_service_config_section(svc_name: &str) {
     }
 
     // Package configs if any
-    if info.package_configs.has_configs {
-        if !info.package_configs.system_configs.is_empty() {
+    if info.package_configs.has_configs
+        && !info.package_configs.system_configs.is_empty() {
             println!("  Package config:");
             for cfg in &info.package_configs.system_configs {
                 let status = if cfg.exists {
@@ -691,7 +693,6 @@ fn print_service_config_section(svc_name: &str) {
                 has_any = true;
             }
         }
-    }
 
     if !has_any {
         println!("  No configuration files documented.");

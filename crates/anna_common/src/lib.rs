@@ -1,7 +1,8 @@
-//! Anna Common v7.5.0 - Grounded System Intelligence
+//! Anna Common v7.6.0 - Grounded System Intelligence
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
+//! v7.6.0: Telemetry stability with configurable retention and max_keys
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -69,9 +70,10 @@ pub use telemetry::{
 };
 // v7.2.0: SQLite telemetry database exports (with aggregations)
 // v7.5.0: Enhanced with CPU time, exec counts, hotspots
+// v7.6.0: Added MaintenanceResult for pruning
 pub use telemetry_db::{
     TelemetryDb, ProcessTelemetrySample, ObjectTelemetry, TelemetryStats,
-    SampleCounts, UsageStats, GlobalPeak, DataStatus,
+    SampleCounts, UsageStats, GlobalPeak, DataStatus, MaintenanceResult,
     EnhancedUsageStats, EnhancedWindowedStats, TopProcessEntry,
     HealthHotspot, TelemetryHealth,
     TELEMETRY_DB_PATH,

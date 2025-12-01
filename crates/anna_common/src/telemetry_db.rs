@@ -1,4 +1,4 @@
-//! Telemetry Database v7.5.0 - SQLite-based Process Telemetry
+//! Telemetry Database v7.6.0 - SQLite-based Process Telemetry
 //!
 //! Stores per-process CPU/memory samples over time for:
 //! - Real telemetry display in `annactl kdb <object>` [USAGE] section
@@ -12,6 +12,7 @@
 //! v7.2.0: Added time-windowed aggregations and global peak queries
 //! v7.3.0: Added multi-window per-object stats for PHASE 9
 //! v7.5.0: PHASE 15-16 - Enhanced exec counts, CPU time totals, top-N queries
+//! v7.6.0: PHASE 19 - Retention enforcement, max_keys limits, configurable intervals
 
 use anyhow::Result;
 use rusqlite::{Connection, params};
@@ -116,12 +117,25 @@ pub struct GlobalPeak {
 pub enum DataStatus {
     /// No data available
     NoData,
+    /// Telemetry disabled in config
+    Disabled,
     /// Less than 10 minutes of samples
     NotEnoughData { minutes: f64 },
     /// Less than 24h of data
     PartialWindow { hours: f64 },
     /// 24h+ of samples
     Ok { hours: f64 },
+}
+
+/// Result of maintenance operation
+#[derive(Debug, Clone, Default)]
+pub struct MaintenanceResult {
+    /// Samples deleted due to age (retention_days)
+    pub samples_pruned_by_age: u64,
+    /// Samples deleted due to key limit
+    pub samples_pruned_by_key_limit: u64,
+    /// Current number of distinct keys
+    pub current_key_count: usize,
 }
 
 /// SQLite-backed telemetry database
@@ -379,10 +393,89 @@ impl TelemetryDb {
             params![cutoff as i64],
         )?;
 
-        // Vacuum to reclaim space
-        self.conn.execute_batch("VACUUM;")?;
+        // Vacuum to reclaim space (only if we deleted something significant)
+        if deleted > 1000 {
+            self.conn.execute_batch("VACUUM;")?;
+        }
 
         Ok(deleted as u64)
+    }
+
+    /// Get count of distinct keys (process names) being tracked
+    pub fn get_key_count(&self) -> Result<usize> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(DISTINCT name) FROM process_samples",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count as usize)
+    }
+
+    /// Enforce max_keys limit by removing least recently seen keys
+    /// Returns number of samples deleted
+    pub fn enforce_max_keys(&self, max_keys: usize) -> Result<u64> {
+        let current_count = self.get_key_count()?;
+        if current_count <= max_keys {
+            return Ok(0);
+        }
+
+        let to_remove = current_count - max_keys;
+
+        // Find keys to remove: those with oldest last_seen timestamp
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT name, MAX(timestamp) as last_seen
+            FROM process_samples
+            GROUP BY name
+            ORDER BY last_seen ASC
+            LIMIT ?1
+            "#
+        )?;
+
+        let keys_to_remove: Vec<String> = stmt
+            .query_map(params![to_remove as i64], |row| row.get(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if keys_to_remove.is_empty() {
+            return Ok(0);
+        }
+
+        // Delete samples for these keys
+        let mut total_deleted = 0u64;
+        for key in &keys_to_remove {
+            let deleted = self.conn.execute(
+                "DELETE FROM process_samples WHERE name = ?1",
+                params![key],
+            )?;
+            total_deleted += deleted as u64;
+        }
+
+        Ok(total_deleted)
+    }
+
+    /// Run full maintenance: prune old samples and enforce max_keys
+    /// Call this periodically (e.g., every few minutes)
+    pub fn run_maintenance(&self, retention_days: u64, max_keys: usize) -> Result<MaintenanceResult> {
+        let pruned_by_age = self.prune_old_samples(retention_days)?;
+        let pruned_by_keys = self.enforce_max_keys(max_keys)?;
+
+        Ok(MaintenanceResult {
+            samples_pruned_by_age: pruned_by_age,
+            samples_pruned_by_key_limit: pruned_by_keys,
+            current_key_count: self.get_key_count()?,
+        })
+    }
+
+    /// Check if a key exists in the database
+    pub fn has_key(&self, name: &str) -> bool {
+        self.conn
+            .query_row(
+                "SELECT 1 FROM process_samples WHERE name = ?1 LIMIT 1",
+                params![name],
+                |_| Ok(()),
+            )
+            .is_ok()
     }
 
     /// Set a metadata value
@@ -1009,7 +1102,7 @@ impl TelemetryDb {
         };
 
         let sample_interval_secs = Self::SAMPLE_INTERVAL_SECS as u64;
-        let expected_samples_24h = (WINDOW_24H / sample_interval_secs) as u64;
+        let expected_samples_24h = WINDOW_24H / sample_interval_secs;
 
         Ok(TelemetryHealth {
             total_samples: stats.total_samples,

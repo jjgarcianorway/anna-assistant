@@ -194,7 +194,7 @@ impl PackageChangeType {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "installed" => Some(Self::Installed),
             "upgraded" => Some(Self::Upgraded),
@@ -241,7 +241,7 @@ impl PackageChangeEvent {
         Some(Self {
             timestamp: parts[0].parse().ok()?,
             package: parts[2].to_string(),
-            change_type: PackageChangeType::from_str(parts[3])?,
+            change_type: PackageChangeType::parse(parts[3])?,
             from_version: if parts[4] == "-" { None } else { Some(parts[4].to_string()) },
             to_version: if parts[5] == "-" { None } else { Some(parts[5].to_string()) },
         })
@@ -408,7 +408,7 @@ impl TelemetryReader {
 
         BufReader::new(file)
             .lines()
-            .filter_map(|l| l.ok())
+            .map_while(Result::ok)
             .filter(|line| {
                 // Quick timestamp check (first field before |)
                 if let Some(ts_str) = line.split('|').next() {

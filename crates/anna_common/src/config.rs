@@ -1,4 +1,4 @@
-//! Anna Configuration v6.0.2 - Auto-Update Visibility
+//! Anna Configuration v7.6.0 - Telemetry Stability
 //!
 //! Simplified system configuration for the telemetry daemon.
 //! No LLM config - pure system monitoring.
@@ -6,6 +6,7 @@
 //! Configuration lives in /etc/anna/config.toml
 //!
 //! v6.0.2: Added auto-update configuration
+//! v7.6.0: Added telemetry enable/disable, max_keys limit
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -37,10 +38,14 @@ impl CoreMode {
     }
 }
 
-/// Telemetry settings
+/// Telemetry settings (v7.6.0)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TelemetrySettings {
-    /// How often to sample processes (seconds)
+    /// Whether telemetry collection is enabled
+    #[serde(default = "default_telemetry_enabled")]
+    pub enabled: bool,
+
+    /// How often to sample processes (seconds, valid: 5-300)
     #[serde(default = "default_sample_interval")]
     pub sample_interval_secs: u64,
 
@@ -52,13 +57,21 @@ pub struct TelemetrySettings {
     #[serde(default = "default_max_events")]
     pub max_events_per_log: usize,
 
-    /// Days to retain event logs
+    /// Days to retain telemetry data (valid: 1-365)
     #[serde(default = "default_retention_days")]
     pub retention_days: u64,
+
+    /// Maximum distinct keys to track (valid: 100-50000)
+    #[serde(default = "default_max_keys")]
+    pub max_keys: usize,
+}
+
+fn default_telemetry_enabled() -> bool {
+    true
 }
 
 fn default_sample_interval() -> u64 {
-    15 // 15 seconds
+    30 // 30 seconds (v7.6.0: changed from 15)
 }
 
 fn default_log_scan_interval() -> u64 {
@@ -73,13 +86,51 @@ fn default_retention_days() -> u64 {
     30 // 30 days
 }
 
+fn default_max_keys() -> usize {
+    5000 // 5000 distinct keys
+}
+
+impl TelemetrySettings {
+    /// Validate and clamp sample_interval_secs to valid range (5-300)
+    pub fn effective_sample_interval(&self) -> u64 {
+        self.sample_interval_secs.clamp(5, 300)
+    }
+
+    /// Validate and clamp retention_days to valid range (1-365)
+    pub fn effective_retention_days(&self) -> u64 {
+        self.retention_days.clamp(1, 365)
+    }
+
+    /// Validate and clamp max_keys to valid range (100-50000)
+    pub fn effective_max_keys(&self) -> usize {
+        self.max_keys.clamp(100, 50000)
+    }
+
+    /// Check if sample_interval was clamped
+    pub fn sample_interval_was_clamped(&self) -> bool {
+        self.sample_interval_secs != self.effective_sample_interval()
+    }
+
+    /// Check if retention_days was clamped
+    pub fn retention_days_was_clamped(&self) -> bool {
+        self.retention_days != self.effective_retention_days()
+    }
+
+    /// Check if max_keys was clamped
+    pub fn max_keys_was_clamped(&self) -> bool {
+        self.max_keys != self.effective_max_keys()
+    }
+}
+
 impl Default for TelemetrySettings {
     fn default() -> Self {
         Self {
+            enabled: default_telemetry_enabled(),
             sample_interval_secs: default_sample_interval(),
             log_scan_interval_secs: default_log_scan_interval(),
             max_events_per_log: default_max_events(),
             retention_days: default_retention_days(),
+            max_keys: default_max_keys(),
         }
     }
 }
@@ -281,8 +332,38 @@ mod tests {
     fn test_default_config() {
         let config = AnnaConfig::default();
         assert_eq!(config.core.mode, CoreMode::Normal);
-        assert_eq!(config.telemetry.sample_interval_secs, 15);
+        assert_eq!(config.telemetry.sample_interval_secs, 30);
         assert_eq!(config.telemetry.log_scan_interval_secs, 60);
+        assert!(config.telemetry.enabled);
+        assert_eq!(config.telemetry.max_keys, 5000);
+    }
+
+    #[test]
+    fn test_telemetry_clamping() {
+        // Test sample_interval clamping
+        let mut settings = TelemetrySettings {
+            sample_interval_secs: 1,
+            ..Default::default()
+        };
+        assert_eq!(settings.effective_sample_interval(), 5);
+        assert!(settings.sample_interval_was_clamped());
+
+        settings.sample_interval_secs = 500;
+        assert_eq!(settings.effective_sample_interval(), 300);
+        assert!(settings.sample_interval_was_clamped());
+
+        settings.sample_interval_secs = 30;
+        assert_eq!(settings.effective_sample_interval(), 30);
+        assert!(!settings.sample_interval_was_clamped());
+
+        // Test max_keys clamping
+        settings.max_keys = 10;
+        assert_eq!(settings.effective_max_keys(), 100);
+        assert!(settings.max_keys_was_clamped());
+
+        settings.max_keys = 100000;
+        assert_eq!(settings.effective_max_keys(), 50000);
+        assert!(settings.max_keys_was_clamped());
     }
 
     #[test]
