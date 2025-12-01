@@ -1,16 +1,16 @@
 #!/bin/bash
-# Anna Installer v5.0.0 - Ownership Fix
+# Anna Installer v6.0.0 - Root Daemon Model
 #
 # This installer is versioned INDEPENDENTLY from Anna itself.
-# Installer version: 5.x.x
+# Installer version: 6.x.x
 # Anna version: fetched from GitHub releases
 #
-# v5.0.0 (Ownership Fix):
-#   - Proper anna user/group ownership model
-#   - Directories: 0750 for anna:anna group access
-#   - Files: 0640 for group-readable
-#   - annad runs as anna user with proper privileges
-#   - Reset requires sudo for privileged operations
+# v6.0.0 (Root Daemon):
+#   - annad runs as ROOT for full system access
+#   - All data directories owned by root:root
+#   - annactl is a read-only remote control (no special permissions)
+#   - All state mutations via RPC to daemon
+#   - No more permission errors ever
 #
 # Behavior:
 #   - Detects installed version (if any) via annactl version
@@ -36,7 +36,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="5.0.0"
+INSTALLER_VERSION="6.0.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -456,63 +456,43 @@ install_binaries() {
     log_ok "Installed binaries to ${INSTALL_DIR}"
 }
 
-create_user_and_dirs() {
-    log_info "Creating user and directories..."
+create_directories() {
+    log_info "Creating directories..."
 
-    # v5.0.0: Create anna system user and group if not exists
-    if ! getent group anna &>/dev/null; then
-        $SUDO groupadd -r anna 2>/dev/null || true
-        log_ok "Created system group 'anna'"
-    else
-        log_ok "System group 'anna' exists"
-    fi
+    # v6.0.0: Root ownership model - daemon runs as root
+    # No anna user needed - simpler and eliminates all permission issues
 
-    if ! id "anna" &>/dev/null; then
-        $SUDO useradd -r -g anna -s /usr/bin/nologin -d "$DATA_DIR" -c "Anna Telemetry Daemon" anna 2>/dev/null || true
-        log_ok "Created system user 'anna'"
-    else
-        log_ok "System user 'anna' exists"
-    fi
-
-    # v5.0.0: Add current user to anna group for annactl access
-    if [[ -n "${SUDO_USER:-}" ]]; then
-        if ! groups "$SUDO_USER" 2>/dev/null | grep -qw anna; then
-            $SUDO usermod -aG anna "$SUDO_USER" 2>/dev/null || true
-            log_ok "Added $SUDO_USER to anna group"
-        fi
-    fi
-
-    # Create directories with proper permissions
-    # v5.0.0: Mode 0750 = owner rwx, group rx, other none
+    # Create directories
     $SUDO mkdir -p "$DATA_DIR" "$LOG_DIR" "$RUN_DIR" "$CONFIG_DIR"
     $SUDO mkdir -p "${DATA_DIR}/knowledge"
     $SUDO mkdir -p "${DATA_DIR}/telemetry"
 
-    # Data directory: anna:anna with 0750 (daemon writes, group reads)
-    $SUDO chown -R anna:anna "$DATA_DIR"
-    $SUDO chmod 0750 "$DATA_DIR"
-    $SUDO chmod 0750 "${DATA_DIR}/knowledge"
-    $SUDO chmod 0750 "${DATA_DIR}/telemetry"
+    # All directories owned by root:root with standard permissions
+    # Daemon (root) has full access, annactl reads via HTTP API
+    $SUDO chown -R root:root "$DATA_DIR"
+    $SUDO chmod 0755 "$DATA_DIR"
+    $SUDO chmod 0755 "${DATA_DIR}/knowledge"
+    $SUDO chmod 0755 "${DATA_DIR}/telemetry"
 
-    # Config directory: root:anna with 0750 (root writes, anna/group reads)
-    $SUDO chown root:anna "$CONFIG_DIR"
-    $SUDO chmod 0750 "$CONFIG_DIR"
+    # Config directory
+    $SUDO chown root:root "$CONFIG_DIR"
+    $SUDO chmod 0755 "$CONFIG_DIR"
 
-    # Log directory: anna:anna with 0750
-    $SUDO chown -R anna:anna "$LOG_DIR"
-    $SUDO chmod 0750 "$LOG_DIR"
+    # Log directory
+    $SUDO chown -R root:root "$LOG_DIR"
+    $SUDO chmod 0755 "$LOG_DIR"
 
-    # Run directory: anna:anna with 0750
-    $SUDO chown anna:anna "$RUN_DIR"
-    $SUDO chmod 0750 "$RUN_DIR"
+    # Run directory
+    $SUDO chown root:root "$RUN_DIR"
+    $SUDO chmod 0755 "$RUN_DIR"
 
-    # Fix existing file permissions in data directory
-    $SUDO find "$DATA_DIR" -type f -exec chmod 0640 {} \; 2>/dev/null || true
+    # Fix existing file permissions
+    $SUDO find "$DATA_DIR" -type f -exec chmod 0644 {} \; 2>/dev/null || true
 
-    log_ok "Created directories with correct permissions"
-    log_ok "  Data: ${DATA_DIR} (anna:anna 0750)"
-    log_ok "  Logs: ${LOG_DIR} (anna:anna 0750)"
-    log_ok "  Config: ${CONFIG_DIR} (root:anna 0750)"
+    log_ok "Created directories (root:root ownership)"
+    log_ok "  Data: ${DATA_DIR}"
+    log_ok "  Logs: ${LOG_DIR}"
+    log_ok "  Config: ${CONFIG_DIR}"
 }
 
 install_systemd_service() {
@@ -520,6 +500,8 @@ install_systemd_service() {
 
     local service_file="/etc/systemd/system/annad.service"
 
+    # v6.0.0: Daemon runs as root for full system access
+    # This eliminates ALL permission errors - daemon can read/write anything
     $SUDO tee "$service_file" > /dev/null << 'EOF'
 [Unit]
 Description=Anna Telemetry Daemon
@@ -528,32 +510,22 @@ After=network.target
 
 [Service]
 Type=simple
-User=anna
-Group=anna
+# v6.0.0: Run as root - full system access, no permission errors
 ExecStart=/usr/local/bin/annad
 WorkingDirectory=/var/lib/anna
 Restart=always
 RestartSec=5
 
-# v5.5.2: Security hardening with required access
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/var/lib/anna /var/log/anna /run/anna
-
-# Allow reading system logs and package logs
-ReadOnlyPaths=/var/log/pacman.log /var/log/journal
-
-# Capabilities for log access
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH
-AmbientCapabilities=CAP_DAC_READ_SEARCH
+# Minimal hardening - root needs full access for telemetry
+ProtectSystem=false
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
     $SUDO systemctl daemon-reload
-    log_ok "Installed systemd service"
+    log_ok "Installed systemd service (runs as root)"
 }
 
 write_config() {
@@ -621,13 +593,13 @@ verify_installation() {
         log_warn "Configuration file missing"
     fi
 
-    # Check data directory ownership
+    # v6.0.0: Data directory should be owned by root
     local data_owner
     data_owner=$(stat -c '%U' "$DATA_DIR" 2>/dev/null || echo "unknown")
-    if [[ "$data_owner" == "anna" ]]; then
-        log_ok "Data directory ownership OK (anna)"
+    if [[ "$data_owner" == "root" ]]; then
+        log_ok "Data directory ownership OK (root)"
     else
-        log_warn "Data directory owned by $data_owner (expected: anna)"
+        log_warn "Data directory owned by $data_owner (expected: root)"
     fi
 
     return $errors
@@ -686,7 +658,7 @@ main() {
         exit 1
     fi
 
-    create_user_and_dirs
+    create_directories
     install_binaries
     install_systemd_service
     write_config

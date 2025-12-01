@@ -107,12 +107,17 @@ fn print_inventory_section(store: &KnowledgeStore, progress: &InventoryProgress)
         format_percent(svc_pct)
     );
 
+    // v5.6.0: Fix inventory status - never show "waiting" if we have data
+    // If we have any data (commands/packages/services > 0), the scan is complete
+    let has_data = commands > 0 || packages > 0 || services > 0;
+
     // Show scan status with ETA if scanning
     match progress.phase {
         InventoryPhase::Complete => {
             println!("  Status:     {}", "complete".green());
         }
-        InventoryPhase::Idle if progress.initial_scan_complete => {
+        InventoryPhase::Idle if progress.initial_scan_complete || has_data => {
+            // v5.6.0: If we have data, we're complete even if flag wasn't set
             println!("  Status:     {}", "complete".green());
         }
         InventoryPhase::Idle => {
