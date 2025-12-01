@@ -1597,4 +1597,162 @@ mod tests {
 
         assert!(obj.events.len() <= 50);
     }
+
+    // v5.2.1: Log Scan State Invariants
+    // ====================================================================
+
+    #[test]
+    fn test_log_scan_state_new() {
+        // LogScanState must initialize with correct defaults
+        use crate::error_index::LogScanState;
+
+        let state = LogScanState::new();
+        assert_eq!(state.new_errors, 0);
+        assert_eq!(state.new_warnings, 0);
+        assert!(!state.running);
+        assert_eq!(state.total_scans, 0);
+    }
+
+    #[test]
+    fn test_log_scan_state_record() {
+        // LogScanState must record scans correctly
+        use crate::error_index::LogScanState;
+
+        let mut state = LogScanState::new();
+        state.record_scan(5, 10);
+
+        assert_eq!(state.new_errors, 5);
+        assert_eq!(state.new_warnings, 10);
+        assert_eq!(state.total_scans, 1);
+
+        state.record_scan(2, 3);
+        assert_eq!(state.new_errors, 2);
+        assert_eq!(state.new_warnings, 3);
+        assert_eq!(state.total_scans, 2);
+    }
+
+    #[test]
+    fn test_log_scan_state_string() {
+        // LogScanState must report state correctly
+        use crate::error_index::LogScanState;
+
+        let mut state = LogScanState::new();
+        assert_eq!(state.state_string(), "idle");
+
+        state.running = true;
+        assert_eq!(state.state_string(), "running (background)");
+    }
+
+    // v5.2.1: Service Index Extended Counts
+    // ====================================================================
+
+    #[test]
+    fn test_service_index_all_counts() {
+        // ServiceIndex must track all count types correctly
+        use crate::service_state::{ServiceIndex, ServiceState, ActiveState, EnabledState};
+
+        let mut index = ServiceIndex::new();
+
+        let mut running = ServiceState::new("running.service");
+        running.active_state = ActiveState::Active;
+        running.enabled_state = EnabledState::Enabled;
+
+        let mut inactive = ServiceState::new("inactive.service");
+        inactive.active_state = ActiveState::Inactive;
+        inactive.enabled_state = EnabledState::Disabled;
+
+        let mut failed = ServiceState::new("failed.service");
+        failed.active_state = ActiveState::Failed;
+        failed.enabled_state = EnabledState::Enabled;
+
+        let mut masked = ServiceState::new("masked.service");
+        masked.active_state = ActiveState::Inactive;
+        masked.enabled_state = EnabledState::Masked;
+
+        index.update(running);
+        index.update(inactive);
+        index.update(failed);
+        index.update(masked);
+
+        assert_eq!(index.total_count(), 4);
+        assert_eq!(index.running_count, 1);
+        assert_eq!(index.inactive_count, 2); // inactive + masked
+        assert_eq!(index.failed_count, 1);
+        assert_eq!(index.enabled_count, 2); // running + failed
+        assert_eq!(index.disabled_count, 1);
+        assert_eq!(index.masked_count, 1);
+    }
+
+    #[test]
+    fn test_service_index_get_methods() {
+        // ServiceIndex get methods must return correct services
+        use crate::service_state::{ServiceIndex, ServiceState, ActiveState, EnabledState};
+
+        let mut index = ServiceIndex::new();
+
+        let mut running = ServiceState::new("running.service");
+        running.active_state = ActiveState::Active;
+
+        let mut failed = ServiceState::new("failed.service");
+        failed.active_state = ActiveState::Failed;
+
+        let mut masked = ServiceState::new("masked.service");
+        masked.enabled_state = EnabledState::Masked;
+
+        index.update(running);
+        index.update(failed);
+        index.update(masked);
+
+        assert_eq!(index.get_running().len(), 1);
+        assert_eq!(index.get_failed().len(), 1);
+        assert_eq!(index.get_masked().len(), 1);
+        assert_eq!(index.get_enabled().len(), 0);
+        assert_eq!(index.get_disabled().len(), 0);
+    }
+
+    #[test]
+    fn test_error_index_recent_errors_24h() {
+        // ErrorIndex must return recent errors correctly
+        use crate::error_index::{ErrorIndex, LogEntry, LogSeverity};
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let mut index = ErrorIndex::new();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Add a recent error
+        let recent = LogEntry::new(now - 1000, LogSeverity::Error, "Recent error".to_string());
+        index.add_log("nginx", recent);
+
+        // Add an old error (more than 24h ago)
+        let old = LogEntry::new(now - 100000, LogSeverity::Error, "Old error".to_string());
+        index.add_log("apache", old);
+
+        let recent_errors = index.recent_errors_24h();
+        assert_eq!(recent_errors.len(), 1);
+        assert_eq!(recent_errors[0].0, "nginx");
+    }
+
+    #[test]
+    fn test_service_find_by_executable() {
+        // ServiceIndex must find services by executable
+        use crate::service_state::{ServiceIndex, ServiceState};
+
+        let mut index = ServiceIndex::new();
+
+        let mut sshd = ServiceState::new("sshd.service");
+        sshd.description = Some("OpenSSH Daemon".to_string());
+
+        let mut nginx = ServiceState::new("nginx.service");
+        nginx.description = Some("NGINX web server".to_string());
+
+        index.update(sshd);
+        index.update(nginx);
+
+        let found = index.find_services_using_executable("/usr/bin/sshd");
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].unit_name, "sshd.service");
+    }
 }

@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! System Acceptance Tests v3.7.0 "Reliability Gauntlet"
 //!
 //! Comprehensive end-to-end acceptance tests that validate Anna's behavior

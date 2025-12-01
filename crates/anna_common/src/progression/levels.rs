@@ -299,7 +299,7 @@ mod tests {
         let pct = prog.progress_percent();
 
         // Should be roughly 50%
-        assert!(pct >= 40 && pct <= 60, "Progress was {}%", pct);
+        assert!((40..=60).contains(&pct), "Progress was {}%", pct);
     }
 
     #[test]

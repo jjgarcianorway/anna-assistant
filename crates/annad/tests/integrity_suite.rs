@@ -1,3 +1,4 @@
+#![allow(clippy::assertions_on_constants)]
 //! Feature Integrity Test Suite v3.5.0
 //!
 //! Comprehensive tests verifying correctness of every subsystem as defined
@@ -1659,7 +1660,7 @@ mod feature_verification {
             };
 
             assert!(
-                rate >= 0.0 && rate <= 1.0,
+                (0.0..=1.0).contains(&rate),
                 "Success rate {} out of bounds for {}/{}",
                 rate, successes, total
             );

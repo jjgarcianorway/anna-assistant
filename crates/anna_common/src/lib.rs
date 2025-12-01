@@ -71,6 +71,16 @@
 // Allow ambiguous glob re-exports (multiple modules define the same items)
 // TODO(v3.6.0): Refactor to use explicit imports and remove duplicates
 #![allow(ambiguous_glob_reexports)]
+// Allow clippy lints for legacy code patterns
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::assertions_on_constants)]
+#![allow(clippy::should_implement_trait)]
+#![allow(clippy::const_is_empty)]
+#![allow(clippy::if_same_then_else)]
+#![allow(clippy::vec_init_then_push)]
+#![allow(clippy::lines_filter_map_ok)]
+#![allow(clippy::manual_clamp)]
 
 pub mod answer_engine;
 pub mod bench;
@@ -459,9 +469,11 @@ pub use knowledge_collector::{
 };
 
 // v5.2.0: Error Index exports
+// v5.2.1: Added LogScanState
 pub use error_index::{
     LogSeverity, ErrorType, LogEntry, ObjectErrors, ErrorIndex,
     ERROR_INDEX_PATH, MAX_LOGS_PER_OBJECT, MAX_ERRORS_PER_OBJECT,
+    LogScanState, LOG_SCAN_STATE_PATH,
 };
 
 // v5.2.0: Service State exports

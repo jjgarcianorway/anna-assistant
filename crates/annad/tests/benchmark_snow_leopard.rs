@@ -1,3 +1,4 @@
+#![allow(clippy::const_is_empty)]
 //! Snow Leopard Benchmark Suite v1.4.0 (Test Harness)
 //!
 //! This test harness uses the shared benchmark module from anna_common

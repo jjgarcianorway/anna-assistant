@@ -232,7 +232,7 @@ fn test_status_never_shows_questions_and_no_telemetry_without_explanation() {
     // INVARIANT: If questions > 0 and telemetry is empty, there MUST be an explanation
 
     // Simulated bad state (questions > 0, no telemetry, no explanation)
-    let mut status = CoherentStatus {
+    let status = CoherentStatus {
         total_questions: 100,
         anna_xp: 0,
         anna_level: 1,

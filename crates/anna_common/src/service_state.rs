@@ -1,4 +1,4 @@
-//! Service State v5.2.0 - Full Systemd Service Tracking
+//! Service State v5.2.1 - Full Systemd Service Tracking
 //!
 //! Track complete service state including:
 //! - Active state (running, stopped, failed)
@@ -6,6 +6,7 @@
 //! - Recent failures
 //! - Resource usage
 //! - Dependencies
+//! - v5.2.1: Full statistics (total, active, inactive, enabled, disabled, masked, failed)
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -409,11 +410,20 @@ pub struct ServiceIndex {
     /// Services by unit name
     pub services: HashMap<String, ServiceState>,
 
-    /// Count of running services
+    /// Count of running services (active)
     pub running_count: usize,
+
+    /// Count of inactive services
+    pub inactive_count: usize,
 
     /// Count of failed services
     pub failed_count: usize,
+
+    /// Count of enabled services (at boot)
+    pub enabled_count: usize,
+
+    /// Count of disabled services
+    pub disabled_count: usize,
 
     /// Count of masked services
     pub masked_count: usize,
@@ -435,11 +445,19 @@ impl ServiceIndex {
         Self {
             services: HashMap::new(),
             running_count: 0,
+            inactive_count: 0,
             failed_count: 0,
+            enabled_count: 0,
+            disabled_count: 0,
             masked_count: 0,
             last_scan_at: now,
             created_at: now,
         }
+    }
+
+    /// Get total service count
+    pub fn total_count(&self) -> usize {
+        self.services.len()
     }
 
     /// Load from disk
@@ -511,16 +529,55 @@ impl ServiceIndex {
             .values()
             .filter(|s| s.active_state.is_running())
             .count();
+        self.inactive_count = self
+            .services
+            .values()
+            .filter(|s| s.active_state == ActiveState::Inactive)
+            .count();
         self.failed_count = self
             .services
             .values()
             .filter(|s| s.active_state.is_failed())
+            .count();
+        self.enabled_count = self
+            .services
+            .values()
+            .filter(|s| s.enabled_state == EnabledState::Enabled)
+            .count();
+        self.disabled_count = self
+            .services
+            .values()
+            .filter(|s| s.enabled_state == EnabledState::Disabled)
             .count();
         self.masked_count = self
             .services
             .values()
             .filter(|s| s.enabled_state.is_masked())
             .count();
+    }
+
+    /// Get enabled services
+    pub fn get_enabled(&self) -> Vec<&ServiceState> {
+        self.services
+            .values()
+            .filter(|s| s.enabled_state == EnabledState::Enabled)
+            .collect()
+    }
+
+    /// Get disabled services
+    pub fn get_disabled(&self) -> Vec<&ServiceState> {
+        self.services
+            .values()
+            .filter(|s| s.enabled_state == EnabledState::Disabled)
+            .collect()
+    }
+
+    /// Get inactive services
+    pub fn get_inactive(&self) -> Vec<&ServiceState> {
+        self.services
+            .values()
+            .filter(|s| s.active_state == ActiveState::Inactive)
+            .collect()
     }
 
     /// Get failed services
@@ -551,13 +608,34 @@ impl ServiceIndex {
     pub fn clear(&mut self) {
         self.services.clear();
         self.running_count = 0;
+        self.inactive_count = 0;
         self.failed_count = 0;
+        self.enabled_count = 0;
+        self.disabled_count = 0;
         self.masked_count = 0;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
         self.last_scan_at = now;
+    }
+
+    /// Find services that use a specific executable
+    pub fn find_services_using_executable(&self, exe_path: &str) -> Vec<&ServiceState> {
+        // This would require parsing ExecStart from unit files
+        // For now, return services that match the executable name
+        let exe_name = std::path::Path::new(exe_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+
+        self.services
+            .values()
+            .filter(|s| {
+                s.unit_name.contains(exe_name) ||
+                s.description.as_ref().map(|d| d.contains(exe_name)).unwrap_or(false)
+            })
+            .collect()
     }
 }
 

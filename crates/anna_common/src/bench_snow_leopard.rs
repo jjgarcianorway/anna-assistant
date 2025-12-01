@@ -799,7 +799,7 @@ impl BenchmarkEngine {
         };
 
         self.log(&format!("\n{}", "=".repeat(60)));
-        self.log(&"  SNOW LEOPARD BENCHMARK v1.4.0".to_string());
+        self.log("  SNOW LEOPARD BENCHMARK v1.4.0");
         self.log(&format!("  Mode: {:?}", mode));
         self.log(&"=".repeat(60).to_string());
 

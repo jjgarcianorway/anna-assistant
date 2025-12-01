@@ -1,3 +1,4 @@
+#![allow(clippy::assertions_on_constants)]
 //! Dry-Run Integrity Checker v3.5.0
 //!
 //! Validates that all critical system operations can be performed safely

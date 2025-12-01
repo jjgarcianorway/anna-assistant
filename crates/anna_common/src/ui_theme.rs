@@ -18,19 +18,15 @@ use serde::{Deserialize, Serialize};
 /// UI rendering mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum UiMode {
     /// ASCII-only output - clean terminal aesthetic
+    #[default]
     Ascii,
     /// Unicode with some box drawing (no emoji)
     Unicode,
 }
 
-impl Default for UiMode {
-    fn default() -> Self {
-        // Default to ASCII - old school hacker style
-        UiMode::Ascii
-    }
-}
 
 impl UiMode {
     pub fn from_str(s: &str) -> Self {

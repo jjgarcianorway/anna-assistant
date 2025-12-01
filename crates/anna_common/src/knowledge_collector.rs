@@ -209,7 +209,7 @@ pub fn discover_systemd_services() -> Vec<SystemdServiceInfo> {
                     let enabled = matches!(state, "enabled" | "enabled-runtime");
 
                     // Check if it's active
-                    let active = is_service_active(&unit);
+                    let active = is_service_active(unit);
 
                     services.push(SystemdServiceInfo {
                         name,

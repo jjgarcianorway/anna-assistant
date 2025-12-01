@@ -722,7 +722,7 @@ impl Default for ReasoningTrace {
 pub enum AnswerSessionResponse {
     /// Final answer is ready
     #[serde(rename = "complete")]
-    Complete { answer: crate::FinalAnswer },
+    Complete { answer: Box<crate::FinalAnswer> },
     /// Waiting for user to answer a question
     #[serde(rename = "pending_question")]
     PendingQuestion {

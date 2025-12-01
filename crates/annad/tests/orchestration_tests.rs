@@ -406,11 +406,11 @@ fn test_invariant_answer_has_origin() {
 fn test_invariant_reliability_range() {
     // Green threshold
     let green_threshold = 0.85;
-    assert!(green_threshold >= 0.0 && green_threshold <= 1.0);
+    assert!((0.0..=1.0).contains(&green_threshold));
 
     // Yellow threshold
     let yellow_threshold = 0.60;
-    assert!(yellow_threshold >= 0.0 && yellow_threshold <= 1.0);
+    assert!((0.0..=1.0).contains(&yellow_threshold));
 
     // Red is below yellow
     assert!(yellow_threshold < green_threshold);

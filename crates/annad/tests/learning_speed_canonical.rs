@@ -706,7 +706,7 @@ fn test_paraphrased_intent_mapping() {
 
     // Health questions may not all be Brain-handled depending on exact patterns
     // This is a documentation of current behavior
-    let health_types: Vec<_> = vec!["health", "are you healthy?", "What is your health?"]
+    let health_types: Vec<_> = ["health", "are you healthy?", "What is your health?"]
         .iter()
         .map(|q| FastQuestionType::classify(q))
         .collect();

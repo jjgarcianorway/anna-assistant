@@ -277,7 +277,7 @@ fn test_post_reset_lifecycle_clean() {
     // Verify new lifecycle is clean and separate
     let phase3_state = ExperienceSnapshot::capture(&paths);
     assert_eq!(
-        phase3_state.telemetry_line_count as u64,
+        phase3_state.telemetry_line_count,
         new_count,
         "Phase 3 should have exactly {} telemetry entries (the new questions answered)",
         new_count

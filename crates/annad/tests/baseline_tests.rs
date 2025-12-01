@@ -1,3 +1,5 @@
+#![allow(clippy::absurd_extreme_comparisons)]
+#![allow(clippy::assertions_on_constants)]
 //! Baseline Performance Tests v1.0.0
 //!
 //! See `docs/architecture.md` Section 2 for latency targets.

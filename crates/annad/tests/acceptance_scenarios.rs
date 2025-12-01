@@ -640,31 +640,31 @@ impl ScenarioRunner {
     fn summarize_probe_output(&self, probe_id: &str, raw: &str) -> String {
         match probe_id {
             "cpu.info" => {
-                format!("CPU: AMD Ryzen 7 5800X 8-Core Processor\n- 8 physical cores, 16 threads\n- Max speed: 4850 MHz\nEvidence: cpu.info probe (lscpu -J)")
+                "CPU: AMD Ryzen 7 5800X 8-Core Processor\n- 8 physical cores, 16 threads\n- Max speed: 4850 MHz\nEvidence: cpu.info probe (lscpu -J)".to_string()
             }
             "mem.info" => {
-                format!("RAM: 32 GB total, 24 GB available\n- 16 GB free, 8 GB cached\nEvidence: mem.info probe (cat /proc/meminfo)")
+                "RAM: 32 GB total, 24 GB available\n- 16 GB free, 8 GB cached\nEvidence: mem.info probe (cat /proc/meminfo)".to_string()
             }
             "disk.df" | "disk.lsblk" => {
-                format!("Root filesystem: 450 GB free of 931 GB (52% used)\n- Device: /dev/nvme0n1p2\nEvidence: disk probe")
+                "Root filesystem: 450 GB free of 931 GB (52% used)\n- Device: /dev/nvme0n1p2\nEvidence: disk probe".to_string()
             }
             "hardware.gpu" => {
-                format!("GPU: NVIDIA GeForce RTX 3080 (GA102)\n- 256 MB VRAM detected\nEvidence: hardware.gpu probe (lspci)")
+                "GPU: NVIDIA GeForce RTX 3080 (GA102)\n- 256 MB VRAM detected\nEvidence: hardware.gpu probe (lspci)".to_string()
             }
             "drivers.gpu" => {
-                format!("GPU Drivers: NVIDIA proprietary driver loaded\n- Modules: nvidia, nvidia_modeset, nvidia_uvm, nvidia_drm\nEvidence: drivers.gpu probe (lsmod)")
+                "GPU Drivers: NVIDIA proprietary driver loaded\n- Modules: nvidia, nvidia_modeset, nvidia_uvm, nvidia_drm\nEvidence: drivers.gpu probe (lsmod)".to_string()
             }
             "system.os" => {
-                format!("OS: Arch Linux (rolling release)\n- Kernel: 6.6.7-arch1-1\nEvidence: system.os probe (cat /etc/os-release)")
+                "OS: Arch Linux (rolling release)\n- Kernel: 6.6.7-arch1-1\nEvidence: system.os probe (cat /etc/os-release)".to_string()
             }
             "logs.annad" => {
-                format!("Anna Logs (last 2 hours):\n- [INFO] Daemon running normally\n- [WARN] 1 slow LLM response (2.3s)\n- No errors detected\nEvidence: logs.annad probe (journalctl)")
+                "Anna Logs (last 2 hours):\n- [INFO] Daemon running normally\n- [WARN] 1 slow LLM response (2.3s)\n- No errors detected\nEvidence: logs.annad probe (journalctl)".to_string()
             }
             "updates.pending" => {
-                format!("Pending Updates: 5 packages\n- linux, nvidia-dkms, python, rust, firefox\n\nSafe review plan:\n1. [READ-ONLY] pacman -Qu to list updates\n2. [READ-ONLY] Review changelogs\n3. [ACTION] sudo pacman -Syu when ready\nEvidence: updates.pending probe")
+                "Pending Updates: 5 packages\n- linux, nvidia-dkms, python, rust, firefox\n\nSafe review plan:\n1. [READ-ONLY] pacman -Qu to list updates\n2. [READ-ONLY] Review changelogs\n3. [ACTION] sudo pacman -Syu when ready\nEvidence: updates.pending probe".to_string()
             }
             "anna.self_health" => {
-                format!("Anna Health: All systems operational\n- Daemon: running (pid 1234, 6h 23m uptime)\n- Ollama: connected (llama3.2:3b)\n- Config: valid\n- Permissions: ok\n- Auto-repair: not needed\nEvidence: anna.self_health probe")
+                "Anna Health: All systems operational\n- Daemon: running (pid 1234, 6h 23m uptime)\n- Ollama: connected (llama3.2:3b)\n- Config: valid\n- Permissions: ok\n- Auto-repair: not needed\nEvidence: anna.self_health probe".to_string()
             }
             _ => format!("Data from {} probe:\n{}", probe_id, &raw[..raw.len().min(200)]),
         }

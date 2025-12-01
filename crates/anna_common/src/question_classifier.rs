@@ -585,7 +585,7 @@ mod tests {
         let result = classifier.classify_v50("Why is my system slow?");
         assert_eq!(result.question_type, QuestionType::ComplexDiagnosis);
         // Should suggest multiple probes for diagnosis
-        assert!(result.suggested_probes.len() >= 1);
+        assert!(!result.suggested_probes.is_empty());
     }
 
     #[test]

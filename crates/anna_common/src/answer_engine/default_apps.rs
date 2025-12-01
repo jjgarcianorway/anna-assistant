@@ -289,7 +289,7 @@ pub struct DesktopEntry {
 /// Result of parsing a desktop file
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DesktopParseResult {
-    Success(DesktopEntry),
+    Success(Box<DesktopEntry>),
     NotFound,
     ParseError(String),
     InvalidEntry(String),

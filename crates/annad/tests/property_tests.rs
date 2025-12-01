@@ -1,3 +1,5 @@
+#![allow(clippy::assertions_on_constants)]
+#![allow(clippy::absurd_extreme_comparisons)]
 //! Property-Based Tests v3.5.0
 //!
 //! Tests that verify system invariants hold across randomized inputs.
@@ -217,7 +219,7 @@ mod reliability_properties {
         for _ in 0..100 {
             let rel = rng.next_f64();
             assert!(
-                rel >= 0.0 && rel <= 1.0,
+                (0.0..=1.0).contains(&rel),
                 "Reliability {} outside [0,1]",
                 rel
             );
@@ -250,7 +252,7 @@ mod reliability_properties {
         for _ in 0..100 {
             let trust_val = rng.next_f64() as f32;
             assert!(
-                trust_val >= 0.0 && trust_val <= 1.0,
+                (0.0..=1.0).contains(&trust_val),
                 "Trust value {} outside [0,1]",
                 trust_val
             );
@@ -471,7 +473,7 @@ mod answer_properties {
 
                 // Must have non-empty origin
                 assert!(
-                    !answer.origin.as_str().is_empty(),
+                    !answer.origin.is_empty(),
                     "Answer origin empty for '{}'",
                     q
                 );

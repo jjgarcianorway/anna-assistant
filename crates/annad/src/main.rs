@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v5.2.0 - Knowledge UX with Full Error Visibility
+//! Anna Daemon (annad) v5.2.1 - Knowledge System with Full Service & Error Visibility
 //!
 //! Anna is now a paranoid archivist with full error tracking:
 //! - Tracks ALL commands on PATH
@@ -9,11 +9,14 @@
 //! - v5.2.0: Error indexing from journalctl
 //! - v5.2.0: Service state tracking (active/enabled/masked/failed)
 //! - v5.2.0: Intrusion detection patterns
+//! - v5.2.1: Full service statistics (total/active/inactive/enabled/disabled/masked/failed)
+//! - v5.2.1: Log scan state tracking
 //!
 //! No Q&A, no LLM orchestration in this phase.
 
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(clippy::too_many_arguments)]
 
 mod routes;
 mod server;
@@ -25,6 +28,8 @@ use anna_common::{
     ErrorIndex, LogEntry, LogSeverity,
     ServiceIndex, ServiceState,
     IntrusionIndex,
+    // v5.2.1: Log scan state
+    LogScanState,
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -59,7 +64,7 @@ async fn main() -> Result<()> {
         .init();
 
     info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
-    info!("[>]  Knowledge UX with Full Error Visibility");
+    info!("[>]  Knowledge System with Full Service & Error Visibility");
     info!("[>]  Tracks executables, services, errors, intrusions");
 
     // Permissions check
@@ -132,17 +137,22 @@ async fn main() -> Result<()> {
         }
     });
 
-    // v5.2.0: Spawn log scanner task (every 60 seconds)
+    // v5.2.1: Spawn log scanner task (every 60 seconds) with LogScanState tracking
     let builder_logs = Arc::clone(&builder);
     tokio::spawn(async move {
-        // Initialize error and intrusion indexes
+        // Initialize error and intrusion indexes and scan state
         let mut error_index = ErrorIndex::load();
         let mut intrusion_index = IntrusionIndex::load();
+        let mut log_scan_state = LogScanState::load();
+        log_scan_state.running = true;
+        let _ = log_scan_state.save();
+
         let mut interval = tokio::time::interval(Duration::from_secs(LOG_SCAN_INTERVAL_SECS));
 
         loop {
             interval.tick().await;
             let entries_before = error_index.total_errors;
+            let warnings_before = error_index.total_warnings;
             let intrusions_before = intrusion_index.total_events;
 
             // Scan journalctl for recent entries
@@ -156,9 +166,17 @@ async fn main() -> Result<()> {
                 warn!("[!]  Failed to save intrusion index: {}", e);
             }
 
-            // Log if new entries found
+            // v5.2.1: Update and save log scan state
             let new_errors = error_index.total_errors - entries_before;
+            let new_warnings = error_index.total_warnings - warnings_before;
             let new_intrusions = intrusion_index.total_events - intrusions_before;
+
+            log_scan_state.record_scan(new_errors, new_warnings);
+            if let Err(e) = log_scan_state.save() {
+                warn!("[!]  Failed to save log scan state: {}", e);
+            }
+
+            // Log if new entries found
             if new_errors > 0 || new_intrusions > 0 {
                 info!("[+]  Log scan: {} new errors, {} new intrusions", new_errors, new_intrusions);
             }

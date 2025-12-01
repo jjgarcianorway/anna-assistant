@@ -1,3 +1,5 @@
+#![allow(clippy::assertions_on_constants)]
+#![allow(clippy::field_reassign_with_default)]
 //! Learning Contract Test Suite v3.8.0
 //!
 //! Validates all guarantees specified in docs/ANNA_LEARNING_CONTRACT.md:

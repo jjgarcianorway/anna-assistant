@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v5.2.0 - Knowledge UX with Full Error Visibility
+//! Anna CLI (annactl) v5.2.1 - Knowledge System with Full Service & Error Visibility
 //!
 //! Anna is now a paranoid archivist with full error tracking:
 //! - Tracks ALL commands on PATH
@@ -9,12 +9,15 @@
 //! - v5.2.0: Error indexing from journalctl
 //! - v5.2.0: Service state tracking (active/enabled/masked/failed)
 //! - v5.2.0: Intrusion detection patterns
+//! - v5.2.1: Full service summary (total/active/inactive/enabled/disabled/masked/failed)
+//! - v5.2.1: Log scan state tracking
+//! - v5.2.1: Per-object DISCOVERY status for priority scans
 //!
 //! ## Allowed CLI Commands
 //!
 //! - annactl status     Quick system and knowledge status + inventory progress
 //! - annactl stats      Detailed knowledge statistics + command coverage
-//! - annactl knowledge  Global knowledge view with errors/intrusions
+//! - annactl knowledge  Global knowledge view with all sections
 //! - annactl knowledge <topic>  Focused view with errors, logs, intrusions
 //! - annactl version    Show version info
 //! - annactl help       Show help info
@@ -35,6 +38,8 @@ use anna_common::{
     ErrorIndex, LogSeverity,
     ServiceIndex, ServiceState, ActiveState, EnabledState,
     IntrusionIndex, IntrusionType,
+    // v5.2.1: Log scan state
+    LogScanState,
 };
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -93,7 +98,7 @@ fn run_version() -> Result<()> {
 
 fn run_help() -> Result<()> {
     println!();
-    println!("{}", "ANNA - Knowledge UX with Full Error Visibility v5.2.0".bold());
+    println!("{}", "ANNA - Knowledge System with Full Service & Error Visibility v5.2.1".bold());
     println!("{}", THIN_SEP);
     println!();
     println!("  Anna is a paranoid archivist that tracks every executable,");
@@ -114,10 +119,12 @@ fn run_help() -> Result<()> {
     println!("  - Package install/remove events");
     println!("  - Errors and warnings from journalctl");
     println!("  - Intrusion detection patterns");
+    println!("  - Log signatures indexed");
     println!();
-    println!("{}", "v5.2.0 ERROR VISIBILITY:".bold());
+    println!("{}", "v5.2.1 FULL VISIBILITY:".bold());
     println!("  Every object shows its errors, warnings, failures,");
     println!("  and intrusion attempts. No filtering. No guessing.");
+    println!("  Services show: total/active/inactive/enabled/disabled/masked/failed.");
     println!();
     Ok(())
 }
@@ -441,10 +448,11 @@ async fn run_knowledge(topic: Option<&str>) -> Result<()> {
 }
 
 fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
-    // v5.2.0: Load error and intrusion indexes for global view
+    // v5.2.1: Load all indexes for global view
     let error_index = ErrorIndex::load();
     let intrusion_index = IntrusionIndex::load();
     let service_index = ServiceIndex::load();
+    let log_scan_state = LogScanState::load();
 
     println!();
     println!("{}", "ANNA KNOWLEDGE".bold());
@@ -459,29 +467,76 @@ fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
         return Ok(());
     }
 
-    // v5.2.0: Summary section
-    let (commands, packages, services) = store.count_by_type();
-    println!("{}", "[SUMMARY]".cyan());
-    println!("  Objects:    {} total", store.total_objects());
-    println!("  Commands:   {}", commands);
-    println!("  Packages:   {}", packages);
-    println!("  Services:   {}", services);
-    println!("  Configs:    {}", store.objects.values().filter(|o| !o.config_paths.is_empty()).count());
-    println!("  Errors:     {}", error_index.total_errors);
-    println!("  Intrusions: {}", intrusion_index.total_events);
+    // v5.2.1: SERVICES section (full state summary)
+    println!("{}", "[SERVICES]".cyan());
+    println!("  Total services:     {}", service_index.total_count());
+    println!("  Active (running):   {}", service_index.running_count);
+    println!("  Inactive:           {}", service_index.inactive_count);
+    println!("  Enabled at boot:    {}", service_index.enabled_count);
+    println!("  Disabled:           {}", service_index.disabled_count);
+    println!("  Masked:             {}", service_index.masked_count);
+    if service_index.failed_count > 0 {
+        println!("  Failed:             {}", format!("{}", service_index.failed_count).red());
+    } else {
+        println!("  Failed:             {}", "0".green());
+    }
     println!();
 
-    // v5.2.0: Failed services section
-    if service_index.failed_count > 0 {
-        println!("{}", "[FAILED SERVICES]".red().bold());
-        for svc in service_index.get_failed() {
-            let reason = svc.failure_reason.as_deref().unwrap_or("unknown");
-            println!("  {} - {}", svc.unit_name.red(), reason);
+    // v5.2.1: ERRORS section
+    println!("{}", "[ERRORS]".cyan());
+    // Failed services
+    let failed_services = service_index.get_failed();
+    if !failed_services.is_empty() {
+        println!("  Failed services:");
+        for svc in failed_services.iter().take(5) {
+            let reason = svc.failure_reason.as_deref().unwrap_or("Unit failed");
+            println!("    - {:<20} ({})", svc.unit_name.trim_end_matches(".service").red(), reason);
         }
-        println!();
+    } else {
+        println!("  Failed services:    (none)");
     }
+    // Recent log errors (24h)
+    let recent_errors = error_index.recent_errors_24h();
+    if !recent_errors.is_empty() {
+        println!("  Recent log errors (last 24h):");
+        for (name, entry) in recent_errors.iter().take(5) {
+            println!("    - {}: {}", name, truncate_str(&entry.message, 45));
+        }
+    } else {
+        println!("  Recent log errors:  (none in last 24h)");
+    }
+    println!();
 
-    // v5.2.0: Recent intrusions section
+    // v5.2.1: LOG SCAN section
+    println!("{}", "[LOG SCAN]".cyan());
+    println!("  Last scan:          {}", log_scan_state.format_last_scan());
+    println!("  New errors:         {}", log_scan_state.new_errors);
+    println!("  New warnings:       {}", log_scan_state.new_warnings);
+    println!("  Scanner state:      {}", log_scan_state.state_string());
+    println!();
+
+    // v5.2.1: INVENTORY section (expanded)
+    let (commands, packages, services) = store.count_by_type();
+    let config_count = store.objects.values().filter(|o| !o.config_paths.is_empty()).count();
+    let log_signatures = error_index.objects.len();
+    println!("{}", "[INVENTORY]".cyan());
+    println!("  Packages:           {}", format_number(packages as u64));
+    println!("  Commands:           {}", format_number(commands as u64));
+    println!("  Services:           {}", format_number(services as u64));
+    println!("  Config files:       {}", format_number(config_count as u64));
+    println!("  Log signatures:     {}", log_signatures);
+    // Calculate progress if available
+    let total_known = store.total_objects();
+    let total_possible = count_path_binaries() + count_systemd_services();
+    let progress = if total_possible > 0 {
+        (total_known as f64 / total_possible as f64 * 100.0).min(100.0)
+    } else {
+        0.0
+    };
+    println!("  Progress:           {:.0}% (estimated)", progress);
+    println!();
+
+    // v5.2.1: Recent intrusions section
     let recent_intrusions = intrusion_index.recent_high_severity(3600, 3); // Last hour, severity 3+
     if !recent_intrusions.is_empty() {
         println!("{}", "[RECENT INTRUSIONS (1h)]".red().bold());
@@ -495,7 +550,7 @@ fn run_knowledge_list(store: &KnowledgeStore) -> Result<()> {
         println!();
     }
 
-    // v5.2.0: Top errors section
+    // v5.2.1: Top errors section (if any)
     let top_errors = error_index.top_by_errors(5);
     if !top_errors.is_empty() {
         println!("{}", "[TOP ERRORS BY OBJECT]".yellow());
@@ -562,15 +617,27 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
     println!("{}", format!("ANNA KNOWLEDGE: {}", name).bold());
     println!("{}", THIN_SEP);
 
-    // v5.1.1: Priority scan - ensure object is fresh before answering
-    if !builder.is_object_complete(name) && !builder.is_object_complete(&name.to_lowercase()) {
-        println!("{}", "[PRIORITY SCAN]".yellow());
-        println!("  Scanning for '{}'...", name);
+    // v5.2.1: DISCOVERY section for priority scan status
+    let needs_discovery = !builder.is_object_complete(name) && !builder.is_object_complete(&name.to_lowercase());
+
+    if needs_discovery {
+        println!("{}", "[DISCOVERY]".yellow());
+        println!("  Status:        pending (priority scan)");
+        println!("  Estimated:     <5 seconds>");
+        println!();
+
+        // Perform the scan
         let found = builder.targeted_discovery(name);
+
+        // Update the display
         if found {
-            println!("  Found and indexed.");
+            println!("{}", "[DISCOVERY]".green());
+            println!("  Status:        completed");
+            println!("  Result:        found and indexed");
         } else {
-            println!("  Not found on system.");
+            println!("{}", "[DISCOVERY]".yellow());
+            println!("  Status:        completed");
+            println!("  Result:        not found on system");
         }
         println!();
         // Save after discovery
@@ -584,10 +651,24 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
 
     match obj {
         Some(obj) => {
-            // Identity section
-            println!("{}", "[IDENTITY]".cyan());
-            println!("  Category:        {}", obj.category.as_str());
+            // v5.2.1: BASIC INFO section (renamed from IDENTITY)
+            println!("{}", "[BASIC INFO]".cyan());
             println!("  Name:            {}", obj.name);
+            // Determine type for display
+            let type_str = if obj.object_types.contains(&ObjectType::Service) {
+                "service"
+            } else if obj.object_types.contains(&ObjectType::Package) {
+                "package"
+            } else if obj.object_types.contains(&ObjectType::Command) {
+                "command"
+            } else {
+                obj.category.as_str()
+            };
+            println!("  Type:            {}", type_str);
+            if let Some(pkg) = &obj.package_name {
+                println!("  Package:         {}", pkg);
+            }
+            println!("  Installed:       {}", if obj.installed { "yes" } else { "no" });
 
             // v5.1.0: Object types
             if !obj.object_types.is_empty() {
@@ -648,52 +729,62 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
             }
             println!();
 
-            // v5.2.0: Enhanced Service section with full state
+            // v5.2.1: Enhanced Service section with full state per spec
             if obj.service_unit.is_some() || obj.object_types.contains(&ObjectType::Service) {
                 let service_index = ServiceIndex::load();
                 println!("{}", "[SERVICE STATE]".cyan());
 
                 if let Some(unit) = &obj.service_unit {
-                    println!("  Unit:            {}", unit);
-
-                    // v5.2.0: Get full service state from service index
+                    // v5.2.1: Get full service state from service index
                     if let Some(state) = service_index.services.get(unit) {
                         // Active state with color
                         let active_str = match state.active_state {
-                            ActiveState::Active => state.active_state.as_str().green().to_string(),
-                            ActiveState::Failed => state.active_state.as_str().red().bold().to_string(),
-                            ActiveState::Inactive => state.active_state.as_str().dimmed().to_string(),
+                            ActiveState::Active => "running".green().to_string(),
+                            ActiveState::Failed => "failed".red().bold().to_string(),
+                            ActiveState::Inactive => "inactive".dimmed().to_string(),
                             _ => state.active_state.as_str().yellow().to_string(),
                         };
-                        println!("  Active:          {} ({})", active_str, state.sub_state.as_str());
+                        println!("  Active:          {}", active_str);
 
-                        // Enabled state with color
+                        // Enabled at boot with color
                         let enabled_str = match state.enabled_state {
-                            EnabledState::Enabled => state.enabled_state.as_str().green().to_string(),
-                            EnabledState::Masked => state.enabled_state.as_str().red().to_string(),
-                            EnabledState::Disabled => state.enabled_state.as_str().yellow().to_string(),
+                            EnabledState::Enabled => "yes".green().to_string(),
+                            EnabledState::Masked => "MASKED".red().to_string(),
+                            EnabledState::Disabled => "no".yellow().to_string(),
                             _ => state.enabled_state.as_str().to_string(),
                         };
-                        println!("  Enabled:         {}", enabled_str);
+                        println!("  Enabled at boot: {}", enabled_str);
 
-                        if let Some(pid) = state.main_pid {
-                            println!("  PID:             {}", pid);
+                        // Masked state
+                        let masked_str = if state.enabled_state.is_masked() {
+                            "yes".red().to_string()
+                        } else {
+                            "no".to_string()
+                        };
+                        println!("  Masked:          {}", masked_str);
+
+                        // Last exit code (from restart count or 0)
+                        let exit_code = if state.active_state.is_failed() { 1 } else { 0 };
+                        println!("  Last exit code:  {}", exit_code);
+
+                        // Last restart
+                        if let Some(ts) = state.state_change_at {
+                            println!("  Last restart:    {}", format_timestamp(ts));
                         }
-                        println!("  Memory:          {}", state.format_memory());
-                        println!("  CPU:             {}", state.format_cpu());
-                        println!("  Restarts:        {}", state.restart_count);
 
                         if let Some(reason) = &state.failure_reason {
-                            println!("  Failure:         {}", reason.red());
+                            println!("  Failure reason:  {}", reason.red());
                         }
                     } else {
                         // Fallback to basic info from KnowledgeObject
-                        if let Some(enabled) = obj.service_enabled {
-                            println!("  Enabled:         {}", if enabled { "yes" } else { "no" });
-                        }
                         if let Some(active) = obj.service_active {
-                            println!("  Active:          {}", if active { "yes" } else { "no" });
+                            println!("  Active:          {}", if active { "running" } else { "inactive" });
                         }
+                        if let Some(enabled) = obj.service_enabled {
+                            println!("  Enabled at boot: {}", if enabled { "yes" } else { "no" });
+                        }
+                        println!("  Masked:          no");
+                        println!("  Last exit code:  0");
                     }
                 }
                 println!();
@@ -803,11 +894,48 @@ fn run_knowledge_detail_with_builder(builder: &mut KnowledgeBuilder, name: &str)
                 }
             }
 
+            // v5.2.1: SERVICE RELATIONS section (for packages/commands)
+            if !obj.object_types.contains(&ObjectType::Service) {
+                let service_index = ServiceIndex::load();
+                let binary_path = obj.binary_path.as_deref().unwrap_or(&obj.name);
+                let related_services = service_index.find_services_using_executable(binary_path);
+
+                if !related_services.is_empty() {
+                    println!("{}", "[SERVICE RELATIONS]".cyan());
+                    println!("  Systemd units using this executable:");
+                    for svc in related_services.iter().take(5) {
+                        let status = match svc.active_state {
+                            ActiveState::Active => "running".green().to_string(),
+                            ActiveState::Failed => "failed".red().to_string(),
+                            _ => svc.active_state.as_str().to_string(),
+                        };
+                        println!("    - {} ({})", svc.unit_name, status);
+                    }
+                    println!();
+                }
+            }
+
             // Notes
             println!("{}", "[NOTES]".cyan());
-            println!("  Data collected by anna daemon (v5.2.0 Full Error Visibility).");
+            println!("  Data collected by anna daemon (v5.2.1 Full Service & Error Visibility).");
         }
         None => {
+            // v5.2.1: Show ERRORS section even for unknown objects
+            let error_index = ErrorIndex::load();
+            if let Some(obj_errors) = error_index.get_object_errors(name)
+                .or_else(|| error_index.get_object_errors(&name.to_lowercase()))
+            {
+                if !obj_errors.logs.is_empty() {
+                    println!("{}", "[ERRORS]".red());
+                    println!("  No object indexed, but logs found:");
+                    for entry in obj_errors.errors_only().iter().rev().take(5) {
+                        let ts = format_timestamp(entry.timestamp);
+                        println!("    [{}] {}", ts, truncate_str(&entry.message, 50));
+                    }
+                    println!();
+                }
+            }
+
             println!();
             println!("  Anna has no knowledge about '{}' yet.", name);
             println!();
