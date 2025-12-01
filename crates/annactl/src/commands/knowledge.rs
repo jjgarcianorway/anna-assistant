@@ -1,26 +1,30 @@
-//! Knowledge Command v5.4.0 - Installed Objects Only
+//! Knowledge Command v6.0.0 - Grounded System Knowledge
 //!
-//! Shows what Anna knows about objects installed on THIS system.
-//! Fundamental rule: Never show non-installed objects here.
+//! v6.0.0: Complete rewrite with real data sources
+//! - Packages from pacman -Q
+//! - Commands from $PATH
+//! - Services from systemctl
+//! - No invented categories, no fake metrics
 //!
-//! v5.4.0: Full descriptions (no truncation).
-//! - Usage: "runs" is total observed since daemon start (not per day)
-//! - Errors: 24h window, explicitly stated
-//!
-//! Sections:
-//! - [INSTALLED] Count of installed objects by category
-//! - Category blocks with installed objects only
+//! Shows what's ACTUALLY on the system, not what Anna "thinks" is there.
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
-use std::time::{SystemTime, UNIX_EPOCH};
 
-use anna_common::{
-    KnowledgeCategory, KnowledgeObject, KnowledgeStore, ErrorIndex,
-    get_description,
+use anna_common::grounded::{
+    packages::PackageCounts,
+    commands::count_path_executables,
+    services::ServiceCounts,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
+
+/// Known categories with their package detection patterns
+const EDITORS: &[&str] = &["vim", "neovim", "nvim", "nano", "emacs", "helix", "hx", "kate", "gedit", "code"];
+const TERMINALS: &[&str] = &["alacritty", "kitty", "foot", "wezterm", "gnome-terminal", "konsole", "st"];
+const SHELLS: &[&str] = &["bash", "zsh", "fish", "nushell"];
+const COMPOSITORS: &[&str] = &["hyprland", "sway", "wayfire", "river", "picom"];
+const BROWSERS: &[&str] = &["firefox", "chromium", "brave", "vivaldi", "qutebrowser", "librewolf"];
 
 /// Run the knowledge overview command
 pub async fn run() -> Result<()> {
@@ -29,182 +33,137 @@ pub async fn run() -> Result<()> {
     println!("{}", THIN_SEP);
     println!();
 
-    let store = KnowledgeStore::load();
-    let error_index = ErrorIndex::load();
+    // [OVERVIEW] - real counts from real sources
+    print_overview_section();
 
-    // [INSTALLED]
-    print_installed_section(&store);
-
-    // Category blocks - installed objects only
-    print_category_block(&store, &error_index, KnowledgeCategory::Editor, "EDITORS");
-    print_category_block(&store, &error_index, KnowledgeCategory::Terminal, "TERMINALS");
-    print_category_block(&store, &error_index, KnowledgeCategory::Shell, "SHELLS");
-    print_category_block(&store, &error_index, KnowledgeCategory::Compositor, "COMPOSITORS");
-    print_category_block(&store, &error_index, KnowledgeCategory::Wm, "WINDOW MANAGERS");
-    print_category_block(&store, &error_index, KnowledgeCategory::Browser, "BROWSERS");
-    print_category_block(&store, &error_index, KnowledgeCategory::Service, "SERVICES");
-    print_category_block(&store, &error_index, KnowledgeCategory::Tool, "TOOLS");
+    // [BY CATEGORY] - only show what's actually installed
+    print_categories_section();
 
     println!("{}", THIN_SEP);
     println!();
-    println!("  'annactl knowledge <name>' for details on a specific object.");
-    println!("  'annactl knowledge stats' for coverage metrics.");
+    println!("  'annactl knowledge <name>' for details on a specific package.");
     println!();
 
     Ok(())
 }
 
-fn print_installed_section(store: &KnowledgeStore) {
-    println!("{}", "[INSTALLED]".cyan());
+fn print_overview_section() {
+    println!("{}", "[OVERVIEW]".cyan());
 
-    let categories = [
-        (KnowledgeCategory::Editor, "Editors"),
-        (KnowledgeCategory::Terminal, "Terminals"),
-        (KnowledgeCategory::Shell, "Shells"),
-        (KnowledgeCategory::Compositor, "Compositors"),
-        (KnowledgeCategory::Wm, "Window Mgrs"),
-        (KnowledgeCategory::Browser, "Browsers"),
-        (KnowledgeCategory::Service, "Services"),
-        (KnowledgeCategory::Tool, "Tools"),
-    ];
+    let pkg_counts = PackageCounts::query();
+    let cmd_count = count_path_executables();
+    let svc_counts = ServiceCounts::query();
 
-    // Count only INSTALLED objects per category
-    for (cat, label) in &categories {
-        let count = store
-            .objects
-            .values()
-            .filter(|o| o.category == *cat && o.installed)
-            .count();
-
-        // Only show categories with installed objects
-        if count > 0 {
-            println!("  {:<14} {}", format!("{}:", label), count);
-        }
-    }
-
-    // Total installed
-    let total_installed = store.objects.values().filter(|o| o.installed).count();
-    println!("  {:<14} {}", "Total:", total_installed);
+    println!("  Packages:   {} (source: pacman -Q)", pkg_counts.total);
+    println!("  Commands:   {} (source: $PATH)", cmd_count);
+    println!("  Services:   {} (source: systemctl)", svc_counts.total);
 
     println!();
 }
 
-fn print_category_block(
-    store: &KnowledgeStore,
-    error_index: &ErrorIndex,
-    category: KnowledgeCategory,
-    label: &str,
-) {
-    // Filter to INSTALLED objects only
-    let objects: Vec<&KnowledgeObject> = store
-        .objects
-        .values()
-        .filter(|o| o.category == category && o.installed)
-        .collect();
+fn print_categories_section() {
+    println!("{}", "[BY CATEGORY]".cyan());
+    println!("  {}", "(detected from installed packages)".dimmed());
 
-    // Skip empty categories entirely
-    if objects.is_empty() {
-        return;
-    }
+    // Check which packages are installed and categorize them
+    let installed = get_installed_by_category();
 
-    println!("{}", format!("[{}]", label).cyan());
-
-    // Normalize and deduplicate objects by lowercase name
-    let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let mut unique_objects: Vec<&KnowledgeObject> = Vec::new();
-
-    for obj in &objects {
-        let normalized = obj.name.to_lowercase();
-        if !seen_names.contains(&normalized) {
-            seen_names.insert(normalized);
-            unique_objects.push(obj);
-        }
-    }
-
-    // Sort by name
-    unique_objects.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-
-    for obj in &unique_objects {
-        print_object_line(obj, error_index, category == KnowledgeCategory::Service);
-    }
-
-    println!();
-}
-
-fn print_object_line(obj: &KnowledgeObject, error_index: &ErrorIndex, is_service: bool) {
-    // v5.4.0: No name truncation - show full names
-    let name = &obj.name;
-    let errors_24h = get_object_errors_24h(error_index, &obj.name);
-
-    // v5.4.0: Full descriptions (no truncation)
-    let desc = get_description(&obj.name).unwrap_or_default();
-
-    // For services, show state
-    // For commands, show if we have usage data
-    let usage_info = if is_service {
-        format_service_state(obj)
-    } else {
-        format_usage_info(obj)
-    };
-
-    // Error indicator (only show if errors exist)
-    let err_indicator = if errors_24h > 0 {
-        format!(" [{}]", format!("{} errs", errors_24h).red())
-    } else {
-        String::new()
-    };
-
-    if desc.is_empty() {
-        println!("  {:<18} {}{}", name, usage_info, err_indicator);
-    } else {
+    if !installed.editors.is_empty() {
         println!(
-            "  {:<18} {:<12} {}{}",
-            name, usage_info,
-            desc.dimmed(),
-            err_indicator
+            "  Editors:    {} ({})",
+            installed.editors.len(),
+            installed.editors.join(", ")
         );
     }
+
+    if !installed.terminals.is_empty() {
+        println!(
+            "  Terminals:  {} ({})",
+            installed.terminals.len(),
+            installed.terminals.join(", ")
+        );
+    }
+
+    if !installed.shells.is_empty() {
+        println!(
+            "  Shells:     {} ({})",
+            installed.shells.len(),
+            installed.shells.join(", ")
+        );
+    }
+
+    if !installed.compositors.is_empty() {
+        println!(
+            "  Compositors: {} ({})",
+            installed.compositors.len(),
+            installed.compositors.join(", ")
+        );
+    }
+
+    if !installed.browsers.is_empty() {
+        println!(
+            "  Browsers:   {} ({})",
+            installed.browsers.len(),
+            installed.browsers.join(", ")
+        );
+    }
+
+    println!();
 }
 
-fn format_service_state(obj: &KnowledgeObject) -> String {
-    if let Some(active) = obj.service_active {
-        if active {
-            "running".green().to_string()
-        } else {
-            "stopped".to_string()
+struct InstalledByCategory {
+    editors: Vec<String>,
+    terminals: Vec<String>,
+    shells: Vec<String>,
+    compositors: Vec<String>,
+    browsers: Vec<String>,
+}
+
+fn get_installed_by_category() -> InstalledByCategory {
+    use anna_common::grounded::commands::command_exists;
+
+    let mut result = InstalledByCategory {
+        editors: Vec::new(),
+        terminals: Vec::new(),
+        shells: Vec::new(),
+        compositors: Vec::new(),
+        browsers: Vec::new(),
+    };
+
+    // Check editors
+    for &name in EDITORS {
+        if command_exists(name) {
+            result.editors.push(name.to_string());
         }
-    } else {
-        "installed".to_string()
     }
-}
 
-fn format_usage_info(obj: &KnowledgeObject) -> String {
-    // Show if we have observed usage, but don't pretend it's "per day"
-    // since usage_count is lifetime total
-    if obj.usage_count > 0 {
-        format!("{} runs", obj.usage_count)
-    } else {
-        "installed".to_string()
+    // Check terminals
+    for &name in TERMINALS {
+        if command_exists(name) {
+            result.terminals.push(name.to_string());
+        }
     }
-}
 
-fn get_object_errors_24h(error_index: &ErrorIndex, name: &str) -> u64 {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    let cutoff = now.saturating_sub(86400);
-
-    let obj_errors = error_index
-        .get_object_errors(name)
-        .or_else(|| error_index.get_object_errors(&name.to_lowercase()));
-
-    if let Some(obj) = obj_errors {
-        obj.logs
-            .iter()
-            .filter(|log| log.timestamp >= cutoff && log.severity.is_error())
-            .count() as u64
-    } else {
-        0
+    // Check shells
+    for &name in SHELLS {
+        if command_exists(name) {
+            result.shells.push(name.to_string());
+        }
     }
+
+    // Check compositors
+    for &name in COMPOSITORS {
+        if command_exists(name) {
+            result.compositors.push(name.to_string());
+        }
+    }
+
+    // Check browsers
+    for &name in BROWSERS {
+        if command_exists(name) {
+            result.browsers.push(name.to_string());
+        }
+    }
+
+    result
 }

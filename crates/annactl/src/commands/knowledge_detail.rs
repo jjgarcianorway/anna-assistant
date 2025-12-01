@@ -1,27 +1,19 @@
-//! Knowledge Detail Command v5.5.0 - Full Object Profile
+//! Knowledge Detail Command v6.0.0 - Grounded Object Details
 //!
-//! Shows a complete sysadmin-grade profile of a single object.
+//! v6.0.0: Complete rewrite with real data sources
+//! - Package info from pacman -Qi
+//! - Command info from which + man -f
+//! - Service info from systemctl
 //!
-//! v5.5.0: Services properly handled - no "Installed: no" for services.
-//! Services have Service State instead of Installed flag.
-//!
-//! Sections shown only when they have meaningful data:
-//! - [IDENTITY] Name, category, description, ecosystem
-//! - [INSTALLATION] For packages/commands: Installed, package, version, paths
-//! - [SERVICE] For services: State, enabled, unit name
-//! - [RELATIONSHIPS] Related objects (e.g., aquamarine -> hyprland)
-//! - [USAGE] Only if observed running (since daemon start)
-//! - [ERRORS] Only if errors exist (24h window)
-//! - [SECURITY] Only if intrusions detected
+//! Every piece of information has a source attribution.
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
-use anna_common::{
-    KnowledgeStore, KnowledgeObject, ErrorIndex, IntrusionIndex,
-    ServiceIndex, ObjectType, KnowledgeCategory,
-    format_duration_ms, format_time_ago, format_bytes, truncate_str,
-    format_timestamp, get_description, get_relationship, get_ecosystem,
+use anna_common::grounded::{
+    packages::{get_package_info, Package},
+    commands::{get_command_info, command_exists, SystemCommand},
+    services::{get_service_info, Service, ServiceState, EnabledState},
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -33,36 +25,18 @@ pub async fn run(name: &str) -> Result<()> {
     println!("{}", THIN_SEP);
     println!();
 
-    let store = KnowledgeStore::load();
-    let error_index = ErrorIndex::load();
-    let intrusion_index = IntrusionIndex::load();
-    let service_index = ServiceIndex::load();
-
-    // Try to find the object
-    let obj = find_object(&store, name);
-
-    match obj {
-        Some(obj) => {
-            let is_service = obj.object_types.contains(&ObjectType::Service);
-
-            print_identity_section(obj);
-
-            // v5.5.0: Services get SERVICE section, not INSTALLATION
-            if is_service {
-                print_service_section(obj, &service_index);
-            } else {
-                print_installation_section(obj);
-            }
-
-            print_relationships_section(obj);
-            print_usage_section(obj);
-            print_errors_section(obj, &error_index);
-            print_security_section(obj, &intrusion_index);
-        }
-        None => {
-            // Object not found - show what we know from metadata
-            print_unknown_object_section(name, &error_index);
-        }
+    // Try to find as package first
+    if let Some(pkg) = get_package_info(name) {
+        print_package_detail(&pkg);
+    } else if let Some(cmd) = get_command_info(name) {
+        // It's a command on PATH
+        print_command_detail(&cmd);
+    } else if let Some(svc) = get_service_info(name) {
+        // It's a systemd service
+        print_service_detail(&svc);
+    } else {
+        // Not found
+        print_not_found(name);
     }
 
     println!("{}", THIN_SEP);
@@ -71,418 +45,160 @@ pub async fn run(name: &str) -> Result<()> {
     Ok(())
 }
 
-fn find_object<'a>(store: &'a KnowledgeStore, name: &str) -> Option<&'a KnowledgeObject> {
-    // Exact match first
-    if let Some(obj) = store.objects.get(name) {
-        return Some(obj);
-    }
-
-    // Case-insensitive match
-    let lower = name.to_lowercase();
-    for (key, obj) in &store.objects {
-        if key.to_lowercase() == lower {
-            return Some(obj);
-        }
-    }
-
-    // Package name match
-    for obj in store.objects.values() {
-        if let Some(pkg) = &obj.package_name {
-            if pkg.to_lowercase() == lower {
-                return Some(obj);
-            }
-        }
-    }
-
-    // Service unit match (with or without .service suffix)
-    let service_name = if lower.ends_with(".service") {
-        lower.clone()
-    } else {
-        format!("{}.service", lower)
-    };
-
-    for obj in store.objects.values() {
-        if let Some(unit) = &obj.service_unit {
-            let unit_lower = unit.to_lowercase();
-            if unit_lower == lower || unit_lower == service_name ||
-               unit_lower.starts_with(&format!("{}.", lower)) {
-                return Some(obj);
-            }
-        }
-    }
-
-    None
-}
-
-fn print_identity_section(obj: &KnowledgeObject) {
+fn print_package_detail(pkg: &Package) {
     println!("{}", "[IDENTITY]".cyan());
-    println!("  Name:        {}", obj.name.bold());
-
-    // Description from metadata or generated
-    let desc = get_description(&obj.name)
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| generate_description(obj));
-    println!("  Description: {}", desc);
-
-    println!("  Category:    {}", obj.category.as_str());
-
-    // Object types (show what types this object has)
-    let types: Vec<_> = obj.object_types.iter().map(|t| t.as_str()).collect();
-    if !types.is_empty() {
-        println!("  Types:       {}", types.join(", "));
-    }
-
-    // Ecosystem
-    if let Some(ecosystem) = get_ecosystem(&obj.name) {
-        println!("  Ecosystem:   {}", ecosystem.cyan());
+    println!("  Name:        {}", pkg.name.bold());
+    if !pkg.description.is_empty() {
+        println!("  Description: {}", pkg.description);
+        println!("               {}", "(source: pacman -Qi)".dimmed());
     }
 
     println!();
-}
+    println!("{}", "[PACKAGE]".cyan());
+    println!("  {}", "(source: pacman -Qi)".dimmed());
+    println!("  Version:     {}", pkg.version);
 
-/// v5.5.0: Installation section for packages/commands (NOT services)
-fn print_installation_section(obj: &KnowledgeObject) {
-    println!("{}", "[INSTALLATION]".cyan());
-
-    // Installed status
-    let installed_str = if obj.installed {
-        "yes".green().to_string()
-    } else {
-        "no".red().to_string()
+    let source_str = match pkg.source {
+        anna_common::grounded::packages::PackageSource::Official => "official",
+        anna_common::grounded::packages::PackageSource::Aur => "AUR",
+        anna_common::grounded::packages::PackageSource::Unknown => "unknown",
     };
-    println!("  Installed:  {}", installed_str);
+    println!("  Source:      {}", source_str);
 
-    // Package info (only if available)
-    if let Some(pkg) = &obj.package_name {
-        if let Some(ver) = &obj.package_version {
-            println!("  Package:    {} ({})", pkg, ver);
-        } else {
-            println!("  Package:    {}", pkg);
+    let reason_str = match pkg.install_reason {
+        anna_common::grounded::packages::InstallReason::Explicit => "explicit".green().to_string(),
+        anna_common::grounded::packages::InstallReason::Dependency => "dependency".to_string(),
+        anna_common::grounded::packages::InstallReason::Unknown => "unknown".to_string(),
+    };
+    println!("  Installed:   {}", reason_str);
+
+    if pkg.installed_size > 0 {
+        println!("  Size:        {}", format_size(pkg.installed_size));
+    }
+
+    if !pkg.install_date.is_empty() {
+        println!("  Date:        {}", pkg.install_date);
+    }
+
+    // Show config files from package
+    if !pkg.config_files.is_empty() {
+        println!();
+        println!("{}", "[CONFIG FILES]".cyan());
+        println!("  {}", "(source: pacman -Ql | grep /etc/)".dimmed());
+        for path in pkg.config_files.iter().take(5) {
+            println!("  {}", path);
+        }
+        if pkg.config_files.len() > 5 {
+            println!("  ({} more)", pkg.config_files.len() - 5);
         }
     }
 
-    // Binary path (simplified - just show first one)
-    if !obj.paths.is_empty() {
-        println!("  Binary:     {}", obj.paths[0]);
-        if obj.paths.len() > 1 {
-            println!("              ({} more paths)", obj.paths.len() - 1);
+    // Check if it provides a command
+    if command_exists(&pkg.name) {
+        if let Some(cmd) = get_command_info(&pkg.name) {
+            println!();
+            println!("{}", "[COMMAND]".cyan());
+            println!("  {}", "(source: which)".dimmed());
+            println!("  Path:        {}", cmd.path);
+            if !cmd.description.is_empty() {
+                println!("  Man:         {}", cmd.description);
+            }
         }
-    } else if let Some(path) = &obj.binary_path {
-        println!("  Binary:     {}", path);
-    }
-
-    // Config paths (only if available)
-    if !obj.config_paths.is_empty() {
-        if obj.config_paths.len() == 1 {
-            println!("  Config:     {}", obj.config_paths[0]);
-        } else {
-            println!("  Config:     {} paths", obj.config_paths.len());
-        }
-    }
-
-    // Timestamps
-    if let Some(at) = obj.installed_at {
-        println!("  Installed:  {}", format_time_ago(at));
-    }
-
-    if let Some(at) = obj.removed_at {
-        println!("  Removed:    {}", format_time_ago(at));
     }
 
     println!();
 }
 
-/// v5.5.0: Service section for systemd services
-fn print_service_section(obj: &KnowledgeObject, service_index: &ServiceIndex) {
+fn print_command_detail(cmd: &SystemCommand) {
+    println!("{}", "[IDENTITY]".cyan());
+    println!("  Name:        {}", cmd.name.bold());
+    if !cmd.description.is_empty() {
+        println!("  Description: {}", cmd.description);
+    }
+
+    println!();
+    println!("{}", "[COMMAND]".cyan());
+    println!("  {}", "(source: which, man -f)".dimmed());
+    println!("  Path:        {}", cmd.path);
+
+    // Show owning package if known
+    if let Some(pkg_name) = &cmd.owning_package {
+        println!("  Package:     {}", pkg_name);
+
+        // Get more package details
+        if let Some(pkg) = get_package_info(pkg_name) {
+            println!("  Version:     {}", pkg.version);
+        }
+    }
+
+    println!();
+}
+
+fn print_service_detail(svc: &Service) {
+    println!("{}", "[IDENTITY]".cyan());
+    println!("  Name:        {}", svc.name.bold());
+    if !svc.description.is_empty() {
+        println!("  Description: {}", svc.description);
+    }
+
+    println!();
     println!("{}", "[SERVICE]".cyan());
+    println!("  {}", "(source: systemctl)".dimmed());
 
-    if let Some(unit) = &obj.service_unit {
-        println!("  Unit:       {}", unit);
-
-        // Get state from service index
-        if let Some(state) = service_index.services.get(unit) {
-            // Active state
-            let active_str = match state.active_state {
-                anna_common::ActiveState::Active => "running".green().to_string(),
-                anna_common::ActiveState::Failed => "failed".red().to_string(),
-                anna_common::ActiveState::Inactive => "inactive".dimmed().to_string(),
-                _ => state.active_state.as_str().to_string(),
-            };
-            println!("  State:      {}", active_str);
-
-            // Enabled state
-            let enabled_str = match state.enabled_state {
-                anna_common::EnabledState::Enabled => "enabled".green().to_string(),
-                anna_common::EnabledState::Disabled => "disabled".dimmed().to_string(),
-                anna_common::EnabledState::Masked => "masked".yellow().to_string(),
-                anna_common::EnabledState::Static => "static".to_string(),
-                _ => state.enabled_state.as_str().to_string(),
-            };
-            println!("  Enabled:    {}", enabled_str);
-        } else {
-            // Fallback to stored values
-            if let Some(active) = obj.service_active {
-                let state_str = if active {
-                    "running".green().to_string()
-                } else {
-                    "inactive".dimmed().to_string()
-                };
-                println!("  State:      {}", state_str);
-            }
-
-            if let Some(enabled) = obj.service_enabled {
-                let enabled_str = if enabled {
-                    "enabled".green().to_string()
-                } else {
-                    "disabled".dimmed().to_string()
-                };
-                println!("  Enabled:    {}", enabled_str);
-            }
-        }
-    } else {
-        // Service without unit info (shouldn't happen but handle gracefully)
-        println!("  Status:     service (unit not indexed)");
-    }
-
-    // Also show package info if available
-    if let Some(pkg) = &obj.package_name {
-        if let Some(ver) = &obj.package_version {
-            println!("  Package:    {} ({})", pkg, ver);
-        } else {
-            println!("  Package:    {}", pkg);
-        }
-    }
-
-    println!();
-}
-
-fn print_relationships_section(obj: &KnowledgeObject) {
-    let relationship = get_relationship(&obj.name);
-    let ecosystem = get_ecosystem(&obj.name);
-
-    // Skip if no relationships
-    if relationship.is_none() && ecosystem.is_none() {
-        return;
-    }
-
-    println!("{}", "[RELATIONSHIPS]".cyan());
-
-    if let Some(rel) = relationship {
-        println!(
-            "  {} {} {}",
-            obj.name,
-            rel.relationship_type.as_str(),
-            rel.related_to.cyan()
-        );
-    }
-
-    if let Some(eco) = ecosystem {
-        println!("  Part of {} ecosystem", eco);
-    }
-
-    println!();
-}
-
-fn print_usage_section(obj: &KnowledgeObject) {
-    // Skip entirely if no usage data observed
-    let has_usage = obj.usage_count > 0
-        || obj.total_cpu_time_ms > 0
-        || obj.total_mem_bytes_peak > 0
-        || obj.first_seen_at > 0;
-
-    if !has_usage {
-        // For installed commands with no observed usage, show a simple message
-        // But NOT for services - they don't need this message
-        if obj.installed && !obj.object_types.contains(&ObjectType::Service) {
-            println!("{}", "[USAGE]".cyan());
-            println!("  {}", "No runtime usage observed yet".dimmed());
-            println!();
-        }
-        return;
-    }
-
-    println!("{}", "[USAGE]".cyan());
-    println!("  {}", "(since daemon start)".dimmed());
-
-    // Handle long-running processes vs regular commands
-    let is_daemon = obj.object_types.contains(&ObjectType::Service)
-        || (obj.total_cpu_time_ms > 0 && obj.usage_count == 0);
-
-    if is_daemon {
-        println!("  Type:       daemon (long-running process)");
-    } else if obj.usage_count > 0 {
-        println!("  Runs:       {} observed", obj.usage_count);
-    }
-
-    // First/last seen
-    if obj.first_seen_at > 0 {
-        println!("  First seen: {}", format_time_ago(obj.first_seen_at));
-    }
-
-    if obj.last_seen_at > 0 && obj.last_seen_at != obj.first_seen_at {
-        println!("  Last seen:  {}", format_time_ago(obj.last_seen_at));
-    }
-
-    // Resource usage (only if non-zero)
-    if obj.total_cpu_time_ms > 0 {
-        println!("  CPU time:   {} (total)", format_duration_ms(obj.total_cpu_time_ms));
-    }
-
-    if obj.total_mem_bytes_peak > 0 {
-        println!("  Peak memory: {}", format_bytes(obj.total_mem_bytes_peak));
-    }
-
-    println!();
-}
-
-fn print_errors_section(obj: &KnowledgeObject, error_index: &ErrorIndex) {
-    let obj_errors = error_index
-        .get_object_errors(&obj.name)
-        .or_else(|| error_index.get_object_errors(&obj.name.to_lowercase()));
-
-    let has_errors = obj_errors
-        .as_ref()
-        .map(|e| !e.logs.is_empty())
-        .unwrap_or(false);
-
-    // Skip section entirely if no errors
-    if !has_errors {
-        return;
-    }
-
-    println!("{}", "[ERRORS]".cyan());
-    println!("  {}", "(last 24 hours)".dimmed());
-
-    if let Some(errors) = obj_errors {
-        let errors_24h = errors.errors_24h();
-        let warnings_24h = errors.warnings_24h();
-
-        if !errors_24h.is_empty() {
-            println!("  Errors:   {}", errors_24h.len());
-        }
-        if !warnings_24h.is_empty() {
-            println!("  Warnings: {}", warnings_24h.len());
-        }
-
-        // Show recent error messages
-        if !errors_24h.is_empty() {
-            println!("  Recent:");
-            for entry in errors_24h.iter().rev().take(3) {
-                let ts = format_timestamp(entry.timestamp);
-                let msg = truncate_str(&entry.message, 45);
-                println!("    [{}] {}", ts, msg);
-            }
-            if errors_24h.len() > 3 {
-                println!("    ({} more)", errors_24h.len() - 3);
-            }
-        }
-    }
-
-    println!();
-}
-
-fn print_security_section(obj: &KnowledgeObject, intrusion_index: &IntrusionIndex) {
-    let obj_intrusions = intrusion_index.get_object_intrusions(&obj.name);
-
-    let has_intrusions = obj_intrusions
-        .as_ref()
-        .map(|i| i.total_events() > 0)
-        .unwrap_or(false);
-
-    // Skip section entirely if no security events
-    if !has_intrusions {
-        return;
-    }
-
-    println!("{}", "[SECURITY]".red());
-    println!("  {}", "(authentication failures detected)".dimmed());
-
-    if let Some(intrusions) = obj_intrusions {
-        println!("  Failures: {}", intrusions.total_events());
-
-        // Recent events
-        let recent: Vec<_> = intrusions.events.iter().rev().take(3).collect();
-        if !recent.is_empty() {
-            println!("  Recent:");
-            for event in recent {
-                let ts = format_timestamp(event.timestamp);
-                let ip = event.source_ip.as_deref().unwrap_or("-");
-                println!("    [{}] {} from {}", ts, event.intrusion_type.as_str(), ip);
-            }
-        }
-    }
-
-    println!();
-}
-
-fn print_unknown_object_section(name: &str, error_index: &ErrorIndex) {
-    // Check if we have a description from metadata
-    if let Some(desc) = get_description(name) {
-        println!("{}", "[IDENTITY]".cyan());
-        println!("  Name:        {}", name.bold());
-        println!("  Description: {}", desc);
-
-        if let Some(ecosystem) = get_ecosystem(name) {
-            println!("  Ecosystem:   {}", ecosystem.cyan());
-        }
-
-        if let Some(rel) = get_relationship(name) {
-            println!("  Related to:  {} ({})", rel.related_to, rel.relationship_type.as_str());
-        }
-
-        println!();
-        println!("{}", "[STATUS]".cyan());
-        println!("  Not found on this system");
-        println!();
-    }
-
-    // Check if we have errors for this object anyway
-    let obj_errors = error_index
-        .get_object_errors(name)
-        .or_else(|| error_index.get_object_errors(&name.to_lowercase()));
-
-    if let Some(errors) = obj_errors {
-        if !errors.logs.is_empty() {
-            println!("{}", "[ERRORS]".cyan());
-            println!("  {}", "(logs found but object not indexed)".dimmed());
-            for entry in errors.errors_only().iter().rev().take(3) {
-                let ts = format_timestamp(entry.timestamp);
-                println!("    [{}] {}", ts, truncate_str(&entry.message, 50));
-            }
-            println!();
-        }
-    }
-
-    // If we have no info at all
-    if get_description(name).is_none() {
-        println!("  Anna has no knowledge about '{}'.", name);
-        println!();
-        println!("  This could mean:");
-        println!("    - Not installed on this system");
-        println!("    - Not yet discovered by the daemon");
-        println!("    - Unknown object type");
-        println!();
-    }
-}
-
-fn generate_description(obj: &KnowledgeObject) -> String {
-    let category_desc = match obj.category {
-        KnowledgeCategory::Editor => "Text editor",
-        KnowledgeCategory::Terminal => "Terminal emulator",
-        KnowledgeCategory::Shell => "Command shell",
-        KnowledgeCategory::Compositor => "Wayland compositor",
-        KnowledgeCategory::Wm => "Window manager",
-        KnowledgeCategory::Browser => "Web browser",
-        KnowledgeCategory::Service => "System service",
-        KnowledgeCategory::Tool => "System tool",
-        KnowledgeCategory::Unknown => "Application",
+    // State
+    let state_str = match svc.state {
+        ServiceState::Active => "running".green().to_string(),
+        ServiceState::Inactive => "inactive".dimmed().to_string(),
+        ServiceState::Failed => "failed".red().to_string(),
+        ServiceState::Unknown => "unknown".to_string(),
     };
+    println!("  State:       {}", state_str);
 
-    if obj.object_types.contains(&ObjectType::Service) {
-        format!("{} (systemd service)", category_desc)
-    } else if obj.object_types.contains(&ObjectType::Command) {
-        format!("{} (command-line)", category_desc)
+    // Enabled
+    let enabled_str = match svc.enabled {
+        EnabledState::Enabled => "enabled".green().to_string(),
+        EnabledState::Disabled => "disabled".dimmed().to_string(),
+        EnabledState::Static => "static".to_string(),
+        EnabledState::Masked => "masked".yellow().to_string(),
+        EnabledState::Unknown => "unknown".to_string(),
+    };
+    println!("  Enabled:     {}", enabled_str);
+
+    // Check if there's a package for this service
+    let base_name = svc.name.trim_end_matches(".service");
+    if let Some(pkg) = get_package_info(base_name) {
+        println!();
+        println!("{}", "[PACKAGE]".cyan());
+        println!("  {}", "(source: pacman -Qi)".dimmed());
+        println!("  Name:        {}", pkg.name);
+        println!("  Version:     {}", pkg.version);
+    }
+
+    println!();
+}
+
+fn print_not_found(name: &str) {
+    println!("{}", "[STATUS]".cyan());
+    println!("  Not found on this system");
+    println!();
+
+    // Give hints about what was checked
+    println!("  {}", "Checked:".dimmed());
+    println!("    - pacman -Qi {} (not installed)", name);
+    println!("    - which {} (not in PATH)", name);
+    println!("    - systemctl cat {}.service (not a service)", name);
+
+    println!();
+}
+
+fn format_size(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.1} MiB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.1} KiB", bytes as f64 / 1024.0)
     } else {
-        category_desc.to_string()
+        format!("{} B", bytes)
     }
 }

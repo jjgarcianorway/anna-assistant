@@ -1,21 +1,25 @@
-//! Anna Common v5.5.2 - Telemetry Core
+//! Anna Common v6.0.0 - Grounded System Intelligence
 //!
-//! Pure system intelligence: inventory, telemetry, correlation.
-//! No LLM, no Q&A, no conversational features.
-//!
-//! v5.5.2: Added atomic file writes for data integrity
+//! v6.0.0: Complete epistemological rebuild
+//! - Every number has a verifiable source
+//! - No invented descriptions
+//! - No hallucinated metrics
 //!
 //! Modules:
-//! - atomic_write: Atomic file write operations (v5.5.2)
+//! - grounded: NEW - Real data from real system commands
+//! - atomic_write: Atomic file write operations
 //! - config: System configuration
 //! - display_format: Output formatting utilities
-//! - error_index: Log scanning and error aggregation
+//! - error_index: Log scanning and error aggregation (legacy)
 //! - intrusion: Security event detection
-//! - knowledge_core: Object inventory and classification
-//! - knowledge_collector: System discovery (packages, binaries, services)
+//! - knowledge_core: Object inventory and classification (legacy)
+//! - knowledge_collector: System discovery (legacy)
 //! - object_metadata: Static descriptions and relationships
 //! - service_state: Systemd service tracking
 //! - telemetry: Process monitoring and usage tracking
+
+// v6.0.0: Grounded knowledge system - every fact has a source
+pub mod grounded;
 
 // Core modules
 pub mod atomic_write;
