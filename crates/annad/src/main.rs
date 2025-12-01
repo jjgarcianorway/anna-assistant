@@ -1,10 +1,11 @@
-//! Anna Daemon (annad) v7.7.0 - Telemetry Core
+//! Anna Daemon (annad) v8.0.0 - Telemetry Core
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
 //! - Tracks ALL packages with versions (real-time via pacman.log)
 //! - Tracks ALL systemd services
 //! - Monitors process activity (CPU/memory) with SQLite storage
+//! - Records execution events (CPU/memory/duration) to per-object JSONL
 //! - Indexes errors from journalctl
 //! - Detects intrusion patterns
 //!
@@ -20,9 +21,15 @@
 //! - Auto-install Arch docs for rich config discovery (PHASE 24)
 //! - Per-window telemetry aggregation (PHASE 23)
 //!
+//! v8.0.0: Execution telemetry foundation
+//! - Per-object, per-day JSONL execution logs
+//! - Records CPU/memory/duration at process exit
+//! - Window aggregation (1h, 24h, 7d, 30d) for [USAGE] display
+//!
 //! No LLM, no Q&A - just system telemetry.
 
 mod health;
+mod process_tracker;
 mod routes;
 mod server;
 
@@ -132,6 +139,36 @@ async fn main() -> Result<()> {
     tokio::task::spawn_blocking(|| {
         let result = health::run_health_check();
         health::log_health_check_results(&result);
+    });
+
+    // v8.0.0: Build known executables set for process tracking
+    let known_executables = Arc::new(RwLock::new(process_tracker::build_known_executables()));
+    info!("[+]  Known executables: {} commands on PATH", known_executables.read().await.len());
+
+    // v8.0.0: Spawn execution tracking task
+    // Records process exits to per-object, per-day JSONL files
+    let known_exec_clone = Arc::clone(&known_executables);
+    let exec_telemetry_enabled = config.telemetry.enabled;
+    tokio::spawn(async move {
+        if !exec_telemetry_enabled {
+            info!("[>]  Execution telemetry task skipped (disabled in config)");
+            loop {
+                tokio::time::sleep(Duration::from_secs(3600)).await;
+            }
+        }
+
+        let mut tracker = process_tracker::ProcessTracker::new(known_exec_clone);
+        let mut system = System::new_all();
+        // Check every 2 seconds for process exits
+        let mut interval = tokio::time::interval(Duration::from_secs(2));
+
+        info!("[>]  Execution tracking: recording process exits to JSONL");
+
+        loop {
+            interval.tick().await;
+            system.refresh_processes(ProcessesToUpdate::All, true);
+            tracker.update(&system).await;
+        }
     });
 
     // Spawn process monitoring task

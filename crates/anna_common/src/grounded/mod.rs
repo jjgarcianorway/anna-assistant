@@ -1,9 +1,11 @@
-//! Grounded Knowledge System v7.2.0
+//! Grounded Knowledge System v7.5.0
 //!
 //! Every piece of data has a verifiable source.
 //! No invented numbers. No hallucinated descriptions.
 //! No guessing config paths - only from pacman/man/Arch Wiki.
 //! Rule-based categories from descriptions and metadata.
+//! Driver and firmware status from /sys and kernel logs.
+//! Hardware health from sensors, SMART, kernel logs.
 
 pub mod packages;
 pub mod commands;
@@ -13,6 +15,8 @@ pub mod config;
 pub mod category;
 pub mod arch_wiki;
 pub mod categoriser;
+pub mod drivers;
+pub mod health;
 
 pub use packages::*;
 pub use commands::*;
@@ -22,3 +26,5 @@ pub use config::*;
 pub use category::*;
 pub use arch_wiki::*;
 pub use categoriser::*;
+pub use drivers::*;
+pub use health::*;

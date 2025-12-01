@@ -1,16 +1,17 @@
-//! Status Command v7.6.0 - Anna-only Health
+//! Status Command v7.7.0 - Anna-only Health with Telemetry Highlights
 //!
 //! Sections:
-//! - [VERSION]         Single unified Anna version
-//! - [DAEMON]          State, uptime, PID, restarts
-//! - [HEALTH]          Overall health + telemetry hotspots (v7.5.0+)
-//! - [INVENTORY]       What Anna has indexed + sync status
-//! - [TELEMETRY]       Real telemetry stats from SQLite (v7.1.0)
-//! - [UPDATES]         Auto-update schedule and last result
-//! - [PATHS]           Config, data, logs paths
-//! - [INTERNAL ERRORS] Anna's own pipeline errors
-//!
-//! v7.6.0: Respects telemetry.enabled, shows config values
+//! - [VERSION]             Single unified Anna version
+//! - [DAEMON]              State, uptime, PID, restarts
+//! - [HEALTH]              Overall health + telemetry hotspots
+//! - [INVENTORY]           What Anna has indexed + sync status
+//! - [TELEMETRY]           Real telemetry stats from SQLite
+//! - [TELEMETRY HIGHLIGHTS] Top CPU/memory consumers (v7.7.0)
+//! - [UPDATES]             Auto-update schedule and last result
+//! - [PATHS]               Config, data, logs paths
+//! - [INTERNAL ERRORS]     Anna's own pipeline errors
+//! - [ALERTS]              Hardware alerts from health checks
+//! - [ANNA NEEDS]          Missing tools and docs (v7.6.0)
 //!
 //! NO journalctl system errors. NO host-wide log counts.
 
@@ -20,7 +21,9 @@ use std::path::Path;
 
 use anna_common::config::{AnnaConfig, UpdateState, SYSTEM_CONFIG_DIR, DATA_DIR};
 use anna_common::format_duration_secs;
-use anna_common::{TelemetryDb, DataStatus, WINDOW_24H};
+use anna_common::{TelemetryDb, DataStatus, WINDOW_24H, format_bytes_human};
+use anna_common::grounded::health::{collect_hardware_alerts, HealthStatus};
+use anna_common::{AnnaNeeds, NeedStatus};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -42,14 +45,17 @@ pub async fn run() -> Result<()> {
     let daemon_stats = get_daemon_stats().await;
     print_daemon_section(&daemon_stats);
 
-    // [HEALTH] - v7.3.0
+    // [HEALTH]
     print_health_section(&daemon_stats);
 
     // [INVENTORY]
     print_inventory_section(&daemon_stats);
 
-    // [TELEMETRY] - v7.1.0
+    // [TELEMETRY]
     print_telemetry_section();
+
+    // [TELEMETRY HIGHLIGHTS] - v7.7.0
+    print_telemetry_highlights_section();
 
     // [UPDATES]
     print_updates_section();
@@ -59,6 +65,12 @@ pub async fn run() -> Result<()> {
 
     // [INTERNAL ERRORS]
     print_internal_errors_section(&daemon_stats);
+
+    // [ALERTS]
+    print_alerts_section();
+
+    // [ANNA NEEDS] - v7.6.0
+    print_anna_needs_section();
 
     println!("{}", THIN_SEP);
     println!();
@@ -388,6 +400,97 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Print [TELEMETRY HIGHLIGHTS] section - v7.7.0
+/// Shows top 3 CPU and memory consumers with trends
+fn print_telemetry_highlights_section() {
+    println!("{}", "[TELEMETRY HIGHLIGHTS]".cyan());
+
+    // Check config for telemetry settings
+    let config = AnnaConfig::load();
+
+    if !config.telemetry.enabled {
+        println!("  {}", "(telemetry disabled)".dimmed());
+        println!();
+        return;
+    }
+
+    // Try to open telemetry database (read-only for CLI)
+    let db = match TelemetryDb::open_readonly() {
+        Some(db) => db,
+        None => {
+            println!("  {}", "(telemetry DB not available)".dimmed());
+            println!();
+            return;
+        }
+    };
+
+    // Check data status - need at least 2h of samples for meaningful data
+    let data_status = db.get_data_status();
+    let coverage_hours = match &data_status {
+        DataStatus::Ok { hours } | DataStatus::PartialWindow { hours } => *hours,
+        _ => 0.0,
+    };
+
+    if coverage_hours < 2.0 {
+        println!("  Telemetry database still warming up (less than 2h of samples).");
+        println!();
+        return;
+    }
+
+    // Show window header
+    println!("  Window: last 24h");
+    println!();
+
+    // Get top CPU consumers (24h window)
+    let top_cpu = db.top_cpu_with_runtime(WINDOW_24H, 3).unwrap_or_default();
+    let top_memory = db.top_memory_with_peak(WINDOW_24H, 3).unwrap_or_default();
+
+    if top_cpu.is_empty() && top_memory.is_empty() {
+        println!("  {}", "(no process data yet)".dimmed());
+        println!();
+        return;
+    }
+
+    // Top CPU identities (with runtime)
+    if !top_cpu.is_empty() {
+        println!("  Top CPU identities:");
+        for (i, entry) in top_cpu.iter().enumerate() {
+            let runtime = format_runtime_short(entry.runtime_secs);
+            println!("    {}. {:<16} {:>5.1} percent avg   {} runtime",
+                i + 1,
+                entry.name.cyan(),
+                entry.avg_cpu_percent,
+                runtime);
+        }
+        println!();
+    }
+
+    // Top memory identities (peak RSS)
+    if !top_memory.is_empty() {
+        println!("  Top memory identities (peak RSS):");
+        for (i, entry) in top_memory.iter().enumerate() {
+            println!("    {}. {:<16} {} peak",
+                i + 1,
+                entry.name.cyan(),
+                format_bytes_human(entry.max_rss));
+        }
+        println!();
+    }
+
+    // Notes section
+    println!("  Notes:");
+    println!("    {}", "- Only identities with enough data in the last 24h are listed.".dimmed());
+    println!("    {}", "- Values are derived from samples in /var/lib/anna, never estimated.".dimmed());
+    println!();
+}
+
+/// Format runtime for display (e.g., "0h 47m", "4h 15m")
+fn format_runtime_short(secs: f64) -> String {
+    let hours = (secs / 3600.0).floor() as u64;
+    let mins = ((secs % 3600.0) / 60.0).round() as u64;
+    format!("{}h {:02}m", hours, mins)
+}
+
 fn print_updates_section() {
     println!("{}", "[UPDATES]".cyan());
 
@@ -460,6 +563,112 @@ fn print_internal_errors_section(stats: &Option<DaemonStats>) {
         }
         None => {
             println!("  {}", "(daemon not running)".dimmed());
+        }
+    }
+
+    println!();
+}
+
+fn print_alerts_section() {
+    println!("{}", "[ALERTS]".cyan());
+
+    let alerts = collect_hardware_alerts();
+
+    let critical_count = alerts.iter().filter(|a| a.severity == HealthStatus::Critical).count();
+    let warning_count = alerts.iter().filter(|a| a.severity == HealthStatus::Warning).count();
+
+    println!("  Critical:   {}", if critical_count > 0 {
+        critical_count.to_string().red().to_string()
+    } else {
+        "0".green().to_string()
+    });
+    println!("  Warnings:   {}", if warning_count > 0 {
+        warning_count.to_string().yellow().to_string()
+    } else {
+        "0".green().to_string()
+    });
+
+    if !alerts.is_empty() {
+        println!();
+        for alert in &alerts {
+            let severity_str = match alert.severity {
+                HealthStatus::Critical => "CRITICAL".red().to_string(),
+                HealthStatus::Warning => "WARNING".yellow().to_string(),
+                _ => "INFO".dimmed().to_string(),
+            };
+
+            println!("  - {} {}:{}    {}",
+                severity_str,
+                alert.scope.as_str(),
+                alert.identifier,
+                alert.reason
+            );
+
+            if let Some(ref cmd) = alert.see_command {
+                println!("    See:      {}", cmd.dimmed());
+            }
+        }
+    }
+
+    println!();
+}
+
+/// Print [ANNA NEEDS] section - v7.6.0
+fn print_anna_needs_section() {
+    println!("{}", "[ANNA NEEDS]".cyan());
+
+    let needs = AnnaNeeds::check_all();
+    let summary = needs.summary();
+
+    // Show counts
+    if summary.total_unsatisfied() == 0 {
+        println!("  All tools installed. Anna is fully functional.");
+        println!();
+        return;
+    }
+
+    // Open (missing)
+    let missing: Vec<_> = needs.by_status(NeedStatus::Missing);
+    if !missing.is_empty() {
+        println!("  Open:");
+        for need in &missing {
+            let pkg_hint = need.package.as_ref()
+                .map(|p| format!(" (install: {})", p))
+                .unwrap_or_default();
+            println!("    - {}:{:<12} {} {}",
+                need.need_type.as_str(),
+                need.id.trim_start_matches(&format!("{}:", need.need_type.as_str())),
+                need.reason,
+                format!("(scope: {}){}", need.scope.as_str(), pkg_hint).dimmed()
+            );
+        }
+    }
+
+    // Blocked
+    let blocked: Vec<_> = needs.by_status(NeedStatus::Blocked);
+    if !blocked.is_empty() {
+        println!();
+        println!("  Blocked:");
+        for need in &blocked {
+            println!("    - {}:{:<12} auto-install disabled in /etc/anna/config.toml",
+                need.need_type.as_str(),
+                need.id.trim_start_matches(&format!("{}:", need.need_type.as_str()))
+            );
+        }
+    }
+
+    // Failed
+    let failed: Vec<_> = needs.by_status(NeedStatus::Failed);
+    if !failed.is_empty() {
+        println!();
+        println!("  Failed:");
+        for need in &failed {
+            let error = need.error.as_deref().unwrap_or("unknown error");
+            println!("    - {}:{:<12} {} (see Anna logs)",
+                need.need_type.as_str(),
+                need.id.trim_start_matches(&format!("{}:", need.need_type.as_str())),
+                error
+            );
         }
     }
 

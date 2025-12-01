@@ -1246,6 +1246,190 @@ impl TelemetryDb {
         }
         Ok(results)
     }
+
+    // ========================================================================
+    // PHASE 23: Trend calculation methods (v7.7.0)
+    // ========================================================================
+
+    /// Get stats for a specific time range (not relative to now)
+    fn get_window_stats_range(&self, name: &str, since: u64, until: u64) -> Result<WindowStats> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                COUNT(DISTINCT pid) as exec_count,
+                SUM(cpu_percent) as cpu_sum,
+                MAX(mem_bytes) as max_rss,
+                MAX(timestamp) as last_seen,
+                COUNT(*) as sample_count
+            FROM process_samples
+            WHERE name = ?1 AND timestamp >= ?2 AND timestamp < ?3
+            "#
+        )?;
+
+        stmt.query_row(params![name, since as i64, until as i64], |row| {
+            let exec_count: i64 = row.get(0).unwrap_or(0);
+            let cpu_sum: f64 = row.get(1).unwrap_or(0.0);
+            let max_rss: i64 = row.get(2).unwrap_or(0);
+            let last_seen: i64 = row.get(3).unwrap_or(0);
+            let sample_count: i64 = row.get(4).unwrap_or(0);
+
+            let cpu_secs = cpu_sum * Self::SAMPLE_INTERVAL_SECS / 100.0;
+
+            Ok(WindowStats {
+                execs: exec_count as u64,
+                cpu_secs,
+                max_rss: max_rss as u64,
+                last_seen: last_seen as u64,
+                has_data: sample_count > 0,
+            })
+        }).map_err(|e| e.into())
+    }
+
+    /// Calculate trend for an identity (comparing current 24h vs previous 24h)
+    pub fn get_trend(&self, name: &str) -> Result<TrendData> {
+        let now = Self::now();
+
+        // Current window: last 24h
+        let current_start = now.saturating_sub(WINDOW_24H);
+        let current_end = now;
+
+        // Previous window: 24h-48h ago
+        let previous_start = now.saturating_sub(2 * WINDOW_24H);
+        let previous_end = now.saturating_sub(WINDOW_24H);
+
+        let current = self.get_window_stats_range(name, current_start, current_end)?;
+        let previous = self.get_window_stats_range(name, previous_start, previous_end)?;
+
+        // Need data in both windows to calculate trend
+        if !current.has_data || !previous.has_data {
+            return Ok(TrendData {
+                cpu_trend: None,
+                memory_trend: None,
+                has_enough_data: false,
+            });
+        }
+
+        let cpu_trend = Trend::calculate(current.cpu_secs, previous.cpu_secs);
+        let memory_trend = Trend::calculate(current.max_rss as f64, previous.max_rss as f64);
+
+        Ok(TrendData {
+            cpu_trend,
+            memory_trend,
+            has_enough_data: true,
+        })
+    }
+
+    /// Get window status for display
+    pub fn get_window_status(&self, name: &str) -> WindowStatusInfo {
+        let stats = self.get_stats();
+
+        let coverage_hours = match &stats {
+            Ok(s) => s.coverage_hours,
+            Err(_) => 0.0,
+        };
+
+        // Check if we have data for each window
+        let counts = self.get_sample_counts(name).unwrap_or_default();
+
+        WindowStatusInfo {
+            w1h_ready: counts.last_1h > 0,
+            w24h_ready: counts.last_24h > 0 && coverage_hours >= 1.0,
+            w7d_ready: counts.last_7d > 0 && coverage_hours >= 24.0,
+            w30d_ready: counts.last_30d > 0 && coverage_hours >= 168.0, // 7 days
+            first_sample_ts: match &stats {
+                Ok(s) => s.first_sample_at,
+                Err(_) => 0,
+            },
+            coverage_hours,
+        }
+    }
+
+    /// Get top CPU consumers for TELEMETRY HIGHLIGHTS with runtime
+    pub fn top_cpu_with_runtime(&self, window_secs: u64, limit: usize) -> Result<Vec<TopHighlightEntry>> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                AVG(cpu_percent) as avg_cpu,
+                SUM(cpu_percent) * ?3 / 100.0 as cpu_secs,
+                COUNT(DISTINCT pid) as exec_count,
+                MAX(mem_bytes) as max_rss,
+                COUNT(*) as sample_count
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY cpu_secs DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
+            let sample_count: i64 = row.get(5)?;
+            // Estimate runtime from sample count * interval
+            let runtime_secs = sample_count as f64 * Self::SAMPLE_INTERVAL_SECS;
+
+            Ok(TopHighlightEntry {
+                name: row.get(0)?,
+                avg_cpu_percent: row.get::<_, f64>(1)? as f32,
+                cpu_time_secs: row.get(2)?,
+                runtime_secs,
+                max_rss: row.get::<_, i64>(4)? as u64,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get top memory consumers for TELEMETRY HIGHLIGHTS
+    pub fn top_memory_with_peak(&self, window_secs: u64, limit: usize) -> Result<Vec<TopHighlightEntry>> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                AVG(cpu_percent) as avg_cpu,
+                SUM(cpu_percent) * ?3 / 100.0 as cpu_secs,
+                COUNT(DISTINCT pid) as exec_count,
+                MAX(mem_bytes) as max_rss,
+                COUNT(*) as sample_count
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY max_rss DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
+            let sample_count: i64 = row.get(5)?;
+            let runtime_secs = sample_count as f64 * Self::SAMPLE_INTERVAL_SECS;
+
+            Ok(TopHighlightEntry {
+                name: row.get(0)?,
+                avg_cpu_percent: row.get::<_, f64>(1)? as f32,
+                cpu_time_secs: row.get(2)?,
+                runtime_secs,
+                max_rss: row.get::<_, i64>(4)? as u64,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
 }
 
 /// Top entry with compact format for [USAGE HIGHLIGHTS]
@@ -1492,6 +1676,127 @@ pub fn format_cpu_time_compact(secs: f64) -> String {
             format!("{}h {}m", hours, remaining_mins)
         }
     }
+}
+
+// ============================================================================
+// PHASE 23: Trend calculation (v7.7.0)
+// ============================================================================
+
+/// Trend direction for a metric
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Trend {
+    /// Current > previous by more than 20%
+    Rising,
+    /// Current < previous by more than 20%
+    Falling,
+    /// Within 20% of previous
+    Flat,
+}
+
+impl Trend {
+    /// Calculate trend from current vs previous values
+    /// Returns None if either value is zero/missing
+    pub fn calculate(current: f64, previous: f64) -> Option<Trend> {
+        if previous <= 0.0 || current < 0.0 {
+            return None;
+        }
+
+        let ratio = current / previous;
+        if ratio > 1.2 {
+            Some(Trend::Rising)
+        } else if ratio < 0.8 {
+            Some(Trend::Falling)
+        } else {
+            Some(Trend::Flat)
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Trend::Rising => "rising",
+            Trend::Falling => "falling",
+            Trend::Flat => "flat",
+        }
+    }
+}
+
+/// Trend data for an identity (comparing 24h windows)
+#[derive(Debug, Clone, Default)]
+pub struct TrendData {
+    /// CPU trend (current 24h vs previous 24h)
+    pub cpu_trend: Option<Trend>,
+    /// Memory trend (current 24h vs previous 24h)
+    pub memory_trend: Option<Trend>,
+    /// Whether we have enough data for trends
+    pub has_enough_data: bool,
+}
+
+/// Window status information for display
+#[derive(Debug, Clone, Default)]
+pub struct WindowStatusInfo {
+    /// Whether 1h window has data
+    pub w1h_ready: bool,
+    /// Whether 24h window has data (and at least 1h of coverage)
+    pub w24h_ready: bool,
+    /// Whether 7d window has data (and at least 24h of coverage)
+    pub w7d_ready: bool,
+    /// Whether 30d window has data (and at least 7d of coverage)
+    pub w30d_ready: bool,
+    /// First sample timestamp
+    pub first_sample_ts: u64,
+    /// Total coverage hours
+    pub coverage_hours: f64,
+}
+
+impl WindowStatusInfo {
+    /// Format window status for display
+    pub fn format_window(&self, window: &str) -> String {
+        let ready = match window {
+            "1h" => self.w1h_ready,
+            "24h" => self.w24h_ready,
+            "7d" => self.w7d_ready,
+            "30d" => self.w30d_ready,
+            _ => false,
+        };
+
+        if ready {
+            "ready".to_string()
+        } else if self.first_sample_ts == 0 {
+            "no data".to_string()
+        } else {
+            format!("warming up ({:.1}h coverage)", self.coverage_hours)
+        }
+    }
+}
+
+/// Top entry for TELEMETRY HIGHLIGHTS
+#[derive(Debug, Clone)]
+pub struct TopHighlightEntry {
+    /// Process/command name
+    pub name: String,
+    /// Average CPU percent
+    pub avg_cpu_percent: f32,
+    /// Total CPU time in seconds
+    pub cpu_time_secs: f64,
+    /// Estimated runtime in seconds
+    pub runtime_secs: f64,
+    /// Peak RSS bytes
+    pub max_rss: u64,
+}
+
+impl TopHighlightEntry {
+    /// Format runtime as human-readable
+    pub fn format_runtime(&self) -> String {
+        format_runtime_human(self.runtime_secs)
+    }
+}
+
+/// Format runtime as human-readable (e.g., "4h 15m", "0h 47m")
+pub fn format_runtime_human(secs: f64) -> String {
+    let total_mins = (secs / 60.0).round() as u64;
+    let hours = total_mins / 60;
+    let mins = total_mins % 60;
+    format!("{}h {:02}m", hours, mins)
 }
 
 #[cfg(test)]
