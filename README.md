@@ -1,8 +1,8 @@
-# Anna v4.3.1 "Stabilization"
+# Anna v4.3.2 "Full Reset"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v4.3.1 stabilization release: Fixed LLM answers not incrementing total_questions counter, fixed answer cache not persisting between requests, fixed timeout counter not persisting, fixed health check endpoint path, consolidated duplicate baseline functions, daemon now runs as root for proper reset permissions.
+> v4.3.2 full reset fix: Telemetry fallback file (/tmp/anna-telemetry.jsonl) now properly resets by deleting instead of truncating, fixing permission denied errors when file was owned by different user.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 

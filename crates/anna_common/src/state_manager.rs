@@ -503,14 +503,24 @@ impl AnnaStateManager {
 
     /// Reset telemetry (truncate to empty)
     /// v3.13.5: Also clears the fallback path (/tmp/anna-telemetry.jsonl)
+    /// v4.3.2: Delete and recreate fallback to handle ownership issues
     pub fn reset_telemetry(&self) -> io::Result<()> {
-        // Clear primary telemetry file
+        // Clear primary telemetry file (owned by root, File::create works)
         if self.telemetry_path.exists() {
             File::create(&self.telemetry_path)?;
         }
-        // v3.13.5: Also clear fallback telemetry file
+        // v4.3.2: Delete and recreate fallback file to handle ownership issues
+        // The fallback file may be owned by a regular user if daemon wasn't running as root
+        // when it was created. Deleting it allows us to recreate with correct ownership.
         if self.telemetry_fallback_path.exists() {
-            File::create(&self.telemetry_fallback_path)?;
+            // Remove first (works regardless of file ownership if we have dir write permission)
+            if let Err(e) = fs::remove_file(&self.telemetry_fallback_path) {
+                // /tmp is world-writable, so this should work even for files we don't own
+                // But if it fails, try truncating as fallback
+                tracing::debug!("Could not remove fallback telemetry ({}), trying truncate", e);
+                File::create(&self.telemetry_fallback_path)?;
+            }
+            // Don't recreate - an empty/missing file is the same as reset
         }
         Ok(())
     }
