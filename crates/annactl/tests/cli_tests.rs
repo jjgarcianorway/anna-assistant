@@ -1,10 +1,16 @@
-//! CLI integration tests for annactl v7.2.0
+//! CLI integration tests for annactl v7.7.0 "Snow Leopard"
 //!
 //! Tests the minimal CLI surface:
 //! - annactl           show help
 //! - annactl status    health and runtime of Anna
 //! - annactl kdb       overview of Anna KDB
 //! - annactl kdb NAME  profile for a package, command or category
+//!
+//! v7.7.0: Snow Leopard tests for PHASE 23-26
+//! - PHASE 23: Telemetry per-window aggregation (compact display)
+//! - PHASE 24: Config precedence and honest Source lines
+//! - PHASE 25: KDB name resolution and disambiguation
+//! - PHASE 26: Performance constraints
 
 use std::env;
 use std::path::PathBuf;
@@ -285,5 +291,255 @@ fn test_annactl_version_flag_not_recognized() {
         stderr.contains("not a recognized command"),
         "Expected '--version' to be rejected, got stderr: {}",
         stderr
+    );
+}
+
+// ============================================================================
+// v7.7.0: Snow Leopard - PHASE 23 Telemetry Tests
+// ============================================================================
+
+/// Test 'kdb' command shows [USAGE HIGHLIGHTS] section
+#[test]
+fn test_annactl_kdb_shows_usage_highlights() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("kdb")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.7.0: KDB should show [USAGE HIGHLIGHTS] section
+    assert!(
+        stdout.contains("[USAGE HIGHLIGHTS]"),
+        "Expected [USAGE HIGHLIGHTS] section in kdb output, got: {}",
+        stdout
+    );
+}
+
+/// Test 'kdb <name>' shows [USAGE] section with telemetry windows
+#[test]
+fn test_annactl_kdb_object_shows_usage_section() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["kdb", "pacman"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.7.0: Object profile should show [USAGE] section
+    assert!(
+        stdout.contains("[USAGE]"),
+        "Expected [USAGE] section in object profile, got: {}",
+        stdout
+    );
+}
+
+// ============================================================================
+// v7.7.0: Snow Leopard - PHASE 24 Config Tests
+// ============================================================================
+
+/// Test 'kdb' command shows docs availability status
+#[test]
+fn test_annactl_kdb_shows_docs_status() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("kdb")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.7.0: KDB should show docs availability status
+    assert!(
+        stdout.contains("Local Arch docs:"),
+        "Expected 'Local Arch docs:' status in kdb output, got: {}",
+        stdout
+    );
+}
+
+/// Test 'kdb <name>' shows [CONFIG] section with Source line
+#[test]
+fn test_annactl_kdb_object_shows_config_source() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["kdb", "pacman"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.7.0: Config section should exist
+    assert!(
+        stdout.contains("[CONFIG]"),
+        "Expected [CONFIG] section in object profile, got: {}",
+        stdout
+    );
+}
+
+// ============================================================================
+// v7.7.0: Snow Leopard - PHASE 25 Name Resolution Tests
+// ============================================================================
+
+/// Test name resolution for .service suffix (should prefer service)
+#[test]
+fn test_annactl_kdb_service_suffix_resolution() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Try with a common service name
+    let output = Command::new(&binary)
+        .args(["kdb", "sshd.service"])
+        .output()
+        .expect("Failed to run annactl");
+
+    // Should succeed (either as service or package)
+    assert!(output.status.success(), "annactl kdb sshd.service should succeed");
+}
+
+/// Test case-insensitive name resolution for packages
+#[test]
+fn test_annactl_kdb_case_insensitive_package() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test PACMAN (uppercase) resolves to pacman
+    let output = Command::new(&binary)
+        .args(["kdb", "PACMAN"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should resolve and show profile
+    assert!(
+        stdout.contains("[IDENTITY]"),
+        "PACMAN should resolve case-insensitively, got: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test category names are case-insensitive
+#[test]
+fn test_annactl_kdb_category_case_insensitive() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test EDITORS (uppercase) resolves to Editors category
+    let output = Command::new(&binary)
+        .args(["kdb", "EDITORS"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should show category view
+    assert!(
+        stdout.contains("Anna KDB: Editors"),
+        "EDITORS should resolve to Editors category, got: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.7.0: Snow Leopard - PHASE 26 Performance Tests
+// ============================================================================
+
+/// Test 'status' command completes in reasonable time (<2s)
+#[test]
+fn test_annactl_status_performance() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let start = std::time::Instant::now();
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl");
+
+    let elapsed = start.elapsed();
+
+    assert!(output.status.success(), "annactl status should succeed");
+    assert!(
+        elapsed.as_secs() < 2,
+        "annactl status should complete in <2s, took: {:?}",
+        elapsed
+    );
+}
+
+/// Test 'kdb' command completes in reasonable time (<15s)
+/// Note: kdb overview scans all explicitly installed packages for categorization
+/// which can take a few seconds on systems with many packages
+#[test]
+fn test_annactl_kdb_performance() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let start = std::time::Instant::now();
+    let output = Command::new(&binary)
+        .arg("kdb")
+        .output()
+        .expect("Failed to run annactl");
+
+    let elapsed = start.elapsed();
+
+    assert!(output.status.success(), "annactl kdb should succeed");
+    assert!(
+        elapsed.as_secs() < 15,
+        "annactl kdb should complete in <15s, took: {:?}",
+        elapsed
+    );
+}
+
+/// Test 'kdb <name>' command completes in reasonable time (<2s)
+#[test]
+fn test_annactl_kdb_object_performance() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let start = std::time::Instant::now();
+    let output = Command::new(&binary)
+        .args(["kdb", "pacman"])
+        .output()
+        .expect("Failed to run annactl");
+
+    let elapsed = start.elapsed();
+
+    assert!(output.status.success(), "annactl kdb pacman should succeed");
+    assert!(
+        elapsed.as_secs() < 2,
+        "annactl kdb <name> should complete in <2s, took: {:?}",
+        elapsed
     );
 }

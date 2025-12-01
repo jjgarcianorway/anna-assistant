@@ -1,4 +1,4 @@
-//! KDB Detail Command v7.6.0 - Object Profiles and Category Overviews
+//! KDB Detail Command v7.7.0 - Object Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -10,6 +10,7 @@
 //! v7.5.0: Enhanced [USAGE] with exec counts, CPU time totals per window.
 //!         Enhanced [LOGS] with severity breakdown and local timestamps.
 //! v7.6.0: Honest Source reporting when Arch Wiki not available.
+//! v7.7.0: PHASE 23 - Compact per-window telemetry (1h, 24h, 7d, 30d).
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -154,39 +155,58 @@ async fn run_services_category() -> Result<()> {
 // ============================================================================
 
 /// Run single object profile (e.g., `annactl kdb vim`)
+/// PHASE 25: Resolution order:
+/// 1. Exact match on package name (pacman -Qi)
+/// 2. Exact match on command name (in PATH)
+/// 3. Exact match on systemd unit name
+/// 4. Category names (handled in main.rs before this)
+/// If NAME ends with .service, prefer service over package
 pub async fn run_object(name: &str) -> Result<()> {
-    println!();
-    println!("{}", format!("  Anna KDB: {}", name).bold());
-    println!("{}", THIN_SEP);
-    println!();
+    // Canonical name (may differ in case from input)
+    let canonical_name: String;
+    let input_name = name;
 
-    // Try to find as service first (if name ends with .service or matches a service)
+    // Service name for systemd lookup
     let service_name = if name.ends_with(".service") {
         name.to_string()
     } else {
         format!("{}.service", name)
     };
 
-    if let Some(svc) = get_service_info(name) {
-        print_service_profile(&svc, name);
-        println!("{}", THIN_SEP);
-        println!();
-        return Ok(());
+    // PHASE 25: If name ends with .service, prefer service resolution
+    if name.ends_with(".service") {
+        if let Some(svc) = get_service_info(name) {
+            canonical_name = name.to_string();
+            println!();
+            println!("{}", format!("  Anna KDB: {}", canonical_name).bold());
+            println!("{}", THIN_SEP);
+            println!();
+            print_service_profile(&svc, &canonical_name);
+            println!("{}", THIN_SEP);
+            println!();
+            return Ok(());
+        }
     }
 
-    // Try as package
+    // 1. Try exact match on package name first
     if let Some(pkg) = get_package_info(name) {
+        canonical_name = pkg.name.clone();
+        println!();
+        println!("{}", format!("  Anna KDB: {}", canonical_name).bold());
+        println!("{}", THIN_SEP);
+        println!();
+
         print_package_profile(&pkg);
 
         // Also show command info if it exists
-        if command_exists(name) {
-            if let Some(cmd) = get_command_info(name) {
+        if command_exists(&canonical_name) {
+            if let Some(cmd) = get_command_info(&canonical_name) {
                 print_command_section(&cmd);
             }
         }
 
-        // Check if it has a service
-        if let Some(svc) = get_service_info(name) {
+        // Check if it has a related service
+        if let Some(svc) = get_service_info(&canonical_name) {
             print_service_section(&svc);
             print_service_logs(&service_name);
         }
@@ -196,26 +216,70 @@ pub async fn run_object(name: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Try as command
+    // 2. Try exact match on command name
     if let Some(cmd) = get_command_info(name) {
+        canonical_name = cmd.name.clone();
+        println!();
+        println!("{}", format!("  Anna KDB: {}", canonical_name).bold());
+        println!("{}", THIN_SEP);
+        println!();
         print_command_profile(&cmd);
         println!("{}", THIN_SEP);
         println!();
         return Ok(());
     }
 
+    // 3. Try as service (without .service suffix)
+    if let Some(svc) = get_service_info(name) {
+        canonical_name = name.to_string();
+        println!();
+        println!("{}", format!("  Anna KDB: {}", canonical_name).bold());
+        println!("{}", THIN_SEP);
+        println!();
+        print_service_profile(&svc, &canonical_name);
+        println!("{}", THIN_SEP);
+        println!();
+        return Ok(());
+    }
+
+    // 4. Try case-insensitive match on package name
+    if let Some(pkg) = try_case_insensitive_package(name) {
+        canonical_name = pkg.name.clone();
+        println!();
+        // Show input name but actual canonical in [IDENTITY]
+        println!("{}", format!("  Anna KDB: {}", canonical_name).bold());
+        println!("{}", THIN_SEP);
+        println!();
+
+        print_package_profile(&pkg);
+
+        // Also show command info if it exists
+        if command_exists(&canonical_name) {
+            if let Some(cmd) = get_command_info(&canonical_name) {
+                print_command_section(&cmd);
+            }
+        }
+
+        println!("{}", THIN_SEP);
+        println!();
+        return Ok(());
+    }
+
     // Not found
+    println!();
+    println!("{}", format!("  Anna KDB: {}", input_name).bold());
+    println!("{}", THIN_SEP);
+    println!();
     println!("{}", "[NOT FOUND]".yellow());
-    println!("  '{}' is not a known package, command, or service.", name);
+    println!("  '{}' is not a known package, command, or service.", input_name);
     println!();
     println!("  Checked:");
-    println!("    - pacman -Qi {}", name);
-    println!("    - which {}", name);
-    // Don't double-append .service
-    let svc_check = if name.ends_with(".service") {
-        name.to_string()
+    println!("    - pacman -Qi {}", input_name);
+    println!("    - which {}", input_name);
+    let svc_check = if input_name.ends_with(".service") {
+        input_name.to_string()
     } else {
-        format!("{}.service", name)
+        format!("{}.service", input_name)
     };
     println!("    - systemctl show {}", svc_check);
 
@@ -224,6 +288,33 @@ pub async fn run_object(name: &str) -> Result<()> {
     println!();
 
     Ok(())
+}
+
+/// Try case-insensitive package lookup (PHASE 25)
+fn try_case_insensitive_package(name: &str) -> Option<Package> {
+    use std::process::Command;
+
+    // Get list of installed packages and find case-insensitive match
+    let output = Command::new("pacman")
+        .args(["-Qq"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let name_lower = name.to_lowercase();
+
+    for line in stdout.lines() {
+        if line.to_lowercase() == name_lower && line != name {
+            // Found a case-insensitive match
+            return get_package_info(line);
+        }
+    }
+
+    None
 }
 
 fn print_package_profile(pkg: &Package) {
@@ -608,12 +699,16 @@ fn print_config_section(name: &str) {
                 println!("    {}: {} {}", prefix, rule.description, format!("({})", rule.source).dimmed());
             }
         }
+
+        // Always show honest Source line at end (PHASE 24)
+        println!();
+        println!("  {}", format!("Source: {}", info.source_description).dimmed());
     }
 
     println!();
 }
 
-/// Print [CONFIG] section for a service (v7.4.0)
+/// Print [CONFIG] section for a service (v7.7.0 - with honest Source line)
 fn print_service_config_section(svc_name: &str) {
     println!("{}", "[CONFIG]".cyan());
 
@@ -698,45 +793,74 @@ fn print_service_config_section(svc_name: &str) {
         println!("  No configuration files documented.");
     }
 
+    // Always show honest Source line (PHASE 24)
+    println!();
+    println!("  {}", format!("Source: systemctl show, {}", info.package_configs.source_description).dimmed());
+
     println!();
 }
 
-/// Print [USAGE] section with real telemetry from SQLite (v7.5.0 - enhanced format)
+/// Print [USAGE] section with real telemetry from SQLite (v7.7.0 - compact format)
 fn print_usage_section(name: &str) {
-    use anna_common::{format_cpu_time, format_bytes_human};
+    use anna_common::config::AnnaConfig;
+    use anna_common::format_bytes_human;
 
-    println!("{}", "[USAGE]".cyan());
+    println!("{}", "[USAGE]  (telemetry windows)".cyan());
+
+    // Check if telemetry is enabled in config
+    let config = AnnaConfig::load();
+    if !config.telemetry.enabled {
+        println!("  Telemetry disabled in config (/etc/anna/config.toml).");
+        println!();
+        return;
+    }
 
     // Try to open telemetry database (read-only for CLI)
     match TelemetryDb::open_readonly() {
         Some(db) => {
-            // Get enhanced windowed stats (1h, 24h, 7d, 30d)
-            match db.get_enhanced_windowed_stats(name) {
-                Ok(stats) => {
-                    // Check if we have any data
-                    if !stats.last_30d.has_data {
-                        println!("  Telemetry not collected yet (daemon uptime too short or feature disabled).");
-                    } else {
-                        // Print each window that has data
-                        let windows = [
-                            ("1h", &stats.last_1h),
-                            ("24h", &stats.last_24h),
-                            ("7d", &stats.last_7d),
-                            ("30d", &stats.last_30d),
-                        ];
+            // Check data status first
+            let status = db.get_data_status();
+            match status {
+                anna_common::DataStatus::NoData | anna_common::DataStatus::Disabled => {
+                    println!("  Telemetry not collected yet.");
+                    println!();
+                    return;
+                }
+                anna_common::DataStatus::NotEnoughData { minutes } => {
+                    println!("  Telemetry still warming up (very few samples available, {:.0}m).", minutes);
+                    println!();
+                    return;
+                }
+                _ => {}
+            }
 
-                        for (label, window) in &windows {
-                            if window.has_data {
-                                println!("  {}:", label);
-                                println!("    Execs:       {}", window.exec_count);
-                                println!("    CPU total:   {}", format_cpu_time(window.cpu_time_total_secs));
-                                println!("    CPU peak:    {:.1}%", window.cpu_peak_percent);
-                                println!("    RSS peak:    {}", format_bytes_human(window.rss_peak_bytes));
-                                if window.last_seen_ts > 0 {
-                                    println!("    Last exec:   {}", TelemetryDb::format_timestamp(window.last_seen_ts));
-                                }
-                                println!();
-                            }
+            // Get compact windowed stats (1h, 24h, 7d, 30d)
+            match db.get_all_window_stats(name) {
+                Ok(stats) => {
+                    // Check if we have any data at all
+                    if !stats.w30d.has_data && !stats.w7d.has_data && !stats.w24h.has_data && !stats.w1h.has_data {
+                        println!("  No telemetry for '{}' (not executed recently).", name);
+                        println!();
+                        return;
+                    }
+
+                    // Print each window that has data, in fixed order
+                    let windows = [
+                        ("1h", &stats.w1h),
+                        ("24h", &stats.w24h),
+                        ("7d", &stats.w7d),
+                        ("30d", &stats.w30d),
+                    ];
+
+                    for (label, window) in &windows {
+                        if window.has_data {
+                            // Compact single line format: "1h:   execs=12  cpu=4.3s  max_rss=82 MiB"
+                            println!("  {:<5} execs={}  cpu={}  max_rss={}",
+                                format!("{}:", label),
+                                window.execs,
+                                anna_common::format_cpu_time_compact(window.cpu_secs),
+                                format_bytes_human(window.max_rss)
+                            );
                         }
                     }
                 }
@@ -746,7 +870,7 @@ fn print_usage_section(name: &str) {
             }
         }
         None => {
-            println!("  Telemetry not collected yet (daemon uptime too short or feature disabled).");
+            println!("  Telemetry not collected yet.");
         }
     }
 

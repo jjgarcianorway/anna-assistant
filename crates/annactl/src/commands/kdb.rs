@@ -1,12 +1,13 @@
-//! KDB Command v7.6.0 - Anna KDB Overview
+//! KDB Command v7.7.0 - Anna KDB Overview
 //!
 //! Sections:
-//! - [OVERVIEW]          Counts of packages, commands, services
+//! - [OVERVIEW]          Counts of packages, commands, services + docs status
 //! - [CATEGORIES]        Rule-based categories from descriptions (sorted)
 //! - [CONFIG HIGHLIGHTS] Config status summary (v7.4.0)
 //! - [USAGE HIGHLIGHTS]  Real telemetry from SQLite (v7.5.0+)
 //!
 //! v7.6.0: Sorted categories, respects telemetry.enabled
+//! v7.7.0: PHASE 23 - Compact CPU/memory highlights, docs status in overview
 //!
 //! NO journalctl system errors. NO generic host health.
 
@@ -52,6 +53,8 @@ pub async fn run() -> Result<()> {
 }
 
 fn print_overview_section() {
+    use anna_common::grounded::config::is_arch_wiki_available;
+
     println!("{}", "[OVERVIEW]".cyan());
 
     let pkg_counts = PackageCounts::query();
@@ -61,6 +64,13 @@ fn print_overview_section() {
     println!("  Packages known:   {}", pkg_counts.total);
     println!("  Commands known:   {}", cmd_count);
     println!("  Services known:   {}", svc_counts.total);
+
+    // Show docs availability status (PHASE 24)
+    if is_arch_wiki_available() {
+        println!("  Local Arch docs:  {}", "available (used for config paths and categorisation)".dimmed());
+    } else {
+        println!("  Local Arch docs:  {}", "not detected (using pacman and man only)".dimmed());
+    }
 
     println!();
 }
@@ -156,8 +166,7 @@ fn print_config_highlights_section() {
 }
 
 fn print_usage_section() {
-    println!("{}", "[USAGE HIGHLIGHTS]".cyan());
-    println!("  {}", "(last 24h telemetry)".dimmed());
+    println!("{}", "[USAGE HIGHLIGHTS]  (top by CPU, last 24h)".cyan());
 
     // Check if telemetry is enabled
     let config = AnnaConfig::load();
@@ -174,55 +183,41 @@ fn print_usage_section() {
 
             match &data_status {
                 DataStatus::NoData | DataStatus::Disabled => {
-                    println!("  Telemetry not collected yet.");
+                    println!("  Telemetry disabled or insufficient data (less than 1h of samples).");
                 }
                 DataStatus::NotEnoughData { minutes } => {
-                    println!("  Telemetry still warming up (very few samples available, {:.0}m).", minutes);
+                    println!("  Telemetry disabled or insufficient data (less than 1h of samples, {:.0}m).", minutes);
                 }
-                DataStatus::PartialWindow { hours } | DataStatus::Ok { hours } => {
-                    let horizon = if *hours < 24.0 {
-                        format!("since telemetry start ({:.1}h)", hours)
-                    } else {
-                        "last 24h".to_string()
-                    };
-
+                DataStatus::PartialWindow { .. } | DataStatus::Ok { .. } => {
                     println!();
 
-                    // Top CPU time (24h) - using new enhanced query
-                    if let Ok(top_cpu) = db.top_by_cpu_time(WINDOW_24H, 3) {
+                    // Top CPU-heavy commands (24h) - using new compact query
+                    if let Ok(top_cpu) = db.top_cpu_compact(WINDOW_24H, 3) {
                         if !top_cpu.is_empty() {
-                            println!("  Top CPU time ({}):", horizon);
+                            println!("  Top CPU-heavy commands:");
                             for entry in &top_cpu {
-                                let cpu_str = format!("{} total, peak {:.1}%",
-                                    format_cpu_time(entry.cpu_time_secs),
-                                    entry.cpu_peak_percent);
-                                println!("    {:<14} {}", entry.name.cyan(), cpu_str);
+                                println!("    {:<14} cpu={}  execs={}  max_rss={}",
+                                    entry.name.cyan(),
+                                    format_cpu_time(entry.cpu_secs),
+                                    entry.execs,
+                                    format_bytes_human(entry.max_rss)
+                                );
                             }
                             println!();
                         }
                     }
 
-                    // Top memory (RSS peak, 24h)
-                    if let Ok(top_mem) = db.top_by_rss_peak(WINDOW_24H, 3) {
+                    // Top memory-heavy commands (24h)
+                    if let Ok(top_mem) = db.top_memory_compact(WINDOW_24H, 3) {
                         if !top_mem.is_empty() {
-                            println!("  Top memory (RSS peak):");
+                            println!("  Top memory-heavy commands:");
                             for entry in &top_mem {
-                                println!("    {:<14} {}",
+                                println!("    {:<14} cpu={}  execs={}  max_rss={}",
                                     entry.name.cyan(),
-                                    format_bytes_human(entry.rss_peak_bytes));
-                            }
-                            println!();
-                        }
-                    }
-
-                    // Most executed commands (24h)
-                    if let Ok(top_exec) = db.top_by_exec_count(WINDOW_24H, 3) {
-                        if !top_exec.is_empty() {
-                            println!("  Most executed commands:");
-                            for entry in &top_exec {
-                                println!("    {:<14} {} runs",
-                                    entry.name.cyan(),
-                                    entry.exec_count);
+                                    format_cpu_time(entry.cpu_secs),
+                                    entry.execs,
+                                    format_bytes_human(entry.max_rss)
+                                );
                             }
                         }
                     }
@@ -230,7 +225,7 @@ fn print_usage_section() {
             }
         }
         None => {
-            println!("  Telemetry not collected yet.");
+            println!("  Telemetry disabled or insufficient data (less than 1h of samples).");
         }
     }
 

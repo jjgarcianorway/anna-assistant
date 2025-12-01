@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v7.6.0 - Telemetry Core
+//! Anna Daemon (annad) v7.7.0 - Telemetry Core
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -16,8 +16,13 @@
 //! - Configurable telemetry.enabled, sample_interval_secs, retention_days, max_keys
 //! - Automatic pruning and key limit enforcement
 //!
+//! v7.7.0: Self-health and dependency management
+//! - Auto-install Arch docs for rich config discovery (PHASE 24)
+//! - Per-window telemetry aggregation (PHASE 23)
+//!
 //! No LLM, no Q&A - just system telemetry.
 
+mod health;
 mod routes;
 mod server;
 
@@ -122,6 +127,13 @@ async fn main() -> Result<()> {
     // Record initial scan completion
     app_state.record_scan(0).await;
 
+    // v7.7.0: Run health check (auto-install Arch docs if missing)
+    // This runs once at startup, in a blocking spawn since it may take a moment
+    tokio::task::spawn_blocking(|| {
+        let result = health::run_health_check();
+        health::log_health_check_results(&result);
+    });
+
     // Spawn process monitoring task
     // v7.1.0: Uses SQLite for telemetry storage
     // v7.6.0: Respects telemetry.enabled and configurable sample_interval
@@ -187,6 +199,10 @@ async fn main() -> Result<()> {
         let maintenance_every = MAINTENANCE_INTERVAL_SECS / sample_interval_secs;
         let mut sample_batch: Vec<ProcessTelemetrySample> = Vec::with_capacity(256);
 
+        // PHASE 26: Performance constraint - max PIDs to sample per interval
+        // This prevents runaway CPU usage on systems with many processes
+        const MAX_PIDS_PER_SAMPLE: usize = 500;
+
         loop {
             interval.tick().await;
 
@@ -203,7 +219,15 @@ async fn main() -> Result<()> {
             // Update knowledge store with process observations
             {
                 let mut b = builder_process.write().await;
+                let mut pid_count = 0usize;
+
                 for (pid, process) in system.processes() {
+                    // PHASE 26: Enforce PID limit for performance
+                    pid_count += 1;
+                    if pid_count > MAX_PIDS_PER_SAMPLE {
+                        break;
+                    }
+
                     let name = process.name().to_string_lossy().to_string();
                     let cpu = process.cpu_usage();
                     let mem = process.memory();

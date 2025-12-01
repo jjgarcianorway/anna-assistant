@@ -1,4 +1,4 @@
-//! Telemetry Database v7.6.0 - SQLite-based Process Telemetry
+//! Telemetry Database v7.7.0 - SQLite-based Process Telemetry
 //!
 //! Stores per-process CPU/memory samples over time for:
 //! - Real telemetry display in `annactl kdb <object>` [USAGE] section
@@ -13,6 +13,7 @@
 //! v7.3.0: Added multi-window per-object stats for PHASE 9
 //! v7.5.0: PHASE 15-16 - Enhanced exec counts, CPU time totals, top-N queries
 //! v7.6.0: PHASE 19 - Retention enforcement, max_keys limits, configurable intervals
+//! v7.7.0: PHASE 23 - Precise per-window aggregation (1h, 24h, 7d, 30d) with compact display
 
 use anyhow::Result;
 use rusqlite::{Connection, params};
@@ -1119,6 +1120,153 @@ impl TelemetryDb {
             is_warming_up: stats.coverage_hours < 1.0,
         })
     }
+
+    // ========================================================================
+    // PHASE 23: Compact per-window stats (v7.7.0)
+    // ========================================================================
+
+    /// Get compact window stats for a single window
+    fn get_window_stats(&self, name: &str, window_secs: u64) -> Result<WindowStats> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                COUNT(DISTINCT pid) as exec_count,
+                SUM(cpu_percent) as cpu_sum,
+                MAX(mem_bytes) as max_rss,
+                MAX(timestamp) as last_seen,
+                COUNT(*) as sample_count
+            FROM process_samples
+            WHERE name = ?1 AND timestamp >= ?2
+            "#
+        )?;
+
+        stmt.query_row(params![name, since as i64], |row| {
+            let exec_count: i64 = row.get(0).unwrap_or(0);
+            let cpu_sum: f64 = row.get(1).unwrap_or(0.0);
+            let max_rss: i64 = row.get(2).unwrap_or(0);
+            let last_seen: i64 = row.get(3).unwrap_or(0);
+            let sample_count: i64 = row.get(4).unwrap_or(0);
+
+            // CPU time = sum(cpu_percent) * interval / 100
+            let cpu_secs = cpu_sum * Self::SAMPLE_INTERVAL_SECS / 100.0;
+
+            Ok(WindowStats {
+                execs: exec_count as u64,
+                cpu_secs,
+                max_rss: max_rss as u64,
+                last_seen: last_seen as u64,
+                has_data: sample_count > 0,
+            })
+        }).map_err(|e| e.into())
+    }
+
+    /// Get all four standard window stats for an object (PHASE 23 format)
+    pub fn get_all_window_stats(&self, name: &str) -> Result<AllWindowStats> {
+        Ok(AllWindowStats {
+            w1h: self.get_window_stats(name, WINDOW_1H)?,
+            w24h: self.get_window_stats(name, WINDOW_24H)?,
+            w7d: self.get_window_stats(name, WINDOW_7D)?,
+            w30d: self.get_window_stats(name, WINDOW_30D)?,
+        })
+    }
+
+    /// Get top N by CPU time with compact format (for [USAGE HIGHLIGHTS])
+    pub fn top_cpu_compact(&self, window_secs: u64, limit: usize) -> Result<Vec<TopCompactEntry>> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                SUM(cpu_percent) * ?3 / 100.0 as cpu_secs,
+                COUNT(DISTINCT pid) as exec_count,
+                MAX(mem_bytes) as max_rss
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY cpu_secs DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
+            Ok(TopCompactEntry {
+                name: row.get(0)?,
+                cpu_secs: row.get(1)?,
+                execs: row.get::<_, i64>(2)? as u64,
+                max_rss: row.get::<_, i64>(3)? as u64,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get top N by memory with compact format (for [USAGE HIGHLIGHTS])
+    pub fn top_memory_compact(&self, window_secs: u64, limit: usize) -> Result<Vec<TopCompactEntry>> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                SUM(cpu_percent) * ?3 / 100.0 as cpu_secs,
+                COUNT(DISTINCT pid) as exec_count,
+                MAX(mem_bytes) as max_rss
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY max_rss DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
+            Ok(TopCompactEntry {
+                name: row.get(0)?,
+                cpu_secs: row.get(1)?,
+                execs: row.get::<_, i64>(2)? as u64,
+                max_rss: row.get::<_, i64>(3)? as u64,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+}
+
+/// Top entry with compact format for [USAGE HIGHLIGHTS]
+#[derive(Debug, Clone)]
+pub struct TopCompactEntry {
+    pub name: String,
+    pub cpu_secs: f64,
+    pub execs: u64,
+    pub max_rss: u64,
+}
+
+impl TopCompactEntry {
+    /// Format as: "cpu=12.4s  execs=18  max_rss=90 MiB"
+    pub fn format_line(&self) -> String {
+        format!(
+            "cpu={}  execs={}  max_rss={}",
+            format_cpu_time_compact(self.cpu_secs),
+            self.execs,
+            format_bytes_human(self.max_rss)
+        )
+    }
 }
 
 /// Telemetry health summary
@@ -1278,6 +1426,72 @@ pub struct HealthHotspot {
     pub display: String,
     /// Additional context (e.g., "peak 99.9%")
     pub context: Option<String>,
+}
+
+// ============================================================================
+// PHASE 23: Compact per-window stats (v7.7.0)
+// ============================================================================
+
+/// Compact stats for a single time window (PHASE 23 format)
+#[derive(Debug, Clone, Default)]
+pub struct WindowStats {
+    /// Number of executions (distinct PIDs) in window
+    pub execs: u64,
+    /// Total CPU time in seconds
+    pub cpu_secs: f64,
+    /// Maximum RSS bytes observed
+    pub max_rss: u64,
+    /// Last seen timestamp (for "last seen X ago")
+    pub last_seen: u64,
+    /// Whether this window has any data
+    pub has_data: bool,
+}
+
+impl WindowStats {
+    /// Format as compact single line: "execs=12  cpu=4.3s  max_rss=82 MiB"
+    pub fn format_line(&self) -> String {
+        if !self.has_data {
+            return String::new();
+        }
+        format!(
+            "execs={}  cpu={}  max_rss={}",
+            self.execs,
+            format_cpu_time_compact(self.cpu_secs),
+            format_bytes_human(self.max_rss)
+        )
+    }
+}
+
+/// All four standard windows for an object
+#[derive(Debug, Clone, Default)]
+pub struct AllWindowStats {
+    pub w1h: WindowStats,
+    pub w24h: WindowStats,
+    pub w7d: WindowStats,
+    pub w30d: WindowStats,
+}
+
+/// Format CPU time compactly: "4.3s", "1m 23s", "2h 15m"
+pub fn format_cpu_time_compact(secs: f64) -> String {
+    if secs < 60.0 {
+        format!("{:.1}s", secs)
+    } else if secs < 3600.0 {
+        let mins = (secs / 60.0).floor() as u64;
+        let remaining_secs = (secs % 60.0) as u64;
+        if remaining_secs == 0 {
+            format!("{}m", mins)
+        } else {
+            format!("{}m {}s", mins, remaining_secs)
+        }
+    } else {
+        let hours = (secs / 3600.0).floor() as u64;
+        let remaining_mins = ((secs % 3600.0) / 60.0).floor() as u64;
+        if remaining_mins == 0 {
+            format!("{}h", hours)
+        } else {
+            format!("{}h {}m", hours, remaining_mins)
+        }
+    }
 }
 
 #[cfg(test)]
