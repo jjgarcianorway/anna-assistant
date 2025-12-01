@@ -1,4 +1,4 @@
-//! SW Detail Command v7.14.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.16.0 - Software Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -9,9 +9,10 @@
 //! - [PACKAGE]      Version, source, size, date
 //! - [COMMAND]      Path, man description
 //! - [SERVICE]      Unit, state, enabled
+//! - [SERVICE LIFECYCLE] Restarts, exit codes, activation failures (v7.16.0)
 //! - [DEPENDENCIES] Package deps and service relations (v7.13.0)
 //! - [CONFIG]       Primary/Secondary/Notes + Sanity notes (v7.14.0)
-//! - [LOGS]         Pattern-based grouping with counts and timelines (v7.14.0)
+//! - [LOGS]         Multi-window history (this boot, 24h, 7d) (v7.16.0)
 //! - [TELEMETRY]    Real windows with peak/trend summaries (v7.14.0)
 //! - Cross notes:   Links between logs, telemetry, deps, config (v7.14.0)
 
@@ -28,8 +29,9 @@ use anna_common::grounded::{
     category::get_category,
     categoriser::{normalize_category, packages_in_category},
     deps::{get_package_deps, get_service_deps},
-    log_patterns::{extract_patterns_for_unit, LogPatternSummary, format_time_short},
+    log_patterns::{extract_patterns_for_unit, extract_patterns_with_history, LogPatternSummary, LogHistorySummary, format_time_short},
 };
+use anna_common::ServiceLifecycle;
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -455,6 +457,14 @@ fn print_service_profile(svc: &Service, name: &str) {
     // [SERVICE]
     print_service_section(svc);
 
+    // [SERVICE LIFECYCLE] - v7.16.0
+    let unit_name = if name.ends_with(".service") {
+        name.to_string()
+    } else {
+        format!("{}.service", name)
+    };
+    print_service_lifecycle_section(&unit_name);
+
     // [PACKAGE] - if there's an associated package
     let base_name = name.trim_end_matches(".service");
     if let Some(pkg) = get_package_info(base_name) {
@@ -471,20 +481,14 @@ fn print_service_profile(svc: &Service, name: &str) {
     // [CONFIG]
     print_service_config_section(name);
 
-    // [LOGS]
-    let unit_name = if svc.name.ends_with(".service") {
-        svc.name.clone()
-    } else {
-        format!("{}.service", svc.name)
-    };
-    let log_summary = print_service_logs(&unit_name);
-    print_logs_health_note(&log_summary);
+    // [LOGS] - v7.16.0: multi-window history
+    let log_summary = print_service_logs_v716(&unit_name);
 
     // [USAGE]
     print_telemetry_section(base_name);
 
     // v7.14.0: Cross notes - link logs, telemetry, deps, config
-    print_cross_notes_sw(&log_summary, base_name);
+    print_cross_notes_sw_v716(&log_summary, base_name);
 }
 
 fn print_service_section(svc: &Service) {
@@ -668,6 +672,7 @@ fn deduplicate_log_entries(entries: &[LogEntry]) -> Vec<LogEntry> {
 /// Deduplicate log entries v7.12.0 format
 /// Keeps first timestamp for each unique message, tracks total count
 /// Designed for clarity: shows when an error first appeared + how many times
+#[allow(dead_code)]
 fn deduplicate_log_entries_v712(entries: &[LogEntry]) -> Vec<LogEntry> {
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut result: Vec<LogEntry> = Vec::new();
@@ -976,6 +981,7 @@ fn print_config_sanity_notes(
 
 /// Print Cross notes section - v7.14.0
 /// Links observations from logs, telemetry, deps, and config
+#[allow(dead_code)]
 fn print_cross_notes_sw(log_summary: &LogPatternSummary, _name: &str) {
     // Only show if there's something interesting to note
     let mut notes: Vec<String> = Vec::new();
@@ -1433,5 +1439,200 @@ fn print_service_dependencies_section(name: &str) {
     println!("    {}", format!("Source: {}", svc_deps.source).dimmed());
 
     println!();
+}
+
+// ============================================================================
+// v7.16.0: Service Lifecycle Section
+// ============================================================================
+
+/// Print [SERVICE LIFECYCLE] section - v7.16.0
+/// Shows restarts, exit codes, activation failures over time windows
+fn print_service_lifecycle_section(unit_name: &str) {
+    let lifecycle = ServiceLifecycle::query(unit_name);
+
+    if !lifecycle.exists {
+        return;
+    }
+
+    // Skip for static units (no restart semantics)
+    if lifecycle.is_static {
+        return;
+    }
+
+    println!("{}", "[SERVICE LIFECYCLE]".cyan());
+    println!("  {}", format!("(source: {})", lifecycle.source).dimmed());
+    println!();
+
+    // State
+    println!("  State:       {}", lifecycle.format_state());
+
+    // Restarts
+    println!("  Restarts:    {}", lifecycle.format_restarts());
+
+    // Last exit
+    println!("  Last exit:   {}", lifecycle.format_last_exit());
+
+    // Activation failures
+    println!("  Failures:");
+    println!("    last 24h:  {}", if lifecycle.failures_24h == 0 {
+        "0".green().to_string()
+    } else {
+        lifecycle.failures_24h.to_string().yellow().to_string()
+    });
+    println!("    last 7d:   {}", if lifecycle.failures_7d == 0 {
+        "0".green().to_string()
+    } else {
+        lifecycle.failures_7d.to_string().yellow().to_string()
+    });
+
+    println!();
+}
+
+// ============================================================================
+// v7.16.0: Multi-Window Log History
+// ============================================================================
+
+/// Print [LOGS] section with v7.16.0 multi-window history
+fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
+    println!("{}", "[LOGS]".cyan());
+
+    let summary = extract_patterns_with_history(unit_name);
+
+    if summary.is_empty_this_boot() && summary.patterns.is_empty() {
+        println!();
+        println!("  No warnings or errors recorded for this component.");
+        println!();
+        println!("  {}", format!("Source: {}", summary.source).dimmed());
+        return summary;
+    }
+
+    println!();
+
+    // v7.16.0: Severity breakdown for this boot
+    println!("  This boot:");
+    let total_this_boot = summary.total_this_boot();
+    if total_this_boot == 0 {
+        println!("    {} {} warnings or errors", "✓".green(), "No".green());
+    } else {
+        if summary.this_boot_critical > 0 {
+            println!("    Critical: {}", summary.this_boot_critical.to_string().red().bold());
+        }
+        if summary.this_boot_error > 0 {
+            println!("    Errors:   {}", summary.this_boot_error.to_string().red());
+        }
+        if summary.this_boot_warning > 0 {
+            println!("    Warnings: {}", summary.this_boot_warning.to_string().yellow());
+        }
+    }
+    println!();
+
+    // v7.16.0: Top patterns with history
+    if !summary.patterns.is_empty() {
+        println!("  Top patterns:");
+        for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
+            // Truncate pattern for display
+            let display_pattern = if pattern.pattern.len() > 55 {
+                format!("{}...", &pattern.pattern[..52])
+            } else {
+                pattern.pattern.clone()
+            };
+
+            // Build history string
+            let mut history_parts = Vec::new();
+            if pattern.count_this_boot > 0 {
+                history_parts.push(format!("boot: {}", pattern.count_this_boot));
+            }
+            if pattern.count_24h > pattern.count_this_boot {
+                history_parts.push(format!("24h: {}", pattern.count_24h));
+            }
+            if pattern.count_7d > pattern.count_24h {
+                history_parts.push(format!("7d: {}", pattern.count_7d));
+            }
+
+            let history_str = if history_parts.is_empty() {
+                "no history".to_string()
+            } else {
+                history_parts.join(", ")
+            };
+
+            println!("    {}) \"{}\"", i + 1, display_pattern);
+            println!("       {} ({})", pattern.priority.dimmed(), history_str.dimmed());
+        }
+
+        if summary.patterns.len() > 3 {
+            println!();
+            println!("    {} ({} more patterns not shown)",
+                     "...".dimmed(),
+                     summary.patterns.len() - 3);
+        }
+    }
+
+    // v7.16.0: Show patterns with history beyond this boot
+    let history_patterns = summary.patterns_with_history();
+    if !history_patterns.is_empty() {
+        println!();
+        println!("  Recurring patterns (seen in previous boots):");
+        for pattern in history_patterns.iter().take(2) {
+            let display_pattern = if pattern.pattern.len() > 50 {
+                format!("{}...", &pattern.pattern[..47])
+            } else {
+                pattern.pattern.clone()
+            };
+            println!("    - \"{}\" ({} boots, {} total in 7d)",
+                     display_pattern.dimmed(),
+                     pattern.boots_seen,
+                     pattern.count_7d);
+        }
+    }
+
+    println!();
+    println!("  {}", format!("Source: {}", summary.source).dimmed());
+
+    summary
+}
+
+/// v7.16.0: Cross notes based on log history
+fn print_cross_notes_sw_v716(log_summary: &LogHistorySummary, _name: &str) {
+    let mut notes: Vec<String> = Vec::new();
+
+    // Check for high error counts
+    let total = log_summary.total_this_boot();
+    if total > 20 {
+        notes.push(format!(
+            "Frequent log activity ({} warnings/errors this boot).",
+            total
+        ));
+    } else if total == 0 {
+        notes.push("No warnings or errors recorded this boot.".to_string());
+    }
+
+    // Check for recurring patterns
+    let recurring = log_summary.patterns_with_history();
+    if !recurring.is_empty() {
+        let top = &recurring[0];
+        if top.boots_seen > 2 {
+            notes.push(format!(
+                "Recurring issue seen in {} boots - may need attention.",
+                top.boots_seen
+            ));
+        }
+    }
+
+    // Check for critical errors
+    if log_summary.this_boot_critical > 0 {
+        notes.push(format!(
+            "{} critical error(s) this boot - requires attention.",
+            log_summary.this_boot_critical
+        ));
+    }
+
+    // Only print if we have 1-3 notes
+    if !notes.is_empty() && notes.len() <= 3 {
+        println!();
+        println!("{}", "Cross notes:".cyan());
+        for note in notes.iter().take(3) {
+            println!("  - {}", note);
+        }
+    }
 }
 

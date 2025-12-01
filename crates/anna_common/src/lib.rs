@@ -1,11 +1,11 @@
-//! Anna Common v8.0.0 - Grounded System Intelligence
+//! Anna Common v7.16.0 - Grounded System Intelligence
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
 //! v7.6.0: Config maps, trends, Anna needs model
 //! v7.6.1: Config hygiene - identity filtering, lean output, vim/nvim separation
 //! v7.7.0: Precise per-window aggregation and compact display format
-//! v8.0.0: Execution telemetry with per-object, per-day JSONL storage
+//! v7.16.0: Log history with multi-window patterns, service lifecycle tracking
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -13,6 +13,7 @@
 //! - Per-execution JSONL logs with window aggregation
 //! - Config discovery from man pages, pacman, Arch Wiki
 //! - Anna needs tracking for missing tools
+//! - Service lifecycle: state, restarts, exit codes, activation failures
 //!
 //! Modules:
 //! - grounded: Real data from real system commands
@@ -26,6 +27,7 @@
 //! - needs: Anna's tool and doc dependencies (v7.6.0+)
 //! - object_metadata: Static descriptions and relationships
 //! - ops_log: Anna's internal operations audit trail (v7.12.0+)
+//! - service_lifecycle: Systemd unit lifecycle tracking (v7.16.0+)
 //! - service_state: Systemd service tracking
 //! - telemetry: Process monitoring and usage tracking (log files)
 //! - telemetry_db: SQLite-based telemetry storage (v7.1.0+)
@@ -45,6 +47,7 @@ pub mod knowledge_core;
 pub mod needs;
 pub mod object_metadata;
 pub mod ops_log;
+pub mod service_lifecycle;
 pub mod service_state;
 pub mod telemetry;
 pub mod telemetry_db;
@@ -117,4 +120,9 @@ pub use ops_log::{
     OpsAction, OpsEntry, OpsLogWriter, OpsLogReader,
     OpsActionCounts, OpsLogSummary,
     INTERNAL_DIR, OPS_LOG_FILE,
+};
+// v7.16.0: Service lifecycle tracking
+pub use service_lifecycle::{
+    ServiceLifecycle, ServiceLifecycleSummary,
+    find_related_units, find_hardware_related_units,
 };

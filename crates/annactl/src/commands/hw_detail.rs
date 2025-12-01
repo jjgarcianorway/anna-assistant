@@ -1,4 +1,4 @@
-//! HW Detail Command v7.15.0 - Hardware Profiles with Health/Driver/Logs
+//! HW Detail Command v7.16.0 - Hardware Profiles with Health/Driver/Logs
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors)
@@ -8,13 +8,14 @@
 //! - [IDENTITY]     Device identification with Bus/Vendor info
 //! - [FIRMWARE]     Microcode/firmware status and sources (v7.15.0)
 //! - [DRIVER]       Kernel module, loaded status, driver package
+//! - [SERVICE LIFECYCLE] Related systemd unit lifecycle (v7.16.0)
 //! - [DEPENDENCIES] Module chain and related services (v7.13.0)
 //! - [INTERFACES]   Network interface details with state/IP (v7.13.0)
 //! - [HEALTH]       Real health metrics (temps, SMART, errors)
 //! - [CAPACITY]     Battery-specific capacity/wear/cycles (v7.15.0)
 //! - [STATE]        Battery/power current state (v7.15.0)
 //! - [TELEMETRY]    Anna telemetry with windows (v7.15.0: 1h/24h/7d trends)
-//! - [LOGS]         Pattern-based grouping with counts (v7.14.0)
+//! - [LOGS]         Multi-window history (this boot, 24h, 7d) (v7.16.0)
 //! - Cross notes:   Links between components
 //!
 //! All data from system tools:
@@ -43,8 +44,10 @@ use anna_common::grounded::network::{
     get_interfaces, InterfaceType, format_traffic,
 };
 use anna_common::grounded::log_patterns::{
-    extract_patterns_for_driver, LogPatternSummary, format_time_short,
+    extract_patterns_for_driver, extract_driver_patterns_with_history,
+    LogPatternSummary, LogHistorySummary, format_time_short,
 };
+use anna_common::{find_hardware_related_units, ServiceLifecycle};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -869,6 +872,9 @@ async fn run_wifi_profile() -> Result<()> {
         return Ok(());
     }
 
+    // [SERVICE LIFECYCLE] - v7.16.0
+    print_hw_service_lifecycle_section("wifi");
+
     // [DEPENDENCIES] - v7.13.0
     // Get the first wifi interface driver for dependencies
     if let Some(first) = wifi_ifaces.first() {
@@ -977,6 +983,9 @@ async fn run_ethernet_profile() -> Result<()> {
         return Ok(());
     }
 
+    // [SERVICE LIFECYCLE] - v7.16.0
+    print_hw_service_lifecycle_section("ethernet");
+
     // [DEPENDENCIES] - v7.13.0
     // Get the first ethernet interface driver for dependencies
     if let Some(first) = eth_ifaces.first() {
@@ -1065,6 +1074,9 @@ async fn run_bluetooth_profile() -> Result<()> {
         println!();
         return Ok(());
     }
+
+    // [SERVICE LIFECYCLE] - v7.16.0
+    print_hw_service_lifecycle_section("bluetooth");
 
     // List bluetooth devices
     if let Ok(entries) = std::fs::read_dir(bt_path) {
@@ -1817,5 +1829,141 @@ fn print_interfaces_section(iface_type: InterfaceType) {
 
         println!();
     }
+}
+
+// ============================================================================
+// v7.16.0 Functions: Service Lifecycle and Multi-Window Log History
+// ============================================================================
+
+/// Print [SERVICE LIFECYCLE] for hardware-related systemd units - v7.16.0
+fn print_hw_service_lifecycle_section(component: &str) {
+    let related_units = find_hardware_related_units(component);
+
+    if related_units.is_empty() {
+        return;
+    }
+
+    println!("{}", "[SERVICE LIFECYCLE]".cyan());
+    println!("  {}", "(source: systemctl show, journalctl)".dimmed());
+    println!();
+
+    for unit in related_units.iter().take(3) {
+        let lifecycle = ServiceLifecycle::query(unit);
+
+        if !lifecycle.exists || lifecycle.is_static {
+            continue;
+        }
+
+        println!("  {}:", unit.cyan());
+        println!("    State:       {}", lifecycle.format_state());
+        println!("    Restarts:    {}", lifecycle.format_restarts());
+
+        // Only show failures if any
+        if lifecycle.failures_24h > 0 || lifecycle.failures_7d > 0 {
+            println!("    Failures:");
+            if lifecycle.failures_24h > 0 {
+                println!("      last 24h:  {}", lifecycle.failures_24h.to_string().yellow());
+            }
+            if lifecycle.failures_7d > 0 {
+                println!("      last 7d:   {}", lifecycle.failures_7d.to_string().yellow());
+            }
+        }
+        println!();
+    }
+}
+
+/// Print [LOGS] section with v7.16.0 multi-window history for hardware
+#[allow(dead_code)]
+fn print_device_logs_v716(device: &str, _keywords: &[&str]) -> LogHistorySummary {
+    println!("{}", "[LOGS]".cyan());
+
+    let summary = extract_driver_patterns_with_history(device);
+
+    if summary.is_empty_this_boot() && summary.patterns.is_empty() {
+        println!();
+        println!("  No warnings or errors recorded for this component.");
+        println!();
+        println!("  {}", format!("Source: {}", summary.source).dimmed());
+        return summary;
+    }
+
+    println!();
+
+    // v7.16.0: Severity breakdown for this boot
+    println!("  This boot:");
+    let total_this_boot = summary.total_this_boot();
+    if total_this_boot == 0 {
+        println!("    {} {} warnings or errors", "✓".green(), "No".green());
+    } else {
+        if summary.this_boot_critical > 0 {
+            println!("    Critical: {}", summary.this_boot_critical.to_string().red().bold());
+        }
+        if summary.this_boot_error > 0 {
+            println!("    Errors:   {}", summary.this_boot_error.to_string().red());
+        }
+        if summary.this_boot_warning > 0 {
+            println!("    Warnings: {}", summary.this_boot_warning.to_string().yellow());
+        }
+    }
+    println!();
+
+    // v7.16.0: Top patterns with history
+    if !summary.patterns.is_empty() {
+        println!("  Top patterns:");
+        for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
+            let display_pattern = if pattern.pattern.len() > 52 {
+                format!("{}...", &pattern.pattern[..49])
+            } else {
+                pattern.pattern.clone()
+            };
+
+            // Build history string
+            let mut history_parts = Vec::new();
+            if pattern.count_this_boot > 0 {
+                history_parts.push(format!("boot: {}", pattern.count_this_boot));
+            }
+            if pattern.count_7d > pattern.count_this_boot {
+                history_parts.push(format!("7d: {}", pattern.count_7d));
+            }
+
+            let history_str = if history_parts.is_empty() {
+                "no history".to_string()
+            } else {
+                history_parts.join(", ")
+            };
+
+            println!("    {}) \"{}\"", i + 1, display_pattern);
+            println!("       {} ({})", pattern.priority.dimmed(), history_str.dimmed());
+        }
+
+        if summary.patterns.len() > 3 {
+            println!();
+            println!("    {} ({} more patterns)",
+                     "...".dimmed(),
+                     summary.patterns.len() - 3);
+        }
+    }
+
+    // v7.16.0: Recurring patterns
+    let recurring = summary.patterns_with_history();
+    if !recurring.is_empty() {
+        println!();
+        println!("  Recurring (seen in previous boots):");
+        for pattern in recurring.iter().take(2) {
+            let display_pattern = if pattern.pattern.len() > 45 {
+                format!("{}...", &pattern.pattern[..42])
+            } else {
+                pattern.pattern.clone()
+            };
+            println!("    - \"{}\" ({} boots)",
+                     display_pattern.dimmed(),
+                     pattern.boots_seen);
+        }
+    }
+
+    println!();
+    println!("  {}", format!("Source: {}", summary.source).dimmed());
+
+    summary
 }
 

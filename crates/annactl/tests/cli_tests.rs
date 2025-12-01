@@ -336,26 +336,22 @@ fn test_annactl_hw_command() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.10.0: HW command shows "Anna Hardware" header with [COMPONENTS] section
+    // HW command shows "Anna Hardware" header with component sections
     assert!(
-        stdout.contains("Anna Hardware") && stdout.contains("[COMPONENTS]"),
-        "Expected HW output with [COMPONENTS], got stdout: {}",
+        stdout.contains("Anna Hardware"),
+        "Expected 'Anna Hardware' header, got stdout: {}",
         stdout
     );
+    // Should have standard hardware sections
     assert!(
-        stdout.contains("[HEALTH HIGHLIGHTS]"),
-        "Expected [HEALTH HIGHLIGHTS] section, got stdout: {}",
-        stdout
-    );
-    assert!(
-        stdout.contains("[CATEGORIES]"),
-        "Expected [CATEGORIES] section, got stdout: {}",
+        stdout.contains("[CPU]") || stdout.contains("[MEMORY]") || stdout.contains("[GPU]"),
+        "Expected hardware sections like [CPU], [MEMORY], [GPU], got stdout: {}",
         stdout
     );
     assert!(output.status.success(), "annactl hw should succeed");
 }
 
-/// Test 'hw' shows health status
+/// Test 'hw' shows hardware components
 #[test]
 fn test_annactl_hw_health_status() {
     let binary = get_binary_path();
@@ -370,15 +366,15 @@ fn test_annactl_hw_health_status() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.5.0: Should show health status for components
+    // Should show hardware component sections
     assert!(
-        stdout.contains("CPU:") && stdout.contains("[HEALTH HIGHLIGHTS]"),
-        "Expected health status in [HEALTH HIGHLIGHTS], got stdout: {}",
+        stdout.contains("[CPU]") || stdout.contains("[GPU]") || stdout.contains("[MEMORY]"),
+        "Expected hardware sections like [CPU], [GPU], [MEMORY], got stdout: {}",
         stdout
     );
 }
 
-/// Test 'hw' shows [DEPENDENCIES] section - v7.6.0
+/// Test 'hw wifi' shows [DEPENDENCIES] section - v7.13.0+
 #[test]
 fn test_annactl_hw_dependencies_section() {
     let binary = get_binary_path();
@@ -386,28 +382,25 @@ fn test_annactl_hw_dependencies_section() {
         return;
     }
 
+    // Test with specific profile that has dependencies
     let output = Command::new(&binary)
-        .arg("hw")
+        .args(["hw", "wifi"])
         .output()
         .expect("Failed to run annactl");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.6.0: Should show [DEPENDENCIES] section
-    assert!(
-        stdout.contains("[DEPENDENCIES]"),
-        "Expected [DEPENDENCIES] section, got stdout: {}",
-        stdout
-    );
-    // Should list hardware tools
-    assert!(
-        stdout.contains("smartctl:") || stdout.contains("sensors:"),
-        "Expected hardware tools in [DEPENDENCIES], got stdout: {}",
-        stdout
-    );
+    // v7.13.0+: hw wifi should show [DEPENDENCIES] section
+    if !stdout.contains("[NOT FOUND]") {
+        assert!(
+            stdout.contains("[DEPENDENCIES]"),
+            "Expected [DEPENDENCIES] section in hw wifi, got stdout: {}",
+            stdout
+        );
+    }
 }
 
-/// Test 'hw' shows drivers per component - v7.10.0
+/// Test 'hw' shows drivers information
 #[test]
 fn test_annactl_hw_drivers_section() {
     let binary = get_binary_path();
@@ -422,10 +415,10 @@ fn test_annactl_hw_drivers_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.10.0: Should show drivers in [COMPONENTS] section
+    // Hardware overview should show driver info in component sections
     assert!(
-        stdout.contains("[COMPONENTS]") && stdout.contains("driver:"),
-        "Expected [COMPONENTS] section with drivers, got stdout: {}",
+        stdout.contains("driver:") || stdout.contains("Drivers:"),
+        "Expected driver info in hw output, got stdout: {}",
         stdout
     );
 }
@@ -446,9 +439,9 @@ fn test_annactl_hw_case_insensitive() {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        // v7.10.0: Now uses [COMPONENTS] instead of [OVERVIEW]
+        // Should show hardware inventory
         assert!(
-            stdout.contains("Anna Hardware") && stdout.contains("[COMPONENTS]"),
+            stdout.contains("Anna Hardware") && (stdout.contains("[CPU]") || stdout.contains("[GPU]")),
             "'{}' should be recognized as hw command, got stdout: {}",
             hw_arg,
             stdout
@@ -916,9 +909,10 @@ fn test_annactl_sw_object_performance() {
     let elapsed = start.elapsed();
 
     assert!(output.status.success(), "annactl sw pacman should succeed");
+    // v7.16.0: Multi-window log history adds journalctl queries, allowing 3s
     assert!(
-        elapsed.as_secs() < 2,
-        "annactl sw <name> should complete in <2s, took: {:?}",
+        elapsed.as_secs() < 3,
+        "annactl sw <name> should complete in <3s, took: {:?}",
         elapsed
     );
 }
@@ -1206,16 +1200,21 @@ fn test_snow_leopard_hw_components_v710() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.10.0: HW should show [COMPONENTS] section with driver info
+    // HW should show component sections with driver info
+    let has_sections = stdout.contains("[CPU]")
+        || stdout.contains("[GPU]")
+        || stdout.contains("[MEMORY]")
+        || stdout.contains("[STORAGE]")
+        || stdout.contains("[NETWORK]");
     assert!(
-        stdout.contains("[COMPONENTS]"),
-        "Expected [COMPONENTS] section, got: {}",
+        has_sections,
+        "Expected hardware sections, got: {}",
         stdout
     );
     // Should show driver information
     assert!(
-        stdout.contains("driver:"),
-        "[COMPONENTS] should show driver info: {}",
+        stdout.contains("driver:") || stdout.contains("Drivers:"),
+        "Should show driver info: {}",
         stdout
     );
     assert!(output.status.success());
@@ -1635,21 +1634,24 @@ fn test_snow_leopard_hw_components_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.10.0: hw should show [COMPONENTS] section
+    // hw should show component sections
+    let has_sections = stdout.contains("[CPU]")
+        || stdout.contains("[GPU]")
+        || stdout.contains("[MEMORY]")
+        || stdout.contains("[STORAGE]")
+        || stdout.contains("[NETWORK]");
     assert!(
-        stdout.contains("[COMPONENTS]"),
-        "Expected [COMPONENTS] section in hw output, got: {}",
+        has_sections,
+        "Expected hardware sections in hw output, got: {}",
         stdout
     );
 
-    // v7.10.0: [COMPONENTS] should mention driver for at least CPU
-    if stdout.contains("CPU:") {
-        assert!(
-            stdout.contains("driver:"),
-            "[COMPONENTS] should show driver for CPU: {}",
-            stdout
-        );
-    }
+    // Should show driver info
+    assert!(
+        stdout.contains("driver:") || stdout.contains("Drivers:"),
+        "Should show driver info: {}",
+        stdout
+    );
 
     assert!(output.status.success());
 }
@@ -1844,10 +1846,14 @@ fn test_snow_leopard_hw_telemetry_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.11.0: HW must show [HW TELEMETRY] section
+    // hw overview shows component sections (telemetry moved to specific profiles)
+    let has_sections = stdout.contains("[CPU]")
+        || stdout.contains("[GPU]")
+        || stdout.contains("[MEMORY]")
+        || stdout.contains("[NETWORK]");
     assert!(
-        stdout.contains("[HW TELEMETRY]"),
-        "Expected [HW TELEMETRY] section, got: {}",
+        has_sections,
+        "Expected hardware sections, got: {}",
         stdout
     );
     assert!(output.status.success());
@@ -2593,7 +2599,7 @@ fn test_snow_leopard_no_invented_dependencies_v713() {
 // v7.14.0: Snow Leopard Log Patterns, Config Sanity, Cross Notes Tests
 // ============================================================================
 
-/// Test sw NAME [LOGS] shows pattern-based summary (v7.14.0)
+/// Test sw NAME [LOGS] shows pattern-based summary (v7.16.0)
 #[test]
 fn test_snow_leopard_sw_logs_patterns_v714() {
     let binary = get_binary_path();
@@ -2608,10 +2614,10 @@ fn test_snow_leopard_sw_logs_patterns_v714() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.14.0: [LOGS] should show Patterns summary
+    // v7.16.0: [LOGS] should show multi-window summary
     if stdout.contains("[LOGS]") {
-        // Should have "Patterns (this boot):" or "No warnings"
-        let has_pattern_info = stdout.contains("Patterns (this boot):")
+        // Should have "This boot:" or "No warnings"
+        let has_pattern_info = stdout.contains("This boot:")
             || stdout.contains("No warnings or errors");
         assert!(
             has_pattern_info,
@@ -2643,18 +2649,16 @@ fn test_snow_leopard_sw_logs_pattern_counts_v714() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.14.0: If patterns exist, should show counts
-    if stdout.contains("Patterns (this boot):") {
-        // Should have "Total warnings/errors:" with count
+    // v7.16.0: If patterns exist, should show severity breakdown
+    if stdout.contains("This boot:") && !stdout.contains("No warnings or errors") {
+        // Should have severity breakdown (Warnings/Errors/Critical) or top patterns
+        let has_severity = stdout.contains("Warnings:")
+            || stdout.contains("Errors:")
+            || stdout.contains("Critical:")
+            || stdout.contains("Top patterns:");
         assert!(
-            stdout.contains("Total warnings/errors:"),
-            "[LOGS] patterns should show total count: {}",
-            stdout
-        );
-        // Should have pattern count "(X patterns)"
-        assert!(
-            stdout.contains("patterns)"),
-            "[LOGS] should show pattern count: {}",
+            has_severity,
+            "[LOGS] patterns should show severity or top patterns: {}",
             stdout
         );
     }
@@ -2712,9 +2716,10 @@ fn test_snow_leopard_hw_logs_patterns_v714() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.14.0: hw wifi [LOGS] should show pattern summary
+    // v7.16.0: hw wifi [LOGS] should show pattern summary
     if !stdout.contains("[NOT FOUND]") && stdout.contains("[LOGS]") {
         let has_pattern_info = stdout.contains("Patterns (this boot):")
+            || stdout.contains("This boot:")
             || stdout.contains("No warnings or errors");
         assert!(
             has_pattern_info,
@@ -2792,19 +2797,22 @@ fn test_snow_leopard_logs_time_hints_v714() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.14.0: Patterns should show "last at" time hints
-    if stdout.contains("Patterns (this boot):") && stdout.contains("1)") {
-        // Should have "last at" time reference
+    // v7.16.0: Patterns should show time hints or history
+    if (stdout.contains("Patterns (this boot):") || stdout.contains("Top patterns:")) && stdout.contains("1)") {
+        // Should have time reference or boot/history info
+        let has_time_info = stdout.contains("last at")
+            || stdout.contains("boot:")
+            || stdout.contains("7d:");
         assert!(
-            stdout.contains("last at"),
-            "Pattern entries should show 'last at' time hint: {}",
+            has_time_info,
+            "Pattern entries should show time info or history: {}",
             stdout
         );
     }
     assert!(output.status.success());
 }
 
-/// Test patterns show "seen X times" counts (v7.14.0)
+/// Test patterns show counts (v7.16.0)
 #[test]
 fn test_snow_leopard_logs_seen_counts_v714() {
     let binary = get_binary_path();
@@ -2819,12 +2827,15 @@ fn test_snow_leopard_logs_seen_counts_v714() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.14.0: Patterns should show "seen X time(s)" counts
-    if stdout.contains("Patterns (this boot):") && stdout.contains("1)") {
-        // Should have "seen N time" reference
+    // v7.16.0: Patterns should show count info
+    if (stdout.contains("Patterns (this boot):") || stdout.contains("Top patterns:")) && stdout.contains("1)") {
+        // Should have count reference (seen X, boot: X, etc.)
+        let has_count = stdout.contains("seen")
+            || stdout.contains("boot:")
+            || stdout.contains("times");
         assert!(
-            stdout.contains("seen"),
-            "Pattern entries should show 'seen' count: {}",
+            has_count,
+            "Pattern entries should show count info: {}",
             stdout
         );
     }

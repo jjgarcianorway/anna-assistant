@@ -1,8 +1,8 @@
-# Anna v7.15.0 "Deeper Hardware Insight"
+# Anna v7.16.0 "Log History & Service Lifecycle"
 
 **System Intelligence Daemon for Linux**
 
-> v7.15.0: Structured hardware overview by category, rich profiles for CPU/GPU/storage/battery with firmware and health data, SMART monitoring, microcode status.
+> v7.16.0: Multi-window log history (this boot, 24h, 7d) with severity breakdown, service lifecycle tracking (restarts, exit codes, activation failures), enhanced dependency linking.
 
 ---
 
@@ -59,6 +59,81 @@ annactl hw cpu
 annactl hw gpu
 annactl hw storage
 annactl hw network
+```
+
+---
+
+## v7.16.0 Features
+
+### Multi-Window Log History
+
+Log patterns are now tracked across multiple time windows with severity breakdown:
+
+```
+[LOGS]
+
+  This boot:
+    Errors:   3
+    Warnings: 12
+
+  Top patterns:
+    1) "connection to %IP% timed out"
+       error (boot: 2, 24h: 5, 7d: 23)
+    2) "failed to resolve %DOMAIN%"
+       error (boot: 1, 7d: 8)
+    3) "link state changed to down on %IFACE%"
+       warning (boot: 12, 7d: 45)
+
+  Recurring patterns (seen in previous boots):
+    - "connection to %IP% timed out" (5 boots, 23 total in 7d)
+
+  Source: journalctl -u service.service -p warning..alert
+```
+
+Each pattern shows:
+- Count per window (this boot, 24h, 7d)
+- Severity level (critical, error, warning)
+- Recurrence across boots
+
+### Service Lifecycle Tracking
+
+Software profiles now show systemd unit lifecycle information:
+
+```
+[SERVICE LIFECYCLE]
+  (source: systemctl show, journalctl)
+
+  State:       active (running)
+  Restarts:    0 this boot
+  Last exit:   code=0 status=success
+  Failures:
+    last 24h:  0
+    last 7d:   0
+```
+
+Hardware profiles show related service lifecycle:
+
+```
+[SERVICE LIFECYCLE]
+  (source: systemctl show, journalctl)
+
+  NetworkManager.service:
+    State:       active (running)
+    Restarts:    0 this boot
+
+  wpa_supplicant.service:
+    State:       active (running)
+    Restarts:    0 this boot
+```
+
+### Enhanced Cross Notes
+
+Cross notes now link log history patterns to other observations:
+
+```
+Cross notes:
+  - Recurring issue seen in 5 boots - may need attention.
+  - 2 critical error(s) this boot - requires attention.
 ```
 
 ---
@@ -358,7 +433,7 @@ Status inventory now includes network interface summary:
 ------------------------------------------------------------
 
 [VERSION]
-  Anna:       v7.15.0
+  Anna:       v7.16.0
 
 [DAEMON]
   Status:     running
@@ -493,8 +568,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.15.0/annad-7.15.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.15.0/annactl-7.15.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.16.0/annad-7.16.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.16.0/annactl-7.16.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -582,7 +657,8 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.15.0** | **Deeper Hardware Insight** - Structured hw overview, firmware/microcode, SMART health, battery profiles |
+| **v7.16.0** | **Log History & Service Lifecycle** - Multi-window log history, service lifecycle tracking, enhanced cross notes |
+| v7.15.0 | Deeper Hardware Insight - Structured hw overview, firmware/microcode, SMART health, battery profiles |
 | v7.14.0 | Log Patterns and Config Sanity - Pattern-based log grouping, config sanity checks, cross notes |
 | v7.13.0 | Dependency Graph and Network Awareness - deps for packages/services/drivers, network interfaces |
 | v7.12.0 | Config Intelligence - Primary/Secondary config, log deduplication, State summaries, ops.log |
