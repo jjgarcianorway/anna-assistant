@@ -1,18 +1,20 @@
-//! Knowledge Stats Command v5.2.5 - Coverage and Quality Metrics
+//! Knowledge Stats Command v5.2.6 - Coverage and Quality Metrics
 //!
 //! Shows knowledge coverage and quality statistics.
 //! Focuses on what percentage of the system Anna understands.
 //!
+//! v5.2.6: Every metric has explicit scope/units.
+//!
 //! Sections:
-//! - [COVERAGE] Object coverage by type
-//! - [QUALITY] Description and metadata completeness
-//! - [DISCOVERY] Discovery timeline
+//! - [COVERAGE] Object coverage (indexed / total on system)
+//! - [QUALITY] Metadata completeness for installed objects
+//! - [TIMELINE] When objects were first discovered
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 
 use anna_common::{
-    KnowledgeCategory, KnowledgeStore, ErrorIndex,
+    KnowledgeStore,
     count_path_binaries, count_systemd_services,
     format_time_ago, format_percent, get_description,
 };
@@ -27,7 +29,6 @@ pub async fn run() -> Result<()> {
     println!();
 
     let store = KnowledgeStore::load();
-    let error_index = ErrorIndex::load();
 
     // [COVERAGE]
     print_coverage_section(&store);
@@ -35,11 +36,8 @@ pub async fn run() -> Result<()> {
     // [QUALITY]
     print_quality_section(&store);
 
-    // [DISCOVERY]
-    print_discovery_section(&store);
-
-    // [ERRORS]
-    print_errors_section(&error_index);
+    // [TIMELINE]
+    print_timeline_section(&store);
 
     println!("{}", THIN_SEP);
     println!();
@@ -49,13 +47,11 @@ pub async fn run() -> Result<()> {
 
 fn print_coverage_section(store: &KnowledgeStore) {
     println!("{}", "[COVERAGE]".cyan());
+    println!("  {}", "(indexed / total on system)".dimmed());
 
     let total_path_cmds = count_path_binaries();
     let total_services = count_systemd_services();
     let (commands, packages, services) = store.count_by_type();
-
-    // Installed objects only
-    let installed_count = store.objects.values().filter(|o| o.installed).count();
 
     // Coverage percentages
     let cmd_coverage = (commands as f64 / total_path_cmds.max(1) as f64) * 100.0;
@@ -73,8 +69,7 @@ fn print_coverage_section(store: &KnowledgeStore) {
         total_services,
         format_coverage_bar(svc_coverage)
     );
-    println!("  Packages:    {}", packages);
-    println!("  Installed:   {}", installed_count);
+    println!("  Packages:    {} (from pacman)", packages);
 
     // Overall coverage
     let total_possible = total_path_cmds + total_services;
@@ -87,8 +82,16 @@ fn print_coverage_section(store: &KnowledgeStore) {
 
 fn print_quality_section(store: &KnowledgeStore) {
     println!("{}", "[QUALITY]".cyan());
+    println!("  {}", "(metadata completeness for installed objects)".dimmed());
 
-    // Count objects with descriptions
+    let installed = store.objects.values().filter(|o| o.installed).count();
+    if installed == 0 {
+        println!("  No installed objects to measure");
+        println!();
+        return;
+    }
+
+    // Count objects with various metadata
     let mut with_description = 0;
     let mut with_version = 0;
     let mut with_config = 0;
@@ -111,13 +114,6 @@ fn print_quality_section(store: &KnowledgeStore) {
         if obj.usage_count > 0 {
             with_usage += 1;
         }
-    }
-
-    let installed = store.objects.values().filter(|o| o.installed).count();
-    if installed == 0 {
-        println!("  No installed objects to measure quality");
-        println!();
-        return;
     }
 
     let desc_pct = (with_description as f64 / installed as f64) * 100.0;
@@ -144,7 +140,7 @@ fn print_quality_section(store: &KnowledgeStore) {
         format_coverage_bar(cfg_pct)
     );
     println!(
-        "  Usage tracked: {}/{} {}",
+        "  Usage data:    {}/{} {}",
         with_usage,
         installed,
         format_coverage_bar(usage_pct)
@@ -163,7 +159,7 @@ fn print_quality_section(store: &KnowledgeStore) {
     };
 
     println!(
-        "  Quality score: {} ({})",
+        "  Quality:       {} ({})",
         format_percent(quality_score),
         quality_label
     );
@@ -171,8 +167,9 @@ fn print_quality_section(store: &KnowledgeStore) {
     println!();
 }
 
-fn print_discovery_section(store: &KnowledgeStore) {
-    println!("{}", "[DISCOVERY]".cyan());
+fn print_timeline_section(store: &KnowledgeStore) {
+    println!("{}", "[TIMELINE]".cyan());
+    println!("  {}", "(when objects were first discovered)".dimmed());
 
     // First and last discovery times
     let first_seen = store
@@ -189,71 +186,22 @@ fn print_discovery_section(store: &KnowledgeStore) {
         .map(|o| o.first_seen_at)
         .max();
 
+    // Objects with usage data
+    let with_usage = store.objects.values().filter(|o| o.usage_count > 0).count();
+
     if let Some(first) = first_seen {
-        println!("  First object:  {}", format_time_ago(first));
+        println!("  First indexed: {}", format_time_ago(first));
     } else {
-        println!("  First object:  n/a");
+        println!("  First indexed: n/a");
     }
 
     if let Some(last) = last_seen {
-        println!("  Last new:      {}", format_time_ago(last));
+        println!("  Last indexed:  {}", format_time_ago(last));
     } else {
-        println!("  Last new:      n/a");
+        println!("  Last indexed:  n/a");
     }
 
-    // Objects by category (installed only)
-    let categories = [
-        (KnowledgeCategory::Editor, "Editors"),
-        (KnowledgeCategory::Terminal, "Terminals"),
-        (KnowledgeCategory::Shell, "Shells"),
-        (KnowledgeCategory::Compositor, "Compositors"),
-        (KnowledgeCategory::Wm, "Window Mgrs"),
-        (KnowledgeCategory::Browser, "Browsers"),
-        (KnowledgeCategory::Service, "Services"),
-        (KnowledgeCategory::Tool, "Tools"),
-    ];
-
-    println!("  By category:");
-    for (cat, label) in &categories {
-        let count = store
-            .objects
-            .values()
-            .filter(|o| o.category == *cat && o.installed)
-            .count();
-
-        if count > 0 {
-            println!("    {:<14} {}", format!("{}:", label), count);
-        }
-    }
-
-    println!();
-}
-
-fn print_errors_section(error_index: &ErrorIndex) {
-    println!("{}", "[ERRORS]".cyan());
-
-    let total_objects = error_index.objects.len();
-    let total_errors: u64 = error_index
-        .objects
-        .values()
-        .map(|o| o.total_errors())
-        .sum();
-
-    if total_errors == 0 {
-        println!("  No errors indexed");
-    } else {
-        println!("  Objects with errors: {}", total_objects);
-        println!("  Total errors:        {}", total_errors);
-
-        // Top 3 error objects
-        let top_errors = error_index.top_by_errors(3);
-        if !top_errors.is_empty() {
-            println!("  Top offenders:");
-            for (name, count) in &top_errors {
-                println!("    {}: {} errors", name, count);
-            }
-        }
-    }
+    println!("  With usage:    {} objects have been observed running", with_usage);
 
     println!();
 }

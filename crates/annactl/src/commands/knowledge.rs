@@ -1,12 +1,15 @@
-//! Knowledge Command v5.2.5 - Installed Objects Only
+//! Knowledge Command v5.2.6 - Installed Objects Only
 //!
 //! Shows what Anna knows about objects installed on THIS system.
 //! Fundamental rule: Never show non-installed objects here.
 //!
+//! v5.2.6: Clear metrics with explicit time windows.
+//! - Usage: "runs" is total observed since daemon start (not per day)
+//! - Errors: 24h window, explicitly stated
+//!
 //! Sections:
-//! - [USAGE WINDOW] Time window for metrics
-//! - [SUMMARY] One line per major category with installed counts
-//! - Category blocks (EDITORS, TERMINALS, etc.) with installed objects only
+//! - [INSTALLED] Count of installed objects by category
+//! - Category blocks with installed objects only
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -29,11 +32,8 @@ pub async fn run() -> Result<()> {
     let store = KnowledgeStore::load();
     let error_index = ErrorIndex::load();
 
-    // [USAGE WINDOW]
-    print_usage_window_section();
-
-    // [SUMMARY]
-    print_summary_section(&store);
+    // [INSTALLED]
+    print_installed_section(&store);
 
     // Category blocks - installed objects only
     print_category_block(&store, &error_index, KnowledgeCategory::Editor, "EDITORS");
@@ -47,21 +47,15 @@ pub async fn run() -> Result<()> {
 
     println!("{}", THIN_SEP);
     println!();
-    println!("  Use 'annactl knowledge <name>' for full object details.");
-    println!("  Use 'annactl knowledge stats' for coverage statistics.");
+    println!("  'annactl knowledge <name>' for details on a specific object.");
+    println!("  'annactl knowledge stats' for coverage metrics.");
     println!();
 
     Ok(())
 }
 
-fn print_usage_window_section() {
-    println!("{}", "[USAGE WINDOW]".cyan());
-    println!("  Metrics shown: last 24 hours");
-    println!();
-}
-
-fn print_summary_section(store: &KnowledgeStore) {
-    println!("{}", "[SUMMARY]".cyan());
+fn print_installed_section(store: &KnowledgeStore) {
+    println!("{}", "[INSTALLED]".cyan());
 
     let categories = [
         (KnowledgeCategory::Editor, "Editors"),
@@ -141,33 +135,34 @@ fn print_object_line(obj: &KnowledgeObject, error_index: &ErrorIndex, is_service
     let name = truncate_str(&obj.name, 14);
     let errors_24h = get_object_errors_24h(error_index, &obj.name);
 
-    // Error string
-    let err_str = if errors_24h > 0 {
-        format!("errs:{}", errors_24h)
-    } else {
-        "errs:-".to_string()
-    };
-
-    // For services, show state instead of runs
-    // For others, show runs/day
-    let usage_str = if is_service {
-        format_service_state(obj)
-    } else {
-        format_runs_per_day(obj)
-    };
-
     // Get description if available
     let desc = get_description(&obj.name)
-        .map(|d| truncate_str(d, 30))
+        .map(|d| truncate_str(d, 32))
         .unwrap_or_default();
 
+    // For services, show state
+    // For commands, show if we have usage data
+    let usage_info = if is_service {
+        format_service_state(obj)
+    } else {
+        format_usage_info(obj)
+    };
+
+    // Error indicator (only show if errors exist)
+    let err_indicator = if errors_24h > 0 {
+        format!(" [{}]", format!("{} errs", errors_24h).red())
+    } else {
+        String::new()
+    };
+
     if desc.is_empty() {
-        println!("  {:<14} {:<12} {}", name, usage_str, err_str);
+        println!("  {:<14} {}{}", name, usage_info, err_indicator);
     } else {
         println!(
-            "  {:<14} {:<12} {:<8} {}",
-            name, usage_str, err_str,
-            desc.dimmed()
+            "  {:<14} {:<12} {}{}",
+            name, usage_info,
+            desc.dimmed(),
+            err_indicator
         );
     }
 }
@@ -175,27 +170,22 @@ fn print_object_line(obj: &KnowledgeObject, error_index: &ErrorIndex, is_service
 fn format_service_state(obj: &KnowledgeObject) -> String {
     if let Some(active) = obj.service_active {
         if active {
-            "state:running".to_string()
+            "running".green().to_string()
         } else {
-            "state:stopped".to_string()
+            "stopped".to_string()
         }
     } else {
-        "state:-".to_string()
+        "installed".to_string()
     }
 }
 
-fn format_runs_per_day(obj: &KnowledgeObject) -> String {
-    // Calculate runs in last 24 hours
-    // For now, use usage_count as a proxy (assuming it's recent)
-    // In a real implementation, we'd have timestamped usage events
-    let runs = obj.usage_count;
-
-    if runs == 0 {
-        "runs:-".to_string()
-    } else if runs == 1 {
-        "runs:1/day".to_string()
+fn format_usage_info(obj: &KnowledgeObject) -> String {
+    // Show if we have observed usage, but don't pretend it's "per day"
+    // since usage_count is lifetime total
+    if obj.usage_count > 0 {
+        format!("{} runs", obj.usage_count)
     } else {
-        format!("runs:{}/day", runs)
+        "installed".to_string()
     }
 }
 

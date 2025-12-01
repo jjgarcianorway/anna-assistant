@@ -1,15 +1,17 @@
-//! Status Command v5.2.5 - Anna's Health Only
+//! Status Command v5.2.6 - Anna's Health Only
 //!
 //! Shows a sysadmin a quick view of Anna's own health and background work.
 //! Strictly about Anna's state - no knowledge lists, no per-object stats.
+//!
+//! v5.2.6: Every metric has explicit time window and units.
 //!
 //! Sections:
 //! - [VERSION] annactl/annad versions
 //! - [SERVICES] Daemon state and uptime, Ollama state
 //! - [PERMISSIONS] Directory access status
 //! - [UPDATES] Auto-update state
-//! - [INVENTORY] Scan progress with ETA
-//! - [HEALTH] Error pipeline summary
+//! - [INVENTORY] Scan progress (indexed / total on system)
+//! - [HEALTH] Log pipeline summary (24h window)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -97,15 +99,15 @@ fn print_permissions_section() {
     println!("{}", "[PERMISSIONS]".cyan());
 
     let dirs = [
-        ("Data dir", "/var/lib/anna"),
+        ("Data", "/var/lib/anna"),
         ("Knowledge", "/var/lib/anna/knowledge"),
-        ("XP dir", "/var/lib/anna/xp"),
-        ("LLM state", "/var/lib/anna/llm"),
+        ("XP", "/var/lib/anna/xp"),
+        ("LLM", "/var/lib/anna/llm"),
     ];
 
     for (label, path) in &dirs {
         let access = check_dir_access(path);
-        println!("  {:<12} {}  {}", format!("{}:", label), access, path);
+        println!("  {:<10} {}  {}", format!("{}:", label), access, path);
     }
 
     println!();
@@ -134,6 +136,7 @@ fn print_updates_section() {
 
 fn print_inventory_section(store: &KnowledgeStore) {
     println!("{}", "[INVENTORY]".cyan());
+    println!("  {}", "(indexed / total on system)".dimmed());
 
     // Get counts
     let total_path_cmds = count_path_binaries();
@@ -151,46 +154,27 @@ fn print_inventory_section(store: &KnowledgeStore) {
 
     // Determine status
     let status = if progress >= 99.0 {
-        "Completed".green().to_string()
+        "complete".green().to_string()
     } else if progress > 0.0 {
-        "Scanning".yellow().to_string()
+        "scanning".yellow().to_string()
     } else {
-        "Waiting".to_string()
+        "waiting".to_string()
     };
 
-    println!("  Status:     {}", status);
     println!(
         "  Commands:   {}/{} ({})",
         commands,
         total_path_cmds,
         format_percent((commands as f64 / total_path_cmds.max(1) as f64) * 100.0)
     );
-    println!(
-        "  Packages:   {}/{} ({})",
-        packages,
-        packages,  // packages is always 100% of what pacman reports
-        format_percent(100.0)
-    );
+    println!("  Packages:   {}", packages);
     println!(
         "  Services:   {}/{} ({})",
         services,
         total_services,
         format_percent((services as f64 / total_services.max(1) as f64) * 100.0)
     );
-    println!("  Progress:   {}", format_percent(progress));
-
-    // ETA calculation
-    if progress < 99.0 && progress > 0.0 {
-        let remaining = (100.0 - progress) / 100.0 * total_possible as f64;
-        let rate = 50.0; // Assume ~50 items/sec
-        let secs = (remaining / rate) as u64;
-        let eta = if secs < 60 {
-            format!("~{}s", secs)
-        } else {
-            format!("~{}m", secs / 60)
-        };
-        println!("  ETA:        {}", eta);
-    }
+    println!("  Status:     {}", status);
 
     println!();
 }
@@ -201,6 +185,7 @@ fn print_health_section(
     log_scan_state: &LogScanState,
 ) {
     println!("{}", "[HEALTH]".cyan());
+    println!("  {}", "(last 24 hours)".dimmed());
 
     // Get 24h counts
     let now = SystemTime::now()
@@ -223,29 +208,33 @@ fn print_health_section(
         }
     }
 
-    // Get intrusion count
+    // Get intrusion count (24h)
     let intrusion_index = IntrusionIndex::load();
     let intrusions = intrusion_index.recent_high_severity(86400, 1).len();
 
     // Get failed services count
     let failed_services = service_index.failed_count;
 
-    println!("  Errors (24h):     {}", errors_24h);
-    println!("  Warnings (24h):   {}", warnings_24h);
-    println!("  Intrusions:       {} detected", intrusions);
-    println!("  Failed services:  {}", failed_services);
+    // Only show non-zero or important metrics
+    println!("  Errors:          {}", errors_24h);
+    println!("  Warnings:        {}", warnings_24h);
 
-    // Log scanner status
+    if intrusions > 0 {
+        println!("  Intrusions:      {}", intrusions.to_string().red());
+    }
+
+    if failed_services > 0 {
+        println!("  Failed services: {}", failed_services.to_string().red());
+    }
+
+    // Log scanner status - simplified
     let scanner_status = if log_scan_state.running {
         "running".green().to_string()
     } else {
         "idle".to_string()
     };
     let last_scan = format_time_ago(log_scan_state.last_scan_at);
-    println!(
-        "  Log scanner:      {} (last {}, +{} errors, +{} warnings)",
-        scanner_status, last_scan, log_scan_state.new_errors, log_scan_state.new_warnings
-    );
+    println!("  Log scanner:     {} (last scan {})", scanner_status, last_scan);
 
     println!();
 }

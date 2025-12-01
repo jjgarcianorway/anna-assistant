@@ -1,8 +1,8 @@
-# Anna v5.2.5 "Knowledge is the Machine"
+# Anna v5.2.6 "Meaningful Metrics"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v5.2.5 Knowledge refinement: Strict installed-only knowledge views. Command separation (status=Anna health, knowledge=installed objects, stats=daemon activity). Object relationships (aquamarine->hyprland). Description metadata from ArchWiki/man. Relevance filter hides zero metrics. Quality scoring for knowledge completeness.
+> v5.2.6 Meaningful metrics: Every number has explicit time window and units. No walls of zeros. Dimmed context hints (e.g., "(last 24 hours)", "(since daemon start)"). Cleaner output - sections hidden when empty. "X runs" now says "X observed" to avoid misleading per-day claims.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v5.2.5** | **Knowledge is the Machine** - Strict installed-only views, command separation (status/knowledge/stats), object relationships, description metadata, relevance filter, quality scoring |
+| **v5.2.6** | **Meaningful Metrics** - Every metric has explicit time window/units, no walls of zeros, dimmed context hints, cleaner output |
+| v5.2.5 | Knowledge is the Machine - Strict installed-only views, command separation (status/knowledge/stats), object relationships, description metadata, relevance filter, quality scoring |
 | v5.2.4 | Knowledge Core - Error index, service state, intrusion detection, display formatting |
 | v5.2.0 | Knowledge System - System profiler, knowledge engine, full inventory |
 | v4.5.4 | LLM Routing Sanity - Predictable routing invariants, empty plan = failure, consistent ROUTE lines, 8 routing invariant tests, ASCII only |
