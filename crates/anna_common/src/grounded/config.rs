@@ -1,4 +1,4 @@
-//! Config Discovery v7.4.0 - Honest Multi-source Config Discovery
+//! Config Discovery v7.5.0 - Honest Multi-source Config Discovery
 //!
 //! Sources (in order):
 //! 1. pacman -Ql <package> - Files under /etc/ and config templates
@@ -12,6 +12,7 @@
 //! - Paths from multiple sources are merged with combined attribution
 //! - Precedence rules only stated when documented
 //! - Missing files are shown as [not present] if documented
+//! - v7.5.0: Improved path filtering, better deduplication
 
 use std::collections::HashMap;
 use std::path::Path;

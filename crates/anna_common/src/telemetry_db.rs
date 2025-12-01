@@ -1,8 +1,9 @@
-//! Telemetry Database v7.3.0 - SQLite-based Process Telemetry
+//! Telemetry Database v7.5.0 - SQLite-based Process Telemetry
 //!
 //! Stores per-process CPU/memory samples over time for:
 //! - Real telemetry display in `annactl kdb <object>` [USAGE] section
 //! - Real telemetry aggregates in `annactl status` [TELEMETRY] section
+//! - Health hotspot detection in `annactl status` [HEALTH] section
 //!
 //! Schema:
 //! - process_samples: PID, name, CPU%, memory, timestamp
@@ -10,6 +11,7 @@
 //!
 //! v7.2.0: Added time-windowed aggregations and global peak queries
 //! v7.3.0: Added multi-window per-object stats for PHASE 9
+//! v7.5.0: PHASE 15-16 - Enhanced exec counts, CPU time totals, top-N queries
 
 use anyhow::Result;
 use rusqlite::{Connection, params};
@@ -773,6 +775,306 @@ impl TelemetryDb {
             last_30d: self.get_launch_count(name, WINDOW_30D)?,
         })
     }
+
+    // ========================================================================
+    // PHASE 15-16: Enhanced telemetry queries (v7.5.0)
+    // ========================================================================
+
+    /// Sampling interval in seconds (must match daemon config)
+    const SAMPLE_INTERVAL_SECS: f64 = 15.0;
+
+    /// Get enhanced usage stats for a specific time window
+    pub fn get_enhanced_usage_stats(&self, name: &str, window_secs: u64) -> Result<EnhancedUsageStats> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                COUNT(DISTINCT pid) as exec_count,
+                SUM(cpu_percent) as cpu_sum,
+                MAX(cpu_percent) as cpu_peak,
+                MAX(mem_bytes) as mem_peak,
+                AVG(mem_bytes) as mem_avg,
+                MIN(timestamp) as first_ts,
+                MAX(timestamp) as last_ts,
+                COUNT(*) as sample_count
+            FROM process_samples
+            WHERE name = ?1 AND timestamp >= ?2
+            "#
+        )?;
+
+        stmt.query_row(params![name, since as i64], |row| {
+            let exec_count: i64 = row.get(0).unwrap_or(0);
+            let cpu_sum: f64 = row.get(1).unwrap_or(0.0);
+            let cpu_peak: f64 = row.get(2).unwrap_or(0.0);
+            let mem_peak: i64 = row.get(3).unwrap_or(0);
+            let mem_avg: f64 = row.get(4).unwrap_or(0.0);
+            let first_ts: i64 = row.get(5).unwrap_or(0);
+            let last_ts: i64 = row.get(6).unwrap_or(0);
+            let sample_count: i64 = row.get(7).unwrap_or(0);
+
+            // Calculate CPU time: sum(cpu_percent) * interval / 100
+            let cpu_time_secs = cpu_sum * Self::SAMPLE_INTERVAL_SECS / 100.0;
+
+            Ok(EnhancedUsageStats {
+                exec_count: exec_count as u64,
+                cpu_time_total_secs: cpu_time_secs,
+                cpu_peak_percent: cpu_peak as f32,
+                rss_peak_bytes: mem_peak as u64,
+                rss_avg_bytes: mem_avg as u64,
+                first_seen_ts: first_ts as u64,
+                last_seen_ts: last_ts as u64,
+                sample_count: sample_count as u64,
+                has_data: sample_count > 0,
+            })
+        }).map_err(|e| e.into())
+    }
+
+    /// Get enhanced multi-window stats for an object
+    pub fn get_enhanced_windowed_stats(&self, name: &str) -> Result<EnhancedWindowedStats> {
+        Ok(EnhancedWindowedStats {
+            last_1h: self.get_enhanced_usage_stats(name, WINDOW_1H)?,
+            last_24h: self.get_enhanced_usage_stats(name, WINDOW_24H)?,
+            last_7d: self.get_enhanced_usage_stats(name, WINDOW_7D)?,
+            last_30d: self.get_enhanced_usage_stats(name, WINDOW_30D)?,
+        })
+    }
+
+    /// Get top N processes by CPU time in a window
+    pub fn top_by_cpu_time(&self, window_secs: u64, limit: usize) -> Result<Vec<TopProcessEntry>> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                SUM(cpu_percent) * ?3 / 100.0 as cpu_time,
+                MAX(cpu_percent) as cpu_peak,
+                MAX(mem_bytes) as mem_peak,
+                COUNT(DISTINCT pid) as exec_count
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY cpu_time DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
+            Ok(TopProcessEntry {
+                name: row.get(0)?,
+                cpu_time_secs: row.get(1)?,
+                cpu_peak_percent: row.get::<_, f64>(2)? as f32,
+                rss_peak_bytes: row.get::<_, i64>(3)? as u64,
+                exec_count: row.get::<_, i64>(4)? as u64,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get top N processes by RSS peak in a window
+    pub fn top_by_rss_peak(&self, window_secs: u64, limit: usize) -> Result<Vec<TopProcessEntry>> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                SUM(cpu_percent) * ?3 / 100.0 as cpu_time,
+                MAX(cpu_percent) as cpu_peak,
+                MAX(mem_bytes) as mem_peak,
+                COUNT(DISTINCT pid) as exec_count
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 2
+            ORDER BY mem_peak DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
+            Ok(TopProcessEntry {
+                name: row.get(0)?,
+                cpu_time_secs: row.get(1)?,
+                cpu_peak_percent: row.get::<_, f64>(2)? as f32,
+                rss_peak_bytes: row.get::<_, i64>(3)? as u64,
+                exec_count: row.get::<_, i64>(4)? as u64,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get top N processes by exec count in a window
+    pub fn top_by_exec_count(&self, window_secs: u64, limit: usize) -> Result<Vec<TopProcessEntry>> {
+        let now = Self::now();
+        let since = now.saturating_sub(window_secs);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                name,
+                SUM(cpu_percent) * ?3 / 100.0 as cpu_time,
+                MAX(cpu_percent) as cpu_peak,
+                MAX(mem_bytes) as mem_peak,
+                COUNT(DISTINCT pid) as exec_count
+            FROM process_samples
+            WHERE timestamp >= ?1
+            GROUP BY name
+            HAVING COUNT(*) >= 1
+            ORDER BY exec_count DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
+            Ok(TopProcessEntry {
+                name: row.get(0)?,
+                cpu_time_secs: row.get(1)?,
+                cpu_peak_percent: row.get::<_, f64>(2)? as f32,
+                rss_peak_bytes: row.get::<_, i64>(3)? as u64,
+                exec_count: row.get::<_, i64>(4)? as u64,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get CPU hotspot for health display
+    pub fn get_cpu_hotspot(&self, window_secs: u64) -> Result<Option<HealthHotspot>> {
+        let top = self.top_by_cpu_time(window_secs, 1)?;
+        if let Some(entry) = top.first() {
+            if entry.cpu_time_secs > 0.0 {
+                return Ok(Some(HealthHotspot {
+                    name: entry.name.clone(),
+                    value: entry.cpu_time_secs,
+                    display: format_cpu_time(entry.cpu_time_secs),
+                    context: Some(format!("peak {:.1}%", entry.cpu_peak_percent)),
+                }));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Get RAM hotspot for health display
+    pub fn get_ram_hotspot(&self, window_secs: u64) -> Result<Option<HealthHotspot>> {
+        let top = self.top_by_rss_peak(window_secs, 1)?;
+        if let Some(entry) = top.first() {
+            if entry.rss_peak_bytes > 0 {
+                return Ok(Some(HealthHotspot {
+                    name: entry.name.clone(),
+                    value: entry.rss_peak_bytes as f64,
+                    display: format_bytes_human(entry.rss_peak_bytes),
+                    context: None,
+                }));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Get telemetry health summary
+    pub fn get_telemetry_health(&self) -> Result<TelemetryHealth> {
+        let stats = self.get_stats()?;
+        let now = Self::now();
+
+        let samples_24h = if stats.last_sample_at > 0 {
+            // Count samples in last 24h
+            let h24 = now.saturating_sub(WINDOW_24H);
+            let count: i64 = self.conn.query_row(
+                "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
+                params![h24 as i64],
+                |row| row.get(0),
+            ).unwrap_or(0);
+            count as u64
+        } else {
+            0
+        };
+
+        let sample_interval_secs = Self::SAMPLE_INTERVAL_SECS as u64;
+        let expected_samples_24h = (WINDOW_24H / sample_interval_secs) as u64;
+
+        Ok(TelemetryHealth {
+            total_samples: stats.total_samples,
+            samples_24h,
+            expected_samples_24h,
+            coverage_hours: stats.coverage_hours,
+            last_sample_age_secs: if stats.last_sample_at > 0 {
+                now.saturating_sub(stats.last_sample_at)
+            } else {
+                0
+            },
+            sample_interval_secs,
+            retention_days: 30,
+            is_warming_up: stats.coverage_hours < 1.0,
+        })
+    }
+}
+
+/// Telemetry health summary
+#[derive(Debug, Clone, Default)]
+pub struct TelemetryHealth {
+    /// Total samples in database
+    pub total_samples: u64,
+    /// Samples in last 24h
+    pub samples_24h: u64,
+    /// Expected samples for 24h (based on interval)
+    pub expected_samples_24h: u64,
+    /// Coverage hours
+    pub coverage_hours: f64,
+    /// How long since last sample
+    pub last_sample_age_secs: u64,
+    /// Sample interval
+    pub sample_interval_secs: u64,
+    /// Retention in days
+    pub retention_days: u64,
+    /// Whether telemetry is still warming up (< 1h)
+    pub is_warming_up: bool,
+}
+
+/// Format CPU time as human-readable (e.g., "42.3s", "12m 03s", "1h 21m")
+pub fn format_cpu_time(secs: f64) -> String {
+    if secs < 60.0 {
+        format!("{:.1}s", secs)
+    } else if secs < 3600.0 {
+        let mins = (secs / 60.0).floor() as u64;
+        let remaining_secs = (secs % 60.0) as u64;
+        format!("{}m {:02}s", mins, remaining_secs)
+    } else {
+        let hours = (secs / 3600.0).floor() as u64;
+        let remaining_mins = ((secs % 3600.0) / 60.0).floor() as u64;
+        format!("{}h {:02}m", hours, remaining_mins)
+    }
+}
+
+/// Format bytes as human-readable (e.g., "420 MiB", "2.3 GiB")
+pub fn format_bytes_human(bytes: u64) -> String {
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if bytes >= 1024 * 1024 {
+        format!("{:.0} MiB", bytes as f64 / (1024.0 * 1024.0))
+    } else if bytes >= 1024 {
+        format!("{:.0} KiB", bytes as f64 / 1024.0)
+    } else {
+        format!("{} B", bytes)
+    }
 }
 
 // ============================================================================
@@ -815,6 +1117,74 @@ pub struct WindowedLaunches {
     pub last_7d: u64,
     /// Launches in last 30 days
     pub last_30d: u64,
+}
+
+// ============================================================================
+// PHASE 15-16: Enhanced telemetry structs (v7.5.0)
+// ============================================================================
+
+/// Enhanced usage stats for a single time window
+#[derive(Debug, Clone, Default)]
+pub struct EnhancedUsageStats {
+    /// Number of exec instances (distinct PIDs) in window
+    pub exec_count: u64,
+    /// Total CPU time in seconds (sum of cpu_percent * sample_interval / 100)
+    pub cpu_time_total_secs: f64,
+    /// Peak CPU percentage observed
+    pub cpu_peak_percent: f32,
+    /// Peak RSS memory in bytes
+    pub rss_peak_bytes: u64,
+    /// Average RSS memory in bytes
+    pub rss_avg_bytes: u64,
+    /// First seen timestamp in window
+    pub first_seen_ts: u64,
+    /// Last seen timestamp in window
+    pub last_seen_ts: u64,
+    /// Number of samples in window
+    pub sample_count: u64,
+    /// Whether we have enough data for meaningful stats
+    pub has_data: bool,
+}
+
+/// Enhanced multi-window stats for an object
+#[derive(Debug, Clone, Default)]
+pub struct EnhancedWindowedStats {
+    /// Stats for last 1 hour
+    pub last_1h: EnhancedUsageStats,
+    /// Stats for last 24 hours
+    pub last_24h: EnhancedUsageStats,
+    /// Stats for last 7 days
+    pub last_7d: EnhancedUsageStats,
+    /// Stats for last 30 days
+    pub last_30d: EnhancedUsageStats,
+}
+
+/// Top process entry for usage highlights
+#[derive(Debug, Clone)]
+pub struct TopProcessEntry {
+    /// Process/command name
+    pub name: String,
+    /// Total CPU time in seconds
+    pub cpu_time_secs: f64,
+    /// Peak CPU percent
+    pub cpu_peak_percent: f32,
+    /// Peak RSS bytes
+    pub rss_peak_bytes: u64,
+    /// Exec count (distinct PIDs)
+    pub exec_count: u64,
+}
+
+/// Health hotspot entry
+#[derive(Debug, Clone)]
+pub struct HealthHotspot {
+    /// Object name
+    pub name: String,
+    /// Value (CPU time in secs or RSS in bytes)
+    pub value: f64,
+    /// Human-readable value (e.g., "52m total", "2.3 GiB")
+    pub display: String,
+    /// Additional context (e.g., "peak 99.9%")
+    pub context: Option<String>,
 }
 
 #[cfg(test)]

@@ -1,6 +1,7 @@
-//! Anna Common v7.2.0 - Grounded System Intelligence
+//! Anna Common v7.5.0 - Grounded System Intelligence
 //!
 //! v7.1.0: Real telemetry with SQLite storage
+//! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -18,7 +19,7 @@
 //! - object_metadata: Static descriptions and relationships
 //! - service_state: Systemd service tracking
 //! - telemetry: Process monitoring and usage tracking (log files)
-//! - telemetry_db: SQLite-based telemetry storage (v7.1.0)
+//! - telemetry_db: SQLite-based telemetry storage (v7.1.0+)
 
 // v6.0.0: Grounded knowledge system - every fact has a source
 pub mod grounded;
@@ -67,8 +68,13 @@ pub use telemetry::{
     CommandStats, command_stats, top_commands,
 };
 // v7.2.0: SQLite telemetry database exports (with aggregations)
+// v7.5.0: Enhanced with CPU time, exec counts, hotspots
 pub use telemetry_db::{
     TelemetryDb, ProcessTelemetrySample, ObjectTelemetry, TelemetryStats,
     SampleCounts, UsageStats, GlobalPeak, DataStatus,
+    EnhancedUsageStats, EnhancedWindowedStats, TopProcessEntry,
+    HealthHotspot, TelemetryHealth,
     TELEMETRY_DB_PATH,
+    WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D,
+    format_cpu_time, format_bytes_human,
 };

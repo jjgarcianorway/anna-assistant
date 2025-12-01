@@ -1,4 +1,4 @@
-//! KDB Detail Command v7.4.0 - Object Profiles and Category Overviews
+//! KDB Detail Command v7.5.0 - Object Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -7,6 +7,8 @@
 //! For services: includes per-unit logs from journalctl with deduplication.
 //! For all objects: includes real [USAGE] telemetry from SQLite.
 //! v7.4.0: Enhanced [CONFIG] sections with precedence rules.
+//! v7.5.0: Enhanced [USAGE] with exec counts, CPU time totals per window.
+//!         Enhanced [LOGS] with severity breakdown and local timestamps.
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -390,7 +392,7 @@ fn print_service_section(svc: &Service) {
     println!();
 }
 
-/// Print service logs with improved deduplication (v7.3.0)
+/// Print service logs with improved deduplication (v7.5.0)
 fn print_service_logs(unit_name: &str) {
     println!("{}", "[LOGS]".cyan());
     println!("  {}", format!("(journalctl -b -u {} -p warning..alert)", unit_name).dimmed());
@@ -401,7 +403,7 @@ fn print_service_logs(unit_name: &str) {
             "-b",           // Current boot only
             "-u", unit_name,
             "-p", "warning..alert",
-            "-n", "100",    // Get more for dedup
+            "-n", "200",    // Get more for dedup
             "--no-pager",
             "-o", "json",
             "-q",
@@ -425,28 +427,39 @@ fn print_service_logs(unit_name: &str) {
                 let total_unique = deduped.len();
                 let total_raw = entries.len();
 
-                // Show summary
+                // Count by severity
+                let err_count = deduped.iter().filter(|e| e.priority.as_deref() == Some("3")).map(|e| e.count).sum::<usize>();
+                let warn_count = deduped.iter().filter(|e| e.priority.as_deref() == Some("4")).map(|e| e.count).sum::<usize>();
+                let crit_count = deduped.iter().filter(|e| matches!(e.priority.as_deref(), Some("1") | Some("2"))).map(|e| e.count).sum::<usize>();
+
+                // Show summary with severity breakdown
                 println!();
+                let mut summary_parts = Vec::new();
+                if crit_count > 0 { summary_parts.push(format!("{} critical", crit_count).red().to_string()); }
+                if err_count > 0 { summary_parts.push(format!("{} errors", err_count).red().to_string()); }
+                if warn_count > 0 { summary_parts.push(format!("{} warnings", warn_count).yellow().to_string()); }
+
                 if total_raw != total_unique {
-                    println!("  {} unique messages ({} total, {} deduplicated)",
-                        total_unique, total_raw, total_raw - total_unique);
+                    println!("  {} unique ({} total): {}",
+                        total_unique, total_raw, summary_parts.join(", "));
                 } else {
-                    println!("  {} messages this boot:", total_unique);
+                    println!("  {} messages: {}", total_unique, summary_parts.join(", "));
                 }
                 println!();
 
                 // Display up to 10 most recent unique messages (wide format)
                 for entry in deduped.iter().take(10) {
-                    // Priority indicator
-                    let prio_icon = match entry.priority.as_deref() {
-                        Some("3") => "⚠".red().to_string(),    // err
-                        Some("4") => "⚠".yellow().to_string(), // warning
-                        Some("1") | Some("2") => "✗".red().to_string(), // alert/crit
-                        _ => "·".dimmed().to_string(),
+                    // Priority indicator with label
+                    let (prio_icon, prio_label) = match entry.priority.as_deref() {
+                        Some("1") => ("✗".red().to_string(), "ALERT".red().to_string()),
+                        Some("2") => ("✗".red().to_string(), "CRIT".red().to_string()),
+                        Some("3") => ("⚠".red().to_string(), "ERR".red().to_string()),
+                        Some("4") => ("·".yellow().to_string(), "WARN".yellow().to_string()),
+                        _ => ("·".dimmed().to_string(), "INFO".dimmed().to_string()),
                     };
 
-                    // Timestamp (short format)
-                    let time_str = entry.timestamp_short();
+                    // Timestamp (local time, short format)
+                    let time_str = entry.timestamp_local();
 
                     // Message (full, not truncated)
                     let msg = entry.message.as_deref().unwrap_or("(no message)");
@@ -458,7 +471,7 @@ fn print_service_logs(unit_name: &str) {
                         String::new()
                     };
 
-                    println!("  {} {} {}{}", prio_icon, time_str.dimmed(), msg, count_str);
+                    println!("  {} [{:<4}] {} {}{}", prio_icon, prio_label, time_str.dimmed(), msg, count_str);
                 }
 
                 if total_unique > 10 {
@@ -494,14 +507,15 @@ struct LogEntry {
 }
 
 impl LogEntry {
-    /// Get short timestamp (HH:MM:SS)
-    fn timestamp_short(&self) -> String {
+    /// Get short timestamp in local time (HH:MM:SS)
+    fn timestamp_local(&self) -> String {
         if let Some(ref ts_str) = self.realtime_timestamp {
             if let Ok(ts_us) = ts_str.parse::<u64>() {
                 let ts_secs = ts_us / 1_000_000;
-                use chrono::{DateTime, Utc};
+                use chrono::{DateTime, Utc, Local};
                 if let Some(dt) = DateTime::<Utc>::from_timestamp(ts_secs as i64, 0) {
-                    return dt.format("%H:%M:%S").to_string();
+                    let local: DateTime<Local> = dt.into();
+                    return local.format("%H:%M:%S").to_string();
                 }
             }
         }
@@ -686,86 +700,42 @@ fn print_service_config_section(svc_name: &str) {
     println!();
 }
 
-/// Print [USAGE] section with real telemetry from SQLite (v7.3.0 - multi-window)
+/// Print [USAGE] section with real telemetry from SQLite (v7.5.0 - enhanced format)
 fn print_usage_section(name: &str) {
+    use anna_common::{format_cpu_time, format_bytes_human};
+
     println!("{}", "[USAGE]".cyan());
 
     // Try to open telemetry database (read-only for CLI)
     match TelemetryDb::open_readonly() {
         Some(db) => {
-            // Get windowed stats (1h, 24h, 7d, 30d)
-            match db.get_windowed_stats(name) {
+            // Get enhanced windowed stats (1h, 24h, 7d, 30d)
+            match db.get_enhanced_windowed_stats(name) {
                 Ok(stats) => {
                     // Check if we have any data
-                    let total_samples = stats.last_30d.sample_count;
-                    if total_samples == 0 {
-                        println!("  {}", "(source: /var/lib/anna/telemetry.db)".dimmed());
-                        println!("  {}", "(no telemetry recorded for this object)".dimmed());
+                    if !stats.last_30d.has_data {
+                        println!("  Telemetry not collected yet (daemon uptime too short or feature disabled).");
                     } else {
-                        println!("  {}", "(source: /var/lib/anna/telemetry.db)".dimmed());
+                        // Print each window that has data
+                        let windows = [
+                            ("1h", &stats.last_1h),
+                            ("24h", &stats.last_24h),
+                            ("7d", &stats.last_7d),
+                            ("30d", &stats.last_30d),
+                        ];
 
-                        // Get launch counts too
-                        let launches = db.get_windowed_launches(name).unwrap_or_default();
-
-                        // Sample counts per window
-                        println!();
-                        println!("  {}  {:>8}  {:>8}  {:>8}  {:>8}",
-                            "Window".dimmed(), "1h".dimmed(), "24h".dimmed(), "7d".dimmed(), "30d".dimmed());
-                        println!("  {}",
-                            "─".repeat(50).dimmed());
-
-                        // Launches (distinct PIDs)
-                        println!("  {:<8}  {:>8}  {:>8}  {:>8}  {:>8}",
-                            "Launches",
-                            format_count(launches.last_1h),
-                            format_count(launches.last_24h),
-                            format_count(launches.last_7d),
-                            format_count(launches.last_30d));
-
-                        // Samples
-                        println!("  {:<8}  {:>8}  {:>8}  {:>8}  {:>8}",
-                            "Samples",
-                            format_count(stats.last_1h.sample_count),
-                            format_count(stats.last_24h.sample_count),
-                            format_count(stats.last_7d.sample_count),
-                            format_count(stats.last_30d.sample_count));
-
-                        // CPU average
-                        println!("  {:<8}  {:>7}%  {:>7}%  {:>7}%  {:>7}%",
-                            "Avg CPU",
-                            format_cpu(stats.last_1h.avg_cpu_percent),
-                            format_cpu(stats.last_24h.avg_cpu_percent),
-                            format_cpu(stats.last_7d.avg_cpu_percent),
-                            format_cpu(stats.last_30d.avg_cpu_percent));
-
-                        // CPU peak
-                        println!("  {:<8}  {:>7}%  {:>7}%  {:>7}%  {:>7}%",
-                            "Peak CPU",
-                            format_cpu(stats.last_1h.peak_cpu_percent),
-                            format_cpu(stats.last_24h.peak_cpu_percent),
-                            format_cpu(stats.last_7d.peak_cpu_percent),
-                            format_cpu(stats.last_30d.peak_cpu_percent));
-
-                        // Memory average
-                        println!("  {:<8}  {:>8}  {:>8}  {:>8}  {:>8}",
-                            "Avg Mem",
-                            format_size_compact(stats.last_1h.avg_mem_bytes),
-                            format_size_compact(stats.last_24h.avg_mem_bytes),
-                            format_size_compact(stats.last_7d.avg_mem_bytes),
-                            format_size_compact(stats.last_30d.avg_mem_bytes));
-
-                        // Memory peak
-                        println!("  {:<8}  {:>8}  {:>8}  {:>8}  {:>8}",
-                            "Peak Mem",
-                            format_size_compact(stats.last_1h.peak_mem_bytes),
-                            format_size_compact(stats.last_24h.peak_mem_bytes),
-                            format_size_compact(stats.last_7d.peak_mem_bytes),
-                            format_size_compact(stats.last_30d.peak_mem_bytes));
-
-                        // Data quality note
-                        if !stats.last_24h.has_enough_data && stats.last_24h.sample_count > 0 {
-                            println!();
-                            println!("  {}", "(limited 24h data - less than 10 min observed)".yellow());
+                        for (label, window) in &windows {
+                            if window.has_data {
+                                println!("  {}:", label);
+                                println!("    Execs:       {}", window.exec_count);
+                                println!("    CPU total:   {}", format_cpu_time(window.cpu_time_total_secs));
+                                println!("    CPU peak:    {:.1}%", window.cpu_peak_percent);
+                                println!("    RSS peak:    {}", format_bytes_human(window.rss_peak_bytes));
+                                if window.last_seen_ts > 0 {
+                                    println!("    Last exec:   {}", TelemetryDb::format_timestamp(window.last_seen_ts));
+                                }
+                                println!();
+                            }
                         }
                     }
                 }
@@ -775,34 +745,10 @@ fn print_usage_section(name: &str) {
             }
         }
         None => {
-            println!("  {}", "(telemetry DB not available)".dimmed());
+            println!("  Telemetry not collected yet (daemon uptime too short or feature disabled).");
         }
     }
 
     println!();
 }
 
-/// Format count for display (- if zero)
-fn format_count(n: u64) -> String {
-    if n == 0 { "-".to_string() } else { n.to_string() }
-}
-
-/// Format CPU percentage (- if zero)
-fn format_cpu(pct: f32) -> String {
-    if pct < 0.05 { "-".to_string() } else { format!("{:.1}", pct) }
-}
-
-/// Format size compactly for table (e.g., "1.2G", "512M")
-fn format_size_compact(bytes: u64) -> String {
-    if bytes == 0 {
-        "-".to_string()
-    } else if bytes >= 1024 * 1024 * 1024 {
-        format!("{:.1}G", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
-    } else if bytes >= 1024 * 1024 {
-        format!("{:.0}M", bytes as f64 / (1024.0 * 1024.0))
-    } else if bytes >= 1024 {
-        format!("{:.0}K", bytes as f64 / 1024.0)
-    } else {
-        format!("{}B", bytes)
-    }
-}

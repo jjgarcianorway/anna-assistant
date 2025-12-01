@@ -1,10 +1,10 @@
-//! KDB Command v7.4.0 - Anna KDB Overview
+//! KDB Command v7.5.0 - Anna KDB Overview
 //!
 //! Sections:
 //! - [OVERVIEW]          Counts of packages, commands, services
 //! - [CATEGORIES]        Rule-based categories from descriptions
 //! - [CONFIG HIGHLIGHTS] Config status summary (v7.4.0)
-//! - [USAGE HIGHLIGHTS]  Real telemetry from SQLite
+//! - [USAGE HIGHLIGHTS]  Real telemetry from SQLite (v7.5.0 enhanced)
 //!
 //! NO journalctl system errors. NO generic host health.
 
@@ -18,7 +18,7 @@ use anna_common::grounded::{
     categoriser::get_category_summary,
     config::get_config_highlights,
 };
-use anna_common::{TelemetryDb, DataStatus};
+use anna_common::{TelemetryDb, DataStatus, WINDOW_24H, format_cpu_time, format_bytes_human};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 const MAX_CATEGORY_ITEMS: usize = 10;
@@ -154,6 +154,7 @@ fn print_config_highlights_section() {
 
 fn print_usage_section() {
     println!("{}", "[USAGE HIGHLIGHTS]".cyan());
+    println!("  {}", "(last 24h)".dimmed());
 
     // Try to open telemetry database
     match TelemetryDb::open_readonly() {
@@ -162,64 +163,55 @@ fn print_usage_section() {
 
             match &data_status {
                 DataStatus::NoData => {
-                    println!("  Telemetry:    {}", "no data".yellow());
-                    println!("  {}", "(daemon needs to collect samples)".dimmed());
+                    println!("  Telemetry not collected yet.");
                 }
                 DataStatus::NotEnoughData { minutes } => {
-                    println!("  Telemetry:    {} ({:.0}m collected)", "not enough data".yellow(), minutes);
-                    println!("  {}", "(need at least 10 minutes of data)".dimmed());
+                    println!("  Telemetry warming up ({:.0}m collected, need more data).", minutes);
                 }
                 DataStatus::PartialWindow { hours } | DataStatus::Ok { hours } => {
-                    // Show telemetry status
-                    let status_str = if matches!(data_status, DataStatus::PartialWindow { .. }) {
-                        format!("{} ({:.1}h)", "partial".yellow(), hours)
+                    let horizon = if *hours < 24.0 {
+                        format!("since telemetry start ({:.1}h)", hours)
                     } else {
-                        format!("{} ({:.1}h)", "OK".green(), hours)
+                        "last 24h".to_string()
                     };
-                    println!("  Telemetry:    {}", status_str);
-
-                    // Get stats
-                    if let Ok(stats) = db.get_stats() {
-                        println!("  Samples:      {} total", stats.total_samples);
-
-                        // Data window
-                        if stats.first_sample_at > 0 && stats.last_sample_at > 0 {
-                            let first = TelemetryDb::format_timestamp(stats.first_sample_at);
-                            let last = TelemetryDb::format_timestamp(stats.last_sample_at);
-                            println!("  Window:       {} → {}", first.dimmed(), last.dimmed());
-                        }
-                    }
 
                     println!();
 
-                    // Top launches (24h)
-                    if let Ok(top_launches) = db.top_by_launches_24h(5) {
-                        if !top_launches.is_empty() {
-                            println!("  Top activity (24h):");
-                            for (i, (name, count)) in top_launches.iter().enumerate() {
-                                println!("    {}) {:<12} {}", i + 1, name.cyan(), count);
-                            }
-                            println!();
-                        }
-                    }
-
-                    // Top CPU (avg, 24h)
-                    if let Ok(top_cpu) = db.top_by_avg_cpu_24h(5) {
+                    // Top CPU time (24h) - using new enhanced query
+                    if let Ok(top_cpu) = db.top_by_cpu_time(WINDOW_24H, 3) {
                         if !top_cpu.is_empty() {
-                            println!("  Top CPU avg (24h):");
-                            for (i, (name, avg)) in top_cpu.iter().enumerate() {
-                                println!("    {}) {:<12} {:.1}%", i + 1, name.cyan(), avg);
+                            println!("  Top CPU time ({}):", horizon);
+                            for entry in &top_cpu {
+                                let cpu_str = format!("{} total, peak {:.1}%",
+                                    format_cpu_time(entry.cpu_time_secs),
+                                    entry.cpu_peak_percent);
+                                println!("    {:<14} {}", entry.name.cyan(), cpu_str);
                             }
                             println!();
                         }
                     }
 
-                    // Top memory (avg RSS, 24h)
-                    if let Ok(top_mem) = db.top_by_avg_memory_24h(5) {
+                    // Top memory (RSS peak, 24h)
+                    if let Ok(top_mem) = db.top_by_rss_peak(WINDOW_24H, 3) {
                         if !top_mem.is_empty() {
-                            println!("  Top memory avg (24h):");
-                            for (i, (name, bytes)) in top_mem.iter().enumerate() {
-                                println!("    {}) {:<12} {}", i + 1, name.cyan(), format_bytes(*bytes));
+                            println!("  Top memory (RSS peak):");
+                            for entry in &top_mem {
+                                println!("    {:<14} {}",
+                                    entry.name.cyan(),
+                                    format_bytes_human(entry.rss_peak_bytes));
+                            }
+                            println!();
+                        }
+                    }
+
+                    // Most executed commands (24h)
+                    if let Ok(top_exec) = db.top_by_exec_count(WINDOW_24H, 3) {
+                        if !top_exec.is_empty() {
+                            println!("  Most executed commands:");
+                            for entry in &top_exec {
+                                println!("    {:<14} {} runs",
+                                    entry.name.cyan(),
+                                    entry.exec_count);
                             }
                         }
                     }
@@ -227,22 +219,9 @@ fn print_usage_section() {
             }
         }
         None => {
-            println!("  Telemetry:    {}", "unavailable".dimmed());
-            println!("  {}", "(daemon not collecting telemetry)".dimmed());
+            println!("  Telemetry not collected yet.");
         }
     }
 
     println!();
-}
-
-fn format_bytes(bytes: u64) -> String {
-    if bytes >= 1024 * 1024 * 1024 {
-        format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
-    } else if bytes >= 1024 * 1024 {
-        format!("{:.1} MiB", bytes as f64 / (1024.0 * 1024.0))
-    } else if bytes >= 1024 {
-        format!("{:.1} KiB", bytes as f64 / 1024.0)
-    } else {
-        format!("{} B", bytes)
-    }
 }

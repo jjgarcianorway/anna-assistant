@@ -1,9 +1,9 @@
-//! Status Command v7.3.0 - Anna-only Health
+//! Status Command v7.5.0 - Anna-only Health
 //!
 //! Sections:
 //! - [VERSION]         Single unified Anna version
 //! - [DAEMON]          State, uptime, PID, restarts
-//! - [HEALTH]          Overall health indicator (v7.3.0)
+//! - [HEALTH]          Overall health + telemetry hotspots (v7.5.0)
 //! - [INVENTORY]       What Anna has indexed + sync status
 //! - [TELEMETRY]       Real telemetry stats from SQLite (v7.1.0)
 //! - [UPDATES]         Auto-update schedule and last result
@@ -18,7 +18,7 @@ use std::path::Path;
 
 use anna_common::config::{AnnaConfig, UpdateState, SYSTEM_CONFIG_DIR, DATA_DIR};
 use anna_common::format_duration_secs;
-use anna_common::{TelemetryDb, DataStatus};
+use anna_common::{TelemetryDb, DataStatus, WINDOW_24H};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -212,6 +212,9 @@ fn print_health_section(stats: &Option<DaemonStats>) {
                 None => "pending".yellow().to_string(),
             };
             println!("  Sync:       {}", sync_health);
+
+            // Hotspots from telemetry (v7.5.0)
+            print_hotspots_subsection();
         }
         None => {
             println!("  Overall:    {} daemon not running", "✗".red());
@@ -222,6 +225,35 @@ fn print_health_section(stats: &Option<DaemonStats>) {
     }
 
     println!();
+}
+
+/// Print hotspots subsection (v7.5.0)
+fn print_hotspots_subsection() {
+    // Try to get hotspots from telemetry
+    if let Some(db) = TelemetryDb::open_readonly() {
+        let data_status = db.get_data_status();
+
+        // Only show hotspots if we have enough data
+        if matches!(data_status, DataStatus::PartialWindow { .. } | DataStatus::Ok { .. }) {
+            let cpu_hotspot = db.get_cpu_hotspot(WINDOW_24H).ok().flatten();
+            let ram_hotspot = db.get_ram_hotspot(WINDOW_24H).ok().flatten();
+
+            // Only show section if we have at least one hotspot
+            if cpu_hotspot.is_some() || ram_hotspot.is_some() {
+                println!();
+                println!("  Hotspots (24h):");
+
+                if let Some(cpu) = cpu_hotspot {
+                    let context = cpu.context.map(|c| format!(", {}", c)).unwrap_or_default();
+                    println!("    CPU:      {} ({}{})", cpu.name.cyan(), cpu.display, context);
+                }
+
+                if let Some(ram) = ram_hotspot {
+                    println!("    RAM:      {} ({} RSS peak)", ram.name.cyan(), ram.display);
+                }
+            }
+        }
+    }
 }
 
 fn print_inventory_section(stats: &Option<DaemonStats>) {
