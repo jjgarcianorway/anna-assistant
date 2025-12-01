@@ -123,14 +123,21 @@ async fn run_services_category() -> Result<()> {
     println!();
 
     let enabled_units = list_enabled_services();
-    let total = enabled_units.len();
+
+    // Filter out template units (contain @) - they're not real running services
+    let concrete_units: Vec<_> = enabled_units
+        .iter()
+        .filter(|u| !u.contains('@'))
+        .collect();
+
+    let total = concrete_units.len();
     let display_count = total.min(20);
 
     println!("  {} enabled services{}:", total,
         if total > 20 { format!(" (showing first {})", display_count) } else { String::new() });
     println!();
 
-    for unit in enabled_units.iter().take(20) {
+    for unit in concrete_units.iter().take(20) {
         let name = unit.trim_end_matches(".service");
         if let Some(svc) = get_service_info(name) {
             let state_str = match svc.state {
@@ -219,7 +226,13 @@ pub async fn run_object(name: &str) -> Result<()> {
     println!("  Checked:");
     println!("    - pacman -Qi {}", name);
     println!("    - which {}", name);
-    println!("    - systemctl show {}.service", name);
+    // Don't double-append .service
+    let svc_check = if name.ends_with(".service") {
+        name.to_string()
+    } else {
+        format!("{}.service", name)
+    };
+    println!("    - systemctl show {}", svc_check);
 
     println!();
     println!("{}", THIN_SEP);
