@@ -421,10 +421,11 @@ pub use ui_theme::{
     print_section, print_banner, format_status_line,
 };
 
-// Learning Engine exports (v4.4.0) - Functional learning with semantic classification
+// Learning Engine exports (v4.5.3) - Functional learning with semantic classification + answer cache
 pub use learning_engine::{
     QuestionClass, classify_question as learning_classify_question,
     LearnedPattern, PatternStore, PatternStats as LearningPatternStats,
     LearningLogEntry, LearningLogType,
-    PATTERN_STORE_PATH, MIN_LEARN_RELIABILITY, PATTERN_CACHE_TTL_SECS,
+    CachedAnswer, question_key,
+    PATTERN_STORE_PATH, MIN_LEARN_RELIABILITY, PATTERN_CACHE_TTL_SECS, MIN_CACHE_RELIABILITY,
 };

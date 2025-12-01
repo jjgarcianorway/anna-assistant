@@ -457,6 +457,47 @@ impl UnifiedEngine {
         }
 
         // ================================================================
+        // STEP 0.6: Pattern Store Answer Cache Check (v4.5.3)
+        // ================================================================
+        // Check if we have a cached answer by question_key (normalized exact match)
+        if let Some(cached) = self.pattern_store.get_cached_answer(question) {
+            let cache_ms = start_time.elapsed().as_millis() as u64;
+
+            // v4.5.3: Clear ROUTE line for debug mode (ASCII only)
+            info!("ROUTE: Cache");
+            info!(
+                "[+]  Answer cache hit! reliability={:.2} origin={} hits={} ({}ms)",
+                cached.reliability, cached.origin, cached.hit_count, cache_ms
+            );
+
+            // v4.5.3: Emit cache hit event
+            if let Some(e) = emitter {
+                e.emit(DebugEvent::new(DebugEventType::JuniorPlanDone, 1,
+                        format!("CACHE --> ANNA: Answer cache hit in {}ms", cache_ms))
+                    .with_elapsed(cache_ms)
+                    .with_data(DebugEventData::KeyValue {
+                        pairs: vec![
+                            ("origin".to_string(), "Cache".to_string()),
+                            ("cached_origin".to_string(), cached.origin.clone()),
+                            ("reliability".to_string(), format!("{}%", (cached.reliability * 100.0).round())),
+                            ("hits".to_string(), cached.hit_count.to_string()),
+                        ],
+                    }));
+            }
+
+            // Build answer from cached data
+            let mut answer = self.build_brain_answer(
+                question,
+                &cached.answer,
+                cached.reliability,
+                start_time.elapsed(),
+            );
+            answer.model_used = Some(format!("Cache:{}", cached.origin));
+            self.record_xp_event(XpEventType::BrainSelfSolve); // Cache counts as Brain-level
+            return Ok(answer);
+        }
+
+        // ================================================================
         // STEP 0.75: Semantic Classification (v4.5.0)
         // ================================================================
         let question_class = learning_classify_question(question);
@@ -623,6 +664,14 @@ impl UnifiedEngine {
                     question_class.canonical(), brain_answer.origin, brain_answer.reliability
                 );
             }
+
+            // v4.5.3: Cache high-reliability Brain answers for instant reuse
+            self.pattern_store.cache_answer(
+                question,
+                &brain_answer.text,
+                brain_answer.reliability,
+                "Brain",
+            );
 
             return Ok(self.build_brain_answer(
                 question,
@@ -1379,6 +1428,9 @@ impl UnifiedEngine {
                 class.canonical(), senior_model_name, reliability
             );
         }
+
+        // v4.5.3: Cache high-reliability LLM answers for instant reuse
+        self.pattern_store.cache_answer(question, answer, reliability, "Senior");
     }
 
     // ========================================================================

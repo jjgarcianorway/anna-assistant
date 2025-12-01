@@ -39,8 +39,33 @@ pub const PATTERN_STORE_PATH: &str = "/var/lib/anna/learning/patterns.json";
 /// Minimum reliability to learn a pattern
 pub const MIN_LEARN_RELIABILITY: f64 = 0.85;
 
+/// v4.5.3: Minimum reliability for instant cache reuse
+pub const MIN_CACHE_RELIABILITY: f64 = 0.90;
+
 /// Pattern cache TTL in seconds (5 minutes)
 pub const PATTERN_CACHE_TTL_SECS: u64 = 300;
+
+// ============================================================================
+// Question Key Normalization (v4.5.3)
+// ============================================================================
+
+/// v4.5.3: Normalize a question into a cache key
+/// - Lowercase
+/// - Trim whitespace
+/// - Remove punctuation
+/// - Collapse multiple whitespace into single space
+pub fn question_key(question: &str) -> String {
+    let lower = question.to_lowercase();
+    let no_punct: String = lower
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c.is_whitespace() { c } else { ' ' })
+        .collect();
+    let collapsed: String = no_punct
+        .split_whitespace()
+        .collect::<Vec<&str>>()
+        .join(" ");
+    collapsed.trim().to_string()
+}
 
 /// Maximum patterns per class
 pub const MAX_PATTERNS_PER_CLASS: usize = 10;
@@ -360,6 +385,46 @@ impl LearnedPattern {
 // Pattern Store
 // ============================================================================
 
+/// v4.5.3: Cached answer entry for instant reuse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedAnswer {
+    /// The cached answer text
+    pub answer: String,
+    /// Reliability of the cached answer
+    pub reliability: f64,
+    /// Origin (Brain, Junior, Senior)
+    pub origin: String,
+    /// Timestamp when cached (unix epoch seconds)
+    pub cached_at: u64,
+    /// Hit count for this cached answer
+    pub hit_count: u32,
+}
+
+impl CachedAnswer {
+    pub fn new(answer: &str, reliability: f64, origin: &str) -> Self {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        Self {
+            answer: answer.to_string(),
+            reliability,
+            origin: origin.to_string(),
+            cached_at: now,
+            hit_count: 0,
+        }
+    }
+
+    /// Check if cached answer is still fresh (within TTL)
+    pub fn is_fresh(&self) -> bool {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        now.saturating_sub(self.cached_at) < PATTERN_CACHE_TTL_SECS
+    }
+}
+
 /// Persistent store for learned patterns
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PatternStore {
@@ -367,9 +432,17 @@ pub struct PatternStore {
     #[serde(default)]
     pub patterns: HashMap<String, LearnedPattern>,
 
+    /// v4.5.3: Answer cache indexed by question_key for instant reuse
+    #[serde(default)]
+    pub answer_cache: HashMap<String, CachedAnswer>,
+
     /// Total pattern cache hits
     #[serde(default)]
     pub total_hits: u64,
+
+    /// v4.5.3: Total answer cache hits
+    #[serde(default)]
+    pub total_cache_hits: u64,
 
     /// Total patterns learned
     #[serde(default)]
@@ -399,18 +472,65 @@ impl PatternStore {
         fs::write(PATTERN_STORE_PATH, json)
     }
 
-    /// Clear all patterns (for reset)
+    /// Clear all patterns and answer cache (for reset)
     pub fn clear(&mut self) {
         self.patterns.clear();
+        self.answer_cache.clear();
         self.total_hits = 0;
+        self.total_cache_hits = 0;
         self.total_learned = 0;
         self.learning_events = 0;
         let _ = self.save();
     }
 
-    /// Verify patterns are cleared (for reset verification)
+    /// Verify patterns and cache are cleared (for reset verification)
     pub fn is_empty(&self) -> bool {
-        self.patterns.is_empty()
+        self.patterns.is_empty() && self.answer_cache.is_empty()
+    }
+
+    /// v4.5.3: Try to get a cached answer by question_key (exact match)
+    /// Returns cached answer if found and fresh, None otherwise
+    pub fn get_cached_answer(&mut self, question: &str) -> Option<CachedAnswer> {
+        let key = question_key(question);
+
+        if let Some(cached) = self.answer_cache.get_mut(&key) {
+            if cached.is_fresh() && cached.reliability >= MIN_CACHE_RELIABILITY {
+                cached.hit_count += 1;
+                self.total_cache_hits += 1;
+
+                debug!(
+                    "CACHE: HIT key={} reliability={:.2} hits={}",
+                    key, cached.reliability, cached.hit_count
+                );
+
+                let result = cached.clone();
+                let _ = self.save();
+                return Some(result);
+            } else if !cached.is_fresh() {
+                debug!("CACHE: STALE key={} (removing)", key);
+                self.answer_cache.remove(&key);
+                let _ = self.save();
+            }
+        }
+        None
+    }
+
+    /// v4.5.3: Cache a successful answer for instant reuse
+    pub fn cache_answer(&mut self, question: &str, answer: &str, reliability: f64, origin: &str) {
+        if reliability < MIN_CACHE_RELIABILITY {
+            return;
+        }
+
+        let key = question_key(question);
+        let cached = CachedAnswer::new(answer, reliability, origin);
+
+        debug!(
+            "CACHE: STORE key={} reliability={:.2} origin={}",
+            key, reliability, origin
+        );
+
+        self.answer_cache.insert(key, cached);
+        let _ = self.save();
     }
 
     /// Try to get a cached pattern for a question
@@ -844,5 +964,79 @@ mod tests {
         let (pattern, _) = result.unwrap();
         assert!(!pattern.skip_llm); // Not tier 1, so skip_llm = false
         assert_eq!(pattern.model_tier, 3);
+    }
+
+    // v4.5.3: Tests for question_key and answer cache
+
+    #[test]
+    fn test_question_key_normalization() {
+        // Basic normalization
+        assert_eq!(question_key("What CPU?"), "what cpu");
+        assert_eq!(question_key("  What  CPU?  "), "what cpu");
+        assert_eq!(question_key("What's my CPU???"), "what s my cpu");
+        assert_eq!(question_key("WHAT CPU DO I HAVE?"), "what cpu do i have");
+
+        // Punctuation removal
+        assert_eq!(question_key("Hello, World!"), "hello world");
+        assert_eq!(question_key("test...test"), "test test");
+
+        // Whitespace collapse
+        assert_eq!(question_key("a    b   c"), "a b c");
+    }
+
+    #[test]
+    fn test_answer_cache_basic() {
+        let mut store = PatternStore::default();
+
+        // Cache an answer (90% reliability minimum)
+        store.cache_answer("What CPU?", "AMD Ryzen 9", 0.95, "Brain");
+
+        // Should find it by normalized key
+        let cached = store.get_cached_answer("What CPU?");
+        assert!(cached.is_some());
+        let cached = cached.unwrap();
+        assert_eq!(cached.answer, "AMD Ryzen 9");
+        assert_eq!(cached.reliability, 0.95);
+        assert_eq!(cached.origin, "Brain");
+        assert_eq!(cached.hit_count, 1);
+    }
+
+    #[test]
+    fn test_answer_cache_normalized_key() {
+        let mut store = PatternStore::default();
+
+        // Cache with one form
+        store.cache_answer("What CPU?", "AMD Ryzen 9", 0.95, "Brain");
+
+        // Should find with different formatting
+        let cached = store.get_cached_answer("what cpu");
+        assert!(cached.is_some());
+
+        // Should also find with extra whitespace/punctuation
+        let cached = store.get_cached_answer("  WHAT  CPU??  ");
+        assert!(cached.is_some());
+    }
+
+    #[test]
+    fn test_answer_cache_low_reliability_not_cached() {
+        let mut store = PatternStore::default();
+
+        // Low reliability (< 90%) should not be cached
+        store.cache_answer("What CPU?", "Maybe AMD?", 0.80, "Junior");
+
+        let cached = store.get_cached_answer("What CPU?");
+        assert!(cached.is_none());
+    }
+
+    #[test]
+    fn test_answer_cache_cleared_on_reset() {
+        let mut store = PatternStore::default();
+
+        store.cache_answer("What CPU?", "AMD Ryzen 9", 0.95, "Brain");
+        assert!(!store.answer_cache.is_empty());
+
+        store.clear();
+        assert!(store.answer_cache.is_empty());
+        assert!(store.is_empty());
     }
 }

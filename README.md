@@ -1,8 +1,8 @@
-# Anna v4.5.2 "Latency & Fallback"
+# Anna v4.5.3 "Learning & Fast Reuse"
 
 **Your Intelligent Linux Assistant - Evidence-Based, Never Hallucinating**
 
-> v4.5.2 latency & fallback: Timeout streak tracking with auto-switch to smaller model after 2 consecutive timeouts. Status shows AUTO-DOWNGRADED with original/current model. Stats show timeouts in last 24h and current streak. Debug outputs FALLBACK lines on model switch. All ASCII, no emojis.
+> v4.5.3 learning & fast reuse: Semantic question_key normalization (lowercase, trim, remove punctuation, collapse whitespace). Answer cache for high-reliability (>=90%) answers with 5-minute TTL. Instant reuse on cache hit with ROUTE: Cache debug line. Hard reset clears answer cache.
 
 Anna is a dual-LLM system that provides reliable, evidence-based answers about your Linux system. She uses a strict command whitelist—no arbitrary shell execution. Every answer is grounded in measured facts.
 
@@ -391,7 +391,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 | Version | Milestone |
 |---------|-----------|
-| **v4.5.2** | **Latency & Fallback** - Timeout streak tracking, auto-switch after 2 timeouts, status/stats show timeout info, FALLBACK debug lines, ASCII-only |
+| **v4.5.3** | **Learning & Fast Reuse** - question_key normalization, answer cache (>=90% reliability), 5-min TTL, ROUTE: Cache debug line, instant reuse |
+| v4.5.2 | Latency & Fallback - Timeout streak tracking, auto-switch after 2 timeouts, status/stats show timeout info, FALLBACK debug lines, ASCII-only |
 | v4.5.1 | Debug Spine - Telemetry reads both primary/fallback paths, clear ROUTE lines (Brain/Orchestrator(Junior)/Orchestrator(Senior)), ASCII-only debug, status/stats coherence |
 | v4.5.0 | Tiered Learning - 3-tier model architecture (Brain/Junior/Senior), per-class model selection, skip LLM when reliability ≥90%, enhanced debug (CLASSIFIED/CACHE/TIER lines) |
 | v4.4.0 | Functional Learning - Semantic classification, paraphrase recognition, pattern caching, reset clears patterns |
