@@ -1,8 +1,8 @@
-# Anna v5.7.2 "Real-time Package Detection"
+# Anna v6.0.0 "Grounded System Intelligence"
 
 **System Intelligence Daemon for Linux**
 
-> v5.7.2: Fixed package install/removal detection. Fixed stats uptime display. Both stats and status commands show proper daemon uptime from API.
+> v6.0.0: Complete epistemological rebuild. Every number has a verifiable source. No invented metrics, no hallucinated descriptions.
 
 ---
 
