@@ -176,7 +176,7 @@ pub fn display_final_answer(answer: &FinalAnswer) {
                 anna_common::EvidenceStatus::NotFound => "?".yellow().to_string(),
                 anna_common::EvidenceStatus::Timeout => "[T]".yellow().to_string(),
             };
-            // Format: [probe_id] → summary
+            // v4.5.5: ASCII only - replaced arrow with ->
             let summary = citation
                 .raw
                 .as_ref()
@@ -191,7 +191,7 @@ pub fn display_final_answer(answer: &FinalAnswer) {
                 .unwrap_or_else(|| "no output".to_string());
 
             println!(
-                "  {}  [{}]  →  {}",
+                "  {}  [{}]  ->  {}",
                 status_icon,
                 citation.probe_id.cyan(),
                 summary.dimmed()

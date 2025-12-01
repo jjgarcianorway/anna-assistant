@@ -111,10 +111,11 @@ impl FirstLightQuestion {
     }
 
     /// Format as status line
+    // v4.5.5: ASCII only
     pub fn format_line(&self) -> String {
         if self.success {
             format!(
-                "  ✅  {} - reliability {:.0}%, {}ms ({})",
+                "  [OK]  {} - reliability {:.0}%, {}ms ({})",
                 self.id.to_uppercase(),
                 self.reliability * 100.0,
                 self.latency_ms,
@@ -122,7 +123,7 @@ impl FirstLightQuestion {
             )
         } else {
             format!(
-                "  ❌  {} - FAILED: {}",
+                "  [FAIL]  {} - FAILED: {}",
                 self.id.to_uppercase(),
                 self.error.as_deref().unwrap_or("unknown error")
             )
@@ -227,7 +228,7 @@ impl FirstLightResult {
 
         // Summary stats
         let status = if self.all_passed {
-            "✅  ALL TESTS PASSED"
+            "[OK]  ALL TESTS PASSED"
         } else {
             "!   SOME TESTS FAILED"
         };
@@ -247,7 +248,7 @@ impl FirstLightResult {
         if !self.sanity_details.is_empty() {
             lines.push(String::new());
             let sanity_status = if self.sanity_passed {
-                "✅  SANITY CHECKS PASSED"
+                "[OK]  SANITY CHECKS PASSED"
             } else {
                 "!   SANITY ISSUES DETECTED"
             };
@@ -258,9 +259,10 @@ impl FirstLightResult {
         }
 
         lines.push(String::new());
-        lines.push("───────────────────────────────────────────".to_string());
+        // v4.5.5: ASCII only - using dashes instead of box characters
+        lines.push("-------------------------------------------".to_string());
         lines.push("  Anna is ready. Ask your first question!".to_string());
-        lines.push("───────────────────────────────────────────".to_string());
+        lines.push("-------------------------------------------".to_string());
 
         lines.join("\n")
     }
@@ -293,16 +295,17 @@ impl SanityCheckResult {
     pub fn format_messages(&self) -> Vec<String> {
         let mut msgs = Vec::new();
 
+        // v4.5.5: ASCII only
         if self.xp_valid {
-            msgs.push(format!("✅  XP: {}", self.xp_message));
+            msgs.push(format!("[OK]  XP: {}", self.xp_message));
         } else {
-            msgs.push(format!("❌  XP: {}", self.xp_message));
+            msgs.push(format!("[FAIL]  XP: {}", self.xp_message));
         }
 
         if self.telemetry_valid {
-            msgs.push(format!("✅  Telemetry: {}", self.telemetry_message));
+            msgs.push(format!("[OK]  Telemetry: {}", self.telemetry_message));
         } else {
-            msgs.push(format!("❌  Telemetry: {}", self.telemetry_message));
+            msgs.push(format!("[FAIL]  Telemetry: {}", self.telemetry_message));
         }
 
         if !self.repairs_attempted.is_empty() {
@@ -540,7 +543,8 @@ impl DailyCheckIn {
         lines.push(String::new());
 
         // Core stats
-        lines.push(format!("  ⏰  Uptime: {}", self.uptime));
+        // v4.5.5: ASCII only
+        lines.push(format!("  [TIME]  Uptime: {}", self.uptime));
         lines.push(format!("  [XP]  XP Today: +{}", self.xp_today));
         lines.push(format!(
             "  *  Reliability: {:.0}%",
@@ -551,14 +555,15 @@ impl DailyCheckIn {
             self.brain_ratio * 100.0,
             self.llm_ratio * 100.0
         ));
-        lines.push(format!("  ❌  Errors: {}", self.errors_today));
+        lines.push(format!("  [ERR]  Errors: {}", self.errors_today));
         lines.push(format!("  [FIX]  Repairs: {}", self.repairs_today));
         lines.push(format!("  [LLM]  Model Rating: {}%", self.model_rating));
 
+        // v4.5.5: ASCII only - using dashes instead of box characters
         lines.push(String::new());
-        lines.push("───────────────────────────────────────────".to_string());
+        lines.push("-------------------------------------------".to_string());
         lines.push("  EVALUATION TOOLS".to_string());
-        lines.push("───────────────────────────────────────────".to_string());
+        lines.push("-------------------------------------------".to_string());
 
         // v2.3.0: First Light status
         lines.push(format!("  *  First Light: {}", self.first_light_status));
@@ -567,7 +572,7 @@ impl DailyCheckIn {
         lines.push(format!("  [BENCH]  Snow Leopard: {}", self.snow_leopard_status));
 
         lines.push(String::new());
-        lines.push("───────────────────────────────────────────".to_string());
+        lines.push("-------------------------------------------".to_string());
         lines.push(format!("  Status: {}", self.status));
         lines.push("===========================================".to_string());
 
@@ -589,7 +594,8 @@ fn get_first_light_status() -> String {
                 let total_xp = json.get("total_xp").and_then(|v| v.as_u64()).unwrap_or(0);
                 let timestamp = json.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown");
 
-                let status = if all_passed { "✅" } else { "!" };
+                // v4.5.5: ASCII only
+                let status = if all_passed { "[OK]" } else { "[!]" };
                 return format!("{} Run at {}, +{} XP", status, timestamp, total_xp);
             }
         }

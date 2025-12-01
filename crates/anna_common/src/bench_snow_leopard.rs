@@ -1390,8 +1390,9 @@ impl SnowLeopardDelta {
         let mut s = String::new();
         s.push_str("SNOW LEOPARD BENCHMARK DELTA\n");
         s.push_str(&format!("{}\n", "-".repeat(60)));
+        // v4.5.5: ASCII only
         s.push_str(&format!(
-            "  Comparing: {} → {}\n",
+            "  Comparing: {} -> {}\n",
             &self.older_timestamp[..16.min(self.older_timestamp.len())],
             &self.newer_timestamp[..16.min(self.newer_timestamp.len())]
         ));

@@ -478,8 +478,9 @@ impl LlmSelection {
     /// Format for status display
     pub fn format_status(&self) -> String {
         let mut output = String::new();
+        // v4.5.5: ASCII only
         output.push_str("LLM AUTOPROVISION (v3.13)\n");
-        output.push_str("──────────────────────────────────────────\n");
+        output.push_str("------------------------------------------\n");
 
         // v3.13.0: Autoprovision status (explicit)
         let status_display = if self.autoprovision_status.is_empty() {

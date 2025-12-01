@@ -530,11 +530,12 @@ async fn run_status() -> Result<()> {
     println!();
     println!("{}", "[FOLDERS]".cyan());
 
+    // v4.5.5: ASCII only - no emojis
     let folders = [
-        ("/var/lib/anna", "Data", "📁"),
-        ("/var/lib/anna/xp", "XP", "⭐"),
-        ("/var/lib/anna/knowledge", "Knowledge", "🧠"),
-        ("/var/lib/anna/llm", "LLM", "🤖"),
+        ("/var/lib/anna", "Data", "[DATA]"),
+        ("/var/lib/anna/xp", "XP", "[XP]"),
+        ("/var/lib/anna/knowledge", "Knowledge", "[KNOW]"),
+        ("/var/lib/anna/llm", "LLM", "[LLM]"),
     ];
 
     for (path, desc, icon) in folders {

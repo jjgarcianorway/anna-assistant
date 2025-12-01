@@ -93,10 +93,18 @@ impl AnswerCache {
         }
     }
 
-    /// Normalize question for cache key (lowercase, trim, collapse whitespace)
+    /// v4.5.5: Normalize question for cache key
+    /// - Lowercase
+    /// - Trim leading/trailing whitespace
+    /// - Collapse multiple spaces to one
+    /// - Remove punctuation (.,!?;:"'()[]{}- etc)
     pub fn normalize_key(question: &str) -> String {
-        question
-            .to_lowercase()
+        let lower = question.to_lowercase();
+        let no_punct: String = lower
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c.is_whitespace() { c } else { ' ' })
+            .collect();
+        no_punct
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ")
@@ -163,6 +171,11 @@ impl AnswerCache {
     pub fn stats(&self) -> (usize, u32) {
         let total_hits: u32 = self.entries.values().map(|e| e.hit_count).sum();
         (self.entries.len(), total_hits)
+    }
+
+    /// v4.5.5: Clear all cache entries (for reset)
+    pub fn clear(&mut self) {
+        self.entries.clear();
     }
 }
 
@@ -1821,7 +1834,7 @@ impl UnifiedEngine {
             Err(_) => {
                 // Panic occurred during benchmark setup
                 warn!("[BENCH] Benchmark panicked during setup");
-                output.push_str("  ❌  BENCHMARK FAILED\n");
+                output.push_str("  [FAIL]  BENCHMARK FAILED\n");
                 output.push_str("      Internal error during benchmark setup.\n");
                 output.push_str("      Please check logs and try again.\n\n");
                 output.push_str("===========================================\n");
@@ -1832,12 +1845,13 @@ impl UnifiedEngine {
         // v2.3.0: Format phase results
         for (i, phase) in result.phases.iter().enumerate() {
             let phase_num = i + 1;
+            // v4.5.5: ASCII only
             let status = if phase.questions.iter().all(|q| q.is_success) {
-                "✅"
+                "[OK]"
             } else if phase.questions.iter().any(|q| q.is_success) {
-                "⚠️"
+                "[WARN]"
             } else {
-                "❌"
+                "[FAIL]"
             };
 
             let success_count = phase.questions.iter().filter(|q| q.is_success).count();
@@ -1874,7 +1888,7 @@ impl UnifiedEngine {
         // v2.3.0: Status interpretation
         output.push('\n');
         if success_rate >= 90.0 {
-            output.push_str("  ✅  STATUS: Excellent - Anna is performing well!\n");
+            output.push_str("  [OK]  STATUS: Excellent - Anna is performing well!\n");
         } else if success_rate >= 70.0 {
             output.push_str("  [YELLOW]  STATUS: Good - Some questions need improvement.\n");
         } else if success_rate >= 50.0 {
@@ -1885,7 +1899,7 @@ impl UnifiedEngine {
 
         // v2.3.0: Report any warnings
         if !result.warnings.is_empty() {
-            output.push_str("\n  ⚠️   Warnings:\n");
+            output.push_str("\n  [WARN]  Warnings:\n");
             for warning in &result.warnings {
                 output.push_str(&format!("      - {}\n", warning));
             }

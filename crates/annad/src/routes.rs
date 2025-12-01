@@ -980,12 +980,17 @@ pub struct ResetResponse {
 }
 
 /// v4.3.0: Execute factory reset (daemon has root permissions)
+/// v4.5.5: Also clears in-memory answer cache
 async fn factory_reset(
-    State(_state): State<AppStateArc>,
+    State(state): State<AppStateArc>,
 ) -> Result<Json<ResetResponse>, (StatusCode, String)> {
     use anna_common::execute_factory_reset;
 
     info!("[RESET]  Factory reset requested via daemon API");
+
+    // v4.5.5: Clear in-memory answer cache
+    state.answer_cache.write().await.clear();
+    info!("[RESET]  Cleared in-memory answer cache");
 
     let result = execute_factory_reset();
 
@@ -1001,6 +1006,7 @@ async fn factory_reset(
                 "LLM state".to_string(),
                 "Benchmarks".to_string(),
                 "Telemetry".to_string(),
+                "Answer cache".to_string(), // v4.5.5
             ],
             components_failed: vec![],
             errors: vec![],

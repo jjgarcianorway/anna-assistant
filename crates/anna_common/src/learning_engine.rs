@@ -39,8 +39,8 @@ pub const PATTERN_STORE_PATH: &str = "/var/lib/anna/learning/patterns.json";
 /// Minimum reliability to learn a pattern
 pub const MIN_LEARN_RELIABILITY: f64 = 0.85;
 
-/// v4.5.3: Minimum reliability for instant cache reuse
-pub const MIN_CACHE_RELIABILITY: f64 = 0.90;
+/// v4.5.5: Minimum reliability for instant cache reuse (70%)
+pub const MIN_CACHE_RELIABILITY: f64 = 0.70;
 
 /// Pattern cache TTL in seconds (5 minutes)
 pub const PATTERN_CACHE_TTL_SECS: u64 = 300;
@@ -699,7 +699,7 @@ impl PatternStats {
     /// Format for status display
     pub fn format_status(&self) -> String {
         format!(
-            "LEARNING ENGINE\n──────────────────────────────────────────\n\
+            "LEARNING ENGINE\n------------------------------------------\n\
              Patterns: {} ({} fresh)\n\
              Cache hits: {}\n\
              Learning events: {}",
@@ -1021,8 +1021,8 @@ mod tests {
     fn test_answer_cache_low_reliability_not_cached() {
         let mut store = PatternStore::default();
 
-        // Low reliability (< 90%) should not be cached
-        store.cache_answer("What CPU?", "Maybe AMD?", 0.80, "Junior");
+        // v4.5.5: Low reliability (< 70%) should not be cached
+        store.cache_answer("What CPU?", "Maybe AMD?", 0.60, "Junior");
 
         let cached = store.get_cached_answer("What CPU?");
         assert!(cached.is_none());

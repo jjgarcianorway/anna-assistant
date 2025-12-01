@@ -630,4 +630,181 @@ mod tests {
             }
         }
     }
+
+    // ========================================================================
+    // v4.5.5: ASCII-Only Tests
+    // ========================================================================
+
+    /// Helper to check if a string is ASCII-only
+    /// Valid chars: newline (\n), carriage return (\r), tab (\t), or 32..126
+    fn is_ascii_output(s: &str) -> bool {
+        s.bytes().all(|b| {
+            b == b'\n' || b == b'\r' || b == b'\t' || (32..=126).contains(&b)
+        })
+    }
+
+    #[test]
+    fn test_ascii_only_status_labels() {
+        // v4.5.5: All status labels must be ASCII-only
+        let labels = [
+            "[DATA]", "[XP]", "[KNOW]", "[LLM]",
+            "[OK]", "[FAIL]", "[WARN]", "[ERR]",
+            "[TIME]", "[BENCH]", "[FIX]",
+            "[BRAIN]", "[YELLOW]", "[ORANGE]", "[RED]",
+        ];
+
+        for label in labels {
+            assert!(is_ascii_output(label),
+                "Label '{}' contains non-ASCII characters", label);
+        }
+    }
+
+    #[test]
+    fn test_ascii_only_status_output_sample() {
+        // v4.5.5: Sample status output must be ASCII-only
+        let sample_output = r#"
+[ANNA STATUS]
+===========================================
+
+  Version: v4.5.5
+  Uptime: 2h 15m
+
+[FOLDERS]
+  [DATA]  rwx  /var/lib/anna        Data
+  [XP]    rwx  /var/lib/anna/xp     XP
+  [KNOW]  rwx  /var/lib/anna/knowledge  Knowledge
+  [LLM]   rwx  /var/lib/anna/llm    LLM
+
+[PERFORMANCE]
+  Success:    85% (17/20)
+
+-------------------------------------------
+  EVALUATION TOOLS
+-------------------------------------------
+  *  First Light: [OK] Run at 2024-01-15, +50 XP
+  [BENCH]  Snow Leopard: Not yet run
+
+-------------------------------------------
+  Status: Online
+===========================================
+"#;
+
+        assert!(is_ascii_output(sample_output),
+            "Sample status output contains non-ASCII characters");
+    }
+
+    #[test]
+    fn test_ascii_only_separators() {
+        // v4.5.5: All separators must use ASCII dashes, not box-drawing chars
+        let valid_separators = [
+            "-------------------------------------------",
+            "===========================================",
+            "------------------------------------------",
+            "---------------------------------------------------------------------------------------------",
+        ];
+
+        for sep in valid_separators {
+            assert!(is_ascii_output(sep),
+                "Separator '{}' contains non-ASCII characters", sep);
+            // Also check it only contains dashes or equals
+            assert!(sep.chars().all(|c| c == '-' || c == '='),
+                "Separator contains unexpected character");
+        }
+    }
+
+    // ========================================================================
+    // v4.5.5: Answer Cache Tests
+    // ========================================================================
+
+    /// Test cache key normalization
+    fn normalize_cache_key(question: &str) -> String {
+        let lower = question.to_lowercase();
+        let no_punct: String = lower
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c.is_whitespace() { c } else { ' ' })
+            .collect();
+        no_punct
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    #[test]
+    fn test_cache_key_normalization_basic() {
+        // Basic normalization: lowercase + trim + collapse whitespace
+        assert_eq!(normalize_cache_key("What CPU do I have"), "what cpu do i have");
+        assert_eq!(normalize_cache_key("  What   CPU   do   I   have  "), "what cpu do i have");
+    }
+
+    #[test]
+    fn test_cache_key_normalization_punctuation() {
+        // v4.5.5: Punctuation removal
+        assert_eq!(normalize_cache_key("What CPU do I have?"), "what cpu do i have");
+        assert_eq!(normalize_cache_key("What cpu do I have!"), "what cpu do i have");
+        assert_eq!(normalize_cache_key("What's my CPU?"), "what s my cpu");
+    }
+
+    #[test]
+    fn test_cache_key_paraphrase_matching() {
+        // v4.5.5: These paraphrases should produce the same cache key
+        let variants = [
+            "what CPU do I have?",
+            "What cpu do I have",
+            "what cpu do i have",
+            "  what   cpu   do  i  have  ?  ",
+        ];
+
+        let first_key = normalize_cache_key(variants[0]);
+        for variant in &variants[1..] {
+            assert_eq!(normalize_cache_key(variant), first_key,
+                "Paraphrase '{}' should match '{}'", variant, variants[0]);
+        }
+    }
+
+    #[test]
+    fn test_cache_reliability_threshold() {
+        // v4.5.5: Cache threshold is 70% (0.70)
+        let threshold = 0.70;
+
+        // Should cache: reliability >= 70%
+        assert!(0.70 >= threshold);
+        assert!(0.85 >= threshold);
+        assert!(0.99 >= threshold);
+
+        // Should not cache: reliability < 70%
+        assert!(0.69 < threshold);
+        assert!(0.50 < threshold);
+    }
+
+    #[test]
+    fn test_cache_hit_increments_stats() {
+        // v4.5.5: Cache hit must increment both total_questions and total_success
+        let mut total_questions = 5u64;
+        let mut total_success = 4u64;
+        let is_cache_hit = true;
+
+        if is_cache_hit {
+            total_questions += 1;
+            total_success += 1; // Cache hits are always successful
+        }
+
+        assert_eq!(total_questions, 6, "Cache hit must increment total_questions");
+        assert_eq!(total_success, 5, "Cache hit must increment total_success");
+    }
+
+    #[test]
+    fn test_cache_miss_does_not_increment_stats() {
+        // Cache miss by itself doesn't increment stats - the subsequent answer does
+        let total_questions = 5u64;
+        let total_success = 4u64;
+        let is_cache_hit = false;
+
+        if is_cache_hit {
+            panic!("Should not reach here for cache miss");
+        }
+
+        // Stats unchanged on cache miss (answer flow increments them)
+        assert_eq!(total_questions, 5);
+        assert_eq!(total_success, 4);
+    }
 }

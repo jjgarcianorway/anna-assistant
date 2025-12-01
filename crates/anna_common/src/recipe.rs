@@ -345,8 +345,9 @@ impl RecipeStats {
     /// Format for status display
     pub fn format_status(&self) -> String {
         let mut output = String::new();
+        // v4.5.5: ASCII only
         output.push_str("RECIPE LEARNING\n");
-        output.push_str("──────────────────────────────────────────\n");
+        output.push_str("------------------------------------------\n");
         output.push_str(&format!(
             "Total recipes: {}\n",
             self.total_recipes

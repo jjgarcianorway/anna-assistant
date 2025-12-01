@@ -316,7 +316,8 @@ impl PatternDetector {
         if let (Some(last), Some(last_ts)) = (&self.last_entity, self.last_timestamp) {
             let interval = event.timestamp - last_ts;
             if interval <= Self::SEQUENCE_WINDOW_SECS {
-                let key = format!("{}→{}", last, event.entity);
+                // v4.5.5: ASCII only
+                let key = format!("{}->{}", last, event.entity);
                 let pattern = self.sequences.entry(key).or_default();
                 pattern.count += 1;
                 pattern.avg_interval = (pattern.avg_interval * (pattern.count - 1) as f64
@@ -331,7 +332,8 @@ impl PatternDetector {
 
     /// Get predicted next entities based on current
     pub fn predict_next(&self, current: &str, limit: usize) -> Vec<(String, f32)> {
-        let prefix = format!("{}→", current);
+        // v4.5.5: ASCII only
+        let prefix = format!("{}->", current);
         let mut predictions: Vec<_> = self
             .sequences
             .iter()
@@ -396,7 +398,8 @@ mod tests {
         detector.observe(&e1);
         detector.observe(&e2);
 
-        assert!(detector.sequences.contains_key("terminal→nvim"));
+        // v4.5.5: ASCII only
+        assert!(detector.sequences.contains_key("terminal->nvim"));
     }
 
     #[test]
