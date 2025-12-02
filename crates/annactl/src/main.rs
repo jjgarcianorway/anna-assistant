@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v7.35.1 - Pure Telemetry CLI
+//! Anna CLI (annactl) v7.36.0 - Bounded Knowledge CLI
 //!
 //! Commands (exactly 7, no aliases):
 //! - annactl             show help

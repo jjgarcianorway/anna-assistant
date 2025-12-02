@@ -1,4 +1,4 @@
-//! HW Command v7.35.1 - Structured Hardware Overview
+//! HW Command v7.36.0 - Structured Hardware Overview (Bounded)
 //!
 //! Sections organized by category:
 //! - [OVERVIEW]          Device counts and system summary (v7.25.0)

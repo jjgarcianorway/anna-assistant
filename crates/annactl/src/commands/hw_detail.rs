@@ -1,4 +1,4 @@
-//! HW Detail Command v7.35.1 - Driver Guidance & Remediation
+//! HW Detail Command v7.36.0 - Driver Guidance & Remediation (Bounded)
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors,

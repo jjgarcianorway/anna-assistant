@@ -679,9 +679,9 @@ fn test_annactl_help_flag_not_recognized() {
     );
 }
 
-/// Test '--version' flag is not recognized (minimal surface)
+/// Test '--version' flag outputs version (added v7.35.1)
 #[test]
-fn test_annactl_version_flag_not_recognized() {
+fn test_annactl_version_flag_works() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -692,14 +692,15 @@ fn test_annactl_version_flag_not_recognized() {
         .output()
         .expect("Failed to run annactl");
 
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // --version is not recognized, should show error
+    // --version should output version string (v7.35.1+)
     assert!(
-        stderr.contains("not a recognized command"),
-        "Expected '--version' to be rejected, got stderr: {}",
-        stderr
+        stdout.contains("7.36") || stdout.contains("annactl"),
+        "Expected '--version' to output version, got: {}",
+        stdout
     );
+    assert!(output.status.success(), "--version should succeed");
 }
 
 // ============================================================================
@@ -5021,10 +5022,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.35 (updated for v7.35.1)
+    // [VERSION] section should show 7.36 (updated for v7.36.0)
     assert!(
-        stdout.contains("7.35"),
-        "status should show version 7.35: {}",
+        stdout.contains("7.36"),
+        "status should show version 7.36: {}",
         stdout
     );
 
@@ -5079,7 +5080,7 @@ fn test_snow_leopard_status_sections_order_v726() {
 
 /// Test help shows exactly 6 commands - no kdb, knowledge, stats, dashboard aliases (v7.27.0)
 #[test]
-fn test_snow_leopard_help_exactly_6_commands_v727() {
+fn test_snow_leopard_help_exactly_7_commands_v736() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -5091,8 +5092,9 @@ fn test_snow_leopard_help_exactly_6_commands_v727() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Should have these 6 command lines
-    assert!(stdout.contains("annactl           show"), "Help should show 'annactl' command");
+    // Should have these 7 command lines (v7.35.1 added --version)
+    assert!(stdout.contains("annactl") && stdout.contains("show"), "Help should show 'annactl' help line");
+    assert!(stdout.contains("annactl --version"), "Help should show 'annactl --version' command");
     assert!(stdout.contains("annactl status"), "Help should show 'annactl status' command");
     assert!(stdout.contains("annactl sw "), "Help should show 'annactl sw' command");
     assert!(stdout.contains("annactl sw NAME"), "Help should show 'annactl sw NAME' command");

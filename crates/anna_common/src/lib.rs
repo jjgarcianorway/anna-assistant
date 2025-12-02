@@ -1,6 +1,16 @@
-//! Anna Common v7.35.1 - Comprehensive System Intelligence
+//! Anna Common v7.36.0 - Bounded Knowledge & Chunked Storage
 //!
-//! v7.35.1: NO LLM, NO NATURAL LANGUAGE - Pure telemetry daemon
+//! v7.36.0: NO LLM, NO NATURAL LANGUAGE - Hard token limit guarantees
+//! - MAX_CHUNK_BYTES = 16,384 (16 KiB) per chunk
+//! - MAX_DOC_BYTES = 512,000 (500 KiB) total per document
+//! - Chunked storage with index for all large content
+//! - Deterministic fact extraction (config paths, units, modules, packages)
+//! - Bounded rendering with page budgets per command
+//! - No single field can exceed chunk size
+//! - Truncation at ingest (not display) with metadata tracking
+//! - Knowledge store modularized: index.json + chunks/ + facts/
+//!
+//! v7.35.1: Version detection and platform discovery
 //! - Installer version detection with strict precedence (annad/annactl --version)
 //! - Update checks that actually run and persist state
 //! - Telemetry coverage rules (80% threshold per window)
@@ -157,6 +167,8 @@ pub mod network_trends;
 pub mod scoped_scan;
 // v7.34.0: Update checking (uses config::UpdateState)
 pub mod update_checker;
+// v7.36.0: Bounded knowledge storage with chunking
+pub mod chunk_store;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -408,6 +420,19 @@ pub use scoped_scan::{
     ScanScope, StalenessInfo, ScanResult, ScanData, ScopedScanner,
     MountInfo, InterfaceInfo, TempSensor,
     DEFAULT_TIME_BUDGET_MS, MAX_TIME_BUDGET_MS,
+};
+// v7.36.0: Bounded knowledge storage with chunking
+pub use chunk_store::{
+    // Hard limits
+    MAX_CHUNK_BYTES, MAX_DOC_BYTES, MAX_CHUNKS_PER_DOC, CHUNK_STORE_PATH,
+    // Rendering budgets
+    BUDGET_STATUS, BUDGET_OVERVIEW, BUDGET_DETAIL,
+    // Types
+    DocType, DocEntry, DocIndex, ExtractedFacts, FactWithSource, LocationHint, LocationScope,
+    OverflowInfo,
+    // Operations
+    store_document, read_chunks, read_facts, delete_document,
+    render_bounded, sanitize_to_plain_text,
 };
 // v7.32.0: Evidence-based categorization and game platform detection
 pub use grounded::{

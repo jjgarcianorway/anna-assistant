@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v7.35.1 - Version Detection Support
+//! Anna Daemon (annad) v7.36.0 - Bounded Knowledge Daemon
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH

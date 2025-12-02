@@ -2,6 +2,42 @@
 
 All notable changes to Anna are documented in this file.
 
+## [7.36.0] - 2025-12-02
+
+### Added
+
+- **Chunk storage module** - New bounded knowledge storage with hard limits:
+  - `MAX_CHUNK_BYTES = 16,384` (16 KiB per chunk)
+  - `MAX_DOC_BYTES = 512,000` (500 KiB total per document)
+  - Automatic chunking with index for all large content
+  - Documents exceeding limits are truncated at ingest with metadata tracking
+- **Deterministic fact extraction** - Extract structured facts without LLM:
+  - Config paths (e.g., `/etc/pacman.conf`)
+  - Service units (e.g., `systemd-networkd.service`)
+  - Kernel modules (from modprobe commands)
+  - Package names (from install commands)
+  - Environment variables
+- **Bounded rendering** - Page budgets per command:
+  - `BUDGET_STATUS = 4,000` bytes for status command
+  - `BUDGET_OVERVIEW = 16,000` bytes for sw/hw overview
+  - `BUDGET_DETAIL = 32,000` bytes for sw/hw detail
+- **Content sanitization** - Strip HTML and wiki markup to plain text before storage
+- **Table of contents extraction** - Store heading outline for large documents
+- **Overflow information** - When content exceeds budget, show "More available in knowledge store"
+
+### Changed
+
+- Knowledge store modularized to: `kdb/index.json` + `kdb/chunks/` + `kdb/facts/`
+- No single stored field can exceed `MAX_CHUNK_BYTES`
+- All module headers updated to v7.36.0
+
+### Fixed
+
+- Prevents token overflow by enforcing hard limits at storage time
+- Truncation happens at ingest, not at display (no ellipsis in output)
+
+---
+
 ## [7.35.1] - 2025-12-02
 
 ### Added
