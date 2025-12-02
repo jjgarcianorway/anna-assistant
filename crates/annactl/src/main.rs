@@ -1,4 +1,9 @@
-//! Anna CLI (annactl) v7.37.0 - Auto-Update & Instrumentation Engine
+//! Anna CLI (annactl) v7.38.0 - Cache-Only Status & Hardened Daemon
+//!
+//! v7.38.0: Cache-only status, no live probing
+//! - status reads status_snapshot.json only (no pacman, systemctl, journalctl)
+//! - --version outputs exactly "vX.Y.Z" (no banners, no ANSI)
+//! - Shows last crash summary from last_crash.json when daemon is down
 //!
 //! v7.37.0: Functional auto-update and auto-install
 //! - Auto-update scheduler shows real timestamps
@@ -101,9 +106,10 @@ fn run_help() -> Result<()> {
     Ok(())
 }
 
-/// Print version (v7.35.1) - for installer version detection
+/// Print version (v7.38.0) - outputs EXACTLY "vX.Y.Z"
+/// No banners, no ANSI, nothing else - for reliable installer parsing
 fn run_version() -> Result<()> {
-    println!("annactl {}", env!("CARGO_PKG_VERSION"));
+    println!("v{}", env!("CARGO_PKG_VERSION"));
     Ok(())
 }
 

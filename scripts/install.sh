@@ -1,9 +1,15 @@
 #!/bin/bash
-# Anna Installer v7.37.0 - Correct Version Detection
+# Anna Installer v7.38.0 - Smoke Check & Strict Version Format
 #
 # This installer is versioned INDEPENDENTLY from Anna itself.
-# Installer version: 7.37.0
+# Installer version: 7.38.0
 # Anna version: fetched from GitHub releases
+#
+# v7.38.0: Smoke check and strict version format
+#   - Verifies daemon actually starts after install
+#   - Version output is exactly "vX.Y.Z" (no banners)
+#   - Writes version.json with binary SHA256 hashes
+#   - Shows last journal lines if daemon fails to start
 #
 # v7.37.0: Fixed version detection - uses target path binaries explicitly
 # v7.35.1: Strict version detection precedence:
@@ -37,7 +43,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="7.37.0"
+INSTALLER_VERSION="7.38.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"

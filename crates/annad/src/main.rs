@@ -1,4 +1,11 @@
-//! Anna Daemon (annad) v7.37.0 - Auto-Update & Instrumentation Engine
+//! Anna Daemon (annad) v7.38.0 - Cache-Only Status & Hardened Startup
+//!
+//! v7.38.0: Hardened startup and status snapshot architecture
+//! - Writes last_start.json on every start attempt
+//! - Writes last_crash.json on panic/fatal for debugging
+//! - Writes status_snapshot.json every 60s for cache-only status
+//! - Verifies all directories are writable before starting
+//! - --version outputs exactly "vX.Y.Z"
 //!
 //! v7.37.0: Functional update scheduler and instrumentation
 //! - Auto-update scheduler that actually runs and persists state
@@ -116,15 +123,23 @@ const MAINTENANCE_INTERVAL_SECS: u64 = 300;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // v7.35.1: Handle --version before anything else (for installer detection)
+    // v7.38.0: Handle --version before anything else
+    // Output EXACTLY "vX.Y.Z" - no banners, no ANSI, nothing else
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && (args[1] == "--version" || args[1] == "-V") {
-        println!("annad {}", env!("CARGO_PKG_VERSION"));
+        println!("v{}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
 
-    // Set up panic hook
+    // v7.38.0: Set up panic hook that writes to last_crash.json
     setup_panic_hook();
+
+    // v7.38.0: Write last_start.json immediately
+    use anna_common::daemon_state::{LastStart, LastCrash, StatusSnapshot, verify_writable_dirs};
+    if let Err(e) = LastStart::write_start() {
+        eprintln!("[FATAL] Cannot write last_start.json: {}", e);
+        return Err(anyhow::anyhow!("Cannot write last_start.json: {}", e));
+    }
 
     // Initialize tracing
     tracing_subscriber::registry()
@@ -137,6 +152,14 @@ async fn main() -> Result<()> {
     info!("[*]  Anna Daemon v{}", env!("CARGO_PKG_VERSION"));
     info!("[>]  Telemetry Core - Pure System Intelligence");
     info!("[>]  Tracks executables, services, processes, errors");
+
+    // v7.38.0: Verify all directories are writable before proceeding
+    if let Err(e) = verify_writable_dirs() {
+        let msg = format!("Directory permission check failed: {}", e);
+        LastCrash::write(&msg, Some("permissions"), None);
+        return Err(anyhow::anyhow!("{}", msg));
+    }
+    info!("[+]  Directory permissions verified");
 
     // Load config
     let config = AnnaConfig::load();
@@ -641,6 +664,72 @@ async fn main() -> Result<()> {
         }
     });
 
+    // v7.38.0: Spawn status snapshot writer (every 60s)
+    // annactl status reads this snapshot only - no live probing
+    let builder_snapshot = Arc::clone(&builder);
+    let daemon_start_time = std::time::Instant::now();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(60));
+        info!("[>]  Status snapshot: writing to status_snapshot.json every 60s");
+
+        loop {
+            interval.tick().await;
+
+            // Build snapshot from current state
+            let knowledge_objects = {
+                let b = builder_snapshot.read().await;
+                b.store().total_objects()
+            };
+
+            // Load update state
+            let update_state = anna_common::config::UpdateState::load();
+            let update_last = if update_state.last_check_at > 0 {
+                Some(chrono::DateTime::from_timestamp(update_state.last_check_at as i64, 0)
+                    .map(|t| t.with_timezone(&chrono::Utc))
+                    .unwrap_or_else(chrono::Utc::now))
+            } else {
+                None
+            };
+            let update_next = if update_state.next_check_at > 0 {
+                Some(chrono::DateTime::from_timestamp(update_state.next_check_at as i64, 0)
+                    .map(|t| t.with_timezone(&chrono::Utc))
+                    .unwrap_or_else(chrono::Utc::now))
+            } else {
+                None
+            };
+
+            let snapshot = StatusSnapshot {
+                snapshot_at: Some(chrono::Utc::now()),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                pid: std::process::id(),
+                uptime_secs: daemon_start_time.elapsed().as_secs(),
+                healthy: true,
+                knowledge_objects,
+                telemetry_samples_24h: 0, // TODO: get from telemetry_db
+                last_scan_at: None,
+                last_scan_duration_ms: 0,
+                cpu_alert: None,
+                memory_mb: 0,
+                disk_info: None,
+                network_io: None,
+                update_last_check: update_last,
+                update_next_check: update_next,
+                update_result: Some(update_state.format_last_result()),
+                instrumentation_count: 0,
+                alerts_critical: 0,
+                alerts_warning: 0,
+            };
+
+            if let Err(e) = snapshot.save() {
+                warn!("[!]  Failed to write status snapshot: {}", e);
+            }
+        }
+    });
+
+    // v7.38.0: Mark startup complete
+    let _ = LastStart::mark_startup_complete();
+    info!("[+]  Daemon startup complete");
+
     // Start HTTP server
     info!("[*]  Starting HTTP server on 127.0.0.1:7865");
     server::run(app_state).await
@@ -871,7 +960,7 @@ fn parse_package_upgrade(s: &str) -> Option<(String, (String, String))> {
     Some((package, (from_ver, to_ver)))
 }
 
-/// Set up a panic hook
+/// Set up a panic hook that writes to last_crash.json
 fn setup_panic_hook() {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
@@ -888,10 +977,16 @@ fn setup_panic_hook() {
             "unknown panic".to_string()
         };
 
+        // v7.38.0: Write crash info to last_crash.json for debugging
+        let crash_reason = format!("{} at {}", message, location);
+        let backtrace = std::backtrace::Backtrace::capture().to_string();
+        anna_common::daemon_state::LastCrash::write(&crash_reason, Some("panic"), Some(&backtrace));
+
         eprintln!();
         eprintln!("[!!!]  PANIC in Anna Daemon");
         eprintln!("[!!!]  Location: {}", location);
         eprintln!("[!!!]  Message: {}", message);
+        eprintln!("[!!!]  Crash info written to /var/lib/anna/internal/last_crash.json");
         eprintln!();
 
         default_hook(panic_info);

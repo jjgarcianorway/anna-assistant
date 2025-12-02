@@ -1,8 +1,9 @@
-//! CLI integration tests for annactl v7.27.0 "Knowledge Foundation"
+//! CLI integration tests for annactl v7.38.0 "Cache-Only Status & Hardened Daemon"
 //!
-//! Tests the CLI surface (exactly 6 commands, no aliases):
+//! Tests the CLI surface (exactly 7 commands, no aliases):
 //! - annactl           show help
-//! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [HOTSPOTS], [ATTACHMENTS], [ANNA NEEDS], [LAST BOOT], [RECENT CHANGES], [INSTRUMENTATION]
+//! - annactl --version show version (exactly "vX.Y.Z")
+//! - annactl status    cache-only: [VERSION], [DAEMON], [HEALTH], [DATA], [TELEMETRY], [UPDATES], [ALERTS], [PATHS]
 //! - annactl sw        software overview with [CATEGORIES], [HOTSPOTS] - no duplicates
 //! - annactl sw NAME   software profile with [CONFIG] (Detected/Possible), [CONFIG GRAPH], [HISTORY], [LOGS] "(seen N times this boot)", [DEPENDENCIES], [RELATIONSHIPS], Cross notes
 //! - annactl hw        hardware overview with [OVERVIEW], [CATEGORIES], [CPU], [GPU], [MEMORY], [STORAGE]+Filesystems, [NETWORK]+Route+DNS, [AUDIO], [INPUT], [SENSORS], [POWER], [HOTSPOTS]
@@ -216,10 +217,11 @@ fn test_annactl_status_anna_needs_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.6.0: Status command shows [ANNA NEEDS] section
+    // v7.38.0: Status is now cache-only, shows [HEALTH] instead of [ANNA NEEDS]
+    // [ANNA NEEDS] was removed to enable cache-only status (no live probing)
     assert!(
-        stdout.contains("[ANNA NEEDS]"),
-        "Expected [ANNA NEEDS] section in status output, got stdout: {}",
+        stdout.contains("[HEALTH]"),
+        "Expected [HEALTH] section in status output (v7.38.0 cache-only), got stdout: {}",
         stdout
     );
     assert!(output.status.success(), "annactl status should succeed");
@@ -694,10 +696,10 @@ fn test_annactl_version_flag_works() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // --version should output version string (v7.35.1+)
+    // v7.38.0: --version outputs EXACTLY "vX.Y.Z" (no banners, no ANSI)
     assert!(
-        stdout.contains("7.37") || stdout.contains("annactl"),
-        "Expected '--version' to output version, got: {}",
+        stdout.trim().starts_with("v") && stdout.contains("7.38"),
+        "Expected '--version' to output exactly 'vX.Y.Z', got: {}",
         stdout
     );
     assert!(output.status.success(), "--version should succeed");
@@ -1799,7 +1801,7 @@ fn test_snow_leopard_logs_v710_format() {
 // v7.11.0: Snow Leopard Honest Telemetry Tests
 // ============================================================================
 
-/// Test status shows [RESOURCE HOTSPOTS] section (v7.11.0)
+/// Test status shows [ALERTS] section (v7.38.0 cache-only status)
 #[test]
 fn test_snow_leopard_status_resource_hotspots_section() {
     let binary = get_binary_path();
@@ -1814,10 +1816,11 @@ fn test_snow_leopard_status_resource_hotspots_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.11.0: Status must show [RESOURCE HOTSPOTS] section
+    // v7.38.0: Status is cache-only, shows [ALERTS] instead of [RESOURCE HOTSPOTS]
+    // [RESOURCE HOTSPOTS] was removed - status reads from status_snapshot.json only
     assert!(
-        stdout.contains("[RESOURCE HOTSPOTS]"),
-        "Expected [RESOURCE HOTSPOTS] section, got: {}",
+        stdout.contains("[ALERTS]"),
+        "Expected [ALERTS] section (v7.38.0 cache-only), got: {}",
         stdout
     );
     assert!(output.status.success());
@@ -2114,7 +2117,7 @@ fn test_snow_leopard_logs_v712_deduplication() {
     assert!(output.status.success());
 }
 
-/// Test status [PATHS] shows ops.log and internal dir (v7.12.0)
+/// Test status [PATHS] shows config, data, internal dirs (v7.38.0 cache-only)
 #[test]
 fn test_snow_leopard_status_paths_v712() {
     let binary = get_binary_path();
@@ -2129,26 +2132,26 @@ fn test_snow_leopard_status_paths_v712() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.12.0: [PATHS] should show Internal: and Ops log: entries
+    // v7.38.0: [PATHS] is simplified, shows static paths only
     if stdout.contains("[PATHS]") {
+        // Should show Config path
+        assert!(
+            stdout.contains("Config:"),
+            "[PATHS] should show Config: path: {}",
+            stdout
+        );
+
+        // Should show Data directory
+        assert!(
+            stdout.contains("Data:"),
+            "[PATHS] should show Data: directory: {}",
+            stdout
+        );
+
         // Should show Internal directory
         assert!(
             stdout.contains("Internal:"),
             "[PATHS] should show Internal: directory: {}",
-            stdout
-        );
-
-        // Should show Ops log path
-        assert!(
-            stdout.contains("Ops log:"),
-            "[PATHS] should show Ops log: entry: {}",
-            stdout
-        );
-
-        // Should show Docs status
-        assert!(
-            stdout.contains("Docs:"),
-            "[PATHS] should show Docs: local docs status: {}",
             stdout
         );
     }
@@ -3407,7 +3410,7 @@ fn test_no_new_commands_v717() {
 // v7.18.0: Snow Leopard - Change Journal, Boot Timeline & Error Focus
 // ============================================================================
 
-/// Test status command shows [BOOT SNAPSHOT] section (v7.23.0+, was [LAST BOOT] in v7.18.0)
+/// Test status command shows [DAEMON] section (v7.38.0 cache-only replaces [BOOT SNAPSHOT])
 #[test]
 fn test_status_last_boot_section_v718() {
     let binary = get_binary_path();
@@ -3423,24 +3426,24 @@ fn test_status_last_boot_section_v718() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.23.0: Status should have [BOOT SNAPSHOT] section (was [LAST BOOT] in v7.18.0-v7.22.0)
+    // v7.38.0: Status is cache-only, [DAEMON] replaces [BOOT SNAPSHOT]
     assert!(
-        stdout.contains("[BOOT SNAPSHOT]"),
-        "Status should show [BOOT SNAPSHOT] section: {}",
+        stdout.contains("[DAEMON]"),
+        "Status should show [DAEMON] section (v7.38.0 cache-only): {}",
         stdout
     );
 
-    // v7.23.0: Should show boot start time and uptime
+    // v7.38.0: [DAEMON] shows status and uptime
     assert!(
-        stdout.contains("started:") || stdout.contains("uptime:"),
-        "BOOT SNAPSHOT should show boot info: {}",
+        stdout.contains("Status:") || stdout.contains("Uptime:"),
+        "[DAEMON] should show daemon status/uptime: {}",
         stdout
     );
 
     assert!(output.status.success());
 }
 
-/// Test status command shows [RECENT CHANGES] section (v7.18.0)
+/// Test status command shows [PATHS] section (v7.38.0 cache-only replaces [RECENT CHANGES])
 #[test]
 fn test_status_recent_changes_section_v718() {
     let binary = get_binary_path();
@@ -3456,10 +3459,11 @@ fn test_status_recent_changes_section_v718() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.18.0: Status should have [RECENT CHANGES] section
+    // v7.38.0: Status is cache-only, [PATHS] still exists (static paths)
+    // [RECENT CHANGES] was removed - requires live probing
     assert!(
-        stdout.contains("[RECENT CHANGES]"),
-        "Status should show [RECENT CHANGES] section: {}",
+        stdout.contains("[PATHS]"),
+        "Status should show [PATHS] section (v7.38.0 cache-only): {}",
         stdout
     );
 
@@ -4076,17 +4080,18 @@ fn test_snow_leopard_status_toolchain_v722() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.22.0: Status should have [ANNA TOOLCHAIN] section
+    // v7.38.0: Status is cache-only, [ANNA TOOLCHAIN] replaced by [UPDATES]
+    // Toolchain info is no longer in status to enable fast cache-only display
     assert!(
-        stdout.contains("[ANNA TOOLCHAIN]"),
-        "Status must have [ANNA TOOLCHAIN] section: {}",
+        stdout.contains("[UPDATES]"),
+        "Status must have [UPDATES] section (v7.38.0 cache-only): {}",
         stdout
     );
 
-    // Should show readiness for categories
+    // Should show update mode info
     assert!(
-        stdout.contains("Local wiki:") || stdout.contains("Storage tools:") || stdout.contains("Network tools:"),
-        "Toolchain section should show tool categories: {}",
+        stdout.contains("Mode:") || stdout.contains("Interval:"),
+        "[UPDATES] section should show mode/interval: {}",
         stdout
     );
 
@@ -4155,7 +4160,7 @@ fn test_snow_leopard_lens_logs_scoped_v722() {
 // Snow Leopard v7.23.0 Tests - Timelines, Drift & Incidents
 // ============================================================================
 
-/// Test that [BOOT SNAPSHOT] section appears in status (v7.23.0)
+/// Test that status shows [DAEMON] section with uptime (v7.38.0 cache-only)
 #[test]
 fn test_snow_leopard_status_boot_snapshot_v723() {
     let binary = get_binary_path();
@@ -4170,31 +4175,24 @@ fn test_snow_leopard_status_boot_snapshot_v723() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Must have [BOOT SNAPSHOT] section
+    // v7.38.0: Status is cache-only, [DAEMON] replaces [BOOT SNAPSHOT]
     assert!(
-        stdout.contains("[BOOT SNAPSHOT]"),
-        "status should have [BOOT SNAPSHOT] section: {}",
+        stdout.contains("[DAEMON]"),
+        "status should have [DAEMON] section (v7.38.0 cache-only): {}",
         stdout
     );
 
-    // Must have boot time info
+    // Must have status and uptime info
     assert!(
-        stdout.contains("started:") || stdout.contains("uptime:"),
-        "[BOOT SNAPSHOT] should contain boot time info: {}",
-        stdout
-    );
-
-    // Must have incidents section
-    assert!(
-        stdout.contains("Incidents") || stdout.contains("none recorded"),
-        "[BOOT SNAPSHOT] should have incidents summary: {}",
+        stdout.contains("Status:") || stdout.contains("Uptime:"),
+        "[DAEMON] should contain status/uptime info: {}",
         stdout
     );
 
     assert!(output.status.success());
 }
 
-/// Test that [INVENTORY] has Sync with drift indicator (v7.23.0)
+/// Test that status shows [DATA] section (v7.38.0 cache-only replaces [INVENTORY])
 #[test]
 fn test_snow_leopard_inventory_drift_v723() {
     let binary = get_binary_path();
@@ -4209,23 +4207,17 @@ fn test_snow_leopard_inventory_drift_v723() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Must have [INVENTORY] section with Sync
+    // v7.38.0: Status is cache-only, [DATA] replaces [INVENTORY]
     assert!(
-        stdout.contains("[INVENTORY]"),
-        "status should have [INVENTORY] section: {}",
+        stdout.contains("[DATA]"),
+        "status should have [DATA] section (v7.38.0 cache-only): {}",
         stdout
     );
 
+    // [DATA] shows knowledge objects and scan info
     assert!(
-        stdout.contains("Sync:"),
-        "[INVENTORY] should have Sync line: {}",
-        stdout
-    );
-
-    // Sync should have status text (ok or changed)
-    assert!(
-        stdout.contains("ok") || stdout.contains("changed") || stdout.contains("no changes"),
-        "[INVENTORY] Sync should have status: {}",
+        stdout.contains("Knowledge:") || stdout.contains("Last scan:"),
+        "[DATA] should have knowledge/scan info: {}",
         stdout
     );
 
@@ -4854,7 +4846,7 @@ fn test_snow_leopard_peripheral_aliases_v725() {
 // Snow Leopard v7.26.0 tests: Instrumentation & Auto-Install
 // ============================================================================
 
-/// Test status has [INSTRUMENTATION] section (v7.27.0 simplified format)
+/// Test status has [ALERTS] section (v7.38.0 cache-only)
 #[test]
 fn test_snow_leopard_status_instrumentation_v726() {
     let binary = get_binary_path();
@@ -4869,16 +4861,16 @@ fn test_snow_leopard_status_instrumentation_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Must have [INSTRUMENTATION] section
+    // v7.38.0: Status is cache-only, shows [ALERTS] section
     assert!(
-        stdout.contains("[INSTRUMENTATION]"),
-        "annactl status should have [INSTRUMENTATION] section"
+        stdout.contains("[ALERTS]"),
+        "annactl status should have [ALERTS] section (v7.38.0 cache-only)"
     );
 
-    // v7.37.0: Enhanced format with auto-install, AUR gate, rate limit, and installed count
+    // v7.38.0: Alerts shows critical/warning counts OR daemon-not-running message
     assert!(
-        stdout.contains("Auto-install:") || stdout.contains("Installed:"),
-        "[INSTRUMENTATION] should show v7.37.0 format with Auto-install or Installed"
+        stdout.contains("Critical:") || stdout.contains("Warnings:") || stdout.contains("daemon not running"),
+        "[ALERTS] should show counts or daemon status"
     );
 
     assert!(output.status.success());
@@ -4947,7 +4939,7 @@ fn test_snow_leopard_help_shows_commands_v726() {
 // v7.27.0: AUR gate and auto-install controls removed from simplified [INSTRUMENTATION]
 // These tests are now superseded by test_snow_leopard_instrumentation_none_format_v727
 
-/// Test instrumentation shows tools (v7.27.0 simplified format)
+/// Test status shows [TELEMETRY] section (v7.38.0 cache-only)
 #[test]
 fn test_snow_leopard_instrumentation_installed_count_v726() {
     let binary = get_binary_path();
@@ -4962,17 +4954,17 @@ fn test_snow_leopard_instrumentation_installed_count_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.37.0: Shows "Installed: none (clean)" or "Installed: N tool(s)"
+    // v7.38.0: Status is cache-only, [TELEMETRY] section from snapshot
     assert!(
-        stdout.contains("Installed:"),
-        "[INSTRUMENTATION] should show Installed field: {}",
+        stdout.contains("[TELEMETRY]"),
+        "status should have [TELEMETRY] section (v7.38.0 cache-only): {}",
         stdout
     );
 
     assert!(output.status.success());
 }
 
-/// Test instrumentation discloses what Anna installed (v7.26.0)
+/// Test status shows [VERSION] section (v7.38.0 cache-only)
 #[test]
 fn test_snow_leopard_instrumentation_disclosure_v726() {
     let binary = get_binary_path();
@@ -4987,26 +4979,23 @@ fn test_snow_leopard_instrumentation_disclosure_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Section must disclose tools installed by Anna
-    // Either shows "0" or lists the tools with dates
+    // v7.38.0: Status is cache-only, always has [VERSION] section
     assert!(
-        stdout.contains("[INSTRUMENTATION]"),
-        "status must have [INSTRUMENTATION] section for disclosure"
+        stdout.contains("[VERSION]"),
+        "status must have [VERSION] section (v7.38.0 cache-only)"
     );
 
-    // If there are installed tools, they should show install date
-    if stdout.contains("Installed by Anna:") {
-        assert!(
-            stdout.contains("202") || stdout.contains("("),
-            "Installed tools should show install date: {}",
-            stdout
-        );
-    }
+    // Version section shows Anna version
+    assert!(
+        stdout.contains("Anna:"),
+        "[VERSION] should show Anna: line: {}",
+        stdout
+    );
 
     assert!(output.status.success());
 }
 
-/// Test version shown in status (v7.27.0)
+/// Test version shown in status (v7.38.0)
 #[test]
 fn test_snow_leopard_version_in_status_v726() {
     let binary = get_binary_path();
@@ -5022,10 +5011,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.37 (updated for v7.37.0)
+    // [VERSION] section should show 7.38 (updated for v7.38.0)
     assert!(
-        stdout.contains("7.37"),
-        "status should show version 7.37: {}",
+        stdout.contains("7.38"),
+        "status should show version 7.38: {}",
         stdout
     );
 
@@ -5139,7 +5128,7 @@ fn test_snow_leopard_deprecated_aliases_rejected_v727() {
         "knowledge should be rejected as deprecated");
 }
 
-/// Test [INSTRUMENTATION] shows proper format when none installed (v7.27.0)
+/// Test status shows [HEALTH] section (v7.38.0 cache-only)
 #[test]
 fn test_snow_leopard_instrumentation_none_format_v727() {
     let binary = get_binary_path();
@@ -5154,13 +5143,13 @@ fn test_snow_leopard_instrumentation_none_format_v727() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [INSTRUMENTATION] section should exist
-    assert!(stdout.contains("[INSTRUMENTATION]"), "Status should have [INSTRUMENTATION] section");
+    // v7.38.0: Status is cache-only, [HEALTH] section shows overall status
+    assert!(stdout.contains("[HEALTH]"), "Status should have [HEALTH] section (v7.38.0 cache-only)");
 
-    // v7.37.0: Should have enhanced format with Auto-install and Installed fields
+    // v7.38.0: Should show overall health status
     assert!(
-        stdout.contains("Auto-install:") && stdout.contains("Installed:"),
-        "[INSTRUMENTATION] should have v7.37.0 format with Auto-install and Installed fields"
+        stdout.contains("Overall:"),
+        "[HEALTH] should show overall status"
     );
 }
 

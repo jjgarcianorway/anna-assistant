@@ -1,6 +1,15 @@
-//! Anna Common v7.37.0 - Auto-Update & Instrumentation Engine
+//! Anna Common v7.38.0 - Cache-Only Status & Hardened Daemon
 //!
-//! v7.37.0: NO LLM, NO NATURAL LANGUAGE - Functional auto-update and auto-install
+//! v7.38.0: NO LLM, NO NATURAL LANGUAGE - Cache-only status, no live probing
+//! - status_snapshot.json: Daemon writes, annactl reads (no live probing)
+//! - last_crash.json: Written on panic/fatal for debugging without journalctl
+//! - last_start.json: Written on every start attempt
+//! - Hardened startup with explicit permission and DB checks
+//! - --version outputs exactly "vX.Y.Z" (no banners, no ANSI)
+//! - Update scheduler writes real timestamps (never "never" or "not scheduled")
+//! - Installer smoke check verifies daemon actually starts
+//!
+//! v7.37.0: Functional auto-update and auto-install
 //! - Auto-update scheduler that actually runs and persists state
 //! - Instrumentation engine that installs scoped tools on-demand
 //! - Idle-aware scanning and installation (respects CPU/pacman lock)
@@ -177,6 +186,8 @@ pub mod chunk_store;
 // v7.37.0: Idle detection and instrumentation state
 pub mod idle;
 pub mod instrumentation_state;
+// v7.38.0: Daemon state (crash logging, status snapshots)
+pub mod daemon_state;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
