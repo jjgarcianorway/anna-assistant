@@ -67,6 +67,21 @@ async fn main() -> Result<()> {
         // annactl status (v7.42.1: includes inline diagnostics, no separate doctor command)
         [cmd] if cmd.eq_ignore_ascii_case("status") => commands::status::run().await,
 
+        // annactl reset (v7.42.5: factory reset)
+        [cmd] if cmd.eq_ignore_ascii_case("reset") => {
+            commands::reset::run(commands::reset::ResetOptions::default()).await
+        }
+
+        // annactl reset --dry-run (show what would happen)
+        [cmd, flag] if cmd.eq_ignore_ascii_case("reset") && flag == "--dry-run" => {
+            commands::reset::run(commands::reset::ResetOptions { dry_run: true, force: false }).await
+        }
+
+        // annactl reset --force (skip confirmation)
+        [cmd, flag] if cmd.eq_ignore_ascii_case("reset") && (flag == "--force" || flag == "-f") => {
+            commands::reset::run(commands::reset::ResetOptions { dry_run: false, force: true }).await
+        }
+
         // annactl sw (software overview - default compact)
         [cmd] if cmd.eq_ignore_ascii_case("sw") => commands::sw::run().await,
 
@@ -110,9 +125,8 @@ fn run_help() -> Result<()> {
     println!("  annactl                  show this help");
     println!("  annactl --version        show version");
     println!("  annactl status           health, diagnostics, and runtime");
-    println!("  annactl sw               software overview (compact)");
-    println!("  annactl sw --full        software overview (detailed)");
-    println!("  annactl sw --json        software data (machine-readable)");
+    println!("  annactl reset            factory reset (requires root)");
+    println!("  annactl sw               software overview");
     println!("  annactl sw NAME          software profile");
     println!("  annactl hw               hardware overview");
     println!("  annactl hw NAME          hardware profile");

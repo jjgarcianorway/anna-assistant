@@ -43,7 +43,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="7.42.4"
+INSTALLER_VERSION="7.42.5"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
