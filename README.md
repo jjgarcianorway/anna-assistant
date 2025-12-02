@@ -1,8 +1,8 @@
-# Anna v7.38.0 "Cache-Only Status & Hardened Daemon"
+# Anna v7.41.0 "Snapshot-Only Display"
 
 **System Intelligence Daemon for Linux - NO LLM, NO NATURAL LANGUAGE**
 
-> v7.38.0: Cache-only status (no live probing), hardened daemon startup with crash logging, strict `--version` output for installer parsing.
+> v7.41.0: annactl is a pure snapshot reader - all heavyweight scanning is done by the daemon. `annactl sw` now executes in < 1s (warm).
 
 ---
 
@@ -12,14 +12,20 @@
 # Show help
 annactl
 
-# Show version (exactly "vX.Y.Z")
+# Show version (exactly "annactl vX.Y.Z")
 annactl --version
 
 # Anna-only health and status (cache-only, fast)
 annactl status
 
-# Software overview
+# Software overview (compact)
 annactl sw
+
+# Software overview (detailed)
+annactl sw --full
+
+# Software data (JSON)
+annactl sw --json
 
 # Software detail (package, command, service, or category)
 annactl sw <name-or-category>
@@ -31,7 +37,7 @@ annactl hw
 annactl hw <name-or-category>
 ```
 
-**That's it.** Exactly 7 commands. All arguments are case-insensitive.
+**That's it.** Exactly 10 commands. All arguments are case-insensitive.
 
 ---
 
@@ -43,6 +49,7 @@ Anna is a system intelligence daemon that:
 - **Monitors** process activity (CPU/memory) every 30 seconds
 - **Tracks** hardware telemetry (temperature, utilization, I/O)
 - **Indexes** errors and warnings from journalctl (per-service only)
+- **Builds** snapshots for fast annactl display
 - **Records** crash info for debugging without journalctl
 - **Writes** status snapshots for fast cache-only status display
 - **Checks** for Anna updates (auto-scheduled, configurable)
@@ -56,85 +63,63 @@ Anna is a system intelligence daemon that:
 
 ---
 
-## v7.38.0 Features
+## v7.41.0 Features
 
-### Cache-Only Status
+### Snapshot-Only Architecture
 
-`annactl status` now reads from `status_snapshot.json` only:
+`annactl sw` now reads from daemon-generated snapshots:
 
 ```
-[VERSION]
-  Anna:       v7.38.0
+[OVERVIEW]
+  Packages:  1234 (126 explicit, 1108 deps, 15 AUR)
+  Commands:  2345
+  Services:  67 (52 running, 0 failed)
 
-[DAEMON]
-  Status:     running
-  Uptime:     1d 3h 42m
-  PID:        12345
-  Snapshot:   32s ago
+[CATEGORIES]
+  (from package descriptions)
+  Editors:       vim, neovim, helix
+  Terminals:     alacritty, foot
+  Browsers:      firefox, chromium
+  Development:   git, rust, python
+  ...
 
-[HEALTH]
-  Overall:    ✓ all systems nominal
+[PLATFORMS]
+  Steam:  42 games (156.3 GiB)
+    Elden Ring (45.2 GiB)
+    Cyberpunk 2077 (38.7 GiB)
+    ...
 
-[DATA]
-  Knowledge:  1234 objects
-  Last scan:  2m ago (took 150ms)
-
-[TELEMETRY]
-  Samples (24h): 5678
-
-[UPDATES]
-  Mode:       auto
-  Interval:   10m
-  Last check: 2025-12-02 12:34:56
-  Result:     up to date
-  Next check: in 8m
-
-[ALERTS]
-  Critical:   0
-  Warnings:   0
-
-[PATHS]
-  Config:     /etc/anna/config.toml
-  Data:       /var/lib/anna
-  Internal:   /var/lib/anna/internal
-  Logs:       journalctl -u annad
+[TOPOLOGY]
+  Compositor:   hyprland, xdg-portal
+  Audio:        pipewire, wireplumber
+  Network:      networkmanager, iwd
 ```
 
-**No live probing** - no `pacman -Q`, `systemctl`, `journalctl`, or filesystem crawling. Status executes in < 10ms.
+**Architecture Rule**: annactl NEVER does heavyweight scanning. All data comes from snapshots written by the daemon.
 
-### Hardened Daemon Startup
+### Performance
 
-- Writes `last_start.json` on every start attempt
-- Verifies all directories are writable before starting
-- Writes `last_crash.json` on panic/fatal for debugging
-- Writes `status_snapshot.json` every 60 seconds
+| Command | v7.40.0 (cache) | v7.41.0 (snapshot) |
+|---------|-----------------|-------------------|
+| `annactl sw` | 6-7s | < 1s |
+| `annactl status` | < 350ms | < 350ms |
+| `annactl hw` | < 1.2s | < 1.2s |
 
-### Crash Logging
+### Delta Detection
 
-When daemon crashes, crash info is written to `/var/lib/anna/internal/last_crash.json`:
+The daemon only rebuilds snapshots when changes are detected:
 
-```json
-{
-  "crashed_at": "2025-12-02T12:34:56Z",
-  "version": "7.38.0",
-  "reason": "panic: index out of bounds at src/foo.rs:123",
-  "component": "panic",
-  "backtrace": "..."
-}
-```
+- **Packages**: pacman.log fingerprint (inode, size, mtime, offset, last line hash)
+- **Commands**: PATH directory fingerprints (inode, mtime, file count, names hash)
+- **Services**: systemd unit files hash and mtimes
 
-`annactl status` shows the last crash when daemon is down - no need to dig through journalctl.
+### Snapshot Files
 
-### Strict Version Output
-
-`annactl --version` outputs exactly `vX.Y.Z`:
-
-```bash
-$ annactl --version
-v7.38.0
-```
-
-No banners, no ANSI codes, nothing else. Reliable for installer parsing.
+| Path | Content |
+|------|---------|
+| `/var/lib/anna/internal/snapshots/sw.json` | Software snapshot |
+| `/var/lib/anna/internal/snapshots/hw.json` | Hardware snapshot |
+| `/var/lib/anna/internal/meta/sw_meta.json` | Delta detection metadata |
 
 ---
 
@@ -147,6 +132,8 @@ No banners, no ANSI codes, nothing else. Reliable for installer parsing.
 | `/var/lib/anna/knowledge/` | Object inventory (JSON) |
 | `/var/lib/anna/telemetry.db` | SQLite telemetry database |
 | `/var/lib/anna/internal/` | Internal state |
+| `/var/lib/anna/internal/snapshots/` | Daemon-written snapshots |
+| `/var/lib/anna/internal/meta/` | Delta detection metadata |
 | `/var/lib/anna/internal/status_snapshot.json` | Daemon status snapshot |
 | `/var/lib/anna/internal/last_start.json` | Last start attempt |
 | `/var/lib/anna/internal/last_crash.json` | Last crash info |
@@ -167,12 +154,12 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 
 ```bash
 # Download binaries
-curl -LO https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.38.0/annad-7.38.0-x86_64-unknown-linux-gnu
-curl -LO https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.38.0/annactl-7.38.0-x86_64-unknown-linux-gnu
+curl -LO https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.41.0/annad-7.41.0-x86_64-unknown-linux-gnu
+curl -LO https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.41.0/annactl-7.41.0-x86_64-unknown-linux-gnu
 
 # Install
-sudo install -m 755 annad-7.38.0-x86_64-unknown-linux-gnu /usr/local/bin/annad
-sudo install -m 755 annactl-7.38.0-x86_64-unknown-linux-gnu /usr/local/bin/annactl
+sudo install -m 755 annad-7.41.0-x86_64-unknown-linux-gnu /usr/local/bin/annad
+sudo install -m 755 annactl-7.41.0-x86_64-unknown-linux-gnu /usr/local/bin/annactl
 ```
 
 ### Build from Source
@@ -210,12 +197,17 @@ interval_seconds = 600  # 10 minutes
 ## Architecture
 
 ```
-annactl (CLI)
+annactl (CLI) - Pure snapshot reader
     |
-    | reads status_snapshot.json (cache-only)
+    | reads snapshots/ (sw.json, hw.json)
+    | reads status_snapshot.json
     |
-annad (daemon)
+annad (daemon) - Owns all scanning
     |
+    +-- Snapshot Builder (60s delta check)
+    |     +-- sw.json (software snapshot)
+    |     +-- hw.json (hardware snapshot)
+    |     +-- sw_meta.json (delta fingerprints)
     +-- Process Monitor (30s interval)
     +-- Inventory Scanner (5min interval)
     +-- Log Scanner (60s interval)
@@ -228,11 +220,16 @@ annad (daemon)
     +-- knowledge/               Object inventory
     +-- telemetry.db             SQLite telemetry
     +-- internal/
-        +-- status_snapshot.json   Daemon status (for annactl status)
-        +-- last_start.json        Last start attempt
-        +-- last_crash.json        Last crash info
-        +-- update_state.json      Update scheduler state
-        +-- ops.log                Operations audit trail
+        +-- snapshots/
+        |   +-- sw.json          Software snapshot
+        |   +-- hw.json          Hardware snapshot
+        +-- meta/
+        |   +-- sw_meta.json     Delta detection
+        +-- status_snapshot.json Daemon status
+        +-- last_start.json      Last start attempt
+        +-- last_crash.json      Last crash info
+        +-- update_state.json    Update scheduler state
+        +-- ops.log              Operations audit trail
 ```
 
 ---
@@ -267,3 +264,4 @@ Issues and PRs welcome at: https://github.com/jjgarcianorway/anna-assistant
 6. Honest telemetry - no invented numbers, real data only
 7. NO LLM - this is a telemetry daemon, not an AI assistant
 8. Cache-only status - no live probing, fast display
+9. Snapshot-only sw - daemon scans, annactl reads

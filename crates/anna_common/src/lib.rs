@@ -1,4 +1,12 @@
-//! Anna Common v7.40.0 - Cache-First Software Discovery
+//! Anna Common v7.41.0 - Daemon-Owned Snapshots
+//!
+//! v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
+//! - snapshots.rs: SwSnapshot, HwSnapshot structs
+//! - snapshot_builder.rs: Daemon-only build functions
+//! - annactl NEVER does heavyweight scanning - reads snapshots only
+//! - Delta detection via pacman.log fingerprint, PATH dir fingerprints, systemd hashes
+//! - p95 < 1.0s for sw command (snapshot read only)
+//! - Compact output by default (--full/--json/--section flags)
 //!
 //! v7.40.0: Cache-first architecture for fast sw command
 //! - sw_cache.rs: Persistent cache with delta detection
@@ -211,6 +219,10 @@ pub mod self_observation;
 
 // v7.40.0: Cache-first software discovery
 pub mod sw_cache;
+
+// v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
+pub mod snapshots;
+pub mod snapshot_builder;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};

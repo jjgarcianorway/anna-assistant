@@ -1,4 +1,13 @@
-//! Anna CLI (annactl) v7.40.0 - Cache-First Software Discovery
+//! Anna CLI (annactl) v7.41.0 - Snapshot-Only Display Client
+//!
+//! ARCHITECTURE RULE: annactl NEVER does heavyweight scanning.
+//! All data comes from snapshots written by annad daemon.
+//!
+//! v7.41.0: Snapshot-only architecture
+//! - annactl reads snapshots from /var/lib/anna/internal/snapshots/
+//! - annad daemon owns all scanning, caching, and delta updates
+//! - p95 < 1.0s for sw command (snapshot read only)
+//! - Compact output by default, --full/--json/--section for alternatives
 //!
 //! v7.40.0: Cache-first architecture for fast sw command
 //! - sw uses persistent cache with delta detection
@@ -6,23 +15,14 @@
 //! - --full for detailed view, --json for machine output
 //! - version subcommand for parseability
 //!
-//! v7.39.0: Terminal-adaptive rendering, domain status, checking indicator
-//! - Compact mode for small terminals (< 24 rows or < 60 cols)
-//! - Standard mode for normal terminals
-//! - Wide mode for large terminals (> 120 cols)
-//! - Shows "checking..." when domain refresh is in progress
-//!
-//! v7.38.0: Cache-only status, no live probing
-//! - status reads status_snapshot.json only (no pacman, systemctl, journalctl)
-//! - --version outputs exactly "vX.Y.Z" (no banners, no ANSI)
-//!
 //! Commands:
 //! - annactl                  show help
 //! - annactl --version        show version (also: annactl version)
 //! - annactl status           health and runtime of Anna
-//! - annactl sw               software overview (packages, commands, services)
-//! - annactl sw --full        software overview with all sections
-//! - annactl sw --json        software data in JSON format
+//! - annactl sw               software overview (compact)
+//! - annactl sw --full        software overview (all sections)
+//! - annactl sw --json        software data (JSON)
+//! - annactl sw --section X   single section (overview/categories/...)
 //! - annactl sw NAME          software profile
 //! - annactl hw               hardware overview
 //! - annactl hw NAME          hardware profile

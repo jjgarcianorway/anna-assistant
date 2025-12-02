@@ -258,7 +258,7 @@ fn test_annactl_status_case_insensitive() {
 // v7.2.0: SW (software) command tests
 // ============================================================================
 
-/// Test 'sw' command shows overview
+/// Test 'sw' command shows overview or no-snapshot message
 #[test]
 fn test_annactl_sw_command() {
     let binary = get_binary_path();
@@ -273,10 +273,13 @@ fn test_annactl_sw_command() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.2.0: SW command shows "Anna Software" header with [OVERVIEW] section
+    // v7.41.0: SW command reads snapshots from daemon
+    // If daemon is running and snapshot exists: shows [OVERVIEW]
+    // If daemon not running: shows "No software snapshot available"
     assert!(
-        stdout.contains("Anna Software") && stdout.contains("[OVERVIEW]"),
-        "Expected SW output with sections, got stdout: {}",
+        (stdout.contains("Anna Software") && stdout.contains("[OVERVIEW]")) ||
+        stdout.contains("No software snapshot available"),
+        "Expected SW output with sections or no-snapshot message, got stdout: {}",
         stdout
     );
     assert!(output.status.success(), "annactl sw should succeed");
@@ -298,8 +301,10 @@ fn test_annactl_sw_case_insensitive() {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
 
+        // v7.41.0: SW reads from snapshots, so may show no-snapshot message
         assert!(
-            stdout.contains("Anna Software") && stdout.contains("[OVERVIEW]"),
+            (stdout.contains("Anna Software") && stdout.contains("[OVERVIEW]")) ||
+            stdout.contains("No software snapshot available"),
             "'{}' should be recognized as sw command, got stdout: {}",
             sw_arg,
             stdout
@@ -696,9 +701,9 @@ fn test_annactl_version_flag_works() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.40.0: --version outputs "annactl vX.Y.Z" (no banners, no ANSI)
+    // v7.41.0: --version outputs "annactl vX.Y.Z" (no banners, no ANSI)
     assert!(
-        stdout.contains("annactl v") && stdout.contains("7.40"),
+        stdout.contains("annactl v") && stdout.contains("7.41"),
         "Expected '--version' to output 'annactl vX.Y.Z', got: {}",
         stdout
     );
@@ -724,12 +729,13 @@ fn test_annactl_sw_shows_top_offenders() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.6.0: SW may show [TOP CPU (24h)] and [TOP RAM (24h)] when telemetry is available
-    // These are optional - only shown when daemon is running with enough data
-    // So we just verify the command runs successfully without error
+    // v7.41.0: SW reads from daemon snapshots
+    // If daemon running: shows [OVERVIEW] and [CATEGORIES]
+    // If daemon not running: shows "No software snapshot available"
     assert!(
-        stdout.contains("[OVERVIEW]") && stdout.contains("[CATEGORIES]"),
-        "Expected basic SW output with [OVERVIEW] and [CATEGORIES], got: {}",
+        (stdout.contains("[OVERVIEW]") && stdout.contains("[CATEGORIES]")) ||
+        stdout.contains("No software snapshot available"),
+        "Expected basic SW output with [OVERVIEW] and [CATEGORIES] or no-snapshot, got: {}",
         stdout
     );
 }
@@ -4436,10 +4442,13 @@ fn test_snow_leopard_sw_hotspots_v724() {
     // Command should succeed
     assert!(output.status.success(), "annactl sw should succeed");
 
-    // Overview should show standard sections
+    // v7.41.0: SW reads from daemon snapshots
+    // If daemon running: shows [OVERVIEW] / [CATEGORIES]
+    // If daemon not running: shows "No software snapshot available"
     assert!(
-        stdout.contains("[OVERVIEW]") || stdout.contains("[CATEGORIES]"),
-        "sw should show overview sections"
+        stdout.contains("[OVERVIEW]") || stdout.contains("[CATEGORIES]") ||
+        stdout.contains("No software snapshot available"),
+        "sw should show overview sections or no-snapshot message"
     );
 
     // Note: [HOTSPOTS] only appears if telemetry is enabled and has data
@@ -5011,10 +5020,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.40 (updated for v7.40.0)
+    // [VERSION] section should show 7.41 (updated for v7.41.0)
     assert!(
-        stdout.contains("7.40"),
-        "status should show version 7.40: {}",
+        stdout.contains("7.41"),
+        "status should show version 7.41: {}",
         stdout
     );
 

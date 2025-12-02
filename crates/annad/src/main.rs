@@ -1,4 +1,10 @@
-//! Anna Daemon (annad) v7.40.0 - Cache-First Software Discovery
+//! Anna Daemon (annad) v7.41.0 - Snapshot-Based Architecture
+//!
+//! v7.41.0: Snapshot-only architecture
+//! - Daemon owns all scanning - annactl NEVER scans
+//! - Writes snapshots to /var/lib/anna/internal/snapshots/
+//! - Delta detection via pacman.log fingerprint, PATH dirs, systemd
+//! - annactl reads snapshots only - p95 < 1.0s for sw command
 //!
 //! v7.40.0: Cache-first architecture for fast sw command
 //! - Builds and maintains sw_cache.json for annactl sw
@@ -46,8 +52,9 @@ use anna_common::{
     // v7.39.0: Domain-based incremental refresh
     domain_state::{Domain, DomainRefreshState, RefreshResult, DomainSummary, RefreshRequest, RefreshResponse, REQUESTS_DIR, RESPONSES_DIR},
     self_observation::{SelfObservation, SELF_SAMPLE_INTERVAL_SECS},
-    // v7.40.0: Cache-first software discovery
-    sw_cache::{SwCache, build_sw_cache},
+    // v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
+    snapshots::SwMeta,
+    snapshot_builder::{build_hw_snapshot, build_and_save_sw_snapshot, sw_needs_rebuild},
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -902,17 +909,34 @@ async fn main() -> Result<()> {
         }
     });
 
-    // v7.40.0: Background sw_cache builder
-    // Builds cache on startup and rebuilds when delta detection triggers
+    // v7.41.0: Background snapshot builder
+    // Builds snapshots on startup and rebuilds when delta detection triggers
+    // Architecture rule: annactl NEVER scans - it only reads these snapshots
     tokio::spawn(async move {
         // Initial build on startup
-        info!("[*]  Building initial sw_cache...");
+        info!("[*]  Building initial snapshots...");
         let start = std::time::Instant::now();
-        let cache = build_sw_cache();
-        if let Err(e) = cache.save() {
-            warn!("[!]  Failed to save initial sw_cache: {}", e);
+
+        // Build and save SW snapshot
+        match build_and_save_sw_snapshot() {
+            Ok(snapshot) => {
+                info!("[+]  sw.json built in {}ms ({} packages, {} commands, {} services)",
+                    snapshot.scan_duration_ms,
+                    snapshot.packages.total,
+                    snapshot.commands.total,
+                    snapshot.services.total);
+            }
+            Err(e) => {
+                warn!("[!]  Failed to save sw snapshot: {}", e);
+            }
+        }
+
+        // Build and save HW snapshot
+        let hw_snapshot = build_hw_snapshot();
+        if let Err(e) = hw_snapshot.save() {
+            warn!("[!]  Failed to save hw snapshot: {}", e);
         } else {
-            info!("[+]  Initial sw_cache built in {}ms", start.elapsed().as_millis());
+            info!("[+]  hw.json built in {}ms", hw_snapshot.scan_duration_ms);
         }
 
         // Periodic check interval (60 seconds)
@@ -921,18 +945,27 @@ async fn main() -> Result<()> {
         loop {
             tokio::time::sleep(check_interval).await;
 
-            // Check if rebuild is needed
-            if let Some(existing) = SwCache::load() {
-                if !existing.needs_rebuild() {
-                    continue; // Cache is still fresh
-                }
+            // Check if SW rebuild is needed via delta detection
+            let needs_rebuild = match SwMeta::load() {
+                Some(meta) => sw_needs_rebuild(&meta),
+                None => true, // No meta = need rebuild
+            };
+
+            if !needs_rebuild {
+                continue; // Snapshot is still fresh
             }
 
-            // Rebuild cache
-            tracing::debug!("[*]  sw_cache delta detected, rebuilding...");
-            let cache = build_sw_cache();
-            if let Err(e) = cache.save() {
-                warn!("[!]  Failed to save sw_cache: {}", e);
+            // Rebuild snapshot
+            tracing::debug!("[*]  Snapshot delta detected, rebuilding...");
+            if let Err(e) = build_and_save_sw_snapshot() {
+                warn!("[!]  Failed to rebuild sw snapshot: {}", e);
+            }
+
+            // Also rebuild HW snapshot periodically (less frequently)
+            // HW changes are rare, so we just rebuild on SW delta
+            let hw_snapshot = build_hw_snapshot();
+            if let Err(e) = hw_snapshot.save() {
+                warn!("[!]  Failed to rebuild hw snapshot: {}", e);
             }
         }
     });
@@ -946,7 +979,7 @@ async fn main() -> Result<()> {
     server::run(app_state).await
 }
 
-/// Ensure data directories exist and initialize state files (v7.37.0)
+/// Ensure data directories exist and initialize state files (v7.41.0)
 fn ensure_data_dirs() {
     let dirs = [
         "/var/lib/anna",
@@ -956,6 +989,8 @@ fn ensure_data_dirs() {
         "/var/lib/anna/internal/domains",  // v7.39.0: Domain states
         "/var/lib/anna/internal/requests", // v7.39.0: Refresh requests
         "/var/lib/anna/internal/responses", // v7.39.0: Refresh responses
+        "/var/lib/anna/internal/snapshots", // v7.41.0: Daemon-written snapshots
+        "/var/lib/anna/internal/meta",      // v7.41.0: Delta detection metadata
         "/var/lib/anna/kdb",       // v7.36.0: Chunk store
         "/var/lib/anna/kdb/chunks",
         "/var/lib/anna/kdb/facts",

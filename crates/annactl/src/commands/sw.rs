@@ -1,34 +1,30 @@
-//! SW Command v7.40.0 - Cache-First Software Overview
+//! SW Command v7.41.0 - Snapshot-Only Software Overview
 //!
-//! v7.40.0: Cache-first architecture for sub-second response
-//! - Uses sw_cache for pre-computed data
-//! - Delta detection via pacman.log and PATH mtimes
-//! - Falls back to live query only when cache unavailable
-//! - Supports --full for detailed view, --json for machine output
+//! ARCHITECTURE RULE: annactl NEVER does heavyweight scanning.
+//! This command ONLY reads snapshots written by annad.
 //!
-//! Sections:
-//! - [OVERVIEW]          Counts of packages, commands, services
-//! - [CATEGORIES]        Rule-based categories from descriptions (sorted)
-//! - [PLATFORMS]         Steam games and other game platforms
-//! - [CONFIG COVERAGE]   Config detection summary
-//! - [TOPOLOGY]          Software stack roles and service groups
-//! - [IMPACT]            Top resource consumers from telemetry
-//! - [HOTSPOTS]          CPU, memory, most started processes
+//! v7.41.0: Pure snapshot reader
+//! - Reads /var/lib/anna/internal/snapshots/sw.json
+//! - If snapshot missing, shows "checking..." and waits briefly
+//! - If still missing, shows minimal info with guidance
+//! - NEVER calls build_sw_cache() or any expensive operations
+//!
+//! Output modes:
+//! - Default (compact): Summary counts + key highlights
+//! - --full: All sections with full details
+//! - --json: Raw snapshot JSON
+//! - --section <name>: Single section only
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
+use std::io::{self, Write};
 
-use anna_common::sw_cache::{get_sw_cache, SwCache};
-use anna_common::grounded::steam::{is_steam_installed, detect_steam_games, format_game_size};
-use anna_common::config::AnnaConfig;
-use anna_common::impact_view::get_software_impact;
-use anna_common::hotspots::{get_software_hotspots, format_software_hotspots_section};
+use anna_common::snapshots::SwSnapshot;
 
 const THIN_SEP: &str = "------------------------------------------------------------";
-const MAX_CATEGORY_ITEMS: usize = 10;
 
 /// Output mode for sw command
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwOutputMode {
     /// Default compact view
     Compact,
@@ -36,9 +32,11 @@ pub enum SwOutputMode {
     Full,
     /// JSON output (--json)
     Json,
+    /// Single section (--section <name>)
+    Section(String),
 }
 
-/// Run the sw overview command
+/// Run the sw overview command (compact mode)
 pub async fn run() -> Result<()> {
     run_with_mode(SwOutputMode::Compact).await
 }
@@ -55,53 +53,85 @@ pub async fn run_json() -> Result<()> {
 
 /// Run with specified output mode
 pub async fn run_with_mode(mode: SwOutputMode) -> Result<()> {
-    // Get cached data (fast path) or build cache (slow path)
-    let cache = get_sw_cache();
+    // Try to load snapshot (NEVER build it - that's daemon's job)
+    let snapshot = match SwSnapshot::load() {
+        Some(s) => s,
+        None => {
+            // Snapshot doesn't exist - show "checking..." and wait briefly
+            eprint!("  {} ", "checking...".dimmed());
+            io::stderr().flush().ok();
 
-    if mode == SwOutputMode::Json {
-        // JSON output
-        let json = serde_json::to_string_pretty(&cache)
+            // Wait up to 2 seconds for daemon to create snapshot
+            for _ in 0..4 {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                if let Some(s) = SwSnapshot::load() {
+                    eprintln!();
+                    return display_snapshot(&s, &mode);
+                }
+            }
+
+            // Still no snapshot - show guidance
+            eprintln!();
+            return show_no_snapshot_message();
+        }
+    };
+
+    display_snapshot(&snapshot, &mode)
+}
+
+fn display_snapshot(snapshot: &SwSnapshot, mode: &SwOutputMode) -> Result<()> {
+    // JSON mode - just dump the snapshot
+    if *mode == SwOutputMode::Json {
+        let json = serde_json::to_string_pretty(snapshot)
             .unwrap_or_else(|_| "{}".to_string());
         println!("{}", json);
         return Ok(());
     }
 
+    // Section mode
+    if let SwOutputMode::Section(ref section) = mode {
+        return display_section(snapshot, section);
+    }
+
+    let is_full = *mode == SwOutputMode::Full;
+
     println!();
     println!("{}", "  Anna Software".bold());
     println!("{}", THIN_SEP);
 
-    // Show cache status in compact mode
-    if mode == SwOutputMode::Compact {
-        if let Some(age) = cache.updated_at {
-            let age_str = cache.format_age();
-            let build_ms = cache.build_duration_ms;
-            println!("  {} cached {} (built in {}ms)", "◆".dimmed(), age_str.dimmed(), build_ms);
-        }
+    // Show snapshot freshness (compact mode only)
+    if !is_full {
+        println!("  {} {} (scanned in {}ms)",
+            "◆".dimmed(),
+            snapshot.format_age().dimmed(),
+            snapshot.scan_duration_ms);
     }
     println!();
 
-    // [OVERVIEW]
-    print_overview_section(&cache);
+    // [OVERVIEW] - always shown
+    print_overview(snapshot);
 
-    // [CATEGORIES]
-    print_categories_section(&cache, mode);
+    // [CATEGORIES] - compact shows top categories, full shows all
+    print_categories(snapshot, is_full);
 
-    // [PLATFORMS] - only if Steam installed
-    print_platforms_section();
+    // [PLATFORMS] - only if Steam present
+    if snapshot.platforms.steam_installed {
+        print_platforms(snapshot, is_full);
+    }
 
-    // [CONFIG COVERAGE]
-    print_config_coverage_section(&cache, mode);
+    // [CONFIG COVERAGE] - compact summary, full shows list
+    if snapshot.config_coverage.apps_with_config > 0 {
+        print_config_coverage(snapshot, is_full);
+    }
 
-    // [TOPOLOGY]
-    print_topology_section(&cache, mode);
+    // [TOPOLOGY] - compact shows stacks only, full shows service groups too
+    if !snapshot.topology.roles.is_empty() {
+        print_topology(snapshot, is_full);
+    }
 
-    // Full mode: show impact and hotspots
-    if mode == SwOutputMode::Full {
-        // [IMPACT]
-        print_impact_section();
-
-        // [HOTSPOTS]
-        print_hotspots_section();
+    // [SERVICES] - show failed services if any (full mode or if failures exist)
+    if is_full || snapshot.services.failed > 0 {
+        print_services(snapshot, is_full);
     }
 
     println!("{}", THIN_SEP);
@@ -110,225 +140,181 @@ pub async fn run_with_mode(mode: SwOutputMode) -> Result<()> {
     Ok(())
 }
 
-fn print_overview_section(cache: &SwCache) {
+fn print_overview(snapshot: &SwSnapshot) {
     println!("{}", "[OVERVIEW]".cyan());
-
-    println!("  Packages known:   {}", cache.package_counts.total);
-    println!("  Commands known:   {}", cache.command_count);
-    println!("  Services known:   {}", cache.service_counts.total);
-
+    println!("  Packages:  {} ({} explicit, {} deps, {} AUR)",
+        snapshot.packages.total,
+        snapshot.packages.explicit,
+        snapshot.packages.dependency,
+        snapshot.packages.aur);
+    println!("  Commands:  {}", snapshot.commands.total);
+    println!("  Services:  {} ({} running, {} failed)",
+        snapshot.services.total,
+        snapshot.services.running,
+        snapshot.services.failed);
     println!();
 }
 
-fn print_categories_section(cache: &SwCache, mode: SwOutputMode) {
+fn print_categories(snapshot: &SwSnapshot, is_full: bool) {
+    if snapshot.categories.is_empty() {
+        return;
+    }
+
     println!("{}", "[CATEGORIES]".cyan());
-    println!("  {}", "(from pacman descriptions)".dimmed());
+    println!("  {}", "(from package descriptions)".dimmed());
 
-    if cache.categories.is_empty() {
-        println!("  {}", "(no categories detected)".dimmed());
-    } else {
-        let max_items = if mode == SwOutputMode::Full { usize::MAX } else { MAX_CATEGORY_ITEMS };
+    let max_cats = if is_full { usize::MAX } else { 8 };
+    let max_items = if is_full { usize::MAX } else { 8 };
 
-        for cat in &cache.categories {
-            // Skip "Other" in overview
-            if cat.name == "Other" {
-                continue;
-            }
-
-            let display: String = if cat.packages.len() <= max_items {
-                cat.packages.join(", ")
-            } else {
-                format!("{} (and {} more)",
-                    cat.packages.iter().take(max_items).cloned().collect::<Vec<_>>().join(", "),
-                    cat.packages.len() - max_items)
-            };
-
-            let cat_display = format!("{}:", cat.name);
-            println!("  {:<14} {}", cat_display, display);
+    for cat in snapshot.categories.iter().take(max_cats) {
+        // Skip "Other" in compact mode
+        if !is_full && cat.name == "Other" {
+            continue;
         }
-    }
 
-    println!();
-}
-
-/// Print [PLATFORMS] section
-/// Shows game platforms like Steam with installed games
-fn print_platforms_section() {
-    // Only show if Steam is installed
-    if !is_steam_installed() {
-        return;
-    }
-
-    let games = detect_steam_games();
-    if games.is_empty() {
-        return;
-    }
-
-    println!("{}", "[PLATFORMS]".cyan());
-    println!("  {}", "(game platforms with local manifests)".dimmed());
-
-    // Steam section
-    let total_size: u64 = games.iter().filter_map(|g| g.size_on_disk).sum();
-    println!("  Steam:        {} games ({})", games.len(), format_game_size(total_size));
-
-    // Show top games by size (up to 5)
-    let mut sorted_games = games.clone();
-    sorted_games.sort_by(|a, b| b.size_on_disk.cmp(&a.size_on_disk));
-
-    let game_names: Vec<String> = sorted_games.iter()
-        .take(5)
-        .map(|g| {
-            let size = g.size_on_disk.map(|s| format!(" ({})", format_game_size(s))).unwrap_or_default();
-            format!("{}{}", g.name, size)
-        })
-        .collect();
-
-    if !game_names.is_empty() {
-        println!("    Largest:    {}", game_names[0]);
-        for name in game_names.iter().skip(1).take(4) {
-            println!("                {}", name);
-        }
-        if games.len() > 5 {
-            println!("                (+{} more)", games.len() - 5);
-        }
-    }
-
-    println!();
-}
-
-fn print_config_coverage_section(cache: &SwCache, mode: SwOutputMode) {
-    let coverage = &cache.config_coverage;
-
-    // Only show if we have any coverage
-    if coverage.apps_with_config == 0 {
-        return;
-    }
-
-    println!("{}", "[CONFIG COVERAGE]".cyan());
-    println!("  {}", "(apps with detected config files)".dimmed());
-
-    // Show coverage ratio
-    let pct = (coverage.apps_with_config as f64 / coverage.total_apps as f64 * 100.0) as u32;
-    println!("  Coverage: {}/{} known apps ({}%)", coverage.apps_with_config, coverage.total_apps, pct);
-
-    // List apps with config
-    if !coverage.app_names.is_empty() {
-        let max_items = if mode == SwOutputMode::Full { usize::MAX } else { 10 };
-        let display: String = if coverage.app_names.len() <= max_items {
-            coverage.app_names.join(", ")
+        let display = if cat.packages.len() <= max_items {
+            cat.packages.join(", ")
         } else {
             format!("{} (+{} more)",
-                coverage.app_names.iter().take(max_items).cloned().collect::<Vec<_>>().join(", "),
-                coverage.app_names.len() - max_items)
+                cat.packages.iter().take(max_items).cloned().collect::<Vec<_>>().join(", "),
+                cat.packages.len() - max_items)
         };
-        println!("  Detected: {}", display);
+
+        println!("  {:<14} {}", format!("{}:", cat.name), display);
+    }
+
+    if !is_full && snapshot.categories.len() > max_cats {
+        println!("  {}", format!("(+{} more categories)", snapshot.categories.len() - max_cats).dimmed());
     }
 
     println!();
 }
 
-fn print_topology_section(cache: &SwCache, mode: SwOutputMode) {
-    let topology = &cache.topology;
+fn print_platforms(snapshot: &SwSnapshot, is_full: bool) {
+    println!("{}", "[PLATFORMS]".cyan());
 
-    // Stack roles
-    if !topology.roles.is_empty() {
-        println!("{}", "[TOPOLOGY]".cyan());
-        println!("  {}", "(from package descriptions and deps)".dimmed());
+    let total_gb = snapshot.platforms.steam_total_size_bytes as f64 / 1024.0 / 1024.0 / 1024.0;
+    println!("  Steam:  {} games ({:.1} GiB)",
+        snapshot.platforms.steam_game_count,
+        total_gb);
 
-        println!("  Stacks:");
-        let max_components = if mode == SwOutputMode::Full { usize::MAX } else { 5 };
-
-        for role in &topology.roles {
-            let components: String = role.components.iter()
-                .take(max_components)
-                .cloned()
-                .collect::<Vec<_>>()
-                .join(", ");
-            let suffix = if role.components.len() > max_components {
-                format!(", +{}", role.components.len() - max_components)
-            } else {
-                String::new()
-            };
-            println!("    {:<12} {}{}", role.name.cyan(), components, suffix);
-        }
-
-        // Service groups
-        if !topology.service_groups.is_empty() {
-            println!("  Service Groups:");
-            let max_services = if mode == SwOutputMode::Full { usize::MAX } else { 4 };
-
-            for group in &topology.service_groups {
-                let services: String = group.services.iter()
-                    .take(max_services)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let suffix = if group.services.len() > max_services {
-                    format!(", +{}", group.services.len() - max_services)
-                } else {
-                    String::new()
-                };
-                println!("    {:<12} {}{}", group.name.cyan(), services, suffix);
-            }
-        }
-
-        println!();
-    }
-}
-
-/// Print [IMPACT] section (full mode only)
-fn print_impact_section() {
-    let config = AnnaConfig::load();
-    if !config.telemetry.enabled {
-        return;
+    // Show top games
+    let max_games = if is_full { 10 } else { 3 };
+    for game in snapshot.platforms.steam_top_games.iter().take(max_games) {
+        let size_gb = game.size_bytes as f64 / 1024.0 / 1024.0 / 1024.0;
+        println!("    {} ({:.1} GiB)", game.name, size_gb);
     }
 
-    let impact = get_software_impact(5);
-    if !impact.has_data {
-        return;
-    }
-
-    println!("{}", "[IMPACT]".cyan());
-    println!("  {}", "(from telemetry, last 24h)".dimmed());
-
-    // Top CPU consumers
-    if !impact.cpu_consumers.is_empty() {
-        println!("  CPU:");
-        for (i, entry) in impact.cpu_consumers.iter().take(5).enumerate() {
-            println!("    {}. {:<18} {}% avg", i + 1, entry.name.cyan(), entry.formatted);
-        }
-    }
-
-    // Top memory consumers
-    if !impact.memory_consumers.is_empty() {
-        println!("  Memory:");
-        for (i, entry) in impact.memory_consumers.iter().take(5).enumerate() {
-            println!("    {}. {:<18} {}", i + 1, entry.name.cyan(), entry.formatted);
-        }
+    if snapshot.platforms.steam_game_count > max_games {
+        println!("    {}", format!("(+{} more)", snapshot.platforms.steam_game_count - max_games).dimmed());
     }
 
     println!();
 }
 
-/// Print [HOTSPOTS] section (full mode only)
-fn print_hotspots_section() {
-    let config = AnnaConfig::load();
-    if !config.telemetry.enabled {
-        return;
+fn print_config_coverage(snapshot: &SwSnapshot, is_full: bool) {
+    let cov = &snapshot.config_coverage;
+    let pct = (cov.apps_with_config as f64 / cov.total_apps as f64 * 100.0) as u32;
+
+    println!("{}", "[CONFIG COVERAGE]".cyan());
+    println!("  Coverage: {}/{} known apps ({}%)", cov.apps_with_config, cov.total_apps, pct);
+
+    if is_full && !cov.app_names.is_empty() {
+        println!("  Detected: {}", cov.app_names.join(", "));
     }
 
-    let hotspots = get_software_hotspots();
-    if !hotspots.has_data {
-        return;
-    }
+    println!();
+}
 
-    let lines = format_software_hotspots_section(&hotspots);
-    for line in lines {
-        if line.starts_with("[HOTSPOTS]") {
-            println!("{}", line.cyan());
+fn print_topology(snapshot: &SwSnapshot, is_full: bool) {
+    println!("{}", "[TOPOLOGY]".cyan());
+
+    // Stacks (roles)
+    let max_components = if is_full { usize::MAX } else { 4 };
+    for role in &snapshot.topology.roles {
+        let components = role.components.iter()
+            .take(max_components)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ");
+        let suffix = if role.components.len() > max_components {
+            format!(" +{}", role.components.len() - max_components)
         } else {
-            println!("{}", line);
+            String::new()
+        };
+        println!("  {:<14} {}{}", role.name.cyan(), components, suffix);
+    }
+
+    // Service groups (full mode only)
+    if is_full && !snapshot.topology.service_groups.is_empty() {
+        println!("  {}", "Service Groups:".dimmed());
+        for group in &snapshot.topology.service_groups {
+            let services = group.services.join(", ");
+            println!("    {:<12} {}", group.name, services);
         }
     }
+
     println!();
+}
+
+fn print_services(snapshot: &SwSnapshot, is_full: bool) {
+    // Only show services section if there are failures or in full mode
+    if snapshot.services.failed == 0 && !is_full {
+        return;
+    }
+
+    println!("{}", "[SERVICES]".cyan());
+
+    if snapshot.services.failed > 0 {
+        println!("  {} {} failed service{}:",
+            "⚠".yellow(),
+            snapshot.services.failed,
+            if snapshot.services.failed == 1 { "" } else { "s" });
+        for svc in &snapshot.services.failed_services {
+            println!("    {}", svc.red());
+        }
+    } else if is_full {
+        println!("  {} All services healthy", "✓".green());
+    }
+
+    println!();
+}
+
+fn display_section(snapshot: &SwSnapshot, section: &str) -> Result<()> {
+    match section.to_lowercase().as_str() {
+        "overview" => { print_overview(snapshot); }
+        "categories" => { print_categories(snapshot, true); }
+        "platforms" => { print_platforms(snapshot, true); }
+        "config" | "coverage" => { print_config_coverage(snapshot, true); }
+        "topology" => { print_topology(snapshot, true); }
+        "services" => { print_services(snapshot, true); }
+        _ => {
+            eprintln!("Unknown section: {}", section);
+            eprintln!("Available: overview, categories, platforms, config, topology, services");
+            std::process::exit(1);
+        }
+    }
+    Ok(())
+}
+
+fn show_no_snapshot_message() -> Result<()> {
+    println!();
+    println!("{}", "  Anna Software".bold());
+    println!("{}", THIN_SEP);
+    println!();
+    println!("  {} No software snapshot available.", "⚠".yellow());
+    println!();
+    println!("  The daemon (annad) builds and maintains software snapshots.");
+    println!("  To get data:");
+    println!();
+    println!("    1. Start the daemon:  sudo systemctl start annad");
+    println!("    2. Wait a moment for initial scan to complete");
+    println!("    3. Run this command again");
+    println!();
+    println!("  Check daemon status:    annactl status");
+    println!("  View daemon logs:       journalctl -u annad -f");
+    println!();
+    println!("{}", THIN_SEP);
+    println!();
+    Ok(())
 }
