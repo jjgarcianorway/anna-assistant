@@ -461,86 +461,49 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [PATHS] section - v7.42.1: now includes directory health checks inline
+/// [PATHS] section - v7.42.3: simplified, just show existence (daemon writes, not CLI)
 fn print_paths_section() {
     println!("{}", "[PATHS]".cyan());
 
     // Config path
     let config_path = "/etc/anna/config.toml";
-    let config_exists = Path::new(config_path).exists();
-    if config_exists {
+    if Path::new(config_path).exists() {
         println!("  Config:     {}", config_path);
     } else {
         println!("  Config:     {} {}", config_path, "(missing)".yellow());
     }
 
-    // Data path - check writable
+    // Data path
     let data_dir = "/var/lib/anna";
-    let data_exists = Path::new(data_dir).exists();
-    if data_exists {
-        let writable = check_dir_writable(data_dir);
-        if writable {
-            println!("  Data:       {}", data_dir);
-        } else {
-            println!("  Data:       {} {}", data_dir, "(not writable)".red());
-        }
+    if Path::new(data_dir).exists() {
+        println!("  Data:       {}", data_dir);
     } else {
         println!("  Data:       {} {}", data_dir, "(missing)".yellow());
     }
 
-    // Internal dir - check writable
-    let internal_exists = Path::new(INTERNAL_DIR).exists();
-    if internal_exists {
-        let writable = check_dir_writable(INTERNAL_DIR);
-        if writable {
-            println!("  Internal:   {}", INTERNAL_DIR);
-        } else {
-            println!("  Internal:   {} {}", INTERNAL_DIR, "(not writable)".red());
-        }
+    // Internal dir
+    if Path::new(INTERNAL_DIR).exists() {
+        println!("  Internal:   {}", INTERNAL_DIR);
     } else {
-        println!("  Internal:   {} {}", INTERNAL_DIR, "(will create on daemon start)".dimmed());
+        println!("  Internal:   {} {}", INTERNAL_DIR, "(missing)".yellow());
     }
 
-    // Snapshots dir - check writable
-    let snapshots_exists = Path::new(SNAPSHOTS_DIR).exists();
-    if snapshots_exists {
-        let writable = check_dir_writable(SNAPSHOTS_DIR);
-        if writable {
-            println!("  Snapshots:  {}", SNAPSHOTS_DIR);
-        } else {
-            println!("  Snapshots:  {} {}", SNAPSHOTS_DIR, "(not writable)".red());
-        }
+    // Snapshots dir
+    if Path::new(SNAPSHOTS_DIR).exists() {
+        println!("  Snapshots:  {}", SNAPSHOTS_DIR);
     } else {
         println!("  Snapshots:  {} {}", SNAPSHOTS_DIR, "(missing)".yellow());
     }
 
     // Socket path
-    let socket_exists = Path::new(SOCKET_PATH).exists();
-    if socket_exists {
+    if Path::new(SOCKET_PATH).exists() {
         println!("  Socket:     {}", SOCKET_PATH);
     } else {
-        // Check if /run/anna exists
-        let run_dir = "/run/anna";
-        if Path::new(run_dir).exists() {
-            println!("  Socket:     {} {}", SOCKET_PATH, "(daemon will create)".dimmed());
-        } else {
-            println!("  Socket:     {} {}", SOCKET_PATH, "(missing /run/anna)".yellow());
-        }
+        println!("  Socket:     {} {}", SOCKET_PATH, "(daemon will create)".dimmed());
     }
 
     // Logs hint
     println!("  Logs:       {}", "journalctl -u annad".dimmed());
 
     println!();
-}
-
-/// Check if a directory is writable by attempting to write a test file
-fn check_dir_writable(path: &str) -> bool {
-    let test_file = format!("{}/.anna_write_test", path);
-    if std::fs::write(&test_file, "test").is_ok() {
-        let _ = std::fs::remove_file(&test_file);
-        true
-    } else {
-        false
-    }
 }
