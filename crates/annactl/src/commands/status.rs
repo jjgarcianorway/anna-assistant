@@ -1,10 +1,11 @@
-//! Status Command v7.20.0 - Telemetry Trends & Log Summary
+//! Status Command v7.21.0 - KDB Sync & Telemetry Trends
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
 //! - [DAEMON]              State, uptime, PID, restarts
 //! - [HEALTH]              Overall health status
 //! - [LAST BOOT]           Boot timeline with kernel, duration, failed units (v7.18.0)
+//! - [KDB]                 Software and hardware knowledge database readiness (v7.21.0)
 //! - [INVENTORY]           What Anna has indexed + sync status
 //! - [TELEMETRY]           Real telemetry with top CPU/memory and trends
 //! - [TELEMETRY SUMMARY]   Services with notable trends (v7.20.0)
@@ -41,6 +42,8 @@ use anna_common::{get_recent_changes, get_current_boot_summary};
 use anna_common::grounded::service_topology::{get_high_impact_services, get_gpu_driver_stacks};
 // v7.20.0: Telemetry trends and log baselines
 use anna_common::{get_process_trends, TrendDirection, get_components_with_new_patterns};
+// v7.21.0: Topology for KDB section
+use anna_common::topology_map::build_hardware_topology;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -67,6 +70,9 @@ pub async fn run() -> Result<()> {
 
     // [LAST BOOT] - v7.18.0: Boot timeline
     print_last_boot_section();
+
+    // [KDB] - v7.21.0: Knowledge database readiness
+    print_kdb_section(&daemon_stats);
 
     // [INVENTORY]
     print_inventory_section(&daemon_stats);
@@ -324,6 +330,48 @@ fn print_last_boot_section() {
         }
         None => {
             println!("  {}", "Boot information not available".dimmed());
+        }
+    }
+
+    println!();
+}
+
+/// v7.21.0: [KDB] section - knowledge database readiness
+fn print_kdb_section(stats: &Option<DaemonStats>) {
+    println!("{}", "[KDB]".cyan());
+
+    match stats {
+        Some(s) => {
+            // Software KDB readiness
+            println!("  Software:   {} packages, {} commands, {} services",
+                s.packages_count,
+                s.commands_count,
+                s.services_count);
+
+            // Hardware KDB readiness from topology
+            let hw_topology = build_hardware_topology();
+
+            let gpu_count = hw_topology.gpus.len();
+            let storage_count = hw_topology.storage.len();
+            let net_count = hw_topology.network.len();
+
+            let total_hw = gpu_count + storage_count + net_count;
+
+            if total_hw > 0 {
+                let parts: Vec<String> = vec![
+                    if gpu_count > 0 { Some(format!("{} GPU{}", gpu_count, if gpu_count > 1 { "s" } else { "" })) } else { None },
+                    if storage_count > 0 { Some(format!("{} storage", storage_count)) } else { None },
+                    if net_count > 0 { Some(format!("{} network", net_count)) } else { None },
+                ].into_iter().flatten().collect();
+
+                println!("  Hardware:   {} devices ({})", total_hw, parts.join(", "));
+            } else {
+                println!("  Hardware:   {}", "not detected".dimmed());
+            }
+        }
+        None => {
+            println!("  Software:   {} (daemon not running)", "-".dimmed());
+            println!("  Hardware:   {} (daemon not running)", "-".dimmed());
         }
     }
 

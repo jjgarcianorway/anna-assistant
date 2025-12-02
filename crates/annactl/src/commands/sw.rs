@@ -1,10 +1,10 @@
-//! SW Command v7.6.0 - Anna Software Overview
+//! SW Command v7.21.0 - Anna Software Overview
 //!
 //! Sections:
 //! - [OVERVIEW]          Counts of packages, commands, services
 //! - [CATEGORIES]        Rule-based categories from descriptions (sorted)
-//! - [TOP CPU (24h)]     Top 5 processes by CPU usage (v7.6.0)
-//! - [TOP RAM (24h)]     Top 5 processes by memory usage (v7.6.0)
+//! - [TOPOLOGY]          Software stack roles and service groups (v7.21.0)
+//! - [IMPACT]            Top resource consumers from telemetry (v7.21.0)
 //!
 //! This replaces the old `annactl kdb` command.
 
@@ -18,7 +18,8 @@ use anna_common::grounded::{
     categoriser::get_category_summary,
 };
 use anna_common::config::AnnaConfig;
-use anna_common::{TelemetryDb, WINDOW_24H, format_bytes_human};
+use anna_common::topology_map::build_software_topology;
+use anna_common::impact_view::get_software_impact;
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 const MAX_CATEGORY_ITEMS: usize = 10;
@@ -36,8 +37,11 @@ pub async fn run() -> Result<()> {
     // [CATEGORIES]
     print_categories_section();
 
-    // [TOP CPU (24h)] and [TOP RAM (24h)] - v7.6.0
-    print_top_offenders_section();
+    // [TOPOLOGY] - v7.21.0
+    print_topology_section();
+
+    // [IMPACT] - v7.21.0
+    print_impact_section();
 
     println!("{}", THIN_SEP);
     println!();
@@ -89,66 +93,84 @@ fn print_categories_section() {
     println!();
 }
 
-/// Print top offenders sections - v7.6.0 format
-fn print_top_offenders_section() {
-    // Check if telemetry is enabled
+/// Print [TOPOLOGY] section - v7.21.0
+/// Shows software stack roles and service groups
+fn print_topology_section() {
+    let topology = build_software_topology();
+
+    // Stack roles (display, network, audio, etc.)
+    if !topology.roles.is_empty() {
+        println!("{}", "[TOPOLOGY]".cyan());
+        println!("  {}", "(from package descriptions and deps)".dimmed());
+
+        println!("  Stacks:");
+        for role in &topology.roles {
+            let components: String = role.components.iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            let suffix = if role.components.len() > 5 {
+                format!(", +{}", role.components.len() - 5)
+            } else {
+                String::new()
+            };
+            println!("    {:<12} {}{}", role.name.cyan(), components, suffix);
+        }
+
+        // Service groups
+        if !topology.service_groups.is_empty() {
+            println!("  Service Groups:");
+            for group in &topology.service_groups {
+                let services: String = group.services.iter()
+                    .take(4)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let suffix = if group.services.len() > 4 {
+                    format!(", +{}", group.services.len() - 4)
+                } else {
+                    String::new()
+                };
+                println!("    {:<12} {}{}", group.name.cyan(), services, suffix);
+            }
+        }
+
+        println!();
+    }
+}
+
+/// Print [IMPACT] section - v7.21.0
+/// Shows top resource consumers from telemetry
+fn print_impact_section() {
     let config = AnnaConfig::load();
     if !config.telemetry.enabled {
         return;
     }
 
-    // Try SQLite telemetry database
-    let db = match TelemetryDb::open_readonly() {
-        Some(db) => db,
-        None => return,
-    };
-
-    // Get telemetry health
-    let health = match db.get_telemetry_health() {
-        Ok(h) => h,
-        Err(_) => return,
-    };
-
-    if health.total_samples == 0 || health.is_warming_up {
+    let impact = get_software_impact(5);
+    if !impact.has_data {
         return;
     }
 
-    // [TOP CPU (24h)]
-    if let Ok(top_cpu) = db.top_cpu_compact(WINDOW_24H, 5) {
-        if !top_cpu.is_empty() {
-            println!("{}", "[TOP CPU (24h)]".cyan());
-            for (i, entry) in top_cpu.iter().enumerate() {
-                // Calculate avg CPU from cpu_secs / expected_runtime
-                let avg_pct = if entry.cpu_secs > 0.0 {
-                    // Rough estimate: assume 1 sample per 15s
-                    let est_samples = entry.execs.max(1) as f64 * 100.0; // Rough
-                    (entry.cpu_secs / (est_samples * 15.0)) * 100.0
-                } else {
-                    0.0
-                };
-                println!("  {}. {:<18} {:.0}% avg, {:.0}% max",
-                    i + 1,
-                    entry.name.cyan(),
-                    avg_pct.min(100.0),
-                    0.0  // We don't have peak% in compact, show time instead
-                );
-            }
-            println!();
+    println!("{}", "[IMPACT]".cyan());
+    println!("  {}", "(from telemetry, last 24h)".dimmed());
+
+    // Top CPU consumers
+    if !impact.cpu_consumers.is_empty() {
+        println!("  CPU:");
+        for (i, entry) in impact.cpu_consumers.iter().take(5).enumerate() {
+            println!("    {}. {:<18} {}% avg", i + 1, entry.name.cyan(), entry.formatted);
         }
     }
 
-    // [TOP RAM (24h)]
-    if let Ok(top_mem) = db.top_memory_compact(WINDOW_24H, 5) {
-        if !top_mem.is_empty() {
-            println!("{}", "[TOP RAM (24h)]".cyan());
-            for (i, entry) in top_mem.iter().enumerate() {
-                println!("  {}. {:<18} {} max",
-                    i + 1,
-                    entry.name.cyan(),
-                    format_bytes_human(entry.max_rss)
-                );
-            }
-            println!();
+    // Top memory consumers
+    if !impact.memory_consumers.is_empty() {
+        println!("  Memory:");
+        for (i, entry) in impact.memory_consumers.iter().take(5).enumerate() {
+            println!("    {}. {:<18} {}", i + 1, entry.name.cyan(), entry.formatted);
         }
     }
+
+    println!();
 }

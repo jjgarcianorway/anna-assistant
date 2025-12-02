@@ -1,4 +1,4 @@
-//! SW Detail Command v7.20.0 - Software Profiles with Trends & Baseline Tags
+//! SW Detail Command v7.21.0 - Software Profiles with Config Atlas
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -27,7 +27,7 @@ use anna_common::grounded::{
     packages::{get_package_info, Package, PackageSource, InstallReason},
     commands::{get_command_info, command_exists, SystemCommand},
     services::{get_service_info, Service, ServiceState, EnabledState},
-    config::{discover_config_info, discover_service_config},
+    config::discover_service_config,
     category::get_category,
     categoriser::{normalize_category, packages_in_category},
     deps::{get_package_deps, get_service_deps},
@@ -36,6 +36,7 @@ use anna_common::grounded::{
 };
 use anna_common::ServiceLifecycle;
 use anna_common::change_journal::{get_package_history, get_config_history};
+use anna_common::config_atlas::{build_config_atlas, ConfigStatus};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -751,106 +752,110 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
-/// Print [CONFIG] section - v7.12.0 format
-/// Structure: Primary (active configs), Secondary (templates/examples), Notes (precedence)
+/// Print [CONFIG] section - v7.21.0 format with ConfigAtlas
+/// Clean list with [present]/[missing] markers, no cross-contamination
 fn print_config_section(name: &str) {
     println!("{}", "[CONFIG]".cyan());
 
-    let info = discover_config_info(name);
+    let atlas = build_config_atlas(name);
 
-    if !info.has_configs {
-        println!("  No specific configuration paths discovered for this software.");
-        println!("  {}", format!("Source: {}", info.source_description).dimmed());
+    if atlas.existing_configs.is_empty() && atlas.recommended_defaults.is_empty() {
+        println!("  No configuration paths discovered for '{}'.", name);
+        if !atlas.sources.is_empty() {
+            println!("  {}", format!("(searched: {})", atlas.sources.join(", ")).dimmed());
+        }
         println!();
         return;
     }
 
-    // v7.12.0: Separate into Primary (active) and Secondary (templates/examples)
-    // Primary: /etc configs and ~/.config user configs that are main active locations
-    // Secondary: /usr/share templates, examples, defaults
-    let mut primary_configs: Vec<_> = Vec::new();
-    let mut secondary_configs: Vec<_> = Vec::new();
+    // Source attribution
+    if !atlas.sources.is_empty() {
+        println!("  {}", format!("(sources: {})", atlas.sources.join(", ")).dimmed());
+    }
 
-    // System configs (/etc) go to Primary
-    for cfg in &info.system_configs {
-        if cfg.path.starts_with("/etc/") {
-            primary_configs.push(cfg);
-        } else {
-            secondary_configs.push(cfg);
+    // v7.21.0: Existing configs with status markers
+    if !atlas.existing_configs.is_empty() {
+        println!("  Active:");
+        for cfg in &atlas.existing_configs {
+            let status_marker = match cfg.status {
+                ConfigStatus::Present => "[present]".green().to_string(),
+                ConfigStatus::Missing => "[missing]".yellow().to_string(),
+            };
+            let category = format!("({})", cfg.category.label());
+            println!("    {:<40} {}  {}", cfg.path, status_marker, category.dimmed());
         }
     }
 
-    // User configs (~/) go to Primary
-    for cfg in &info.user_configs {
-        primary_configs.push(cfg);
-    }
-
-    // Other configs (templates, examples) go to Secondary
-    for cfg in &info.other_configs {
-        secondary_configs.push(cfg);
-    }
-
-    // Primary section - v7.12.0
-    println!("  Primary:");
-    if primary_configs.is_empty() {
-        println!("    {}", "(no active config locations found)".dimmed());
-    } else {
-        for cfg in &primary_configs {
-            print_config_line_v712(cfg);
+    // v7.21.0: Recommended defaults (from docs, not present)
+    if !atlas.recommended_defaults.is_empty() {
+        println!("  Recommended:");
+        for path in &atlas.recommended_defaults {
+            println!("    {:<40} {}", path, "[not present]".dimmed());
         }
     }
 
-    // Secondary section - v7.12.0
-    if !secondary_configs.is_empty() {
-        println!("  Secondary:");
-        for cfg in &secondary_configs {
-            print_config_line_v712(cfg);
+    // v7.21.0: Recent modifications
+    if !atlas.config_mtimes.is_empty() {
+        println!("  Recently Modified:");
+        for (path, mtime) in atlas.config_mtimes.iter().take(3) {
+            let age = format_config_age(*mtime);
+            println!("    {:<40} {}", path, age.dimmed());
         }
     }
-
-    // Notes section - v7.12.0: max 3 lines of useful info
-    println!("  Notes:");
-
-    // Check for override situation (both user and system present)
-    let has_system_present = primary_configs.iter().any(|c| c.exists && c.path.starts_with("/etc/"));
-    let has_user_present = primary_configs.iter().any(|c| c.exists && c.is_user_config);
-
-    if has_user_present && has_system_present {
-        println!("    - User config overrides system config when both exist.");
-    } else if has_user_present {
-        println!("    - User config is active.");
-    } else if has_system_present {
-        println!("    - System config is active (no user override).");
-    }
-
-    // XDG hint if applicable
-    let has_xdg_config = primary_configs.iter().any(|c| c.path.contains("/.config/"));
-    if has_xdg_config {
-        println!("    - XDG paths take precedence when documented.");
-    }
-
-    println!("    {}", format!("Source: {}", info.source_description).dimmed());
-
-    // v7.14.0: Sanity notes section
-    print_config_sanity_notes(&primary_configs, &secondary_configs);
 
     println!();
 }
 
-/// Print [CONFIG GRAPH] section - v7.17.0
-/// Shows which configs a software reads and shared configs
+/// Format config file age from mtime
+fn format_config_age(mtime: u64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    if mtime == 0 || mtime > now {
+        return "unknown".to_string();
+    }
+
+    let age_secs = now - mtime;
+    if age_secs < 3600 {
+        format!("{}m ago", age_secs / 60)
+    } else if age_secs < 86400 {
+        format!("{}h ago", age_secs / 3600)
+    } else if age_secs < 604800 {
+        format!("{}d ago", age_secs / 86400)
+    } else {
+        format!("{}w ago", age_secs / 604800)
+    }
+}
+
+/// Print [CONFIG GRAPH] section - v7.21.0
+/// Shows precedence order and config relationships
 fn print_config_graph_section(name: &str) {
+    let atlas = build_config_atlas(name);
     let graph = get_config_graph_for_software(name);
 
-    // Skip if no configs found
-    if graph.reads.is_empty() && graph.shared.is_empty() {
+    // Skip if no precedence and no graph
+    if atlas.precedence.is_empty() && graph.reads.is_empty() && graph.shared.is_empty() {
         return;
     }
 
     println!("{}", "[CONFIG GRAPH]".cyan());
-    println!("  {}", format!("(source: {})", graph.source).dimmed());
 
-    // Configs this software reads
+    // v7.21.0: Precedence order (first match wins)
+    if !atlas.precedence.is_empty() {
+        println!("  Precedence (first match wins):");
+        for (i, entry) in atlas.precedence.iter().enumerate() {
+            let status = match entry.status {
+                ConfigStatus::Present => "[present]".green().to_string(),
+                ConfigStatus::Missing => "[missing]".dimmed().to_string(),
+            };
+            let rank = format!("{}.", i + 1);
+            println!("    {:<3} {:<40} {}", rank, entry.path, status);
+        }
+    }
+
+    // v7.17.0: Configs this software reads (from graph)
     if !graph.reads.is_empty() {
         println!("  Reads:");
         for cfg in &graph.reads {

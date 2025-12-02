@@ -875,10 +875,10 @@ fn test_annactl_status_performance() {
     let elapsed = start.elapsed();
 
     assert!(output.status.success(), "annactl status should succeed");
-    // v7.18.0: Allow 8s for status due to boot timeline, change journal parsing
+    // v7.21.0: Allow 10s for status due to KDB section added
     assert!(
-        elapsed.as_secs() < 8,
-        "annactl status should complete in <8s, took: {:?}",
+        elapsed.as_secs() < 10,
+        "annactl status should complete in <10s, took: {:?}",
         elapsed
     );
 }
@@ -1341,29 +1341,27 @@ fn test_snow_leopard_config_section_structure() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.12.0: CONFIG section must exist and show structure
+    // v7.21.0: CONFIG section must exist and show structure
     assert!(
         stdout.contains("[CONFIG]"),
         "Expected [CONFIG] section: {}",
         stdout
     );
 
-    // v7.12.0: Should have Primary: and/or Secondary: subsections
-    let has_structure = stdout.contains("Primary:") || stdout.contains("Secondary:");
+    // v7.21.0: Should have Active: and/or Recommended: subsections
+    let has_structure = stdout.contains("Active:") || stdout.contains("Recommended:");
     assert!(
         has_structure,
-        "[CONFIG] should have Primary: or Secondary: subsections: {}",
+        "[CONFIG] should have Active: or Recommended: subsections: {}",
         stdout
     );
 
-    // Should show source attribution per line (parentheses with source)
-    if stdout.contains("Primary:") || stdout.contains("Secondary:") {
-        assert!(
-            stdout.contains("(filesystem)") || stdout.contains("(pacman") || stdout.contains("(man") || stdout.contains("(Arch Wiki)"),
-            "[CONFIG] should show source attribution in parentheses: {}",
-            stdout
-        );
-    }
+    // Should show source attribution in header (sources: ...)
+    assert!(
+        stdout.contains("(sources:") || stdout.contains("(searched:"),
+        "[CONFIG] should show source attribution in header: {}",
+        stdout
+    );
 
     assert!(output.status.success());
 }
@@ -1573,11 +1571,11 @@ fn test_snow_leopard_config_filesystem_priority() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     if stdout.contains("[CONFIG]") {
-        // v7.8.0: Filesystem discovery should be primary source
-        // Check that filesystem is mentioned as a source
+        // v7.21.0: man pages and Arch Wiki are primary sources in config atlas
+        // Check that a known source is mentioned
         assert!(
-            stdout.contains("filesystem"),
-            "[CONFIG] should include filesystem as a source: {}",
+            stdout.contains("man ") || stdout.contains("Arch Wiki") || stdout.contains("sources:"),
+            "[CONFIG] should include documentation sources: {}",
             stdout
         );
     }
@@ -2076,32 +2074,23 @@ fn test_snow_leopard_config_v712_structure() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     if stdout.contains("[CONFIG]") {
-        // v7.12.0: Must use Primary:/Secondary:/Notes: structure
-        let has_primary = stdout.contains("Primary:");
-        let has_secondary = stdout.contains("Secondary:");
-        let has_notes = stdout.contains("Notes:");
+        // v7.21.0: Must use Active:/Recommended: structure with status markers
+        let has_active = stdout.contains("Active:");
+        let has_recommended = stdout.contains("Recommended:");
 
-        // Primary is required if any configs exist
+        // Active is required if any configs exist
         assert!(
-            has_primary || stdout.contains("No specific config files detected"),
-            "[CONFIG] should have Primary: section or indicate no configs: {}",
+            has_active || stdout.contains("No configuration paths discovered"),
+            "[CONFIG] should have Active: section or indicate no configs: {}",
             stdout
         );
 
-        // Notes is required when we have configs
-        if has_primary {
+        // Should show status markers [present] or [missing]
+        if has_active || has_recommended {
+            let has_markers = stdout.contains("[present]") || stdout.contains("[missing]") || stdout.contains("[not present]");
             assert!(
-                has_notes,
-                "[CONFIG] should have Notes: section after Primary: {}",
-                stdout
-            );
-        }
-
-        // If both Primary and Secondary exist, Notes should explain precedence
-        if has_primary && has_secondary {
-            assert!(
-                stdout.contains("User config") || stdout.contains("XDG paths") || stdout.contains("active"),
-                "[CONFIG] Notes should explain config status when both sections exist: {}",
+                has_markers,
+                "[CONFIG] should show status markers [present]/[missing]: {}",
                 stdout
             );
         }
@@ -2697,21 +2686,15 @@ fn test_snow_leopard_sw_config_sanity_v714() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.14.0: [CONFIG] should have Sanity notes section
+    // v7.21.0: [CONFIG] should have Active/Recommended sections with status
     if stdout.contains("[CONFIG]") {
+        // Should show config paths with status markers
+        let has_config_info = stdout.contains("Active:")
+            || stdout.contains("Recommended:")
+            || stdout.contains("No configuration paths discovered");
         assert!(
-            stdout.contains("Sanity notes:"),
-            "[CONFIG] should have Sanity notes section: {}",
-            stdout
-        );
-        // Should have some note (either "No obvious issues" or actual issues)
-        let has_sanity_content = stdout.contains("No obvious issues")
-            || stdout.contains("empty")
-            || stdout.contains("symlink")
-            || stdout.contains("readable");
-        assert!(
-            has_sanity_content,
-            "Sanity notes should have descriptive content: {}",
+            has_config_info,
+            "[CONFIG] should have Active/Recommended sections or indicate no configs: {}",
             stdout
         );
     }

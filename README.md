@@ -1,8 +1,8 @@
-# Anna v7.20.0 "Telemetry Trends, Log Atlas & Golden Baselines"
+# Anna v7.21.0 "Config Atlas, Topology Maps & Impact View"
 
 **System Intelligence Daemon for Linux**
 
-> v7.20.0: Deterministic trend labels (stable/higher/lower), log atlas with pattern IDs and cross-boot visibility, golden baselines for pattern comparison. See [TELEMETRY SUMMARY] and [LOG SUMMARY] in status, trend labels in [TELEMETRY] sections, and baseline tags in [LOGS] sections.
+> v7.21.0: Clean per-component config discovery with precedence order, software/hardware topology maps, resource impact view from telemetry. See [CONFIG] with [present]/[missing] markers, [CONFIG GRAPH] with precedence, [TOPOLOGY] and [IMPACT] sections in sw/hw commands, and [KDB] section in status.
 
 ---
 
@@ -59,6 +59,92 @@ annactl hw cpu
 annactl hw gpu
 annactl hw storage
 annactl hw network
+```
+
+---
+
+## v7.21.0 Features
+
+### Config Atlas with Precedence Order
+
+Software profiles now show clean per-component config discovery with explicit precedence:
+
+```
+[CONFIG]
+  (sources: man vim, Arch Wiki: Vim)
+  Active:
+    /etc/vimrc                               [present]  (system)
+    ~/.vimrc                                 [present]  (user)
+    ~/.vim                                   [present]  (user)
+  Recommended:
+    $XDG_CONFIG_HOME/vim/vimrc               [not present]
+  Recently Modified:
+    /etc/vimrc                               2w ago
+
+[CONFIG GRAPH]
+  Precedence (first match wins):
+    1.  ~/.vimrc                             [present]
+    2.  /etc/vimrc                           [present]
+    3.  /usr/share/vim/vimfiles              [missing]
+```
+
+Config discovery is strictly scoped to the component - no cross-contamination between related packages.
+
+### Software Topology and Impact
+
+`annactl sw` now shows [TOPOLOGY] and [IMPACT] sections:
+
+```
+[TOPOLOGY]
+  (from package descriptions and deps)
+  Stacks:
+    Display stack libxv, xdg-desktop-portal-hyprland, slurp
+    Network stack networkmanager, wpa_supplicant
+    Audio stack   portaudio, flac, libwireplumber
+  Service Groups:
+    Login        systemd-logind.service, getty@tty1.service
+    Power        tlp.service
+    Network      NetworkManager.service, wpa_supplicant.service
+
+[IMPACT]
+  (from telemetry, last 24h)
+  CPU:
+    1. steam              0.5% avg
+    2. claude             19.3% avg
+  Memory:
+    1. JITWorker          2.3 GiB
+    2. HeapHelper         2.3 GiB
+```
+
+### Hardware Topology and Impact
+
+`annactl hw` now shows [TOPOLOGY] and [IMPACT] sections:
+
+```
+[TOPOLOGY]
+  (hardware component summary)
+  CPU:          Intel(R) Core(TM) i9-14900HX (24 cores, 32 threads)
+  Memory:       31 GiB total
+  GPU:          GeForce RTX 4060 (discrete, driver: nvidia)
+  Storage:      2 devices [all OK]
+  Network:      1 interfaces (wifi)
+
+[IMPACT]
+  (from /proc/diskstats, /sys/class/net)
+  Disk I/O (since boot):
+    nvme0n1 R: 123.0 GiB W: 116.3 GiB
+  Network I/O (since boot):
+    wlp0s20f3 RX: 2.4 GiB TX: 9.9 GiB
+```
+
+### KDB Section in Status
+
+`annactl status` now shows [KDB] section showing knowledge database readiness:
+
+```
+[KDB]
+  Software:   970 packages, 2654 commands, 260 services
+  Hardware:   4 devices (1 GPU, 2 storage, 1 network)
 ```
 
 ---

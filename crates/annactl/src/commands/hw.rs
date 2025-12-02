@@ -1,4 +1,4 @@
-//! HW Command v7.19.0 - Structured Hardware Overview
+//! HW Command v7.21.0 - Structured Hardware Overview
 //!
 //! Sections organized by category:
 //! - [CPU]        Model, cores, microcode
@@ -12,6 +12,8 @@
 //! - [POWER]      Battery and AC adapter
 //! - [DRIVERS]    Loaded kernel modules for GPU/WiFi/BT (v7.19.0)
 //! - [HOT SIGNALS] Signal quality warnings (v7.19.0)
+//! - [TOPOLOGY]   Hardware component summary (v7.21.0)
+//! - [IMPACT]     Disk and network pressure from system stats (v7.21.0)
 //!
 //! All data sourced from:
 //! - lscpu, /proc/cpuinfo (CPU)
@@ -42,6 +44,8 @@ use anna_common::grounded::storage_topology::{
 };
 use anna_common::grounded::service_topology::get_gpu_driver_stacks;
 use anna_common::grounded::signal_quality::get_hot_signals;
+use anna_common::topology_map::build_hardware_topology;
+use anna_common::impact_view::{get_hardware_impact, format_bytes_compact};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -84,6 +88,12 @@ pub async fn run() -> Result<()> {
 
     // [HOT SIGNALS] - v7.19.0
     print_hot_signals_section();
+
+    // [TOPOLOGY] - v7.21.0
+    print_hw_topology_section();
+
+    // [IMPACT] - v7.21.0
+    print_hw_impact_section();
 
     println!("{}", THIN_SEP);
     println!("  {}", "'annactl hw NAME' for a specific component or category.".dimmed());
@@ -1000,6 +1010,115 @@ fn print_hot_signals_section() {
 
     for signal in &signals {
         println!("  {}", signal);
+    }
+
+    println!();
+}
+
+// ============================================================================
+// [TOPOLOGY] Section - v7.21.0
+// ============================================================================
+
+fn print_hw_topology_section() {
+    let topology = build_hardware_topology();
+
+    // Only print if we have data
+    let has_data = topology.cpu.is_some()
+        || topology.memory.is_some()
+        || !topology.gpus.is_empty()
+        || !topology.storage.is_empty()
+        || !topology.network.is_empty();
+
+    if !has_data {
+        return;
+    }
+
+    println!("{}", "[TOPOLOGY]".cyan());
+    println!("  {}", "(hardware component summary)".dimmed());
+
+    // CPU summary
+    if let Some(cpu) = &topology.cpu {
+        println!("  CPU:          {} ({} cores, {} threads)",
+            cpu.model, cpu.cores_physical, cpu.threads);
+    }
+
+    // Memory summary
+    if let Some(mem) = &topology.memory {
+        println!("  Memory:       {:.0} GiB total", mem.total_gib);
+    }
+
+    // GPU summary
+    for gpu in &topology.gpus {
+        let gpu_type = if gpu.is_igpu { "integrated" } else { "discrete" };
+        println!("  GPU:          {} ({}, driver: {})",
+            gpu.name, gpu_type, gpu.driver);
+    }
+
+    // Storage summary
+    if !topology.storage.is_empty() {
+        let storage_status = if topology.all_smart_ok {
+            "all OK".green().to_string()
+        } else {
+            "check warnings".yellow().to_string()
+        };
+        println!("  Storage:      {} devices [{}]",
+            topology.storage.len(),
+            storage_status);
+    }
+
+    // Network summary
+    if !topology.network.is_empty() {
+        let types: Vec<_> = topology.network.iter()
+            .map(|n| n.iface_type.as_str())
+            .collect();
+        let unique_types: Vec<_> = types.iter().cloned().collect::<std::collections::HashSet<_>>()
+            .into_iter().collect();
+        println!("  Network:      {} interfaces ({})",
+            topology.network.len(),
+            unique_types.join(", "));
+    }
+
+    println!();
+}
+
+// ============================================================================
+// [IMPACT] Section - v7.21.0
+// ============================================================================
+
+fn print_hw_impact_section() {
+    let impact = get_hardware_impact();
+
+    if !impact.has_data {
+        return;
+    }
+
+    println!("{}", "[IMPACT]".cyan());
+    println!("  {}", "(from /proc/diskstats, /sys/class/net)".dimmed());
+
+    // Disk pressure
+    if !impact.disk_pressure.is_empty() {
+        println!("  Disk I/O (since boot):");
+        for disk in &impact.disk_pressure {
+            let temp_str = disk.temp_avg
+                .map(|t| format!(" ({}°C)", t as i32))
+                .unwrap_or_default();
+            println!("    {} R: {} W: {}{}",
+                disk.device,
+                format_bytes_compact(disk.read_bytes_24h),
+                format_bytes_compact(disk.write_bytes_24h),
+                temp_str);
+        }
+    }
+
+    // Network usage
+    if !impact.network_usage.is_empty() {
+        println!("  Network I/O (since boot):");
+        for net in impact.network_usage.iter().take(3) {
+            println!("    {:8} RX: {} TX: {}",
+                net.interface,
+                format_bytes_compact(net.rx_bytes_24h),
+                format_bytes_compact(net.tx_bytes_24h));
+        }
     }
 
     println!();

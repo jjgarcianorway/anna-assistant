@@ -1,4 +1,4 @@
-//! Anna Common v7.20.0 - Telemetry Trends, Log Atlas & Golden Baselines
+//! Anna Common v7.21.0 - Config Atlas, Topology Maps & Impact View
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -10,6 +10,7 @@
 //! v7.18.0: Change journal, boot timeline, error focus with pattern IDs
 //! v7.19.0: Service topology, signal quality, topology hints, cross-references
 //! v7.20.0: Telemetry trends, log atlas with pattern IDs, golden baselines
+//! v7.21.0: Config atlas, topology maps, impact view
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -30,6 +31,9 @@
 //! - Telemetry trends: deterministic trend labels (stable/higher/lower) (v7.20.0)
 //! - Log atlas: pattern IDs, cross-boot visibility (v7.20.0)
 //! - Golden baselines: baseline selection, new-since-baseline tagging (v7.20.0)
+//! - Config atlas: clean per-component config discovery (v7.21.0)
+//! - Topology maps: software stacks and hardware components (v7.21.0)
+//! - Impact view: top resource consumers from telemetry (v7.21.0)
 //!
 //! Modules:
 //! - grounded: Real data from real system commands
@@ -77,6 +81,10 @@ pub mod telemetry_exec;
 pub mod telemetry_trends;
 pub mod log_atlas;
 pub mod golden_baseline;
+// v7.21.0: Config atlas, topology maps, impact view
+pub mod config_atlas;
+pub mod topology_map;
+pub mod impact_view;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -187,4 +195,21 @@ pub use golden_baseline::{
     GoldenBaseline, BaselineTag, MAX_BASELINE_WARNINGS,
     find_or_create_service_baseline, find_or_create_device_baseline,
     tag_pattern, get_components_with_new_patterns,
+};
+// v7.21.0: Config atlas for clean per-component config discovery
+pub use config_atlas::{
+    ConfigAtlas, ConfigEntry, ConfigCategory, ConfigStatus,
+    PrecedenceEntry, build_config_atlas,
+};
+// v7.21.0: Topology maps for software and hardware stacks
+pub use topology_map::{
+    SoftwareTopology, HardwareTopology, StackRole, ServiceGroup,
+    CpuInfo, MemoryInfo, GpuInfo, StorageInfo, NetworkInfo, AudioInfo,
+    build_software_topology, build_hardware_topology,
+};
+// v7.21.0: Impact view for resource consumer rankings
+pub use impact_view::{
+    SoftwareImpact, HardwareImpact, ConsumerEntry, DiskPressure, NetworkUsage,
+    get_software_impact, get_hardware_impact,
+    format_bytes as impact_format_bytes, format_bytes_compact,
 };
