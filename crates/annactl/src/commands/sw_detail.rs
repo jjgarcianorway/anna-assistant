@@ -1,4 +1,4 @@
-//! SW Detail Command v7.21.0 - Software Profiles with Config Atlas
+//! SW Detail Command v7.22.0 - Software Profiles with Scenario Lenses
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -37,6 +37,11 @@ use anna_common::grounded::{
 use anna_common::ServiceLifecycle;
 use anna_common::change_journal::{get_package_history, get_config_history};
 use anna_common::config_atlas::{build_config_atlas, ConfigStatus};
+// v7.22.0: Software scenario lenses
+use anna_common::sw_lens::{
+    is_sw_category, get_sw_category,
+    NetworkSwLens, DisplaySwLens, AudioSwLens, PowerSwLens,
+};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -51,6 +56,11 @@ pub async fn run_category(category: &str) -> Result<()> {
         return run_services_category().await;
     }
 
+    // v7.22.0: Check for scenario lens categories
+    if is_sw_category(category) {
+        return run_scenario_lens_category(category).await;
+    }
+
     // Try rule-based categorisation
     if let Some(cat_name) = normalize_category(category) {
         return run_rule_based_category(&cat_name).await;
@@ -62,7 +72,7 @@ pub async fn run_category(category: &str) -> Result<()> {
     eprintln!();
     eprintln!("  Valid categories: Editors, Terminals, Shells, Compositors,");
     eprintln!("                    Browsers, Multimedia, Development, Network,");
-    eprintln!("                    System, Power, Tools, Services");
+    eprintln!("                    System, Power, Tools, Services, Display, Audio");
     eprintln!();
     std::process::exit(1);
 }
@@ -158,6 +168,347 @@ async fn run_services_category() -> Result<()> {
     println!("{}", THIN_SEP);
     println!();
 
+    Ok(())
+}
+
+/// v7.22.0: Run scenario lens view for network, display, audio, power
+async fn run_scenario_lens_category(category: &str) -> Result<()> {
+    let cat_type = get_sw_category(category).unwrap_or("unknown");
+
+    match cat_type {
+        "network" => run_network_sw_lens().await,
+        "display" => run_display_sw_lens().await,
+        "audio" => run_audio_sw_lens().await,
+        "power" => run_power_sw_lens().await,
+        _ => {
+            eprintln!("  Unknown scenario lens category: {}", category);
+            Ok(())
+        }
+    }
+}
+
+/// Network software lens
+async fn run_network_sw_lens() -> Result<()> {
+    println!();
+    println!("{}", "  Anna SW: network".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    let lens = NetworkSwLens::build();
+
+    // [IDENTITY]
+    println!("{}", "[IDENTITY]".cyan());
+    let service_names: Vec<_> = lens.services.iter()
+        .filter(|s| s.active)
+        .map(|s| s.name.as_str())
+        .collect();
+    println!("  Category:    network");
+    println!("  Components:  {}", if service_names.is_empty() {
+        "none active".to_string()
+    } else {
+        service_names.join(", ")
+    });
+    println!();
+
+    // [TOPOLOGY]
+    println!("{}", "[TOPOLOGY]".cyan());
+    println!("  Core services:");
+    for svc in &lens.services {
+        let status = if svc.active {
+            "[running]".green().to_string()
+        } else if svc.status == "enabled" {
+            "[enabled]".dimmed().to_string()
+        } else {
+            format!("[{}]", svc.status).dimmed().to_string()
+        };
+        println!("    {:<40} {}", svc.unit, status);
+    }
+    println!();
+
+    // [CONFIG]
+    println!("{}", "[CONFIG]".cyan());
+    println!("  Key config files:");
+    for cfg in &lens.configs {
+        let status = if cfg.exists {
+            "[present]".green().to_string()
+        } else {
+            "[missing]".dimmed().to_string()
+        };
+        println!("    {:<50} {}", cfg.path, status);
+    }
+    println!();
+
+    // [CONFIG GRAPH]
+    println!("{}", "[CONFIG GRAPH]".cyan());
+    println!("  Precedence hints:");
+    for hint in &lens.precedence_hints {
+        println!("    {}", hint);
+    }
+    println!();
+
+    // [TELEMETRY]
+    if !lens.telemetry.is_empty() {
+        println!("{}", "[TELEMETRY]".cyan());
+        println!("  Service CPU and memory (avg last 24h):");
+        for (name, tel) in &lens.telemetry {
+            if tel.cpu_avg_24h > 0.0 || tel.memory_rss_avg_24h > 0 {
+                println!("    {:<20} cpu {} percent, rss {} MiB",
+                    format!("{}:", name),
+                    tel.cpu_avg_24h as u32,
+                    tel.memory_rss_avg_24h / (1024 * 1024)
+                );
+            }
+        }
+        println!();
+    }
+
+    // [LOGS]
+    if !lens.log_patterns.is_empty() {
+        println!("{}", "[LOGS]".cyan());
+        println!("  Patterns (current boot, warning and above):");
+        for (id, msg, count) in lens.log_patterns.iter().take(5) {
+            let display_msg = if msg.len() > 45 {
+                format!("{}...", &msg[..42])
+            } else {
+                msg.clone()
+            };
+            println!(
+                "    [{}] {:<45} (seen {} {})",
+                id,
+                display_msg,
+                count,
+                if *count == 1 { "time" } else { "times" }
+            );
+        }
+        println!();
+    }
+
+    println!("{}", THIN_SEP);
+    println!();
+    Ok(())
+}
+
+/// Display software lens
+async fn run_display_sw_lens() -> Result<()> {
+    println!();
+    println!("{}", "  Anna SW: display".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    let lens = DisplaySwLens::build();
+
+    // [IDENTITY]
+    println!("{}", "[IDENTITY]".cyan());
+    let active_services: Vec<_> = lens.services.iter()
+        .filter(|s| s.active)
+        .map(|s| s.name.as_str())
+        .collect();
+    println!("  Category:    display");
+    println!("  Components:  {}", if active_services.is_empty() {
+        "none detected".to_string()
+    } else {
+        active_services.join(", ")
+    });
+    println!();
+
+    // [TOPOLOGY]
+    if !lens.services.is_empty() {
+        println!("{}", "[TOPOLOGY]".cyan());
+        println!("  Display stack:");
+        for svc in &lens.services {
+            let status = if svc.active {
+                "[running]".green().to_string()
+            } else {
+                format!("[{}]", svc.status).dimmed().to_string()
+            };
+            println!("    {:<40} {}", svc.unit, status);
+        }
+        println!();
+    }
+
+    // [CONFIG]
+    if !lens.configs.is_empty() {
+        println!("{}", "[CONFIG]".cyan());
+        println!("  Config files:");
+        for cfg in &lens.configs {
+            if cfg.exists {
+                println!("    {} {}", cfg.path, "[present]".green());
+            }
+        }
+        println!();
+    }
+
+    // [LOGS]
+    if !lens.log_patterns.is_empty() {
+        println!("{}", "[LOGS]".cyan());
+        println!("  Patterns (current boot, warning and above):");
+        for (id, msg, count) in lens.log_patterns.iter().take(5) {
+            let display_msg = if msg.len() > 45 {
+                format!("{}...", &msg[..42])
+            } else {
+                msg.clone()
+            };
+            println!(
+                "    [{}] {:<45} (seen {} {})",
+                id, display_msg, count,
+                if *count == 1 { "time" } else { "times" }
+            );
+        }
+        println!();
+    }
+
+    println!("{}", THIN_SEP);
+    println!();
+    Ok(())
+}
+
+/// Audio software lens
+async fn run_audio_sw_lens() -> Result<()> {
+    println!();
+    println!("{}", "  Anna SW: audio".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    let lens = AudioSwLens::build();
+
+    // [IDENTITY]
+    println!("{}", "[IDENTITY]".cyan());
+    let active_services: Vec<_> = lens.services.iter()
+        .filter(|s| s.active)
+        .map(|s| s.name.as_str())
+        .collect();
+    println!("  Category:    audio");
+    println!("  Components:  {}", if active_services.is_empty() {
+        "none detected".to_string()
+    } else {
+        active_services.join(", ")
+    });
+    println!();
+
+    // [TOPOLOGY]
+    if !lens.services.is_empty() {
+        println!("{}", "[TOPOLOGY]".cyan());
+        println!("  Audio stack:");
+        for svc in &lens.services {
+            let status = if svc.active {
+                "[running]".green().to_string()
+            } else {
+                format!("[{}]", svc.status).dimmed().to_string()
+            };
+            println!("    {:<40} {}", svc.unit, status);
+        }
+        println!();
+    }
+
+    // [CONFIG]
+    println!("{}", "[CONFIG]".cyan());
+    println!("  Config files:");
+    for cfg in &lens.configs {
+        let status = if cfg.exists {
+            "[present]".green().to_string()
+        } else {
+            "[missing]".dimmed().to_string()
+        };
+        println!("    {:<50} {}", cfg.path, status);
+    }
+    println!();
+
+    // [LOGS]
+    if !lens.log_patterns.is_empty() {
+        println!("{}", "[LOGS]".cyan());
+        println!("  Patterns (current boot, warning and above):");
+        for (id, msg, count) in lens.log_patterns.iter().take(5) {
+            let display_msg = if msg.len() > 45 {
+                format!("{}...", &msg[..42])
+            } else {
+                msg.clone()
+            };
+            println!(
+                "    [{}] {:<45} (seen {} {})",
+                id, display_msg, count,
+                if *count == 1 { "time" } else { "times" }
+            );
+        }
+        println!();
+    }
+
+    println!("{}", THIN_SEP);
+    println!();
+    Ok(())
+}
+
+/// Power software lens
+async fn run_power_sw_lens() -> Result<()> {
+    println!();
+    println!("{}", "  Anna SW: power".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    let lens = PowerSwLens::build();
+
+    // [IDENTITY]
+    println!("{}", "[IDENTITY]".cyan());
+    let active_services: Vec<_> = lens.services.iter()
+        .filter(|s| s.active)
+        .map(|s| s.name.as_str())
+        .collect();
+    println!("  Category:    power");
+    println!("  Components:  {}", if active_services.is_empty() {
+        "none detected".to_string()
+    } else {
+        active_services.join(", ")
+    });
+    println!();
+
+    // [TOPOLOGY]
+    if !lens.services.is_empty() {
+        println!("{}", "[TOPOLOGY]".cyan());
+        println!("  Power management:");
+        for svc in &lens.services {
+            let status = if svc.active {
+                "[running]".green().to_string()
+            } else {
+                format!("[{}]", svc.status).dimmed().to_string()
+            };
+            println!("    {:<40} {}", svc.unit, status);
+        }
+        println!();
+    }
+
+    // [CONFIG]
+    println!("{}", "[CONFIG]".cyan());
+    println!("  Config files:");
+    for cfg in &lens.configs {
+        let status = if cfg.exists {
+            "[present]".green().to_string()
+        } else {
+            "[missing]".dimmed().to_string()
+        };
+        println!("    {:<50} {}", cfg.path, status);
+    }
+    println!();
+
+    // [LOGS]
+    if !lens.log_patterns.is_empty() {
+        println!("{}", "[LOGS]".cyan());
+        println!("  Patterns (current boot, warning and above):");
+        for (id, msg, count) in lens.log_patterns.iter().take(5) {
+            let display_msg = if msg.len() > 45 {
+                format!("{}...", &msg[..42])
+            } else {
+                msg.clone()
+            };
+            println!(
+                "    [{}] {:<45} (seen {} {})",
+                id, display_msg, count,
+                if *count == 1 { "time" } else { "times" }
+            );
+        }
+        println!();
+    }
+
+    println!("{}", THIN_SEP);
+    println!();
     Ok(())
 }
 

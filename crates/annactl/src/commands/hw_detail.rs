@@ -1,4 +1,4 @@
-//! HW Detail Command v7.20.0 - Hardware Profiles with Trends & Baseline Tags
+//! HW Detail Command v7.22.0 - Hardware Profiles with Scenario Lenses
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors)
@@ -52,6 +52,11 @@ use anna_common::{find_hardware_related_units, ServiceLifecycle};
 use anna_common::change_journal::get_package_history;
 use anna_common::grounded::signal_quality::{
     get_wifi_signal, get_storage_signal, get_nvme_signal,
+};
+// v7.22.0: Scenario lenses
+use anna_common::scenario_lens::{
+    NetworkLens, StorageLens, GraphicsLens, AudioLens,
+    format_bytes as lens_format_bytes,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -686,33 +691,135 @@ fn shorten_description(desc: &str) -> String {
 
 async fn run_storage_category() -> Result<()> {
     println!();
-    println!("{}", "  Anna HW: Storage".bold());
+    println!("{}", "  Anna HW: storage".bold());
     println!("{}", THIN_SEP);
     println!();
 
-    println!("{}", "[DEVICES]".cyan());
-    println!("  {}", "(source: lsblk)".dimmed());
+    // Build storage lens
+    let lens = StorageLens::build();
 
-    let output = Command::new("lsblk")
-        .args(["-d", "-o", "NAME,SIZE,MODEL,TYPE"])
-        .output();
+    // [IDENTITY]
+    println!("{}", "[IDENTITY]".cyan());
+    let bus_types: Vec<_> = lens.devices.iter()
+        .map(|d| d.bus.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    println!("  Class:        Storage");
+    println!("  Components:   {}", bus_types.join(", "));
+    println!();
 
-    match output {
-        Ok(out) if out.status.success() => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            println!();
-            for line in stdout.lines() {
-                if line.contains("disk") {
-                    println!("  {}", line);
-                }
-            }
+    // [TOPOLOGY]
+    println!("{}", "[TOPOLOGY]".cyan());
+    println!("  Devices:");
+    for dev in &lens.devices {
+        println!("    {}:", dev.name.bold());
+        if let Some(ref model) = dev.model {
+            println!("      model:     {}", model);
         }
-        _ => {
-            println!("  (lsblk not available)");
+        println!("      bus:       {}", dev.bus);
+        if let Some(ref driver) = dev.driver {
+            println!("      driver:    {}", driver);
         }
+        if !dev.mount_points.is_empty() {
+            println!("      used by:   {}", dev.mount_points.join(", "));
+        }
+        println!();
     }
 
+    // [HEALTH]
+    println!("{}", "[HEALTH]".cyan());
+    println!("  SMART:");
+    for dev in &lens.devices {
+        if let Some(health) = lens.health.get(&dev.name) {
+            let status_display = if health.status == "OK" {
+                format!("{}", "OK".green())
+            } else if health.status.contains("Warning") || health.status.contains("FAILING") {
+                format!("{}", health.status.red())
+            } else {
+                format!("{}", health.status.dimmed())
+            };
+
+            if health.media_errors > 0 || health.critical_warnings > 0 {
+                println!(
+                    "    {:<12} {} (media errors {}, critical warnings {})",
+                    format!("{}:", dev.name),
+                    status_display,
+                    health.media_errors,
+                    health.critical_warnings
+                );
+            } else {
+                println!("    {:<12} {}", format!("{}:", dev.name), status_display);
+            }
+        }
+    }
     println!();
+
+    // Temperature if available
+    let temps: Vec<_> = lens.devices.iter()
+        .filter_map(|d| {
+            lens.health.get(&d.name)
+                .and_then(|h| h.temp_avg_24h)
+                .map(|t| (d.name.as_str(), t))
+        })
+        .collect();
+
+    if !temps.is_empty() {
+        println!("  Temperature (last 24h):");
+        for (name, temp) in temps {
+            println!("    {:<12} avg {} C", format!("{}:", name), temp as i32);
+        }
+        println!();
+    }
+
+    // [TELEMETRY]
+    println!("{}", "[TELEMETRY]".cyan());
+    println!("  IO (last 24h):");
+    for dev in &lens.devices {
+        if let Some(tel) = lens.telemetry.get(&dev.name) {
+            println!(
+                "    {:<12} read {}, write {}",
+                format!("{}:", dev.name),
+                lens_format_bytes(tel.read_bytes_24h),
+                lens_format_bytes(tel.write_bytes_24h)
+            );
+        }
+    }
+    println!();
+
+    // [LOGS]
+    if !lens.log_patterns.is_empty() {
+        println!("{}", "[LOGS]".cyan());
+        println!("  Storage related patterns (current boot, warning and above):");
+        for (id, msg, count) in lens.log_patterns.iter().take(5) {
+            let display_msg = if msg.len() > 50 {
+                format!("{}...", &msg[..47])
+            } else {
+                msg.clone()
+            };
+            println!(
+                "    [{}] {:50} (seen {} {})",
+                id,
+                display_msg,
+                count,
+                if *count == 1 { "time" } else { "times" }
+            );
+        }
+        println!();
+    }
+
+    // [HISTORY]
+    println!("{}", "[HISTORY]".cyan());
+    println!("  First seen:");
+    for dev in &lens.devices {
+        if let Some(date) = lens.first_seen.get(&dev.name) {
+            println!("    {:<12} {}", format!("{}:", dev.name), date);
+        } else {
+            println!("    {:<12} {}", format!("{}:", dev.name), "(from Anna telemetry)".dimmed());
+        }
+    }
+    println!();
+
     println!("{}", THIN_SEP);
     println!();
     Ok(())
@@ -974,94 +1081,115 @@ fn format_bytes_human(bytes: u64) -> String {
 
 async fn run_network_category() -> Result<()> {
     println!();
-    println!("{}", "  Anna HW: Network".bold());
+    println!("{}", "  Anna HW: network".bold());
     println!("{}", THIN_SEP);
     println!();
 
-    println!("{}", "[INTERFACES]".cyan());
-    println!("  {}", "(source: ip link)".dimmed());
+    // Build network lens
+    let lens = NetworkLens::build();
 
-    let output = Command::new("ip").args(["link", "show"]).output();
+    // [IDENTITY]
+    println!("{}", "[IDENTITY]".cyan());
+    let iface_types: Vec<_> = lens.interfaces.iter()
+        .map(|i| i.iface_type.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    println!("  Class:        Network");
+    println!("  Components:   {}", iface_types.join(", "));
+    println!();
 
-    match output {
-        Ok(out) if out.status.success() => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            println!();
-
-            for line in stdout.lines() {
-                if line
-                    .chars()
-                    .next()
-                    .map(|c| c.is_ascii_digit())
-                    .unwrap_or(false)
-                {
-                    if let Some(name_part) = line.split(':').nth(1) {
-                        let name = name_part
-                            .trim()
-                            .split('@')
-                            .next()
-                            .unwrap_or(name_part.trim());
-                        if name != "lo" {
-                            // Get state
-                            let state = if line.contains("state UP") {
-                                "UP".green().to_string()
-                            } else if line.contains("state DOWN") {
-                                "DOWN".red().to_string()
-                            } else {
-                                "UNKNOWN".dimmed().to_string()
-                            };
-
-                            let iface_type = if name.starts_with("en") || name.starts_with("eth") {
-                                "ethernet"
-                            } else if name.starts_with("wl") || name.starts_with("wlan") {
-                                "wifi"
-                            } else if name.starts_with("veth") {
-                                "veth"
-                            } else if name.starts_with("br") {
-                                "bridge"
-                            } else if name.starts_with("docker") {
-                                "docker"
-                            } else {
-                                "other"
-                            };
-
-                            // Get driver
-                            let driver_path = format!("/sys/class/net/{}/device/driver", name);
-                            let driver = if let Ok(link) = std::fs::read_link(&driver_path) {
-                                link.file_name()
-                                    .map(|n| n.to_string_lossy().to_string())
-                                    .unwrap_or_default()
-                            } else {
-                                String::new()
-                            };
-
-                            if driver.is_empty() {
-                                println!(
-                                    "  {:<12} [{:<4}] {}",
-                                    name,
-                                    state,
-                                    iface_type.dimmed()
-                                );
-                            } else {
-                                println!(
-                                    "  {:<12} [{:<4}] {} ({})",
-                                    name,
-                                    state,
-                                    iface_type.dimmed(),
-                                    driver.cyan()
-                                );
-                            }
-                        }
-                    }
-                }
-            }
+    // [TOPOLOGY]
+    println!("{}", "[TOPOLOGY]".cyan());
+    for iface in &lens.interfaces {
+        println!("  {}:", iface.name.bold());
+        println!("    interface:  {}", iface.name);
+        if let Some(ref driver) = iface.driver {
+            let loaded = if iface.link_state == "up" { "(loaded)" } else { "" };
+            println!("    driver:     {} {}", driver.cyan(), loaded);
         }
-        _ => {
-            println!("  (ip not available)");
+        if let Some(ref fw) = iface.firmware {
+            println!("    firmware:   {}", fw);
+        } else if iface.iface_type != "wifi" {
+            println!("    firmware:   {}", "not required or not reported".dimmed());
         }
+        if let Some(blocked) = iface.rfkill_blocked {
+            let status = if blocked { "blocked".red().to_string() } else { "unblocked".green().to_string() };
+            println!("    rfkill:     {}", status);
+        }
+        let link_status = if iface.link_state == "up" {
+            format!("{}, {}", "up".green(), if iface.carrier { "carrier" } else { "no carrier" })
+        } else {
+            iface.link_state.red().to_string()
+        };
+        println!("    link:       {}", link_status);
+        println!();
     }
 
+    // [TELEMETRY]
+    println!("{}", "[TELEMETRY]".cyan());
+    println!("  Last 24h:");
+    for iface in &lens.interfaces {
+        if let Some(tel) = lens.telemetry.get(&iface.name) {
+            println!(
+                "    {:<12} rx {}, tx {}",
+                format!("{}:", iface.name),
+                lens_format_bytes(tel.rx_bytes_24h),
+                lens_format_bytes(tel.tx_bytes_24h)
+            );
+        }
+    }
     println!();
+
+    // [EVENTS]
+    if !lens.events.is_empty() {
+        println!("{}", "[EVENTS]".cyan());
+        println!("  Connection changes (current boot):");
+        for event in lens.events.iter().take(5) {
+            println!(
+                "    [{}] {:40} (seen {} {})",
+                event.pattern_id,
+                event.description,
+                event.count,
+                if event.count == 1 { "time" } else { "times" }
+            );
+        }
+        println!();
+    }
+
+    // [LOGS]
+    if !lens.log_patterns.is_empty() {
+        println!("{}", "[LOGS]".cyan());
+        println!("  Network related patterns (current boot, warning and above):");
+        for (id, msg, count) in lens.log_patterns.iter().take(5) {
+            let display_msg = if msg.len() > 50 {
+                format!("{}...", &msg[..47])
+            } else {
+                msg.clone()
+            };
+            println!(
+                "    [{}] {:50} (seen {} {})",
+                id,
+                display_msg,
+                count,
+                if *count == 1 { "time" } else { "times" }
+            );
+        }
+        println!();
+    }
+
+    // [HISTORY]
+    println!("{}", "[HISTORY]".cyan());
+    println!("  First seen:");
+    for iface in &lens.interfaces {
+        if let Some(date) = lens.first_seen.get(&iface.name) {
+            println!("    {:<12} {}", format!("{}:", iface.name), date);
+        } else {
+            println!("    {:<12} {}", format!("{}:", iface.name), "(from Anna telemetry)".dimmed());
+        }
+    }
+    println!();
+
     println!("{}", THIN_SEP);
     println!();
     Ok(())

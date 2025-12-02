@@ -1,4 +1,4 @@
-//! Anna Common v7.21.0 - Config Atlas, Topology Maps & Impact View
+//! Anna Common v7.22.0 - Scenario Lenses & Self Toolchain Hygiene
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -11,6 +11,7 @@
 //! v7.19.0: Service topology, signal quality, topology hints, cross-references
 //! v7.20.0: Telemetry trends, log atlas with pattern IDs, golden baselines
 //! v7.21.0: Config atlas, topology maps, impact view
+//! v7.22.0: Scenario lenses, self toolchain hygiene
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -85,6 +86,10 @@ pub mod golden_baseline;
 pub mod config_atlas;
 pub mod topology_map;
 pub mod impact_view;
+// v7.22.0: Scenario lenses and self toolchain hygiene
+pub mod scenario_lens;
+pub mod sw_lens;
+pub mod toolchain;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -212,4 +217,25 @@ pub use impact_view::{
     SoftwareImpact, HardwareImpact, ConsumerEntry, DiskPressure, NetworkUsage,
     get_software_impact, get_hardware_impact,
     format_bytes as impact_format_bytes, format_bytes_compact,
+};
+// v7.22.0: Scenario lenses for category-aware views
+pub use scenario_lens::{
+    NetworkLens, NetworkInterface, NetworkTelemetry, NetworkEvent,
+    StorageLens, StorageDevice, StorageHealth, StorageTelemetry,
+    GraphicsLens, GpuDevice, DisplayConnector,
+    AudioLens, AudioDevice,
+    format_bytes as lens_format_bytes,
+};
+// v7.22.0: Software lenses for category views
+pub use sw_lens::{
+    NetworkSwLens, DisplaySwLens, AudioSwLens, PowerSwLens,
+    ServiceEntry, ConfigFileEntry, ServiceTelemetry,
+    is_sw_category, get_sw_category,
+};
+// v7.22.0: Self toolchain hygiene
+pub use toolchain::{
+    ToolCategory, AnnaTool, ToolStatus, ToolchainStatus, ToolchainSummary,
+    InstallResult,
+    get_anna_tools, check_toolchain, install_tool, ensure_tool,
+    format_toolchain_section, format_toolchain_status_section,
 };

@@ -1,4 +1,4 @@
-//! Status Command v7.21.0 - KDB Sync & Telemetry Trends
+//! Status Command v7.22.0 - Scenario Lenses & Self Toolchain Hygiene
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
@@ -44,6 +44,8 @@ use anna_common::grounded::service_topology::{get_high_impact_services, get_gpu_
 use anna_common::{get_process_trends, TrendDirection, get_components_with_new_patterns};
 // v7.21.0: Topology for KDB section
 use anna_common::topology_map::build_hardware_topology;
+// v7.22.0: Toolchain hygiene
+use anna_common::toolchain::{check_toolchain, ToolCategory};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -109,6 +111,9 @@ pub async fn run() -> Result<()> {
 
     // [ANNA NEEDS] - v7.6.0
     print_anna_needs_section();
+
+    // [ANNA TOOLCHAIN] - v7.22.0
+    print_toolchain_section();
 
     println!("{}", THIN_SEP);
     println!();
@@ -1032,6 +1037,46 @@ fn print_anna_needs_section() {
                 error
             );
         }
+    }
+
+    println!();
+}
+
+/// v7.22.0: Anna toolchain hygiene section
+fn print_toolchain_section() {
+    println!("{}", "[ANNA TOOLCHAIN]".cyan());
+
+    let status = check_toolchain();
+    let summary = status.summary();
+
+    // Documentation
+    let doc_status = if status.is_category_ready(ToolCategory::Documentation) {
+        "ready".green().to_string()
+    } else {
+        "missing".red().to_string()
+    };
+    println!("  Local wiki:     {}", doc_status);
+
+    // Storage tools
+    let storage_missing: Vec<_> = status.tools.iter()
+        .filter(|t| t.tool.category == ToolCategory::Storage && !t.available)
+        .map(|t| t.tool.name.as_str())
+        .collect();
+    if storage_missing.is_empty() {
+        println!("  Storage tools:  {}", "ready".green());
+    } else {
+        println!("  Storage tools:  missing {}", storage_missing.join(", ").red());
+    }
+
+    // Network tools
+    let network_missing: Vec<_> = status.tools.iter()
+        .filter(|t| t.tool.category == ToolCategory::Network && !t.available)
+        .map(|t| t.tool.name.as_str())
+        .collect();
+    if network_missing.is_empty() {
+        println!("  Network tools:  {}", "ready".green());
+    } else {
+        println!("  Network tools:  missing {}", network_missing.join(", ").red());
     }
 
     println!();

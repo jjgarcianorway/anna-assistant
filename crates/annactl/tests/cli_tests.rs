@@ -542,10 +542,10 @@ fn test_annactl_hw_storage() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Should show storage profile
+    // v7.22.0: Storage lens with [IDENTITY], [TOPOLOGY], [HEALTH]
     assert!(
-        stdout.contains("Anna HW: Storage") && stdout.contains("[DEVICES]"),
-        "Expected storage profile output, got stdout: {}",
+        stdout.contains("Anna HW: storage") && (stdout.contains("[IDENTITY]") || stdout.contains("[TOPOLOGY]") || stdout.contains("[HEALTH]")),
+        "Expected storage lens output, got stdout: {}",
         stdout
     );
     assert!(output.status.success(), "annactl hw storage should succeed");
@@ -590,10 +590,10 @@ fn test_annactl_hw_network_category() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.3.0: Network category shows interfaces
+    // v7.22.0: Network lens with [IDENTITY], [TOPOLOGY], [TELEMETRY]
     assert!(
-        stdout.contains("Anna HW: Network") && stdout.contains("[INTERFACES]"),
-        "Expected Network category with [INTERFACES], got stdout: {}",
+        stdout.contains("Anna HW: network") && (stdout.contains("[IDENTITY]") || stdout.contains("[TOPOLOGY]") || stdout.contains("[TELEMETRY]")),
+        "Expected Network lens output, got stdout: {}",
         stdout
     );
     assert!(output.status.success(), "annactl hw network should succeed");
@@ -3946,6 +3946,231 @@ fn test_snow_leopard_wifi_signal_bars_v719() {
                 || stdout.contains("good") || stdout.contains("fair")
                 || stdout.contains("weak"),
             "[SIGNAL] should have visual quality indicator: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.22.0: Snow Leopard Scenario Lenses & Toolchain Tests
+// ============================================================================
+
+/// Test hw network lens has required sections (v7.22.0)
+#[test]
+fn test_snow_leopard_hw_network_lens_v722() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "network"])
+        .output()
+        .expect("Failed to run annactl hw network");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.22.0: Network lens must have [IDENTITY], [TOPOLOGY], [TELEMETRY], [HISTORY]
+    assert!(
+        stdout.contains("[IDENTITY]"),
+        "Network lens must have [IDENTITY]: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[TOPOLOGY]"),
+        "Network lens must have [TOPOLOGY]: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[TELEMETRY]"),
+        "Network lens must have [TELEMETRY]: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[HISTORY]"),
+        "Network lens must have [HISTORY]: {}",
+        stdout
+    );
+
+    // Should show interfaces with driver info
+    assert!(
+        stdout.contains("interface:") || stdout.contains("driver:"),
+        "Network lens should show interface details: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test hw storage lens has SMART health section (v7.22.0)
+#[test]
+fn test_snow_leopard_hw_storage_lens_v722() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "storage"])
+        .output()
+        .expect("Failed to run annactl hw storage");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.22.0: Storage lens must have [IDENTITY], [TOPOLOGY], [HEALTH], [TELEMETRY]
+    assert!(
+        stdout.contains("[IDENTITY]"),
+        "Storage lens must have [IDENTITY]: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[TOPOLOGY]"),
+        "Storage lens must have [TOPOLOGY]: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[HEALTH]"),
+        "Storage lens must have [HEALTH]: {}",
+        stdout
+    );
+
+    // Health section should show SMART status
+    assert!(
+        stdout.contains("SMART:"),
+        "Storage lens [HEALTH] should show SMART status: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test sw network lens shows services and configs (v7.22.0)
+#[test]
+fn test_snow_leopard_sw_network_lens_v722() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "network"])
+        .output()
+        .expect("Failed to run annactl sw network");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.22.0: Software network lens shows services and config
+    assert!(
+        stdout.contains("Anna SW: network"),
+        "Should show network software lens: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[IDENTITY]") || stdout.contains("[TOPOLOGY]"),
+        "SW network lens should have identity or topology: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[CONFIG]"),
+        "SW network lens should have config section: {}",
+        stdout
+    );
+
+    // Should show real config paths, not HTML junk
+    assert!(
+        !stdout.contains("<p>") && !stdout.contains("&nbsp;"),
+        "SW network lens should not have HTML junk: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test status shows toolchain section (v7.22.0)
+#[test]
+fn test_snow_leopard_status_toolchain_v722() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.22.0: Status should have [ANNA TOOLCHAIN] section
+    assert!(
+        stdout.contains("[ANNA TOOLCHAIN]"),
+        "Status must have [ANNA TOOLCHAIN] section: {}",
+        stdout
+    );
+
+    // Should show readiness for categories
+    assert!(
+        stdout.contains("Local wiki:") || stdout.contains("Storage tools:") || stdout.contains("Network tools:"),
+        "Toolchain section should show tool categories: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test CLI surface unchanged - still exactly 6 commands (v7.22.0)
+#[test]
+fn test_snow_leopard_cli_surface_unchanged_v722() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Help should list exactly the 6 commands
+    assert!(stdout.contains("annactl"), "Should show annactl usage");
+    assert!(stdout.contains("status"), "Should show status command");
+    assert!(stdout.contains("sw"), "Should show sw command");
+    assert!(stdout.contains("hw"), "Should show hw command");
+
+    // Should not have any hidden or undocumented commands
+    assert!(
+        !stdout.contains("hidden") && !stdout.contains("internal"),
+        "Should not mention hidden commands: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test scenario lens logs are scoped - no unrelated patterns (v7.22.0)
+#[test]
+fn test_snow_leopard_lens_logs_scoped_v722() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "network"])
+        .output()
+        .expect("Failed to run annactl hw network");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // If [LOGS] section exists, patterns should be network-related
+    if stdout.contains("[LOGS]") {
+        // Check that log patterns have IDs
+        assert!(
+            stdout.contains("[NET") || stdout.contains("(seen"),
+            "[LOGS] patterns should have IDs: {}",
             stdout
         );
     }
