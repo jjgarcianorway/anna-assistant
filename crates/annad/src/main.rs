@@ -1,4 +1,11 @@
-//! Anna Daemon (annad) v7.41.0 - Snapshot-Based Architecture
+//! Anna Daemon (annad) v7.42.0 - Daemon/CLI Contract Fix
+//!
+//! v7.42.0: Fix "daemon running but no snapshot" confusion
+//! - Control socket at /run/anna/annad.sock for authoritative health check
+//! - Status snapshot written IMMEDIATELY on startup (not after 60s wait)
+//! - Status snapshot at /var/lib/anna/internal/snapshots/status.json
+//! - Schema versioning and sequence numbers for forward compatibility
+//! - annactl now checks socket/systemd for "running", file for "snapshot"
 //!
 //! v7.41.0: Snapshot-only architecture
 //! - Daemon owns all scanning - annactl NEVER scans
@@ -55,6 +62,9 @@ use anna_common::{
     // v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
     snapshots::SwMeta,
     snapshot_builder::{build_hw_snapshot, build_and_save_sw_snapshot, sw_needs_rebuild},
+    // v7.42.0: Daemon/CLI contract fix
+    daemon_state::{StatusSnapshot, SNAPSHOTS_DIR, STATUS_SCHEMA_VERSION},
+    control_socket::{ControlSocketServer, DaemonStatus},
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -664,16 +674,20 @@ async fn main() -> Result<()> {
         }
     });
 
-    // v7.38.0: Spawn status snapshot writer (every 60s)
-    // annactl status reads this snapshot only - no live probing
+    // v7.42.0: Status snapshot writer - writes IMMEDIATELY on startup, then every 60s
+    // This fixes the "daemon running but no snapshot" bug
     let builder_snapshot = Arc::clone(&builder);
     let daemon_start_time = std::time::Instant::now();
+    let boot_id = get_current_boot_id();
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(60));
-        info!("[>]  Status snapshot: writing to status_snapshot.json every 60s");
+        info!("[>]  Status snapshot: writing to {} immediately and every 60s", SNAPSHOTS_DIR);
 
+        // Sequence number for ordering
+        let mut seq: u64 = 0;
+
+        // Write IMMEDIATELY on startup (don't wait for interval)
         loop {
-            interval.tick().await;
+            seq += 1;
 
             // Build snapshot from current state
             let knowledge_objects = {
@@ -684,24 +698,25 @@ async fn main() -> Result<()> {
             // Load update state
             let update_state = anna_common::config::UpdateState::load();
             let update_last = if update_state.last_check_at > 0 {
-                Some(chrono::DateTime::from_timestamp(update_state.last_check_at as i64, 0)
+                chrono::DateTime::from_timestamp(update_state.last_check_at as i64, 0)
                     .map(|t| t.with_timezone(&chrono::Utc))
-                    .unwrap_or_else(chrono::Utc::now))
             } else {
                 None
             };
             let update_next = if update_state.next_check_at > 0 {
-                Some(chrono::DateTime::from_timestamp(update_state.next_check_at as i64, 0)
+                chrono::DateTime::from_timestamp(update_state.next_check_at as i64, 0)
                     .map(|t| t.with_timezone(&chrono::Utc))
-                    .unwrap_or_else(chrono::Utc::now))
             } else {
                 None
             };
 
             let snapshot = StatusSnapshot {
-                snapshot_at: Some(chrono::Utc::now()),
+                schema_version: STATUS_SCHEMA_VERSION,
+                generated_at: Some(chrono::Utc::now()),
+                seq,
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 pid: std::process::id(),
+                boot_id: Some(boot_id.clone()),
                 uptime_secs: daemon_start_time.elapsed().as_secs(),
                 healthy: true,
                 knowledge_objects,
@@ -718,11 +733,17 @@ async fn main() -> Result<()> {
                 instrumentation_count: 0,
                 alerts_critical: 0,
                 alerts_warning: 0,
+                ..Default::default()
             };
 
             if let Err(e) = snapshot.save() {
                 warn!("[!]  Failed to write status snapshot: {}", e);
+            } else if seq == 1 {
+                info!("[+]  Initial status snapshot written (seq 1)");
             }
+
+            // Wait 60 seconds before next write
+            tokio::time::sleep(Duration::from_secs(60)).await;
         }
     });
 
@@ -769,6 +790,44 @@ async fn main() -> Result<()> {
                 if let Err(e) = self_obs.save() {
                     warn!("[!]  Failed to save self-observation: {}", e);
                 }
+            }
+        }
+    });
+
+    // v7.42.0: Control socket server for authoritative daemon health check
+    // This allows annactl to confirm daemon is running even if snapshot is missing
+    let daemon_start_instant = std::time::Instant::now();
+    let boot_id_socket = get_current_boot_id();
+    tokio::spawn(async move {
+        // Try to bind the control socket
+        match ControlSocketServer::bind() {
+            Ok(server) => {
+                info!("[>]  Control socket: listening on /run/anna/annad.sock");
+
+                let mut seq: u64 = 0;
+                loop {
+                    seq += 1;
+
+                    // Build status for socket responses
+                    let status = DaemonStatus {
+                        version: env!("CARGO_PKG_VERSION").to_string(),
+                        uptime_secs: daemon_start_instant.elapsed().as_secs(),
+                        pid: std::process::id(),
+                        snapshot_seq: seq,
+                        boot_id: Some(boot_id_socket.clone()),
+                    };
+
+                    // Handle any pending connections (non-blocking)
+                    server.try_accept(&status);
+
+                    // Sleep briefly to avoid busy-waiting
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            }
+            Err(e) => {
+                // Not fatal - socket might need root or /run/anna might not exist
+                warn!("[!]  Control socket: failed to bind: {}", e);
+                warn!("[!]  Control socket: annactl will fall back to systemd checks");
             }
         }
     });

@@ -1,4 +1,12 @@
-//! Anna Common v7.41.0 - Daemon-Owned Snapshots
+//! Anna Common v7.42.0 - Daemon/CLI Contract Fix
+//!
+//! v7.42.0: Fix daemon running vs snapshot available confusion
+//! - Control socket for authoritative daemon health (/run/anna/annad.sock)
+//! - Canonical paths in daemon_state.rs used by BOTH annad and annactl
+//! - Status snapshot at /var/lib/anna/internal/snapshots/status.json
+//! - annactl status shows DAEMON (live check) + SNAPSHOT (file status) separately
+//! - annactl doctor for diagnostics
+//! - Schema versioning for forward compatibility
 //!
 //! v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
 //! - snapshots.rs: SwSnapshot, HwSnapshot structs
@@ -223,6 +231,9 @@ pub mod sw_cache;
 // v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
 pub mod snapshots;
 pub mod snapshot_builder;
+
+// v7.42.0: Control socket for daemon/CLI contract
+pub mod control_socket;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};

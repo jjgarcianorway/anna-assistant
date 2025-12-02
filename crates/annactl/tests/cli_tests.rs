@@ -701,9 +701,9 @@ fn test_annactl_version_flag_works() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.41.0: --version outputs "annactl vX.Y.Z" (no banners, no ANSI)
+    // v7.42.0: --version outputs "annactl vX.Y.Z" (no banners, no ANSI)
     assert!(
-        stdout.contains("annactl v") && stdout.contains("7.41"),
+        stdout.contains("annactl v") && stdout.contains("7.42"),
         "Expected '--version' to output 'annactl vX.Y.Z', got: {}",
         stdout
     );
@@ -4876,10 +4876,10 @@ fn test_snow_leopard_status_instrumentation_v726() {
         "annactl status should have [ALERTS] section (v7.38.0 cache-only)"
     );
 
-    // v7.38.0: Alerts shows critical/warning counts OR daemon-not-running message
+    // v7.42.0: Alerts shows critical/warning counts OR no snapshot data message
     assert!(
-        stdout.contains("Critical:") || stdout.contains("Warnings:") || stdout.contains("daemon not running"),
-        "[ALERTS] should show counts or daemon status"
+        stdout.contains("Critical:") || stdout.contains("Warnings:") || stdout.contains("no snapshot data"),
+        "[ALERTS] should show counts or no snapshot data"
     );
 
     assert!(output.status.success());
@@ -5020,10 +5020,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.41 (updated for v7.41.0)
+    // [VERSION] section should show 7.42 (updated for v7.42.0)
     assert!(
-        stdout.contains("7.41"),
-        "status should show version 7.41: {}",
+        stdout.contains("7.42"),
+        "status should show version 7.42: {}",
         stdout
     );
 

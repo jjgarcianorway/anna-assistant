@@ -1,7 +1,13 @@
-//! Anna CLI (annactl) v7.41.0 - Snapshot-Only Display Client
+//! Anna CLI (annactl) v7.42.0 - Daemon/CLI Contract Fix
 //!
 //! ARCHITECTURE RULE: annactl NEVER does heavyweight scanning.
 //! All data comes from snapshots written by annad daemon.
+//!
+//! v7.42.0: Daemon/CLI Contract Fix
+//! - status now shows DAEMON (socket/systemd) and SNAPSHOT (file) separately
+//! - Never conflate "no snapshot" with "daemon stopped"
+//! - doctor command for troubleshooting daemon/snapshot issues
+//! - Control socket check for authoritative daemon health
 //!
 //! v7.41.0: Snapshot-only architecture
 //! - annactl reads snapshots from /var/lib/anna/internal/snapshots/
@@ -9,20 +15,14 @@
 //! - p95 < 1.0s for sw command (snapshot read only)
 //! - Compact output by default, --full/--json/--section for alternatives
 //!
-//! v7.40.0: Cache-first architecture for fast sw command
-//! - sw uses persistent cache with delta detection
-//! - p95 < 1.0s for sw when cache warm
-//! - --full for detailed view, --json for machine output
-//! - version subcommand for parseability
-//!
 //! Commands:
 //! - annactl                  show help
 //! - annactl --version        show version (also: annactl version)
 //! - annactl status           health and runtime of Anna
+//! - annactl doctor           diagnostic tool for troubleshooting
 //! - annactl sw               software overview (compact)
 //! - annactl sw --full        software overview (all sections)
 //! - annactl sw --json        software data (JSON)
-//! - annactl sw --section X   single section (overview/categories/...)
 //! - annactl sw NAME          software profile
 //! - annactl hw               hardware overview
 //! - annactl hw NAME          hardware profile
@@ -70,6 +70,11 @@ async fn main() -> Result<()> {
         // annactl status
         [cmd] if cmd.eq_ignore_ascii_case("status") => commands::status::run().await,
 
+        // annactl doctor (v7.42.0: diagnostic tool)
+        [cmd] if cmd.eq_ignore_ascii_case("doctor") || cmd.eq_ignore_ascii_case("diag") => {
+            commands::doctor::run().await
+        }
+
         // annactl sw (software overview - default compact)
         [cmd] if cmd.eq_ignore_ascii_case("sw") => commands::sw::run().await,
 
@@ -113,6 +118,7 @@ fn run_help() -> Result<()> {
     println!("  annactl                  show this help");
     println!("  annactl --version        show version");
     println!("  annactl status           health and runtime of Anna");
+    println!("  annactl doctor           diagnostic tool for troubleshooting");
     println!("  annactl sw               software overview (compact)");
     println!("  annactl sw --full        software overview (detailed)");
     println!("  annactl sw --json        software data (machine-readable)");

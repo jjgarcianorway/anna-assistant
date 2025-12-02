@@ -1,20 +1,46 @@
-//! Daemon State v7.38.0 - Crash Logging and Status Snapshots
+//! Daemon State v7.42.0 - Crash Logging and Status Snapshots
+//!
+//! v7.42.0: Canonical paths for daemon/CLI contract
+//! - All paths defined here are used by BOTH annad and annactl
+//! - Status snapshot written immediately on startup + every 60s
+//! - Schema versioning for forward compatibility
 //!
 //! Provides:
 //! - last_start.json: Written on every daemon start attempt
 //! - last_crash.json: Written on panic/fatal error
-//! - status_snapshot.json: Written every 60s with daemon status
+//! - status.json: Written immediately on startup and every 60s
 //!
-//! annactl status reads these files only - no live probing.
+//! annactl reads these files + uses control socket for live check.
 
-use crate::config::DATA_DIR;
 use crate::atomic_write;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+// =============================================================================
+// CANONICAL PATHS - used by BOTH annad and annactl
+// =============================================================================
+
+/// Base data directory
+pub const DATA_DIR: &str = "/var/lib/anna";
+
 /// Internal state directory
 pub const INTERNAL_DIR: &str = "/var/lib/anna/internal";
+
+/// Snapshots directory (daemon-written, CLI-read)
+pub const SNAPSHOTS_DIR: &str = "/var/lib/anna/internal/snapshots";
+
+/// Meta directory (delta detection)
+pub const META_DIR: &str = "/var/lib/anna/internal/meta";
+
+/// Status snapshot path (canonical)
+pub const STATUS_SNAPSHOT_PATH: &str = "/var/lib/anna/internal/snapshots/status.json";
+
+/// Current schema version for status snapshot
+pub const STATUS_SCHEMA_VERSION: u32 = 2;
+
+/// Stale threshold in seconds (15 minutes)
+pub const STALE_THRESHOLD_SECS: u64 = 900;
 
 /// Last start attempt record
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -145,14 +171,23 @@ impl LastCrash {
 }
 
 /// Status snapshot - written by daemon, read by annactl status
+/// v7.42.0: Now at /var/lib/anna/internal/snapshots/status.json with schema versioning
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StatusSnapshot {
-    /// When this snapshot was taken
-    pub snapshot_at: Option<DateTime<Utc>>,
+    /// Schema version for forward compatibility
+    #[serde(default)]
+    pub schema_version: u32,
+    /// When this snapshot was taken (RFC3339)
+    pub generated_at: Option<DateTime<Utc>>,
+    /// Monotonic sequence number (for ordering)
+    #[serde(default)]
+    pub seq: u64,
     /// Daemon version
     pub version: String,
     /// Daemon PID
     pub pid: u32,
+    /// Boot ID for this daemon instance
+    pub boot_id: Option<String>,
     /// Daemon uptime in seconds
     pub uptime_secs: u64,
     /// Whether daemon is healthy
@@ -182,36 +217,78 @@ pub struct StatusSnapshot {
     /// Active alerts count
     pub alerts_critical: usize,
     pub alerts_warning: usize,
+
+    // v7.42.0: Legacy compatibility - map old field name (private, used only for deserialization)
+    #[serde(alias = "snapshot_at", default, skip_serializing)]
+    #[doc(hidden)]
+    pub _snapshot_at_compat: Option<DateTime<Utc>>,
 }
 
 impl StatusSnapshot {
+    /// Canonical file path (v7.42.0: moved to snapshots/)
     pub fn file_path() -> PathBuf {
+        PathBuf::from(STATUS_SNAPSHOT_PATH)
+    }
+
+    /// Legacy file path (for migration)
+    pub fn legacy_file_path() -> PathBuf {
         PathBuf::from(INTERNAL_DIR).join("status_snapshot.json")
     }
 
+    /// Load snapshot - tries new path first, then legacy
     pub fn load() -> Option<Self> {
-        let path = Self::file_path();
-        std::fs::read_to_string(&path).ok()
+        // Try canonical path first
+        if let Some(snapshot) = Self::load_from_path(&Self::file_path()) {
+            return Some(snapshot);
+        }
+
+        // Try legacy path
+        if let Some(mut snapshot) = Self::load_from_path(&Self::legacy_file_path()) {
+            // Handle legacy snapshot_at field
+            if snapshot.generated_at.is_none() && snapshot._snapshot_at_compat.is_some() {
+                snapshot.generated_at = snapshot._snapshot_at_compat.take();
+            }
+            return Some(snapshot);
+        }
+
+        None
+    }
+
+    fn load_from_path(path: &PathBuf) -> Option<Self> {
+        std::fs::read_to_string(path).ok()
             .and_then(|c| serde_json::from_str(&c).ok())
     }
 
+    /// Save snapshot atomically
     pub fn save(&self) -> std::io::Result<()> {
-        std::fs::create_dir_all(INTERNAL_DIR)?;
+        // Ensure directory exists
+        std::fs::create_dir_all(SNAPSHOTS_DIR)?;
+
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        atomic_write(&Self::file_path().to_string_lossy(), &content)
+
+        // Atomic write
+        atomic_write(STATUS_SNAPSHOT_PATH, &content)?;
+
+        // Set permissions (0644 for readability)
+        set_file_permissions(STATUS_SNAPSHOT_PATH);
+
+        Ok(())
     }
 
     /// Get snapshot age in seconds
     pub fn age_secs(&self) -> u64 {
-        self.snapshot_at
+        self.generated_at
             .map(|t| (Utc::now() - t).num_seconds().max(0) as u64)
-            .unwrap_or(0)
+            .unwrap_or(u64::MAX) // If no timestamp, treat as infinitely old
     }
 
     /// Format age for display
     pub fn format_age(&self) -> String {
         let secs = self.age_secs();
+        if secs == u64::MAX {
+            return "unknown".to_string();
+        }
         if secs < 60 {
             format!("{}s ago", secs)
         } else if secs < 3600 {
@@ -223,9 +300,61 @@ impl StatusSnapshot {
         }
     }
 
-    /// Check if snapshot is stale (> 5 minutes)
+    /// Check if snapshot is stale (> 15 minutes by default)
     pub fn is_stale(&self) -> bool {
-        self.age_secs() > 300
+        self.age_secs() > STALE_THRESHOLD_SECS
+    }
+
+    /// Check if snapshot is recent (< 5 minutes)
+    pub fn is_recent(&self) -> bool {
+        self.age_secs() < 300
+    }
+}
+
+/// Snapshot status for display
+#[derive(Debug, Clone)]
+pub enum SnapshotStatus {
+    /// Snapshot available and recent
+    Available { age_secs: u64, seq: u64 },
+    /// Snapshot exists but is stale
+    Stale { age_secs: u64, seq: u64 },
+    /// No snapshot found
+    Missing,
+}
+
+impl SnapshotStatus {
+    pub fn from_snapshot(snapshot: &Option<StatusSnapshot>) -> Self {
+        match snapshot {
+            Some(s) => {
+                let age = s.age_secs();
+                if age > STALE_THRESHOLD_SECS {
+                    SnapshotStatus::Stale { age_secs: age, seq: s.seq }
+                } else {
+                    SnapshotStatus::Available { age_secs: age, seq: s.seq }
+                }
+            }
+            None => SnapshotStatus::Missing,
+        }
+    }
+
+    pub fn format(&self) -> String {
+        match self {
+            SnapshotStatus::Available { age_secs, seq } => {
+                if *age_secs < 60 {
+                    format!("available ({}s ago, seq {})", age_secs, seq)
+                } else {
+                    format!("available ({}m ago, seq {})", age_secs / 60, seq)
+                }
+            }
+            SnapshotStatus::Stale { age_secs, seq } => {
+                if *age_secs < 3600 {
+                    format!("stale ({}m old, seq {})", age_secs / 60, seq)
+                } else {
+                    format!("stale ({}h old, seq {})", age_secs / 3600, seq)
+                }
+            }
+            SnapshotStatus::Missing => "missing".to_string(),
+        }
     }
 }
 
@@ -292,7 +421,7 @@ mod tests {
     #[test]
     fn test_snapshot_age() {
         let snapshot = StatusSnapshot {
-            snapshot_at: Some(Utc::now()),
+            generated_at: Some(Utc::now()),
             ..Default::default()
         };
         assert!(snapshot.age_secs() < 2);
