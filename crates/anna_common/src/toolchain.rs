@@ -315,10 +315,11 @@ pub fn install_tool(tool_name: &str, reason: &str) -> InstallResult {
                 // Log the installation
                 let writer = OpsLogWriter::new();
                 let full_reason = format!("reason=\"{}\"", reason);
-                let _ = writer.record(&OpsEntry::new(
+                let _ = writer.record(&OpsEntry::with_details(
                     OpsAction::Install,
                     &tool.package,
                     &full_reason,
+                    true,
                 ));
 
                 InstallResult::Installed
@@ -406,10 +407,9 @@ pub fn format_toolchain_section(status: &ToolchainStatus) -> Vec<String> {
         lines.push("  Last operations:".to_string());
         for op in status.recent_ops.iter().rev().take(5) {
             lines.push(format!(
-                "    {} {} {} {}",
+                "    {} {} {}",
                 op.timestamp.format("%Y-%m-%dT%H:%M:%SZ"),
                 op.action.as_str(),
-                op.tool,
                 op.target
             ));
         }

@@ -1,4 +1,4 @@
-//! Status Command v7.25.0 - Peripherals & Attachments
+//! Status Command v7.26.0 - Instrumentation & Auto-Install
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
@@ -13,6 +13,7 @@
 //! - [RESOURCE HOTSPOTS]   Top resource consumers with health notes
 //! - [HOTSPOTS]            Compact cross-reference of sw/hw hotspots (v7.24.0)
 //! - [ATTACHMENTS]         Connected peripherals: USB, Bluetooth, Thunderbolt (v7.25.0)
+//! - [INSTRUMENTATION]     Tools installed by Anna and available tools (v7.26.0)
 //! - [RECENT CHANGES]      Last 5 system changes from journal (v7.18.0)
 //! - [UPDATES]             Auto-update schedule and last result
 //! - [PATHS]               Config, data, logs, docs paths (v7.12.0: local docs detection)
@@ -22,7 +23,7 @@
 //! - [ANNA TOOLCHAIN]      Diagnostic tool readiness (v7.22.0)
 //! - [ANNA NEEDS]          Missing tools and docs
 //!
-//! v7.25.0: [ATTACHMENTS] section for USB, Bluetooth, Thunderbolt peripherals
+//! v7.26.0: [INSTRUMENTATION] section for auto-installed tools tracking
 //! v7.24.0: [HOTSPOTS] compact cross-reference section
 //! v7.23.0: [BOOT SNAPSHOT] with incidents, [INVENTORY] with drift indicator
 //! v7.22.0: [ANNA TOOLCHAIN] for diagnostic tool tracking
@@ -62,6 +63,8 @@ use anna_common::hotspots::{get_software_hotspots, get_hardware_hotspots, format
 use anna_common::grounded::peripherals::{
     get_usb_summary, get_bluetooth_summary, get_thunderbolt_summary, BluetoothState,
 };
+// v7.26.0: Instrumentation
+use anna_common::{InstrumentationManifest, get_instrumentation_status, get_missing_tools};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -112,6 +115,9 @@ pub async fn run() -> Result<()> {
 
     // [ATTACHMENTS] - v7.25.0: Connected peripherals
     print_attachments_section();
+
+    // [INSTRUMENTATION] - v7.26.0: Auto-installed tools
+    print_instrumentation_section();
 
     // [RECENT CHANGES] - v7.18.0: Change journal
     print_recent_changes_section();
@@ -1288,6 +1294,82 @@ async fn get_daemon_stats() -> Option<DaemonStats> {
         command_failures: stats.internal_errors.command_failures,
         parse_errors: stats.internal_errors.parse_errors,
     })
+}
+
+// ============================================================================
+// [INSTRUMENTATION] Section - v7.26.0
+// ============================================================================
+
+/// v7.26.0: [INSTRUMENTATION] section - tools installed by Anna
+fn print_instrumentation_section() {
+    let status = get_instrumentation_status();
+    let config = AnnaConfig::load();
+    let manifest = InstrumentationManifest::load();
+
+    println!("{}", "[INSTRUMENTATION]".cyan());
+    println!("  {}", "(tools installed by Anna for system probing)".dimmed());
+
+    // Auto-install status
+    let auto_status = if status.enabled {
+        "enabled".green().to_string()
+    } else {
+        "disabled".dimmed().to_string()
+    };
+    println!("  Auto-install: {}", auto_status);
+
+    // AUR gate status
+    let aur_status = if status.aur_enabled {
+        "enabled".yellow().to_string()
+    } else {
+        "blocked".dimmed().to_string()
+    };
+    println!("  AUR gate:     {}", aur_status);
+
+    // Rate limit status
+    if status.enabled {
+        if status.rate_limited {
+            let reset = manifest.rate_limit_reset_time()
+                .map(|t| t.format("%H:%M").to_string())
+                .unwrap_or_else(|| "soon".to_string());
+            println!("  Rate limit:   {} (resets at {})", "reached".yellow(), reset);
+        } else {
+            println!("  Rate limit:   {}/{} installs today",
+                config.instrumentation.max_installs_per_day - status.installs_remaining,
+                config.instrumentation.max_installs_per_day);
+        }
+    }
+
+    // Installed tools
+    if status.installed_count > 0 {
+        println!();
+        println!("  Installed by Anna:");
+        for tool in manifest.installed_tools() {
+            let since = tool.installed_at.format("%Y-%m-%d").to_string();
+            println!("    {} v{} ({}, {})",
+                tool.package.cyan(),
+                tool.version,
+                since.dimmed(),
+                tool.reason.dimmed());
+        }
+    } else {
+        println!();
+        println!("  Installed:    {} (Anna hasn't installed any tools yet)", "0".dimmed());
+    }
+
+    // Available tools that could be installed
+    let missing = get_missing_tools(&config);
+    if !missing.is_empty() && status.enabled {
+        let available_count = missing.iter().filter(|t| !t.blocked_by_aur_gate).count();
+        if available_count > 0 {
+            println!();
+            println!("  Available:    {} tool(s) could be auto-installed", available_count);
+            for tool in missing.iter().take(3).filter(|t| !t.blocked_by_aur_gate) {
+                println!("    {} - {}", tool.package.dimmed(), tool.reason.dimmed());
+            }
+        }
+    }
+
+    println!();
 }
 
 // ============================================================================

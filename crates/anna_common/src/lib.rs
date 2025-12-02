@@ -1,4 +1,4 @@
-//! Anna Common v7.24.0 - Relationships, Stacks & Hotspots
+//! Anna Common v7.26.0 - Instrumentation & Auto-Install
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -101,6 +101,10 @@ pub mod config_hygiene;
 pub mod relationship_store;
 pub mod hotspots;
 pub mod relationships;
+// v7.26.0: Instrumentation manifest and auto-install
+pub mod instrumentation;
+pub mod auto_install;
+pub mod local_docs;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -296,4 +300,20 @@ pub use relationships::{
     ServiceUsingDevice, SoftwareUsingDevice, HardwareRelationships,
     get_software_relationships, get_hardware_relationships,
     format_software_relationships_section, format_hardware_relationships_section,
+};
+// v7.26.0: Instrumentation manifest and auto-install
+pub use instrumentation::{
+    InstalledTool, AvailableTool, InstallAttempt, InstrumentationManifest,
+    INSTRUMENTATION_FILE,
+    get_known_tools, get_missing_tools, is_package_installed, get_package_version,
+};
+pub use auto_install::{
+    InstallResult as AutoInstallResult, InstrumentationStatus,
+    try_install, try_install_known_tool, get_instrumentation_status,
+};
+pub use local_docs::{
+    LocalDocResult, LocalDocsSummary,
+    has_man_page, get_man_path, get_man_description,
+    get_doc_paths, get_config_paths_from_pacman, get_sample_configs_from_pacman,
+    resolve_local_docs, get_local_docs_summary,
 };

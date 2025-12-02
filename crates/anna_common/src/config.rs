@@ -1,4 +1,4 @@
-//! Anna Configuration v7.6.0 - Telemetry Stability
+//! Anna Configuration v7.26.0 - Instrumentation & Auto-Install
 //!
 //! Simplified system configuration for the telemetry daemon.
 //! No LLM config - pure system monitoring.
@@ -7,6 +7,7 @@
 //!
 //! v6.0.2: Added auto-update configuration
 //! v7.6.0: Added telemetry enable/disable, max_keys limit
+//! v7.26.0: Added instrumentation settings (AUR gate, auto-install)
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -199,6 +200,41 @@ impl Default for UpdateConfig {
     }
 }
 
+/// Instrumentation settings (v7.26.0)
+/// Controls auto-install behavior for system probes/tools
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstrumentationSettings {
+    /// Whether auto-install is enabled (default: true)
+    #[serde(default = "default_auto_install_enabled")]
+    pub auto_install_enabled: bool,
+
+    /// Allow AUR packages (default: false - requires explicit enable)
+    #[serde(default)]
+    pub allow_aur: bool,
+
+    /// Rate limit: max installs per 24 hours (default: 1)
+    #[serde(default = "default_max_installs_per_day")]
+    pub max_installs_per_day: u32,
+}
+
+fn default_auto_install_enabled() -> bool {
+    true
+}
+
+fn default_max_installs_per_day() -> u32 {
+    1
+}
+
+impl Default for InstrumentationSettings {
+    fn default() -> Self {
+        Self {
+            auto_install_enabled: default_auto_install_enabled(),
+            allow_aur: false,
+            max_installs_per_day: default_max_installs_per_day(),
+        }
+    }
+}
+
 /// Auto-update state (runtime, stored in data dir)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UpdateState {
@@ -267,7 +303,7 @@ impl UpdateState {
     }
 }
 
-/// Complete Anna configuration v6.0.2
+/// Complete Anna configuration v7.26.0
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnnaConfig {
     #[serde(default)]
@@ -281,6 +317,9 @@ pub struct AnnaConfig {
 
     #[serde(default)]
     pub update: UpdateConfig,
+
+    #[serde(default)]
+    pub instrumentation: InstrumentationSettings,
 }
 
 impl AnnaConfig {
@@ -336,6 +375,10 @@ mod tests {
         assert_eq!(config.telemetry.log_scan_interval_secs, 60);
         assert!(config.telemetry.enabled);
         assert_eq!(config.telemetry.max_keys, 5000);
+        // v7.26.0: instrumentation defaults
+        assert!(config.instrumentation.auto_install_enabled);
+        assert!(!config.instrumentation.allow_aur);
+        assert_eq!(config.instrumentation.max_installs_per_day, 1);
     }
 
     #[test]
@@ -372,5 +415,13 @@ mod tests {
         let toml_str = toml::to_string_pretty(&config).unwrap();
         assert!(toml_str.contains("[core]"));
         assert!(toml_str.contains("[telemetry]"));
+        assert!(toml_str.contains("[instrumentation]"));
+    }
+
+    #[test]
+    fn test_instrumentation_aur_gate_default_off() {
+        // v7.26.0: AUR gate must be OFF by default
+        let config = AnnaConfig::default();
+        assert!(!config.instrumentation.allow_aur, "AUR gate must be OFF by default");
     }
 }

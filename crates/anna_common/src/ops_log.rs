@@ -33,6 +33,10 @@ pub enum OpsAction {
     Enable,
     Disable,
     Config,
+    /// v7.26.0: Auto-install package success
+    PackageInstalled,
+    /// v7.26.0: Auto-install package failed
+    PackageInstallFailed,
 }
 
 impl OpsAction {
@@ -43,6 +47,8 @@ impl OpsAction {
             OpsAction::Enable => "enable",
             OpsAction::Disable => "disable",
             OpsAction::Config => "config",
+            OpsAction::PackageInstalled => "pkg-installed",
+            OpsAction::PackageInstallFailed => "pkg-install-failed",
         }
     }
 
@@ -53,6 +59,8 @@ impl OpsAction {
             "enable" => Some(OpsAction::Enable),
             "disable" => Some(OpsAction::Disable),
             "config" => Some(OpsAction::Config),
+            "pkg-installed" => Some(OpsAction::PackageInstalled),
+            "pkg-install-failed" => Some(OpsAction::PackageInstallFailed),
             _ => None,
         }
     }
@@ -63,35 +71,62 @@ impl OpsAction {
 pub struct OpsEntry {
     pub timestamp: DateTime<Utc>,
     pub action: OpsAction,
-    pub tool: String,
     pub target: String,
+    /// v7.26.0: Additional details (optional)
+    pub details: Option<String>,
+    /// v7.26.0: Whether operation succeeded
+    pub success: bool,
 }
 
 impl OpsEntry {
     /// Create a new ops entry with current timestamp
-    pub fn new(action: OpsAction, tool: &str, target: &str) -> Self {
+    pub fn new(action: OpsAction, target: &str) -> Self {
         Self {
             timestamp: Utc::now(),
             action,
-            tool: tool.to_string(),
             target: target.to_string(),
+            details: None,
+            success: true,
         }
     }
 
-    /// Format as log line
+    /// Create with details
+    pub fn with_details(action: OpsAction, target: &str, details: &str, success: bool) -> Self {
+        Self {
+            timestamp: Utc::now(),
+            action,
+            target: target.to_string(),
+            details: Some(details.to_string()),
+            success,
+        }
+    }
+
+    /// Format as log line (v7.26.0: includes details if present)
     pub fn to_log_line(&self) -> String {
-        format!(
+        let base = format!(
             "{} {} {} {}",
             self.timestamp.format("%Y-%m-%dT%H:%M:%SZ"),
             self.action.as_str(),
-            self.tool,
+            if self.success { "ok" } else { "fail" },
             self.target
-        )
+        );
+        if let Some(ref details) = self.details {
+            format!("{} | {}", base, details)
+        } else {
+            base
+        }
     }
 
     /// Parse from log line
     pub fn from_log_line(line: &str) -> Option<Self> {
-        let parts: Vec<&str> = line.splitn(4, ' ').collect();
+        // Split on " | " to separate details
+        let (main_part, details) = if let Some(idx) = line.find(" | ") {
+            (&line[..idx], Some(line[idx + 3..].to_string()))
+        } else {
+            (line, None)
+        };
+
+        let parts: Vec<&str> = main_part.splitn(4, ' ').collect();
         if parts.len() < 4 {
             return None;
         }
@@ -100,14 +135,15 @@ impl OpsEntry {
             .ok()?
             .with_timezone(&Utc);
         let action = OpsAction::from_str(parts[1])?;
-        let tool = parts[2].to_string();
+        let success = parts[2] == "ok";
         let target = parts[3].to_string();
 
         Some(Self {
             timestamp,
             action,
-            tool,
             target,
+            details,
+            success,
         })
     }
 }
@@ -148,33 +184,39 @@ impl OpsLogWriter {
     }
 
     /// Record a package installation
-    pub fn record_install(&self, tool: &str, package: &str) -> std::io::Result<()> {
-        let entry = OpsEntry::new(OpsAction::Install, tool, package);
+    pub fn record_install(&self, package: &str) -> std::io::Result<()> {
+        let entry = OpsEntry::new(OpsAction::Install, package);
         self.record(&entry)
     }
 
     /// Record a package removal
-    pub fn record_remove(&self, tool: &str, package: &str) -> std::io::Result<()> {
-        let entry = OpsEntry::new(OpsAction::Remove, tool, package);
+    pub fn record_remove(&self, package: &str) -> std::io::Result<()> {
+        let entry = OpsEntry::new(OpsAction::Remove, package);
         self.record(&entry)
     }
 
     /// Record a service enable
-    pub fn record_enable(&self, tool: &str, service: &str) -> std::io::Result<()> {
-        let entry = OpsEntry::new(OpsAction::Enable, tool, service);
+    pub fn record_enable(&self, service: &str) -> std::io::Result<()> {
+        let entry = OpsEntry::new(OpsAction::Enable, service);
         self.record(&entry)
     }
 
     /// Record a service disable
-    pub fn record_disable(&self, tool: &str, service: &str) -> std::io::Result<()> {
-        let entry = OpsEntry::new(OpsAction::Disable, tool, service);
+    pub fn record_disable(&self, service: &str) -> std::io::Result<()> {
+        let entry = OpsEntry::new(OpsAction::Disable, service);
         self.record(&entry)
     }
 
     /// Record a config change
-    pub fn record_config(&self, tool: &str, config: &str) -> std::io::Result<()> {
-        let entry = OpsEntry::new(OpsAction::Config, tool, config);
+    pub fn record_config(&self, config: &str) -> std::io::Result<()> {
+        let entry = OpsEntry::new(OpsAction::Config, config);
         self.record(&entry)
+    }
+
+    /// v7.26.0: Append a pre-built entry (for auto-install)
+    pub fn append_entry(entry: &OpsEntry) -> std::io::Result<()> {
+        let writer = OpsLogWriter::new();
+        writer.record(entry)
     }
 }
 
@@ -240,11 +282,11 @@ impl OpsLogReader {
             .collect()
     }
 
-    /// Read entries for a specific tool
-    pub fn read_by_tool(&self, tool: &str) -> Vec<OpsEntry> {
+    /// Read entries for a specific target
+    pub fn read_by_target(&self, target: &str) -> Vec<OpsEntry> {
         self.read_all()
             .into_iter()
-            .filter(|e| e.tool == tool)
+            .filter(|e| e.target == target)
             .collect()
     }
 
@@ -257,6 +299,8 @@ impl OpsLogReader {
             enable: entries.iter().filter(|e| e.action == OpsAction::Enable).count(),
             disable: entries.iter().filter(|e| e.action == OpsAction::Disable).count(),
             config: entries.iter().filter(|e| e.action == OpsAction::Config).count(),
+            pkg_installed: entries.iter().filter(|e| e.action == OpsAction::PackageInstalled).count(),
+            pkg_install_failed: entries.iter().filter(|e| e.action == OpsAction::PackageInstallFailed).count(),
         }
     }
 
@@ -269,6 +313,8 @@ impl OpsLogReader {
             enable: entries.iter().filter(|e| e.action == OpsAction::Enable).count(),
             disable: entries.iter().filter(|e| e.action == OpsAction::Disable).count(),
             config: entries.iter().filter(|e| e.action == OpsAction::Config).count(),
+            pkg_installed: entries.iter().filter(|e| e.action == OpsAction::PackageInstalled).count(),
+            pkg_install_failed: entries.iter().filter(|e| e.action == OpsAction::PackageInstallFailed).count(),
         };
 
         let first_entry = entries.first().map(|e| e.timestamp);
@@ -297,11 +343,16 @@ pub struct OpsActionCounts {
     pub enable: usize,
     pub disable: usize,
     pub config: usize,
+    /// v7.26.0: Auto-installed packages
+    pub pkg_installed: usize,
+    /// v7.26.0: Failed auto-installs
+    pub pkg_install_failed: usize,
 }
 
 impl OpsActionCounts {
     pub fn total(&self) -> usize {
         self.install + self.remove + self.enable + self.disable + self.config
+            + self.pkg_installed + self.pkg_install_failed
     }
 }
 
@@ -337,6 +388,13 @@ impl OpsLogSummary {
         if self.counts.config > 0 {
             parts.push(format!("{} configs", self.counts.config));
         }
+        // v7.26.0: Auto-install counts
+        if self.counts.pkg_installed > 0 {
+            parts.push(format!("{} auto-installs", self.counts.pkg_installed));
+        }
+        if self.counts.pkg_install_failed > 0 {
+            parts.push(format!("{} failed", self.counts.pkg_install_failed));
+        }
 
         parts.join(", ")
     }
@@ -348,13 +406,30 @@ mod tests {
 
     #[test]
     fn test_entry_roundtrip() {
-        let entry = OpsEntry::new(OpsAction::Install, "pacman", "arch-wiki-docs");
+        let entry = OpsEntry::new(OpsAction::Install, "arch-wiki-docs");
         let line = entry.to_log_line();
         let parsed = OpsEntry::from_log_line(&line).unwrap();
 
         assert_eq!(parsed.action, OpsAction::Install);
-        assert_eq!(parsed.tool, "pacman");
         assert_eq!(parsed.target, "arch-wiki-docs");
+        assert!(parsed.success);
+    }
+
+    #[test]
+    fn test_entry_with_details() {
+        let entry = OpsEntry::with_details(
+            OpsAction::PackageInstalled,
+            "lm_sensors",
+            "version=3.6.0 reason=\"hardware monitoring\"",
+            true,
+        );
+        let line = entry.to_log_line();
+        assert!(line.contains("lm_sensors"));
+        assert!(line.contains("version=3.6.0"));
+
+        let parsed = OpsEntry::from_log_line(&line).unwrap();
+        assert_eq!(parsed.action, OpsAction::PackageInstalled);
+        assert!(parsed.details.unwrap().contains("version=3.6.0"));
     }
 
     #[test]
@@ -365,6 +440,8 @@ mod tests {
             OpsAction::Enable,
             OpsAction::Disable,
             OpsAction::Config,
+            OpsAction::PackageInstalled,
+            OpsAction::PackageInstallFailed,
         ] {
             let s = action.as_str();
             let parsed = OpsAction::from_str(s).unwrap();
@@ -374,12 +451,12 @@ mod tests {
 
     #[test]
     fn test_parse_sample_line() {
-        let line = "2025-12-01T17:05:23Z install pacman arch-wiki-docs";
+        let line = "2025-12-01T17:05:23Z install ok arch-wiki-docs";
         let entry = OpsEntry::from_log_line(line).unwrap();
 
         assert_eq!(entry.action, OpsAction::Install);
-        assert_eq!(entry.tool, "pacman");
         assert_eq!(entry.target, "arch-wiki-docs");
+        assert!(entry.success);
     }
 
     #[test]
@@ -392,6 +469,8 @@ mod tests {
                 enable: 0,
                 disable: 0,
                 config: 1,
+                pkg_installed: 0,
+                pkg_install_failed: 0,
             },
             first_entry: None,
             last_entry: None,
@@ -414,5 +493,23 @@ mod tests {
         };
 
         assert_eq!(summary.format_compact(), "no operations recorded");
+    }
+
+    #[test]
+    fn test_auto_install_counts() {
+        let summary = OpsLogSummary {
+            total_entries: 2,
+            counts: OpsActionCounts {
+                pkg_installed: 1,
+                pkg_install_failed: 1,
+                ..Default::default()
+            },
+            first_entry: None,
+            last_entry: None,
+        };
+
+        let compact = summary.format_compact();
+        assert!(compact.contains("1 auto-installs"));
+        assert!(compact.contains("1 failed"));
     }
 }

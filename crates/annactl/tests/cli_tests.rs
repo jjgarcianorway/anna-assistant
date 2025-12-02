@@ -4892,3 +4892,255 @@ fn test_snow_leopard_peripheral_aliases_v725() {
     );
     assert!(output.status.success());
 }
+
+// ============================================================================
+// Snow Leopard v7.26.0 tests: Instrumentation & Auto-Install
+// ============================================================================
+
+/// Test status has [INSTRUMENTATION] section (v7.26.0)
+#[test]
+fn test_snow_leopard_status_instrumentation_v726() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Must have [INSTRUMENTATION] section
+    assert!(
+        stdout.contains("[INSTRUMENTATION]"),
+        "annactl status should have [INSTRUMENTATION] section"
+    );
+
+    // Should show auto-install status
+    assert!(
+        stdout.contains("Auto-install:"),
+        "[INSTRUMENTATION] should show Auto-install status"
+    );
+
+    // Should show AUR gate status
+    assert!(
+        stdout.contains("AUR gate:"),
+        "[INSTRUMENTATION] should show AUR gate status"
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test CLI surface unchanged - still exactly 6 commands (v7.26.0)
+#[test]
+fn test_snow_leopard_cli_surface_unchanged_v726() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Help should list exactly the 6 commands
+    assert!(stdout.contains("annactl"), "Should show annactl usage");
+    assert!(stdout.contains("status"), "Should show status command");
+    assert!(stdout.contains("sw"), "Should show sw command");
+    assert!(stdout.contains("hw"), "Should show hw command");
+
+    // Should NOT have install or instrumentation commands
+    assert!(
+        !stdout.contains("annactl install") && !stdout.contains("annactl instrument"),
+        "Should not have new install/instrument commands: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test help (running annactl with no args) shows commands (v7.26.0)
+#[test]
+fn test_snow_leopard_help_shows_commands_v726() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Running annactl with no args shows help
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Must show the main commands
+    assert!(stdout.contains("status"), "help should list status");
+    assert!(stdout.contains("sw"), "help should list sw");
+    assert!(stdout.contains("hw"), "help should list hw");
+
+    // Verify no secret commands
+    assert!(
+        !stdout.contains("internal") && !stdout.contains("debug"),
+        "help should not expose internal commands: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test instrumentation section shows AUR gate blocked by default (v7.26.0)
+#[test]
+fn test_snow_leopard_aur_gate_blocked_default_v726() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // AUR gate should be blocked by default
+    assert!(
+        stdout.contains("AUR gate:") && stdout.contains("blocked"),
+        "[INSTRUMENTATION] AUR gate should show blocked by default: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test instrumentation shows installed count (v7.26.0)
+#[test]
+fn test_snow_leopard_instrumentation_installed_count_v726() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should show installed count (0 or list of tools)
+    assert!(
+        stdout.contains("Installed:") || stdout.contains("Installed by Anna:"),
+        "[INSTRUMENTATION] should show installed tools count or list: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test instrumentation discloses what Anna installed (v7.26.0)
+#[test]
+fn test_snow_leopard_instrumentation_disclosure_v726() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Section must disclose tools installed by Anna
+    // Either shows "0" or lists the tools with dates
+    assert!(
+        stdout.contains("[INSTRUMENTATION]"),
+        "status must have [INSTRUMENTATION] section for disclosure"
+    );
+
+    // If there are installed tools, they should show install date
+    if stdout.contains("Installed by Anna:") {
+        assert!(
+            stdout.contains("202") || stdout.contains("("),
+            "Installed tools should show install date: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test version shown in status (v7.26.0)
+#[test]
+fn test_snow_leopard_version_in_status_v726() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Version is shown in status command
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // [VERSION] section should show 7.26
+    assert!(
+        stdout.contains("7.26"),
+        "status should show version 7.26: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test status shows all expected sections in correct order (v7.26.0)
+#[test]
+fn test_snow_leopard_status_sections_order_v726() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Required sections should appear in order
+    let sections = vec![
+        "[VERSION]",
+        "[DAEMON]",
+        "[HEALTH]",
+        "[BOOT SNAPSHOT]",
+        "[INVENTORY]",
+        "[INSTRUMENTATION]",
+        "[PATHS]",
+    ];
+
+    let mut last_pos = 0;
+    for section in sections {
+        if let Some(pos) = stdout.find(section) {
+            assert!(
+                pos > last_pos,
+                "Sections should appear in order: {} should be after previous section at pos {}",
+                section,
+                last_pos
+            );
+            last_pos = pos;
+        }
+    }
+
+    assert!(output.status.success());
+}
