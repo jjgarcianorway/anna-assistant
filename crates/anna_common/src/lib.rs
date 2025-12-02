@@ -1,4 +1,4 @@
-//! Anna Common v7.16.0 - Grounded System Intelligence
+//! Anna Common v7.17.0 - Grounded System Intelligence
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -6,6 +6,7 @@
 //! v7.6.1: Config hygiene - identity filtering, lean output, vim/nvim separation
 //! v7.7.0: Precise per-window aggregation and compact display format
 //! v7.16.0: Log history with multi-window patterns, service lifecycle tracking
+//! v7.17.0: Network topology, storage mapping, config graph
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -14,6 +15,9 @@
 //! - Config discovery from man pages, pacman, Arch Wiki
 //! - Anna needs tracking for missing tools
 //! - Service lifecycle: state, restarts, exit codes, activation failures
+//! - Network topology: routes, DNS, interface management
+//! - Storage: SMART/NVMe health, filesystem mounts
+//! - Config graph: ownership, consumers, includes
 //!
 //! Modules:
 //! - grounded: Real data from real system commands

@@ -1,11 +1,11 @@
-//! HW Command v7.15.0 - Structured Hardware Overview
+//! HW Command v7.17.0 - Structured Hardware Overview
 //!
 //! Sections organized by category:
 //! - [CPU]        Model, cores, microcode
 //! - [GPU]        Integrated and discrete GPUs with drivers
 //! - [MEMORY]     Installed RAM, slots
-//! - [STORAGE]    Devices with root filesystem
-//! - [NETWORK]    WiFi, Ethernet, Bluetooth
+//! - [STORAGE]    Devices, filesystems and health (v7.17.0)
+//! - [NETWORK]    Interfaces, default route, DNS (v7.17.0)
 //! - [AUDIO]      Controller and drivers
 //! - [INPUT]      Keyboard, touchpad
 //! - [SENSORS]    Temperature providers
@@ -15,8 +15,8 @@
 //! - lscpu, /proc/cpuinfo (CPU)
 //! - lspci -k, /sys/class/drm (GPU)
 //! - free, /proc/meminfo, dmidecode (Memory)
-//! - lsblk, smartctl, nvme (Storage)
-//! - ip link, iw, nmcli (Network)
+//! - lsblk, smartctl, nvme, findmnt (Storage) - v7.17.0
+//! - ip link/route, nmcli, resolvectl (Network) - v7.17.0
 //! - /sys/class/bluetooth (Bluetooth)
 //! - aplay, lspci (Audio)
 //! - /sys/class/input (Input devices)
@@ -29,6 +29,12 @@ use std::process::Command;
 
 use anna_common::grounded::health::{
     get_battery_health, get_network_health, get_all_disk_health,
+};
+use anna_common::grounded::network_topology::{
+    get_default_route, get_dns_config, get_interface_manager, InterfaceManager,
+};
+use anna_common::grounded::storage_topology::{
+    get_filesystem_mounts, get_device_health,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -297,7 +303,7 @@ fn print_memory_section() {
 }
 
 // ============================================================================
-// [STORAGE] Section - v7.15.0
+// [STORAGE] Section - v7.17.0
 // ============================================================================
 
 fn print_storage_section() {
@@ -311,38 +317,65 @@ fn print_storage_section() {
         return;
     }
 
-    // Count device types
-    let nvme_count = disks.iter().filter(|d| d.device_type == "NVMe").count();
-    let sata_count = disks.iter().filter(|d| d.device_type == "SATA").count();
-    let other_count = disks.len() - nvme_count - sata_count;
+    // Print each device with health status
+    println!("  {}:", "Devices".dimmed());
+    for disk in &disks {
+        let device_name = disk.device.trim_start_matches("/dev/");
+        let size = format_size_human(disk.size_bytes);
 
-    let mut devices_str = Vec::new();
-    if nvme_count > 0 {
-        devices_str.push(format!("{} NVMe", nvme_count));
+        // Get detailed health from new v7.17.0 module
+        let health = get_device_health(&disk.device);
+        let health_status = if health.status == "PASSED" || health.status == "healthy" {
+            "OK".green().to_string()
+        } else if health.status == "unknown" || health.status == "no data" {
+            "?".dimmed().to_string()
+        } else {
+            health.status.yellow().to_string()
+        };
+
+        // Build info string
+        let mut info_parts = vec![disk.device_type.clone()];
+        if let Some(model) = &disk.model {
+            let short_model = if model.len() > 25 {
+                format!("{}...", &model[..22])
+            } else {
+                model.clone()
+            };
+            info_parts.push(short_model);
+        }
+        info_parts.push(size);
+
+        println!("    {} [{}]  {}", device_name, health_status, info_parts.join(", "));
     }
-    if sata_count > 0 {
-        devices_str.push(format!("{} SATA", sata_count));
-    }
-    if other_count > 0 {
-        devices_str.push(format!("{} other", other_count));
-    }
 
-    println!("  Devices:      {}", devices_str.join(", "));
+    // Get filesystem mounts
+    let mounts = get_filesystem_mounts();
+    if !mounts.is_empty() {
+        println!();
+        println!("  {}:", "Filesystems".dimmed());
 
-    // Find root filesystem device
-    let output = Command::new("findmnt")
-        .args(["-n", "-o", "SOURCE,FSTYPE,SIZE", "/"])
-        .output();
+        // Show key mounts: /, /home, /boot, /var
+        let key_mounts = ["/", "/home", "/boot", "/var", "/boot/efi"];
+        for mp in &key_mounts {
+            if let Some(mount) = mounts.iter().find(|m| m.mountpoint == *mp) {
+                let use_pct = mount.use_percent;
+                let use_color = if use_pct >= 90 {
+                    format!("{}%", use_pct).red().to_string()
+                } else if use_pct >= 75 {
+                    format!("{}%", use_pct).yellow().to_string()
+                } else {
+                    format!("{}%", use_pct).green().to_string()
+                };
 
-    if let Ok(out) = output {
-        if out.status.success() {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            let parts: Vec<&str> = stdout.split_whitespace().collect();
-            if parts.len() >= 3 {
-                let source = parts[0].trim_start_matches("/dev/");
-                let fstype = parts[1];
-                let size = parts[2];
-                println!("  Root:         {} ({}, {})", source, fstype, size);
+                let device = mount.device.trim_start_matches("/dev/");
+                let subvol_info = mount.subvolume.as_ref()
+                    .map(|sv| format!(" [{}]", sv))
+                    .unwrap_or_default();
+
+                println!(
+                    "    {:12} {:8} {:>5}  {}{}",
+                    mp, mount.fstype, use_color, device, subvol_info
+                );
             }
         }
     }
@@ -350,8 +383,23 @@ fn print_storage_section() {
     println!();
 }
 
+fn format_size_human(bytes: u64) -> String {
+    if bytes == 0 {
+        return "?".to_string();
+    }
+
+    const GB: u64 = 1_000_000_000;
+    const TB: u64 = 1_000_000_000_000;
+
+    if bytes >= TB {
+        format!("{:.1} TB", bytes as f64 / TB as f64)
+    } else {
+        format!("{:.0} GB", bytes as f64 / GB as f64)
+    }
+}
+
 // ============================================================================
-// [NETWORK] Section - v7.15.0
+// [NETWORK] Section - v7.17.0
 // ============================================================================
 
 fn print_network_section() {
@@ -360,6 +408,9 @@ fn print_network_section() {
     let networks = get_network_health();
     let mut found_any = false;
 
+    // Interfaces subsection
+    println!("  {}:", "Interfaces".dimmed());
+
     // WiFi interfaces
     let wifi_ifaces: Vec<_> = networks.iter()
         .filter(|n| n.interface_type == "wifi")
@@ -367,22 +418,34 @@ fn print_network_section() {
 
     for iface in wifi_ifaces {
         found_any = true;
-        let driver = iface.driver.as_deref().unwrap_or("unknown");
-
-        // Get WiFi device model
-        let model = get_pci_device_name_for_interface(&iface.interface)
-            .unwrap_or_else(|| "Wi-Fi adapter".to_string());
-
-        // Check firmware status
-        let fw_status = get_driver_firmware_status(driver);
-
-        print!("  WiFi:         {} (driver: {}", model, driver);
-        if let Some(status) = fw_status {
-            print!(", firmware: {})", status);
+        let name = &iface.interface;
+        let state = if iface.link_up {
+            "up".green().to_string()
         } else {
-            print!(")");
-        }
-        println!();
+            "down".dimmed().to_string()
+        };
+
+        // Get manager from v7.17.0 module
+        let manager = get_interface_manager(name);
+        let manager_str = match manager {
+            InterfaceManager::NetworkManager => "NetworkManager",
+            InterfaceManager::SystemdNetworkd => "systemd-networkd",
+            InterfaceManager::Manual => "manual",
+            InterfaceManager::Unmanaged => "unmanaged",
+            InterfaceManager::Unknown => "unknown",
+        };
+
+        // Get IP if up
+        let ip_info = if iface.link_up {
+            get_interface_ipv4(name)
+                .map(|ip| format!(", {}", ip))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        println!("    {:8} wifi     {}, {}{}",
+            name, state, manager_str, ip_info);
     }
 
     // Ethernet interfaces
@@ -392,13 +455,36 @@ fn print_network_section() {
 
     for iface in eth_ifaces {
         found_any = true;
-        let driver = iface.driver.as_deref().unwrap_or("unknown");
+        let name = &iface.interface;
+        let state = if iface.link_up {
+            "up".green().to_string()
+        } else {
+            "down".dimmed().to_string()
+        };
 
-        let model = get_pci_device_name_for_interface(&iface.interface)
-            .unwrap_or_else(|| "Ethernet adapter".to_string());
+        let manager = get_interface_manager(name);
+        let manager_str = match manager {
+            InterfaceManager::NetworkManager => "NetworkManager",
+            InterfaceManager::SystemdNetworkd => "systemd-networkd",
+            InterfaceManager::Manual => "manual",
+            InterfaceManager::Unmanaged => "unmanaged",
+            InterfaceManager::Unknown => "unknown",
+        };
 
-        println!("  Ethernet:     {} (driver: {})", model, driver);
+        let ip_info = if iface.link_up {
+            get_interface_ipv4(name)
+                .map(|ip| format!(", {}", ip))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        println!("    {:8} ethernet {}, {}{}",
+            name, state, manager_str, ip_info);
     }
+
+    // Loopback
+    println!("    {:8} loopback {}", "lo", "up".green().to_string());
 
     // Bluetooth
     let bt_path = std::path::Path::new("/sys/class/bluetooth");
@@ -418,22 +504,66 @@ fn print_network_section() {
                     "unknown".to_string()
                 };
 
-                // Try to get device name
-                let model = get_bluetooth_model(&entry.path())
-                    .unwrap_or_else(|| format!("Bluetooth {}", name));
-
-                println!("  Bluetooth:    {} (driver: {})", model, driver);
+                println!("    {:8} bluetooth {} (driver: {})", name, "up".green().to_string(), driver);
             }
         }
     }
 
     if !found_any {
-        println!("  {}", "not detected".dimmed());
+        println!("    {}", "not detected".dimmed());
+    }
+
+    // Default route subsection (v7.17.0)
+    println!();
+    println!("  {}:", "Default route".dimmed());
+    let route = get_default_route();
+    if let Some(gw) = &route.gateway {
+        let via_iface = route.interface.as_deref().unwrap_or("?");
+        println!("    via {} dev {}", gw, via_iface);
+    } else {
+        println!("    {}", "none".dimmed());
+    }
+
+    // DNS subsection (v7.17.0)
+    println!();
+    println!("  {}:", "DNS".dimmed());
+    let dns = get_dns_config();
+    if dns.servers.is_empty() {
+        println!("    {}", "none configured".dimmed());
+    } else {
+        let servers_str = dns.servers.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
+        println!("    {} (source: {})", servers_str, dns.source);
     }
 
     println!();
 }
 
+/// Get IPv4 address for an interface using ip addr
+fn get_interface_ipv4(iface: &str) -> Option<String> {
+    let output = Command::new("ip")
+        .args(["addr", "show", iface])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.starts_with("inet ") {
+            // Format: "inet 192.168.1.42/24 brd 192.168.1.255 ..."
+            if let Some(addr) = line.split_whitespace().nth(1) {
+                return Some(addr.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+#[allow(dead_code)]
 fn get_pci_device_name_for_interface(iface: &str) -> Option<String> {
     let device_path = format!("/sys/class/net/{}/device", iface);
     let device = std::path::Path::new(&device_path);
@@ -467,6 +597,7 @@ fn get_pci_device_name_for_interface(iface: &str) -> Option<String> {
     None
 }
 
+#[allow(dead_code)]
 fn get_bluetooth_model(device_path: &std::path::Path) -> Option<String> {
     // Try to get from USB or PCI device
     let pci_path = device_path.join("device");
@@ -482,6 +613,7 @@ fn get_bluetooth_model(device_path: &std::path::Path) -> Option<String> {
     None
 }
 
+#[allow(dead_code)]
 fn get_driver_firmware_status(driver: &str) -> Option<String> {
     // Check kernel logs for firmware load status
     let output = Command::new("journalctl")

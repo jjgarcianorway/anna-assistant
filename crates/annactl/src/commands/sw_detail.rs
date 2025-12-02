@@ -1,4 +1,4 @@
-//! SW Detail Command v7.16.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.17.0 - Software Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -12,6 +12,7 @@
 //! - [SERVICE LIFECYCLE] Restarts, exit codes, activation failures (v7.16.0)
 //! - [DEPENDENCIES] Package deps and service relations (v7.13.0)
 //! - [CONFIG]       Primary/Secondary/Notes + Sanity notes (v7.14.0)
+//! - [CONFIG GRAPH] Ownership and consumers of config files (v7.17.0)
 //! - [LOGS]         Multi-window history (this boot, 24h, 7d) (v7.16.0)
 //! - [TELEMETRY]    Real windows with peak/trend summaries (v7.14.0)
 //! - Cross notes:   Links between logs, telemetry, deps, config (v7.14.0)
@@ -30,6 +31,7 @@ use anna_common::grounded::{
     categoriser::{normalize_category, packages_in_category},
     deps::{get_package_deps, get_service_deps},
     log_patterns::{extract_patterns_for_unit, extract_patterns_with_history, LogPatternSummary, LogHistorySummary, format_time_short},
+    config_graph::get_config_graph_for_software,
 };
 use anna_common::ServiceLifecycle;
 
@@ -389,6 +391,9 @@ fn print_package_profile(pkg: &Package) {
     // [CONFIG] - discovered config files
     print_config_section(&pkg.name);
 
+    // [CONFIG GRAPH] - v7.17.0: ownership and consumers
+    print_config_graph_section(&pkg.name);
+
     // [USAGE] - real telemetry
     print_telemetry_section(&pkg.name);
 }
@@ -429,6 +434,9 @@ fn print_command_profile(cmd: &SystemCommand) {
 
     // [CONFIG]
     print_config_section(&cmd.name);
+
+    // [CONFIG GRAPH] - v7.17.0
+    print_config_graph_section(&cmd.name);
 
     // [USAGE]
     print_telemetry_section(&cmd.name);
@@ -813,6 +821,48 @@ fn print_config_section(name: &str) {
 
     // v7.14.0: Sanity notes section
     print_config_sanity_notes(&primary_configs, &secondary_configs);
+
+    println!();
+}
+
+/// Print [CONFIG GRAPH] section - v7.17.0
+/// Shows which configs a software reads and shared configs
+fn print_config_graph_section(name: &str) {
+    let graph = get_config_graph_for_software(name);
+
+    // Skip if no configs found
+    if graph.reads.is_empty() && graph.shared.is_empty() {
+        return;
+    }
+
+    println!("{}", "[CONFIG GRAPH]".cyan());
+    println!("  {}", format!("(source: {})", graph.source).dimmed());
+
+    // Configs this software reads
+    if !graph.reads.is_empty() {
+        println!("  Reads:");
+        for cfg in &graph.reads {
+            let status = if cfg.exists {
+                "[present]".green().to_string()
+            } else {
+                "[not present]".dimmed().to_string()
+            };
+            println!("    {:<40} {}  {}", cfg.path, status, format!("({})", cfg.evidence).dimmed());
+        }
+    }
+
+    // Shared configs (PAM, NSS, etc.)
+    if !graph.shared.is_empty() {
+        println!("  Shared:");
+        for cfg in &graph.shared {
+            let status = if cfg.exists {
+                "[present]".green().to_string()
+            } else {
+                "[not present]".dimmed().to_string()
+            };
+            println!("    {:<40} {}  {}", cfg.path, status, format!("({})", cfg.evidence).dimmed());
+        }
+    }
 
     println!();
 }

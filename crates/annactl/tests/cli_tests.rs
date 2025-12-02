@@ -1,16 +1,22 @@
-//! CLI integration tests for annactl v7.15.0 "Deeper Hardware Insight"
+//! CLI integration tests for annactl v7.17.0 "Network, Storage & Config Graph"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
 //! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [ANNA NEEDS], Network in [INVENTORY]
 //! - annactl sw        software overview with [CATEGORIES] - no duplicates
-//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [LOGS] patterns, [DEPENDENCIES], Cross notes
-//! - annactl hw        hardware overview with [CPU], [GPU], [MEMORY], [STORAGE], [NETWORK], [AUDIO], [INPUT], [SENSORS], [POWER] (v7.15.0)
+//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [CONFIG GRAPH], [LOGS] patterns, [DEPENDENCIES], Cross notes
+//! - annactl hw        hardware overview with [CPU], [GPU], [MEMORY], [STORAGE]+Filesystems, [NETWORK]+Route+DNS, [AUDIO], [INPUT], [SENSORS], [POWER] (v7.17.0)
 //! - annactl hw NAME   hardware profile with [IDENTITY], [FIRMWARE], [DRIVER], [HEALTH], [CAPACITY], [STATE], [LOGS] (v7.15.0)
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
+//!
+//! Snow Leopard v7.17.0 tests:
+//! - annactl hw [STORAGE] shows devices with health status and filesystems with usage
+//! - annactl hw [NETWORK] shows interfaces, default route, and DNS
+//! - annactl sw NAME [CONFIG GRAPH] shows config ownership and consumers
+//! - No new public commands
 //!
 //! Snow Leopard v7.15.0 tests:
 //! - annactl hw structured overview with [CPU], [GPU], [MEMORY], etc.
@@ -3224,6 +3230,206 @@ fn test_snow_leopard_no_new_commands_v715() {
     assert!(
         !stdout.contains("annactl firmware") && !stdout.contains("annactl smart"),
         "Should not have new firmware/smart commands: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// Snow Leopard v7.17.0: Network, Storage & Config Graph Tests
+// ============================================================================
+
+/// Test annactl hw [STORAGE] shows devices with health (v7.17.0)
+#[test]
+fn test_hw_storage_shows_devices_with_health() {
+    let binary = get_binary_path();
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.17.0: [STORAGE] should show Devices subsection
+    assert!(
+        stdout.contains("[STORAGE]"),
+        "hw should have [STORAGE] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("Devices") || stdout.contains("nvme") || stdout.contains("sd"),
+        "STORAGE should show Devices list: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test annactl hw [STORAGE] shows filesystems with usage (v7.17.0)
+#[test]
+fn test_hw_storage_shows_filesystems_with_usage() {
+    let binary = get_binary_path();
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.17.0: [STORAGE] should show Filesystems subsection with usage
+    assert!(
+        stdout.contains("Filesystems") || stdout.contains("/") && stdout.contains("%"),
+        "STORAGE should show Filesystems with usage: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test annactl hw [NETWORK] shows interfaces (v7.17.0)
+#[test]
+fn test_hw_network_shows_interfaces() {
+    let binary = get_binary_path();
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.17.0: [NETWORK] should show Interfaces subsection
+    assert!(
+        stdout.contains("[NETWORK]"),
+        "hw should have [NETWORK] section: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("Interfaces") || stdout.contains("wifi") || stdout.contains("ethernet") || stdout.contains("loopback"),
+        "NETWORK should show Interfaces list: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test annactl hw [NETWORK] shows default route (v7.17.0)
+#[test]
+fn test_hw_network_shows_default_route() {
+    let binary = get_binary_path();
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.17.0: [NETWORK] should show Default route subsection
+    assert!(
+        stdout.contains("Default route") || stdout.contains("via"),
+        "NETWORK should show Default route: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test annactl hw [NETWORK] shows DNS (v7.17.0)
+#[test]
+fn test_hw_network_shows_dns() {
+    let binary = get_binary_path();
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.17.0: [NETWORK] should show DNS subsection
+    assert!(
+        stdout.contains("DNS") || stdout.contains("source:"),
+        "NETWORK should show DNS servers with source: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test annactl sw NAME [CONFIG GRAPH] for services (v7.17.0)
+#[test]
+fn test_sw_config_graph_for_services() {
+    let binary = get_binary_path();
+
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager"])
+        .output()
+        .expect("Failed to run annactl sw NetworkManager");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.17.0: sw NAME for a service should show [CONFIG GRAPH] section
+    // Note: only shows if configs are found
+    if stdout.contains("[CONFIG GRAPH]") {
+        assert!(
+            stdout.contains("Reads:") || stdout.contains("Shared:"),
+            "CONFIG GRAPH should show Reads or Shared: {}",
+            stdout
+        );
+    }
+    assert!(output.status.success());
+}
+
+/// Test annactl hw [NETWORK] shows interface manager (v7.17.0)
+#[test]
+fn test_hw_network_shows_interface_manager() {
+    let binary = get_binary_path();
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.17.0: Interfaces should show manager (NetworkManager, systemd-networkd, etc.)
+    assert!(
+        stdout.contains("NetworkManager") || stdout.contains("systemd-networkd") || stdout.contains("manual") || stdout.contains("unknown"),
+        "Interfaces should show manager: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+/// Test no new public commands (v7.17.0)
+#[test]
+fn test_no_new_commands_v717() {
+    let binary = get_binary_path();
+
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.17.0: Help should still only show the 6 base commands
+    assert!(
+        stdout.contains("annactl status"),
+        "Help should show status command: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("annactl sw"),
+        "Help should show sw command: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("annactl hw"),
+        "Help should show hw command: {}",
+        stdout
+    );
+    // Should not have new commands like network, storage, config
+    assert!(
+        !stdout.contains("annactl network") && !stdout.contains("annactl storage") && !stdout.contains("annactl config"),
+        "Should not have new network/storage/config commands: {}",
         stdout
     );
     assert!(output.status.success());

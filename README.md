@@ -1,8 +1,8 @@
-# Anna v7.16.0 "Log History & Service Lifecycle"
+# Anna v7.17.0 "Network, Storage & Config Graph"
 
 **System Intelligence Daemon for Linux**
 
-> v7.16.0: Multi-window log history (this boot, 24h, 7d) with severity breakdown, service lifecycle tracking (restarts, exit codes, activation failures), enhanced dependency linking.
+> v7.17.0: Enhanced network topology (interfaces, default route, DNS), storage with device health and filesystem usage, config graph showing which configs each component reads.
 
 ---
 
@@ -60,6 +60,79 @@ annactl hw gpu
 annactl hw storage
 annactl hw network
 ```
+
+---
+
+## v7.17.0 Features
+
+### Enhanced Network Topology
+
+`annactl hw` [NETWORK] section now shows complete network topology:
+
+```
+[NETWORK]
+  Interfaces:
+    wlp0s20f3 wifi     up, NetworkManager, 192.168.1.42/24
+    enp3s0    ethernet down, NetworkManager
+    lo        loopback up
+    hci0      bluetooth up (driver: btusb)
+
+  Default route:
+    via 192.168.1.1 dev wlp0s20f3
+
+  DNS:
+    1.1.1.1, 9.9.9.9 (source: NetworkManager)
+```
+
+Each interface shows:
+- State (up/down)
+- Manager (NetworkManager, systemd-networkd, manual)
+- IP address when up
+
+### Storage with Device Health and Filesystems
+
+`annactl hw` [STORAGE] section now shows devices and filesystems:
+
+```
+[STORAGE]
+  Devices:
+    nvme0n1 [OK]  NVMe, Samsung 980 PRO, 1.0 TB
+    sda     [?]   SATA, WDC WD10EZEX, 1.0 TB
+
+  Filesystems:
+    /            btrfs     5%  nvme0n1p2 [@]
+    /home        btrfs    42%  nvme0n1p2 [@home]
+    /boot/efi    vfat      1%  nvme0n1p1
+```
+
+Each device shows:
+- Health status (OK, warning, unknown)
+- Type, model, size
+
+Each filesystem shows:
+- Mount point
+- Type
+- Usage percentage (color-coded: green <75%, yellow 75-90%, red >90%)
+- Device and subvolume
+
+### Config Graph in Software Profiles
+
+`annactl sw NAME` now shows [CONFIG GRAPH] for services:
+
+```
+[CONFIG GRAPH]
+  (source: systemctl show, man pages, pacman -Ql)
+
+  Reads:
+    /etc/NetworkManager/NetworkManager.conf  [present]  (common path)
+
+  Shared:
+    /etc/nsswitch.conf                       [present]  (NSS name resolution)
+```
+
+This maps which config files a software component reads, distinguishing:
+- Direct configs read by this component
+- Shared configs (PAM, NSS) used by multiple components
 
 ---
 
