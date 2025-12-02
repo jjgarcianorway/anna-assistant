@@ -1,4 +1,4 @@
-//! Grounded Knowledge System v7.33.0
+//! Grounded Knowledge System v7.34.0
 //!
 //! Every piece of data has a verifiable source.
 //! No invented numbers. No hallucinated descriptions.

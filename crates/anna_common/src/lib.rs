@@ -1,4 +1,11 @@
-//! Anna Common v7.33.0 - Correctness & Completeness Release
+//! Anna Common v7.34.0 - Update Scheduler Fix
+//!
+//! v7.34.0: Update scheduler that actually runs and records checks
+//! - Consolidated UpdateState in config.rs (deleted redundant update_state.rs)
+//! - Scheduler runs immediately on first start if never checked
+//! - Real timestamps in annactl status (Last check, Next check)
+//! - Ops.log audit trail for update checks
+//! - annactl status shows daemon down warning when not running
 //!
 //! v7.33.0: No truncation, real updates, peripheral inventory, sensors
 //! - Working auto-update scheduler with real timestamps
@@ -132,13 +139,12 @@ pub mod local_docs;
 pub mod text_wrap;
 // v7.30.0: Evidence-based config locator
 pub mod config_locator;
-// v7.31.0: Telemetry format and update state
+// v7.31.0: Telemetry format
 pub mod telemetry_format;
-pub mod update_state;
 // v7.32.0: Network trends and scoped scans
 pub mod network_trends;
 pub mod scoped_scan;
-// v7.33.0: Real update checking
+// v7.34.0: Update checking (uses config::UpdateState)
 pub mod update_checker;
 
 // Re-exports for convenience
@@ -373,18 +379,12 @@ pub use telemetry_format::{
     format_duration_short, format_cpu_time as fmt_cpu_time,
     MIN_SAMPLES_1H, MIN_SAMPLES_24H, MIN_SAMPLES_7D, MIN_SAMPLES_30D,
 };
-pub use update_state::{
-    UpdateState as TelemetryUpdateState,  // Alias to avoid conflict with config::UpdateState
-    UpdateMode as TelemetryUpdateMode,
-    UpdateResult as TelemetryUpdateResult,
-    UpdateTarget, UPDATE_STATE_PATH,
-    is_daemon_running as is_annad_running,
-};
-// v7.33.0: Real update checking
+// v7.34.0: Update checking with consolidated state
 pub use update_checker::{
-    check_anna_updates, check_pacman_updates, run_update_check,
-    is_check_due, maybe_run_scheduled_check,
+    CheckResult, check_anna_updates, run_update_check,
+    is_check_due, is_daemon_running,
 };
+pub use ops_log::OpsLog;
 // v7.32.0: Network trends and scoped scans
 pub use network_trends::{
     InterfaceType, WiFiSample, EthernetSample, NetworkTrendWindow, InterfaceTrends,

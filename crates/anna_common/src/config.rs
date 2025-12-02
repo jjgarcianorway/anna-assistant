@@ -310,31 +310,74 @@ impl UpdateResult {
     }
 }
 
-/// Auto-update state (v7.29.0 enhanced, stored in /var/lib/anna/internal/state.json)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+/// Auto-update state (v7.34.0 spec-compliant, stored in /var/lib/anna/internal/update_state.json)
+///
+/// v7.34.0: Full spec compliance with real timestamps and audit trail
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateState {
-    /// Last check timestamp (unix epoch seconds)
-    pub last_check_epoch: u64,
-    /// Next scheduled check (unix epoch seconds)
-    pub next_check_epoch: u64,
-    /// Last check result
+    /// Mode: auto, manual, or off
+    #[serde(default)]
+    pub mode: UpdateMode,
+    /// Check interval in seconds (default 600 = 10 minutes)
+    #[serde(default = "default_interval_seconds")]
+    pub interval_seconds: u64,
+    /// Last check timestamp (unix epoch seconds, 0 = never)
+    #[serde(default)]
+    pub last_check_at: u64,
+    /// Last check result: up_to_date, update_available, error
     #[serde(default)]
     pub last_result: UpdateResult,
-    /// Last failure reason (if failed)
-    pub last_failure_reason: Option<String>,
+    /// Last error message (only when last_result = error)
+    #[serde(default)]
+    pub last_error: Option<String>,
+    /// Installed version at last check
+    #[serde(default)]
+    pub last_checked_version_installed: String,
+    /// Available version at last check (if update available)
+    #[serde(default)]
+    pub last_checked_version_available: Option<String>,
+    /// Next scheduled check (unix epoch seconds)
+    #[serde(default)]
+    pub next_check_at: u64,
+    /// Last successful check timestamp (only when not error)
+    #[serde(default)]
+    pub last_successful_check_at: Option<u64>,
     /// Current consecutive failure count (for backoff)
     #[serde(default)]
     pub consecutive_failures: u32,
-    /// Current version
-    pub current_version: String,
-    /// Latest available version (if known)
-    pub latest_version: Option<String>,
+}
+
+fn default_interval_seconds() -> u64 {
+    600 // 10 minutes
+}
+
+impl Default for UpdateState {
+    fn default() -> Self {
+        Self {
+            mode: UpdateMode::Auto,
+            interval_seconds: 600,
+            last_check_at: 0,
+            last_result: UpdateResult::Pending,
+            last_error: None,
+            last_checked_version_installed: String::new(),
+            last_checked_version_available: None,
+            next_check_at: 0,
+            last_successful_check_at: None,
+            consecutive_failures: 0,
+        }
+    }
 }
 
 impl UpdateState {
-    /// State file path (v7.29.0: moved to internal/)
+    /// State file path (v7.34.0: canonical path)
     pub fn state_path() -> PathBuf {
-        PathBuf::from(DATA_DIR).join("internal/state.json")
+        PathBuf::from(DATA_DIR).join("internal/update_state.json")
+    }
+
+    /// Ensure the internal directory exists
+    pub fn ensure_internal_dir() -> std::io::Result<()> {
+        let internal_dir = PathBuf::from(DATA_DIR).join("internal");
+        fs::create_dir_all(&internal_dir)
     }
 
     pub fn load() -> Self {
@@ -350,11 +393,8 @@ impl UpdateState {
     }
 
     pub fn save(&self) -> std::io::Result<()> {
+        Self::ensure_internal_dir()?;
         let path = Self::state_path();
-        // Ensure internal directory exists
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
         let path_str = path.to_str()
             .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
         let content = serde_json::to_string_pretty(self)
@@ -370,60 +410,99 @@ impl UpdateState {
             .as_secs()
     }
 
-    /// Record a successful check
-    pub fn record_success(&mut self, latest_version: Option<String>) {
-        self.last_check_epoch = Self::now_epoch();
+    /// Check if an update check is due (v7.34.0)
+    pub fn is_check_due(&self) -> bool {
+        // Never check if mode is not Auto
+        if self.mode != UpdateMode::Auto {
+            return false;
+        }
+        // If never checked, check now
+        if self.last_check_at == 0 {
+            return true;
+        }
+        // Check if next_check_at has passed
+        if self.next_check_at > 0 {
+            return Self::now_epoch() >= self.next_check_at;
+        }
+        // Fallback: check if interval has passed since last check
+        Self::now_epoch() >= self.last_check_at + self.interval_seconds
+    }
+
+    /// Record a successful check (v7.34.0)
+    pub fn record_success(&mut self, current_version: &str, latest_version: Option<String>) {
+        let now = Self::now_epoch();
+        self.last_check_at = now;
+        self.last_checked_version_installed = current_version.to_string();
+        self.last_error = None;
         self.consecutive_failures = 0;
-        self.last_failure_reason = None;
-        if latest_version.is_some() && latest_version != Some(self.current_version.clone()) {
-            self.last_result = UpdateResult::UpdateAvailable;
-            self.latest_version = latest_version;
+        self.last_successful_check_at = Some(now);
+
+        if let Some(ref ver) = latest_version {
+            if ver != current_version {
+                self.last_result = UpdateResult::UpdateAvailable;
+                self.last_checked_version_available = Some(ver.clone());
+            } else {
+                self.last_result = UpdateResult::Ok;
+                self.last_checked_version_available = None;
+            }
         } else {
             self.last_result = UpdateResult::Ok;
+            self.last_checked_version_available = None;
         }
+
+        // Schedule next check
+        self.next_check_at = now + self.interval_seconds;
     }
 
-    /// Record a failed check with exponential backoff
-    pub fn record_failure(&mut self, reason: &str, config: &UpdateConfig) {
-        self.last_check_epoch = Self::now_epoch();
+    /// Record a failed check with exponential backoff (v7.34.0)
+    pub fn record_failure(&mut self, current_version: &str, error: &str) {
+        let now = Self::now_epoch();
+        self.last_check_at = now;
+        self.last_checked_version_installed = current_version.to_string();
         self.last_result = UpdateResult::Failed;
-        self.last_failure_reason = Some(reason.to_string());
+        self.last_error = Some(error.to_string());
         self.consecutive_failures += 1;
 
-        // Exponential backoff: interval * 2^failures, capped at max_backoff
-        let backoff = config.interval_seconds * (1 << self.consecutive_failures.min(10));
-        let capped_backoff = backoff.min(config.max_backoff_seconds);
-        self.next_check_epoch = Self::now_epoch() + capped_backoff;
+        // Exponential backoff: interval * 2^failures, capped at 1 hour
+        let backoff_multiplier = 1u64 << self.consecutive_failures.min(6);
+        let backoff = self.interval_seconds * backoff_multiplier;
+        let capped_backoff = backoff.min(3600); // Max 1 hour
+        self.next_check_at = now + capped_backoff;
     }
 
-    /// Schedule next check based on config interval
-    pub fn schedule_next(&mut self, config: &UpdateConfig) {
-        self.next_check_epoch = Self::now_epoch() + config.interval_seconds;
+    /// Initialize on daemon start (v7.34.0)
+    /// If never checked, schedule first check within 60 seconds
+    pub fn initialize_on_start(&mut self) {
+        if self.last_check_at == 0 && self.mode == UpdateMode::Auto {
+            // Never checked - schedule within 60 seconds
+            self.next_check_at = Self::now_epoch() + 60;
+        } else if self.next_check_at == 0 && self.mode == UpdateMode::Auto {
+            // No next check scheduled - schedule based on last check
+            self.next_check_at = self.last_check_at + self.interval_seconds;
+        }
     }
 
-    /// Check if an update check is due
-    pub fn is_check_due(&self) -> bool {
-        self.next_check_epoch > 0 && Self::now_epoch() >= self.next_check_epoch
-    }
-
-    /// Format last check time for display (v7.29.0: real timestamp)
+    /// Format last check time for display (v7.34.0: real timestamp or "never")
     pub fn format_last_check(&self) -> String {
-        if self.last_check_epoch == 0 {
+        if self.last_check_at == 0 {
             return "never".to_string();
         }
-        format_epoch_time(self.last_check_epoch)
+        format_epoch_time(self.last_check_at)
     }
 
-    /// Format next check time for display (v7.29.0: real timestamp)
+    /// Format next check time for display (v7.34.0)
     pub fn format_next_check(&self) -> String {
-        if self.next_check_epoch == 0 {
+        if self.mode != UpdateMode::Auto {
+            return "n/a (not in auto mode)".to_string();
+        }
+        if self.next_check_at == 0 {
             return "not scheduled".to_string();
         }
         let now = Self::now_epoch();
-        if self.next_check_epoch <= now {
+        if self.next_check_at <= now {
             return "now".to_string();
         }
-        let secs = self.next_check_epoch - now;
+        let secs = self.next_check_at - now;
         if secs < 60 {
             format!("in {}s", secs)
         } else if secs < 3600 {
@@ -433,25 +512,45 @@ impl UpdateState {
         }
     }
 
-    /// Format last result for display
+    /// Format last result for display (v7.34.0)
     pub fn format_last_result(&self) -> String {
         match &self.last_result {
             UpdateResult::Pending => "pending".to_string(),
-            UpdateResult::Ok => "ok".to_string(),
+            UpdateResult::Ok => "up to date".to_string(),
             UpdateResult::UpdateAvailable => {
-                if let Some(ref ver) = self.latest_version {
-                    format!("update available: {}", ver)
+                if let Some(ref ver) = self.last_checked_version_available {
+                    format!("{} -> {}", self.last_checked_version_installed, ver)
                 } else {
                     "update available".to_string()
                 }
             }
             UpdateResult::Failed => {
-                if let Some(ref reason) = self.last_failure_reason {
-                    format!("failed: {}", reason)
+                if let Some(ref error) = self.last_error {
+                    format!("error: {}", error)
                 } else {
-                    "failed".to_string()
+                    "error".to_string()
                 }
             }
+        }
+    }
+
+    /// Format mode for display
+    pub fn format_mode(&self) -> &'static str {
+        match self.mode {
+            UpdateMode::Auto => "auto",
+            UpdateMode::Manual => "manual",
+        }
+    }
+
+    /// Format interval for display
+    pub fn format_interval(&self) -> String {
+        let secs = self.interval_seconds;
+        if secs < 60 {
+            format!("{}s", secs)
+        } else if secs < 3600 {
+            format!("{}m", secs / 60)
+        } else {
+            format!("{}h", secs / 3600)
         }
     }
 }

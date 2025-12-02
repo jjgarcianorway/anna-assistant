@@ -1,4 +1,4 @@
-//! Anna Operations Log v7.12.0 - Internal Tooling Audit Trail
+//! Anna Operations Log v7.34.0 - Internal Tooling Audit Trail
 //!
 //! Records Anna's own tool installations and system operations.
 //! Lives at /var/lib/anna/internal/ops.log
@@ -397,6 +397,46 @@ impl OpsLogSummary {
         }
 
         parts.join(", ")
+    }
+}
+
+/// Simple ops log interface for v7.34.0 update subsystem
+/// Writes one-line entries to ops.log for audit trail
+pub struct OpsLog {
+    log_path: PathBuf,
+}
+
+impl OpsLog {
+    /// Open the ops log for writing
+    pub fn open() -> Self {
+        Self {
+            log_path: PathBuf::from(OPS_LOG_FILE),
+        }
+    }
+
+    /// Log an operation with optional details
+    /// Format: ISO8601 component action [details]
+    pub fn log(&mut self, component: &str, action: &str, details: Option<&str>) {
+        // Ensure directory exists
+        if let Some(parent) = self.log_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+
+        let timestamp = Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
+        let line = if let Some(d) = details {
+            format!("{} {} {} {}\n", timestamp, component, action, d)
+        } else {
+            format!("{} {} {}\n", timestamp, component, action)
+        };
+
+        // Append to log file
+        if let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.log_path)
+        {
+            let _ = file.write_all(line.as_bytes());
+        }
     }
 }
 

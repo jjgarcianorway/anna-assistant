@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v7.33.0 - Correctness & Completeness Release
+//! Anna Daemon (annad) v7.34.0 - Update Scheduler Fix
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -579,19 +579,32 @@ async fn main() -> Result<()> {
         }
     });
 
-    // v7.33.0: Spawn update scheduler task
+    // v7.34.0: Spawn update scheduler task with proper state management
     let current_version = env!("CARGO_PKG_VERSION").to_string();
     tokio::spawn(async move {
-        use anna_common::{TelemetryUpdateState, TelemetryUpdateMode, is_check_due, run_update_check};
+        use anna_common::config::{UpdateState, UpdateMode};
+        use anna_common::{is_check_due, run_update_check, CheckResult};
 
-        let mut interval = tokio::time::interval(Duration::from_secs(60)); // Check every minute
-        info!("[>]  Update scheduler: checking every 60s if auto-check is due");
+        // Initialize state on daemon start
+        {
+            let mut state = UpdateState::load();
+            state.initialize_on_start();
+            if let Err(e) = state.save() {
+                warn!("[!]  Failed to initialize update state: {}", e);
+            } else {
+                info!("[>]  Update scheduler initialized: mode={}, next_check={}",
+                    state.format_mode(), state.format_next_check());
+            }
+        }
+
+        let mut interval = tokio::time::interval(Duration::from_secs(30)); // Check every 30s
+        info!("[>]  Update scheduler: checking every 30s if auto-check is due");
 
         loop {
             interval.tick().await;
 
-            let state = TelemetryUpdateState::load();
-            if state.mode != TelemetryUpdateMode::Auto {
+            let state = UpdateState::load();
+            if state.mode != UpdateMode::Auto {
                 continue;
             }
 
@@ -600,25 +613,18 @@ async fn main() -> Result<()> {
             }
 
             info!("[*]  Running scheduled update check...");
-            let result = run_update_check(&state.target, &current_version);
-
-            let mut new_state = TelemetryUpdateState::load();
-            new_state.record_check(result.clone());
-            if let Err(e) = new_state.save() {
-                warn!("[!]  Failed to save update state: {}", e);
-            }
+            let result = run_update_check(&current_version);
 
             match &result {
-                anna_common::TelemetryUpdateResult::NoUpdates => {
-                    info!("[+]  Update check: no updates available");
+                CheckResult::UpToDate => {
+                    info!("[+]  Update check: up to date (v{})", current_version);
                 }
-                anna_common::TelemetryUpdateResult::UpdatesAvailable { count } => {
-                    info!("[+]  Update check: {} update(s) available", count);
+                CheckResult::UpdateAvailable { version } => {
+                    info!("[+]  Update check: v{} available (current: v{})", version, current_version);
                 }
-                anna_common::TelemetryUpdateResult::Failed { error } => {
-                    warn!("[!]  Update check failed: {}", error);
+                CheckResult::Error { message } => {
+                    warn!("[!]  Update check failed: {}", message);
                 }
-                anna_common::TelemetryUpdateResult::Pending => {}
             }
         }
     });

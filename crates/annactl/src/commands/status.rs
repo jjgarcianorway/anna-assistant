@@ -859,30 +859,23 @@ fn print_log_summary_section() {
 fn print_updates_section() {
     println!("{}", "[UPDATES]".cyan());
 
-    let config = AnnaConfig::load();
     let state = UpdateState::load();
 
-    // v7.31.0: Check if daemon is running for truthful status
+    // v7.34.0: Check if daemon is running for truthful status
     let daemon_running = is_daemon_running();
 
-    // v7.29.0: Use new UpdateMode enum
-    use anna_common::config::UpdateMode;
-    let mode_str = match config.update.mode {
-        UpdateMode::Auto => "auto",
-        UpdateMode::Manual => "manual",
-    };
-    println!("  Mode:       {}", mode_str);
+    // Mode from state (v7.34.0: state is authoritative)
+    println!("  Mode:       {}", state.format_mode());
 
     // Target: what is being checked
     println!("  Target:     Anna releases (GitHub)");
 
-    // Interval (in seconds, display as minutes)
-    let interval_mins = config.update.interval_seconds / 60;
-    println!("  Interval:   {}m", interval_mins);
+    // Interval
+    println!("  Interval:   {}", state.format_interval());
 
-    // Last check - v7.31.0: show "unavailable" if daemon not running and never checked
-    let last_check_str = if !daemon_running && state.last_check_epoch == 0 {
-        "unavailable (daemon not running)".to_string()
+    // Last check - v7.34.0: show real timestamp or "never"
+    let last_check_str = if !daemon_running && state.last_check_at == 0 {
+        "never (daemon not running)".to_string()
     } else {
         state.format_last_check()
     };
@@ -891,18 +884,33 @@ fn print_updates_section() {
     // Result
     println!("  Result:     {}", state.format_last_result());
 
-    // Next check - v7.31.0: show proper status based on daemon state
-    let next_str = match config.update.mode {
+    // Next check - v7.34.0: show proper status based on daemon state
+    use anna_common::config::UpdateMode;
+    let next_str = match state.mode {
         UpdateMode::Auto => {
             if !daemon_running {
-                "unavailable (daemon not running)".to_string()
+                "not running (daemon down)".to_string()
             } else {
                 state.format_next_check()
             }
         }
-        UpdateMode::Manual => "not scheduled (manual mode)".to_string(),
+        UpdateMode::Manual => "n/a (manual mode)".to_string(),
     };
     println!("  Next check: {}", next_str);
+
+    // Show error if last check failed
+    if let Some(ref error) = state.last_error {
+        println!("  Error:      {}", error.dimmed());
+    }
+
+    // Show available version if update is available
+    if let Some(ref ver) = state.last_checked_version_available {
+        if !state.last_checked_version_installed.is_empty() {
+            println!("  Available:  {} -> {}",
+                state.last_checked_version_installed,
+                ver.green());
+        }
+    }
 
     println!();
 }
