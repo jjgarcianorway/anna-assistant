@@ -43,7 +43,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="7.40.0"
+INSTALLER_VERSION="7.42.1"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -764,21 +764,36 @@ main() {
 
     print_header "STARTING DAEMON"
 
-    # v7.29.0: Strict daemon validation
-    # The installer MUST guarantee annad is running after install/upgrade
+    # v7.42.1: Installer MUST restart daemon on update to load new binaries
+    # v7.29.0: Strict daemon validation - guarantee annad is running
 
     log_info "Reloading systemd configuration..."
     $SUDO systemctl daemon-reload
 
-    log_info "Enabling and starting annad service..."
-    if ! $SUDO systemctl enable --now annad 2>/dev/null; then
-        log_error "Failed to enable and start annad service"
-        log_error "Showing recent logs:"
-        print_line
-        $SUDO journalctl -u annad -b -n 80 --no-pager 2>/dev/null || true
-        print_line
-        log_to_file "Installer: action=${PLANNED_ACTION} result=daemon_start_failed"
-        exit 1
+    # v7.42.1: Always restart if daemon was already running (to load new binary)
+    # Otherwise enable and start for fresh installs
+    if $SUDO systemctl is-active --quiet annad 2>/dev/null; then
+        log_info "Restarting annad service (loading new binary)..."
+        if ! $SUDO systemctl restart annad 2>/dev/null; then
+            log_error "Failed to restart annad service"
+            log_error "Showing recent logs:"
+            print_line
+            $SUDO journalctl -u annad -b -n 80 --no-pager 2>/dev/null || true
+            print_line
+            log_to_file "Installer: action=${PLANNED_ACTION} result=daemon_restart_failed"
+            exit 1
+        fi
+    else
+        log_info "Enabling and starting annad service..."
+        if ! $SUDO systemctl enable --now annad 2>/dev/null; then
+            log_error "Failed to enable and start annad service"
+            log_error "Showing recent logs:"
+            print_line
+            $SUDO journalctl -u annad -b -n 80 --no-pager 2>/dev/null || true
+            print_line
+            log_to_file "Installer: action=${PLANNED_ACTION} result=daemon_start_failed"
+            exit 1
+        fi
     fi
 
     # Wait for daemon to stabilize
