@@ -1,4 +1,4 @@
-//! Status Command v7.19.0 - Topology Hints and Signal Quality
+//! Status Command v7.20.0 - Telemetry Trends & Log Summary
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
@@ -7,6 +7,8 @@
 //! - [LAST BOOT]           Boot timeline with kernel, duration, failed units (v7.18.0)
 //! - [INVENTORY]           What Anna has indexed + sync status
 //! - [TELEMETRY]           Real telemetry with top CPU/memory and trends
+//! - [TELEMETRY SUMMARY]   Services with notable trends (v7.20.0)
+//! - [LOG SUMMARY]         Components with new patterns since baseline (v7.20.0)
 //! - [RESOURCE HOTSPOTS]   Top resource consumers with health notes
 //! - [RECENT CHANGES]      Last 5 system changes from journal (v7.18.0)
 //! - [UPDATES]             Auto-update schedule and last result
@@ -16,6 +18,7 @@
 //! - [TOPOLOGY HINTS]      High-impact services and driver stacks (v7.19.0)
 //! - [ANNA NEEDS]          Missing tools and docs
 //!
+//! v7.20.0: [TELEMETRY SUMMARY] + [LOG SUMMARY] with deterministic trend labels
 //! v7.19.0: [TOPOLOGY HINTS] shows services with many deps and multi-stack drivers
 //! v7.18.0: [LAST BOOT] shows boot health, [RECENT CHANGES] shows system changes
 //! v7.12.0: [PATHS] now shows local docs status
@@ -36,6 +39,8 @@ use anna_common::{OpsLogReader, INTERNAL_DIR, OPS_LOG_FILE};
 use anna_common::{get_recent_changes, get_current_boot_summary};
 // v7.19.0: Service topology hints
 use anna_common::grounded::service_topology::{get_high_impact_services, get_gpu_driver_stacks};
+// v7.20.0: Telemetry trends and log baselines
+use anna_common::{get_process_trends, TrendDirection, get_components_with_new_patterns};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -68,6 +73,12 @@ pub async fn run() -> Result<()> {
 
     // [TELEMETRY] - v7.9.0: Unified section with trends
     print_telemetry_section_v79();
+
+    // [TELEMETRY SUMMARY] - v7.20.0: Notable trend changes
+    print_telemetry_summary_section();
+
+    // [LOG SUMMARY] - v7.20.0: Components with new patterns since baseline
+    print_log_summary_section();
 
     // [RESOURCE HOTSPOTS] - v7.11.0: Top consumers with health notes
     print_resource_hotspots_section();
@@ -562,6 +573,125 @@ fn print_telemetry_section_v79() {
             println!();
         }
     }
+}
+
+/// v7.20.0: [TELEMETRY SUMMARY] section - show services with notable trends
+fn print_telemetry_summary_section() {
+    use anna_common::config::AnnaConfig;
+
+    let config = AnnaConfig::load();
+    if !config.telemetry.enabled {
+        return;  // Skip if telemetry disabled (already shown in [TELEMETRY])
+    }
+
+    let db = match TelemetryDb::open_readonly() {
+        Some(db) => db,
+        None => return,
+    };
+
+    // Get identities with notable trends
+    let mut notable: Vec<(String, TrendDirection, &'static str)> = Vec::new();
+
+    // Get top CPU and memory identities and check their trends
+    if let Ok(top_cpu) = db.top_cpu_with_trend(10) {
+        for entry in &top_cpu {
+            let trends = get_process_trends(&entry.name);
+
+            // Check CPU trend - only include increasing trends
+            if trends.cpu_trend_24h_vs_7d.is_increasing()
+                && !matches!(trends.cpu_trend_24h_vs_7d, TrendDirection::Stable | TrendDirection::InsufficientData)
+            {
+                notable.push((entry.name.clone(), trends.cpu_trend_24h_vs_7d, "CPU"));
+            }
+        }
+    }
+
+    if let Ok(top_mem) = db.top_memory_with_trend(10) {
+        for entry in &top_mem {
+            let trends = get_process_trends(&entry.name);
+
+            // Check memory trend - only include increasing trends
+            if trends.mem_trend_24h_vs_7d.is_increasing()
+                && !matches!(trends.mem_trend_24h_vs_7d, TrendDirection::Stable | TrendDirection::InsufficientData)
+            {
+                // Avoid duplicates from CPU list
+                if !notable.iter().any(|(n, _, r)| n == &entry.name && *r == "memory") {
+                    notable.push((entry.name.clone(), trends.mem_trend_24h_vs_7d, "memory"));
+                }
+            }
+        }
+    }
+
+    // Only show section if there are notable trends
+    if notable.is_empty() {
+        return;
+    }
+
+    println!("{}", "[TELEMETRY SUMMARY]".cyan());
+    println!("  {}", "(services with increasing resource usage 24h vs 7d)".dimmed());
+    println!();
+
+    // Sort by trend severity (MuchHigher first)
+    notable.sort_by(|a, b| {
+        let a_severity = match a.1 {
+            TrendDirection::MuchHigher => 3,
+            TrendDirection::Higher => 2,
+            TrendDirection::SlightlyHigher => 1,
+            _ => 0,
+        };
+        let b_severity = match b.1 {
+            TrendDirection::MuchHigher => 3,
+            TrendDirection::Higher => 2,
+            TrendDirection::SlightlyHigher => 1,
+            _ => 0,
+        };
+        b_severity.cmp(&a_severity)
+    });
+
+    for (name, trend, resource) in notable.iter().take(5) {
+        let label = trend.label();
+        let colored_label = match label {
+            "much higher" => label.red().to_string(),
+            "higher" => label.yellow().to_string(),
+            _ => label.to_string(),
+        };
+        println!("  {:<16} {} {}", name.cyan(), resource, colored_label);
+    }
+
+    if notable.len() > 5 {
+        println!("  {} ({} more)", "...".dimmed(), notable.len() - 5);
+    }
+
+    println!();
+}
+
+/// v7.20.0: [LOG SUMMARY] section - components with new patterns since baseline
+fn print_log_summary_section() {
+    let components_with_new = get_components_with_new_patterns();
+
+    // Only show if there are components with new patterns
+    if components_with_new.is_empty() {
+        return;
+    }
+
+    println!("{}", "[LOG SUMMARY]".cyan());
+    println!("  {}", "(components with new patterns since baseline)".dimmed());
+    println!();
+
+    for (component, new_count) in components_with_new.iter().take(5) {
+        let count_colored = if *new_count > 5 {
+            new_count.to_string().red().to_string()
+        } else {
+            new_count.to_string().yellow().to_string()
+        };
+        println!("  {:<20} {} new patterns", component.cyan(), count_colored);
+    }
+
+    if components_with_new.len() > 5 {
+        println!("  {} ({} more)", "...".dimmed(), components_with_new.len() - 5);
+    }
+
+    println!();
 }
 
 fn print_updates_section() {

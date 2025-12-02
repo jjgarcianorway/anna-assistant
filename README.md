@@ -1,8 +1,8 @@
-# Anna v7.19.0 "Topology, Dependencies & Signal Quality"
+# Anna v7.20.0 "Telemetry Trends, Log Atlas & Golden Baselines"
 
 **System Intelligence Daemon for Linux**
 
-> v7.19.0: Clear dependency graphs, service topology, signal quality metrics, and topology hints. See [DRIVERS] and [HOT SIGNALS] in hw, [SIGNAL] in hw wifi/storage, [TOPOLOGY HINTS] in status, and cross-references between sw and hw.
+> v7.20.0: Deterministic trend labels (stable/higher/lower), log atlas with pattern IDs and cross-boot visibility, golden baselines for pattern comparison. See [TELEMETRY SUMMARY] and [LOG SUMMARY] in status, trend labels in [TELEMETRY] sections, and baseline tags in [LOGS] sections.
 
 ---
 
@@ -60,6 +60,77 @@ annactl hw gpu
 annactl hw storage
 annactl hw network
 ```
+
+---
+
+## v7.20.0 Features
+
+### Deterministic Telemetry Trends
+
+Telemetry sections now show deterministic trend labels comparing 24h vs 7d averages:
+
+```
+[TELEMETRY]
+  (source: Anna daemon, sampling every 30s)
+
+  State (24h):     mostly active, moderate CPU
+
+  Trend (24h vs 7d):
+    CPU:    stable
+    Memory: slightly higher
+```
+
+Trend labels are mechanically defined:
+- **stable**: 24h avg within ±10% of 7d avg
+- **slightly higher/lower**: between ±10% and ±30%
+- **higher/lower**: between ±30% and ±50%
+- **much higher/lower**: more than ±50%
+
+### Log Atlas with Baseline Tags
+
+Log patterns now include baseline tags showing whether patterns are known or new:
+
+```
+[LOGS]
+
+  Boot 0 (current):
+    Warnings: 3
+
+  New patterns (first seen this boot):
+    [S01] "connection timeout to server" [new since baseline]
+           error (count: 2)
+
+  Known patterns:
+    [S02] "retrying DNS lookup" [known, baseline W01]
+           warning (boot: 5, 7d: 23, 3 boots)
+
+  Baseline:
+    Boot: -2, 1 known warning patterns
+```
+
+Golden baseline selection is deterministic:
+- First boot with no error/critical messages
+- And no more than 3 warning patterns
+
+### Status Summaries
+
+`annactl status` now shows [TELEMETRY SUMMARY] and [LOG SUMMARY] sections:
+
+```
+[TELEMETRY SUMMARY]
+  (services with increasing resource usage 24h vs 7d)
+
+  firefox          CPU much higher
+  code             memory slightly higher
+
+[LOG SUMMARY]
+  (components with new patterns since baseline)
+
+  NetworkManager.service   3 new patterns
+  systemd-resolved.service 1 new patterns
+```
+
+These appear only when there are notable trends or new patterns to report.
 
 ---
 
@@ -798,8 +869,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.16.0/annad-7.16.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.16.0/annactl-7.16.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.20.0/annad-7.20.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.20.0/annactl-7.20.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -887,7 +958,11 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.16.0** | **Log History & Service Lifecycle** - Multi-window log history, service lifecycle tracking, enhanced cross notes |
+| **v7.20.0** | **Telemetry Trends & Golden Baselines** - Deterministic trend labels, log atlas with pattern IDs, golden baselines for pattern comparison |
+| v7.19.0 | Topology, Dependencies & Signal Quality - Driver graphs, topology hints, WiFi/storage signal metrics |
+| v7.18.0 | Boot Timeline & History - Boot-anchored logs, system change tracking, pattern IDs with novelty |
+| v7.17.0 | Network & Storage Topology - Network routes/DNS, storage health, config graphs |
+| v7.16.0 | Log History & Service Lifecycle - Multi-window log history, service lifecycle tracking |
 | v7.15.0 | Deeper Hardware Insight - Structured hw overview, firmware/microcode, SMART health, battery profiles |
 | v7.14.0 | Log Patterns and Config Sanity - Pattern-based log grouping, config sanity checks, cross notes |
 | v7.13.0 | Dependency Graph and Network Awareness - deps for packages/services/drivers, network interfaces |

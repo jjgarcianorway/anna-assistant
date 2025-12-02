@@ -1,4 +1,4 @@
-//! HW Detail Command v7.19.0 - Hardware Profiles with Health/Driver/Logs/Signal
+//! HW Detail Command v7.20.0 - Hardware Profiles with Trends & Baseline Tags
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors)
@@ -15,8 +15,8 @@
 //! - [CAPACITY]     Battery-specific capacity/wear/cycles (v7.15.0)
 //! - [STATE]        Battery/power current state (v7.15.0)
 //! - [HISTORY]      Kernel/driver package changes (v7.18.0)
-//! - [TELEMETRY]    Anna telemetry with windows (v7.15.0: 1h/24h/7d trends)
-//! - [LOGS]         Boot-anchored patterns with novelty (v7.18.0)
+//! - [TELEMETRY]    Deterministic trend labels (stable/higher/lower) (v7.20.0)
+//! - [LOGS]         Boot-anchored patterns with baseline tags (v7.20.0)
 //! - Cross notes:   Links between components
 //!
 //! All data from system tools:
@@ -287,22 +287,30 @@ async fn run_cpu_profile() -> Result<()> {
     Ok(())
 }
 
-/// Print pattern-based kernel logs for a device/driver - v7.14.0
+/// Print pattern-based kernel logs for a device/driver - v7.20.0 with baseline tags
 fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
+    use anna_common::{find_or_create_device_baseline, tag_pattern, normalize_message};
+
     println!("{}", "[LOGS]".cyan());
 
     // v7.14.0: Use pattern extraction for driver
     let summary = extract_patterns_for_driver(device);
 
+    // v7.20.0: Try to get or create baseline for this device
+    let baseline = find_or_create_device_baseline(device, 5);
+
     if summary.is_empty() {
         println!();
         println!("  No warnings or errors recorded for this component in the current boot.");
+        if baseline.is_some() {
+            println!("  {}", "(baseline established)".dimmed());
+        }
         println!();
         println!("  {}", format!("Source: {}", summary.source).dimmed());
         return summary;
     }
 
-    // v7.14.0: Pattern summary header
+    // v7.20.0: Pattern summary header with baseline info
     println!();
     println!("  Patterns (this boot):");
     println!("    Total warnings/errors: {} ({} patterns)",
@@ -310,16 +318,21 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
              summary.pattern_count);
     println!();
 
-    // v7.14.0: Show top 3 patterns with counts and time hints
+    // v7.20.0: Show top 3 patterns with baseline tags
     for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
         let time_hint = format_time_short(&pattern.last_seen);
 
         // Truncate pattern for display if too long
-        let display_pattern = if pattern.pattern.len() > 55 {
-            format!("{}...", &pattern.pattern[..52])
+        let display_pattern = if pattern.pattern.len() > 45 {
+            format!("{}...", &pattern.pattern[..42])
         } else {
             pattern.pattern.clone()
         };
+
+        // v7.20.0: Get baseline tag for this pattern
+        let normalized = normalize_message(&pattern.pattern);
+        let baseline_tag = tag_pattern(device, &normalized);
+        let tag_str = baseline_tag.format();
 
         let count_str = if pattern.count == 1 {
             "seen 1 time".to_string()
@@ -327,7 +340,13 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
             format!("seen {} times", pattern.count)
         };
 
-        println!("    {}) \"{}\"", i + 1, display_pattern);
+        if tag_str.is_empty() {
+            println!("    {}) \"{}\"", i + 1, display_pattern);
+        } else if tag_str.contains("new since") {
+            println!("    {}) \"{}\" {}", i + 1, display_pattern, tag_str.yellow());
+        } else {
+            println!("    {}) \"{}\" {}", i + 1, display_pattern, tag_str.dimmed());
+        }
         println!("       ({}, last at {})", count_str.dimmed(), time_hint);
     }
 
@@ -337,6 +356,14 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
         println!("    {} ({} more patterns not shown)",
                  "...".dimmed(),
                  summary.pattern_count - 3);
+    }
+
+    // v7.20.0: Baseline info
+    if let Some(ref bl) = baseline {
+        println!();
+        println!("  Baseline:");
+        println!("    Boot: -{}, {} known warning patterns",
+                 bl.boot_id.abs(), bl.warning_count);
     }
 
     println!();

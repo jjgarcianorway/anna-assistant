@@ -1,4 +1,4 @@
-//! Anna Common v7.19.0 - Topology, Dependencies & Signal Quality
+//! Anna Common v7.20.0 - Telemetry Trends, Log Atlas & Golden Baselines
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -9,6 +9,7 @@
 //! v7.17.0: Network topology, storage mapping, config graph
 //! v7.18.0: Change journal, boot timeline, error focus with pattern IDs
 //! v7.19.0: Service topology, signal quality, topology hints, cross-references
+//! v7.20.0: Telemetry trends, log atlas with pattern IDs, golden baselines
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -26,6 +27,9 @@
 //! - Service topology: requires/wants/wanted-by relationships (v7.19.0)
 //! - Signal quality: WiFi dBm, storage SMART/NVMe health (v7.19.0)
 //! - Topology hints: high-impact services, driver stacks (v7.19.0)
+//! - Telemetry trends: deterministic trend labels (stable/higher/lower) (v7.20.0)
+//! - Log atlas: pattern IDs, cross-boot visibility (v7.20.0)
+//! - Golden baselines: baseline selection, new-since-baseline tagging (v7.20.0)
 //!
 //! Modules:
 //! - grounded: Real data from real system commands
@@ -70,6 +74,9 @@ pub mod service_state;
 pub mod telemetry;
 pub mod telemetry_db;
 pub mod telemetry_exec;
+pub mod telemetry_trends;
+pub mod log_atlas;
+pub mod golden_baseline;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -163,4 +170,21 @@ pub use log_patterns_enhanced::{
     LogPattern, PatternOccurrence, ServicePatternSummary,
     LogPatternAnalyzer, get_service_log_counts,
     LOG_PATTERNS_DIR,
+};
+// v7.20.0: Telemetry trends with deterministic labels
+pub use telemetry_trends::{
+    TrendDirection, WindowStats as TrendWindowStats, ProcessTrends, HardwareTrends,
+    SignalTrends, get_process_trends, format_bytes_short,
+};
+// v7.20.0: Log atlas with pattern IDs and cross-boot visibility
+pub use log_atlas::{
+    LogPattern as AtlasLogPattern, ComponentAtlas, BootLogEntry, CrossBootLogSummary,
+    get_service_log_atlas, get_device_log_atlas, normalize_message, format_timestamp_short,
+    JOURNAL_DIR as ATLAS_JOURNAL_DIR, BASELINE_DIR,
+};
+// v7.20.0: Golden baseline for pattern comparison
+pub use golden_baseline::{
+    GoldenBaseline, BaselineTag, MAX_BASELINE_WARNINGS,
+    find_or_create_service_baseline, find_or_create_device_baseline,
+    tag_pattern, get_components_with_new_patterns,
 };

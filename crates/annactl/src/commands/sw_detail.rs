@@ -1,4 +1,4 @@
-//! SW Detail Command v7.19.0 - Software Profiles with Topology Cross-References
+//! SW Detail Command v7.20.0 - Software Profiles with Trends & Baseline Tags
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -14,8 +14,8 @@
 //! - [CONFIG]       Primary/Secondary/Notes + Sanity notes (v7.14.0)
 //! - [CONFIG GRAPH] Ownership and consumers of config files (v7.17.0)
 //! - [HISTORY]      Package lifecycle and config changes (v7.18.0)
-//! - [LOGS]         Boot-anchored patterns with novelty (v7.18.0)
-//! - [TELEMETRY]    Real windows with peak/trend summaries (v7.14.0)
+//! - [LOGS]         Boot-anchored patterns with baseline tags (v7.20.0)
+//! - [TELEMETRY]    Deterministic trend labels (stable/higher/lower) (v7.20.0)
 //! - Cross notes:   Links between logs, telemetry, deps, config (v7.14.0)
 
 use anyhow::Result;
@@ -1246,10 +1246,10 @@ fn print_service_config_section(svc_name: &str) {
     println!();
 }
 
-/// Print [TELEMETRY] section with v7.12.0 format: State summary + windows + trends + health notes
+/// Print [TELEMETRY] section with v7.20.0 format: State + windows + deterministic trends
 fn print_telemetry_section(name: &str) {
     use anna_common::config::AnnaConfig;
-    use anna_common::{TelemetryDb, format_bytes_human,
+    use anna_common::{TelemetryDb, format_bytes_human, get_process_trends,
                       WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D};
 
     println!("{}", "[TELEMETRY]".cyan());
@@ -1346,27 +1346,48 @@ fn print_telemetry_section(name: &str) {
     println!("{}", format_window("Last 30d", &stats_30d));
     println!();
 
-    // Trend section (24h vs 7d)
-    let mut has_trend = false;
-    if let Ok(trend) = db.get_trend(name) {
-        if trend.has_enough_data {
-            println!("  Trend:");
-            if let Some(cpu_trend) = trend.cpu_trend {
-                println!("    CPU:    {} (24h vs 7d)", cpu_trend.as_str());
-                has_trend = true;
-            }
-            if let Some(mem_trend) = trend.memory_trend {
-                println!("    Memory: {} (24h vs 7d)", mem_trend.as_str());
-                has_trend = true;
-            }
-            if has_trend {
-                println!();
-            }
+    // v7.20.0: Deterministic trend section using ProcessTrends
+    let trends = get_process_trends(name);
+    if trends.has_cpu_data() || trends.has_mem_data() {
+        println!("  Trend (24h vs 7d):");
+
+        // CPU trend with deterministic label
+        if trends.has_cpu_data() {
+            let cpu_label = trends.cpu_trend_24h_vs_7d.label();
+            let cpu_colored = format_trend_label(cpu_label, trends.cpu_trend_24h_vs_7d.is_increasing());
+            println!("    CPU:    {}", cpu_colored);
         }
+
+        // Memory trend with deterministic label
+        if trends.has_mem_data() {
+            let mem_label = trends.mem_trend_24h_vs_7d.label();
+            let mem_colored = format_trend_label(mem_label, trends.mem_trend_24h_vs_7d.is_increasing());
+            println!("    Memory: {}", mem_colored);
+        }
+
+        println!();
     }
 
     // v7.11.0: Health notes section - link telemetry with logs
     print_telemetry_health_notes(name, &stats_24h);
+}
+
+/// Format trend label with color - v7.20.0
+fn format_trend_label(label: &str, is_increasing: bool) -> String {
+    use owo_colors::OwoColorize;
+    match label {
+        "stable" => label.green().to_string(),
+        "slightly higher" | "slightly lower" => label.to_string(),
+        "higher" | "lower" => label.yellow().to_string(),
+        "much higher" | "much lower" => {
+            if is_increasing {
+                label.red().to_string()
+            } else {
+                label.yellow().to_string()
+            }
+        }
+        _ => label.dimmed().to_string(),
+    }
 }
 
 /// v7.12.0: Derive telemetry state summary based on thresholds
@@ -1784,9 +1805,10 @@ fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
 // v7.18.0: Boot-Anchored Logs with Pattern IDs and Novelty
 // ============================================================================
 
-/// Print [LOGS] section with v7.18.0 boot-anchored patterns and novelty detection
+/// Print [LOGS] section with v7.20.0 boot-anchored patterns and baseline tags
 fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
     use anna_common::log_patterns_enhanced::LogPatternAnalyzer;
+    use anna_common::{find_or_create_service_baseline, tag_pattern, normalize_message};
 
     println!("{}", "[LOGS]".cyan());
 
@@ -1798,9 +1820,15 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
     let analyzer = LogPatternAnalyzer::new();
     let pattern_summary = analyzer.get_patterns_for_service(service_name);
 
+    // v7.20.0: Try to get or create baseline for this service
+    let baseline = find_or_create_service_baseline(unit_name, 5);
+
     if summary.is_empty_this_boot() && pattern_summary.current_boot.is_empty() {
         println!();
         println!("  No warnings or errors recorded for this component.");
+        if baseline.is_some() {
+            println!("  {}", "(baseline established)".dimmed());
+        }
         println!();
         println!("  {}", format!("Source: {}", summary.source).dimmed());
         return summary;
@@ -1808,7 +1836,7 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
 
     println!();
 
-    // v7.18.0: Boot-anchored view with novelty
+    // v7.20.0: Boot-anchored view with baseline info
     println!("  Boot 0 (current):");
     let total_this_boot = summary.total_this_boot();
     if total_this_boot == 0 {
@@ -1826,18 +1854,24 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
     }
     println!();
 
-    // v7.18.0: Show new patterns (not seen before this boot)
+    // v7.20.0: Show new patterns with baseline tags
     if !pattern_summary.new_this_boot.is_empty() {
         println!("  {} (first seen this boot):", "New patterns".yellow());
         for occurrence in pattern_summary.new_this_boot.iter().take(3) {
-            let display = if occurrence.pattern.template.len() > 50 {
-                format!("{}...", &occurrence.pattern.template[..47])
+            let display = if occurrence.pattern.template.len() > 45 {
+                format!("{}...", &occurrence.pattern.template[..42])
             } else {
                 occurrence.pattern.template.clone()
             };
-            println!("    [{}] \"{}\"",
+
+            // v7.20.0: Get baseline tag for this pattern
+            let normalized = normalize_message(&occurrence.pattern.template);
+            let baseline_tag = tag_pattern(unit_name, &normalized);
+
+            println!("    [{}] \"{}\" {}",
                      occurrence.pattern.short_id().yellow(),
-                     display);
+                     display,
+                     baseline_tag.format().yellow());
             println!("           {} (count: {})",
                      occurrence.pattern.priority.dimmed(),
                      occurrence.count_this_boot);
@@ -1850,24 +1884,36 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
         println!();
     }
 
-    // v7.18.0: Show known patterns with history
+    // v7.20.0: Show known patterns with baseline tags
     if !pattern_summary.known_patterns.is_empty() {
         println!("  Known patterns:");
         for occurrence in pattern_summary.known_patterns.iter().take(3) {
-            let display = if occurrence.pattern.template.len() > 50 {
-                format!("{}...", &occurrence.pattern.template[..47])
+            let display = if occurrence.pattern.template.len() > 45 {
+                format!("{}...", &occurrence.pattern.template[..42])
             } else {
                 occurrence.pattern.template.clone()
             };
+
+            // v7.20.0: Get baseline tag for this pattern
+            let normalized = normalize_message(&occurrence.pattern.template);
+            let baseline_tag = tag_pattern(unit_name, &normalized);
+            let tag_str = baseline_tag.format();
 
             let history = format!("boot: {}, 7d: {}, {} boots",
                                   occurrence.count_this_boot,
                                   occurrence.count_7d,
                                   occurrence.boots_seen);
 
-            println!("    [{}] \"{}\"",
-                     occurrence.pattern.short_id().dimmed(),
-                     display);
+            if tag_str.is_empty() {
+                println!("    [{}] \"{}\"",
+                         occurrence.pattern.short_id().dimmed(),
+                         display);
+            } else {
+                println!("    [{}] \"{}\" {}",
+                         occurrence.pattern.short_id().dimmed(),
+                         display,
+                         tag_str.dimmed());
+            }
             println!("           {} ({})",
                      occurrence.pattern.priority.dimmed(),
                      history.dimmed());
@@ -1877,6 +1923,14 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
                      "...".dimmed(),
                      pattern_summary.known_patterns.len() - 3);
         }
+        println!();
+    }
+
+    // v7.20.0: Baseline info
+    if let Some(ref bl) = baseline {
+        println!("  Baseline:");
+        println!("    Boot: -{}, {} known warning patterns",
+                 bl.boot_id.abs(), bl.warning_count);
         println!();
     }
 
