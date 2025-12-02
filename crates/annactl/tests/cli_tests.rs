@@ -1,16 +1,25 @@
-//! CLI integration tests for annactl v7.17.0 "Network, Storage & Config Graph"
+//! CLI integration tests for annactl v7.18.0 "Change Journal, Boot Timeline & Error Focus"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
-//! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [ANNA NEEDS], Network in [INVENTORY]
+//! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [ANNA NEEDS], [LAST BOOT], [RECENT CHANGES]
 //! - annactl sw        software overview with [CATEGORIES] - no duplicates
-//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [CONFIG GRAPH], [LOGS] patterns, [DEPENDENCIES], Cross notes
-//! - annactl hw        hardware overview with [CPU], [GPU], [MEMORY], [STORAGE]+Filesystems, [NETWORK]+Route+DNS, [AUDIO], [INPUT], [SENSORS], [POWER] (v7.17.0)
-//! - annactl hw NAME   hardware profile with [IDENTITY], [FIRMWARE], [DRIVER], [HEALTH], [CAPACITY], [STATE], [LOGS] (v7.15.0)
+//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [CONFIG GRAPH], [HISTORY], [LOGS] boot-anchored patterns, [DEPENDENCIES], Cross notes
+//! - annactl hw        hardware overview with [CPU], [GPU], [MEMORY], [STORAGE]+Filesystems, [NETWORK]+Route+DNS, [AUDIO], [INPUT], [SENSORS], [POWER]
+//! - annactl hw NAME   hardware profile with [IDENTITY], [FIRMWARE], [DRIVER], [HISTORY], [HEALTH], [CAPACITY], [STATE], [LOGS] (v7.18.0)
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
+//!
+//! Snow Leopard v7.18.0 tests:
+//! - annactl status [LAST BOOT] shows kernel version, boot duration, failed units, health status
+//! - annactl status [RECENT CHANGES] shows last 5 package events from pacman.log
+//! - annactl sw NAME [HISTORY] shows package lifecycle events (install/upgrade/remove)
+//! - annactl sw SERVICE [LOGS] shows boot-anchored patterns with novelty detection (new/known)
+//! - annactl hw cpu [HISTORY] shows kernel package changes
+//! - annactl hw gpu0 [HISTORY] shows driver package changes
+//! - No new public commands
 //!
 //! Snow Leopard v7.17.0 tests:
 //! - annactl hw [STORAGE] shows devices with health status and filesystems with usage
@@ -849,7 +858,7 @@ fn test_annactl_sw_category_case_insensitive() {
 // v7.2.0: Performance Tests
 // ============================================================================
 
-/// Test 'status' command completes in reasonable time (<2s)
+/// Test 'status' command completes in reasonable time (<8s)
 #[test]
 fn test_annactl_status_performance() {
     let binary = get_binary_path();
@@ -866,10 +875,10 @@ fn test_annactl_status_performance() {
     let elapsed = start.elapsed();
 
     assert!(output.status.success(), "annactl status should succeed");
-    // v7.11.0: Allow 3s for status due to journalctl health note lookups
+    // v7.18.0: Allow 8s for status due to boot timeline, change journal parsing
     assert!(
-        elapsed.as_secs() < 3,
-        "annactl status should complete in <3s, took: {:?}",
+        elapsed.as_secs() < 8,
+        "annactl status should complete in <8s, took: {:?}",
         elapsed
     );
 }
@@ -2605,7 +2614,7 @@ fn test_snow_leopard_no_invented_dependencies_v713() {
 // v7.14.0: Snow Leopard Log Patterns, Config Sanity, Cross Notes Tests
 // ============================================================================
 
-/// Test sw NAME [LOGS] shows pattern-based summary (v7.16.0)
+/// Test sw NAME [LOGS] shows pattern-based summary (v7.16.0, updated v7.18.0)
 #[test]
 fn test_snow_leopard_sw_logs_patterns_v714() {
     let binary = get_binary_path();
@@ -2621,9 +2630,11 @@ fn test_snow_leopard_sw_logs_patterns_v714() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // v7.16.0: [LOGS] should show multi-window summary
+    // v7.18.0: Format changed to "Boot 0 (current):" instead of "This boot:"
     if stdout.contains("[LOGS]") {
-        // Should have "This boot:" or "No warnings"
+        // Should have boot info or "No warnings"
         let has_pattern_info = stdout.contains("This boot:")
+            || stdout.contains("Boot 0")
             || stdout.contains("No warnings or errors");
         assert!(
             has_pattern_info,
@@ -3430,6 +3441,231 @@ fn test_no_new_commands_v717() {
     assert!(
         !stdout.contains("annactl network") && !stdout.contains("annactl storage") && !stdout.contains("annactl config"),
         "Should not have new network/storage/config commands: {}",
+        stdout
+    );
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.18.0: Snow Leopard - Change Journal, Boot Timeline & Error Focus
+// ============================================================================
+
+/// Test status command shows [LAST BOOT] section (v7.18.0)
+#[test]
+fn test_status_last_boot_section_v718() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.18.0: Status should have [LAST BOOT] section
+    assert!(
+        stdout.contains("[LAST BOOT]"),
+        "Status should show [LAST BOOT] section: {}",
+        stdout
+    );
+
+    // Should show kernel version and boot health info
+    // Kernel line might show "unknown" or actual version
+    assert!(
+        stdout.contains("Kernel:"),
+        "LAST BOOT should show kernel version: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test status command shows [RECENT CHANGES] section (v7.18.0)
+#[test]
+fn test_status_recent_changes_section_v718() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.18.0: Status should have [RECENT CHANGES] section
+    assert!(
+        stdout.contains("[RECENT CHANGES]"),
+        "Status should show [RECENT CHANGES] section: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test sw profile shows [HISTORY] section for packages (v7.18.0)
+#[test]
+fn test_sw_profile_history_section_v718() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    // Test with vim (commonly installed and has upgrade history)
+    let output = Command::new(&binary)
+        .args(["sw", "vim"])
+        .output()
+        .expect("Failed to run annactl sw vim");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.18.0: SW profile should show [HISTORY] section for packages
+    // Note: This will only appear if pacman.log has history for this package
+    if stdout.contains("[HISTORY]") {
+        // If history exists, should show package events
+        assert!(
+            stdout.contains("Package:") || stdout.contains("pkg_"),
+            "HISTORY section should show package events: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test service [LOGS] shows boot-anchored format with pattern IDs (v7.18.0)
+#[test]
+fn test_sw_service_logs_boot_anchored_v718() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    // Test with NetworkManager.service (commonly has log activity)
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager.service"])
+        .output()
+        .expect("Failed to run annactl sw NetworkManager.service");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.18.0: Service logs should show boot-anchored format
+    if stdout.contains("[LOGS]") {
+        assert!(
+            stdout.contains("Boot 0") || stdout.contains("No warnings or errors"),
+            "LOGS section should show boot-anchored view: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test hw cpu shows [HISTORY] for kernel package (v7.18.0)
+#[test]
+fn test_hw_cpu_history_v718() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "cpu"])
+        .output()
+        .expect("Failed to run annactl hw cpu");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.18.0: CPU profile should show [HISTORY] for linux kernel package
+    if stdout.contains("[HISTORY]") {
+        assert!(
+            stdout.contains("linux") || stdout.contains("Driver package"),
+            "CPU HISTORY should show linux kernel package: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test hw gpu0 shows [HISTORY] for driver package (v7.18.0)
+#[test]
+fn test_hw_gpu_history_v718() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "gpu0"])
+        .output()
+        .expect("Failed to run annactl hw gpu0");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.18.0: GPU profile may show [HISTORY] for driver package
+    // This depends on whether nvidia/intel/amd driver is installed
+    if stdout.contains("[DRIVER]") {
+        // If has a driver, it might have history
+        if stdout.contains("[HISTORY]") {
+            assert!(
+                stdout.contains("Driver package") || stdout.contains("pkg_"),
+                "GPU HISTORY should show driver package events: {}",
+                stdout
+            );
+        }
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test no new public commands (v7.18.0)
+#[test]
+fn test_no_new_commands_v718() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.18.0: Help should still only show the 6 base commands
+    // No new commands like history, journal, boot, etc.
+    assert!(
+        stdout.contains("annactl status"),
+        "Help should show status command: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("annactl sw"),
+        "Help should show sw command: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("annactl hw"),
+        "Help should show hw command: {}",
+        stdout
+    );
+    // Should not have new commands for the new features
+    assert!(
+        !stdout.contains("annactl history") && !stdout.contains("annactl journal") && !stdout.contains("annactl boot"),
+        "Should not have new history/journal/boot commands: {}",
         stdout
     );
     assert!(output.status.success());

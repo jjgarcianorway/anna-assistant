@@ -1,8 +1,8 @@
-# Anna v7.17.0 "Network, Storage & Config Graph"
+# Anna v7.18.0 "Change Journal, Boot Timeline & Error Focus"
 
 **System Intelligence Daemon for Linux**
 
-> v7.17.0: Enhanced network topology (interfaces, default route, DNS), storage with device health and filesystem usage, config graph showing which configs each component reads.
+> v7.18.0: Track what changed and when with change journal, boot timeline health summaries, and enhanced error patterns with novelty detection. See [LAST BOOT] and [RECENT CHANGES] in status, [HISTORY] in profiles.
 
 ---
 
@@ -60,6 +60,83 @@ annactl hw gpu
 annactl hw storage
 annactl hw network
 ```
+
+---
+
+## v7.18.0 Features
+
+### Boot Timeline and Recent Changes in Status
+
+`annactl status` now shows boot health and recent system changes:
+
+```
+[LAST BOOT]
+  Started:    2025-11-30 20:50
+  Kernel:     6.17.9-arch1-1
+  Duration:   22s to graphical.target
+  Health:     OK (0 failed units, 1 warnings)
+
+[RECENT CHANGES]
+  (source: pacman.log)
+    2025-12-01 14:23  pkg_upgrade  linux        6.17.8.arch1-1 -> 6.17.9.arch1-1
+    2025-12-01 14:23  pkg_upgrade  nvidia       570.133.07-4 -> 570.133.07-5
+    2025-11-30 18:04  pkg_upgrade  firefox      132.0.2-1 -> 133.0-1
+```
+
+Boot timeline shows:
+- Boot timestamp and kernel version
+- Duration to reach graphical.target
+- Failed units count and warning count
+- Overall health status (OK/Warning/Critical)
+
+Recent changes tracks:
+- Package installs, upgrades, and removals from pacman.log
+- Last 5 events shown in status
+
+### History Section in Profiles
+
+Software and hardware profiles now show [HISTORY] sections:
+
+```
+[HISTORY]
+  (source: pacman.log, change journal)
+  Package:
+    2025-03-15 18:59  pkg_install  vim  9.1.1198-1
+    2025-03-25 09:51  pkg_upgrade  vim  9.1.1198-1 -> 9.1.1236-1
+    2025-04-30 01:01  pkg_upgrade  vim  9.1.1236-1 -> 9.1.1337-1
+    ... (7 more events)
+```
+
+Hardware profiles (cpu, gpu0) show driver package history:
+- CPU shows linux kernel package upgrades
+- GPU shows nvidia/mesa driver updates
+
+### Boot-Anchored Log Patterns with Pattern IDs
+
+Service logs now use boot-anchored view with pattern IDs and novelty detection:
+
+```
+[LOGS]
+
+  Boot 0 (current):
+    Warnings: 1
+
+  New patterns (first seen this boot):
+    [c135] "NetworkManager[1163]: <warn>  [1764532230.9456]..."
+           error (count: 1)
+
+  Known patterns:
+    [a2b7] "connection to %IP% timed out"
+           error (boot: 2, 7d: 15, 5 boots)
+
+  Boot -1 (previous):
+    3 patterns, 8 total events
+```
+
+Each pattern has:
+- Stable pattern ID (hash of service+priority+normalized message)
+- Novelty indicator (new this boot vs known from previous boots)
+- Count per boot and historical context (7d, boots seen)
 
 ---
 

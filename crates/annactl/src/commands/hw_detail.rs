@@ -1,4 +1,4 @@
-//! HW Detail Command v7.16.0 - Hardware Profiles with Health/Driver/Logs
+//! HW Detail Command v7.18.0 - Hardware Profiles with Health/Driver/Logs
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors)
@@ -14,8 +14,9 @@
 //! - [HEALTH]       Real health metrics (temps, SMART, errors)
 //! - [CAPACITY]     Battery-specific capacity/wear/cycles (v7.15.0)
 //! - [STATE]        Battery/power current state (v7.15.0)
+//! - [HISTORY]      Kernel/driver package changes (v7.18.0)
 //! - [TELEMETRY]    Anna telemetry with windows (v7.15.0: 1h/24h/7d trends)
-//! - [LOGS]         Multi-window history (this boot, 24h, 7d) (v7.16.0)
+//! - [LOGS]         Boot-anchored patterns with novelty (v7.18.0)
 //! - Cross notes:   Links between components
 //!
 //! All data from system tools:
@@ -48,6 +49,7 @@ use anna_common::grounded::log_patterns::{
     LogPatternSummary, LogHistorySummary, format_time_short,
 };
 use anna_common::{find_hardware_related_units, ServiceLifecycle};
+use anna_common::change_journal::get_package_history;
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -271,6 +273,9 @@ async fn run_cpu_profile() -> Result<()> {
 
     println!();
 
+    // [HISTORY] - v7.18.0: kernel package history
+    print_hw_history("linux");
+
     // [LOGS]
     let _log_summary = print_device_logs("cpu", &["thermal", "throttl", "mce", "cpu"]);
 
@@ -335,6 +340,60 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
     println!("  {}", format!("Source: {}", summary.source).dimmed());
 
     summary
+}
+
+/// Print [HISTORY] section for hardware - v7.18.0
+/// Shows kernel/driver package changes related to this hardware
+fn print_hw_history(driver_pkg: &str) {
+    use chrono::{DateTime, Local};
+
+    let pkg_history = get_package_history(driver_pkg);
+
+    // Skip if no history
+    if pkg_history.is_empty() {
+        return;
+    }
+
+    println!("{}", "[HISTORY]".cyan());
+    println!("  {}", "(source: pacman.log)".dimmed());
+
+    println!("  Driver package:");
+    for event in pkg_history.iter().take(3) {
+        let ts = DateTime::from_timestamp(event.timestamp as i64, 0)
+            .map(|dt| {
+                let local: DateTime<Local> = dt.into();
+                local.format("%Y-%m-%d %H:%M").to_string()
+            })
+            .unwrap_or_else(|| "unknown".to_string());
+
+        let action = event.change_type.as_str();
+        let details = event.details.as_ref()
+            .map(|d| {
+                if let Some(ref new_ver) = d.new_version {
+                    if let Some(ref old_ver) = d.old_version {
+                        format!("{} -> {}", old_ver, new_ver)
+                    } else {
+                        new_ver.clone()
+                    }
+                } else if let Some(ref ver) = d.version {
+                    ver.clone()
+                } else {
+                    String::new()
+                }
+            })
+            .unwrap_or_default();
+
+        if details.is_empty() {
+            println!("    {}  {:<12} {}", ts, action, driver_pkg);
+        } else {
+            println!("    {}  {:<12} {}  {}", ts, action, driver_pkg, details.dimmed());
+        }
+    }
+    if pkg_history.len() > 3 {
+        println!("    {} ({} more events)", "...".dimmed(), pkg_history.len() - 3);
+    }
+
+    println!();
 }
 
 // ============================================================================
@@ -557,6 +616,12 @@ async fn run_gpu_profile(name: &str) -> Result<()> {
             if fw_status.len() > 3 {
                 println!("    {} more files...", fw_status.len() - 3);
             }
+        }
+        // [HISTORY] - v7.18.0: driver package history
+        let pkg_for_history = get_driver_package(drv);
+        if let Some(pkg_name) = pkg_for_history {
+            println!();
+            print_hw_history(&pkg_name);
         }
     } else {
         println!("  Kernel module:   {}", "none".yellow());

@@ -1,4 +1,4 @@
-//! Anna Common v7.17.0 - Grounded System Intelligence
+//! Anna Common v7.18.0 - Grounded System Intelligence
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -7,6 +7,7 @@
 //! v7.7.0: Precise per-window aggregation and compact display format
 //! v7.16.0: Log history with multi-window patterns, service lifecycle tracking
 //! v7.17.0: Network topology, storage mapping, config graph
+//! v7.18.0: Change journal, boot timeline, error focus with pattern IDs
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -18,16 +19,22 @@
 //! - Network topology: routes, DNS, interface management
 //! - Storage: SMART/NVMe health, filesystem mounts
 //! - Config graph: ownership, consumers, includes
+//! - Change journal: package, service, config, kernel changes
+//! - Boot timeline: per-boot health, failed units, slow starts
+//! - Log patterns: stable IDs, novelty detection
 //!
 //! Modules:
 //! - grounded: Real data from real system commands
 //! - atomic_write: Atomic file write operations
+//! - boot_timeline: Per-boot health summary (v7.18.0+)
+//! - change_journal: System change tracking (v7.18.0+)
 //! - config: System configuration
 //! - display_format: Output formatting utilities
 //! - error_index: Log scanning and error aggregation
 //! - intrusion: Security event detection
 //! - knowledge_core: Object inventory and classification
 //! - knowledge_collector: System discovery
+//! - log_patterns_enhanced: Pattern IDs and novelty (v7.18.0+)
 //! - needs: Anna's tool and doc dependencies (v7.6.0+)
 //! - object_metadata: Static descriptions and relationships
 //! - ops_log: Anna's internal operations audit trail (v7.12.0+)
@@ -42,12 +49,15 @@ pub mod grounded;
 
 // Core modules
 pub mod atomic_write;
+pub mod boot_timeline;
+pub mod change_journal;
 pub mod config;
 pub mod display_format;
 pub mod error_index;
 pub mod intrusion;
 pub mod knowledge_collector;
 pub mod knowledge_core;
+pub mod log_patterns_enhanced;
 pub mod needs;
 pub mod object_metadata;
 pub mod ops_log;
@@ -129,4 +139,24 @@ pub use ops_log::{
 pub use service_lifecycle::{
     ServiceLifecycle, ServiceLifecycleSummary,
     find_related_units, find_hardware_related_units,
+};
+// v7.18.0: Change journal for tracking system changes
+pub use change_journal::{
+    ChangeType, ChangeEvent, ChangeDetails,
+    ChangeJournalWriter, ChangeJournalReader,
+    get_package_history, get_config_history, get_recent_changes,
+    scan_pacman_log, JOURNAL_DIR, JOURNAL_FILE,
+};
+// v7.18.0: Boot timeline for per-boot health view
+pub use boot_timeline::{
+    BootSummary, BootPhase, SlowUnit,
+    get_current_boot_summary, get_previous_boot_summary, get_boot_summary,
+    get_boot_list, get_service_log_patterns_by_boot, LogPatternEntry,
+    BOOT_TIMELINE_DIR,
+};
+// v7.18.0: Enhanced log patterns with pattern IDs and novelty
+pub use log_patterns_enhanced::{
+    LogPattern, PatternOccurrence, ServicePatternSummary,
+    LogPatternAnalyzer, get_service_log_counts,
+    LOG_PATTERNS_DIR,
 };

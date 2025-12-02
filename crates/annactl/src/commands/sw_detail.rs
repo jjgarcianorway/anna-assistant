@@ -1,4 +1,4 @@
-//! SW Detail Command v7.17.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.18.0 - Software Profiles and Category Overviews
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -13,7 +13,8 @@
 //! - [DEPENDENCIES] Package deps and service relations (v7.13.0)
 //! - [CONFIG]       Primary/Secondary/Notes + Sanity notes (v7.14.0)
 //! - [CONFIG GRAPH] Ownership and consumers of config files (v7.17.0)
-//! - [LOGS]         Multi-window history (this boot, 24h, 7d) (v7.16.0)
+//! - [HISTORY]      Package lifecycle and config changes (v7.18.0)
+//! - [LOGS]         Boot-anchored patterns with novelty (v7.18.0)
 //! - [TELEMETRY]    Real windows with peak/trend summaries (v7.14.0)
 //! - Cross notes:   Links between logs, telemetry, deps, config (v7.14.0)
 
@@ -34,6 +35,7 @@ use anna_common::grounded::{
     config_graph::get_config_graph_for_software,
 };
 use anna_common::ServiceLifecycle;
+use anna_common::change_journal::{get_package_history, get_config_history};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -394,6 +396,9 @@ fn print_package_profile(pkg: &Package) {
     // [CONFIG GRAPH] - v7.17.0: ownership and consumers
     print_config_graph_section(&pkg.name);
 
+    // [HISTORY] - v7.18.0: package and config history
+    print_history_section(&pkg.name);
+
     // [USAGE] - real telemetry
     print_telemetry_section(&pkg.name);
 }
@@ -437,6 +442,10 @@ fn print_command_profile(cmd: &SystemCommand) {
 
     // [CONFIG GRAPH] - v7.17.0
     print_config_graph_section(&cmd.name);
+
+    // [HISTORY] - v7.18.0: use package name for history if available
+    let history_name = cmd.owning_package.as_deref().unwrap_or(&cmd.name);
+    print_history_section(history_name);
 
     // [USAGE]
     print_telemetry_section(&cmd.name);
@@ -489,8 +498,11 @@ fn print_service_profile(svc: &Service, name: &str) {
     // [CONFIG]
     print_service_config_section(name);
 
-    // [LOGS] - v7.16.0: multi-window history
-    let log_summary = print_service_logs_v716(&unit_name);
+    // [HISTORY] - v7.18.0: package and config history
+    print_history_section(base_name);
+
+    // [LOGS] - v7.18.0: boot-anchored patterns with novelty
+    let log_summary = print_service_logs_v718(&unit_name);
 
     // [USAGE]
     print_telemetry_section(base_name);
@@ -861,6 +873,87 @@ fn print_config_graph_section(name: &str) {
                 "[not present]".dimmed().to_string()
             };
             println!("    {:<40} {}  {}", cfg.path, status, format!("({})", cfg.evidence).dimmed());
+        }
+    }
+
+    println!();
+}
+
+/// Print [HISTORY] section - v7.18.0
+/// Shows package lifecycle events and config file changes
+fn print_history_section(name: &str) {
+    use chrono::{DateTime, Local};
+
+    let pkg_history = get_package_history(name);
+    let config_history = get_config_history(name);
+
+    // Skip if no history
+    if pkg_history.is_empty() && config_history.is_empty() {
+        return;
+    }
+
+    println!("{}", "[HISTORY]".cyan());
+    println!("  {}", "(source: pacman.log, change journal)".dimmed());
+
+    // Package events
+    if !pkg_history.is_empty() {
+        println!("  Package:");
+        for event in pkg_history.iter().take(5) {
+            let ts = DateTime::from_timestamp(event.timestamp as i64, 0)
+                .map(|dt| {
+                    let local: DateTime<Local> = dt.into();
+                    local.format("%Y-%m-%d %H:%M").to_string()
+                })
+                .unwrap_or_else(|| "unknown".to_string());
+
+            let action = event.change_type.as_str();
+            let details = event.details.as_ref()
+                .map(|d| {
+                    if let Some(ref new_ver) = d.new_version {
+                        if let Some(ref old_ver) = d.old_version {
+                            format!("{} -> {}", old_ver, new_ver)
+                        } else {
+                            new_ver.clone()
+                        }
+                    } else if let Some(ref ver) = d.version {
+                        ver.clone()
+                    } else {
+                        String::new()
+                    }
+                })
+                .unwrap_or_default();
+
+            if details.is_empty() {
+                println!("    {}  {:<12} {}", ts, action, name);
+            } else {
+                println!("    {}  {:<12} {}  {}", ts, action, name, details.dimmed());
+            }
+        }
+        if pkg_history.len() > 5 {
+            println!("    {} ({} more events)", "...".dimmed(), pkg_history.len() - 5);
+        }
+    }
+
+    // Config changes
+    if !config_history.is_empty() {
+        println!("  Config:");
+        for event in config_history.iter().take(3) {
+            let ts = DateTime::from_timestamp(event.timestamp as i64, 0)
+                .map(|dt| {
+                    let local: DateTime<Local> = dt.into();
+                    local.format("%Y-%m-%d %H:%M").to_string()
+                })
+                .unwrap_or_else(|| "unknown".to_string());
+
+            let path = event.details.as_ref()
+                .and_then(|d| d.config_path.as_ref())
+                .map(|p| p.as_str())
+                .unwrap_or(&event.subject);
+
+            println!("    {}  {} modified", ts, path);
+        }
+        if config_history.len() > 3 {
+            println!("    {} ({} more changes)", "...".dimmed(), config_history.len() - 3);
         }
     }
 
@@ -1636,6 +1729,121 @@ fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
     }
 
     println!();
+    println!("  {}", format!("Source: {}", summary.source).dimmed());
+
+    summary
+}
+
+// ============================================================================
+// v7.18.0: Boot-Anchored Logs with Pattern IDs and Novelty
+// ============================================================================
+
+/// Print [LOGS] section with v7.18.0 boot-anchored patterns and novelty detection
+fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
+    use anna_common::log_patterns_enhanced::LogPatternAnalyzer;
+
+    println!("{}", "[LOGS]".cyan());
+
+    // First get the basic history summary for compatibility
+    let summary = extract_patterns_with_history(unit_name);
+
+    // Get enhanced patterns with novelty detection
+    let service_name = unit_name.trim_end_matches(".service");
+    let analyzer = LogPatternAnalyzer::new();
+    let pattern_summary = analyzer.get_patterns_for_service(service_name);
+
+    if summary.is_empty_this_boot() && pattern_summary.current_boot.is_empty() {
+        println!();
+        println!("  No warnings or errors recorded for this component.");
+        println!();
+        println!("  {}", format!("Source: {}", summary.source).dimmed());
+        return summary;
+    }
+
+    println!();
+
+    // v7.18.0: Boot-anchored view with novelty
+    println!("  Boot 0 (current):");
+    let total_this_boot = summary.total_this_boot();
+    if total_this_boot == 0 {
+        println!("    {} {} warnings or errors", "✓".green(), "No".green());
+    } else {
+        if summary.this_boot_critical > 0 {
+            println!("    Critical: {}", summary.this_boot_critical.to_string().red().bold());
+        }
+        if summary.this_boot_error > 0 {
+            println!("    Errors:   {}", summary.this_boot_error.to_string().red());
+        }
+        if summary.this_boot_warning > 0 {
+            println!("    Warnings: {}", summary.this_boot_warning.to_string().yellow());
+        }
+    }
+    println!();
+
+    // v7.18.0: Show new patterns (not seen before this boot)
+    if !pattern_summary.new_this_boot.is_empty() {
+        println!("  {} (first seen this boot):", "New patterns".yellow());
+        for occurrence in pattern_summary.new_this_boot.iter().take(3) {
+            let display = if occurrence.pattern.template.len() > 50 {
+                format!("{}...", &occurrence.pattern.template[..47])
+            } else {
+                occurrence.pattern.template.clone()
+            };
+            println!("    [{}] \"{}\"",
+                     occurrence.pattern.short_id().yellow(),
+                     display);
+            println!("           {} (count: {})",
+                     occurrence.pattern.priority.dimmed(),
+                     occurrence.count_this_boot);
+        }
+        if pattern_summary.new_this_boot.len() > 3 {
+            println!("    {} ({} more new patterns)",
+                     "...".dimmed(),
+                     pattern_summary.new_this_boot.len() - 3);
+        }
+        println!();
+    }
+
+    // v7.18.0: Show known patterns with history
+    if !pattern_summary.known_patterns.is_empty() {
+        println!("  Known patterns:");
+        for occurrence in pattern_summary.known_patterns.iter().take(3) {
+            let display = if occurrence.pattern.template.len() > 50 {
+                format!("{}...", &occurrence.pattern.template[..47])
+            } else {
+                occurrence.pattern.template.clone()
+            };
+
+            let history = format!("boot: {}, 7d: {}, {} boots",
+                                  occurrence.count_this_boot,
+                                  occurrence.count_7d,
+                                  occurrence.boots_seen);
+
+            println!("    [{}] \"{}\"",
+                     occurrence.pattern.short_id().dimmed(),
+                     display);
+            println!("           {} ({})",
+                     occurrence.pattern.priority.dimmed(),
+                     history.dimmed());
+        }
+        if pattern_summary.known_patterns.len() > 3 {
+            println!("    {} ({} more known patterns)",
+                     "...".dimmed(),
+                     pattern_summary.known_patterns.len() - 3);
+        }
+        println!();
+    }
+
+    // v7.18.0: Previous boot summary (if available)
+    if !pattern_summary.previous_boot.is_empty() {
+        let prev_count: u32 = pattern_summary.previous_boot.iter()
+            .map(|p| p.count_24h)
+            .sum();
+        println!("  Boot -1 (previous):");
+        println!("    {} patterns, {} total events", pattern_summary.previous_boot.len(), prev_count);
+        println!();
+    }
+
     println!("  {}", format!("Source: {}", summary.source).dimmed());
 
     summary

@@ -1,18 +1,21 @@
-//! Status Command v7.13.0 - Config Intelligence and Log Literacy
+//! Status Command v7.18.0 - Change Journal and Boot Timeline
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
 //! - [DAEMON]              State, uptime, PID, restarts
 //! - [HEALTH]              Overall health status
+//! - [LAST BOOT]           Boot timeline with kernel, duration, failed units (v7.18.0)
 //! - [INVENTORY]           What Anna has indexed + sync status
 //! - [TELEMETRY]           Real telemetry with top CPU/memory and trends
 //! - [RESOURCE HOTSPOTS]   Top resource consumers with health notes
+//! - [RECENT CHANGES]      Last 5 system changes from journal (v7.18.0)
 //! - [UPDATES]             Auto-update schedule and last result
 //! - [PATHS]               Config, data, logs, docs paths (v7.12.0: local docs detection)
 //! - [INTERNAL ERRORS]     Anna's own pipeline errors
 //! - [ALERTS]              Hardware alerts from health checks
 //! - [ANNA NEEDS]          Missing tools and docs
 //!
+//! v7.18.0: [LAST BOOT] shows boot health, [RECENT CHANGES] shows system changes
 //! v7.12.0: [PATHS] now shows local docs status
 //! NO journalctl system errors. NO host-wide log counts.
 
@@ -27,6 +30,8 @@ use anna_common::grounded::health::{collect_hardware_alerts, HealthStatus};
 use anna_common::grounded::network::get_network_summary;
 use anna_common::{AnnaNeeds, NeedStatus};
 use anna_common::{OpsLogReader, INTERNAL_DIR, OPS_LOG_FILE};
+// v7.18.0: Change journal and boot timeline
+use anna_common::{get_recent_changes, get_current_boot_summary};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -51,6 +56,9 @@ pub async fn run() -> Result<()> {
     // [HEALTH]
     print_health_section(&daemon_stats);
 
+    // [LAST BOOT] - v7.18.0: Boot timeline
+    print_last_boot_section();
+
     // [INVENTORY]
     print_inventory_section(&daemon_stats);
 
@@ -59,6 +67,9 @@ pub async fn run() -> Result<()> {
 
     // [RESOURCE HOTSPOTS] - v7.11.0: Top consumers with health notes
     print_resource_hotspots_section();
+
+    // [RECENT CHANGES] - v7.18.0: Change journal
+    print_recent_changes_section();
 
     // [UPDATES]
     print_updates_section();
@@ -240,6 +251,80 @@ fn print_health_section(stats: &Option<DaemonStats>) {
             println!("  Daemon:     {}", "stopped".red());
             println!("  Telemetry:  -");
             println!("  Sync:       -");
+        }
+    }
+
+    println!();
+}
+
+/// v7.18.0: [LAST BOOT] section - boot timeline with kernel, duration, failed units
+fn print_last_boot_section() {
+    println!("{}", "[LAST BOOT]".cyan());
+
+    match get_current_boot_summary() {
+        Some(boot) => {
+            println!("  Started:    {}", boot.format_time());
+            println!("  Kernel:     {}", boot.kernel);
+
+            // Duration to graphical/multi-user target
+            if let Some(duration) = boot.duration_to_graphical {
+                println!("  Duration:   {:.0}s to {}", duration, "graphical.target".dimmed());
+            } else {
+                println!("  Duration:   {}", "unknown".dimmed());
+            }
+
+            println!();
+            println!("  Health:");
+
+            // Failed units
+            let failed_str = if boot.failed_units == 0 {
+                "0".green().to_string()
+            } else {
+                boot.failed_units.to_string().red().to_string()
+            };
+            println!("    Failed units:   {}", failed_str);
+
+            // Services with warnings
+            let warn_str = if boot.services_with_warnings == 0 {
+                "0".green().to_string()
+            } else {
+                format!("{} services with warnings", boot.services_with_warnings)
+                    .yellow()
+                    .to_string()
+            };
+            println!("    Warnings:       {}", warn_str);
+
+            // Slow units
+            if !boot.slow_units.is_empty() {
+                let slow_list: Vec<String> = boot.slow_units
+                    .iter()
+                    .take(3)
+                    .map(|u| format!("{} ({:.1}s)", u.name, u.duration_secs))
+                    .collect();
+                println!("    Slow units:     {}", slow_list.join(", ").yellow());
+            }
+        }
+        None => {
+            println!("  {}", "Boot information not available".dimmed());
+        }
+    }
+
+    println!();
+}
+
+/// v7.18.0: [RECENT CHANGES] section - last 5 system changes
+fn print_recent_changes_section() {
+    println!("{}", "[RECENT CHANGES]".cyan());
+    println!("  {}", "(source: pacman.log, change journal)".dimmed());
+
+    let changes = get_recent_changes(5);
+
+    if changes.is_empty() {
+        println!("  No recent changes recorded.");
+    } else {
+        println!("  Last {} events:", changes.len());
+        for event in &changes {
+            println!("    {}", event.format_short());
         }
     }
 
