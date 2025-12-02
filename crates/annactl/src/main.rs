@@ -1,30 +1,31 @@
-//! Anna CLI (annactl) v7.39.0 - Incremental Refresh & Adaptive Status
+//! Anna CLI (annactl) v7.40.0 - Cache-First Software Discovery
+//!
+//! v7.40.0: Cache-first architecture for fast sw command
+//! - sw uses persistent cache with delta detection
+//! - p95 < 1.0s for sw when cache warm
+//! - --full for detailed view, --json for machine output
+//! - version subcommand for parseability
 //!
 //! v7.39.0: Terminal-adaptive rendering, domain status, checking indicator
 //! - Compact mode for small terminals (< 24 rows or < 60 cols)
 //! - Standard mode for normal terminals
 //! - Wide mode for large terminals (> 120 cols)
 //! - Shows "checking..." when domain refresh is in progress
-//! - Domain freshness summary in status
 //!
 //! v7.38.0: Cache-only status, no live probing
 //! - status reads status_snapshot.json only (no pacman, systemctl, journalctl)
 //! - --version outputs exactly "vX.Y.Z" (no banners, no ANSI)
-//! - Shows last crash summary from last_crash.json when daemon is down
 //!
-//! v7.37.0: Functional auto-update and auto-install
-//! - Auto-update scheduler shows real timestamps
-//! - Instrumentation shows installed tools with explicit clean statements
-//! - Internal paths created on daemon start
-//!
-//! Commands (exactly 7, no aliases):
-//! - annactl             show help
-//! - annactl --version   show version
-//! - annactl status      health and runtime of Anna
-//! - annactl sw          software overview (packages, commands, services)
-//! - annactl sw NAME     software profile
-//! - annactl hw          hardware overview (CPU, memory, GPU, storage, network)
-//! - annactl hw NAME     hardware profile
+//! Commands:
+//! - annactl                  show help
+//! - annactl --version        show version (also: annactl version)
+//! - annactl status           health and runtime of Anna
+//! - annactl sw               software overview (packages, commands, services)
+//! - annactl sw --full        software overview with all sections
+//! - annactl sw --json        software data in JSON format
+//! - annactl sw NAME          software profile
+//! - annactl hw               hardware overview
+//! - annactl hw NAME          hardware profile
 
 mod commands;
 
@@ -59,19 +60,28 @@ async fn main() -> Result<()> {
 
     let args: Vec<String> = env::args().skip(1).collect();
 
-    // v7.35.1: sw/hw surface with --version
     match args.as_slice() {
         // annactl (no args) - show help
         [] => run_help(),
 
-        // annactl --version (v7.35.1)
-        [cmd] if cmd == "--version" || cmd == "-V" => run_version(),
+        // annactl --version or annactl version (v7.40.0: both work)
+        [cmd] if cmd == "--version" || cmd == "-V" || cmd == "version" => run_version(),
 
         // annactl status
         [cmd] if cmd.eq_ignore_ascii_case("status") => commands::status::run().await,
 
-        // annactl sw (software overview)
+        // annactl sw (software overview - default compact)
         [cmd] if cmd.eq_ignore_ascii_case("sw") => commands::sw::run().await,
+
+        // annactl sw --full (full detailed view)
+        [cmd, flag] if cmd.eq_ignore_ascii_case("sw") && flag == "--full" => {
+            commands::sw::run_full().await
+        }
+
+        // annactl sw --json (JSON output)
+        [cmd, flag] if cmd.eq_ignore_ascii_case("sw") && flag == "--json" => {
+            commands::sw::run_json().await
+        }
 
         // annactl sw <name-or-category>
         [cmd, name] if cmd.eq_ignore_ascii_case("sw") => {
@@ -90,7 +100,6 @@ async fn main() -> Result<()> {
             commands::hw_detail::run(name).await
         }
 
-        // v7.27.0: No aliases, no deprecated commands
         // Unknown command
         _ => run_unknown(&args),
     }
@@ -101,22 +110,24 @@ fn run_help() -> Result<()> {
     println!();
     println!("{}", "  Anna CLI".bold());
     println!("{}", THIN_SEP);
-    println!("  annactl             show this help");
-    println!("  annactl --version   show version");
-    println!("  annactl status      health and runtime of Anna");
-    println!("  annactl sw          software overview");
-    println!("  annactl sw NAME     software profile (package, command, category)");
-    println!("  annactl hw          hardware overview");
-    println!("  annactl hw NAME     hardware profile (cpu, memory, gpu, storage, ...)");
+    println!("  annactl                  show this help");
+    println!("  annactl --version        show version");
+    println!("  annactl status           health and runtime of Anna");
+    println!("  annactl sw               software overview (compact)");
+    println!("  annactl sw --full        software overview (detailed)");
+    println!("  annactl sw --json        software data (machine-readable)");
+    println!("  annactl sw NAME          software profile");
+    println!("  annactl hw               hardware overview");
+    println!("  annactl hw NAME          hardware profile");
     println!("{}", THIN_SEP);
     println!();
     Ok(())
 }
 
-/// Print version (v7.38.0) - outputs EXACTLY "vX.Y.Z"
-/// No banners, no ANSI, nothing else - for reliable installer parsing
+/// Print version - outputs "annactl vX.Y.Z"
+/// v7.40.0: Changed format for better parseability
 fn run_version() -> Result<()> {
-    println!("v{}", env!("CARGO_PKG_VERSION"));
+    println!("annactl v{}", env!("CARGO_PKG_VERSION"));
     Ok(())
 }
 

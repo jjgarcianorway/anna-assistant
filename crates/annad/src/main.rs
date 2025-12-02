@@ -1,10 +1,14 @@
-//! Anna Daemon (annad) v7.39.0 - Incremental Refresh & Adaptive Status
+//! Anna Daemon (annad) v7.40.0 - Cache-First Software Discovery
+//!
+//! v7.40.0: Cache-first architecture for fast sw command
+//! - Builds and maintains sw_cache.json for annactl sw
+//! - Delta detection via pacman.log and PATH mtimes
+//! - Background rebuild when changes detected
 //!
 //! v7.39.0: Domain-based incremental refresh, self-observation
 //! - Domain planner: 13 domains with independent refresh intervals
 //! - On-demand refresh: watches requests/ dir, writes responses/
 //! - Self-observation: monitors daemon CPU/RAM, emits warnings
-//! - Writes domain_summary.json for status display
 //!
 //! v7.38.0: Hardened startup and status snapshot architecture
 //! - Writes last_start.json on every start attempt
@@ -42,6 +46,8 @@ use anna_common::{
     // v7.39.0: Domain-based incremental refresh
     domain_state::{Domain, DomainRefreshState, RefreshResult, DomainSummary, RefreshRequest, RefreshResponse, REQUESTS_DIR, RESPONSES_DIR},
     self_observation::{SelfObservation, SELF_SAMPLE_INTERVAL_SECS},
+    // v7.40.0: Cache-first software discovery
+    sw_cache::{SwCache, build_sw_cache},
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -892,6 +898,41 @@ async fn main() -> Result<()> {
                         }
                     }
                 }
+            }
+        }
+    });
+
+    // v7.40.0: Background sw_cache builder
+    // Builds cache on startup and rebuilds when delta detection triggers
+    tokio::spawn(async move {
+        // Initial build on startup
+        info!("[*]  Building initial sw_cache...");
+        let start = std::time::Instant::now();
+        let cache = build_sw_cache();
+        if let Err(e) = cache.save() {
+            warn!("[!]  Failed to save initial sw_cache: {}", e);
+        } else {
+            info!("[+]  Initial sw_cache built in {}ms", start.elapsed().as_millis());
+        }
+
+        // Periodic check interval (60 seconds)
+        let check_interval = Duration::from_secs(60);
+
+        loop {
+            tokio::time::sleep(check_interval).await;
+
+            // Check if rebuild is needed
+            if let Some(existing) = SwCache::load() {
+                if !existing.needs_rebuild() {
+                    continue; // Cache is still fresh
+                }
+            }
+
+            // Rebuild cache
+            tracing::debug!("[*]  sw_cache delta detected, rebuilding...");
+            let cache = build_sw_cache();
+            if let Err(e) = cache.save() {
+                warn!("[!]  Failed to save sw_cache: {}", e);
             }
         }
     });

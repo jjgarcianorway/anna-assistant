@@ -1,11 +1,18 @@
-//! Anna Common v7.39.0 - Incremental Refresh & Adaptive Status
+//! Anna Common v7.40.0 - Cache-First Software Discovery
 //!
-//! v7.39.0: NO LLM, NO NATURAL LANGUAGE - Diff-based refresh, adaptive rendering
+//! v7.40.0: Cache-first architecture for fast sw command
+//! - sw_cache.rs: Persistent cache with delta detection
+//! - Package delta via pacman.log offset/mtime
+//! - Command delta via PATH directory mtimes
+//! - Service delta via unit file mtimes
+//! - p95 < 1.0s for sw command when cache warm
+//! - Compact output modes (--full, --json, --section)
+//!
+//! v7.39.0: Domain-based incremental refresh, adaptive rendering
 //! - Domain-based incremental refresh (hw.static, sw.packages, etc.)
 //! - On-demand refresh with "checking..." indicator
 //! - Terminal-adaptive rendering (compact/standard/wide)
 //! - Daemon self-observation (CPU/RAM thresholds)
-//! - Hot/cold data store split
 //!
 //! v7.38.0: Cache-only status, no live probing
 //! - status_snapshot.json: Daemon writes, annactl reads (no live probing)
@@ -201,6 +208,9 @@ pub mod domain_state;
 pub mod terminal;
 // v7.39.0: Daemon self-observation
 pub mod self_observation;
+
+// v7.40.0: Cache-first software discovery
+pub mod sw_cache;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};

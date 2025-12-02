@@ -1,4 +1,8 @@
-//! Status Command v7.39.0 - Terminal-Adaptive Cache-Only Status
+//! Status Command v7.40.0 - Terminal-Adaptive Cache-Only Status
+//!
+//! v7.40.0: Improved update scheduler display
+//! - Clearer messaging when daemon not running
+//! - Shows actual state from update_state.json
 //!
 //! v7.39.0: Terminal-adaptive rendering, domain status, "checking..." indicator
 //! - Compact mode for small terminals (< 24 rows or < 60 cols)
@@ -30,7 +34,7 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::path::Path;
 
-use anna_common::config::{AnnaConfig, UpdateState, SYSTEM_CONFIG_DIR, DATA_DIR, UpdateMode};
+use anna_common::config::{AnnaConfig, UpdateState, UpdateResult, SYSTEM_CONFIG_DIR, DATA_DIR, UpdateMode};
 use anna_common::format_duration_secs;
 use anna_common::daemon_state::{StatusSnapshot, LastCrash, INTERNAL_DIR};
 use anna_common::domain_state::{DomainSummary, RefreshRequest, RefreshResponse, Domain, REQUESTS_DIR};
@@ -311,7 +315,7 @@ fn print_telemetry_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [UPDATES] section - update scheduler state
+/// [UPDATES] section - update scheduler state (v7.40.0: improved clarity)
 fn print_updates_section(snapshot: &Option<StatusSnapshot>) {
     println!("{}", "[UPDATES]".cyan());
 
@@ -324,41 +328,56 @@ fn print_updates_section(snapshot: &Option<StatusSnapshot>) {
     // Interval
     println!("  Interval:   {}", state.format_interval());
 
-    // Last check from state file (persisted)
+    // v7.40.0: Last check - show actual timestamp or clear status
     let last_check_str = if state.last_check_at == 0 {
-        if daemon_running && state.mode == UpdateMode::Auto {
-            "not yet (first check pending)".to_string()
-        } else if !daemon_running {
-            "never (daemon not running)".to_string()
+        if state.mode != UpdateMode::Auto {
+            "n/a (auto-updates disabled)".dimmed().to_string()
+        } else if daemon_running {
+            "pending (first check soon)".to_string()
         } else {
-            "never".to_string()
+            "pending (start daemon)".dimmed().to_string()
         }
     } else {
         state.format_last_check()
     };
     println!("  Last check: {}", last_check_str);
 
-    // Result
-    println!("  Result:     {}", state.format_last_result());
+    // Result - only show if there's a result
+    if state.last_check_at > 0 || state.last_result != UpdateResult::Pending {
+        println!("  Result:     {}", state.format_last_result());
+    }
 
-    // Next check from snapshot if available
-    let next_str = if !daemon_running {
-        "not running (daemon down)".to_string()
-    } else if let Some(s) = snapshot {
-        if let Some(next) = s.update_next_check {
-            let delta = (next - chrono::Utc::now()).num_seconds();
-            if delta > 0 {
-                format!("in {}h {}m", delta / 3600, (delta % 3600) / 60)
+    // v7.40.0: Next check - clearer messaging
+    if state.mode == UpdateMode::Auto {
+        let next_str = if !daemon_running {
+            "paused (daemon not running)".dimmed().to_string()
+        } else if let Some(s) = snapshot {
+            if let Some(next) = s.update_next_check {
+                let delta = (next - chrono::Utc::now()).num_seconds();
+                if delta > 0 {
+                    format!("in {}m {}s", delta / 60, delta % 60)
+                } else {
+                    "now".to_string()
+                }
+            } else if state.next_check_at > 0 {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                let delta = state.next_check_at.saturating_sub(now);
+                if delta > 0 {
+                    format!("in {}m {}s", delta / 60, delta % 60)
+                } else {
+                    "now".to_string()
+                }
             } else {
-                "imminent".to_string()
+                "soon".to_string()
             }
         } else {
-            state.format_next_check()
-        }
-    } else {
-        "unknown".to_string()
-    };
-    println!("  Next check: {}", next_str);
+            "soon".to_string()
+        };
+        println!("  Next check: {}", next_str);
+    }
 
     // Show available version if update is available
     if let Some(ref ver) = state.last_checked_version_available {
