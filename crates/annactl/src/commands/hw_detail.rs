@@ -1,8 +1,8 @@
-//! HW Detail Command v7.25.0 - Peripherals & Attachments
+//! HW Detail Command v7.29.0 - Driver Guidance & Remediation
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors,
-//!                      usb, bluetooth, thunderbolt, sdcard) - v7.25.0 added peripherals
+//!                      usb, bluetooth, thunderbolt, sdcard, camera, firmware, pci) - v7.29.0
 //! 2. Specific device profile (gpu0, nvme0n1, wlan0, enp3s0, audio0, wifi, ethernet, BAT0)
 //!
 //! Profile sections:
@@ -93,6 +93,11 @@ pub async fn run(name: &str) -> Result<()> {
         "thunderbolt" | "tb" | "tb4" => run_thunderbolt_category().await,
         "sdcard" | "sd" | "mmc" => run_sdcard_category().await,
         "firewire" | "ieee1394" => run_firewire_category().await,
+        // v7.29.0: Additional categories
+        "sensors" | "hwmon" | "temp" | "thermal" => run_sensors_category().await,
+        "camera" | "cam" | "webcam" | "video" => run_camera_category().await,
+        "firmware" | "fw" => run_firmware_category().await,
+        "pci" => run_pci_category().await,
         _ => {
             // Try specific device
             if name_lower.starts_with("gpu") || name_lower.starts_with("card") {
@@ -197,8 +202,9 @@ async fn run_cpu_profile() -> Result<()> {
             println!("  Sockets:        {}", sockets);
             println!("  Cores:          {} ({} threads)", cores, threads);
             println!("  Architecture:   {}", arch);
+            // v7.29.0: Show all flags, no truncation
             if !flags.is_empty() {
-                println!("  Flags:          {}, ...", flags);
+                println!("  Flags:          {}", flags);
             }
         }
         _ => {
@@ -340,15 +346,9 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
     println!();
 
     // v7.20.0: Show top 3 patterns with baseline tags
+    // v7.29.0: No truncation - show full patterns
     for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
         let time_hint = format_time_short(&pattern.last_seen);
-
-        // Truncate pattern for display if too long
-        let display_pattern = if pattern.pattern.len() > 45 {
-            format!("{}...", &pattern.pattern[..42])
-        } else {
-            pattern.pattern.clone()
-        };
 
         // v7.20.0: Get baseline tag for this pattern
         let normalized = normalize_message(&pattern.pattern);
@@ -356,17 +356,18 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
         let tag_str = baseline_tag.format();
 
         let count_str = if pattern.count == 1 {
-            "seen 1 time".to_string()
+            "1x".to_string()
         } else {
-            format!("seen {} times", pattern.count)
+            format!("{}x", pattern.count)
         };
 
+        // v7.29.0: No truncation
         if tag_str.is_empty() {
-            println!("    {}) \"{}\"", i + 1, display_pattern);
+            println!("    {}) \"{}\"", i + 1, pattern.pattern);
         } else if tag_str.contains("new since") {
-            println!("    {}) \"{}\" {}", i + 1, display_pattern, tag_str.yellow());
+            println!("    {}) \"{}\" {}", i + 1, pattern.pattern, tag_str.yellow());
         } else {
-            println!("    {}) \"{}\" {}", i + 1, display_pattern, tag_str.dimmed());
+            println!("    {}) \"{}\" {}", i + 1, pattern.pattern, tag_str.dimmed());
         }
         println!("       ({}, last at {})", count_str.dimmed(), time_hint);
     }
@@ -374,8 +375,7 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
     // Show if there are more patterns
     if summary.pattern_count > 3 {
         println!();
-        println!("    {} ({} more patterns not shown)",
-                 "...".dimmed(),
+        println!("    (and {} more patterns)",
                  summary.pattern_count - 3);
     }
 
@@ -440,9 +440,8 @@ fn print_hw_history(driver_pkg: &str) {
             println!("    {}  {:<12} {}  {}", ts, action, driver_pkg, details.dimmed());
         }
     }
-    if pkg_history.len() > 3 {
-        println!("    {} ({} more events)", "...".dimmed(), pkg_history.len() - 3);
-    }
+    // v7.29.0: Show all GPU driver history events (no truncation)
+    // Previously limited to 3, now shows all for complete audit trail
 
     println!();
 }
@@ -650,22 +649,19 @@ async fn run_gpu_profile(name: &str) -> Result<()> {
             println!("  Driver package:  {} {}", pkg_name, "(pacman -Qo)".dimmed());
         }
 
-        // Firmware section - v7.10.0
+        // Firmware section - v7.10.0, v7.29.0: Show all, no truncation
         println!("  Firmware:");
         let fw_status = get_gpu_firmware_files(drv);
         if fw_status.is_empty() {
             println!("    (no firmware files detected)");
         } else {
-            for (path, present) in fw_status.iter().take(3) {
+            for (path, present) in &fw_status {
                 let status = if *present {
                     "[present]".green().to_string()
                 } else {
                     "[missing]".yellow().to_string()
                 };
                 println!("    {:<45} {}", path, status);
-            }
-            if fw_status.len() > 3 {
-                println!("    {} more files...", fw_status.len() - 3);
             }
         }
         // [HISTORY] - v7.18.0: driver package history
@@ -677,6 +673,22 @@ async fn run_gpu_profile(name: &str) -> Result<()> {
     } else {
         println!("  Kernel module:   {}", "none".yellow());
         println!("  {}", "Note: PCI device present with no bound kernel driver".dimmed());
+
+        // v7.28.0: Driver guidance for missing driver
+        if let Some(ref dev) = pci_device {
+            if let Some(ref pci_id) = dev.pci_id {
+                // pci_id format: "vendor_id:device_id" e.g., "10de:2860"
+                let parts: Vec<&str> = pci_id.split(':').collect();
+                if parts.len() == 2 {
+                    println!();
+                    println!("  {}:", "Driver guidance".yellow());
+                    let guidance = get_driver_guidance(parts[0], parts[1]);
+                    for line in guidance {
+                        println!("    {}", line);
+                    }
+                }
+            }
+        }
     }
 
     println!();
@@ -697,12 +709,8 @@ fn shorten_description(desc: &str) -> String {
         }
     }
 
-    // Truncate if too long
-    if desc.len() > 60 {
-        format!("{}...", &desc[..57])
-    } else {
-        desc.to_string()
-    }
+    // v7.29.0: No truncation - return full description
+    desc.to_string()
 }
 
 // ============================================================================
@@ -811,18 +819,13 @@ async fn run_storage_category() -> Result<()> {
     if !lens.log_patterns.is_empty() {
         println!("{}", "[LOGS]".cyan());
         println!("  Storage related patterns (current boot, warning and above):");
+        // v7.29.0: No truncation - show full messages
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
-            let display_msg = if msg.len() > 50 {
-                format!("{}...", &msg[..47])
-            } else {
-                msg.clone()
-            };
             println!(
-                "    [{}] {:50} (seen {} {})",
+                "    [{}] {} ({}x)",
                 id,
-                display_msg,
-                count,
-                if *count == 1 { "time" } else { "times" }
+                msg,
+                count
             );
         }
         println!();
@@ -1184,18 +1187,13 @@ async fn run_network_category() -> Result<()> {
     if !lens.log_patterns.is_empty() {
         println!("{}", "[LOGS]".cyan());
         println!("  Network related patterns (current boot, warning and above):");
+        // v7.29.0: No truncation - show full messages
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
-            let display_msg = if msg.len() > 50 {
-                format!("{}...", &msg[..47])
-            } else {
-                msg.clone()
-            };
             println!(
-                "    [{}] {:50} (seen {} {})",
+                "    [{}] {} ({}x)",
                 id,
-                display_msg,
-                count,
-                if *count == 1 { "time" } else { "times" }
+                msg,
+                count
             );
         }
         println!();
@@ -2629,15 +2627,10 @@ fn print_device_logs_v716(device: &str, _keywords: &[&str]) -> LogHistorySummary
     println!();
 
     // v7.16.0: Top patterns with history
+    // v7.29.0: No truncation - show full patterns
     if !summary.patterns.is_empty() {
         println!("  Top patterns:");
         for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
-            let display_pattern = if pattern.pattern.len() > 52 {
-                format!("{}...", &pattern.pattern[..49])
-            } else {
-                pattern.pattern.clone()
-            };
-
             // Build history string
             let mut history_parts = Vec::new();
             if pattern.count_this_boot > 0 {
@@ -2653,31 +2646,27 @@ fn print_device_logs_v716(device: &str, _keywords: &[&str]) -> LogHistorySummary
                 history_parts.join(", ")
             };
 
-            println!("    {}) \"{}\"", i + 1, display_pattern);
+            // v7.29.0: No truncation
+            println!("    {}) \"{}\"", i + 1, pattern.pattern);
             println!("       {} ({})", pattern.priority.dimmed(), history_str.dimmed());
         }
 
         if summary.patterns.len() > 3 {
             println!();
-            println!("    {} ({} more patterns)",
-                     "...".dimmed(),
+            println!("    (and {} more patterns)",
                      summary.patterns.len() - 3);
         }
     }
 
-    // v7.16.0: Recurring patterns
+    // v7.16.0: Recurring patterns - v7.29.0: No truncation
     let recurring = summary.patterns_with_history();
     if !recurring.is_empty() {
         println!();
         println!("  Recurring (seen in previous boots):");
         for pattern in recurring.iter().take(2) {
-            let display_pattern = if pattern.pattern.len() > 45 {
-                format!("{}...", &pattern.pattern[..42])
-            } else {
-                pattern.pattern.clone()
-            };
+            // v7.29.0: No truncation
             println!("    - \"{}\" ({} boots)",
-                     display_pattern.dimmed(),
+                     pattern.pattern.dimmed(),
                      pattern.boots_seen);
         }
     }
@@ -2700,5 +2689,563 @@ fn print_hardware_relationships_section_fn(device: &str) {
         }
     }
     println!();
+}
+
+// ============================================================================
+// v7.28.0: Driver Guidance for Missing Drivers
+// ============================================================================
+
+/// v7.28.0: Get driver guidance for a PCI device without driver
+fn get_driver_guidance(vendor_id: &str, device_id: &str) -> Vec<String> {
+    let mut guidance = Vec::new();
+
+    // Common GPU vendors
+    match vendor_id.to_lowercase().as_str() {
+        // NVIDIA
+        "10de" => {
+            guidance.push("Vendor: NVIDIA Corporation".to_string());
+            guidance.push("Options:".to_string());
+            guidance.push("  1. nvidia (proprietary): sudo pacman -S nvidia nvidia-utils".to_string());
+            guidance.push("  2. nvidia-open (open-source): sudo pacman -S nvidia-open".to_string());
+            guidance.push("  3. nouveau (open-source, included): modprobe nouveau".to_string());
+            guidance.push("Note: Reboot required after driver installation".to_string());
+        }
+        // AMD
+        "1002" => {
+            guidance.push("Vendor: AMD/ATI".to_string());
+            guidance.push("Driver: amdgpu (included in kernel)".to_string());
+            guidance.push("Try: modprobe amdgpu".to_string());
+            guidance.push("If blacklisted: check /etc/modprobe.d/*.conf".to_string());
+        }
+        // Intel
+        "8086" => {
+            guidance.push("Vendor: Intel Corporation".to_string());
+            guidance.push("Driver: i915 (included in kernel)".to_string());
+            guidance.push("Try: modprobe i915".to_string());
+            guidance.push("Firmware: sudo pacman -S linux-firmware".to_string());
+        }
+        _ => {
+            guidance.push(format!("Unknown vendor: {}", vendor_id));
+            guidance.push(format!("Device ID: {}", device_id));
+            guidance.push("Search: https://linux-hardware.org".to_string());
+            guidance.push(format!("Or: lspci -d {}:{}:* -v", vendor_id, device_id));
+        }
+    }
+
+    guidance
+}
+
+// ============================================================================
+// [SENSORS] Category - v7.29.0
+// ============================================================================
+
+async fn run_sensors_category() -> Result<()> {
+    println!();
+    println!("{}", "  Anna HW: Sensors".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    println!("{}", "[SENSORS]".cyan());
+    println!("  {}", "(source: /sys/class/hwmon, /sys/class/thermal)".dimmed());
+
+    // Enumerate hwmon devices
+    let hwmon_path = std::path::Path::new("/sys/class/hwmon");
+    if !hwmon_path.exists() {
+        println!("  {}", "(hwmon not available)".dimmed());
+        println!();
+        println!("{}", THIN_SEP);
+        return Ok(());
+    }
+
+    let mut sensors: Vec<(String, Vec<(String, f64, Option<f64>, Option<f64>)>)> = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(hwmon_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+
+            // Get sensor name
+            let name = std::fs::read_to_string(path.join("name"))
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|_| "unknown".to_string());
+
+            let mut readings = Vec::new();
+
+            // Find all temp inputs
+            for i in 1..=20 {
+                let temp_path = path.join(format!("temp{}_input", i));
+                if let Ok(temp_str) = std::fs::read_to_string(&temp_path) {
+                    if let Ok(temp_millic) = temp_str.trim().parse::<i64>() {
+                        let temp_c = temp_millic as f64 / 1000.0;
+
+                        // Get label
+                        let label = std::fs::read_to_string(path.join(format!("temp{}_label", i)))
+                            .map(|s| s.trim().to_string())
+                            .unwrap_or_else(|_| format!("temp{}", i));
+
+                        // Get critical threshold
+                        let crit = std::fs::read_to_string(path.join(format!("temp{}_crit", i)))
+                            .ok()
+                            .and_then(|s| s.trim().parse::<i64>().ok())
+                            .map(|v| v as f64 / 1000.0);
+
+                        // Get max threshold
+                        let max = std::fs::read_to_string(path.join(format!("temp{}_max", i)))
+                            .ok()
+                            .and_then(|s| s.trim().parse::<i64>().ok())
+                            .map(|v| v as f64 / 1000.0);
+
+                        readings.push((label, temp_c, max, crit));
+                    }
+                }
+            }
+
+            if !readings.is_empty() {
+                sensors.push((name, readings));
+            }
+        }
+    }
+
+    if sensors.is_empty() {
+        println!("  {}", "(no sensors detected)".dimmed());
+    } else {
+        for (name, readings) in &sensors {
+            println!();
+            println!("  {}:", name.cyan());
+            for (label, temp, max, crit) in readings {
+                let temp_str = if let Some(c) = crit {
+                    if *temp >= *c {
+                        format!("{:.1}°C", temp).red().to_string()
+                    } else if let Some(m) = max {
+                        if *temp >= *m {
+                            format!("{:.1}°C", temp).yellow().to_string()
+                        } else {
+                            format!("{:.1}°C", temp).green().to_string()
+                        }
+                    } else if *temp >= c * 0.9 {
+                        format!("{:.1}°C", temp).yellow().to_string()
+                    } else {
+                        format!("{:.1}°C", temp).green().to_string()
+                    }
+                } else {
+                    format!("{:.1}°C", temp)
+                };
+
+                let threshold_str = match (max, crit) {
+                    (Some(m), Some(c)) => format!(" (max: {:.0}°C, crit: {:.0}°C)", m, c),
+                    (Some(m), None) => format!(" (max: {:.0}°C)", m),
+                    (None, Some(c)) => format!(" (crit: {:.0}°C)", c),
+                    (None, None) => String::new(),
+                };
+
+                println!("    {:20} {}{}", label, temp_str, threshold_str.dimmed());
+            }
+        }
+    }
+
+    // Check thermal zones
+    println!();
+    println!("{}", "[THERMAL ZONES]".cyan());
+    println!("  {}", "(source: /sys/class/thermal)".dimmed());
+
+    let thermal_path = std::path::Path::new("/sys/class/thermal");
+    if thermal_path.exists() {
+        if let Ok(entries) = std::fs::read_dir(thermal_path) {
+            let mut found_zone = false;
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with("thermal_zone") {
+                    let path = entry.path();
+
+                    let zone_type = std::fs::read_to_string(path.join("type"))
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_else(|_| "unknown".to_string());
+
+                    let temp = std::fs::read_to_string(path.join("temp"))
+                        .ok()
+                        .and_then(|s| s.trim().parse::<i64>().ok())
+                        .map(|v| v as f64 / 1000.0);
+
+                    if let Some(t) = temp {
+                        found_zone = true;
+                        println!("  {:20} {:.1}°C", zone_type, t);
+                    }
+                }
+            }
+            if !found_zone {
+                println!("  {}", "(no thermal zones)".dimmed());
+            }
+        }
+    }
+
+    println!();
+    println!("{}", THIN_SEP);
+    Ok(())
+}
+
+// ============================================================================
+// [CAMERA] Category - v7.29.0
+// ============================================================================
+
+async fn run_camera_category() -> Result<()> {
+    println!();
+    println!("{}", "  Anna HW: Cameras".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    println!("{}", "[CAMERAS]".cyan());
+    println!("  {}", "(source: /sys/class/video4linux, lsusb)".dimmed());
+
+    // Enumerate video4linux devices
+    let v4l_path = std::path::Path::new("/sys/class/video4linux");
+    if !v4l_path.exists() {
+        println!("  {}", "(v4l2 not available)".dimmed());
+        println!();
+        println!("{}", THIN_SEP);
+        return Ok(());
+    }
+
+    let mut cameras: Vec<(String, String, String)> = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(v4l_path) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let path = entry.path();
+
+            // Get device name
+            let dev_name = std::fs::read_to_string(path.join("name"))
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|_| "unknown".to_string());
+
+            // Get device path
+            let dev_path = format!("/dev/{}", name);
+
+            // Check if this is a capture device (not output/overlay)
+            let index = std::fs::read_to_string(path.join("index"))
+                .ok()
+                .and_then(|s| s.trim().parse::<u32>().ok())
+                .unwrap_or(0);
+
+            // Only show primary devices (index 0)
+            if index == 0 {
+                cameras.push((name, dev_name, dev_path));
+            }
+        }
+    }
+
+    if cameras.is_empty() {
+        println!("  {}", "(no cameras detected)".dimmed());
+    } else {
+        for (name, dev_name, dev_path) in &cameras {
+            println!();
+            println!("  {} ({}):", name.cyan(), dev_path);
+            println!("    Name:       {}", dev_name);
+
+            // Try to get capabilities with v4l2-ctl
+            let output = Command::new("v4l2-ctl")
+                .args(["--device", dev_path, "--all"])
+                .output();
+
+            if let Ok(out) = output {
+                if out.status.success() {
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+
+                    // Parse driver info
+                    for line in stdout.lines() {
+                        let line = line.trim();
+                        if line.starts_with("Driver name") {
+                            if let Some(val) = line.split(':').nth(1) {
+                                println!("    Driver:     {}", val.trim());
+                            }
+                        } else if line.starts_with("Card type") {
+                            if let Some(val) = line.split(':').nth(1) {
+                                println!("    Card:       {}", val.trim());
+                            }
+                        } else if line.starts_with("Bus info") {
+                            if let Some(val) = line.split(':').nth(1) {
+                                println!("    Bus:        {}", val.trim());
+                            }
+                        }
+                    }
+                }
+            } else {
+                println!("    {}", "(v4l2-ctl not installed)".dimmed());
+            }
+        }
+    }
+
+    println!();
+    println!("{}", THIN_SEP);
+    Ok(())
+}
+
+// ============================================================================
+// [FIRMWARE] Category - v7.29.0
+// ============================================================================
+
+async fn run_firmware_category() -> Result<()> {
+    println!();
+    println!("{}", "  Anna HW: Firmware".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    println!("{}", "[FIRMWARE]".cyan());
+    println!("  {}", "(source: /sys/firmware, dmesg)".dimmed());
+
+    // BIOS/UEFI info
+    println!();
+    println!("  {}:", "System Firmware".dimmed());
+
+    let bios_vendor = std::fs::read_to_string("/sys/class/dmi/id/bios_vendor")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    let bios_version = std::fs::read_to_string("/sys/class/dmi/id/bios_version")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    let bios_date = std::fs::read_to_string("/sys/class/dmi/id/bios_date")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    println!("    BIOS:         {} {} ({})", bios_vendor, bios_version, bios_date);
+
+    // Product info
+    let product_name = std::fs::read_to_string("/sys/class/dmi/id/product_name")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    let product_version = std::fs::read_to_string("/sys/class/dmi/id/product_version")
+        .map(|s| s.trim().to_string())
+        .ok();
+
+    if let Some(ver) = product_version {
+        if !ver.is_empty() && ver != "Not Specified" {
+            println!("    Product:      {} ({})", product_name, ver);
+        } else {
+            println!("    Product:      {}", product_name);
+        }
+    } else {
+        println!("    Product:      {}", product_name);
+    }
+
+    // CPU microcode
+    let microcode_version = std::fs::read_to_string("/sys/devices/system/cpu/cpu0/microcode/version")
+        .map(|s| s.trim().to_string())
+        .ok();
+
+    if let Some(ver) = microcode_version {
+        println!("    Microcode:    {}", ver);
+    }
+
+    // List loaded firmware files from kernel logs
+    println!();
+    println!("  {}:", "Loaded Firmware Files".dimmed());
+
+    let output = Command::new("journalctl")
+        .args(["-b", "-k", "--no-pager", "-q", "--grep=firmware"])
+        .output();
+
+    let mut firmware_files: Vec<String> = Vec::new();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+
+            for line in stdout.lines() {
+                // Look for "Loading firmware" or "loaded firmware" patterns
+                if line.contains("firmware:") || line.contains("Loading firmware") || line.contains("loaded firmware") {
+                    // Extract firmware filename
+                    if let Some(start) = line.find("firmware:") {
+                        let rest = &line[start + 9..];
+                        if let Some(end) = rest.find(' ') {
+                            let fw = rest[..end].trim().to_string();
+                            if !firmware_files.contains(&fw) && !fw.is_empty() {
+                                firmware_files.push(fw);
+                            }
+                        } else {
+                            let fw = rest.trim().to_string();
+                            if !firmware_files.contains(&fw) && !fw.is_empty() {
+                                firmware_files.push(fw);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if firmware_files.is_empty() {
+        println!("    {}", "(no firmware load messages found)".dimmed());
+    } else {
+        for fw in firmware_files.iter().take(15) {
+            println!("    {}", fw);
+        }
+        if firmware_files.len() > 15 {
+            println!("    {} ({} more)", "...".dimmed(), firmware_files.len() - 15);
+        }
+    }
+
+    // Check firmware packages
+    println!();
+    println!("  {}:", "Firmware Packages".dimmed());
+
+    let output = Command::new("pacman")
+        .args(["-Qs", "firmware"])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let mut count = 0;
+            for line in stdout.lines() {
+                if line.starts_with("local/") {
+                    count += 1;
+                    // Extract package name
+                    if let Some(name) = line.strip_prefix("local/") {
+                        let name = name.split_whitespace().next().unwrap_or(name);
+                        println!("    {}", name);
+                    }
+                }
+            }
+            if count == 0 {
+                println!("    {}", "(no firmware packages found)".dimmed());
+            }
+        }
+    }
+
+    println!();
+    println!("{}", THIN_SEP);
+    Ok(())
+}
+
+// ============================================================================
+// [PCI] Category - v7.29.0
+// ============================================================================
+
+async fn run_pci_category() -> Result<()> {
+    println!();
+    println!("{}", "  Anna HW: PCI Devices".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    println!("{}", "[PCI DEVICES]".cyan());
+    println!("  {}", "(source: lspci -k)".dimmed());
+
+    let output = Command::new("lspci")
+        .args(["-k"])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+
+            // Group devices by category
+            let mut categories: std::collections::HashMap<String, Vec<(String, String, Option<String>)>> =
+                std::collections::HashMap::new();
+
+            let mut current_addr = String::new();
+            let mut current_name = String::new();
+            let mut current_driver: Option<String> = None;
+            let mut current_category = String::new();
+
+            for line in stdout.lines() {
+                if !line.starts_with('\t') && !line.starts_with(' ') {
+                    // New device - save previous if exists
+                    if !current_name.is_empty() {
+                        categories.entry(current_category.clone())
+                            .or_default()
+                            .push((current_addr.clone(), current_name.clone(), current_driver.clone()));
+                    }
+
+                    // Parse new device line: "00:00.0 Host bridge: Intel Corporation ..."
+                    let parts: Vec<&str> = line.splitn(2, ' ').collect();
+                    if parts.len() == 2 {
+                        current_addr = parts[0].to_string();
+
+                        // Split on ": " to get category and name
+                        if let Some(idx) = parts[1].find(": ") {
+                            current_category = parts[1][..idx].to_string();
+                            current_name = parts[1][idx + 2..].to_string();
+                        } else {
+                            current_category = "Other".to_string();
+                            current_name = parts[1].to_string();
+                        }
+                        current_driver = None;
+                    }
+                } else if line.contains("Kernel driver in use:") {
+                    if let Some(drv) = line.split(':').nth(1) {
+                        current_driver = Some(drv.trim().to_string());
+                    }
+                }
+            }
+
+            // Save last device
+            if !current_name.is_empty() {
+                categories.entry(current_category)
+                    .or_default()
+                    .push((current_addr, current_name, current_driver));
+            }
+
+            // Print by category
+            let order = [
+                "Host bridge", "PCI bridge", "ISA bridge",
+                "VGA compatible controller", "3D controller", "Display controller",
+                "Audio device", "Multimedia audio controller",
+                "Network controller", "Ethernet controller", "Wireless Network Adapter",
+                "USB controller", "SATA controller", "NVMe controller",
+                "Communication controller", "Serial controller",
+                "Signal processing controller", "System peripheral",
+            ];
+
+            for cat in order {
+                if let Some(devices) = categories.get(cat) {
+                    println!();
+                    println!("  {}:", cat.cyan());
+                    for (addr, name, driver) in devices {
+                        let driver_str = driver.as_ref()
+                            .map(|d| format!(" [{}]", d.green()))
+                            .unwrap_or_else(|| format!(" [{}]", "no driver".yellow()));
+
+                        // Shorten name if it has brackets
+                        let short_name = if let Some(idx) = name.find('[') {
+                            if let Some(end) = name.find(']') {
+                                name[idx + 1..end].to_string()
+                            } else {
+                                name.clone()
+                            }
+                        } else {
+                            name.clone()
+                        };
+
+                        println!("    {} {}{}",
+                            addr.dimmed(),
+                            short_name,
+                            driver_str);
+                    }
+                }
+            }
+
+            // Print remaining categories
+            for (cat, devices) in &categories {
+                if !order.contains(&cat.as_str()) {
+                    println!();
+                    println!("  {}:", cat.cyan());
+                    for (addr, name, driver) in devices {
+                        let driver_str = driver.as_ref()
+                            .map(|d| format!(" [{}]", d.green()))
+                            .unwrap_or_else(|| format!(" [{}]", "no driver".yellow()));
+                        println!("    {} {}{}",
+                            addr.dimmed(),
+                            name,
+                            driver_str);
+                    }
+                }
+            }
+        }
+        _ => {
+            println!("  {}", "(lspci not available)".dimmed());
+        }
+    }
+
+    println!();
+    println!("{}", THIN_SEP);
+    Ok(())
 }
 

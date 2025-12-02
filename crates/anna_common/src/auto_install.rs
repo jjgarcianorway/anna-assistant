@@ -1,10 +1,11 @@
-//! Anna Auto-Install v7.26.0
+//! Anna Auto-Install v7.28.0
 //!
 //! Controlled package installation with safety guardrails:
 //! - Only official Arch repos by default (AUR requires explicit gate)
-//! - Rate limit: 1 install per 24 hours (configurable)
+//! - Rate limit: configurable installs per day
 //! - All installs logged to ops_log
 //! - Non-interactive pacman with safe flags
+//! - v7.28.0: In-band disclosure - show what's being installed and why
 
 use crate::config::AnnaConfig;
 use crate::instrumentation::{
@@ -290,6 +291,110 @@ pub fn get_instrumentation_status() -> InstrumentationStatus {
     }
 }
 
+/// v7.28.0: Pending install with in-band disclosure
+#[derive(Debug, Clone)]
+pub struct PendingInstall {
+    pub package: String,
+    pub reason: String,
+    pub metrics_enabled: Vec<String>,
+}
+
+/// v7.28.0: Result of auto-install with disclosure
+#[derive(Debug, Clone)]
+pub struct InstallDisclosure {
+    /// What was attempted to install
+    pub attempted: Vec<PendingInstall>,
+    /// Results for each package
+    pub results: Vec<InstallResult>,
+    /// Whether any installs succeeded
+    pub any_success: bool,
+    /// Sections that are now available
+    pub newly_available: Vec<String>,
+    /// Sections that failed (omit these)
+    pub unavailable: Vec<String>,
+}
+
+/// v7.28.0: Ensure required tool is installed, with in-band disclosure
+/// Returns (success, disclosure_message)
+pub fn ensure_tool_for_command(
+    command: &str,
+    tool_name: &str,
+    package: &str,
+    reason: &str,
+    metrics: &[&str],
+) -> (bool, Option<String>) {
+    // Check if already installed
+    if is_package_installed(package) {
+        return (true, None);
+    }
+
+    let config = AnnaConfig::load();
+
+    // Check if auto-install is enabled
+    if !config.instrumentation.auto_install_enabled {
+        let msg = format!(
+            "  [MISSING TOOL] {} requires '{}' (package: {})\n  \
+             Auto-install is disabled. To enable: set instrumentation.auto_install_enabled = true\n  \
+             Or install manually: sudo pacman -S {}",
+            command, tool_name, package, package
+        );
+        return (false, Some(msg));
+    }
+
+    // Try to install
+    let metrics_vec: Vec<String> = metrics.iter().map(|s| s.to_string()).collect();
+    let result = try_install(package, reason, &metrics_vec, false);
+
+    match &result {
+        InstallResult::Success { package, version } => {
+            let msg = format!(
+                "  [INSTALLING DEPENDENCY]\n  \
+                 Package: {} v{}\n  \
+                 Reason:  {}\n  \
+                 Metrics: {}\n  \
+                 Command: {}",
+                package, version, reason,
+                if metrics.is_empty() { "general".to_string() } else { metrics.join(", ") },
+                command
+            );
+            (true, Some(msg))
+        }
+        InstallResult::AlreadyInstalled { .. } => (true, None),
+        _ => {
+            let msg = format!(
+                "  [INSTALL FAILED] {}\n  \
+                 Section omitted due to missing tool: {}\n  \
+                 Manual install: sudo pacman -S {}",
+                result.message(), tool_name, package
+            );
+            (false, Some(msg))
+        }
+    }
+}
+
+/// Check if a package is installed
+pub fn is_package_installed(package: &str) -> bool {
+    Command::new("pacman")
+        .args(["-Q", package])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// v7.28.0: Common tools Anna may auto-install
+pub const COMMON_TOOLS: &[(&str, &str, &str, &[&str])] = &[
+    ("lspci", "pciutils", "PCI device enumeration", &["pci_devices", "gpu_info"]),
+    ("lsusb", "usbutils", "USB device enumeration", &["usb_devices"]),
+    ("ethtool", "ethtool", "Ethernet interface details", &["network_speed", "link_status"]),
+    ("iw", "iw", "WiFi interface details", &["wifi_signal", "wifi_config"]),
+    ("dmidecode", "dmidecode", "DMI/SMBIOS data", &["system_info", "memory_info"]),
+    ("smartctl", "smartmontools", "Disk SMART health", &["disk_health", "disk_temp"]),
+    ("nvme", "nvme-cli", "NVMe disk health", &["nvme_health", "nvme_temp"]),
+    ("sensors", "lm_sensors", "Hardware sensors", &["cpu_temp", "fan_speed"]),
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,5 +425,63 @@ mod tests {
         let result = InstallResult::Disabled;
         assert!(!result.is_success());
         assert!(result.message().contains("disabled"));
+    }
+
+    // Snow Leopard v7.28.0 tests
+
+    #[test]
+    fn snow_leopard_v728_pending_install_struct() {
+        let pending = PendingInstall {
+            package: "pciutils".to_string(),
+            reason: "PCI device enumeration".to_string(),
+            metrics_enabled: vec!["pci_devices".to_string(), "gpu_info".to_string()],
+        };
+
+        assert_eq!(pending.package, "pciutils");
+        assert_eq!(pending.reason, "PCI device enumeration");
+        assert_eq!(pending.metrics_enabled.len(), 2);
+    }
+
+    #[test]
+    fn snow_leopard_v728_install_disclosure_struct() {
+        let disclosure = InstallDisclosure {
+            attempted: vec![],
+            results: vec![],
+            any_success: false,
+            newly_available: vec![],
+            unavailable: vec!["section1".to_string()],
+        };
+
+        assert!(!disclosure.any_success);
+        assert!(disclosure.unavailable.contains(&"section1".to_string()));
+    }
+
+    #[test]
+    fn snow_leopard_v728_common_tools_defined() {
+        // v7.28.0: COMMON_TOOLS must be defined with expected entries
+        assert!(!COMMON_TOOLS.is_empty(), "COMMON_TOOLS must have entries");
+
+        // Check that lspci is defined
+        let lspci = COMMON_TOOLS.iter().find(|(cmd, _, _, _)| *cmd == "lspci");
+        assert!(lspci.is_some(), "lspci must be in COMMON_TOOLS");
+
+        if let Some((_, pkg, reason, metrics)) = lspci {
+            assert_eq!(*pkg, "pciutils");
+            assert!(!reason.is_empty());
+            assert!(!metrics.is_empty());
+        }
+    }
+
+    #[test]
+    fn snow_leopard_v728_install_result_no_truncation() {
+        // v7.28.0: Install messages must not truncate
+        let success = InstallResult::Success {
+            package: "very-long-package-name-that-would-previously-be-truncated".to_string(),
+            version: "1.2.3.4.5.6.7.8.9".to_string(),
+        };
+
+        let msg = success.message();
+        assert!(!msg.contains("..."), "Install message should not truncate");
+        assert!(msg.contains("very-long-package-name"), "Package name preserved");
     }
 }

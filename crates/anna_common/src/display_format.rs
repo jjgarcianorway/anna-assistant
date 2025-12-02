@@ -165,7 +165,9 @@ pub fn format_eta(remaining: u64, rate_per_sec: f64) -> String {
     }
 }
 
+/// v7.29.0: DEPRECATED - prefer text_wrap functions for zero truncation
 /// Truncate a string to max length, adding "..." if truncated
+#[deprecated(since = "7.29.0", note = "use text_wrap module for zero truncation output")]
 pub fn truncate_str(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
@@ -173,6 +175,16 @@ pub fn truncate_str(s: &str, max_len: usize) -> String {
         s.chars().take(max_len).collect()
     } else {
         format!("{}...", s.chars().take(max_len - 3).collect::<String>())
+    }
+}
+
+/// v7.29.0: Clip a string to max length without adding ellipsis
+/// Use when display width is limited but full content is elsewhere
+pub fn clip_str(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        s.chars().take(max_len).collect()
     }
 }
 

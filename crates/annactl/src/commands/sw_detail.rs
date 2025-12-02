@@ -1,4 +1,4 @@
-//! SW Detail Command v7.24.0 - Relationships, Stacks & Hotspots
+//! SW Detail Command v7.28.0 - Zero Truncation & Config Reorganization
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -11,8 +11,10 @@
 //! - [SERVICE]      Unit, state, enabled
 //! - [SERVICE LIFECYCLE] Restarts, exit codes, activation failures (v7.16.0)
 //! - [DEPENDENCIES] Package deps and service relations (v7.13.0)
-//! - [CONFIG]       Primary/Secondary/Notes + Sanity notes (v7.14.0)
-//! - [CONFIG GRAPH] Ownership and consumers of config files (v7.17.0)
+//! - [CONFIG - DETECTED]        Existing config paths (v7.28.0)
+//! - [CONFIG - COMMON LOCATIONS] From man pages, package files (v7.28.0)
+//! - [CONFIG - PRECEDENCE]      Load order for existing configs (v7.28.0)
+//! - [CONFIG GRAPH] Config relationships: reads, shared (v7.17.0)
 //! - [HISTORY]      Package lifecycle and config changes (v7.18.0)
 //! - [RELATIONSHIPS] Services, processes, hardware touched (v7.24.0)
 //! - [LOGS]         Boot-anchored patterns with baseline tags (v7.20.0)
@@ -98,22 +100,17 @@ async fn run_rule_based_category(category_name: &str) -> Result<()> {
         println!();
 
         for (name, desc, version) in &packages {
-            let desc_short = if desc.len() > 50 {
-                format!("{}...", &desc[..47])
-            } else {
-                desc.clone()
-            };
-
+            // v7.29.0: No truncation - show full description
             let version_str = if version.is_empty() {
                 String::new()
             } else {
                 format!(" ({})", version)
             };
 
-            if desc_short.is_empty() {
+            if desc.is_empty() {
                 println!("  {:<12}{}", name.cyan(), version_str.dimmed());
             } else {
-                println!("  {:<12}{}{}", name.cyan(), desc_short, version_str.dimmed());
+                println!("  {:<12}{}{}", name.cyan(), desc, version_str.dimmed());
             }
         }
     }
@@ -158,12 +155,8 @@ async fn run_services_category() -> Result<()> {
                 ServiceState::Failed => "failed".red().to_string(),
                 ServiceState::Unknown => "unknown".to_string(),
             };
-            let desc_short = if svc.description.len() > 40 {
-                format!("{}...", &svc.description[..37])
-            } else {
-                svc.description.clone()
-            };
-            println!("  {:<28} [{}] {}", name.cyan(), state_str, desc_short.dimmed());
+            // v7.29.0: No truncation - show full description
+            println!("  {:<28} [{}] {}", name.cyan(), state_str, svc.description.dimmed());
         } else {
             println!("  {:<28}", name.cyan());
         }
@@ -272,17 +265,12 @@ async fn run_network_sw_lens() -> Result<()> {
         println!("{}", "[LOGS]".cyan());
         println!("  Patterns (current boot, warning and above):");
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
-            let display_msg = if msg.len() > 45 {
-                format!("{}...", &msg[..42])
-            } else {
-                msg.clone()
-            };
+            // v7.29.0: No truncation - show full message
             println!(
-                "    [{}] {:<45} (seen {} {})",
+                "    [{}] {} ({}x)",
                 id,
-                display_msg,
-                count,
-                if *count == 1 { "time" } else { "times" }
+                msg,
+                count
             );
         }
         println!();
@@ -348,15 +336,10 @@ async fn run_display_sw_lens() -> Result<()> {
         println!("{}", "[LOGS]".cyan());
         println!("  Patterns (current boot, warning and above):");
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
-            let display_msg = if msg.len() > 45 {
-                format!("{}...", &msg[..42])
-            } else {
-                msg.clone()
-            };
+            // v7.29.0: No truncation - show full message
             println!(
-                "    [{}] {:<45} (seen {} {})",
-                id, display_msg, count,
-                if *count == 1 { "time" } else { "times" }
+                "    [{}] {} ({}x)",
+                id, msg, count
             );
         }
         println!();
@@ -423,15 +406,10 @@ async fn run_audio_sw_lens() -> Result<()> {
         println!("{}", "[LOGS]".cyan());
         println!("  Patterns (current boot, warning and above):");
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
-            let display_msg = if msg.len() > 45 {
-                format!("{}...", &msg[..42])
-            } else {
-                msg.clone()
-            };
+            // v7.29.0: No truncation - show full message
             println!(
-                "    [{}] {:<45} (seen {} {})",
-                id, display_msg, count,
-                if *count == 1 { "time" } else { "times" }
+                "    [{}] {} ({}x)",
+                id, msg, count
             );
         }
         println!();
@@ -498,15 +476,10 @@ async fn run_power_sw_lens() -> Result<()> {
         println!("{}", "[LOGS]".cyan());
         println!("  Patterns (current boot, warning and above):");
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
-            let display_msg = if msg.len() > 45 {
-                format!("{}...", &msg[..42])
-            } else {
-                msg.clone()
-            };
+            // v7.29.0: No truncation - show full message
             println!(
-                "    [{}] {:<45} (seen {} {})",
-                id, display_msg, count,
-                if *count == 1 { "time" } else { "times" }
+                "    [{}] {} ({}x)",
+                id, msg, count
             );
         }
         println!();
@@ -930,25 +903,18 @@ fn print_service_logs(unit_name: &str) -> LogPatternSummary {
     println!();
 
     // v7.14.0: Show top 3 patterns with counts and time hints
+    // v7.29.0: No truncation - show full patterns
     for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
         let time_hint = format_time_short(&pattern.last_seen);
 
-        // Truncate pattern for display if too long
-        let display_pattern = if pattern.pattern.len() > 60 {
-            format!("{}...", &pattern.pattern[..57])
-        } else {
-            pattern.pattern.clone()
-        };
-
         let count_str = if pattern.count == 1 {
-            "seen 1 time".to_string()
+            "1x".to_string()
         } else {
-            format!("seen {} times", pattern.count)
+            format!("{}x", pattern.count)
         };
 
-        println!("    {}) \"{}\"", i + 1, display_pattern);
-        println!("       {} ({}, last at {})",
-                 "",
+        println!("    {}) \"{}\"", i + 1, pattern.pattern);
+        println!("       ({}, last at {})",
                  count_str.dimmed(),
                  time_hint);
     }
@@ -956,8 +922,7 @@ fn print_service_logs(unit_name: &str) -> LogPatternSummary {
     // Show if there are more patterns
     if summary.pattern_count > 3 {
         println!();
-        println!("    {} ({} more patterns not shown)",
-                 "...".dimmed(),
+        println!("    (and {} more patterns)",
                  summary.pattern_count - 3);
     }
 
@@ -1114,58 +1079,67 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
-/// Print [CONFIG] section - v7.21.0 format with ConfigAtlas
-/// Clean list with [present]/[missing] markers, no cross-contamination
+/// Print [CONFIG] section - v7.28.0 format with ConfigAtlas
+/// v7.28.0: Three subsections: DETECTED, COMMON LOCATIONS, PRECEDENCE
 fn print_config_section(name: &str) {
-    println!("{}", "[CONFIG]".cyan());
-
     let atlas = build_config_atlas(name);
 
-    if atlas.existing_configs.is_empty() && atlas.recommended_defaults.is_empty() {
-        println!("  No configuration paths discovered for '{}'.", name);
-        if !atlas.sources.is_empty() {
-            println!("  {}", format!("(searched: {})", atlas.sources.join(", ")).dimmed());
-        }
-        println!();
+    // v7.28.0: Collect only existing configs for "DETECTED"
+    let detected: Vec<_> = atlas.existing_configs.iter()
+        .filter(|c| c.status == ConfigStatus::Present)
+        .collect();
+
+    // v7.28.0: Collect documented locations (from man, pacman) for "COMMON LOCATIONS"
+    let common_locations: Vec<_> = atlas.recommended_defaults.iter()
+        .filter(|path| {
+            // Only include if not already in detected
+            !detected.iter().any(|c| &c.path == *path)
+        })
+        .collect();
+
+    // v7.28.0: Precedence order (existing files only)
+    let precedence: Vec<_> = atlas.precedence.iter()
+        .filter(|e| e.status == ConfigStatus::Present)
+        .collect();
+
+    // Skip entire section if nothing to show
+    if detected.is_empty() && common_locations.is_empty() && precedence.is_empty() {
         return;
     }
 
-    // Source attribution
-    if !atlas.sources.is_empty() {
-        println!("  {}", format!("(sources: {})", atlas.sources.join(", ")).dimmed());
-    }
-
-    // v7.21.0: Existing configs with status markers
-    if !atlas.existing_configs.is_empty() {
-        println!("  Active:");
-        for cfg in &atlas.existing_configs {
-            let status_marker = match cfg.status {
-                ConfigStatus::Present => "[present]".green().to_string(),
-                ConfigStatus::Missing => "[missing]".yellow().to_string(),
-            };
+    // v7.28.0: [CONFIG - DETECTED] - only paths that exist on this machine
+    if !detected.is_empty() {
+        println!("{}", "[CONFIG - DETECTED]".cyan());
+        if !atlas.sources.is_empty() {
+            println!("  {}", format!("(sources: {})", atlas.sources.join(", ")).dimmed());
+        }
+        for cfg in &detected {
             let category = format!("({})", cfg.category.label());
-            println!("    {:<40} {}  {}", cfg.path, status_marker, category.dimmed());
+            println!("  {}  {}", cfg.path, category.dimmed());
         }
+        println!();
     }
 
-    // v7.21.0: Recommended defaults (from docs, not present)
-    if !atlas.recommended_defaults.is_empty() {
-        println!("  Recommended:");
-        for path in &atlas.recommended_defaults {
-            println!("    {:<40} {}", path, "[not present]".dimmed());
+    // v7.28.0: [CONFIG - COMMON LOCATIONS] - from man pages or package files
+    if !common_locations.is_empty() {
+        println!("{}", "[CONFIG - COMMON LOCATIONS]".cyan());
+        println!("  {}", "(from man pages, package files)".dimmed());
+        for path in &common_locations {
+            println!("  {}", path);
         }
+        println!();
     }
 
-    // v7.21.0: Recent modifications
-    if !atlas.config_mtimes.is_empty() {
-        println!("  Recently Modified:");
-        for (path, mtime) in atlas.config_mtimes.iter().take(3) {
-            let age = format_config_age(*mtime);
-            println!("    {:<40} {}", path, age.dimmed());
+    // v7.28.0: [CONFIG - PRECEDENCE] - load order for existing configs
+    if precedence.len() > 1 {
+        println!("{}", "[CONFIG - PRECEDENCE]".cyan());
+        println!("  {}", "(first match wins)".dimmed());
+        for (i, entry) in precedence.iter().enumerate() {
+            let rank = format!("{}.", i + 1);
+            println!("  {:<3} {}", rank, entry.path);
         }
+        println!();
     }
-
-    println!();
 }
 
 /// Format config file age from mtime
@@ -1191,55 +1165,33 @@ fn format_config_age(mtime: u64) -> String {
     }
 }
 
-/// Print [CONFIG GRAPH] section - v7.21.0
-/// Shows precedence order and config relationships
+/// Print [CONFIG GRAPH] section - v7.28.0
+/// Shows config relationships (reads, shared) - precedence moved to CONFIG - PRECEDENCE
 fn print_config_graph_section(name: &str) {
-    let atlas = build_config_atlas(name);
     let graph = get_config_graph_for_software(name);
 
-    // Skip if no precedence and no graph
-    if atlas.precedence.is_empty() && graph.reads.is_empty() && graph.shared.is_empty() {
+    // Skip if no graph data
+    if graph.reads.is_empty() && graph.shared.is_empty() {
         return;
     }
 
     println!("{}", "[CONFIG GRAPH]".cyan());
 
-    // v7.21.0: Precedence order (first match wins)
-    if !atlas.precedence.is_empty() {
-        println!("  Precedence (first match wins):");
-        for (i, entry) in atlas.precedence.iter().enumerate() {
-            let status = match entry.status {
-                ConfigStatus::Present => "[present]".green().to_string(),
-                ConfigStatus::Missing => "[missing]".dimmed().to_string(),
-            };
-            let rank = format!("{}.", i + 1);
-            println!("    {:<3} {:<40} {}", rank, entry.path, status);
-        }
-    }
-
-    // v7.17.0: Configs this software reads (from graph)
-    if !graph.reads.is_empty() {
+    // v7.28.0: Only show existing config reads
+    let existing_reads: Vec<_> = graph.reads.iter().filter(|c| c.exists).collect();
+    if !existing_reads.is_empty() {
         println!("  Reads:");
-        for cfg in &graph.reads {
-            let status = if cfg.exists {
-                "[present]".green().to_string()
-            } else {
-                "[not present]".dimmed().to_string()
-            };
-            println!("    {:<40} {}  {}", cfg.path, status, format!("({})", cfg.evidence).dimmed());
+        for cfg in existing_reads {
+            println!("    {}  {}", cfg.path, format!("({})", cfg.evidence).dimmed());
         }
     }
 
-    // Shared configs (PAM, NSS, etc.)
-    if !graph.shared.is_empty() {
+    // v7.28.0: Only show existing shared configs
+    let existing_shared: Vec<_> = graph.shared.iter().filter(|c| c.exists).collect();
+    if !existing_shared.is_empty() {
         println!("  Shared:");
-        for cfg in &graph.shared {
-            let status = if cfg.exists {
-                "[present]".green().to_string()
-            } else {
-                "[not present]".dimmed().to_string()
-            };
-            println!("    {:<40} {}  {}", cfg.path, status, format!("({})", cfg.evidence).dimmed());
+        for cfg in existing_shared {
+            println!("    {}  {}", cfg.path, format!("({})", cfg.evidence).dimmed());
         }
     }
 
@@ -1262,10 +1214,10 @@ fn print_history_section(name: &str) {
     println!("{}", "[HISTORY]".cyan());
     println!("  {}", "(source: pacman.log, change journal)".dimmed());
 
-    // Package events
+    // Package events - v7.29.0: Show all events, no truncation
     if !pkg_history.is_empty() {
         println!("  Package:");
-        for event in pkg_history.iter().take(5) {
+        for event in pkg_history.iter() {
             let ts = DateTime::from_timestamp(event.timestamp as i64, 0)
                 .map(|dt| {
                     let local: DateTime<Local> = dt.into();
@@ -1296,15 +1248,13 @@ fn print_history_section(name: &str) {
                 println!("    {}  {:<12} {}  {}", ts, action, name, details.dimmed());
             }
         }
-        if pkg_history.len() > 5 {
-            println!("    {} ({} more events)", "...".dimmed(), pkg_history.len() - 5);
-        }
+        // v7.29.0: Show all events (no truncation)
     }
 
-    // Config changes
+    // Config changes - v7.29.0: Show all changes, no truncation
     if !config_history.is_empty() {
         println!("  Config:");
-        for event in config_history.iter().take(3) {
+        for event in config_history.iter() {
             let ts = DateTime::from_timestamp(event.timestamp as i64, 0)
                 .map(|dt| {
                     let local: DateTime<Local> = dt.into();
@@ -1319,9 +1269,7 @@ fn print_history_section(name: &str) {
 
             println!("    {}  {} modified", ts, path);
         }
-        if config_history.len() > 3 {
-            println!("    {} ({} more changes)", "...".dimmed(), config_history.len() - 3);
-        }
+        // v7.29.0: Show all config changes (no truncation)
     }
 
     println!();
@@ -1472,19 +1420,14 @@ fn print_config_sanity_notes(
         }
     }
 
-    // Print sanity notes section
+    // Print sanity notes section - v7.29.0: Show all notes, no truncation
     if sanity_notes.is_empty() {
         println!("  Sanity notes:");
         println!("    - No obvious issues detected with primary config paths.");
     } else {
         println!("  Sanity notes:");
-        for note in sanity_notes.iter().take(3) {
+        for note in &sanity_notes {
             println!("    - {}", note.yellow());
-        }
-        if sanity_notes.len() > 3 {
-            println!("    - {} ({} more issues not shown)",
-                     "...".dimmed(),
-                     sanity_notes.len() - 3);
         }
     }
 }
@@ -2095,16 +2038,10 @@ fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
     println!();
 
     // v7.16.0: Top patterns with history
+    // v7.29.0: No truncation - show full patterns
     if !summary.patterns.is_empty() {
         println!("  Top patterns:");
         for (i, pattern) in summary.top_patterns(3).iter().enumerate() {
-            // Truncate pattern for display
-            let display_pattern = if pattern.pattern.len() > 55 {
-                format!("{}...", &pattern.pattern[..52])
-            } else {
-                pattern.pattern.clone()
-            };
-
             // Build history string
             let mut history_parts = Vec::new();
             if pattern.count_this_boot > 0 {
@@ -2123,31 +2060,28 @@ fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
                 history_parts.join(", ")
             };
 
-            println!("    {}) \"{}\"", i + 1, display_pattern);
+            // v7.29.0: No truncation - show full pattern
+            println!("    {}) \"{}\"", i + 1, pattern.pattern);
             println!("       {} ({})", pattern.priority.dimmed(), history_str.dimmed());
         }
 
         if summary.patterns.len() > 3 {
             println!();
-            println!("    {} ({} more patterns not shown)",
-                     "...".dimmed(),
+            println!("    (and {} more patterns)",
                      summary.patterns.len() - 3);
         }
     }
 
     // v7.16.0: Show patterns with history beyond this boot
+    // v7.29.0: No truncation - show full patterns
     let history_patterns = summary.patterns_with_history();
     if !history_patterns.is_empty() {
         println!();
         println!("  Recurring patterns (seen in previous boots):");
         for pattern in history_patterns.iter().take(2) {
-            let display_pattern = if pattern.pattern.len() > 50 {
-                format!("{}...", &pattern.pattern[..47])
-            } else {
-                pattern.pattern.clone()
-            };
+            // v7.29.0: Show full pattern without truncation
             println!("    - \"{}\" ({} boots, {} total in 7d)",
-                     display_pattern.dimmed(),
+                     pattern.pattern.dimmed(),
                      pattern.boots_seen,
                      pattern.count_7d);
         }
@@ -2212,55 +2146,58 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
     }
     println!();
 
-    // v7.20.0: Show new patterns with baseline tags
+    // v7.28.0: Show new patterns with dedupe count - no truncation, up to 20 unique
     if !pattern_summary.new_this_boot.is_empty() {
         println!("  {} (first seen this boot):", "New patterns".yellow());
-        for occurrence in pattern_summary.new_this_boot.iter().take(3) {
-            let display = if occurrence.pattern.template.len() > 45 {
-                format!("{}...", &occurrence.pattern.template[..42])
-            } else {
-                occurrence.pattern.template.clone()
-            };
+        for occurrence in pattern_summary.new_this_boot.iter().take(20) {
+            // v7.27.0: No truncation per spec
+            let display = &occurrence.pattern.template;
 
             // v7.20.0: Get baseline tag for this pattern
             let normalized = normalize_message(&occurrence.pattern.template);
             let baseline_tag = tag_pattern(unit_name, &normalized);
 
+            // v7.27.0: Format "(seen N times this boot)" per spec
+            let seen_str = if occurrence.count_this_boot == 1 {
+                "(seen 1 time this boot)".to_string()
+            } else {
+                format!("(seen {} times this boot)", occurrence.count_this_boot)
+            };
+
             println!("    [{}] \"{}\" {}",
                      occurrence.pattern.short_id().yellow(),
                      display,
                      baseline_tag.format().yellow());
-            println!("           {} (count: {})",
+            println!("           {} {}",
                      occurrence.pattern.priority.dimmed(),
-                     occurrence.count_this_boot);
+                     seen_str.dimmed());
         }
-        if pattern_summary.new_this_boot.len() > 3 {
-            println!("    {} ({} more new patterns)",
-                     "...".dimmed(),
-                     pattern_summary.new_this_boot.len() - 3);
+        if pattern_summary.new_this_boot.len() > 20 {
+            // v7.29.0: No ellipsis
+            println!("    (and {} more new patterns)",
+                     pattern_summary.new_this_boot.len() - 20);
         }
         println!();
     }
 
-    // v7.20.0: Show known patterns with baseline tags
+    // v7.28.0: Show known patterns with dedupe - no truncation, up to 20 unique
     if !pattern_summary.known_patterns.is_empty() {
         println!("  Known patterns:");
-        for occurrence in pattern_summary.known_patterns.iter().take(3) {
-            let display = if occurrence.pattern.template.len() > 45 {
-                format!("{}...", &occurrence.pattern.template[..42])
-            } else {
-                occurrence.pattern.template.clone()
-            };
+        for occurrence in pattern_summary.known_patterns.iter().take(20) {
+            // v7.27.0: No truncation per spec
+            let display = &occurrence.pattern.template;
 
             // v7.20.0: Get baseline tag for this pattern
             let normalized = normalize_message(&occurrence.pattern.template);
             let baseline_tag = tag_pattern(unit_name, &normalized);
             let tag_str = baseline_tag.format();
 
-            let history = format!("boot: {}, 7d: {}, {} boots",
-                                  occurrence.count_this_boot,
-                                  occurrence.count_7d,
-                                  occurrence.boots_seen);
+            // v7.27.0: Format "(seen N times this boot)" per spec
+            let seen_str = if occurrence.count_this_boot == 1 {
+                format!("(seen 1 time this boot, {} in 7d, {} boots)", occurrence.count_7d, occurrence.boots_seen)
+            } else {
+                format!("(seen {} times this boot, {} in 7d, {} boots)", occurrence.count_this_boot, occurrence.count_7d, occurrence.boots_seen)
+            };
 
             if tag_str.is_empty() {
                 println!("    [{}] \"{}\"",
@@ -2272,14 +2209,14 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
                          display,
                          tag_str.dimmed());
             }
-            println!("           {} ({})",
+            println!("           {} {}",
                      occurrence.pattern.priority.dimmed(),
-                     history.dimmed());
+                     seen_str.dimmed());
         }
-        if pattern_summary.known_patterns.len() > 3 {
-            println!("    {} ({} more known patterns)",
-                     "...".dimmed(),
-                     pattern_summary.known_patterns.len() - 3);
+        if pattern_summary.known_patterns.len() > 20 {
+            // v7.29.0: No ellipsis
+            println!("    (and {} more known patterns)",
+                     pattern_summary.known_patterns.len() - 20);
         }
         println!();
     }

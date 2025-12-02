@@ -1,4 +1,4 @@
-//! Anna Common v7.26.0 - Instrumentation & Auto-Install
+//! Anna Common v7.29.0 - Bugfix & Performance Release
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -105,6 +105,8 @@ pub mod relationships;
 pub mod instrumentation;
 pub mod auto_install;
 pub mod local_docs;
+// v7.28.0: Text wrapping for zero truncation
+pub mod text_wrap;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -141,6 +143,7 @@ pub use telemetry::{
 // v7.6.0: Added MaintenanceResult for pruning
 // v7.7.0: Added compact per-window stats (AllWindowStats, WindowStats, TopCompactEntry)
 // v7.9.0: Added trend classification (24h vs 7d), TopIdentityWithTrend, TrendWithStats
+// v7.27.0: Added boot_id for "this boot" aggregations
 pub use telemetry_db::{
     TelemetryDb, ProcessTelemetrySample, ObjectTelemetry, TelemetryStats,
     SampleCounts, UsageStats, GlobalPeak, DataStatus, MaintenanceResult,
@@ -151,6 +154,8 @@ pub use telemetry_db::{
     Trend, TrendData, WindowStatusInfo, TopHighlightEntry,
     // v7.9.0: Enhanced trend types
     TrendWithStats, TopIdentityWithTrend,
+    // v7.27.0: Boot ID support
+    get_current_boot_id,
     TELEMETRY_DB_PATH,
     WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D,
     format_cpu_time, format_bytes_human,
@@ -284,10 +289,11 @@ pub use relationship_store::{
     discover_package_service_links, discover_service_process_links,
     discover_device_driver_links, discover_driver_firmware_links,
 };
-// v7.24.0: Hotspots
+// v7.24.0: Hotspots (v7.28.0: added NetworkHotspot)
 pub use hotspots::{
     CpuHotspot, MemoryHotspot, StartFrequencyHotspot,
     TempHotspot, IoHotspot, LoadHotspot, GpuHotspot,
+    NetworkHotspot,  // v7.28.0
     SoftwareHotspots, HardwareHotspots,
     get_software_hotspots, get_hardware_hotspots,
     format_software_hotspots_section, format_hardware_hotspots_section,
@@ -310,10 +316,18 @@ pub use instrumentation::{
 pub use auto_install::{
     InstallResult as AutoInstallResult, InstrumentationStatus,
     try_install, try_install_known_tool, get_instrumentation_status,
+    // v7.28.0: In-band disclosure for auto-install
+    PendingInstall, InstallDisclosure, ensure_tool_for_command,
+    is_package_installed as auto_is_package_installed, COMMON_TOOLS,
 };
 pub use local_docs::{
     LocalDocResult, LocalDocsSummary,
     has_man_page, get_man_path, get_man_description,
     get_doc_paths, get_config_paths_from_pacman, get_sample_configs_from_pacman,
     resolve_local_docs, get_local_docs_summary,
+};
+// v7.28.0: Text wrapping for zero truncation
+pub use text_wrap::{
+    get_terminal_width, wrap_text, wrap_with_prefix,
+    format_kv, format_list_item,
 };

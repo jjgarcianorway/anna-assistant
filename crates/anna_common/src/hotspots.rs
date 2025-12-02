@@ -1,12 +1,15 @@
-//! Anna Hotspots v7.24.0 - Resource Usage Hotspot Detection
+//! Anna Hotspots v7.28.0 - Resource Usage Hotspot Detection
 //!
 //! Identifies top resource consumers from Anna's telemetry.
 //! All values follow the global percentage rules.
+//!
+//! v7.28.0: Added network interface hotspots (rx/tx deltas)
 //!
 //! Rules:
 //! - CPU percentages always include range in parentheses
 //! - All fractions [0,1] shown as percentages
 //! - No guessing - only data from Anna telemetry
+//! - v7.28.0: Only show subsections with real data
 
 use crate::timeline::format_memory;
 
@@ -98,7 +101,7 @@ impl TempHotspot {
     }
 }
 
-/// IO hotspot entry
+/// IO hotspot entry (disk)
 #[derive(Debug, Clone)]
 pub struct IoHotspot {
     pub device: String,
@@ -115,6 +118,38 @@ impl IoHotspot {
             format_bytes_gib(self.read_bytes),
             format_bytes_gib(self.write_bytes)
         )
+    }
+
+    /// Format compact for status
+    pub fn format_compact(&self) -> String {
+        let total = self.read_bytes + self.write_bytes;
+        format!("{} ({})", self.device, format_bytes_gib(total))
+    }
+}
+
+/// v7.28.0: Network interface hotspot (rx/tx deltas)
+#[derive(Debug, Clone)]
+pub struct NetworkHotspot {
+    pub interface: String,
+    pub rx_bytes: u64,
+    pub tx_bytes: u64,
+}
+
+impl NetworkHotspot {
+    /// Format as "interface  rx X MiB, tx Y MiB"
+    pub fn format_line(&self) -> String {
+        format!(
+            "{}  rx {}, tx {}",
+            self.interface,
+            format_bytes_gib(self.rx_bytes),
+            format_bytes_gib(self.tx_bytes)
+        )
+    }
+
+    /// Format compact for status
+    pub fn format_compact(&self) -> String {
+        let total = self.rx_bytes + self.tx_bytes;
+        format!("{} ({})", self.interface, format_bytes_gib(total))
     }
 }
 
@@ -182,6 +217,7 @@ pub struct SoftwareHotspots {
 pub struct HardwareHotspots {
     pub warm_devices: Vec<TempHotspot>,
     pub heavy_io: Vec<IoHotspot>,
+    pub network_io: Vec<NetworkHotspot>,  // v7.28.0
     pub high_load: Vec<LoadHotspot>,
     pub has_data: bool,
 }
@@ -259,6 +295,18 @@ pub fn get_hardware_hotspots() -> HardwareHotspots {
                 device,
                 read_bytes: read,
                 write_bytes: write,
+            });
+        }
+        hotspots.has_data = true;
+    }
+
+    // v7.28.0: Query network interface data (last 24h)
+    if let Some(net_data) = query_network_io_24h(5) {
+        for (iface, rx, tx) in net_data {
+            hotspots.network_io.push(NetworkHotspot {
+                interface: iface,
+                rx_bytes: rx,
+                tx_bytes: tx,
             });
         }
         hotspots.has_data = true;
@@ -350,8 +398,17 @@ pub fn format_hardware_hotspots_section(hotspots: &HardwareHotspots) -> Vec<Stri
     }
 
     if !hotspots.heavy_io.is_empty() {
-        lines.push("  Heavy IO (last 24h):".to_string());
+        lines.push("  Disk IO (last 24h):".to_string());
         for h in &hotspots.heavy_io {
+            lines.push(format!("    {}", h.format_line()));
+        }
+        lines.push(String::new());
+    }
+
+    // v7.28.0: Network interface IO
+    if !hotspots.network_io.is_empty() {
+        lines.push("  Network IO (last 24h):".to_string());
+        for h in &hotspots.network_io {
             lines.push(format!("    {}", h.format_line()));
         }
         lines.push(String::new());
@@ -408,6 +465,18 @@ pub fn format_status_hotspots_section(
     }
     if !warm_parts.is_empty() {
         lines.push(format!("  Warm devices: {}", warm_parts.join(", ")));
+    }
+
+    // v7.28.0: Disk IO (compact)
+    if !hw_hotspots.heavy_io.is_empty() {
+        let io_str: Vec<String> = hw_hotspots.heavy_io.iter().take(2).map(|h| h.format_compact()).collect();
+        lines.push(format!("  Disk IO:      {}", io_str.join(", ")));
+    }
+
+    // v7.28.0: Network IO (compact)
+    if !hw_hotspots.network_io.is_empty() {
+        let net_str: Vec<String> = hw_hotspots.network_io.iter().take(2).map(|h| h.format_compact()).collect();
+        lines.push(format!("  Network IO:   {}", net_str.join(", ")));
     }
 
     lines
@@ -691,6 +760,44 @@ fn query_gpu_load_24h() -> Option<(f64, f64)> {
     .filter(|(avg, _)| *avg > 0.0)
 }
 
+/// v7.28.0: Query network interface IO (last 24h)
+fn query_network_io_24h(limit: usize) -> Option<Vec<(String, u64, u64)>> {
+    // Read current network stats from /proc/net/dev
+    // This gives us cumulative counters, so we report totals
+    let content = std::fs::read_to_string("/proc/net/dev").ok()?;
+
+    let mut results: Vec<(String, u64, u64)> = Vec::new();
+
+    for line in content.lines().skip(2) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 10 {
+            let iface = parts[0].trim_end_matches(':');
+            // Skip loopback and virtual interfaces
+            if iface == "lo" || iface.starts_with("veth") || iface.starts_with("docker") {
+                continue;
+            }
+
+            let rx: u64 = parts[1].parse().unwrap_or(0);
+            let tx: u64 = parts[9].parse().unwrap_or(0);
+
+            // Only include interfaces with activity
+            if rx > 0 || tx > 0 {
+                results.push((iface.to_string(), rx, tx));
+            }
+        }
+    }
+
+    if results.is_empty() {
+        return None;
+    }
+
+    // Sort by total traffic descending
+    results.sort_by(|a, b| (b.1 + b.2).cmp(&(a.1 + a.2)));
+    results.truncate(limit);
+
+    Some(results)
+}
+
 fn format_bytes_gib(bytes: u64) -> String {
     let gib = bytes as f64 / (1024.0 * 1024.0 * 1024.0);
     if gib >= 1.0 {
@@ -789,5 +896,32 @@ mod tests {
         assert!(line.contains("ollama"));
         assert!(line.contains("20 percent GPU util"));
         assert!(line.contains("0 - 100 percent per GPU"));
+    }
+
+    #[test]
+    fn test_network_hotspot_format() {
+        let h = NetworkHotspot {
+            interface: "enp3s0".to_string(),
+            rx_bytes: 1_500_000_000,
+            tx_bytes: 500_000_000,
+        };
+
+        let line = h.format_line();
+        assert!(line.contains("enp3s0"));
+        assert!(line.contains("rx"));
+        assert!(line.contains("tx"));
+    }
+
+    #[test]
+    fn test_io_hotspot_compact() {
+        let h = IoHotspot {
+            device: "nvme0n1".to_string(),
+            read_bytes: 2_000_000_000,
+            write_bytes: 1_000_000_000,
+        };
+
+        let compact = h.format_compact();
+        assert!(compact.contains("nvme0n1"));
+        assert!(compact.contains("GiB"));
     }
 }

@@ -1,11 +1,11 @@
-//! Status Command v7.26.0 - Instrumentation & Auto-Install
+//! Status Command v7.29.0 - Bugfix & Performance Release
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
 //! - [DAEMON]              State, uptime, PID, restarts
 //! - [HEALTH]              Overall health status
 //! - [BOOT SNAPSHOT]       Boot times, uptime, incident summary (v7.23.0)
-//! - [KDB]                 Software and hardware knowledge database readiness (v7.21.0)
+//! - [DATA]                Software and hardware data readiness (v7.29.0, renamed from KDB)
 //! - [INVENTORY]           What Anna has indexed + drift indicator (v7.23.0)
 //! - [TELEMETRY]           Real telemetry with top CPU/memory and trends
 //! - [TELEMETRY SUMMARY]   Services with notable trends (v7.20.0)
@@ -23,7 +23,7 @@
 //! - [ANNA TOOLCHAIN]      Diagnostic tool readiness (v7.22.0)
 //! - [ANNA NEEDS]          Missing tools and docs
 //!
-//! v7.26.0: [INSTRUMENTATION] section for auto-installed tools tracking
+//! v7.27.0: Simplified [INSTRUMENTATION], status Anna-only (no host-wide journal spam)
 //! v7.24.0: [HOTSPOTS] compact cross-reference section
 //! v7.23.0: [BOOT SNAPSHOT] with incidents, [INVENTORY] with drift indicator
 //! v7.22.0: [ANNA TOOLCHAIN] for diagnostic tool tracking
@@ -39,7 +39,7 @@ use std::path::Path;
 
 use anna_common::config::{AnnaConfig, UpdateState, SYSTEM_CONFIG_DIR, DATA_DIR};
 use anna_common::format_duration_secs;
-use anna_common::{TelemetryDb, DataStatus, WINDOW_24H, format_bytes_human};
+use anna_common::{TelemetryDb, DataStatus, WINDOW_24H, format_bytes_human, get_logical_cores};
 use anna_common::grounded::health::{collect_hardware_alerts, HealthStatus};
 use anna_common::grounded::network::get_network_summary;
 use anna_common::{AnnaNeeds, NeedStatus};
@@ -50,7 +50,7 @@ use anna_common::{get_recent_changes, get_current_boot_summary};
 use anna_common::grounded::service_topology::{get_high_impact_services, get_gpu_driver_stacks};
 // v7.20.0: Telemetry trends and log baselines
 use anna_common::{get_process_trends, TrendDirection, get_components_with_new_patterns};
-// v7.21.0: Topology for KDB section
+// v7.21.0: Topology for DATA section
 use anna_common::topology_map::build_hardware_topology;
 // v7.22.0: Toolchain hygiene
 use anna_common::toolchain::{check_toolchain, ToolCategory};
@@ -63,8 +63,8 @@ use anna_common::hotspots::{get_software_hotspots, get_hardware_hotspots, format
 use anna_common::grounded::peripherals::{
     get_usb_summary, get_bluetooth_summary, get_thunderbolt_summary, BluetoothState,
 };
-// v7.26.0: Instrumentation
-use anna_common::{InstrumentationManifest, get_instrumentation_status, get_missing_tools};
+// v7.27.0: Instrumentation (simplified per spec)
+use anna_common::InstrumentationManifest;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -92,7 +92,7 @@ pub async fn run() -> Result<()> {
     // [BOOT SNAPSHOT] - v7.23.0: Boot times, uptime, incidents
     print_boot_snapshot_section();
 
-    // [KDB] - v7.21.0: Knowledge database readiness
+    // [DATA] - v7.29.0: Data readiness (renamed from KDB)
     print_kdb_section(&daemon_stats);
 
     // [INVENTORY]
@@ -284,11 +284,20 @@ fn print_health_section(stats: &Option<DaemonStats>) {
                 "disabled".dimmed().to_string()
             } else {
                 match TelemetryDb::open_readonly() {
-                    Some(db) => match db.get_data_status() {
-                        DataStatus::Ok { .. } => "collecting".green().to_string(),
-                        DataStatus::PartialWindow { .. } => "warming up".yellow().to_string(),
-                        DataStatus::NotEnoughData { .. } => "starting".yellow().to_string(),
-                        DataStatus::NoData | DataStatus::Disabled => "no data".dimmed().to_string(),
+                    Some(db) => {
+                        // v7.29.0: Use window status for consistency with TELEMETRY section
+                        let window = db.get_window_status("");
+                        if window.w24h_ready {
+                            "collecting".green().to_string()
+                        } else if window.w1h_ready {
+                            "warming up".yellow().to_string()
+                        } else {
+                            match db.get_data_status() {
+                                DataStatus::NotEnoughData { .. } => "starting".yellow().to_string(),
+                                DataStatus::NoData | DataStatus::Disabled => "no data".dimmed().to_string(),
+                                _ => "starting".yellow().to_string(),
+                            }
+                        }
                     },
                     None => "unavailable".red().to_string(),
                 }
@@ -336,24 +345,32 @@ fn print_boot_snapshot_section() {
         println!("  Incidents (current boot):");
         println!("    {}", "none recorded at warning or above".green());
     } else {
-        println!("  Incidents (current boot, warning and above, grouped):");
-        for incident in snapshot.incidents.iter().take(10) {
-            let count_str = if incident.count == 1 {
-                "(seen 1 time)".to_string()
-            } else {
-                format!("(seen {} times)", incident.count)
-            };
-            let display_msg = if incident.message.len() > 45 {
-                format!("{}...", &incident.message[..42])
-            } else {
-                incident.message.clone()
-            };
-            println!(
-                "    {} {:45} {}",
-                incident.pattern_id,
-                display_msg,
-                count_str.dimmed()
-            );
+        // v7.29.0: Filter incidents to Anna-relevant only (from Anna services)
+        let anna_incidents: Vec<_> = snapshot.incidents.iter()
+            .filter(|i| i.message.contains("anna") || i.message.contains("annad") ||
+                       i.message.contains("annactl") || i.pattern_id.starts_with("anna"))
+            .take(10)
+            .collect();
+
+        if anna_incidents.is_empty() {
+            println!("  Incidents (Anna-specific this boot):");
+            println!("    {}", "none recorded".green());
+        } else {
+            println!("  Incidents (Anna-specific this boot):");
+            for incident in &anna_incidents {
+                let count_str = if incident.count == 1 {
+                    "(1x)".to_string()
+                } else {
+                    format!("({}x)", incident.count)
+                };
+                // v7.29.0: No truncation - show full message wrapped
+                println!(
+                    "    {} {} {}",
+                    incident.pattern_id,
+                    incident.message,
+                    count_str.dimmed()
+                );
+            }
         }
     }
 
@@ -416,19 +433,19 @@ fn print_last_boot_section() {
     println!();
 }
 
-/// v7.21.0: [KDB] section - knowledge database readiness
+/// v7.29.0: [DATA] section - data readiness (renamed from [KDB])
 fn print_kdb_section(stats: &Option<DaemonStats>) {
-    println!("{}", "[KDB]".cyan());
+    println!("{}", "[DATA]".cyan());
 
     match stats {
         Some(s) => {
-            // Software KDB readiness
+            // Software data readiness
             println!("  Software:   {} packages, {} commands, {} services",
                 s.packages_count,
                 s.commands_count,
                 s.services_count);
 
-            // Hardware KDB readiness from topology
+            // Hardware data readiness from topology
             let hw_topology = build_hardware_topology();
 
             let gpu_count = hw_topology.gpus.len();
@@ -641,32 +658,38 @@ fn print_telemetry_section_v79() {
         }
     };
 
-    // Check sample count for warming up detection
-    let samples_24h = db.get_samples_24h_count();
+    // v7.29.0: Check window validity (60% sample coverage required)
+    let window_status = db.get_window_status("");  // Global window status
     let interval = config.telemetry.effective_sample_interval();
 
-    // Need at least 20 samples in 24h window to show data
-    if samples_24h < 20 {
-        println!("  Telemetry still warming up (only {} samples collected in the last 24h).",
+    // Need 60% sample coverage for 24h window to be valid
+    if !window_status.w24h_ready {
+        let samples_24h = db.get_samples_24h_count();
+        println!("  Telemetry data collection in progress ({} samples, need 60% coverage).",
             samples_24h);
+        println!("  {}", "(24h window requires ~1728 samples at 30s interval)".dimmed());
         println!();
         return;
     }
 
     // Show window header
-    println!("  Window: last 24h (sampling every {}s)", interval);
+    println!("  Window: last 24h (sampling every {}s, valid)", interval);
     println!();
 
     // Top CPU identities (max 3)
+    // v7.27.0: Show CPU range (0 - Y percent for N logical cores)
+    let logical_cores = get_logical_cores();
     if let Ok(top_cpu) = db.top_cpu_with_trend(3) {
         if !top_cpu.is_empty() {
-            println!("  Top CPU identities:");
+            let max_percent = logical_cores * 100;
+            println!("  Top CPU identities (0 - {} percent for {} logical cores):",
+                max_percent, logical_cores);
             for entry in &top_cpu {
                 let trend_str = match entry.cpu_trend {
                     Some(trend) => format!("  {}", trend.format_vs_7d().dimmed()),
                     None => String::new(),
                 };
-                println!("    {:<16} avg {:.1} percent, peak {:.1} percent{}",
+                println!("    {:<16} avg {:.0} percent, peak {:.0} percent{}",
                     entry.name.cyan(),
                     entry.avg_cpu_percent,
                     entry.peak_cpu_percent,
@@ -780,7 +803,7 @@ fn print_telemetry_summary_section() {
     }
 
     if notable.len() > 5 {
-        println!("  {} ({} more)", "...".dimmed(), notable.len() - 5);
+        println!("  (and {} more with notable trends)", notable.len() - 5);
     }
 
     println!();
@@ -809,7 +832,7 @@ fn print_log_summary_section() {
     }
 
     if components_with_new.len() > 5 {
-        println!("  {} ({} more)", "...".dimmed(), components_with_new.len() - 5);
+        println!("  (and {} more components)", components_with_new.len() - 5);
     }
 
     println!();
@@ -821,29 +844,28 @@ fn print_updates_section() {
     let config = AnnaConfig::load();
     let state = UpdateState::load();
 
-    // Mode
-    let mode_str = if config.update.enabled { "auto" } else { "disabled" };
+    // v7.29.0: Use new UpdateMode enum
+    use anna_common::config::UpdateMode;
+    let mode_str = match config.update.mode {
+        UpdateMode::Auto => "auto",
+        UpdateMode::Manual => "manual",
+    };
     println!("  Mode:       {}", mode_str);
 
-    // Interval
-    println!("  Interval:   {}m", config.update.interval_minutes);
+    // Interval (in seconds, display as minutes)
+    let interval_mins = config.update.interval_seconds / 60;
+    println!("  Interval:   {}m", interval_mins);
 
     // Last check
     println!("  Last check: {}", state.format_last_check());
 
     // Result
-    let result_str = if state.last_result.is_empty() {
-        "n/a"
-    } else {
-        &state.last_result
-    };
-    println!("  Result:     {}", result_str);
+    println!("  Result:     {}", state.format_last_result());
 
     // Next check
-    let next_str = if config.update.enabled {
-        state.format_next_check()
-    } else {
-        "not scheduled".to_string()
+    let next_str = match config.update.mode {
+        UpdateMode::Auto => state.format_next_check(),
+        UpdateMode::Manual => "not scheduled (manual mode)".to_string(),
     };
     println!("  Next check: {}", next_str);
 
@@ -1297,75 +1319,36 @@ async fn get_daemon_stats() -> Option<DaemonStats> {
 }
 
 // ============================================================================
-// [INSTRUMENTATION] Section - v7.26.0
+// [INSTRUMENTATION] Section - v7.27.0
 // ============================================================================
 
-/// v7.26.0: [INSTRUMENTATION] section - tools installed by Anna
+/// v7.27.0: [INSTRUMENTATION] section - tools installed by Anna for metrics
+/// Per spec: If none installed, print a single line. Do not dump full system package lists.
 fn print_instrumentation_section() {
-    let status = get_instrumentation_status();
-    let config = AnnaConfig::load();
     let manifest = InstrumentationManifest::load();
 
     println!("{}", "[INSTRUMENTATION]".cyan());
-    println!("  {}", "(tools installed by Anna for system probing)".dimmed());
 
-    // Auto-install status
-    let auto_status = if status.enabled {
-        "enabled".green().to_string()
-    } else {
-        "disabled".dimmed().to_string()
-    };
-    println!("  Auto-install: {}", auto_status);
+    // v7.27.0: If none installed, single line per spec
+    if manifest.installed_count() == 0 {
+        println!("  Tools installed by Anna for metrics: {}", "none".dimmed());
+        println!();
+        return;
+    }
 
-    // AUR gate status
-    let aur_status = if status.aur_enabled {
-        "enabled".yellow().to_string()
-    } else {
-        "blocked".dimmed().to_string()
-    };
-    println!("  AUR gate:     {}", aur_status);
-
-    // Rate limit status
-    if status.enabled {
-        if status.rate_limited {
-            let reset = manifest.rate_limit_reset_time()
-                .map(|t| t.format("%H:%M").to_string())
-                .unwrap_or_else(|| "soon".to_string());
-            println!("  Rate limit:   {} (resets at {})", "reached".yellow(), reset);
+    // Show installed tools with details
+    println!("  Tools installed by Anna for metrics:");
+    for tool in manifest.installed_tools() {
+        let since = tool.installed_at.format("%Y-%m-%d").to_string();
+        let aur_note = if tool.source == "aur" {
+            " [AUR]".yellow().to_string()
         } else {
-            println!("  Rate limit:   {}/{} installs today",
-                config.instrumentation.max_installs_per_day - status.installs_remaining,
-                config.instrumentation.max_installs_per_day);
-        }
-    }
-
-    // Installed tools
-    if status.installed_count > 0 {
-        println!();
-        println!("  Installed by Anna:");
-        for tool in manifest.installed_tools() {
-            let since = tool.installed_at.format("%Y-%m-%d").to_string();
-            println!("    {} v{} ({}, {})",
-                tool.package.cyan(),
-                tool.version,
-                since.dimmed(),
-                tool.reason.dimmed());
-        }
-    } else {
-        println!();
-        println!("  Installed:    {} (Anna hasn't installed any tools yet)", "0".dimmed());
-    }
-
-    // Available tools that could be installed
-    let missing = get_missing_tools(&config);
-    if !missing.is_empty() && status.enabled {
-        let available_count = missing.iter().filter(|t| !t.blocked_by_aur_gate).count();
-        if available_count > 0 {
-            println!();
-            println!("  Available:    {} tool(s) could be auto-installed", available_count);
-            for tool in missing.iter().take(3).filter(|t| !t.blocked_by_aur_gate) {
-                println!("    {} - {}", tool.package.dimmed(), tool.reason.dimmed());
-            }
+            String::new()
+        };
+        println!("    {} v{}{}", tool.package.cyan(), tool.version, aur_note);
+        println!("      installed: {}  reason: {}", since.dimmed(), tool.reason.dimmed());
+        if !tool.metrics_enabled.is_empty() {
+            println!("      unlocks: {}", tool.metrics_enabled.join(", ").dimmed());
         }
     }
 

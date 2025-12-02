@@ -101,10 +101,12 @@ impl ProcessTracker {
             }
 
             // Check if this is a new process we should track
-            let name = process.name().to_string_lossy().to_string();
+            let sysinfo_name = process.name().to_string_lossy().to_string();
+            // v7.29.0: Use proper process identity from /proc
+            let name = crate::get_process_identity(pid_u32, &sysinfo_name);
 
             // Only track if it's a known executable
-            if known.contains(&name) {
+            if known.contains(&name) || known.contains(&sysinfo_name) {
                 // Skip if it's a zombie or dead process
                 if matches!(process.status(), ProcessStatus::Dead | ProcessStatus::Stop) {
                     continue;

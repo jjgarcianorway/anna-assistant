@@ -1,4 +1,4 @@
-//! SW Command v7.24.0 - Anna Software Overview
+//! SW Command v7.29.0 - Anna Software Overview
 //!
 //! Sections:
 //! - [OVERVIEW]          Counts of packages, commands, services
@@ -6,8 +6,6 @@
 //! - [TOPOLOGY]          Software stack roles and service groups (v7.21.0)
 //! - [IMPACT]            Top resource consumers from telemetry (v7.21.0)
 //! - [HOTSPOTS]          CPU, memory, most started processes (v7.24.0)
-//!
-//! This replaces the old `annactl kdb` command.
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -83,10 +81,13 @@ fn print_categories_section() {
                 continue;
             }
 
+            // v7.29.0: No truncation - show all items, or indicate count
             let display: String = if packages.len() <= MAX_CATEGORY_ITEMS {
                 packages.join(", ")
             } else {
-                format!("{}, ...", packages.iter().take(MAX_CATEGORY_ITEMS).cloned().collect::<Vec<_>>().join(", "))
+                format!("{} (and {} more)",
+                    packages.iter().take(MAX_CATEGORY_ITEMS).cloned().collect::<Vec<_>>().join(", "),
+                    packages.len() - MAX_CATEGORY_ITEMS)
             };
 
             // Format category name with padding

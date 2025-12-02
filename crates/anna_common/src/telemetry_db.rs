@@ -1,19 +1,23 @@
-//! Telemetry Database v7.7.0 - SQLite-based Process Telemetry
+//! Telemetry Database v7.27.0 - Boot-Aware SQLite Process Telemetry
+//!
+//! SQLite chosen over JSONL because:
+//! - Efficient range queries for time windows (1h, 24h, 7d, 30d)
+//! - Built-in aggregation (AVG, MAX, SUM) for hotspots
+//! - Atomic writes and corruption recovery with WAL mode
+//! - Compact storage with proper indexing
 //!
 //! Stores per-process CPU/memory samples over time for:
-//! - Real telemetry display in `annactl kdb <object>` [USAGE] section
+//! - Real telemetry display in `annactl sw <object>` [USAGE] section
 //! - Real telemetry aggregates in `annactl status` [TELEMETRY] section
-//! - Health hotspot detection in `annactl status` [HEALTH] section
+//! - Health hotspot detection in `annactl status` [HOTSPOTS] section
 //!
 //! Schema:
-//! - process_samples: PID, name, CPU%, memory, timestamp
+//! - process_samples: PID, name, CPU%, memory, timestamp, boot_id
 //! - telemetry_meta: key-value metadata (last sample time, etc)
 //!
-//! v7.2.0: Added time-windowed aggregations and global peak queries
-//! v7.3.0: Added multi-window per-object stats for PHASE 9
-//! v7.5.0: PHASE 15-16 - Enhanced exec counts, CPU time totals, top-N queries
-//! v7.6.0: PHASE 19 - Retention enforcement, max_keys limits, configurable intervals
-//! v7.7.0: PHASE 23 - Precise per-window aggregation (1h, 24h, 7d, 30d) with compact display
+//! v7.27.0: Added boot_id for "this boot" aggregations, configurable retention
+//! v7.7.0: PHASE 23 - Precise per-window aggregation (1h, 24h, 7d, 30d)
+//! v7.6.0: PHASE 19 - Retention enforcement, max_keys limits
 
 use anyhow::Result;
 use rusqlite::{Connection, params};
@@ -30,6 +34,15 @@ pub struct ProcessTelemetrySample {
     pub name: String,
     pub cpu_percent: f32,
     pub mem_bytes: u64,
+    /// v7.27.0: Boot ID for "this boot" aggregations
+    pub boot_id: String,
+}
+
+/// Get current boot_id from /proc/sys/kernel/random/boot_id
+pub fn get_current_boot_id() -> String {
+    std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string())
 }
 
 /// Aggregated telemetry for a single object
@@ -176,6 +189,7 @@ impl TelemetryDb {
         conn.execute_batch("PRAGMA journal_mode=WAL;")?;
 
         // Create tables if they don't exist
+        // v7.27.0: Added boot_id column for "this boot" aggregations
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS process_samples (
@@ -184,12 +198,14 @@ impl TelemetryDb {
                 pid INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 cpu_percent REAL NOT NULL,
-                mem_bytes INTEGER NOT NULL
+                mem_bytes INTEGER NOT NULL,
+                boot_id TEXT DEFAULT ''
             );
 
             CREATE INDEX IF NOT EXISTS idx_samples_name ON process_samples(name);
             CREATE INDEX IF NOT EXISTS idx_samples_timestamp ON process_samples(timestamp);
             CREATE INDEX IF NOT EXISTS idx_samples_name_time ON process_samples(name, timestamp);
+            CREATE INDEX IF NOT EXISTS idx_samples_boot_id ON process_samples(boot_id);
 
             CREATE TABLE IF NOT EXISTS telemetry_meta (
                 key TEXT PRIMARY KEY,
@@ -197,6 +213,9 @@ impl TelemetryDb {
             );
             "#
         )?;
+
+        // v7.27.0: Add boot_id column if it doesn't exist (migration for existing DBs)
+        let _ = conn.execute("ALTER TABLE process_samples ADD COLUMN boot_id TEXT DEFAULT ''", []);
 
         // Set world-readable permissions so annactl can read
         // (only on new database creation)
@@ -211,17 +230,18 @@ impl TelemetryDb {
         Ok(Self { conn })
     }
 
-    /// Record a process sample
+    /// Record a process sample (v7.27.0: includes boot_id)
     pub fn record_sample(&self, sample: &ProcessTelemetrySample) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO process_samples (timestamp, pid, name, cpu_percent, mem_bytes)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO process_samples (timestamp, pid, name, cpu_percent, mem_bytes, boot_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 sample.timestamp,
                 sample.pid,
                 &sample.name,
                 sample.cpu_percent,
-                sample.mem_bytes
+                sample.mem_bytes,
+                &sample.boot_id
             ],
         )?;
         Ok(())
@@ -232,8 +252,8 @@ impl TelemetryDb {
         let tx = self.conn.unchecked_transaction()?;
         {
             let mut stmt = tx.prepare(
-                "INSERT INTO process_samples (timestamp, pid, name, cpu_percent, mem_bytes)
-                 VALUES (?1, ?2, ?3, ?4, ?5)"
+                "INSERT INTO process_samples (timestamp, pid, name, cpu_percent, mem_bytes, boot_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
             )?;
 
             for sample in samples {
@@ -242,7 +262,8 @@ impl TelemetryDb {
                     sample.pid,
                     &sample.name,
                     sample.cpu_percent,
-                    sample.mem_bytes
+                    sample.mem_bytes,
+                    &sample.boot_id
                 ])?;
             }
         }
@@ -379,6 +400,64 @@ impl TelemetryDb {
             results.push(row?);
         }
         Ok(results)
+    }
+
+    /// v7.27.0: Get top N processes by CPU for current boot
+    pub fn top_by_cpu_this_boot(&self, boot_id: &str, limit: usize) -> Result<Vec<(String, f32)>> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT name, AVG(cpu_percent) as avg_cpu
+            FROM process_samples
+            WHERE boot_id = ?1
+            GROUP BY name
+            ORDER BY avg_cpu DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![boot_id, limit as i64], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)? as f32))
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// v7.27.0: Get top N processes by memory for current boot
+    pub fn top_by_memory_this_boot(&self, boot_id: &str, limit: usize) -> Result<Vec<(String, u64)>> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT name, MAX(mem_bytes) as peak_mem
+            FROM process_samples
+            WHERE boot_id = ?1
+            GROUP BY name
+            ORDER BY peak_mem DESC
+            LIMIT ?2
+            "#
+        )?;
+
+        let rows = stmt.query_map(params![boot_id, limit as i64], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u64))
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// v7.27.0: Get sample count for current boot
+    pub fn get_boot_sample_count(&self, boot_id: &str) -> Result<u64> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM process_samples WHERE boot_id = ?1",
+            params![boot_id],
+            |row| row.get(0),
+        )?;
+        Ok(count as u64)
     }
 
     /// Prune old samples (keep last N days)
@@ -1357,6 +1436,7 @@ impl TelemetryDb {
     }
 
     /// Get window status for display
+    /// v7.29.0: If name is empty, checks global sample counts
     pub fn get_window_status(&self, name: &str) -> WindowStatusInfo {
         let stats = self.get_stats();
 
@@ -1366,19 +1446,69 @@ impl TelemetryDb {
         };
 
         // Check if we have data for each window
-        let counts = self.get_sample_counts(name).unwrap_or_default();
+        // v7.29.0: Window validity requires 60% of expected samples
+        // Use global counts if name is empty
+        let counts = if name.is_empty() {
+            self.get_global_sample_counts().unwrap_or_default()
+        } else {
+            self.get_sample_counts(name).unwrap_or_default()
+        };
+
+        // v7.29.0: Window validity - need meaningful data
+        // For global status, just check we have some samples
+        // For per-process, use 60% of expected samples
+        let (min_1h, min_24h, min_7d, min_30d) = if name.is_empty() {
+            // Global: just need some data
+            (10u64, 100, 500, 1000)
+        } else {
+            // Per-process: 60% of expected samples at 30s interval
+            // 1h = 120 samples, 60% = 72
+            // 24h = 2880 samples, 60% = 1728
+            // 7d = 20160 samples, 60% = 12096
+            // 30d = 86400 samples, 60% = 51840
+            (72u64, 1728, 12096, 51840)
+        };
 
         WindowStatusInfo {
-            w1h_ready: counts.last_1h > 0,
-            w24h_ready: counts.last_24h > 0 && coverage_hours >= 1.0,
-            w7d_ready: counts.last_7d > 0 && coverage_hours >= 24.0,
-            w30d_ready: counts.last_30d > 0 && coverage_hours >= 168.0, // 7 days
+            w1h_ready: counts.last_1h as u64 >= min_1h,
+            w24h_ready: counts.last_24h as u64 >= min_24h,
+            w7d_ready: counts.last_7d as u64 >= min_7d,
+            w30d_ready: counts.last_30d as u64 >= min_30d,
             first_sample_ts: match &stats {
                 Ok(s) => s.first_sample_at,
                 Err(_) => 0,
             },
             coverage_hours,
         }
+    }
+
+    /// v7.29.0: Get global sample counts (all processes)
+    fn get_global_sample_counts(&self) -> Result<SampleCounts> {
+        let now = Self::now();
+        let h1 = now.saturating_sub(3600);
+        let h24 = now.saturating_sub(24 * 3600);
+        let d7 = now.saturating_sub(7 * 24 * 3600);
+        let d30 = now.saturating_sub(30 * 24 * 3600);
+
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT
+                SUM(CASE WHEN timestamp >= ?1 THEN 1 ELSE 0 END) as cnt_1h,
+                SUM(CASE WHEN timestamp >= ?2 THEN 1 ELSE 0 END) as cnt_24h,
+                SUM(CASE WHEN timestamp >= ?3 THEN 1 ELSE 0 END) as cnt_7d,
+                SUM(CASE WHEN timestamp >= ?4 THEN 1 ELSE 0 END) as cnt_30d
+            FROM process_samples
+            "#
+        )?;
+
+        stmt.query_row(params![h1 as i64, h24 as i64, d7 as i64, d30 as i64], |row| {
+            Ok(SampleCounts {
+                last_1h: row.get::<_, i64>(0).unwrap_or(0) as u64,
+                last_24h: row.get::<_, i64>(1).unwrap_or(0) as u64,
+                last_7d: row.get::<_, i64>(2).unwrap_or(0) as u64,
+                last_30d: row.get::<_, i64>(3).unwrap_or(0) as u64,
+            })
+        }).map_err(|e| e.into())
     }
 
     /// Get top CPU consumers for TELEMETRY HIGHLIGHTS with runtime
@@ -2049,6 +2179,7 @@ mod tests {
             name: "firefox".to_string(),
             cpu_percent: 25.5,
             mem_bytes: 500_000_000,
+            boot_id: "test-boot".to_string(),
         };
 
         db.record_sample(&sample).unwrap();
@@ -2070,6 +2201,7 @@ mod tests {
                 name: "test".to_string(),
                 cpu_percent: 10.0,
                 mem_bytes: 100_000,
+                boot_id: "test-boot".to_string(),
             })
             .collect();
 
@@ -2091,6 +2223,7 @@ mod tests {
                 name: "high_cpu".to_string(),
                 cpu_percent: 90.0,
                 mem_bytes: 100,
+                boot_id: "test-boot".to_string(),
             },
             ProcessTelemetrySample {
                 timestamp: 1700000000,
@@ -2098,6 +2231,7 @@ mod tests {
                 name: "low_cpu".to_string(),
                 cpu_percent: 5.0,
                 mem_bytes: 100,
+                boot_id: "test-boot".to_string(),
             },
         ];
 

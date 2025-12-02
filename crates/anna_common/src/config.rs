@@ -1,4 +1,4 @@
-//! Anna Configuration v7.26.0 - Instrumentation & Auto-Install
+//! Anna Configuration v7.29.0 - Auto-Update Scheduler & KDB Cache
 //!
 //! Simplified system configuration for the telemetry daemon.
 //! No LLM config - pure system monitoring.
@@ -8,6 +8,7 @@
 //! v6.0.2: Added auto-update configuration
 //! v7.6.0: Added telemetry enable/disable, max_keys limit
 //! v7.26.0: Added instrumentation settings (AUR gate, auto-install)
+//! v7.29.0: Enhanced update scheduler with mode/interval, KDB cache TTLs
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -171,31 +172,83 @@ impl Default for CoreConfig {
     }
 }
 
-/// Auto-update configuration
+/// Auto-update mode (v7.29.0)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdateMode {
+    #[default]
+    Auto,
+    Manual,
+}
+
+impl UpdateMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UpdateMode::Auto => "auto",
+            UpdateMode::Manual => "manual",
+        }
+    }
+}
+
+/// Auto-update configuration (v7.29.0 enhanced)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateConfig {
-    /// Whether auto-update is enabled
-    #[serde(default = "default_update_enabled")]
-    pub enabled: bool,
+    /// Update mode: auto or manual (v7.29.0)
+    #[serde(default)]
+    pub mode: UpdateMode,
 
-    /// Check interval in minutes
-    #[serde(default = "default_update_interval")]
-    pub interval_minutes: u64,
+    /// Check interval in seconds (default 600 = 10 minutes)
+    #[serde(default = "default_update_interval_seconds")]
+    pub interval_seconds: u64,
+
+    /// Maximum backoff on failure (6 hours)
+    #[serde(default = "default_max_backoff_seconds")]
+    pub max_backoff_seconds: u64,
 }
 
-fn default_update_enabled() -> bool {
-    true
+fn default_update_interval_seconds() -> u64 {
+    600 // 10 minutes
 }
 
-fn default_update_interval() -> u64 {
-    10 // 10 minutes
+fn default_max_backoff_seconds() -> u64 {
+    21600 // 6 hours
 }
 
 impl Default for UpdateConfig {
     fn default() -> Self {
         Self {
-            enabled: default_update_enabled(),
-            interval_minutes: default_update_interval(),
+            mode: UpdateMode::Auto,
+            interval_seconds: default_update_interval_seconds(),
+            max_backoff_seconds: default_max_backoff_seconds(),
+        }
+    }
+}
+
+/// KDB cache TTL settings (v7.29.0)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheConfig {
+    /// Software/hardware inventory TTL (seconds, default 600 = 10 minutes)
+    #[serde(default = "default_inventory_ttl")]
+    pub inventory_ttl_seconds: u64,
+
+    /// Telemetry rollup TTL (seconds, default 60)
+    #[serde(default = "default_telemetry_ttl")]
+    pub telemetry_ttl_seconds: u64,
+}
+
+fn default_inventory_ttl() -> u64 {
+    600 // 10 minutes
+}
+
+fn default_telemetry_ttl() -> u64 {
+    60 // 1 minute
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            inventory_ttl_seconds: default_inventory_ttl(),
+            telemetry_ttl_seconds: default_telemetry_ttl(),
         }
     }
 }
@@ -235,26 +288,57 @@ impl Default for InstrumentationSettings {
     }
 }
 
-/// Auto-update state (runtime, stored in data dir)
+/// Update check result (v7.29.0)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateResult {
+    #[default]
+    Pending,
+    Ok,
+    UpdateAvailable,
+    Failed,
+}
+
+impl UpdateResult {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UpdateResult::Pending => "pending",
+            UpdateResult::Ok => "ok",
+            UpdateResult::UpdateAvailable => "update available",
+            UpdateResult::Failed => "failed",
+        }
+    }
+}
+
+/// Auto-update state (v7.29.0 enhanced, stored in /var/lib/anna/internal/state.json)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UpdateState {
-    /// Last check timestamp (unix seconds)
-    pub last_check_at: u64,
+    /// Last check timestamp (unix epoch seconds)
+    pub last_check_epoch: u64,
+    /// Next scheduled check (unix epoch seconds)
+    pub next_check_epoch: u64,
     /// Last check result
-    pub last_result: String,
+    #[serde(default)]
+    pub last_result: UpdateResult,
+    /// Last failure reason (if failed)
+    pub last_failure_reason: Option<String>,
+    /// Current consecutive failure count (for backoff)
+    #[serde(default)]
+    pub consecutive_failures: u32,
     /// Current version
     pub current_version: String,
     /// Latest available version (if known)
     pub latest_version: Option<String>,
-    /// Next scheduled check (unix seconds)
-    pub next_check_at: u64,
 }
 
 impl UpdateState {
-    const STATE_FILE: &'static str = "update_state.json";
+    /// State file path (v7.29.0: moved to internal/)
+    pub fn state_path() -> PathBuf {
+        PathBuf::from(DATA_DIR).join("internal/state.json")
+    }
 
     pub fn load() -> Self {
-        let path = PathBuf::from(DATA_DIR).join(Self::STATE_FILE);
+        let path = Self::state_path();
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
                 if let Ok(state) = serde_json::from_str(&content) {
@@ -266,7 +350,11 @@ impl UpdateState {
     }
 
     pub fn save(&self) -> std::io::Result<()> {
-        let path = PathBuf::from(DATA_DIR).join(Self::STATE_FILE);
+        let path = Self::state_path();
+        // Ensure internal directory exists
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
         let path_str = path.to_str()
             .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
         let content = serde_json::to_string_pretty(self)
@@ -274,36 +362,110 @@ impl UpdateState {
         crate::atomic_write(path_str, &content)
     }
 
-    /// Format last check time for display
-    pub fn format_last_check(&self) -> String {
-        if self.last_check_at == 0 {
-            return "never".to_string();
-        }
-        crate::format_time_ago(self.last_check_at)
-    }
-
-    /// Format next check time for display
-    pub fn format_next_check(&self) -> String {
-        if self.next_check_at == 0 {
-            return "n/a".to_string();
-        }
-        let now = SystemTime::now()
+    /// Get current time as epoch seconds
+    pub fn now_epoch() -> u64 {
+        SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
-            .as_secs();
-        if self.next_check_at <= now {
+            .as_secs()
+    }
+
+    /// Record a successful check
+    pub fn record_success(&mut self, latest_version: Option<String>) {
+        self.last_check_epoch = Self::now_epoch();
+        self.consecutive_failures = 0;
+        self.last_failure_reason = None;
+        if latest_version.is_some() && latest_version != Some(self.current_version.clone()) {
+            self.last_result = UpdateResult::UpdateAvailable;
+            self.latest_version = latest_version;
+        } else {
+            self.last_result = UpdateResult::Ok;
+        }
+    }
+
+    /// Record a failed check with exponential backoff
+    pub fn record_failure(&mut self, reason: &str, config: &UpdateConfig) {
+        self.last_check_epoch = Self::now_epoch();
+        self.last_result = UpdateResult::Failed;
+        self.last_failure_reason = Some(reason.to_string());
+        self.consecutive_failures += 1;
+
+        // Exponential backoff: interval * 2^failures, capped at max_backoff
+        let backoff = config.interval_seconds * (1 << self.consecutive_failures.min(10));
+        let capped_backoff = backoff.min(config.max_backoff_seconds);
+        self.next_check_epoch = Self::now_epoch() + capped_backoff;
+    }
+
+    /// Schedule next check based on config interval
+    pub fn schedule_next(&mut self, config: &UpdateConfig) {
+        self.next_check_epoch = Self::now_epoch() + config.interval_seconds;
+    }
+
+    /// Check if an update check is due
+    pub fn is_check_due(&self) -> bool {
+        self.next_check_epoch > 0 && Self::now_epoch() >= self.next_check_epoch
+    }
+
+    /// Format last check time for display (v7.29.0: real timestamp)
+    pub fn format_last_check(&self) -> String {
+        if self.last_check_epoch == 0 {
+            return "never".to_string();
+        }
+        format_epoch_time(self.last_check_epoch)
+    }
+
+    /// Format next check time for display (v7.29.0: real timestamp)
+    pub fn format_next_check(&self) -> String {
+        if self.next_check_epoch == 0 {
+            return "not scheduled".to_string();
+        }
+        let now = Self::now_epoch();
+        if self.next_check_epoch <= now {
             return "now".to_string();
         }
-        let secs = self.next_check_at - now;
+        let secs = self.next_check_epoch - now;
         if secs < 60 {
             format!("in {}s", secs)
-        } else {
+        } else if secs < 3600 {
             format!("in {}m", secs / 60)
+        } else {
+            format!("in {}h {}m", secs / 3600, (secs % 3600) / 60)
+        }
+    }
+
+    /// Format last result for display
+    pub fn format_last_result(&self) -> String {
+        match &self.last_result {
+            UpdateResult::Pending => "pending".to_string(),
+            UpdateResult::Ok => "ok".to_string(),
+            UpdateResult::UpdateAvailable => {
+                if let Some(ref ver) = self.latest_version {
+                    format!("update available: {}", ver)
+                } else {
+                    "update available".to_string()
+                }
+            }
+            UpdateResult::Failed => {
+                if let Some(ref reason) = self.last_failure_reason {
+                    format!("failed: {}", reason)
+                } else {
+                    "failed".to_string()
+                }
+            }
         }
     }
 }
 
-/// Complete Anna configuration v7.26.0
+/// Format epoch time as human-readable timestamp
+fn format_epoch_time(epoch: u64) -> String {
+    use chrono::{DateTime, Local, TimeZone};
+    match Local.timestamp_opt(epoch as i64, 0) {
+        chrono::LocalResult::Single(dt) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+        _ => format!("epoch:{}", epoch),
+    }
+}
+
+/// Complete Anna configuration v7.29.0
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnnaConfig {
     #[serde(default)]
@@ -317,6 +479,9 @@ pub struct AnnaConfig {
 
     #[serde(default)]
     pub update: UpdateConfig,
+
+    #[serde(default)]
+    pub cache: CacheConfig,
 
     #[serde(default)]
     pub instrumentation: InstrumentationSettings,

@@ -1,4 +1,4 @@
-//! HW Command v7.25.0 - Structured Hardware Overview
+//! HW Command v7.29.0 - Structured Hardware Overview
 //!
 //! Sections organized by category:
 //! - [OVERVIEW]   Device counts and system summary (v7.25.0)
@@ -458,19 +458,15 @@ fn print_gpu_section() {
 }
 
 fn shorten_gpu_name(name: &str) -> String {
-    // Extract model from brackets if present
+    // Extract model from brackets if present (cleaner display)
     if let Some(idx) = name.find('[') {
         if let Some(end) = name.find(']') {
             return name[idx + 1..end].to_string();
         }
     }
 
-    // Truncate if too long
-    if name.len() > 45 {
-        format!("{}...", &name[..42])
-    } else {
-        name.to_string()
-    }
+    // v7.29.0: No truncation - return full name
+    name.to_string()
 }
 
 // ============================================================================
@@ -562,12 +558,8 @@ fn print_storage_section() {
         // Build info string
         let mut info_parts = vec![disk.device_type.clone()];
         if let Some(model) = &disk.model {
-            let short_model = if model.len() > 25 {
-                format!("{}...", &model[..22])
-            } else {
-                model.clone()
-            };
-            info_parts.push(short_model);
+            // v7.29.0: No truncation - show full model
+            info_parts.push(model.clone());
         }
         info_parts.push(size);
 
@@ -892,18 +884,16 @@ fn get_driver_firmware_status(driver: &str) -> Option<String> {
     Some("missing".yellow().to_string())
 }
 
-fn shorten_device_name(name: &str, max_len: usize) -> String {
+fn shorten_device_name(name: &str, _max_len: usize) -> String {
+    // v7.29.0: Extract model from brackets if cleaner, but no truncation
     if let Some(idx) = name.find('[') {
         if let Some(end) = name.find(']') {
             return name[idx + 1..end].to_string();
         }
     }
 
-    if name.len() > max_len {
-        format!("{}...", &name[..max_len - 3])
-    } else {
-        name.to_string()
-    }
+    // v7.29.0: No truncation - return full name
+    name.to_string()
 }
 
 // ============================================================================
@@ -1116,12 +1106,12 @@ fn print_power_section() {
 }
 
 // ============================================================================
-// [DRIVERS] Section - v7.19.0
+// [DRIVERS] Section - v7.28.0 (enhanced with firmware)
 // ============================================================================
 
 fn print_drivers_section() {
     println!("{}", "[DRIVERS]".cyan());
-    println!("  {}", "(source: lsmod, modinfo)".dimmed());
+    println!("  {}", "(source: lsmod, modinfo, /lib/firmware)".dimmed());
 
     // Get GPU driver stacks
     let gpu_stacks = get_gpu_driver_stacks();
@@ -1132,29 +1122,42 @@ fn print_drivers_section() {
 
     let mut found_any = false;
 
-    // GPU drivers
+    // GPU drivers with firmware info
     for stack in &gpu_stacks {
         found_any = true;
+        let fw_status = get_firmware_status(&stack.primary_driver);
         if stack.additional_modules.is_empty() {
-            println!("  GPU:          {} {}", stack.primary_driver, "[loaded]".green());
+            println!("  GPU:          {} {} {}",
+                     stack.primary_driver,
+                     "[loaded]".green(),
+                     fw_status);
         } else {
-            println!("  GPU:          {} + {} {}",
+            println!("  GPU:          {} + {} {} {}",
                      stack.primary_driver,
                      stack.additional_modules.join(", "),
-                     "[loaded]".green());
+                     "[loaded]".green(),
+                     fw_status);
         }
     }
 
-    // WiFi drivers
+    // WiFi drivers with firmware info
     for driver in &wifi_drivers {
         found_any = true;
-        println!("  WiFi:         {} {}", driver, "[loaded]".green());
+        let fw_status = get_firmware_status(driver);
+        println!("  WiFi:         {} {} {}",
+                 driver,
+                 "[loaded]".green(),
+                 fw_status);
     }
 
-    // Bluetooth drivers
+    // Bluetooth drivers with firmware info
     for driver in &bt_drivers {
         found_any = true;
-        println!("  Bluetooth:    {} {}", driver, "[loaded]".green());
+        let fw_status = get_firmware_status(driver);
+        println!("  Bluetooth:    {} {} {}",
+                 driver,
+                 "[loaded]".green(),
+                 fw_status);
     }
 
     if !found_any {
@@ -1162,6 +1165,48 @@ fn print_drivers_section() {
     }
 
     println!();
+}
+
+/// v7.28.0: Get firmware status for a driver
+fn get_firmware_status(driver: &str) -> String {
+    // Map driver to firmware path patterns
+    let fw_patterns: &[&str] = match driver {
+        d if d.starts_with("iwl") => &["iwlwifi-"],
+        d if d.starts_with("ath10k") => &["ath10k/"],
+        d if d.starts_with("ath11k") => &["ath11k/"],
+        d if d.starts_with("ath9k") => &["ath9k_htc/"],
+        d if d.starts_with("brcmfmac") => &["brcm/brcmfmac"],
+        d if d.starts_with("rtw88") => &["rtw88/"],
+        d if d.starts_with("rtw89") => &["rtw89/"],
+        d if d.starts_with("mt792") => &["mediatek/"],
+        d if d.starts_with("i915") => &["i915/"],
+        d if d.starts_with("amdgpu") => &["amdgpu/"],
+        d if d.starts_with("nvidia") => return "(firmware: proprietary)".dimmed().to_string(),
+        d if d.starts_with("btusb") || d.starts_with("btintel") => &["intel/ibt-"],
+        _ => return String::new(),
+    };
+
+    // Check if firmware exists
+    let fw_base = std::path::Path::new("/usr/lib/firmware");
+    for pattern in fw_patterns {
+        // Check if any file matches the pattern
+        if let Ok(entries) = std::fs::read_dir(fw_base) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with(pattern.trim_end_matches('/')) {
+                    return format!("(firmware: {})", "loaded".green());
+                }
+            }
+        }
+
+        // Check subdirectory
+        let subdir = fw_base.join(pattern.trim_end_matches('/'));
+        if subdir.is_dir() {
+            return format!("(firmware: {})", "loaded".green());
+        }
+    }
+
+    format!("(firmware: {})", "missing".yellow())
 }
 
 /// Get loaded drivers for a specific type

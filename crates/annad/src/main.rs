@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v8.0.0 - Telemetry Core
+//! Anna Daemon (annad) v7.29.0 - Bugfix & Performance Release
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -41,6 +41,8 @@ use anna_common::{
     PackageChangeEvent, PackageChangeType,
     // v7.1.0: SQLite telemetry
     TelemetryDb, ProcessTelemetrySample,
+    // v7.27.0: Boot ID for "this boot" aggregations
+    get_current_boot_id,
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -53,6 +55,79 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Collection interval for package/binary discovery (5 minutes)
 const DISCOVERY_INTERVAL_SECS: u64 = 300;
+
+/// v7.29.0: Get process identity from /proc
+/// Order of preference: /proc/PID/exe symlink, cmdline[0], comm, fallback to sysinfo name
+pub fn get_process_identity(pid: u32, fallback_name: &str) -> String {
+    // Try /proc/PID/exe first - most reliable
+    if let Ok(exe_path) = std::fs::read_link(format!("/proc/{}/exe", pid)) {
+        if let Some(exe_name) = exe_path.file_name() {
+            let name = exe_name.to_string_lossy().to_string();
+            // Filter out deleted markers
+            if !name.contains("(deleted)") && !name.is_empty() {
+                return name;
+            }
+        }
+    }
+
+    // Try cmdline
+    if let Ok(cmdline) = std::fs::read_to_string(format!("/proc/{}/cmdline", pid)) {
+        // cmdline is null-separated, get first arg
+        if let Some(first_arg) = cmdline.split('\0').next() {
+            if !first_arg.is_empty() {
+                // Extract basename if it's a path
+                let name = if first_arg.contains('/') {
+                    first_arg.rsplit('/').next().unwrap_or(first_arg)
+                } else {
+                    first_arg
+                };
+                // Skip generic pool/worker names
+                if !name.contains("Pool") && !name.contains("Worker") && !name.is_empty() {
+                    return name.to_string();
+                }
+            }
+        }
+    }
+
+    // Try comm (short name from /proc/PID/comm)
+    if let Ok(comm) = std::fs::read_to_string(format!("/proc/{}/comm", pid)) {
+        let comm = comm.trim();
+        // Skip generic pool/worker names
+        if !comm.contains("Pool") && !comm.contains("Worker") && !comm.is_empty() {
+            return comm.to_string();
+        }
+    }
+
+    // Fallback to sysinfo name if it doesn't look like a pool worker
+    if !fallback_name.contains("Pool") && !fallback_name.contains("Worker") {
+        return fallback_name.to_string();
+    }
+
+    // Last resort: try to get parent process name for pool workers
+    if let Ok(status) = std::fs::read_to_string(format!("/proc/{}/status", pid)) {
+        for line in status.lines() {
+            if line.starts_with("PPid:") {
+                if let Some(ppid_str) = line.split_whitespace().nth(1) {
+                    if let Ok(ppid) = ppid_str.parse::<u32>() {
+                        if ppid > 1 {
+                            // Recursively get parent identity (limited)
+                            if let Ok(parent_comm) = std::fs::read_to_string(format!("/proc/{}/comm", ppid)) {
+                                let parent_name = parent_comm.trim();
+                                if !parent_name.is_empty() && !parent_name.contains("Pool") {
+                                    return format!("{}-worker", parent_name);
+                                }
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    // Final fallback
+    fallback_name.to_string()
+}
 
 /// Collection interval for log scanning (60 seconds)
 const LOG_SCAN_INTERVAL_SECS: u64 = 60;
@@ -204,13 +279,16 @@ async fn main() -> Result<()> {
                     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
                     let mut b = builder_process.write().await;
                     for (pid, process) in system.processes() {
-                        let name = process.name().to_string_lossy().to_string();
+                        let pid_u32 = pid.as_u32();
+                        let sysinfo_name = process.name().to_string_lossy().to_string();
+                        // v7.29.0: Use proper process identity from /proc
+                        let name = get_process_identity(pid_u32, &sysinfo_name);
                         let cpu = process.cpu_usage();
                         let mem = process.memory();
                         let cpu_time_ms = (cpu as u64) * sample_interval_secs * 10;
                         b.record_process_observation(&name, cpu_time_ms, mem);
                         if cpu > 5.0 || mem > 100_000_000 {
-                            let sample = ProcessSample { timestamp: now, name, pid: pid.as_u32(), cpu_percent: cpu, mem_bytes: mem };
+                            let sample = ProcessSample { timestamp: now, name, pid: pid_u32, cpu_percent: cpu, mem_bytes: mem };
                             let _ = telemetry_writer.record_process(&sample);
                         }
                     }
@@ -235,6 +313,8 @@ async fn main() -> Result<()> {
         let mut maintenance_counter: u64 = 0;
         let maintenance_every = MAINTENANCE_INTERVAL_SECS / sample_interval_secs;
         let mut sample_batch: Vec<ProcessTelemetrySample> = Vec::with_capacity(256);
+        // v7.27.0: Get boot_id once at startup for all samples this session
+        let current_boot_id = get_current_boot_id();
 
         // PHASE 26: Performance constraint - max PIDs to sample per interval
         // This prevents runaway CPU usage on systems with many processes
@@ -265,7 +345,10 @@ async fn main() -> Result<()> {
                         break;
                     }
 
-                    let name = process.name().to_string_lossy().to_string();
+                    let pid_u32 = pid.as_u32();
+                    let sysinfo_name = process.name().to_string_lossy().to_string();
+                    // v7.29.0: Use proper process identity from /proc
+                    let name = get_process_identity(pid_u32, &sysinfo_name);
                     let cpu = process.cpu_usage();
                     let mem = process.memory();
 
@@ -278,10 +361,12 @@ async fn main() -> Result<()> {
                     if cpu > 0.1 || mem > 10_000_000 {
                         sample_batch.push(ProcessTelemetrySample {
                             timestamp: now,
-                            pid: pid.as_u32(),
+                            pid: pid_u32,
                             name,
                             cpu_percent: cpu,
                             mem_bytes: mem,
+                            // v7.27.0: Boot ID for "this boot" aggregations
+                            boot_id: current_boot_id.clone(),
                         });
                     }
                 }

@@ -1,16 +1,12 @@
-//! Anna CLI (annactl) v7.2.0 - Snow Leopard
+//! Anna CLI (annactl) v7.29.0 - Bugfix & Performance Release
 //!
-//! Commands:
+//! Commands (exactly 6, no aliases):
 //! - annactl           show help
 //! - annactl status    health and runtime of Anna
 //! - annactl sw        software overview (packages, commands, services)
 //! - annactl sw NAME   software profile
 //! - annactl hw        hardware overview (CPU, memory, GPU, storage, network)
 //! - annactl hw NAME   hardware profile
-//!
-//! Deprecated (still works internally):
-//! - annactl kdb       alias to sw
-//! - annactl kdb NAME  alias to sw NAME
 
 mod commands;
 
@@ -73,19 +69,8 @@ async fn main() -> Result<()> {
             commands::hw_detail::run(name).await
         }
 
-        // Deprecated: annactl kdb (alias to sw)
-        [cmd] if cmd.eq_ignore_ascii_case("kdb") => commands::sw::run().await,
-
-        // Deprecated: annactl kdb <name-or-category> (alias to sw)
-        [cmd, name] if cmd.eq_ignore_ascii_case("kdb") => {
-            if is_sw_category(name) {
-                commands::sw_detail::run_category(name).await
-            } else {
-                commands::sw_detail::run_object(name).await
-            }
-        }
-
-        // Unknown
+        // v7.27.0: No aliases, no deprecated commands
+        // Unknown command
         _ => run_unknown(&args),
     }
 }

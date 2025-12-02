@@ -36,7 +36,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="7.1.1"
+INSTALLER_VERSION="7.29.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -671,31 +671,51 @@ main() {
     fi
 
     print_header "STARTING DAEMON"
-    log_info "Starting annad service..."
-    if $SUDO systemctl restart annad 2>/dev/null; then
-        sleep 1
-        if $SUDO systemctl is-active --quiet annad; then
-            log_ok "annad is running"
-        else
-            log_warn "annad failed to start, check: journalctl -u annad"
-        fi
-    else
-        log_warn "Could not start annad service"
+
+    # v7.29.0: Strict daemon validation
+    # The installer MUST guarantee annad is running after install/upgrade
+
+    log_info "Reloading systemd configuration..."
+    $SUDO systemctl daemon-reload
+
+    log_info "Enabling and starting annad service..."
+    if ! $SUDO systemctl enable --now annad 2>/dev/null; then
+        log_error "Failed to enable and start annad service"
+        log_error "Showing recent logs:"
+        print_line
+        $SUDO journalctl -u annad -b -n 80 --no-pager 2>/dev/null || true
+        print_line
+        log_to_file "Installer: action=${PLANNED_ACTION} result=daemon_start_failed"
+        exit 1
     fi
 
-    if ! $SUDO systemctl is-enabled --quiet annad 2>/dev/null; then
-        $SUDO systemctl enable annad 2>/dev/null && log_ok "Enabled annad at boot" || true
+    # Wait for daemon to stabilize
+    sleep 2
+
+    # Validate daemon is actually running
+    if ! $SUDO systemctl is-active --quiet annad; then
+        log_error "annad service failed to start"
+        log_error "Showing recent logs:"
+        print_line
+        $SUDO journalctl -u annad -b -n 80 --no-pager 2>/dev/null || true
+        print_line
+        log_to_file "Installer: action=${PLANNED_ACTION} result=daemon_not_active"
+        exit 1
     fi
+
+    log_ok "annad is running"
 
     print_header "COMPLETE"
     printf "  Anna v%s installed and running.\n" "$LATEST_VERSION"
     printf "\n"
-    printf "  Anna is a ${CYAN}pure telemetry daemon${NC}.\n"
-    printf "  No LLM, no Q&A - just system observation.\n"
+    printf "  Anna is a ${CYAN}system telemetry daemon${NC}.\n"
+    printf "  It observes hardware, services, and processes.\n"
     printf "\n"
-    printf "  Check status:    ${CYAN}annactl status${NC}\n"
-    printf "  View knowledge:  ${CYAN}annactl kdb${NC}\n"
-    printf "  Object details:  ${CYAN}annactl kdb <name>${NC}\n"
+    printf "  Check status:        ${CYAN}annactl status${NC}\n"
+    printf "  Software overview:   ${CYAN}annactl sw${NC}\n"
+    printf "  Software details:    ${CYAN}annactl sw <name>${NC}\n"
+    printf "  Hardware overview:   ${CYAN}annactl hw${NC}\n"
+    printf "  Hardware details:    ${CYAN}annactl hw <name>${NC}\n"
     printf "\n"
     print_line
 }
