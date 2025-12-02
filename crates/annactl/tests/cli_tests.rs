@@ -1,4 +1,4 @@
-//! CLI integration tests for annactl v7.19.0 "Topology, Dependencies & Signal Quality"
+//! CLI integration tests for annactl v7.23.0 "Timelines, Drift & Incidents"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
@@ -754,7 +754,7 @@ fn test_annactl_sw_shows_top_offenders() {
     );
 }
 
-/// Test 'sw <name>' shows [TELEMETRY] section
+/// Test 'sw <name>' shows [USAGE] section (v7.23.0+, renamed from [TELEMETRY])
 #[test]
 fn test_annactl_sw_object_shows_telemetry_section() {
     let binary = get_binary_path();
@@ -769,10 +769,10 @@ fn test_annactl_sw_object_shows_telemetry_section() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Object profile should show [TELEMETRY] section (v7.4.0+)
+    // Object profile should show [USAGE] section (v7.23.0+, was [TELEMETRY] in v7.4.0-v7.22.0)
     assert!(
-        stdout.contains("[TELEMETRY]"),
-        "Expected [TELEMETRY] section in object profile, got: {}",
+        stdout.contains("[USAGE]"),
+        "Expected [USAGE] section in object profile, got: {}",
         stdout
     );
 }
@@ -1058,7 +1058,7 @@ fn test_snow_leopard_telemetry_no_fake_numbers() {
     assert!(output.status.success());
 }
 
-/// Test sw detail shows [TELEMETRY] with Activity windows (v7.9.0)
+/// Test sw detail shows [USAGE] with time windows (v7.23.0+, was [TELEMETRY] in v7.9.0)
 #[test]
 fn test_snow_leopard_sw_telemetry_activity_windows() {
     let binary = get_binary_path();
@@ -1073,27 +1073,25 @@ fn test_snow_leopard_sw_telemetry_activity_windows() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.9.0: SW detail should show [TELEMETRY] section
+    // v7.23.0: SW detail should show [USAGE] section (was [TELEMETRY] in v7.9.0-v7.22.0)
     assert!(
-        stdout.contains("[TELEMETRY]"),
-        "Expected [TELEMETRY] section, got: {}",
+        stdout.contains("[USAGE]"),
+        "Expected [USAGE] section, got: {}",
         stdout
     );
 
-    // v7.9.0: If telemetry is available, should show Activity windows subsection
-    if stdout.contains("Activity windows:") {
-        // Should show samples count and metrics per window
-        // v7.12.0: Format is "N samples, avg CPU X%, peak Y%, avg RSS Z, peak W"
-        let has_valid_format = stdout.contains("samples,")
-            || stdout.contains("samples active")
-            || stdout.contains("no samples")
-            || stdout.contains("no data");
-        assert!(
-            has_valid_format,
-            "Activity windows should show valid format (samples count/no samples/no data): {}",
-            stdout
-        );
-    }
+    // v7.23.0: If telemetry is available, should show time-anchored windows
+    // Format is: "last 1h:", "last 24h:", "last 7d:", "last 30d:"
+    // Or "Telemetry: not collected yet" if no data
+    let has_valid_format = stdout.contains("last 1h:")
+        || stdout.contains("last 24h:")
+        || stdout.contains("Telemetry:")
+        || stdout.contains("not collected yet");
+    assert!(
+        has_valid_format,
+        "USAGE section should show valid format (time windows or no data): {}",
+        stdout
+    );
     assert!(output.status.success());
 }
 
@@ -3433,7 +3431,7 @@ fn test_no_new_commands_v717() {
 // v7.18.0: Snow Leopard - Change Journal, Boot Timeline & Error Focus
 // ============================================================================
 
-/// Test status command shows [LAST BOOT] section (v7.18.0)
+/// Test status command shows [BOOT SNAPSHOT] section (v7.23.0+, was [LAST BOOT] in v7.18.0)
 #[test]
 fn test_status_last_boot_section_v718() {
     let binary = get_binary_path();
@@ -3449,18 +3447,17 @@ fn test_status_last_boot_section_v718() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.18.0: Status should have [LAST BOOT] section
+    // v7.23.0: Status should have [BOOT SNAPSHOT] section (was [LAST BOOT] in v7.18.0-v7.22.0)
     assert!(
-        stdout.contains("[LAST BOOT]"),
-        "Status should show [LAST BOOT] section: {}",
+        stdout.contains("[BOOT SNAPSHOT]"),
+        "Status should show [BOOT SNAPSHOT] section: {}",
         stdout
     );
 
-    // Should show kernel version and boot health info
-    // Kernel line might show "unknown" or actual version
+    // v7.23.0: Should show boot start time and uptime
     assert!(
-        stdout.contains("Kernel:"),
-        "LAST BOOT should show kernel version: {}",
+        stdout.contains("started:") || stdout.contains("uptime:"),
+        "BOOT SNAPSHOT should show boot info: {}",
         stdout
     );
 
@@ -4171,6 +4168,221 @@ fn test_snow_leopard_lens_logs_scoped_v722() {
         assert!(
             stdout.contains("[NET") || stdout.contains("(seen"),
             "[LOGS] patterns should have IDs: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// Snow Leopard v7.23.0 Tests - Timelines, Drift & Incidents
+// ============================================================================
+
+/// Test that [BOOT SNAPSHOT] section appears in status (v7.23.0)
+#[test]
+fn test_snow_leopard_status_boot_snapshot_v723() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Must have [BOOT SNAPSHOT] section
+    assert!(
+        stdout.contains("[BOOT SNAPSHOT]"),
+        "status should have [BOOT SNAPSHOT] section: {}",
+        stdout
+    );
+
+    // Must have boot time info
+    assert!(
+        stdout.contains("started:") || stdout.contains("uptime:"),
+        "[BOOT SNAPSHOT] should contain boot time info: {}",
+        stdout
+    );
+
+    // Must have incidents section
+    assert!(
+        stdout.contains("Incidents") || stdout.contains("none recorded"),
+        "[BOOT SNAPSHOT] should have incidents summary: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test that [INVENTORY] has Sync with drift indicator (v7.23.0)
+#[test]
+fn test_snow_leopard_inventory_drift_v723() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Must have [INVENTORY] section with Sync
+    assert!(
+        stdout.contains("[INVENTORY]"),
+        "status should have [INVENTORY] section: {}",
+        stdout
+    );
+
+    assert!(
+        stdout.contains("Sync:"),
+        "[INVENTORY] should have Sync line: {}",
+        stdout
+    );
+
+    // Sync should have status text (ok or changed)
+    assert!(
+        stdout.contains("ok") || stdout.contains("changed") || stdout.contains("no changes"),
+        "[INVENTORY] Sync should have status: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test that sw NAME [USAGE] has percentage+range format (v7.23.0)
+#[test]
+fn test_snow_leopard_sw_usage_percentage_v723() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager"])
+        .output()
+        .expect("Failed to run annactl sw NetworkManager");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should have [USAGE] section (renamed from [TELEMETRY])
+    assert!(
+        stdout.contains("[USAGE]"),
+        "sw NAME should have [USAGE] section: {}",
+        stdout
+    );
+
+    // If telemetry is available, check for percentage+range format
+    if stdout.contains("CPU avg:") {
+        // Should have "percent" word (not naked decimals)
+        assert!(
+            stdout.contains("percent") || stdout.contains("n/a"),
+            "[USAGE] CPU should use 'percent' format or n/a: {}",
+            stdout
+        );
+    }
+
+    // Should have trend info
+    if stdout.contains("trend:") {
+        assert!(
+            stdout.contains("stable") || stdout.contains("rising")
+                || stdout.contains("falling") || stdout.contains("n/a"),
+            "[USAGE] should have valid trend labels: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test that CLI surface remains unchanged - only 6 commands (v7.23.0)
+#[test]
+fn test_snow_leopard_cli_surface_unchanged_v723() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Must show exactly these 6 commands
+    assert!(stdout.contains("annactl"), "Help should mention annactl");
+    assert!(stdout.contains("status"), "Help should mention status");
+    assert!(stdout.contains("sw"), "Help should mention sw");
+    assert!(stdout.contains("hw"), "Help should mention hw");
+
+    // Should NOT have hidden commands
+    assert!(
+        !stdout.contains("--verbose") && !stdout.contains("--debug"),
+        "Help should not have hidden flags: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test that incidents use pattern IDs (v7.23.0)
+#[test]
+fn test_snow_leopard_incident_pattern_ids_v723() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("status")
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // If incidents are present, check for pattern IDs
+    if stdout.contains("Incidents") && !stdout.contains("none recorded") {
+        // Should have pattern IDs like [NET001], [GPU010], [STO001]
+        assert!(
+            stdout.contains("[NET") || stdout.contains("[GPU")
+                || stdout.contains("[STO") || stdout.contains("[SYS")
+                || stdout.contains("[GEN") || stdout.contains("(seen"),
+            "Incidents should have pattern IDs: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test that config sections have Source: provenance lines (v7.23.0)
+#[test]
+fn test_snow_leopard_config_provenance_v723() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw", "vim"])
+        .output()
+        .expect("Failed to run annactl sw vim");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Check for provenance in config sections
+    // Note: Source lines may be in various sections
+    if stdout.contains("[CONFIG") {
+        // Config sections should exist and contain paths
+        assert!(
+            stdout.contains("/") || stdout.contains("~"),
+            "Config sections should contain paths: {}",
             stdout
         );
     }

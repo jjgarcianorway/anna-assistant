@@ -1,12 +1,12 @@
-//! Status Command v7.22.0 - Scenario Lenses & Self Toolchain Hygiene
+//! Status Command v7.23.0 - Timelines, Drift & Incidents
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
 //! - [DAEMON]              State, uptime, PID, restarts
 //! - [HEALTH]              Overall health status
-//! - [LAST BOOT]           Boot timeline with kernel, duration, failed units (v7.18.0)
+//! - [BOOT SNAPSHOT]       Boot times, uptime, incident summary (v7.23.0)
 //! - [KDB]                 Software and hardware knowledge database readiness (v7.21.0)
-//! - [INVENTORY]           What Anna has indexed + sync status
+//! - [INVENTORY]           What Anna has indexed + drift indicator (v7.23.0)
 //! - [TELEMETRY]           Real telemetry with top CPU/memory and trends
 //! - [TELEMETRY SUMMARY]   Services with notable trends (v7.20.0)
 //! - [LOG SUMMARY]         Components with new patterns since baseline (v7.20.0)
@@ -17,8 +17,11 @@
 //! - [INTERNAL ERRORS]     Anna's own pipeline errors
 //! - [ALERTS]              Hardware alerts from health checks
 //! - [TOPOLOGY HINTS]      High-impact services and driver stacks (v7.19.0)
+//! - [ANNA TOOLCHAIN]      Diagnostic tool readiness (v7.22.0)
 //! - [ANNA NEEDS]          Missing tools and docs
 //!
+//! v7.23.0: [BOOT SNAPSHOT] with incidents, [INVENTORY] with drift indicator
+//! v7.22.0: [ANNA TOOLCHAIN] for diagnostic tool tracking
 //! v7.20.0: [TELEMETRY SUMMARY] + [LOG SUMMARY] with deterministic trend labels
 //! v7.19.0: [TOPOLOGY HINTS] shows services with many deps and multi-stack drivers
 //! v7.18.0: [LAST BOOT] shows boot health, [RECENT CHANGES] shows system changes
@@ -46,6 +49,9 @@ use anna_common::{get_process_trends, TrendDirection, get_components_with_new_pa
 use anna_common::topology_map::build_hardware_topology;
 // v7.22.0: Toolchain hygiene
 use anna_common::toolchain::{check_toolchain, ToolCategory};
+// v7.23.0: Boot snapshot and inventory drift
+use anna_common::boot_snapshot::{BootSnapshot, format_boot_snapshot_section};
+use anna_common::inventory_drift::DriftSummary;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -70,8 +76,8 @@ pub async fn run() -> Result<()> {
     // [HEALTH]
     print_health_section(&daemon_stats);
 
-    // [LAST BOOT] - v7.18.0: Boot timeline
-    print_last_boot_section();
+    // [BOOT SNAPSHOT] - v7.23.0: Boot times, uptime, incidents
+    print_boot_snapshot_section();
 
     // [KDB] - v7.21.0: Knowledge database readiness
     print_kdb_section(&daemon_stats);
@@ -286,7 +292,54 @@ fn print_health_section(stats: &Option<DaemonStats>) {
     println!();
 }
 
-/// v7.18.0: [LAST BOOT] section - boot timeline with kernel, duration, failed units
+/// v7.23.0: [BOOT SNAPSHOT] section - boot times, uptime, incident summary
+fn print_boot_snapshot_section() {
+    println!("{}", "[BOOT SNAPSHOT]".cyan());
+
+    let snapshot = BootSnapshot::current();
+
+    println!("  Current boot:");
+    println!("    started:        {}", snapshot.boot_started.format("%Y-%m-%d %H:%M:%S %Z"));
+    println!("    uptime:         {}", snapshot.uptime);
+
+    if let Some(ref anna_start) = snapshot.anna_started {
+        println!("    Anna start:     {}", anna_start.format("%Y-%m-%d %H:%M:%S %Z"));
+    }
+    if let Some(ref anna_uptime) = snapshot.anna_uptime {
+        println!("    Anna uptime:    {}", anna_uptime);
+    }
+    println!();
+
+    if snapshot.incidents.is_empty() {
+        println!("  Incidents (current boot):");
+        println!("    {}", "none recorded at warning or above".green());
+    } else {
+        println!("  Incidents (current boot, warning and above, grouped):");
+        for incident in snapshot.incidents.iter().take(10) {
+            let count_str = if incident.count == 1 {
+                "(seen 1 time)".to_string()
+            } else {
+                format!("(seen {} times)", incident.count)
+            };
+            let display_msg = if incident.message.len() > 45 {
+                format!("{}...", &incident.message[..42])
+            } else {
+                incident.message.clone()
+            };
+            println!(
+                "    {} {:45} {}",
+                incident.pattern_id,
+                display_msg,
+                count_str.dimmed()
+            );
+        }
+    }
+
+    println!();
+}
+
+/// v7.18.0: [LAST BOOT] section - boot timeline with kernel, duration, failed units (kept for compatibility)
+#[allow(dead_code)]
 fn print_last_boot_section() {
     println!("{}", "[LAST BOOT]".cyan());
 
@@ -520,22 +573,15 @@ fn print_inventory_section(stats: &Option<DaemonStats>) {
             let net_summary = get_network_summary();
             println!("  Network:    {}  {}", net_summary.format_compact(), "(from /sys/class/net)".dimmed());
 
-            // Sync status
-            let sync_str = match s.last_scan_secs_ago {
-                Some(secs) if secs < 60 => {
-                    format!("{} (last full scan {}s ago)", "OK".green(), secs)
-                }
-                Some(secs) if secs < STALE_THRESHOLD_SECS => {
-                    format!("{} (last full scan {}m ago)", "OK".green(), secs / 60)
-                }
-                Some(secs) => {
-                    format!("{} (last scan {}m ago)", "stale".yellow(), secs / 60)
-                }
-                None => {
-                    format!("{}", "pending".yellow())
-                }
+            // v7.23.0: Sync status with drift indicator
+            let drift = DriftSummary::compute();
+            let drift_str = drift.format_status_line();
+            let sync_color = if drift.has_changes {
+                drift_str.yellow().to_string()
+            } else {
+                drift_str.green().to_string()
             };
-            println!("  Sync:       {}", sync_str);
+            println!("  Sync:       {}", sync_color);
         }
         None => {
             println!("  Packages:   -");

@@ -1,4 +1,4 @@
-//! SW Detail Command v7.22.0 - Software Profiles with Scenario Lenses
+//! SW Detail Command v7.23.0 - Time-Anchored Trends & Config Provenance
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -15,7 +15,7 @@
 //! - [CONFIG GRAPH] Ownership and consumers of config files (v7.17.0)
 //! - [HISTORY]      Package lifecycle and config changes (v7.18.0)
 //! - [LOGS]         Boot-anchored patterns with baseline tags (v7.20.0)
-//! - [TELEMETRY]    Deterministic trend labels (stable/higher/lower) (v7.20.0)
+//! - [USAGE]       Time-anchored trends with percentage+range display (v7.23.0)
 //! - Cross notes:   Links between logs, telemetry, deps, config (v7.14.0)
 
 use anyhow::Result;
@@ -1602,130 +1602,106 @@ fn print_service_config_section(svc_name: &str) {
     println!();
 }
 
-/// Print [TELEMETRY] section with v7.20.0 format: State + windows + deterministic trends
+/// Print [USAGE] section with v7.23.0 format: Time-anchored trends with percentage+range
 fn print_telemetry_section(name: &str) {
     use anna_common::config::AnnaConfig;
-    use anna_common::{TelemetryDb, format_bytes_human, get_process_trends,
-                      WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D};
+    use anna_common::{get_usage_trends, format_cpu_percent_with_range,
+                      timeline_format_memory, TrendLabel};
 
-    println!("{}", "[TELEMETRY]".cyan());
-    println!("  {}", "(source: Anna daemon, sampling every 30s)".dimmed());
+    println!("{}", "[USAGE]".cyan());
 
     let config = AnnaConfig::load();
     if !config.telemetry.enabled {
-        println!();
-        println!("  Telemetry disabled in config.");
+        println!("  Telemetry: disabled in config");
         println!();
         return;
     }
 
-    // Try to open SQLite database
-    let db = match TelemetryDb::open_readonly() {
-        Some(db) => db,
-        None => {
-            println!();
-            println!("  State (24h):     not enough data yet");
-            println!("  No telemetry samples collected for this identity yet.");
-            println!();
-            return;
+    // Get time-anchored usage trends
+    let trends = get_usage_trends(name);
+
+    println!("  Source: {}", trends.source.dimmed());
+    println!();
+
+    if !trends.has_any_data() {
+        println!("  Telemetry: not collected yet");
+        println!();
+        return;
+    }
+
+    // CPU section with percentage+range format
+    println!("  CPU avg:");
+    if let Some(ref w) = trends.cpu_1h {
+        if w.is_valid() {
+            println!("    last 1h:    {}",
+                     format_cpu_percent_with_range(w.avg, trends.logical_cores));
         }
+    }
+    if let Some(ref w) = trends.cpu_24h {
+        if w.is_valid() {
+            println!("    last 24h:   {}",
+                     format_cpu_percent_with_range(w.avg, trends.logical_cores));
+        }
+    } else if trends.cpu_1h.is_some() {
+        println!("    last 24h:   {}", "n/a (insufficient data)".dimmed());
+    }
+    if let Some(ref w) = trends.cpu_7d {
+        if w.is_valid() {
+            println!("    last 7d:    {}",
+                     format_cpu_percent_with_range(w.avg, trends.logical_cores));
+        }
+    } else if trends.cpu_24h.is_some() {
+        println!("    last 7d:    {}", "n/a (insufficient data)".dimmed());
+    }
+    // CPU trend
+    let cpu_trend_str = match &trends.cpu_trend {
+        TrendLabel::Stable { delta } => format!("stable ({})", delta).green().to_string(),
+        TrendLabel::Rising { delta } => format!("rising ({})", delta).yellow().to_string(),
+        TrendLabel::Falling { delta } => format!("falling ({})", delta).cyan().to_string(),
+        TrendLabel::InsufficientData => "n/a (insufficient data)".dimmed().to_string(),
     };
-
-    // Check if we have data for this object
-    if !db.has_key(name) {
-        println!();
-        println!("  State (24h):     not enough data yet");
-        println!("  No telemetry samples collected for this identity yet.");
-        println!();
-        return;
-    }
-
-    // Get stats for each window
-    let stats_1h = db.get_usage_stats_window(name, WINDOW_1H).ok();
-    let stats_24h = db.get_usage_stats_window(name, WINDOW_24H).ok();
-    let stats_7d = db.get_usage_stats_window(name, WINDOW_7D).ok();
-    let stats_30d = db.get_usage_stats_window(name, WINDOW_30D).ok();
-
-    // Check if we have very few samples
-    let total_samples = stats_30d.as_ref().map(|s| s.sample_count).unwrap_or(0);
-    if total_samples == 0 {
-        println!();
-        println!("  State (24h):     not enough data yet");
-        println!("  No telemetry samples collected for this identity yet.");
-        println!();
-        return;
-    }
-
+    println!("    trend:      {}", cpu_trend_str);
     println!();
 
-    // v7.12.0: State summary line at the top
-    let state_desc = derive_telemetry_state(&stats_24h);
-    println!("  State (24h):     {}", state_desc);
-    println!();
-
-    // v7.12.0: Show key metrics in compact form
-    if let Some(ref s) = stats_1h {
-        if s.sample_count > 0 {
-            println!("  CPU avg (1h):    {:.1} %    (max {:.1} %)",
-                     s.avg_cpu_percent, s.peak_cpu_percent);
-            println!("  RAM avg (1h):    {}  (max {})",
-                     format_bytes_human(s.avg_mem_bytes), format_bytes_human(s.peak_mem_bytes));
+    // Memory RSS section
+    println!("  Memory RSS avg:");
+    if let Some(ref w) = trends.mem_1h {
+        if w.is_valid() {
+            println!("    last 1h:    {}", timeline_format_memory(w.avg as u64));
         }
     }
-    println!();
-
-    // Activity windows section
-    println!("  Activity windows:");
-
-    // Helper to format a window line
-    let format_window = |label: &str, stats: &Option<anna_common::UsageStats>| {
-        if let Some(s) = stats {
-            if s.sample_count > 0 {
-                format!("    {}:   {} samples, avg CPU {:.1}%, peak {:.1}%, avg RSS {}, peak {}",
-                    label,
-                    s.sample_count,
-                    s.avg_cpu_percent,
-                    s.peak_cpu_percent,
-                    format_bytes_human(s.avg_mem_bytes),
-                    format_bytes_human(s.peak_mem_bytes))
-            } else {
-                format!("    {}:   no samples", label)
-            }
-        } else {
-            format!("    {}:   no data", label)
+    if let Some(ref w) = trends.mem_24h {
+        if w.is_valid() {
+            println!("    last 24h:   {}", timeline_format_memory(w.avg as u64));
         }
+    } else if trends.mem_1h.is_some() {
+        println!("    last 24h:   {}", "n/a (insufficient data)".dimmed());
+    }
+    if let Some(ref w) = trends.mem_7d {
+        if w.is_valid() {
+            println!("    last 7d:    {}", timeline_format_memory(w.avg as u64));
+        }
+    } else if trends.mem_24h.is_some() {
+        println!("    last 7d:    {}", "n/a (insufficient data)".dimmed());
+    }
+    // Memory trend
+    let mem_trend_str = match &trends.mem_trend {
+        TrendLabel::Stable { delta } => format!("stable ({})", delta).green().to_string(),
+        TrendLabel::Rising { delta } => format!("rising ({})", delta).yellow().to_string(),
+        TrendLabel::Falling { delta } => format!("falling ({})", delta).cyan().to_string(),
+        TrendLabel::InsufficientData => "n/a (insufficient data)".dimmed().to_string(),
     };
-
-    println!("{}", format_window("Last 1h", &stats_1h));
-    println!("{}", format_window("Last 24h", &stats_24h));
-    println!("{}", format_window("Last 7d", &stats_7d));
-    println!("{}", format_window("Last 30d", &stats_30d));
+    println!("    trend:      {}", mem_trend_str);
     println!();
 
-    // v7.20.0: Deterministic trend section using ProcessTrends
-    let trends = get_process_trends(name);
-    if trends.has_cpu_data() || trends.has_mem_data() {
-        println!("  Trend (24h vs 7d):");
-
-        // CPU trend with deterministic label
-        if trends.has_cpu_data() {
-            let cpu_label = trends.cpu_trend_24h_vs_7d.label();
-            let cpu_colored = format_trend_label(cpu_label, trends.cpu_trend_24h_vs_7d.is_increasing());
-            println!("    CPU:    {}", cpu_colored);
-        }
-
-        // Memory trend with deterministic label
-        if trends.has_mem_data() {
-            let mem_label = trends.mem_trend_24h_vs_7d.label();
-            let mem_colored = format_trend_label(mem_label, trends.mem_trend_24h_vs_7d.is_increasing());
-            println!("    Memory: {}", mem_colored);
-        }
-
+    // Starts section (if any)
+    if trends.starts_24h > 0 || trends.starts_7d > 0 || trends.starts_30d > 0 {
+        println!("  Starts:");
+        println!("    last 24h:   {}", trends.starts_24h);
+        println!("    last 7d:    {}", trends.starts_7d);
+        println!("    last 30d:   {}", trends.starts_30d);
         println!();
     }
-
-    // v7.11.0: Health notes section - link telemetry with logs
-    print_telemetry_health_notes(name, &stats_24h);
 }
 
 /// Format trend label with color - v7.20.0

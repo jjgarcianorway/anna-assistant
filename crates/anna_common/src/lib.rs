@@ -1,4 +1,4 @@
-//! Anna Common v7.22.0 - Scenario Lenses & Self Toolchain Hygiene
+//! Anna Common v7.23.0 - Timelines, Drift & Incidents
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -12,6 +12,7 @@
 //! v7.20.0: Telemetry trends, log atlas with pattern IDs, golden baselines
 //! v7.21.0: Config atlas, topology maps, impact view
 //! v7.22.0: Scenario lenses, self toolchain hygiene
+//! v7.23.0: Time-anchored trends, boot snapshots, inventory drift, config provenance
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -90,6 +91,11 @@ pub mod impact_view;
 pub mod scenario_lens;
 pub mod sw_lens;
 pub mod toolchain;
+// v7.23.0: Time-anchored trends, boot snapshots, inventory drift, config provenance
+pub mod timeline;
+pub mod boot_snapshot;
+pub mod inventory_drift;
+pub mod config_hygiene;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -238,4 +244,28 @@ pub use toolchain::{
     InstallResult,
     get_anna_tools, check_toolchain, install_tool, ensure_tool,
     format_toolchain_section, format_toolchain_status_section,
+};
+// v7.23.0: Time-anchored trends
+pub use timeline::{
+    UsageTrends, HwTelemetryTrends, TimeWindow, TrendLabel,
+    get_usage_trends, get_hw_telemetry_trends,
+    format_usage_section, format_hw_telemetry_section,
+    format_cpu_percent_with_range, format_percent, format_fraction_as_percent,
+    format_memory as timeline_format_memory, format_temperature, format_io_bytes,
+    get_logical_cores,
+};
+// v7.23.0: Boot snapshots
+pub use boot_snapshot::{
+    BootSnapshot, IncidentPattern,
+    format_boot_snapshot_section,
+};
+// v7.23.0: Inventory drift
+pub use inventory_drift::{
+    InventorySnapshot, DriftSummary,
+};
+// v7.23.0: Config hygiene with provenance
+pub use config_hygiene::{
+    ConfigSource, ValidatedConfigEntry, ValidatedConfig,
+    ConfigGraph, ConfigPrecedenceEntry,
+    format_config_section, format_config_graph_section,
 };
