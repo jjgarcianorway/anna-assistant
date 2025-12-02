@@ -1,6 +1,13 @@
-//! Anna Common v7.38.0 - Cache-Only Status & Hardened Daemon
+//! Anna Common v7.39.0 - Incremental Refresh & Adaptive Status
 //!
-//! v7.38.0: NO LLM, NO NATURAL LANGUAGE - Cache-only status, no live probing
+//! v7.39.0: NO LLM, NO NATURAL LANGUAGE - Diff-based refresh, adaptive rendering
+//! - Domain-based incremental refresh (hw.static, sw.packages, etc.)
+//! - On-demand refresh with "checking..." indicator
+//! - Terminal-adaptive rendering (compact/standard/wide)
+//! - Daemon self-observation (CPU/RAM thresholds)
+//! - Hot/cold data store split
+//!
+//! v7.38.0: Cache-only status, no live probing
 //! - status_snapshot.json: Daemon writes, annactl reads (no live probing)
 //! - last_crash.json: Written on panic/fatal for debugging without journalctl
 //! - last_start.json: Written on every start attempt
@@ -188,6 +195,12 @@ pub mod idle;
 pub mod instrumentation_state;
 // v7.38.0: Daemon state (crash logging, status snapshots)
 pub mod daemon_state;
+// v7.39.0: Domain-based incremental refresh
+pub mod domain_state;
+// v7.39.0: Terminal-adaptive rendering
+pub mod terminal;
+// v7.39.0: Daemon self-observation
+pub mod self_observation;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -476,4 +489,22 @@ pub use grounded::{
     get_usb_summary, get_bluetooth_summary, get_thunderbolt_summary,
     get_sdcard_summary, get_camera_summary, get_input_summary,
     get_audio_summary, get_hardware_overview,
+};
+// v7.39.0: Domain-based incremental refresh
+pub use domain_state::{
+    Domain, DomainRefreshState, RefreshResult, RefreshRequest, RefreshResponse, DomainSummary,
+    DOMAIN_STATE_SCHEMA_VERSION, DOMAIN_STATE_DIR, REQUESTS_DIR, RESPONSES_DIR,
+    cleanup_old_requests,
+};
+// v7.39.0: Terminal-adaptive rendering
+pub use terminal::{
+    DisplayMode, SimpleTable,
+    get_terminal_size, truncate, wrap_text as terminal_wrap_text,
+    format_with_overflow, format_compact_line,
+    MIN_WIDTH, WIDE_WIDTH_THRESHOLD, COMPACT_HEIGHT_THRESHOLD, COMPACT_WIDTH_THRESHOLD,
+};
+// v7.39.0: Daemon self-observation
+pub use self_observation::{
+    SelfSample, SelfObservation, SelfWarning, WarningKind,
+    DEFAULT_CPU_THRESHOLD, DEFAULT_RSS_THRESHOLD_BYTES, CPU_WINDOW_SECONDS, SELF_SAMPLE_INTERVAL_SECS,
 };

@@ -696,9 +696,9 @@ fn test_annactl_version_flag_works() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.38.0: --version outputs EXACTLY "vX.Y.Z" (no banners, no ANSI)
+    // v7.39.0: --version outputs EXACTLY "vX.Y.Z" (no banners, no ANSI)
     assert!(
-        stdout.trim().starts_with("v") && stdout.contains("7.38"),
+        stdout.trim().starts_with("v") && stdout.contains("7.39"),
         "Expected '--version' to output exactly 'vX.Y.Z', got: {}",
         stdout
     );
@@ -5011,10 +5011,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.38 (updated for v7.38.0)
+    // [VERSION] section should show 7.39 (updated for v7.39.0)
     assert!(
-        stdout.contains("7.38"),
-        "status should show version 7.38: {}",
+        stdout.contains("7.39"),
+        "status should show version 7.39: {}",
         stdout
     );
 

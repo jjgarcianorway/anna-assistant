@@ -1,4 +1,11 @@
-//! Anna CLI (annactl) v7.38.0 - Cache-Only Status & Hardened Daemon
+//! Anna CLI (annactl) v7.39.0 - Incremental Refresh & Adaptive Status
+//!
+//! v7.39.0: Terminal-adaptive rendering, domain status, checking indicator
+//! - Compact mode for small terminals (< 24 rows or < 60 cols)
+//! - Standard mode for normal terminals
+//! - Wide mode for large terminals (> 120 cols)
+//! - Shows "checking..." when domain refresh is in progress
+//! - Domain freshness summary in status
 //!
 //! v7.38.0: Cache-only status, no live probing
 //! - status reads status_snapshot.json only (no pacman, systemctl, journalctl)

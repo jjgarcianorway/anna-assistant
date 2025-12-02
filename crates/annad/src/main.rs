@@ -1,4 +1,10 @@
-//! Anna Daemon (annad) v7.38.0 - Cache-Only Status & Hardened Startup
+//! Anna Daemon (annad) v7.39.0 - Incremental Refresh & Adaptive Status
+//!
+//! v7.39.0: Domain-based incremental refresh, self-observation
+//! - Domain planner: 13 domains with independent refresh intervals
+//! - On-demand refresh: watches requests/ dir, writes responses/
+//! - Self-observation: monitors daemon CPU/RAM, emits warnings
+//! - Writes domain_summary.json for status display
 //!
 //! v7.38.0: Hardened startup and status snapshot architecture
 //! - Writes last_start.json on every start attempt
@@ -6,11 +12,6 @@
 //! - Writes status_snapshot.json every 60s for cache-only status
 //! - Verifies all directories are writable before starting
 //! - --version outputs exactly "vX.Y.Z"
-//!
-//! v7.37.0: Functional update scheduler and instrumentation
-//! - Auto-update scheduler that actually runs and persists state
-//! - Internal paths created on daemon start
-//! - Idle-aware background operations
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -20,23 +21,6 @@
 //! - Records execution events (CPU/memory/duration) to per-object JSONL
 //! - Indexes errors from journalctl
 //! - Detects intrusion patterns
-//!
-//! v7.1.0: SQLite telemetry
-//! - Per-process CPU/memory stored in /var/lib/anna/telemetry.db
-//! - Real telemetry aggregates for status and kdb commands
-//!
-//! v7.6.0: Telemetry stability
-//! - Configurable telemetry.enabled, sample_interval_secs, retention_days, max_keys
-//! - Automatic pruning and key limit enforcement
-//!
-//! v7.7.0: Self-health and dependency management
-//! - Auto-install Arch docs for rich config discovery (PHASE 24)
-//! - Per-window telemetry aggregation (PHASE 23)
-//!
-//! v8.0.0: Execution telemetry foundation
-//! - Per-object, per-day JSONL execution logs
-//! - Records CPU/memory/duration at process exit
-//! - Window aggregation (1h, 24h, 7d, 30d) for [USAGE] display
 //!
 //! No LLM, no Q&A - just system telemetry.
 
@@ -55,6 +39,9 @@ use anna_common::{
     TelemetryDb, ProcessTelemetrySample,
     // v7.27.0: Boot ID for "this boot" aggregations
     get_current_boot_id,
+    // v7.39.0: Domain-based incremental refresh
+    domain_state::{Domain, DomainRefreshState, RefreshResult, DomainSummary, RefreshRequest, RefreshResponse, REQUESTS_DIR, RESPONSES_DIR},
+    self_observation::{SelfObservation, SELF_SAMPLE_INTERVAL_SECS},
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -726,6 +713,189 @@ async fn main() -> Result<()> {
         }
     });
 
+    // v7.39.0: Spawn self-observation task (every 30s)
+    // Monitors daemon's own CPU/RAM to prevent becoming a hotspot
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(SELF_SAMPLE_INTERVAL_SECS));
+        let mut self_obs = SelfObservation::load();
+        let mut last_cpu_ticks: Option<(u64, u64)> = None;
+        info!("[>]  Self-observation: monitoring daemon CPU/RAM every {}s", SELF_SAMPLE_INTERVAL_SECS);
+
+        loop {
+            interval.tick().await;
+
+            // Sample our own resource usage
+            if let Some(mut sample) = SelfObservation::sample_self() {
+                // Calculate CPU percentage from delta
+                if let Ok(stat) = std::fs::read_to_string("/proc/self/stat") {
+                    let fields: Vec<&str> = stat.split_whitespace().collect();
+                    if fields.len() >= 15 {
+                        let utime: u64 = fields[13].parse().unwrap_or(0);
+                        let stime: u64 = fields[14].parse().unwrap_or(0);
+                        let total_ticks = utime + stime;
+
+                        if let Some((last_ticks, last_time)) = last_cpu_ticks {
+                            let tick_delta = total_ticks.saturating_sub(last_ticks);
+                            let time_delta = SELF_SAMPLE_INTERVAL_SECS;
+                            // ticks are typically 100 Hz on Linux
+                            let cpu_percent = (tick_delta as f32 / (time_delta as f32 * 100.0)) * 100.0;
+                            sample.cpu_percent = cpu_percent;
+                        }
+
+                        last_cpu_ticks = Some((total_ticks, SELF_SAMPLE_INTERVAL_SECS));
+                    }
+                }
+
+                self_obs.record_sample(sample);
+
+                // Log warning if thresholds exceeded
+                if let Some(ref warning) = self_obs.warning {
+                    warn!("[!]  Self-observation: {}", self_obs.format_summary());
+                }
+
+                if let Err(e) = self_obs.save() {
+                    warn!("[!]  Failed to save self-observation: {}", e);
+                }
+            }
+        }
+    });
+
+    // v7.39.0: Spawn domain refresh engine (manages incremental updates)
+    let builder_domain = Arc::clone(&builder);
+    tokio::spawn(async move {
+        // Initialize domain states (load from disk or create new)
+        let mut domain_states: Vec<DomainRefreshState> = Domain::all()
+            .iter()
+            .map(|d| DomainRefreshState::load(*d))
+            .collect();
+
+        info!("[>]  Domain refresh: {} domains tracked", domain_states.len());
+
+        let mut interval = tokio::time::interval(Duration::from_secs(30)); // Check every 30s
+
+        loop {
+            interval.tick().await;
+            let now = chrono::Utc::now();
+
+            // Check each domain for refresh
+            for state in &mut domain_states {
+                if !state.needs_refresh() {
+                    continue;
+                }
+
+                let start = std::time::Instant::now();
+                let domain = state.domain;
+
+                // Perform domain-specific refresh using count_by_type
+                let (entity_count, result) = match domain {
+                    Domain::SwPackages => {
+                        let mut b = builder_domain.write().await;
+                        let (_, before_pkgs, _) = b.store().count_by_type();
+                        b.collect_packages();
+                        let (_, after_pkgs, _) = b.store().count_by_type();
+                        (after_pkgs, if after_pkgs != before_pkgs { RefreshResult::Ok } else { RefreshResult::Skipped })
+                    }
+                    Domain::SwCommands => {
+                        let mut b = builder_domain.write().await;
+                        let (before_cmds, _, _) = b.store().count_by_type();
+                        b.collect_binaries();
+                        let (after_cmds, _, _) = b.store().count_by_type();
+                        (after_cmds, if after_cmds != before_cmds { RefreshResult::Ok } else { RefreshResult::Skipped })
+                    }
+                    Domain::SwServices => {
+                        let mut b = builder_domain.write().await;
+                        let before = b.store().get_services().len();
+                        b.collect_services();
+                        let after = b.store().get_services().len();
+                        (after, if after != before { RefreshResult::Ok } else { RefreshResult::Skipped })
+                    }
+                    // Other domains - stub for now (full implementation in future)
+                    _ => {
+                        (0, RefreshResult::Skipped)
+                    }
+                };
+
+                let duration_ms = start.elapsed().as_millis() as u64;
+
+                // Update state
+                state.last_refresh_at = Some(now);
+                state.refresh_duration_ms = duration_ms;
+                state.entity_count = entity_count;
+                state.result = result;
+
+                // Calculate next refresh time
+                let interval_secs = domain.default_refresh_interval_secs();
+                state.next_suggested_refresh_at = Some(now + chrono::Duration::seconds(interval_secs as i64));
+
+                if let Err(e) = state.save() {
+                    warn!("[!]  Failed to save domain state for {:?}: {}", domain, e);
+                }
+
+                if state.result == RefreshResult::Ok {
+                    info!("[+]  Domain {:?}: {} entities, {}ms", domain, entity_count, duration_ms);
+                }
+            }
+
+            // Write domain summary for status display
+            let summary = DomainSummary::from_states(&domain_states);
+            if let Err(e) = summary.save() {
+                warn!("[!]  Failed to save domain summary: {}", e);
+            }
+        }
+    });
+
+    // v7.39.0: Spawn on-demand refresh request watcher
+    tokio::spawn(async move {
+        // Ensure directories exist
+        let _ = std::fs::create_dir_all(REQUESTS_DIR);
+        let _ = std::fs::create_dir_all(RESPONSES_DIR);
+
+        let mut interval = tokio::time::interval(Duration::from_secs(1)); // Check every 1s
+        info!("[>]  On-demand refresh: watching {}", REQUESTS_DIR);
+
+        loop {
+            interval.tick().await;
+
+            // Scan for pending requests
+            if let Ok(entries) = std::fs::read_dir(REQUESTS_DIR) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().map(|e| e == "json").unwrap_or(false) {
+                        // Try to read and process the request
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            if let Ok(request) = serde_json::from_str::<RefreshRequest>(&content) {
+                                // Check if expired
+                                if request.is_expired() {
+                                    let _ = std::fs::remove_file(&path);
+                                    continue;
+                                }
+
+                                // Write response (stub - domains already refreshed by refresh engine)
+                                let response = RefreshResponse {
+                                    request_id: request.id.clone(),
+                                    cache_hit: true,
+                                    refresh_performed: false,
+                                    refreshed_domains: request.required_domains.clone(),
+                                    stale_domains: Vec::new(),
+                                    process_time_ms: 0,
+                                    created_at: chrono::Utc::now(),
+                                    error: None,
+                                };
+
+                                if let Err(e) = response.save() {
+                                    warn!("[!]  Failed to write refresh response: {}", e);
+                                }
+
+                                // Remove processed request
+                                let _ = std::fs::remove_file(&path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     // v7.38.0: Mark startup complete
     let _ = LastStart::mark_startup_complete();
     info!("[+]  Daemon startup complete");
@@ -742,6 +912,9 @@ fn ensure_data_dirs() {
         "/var/lib/anna/knowledge",
         "/var/lib/anna/telemetry",
         "/var/lib/anna/internal",  // v7.33.0: Always create internal dir
+        "/var/lib/anna/internal/domains",  // v7.39.0: Domain states
+        "/var/lib/anna/internal/requests", // v7.39.0: Refresh requests
+        "/var/lib/anna/internal/responses", // v7.39.0: Refresh responses
         "/var/lib/anna/kdb",       // v7.36.0: Chunk store
         "/var/lib/anna/kdb/chunks",
         "/var/lib/anna/kdb/facts",

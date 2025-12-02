@@ -1,21 +1,30 @@
-//! Status Command v7.38.0 - Cache-Only Status (No Live Probing)
+//! Status Command v7.39.0 - Terminal-Adaptive Cache-Only Status
+//!
+//! v7.39.0: Terminal-adaptive rendering, domain status, "checking..." indicator
+//! - Compact mode for small terminals (< 24 rows or < 60 cols)
+//! - Standard mode for normal terminals
+//! - Wide mode for large terminals (> 120 cols)
+//! - Shows "checking..." when domain refresh is in progress
+//! - Shows domain freshness summary
 //!
 //! v7.38.0: Cache-only status, NO live probing
 //! - Reads status_snapshot.json ONLY (written by daemon every 60s)
 //! - Shows last_crash.json when daemon is down
-//! - NO pacman -Q, systemctl list-*, journalctl, filesystem crawling
-//! - NO hardware probing, NO network calls
 //! - Fast: < 10ms to display
 //!
-//! Sections:
+//! Sections (Standard/Wide mode):
 //! - [VERSION]             Anna version
 //! - [DAEMON]              State from snapshot (or last crash if down)
-//! - [HEALTH]              Health from snapshot
-//! - [DATA]                Knowledge object counts
+//! - [HEALTH]              Health from snapshot + self-observation
+//! - [DATA]                Knowledge object counts + domain freshness
 //! - [TELEMETRY]           Sample counts
 //! - [UPDATES]             Update scheduler state
 //! - [ALERTS]              Alert counts from snapshot
-//! - [PATHS]               Static paths only
+//! - [PATHS]               Static paths only (skipped in compact)
+//!
+//! Sections (Compact mode):
+//! - [VERSION], [DAEMON], [HEALTH], [ALERTS], [UPDATES] only
+//! - One-line summaries for DATA and TELEMETRY
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -24,49 +33,91 @@ use std::path::Path;
 use anna_common::config::{AnnaConfig, UpdateState, SYSTEM_CONFIG_DIR, DATA_DIR, UpdateMode};
 use anna_common::format_duration_secs;
 use anna_common::daemon_state::{StatusSnapshot, LastCrash, INTERNAL_DIR};
+use anna_common::domain_state::{DomainSummary, RefreshRequest, RefreshResponse, Domain, REQUESTS_DIR};
+use anna_common::terminal::{DisplayMode, get_terminal_size, truncate, format_compact_line};
+use anna_common::self_observation::SelfObservation;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const THIN_SEP: &str = "------------------------------------------------------------";
 
-/// Run the status command - v7.38.0: cache-only, no live probing
+/// Run the status command - v7.39.0: terminal-adaptive, cache-only
 pub async fn run() -> Result<()> {
+    // Detect display mode
+    let mode = DisplayMode::detect();
+    let (width, _) = get_terminal_size();
+
+    // Generate separator based on terminal width
+    let sep_len = (width as usize).saturating_sub(4).min(60);
+    let thin_sep = "-".repeat(sep_len);
+
     println!();
     println!("{}", "  Anna Status".bold());
-    println!("{}", THIN_SEP);
+    println!("{}", thin_sep);
     println!();
 
     // v7.38.0: Load snapshot (written by daemon every 60s)
     let snapshot = StatusSnapshot::load();
     let last_crash = LastCrash::load();
 
-    // [VERSION]
+    // v7.39.0: Load domain summary and self-observation
+    let domain_summary = DomainSummary::load();
+    let self_obs = SelfObservation::load();
+
+    // v7.39.0: Check for any pending refresh requests (for "checking..." indicator)
+    let checking_domains = get_pending_refresh_domains();
+
+    // [VERSION] - always shown
     print_version_section();
 
-    // [DAEMON]
-    print_daemon_section(&snapshot, &last_crash);
+    // [DAEMON] - always shown
+    print_daemon_section(&snapshot, &last_crash, &checking_domains);
 
-    // [HEALTH]
-    print_health_section(&snapshot);
+    // [HEALTH] - always shown
+    print_health_section(&snapshot, &self_obs);
 
-    // [DATA]
-    print_data_section(&snapshot);
+    // [DATA] - condensed in compact mode
+    print_data_section(&snapshot, &domain_summary, &mode);
 
-    // [TELEMETRY]
-    print_telemetry_section(&snapshot);
+    // [TELEMETRY] - condensed in compact mode
+    if mode != DisplayMode::Compact {
+        print_telemetry_section(&snapshot);
+    }
 
-    // [UPDATES]
+    // [UPDATES] - always shown
     print_updates_section(&snapshot);
 
-    // [ALERTS]
+    // [ALERTS] - always shown
     print_alerts_section(&snapshot);
 
-    // [PATHS]
-    print_paths_section();
+    // [PATHS] - only in standard/wide mode
+    if mode != DisplayMode::Compact {
+        print_paths_section();
+    }
 
-    println!("{}", THIN_SEP);
+    println!("{}", thin_sep);
     println!();
 
     Ok(())
+}
+
+/// Get domains that are currently being refreshed
+fn get_pending_refresh_domains() -> Vec<String> {
+    let mut domains = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(REQUESTS_DIR) {
+        for entry in entries.flatten() {
+            if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                if let Ok(req) = serde_json::from_str::<RefreshRequest>(&content) {
+                    if !req.is_expired() {
+                        for domain in &req.required_domains {
+                            domains.push(domain.as_str().to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    domains
 }
 
 fn print_version_section() {
@@ -76,7 +127,11 @@ fn print_version_section() {
 }
 
 /// [DAEMON] section - shows daemon state from snapshot or last crash
-fn print_daemon_section(snapshot: &Option<StatusSnapshot>, last_crash: &Option<LastCrash>) {
+fn print_daemon_section(
+    snapshot: &Option<StatusSnapshot>,
+    last_crash: &Option<LastCrash>,
+    checking_domains: &[String],
+) {
     println!("{}", "[DAEMON]".cyan());
 
     match snapshot {
@@ -86,6 +141,12 @@ fn print_daemon_section(snapshot: &Option<StatusSnapshot>, last_crash: &Option<L
             println!("  Uptime:     {}", format_duration_secs(s.uptime_secs));
             println!("  PID:        {}", s.pid);
             println!("  Snapshot:   {}", s.format_age().dimmed());
+
+            // v7.39.0: Show "checking..." if refresh is in progress
+            if !checking_domains.is_empty() {
+                let domains_str = checking_domains.join(", ");
+                println!("  Refresh:    {} ({})", "checking...".yellow(), domains_str.dimmed());
+            }
         }
         Some(s) => {
             // Snapshot exists but is stale (daemon probably crashed)
@@ -115,8 +176,8 @@ fn print_daemon_section(snapshot: &Option<StatusSnapshot>, last_crash: &Option<L
     println!();
 }
 
-/// [HEALTH] section - from snapshot only
-fn print_health_section(snapshot: &Option<StatusSnapshot>) {
+/// [HEALTH] section - from snapshot + self-observation
+fn print_health_section(snapshot: &Option<StatusSnapshot>, self_obs: &SelfObservation) {
     println!("{}", "[HEALTH]".cyan());
 
     match snapshot {
@@ -139,6 +200,13 @@ fn print_health_section(snapshot: &Option<StatusSnapshot>) {
                     println!("  Overall:    {} (snapshot indicates unhealthy)", "⚠".yellow());
                 }
             }
+
+            // v7.39.0: Self-observation warning
+            if let Some(ref warning) = self_obs.warning {
+                println!("  Anna:       {}", self_obs.format_summary().yellow());
+            } else {
+                println!("  Anna:       {}", self_obs.format_summary().dimmed());
+            }
         }
         _ => {
             println!("  Overall:    {} daemon not running", "✗".red());
@@ -148,8 +216,12 @@ fn print_health_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [DATA] section - knowledge object counts from snapshot
-fn print_data_section(snapshot: &Option<StatusSnapshot>) {
+/// [DATA] section - knowledge object counts from snapshot + domain freshness
+fn print_data_section(
+    snapshot: &Option<StatusSnapshot>,
+    domain_summary: &Option<DomainSummary>,
+    mode: &DisplayMode,
+) {
     println!("{}", "[DATA]".cyan());
 
     match snapshot {
@@ -169,6 +241,21 @@ fn print_data_section(snapshot: &Option<StatusSnapshot>) {
                 println!("  Last scan:  {} (took {}ms)", age_str.dimmed(), s.last_scan_duration_ms);
             } else {
                 println!("  Last scan:  {}", "pending".dimmed());
+            }
+
+            // v7.39.0: Domain freshness summary (not in compact mode)
+            if *mode != DisplayMode::Compact {
+                if let Some(ds) = domain_summary {
+                    let total_domains = ds.fresh_domains + ds.stale_domains + ds.missing_domains;
+                    if ds.stale_domains > 0 || ds.missing_domains > 0 {
+                        println!("  Domains:    {}/{} fresh, {} stale, {} missing",
+                            ds.fresh_domains, total_domains,
+                            ds.stale_domains.to_string().yellow(),
+                            ds.missing_domains);
+                    } else {
+                        println!("  Domains:    {}/{} fresh", ds.fresh_domains.to_string().green(), total_domains);
+                    }
+                }
             }
         }
         _ => {
