@@ -1,8 +1,8 @@
-# Anna v7.23.0 "Timelines, Drift & Incidents"
+# Anna v7.25.0 "Buses, Peripherals & Attachments"
 
 **System Intelligence Daemon for Linux**
 
-> v7.23.0: Time-anchored views with percentage+range CPU format, trend labels (stable/rising/falling), boot snapshots with incident summaries, inventory drift detection, and stronger config path hygiene with explicit provenance.
+> v7.25.0: Comprehensive peripheral discovery for USB, Bluetooth, Thunderbolt, FireWire, SD cards, cameras, and input devices. New [OVERVIEW] and [CATEGORIES] sections in `annactl hw`. Category profiles for all peripheral buses. [ATTACHMENTS] section in status.
 
 ---
 
@@ -59,6 +59,73 @@ annactl hw cpu
 annactl hw gpu
 annactl hw storage
 annactl hw network
+
+# Peripheral category details (v7.25.0)
+annactl hw usb
+annactl hw bluetooth
+annactl hw thunderbolt
+annactl hw sdcard
+```
+
+---
+
+## v7.25.0 Features
+
+### Peripheral Discovery
+
+`annactl hw` now shows [OVERVIEW] and [CATEGORIES] sections:
+
+```
+[OVERVIEW]
+  (device counts and system summary)
+  CPU:          1 socket(s), 32 logical cores
+  GPU:          1 discrete
+  Memory:       31 GiB
+  Storage:      1 device(s) (nvme0n1)
+  Network:      0 wired, 1 wireless
+  USB:          3 controller(s), 6 device(s)
+  Bluetooth:    1 adapter(s)
+  Audio:        2 card(s)
+  Camera:       1 device(s)
+  Input:        11 device(s) (1 kbd, 2 mouse)
+  Thunderbolt:  7 controller(s)
+  SD Card:      1 reader(s), no media
+
+[CATEGORIES]
+  (bus and peripheral summaries)
+  USB:
+    00:14.0 USB 3.x (xhci_hcd)
+    05:00.0 USB (thunderbolt)
+    4 hubs, 0 HID, 0 storage, 6 other
+  Bluetooth:
+    hci0 Intel (btusb, UP)
+  Thunderbolt:
+    05:00.0 TB4 (thunderbolt)
+    Lenovo ThinkBook 16p G5 IRX (authorized)
+  SD Card:
+    SD Card Reader (PCIe) [no media]
+```
+
+### Peripheral Category Profiles
+
+```bash
+annactl hw usb        # [CONTROLLERS] + [DEVICES] grouped by class
+annactl hw bluetooth  # [ADAPTERS] with state (UP/BLOCKED/down)
+annactl hw thunderbolt # [CONTROLLERS] with gen + [DEVICES] with auth
+annactl hw sdcard     # [READERS] with media status
+annactl hw firewire   # [CONTROLLERS] + device count
+```
+
+### Status Attachments
+
+`annactl status` now shows [ATTACHMENTS] section:
+
+```
+[ATTACHMENTS]
+  (connected peripherals)
+  USB:          3 controller(s), 6 other (4 hub(s))
+  Bluetooth:    hci0 (Intel) [UP]
+  Thunderbolt:  7 controller(s) (TB4, 1 attached)
 ```
 
 ---
