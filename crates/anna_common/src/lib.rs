@@ -1,4 +1,14 @@
-//! Anna Common v7.32.0 - Categorization & Network Stability Release
+//! Anna Common v7.33.0 - Correctness & Completeness Release
+//!
+//! v7.33.0: No truncation, real updates, peripheral inventory, sensors
+//! - Working auto-update scheduler with real timestamps
+//! - Concrete telemetry readiness (samples, windows, freshness)
+//! - Process identity from exe/cmdline/cgroup (no "Bun Pool" nonsense)
+//! - USB/Thunderbolt/SD/Bluetooth inventory from /sys
+//! - Sensors category (thermal, fan, battery from hwmon)
+//! - AVAILABLE NAMES in hw overview
+//! - Deterministic ordering across runs
+//! - No truncation anywhere - full text wrapping
 //!
 //! v7.32.0: Evidence-based categorization, Steam/platform detection, WiFi trends
 //! - Software categorization with evidence trail (desktop, pacman, man)
@@ -128,6 +138,8 @@ pub mod update_state;
 // v7.32.0: Network trends and scoped scans
 pub mod network_trends;
 pub mod scoped_scan;
+// v7.33.0: Real update checking
+pub mod update_checker;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -368,6 +380,11 @@ pub use update_state::{
     UpdateTarget, UPDATE_STATE_PATH,
     is_daemon_running as is_annad_running,
 };
+// v7.33.0: Real update checking
+pub use update_checker::{
+    check_anna_updates, check_pacman_updates, run_update_check,
+    is_check_due, maybe_run_scheduled_check,
+};
 // v7.32.0: Network trends and scoped scans
 pub use network_trends::{
     InterfaceType, WiFiSample, EthernetSample, NetworkTrendWindow, InterfaceTrends,
@@ -392,4 +409,16 @@ pub use grounded::{
     // Game platforms
     Platform, PlatformGame, detect_heroic_games, detect_lutris_games,
     detect_bottles_games, detect_all_platform_games, get_platforms_summary,
+    // v7.25.0+: Peripherals (USB, Bluetooth, Thunderbolt, SD, audio, input)
+    PeripheralUsbDevice, UsbController, UsbSummary,
+    BluetoothAdapter, BluetoothState, BluetoothSummary,
+    ThunderboltController, ThunderboltDevice, ThunderboltSummary,
+    SdCardReader, SdCardSummary,
+    CameraDevice, CameraSummary,
+    InputDevice, InputType, InputSummary,
+    AudioCard, AudioSummary,
+    HardwareOverview, FirewireSummary, FirewireController,
+    get_usb_summary, get_bluetooth_summary, get_thunderbolt_summary,
+    get_sdcard_summary, get_camera_summary, get_input_summary,
+    get_audio_summary, get_hardware_overview,
 };

@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v7.31.0 - Telemetry Correctness Release
+//! Anna Daemon (annad) v7.33.0 - Correctness & Completeness Release
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -579,6 +579,50 @@ async fn main() -> Result<()> {
         }
     });
 
+    // v7.33.0: Spawn update scheduler task
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    tokio::spawn(async move {
+        use anna_common::{TelemetryUpdateState, TelemetryUpdateMode, is_check_due, run_update_check};
+
+        let mut interval = tokio::time::interval(Duration::from_secs(60)); // Check every minute
+        info!("[>]  Update scheduler: checking every 60s if auto-check is due");
+
+        loop {
+            interval.tick().await;
+
+            let state = TelemetryUpdateState::load();
+            if state.mode != TelemetryUpdateMode::Auto {
+                continue;
+            }
+
+            if !is_check_due(&state) {
+                continue;
+            }
+
+            info!("[*]  Running scheduled update check...");
+            let result = run_update_check(&state.target, &current_version);
+
+            let mut new_state = TelemetryUpdateState::load();
+            new_state.record_check(result.clone());
+            if let Err(e) = new_state.save() {
+                warn!("[!]  Failed to save update state: {}", e);
+            }
+
+            match &result {
+                anna_common::TelemetryUpdateResult::NoUpdates => {
+                    info!("[+]  Update check: no updates available");
+                }
+                anna_common::TelemetryUpdateResult::UpdatesAvailable { count } => {
+                    info!("[+]  Update check: {} update(s) available", count);
+                }
+                anna_common::TelemetryUpdateResult::Failed { error } => {
+                    warn!("[!]  Update check failed: {}", error);
+                }
+                anna_common::TelemetryUpdateResult::Pending => {}
+            }
+        }
+    });
+
     // Start HTTP server
     info!("[*]  Starting HTTP server on 127.0.0.1:7865");
     server::run(app_state).await
@@ -590,6 +634,7 @@ fn ensure_data_dirs() {
         "/var/lib/anna",
         "/var/lib/anna/knowledge",
         "/var/lib/anna/telemetry",
+        "/var/lib/anna/internal",  // v7.33.0: Always create internal dir
     ];
 
     for dir in &dirs {
