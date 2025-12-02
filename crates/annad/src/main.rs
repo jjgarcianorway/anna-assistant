@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v7.29.0 - Bugfix & Performance Release
+//! Anna Daemon (annad) v7.31.0 - Telemetry Correctness Release
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -56,10 +56,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Collection interval for package/binary discovery (5 minutes)
 const DISCOVERY_INTERVAL_SECS: u64 = 300;
 
-/// v7.29.0: Get process identity from /proc
-/// Order of preference: /proc/PID/exe symlink, cmdline[0], comm, fallback to sysinfo name
+/// v7.31.0: Get process identity from /proc
+/// Identity is based on executable basename (most stable)
+/// No invented names like "Bun Pool X" - use real process metadata only
 pub fn get_process_identity(pid: u32, fallback_name: &str) -> String {
-    // Try /proc/PID/exe first - most reliable
+    // Try /proc/PID/exe first - most reliable identity
     if let Ok(exe_path) = std::fs::read_link(format!("/proc/{}/exe", pid)) {
         if let Some(exe_name) = exe_path.file_name() {
             let name = exe_name.to_string_lossy().to_string();
@@ -70,9 +71,16 @@ pub fn get_process_identity(pid: u32, fallback_name: &str) -> String {
         }
     }
 
-    // Try cmdline
+    // Try comm (short name from /proc/PID/comm) - second most reliable
+    if let Ok(comm) = std::fs::read_to_string(format!("/proc/{}/comm", pid)) {
+        let comm = comm.trim();
+        if !comm.is_empty() {
+            return comm.to_string();
+        }
+    }
+
+    // Try cmdline as last resort
     if let Ok(cmdline) = std::fs::read_to_string(format!("/proc/{}/cmdline", pid)) {
-        // cmdline is null-separated, get first arg
         if let Some(first_arg) = cmdline.split('\0').next() {
             if !first_arg.is_empty() {
                 // Extract basename if it's a path
@@ -81,51 +89,14 @@ pub fn get_process_identity(pid: u32, fallback_name: &str) -> String {
                 } else {
                     first_arg
                 };
-                // Skip generic pool/worker names
-                if !name.contains("Pool") && !name.contains("Worker") && !name.is_empty() {
+                if !name.is_empty() {
                     return name.to_string();
                 }
             }
         }
     }
 
-    // Try comm (short name from /proc/PID/comm)
-    if let Ok(comm) = std::fs::read_to_string(format!("/proc/{}/comm", pid)) {
-        let comm = comm.trim();
-        // Skip generic pool/worker names
-        if !comm.contains("Pool") && !comm.contains("Worker") && !comm.is_empty() {
-            return comm.to_string();
-        }
-    }
-
-    // Fallback to sysinfo name if it doesn't look like a pool worker
-    if !fallback_name.contains("Pool") && !fallback_name.contains("Worker") {
-        return fallback_name.to_string();
-    }
-
-    // Last resort: try to get parent process name for pool workers
-    if let Ok(status) = std::fs::read_to_string(format!("/proc/{}/status", pid)) {
-        for line in status.lines() {
-            if line.starts_with("PPid:") {
-                if let Some(ppid_str) = line.split_whitespace().nth(1) {
-                    if let Ok(ppid) = ppid_str.parse::<u32>() {
-                        if ppid > 1 {
-                            // Recursively get parent identity (limited)
-                            if let Ok(parent_comm) = std::fs::read_to_string(format!("/proc/{}/comm", ppid)) {
-                                let parent_name = parent_comm.trim();
-                                if !parent_name.is_empty() && !parent_name.contains("Pool") {
-                                    return format!("{}-worker", parent_name);
-                                }
-                            }
-                        }
-                    }
-                }
-                break;
-            }
-        }
-    }
-
-    // Final fallback
+    // Final fallback to sysinfo name
     fallback_name.to_string()
 }
 

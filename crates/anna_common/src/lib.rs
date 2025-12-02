@@ -1,5 +1,11 @@
-//! Anna Common v7.30.0 - Config Truth Release
+//! Anna Common v7.31.0 - Telemetry Correctness Release
 //!
+//! v7.31.0: Telemetry correctness and trend windows
+//! - Concrete readiness model (collecting/ready for 1h/24h/7d/30d)
+//! - Trend windows with proper availability checks
+//! - Global percent formatting with correct ranges
+//! - Fixed process identity (no more "Bun Pool" nonsense)
+//! - Truthful auto-update status
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
 //! v7.6.0: Config maps, trends, Anna needs model
@@ -109,6 +115,9 @@ pub mod local_docs;
 pub mod text_wrap;
 // v7.30.0: Evidence-based config locator
 pub mod config_locator;
+// v7.31.0: Telemetry format and update state
+pub mod telemetry_format;
+pub mod update_state;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -332,4 +341,20 @@ pub use local_docs::{
 pub use text_wrap::{
     get_terminal_width, wrap_text, wrap_with_prefix,
     format_kv, format_list_item,
+};
+// v7.31.0: Telemetry format and update state
+pub use telemetry_format::{
+    TelemetryReadiness, WindowAvailability, TrendDelta,
+    TrendDirection as TelemetryTrendDirection,  // Alias to avoid conflict
+    get_logical_cpu_count, format_cpu_percent, format_cpu_percent_short,
+    format_cpu_avg_peak, format_memory as fmt_memory, format_memory_avg_peak,
+    format_duration_short, format_cpu_time as fmt_cpu_time,
+    MIN_SAMPLES_1H, MIN_SAMPLES_24H, MIN_SAMPLES_7D, MIN_SAMPLES_30D,
+};
+pub use update_state::{
+    UpdateState as TelemetryUpdateState,  // Alias to avoid conflict with config::UpdateState
+    UpdateMode as TelemetryUpdateMode,
+    UpdateResult as TelemetryUpdateResult,
+    UpdateTarget, UPDATE_STATE_PATH,
+    is_daemon_running as is_annad_running,
 };

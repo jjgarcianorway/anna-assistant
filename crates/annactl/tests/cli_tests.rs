@@ -5021,10 +5021,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.30 (updated for v7.30.0)
+    // [VERSION] section should show 7.31 (updated for v7.31.0)
     assert!(
-        stdout.contains("7.30"),
-        "status should show version 7.30: {}",
+        stdout.contains("7.31"),
+        "status should show version 7.31: {}",
         stdout
     );
 
@@ -5180,10 +5180,10 @@ fn test_snow_leopard_telemetry_cpu_range_v727() {
 
     // If telemetry section exists with CPU data
     if stdout.contains("Top CPU identities") {
-        // Should have the range format
+        // v7.31.0: Should have the range format with % symbol
         assert!(
-            stdout.contains("percent for") && stdout.contains("logical cores"),
-            "CPU telemetry should show range format (0 - Y percent for N logical cores)"
+            stdout.contains("% for") && stdout.contains("logical cores"),
+            "CPU telemetry should show range format (0-Y% for N logical cores)"
         );
     }
 }

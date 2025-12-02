@@ -1200,6 +1200,55 @@ impl TelemetryDb {
         })
     }
 
+    /// v7.31.0: Get concrete telemetry readiness status
+    /// Replaces vague "warming up" with exact window availability
+    pub fn get_telemetry_readiness(&self) -> Result<crate::TelemetryReadiness> {
+        let now = Self::now();
+
+        // Count samples in each window
+        let samples_1h = self.count_samples_since(now.saturating_sub(WINDOW_1H))?;
+        let samples_24h = self.count_samples_since(now.saturating_sub(WINDOW_24H))?;
+        let samples_7d = self.count_samples_since(now.saturating_sub(WINDOW_7D))?;
+        let samples_30d = self.count_samples_since(now.saturating_sub(WINDOW_30D))?;
+
+        // Get oldest sample age
+        let oldest_sample_age = self.get_oldest_sample_age()?;
+
+        Ok(crate::TelemetryReadiness::from_window_samples(
+            samples_1h,
+            samples_24h,
+            samples_7d,
+            samples_30d,
+            oldest_sample_age,
+        ))
+    }
+
+    /// Count samples since a given timestamp
+    fn count_samples_since(&self, since: u64) -> Result<u64> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
+            params![since as i64],
+            |row| row.get(0),
+        ).unwrap_or(0);
+        Ok(count as u64)
+    }
+
+    /// Get age of oldest sample in seconds
+    fn get_oldest_sample_age(&self) -> Result<u64> {
+        let now = Self::now();
+        let oldest: i64 = self.conn.query_row(
+            "SELECT MIN(timestamp) FROM process_samples",
+            [],
+            |row| row.get(0),
+        ).unwrap_or(now as i64);
+
+        if oldest == 0 {
+            return Ok(0);
+        }
+
+        Ok(now.saturating_sub(oldest as u64))
+    }
+
     // ========================================================================
     // PHASE 23: Compact per-window stats (v7.7.0)
     // ========================================================================

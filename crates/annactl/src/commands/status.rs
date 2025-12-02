@@ -1,4 +1,6 @@
-//! Status Command v7.29.0 - Bugfix & Performance Release
+//! Status Command v7.31.0 - Telemetry Correctness Release
+//!
+//! v7.31.0: Concrete telemetry readiness, correct percent formatting, truthful updates
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
@@ -635,10 +637,11 @@ fn print_inventory_section(stats: &Option<DaemonStats>) {
 }
 
 
-/// v7.9.0: Unified [TELEMETRY] section with trends
-/// Shows: Window, Top CPU identities, Top memory identities (with trend vs 7d)
+/// v7.31.0: Unified [TELEMETRY] section with concrete readiness
+/// Shows: Readiness status, Windows available, Top CPU/memory identities with trends
 fn print_telemetry_section_v79() {
     use anna_common::config::AnnaConfig;
+    use anna_common::{TelemetryReadiness, get_logical_cpu_count};
 
     println!("{}", "[TELEMETRY]".cyan());
 
@@ -658,38 +661,48 @@ fn print_telemetry_section_v79() {
         }
     };
 
-    // v7.29.0: Check window validity (60% sample coverage required)
-    let window_status = db.get_window_status("");  // Global window status
-    let interval = config.telemetry.effective_sample_interval();
+    // v7.31.0: Get concrete readiness status
+    let readiness = match db.get_telemetry_readiness() {
+        Ok(r) => r,
+        Err(_) => {
+            println!("  {}", "(error reading telemetry status)".dimmed());
+            println!();
+            return;
+        }
+    };
 
-    // Need 60% sample coverage for 24h window to be valid
-    if !window_status.w24h_ready {
-        let samples_24h = db.get_samples_24h_count();
-        println!("  Telemetry data collection in progress ({} samples, need 60% coverage).",
-            samples_24h);
-        println!("  {}", "(24h window requires ~1728 samples at 30s interval)".dimmed());
+    // Show readiness status
+    println!("  Status: {}", readiness.format());
+
+    // If not ready for any window, show what we're collecting
+    if matches!(readiness, TelemetryReadiness::NoData | TelemetryReadiness::Collecting { .. }) {
         println!();
         return;
     }
 
-    // Show window header
-    println!("  Window: last 24h (sampling every {}s, valid)", interval);
+    // Show available windows
+    let availability = anna_common::WindowAvailability::from_readiness(&readiness);
+    println!("  Windows: {}", availability.format_available());
     println!();
 
     // Top CPU identities (max 3)
-    // v7.27.0: Show CPU range (0 - Y percent for N logical cores)
-    let logical_cores = get_logical_cores();
+    let logical_cores = get_logical_cpu_count();
     if let Ok(top_cpu) = db.top_cpu_with_trend(3) {
         if !top_cpu.is_empty() {
             let max_percent = logical_cores * 100;
-            println!("  Top CPU identities (0 - {} percent for {} logical cores):",
+            println!("  Top CPU identities (0-{}% for {} logical cores):",
                 max_percent, logical_cores);
             for entry in &top_cpu {
-                let trend_str = match entry.cpu_trend {
-                    Some(trend) => format!("  {}", trend.format_vs_7d().dimmed()),
-                    None => String::new(),
+                // v7.31.0: Only show trend if 7d data is available
+                let trend_str = if availability.w7d {
+                    match entry.cpu_trend {
+                        Some(trend) => format!("  {}", trend.format_vs_7d().dimmed()),
+                        None => String::new(),
+                    }
+                } else {
+                    String::new()
                 };
-                println!("    {:<16} avg {:.0} percent, peak {:.0} percent{}",
+                println!("    {:<16} avg {:.1}%, peak {:.1}%{}",
                     entry.name.cyan(),
                     entry.avg_cpu_percent,
                     entry.peak_cpu_percent,
@@ -704,9 +717,14 @@ fn print_telemetry_section_v79() {
         if !top_mem.is_empty() {
             println!("  Top memory identities:");
             for entry in &top_mem {
-                let trend_str = match entry.memory_trend {
-                    Some(trend) => format!("  {}", trend.format_vs_7d().dimmed()),
-                    None => String::new(),
+                // v7.31.0: Only show trend if 7d data is available
+                let trend_str = if availability.w7d {
+                    match entry.memory_trend {
+                        Some(trend) => format!("  {}", trend.format_vs_7d().dimmed()),
+                        None => String::new(),
+                    }
+                } else {
+                    String::new()
                 };
                 println!("    {:<16} avg {}, peak {}{}",
                     entry.name.cyan(),
@@ -844,6 +862,9 @@ fn print_updates_section() {
     let config = AnnaConfig::load();
     let state = UpdateState::load();
 
+    // v7.31.0: Check if daemon is running for truthful status
+    let daemon_running = is_daemon_running();
+
     // v7.29.0: Use new UpdateMode enum
     use anna_common::config::UpdateMode;
     let mode_str = match config.update.mode {
@@ -852,24 +873,47 @@ fn print_updates_section() {
     };
     println!("  Mode:       {}", mode_str);
 
+    // Target: what is being checked
+    println!("  Target:     Anna releases (GitHub)");
+
     // Interval (in seconds, display as minutes)
     let interval_mins = config.update.interval_seconds / 60;
     println!("  Interval:   {}m", interval_mins);
 
-    // Last check
-    println!("  Last check: {}", state.format_last_check());
+    // Last check - v7.31.0: show "unavailable" if daemon not running and never checked
+    let last_check_str = if !daemon_running && state.last_check_epoch == 0 {
+        "unavailable (daemon not running)".to_string()
+    } else {
+        state.format_last_check()
+    };
+    println!("  Last check: {}", last_check_str);
 
     // Result
     println!("  Result:     {}", state.format_last_result());
 
-    // Next check
+    // Next check - v7.31.0: show proper status based on daemon state
     let next_str = match config.update.mode {
-        UpdateMode::Auto => state.format_next_check(),
+        UpdateMode::Auto => {
+            if !daemon_running {
+                "unavailable (daemon not running)".to_string()
+            } else {
+                state.format_next_check()
+            }
+        }
         UpdateMode::Manual => "not scheduled (manual mode)".to_string(),
     };
     println!("  Next check: {}", next_str);
 
     println!();
+}
+
+/// Check if annad daemon is running
+fn is_daemon_running() -> bool {
+    std::process::Command::new("systemctl")
+        .args(["is-active", "--quiet", "annad"])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }
 
 fn print_paths_section() {
