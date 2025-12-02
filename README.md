@@ -1,8 +1,8 @@
-# Anna v7.21.0 "Config Atlas, Topology Maps & Impact View"
+# Anna v7.22.0 "Scenario Lenses & Self Toolchain Hygiene"
 
 **System Intelligence Daemon for Linux**
 
-> v7.21.0: Clean per-component config discovery with precedence order, software/hardware topology maps, resource impact view from telemetry. See [CONFIG] with [present]/[missing] markers, [CONFIG GRAPH] with precedence, [TOPOLOGY] and [IMPACT] sections in sw/hw commands, and [KDB] section in status.
+> v7.22.0: Category-aware scenario lenses for hardware (network, storage) and software (network, display, audio, power) with curated views showing [IDENTITY], [TOPOLOGY], [TELEMETRY], [EVENTS], [LOGS]. Self toolchain hygiene tracks Anna's own diagnostic tools with [ANNA TOOLCHAIN] section in status.
 
 ---
 
@@ -60,6 +60,89 @@ annactl hw gpu
 annactl hw storage
 annactl hw network
 ```
+
+---
+
+## v7.22.0 Features
+
+### Scenario Lenses for Hardware Categories
+
+Hardware category commands (`annactl hw network`, `annactl hw storage`) now display curated scenario lenses with structured sections:
+
+```
+  Anna HW Lens: network
+------------------------------------------------------------
+
+[IDENTITY]
+  Name:         wlp0s20f3
+  Type:         wifi
+  Driver:       iwlwifi
+  Firmware:     iwlwifi-ty-a0-gf-a0-89.ucode
+
+[TOPOLOGY]
+  MAC:          f8:fe:5e:8d:a4:28
+  State:        connected
+  IP:           192.168.1.42/24
+  Speed:        866 MBit/s
+
+[TELEMETRY]
+  RX:           2.4 GiB
+  TX:           9.9 GiB
+  Signal:       -52 dBm (excellent)
+
+[EVENTS]
+  (last 24h from journalctl)
+  12:30  wlp0s20f3: connected to MyNetwork
+  12:28  wlp0s20f3: link becomes ready
+
+[LOGS]
+  (warnings/errors this boot)
+  NET001  connection timeout  (count: 2)
+  NET002  DNS retry           (count: 5)
+```
+
+### Scenario Lenses for Software Categories
+
+Software category commands (`annactl sw network`, `annactl sw display`, `annactl sw audio`, `annactl sw power`) now display curated scenario lenses:
+
+```
+  Anna SW Lens: network
+------------------------------------------------------------
+
+[SERVICES]
+  NetworkManager.service        active (running)
+  wpa_supplicant.service        active (running)
+  systemd-resolved.service      active (running)
+
+[CONFIG]
+  /etc/NetworkManager/NetworkManager.conf   [present]
+  /etc/resolv.conf                          [present]
+  /etc/nsswitch.conf                        [present]
+
+[LOGS]
+  (from journalctl, last 24h)
+  NET001  connection established  (count: 3)
+  NET002  DHCP lease renewed      (count: 1)
+```
+
+### Self Toolchain Hygiene
+
+Anna now tracks her own diagnostic tools with the [ANNA TOOLCHAIN] section in `annactl status`:
+
+```
+[ANNA TOOLCHAIN]
+  Local wiki:     ready
+  Storage tools:  ready
+  Network tools:  ready
+```
+
+Allowed tools (diagnostic only):
+- **Documentation**: arch-wiki-docs
+- **Storage**: smartmontools, nvme-cli
+- **Network**: ethtool, iw
+- **Hardware**: pciutils, usbutils, lm_sensors
+
+Operations are logged to `/var/lib/anna/internal/ops.log`.
 
 ---
 
@@ -955,8 +1038,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.20.0/annad-7.20.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.20.0/annactl-7.20.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.22.0/annad-7.22.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.22.0/annactl-7.22.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -1044,7 +1127,9 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.20.0** | **Telemetry Trends & Golden Baselines** - Deterministic trend labels, log atlas with pattern IDs, golden baselines for pattern comparison |
+| **v7.22.0** | **Scenario Lenses & Self Toolchain Hygiene** - Category-aware scenario lenses for hw/sw, self toolchain hygiene, [ANNA TOOLCHAIN] section |
+| v7.21.0 | Config Atlas, Topology Maps & Impact View - Per-component config discovery, topology maps, resource impact |
+| v7.20.0 | Telemetry Trends & Golden Baselines - Deterministic trend labels, log atlas with pattern IDs, golden baselines for pattern comparison |
 | v7.19.0 | Topology, Dependencies & Signal Quality - Driver graphs, topology hints, WiFi/storage signal metrics |
 | v7.18.0 | Boot Timeline & History - Boot-anchored logs, system change tracking, pattern IDs with novelty |
 | v7.17.0 | Network & Storage Topology - Network routes/DNS, storage health, config graphs |
