@@ -1,4 +1,4 @@
-//! Grounded Knowledge System v7.17.0
+//! Grounded Knowledge System v7.19.0
 //!
 //! Every piece of data has a verifiable source.
 //! No invented numbers. No hallucinated descriptions.
@@ -9,6 +9,7 @@
 //! v7.13.0: Dependency graph and network awareness.
 //! v7.14.0: Log pattern extraction and config sanity checks.
 //! v7.17.0: Network topology, storage mapping, config graph.
+//! v7.19.0: Service topology, signal quality, topology hints.
 
 pub mod packages;
 pub mod commands;
@@ -26,6 +27,8 @@ pub mod log_patterns;
 pub mod network_topology;
 pub mod storage_topology;
 pub mod config_graph;
+pub mod service_topology;
+pub mod signal_quality;
 
 pub use packages::*;
 pub use commands::*;
@@ -43,3 +46,5 @@ pub use log_patterns::*;
 pub use network_topology::*;
 pub use storage_topology::*;
 pub use config_graph::*;
+pub use service_topology::*;
+pub use signal_quality::*;

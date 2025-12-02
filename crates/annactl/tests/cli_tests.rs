@@ -1,4 +1,4 @@
-//! CLI integration tests for annactl v7.18.0 "Change Journal, Boot Timeline & Error Focus"
+//! CLI integration tests for annactl v7.19.0 "Topology, Dependencies & Signal Quality"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
@@ -3668,5 +3668,304 @@ fn test_no_new_commands_v718() {
         "Should not have new history/journal/boot commands: {}",
         stdout
     );
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.19.0 Snow Leopard Tests - Topology, Dependencies & Signal Quality
+// ============================================================================
+
+/// Test hw overview shows [DRIVERS] section (v7.19.0)
+#[test]
+fn test_snow_leopard_hw_drivers_section_v719() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should have DRIVERS section
+    assert!(
+        stdout.contains("[DRIVERS]"),
+        "hw should have [DRIVERS] section: {}",
+        stdout
+    );
+
+    // Should show source
+    assert!(
+        stdout.contains("lsmod") || stdout.contains("modinfo"),
+        "[DRIVERS] should cite lsmod/modinfo as source: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test hw wifi shows [SIGNAL] section (v7.19.0)
+#[test]
+fn test_snow_leopard_hw_wifi_signal_section_v719() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl hw wifi");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // If WiFi exists, should have SIGNAL section
+    if !stdout.contains("[NOT FOUND]") && stdout.contains("[IDENTITY]") {
+        assert!(
+            stdout.contains("[SIGNAL]"),
+            "hw wifi should have [SIGNAL] section: {}",
+            stdout
+        );
+
+        // Should show signal quality source
+        assert!(
+            stdout.contains("iw") || stdout.contains("/proc/net"),
+            "[SIGNAL] should cite iw or /proc/net as source: {}",
+            stdout
+        );
+
+        // Should show assessment
+        assert!(
+            stdout.contains("Assessment:"),
+            "[SIGNAL] should have Assessment line: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test storage profile shows [SIGNAL] section (v7.19.0)
+#[test]
+fn test_snow_leopard_storage_signal_section_v719() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    // First get a storage device name
+    let lsblk_output = Command::new("lsblk")
+        .args(["-d", "-n", "-o", "NAME"])
+        .output();
+
+    let device = match lsblk_output {
+        Ok(out) if out.status.success() => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            stdout.lines().next().unwrap_or("sda").to_string()
+        }
+        _ => return, // Skip if lsblk fails
+    };
+
+    let output = Command::new(&binary)
+        .args(["hw", &device])
+        .output()
+        .expect("Failed to run annactl hw <device>");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should have SIGNAL section for storage
+    if stdout.contains("[HEALTH]") {
+        assert!(
+            stdout.contains("[SIGNAL]"),
+            "hw storage should have [SIGNAL] section: {}",
+            stdout
+        );
+
+        // Should show smart/nvme source
+        assert!(
+            stdout.contains("smartctl") || stdout.contains("nvme"),
+            "[SIGNAL] should cite smartctl or nvme as source: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test status shows [TOPOLOGY HINTS] when applicable (v7.19.0)
+#[test]
+fn test_snow_leopard_status_topology_hints_v719() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // TOPOLOGY HINTS is optional (only shows if there are hints)
+    // Just verify it doesn't crash and shows other expected sections
+    assert!(
+        stdout.contains("[VERSION]"),
+        "status should have [VERSION] section: {}",
+        stdout
+    );
+
+    // If TOPOLOGY HINTS is present, verify structure
+    if stdout.contains("[TOPOLOGY HINTS]") {
+        assert!(
+            stdout.contains("systemctl") || stdout.contains("lsmod"),
+            "[TOPOLOGY HINTS] should cite sources: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test sw service shows cross-reference to related hardware (v7.19.0)
+#[test]
+fn test_snow_leopard_sw_service_hw_crossref_v719() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    // Test with NetworkManager.service which should show wifi/ethernet cross-refs
+    // Using .service suffix to ensure we get the service profile, not package
+    let output = Command::new(&binary)
+        .args(["sw", "NetworkManager.service"])
+        .output()
+        .expect("Failed to run annactl sw NetworkManager.service");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // If NetworkManager service exists and has dependencies section
+    if stdout.contains("[DEPENDENCIES]") && stdout.contains("Service relations:") {
+        // Should show related hardware cross-reference
+        assert!(
+            stdout.contains("Related hardware:") || stdout.contains("See: annactl hw"),
+            "NetworkManager.service should have hw cross-reference: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test no new commands (v7.19.0)
+#[test]
+fn test_no_new_commands_v719() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v7.19.0: Help should still only show the 6 base commands
+    // No new commands like topology, signal, deps, etc.
+    assert!(
+        stdout.contains("annactl status"),
+        "Help should show status command: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("annactl sw"),
+        "Help should show sw command: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("annactl hw"),
+        "Help should show hw command: {}",
+        stdout
+    );
+
+    // Should not have new commands for the new features
+    assert!(
+        !stdout.contains("annactl topology")
+            && !stdout.contains("annactl signal")
+            && !stdout.contains("annactl deps"),
+        "Should not have new topology/signal/deps commands: {}",
+        stdout
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test DRIVERS section shows loaded modules (v7.19.0)
+#[test]
+fn test_snow_leopard_drivers_loaded_status_v719() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // If DRIVERS section exists and has content
+    if stdout.contains("[DRIVERS]") && !stdout.contains("(no key drivers") {
+        // Should show [loaded] status for detected drivers
+        assert!(
+            stdout.contains("[loaded]"),
+            "[DRIVERS] should show [loaded] status: {}",
+            stdout
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test signal bars in WiFi SIGNAL section (v7.19.0)
+#[test]
+fn test_snow_leopard_wifi_signal_bars_v719() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        eprintln!("Skipping: binary not found at {:?}", binary);
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "wifi"])
+        .output()
+        .expect("Failed to run annactl hw wifi");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // If connected to WiFi, should show signal bars
+    if stdout.contains("[SIGNAL]") && stdout.contains("dBm") {
+        // Should have visual signal bars or quality indicator
+        assert!(
+            stdout.contains("▂") || stdout.contains("excellent")
+                || stdout.contains("good") || stdout.contains("fair")
+                || stdout.contains("weak"),
+            "[SIGNAL] should have visual quality indicator: {}",
+            stdout
+        );
+    }
+
     assert!(output.status.success());
 }

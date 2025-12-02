@@ -1,4 +1,4 @@
-//! Status Command v7.18.0 - Change Journal and Boot Timeline
+//! Status Command v7.19.0 - Topology Hints and Signal Quality
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
@@ -13,8 +13,10 @@
 //! - [PATHS]               Config, data, logs, docs paths (v7.12.0: local docs detection)
 //! - [INTERNAL ERRORS]     Anna's own pipeline errors
 //! - [ALERTS]              Hardware alerts from health checks
+//! - [TOPOLOGY HINTS]      High-impact services and driver stacks (v7.19.0)
 //! - [ANNA NEEDS]          Missing tools and docs
 //!
+//! v7.19.0: [TOPOLOGY HINTS] shows services with many deps and multi-stack drivers
 //! v7.18.0: [LAST BOOT] shows boot health, [RECENT CHANGES] shows system changes
 //! v7.12.0: [PATHS] now shows local docs status
 //! NO journalctl system errors. NO host-wide log counts.
@@ -32,6 +34,8 @@ use anna_common::{AnnaNeeds, NeedStatus};
 use anna_common::{OpsLogReader, INTERNAL_DIR, OPS_LOG_FILE};
 // v7.18.0: Change journal and boot timeline
 use anna_common::{get_recent_changes, get_current_boot_summary};
+// v7.19.0: Service topology hints
+use anna_common::grounded::service_topology::{get_high_impact_services, get_gpu_driver_stacks};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -82,6 +86,9 @@ pub async fn run() -> Result<()> {
 
     // [ALERTS]
     print_alerts_section();
+
+    // [TOPOLOGY HINTS] - v7.19.0
+    print_topology_hints_section();
 
     // [ANNA NEEDS] - v7.6.0
     print_anna_needs_section();
@@ -734,6 +741,55 @@ fn print_alerts_section() {
 
             if let Some(ref cmd) = alert.see_command {
                 println!("    See:      {}", cmd.dimmed());
+            }
+        }
+    }
+
+    println!();
+}
+
+/// Print [TOPOLOGY HINTS] section - v7.19.0
+/// Shows services with many reverse dependencies and hardware with multiple driver stacks
+fn print_topology_hints_section() {
+    let high_impact = get_high_impact_services();
+    let gpu_stacks = get_gpu_driver_stacks();
+
+    // Only show if there's something to report
+    if high_impact.is_empty() && gpu_stacks.is_empty() {
+        return;
+    }
+
+    println!("{}", "[TOPOLOGY HINTS]".cyan());
+    println!("  {}", "(source: systemctl, lsmod)".dimmed());
+
+    // High-impact services (those with many reverse deps)
+    if !high_impact.is_empty() {
+        println!();
+        println!("  High-impact services:");
+        for hint in high_impact.iter().take(3) {
+            println!("    {} ({} {} it)",
+                     hint.unit.cyan(),
+                     hint.reverse_dep_count,
+                     hint.dep_type);
+        }
+    }
+
+    // GPU driver stacks
+    if !gpu_stacks.is_empty() {
+        println!();
+        println!("  Driver stacks:");
+        for stack in &gpu_stacks {
+            if stack.additional_modules.is_empty() {
+                println!("    {} {} (primary: {})",
+                         stack.component,
+                         "[single driver]".green(),
+                         stack.primary_driver);
+            } else {
+                println!("    {} {} ({} + {})",
+                         stack.component,
+                         "[multi-module]".yellow(),
+                         stack.primary_driver,
+                         stack.additional_modules.join(", "));
             }
         }
     }

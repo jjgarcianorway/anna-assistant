@@ -1,4 +1,4 @@
-//! Anna Common v7.18.0 - Grounded System Intelligence
+//! Anna Common v7.19.0 - Topology, Dependencies & Signal Quality
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -8,6 +8,7 @@
 //! v7.16.0: Log history with multi-window patterns, service lifecycle tracking
 //! v7.17.0: Network topology, storage mapping, config graph
 //! v7.18.0: Change journal, boot timeline, error focus with pattern IDs
+//! v7.19.0: Service topology, signal quality, topology hints, cross-references
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -22,6 +23,9 @@
 //! - Change journal: package, service, config, kernel changes
 //! - Boot timeline: per-boot health, failed units, slow starts
 //! - Log patterns: stable IDs, novelty detection
+//! - Service topology: requires/wants/wanted-by relationships (v7.19.0)
+//! - Signal quality: WiFi dBm, storage SMART/NVMe health (v7.19.0)
+//! - Topology hints: high-impact services, driver stacks (v7.19.0)
 //!
 //! Modules:
 //! - grounded: Real data from real system commands

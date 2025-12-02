@@ -1,4 +1,4 @@
-//! HW Detail Command v7.18.0 - Hardware Profiles with Health/Driver/Logs
+//! HW Detail Command v7.19.0 - Hardware Profiles with Health/Driver/Logs/Signal
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors)
@@ -50,6 +50,9 @@ use anna_common::grounded::log_patterns::{
 };
 use anna_common::{find_hardware_related_units, ServiceLifecycle};
 use anna_common::change_journal::get_package_history;
+use anna_common::grounded::signal_quality::{
+    get_wifi_signal, get_storage_signal, get_nvme_signal,
+};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -794,12 +797,133 @@ async fn run_storage_profile(name: &str) -> Result<()> {
 
     println!();
 
+    // [SIGNAL] - v7.19.0
+    print_storage_signal_section(name, &health.device_type);
+
     // [LOGS]
     print_device_logs(name, &[name, &health.device_type.to_lowercase()]);
 
     println!("{}", THIN_SEP);
     println!();
     Ok(())
+}
+
+/// Print [SIGNAL] section for storage device - v7.19.0
+fn print_storage_signal_section(name: &str, device_type: &str) {
+    let device = format!("/dev/{}", name);
+
+    println!("{}", "[SIGNAL]".cyan());
+
+    if device_type == "NVMe" {
+        let signal = get_nvme_signal(&device);
+        println!("  {}", format!("(source: {})", signal.source).dimmed());
+        println!();
+
+        // Model
+        if !signal.model.is_empty() {
+            println!("  Model:        {}", signal.model);
+        }
+
+        // Temperature
+        if let Some(temp) = signal.temperature_c {
+            let temp_color = if temp > 70 {
+                format!("{}°C", temp).red().to_string()
+            } else if temp > 60 {
+                format!("{}°C", temp).yellow().to_string()
+            } else {
+                format!("{}°C", temp).green().to_string()
+            };
+            println!("  Temperature:  {}", temp_color);
+        }
+
+        // Percentage used (wear indicator)
+        if let Some(pct) = signal.percentage_used {
+            let pct_color = if pct > 90 {
+                format!("{}%", pct).red().to_string()
+            } else if pct > 70 {
+                format!("{}%", pct).yellow().to_string()
+            } else {
+                format!("{}%", pct).green().to_string()
+            };
+            println!("  Wear:         {} used", pct_color);
+        }
+
+        // Power on hours
+        if let Some(hours) = signal.power_on_hours {
+            println!("  Power on:     {} hours", hours);
+        }
+
+        // Media errors
+        if signal.media_errors > 0 {
+            println!("  Media errors: {}", signal.media_errors.to_string().red());
+        }
+
+        // Unsafe shutdowns
+        if signal.unsafe_shutdowns > 10 {
+            println!("  Unsafe shutdowns: {}", signal.unsafe_shutdowns.to_string().yellow());
+        }
+
+        // Health assessment
+        let health = signal.health();
+        let health_str = format!("{} {}", health.emoji(),
+            match health {
+                anna_common::grounded::signal_quality::SignalHealth::Good => "Good",
+                anna_common::grounded::signal_quality::SignalHealth::Warning => "Warning",
+                anna_common::grounded::signal_quality::SignalHealth::Critical => "Critical",
+                anna_common::grounded::signal_quality::SignalHealth::Unknown => "Unknown",
+            });
+        println!("  Assessment:   {}", health_str);
+    } else {
+        let signal = get_storage_signal(&device);
+        println!("  {}", format!("(source: {})", signal.source).dimmed());
+        println!();
+
+        // SMART status
+        if !signal.smart_status.is_empty() && signal.smart_status != "unknown" {
+            let status_color = if signal.smart_status == "PASSED" {
+                signal.smart_status.clone().green().to_string()
+            } else {
+                signal.smart_status.clone().red().to_string()
+            };
+            println!("  SMART:        {}", status_color);
+        }
+
+        // Temperature
+        if let Some(temp) = signal.temperature_c {
+            let temp_color = if temp > 60 {
+                format!("{}°C", temp).red().to_string()
+            } else if temp > 50 {
+                format!("{}°C", temp).yellow().to_string()
+            } else {
+                format!("{}°C", temp).green().to_string()
+            };
+            println!("  Temperature:  {}", temp_color);
+        }
+
+        // Power on hours
+        if let Some(hours) = signal.power_on_hours {
+            println!("  Power on:     {} hours", hours);
+        }
+
+        // Bad sectors
+        if signal.reallocated_sectors > 0 || signal.pending_sectors > 0 {
+            println!("  Reallocated:  {} sectors", signal.reallocated_sectors.to_string().yellow());
+            println!("  Pending:      {} sectors", signal.pending_sectors.to_string().yellow());
+        }
+
+        // Health assessment
+        let health = signal.health();
+        let health_str = format!("{} {}", health.emoji(),
+            match health {
+                anna_common::grounded::signal_quality::SignalHealth::Good => "Good",
+                anna_common::grounded::signal_quality::SignalHealth::Warning => "Warning",
+                anna_common::grounded::signal_quality::SignalHealth::Critical => "Critical",
+                anna_common::grounded::signal_quality::SignalHealth::Unknown => "Unknown",
+            });
+        println!("  Assessment:   {}", health_str);
+    }
+
+    println!();
 }
 
 /// Format bytes as human-readable
@@ -1014,6 +1138,9 @@ async fn run_wifi_profile() -> Result<()> {
 
         println!();
 
+        // [SIGNAL] - v7.19.0
+        print_wifi_signal_section(&iface.interface);
+
         // [LOGS]
         let keywords: Vec<&str> = vec![
             &iface.interface,
@@ -1025,6 +1152,75 @@ async fn run_wifi_profile() -> Result<()> {
     println!("{}", THIN_SEP);
     println!();
     Ok(())
+}
+
+/// Print [SIGNAL] section for WiFi interface - v7.19.0
+fn print_wifi_signal_section(interface: &str) {
+    let signal = get_wifi_signal(interface);
+
+    println!("{}", "[SIGNAL]".cyan());
+    println!("  {}", format!("(source: {})", signal.source).dimmed());
+    println!();
+
+    // Signal strength
+    if let Some(dbm) = signal.signal_dbm {
+        let bars = signal.signal_bars();
+        let quality = match dbm {
+            d if d >= -50 => "excellent".green().to_string(),
+            d if d >= -60 => "good".green().to_string(),
+            d if d >= -70 => "fair".yellow().to_string(),
+            d if d >= -80 => "weak".yellow().to_string(),
+            _ => "very weak".red().to_string(),
+        };
+        println!("  Signal:       {} dBm {} ({})", dbm, bars, quality);
+    } else {
+        println!("  Signal:       {}", "not connected".dimmed());
+    }
+
+    // SSID
+    if !signal.ssid.is_empty() {
+        println!("  SSID:         {}", signal.ssid);
+    }
+
+    // Bitrates
+    if let Some(ref tx) = signal.tx_bitrate {
+        println!("  TX bitrate:   {}", tx);
+    }
+    if let Some(ref rx) = signal.rx_bitrate {
+        println!("  RX bitrate:   {}", rx);
+    }
+
+    // Error counters - only show if non-zero
+    let mut counters = Vec::new();
+    if signal.tx_failed > 0 {
+        counters.push(format!("tx_failed: {}", signal.tx_failed));
+    }
+    if signal.tx_retries > 0 {
+        counters.push(format!("tx_retries: {}", signal.tx_retries));
+    }
+    if signal.beacon_loss > 0 {
+        counters.push(format!("beacon_loss: {}", signal.beacon_loss));
+    }
+    if signal.disconnects > 0 {
+        counters.push(format!("disconnects (1h): {}", signal.disconnects));
+    }
+
+    if !counters.is_empty() {
+        println!("  Errors:       {}", counters.join(", ").yellow());
+    }
+
+    // Health assessment
+    let health = signal.health();
+    let health_str = format!("{} {}", health.emoji(),
+        match health {
+            anna_common::grounded::signal_quality::SignalHealth::Good => "Good",
+            anna_common::grounded::signal_quality::SignalHealth::Warning => "Warning",
+            anna_common::grounded::signal_quality::SignalHealth::Critical => "Critical",
+            anna_common::grounded::signal_quality::SignalHealth::Unknown => "Unknown",
+        });
+    println!("  Assessment:   {}", health_str);
+
+    println!();
 }
 
 /// Ethernet category profile

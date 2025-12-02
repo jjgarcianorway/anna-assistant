@@ -1,4 +1,4 @@
-//! HW Command v7.17.0 - Structured Hardware Overview
+//! HW Command v7.19.0 - Structured Hardware Overview
 //!
 //! Sections organized by category:
 //! - [CPU]        Model, cores, microcode
@@ -10,6 +10,8 @@
 //! - [INPUT]      Keyboard, touchpad
 //! - [SENSORS]    Temperature providers
 //! - [POWER]      Battery and AC adapter
+//! - [DRIVERS]    Loaded kernel modules for GPU/WiFi/BT (v7.19.0)
+//! - [HOT SIGNALS] Signal quality warnings (v7.19.0)
 //!
 //! All data sourced from:
 //! - lscpu, /proc/cpuinfo (CPU)
@@ -22,6 +24,8 @@
 //! - /sys/class/input (Input devices)
 //! - /sys/class/hwmon, sensors (Sensors)
 //! - /sys/class/power_supply (Power)
+//! - lsmod, modinfo (Drivers) - v7.19.0
+//! - iw, smartctl, nvme smart-log (Signals) - v7.19.0
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -36,10 +40,12 @@ use anna_common::grounded::network_topology::{
 use anna_common::grounded::storage_topology::{
     get_filesystem_mounts, get_device_health,
 };
+use anna_common::grounded::service_topology::get_gpu_driver_stacks;
+use anna_common::grounded::signal_quality::get_hot_signals;
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
-/// Run the hw overview command - v7.15.0 structured format
+/// Run the hw overview command - v7.19.0 structured format
 pub async fn run() -> Result<()> {
     println!();
     println!("{}", "  Anna Hardware Inventory".bold());
@@ -72,6 +78,12 @@ pub async fn run() -> Result<()> {
 
     // [POWER]
     print_power_section();
+
+    // [DRIVERS] - v7.19.0
+    print_drivers_section();
+
+    // [HOT SIGNALS] - v7.19.0
+    print_hot_signals_section();
 
     println!("{}", THIN_SEP);
     println!("  {}", "'annactl hw NAME' for a specific component or category.".dimmed());
@@ -884,6 +896,110 @@ fn print_power_section() {
                 }
             }
         }
+    }
+
+    println!();
+}
+
+// ============================================================================
+// [DRIVERS] Section - v7.19.0
+// ============================================================================
+
+fn print_drivers_section() {
+    println!("{}", "[DRIVERS]".cyan());
+    println!("  {}", "(source: lsmod, modinfo)".dimmed());
+
+    // Get GPU driver stacks
+    let gpu_stacks = get_gpu_driver_stacks();
+
+    // Get WiFi and BT drivers from lsmod
+    let wifi_drivers = get_loaded_drivers_for_type("wifi");
+    let bt_drivers = get_loaded_drivers_for_type("bluetooth");
+
+    let mut found_any = false;
+
+    // GPU drivers
+    for stack in &gpu_stacks {
+        found_any = true;
+        if stack.additional_modules.is_empty() {
+            println!("  GPU:          {} {}", stack.primary_driver, "[loaded]".green());
+        } else {
+            println!("  GPU:          {} + {} {}",
+                     stack.primary_driver,
+                     stack.additional_modules.join(", "),
+                     "[loaded]".green());
+        }
+    }
+
+    // WiFi drivers
+    for driver in &wifi_drivers {
+        found_any = true;
+        println!("  WiFi:         {} {}", driver, "[loaded]".green());
+    }
+
+    // Bluetooth drivers
+    for driver in &bt_drivers {
+        found_any = true;
+        println!("  Bluetooth:    {} {}", driver, "[loaded]".green());
+    }
+
+    if !found_any {
+        println!("  {}", "(no key drivers detected)".dimmed());
+    }
+
+    println!();
+}
+
+/// Get loaded drivers for a specific type
+fn get_loaded_drivers_for_type(driver_type: &str) -> Vec<String> {
+    let mut drivers = Vec::new();
+
+    // Define patterns for each type
+    let patterns: &[&str] = match driver_type {
+        "wifi" => &["iwlwifi", "iwlmvm", "ath9k", "ath10k", "ath11k", "mt7921",
+                   "rtw88", "rtw89", "brcmfmac", "rtl8xxxu"],
+        "bluetooth" => &["btusb", "btintel", "btrtl", "btbcm", "btmtk", "bluetooth"],
+        _ => &[],
+    };
+
+    if let Ok(output) = Command::new("lsmod").output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines().skip(1) {
+                if let Some(name) = line.split_whitespace().next() {
+                    for pattern in patterns {
+                        if name.starts_with(pattern) && !drivers.contains(&name.to_string()) {
+                            drivers.push(name.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Return only the first few (most relevant)
+    drivers.truncate(2);
+    drivers
+}
+
+// ============================================================================
+// [HOT SIGNALS] Section - v7.19.0
+// ============================================================================
+
+fn print_hot_signals_section() {
+    let signals = get_hot_signals();
+
+    // Only print section if there are signals to show
+    if signals.is_empty() {
+        return;
+    }
+
+    println!("{}", "[HOT SIGNALS]".cyan());
+    println!("  {}", "(source: iw, smartctl, nvme)".dimmed());
+
+    for signal in &signals {
+        println!("  {}", signal);
     }
 
     println!();

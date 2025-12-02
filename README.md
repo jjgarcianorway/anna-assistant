@@ -1,8 +1,8 @@
-# Anna v7.18.0 "Change Journal, Boot Timeline & Error Focus"
+# Anna v7.19.0 "Topology, Dependencies & Signal Quality"
 
 **System Intelligence Daemon for Linux**
 
-> v7.18.0: Track what changed and when with change journal, boot timeline health summaries, and enhanced error patterns with novelty detection. See [LAST BOOT] and [RECENT CHANGES] in status, [HISTORY] in profiles.
+> v7.19.0: Clear dependency graphs, service topology, signal quality metrics, and topology hints. See [DRIVERS] and [HOT SIGNALS] in hw, [SIGNAL] in hw wifi/storage, [TOPOLOGY HINTS] in status, and cross-references between sw and hw.
 
 ---
 
@@ -59,6 +59,86 @@ annactl hw cpu
 annactl hw gpu
 annactl hw storage
 annactl hw network
+```
+
+---
+
+## v7.19.0 Features
+
+### Driver Overview and Hot Signals in hw
+
+`annactl hw` now shows loaded kernel modules and signal quality warnings:
+
+```
+[DRIVERS]
+  (source: lsmod, modinfo)
+  GPU:          nvidia + nvidia_modeset, nvidia_drm [loaded]
+  WiFi:         iwlwifi [loaded]
+  Bluetooth:    btusb [loaded]
+
+[HOT SIGNALS]
+  (source: iw, smartctl, nvme)
+  🟡 WiFi wlan0 signal weak -76dBm
+  🔴 NVMe nvme0n1 health critical
+```
+
+### Signal Quality in WiFi and Storage Profiles
+
+`annactl hw wifi` now shows [SIGNAL] section with detailed metrics:
+
+```
+[SIGNAL]
+  (source: iw, /proc/net/wireless)
+
+  Signal:       -52 dBm ▂▄▆█ (excellent)
+  SSID:         MyNetwork
+  TX bitrate:   866.7 MBit/s
+  RX bitrate:   780.0 MBit/s
+  Assessment:   🟢 Good
+```
+
+`annactl hw nvme0n1` shows storage signal quality:
+
+```
+[SIGNAL]
+  (source: nvme smart-log)
+
+  Model:        Samsung SSD 980 PRO 1TB
+  Temperature:  35°C
+  Wear:         2% used
+  Power on:     1847 hours
+  Assessment:   🟢 Good
+```
+
+### Topology Hints in Status
+
+`annactl status` shows high-impact services and driver stacks:
+
+```
+[TOPOLOGY HINTS]
+  (source: systemctl, lsmod)
+
+  High-impact services:
+    dbus.service (23 wanted by it)
+    polkit.service (8 wanted by it)
+
+  Driver stacks:
+    GPU [multi-module] (nvidia + nvidia_modeset, nvidia_drm)
+```
+
+### Cross-References Between sw and hw
+
+Service profiles now link to related hardware:
+
+```
+[DEPENDENCIES]
+  Service relations:
+    Requires:  dbus.socket
+    WantedBy:  multi-user.target
+
+  Related hardware:
+    → See: annactl hw wifi
+    → See: annactl hw ethernet
 ```
 
 ---

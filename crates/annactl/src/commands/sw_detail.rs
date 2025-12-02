@@ -1,4 +1,4 @@
-//! SW Detail Command v7.18.0 - Software Profiles and Category Overviews
+//! SW Detail Command v7.19.0 - Software Profiles with Topology Cross-References
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -1581,7 +1581,53 @@ fn print_service_dependencies_section(name: &str) {
     println!("    - Service dependencies from systemctl show.");
     println!("    {}", format!("Source: {}", svc_deps.source).dimmed());
 
+    // v7.19.0: Cross-reference to related hardware
+    let related_hw = get_service_related_hardware(base_name);
+    if !related_hw.is_empty() {
+        println!();
+        println!("  Related hardware:");
+        for hw in &related_hw {
+            println!("    → See: annactl hw {}", hw.dimmed());
+        }
+    }
+
     println!();
+}
+
+/// Get related hardware for a service - v7.19.0
+fn get_service_related_hardware(service_name: &str) -> Vec<&'static str> {
+    let name_lower = service_name.to_lowercase();
+    let mut related = Vec::new();
+
+    // Network services -> network hardware
+    if name_lower.contains("networkmanager") || name_lower.contains("network")
+        || name_lower.contains("wpa_supplicant") {
+        related.push("wifi");
+        related.push("ethernet");
+    }
+
+    // Bluetooth services -> bluetooth hardware
+    if name_lower.contains("bluetooth") || name_lower.contains("bluez") {
+        related.push("bluetooth");
+    }
+
+    // Audio services -> audio hardware
+    if name_lower.contains("pipewire") || name_lower.contains("pulseaudio")
+        || name_lower.contains("audio") {
+        related.push("audio");
+    }
+
+    // Power services -> power hardware
+    if name_lower.contains("upower") || name_lower.contains("power") {
+        related.push("power");
+    }
+
+    // GPU services -> gpu hardware
+    if name_lower.contains("nvidia") || name_lower.contains("gpu") {
+        related.push("gpu");
+    }
+
+    related
 }
 
 // ============================================================================
