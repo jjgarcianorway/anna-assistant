@@ -1,8 +1,8 @@
-# Anna v7.25.0 "Buses, Peripherals & Attachments"
+# Anna v7.26.0 "Instrumentation & Auto-Install"
 
 **System Intelligence Daemon for Linux**
 
-> v7.25.0: Comprehensive peripheral discovery for USB, Bluetooth, Thunderbolt, FireWire, SD cards, cameras, and input devices. New [OVERVIEW] and [CATEGORIES] sections in `annactl hw`. Category profiles for all peripheral buses. [ATTACHMENTS] section in status.
+> v7.26.0: Controlled auto-install for system probes with guardrails. New [INSTRUMENTATION] section in status shows installed/available tools. AUR gate (off by default), rate limiting (1/24h), full ops_log audit trail. Local docs resolver for man pages and /usr/share/doc.
 
 ---
 
@@ -66,6 +66,61 @@ annactl hw bluetooth
 annactl hw thunderbolt
 annactl hw sdcard
 ```
+
+---
+
+## v7.26.0 Features
+
+### Instrumentation & Auto-Install
+
+Anna can now auto-install diagnostic tools from official Arch repos with full guardrails:
+
+```
+[INSTRUMENTATION]
+  (tools installed by Anna for system probing)
+  Auto-install: enabled
+  AUR gate:     blocked
+  Rate limit:   0/1 installs today
+
+  Installed:    0 (Anna hasn't installed any tools yet)
+
+  Available:    4 tool(s) could be auto-installed
+    smartmontools - SATA/SAS disk health monitoring
+    nvme-cli - NVMe SSD health and temperature
+    ethtool - Network interface diagnostics
+```
+
+#### Guardrails
+
+- **Official repos only**: AUR packages blocked by default
+- **AUR gate**: Requires explicit `allow_aur = true` in config
+- **Rate limit**: 1 install per 24 hours (configurable)
+- **Audit trail**: All installs logged to ops_log
+
+#### Configuration
+
+```toml
+# /etc/anna/config.toml
+[instrumentation]
+auto_install_enabled = true   # default: true
+allow_aur = false             # default: false (AUR blocked)
+max_installs_per_day = 1      # default: 1
+```
+
+#### Instrumentation Manifest
+
+Anna tracks all auto-installed tools in `/var/lib/anna/instrumentation.json`:
+- Tool name and version
+- Install timestamp
+- Reason for installation
+- Metrics enabled by the tool
+
+### Local Docs Resolver
+
+Anna can now resolve local documentation without network calls:
+- `man -w`, `man -f` for man pages
+- `/usr/share/doc` for package documentation
+- `pacman -Ql` for config file discovery
 
 ---
 
@@ -1131,8 +1186,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.23.0/annad-7.23.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.23.0/annactl-7.23.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.26.0/annad-7.26.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.26.0/annactl-7.26.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -1220,7 +1275,10 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.23.0** | **Timelines, Drift & Incidents** - Time-anchored usage views, boot snapshots with incidents, inventory drift, config provenance |
+| **v7.26.0** | **Instrumentation & Auto-Install** - Controlled auto-install with guardrails, AUR gate, rate limiting, instrumentation manifest, local docs resolver |
+| v7.25.0 | Buses, Peripherals & Attachments - USB, Bluetooth, Thunderbolt, FireWire, SD card discovery; [OVERVIEW], [CATEGORIES], [ATTACHMENTS] sections |
+| v7.24.0 | Relationships, Stacks & Hotspots - Software/hardware relationship mapping, stack discovery, resource hotspots |
+| v7.23.0 | Timelines, Drift & Incidents - Time-anchored usage views, boot snapshots with incidents, inventory drift, config provenance |
 | v7.22.0 | Scenario Lenses & Self Toolchain Hygiene - Category-aware scenario lenses for hw/sw, self toolchain hygiene, [ANNA TOOLCHAIN] section |
 | v7.21.0 | Config Atlas, Topology Maps & Impact View - Per-component config discovery, topology maps, resource impact |
 | v7.20.0 | Telemetry Trends & Golden Baselines - Deterministic trend labels, log atlas with pattern IDs, golden baselines for pattern comparison |
