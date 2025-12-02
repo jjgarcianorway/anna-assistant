@@ -1,25 +1,22 @@
-//! Anna CLI (annactl) v7.42.0 - Daemon/CLI Contract Fix
+//! Anna CLI (annactl) v7.42.1 - Inline Diagnostics
 //!
 //! ARCHITECTURE RULE: annactl NEVER does heavyweight scanning.
 //! All data comes from snapshots written by annad daemon.
 //!
-//! v7.42.0: Daemon/CLI Contract Fix
-//! - status now shows DAEMON (socket/systemd) and SNAPSHOT (file) separately
-//! - Never conflate "no snapshot" with "daemon stopped"
-//! - doctor command for troubleshooting daemon/snapshot issues
-//! - Control socket check for authoritative daemon health
+//! v7.42.1: Inline Diagnostics
+//! - status command now includes all diagnostic checks inline
+//! - Removed separate doctor command (status is self-sufficient)
+//! - [PATHS] section shows writable/not-writable status
 //!
-//! v7.41.0: Snapshot-only architecture
-//! - annactl reads snapshots from /var/lib/anna/internal/snapshots/
-//! - annad daemon owns all scanning, caching, and delta updates
-//! - p95 < 1.0s for sw command (snapshot read only)
-//! - Compact output by default, --full/--json/--section for alternatives
+//! v7.42.0: Daemon/CLI Contract Fix
+//! - status shows DAEMON (socket/systemd) and SNAPSHOT (file) separately
+//! - Never conflate "no snapshot" with "daemon stopped"
+//! - Control socket check for authoritative daemon health
 //!
 //! Commands:
 //! - annactl                  show help
 //! - annactl --version        show version (also: annactl version)
-//! - annactl status           health and runtime of Anna
-//! - annactl doctor           diagnostic tool for troubleshooting
+//! - annactl status           health, diagnostics, and runtime
 //! - annactl sw               software overview (compact)
 //! - annactl sw --full        software overview (all sections)
 //! - annactl sw --json        software data (JSON)
@@ -67,13 +64,8 @@ async fn main() -> Result<()> {
         // annactl --version or annactl version (v7.40.0: both work)
         [cmd] if cmd == "--version" || cmd == "-V" || cmd == "version" => run_version(),
 
-        // annactl status
+        // annactl status (v7.42.1: includes inline diagnostics, no separate doctor command)
         [cmd] if cmd.eq_ignore_ascii_case("status") => commands::status::run().await,
-
-        // annactl doctor (v7.42.0: diagnostic tool)
-        [cmd] if cmd.eq_ignore_ascii_case("doctor") || cmd.eq_ignore_ascii_case("diag") => {
-            commands::doctor::run().await
-        }
 
         // annactl sw (software overview - default compact)
         [cmd] if cmd.eq_ignore_ascii_case("sw") => commands::sw::run().await,
@@ -117,8 +109,7 @@ fn run_help() -> Result<()> {
     println!("{}", THIN_SEP);
     println!("  annactl                  show this help");
     println!("  annactl --version        show version");
-    println!("  annactl status           health and runtime of Anna");
-    println!("  annactl doctor           diagnostic tool for troubleshooting");
+    println!("  annactl status           health, diagnostics, and runtime");
     println!("  annactl sw               software overview (compact)");
     println!("  annactl sw --full        software overview (detailed)");
     println!("  annactl sw --json        software data (machine-readable)");

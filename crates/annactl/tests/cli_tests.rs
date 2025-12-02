@@ -701,10 +701,10 @@ fn test_annactl_version_flag_works() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.42.0: --version outputs "annactl vX.Y.Z" (no banners, no ANSI)
+    // v7.42.1: --version outputs "annactl vX.Y.Z" (no banners, no ANSI)
     assert!(
-        stdout.contains("annactl v") && stdout.contains("7.42"),
-        "Expected '--version' to output 'annactl vX.Y.Z', got: {}",
+        stdout.contains("annactl v7.42"),
+        "Expected '--version' to output 'annactl v7.42.x', got: {}",
         stdout
     );
     assert!(output.status.success(), "--version should succeed");

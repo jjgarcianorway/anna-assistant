@@ -461,7 +461,7 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [PATHS] section - static paths only, no probing
+/// [PATHS] section - v7.42.1: now includes directory health checks inline
 fn print_paths_section() {
     println!("{}", "[PATHS]".cyan());
 
@@ -474,27 +474,42 @@ fn print_paths_section() {
         println!("  Config:     {} {}", config_path, "(missing)".yellow());
     }
 
-    // Data path
+    // Data path - check writable
     let data_dir = "/var/lib/anna";
     let data_exists = Path::new(data_dir).exists();
     if data_exists {
-        println!("  Data:       {}", data_dir);
+        let writable = check_dir_writable(data_dir);
+        if writable {
+            println!("  Data:       {}", data_dir);
+        } else {
+            println!("  Data:       {} {}", data_dir, "(not writable)".red());
+        }
     } else {
         println!("  Data:       {} {}", data_dir, "(missing)".yellow());
     }
 
-    // Internal dir
+    // Internal dir - check writable
     let internal_exists = Path::new(INTERNAL_DIR).exists();
     if internal_exists {
-        println!("  Internal:   {}", INTERNAL_DIR);
+        let writable = check_dir_writable(INTERNAL_DIR);
+        if writable {
+            println!("  Internal:   {}", INTERNAL_DIR);
+        } else {
+            println!("  Internal:   {} {}", INTERNAL_DIR, "(not writable)".red());
+        }
     } else {
         println!("  Internal:   {} {}", INTERNAL_DIR, "(will create on daemon start)".dimmed());
     }
 
-    // Snapshots dir
+    // Snapshots dir - check writable
     let snapshots_exists = Path::new(SNAPSHOTS_DIR).exists();
     if snapshots_exists {
-        println!("  Snapshots:  {}", SNAPSHOTS_DIR);
+        let writable = check_dir_writable(SNAPSHOTS_DIR);
+        if writable {
+            println!("  Snapshots:  {}", SNAPSHOTS_DIR);
+        } else {
+            println!("  Snapshots:  {} {}", SNAPSHOTS_DIR, "(not writable)".red());
+        }
     } else {
         println!("  Snapshots:  {} {}", SNAPSHOTS_DIR, "(missing)".yellow());
     }
@@ -504,11 +519,28 @@ fn print_paths_section() {
     if socket_exists {
         println!("  Socket:     {}", SOCKET_PATH);
     } else {
-        println!("  Socket:     {} {}", SOCKET_PATH, "(daemon may create)".dimmed());
+        // Check if /run/anna exists
+        let run_dir = "/run/anna";
+        if Path::new(run_dir).exists() {
+            println!("  Socket:     {} {}", SOCKET_PATH, "(daemon will create)".dimmed());
+        } else {
+            println!("  Socket:     {} {}", SOCKET_PATH, "(missing /run/anna)".yellow());
+        }
     }
 
     // Logs hint
     println!("  Logs:       {}", "journalctl -u annad".dimmed());
 
     println!();
+}
+
+/// Check if a directory is writable by attempting to write a test file
+fn check_dir_writable(path: &str) -> bool {
+    let test_file = format!("{}/.anna_write_test", path);
+    if std::fs::write(&test_file, "test").is_ok() {
+        let _ = std::fs::remove_file(&test_file);
+        true
+    } else {
+        false
+    }
 }
