@@ -1,12 +1,13 @@
-//! Anna CLI (annactl) v7.29.0 - Bugfix & Performance Release
+//! Anna CLI (annactl) v7.35.1 - Pure Telemetry CLI
 //!
-//! Commands (exactly 6, no aliases):
-//! - annactl           show help
-//! - annactl status    health and runtime of Anna
-//! - annactl sw        software overview (packages, commands, services)
-//! - annactl sw NAME   software profile
-//! - annactl hw        hardware overview (CPU, memory, GPU, storage, network)
-//! - annactl hw NAME   hardware profile
+//! Commands (exactly 7, no aliases):
+//! - annactl             show help
+//! - annactl --version   show version (v7.35.1)
+//! - annactl status      health and runtime of Anna
+//! - annactl sw          software overview (packages, commands, services)
+//! - annactl sw NAME     software profile
+//! - annactl hw          hardware overview (CPU, memory, GPU, storage, network)
+//! - annactl hw NAME     hardware profile
 
 mod commands;
 
@@ -41,10 +42,13 @@ async fn main() -> Result<()> {
 
     let args: Vec<String> = env::args().skip(1).collect();
 
-    // v7.2.0: sw/hw surface
+    // v7.35.1: sw/hw surface with --version
     match args.as_slice() {
         // annactl (no args) - show help
         [] => run_help(),
+
+        // annactl --version (v7.35.1)
+        [cmd] if cmd == "--version" || cmd == "-V" => run_version(),
 
         // annactl status
         [cmd] if cmd.eq_ignore_ascii_case("status") => commands::status::run().await,
@@ -80,14 +84,21 @@ fn run_help() -> Result<()> {
     println!();
     println!("{}", "  Anna CLI".bold());
     println!("{}", THIN_SEP);
-    println!("  annactl           show this help");
-    println!("  annactl status    health and runtime of Anna");
-    println!("  annactl sw        software overview");
-    println!("  annactl sw NAME   software profile (package, command, category)");
-    println!("  annactl hw        hardware overview");
-    println!("  annactl hw NAME   hardware profile (cpu, memory, gpu, storage, ...)");
+    println!("  annactl             show this help");
+    println!("  annactl --version   show version");
+    println!("  annactl status      health and runtime of Anna");
+    println!("  annactl sw          software overview");
+    println!("  annactl sw NAME     software profile (package, command, category)");
+    println!("  annactl hw          hardware overview");
+    println!("  annactl hw NAME     hardware profile (cpu, memory, gpu, storage, ...)");
     println!("{}", THIN_SEP);
     println!();
+    Ok(())
+}
+
+/// Print version (v7.35.1) - for installer version detection
+fn run_version() -> Result<()> {
+    println!("annactl {}", env!("CARGO_PKG_VERSION"));
     Ok(())
 }
 

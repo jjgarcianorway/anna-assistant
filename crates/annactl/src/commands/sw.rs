@@ -1,8 +1,9 @@
-//! SW Command v7.30.0 - Anna Software Overview
+//! SW Command v7.35.1 - Anna Software Overview
 //!
 //! Sections:
 //! - [OVERVIEW]          Counts of packages, commands, services
 //! - [CATEGORIES]        Rule-based categories from descriptions (sorted)
+//! - [PLATFORMS]         Steam games and other game platforms (v7.35.1)
 //! - [CONFIG COVERAGE]   Config detection summary (v7.30.0)
 //! - [TOPOLOGY]          Software stack roles and service groups (v7.21.0)
 //! - [IMPACT]            Top resource consumers from telemetry (v7.21.0)
@@ -16,6 +17,7 @@ use anna_common::grounded::{
     commands::count_path_executables,
     services::ServiceCounts,
     categoriser::get_category_summary,
+    steam::{is_steam_installed, detect_steam_games, format_game_size},
 };
 use anna_common::config::AnnaConfig;
 use anna_common::topology_map::build_software_topology;
@@ -38,6 +40,9 @@ pub async fn run() -> Result<()> {
 
     // [CATEGORIES]
     print_categories_section();
+
+    // [PLATFORMS] - v7.35.1
+    print_platforms_section();
 
     // [CONFIG COVERAGE] - v7.30.0
     print_config_coverage_section();
@@ -117,6 +122,51 @@ fn print_categories_section() {
             // Format category name with padding
             let cat_display = format!("{}:", cat_name);
             println!("  {:<14} {}", cat_display, display);
+        }
+    }
+
+    println!();
+}
+
+/// Print [PLATFORMS] section - v7.35.1
+/// Shows game platforms like Steam with installed games
+fn print_platforms_section() {
+    // Only show if Steam is installed
+    if !is_steam_installed() {
+        return;
+    }
+
+    let games = detect_steam_games();
+    if games.is_empty() {
+        return;
+    }
+
+    println!("{}", "[PLATFORMS]".cyan());
+    println!("  {}", "(game platforms with local manifests)".dimmed());
+
+    // Steam section
+    let total_size: u64 = games.iter().filter_map(|g| g.size_on_disk).sum();
+    println!("  Steam:        {} games ({})", games.len(), format_game_size(total_size));
+
+    // Show top games by size (up to 5)
+    let mut sorted_games = games.clone();
+    sorted_games.sort_by(|a, b| b.size_on_disk.cmp(&a.size_on_disk));
+
+    let game_names: Vec<String> = sorted_games.iter()
+        .take(5)
+        .map(|g| {
+            let size = g.size_on_disk.map(|s| format!(" ({})", format_game_size(s))).unwrap_or_default();
+            format!("{}{}", g.name, size)
+        })
+        .collect();
+
+    if !game_names.is_empty() {
+        println!("    Largest:    {}", game_names[0]);
+        for name in game_names.iter().skip(1).take(4) {
+            println!("                {}", name);
+        }
+        if games.len() > 5 {
+            println!("                (+{} more)", games.len() - 5);
         }
     }
 

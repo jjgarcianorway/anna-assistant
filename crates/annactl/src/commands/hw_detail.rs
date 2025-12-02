@@ -1,4 +1,4 @@
-//! HW Detail Command v7.29.0 - Driver Guidance & Remediation
+//! HW Detail Command v7.35.1 - Driver Guidance & Remediation
 //!
 //! Two modes:
 //! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors,
@@ -1549,7 +1549,7 @@ async fn run_bluetooth_category() -> Result<()> {
 }
 
 // ============================================================================
-// USB Category - v7.25.0
+// USB Category - v7.35.1 (enhanced with power, speed, driver per device)
 // ============================================================================
 
 async fn run_usb_category() -> Result<()> {
@@ -1597,12 +1597,15 @@ async fn run_usb_category() -> Result<()> {
         println!();
     }
 
+    // v7.35.1: Enhanced device display with speed, power, driver
     if !storage.is_empty() {
         println!("  {}:", "Storage".dimmed());
         for dev in &storage {
             let speed = if dev.speed.is_empty() { "".to_string() } else { format!(" [{}]", dev.speed) };
-            println!("    Bus{:02} Dev{:03}: {} ({}){}",
-                dev.bus, dev.device, dev.product_name, dev.vendor_name, speed);
+            let power = dev.power_ma.map(|p| format!(" {}mA", p)).unwrap_or_default();
+            let driver = dev.driver.as_ref().map(|d| format!(" driver:{}", d.green())).unwrap_or_default();
+            println!("    Bus{:02} Dev{:03}: {} ({}){}{}{}",
+                dev.bus, dev.device, dev.product_name, dev.vendor_name, speed, power, driver);
         }
         println!();
     }
@@ -1610,8 +1613,11 @@ async fn run_usb_category() -> Result<()> {
     if !hid.is_empty() {
         println!("  {}:", "HID (keyboards, mice)".dimmed());
         for dev in &hid {
-            println!("    Bus{:02} Dev{:03}: {} ({})",
-                dev.bus, dev.device, dev.product_name, dev.vendor_name);
+            let speed = if dev.speed.is_empty() { "".to_string() } else { format!(" [{}]", dev.speed) };
+            let power = dev.power_ma.map(|p| format!(" {}mA", p)).unwrap_or_default();
+            let driver = dev.driver.as_ref().map(|d| format!(" driver:{}", d.green())).unwrap_or_default();
+            println!("    Bus{:02} Dev{:03}: {} ({}){}{}{}",
+                dev.bus, dev.device, dev.product_name, dev.vendor_name, speed, power, driver);
         }
         println!();
     }
@@ -1620,8 +1626,11 @@ async fn run_usb_category() -> Result<()> {
         println!("  {}:", "Other".dimmed());
         for dev in other.iter().take(5) {
             let class = if dev.device_class.is_empty() { "?".to_string() } else { dev.device_class.clone() };
-            println!("    Bus{:02} Dev{:03}: {} [{}]",
-                dev.bus, dev.device, dev.product_name, class);
+            let speed = if dev.speed.is_empty() { "".to_string() } else { format!(" [{}]", dev.speed) };
+            let power = dev.power_ma.map(|p| format!(" {}mA", p)).unwrap_or_default();
+            let driver = dev.driver.as_ref().map(|d| format!(" driver:{}", d.green())).unwrap_or_default();
+            println!("    Bus{:02} Dev{:03}: {} [{}]{}{}{}",
+                dev.bus, dev.device, dev.product_name, class, speed, power, driver);
         }
         if other.len() > 5 {
             println!("    ... and {} more", other.len() - 5);

@@ -5021,10 +5021,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.34 (updated for v7.34.0)
+    // [VERSION] section should show 7.35 (updated for v7.35.1)
     assert!(
-        stdout.contains("7.34"),
-        "status should show version 7.34: {}",
+        stdout.contains("7.35"),
+        "status should show version 7.35: {}",
         stdout
     );
 

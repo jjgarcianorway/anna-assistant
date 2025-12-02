@@ -1,4 +1,4 @@
-//! Anna Daemon (annad) v7.34.0 - Update Scheduler Fix
+//! Anna Daemon (annad) v7.35.1 - Version Detection Support
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -111,6 +111,13 @@ const MAINTENANCE_INTERVAL_SECS: u64 = 300;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // v7.35.1: Handle --version before anything else (for installer detection)
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && (args[1] == "--version" || args[1] == "-V") {
+        println!("annad {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     // Set up panic hook
     setup_panic_hook();
 

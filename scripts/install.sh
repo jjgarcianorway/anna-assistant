@@ -1,9 +1,15 @@
 #!/bin/bash
-# Anna Installer v6.0.0 - Root Daemon Model
+# Anna Installer v7.35.1 - Strict Version Detection
 #
 # This installer is versioned INDEPENDENTLY from Anna itself.
-# Installer version: 6.x.x
+# Installer version: 7.35.1
 # Anna version: fetched from GitHub releases
+#
+# v7.35.1: Strict version detection precedence:
+#   1. annad --version (if annad exists on PATH)
+#   2. annactl --version (if annactl exists on PATH)
+#   3. /var/lib/anna/internal/version.json (if exists)
+#   4. Not installed
 #
 # v6.0.0 (Root Daemon):
 #   - annad runs as ROOT for full system access
@@ -13,17 +19,11 @@
 #   - No more permission errors ever
 #
 # Behavior:
-#   - Detects installed version (if any) via annactl version
+#   - Detects installed version via strict precedence
 #   - Fetches latest Anna version from GitHub
 #   - Compares and shows planned action
-#   - Non-interactive default: update if newer, skip if same/older
-#   - Interactive mode (-i): prompt for confirmation
+#   - Verifies installation with annad/annactl --version
 #   - Never clobbers config/data unless --reset is passed
-#
-# Usage:
-#   curl -sSL https://raw.githubusercontent.com/.../install.sh | bash
-#   curl -sSL ... | bash -s -- -i          # Interactive mode
-#   curl -sSL ... | bash -s -- --reset     # Full reinstall (wipes config)
 #
 # Exit codes:
 #   0 = Success or no action needed
@@ -36,7 +36,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="7.29.0"
+INSTALLER_VERSION="7.35.1"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -162,41 +162,67 @@ version_compare() {
 }
 
 # ============================================================
-# VERSION DETECTION
+# VERSION DETECTION (v7.35.1 strict precedence)
 # ============================================================
+
+# Normalize version string to semver tuple (strips 'v' prefix)
+normalize_version() {
+    local v="$1"
+    v="${v#v}"
+    # If it matches X.Y.Z, return it; otherwise return "unknown"
+    if [[ "$v" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+        echo "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+    else
+        echo "unknown"
+    fi
+}
 
 detect_installed_version() {
     INSTALLED_VERSION=""
+    local output version
 
-    # v5.5.0: Primary method - run annactl version and parse output
-    if command -v annactl &>/dev/null; then
-        local output
-        # Run annactl version (or -V) and look for version number
-        output=$(timeout 5 annactl version </dev/null 2>&1 | head -30) || true
-
-        # Look for "annactl:  vX.Y.Z" or "annactl  vX.Y.Z" pattern
-        if [[ "$output" =~ annactl[[:space:]]*:?[[:space:]]*v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            INSTALLED_VERSION="${BASH_REMATCH[1]}"
-            return
-        fi
-
-        # Fallback: Try -V flag
-        output=$(timeout 5 annactl -V </dev/null 2>&1) || true
+    # Precedence 1: annad --version (preferred - daemon is authoritative)
+    if command -v annad &>/dev/null; then
+        output=$(timeout 5 "${INSTALL_DIR}/annad" --version </dev/null 2>&1 || timeout 5 annad --version </dev/null 2>&1) || true
         if [[ "$output" =~ v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            INSTALLED_VERSION="${BASH_REMATCH[1]}"
-            return
+            version=$(normalize_version "${BASH_REMATCH[1]}")
+            if [[ "$version" != "unknown" ]]; then
+                INSTALLED_VERSION="$version"
+                log_info "Detected version via annad --version: v${INSTALLED_VERSION}"
+                return
+            fi
         fi
     fi
 
-    # Fallback: check if binary exists but doesn't run
-    if [[ -x "${INSTALL_DIR}/annactl" ]]; then
-        # Try to extract version from strings
-        local output
-        output=$(strings "${INSTALL_DIR}/annactl" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || true
-        if [[ -n "$output" ]]; then
-            INSTALLED_VERSION="$output"
+    # Precedence 2: annactl --version
+    if command -v annactl &>/dev/null; then
+        output=$(timeout 5 "${INSTALL_DIR}/annactl" version </dev/null 2>&1 || timeout 5 annactl version </dev/null 2>&1) || true
+        if [[ "$output" =~ v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            version=$(normalize_version "${BASH_REMATCH[1]}")
+            if [[ "$version" != "unknown" ]]; then
+                INSTALLED_VERSION="$version"
+                log_info "Detected version via annactl version: v${INSTALLED_VERSION}"
+                return
+            fi
         fi
     fi
+
+    # Precedence 3: version.json stamp file
+    local version_file="${DATA_DIR}/internal/version.json"
+    if [[ -f "$version_file" ]]; then
+        version=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"v?([0-9]+\.[0-9]+\.[0-9]+)"' "$version_file" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || true
+        if [[ -n "$version" ]]; then
+            version=$(normalize_version "$version")
+            if [[ "$version" != "unknown" ]]; then
+                INSTALLED_VERSION="$version"
+                log_info "Detected version via version.json: v${INSTALLED_VERSION}"
+                return
+            fi
+        fi
+    fi
+
+    # Precedence 4: Not installed
+    log_info "No installed version detected"
 }
 
 fetch_latest_version() {
@@ -564,27 +590,67 @@ verify_installation() {
     log_info "Verifying installation..."
 
     local errors=0
+    local version
 
+    # v7.35.1: Verify annad --version
     if [[ -x "${INSTALL_DIR}/annad" ]]; then
-        log_ok "annad binary OK"
+        version=$("${INSTALL_DIR}/annad" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || version=""
+        if [[ "$version" == "$LATEST_VERSION" ]]; then
+            log_ok "Verified annad --version: v${version}"
+        elif [[ -n "$version" ]]; then
+            log_warn "annad --version: v${version} (expected v${LATEST_VERSION})"
+        else
+            log_warn "annad binary OK but version not parseable"
+        fi
     else
         log_error "annad binary missing or not executable"
         ((errors++))
     fi
 
+    # v7.35.1: Verify annactl --version
     if [[ -x "${INSTALL_DIR}/annactl" ]]; then
-        local version
         version=$("${INSTALL_DIR}/annactl" version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || version=""
         if [[ "$version" == "$LATEST_VERSION" ]]; then
-            log_ok "annactl v${version} OK"
+            log_ok "Verified annactl --version: v${version}"
         elif [[ -n "$version" ]]; then
-            log_ok "annactl v${version} installed"
+            log_warn "annactl --version: v${version} (expected v${LATEST_VERSION})"
         else
-            log_ok "annactl binary OK"
+            log_warn "annactl binary OK but version not parseable"
         fi
     else
         log_error "annactl binary missing or not executable"
         ((errors++)) || true
+    fi
+
+    # v7.35.1: Verify systemd ExecStart path
+    local service_file="/etc/systemd/system/annad.service"
+    if [[ -f "$service_file" ]]; then
+        local exec_start
+        exec_start=$(grep -oP 'ExecStart=\K[^\s]+' "$service_file" 2>/dev/null || echo "")
+        if [[ "$exec_start" == "${INSTALL_DIR}/annad" ]]; then
+            log_ok "Verified systemd ExecStart: ${exec_start}"
+        elif [[ -n "$exec_start" ]]; then
+            log_warn "systemd ExecStart: ${exec_start} (expected ${INSTALL_DIR}/annad)"
+        else
+            log_warn "Could not parse ExecStart from service file"
+        fi
+    else
+        log_warn "systemd service file not found"
+    fi
+
+    # v7.35.1: Write version.json stamp
+    local internal_dir="${DATA_DIR}/internal"
+    local version_file="${internal_dir}/version.json"
+    $SUDO mkdir -p "$internal_dir" 2>/dev/null || true
+    $SUDO tee "$version_file" > /dev/null 2>&1 << EOF || true
+{
+  "version": "${LATEST_VERSION}",
+  "installed_at": "$(date -Iseconds)",
+  "installer_version": "${INSTALLER_VERSION}"
+}
+EOF
+    if [[ -f "$version_file" ]]; then
+        log_ok "Wrote version stamp: ${version_file}"
     fi
 
     if [[ -f "${CONFIG_DIR}/config.toml" ]]; then

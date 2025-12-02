@@ -2,6 +2,35 @@
 
 All notable changes to Anna are documented in this file.
 
+## [7.35.1] - 2025-12-02
+
+### Added
+
+- **--version flag** - Both `annad --version` and `annactl --version` now output version string for installer detection
+- **[AVAILABLE QUERIES] section** - `annactl hw` now shows valid categories and detected devices for quick navigation
+- **[PLATFORMS] section** - `annactl sw` shows Steam games with size info from local manifests
+- **Enhanced USB display** - `annactl hw usb` now shows power (mA), speed, and driver per device
+- **Network interface names** - Hardware overview includes interface names for device queries
+- **Installer version detection** - Strict 4-step precedence: annad --version → annactl --version → version.json → not installed
+- **Version stamp file** - Installer writes `/var/lib/anna/internal/version.json` after successful install
+- **Installation verification** - Installer verifies annad/annactl --version output and systemd ExecStart path
+
+### Changed
+
+- HW command header updated to v7.35.1
+- SW command header updated to v7.35.1
+- USB category now groups devices by type with full details
+- Categories section only shows detected hardware
+- All sections show "only what exists" - no placeholders
+
+### Fixed
+
+- Network stability metrics with WiFi signal trends and disconnect counts were already present
+- Sensors category fully functional with hwmon enumeration
+- Update checks continue to run and persist state correctly (from v7.34.0)
+
+---
+
 ## [7.34.0] - 2025-12-02
 
 ### Fixed

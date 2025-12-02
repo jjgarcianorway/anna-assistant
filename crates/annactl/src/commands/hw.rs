@@ -1,8 +1,9 @@
-//! HW Command v7.29.0 - Structured Hardware Overview
+//! HW Command v7.35.1 - Structured Hardware Overview
 //!
 //! Sections organized by category:
-//! - [OVERVIEW]   Device counts and system summary (v7.25.0)
-//! - [CATEGORIES] Bus summaries: USB, Bluetooth, Thunderbolt, SD (v7.25.0)
+//! - [OVERVIEW]          Device counts and system summary (v7.25.0)
+//! - [CATEGORIES]        Bus summaries: USB, Bluetooth, Thunderbolt, SD (v7.25.0)
+//! - [AVAILABLE QUERIES] Valid categories and detected devices (v7.35.1)
 //! - [CPU]        Model, cores, microcode
 //! - [GPU]        Integrated and discrete GPUs with drivers
 //! - [MEMORY]     Installed RAM, slots
@@ -230,6 +231,80 @@ fn print_categories_section() {
     println!();
 }
 
+// ============================================================================
+// [AVAILABLE QUERIES] Section - v7.35.1
+// ============================================================================
+
+fn print_available_queries_section() {
+    println!("{}", "[AVAILABLE QUERIES]".cyan());
+    println!("  {}", "(valid categories and detected devices for 'annactl hw NAME')".dimmed());
+
+    let hw = get_hardware_overview();
+
+    // Categories - only show those that are supported and have content
+    let mut categories: Vec<&str> = Vec::new();
+    categories.push("cpu");
+    categories.push("memory");
+    if hw.gpu_discrete + hw.gpu_integrated > 0 {
+        categories.push("gpu");
+    }
+    if hw.storage_devices > 0 {
+        categories.push("storage");
+    }
+    if hw.network_wired + hw.network_wireless > 0 {
+        categories.push("network");
+    }
+    if hw.audio.card_count > 0 {
+        categories.push("audio");
+    }
+    if hw.battery_count > 0 {
+        categories.push("power");
+    }
+    if hw.bluetooth.adapter_count > 0 {
+        categories.push("bluetooth");
+    }
+    if hw.usb.device_count > 0 || hw.usb.root_hubs > 0 {
+        categories.push("usb");
+    }
+    // Sensors always available (hwmon)
+    categories.push("sensors");
+    if hw.input.device_count > 0 {
+        categories.push("input");
+    }
+    if hw.thunderbolt.controller_count > 0 {
+        categories.push("thunderbolt");
+    }
+    if hw.camera.camera_count > 0 {
+        categories.push("camera");
+    }
+
+    println!("  Categories:   {}", categories.join(", "));
+
+    // Detected devices - specific queryable devices
+    let mut devices: Vec<String> = Vec::new();
+
+    // Storage devices
+    for name in hw.storage_names.iter().take(4) {
+        devices.push(name.clone());
+    }
+
+    // Network interfaces
+    for iface in hw.network_interfaces.iter().take(3) {
+        devices.push(iface.clone());
+    }
+
+    // Battery
+    if hw.battery_count > 0 {
+        devices.push("BAT0".to_string());
+    }
+
+    if !devices.is_empty() {
+        println!("  Devices:      {}", devices.join(", "));
+    }
+
+    println!();
+}
+
 fn format_size_bytes(bytes: u64) -> String {
     const MB: u64 = 1_000_000;
     const GB: u64 = 1_000_000_000;
@@ -244,7 +319,7 @@ fn format_size_bytes(bytes: u64) -> String {
     }
 }
 
-/// Run the hw overview command - v7.25.0 structured format
+/// Run the hw overview command - v7.35.1 structured format
 pub async fn run() -> Result<()> {
     println!();
     println!("{}", "  Anna Hardware Inventory".bold());
@@ -256,6 +331,9 @@ pub async fn run() -> Result<()> {
 
     // [CATEGORIES] - v7.25.0
     print_categories_section();
+
+    // [AVAILABLE QUERIES] - v7.35.1
+    print_available_queries_section();
 
     // [CPU]
     print_cpu_section();

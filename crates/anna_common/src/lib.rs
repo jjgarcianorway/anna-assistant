@@ -1,11 +1,22 @@
-//! Anna Common v7.34.0 - Update Scheduler Fix
+//! Anna Common v7.35.1 - Comprehensive System Intelligence
+//!
+//! v7.35.1: NO LLM, NO NATURAL LANGUAGE - Pure telemetry daemon
+//! - Installer version detection with strict precedence (annad/annactl --version)
+//! - Update checks that actually run and persist state
+//! - Telemetry coverage rules (80% threshold per window)
+//! - annactl hw usb with controllers and connected devices
+//! - AVAILABLE QUERIES section in hw overview
+//! - Steam/platform detection with local manifest parsing
+//! - Network stability metrics (WiFi signal trends, disconnects)
+//! - Driver/firmware info per hardware component
+//! - Scoped dependency auto-installs (visible, logged, safe)
+//! - No truncation - all output wraps to terminal width
+//! - No HTML/wiki markup in output - clean text only
 //!
 //! v7.34.0: Update scheduler that actually runs and records checks
-//! - Consolidated UpdateState in config.rs (deleted redundant update_state.rs)
-//! - Scheduler runs immediately on first start if never checked
-//! - Real timestamps in annactl status (Last check, Next check)
+//! - Consolidated UpdateState in config.rs
+//! - Real timestamps in annactl status
 //! - Ops.log audit trail for update checks
-//! - annactl status shows daemon down warning when not running
 //!
 //! v7.33.0: No truncation, real updates, peripheral inventory, sensors
 //! - Working auto-update scheduler with real timestamps

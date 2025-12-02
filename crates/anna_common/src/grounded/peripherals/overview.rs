@@ -1,6 +1,7 @@
-//! Hardware Overview v7.25.0
+//! Hardware Overview v7.35.1
 //!
 //! Aggregates all peripheral discovery into a complete hardware overview.
+//! v7.35.1: Added network_interfaces for AVAILABLE QUERIES section
 
 use std::process::Command;
 use super::types::HardwareOverview;
@@ -17,7 +18,7 @@ pub fn get_hardware_overview() -> HardwareOverview {
     let (gpu_discrete, gpu_integrated) = get_gpu_counts();
     let memory_gib = get_memory_gib();
     let (storage_devices, storage_names) = get_storage_info();
-    let (network_wired, network_wireless) = get_network_counts();
+    let (network_wired, network_wireless, network_interfaces) = get_network_info();
     let (battery_count, ac_present) = get_power_info();
 
     HardwareOverview {
@@ -30,6 +31,7 @@ pub fn get_hardware_overview() -> HardwareOverview {
         storage_names,
         network_wired,
         network_wireless,
+        network_interfaces,
         bluetooth: get_bluetooth_summary(),
         usb: get_usb_summary(),
         audio: get_audio_summary(),
@@ -141,9 +143,11 @@ fn get_storage_info() -> (u32, Vec<String>) {
     (devices.len() as u32, devices)
 }
 
-fn get_network_counts() -> (u32, u32) {
+/// v7.35.1: Returns (wired_count, wireless_count, interface_names)
+fn get_network_info() -> (u32, u32, Vec<String>) {
     let mut wired = 0u32;
     let mut wireless = 0u32;
+    let mut interfaces = Vec::new();
 
     let net_path = std::path::Path::new("/sys/class/net");
     if let Ok(entries) = std::fs::read_dir(net_path) {
@@ -156,13 +160,15 @@ fn get_network_counts() -> (u32, u32) {
             let wireless_path = entry.path().join("wireless");
             if wireless_path.exists() {
                 wireless += 1;
+                interfaces.push(name);
             } else if name.starts_with("e") || name.starts_with("en") {
                 wired += 1;
+                interfaces.push(name);
             }
         }
     }
 
-    (wired, wireless)
+    (wired, wireless, interfaces)
 }
 
 fn get_power_info() -> (u32, bool) {
