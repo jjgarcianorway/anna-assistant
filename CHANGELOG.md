@@ -2,6 +2,45 @@
 
 All notable changes to Anna are documented in this file.
 
+## [7.37.0] - 2025-12-02
+
+### Added
+
+- **Auto-update scheduler** - Functional update checks with proper state persistence:
+  - State file created on daemon start at `/var/lib/anna/internal/update_state.json`
+  - `Last check` shows real timestamps (never shows "never" after first check)
+  - `Next check` shows scheduled time with countdown
+  - Exponential backoff on failures (capped at 1 hour)
+- **Instrumentation state tracking** - New module for tool install tracking:
+  - Records tool_id, package, install_time, reason, scope, trigger, result
+  - Persists to `/var/lib/anna/internal/instrumentation_state.json`
+  - Explicit clean statement when no tools installed: "none (clean)"
+- **Idle detection module** - System load and pacman lock awareness:
+  - CPU load threshold (1-minute average < 2.0)
+  - Pacman lock detection (`/var/lib/pacman/db.lck`)
+  - Safe for background operations
+- **Explicit clean statements** - All logs sections show clean status when empty:
+  - `Installed: none (clean)` for instrumentation
+  - `(no ops recorded yet, clean)` for ops log
+  - `(ready)` or `(will create on daemon start)` for internal dir
+
+### Changed
+
+- Daemon creates all internal paths on startup (including kdb/chunks, kdb/facts)
+- Status [UPDATES] shows "not yet (first check pending)" instead of "never"
+- Status [INSTRUMENTATION] shows auto-install status, AUR gate, rate limit
+- Status [PATHS] shows explicit ready/missing status for internal dir
+- Installer version detection uses target path binary first
+
+### Fixed
+
+- **Update scheduler actually runs** - Proper initialization on daemon start
+- **Installer version detection** - Uses `/usr/local/bin/annad --version` first
+- **Internal paths created** - All directories created on daemon startup
+- **Clean statements** - No empty sections, always explicit status
+
+---
+
 ## [7.36.0] - 2025-12-02
 
 ### Added

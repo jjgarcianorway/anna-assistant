@@ -1,4 +1,9 @@
-//! Anna Daemon (annad) v7.36.0 - Bounded Knowledge Daemon
+//! Anna Daemon (annad) v7.37.0 - Auto-Update & Instrumentation Engine
+//!
+//! v7.37.0: Functional update scheduler and instrumentation
+//! - Auto-update scheduler that actually runs and persists state
+//! - Internal paths created on daemon start
+//! - Idle-aware background operations
 //!
 //! Pure system intelligence daemon:
 //! - Tracks ALL commands on PATH
@@ -641,19 +646,34 @@ async fn main() -> Result<()> {
     server::run(app_state).await
 }
 
-/// Ensure data directories exist
+/// Ensure data directories exist and initialize state files (v7.37.0)
 fn ensure_data_dirs() {
     let dirs = [
         "/var/lib/anna",
         "/var/lib/anna/knowledge",
         "/var/lib/anna/telemetry",
         "/var/lib/anna/internal",  // v7.33.0: Always create internal dir
+        "/var/lib/anna/kdb",       // v7.36.0: Chunk store
+        "/var/lib/anna/kdb/chunks",
+        "/var/lib/anna/kdb/facts",
     ];
 
     for dir in &dirs {
         if let Err(e) = std::fs::create_dir_all(dir) {
             warn!("[!]  Failed to create {}: {}", dir, e);
         }
+    }
+
+    // v7.37.0: Initialize update state on daemon start
+    // This ensures state file exists and next_check_at is set
+    use anna_common::config::UpdateState;
+    let mut update_state = UpdateState::load();
+    update_state.initialize_on_start();
+    if let Err(e) = update_state.save() {
+        warn!("[!]  Failed to initialize update state: {}", e);
+    } else {
+        info!("[+]  Update state initialized: mode={}, next={}",
+            update_state.format_mode(), update_state.format_next_check());
     }
 }
 

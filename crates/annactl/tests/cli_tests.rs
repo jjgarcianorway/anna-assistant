@@ -696,7 +696,7 @@ fn test_annactl_version_flag_works() {
 
     // --version should output version string (v7.35.1+)
     assert!(
-        stdout.contains("7.36") || stdout.contains("annactl"),
+        stdout.contains("7.37") || stdout.contains("annactl"),
         "Expected '--version' to output version, got: {}",
         stdout
     );
@@ -4875,10 +4875,10 @@ fn test_snow_leopard_status_instrumentation_v726() {
         "annactl status should have [INSTRUMENTATION] section"
     );
 
-    // v7.27.0: Simplified format - just shows "Tools installed by Anna..."
+    // v7.37.0: Enhanced format with auto-install, AUR gate, rate limit, and installed count
     assert!(
-        stdout.contains("Tools installed by Anna"),
-        "[INSTRUMENTATION] should show v7.27.0 simplified format"
+        stdout.contains("Auto-install:") || stdout.contains("Installed:"),
+        "[INSTRUMENTATION] should show v7.37.0 format with Auto-install or Installed"
     );
 
     assert!(output.status.success());
@@ -4962,10 +4962,10 @@ fn test_snow_leopard_instrumentation_installed_count_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v7.27.0: Shows "Tools installed by Anna for metrics: none" or tool list
+    // v7.37.0: Shows "Installed: none (clean)" or "Installed: N tool(s)"
     assert!(
-        stdout.contains("Tools installed by Anna"),
-        "[INSTRUMENTATION] should show v7.27.0 simplified format: {}",
+        stdout.contains("Installed:"),
+        "[INSTRUMENTATION] should show Installed field: {}",
         stdout
     );
 
@@ -5022,10 +5022,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.36 (updated for v7.36.0)
+    // [VERSION] section should show 7.37 (updated for v7.37.0)
     assert!(
-        stdout.contains("7.36"),
-        "status should show version 7.36: {}",
+        stdout.contains("7.37"),
+        "status should show version 7.37: {}",
         stdout
     );
 
@@ -5157,11 +5157,10 @@ fn test_snow_leopard_instrumentation_none_format_v727() {
     // [INSTRUMENTATION] section should exist
     assert!(stdout.contains("[INSTRUMENTATION]"), "Status should have [INSTRUMENTATION] section");
 
-    // v7.27.0: Should have simplified format - either "none" or tool list
-    // The word "Tools" should appear indicating the new format
+    // v7.37.0: Should have enhanced format with Auto-install and Installed fields
     assert!(
-        stdout.contains("Tools installed by Anna"),
-        "[INSTRUMENTATION] should have v7.27.0 format 'Tools installed by Anna...'"
+        stdout.contains("Auto-install:") && stdout.contains("Installed:"),
+        "[INSTRUMENTATION] should have v7.37.0 format with Auto-install and Installed fields"
     );
 }
 

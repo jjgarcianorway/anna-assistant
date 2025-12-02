@@ -1,4 +1,10 @@
-//! Status Command v7.31.0 - Telemetry Correctness Release
+//! Status Command v7.37.0 - Auto-Update & Instrumentation Engine
+//!
+//! v7.37.0: Functional auto-update and auto-install with explicit clean statements
+//! - Auto-update scheduler shows real timestamps (never shows "never" after first run)
+//! - Auto-install shows installed tools with dates, scopes, versions
+//! - Explicit clean statements in all logs sections
+//! - Internal paths created on daemon start
 //!
 //! v7.31.0: Concrete telemetry readiness, correct percent formatting, truthful updates
 //!
@@ -67,6 +73,8 @@ use anna_common::grounded::peripherals::{
 };
 // v7.27.0: Instrumentation (simplified per spec)
 use anna_common::InstrumentationManifest;
+// v7.37.0: Chrono for duration calculation
+use chrono;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -873,9 +881,17 @@ fn print_updates_section() {
     // Interval
     println!("  Interval:   {}", state.format_interval());
 
-    // Last check - v7.34.0: show real timestamp or "never"
-    let last_check_str = if !daemon_running && state.last_check_at == 0 {
-        "never (daemon not running)".to_string()
+    // Last check - v7.37.0: show "not yet" instead of "never" when daemon running
+    use anna_common::config::UpdateMode;
+    let last_check_str = if state.last_check_at == 0 {
+        if daemon_running && state.mode == UpdateMode::Auto {
+            // Daemon running but never checked - first check pending
+            "not yet (first check pending)".to_string()
+        } else if !daemon_running {
+            "never (daemon not running)".to_string()
+        } else {
+            "never".to_string()
+        }
     } else {
         state.format_last_check()
     };
@@ -884,12 +900,13 @@ fn print_updates_section() {
     // Result
     println!("  Result:     {}", state.format_last_result());
 
-    // Next check - v7.34.0: show proper status based on daemon state
-    use anna_common::config::UpdateMode;
+    // Next check - v7.37.0: show proper status based on daemon state
     let next_str = match state.mode {
         UpdateMode::Auto => {
             if !daemon_running {
                 "not running (daemon down)".to_string()
+            } else if state.next_check_at == 0 {
+                "pending initialization".to_string()
             } else {
                 state.format_next_check()
             }
@@ -944,15 +961,20 @@ fn print_paths_section() {
         println!("  Data:       {} {}", DATA_DIR, "(missing)".yellow());
     }
 
-    // Internal dir with ops.log
+    // Internal dir - v7.37.0: show status clearly
     let internal_exists = Path::new(INTERNAL_DIR).exists();
     if internal_exists {
-        println!("  Internal:   {}", INTERNAL_DIR);
+        println!("  Internal:   {} {}", INTERNAL_DIR, "(ready)".green());
     } else {
-        println!("  Internal:   {} {}", INTERNAL_DIR, "(not created)".dimmed());
+        // v7.37.0: If daemon is running, this is a problem
+        if is_daemon_running() {
+            println!("  Internal:   {} {}", INTERNAL_DIR, "(missing - daemon error)".red());
+        } else {
+            println!("  Internal:   {} {}", INTERNAL_DIR, "(will create on daemon start)".dimmed());
+        }
     }
 
-    // v7.12.0: ops.log status
+    // v7.37.0: ops.log status with explicit clean statement
     let ops_status = get_ops_log_status();
     println!("  Ops log:    {}", ops_status);
 
@@ -966,17 +988,18 @@ fn print_paths_section() {
     println!();
 }
 
-/// v7.12.0: Get ops.log status for [PATHS] section
+/// v7.37.0: Get ops.log status for [PATHS] section with explicit clean statement
 fn get_ops_log_status() -> String {
     let reader = OpsLogReader::new();
 
     if !reader.exists() {
-        return format!("{} {}", OPS_LOG_FILE, "(no operations recorded)".dimmed());
+        // v7.37.0: Explicit clean statement
+        return format!("{} {}", OPS_LOG_FILE, "(no ops recorded yet, clean)".dimmed());
     }
 
     let summary = reader.get_summary();
     if summary.total_entries == 0 {
-        return format!("{} {}", OPS_LOG_FILE, "(empty)".dimmed());
+        return format!("{} {}", OPS_LOG_FILE, "(empty, clean)".dimmed());
     }
 
     format!("{} ({})", OPS_LOG_FILE, summary.format_compact())
@@ -1374,22 +1397,47 @@ async fn get_daemon_stats() -> Option<DaemonStats> {
 // [INSTRUMENTATION] Section - v7.27.0
 // ============================================================================
 
-/// v7.27.0: [INSTRUMENTATION] section - tools installed by Anna for metrics
-/// Per spec: If none installed, print a single line. Do not dump full system package lists.
+/// v7.37.0: [INSTRUMENTATION] section - tools installed by Anna for metrics
+/// Per spec: If none installed, print explicit clean statement
 fn print_instrumentation_section() {
     let manifest = InstrumentationManifest::load();
+    let config = AnnaConfig::load();
 
     println!("{}", "[INSTRUMENTATION]".cyan());
 
-    // v7.27.0: If none installed, single line per spec
+    // Show auto-install status
+    let auto_install_str = if config.instrumentation.auto_install_enabled {
+        "enabled".green().to_string()
+    } else {
+        "disabled".dimmed().to_string()
+    };
+    println!("  Auto-install:   {}", auto_install_str);
+
+    // Show AUR gate status
+    let aur_str = if config.instrumentation.allow_aur {
+        "allowed".yellow().to_string()
+    } else {
+        "blocked".dimmed().to_string()
+    };
+    println!("  AUR packages:   {}", aur_str);
+
+    // Show rate limit
+    let today_count = manifest.recent_attempts
+        .iter()
+        .filter(|a| a.success && a.attempted_at > chrono::Utc::now() - chrono::Duration::hours(24))
+        .count();
+    println!("  Rate limit:     {}/{} installs today",
+        today_count, config.instrumentation.max_installs_per_day);
+
+    // v7.37.0: Explicit clean statement if none installed
     if manifest.installed_count() == 0 {
-        println!("  Tools installed by Anna for metrics: {}", "none".dimmed());
+        println!("  Installed:      {} {}", "none".dimmed(), "(clean)".green());
         println!();
         return;
     }
 
     // Show installed tools with details
-    println!("  Tools installed by Anna for metrics:");
+    println!("  Installed:      {} tool(s)", manifest.installed_count());
     for tool in manifest.installed_tools() {
         let since = tool.installed_at.format("%Y-%m-%d").to_string();
         let aur_note = if tool.source == "aur" {

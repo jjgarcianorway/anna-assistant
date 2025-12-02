@@ -1,8 +1,13 @@
-//! Anna CLI (annactl) v7.36.0 - Bounded Knowledge CLI
+//! Anna CLI (annactl) v7.37.0 - Auto-Update & Instrumentation Engine
+//!
+//! v7.37.0: Functional auto-update and auto-install
+//! - Auto-update scheduler shows real timestamps
+//! - Instrumentation shows installed tools with explicit clean statements
+//! - Internal paths created on daemon start
 //!
 //! Commands (exactly 7, no aliases):
 //! - annactl             show help
-//! - annactl --version   show version (v7.35.1)
+//! - annactl --version   show version
 //! - annactl status      health and runtime of Anna
 //! - annactl sw          software overview (packages, commands, services)
 //! - annactl sw NAME     software profile

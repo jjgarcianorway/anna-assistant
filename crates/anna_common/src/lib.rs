@@ -1,14 +1,19 @@
-//! Anna Common v7.36.0 - Bounded Knowledge & Chunked Storage
+//! Anna Common v7.37.0 - Auto-Update & Instrumentation Engine
 //!
-//! v7.36.0: NO LLM, NO NATURAL LANGUAGE - Hard token limit guarantees
+//! v7.37.0: NO LLM, NO NATURAL LANGUAGE - Functional auto-update and auto-install
+//! - Auto-update scheduler that actually runs and persists state
+//! - Instrumentation engine that installs scoped tools on-demand
+//! - Idle-aware scanning and installation (respects CPU/pacman lock)
+//! - Explicit clean statements in all logs sections
+//! - Correct installer version detection (binary --version precedence)
+//! - Internal paths created on daemon start
+//!
+//! v7.36.0: Bounded Knowledge & Chunked Storage
 //! - MAX_CHUNK_BYTES = 16,384 (16 KiB) per chunk
 //! - MAX_DOC_BYTES = 512,000 (500 KiB) total per document
 //! - Chunked storage with index for all large content
 //! - Deterministic fact extraction (config paths, units, modules, packages)
 //! - Bounded rendering with page budgets per command
-//! - No single field can exceed chunk size
-//! - Truncation at ingest (not display) with metadata tracking
-//! - Knowledge store modularized: index.json + chunks/ + facts/
 //!
 //! v7.35.1: Version detection and platform discovery
 //! - Installer version detection with strict precedence (annad/annactl --version)
@@ -169,6 +174,9 @@ pub mod scoped_scan;
 pub mod update_checker;
 // v7.36.0: Bounded knowledge storage with chunking
 pub mod chunk_store;
+// v7.37.0: Idle detection and instrumentation state
+pub mod idle;
+pub mod instrumentation_state;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};

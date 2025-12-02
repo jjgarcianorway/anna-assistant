@@ -1,10 +1,11 @@
 #!/bin/bash
-# Anna Installer v7.35.1 - Strict Version Detection
+# Anna Installer v7.37.0 - Correct Version Detection
 #
 # This installer is versioned INDEPENDENTLY from Anna itself.
-# Installer version: 7.35.1
+# Installer version: 7.37.0
 # Anna version: fetched from GitHub releases
 #
+# v7.37.0: Fixed version detection - uses target path binaries explicitly
 # v7.35.1: Strict version detection precedence:
 #   1. annad --version (if annad exists on PATH)
 #   2. annactl --version (if annactl exists on PATH)
@@ -36,7 +37,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="7.35.1"
+INSTALLER_VERSION="7.37.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -181,33 +182,52 @@ detect_installed_version() {
     INSTALLED_VERSION=""
     local output version
 
-    # Precedence 1: annad --version (preferred - daemon is authoritative)
+    # v7.37.0: Precedence 1 - Target path binary (INSTALL_DIR/annad)
+    # This is the authoritative version - what will actually run
+    if [[ -x "${INSTALL_DIR}/annad" ]]; then
+        output=$(timeout 5 "${INSTALL_DIR}/annad" --version </dev/null 2>&1) || true
+        if [[ "$output" =~ v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            version=$(normalize_version "${BASH_REMATCH[1]}")
+            if [[ "$version" != "unknown" ]]; then
+                INSTALLED_VERSION="$version"
+                log_info "Detected version via ${INSTALL_DIR}/annad --version: v${INSTALLED_VERSION}"
+                return
+            fi
+        fi
+    fi
+
+    # v7.37.0: Precedence 2 - Target path annactl
+    if [[ -x "${INSTALL_DIR}/annactl" ]]; then
+        output=$(timeout 5 "${INSTALL_DIR}/annactl" --version </dev/null 2>&1) || true
+        if [[ "$output" =~ v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            version=$(normalize_version "${BASH_REMATCH[1]}")
+            if [[ "$version" != "unknown" ]]; then
+                INSTALLED_VERSION="$version"
+                log_info "Detected version via ${INSTALL_DIR}/annactl --version: v${INSTALLED_VERSION}"
+                return
+            fi
+        fi
+    fi
+
+    # v7.37.0: Precedence 3 - Check PATH but warn if different from target
     if command -v annad &>/dev/null; then
-        output=$(timeout 5 "${INSTALL_DIR}/annad" --version </dev/null 2>&1 || timeout 5 annad --version </dev/null 2>&1) || true
+        local path_annad
+        path_annad=$(command -v annad)
+        if [[ "$path_annad" != "${INSTALL_DIR}/annad" ]]; then
+            log_warn "Found annad at $path_annad (not target path ${INSTALL_DIR}/annad)"
+        fi
+        output=$(timeout 5 "$path_annad" --version </dev/null 2>&1) || true
         if [[ "$output" =~ v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
             version=$(normalize_version "${BASH_REMATCH[1]}")
             if [[ "$version" != "unknown" ]]; then
                 INSTALLED_VERSION="$version"
-                log_info "Detected version via annad --version: v${INSTALLED_VERSION}"
+                log_info "Detected version via PATH annad --version: v${INSTALLED_VERSION}"
                 return
             fi
         fi
     fi
 
-    # Precedence 2: annactl --version
-    if command -v annactl &>/dev/null; then
-        output=$(timeout 5 "${INSTALL_DIR}/annactl" version </dev/null 2>&1 || timeout 5 annactl version </dev/null 2>&1) || true
-        if [[ "$output" =~ v?([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            version=$(normalize_version "${BASH_REMATCH[1]}")
-            if [[ "$version" != "unknown" ]]; then
-                INSTALLED_VERSION="$version"
-                log_info "Detected version via annactl version: v${INSTALLED_VERSION}"
-                return
-            fi
-        fi
-    fi
-
-    # Precedence 3: version.json stamp file
+    # Precedence 4: version.json stamp file
     local version_file="${DATA_DIR}/internal/version.json"
     if [[ -f "$version_file" ]]; then
         version=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"v?([0-9]+\.[0-9]+\.[0-9]+)"' "$version_file" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || true
@@ -221,7 +241,7 @@ detect_installed_version() {
         fi
     fi
 
-    # Precedence 4: Not installed
+    # Precedence 5: Not installed
     log_info "No installed version detected"
 }
 
