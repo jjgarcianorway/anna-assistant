@@ -86,10 +86,9 @@ fn print_overview_section() {
     // Memory
     println!("  Memory:       {:.0} GiB", hw.memory_gib);
 
-    // Storage
+    // Storage - v7.42.4: show all names, no truncation
     if hw.storage_devices > 0 {
-        let names = hw.storage_names.iter().take(3)
-            .cloned().collect::<Vec<_>>().join(", ");
+        let names = hw.storage_names.join(", ");
         println!("  Storage:      {} device(s) ({})", hw.storage_devices, names);
     }
 
@@ -280,16 +279,16 @@ fn print_available_queries_section() {
 
     println!("  Categories:   {}", categories.join(", "));
 
-    // Detected devices - specific queryable devices
+    // Detected devices - specific queryable devices (v7.42.4: no truncation)
     let mut devices: Vec<String> = Vec::new();
 
     // Storage devices
-    for name in hw.storage_names.iter().take(4) {
+    for name in &hw.storage_names {
         devices.push(name.clone());
     }
 
     // Network interfaces
-    for iface in hw.network_interfaces.iter().take(3) {
+    for iface in &hw.network_interfaces {
         devices.push(iface.clone());
     }
 
@@ -827,7 +826,8 @@ fn print_network_section() {
     if dns.servers.is_empty() {
         println!("    {}", "none configured".dimmed());
     } else {
-        let servers_str = dns.servers.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
+        // v7.42.4: Show all DNS servers, no truncation
+        let servers_str = dns.servers.join(", ");
         println!("    {} (source: {})", servers_str, dns.source);
     }
 
@@ -1437,10 +1437,10 @@ fn print_hw_impact_section() {
         }
     }
 
-    // Network usage
+    // Network usage - v7.42.4: show all interfaces, no truncation
     if !impact.network_usage.is_empty() {
         println!("  Network I/O (since boot):");
-        for net in impact.network_usage.iter().take(3) {
+        for net in &impact.network_usage {
             println!("    {:8} RX: {} TX: {}",
                 net.interface,
                 format_bytes_compact(net.rx_bytes_24h),

@@ -163,34 +163,21 @@ fn print_categories(snapshot: &SwSnapshot, is_full: bool) {
     println!("{}", "[CATEGORIES]".cyan());
     println!("  {}", "(from package descriptions)".dimmed());
 
-    let max_cats = if is_full { usize::MAX } else { 8 };
-    let max_items = if is_full { usize::MAX } else { 8 };
-
-    for cat in snapshot.categories.iter().take(max_cats) {
-        // Skip "Other" in compact mode
+    // v7.42.4: Show all categories and items - no truncation
+    for cat in &snapshot.categories {
+        // Skip "Other" in compact mode (usually noise)
         if !is_full && cat.name == "Other" {
             continue;
         }
 
-        let display = if cat.packages.len() <= max_items {
-            cat.packages.join(", ")
-        } else {
-            format!("{} (+{} more)",
-                cat.packages.iter().take(max_items).cloned().collect::<Vec<_>>().join(", "),
-                cat.packages.len() - max_items)
-        };
-
+        let display = cat.packages.join(", ");
         println!("  {:<14} {}", format!("{}:", cat.name), display);
-    }
-
-    if !is_full && snapshot.categories.len() > max_cats {
-        println!("  {}", format!("(+{} more categories)", snapshot.categories.len() - max_cats).dimmed());
     }
 
     println!();
 }
 
-fn print_platforms(snapshot: &SwSnapshot, is_full: bool) {
+fn print_platforms(snapshot: &SwSnapshot, _is_full: bool) {
     println!("{}", "[PLATFORMS]".cyan());
 
     let total_gb = snapshot.platforms.steam_total_size_bytes as f64 / 1024.0 / 1024.0 / 1024.0;
@@ -198,55 +185,41 @@ fn print_platforms(snapshot: &SwSnapshot, is_full: bool) {
         snapshot.platforms.steam_game_count,
         total_gb);
 
-    // Show top games
-    let max_games = if is_full { 10 } else { 3 };
-    for game in snapshot.platforms.steam_top_games.iter().take(max_games) {
+    // v7.42.4: Show all top games - no truncation
+    for game in &snapshot.platforms.steam_top_games {
         let size_gb = game.size_bytes as f64 / 1024.0 / 1024.0 / 1024.0;
         println!("    {} ({:.1} GiB)", game.name, size_gb);
-    }
-
-    if snapshot.platforms.steam_game_count > max_games {
-        println!("    {}", format!("(+{} more)", snapshot.platforms.steam_game_count - max_games).dimmed());
     }
 
     println!();
 }
 
-fn print_config_coverage(snapshot: &SwSnapshot, is_full: bool) {
+fn print_config_coverage(snapshot: &SwSnapshot, _is_full: bool) {
     let cov = &snapshot.config_coverage;
     let pct = (cov.apps_with_config as f64 / cov.total_apps as f64 * 100.0) as u32;
 
     println!("{}", "[CONFIG COVERAGE]".cyan());
     println!("  Coverage: {}/{} known apps ({}%)", cov.apps_with_config, cov.total_apps, pct);
 
-    if is_full && !cov.app_names.is_empty() {
+    // v7.42.4: Always show detected apps - no truncation
+    if !cov.app_names.is_empty() {
         println!("  Detected: {}", cov.app_names.join(", "));
     }
 
     println!();
 }
 
-fn print_topology(snapshot: &SwSnapshot, is_full: bool) {
+fn print_topology(snapshot: &SwSnapshot, _is_full: bool) {
     println!("{}", "[TOPOLOGY]".cyan());
 
-    // Stacks (roles)
-    let max_components = if is_full { usize::MAX } else { 4 };
+    // v7.42.4: Show all components - no truncation
     for role in &snapshot.topology.roles {
-        let components = role.components.iter()
-            .take(max_components)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(", ");
-        let suffix = if role.components.len() > max_components {
-            format!(" +{}", role.components.len() - max_components)
-        } else {
-            String::new()
-        };
-        println!("  {:<14} {}{}", role.name.cyan(), components, suffix);
+        let components = role.components.join(", ");
+        println!("  {:<14} {}", role.name.cyan(), components);
     }
 
-    // Service groups (full mode only)
-    if is_full && !snapshot.topology.service_groups.is_empty() {
+    // v7.42.4: Always show service groups if present
+    if !snapshot.topology.service_groups.is_empty() {
         println!("  {}", "Service Groups:".dimmed());
         for group in &snapshot.topology.service_groups {
             let services = group.services.join(", ");
