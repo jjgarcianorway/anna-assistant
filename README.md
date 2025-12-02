@@ -1,8 +1,8 @@
-# Anna v7.22.0 "Scenario Lenses & Self Toolchain Hygiene"
+# Anna v7.23.0 "Timelines, Drift & Incidents"
 
 **System Intelligence Daemon for Linux**
 
-> v7.22.0: Category-aware scenario lenses for hardware (network, storage) and software (network, display, audio, power) with curated views showing [IDENTITY], [TOPOLOGY], [TELEMETRY], [EVENTS], [LOGS]. Self toolchain hygiene tracks Anna's own diagnostic tools with [ANNA TOOLCHAIN] section in status.
+> v7.23.0: Time-anchored views with percentage+range CPU format, trend labels (stable/rising/falling), boot snapshots with incident summaries, inventory drift detection, and stronger config path hygiene with explicit provenance.
 
 ---
 
@@ -63,86 +63,112 @@ annactl hw network
 
 ---
 
+## v7.23.0 Features
+
+### Time-Anchored Usage Views
+
+Software profiles now show `[USAGE]` section with percentage+range format for CPU:
+
+```
+[USAGE]
+  Source: Anna telemetry (/var/lib/anna/telemetry/sw/vim.db)
+
+  CPU:
+    last 1h:    12 percent (0 - 1600 percent for 16 logical cores)
+    last 24h:   8 percent
+    last 7d:    10 percent
+    last 30d:   9 percent
+    trend:      stable (+2% 24h vs 7d)
+
+  Memory:
+    last 1h:    45 MiB avg, 120 MiB peak
+    last 24h:   42 MiB avg, 150 MiB peak
+    trend:      stable (-3 MiB)
+```
+
+Trend labels:
+- **stable**: within ±10% of baseline
+- **rising**: increasing by more than 10%
+- **falling**: decreasing by more than 10%
+
+### Boot Snapshots with Incident Summary
+
+Status now shows `[BOOT SNAPSHOT]` section with boot-anchored incident tracking:
+
+```
+[BOOT SNAPSHOT]
+  Current boot:
+    started:        2025-12-02 07:13:21 CET
+    uptime:         3h 21m
+    Anna start:     2025-12-02 07:13:45 CET
+    Anna uptime:    3h 20m
+
+  Incidents (current boot, warning and above, grouped):
+    [NET001] NetworkManager: carrier lost  (seen 2 times)
+    [GPU002] nvidia: TDP cap reached       (seen 1 time)
+    [STO003] nvme: temperature warning     (seen 3 times)
+```
+
+Pattern IDs based on component type:
+- **NET**: network-related
+- **GPU**: graphics-related
+- **STO**: storage-related
+- **AUD**: audio-related
+- **PWR**: power-related
+- **KRN**: kernel-related
+- **SYS**: systemd-related
+
+### Inventory Drift Detection
+
+Status `[INVENTORY]` section now shows drift indicator:
+
+```
+[INVENTORY]
+  Packages:   972  (from pacman -Q)
+  Commands:   2656 (from $PATH)
+  Services:   260  (from systemctl)
+  Network:    1 interfaces (wifi: wlp0s20f3 [up])
+  Sync:       changed (+2 packages, -1 service since last scan)
+```
+
+### Stronger Config Hygiene with Provenance
+
+Config sections now show explicit source attribution:
+
+```
+[CONFIG]
+  Source: filesystem + man vim + Arch Wiki (Vim)
+
+  Existing:
+    ~/.vimrc                [present]  (user config)
+    ~/.vim                  [present]  (user config)
+    /etc/vimrc              [present]  (system config)
+
+  Recommended (not present):
+    $XDG_CONFIG_HOME/vim/vimrc  [not present]
+```
+
+Config discovery rules:
+- Only show paths that actually exist
+- At most one recommended path that doesn't exist yet
+- No foreign config paths (no mako configs in hyprland output)
+- Every hint has explicit Source: line
+
+---
+
 ## v7.22.0 Features
 
 ### Scenario Lenses for Hardware Categories
 
-Hardware category commands (`annactl hw network`, `annactl hw storage`) now display curated scenario lenses with structured sections:
-
-```
-  Anna HW Lens: network
-------------------------------------------------------------
-
-[IDENTITY]
-  Name:         wlp0s20f3
-  Type:         wifi
-  Driver:       iwlwifi
-  Firmware:     iwlwifi-ty-a0-gf-a0-89.ucode
-
-[TOPOLOGY]
-  MAC:          f8:fe:5e:8d:a4:28
-  State:        connected
-  IP:           192.168.1.42/24
-  Speed:        866 MBit/s
-
-[TELEMETRY]
-  RX:           2.4 GiB
-  TX:           9.9 GiB
-  Signal:       -52 dBm (excellent)
-
-[EVENTS]
-  (last 24h from journalctl)
-  12:30  wlp0s20f3: connected to MyNetwork
-  12:28  wlp0s20f3: link becomes ready
-
-[LOGS]
-  (warnings/errors this boot)
-  NET001  connection timeout  (count: 2)
-  NET002  DNS retry           (count: 5)
-```
+Hardware category commands (`annactl hw network`, `annactl hw storage`) now display curated scenario lenses with structured sections.
 
 ### Scenario Lenses for Software Categories
 
-Software category commands (`annactl sw network`, `annactl sw display`, `annactl sw audio`, `annactl sw power`) now display curated scenario lenses:
-
-```
-  Anna SW Lens: network
-------------------------------------------------------------
-
-[SERVICES]
-  NetworkManager.service        active (running)
-  wpa_supplicant.service        active (running)
-  systemd-resolved.service      active (running)
-
-[CONFIG]
-  /etc/NetworkManager/NetworkManager.conf   [present]
-  /etc/resolv.conf                          [present]
-  /etc/nsswitch.conf                        [present]
-
-[LOGS]
-  (from journalctl, last 24h)
-  NET001  connection established  (count: 3)
-  NET002  DHCP lease renewed      (count: 1)
-```
+Software category commands (`annactl sw network`, `annactl sw display`, `annactl sw audio`, `annactl sw power`) now display curated scenario lenses.
 
 ### Self Toolchain Hygiene
 
-Anna now tracks her own diagnostic tools with the [ANNA TOOLCHAIN] section in `annactl status`:
-
-```
-[ANNA TOOLCHAIN]
-  Local wiki:     ready
-  Storage tools:  ready
-  Network tools:  ready
-```
-
-Allowed tools (diagnostic only):
-- **Documentation**: arch-wiki-docs
-- **Storage**: smartmontools, nvme-cli
-- **Network**: ethtool, iw
-- **Hardware**: pciutils, usbutils, lm_sensors
-
-Operations are logged to `/var/lib/anna/internal/ops.log`.
+Anna tracks her own diagnostic tools with the [ANNA TOOLCHAIN] section in `annactl status`.
 
 ---
 
@@ -1038,8 +1064,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 ### Manual Install
 
 ```bash
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.22.0/annad-7.22.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
-sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.22.0/annactl-7.22.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.23.0/annad-7.23.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annad
+sudo curl -L https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.23.0/annactl-7.23.0-x86_64-unknown-linux-gnu -o /usr/local/bin/annactl
 sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
 ```
 
@@ -1127,7 +1153,8 @@ No Ollama. No LLM. No cloud services.
 
 | Version | Milestone |
 |---------|-----------|
-| **v7.22.0** | **Scenario Lenses & Self Toolchain Hygiene** - Category-aware scenario lenses for hw/sw, self toolchain hygiene, [ANNA TOOLCHAIN] section |
+| **v7.23.0** | **Timelines, Drift & Incidents** - Time-anchored usage views, boot snapshots with incidents, inventory drift, config provenance |
+| v7.22.0 | Scenario Lenses & Self Toolchain Hygiene - Category-aware scenario lenses for hw/sw, self toolchain hygiene, [ANNA TOOLCHAIN] section |
 | v7.21.0 | Config Atlas, Topology Maps & Impact View - Per-component config discovery, topology maps, resource impact |
 | v7.20.0 | Telemetry Trends & Golden Baselines - Deterministic trend labels, log atlas with pattern IDs, golden baselines for pattern comparison |
 | v7.19.0 | Topology, Dependencies & Signal Quality - Driver graphs, topology hints, WiFi/storage signal metrics |
