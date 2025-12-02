@@ -1,5 +1,12 @@
-//! Anna Common v7.31.0 - Telemetry Correctness Release
+//! Anna Common v7.32.0 - Categorization & Network Stability Release
 //!
+//! v7.32.0: Evidence-based categorization, Steam/platform detection, WiFi trends
+//! - Software categorization with evidence trail (desktop, pacman, man)
+//! - Steam game detection from local appmanifest files
+//! - Platform detection (Heroic, Lutris, Bottles) when present
+//! - WiFi signal/link quality trends (1h/24h/7d/30d)
+//! - On-demand scoped scans with time budget
+//! - Staleness model for datasets
 //! v7.31.0: Telemetry correctness and trend windows
 //! - Concrete readiness model (collecting/ready for 1h/24h/7d/30d)
 //! - Trend windows with proper availability checks
@@ -118,6 +125,9 @@ pub mod config_locator;
 // v7.31.0: Telemetry format and update state
 pub mod telemetry_format;
 pub mod update_state;
+// v7.32.0: Network trends and scoped scans
+pub mod network_trends;
+pub mod scoped_scan;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -357,4 +367,29 @@ pub use update_state::{
     UpdateResult as TelemetryUpdateResult,
     UpdateTarget, UPDATE_STATE_PATH,
     is_daemon_running as is_annad_running,
+};
+// v7.32.0: Network trends and scoped scans
+pub use network_trends::{
+    InterfaceType, WiFiSample, EthernetSample, NetworkTrendWindow, InterfaceTrends,
+    collect_wifi_sample, collect_ethernet_sample, detect_interface_type,
+    list_network_interfaces, is_iw_available as network_is_iw_available,
+    is_ethtool_available as network_is_ethtool_available, is_nmcli_available,
+    format_rssi, format_link_quality,
+};
+pub use scoped_scan::{
+    ScanScope, StalenessInfo, ScanResult, ScanData, ScopedScanner,
+    MountInfo, InterfaceInfo, TempSensor,
+    DEFAULT_TIME_BUDGET_MS, MAX_TIME_BUDGET_MS,
+};
+// v7.32.0: Evidence-based categorization and game platform detection
+pub use grounded::{
+    // Category evidence
+    Confidence, EvidenceSource, CategoryAssignment, classify_software,
+    // Steam detection
+    SteamGame, SteamLibrary, detect_steam_games, detect_steam_libraries,
+    find_steam_game, is_steam_installed, get_steam_root, get_steam_games_count,
+    format_game_size,
+    // Game platforms
+    Platform, PlatformGame, detect_heroic_games, detect_lutris_games,
+    detect_bottles_games, detect_all_platform_games, get_platforms_summary,
 };

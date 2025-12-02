@@ -1,4 +1,4 @@
-//! Grounded Knowledge System v7.25.0
+//! Grounded Knowledge System v7.32.0
 //!
 //! Every piece of data has a verifiable source.
 //! No invented numbers. No hallucinated descriptions.
@@ -11,6 +11,7 @@
 //! v7.17.0: Network topology, storage mapping, config graph.
 //! v7.19.0: Service topology, signal quality, topology hints.
 //! v7.25.0: Peripherals - USB, Bluetooth, Thunderbolt, SD, cameras, audio.
+//! v7.32.0: Evidence-based categorization, Steam/platform game detection.
 
 pub mod packages;
 pub mod commands;
@@ -31,6 +32,10 @@ pub mod config_graph;
 pub mod service_topology;
 pub mod signal_quality;
 pub mod peripherals;
+// v7.32.0: Evidence-based categorization and game platform detection
+pub mod category_evidence;
+pub mod steam;
+pub mod game_platforms;
 
 pub use packages::*;
 pub use commands::*;
@@ -51,3 +56,7 @@ pub use config_graph::*;
 pub use service_topology::*;
 pub use signal_quality::*;
 pub use peripherals::*;
+// v7.32.0: Evidence-based categorization and game platform detection
+pub use category_evidence::*;
+pub use steam::*;
+pub use game_platforms::*;
