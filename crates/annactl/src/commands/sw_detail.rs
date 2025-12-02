@@ -1,4 +1,4 @@
-//! SW Detail Command v7.28.0 - Zero Truncation & Config Reorganization
+//! SW Detail Command v7.30.0 - Config Truth Release
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -11,9 +11,9 @@
 //! - [SERVICE]      Unit, state, enabled
 //! - [SERVICE LIFECYCLE] Restarts, exit codes, activation failures (v7.16.0)
 //! - [DEPENDENCIES] Package deps and service relations (v7.13.0)
-//! - [CONFIG - DETECTED]        Existing config paths (v7.28.0)
-//! - [CONFIG - COMMON LOCATIONS] From man pages, package files (v7.28.0)
-//! - [CONFIG - PRECEDENCE]      Load order for existing configs (v7.28.0)
+//! - [CONFIG - DETECTED]        Existing config paths verified by stat (v7.30.0)
+//! - [CONFIG - RECOMMENDED]     From docs only, not detected (v7.30.0)
+//! - [CONFIG - PRECEDENCE]      Only if explicitly documented (v7.30.0)
 //! - [CONFIG GRAPH] Config relationships: reads, shared (v7.17.0)
 //! - [HISTORY]      Package lifecycle and config changes (v7.18.0)
 //! - [RELATIONSHIPS] Services, processes, hardware touched (v7.24.0)
@@ -39,7 +39,8 @@ use anna_common::grounded::{
 };
 use anna_common::ServiceLifecycle;
 use anna_common::change_journal::{get_package_history, get_config_history};
-use anna_common::config_atlas::{build_config_atlas, ConfigStatus};
+// v7.30.0: Evidence-based config discovery
+use anna_common::config_locator::{discover_config, ConfigDiscovery, ConfigScope};
 // v7.22.0: Software scenario lenses
 use anna_common::sw_lens::{
     is_sw_category, get_sw_category,
@@ -1079,64 +1080,84 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
-/// Print [CONFIG] section - v7.28.0 format with ConfigAtlas
-/// v7.28.0: Three subsections: DETECTED, COMMON LOCATIONS, PRECEDENCE
+/// Print [CONFIG] section - v7.30.0 format with evidence-based config locator
+/// v7.30.0: Two subsections: DETECTED (present), RECOMMENDED (not detected)
+/// Precedence only shown if EXPLICITLY documented (no guessing)
 fn print_config_section(name: &str) {
-    let atlas = build_config_atlas(name);
-
-    // v7.28.0: Collect only existing configs for "DETECTED"
-    let detected: Vec<_> = atlas.existing_configs.iter()
-        .filter(|c| c.status == ConfigStatus::Present)
-        .collect();
-
-    // v7.28.0: Collect documented locations (from man, pacman) for "COMMON LOCATIONS"
-    let common_locations: Vec<_> = atlas.recommended_defaults.iter()
-        .filter(|path| {
-            // Only include if not already in detected
-            !detected.iter().any(|c| &c.path == *path)
-        })
-        .collect();
-
-    // v7.28.0: Precedence order (existing files only)
-    let precedence: Vec<_> = atlas.precedence.iter()
-        .filter(|e| e.status == ConfigStatus::Present)
-        .collect();
+    let discovery = discover_config(name);
 
     // Skip entire section if nothing to show
-    if detected.is_empty() && common_locations.is_empty() && precedence.is_empty() {
+    if discovery.detected.is_empty() && discovery.recommended.is_empty() {
         return;
     }
 
-    // v7.28.0: [CONFIG - DETECTED] - only paths that exist on this machine
-    if !detected.is_empty() {
+    // v7.30.0: [CONFIG - DETECTED] - paths verified to exist via stat
+    if !discovery.detected.is_empty() {
         println!("{}", "[CONFIG - DETECTED]".cyan());
-        if !atlas.sources.is_empty() {
-            println!("  {}", format!("(sources: {})", atlas.sources.join(", ")).dimmed());
-        }
-        for cfg in &detected {
-            let category = format!("({})", cfg.category.label());
-            println!("  {}  {}", cfg.path, category.dimmed());
+        println!("  {}", "(verified present on this system)".dimmed());
+
+        for cfg in &discovery.detected {
+            let scope_str = format!("({})", cfg.scope.label());
+            let kind_str = format!("[{}]", cfg.kind.label());
+            let age_str = format_config_age(cfg.last_modified_epoch);
+
+            println!("  {}  {} {} {}",
+                cfg.path,
+                scope_str.dimmed(),
+                kind_str.dimmed(),
+                age_str.dimmed());
         }
         println!();
     }
 
-    // v7.28.0: [CONFIG - COMMON LOCATIONS] - from man pages or package files
-    if !common_locations.is_empty() {
-        println!("{}", "[CONFIG - COMMON LOCATIONS]".cyan());
-        println!("  {}", "(from man pages, package files)".dimmed());
-        for path in &common_locations {
-            println!("  {}", path);
+    // v7.30.0: [CONFIG - RECOMMENDED] - from docs only, NOT detected
+    // Only show paths that are NOT in detected
+    let detected_paths: std::collections::HashSet<_> = discovery.detected.iter()
+        .map(|d| &d.path)
+        .collect();
+
+    let undetected: Vec<_> = discovery.recommended.iter()
+        .filter(|r| !detected_paths.contains(&r.path_pattern))
+        .collect();
+
+    if !undetected.is_empty() {
+        println!("{}", "[CONFIG - RECOMMENDED]".cyan());
+        println!("  {}", "(from documentation, not detected on this system)".dimmed());
+
+        for rec in &undetected {
+            let scope_str = format!("({})", rec.scope.label());
+            let source_str = format!("[{}]", rec.source.label());
+
+            println!("  {}  {} {}",
+                rec.path_pattern,
+                scope_str.dimmed(),
+                source_str.dimmed());
+
+            // Show source reference if available
+            if !rec.source_ref.is_empty() {
+                println!("    {}", format!("Source: {}", rec.source_ref).dimmed());
+            }
         }
         println!();
     }
 
-    // v7.28.0: [CONFIG - PRECEDENCE] - load order for existing configs
-    if precedence.len() > 1 {
+    // v7.30.0: [CONFIG - PRECEDENCE] - ONLY if explicitly documented
+    // Do NOT invent precedence rules
+    if let Some(ref prec) = discovery.precedence {
         println!("{}", "[CONFIG - PRECEDENCE]".cyan());
-        println!("  {}", "(first match wins)".dimmed());
-        for (i, entry) in precedence.iter().enumerate() {
+        println!("  {}", "(explicitly documented load order)".dimmed());
+
+        for (i, path) in prec.paths.iter().enumerate() {
             let rank = format!("{}.", i + 1);
-            println!("  {:<3} {}", rank, entry.path);
+            println!("  {:<3} {}", rank, path);
+        }
+
+        // Show verbatim quote from docs
+        if !prec.verbatim_quote.is_empty() {
+            println!();
+            println!("  {}", "Documentation states:".dimmed());
+            println!("  {}", format!("\"{}\"", prec.verbatim_quote).dimmed());
+            println!("  {}", format!("Source: {}", prec.source_ref).dimmed());
         }
         println!();
     }

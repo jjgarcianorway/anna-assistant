@@ -1,4 +1,4 @@
-//! Anna Common v7.29.0 - Bugfix & Performance Release
+//! Anna Common v7.30.0 - Config Truth Release
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -107,6 +107,8 @@ pub mod auto_install;
 pub mod local_docs;
 // v7.28.0: Text wrapping for zero truncation
 pub mod text_wrap;
+// v7.30.0: Evidence-based config locator
+pub mod config_locator;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};

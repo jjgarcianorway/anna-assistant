@@ -1330,8 +1330,11 @@ fn test_snow_leopard_config_section_structure() {
         stdout
     );
 
-    // v7.28.0: Should have source attribution for DETECTED section
-    let has_attribution = stdout.contains("(sources:") || stdout.contains("(from man pages");
+    // v7.30.0: Should have source attribution for DETECTED or RECOMMENDED section
+    let has_attribution = stdout.contains("(sources:")
+        || stdout.contains("(from man pages")
+        || stdout.contains("(verified present")
+        || stdout.contains("(from documentation");
     assert!(
         has_attribution,
         "[CONFIG] should show source attribution: {}",
@@ -5018,10 +5021,10 @@ fn test_snow_leopard_version_in_status_v726() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // [VERSION] section should show 7.29 (updated for v7.29.0)
+    // [VERSION] section should show 7.30 (updated for v7.30.0)
     assert!(
-        stdout.contains("7.29"),
-        "status should show version 7.29: {}",
+        stdout.contains("7.30"),
+        "status should show version 7.30: {}",
         stdout
     );
 
