@@ -1,10 +1,11 @@
-//! SW Command v7.21.0 - Anna Software Overview
+//! SW Command v7.24.0 - Anna Software Overview
 //!
 //! Sections:
 //! - [OVERVIEW]          Counts of packages, commands, services
 //! - [CATEGORIES]        Rule-based categories from descriptions (sorted)
 //! - [TOPOLOGY]          Software stack roles and service groups (v7.21.0)
 //! - [IMPACT]            Top resource consumers from telemetry (v7.21.0)
+//! - [HOTSPOTS]          CPU, memory, most started processes (v7.24.0)
 //!
 //! This replaces the old `annactl kdb` command.
 
@@ -20,6 +21,7 @@ use anna_common::grounded::{
 use anna_common::config::AnnaConfig;
 use anna_common::topology_map::build_software_topology;
 use anna_common::impact_view::get_software_impact;
+use anna_common::hotspots::{get_software_hotspots, format_software_hotspots_section};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 const MAX_CATEGORY_ITEMS: usize = 10;
@@ -42,6 +44,9 @@ pub async fn run() -> Result<()> {
 
     // [IMPACT] - v7.21.0
     print_impact_section();
+
+    // [HOTSPOTS] - v7.24.0
+    print_hotspots_section();
 
     println!("{}", THIN_SEP);
     println!();
@@ -172,5 +177,29 @@ fn print_impact_section() {
         }
     }
 
+    println!();
+}
+
+/// Print [HOTSPOTS] section - v7.24.0
+/// Shows CPU, memory, and most started processes from telemetry
+fn print_hotspots_section() {
+    let config = AnnaConfig::load();
+    if !config.telemetry.enabled {
+        return;
+    }
+
+    let hotspots = get_software_hotspots();
+    if !hotspots.has_data {
+        return;
+    }
+
+    let lines = format_software_hotspots_section(&hotspots);
+    for line in lines {
+        if line.starts_with("[HOTSPOTS]") {
+            println!("{}", line.cyan());
+        } else {
+            println!("{}", line);
+        }
+    }
     println!();
 }

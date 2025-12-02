@@ -1,6 +1,8 @@
-//! HW Command v7.21.0 - Structured Hardware Overview
+//! HW Command v7.25.0 - Structured Hardware Overview
 //!
 //! Sections organized by category:
+//! - [OVERVIEW]   Device counts and system summary (v7.25.0)
+//! - [CATEGORIES] Bus summaries: USB, Bluetooth, Thunderbolt, SD (v7.25.0)
 //! - [CPU]        Model, cores, microcode
 //! - [GPU]        Integrated and discrete GPUs with drivers
 //! - [MEMORY]     Installed RAM, slots
@@ -14,6 +16,7 @@
 //! - [HOT SIGNALS] Signal quality warnings (v7.19.0)
 //! - [TOPOLOGY]   Hardware component summary (v7.21.0)
 //! - [IMPACT]     Disk and network pressure from system stats (v7.21.0)
+//! - [HOTSPOTS]   Warm devices, heavy IO, high load (v7.24.0)
 //!
 //! All data sourced from:
 //! - lscpu, /proc/cpuinfo (CPU)
@@ -36,6 +39,7 @@ use std::process::Command;
 use anna_common::grounded::health::{
     get_battery_health, get_network_health, get_all_disk_health,
 };
+use anna_common::grounded::peripherals::get_hardware_overview;
 use anna_common::grounded::network_topology::{
     get_default_route, get_dns_config, get_interface_manager, InterfaceManager,
 };
@@ -46,15 +50,212 @@ use anna_common::grounded::service_topology::get_gpu_driver_stacks;
 use anna_common::grounded::signal_quality::get_hot_signals;
 use anna_common::topology_map::build_hardware_topology;
 use anna_common::impact_view::{get_hardware_impact, format_bytes_compact};
+use anna_common::hotspots::{get_hardware_hotspots, format_hardware_hotspots_section};
+use anna_common::config::AnnaConfig;
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
-/// Run the hw overview command - v7.19.0 structured format
+// ============================================================================
+// [OVERVIEW] Section - v7.25.0
+// ============================================================================
+
+fn print_overview_section() {
+    println!("{}", "[OVERVIEW]".cyan());
+    println!("  {}", "(device counts and system summary)".dimmed());
+
+    let hw = get_hardware_overview();
+
+    // CPU summary
+    println!("  CPU:          {} socket(s), {} logical cores",
+        hw.cpu_sockets, hw.cpu_logical_cores);
+
+    // GPU summary
+    let gpu_total = hw.gpu_discrete + hw.gpu_integrated;
+    if gpu_total > 0 {
+        if hw.gpu_integrated > 0 && hw.gpu_discrete > 0 {
+            println!("  GPU:          {} ({} discrete, {} integrated)",
+                gpu_total, hw.gpu_discrete, hw.gpu_integrated);
+        } else if hw.gpu_discrete > 0 {
+            println!("  GPU:          {} discrete", hw.gpu_discrete);
+        } else {
+            println!("  GPU:          {} integrated", hw.gpu_integrated);
+        }
+    }
+
+    // Memory
+    println!("  Memory:       {:.0} GiB", hw.memory_gib);
+
+    // Storage
+    if hw.storage_devices > 0 {
+        let names = hw.storage_names.iter().take(3)
+            .cloned().collect::<Vec<_>>().join(", ");
+        println!("  Storage:      {} device(s) ({})", hw.storage_devices, names);
+    }
+
+    // Network
+    let net_total = hw.network_wired + hw.network_wireless;
+    if net_total > 0 {
+        println!("  Network:      {} wired, {} wireless", hw.network_wired, hw.network_wireless);
+    }
+
+    // USB
+    println!("  USB:          {} controller(s), {} device(s)",
+        hw.usb.root_hubs, hw.usb.device_count);
+
+    // Bluetooth
+    if hw.bluetooth.adapter_count > 0 {
+        println!("  Bluetooth:    {} adapter(s)", hw.bluetooth.adapter_count);
+    }
+
+    // Audio
+    if hw.audio.card_count > 0 {
+        println!("  Audio:        {} card(s)", hw.audio.card_count);
+    }
+
+    // Cameras
+    if hw.camera.camera_count > 0 {
+        println!("  Camera:       {} device(s)", hw.camera.camera_count);
+    }
+
+    // Input
+    if hw.input.device_count > 0 {
+        println!("  Input:        {} device(s) ({} kbd, {} mouse)",
+            hw.input.device_count, hw.input.keyboard_count, hw.input.mouse_count);
+    }
+
+    // Power
+    if hw.battery_count > 0 {
+        let ac = if hw.ac_present { "AC connected" } else { "on battery" };
+        println!("  Power:        {} battery, {}", hw.battery_count, ac);
+    }
+
+    // Thunderbolt
+    if hw.thunderbolt.controller_count > 0 {
+        println!("  Thunderbolt:  {} controller(s)", hw.thunderbolt.controller_count);
+    }
+
+    // SD card
+    if hw.sdcard.reader_count > 0 {
+        let media = if hw.sdcard.readers.iter().any(|r| r.media_present) {
+            "media present"
+        } else {
+            "no media"
+        };
+        println!("  SD Card:      {} reader(s), {}", hw.sdcard.reader_count, media);
+    }
+
+    println!();
+}
+
+// ============================================================================
+// [CATEGORIES] Section - v7.25.0
+// ============================================================================
+
+fn print_categories_section() {
+    println!("{}", "[CATEGORIES]".cyan());
+    println!("  {}", "(bus and peripheral summaries)".dimmed());
+
+    let hw = get_hardware_overview();
+
+    // USB summary
+    println!("  {}:", "USB".dimmed());
+    if hw.usb.controllers.is_empty() {
+        println!("    {}", "not detected".dimmed());
+    } else {
+        for ctrl in &hw.usb.controllers {
+            println!("    {} {} ({})", ctrl.pci_address, ctrl.usb_version, ctrl.driver);
+        }
+        // Count devices by class
+        let hubs = hw.usb.devices.iter().filter(|d| d.is_hub).count();
+        let hid = hw.usb.devices.iter().filter(|d| d.device_class == "HID").count();
+        let storage = hw.usb.devices.iter().filter(|d| d.device_class == "Mass Storage").count();
+        let other = hw.usb.device_count as usize - hid - storage;
+        println!("    {} hubs, {} HID, {} storage, {} other", hubs, hid, storage, other);
+    }
+
+    // Bluetooth summary
+    println!("  {}:", "Bluetooth".dimmed());
+    if hw.bluetooth.adapters.is_empty() {
+        println!("    {}", "not detected".dimmed());
+    } else {
+        for adapter in &hw.bluetooth.adapters {
+            let state = match adapter.state {
+                anna_common::grounded::peripherals::BluetoothState::Up => "UP".green().to_string(),
+                anna_common::grounded::peripherals::BluetoothState::Blocked => "BLOCKED".yellow().to_string(),
+                _ => "down".dimmed().to_string(),
+            };
+            println!("    {} {} ({}, {})", adapter.name, adapter.manufacturer, adapter.driver, state);
+        }
+    }
+
+    // Thunderbolt summary
+    if hw.thunderbolt.controller_count > 0 || hw.thunderbolt.device_count > 0 {
+        println!("  {}:", "Thunderbolt".dimmed());
+        for ctrl in &hw.thunderbolt.controllers {
+            let gen = ctrl.generation.map(|g| format!("TB{}", g)).unwrap_or_else(|| "TB".to_string());
+            println!("    {} {} ({})", ctrl.pci_address, gen, ctrl.driver);
+        }
+        for dev in &hw.thunderbolt.devices {
+            let auth = if dev.authorized {
+                "authorized".green().to_string()
+            } else {
+                "unauthorized".yellow().to_string()
+            };
+            println!("    {} {} ({})", dev.vendor, dev.name, auth);
+        }
+    }
+
+    // SD card summary
+    if hw.sdcard.reader_count > 0 {
+        println!("  {}:", "SD Card".dimmed());
+        for reader in &hw.sdcard.readers {
+            if reader.media_present {
+                let size = reader.media_size.map(|s| format_size_bytes(s)).unwrap_or_else(|| "?".to_string());
+                let fs = reader.media_fs.as_deref().unwrap_or("?");
+                println!("    {} ({}) [{}] {}", reader.name, reader.bus, size, fs.green());
+            } else {
+                println!("    {} ({}) [{}]", reader.name, reader.bus, "no media".dimmed());
+            }
+        }
+    }
+
+    // FireWire summary (rare)
+    if hw.firewire.controller_count > 0 {
+        println!("  {}:", "FireWire".dimmed());
+        for ctrl in &hw.firewire.controllers {
+            println!("    {} {} ({})", ctrl.pci_address, ctrl.name, ctrl.driver);
+        }
+    }
+
+    println!();
+}
+
+fn format_size_bytes(bytes: u64) -> String {
+    const MB: u64 = 1_000_000;
+    const GB: u64 = 1_000_000_000;
+    const TB: u64 = 1_000_000_000_000;
+
+    if bytes >= TB {
+        format!("{:.1} TB", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.0} GB", bytes as f64 / GB as f64)
+    } else {
+        format!("{:.0} MB", bytes as f64 / MB as f64)
+    }
+}
+
+/// Run the hw overview command - v7.25.0 structured format
 pub async fn run() -> Result<()> {
     println!();
     println!("{}", "  Anna Hardware Inventory".bold());
     println!("{}", THIN_SEP);
     println!();
+
+    // [OVERVIEW] - v7.25.0
+    print_overview_section();
+
+    // [CATEGORIES] - v7.25.0
+    print_categories_section();
 
     // [CPU]
     print_cpu_section();
@@ -94,6 +295,9 @@ pub async fn run() -> Result<()> {
 
     // [IMPACT] - v7.21.0
     print_hw_impact_section();
+
+    // [HOTSPOTS] - v7.24.0
+    print_hw_hotspots_section();
 
     println!("{}", THIN_SEP);
     println!("  {}", "'annactl hw NAME' for a specific component or category.".dimmed());
@@ -1121,5 +1325,31 @@ fn print_hw_impact_section() {
         }
     }
 
+    println!();
+}
+
+// ============================================================================
+// [HOTSPOTS] Section - v7.24.0
+// ============================================================================
+
+fn print_hw_hotspots_section() {
+    let config = AnnaConfig::load();
+    if !config.telemetry.enabled {
+        return;
+    }
+
+    let hotspots = get_hardware_hotspots();
+    if !hotspots.has_data {
+        return;
+    }
+
+    let lines = format_hardware_hotspots_section(&hotspots);
+    for line in lines {
+        if line.starts_with("[HOTSPOTS]") {
+            println!("{}", line.cyan());
+        } else {
+            println!("{}", line);
+        }
+    }
     println!();
 }

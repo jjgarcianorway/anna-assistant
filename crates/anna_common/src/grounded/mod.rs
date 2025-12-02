@@ -1,4 +1,4 @@
-//! Grounded Knowledge System v7.19.0
+//! Grounded Knowledge System v7.25.0
 //!
 //! Every piece of data has a verifiable source.
 //! No invented numbers. No hallucinated descriptions.
@@ -10,6 +10,7 @@
 //! v7.14.0: Log pattern extraction and config sanity checks.
 //! v7.17.0: Network topology, storage mapping, config graph.
 //! v7.19.0: Service topology, signal quality, topology hints.
+//! v7.25.0: Peripherals - USB, Bluetooth, Thunderbolt, SD, cameras, audio.
 
 pub mod packages;
 pub mod commands;
@@ -29,6 +30,7 @@ pub mod storage_topology;
 pub mod config_graph;
 pub mod service_topology;
 pub mod signal_quality;
+pub mod peripherals;
 
 pub use packages::*;
 pub use commands::*;
@@ -48,3 +50,4 @@ pub use storage_topology::*;
 pub use config_graph::*;
 pub use service_topology::*;
 pub use signal_quality::*;
+pub use peripherals::*;

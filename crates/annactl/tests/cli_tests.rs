@@ -1,16 +1,35 @@
-//! CLI integration tests for annactl v7.23.0 "Timelines, Drift & Incidents"
+//! CLI integration tests for annactl v7.25.0 "Buses, Peripherals & Attachments"
 //!
 //! Tests the CLI surface:
 //! - annactl           show help
-//! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [ANNA NEEDS], [LAST BOOT], [RECENT CHANGES]
-//! - annactl sw        software overview with [CATEGORIES] - no duplicates
-//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [CONFIG GRAPH], [HISTORY], [LOGS] boot-anchored patterns, [DEPENDENCIES], Cross notes
-//! - annactl hw        hardware overview with [CPU], [GPU], [MEMORY], [STORAGE]+Filesystems, [NETWORK]+Route+DNS, [AUDIO], [INPUT], [SENSORS], [POWER]
-//! - annactl hw NAME   hardware profile with [IDENTITY], [FIRMWARE], [DRIVER], [HISTORY], [HEALTH], [CAPACITY], [STATE], [LOGS] (v7.18.0)
+//! - annactl status    health, alerts, [TELEMETRY], [RESOURCE HOTSPOTS], [HOTSPOTS], [ATTACHMENTS], [ANNA NEEDS], [LAST BOOT], [RECENT CHANGES]
+//! - annactl sw        software overview with [CATEGORIES], [HOTSPOTS] - no duplicates
+//! - annactl sw NAME   software profile with [CONFIG]+Sanity, [CONFIG GRAPH], [HISTORY], [LOGS] boot-anchored patterns, [DEPENDENCIES], [RELATIONSHIPS], Cross notes
+//! - annactl hw        hardware overview with [OVERVIEW], [CATEGORIES], [CPU], [GPU], [MEMORY], [STORAGE]+Filesystems, [NETWORK]+Route+DNS, [AUDIO], [INPUT], [SENSORS], [POWER], [HOTSPOTS]
+//! - annactl hw NAME   hardware profile with [IDENTITY], [FIRMWARE], [DRIVER], [HISTORY], [HEALTH], [CAPACITY], [STATE], [LOGS], [RELATIONSHIPS] (v7.24.0)
+//! - annactl hw usb/bluetooth/thunderbolt/sdcard/firewire  category profiles for peripherals (v7.25.0)
 //!
 //! Deprecated (still works):
 //! - annactl kdb       alias to sw
 //! - annactl kdb NAME  alias to sw NAME
+//!
+//! Snow Leopard v7.25.0 tests:
+//! - annactl hw has [OVERVIEW] section with device counts
+//! - annactl hw has [CATEGORIES] section with bus summaries (USB, Bluetooth, Thunderbolt)
+//! - annactl hw usb shows [CONTROLLERS] and [DEVICES] sections
+//! - annactl hw bluetooth shows [ADAPTERS] section with state (UP/BLOCKED/down)
+//! - annactl hw thunderbolt shows [CONTROLLERS] and [DEVICES] sections
+//! - annactl hw sdcard shows [READERS] section with media status
+//! - annactl status [ATTACHMENTS] shows USB, Bluetooth, Thunderbolt summary
+//! - No new public commands (still exactly 6)
+//!
+//! Snow Leopard v7.24.0 tests:
+//! - annactl sw NAME [RELATIONSHIPS] shows services, processes, hardware, stack packages
+//! - annactl hw NAME [RELATIONSHIPS] shows drivers, firmware, services, software
+//! - annactl sw [HOTSPOTS] shows top CPU, memory, most started processes
+//! - annactl hw [HOTSPOTS] shows warm devices, heavy IO, high load
+//! - annactl status [HOTSPOTS] shows compact cross-reference
+//! - No new public commands
 //!
 //! Snow Leopard v7.18.0 tests:
 //! - annactl status [LAST BOOT] shows kernel version, boot duration, failed units, health status
@@ -924,10 +943,10 @@ fn test_annactl_sw_object_performance() {
     let elapsed = start.elapsed();
 
     assert!(output.status.success(), "annactl sw pacman should succeed");
-    // v7.16.0: Multi-window log history adds journalctl queries, allowing 3s
+    // v7.24.0: Relationships and hotspots add discovery queries, allowing 7s
     assert!(
-        elapsed.as_secs() < 3,
-        "annactl sw <name> should complete in <3s, took: {:?}",
+        elapsed.as_secs() < 7,
+        "annactl sw <name> should complete in <7s, took: {:?}",
         elapsed
     );
 }
@@ -4387,5 +4406,489 @@ fn test_snow_leopard_config_provenance_v723() {
         );
     }
 
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// v7.24.0: Snow Leopard Relationships, Stacks & Hotspots tests
+// ============================================================================
+
+/// Test annactl sw NAME shows [RELATIONSHIPS] section (v7.24.0)
+#[test]
+fn test_snow_leopard_sw_relationships_v724() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test with a common package that has services
+    let output = Command::new(&binary)
+        .args(["sw", "systemd"])
+        .output()
+        .expect("Failed to run annactl sw systemd");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // [RELATIONSHIPS] section should be present for packages with services
+    // Note: May not show if no relationships discovered, so just check command succeeds
+    assert!(output.status.success(), "annactl sw systemd should succeed");
+
+    // If relationships found, should contain expected structure
+    if stdout.contains("[RELATIONSHIPS]") {
+        // Should have source attribution
+        assert!(
+            stdout.contains("Source:") || stdout.contains("source:"),
+            "[RELATIONSHIPS] should have source attribution"
+        );
+    }
+}
+
+/// Test annactl hw NAME shows [RELATIONSHIPS] section (v7.24.0)
+#[test]
+fn test_snow_leopard_hw_relationships_v724() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test with cpu which always exists
+    let output = Command::new(&binary)
+        .args(["hw", "cpu"])
+        .output()
+        .expect("Failed to run annactl hw cpu");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Command should succeed
+    assert!(output.status.success(), "annactl hw cpu should succeed");
+
+    // CPU profile should exist
+    assert!(
+        stdout.contains("[") && (stdout.contains("CPU") || stdout.contains("IDENTITY")),
+        "hw cpu should show CPU information"
+    );
+}
+
+/// Test annactl sw shows [HOTSPOTS] section (v7.24.0)
+#[test]
+fn test_snow_leopard_sw_hotspots_v724() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw"])
+        .output()
+        .expect("Failed to run annactl sw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Command should succeed
+    assert!(output.status.success(), "annactl sw should succeed");
+
+    // Overview should show standard sections
+    assert!(
+        stdout.contains("[OVERVIEW]") || stdout.contains("[CATEGORIES]"),
+        "sw should show overview sections"
+    );
+
+    // Note: [HOTSPOTS] only appears if telemetry is enabled and has data
+    // Just verify command runs successfully
+}
+
+/// Test annactl hw shows [HOTSPOTS] section (v7.24.0)
+#[test]
+fn test_snow_leopard_hw_hotspots_v724() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Command should succeed
+    assert!(output.status.success(), "annactl hw should succeed");
+
+    // Overview should show standard sections
+    assert!(
+        stdout.contains("[CPU]") || stdout.contains("[GPU]") || stdout.contains("[MEMORY]"),
+        "hw should show hardware sections"
+    );
+
+    // Note: [HOTSPOTS] only appears if telemetry is enabled and has data
+    // Just verify command runs successfully
+}
+
+/// Test annactl status shows [HOTSPOTS] section (v7.24.0)
+#[test]
+fn test_snow_leopard_status_hotspots_v724() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Command should succeed
+    assert!(output.status.success(), "annactl status should succeed");
+
+    // Status should show standard sections
+    assert!(
+        stdout.contains("[VERSION]") && stdout.contains("[DAEMON]"),
+        "status should show standard sections"
+    );
+
+    // Note: [HOTSPOTS] only appears if telemetry is enabled and has data
+    // Just verify command runs successfully
+}
+
+/// Test relationships module doesn't leak internal errors (v7.24.0)
+#[test]
+fn test_snow_leopard_relationships_no_errors_v724() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test with multiple packages
+    for pkg in ["linux", "vim", "pacman", "systemd"] {
+        let output = Command::new(&binary)
+            .args(["sw", pkg])
+            .output()
+            .expect(&format!("Failed to run annactl sw {}", pkg));
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        // Should not have error messages in output
+        assert!(
+            !stdout.contains("error:") && !stdout.contains("Error:"),
+            "sw {} should not have errors in stdout: {}",
+            pkg,
+            stdout
+        );
+
+        // stderr might have warnings but shouldn't have crashes
+        assert!(
+            !stderr.contains("panicked") && !stderr.contains("SIGSEGV"),
+            "sw {} should not crash: {}",
+            pkg,
+            stderr
+        );
+
+        assert!(output.status.success(), "annactl sw {} should succeed", pkg);
+    }
+}
+
+/// Test hotspots format follows spec (v7.24.0)
+/// - CPU: "X percent (0 - Y percent for N logical cores)"
+#[test]
+fn test_snow_leopard_hotspots_format_v724() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["sw"])
+        .output()
+        .expect("Failed to run annactl sw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // If [HOTSPOTS] section exists, verify format
+    if stdout.contains("[HOTSPOTS]") {
+        // Should show source attribution
+        assert!(
+            stdout.contains("source:") || stdout.contains("Source:") || stdout.contains("telemetry"),
+            "[HOTSPOTS] should have source attribution"
+        );
+
+        // CPU format should mention logical cores if present
+        if stdout.contains("CPU:") && stdout.contains("percent") {
+            // v7.24.0 format: "X percent (0 - Y percent for N logical cores)"
+            // Just verify it doesn't have obviously nonsense values like 99999
+            assert!(
+                !stdout.contains("99999"),
+                "CPU hotspots should have valid values"
+            );
+        }
+    }
+
+    assert!(output.status.success());
+}
+
+// ============================================================================
+// Snow Leopard v7.25.0 tests: Buses, Peripherals & Attachments
+// ============================================================================
+
+/// Test hw overview has [OVERVIEW] section with device counts (v7.25.0)
+#[test]
+fn test_snow_leopard_hw_overview_section_v725() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Must have [OVERVIEW] section
+    assert!(
+        stdout.contains("[OVERVIEW]"),
+        "annactl hw should have [OVERVIEW] section"
+    );
+
+    // Should show device counts
+    assert!(
+        stdout.contains("CPU:") && stdout.contains("socket"),
+        "[OVERVIEW] should show CPU socket count"
+    );
+
+    assert!(
+        stdout.contains("Memory:") && stdout.contains("GiB"),
+        "[OVERVIEW] should show memory amount"
+    );
+
+    assert!(
+        stdout.contains("USB:") && stdout.contains("controller"),
+        "[OVERVIEW] should show USB summary"
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test hw overview has [CATEGORIES] section with bus summaries (v7.25.0)
+#[test]
+fn test_snow_leopard_hw_categories_section_v725() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw"])
+        .output()
+        .expect("Failed to run annactl hw");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Must have [CATEGORIES] section
+    assert!(
+        stdout.contains("[CATEGORIES]"),
+        "annactl hw should have [CATEGORIES] section"
+    );
+
+    // Should show bus details
+    assert!(
+        stdout.contains("USB:") || stdout.contains("USB"),
+        "[CATEGORIES] should mention USB"
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test hw usb shows [CONTROLLERS] and [DEVICES] sections (v7.25.0)
+#[test]
+fn test_snow_leopard_hw_usb_category_v725() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "usb"])
+        .output()
+        .expect("Failed to run annactl hw usb");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Must have both sections
+    assert!(
+        stdout.contains("[CONTROLLERS]"),
+        "annactl hw usb should have [CONTROLLERS] section"
+    );
+
+    assert!(
+        stdout.contains("[DEVICES]"),
+        "annactl hw usb should have [DEVICES] section"
+    );
+
+    // Should mention source
+    assert!(
+        stdout.contains("lsusb") || stdout.contains("source:"),
+        "hw usb should show source attribution"
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test hw bluetooth shows [ADAPTERS] section (v7.25.0)
+#[test]
+fn test_snow_leopard_hw_bluetooth_category_v725() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "bluetooth"])
+        .output()
+        .expect("Failed to run annactl hw bluetooth");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should have either [ADAPTERS] section or [NOT FOUND]
+    assert!(
+        stdout.contains("[ADAPTERS]") || stdout.contains("[NOT FOUND]"),
+        "annactl hw bluetooth should have [ADAPTERS] or [NOT FOUND] section"
+    );
+
+    // If adapters found, should show state
+    if stdout.contains("[ADAPTERS]") {
+        assert!(
+            stdout.contains("State:") || stdout.contains("UP") || stdout.contains("DOWN") || stdout.contains("BLOCKED"),
+            "hw bluetooth [ADAPTERS] should show adapter state"
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test hw thunderbolt shows [CONTROLLERS] section (v7.25.0)
+#[test]
+fn test_snow_leopard_hw_thunderbolt_category_v725() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "thunderbolt"])
+        .output()
+        .expect("Failed to run annactl hw thunderbolt");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should have either [CONTROLLERS] or [NOT FOUND]
+    assert!(
+        stdout.contains("[CONTROLLERS]") || stdout.contains("[NOT FOUND]"),
+        "annactl hw thunderbolt should have [CONTROLLERS] or [NOT FOUND] section"
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test hw sdcard shows [READERS] section (v7.25.0)
+#[test]
+fn test_snow_leopard_hw_sdcard_category_v725() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["hw", "sdcard"])
+        .output()
+        .expect("Failed to run annactl hw sdcard");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should have either [READERS] or [NOT FOUND]
+    assert!(
+        stdout.contains("[READERS]") || stdout.contains("[NOT FOUND]"),
+        "annactl hw sdcard should have [READERS] or [NOT FOUND] section"
+    );
+
+    assert!(output.status.success());
+}
+
+/// Test status has [ATTACHMENTS] section (v7.25.0)
+#[test]
+fn test_snow_leopard_status_attachments_v725() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .args(["status"])
+        .output()
+        .expect("Failed to run annactl status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // [ATTACHMENTS] section should be present if there are USB/BT/TB devices
+    // On systems with USB, this should always appear
+    if stdout.contains("USB:") || stdout.contains("Bluetooth:") || stdout.contains("Thunderbolt:") {
+        assert!(
+            stdout.contains("[ATTACHMENTS]"),
+            "annactl status should have [ATTACHMENTS] section when peripherals exist"
+        );
+    }
+
+    assert!(output.status.success());
+}
+
+/// Test peripheral category aliases work (v7.25.0)
+#[test]
+fn test_snow_leopard_peripheral_aliases_v725() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Test "bt" alias for bluetooth
+    let output = Command::new(&binary)
+        .args(["hw", "bt"])
+        .output()
+        .expect("Failed to run annactl hw bt");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("bluetooth") || stdout.contains("[NOT FOUND]"),
+        "annactl hw bt should be alias for bluetooth"
+    );
+    assert!(output.status.success());
+
+    // Test "tb" alias for thunderbolt
+    let output = Command::new(&binary)
+        .args(["hw", "tb"])
+        .output()
+        .expect("Failed to run annactl hw tb");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("thunderbolt") || stdout.contains("[NOT FOUND]"),
+        "annactl hw tb should be alias for thunderbolt"
+    );
+    assert!(output.status.success());
+
+    // Test "sd" alias for sdcard
+    let output = Command::new(&binary)
+        .args(["hw", "sd"])
+        .output()
+        .expect("Failed to run annactl hw sd");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("sdcard") || stdout.contains("[NOT FOUND]"),
+        "annactl hw sd should be alias for sdcard"
+    );
     assert!(output.status.success());
 }

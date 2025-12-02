@@ -1,7 +1,8 @@
-//! HW Detail Command v7.22.0 - Hardware Profiles with Scenario Lenses
+//! HW Detail Command v7.25.0 - Peripherals & Attachments
 //!
 //! Two modes:
-//! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors)
+//! 1. Category profile (cpu, memory, gpu, storage, network, audio, power/battery, sensors,
+//!                      usb, bluetooth, thunderbolt, sdcard) - v7.25.0 added peripherals
 //! 2. Specific device profile (gpu0, nvme0n1, wlan0, enp3s0, audio0, wifi, ethernet, BAT0)
 //!
 //! Profile sections:
@@ -15,6 +16,7 @@
 //! - [CAPACITY]     Battery-specific capacity/wear/cycles (v7.15.0)
 //! - [STATE]        Battery/power current state (v7.15.0)
 //! - [HISTORY]      Kernel/driver package changes (v7.18.0)
+//! - [RELATIONSHIPS] Driver, firmware, services, software using device (v7.24.0)
 //! - [TELEMETRY]    Deterministic trend labels (stable/higher/lower) (v7.20.0)
 //! - [LOGS]         Boot-anchored patterns with baseline tags (v7.20.0)
 //! - Cross notes:   Links between components
@@ -58,6 +60,15 @@ use anna_common::scenario_lens::{
     NetworkLens, StorageLens, GraphicsLens, AudioLens,
     format_bytes as lens_format_bytes,
 };
+// v7.24.0: Relationships
+use anna_common::relationships::{
+    get_hardware_relationships, format_hardware_relationships_section,
+};
+// v7.25.0: Peripherals
+use anna_common::grounded::peripherals::{
+    get_usb_summary, get_bluetooth_summary, get_thunderbolt_summary,
+    get_firewire_summary, get_sdcard_summary, BluetoothState,
+};
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -74,9 +85,14 @@ pub async fn run(name: &str) -> Result<()> {
         "network" | "net" => run_network_category().await,
         "wifi" | "wireless" => run_wifi_profile().await,
         "ethernet" | "eth" => run_ethernet_profile().await,
-        "bluetooth" | "bt" => run_bluetooth_profile().await,
+        "bluetooth" | "bt" => run_bluetooth_category().await,
         "audio" | "sound" => run_audio_category().await,
         "power" | "battery" => run_battery_profile().await,
+        // v7.25.0: Peripheral categories
+        "usb" => run_usb_category().await,
+        "thunderbolt" | "tb" | "tb4" => run_thunderbolt_category().await,
+        "sdcard" | "sd" | "mmc" => run_sdcard_category().await,
+        "firewire" | "ieee1394" => run_firewire_category().await,
         _ => {
             // Try specific device
             if name_lower.starts_with("gpu") || name_lower.starts_with("card") {
@@ -664,6 +680,10 @@ async fn run_gpu_profile(name: &str) -> Result<()> {
     }
 
     println!();
+
+    // [RELATIONSHIPS] - v7.24.0
+    print_hardware_relationships_section_fn(name);
+
     println!("{}", THIN_SEP);
     println!();
     Ok(())
@@ -933,6 +953,9 @@ async fn run_storage_profile(name: &str) -> Result<()> {
 
     // [SIGNAL] - v7.19.0
     print_storage_signal_section(name, &health.device_type);
+
+    // [RELATIONSHIPS] - v7.24.0
+    print_hardware_relationships_section_fn(name);
 
     // [LOGS]
     print_device_logs(name, &[name, &health.device_type.to_lowercase()]);
@@ -1473,16 +1496,17 @@ async fn run_ethernet_profile() -> Result<()> {
     Ok(())
 }
 
-/// Bluetooth category profile
-async fn run_bluetooth_profile() -> Result<()> {
+/// Bluetooth category profile - v7.25.0 enhanced with peripherals
+async fn run_bluetooth_category() -> Result<()> {
     println!();
     println!("{}", "  Anna HW: bluetooth".bold());
     println!("{}", THIN_SEP);
     println!();
 
-    // Check if bluetooth exists
-    let bt_path = std::path::Path::new("/sys/class/bluetooth");
-    if !bt_path.exists() {
+    // Get bluetooth summary from peripherals module
+    let bt = get_bluetooth_summary();
+
+    if bt.adapters.is_empty() {
         println!("{}", "[NOT FOUND]".yellow());
         println!("  No Bluetooth controllers detected on this system.");
         println!();
@@ -1494,28 +1518,295 @@ async fn run_bluetooth_profile() -> Result<()> {
     // [SERVICE LIFECYCLE] - v7.16.0
     print_hw_service_lifecycle_section("bluetooth");
 
-    // List bluetooth devices
-    if let Ok(entries) = std::fs::read_dir(bt_path) {
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
+    // [ADAPTERS] - v7.25.0
+    println!("{}", "[ADAPTERS]".cyan());
+    println!("  {}", format!("(source: {})", bt.source).dimmed());
 
-            println!("{}", "[IDENTITY]".cyan());
-            println!("  Controller:  {}", name);
+    for adapter in &bt.adapters {
+        let state = match adapter.state {
+            BluetoothState::Up => "UP".green().to_string(),
+            BluetoothState::Blocked => "BLOCKED".yellow().to_string(),
+            BluetoothState::Down => "DOWN".dimmed().to_string(),
+            BluetoothState::Unknown => "unknown".dimmed().to_string(),
+        };
 
-            // Get driver
-            let driver_path = entry.path().join("device/driver");
-            if let Ok(link) = std::fs::read_link(&driver_path) {
-                if let Some(driver) = link.file_name() {
-                    println!("  Driver:      {}", driver.to_string_lossy());
-                }
-            }
-
-            println!();
-        }
+        println!("  {}:", adapter.name);
+        println!("    Address:      {}", adapter.address);
+        println!("    Manufacturer: {}", adapter.manufacturer);
+        println!("    Driver:       {}", adapter.driver);
+        println!("    State:        {}", state);
     }
+
+    println!();
 
     // [LOGS]
     let _log_summary = print_device_logs("bluetooth", &["bluetooth", "btusb", "hci"]);
+
+    // [RELATIONSHIPS] - v7.24.0
+    print_hardware_relationships_section_fn("bluetooth");
+
+    println!("{}", THIN_SEP);
+    println!();
+    Ok(())
+}
+
+// ============================================================================
+// USB Category - v7.25.0
+// ============================================================================
+
+async fn run_usb_category() -> Result<()> {
+    println!();
+    println!("{}", "  Anna HW: usb".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    let usb = get_usb_summary();
+
+    // [CONTROLLERS]
+    println!("{}", "[CONTROLLERS]".cyan());
+    println!("  {}", format!("(source: {})", usb.source).dimmed());
+
+    if usb.controllers.is_empty() {
+        println!("  {}", "not detected".dimmed());
+    } else {
+        for ctrl in &usb.controllers {
+            println!("  {} {} (driver: {})", ctrl.pci_address, ctrl.usb_version, ctrl.driver.green());
+        }
+    }
+    println!();
+
+    // [DEVICES]
+    println!("{}", "[DEVICES]".cyan());
+    println!("  {} device(s), {} root hub(s)", usb.device_count, usb.root_hubs);
+    println!();
+
+    // Group by type
+    let hubs: Vec<_> = usb.devices.iter().filter(|d| d.is_hub).collect();
+    let storage: Vec<_> = usb.devices.iter().filter(|d| d.device_class == "Mass Storage").collect();
+    let hid: Vec<_> = usb.devices.iter().filter(|d| d.device_class == "HID").collect();
+    let other: Vec<_> = usb.devices.iter()
+        .filter(|d| !d.is_hub && d.device_class != "Mass Storage" && d.device_class != "HID")
+        .collect();
+
+    if !hubs.is_empty() {
+        println!("  {}:", "Hubs".dimmed());
+        for dev in hubs.iter().take(3) {
+            println!("    Bus{:02} Dev{:03}: {}", dev.bus, dev.device, dev.product_name);
+        }
+        if hubs.len() > 3 {
+            println!("    ... and {} more", hubs.len() - 3);
+        }
+        println!();
+    }
+
+    if !storage.is_empty() {
+        println!("  {}:", "Storage".dimmed());
+        for dev in &storage {
+            let speed = if dev.speed.is_empty() { "".to_string() } else { format!(" [{}]", dev.speed) };
+            println!("    Bus{:02} Dev{:03}: {} ({}){}",
+                dev.bus, dev.device, dev.product_name, dev.vendor_name, speed);
+        }
+        println!();
+    }
+
+    if !hid.is_empty() {
+        println!("  {}:", "HID (keyboards, mice)".dimmed());
+        for dev in &hid {
+            println!("    Bus{:02} Dev{:03}: {} ({})",
+                dev.bus, dev.device, dev.product_name, dev.vendor_name);
+        }
+        println!();
+    }
+
+    if !other.is_empty() {
+        println!("  {}:", "Other".dimmed());
+        for dev in other.iter().take(5) {
+            let class = if dev.device_class.is_empty() { "?".to_string() } else { dev.device_class.clone() };
+            println!("    Bus{:02} Dev{:03}: {} [{}]",
+                dev.bus, dev.device, dev.product_name, class);
+        }
+        if other.len() > 5 {
+            println!("    ... and {} more", other.len() - 5);
+        }
+        println!();
+    }
+
+    // [LOGS]
+    let _log_summary = print_device_logs("usb", &["usb", "xhci", "ehci"]);
+
+    println!("{}", THIN_SEP);
+    println!();
+    Ok(())
+}
+
+// ============================================================================
+// Thunderbolt Category - v7.25.0
+// ============================================================================
+
+async fn run_thunderbolt_category() -> Result<()> {
+    println!();
+    println!("{}", "  Anna HW: thunderbolt".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    let tb = get_thunderbolt_summary();
+
+    if tb.controllers.is_empty() && tb.devices.is_empty() {
+        println!("{}", "[NOT FOUND]".yellow());
+        println!("  No Thunderbolt controllers detected on this system.");
+        println!();
+        println!("{}", THIN_SEP);
+        println!();
+        return Ok(());
+    }
+
+    // [CONTROLLERS]
+    println!("{}", "[CONTROLLERS]".cyan());
+    println!("  {}", format!("(source: {})", tb.source).dimmed());
+
+    for ctrl in &tb.controllers {
+        let gen = ctrl.generation.map(|g| format!("Thunderbolt {}", g))
+            .unwrap_or_else(|| "Thunderbolt".to_string());
+        println!("  {} {} (driver: {})", ctrl.pci_address, gen, ctrl.driver.green());
+    }
+    println!();
+
+    // [DEVICES]
+    if !tb.devices.is_empty() {
+        println!("{}", "[DEVICES]".cyan());
+        println!("  {} attached device(s)", tb.device_count);
+        println!();
+
+        for dev in &tb.devices {
+            let auth = if dev.authorized {
+                "authorized".green().to_string()
+            } else {
+                "unauthorized".yellow().to_string()
+            };
+            println!("  {} {} [{}]", dev.vendor, dev.name, auth);
+        }
+        println!();
+    }
+
+    // [LOGS]
+    let _log_summary = print_device_logs("thunderbolt", &["thunderbolt", "intel_vsc"]);
+
+    println!("{}", THIN_SEP);
+    println!();
+    Ok(())
+}
+
+// ============================================================================
+// SD Card Category - v7.25.0
+// ============================================================================
+
+async fn run_sdcard_category() -> Result<()> {
+    println!();
+    println!("{}", "  Anna HW: sdcard".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    let sd = get_sdcard_summary();
+
+    if sd.readers.is_empty() {
+        println!("{}", "[NOT FOUND]".yellow());
+        println!("  No SD card readers detected on this system.");
+        println!();
+        println!("{}", THIN_SEP);
+        println!();
+        return Ok(());
+    }
+
+    // [READERS]
+    println!("{}", "[READERS]".cyan());
+    println!("  {}", format!("(source: {})", sd.source).dimmed());
+    println!("  {} reader(s) found", sd.reader_count);
+    println!();
+
+    for reader in &sd.readers {
+        println!("  {}:", reader.name);
+        println!("    Bus:       {}", reader.bus);
+        println!("    Driver:    {}", reader.driver);
+
+        if reader.media_present {
+            let size = reader.media_size
+                .map(|s| format_size_bytes_detail(s))
+                .unwrap_or_else(|| "?".to_string());
+            let fs = reader.media_fs.as_deref().unwrap_or("unknown");
+            println!("    Media:     {} ({}, {})", "present".green(), size, fs);
+            if let Some(path) = &reader.device_path {
+                println!("    Device:    {}", path);
+            }
+        } else {
+            println!("    Media:     {}", "not inserted".dimmed());
+        }
+        println!();
+    }
+
+    // [LOGS]
+    let _log_summary = print_device_logs("sdcard", &["mmc", "sdhci", "rtsx"]);
+
+    println!("{}", THIN_SEP);
+    println!();
+    Ok(())
+}
+
+fn format_size_bytes_detail(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+    const TB: u64 = GB * 1024;
+
+    if bytes >= TB {
+        format!("{:.1} TB", bytes as f64 / TB as f64)
+    } else if bytes >= GB {
+        format!("{:.1} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.0} MB", bytes as f64 / MB as f64)
+    } else {
+        format!("{:.0} KB", bytes as f64 / KB as f64)
+    }
+}
+
+// ============================================================================
+// FireWire Category - v7.25.0
+// ============================================================================
+
+async fn run_firewire_category() -> Result<()> {
+    println!();
+    println!("{}", "  Anna HW: firewire".bold());
+    println!("{}", THIN_SEP);
+    println!();
+
+    let fw = get_firewire_summary();
+
+    if fw.controllers.is_empty() {
+        println!("{}", "[NOT FOUND]".yellow());
+        println!("  No FireWire (IEEE 1394) controllers detected on this system.");
+        println!();
+        println!("{}", THIN_SEP);
+        println!();
+        return Ok(());
+    }
+
+    // [CONTROLLERS]
+    println!("{}", "[CONTROLLERS]".cyan());
+    println!("  {}", format!("(source: {})", fw.source).dimmed());
+
+    for ctrl in &fw.controllers {
+        println!("  {} {} (driver: {})", ctrl.pci_address, ctrl.name, ctrl.driver.green());
+    }
+    println!();
+
+    // [DEVICES]
+    if fw.device_count > 0 {
+        println!("{}", "[DEVICES]".cyan());
+        println!("  {} device(s) connected", fw.device_count);
+        println!();
+    }
+
+    // [LOGS]
+    let _log_summary = print_device_logs("firewire", &["firewire", "ohci1394"]);
 
     println!("{}", THIN_SEP);
     println!();
@@ -1622,6 +1913,9 @@ async fn run_network_interface_profile(name: &str) -> Result<()> {
     }
 
     println!();
+
+    // [RELATIONSHIPS] - v7.24.0
+    print_hardware_relationships_section_fn(name);
 
     // [LOGS]
     let driver_kw = driver_name.as_deref().unwrap_or(name);
@@ -1734,6 +2028,10 @@ async fn run_audio_profile(name: &str) -> Result<()> {
     }
 
     println!();
+
+    // [RELATIONSHIPS] - v7.24.0
+    print_hardware_relationships_section_fn(name);
+
     println!("{}", THIN_SEP);
     println!();
     Ok(())
@@ -1893,6 +2191,9 @@ async fn run_battery_profile() -> Result<()> {
         println!();
     }
 
+    // [RELATIONSHIPS] - v7.24.0
+    print_hardware_relationships_section_fn("battery");
+
     // [LOGS]
     let _log_summary = print_device_logs("battery", &["bat", "battery", "acpi"]);
 
@@ -1957,6 +2258,10 @@ async fn run_power_supply_profile(name: &str) -> Result<()> {
     }
 
     println!();
+
+    // [RELATIONSHIPS] - v7.24.0
+    print_hardware_relationships_section_fn(name);
+
     println!("{}", THIN_SEP);
     println!();
     Ok(())
@@ -2381,5 +2686,19 @@ fn print_device_logs_v716(device: &str, _keywords: &[&str]) -> LogHistorySummary
     println!("  {}", format!("Source: {}", summary.source).dimmed());
 
     summary
+}
+
+/// Print [RELATIONSHIPS] section for hardware - v7.24.0
+fn print_hardware_relationships_section_fn(device: &str) {
+    let rels = get_hardware_relationships(device);
+    let lines = format_hardware_relationships_section(&rels);
+    for line in lines {
+        if line.starts_with("[RELATIONSHIPS]") {
+            println!("{}", line.cyan());
+        } else {
+            println!("{}", line);
+        }
+    }
+    println!();
 }
 

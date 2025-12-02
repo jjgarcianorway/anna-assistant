@@ -1,4 +1,4 @@
-//! SW Detail Command v7.23.0 - Time-Anchored Trends & Config Provenance
+//! SW Detail Command v7.24.0 - Relationships, Stacks & Hotspots
 //!
 //! Two modes:
 //! 1. Single object profile (package/command/service)
@@ -14,6 +14,7 @@
 //! - [CONFIG]       Primary/Secondary/Notes + Sanity notes (v7.14.0)
 //! - [CONFIG GRAPH] Ownership and consumers of config files (v7.17.0)
 //! - [HISTORY]      Package lifecycle and config changes (v7.18.0)
+//! - [RELATIONSHIPS] Services, processes, hardware touched (v7.24.0)
 //! - [LOGS]         Boot-anchored patterns with baseline tags (v7.20.0)
 //! - [USAGE]       Time-anchored trends with percentage+range display (v7.23.0)
 //! - Cross notes:   Links between logs, telemetry, deps, config (v7.14.0)
@@ -41,6 +42,10 @@ use anna_common::config_atlas::{build_config_atlas, ConfigStatus};
 use anna_common::sw_lens::{
     is_sw_category, get_sw_category,
     NetworkSwLens, DisplaySwLens, AudioSwLens, PowerSwLens,
+};
+// v7.24.0: Relationships
+use anna_common::relationships::{
+    get_software_relationships, format_software_relationships_section,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -751,6 +756,9 @@ fn print_package_profile(pkg: &Package) {
     // [HISTORY] - v7.18.0: package and config history
     print_history_section(&pkg.name);
 
+    // [RELATIONSHIPS] - v7.24.0: services, processes, hardware
+    print_relationships_section(&pkg.name);
+
     // [USAGE] - real telemetry
     print_telemetry_section(&pkg.name);
 }
@@ -852,6 +860,9 @@ fn print_service_profile(svc: &Service, name: &str) {
 
     // [HISTORY] - v7.18.0: package and config history
     print_history_section(base_name);
+
+    // [RELATIONSHIPS] - v7.24.0: services, processes, hardware
+    print_relationships_section(base_name);
 
     // [LOGS] - v7.18.0: boot-anchored patterns with novelty
     let log_summary = print_service_logs_v718(&unit_name);
@@ -1599,6 +1610,21 @@ fn print_service_config_section(svc_name: &str) {
         }
     }
 
+    println!();
+}
+
+/// Print [RELATIONSHIPS] section - v7.24.0: services, processes, hardware touched
+fn print_relationships_section(name: &str) {
+    let rels = get_software_relationships(name);
+    let lines = format_software_relationships_section(&rels);
+
+    for line in lines {
+        if line.starts_with("[RELATIONSHIPS]") {
+            println!("{}", line.cyan());
+        } else {
+            println!("{}", line);
+        }
+    }
     println!();
 }
 

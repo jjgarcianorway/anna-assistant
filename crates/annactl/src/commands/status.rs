@@ -1,4 +1,4 @@
-//! Status Command v7.23.0 - Timelines, Drift & Incidents
+//! Status Command v7.25.0 - Peripherals & Attachments
 //!
 //! Sections:
 //! - [VERSION]             Single unified Anna version
@@ -11,6 +11,8 @@
 //! - [TELEMETRY SUMMARY]   Services with notable trends (v7.20.0)
 //! - [LOG SUMMARY]         Components with new patterns since baseline (v7.20.0)
 //! - [RESOURCE HOTSPOTS]   Top resource consumers with health notes
+//! - [HOTSPOTS]            Compact cross-reference of sw/hw hotspots (v7.24.0)
+//! - [ATTACHMENTS]         Connected peripherals: USB, Bluetooth, Thunderbolt (v7.25.0)
 //! - [RECENT CHANGES]      Last 5 system changes from journal (v7.18.0)
 //! - [UPDATES]             Auto-update schedule and last result
 //! - [PATHS]               Config, data, logs, docs paths (v7.12.0: local docs detection)
@@ -20,6 +22,8 @@
 //! - [ANNA TOOLCHAIN]      Diagnostic tool readiness (v7.22.0)
 //! - [ANNA NEEDS]          Missing tools and docs
 //!
+//! v7.25.0: [ATTACHMENTS] section for USB, Bluetooth, Thunderbolt peripherals
+//! v7.24.0: [HOTSPOTS] compact cross-reference section
 //! v7.23.0: [BOOT SNAPSHOT] with incidents, [INVENTORY] with drift indicator
 //! v7.22.0: [ANNA TOOLCHAIN] for diagnostic tool tracking
 //! v7.20.0: [TELEMETRY SUMMARY] + [LOG SUMMARY] with deterministic trend labels
@@ -50,8 +54,14 @@ use anna_common::topology_map::build_hardware_topology;
 // v7.22.0: Toolchain hygiene
 use anna_common::toolchain::{check_toolchain, ToolCategory};
 // v7.23.0: Boot snapshot and inventory drift
-use anna_common::boot_snapshot::{BootSnapshot, format_boot_snapshot_section};
+use anna_common::boot_snapshot::BootSnapshot;
 use anna_common::inventory_drift::DriftSummary;
+// v7.24.0: Hotspots
+use anna_common::hotspots::{get_software_hotspots, get_hardware_hotspots, format_status_hotspots_section};
+// v7.25.0: Peripherals
+use anna_common::grounded::peripherals::{
+    get_usb_summary, get_bluetooth_summary, get_thunderbolt_summary, BluetoothState,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -96,6 +106,12 @@ pub async fn run() -> Result<()> {
 
     // [RESOURCE HOTSPOTS] - v7.11.0: Top consumers with health notes
     print_resource_hotspots_section();
+
+    // [HOTSPOTS] - v7.24.0: Compact cross-reference
+    print_hotspots_xref_section();
+
+    // [ATTACHMENTS] - v7.25.0: Connected peripherals
+    print_attachments_section();
 
     // [RECENT CHANGES] - v7.18.0: Change journal
     print_recent_changes_section();
@@ -1088,12 +1104,90 @@ fn print_anna_needs_section() {
     println!();
 }
 
+// ============================================================================
+// [ATTACHMENTS] Section - v7.25.0
+// ============================================================================
+
+/// v7.25.0: Connected peripherals section
+fn print_attachments_section() {
+    let usb = get_usb_summary();
+    let bt = get_bluetooth_summary();
+    let tb = get_thunderbolt_summary();
+
+    // Only show if we have relevant data
+    let has_usb = usb.device_count > 0;
+    let has_bt = !bt.adapters.is_empty();
+    let has_tb = tb.controller_count > 0 || tb.device_count > 0;
+
+    if !has_usb && !has_bt && !has_tb {
+        return; // Nothing to show
+    }
+
+    println!("{}", "[ATTACHMENTS]".cyan());
+    println!("  {}", "(connected peripherals)".dimmed());
+
+    // USB summary
+    if has_usb {
+        // Count by class
+        let hid = usb.devices.iter().filter(|d| d.device_class == "HID").count();
+        let storage = usb.devices.iter().filter(|d| d.device_class == "Mass Storage").count();
+        let hubs = usb.devices.iter().filter(|d| d.is_hub).count();
+        let other = usb.device_count as usize;
+
+        let mut usb_parts = Vec::new();
+        if hid > 0 { usb_parts.push(format!("{} HID", hid)); }
+        if storage > 0 { usb_parts.push(format!("{} storage", storage)); }
+        if other > hid + storage { usb_parts.push(format!("{} other", other - hid - storage)); }
+
+        let usb_info = if usb_parts.is_empty() {
+            format!("{} device(s)", usb.device_count)
+        } else {
+            usb_parts.join(", ")
+        };
+
+        println!("  USB:          {} controller(s), {} ({} hub(s))",
+            usb.root_hubs, usb_info, hubs);
+    }
+
+    // Bluetooth summary
+    if has_bt {
+        for adapter in &bt.adapters {
+            let state = match adapter.state {
+                BluetoothState::Up => "UP".green().to_string(),
+                BluetoothState::Blocked => "BLOCKED".yellow().to_string(),
+                _ => "down".dimmed().to_string(),
+            };
+            println!("  Bluetooth:    {} ({}) [{}]", adapter.name, adapter.manufacturer, state);
+        }
+    }
+
+    // Thunderbolt summary
+    if has_tb {
+        let tb_gen = tb.controllers.iter()
+            .filter_map(|c| c.generation)
+            .max()
+            .map(|g| format!("TB{}", g))
+            .unwrap_or_else(|| "Thunderbolt".to_string());
+
+        let tb_info = if tb.device_count > 0 {
+            format!("{} attached", tb.device_count)
+        } else {
+            "no devices".to_string()
+        };
+
+        println!("  Thunderbolt:  {} controller(s) ({}, {})",
+            tb.controller_count, tb_gen, tb_info);
+    }
+
+    println!();
+}
+
 /// v7.22.0: Anna toolchain hygiene section
 fn print_toolchain_section() {
     println!("{}", "[ANNA TOOLCHAIN]".cyan());
 
     let status = check_toolchain();
-    let summary = status.summary();
+    let _summary = status.summary();
 
     // Documentation
     let doc_status = if status.is_category_ready(ToolCategory::Documentation) {
@@ -1194,4 +1288,36 @@ async fn get_daemon_stats() -> Option<DaemonStats> {
         command_failures: stats.internal_errors.command_failures,
         parse_errors: stats.internal_errors.parse_errors,
     })
+}
+
+// ============================================================================
+// [HOTSPOTS] Section - v7.24.0
+// ============================================================================
+
+/// v7.24.0: [HOTSPOTS] section with compact cross-reference
+fn print_hotspots_xref_section() {
+    use anna_common::config::AnnaConfig;
+
+    let config = AnnaConfig::load();
+    if !config.telemetry.enabled {
+        return;
+    }
+
+    let sw_hotspots = get_software_hotspots();
+    let hw_hotspots = get_hardware_hotspots();
+
+    // Only print if we have data
+    if !sw_hotspots.has_data && !hw_hotspots.has_data {
+        return;
+    }
+
+    let lines = format_status_hotspots_section(&sw_hotspots, &hw_hotspots);
+    for line in lines {
+        if line.starts_with("[HOTSPOTS]") {
+            println!("{}", line.cyan());
+        } else {
+            println!("{}", line);
+        }
+    }
+    println!();
 }

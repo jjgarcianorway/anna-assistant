@@ -1,4 +1,4 @@
-//! Anna Common v7.23.0 - Timelines, Drift & Incidents
+//! Anna Common v7.24.0 - Relationships, Stacks & Hotspots
 //!
 //! v7.1.0: Real telemetry with SQLite storage
 //! v7.5.0: Enhanced telemetry with CPU time, exec counts, hotspots
@@ -13,6 +13,7 @@
 //! v7.21.0: Config atlas, topology maps, impact view
 //! v7.22.0: Scenario lenses, self toolchain hygiene
 //! v7.23.0: Time-anchored trends, boot snapshots, inventory drift, config provenance
+//! v7.24.0: Relationship store (links.db), hotspots, stack packages
 //! - Every number has a verifiable source
 //! - No invented descriptions
 //! - No hallucinated metrics
@@ -96,6 +97,10 @@ pub mod timeline;
 pub mod boot_snapshot;
 pub mod inventory_drift;
 pub mod config_hygiene;
+// v7.24.0: Relationship store, hotspots, relationships
+pub mod relationship_store;
+pub mod hotspots;
+pub mod relationships;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -268,4 +273,27 @@ pub use config_hygiene::{
     ConfigSource, ValidatedConfigEntry, ValidatedConfig,
     ConfigGraph, ConfigPrecedenceEntry,
     format_config_section, format_config_graph_section,
+};
+// v7.24.0: Relationship store
+pub use relationship_store::{
+    LinkType, Link, RelationshipStore,
+    discover_package_service_links, discover_service_process_links,
+    discover_device_driver_links, discover_driver_firmware_links,
+};
+// v7.24.0: Hotspots
+pub use hotspots::{
+    CpuHotspot, MemoryHotspot, StartFrequencyHotspot,
+    TempHotspot, IoHotspot, LoadHotspot, GpuHotspot,
+    SoftwareHotspots, HardwareHotspots,
+    get_software_hotspots, get_hardware_hotspots,
+    format_software_hotspots_section, format_hardware_hotspots_section,
+    format_status_hotspots_section,
+};
+// v7.24.0: Relationships
+pub use relationships::{
+    ServiceRelation, ProcessRelation, HardwareRelation, StackPackage,
+    SoftwareRelationships, DriverRelation, FirmwareRelation,
+    ServiceUsingDevice, SoftwareUsingDevice, HardwareRelationships,
+    get_software_relationships, get_hardware_relationships,
+    format_software_relationships_section, format_hardware_relationships_section,
 };
