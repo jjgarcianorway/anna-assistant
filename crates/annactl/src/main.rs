@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v0.0.12 - Proactive Anomaly Detection
+//! Anna CLI (annactl) v0.0.22 - Reliability Engineering
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
@@ -153,7 +153,8 @@ async fn check_junior_status() -> Option<String> {
 /// REPL mode - interactive natural language chat
 async fn run_repl() -> Result<()> {
     println!();
-    println!("{}", "  Anna Assistant v0.0.12".bold());
+    let version = env!("CARGO_PKG_VERSION");
+    println!("{}", format!("  Anna Assistant v{}", version).bold());
     println!("{}", THIN_SEP);
     println!("  Natural language interface to your system.");
 

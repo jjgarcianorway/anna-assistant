@@ -635,7 +635,7 @@ verify_installation() {
 
     # v7.35.1: Verify annactl --version
     if [[ -x "${INSTALL_DIR}/annactl" ]]; then
-        version=$("${INSTALL_DIR}/annactl" version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || version=""
+        version=$("${INSTALL_DIR}/annactl" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) || version=""
         if [[ "$version" == "$LATEST_VERSION" ]]; then
             log_ok "Verified annactl --version: v${version}"
         elif [[ -n "$version" ]]; then

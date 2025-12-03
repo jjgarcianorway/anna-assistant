@@ -439,19 +439,35 @@ fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
 
 /// Parse clarification string: "question|option1|option2|default:N"
 fn parse_clarification(s: &str) -> Option<Clarification> {
+    // Reject if it looks like echoed prompt instructions
+    if s.contains("empty if not needed") || s.contains("OR \"question") || s.starts_with('[') {
+        return None;
+    }
+
     let parts: Vec<&str> = s.split('|').collect();
     if parts.len() < 3 {
         return None;
     }
 
-    let question = parts[0].to_string();
+    let question = parts[0].trim().to_string();
+
+    // Question must end with ? to be valid
+    if !question.ends_with('?') {
+        return None;
+    }
+
     let mut options = Vec::new();
     let mut default_option = 0;
 
     for part in &parts[1..] {
+        let part = part.trim();
         if let Some(n) = part.strip_prefix("default:") {
-            default_option = n.parse().unwrap_or(0);
-        } else {
+            default_option = n.trim_matches(|c| c == '"' || c == ']').parse().unwrap_or(0);
+        } else if !part.is_empty() && !part.starts_with('[') && !part.ends_with(']') {
+            // Reject placeholder options like "option1", "option2", etc.
+            if part == "option1" || part == "option2" || part == "option3" || part == "option4" {
+                return None;
+            }
             options.push(part.to_string());
         }
     }
@@ -1722,13 +1738,19 @@ async fn get_translator_client() -> LlmAvailability {
         match client.list_models().await {
             Ok(models) => {
                 let names: Vec<String> = models.iter().map(|m| m.name.clone()).collect();
-                // Prefer small fast models for translator
+                // Prefer small fast models for translator - exact match or closest match
                 let preferred = ["qwen2.5:0.5b", "qwen2.5:1.5b", "phi3:mini", "gemma2:2b", "llama3.2:1b"];
                 for pref in preferred {
-                    if names.iter().any(|n| n.contains(pref.split(':').next().unwrap_or(pref))) {
-                        return LlmAvailability::Ready(client, pref.to_string());
+                    // First try exact match
+                    if let Some(exact) = names.iter().find(|n| *n == pref) {
+                        return LlmAvailability::Ready(client, exact.clone());
+                    }
+                    // Then try prefix match (e.g., qwen2.5:1.5b-instruct matches qwen2.5:1.5b)
+                    if let Some(match_name) = names.iter().find(|n| n.starts_with(pref)) {
+                        return LlmAvailability::Ready(client, match_name.clone());
                     }
                 }
+                // Fall back to first available model
                 if let Some(first) = names.first() {
                     return LlmAvailability::Ready(client, first.clone());
                 }
@@ -2765,6 +2787,30 @@ mod tests {
         assert_eq!(c.question, "Which service?");
         assert_eq!(c.options, vec!["nginx", "apache"]);
         assert_eq!(c.default_option, 0);
+    }
+
+    #[test]
+    fn test_parse_clarification_rejects_garbage() {
+        // Reject echoed prompt instructions
+        let s = "[empty if not needed, OR \"question|option1|option2|option3|default:N\"]";
+        assert!(parse_clarification(s).is_none());
+
+        // Reject placeholder options
+        let s = "Which editor?|option1|option2|default:0";
+        assert!(parse_clarification(s).is_none());
+
+        // Reject missing question mark
+        let s = "Which editor|vim|neovim|default:0";
+        assert!(parse_clarification(s).is_none());
+
+        // Accept valid clarification
+        let s = "Which editor?|vim|neovim|default:1";
+        let c = parse_clarification(s);
+        assert!(c.is_some());
+        let c = c.unwrap();
+        assert_eq!(c.question, "Which editor?");
+        assert_eq!(c.options, vec!["vim", "neovim"]);
+        assert_eq!(c.default_option, 1);
     }
 
     #[test]
