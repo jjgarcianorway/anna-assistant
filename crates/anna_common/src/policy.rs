@@ -146,6 +146,10 @@ pub struct FileEditPolicy {
     /// Only allow text files
     #[serde(default = "default_true")]
     pub text_only: bool,
+
+    /// v0.0.17: User home directory edit policy
+    #[serde(default)]
+    pub user_home: UserHomePolicy,
 }
 
 impl Default for FileEditPolicy {
@@ -156,6 +160,40 @@ impl Default for FileEditPolicy {
             blocked_paths: default_blocked_paths(),
             max_file_size_bytes: default_max_file_size(),
             text_only: true,
+            user_home: UserHomePolicy::default(),
+        }
+    }
+}
+
+/// v0.0.17: Policy for user home directory edits
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserHomePolicy {
+    /// Whether user home editing is enabled
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Allowed subpaths within user homes (glob patterns)
+    /// e.g., ".config/**", ".bashrc", ".zshrc"
+    #[serde(default = "default_allowed_home_subpaths")]
+    pub allowed_subpaths: Vec<String>,
+
+    /// Blocked subpaths within user homes (security-sensitive)
+    /// e.g., ".ssh/**", ".gnupg/**"
+    #[serde(default = "default_blocked_home_subpaths")]
+    pub blocked_subpaths: Vec<String>,
+
+    /// Maximum file size for user home edits (may be different from system files)
+    #[serde(default = "default_user_home_max_file_size")]
+    pub max_file_size_bytes: u64,
+}
+
+impl Default for UserHomePolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            allowed_subpaths: default_allowed_home_subpaths(),
+            blocked_subpaths: default_blocked_home_subpaths(),
+            max_file_size_bytes: default_user_home_max_file_size(),
         }
     }
 }
@@ -1042,6 +1080,90 @@ impl Policy {
             .iter()
             .any(|p| matches_pattern(package, p))
     }
+
+    // v0.0.17: User home path checking
+
+    /// Check if user home editing is enabled
+    pub fn is_user_home_editing_enabled(&self) -> bool {
+        self.capabilities.mutation_tools.file_edit.user_home.enabled
+    }
+
+    /// Get max file size for user home edits
+    pub fn get_user_home_max_file_size(&self) -> u64 {
+        self.capabilities.mutation_tools.file_edit.user_home.max_file_size_bytes
+    }
+
+    /// Check if a subpath within a user's home is allowed for editing
+    ///
+    /// Takes a relative path like ".config/nvim/init.vim" and checks
+    /// against the user_home policy's allowed and blocked subpaths.
+    pub fn is_user_home_subpath_allowed(&self, relative_path: &str) -> PolicyCheckResult {
+        let evidence_id = generate_policy_evidence_id();
+
+        // Check if user home editing is enabled
+        if !self.capabilities.mutation_tools.file_edit.user_home.enabled {
+            return PolicyCheckResult::blocked(
+                "User home editing is disabled in capabilities.toml",
+                &evidence_id,
+                "capabilities.toml:mutation_tools.file_edit.user_home.enabled",
+            );
+        }
+
+        // Check blocked subpaths first (takes precedence)
+        for blocked in &self.capabilities.mutation_tools.file_edit.user_home.blocked_subpaths {
+            if matches_glob_pattern(relative_path, blocked) {
+                return PolicyCheckResult::blocked(
+                    &format!("Path '{}' matches blocked pattern '{}' in user home policy", relative_path, blocked),
+                    &evidence_id,
+                    "capabilities.toml:mutation_tools.file_edit.user_home.blocked_subpaths",
+                );
+            }
+        }
+
+        // Check allowed subpaths
+        let allowed = self.capabilities.mutation_tools.file_edit.user_home.allowed_subpaths
+            .iter()
+            .any(|pattern| matches_glob_pattern(relative_path, pattern));
+
+        if !allowed {
+            return PolicyCheckResult::blocked(
+                &format!("Path '{}' is not in allowed subpaths list for user home edits", relative_path),
+                &evidence_id,
+                "capabilities.toml:mutation_tools.file_edit.user_home.allowed_subpaths",
+            );
+        }
+
+        PolicyCheckResult::allowed(&evidence_id)
+    }
+}
+
+/// Enhanced glob pattern matching (supports ** for recursive match)
+fn matches_glob_pattern(text: &str, pattern: &str) -> bool {
+    if pattern.ends_with("/**") {
+        // Match prefix for directory recursion
+        let prefix = &pattern[..pattern.len() - 3];
+        text.starts_with(prefix)
+    } else if pattern.contains("/**/") {
+        // Match with ** in middle for arbitrary path depth
+        let parts: Vec<&str> = pattern.split("/**/").collect();
+        if parts.len() == 2 {
+            // The suffix may contain additional wildcards like key*.db
+            text.starts_with(parts[0]) && matches_pattern(text, &format!("*{}", parts[1]))
+        } else {
+            matches_pattern(text, pattern)
+        }
+    } else if pattern.contains("**") {
+        // Match with ** wildcard
+        let parts: Vec<&str> = pattern.split("**").collect();
+        if parts.len() == 2 {
+            text.starts_with(parts[0]) && (parts[1].is_empty() || text.ends_with(parts[1]))
+        } else {
+            matches_pattern(text, pattern)
+        }
+    } else {
+        // Use simple pattern matching
+        matches_pattern(text, pattern)
+    }
 }
 
 /// Result of a policy check
@@ -1311,6 +1433,43 @@ fn default_blocked_path_prefixes() -> Vec<String> {
     ]
 }
 
+// v0.0.17: User home policy defaults
+fn default_user_home_max_file_size() -> u64 { 1_048_576 } // 1 MiB
+
+fn default_allowed_home_subpaths() -> Vec<String> {
+    vec![
+        ".config/**".to_string(),
+        ".local/share/**".to_string(),
+        ".bashrc".to_string(),
+        ".bash_profile".to_string(),
+        ".bash_aliases".to_string(),
+        ".zshrc".to_string(),
+        ".zprofile".to_string(),
+        ".profile".to_string(),
+        ".gitconfig".to_string(),
+        ".vimrc".to_string(),
+        ".tmux.conf".to_string(),
+        ".nanorc".to_string(),
+        ".inputrc".to_string(),
+        ".Xresources".to_string(),
+        ".xinitrc".to_string(),
+    ]
+}
+
+fn default_blocked_home_subpaths() -> Vec<String> {
+    vec![
+        ".ssh/**".to_string(),
+        ".gnupg/**".to_string(),
+        ".password-store/**".to_string(),
+        ".mozilla/**/key*.db".to_string(),
+        ".mozilla/**/logins.json".to_string(),
+        ".config/chromium/**/Login Data".to_string(),
+        ".config/google-chrome/**/Login Data".to_string(),
+        ".local/share/keyrings/**".to_string(),
+        ".pki/**".to_string(),
+    ]
+}
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -1445,5 +1604,77 @@ mod tests {
         let citation = blocked.format_citation();
         assert!(citation.contains("POL12345"));
         assert!(citation.contains("Policy:"));
+    }
+
+    // v0.0.17: User home policy tests
+
+    #[test]
+    fn test_user_home_policy_defaults() {
+        let policy = Policy::default();
+        assert!(policy.is_user_home_editing_enabled());
+        assert!(policy.get_user_home_max_file_size() > 0);
+    }
+
+    #[test]
+    fn test_user_home_allowed_config() {
+        let policy = Policy::default();
+        // .config/** should be allowed
+        let result = policy.is_user_home_subpath_allowed(".config/nvim/init.vim");
+        assert!(result.allowed, "Expected .config/nvim/init.vim to be allowed");
+    }
+
+    #[test]
+    fn test_user_home_allowed_dotfiles() {
+        let policy = Policy::default();
+        // Common dotfiles should be allowed
+        assert!(policy.is_user_home_subpath_allowed(".bashrc").allowed);
+        assert!(policy.is_user_home_subpath_allowed(".zshrc").allowed);
+        assert!(policy.is_user_home_subpath_allowed(".vimrc").allowed);
+        assert!(policy.is_user_home_subpath_allowed(".gitconfig").allowed);
+    }
+
+    #[test]
+    fn test_user_home_blocked_ssh() {
+        let policy = Policy::default();
+        // .ssh/** should be blocked
+        let result = policy.is_user_home_subpath_allowed(".ssh/id_rsa");
+        assert!(!result.allowed, "Expected .ssh/id_rsa to be blocked");
+        assert!(result.reason.contains("blocked"));
+    }
+
+    #[test]
+    fn test_user_home_blocked_gnupg() {
+        let policy = Policy::default();
+        // .gnupg/** should be blocked
+        let result = policy.is_user_home_subpath_allowed(".gnupg/private-keys");
+        assert!(!result.allowed, "Expected .gnupg/private-keys to be blocked");
+    }
+
+    #[test]
+    fn test_user_home_not_in_allowed_list() {
+        let policy = Policy::default();
+        // Random paths not in allowed list should be blocked
+        let result = policy.is_user_home_subpath_allowed("Documents/secret.txt");
+        assert!(!result.allowed, "Expected Documents/secret.txt to be blocked");
+        assert!(result.reason.contains("not in allowed"));
+    }
+
+    #[test]
+    fn test_matches_glob_pattern_recursive() {
+        // Test ** matching
+        assert!(matches_glob_pattern(".config/foo/bar", ".config/**"));
+        assert!(matches_glob_pattern(".config/deep/nested/file", ".config/**"));
+        assert!(!matches_glob_pattern(".bashrc", ".config/**"));
+
+        // Test ** in middle
+        assert!(matches_glob_pattern(".mozilla/firefox/key3.db", ".mozilla/**/key*.db"));
+    }
+
+    #[test]
+    fn test_user_home_local_share() {
+        let policy = Policy::default();
+        // .local/share/** should be allowed
+        let result = policy.is_user_home_subpath_allowed(".local/share/applications/test.desktop");
+        assert!(result.allowed, "Expected .local/share paths to be allowed");
     }
 }

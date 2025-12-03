@@ -1,4 +1,4 @@
-//! Anna Common v0.0.16 - Better Mutation Safety
+//! Anna Common v0.0.17 - Multi-User Correctness
 //!
 //! v0.0.16: Preflight checks, dry-run diffs, post-checks, automatic rollback
 //! - MutationState enum: planned -> preflight_ok -> confirmed -> applied -> verified_ok | rolled_back
@@ -289,6 +289,9 @@ pub mod audit_log;
 
 // v0.0.16: Mutation safety system
 pub mod mutation_safety;
+
+// v0.0.17: Target user and multi-user correctness
+pub mod target_user;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -723,3 +726,21 @@ pub use audit_log::{
     sanitize_for_audit, redact_env_secrets,
     AUDIT_DIR, AUDIT_LOG_FILE, AUDIT_ARCHIVE_DIR,
 };
+
+// v0.0.17: Target user and multi-user correctness exports
+pub use target_user::{
+    // User info
+    UserInfo, UserSelectionSource, TargetUserSelection, AmbiguousUserSelection,
+    SelectionResult, TargetUserSelector,
+    // Home directory functions
+    get_user_home, is_path_in_user_home, get_path_relative_to_home,
+    expand_home_path, contract_home_path,
+    // User-scoped operations
+    UserScopeError, write_file_as_user, create_dir_as_user,
+    backup_file_as_user, check_file_ownership, fix_file_ownership,
+    // Policy helpers
+    is_home_path_allowed, DEFAULT_ALLOWED_HOME_PATHS, DEFAULT_BLOCKED_HOME_PATHS,
+    // Evidence
+    USER_EVIDENCE_PREFIX, generate_user_evidence_id,
+};
+pub use policy::UserHomePolicy;

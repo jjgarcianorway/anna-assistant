@@ -2,6 +2,209 @@
 
 ---
 
+## v0.0.17 - Multi-User Correctness
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Stop pretending there is only one user on the machine. Anna now correctly identifies and operates on the target user for user-scoped tasks while keeping root-only operations in annad. This prevents root-owned files appearing in user home directories and ensures correct ownership for backups.
+
+### Key Features
+
+**Target User Selection (Strict Precedence):**
+1. REPL session chosen user (if set)
+2. `SUDO_USER` environment variable (for sudo invocations)
+3. Non-root invoking user (getuid)
+4. Primary interactive user (most recent login, or clarification prompt if ambiguous)
+
+**Transcript Message:**
+```
+[anna] to [you]:
+  I will treat Barbara as the target user for user-scoped changes,
+  because you invoked annactl via sudo. [E-user-12345]
+```
+
+**Safe Home Directory Detection:**
+- Canonical home from /etc/passwd lookup
+- NEVER guess `/home/<username>`
+- Evidence ID for home directory determination
+- Functions: `get_user_home()`, `is_path_in_user_home()`, `expand_home_path()`
+
+**User-Scoped File Operations:**
+- `write_file_as_user()`: Creates files owned by target user
+- `backup_file_as_user()`: Backups owned by target user
+- `create_dir_as_user()`: Directories with correct ownership
+- `fix_file_ownership()`: Repair incorrect ownership
+- Uses `install` command with `-o` and `-g` flags for atomic ownership
+
+**UserHomePolicy in capabilities.toml:**
+```toml
+[mutation_tools.file_edit.user_home]
+enabled = true
+max_file_size_bytes = 1048576
+
+allowed_subpaths = [
+    ".config/**",
+    ".local/share/**",
+    ".bashrc",
+    ".zshrc",
+    ".vimrc",
+    ".gitconfig",
+    # ... more dotfiles
+]
+
+blocked_subpaths = [
+    ".ssh/**",
+    ".gnupg/**",
+    ".password-store/**",
+    ".mozilla/**/key*.db",
+    ".mozilla/**/logins.json",
+    # ... browser credentials
+]
+```
+
+**Clarification Prompt for Ambiguous Users:**
+```
+[anna] to [you]:
+  Which user should I target?
+    1) alice (Alice Smith)
+    2) bob
+  Select [1-2]:
+```
+
+### New Types
+
+```rust
+/// Information about a Unix user
+pub struct UserInfo {
+    pub username: String,
+    pub uid: u32,
+    pub gid: u32,
+    pub home: PathBuf,
+    pub shell: String,
+    pub gecos: String,
+}
+
+/// How the target user was determined
+pub enum UserSelectionSource {
+    ReplSession,
+    SudoUser,
+    InvokingUser,
+    PrimaryInteractive,
+    UserChoice,
+    FallbackRoot,
+}
+
+/// Result of target user selection
+pub struct TargetUserSelection {
+    pub user: UserInfo,
+    pub source: UserSelectionSource,
+    pub evidence_id: String,
+    pub explanation: String,
+    pub required_clarification: bool,
+    pub other_candidates: Vec<UserInfo>,
+}
+
+/// Selection result: determined or needs clarification
+pub enum SelectionResult {
+    Determined(TargetUserSelection),
+    NeedsClarification(AmbiguousUserSelection),
+}
+
+/// Policy for user home directory edits
+pub struct UserHomePolicy {
+    pub enabled: bool,
+    pub allowed_subpaths: Vec<String>,
+    pub blocked_subpaths: Vec<String>,
+    pub max_file_size_bytes: u64,
+}
+```
+
+### Example Transcript: "Enable syntax highlighting"
+
+```
+[anna] to [you]:
+  I will treat barbara as the target user for user-scoped changes,
+  because you invoked annactl via sudo. [E-user-34521]
+
+[you] to [anna]:
+  Enable syntax highlighting
+
+[anna] to [translator]:
+  Classify this request:
+  "Enable syntax highlighting"
+
+[translator] to [anna]:
+  Intent: action_request
+  Targets: .vimrc, vim, syntax
+  Risk: medium
+  Tools: user_config_edit
+  Confidence: 82%
+
+[anna] to [annad]:
+  Please prepare a file edit for /home/barbara/.vimrc to enable syntax highlighting.
+  Target user: barbara (uid=1000, gid=1000)
+
+[annad] to [anna]:
+  Preflight checks passed: [E-pre-99821]
+  - Path /home/barbara/.vimrc is allowed by user_home policy
+  - File is text, size 423 bytes
+  - Backup will be created at /var/lib/anna/rollback/files/... (owned by barbara:barbara)
+
+  Dry-run diff preview: [E-diff-99822]
+  --- /home/barbara/.vimrc (current)
+  +++ /home/barbara/.vimrc (proposed)
+  @@ lines 1-5 @@
+  + syntax on
+  + set hlsearch
+    " existing content...
+  Changes: +2 added, -0 removed
+
+[anna] to [you]:
+  I can enable syntax highlighting by adding to ~/.vimrc:
+    syntax on
+    set hlsearch
+
+  This is a medium-risk change to your shell configuration.
+  Type "I CONFIRM (medium risk)" to proceed:
+
+[you] to [anna]:
+  I CONFIRM (medium risk)
+
+[anna] to [annad]:
+  Execute the file edit for barbara.
+
+[annad] to [anna]:
+  Edit applied successfully. [E-mut-99823]
+  - File written as barbara:barbara (uid=1000, gid=1000)
+  - Backup at /var/lib/anna/rollback/files/1701612345_mut_123/vimrc
+  - Post-check: syntax on present, file readable
+
+[anna] to [you]:
+  Done! Syntax highlighting is now enabled in vim.
+  The change was made to /home/barbara/.vimrc
+  Backup available at: /var/lib/anna/rollback/files/1701612345_mut_123/vimrc
+
+  Reliability: 94% [E-user-34521, E-pre-99821, E-diff-99822, E-mut-99823]
+```
+
+### Testing
+
+- 15 unit tests for target user system (selection, precedence, clarification)
+- 10 unit tests for user home policy (allowed/blocked paths, glob matching)
+- Integration with existing mutation safety tests
+
+### Files Changed
+
+- `crates/anna_common/src/target_user.rs` (NEW - ~900 lines)
+- `crates/anna_common/src/policy.rs` (UserHomePolicy added)
+- `crates/anna_common/src/lib.rs` (exports)
+- `crates/annactl/src/pipeline.rs` (target user selection integration)
+- `Cargo.toml` (version bump, libc dependency)
+
+---
+
 ## v0.0.16 - Better Mutation Safety
 
 **Release Date:** 2025-12-03

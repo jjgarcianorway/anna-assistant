@@ -1,4 +1,4 @@
-//! Anna Request Pipeline v0.0.16
+//! Anna Request Pipeline v0.0.17
 //!
 //! Multi-party dialogue transcript with:
 //! - Translator: LLM-backed intent classification with tool planning
@@ -8,6 +8,7 @@
 //! - First safe mutations: config edits + systemd operations
 //! - Debug level filtering for output verbosity
 //! - Mutation safety: preflight checks, dry-run diffs, post-checks, auto-rollback
+//! - Target user awareness for multi-user systems
 //!
 //! v0.0.4: Junior becomes real via Ollama, Translator stays deterministic.
 //! v0.0.5: Bootstrap state checking with progress display
@@ -16,6 +17,7 @@
 //! v0.0.8: First safe mutations (medium-risk only) with rollback + confirmation
 //! v0.0.15: Debug level filtering (0=minimal, 1=normal, 2=full)
 //! v0.0.16: Mutation safety system with preflight, dry-run diffs, post-checks, auto-rollback
+//! v0.0.17: Multi-user correctness with target user awareness and per-user config edits
 
 use anna_common::{
     AnnaConfig, OllamaClient, OllamaError,
@@ -30,6 +32,9 @@ use anna_common::{
     RollbackManager, is_path_allowed, validate_confirmation,
     execute_mutation, generate_request_id,
     MEDIUM_RISK_CONFIRMATION,
+    // v0.0.17: Target user system
+    TargetUserSelector, TargetUserSelection, SelectionResult, UserInfo,
+    get_policy,
 };
 use owo_colors::OwoColorize;
 use std::fmt;
@@ -1786,6 +1791,63 @@ fn apply_clarification(translator_output: &mut TranslatorOutput, choice_idx: usi
 }
 
 // =============================================================================
+// v0.0.17: Target User Selection
+// =============================================================================
+
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+
+/// Global target user selector (for REPL session continuity)
+static TARGET_USER_SELECTOR: Lazy<Mutex<TargetUserSelector>> = Lazy::new(|| {
+    Mutex::new(TargetUserSelector::new())
+});
+
+/// Select the target user, with clarification prompt if ambiguous
+fn select_target_user() -> Option<TargetUserSelection> {
+    let mut selector = TARGET_USER_SELECTOR.lock().ok()?;
+
+    match selector.select_target_user() {
+        SelectionResult::Determined(selection) => Some(selection),
+        SelectionResult::NeedsClarification(ambiguous) => {
+            // Ask user to select
+            dialogue_always(Actor::Anna, Actor::You, &ambiguous.format_prompt());
+
+            // Read user input
+            let stdin = io::stdin();
+            let mut input = String::new();
+            print!("  > ");
+            io::stdout().flush().ok();
+
+            if stdin.lock().read_line(&mut input).is_ok() {
+                let input = input.trim();
+                if let Ok(choice) = input.parse::<usize>() {
+                    if let Some(selection) = ambiguous.resolve(choice) {
+                        // Store for session
+                        selector.set_session_user(&selection.user.username);
+                        return Some(selection);
+                    }
+                }
+            }
+
+            // Default to first candidate if invalid input
+            ambiguous.resolve(1)
+        }
+    }
+}
+
+/// Check if a request involves user home directory changes
+fn request_involves_user_home(request: &str) -> bool {
+    let home_keywords = [
+        "~", "$HOME", ".bashrc", ".zshrc", ".config", ".local",
+        "dotfile", "profile", "shell config", "vim", "nvim", "neovim",
+        "syntax highlight", "theme", "colorscheme", "terminal",
+    ];
+
+    let lower = request.to_lowercase();
+    home_keywords.iter().any(|k| lower.contains(&k.to_lowercase()))
+}
+
+// =============================================================================
 // Main Pipeline (v0.0.7: with tool execution and natural language transcripts)
 // =============================================================================
 
@@ -1795,6 +1857,21 @@ pub async fn process(request: &str) {
 
     // Initialize tool catalog
     let catalog = ToolCatalog::new();
+
+    // v0.0.17: Check if we need target user awareness for this request
+    let target_user = if request_involves_user_home(request) {
+        match select_target_user() {
+            Some(selection) => {
+                // Show target user in transcript
+                dialogue(Actor::Anna, Actor::You, &selection.format_transcript());
+                println!();
+                Some(selection)
+            }
+            None => None,
+        }
+    } else {
+        None
+    };
 
     // [you] to [anna]: user's request
     dialogue(Actor::You, Actor::Anna, request);

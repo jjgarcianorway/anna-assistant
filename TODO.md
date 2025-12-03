@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.16**
+**Current Version: 0.0.17**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -190,7 +190,20 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 - [x] Junior enforcement rules for mutation safety (penalties for missing preflight/diff/post-check)
 - [x] 21 unit tests for mutation safety system
 
-### 0.0.17 - REPL Enhancement (Planned)
+### 0.0.17 - Multi-User Correctness (COMPLETED)
+- [x] Target user selection with strict precedence: REPL session > SUDO_USER > invoking user > primary interactive
+- [x] Safe home directory detection via /etc/passwd (never guess /home/<name>)
+- [x] User-scoped file operations: write_file_as_user, backup_file_as_user, fix_file_ownership
+- [x] UserHomePolicy in capabilities.toml for allowed/blocked subpaths
+- [x] Default allowed: .config/**, .bashrc, .zshrc, .vimrc, .gitconfig, etc.
+- [x] Default blocked: .ssh/**, .gnupg/**, .password-store/**, browser credentials
+- [x] Clarification prompt for ambiguous user selection (multiple candidates)
+- [x] Evidence ID citations for user selection (E-user-##### format)
+- [x] Target user transcript message in pipeline
+- [x] 15 unit tests for target user system
+- [x] 10 unit tests for user home policy
+
+### 0.0.18 - REPL Enhancement (Planned)
 - [ ] Improve REPL welcome message with level/XP display
 - [ ] Add history support for REPL
 

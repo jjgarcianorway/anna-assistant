@@ -40,13 +40,14 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "0.0.16"
+version = "0.0.17"
 dependencies = [
  "anyhow",
  "chrono",
  "dirs",
  "futures-util",
  "lazy_static",
+ "libc",
  "owo-colors",
  "regex",
  "reqwest",
@@ -64,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.0.16"
+version = "0.0.17"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -73,6 +74,7 @@ dependencies = [
  "dirs",
  "futures-util",
  "libc",
+ "once_cell",
  "owo-colors",
  "reqwest",
  "serde",
@@ -87,7 +89,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.0.16"
+version = "0.0.17"
 dependencies = [
  "anna_common",
  "anyhow",
