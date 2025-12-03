@@ -712,21 +712,21 @@ fn print_helpers_section(mode: &DisplayMode) {
 
     println!();
 
-    // Show each helper
+    // Show each helper - v0.0.25: better messaging for missing helpers
     for helper in &helpers {
-        let presence = if helper.present {
-            "present".green().to_string()
+        let (presence, action) = if helper.present {
+            let by = match helper.installed_by {
+                InstalledBy::Anna => "installed by Anna".cyan().to_string(),
+                InstalledBy::User => "installed by user".dimmed().to_string(),
+                InstalledBy::Unknown => "installed by user".dimmed().to_string(), // Assume user if present but unknown
+            };
+            ("present".green().to_string(), by)
         } else {
-            "missing".red().to_string()
+            // Missing helper - tell user Anna will install it when needed
+            ("missing".yellow().to_string(), "install via Anna".cyan().to_string())
         };
 
-        let by = match helper.installed_by {
-            InstalledBy::Anna => "installed by Anna".cyan().to_string(),
-            InstalledBy::User => "installed by user".dimmed().to_string(),
-            InstalledBy::Unknown => "unknown origin".dimmed().to_string(),
-        };
-
-        println!("  {} ({}, {})", helper.name, presence, by);
+        println!("  {} ({}, {})", helper.name, presence, action);
     }
 
     println!();

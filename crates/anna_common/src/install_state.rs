@@ -239,6 +239,50 @@ impl InstallState {
         Self::load().unwrap_or_default()
     }
 
+    /// Ensure install state exists on disk - v0.0.25: called on daemon start
+    /// Creates default state if missing, returns true if created
+    pub fn ensure_initialized() -> std::io::Result<bool> {
+        let path = Path::new(INSTALL_STATE_PATH);
+        if path.exists() {
+            return Ok(false);
+        }
+
+        // Create default state with discovered binary paths
+        let mut state = Self::default();
+
+        // Discover binary paths
+        if let Ok(annactl_path) = which("annactl") {
+            state.annactl = Some(BinaryInfo {
+                path: annactl_path,
+                checksum: None,
+                version: get_binary_version("annactl"),
+                last_verified: Some(Utc::now()),
+            });
+        }
+        if let Ok(annad_path) = which("annad") {
+            state.annad = Some(BinaryInfo {
+                path: annad_path,
+                checksum: None,
+                version: get_binary_version("annad"),
+                last_verified: Some(Utc::now()),
+            });
+        }
+
+        // Discover unit file path
+        let unit_path = PathBuf::from("/etc/systemd/system/annad.service");
+        if unit_path.exists() {
+            state.annad_unit = Some(UnitInfo {
+                path: unit_path,
+                exec_start: Some("/usr/local/bin/annad".to_string()),
+                should_be_enabled: true,
+                last_state: Some("active".to_string()),
+            });
+        }
+
+        state.save()?;
+        Ok(true)
+    }
+
     /// Save install state to disk
     pub fn save(&self) -> std::io::Result<()> {
         let path = Path::new(INSTALL_STATE_PATH);
@@ -384,6 +428,44 @@ pub fn discover_install_state() -> InstallState {
     }
 
     state
+}
+
+/// Find a binary in PATH - v0.0.25
+fn which(name: &str) -> std::io::Result<PathBuf> {
+    let output = std::process::Command::new("which")
+        .arg(name)
+        .output()?;
+
+    if output.status.success() {
+        let path = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .to_string();
+        Ok(PathBuf::from(path))
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("{} not found in PATH", name),
+        ))
+    }
+}
+
+/// Get version from a binary - v0.0.25
+fn get_binary_version(name: &str) -> Option<String> {
+    let output = std::process::Command::new(name)
+        .arg("--version")
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Extract version from "name vX.Y.Z" or just "vX.Y.Z"
+        for word in stdout.split_whitespace() {
+            if word.starts_with('v') || word.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                return Some(word.trim_start_matches('v').to_string());
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]

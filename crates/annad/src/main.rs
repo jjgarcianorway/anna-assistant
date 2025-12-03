@@ -1106,6 +1106,15 @@ fn ensure_data_dirs() {
         Ok(false) => {} // Policy already exists, no action needed
         Err(e) => warn!("[!]  Failed to create policy defaults: {}", e),
     }
+
+    // v0.0.25: Ensure install state exists on first run
+    // This creates /var/lib/anna/install_state.json with discovered paths
+    use anna_common::InstallState;
+    match InstallState::ensure_initialized() {
+        Ok(true) => info!("[+]  Install state initialized at /var/lib/anna/install_state.json"),
+        Ok(false) => {} // Install state already exists
+        Err(e) => warn!("[!]  Failed to initialize install state: {}", e),
+    }
 }
 
 /// v5.4.1: Scan journal logs using cursor-based incremental scanning

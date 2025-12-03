@@ -684,6 +684,7 @@ pub use helpers::{
 };
 
 // v0.0.10: Install state and installer review exports
+// v0.0.25: Added InstallState::ensure_initialized for auto-creation on daemon start
 pub use install_state::{
     InstallState, BinaryInfo, UnitInfo, DirectoryInfo, ReviewResult, LastReview,
     discover_install_state, INSTALL_STATE_PATH, INSTALL_STATE_SCHEMA,
