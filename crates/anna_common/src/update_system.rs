@@ -500,6 +500,7 @@ impl UpdateManager {
     }
 
     /// Perform atomic installation of new binaries
+    /// v0.0.29: Handle artifact names with version and architecture suffix
     pub fn atomic_install(&mut self, artifacts: &[ReleaseArtifact]) -> Result<(), String> {
         self.ops_log.log("update_system", "install_started", None);
 
@@ -509,7 +510,17 @@ impl UpdateManager {
             let staged_path = artifact.local_path.as_ref()
                 .ok_or_else(|| format!("Artifact {} not staged", artifact.name))?;
 
-            let target_path = match artifact.name.as_str() {
+            // v0.0.29: Extract base binary name from artifact name
+            // e.g., "annad-0.0.28-x86_64-unknown-linux-gnu" -> "annad"
+            let base_name = if artifact.name.starts_with("annad-") {
+                "annad"
+            } else if artifact.name.starts_with("annactl-") {
+                "annactl"
+            } else {
+                artifact.name.as_str()
+            };
+
+            let target_path = match base_name {
                 "annad" => install_state.annad.as_ref().map(|b| b.path.clone()),
                 "annactl" => install_state.annactl.as_ref().map(|b| b.path.clone()),
                 _ => None,
@@ -756,8 +767,9 @@ fn fetch_github_releases() -> Result<Vec<ReleaseInfo>, String> {
                     .unwrap_or_default()
                     .to_string();
 
-                // Filter to only binary artifacts
-                if name == "annad" || name == "annactl" {
+                // v0.0.29: Filter to binary artifacts (now with architecture suffix)
+                // Match: annad-X.X.X-arch or annactl-X.X.X-arch
+                if name.starts_with("annad-") || name.starts_with("annactl-") {
                     let url = asset.get("browser_download_url")
                         .and_then(|v| v.as_str())
                         .unwrap_or_default()
@@ -769,7 +781,7 @@ fn fetch_github_releases() -> Result<Vec<ReleaseInfo>, String> {
                         name,
                         url,
                         size_bytes,
-                        expected_checksum: None, // TODO: parse from checksums.txt if present
+                        expected_checksum: None,
                         local_path: None,
                         integrity: IntegrityStatus::NotVerified,
                     });
