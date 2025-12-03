@@ -1097,6 +1097,15 @@ fn ensure_data_dirs() {
         info!("[+]  Update state initialized: mode={}, next={}",
             update_state.format_mode(), update_state.format_next_check());
     }
+
+    // v0.0.23: Ensure default policy files exist on first run
+    // This creates /etc/anna/policy/* with sensible defaults
+    use anna_common::ensure_policy_defaults;
+    match ensure_policy_defaults() {
+        Ok(true) => info!("[+]  Policy defaults created at /etc/anna/policy/"),
+        Ok(false) => {} // Policy already exists, no action needed
+        Err(e) => warn!("[!]  Failed to create policy defaults: {}", e),
+    }
 }
 
 /// v5.4.1: Scan journal logs using cursor-based incremental scanning

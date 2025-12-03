@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v0.0.22 - Reliability Engineering
+//! Anna CLI (annactl) v0.0.23 - Self-Sufficiency
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)

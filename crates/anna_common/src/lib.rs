@@ -1,4 +1,11 @@
-//! Anna Common v0.0.22 - Reliability Engineering
+//! Anna Common v0.0.23 - Self-Sufficiency
+//!
+//! v0.0.23: Self-Sufficiency
+//! - Auto-install Ollama if missing (daemon installs on bootstrap)
+//! - Auto-pull models when needed (with progress tracking)
+//! - Track installations as "installed by Anna" for clean uninstall
+//! - Helper install functions: install_package, install_ollama
+//! - Automatic service start after Ollama install
 //!
 //! v0.0.16: Preflight checks, dry-run diffs, post-checks, automatic rollback
 //! - MutationState enum: planned -> preflight_ok -> confirmed -> applied -> verified_ok | rolled_back
@@ -666,11 +673,13 @@ pub use mutation_safety::{
 };
 
 // v0.0.9: Helper tracking exports
+// v0.0.23: Added install functions (install_package, install_ollama)
 pub use helpers::{
     HelpersManifest, HelperState, HelperDefinition, InstalledBy,
-    HelpersSummary, HelperStatusEntry,
+    HelpersSummary, HelperStatusEntry, InstallResult as HelperInstallResult,
     get_helper_definitions, get_helper_status_list, get_helpers_summary,
     refresh_helper_states, is_package_present, get_package_version as helpers_get_package_version,
+    install_package, install_ollama, is_command_available, get_ollama_version as helpers_get_ollama_version,
     HELPERS_STATE_FILE,
 };
 
@@ -728,6 +737,7 @@ pub use introspection::{
 };
 
 // v0.0.14: Policy engine exports
+// v0.0.23: Added ensure_policy_defaults for auto-creation on first run
 pub use policy::{
     Policy, PolicyError, PolicyCheckResult, PolicyValidation,
     CapabilitiesPolicy, RiskPolicy, BlockedPolicy, HelpersPolicy,
@@ -735,6 +745,7 @@ pub use policy::{
     POLICY_DIR, CAPABILITIES_FILE, RISK_FILE, BLOCKED_FILE, HELPERS_FILE,
     POLICY_SCHEMA_VERSION, POLICY_EVIDENCE_PREFIX,
     generate_policy_evidence_id, get_policy, reload_policy, clear_policy_cache,
+    ensure_policy_defaults,
 };
 pub use audit_log::{
     AuditLogger, AuditEntry, AuditEntryType, AuditResult,

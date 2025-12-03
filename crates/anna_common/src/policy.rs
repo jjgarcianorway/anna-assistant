@@ -1268,6 +1268,75 @@ pub fn clear_policy_cache() {
     *cache = None;
 }
 
+/// Ensure default policy files exist - v0.0.23: auto-create on daemon start
+/// Returns Ok(true) if files were created, Ok(false) if they already existed
+pub fn ensure_policy_defaults() -> Result<bool, std::io::Error> {
+    use std::io::Write;
+
+    let dir = Path::new(POLICY_DIR);
+
+    // Create policy directory if it doesn't exist
+    if !dir.exists() {
+        fs::create_dir_all(dir)?;
+    }
+
+    let mut created = false;
+
+    // Create capabilities.toml with defaults
+    let caps_path = Path::new(CAPABILITIES_FILE);
+    if !caps_path.exists() {
+        let caps = CapabilitiesPolicy::default();
+        let content = toml::to_string_pretty(&caps)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let mut file = fs::File::create(caps_path)?;
+        file.write_all(b"# Anna Capabilities Policy v1\n")?;
+        file.write_all(b"# Controls which tools Anna can use\n\n")?;
+        file.write_all(content.as_bytes())?;
+        created = true;
+    }
+
+    // Create risk.toml with defaults
+    let risk_path = Path::new(RISK_FILE);
+    if !risk_path.exists() {
+        let risk = RiskPolicy::default();
+        let content = toml::to_string_pretty(&risk)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let mut file = fs::File::create(risk_path)?;
+        file.write_all(b"# Anna Risk Policy v1\n")?;
+        file.write_all(b"# Controls risk levels and confirmation requirements\n\n")?;
+        file.write_all(content.as_bytes())?;
+        created = true;
+    }
+
+    // Create blocked.toml with defaults
+    let blocked_path = Path::new(BLOCKED_FILE);
+    if !blocked_path.exists() {
+        let blocked = BlockedPolicy::default();
+        let content = toml::to_string_pretty(&blocked)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let mut file = fs::File::create(blocked_path)?;
+        file.write_all(b"# Anna Blocked Policy v1\n")?;
+        file.write_all(b"# Defines blocked packages, services, paths, and commands\n\n")?;
+        file.write_all(content.as_bytes())?;
+        created = true;
+    }
+
+    // Create helpers.toml with defaults
+    let helpers_path = Path::new(HELPERS_FILE);
+    if !helpers_path.exists() {
+        let helpers = HelpersPolicy::default();
+        let content = toml::to_string_pretty(&helpers)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let mut file = fs::File::create(helpers_path)?;
+        file.write_all(b"# Anna Helpers Policy v1\n")?;
+        file.write_all(b"# Controls helper tracking and management\n\n")?;
+        file.write_all(content.as_bytes())?;
+        created = true;
+    }
+
+    Ok(created)
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================

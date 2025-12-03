@@ -1,11 +1,12 @@
-//! LLM Bootstrap Manager v0.0.5
+//! LLM Bootstrap Manager v0.0.6
 //!
 //! Manages the LLM model setup lifecycle:
-//! - Detects Ollama availability
+//! - Detects Ollama availability (auto-installs if missing)
 //! - Selects models based on hardware tier
 //! - Pulls models if needed (with progress tracking)
 //! - Runs benchmarks to validate models
 //! - Updates BootstrapState for status reporting
+//! - Tracks installations as anna-installed for clean uninstall
 
 use anna_common::{
     AnnaConfig,
@@ -15,6 +16,7 @@ use anna_common::{
         ModelCandidate, ModelSelection, DownloadProgress,
         default_candidates, select_model_for_role,
     },
+    helpers::{install_ollama, is_command_available, HelpersManifest},
 };
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -64,20 +66,93 @@ pub async fn run_bootstrap(
         let _ = s.save();
     }
 
-    // Phase 2: Check Ollama availability
+    // Phase 2: Check Ollama availability (auto-install if missing)
     let ollama_url = config.llm.ollama_url.clone();
     let client = OllamaClient::with_url(&ollama_url);
 
     if !client.is_available().await {
-        warn!("[!]  Ollama not available at {}", ollama_url);
-        {
-            let mut s = state.write().await;
-            s.phase = BootstrapPhase::Error;
-            s.error = Some(format!("Ollama not available at {}", ollama_url));
-            s.touch();
-            let _ = s.save();
+        info!("[~]  Ollama not available, checking if installable...");
+
+        // Check if Ollama binary exists but service not running
+        if is_command_available("ollama") {
+            warn!("[!]  Ollama installed but not responding at {}", ollama_url);
+            info!("[~]  Attempting to start Ollama service...");
+
+            // Try to start ollama service
+            let start_result = std::process::Command::new("systemctl")
+                .args(["start", "ollama"])
+                .status();
+
+            if start_result.map(|s| s.success()).unwrap_or(false) {
+                // Wait a moment for service to start
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+                if client.is_available().await {
+                    info!("[+]  Ollama service started successfully");
+                } else {
+                    warn!("[!]  Ollama service started but still not responding");
+                }
+            } else {
+                warn!("[!]  Failed to start Ollama service");
+            }
+        } else {
+            // Ollama not installed - auto-install
+            info!("[~]  Ollama not installed, starting auto-install...");
+
+            {
+                let mut s = state.write().await;
+                s.phase = BootstrapPhase::InstallingOllama;
+                s.touch();
+                let _ = s.save();
+            }
+
+            let install_result = install_ollama();
+
+            if install_result.success {
+                info!("[+]  Ollama installed successfully (version: {})",
+                    install_result.version.as_deref().unwrap_or("unknown"));
+
+                // Record as anna-installed for clean uninstall
+                let mut manifest = HelpersManifest::load();
+                manifest.record_anna_install("ollama", "Local LLM inference", install_result.version);
+                let _ = manifest.save();
+
+                // Enable and start Ollama service
+                let _ = std::process::Command::new("systemctl")
+                    .args(["daemon-reload"])
+                    .status();
+                let _ = std::process::Command::new("systemctl")
+                    .args(["enable", "--now", "ollama"])
+                    .status();
+
+                // Wait for service to come up
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            } else {
+                let err_msg = install_result.error.unwrap_or_else(|| "Unknown error".to_string());
+                error!("[!]  Failed to install Ollama: {}", err_msg);
+
+                let mut s = state.write().await;
+                s.phase = BootstrapPhase::Error;
+                s.error = Some(format!("Failed to install Ollama: {}", err_msg));
+                s.touch();
+                let _ = s.save();
+
+                return Err(OllamaError::NotAvailable(format!("Install failed: {}", err_msg)));
+            }
         }
-        return Err(OllamaError::NotAvailable(ollama_url));
+
+        // Final check after install/start attempts
+        if !client.is_available().await {
+            warn!("[!]  Ollama still not available after setup attempts");
+            {
+                let mut s = state.write().await;
+                s.phase = BootstrapPhase::Error;
+                s.error = Some(format!("Ollama not available at {} after setup", ollama_url));
+                s.touch();
+                let _ = s.save();
+            }
+            return Err(OllamaError::NotAvailable(ollama_url));
+        }
     }
 
     info!("[+]  Ollama available at {}", ollama_url);

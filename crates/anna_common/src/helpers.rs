@@ -341,6 +341,134 @@ pub fn get_package_version(package: &str) -> Option<String> {
     None
 }
 
+/// Result of package installation
+#[derive(Debug)]
+pub struct InstallResult {
+    pub success: bool,
+    pub version: Option<String>,
+    pub error: Option<String>,
+}
+
+/// Install a package via pacman (requires root)
+/// Returns the installed version on success
+pub fn install_package(package: &str) -> InstallResult {
+    // Check if already installed
+    if is_package_present(package) {
+        return InstallResult {
+            success: true,
+            version: get_package_version(package),
+            error: None,
+        };
+    }
+
+    // Install via pacman with --noconfirm
+    let output = std::process::Command::new("pacman")
+        .args(["-S", "--noconfirm", package])
+        .output();
+
+    match output {
+        Ok(result) => {
+            if result.status.success() {
+                InstallResult {
+                    success: true,
+                    version: get_package_version(package),
+                    error: None,
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                InstallResult {
+                    success: false,
+                    version: None,
+                    error: Some(stderr.to_string()),
+                }
+            }
+        }
+        Err(e) => InstallResult {
+            success: false,
+            version: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// Install Ollama using the official install script
+/// This is preferred over pacman as Ollama may not be in official repos
+pub fn install_ollama() -> InstallResult {
+    // Check if already installed
+    if is_command_available("ollama") {
+        return InstallResult {
+            success: true,
+            version: get_ollama_version(),
+            error: None,
+        };
+    }
+
+    // Install using official script: curl -fsSL https://ollama.ai/install.sh | sh
+    let output = std::process::Command::new("sh")
+        .args(["-c", "curl -fsSL https://ollama.ai/install.sh | sh"])
+        .output();
+
+    match output {
+        Ok(result) => {
+            if result.status.success() {
+                // Verify installation
+                if is_command_available("ollama") {
+                    InstallResult {
+                        success: true,
+                        version: get_ollama_version(),
+                        error: None,
+                    }
+                } else {
+                    InstallResult {
+                        success: false,
+                        version: None,
+                        error: Some("Install script succeeded but ollama command not found".to_string()),
+                    }
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                InstallResult {
+                    success: false,
+                    version: None,
+                    error: Some(stderr.to_string()),
+                }
+            }
+        }
+        Err(e) => InstallResult {
+            success: false,
+            version: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// Check if a command is available in PATH
+pub fn is_command_available(cmd: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(cmd)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Get Ollama version (from ollama --version)
+pub fn get_ollama_version() -> Option<String> {
+    let output = std::process::Command::new("ollama")
+        .arg("--version")
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Output is like "ollama version is 0.1.32"
+        stdout.split_whitespace().last().map(|s| s.to_string())
+    } else {
+        None
+    }
+}
+
 /// Refresh helper state from system
 /// Call this periodically to update presence status
 pub fn refresh_helper_states() -> HelpersManifest {

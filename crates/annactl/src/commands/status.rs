@@ -1,4 +1,4 @@
-//! Status Command v0.0.22 - Reliability Engineering
+//! Status Command v0.0.23 - Self-Sufficiency
 //!
 //! v0.0.20: Q&A statistics display
 //! - [Q&A TODAY] section shows answers count, avg reliability, top sources
