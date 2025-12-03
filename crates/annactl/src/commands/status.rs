@@ -59,6 +59,7 @@ use owo_colors::OwoColorize;
 use std::path::Path;
 
 use anna_common::config::{AnnaConfig, UpdateState, UpdateResult, UpdateMode, JuniorState};
+use anna_common::model_selection::{BootstrapState, BootstrapPhase};
 use anna_common::format_duration_secs;
 use anna_common::daemon_state::{
     StatusSnapshot, LastCrash, SnapshotStatus,
@@ -1229,12 +1230,12 @@ fn print_policy_section() {
     println!();
 }
 
-/// [MODELS] section - v0.0.15: show LLM model status
+/// [MODELS] section - v0.0.22: use BootstrapState for accurate LLM status
 fn print_models_section() {
     println!("{}", "[MODELS]".cyan());
 
     let config = AnnaConfig::load();
-    let junior_state = JuniorState::load();
+    let bootstrap_state = BootstrapState::load();
 
     // LLM enabled status
     if !config.llm.enabled {
@@ -1243,46 +1244,57 @@ fn print_models_section() {
         return;
     }
 
-    // Ollama status
-    let ollama_status = if junior_state.ollama_available {
-        "available".green().to_string()
-    } else {
-        "unavailable".red().to_string()
+    // Ollama status based on bootstrap phase
+    let ollama_status = match bootstrap_state.phase {
+        BootstrapPhase::Ready => "available".green().to_string(),
+        BootstrapPhase::DetectingOllama => "checking...".yellow().to_string(),
+        BootstrapPhase::InstallingOllama => "installing...".yellow().to_string(),
+        BootstrapPhase::PullingModels => "pulling models...".yellow().to_string(),
+        BootstrapPhase::Benchmarking => "benchmarking...".yellow().to_string(),
+        BootstrapPhase::Error => {
+            if let Some(ref err) = bootstrap_state.error {
+                if err.contains("not available") {
+                    "unavailable".red().to_string()
+                } else {
+                    format!("error: {}", err).red().to_string()
+                }
+            } else {
+                "error".red().to_string()
+            }
+        }
     };
     println!("  Ollama:     {}", ollama_status);
 
-    // Translator model
-    let translator_model = if config.llm.translator.model.is_empty() {
-        "(auto-select)".dimmed().to_string()
-    } else {
+    // Translator model from bootstrap state
+    let translator_model = if let Some(ref sel) = bootstrap_state.translator {
+        format!("{} ({})", sel.model.green(), "ready".green())
+    } else if !config.llm.translator.model.is_empty() {
         config.llm.translator.model.clone()
+    } else {
+        "(auto-select)".dimmed().to_string()
     };
     println!("  Translator: {}", translator_model);
 
-    // Junior model
-    if let Some(ref model) = junior_state.selected_model {
-        let ready = if junior_state.model_ready {
-            format!("{} ({})", model.green(), "ready".green())
-        } else {
-            format!("{} ({})", model.yellow(), "downloading".yellow())
-        };
-        println!("  Junior:     {}", ready);
+    // Junior model from bootstrap state
+    let junior_model = if let Some(ref sel) = bootstrap_state.junior {
+        format!("{} ({})", sel.model.green(), "ready".green())
     } else {
-        println!("  Junior:     {}", "(no model)".dimmed());
-    }
+        "(no model)".dimmed().to_string()
+    };
+    println!("  Junior:     {}", junior_model);
 
     // Timeout settings
     println!("  Timeouts:   translator {}ms, junior {}ms",
         config.llm.translator.timeout_ms,
         config.llm.junior.timeout_ms);
 
-    // Last check time
-    if junior_state.last_check > 0 {
+    // Last bootstrap time
+    if bootstrap_state.last_update > 0 {
         let ago = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs()
-            .saturating_sub(junior_state.last_check);
+            .saturating_sub(bootstrap_state.last_update);
         let ago_str = if ago < 60 {
             format!("{}s ago", ago)
         } else if ago < 3600 {
