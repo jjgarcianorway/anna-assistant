@@ -1,4 +1,4 @@
-//! Anna Request Pipeline v0.0.17
+//! Anna Request Pipeline v0.0.21 - Performance and Latency Sprint
 //!
 //! Multi-party dialogue transcript with:
 //! - Translator: LLM-backed intent classification with tool planning
@@ -9,6 +9,7 @@
 //! - Debug level filtering for output verbosity
 //! - Mutation safety: preflight checks, dry-run diffs, post-checks, auto-rollback
 //! - Target user awareness for multi-user systems
+//! - Secrets redaction and leak prevention
 //!
 //! v0.0.4: Junior becomes real via Ollama, Translator stays deterministic.
 //! v0.0.5: Bootstrap state checking with progress display
@@ -18,6 +19,7 @@
 //! v0.0.15: Debug level filtering (0=minimal, 1=normal, 2=full)
 //! v0.0.16: Mutation safety system with preflight, dry-run diffs, post-checks, auto-rollback
 //! v0.0.17: Multi-user correctness with target user awareness and per-user config edits
+//! v0.0.18: Secrets hygiene with redaction and leak prevention
 
 use anna_common::{
     AnnaConfig, OllamaClient, OllamaError,
@@ -35,6 +37,13 @@ use anna_common::{
     // v0.0.17: Target user system
     TargetUserSelector, TargetUserSelection, SelectionResult, UserInfo,
     get_policy,
+    // v0.0.18: Secrets redaction
+    redact_transcript, redact_evidence, is_path_restricted, get_restriction_message,
+    // v0.0.21: Performance and caching
+    ToolCache, ToolCacheKey, LlmCache, LlmCacheKey,
+    PerfStats, LatencySample, BudgetViolation,
+    get_snapshot_hash, get_policy_version,
+    TOOL_CACHE_TTL_SECS, LLM_CACHE_TTL_SECS,
 };
 use owo_colors::OwoColorize;
 use std::fmt;
@@ -93,36 +102,44 @@ fn should_show_dialogue(from: Actor, to: Actor, debug_level: u8) -> bool {
 }
 
 /// Print a dialogue line in debug format (respects debug level)
+/// v0.0.18: All dialogue output is redacted for secrets
 pub fn dialogue(from: Actor, to: Actor, message: &str) {
     let debug_level = get_debug_level();
     if !should_show_dialogue(from, to, debug_level) {
         return;
     }
 
+    // v0.0.18: Apply secrets redaction to all dialogue output
+    let redacted = redact_transcript(message);
+
     let header = format!("[{}] to [{}]:", from, to);
     println!("  {}", header.dimmed());
 
     // At debug level 0, condense long messages
-    if debug_level == 0 && message.lines().count() > 5 {
+    if debug_level == 0 && redacted.lines().count() > 5 {
         // Show first 2 lines and summary
-        for (i, line) in message.lines().take(2).enumerate() {
+        for (i, line) in redacted.lines().take(2).enumerate() {
             println!("  {}", line);
             if i == 1 {
-                println!("  {}", format!("... ({} more lines)", message.lines().count() - 2).dimmed());
+                println!("  {}", format!("... ({} more lines)", redacted.lines().count() - 2).dimmed());
             }
         }
     } else {
-        for line in message.lines() {
+        for line in redacted.lines() {
             println!("  {}", line);
         }
     }
 }
 
 /// Print dialogue unconditionally (for confirmations/critical messages)
+/// v0.0.18: All dialogue output is redacted for secrets
 pub fn dialogue_always(from: Actor, to: Actor, message: &str) {
+    // v0.0.18: Apply secrets redaction
+    let redacted = redact_transcript(message);
+
     let header = format!("[{}] to [{}]:", from, to);
     println!("  {}", header.dimmed());
-    for line in message.lines() {
+    for line in redacted.lines() {
         println!("  {}", line);
     }
 }
@@ -290,10 +307,10 @@ impl Default for JuniorVerification {
 // Translator LLM (v0.0.6 - real LLM integration)
 // =============================================================================
 
-/// System prompt for Translator (v0.0.7: with TOOLS output)
+/// System prompt for Translator (v0.0.20: with source planning for Ask Me Anything)
 const TRANSLATOR_SYSTEM_PROMPT: &str = r#"You are Translator, the intent classifier for Anna (a Linux system assistant).
 
-Your job is to classify user requests and plan which tools to gather evidence.
+Your job is to classify user requests and plan which tools/sources to gather evidence.
 
 OUTPUT FORMAT (follow exactly, one field per line):
 INTENT: [question|system_query|action_request|unknown]
@@ -304,6 +321,7 @@ RATIONALE: [why these tools are needed, 1 sentence]
 CLARIFICATION: [empty if not needed, OR "question|option1|option2|option3|default:N"]
 
 AVAILABLE TOOLS:
+System Evidence (for machine-specific facts):
 - status_snapshot: daemon/system status
 - sw_snapshot_summary: installed packages, commands, services overview
 - hw_snapshot_summary: CPU, memory, GPU, storage, network info
@@ -314,17 +332,29 @@ AVAILABLE TOOLS:
 - package_info(name=X): details about a specific package
 - service_status(name=X): status of a specific service
 - disk_usage: filesystem usage
+- what_changed(days=N): packages/services/configs changed recently
+- slowness_hypotheses(days=N): analyze causes of slowness
+
+Knowledge Sources (for documentation/how-to):
+- knowledge_search(query=X): search man pages, package docs, user notes
+
+SOURCE PLANNING RULES (v0.0.20):
+1. "How do I...?" questions -> knowledge_search FIRST, then system tools if needed
+2. "What is happening on my machine?" -> system tools FIRST
+3. Mixed questions (both how-to AND system state) -> BOTH sources
+4. General knowledge questions -> knowledge_search or reasoning
 
 RULES:
-1. system_query = needs machine data -> always plan tools
+1. system_query = needs machine data -> always plan system tools
 2. action_request = would modify system -> plan tools to check current state
-3. question = general knowledge -> tools: none
+3. question = may need knowledge_search if about Linux/config topics
 4. unknown = cannot classify -> tools: none
 
 TOOL FORMAT EXAMPLES:
+TOOLS: knowledge_search(query=vim syntax highlighting)
 TOOLS: hw_snapshot_summary
-TOOLS: sw_snapshot_summary, recent_installs(days=7)
-TOOLS: service_status(name=nginx), journal_warnings(service=nginx, minutes=60)
+TOOLS: knowledge_search(query=ssh keys), sw_snapshot_summary
+TOOLS: recent_installs(days=14), what_changed(days=14), slowness_hypotheses(days=14)
 TOOLS: none
 
 Only request clarification when genuinely ambiguous.
@@ -1097,7 +1127,7 @@ fn ensure_service_suffix(name: &str) -> String {
 // Junior LLM Verification (v0.0.4 - real via Ollama)
 // =============================================================================
 
-/// System prompt for Junior verifier (v0.0.14: with policy enforcement)
+/// System prompt for Junior verifier (v0.0.20: with source label enforcement)
 const JUNIOR_SYSTEM_PROMPT: &str = r#"You are Junior, a verification assistant for Anna (a Linux system assistant).
 
 Your job is to verify Anna's draft responses and provide a reliability score.
@@ -1109,6 +1139,20 @@ CRITICAL NO-GUESSING RULES:
 4. Label any inference explicitly: "Based on [E2], likely..." not "The system is..."
 5. Recommend REMOVING claims that lack evidence citations
 6. For action requests: mutations NEVER execute without explicit confirmation
+
+SOURCE LABEL ENFORCEMENT (v0.0.20):
+Every claim in a response MUST be labeled with its source:
+- [E#] for system evidence (measurements, snapshots, tool output)
+- [K#] for knowledge pack documentation (man pages, package docs)
+- (Reasoning) for general inference not from direct evidence
+
+Examples:
+   BAD: "To enable syntax highlighting, add 'syntax on' to .vimrc" (no source label)
+   GOOD: "To enable syntax highlighting, add 'syntax on' to .vimrc [K1]"
+   BAD: "Your CPU is running at high load" (no evidence citation)
+   GOOD: "Your CPU is at 85% usage [E1]"
+   BAD: "This is generally recommended"
+   GOOD: "(Reasoning) This is generally recommended based on common practice"
 
 LEARNING CLAIMS ENFORCEMENT (v0.0.13):
 7. Claims about what Anna "learned", "remembers", "knows", or "has recipes for" MUST cite:
@@ -1139,20 +1183,34 @@ MUTATION SAFETY ENFORCEMENT (v0.0.16):
    BAD: "Changed the file successfully" (no post-check)
    GOOD: "Post-check verified [POST001]: config contains expected setting"
 
+SECRETS LEAK PREVENTION (v0.0.18):
+20. Responses MUST NOT reveal: passwords, tokens, API keys, bearer tokens, private keys, PEM blocks, SSH keys, cookies, cloud credentials, git credentials, database URLs, connection strings
+21. Evidence from restricted paths MUST show [REDACTED:TYPE] or "Evidence exists but content is restricted by policy"
+22. If secrets detected in response: force redaction with [REDACTED:TYPE], cite redaction ID, downscore heavily
+23. Restricted paths (NEVER excerpt content): ~/.ssh/**, ~/.gnupg/**, /etc/shadow, /proc/*/environ, browser profiles, keyrings, password stores, AWS/Azure/GCP credential files
+24. Examples:
+   BAD: "Your API key is sk-abc123def456" (leaking secret)
+   GOOD: "Your API key is [REDACTED:ApiKey]"
+   BAD: "Contents of ~/.ssh/id_rsa: -----BEGIN RSA PRIVATE KEY-----..." (restricted path)
+   GOOD: "Evidence exists but content is restricted by policy [E-restrict-12345]"
+   BAD: "Found password in config: mySecretPass123" (leaking password)
+   GOOD: "Found password in config: [REDACTED:Password]"
+
 OUTPUT FORMAT (follow exactly):
 SCORE: [0-100]
-CRITIQUE: [List uncited claims, policy violations, and speculation, 1-2 sentences]
-UNCITED_CLAIMS: [comma-separated list of claims without [E#], [MEM#], [RCP#], or [POL#] citations, or "none"]
-SUGGESTIONS: [Minimal edits: remove uncited claims, add policy citations, or add [UNVERIFIED] tags]
+CRITIQUE: [List uncited claims, source label violations, policy violations, and speculation, 1-2 sentences]
+UNCITED_CLAIMS: [comma-separated list of claims without [E#], [K#], (Reasoning), [MEM#], [RCP#], or [POL#] labels, or "none"]
+SUGGESTIONS: [Minimal edits: add source labels, remove uncited claims, or add [UNVERIFIED] tags]
 MUTATION_WARNING: [yes/no - only "yes" if this is an action request]
 
 Scoring rubric:
-- All claims cite evidence [E#]: +40
+- All claims cite evidence [E#] or [K#]: +40
 - No speculation or uncited claims: +30
 - Read-only operation: +20
 - High confidence from Translator: +10
 PENALTIES:
 - Each uncited machine-specific claim: -15
+- Factual claim without [E#], [K#], or (Reasoning) label: -10 (UNLABELED SOURCE)
 - Speculation presented as fact: -20
 - Missing evidence for key claims: -30
 - Action request without plan: -10
@@ -1163,6 +1221,9 @@ PENALTIES:
 - File edit without diff preview: -20 (INCOMPLETE)
 - Mutation without post-check definition: -25 (INCOMPLETE)
 - Mutation without rollback plan: -30 (UNSAFE)
+- Secret revealed in response (password, key, token): -50 (SECURITY LEAK)
+- Unredacted content from restricted path: -40 (RESTRICTED PATH VIOLATION)
+- Missing [REDACTED:TYPE] for detected secret: -30 (INCOMPLETE REDACTION)
 
 EXAMPLES OF GOOD vs BAD:
 BAD: "Your CPU is an AMD Ryzen" (no citation)
@@ -1175,6 +1236,7 @@ BAD: "I can modify the kernel package" (policy violation)
 GOOD: "Kernel packages are blocked by policy [POL54321]""#;
 
 /// Call Junior LLM for verification (v0.0.7: with Evidence IDs)
+/// v0.0.18: Evidence is redacted for secrets before sending to LLM
 async fn call_junior_llm(
     client: &OllamaClient,
     model: &str,
@@ -1183,7 +1245,7 @@ async fn call_junior_llm(
     tool_results: &[ToolResult],
     draft_answer: &str,
 ) -> Result<JuniorVerification, OllamaError> {
-    // Build evidence text with Evidence IDs
+    // Build evidence text with Evidence IDs (v0.0.18: redacted for secrets)
     let evidence_text = if tool_results.is_empty() {
         "No evidence available.".to_string()
     } else {
@@ -1191,13 +1253,19 @@ async fn call_junior_llm(
             .iter()
             .map(|r| {
                 let status = if r.success { "OK" } else { "FAILED" };
-                format!("[{}] {} ({}): {}", r.evidence_id, r.tool_name, status, r.human_summary)
+                // v0.0.18: Redact secrets from evidence summaries
+                let redacted_summary = redact_evidence(&r.human_summary, None)
+                    .unwrap_or_else(|e| e);
+                format!("[{}] {} ({}): {}", r.evidence_id, r.tool_name, status, redacted_summary)
             })
             .collect::<Vec<_>>()
             .join("\n")
     };
 
     let translator_source = if translator_output.llm_backed { "LLM" } else { "deterministic fallback" };
+
+    // v0.0.18: Redact draft answer before sending to Junior
+    let redacted_draft = redact_transcript(draft_answer);
 
     let prompt = format!(
         r#"Verify this response. Claims about the machine MUST cite evidence IDs like [E1], [E2].
@@ -1225,7 +1293,7 @@ Provide your verification in the exact format specified."#,
         translator_output.risk,
         translator_output.confidence,
         evidence_text,
-        draft_answer
+        redacted_draft
     );
 
     let response = client
@@ -1236,6 +1304,7 @@ Provide your verification in the exact format specified."#,
 }
 
 /// Call Junior LLM for verification (legacy: with Evidence)
+/// v0.0.18: Evidence and draft answers are redacted for secrets
 async fn call_junior_llm_legacy(
     client: &OllamaClient,
     model: &str,
@@ -1244,7 +1313,7 @@ async fn call_junior_llm_legacy(
     evidence: &[Evidence],
     draft_answer: &str,
 ) -> Result<JuniorVerification, OllamaError> {
-    // Build evidence text with excerpting indication
+    // Build evidence text with excerpting indication (v0.0.18: redacted for secrets)
     let evidence_text = if evidence.is_empty() {
         "No evidence available.".to_string()
     } else {
@@ -1253,13 +1322,19 @@ async fn call_junior_llm_legacy(
             .enumerate()
             .map(|(i, e)| {
                 let excerpt_note = if e.excerpted { " [EXCERPT]" } else { "" };
-                format!("[E{}] {}{}: {}", i + 1, e.source, excerpt_note, e.data)
+                // v0.0.18: Redact secrets from evidence data
+                let redacted_data = redact_evidence(&e.data, Some(&e.source))
+                    .unwrap_or_else(|e| e);
+                format!("[E{}] {}{}: {}", i + 1, e.source, excerpt_note, redacted_data)
             })
             .collect::<Vec<_>>()
             .join("\n")
     };
 
     let translator_source = if translator_output.llm_backed { "LLM" } else { "deterministic fallback" };
+
+    // v0.0.18: Redact draft answer before sending to Junior
+    let redacted_draft = redact_transcript(draft_answer);
 
     let prompt = format!(
         r#"Verify this response. Claims about the machine MUST cite evidence IDs like [E1], [E2].
@@ -1287,7 +1362,7 @@ Provide your verification in the exact format specified."#,
         translator_output.risk,
         translator_output.confidence,
         evidence_text,
-        draft_answer
+        redacted_draft
     );
 
     let response = client
@@ -1848,20 +1923,64 @@ fn request_involves_user_home(request: &str) -> bool {
 }
 
 // =============================================================================
-// Main Pipeline (v0.0.7: with tool execution and natural language transcripts)
+// v0.0.21: TTFO (Time to First Output) and Performance Tracking
+// =============================================================================
+
+/// Print fast header within 150ms target (TTFO improvement)
+fn print_fast_header(request: &str) {
+    println!();
+    // Header line - immediate output
+    let header = format!("[{}] to [{}]:", Actor::You, Actor::Anna);
+    println!("  {}", header.dimmed());
+    // Show request immediately
+    for line in request.lines() {
+        println!("  {}", line);
+    }
+    println!();
+    // Working indicator - shows we're processing
+    print!("  {} ", "I'm starting analysis and gathering evidence...".dimmed());
+    let _ = io::stdout().flush();
+}
+
+/// Clear the working indicator line
+fn clear_working_indicator() {
+    // Move cursor back and clear line
+    print!("\r  {}\r", " ".repeat(60));
+    let _ = io::stdout().flush();
+}
+
+// =============================================================================
+// Main Pipeline (v0.0.21: with TTFO, caching, and token budgets)
 // =============================================================================
 
 /// Process a request through the full pipeline with dialogue transcript
 pub async fn process(request: &str) {
-    println!();
+    // v0.0.21: Track latency from start
+    let start_time = std::time::Instant::now();
+    let mut translator_ms: u64 = 0;
+    let mut junior_ms: u64 = 0;
+    let mut tools_ms: u64 = 0;
+    let mut cache_hit = false;
+
+    // v0.0.21: TTFO - print header and working indicator within 150ms
+    print_fast_header(request);
 
     // Initialize tool catalog
     let catalog = ToolCatalog::new();
+
+    // v0.0.21: Initialize caches
+    let tool_cache = ToolCache::new();
+    let llm_cache = LlmCache::new();
+    let snapshot_hash = get_snapshot_hash();
+    let policy_version = get_policy_version();
+    let config = AnnaConfig::load();
 
     // v0.0.17: Check if we need target user awareness for this request
     let target_user = if request_involves_user_home(request) {
         match select_target_user() {
             Some(selection) => {
+                // Clear working indicator before dialogue
+                clear_working_indicator();
                 // Show target user in transcript
                 dialogue(Actor::Anna, Actor::You, &selection.format_transcript());
                 println!();
@@ -1873,9 +1992,12 @@ pub async fn process(request: &str) {
         None
     };
 
-    // [you] to [anna]: user's request
-    dialogue(Actor::You, Actor::Anna, request);
-    println!();
+    // Clear working indicator - we're about to show real progress
+    clear_working_indicator();
+
+    // [you] to [anna]: user's request (already shown in fast header, skip in normal flow)
+    // dialogue(Actor::You, Actor::Anna, request); // Shown in print_fast_header
+    // println!();
 
     // [anna] to [translator]: request for classification
     dialogue(
@@ -2161,6 +2283,33 @@ pub async fn process(request: &str) {
         if plan.is_medium_risk_executable && plan.mutation_plan.is_some() {
             handle_mutation_execution(plan, &verification, &tool_results).await;
         }
+    }
+
+    // v0.0.21: Record performance metrics
+    let total_ms = start_time.elapsed().as_millis() as u64;
+    let sample = LatencySample {
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        total_ms,
+        translator_ms,
+        junior_ms,
+        tools_ms,
+        cache_hit,
+    };
+
+    // Save performance stats (fire and forget)
+    let mut stats = PerfStats::load();
+    stats.record_sample(sample);
+    let _ = stats.save();
+
+    // Show performance note at debug level 2
+    if config.ui.debug_level >= 2 {
+        let cache_note = if cache_hit { " (cache hit)" } else { "" };
+        println!("  {} total: {}ms, translator: {}ms, tools: {}ms, junior: {}ms{}",
+            "[perf]".dimmed(),
+            total_ms, translator_ms, tools_ms, junior_ms, cache_note.dimmed());
     }
 }
 
@@ -2460,6 +2609,7 @@ fn generate_final_response(
 }
 
 /// Generate final response with Evidence ID citations (v0.0.7)
+/// v0.0.18: Evidence summaries are redacted for secrets
 fn generate_final_response_v2(
     translator_output: &TranslatorOutput,
     tool_results: &[ToolResult],
@@ -2490,12 +2640,14 @@ fn generate_final_response_v2(
         } else {
             let mut response = String::from("Based on gathered evidence:\n\n");
 
-            // Add each piece of evidence with its ID
+            // Add each piece of evidence with its ID (v0.0.18: redacted for secrets)
             for result in &successful {
+                let redacted_summary = redact_evidence(&result.human_summary, None)
+                    .unwrap_or_else(|e| e);
                 response.push_str(&format!(
                     "[{}] {}\n",
                     result.evidence_id,
-                    result.human_summary
+                    redacted_summary
                 ));
             }
 

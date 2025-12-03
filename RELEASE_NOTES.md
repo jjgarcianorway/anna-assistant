@@ -2,6 +2,588 @@
 
 ---
 
+## v0.0.22 - Reliability Engineering (Metrics, Error Budgets, and Self-Diagnostics)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now tracks her own reliability like an SRE-managed service. Request success rates, tool failures, mutation rollbacks, and LLM timeouts are continuously recorded with configurable error budgets that trigger alerts when burned. A new `self_diagnostics()` tool generates comprehensive health reports with evidence IDs for every claim.
+
+### Key Features
+
+**Metrics Collection:**
+- Structured metrics stored locally in `/var/lib/anna/internal/metrics.json`
+- Tracks 16 metric types: requests, tools, mutations, LLM timeouts, cache hits/misses
+- Rolling 7-day retention with daily aggregation
+- Latency recording with p50/p95 percentile calculation
+
+**Error Budgets (SRE-Style):**
+- Configurable thresholds in `config.toml`:
+  - Request failures: max 1% per day (default)
+  - Tool failures: max 2% per day (default)
+  - Mutation rollbacks: max 0.5% per day (default)
+  - LLM timeouts: max 3% per day (default)
+- Budget states: Ok, Warning (50% burned), Critical (80% burned), Exhausted (100%+)
+- Automatic alerts generated when budgets are burned
+
+**Self-Diagnostics Tool:**
+- `self_diagnostics()` - read-only tool generating comprehensive health reports
+- Sections with individual evidence IDs:
+  - Version information
+  - Install review status
+  - Update state (channels, phases)
+  - Model readiness (Ollama, selected models)
+  - Policy status (capabilities, blocked, risk files)
+  - Storage usage
+  - Error budget consumption
+  - Recent errors (redacted)
+  - Active alerts
+- Overall status derived from worst section status
+- Redaction applied to error messages (secrets never exposed)
+
+**Additional Tools:**
+- `metrics_summary(days)` - reliability metrics for specified period
+- `error_budgets()` - current budget consumption status
+
+**Status Display ([RELIABILITY] section):**
+```
+[RELIABILITY]
+  Status:           healthy
+
+  Error Budgets (today):
+    request_failures:  0.0% / 1.0% [OK]
+    tool_failures:     0.0% / 2.0% [OK]
+    mutation_rollback: 0.0% / 0.5% [OK]
+    llm_timeouts:      0.0% / 3.0% [OK]
+
+  Request Success Rate (7d): 100.0% (42/42)
+  Latency (7d): p50=1234ms, p95=2456ms
+```
+
+### Configuration (config.toml)
+
+```toml
+[reliability]
+# Error budget thresholds (percentages)
+[reliability.error_budgets]
+request_failure_percent = 1.0
+tool_failure_percent = 2.0
+mutation_rollback_percent = 0.5
+llm_timeout_percent = 3.0
+
+# Metrics settings
+[reliability.metrics]
+retention_days = 7
+```
+
+### New Types
+
+- `MetricType` - 16 metric categories (RequestSuccess, ToolFailure, etc.)
+- `DailyMetrics` - per-day aggregated counts and latencies
+- `MetricsStore` - persistent metrics storage with schema versioning
+- `ErrorBudgets` - configurable budget thresholds
+- `BudgetStatus` - current consumption state per category
+- `BudgetState` - Ok, Warning, Critical, Exhausted
+- `BudgetAlert` - generated alert with severity and message
+- `DiagnosticsReport` - full health report with sections
+- `DiagnosticsSection` - individual section with evidence ID
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/reliability.rs` (~1300 lines)
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - module + exports
+- **MODIFIED:** `crates/anna_common/src/config.rs` - ReliabilityConfig
+- **MODIFIED:** `crates/anna_common/src/tools.rs` - 3 new tools
+- **MODIFIED:** `crates/anna_common/src/tool_executor.rs` - tool implementations
+- **MODIFIED:** `crates/annactl/src/commands/status.rs` - [RELIABILITY] section
+
+### Tests
+
+14 unit tests covering:
+- Metric type string conversions
+- Daily metrics increment/get
+- Latency percentile calculations (p50, p95)
+- Budget state calculation (Ok, Warning, Critical, Exhausted)
+- Budget status calculation from metrics
+- Budget alert generation on threshold breach
+- Warning threshold detection
+- Error budgets default values
+- Ops log entry creation
+- Diagnostics status strings
+- Metrics store defaults
+- Average latency calculation
+
+---
+
+## v0.0.21 - Performance and Latency Sprint
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now feels snappier with time-to-first-output (TTFO) optimizations, intelligent caching for repeated queries, and strict token budgets per role. The goal: always on, always fast, always transparent.
+
+### Key Features
+
+**Time-to-First-Output (TTFO) < 150ms:**
+- Immediate header line and request display
+- "I'm starting analysis and gathering evidence..." indicator
+- No waiting for LLM before showing progress
+- Streaming updates as work progresses
+
+**Token Budgets Per Role:**
+- `translator.max_tokens = 256` with `translator.max_ms = 1500`
+- `junior.max_tokens = 384` with `junior.max_ms = 2500`
+- Graceful degradation if exceeded (recorded, reliability adjusted)
+- Configurable via `config.toml [performance]` section
+
+**Read-Only Tool Result Caching:**
+- Cache keyed by: tool name + args + snapshot version hash
+- Default TTL: 5 minutes (configurable)
+- Storage: `/var/lib/anna/internal/cache/tools/`
+- Repeated queries like "what changed last 14 days" are instant
+
+**LLM Response Caching (Safe):**
+- Cache Translator plans and Junior critiques when:
+  - Same request text (hashed)
+  - Same evidence hashes
+  - Same policy version
+  - Same model version
+- Redaction occurs before caching (secrets never stored)
+- Default TTL: 10 minutes (configurable)
+- Storage: `/var/lib/anna/internal/cache/llm/`
+
+**Performance Statistics:**
+- Latency samples tracked per request (total, translator, tools, junior)
+- Cache hit rate calculated and displayed
+- Top cached tools tracked
+- Budget violations recorded
+
+**Status Display ([PERFORMANCE] section):**
+```
+[PERFORMANCE]
+  Samples:    42 (last 24h)
+  Avg total:  1234ms
+  Translator: 456ms avg
+  Junior:     678ms avg
+  Cache hit:  73% (31 hits, 11 misses)
+
+  Top cached tools:
+    hw_snapshot_summary (12 hits)
+    sw_snapshot_summary (8 hits)
+    recent_installs (6 hits)
+
+  Cache storage:
+    Tool cache:  15 entries (24 KB)
+    LLM cache:   8 translator, 6 junior (48 KB)
+```
+
+### Configuration (config.toml)
+
+```toml
+[performance]
+# Token budgets
+[performance.budgets]
+translator_max_tokens = 256
+translator_max_ms = 1500
+junior_max_tokens = 384
+junior_max_ms = 2500
+log_overruns = true
+
+# Cache settings
+[performance.cache]
+tool_cache_enabled = true
+tool_cache_ttl_secs = 300
+llm_cache_enabled = true
+llm_cache_ttl_secs = 600
+max_entries = 1000
+```
+
+### New Types
+
+- `TokenBudget`: Max tokens and time per role
+- `BudgetSettings`: Configuration for all role budgets
+- `BudgetViolation`: Recorded when budgets exceeded
+- `ToolCacheKey`, `ToolCacheEntry`, `ToolCache`: Tool result caching
+- `LlmCacheKey`, `LlmCacheEntry`, `LlmCache`: LLM response caching
+- `PerfStats`, `LatencySample`: Performance tracking
+- `PerformanceConfig`, `PerformanceBudgets`, `PerformanceCacheConfig`: Config types
+
+### Cache Invalidation
+
+Caches are automatically invalidated when:
+- Snapshot data changes (tool cache)
+- Policy files change (LLM cache)
+- Model version changes (LLM cache)
+- TTL expires (both caches)
+
+### Files Changed
+
+- NEW: `crates/anna_common/src/performance.rs` (~600 lines)
+- MODIFIED: `crates/anna_common/src/lib.rs` (module + exports)
+- MODIFIED: `crates/anna_common/src/config.rs` (PerformanceConfig)
+- MODIFIED: `crates/annactl/src/pipeline.rs` (TTFO, latency tracking)
+- MODIFIED: `crates/annactl/src/commands/status.rs` ([PERFORMANCE] section)
+
+### Tests
+
+- 10 unit tests for token budgets and cache key determinism
+- Cache key determinism tests (args order, snapshot hash, policy version)
+- Budget exceeded detection
+- Performance stats calculations
+
+---
+
+## v0.0.20 - Ask Me Anything Mode (Source-Labeled Answers)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now answers questions like a real senior Linux admin with clear source attribution. Every factual claim in responses is labeled with its source: system evidence [E#], knowledge documentation [K#], or explicit reasoning (Reasoning). The Translator plans the right source mix based on question type, and Junior penalizes unlabeled claims.
+
+### Key Features
+
+**Source Labeling System:**
+- `[E#]` for system evidence (measurements, snapshots, tool output)
+- `[K#]` for knowledge pack documentation (man pages, package docs)
+- `(Reasoning)` for general inference not from direct evidence
+- All factual claims must be labeled - unlabeled claims reduce reliability score
+
+**Question Type Classification:**
+- `HowTo`: "How do I...?" → knowledge packs first, then system tools
+- `SystemStatus`: "What is happening on my machine?" → system evidence first
+- `Mixed`: Both how-to and system state → query both sources
+- `General`: Documentation or reasoning
+
+**New Read-Only Tools:**
+- `answer_context()`: Target user, distro, kernel, available knowledge packs
+- `source_plan(request)`: Plans which sources to query with rationale
+- `qa_stats()`: Today's Q&A statistics
+
+**Junior Source Label Enforcement:**
+- New penalty: `-10` for factual claim without [E#], [K#], or (Reasoning) label
+- UNCITED_CLAIMS output now checks for missing source labels
+- Examples in prompt show good vs bad source labeling
+
+**Status Display ([Q&A TODAY] section):**
+```
+[Q&A TODAY]
+  Answers:    5
+  Avg reliability: 82%
+  Citations:  K:8 E:12 R:3
+  Top sources: system_evidence: 12, knowledge_docs: 8
+```
+
+**MissingEvidenceReport for "I don't know":**
+- Explicit list of what information is missing
+- Suggested read-only tools to gather evidence
+- Suggested knowledge queries
+- No guessing - propose what could be checked
+
+### Example Transcripts
+
+**How-to Question (Knowledge Citations):**
+```
+[you] to [anna]: How do I enable syntax highlighting in Vim?
+
+[translator] to [anna]:
+  INTENT: question
+  TOOLS: knowledge_search(query=vim syntax highlighting)
+  RATIONALE: How-to question: searching knowledge packs for documentation
+
+[anna] to [you]:
+  To enable syntax highlighting in Vim [K1]:
+  1. Add `syntax on` to your ~/.vimrc file [K1]
+  2. For specific filetypes, use `filetype plugin on` [K1]
+
+  (Reasoning) This is the standard approach for most Vim installations.
+
+  Reliability: 88%
+```
+
+**System Question (Evidence Citations):**
+```
+[you] to [anna]: What did I install in the last 2 weeks that might slow my machine?
+
+[translator] to [anna]:
+  INTENT: system_query
+  TOOLS: recent_installs(days=14), what_changed(days=14), slowness_hypotheses(days=14)
+  RATIONALE: System status question: gathering package changes and performance data
+
+[anna] to [you]:
+  In the last 14 days, you installed 8 packages [E1]:
+  - electron28 (large runtime) [E1]
+  - docker-compose (background service) [E2]
+
+  Slowness analysis [E3] suggests docker may be consuming resources.
+  Current CPU: 45% [E4], Memory: 68% [E4]
+
+  Reliability: 85%
+```
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/source_labels.rs` (~500 lines)
+- `crates/anna_common/src/lib.rs` - Module export and version bump
+- `crates/anna_common/src/tools.rs` - Added answer_context, source_plan, qa_stats tools
+- `crates/anna_common/src/tool_executor.rs` - Tool execution handlers
+- `crates/annactl/src/pipeline.rs` - Updated Translator and Junior prompts
+- `crates/annactl/src/commands/status.rs` - [Q&A TODAY] section
+- `Cargo.toml` - Version 0.0.20
+
+### Tests
+
+- 8 unit tests in source_labels.rs
+- Question type classification
+- Source plan creation
+- Citation detection and counting
+- Q&A statistics tracking
+
+---
+
+## v0.0.19 - Offline Documentation Engine (Knowledge Packs)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now has a local knowledge base for answering general questions without network access. Knowledge packs index man pages, package documentation, project docs, and user notes with SQLite FTS5 for fast full-text search. Answers include evidence citations (K1, K2...) linking to source documents.
+
+### Key Features
+
+**Knowledge Pack System (`/var/lib/anna/knowledge_packs/`):**
+- Pack sources: manpages, package_docs, project_docs, user_notes, archwiki_cache, local_markdown
+- Trust levels: Official (system docs), Local (project docs), User (user notes)
+- Retention policies: Permanent, RefreshOnUpdate, Manual
+- Per-pack metadata: document count, index size, timestamps
+
+**SQLite FTS5 Index:**
+- Full-text search with relevance ranking
+- Automatic triggers to keep FTS index synchronized
+- Evidence ID generation (K1, K2, K3...) for citation
+- Excerpt extraction with keyword highlighting
+- Secrets hygiene applied to all excerpts
+
+**Knowledge Pack Schema:**
+```rust
+pub struct KnowledgePack {
+    pub id: String,
+    pub name: String,
+    pub source: PackSource,
+    pub trust: TrustLevel,
+    pub retention: RetentionPolicy,
+    pub source_paths: Vec<String>,
+    pub created_at: u64,
+    pub last_indexed_at: u64,
+    pub document_count: usize,
+    pub index_size_bytes: u64,
+    pub description: String,
+    pub enabled: bool,
+}
+
+pub struct SearchResult {
+    pub doc_id: i64,
+    pub evidence_id: String,  // K1, K2, etc.
+    pub title: String,
+    pub pack_id: String,
+    pub pack_name: String,
+    pub source_path: String,
+    pub trust: TrustLevel,
+    pub excerpt: String,  // redacted
+    pub score: f64,
+    pub matched_keywords: Vec<String>,
+}
+```
+
+**Default Pack Ingestion:**
+- `ingest_manpages()`: Index man pages via apropos/man commands
+- `ingest_package_docs()`: Index /usr/share/doc/* markdown and text files
+- `ingest_project_docs()`: Index Anna's own documentation (README, CLAUDE.md, etc.)
+- `ingest_user_note()`: Add user-provided documentation
+
+**New Read-Only Tools:**
+- `knowledge_search(query, top_k)`: Search indexed documentation, returns excerpts with evidence IDs
+- `knowledge_stats()`: Get pack counts, document counts, index size, last indexed time
+
+**Status Display ([KNOWLEDGE] section):**
+```
+[KNOWLEDGE]
+  Packs:      3
+  Documents:  1247
+  Index size: 2.4 MB
+  Last index: 5m ago
+
+  By source:
+    manpages: 1
+    package_docs: 1
+    project_docs: 1
+
+  Top packs:
+    System Man Pages (42 queries)
+    Package Documentation (18 queries)
+```
+
+**Security:**
+- Secrets hygiene (redact_evidence) applied to all excerpts
+- Restricted paths blocked from indexing
+- Trust level tracking for provenance
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/knowledge_packs.rs` (~900 lines)
+- `crates/anna_common/src/lib.rs` - Module export and version bump
+- `crates/anna_common/src/tools.rs` - Added knowledge_search, knowledge_stats tools
+- `crates/anna_common/src/tool_executor.rs` - Tool execution handlers
+- `crates/annactl/src/commands/status.rs` - [KNOWLEDGE] section
+- `Cargo.toml` - Version 0.0.19
+
+### Tests
+
+- 10+ unit tests in knowledge_packs.rs
+- Pack creation and document indexing
+- FTS search with relevance scoring
+- Evidence ID generation
+- Excerpt extraction and redaction
+
+---
+
+## v0.0.18 - Secrets Hygiene
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now automatically redacts secrets from all output to prevent credential leaks. Passwords, API keys, tokens, private keys, and other sensitive data are replaced with `[REDACTED:TYPE]` placeholders throughout the transcript, evidence, and LLM prompts. Evidence from restricted paths (like ~/.ssh) is blocked entirely.
+
+### Key Features
+
+**Centralized Redaction Module (redaction.rs):**
+- 22 secret types with compiled regex patterns
+- Type-specific placeholders: `[REDACTED:PASSWORD]`, `[REDACTED:API_KEY]`, `[REDACTED:PRIVATE_KEY]`, etc.
+- Lazy static compilation for performance
+
+**Patterns Detected:**
+- Passwords: `password=`, `--password`, `pwd=`
+- API Keys: `api_key=`, `x-api-key:`, etc.
+- Bearer tokens: `Bearer xxx`, `Authorization: Bearer`
+- JWT tokens: `eyJ...` format
+- Private keys: `-----BEGIN PRIVATE KEY-----`
+- SSH keys: `-----BEGIN OPENSSH PRIVATE KEY-----`
+- PEM blocks: RSA, EC, PGP private keys
+- AWS credentials: `AKIA...`, `aws_secret_access_key`
+- Azure/GCP credentials
+- Git credentials: `https://user:pass@...`
+- Database URLs: `postgres://user:pass@...`
+- Cookies: `Set-Cookie:`, `session_id=`
+- Generic secrets: `_token=`, `_secret=`, `_key=`
+
+**Evidence Restriction Policy:**
+Paths that are NEVER excerpted (content replaced with policy message):
+- `~/.ssh/**`
+- `~/.gnupg/**`
+- `/etc/shadow`, `/etc/gshadow`
+- `/proc/*/environ`
+- `~/.password-store/**`
+- Browser credential files (key*.db, Login Data)
+- Keyrings and credential managers
+
+**Junior Leak Detection (Rules 20-24):**
+```
+SECRETS LEAK PREVENTION (v0.0.18):
+20. Responses MUST NOT reveal: passwords, tokens, API keys, etc.
+21. Evidence from restricted paths MUST show [REDACTED:TYPE]
+22. If secrets detected: force redaction, cite redaction ID, downscore
+23. Restricted paths NEVER excerpted
+24. Examples: BAD vs GOOD patterns
+
+PENALTIES:
+- Secret revealed in response: -50 (SECURITY LEAK)
+- Unredacted restricted path: -40 (RESTRICTED PATH VIOLATION)
+- Missing redaction for secret: -30 (INCOMPLETE REDACTION)
+```
+
+**Redaction in All Outputs:**
+- `dialogue()` and `dialogue_always()` apply redaction
+- Evidence summaries redacted before LLM prompt
+- Draft answers redacted before Junior verification
+- Final responses redacted for display
+
+### New Types
+
+```rust
+/// Types of secrets that can be redacted
+pub enum SecretType {
+    Password, ApiKey, BearerToken, AuthHeader, PrivateKey, PemBlock,
+    SshKey, Cookie, AwsCredential, AzureCredential, GcpCredential,
+    GitCredential, NetrcEntry, EnvSecret, JwtToken, DatabaseUrl,
+    ConnectionString, OAuthToken, WebhookSecret, EncryptionKey,
+    Certificate, GenericSecret,
+}
+
+/// Result of a redaction operation
+pub struct RedactionResult {
+    pub text: String,
+    pub redaction_count: usize,
+    pub secret_types_found: Vec<SecretType>,
+    pub was_redacted: bool,
+}
+
+/// Result of checking for leaks
+pub struct LeakCheckResult {
+    pub has_leaks: bool,
+    pub leaked_types: Vec<SecretType>,
+    pub penalty: i32,
+    pub suggestions: Vec<String>,
+}
+```
+
+### New Functions
+
+```rust
+// Main redaction
+pub fn redact(text: &str) -> String;
+pub fn redact_secrets(text: &str) -> RedactionResult;
+pub fn contains_secrets(text: &str) -> bool;
+
+// Context-specific redaction
+pub fn redact_transcript(text: &str) -> String;
+pub fn redact_evidence(content: &str, path: Option<&str>) -> Result<String, String>;
+pub fn redact_audit_details(details: &serde_json::Value) -> serde_json::Value;
+
+// Environment variable handling
+pub fn redact_env_value(name: &str, value: &str) -> Cow<str>;
+pub fn redact_env_map(vars: &[(String, String)]) -> Vec<(String, String)>;
+
+// Path restriction
+pub fn is_path_restricted(path: &str) -> bool;
+pub fn get_restriction_message(path: &str) -> String;
+
+// Leak detection
+pub fn check_for_leaks(text: &str) -> LeakCheckResult;
+pub fn calculate_leak_penalty(types: &[SecretType]) -> i32;
+```
+
+### Tests Added
+
+- 22 unit tests for redaction patterns
+- Path restriction tests with wildcard matching
+- Leak detection and penalty calculation tests
+- Environment variable redaction tests
+- Audit details redaction tests
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/redaction.rs` - Centralized redaction module
+- `crates/anna_common/src/lib.rs` - Module export and version bump
+- `crates/annactl/src/pipeline.rs` - Redaction integration in dialogue/evidence
+- `Cargo.toml` - Version 0.0.18
+- `CLAUDE.md` - Version 0.0.18
+- `TODO.md` - Mark 0.0.18 completed
+
+---
+
 ## v0.0.17 - Multi-User Correctness
 
 **Release Date:** 2025-12-03

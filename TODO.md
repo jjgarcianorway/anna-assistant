@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.17**
+**Current Version: 0.0.22**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -203,7 +203,70 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 - [x] 15 unit tests for target user system
 - [x] 10 unit tests for user home policy
 
-### 0.0.18 - REPL Enhancement (Planned)
+### 0.0.18 - Secrets Hygiene (COMPLETED)
+- [x] Centralized redaction module with 22 secret types (Password, ApiKey, BearerToken, PrivateKey, etc.)
+- [x] Compiled regex patterns via LazyLock for performance
+- [x] Pattern matching for: passwords, tokens, API keys, bearer tokens, private keys, PEM blocks, SSH keys, cookies, AWS/Azure/GCP credentials, git credentials, database URLs, connection strings
+- [x] Evidence restriction policy for sensitive paths (~/.ssh/**, ~/.gnupg/**, /etc/shadow, /proc/*/environ, etc.)
+- [x] Redaction format: [REDACTED:TYPE] with type-specific placeholders
+- [x] Junior leak detection enforcement (rules 20-24, penalties for secret leaks)
+- [x] Redaction integration in dialogue output, evidence summaries, and LLM prompts
+- [x] check_for_leaks() function with penalty calculation
+- [x] 22 unit tests for redaction patterns and path restrictions
+
+### 0.0.19 - Offline Documentation Engine (COMPLETED)
+- [x] Knowledge packs stored under /var/lib/anna/knowledge_packs/
+- [x] Pack schema: id, name, source type, trust level, retention policy, timestamps
+- [x] SQLite FTS5 index for fast full-text search
+- [x] Evidence IDs for citations (K1, K2, K3...)
+- [x] Default pack ingestion: man pages, /usr/share/doc, Anna project docs
+- [x] knowledge_search(query, top_k) tool with excerpts and citations
+- [x] knowledge_stats() tool for index information
+- [x] [KNOWLEDGE] section in annactl status
+- [x] Secrets hygiene applied to all excerpts
+- [x] 10+ unit tests for knowledge pack system
+
+### 0.0.20 - Ask Me Anything Mode (COMPLETED)
+- [x] Source labeling for answers: [E#] for system evidence, [K#] for knowledge, (Reasoning) for inference
+- [x] New tools: answer_context(), source_plan(), qa_stats()
+- [x] Translator plans source mix by question type (how-to vs system status vs mixed)
+- [x] Junior enforcement: penalize unlabeled factual claims
+- [x] "I don't know" behavior: report missing evidence, suggest read-only tools
+- [x] [Q&A TODAY] section in annactl status: answers count, avg reliability, top sources
+- [x] QuestionType classification: HowTo, SystemStatus, Mixed, General
+- [x] SourcePlan with primary_sources, knowledge_query, system_tools
+- [x] 8+ unit tests for source labeling
+
+### 0.0.21 - Performance and Latency Sprint (COMPLETED)
+- [x] TTFO (Time to First Output) < 150ms with header and working indicator
+- [x] Token budgets per role: translator.max_tokens=256, translator.max_ms=1500
+- [x] Token budgets per role: junior.max_tokens=384, junior.max_ms=2500
+- [x] Read-only tool result caching with TTL policy (5 min default)
+- [x] LLM response caching keyed by request, evidence, policy, model versions
+- [x] Cache storage in /var/lib/anna/internal/cache/
+- [x] Performance statistics tracking (samples, latencies, hit rates)
+- [x] [PERFORMANCE] section in annactl status (avg latency, cache hit rate, top tools)
+- [x] BudgetSettings, PerformanceConfig in config.toml
+- [x] 10+ unit tests for cache key determinism and budget validation
+
+### 0.0.22 - Reliability Engineering (COMPLETED)
+- [x] Metrics collection module with local JSON storage (metrics.json)
+- [x] Track: request success/failure, tool success/failure, mutation rollbacks, LLM timeouts
+- [x] Latency tracking with p50/p95 percentile calculations
+- [x] Error budgets with configurable thresholds (1% request, 2% tool, 0.5% rollback, 3% timeout)
+- [x] Budget burn rate calculation with warning (50%) and critical (80%) thresholds
+- [x] BudgetState enum: Ok, Warning, Critical, Exhausted
+- [x] self_diagnostics() read-only tool for comprehensive system health report
+- [x] metrics_summary() tool for reliability metrics display
+- [x] error_budgets() tool for budget status
+- [x] DiagnosticsReport with evidence IDs per section
+- [x] Sections: Version, Install Review, Update State, Model Readiness, Policy, Storage, Error Budgets, Recent Errors, Active Alerts
+- [x] Redaction integration for error logs in diagnostics
+- [x] [RELIABILITY] section in annactl status with budget alerts
+- [x] ReliabilityConfig in config.toml
+- [x] 14 unit tests for metrics, budgets, and diagnostics
+
+### 0.0.23 - REPL Enhancement (Planned)
 - [ ] Improve REPL welcome message with level/XP display
 - [ ] Add history support for REPL
 

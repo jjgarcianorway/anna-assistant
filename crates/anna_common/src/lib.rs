@@ -1,4 +1,4 @@
-//! Anna Common v0.0.17 - Multi-User Correctness
+//! Anna Common v0.0.22 - Reliability Engineering
 //!
 //! v0.0.16: Preflight checks, dry-run diffs, post-checks, automatic rollback
 //! - MutationState enum: planned -> preflight_ok -> confirmed -> applied -> verified_ok | rolled_back
@@ -292,6 +292,21 @@ pub mod mutation_safety;
 
 // v0.0.17: Target user and multi-user correctness
 pub mod target_user;
+
+// v0.0.18: Secrets hygiene and redaction
+pub mod redaction;
+
+// v0.0.19: Offline Documentation Engine (Knowledge Packs)
+pub mod knowledge_packs;
+
+// v0.0.20: Ask Me Anything Mode (Source-Labeled Answers)
+pub mod source_labels;
+
+// v0.0.21: Performance and Latency Sprint
+pub mod performance;
+
+// v0.0.22: Reliability Engineering
+pub mod reliability;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -744,3 +759,80 @@ pub use target_user::{
     USER_EVIDENCE_PREFIX, generate_user_evidence_id,
 };
 pub use policy::UserHomePolicy;
+
+// v0.0.18: Secrets hygiene and redaction exports
+pub use redaction::{
+    // Main redaction functions
+    redact, redact_secrets, contains_secrets, detect_secret_types,
+    // Context-specific redaction
+    redact_transcript, redact_evidence, redact_audit_details, redact_memory_content,
+    // Environment variable redaction
+    redact_env_value, redact_env_map,
+    // Path restriction
+    is_path_restricted, get_restriction_message, RESTRICTED_EVIDENCE_PATHS,
+    // Junior verification
+    check_for_leaks, LeakCheckResult,
+    // Types
+    SecretType, RedactionResult,
+    // Evidence
+    REDACTION_EVIDENCE_PREFIX, generate_redaction_id,
+};
+
+// v0.0.19: Knowledge Packs exports
+pub use knowledge_packs::{
+    // Storage
+    KnowledgeIndex, KnowledgePack, KnowledgeDocument, KnowledgeStats,
+    // Types
+    PackSource, TrustLevel, RetentionPolicy, SearchResult,
+    // Ingestion
+    ingest_manpages, ingest_package_docs, ingest_project_docs, ingest_user_note,
+    // Constants
+    KNOWLEDGE_PACKS_DIR, KNOWLEDGE_INDEX_PATH, KNOWLEDGE_EVIDENCE_PREFIX,
+    MAX_EXCERPT_LENGTH, DEFAULT_TOP_K,
+    // Evidence
+    generate_knowledge_evidence_id,
+};
+
+// v0.0.20: Source labeling for Ask Me Anything mode
+pub use source_labels::{
+    // Types
+    SourceType, QuestionType, SourcePlan, AnswerContext, MissingEvidenceReport, QaStats,
+    // Functions
+    classify_question_type, detect_source_types, has_proper_source_labels, count_citations,
+    // Constants
+    QA_STATS_DIR, QA_STATS_FILE,
+};
+
+// v0.0.21: Performance and Latency Sprint
+pub use performance::{
+    // Token budgets
+    TokenBudget, BudgetSettings, BudgetViolation,
+    // Tool caching
+    ToolCacheKey, ToolCacheEntry, ToolCache,
+    // LLM caching
+    LlmCacheKey, LlmCacheEntry, LlmCache,
+    // Statistics
+    CacheStats, LlmCacheStats, LatencySample, PerfStats,
+    // Helpers
+    get_snapshot_hash, get_policy_version,
+    // Constants
+    CACHE_DIR, TOOL_CACHE_DIR, LLM_CACHE_DIR, PERF_STATS_FILE,
+    TOOL_CACHE_TTL_SECS, LLM_CACHE_TTL_SECS, MAX_CACHE_ENTRIES,
+};
+
+// v0.0.22: Reliability Engineering
+pub use reliability::{
+    // Metrics
+    MetricType, DailyMetrics, MetricsStore, LatencyRecord,
+    // Error budgets
+    ErrorBudgets, BudgetStatus, BudgetState, BudgetAlert, AlertSeverity,
+    calculate_budget_status, check_budget_alerts,
+    // Operations log
+    OpsLogEntry, load_recent_ops_log, load_recent_errors,
+    // Self-diagnostics
+    DiagnosticsReport, DiagnosticsSection, DiagStatus,
+    // Constants
+    METRICS_FILE,
+    DEFAULT_REQUEST_FAILURE_BUDGET, DEFAULT_TOOL_FAILURE_BUDGET,
+    DEFAULT_MUTATION_ROLLBACK_BUDGET, DEFAULT_LLM_TIMEOUT_BUDGET,
+};

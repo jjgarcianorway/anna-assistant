@@ -1,4 +1,11 @@
-//! Status Command v0.0.15 - Governance UX Polish
+//! Status Command v0.0.22 - Reliability Engineering
+//!
+//! v0.0.20: Q&A statistics display
+//! - [Q&A TODAY] section shows answers count, avg reliability, top sources
+//!
+//! v0.0.19: Knowledge pack status display
+//! - [KNOWLEDGE] section shows pack count, document count, index size
+//! - Last indexed time and top packs by query count
 //!
 //! v0.0.15: Comprehensive status display as single source of truth
 //! - [POLICY] section shows policy status, version, violations
@@ -68,6 +75,10 @@ use anna_common::recipes::RecipeManager;
 use anna_common::memory::MemoryManager;
 use anna_common::policy::{get_policy, POLICY_DIR};
 use anna_common::audit_log::{AuditLogger, AUDIT_LOG_FILE};
+use anna_common::knowledge_packs::{KnowledgeIndex, KNOWLEDGE_PACKS_DIR};
+use anna_common::source_labels::QaStats;
+use anna_common::performance::{PerfStats, ToolCache, LlmCache};
+use anna_common::reliability::{MetricsStore, ErrorBudgets, BudgetState, calculate_budget_status};
 use anna_common::display_format::{format_bytes, format_timestamp};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -134,6 +145,18 @@ pub async fn run() -> Result<()> {
 
     // [LEARNING] - v0.0.13: show recipes, memory, learning status
     print_learning_section(&mode);
+
+    // [KNOWLEDGE] - v0.0.19: show knowledge pack stats
+    print_knowledge_section(&mode);
+
+    // [Q&A TODAY] - v0.0.20: show Q&A statistics
+    print_qa_section();
+
+    // [PERFORMANCE] - v0.0.21: show latency and cache stats
+    print_performance_section(&mode);
+
+    // [RELIABILITY] - v0.0.22: show error budgets and metrics
+    print_reliability_section(&mode);
 
     // [POLICY] - v0.0.15: show policy status
     print_policy_section();
@@ -859,6 +882,304 @@ fn truncate_str(s: &str, max: usize) -> String {
     } else {
         format!("{}...", &s[..max.saturating_sub(3)])
     }
+}
+
+/// [KNOWLEDGE] section - v0.0.19: show knowledge pack stats
+fn print_knowledge_section(mode: &DisplayMode) {
+    println!("{}", "[KNOWLEDGE]".cyan());
+
+    // Check if knowledge packs directory exists
+    let knowledge_dir = std::path::Path::new(KNOWLEDGE_PACKS_DIR);
+    if !knowledge_dir.exists() {
+        println!("  Status:     {} (not initialized)", "empty".dimmed());
+        println!("  Path:       {}", KNOWLEDGE_PACKS_DIR);
+        println!();
+        return;
+    }
+
+    // Try to open index and get stats
+    match KnowledgeIndex::open() {
+        Ok(index) => {
+            match index.get_stats() {
+                Ok(stats) => {
+                    // Format index size
+                    let size_str = format_bytes(stats.total_size_bytes);
+
+                    // Format last indexed time
+                    let last_indexed_str = match stats.last_indexed_at {
+                        Some(t) if t > 0 => {
+                            let now = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs();
+                            let ago = now.saturating_sub(t);
+                            if ago < 60 {
+                                format!("{}s ago", ago)
+                            } else if ago < 3600 {
+                                format!("{}m ago", ago / 60)
+                            } else if ago < 86400 {
+                                format!("{}h ago", ago / 3600)
+                            } else {
+                                format!("{}d ago", ago / 86400)
+                            }
+                        }
+                        _ => "never".to_string(),
+                    };
+
+                    // Show summary
+                    println!("  Packs:      {}", if stats.pack_count > 0 {
+                        stats.pack_count.to_string().green().to_string()
+                    } else {
+                        "0 (none)".dimmed().to_string()
+                    });
+                    println!("  Documents:  {}", stats.document_count);
+                    println!("  Index size: {}", size_str);
+                    println!("  Last index: {}", last_indexed_str);
+
+                    // In compact mode, skip breakdown
+                    if *mode == DisplayMode::Compact {
+                        println!();
+                        return;
+                    }
+
+                    // Show packs by source type
+                    if !stats.packs_by_source.is_empty() {
+                        println!();
+                        println!("  By source:");
+                        for (source, count) in &stats.packs_by_source {
+                            println!("    {}: {}", source, count);
+                        }
+                    }
+
+                    // Show top packs if available
+                    if !stats.top_packs.is_empty() {
+                        println!();
+                        println!("  Top packs:");
+                        for (pack_name, query_count) in stats.top_packs.iter().take(3) {
+                            println!("    {} ({} queries)", pack_name, query_count);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("  Status:     {} ({})", "error".red(), e);
+                }
+            }
+        }
+        Err(_) => {
+            println!("  Status:     {} (index not created)", "empty".dimmed());
+            println!("  Path:       {}", KNOWLEDGE_PACKS_DIR);
+        }
+    }
+
+    println!();
+}
+
+/// [Q&A TODAY] section - v0.0.20: show Q&A statistics
+fn print_qa_section() {
+    println!("{}", "[Q&A TODAY]".cyan());
+
+    let stats = QaStats::load_today();
+
+    if stats.answers_count == 0 {
+        println!("  Answers:    {} (none today)", "0".dimmed());
+        println!();
+        return;
+    }
+
+    // Show answer count
+    println!("  Answers:    {}", stats.answers_count.to_string().green());
+
+    // Show average reliability
+    let avg = stats.avg_reliability();
+    let reliability_color = if avg >= 80 {
+        format!("{}%", avg).green().to_string()
+    } else if avg >= 60 {
+        format!("{}%", avg).yellow().to_string()
+    } else {
+        format!("{}%", avg).red().to_string()
+    };
+    println!("  Avg reliability: {}", reliability_color);
+
+    // Show citation counts
+    println!("  Citations:  K:{} E:{} R:{}",
+        stats.knowledge_citations,
+        stats.evidence_citations,
+        stats.reasoning_labels);
+
+    // Show top source types
+    let top_sources = stats.top_source_types(3);
+    if !top_sources.is_empty() {
+        let sources_str: Vec<String> = top_sources.iter()
+            .map(|(name, count)| format!("{}: {}", name, count))
+            .collect();
+        println!("  Top sources: {}", sources_str.join(", "));
+    }
+
+    println!();
+}
+
+/// [PERFORMANCE] section - v0.0.21: show latency and cache stats
+fn print_performance_section(mode: &DisplayMode) {
+    println!("{}", "[PERFORMANCE]".cyan());
+
+    let stats = PerfStats::load();
+    let tool_cache = ToolCache::new();
+    let llm_cache = LlmCache::new();
+
+    // Sample count and average latencies (24h)
+    let sample_count = stats.sample_count();
+    if sample_count == 0 {
+        println!("  Samples:    {} (no data today)", "0".dimmed());
+        println!();
+        return;
+    }
+
+    println!("  Samples:    {} (last 24h)", sample_count);
+
+    // Average latencies
+    println!("  Avg total:  {}ms", stats.avg_total_latency_ms());
+    println!("  Translator: {}ms avg", stats.avg_translator_latency_ms());
+    println!("  Junior:     {}ms avg", stats.avg_junior_latency_ms());
+
+    // Cache hit rate
+    let hit_rate = (stats.cache_hit_rate() * 100.0) as u32;
+    let hit_rate_str = if hit_rate >= 50 {
+        format!("{}%", hit_rate).green().to_string()
+    } else if hit_rate > 0 {
+        format!("{}%", hit_rate).yellow().to_string()
+    } else {
+        format!("{}%", hit_rate).dimmed().to_string()
+    };
+    println!("  Cache hit:  {} ({} hits, {} misses)",
+        hit_rate_str, stats.cache_hits, stats.cache_misses);
+
+    // In compact mode, skip details
+    if *mode == DisplayMode::Compact {
+        println!();
+        return;
+    }
+
+    // Top 5 cached tools
+    let top_tools = stats.top_cached_tools(5);
+    if !top_tools.is_empty() {
+        println!();
+        println!("  Top cached tools:");
+        for (tool, count) in top_tools {
+            println!("    {} ({} hits)", tool, count);
+        }
+    }
+
+    // Cache storage stats
+    let tool_stats = tool_cache.stats();
+    let llm_stats = llm_cache.stats();
+    if tool_stats.total_entries > 0 || llm_stats.translator_entries > 0 || llm_stats.junior_entries > 0 {
+        println!();
+        println!("  Cache storage:");
+        if tool_stats.total_entries > 0 {
+            println!("    Tool cache:  {} entries ({})",
+                tool_stats.total_entries, format_bytes(tool_stats.total_size_bytes));
+        }
+        if llm_stats.translator_entries > 0 || llm_stats.junior_entries > 0 {
+            println!("    LLM cache:   {} translator, {} junior ({})",
+                llm_stats.translator_entries, llm_stats.junior_entries,
+                format_bytes(llm_stats.total_size_bytes));
+        }
+    }
+
+    // Budget violations
+    if !stats.budget_violations.is_empty() {
+        println!();
+        println!("  Budget violations: {}", stats.budget_violations.len().to_string().yellow());
+    }
+
+    println!();
+}
+
+/// [RELIABILITY] section - v0.0.22: show error budgets and metrics
+fn print_reliability_section(mode: &DisplayMode) {
+    println!("{}", "[RELIABILITY]".cyan());
+
+    let metrics = MetricsStore::load();
+    let budgets = ErrorBudgets::default();
+
+    // Get today's date
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let today_metrics = match metrics.for_date(&today) {
+        Some(m) => m.clone(),
+        None => {
+            println!("  Status:     {} (no data today)", "healthy".green());
+            println!();
+            return;
+        }
+    };
+
+    // Calculate budget status
+    let statuses = calculate_budget_status(&today_metrics, &budgets);
+
+    if statuses.is_empty() {
+        println!("  Status:     {} (no events)", "healthy".green());
+        println!();
+        return;
+    }
+
+    // Check for any issues
+    let critical_count = statuses.iter()
+        .filter(|s| s.status == BudgetState::Critical || s.status == BudgetState::Exhausted)
+        .count();
+    let warning_count = statuses.iter()
+        .filter(|s| s.status == BudgetState::Warning)
+        .count();
+
+    if critical_count > 0 {
+        println!("  Status:     {} ({} budget(s) critical)", "CRITICAL".red().bold(), critical_count);
+    } else if warning_count > 0 {
+        println!("  Status:     {} ({} budget(s) warning)", "warning".yellow(), warning_count);
+    } else {
+        println!("  Status:     {} (all budgets healthy)", "healthy".green());
+    }
+
+    // Show each budget status
+    println!();
+    for status in &statuses {
+        let burn_str = format!("{:.1}%/{:.1}%", status.current_percent, status.budget_percent);
+        let status_str = match status.status {
+            BudgetState::Ok => burn_str.green().to_string(),
+            BudgetState::Warning => burn_str.yellow().to_string(),
+            BudgetState::Critical => burn_str.red().to_string(),
+            BudgetState::Exhausted => format!("{} EXCEEDED", burn_str).red().bold().to_string(),
+        };
+        println!("  {}: {} ({}/{})",
+            status.category,
+            status_str,
+            status.failed_events,
+            status.total_events);
+    }
+
+    // In compact mode, skip extra details
+    if *mode == DisplayMode::Compact {
+        println!();
+        return;
+    }
+
+    // Show success rates
+    let request_success = today_metrics.get_count(anna_common::MetricType::RequestSuccess);
+    let request_failure = today_metrics.get_count(anna_common::MetricType::RequestFailure);
+    let request_total = request_success + request_failure;
+    if request_total > 0 {
+        let rate = (request_success as f64 / request_total as f64) * 100.0;
+        println!();
+        println!("  Requests:   {}/{} ({:.1}% success)",
+            request_success, request_total, rate);
+    }
+
+    // Show latency percentiles if available
+    if let Some(p50) = today_metrics.percentile_latency("e2e", 50.0) {
+        if let Some(p95) = today_metrics.percentile_latency("e2e", 95.0) {
+            println!("  Latency:    p50={}ms, p95={}ms", p50, p95);
+        }
+    }
+
+    println!();
 }
 
 /// [POLICY] section - v0.0.15: show policy status, version, violations

@@ -1,4 +1,4 @@
-//! Read-Only Tool Catalog v0.0.12
+//! Read-Only Tool Catalog v0.0.22
 //!
 //! Safe, allowlisted tools that annad can execute for evidence gathering.
 //! Each tool returns structured data plus a human-readable summary.
@@ -219,6 +219,90 @@ impl ToolCatalog {
             security: ToolSecurity::ReadOnly,
             latency: LatencyHint::Slow,
             human_request: "analyze potential causes of system slowness",
+        });
+
+        // v0.0.19: Knowledge search tools
+
+        // knowledge_search - search local documentation
+        tools.insert("knowledge_search", ToolDef {
+            name: "knowledge_search",
+            description: "Searches local knowledge packs (man pages, package docs, user notes) for relevant information. Returns excerpts with Evidence IDs for citation.",
+            parameters: &[("query", "string", true), ("top_k", "integer", false)],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "search local documentation for information",
+        });
+
+        // knowledge_stats - knowledge pack statistics
+        tools.insert("knowledge_stats", ToolDef {
+            name: "knowledge_stats",
+            description: "Returns statistics about indexed knowledge packs including document counts, index size, and last update time",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "check knowledge pack statistics",
+        });
+
+        // v0.0.20: Ask Me Anything tools
+
+        // answer_context - environment context for answering
+        tools.insert("answer_context", ToolDef {
+            name: "answer_context",
+            description: "Returns context for answering: target user, distro, relevant components, available knowledge packs",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "gather answer context (user, distro, knowledge packs)",
+        });
+
+        // source_plan - which sources will be queried
+        tools.insert("source_plan", ToolDef {
+            name: "source_plan",
+            description: "Plans which sources to query based on question type. Returns knowledge query and system tools to use.",
+            parameters: &[("request", "string", true)],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "plan source mix for this question",
+        });
+
+        // qa_stats - Q&A statistics for today
+        tools.insert("qa_stats", ToolDef {
+            name: "qa_stats",
+            description: "Returns today's Q&A statistics: answer count, average reliability, top source types",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "check today's Q&A statistics",
+        });
+
+        // v0.0.22: Reliability Engineering - self diagnostics
+        tools.insert("self_diagnostics", ToolDef {
+            name: "self_diagnostics",
+            description: "Generates a comprehensive self-diagnostics report: install review, update state, model readiness, policy status, storage, error budgets, recent errors (redacted), and active alerts. Suitable for pasting into an issue report.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "generate self-diagnostics report",
+        });
+
+        tools.insert("metrics_summary", ToolDef {
+            name: "metrics_summary",
+            description: "Returns reliability metrics summary: request/tool/mutation success rates, LLM timeout rates, cache hit rates, and latency percentiles (p50/p95)",
+            parameters: &[
+                ("days", "number", false), // default: 1
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get reliability metrics summary",
+        });
+
+        tools.insert("error_budgets", ToolDef {
+            name: "error_budgets",
+            description: "Returns error budget status: current burn rate vs thresholds for requests, tools, mutations, and LLM timeouts",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "check error budget status",
         });
 
         Self { tools }

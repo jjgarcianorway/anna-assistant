@@ -1,4 +1,4 @@
-//! Tool Executor v0.0.12
+//! Tool Executor v0.0.22
 //!
 //! Executes read-only tools from the catalog with structured outputs
 //! and human-readable summaries.
@@ -7,6 +7,9 @@ use crate::daemon_state::StatusSnapshot;
 use crate::snapshots::{SwSnapshot, HwSnapshot};
 use crate::tools::{ToolCatalog, ToolResult, ToolRequest, EvidenceCollector, unknown_tool_result, unavailable_result};
 use crate::anomaly_engine::{AlertQueue, what_changed, analyze_slowness};
+use crate::knowledge_packs::{KnowledgeIndex, DEFAULT_TOP_K};
+use crate::source_labels::{AnswerContext, SourcePlan, QaStats, classify_question_type};
+use crate::reliability::{DiagnosticsReport, MetricsStore, ErrorBudgets, calculate_budget_status, check_budget_alerts};
 use serde_json::json;
 use std::collections::HashMap;
 use std::process::Command;
@@ -43,6 +46,17 @@ pub fn execute_tool(
         "active_alerts" => execute_active_alerts(evidence_id, timestamp),
         "what_changed" => execute_what_changed(&request.parameters, evidence_id, timestamp),
         "slowness_hypotheses" => execute_slowness_hypotheses(&request.parameters, evidence_id, timestamp),
+        // v0.0.19: Knowledge pack tools
+        "knowledge_search" => execute_knowledge_search(&request.parameters, evidence_id, timestamp),
+        "knowledge_stats" => execute_knowledge_stats(evidence_id, timestamp),
+        // v0.0.20: Ask Me Anything tools
+        "answer_context" => execute_answer_context(evidence_id, timestamp),
+        "source_plan" => execute_source_plan(&request.parameters, evidence_id, timestamp),
+        "qa_stats" => execute_qa_stats(evidence_id, timestamp),
+        // v0.0.22: Reliability Engineering tools
+        "self_diagnostics" => execute_self_diagnostics(evidence_id, timestamp),
+        "metrics_summary" => execute_metrics_summary(&request.parameters, evidence_id, timestamp),
+        "error_budgets" => execute_error_budgets(evidence_id, timestamp),
         _ => unavailable_result(&request.tool_name, evidence_id),
     }
 }
@@ -712,6 +726,451 @@ fn format_duration(secs: u64) -> String {
         format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
     } else {
         format!("{}d {}h", secs / 86400, (secs % 86400) / 3600)
+    }
+}
+
+// v0.0.19: Knowledge pack tool implementations
+
+fn execute_knowledge_search(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
+    let query = params.get("query")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if query.is_empty() {
+        return ToolResult {
+            tool_name: "knowledge_search".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({"error": "Query parameter required"}),
+            human_summary: "Search query is required.".to_string(),
+            success: false,
+            error: Some("Missing parameter: query".to_string()),
+            timestamp,
+        };
+    }
+
+    let top_k = params.get("top_k")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(DEFAULT_TOP_K as i64) as usize;
+
+    // Open the knowledge index
+    match KnowledgeIndex::open() {
+        Ok(index) => {
+            match index.search(query, top_k) {
+                Ok(results) => {
+                    let result_count = results.len();
+
+                    // Format results for JSON output
+                    let results_data: Vec<serde_json::Value> = results.iter().map(|r| {
+                        json!({
+                            "evidence_id": r.evidence_id,
+                            "title": r.title,
+                            "pack_id": r.pack_id,
+                            "pack_name": r.pack_name,
+                            "source_path": r.source_path,
+                            "trust": format!("{:?}", r.trust),
+                            "excerpt": r.excerpt,
+                            "score": r.score,
+                            "matched_keywords": r.matched_keywords,
+                        })
+                    }).collect();
+
+                    let human_summary = if result_count == 0 {
+                        format!("No results found for query: '{}'", query)
+                    } else {
+                        let top_titles: Vec<&str> = results.iter()
+                            .take(3)
+                            .map(|r| r.title.as_str())
+                            .collect();
+                        format!(
+                            "Found {} results for '{}'. Top matches: {}",
+                            result_count, query, top_titles.join(", ")
+                        )
+                    };
+
+                    ToolResult {
+                        tool_name: "knowledge_search".to_string(),
+                        evidence_id: evidence_id.to_string(),
+                        data: json!({
+                            "query": query,
+                            "top_k": top_k,
+                            "result_count": result_count,
+                            "results": results_data,
+                        }),
+                        human_summary,
+                        success: true,
+                        error: None,
+                        timestamp,
+                    }
+                }
+                Err(e) => ToolResult {
+                    tool_name: "knowledge_search".to_string(),
+                    evidence_id: evidence_id.to_string(),
+                    data: json!({"error": e.to_string()}),
+                    human_summary: format!("Search failed: {}", e),
+                    success: false,
+                    error: Some(e.to_string()),
+                    timestamp,
+                },
+            }
+        }
+        Err(e) => ToolResult {
+            tool_name: "knowledge_search".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({"error": e.to_string(), "hint": "Knowledge index may not be initialized yet"}),
+            human_summary: format!("Failed to open knowledge index: {}", e),
+            success: false,
+            error: Some(e.to_string()),
+            timestamp,
+        },
+    }
+}
+
+fn execute_knowledge_stats(evidence_id: &str, timestamp: u64) -> ToolResult {
+    match KnowledgeIndex::open() {
+        Ok(index) => {
+            match index.get_stats() {
+                Ok(stats) => {
+                    // Format index size
+                    let size_str = if stats.total_size_bytes < 1024 {
+                        format!("{} B", stats.total_size_bytes)
+                    } else if stats.total_size_bytes < 1024 * 1024 {
+                        format!("{:.1} KB", stats.total_size_bytes as f64 / 1024.0)
+                    } else {
+                        format!("{:.1} MB", stats.total_size_bytes as f64 / (1024.0 * 1024.0))
+                    };
+
+                    // Format last index time
+                    let last_indexed = match stats.last_indexed_at {
+                        Some(t) if t > 0 => {
+                            let duration = timestamp.saturating_sub(t);
+                            format!("{} ago", format_duration(duration))
+                        }
+                        _ => "never".to_string(),
+                    };
+
+                    let human_summary = format!(
+                        "{} packs, {} documents, {} index size, last indexed {}",
+                        stats.pack_count, stats.document_count, size_str, last_indexed
+                    );
+
+                    ToolResult {
+                        tool_name: "knowledge_stats".to_string(),
+                        evidence_id: evidence_id.to_string(),
+                        data: json!({
+                            "pack_count": stats.pack_count,
+                            "document_count": stats.document_count,
+                            "total_size_bytes": stats.total_size_bytes,
+                            "index_size_human": size_str,
+                            "last_indexed_at": stats.last_indexed_at,
+                            "last_indexed_human": last_indexed,
+                            "packs_by_source": stats.packs_by_source,
+                            "top_packs": stats.top_packs,
+                        }),
+                        human_summary,
+                        success: true,
+                        error: None,
+                        timestamp,
+                    }
+                }
+                Err(e) => ToolResult {
+                    tool_name: "knowledge_stats".to_string(),
+                    evidence_id: evidence_id.to_string(),
+                    data: json!({"error": e.to_string()}),
+                    human_summary: format!("Failed to get stats: {}", e),
+                    success: false,
+                    error: Some(e.to_string()),
+                    timestamp,
+                },
+            }
+        }
+        Err(e) => ToolResult {
+            tool_name: "knowledge_stats".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({
+                "pack_count": 0,
+                "document_count": 0,
+                "total_size_bytes": 0,
+                "hint": "Knowledge index not initialized"
+            }),
+            human_summary: "Knowledge index not initialized. Run ingestion first.".to_string(),
+            success: true,  // Not a failure, just empty
+            error: None,
+            timestamp,
+        },
+    }
+}
+
+// v0.0.20: Ask Me Anything tool implementations
+
+fn execute_answer_context(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let context = AnswerContext::build();
+
+    let human_summary = format!(
+        "Distro: {}, Knowledge: {} packs ({} docs)",
+        context.distro,
+        context.knowledge_packs_available,
+        context.knowledge_docs_count
+    );
+
+    ToolResult {
+        tool_name: "answer_context".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "target_user": context.target_user,
+            "distro": context.distro,
+            "kernel_version": context.kernel_version,
+            "relevant_packages": context.relevant_packages,
+            "relevant_services": context.relevant_services,
+            "knowledge_packs_available": context.knowledge_packs_available,
+            "knowledge_docs_count": context.knowledge_docs_count,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+fn execute_source_plan(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
+    let request = params.get("request")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if request.is_empty() {
+        return ToolResult {
+            tool_name: "source_plan".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({"error": "Request parameter required"}),
+            human_summary: "Request parameter is required.".to_string(),
+            success: false,
+            error: Some("Missing parameter: request".to_string()),
+            timestamp,
+        };
+    }
+
+    let question_type = classify_question_type(request);
+    let plan = SourcePlan::create(request, question_type);
+
+    let human_summary = plan.rationale.clone();
+
+    ToolResult {
+        tool_name: "source_plan".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "question_type": plan.question_type.as_str(),
+            "primary_sources": plan.primary_sources.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+            "knowledge_query": plan.knowledge_query,
+            "system_tools": plan.system_tools,
+            "rationale": plan.rationale,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+fn execute_qa_stats(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let stats = QaStats::load_today();
+
+    let top_sources: Vec<String> = stats.top_source_types(3)
+        .iter()
+        .map(|(name, count)| format!("{}: {}", name, count))
+        .collect();
+
+    let human_summary = if stats.answers_count == 0 {
+        "No Q&A answers today yet.".to_string()
+    } else {
+        format!(
+            "{} answers today, avg reliability {}%, top sources: {}",
+            stats.answers_count,
+            stats.avg_reliability(),
+            if top_sources.is_empty() { "none".to_string() } else { top_sources.join(", ") }
+        )
+    };
+
+    ToolResult {
+        tool_name: "qa_stats".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "date": stats.date,
+            "answers_count": stats.answers_count,
+            "avg_reliability": stats.avg_reliability(),
+            "total_reliability": stats.total_reliability,
+            "knowledge_citations": stats.knowledge_citations,
+            "evidence_citations": stats.evidence_citations,
+            "reasoning_labels": stats.reasoning_labels,
+            "top_source_types": stats.top_source_types(5),
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+// v0.0.22: Reliability Engineering tool implementations
+
+fn execute_self_diagnostics(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let report = DiagnosticsReport::generate();
+
+    let human_summary = format!(
+        "Self-diagnostics report generated [{}]: Overall status: {}, {} sections",
+        report.report_evidence_id,
+        report.overall_status.as_str(),
+        report.sections.len()
+    );
+
+    let report_text = report.to_text();
+
+    ToolResult {
+        tool_name: "self_diagnostics".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "generated_at": report.generated_at,
+            "version": report.version,
+            "overall_status": report.overall_status.as_str(),
+            "sections": report.sections.iter().map(|s| json!({
+                "title": s.title,
+                "evidence_id": s.evidence_id,
+                "status": s.status.as_str(),
+                "content": s.content,
+            })).collect::<Vec<_>>(),
+            "report_text": report_text,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+fn execute_metrics_summary(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
+    let days = params.get("days")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1) as u32;
+
+    let metrics = MetricsStore::load();
+    let totals = metrics.total_counts(days);
+
+    // Calculate success rates
+    let request_success = *totals.get("request_success").unwrap_or(&0);
+    let request_failure = *totals.get("request_failure").unwrap_or(&0);
+    let request_total = request_success + request_failure;
+    let request_rate = if request_total > 0 {
+        (request_success as f64 / request_total as f64) * 100.0
+    } else {
+        100.0
+    };
+
+    let tool_success = *totals.get("tool_success").unwrap_or(&0);
+    let tool_failure = *totals.get("tool_failure").unwrap_or(&0);
+    let tool_total = tool_success + tool_failure;
+    let tool_rate = if tool_total > 0 {
+        (tool_success as f64 / tool_total as f64) * 100.0
+    } else {
+        100.0
+    };
+
+    let cache_hits = *totals.get("cache_hit").unwrap_or(&0);
+    let cache_misses = *totals.get("cache_miss").unwrap_or(&0);
+    let cache_total = cache_hits + cache_misses;
+    let cache_rate = if cache_total > 0 {
+        (cache_hits as f64 / cache_total as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    // Get latency percentiles from today
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let (p50_e2e, p95_e2e) = metrics.for_date(&today)
+        .map(|m| (
+            m.percentile_latency("e2e", 50.0).unwrap_or(0),
+            m.percentile_latency("e2e", 95.0).unwrap_or(0)
+        ))
+        .unwrap_or((0, 0));
+
+    let human_summary = format!(
+        "Metrics ({} day): request success {:.1}%, tool success {:.1}%, cache hit {:.1}%, p50 {}ms, p95 {}ms",
+        days, request_rate, tool_rate, cache_rate, p50_e2e, p95_e2e
+    );
+
+    ToolResult {
+        tool_name: "metrics_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "days": days,
+            "request_success_rate": request_rate,
+            "request_total": request_total,
+            "tool_success_rate": tool_rate,
+            "tool_total": tool_total,
+            "cache_hit_rate": cache_rate,
+            "cache_total": cache_total,
+            "latency_p50_e2e_ms": p50_e2e,
+            "latency_p95_e2e_ms": p95_e2e,
+            "totals": totals,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+fn execute_error_budgets(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let metrics = MetricsStore::load();
+    let budgets = ErrorBudgets::default();
+
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let today_metrics = metrics.for_date(&today)
+        .cloned()
+        .unwrap_or_else(|| crate::reliability::DailyMetrics::default());
+
+    let statuses = calculate_budget_status(&today_metrics, &budgets);
+    let alerts = check_budget_alerts(&statuses);
+
+    let has_issues = statuses.iter().any(|s| {
+        s.status == crate::reliability::BudgetState::Warning ||
+        s.status == crate::reliability::BudgetState::Critical ||
+        s.status == crate::reliability::BudgetState::Exhausted
+    });
+
+    let human_summary = if statuses.is_empty() {
+        "No error budget data yet today".to_string()
+    } else if has_issues {
+        let issues: Vec<String> = statuses.iter()
+            .filter(|s| s.status != crate::reliability::BudgetState::Ok)
+            .map(|s| format!("{}: {:.1}%/{:.1}%", s.category, s.current_percent, s.budget_percent))
+            .collect();
+        format!("Error budget issues: {}", issues.join(", "))
+    } else {
+        format!("All {} error budgets healthy", statuses.len())
+    };
+
+    ToolResult {
+        tool_name: "error_budgets".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "date": today,
+            "budgets": statuses.iter().map(|s| json!({
+                "category": s.category,
+                "budget_percent": s.budget_percent,
+                "current_percent": s.current_percent,
+                "total_events": s.total_events,
+                "failed_events": s.failed_events,
+                "status": s.status.as_str(),
+            })).collect::<Vec<_>>(),
+            "alerts": alerts.iter().map(|a| json!({
+                "category": a.category,
+                "severity": format!("{:?}", a.severity),
+                "message": a.message,
+            })).collect::<Vec<_>>(),
+            "has_issues": has_issues,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
     }
 }
 

@@ -1,4 +1,4 @@
-//! Anna Configuration v7.29.0 - Auto-Update Scheduler & KDB Cache
+//! Anna Configuration v0.0.22 - Reliability Engineering
 //!
 //! Simplified system configuration for the telemetry daemon.
 //! No LLM config - pure system monitoring.
@@ -965,6 +965,14 @@ pub struct AnnaConfig {
     /// UI settings (v0.0.15)
     #[serde(default)]
     pub ui: UiConfig,
+
+    /// Performance settings (v0.0.21)
+    #[serde(default)]
+    pub performance: PerformanceConfig,
+
+    /// Reliability settings (v0.0.22)
+    #[serde(default)]
+    pub reliability: ReliabilityConfig,
 }
 
 /// UI configuration (v0.0.15)
@@ -984,6 +992,190 @@ pub struct UiConfig {
     /// Maximum width for text wrapping (0 = auto-detect terminal width)
     #[serde(default)]
     pub max_width: u16,
+}
+
+/// Performance configuration (v0.0.21)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceConfig {
+    /// Token budget settings per role
+    #[serde(default)]
+    pub budgets: PerformanceBudgets,
+
+    /// Cache settings
+    #[serde(default)]
+    pub cache: PerformanceCacheConfig,
+}
+
+/// Token budget settings per role (v0.0.21)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceBudgets {
+    /// Translator max tokens (default: 256)
+    #[serde(default = "default_translator_max_tokens")]
+    pub translator_max_tokens: u32,
+
+    /// Translator max time in ms (default: 1500)
+    #[serde(default = "default_translator_max_ms")]
+    pub translator_max_ms: u64,
+
+    /// Junior max tokens (default: 384)
+    #[serde(default = "default_junior_max_tokens")]
+    pub junior_max_tokens: u32,
+
+    /// Junior max time in ms (default: 2500)
+    #[serde(default = "default_junior_max_ms")]
+    pub junior_max_ms: u64,
+
+    /// Whether to log budget overruns
+    #[serde(default = "default_true_fn")]
+    pub log_overruns: bool,
+}
+
+fn default_translator_max_tokens() -> u32 { 256 }
+fn default_translator_max_ms() -> u64 { 1500 }
+fn default_junior_max_tokens() -> u32 { 384 }
+fn default_junior_max_ms() -> u64 { 2500 }
+fn default_true_fn() -> bool { true }
+
+impl Default for PerformanceBudgets {
+    fn default() -> Self {
+        Self {
+            translator_max_tokens: default_translator_max_tokens(),
+            translator_max_ms: default_translator_max_ms(),
+            junior_max_tokens: default_junior_max_tokens(),
+            junior_max_ms: default_junior_max_ms(),
+            log_overruns: true,
+        }
+    }
+}
+
+/// Cache configuration (v0.0.21)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceCacheConfig {
+    /// Enable tool result caching
+    #[serde(default = "default_true_fn")]
+    pub tool_cache_enabled: bool,
+
+    /// Tool cache TTL in seconds (default: 300 = 5 min)
+    #[serde(default = "default_tool_cache_ttl")]
+    pub tool_cache_ttl_secs: u64,
+
+    /// Enable LLM response caching
+    #[serde(default = "default_true_fn")]
+    pub llm_cache_enabled: bool,
+
+    /// LLM cache TTL in seconds (default: 600 = 10 min)
+    #[serde(default = "default_llm_cache_ttl")]
+    pub llm_cache_ttl_secs: u64,
+
+    /// Maximum cache entries per category
+    #[serde(default = "default_max_cache_entries")]
+    pub max_entries: usize,
+}
+
+fn default_tool_cache_ttl() -> u64 { 300 }
+fn default_llm_cache_ttl() -> u64 { 600 }
+fn default_max_cache_entries() -> usize { 1000 }
+
+impl Default for PerformanceCacheConfig {
+    fn default() -> Self {
+        Self {
+            tool_cache_enabled: true,
+            tool_cache_ttl_secs: default_tool_cache_ttl(),
+            llm_cache_enabled: true,
+            llm_cache_ttl_secs: default_llm_cache_ttl(),
+            max_entries: default_max_cache_entries(),
+        }
+    }
+}
+
+impl Default for PerformanceConfig {
+    fn default() -> Self {
+        Self {
+            budgets: PerformanceBudgets::default(),
+            cache: PerformanceCacheConfig::default(),
+        }
+    }
+}
+
+/// Reliability configuration (v0.0.22)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReliabilityConfig {
+    /// Error budget thresholds
+    #[serde(default)]
+    pub error_budgets: ReliabilityBudgets,
+
+    /// Metrics settings
+    #[serde(default)]
+    pub metrics: MetricsSettings,
+}
+
+/// Error budget thresholds (v0.0.22)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReliabilityBudgets {
+    /// Max request failure rate (percentage per day, default: 1.0)
+    #[serde(default = "default_request_failure")]
+    pub request_failure_percent: f64,
+
+    /// Max tool failure rate (percentage per day, default: 2.0)
+    #[serde(default = "default_tool_failure")]
+    pub tool_failure_percent: f64,
+
+    /// Max mutation rollback rate (percentage per day, default: 0.5)
+    #[serde(default = "default_mutation_rollback")]
+    pub mutation_rollback_percent: f64,
+
+    /// Max LLM timeout rate (percentage per day, default: 3.0)
+    #[serde(default = "default_llm_timeout")]
+    pub llm_timeout_percent: f64,
+}
+
+fn default_request_failure() -> f64 { 1.0 }
+fn default_tool_failure() -> f64 { 2.0 }
+fn default_mutation_rollback() -> f64 { 0.5 }
+fn default_llm_timeout() -> f64 { 3.0 }
+
+impl Default for ReliabilityBudgets {
+    fn default() -> Self {
+        Self {
+            request_failure_percent: default_request_failure(),
+            tool_failure_percent: default_tool_failure(),
+            mutation_rollback_percent: default_mutation_rollback(),
+            llm_timeout_percent: default_llm_timeout(),
+        }
+    }
+}
+
+/// Metrics collection settings (v0.0.22)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsSettings {
+    /// Enable metrics collection
+    #[serde(default = "default_metrics_enabled")]
+    pub enabled: bool,
+
+    /// Retention days for metrics (default: 7)
+    #[serde(default = "default_metrics_retention")]
+    pub retention_days: u32,
+}
+
+fn default_metrics_enabled() -> bool { true }
+fn default_metrics_retention() -> u32 { 7 }
+
+impl Default for MetricsSettings {
+    fn default() -> Self {
+        Self {
+            enabled: default_metrics_enabled(),
+            retention_days: default_metrics_retention(),
+        }
+    }
+}
+
+impl Default for ReliabilityConfig {
+    fn default() -> Self {
+        Self {
+            error_budgets: ReliabilityBudgets::default(),
+            metrics: MetricsSettings::default(),
+        }
+    }
 }
 
 fn default_debug_level() -> u8 { 1 }
