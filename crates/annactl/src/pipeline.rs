@@ -388,6 +388,7 @@ async fn call_translator_llm(
 
 /// Parse Translator LLM response into structured output (v0.0.7: with TOOLS)
 /// v0.0.23: More robust parsing to handle LLM format variations
+/// v0.0.28: Handle ACTION: prefix and more LLM variations
 fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
     let mut intent_type = None;
     let mut targets = Vec::new();
@@ -400,12 +401,32 @@ fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
         let line = line.trim();
         let line_upper = line.to_uppercase();
 
-        // v0.0.23: Handle various LLM output formats
+        // v0.0.28: Handle many LLM output formats for intent
         // Standard: "INTENT: system_query"
-        // Variation: "SYSTEM_QUERY" (raw value on its own line)
+        // Variation: "ACTION: install" or "ACTION: execute command"
+        // Variation: "SYSTEM_QUERY" (raw value)
         // Variation: "Intent: System Query" (title case)
-        if let Some(value) = line.strip_prefix("INTENT:").or_else(|| line.strip_prefix("Intent:")) {
-            intent_type = value.trim().to_lowercase().parse().ok();
+        if let Some(value) = line.strip_prefix("INTENT:")
+            .or_else(|| line.strip_prefix("Intent:"))
+            .or_else(|| line.strip_prefix("ACTION:"))
+            .or_else(|| line.strip_prefix("Action:"))
+        {
+            let value_lower = value.trim().to_lowercase();
+            // Map ACTION values to intent types
+            if value_lower.contains("install") || value_lower.contains("execute")
+                || value_lower.contains("restart") || value_lower.contains("remove")
+                || value_lower.contains("edit") || value_lower.contains("create")
+                || value_lower.contains("delete") || value_lower.contains("update")
+            {
+                intent_type = Some(IntentType::ActionRequest);
+            } else if value_lower.contains("query") || value_lower.contains("show")
+                || value_lower.contains("list") || value_lower.contains("status")
+                || value_lower.contains("check") || value_lower.contains("get")
+            {
+                intent_type = Some(IntentType::SystemQuery);
+            } else {
+                intent_type = value_lower.parse().ok();
+            }
         } else if intent_type.is_none() {
             // Try to detect intent from line content (LLM sometimes outputs raw values)
             if line_upper.contains("SYSTEM_QUERY") || line_upper.contains("SYSTEM QUERY") {

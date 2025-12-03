@@ -55,6 +55,25 @@ pub struct HelperDefinition {
     pub optional: bool,
     /// What command/binary this provides (for presence check)
     pub provides_command: Option<String>,
+    /// v0.0.28: System relevance check (what hardware must exist for this to be useful)
+    /// If None, always relevant. If Some, check must pass.
+    #[serde(default)]
+    pub relevance_check: Option<RelevanceCheck>,
+}
+
+/// v0.0.28: System relevance check for helpers
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RelevanceCheck {
+    /// Only relevant if system has ethernet interfaces
+    HasEthernet,
+    /// Only relevant if system has WiFi interfaces
+    HasWiFi,
+    /// Only relevant if system has NVMe devices
+    HasNvme,
+    /// Only relevant if system has SATA devices
+    HasSata,
+    /// Always relevant
+    Always,
 }
 
 /// Current state of a helper on this machine
@@ -243,69 +262,201 @@ impl HelpersManifest {
 }
 
 /// All helpers Anna relies on for telemetry/diagnostics/execution
+/// v0.0.28: Now includes relevance_check for system-appropriate filtering
 pub fn get_helper_definitions() -> Vec<HelperDefinition> {
     vec![
-        // Thermal/sensor monitoring
+        // Thermal/sensor monitoring - always relevant
         HelperDefinition {
             name: "lm_sensors".to_string(),
             purpose: "Temperature and fan monitoring".to_string(),
             optional: false,
             provides_command: Some("sensors".to_string()),
+            relevance_check: None,
         },
-        // Disk health
+        // Disk health - only if SATA devices exist
         HelperDefinition {
             name: "smartmontools".to_string(),
             purpose: "SATA/SAS disk health (SMART)".to_string(),
             optional: false,
             provides_command: Some("smartctl".to_string()),
+            relevance_check: Some(RelevanceCheck::HasSata),
         },
+        // NVMe - only if NVMe devices exist
         HelperDefinition {
             name: "nvme-cli".to_string(),
             purpose: "NVMe SSD health monitoring".to_string(),
             optional: false,
             provides_command: Some("nvme".to_string()),
+            relevance_check: Some(RelevanceCheck::HasNvme),
         },
-        // Network diagnostics
+        // Network diagnostics - only if ethernet exists
         HelperDefinition {
             name: "ethtool".to_string(),
             purpose: "Network interface diagnostics".to_string(),
             optional: true,
             provides_command: Some("ethtool".to_string()),
+            relevance_check: Some(RelevanceCheck::HasEthernet),
         },
+        // WiFi - only if WiFi interfaces exist
         HelperDefinition {
             name: "iw".to_string(),
             purpose: "WiFi signal and stats".to_string(),
             optional: true,
             provides_command: Some("iw".to_string()),
+            relevance_check: Some(RelevanceCheck::HasWiFi),
         },
-        // Hardware enumeration
+        // Hardware enumeration - always relevant
         HelperDefinition {
             name: "usbutils".to_string(),
             purpose: "USB device enumeration".to_string(),
             optional: false,
             provides_command: Some("lsusb".to_string()),
+            relevance_check: None,
         },
         HelperDefinition {
             name: "pciutils".to_string(),
             purpose: "PCI device enumeration".to_string(),
             optional: false,
             provides_command: Some("lspci".to_string()),
+            relevance_check: None,
         },
-        // Disk utilities
+        // Disk utilities - only if SATA devices exist
         HelperDefinition {
             name: "hdparm".to_string(),
             purpose: "SATA disk parameters".to_string(),
             optional: true,
             provides_command: Some("hdparm".to_string()),
+            relevance_check: Some(RelevanceCheck::HasSata),
         },
-        // LLM runtime
+        // LLM runtime - always relevant
         HelperDefinition {
             name: "ollama".to_string(),
             purpose: "Local LLM inference".to_string(),
             optional: false,
             provides_command: Some("ollama".to_string()),
+            relevance_check: None,
         },
     ]
+}
+
+/// v0.0.28: Check if a helper is relevant to this system
+pub fn is_helper_relevant(check: &Option<RelevanceCheck>) -> bool {
+    match check {
+        None => true, // No check = always relevant
+        Some(RelevanceCheck::Always) => true,
+        Some(RelevanceCheck::HasEthernet) => has_ethernet_interfaces(),
+        Some(RelevanceCheck::HasWiFi) => has_wifi_interfaces(),
+        Some(RelevanceCheck::HasNvme) => has_nvme_devices(),
+        Some(RelevanceCheck::HasSata) => has_sata_devices(),
+    }
+}
+
+/// Check if system has ethernet interfaces
+fn has_ethernet_interfaces() -> bool {
+    // Check /sys/class/net for ethernet devices (not lo, not wireless)
+    if let Ok(entries) = std::fs::read_dir("/sys/class/net") {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+
+            // Skip loopback
+            if name_str == "lo" {
+                continue;
+            }
+
+            // Check if it's wireless by looking for /sys/class/net/<name>/wireless
+            let wireless_path = format!("/sys/class/net/{}/wireless", name_str);
+            if std::path::Path::new(&wireless_path).exists() {
+                continue; // It's a wireless interface
+            }
+
+            // Check for ethernet-like names (eth*, en*, em*)
+            if name_str.starts_with("eth")
+                || name_str.starts_with("en")
+                || name_str.starts_with("em")
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Check if system has WiFi interfaces
+fn has_wifi_interfaces() -> bool {
+    if let Ok(entries) = std::fs::read_dir("/sys/class/net") {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+
+            // Check if it's wireless by looking for /sys/class/net/<name>/wireless
+            let wireless_path = format!("/sys/class/net/{}/wireless", name_str);
+            if std::path::Path::new(&wireless_path).exists() {
+                return true;
+            }
+
+            // Also check for wlan* or wlp* naming
+            if name_str.starts_with("wlan") || name_str.starts_with("wlp") {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Check if system has NVMe devices
+fn has_nvme_devices() -> bool {
+    std::path::Path::new("/sys/class/nvme").exists() && {
+        if let Ok(entries) = std::fs::read_dir("/sys/class/nvme") {
+            entries.count() > 0
+        } else {
+            false
+        }
+    }
+}
+
+/// Check if system has SATA devices
+fn has_sata_devices() -> bool {
+    // Check for SATA devices via /sys/class/ata_device or block devices
+    if std::path::Path::new("/sys/class/ata_device").exists() {
+        if let Ok(entries) = std::fs::read_dir("/sys/class/ata_device") {
+            if entries.count() > 0 {
+                return true;
+            }
+        }
+    }
+
+    // Also check for sd* block devices that aren't USB
+    if let Ok(entries) = std::fs::read_dir("/sys/block") {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+
+            // sd* devices could be SATA or USB
+            if name_str.starts_with("sd") {
+                // Check if it's SATA by looking at the device path
+                let device_path = format!("/sys/block/{}/device", name_str);
+                if let Ok(link) = std::fs::read_link(&device_path) {
+                    let link_str = link.to_string_lossy();
+                    // SATA devices have "ata" in their path, USB have "usb"
+                    if link_str.contains("ata") && !link_str.contains("usb") {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    false
+}
+
+/// Get only relevant helper definitions for this system
+/// v0.0.28: Filters out helpers that aren't useful for this hardware
+pub fn get_relevant_helper_definitions() -> Vec<HelperDefinition> {
+    get_helper_definitions()
+        .into_iter()
+        .filter(|def| is_helper_relevant(&def.relevance_check))
+        .collect()
 }
 
 /// Check if a package is installed on the system
@@ -472,9 +623,11 @@ pub fn get_ollama_version() -> Option<String> {
 /// Refresh helper state from system
 /// Call this periodically to update presence status
 /// v0.0.27: Fix detection for helpers with provides_command (like Ollama)
+/// v0.0.28: Only track helpers that are relevant to this system
 pub fn refresh_helper_states() -> HelpersManifest {
     let mut manifest = HelpersManifest::load();
-    let definitions = get_helper_definitions();
+    // v0.0.28: Only refresh relevant helpers (filtered by system hardware)
+    let definitions = get_relevant_helper_definitions();
 
     for def in &definitions {
         // v0.0.27: Check provides_command first (for non-pacman installs like Ollama)
@@ -520,23 +673,23 @@ pub fn refresh_helper_states() -> HelpersManifest {
 }
 
 /// Get helper states for status display (without modifying)
+/// v0.0.28: Use provides_command for detection (like Ollama)
+/// v0.0.28: Only show helpers that are relevant to this system's hardware
 pub fn get_helper_status_list() -> Vec<HelperState> {
     let manifest = HelpersManifest::load();
-    let definitions = get_helper_definitions();
+    // v0.0.28: Use relevant helpers only (filtered by system hardware)
+    let definitions = get_relevant_helper_definitions();
 
     definitions.iter().map(|def| {
+        // v0.0.28: Check provides_command first for non-pacman installs
+        let (present, version) = check_helper_presence(def);
+
         if let Some(state) = manifest.get(&def.name) {
-            // Return existing state with current presence check
             let mut state = state.clone();
-            let present = is_package_present(&def.name);
-            let version = if present { get_package_version(&def.name) } else { None };
             state.present = present;
             state.version = version;
             state
         } else {
-            // New helper - check if present
-            let present = is_package_present(&def.name);
-            let version = if present { get_package_version(&def.name) } else { None };
             if present {
                 HelperState::new_user_installed(&def.name, &def.purpose, version)
             } else {
@@ -544,6 +697,25 @@ pub fn get_helper_status_list() -> Vec<HelperState> {
             }
         }
     }).collect()
+}
+
+/// Check if a helper is present - v0.0.28: unified detection
+fn check_helper_presence(def: &HelperDefinition) -> (bool, Option<String>) {
+    // Check provides_command first (for non-pacman installs like Ollama)
+    if let Some(ref cmd) = def.provides_command {
+        if is_command_available(cmd) {
+            let ver = if cmd == "ollama" {
+                get_ollama_version()
+            } else {
+                get_package_version(&def.name)
+            };
+            return (true, ver);
+        }
+    }
+    // Fall back to package check
+    let pkg_present = is_package_present(&def.name);
+    let ver = if pkg_present { get_package_version(&def.name) } else { None };
+    (pkg_present, ver)
 }
 
 /// Summary for status snapshot

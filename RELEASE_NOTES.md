@@ -2,6 +2,101 @@
 
 ---
 
+## v0.0.28 - System-Aware Helper Filtering & Reliability Improvements
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now shows only helpers that are relevant to your specific hardware. No more seeing ethtool if you have no ethernet, no nvme-cli if you have no NVMe drives. Improved Ollama detection reliability and cleaner status display.
+
+### Key Features
+
+**System-Aware Helper Filtering (v0.0.28):**
+- `RelevanceCheck` enum for hardware-based filtering
+- Checks: `HasEthernet`, `HasWiFi`, `HasNvme`, `HasSata`, `Always`
+- `get_relevant_helper_definitions()` filters helpers by system hardware
+- Hardware detection via `/sys/class/net`, `/sys/class/nvme`, `/sys/block`, `/sys/class/ata_device`
+- Only shows helpers that are useful for YOUR specific machine
+
+**Helper Relevance Mapping:**
+- `ethtool` - Only shown if ethernet interfaces exist
+- `iw` - Only shown if WiFi interfaces exist
+- `nvme-cli` - Only shown if NVMe devices exist
+- `smartmontools` - Only shown if SATA devices exist
+- `hdparm` - Only shown if SATA devices exist
+- `lm_sensors`, `usbutils`, `pciutils`, `ollama` - Always shown
+
+**Improved Ollama Detection:**
+- Fixed `get_helper_status_list()` to use `check_helper_presence()` with `provides_command` check
+- Ollama correctly detected via `which ollama`, not just `pacman -Qi`
+- Unified detection logic across all helper functions
+
+**Cleaner Status Display:**
+- Removed confusing INSTALL REVIEW section from `annactl status`
+- Helpers display shows only relevant helpers
+- Install script output updated to remove legacy sw/hw commands
+- Now shows: `annactl status`, `annactl "question"`, `annactl` (REPL)
+
+**README.md Updated:**
+- Comprehensive documentation for v0.0.28
+- CLI surface documentation
+- Helper auto-installation explained
+- Recent changes section
+
+### Files Changed
+
+- **MODIFIED:** `crates/anna_common/src/helpers.rs`
+  - Added `RelevanceCheck` enum
+  - Added `is_helper_relevant()` function
+  - Added hardware detection: `has_ethernet_interfaces()`, `has_wifi_interfaces()`, `has_nvme_devices()`, `has_sata_devices()`
+  - Added `get_relevant_helper_definitions()`
+  - Updated `get_helper_status_list()` to use relevant helpers only
+  - Updated `refresh_helper_states()` to use relevant helpers only
+  - Added `relevance_check` field to `HelperDefinition`
+
+- **MODIFIED:** `crates/annactl/src/commands/status.rs`
+  - Removed `print_installer_review_section()` function
+  - Removed `InstallState` import
+
+- **MODIFIED:** `scripts/install.sh`
+  - Updated completion message to show correct CLI surface
+  - Removed legacy sw/hw command references
+
+- **MODIFIED:** `README.md`
+  - Complete rewrite for v0.0.28
+
+### Hardware Detection Logic
+
+```rust
+// Ethernet: Check /sys/class/net for eth*, en*, em* interfaces
+// WiFi: Check for /sys/class/net/<name>/wireless or wlan*/wlp* names
+// NVMe: Check /sys/class/nvme has entries
+// SATA: Check /sys/class/ata_device or sd* devices with "ata" in path
+```
+
+### Example Status (System with WiFi only, NVMe only)
+
+Before v0.0.28:
+```
+[HELPERS]
+  ethtool       missing (Anna will install when needed)
+  smartmontools missing (Anna will install when needed)
+  nvme-cli      missing (Anna will install when needed)
+  ...8 more helpers...
+```
+
+After v0.0.28:
+```
+[HELPERS]
+  iw            present (user-installed)
+  nvme-cli      present (Anna-installed)
+  lm_sensors    present (user-installed)
+  ...only relevant helpers shown...
+```
+
+---
+
 ## v0.0.22 - Reliability Engineering (Metrics, Error Budgets, and Self-Diagnostics)
 
 **Release Date:** 2025-12-03

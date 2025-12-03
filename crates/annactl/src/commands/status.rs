@@ -1,58 +1,21 @@
-//! Status Command v0.0.23 - Self-Sufficiency
+//! Status Command v0.0.28 - Simplified Display
 //!
-//! v0.0.20: Q&A statistics display
-//! - [Q&A TODAY] section shows answers count, avg reliability, top sources
+//! v0.0.28: Simplified status display
+//! - Removed rarely-useful sections for cleaner output
+//! - Helpers filtered by system relevance (no ethtool if no ethernet)
+//! - Focus on: VERSION, DAEMON, SNAPSHOT, HEALTH, DATA, UPDATES, ALERTS, HELPERS, POLICY, MODELS
 //!
-//! v0.0.19: Knowledge pack status display
-//! - [KNOWLEDGE] section shows pack count, document count, index size
-//! - Last indexed time and top packs by query count
-//!
-//! v0.0.15: Comprehensive status display as single source of truth
-//! - [POLICY] section shows policy status, version, violations
-//! - [MODELS] section shows LLM status, translator/junior models
-//! - [RECENT ACTIONS] section shows last tool executions and mutations
-//! - [STORAGE] section shows disk usage for Anna directories
-//! - Debug level support for output verbosity
-//!
-//! v0.0.13: Learning system status display
-//! - [LEARNING] section shows recipes count, last learned, top recipes
-//! - Memory settings display (store_raw, max_sessions)
-//!
-//! v0.0.12: Alert surfacing from anomaly engine
-//! - [ALERTS] section shows actual alerts from alert queue
-//! - Displays latest 3 alerts with evidence IDs
-//! - Shows anomaly detection status
-//!
-//! v0.0.11: Update system integration
-//! - [UPDATES] section shows mode, channel, progress
-//! - Update in progress with phase, percentage, ETA
-//! - Last update and rollback info display
-//!
-//! v0.0.10: Installer review integration
-//! - [INSTALL REVIEW] section shows last installer review result
-//! - Shows: healthy/repaired/needs attention status
-//! - Supports auto-repair for common issues
-//!
-//! v0.0.9: Helper tracking with provenance
-//! - [HELPERS] section shows all helpers Anna relies on
-//! - Displays: present/missing + installed_by (anna/user/unknown)
-//! - Only anna-installed helpers removable on uninstall
-//!
-//! v7.42.0: Separate daemon state from snapshot state
-//! - DAEMON: running/stopped via control socket or systemd (NOT snapshot)
-//! - SNAPSHOT: available/stale/missing (file status)
-//! - Never conflate "no snapshot" with "daemon stopped"
-//!
-//! v7.40.0: Improved update scheduler display
-//! - Clearer messaging when daemon not running
-//! - Shows actual state from update_state.json
-//!
-//! v7.39.0: Terminal-adaptive rendering, domain status, "checking..." indicator
-//!
-//! v7.38.0: Cache-only status, NO live probing
-//! - Reads status_snapshot.json ONLY (written by daemon every 60s)
-//! - Shows last_crash.json when daemon is down
-//! - Fast: < 10ms to display
+//! Sections:
+//! - VERSION: Anna version
+//! - DAEMON: Running/stopped status
+//! - SNAPSHOT: Last data snapshot
+//! - HEALTH: Overall system health
+//! - DATA: Knowledge objects count
+//! - UPDATES: Auto-update status
+//! - ALERTS: Active alerts (if any)
+//! - HELPERS: Relevant helpers for this system
+//! - POLICY: Safety policy summary
+//! - MODELS: LLM status (Ollama, translator, junior)
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -70,7 +33,6 @@ use anna_common::domain_state::{DomainSummary, RefreshRequest, REQUESTS_DIR};
 use anna_common::terminal::{DisplayMode, get_terminal_size};
 use anna_common::self_observation::SelfObservation;
 use anna_common::control_socket::{check_daemon_health, DaemonHealth, SOCKET_PATH};
-use anna_common::install_state::{InstallState, ReviewResult};
 use anna_common::anomaly_engine::AlertQueue;
 use anna_common::recipes::RecipeManager;
 use anna_common::memory::MemoryManager;
@@ -127,54 +89,24 @@ pub async fn run() -> Result<()> {
     // [DATA] - condensed in compact mode
     print_data_section(&snapshot, &domain_summary, &mode);
 
-    // [TELEMETRY] - condensed in compact mode
-    if mode != DisplayMode::Compact {
-        print_telemetry_section(&snapshot);
-    }
+    // v0.0.28: Simplified status display - show only relevant sections
+    // Removed: TELEMETRY, LEARNING, KNOWLEDGE, Q&A, PERFORMANCE, RELIABILITY, RECENT ACTIONS, STORAGE, PATHS
+    // These are rarely useful for day-to-day status checks
 
     // [UPDATES] - always shown
     print_updates_section(&daemon_health, &snapshot);
 
-    // [ALERTS] - always shown
+    // [ALERTS] - only shown if there are alerts
     print_alerts_section(&snapshot);
 
-    // [HELPERS] - v0.0.9: show helpers with provenance
+    // [HELPERS] - v0.0.28: show only relevant helpers
     print_helpers_section(&mode);
 
-    // [INSTALL REVIEW] - v0.0.10: show last installer review status
-    print_installer_review_section();
-
-    // [LEARNING] - v0.0.13: show recipes, memory, learning status
-    print_learning_section(&mode);
-
-    // [KNOWLEDGE] - v0.0.19: show knowledge pack stats
-    print_knowledge_section(&mode);
-
-    // [Q&A TODAY] - v0.0.20: show Q&A statistics
-    print_qa_section();
-
-    // [PERFORMANCE] - v0.0.21: show latency and cache stats
-    print_performance_section(&mode);
-
-    // [RELIABILITY] - v0.0.22: show error budgets and metrics
-    print_reliability_section(&mode);
-
-    // [POLICY] - v0.0.15: show policy status
+    // [POLICY] - condensed safety info
     print_policy_section();
 
-    // [MODELS] - v0.0.15: show LLM model status
+    // [MODELS] - LLM status (critical for Q&A)
     print_models_section();
-
-    // [RECENT ACTIONS] - v0.0.15: show recent tool executions and mutations
-    print_recent_actions_section(&mode);
-
-    // [STORAGE] - v0.0.15: show disk usage for Anna directories
-    print_storage_section(&mode);
-
-    // [PATHS] - only in standard/wide mode
-    if mode != DisplayMode::Compact {
-        print_paths_section();
-    }
 
     println!("{}", thin_sep);
     println!();
@@ -727,74 +659,6 @@ fn print_helpers_section(mode: &DisplayMode) {
         };
 
         println!("  {} ({}, {})", helper.name, presence, action);
-    }
-
-    println!();
-}
-
-/// [INSTALL REVIEW] section - v0.0.10: show last installer review status
-fn print_installer_review_section() {
-    println!("{}", "[INSTALL REVIEW]".cyan());
-
-    let state = InstallState::load();
-
-    match state {
-        Some(s) => {
-            if let Some(ref review) = s.last_review {
-                // Format timestamp
-                let ago = chrono::Utc::now().signed_duration_since(review.timestamp);
-                let ago_str = if ago.num_days() > 0 {
-                    format!("{} day(s) ago", ago.num_days())
-                } else if ago.num_hours() > 0 {
-                    format!("{} hour(s) ago", ago.num_hours())
-                } else if ago.num_minutes() > 0 {
-                    format!("{} minute(s) ago", ago.num_minutes())
-                } else {
-                    "just now".to_string()
-                };
-
-                // Show result with colored status
-                match &review.result {
-                    ReviewResult::Healthy => {
-                        println!("  Status:     {}", "healthy".green());
-                        println!("  Last run:   {}", ago_str);
-                    }
-                    ReviewResult::Repaired { fixes } => {
-                        println!("  Status:     {} ({})", "healthy".green(), "auto-repaired".cyan());
-                        println!("  Last run:   {}", ago_str);
-                        println!("  Repairs:    {} fix(es)", fixes.len());
-                    }
-                    ReviewResult::NeedsAttention { issues } => {
-                        println!("  Status:     {}", "needs attention".yellow());
-                        println!("  Last run:   {}", ago_str);
-                        println!("  Issues:     {}", issues.len().to_string().yellow());
-                        for issue in issues.iter().take(3) {
-                            println!("    - {}", issue.yellow());
-                        }
-                        if issues.len() > 3 {
-                            println!("    ... and {} more", issues.len() - 3);
-                        }
-                    }
-                    ReviewResult::Failed { reason } => {
-                        println!("  Status:     {}", "failed".red());
-                        println!("  Last run:   {}", ago_str);
-                        println!("  Reason:     {}", reason.red());
-                    }
-                }
-
-                // Show duration
-                if review.duration_ms > 0 {
-                    println!("  Duration:   {} ms", review.duration_ms);
-                }
-            } else {
-                println!("  Status:     {}", "(no review yet)".dimmed());
-                println!("  Run:        {} to verify installation", "annactl reset --dry-run".dimmed());
-            }
-        }
-        None => {
-            println!("  Status:     {}", "(no install state)".dimmed());
-            println!("  Run:        {} to create install state", "annactl reset --dry-run".dimmed());
-        }
     }
 
     println!();

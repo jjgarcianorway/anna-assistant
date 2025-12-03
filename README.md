@@ -1,10 +1,10 @@
-# Anna Assistant v0.0.11
+# Anna Assistant v0.0.28
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.11**: Safe Auto-Update System. Update channels (stable/canary), safe download with integrity verification, atomic installation with rollback, zero-downtime restart via systemd, complete state visibility in status.
+**v0.0.28**: System-aware helper filtering, improved Ollama detection, cleaner status display.
 
 ---
 
@@ -29,7 +29,7 @@ annactl "why is my system slow?"
 # Interactive REPL mode
 annactl
 
-# Self-status (version, permissions, update state, helpers)
+# Self-status (version, daemon, helpers, models, updates)
 annactl status
 
 # Version
@@ -94,6 +94,7 @@ annad (root daemon)
     +-- Self-update (every 10 minutes)
     +-- Local LLM orchestration (Ollama)
     +-- Recipe storage and learning
+    +-- Helper auto-installation
 ```
 
 ---
@@ -151,7 +152,7 @@ All players (Anna, Junior, Senior) have:
 - XP gained from correct answers and new recipes
 - No XP loss (poor outcomes earn nothing)
 
-Titles are nerdy, old-school, ASCII-friendly. No emojis or icons.
+Titles are nerdy, old-school, ASCII-friendly. No icons.
 
 ---
 
@@ -172,7 +173,7 @@ Example: "What have I installed in the last two weeks that might explain my mach
 
 ## Self-Sufficiency
 
-### Auto-Update (v0.0.11)
+### Auto-Update
 
 annad checks for updates every 10 minutes:
 - Pings GitHub releases API
@@ -197,24 +198,28 @@ interval_seconds = 600  # check every 10 minutes
 **Safety Guarantees:**
 - Never updates during active mutations
 - Checks disk space before download
-- Verifies installer review health before update
 - Keeps previous binaries for rollback
 - Atomic installation (no partial states)
 
 ### First-Run Setup
 
 Anna automatically:
-- Installs Ollama if needed
-- Selects models based on hardware
+- Installs Ollama if needed (records as anna-installed)
+- Starts Ollama service
+- Selects models based on hardware tier
 - Downloads models with progress display
 - Proceeds without user intervention
 
-### Helper Tools
+### Helper Tools (v0.0.28)
 
-Anna may install tools for her operation (ethtool, lm_sensors, etc.):
+Anna auto-installs tools she needs for telemetry and diagnostics:
+- **System-aware**: Only installs helpers relevant to your hardware
+  - No ethtool if you have no ethernet
+  - No nvme-cli if you have no NVMe drives
+  - No iw if you have no WiFi
 - Listed in `annactl status`
-- Tracked as "Anna-installed helpers"
-- Removable on uninstall
+- Tracked with provenance (anna-installed vs user-installed)
+- Only anna-installed helpers are removable on uninstall
 
 ### Clean Uninstall
 
@@ -240,6 +245,32 @@ annactl reset
 
 ---
 
+## Status Display (v0.0.28)
+
+`annactl status` shows:
+
+| Section | Content |
+|---------|---------|
+| VERSION | Anna version |
+| DAEMON | Running/stopped, uptime, PID |
+| SNAPSHOT | Last data snapshot age |
+| HEALTH | Overall system health, alerts |
+| DATA | Knowledge objects, scan times |
+| UPDATES | Mode, channel, last check, available updates |
+| ALERTS | Critical/warning/info counts, recent alerts |
+| HELPERS | Relevant helpers only, presence, provenance |
+| LEARNING | Recipes, sessions, memory |
+| KNOWLEDGE | Knowledge packs, documents |
+| Q&A TODAY | Answer count, reliability, citations |
+| PERFORMANCE | Latencies, cache hit rates |
+| RELIABILITY | Error budgets, success rates |
+| POLICY | Safety policy status, protected paths |
+| MODELS | Ollama status, translator/junior models |
+| RECENT ACTIONS | Tool executions, mutations, blocks |
+| STORAGE | Disk usage by category |
+
+---
+
 ## File Paths
 
 | Path | Content |
@@ -249,8 +280,10 @@ annactl reset
 | `/var/lib/anna/knowledge/` | Object inventory |
 | `/var/lib/anna/telemetry.db` | SQLite telemetry |
 | `/var/lib/anna/recipes/` | Learned recipes |
+| `/var/lib/anna/helpers.json` | Helper tracking |
 | `/var/lib/anna/internal/snapshots/` | Daemon snapshots |
 | `/var/lib/anna/internal/update_state.json` | Update scheduler |
+| `/var/lib/anna/internal/bootstrap_state.json` | LLM model state |
 
 ---
 
@@ -302,3 +335,40 @@ Issues and PRs welcome at: https://github.com/jjgarcianorway/anna-assistant
 5. Learns over time - recipes and XP progression
 6. Transparent - debug mode shows all internal dialogue
 7. Self-sufficient - auto-updates, auto-provisions models
+8. System-aware - only shows/installs what's relevant
+
+---
+
+## Recent Changes
+
+### v0.0.28
+- System-aware helper filtering (no ethtool if no ethernet, etc.)
+- Improved Ollama detection (checks command, not just package)
+- Removed confusing INSTALL REVIEW section from status
+- Clearer helper display ("Anna will install when needed")
+- Better policy display ("Protected: X paths")
+
+### v0.0.27
+- Fixed Ollama detection reliability
+- Changed helpers text to "Anna will install when needed"
+- Fixed stale update state on daemon start
+- Improved policy display clarity
+
+### v0.0.26
+- Implemented actual auto-update download/install in daemon
+- Automatic binary backup and atomic installation
+- Self-restart via systemd after update
+
+### v0.0.25
+- Auto-create install state on daemon start
+- Better helpers display messaging
+
+### v0.0.24
+- Fixed translator LLM parsing for different model outputs
+- More robust intent detection
+
+### v0.0.23
+- Auto-install Ollama if missing
+- Auto-pull models when needed
+- Track installations as "anna-installed"
+- Auto-create policy defaults on daemon start
