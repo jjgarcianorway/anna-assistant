@@ -1,10 +1,13 @@
-//! CLI integration tests for annactl v0.0.2 - Strict CLI Surface
+//! CLI integration tests for annactl v0.0.3 - Request Pipeline Skeleton
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
 //! - annactl <request...>     one-shot natural language request
 //! - annactl status           self-status
 //! - annactl --version        version (also: -V)
+//!
+//! v0.0.3 adds multi-party dialogue transcript:
+//! [you] -> [anna] -> [translator] -> [anna] -> [annad] -> [anna] -> [junior] -> [anna] -> [you]
 //!
 //! All other commands (sw, hw, etc.) route through natural language processing.
 
@@ -123,8 +126,8 @@ fn test_annactl_version_format() {
         stdout
     );
     assert!(
-        stdout.contains("0.0.2"),
-        "Version should contain 0.0.2, got: {}",
+        stdout.contains("0.0.3"),
+        "Version should contain 0.0.3, got: {}",
         stdout
     );
     assert!(output.status.success(), "annactl --version should succeed");
@@ -308,4 +311,200 @@ fn test_annactl_multiword_request() {
     );
 
     assert!(output.status.success(), "multi-word request should succeed");
+}
+
+// ============================================================================
+// v0.0.3: Pipeline behavior tests
+// ============================================================================
+
+/// Test full dialogue transcript shows all actors
+#[test]
+fn test_annactl_pipeline_shows_translator() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.3: Full pipeline should show translator dialogue
+    assert!(
+        stdout.contains("[anna] to [translator]"),
+        "Expected anna->translator dialogue, got: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[translator] to [anna]"),
+        "Expected translator->anna response, got: {}",
+        stdout
+    );
+}
+
+/// Test pipeline shows Junior scoring
+#[test]
+fn test_annactl_pipeline_shows_junior() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.3: Pipeline should show Junior verification
+    assert!(
+        stdout.contains("[anna] to [junior]"),
+        "Expected anna->junior dialogue, got: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[junior] to [anna]"),
+        "Expected junior->anna response, got: {}",
+        stdout
+    );
+}
+
+/// Test system query shows evidence retrieval from annad
+#[test]
+fn test_annactl_pipeline_shows_annad_for_system_query() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.3: System queries should show annad evidence retrieval
+    assert!(
+        stdout.contains("[anna] to [annad]"),
+        "Expected anna->annad evidence request, got: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("[annad] to [anna]"),
+        "Expected annad->anna evidence response, got: {}",
+        stdout
+    );
+}
+
+/// Test translator classifies intent type
+#[test]
+fn test_annactl_pipeline_intent_classification() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.3: Translator should show intent classification
+    assert!(
+        stdout.contains("Intent:"),
+        "Expected intent classification, got: {}",
+        stdout
+    );
+    // CPU query should be classified as system_query
+    assert!(
+        stdout.contains("system_query"),
+        "CPU query should be classified as system_query, got: {}",
+        stdout
+    );
+}
+
+/// Test translator detects targets
+#[test]
+fn test_annactl_pipeline_target_detection() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.3: Translator should detect targets
+    assert!(
+        stdout.contains("Targets:"),
+        "Expected targets in classification, got: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("cpu"),
+        "Should detect 'cpu' as target, got: {}",
+        stdout
+    );
+}
+
+/// Test reliability score breakdown
+#[test]
+fn test_annactl_pipeline_reliability_breakdown() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.3: Junior should show reliability breakdown
+    assert!(
+        stdout.contains("Breakdown:"),
+        "Expected reliability breakdown, got: {}",
+        stdout
+    );
+}
+
+/// Test action request shows risk level
+#[test]
+fn test_annactl_pipeline_action_risk_level() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("install nginx")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.3: Action requests should show risk level
+    assert!(
+        stdout.contains("Risk:"),
+        "Expected risk classification, got: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("action_request"),
+        "Should classify as action_request, got: {}",
+        stdout
+    );
 }

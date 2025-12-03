@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.2
+# Anna Assistant v0.0.3
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 

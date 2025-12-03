@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v0.0.2 - Strict CLI Surface
+//! Anna CLI (annactl) v0.0.3 - Request Pipeline Skeleton
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
@@ -8,8 +8,12 @@
 //!
 //! All other commands route through natural language processing.
 //! Internal capabilities (sw, hw, snapshots) are accessed via requests.
+//!
+//! v0.0.3 adds multi-party dialogue transcript:
+//! [you] -> [anna] -> [translator] -> [anna] -> [annad] -> [anna] -> [junior] -> [anna] -> [you]
 
 mod commands;
+mod pipeline;
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
@@ -111,19 +115,11 @@ async fn run_request(request: &str) -> Result<()> {
     Ok(())
 }
 
-/// Process a natural language request (stub for v0.0.2)
+/// Process a natural language request through the pipeline
 async fn process_request(request: &str) {
-    // v0.0.2: Stub - natural language processing not yet implemented
-    // This will be replaced with Translator -> Anna -> Junior pipeline
-    println!();
-    println!("  {}", "[you] to [anna]:".dimmed());
-    println!("  {}", request);
-    println!();
-    println!("  {}", "[anna] to [you]:".dimmed());
-    println!("  Natural language processing is not yet implemented.");
-    println!("  This request will be handled in a future version.");
-    println!();
-    println!("  {}", "Reliability: 0%".dimmed());
+    // v0.0.3: Full multi-party dialogue pipeline
+    // [you] -> [anna] -> [translator] -> [anna] -> [annad] -> [anna] -> [junior] -> [anna] -> [you]
+    pipeline::process(request).await;
 }
 
 /// Print REPL help

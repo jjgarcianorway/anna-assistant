@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.2**
+**Current Version: 0.0.3**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -17,7 +17,17 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 - [x] REPL mode basic implementation (exit, quit, help, status)
 - [x] CLI tests for new surface
 
-### 0.0.3 - REPL Mode Enhancement
+### 0.0.3 - Request Pipeline Skeleton (COMPLETED)
+- [x] Create DialogueActor enum (You, Anna, Translator, Junior, Annad)
+- [x] Full multi-party dialogue transcript
+- [x] Deterministic Translator mock (intent classification: question, system_query, action_request, unknown)
+- [x] Target detection (cpu, memory, disk, docker, etc.)
+- [x] Risk classification (read-only, low-risk, medium-risk, high-risk)
+- [x] Evidence retrieval mock from snapshots
+- [x] Junior scoring rubric (+40 evidence, +30 confident, +20 observational+cited, +10 read-only)
+- [x] CLI tests for pipeline behavior
+
+### 0.0.4 - REPL Enhancement (Planned)
 - [ ] Add `annactl reset` command (stub)
 - [ ] Add `annactl uninstall` command (stub)
 - [ ] Improve REPL welcome message with version/level
@@ -26,25 +36,13 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 2: Dialogue System (0.1.x)
 
-### 0.1.0 - Debug Dialogue Output
-- [ ] Create DialogueActor enum (You, Anna, Translator, Junior, Senior, Annad)
-- [ ] Create print_dialogue() function with format: [actor] to [target]: message
-- [ ] Integrate dialogue output into all operations
-- [ ] Debug mode always on (no toggle yet)
+### 0.1.0 - LLM Integration
+- [ ] Connect Translator to Ollama
+- [ ] Connect Junior to Ollama
+- [ ] Connect Anna response generation to Ollama
+- [ ] Streaming output per participant
 
-### 0.1.1 - Translator Foundation
-- [ ] Design intent/query type enum
-- [ ] Create Translator LLM prompt template
-- [ ] Implement translate_query() function
-- [ ] Parse natural language to structured query
-
-### 0.1.2 - Junior Validation
-- [ ] Create validation result struct (confidence, acceptable, feedback)
-- [ ] Create Junior LLM prompt template
-- [ ] Implement validate_answer() function
-- [ ] Return reliability score 0-100%
-
-### 0.1.3 - Senior Escalation
+### 0.1.1 - Senior Escalation
 - [ ] Create escalation criteria (confidence < threshold, needs_senior flag)
 - [ ] Create Senior LLM prompt template
 - [ ] Implement query_senior() function

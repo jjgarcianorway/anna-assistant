@@ -2,6 +2,74 @@
 
 ---
 
+## v0.0.3 - Request Pipeline Skeleton
+
+**Release Date:** 2024-12-03
+
+### Summary
+
+Implements the full multi-party dialogue transcript with deterministic mocks for intent classification, evidence retrieval, and Junior scoring. No LLM integration yet - all behavior is keyword-based and deterministic.
+
+### Pipeline Flow
+
+```
+[you] to [anna]: what CPU do I have?
+[anna] to [translator]: Please classify this request...
+[translator] to [anna]: Intent: system_query, Targets: cpu, Risk: read-only, Confidence: 85%
+[anna] to [annad]: Retrieve evidence for: cpu
+[annad] to [anna]: snapshot:hw.cpu: [CPU data would come from snapshot]
+[anna] to [junior]: Please verify and score this response.
+[junior] to [anna]: Reliability: 100%, Breakdown: +40 evidence, +30 confident, +20 observational+cited, +10 read-only
+[anna] to [you]: Based on system data from: snapshot:hw.cpu...
+Reliability: 100%
+```
+
+### Changes
+
+**Pipeline Module (`pipeline.rs`):**
+- DialogueActor enum: You, Anna, Translator, Junior, Annad
+- `dialogue()` function with format: `[actor] to [target]: message`
+- IntentType enum: question, system_query, action_request, unknown
+- RiskLevel enum: read-only, low-risk, medium-risk, high-risk
+- Intent struct with keywords, targets, risk, confidence
+- Evidence struct with source, data, timestamp
+
+**Translator Mock:**
+- Keyword-based intent classification
+- Target detection (cpu, memory, disk, network, docker, nginx, etc.)
+- Action keyword detection (install, remove, restart, etc.)
+- Confidence scoring based on keyword matches
+
+**Evidence Retrieval Mock:**
+- Maps targets to snapshot sources (hw.cpu, hw.memory, sw.services.*)
+- Returns mock evidence with timestamps
+- System queries trigger annad dialogue
+
+**Junior Scoring:**
+- +40: evidence exists
+- +30: confident classification (>70%)
+- +20: observational + cited (read-only with evidence)
+- +10: read-only operation
+- Breakdown shown in output
+
+**Tests:**
+- test_annactl_pipeline_shows_translator
+- test_annactl_pipeline_shows_junior
+- test_annactl_pipeline_shows_annad_for_system_query
+- test_annactl_pipeline_intent_classification
+- test_annactl_pipeline_target_detection
+- test_annactl_pipeline_reliability_breakdown
+- test_annactl_pipeline_action_risk_level
+
+### Internal Notes
+
+- All responses are mocked (no LLM integration)
+- Evidence retrieval is simulated (no actual snapshot reads)
+- Risk classification is keyword-based
+- Pipeline is ready for LLM integration in 0.1.x
+
+---
+
 ## v0.0.2 - Strict CLI Surface
 
 **Release Date:** 2024-12-03
