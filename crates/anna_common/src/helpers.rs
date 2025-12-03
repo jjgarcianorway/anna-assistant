@@ -471,13 +471,34 @@ pub fn get_ollama_version() -> Option<String> {
 
 /// Refresh helper state from system
 /// Call this periodically to update presence status
+/// v0.0.27: Fix detection for helpers with provides_command (like Ollama)
 pub fn refresh_helper_states() -> HelpersManifest {
     let mut manifest = HelpersManifest::load();
     let definitions = get_helper_definitions();
 
     for def in &definitions {
-        let present = is_package_present(&def.name);
-        let version = if present { get_package_version(&def.name) } else { None };
+        // v0.0.27: Check provides_command first (for non-pacman installs like Ollama)
+        // Then fall back to package check
+        let (present, version) = if let Some(ref cmd) = def.provides_command {
+            if is_command_available(cmd) {
+                // Command exists - try to get version
+                let ver = if cmd == "ollama" {
+                    get_ollama_version()
+                } else {
+                    get_package_version(&def.name)
+                };
+                (true, ver)
+            } else {
+                // Command not found, check if package is installed anyway
+                let pkg_present = is_package_present(&def.name);
+                let ver = if pkg_present { get_package_version(&def.name) } else { None };
+                (pkg_present, ver)
+            }
+        } else {
+            let pkg_present = is_package_present(&def.name);
+            let ver = if pkg_present { get_package_version(&def.name) } else { None };
+            (pkg_present, ver)
+        };
 
         let state = manifest.get_or_create(def);
 

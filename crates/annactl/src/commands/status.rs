@@ -712,18 +712,18 @@ fn print_helpers_section(mode: &DisplayMode) {
 
     println!();
 
-    // Show each helper - v0.0.25: better messaging for missing helpers
+    // Show each helper - v0.0.27: Anna installs automatically when needed
     for helper in &helpers {
         let (presence, action) = if helper.present {
             let by = match helper.installed_by {
-                InstalledBy::Anna => "installed by Anna".cyan().to_string(),
-                InstalledBy::User => "installed by user".dimmed().to_string(),
-                InstalledBy::Unknown => "installed by user".dimmed().to_string(), // Assume user if present but unknown
+                InstalledBy::Anna => "by Anna".cyan().to_string(),
+                InstalledBy::User => "by user".dimmed().to_string(),
+                InstalledBy::Unknown => "by user".dimmed().to_string(),
             };
             ("present".green().to_string(), by)
         } else {
-            // Missing helper - tell user Anna will install it when needed
-            ("missing".yellow().to_string(), "install via Anna".cyan().to_string())
+            // Missing helper - Anna will install when needed
+            ("missing".yellow().to_string(), "Anna will install when needed".dimmed().to_string())
         };
 
         println!("  {} ({}, {})", helper.name, presence, action);
@@ -1210,14 +1210,19 @@ fn print_policy_section() {
     println!("  Read-only:  {}", read_only_str);
     println!("  Mutations:  {}", mutation_str);
 
-    // Show blocked counts
+    // Show blocked counts - v0.0.27: clarify what "blocked" means
     let blocked = &policy.blocked;
     let blocked_packages = blocked.packages.exact.len() + blocked.packages.patterns.len();
     let blocked_services = blocked.services.exact.len() + blocked.services.patterns.len();
     let blocked_paths = blocked.paths.exact.len() + blocked.paths.prefixes.len() + blocked.paths.patterns.len();
     let blocked_commands = blocked.commands.exact.len() + blocked.commands.patterns.len();
-    println!("  Blocked:    {} packages, {} services, {} paths, {} commands",
-        blocked_packages, blocked_services, blocked_paths, blocked_commands);
+    let total_blocked = blocked_packages + blocked_services + blocked_paths + blocked_commands;
+    if total_blocked > 0 {
+        println!("  Protected:  {} paths Anna won't modify (safety policy)",
+            blocked_paths);
+    } else {
+        println!("  Protected:  default safety rules");
+    }
 
     // Show last modified time for policy files
     if let Ok(metadata) = std::fs::metadata(format!("{}/capabilities.toml", POLICY_DIR)) {

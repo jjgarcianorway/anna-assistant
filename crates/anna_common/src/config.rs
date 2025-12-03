@@ -542,7 +542,19 @@ impl UpdateState {
 
     /// Initialize on daemon start (v7.34.0)
     /// If never checked, schedule first check within 60 seconds
+    /// v0.0.27: Clear stale "update available" if current version is >= available
     pub fn initialize_on_start(&mut self) {
+        // v0.0.27: Get current version and clear stale update info
+        let current = env!("CARGO_PKG_VERSION");
+        if let Some(ref available) = self.last_checked_version_available {
+            // If we're running a version >= the "available" version, clear it
+            if !crate::is_newer_version(available, current) {
+                self.last_checked_version_available = None;
+                self.last_result = UpdateResult::Ok;
+                self.last_checked_version_installed = current.to_string();
+            }
+        }
+
         if self.last_check_at == 0 && self.mode == UpdateMode::Auto {
             // Never checked - schedule within 60 seconds
             self.next_check_at = Self::now_epoch() + 60;
