@@ -680,6 +680,8 @@ pub use helpers::{
     get_helper_definitions, get_helper_status_list, get_helpers_summary,
     refresh_helper_states, is_package_present, get_package_version as helpers_get_package_version,
     install_package, install_ollama, is_command_available, get_ollama_version as helpers_get_ollama_version,
+    // v0.0.30: Install all missing helpers on daemon start
+    install_missing_helpers,
     HELPERS_STATE_FILE,
 };
 

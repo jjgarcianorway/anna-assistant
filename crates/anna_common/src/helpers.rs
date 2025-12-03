@@ -352,8 +352,8 @@ pub fn is_helper_relevant(check: &Option<RelevanceCheck>) -> bool {
 }
 
 /// Check if system has ethernet interfaces
+/// v0.0.30: More inclusive detection - any non-wireless, non-loopback, non-virtual interface
 fn has_ethernet_interfaces() -> bool {
-    // Check /sys/class/net for ethernet devices (not lo, not wireless)
     if let Ok(entries) = std::fs::read_dir("/sys/class/net") {
         for entry in entries.flatten() {
             let name = entry.file_name();
@@ -364,19 +364,25 @@ fn has_ethernet_interfaces() -> bool {
                 continue;
             }
 
+            // Skip virtual interfaces (docker, veth, br, virbr, etc.)
+            if name_str.starts_with("veth")
+                || name_str.starts_with("docker")
+                || name_str.starts_with("br-")
+                || name_str.starts_with("virbr")
+            {
+                continue;
+            }
+
             // Check if it's wireless by looking for /sys/class/net/<name>/wireless
             let wireless_path = format!("/sys/class/net/{}/wireless", name_str);
             if std::path::Path::new(&wireless_path).exists() {
                 continue; // It's a wireless interface
             }
 
-            // Check for ethernet-like names (eth*, en*, em*)
-            if name_str.starts_with("eth")
-                || name_str.starts_with("en")
-                || name_str.starts_with("em")
-            {
-                return true;
-            }
+            // v0.0.30: If it's not wireless, not loopback, not virtual - it's likely ethernet
+            // Common patterns: eth*, en*, em*, enp*, eno*, ens*
+            // But ANY non-wireless physical interface counts
+            return true;
         }
     }
     false
@@ -602,6 +608,57 @@ pub fn is_command_available(cmd: &str) -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
+}
+
+/// v0.0.30: Install all missing relevant helpers for this system
+/// Called on daemon startup to ensure Anna has all tools she needs
+/// Returns (installed_count, failed_count, messages)
+pub fn install_missing_helpers() -> (usize, usize, Vec<String>) {
+    let mut installed = 0;
+    let mut failed = 0;
+    let mut messages = Vec::new();
+
+    let definitions = get_relevant_helper_definitions();
+    let mut manifest = HelpersManifest::load();
+
+    for def in &definitions {
+        // Check if helper is present
+        let (present, _version) = check_helper_presence(def);
+
+        if present {
+            continue; // Already installed
+        }
+
+        // Install the helper
+        messages.push(format!("Installing {}...", def.name));
+
+        let result = if def.name == "ollama" {
+            install_ollama()
+        } else {
+            install_package(&def.name)
+        };
+
+        if result.success {
+            installed += 1;
+            messages.push(format!("  + {} installed ({})", def.name, result.version.as_deref().unwrap_or("unknown")));
+
+            // Update manifest - mark as anna-installed
+            let state = manifest.get_or_create(&def);
+            state.present = true;
+            state.installed_by = InstalledBy::Anna;
+            state.anna_install_timestamp = Some(Utc::now());
+            state.version = result.version;
+            state.first_seen = Some(Utc::now());
+        } else {
+            failed += 1;
+            messages.push(format!("  ! {} failed: {}", def.name, result.error.as_deref().unwrap_or("unknown error")));
+        }
+    }
+
+    // Save manifest
+    let _ = manifest.save();
+
+    (installed, failed, messages)
 }
 
 /// Get Ollama version (from ollama --version)

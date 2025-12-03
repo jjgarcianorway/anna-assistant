@@ -132,6 +132,9 @@ const SERVICE_INDEX_INTERVAL_SECS: u64 = 120;
 /// Interval for telemetry maintenance (prune + enforce limits) - every 5 minutes
 const MAINTENANCE_INTERVAL_SECS: u64 = 300;
 
+/// v0.0.30: Interval for helper health check - every 10 minutes
+const HELPER_CHECK_INTERVAL_SECS: u64 = 600;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // v7.38.0: Handle --version before anything else
@@ -498,6 +501,32 @@ async fn main() -> Result<()> {
 
             if new_errors > 0 || new_intrusions > 0 {
                 info!("[+]  Log scan: {} errors, {} intrusions", new_errors, new_intrusions);
+            }
+        }
+    });
+
+    // v0.0.30: Spawn helper health check task (every 10 minutes)
+    // If user removes helpers, Anna reinstalls them
+    tokio::spawn(async move {
+        // Skip first check - we already did it on startup
+        let mut interval = tokio::time::interval(Duration::from_secs(HELPER_CHECK_INTERVAL_SECS));
+        interval.tick().await; // Skip immediate tick
+
+        loop {
+            interval.tick().await;
+            use anna_common::install_missing_helpers;
+            let (installed, failed, messages) = install_missing_helpers();
+
+            if installed > 0 || failed > 0 {
+                for msg in &messages {
+                    info!("[helper] {}", msg);
+                }
+                if installed > 0 {
+                    info!("[+]  Helper health check: installed {} missing helper(s)", installed);
+                }
+                if failed > 0 {
+                    warn!("[!]  Helper health check: failed to install {} helper(s)", failed);
+                }
             }
         }
     });
@@ -1136,6 +1165,24 @@ fn ensure_data_dirs() {
         Ok(true) => info!("[+]  Install state initialized at /var/lib/anna/install_state.json"),
         Ok(false) => {} // Install state already exists
         Err(e) => warn!("[!]  Failed to initialize install state: {}", e),
+    }
+
+    // v0.0.30: Install missing helpers immediately on daemon start
+    // Anna needs these tools to function properly - don't wait for "when needed"
+    use anna_common::install_missing_helpers;
+    info!("[*]  Checking and installing missing helpers...");
+    let (installed, failed, messages) = install_missing_helpers();
+    for msg in &messages {
+        info!("     {}", msg);
+    }
+    if installed > 0 {
+        info!("[+]  Installed {} helper(s)", installed);
+    }
+    if failed > 0 {
+        warn!("[!]  Failed to install {} helper(s)", failed);
+    }
+    if installed == 0 && failed == 0 {
+        info!("[+]  All helpers already present");
     }
 }
 

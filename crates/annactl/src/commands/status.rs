@@ -654,8 +654,8 @@ fn print_helpers_section(mode: &DisplayMode) {
             };
             ("present".green().to_string(), by)
         } else {
-            // Missing helper - Anna will install when needed
-            ("missing".yellow().to_string(), "Anna will install when needed".dimmed().to_string())
+            // v0.0.30: Missing helper - Anna installs on daemon restart
+            ("missing".yellow().to_string(), "restart daemon to install".dimmed().to_string())
         };
 
         println!("  {} ({}, {})", helper.name, presence, action);
