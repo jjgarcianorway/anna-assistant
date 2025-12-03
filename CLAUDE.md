@@ -1,191 +1,307 @@
-# Claude Workflow for Anna Project
+# Claude Operating Contract for Anna Assistant
 
-## 📋  Project Rules
+**Version: 0.0.1**
 
-- Never release without testing - never claim something is implemented without testing
-- Ensure no file has more than 400 lines - modularization is key
-- Use best practices for coding, security, documentation
-- Ensure the software is always scalable
-- Beautiful UX/UI is mandatory - use TRUE COLOR, Bold, emojis/icons with 2 spaces after each
-- Always release when bumping a version (commit, upload, release, push, tag, update README.md)
-- Every release must include binaries
+You are Claude, the sole engineering operator for Anna Assistant. This document is the source of truth over any older documentation.
 
-## 📁  Canonical Files
+---
 
-| File | Purpose |
-|------|---------|
-| `CLAUDE.md` | This file - workflow contract |
-| `docs/ANNA_SPEC.md` | Technical and product specification |
-| `docs/ANNA_PROGRESS.md` | Roadmap and progress checklist |
-| `docs/ANNA_TEST_PLAN.md` | Test strategy and coverage |
-| `docs/ANNA_BUGLOG.md` | Bug tracker and regression log |
+## 0) One-Sentence Mission
 
-## ✅  Task Lifecycle
+Anna is a local-first, Arch Linux virtual senior sysadmin that answers questions and executes requests via natural language, is proactive via telemetry, and continuously learns, with complete transparency and safety.
 
-1. **Read context**: Open CLAUDE.md, ANNA_SPEC.md, ANNA_PROGRESS.md, ANNA_TEST_PLAN.md
-2. **Clarify scope**: Identify version/milestone, affected checklist items
-3. **Plan**: Write numbered plan before coding
-4. **Implement**: Small, cohesive changes respecting constraints
-5. **Test**: Run `cargo test --workspace`, document expected outcomes
-6. **Update tracking**: Update progress, test plan, buglog as needed
-7. **Report**: Summarize changes, files affected, tests run
+---
 
-## 🔒  "Done" Semantics
+## 1) Non-Negotiable Requirements (The Contract)
 
-- Never say "implemented" without showing relevant code
-- Never say "all tests pass" without running them
-- Treat logs and user feedback as ground truth
-- Prefer under-claiming over over-claiming
+Anna must do exactly three things, and do them extremely well:
 
-## 🐛  Bug Handling
+1. **Answer all kinds of user questions** (about the machine, the OS, and general computing topics), with a reliability score and citations to local evidence when applicable.
+2. **Monitor the system and be proactive**, reporting issues, regressions, and anomalies before the user notices.
+3. **Keep learning and improving herself**, by creating and evolving recipes and knowledge based on solved problems.
 
-- Log bugs in `docs/ANNA_BUGLOG.md` with GitHub issue reference
-- Mirror status in ANNA_PROGRESS.md for relevant version
-- When fixing: update code, tests, ANNA_TEST_PLAN.md, ANNA_BUGLOG.md
+**Rule: Almost nothing is hardcoded, ever.**
 
-## 🚫  Anna Constraints (from ANNA_SPEC.md)
+If the system needs a rule, it must come from data, learned recipes, config, or explicit policy files that can evolve. Hardcoded exceptions are a last resort and must be justified, documented, and tracked.
 
-- CLI surface: `annactl` only (REPL, one-shot, status, version, help)
-- No hardcoded system facts - probes and learned facts only
-- Separate system knowledge from user knowledge
-- Command whitelist only - no arbitrary shell execution
+---
 
-## 🧠  v0.50.0 Brain Upgrade Spec
+## 2) Roles: The 4-Player IT Department
 
-### Question Classification (5 Types)
+| Role | Description |
+|------|-------------|
+| **User** | Asks natural language questions and makes requests |
+| **Anna** | Primary assistant persona and orchestrator. An "intern" who becomes elite over time |
+| **Translator** | Converts user intent into structured internal request plans |
+| **Junior** | Verifies Anna's answers, attempts improvements, produces reliability score |
+| **Senior** | Slower, wiser. Junior escalates only after unsuccessful improvement rounds |
 
-```rust
-enum QuestionType {
-    FactFromKnowledge,      // Answerable from stored knowledge
-    SimpleProbe,            // Single probe needed (e.g., "What CPU?")
-    ComplexDiagnosis,       // Multiple probes + reasoning
-    DangerousOrHighRisk,    // Safety check required
-    NeedsUserClarification, // Ambiguous question
-}
+Naming is fixed forever: Anna, Translator, Junior, Senior.
+
+### 2.1 Debug Mode (Always On)
+
+Output format:
+```
+[you] to [anna]: ...
+[anna] to [translator]: ...
+[translator] to [anna]: ...
+[anna] to [junior]: ...
+[junior] to [anna]: ...
+[junior] to [senior]: ...
+[senior] to [junior]: ...
 ```
 
-### Safe Command Policy
+### 2.2 Reliability Score
 
-Commands are classified by safety level:
+Every final answer must include a reliability score (0-100%) based on evidence quality, repeatability, and risk.
 
-| Safety Level | Auto-Execute | Examples |
-|-------------|--------------|----------|
-| `read_only` | ✅ Yes | `ls`, `cat`, `lscpu`, `free`, `df` |
-| `low_risk` | ✅ Yes | `pacman -Q`, `systemctl status` |
-| `dangerous` | ❌ Never | `rm`, `mv`, `chmod`, `dd`, `kill` |
+---
 
-### 11 Safe Command Categories
+## 3) Execution Model
 
-1. **File Inspection**: `ls`, `file`, `stat`, `wc`, `du`
-2. **Shell Builtins**: `pwd`, `echo`, `type`, `which`
-3. **File Reading**: `cat`, `head`, `tail`, `less`
-4. **Text Processing**: `grep`, `awk`, `sed` (read-only), `cut`, `sort`, `uniq`
-5. **Searching**: `find`, `locate`, `whereis`
-6. **System Info**: `uname`, `hostname`, `uptime`, `date`, `timedatectl`
-7. **Package Queries**: `pacman -Q`, `pacman -Si`, `dpkg -l`, `rpm -qi`
-8. **Networking**: `ip addr`, `ip route`, `ss`, `ping` (limited)
-9. **Archives**: `tar -tf`, `unzip -l`, `zcat`, `gunzip -c`
-10. **Shell Infrastructure**: `env`, `printenv`, `locale`
-11. **Hardware Queries**: `lscpu`, `lsblk`, `lspci`, `lsusb`, `free`, `df`
+### 3.1 CLI Surface (Strict)
 
-### Generic Command Probe
-
-```json
-{
-  "probe_id": "system.command.run",
-  "params": {
-    "command": "pacman -Qi linux",
-    "timeout_secs": 30
-  }
-}
+```bash
+annactl <request>      # Natural language one-shot
+annactl                # REPL mode
+annactl status         # Self-status
+annactl -V/--version   # Version
 ```
 
-### Never Safe Commands (Dangerous)
+**No other public commands.** Prior commands (sw, hw, JSON flags) become internal capabilities.
 
-```
-rm, mv, cp, chmod, chown, chgrp, dd, mkfs, fdisk,
-parted, mount, umount, kill, pkill, killall, reboot,
-shutdown, poweroff, systemctl start/stop/enable/disable,
-pacman -S, pacman -R, apt install, apt remove
-```
+### 3.2 annad Daemon (Root)
 
-### LLM Orchestration Flow
+Responsibilities:
+- Telemetry gathering, indexing, snapshots, evidence collection
+- Safe execution and rollback/backup mechanics
+- Self-update checks (every 10 minutes)
+- Local model setup (Ollama install, model selection)
 
-```
-Question → Classify → Route:
-  ├─ FactFromKnowledge → Return from cache (no LLM)
-  ├─ SimpleProbe → Execute probe → Junior summarize
-  ├─ ComplexDiagnosis → Junior plan → Execute → Senior synthesize
-  ├─ DangerousOrHighRisk → Block with explanation
-  └─ NeedsUserClarification → Ask clarifying question
-```
+**Important:** Even as root, annad creates user config as the target user, not as root.
 
-### Junior/Senior Optimization
+---
 
-- **Junior (Fast)**: Command parsing, probe execution, draft answers
-- **Senior (Smart)**: Reasoning, synthesis, verification, user-facing answers
-- Local tools first: `--help`, `man`, local docs before LLM calls
+## 4) Safety Policy
 
-## 🎭  v0.60.0 Conversational UX Spec
+### 4.1 Action Classification
 
-### Principles
+| Category | Description | Confirmation |
+|----------|-------------|--------------|
+| Read-only | Safe observation | None |
+| Low-risk | Reversible, local | y/n |
+| Medium-risk | Config edits, service restarts, installs | Explicit |
+| High-risk | Destructive, irreversible | "I assume the risk" + rollback plan |
 
-1. **No frozen UI**: Progress messages for any operation > 1s
-2. **No extra LLM tokens**: Narrative from structured events, not LLM calls
-3. **Readable conversation logs**: Anna/Junior/Senior dialog from real steps
-4. **No slowdowns**: Event generation must be cheap (templates only)
+### 4.2 Evidence Requirement
 
-### Actors (Narrative Personas)
+Every claim backed by:
+- Stored snapshot
+- Command output
+- Log excerpt
+- Measured telemetry
+- Clearly labeled inference
 
-| Actor | Role | Style |
-|-------|------|-------|
-| **Anna** | Orchestrator, user voice | Short, clear, occasional dry humor |
-| **Junior** | Planning, probe selection | Technical, step-by-step |
-| **Senior** | Supervisor, auditor | Only when reviewing/scoring |
+### 4.3 Rollback Mandate
 
-### Event Types
+Every mutation requires:
+- Timestamped file backups
+- btrfs snapshots (when available)
+- Action logs
+- Explicit rollback instructions
 
-```rust
-enum EventKind {
-    QuestionReceived,       // User asked something
-    ClassificationStarted,  // Analyzing question
-    ClassificationDone,     // Type determined
-    ProbesPlanned,          // Commands selected
-    CommandRunning,         // Executing command
-    CommandDone,            // Command finished
-    SeniorReviewStarted,    // Senior checking
-    SeniorReviewDone,       // Review complete
-    UserClarificationNeeded,// Need user input
-    AnswerSynthesizing,     // Building answer
-    AnswerReady,            // Done
-}
-```
+---
 
-### Progress Message Templates
+## 5) Learning System
 
-```
-[Anna]   Reading your question and planning next steps.
-[Junior] Classifying question: looks like a simple safe probe.
-[Anna]   Running safe command: journalctl -u annad --since '6 hours ago'.
-[Senior] Double-checking the answer and scoring reliability.
-[Anna]   Done. Reliability: 93% (GREEN).
-```
+### 5.1 Recipes
 
-### Conversation Log (Debug Mode)
+Created when:
+- Anna needed help from Junior/Senior
+- New fix path discovered
+- Repeated question type solved
 
-```
-[Anna]   I parsed your question and handed it to Junior.
-[Junior] I classified it as a simple safe probe (journalctl).
-[Anna]   I ran: journalctl -u annad --since '6 hours ago'.
-[Senior] I reviewed the logs - reliable at 93%.
-[Anna]   I summarized the key lines for you.
-```
+Properties:
+- Versioned
+- Testable (dry-run when possible)
+- Risk-annotated
+- Evidence-linked
 
-### Rules
+### 5.2 Multi-Round Improvement
 
-- Messages: Short, informative, no fluff
-- No LLM calls for formatting events
-- Progress lines streamed in order
-- Conversation log from real events only
-- Always update README.md and other documents in GitHub when you release a new version. Keep the repository updated and clean.
-- per each new prompt i send you, plan the implementation, and bump the release version
+When uncertain or Junior scores low:
+1. Anna provides Junior relevant evidence
+2. Junior proposes minimal change
+3. Anna tests via annad (safe mode/dry-run)
+4. Junior re-scores
+5. Repeat or escalate to Senior
+
+---
+
+## 6) Gamification
+
+All players have:
+- Level 0-100
+- Non-linear XP
+- XP increases with correct answers and new recipes
+- No XP loss (poor outcomes earn nothing)
+
+Titles: Nerdy, old-school, ASCII-friendly. No emojis or icons.
+
+---
+
+## 7) UI/UX
+
+- Old-school terminal "hacker style"
+- ASCII borders and formatting
+- True color if available
+- No icons, no emojis
+- Consistent, sparse color palette
+- Long text wraps, never truncates
+- Spinner indicator when working
+- Streaming output per participant when feasible
+
+---
+
+## 8) Proactive Monitoring
+
+Anna detects and reports:
+- Boot regressions
+- System degradation correlated with recent changes
+- Recurring warnings/crashes
+- Thermal/power anomalies
+- Network instability
+- Disk I/O regressions
+- Service failures
+
+---
+
+## 9) Self-Sufficiency
+
+### 9.1 Auto-Update (10 minutes)
+- Ping GitHub releases
+- Download and update safely
+- Restart safely
+- Expose state in `annactl status`
+
+### 9.2 Dependency Helpers
+- Listed in `annactl status`
+- Tracked as "Anna-installed helpers"
+- Removable on uninstall
+
+### 9.3 First-Run Model Setup
+- Install Ollama automatically
+- Select models based on hardware
+- Download with progress display
+- No user intervention required
+
+### 9.4 Clean Uninstall
+- Ask about helper removal
+- Remove services, data, models
+- Never leave broken permissions
+
+### 9.5 Reset Command
+- Delete recipes
+- Remove helpers
+- Reset DBs and state
+- Keep binaries and service
+
+---
+
+## 10) Performance
+
+- Minimal LLM prompts: short and precise
+- Local-first, no cloud
+- Keep snapshot-first architecture
+- annactl must be snappy; heavy lifting in annad
+
+---
+
+## 11) Repository Hygiene
+
+- Delete unused files
+- No dead code paths
+- No leftover commands from old CLI surface
+- All functionality via natural language requests
+
+---
+
+## 12) Engineering Governance (Mandatory)
+
+### 12.1 GitHub Always Updated
+- CI must stay green
+- Fix failures immediately
+- Security posture: Fort Knox
+
+### 12.2 Documentation is Part of Done
+
+Every change updates:
+- README.md
+- CLAUDE.md
+- Architecture docs as needed
+- Changelog/release notes
+
+### 12.3 TODO and Release Notes
+
+Maintain:
+- **TODO.md**: Planned features, small tasks
+- **RELEASE_NOTES.md**: Completed tasks
+
+Rule: When TODO item completed, remove from TODO, add to release notes in same commit.
+
+### 12.4 No Regressions
+- Add tests for critical behavior
+- Fix breakage before moving forward
+
+### 12.5 Versioning (Strict)
+
+Every prompt = version bump:
+1. Update version in code and docs
+2. Commit
+3. Tag
+4. GitHub release notes
+5. Push
+
+Stay in 0.xxx.yyy until production quality.
+
+### 12.6 Agents/Plugins
+
+Use if needed, but keep output transparent and verifiable.
+
+---
+
+## 13) Migration Guidance
+
+Current foundation (telemetry, snapshots, delta detection, speed) is preserved.
+
+Migrating from:
+- "snapshot reader with fixed commands"
+
+To:
+- "assistant orchestrator with strict surface, same snapshot engine, plus safe execution and local LLM loop"
+
+Build on top of snapshots:
+- Intent translation
+- Evidence retrieval
+- Action planner
+- Safety gates
+- Recipe learning
+- Transparent dialogue UI
+
+---
+
+## 14) Definition of Done
+
+A feature is done when:
+1. Works end-to-end via `annactl <request>` and REPL
+2. Transparent in debug output
+3. Safe (risk-classified, confirmed where needed)
+4. Documented and tested
+5. Moved from TODO to release notes
+6. Version, tag, release updated
+
+---
+
+## 15) Contract Enforcement
+
+This document is immutable contract text. If ambiguity exists in older docs, this wins. No deviation without explicit user instruction.

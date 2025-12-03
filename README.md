@@ -1,125 +1,219 @@
-# Anna v7.41.0 "Snapshot-Only Display"
+# Anna Assistant v0.0.1
 
-**System Intelligence Daemon for Linux - NO LLM, NO NATURAL LANGUAGE**
+**Local-first Virtual Senior Sysadmin for Arch Linux**
 
-> v7.41.0: annactl is a pure snapshot reader - all heavyweight scanning is done by the daemon. `annactl sw` now executes in < 1s (warm).
+Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
 ---
 
-## Public CLI Surface
+## Mission
+
+Anna does exactly three things, and does them extremely well:
+
+1. **Answers questions** about your machine, OS, and computing topics with reliability scores and evidence citations
+2. **Monitors proactively** via telemetry, reporting issues and anomalies before you notice them
+3. **Learns continuously** by creating and evolving recipes from solved problems
+
+---
+
+## CLI Surface (Strict)
 
 ```bash
-# Show help
+# One-shot natural language request
+annactl "what CPU do I have?"
+annactl "is nginx running?"
+annactl "why is my system slow?"
+
+# Interactive REPL mode
 annactl
 
-# Show version (exactly "annactl vX.Y.Z")
-annactl --version
-
-# Anna-only health and status (cache-only, fast)
+# Self-status (version, permissions, update state, helpers)
 annactl status
 
-# Software overview (compact)
-annactl sw
-
-# Software overview (detailed)
-annactl sw --full
-
-# Software data (JSON)
-annactl sw --json
-
-# Software detail (package, command, service, or category)
-annactl sw <name-or-category>
-
-# Hardware overview
-annactl hw
-
-# Hardware detail (device or category)
-annactl hw <name-or-category>
+# Version
+annactl --version
+annactl -V
 ```
 
-**That's it.** Exactly 10 commands. All arguments are case-insensitive.
+**That's the entire public surface.** No other commands are exposed.
 
 ---
 
-## What Anna Does
+## The IT Department (4-Player Model)
 
-Anna is a system intelligence daemon that:
+Every interaction involves four participants:
 
-- **Inventories** ALL commands on PATH, ALL packages, ALL systemd services
-- **Monitors** process activity (CPU/memory) every 30 seconds
-- **Tracks** hardware telemetry (temperature, utilization, I/O)
-- **Indexes** errors and warnings from journalctl (per-service only)
-- **Builds** snapshots for fast annactl display
-- **Records** crash info for debugging without journalctl
-- **Writes** status snapshots for fast cache-only status display
-- **Checks** for Anna updates (auto-scheduled, configurable)
+| Role | Description |
+|------|-------------|
+| **User** | You. Asks questions in natural language |
+| **Anna** | Primary assistant and orchestrator. Starts as "intern", becomes elite over time |
+| **Translator** | Converts user intent to structured internal request plans |
+| **Junior** | Verifies Anna's answers, attempts improvements, produces reliability score |
+| **Senior** | Slower, wiser. Junior escalates after unsuccessful improvement rounds |
 
-## What Anna Does NOT Do
+### Debug Mode (Always On)
 
-- No LLM, no Q&A, no chat
-- No arbitrary command execution
-- No cloud connectivity
-- No data leaves your machine
+All internal dialogue is visible:
+
+```
+[you] to [anna]: what CPU do I have?
+[anna] to [translator]: parse user intent
+[translator] to [anna]: query type: hardware.cpu, detail: model
+[anna] to [annad]: retrieve CPU info from snapshot
+[annad] to [anna]: AMD Ryzen 9 5900X (12 cores, 24 threads)
+[anna] to [junior]: validate answer: "AMD Ryzen 9 5900X, 12 cores"
+[junior] to [anna]: confidence 94% - answer verified against /proc/cpuinfo
+[anna] to [you]: You have an AMD Ryzen 9 5900X with 12 cores (24 threads).
+                 Reliability: 94%
+```
+
+### Reliability Scores
+
+Every answer includes a reliability percentage (0-100%) based on:
+- Evidence quality
+- Repeatability
+- Risk assessment
 
 ---
 
-## v7.41.0 Features
-
-### Snapshot-Only Architecture
-
-`annactl sw` now reads from daemon-generated snapshots:
+## Architecture
 
 ```
-[OVERVIEW]
-  Packages:  1234 (126 explicit, 1108 deps, 15 AUR)
-  Commands:  2345
-  Services:  67 (52 running, 0 failed)
-
-[CATEGORIES]
-  (from package descriptions)
-  Editors:       vim, neovim, helix
-  Terminals:     alacritty, foot
-  Browsers:      firefox, chromium
-  Development:   git, rust, python
-  ...
-
-[PLATFORMS]
-  Steam:  42 games (156.3 GiB)
-    Elden Ring (45.2 GiB)
-    Cyberpunk 2077 (38.7 GiB)
-    ...
-
-[TOPOLOGY]
-  Compositor:   hyprland, xdg-portal
-  Audio:        pipewire, wireplumber
-  Network:      networkmanager, iwd
+annactl (CLI)
+    |
+    +-- Natural language interface
+    +-- REPL mode
+    +-- Status display
+    |
+annad (root daemon)
+    |
+    +-- Telemetry gathering and snapshots
+    +-- Safe execution with rollback
+    +-- Self-update (every 10 minutes)
+    +-- Local LLM orchestration (Ollama)
+    +-- Recipe storage and learning
 ```
 
-**Architecture Rule**: annactl NEVER does heavyweight scanning. All data comes from snapshots written by the daemon.
+---
 
-### Performance
+## Safety Policy
 
-| Command | v7.40.0 (cache) | v7.41.0 (snapshot) |
-|---------|-----------------|-------------------|
-| `annactl sw` | 6-7s | < 1s |
-| `annactl status` | < 350ms | < 350ms |
-| `annactl hw` | < 1.2s | < 1.2s |
+### Action Classification
 
-### Delta Detection
+| Category | Description | Confirmation |
+|----------|-------------|--------------|
+| **Read-only** | Safe observation commands | None required |
+| **Low-risk** | Reversible, local changes | Simple y/n |
+| **Medium-risk** | Config edits, service restarts, installs | Explicit confirmation |
+| **High-risk** | Destructive, irreversible operations | "I assume the risk" + rollback plan |
 
-The daemon only rebuilds snapshots when changes are detected:
+### Evidence Requirement
 
-- **Packages**: pacman.log fingerprint (inode, size, mtime, offset, last line hash)
-- **Commands**: PATH directory fingerprints (inode, mtime, file count, names hash)
-- **Services**: systemd unit files hash and mtimes
+No invented outputs. Every claim is backed by:
+- Stored snapshots
+- Command outputs
+- Log excerpts
+- Measured telemetry
+- Clearly labeled inferences
 
-### Snapshot Files
+### Rollback Mandate
 
-| Path | Content |
-|------|---------|
-| `/var/lib/anna/internal/snapshots/sw.json` | Software snapshot |
-| `/var/lib/anna/internal/snapshots/hw.json` | Hardware snapshot |
-| `/var/lib/anna/internal/meta/sw_meta.json` | Delta detection metadata |
+Every mutation has rollback support via:
+- Timestamped file backups
+- btrfs snapshots (when available)
+- Action logs
+- Explicit rollback instructions
+
+---
+
+## Learning System
+
+### Recipes
+
+Anna creates recipes when:
+- She needed help from Junior or Senior
+- A new fix path was discovered
+- A repeated question type is solved
+
+Recipes are:
+- Versioned
+- Testable (dry-run when possible)
+- Annotated with risk level
+- Linked to evidence patterns
+
+### XP and Levels
+
+All players (Anna, Junior, Senior) have:
+- Level 0-100
+- Non-linear XP progression
+- XP gained from correct answers and new recipes
+- No XP loss (poor outcomes earn nothing)
+
+Titles are nerdy, old-school, ASCII-friendly. No emojis or icons.
+
+---
+
+## Proactive Monitoring
+
+Anna detects and reports:
+- Boot regressions (slower boot times)
+- System degradation correlated with recent changes
+- Recurring journal warnings or crashes
+- Thermal and power anomalies
+- Network instability
+- Disk I/O regressions
+- Service failures
+
+Example: "What have I installed in the last two weeks that might explain my machine feeling slower?"
+
+---
+
+## Self-Sufficiency
+
+### Auto-Update
+
+annad checks for updates every 10 minutes:
+- Pings GitHub releases
+- Downloads and updates safely
+- Restarts itself
+- Records state in `annactl status`
+
+### First-Run Setup
+
+Anna automatically:
+- Installs Ollama if needed
+- Selects models based on hardware
+- Downloads models with progress display
+- Proceeds without user intervention
+
+### Helper Tools
+
+Anna may install tools for her operation (ethtool, lm_sensors, etc.):
+- Listed in `annactl status`
+- Tracked as "Anna-installed helpers"
+- Removable on uninstall
+
+### Clean Uninstall
+
+```bash
+annactl uninstall
+```
+
+- Shows list of Anna-installed helpers
+- Asks whether to remove them
+- Removes services, data, models
+- Never leaves broken permissions
+
+### Factory Reset
+
+```bash
+annactl reset
+```
+
+- Deletes learned recipes
+- Removes Anna-installed helpers
+- Resets internal DBs and state
+- Keeps base binaries and service
 
 ---
 
@@ -129,16 +223,11 @@ The daemon only rebuilds snapshots when changes are detected:
 |------|---------|
 | `/etc/anna/config.toml` | Configuration |
 | `/var/lib/anna/` | Data directory |
-| `/var/lib/anna/knowledge/` | Object inventory (JSON) |
-| `/var/lib/anna/telemetry.db` | SQLite telemetry database |
-| `/var/lib/anna/internal/` | Internal state |
-| `/var/lib/anna/internal/snapshots/` | Daemon-written snapshots |
-| `/var/lib/anna/internal/meta/` | Delta detection metadata |
-| `/var/lib/anna/internal/status_snapshot.json` | Daemon status snapshot |
-| `/var/lib/anna/internal/last_start.json` | Last start attempt |
-| `/var/lib/anna/internal/last_crash.json` | Last crash info |
-| `/var/lib/anna/internal/update_state.json` | Update scheduler state |
-| `/var/lib/anna/internal/ops.log` | Operations audit trail |
+| `/var/lib/anna/knowledge/` | Object inventory |
+| `/var/lib/anna/telemetry.db` | SQLite telemetry |
+| `/var/lib/anna/recipes/` | Learned recipes |
+| `/var/lib/anna/internal/snapshots/` | Daemon snapshots |
+| `/var/lib/anna/internal/update_state.json` | Update scheduler |
 
 ---
 
@@ -148,18 +237,6 @@ The daemon only rebuilds snapshots when changes are detected:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
-```
-
-### Manual Install
-
-```bash
-# Download binaries
-curl -LO https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.41.0/annad-7.41.0-x86_64-unknown-linux-gnu
-curl -LO https://github.com/jjgarcianorway/anna-assistant/releases/download/v7.41.0/annactl-7.41.0-x86_64-unknown-linux-gnu
-
-# Install
-sudo install -m 755 annad-7.41.0-x86_64-unknown-linux-gnu /usr/local/bin/annad
-sudo install -m 755 annactl-7.41.0-x86_64-unknown-linux-gnu /usr/local/bin/annactl
 ```
 
 ### Build from Source
@@ -174,73 +251,12 @@ sudo install -m 755 target/release/annactl /usr/local/bin/annactl
 
 ---
 
-## Configuration
-
-Configuration lives at `/etc/anna/config.toml`:
-
-```toml
-[core]
-mode = "normal"  # normal or dev
-
-[telemetry]
-enabled = true
-sample_interval_secs = 30
-retention_days = 30
-
-[update]
-mode = "auto"           # auto or manual
-interval_seconds = 600  # 10 minutes
-```
-
----
-
-## Architecture
-
-```
-annactl (CLI) - Pure snapshot reader
-    |
-    | reads snapshots/ (sw.json, hw.json)
-    | reads status_snapshot.json
-    |
-annad (daemon) - Owns all scanning
-    |
-    +-- Snapshot Builder (60s delta check)
-    |     +-- sw.json (software snapshot)
-    |     +-- hw.json (hardware snapshot)
-    |     +-- sw_meta.json (delta fingerprints)
-    +-- Process Monitor (30s interval)
-    +-- Inventory Scanner (5min interval)
-    +-- Log Scanner (60s interval)
-    +-- Service Indexer (2min interval)
-    +-- Status Snapshot Writer (60s interval)
-    +-- Update Scheduler (30s tick, configurable interval)
-    |
-    v
-/var/lib/anna/
-    +-- knowledge/               Object inventory
-    +-- telemetry.db             SQLite telemetry
-    +-- internal/
-        +-- snapshots/
-        |   +-- sw.json          Software snapshot
-        |   +-- hw.json          Hardware snapshot
-        +-- meta/
-        |   +-- sw_meta.json     Delta detection
-        +-- status_snapshot.json Daemon status
-        +-- last_start.json      Last start attempt
-        +-- last_crash.json      Last crash info
-        +-- update_state.json    Update scheduler state
-        +-- ops.log              Operations audit trail
-```
-
----
-
 ## Requirements
 
-- **OS**: Linux (x86_64)
+- **OS**: Arch Linux (x86_64)
 - **Rust**: 1.70+ (for building)
 - **Systemd**: For daemon management
-
-No Ollama. No LLM. No cloud services.
+- **Ollama**: Auto-installed on first run
 
 ---
 
@@ -256,12 +272,10 @@ Issues and PRs welcome at: https://github.com/jjgarcianorway/anna-assistant
 
 **Design Principles:**
 
-1. Pure observation - no modification
-2. Explicit sources - every number traceable to a real command
-3. Minimal surface - only essential commands
+1. Natural language first - no memorizing commands
+2. Evidence-based - every claim traceable to real data
+3. Safe by default - explicit confirmation for changes
 4. Local only - no cloud, no external calls
-5. Clean separation - Anna internals vs host monitoring
-6. Honest telemetry - no invented numbers, real data only
-7. NO LLM - this is a telemetry daemon, not an AI assistant
-8. Cache-only status - no live probing, fast display
-9. Snapshot-only sw - daemon scans, annactl reads
+5. Learns over time - recipes and XP progression
+6. Transparent - debug mode shows all internal dialogue
+7. Self-sufficient - auto-updates, auto-provisions models
