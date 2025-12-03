@@ -387,6 +387,7 @@ async fn call_translator_llm(
 }
 
 /// Parse Translator LLM response into structured output (v0.0.7: with TOOLS)
+/// v0.0.23: More robust parsing to handle LLM format variations
 fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
     let mut intent_type = None;
     let mut targets = Vec::new();
@@ -397,25 +398,43 @@ fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
 
     for line in response.lines() {
         let line = line.trim();
+        let line_upper = line.to_uppercase();
 
-        if let Some(value) = line.strip_prefix("INTENT:") {
-            intent_type = value.trim().parse().ok();
-        } else if let Some(value) = line.strip_prefix("TARGETS:") {
-            let value = value.trim();
-            if value != "none" && !value.is_empty() {
+        // v0.0.23: Handle various LLM output formats
+        // Standard: "INTENT: system_query"
+        // Variation: "SYSTEM_QUERY" (raw value on its own line)
+        // Variation: "Intent: System Query" (title case)
+        if let Some(value) = line.strip_prefix("INTENT:").or_else(|| line.strip_prefix("Intent:")) {
+            intent_type = value.trim().to_lowercase().parse().ok();
+        } else if intent_type.is_none() {
+            // Try to detect intent from line content (LLM sometimes outputs raw values)
+            if line_upper.contains("SYSTEM_QUERY") || line_upper.contains("SYSTEM QUERY") {
+                intent_type = Some(IntentType::SystemQuery);
+            } else if line_upper.contains("ACTION_REQUEST") || line_upper.contains("ACTION REQUEST") {
+                intent_type = Some(IntentType::ActionRequest);
+            } else if line_upper == "QUESTION" || line_upper.starts_with("QUESTION:") {
+                intent_type = Some(IntentType::Question);
+            } else if line_upper == "UNKNOWN" {
+                intent_type = Some(IntentType::Unknown);
+            }
+        }
+
+        if let Some(value) = line.strip_prefix("TARGETS:").or_else(|| line.strip_prefix("Targets:")) {
+            let value = value.trim().trim_matches('"');
+            if value.to_lowercase() != "none" && !value.is_empty() {
                 targets = value.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             }
-        } else if let Some(value) = line.strip_prefix("RISK:") {
-            risk = value.trim().parse().unwrap_or(RiskLevel::ReadOnly);
+        } else if let Some(value) = line.strip_prefix("RISK:").or_else(|| line.strip_prefix("Risk:")) {
+            risk = value.trim().to_lowercase().parse().unwrap_or(RiskLevel::ReadOnly);
         } else if let Some(value) = line.strip_prefix("EVIDENCE_NEEDS:") {
             let value = value.trim();
-            if value != "none" && !value.is_empty() {
+            if value.to_lowercase() != "none" && !value.is_empty() {
                 evidence_needs = value.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
             }
-        } else if line.starts_with("TOOLS:") || line.starts_with("RATIONALE:") {
+        } else if line.starts_with("TOOLS:") || line.starts_with("Tools:") || line.starts_with("RATIONALE:") || line.starts_with("Rationale:") {
             // Parse TOOLS using the parse_tool_plan function from anna_common
             tool_plan = parse_tool_plan(response);
-        } else if let Some(value) = line.strip_prefix("CLARIFICATION:") {
+        } else if let Some(value) = line.strip_prefix("CLARIFICATION:").or_else(|| line.strip_prefix("Clarification:")) {
             let value = value.trim();
             if !value.is_empty() {
                 clarification = parse_clarification(value);

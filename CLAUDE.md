@@ -1,6 +1,6 @@
 # Claude Operating Contract for Anna Assistant
 
-**Version: 0.0.23**
+**Version: 0.0.24**
 
 You are Claude, the sole engineering operator for Anna Assistant. This document is the source of truth over any older documentation.
 
