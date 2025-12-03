@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.36
+# Anna Assistant v0.0.43
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.36**: Knowledge Packs v1 - Offline Q&A with strict citations. Man pages and `/usr/share/doc` indexing with SQLite FTS5. K-citations (K1, K2...) for factual claims. Auto-build on daemon start. [KNOWLEDGE] section in status.
+**v0.0.43**: Doctor Registry + Unified Entry Flow - Anna now auto-detects which Doctor to run based on your request. Data-driven registry (doctors.toml) with keyword/intent matching. Unified lifecycle: select_doctor → collect_evidence → diagnosis_flow → playbook_offer → apply_fix → verify → close. All runs tracked in doctor_run.json. Junior verifies doctor choice, diagnosis steps, and policy compliance. Status shows last doctor run.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 
@@ -372,6 +372,39 @@ All builds and tests run on **Arch Linux only**.
 ---
 
 ## Recent Changes
+
+### v0.0.41
+- **Arch Boot Doctor v1 (Slow Boot + Service Regressions)**: Diagnoses slow boot causes
+- **Evidence Bundle**: systemd-analyze time/blame/critical-chain, enabled units, journal errors, recent changes
+- **Deterministic Diagnosis Flow**: 5 steps (boot time, offenders, regression check, correlation, hypotheses)
+- **"What Changed" Correlation**: Links slow units to package updates, service enables, config edits
+- **Fix Playbooks**: Restart/disable services with policy gates, confirmation, post-checks
+- **Recipe Capture**: Automatic recipe creation when fix works with reliability >= 80%
+- **Case File**: `boot_doctor.json` for audit trail with verification pending notes
+
+### v0.0.40
+- **Arch Audio Doctor v1 (PipeWire Focus)**: Diagnoses common audio issues
+- **Stack Detection**: PipeWire/WirePlumber (primary), PulseAudio (legacy), ALSA, Bluetooth
+- **Deterministic Diagnosis Flow**: 6 steps (stack, services, devices, defaults, conflicts, bluetooth)
+- **Fix Playbooks**: Restart services, unmute/volume, set default, stop conflicts, BT profile
+- **Recipe Capture**: Automatic recipe creation when fix works with reliability >= 80%
+- **Case File**: `audio_doctor.json` for audit trail
+
+### v0.0.39
+- **Arch Storage Doctor v1 (BTRFS Focus)**: Specialized storage diagnosis
+- **Evidence Bundle**: Mount topology, BTRFS device stats/usage/scrub/balance, SMART data, I/O errors
+- **BTRFS-Specific Diagnostics**: Metadata pressure detection, device error tracking, scrub/balance status
+- **Deterministic Diagnosis Flow**: 5-step analysis with risk-rated findings
+- **Hypotheses**: Up to 3 evidence-backed hypotheses with confirm/refute criteria
+- **Safe Repair Plans**: Read-only (no confirmation) and mutations (policy-gated)
+- **Policy Controls**: Balance blocked by default (can take hours), scrub allowed
+- **Case File**: `storage_doctor.json` for audit trail
+
+### v0.0.38
+- **Arch Networking Doctor v1**: Specialized WiFi/Ethernet diagnosis
+- **Network Manager Support**: NetworkManager, iwd, systemd-networkd, wpa_supplicant
+- **Deterministic Diagnosis Flow**: Physical link, IP, route, DNS, manager health checks
+- **Fix Playbooks**: Confirmation, post-checks, and rollback support
 
 ### v0.0.32
 - **CI Hardening**: All builds/tests run in Arch Linux container

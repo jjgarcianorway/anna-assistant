@@ -1,4 +1,14 @@
-//! Anna Common v0.0.23 - Self-Sufficiency
+//! Anna Common v0.0.43 - Doctor Registry + Unified Entry Flow
+//!
+//! v0.0.37: Recipe Engine v1 (Reusable Fixes)
+//! - RecipeStatus enum: Active, Draft, Archived
+//! - PostCheck and PostCheckType for verification after recipe execution
+//! - Recipe creation rules: >= 80% reliability = Active, < 80% = Draft
+//! - Draft recipes never auto-suggested, can be promoted after validated run
+//! - Recipe matching via intent_tags + keywords, ranking by confidence and success_count
+//! - Recipe events tracked in case files (matched, executed, succeeded, failed, created, promoted)
+//! - promote(), is_usable(), can_auto_suggest() methods on Recipe
+//! - Updated RecipeStats with active_count field
 //!
 //! v0.0.23: Self-Sufficiency
 //! - Auto-install Ollama if missing (daemon installs on bootstrap)
@@ -323,6 +333,24 @@ pub mod fixit;
 
 // v0.0.35: Model policy and readiness
 pub mod model_policy;
+
+// v0.0.38: Arch Networking Doctor
+pub mod networking_doctor;
+
+// v0.0.39: Arch Storage Doctor (BTRFS Focus)
+pub mod storage_doctor;
+
+// v0.0.40: Arch Audio Doctor (PipeWire Focus)
+pub mod audio_doctor;
+
+// v0.0.41: Arch Boot Doctor (Slow Boot + Service Regressions)
+pub mod boot_doctor;
+
+// v0.0.42: Arch GPU/Graphics Doctor (Wayland/X11, Drivers, Compositor Health)
+pub mod graphics_doctor;
+
+// v0.0.43: Doctor Registry + Unified Entry Flow
+pub mod doctor_registry;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -740,6 +768,8 @@ pub use recipes::{
     RecipeSafety, RecipeRiskLevel, Precondition, PreconditionCheck,
     RollbackTemplate, RecipeCreator, RecipeManager, RecipeStats, RecipeIndex,
     ArchivedRecipe,
+    // v0.0.37: New recipe types
+    RecipeStatus, PostCheck as RecipePostCheck, PostCheckType as RecipePostCheckType,
     RECIPES_DIR, RECIPE_INDEX_FILE, RECIPE_ARCHIVE_DIR,
     RECIPE_SCHEMA_VERSION, RECIPE_EVIDENCE_PREFIX, MIN_RELIABILITY_FOR_RECIPE,
     generate_recipe_id,
@@ -879,6 +909,8 @@ pub use transcript::{
     CaseModelInfo,
     // v0.0.36: Knowledge refs for case files
     KnowledgeRef as CaseKnowledgeRef,
+    // v0.0.37: Recipe events for case files
+    RecipeEvent, RecipeEventType,
     // Case retrieval
     load_case_summary, list_recent_cases, list_today_cases, find_last_failure,
     get_cases_storage_size, prune_cases,
@@ -915,4 +947,172 @@ pub use model_policy::{
     ModelReadinessState,
     // Constants
     MODELS_POLICY_FILE, MODELS_POLICY_DIR, DEFAULT_MODELS_POLICY,
+};
+
+// v0.0.38: Arch Networking Doctor
+pub use networking_doctor::{
+    // Network manager detection
+    NetworkManager, NetworkManagerStatus,
+    detect_network_manager, detect_manager_conflicts,
+    // Diagnosis flow
+    DiagnosisStep, DiagnosisStepResult, DiagnosisResult, DiagnosisStatus,
+    // Evidence collection
+    NetworkEvidence, InterfaceEvidence,
+    collect_network_evidence, run_diagnosis,
+    // Hypotheses
+    NetworkHypothesis,
+    // Fix playbooks
+    FixPlaybook, FixStep, FixRiskLevel, FixResult,
+    get_fix_playbooks,
+    // Case file
+    NetworkingDoctorCase,
+    // Constants
+    PING_TIMEOUT_SECS, PING_COUNT, DNS_TEST_DOMAINS, RAW_IP_TEST,
+    FIX_CONFIRMATION as NET_FIX_CONFIRMATION,
+};
+
+// v0.0.39: Arch Storage Doctor (BTRFS Focus)
+pub use storage_doctor::{
+    // Health status
+    StorageHealth as StorageDoctorHealth, RiskLevel as StorageRiskLevel, FilesystemType,
+    // Mount and device info
+    MountInfo as StorageMountInfo, BlockDevice,
+    // BTRFS specific
+    BtrfsDeviceStats, BtrfsUsage, BtrfsInfo,
+    ScrubStatus, BalanceStatus,
+    // SMART health
+    SmartHealth, IoErrorLog, IoErrorType,
+    // Evidence collection
+    StorageEvidence,
+    // Diagnosis flow
+    DiagnosisStep as StorageDiagnosisStep, Finding, StorageHypothesis,
+    DiagnosisResult as StorageDiagnosisResult,
+    // Repair plans
+    RepairPlanType, RepairPlan, RepairCommand,
+    PreflightCheck as StoragePreflightCheck, PostCheck as StoragePostCheck,
+    RollbackPlan as StorageRollbackPlan, RepairResult,
+    CommandResult, CheckResult as StorageCheckResult,
+    // Case file
+    StorageDoctorCase, CaseStatus as StorageCaseStatus, CaseNote as StorageCaseNote,
+    // Engine
+    StorageDoctor,
+};
+
+// v0.0.40: Arch Audio Doctor (PipeWire Focus)
+pub use audio_doctor::{
+    // Audio stack
+    AudioStack, AudioHealth, RiskLevel as AudioRiskLevel,
+    // Service state
+    ServiceState as AudioServiceState,
+    // Devices
+    AlsaDevice, AudioNode,
+    // Bluetooth (aliased - base types from peripherals)
+    BluetoothAdapter as AudioBluetoothAdapter, BluetoothAudioDevice, BluetoothProfile,
+    BluetoothState as AudioBluetoothState,
+    // Permissions
+    AudioPermissions,
+    // Evidence
+    AudioEvidence,
+    // Diagnosis
+    StepResult as AudioStepResult, DiagnosisStep as AudioDiagnosisStep,
+    Finding as AudioFinding, AudioHypothesis,
+    DiagnosisResult as AudioDiagnosisResult,
+    // Playbooks
+    PlaybookType, PlaybookCommand as AudioPlaybookCommand,
+    PreflightCheck as AudioPreflightCheck, PostCheck as AudioPostCheck,
+    FixPlaybook as AudioFixPlaybook, PlaybookResult,
+    CommandResult as AudioCommandResult, CheckResult as AudioCheckResult,
+    // Recipe capture
+    RecipeCaptureRequest,
+    // Case file
+    AudioDoctorCase, CaseStatus as AudioCaseStatus, CaseNote as AudioCaseNote,
+    // Engine
+    AudioDoctor,
+    // Constants
+    FIX_CONFIRMATION as AUDIO_FIX_CONFIRMATION,
+};
+
+// v0.0.41: Arch Boot Doctor (Slow Boot + Service Regressions)
+pub use boot_doctor::{
+    // Health types
+    BootHealth, RiskLevel as BootRiskLevel,
+    // Timing types
+    BootTiming, BootOffender, BootBaseline, BootTrend,
+    TrendDirection as BootTrendDirection,
+    // Change tracking (aliased - base types in telemetry_db)
+    ChangeEvent as BootChangeEvent, ChangeType as BootChangeType,
+    // Evidence
+    BootEvidence, JournalEntry as BootJournalEntry,
+    // Diagnosis
+    StepResult as BootStepResult, DiagnosisStep as BootDiagnosisStep,
+    Finding as BootFinding, BootHypothesis,
+    DiagnosisResult as BootDiagnosisResult,
+    // Playbooks
+    PlaybookType as BootPlaybookType, PlaybookCommand as BootPlaybookCommand,
+    PreflightCheck as BootPreflightCheck, PostCheck as BootPostCheck,
+    FixPlaybook as BootFixPlaybook, PlaybookResult as BootPlaybookResult,
+    CommandResult as BootCommandResult, CheckResult as BootCheckResult,
+    // Recipe capture
+    RecipeCaptureRequest as BootRecipeCaptureRequest,
+    // Case file
+    BootDoctorCase, CaseStatus as BootCaseStatus, CaseNote as BootCaseNote,
+    // Engine
+    BootDoctor,
+    // Constants
+    FIX_CONFIRMATION as BOOT_FIX_CONFIRMATION,
+};
+
+// v0.0.42: Arch GPU/Graphics Doctor (Wayland/X11, Drivers, Compositor Health)
+pub use graphics_doctor::{
+    // Session types (aliased - SessionType already in memory module)
+    SessionType as GraphicsSessionType, Compositor, SessionInfo,
+    // GPU/Driver types
+    GpuVendor, GpuInfo as GraphicsGpuInfo, DriverStack, DriverPackages,
+    // Portal types
+    PortalBackend, PortalState,
+    // Monitor types
+    MonitorInfo, LogEntry as GraphicsLogEntry,
+    // Health types
+    GraphicsHealth, RiskLevel as GraphicsRiskLevel,
+    // Evidence
+    GraphicsEvidence,
+    // Diagnosis
+    StepResult as GraphicsStepResult, DiagnosisStep as GraphicsDiagnosisStep,
+    Finding as GraphicsFinding, GraphicsHypothesis,
+    DiagnosisResult as GraphicsDiagnosisResult,
+    // Playbooks
+    PlaybookType as GraphicsPlaybookType, PlaybookCommand as GraphicsPlaybookCommand,
+    PreflightCheck as GraphicsPreflightCheck, PostCheck as GraphicsPostCheck,
+    FixPlaybook as GraphicsFixPlaybook, PlaybookResult as GraphicsPlaybookResult,
+    CommandResult as GraphicsCommandResult, CheckResult as GraphicsCheckResult,
+    // Recipe capture
+    RecipeCaptureRequest as GraphicsRecipeCaptureRequest,
+    // Case file
+    GraphicsDoctorCase, CaseStatus as GraphicsCaseStatus, CaseNote as GraphicsCaseNote,
+    // Engine
+    GraphicsDoctor,
+    // Constants
+    FIX_CONFIRMATION as GRAPHICS_FIX_CONFIRMATION,
+};
+
+// v0.0.43: Doctor Registry + Unified Entry Flow
+pub use doctor_registry::{
+    // Registry config types
+    DoctorRegistryConfig, DoctorEntry, DoctorDomain,
+    // Selection types
+    DoctorSelection, SelectedDoctor,
+    // Run lifecycle types
+    DoctorRunStage, StageTiming, StageStatus, DoctorRunResult,
+    KeyFinding, FindingSeverity,
+    // Run output schema
+    DoctorRun, PlaybookRunResult, VerificationStatus, JuniorVerification,
+    DOCTOR_RUN_SCHEMA_VERSION,
+    // Registry
+    DoctorRegistry,
+    // Status integration
+    LastDoctorRunSummary, DoctorRunStats, get_doctor_run_stats,
+    // Config generation
+    generate_default_config,
+    // Constants
+    REGISTRY_CONFIG_PATH, REGISTRY_CONFIG_PATH_USER, DOCTOR_RUNS_DIR,
 };

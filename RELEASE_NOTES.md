@@ -2,6 +2,1364 @@
 
 ---
 
+## v0.0.43 - Doctor Registry + Unified Entry Flow (Auto-Detect Domain and Run the Right Doctor)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now has a **Doctor Registry** that automatically selects the right diagnostic doctor based on your request. Instead of manually specifying which doctor to use, Anna analyzes keywords, intent tags, and symptoms to pick the best match. All doctors now follow a unified lifecycle with consistent output schemas.
+
+### Key Features
+
+**Doctor Registry (Data-Driven):**
+- Registry loaded from `/etc/anna/policy/doctors.toml` (or `~/.config/anna/doctors.toml`)
+- 5 doctors registered: Network, Storage, Audio, Boot, Graphics
+- Each doctor entry includes:
+  - Keywords (e.g., "wifi", "audio", "boot")
+  - Intent tags (e.g., "network_diagnosis", "audio_problem")
+  - Symptom patterns (e.g., "no sound", "slow boot")
+  - Required/optional evidence bundles
+  - Allowed playbooks
+  - Case file name
+
+**Doctor Selection Algorithm:**
+- Keyword matching (10 points per match)
+- Intent tag matching (15 points per tag)
+- Symptom matching (20 points per symptom)
+- Priority weighting for tie-breaking
+- Max 2 doctors per request (1 primary + 1 optional secondary from different domain)
+- Selection includes reasoning explaining why
+
+**Unified Doctor Run Lifecycle:**
+1. `select_doctor` - Pick the right doctor(s)
+2. `collect_evidence` - Gather required evidence bundle
+3. `diagnosis_flow` - Run deterministic diagnosis steps
+4. `playbook_offer` - Suggest fix if applicable
+5. `apply_fix` - Execute playbook if confirmed
+6. `verify` - Check fix worked (or mark pending)
+7. `close` - Complete run, capture recipe if eligible
+
+**Doctor Run Output Schema (doctor_run.json):**
+```json
+{
+  "schema_version": 1,
+  "run_id": "dr-20231203-143022-123",
+  "user_request": "my sound is broken",
+  "selection": {
+    "primary": {
+      "doctor_id": "audio_doctor",
+      "doctor_name": "Audio Doctor",
+      "match_score": 85,
+      "match_reason": "Matched keywords: sound, audio"
+    },
+    "reasoning": "Selected Audio Doctor based on keywords and symptoms"
+  },
+  "current_stage": "close",
+  "stage_timings": [...],
+  "key_findings": [...],
+  "chosen_playbook": "restart_pipewire",
+  "verification_status": { "verified": true },
+  "result": "success",
+  "reliability": 90,
+  "junior_verification": {
+    "doctor_choice_approved": true,
+    "diagnosis_steps_followed": true,
+    "fix_policy_compliant": true,
+    "score": 92
+  }
+}
+```
+
+**Junior Verification Enforcement:**
+- Verifies doctor choice makes sense for request
+- Confirms diagnosis steps were followed
+- Checks fix is policy-compliant and minimal
+- Ensures final claim is evidence-backed or marked "verification pending"
+
+**Status Integration:**
+`annactl status` now shows:
+- Last doctor run (ID, result, reliability)
+- Doctor runs today count
+- Success rate today
+
+### doctors.toml Schema
+
+```toml
+schema_version = 1
+
+[[doctors]]
+id = "network_doctor"
+name = "Network Doctor"
+description = "Diagnoses network connectivity, WiFi, DNS, and routing issues"
+domain = "network"
+keywords = ["network", "wifi", "internet", "connection", "dns", "ping"]
+intent_tags = ["network_diagnosis", "connectivity_issue"]
+symptoms = ["no internet", "wifi disconnecting", "can't connect"]
+required_evidence = ["interface_status", "ip_addresses", "routes", "dns_config"]
+optional_evidence = ["wifi_signal", "network_manager_status"]
+required_tools = ["ip", "ping"]
+allowed_playbooks = ["restart_networkmanager", "renew_dhcp", "flush_dns"]
+case_file_name = "networking_doctor.json"
+priority = 80
+enabled = true
+
+[[doctors]]
+id = "audio_doctor"
+name = "Audio Doctor"
+# ... similar structure
+```
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/doctor_registry.rs` - Full registry implementation (~1100 lines)
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Added module and exports
+- **MODIFIED:** `Cargo.toml` - Version bump to 0.0.43
+- **MODIFIED:** `CLAUDE.md` - Version bump
+- **MODIFIED:** `README.md` - Version bump and feature description
+- **MODIFIED:** `TODO.md` - Version bump
+- **MODIFIED:** `RELEASE_NOTES.md` - This file
+
+### Tests
+
+20 new tests covering:
+- Default registry creation
+- Select network doctor ("wifi disconnecting")
+- Select audio doctor ("no sound")
+- Select boot doctor ("boot is slow")
+- Select graphics doctor ("screen share broken")
+- Select storage doctor ("disk full")
+- Ambiguous request selects one and explains why
+- Selection with intent tags
+- No match returns None
+- Doctor run lifecycle stages
+- Doctor domain display
+- Stage status display
+- Doctor run result display
+- Run ID generation
+- Junior verification
+- Verification pending
+- Mark verified
+- Config serialization
+- Secondary doctor different domain
+- Doctors by domain
+- Selection explains why
+
+### Example Transcript: "sound broken" - Doctor Selection and Flow
+
+```
+[you] to [anna]: my sound is broken
+
+[anna] to [translator]: parse user intent
+[translator] to [anna]: intent=fix_problem, targets=[audio], tags=[audio_problem]
+
+[anna] to [doctor_registry]: select doctor for "my sound is broken"
+[doctor_registry] to [anna]:
+  Selection complete:
+    Primary: Audio Doctor (score: 65)
+    Matched keywords: sound
+    Matched symptoms: no sound
+    Reasoning: Selected Audio Doctor (score: 65) as primary based on
+               keywords: sound and symptoms: no sound
+
+[anna] to [you]:
+  Selected: Audio Doctor
+  Why: Your request mentions "sound" and matches the symptom "no sound".
+  Evidence to collect: pipewire_status, audio_devices, default_sink
+
+[anna] to [audio_doctor]: collect evidence
+[audio_doctor] to [anna]:
+  Evidence collected:
+  - pipewire_status: NOT RUNNING
+  - audio_devices: 2 detected (speakers, headphones)
+  - default_sink: not set
+  Run ID: dr-20231203-143022-123
+
+[anna] to [audio_doctor]: run diagnosis
+[audio_doctor] to [anna]:
+  Step 1: Service Status - FAIL
+    PipeWire service is not running
+    Implication: Audio subsystem is down
+
+  Step 2: Device Detection - PASS
+    Found 2 audio devices
+    Implication: Hardware detected correctly
+
+  Step 3: Configuration - FAIL
+    No default sink configured
+    Implication: Even if service starts, no output selected
+
+  Finding: pipewire-not-running (Error)
+  Hypothesis: "PipeWire crashed or was never started" (90% confidence)
+  Suggested playbook: restart_pipewire
+
+[anna] to [you]:
+  Diagnosis Complete
+
+  Audio Health: BROKEN
+
+  Key Findings:
+  1. [Error] PipeWire service is not running
+  2. [Warning] No default audio sink configured
+
+  Top Hypothesis (90% confidence):
+    PipeWire service has stopped. Restarting should restore audio.
+
+  Recommended Fix:
+    Restart PipeWire (Low risk)
+
+  Type "I CONFIRM" to apply fix
+
+[you] to [anna]: I CONFIRM
+
+[anna] to [audio_doctor]: execute playbook restart_pipewire
+[audio_doctor] to [anna]:
+  Playbook executed:
+  - Command: systemctl --user restart pipewire pipewire-pulse wireplumber
+  - Exit code: 0
+  - Post-check: PipeWire running = PASS
+
+[anna] to [junior]: verify doctor run dr-20231203-143022-123
+[junior] to [anna]:
+  VERIFICATION:
+  - Doctor choice approved: YES (audio keywords matched)
+  - Diagnosis steps followed: YES (3 steps completed)
+  - Fix policy-compliant: YES (restart_pipewire in allowed_playbooks)
+  - Fix minimal: YES (single service restart)
+  - Claim evidence-backed: YES (post-check confirms service running)
+  SCORE: 92
+
+[anna] to [you]:
+  Audio Restored!
+
+  PipeWire is now running. Try playing audio.
+
+  Run ID: dr-20231203-143022-123
+  Reliability: 92%
+  Recipe captured: Yes (restart_pipewire for no-sound)
+
+  Case file: audio_doctor.json
+  Run file: doctor_run.json
+```
+
+### Example: Ambiguous Request Handled
+
+```
+[you] to [anna]: my system is slow
+
+[anna] to [doctor_registry]: select doctor for "my system is slow"
+[doctor_registry] to [anna]:
+  Selection complete:
+    Primary: Boot Doctor (score: 25)
+    Matched keywords: slow
+    Reasoning: Selected Boot Doctor (score: 25) as primary.
+               "slow" matches boot diagnosis for startup slowness.
+               Note: Score is low. Request is ambiguous.
+
+[anna] to [you]:
+  I'll use the Boot Doctor to check startup performance.
+
+  Note: Your request "my system is slow" could mean several things:
+  - Slow boot time → Boot Doctor (selected)
+  - Slow disk access → Storage Doctor
+  - Slow network → Network Doctor
+
+  If this doesn't help, please clarify what feels slow
+  (e.g., "boot takes forever" or "disk is slow").
+
+  Collecting boot evidence...
+```
+
+---
+
+## v0.0.42 - Arch GPU/Graphics Doctor v1 (Wayland/X11, Drivers, Compositor Health)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna can now diagnose common graphics issues on Arch Linux systems. The Graphics Doctor detects session type (Wayland/X11), compositor (Hyprland focus), GPU inventory, driver stack (NVIDIA/AMD/Intel), XDG portal health for screen sharing, and PipeWire status. It produces evidence-backed hypotheses for issues like black screen, stutter, tearing, and broken screen sharing.
+
+### Key Features
+
+**Evidence Bundle (Read-Only):**
+- Session type detection (Wayland vs X11 vs TTY)
+- Compositor detection (Hyprland, Sway, KDE Plasma, GNOME/Mutter, wlroots-based, X11 WMs)
+- GPU inventory via lspci with vendor detection (NVIDIA, AMD, Intel)
+- Kernel module detection (nvidia, nvidia-open, nouveau, amdgpu, radeon, i915, xe)
+- Driver packages (nvidia, mesa, vulkan, libva, vdpau)
+- XDG Portal stack health (xdg-desktop-portal, xdg-desktop-portal-hyprland, -gtk, -kde, etc.)
+- PipeWire and WirePlumber status (required for screen sharing)
+- Portal backend matching (correct backend for compositor)
+- Monitor information (from hyprctl/swaymsg/xrandr)
+- Compositor and portal logs from journalctl
+- Graphics-relevant environment variables
+
+**Deterministic Diagnosis Flow (6 steps):**
+1. Session Detection - Identify Wayland/X11/TTY and compositor
+2. GPU Detection - Inventory GPUs, detect vendor/driver
+3. Package Verification - Confirm required packages for stack
+4. Portal Health - Check XDG portal services, backend matching
+5. Log Analysis - Scan for crash indicators, errors
+6. Hypothesis Generation - Produce max 3 evidence-backed theories
+
+Each step produces:
+- Result: PASS/FAIL/PARTIAL/SKIPPED
+- Details with evidence citations
+- Implication explaining what it means
+
+**Portal Backend Matching:**
+| Compositor | Expected Portal Backend |
+|------------|------------------------|
+| Hyprland | xdg-desktop-portal-hyprland or -wlr |
+| Sway | xdg-desktop-portal-wlr |
+| KDE Plasma | xdg-desktop-portal-kde |
+| GNOME | xdg-desktop-portal-gnome |
+| wlroots-based | xdg-desktop-portal-wlr |
+| X11 WMs | xdg-desktop-portal-gtk |
+
+**Hypothesis Examples:**
+- "Wrong portal backend for compositor" (90% confidence)
+- "Portal service not running" (85%)
+- "PipeWire not running for screen sharing" (85%)
+- "NVIDIA driver not loaded" (80%)
+- "Crash indicators in compositor logs" (75%)
+
+**Fix Playbooks (with confirmation):**
+
+| Playbook | Risk | Description |
+|----------|------|-------------|
+| `restart_portals` | Low | Restart xdg-desktop-portal services |
+| `restart_pipewire_portals` | Low | Restart PipeWire, WirePlumber, and portals |
+| `collect_crash_report` | Info | Collect crash logs for debugging |
+| `restart_display_manager` | High | BLOCKED - Restart display manager (gdm, sddm, etc.) |
+
+Each playbook has:
+- Preflight checks (service exists, etc.)
+- Commands with timeout
+- Post-checks with wait times
+- Rollback commands
+- Policy blocking for high-risk actions
+- Confirmation phrase: `I CONFIRM`
+
+**Recipe Capture:**
+When a fix playbook succeeds with reliability >= 80%:
+- Automatic recipe creation request
+- Problem description from diagnosis
+- Solution from playbook
+- Preconditions (session type, compositor)
+- Evidence patterns for matching
+
+**Case File Integration:**
+- `graphics_doctor.json` in case files
+- Evidence bundle stored
+- Diagnosis result tracked
+- Playbook execution recorded
+- Notes and timestamps
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/graphics_doctor.rs` - Full graphics doctor implementation (~1800 lines)
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Added module and exports
+- **MODIFIED:** `Cargo.toml` - Version bump to 0.0.42
+- **MODIFIED:** `CLAUDE.md` - Version bump
+- **MODIFIED:** `README.md` - Version bump and feature description
+- **MODIFIED:** `TODO.md` - Version bump
+- **MODIFIED:** `RELEASE_NOTES.md` - This file
+
+### Tests
+
+18 new tests covering:
+- Session type display
+- Compositor display
+- GPU vendor display
+- Driver stack display
+- Portal backend display
+- Graphics health display
+- Risk level display
+- Session info collection
+- GPU info collection
+- Evidence health determination (broken/degraded/healthy)
+- Portal backend correctness
+- Diagnosis healthy system
+- Diagnosis broken portal
+- Wrong portal backend detection
+- Restart portals playbook
+- Display manager restart blocked by policy
+- Case file workflow
+- Recipe capture on success
+
+### Example Transcript: "Screen Share Not Working"
+
+```
+[you] to [anna]: my screen share is not working in discord
+
+[anna] to [translator]: parse user intent
+[translator] to [anna]: graphics diagnosis request (screen sharing issue)
+
+[anna] to [graphics_doctor]: collect evidence
+[graphics_doctor] to [anna]:
+  Evidence collected:
+  - Session: Wayland (Hyprland)
+  - GPU: AMD Radeon RX 7900 XTX (amdgpu driver)
+  - Portals: xdg-desktop-portal running, but using GTK backend
+  - PipeWire: running
+  - WirePlumber: running
+
+[anna] to [graphics_doctor]: run diagnosis
+[graphics_doctor] to [anna]:
+  Step 1: Session Detection - PASS
+    Session type: Wayland
+    Compositor: Hyprland
+    Implication: Wayland compositor detected. Portal stack required for screen sharing.
+
+  Step 2: GPU Detection - PASS
+    Found 1 GPU(s):
+    - AMD Radeon RX 7900 XTX (amdgpu driver loaded)
+    Implication: GPU and driver correctly detected.
+
+  Step 3: Package Verification - PASS
+    Required packages present for AMD/Mesa stack.
+
+  Step 4: Portal Health - FAIL
+    Portal service running but wrong backend.
+    Active backend: GTK
+    Expected for Hyprland: Hyprland or wlr
+    Implication: Screen sharing will likely fail or show black screen.
+
+  Step 5: Log Analysis - PASS
+    No crash indicators found in compositor logs.
+
+  Step 6: Hypothesis Generation - PASS
+    Generated 2 hypothesis(es):
+    1. "Wrong portal backend for Hyprland" (95% confidence)
+       GTK portal cannot capture Hyprland screens.
+       Install xdg-desktop-portal-hyprland and restart portals.
+       Suggested playbook: restart_portals
+    2. "Portal may need restart after package change" (70% confidence)
+       If portal was recently installed, restart may help.
+
+[anna] to [you]:
+  Graphics Health: DEGRADED
+
+  Your screen sharing is likely failing because the wrong portal
+  backend is active.
+
+  Top hypothesis (95% confidence):
+    Wrong portal backend for Hyprland compositor.
+    You have GTK portal but Hyprland needs xdg-desktop-portal-hyprland
+    or xdg-desktop-portal-wlr.
+
+  Recommended fix:
+    1. Install xdg-desktop-portal-hyprland (if not installed)
+    2. Restart portal services
+    Risk: Low - just restarts user services
+
+  To apply restart playbook: type "I CONFIRM" when prompted
+
+  Evidence: [ev-graphics-1733234567-session] [ev-graphics-1733234567-portals]
+
+  Reliability: 90%
+```
+
+### Example Transcript: Portal Restart Fix
+
+```
+[anna] to [you]:
+  Playbook: restart_portals
+  Action: Restart XDG portal services for screen sharing
+
+  This will:
+  1. Preflight: Check portal services exist
+  2. Execute: systemctl --user restart xdg-desktop-portal*
+  3. Post-check: Verify portals running, wait 3s
+
+  Rollback: Services will restart automatically on next login
+
+  This is a Low-risk operation.
+  Type "I CONFIRM" to proceed:
+
+[you] to [anna]: I CONFIRM
+
+[anna] to [annad]: execute playbook restart_portals
+[annad] to [anna]:
+  Playbook executed:
+  - Commands: 1 executed
+  - Post-checks: 1/1 passed
+  - Result: SUCCESS
+  - Reliability: 85%
+
+[anna] to [you]:
+  Portal services restarted successfully!
+
+  Please try screen sharing again in Discord.
+
+  If this fixes the issue, a recipe will be created for future use.
+
+  Case file: graphics-20231203-143022.json
+```
+
+### Example: High-Risk Action Blocked
+
+```
+[you] to [anna]: restart my display manager
+
+[anna] to [graphics_doctor]: generate playbook restart_display_manager
+[graphics_doctor] to [anna]:
+  Playbook: restart_display_manager
+  POLICY BLOCKED: Restarting display manager will kill your session.
+  This action requires manual intervention.
+
+[anna] to [you]:
+  Cannot restart display manager automatically.
+
+  This is a HIGH-RISK action that would immediately terminate your
+  graphical session, potentially causing data loss.
+
+  If you need to restart the display manager, do it manually:
+    sudo systemctl restart gdm  (or sddm, lightdm)
+
+  Make sure to save all work first.
+
+  Reliability: N/A (blocked by policy)
+```
+
+---
+
+## v0.0.41 - Arch Boot Doctor v1 (Slow Boot + Service Regressions + "What Changed" Correlation)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna can now diagnose slow boot causes on Arch Linux systems. The Boot Doctor uses systemd tooling to identify offenders, detect regressions against baseline, and correlate issues with recent changes (package updates, service enables, config edits). Successful fixes with high reliability automatically create recipes for future reuse.
+
+### Key Features
+
+**Evidence Bundle (Read-Only):**
+- `systemd-analyze time` - Boot timing breakdown (firmware, loader, kernel, initrd, userspace)
+- `systemd-analyze blame` - Top N slowest units (default 20)
+- `systemd-analyze critical-chain` - Critical path units (top 10)
+- Enabled units snapshot (delta-friendly)
+- Recent journal warnings/errors during boot
+- "What changed" in last N days (default 14) - packages, services, configs
+- Anna telemetry boot time trend (if tracked)
+- Baseline for comparison (if available)
+
+**Deterministic Diagnosis Flow (5 steps):**
+1. Boot Time Summary - Analyze systemd-analyze output
+2. Top Offenders - Identify units taking > 5s to start
+3. Regression Check - Compare with baseline (new/regressed offenders)
+4. Correlation Analysis - Link slow units to recent changes
+5. Hypothesis Generation - Produce max 3 evidence-backed theories
+
+Each step produces:
+- Result: PASS/FAIL/PARTIAL/SKIPPED
+- Details with evidence citations
+- Implication explaining what it means
+
+**"What Changed" Correlation Engine:**
+- Parses `/var/log/pacman.log` for package installs/updates/removes
+- Tracks kernel updates separately
+- Detects service enable/disable events
+- Ranks potential causes by evidence strength
+- Every ranked item cites evidence IDs
+
+**Hypothesis Generation (max 3):**
+- "NetworkManager-wait-online is delaying boot" (90% confidence)
+- "New service X is slowing boot" (85%)
+- "Package update correlates with slow unit" (75%)
+- "Service Y may be stuck or timing out" (70%)
+
+**Fix Playbooks (with confirmation):**
+
+| Playbook | Risk | Description |
+|----------|------|-------------|
+| `disable_wait_online` | Medium | Disable NetworkManager-wait-online.service |
+| `restart_<unit>` | Low | Restart a stuck or slow service |
+| `disable_<unit>` | Medium | Disable a non-essential slow service |
+
+Each playbook has:
+- Preflight checks (unit exists, etc.)
+- Commands with timeout
+- Post-checks with wait times
+- Rollback commands
+- Policy blocking for critical services (systemd-*, dbus, login, udev)
+- Confirmation phrase: `I CONFIRM`
+- Verification pending note for post-reboot checks
+
+**Recipe Capture:**
+When a fix playbook succeeds with reliability >= 80%:
+- Automatic recipe creation request
+- Problem description from diagnosis
+- Solution from playbook
+- Preconditions (boot time, target unit)
+- Evidence patterns for matching
+
+**Case File Integration:**
+- `boot_doctor.json` in case files
+- Evidence bundle stored
+- Diagnosis result tracked
+- Playbook execution recorded
+- Verification pending items for post-reboot confirmation
+- Notes and timestamps
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/boot_doctor.rs` - Full boot doctor implementation (~1600 lines)
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Added module and exports
+- **MODIFIED:** `Cargo.toml` - Version bump to 0.0.41
+- **MODIFIED:** `CLAUDE.md` - Version bump
+- **MODIFIED:** `README.md` - Version bump and feature description
+- **MODIFIED:** `TODO.md` - Version bump
+- **MODIFIED:** `RELEASE_NOTES.md` - This file
+
+### Tests
+
+18 new tests covering:
+- Boot health display
+- Risk level display
+- Timing is_slow/is_very_slow checks
+- Evidence health determination
+- Healthy system diagnosis
+- Slow boot diagnosis
+- New offender detection
+- Regression detection
+- Correlation engine
+- Wait-online playbook generation
+- Restart service playbook
+- Disable critical service blocked by policy
+- Max 3 hypotheses limit
+- Case file workflow
+- Recipe capture on success
+- Regression percent calculation
+- Timing summary formatting
+
+### Example Transcript: "Boot Got Slower" with Offender Ranking
+
+```
+[you] to [anna]: my boot got slower recently
+
+[anna] to [translator]: parse user intent
+[translator] to [anna]: boot diagnosis request
+
+[anna] to [boot_doctor]: collect evidence (lookback: 14 days)
+[boot_doctor] to [anna]:
+  Evidence collected:
+  - Boot timing: 45000ms total (userspace: 38000ms)
+  - Top offenders: 3 units > 5s
+  - Baseline available from 7 days ago (userspace: 15000ms)
+  - Recent changes: 5 packages, 1 service enable
+
+[anna] to [boot_doctor]: run diagnosis
+[boot_doctor] to [anna]:
+  Step 1: Boot Time Summary - PARTIAL
+    Boot time: 45000ms (userspace 38000ms > 30s threshold)
+    Implication: Boot is slower than ideal. Optimization possible.
+
+  Step 2: Top Offenders - PARTIAL
+    Found 3 slow units:
+    - NetworkManager-wait-online.service (28000ms)
+    - docker.service (6500ms) [NEW]
+    - systemd-journal-flush.service (3200ms)
+
+  Step 3: Regression Check - FAIL
+    2 new slow units, 1 regressed unit
+    - NEW: docker.service (6500ms) not in baseline
+    - REGRESSED: NetworkManager-wait-online.service 28000ms (was 8000ms, +250%)
+
+  Step 4: Correlation Analysis - PASS
+    Found 2 correlation(s):
+    - docker.service slow after Package Install docker
+    - NetworkManager-wait-online regressed after networkmanager 1.46.0-1 update
+
+  Step 5: Hypothesis Generation - PASS
+    Generated 3 hypothesis(es):
+    1. "NetworkManager-wait-online.service is delaying boot" (90% confidence)
+       Suggested playbook: disable_wait_online
+    2. "New service docker.service is slowing boot" (85% confidence)
+       Correlated with: docker package install 2 days ago
+    3. "NetworkManager update may have caused regression" (75% confidence)
+       Evidence: pacman log shows upgrade on 2025-12-01
+
+[anna] to [you]:
+  Boot Health: DEGRADED
+
+  Your boot time has regressed from ~15s to ~38s (userspace).
+
+  Top hypothesis (90% confidence):
+    NetworkManager-wait-online.service is delaying boot by 28s.
+    This service waits for full network connectivity before proceeding.
+
+  Correlated changes:
+    - docker installed 2 days ago (new 6.5s offender)
+    - networkmanager updated (wait-online regressed from 8s to 28s)
+
+  Recommended fix:
+    Disable NetworkManager-wait-online.service
+    Risk: Medium - network-dependent services may start before network ready
+    To apply: type "I CONFIRM" when prompted
+
+  Evidence: [ev-boot-1733234567-timing] [ev-boot-1733234567-blame]
+            [ev-pacman-1] [ev-pacman-2]
+
+  Reliability: 85%
+```
+
+### Example Change Set: Disabling Non-Essential Slow Service (Policy-Gated)
+
+```
+[anna] to [you]:
+  Playbook: disable_wait_online
+  Action: Disable NetworkManager-wait-online.service
+
+  This will:
+  1. Run preflight: Verify unit exists
+  2. Execute: systemctl disable --now NetworkManager-wait-online.service
+  3. Post-check: Verify unit is disabled
+
+  Rollback available:
+    systemctl enable --now NetworkManager-wait-online.service
+
+  WARNING: This is a Medium-risk operation.
+  Network will still work, but network-dependent services may start
+  before network is fully ready.
+
+  Verification pending: Boot time improvement will be verified on next boot
+
+  To proceed, type exactly: I CONFIRM
+
+[you] to [anna]: I CONFIRM
+
+[anna] to [boot_doctor]: execute playbook disable_wait_online
+[boot_doctor] to [anna]:
+  Preflight: PASS - Unit exists
+  Executed: systemctl disable --now NetworkManager-wait-online.service
+  Post-check: PASS - Unit disabled
+
+  Result: SUCCESS
+  Reliability: 75% (capped until verified on reboot)
+
+  Next steps:
+  - Reboot to verify boot time improvement
+  - Run "systemd-analyze time" after reboot
+  - Expected improvement: ~25-28 seconds
+
+[anna] to [you]:
+  Fix applied successfully.
+
+  The service has been disabled. On next reboot:
+  - Boot should be ~25-28 seconds faster
+  - Run me again to verify and capture recipe if successful
+
+  Verification pending item added to case file.
+```
+
+---
+
+## v0.0.40 - Arch Audio Doctor v1 (PipeWire Focus + Fix-It Playbooks + Recipe Capture)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna can now diagnose and fix common audio issues on Arch Linux desktops. The Audio Doctor focuses on PipeWire (the modern audio stack) while providing legacy PulseAudio conflict detection. Successful fixes with high reliability automatically create recipes for future reuse.
+
+### Key Features
+
+**Supported Audio Stacks:**
+- **PipeWire + WirePlumber** (primary, recommended)
+- **PulseAudio** (legacy detection, conflict resolution)
+- **ALSA** (basic hardware detection)
+- **Bluetooth** (bluez integration)
+
+**Common Issues Diagnosed:**
+- "No sound" - Service not running, muted, wrong output
+- "Mic not working" - Source issues, permissions
+- "Bluetooth audio broken" - Service, adapter, connection, profile issues
+- "Wrong output" - Default sink misconfigured
+- "Crackling" - Service restart often helps
+
+**Evidence Bundle:**
+- Audio stack detection (pipewire vs pulseaudio vs alsa-only)
+- Service states (pipewire, wireplumber, pulseaudio - user services)
+- ALSA devices (aplay/arecord -l)
+- PipeWire/WirePlumber nodes (wpctl status)
+- Default sink/source with volume/mute state
+- Bluetooth adapter and device states
+- User permissions (audio/video/bluetooth groups, /dev/snd access)
+- Recent journal logs
+
+**Deterministic Diagnosis Flow (6 steps):**
+1. Identify Audio Stack - Detect PipeWire/PulseAudio/ALSA
+2. Verify Services - Check pipewire/wireplumber running
+3. Confirm Devices - ALSA hardware + PipeWire nodes
+4. Check Default Output - Sink selection, volume, mute
+5. Check Conflicts - PulseAudio vs PipeWire
+6. Check Bluetooth - Service, adapter, device, profile
+
+Each step produces:
+- Result: PASS/FAIL/PARTIAL/SKIPPED
+- Details with evidence
+- Implication explaining what it means
+
+**Hypothesis Generation (max 3):**
+- "PipeWire user service not running" (95% confidence)
+- "WirePlumber session manager not running" (90%)
+- "Default output is muted" (95%)
+- "Volume too low" (85%)
+- "PulseAudio running alongside PipeWire" (90%)
+- "Bluetooth using low-quality profile" (80%)
+- "Audio device permission issue" (60%)
+
+**Fix Playbooks (with confirmation):**
+
+| Playbook | Risk | Description |
+|----------|------|-------------|
+| `restart_pipewire` | Low | Restart PipeWire + WirePlumber user services |
+| `restart_wireplumber` | Low | Restart WirePlumber only |
+| `unmute_volume` | Low | Unmute + set volume to 50% |
+| `set_default_sink` | Low | Set first available sink as default |
+| `stop_pulseaudio` | Medium | Stop and mask PulseAudio (BLOCKED by default) |
+| `set_bt_a2dp` | Low | Switch Bluetooth to high-quality A2DP profile |
+
+Each playbook has:
+- Preflight checks
+- Commands (run as target user for user services)
+- Post-checks with wait times
+- Rollback commands
+- Policy blocking for higher-risk operations
+- Confirmation phrase: `I CONFIRM`
+
+**Recipe Capture:**
+When a fix playbook succeeds with reliability >= 80%:
+- Automatic recipe creation request
+- Problem description from diagnosis
+- Solution from playbook
+- Preconditions (audio stack, target user)
+- Evidence patterns for matching
+
+**Target User Correctness:**
+All user service operations (pipewire, wireplumber, pulseaudio) are executed for the target user, not root.
+
+**Case File Integration:**
+- `audio_doctor.json` in case files
+- Evidence bundle stored
+- Diagnosis result tracked
+- Playbook execution recorded
+- Recipe capture requests saved
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/audio_doctor.rs` - Full audio doctor implementation (~1400 lines)
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Added module and exports
+- **MODIFIED:** `Cargo.toml` - Version bump to 0.0.40
+- **MODIFIED:** `CLAUDE.md` - Version bump
+- **MODIFIED:** `README.md` - Version bump and feature description
+- **MODIFIED:** `TODO.md` - Version bump
+- **MODIFIED:** `RELEASE_NOTES.md` - This file
+
+### Tests
+
+16 new tests covering:
+- Audio stack display
+- Audio health display
+- Service state healthy check
+- Audio node issue detection
+- PulseAudio conflict detection
+- Evidence health determination
+- Healthy system diagnosis
+- PipeWire stopped diagnosis
+- Muted output diagnosis
+- PulseAudio conflict diagnosis
+- Playbook generation
+- PulseAudio stop blocked by policy
+- Case file workflow
+- Recipe capture on success
+- Bluetooth profile hypothesis
+- Max 3 hypotheses limit
+
+### Example Transcript: "No Sound" Resolved
+
+```
+[you] to [anna]: I have no sound
+
+[anna] to [translator]: parse user intent
+[translator] to [anna]: audio diagnosis request
+
+[anna] to [audio_doctor]: collect evidence for testuser
+[audio_doctor] to [anna]: Evidence collected. Stack: PipeWire
+
+[anna] to [audio_doctor]: run diagnosis
+[audio_doctor] to [anna]:
+  Step 1: Identify Audio Stack - PASS
+    PipeWire detected as active audio stack
+  Step 2: Verify Services - FAIL
+    PipeWire running but WirePlumber stopped
+    Implication: Session/policy management missing
+  Step 3: Confirm Devices - PASS
+    Found 2 sink(s), 1 source(s)
+  Step 4: Check Default Output - PASS
+    Default sink 'Built-in Audio' at 50% volume, not muted
+  Step 5: Check Conflicts - PASS
+    No conflicts detected
+  Step 6: Check Bluetooth - SKIPPED
+
+  Hypothesis: WirePlumber session manager not running (90% confidence)
+  Suggested fix: restart_wireplumber
+
+[anna] to [you]: Your audio is not working because WirePlumber
+                 (the session manager) is stopped. PipeWire itself
+                 is running but cannot route audio without WirePlumber.
+
+                 I can restart WirePlumber for you. Type:
+                 I CONFIRM (apply fix)
+
+[you] to [anna]: I CONFIRM
+
+[anna] to [audio_doctor]: execute restart_wireplumber for testuser
+[audio_doctor] to [anna]:
+  Command: systemctl --user restart wireplumber
+  Result: exit code 0
+  Post-check: WirePlumber running - PASS
+  Reliability: 92%
+
+[anna] to [junior]: validate fix result
+[junior] to [anna]: SCORE 92, fix verified, recipe creation triggered
+
+[anna] to [you]: Fixed! WirePlumber is now running.
+                 Reliability: 92%
+
+                 Created recipe: "Fix: No sound because WirePlumber stopped"
+```
+
+### Example Transcript: Bluetooth Audio Profile Issue
+
+```
+[you] to [anna]: my bluetooth headphones sound terrible
+
+[anna] to [audio_doctor]: collect evidence including bluetooth
+[audio_doctor] to [anna]:
+  Bluetooth: service active, adapter powered
+  Device 'Sony WH-1000XM4' connected via HSP (low quality)
+  A2DP profile available but not active
+
+[anna] to [audio_doctor]: run diagnosis
+[audio_doctor] to [anna]:
+  Step 6: Check Bluetooth - PARTIAL
+    Bluetooth audio device 'Sony WH-1000XM4' connected, profile: HSP
+    Implication: Using low-quality profile
+
+  Hypothesis: Bluetooth using low-quality profile (80% confidence)
+    Device is using HSP (voice) instead of A2DP (high quality music)
+  Suggested fix: set_bt_a2dp
+
+[anna] to [you]: Your Bluetooth headphones are connected using the
+                 HSP profile (meant for calls, low quality).
+                 For music, you want A2DP (high fidelity).
+
+                 I can switch to A2DP for you. Type:
+                 I CONFIRM (apply fix)
+
+[you] to [anna]: I CONFIRM
+
+[anna] to [audio_doctor]: execute set_bt_a2dp for testuser
+[audio_doctor] to [anna]:
+  Command: wpctl set-profile ... 1
+  Post-check: Profile set - PASS
+  Reliability: 85%
+
+[anna] to [you]: Switched to A2DP profile. Your headphones should
+                 now sound much better for music playback.
+                 Reliability: 85%
+```
+
+---
+
+## v0.0.39 - Arch Storage Doctor v1 (BTRFS Focus + Safe Repair Plans)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna can now diagnose storage issues with a focus on BTRFS filesystems. The Storage Doctor collects comprehensive evidence, follows a deterministic diagnosis flow, generates risk-rated hypotheses, and offers safe repair plans with policy controls.
+
+### Key Features
+
+**Evidence Bundle:**
+- Mount topology (lsblk, findmnt)
+- Filesystem types (BTRFS, EXT4, XFS)
+- Free space and metadata space (BTRFS-specific)
+- Device errors (btrfs device stats)
+- SMART health data (smartctl)
+- Scrub and balance status (BTRFS)
+- I/O errors from kernel log (journalctl)
+
+**BTRFS-Specific Diagnostics:**
+- Metadata pressure detection (critical when >90%)
+- Device error tracking (corruption_errs, generation_errs = critical)
+- Scrub status with uncorrected error detection
+- Balance status monitoring
+- RAID profile awareness
+
+**Deterministic Diagnosis Flow (5 steps):**
+1. Identify Filesystem Types - Detect BTRFS, EXT4, XFS
+2. Check Space Usage - Free space and BTRFS metadata space
+3. Check Device Health - BTRFS device stats and SMART data
+4. Check BTRFS Maintenance - Scrub and balance status
+5. Check I/O Error Logs - Kernel log analysis
+
+Each step produces:
+- Pass/Fail status
+- Findings with risk levels (Info/Warning/Critical)
+- Evidence IDs for traceability
+
+**Hypothesis Generation (max 3):**
+Each hypothesis includes:
+- Summary and explanation
+- Confidence percentage (0-100)
+- Supporting evidence IDs
+- Confirm/refute criteria
+- Suggested repair plan
+
+Example hypotheses:
+- "Failing storage device" (SMART failure + I/O errors)
+- "BTRFS metadata space exhaustion" (metadata >90%)
+- "Data corruption detected" (scrub uncorrected errors)
+
+**Safe Repair Plans:**
+
+*Read-Only Plans (no confirmation needed):*
+- SMART Extended Test - Run self-test on drive
+- BTRFS Device Stats - View current error statistics
+
+*Mutation Plans (confirmation required):*
+- Start Scrub - Verify data integrity (allowed by default)
+- Balance Metadata - Redistribute metadata chunks (BLOCKED by default)
+- Clear Device Stats - Reset error counters after investigation
+
+Each mutation plan has:
+- Risk level
+- Preflight checks
+- Post-execution checks
+- Rollback instructions
+- Policy block status
+- Confirmation phrase
+
+**Policy Controls:**
+- `allow_scrub: true` - Scrub operations allowed by default
+- `allow_balance: false` - Balance operations BLOCKED by default (can take hours)
+
+**Case File Integration:**
+- `storage_doctor.json` in case files
+- Full evidence bundle stored
+- Diagnosis result tracked
+- Repair history maintained
+- Notes and status updates
+
+### Storage Health Status
+
+- **Healthy**: All checks pass, no warnings
+- **Degraded**: Non-critical issues (I/O errors, SMART warnings, device errors)
+- **Critical**: Data at risk (SMART failed, corruption, metadata exhausted)
+- **Unknown**: Evidence collection failed
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/storage_doctor.rs` - Full storage doctor implementation (~2100 lines)
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Added module and exports
+- **MODIFIED:** `Cargo.toml` - Version bump to 0.0.39
+- **MODIFIED:** `CLAUDE.md` - Version bump
+- **MODIFIED:** `README.md` - Version bump and feature description
+- **MODIFIED:** `RELEASE_NOTES.md` - This file
+
+### Tests
+
+17 new tests covering:
+- Storage health display
+- Filesystem type parsing
+- Mount space checks
+- BTRFS device stats error detection
+- BTRFS metadata pressure detection
+- SMART health warnings
+- Diagnosis flow (healthy, degraded, critical)
+- Hypothesis generation (max 3)
+- Repair plan generation and policy blocking
+- Case file workflow
+- Scrub status with uncorrected errors
+
+All 746 tests pass with zero regressions.
+
+---
+
+## v0.0.38 - Arch Networking Doctor v1 (WiFi/Ethernet Diagnosis + Fix-It Playbooks)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna can now diagnose and fix common Arch Linux networking issues. The Networking Doctor follows a deterministic diagnosis flow, generates evidence-backed hypotheses, and offers fix playbooks with confirmation, post-checks, and rollback support.
+
+### Key Features
+
+**Supported Network Managers:**
+- NetworkManager (most common)
+- iwd (Intel wireless daemon)
+- systemd-networkd
+- wpa_supplicant
+
+**Deterministic Diagnosis Flow (6 steps):**
+1. Physical Link - Check carrier/WiFi association
+2. IP Address - Check for IPv4/IPv6 assignment
+3. Default Route - Check for gateway configuration
+4. IP Connectivity - Ping gateway and 1.1.1.1
+5. DNS - Test name resolution
+6. Manager Health - Check service status and conflicts
+
+Each step produces:
+- Result: PASS/FAIL/PARTIAL/SKIPPED
+- Details with evidence
+- Implication explaining what it means
+
+**Evidence Collection Bundle:**
+- Interface inventory (ip link, ip addr)
+- Routes + default gateway (ip route)
+- DNS config (resolvectl or resolv.conf)
+- Link state + speed (ethtool)
+- WiFi status (iw dev, signal strength)
+- Manager state (systemctl status)
+- Recent logs (journalctl filtered)
+
+**Hypothesis Generation (1-3 max):**
+Each hypothesis includes:
+- Description
+- Confidence percentage
+- Supporting evidence IDs
+- Next test to confirm/refute
+- Suggested fix playbook
+
+**Fix Playbooks (with confirmation):**
+- `restart_manager` - Restart the active network manager
+- `renew_dhcp` - Request new IP via DHCP
+- `restart_resolver` - Restart systemd-resolved
+- `start_manager` - Start stopped network manager
+- `disable_conflicting` - Disable conflicting service (high risk)
+- `toggle_wifi_powersave` - Disable WiFi power saving
+
+Each playbook has:
+- Risk level (Low/Medium/High)
+- Confirmation phrase requirement
+- Post-checks to verify fix
+- Rollback steps if verification fails
+
+**Case File Integration:**
+- `networking_doctor.json` in case files
+- Full diagnosis result stored
+- Fix applied and result tracked
+- Recipe creation on successful fix
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/networking_doctor.rs` - Full networking doctor implementation (~1800 lines)
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Added module and exports
+- **MODIFIED:** `Cargo.toml` - Version bump to 0.0.38
+- **MODIFIED:** `CLAUDE.md` - Version bump
+- **MODIFIED:** `README.md` - Version bump and feature description
+- **MODIFIED:** `TODO.md` - Version bump
+
+### Example Transcript: WiFi Disconnect Diagnosis
+
+```
+=== NETWORKING DOCTOR DIAGNOSIS ===
+
+Network Manager: NetworkManager (running)
+
+Interfaces:
+  wlan0 (wifi) - UP - 192.168.1.100/24 [WiFi: HomeNetwork]
+  enp0s3 (ethernet) - DOWN - no IP
+
+Diagnosis Flow:
+  [OK] physical_link
+    1 interface(s) up: wlan0 (WiFi: HomeNetwork)
+    -> Physical layer is working
+  [OK] ip_address
+    wlan0: 192.168.1.100/24
+    -> IP address acquired - DHCP or static config working
+  [OK] default_route
+    Default gateway: 192.168.1.1
+    -> Routing table has a default route
+  [FAIL] ip_connectivity
+    Cannot ping gateway 192.168.1.1
+    -> Gateway unreachable - check cable/WiFi or gateway device
+  [SKIP] dns
+    Skipped - no IP connectivity
+    -> Cannot test DNS without IP connectivity
+  [OK] manager_health
+    NetworkManager running and healthy
+    -> Network manager is functioning normally
+
+Hypotheses:
+  1. Gateway unreachable - network path issue (70% confidence)
+     Fix available: restart_manager
+
+Recommended Fix:
+  Restart Network Manager - Restart the active network manager service
+  Risk: low
+  To apply, confirm with: I CONFIRM (apply fix)
+
+Overall Status: DEGRADED
+```
+
+### Example Transcript: DNS Failure Diagnosis
+
+```
+=== NETWORKING DOCTOR DIAGNOSIS ===
+
+Network Manager: NetworkManager (running)
+
+Interfaces:
+  enp0s3 (ethernet) - UP - 192.168.1.50/24
+
+Diagnosis Flow:
+  [OK] physical_link
+    1 interface(s) up: enp0s3 (ethernet)
+  [OK] ip_address
+    enp0s3: 192.168.1.50/24
+  [OK] default_route
+    Default gateway: 192.168.1.1
+  [OK] ip_connectivity
+    Gateway 192.168.1.1 and 1.1.1.1 reachable
+  [FAIL] dns
+    DNS resolution failed (servers: 127.0.0.53, tests: archlinux.org: FAIL)
+    -> Cannot resolve domain names - check DNS config
+  [OK] manager_health
+    NetworkManager running and healthy
+
+Hypotheses:
+  1. DNS resolution failure - resolver misconfigured (85% confidence)
+     Fix available: restart_resolver
+  2. systemd-resolved may need restart (75% confidence)
+     Fix available: restart_resolver
+
+Recommended Fix:
+  Restart DNS Resolver - Restart systemd-resolved to fix DNS issues
+  Risk: low
+  To apply, confirm with: I CONFIRM (apply fix)
+
+Overall Status: DEGRADED
+```
+
+### Tests Added
+
+- `test_network_manager_detection` - Manager enum and service names
+- `test_diagnosis_step_result` - Step result symbols
+- `test_diagnosis_step_creation` - Step creation and pass/fail
+- `test_network_evidence_creation` - Evidence struct initialization
+- `test_fix_playbooks_exist` - All playbooks are defined
+- `test_fix_playbook_confirmation` - Confirmation phrases required
+- `test_diagnosis_status` - Status enum strings
+- `test_hypothesis_generation_empty` - No hypotheses when all pass
+- `test_parse_interface_line` - Ethernet interface parsing
+- `test_parse_interface_line_wifi` - WiFi interface parsing
+- `test_networking_doctor_case` - Case file JSON serialization
+- `test_fix_risk_levels` - Risk level assignments
+- `test_determine_status` - Status determination logic
+
+---
+
+## v0.0.37 - Recipe Engine v1 (Reusable Fixes + Safe Auto-Drafts)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Recipes now have full lifecycle management: Active, Draft, and Archived states. Recipes created from sessions with < 80% reliability are automatically saved as drafts (never auto-suggested). Drafts can be promoted to active after a successful validated run. Recipe events are tracked in case files for full audit trail.
+
+### Key Features
+
+**Recipe Status Lifecycle:**
+- `RecipeStatus` enum: `Active`, `Draft`, `Archived`
+- Active: Can be auto-suggested and executed
+- Draft: Usable but never auto-suggested, awaits promotion
+- Archived: Tombstone state for deleted recipes, not usable
+
+**Creation Rules (>= 80% reliability threshold):**
+- Reliability >= 80%: Recipe created as Active
+- Reliability < 80%: Recipe created as Draft
+- Drafts can be promoted after successful validated run
+- `promote()` method on Recipe struct
+
+**Recipe Schema Enhancements:**
+- `intent_tags: Vec<String>` - Semantic tags for better matching
+- `evidence_required: Vec<String>` - Evidence to collect before execution
+- `post_checks: Vec<PostCheck>` - Verification after execution
+- `origin_case_id: Option<String>` - Links to creating case
+- `notes: String` - Free-form notes
+- `confirmation_phrase: Option<String>` - Replaces `confirmation_required`
+
+**Post-Check Types:**
+- `ServiceRunning { name }` - Check if service is running
+- `FileExists { path }` - Check if file exists
+- `CommandSucceeds { command }` - Check if command exits 0
+- `OutputContains { command, expected }` - Check command output
+
+**Recipe Matching Improvements:**
+- Match scoring uses `intent_tags` for better relevance
+- Draft recipes return 0.0 match score (excluded from auto-suggest)
+- Active recipes ranked by confidence and success_count
+
+**Case File Recipe Events:**
+- `RecipeEvent` struct with event types:
+  - `Matched` - Recipe matched for this case
+  - `Executed` - Recipe was applied
+  - `Succeeded` - Recipe execution succeeded
+  - `Failed` - Recipe execution failed
+  - `Created` - Recipe was created from this case
+  - `Promoted` - Recipe was promoted from draft
+- Case files now have `recipe_events: Vec<RecipeEvent>`
+
+**Recipe Introspection Methods:**
+- `is_usable()` - Active or Draft (not Archived)
+- `can_auto_suggest()` - Active with confidence >= 0.5
+- `promote()` - Promote Draft to Active
+
+### Files Changed
+
+- **MODIFIED:** `crates/anna_common/src/recipes.rs` - RecipeStatus enum, PostCheck types, new fields, lifecycle methods
+- **MODIFIED:** `crates/anna_common/src/transcript.rs` - RecipeEvent, RecipeEventType, case file integration
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Exported new types (RecipeStatus, RecipePostCheck, RecipePostCheckType, RecipeEvent, RecipeEventType)
+- **MODIFIED:** `Cargo.toml` - Version bump to 0.0.37
+- **MODIFIED:** `CLAUDE.md` - Version bump to 0.0.37
+
+### Tests Added
+
+**Recipe Tests:**
+- `test_recipe_status_default` - Active by default
+- `test_recipe_status_draft` - Draft behavior
+- `test_recipe_status_archived` - Archived behavior
+- `test_recipe_promote` - Promote draft to active
+- `test_recipe_promote_already_active` - No-op for active
+- `test_recipe_promote_archived_fails` - Cannot promote archived
+- `test_recipe_draft_no_match_score` - Drafts don't match
+- `test_post_check_types` - All PostCheckType variants
+- `test_recipe_intent_tags` - Intent tags in matching
+- `test_recipe_status_from_reliability_high` - >= 80% = Active
+- `test_recipe_status_from_reliability_low` - < 80% = Draft
+- `test_recipe_format_detail_with_status` - Status in output
+
+**Recipe Event Tests:**
+- `test_recipe_event_matched` - Matched event creation
+- `test_recipe_event_executed` - Executed event creation
+- `test_recipe_event_succeeded` - Succeeded event creation
+- `test_recipe_event_failed` - Failed event with error message
+- `test_recipe_event_created` - Created event with notes
+- `test_recipe_event_promoted` - Promoted event creation
+- `test_case_file_with_recipe_events` - Case file integration
+- `test_case_file_recipe_created` - Recipe creation tracking
+- `test_recipe_event_types_serialization` - JSON roundtrip
+
+---
+
 ## v0.0.36 - Knowledge Packs v1 (Offline Q&A with Strict Citations)
 
 **Release Date:** 2025-12-03

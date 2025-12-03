@@ -1,9 +1,11 @@
-//! v0.0.33: Human-first transcript renderer and case file system
+//! v0.0.37: Human-first transcript renderer and case file system
 //!
 //! This module provides:
 //! - Unified transcript rendering (human-readable at all debug levels)
 //! - Case file creation and persistence
 //! - Case retrieval and search
+//! - v0.0.36: Knowledge reference tracking
+//! - v0.0.37: Recipe event tracking (matched, executed, created, promoted)
 //!
 //! Case files are stored in /var/lib/anna/cases/YYYY/MM/DD/<request_id>/
 
@@ -315,6 +317,123 @@ pub struct KnowledgeRef {
     pub excerpt: String,
 }
 
+/// v0.0.37: Recipe event type for case files
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RecipeEventType {
+    /// Recipe was matched for this case
+    Matched,
+    /// Recipe was executed (applied)
+    Executed,
+    /// Recipe execution succeeded
+    Succeeded,
+    /// Recipe execution failed
+    Failed,
+    /// Recipe was created from this case
+    Created,
+    /// Recipe was promoted from draft to active
+    Promoted,
+}
+
+/// v0.0.37: Recipe event for case files
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecipeEvent {
+    /// Recipe ID
+    pub recipe_id: String,
+    /// Recipe name
+    pub recipe_name: String,
+    /// Event type
+    pub event_type: RecipeEventType,
+    /// Timestamp of the event
+    pub timestamp: DateTime<Utc>,
+    /// Match confidence (for Matched events)
+    pub match_confidence: Option<f32>,
+    /// Error message (for Failed events)
+    pub error_message: Option<String>,
+    /// Notes (for Created events, e.g., "created as draft, reliability 75%")
+    pub notes: Option<String>,
+}
+
+impl RecipeEvent {
+    /// Create a matched event
+    pub fn matched(recipe_id: &str, recipe_name: &str, confidence: f32) -> Self {
+        Self {
+            recipe_id: recipe_id.to_string(),
+            recipe_name: recipe_name.to_string(),
+            event_type: RecipeEventType::Matched,
+            timestamp: Utc::now(),
+            match_confidence: Some(confidence),
+            error_message: None,
+            notes: None,
+        }
+    }
+
+    /// Create an executed event
+    pub fn executed(recipe_id: &str, recipe_name: &str) -> Self {
+        Self {
+            recipe_id: recipe_id.to_string(),
+            recipe_name: recipe_name.to_string(),
+            event_type: RecipeEventType::Executed,
+            timestamp: Utc::now(),
+            match_confidence: None,
+            error_message: None,
+            notes: None,
+        }
+    }
+
+    /// Create a succeeded event
+    pub fn succeeded(recipe_id: &str, recipe_name: &str) -> Self {
+        Self {
+            recipe_id: recipe_id.to_string(),
+            recipe_name: recipe_name.to_string(),
+            event_type: RecipeEventType::Succeeded,
+            timestamp: Utc::now(),
+            match_confidence: None,
+            error_message: None,
+            notes: None,
+        }
+    }
+
+    /// Create a failed event
+    pub fn failed(recipe_id: &str, recipe_name: &str, error: &str) -> Self {
+        Self {
+            recipe_id: recipe_id.to_string(),
+            recipe_name: recipe_name.to_string(),
+            event_type: RecipeEventType::Failed,
+            timestamp: Utc::now(),
+            match_confidence: None,
+            error_message: Some(error.to_string()),
+            notes: None,
+        }
+    }
+
+    /// Create a created event
+    pub fn created(recipe_id: &str, recipe_name: &str, notes: &str) -> Self {
+        Self {
+            recipe_id: recipe_id.to_string(),
+            recipe_name: recipe_name.to_string(),
+            event_type: RecipeEventType::Created,
+            timestamp: Utc::now(),
+            match_confidence: None,
+            error_message: None,
+            notes: Some(notes.to_string()),
+        }
+    }
+
+    /// Create a promoted event
+    pub fn promoted(recipe_id: &str, recipe_name: &str) -> Self {
+        Self {
+            recipe_id: recipe_id.to_string(),
+            recipe_name: recipe_name.to_string(),
+            event_type: RecipeEventType::Promoted,
+            timestamp: Utc::now(),
+            match_confidence: None,
+            error_message: None,
+            notes: None,
+        }
+    }
+}
+
 /// v0.0.35: Model information for case files
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaseModelInfo {
@@ -367,6 +486,9 @@ pub struct CaseFile {
     /// v0.0.36: Knowledge references used in this case
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub knowledge_refs: Vec<KnowledgeRef>,
+    /// v0.0.37: Recipe events in this case
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recipe_events: Vec<RecipeEvent>,
 }
 
 impl CaseFile {
@@ -404,6 +526,7 @@ impl CaseFile {
             fix_timeline: None,
             models: None,
             knowledge_refs: Vec::new(),
+            recipe_events: Vec::new(),
         }
     }
 
@@ -425,6 +548,30 @@ impl CaseFile {
     /// v0.0.36: Get knowledge references count
     pub fn knowledge_refs_count(&self) -> usize {
         self.knowledge_refs.len()
+    }
+
+    /// v0.0.37: Add a recipe event to this case
+    pub fn add_recipe_event(&mut self, event: RecipeEvent) {
+        self.recipe_events.push(event);
+    }
+
+    /// v0.0.37: Get recipe events count
+    pub fn recipe_events_count(&self) -> usize {
+        self.recipe_events.len()
+    }
+
+    /// v0.0.37: Check if a recipe was executed in this case
+    pub fn recipe_was_executed(&self, recipe_id: &str) -> bool {
+        self.recipe_events.iter().any(|e| {
+            e.recipe_id == recipe_id && e.event_type == RecipeEventType::Executed
+        })
+    }
+
+    /// v0.0.37: Check if a recipe was created from this case
+    pub fn recipe_was_created(&self, recipe_id: &str) -> bool {
+        self.recipe_events.iter().any(|e| {
+            e.recipe_id == recipe_id && e.event_type == RecipeEventType::Created
+        })
     }
 
     /// Get the path for this case file
@@ -1054,5 +1201,93 @@ mod tests {
         assert_eq!(case.knowledge_refs_count(), 2);
         assert_eq!(case.knowledge_refs[0].evidence_id, "K1");
         assert_eq!(case.knowledge_refs[1].evidence_id, "K2");
+    }
+
+    // v0.0.37: Recipe event tests
+
+    #[test]
+    fn test_recipe_event_matched() {
+        let event = RecipeEvent::matched("R1", "Fix nginx", 0.85);
+        assert_eq!(event.recipe_id, "R1");
+        assert_eq!(event.recipe_name, "Fix nginx");
+        assert_eq!(event.event_type, RecipeEventType::Matched);
+        assert_eq!(event.match_confidence, Some(0.85));
+        assert!(event.error_message.is_none());
+    }
+
+    #[test]
+    fn test_recipe_event_executed() {
+        let event = RecipeEvent::executed("R1", "Fix nginx");
+        assert_eq!(event.event_type, RecipeEventType::Executed);
+        assert!(event.match_confidence.is_none());
+    }
+
+    #[test]
+    fn test_recipe_event_succeeded() {
+        let event = RecipeEvent::succeeded("R1", "Fix nginx");
+        assert_eq!(event.event_type, RecipeEventType::Succeeded);
+    }
+
+    #[test]
+    fn test_recipe_event_failed() {
+        let event = RecipeEvent::failed("R1", "Fix nginx", "Service not found");
+        assert_eq!(event.event_type, RecipeEventType::Failed);
+        assert_eq!(event.error_message, Some("Service not found".to_string()));
+    }
+
+    #[test]
+    fn test_recipe_event_created() {
+        let event = RecipeEvent::created("R2", "Restart postgres", "created as draft, reliability 75%");
+        assert_eq!(event.event_type, RecipeEventType::Created);
+        assert_eq!(event.notes, Some("created as draft, reliability 75%".to_string()));
+    }
+
+    #[test]
+    fn test_recipe_event_promoted() {
+        let event = RecipeEvent::promoted("R2", "Restart postgres");
+        assert_eq!(event.event_type, RecipeEventType::Promoted);
+    }
+
+    #[test]
+    fn test_case_file_with_recipe_events() {
+        let mut case = CaseFile::new("test-recipes", "restart nginx");
+
+        case.add_recipe_event(RecipeEvent::matched("R1", "Restart nginx", 0.92));
+        case.add_recipe_event(RecipeEvent::executed("R1", "Restart nginx"));
+        case.add_recipe_event(RecipeEvent::succeeded("R1", "Restart nginx"));
+
+        assert_eq!(case.recipe_events_count(), 3);
+        assert!(case.recipe_was_executed("R1"));
+        assert!(!case.recipe_was_executed("R999"));
+    }
+
+    #[test]
+    fn test_case_file_recipe_created() {
+        let mut case = CaseFile::new("test-create", "fixed postgres issue");
+
+        case.add_recipe_event(RecipeEvent::created("R5", "Fix postgres", "created as active, reliability 85%"));
+
+        assert!(case.recipe_was_created("R5"));
+        assert!(!case.recipe_was_created("R1"));
+    }
+
+    #[test]
+    fn test_recipe_event_types_serialization() {
+        // Ensure all event types can be serialized/deserialized
+        let events = vec![
+            RecipeEvent::matched("R1", "Test", 0.5),
+            RecipeEvent::executed("R1", "Test"),
+            RecipeEvent::succeeded("R1", "Test"),
+            RecipeEvent::failed("R1", "Test", "error"),
+            RecipeEvent::created("R1", "Test", "notes"),
+            RecipeEvent::promoted("R1", "Test"),
+        ];
+
+        for event in events {
+            let json = serde_json::to_string(&event).expect("serialize");
+            let parsed: RecipeEvent = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(parsed.recipe_id, event.recipe_id);
+            assert_eq!(parsed.event_type, event.event_type);
+        }
     }
 }
