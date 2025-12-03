@@ -44,6 +44,8 @@ use anna_common::{
     PerfStats, LatencySample, BudgetViolation,
     get_snapshot_hash, get_policy_version,
     TOOL_CACHE_TTL_SECS, LLM_CACHE_TTL_SECS,
+    // v0.0.31: Reliability metrics
+    MetricsStore, MetricType,
 };
 use owo_colors::OwoColorize;
 use std::fmt;
@@ -153,6 +155,8 @@ pub enum IntentType {
     SystemQuery,
     /// Requests an action (e.g., "install nginx")
     ActionRequest,
+    /// v0.0.34: Fix-It mode troubleshooting (e.g., "WiFi keeps disconnecting")
+    FixIt,
     /// Cannot classify
     Unknown,
 }
@@ -163,6 +167,7 @@ impl fmt::Display for IntentType {
             IntentType::Question => write!(f, "question"),
             IntentType::SystemQuery => write!(f, "system_query"),
             IntentType::ActionRequest => write!(f, "action_request"),
+            IntentType::FixIt => write!(f, "fix_it"),
             IntentType::Unknown => write!(f, "unknown"),
         }
     }
@@ -175,6 +180,7 @@ impl std::str::FromStr for IntentType {
             "question" => Ok(IntentType::Question),
             "system_query" => Ok(IntentType::SystemQuery),
             "action_request" => Ok(IntentType::ActionRequest),
+            "fix_it" | "fixit" | "fix-it" | "troubleshoot" => Ok(IntentType::FixIt),
             "unknown" => Ok(IntentType::Unknown),
             _ => Err(()),
         }
@@ -307,7 +313,7 @@ impl Default for JuniorVerification {
 // Translator LLM (v0.0.6 - real LLM integration)
 // =============================================================================
 
-/// System prompt for Translator (v0.0.20: with source planning for Ask Me Anything)
+/// System prompt for Translator (v0.0.31: with reliability engineering tools)
 const TRANSLATOR_SYSTEM_PROMPT: &str = r#"You are Translator, the intent classifier for Anna (a Linux system assistant).
 
 Your job is to classify user requests and plan which tools/sources to gather evidence.
@@ -338,11 +344,18 @@ System Evidence (for machine-specific facts):
 Knowledge Sources (for documentation/how-to):
 - knowledge_search(query=X): search man pages, package docs, user notes
 
+Reliability Engineering (v0.0.31):
+- self_diagnostics: full self-diagnostics report (install, update, model, policy, storage, budgets, errors, alerts)
+- metrics_summary(days=N): reliability metrics (success rates, latencies p50/p95, cache hits)
+- error_budgets: error budget status (request/tool/mutation/LLM failure thresholds)
+
 SOURCE PLANNING RULES (v0.0.20):
 1. "How do I...?" questions -> knowledge_search FIRST, then system tools if needed
 2. "What is happening on my machine?" -> system tools FIRST
 3. Mixed questions (both how-to AND system state) -> BOTH sources
 4. General knowledge questions -> knowledge_search or reasoning
+5. "diagnostics report" / "self-diagnostics" / "bug report" -> self_diagnostics
+6. "metrics" / "reliability" / "error budget" -> metrics_summary or error_budgets
 
 RULES:
 1. system_query = needs machine data -> always plan system tools
@@ -355,6 +368,8 @@ TOOLS: knowledge_search(query=vim syntax highlighting)
 TOOLS: hw_snapshot_summary
 TOOLS: knowledge_search(query=ssh keys), sw_snapshot_summary
 TOOLS: recent_installs(days=14), what_changed(days=14), slowness_hypotheses(days=14)
+TOOLS: self_diagnostics
+TOOLS: metrics_summary(days=7), error_budgets
 TOOLS: none
 
 Only request clarification when genuinely ambiguous.
@@ -568,7 +583,7 @@ pub fn translator_classify_deterministic(request: &str) -> TranslatorOutput {
     }
 }
 
-/// Generate a ToolPlan from evidence_needs (v0.0.7)
+/// Generate a ToolPlan from evidence_needs (v0.0.7, v0.0.31: reliability tools)
 fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[String]) -> Option<ToolPlan> {
     use std::collections::HashMap;
 
@@ -607,6 +622,18 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
                     plan.add_tool("journal_warnings", params);
                 }
             }
+            // v0.0.31: Reliability engineering tools
+            "self_diagnostics" => {
+                plan.add_tool("self_diagnostics", HashMap::new());
+            }
+            "metrics_summary" => {
+                let mut params = HashMap::new();
+                params.insert("days".to_string(), serde_json::json!(1));
+                plan.add_tool("metrics_summary", params);
+            }
+            "error_budgets" => {
+                plan.add_tool("error_budgets", HashMap::new());
+            }
             _ => {}
         }
     }
@@ -632,6 +659,66 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
 }
 
 fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentType, RiskLevel, Vec<String>) {
+    // v0.0.31: Check for reliability engineering requests first
+    let reliability_keywords = [
+        "diagnostics", "diagnostic", "self-diagnostics", "bug report",
+        "metrics", "reliability", "error budget", "error budgets",
+    ];
+    for keyword in reliability_keywords {
+        if request.contains(keyword) {
+            // Map to specific tool
+            if request.contains("diagnostics") || request.contains("bug report") {
+                return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["self_diagnostics".to_string()]);
+            } else if request.contains("budget") {
+                return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["error_budgets".to_string()]);
+            } else {
+                return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["metrics_summary".to_string()]);
+            }
+        }
+    }
+
+    // v0.0.33: Check for case file requests
+    let case_keywords = ["case", "cases", "failure", "failures", "transcript", "conversation"];
+    let case_action_words = ["show", "list", "get", "what happened", "last", "today", "recent"];
+
+    let has_case_keyword = case_keywords.iter().any(|k| request.contains(k));
+    let has_case_action = case_action_words.iter().any(|k| request.contains(k));
+
+    if has_case_keyword && has_case_action {
+        // Determine which case tool to use
+        if request.contains("failure") {
+            return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["last_failure_summary".to_string()]);
+        } else if request.contains("today") {
+            return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["list_today_cases".to_string()]);
+        } else if request.contains("recent") || request.contains("list") {
+            return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["list_recent_cases".to_string()]);
+        } else {
+            // Default: show last case summary
+            return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["last_case_summary".to_string()]);
+        }
+    }
+
+    // v0.0.34: Check for Fix-It mode requests (troubleshooting)
+    let fix_patterns = [
+        "fix my", "fix the", "repair", "troubleshoot", "debug",
+        "not working", "won't work", "doesn't work", "broken",
+        "keeps disconnecting", "keeps crashing", "keeps failing",
+        "is slow", "is slower", "is broken", "is failing",
+        "won't start", "can't connect", "cannot connect",
+        "help me fix", "something wrong", "having issues",
+        "having problems", "having trouble",
+    ];
+
+    if fix_patterns.iter().any(|p| request.contains(p)) {
+        // Fix-It mode: collect evidence based on problem category
+        let evidence_needs = vec![
+            "hw_snapshot".to_string(),
+            "sw_snapshot".to_string(),
+            "journal_warnings".to_string(),
+        ];
+        return (IntentType::FixIt, RiskLevel::MediumRisk, evidence_needs);
+    }
+
     // Action keywords (verbs that imply mutation)
     let action_keywords = [
         "install", "remove", "uninstall", "delete", "update", "upgrade",
@@ -2024,6 +2111,10 @@ pub async fn process(request: &str) {
     let mut tools_ms: u64 = 0;
     let mut cache_hit = false;
 
+    // v0.0.31: Record request start for reliability metrics
+    let mut metrics = MetricsStore::load();
+    metrics.record(MetricType::RequestStart);
+
     // v0.0.21: TTFO - print header and working indicator within 150ms
     print_fast_header(request);
 
@@ -2070,6 +2161,9 @@ pub async fn process(request: &str) {
     println!();
 
     // Try real Translator LLM, fall back to deterministic
+    // v0.0.31: Track translator LLM metrics
+    metrics.record(MetricType::TranslatorStart);
+    let translator_start = std::time::Instant::now();
     let (mut translator_output, translator_reason) = match get_translator_client().await {
         LlmAvailability::Ready(client, model) => {
             show_spinner(&format!("[translator analyzing via {}...]", model));
@@ -2077,10 +2171,16 @@ pub async fn process(request: &str) {
             match call_translator_llm(&client, &model, request).await {
                 Ok(output) => {
                     clear_spinner();
+                    metrics.record(MetricType::TranslatorSuccess);
                     (output, None)
                 }
                 Err(e) => {
                     clear_spinner();
+                    // Record as timeout if it looks like a timeout, otherwise just not record success
+                    let err_str = e.to_string().to_lowercase();
+                    if err_str.contains("timeout") || err_str.contains("timed out") {
+                        metrics.record(MetricType::TranslatorTimeout);
+                    }
                     println!("  {} {} - using deterministic fallback", "Translator LLM error:".yellow(), e);
                     (translator_classify_deterministic(request), Some(format!("LLM error: {}", e)))
                 }
@@ -2092,6 +2192,8 @@ pub async fn process(request: &str) {
             (translator_classify_deterministic(request), Some(reason_str))
         }
     };
+    translator_ms = translator_start.elapsed().as_millis() as u64;
+    metrics.record_latency("translator", translator_ms);
 
     // [translator] to [anna]: classification result (v0.0.7: include tool plan)
     let tool_plan_str = translator_output.tool_plan.as_ref()
@@ -2150,8 +2252,22 @@ pub async fn process(request: &str) {
             println!();
 
             // Execute tools
+            // v0.0.31: Track tool execution metrics
+            let tools_start = std::time::Instant::now();
             let mut collector = EvidenceCollector::new();
             let results = execute_tool_plan(&plan.tools, &catalog, &mut collector);
+
+            // v0.0.31: Record tool success/failure metrics
+            for r in &results {
+                metrics.record(MetricType::ToolStart);
+                if r.success {
+                    metrics.record(MetricType::ToolSuccess);
+                } else {
+                    metrics.record(MetricType::ToolFailure);
+                }
+            }
+            tools_ms = tools_start.elapsed().as_millis() as u64;
+            metrics.record_latency("tools", tools_ms);
 
             // Natural language: annad reports what was found
             let evidence_summary = if results.is_empty() {
@@ -2247,6 +2363,9 @@ pub async fn process(request: &str) {
     println!();
 
     // Junior verification (v0.0.7: uses tool_results or legacy evidence)
+    // v0.0.31: Track Junior LLM metrics
+    metrics.record(MetricType::JuniorStart);
+    let junior_start = std::time::Instant::now();
     let (verification, junior_reason) = match get_junior_client().await {
         LlmAvailability::Ready(client, model) => {
             show_spinner(&format!("[junior verifying via {}...]", model));
@@ -2260,10 +2379,16 @@ pub async fn process(request: &str) {
             match result {
                 Ok(v) => {
                     clear_spinner();
+                    metrics.record(MetricType::JuniorSuccess);
                     (v, None)
                 }
                 Err(e) => {
                     clear_spinner();
+                    // Record as timeout if it looks like a timeout
+                    let err_str = e.to_string().to_lowercase();
+                    if err_str.contains("timeout") || err_str.contains("timed out") {
+                        metrics.record(MetricType::JuniorTimeout);
+                    }
                     println!("  {} {}", "Junior LLM error:".yellow(), e);
                     if !tool_results.is_empty() {
                         (fallback_junior_score_v2(&translator_output, &tool_results), Some(format!("LLM error: {}", e)))
@@ -2293,6 +2418,8 @@ pub async fn process(request: &str) {
             (fallback, Some(reason_str))
         }
     };
+    junior_ms = junior_start.elapsed().as_millis() as u64;
+    metrics.record_latency("junior", junior_ms);
 
     // [junior] to [anna]: verification result (v0.0.7: include uncited claims)
     let uncited_str = if verification.uncited_claims.is_empty() {
@@ -2365,6 +2492,17 @@ pub async fn process(request: &str) {
     let mut stats = PerfStats::load();
     stats.record_sample(sample);
     let _ = stats.save();
+
+    // v0.0.31: Record request success and e2e latency, then save reliability metrics
+    metrics.record(MetricType::RequestSuccess);
+    metrics.record_latency("e2e", total_ms);
+    if cache_hit {
+        metrics.record(MetricType::CacheHit);
+    } else {
+        metrics.record(MetricType::CacheMiss);
+    }
+    metrics.prune(); // Clean up old data
+    let _ = metrics.save();
 
     // Show performance note at debug level 2
     if config.ui.debug_level >= 2 {
@@ -2577,6 +2715,10 @@ fn generate_draft_response(translator_output: &TranslatorOutput, evidence: &[Evi
             // This case is handled separately with action plan
             "Action request - see plan above.".to_string()
         }
+        IntentType::FixIt => {
+            // v0.0.34: Fix-It mode - handled by separate troubleshooting loop
+            "Fix-It mode - troubleshooting in progress...".to_string()
+        }
     }
 }
 
@@ -2621,6 +2763,10 @@ fn generate_draft_response_v2(translator_output: &TranslatorOutput, tool_results
         IntentType::ActionRequest => {
             // This case is handled separately with action plan
             "Action request - see plan above.".to_string()
+        }
+        IntentType::FixIt => {
+            // v0.0.34: Fix-It mode - handled by separate troubleshooting loop
+            "Fix-It mode - troubleshooting in progress...".to_string()
         }
     }
 }

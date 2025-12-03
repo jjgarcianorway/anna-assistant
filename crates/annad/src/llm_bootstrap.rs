@@ -240,24 +240,25 @@ pub async fn run_bootstrap(
     }
 
     // Phase 5: Pull missing models
-    let mut models_to_pull = Vec::new();
+    // v0.0.35: Track model+role pairs for progress display
+    let mut models_to_pull: Vec<(String, String)> = Vec::new();
 
     if let Some(ref sel) = translator_selection {
         if !available_models.iter().any(|m| model_matches(m, &sel.model)) {
-            models_to_pull.push(sel.model.clone());
+            models_to_pull.push((sel.model.clone(), "translator".to_string()));
         }
     }
 
     if let Some(ref sel) = junior_selection {
         if !available_models.iter().any(|m| model_matches(m, &sel.model)) {
-            if !models_to_pull.contains(&sel.model) {
-                models_to_pull.push(sel.model.clone());
+            if !models_to_pull.iter().any(|(m, _)| m == &sel.model) {
+                models_to_pull.push((sel.model.clone(), "junior".to_string()));
             }
         }
     }
 
     if !models_to_pull.is_empty() {
-        info!("[+]  Need to pull {} models: {:?}", models_to_pull.len(), models_to_pull);
+        info!("[+]  Need to pull {} models: {:?}", models_to_pull.len(), models_to_pull.iter().map(|(m, _)| m).collect::<Vec<_>>());
 
         {
             let mut s = state.write().await;
@@ -266,7 +267,7 @@ pub async fn run_bootstrap(
             let _ = s.save();
         }
 
-        for model in &models_to_pull {
+        for (model, role) in &models_to_pull {
             info!("[+]  Pulling model: {}", model);
 
             // Update state with download info
@@ -274,6 +275,7 @@ pub async fn run_bootstrap(
                 let mut s = state.write().await;
                 s.download_progress = Some(DownloadProgress {
                     model: model.clone(),
+                    role: role.clone(),
                     total_bytes: 0,
                     downloaded_bytes: 0,
                     speed_bytes_per_sec: 0.0,
@@ -329,6 +331,7 @@ pub async fn run_bootstrap(
                     let mut s = state.write().await;
                     s.download_progress = Some(DownloadProgress {
                         model: model.clone(),
+                        role: role.clone(),
                         total_bytes: progress.total,
                         downloaded_bytes: progress.completed,
                         speed_bytes_per_sec: speed,

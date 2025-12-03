@@ -1,10 +1,14 @@
-# Anna Assistant v0.0.28
+# Anna Assistant v0.0.35
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
+[![CI](https://github.com/jjgarcianorway/anna-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/jjgarcianorway/anna-assistant/actions/workflows/ci.yml)
+
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.28**: System-aware helper filtering, improved Ollama detection, cleaner status display.
+**v0.0.35**: Ollama Role Selection - Independent model selection for Translator and Junior roles, hardware-based benchmarking, policy-driven configuration (`/etc/anna/policy/models.toml`), model readiness UX in `annactl status`, and fallback modes with reliability capping.
+
+> **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 
 ---
 
@@ -309,8 +313,8 @@ sudo install -m 755 target/release/annactl /usr/local/bin/annactl
 
 ## Requirements
 
-- **OS**: Arch Linux (x86_64)
-- **Rust**: 1.70+ (for building)
+- **OS**: **Arch Linux only** (x86_64) - other distributions are unsupported
+- **Rust**: 1.70+ (for building from source)
 - **Systemd**: For daemon management
 - **Ollama**: Auto-installed on first run
 
@@ -339,7 +343,59 @@ Issues and PRs welcome at: https://github.com/jjgarcianorway/anna-assistant
 
 ---
 
+## CI/CD (v0.0.32)
+
+All builds and tests run on **Arch Linux only**.
+
+**CI Pipeline:**
+- Build (debug + release) in Arch Linux container
+- Unit tests and integration tests
+- Clippy lints (advisory)
+- Rustfmt check (advisory)
+- Security audit (advisory)
+- Smoke tests (--version, --help, status, natural language)
+- Repo hygiene checks (version consistency, no legacy commands)
+- Policy and redaction security tests
+
+**Release Pipeline:**
+- Triggered on `v*.*.*` tags
+- Validates version consistency across all docs
+- Builds Arch-compatible binaries
+- Generates SHA256 checksums
+- Creates GitHub release with notes
+
+**Rules:**
+- No green CI, no merge
+- No release without updated docs
+- No regressions allowed
+
+---
+
 ## Recent Changes
+
+### v0.0.32
+- **CI Hardening**: All builds/tests run in Arch Linux container
+- **Release Guardrails**: Version consistency checks, doc validation
+- **Repo Hygiene**: No legacy commands in docs, version sync enforcement
+- **Arch-Only**: Explicit single-platform support statement
+- **Smoke Tests**: CLI verification in CI (--version, --help, status, NL query)
+
+### v0.0.31
+- **Reliability Engineering**: Full metrics collection, error budgets, self-diagnostics
+- **Metrics Collection**: Tracks request/tool/mutation/LLM success rates, latencies (p50/p95), cache hits
+- **Error Budgets**: 1% request failures, 2% tool failures, 0.5% mutation rollbacks, 3% LLM timeouts
+- **Self-Diagnostics**: Generate pasteable reports via "generate a self-diagnostics report"
+- **Natural Language**: Ask "show me the error budgets" or "generate a bug report"
+- New tools: `self_diagnostics`, `metrics_summary`, `error_budgets`
+
+### v0.0.30
+- Helper auto-installation on daemon startup
+- Periodic helper health check (every 10 minutes)
+- Auto-reinstall helpers if user removes them
+
+### v0.0.29
+- Fixed auto-update artifact name matching for architecture suffix
+- Update now properly detects and installs new versions
 
 ### v0.0.28
 - System-aware helper filtering (no ethtool if no ethernet, etc.)

@@ -315,6 +315,15 @@ pub mod performance;
 // v0.0.22: Reliability Engineering
 pub mod reliability;
 
+// v0.0.33: Human-first transcript and case files
+pub mod transcript;
+
+// v0.0.34: Fix-It Mode for bounded troubleshooting loops
+pub mod fixit;
+
+// v0.0.35: Model policy and readiness
+pub mod model_policy;
+
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
 pub use config::*;
@@ -851,4 +860,57 @@ pub use reliability::{
     METRICS_FILE,
     DEFAULT_REQUEST_FAILURE_BUDGET, DEFAULT_TOOL_FAILURE_BUDGET,
     DEFAULT_MUTATION_ROLLBACK_BUDGET, DEFAULT_LLM_TIMEOUT_BUDGET,
+};
+
+// v0.0.33: Human-first transcript and case files
+// Note: Some names conflict with other modules, so we use explicit prefixes
+pub use transcript::{
+    // Actors
+    Actor as TranscriptActor,
+    // Transcript building
+    TranscriptMessage, TranscriptBuilder,
+    // Case file structures (renamed to avoid conflicts)
+    CaseSummary, CaseOutcome, CaseFile,
+    EvidenceEntry as CaseEvidenceEntry,
+    PolicyRef as CasePolicyRef,
+    CaseTiming,
+    CaseResult as TranscriptCaseResult,
+    // v0.0.35: Model info for case files
+    CaseModelInfo,
+    // Case retrieval
+    load_case_summary, list_recent_cases, list_today_cases, find_last_failure,
+    get_cases_storage_size, prune_cases,
+    // Utilities (renamed to avoid conflict with mutation_executor)
+    generate_request_id as generate_case_id,
+    // Constants
+    CASES_DIR, DEFAULT_RETENTION_DAYS, DEFAULT_MAX_SIZE_BYTES,
+};
+
+// v0.0.34: Fix-It Mode for bounded troubleshooting loops
+pub use fixit::{
+    // State machine
+    FixItState, FixItSession, ProblemCategory,
+    // Hypotheses
+    Hypothesis, HypothesisTestResult,
+    // Change sets (mutation batches)
+    ChangeSet, ChangeItem, ChangeResult, FixItRiskLevel,
+    // Timeline tracking
+    StateTransition, FixTimeline,
+    // Detection
+    is_fixit_request,
+    // Constants
+    MAX_HYPOTHESIS_CYCLES, MAX_TOOLS_PER_PHASE, MAX_MUTATIONS_PER_BATCH, FIX_CONFIRMATION,
+};
+
+// v0.0.35: Model policy and readiness
+pub use model_policy::{
+    // Policy types
+    ModelsPolicy, RolePolicy, GlobalPolicy, ScoringWeights,
+    // Download progress (renamed to avoid conflict with model_selection::DownloadProgress)
+    DownloadProgress as ModelDownloadProgress,
+    DownloadStatus as ModelDownloadStatus,
+    // Readiness state
+    ModelReadinessState,
+    // Constants
+    MODELS_POLICY_FILE, MODELS_POLICY_DIR, DEFAULT_MODELS_POLICY,
 };

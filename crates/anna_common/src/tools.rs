@@ -305,6 +305,45 @@ impl ToolCatalog {
             human_request: "check error budget status",
         });
 
+        // v0.0.33: Case file retrieval tools
+        tools.insert("last_case_summary", ToolDef {
+            name: "last_case_summary",
+            description: "Returns the summary of the most recent case file (what user asked, outcome, reliability score, evidence used)",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "show the last case summary",
+        });
+
+        tools.insert("last_failure_summary", ToolDef {
+            name: "last_failure_summary",
+            description: "Returns the summary and transcript of the most recent failed case, useful for debugging",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "show what happened in the last failure",
+        });
+
+        tools.insert("list_today_cases", ToolDef {
+            name: "list_today_cases",
+            description: "Lists all case files from today with timestamps, outcomes, and reliability scores",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "list today's cases",
+        });
+
+        tools.insert("list_recent_cases", ToolDef {
+            name: "list_recent_cases",
+            description: "Lists recent case files with timestamps, outcomes, and reliability scores",
+            parameters: &[
+                ("limit", "number", false), // default: 10
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "list recent cases",
+        });
+
         Self { tools }
     }
 

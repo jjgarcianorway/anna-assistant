@@ -289,13 +289,14 @@ pub fn get_helper_definitions() -> Vec<HelperDefinition> {
             provides_command: Some("nvme".to_string()),
             relevance_check: Some(RelevanceCheck::HasNvme),
         },
-        // Network diagnostics - only if ethernet exists
+        // Network diagnostics - always relevant (useful for USB adapters, wifi stats too)
+        // v0.0.33: Made always relevant since USB/Thunderbolt ethernet adapters are common
         HelperDefinition {
             name: "ethtool".to_string(),
             purpose: "Network interface diagnostics".to_string(),
-            optional: true,
+            optional: false,
             provides_command: Some("ethtool".to_string()),
-            relevance_check: Some(RelevanceCheck::HasEthernet),
+            relevance_check: None, // Always install - useful even for wifi driver stats
         },
         // WiFi - only if WiFi interfaces exist
         HelperDefinition {

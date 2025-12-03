@@ -1,6 +1,6 @@
 # Claude Operating Contract for Anna Assistant
 
-**Version: 0.0.30**
+**Version: 0.0.35**
 
 You are Claude, the sole engineering operator for Anna Assistant. This document is the source of truth over any older documentation.
 
@@ -228,12 +228,31 @@ Anna detects and reports:
 
 ## 12) Engineering Governance (Mandatory)
 
-### 12.1 GitHub Always Updated
-- CI must stay green
-- Fix failures immediately
-- Security posture: Fort Knox
+### 12.1 Platform Support
+- **Arch Linux only** - no other distributions supported
+- All CI runs in Arch Linux containers
+- Release binaries are Arch-compatible only
 
-### 12.2 Documentation is Part of Done
+### 12.2 CI Rules (v0.0.32)
+- **No green, no merge** - all CI checks must pass before merge
+- CI runs on every PR and push to main
+- Jobs: build (debug+release), test, clippy, fmt, audit, smoke, hygiene, security
+- Smoke tests verify CLI works: --version, --help, status, natural language
+
+### 12.3 Release Rules
+- **No release without tag and updated docs**
+- Release workflow validates:
+  - Cargo.toml version matches tag
+  - README.md, CLAUDE.md, RELEASE_NOTES.md updated
+  - TODO.md version current
+- Tag format: `v*.*.*` (e.g., v0.0.32)
+
+### 12.4 No Regressions
+- **No regressions allowed** - fix breakage before moving forward
+- Add tests for critical behavior
+- Run all tests before every commit
+
+### 12.5 Documentation is Part of Done
 
 Every change updates:
 - README.md
@@ -241,7 +260,7 @@ Every change updates:
 - Architecture docs as needed
 - Changelog/release notes
 
-### 12.3 TODO and Release Notes
+### 12.6 TODO and Release Notes
 
 Maintain:
 - **TODO.md**: Planned features, small tasks
@@ -249,11 +268,7 @@ Maintain:
 
 Rule: When TODO item completed, remove from TODO, add to release notes in same commit.
 
-### 12.4 No Regressions
-- Add tests for critical behavior
-- Fix breakage before moving forward
-
-### 12.5 Versioning (Strict)
+### 12.7 Versioning (Strict)
 
 Every prompt = version bump:
 1. Update version in code and docs
@@ -264,7 +279,7 @@ Every prompt = version bump:
 
 Stay in 0.xxx.yyy until production quality.
 
-### 12.6 Agents/Plugins
+### 12.8 Agents/Plugins
 
 Use if needed, but keep output transparent and verifiable.
 

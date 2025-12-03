@@ -57,6 +57,11 @@ pub fn execute_tool(
         "self_diagnostics" => execute_self_diagnostics(evidence_id, timestamp),
         "metrics_summary" => execute_metrics_summary(&request.parameters, evidence_id, timestamp),
         "error_budgets" => execute_error_budgets(evidence_id, timestamp),
+        // v0.0.33: Case file retrieval tools
+        "last_case_summary" => execute_last_case_summary(evidence_id, timestamp),
+        "last_failure_summary" => execute_last_failure_summary(evidence_id, timestamp),
+        "list_today_cases" => execute_list_today_cases(evidence_id, timestamp),
+        "list_recent_cases" => execute_list_recent_cases(&request.parameters, evidence_id, timestamp),
         _ => unavailable_result(&request.tool_name, evidence_id),
     }
 }
@@ -1171,6 +1176,210 @@ fn execute_error_budgets(evidence_id: &str, timestamp: u64) -> ToolResult {
         success: true,
         error: None,
         timestamp,
+    }
+}
+
+// =============================================================================
+// v0.0.33: Case file retrieval tools
+// =============================================================================
+
+fn execute_last_case_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let cases = crate::transcript::list_recent_cases(1);
+
+    if cases.is_empty() {
+        return ToolResult {
+            tool_name: "last_case_summary".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({"error": "No case files found"}),
+            human_summary: "No case files found yet".to_string(),
+            success: true,
+            error: None,
+            timestamp,
+        };
+    }
+
+    let case_path = &cases[0];
+    let summary = crate::transcript::load_case_summary(case_path);
+
+    match summary {
+        Some(s) => {
+            let human_summary = format!(
+                "Last case [{}]: {} - {} ({}% reliability)",
+                s.request_id,
+                truncate_str(&s.user_request, 50),
+                s.outcome,
+                s.reliability_score
+            );
+
+            ToolResult {
+                tool_name: "last_case_summary".to_string(),
+                evidence_id: evidence_id.to_string(),
+                data: json!({
+                    "request_id": s.request_id,
+                    "timestamp": s.timestamp.to_rfc3339(),
+                    "user_request": s.user_request,
+                    "intent_type": s.intent_type,
+                    "outcome": s.outcome.to_string(),
+                    "reliability_score": s.reliability_score,
+                    "evidence_count": s.evidence_count,
+                    "policy_refs_count": s.policy_refs_count,
+                    "duration_ms": s.duration_ms,
+                    "error_message": s.error_message,
+                }),
+                human_summary,
+                success: true,
+                error: None,
+                timestamp,
+            }
+        }
+        None => ToolResult {
+            tool_name: "last_case_summary".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({"error": "Could not load case summary"}),
+            human_summary: "Could not read last case file".to_string(),
+            success: false,
+            error: Some("Failed to parse case summary".to_string()),
+            timestamp,
+        },
+    }
+}
+
+fn execute_last_failure_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let failure_path = crate::transcript::find_last_failure();
+
+    match failure_path {
+        Some(path) => {
+            let summary = crate::transcript::load_case_summary(&path);
+            let transcript_path = path.join("transcript.log");
+            let transcript = std::fs::read_to_string(&transcript_path)
+                .unwrap_or_else(|_| "(transcript not available)".to_string());
+
+            if let Some(s) = summary {
+                let human_summary = format!(
+                    "Last failure [{}]: {} - error: {}",
+                    s.request_id,
+                    truncate_str(&s.user_request, 40),
+                    s.error_message.as_deref().unwrap_or("unknown")
+                );
+
+                ToolResult {
+                    tool_name: "last_failure_summary".to_string(),
+                    evidence_id: evidence_id.to_string(),
+                    data: json!({
+                        "request_id": s.request_id,
+                        "timestamp": s.timestamp.to_rfc3339(),
+                        "user_request": s.user_request,
+                        "outcome": s.outcome.to_string(),
+                        "reliability_score": s.reliability_score,
+                        "error_message": s.error_message,
+                        "transcript_preview": truncate_str(&transcript, 500),
+                    }),
+                    human_summary,
+                    success: true,
+                    error: None,
+                    timestamp,
+                }
+            } else {
+                ToolResult {
+                    tool_name: "last_failure_summary".to_string(),
+                    evidence_id: evidence_id.to_string(),
+                    data: json!({"error": "Could not load failure details"}),
+                    human_summary: "Could not read failure case file".to_string(),
+                    success: false,
+                    error: Some("Failed to parse failure case".to_string()),
+                    timestamp,
+                }
+            }
+        }
+        None => ToolResult {
+            tool_name: "last_failure_summary".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({"message": "No failures found"}),
+            human_summary: "No failures found in recent cases".to_string(),
+            success: true,
+            error: None,
+            timestamp,
+        },
+    }
+}
+
+fn execute_list_today_cases(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let cases = crate::transcript::list_today_cases();
+
+    let case_summaries: Vec<_> = cases.iter()
+        .filter_map(|path| crate::transcript::load_case_summary(path))
+        .collect();
+
+    let human_summary = format!(
+        "Today: {} cases, {} successful",
+        case_summaries.len(),
+        case_summaries.iter().filter(|s| s.outcome == crate::transcript::CaseOutcome::Success).count()
+    );
+
+    ToolResult {
+        tool_name: "list_today_cases".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "count": case_summaries.len(),
+            "cases": case_summaries.iter().map(|s| json!({
+                "request_id": s.request_id,
+                "timestamp": s.timestamp.to_rfc3339(),
+                "request_preview": truncate_str(&s.user_request, 30),
+                "outcome": s.outcome.to_string(),
+                "reliability_score": s.reliability_score,
+            })).collect::<Vec<_>>(),
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+fn execute_list_recent_cases(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
+    let limit = params.get("limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(10) as usize;
+
+    let cases = crate::transcript::list_recent_cases(limit);
+
+    let case_summaries: Vec<_> = cases.iter()
+        .filter_map(|path| crate::transcript::load_case_summary(path))
+        .collect();
+
+    let human_summary = format!(
+        "Recent: {} cases (last {} requested)",
+        case_summaries.len(),
+        limit
+    );
+
+    ToolResult {
+        tool_name: "list_recent_cases".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "limit": limit,
+            "count": case_summaries.len(),
+            "cases": case_summaries.iter().map(|s| json!({
+                "request_id": s.request_id,
+                "timestamp": s.timestamp.to_rfc3339(),
+                "request_preview": truncate_str(&s.user_request, 30),
+                "outcome": s.outcome.to_string(),
+                "reliability_score": s.reliability_score,
+            })).collect::<Vec<_>>(),
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// Helper to truncate strings for summaries
+fn truncate_str(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
     }
 }
 

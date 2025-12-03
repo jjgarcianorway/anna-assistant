@@ -987,10 +987,10 @@ pub struct AnnaConfig {
     pub reliability: ReliabilityConfig,
 }
 
-/// UI configuration (v0.0.15)
+/// UI configuration (v0.0.15, v0.0.33: dev_mode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiConfig {
-    /// Debug level: 0=minimal, 1=normal (default), 2=full
+    /// Debug level: 0=minimal, 1=normal, 2=full (default in dev mode)
     /// 0: Only [you]->[anna] and final [anna]->[you], plus confirmations
     /// 1: Dialogues condensed, tool calls summarized, evidence IDs included
     /// 2: Full dialogues, tool execution summaries, Junior critique in full
@@ -1004,6 +1004,11 @@ pub struct UiConfig {
     /// Maximum width for text wrapping (0 = auto-detect terminal width)
     #[serde(default)]
     pub max_width: u16,
+
+    /// v0.0.33: Development mode - max verbosity by default
+    /// When true, debug_level defaults to 2 and all diagnostics are visible
+    #[serde(default = "default_dev_mode")]
+    pub dev_mode: bool,
 }
 
 /// Performance configuration (v0.0.21)
@@ -1190,8 +1195,10 @@ impl Default for ReliabilityConfig {
     }
 }
 
-fn default_debug_level() -> u8 { 1 }
+// v0.0.33: Default to debug_level=2 during development (dev_mode=true)
+fn default_debug_level() -> u8 { 2 }  // Full verbosity during development
 fn default_colors_enabled() -> bool { true }
+fn default_dev_mode() -> bool { true }  // Dev mode on by default during development
 
 impl Default for UiConfig {
     fn default() -> Self {
@@ -1199,6 +1206,7 @@ impl Default for UiConfig {
             debug_level: default_debug_level(),
             colors_enabled: default_colors_enabled(),
             max_width: 0,
+            dev_mode: default_dev_mode(),
         }
     }
 }
@@ -1238,6 +1246,20 @@ impl UiConfig {
             0 => "minimal",
             1 => "normal",
             _ => "full",
+        }
+    }
+
+    /// v0.0.33: Check if development mode is enabled
+    pub fn is_dev_mode(&self) -> bool {
+        self.dev_mode
+    }
+
+    /// v0.0.33: Get effective debug level (2 if dev_mode, else configured)
+    pub fn effective_debug_level(&self) -> u8 {
+        if self.dev_mode {
+            self.debug_level.max(2) // At least full in dev mode
+        } else {
+            self.debug_level
         }
     }
 }
@@ -1386,13 +1408,15 @@ mod tests {
         assert!(!config.instrumentation.allow_aur, "AUR gate must be OFF by default");
     }
 
-    // v0.0.15: UI config tests
+    // v0.0.15: UI config tests (v0.0.33: updated for dev_mode defaults)
     #[test]
     fn test_ui_config_defaults() {
         let config = AnnaConfig::default();
-        assert_eq!(config.ui.debug_level, 1, "Default debug level should be 1 (normal)");
+        // v0.0.33: Default is now debug_level=2 (full) during development
+        assert_eq!(config.ui.debug_level, 2, "Default debug level should be 2 (full) in dev mode");
         assert!(config.ui.colors_enabled, "Colors should be enabled by default");
         assert_eq!(config.ui.max_width, 0, "Default max_width should be 0 (auto-detect)");
+        assert!(config.ui.dev_mode, "Dev mode should be enabled by default during development");
     }
 
     #[test]

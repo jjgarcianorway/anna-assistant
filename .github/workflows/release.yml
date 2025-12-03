@@ -1,67 +1,161 @@
+# Anna Assistant Release - Arch Linux Only
+# v0.0.32: Release Pipeline Guardrails
+#
+# This workflow runs only on version tags (v*.*.*).
+# Builds Arch-compatible binaries and creates GitHub releases.
+#
+# Guardrails:
+# - Version in Cargo.toml must match tag
+# - README, CLAUDE.md, RELEASE_NOTES must be updated
+# - TODO.md version must be current
+# - All CI checks must have passed
+
 name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact: anna-linux-x86_64
-
+  # ==========================================================================
+  # Pre-Release Validation
+  # ==========================================================================
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Get version
+      - name: Extract version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$TAG_VERSION" >> $GITHUB_OUTPUT
+          echo "Tag version: $TAG_VERSION"
+
+      - name: Check Cargo.toml version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+
+          echo "Tag version: $TAG_VERSION"
+          echo "Cargo.toml version: $CARGO_VERSION"
+
+          if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
+            echo "ERROR: Tag version ($TAG_VERSION) does not match Cargo.toml ($CARGO_VERSION)"
+            exit 1
+          fi
+          echo "OK: Versions match"
+
+      - name: Check README.md updated
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if ! grep -q "Anna Assistant v$TAG_VERSION" README.md; then
+            echo "ERROR: README.md not updated for v$TAG_VERSION"
+            exit 1
+          fi
+          echo "OK: README.md updated"
+
+      - name: Check CLAUDE.md updated
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if ! grep -q "Version: $TAG_VERSION" CLAUDE.md; then
+            echo "ERROR: CLAUDE.md not updated for v$TAG_VERSION"
+            exit 1
+          fi
+          echo "OK: CLAUDE.md updated"
+
+      - name: Check RELEASE_NOTES.md updated
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if ! grep -q "## v$TAG_VERSION" RELEASE_NOTES.md; then
+            echo "ERROR: RELEASE_NOTES.md missing entry for v$TAG_VERSION"
+            exit 1
+          fi
+          echo "OK: RELEASE_NOTES.md updated"
+
+      - name: Check TODO.md version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          TODO_VERSION=$(grep -oP 'Current Version: \K[\d.]+' TODO.md || echo "not found")
+
+          if [ "$TAG_VERSION" != "$TODO_VERSION" ]; then
+            echo "ERROR: TODO.md version ($TODO_VERSION) not updated to $TAG_VERSION"
+            exit 1
+          fi
+          echo "OK: TODO.md version matches"
+
+  # ==========================================================================
+  # Build (Arch Linux)
+  # ==========================================================================
+  build:
+    name: Build (Arch Linux)
+    runs-on: ubuntu-latest
+    needs: validate
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git base-devel rustup
+          rustup default stable
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build release
+        run: cargo build --release --workspace
+
+      - name: Run tests
+        run: cargo test --workspace
 
       - name: Package binaries
         run: |
-          mkdir -p dist
-          # Copy binaries with versioned names (e.g., annad-0.16.2-x86_64-unknown-linux-gnu)
-          cp target/${{ matrix.target }}/release/annad "dist/annad-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}"
-          cp target/${{ matrix.target }}/release/annactl "dist/annactl-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}"
+          VERSION="${{ needs.validate.outputs.version }}"
+          TARGET="x86_64-unknown-linux-gnu"
 
-          # Generate checksums with versioned filenames
+          mkdir -p dist
+
+          # Copy binaries with versioned names
+          cp target/release/annad "dist/annad-${VERSION}-${TARGET}"
+          cp target/release/annactl "dist/annactl-${VERSION}-${TARGET}"
+
+          # Generate checksums
           cd dist
           sha256sum * > SHA256SUMS
+
+          echo "=== Package contents ==="
+          ls -la
+          echo ""
+          echo "=== SHA256SUMS ==="
           cat SHA256SUMS
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
+          name: anna-linux-x86_64
           path: dist/*
 
+  # ==========================================================================
+  # Create GitHub Release
+  # ==========================================================================
   release:
-    name: Release
-    needs: build
+    name: Create Release
+    needs: [validate, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -71,6 +165,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
+
           # Copy all files from artifact directories
           find artifacts -type f | while read f; do
             cp "$f" release/
@@ -87,10 +182,37 @@ jobs:
           echo "=== SHA256SUMS ==="
           cat SHA256SUMS
 
-      - name: Create Release
+      - name: Extract release notes
+        id: notes
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+
+          # Extract release notes for this version from RELEASE_NOTES.md
+          # Get content between "## vX.X.X" and the next "## v" or end of file
+          awk "/^## v$VERSION/,/^## v[0-9]/" RELEASE_NOTES.md | head -n -1 > release_notes.txt
+
+          if [ -s release_notes.txt ]; then
+            echo "Found release notes for v$VERSION"
+            cat release_notes.txt
+          else
+            echo "No specific release notes found, using default"
+            echo "## v$VERSION" > release_notes.txt
+            echo "" >> release_notes.txt
+            echo "See RELEASE_NOTES.md for details." >> release_notes.txt
+          fi
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: release/*
+          body_path: release_notes.txt
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "=========================================="
+          echo "  Release v${{ needs.validate.outputs.version }} created"
+          echo "  Platform: Arch Linux (x86_64)"
+          echo "=========================================="

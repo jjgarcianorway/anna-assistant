@@ -2,6 +2,535 @@
 
 ---
 
+## v0.0.35 - Ollama Role Selection (Policy-Driven Model Management)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now independently selects models for the Translator and Junior roles based on hardware capabilities and a policy-driven configuration. The system detects hardware (CPU, RAM, GPU, VRAM), benchmarks available models, and selects the best fit for each role's requirements.
+
+### Key Features
+
+**Policy-Driven Model Selection:**
+- Configuration file: `/etc/anna/policy/models.toml`
+- Separate requirements for Translator (fast, low latency) and Junior (higher reasoning)
+- Scoring weights: latency (0.3), throughput (0.2), quality (0.4), memory_fit (0.1)
+- Candidate models in preference order with automatic fallback
+
+**Hardware Detection:**
+- Detects: CPU cores, total RAM, GPU vendor (nvidia/amd/intel), VRAM
+- Hardware tier classification: Low (<8GB RAM), Medium (8-16GB), High (>16GB or dedicated GPU)
+- Hardware hash for change detection and rebenchmarking triggers
+
+**Model Readiness UX:**
+- `annactl status` [MODELS] section shows:
+  - Hardware tier (Low/Medium/High)
+  - Translator model and status
+  - Junior model and status (or fallback mode)
+  - Download progress with ETA when pulling models
+  - Readiness summary (full capability / partial / not ready)
+
+**Fallback Behavior:**
+- Translator fallback: deterministic classifier when no model available
+- Junior fallback: skip mode with reliability capped at 60%
+- Clear visibility in status output: "reliability capped at 60%"
+
+**Case Files with Model Info:**
+- New `models` field in case files tracks which models were used
+- Records: translator model, junior model (if any), fallback states, hardware tier
+- Supports debugging and learning from model performance
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/model_policy.rs` - Complete policy system (500+ lines)
+  - `ModelsPolicy` with role-specific policies
+  - `RolePolicy` for Translator and Junior requirements
+  - `ScoringWeights` for model selection scoring
+  - `DownloadProgress` and `DownloadStatus` for tracking
+  - `ModelReadinessState` for case file serialization
+  - Default policy with candidate models for each role
+- **MODIFIED:** `crates/anna_common/src/model_selection.rs` - Added role field to DownloadProgress
+- **MODIFIED:** `crates/anna_common/src/transcript.rs` - Added CaseModelInfo struct and models field
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Exported model_policy and CaseModelInfo
+- **MODIFIED:** `crates/annactl/src/commands/status.rs` - Enhanced [MODELS] section
+- **MODIFIED:** `crates/annad/src/llm_bootstrap.rs` - Track role for each model download
+
+### Default Policy
+
+```toml
+[translator]
+max_latency_ms = 2000
+min_quality_tier = "low"
+max_tokens = 512
+candidates = ["qwen2.5:0.5b", "qwen2.5:1.5b", "llama3.2:1b", "phi3:mini", "gemma2:2b"]
+fallback = "deterministic"
+
+[junior]
+max_latency_ms = 5000
+min_quality_tier = "medium"
+max_tokens = 1024
+candidates = ["qwen2.5:1.5b-instruct", "qwen2.5:3b-instruct", "llama3.2:3b-instruct"]
+fallback = "skip"
+no_junior_max_reliability = 60
+```
+
+### Migration Notes
+
+- Existing case files remain compatible (models field is optional)
+- Policy file is auto-generated on first run if missing
+- No configuration changes required for default behavior
+
+---
+
+## v0.0.34 - Fix-It Mode (Bounded Troubleshooting Loops)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna can now actively troubleshoot problems using a bounded state machine approach. When you report an issue like "WiFi keeps disconnecting" or "my service won't start", Anna enters Fix-It mode: collecting evidence, forming hypotheses, testing them, and proposing fixes with full rollback support.
+
+### Key Features
+
+**Fix-It Mode State Machine:**
+- States: `understand` → `evidence` → `hypothesize` → `test` → `plan_fix` → `apply_fix` → `verify` → `close`
+- Maximum 2 hypothesis cycles before declaring "stuck" with evidence of what was tried
+- Every state transition is logged in the transcript and case file
+- Stuck state reports: "what I tried" + "what evidence is missing"
+
+**Problem Category Detection:**
+- Automatic detection: Networking, Audio, Performance, SystemdService, Storage, Graphics, Boot
+- Each category has a predefined tool bundle for baseline evidence collection
+- Example: Networking bundle includes hw_snapshot, NetworkManager status, journal warnings
+
+**Tool Bundles (Policy-Driven):**
+```
+Networking: hw_snapshot_summary, service_status(NetworkManager), journal_warnings(NetworkManager, wpa_supplicant)
+Audio: hw_snapshot_summary, service_status(pipewire/pulseaudio), journal_warnings(pipewire)
+Performance: hw_snapshot_summary, top_resource_processes, slowness_hypotheses, what_changed
+SystemdService: sw_snapshot_summary, journal_warnings
+Storage: disk_usage, hw_snapshot_summary
+```
+
+**Change Sets (Mutation Batches):**
+- Group 1-5 mutations into a single confirmation
+- Each change specifies: what, why, risk, rollback action, post-check
+- Single confirmation phrase: `I CONFIRM (apply fix)`
+- Automatic rollback in reverse order if any post-check fails
+
+**Fix Timeline Tracking:**
+- New `fix_timeline.json` in case files for troubleshooting sessions
+- Records: problem statement, category, all hypotheses, selected fix, state transitions
+- Full audit trail for debugging and learning
+
+**Intent Classification:**
+- New `IntentType::FixIt` for troubleshooting requests
+- Detection patterns: "fix my X", "X is broken", "keeps disconnecting", "won't start", etc.
+- Automatic routing to Fix-It mode state machine
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/fixit.rs` - Complete Fix-It mode system (400 lines)
+  - `FixItState` enum with state machine
+  - `FixItSession` for tracking troubleshooting progress
+  - `ProblemCategory` with tool bundle mapping
+  - `Hypothesis` and `HypothesisTestResult` for evidence-based reasoning
+  - `ChangeSet` and `ChangeItem` for mutation batches
+  - `FixTimeline` for audit trail
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Added fixit module exports
+- **MODIFIED:** `crates/anna_common/src/transcript.rs` - Added fix_timeline field and save
+- **MODIFIED:** `crates/annactl/src/pipeline.rs` - Added IntentType::FixIt and detection
+- **MODIFIED:** `Cargo.toml` - Version 0.0.34
+- **MODIFIED:** `CLAUDE.md` - Version 0.0.34
+- **MODIFIED:** `TODO.md` - Version 0.0.34
+- **MODIFIED:** `README.md` - Version 0.0.34 with Fix-It description
+
+### Tests Added
+
+- `test_is_fixit_request` - Detection of troubleshooting requests
+- `test_problem_category_detection` - Category classification from problem descriptions
+- `test_fixit_session_creation` - Session initialization with category
+- `test_fixit_session_transitions` - State machine transitions
+- `test_hypothesis_cycle_limit` - Max 2 cycles enforcement
+- `test_change_set_limit` - Max 5 mutations per batch
+- `test_tool_bundles` - Correct tools for each category
+- `test_change_set_confirmation_format` - User-facing confirmation display
+
+### Example Fix-It Transcript
+
+```
+[you] to [anna]:
+  WiFi keeps disconnecting
+
+[anna] to [translator]:
+  Classify: "WiFi keeps disconnecting"
+
+[translator] to [anna]:
+  INTENT: fix_it
+  CATEGORY: networking
+  TOOLS: hw_snapshot_summary, service_status(NetworkManager), journal_warnings(NetworkManager, 30)
+
+[state] understand -> evidence
+  reason: Starting evidence collection for networking issue
+
+[anna] to [annad]:
+  Execute tool bundle: networking
+
+[annad] to [anna]:
+  [E1] hw_snapshot_summary: Intel WiFi 6 AX200, driver iwlwifi
+  [E2] service_status(NetworkManager): active (running)
+  [E3] journal_warnings: "wlp0s20f3: deauthenticating by local choice (Reason: 3=DEAUTH_LEAVING)"
+
+[state] evidence -> hypothesize
+  reason: Evidence collected, forming hypotheses
+
+[anna] to [junior]:
+  Hypotheses based on [E1], [E2], [E3]:
+  H1: Power management causing disconnects (confidence: 75%, evidence: [E3])
+  H2: Driver bug in iwlwifi (confidence: 40%, evidence: [E1])
+
+[junior] to [anna]:
+  SCORE: 72
+  CRITIQUE: H1 is well-supported by deauth reason. Suggest testing power management first.
+
+[state] hypothesize -> plan_fix
+  reason: H1 selected, planning fix
+
+[anna] to [you]:
+  ╭─────────────────────────────────────────────────────────────────╮
+  │ Change Set: 18e4a7f2-3c1d (1 changes)
+  ├─────────────────────────────────────────────────────────────────┤
+  │ 1. Disable WiFi power management
+  │    Why: Prevent power-save triggered disconnects
+  │    Risk: low
+  │    Rollback: Re-enable power management
+  ├─────────────────────────────────────────────────────────────────┤
+  │ To apply, type: I CONFIRM (apply fix)
+  ╰─────────────────────────────────────────────────────────────────╯
+```
+
+### Rollback Behavior Example
+
+```
+[state] apply_fix -> verify
+  reason: Change applied, verifying
+
+[annad] to [anna]:
+  Post-check FAILED: Network still disconnecting after 30 seconds
+
+[state] verify -> apply_fix
+  reason: Post-check failed, rolling back
+
+[anna] to [annad]:
+  Rollback: Re-enable power management
+
+[anna] to [you]:
+  Fix attempt failed. Rolled back change.
+  Hypothesis H1 (power management) was not the cause.
+  Cycle 1/2 complete. Trying next hypothesis...
+
+[state] apply_fix -> hypothesize
+  reason: Rollback complete, trying H2
+```
+
+---
+
+## v0.0.33 - Human-First Transcript + Local Case Files
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now includes a human-first debug transcript system and local case file storage for troubleshooting. Debug levels now control verbosity, not readability - transcripts are always human-readable. Development mode defaults to maximum verbosity. Case files are stored locally per request and can be queried via natural language.
+
+### Key Features
+
+**Human-First Transcript Renderer:**
+- `TranscriptBuilder` produces human-readable output at all debug levels
+- Format: `[you] to [anna]:` style with proper text wrapping
+- Debug level 0: User-facing messages only
+- Debug level 1: Includes internal Anna/Translator dialogue
+- Debug level 2: Full verbosity with Junior/Senior dialogue
+- Evidence citations displayed inline with messages
+- Automatic text wrapping to terminal width
+
+**Local Case Files:**
+- Case files stored per request at `/var/lib/anna/cases/YYYY/MM/DD/<request_id>/`
+- Each case contains:
+  - `summary.txt` - Human-readable case summary
+  - `transcript.log` - Full debug transcript
+  - `evidence.json` - Evidence entries with tool calls
+  - `policy_refs.json` - Policy references cited
+  - `timing.json` - Timing breakdown per phase
+  - `result.json` - Outcome and reliability score
+- Atomic file writes with secret redaction
+- Automatic pruning (30 days retention, 1GB max)
+
+**Case Retrieval via Natural Language:**
+- "Show me the last case summary" - Displays most recent case
+- "Show me what happened in the last failure" - Shows last failed case
+- "List today's cases" - Shows today's cases
+- "List recent cases" - Shows recent case summaries
+- New tools: `last_case_summary`, `last_failure_summary`, `list_today_cases`, `list_recent_cases`
+- Intent classifier detects case-related queries
+
+**Dev Mode Defaults:**
+- `dev_mode = true` in config during development
+- `debug_level = 2` default for maximum verbosity
+- `UiConfig.is_dev_mode()` and `effective_debug_level()` helpers
+- [CASES] section in status shows dev mode indicator
+
+**Status Additions:**
+- New [CASES] section showing:
+  - Dev mode status
+  - Recent case count with success/failure breakdown
+  - Case storage usage
+  - Last failure summary
+  - Latest case list (in non-compact mode)
+
+**Helper Improvements:**
+- `ethtool` now always installed (useful for USB/Thunderbolt adapters, wifi stats)
+- Relevance check removed - network diagnostics always available
+
+### Files Changed
+
+- **NEW:** `crates/anna_common/src/transcript.rs` - Complete transcript and case file system (680+ lines)
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Added transcript module exports
+- **MODIFIED:** `crates/anna_common/src/config.rs` - Added dev_mode, updated debug_level default to 2
+- **MODIFIED:** `crates/anna_common/src/tools.rs` - Added case retrieval tools
+- **MODIFIED:** `crates/anna_common/src/tool_executor.rs` - Added case tool executors
+- **MODIFIED:** `crates/anna_common/src/helpers.rs` - Made ethtool always relevant
+- **MODIFIED:** `crates/annactl/src/pipeline.rs` - Added case query detection
+- **MODIFIED:** `crates/annactl/src/commands/status.rs` - Added [CASES] section
+- **MODIFIED:** `Cargo.toml` - Version 0.0.33
+- **MODIFIED:** `CLAUDE.md` - Version 0.0.33
+- **MODIFIED:** `TODO.md` - Version 0.0.33
+- **MODIFIED:** `README.md` - Version 0.0.33
+
+### Tests Added
+
+- `test_transcript_builder` - TranscriptBuilder message handling
+- `test_transcript_debug_levels` - Debug level filtering
+- `test_case_file_evidence` - Evidence entry management
+- `test_case_file_outcome` - Outcome and error handling
+- `test_case_file_timing` - Timing information
+- `test_redact_transcript` - Secret redaction in case files
+- `test_case_outcome_partial` - Partial completion handling
+
+---
+
+## v0.0.32 - CI Hardening + "No Regressions" Gate
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now has comprehensive CI/CD infrastructure that enforces quality gates on Arch Linux, the only supported platform. All builds, tests, and releases run in Arch Linux containers with strict validation of version consistency, documentation, and code quality.
+
+### Key Features
+
+**GitHub Actions CI (Arch-Only):**
+- Build matrix: debug + release profiles in `archlinux:latest` container
+- Unit tests and integration tests
+- Clippy lints (advisory)
+- Rustfmt check (advisory)
+- Security audit via cargo-audit (advisory)
+- Smoke tests for CLI verification
+- Repo hygiene checks
+- Policy/redaction security tests
+- Final "CI Pass" gate requiring all critical jobs
+
+**Smoke Tests:**
+- `annactl --version` must succeed and show valid version
+- `annactl --help` must not show legacy commands (sw, hw)
+- `annactl status` must handle missing daemon gracefully
+- `annactl <request>` must produce Reliability score even in fallback mode
+
+**Release Pipeline Guardrails:**
+- Triggered on `v*.*.*` tags only
+- Validates version consistency:
+  - Cargo.toml version matches tag
+  - README.md updated for version
+  - CLAUDE.md updated for version
+  - RELEASE_NOTES.md has entry for version
+  - TODO.md version matches
+- Builds in Arch Linux container
+- Runs full test suite
+- Generates SHA256 checksums
+- Extracts release notes automatically
+- Creates GitHub release
+
+**Repo Hygiene Checks:**
+- No legacy commands (annactl sw, annactl hw, --json) in docs
+- Version consistency across all documentation files
+- Root-level file allowlist enforcement
+- RELEASE_NOTES.md must have current version entry
+
+**Documentation Updates:**
+- Explicit "Arch Linux only" support statement
+- CI badge in README
+- CI/CD section explaining pipeline
+- CLAUDE.md updated with CI rules:
+  - No green, no merge
+  - No release without updated docs
+  - No regressions allowed
+
+### Files Changed
+
+- **NEW:** `.github/workflows/ci.yml` - Comprehensive CI workflow
+- **MODIFIED:** `.github/workflows/release.yml` - Added guardrails
+- **MODIFIED:** `README.md` - v0.0.32, CI badge, Arch-only statement, CI/CD section
+- **MODIFIED:** `CLAUDE.md` - v0.0.32, CI rules, platform support
+- **MODIFIED:** `Cargo.toml` - version 0.0.32
+- **MODIFIED:** `TODO.md` - version 0.0.32
+
+### CI Jobs Summary
+
+| Job | Purpose | Blocking? |
+|-----|---------|-----------|
+| build (debug) | Compile in debug mode | Yes |
+| build (release) | Compile in release mode | Yes |
+| test | Unit + integration tests | Yes |
+| clippy | Lint warnings | No (advisory) |
+| fmt | Format check | No (advisory) |
+| audit | Security vulnerabilities | No (advisory) |
+| smoke | CLI verification | Yes |
+| hygiene | Repo cleanliness | Yes |
+| security-tests | Redaction/policy tests | Yes |
+| ci-pass | Final gate | Yes |
+
+### Release Validation Checks
+
+1. Tag version matches Cargo.toml
+2. README.md mentions version
+3. CLAUDE.md mentions version
+4. RELEASE_NOTES.md has version entry
+5. TODO.md has current version
+6. All tests pass
+7. Binaries build successfully
+
+---
+
+## v0.0.31 - Reliability Engineering Integration
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now tracks her own reliability metrics in real-time with proper integration into the request pipeline. Metrics (request success/failure, tool success/failure, LLM timeouts, cache hits) are recorded during every request. Error budgets trigger alerts when thresholds are exceeded. Self-diagnostics reports can be generated via natural language requests.
+
+### Key Features
+
+**Pipeline Metrics Integration:**
+- Metrics recording wired into `process()` function in pipeline.rs
+- RequestStart/Success recorded at beginning/end of each request
+- TranslatorStart/Success/Timeout recorded for Translator LLM calls
+- ToolStart/Success/Failure recorded for each tool execution
+- JuniorStart/Success/Timeout recorded for Junior LLM calls
+- Latency samples recorded for translator, tools, junior, and e2e
+- CacheHit/CacheMiss recorded based on cache status
+- Metrics automatically pruned and saved after each request
+
+**Natural Language Support for Reliability Tools:**
+- Translator system prompt updated with reliability tools (v0.0.31)
+- New tools available: self_diagnostics, metrics_summary, error_budgets
+- Source planning rules for "diagnostics report", "metrics", "error budget"
+- Deterministic fallback handles reliability keywords
+- Tool plan generator creates plans for reliability evidence needs
+
+**Tool Format Examples:**
+```
+TOOLS: self_diagnostics
+TOOLS: metrics_summary(days=7), error_budgets
+```
+
+**User Queries Supported:**
+- "Generate a self-diagnostics report"
+- "Show me the error budgets"
+- "What are my reliability metrics?"
+- "Generate a bug report"
+
+### Files Changed
+
+- **MODIFIED:** `crates/annactl/src/pipeline.rs`
+  - Added `MetricsStore, MetricType` imports
+  - Added metrics recording in `process()` function
+  - Updated TRANSLATOR_SYSTEM_PROMPT with reliability tools
+  - Added reliability keywords to `classify_intent_deterministic()`
+  - Added reliability tools to `generate_tool_plan_from_evidence_needs()`
+
+- **MODIFIED:** `Cargo.toml` - version 0.0.31
+- **MODIFIED:** `CLAUDE.md` - version 0.0.31
+- **MODIFIED:** `README.md` - v0.0.31 documentation
+- **MODIFIED:** `TODO.md` - version 0.0.31
+
+### Metrics Recording Points
+
+```rust
+// Start of request
+metrics.record(MetricType::RequestStart);
+
+// Translator LLM
+metrics.record(MetricType::TranslatorStart);
+metrics.record(MetricType::TranslatorSuccess); // or TranslatorTimeout
+
+// Tools
+for each tool:
+  metrics.record(MetricType::ToolStart);
+  metrics.record(MetricType::ToolSuccess); // or ToolFailure
+
+// Junior LLM
+metrics.record(MetricType::JuniorStart);
+metrics.record(MetricType::JuniorSuccess); // or JuniorTimeout
+
+// End of request
+metrics.record(MetricType::RequestSuccess);
+metrics.record_latency("e2e", total_ms);
+metrics.record(MetricType::CacheHit); // or CacheMiss
+metrics.save();
+```
+
+### Tests
+
+- All 45 existing tests pass (25 pipeline unit tests + 20 CLI tests)
+- 14 reliability module tests pass
+- No regressions in existing functionality
+
+---
+
+## v0.0.30 - Helper Auto-Installation on Daemon Start
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna now automatically installs missing helpers on daemon startup and maintains them via periodic health checks. If a user removes an Anna-installed helper, it will be reinstalled on the next health check (every 10 minutes).
+
+### Key Features
+
+- `install_missing_helpers()` called on daemon startup
+- Periodic helper health check every 10 minutes (HELPER_CHECK_INTERVAL_SECS = 600)
+- Auto-reinstall of missing helpers during health checks
+- Helper tracking maintained in manifest
+
+---
+
+## v0.0.29 - Auto-Update Artifact Name Fix
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Fixed auto-update artifact name matching to handle architecture suffixes. Updates now properly detect and install new versions from GitHub releases with names like `annad-0.0.29-x86_64-unknown-linux-gnu`.
+
+### Key Features
+
+- `fetch_github_releases()` uses `starts_with("annad-")` pattern
+- `atomic_install()` extracts base name from versioned artifacts
+
+---
+
 ## v0.0.28 - System-Aware Helper Filtering & Reliability Improvements
 
 **Release Date:** 2025-12-03

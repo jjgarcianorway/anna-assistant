@@ -1,4 +1,10 @@
-//! Status Command v0.0.28 - Simplified Display
+//! Status Command v0.0.35 - Model Readiness UX
+//!
+//! v0.0.35: Enhanced [MODELS] section with role selection visibility
+//! - Hardware tier display (Low/Medium/High based on RAM/VRAM)
+//! - Download progress with role identification and ETA
+//! - Fallback mode indicators (reliability capped at 60% when Junior unavailable)
+//! - Readiness summary (full capability / partial / not ready)
 //!
 //! v0.0.28: Simplified status display
 //! - Removed rarely-useful sections for cleaner output
@@ -43,6 +49,7 @@ use anna_common::source_labels::QaStats;
 use anna_common::performance::{PerfStats, ToolCache, LlmCache};
 use anna_common::reliability::{MetricsStore, ErrorBudgets, BudgetState, calculate_budget_status};
 use anna_common::display_format::{format_bytes, format_timestamp};
+use anna_common::transcript::{list_recent_cases, find_last_failure, get_cases_storage_size, load_case_summary, CaseOutcome};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -98,6 +105,9 @@ pub async fn run() -> Result<()> {
 
     // [ALERTS] - only shown if there are alerts
     print_alerts_section(&snapshot);
+
+    // [CASES] - v0.0.33: show recent case files and storage
+    print_cases_section(&mode);
 
     // [HELPERS] - v0.0.28: show only relevant helpers
     print_helpers_section(&mode);
@@ -562,6 +572,85 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
         if !s.is_stale() && s.instrumentation_count > 0 {
             println!("  Installed:  {} tool(s) by Anna", s.instrumentation_count);
         }
+    }
+
+    println!();
+}
+
+/// [CASES] section - v0.0.33: show recent case files and last failure
+fn print_cases_section(mode: &DisplayMode) {
+    println!("{}", "[CASES]".cyan());
+
+    let config = AnnaConfig::load();
+
+    // Show dev mode indicator
+    if config.ui.is_dev_mode() {
+        println!("  Dev mode:   {} (max verbosity)", "active".green());
+    }
+
+    // Get recent case paths and load summaries
+    let recent_paths = list_recent_cases(5);
+    let recent_summaries: Vec<_> = recent_paths.iter()
+        .filter_map(|p| load_case_summary(p))
+        .collect();
+
+    let last_failure_path = find_last_failure();
+    let last_failure = last_failure_path.as_ref().and_then(|p| load_case_summary(p));
+    let storage_bytes = get_cases_storage_size();
+
+    if recent_summaries.is_empty() {
+        println!("  Cases:      {} (none yet)", "0".dimmed());
+        println!();
+        return;
+    }
+
+    // Summary
+    let success_count = recent_summaries.iter().filter(|c| c.outcome == CaseOutcome::Success).count();
+    let failure_count = recent_summaries.iter().filter(|c| c.outcome == CaseOutcome::Failure).count();
+    println!("  Recent:     {} ({} success, {} failure)",
+        recent_summaries.len(),
+        if success_count > 0 { success_count.to_string().green().to_string() } else { "0".to_string() },
+        if failure_count > 0 { failure_count.to_string().red().to_string() } else { "0".to_string() });
+
+    // Storage
+    println!("  Storage:    {}", format_bytes(storage_bytes));
+
+    // Last failure if any
+    if let Some(ref failure) = last_failure {
+        let outcome_str = match failure.outcome {
+            CaseOutcome::Failure => "failure".red().to_string(),
+            CaseOutcome::Partial => "partial".yellow().to_string(),
+            _ => "unknown".dimmed().to_string(),
+        };
+        println!("  Last fail:  {} - {} ({})",
+            failure.request_id.cyan(),
+            truncate_str(&failure.user_request, 30),
+            outcome_str);
+    }
+
+    // In compact mode, skip case list
+    if *mode == DisplayMode::Compact {
+        println!();
+        return;
+    }
+
+    // Show last 5 cases
+    println!();
+    println!("  Latest:");
+    for case in recent_summaries.iter().take(5) {
+        let outcome_badge = match case.outcome {
+            CaseOutcome::Success => "[ok]".green().to_string(),
+            CaseOutcome::Failure => "[FAIL]".red().to_string(),
+            CaseOutcome::Partial => "[partial]".yellow().to_string(),
+            CaseOutcome::Cancelled => "[cancelled]".dimmed().to_string(),
+        };
+        // Format timestamp
+        let time_str = case.timestamp.format("%H:%M:%S").to_string();
+        println!("    {} {} {} {}",
+            time_str.dimmed(),
+            outcome_badge,
+            case.request_id.cyan(),
+            truncate_str(&case.user_request, 35));
     }
 
     println!();
@@ -1099,7 +1188,7 @@ fn print_policy_section() {
     println!();
 }
 
-/// [MODELS] section - v0.0.22: use BootstrapState for accurate LLM status
+/// [MODELS] section - v0.0.35: Enhanced model status with readiness UX
 fn print_models_section() {
     println!("{}", "[MODELS]".cyan());
 
@@ -1114,50 +1203,94 @@ fn print_models_section() {
     }
 
     // Ollama status based on bootstrap phase
-    let ollama_status = match bootstrap_state.phase {
-        BootstrapPhase::Ready => "available".green().to_string(),
-        BootstrapPhase::DetectingOllama => "checking...".yellow().to_string(),
-        BootstrapPhase::InstallingOllama => "installing...".yellow().to_string(),
-        BootstrapPhase::PullingModels => "pulling models...".yellow().to_string(),
-        BootstrapPhase::Benchmarking => "benchmarking...".yellow().to_string(),
+    let (ollama_status, is_ready) = match bootstrap_state.phase {
+        BootstrapPhase::Ready => ("available".green().to_string(), true),
+        BootstrapPhase::DetectingOllama => ("checking...".yellow().to_string(), false),
+        BootstrapPhase::InstallingOllama => ("installing...".yellow().to_string(), false),
+        BootstrapPhase::PullingModels => ("pulling models...".yellow().to_string(), false),
+        BootstrapPhase::Benchmarking => ("benchmarking...".yellow().to_string(), false),
         BootstrapPhase::Error => {
-            if let Some(ref err) = bootstrap_state.error {
+            let msg = if let Some(ref err) = bootstrap_state.error {
                 if err.contains("not available") {
                     "unavailable".red().to_string()
                 } else {
-                    format!("error: {}", err).red().to_string()
+                    format!("error: {}", truncate_str(err, 40)).red().to_string()
                 }
             } else {
                 "error".red().to_string()
-            }
+            };
+            (msg, false)
         }
     };
     println!("  Ollama:     {}", ollama_status);
 
+    // v0.0.35: Hardware tier for model selection context
+    if let Some(ref hw) = bootstrap_state.hardware {
+        println!("  Hardware:   {} tier ({} RAM, {} cores)",
+            hw.tier.to_string().cyan(),
+            anna_common::model_selection::HardwareProfile::format_memory(hw.total_ram_bytes),
+            hw.cpu_cores);
+    }
+
     // Translator model from bootstrap state
-    let translator_model = if let Some(ref sel) = bootstrap_state.translator {
+    let translator_status = if let Some(ref sel) = bootstrap_state.translator {
         format!("{} ({})", sel.model.green(), "ready".green())
+    } else if bootstrap_state.phase == BootstrapPhase::PullingModels {
+        // Show download progress if available
+        if let Some(ref progress) = bootstrap_state.download_progress {
+            if progress.role == "translator" {
+                format!("downloading {} ({:.1}%)",
+                    progress.model.yellow(),
+                    (progress.downloaded_bytes as f64 / progress.total_bytes.max(1) as f64) * 100.0)
+            } else {
+                "(waiting)".yellow().to_string()
+            }
+        } else {
+            "(downloading)".yellow().to_string()
+        }
     } else if !config.llm.translator.model.is_empty() {
-        config.llm.translator.model.clone()
+        format!("{} ({})", config.llm.translator.model, "configured".dimmed())
     } else {
-        "(auto-select)".dimmed().to_string()
+        format!("{} ({})", "(auto-select)".dimmed(), "fallback: deterministic".yellow())
     };
-    println!("  Translator: {}", translator_model);
+    println!("  Translator: {}", translator_status);
 
-    // Junior model from bootstrap state
-    let junior_model = if let Some(ref sel) = bootstrap_state.junior {
+    // Junior model from bootstrap state - v0.0.35: show fallback mode
+    let junior_status = if let Some(ref sel) = bootstrap_state.junior {
         format!("{} ({})", sel.model.green(), "ready".green())
+    } else if bootstrap_state.phase == BootstrapPhase::PullingModels {
+        if let Some(ref progress) = bootstrap_state.download_progress {
+            if progress.role == "junior" {
+                format!("downloading {} ({:.1}%)",
+                    progress.model.yellow(),
+                    (progress.downloaded_bytes as f64 / progress.total_bytes.max(1) as f64) * 100.0)
+            } else {
+                "(waiting)".yellow().to_string()
+            }
+        } else {
+            "(downloading)".yellow().to_string()
+        }
     } else {
-        "(no model)".dimmed().to_string()
+        // v0.0.35: Show no-Junior fallback mode
+        format!("{} ({})", "(unavailable)".red(), "reliability capped at 60%".yellow())
     };
-    println!("  Junior:     {}", junior_model);
+    println!("  Junior:     {}", junior_status);
 
-    // Timeout settings
-    println!("  Timeouts:   translator {}ms, junior {}ms",
-        config.llm.translator.timeout_ms,
-        config.llm.junior.timeout_ms);
+    // v0.0.35: Readiness summary
+    let translator_ready = bootstrap_state.translator.is_some();
+    let junior_ready = bootstrap_state.junior.is_some();
 
-    // Last bootstrap time
+    if !is_ready {
+        println!("  Readiness:  {}", "models still downloading - limited functionality".yellow());
+    } else if translator_ready && junior_ready {
+        println!("  Readiness:  {}", "full capability".green());
+    } else if translator_ready && !junior_ready {
+        println!("  Readiness:  {} (no verification)", "partial".yellow());
+    } else {
+        println!("  Readiness:  {}", "not ready".red());
+    }
+
+    // Last bootstrap/benchmark time
     if bootstrap_state.last_update > 0 {
         let ago = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -1168,8 +1301,10 @@ fn print_models_section() {
             format!("{}s ago", ago)
         } else if ago < 3600 {
             format!("{}m ago", ago / 60)
-        } else {
+        } else if ago < 86400 {
             format!("{}h ago", ago / 3600)
+        } else {
+            format!("{}d ago", ago / 86400)
         };
         println!("  Last check: {}", ago_str.dimmed());
     }

@@ -938,6 +938,9 @@ impl std::fmt::Display for BootstrapPhase {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DownloadProgress {
     pub model: String,
+    /// v0.0.35: Role this model is being downloaded for
+    #[serde(default)]
+    pub role: String,
     pub total_bytes: u64,
     pub downloaded_bytes: u64,
     pub speed_bytes_per_sec: f64,
@@ -1216,6 +1219,7 @@ mod tests {
     fn test_download_progress_format() {
         let progress = DownloadProgress {
             model: "test".to_string(),
+            role: "translator".to_string(),
             total_bytes: 1000,
             downloaded_bytes: 500,
             speed_bytes_per_sec: 100.0,
