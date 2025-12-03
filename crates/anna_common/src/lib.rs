@@ -1,4 +1,19 @@
-//! Anna Common v7.42.0 - Daemon/CLI Contract Fix
+//! Anna Common v0.0.16 - Better Mutation Safety
+//!
+//! v0.0.16: Preflight checks, dry-run diffs, post-checks, automatic rollback
+//! - MutationState enum: planned -> preflight_ok -> confirmed -> applied -> verified_ok | rolled_back
+//! - PreflightResult with checks for path, permissions, size, hash, backup
+//! - DiffPreview with line-based diff for file edits
+//! - PostCheckResult for verification after mutations
+//! - SafeMutationExecutor with full lifecycle management
+//! - Automatic rollback on post-check failure
+//!
+//! v0.0.15: Debug levels, unified formatting, enhanced status display
+//! - UiConfig with debug_level (0=minimal, 1=normal, 2=full)
+//! - Unified formatting module (colors, SectionFormatter, DialogueFormatter)
+//! - Enhanced annactl status with 10 sections
+//!
+//! v0.0.14 - Policy Engine + Security Posture
 //!
 //! v7.42.0: Fix daemon running vs snapshot available confusion
 //! - Control socket for authoritative daemon health (/run/anna/annad.sock)
@@ -237,6 +252,43 @@ pub mod control_socket;
 
 // v0.0.4: Ollama local LLM client for Junior verification
 pub mod ollama;
+
+// v0.0.5: Role-based model selection and benchmarking
+pub mod model_selection;
+
+// v0.0.7: Read-only tool catalog and executor
+pub mod tools;
+pub mod tool_executor;
+
+// v0.0.8: Mutation tools, rollback, and executor
+pub mod mutation_tools;
+pub mod rollback;
+pub mod mutation_executor;
+
+// v0.0.9: Helper tracking with provenance
+pub mod helpers;
+
+// v0.0.10: Install state and installer review
+pub mod install_state;
+pub mod installer_review;
+
+// v0.0.11: Safe auto-update system
+pub mod update_system;
+
+// v0.0.12: Proactive anomaly detection
+pub mod anomaly_engine;
+
+// v0.0.13: Conversation memory and recipe system
+pub mod memory;
+pub mod recipes;
+pub mod introspection;
+
+// v0.0.14: Policy engine and security posture
+pub mod policy;
+pub mod audit_log;
+
+// v0.0.16: Mutation safety system
+pub mod mutation_safety;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -544,10 +596,130 @@ pub use self_observation::{
     SelfSample, SelfObservation, SelfWarning, WarningKind,
     DEFAULT_CPU_THRESHOLD, DEFAULT_RSS_THRESHOLD_BYTES, CPU_WINDOW_SECONDS, SELF_SAMPLE_INTERVAL_SECS,
 };
-// v0.0.4: Ollama local LLM client
+// v0.0.4/v0.0.5: Ollama local LLM client
 pub use ollama::{
     OllamaClient, OllamaStatus, OllamaModel, OllamaError,
     GenerateRequest, GenerateResponse, GenerateOptions,
+    PullRequest, PullProgress,
     select_junior_model, is_ollama_installed, get_ollama_version,
     OLLAMA_DEFAULT_URL, HEALTH_CHECK_TIMEOUT_MS, GENERATE_TIMEOUT_MS,
+};
+// v0.0.5: Role-based model selection and benchmarking
+pub use model_selection::{
+    HardwareProfile, HardwareTier, LlmRole,
+    ModelCandidate, ModelSelection,
+    BenchmarkCase, CaseResult, BenchmarkResults,
+    BootstrapPhase, BootstrapState, DownloadProgress,
+    default_candidates, translator_benchmark_cases, junior_benchmark_cases,
+    run_benchmark, select_model_for_role,
+};
+// v0.0.7: Read-only tool catalog and executor
+pub use tools::{
+    ToolCatalog, ToolDef, ToolSecurity, LatencyHint,
+    ToolResult, ToolRequest, ToolPlan,
+    EvidenceCollector,
+    parse_tool_plan, unavailable_result, unknown_tool_result,
+};
+pub use tool_executor::{execute_tool, execute_tool_plan};
+// v0.0.8: Mutation tools, rollback, and executor
+pub use mutation_tools::{
+    MutationToolCatalog, MutationToolDef, MutationRisk,
+    MutationRequest, MutationResult, MutationPlan, MutationError,
+    RollbackInfo, FileEditOp, ServiceState,
+    is_path_allowed, validate_mutation_path, validate_confirmation,
+    validate_mutation_request, get_service_state,
+    MEDIUM_RISK_CONFIRMATION, MAX_EDIT_FILE_SIZE,
+};
+pub use rollback::{
+    RollbackManager, MutationLogEntry, MutationType, MutationDetails,
+    ROLLBACK_BASE_DIR, ROLLBACK_FILES_DIR, ROLLBACK_LOGS_DIR,
+};
+pub use mutation_executor::{
+    execute_mutation, execute_mutation_plan,
+    generate_request_id, create_file_edit_request, create_systemd_request,
+    create_package_install_request, create_package_remove_request,
+};
+// v0.0.16: Mutation safety system exports
+pub use mutation_safety::{
+    MutationState, PreflightCheck, PreflightResult,
+    DiffLine, DiffPreview, PostCheck, PostCheckResult,
+    RollbackResult, SafeMutationExecutor,
+    generate_request_id as safety_generate_request_id,
+};
+
+// v0.0.9: Helper tracking exports
+pub use helpers::{
+    HelpersManifest, HelperState, HelperDefinition, InstalledBy,
+    HelpersSummary, HelperStatusEntry,
+    get_helper_definitions, get_helper_status_list, get_helpers_summary,
+    refresh_helper_states, is_package_present, get_package_version as helpers_get_package_version,
+    HELPERS_STATE_FILE,
+};
+
+// v0.0.10: Install state and installer review exports
+pub use install_state::{
+    InstallState, BinaryInfo, UnitInfo, DirectoryInfo, ReviewResult, LastReview,
+    discover_install_state, INSTALL_STATE_PATH, INSTALL_STATE_SCHEMA,
+};
+pub use installer_review::{
+    CheckResult as InstallerCheckResult, InstallerReviewReport,
+    run_installer_review, run_and_record_review,
+};
+
+// v0.0.11: Update system exports
+pub use update_system::{
+    UpdateManager, UpdateChannel as UpdateSystemChannel, UpdatePhase,
+    UpdateMarker, BackupEntry, ReleaseInfo, ReleaseArtifact,
+    IntegrityStatus, GuardrailResult,
+    is_newer_version, generate_update_evidence_id, handle_post_restart,
+    UPDATE_STAGE_DIR, UPDATE_BACKUP_DIR, UPDATE_MARKER_FILE, MIN_DISK_SPACE_BYTES,
+};
+
+// v0.0.12: Anomaly detection exports
+pub use anomaly_engine::{
+    AnomalySeverity, AnomalySignal, TimeWindow as AnomalyTimeWindow, Anomaly,
+    AlertQueue, AnomalyThresholds, AnomalyEngine,
+    ALERTS_FILE, ALERTS_SCHEMA_VERSION,
+    // What changed tool
+    WhatChangedResult, PackageChange, ConfigChange as AnomalyConfigChange, what_changed,
+    // Slowness analysis tool
+    SlownessHypothesis, SlownessAnalysisResult, analyze_slowness,
+};
+
+// v0.0.13: Memory and recipe exports
+pub use memory::{
+    SessionRecord, TranslatorSummary, ToolUsage, RecipeAction, SessionType,
+    MemoryManager, MemoryStats, MemoryIndex,
+    MEMORY_DIR, SESSIONS_FILE, MEMORY_INDEX_FILE, MEMORY_ARCHIVE_DIR,
+    MEMORY_SCHEMA_VERSION, MEMORY_EVIDENCE_PREFIX,
+    generate_memory_evidence_id,
+};
+pub use recipes::{
+    Recipe, IntentPattern, RecipeToolPlan, RecipeToolStep,
+    RecipeSafety, RecipeRiskLevel, Precondition, PreconditionCheck,
+    RollbackTemplate, RecipeCreator, RecipeManager, RecipeStats, RecipeIndex,
+    ArchivedRecipe,
+    RECIPES_DIR, RECIPE_INDEX_FILE, RECIPE_ARCHIVE_DIR,
+    RECIPE_SCHEMA_VERSION, RECIPE_EVIDENCE_PREFIX, MIN_RELIABILITY_FOR_RECIPE,
+    generate_recipe_id,
+};
+pub use introspection::{
+    IntrospectionIntent, IntrospectionResult, IntrospectionItem, IntrospectionItemType,
+    FORGET_CONFIRMATION,
+    detect_introspection_intent, execute_introspection, execute_forget,
+};
+
+// v0.0.14: Policy engine exports
+pub use policy::{
+    Policy, PolicyError, PolicyCheckResult, PolicyValidation,
+    CapabilitiesPolicy, RiskPolicy, BlockedPolicy, HelpersPolicy,
+    FileEditPolicy, SystemdPolicy, PackagePolicy,
+    POLICY_DIR, CAPABILITIES_FILE, RISK_FILE, BLOCKED_FILE, HELPERS_FILE,
+    POLICY_SCHEMA_VERSION, POLICY_EVIDENCE_PREFIX,
+    generate_policy_evidence_id, get_policy, reload_policy, clear_policy_cache,
+};
+pub use audit_log::{
+    AuditLogger, AuditEntry, AuditEntryType, AuditResult,
+    sanitize_for_audit, redact_env_secrets,
+    AUDIT_DIR, AUDIT_LOG_FILE, AUDIT_ARCHIVE_DIR,
 };

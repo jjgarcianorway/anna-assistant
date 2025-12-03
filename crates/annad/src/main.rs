@@ -42,6 +42,7 @@
 //! No LLM, no Q&A - just system telemetry.
 
 mod health;
+mod llm_bootstrap;
 mod process_tracker;
 mod routes;
 mod server;
@@ -231,6 +232,22 @@ async fn main() -> Result<()> {
         let result = health::run_health_check();
         health::log_health_check_results(&result);
     });
+
+    // v0.0.5: Initialize LLM bootstrap state and spawn bootstrap task
+    let llm_bootstrap_state = llm_bootstrap::new_shared_state();
+    let llm_enabled = config.llm.enabled;
+    let config_for_llm = config.clone();
+    let llm_state_for_bootstrap = llm_bootstrap_state.clone();
+    if llm_enabled {
+        tokio::spawn(async move {
+            // Run bootstrap asynchronously - don't block daemon startup
+            if let Err(e) = llm_bootstrap::run_bootstrap(llm_state_for_bootstrap, &config_for_llm).await {
+                warn!("[!]  LLM bootstrap failed: {}", e);
+            }
+        });
+    } else {
+        info!("[>]  LLM bootstrap skipped (disabled in config)");
+    }
 
     // v8.0.0: Build known executables set for process tracking
     let known_executables = Arc::new(RwLock::new(process_tracker::build_known_executables()));
@@ -676,9 +693,11 @@ async fn main() -> Result<()> {
 
     // v7.42.0: Status snapshot writer - writes IMMEDIATELY on startup, then every 60s
     // This fixes the "daemon running but no snapshot" bug
+    // v0.0.5: Now includes LLM bootstrap state
     let builder_snapshot = Arc::clone(&builder);
     let daemon_start_time = std::time::Instant::now();
     let boot_id = get_current_boot_id();
+    let llm_state_for_snapshot = llm_bootstrap_state.clone();
     tokio::spawn(async move {
         info!("[>]  Status snapshot: writing to {} immediately and every 60s", SNAPSHOTS_DIR);
 
@@ -710,7 +729,7 @@ async fn main() -> Result<()> {
                 None
             };
 
-            let snapshot = StatusSnapshot {
+            let mut snapshot = StatusSnapshot {
                 schema_version: STATUS_SCHEMA_VERSION,
                 generated_at: Some(chrono::Utc::now()),
                 seq,
@@ -735,6 +754,12 @@ async fn main() -> Result<()> {
                 alerts_warning: 0,
                 ..Default::default()
             };
+
+            // v0.0.5: Add LLM bootstrap state
+            {
+                let llm_state = llm_state_for_snapshot.read().await;
+                snapshot.set_llm_state(&llm_state);
+            }
 
             if let Err(e) = snapshot.save() {
                 warn!("[!]  Failed to write status snapshot: {}", e);

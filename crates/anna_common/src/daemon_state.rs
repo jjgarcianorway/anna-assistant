@@ -37,7 +37,10 @@ pub const META_DIR: &str = "/var/lib/anna/internal/meta";
 pub const STATUS_SNAPSHOT_PATH: &str = "/var/lib/anna/internal/snapshots/status.json";
 
 /// Current schema version for status snapshot
-pub const STATUS_SCHEMA_VERSION: u32 = 2;
+/// v2: Added telemetry, update state
+/// v3: Added LLM bootstrap state (v0.0.5)
+/// v4: Added helper tracking with provenance (v0.0.9)
+pub const STATUS_SCHEMA_VERSION: u32 = 4;
 
 /// Stale threshold in seconds (15 minutes)
 pub const STALE_THRESHOLD_SECS: u64 = 900;
@@ -218,6 +221,49 @@ pub struct StatusSnapshot {
     pub alerts_critical: usize,
     pub alerts_warning: usize,
 
+    // v0.0.5: LLM bootstrap state
+    /// Current bootstrap phase (detecting_ollama, installing_ollama, pulling_models, benchmarking, ready, error)
+    #[serde(default)]
+    pub llm_bootstrap_phase: Option<String>,
+    /// Selected translator model (if ready)
+    #[serde(default)]
+    pub llm_translator_model: Option<String>,
+    /// Selected junior model (if ready)
+    #[serde(default)]
+    pub llm_junior_model: Option<String>,
+    /// Model being downloaded (if pulling)
+    #[serde(default)]
+    pub llm_downloading_model: Option<String>,
+    /// Download progress percentage (0-100)
+    #[serde(default)]
+    pub llm_download_percent: Option<f64>,
+    /// Download speed (bytes/sec)
+    #[serde(default)]
+    pub llm_download_speed: Option<f64>,
+    /// Download ETA in seconds
+    #[serde(default)]
+    pub llm_download_eta_secs: Option<u64>,
+    /// Last LLM error message
+    #[serde(default)]
+    pub llm_error: Option<String>,
+    /// Hardware tier (low, medium, high)
+    #[serde(default)]
+    pub llm_hardware_tier: Option<String>,
+
+    // v0.0.9: Helper tracking with provenance
+    /// Helper summary (total, present, missing, anna-installed)
+    #[serde(default)]
+    pub helpers_total: usize,
+    #[serde(default)]
+    pub helpers_present: usize,
+    #[serde(default)]
+    pub helpers_missing: usize,
+    #[serde(default)]
+    pub helpers_anna_installed: usize,
+    /// Detailed helper list (for status display)
+    #[serde(default)]
+    pub helpers: Vec<crate::helpers::HelperStatusEntry>,
+
     // v7.42.0: Legacy compatibility - map old field name (private, used only for deserialization)
     #[serde(alias = "snapshot_at", default, skip_serializing)]
     #[doc(hidden)]
@@ -308,6 +354,80 @@ impl StatusSnapshot {
     /// Check if snapshot is recent (< 5 minutes)
     pub fn is_recent(&self) -> bool {
         self.age_secs() < 300
+    }
+
+    /// Update LLM bootstrap state from BootstrapState
+    pub fn set_llm_state(&mut self, state: &crate::model_selection::BootstrapState) {
+        self.llm_bootstrap_phase = Some(state.phase.to_string());
+        self.llm_translator_model = state.translator.as_ref().map(|s| s.model.clone());
+        self.llm_junior_model = state.junior.as_ref().map(|s| s.model.clone());
+        self.llm_hardware_tier = state.hardware.as_ref().map(|h| h.tier.to_string());
+        self.llm_error = state.error.clone();
+
+        // Download progress
+        if let Some(ref progress) = state.download_progress {
+            self.llm_downloading_model = Some(progress.model.clone());
+            self.llm_download_percent = Some(progress.percent());
+            self.llm_download_speed = Some(progress.speed_bytes_per_sec);
+            self.llm_download_eta_secs = progress.eta_seconds;
+        } else {
+            self.llm_downloading_model = None;
+            self.llm_download_percent = None;
+            self.llm_download_speed = None;
+            self.llm_download_eta_secs = None;
+        }
+    }
+
+    /// Check if LLM is ready
+    pub fn is_llm_ready(&self) -> bool {
+        self.llm_bootstrap_phase.as_deref() == Some("ready")
+    }
+
+    /// Format LLM status for display
+    pub fn format_llm_status(&self) -> String {
+        match self.llm_bootstrap_phase.as_deref() {
+            Some("ready") => {
+                let translator = self.llm_translator_model.as_deref().unwrap_or("none");
+                let junior = self.llm_junior_model.as_deref().unwrap_or("none");
+                format!("ready (translator: {}, junior: {})", translator, junior)
+            }
+            Some("pulling_models") => {
+                let model = self.llm_downloading_model.as_deref().unwrap_or("unknown");
+                let percent = self.llm_download_percent.unwrap_or(0.0);
+                let eta = self.llm_download_eta_secs
+                    .map(|s| format!(" ETA {}s", s))
+                    .unwrap_or_default();
+                format!("pulling {} ({:.1}%{})", model, percent, eta)
+            }
+            Some("benchmarking") => "benchmarking models".to_string(),
+            Some("detecting_ollama") => "detecting ollama".to_string(),
+            Some("installing_ollama") => "installing ollama".to_string(),
+            Some("error") => {
+                let err = self.llm_error.as_deref().unwrap_or("unknown error");
+                format!("error: {}", err)
+            }
+            Some(phase) => phase.to_string(),
+            None => "not initialized".to_string(),
+        }
+    }
+
+    /// Update helper tracking state (v0.0.9)
+    pub fn set_helpers_state(&mut self, summary: &crate::helpers::HelpersSummary) {
+        self.helpers_total = summary.total;
+        self.helpers_present = summary.present;
+        self.helpers_missing = summary.missing;
+        self.helpers_anna_installed = summary.installed_by_anna;
+        self.helpers = summary.helpers.clone();
+    }
+
+    /// Format helpers status for display
+    pub fn format_helpers_status(&self) -> String {
+        format!(
+            "{} present, {} missing ({} installed by Anna)",
+            self.helpers_present,
+            self.helpers_missing,
+            self.helpers_anna_installed
+        )
     }
 }
 

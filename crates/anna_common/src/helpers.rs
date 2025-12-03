@@ -1,0 +1,555 @@
+//! Anna Helper Tracking v0.0.9
+//!
+//! Tracks ALL helpers Anna relies on, regardless of who installed them.
+//! Provenance tracking distinguishes anna-installed vs user-installed.
+//!
+//! Two dimensions tracked:
+//! - present/missing: Is the helper currently available?
+//! - installed_by: anna | user | unknown
+//!
+//! Rules:
+//! - If helper exists before Anna ever installed it → installed_by=user (or unknown)
+//! - If Anna installs helper → installed_by=anna
+//! - Only remove helpers on uninstall if installed_by=anna
+//! - Provenance is tracked per-machine, not globally
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+
+/// Path to helpers state file
+pub const HELPERS_STATE_FILE: &str = "/var/lib/anna/helpers.json";
+
+/// Who installed a helper
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum InstalledBy {
+    /// Installed by Anna
+    Anna,
+    /// Installed by user (was present before Anna tracked it)
+    User,
+    /// Unknown origin (present but can't determine)
+    Unknown,
+}
+
+impl std::fmt::Display for InstalledBy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InstalledBy::Anna => write!(f, "Anna"),
+            InstalledBy::User => write!(f, "user"),
+            InstalledBy::Unknown => write!(f, "unknown"),
+        }
+    }
+}
+
+/// A helper package Anna relies on
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HelperDefinition {
+    /// Package name (e.g., "lm_sensors")
+    pub name: String,
+    /// Short purpose description
+    pub purpose: String,
+    /// Whether this helper is required (false) or optional (true)
+    pub optional: bool,
+    /// What command/binary this provides (for presence check)
+    pub provides_command: Option<String>,
+}
+
+/// Current state of a helper on this machine
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HelperState {
+    /// Package name
+    pub name: String,
+    /// Short purpose description
+    pub purpose: String,
+    /// Whether the helper is currently present
+    pub present: bool,
+    /// Who installed this helper
+    pub installed_by: InstalledBy,
+    /// When Anna first detected this helper (RFC3339)
+    pub first_seen: Option<DateTime<Utc>>,
+    /// When Anna installed this helper (if installed_by=anna)
+    pub anna_install_timestamp: Option<DateTime<Utc>>,
+    /// Package version if present
+    pub version: Option<String>,
+    /// Whether removal is eligible (only if installed_by=anna)
+    pub removal_eligible: bool,
+}
+
+impl HelperState {
+    /// Create new state for a helper that was already present
+    pub fn new_user_installed(name: &str, purpose: &str, version: Option<String>) -> Self {
+        Self {
+            name: name.to_string(),
+            purpose: purpose.to_string(),
+            present: true,
+            installed_by: InstalledBy::User,
+            first_seen: Some(Utc::now()),
+            anna_install_timestamp: None,
+            version,
+            removal_eligible: false,
+        }
+    }
+
+    /// Create new state for a missing helper
+    pub fn new_missing(name: &str, purpose: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            purpose: purpose.to_string(),
+            present: false,
+            installed_by: InstalledBy::Unknown,
+            first_seen: None,
+            anna_install_timestamp: None,
+            version: None,
+            removal_eligible: false,
+        }
+    }
+
+    /// Mark as installed by Anna
+    pub fn mark_anna_installed(&mut self, version: Option<String>) {
+        self.present = true;
+        self.installed_by = InstalledBy::Anna;
+        self.anna_install_timestamp = Some(Utc::now());
+        self.version = version;
+        self.removal_eligible = true;
+        if self.first_seen.is_none() {
+            self.first_seen = Some(Utc::now());
+        }
+    }
+
+    /// Update presence status (called when checking system state)
+    pub fn update_presence(&mut self, present: bool, version: Option<String>) {
+        let was_present = self.present;
+        self.present = present;
+        self.version = version;
+
+        // If newly appeared and we haven't tracked it before
+        if present && !was_present && self.first_seen.is_none() {
+            self.first_seen = Some(Utc::now());
+            // If it appeared without Anna installing it, it's user-installed
+            if self.installed_by == InstalledBy::Unknown && self.anna_install_timestamp.is_none() {
+                self.installed_by = InstalledBy::User;
+            }
+        }
+    }
+
+    /// Format for status display
+    pub fn format_status(&self) -> String {
+        let presence = if self.present { "present" } else { "missing" };
+        let by = match self.installed_by {
+            InstalledBy::Anna => "installed by Anna",
+            InstalledBy::User => "installed by user",
+            InstalledBy::Unknown => "unknown origin",
+        };
+        format!("{} ({}, {})", self.name, presence, by)
+    }
+}
+
+/// Persistent state for all helpers
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HelpersManifest {
+    /// Schema version
+    pub schema_version: u32,
+    /// Helper states by name
+    pub helpers: HashMap<String, HelperState>,
+    /// Last update timestamp
+    pub last_updated: Option<DateTime<Utc>>,
+}
+
+impl HelpersManifest {
+    const CURRENT_SCHEMA: u32 = 1;
+
+    /// Load manifest from disk
+    pub fn load() -> Self {
+        let path = PathBuf::from(HELPERS_STATE_FILE);
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(manifest) = serde_json::from_str(&content) {
+                    return manifest;
+                }
+            }
+        }
+        Self {
+            schema_version: Self::CURRENT_SCHEMA,
+            ..Default::default()
+        }
+    }
+
+    /// Save manifest to disk
+    pub fn save(&self) -> std::io::Result<()> {
+        let path = PathBuf::from(HELPERS_STATE_FILE);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        crate::atomic_write(HELPERS_STATE_FILE, &content)
+    }
+
+    /// Get or create helper state
+    pub fn get_or_create(&mut self, def: &HelperDefinition) -> &mut HelperState {
+        if !self.helpers.contains_key(&def.name) {
+            let state = HelperState::new_missing(&def.name, &def.purpose);
+            self.helpers.insert(def.name.clone(), state);
+        }
+        self.helpers.get_mut(&def.name).unwrap()
+    }
+
+    /// Update helper state
+    pub fn update_helper(&mut self, state: HelperState) {
+        self.helpers.insert(state.name.clone(), state);
+        self.last_updated = Some(Utc::now());
+    }
+
+    /// Get helper state
+    pub fn get(&self, name: &str) -> Option<&HelperState> {
+        self.helpers.get(name)
+    }
+
+    /// Get all helpers eligible for removal (installed_by=anna)
+    pub fn removal_eligible(&self) -> Vec<&HelperState> {
+        self.helpers.values()
+            .filter(|h| h.removal_eligible && h.installed_by == InstalledBy::Anna)
+            .collect()
+    }
+
+    /// Get all present helpers
+    pub fn present_helpers(&self) -> Vec<&HelperState> {
+        self.helpers.values()
+            .filter(|h| h.present)
+            .collect()
+    }
+
+    /// Get all missing helpers
+    pub fn missing_helpers(&self) -> Vec<&HelperState> {
+        self.helpers.values()
+            .filter(|h| !h.present)
+            .collect()
+    }
+
+    /// Record that Anna installed a helper
+    pub fn record_anna_install(&mut self, name: &str, purpose: &str, version: Option<String>) {
+        if let Some(state) = self.helpers.get_mut(name) {
+            state.mark_anna_installed(version);
+        } else {
+            let mut state = HelperState::new_missing(name, purpose);
+            state.mark_anna_installed(version);
+            self.helpers.insert(name.to_string(), state);
+        }
+        self.last_updated = Some(Utc::now());
+    }
+}
+
+/// All helpers Anna relies on for telemetry/diagnostics/execution
+pub fn get_helper_definitions() -> Vec<HelperDefinition> {
+    vec![
+        // Thermal/sensor monitoring
+        HelperDefinition {
+            name: "lm_sensors".to_string(),
+            purpose: "Temperature and fan monitoring".to_string(),
+            optional: false,
+            provides_command: Some("sensors".to_string()),
+        },
+        // Disk health
+        HelperDefinition {
+            name: "smartmontools".to_string(),
+            purpose: "SATA/SAS disk health (SMART)".to_string(),
+            optional: false,
+            provides_command: Some("smartctl".to_string()),
+        },
+        HelperDefinition {
+            name: "nvme-cli".to_string(),
+            purpose: "NVMe SSD health monitoring".to_string(),
+            optional: false,
+            provides_command: Some("nvme".to_string()),
+        },
+        // Network diagnostics
+        HelperDefinition {
+            name: "ethtool".to_string(),
+            purpose: "Network interface diagnostics".to_string(),
+            optional: true,
+            provides_command: Some("ethtool".to_string()),
+        },
+        HelperDefinition {
+            name: "iw".to_string(),
+            purpose: "WiFi signal and stats".to_string(),
+            optional: true,
+            provides_command: Some("iw".to_string()),
+        },
+        // Hardware enumeration
+        HelperDefinition {
+            name: "usbutils".to_string(),
+            purpose: "USB device enumeration".to_string(),
+            optional: false,
+            provides_command: Some("lsusb".to_string()),
+        },
+        HelperDefinition {
+            name: "pciutils".to_string(),
+            purpose: "PCI device enumeration".to_string(),
+            optional: false,
+            provides_command: Some("lspci".to_string()),
+        },
+        // Disk utilities
+        HelperDefinition {
+            name: "hdparm".to_string(),
+            purpose: "SATA disk parameters".to_string(),
+            optional: true,
+            provides_command: Some("hdparm".to_string()),
+        },
+        // LLM runtime
+        HelperDefinition {
+            name: "ollama".to_string(),
+            purpose: "Local LLM inference".to_string(),
+            optional: false,
+            provides_command: Some("ollama".to_string()),
+        },
+    ]
+}
+
+/// Check if a package is installed on the system
+pub fn is_package_present(package: &str) -> bool {
+    std::process::Command::new("pacman")
+        .args(["-Qi", package])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Get the current package version
+pub fn get_package_version(package: &str) -> Option<String> {
+    let output = std::process::Command::new("pacman")
+        .args(["-Qi", package])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+        if line.starts_with("Version") {
+            return line.split(':')
+                .nth(1)
+                .map(|v| v.trim().to_string());
+        }
+    }
+    None
+}
+
+/// Refresh helper state from system
+/// Call this periodically to update presence status
+pub fn refresh_helper_states() -> HelpersManifest {
+    let mut manifest = HelpersManifest::load();
+    let definitions = get_helper_definitions();
+
+    for def in &definitions {
+        let present = is_package_present(&def.name);
+        let version = if present { get_package_version(&def.name) } else { None };
+
+        let state = manifest.get_or_create(def);
+
+        // If this is a new helper being tracked
+        if state.first_seen.is_none() && present {
+            // Helper was present before we started tracking → user installed
+            state.first_seen = Some(Utc::now());
+            state.installed_by = InstalledBy::User;
+            state.present = true;
+            state.version = version;
+        } else {
+            state.update_presence(present, version);
+        }
+    }
+
+    manifest.last_updated = Some(Utc::now());
+    let _ = manifest.save();
+    manifest
+}
+
+/// Get helper states for status display (without modifying)
+pub fn get_helper_status_list() -> Vec<HelperState> {
+    let manifest = HelpersManifest::load();
+    let definitions = get_helper_definitions();
+
+    definitions.iter().map(|def| {
+        if let Some(state) = manifest.get(&def.name) {
+            // Return existing state with current presence check
+            let mut state = state.clone();
+            let present = is_package_present(&def.name);
+            let version = if present { get_package_version(&def.name) } else { None };
+            state.present = present;
+            state.version = version;
+            state
+        } else {
+            // New helper - check if present
+            let present = is_package_present(&def.name);
+            let version = if present { get_package_version(&def.name) } else { None };
+            if present {
+                HelperState::new_user_installed(&def.name, &def.purpose, version)
+            } else {
+                HelperState::new_missing(&def.name, &def.purpose)
+            }
+        }
+    }).collect()
+}
+
+/// Summary for status snapshot
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HelpersSummary {
+    /// Total helpers tracked
+    pub total: usize,
+    /// Helpers currently present
+    pub present: usize,
+    /// Helpers missing
+    pub missing: usize,
+    /// Helpers installed by Anna
+    pub installed_by_anna: usize,
+    /// Helpers eligible for removal on uninstall
+    pub removal_eligible: usize,
+    /// Individual helper statuses
+    pub helpers: Vec<HelperStatusEntry>,
+}
+
+/// Single helper entry for status display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HelperStatusEntry {
+    pub name: String,
+    pub purpose: String,
+    pub present: bool,
+    pub installed_by: InstalledBy,
+    pub first_seen: Option<DateTime<Utc>>,
+    pub anna_install_timestamp: Option<DateTime<Utc>>,
+}
+
+impl From<&HelperState> for HelperStatusEntry {
+    fn from(state: &HelperState) -> Self {
+        Self {
+            name: state.name.clone(),
+            purpose: state.purpose.clone(),
+            present: state.present,
+            installed_by: state.installed_by,
+            first_seen: state.first_seen,
+            anna_install_timestamp: state.anna_install_timestamp,
+        }
+    }
+}
+
+/// Get helper summary for status snapshot
+pub fn get_helpers_summary() -> HelpersSummary {
+    let states = get_helper_status_list();
+
+    let present = states.iter().filter(|h| h.present).count();
+    let missing = states.iter().filter(|h| !h.present).count();
+    let installed_by_anna = states.iter().filter(|h| h.installed_by == InstalledBy::Anna).count();
+    let removal_eligible = states.iter().filter(|h| h.removal_eligible).count();
+
+    let helpers: Vec<HelperStatusEntry> = states.iter().map(|h| h.into()).collect();
+
+    HelpersSummary {
+        total: states.len(),
+        present,
+        missing,
+        installed_by_anna,
+        removal_eligible,
+        helpers,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_helper_state_new_missing() {
+        let state = HelperState::new_missing("test-pkg", "Testing");
+        assert!(!state.present);
+        assert_eq!(state.installed_by, InstalledBy::Unknown);
+        assert!(state.first_seen.is_none());
+        assert!(!state.removal_eligible);
+    }
+
+    #[test]
+    fn test_helper_state_new_user_installed() {
+        let state = HelperState::new_user_installed("test-pkg", "Testing", Some("1.0".into()));
+        assert!(state.present);
+        assert_eq!(state.installed_by, InstalledBy::User);
+        assert!(state.first_seen.is_some());
+        assert!(!state.removal_eligible);
+    }
+
+    #[test]
+    fn test_helper_state_mark_anna_installed() {
+        let mut state = HelperState::new_missing("test-pkg", "Testing");
+        state.mark_anna_installed(Some("2.0".into()));
+
+        assert!(state.present);
+        assert_eq!(state.installed_by, InstalledBy::Anna);
+        assert!(state.anna_install_timestamp.is_some());
+        assert!(state.removal_eligible);
+    }
+
+    #[test]
+    fn test_helper_state_already_present_not_anna() {
+        // If user had it installed, Anna later "installing" it shouldn't change provenance
+        // Actually, if Anna installs it, it SHOULD change to anna
+        let mut state = HelperState::new_user_installed("test-pkg", "Testing", Some("1.0".into()));
+        assert_eq!(state.installed_by, InstalledBy::User);
+
+        // Anna "installs" it (e.g., runs pacman -S even though present)
+        state.mark_anna_installed(Some("1.0".into()));
+        // Now Anna owns it
+        assert_eq!(state.installed_by, InstalledBy::Anna);
+        assert!(state.removal_eligible);
+    }
+
+    #[test]
+    fn test_helper_definitions() {
+        let defs = get_helper_definitions();
+        assert!(!defs.is_empty());
+
+        // Check required helpers are present
+        let names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
+        assert!(names.contains(&"lm_sensors"));
+        assert!(names.contains(&"smartmontools"));
+        assert!(names.contains(&"ollama"));
+    }
+
+    #[test]
+    fn test_manifest_removal_eligible() {
+        let mut manifest = HelpersManifest::default();
+
+        // Add user-installed helper
+        let user_state = HelperState::new_user_installed("user-pkg", "User installed", None);
+        manifest.update_helper(user_state);
+
+        // Add anna-installed helper
+        let mut anna_state = HelperState::new_missing("anna-pkg", "Anna installed");
+        anna_state.mark_anna_installed(Some("1.0".into()));
+        manifest.update_helper(anna_state);
+
+        // Only anna-installed should be removal eligible
+        let eligible = manifest.removal_eligible();
+        assert_eq!(eligible.len(), 1);
+        assert_eq!(eligible[0].name, "anna-pkg");
+    }
+
+    #[test]
+    fn test_installed_by_display() {
+        assert_eq!(format!("{}", InstalledBy::Anna), "Anna");
+        assert_eq!(format!("{}", InstalledBy::User), "user");
+        assert_eq!(format!("{}", InstalledBy::Unknown), "unknown");
+    }
+
+    #[test]
+    fn test_format_status() {
+        let state = HelperState::new_user_installed("ethtool", "Network diag", Some("5.0".into()));
+        let status = state.format_status();
+        assert!(status.contains("ethtool"));
+        assert!(status.contains("present"));
+        assert!(status.contains("user"));
+    }
+}

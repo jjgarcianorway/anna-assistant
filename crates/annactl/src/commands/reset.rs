@@ -1,4 +1,4 @@
-//! Reset Command v7.42.5 - Factory Reset
+//! Reset Command v0.0.10 - Factory Reset
 //!
 //! Returns Anna to exactly the same state as a fresh install.
 //!
@@ -7,11 +7,15 @@
 //!   --force, -f  Skip interactive confirmation
 //!
 //! Safety:
-//!   - Requires explicit confirmation (type "RESET") unless --force
+//!   - Requires explicit confirmation (type "I CONFIRM (reset)") unless --force
 //!   - Validates all paths before deletion
 //!   - Idempotent: running twice produces no errors
 //!   - Never deletes outside owned directories
+//!   - Runs installer review at end to verify health
 
+use anna_common::installer_review::{run_and_record_review, InstallerReviewReport};
+use anna_common::install_state::ReviewResult;
+use anna_common::helpers::HELPERS_STATE_FILE;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::path::{Path, PathBuf};
@@ -39,6 +43,9 @@ const DIRS_TO_CREATE: &[&str] = &[
     "/var/lib/anna/telemetry",
     "/var/lib/anna/internal",
     "/var/lib/anna/internal/snapshots",
+    "/var/lib/anna/rollback",
+    "/var/lib/anna/rollback/files",
+    "/var/lib/anna/rollback/logs",
     "/var/lib/anna/kdb",
     "/var/log/anna",
     "/run/anna",
@@ -106,9 +113,11 @@ pub async fn run(options: ResetOptions) -> Result<()> {
         }
     }
 
+    println!("  • Clear helper tracking data");
     println!("  • Recreate directory structure");
     println!("  • Write default configuration");
     println!("  • Start daemon with fresh state");
+    println!("  • Run installer review");
     println!();
 
     // Dry run - just show what would happen
@@ -121,13 +130,13 @@ pub async fn run(options: ResetOptions) -> Result<()> {
     // Confirm unless --force
     if !options.force {
         println!("{}", "This is a destructive operation.".red());
-        print!("Type {} to confirm: ", "RESET".red().bold());
+        print!("Type {} to confirm: ", "I CONFIRM (reset)".red().bold());
         io::stdout().flush()?;
 
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
 
-        if input.trim() != "RESET" {
+        if input.trim() != "I CONFIRM (reset)" {
             println!();
             println!("Reset cancelled.");
             println!();
@@ -170,7 +179,16 @@ pub async fn run(options: ResetOptions) -> Result<()> {
         }
     }
 
-    // 3. Recreate directory structure
+    // 3. Clear helper tracking
+    print!("  Clearing helper tracking... ");
+    io::stdout().flush()?;
+    let helpers_path = Path::new(HELPERS_STATE_FILE);
+    if helpers_path.exists() {
+        let _ = std::fs::remove_file(helpers_path);
+    }
+    println!("{}", "done".green());
+
+    // 4. Recreate directory structure
     print!("  Creating directories... ");
     io::stdout().flush()?;
     for dir in DIRS_TO_CREATE {
@@ -185,13 +203,13 @@ pub async fn run(options: ResetOptions) -> Result<()> {
     }
     println!("{}", "done".green());
 
-    // 4. Write default config
+    // 5. Write default config
     print!("  Writing default config... ");
     io::stdout().flush()?;
     write_default_config()?;
     println!("{}", "done".green());
 
-    // 5. Start daemon
+    // 6. Start daemon
     print!("  Starting daemon... ");
     io::stdout().flush()?;
     let _ = std::process::Command::new("systemctl")
@@ -216,9 +234,19 @@ pub async fn run(options: ResetOptions) -> Result<()> {
         println!("  Check logs: journalctl -u annad -n 20");
     }
 
+    // 7. Run installer review
+    print!("  Running installer review... ");
+    io::stdout().flush()?;
+    let report = run_and_record_review(true); // auto-repair enabled
+    println!("{}", "done".green());
+
     println!();
     println!("{}", "Factory reset complete.".green().bold());
     println!();
+
+    // Display installer review results
+    print_installer_review_summary(&report);
+
     println!("Anna is now in fresh install state.");
     println!("  annactl status");
     println!();
@@ -347,6 +375,35 @@ level = "info"
         .output();
 
     Ok(())
+}
+
+/// Print installer review summary
+fn print_installer_review_summary(report: &InstallerReviewReport) {
+    match &report.overall {
+        ReviewResult::Healthy => {
+            println!("{}", "INSTALLER REVIEW: System is healthy".green().bold());
+            println!("  {}", report.format_summary());
+        }
+        ReviewResult::Repaired { fixes } => {
+            println!("{}", "INSTALLER REVIEW: System is healthy (auto-repaired)".green().bold());
+            println!("  {}", report.format_summary());
+            for fix in fixes {
+                println!("    - {}", fix);
+            }
+        }
+        ReviewResult::NeedsAttention { issues } => {
+            println!("{}", "INSTALLER REVIEW: Needs attention".yellow().bold());
+            println!("  {}", report.format_summary());
+            for issue in issues {
+                println!("    - {}", issue.yellow());
+            }
+        }
+        ReviewResult::Failed { reason } => {
+            println!("{}", "INSTALLER REVIEW: Failed".red().bold());
+            println!("  {}", reason.red());
+        }
+    }
+    println!();
 }
 
 /// Check if running as root

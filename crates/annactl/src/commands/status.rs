@@ -1,4 +1,35 @@
-//! Status Command v7.42.0 - Daemon/CLI Contract Fix
+//! Status Command v0.0.15 - Governance UX Polish
+//!
+//! v0.0.15: Comprehensive status display as single source of truth
+//! - [POLICY] section shows policy status, version, violations
+//! - [MODELS] section shows LLM status, translator/junior models
+//! - [RECENT ACTIONS] section shows last tool executions and mutations
+//! - [STORAGE] section shows disk usage for Anna directories
+//! - Debug level support for output verbosity
+//!
+//! v0.0.13: Learning system status display
+//! - [LEARNING] section shows recipes count, last learned, top recipes
+//! - Memory settings display (store_raw, max_sessions)
+//!
+//! v0.0.12: Alert surfacing from anomaly engine
+//! - [ALERTS] section shows actual alerts from alert queue
+//! - Displays latest 3 alerts with evidence IDs
+//! - Shows anomaly detection status
+//!
+//! v0.0.11: Update system integration
+//! - [UPDATES] section shows mode, channel, progress
+//! - Update in progress with phase, percentage, ETA
+//! - Last update and rollback info display
+//!
+//! v0.0.10: Installer review integration
+//! - [INSTALL REVIEW] section shows last installer review result
+//! - Shows: healthy/repaired/needs attention status
+//! - Supports auto-repair for common issues
+//!
+//! v0.0.9: Helper tracking with provenance
+//! - [HELPERS] section shows all helpers Anna relies on
+//! - Displays: present/missing + installed_by (anna/user/unknown)
+//! - Only anna-installed helpers removable on uninstall
 //!
 //! v7.42.0: Separate daemon state from snapshot state
 //! - DAEMON: running/stopped via control socket or systemd (NOT snapshot)
@@ -20,16 +51,24 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::path::Path;
 
-use anna_common::config::{AnnaConfig, UpdateState, UpdateResult, UpdateMode};
+use anna_common::config::{AnnaConfig, UpdateState, UpdateResult, UpdateMode, JuniorState};
 use anna_common::format_duration_secs;
 use anna_common::daemon_state::{
     StatusSnapshot, LastCrash, SnapshotStatus,
     INTERNAL_DIR, SNAPSHOTS_DIR, STATUS_SNAPSHOT_PATH,
 };
+use anna_common::helpers::{get_helper_status_list, InstalledBy};
 use anna_common::domain_state::{DomainSummary, RefreshRequest, REQUESTS_DIR};
 use anna_common::terminal::{DisplayMode, get_terminal_size};
 use anna_common::self_observation::SelfObservation;
 use anna_common::control_socket::{check_daemon_health, DaemonHealth, SOCKET_PATH};
+use anna_common::install_state::{InstallState, ReviewResult};
+use anna_common::anomaly_engine::AlertQueue;
+use anna_common::recipes::RecipeManager;
+use anna_common::memory::MemoryManager;
+use anna_common::policy::{get_policy, POLICY_DIR};
+use anna_common::audit_log::{AuditLogger, AUDIT_LOG_FILE};
+use anna_common::display_format::{format_bytes, format_timestamp};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -86,6 +125,27 @@ pub async fn run() -> Result<()> {
 
     // [ALERTS] - always shown
     print_alerts_section(&snapshot);
+
+    // [HELPERS] - v0.0.9: show helpers with provenance
+    print_helpers_section(&mode);
+
+    // [INSTALL REVIEW] - v0.0.10: show last installer review status
+    print_installer_review_section();
+
+    // [LEARNING] - v0.0.13: show recipes, memory, learning status
+    print_learning_section(&mode);
+
+    // [POLICY] - v0.0.15: show policy status
+    print_policy_section();
+
+    // [MODELS] - v0.0.15: show LLM model status
+    print_models_section();
+
+    // [RECENT ACTIONS] - v0.0.15: show recent tool executions and mutations
+    print_recent_actions_section(&mode);
+
+    // [STORAGE] - v0.0.15: show disk usage for Anna directories
+    print_storage_section(&mode);
 
     // [PATHS] - only in standard/wide mode
     if mode != DisplayMode::Compact {
@@ -356,18 +416,39 @@ fn print_telemetry_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [UPDATES] section - update scheduler state
+/// [UPDATES] section - update scheduler state (v0.0.11 enhanced)
 fn print_updates_section(daemon_health: &DaemonHealth, snapshot: &Option<StatusSnapshot>) {
     println!("{}", "[UPDATES]".cyan());
 
     let state = UpdateState::load();
     let daemon_running = daemon_health.is_running();
 
-    // Mode
-    println!("  Mode:       {}", state.format_mode());
+    // Mode and channel
+    println!("  Mode:       {} ({})", state.format_mode(), state.format_channel());
 
     // Interval
     println!("  Interval:   {}", state.format_interval());
+
+    // Show update progress if in progress
+    if state.is_update_in_progress() {
+        if let Some(ref phase) = state.update_phase {
+            let progress_str = if let Some(percent) = state.update_progress_percent {
+                if let Some(eta) = state.update_eta_seconds {
+                    format!("{} ({}%, ETA: {}s)", phase, percent, eta)
+                } else {
+                    format!("{} ({}%)", phase, percent)
+                }
+            } else {
+                phase.clone()
+            };
+            println!("  Progress:   {}", progress_str.yellow());
+        }
+        if let Some(ref target) = state.updating_to_version {
+            println!("  Updating:   {} -> {}", state.last_checked_version_installed, target.green());
+        }
+        println!();
+        return;
+    }
 
     // Last check
     let last_check_str = if state.last_check_at == 0 {
@@ -429,32 +510,101 @@ fn print_updates_section(daemon_health: &DaemonHealth, snapshot: &Option<StatusS
         }
     }
 
+    // v0.0.11: Show last update info if recently updated
+    if let Some(last_update) = state.last_update_at {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let ago = now.saturating_sub(last_update);
+        // Show if updated in last 24 hours
+        if ago < 86400 {
+            let ago_str = if ago < 60 {
+                format!("{}s ago", ago)
+            } else if ago < 3600 {
+                format!("{}m ago", ago / 60)
+            } else {
+                format!("{}h ago", ago / 3600)
+            };
+            if let Some(ref prev) = state.previous_version {
+                println!("  Last update: {} -> {} ({})",
+                    prev, state.last_checked_version_installed.green(), ago_str.dimmed());
+            }
+        }
+    }
+
+    // v0.0.11: Show rollback info if rolled back
+    if state.last_result == UpdateResult::RolledBack {
+        if let Some(ref reason) = state.last_error {
+            println!("  Rollback:   {} ({})", "active".yellow(), reason.dimmed());
+        }
+    }
+
     println!();
 }
 
-/// [ALERTS] section - alert counts from snapshot
+/// [ALERTS] section - v0.0.12: enhanced with actual alerts from alert queue
 fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
     println!("{}", "[ALERTS]".cyan());
 
-    match snapshot {
-        Some(s) if !s.is_stale() => {
-            println!("  Critical:   {}", if s.alerts_critical > 0 {
-                s.alerts_critical.to_string().red().to_string()
-            } else {
-                "0".green().to_string()
-            });
-            println!("  Warnings:   {}", if s.alerts_warning > 0 {
-                s.alerts_warning.to_string().yellow().to_string()
-            } else {
-                "0".green().to_string()
-            });
+    // Load alert queue directly
+    let queue = AlertQueue::load();
+    let (critical, warning, info) = queue.count_by_severity();
+    let _total = critical + warning + info;
 
-            if s.instrumentation_count > 0 {
-                println!("  Installed:  {} tool(s) by Anna", s.instrumentation_count);
-            }
+    // Show summary counts
+    println!("  Critical:   {}", if critical > 0 {
+        critical.to_string().red().to_string()
+    } else {
+        "0".green().to_string()
+    });
+    println!("  Warnings:   {}", if warning > 0 {
+        warning.to_string().yellow().to_string()
+    } else {
+        "0".green().to_string()
+    });
+    println!("  Info:       {}", if info > 0 {
+        info.to_string().dimmed().to_string()
+    } else {
+        "0".dimmed().to_string()
+    });
+
+    // Show latest 3 alerts with evidence IDs
+    let active = queue.get_active();
+    if !active.is_empty() {
+        println!();
+        println!("  Latest alerts:");
+        for anomaly in active.iter().take(3) {
+            let severity_badge = match anomaly.severity {
+                anna_common::AnomalySeverity::Critical => format!("[{}]", "CRITICAL".red()),
+                anna_common::AnomalySeverity::Warning => format!("[{}]", "WARNING".yellow()),
+                anna_common::AnomalySeverity::Info => format!("[{}]", "INFO".dimmed()),
+            };
+            println!("    {} [{}] {}", severity_badge, anomaly.evidence_id.cyan(), anomaly.title);
         }
-        _ => {
-            println!("  {}", "(no snapshot data)".dimmed());
+        if active.len() > 3 {
+            println!("    {} more alert(s)...", (active.len() - 3).to_string().dimmed());
+        }
+    }
+
+    // Show last check time
+    if let Some(ref last_check) = queue.last_check {
+        let ago = (chrono::Utc::now() - *last_check).num_seconds().max(0) as u64;
+        let ago_str = if ago < 60 {
+            format!("{}s ago", ago)
+        } else if ago < 3600 {
+            format!("{}m ago", ago / 60)
+        } else {
+            format!("{}h ago", ago / 3600)
+        };
+        println!();
+        println!("  Last scan:  {}", ago_str.dimmed());
+    }
+
+    // Show instrumentation count from snapshot
+    if let Some(s) = snapshot {
+        if !s.is_stale() && s.instrumentation_count > 0 {
+            println!("  Installed:  {} tool(s) by Anna", s.instrumentation_count);
         }
     }
 
@@ -506,4 +656,447 @@ fn print_paths_section() {
     println!("  Logs:       {}", "journalctl -u annad".dimmed());
 
     println!();
+}
+
+/// [HELPERS] section - v0.0.9: show helpers with provenance
+fn print_helpers_section(mode: &DisplayMode) {
+    println!("{}", "[HELPERS]".cyan());
+
+    let helpers = get_helper_status_list();
+
+    if helpers.is_empty() {
+        println!("  {}", "(no helpers tracked)".dimmed());
+        println!();
+        return;
+    }
+
+    // Count stats
+    let present_count = helpers.iter().filter(|h| h.present).count();
+    let missing_count = helpers.iter().filter(|h| !h.present).count();
+    let anna_installed = helpers.iter().filter(|h| h.installed_by == InstalledBy::Anna).count();
+
+    println!("  Summary:    {} present, {} missing ({} by Anna)",
+        present_count.to_string().green(),
+        if missing_count > 0 { missing_count.to_string().yellow().to_string() } else { "0".to_string() },
+        anna_installed);
+
+    // In compact mode, just show summary
+    if *mode == DisplayMode::Compact {
+        println!();
+        return;
+    }
+
+    println!();
+
+    // Show each helper
+    for helper in &helpers {
+        let presence = if helper.present {
+            "present".green().to_string()
+        } else {
+            "missing".red().to_string()
+        };
+
+        let by = match helper.installed_by {
+            InstalledBy::Anna => "installed by Anna".cyan().to_string(),
+            InstalledBy::User => "installed by user".dimmed().to_string(),
+            InstalledBy::Unknown => "unknown origin".dimmed().to_string(),
+        };
+
+        println!("  {} ({}, {})", helper.name, presence, by);
+    }
+
+    println!();
+}
+
+/// [INSTALL REVIEW] section - v0.0.10: show last installer review status
+fn print_installer_review_section() {
+    println!("{}", "[INSTALL REVIEW]".cyan());
+
+    let state = InstallState::load();
+
+    match state {
+        Some(s) => {
+            if let Some(ref review) = s.last_review {
+                // Format timestamp
+                let ago = chrono::Utc::now().signed_duration_since(review.timestamp);
+                let ago_str = if ago.num_days() > 0 {
+                    format!("{} day(s) ago", ago.num_days())
+                } else if ago.num_hours() > 0 {
+                    format!("{} hour(s) ago", ago.num_hours())
+                } else if ago.num_minutes() > 0 {
+                    format!("{} minute(s) ago", ago.num_minutes())
+                } else {
+                    "just now".to_string()
+                };
+
+                // Show result with colored status
+                match &review.result {
+                    ReviewResult::Healthy => {
+                        println!("  Status:     {}", "healthy".green());
+                        println!("  Last run:   {}", ago_str);
+                    }
+                    ReviewResult::Repaired { fixes } => {
+                        println!("  Status:     {} ({})", "healthy".green(), "auto-repaired".cyan());
+                        println!("  Last run:   {}", ago_str);
+                        println!("  Repairs:    {} fix(es)", fixes.len());
+                    }
+                    ReviewResult::NeedsAttention { issues } => {
+                        println!("  Status:     {}", "needs attention".yellow());
+                        println!("  Last run:   {}", ago_str);
+                        println!("  Issues:     {}", issues.len().to_string().yellow());
+                        for issue in issues.iter().take(3) {
+                            println!("    - {}", issue.yellow());
+                        }
+                        if issues.len() > 3 {
+                            println!("    ... and {} more", issues.len() - 3);
+                        }
+                    }
+                    ReviewResult::Failed { reason } => {
+                        println!("  Status:     {}", "failed".red());
+                        println!("  Last run:   {}", ago_str);
+                        println!("  Reason:     {}", reason.red());
+                    }
+                }
+
+                // Show duration
+                if review.duration_ms > 0 {
+                    println!("  Duration:   {} ms", review.duration_ms);
+                }
+            } else {
+                println!("  Status:     {}", "(no review yet)".dimmed());
+                println!("  Run:        {} to verify installation", "annactl reset --dry-run".dimmed());
+            }
+        }
+        None => {
+            println!("  Status:     {}", "(no install state)".dimmed());
+            println!("  Run:        {} to create install state", "annactl reset --dry-run".dimmed());
+        }
+    }
+
+    println!();
+}
+
+/// [LEARNING] section - v0.0.13: recipes, memory, learning status
+fn print_learning_section(mode: &DisplayMode) {
+    println!("{}", "[LEARNING]".cyan());
+
+    let config = AnnaConfig::load();
+
+    // Check if memory is enabled
+    if !config.memory.enabled {
+        println!("  {}", "Memory disabled in config.".dimmed());
+        println!();
+        return;
+    }
+
+    // Get recipe stats
+    let recipe_stats = RecipeManager::get_stats();
+    let memory_stats = MemoryManager::default().get_stats();
+
+    // Recipes count
+    println!("  Recipes:    {}", if recipe_stats.total_recipes > 0 {
+        format!("{} ({} total uses)",
+            recipe_stats.total_recipes.to_string().green(),
+            recipe_stats.total_uses)
+    } else {
+        "0 (none yet)".dimmed().to_string()
+    });
+
+    // Last learned time
+    if let Some(last) = recipe_stats.last_created_at {
+        let ago = (chrono::Utc::now() - last).num_seconds().max(0) as u64;
+        let ago_str = if ago < 60 {
+            format!("{}s ago", ago)
+        } else if ago < 3600 {
+            format!("{}m ago", ago / 60)
+        } else if ago < 86400 {
+            format!("{}h ago", ago / 3600)
+        } else {
+            format!("{}d ago", ago / 86400)
+        };
+        println!("  Last learned: {}", ago_str);
+    } else {
+        println!("  Last learned: {}", "-".dimmed());
+    }
+
+    // Sessions count
+    println!("  Sessions:   {}", memory_stats.total_sessions);
+
+    // In compact mode, skip top recipes
+    if *mode == DisplayMode::Compact {
+        println!();
+        return;
+    }
+
+    // Top 3 recipes
+    let top_recipes = RecipeManager::get_top(3);
+    if !top_recipes.is_empty() {
+        println!();
+        println!("  Top recipes:");
+        for recipe in &top_recipes {
+            println!("    [{}] {} ({} uses, {:.0}%)",
+                recipe.id.cyan(),
+                truncate_str(&recipe.name, 30),
+                recipe.success_count,
+                recipe.confidence * 100.0);
+        }
+    }
+
+    // Memory settings (in standard/wide mode)
+    println!();
+    println!("  Settings:");
+    println!("    Store raw:      {}", if config.memory.store_raw { "yes" } else { "no (summaries only)" });
+    println!("    Max sessions:   {}", config.memory.max_sessions);
+    println!("    Min reliability: {}%", config.memory.min_reliability_for_recipe);
+
+    println!();
+}
+
+/// Truncate string for display
+fn truncate_str(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max.saturating_sub(3)])
+    }
+}
+
+/// [POLICY] section - v0.0.15: show policy status, version, violations
+fn print_policy_section() {
+    println!("{}", "[POLICY]".cyan());
+
+    let policy = get_policy();
+
+    // Check if policy files exist
+    let policy_dir = Path::new(POLICY_DIR);
+    if !policy_dir.exists() {
+        println!("  Status:     {} (policy dir missing)", "not loaded".yellow());
+        println!("  Path:       {}", POLICY_DIR);
+        println!("  Run:        {} to create defaults", "annactl reset".dimmed());
+        println!();
+        return;
+    }
+
+    // Show policy version
+    println!("  Status:     {}", "loaded".green());
+    println!("  Schema:     v{}", policy.capabilities.schema_version);
+
+    // Show capabilities summary
+    let caps = &policy.capabilities;
+    let read_only_str = if caps.read_only_tools.enabled { "enabled".green().to_string() } else { "disabled".yellow().to_string() };
+    let mutation_str = if caps.mutation_tools.enabled { "enabled".green().to_string() } else { "disabled".yellow().to_string() };
+    println!("  Read-only:  {}", read_only_str);
+    println!("  Mutations:  {}", mutation_str);
+
+    // Show blocked counts
+    let blocked = &policy.blocked;
+    let blocked_packages = blocked.packages.exact.len() + blocked.packages.patterns.len();
+    let blocked_services = blocked.services.exact.len() + blocked.services.patterns.len();
+    let blocked_paths = blocked.paths.exact.len() + blocked.paths.prefixes.len() + blocked.paths.patterns.len();
+    let blocked_commands = blocked.commands.exact.len() + blocked.commands.patterns.len();
+    println!("  Blocked:    {} packages, {} services, {} paths, {} commands",
+        blocked_packages, blocked_services, blocked_paths, blocked_commands);
+
+    // Show last modified time for policy files
+    if let Ok(metadata) = std::fs::metadata(format!("{}/capabilities.toml", POLICY_DIR)) {
+        if let Ok(modified) = metadata.modified() {
+            let epoch = modified.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+            println!("  Modified:   {}", format_timestamp(epoch).dimmed());
+        }
+    }
+
+    println!();
+}
+
+/// [MODELS] section - v0.0.15: show LLM model status
+fn print_models_section() {
+    println!("{}", "[MODELS]".cyan());
+
+    let config = AnnaConfig::load();
+    let junior_state = JuniorState::load();
+
+    // LLM enabled status
+    if !config.llm.enabled {
+        println!("  Status:     {}", "disabled".yellow());
+        println!();
+        return;
+    }
+
+    // Ollama status
+    let ollama_status = if junior_state.ollama_available {
+        "available".green().to_string()
+    } else {
+        "unavailable".red().to_string()
+    };
+    println!("  Ollama:     {}", ollama_status);
+
+    // Translator model
+    let translator_model = if config.llm.translator.model.is_empty() {
+        "(auto-select)".dimmed().to_string()
+    } else {
+        config.llm.translator.model.clone()
+    };
+    println!("  Translator: {}", translator_model);
+
+    // Junior model
+    if let Some(ref model) = junior_state.selected_model {
+        let ready = if junior_state.model_ready {
+            format!("{} ({})", model.green(), "ready".green())
+        } else {
+            format!("{} ({})", model.yellow(), "downloading".yellow())
+        };
+        println!("  Junior:     {}", ready);
+    } else {
+        println!("  Junior:     {}", "(no model)".dimmed());
+    }
+
+    // Timeout settings
+    println!("  Timeouts:   translator {}ms, junior {}ms",
+        config.llm.translator.timeout_ms,
+        config.llm.junior.timeout_ms);
+
+    // Last check time
+    if junior_state.last_check > 0 {
+        let ago = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            .saturating_sub(junior_state.last_check);
+        let ago_str = if ago < 60 {
+            format!("{}s ago", ago)
+        } else if ago < 3600 {
+            format!("{}m ago", ago / 60)
+        } else {
+            format!("{}h ago", ago / 3600)
+        };
+        println!("  Last check: {}", ago_str.dimmed());
+    }
+
+    println!();
+}
+
+/// [RECENT ACTIONS] section - v0.0.15: show recent tool executions and mutations
+fn print_recent_actions_section(mode: &DisplayMode) {
+    println!("{}", "[RECENT ACTIONS]".cyan());
+
+    // Load recent audit entries
+    let recent = AuditLogger::get_recent(10);
+
+    if recent.is_empty() {
+        println!("  {}", "(no recent actions)".dimmed());
+        println!();
+        return;
+    }
+
+    // Count by type
+    let read_only_count = recent.iter()
+        .filter(|e| e.entry_type == anna_common::audit_log::AuditEntryType::ReadOnlyTool)
+        .count();
+    let mutation_count = recent.iter()
+        .filter(|e| e.entry_type == anna_common::audit_log::AuditEntryType::MutationTool)
+        .count();
+    let blocked_count = recent.iter()
+        .filter(|e| e.entry_type == anna_common::audit_log::AuditEntryType::ActionBlocked)
+        .count();
+
+    println!("  Summary:    {} read-only, {} mutations, {} blocked",
+        read_only_count,
+        if mutation_count > 0 { mutation_count.to_string().yellow().to_string() } else { "0".to_string() },
+        if blocked_count > 0 { blocked_count.to_string().red().to_string() } else { "0".to_string() });
+
+    // In compact mode, skip details
+    if *mode == DisplayMode::Compact {
+        println!();
+        return;
+    }
+
+    // Show latest 5 entries
+    println!();
+    println!("  Latest:");
+    for entry in recent.iter().take(5) {
+        let timestamp = entry.timestamp.format("%H:%M:%S").to_string();
+        let type_str = match entry.entry_type {
+            anna_common::audit_log::AuditEntryType::ReadOnlyTool => "read".dimmed().to_string(),
+            anna_common::audit_log::AuditEntryType::MutationTool => "mutation".yellow().to_string(),
+            anna_common::audit_log::AuditEntryType::ActionBlocked => "blocked".red().to_string(),
+            anna_common::audit_log::AuditEntryType::PolicyCheck => "policy".cyan().to_string(),
+            anna_common::audit_log::AuditEntryType::Confirmation => "confirm".green().to_string(),
+            anna_common::audit_log::AuditEntryType::Rollback => "rollback".magenta().to_string(),
+            _ => "other".dimmed().to_string(),
+        };
+
+        let tool_name = entry.tool_name.as_deref().unwrap_or("-");
+        let evidence = entry.evidence_id.as_deref().map(|e| format!("[{}]", e.cyan())).unwrap_or_default();
+        let result = match entry.result {
+            anna_common::audit_log::AuditResult::Success => "ok".green().to_string(),
+            anna_common::audit_log::AuditResult::Failure => "fail".red().to_string(),
+            anna_common::audit_log::AuditResult::Blocked => "blocked".red().to_string(),
+            anna_common::audit_log::AuditResult::Pending => "pending".yellow().to_string(),
+        };
+
+        println!("    {} {} {} {} {}",
+            timestamp.dimmed(),
+            type_str,
+            tool_name,
+            evidence,
+            result);
+    }
+
+    println!();
+}
+
+/// [STORAGE] section - v0.0.15: show disk usage for Anna directories
+fn print_storage_section(mode: &DisplayMode) {
+    println!("{}", "[STORAGE]".cyan());
+
+    // Calculate directory sizes
+    let data_dir = "/var/lib/anna";
+    let audit_dir = "/var/lib/anna/audit";
+    let rollback_dir = "/var/lib/anna/rollback";
+    let memory_dir = "/var/lib/anna/memory";
+    let recipes_dir = "/var/lib/anna/recipes";
+
+    let data_size = get_dir_size(data_dir);
+    let audit_size = get_dir_size(audit_dir);
+    let rollback_size = get_dir_size(rollback_dir);
+    let memory_size = get_dir_size(memory_dir);
+    let recipes_size = get_dir_size(recipes_dir);
+
+    // Total
+    println!("  Total:      {}", format_bytes(data_size));
+
+    // In compact mode, skip breakdown
+    if *mode == DisplayMode::Compact {
+        println!();
+        return;
+    }
+
+    // Breakdown
+    println!("  Audit:      {}", format_bytes(audit_size));
+    println!("  Rollback:   {}", format_bytes(rollback_size));
+    println!("  Memory:     {}", format_bytes(memory_size));
+    println!("  Recipes:    {}", format_bytes(recipes_size));
+
+    // Show retention settings
+    let config = AnnaConfig::load();
+    println!("  Retention:  {} days telemetry", config.telemetry.retention_days);
+
+    println!();
+}
+
+/// Calculate total size of a directory recursively
+fn get_dir_size(path: &str) -> u64 {
+    let mut total: u64 = 0;
+    if let Ok(entries) = std::fs::read_dir(path) {
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.is_file() {
+                    total += metadata.len();
+                } else if metadata.is_dir() {
+                    total += get_dir_size(&entry.path().to_string_lossy());
+                }
+            }
+        }
+    }
+    total
 }

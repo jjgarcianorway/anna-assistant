@@ -40,11 +40,12 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "0.0.4"
+version = "0.0.16"
 dependencies = [
  "anyhow",
  "chrono",
  "dirs",
+ "futures-util",
  "lazy_static",
  "owo-colors",
  "regex",
@@ -63,7 +64,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.0.4"
+version = "0.0.16"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -86,7 +87,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.0.4"
+version = "0.0.16"
 dependencies = [
  "anna_common",
  "anyhow",

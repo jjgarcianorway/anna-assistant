@@ -190,12 +190,34 @@ impl UpdateMode {
     }
 }
 
-/// Auto-update configuration (v7.29.0 enhanced)
+/// Update channel (v0.0.11)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UpdateChannel {
+    #[default]
+    Stable,
+    Canary,
+}
+
+impl UpdateChannel {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UpdateChannel::Stable => "stable",
+            UpdateChannel::Canary => "canary",
+        }
+    }
+}
+
+/// Auto-update configuration (v0.0.11 enhanced with channels)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateConfig {
     /// Update mode: auto or manual (v7.29.0)
     #[serde(default)]
     pub mode: UpdateMode,
+
+    /// Update channel: stable or canary (v0.0.11)
+    #[serde(default)]
+    pub channel: UpdateChannel,
 
     /// Check interval in seconds (default 600 = 10 minutes)
     #[serde(default = "default_update_interval_seconds")]
@@ -204,6 +226,14 @@ pub struct UpdateConfig {
     /// Maximum backoff on failure (6 hours)
     #[serde(default = "default_max_backoff_seconds")]
     pub max_backoff_seconds: u64,
+
+    /// Minimum disk space required for update in bytes (default 100 MB)
+    #[serde(default = "default_min_disk_space")]
+    pub min_disk_space_bytes: u64,
+}
+
+fn default_min_disk_space() -> u64 {
+    100 * 1024 * 1024 // 100 MB
 }
 
 fn default_update_interval_seconds() -> u64 {
@@ -218,8 +248,10 @@ impl Default for UpdateConfig {
     fn default() -> Self {
         Self {
             mode: UpdateMode::Auto,
+            channel: UpdateChannel::Stable,
             interval_seconds: default_update_interval_seconds(),
             max_backoff_seconds: default_max_backoff_seconds(),
+            min_disk_space_bytes: default_min_disk_space(),
         }
     }
 }
@@ -288,7 +320,7 @@ impl Default for InstrumentationSettings {
     }
 }
 
-/// Update check result (v7.29.0)
+/// Update check result (v0.0.11 enhanced)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum UpdateResult {
@@ -297,6 +329,12 @@ pub enum UpdateResult {
     Ok,
     UpdateAvailable,
     Failed,
+    /// v0.0.11: Update in progress
+    InProgress,
+    /// v0.0.11: Update completed successfully
+    UpdatedTo,
+    /// v0.0.11: Update was rolled back
+    RolledBack,
 }
 
 impl UpdateResult {
@@ -306,18 +344,25 @@ impl UpdateResult {
             UpdateResult::Ok => "ok",
             UpdateResult::UpdateAvailable => "update available",
             UpdateResult::Failed => "failed",
+            UpdateResult::InProgress => "in progress",
+            UpdateResult::UpdatedTo => "updated",
+            UpdateResult::RolledBack => "rolled back",
         }
     }
 }
 
-/// Auto-update state (v7.34.0 spec-compliant, stored in /var/lib/anna/internal/update_state.json)
+/// Auto-update state (v0.0.11 enhanced, stored in /var/lib/anna/internal/update_state.json)
 ///
+/// v0.0.11: Added channel, update phase, and progress tracking
 /// v7.34.0: Full spec compliance with real timestamps and audit trail
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateState {
     /// Mode: auto, manual, or off
     #[serde(default)]
     pub mode: UpdateMode,
+    /// Channel: stable or canary (v0.0.11)
+    #[serde(default)]
+    pub channel: UpdateChannel,
     /// Check interval in seconds (default 600 = 10 minutes)
     #[serde(default = "default_interval_seconds")]
     pub interval_seconds: u64,
@@ -345,6 +390,24 @@ pub struct UpdateState {
     /// Current consecutive failure count (for backoff)
     #[serde(default)]
     pub consecutive_failures: u32,
+    /// v0.0.11: Current update phase (if update in progress)
+    #[serde(default)]
+    pub update_phase: Option<String>,
+    /// v0.0.11: Update progress percentage (0-100)
+    #[serde(default)]
+    pub update_progress_percent: Option<u8>,
+    /// v0.0.11: Estimated time remaining for update (seconds)
+    #[serde(default)]
+    pub update_eta_seconds: Option<u64>,
+    /// v0.0.11: Version being updated to
+    #[serde(default)]
+    pub updating_to_version: Option<String>,
+    /// v0.0.11: Last successful update timestamp
+    #[serde(default)]
+    pub last_update_at: Option<u64>,
+    /// v0.0.11: Previous version (for rollback info)
+    #[serde(default)]
+    pub previous_version: Option<String>,
 }
 
 fn default_interval_seconds() -> u64 {
@@ -355,6 +418,7 @@ impl Default for UpdateState {
     fn default() -> Self {
         Self {
             mode: UpdateMode::Auto,
+            channel: UpdateChannel::Stable,
             interval_seconds: 600,
             last_check_at: 0,
             last_result: UpdateResult::Pending,
@@ -364,6 +428,12 @@ impl Default for UpdateState {
             next_check_at: 0,
             last_successful_check_at: None,
             consecutive_failures: 0,
+            update_phase: None,
+            update_progress_percent: None,
+            update_eta_seconds: None,
+            updating_to_version: None,
+            last_update_at: None,
+            previous_version: None,
         }
     }
 }
@@ -512,7 +582,7 @@ impl UpdateState {
         }
     }
 
-    /// Format last result for display (v7.34.0)
+    /// Format last result for display (v0.0.11 enhanced)
     pub fn format_last_result(&self) -> String {
         match &self.last_result {
             UpdateResult::Pending => "pending".to_string(),
@@ -531,7 +601,84 @@ impl UpdateState {
                     "error".to_string()
                 }
             }
+            UpdateResult::InProgress => {
+                if let Some(ref phase) = self.update_phase {
+                    if let Some(percent) = self.update_progress_percent {
+                        format!("in progress: {} ({}%)", phase, percent)
+                    } else {
+                        format!("in progress: {}", phase)
+                    }
+                } else {
+                    "in progress".to_string()
+                }
+            }
+            UpdateResult::UpdatedTo => {
+                if let Some(ref ver) = self.updating_to_version {
+                    format!("updated to {}", ver)
+                } else {
+                    "updated".to_string()
+                }
+            }
+            UpdateResult::RolledBack => {
+                if let Some(ref prev) = self.previous_version {
+                    format!("rolled back to {}", prev)
+                } else {
+                    "rolled back".to_string()
+                }
+            }
         }
+    }
+
+    /// v0.0.11: Set update in progress
+    pub fn set_update_in_progress(&mut self, version: &str, phase: &str, progress: Option<u8>, eta: Option<u64>) {
+        self.last_result = UpdateResult::InProgress;
+        self.updating_to_version = Some(version.to_string());
+        self.update_phase = Some(phase.to_string());
+        self.update_progress_percent = progress;
+        self.update_eta_seconds = eta;
+    }
+
+    /// v0.0.11: Record successful update
+    pub fn record_update_success(&mut self, new_version: &str, previous_version: &str) {
+        let now = Self::now_epoch();
+        self.last_result = UpdateResult::UpdatedTo;
+        self.updating_to_version = Some(new_version.to_string());
+        self.previous_version = Some(previous_version.to_string());
+        self.last_update_at = Some(now);
+        self.update_phase = None;
+        self.update_progress_percent = None;
+        self.update_eta_seconds = None;
+        self.last_checked_version_installed = new_version.to_string();
+        self.last_checked_version_available = None;
+        self.consecutive_failures = 0;
+    }
+
+    /// v0.0.11: Record rollback
+    pub fn record_rollback(&mut self, rolled_back_to: &str, reason: &str) {
+        self.last_result = UpdateResult::RolledBack;
+        self.previous_version = Some(rolled_back_to.to_string());
+        self.last_error = Some(reason.to_string());
+        self.update_phase = None;
+        self.update_progress_percent = None;
+        self.update_eta_seconds = None;
+        self.updating_to_version = None;
+    }
+
+    /// v0.0.11: Clear update progress (after completion or failure)
+    pub fn clear_update_progress(&mut self) {
+        self.update_phase = None;
+        self.update_progress_percent = None;
+        self.update_eta_seconds = None;
+    }
+
+    /// v0.0.11: Format channel for display
+    pub fn format_channel(&self) -> &'static str {
+        self.channel.as_str()
+    }
+
+    /// v0.0.11: Check if update is in progress
+    pub fn is_update_in_progress(&self) -> bool {
+        self.last_result == UpdateResult::InProgress
     }
 
     /// Format mode for display
@@ -564,32 +711,60 @@ fn format_epoch_time(epoch: u64) -> String {
     }
 }
 
-/// Junior verifier settings (v0.0.4)
-/// Controls the local LLM-based verification via Ollama
+/// LLM settings (v0.0.5)
+/// Controls local LLM via Ollama for both Translator and Junior
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JuniorSettings {
-    /// Whether Junior LLM verification is enabled (default: true if Ollama present)
-    #[serde(default = "default_junior_enabled")]
+pub struct LlmSettings {
+    /// Whether LLM features are enabled (default: true)
+    #[serde(default = "default_llm_enabled")]
     pub enabled: bool,
-
-    /// Model to use for Junior (auto-selected if empty)
-    #[serde(default)]
-    pub model: String,
-
-    /// Timeout for LLM generation in milliseconds (default: 60000 = 60s)
-    #[serde(default = "default_junior_timeout_ms")]
-    pub timeout_ms: u64,
 
     /// Ollama API URL (default: http://127.0.0.1:11434)
     #[serde(default = "default_ollama_url")]
     pub ollama_url: String,
+
+    /// Translator settings
+    #[serde(default)]
+    pub translator: RoleSettings,
+
+    /// Junior settings
+    #[serde(default)]
+    pub junior: RoleSettings,
+
+    /// Candidate models for Translator (empty = use defaults)
+    #[serde(default)]
+    pub translator_candidates: Vec<String>,
+
+    /// Candidate models for Junior (empty = use defaults)
+    #[serde(default)]
+    pub junior_candidates: Vec<String>,
 }
 
-fn default_junior_enabled() -> bool {
+/// Settings for a specific LLM role
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoleSettings {
+    /// Model to use (auto-selected if empty)
+    #[serde(default)]
+    pub model: String,
+
+    /// Timeout for LLM generation in milliseconds
+    #[serde(default = "default_role_timeout_ms")]
+    pub timeout_ms: u64,
+
+    /// Whether this role is enabled
+    #[serde(default = "default_role_enabled")]
+    pub enabled: bool,
+}
+
+fn default_llm_enabled() -> bool {
     true
 }
 
-fn default_junior_timeout_ms() -> u64 {
+fn default_role_enabled() -> bool {
+    true
+}
+
+fn default_role_timeout_ms() -> u64 {
     60000 // 60 seconds
 }
 
@@ -597,19 +772,81 @@ fn default_ollama_url() -> String {
     "http://127.0.0.1:11434".to_string()
 }
 
+impl Default for RoleSettings {
+    fn default() -> Self {
+        Self {
+            model: String::new(),
+            timeout_ms: default_role_timeout_ms(),
+            enabled: default_role_enabled(),
+        }
+    }
+}
+
+impl Default for LlmSettings {
+    fn default() -> Self {
+        Self {
+            enabled: default_llm_enabled(),
+            ollama_url: default_ollama_url(),
+            translator: RoleSettings {
+                timeout_ms: 10000, // 10s for fast translator
+                ..Default::default()
+            },
+            junior: RoleSettings {
+                timeout_ms: 60000, // 60s for junior
+                ..Default::default()
+            },
+            translator_candidates: Vec::new(),
+            junior_candidates: Vec::new(),
+        }
+    }
+}
+
+impl LlmSettings {
+    /// Get effective translator model (for display)
+    pub fn effective_translator_model(&self) -> &str {
+        if self.translator.model.is_empty() {
+            "(auto-select)"
+        } else {
+            &self.translator.model
+        }
+    }
+
+    /// Get effective junior model (for display)
+    pub fn effective_junior_model(&self) -> &str {
+        if self.junior.model.is_empty() {
+            "(auto-select)"
+        } else {
+            &self.junior.model
+        }
+    }
+}
+
+/// Legacy Junior settings (v0.0.4 compatibility)
+/// Deprecated: use LlmSettings instead
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JuniorSettings {
+    #[serde(default = "default_role_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default = "default_role_timeout_ms")]
+    pub timeout_ms: u64,
+    #[serde(default = "default_ollama_url")]
+    pub ollama_url: String,
+}
+
 impl Default for JuniorSettings {
     fn default() -> Self {
         Self {
-            enabled: default_junior_enabled(),
-            model: String::new(), // Auto-select
-            timeout_ms: default_junior_timeout_ms(),
+            enabled: true,
+            model: String::new(),
+            timeout_ms: 60000,
             ollama_url: default_ollama_url(),
         }
     }
 }
 
 impl JuniorSettings {
-    /// Get effective model (for display)
     pub fn effective_model(&self) -> &str {
         if self.model.is_empty() {
             "(auto-select)"
@@ -692,7 +929,7 @@ impl JuniorState {
     }
 }
 
-/// Complete Anna configuration v0.0.4
+/// Complete Anna configuration v0.0.5
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnnaConfig {
     #[serde(default)]
@@ -713,9 +950,133 @@ pub struct AnnaConfig {
     #[serde(default)]
     pub instrumentation: InstrumentationSettings,
 
-    /// Junior verifier settings (v0.0.4)
+    /// LLM settings (v0.0.5) - role-based model selection
+    #[serde(default)]
+    pub llm: LlmSettings,
+
+    /// Junior verifier settings (v0.0.4 - deprecated, use llm.junior)
     #[serde(default)]
     pub junior: JuniorSettings,
+
+    /// Memory and learning settings (v0.0.13)
+    #[serde(default)]
+    pub memory: MemoryConfig,
+
+    /// UI settings (v0.0.15)
+    #[serde(default)]
+    pub ui: UiConfig,
+}
+
+/// UI configuration (v0.0.15)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UiConfig {
+    /// Debug level: 0=minimal, 1=normal (default), 2=full
+    /// 0: Only [you]->[anna] and final [anna]->[you], plus confirmations
+    /// 1: Dialogues condensed, tool calls summarized, evidence IDs included
+    /// 2: Full dialogues, tool execution summaries, Junior critique in full
+    #[serde(default = "default_debug_level")]
+    pub debug_level: u8,
+
+    /// Whether to use colors in output (true color if available)
+    #[serde(default = "default_colors_enabled")]
+    pub colors_enabled: bool,
+
+    /// Maximum width for text wrapping (0 = auto-detect terminal width)
+    #[serde(default)]
+    pub max_width: u16,
+}
+
+fn default_debug_level() -> u8 { 1 }
+fn default_colors_enabled() -> bool { true }
+
+impl Default for UiConfig {
+    fn default() -> Self {
+        Self {
+            debug_level: default_debug_level(),
+            colors_enabled: default_colors_enabled(),
+            max_width: 0,
+        }
+    }
+}
+
+impl UiConfig {
+    /// Get the effective max width (auto-detect if 0)
+    pub fn effective_width(&self) -> u16 {
+        if self.max_width > 0 {
+            return self.max_width;
+        }
+        // Auto-detect terminal width
+        if let Some((width, _)) = terminal_size::terminal_size() {
+            width.0.min(120) // Cap at 120 for readability
+        } else {
+            80 // Default fallback
+        }
+    }
+
+    /// Check if debug level shows full dialogues
+    pub fn is_full_debug(&self) -> bool {
+        self.debug_level >= 2
+    }
+
+    /// Check if debug level shows condensed dialogues
+    pub fn is_normal_debug(&self) -> bool {
+        self.debug_level >= 1
+    }
+
+    /// Check if debug level is minimal (user-facing only)
+    pub fn is_minimal(&self) -> bool {
+        self.debug_level == 0
+    }
+
+    /// Format debug level for display
+    pub fn format_debug_level(&self) -> &'static str {
+        match self.debug_level {
+            0 => "minimal",
+            1 => "normal",
+            _ => "full",
+        }
+    }
+}
+
+/// Memory and learning configuration (v0.0.13)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryConfig {
+    /// Whether memory/learning is enabled
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Whether to store raw transcripts (privacy: default false)
+    #[serde(default)]
+    pub store_raw: bool,
+
+    /// Maximum sessions to keep in memory index
+    #[serde(default = "default_max_sessions")]
+    pub max_sessions: u64,
+
+    /// Minimum reliability score to create a recipe (0-100)
+    #[serde(default = "default_min_reliability")]
+    pub min_reliability_for_recipe: u32,
+
+    /// Maximum recipes to store
+    #[serde(default = "default_max_recipes")]
+    pub max_recipes: u64,
+}
+
+fn default_true() -> bool { true }
+fn default_max_sessions() -> u64 { 10000 }
+fn default_min_reliability() -> u32 { 80 }
+fn default_max_recipes() -> u64 { 500 }
+
+impl Default for MemoryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            store_raw: false,
+            max_sessions: default_max_sessions(),
+            min_reliability_for_recipe: default_min_reliability(),
+            max_recipes: default_max_recipes(),
+        }
+    }
 }
 
 impl AnnaConfig {
@@ -819,5 +1180,85 @@ mod tests {
         // v7.26.0: AUR gate must be OFF by default
         let config = AnnaConfig::default();
         assert!(!config.instrumentation.allow_aur, "AUR gate must be OFF by default");
+    }
+
+    // v0.0.15: UI config tests
+    #[test]
+    fn test_ui_config_defaults() {
+        let config = AnnaConfig::default();
+        assert_eq!(config.ui.debug_level, 1, "Default debug level should be 1 (normal)");
+        assert!(config.ui.colors_enabled, "Colors should be enabled by default");
+        assert_eq!(config.ui.max_width, 0, "Default max_width should be 0 (auto-detect)");
+    }
+
+    #[test]
+    fn test_ui_config_debug_level_helpers() {
+        let mut config = UiConfig::default();
+
+        // Level 0 = minimal
+        config.debug_level = 0;
+        assert!(config.is_minimal());
+        assert!(!config.is_normal_debug());
+        assert!(!config.is_full_debug());
+        assert_eq!(config.format_debug_level(), "minimal");
+
+        // Level 1 = normal
+        config.debug_level = 1;
+        assert!(!config.is_minimal());
+        assert!(config.is_normal_debug());
+        assert!(!config.is_full_debug());
+        assert_eq!(config.format_debug_level(), "normal");
+
+        // Level 2 = full
+        config.debug_level = 2;
+        assert!(!config.is_minimal());
+        assert!(config.is_normal_debug());
+        assert!(config.is_full_debug());
+        assert_eq!(config.format_debug_level(), "full");
+    }
+
+    #[test]
+    fn test_ui_config_effective_width() {
+        let mut config = UiConfig::default();
+
+        // 0 means auto-detect (should return > 0)
+        config.max_width = 0;
+        assert!(config.effective_width() > 0);
+
+        // Explicit width should be returned as-is
+        config.max_width = 120;
+        assert_eq!(config.effective_width(), 120);
+    }
+
+    #[test]
+    fn test_ui_config_toml_parsing() {
+        // Test parsing UiConfig fields directly (without [ui] section header)
+        let toml_str = r#"
+debug_level = 2
+colors_enabled = false
+max_width = 100
+"#;
+        let config: UiConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.debug_level, 2);
+        assert!(!config.colors_enabled);
+        assert_eq!(config.max_width, 100);
+    }
+
+    #[test]
+    fn test_ui_config_in_anna_config() {
+        // Test parsing UI config within full AnnaConfig structure
+        let toml_str = r#"
+[core]
+mode = "normal"
+
+[ui]
+debug_level = 0
+colors_enabled = false
+max_width = 80
+"#;
+        let config: AnnaConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.ui.debug_level, 0);
+        assert!(!config.ui.colors_enabled);
+        assert_eq!(config.ui.max_width, 80);
     }
 }

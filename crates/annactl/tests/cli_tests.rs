@@ -126,9 +126,10 @@ fn test_annactl_version_format() {
         "Version should start with 'annactl v', got: {}",
         stdout
     );
+    // Check for semantic version pattern (0.0.x format)
     assert!(
-        stdout.contains("0.0.4"),
-        "Version should contain 0.0.4, got: {}",
+        stdout.contains("0.0."),
+        "Version should contain semantic version (0.0.x), got: {}",
         stdout
     );
     assert!(output.status.success(), "annactl --version should succeed");

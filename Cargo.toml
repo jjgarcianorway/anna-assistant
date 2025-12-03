@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.4"
+version = "0.0.16"
 edition = "2021"
 authors = ["Anna Assistant Team"]
 license = "GPL-3.0-or-later"
@@ -45,6 +45,9 @@ tower-http = { version = "0.5", features = ["trace", "cors"] }
 
 # HTTP client
 reqwest = { version = "0.12", features = ["json", "stream"] }
+
+# Async utilities
+futures-util = "0.3"
 
 # Configuration
 toml = "0.8"

@@ -1,15 +1,18 @@
-//! Ollama Local LLM Client v0.0.4
+//! Ollama Local LLM Client v0.0.5
 //!
-//! HTTP client for local Ollama API - used for Junior verification.
+//! HTTP client for local Ollama API - used for Translator and Junior.
 //! No cloud calls - all local.
 //!
 //! Endpoints used:
+//! - GET / - health check
 //! - GET /api/tags - list available models
 //! - POST /api/generate - generate response
-//! - GET / - health check
+//! - POST /api/pull - pull/download a model (streaming)
+//! - DELETE /api/delete - delete a model
 
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use tokio::sync::mpsc;
 
 /// Default Ollama API endpoint
 pub const OLLAMA_DEFAULT_URL: &str = "http://127.0.0.1:11434";
@@ -120,6 +123,49 @@ pub struct GenerateResponse {
     pub eval_count: u32,
     #[serde(default)]
     pub eval_duration: u64,
+}
+
+/// Request for /api/pull
+#[derive(Debug, Clone, Serialize)]
+pub struct PullRequest {
+    pub name: String,
+    #[serde(default)]
+    pub stream: bool,
+}
+
+/// Progress from /api/pull (streaming)
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PullProgress {
+    pub status: String,
+    #[serde(default)]
+    pub digest: Option<String>,
+    #[serde(default)]
+    pub total: u64,
+    #[serde(default)]
+    pub completed: u64,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+impl PullProgress {
+    /// Calculate download percentage
+    pub fn percent(&self) -> f64 {
+        if self.total == 0 {
+            0.0
+        } else {
+            (self.completed as f64 / self.total as f64) * 100.0
+        }
+    }
+
+    /// Check if this is a downloading status
+    pub fn is_downloading(&self) -> bool {
+        self.status.contains("pulling") || self.status.contains("download")
+    }
+
+    /// Check if complete
+    pub fn is_complete(&self) -> bool {
+        self.status == "success" || self.status.contains("verifying")
+    }
 }
 
 /// Error from Ollama operations
@@ -299,6 +345,122 @@ impl OllamaClient {
             .map_err(|e| OllamaError::ParseError(e.to_string()))?;
 
         Ok(gen_resp)
+    }
+
+    /// Pull a model with progress callback
+    /// Returns a receiver that will receive progress updates
+    pub async fn pull_model(
+        &self,
+        model: &str,
+    ) -> Result<mpsc::Receiver<PullProgress>, OllamaError> {
+        let (tx, rx) = mpsc::channel(100);
+        let base_url = self.base_url.clone();
+        let model = model.to_string();
+
+        // Spawn task to handle streaming pull
+        tokio::spawn(async move {
+            let client = match reqwest::Client::builder()
+                .timeout(Duration::from_secs(3600)) // 1 hour timeout for large models
+                .build()
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    let _ = tx.send(PullProgress {
+                        status: "error".to_string(),
+                        digest: None,
+                        total: 0,
+                        completed: 0,
+                        error: Some(e.to_string()),
+                    }).await;
+                    return;
+                }
+            };
+
+            let url = format!("{}/api/pull", base_url);
+            let request = PullRequest {
+                name: model.clone(),
+                stream: true,
+            };
+
+            let resp = match client.post(&url).json(&request).send().await {
+                Ok(r) => r,
+                Err(e) => {
+                    let _ = tx.send(PullProgress {
+                        status: "error".to_string(),
+                        digest: None,
+                        total: 0,
+                        completed: 0,
+                        error: Some(e.to_string()),
+                    }).await;
+                    return;
+                }
+            };
+
+            // Stream the response
+            let mut stream = resp.bytes_stream();
+            use futures_util::StreamExt;
+
+            let mut buffer = String::new();
+            while let Some(chunk) = stream.next().await {
+                match chunk {
+                    Ok(bytes) => {
+                        if let Ok(text) = String::from_utf8(bytes.to_vec()) {
+                            buffer.push_str(&text);
+                            // Parse newline-delimited JSON
+                            while let Some(pos) = buffer.find('\n') {
+                                let line = buffer[..pos].trim().to_string();
+                                buffer = buffer[pos + 1..].to_string();
+
+                                if !line.is_empty() {
+                                    if let Ok(progress) = serde_json::from_str::<PullProgress>(&line) {
+                                        if tx.send(progress).await.is_err() {
+                                            return; // Receiver dropped
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let _ = tx.send(PullProgress {
+                            status: "error".to_string(),
+                            digest: None,
+                            total: 0,
+                            completed: 0,
+                            error: Some(e.to_string()),
+                        }).await;
+                        return;
+                    }
+                }
+            }
+
+            // Send final success if no error
+            let _ = tx.send(PullProgress {
+                status: "success".to_string(),
+                digest: None,
+                total: 0,
+                completed: 0,
+                error: None,
+            }).await;
+        });
+
+        Ok(rx)
+    }
+
+    /// Pull a model synchronously (blocking until complete)
+    pub async fn pull_model_sync(&self, model: &str) -> Result<(), OllamaError> {
+        let mut rx = self.pull_model(model).await?;
+
+        while let Some(progress) = rx.recv().await {
+            if let Some(err) = progress.error {
+                return Err(OllamaError::HttpError(err));
+            }
+            if progress.status == "success" {
+                return Ok(());
+            }
+        }
+
+        Ok(())
     }
 
     /// Get full status including model availability

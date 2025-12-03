@@ -1,22 +1,37 @@
-//! Anna CLI (annactl) v0.0.4 - Real Junior Verifier
+//! Anna CLI (annactl) v0.0.12 - Proactive Anomaly Detection
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
 //! - annactl <request...>     one-shot natural language request
 //! - annactl status           self-status
+//! - annactl reset            factory reset (requires root)
+//! - annactl uninstall        complete removal (requires root)
 //! - annactl --version        version (also: -V)
 //!
 //! All other commands route through natural language processing.
 //! Internal capabilities (sw, hw, snapshots) are accessed via requests.
 //!
-//! v0.0.4: Junior becomes real via Ollama, Translator stays deterministic.
+//! v0.0.12: Proactive Anomaly Detection
+//! - Alert surfacing in REPL: "New alerts since last session"
+//! - Alert footer in one-shot mode: "Active alerts" summary
+//! - what_changed and slowness_hypotheses tools
+//! - Evidence IDs in all alerts
+//!
+//! v0.0.11: Safe Auto-Update System
+//! - Update channels: stable (default) and canary
+//! - Safe update workflow: download, verify, stage, atomic install, restart
+//! - Guardrails: disk space, mutation lock, installer review
+//! - Zero-downtime restart via systemd
+//! - Automatic rollback on failure
+//! - Complete state visibility in annactl status
+//!
 //! Multi-party dialogue transcript:
 //! [you] -> [anna] -> [translator] -> [anna] -> [annad] -> [anna] -> [junior] -> [anna] -> [you]
 
 mod commands;
 mod pipeline;
 
-use anna_common::{AnnaConfig, OllamaClient, select_junior_model};
+use anna_common::{AnnaConfig, OllamaClient, select_junior_model, AlertQueue, AnomalySeverity};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
@@ -50,6 +65,31 @@ async fn main() -> Result<()> {
 
         // annactl status - self-status
         [cmd] if cmd.eq_ignore_ascii_case("status") => commands::status::run().await,
+
+        // annactl reset - factory reset (requires root)
+        [cmd] if cmd.eq_ignore_ascii_case("reset") => {
+            commands::reset::run(commands::reset::ResetOptions::default()).await
+        }
+        [cmd, flag] if cmd.eq_ignore_ascii_case("reset") && (flag == "--dry-run") => {
+            commands::reset::run(commands::reset::ResetOptions { dry_run: true, force: false }).await
+        }
+        [cmd, flag] if cmd.eq_ignore_ascii_case("reset") && (flag == "--force" || flag == "-f") => {
+            commands::reset::run(commands::reset::ResetOptions { dry_run: false, force: true }).await
+        }
+
+        // annactl uninstall - complete removal (requires root)
+        [cmd] if cmd.eq_ignore_ascii_case("uninstall") => {
+            commands::uninstall::run(commands::uninstall::UninstallOptions::default()).await
+        }
+        [cmd, flag] if cmd.eq_ignore_ascii_case("uninstall") && (flag == "--dry-run") => {
+            commands::uninstall::run(commands::uninstall::UninstallOptions { dry_run: true, force: false, keep_helpers: false }).await
+        }
+        [cmd, flag] if cmd.eq_ignore_ascii_case("uninstall") && (flag == "--force" || flag == "-f") => {
+            commands::uninstall::run(commands::uninstall::UninstallOptions { dry_run: false, force: true, keep_helpers: false }).await
+        }
+        [cmd, flag] if cmd.eq_ignore_ascii_case("uninstall") && (flag == "--keep-helpers") => {
+            commands::uninstall::run(commands::uninstall::UninstallOptions { dry_run: false, force: false, keep_helpers: true }).await
+        }
 
         // Everything else is a natural language request
         _ => run_request(&args.join(" ")).await,
@@ -113,12 +153,15 @@ async fn check_junior_status() -> Option<String> {
 /// REPL mode - interactive natural language chat
 async fn run_repl() -> Result<()> {
     println!();
-    println!("{}", "  Anna Assistant v0.0.4".bold());
+    println!("{}", "  Anna Assistant v0.0.12".bold());
     println!("{}", THIN_SEP);
     println!("  Natural language interface to your system.");
 
     // Check Junior status
     check_junior_status().await;
+
+    // v0.0.12: Show alerts on REPL start
+    show_alerts_summary();
 
     println!("  Type your question or request. Type 'exit' to quit.");
     println!("{}", THIN_SEP);
@@ -171,6 +214,10 @@ async fn run_repl() -> Result<()> {
 async fn run_request(request: &str) -> Result<()> {
     println!();
     process_request(request).await;
+
+    // v0.0.12: Show alert footer in one-shot mode
+    show_alerts_footer();
+
     println!();
     Ok(())
 }
@@ -180,6 +227,67 @@ async fn process_request(request: &str) {
     // v0.0.3: Full multi-party dialogue pipeline
     // [you] -> [anna] -> [translator] -> [anna] -> [annad] -> [anna] -> [junior] -> [anna] -> [you]
     pipeline::process(request).await;
+}
+
+/// v0.0.12: Show alerts summary for REPL welcome
+fn show_alerts_summary() {
+    let queue = AlertQueue::load();
+    let (critical, warning, info) = queue.count_by_severity();
+    let total = critical + warning + info;
+
+    if total == 0 {
+        return; // No alerts, nothing to show
+    }
+
+    println!();
+    if critical > 0 {
+        println!("  {} {} critical alert(s) active!",
+            "[!]".red().bold(),
+            critical.to_string().red().bold());
+    }
+    if warning > 0 {
+        println!("  {} {} warning(s) active",
+            "[!]".yellow(),
+            warning.to_string().yellow());
+    }
+    if info > 0 && critical == 0 && warning == 0 {
+        println!("  {} {} info alert(s)",
+            "[i]".dimmed(),
+            info);
+    }
+
+    // Show latest alert
+    let active = queue.get_active();
+    if let Some(latest) = active.first() {
+        println!("      Latest: [{}] {}", latest.evidence_id.cyan(), latest.title);
+    }
+
+    println!("      Run 'status' for details.");
+}
+
+/// v0.0.12: Show alerts footer for one-shot mode
+fn show_alerts_footer() {
+    let queue = AlertQueue::load();
+    let (critical, warning, _info) = queue.count_by_severity();
+
+    // Only show if there are critical or warning alerts
+    if critical == 0 && warning == 0 {
+        return;
+    }
+
+    println!();
+    println!("{}", THIN_SEP);
+
+    if critical > 0 {
+        println!("  {} {} critical, {} warning alert(s) active. Run 'annactl status' for details.",
+            "[!]".red().bold(),
+            critical.to_string().red().bold(),
+            warning);
+    } else {
+        println!("  {} {} warning alert(s) active. Run 'annactl status' for details.",
+            "[!]".yellow(),
+            warning.to_string().yellow());
+    }
 }
 
 /// Print REPL help
@@ -211,8 +319,19 @@ fn run_help() -> Result<()> {
     println!("  annactl                  interactive mode (REPL)");
     println!("  annactl <request>        one-shot natural language request");
     println!("  annactl status           show Anna's status");
+    println!("  annactl reset            factory reset (requires root)");
+    println!("  annactl uninstall        complete removal (requires root)");
     println!("  annactl --version        show version");
     println!("{}", THIN_SEP);
+    println!();
+    println!("  {}", "Reset options:".bold());
+    println!("    --dry-run              show what would be deleted");
+    println!("    --force, -f            skip confirmation prompt");
+    println!();
+    println!("  {}", "Uninstall options:".bold());
+    println!("    --dry-run              show what would be deleted");
+    println!("    --force, -f            skip confirmation prompt");
+    println!("    --keep-helpers         don't offer to remove helpers");
     println!();
     println!("  {}", "Examples:".bold());
     println!("    annactl \"what CPU do I have?\"");

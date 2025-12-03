@@ -1,10 +1,10 @@
-# Anna Assistant v0.0.4
+# Anna Assistant v0.0.11
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.4**: Junior verifier now uses local LLM via Ollama. Translator remains deterministic.
+**v0.0.11**: Safe Auto-Update System. Update channels (stable/canary), safe download with integrity verification, atomic installation with rollback, zero-downtime restart via systemd, complete state visibility in status.
 
 ---
 
@@ -172,13 +172,34 @@ Example: "What have I installed in the last two weeks that might explain my mach
 
 ## Self-Sufficiency
 
-### Auto-Update
+### Auto-Update (v0.0.11)
 
 annad checks for updates every 10 minutes:
-- Pings GitHub releases
-- Downloads and updates safely
-- Restarts itself
+- Pings GitHub releases API
+- Downloads artifacts with integrity verification
+- Atomic installation with staging
+- Zero-downtime restart via systemd
+- Automatic rollback on failure
 - Records state in `annactl status`
+
+**Update Channels:**
+- `stable` (default): Only stable tagged releases
+- `canary`: Include pre-releases (alpha, beta, rc, canary)
+
+**Configuration** (`/etc/anna/config.toml`):
+```toml
+[update]
+mode = "auto"           # auto or manual
+channel = "stable"      # stable or canary
+interval_seconds = 600  # check every 10 minutes
+```
+
+**Safety Guarantees:**
+- Never updates during active mutations
+- Checks disk space before download
+- Verifies installer review health before update
+- Keeps previous binaries for rollback
+- Atomic installation (no partial states)
 
 ### First-Run Setup
 
