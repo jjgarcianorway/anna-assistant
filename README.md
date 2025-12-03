@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.35
+# Anna Assistant v0.0.36
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.35**: Ollama Role Selection - Independent model selection for Translator and Junior roles, hardware-based benchmarking, policy-driven configuration (`/etc/anna/policy/models.toml`), model readiness UX in `annactl status`, and fallback modes with reliability capping.
+**v0.0.36**: Knowledge Packs v1 - Offline Q&A with strict citations. Man pages and `/usr/share/doc` indexing with SQLite FTS5. K-citations (K1, K2...) for factual claims. Auto-build on daemon start. [KNOWLEDGE] section in status.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 

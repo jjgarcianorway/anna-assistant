@@ -877,6 +877,8 @@ pub use transcript::{
     CaseResult as TranscriptCaseResult,
     // v0.0.35: Model info for case files
     CaseModelInfo,
+    // v0.0.36: Knowledge refs for case files
+    KnowledgeRef as CaseKnowledgeRef,
     // Case retrieval
     load_case_summary, list_recent_cases, list_today_cases, find_last_failure,
     get_cases_storage_size, prune_cases,

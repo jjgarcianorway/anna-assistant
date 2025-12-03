@@ -49,6 +49,8 @@ mod server;
 
 use anna_common::{
     AnnaConfig, KnowledgeBuilder,
+    // v0.0.36: Knowledge packs for offline Q&A
+    KnowledgeIndex, ingest_manpages, ingest_package_docs,
     ErrorIndex, LogEntry,
     ServiceIndex, IntrusionIndex, LogScanState,
     TelemetryWriter, ProcessSample, TelemetryState,
@@ -234,6 +236,40 @@ async fn main() -> Result<()> {
     tokio::task::spawn_blocking(|| {
         let result = health::run_health_check();
         health::log_health_check_results(&result);
+    });
+
+    // v0.0.36: Initialize knowledge packs (manpages + package docs)
+    // This runs in background to avoid blocking startup
+    tokio::task::spawn_blocking(|| {
+        info!("[*]  Initializing knowledge packs...");
+        match KnowledgeIndex::open() {
+            Ok(index) => {
+                // Check if we need to build packs
+                let stats = index.get_stats().unwrap_or_default();
+
+                if stats.pack_count == 0 {
+                    info!("[+]  Building knowledge packs (first run)...");
+
+                    // Index man pages (limited to 500 for initial build)
+                    match ingest_manpages(&index, Some(500)) {
+                        Ok(count) => info!("[+]  Indexed {} man pages", count),
+                        Err(e) => warn!("[!]  Failed to index man pages: {}", e),
+                    }
+
+                    // Index package docs
+                    match ingest_package_docs(&index, Some(500)) {
+                        Ok(count) => info!("[+]  Indexed {} package docs", count),
+                        Err(e) => warn!("[!]  Failed to index package docs: {}", e),
+                    }
+                } else {
+                    info!("[+]  Knowledge packs ready: {} packs, {} docs",
+                        stats.pack_count, stats.document_count);
+                }
+            }
+            Err(e) => {
+                warn!("[!]  Failed to open knowledge index: {}", e);
+            }
+        }
     });
 
     // v0.0.5: Initialize LLM bootstrap state and spawn bootstrap task

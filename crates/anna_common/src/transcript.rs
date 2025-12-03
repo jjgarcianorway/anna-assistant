@@ -296,6 +296,25 @@ pub struct CaseResult {
     pub errors: Vec<String>,  // Redacted
 }
 
+/// v0.0.36: Knowledge reference for case files
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeRef {
+    /// Knowledge evidence ID (K1, K2, ...)
+    pub evidence_id: String,
+    /// Document title
+    pub title: String,
+    /// Pack ID this came from
+    pub pack_id: String,
+    /// Pack name for display
+    pub pack_name: String,
+    /// Source path (man:command, /usr/share/doc/...)
+    pub source_path: String,
+    /// Trust level (official, local, user)
+    pub trust: String,
+    /// Excerpt used (redacted)
+    pub excerpt: String,
+}
+
 /// v0.0.35: Model information for case files
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaseModelInfo {
@@ -345,6 +364,9 @@ pub struct CaseFile {
     /// v0.0.35: Model information (which models were used)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub models: Option<CaseModelInfo>,
+    /// v0.0.36: Knowledge references used in this case
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub knowledge_refs: Vec<KnowledgeRef>,
 }
 
 impl CaseFile {
@@ -381,6 +403,7 @@ impl CaseFile {
             },
             fix_timeline: None,
             models: None,
+            knowledge_refs: Vec::new(),
         }
     }
 
@@ -392,6 +415,16 @@ impl CaseFile {
     /// v0.0.35: Set model information for this case
     pub fn set_models(&mut self, info: CaseModelInfo) {
         self.models = Some(info);
+    }
+
+    /// v0.0.36: Add a knowledge reference to this case
+    pub fn add_knowledge_ref(&mut self, kr: KnowledgeRef) {
+        self.knowledge_refs.push(kr);
+    }
+
+    /// v0.0.36: Get knowledge references count
+    pub fn knowledge_refs_count(&self) -> usize {
+        self.knowledge_refs.len()
     }
 
     /// Get the path for this case file
@@ -971,5 +1004,55 @@ mod tests {
         let models = case.models.unwrap();
         assert!(models.junior_unavailable);
         assert_eq!(models.reliability_cap, Some(60));
+    }
+
+    #[test]
+    fn test_case_file_with_knowledge_refs() {
+        let mut case = CaseFile::new("test-knowledge", "how do I use vim");
+
+        let kr = KnowledgeRef {
+            evidence_id: "K1".to_string(),
+            title: "vim - Vi IMproved, a programmer's text editor".to_string(),
+            pack_id: "system-manpages".to_string(),
+            pack_name: "System Man Pages".to_string(),
+            source_path: "man:vim".to_string(),
+            trust: "official".to_string(),
+            excerpt: "To start editing a file, use: vim filename".to_string(),
+        };
+
+        case.add_knowledge_ref(kr);
+
+        assert_eq!(case.knowledge_refs_count(), 1);
+        assert_eq!(case.knowledge_refs[0].evidence_id, "K1");
+        assert_eq!(case.knowledge_refs[0].pack_id, "system-manpages");
+    }
+
+    #[test]
+    fn test_case_file_multiple_knowledge_refs() {
+        let mut case = CaseFile::new("test-multi-k", "how do I configure ssh");
+
+        case.add_knowledge_ref(KnowledgeRef {
+            evidence_id: "K1".to_string(),
+            title: "ssh - OpenSSH remote login client".to_string(),
+            pack_id: "system-manpages".to_string(),
+            pack_name: "System Man Pages".to_string(),
+            source_path: "man:ssh".to_string(),
+            trust: "official".to_string(),
+            excerpt: "ssh connects and logs into the specified destination".to_string(),
+        });
+
+        case.add_knowledge_ref(KnowledgeRef {
+            evidence_id: "K2".to_string(),
+            title: "openssh - README".to_string(),
+            pack_id: "package-docs".to_string(),
+            pack_name: "Package Documentation".to_string(),
+            source_path: "/usr/share/doc/openssh/README".to_string(),
+            trust: "official".to_string(),
+            excerpt: "OpenSSH configuration files are in /etc/ssh/".to_string(),
+        });
+
+        assert_eq!(case.knowledge_refs_count(), 2);
+        assert_eq!(case.knowledge_refs[0].evidence_id, "K1");
+        assert_eq!(case.knowledge_refs[1].evidence_id, "K2");
     }
 }

@@ -1,16 +1,20 @@
-//! Knowledge Packs v0.0.19 - Offline Documentation Engine
+//! Knowledge Packs v0.0.36 - Offline Documentation Engine
 //!
 //! Local-first knowledge management for answering general questions:
 //! - Knowledge packs stored under /var/lib/anna/knowledge_packs/
 //! - SQLite FTS5 index for fast full-text search
-//! - Evidence-backed answers with citations
+//! - Evidence-backed answers with K-citations (K1, K2, K3...)
 //! - No network access - pure local documentation
+//! - Auto-build on daemon start
 //!
-//! ## Pack Sources
+//! ## Pack Sources (v1)
 //! - manpages: System man pages (/usr/share/man)
 //! - package_docs: Package documentation (/usr/share/doc)
-//! - project_docs: Anna's own documentation
-//! - user_notes: User-added documentation
+//!
+//! ## Citation Requirements
+//! - Every factual claim requires a K-citation
+//! - Junior rejects uncited answers
+//! - "how do I..." questions search knowledge first
 //!
 //! ## Security
 //! - Secrets hygiene: redaction applied to excerpts
@@ -203,7 +207,7 @@ pub struct SearchResult {
 }
 
 /// Knowledge pack statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct KnowledgeStats {
     /// Total number of packs
     pub pack_count: usize,
@@ -1308,5 +1312,98 @@ mod tests {
         assert_eq!(results[0].evidence_id, "K1");
         assert_eq!(results[1].evidence_id, "K2");
         assert_eq!(results[2].evidence_id, "K3");
+    }
+
+    #[test]
+    fn test_citation_format_for_qa() {
+        let (index, _temp_dir) = create_test_index();
+
+        let pack = KnowledgePack {
+            id: "system-manpages".to_string(),
+            name: "System Man Pages".to_string(),
+            source: PackSource::Manpages,
+            trust: TrustLevel::Official,
+            retention: RetentionPolicy::RefreshOnUpdate,
+            source_paths: vec!["/usr/share/man".to_string()],
+            created_at: 1000,
+            last_indexed_at: 1000,
+            document_count: 0,
+            index_size_bytes: 0,
+            description: "System man pages".to_string(),
+            enabled: true,
+        };
+        index.register_pack(&pack).unwrap();
+
+        let doc = KnowledgeDocument {
+            id: 0,
+            pack_id: "system-manpages".to_string(),
+            title: "ssh - OpenSSH remote login client".to_string(),
+            content: "ssh connects and logs into the specified destination. To connect: ssh user@host. Configuration is in ~/.ssh/config.".to_string(),
+            source_path: "man:ssh".to_string(),
+            doc_type: "man".to_string(),
+            keywords: vec!["ssh".to_string(), "remote".to_string(), "login".to_string()],
+            indexed_at: 1000,
+        };
+        index.add_document(&doc).unwrap();
+
+        // Simulate "how do I use ssh" query
+        let results = index.search("ssh connect remote", 5).unwrap();
+
+        assert!(!results.is_empty());
+        let result = &results[0];
+
+        // Verify citation format for Q&A
+        assert!(result.evidence_id.starts_with("K"));
+        assert_eq!(result.pack_name, "System Man Pages");
+        assert_eq!(result.trust, TrustLevel::Official);
+        assert!(result.excerpt.contains("ssh"));
+
+        // Format answer with citation (as Anna would)
+        let cited_answer = format!(
+            "To connect via SSH, use: ssh user@host [{}]",
+            result.evidence_id
+        );
+        assert!(cited_answer.contains("[K1]"));
+    }
+
+    #[test]
+    fn test_search_how_to_question() {
+        let (index, _temp_dir) = create_test_index();
+
+        let pack = KnowledgePack {
+            id: "package-docs".to_string(),
+            name: "Package Documentation".to_string(),
+            source: PackSource::PackageDocs,
+            trust: TrustLevel::Official,
+            retention: RetentionPolicy::RefreshOnUpdate,
+            source_paths: vec!["/usr/share/doc".to_string()],
+            created_at: 1000,
+            last_indexed_at: 1000,
+            document_count: 0,
+            index_size_bytes: 0,
+            description: "Package docs".to_string(),
+            enabled: true,
+        };
+        index.register_pack(&pack).unwrap();
+
+        let doc = KnowledgeDocument {
+            id: 0,
+            pack_id: "package-docs".to_string(),
+            title: "nginx - README".to_string(),
+            content: "To install nginx on Arch Linux: pacman -S nginx. Configuration files are in /etc/nginx/. Start with: systemctl start nginx".to_string(),
+            source_path: "/usr/share/doc/nginx/README".to_string(),
+            doc_type: "text".to_string(),
+            keywords: vec!["nginx".to_string(), "web".to_string(), "server".to_string()],
+            indexed_at: 1000,
+        };
+        index.add_document(&doc).unwrap();
+
+        // Query: "how do I install nginx"
+        let results = index.search("install nginx", 5).unwrap();
+
+        assert!(!results.is_empty());
+        let result = &results[0];
+        assert!(result.excerpt.contains("pacman") || result.excerpt.contains("nginx"));
+        assert_eq!(result.trust, TrustLevel::Official);
     }
 }

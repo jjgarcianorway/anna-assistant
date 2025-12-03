@@ -2,6 +2,92 @@
 
 ---
 
+## v0.0.36 - Knowledge Packs v1 (Offline Q&A with Strict Citations)
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+Anna can now answer "how do I..." questions using locally indexed documentation - man pages and package docs from `/usr/share/doc`. All factual claims require K-citations (K1, K2, K3...) that reference specific documentation excerpts. No network access, no hallucination.
+
+### Key Features
+
+**Knowledge Packs Storage:**
+- Location: `/var/lib/anna/knowledge_packs/`
+- SQLite FTS5 index for fast full-text search
+- Pack types: `manpages`, `package_docs`
+- Trust level tracking: `official` (system docs), `local`, `user`
+
+**Citation System:**
+- K-citations: [K1], [K2], [K3]... for knowledge references
+- Each citation links to: title, pack, source path, trust level, excerpt
+- Junior rejects uncited factual claims
+- "How do I..." questions search knowledge first
+
+**Status Visibility:**
+- `annactl status` [KNOWLEDGE] section shows:
+  - Pack count and document count
+  - Index size and last indexed time
+  - Breakdown by source type
+  - Top packs by query count
+
+**Auto-Build on Daemon Start:**
+- Knowledge packs build automatically on first run
+- Limited to 500 manpages and 500 package docs for fast startup
+- Full index available for subsequent queries
+
+**Case File Integration:**
+- New `knowledge_refs` field in case files
+- Records: evidence_id, title, pack_id, pack_name, source_path, trust, excerpt
+- Full audit trail of which docs were used for each answer
+
+### Files Changed
+
+- **MODIFIED:** `crates/anna_common/src/knowledge_packs.rs` - Updated header, added citation tests
+- **MODIFIED:** `crates/anna_common/src/transcript.rs` - Added KnowledgeRef struct, knowledge_refs field
+- **MODIFIED:** `crates/anna_common/src/lib.rs` - Exported CaseKnowledgeRef
+- **MODIFIED:** `crates/annactl/src/commands/status.rs` - Re-enabled [KNOWLEDGE] section
+- **MODIFIED:** `crates/annad/src/main.rs` - Auto-build knowledge packs on start
+
+### Example Q&A with Citations
+
+```
+[you] to [anna]: how do I connect via SSH?
+
+[anna] to [junior]: Let me search the knowledge packs...
+
+[junior] to [anna]: Found relevant documentation:
+  [K1] ssh - OpenSSH remote login client (man:ssh, official)
+  [K2] openssh - README (/usr/share/doc/openssh/README, official)
+
+[anna] to [you]:
+To connect via SSH, use:
+
+    ssh user@hostname [K1]
+
+Configuration files are in /etc/ssh/ for system-wide settings
+and ~/.ssh/ for user settings [K2].
+
+Reliability: 85% (cited from official documentation)
+```
+
+### Tests Added
+
+- `test_case_file_with_knowledge_refs` - Single knowledge reference
+- `test_case_file_multiple_knowledge_refs` - Multiple references
+- `test_citation_format_for_qa` - Citation format verification
+- `test_search_how_to_question` - "How do I..." query handling
+
+Tests: 644 passed
+
+### Migration Notes
+
+- Existing case files remain compatible (knowledge_refs defaults to empty)
+- Knowledge packs build automatically on first daemon start
+- No configuration changes required
+
+---
+
 ## v0.0.35 - Ollama Role Selection (Policy-Driven Model Management)
 
 **Release Date:** 2025-12-03

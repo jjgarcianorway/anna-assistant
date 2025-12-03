@@ -1,4 +1,9 @@
-//! Status Command v0.0.35 - Model Readiness UX
+//! Status Command v0.0.36 - Knowledge Packs UX
+//!
+//! v0.0.36: Re-enabled [KNOWLEDGE] section for offline Q&A visibility
+//! - Packs count, document count, index size, last indexed time
+//! - Breakdown by source type (manpages, package_docs)
+//! - Top packs by query count
 //!
 //! v0.0.35: Enhanced [MODELS] section with role selection visibility
 //! - Hardware tier display (Low/Medium/High based on RAM/VRAM)
@@ -111,6 +116,9 @@ pub async fn run() -> Result<()> {
 
     // [HELPERS] - v0.0.28: show only relevant helpers
     print_helpers_section(&mode);
+
+    // [KNOWLEDGE] - v0.0.36: show knowledge pack stats (critical for offline Q&A)
+    print_knowledge_section(&mode);
 
     // [POLICY] - condensed safety info
     print_policy_section();
