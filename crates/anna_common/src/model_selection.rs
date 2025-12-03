@@ -826,11 +826,22 @@ pub fn select_model_for_role(
         .filter(|c| c.min_tier as u8 <= hardware.tier as u8)
         .filter(|c| c.size_bytes <= hardware.llm_memory_budget_bytes)
         .filter(|c| {
-            let base = c.name.split(':').next().unwrap_or(&c.name);
-            available_models.iter().any(|m| {
-                let m_base = m.split(':').next().unwrap_or(m);
-                m_base == base || m.starts_with(base)
-            })
+            // Check if this specific model variant is available
+            // e.g., qwen2.5:0.5b should match qwen2.5:0.5b or qwen2.5:0.5b-instruct
+            // but NOT qwen2.5:14b-instruct
+            let parts: Vec<&str> = c.name.split(':').collect();
+            if parts.len() == 2 {
+                let base = parts[0];
+                let size = parts[1].split('-').next().unwrap_or(parts[1]);
+                available_models.iter().any(|m| {
+                    // Exact match or prefix match with same size
+                    m == &c.name || m.starts_with(&c.name) ||
+                    (m.starts_with(base) && m.contains(&format!(":{}", size)))
+                })
+            } else {
+                // No size specifier - match any variant
+                available_models.iter().any(|m| m.starts_with(&c.name))
+            }
         })
         .collect();
 
@@ -839,13 +850,31 @@ pub fn select_model_for_role(
 
     // Select first viable
     viable.first().map(|c| {
-        // Find exact model name from available
+        // Find best matching model from available:
+        // 1. Exact match (qwen2.5:0.5b == qwen2.5:0.5b)
+        // 2. Exact with suffix (qwen2.5:0.5b matches qwen2.5:0.5b-instruct)
+        // 3. Fall back to candidate name if available
         let model = available_models
             .iter()
-            .find(|m| {
-                let base = c.name.split(':').next().unwrap_or(&c.name);
-                let m_base = m.split(':').next().unwrap_or(m);
-                m_base == base || m.starts_with(base)
+            // First try exact match
+            .find(|m| *m == &c.name)
+            .or_else(|| {
+                // Then try candidate as prefix (qwen2.5:0.5b matches qwen2.5:0.5b-instruct)
+                available_models.iter().find(|m| m.starts_with(&c.name))
+            })
+            .or_else(|| {
+                // Finally, match base:size pattern more strictly
+                // e.g., qwen2.5:0.5b should only match qwen2.5:0.5b*, not qwen2.5:14b*
+                let parts: Vec<&str> = c.name.split(':').collect();
+                if parts.len() == 2 {
+                    let base = parts[0];
+                    let size = parts[1];
+                    available_models.iter().find(|m| {
+                        m.starts_with(base) && m.contains(&format!(":{}", size.split('-').next().unwrap_or(size)))
+                    })
+                } else {
+                    None
+                }
             })
             .cloned()
             .unwrap_or_else(|| c.name.clone());
@@ -1076,6 +1105,82 @@ mod tests {
     fn test_junior_benchmark_cases() {
         let cases = junior_benchmark_cases();
         assert_eq!(cases.len(), 15);
+    }
+
+    #[test]
+    fn test_model_selection_matches_size_variant() {
+        // Critical: qwen2.5:0.5b should NOT match qwen2.5:14b-instruct
+        let hardware = HardwareProfile {
+            total_ram_bytes: 32 * 1024 * 1024 * 1024,
+            available_ram_bytes: 24 * 1024 * 1024 * 1024,
+            cpu_cores: 16,
+            cpu_model: "Test CPU".to_string(),
+            gpu_vram_bytes: 8 * 1024 * 1024 * 1024,
+            gpu_model: "Test GPU".to_string(),
+            llm_memory_budget_bytes: 8 * 1024 * 1024 * 1024,
+            tier: HardwareTier::High,
+        };
+
+        let candidates = vec![
+            ModelCandidate {
+                name: "qwen2.5:0.5b".to_string(),
+                size_bytes: 400 * 1024 * 1024,
+                priority: 1,
+                min_tier: HardwareTier::Low,
+                description: "Tiny model".to_string(),
+            },
+        ];
+
+        // Only qwen2.5:14b-instruct available (NOT 0.5b)
+        let available = vec!["qwen2.5:14b-instruct".to_string()];
+
+        let selection = select_model_for_role(
+            LlmRole::Translator,
+            &hardware,
+            &available,
+            &candidates,
+        );
+
+        // Should NOT select anything because 0.5b isn't available
+        assert!(selection.is_none(), "Should not match 14b when requesting 0.5b");
+    }
+
+    #[test]
+    fn test_model_selection_matches_instruct_variant() {
+        // qwen2.5:0.5b should match qwen2.5:0.5b-instruct
+        let hardware = HardwareProfile {
+            total_ram_bytes: 32 * 1024 * 1024 * 1024,
+            available_ram_bytes: 24 * 1024 * 1024 * 1024,
+            cpu_cores: 16,
+            cpu_model: "Test CPU".to_string(),
+            gpu_vram_bytes: 8 * 1024 * 1024 * 1024,
+            gpu_model: "Test GPU".to_string(),
+            llm_memory_budget_bytes: 8 * 1024 * 1024 * 1024,
+            tier: HardwareTier::High,
+        };
+
+        let candidates = vec![
+            ModelCandidate {
+                name: "qwen2.5:0.5b".to_string(),
+                size_bytes: 400 * 1024 * 1024,
+                priority: 1,
+                min_tier: HardwareTier::Low,
+                description: "Tiny model".to_string(),
+            },
+        ];
+
+        // 0.5b-instruct available (variant of 0.5b)
+        let available = vec!["qwen2.5:0.5b-instruct".to_string()];
+
+        let selection = select_model_for_role(
+            LlmRole::Translator,
+            &hardware,
+            &available,
+            &candidates,
+        );
+
+        assert!(selection.is_some());
+        assert_eq!(selection.unwrap().model, "qwen2.5:0.5b-instruct");
     }
 
     #[test]
