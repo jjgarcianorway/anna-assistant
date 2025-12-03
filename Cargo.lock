@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -48,6 +48,7 @@ dependencies = [
  "lazy_static",
  "owo-colors",
  "regex",
+ "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
@@ -62,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -85,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anna_common",
  "anyhow",

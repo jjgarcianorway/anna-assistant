@@ -235,6 +235,9 @@ pub mod snapshot_builder;
 // v7.42.0: Control socket for daemon/CLI contract
 pub mod control_socket;
 
+// v0.0.4: Ollama local LLM client for Junior verification
+pub mod ollama;
+
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
 pub use config::*;
@@ -540,4 +543,11 @@ pub use terminal::{
 pub use self_observation::{
     SelfSample, SelfObservation, SelfWarning, WarningKind,
     DEFAULT_CPU_THRESHOLD, DEFAULT_RSS_THRESHOLD_BYTES, CPU_WINDOW_SECONDS, SELF_SAMPLE_INTERVAL_SECS,
+};
+// v0.0.4: Ollama local LLM client
+pub use ollama::{
+    OllamaClient, OllamaStatus, OllamaModel, OllamaError,
+    GenerateRequest, GenerateResponse, GenerateOptions,
+    select_junior_model, is_ollama_installed, get_ollama_version,
+    OLLAMA_DEFAULT_URL, HEALTH_CHECK_TIMEOUT_MS, GENERATE_TIMEOUT_MS,
 };

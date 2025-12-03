@@ -564,7 +564,135 @@ fn format_epoch_time(epoch: u64) -> String {
     }
 }
 
-/// Complete Anna configuration v7.29.0
+/// Junior verifier settings (v0.0.4)
+/// Controls the local LLM-based verification via Ollama
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JuniorSettings {
+    /// Whether Junior LLM verification is enabled (default: true if Ollama present)
+    #[serde(default = "default_junior_enabled")]
+    pub enabled: bool,
+
+    /// Model to use for Junior (auto-selected if empty)
+    #[serde(default)]
+    pub model: String,
+
+    /// Timeout for LLM generation in milliseconds (default: 60000 = 60s)
+    #[serde(default = "default_junior_timeout_ms")]
+    pub timeout_ms: u64,
+
+    /// Ollama API URL (default: http://127.0.0.1:11434)
+    #[serde(default = "default_ollama_url")]
+    pub ollama_url: String,
+}
+
+fn default_junior_enabled() -> bool {
+    true
+}
+
+fn default_junior_timeout_ms() -> u64 {
+    60000 // 60 seconds
+}
+
+fn default_ollama_url() -> String {
+    "http://127.0.0.1:11434".to_string()
+}
+
+impl Default for JuniorSettings {
+    fn default() -> Self {
+        Self {
+            enabled: default_junior_enabled(),
+            model: String::new(), // Auto-select
+            timeout_ms: default_junior_timeout_ms(),
+            ollama_url: default_ollama_url(),
+        }
+    }
+}
+
+impl JuniorSettings {
+    /// Get effective model (for display)
+    pub fn effective_model(&self) -> &str {
+        if self.model.is_empty() {
+            "(auto-select)"
+        } else {
+            &self.model
+        }
+    }
+}
+
+/// Junior state (stored in /var/lib/anna/internal/junior_state.json)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct JuniorState {
+    /// Whether Ollama is available
+    pub ollama_available: bool,
+    /// Selected model name
+    pub selected_model: Option<String>,
+    /// Whether the selected model is downloaded
+    pub model_ready: bool,
+    /// Available models list
+    pub available_models: Vec<String>,
+    /// Last check timestamp (epoch seconds)
+    pub last_check: u64,
+    /// Last error message
+    pub last_error: Option<String>,
+}
+
+impl JuniorState {
+    /// State file path
+    pub fn state_path() -> std::path::PathBuf {
+        std::path::PathBuf::from(DATA_DIR).join("internal/junior_state.json")
+    }
+
+    /// Load state from file
+    pub fn load() -> Self {
+        let path = Self::state_path();
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(state) = serde_json::from_str(&content) {
+                    return state;
+                }
+            }
+        }
+        Self::default()
+    }
+
+    /// Save state to file
+    pub fn save(&self) -> std::io::Result<()> {
+        let path = Self::state_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let path_str = path.to_str()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
+        crate::atomic_write(path_str, &content)
+    }
+
+    /// Check if Junior is ready for use
+    pub fn is_ready(&self) -> bool {
+        self.ollama_available && self.model_ready && self.selected_model.is_some()
+    }
+
+    /// Format status for display
+    pub fn format_status(&self) -> String {
+        if !self.ollama_available {
+            return "Ollama not available".to_string();
+        }
+        if !self.model_ready {
+            if let Some(ref model) = self.selected_model {
+                return format!("Model '{}' not downloaded", model);
+            }
+            return "No model selected".to_string();
+        }
+        if let Some(ref model) = self.selected_model {
+            format!("Ready ({})", model)
+        } else {
+            "Ready (no model)".to_string()
+        }
+    }
+}
+
+/// Complete Anna configuration v0.0.4
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnnaConfig {
     #[serde(default)]
@@ -584,6 +712,10 @@ pub struct AnnaConfig {
 
     #[serde(default)]
     pub instrumentation: InstrumentationSettings,
+
+    /// Junior verifier settings (v0.0.4)
+    #[serde(default)]
+    pub junior: JuniorSettings,
 }
 
 impl AnnaConfig {

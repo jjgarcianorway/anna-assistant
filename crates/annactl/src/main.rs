@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v0.0.3 - Request Pipeline Skeleton
+//! Anna CLI (annactl) v0.0.4 - Real Junior Verifier
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
@@ -9,12 +9,14 @@
 //! All other commands route through natural language processing.
 //! Internal capabilities (sw, hw, snapshots) are accessed via requests.
 //!
-//! v0.0.3 adds multi-party dialogue transcript:
+//! v0.0.4: Junior becomes real via Ollama, Translator stays deterministic.
+//! Multi-party dialogue transcript:
 //! [you] -> [anna] -> [translator] -> [anna] -> [annad] -> [anna] -> [junior] -> [anna] -> [you]
 
 mod commands;
 mod pipeline;
 
+use anna_common::{AnnaConfig, OllamaClient, select_junior_model};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
@@ -54,12 +56,70 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Check and display Junior LLM status
+async fn check_junior_status() -> Option<String> {
+    let config = AnnaConfig::load();
+
+    if !config.junior.enabled {
+        println!("  {} Junior LLM disabled in config", "[!]".yellow());
+        return None;
+    }
+
+    let client = OllamaClient::with_url(&config.junior.ollama_url);
+
+    if !client.is_available().await {
+        println!("  {} Ollama not available at {}", "[!]".yellow(), config.junior.ollama_url);
+        println!("      Install: curl -fsSL https://ollama.ai/install.sh | sh");
+        println!("      Junior will use fallback (deterministic) scoring.");
+        return None;
+    }
+
+    // Get model
+    let model = if config.junior.model.is_empty() {
+        match client.list_models().await {
+            Ok(models) => {
+                let model_names: Vec<String> = models.iter().map(|m| m.name.clone()).collect();
+                match select_junior_model(&model_names) {
+                    Some(m) => m,
+                    None => {
+                        println!("  {} Ollama running but no models installed", "[!]".yellow());
+                        println!("      Install: ollama pull qwen2.5:1.5b");
+                        println!("      Junior will use fallback (deterministic) scoring.");
+                        return None;
+                    }
+                }
+            }
+            Err(_) => {
+                println!("  {} Failed to list Ollama models", "[!]".yellow());
+                return None;
+            }
+        }
+    } else {
+        match client.has_model(&config.junior.model).await {
+            Ok(true) => config.junior.model.clone(),
+            _ => {
+                println!("  {} Model '{}' not found", "[!]".yellow(), config.junior.model);
+                println!("      Install: ollama pull {}", config.junior.model);
+                println!("      Junior will use fallback (deterministic) scoring.");
+                return None;
+            }
+        }
+    };
+
+    println!("  {} Junior LLM: {} via Ollama", "[*]".green(), model);
+    Some(model)
+}
+
 /// REPL mode - interactive natural language chat
 async fn run_repl() -> Result<()> {
     println!();
-    println!("{}", "  Anna Assistant".bold());
+    println!("{}", "  Anna Assistant v0.0.4".bold());
     println!("{}", THIN_SEP);
     println!("  Natural language interface to your system.");
+
+    // Check Junior status
+    check_junior_status().await;
+
     println!("  Type your question or request. Type 'exit' to quit.");
     println!("{}", THIN_SEP);
     println!();

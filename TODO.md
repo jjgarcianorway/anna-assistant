@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.3**
+**Current Version: 0.0.4**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -27,20 +27,31 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 - [x] Junior scoring rubric (+40 evidence, +30 confident, +20 observational+cited, +10 read-only)
 - [x] CLI tests for pipeline behavior
 
-### 0.0.4 - REPL Enhancement (Planned)
+### 0.0.4 - Real Junior Verifier (COMPLETED)
+- [x] Ollama HTTP client in anna_common
+- [x] Junior config keys (junior.enabled, junior.model, junior.timeout_ms, junior.ollama_url)
+- [x] Real Junior LLM verification via Ollama
+- [x] Junior system prompt with scoring rubric
+- [x] Junior output parsing (SCORE, CRITIQUE, SUGGESTIONS, MUTATION_WARNING)
+- [x] Fallback to deterministic scoring when Ollama unavailable
+- [x] Spinner while Junior thinks
+- [x] Graceful handling when Ollama not available
+- [x] Model auto-selection (prefers qwen2.5:1.5b, llama3.2:1b, etc.)
+- [x] CLI tests for Junior LLM behavior
+
+### 0.0.5 - REPL Enhancement (Planned)
 - [ ] Add `annactl reset` command (stub)
 - [ ] Add `annactl uninstall` command (stub)
-- [ ] Improve REPL welcome message with version/level
+- [ ] Improve REPL welcome message with level/XP display
 
 ---
 
-## Phase 2: Dialogue System (0.1.x)
+## Phase 2: Full LLM Integration (0.1.x)
 
-### 0.1.0 - LLM Integration
-- [ ] Connect Translator to Ollama
-- [ ] Connect Junior to Ollama
+### 0.1.0 - Anna Response Generation
 - [ ] Connect Anna response generation to Ollama
-- [ ] Streaming output per participant
+- [ ] Stream output per participant
+- [ ] Real evidence parsing and answer formulation
 
 ### 0.1.1 - Senior Escalation
 - [ ] Create escalation criteria (confidence < threshold, needs_senior flag)

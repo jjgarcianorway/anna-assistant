@@ -1,8 +1,10 @@
-# Anna Assistant v0.0.3
+# Anna Assistant v0.0.4
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
+
+**v0.0.4**: Junior verifier now uses local LLM via Ollama. Translator remains deterministic.
 
 ---
 

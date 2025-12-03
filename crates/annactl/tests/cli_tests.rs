@@ -1,4 +1,4 @@
-//! CLI integration tests for annactl v0.0.3 - Request Pipeline Skeleton
+//! CLI integration tests for annactl v0.0.4 - Real Junior Verifier
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
@@ -6,7 +6,8 @@
 //! - annactl status           self-status
 //! - annactl --version        version (also: -V)
 //!
-//! v0.0.3 adds multi-party dialogue transcript:
+//! v0.0.4: Junior becomes real via Ollama, Translator stays deterministic.
+//! Multi-party dialogue transcript:
 //! [you] -> [anna] -> [translator] -> [anna] -> [annad] -> [anna] -> [junior] -> [anna] -> [you]
 //!
 //! All other commands (sw, hw, etc.) route through natural language processing.
@@ -126,8 +127,8 @@ fn test_annactl_version_format() {
         stdout
     );
     assert!(
-        stdout.contains("0.0.3"),
-        "Version should contain 0.0.3, got: {}",
+        stdout.contains("0.0.4"),
+        "Version should contain 0.0.4, got: {}",
         stdout
     );
     assert!(output.status.success(), "annactl --version should succeed");
@@ -458,9 +459,9 @@ fn test_annactl_pipeline_target_detection() {
     );
 }
 
-/// Test reliability score breakdown
+/// Test reliability score output (v0.0.4: accepts both fallback and LLM modes)
 #[test]
-fn test_annactl_pipeline_reliability_breakdown() {
+fn test_annactl_pipeline_reliability_output() {
     let binary = get_binary_path();
     if !binary.exists() {
         return;
@@ -473,10 +474,12 @@ fn test_annactl_pipeline_reliability_breakdown() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // v0.0.3: Junior should show reliability breakdown
+    // v0.0.4: Junior shows either:
+    // - "Breakdown:" (fallback deterministic scoring)
+    // - "Critique:" (real LLM via Ollama)
     assert!(
-        stdout.contains("Breakdown:"),
-        "Expected reliability breakdown, got: {}",
+        stdout.contains("Breakdown:") || stdout.contains("Critique:"),
+        "Expected reliability output (Breakdown or Critique), got: {}",
         stdout
     );
 }
@@ -505,6 +508,109 @@ fn test_annactl_pipeline_action_risk_level() {
     assert!(
         stdout.contains("action_request"),
         "Should classify as action_request, got: {}",
+        stdout
+    );
+}
+
+// ============================================================================
+// v0.0.4: Junior LLM tests
+// ============================================================================
+
+/// Test Junior output includes Critique field (v0.0.4)
+#[test]
+fn test_annactl_junior_critique_output() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.4: Junior should show Critique field
+    assert!(
+        stdout.contains("Critique:"),
+        "Expected Junior critique field, got: {}",
+        stdout
+    );
+}
+
+/// Test Junior output includes Suggestions field (v0.0.4)
+#[test]
+fn test_annactl_junior_suggestions_output() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.4: Junior should show Suggestions field
+    assert!(
+        stdout.contains("Suggestions:"),
+        "Expected Junior suggestions field, got: {}",
+        stdout
+    );
+}
+
+/// Test action request shows mutation warning (v0.0.4)
+#[test]
+fn test_annactl_action_mutation_warning() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("install nginx")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.4: Action requests should show mutation warning
+    assert!(
+        stdout.contains("confirmation") || stdout.contains("MUTATION"),
+        "Expected mutation warning for action request, got: {}",
+        stdout
+    );
+}
+
+/// Test pipeline exits cleanly when Ollama unavailable (v0.0.4)
+#[test]
+fn test_annactl_graceful_without_ollama() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Run with request - should work even without Ollama (fallback mode)
+    let output = Command::new(&binary)
+        .arg("what is my disk usage?")
+        .output()
+        .expect("Failed to run annactl");
+
+    // Should exit cleanly (exit code 0)
+    assert!(
+        output.status.success(),
+        "annactl should exit cleanly even without Ollama"
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Should still show reliability score (from fallback)
+    assert!(
+        stdout.contains("Reliability:"),
+        "Should show reliability score even in fallback mode, got: {}",
         stdout
     );
 }

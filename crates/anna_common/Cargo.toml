@@ -18,6 +18,7 @@ rusqlite.workspace = true
 uuid.workspace = true
 tracing.workspace = true
 terminal_size.workspace = true
+reqwest.workspace = true
 dirs = "5.0"
 tokio = { workspace = true }
 lazy_static = "1.4"

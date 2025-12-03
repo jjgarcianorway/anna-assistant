@@ -2,6 +2,87 @@
 
 ---
 
+## v0.0.4 - Real Junior Verifier
+
+**Release Date:** 2024-12-03
+
+### Summary
+
+Junior becomes a real LLM-powered verifier via local Ollama. Translator remains deterministic. No Senior implementation yet - keeping complexity low while measuring real value.
+
+### Key Features
+
+**Junior LLM Integration:**
+- Real verification via Ollama local LLM
+- Auto-selects best model (prefers qwen2.5:1.5b, llama3.2:1b, etc.)
+- Structured output parsing (SCORE, CRITIQUE, SUGGESTIONS, MUTATION_WARNING)
+- Fallback to deterministic scoring when Ollama unavailable
+- Spinner while Junior thinks
+
+**Ollama Client (`ollama.rs`):**
+- HTTP client for local Ollama API
+- Health check, model listing, generation
+- Timeout and retry handling
+- Model auto-selection based on availability
+
+**Junior Config:**
+- `junior.enabled` (default: true)
+- `junior.model` (default: auto-select)
+- `junior.timeout_ms` (default: 60000)
+- `junior.ollama_url` (default: http://127.0.0.1:11434)
+
+### Pipeline Flow (with real LLM)
+
+```
+[you] to [anna]: what CPU do I have?
+[anna] to [translator]: Please classify this request...
+[translator] to [anna]: Intent: system_query, Targets: cpu, Risk: read-only, Confidence: 85%
+[anna] to [annad]: Retrieve evidence for: cpu
+[annad] to [anna]: snapshot:hw.cpu: [CPU data]
+[anna] to [junior]: Please verify this draft response...
+[junior thinking via qwen2.5:1.5b...]
+[junior] to [anna]: Reliability: 80%
+                    Critique: The response mentions evidence but doesn't parse it
+                    Suggestions: Add specific CPU model and core count
+[anna] to [you]: Based on system data from: snapshot:hw.cpu...
+Reliability: 80%
+```
+
+### Junior System Prompt
+
+Junior is instructed to:
+- NEVER invent machine facts
+- Downscore missing evidence
+- Prefer "unknown" over guessing
+- Keep output short and structured
+- Warn about mutations for action requests
+
+### Graceful Degradation
+
+When Ollama is not available:
+- REPL shows warning with install instructions
+- Pipeline falls back to deterministic scoring (v0.0.3 logic)
+- Exit code 0 - no crashes
+
+### Tests
+
+- 9 unit tests for pipeline (Translator, Junior parsing, fallback scoring)
+- 20 CLI integration tests
+- 4 new v0.0.4 tests (Critique, Suggestions, mutation warning, graceful degradation)
+
+### Model Selection Order
+
+1. qwen2.5:1.5b (fastest, good for verification)
+2. qwen2.5:3b
+3. llama3.2:1b
+4. llama3.2:3b
+5. phi3:mini
+6. gemma2:2b
+7. mistral:7b
+8. First available model
+
+---
+
 ## v0.0.3 - Request Pipeline Skeleton
 
 **Release Date:** 2024-12-03
