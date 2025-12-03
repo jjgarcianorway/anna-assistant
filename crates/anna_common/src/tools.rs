@@ -1,4 +1,8 @@
-//! Read-Only Tool Catalog v0.0.22
+//! Read-Only Tool Catalog v0.0.48
+//!
+//! v0.0.48: knowledge_search tool for local learned recipe retrieval
+//! v0.0.47: File evidence tools for mutation support (file_stat, file_preview, file_hash, path_policy_check)
+//! v0.0.46: Domain-specific evidence tools to prevent generic summary answers
 //!
 //! Safe, allowlisted tools that annad can execute for evidence gathering.
 //! Each tool returns structured data plus a human-readable summary.
@@ -342,6 +346,230 @@ impl ToolCatalog {
             security: ToolSecurity::ReadOnly,
             latency: LatencyHint::Fast,
             human_request: "list recent cases",
+        });
+
+        // v0.0.45: Direct evidence tools for correctness
+
+        // kernel_version - direct uname output
+        tools.insert("kernel_version", ToolDef {
+            name: "kernel_version",
+            description: "Returns the kernel version string from uname -r and full uname -a output",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get the kernel version",
+        });
+
+        // memory_info - direct /proc/meminfo data
+        tools.insert("memory_info", ToolDef {
+            name: "memory_info",
+            description: "Returns memory information from /proc/meminfo including total, free, available, cached, and swap",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get memory information",
+        });
+
+        // network_status - network-specific evidence
+        tools.insert("network_status", ToolDef {
+            name: "network_status",
+            description: "Returns network status including interface states, IP addresses, default route, DNS servers, and NetworkManager/systemd-networkd status",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "get network status",
+        });
+
+        // audio_status - audio-specific evidence
+        tools.insert("audio_status", ToolDef {
+            name: "audio_status",
+            description: "Returns audio status including pipewire/pulseaudio service state, wireplumber status, audio devices, and sinks/sources",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "get audio status",
+        });
+
+        // =====================================================================
+        // v0.0.46: Domain-Specific Evidence Tools
+        // These tools provide targeted evidence for specific question domains
+        // to prevent generic snapshot summaries from answering domain questions
+        // =====================================================================
+
+        // --- System Domain ---
+
+        tools.insert("uname_summary", ToolDef {
+            name: "uname_summary",
+            description: "Returns kernel version and architecture from uname. Required for kernel-related questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get kernel version and architecture",
+        });
+
+        tools.insert("mem_summary", ToolDef {
+            name: "mem_summary",
+            description: "Returns memory summary: MemTotal and MemAvailable from /proc/meminfo. Required for memory questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get memory total and available",
+        });
+
+        tools.insert("mount_usage", ToolDef {
+            name: "mount_usage",
+            description: "Returns disk space for / and key mounts with free/used bytes and human strings. Required for disk space questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get disk space usage for mounted filesystems",
+        });
+
+        // --- Network Domain ---
+
+        tools.insert("nm_summary", ToolDef {
+            name: "nm_summary",
+            description: "Returns NetworkManager service state and active connections. Required for network status questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "get NetworkManager status and active connections",
+        });
+
+        tools.insert("ip_route_summary", ToolDef {
+            name: "ip_route_summary",
+            description: "Returns default route and routing table summary. Required for network connectivity questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get default route and routing information",
+        });
+
+        tools.insert("link_state_summary", ToolDef {
+            name: "link_state_summary",
+            description: "Returns network interface states (up/down) and carrier status. Required for network status questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get network interface link states",
+        });
+
+        // --- Audio Domain ---
+
+        tools.insert("audio_services_summary", ToolDef {
+            name: "audio_services_summary",
+            description: "Returns pipewire and wireplumber service states. Required for audio status questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get audio service states (pipewire, wireplumber)",
+        });
+
+        tools.insert("pactl_summary", ToolDef {
+            name: "pactl_summary",
+            description: "Returns default audio sink/source names via pactl (if available). Required for audio output questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "get audio sink and source information from pactl",
+        });
+
+        // --- Boot/Logs Domain ---
+
+        tools.insert("boot_time_summary", ToolDef {
+            name: "boot_time_summary",
+            description: "Returns boot time from systemd-analyze. Required for boot performance questions.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "get boot time analysis from systemd",
+        });
+
+        tools.insert("recent_errors_summary", ToolDef {
+            name: "recent_errors_summary",
+            description: "Returns recent journalctl warnings/errors summarized by service (bounded output). Required for error log questions.",
+            parameters: &[
+                ("minutes", "integer", false), // default: 30
+            ],
+            security: ToolSecurity::SensitiveRead,
+            latency: LatencyHint::Medium,
+            human_request: "get recent errors from system journal",
+        });
+
+        // =====================================================================
+        // v0.0.47: File Evidence Tools for Mutation Support
+        // These tools provide evidence for file mutations (append, edit, etc.)
+        // =====================================================================
+
+        tools.insert("file_stat", ToolDef {
+            name: "file_stat",
+            description: "Returns file metadata: owner uid/gid, mode, size, mtime, exists. Required before file mutations.",
+            parameters: &[
+                ("path", "string", true),
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get file metadata for mutation safety check",
+        });
+
+        tools.insert("file_preview", ToolDef {
+            name: "file_preview",
+            description: "Returns first N bytes of file with secrets redacted. Used for diff preview before mutations.",
+            parameters: &[
+                ("path", "string", true),
+                ("max_bytes", "integer", false), // default: 2048
+            ],
+            security: ToolSecurity::SensitiveRead,
+            latency: LatencyHint::Fast,
+            human_request: "preview file contents for diff generation",
+        });
+
+        tools.insert("file_hash", ToolDef {
+            name: "file_hash",
+            description: "Returns SHA256 hash of file contents. Used for before/after verification.",
+            parameters: &[
+                ("path", "string", true),
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "compute file hash for integrity verification",
+        });
+
+        tools.insert("path_policy_check", ToolDef {
+            name: "path_policy_check",
+            description: "Returns policy decision for path: allowed/blocked, reason, evidence ID. Required before file mutations.",
+            parameters: &[
+                ("path", "string", true),
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "check path against mutation policy",
+        });
+
+        // =====================================================================
+        // v0.0.48: Knowledge Search Tool
+        // Searches local learned recipes with lightweight ranking
+        // =====================================================================
+
+        tools.insert("learned_recipe_search", ToolDef {
+            name: "learned_recipe_search",
+            description: "Searches local learned recipes for matching patterns. Returns best matches with IDs (K1, K2...), summaries, and match reasons.",
+            parameters: &[
+                ("query", "string", true),
+                ("limit", "integer", false), // default: 5
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "search learned recipes for similar patterns",
+        });
+
+        tools.insert("learning_stats", ToolDef {
+            name: "learning_stats",
+            description: "Returns learning system statistics: XP level/title, recipe count, pack count. Used for status display.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get Anna's learning progress and statistics",
         });
 
         Self { tools }

@@ -489,6 +489,36 @@ pub struct CaseFile {
     /// v0.0.37: Recipe events in this case
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub recipe_events: Vec<RecipeEvent>,
+    /// v0.0.48: Learning events in this case
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub learning: Option<LearningRecord>,
+}
+
+/// v0.0.48: Learning record for a case
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LearningRecord {
+    /// Whether knowledge_search was used
+    pub knowledge_searched: bool,
+    /// Query used for knowledge search
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knowledge_query: Option<String>,
+    /// Number of recipes matched
+    #[serde(default)]
+    pub recipes_matched: usize,
+    /// Whether a recipe was created/updated
+    pub recipe_written: bool,
+    /// ID of recipe created/updated
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recipe_id: Option<String>,
+    /// XP gained in this case
+    #[serde(default)]
+    pub xp_gained: u64,
+    /// Level after this case
+    #[serde(default)]
+    pub level_after: u8,
+    /// Title after this case
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title_after: Option<String>,
 }
 
 impl CaseFile {
@@ -527,7 +557,18 @@ impl CaseFile {
             models: None,
             knowledge_refs: Vec::new(),
             recipe_events: Vec::new(),
+            learning: None,
         }
+    }
+
+    /// v0.0.48: Set learning record for this case
+    pub fn set_learning(&mut self, record: LearningRecord) {
+        self.learning = Some(record);
+    }
+
+    /// v0.0.48: Get learning record
+    pub fn get_learning(&self) -> Option<&LearningRecord> {
+        self.learning.as_ref()
     }
 
     /// v0.0.34: Set fix timeline from FixItSession
@@ -631,7 +672,41 @@ impl CaseFile {
             atomic_write_bytes(&timeline_path, redact_transcript(timeline).as_bytes())?;
         }
 
+        // v0.0.47: Create user-readable copy in $HOME/.local/share/anna/cases/
+        if let Ok(home) = std::env::var("HOME") {
+            let user_case_dir = PathBuf::from(format!(
+                "{}/.local/share/anna/cases/{}",
+                home,
+                self.summary.request_id
+            ));
+            let _ = self.save_user_copy(&user_case_dir);
+        }
+
         Ok(case_dir)
+    }
+
+    /// v0.0.47: Save a user-readable copy of the case file
+    pub fn save_user_copy(&self, user_dir: &Path) -> io::Result<PathBuf> {
+        fs::create_dir_all(user_dir)?;
+
+        let path_str = |p: PathBuf| -> String { p.to_string_lossy().to_string() };
+
+        // Write summary
+        let summary_path = path_str(user_dir.join("summary.txt"));
+        atomic_write_bytes(&summary_path, redact_transcript(&self.summary.to_text()).as_bytes())?;
+
+        // Write transcript
+        let transcript_path = path_str(user_dir.join("transcript.log"));
+        let transcript_text = self.transcript.render(2, 120);
+        atomic_write_bytes(&transcript_path, redact_transcript(&transcript_text).as_bytes())?;
+
+        // Write evidence
+        let evidence_path = path_str(user_dir.join("evidence.json"));
+        let evidence_json = serde_json::to_string_pretty(&self.evidence)
+            .unwrap_or_else(|_| "[]".to_string());
+        atomic_write_bytes(&evidence_path, redact_transcript(&evidence_json).as_bytes())?;
+
+        Ok(user_dir.to_path_buf())
     }
 
     /// Add an evidence entry

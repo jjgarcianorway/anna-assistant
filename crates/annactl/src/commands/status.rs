@@ -1,4 +1,4 @@
-//! Status Command v0.0.36 - Knowledge Packs UX
+//! Status Command v0.0.45 - Version Mismatch Display
 //!
 //! v0.0.36: Re-enabled [KNOWLEDGE] section for offline Q&A visibility
 //! - Packs count, document count, index size, last indexed time
@@ -155,11 +155,35 @@ fn get_pending_refresh_domains() -> Vec<String> {
 
 fn print_version_section() {
     println!("{}", "[VERSION]".cyan());
-    println!("  Anna:       v{}", VERSION);
+    println!("  CLI:        v{}", VERSION);
+
+    // Get installed binary version if different
+    let installed_version = get_installed_version();
+    if !installed_version.is_empty() && installed_version != VERSION {
+        println!("  Installed:  v{} {}", installed_version, "(mismatch)".yellow());
+    }
+
     println!();
 }
 
+/// Get installed annactl version from /usr/local/bin/annactl --version
+fn get_installed_version() -> String {
+    std::process::Command::new("/usr/local/bin/annactl")
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            // Parse "annactl vX.X.X" format
+            stdout.split_whitespace()
+                .find(|s| s.starts_with('v'))
+                .map(|s| s.trim_start_matches('v').to_string())
+        })
+        .unwrap_or_default()
+}
+
 /// [DAEMON] section - v7.42.0: from live check (socket/systemd), NOT snapshot
+/// v0.0.45: Enhanced version mismatch display with human-readable explanation
 fn print_daemon_section(
     health: &DaemonHealth,
     snapshot: &Option<StatusSnapshot>,
@@ -173,6 +197,16 @@ fn print_daemon_section(
             // Daemon confirmed running via socket
             println!("  Status:     {} (socket)", "running".green());
             println!("  Version:    v{}", status.version);
+
+            // v0.0.45: Check for version mismatch between running daemon and CLI
+            if status.version != VERSION {
+                println!("  {}", format!(
+                    "Version mismatch: daemon v{} != CLI v{}",
+                    status.version, VERSION
+                ).yellow());
+                println!("  {}", "Daemon restart scheduled as part of update apply.".dimmed());
+            }
+
             println!("  Uptime:     {}", format_duration_secs(status.uptime_secs));
             println!("  PID:        {}", status.pid);
 
@@ -194,6 +228,19 @@ fn print_daemon_section(
             if let Some(s) = snapshot {
                 if !s.is_stale() {
                     println!("  Uptime:     ~{}", format_duration_secs(s.uptime_secs));
+
+                    // v0.0.45: Check version from snapshot
+                    if !s.version.is_empty() {
+                        println!("  Version:    v{} {}", s.version,
+                            "(from snapshot)".dimmed());
+                        if s.version != VERSION {
+                            println!("  {}", format!(
+                                "Version mismatch: daemon v{} != CLI v{}",
+                                s.version, VERSION
+                            ).yellow());
+                            println!("  {}", "Daemon restart scheduled as part of update apply.".dimmed());
+                        }
+                    }
                 }
             }
 

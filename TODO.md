@@ -1,12 +1,107 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.43**
+**Current Version: 0.0.48**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
 ---
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
+
+### 0.0.48 - Learning System (COMPLETED)
+- [x] Knowledge Pack v1 format with strict limits
+  - [x] Local JSON at /var/lib/anna/knowledge_packs/installed/*.json
+  - [x] Max 50 packs, 500 total recipes, 24KB per recipe
+  - [x] Schema with pack_id, name, version, source, tags, entries
+  - [x] LearnedRecipe structure with intent, targets, triggers, actions, rollback
+- [x] Knowledge search tool with local retrieval
+  - [x] learned_recipe_search(query, limit) tool
+  - [x] Token-based scoring (no embeddings for v1)
+  - [x] Returns SearchHit with recipe_id, title, score, evidence_id
+  - [x] Evidence IDs: K1, K2 prefix for knowledge
+- [x] Learning pipeline (case -> recipe conversion)
+  - [x] LearningManager with storage/retrieval
+  - [x] Auto-create monthly packs (learned-pack-YYYYMM)
+  - [x] Recipe deduplication (increment wins instead of duplicate)
+  - [x] Minimum reliability 90%, minimum evidence count 1
+- [x] XP system with deterministic progression
+  - [x] Non-linear XP curve (100→500→1200→2000→...)
+  - [x] Level 0-100 with title progression
+  - [x] Titles: Intern, Apprentice, Junior, Competent, Senior, Expert, Wizard, Grandmaster
+  - [x] XP gains: +2 (85% reliability), +5 (90%), +10 (recipe created)
+  - [x] learning_stats tool for XP/level display
+- [x] Transcript and case file updates
+  - [x] LearningRecord structure in transcript.rs
+  - [x] knowledge_searched, knowledge_query, recipes_matched fields
+  - [x] recipe_written, recipe_id, xp_gained, level_after fields
+- [x] Integration tests (run_learning_tests())
+  - [x] Learning stats retrieval
+  - [x] Query timing comparison
+  - [x] Knowledge search capability
+  - [x] XP directory structure check
+- [x] Updated version to 0.0.48
+
+### 0.0.47 - First Mutation Flow (COMPLETED)
+- [x] Append line mutation with full lifecycle
+  - [x] append_line_mutation.rs module
+  - [x] SandboxCheck for dev-safe paths (cwd, /tmp, $HOME)
+  - [x] AppendMutationEvidence collection (stat, preview, hash, policy)
+  - [x] AppendDiffPreview for showing changes before execution
+  - [x] Risk levels: Sandbox (low/yes), Home (medium/I CONFIRM), System (blocked)
+  - [x] execute_append_line with backup, verification, and rollback info
+  - [x] execute_rollback by case_id
+- [x] File evidence tools (4 new tools)
+  - [x] file_stat - uid/gid, mode, size, mtime, exists
+  - [x] file_preview - first N bytes with secrets redacted
+  - [x] file_hash - SHA256 for before/after verification
+  - [x] path_policy_check - allowed/blocked decision with evidence ID
+- [x] Case files for every request
+  - [x] User-readable copies in $HOME/.local/share/anna/cases/
+  - [x] save_user_copy() method on CaseFile
+- [x] Deep test mutation tests (run_mutation_tests())
+  - [x] Test diff preview and confirmation requirement
+  - [x] Test file unchanged without confirmation
+  - [x] Test sandbox path policy
+  - [x] Test blocked path policy
+- [x] Updated version to 0.0.47
+
+### 0.0.46 - Evidence Quality Release (COMPLETED)
+- [x] Domain-specific evidence tools (10 new tools)
+  - [x] uname_summary - kernel version and architecture
+  - [x] mem_summary - memory total/available from /proc/meminfo
+  - [x] mount_usage - disk space with root free/used
+  - [x] nm_summary - NetworkManager status and connections
+  - [x] ip_route_summary - routing table and default gateway
+  - [x] link_state_summary - interface link states
+  - [x] audio_services_summary - pipewire/wireplumber/pulseaudio status
+  - [x] pactl_summary - PulseAudio/PipeWire sinks and sources
+  - [x] boot_time_summary - uptime and boot timestamp
+  - [x] recent_errors_summary - journal errors filtered by keyword
+- [x] Domain routing in translator (route_to_domain_evidence())
+- [x] Tool sanity gate (apply_tool_sanity_gate())
+  - [x] Prevents generic hw_snapshot for domain-specific queries
+  - [x] Auto-replaces with correct domain tools
+- [x] Deep test evidence validation (run_evidence_tool_validation())
+- [x] Updated deep test to v0.0.46
+
+### 0.0.45 - Deep Test Harness + Correctness Fixes (COMPLETED)
+- [x] Deep test harness (scripts/anna_deep_test.sh)
+  - [x] Environment capture
+  - [x] Translator stability tests (50 queries)
+  - [x] Read-only correctness tests
+  - [x] Doctor auto-trigger tests
+  - [x] Policy gating tests
+  - [x] Case file verification
+  - [x] REPORT.md and report.json outputs
+- [x] New evidence tools for correctness
+  - [x] kernel_version - direct uname
+  - [x] memory_info - direct /proc/meminfo
+  - [x] network_status - interfaces, routes, NM status
+  - [x] audio_status - pipewire/wireplumber
+- [x] Enhanced disk_usage with explicit free space values
+- [x] Version mismatch display in status (CLI vs daemon)
+- [x] Table-driven doctor selection tests (25 phrases)
+- [x] docs/TESTING.md documentation
 
 ### 0.0.2 - Strict CLI Surface (COMPLETED)
 - [x] Remove `sw` command from public surface

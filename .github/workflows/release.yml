@@ -160,19 +160,33 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
+          name: anna-linux-x86_64
           path: artifacts
 
       - name: Prepare release files
         run: |
           mkdir -p release
 
-          # Copy all files from artifact directories
-          find artifacts -type f | while read f; do
-            cp "$f" release/
-          done
+          echo "=== Artifact directory structure ==="
+          find artifacts -type f -ls
+
+          # Copy all files from artifacts directory
+          cp artifacts/* release/ 2>/dev/null || true
+
+          # If nested directory structure, copy from subdirs
+          find artifacts -type f -name 'annad-*' -exec cp {} release/ \;
+          find artifacts -type f -name 'annactl-*' -exec cp {} release/ \;
+
+          cd release
+
+          # Verify binaries exist before creating checksums
+          if [[ ! -f annad-* ]] || [[ ! -f annactl-* ]]; then
+            echo "ERROR: Binary files not found in release directory!"
+            ls -la
+            exit 1
+          fi
 
           # Create combined SHA256SUMS
-          cd release
           rm -f SHA256SUMS
           sha256sum annad-* annactl-* > SHA256SUMS
 
@@ -201,12 +215,37 @@ jobs:
             echo "See RELEASE_NOTES.md for details." >> release_notes.txt
           fi
 
+      - name: Verify release files exist
+        run: |
+          echo "=== Verifying release files ==="
+          ls -la release/
+
+          ANNAD_COUNT=$(ls release/annad-* 2>/dev/null | wc -l)
+          ANNACTL_COUNT=$(ls release/annactl-* 2>/dev/null | wc -l)
+
+          if [[ "$ANNAD_COUNT" -eq 0 ]]; then
+            echo "ERROR: No annad binary found in release/"
+            exit 1
+          fi
+
+          if [[ "$ANNACTL_COUNT" -eq 0 ]]; then
+            echo "ERROR: No annactl binary found in release/"
+            exit 1
+          fi
+
+          if [[ ! -f release/SHA256SUMS ]]; then
+            echo "ERROR: SHA256SUMS not found in release/"
+            exit 1
+          fi
+
+          echo "OK: All required files present"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: release/*
           body_path: release_notes.txt
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

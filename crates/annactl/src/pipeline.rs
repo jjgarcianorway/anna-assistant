@@ -1,25 +1,22 @@
-//! Anna Request Pipeline v0.0.21 - Performance and Latency Sprint
+//! Anna Request Pipeline v0.0.44 - Translator Stabilization
 //!
 //! Multi-party dialogue transcript with:
-//! - Translator: LLM-backed intent classification with tool planning
+//! - Translator: LLM-backed intent classification with simplified canonical format
 //! - Tool execution via read-only tool catalog with Evidence IDs
 //! - Junior: LLM verification with strict no-guessing enforcement
-//! - Human-readable natural language transcripts
-//! - First safe mutations: config edits + systemd operations
-//! - Debug level filtering for output verbosity
-//! - Mutation safety: preflight checks, dry-run diffs, post-checks, auto-rollback
-//! - Target user awareness for multi-user systems
-//! - Secrets redaction and leak prevention
+//! - Doctor Registry: Automatic routing to domain-specific doctors
+//! - Case logging: All requests logged for troubleshooting
 //!
-//! v0.0.4: Junior becomes real via Ollama, Translator stays deterministic.
-//! v0.0.5: Bootstrap state checking with progress display
-//! v0.0.6: Real Translator LLM with clarification loop and evidence-first pipeline
-//! v0.0.7: Read-only tool catalog, Evidence IDs, citations, human-readable transcripts
-//! v0.0.8: First safe mutations (medium-risk only) with rollback + confirmation
-//! v0.0.15: Debug level filtering (0=minimal, 1=normal, 2=full)
-//! v0.0.16: Mutation safety system with preflight, dry-run diffs, post-checks, auto-rollback
-//! v0.0.17: Multi-user correctness with target user awareness and per-user config edits
+//! v0.0.44: Translator format simplified, doctor integration, case logging
+//! v0.0.43: Doctor Registry module added (unused in pipeline)
+//! v0.0.21: Performance and latency optimizations
 //! v0.0.18: Secrets hygiene with redaction and leak prevention
+//! v0.0.17: Multi-user correctness with target user awareness
+//! v0.0.16: Mutation safety system with preflight, dry-run, auto-rollback
+//! v0.0.8: First safe mutations (medium-risk only) with rollback + confirmation
+//! v0.0.7: Read-only tool catalog, Evidence IDs, citations
+//! v0.0.6: Real Translator LLM with clarification loop
+//! v0.0.4: Junior becomes real via Ollama
 
 use anna_common::{
     AnnaConfig, OllamaClient, OllamaError,
@@ -46,6 +43,10 @@ use anna_common::{
     TOOL_CACHE_TTL_SECS, LLM_CACHE_TTL_SECS,
     // v0.0.31: Reliability metrics
     MetricsStore, MetricType,
+    // v0.0.44: Doctor Registry integration
+    DoctorRegistry, DoctorSelection,
+    // v0.0.44: Case file logging for all requests
+    CaseFile, CaseOutcome, CaseTiming, generate_case_id,
 };
 use owo_colors::OwoColorize;
 use std::fmt;
@@ -241,27 +242,6 @@ pub struct TranslatorOutput {
     pub llm_backed: bool, // True if from LLM, false if deterministic fallback
 }
 
-/// Legacy Intent struct for compatibility
-#[derive(Debug, Clone)]
-pub struct Intent {
-    pub intent_type: IntentType,
-    pub keywords: Vec<String>,
-    pub targets: Vec<String>,
-    pub risk: RiskLevel,
-    pub confidence: u8,
-}
-
-impl From<&TranslatorOutput> for Intent {
-    fn from(t: &TranslatorOutput) -> Self {
-        Intent {
-            intent_type: t.intent_type,
-            keywords: t.targets.clone(),
-            targets: t.targets.clone(),
-            risk: t.risk,
-            confidence: t.confidence,
-        }
-    }
-}
 
 /// Evidence from snapshots
 #[derive(Debug, Clone)]
@@ -310,189 +290,299 @@ impl Default for JuniorVerification {
 }
 
 // =============================================================================
-// Translator LLM (v0.0.6 - real LLM integration)
+// Translator LLM (v0.0.44 - simplified canonical format)
 // =============================================================================
 
-/// System prompt for Translator (v0.0.31: with reliability engineering tools)
-const TRANSLATOR_SYSTEM_PROMPT: &str = r#"You are Translator, the intent classifier for Anna (a Linux system assistant).
+/// System prompt for Translator (v0.0.44: simplified canonical format for small models)
+/// This format is designed to be extremely easy for small models to follow.
+const TRANSLATOR_SYSTEM_PROMPT: &str = r#"Classify the user request. Output EXACTLY 6 lines:
 
-Your job is to classify user requests and plan which tools/sources to gather evidence.
+INTENT: system_query OR action_request OR knowledge_query OR doctor_query
+TARGETS: word1,word2 OR none
+RISK: read_only OR low OR medium OR high
+TOOLS: tool1,tool2 OR none
+DOCTOR: networking OR graphics OR audio OR storage OR boot OR none
+CONFIDENCE: 0 to 100
 
-OUTPUT FORMAT (follow exactly, one field per line):
-INTENT: [question|system_query|action_request|unknown]
-TARGETS: [comma-separated list of packages/services/files, or "none"]
-RISK: [read_only|low|medium|high]
-TOOLS: [comma-separated tool calls, or "none"]
-RATIONALE: [why these tools are needed, 1 sentence]
-CLARIFICATION: [empty if not needed, OR "question|option1|option2|option3|default:N"]
+INTENT RULES:
+- system_query = asks about THIS machine (CPU, RAM, disk, services, processes)
+- action_request = wants to change something (install, restart, edit, delete)
+- knowledge_query = asks HOW TO do something or WHAT IS something
+- doctor_query = reports a problem (slow, broken, disconnecting, not working)
 
-AVAILABLE TOOLS:
-System Evidence (for machine-specific facts):
-- status_snapshot: daemon/system status
-- sw_snapshot_summary: installed packages, commands, services overview
-- hw_snapshot_summary: CPU, memory, GPU, storage, network info
-- recent_installs(days=N): packages installed in last N days
-- journal_warnings(service=X, minutes=N): log warnings/errors
-- boot_time_trend(days=N): boot performance trends
-- top_resource_processes(window_minutes=N): high CPU/memory processes
-- package_info(name=X): details about a specific package
-- service_status(name=X): status of a specific service
-- disk_usage: filesystem usage
-- what_changed(days=N): packages/services/configs changed recently
-- slowness_hypotheses(days=N): analyze causes of slowness
+TOOLS (pick relevant ones):
+- hw_snapshot_summary = CPU, RAM, GPU, storage info
+- sw_snapshot_summary = packages, services
+- disk_usage = filesystem usage
+- service_status = check a service
+- journal_warnings = recent errors/warnings
+- knowledge_search = documentation lookup
 
-Knowledge Sources (for documentation/how-to):
-- knowledge_search(query=X): search man pages, package docs, user notes
+DOCTOR (only for problems):
+- networking = wifi, ethernet, DNS, connection issues
+- graphics = display, GPU, resolution, tearing
+- audio = sound, speakers, microphone
+- storage = disk, mount, filesystem
+- boot = startup, systemd, slow boot
 
-Reliability Engineering (v0.0.31):
-- self_diagnostics: full self-diagnostics report (install, update, model, policy, storage, budgets, errors, alerts)
-- metrics_summary(days=N): reliability metrics (success rates, latencies p50/p95, cache hits)
-- error_budgets: error budget status (request/tool/mutation/LLM failure thresholds)
-
-SOURCE PLANNING RULES (v0.0.20):
-1. "How do I...?" questions -> knowledge_search FIRST, then system tools if needed
-2. "What is happening on my machine?" -> system tools FIRST
-3. Mixed questions (both how-to AND system state) -> BOTH sources
-4. General knowledge questions -> knowledge_search or reasoning
-5. "diagnostics report" / "self-diagnostics" / "bug report" -> self_diagnostics
-6. "metrics" / "reliability" / "error budget" -> metrics_summary or error_budgets
-
-RULES:
-1. system_query = needs machine data -> always plan system tools
-2. action_request = would modify system -> plan tools to check current state
-3. question = may need knowledge_search if about Linux/config topics
-4. unknown = cannot classify -> tools: none
-
-TOOL FORMAT EXAMPLES:
-TOOLS: knowledge_search(query=vim syntax highlighting)
+EXAMPLES:
+User: "what cpu do I have"
+INTENT: system_query
+TARGETS: cpu
+RISK: read_only
 TOOLS: hw_snapshot_summary
-TOOLS: knowledge_search(query=ssh keys), sw_snapshot_summary
-TOOLS: recent_installs(days=14), what_changed(days=14), slowness_hypotheses(days=14)
-TOOLS: self_diagnostics
-TOOLS: metrics_summary(days=7), error_budgets
-TOOLS: none
+DOCTOR: none
+CONFIDENCE: 95
 
-Only request clarification when genuinely ambiguous.
-Keep output minimal and structured."#;
+User: "install nginx"
+INTENT: action_request
+TARGETS: nginx
+RISK: medium
+TOOLS: sw_snapshot_summary
+DOCTOR: none
+CONFIDENCE: 90
 
-/// Call Translator LLM for intent classification
+User: "wifi keeps disconnecting"
+INTENT: doctor_query
+TARGETS: wifi,network
+RISK: read_only
+TOOLS: hw_snapshot_summary,journal_warnings
+DOCTOR: networking
+CONFIDENCE: 85"#;
+
+/// Maximum retries for Translator LLM before fallback
+const TRANSLATOR_MAX_RETRIES: u32 = 2;
+
+/// Call Translator LLM for intent classification with retry
+/// v0.0.44: Adds retry logic before falling back to deterministic
 async fn call_translator_llm(
     client: &OllamaClient,
     model: &str,
     request: &str,
 ) -> Result<TranslatorOutput, OllamaError> {
-    let prompt = format!(
-        "Classify this user request:\n\n\"{}\"\n\nProvide classification in the exact format specified.",
-        request
-    );
+    // v0.0.44: Simplified prompt - just show the request
+    let prompt = format!("User: \"{}\"\n\nClassify:", request);
 
-    let response = client
-        .generate(model, &prompt, Some(TRANSLATOR_SYSTEM_PROMPT))
-        .await?;
+    let mut last_error = None;
 
-    // Parse the response
-    match parse_translator_response(&response.response) {
-        Some(output) => Ok(output),
-        None => {
-            // Log the failure and return error to trigger fallback
-            tracing::warn!("Failed to parse Translator LLM output: {}", response.response);
-            Err(OllamaError::ParseError("Invalid Translator output format".to_string()))
+    for attempt in 0..TRANSLATOR_MAX_RETRIES {
+        let response = match client
+            .generate(model, &prompt, Some(TRANSLATOR_SYSTEM_PROMPT))
+            .await {
+                Ok(r) => r,
+                Err(e) => {
+                    last_error = Some(e);
+                    continue;
+                }
+            };
+
+        // Parse the response
+        match parse_translator_response(&response.response) {
+            Some(output) => return Ok(output),
+            None => {
+                // Log the failure
+                if attempt == 0 {
+                    tracing::warn!("Translator LLM parse failed (attempt {}): {}",
+                        attempt + 1,
+                        response.response.lines().take(3).collect::<Vec<_>>().join(" | "));
+                }
+                last_error = Some(OllamaError::ParseError(
+                    format!("Invalid format on attempt {}", attempt + 1)
+                ));
+            }
         }
     }
+
+    // All retries exhausted
+    Err(last_error.unwrap_or_else(||
+        OllamaError::ParseError("All Translator retries failed".to_string())))
 }
 
-/// Parse Translator LLM response into structured output (v0.0.7: with TOOLS)
-/// v0.0.23: More robust parsing to handle LLM format variations
-/// v0.0.28: Handle ACTION: prefix and more LLM variations
+/// Parse Translator LLM response into structured output
+/// v0.0.44: Simplified canonical format parser
+/// Expected format:
+///   INTENT: system_query|action_request|knowledge_query|doctor_query
+///   TARGETS: word1,word2 OR none
+///   RISK: read_only|low|medium|high
+///   TOOLS: tool1,tool2 OR none
+///   DOCTOR: networking|graphics|audio|storage|boot OR none
+///   CONFIDENCE: 0-100
 fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
     let mut intent_type = None;
     let mut targets = Vec::new();
     let mut risk = RiskLevel::ReadOnly;
-    let mut evidence_needs = Vec::new();
-    let mut tool_plan = None;
-    let mut clarification = None;
+    let mut tools_list: Vec<String> = Vec::new();
+    let mut doctor_domain: Option<String> = None;
+    let mut confidence: u8 = 85;
 
     for line in response.lines() {
         let line = line.trim();
-        let line_upper = line.to_uppercase();
-
-        // v0.0.28: Handle many LLM output formats for intent
-        // Standard: "INTENT: system_query"
-        // Variation: "ACTION: install" or "ACTION: execute command"
-        // Variation: "SYSTEM_QUERY" (raw value)
-        // Variation: "Intent: System Query" (title case)
-        if let Some(value) = line.strip_prefix("INTENT:")
-            .or_else(|| line.strip_prefix("Intent:"))
-            .or_else(|| line.strip_prefix("ACTION:"))
-            .or_else(|| line.strip_prefix("Action:"))
-        {
-            let value_lower = value.trim().to_lowercase();
-            // Map ACTION values to intent types
-            if value_lower.contains("install") || value_lower.contains("execute")
-                || value_lower.contains("restart") || value_lower.contains("remove")
-                || value_lower.contains("edit") || value_lower.contains("create")
-                || value_lower.contains("delete") || value_lower.contains("update")
-            {
-                intent_type = Some(IntentType::ActionRequest);
-            } else if value_lower.contains("query") || value_lower.contains("show")
-                || value_lower.contains("list") || value_lower.contains("status")
-                || value_lower.contains("check") || value_lower.contains("get")
-            {
-                intent_type = Some(IntentType::SystemQuery);
-            } else {
-                intent_type = value_lower.parse().ok();
-            }
-        } else if intent_type.is_none() {
-            // Try to detect intent from line content (LLM sometimes outputs raw values)
-            if line_upper.contains("SYSTEM_QUERY") || line_upper.contains("SYSTEM QUERY") {
-                intent_type = Some(IntentType::SystemQuery);
-            } else if line_upper.contains("ACTION_REQUEST") || line_upper.contains("ACTION REQUEST") {
-                intent_type = Some(IntentType::ActionRequest);
-            } else if line_upper == "QUESTION" || line_upper.starts_with("QUESTION:") {
-                intent_type = Some(IntentType::Question);
-            } else if line_upper == "UNKNOWN" {
-                intent_type = Some(IntentType::Unknown);
-            }
+        if line.is_empty() {
+            continue;
         }
 
-        if let Some(value) = line.strip_prefix("TARGETS:").or_else(|| line.strip_prefix("Targets:")) {
+        // Parse INTENT (case-insensitive prefix)
+        if let Some(value) = strip_prefix_case_insensitive(line, "INTENT:") {
+            let value_lower = value.trim().to_lowercase();
+            intent_type = match value_lower.as_str() {
+                "system_query" | "system query" => Some(IntentType::SystemQuery),
+                "action_request" | "action request" => Some(IntentType::ActionRequest),
+                "knowledge_query" | "knowledge query" | "question" => Some(IntentType::Question),
+                "doctor_query" | "doctor query" | "fix_it" | "fixit" => Some(IntentType::FixIt),
+                "unknown" => Some(IntentType::Unknown),
+                _ => {
+                    // Fallback: check for keywords in value
+                    if value_lower.contains("system") || value_lower.contains("query") {
+                        Some(IntentType::SystemQuery)
+                    } else if value_lower.contains("action") || value_lower.contains("install")
+                        || value_lower.contains("restart") {
+                        Some(IntentType::ActionRequest)
+                    } else if value_lower.contains("doctor") || value_lower.contains("fix") {
+                        Some(IntentType::FixIt)
+                    } else if value_lower.contains("knowledge") || value_lower.contains("how") {
+                        Some(IntentType::Question)
+                    } else {
+                        None
+                    }
+                }
+            };
+        }
+        // Parse TARGETS
+        else if let Some(value) = strip_prefix_case_insensitive(line, "TARGETS:") {
             let value = value.trim().trim_matches('"');
-            if value.to_lowercase() != "none" && !value.is_empty() {
-                targets = value.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            if !value.eq_ignore_ascii_case("none") && !value.is_empty() {
+                targets = value.split(',')
+                    .map(|s| s.trim().to_lowercase())
+                    .filter(|s| !s.is_empty() && s != "none")
+                    .collect();
             }
-        } else if let Some(value) = line.strip_prefix("RISK:").or_else(|| line.strip_prefix("Risk:")) {
+        }
+        // Parse RISK
+        else if let Some(value) = strip_prefix_case_insensitive(line, "RISK:") {
             risk = value.trim().to_lowercase().parse().unwrap_or(RiskLevel::ReadOnly);
-        } else if let Some(value) = line.strip_prefix("EVIDENCE_NEEDS:") {
+        }
+        // Parse TOOLS
+        else if let Some(value) = strip_prefix_case_insensitive(line, "TOOLS:") {
             let value = value.trim();
-            if value.to_lowercase() != "none" && !value.is_empty() {
-                evidence_needs = value.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            if !value.eq_ignore_ascii_case("none") && !value.is_empty() {
+                tools_list = value.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty() && !s.eq_ignore_ascii_case("none"))
+                    .collect();
             }
-        } else if line.starts_with("TOOLS:") || line.starts_with("Tools:") || line.starts_with("RATIONALE:") || line.starts_with("Rationale:") {
-            // Parse TOOLS using the parse_tool_plan function from anna_common
-            tool_plan = parse_tool_plan(response);
-        } else if let Some(value) = line.strip_prefix("CLARIFICATION:").or_else(|| line.strip_prefix("Clarification:")) {
-            let value = value.trim();
-            if !value.is_empty() {
-                clarification = parse_clarification(value);
+        }
+        // Parse DOCTOR (v0.0.44: new field for doctor routing)
+        else if let Some(value) = strip_prefix_case_insensitive(line, "DOCTOR:") {
+            let value = value.trim().to_lowercase();
+            if !value.eq_ignore_ascii_case("none") && !value.is_empty() {
+                doctor_domain = Some(value);
+            }
+        }
+        // Parse CONFIDENCE
+        else if let Some(value) = strip_prefix_case_insensitive(line, "CONFIDENCE:") {
+            if let Ok(c) = value.trim().parse::<u8>() {
+                confidence = c.min(100);
             }
         }
     }
 
+    // Must have at least INTENT to be valid
     let intent_type = intent_type?;
 
+    // Generate tool_plan from tools_list
+    let tool_plan = generate_tool_plan_from_tools_list(&tools_list);
+
+    // Generate evidence_needs from tools (for backwards compat)
+    let evidence_needs = tools_list.iter()
+        .map(|t| {
+            if t.contains("hw_snapshot") { "hw_snapshot".to_string() }
+            else if t.contains("sw_snapshot") { "sw_snapshot".to_string() }
+            else if t.contains("journal") { "journalctl".to_string() }
+            else if t.contains("status") { "status".to_string() }
+            else { t.clone() }
+        })
+        .collect();
+
+    // If doctor_query with doctor domain, trigger FixIt mode
+    let final_intent = if doctor_domain.is_some() && intent_type == IntentType::Question {
+        IntentType::FixIt
+    } else {
+        intent_type
+    };
+
     Some(TranslatorOutput {
-        intent_type,
+        intent_type: final_intent,
         targets,
         risk,
         evidence_needs,
         tool_plan,
-        clarification,
-        confidence: 85, // LLM-backed gets high confidence
+        clarification: None, // v0.0.44: Removed clarification from canonical format
+        confidence,
         llm_backed: true,
     })
 }
 
+/// Case-insensitive prefix stripping helper
+fn strip_prefix_case_insensitive<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
+    let line_upper = line.to_uppercase();
+    let prefix_upper = prefix.to_uppercase();
+    if line_upper.starts_with(&prefix_upper) {
+        Some(&line[prefix.len()..])
+    } else {
+        None
+    }
+}
+
+/// Generate a ToolPlan from a list of tool names (v0.0.44)
+fn generate_tool_plan_from_tools_list(tools: &[String]) -> Option<ToolPlan> {
+    use std::collections::HashMap;
+
+    if tools.is_empty() {
+        return None;
+    }
+
+    let mut plan = ToolPlan::new();
+
+    for tool in tools {
+        let tool_lower = tool.to_lowercase();
+        // Parse tool(args) format
+        if let Some(paren_idx) = tool.find('(') {
+            let tool_name = &tool[..paren_idx];
+            let args_str = tool.get(paren_idx + 1..tool.len().saturating_sub(1)).unwrap_or("");
+            let mut params = HashMap::new();
+
+            // Parse key=value pairs
+            for arg in args_str.split(',') {
+                if let Some((key, value)) = arg.split_once('=') {
+                    let key = key.trim();
+                    let value = value.trim();
+                    // Try to parse as number, else string
+                    if let Ok(n) = value.parse::<i64>() {
+                        params.insert(key.to_string(), serde_json::json!(n));
+                    } else {
+                        params.insert(key.to_string(), serde_json::json!(value));
+                    }
+                }
+            }
+            plan.add_tool(tool_name.trim(), params);
+        } else {
+            // Simple tool name without args
+            plan.add_tool(&tool_lower, HashMap::new());
+        }
+    }
+
+    plan.rationale = "Tools selected by Translator LLM".to_string();
+
+    if plan.tools.is_empty() {
+        None
+    } else {
+        Some(plan)
+    }
+}
+
 /// Parse clarification string: "question|option1|option2|default:N"
+/// v0.0.44: Clarification removed from canonical format, kept for potential future use
+#[allow(dead_code)]
 fn parse_clarification(s: &str) -> Option<Clarification> {
     // Reject if it looks like echoed prompt instructions
     if s.contains("empty if not needed") || s.contains("OR \"question") || s.starts_with('[') {
@@ -583,7 +673,7 @@ pub fn translator_classify_deterministic(request: &str) -> TranslatorOutput {
     }
 }
 
-/// Generate a ToolPlan from evidence_needs (v0.0.7, v0.0.31: reliability tools)
+/// Generate a ToolPlan from evidence_needs (v0.0.7, v0.0.31: reliability tools, v0.0.46: domain-specific)
 fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[String]) -> Option<ToolPlan> {
     use std::collections::HashMap;
 
@@ -595,6 +685,34 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
 
     for need in evidence_needs {
         match need.as_str() {
+            // v0.0.46: Domain-specific tools take priority over generic snapshots
+            "mount_usage" => {
+                plan.add_tool("mount_usage", HashMap::new());
+            }
+            "uname_summary" => {
+                plan.add_tool("uname_summary", HashMap::new());
+            }
+            "mem_summary" => {
+                plan.add_tool("mem_summary", HashMap::new());
+            }
+            "network_tools" => {
+                plan.add_tool("nm_summary", HashMap::new());
+                plan.add_tool("ip_route_summary", HashMap::new());
+                plan.add_tool("link_state_summary", HashMap::new());
+            }
+            "audio_tools" => {
+                plan.add_tool("audio_services_summary", HashMap::new());
+                plan.add_tool("pactl_summary", HashMap::new());
+            }
+            "boot_tools" => {
+                plan.add_tool("boot_time_summary", HashMap::new());
+            }
+            "error_tools" => {
+                let mut params = HashMap::new();
+                params.insert("minutes".to_string(), serde_json::json!(30));
+                plan.add_tool("recent_errors_summary", params);
+            }
+            // Legacy tools (still valid for general queries)
             "hw_snapshot" => {
                 plan.add_tool("hw_snapshot_summary", HashMap::new());
             }
@@ -743,13 +861,21 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
         }
     }
 
-    // Check for system queries (needs snapshots)
+    // v0.0.46: Domain-specific evidence routing
+    // These domain queries MUST use domain-specific tools, NOT generic snapshots
+    let evidence_needs = route_to_domain_evidence(request, targets);
+    if !evidence_needs.is_empty() {
+        return (IntentType::SystemQuery, RiskLevel::ReadOnly, evidence_needs);
+    }
+
+    // Check for system queries (needs snapshots) - fallback for non-domain queries
     for keyword in system_query_keywords {
         if request.contains(keyword) {
-            let evidence_needs = if targets.iter().any(|t| ["cpu", "memory", "ram", "disk", "gpu", "battery", "temperature", "fan"].contains(&t.as_str())) {
-                vec!["hw_snapshot".to_string()]
-            } else if targets.iter().any(|t| ["nginx", "docker", "systemd", "ssh", "sshd"].contains(&t.as_str())) {
+            let evidence_needs = if targets.iter().any(|t| ["nginx", "docker", "systemd", "ssh", "sshd"].contains(&t.as_str())) {
                 vec!["sw_snapshot".to_string(), "status".to_string()]
+            } else if targets.iter().any(|t| ["cpu", "gpu", "battery", "temperature", "fan"].contains(&t.as_str())) {
+                // CPU/GPU can still use hw_snapshot as they need model info
+                vec!["hw_snapshot".to_string()]
             } else {
                 vec!["hw_snapshot".to_string(), "sw_snapshot".to_string()]
             };
@@ -763,6 +889,11 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
         || request.starts_with("can ") || request.starts_with("will ")
     {
         if !targets.is_empty() {
+            // Try domain routing first
+            let domain_evidence = route_to_domain_evidence(request, targets);
+            if !domain_evidence.is_empty() {
+                return (IntentType::SystemQuery, RiskLevel::ReadOnly, domain_evidence);
+            }
             let evidence_needs = vec!["hw_snapshot".to_string(), "sw_snapshot".to_string()];
             return (IntentType::SystemQuery, RiskLevel::ReadOnly, evidence_needs);
         }
@@ -771,6 +902,174 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
 
     // Unknown
     (IntentType::Unknown, RiskLevel::ReadOnly, vec![])
+}
+
+/// v0.0.46: Route requests to domain-specific evidence tools
+/// Returns empty vec if no domain match, allowing fallback to generic snapshots
+fn route_to_domain_evidence(request: &str, targets: &[String]) -> Vec<String> {
+    // Disk/storage domain - MUST use mount_usage, NOT hw_snapshot
+    let disk_patterns = [
+        "disk space", "disk free", "free space", "storage space",
+        "how much space", "space left", "space available", "space on /",
+        "disk usage", "disk full", "running out of space",
+    ];
+    if disk_patterns.iter().any(|p| request.contains(p))
+        || targets.iter().any(|t| t == "disk")
+    {
+        return vec!["mount_usage".to_string()];
+    }
+
+    // Kernel domain - MUST use uname_summary, NOT hw_snapshot
+    let kernel_patterns = [
+        "kernel version", "kernel release", "what kernel",
+        "linux version", "uname",
+    ];
+    if kernel_patterns.iter().any(|p| request.contains(p))
+        || targets.iter().any(|t| t == "kernel")
+    {
+        return vec!["uname_summary".to_string()];
+    }
+
+    // Memory domain - MUST use mem_summary, NOT hw_snapshot
+    let memory_patterns = [
+        "memory available", "memory free", "memory used", "memory usage",
+        "how much memory", "how much ram", "ram available", "ram free",
+        "ram usage", "ram used",
+    ];
+    if memory_patterns.iter().any(|p| request.contains(p))
+        || (targets.iter().any(|t| t == "memory" || t == "ram")
+            && (request.contains("how much") || request.contains("available")
+                || request.contains("free") || request.contains("used")
+                || request.contains("usage")))
+    {
+        return vec!["mem_summary".to_string()];
+    }
+
+    // Network domain - MUST use network tools, NOT hw_snapshot
+    let network_patterns = [
+        "network status", "network connection", "internet connection",
+        "default route", "network interface", "networkmanager",
+        "is network", "is internet", "can i connect", "am i online",
+        "wifi status", "ethernet status", "connection status",
+    ];
+    if network_patterns.iter().any(|p| request.contains(p))
+        || (targets.iter().any(|t| t == "network" || t == "wifi" || t == "ethernet")
+            && (request.contains("status") || request.contains("running")
+                || request.contains("working") || request.contains("connected")))
+    {
+        return vec!["network_tools".to_string()];
+    }
+
+    // Audio domain - MUST use audio tools, NOT hw_snapshot
+    let audio_patterns = [
+        "audio status", "audio working", "sound working", "sound status",
+        "pipewire", "wireplumber", "pulseaudio", "audio output",
+        "no sound", "no audio", "is audio", "is sound",
+        "speaker", "headphone", "microphone",
+    ];
+    if audio_patterns.iter().any(|p| request.contains(p))
+        || (targets.iter().any(|t| t == "audio")
+            && (request.contains("status") || request.contains("working")
+                || request.contains("running")))
+    {
+        return vec!["audio_tools".to_string()];
+    }
+
+    // Boot domain - MUST use boot tools
+    let boot_patterns = [
+        "boot time", "boot speed", "boot slow", "startup time",
+        "how long to boot", "systemd-analyze",
+    ];
+    if boot_patterns.iter().any(|p| request.contains(p)) {
+        return vec!["boot_tools".to_string()];
+    }
+
+    // Error/logs domain - MUST use error tools
+    let error_patterns = [
+        "recent errors", "show errors", "system errors", "error log",
+        "journal errors", "warnings", "what errors", "any errors",
+    ];
+    if error_patterns.iter().any(|p| request.contains(p)) {
+        return vec!["error_tools".to_string()];
+    }
+
+    // No domain match - return empty to allow fallback
+    vec![]
+}
+
+/// v0.0.46: Tool sanity gate - ensures domain queries have domain tools
+/// Returns modified tool plan if fixup needed, None if plan is acceptable
+pub fn apply_tool_sanity_gate(
+    translator_output: &TranslatorOutput,
+    tool_plan: &Option<ToolPlan>,
+) -> Option<ToolPlan> {
+    use std::collections::HashMap;
+
+    // Only apply for SystemQuery intent
+    if translator_output.intent_type != IntentType::SystemQuery {
+        return None;
+    }
+
+    let Some(plan) = tool_plan else {
+        return None;
+    };
+
+    // Check what domain tools are present
+    let has_mount_usage = plan.tools.iter().any(|t| t.tool_name == "mount_usage");
+    let has_uname = plan.tools.iter().any(|t| t.tool_name == "uname_summary");
+    let has_mem = plan.tools.iter().any(|t| t.tool_name == "mem_summary");
+    let has_network = plan.tools.iter().any(|t|
+        t.tool_name == "nm_summary" || t.tool_name == "ip_route_summary"
+        || t.tool_name == "link_state_summary" || t.tool_name == "network_status"
+    );
+    let has_audio = plan.tools.iter().any(|t|
+        t.tool_name == "audio_services_summary" || t.tool_name == "pactl_summary"
+        || t.tool_name == "audio_status"
+    );
+
+    let has_generic_hw = plan.tools.iter().any(|t| t.tool_name == "hw_snapshot_summary");
+
+    // Check targets to see if we need domain tools
+    let needs_disk = translator_output.targets.iter().any(|t| t == "disk");
+    let needs_kernel = translator_output.targets.iter().any(|t| t == "kernel");
+    let needs_memory = translator_output.targets.iter().any(|t| t == "memory" || t == "ram");
+    let needs_network = translator_output.targets.iter().any(|t|
+        t == "network" || t == "wifi" || t == "ethernet"
+    );
+    let needs_audio = translator_output.targets.iter().any(|t| t == "audio");
+
+    // If using generic hw_snapshot but needs domain tools, replace
+    if has_generic_hw {
+        let mut new_plan = ToolPlan::new();
+
+        // Add domain-specific tools based on targets
+        if needs_disk && !has_mount_usage {
+            new_plan.add_tool("mount_usage", HashMap::new());
+        }
+        if needs_kernel && !has_uname {
+            new_plan.add_tool("uname_summary", HashMap::new());
+        }
+        if needs_memory && !has_mem {
+            new_plan.add_tool("mem_summary", HashMap::new());
+        }
+        if needs_network && !has_network {
+            new_plan.add_tool("nm_summary", HashMap::new());
+            new_plan.add_tool("ip_route_summary", HashMap::new());
+            new_plan.add_tool("link_state_summary", HashMap::new());
+        }
+        if needs_audio && !has_audio {
+            new_plan.add_tool("audio_services_summary", HashMap::new());
+            new_plan.add_tool("pactl_summary", HashMap::new());
+        }
+
+        // If we added domain tools, return the new plan
+        if !new_plan.tools.is_empty() {
+            new_plan.rationale = "Domain-specific tools added by sanity gate".to_string();
+            return Some(new_plan);
+        }
+    }
+
+    None
 }
 
 fn determine_action_risk(keyword: &str) -> RiskLevel {
@@ -2115,6 +2414,10 @@ pub async fn process(request: &str) {
     let mut metrics = MetricsStore::load();
     metrics.record(MetricType::RequestStart);
 
+    // v0.0.44: Create case file for logging all requests
+    let case_id = generate_case_id();
+    let mut case_file = CaseFile::new(&case_id, request);
+
     // v0.0.21: TTFO - print header and working indicator within 150ms
     print_fast_header(request);
 
@@ -2235,13 +2538,64 @@ pub async fn process(request: &str) {
         println!();
     }
 
+    // v0.0.44: Doctor Registry integration for FixIt mode
+    let doctor_selection: Option<DoctorSelection> = if translator_output.intent_type == IntentType::FixIt {
+        match DoctorRegistry::load() {
+            Ok(registry) => {
+                let intent_tags: Vec<String> = translator_output.targets.clone();
+                if let Some(selection) = registry.select_doctors(request, &intent_tags) {
+                    // Show doctor selection in transcript
+                    dialogue(
+                        Actor::Anna,
+                        Actor::Translator,
+                        &format!(
+                            "Routing to doctor: {} ({})\nReason: {}",
+                            selection.primary.doctor_name,
+                            selection.primary.doctor_id,
+                            selection.reasoning
+                        ),
+                    );
+                    println!();
+                    Some(selection)
+                } else {
+                    // No specific doctor matched - fallback to general evidence gathering
+                    dialogue(
+                        Actor::Anna,
+                        Actor::Translator,
+                        "No specific doctor matched - using general troubleshooting approach",
+                    );
+                    println!();
+                    None
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load doctor registry: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // Silence unused variable warning - doctor_selection is used for tracking
+    let _ = &doctor_selection;
+
     // v0.0.7: Execute tools and gather evidence with Evidence IDs
     let (tool_results, evidence) = if translator_output.intent_type == IntentType::SystemQuery
         || translator_output.intent_type == IntentType::ActionRequest
+        || translator_output.intent_type == IntentType::FixIt
         || (translator_output.intent_type == IntentType::Question && !translator_output.targets.is_empty())
     {
         // Use tool_plan if available, otherwise fall back to legacy evidence retrieval
-        if let Some(ref plan) = translator_output.tool_plan {
+        if let Some(ref original_plan) = translator_output.tool_plan {
+            // v0.0.46: Apply tool sanity gate to ensure domain-specific tools are used
+            let plan = if let Some(fixed_plan) = apply_tool_sanity_gate(&translator_output, &translator_output.tool_plan) {
+                println!("  {} Tool sanity gate applied: using domain-specific tools", "[v0.0.46]".cyan());
+                fixed_plan
+            } else {
+                original_plan.clone()
+            };
+
             // Natural language: Anna asks annad to gather evidence
             let tool_names: Vec<_> = plan.tools.iter().map(|t| t.tool_name.as_str()).collect();
             let human_request = format!(
@@ -2503,6 +2857,33 @@ pub async fn process(request: &str) {
     }
     metrics.prune(); // Clean up old data
     let _ = metrics.save();
+
+    // v0.0.44: Update and save case file
+    case_file.summary.intent_type = translator_output.intent_type.to_string();
+    case_file.summary.reliability_score = verification.score;
+    case_file.summary.evidence_count = tool_results.len();
+    case_file.summary.duration_ms = total_ms;
+    case_file.timing = CaseTiming {
+        translator_ms,
+        evidence_ms: tools_ms,
+        junior_ms,
+        total_ms,
+    };
+    case_file.result.success = verification.score >= 50;
+    case_file.result.reliability_score = verification.score;
+    if !verification.critique.is_empty() {
+        case_file.result.errors.push(verification.critique.clone());
+    }
+    case_file.summary.outcome = if verification.score >= 50 {
+        CaseOutcome::Success
+    } else {
+        CaseOutcome::Partial
+    };
+
+    // Save case file (ignore errors - logging shouldn't break the request)
+    if let Err(e) = case_file.save() {
+        tracing::warn!("Failed to save case file: {}", e);
+    }
 
     // Show performance note at debug level 2
     if config.ui.debug_level >= 2 {
@@ -2945,16 +3326,15 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_translator_response_with_clarification() {
-        let response = "INTENT: action_request\nTARGETS: none\nRISK: medium\nEVIDENCE_NEEDS: sw_snapshot\nCLARIFICATION: Which editor?|vim|neovim|emacs|default:1";
+    fn test_parse_translator_response_with_doctor() {
+        // v0.0.44: New canonical format with DOCTOR field
+        let response = "INTENT: doctor_query\nTARGETS: wifi,network\nRISK: read_only\nTOOLS: hw_snapshot_summary,journal_warnings\nDOCTOR: networking\nCONFIDENCE: 85";
         let output = parse_translator_response(response);
         assert!(output.is_some());
         let output = output.unwrap();
-        assert!(output.clarification.is_some());
-        let clarification = output.clarification.unwrap();
-        assert_eq!(clarification.question, "Which editor?");
-        assert_eq!(clarification.options.len(), 3);
-        assert_eq!(clarification.default_option, 1);
+        assert_eq!(output.intent_type, IntentType::FixIt);
+        assert!(output.targets.contains(&"wifi".to_string()));
+        assert_eq!(output.confidence, 85);
     }
 
     #[test]

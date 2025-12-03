@@ -1,4 +1,4 @@
-//! Anna Common v0.0.43 - Doctor Registry + Unified Entry Flow
+//! Anna Common v0.0.48 - Learning System (Knowledge Packs + XP)
 //!
 //! v0.0.37: Recipe Engine v1 (Reusable Fixes)
 //! - RecipeStatus enum: Active, Draft, Archived
@@ -282,6 +282,9 @@ pub mod mutation_tools;
 pub mod rollback;
 pub mod mutation_executor;
 
+// v0.0.47: Append line mutation with full rollback
+pub mod append_line_mutation;
+
 // v0.0.9: Helper tracking with provenance
 pub mod helpers;
 
@@ -351,6 +354,9 @@ pub mod graphics_doctor;
 
 // v0.0.43: Doctor Registry + Unified Entry Flow
 pub mod doctor_registry;
+
+// v0.0.48: Learning System (Knowledge Packs + XP)
+pub mod learning;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -709,6 +715,19 @@ pub use mutation_safety::{
     generate_request_id as safety_generate_request_id,
 };
 
+// v0.0.47: Append line mutation exports
+pub use append_line_mutation::{
+    SandboxCheck, RiskLevel as AppendRiskLevel,
+    AppendMutationEvidence, FileStatEvidence, FilePreviewEvidence,
+    AppendDiffPreview, AppendMutationResult,
+    RollbackResult as AppendRollbackResult,
+    check_sandbox, collect_evidence as collect_append_evidence,
+    generate_diff_preview, check_mutation_allowed,
+    execute_append_line, execute_rollback as execute_append_rollback,
+    generate_mutation_case_id,
+    SANDBOX_CONFIRMATION, HOME_CONFIRMATION,
+};
+
 // v0.0.9: Helper tracking exports
 // v0.0.23: Added install functions (install_package, install_ollama)
 pub use helpers::{
@@ -911,6 +930,8 @@ pub use transcript::{
     KnowledgeRef as CaseKnowledgeRef,
     // v0.0.37: Recipe events for case files
     RecipeEvent, RecipeEventType,
+    // v0.0.48: Learning records for case files
+    LearningRecord,
     // Case retrieval
     load_case_summary, list_recent_cases, list_today_cases, find_last_failure,
     get_cases_storage_size, prune_cases,
@@ -1115,4 +1136,29 @@ pub use doctor_registry::{
     generate_default_config,
     // Constants
     REGISTRY_CONFIG_PATH, REGISTRY_CONFIG_PATH_USER, DOCTOR_RUNS_DIR,
+};
+
+// v0.0.48: Learning System (Knowledge Packs + XP)
+// Note: Some types renamed to avoid conflicts with knowledge_packs and transcript modules
+pub use learning::{
+    // XP System
+    XpState, XpSummary,
+    XP_GAIN_SUCCESS_85, XP_GAIN_SUCCESS_90, XP_GAIN_RECIPE_CREATED,
+    // Knowledge Packs (renamed to avoid conflicts)
+    KnowledgePack as LearnedKnowledgePack,
+    PackSource as LearnedPackSource,
+    LearnedRecipe,
+    RecipeIntent as LearnedRecipeIntent,
+    RecipeAction as LearnedRecipeAction,
+    // Learning Manager
+    LearningManager, SearchHit, LearningResult, LearningStats,
+    // Search (renamed to avoid conflict)
+    generate_knowledge_evidence_id as generate_learned_evidence_id,
+    // Constants (renamed to avoid conflicts)
+    LEARNING_PACKS_DIR, XP_STATE_FILE,
+    MAX_PACKS as MAX_LEARNED_PACKS,
+    MAX_RECIPES_TOTAL, MAX_RECIPE_SIZE_BYTES,
+    MIN_RELIABILITY_FOR_LEARNING, MIN_EVIDENCE_FOR_LEARNING,
+    KNOWLEDGE_EVIDENCE_PREFIX as LEARNED_EVIDENCE_PREFIX,
+    LEARNING_PACK_SCHEMA_VERSION,
 };

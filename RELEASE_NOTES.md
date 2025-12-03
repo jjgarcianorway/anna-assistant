@@ -2,6 +2,423 @@
 
 ---
 
+## v0.0.48 - Learning System
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+This release introduces Anna's **learning system**: the ability to store learned recipes from successful interactions, search existing knowledge, track XP progression, and evolve from "Intern" to "Grandmaster" over time. The system is local-only, bounded (50 packs, 500 recipes max), and uses lightweight token-based matching instead of embeddings.
+
+### Key Features
+
+**Knowledge Pack v1 Format (`learning.rs`):**
+- `KnowledgePack` struct with pack_id, name, version, source, tags, entries
+- `LearnedRecipe` struct with intent, targets, triggers, actions, rollback, confidence rules
+- `PackSource` enum: Learned (from cases), UserCreated, Imported
+- `RecipeIntent` and `RecipeAction` for structured recipe definitions
+- Storage at `/var/lib/anna/knowledge_packs/installed/*.json`
+- Strict limits: MAX_PACKS=50, MAX_RECIPES_TOTAL=500, MAX_RECIPE_SIZE_BYTES=24KB
+
+**Knowledge Search Tool:**
+- `learned_recipe_search(query, limit)` - Search local recipes by token matching
+- Lightweight BM25-style scoring without embeddings
+- Returns `SearchHit` with recipe_id, title, score, pack_id, evidence_id
+- Evidence ID format: K1, K2, etc. for knowledge citations
+
+**Learning Pipeline:**
+- `LearningManager` coordinates storage, retrieval, and learning
+- Auto-creates monthly packs (`learned-pack-YYYYMM`)
+- Recipe deduplication: if same intent+targets+tools exists, increment wins counter
+- Minimum thresholds: reliability >= 90%, evidence_count >= 1
+- Converts successful cases into reusable recipes
+
+**XP System:**
+- Non-linear XP curve: Level 1=100, 2=500, 3=1200, 4=2000, etc.
+- Level 0-100 progression
+- Title progression: Intern → Apprentice → Junior → Competent → Senior → Expert → Wizard → Grandmaster
+- XP gains: +2 (85% reliability), +5 (90% reliability), +10 (recipe created)
+- No XP loss (poor outcomes earn nothing)
+- `learning_stats` tool for XP/level display
+
+**2 New Tools:**
+- `learned_recipe_search(query, limit)` - Search learned recipes
+- `learning_stats()` - Get XP level, title, recipe count, pack count
+
+**Transcript Updates:**
+- `LearningRecord` struct with knowledge_searched, knowledge_query, recipes_matched
+- Fields for recipe_written, recipe_id, xp_gained, level_after, title_after
+- Integration with CaseFile for learning provenance
+
+### Technical Details
+
+**XP Curve Formula:**
+```rust
+// Level 1-20: exponential curve
+match level {
+    0 => 0,
+    1 => 100,
+    2 => 500,
+    3 => 1200,
+    4 => 2000,
+    5 => 3000,
+    6 => 4500,
+    7 => 6500,
+    8 => 9000,
+    9 => 12000,
+    10 => 16000,
+    ...
+    20 => 100_000,
+    _ => 100_000 + (level - 20) * 1000,  // Linear after 20
+}
+```
+
+**Token Matching Algorithm:**
+1. Normalize query: lowercase, split on whitespace/punctuation
+2. For each recipe: score = matches / max(query_tokens, recipe_tokens)
+3. Boost for exact substring matches in title/intent
+4. Return top K results above threshold (0.3)
+
+**Storage Paths:**
+- XP state: `/var/lib/anna/internal/xp_state.json`
+- Knowledge packs: `/var/lib/anna/knowledge_packs/installed/*.json`
+
+### Files Added/Modified
+
+- **Added:** `crates/anna_common/src/learning.rs` - Core learning module (~350 lines)
+- **Modified:** `crates/anna_common/src/tools.rs` - Added 2 learning tools
+- **Modified:** `crates/anna_common/src/tool_executor.rs` - Added 2 tool implementations
+- **Modified:** `crates/anna_common/src/transcript.rs` - Added LearningRecord
+- **Modified:** `crates/anna_common/src/lib.rs` - Added learning module exports
+- **Modified:** `scripts/anna_deep_test.sh` - Added run_learning_tests()
+- **Modified:** Version files (Cargo.toml, CLAUDE.md, README.md, TODO.md)
+
+### Tests
+
+- Deep test `run_learning_tests()` covering:
+  - Learning stats retrieval
+  - Query timing comparison (first vs second run)
+  - Knowledge search capability
+  - XP directory structure check
+
+### Breaking Changes
+
+None.
+
+---
+
+## v0.0.47 - First Mutation Flow
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+This release introduces the **first real mutation capability**: appending a line to a text file with full evidence collection, diff preview, confirmation gates, execution via annad, verification, and rollback. The mutation flow is sandbox-safe by default, protecting system files while allowing edits in the current directory, /tmp, and $HOME.
+
+### Key Features
+
+**Append Line Mutation Module (`append_line_mutation.rs`):**
+- `SandboxCheck` - Classifies paths as Sandbox (cwd, /tmp), Home ($HOME), or System (blocked)
+- `AppendMutationEvidence` - Collects file stat, preview, hash, and policy evidence before mutation
+- `AppendDiffPreview` - Shows last 20 lines and the line to be appended
+- `execute_append_line()` - Full mutation with backup, ownership preservation, and verification
+- `execute_rollback()` - Restore file from backup by case_id
+
+**Risk Levels and Confirmation:**
+- Sandbox (cwd, /tmp): Low risk, confirmation phrase "yes"
+- Home ($HOME): Medium risk, confirmation phrase "I CONFIRM (medium risk)"
+- System paths: Blocked in v0.0.47
+
+**4 New File Evidence Tools:**
+- `file_stat` - Returns uid/gid, mode, size, mtime, exists flag
+- `file_preview` - Returns first N bytes with secrets redacted, last 20 lines
+- `file_hash` - Returns hash for before/after integrity verification
+- `path_policy_check` - Returns policy decision with evidence ID and rule
+
+**Case Files for Every Request:**
+- Automatic user-readable copies in `$HOME/.local/share/anna/cases/<case_id>/`
+- Contains summary.txt, transcript.log, evidence.json
+- Resolves the "can't access cases without sudo" friction
+
+**Rollback by Natural Language:**
+- "To rollback, run: annactl 'rollback <case_id>'"
+- Restores file bytes, ownership, and permissions
+- Verifies restored hash matches pre-mutation hash
+- Results written back to original case file
+
+### Technical Details
+
+**Sandbox Allowlist (Dev Mode):**
+- Current working directory (detected via `std::env::current_dir()`)
+- `/tmp/` and subdirectories
+- `$HOME/` with policy checks
+
+**Mutation Flow:**
+1. Collect evidence (file_stat, file_preview, file_hash, path_policy_check)
+2. Generate diff preview
+3. Show preview and require confirmation phrase
+4. Execute via annad (preserves ownership/mode)
+5. Verify with after-hash
+6. Store rollback artifact with backup path
+7. Create case file with user copy
+
+### Files Added/Modified
+
+- **Added:** `crates/anna_common/src/append_line_mutation.rs` - New mutation module
+- **Modified:** `crates/anna_common/src/tools.rs` - Added 4 file evidence tools
+- **Modified:** `crates/anna_common/src/tool_executor.rs` - Implemented 4 tool executors
+- **Modified:** `crates/anna_common/src/transcript.rs` - Added save_user_copy()
+- **Modified:** `crates/anna_common/src/lib.rs` - Added module and exports
+- **Modified:** `scripts/anna_deep_test.sh` - Added run_mutation_tests()
+- **Modified:** Version files (Cargo.toml, CLAUDE.md, README.md, TODO.md)
+
+### Tests
+
+- Deep test `run_mutation_tests()` covering:
+  - Diff preview display
+  - Confirmation requirement
+  - File unchanged without confirmation
+  - Sandbox path policy recognition
+  - Blocked path detection
+
+### Breaking Changes
+
+None.
+
+---
+
+## v0.0.46 - Evidence Quality Release
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+This release solves the **generic snapshot problem**: different domain questions were being answered with the same generic hw_snapshot_summary. Now, domain-specific questions (disk, kernel, memory, network, audio, boot, errors) are routed to specialized evidence tools that return focused, accurate data.
+
+### Key Features
+
+**10 New Domain-Specific Evidence Tools:**
+- `uname_summary` - Kernel version and architecture (uname -r, -m)
+- `mem_summary` - Memory info from /proc/meminfo (MemTotal, MemAvailable)
+- `mount_usage` - Disk space per filesystem with root free/used highlighted
+- `nm_summary` - NetworkManager status, active connections
+- `ip_route_summary` - Routing table, default gateway
+- `link_state_summary` - Interface link states (up/down, carrier)
+- `audio_services_summary` - pipewire, wireplumber, pulseaudio service status
+- `pactl_summary` - PulseAudio/PipeWire sinks, sources, default devices
+- `boot_time_summary` - Uptime, boot timestamp
+- `recent_errors_summary` - Journal errors filtered by optional keyword
+
+**Domain Routing (route_to_domain_evidence):**
+- Pattern matching for domain keywords (disk space, kernel version, memory, etc.)
+- Maps domains to correct tools automatically
+- Falls back to hw_snapshot_summary only for generic hardware queries
+
+**Tool Sanity Gate (apply_tool_sanity_gate):**
+- Runtime enforcement that generic snapshot cannot satisfy domain queries
+- Automatically replaces hw_snapshot_summary with correct domain tools
+- Prints "[v0.0.46] Tool sanity gate applied" when activated
+
+**Deep Test Evidence Validation (run_evidence_tool_validation):**
+- Tests that domain queries use correct tools
+- Fails if generic hw_snapshot used for disk/kernel/memory/network/audio queries
+- Table-driven test cases with expected/forbidden tool patterns
+
+### Technical Details
+
+**Domain Patterns:**
+- Disk: "disk space", "disk free", "free space", "storage", "space left"
+- Kernel: "kernel version", "linux version", "uname"
+- Memory: "memory", "ram", "meminfo"
+- Network: "NetworkManager", "nmcli", "network manager"
+- Audio: "pipewire", "wireplumber", "audio service"
+- Boot: "boot time", "uptime", "how long running"
+
+**Sanity Gate Flow:**
+1. Translator returns tool plan (possibly with hw_snapshot_summary)
+2. Sanity gate checks if domain routing would return different tools
+3. If so, replaces the tool plan with domain-specific tools
+4. Pipeline executes corrected plan
+
+### Files Modified
+
+- `crates/anna_common/src/tools.rs` - 10 new tool definitions
+- `crates/anna_common/src/tool_executor.rs` - 10 new tool implementations
+- `crates/annactl/src/pipeline.rs` - route_to_domain_evidence(), apply_tool_sanity_gate()
+- `scripts/anna_deep_test.sh` - run_evidence_tool_validation(), v0.0.46 header
+- `Cargo.toml` - Version 0.0.46
+- `CLAUDE.md` - Version 0.0.46
+- `README.md` - Updated version and description
+- `TODO.md` - Added 0.0.46 section, moved completed items
+- `RELEASE_NOTES.md` - This file
+
+### Tests
+
+- Evidence tool validation in deep test (5 domain test cases)
+- Each case asserts correct tool AND asserts forbidden tool NOT used
+
+### Breaking Changes
+
+None.
+
+---
+
+## v0.0.45 - Deep Test Harness + Correctness Fixes
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+This release focuses on **verification and correctness**. A comprehensive deep test harness has been added to prove fixes are real and reproducible. Key evidence tools have been added to ensure queries return concrete, cited values rather than generic summaries.
+
+### Key Features
+
+**Deep Test Harness (scripts/anna_deep_test.sh):**
+- Single-command test runner producing timestamped artifact directories
+- Environment capture (uname, CPU, RAM, GPU, disk layout)
+- Translator stability tests (50 queries, fallback rate tracking)
+- Read-only correctness tests (kernel, memory, disk, network, audio)
+- Doctor auto-trigger tests (wifi, audio, boot)
+- Policy gating tests (mutations blocked without confirmation)
+- Case file verification
+- REPORT.md and report.json outputs
+
+**New Evidence Tools (v0.0.45):**
+- `kernel_version` - Direct uname -r output, not from hw snapshot
+- `memory_info` - Direct /proc/meminfo with total/free/available
+- `network_status` - Interface states, default route, DNS, NetworkManager status
+- `audio_status` - pipewire/wireplumber status, sinks, sources
+
+**Enhanced disk_usage Tool:**
+- Now returns explicit free space values for / (and all filesystems)
+- Structured JSON with per-filesystem breakdown
+- Root filesystem highlighted in summary
+
+**Version Mismatch Display (annactl status):**
+- CLI version vs daemon version comparison
+- Warning when versions don't match
+- Explanation of automatic daemon restart on update
+
+**Doctor Selection Unit Tests:**
+- Table-driven tests mapping 25 phrases to expected doctors
+- Covers: networking, audio, boot, storage, graphics
+- Tests for non-doctor queries to ensure they don't trigger incorrectly
+
+### Documentation
+
+- Added `docs/TESTING.md` - Complete testing guide
+- Running unit tests, deep test harness, CI/CD integration
+- Interpreting test results and troubleshooting
+
+### Files Modified
+
+- **NEW:** `scripts/anna_deep_test.sh` - Deep test harness
+- **NEW:** `docs/TESTING.md` - Testing documentation
+- `crates/anna_common/src/tools.rs` - 4 new tool definitions
+- `crates/anna_common/src/tool_executor.rs` - 4 new tool implementations, disk_usage fix
+- `crates/anna_common/src/doctor_registry.rs` - Table-driven selection tests
+- `crates/annactl/src/commands/status.rs` - Version mismatch display
+- `Cargo.toml` - Version 0.0.45
+- `CLAUDE.md` - Version 0.0.45
+- `README.md` - Updated version
+- `TODO.md` - Updated version, moved completed items
+- `RELEASE_NOTES.md` - This file
+
+### Tests
+
+8 new tests:
+- `test_doctor_selection_table_driven` - 25 phrases map to correct doctors
+- `test_no_doctor_for_unrelated_queries` - Non-diagnostic queries don't trigger
+- New tool execution tests via deep test harness
+
+### Breaking Changes
+
+None.
+
+---
+
+## v0.0.44 - Translator Stabilization + Doctor Integration
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+This release stabilizes the Translator LLM integration with a simplified canonical format designed for small language models. The Doctor Registry from v0.0.43 is now integrated into the main pipeline, and all requests are logged to case files for debugging.
+
+### Key Features
+
+**Simplified Translator Format:**
+- New canonical 6-line format: INTENT, TARGETS, RISK, TOOLS, DOCTOR, CONFIDENCE
+- Designed for small models (qwen2.5:0.5b-instruct)
+- Removed complex RATIONALE and CLARIFICATION fields
+- Added retry logic (2 attempts) before deterministic fallback
+- More robust parser with case-insensitive matching
+
+**Doctor Integration in Pipeline:**
+- FixIt intent now triggers doctor selection from registry
+- Transcript shows doctor routing: doctor_name (doctor_id)
+- Fallback to general troubleshooting if no doctor matches
+
+**Case File Logging:**
+- All requests now create case files (not just mutations)
+- Includes: intent, reliability score, evidence count, timing, outcome
+- Stored in `/var/lib/anna/cases/` with unique request IDs
+- Enables debugging and replay of past requests
+
+**Code Cleanup:**
+- Removed unused Intent struct and legacy code
+- Updated module header to v0.0.44
+- Cleaned up test for new format
+
+### Technical Details
+
+**Translator Prompt (v0.0.44):**
+```
+Classify the user request. Output EXACTLY 6 lines:
+
+INTENT: system_query OR action_request OR knowledge_query OR doctor_query
+TARGETS: word1,word2 OR none
+RISK: read_only OR low OR medium OR high
+TOOLS: tool1,tool2 OR none
+DOCTOR: networking OR graphics OR audio OR storage OR boot OR none
+CONFIDENCE: 0 to 100
+```
+
+**Example Translator Output:**
+```
+INTENT: system_query
+TARGETS: cpu
+RISK: read_only
+TOOLS: hw_snapshot_summary
+DOCTOR: none
+CONFIDENCE: 95
+```
+
+**Doctor Query Example:**
+```
+INTENT: doctor_query
+TARGETS: wifi,network
+RISK: read_only
+TOOLS: hw_snapshot_summary,journal_warnings
+DOCTOR: networking
+CONFIDENCE: 85
+```
+
+### Files Modified
+
+- `crates/annactl/src/pipeline.rs` - Simplified translator, doctor integration, case logging
+- `Cargo.toml` - Version 0.0.44
+- `README.md` - Updated version and description
+- `CLAUDE.md` - Version 0.0.44
+- `TODO.md` - Version 0.0.44
+
+### Breaking Changes
+
+- Translator CLARIFICATION field removed (was rarely used)
+- Old translator output format no longer supported by parser
+
+---
+
 ## v0.0.43 - Doctor Registry + Unified Entry Flow (Auto-Detect Domain and Run the Right Doctor)
 
 **Release Date:** 2025-12-03

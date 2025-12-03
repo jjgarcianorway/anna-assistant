@@ -1,4 +1,8 @@
-//! Tool Executor v0.0.22
+//! Tool Executor v0.0.48
+//!
+//! v0.0.48: Knowledge search tools (learned_recipe_search, learning_stats)
+//! v0.0.47: File evidence tools for mutation support (file_stat, file_preview, file_hash, path_policy_check)
+//! v0.0.46: Domain-specific evidence tools to prevent generic summary answers
 //!
 //! Executes read-only tools from the catalog with structured outputs
 //! and human-readable summaries.
@@ -62,6 +66,30 @@ pub fn execute_tool(
         "last_failure_summary" => execute_last_failure_summary(evidence_id, timestamp),
         "list_today_cases" => execute_list_today_cases(evidence_id, timestamp),
         "list_recent_cases" => execute_list_recent_cases(&request.parameters, evidence_id, timestamp),
+        // v0.0.45: Direct evidence tools for correctness
+        "kernel_version" => execute_kernel_version(evidence_id, timestamp),
+        "memory_info" => execute_memory_info(evidence_id, timestamp),
+        "network_status" => execute_network_status(evidence_id, timestamp),
+        "audio_status" => execute_audio_status(evidence_id, timestamp),
+        // v0.0.46: Domain-specific evidence tools
+        "uname_summary" => execute_uname_summary(evidence_id, timestamp),
+        "mem_summary" => execute_mem_summary(evidence_id, timestamp),
+        "mount_usage" => execute_mount_usage(evidence_id, timestamp),
+        "nm_summary" => execute_nm_summary(evidence_id, timestamp),
+        "ip_route_summary" => execute_ip_route_summary(evidence_id, timestamp),
+        "link_state_summary" => execute_link_state_summary(evidence_id, timestamp),
+        "audio_services_summary" => execute_audio_services_summary(evidence_id, timestamp),
+        "pactl_summary" => execute_pactl_summary(evidence_id, timestamp),
+        "boot_time_summary" => execute_boot_time_summary(evidence_id, timestamp),
+        "recent_errors_summary" => execute_recent_errors_summary(&request.parameters, evidence_id, timestamp),
+        // v0.0.47: File evidence tools for mutations
+        "file_stat" => execute_file_stat(&request.parameters, evidence_id, timestamp),
+        "file_preview" => execute_file_preview(&request.parameters, evidence_id, timestamp),
+        "file_hash" => execute_file_hash(&request.parameters, evidence_id, timestamp),
+        "path_policy_check" => execute_path_policy_check(&request.parameters, evidence_id, timestamp),
+        // v0.0.48: Knowledge search tools
+        "learned_recipe_search" => execute_learned_recipe_search(&request.parameters, evidence_id, timestamp),
+        "learning_stats" => execute_learning_stats(evidence_id, timestamp),
         _ => unavailable_result(&request.tool_name, evidence_id),
     }
 }
@@ -565,19 +593,55 @@ fn execute_disk_usage(evidence_id: &str, timestamp: u64) -> ToolResult {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let lines: Vec<&str> = stdout.lines().collect();
 
-            // Find root filesystem usage
-            let root_usage = lines.iter()
-                .find(|l| l.ends_with(" /"))
-                .map(|l| l.to_string())
-                .unwrap_or_else(|| "unknown".to_string());
+            // Parse filesystem entries
+            let mut filesystems: Vec<serde_json::Value> = Vec::new();
+            let mut root_info: Option<serde_json::Value> = None;
 
-            let human_summary = format!("Disk usage: {}", root_usage.split_whitespace().nth(4).unwrap_or("unknown"));
+            for line in lines.iter().skip(1) { // Skip header
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 6 {
+                    let fs = json!({
+                        "source": parts[0],
+                        "size": parts[1],
+                        "used": parts[2],
+                        "available": parts[3],
+                        "use_percent": parts[4],
+                        "mountpoint": parts[5],
+                    });
+                    filesystems.push(fs.clone());
+
+                    // Track root filesystem specifically
+                    if parts[5] == "/" {
+                        root_info = Some(fs);
+                    }
+                }
+            }
+
+            // Get root filesystem free space for summary
+            let (root_free, root_used_pct) = if let Some(ref root) = root_info {
+                (
+                    root.get("available").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+                    root.get("use_percent").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+                )
+            } else {
+                ("unknown".to_string(), "unknown".to_string())
+            };
+
+            let human_summary = format!(
+                "Disk: / has {} free ({} used), {} filesystems mounted",
+                root_free, root_used_pct, filesystems.len()
+            );
 
             ToolResult {
                 tool_name: "disk_usage".to_string(),
                 evidence_id: evidence_id.to_string(),
                 data: json!({
-                    "filesystems": lines,
+                    "filesystems": filesystems,
+                    "root_filesystem": root_info,
+                    "root_free": root_free,
+                    "root_used_percent": root_used_pct,
+                    "filesystem_count": filesystems.len(),
+                    "raw_lines": lines,
                 }),
                 human_summary,
                 success: true,
@@ -1380,6 +1444,1346 @@ fn truncate_str(s: &str, max_len: usize) -> String {
         s.to_string()
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
+}
+
+// =============================================================================
+// v0.0.45: Direct evidence tools for correctness
+// =============================================================================
+
+fn execute_kernel_version(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Get kernel version from uname
+    let kernel_release = Command::new("uname")
+        .arg("-r")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let kernel_full = Command::new("uname")
+        .arg("-a")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let human_summary = format!("Kernel version: {}", kernel_release);
+
+    ToolResult {
+        tool_name: "kernel_version".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "kernel_release": kernel_release,
+            "kernel_full": kernel_full,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+fn execute_memory_info(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Read /proc/meminfo directly
+    let meminfo = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+
+    // Parse key values
+    let mut total_kb: u64 = 0;
+    let mut free_kb: u64 = 0;
+    let mut available_kb: u64 = 0;
+    let mut buffers_kb: u64 = 0;
+    let mut cached_kb: u64 = 0;
+    let mut swap_total_kb: u64 = 0;
+    let mut swap_free_kb: u64 = 0;
+
+    for line in meminfo.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let value = parts[1].parse::<u64>().unwrap_or(0);
+            match parts[0] {
+                "MemTotal:" => total_kb = value,
+                "MemFree:" => free_kb = value,
+                "MemAvailable:" => available_kb = value,
+                "Buffers:" => buffers_kb = value,
+                "Cached:" => cached_kb = value,
+                "SwapTotal:" => swap_total_kb = value,
+                "SwapFree:" => swap_free_kb = value,
+                _ => {}
+            }
+        }
+    }
+
+    // Convert to GiB for display
+    let total_gib = total_kb as f64 / 1024.0 / 1024.0;
+    let available_gib = available_kb as f64 / 1024.0 / 1024.0;
+    let used_gib = (total_kb - available_kb) as f64 / 1024.0 / 1024.0;
+
+    let human_summary = format!(
+        "Memory: {:.1} GiB total, {:.1} GiB available, {:.1} GiB used",
+        total_gib, available_gib, used_gib
+    );
+
+    ToolResult {
+        tool_name: "memory_info".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "total_kb": total_kb,
+            "free_kb": free_kb,
+            "available_kb": available_kb,
+            "buffers_kb": buffers_kb,
+            "cached_kb": cached_kb,
+            "swap_total_kb": swap_total_kb,
+            "swap_free_kb": swap_free_kb,
+            "total_gib": format!("{:.2}", total_gib),
+            "available_gib": format!("{:.2}", available_gib),
+            "used_gib": format!("{:.2}", used_gib),
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+fn execute_network_status(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Get interface states with ip link
+    let ip_link = Command::new("ip")
+        .args(["-o", "link"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    // Get IP addresses with ip addr
+    let ip_addr = Command::new("ip")
+        .args(["-o", "addr"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    // Get default route
+    let default_route = Command::new("ip")
+        .args(["route", "show", "default"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "no default route".to_string());
+
+    // Get DNS servers from /etc/resolv.conf
+    let dns_servers: Vec<String> = std::fs::read_to_string("/etc/resolv.conf")
+        .unwrap_or_default()
+        .lines()
+        .filter(|l| l.starts_with("nameserver"))
+        .filter_map(|l| l.split_whitespace().nth(1).map(|s| s.to_string()))
+        .collect();
+
+    // Check NetworkManager status
+    let nm_status = Command::new("systemctl")
+        .args(["is-active", "NetworkManager"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Check systemd-networkd status
+    let networkd_status = Command::new("systemctl")
+        .args(["is-active", "systemd-networkd"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Parse interfaces from ip link
+    let interfaces: Vec<serde_json::Value> = ip_link.lines()
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 2 {
+                let name = parts[1].trim();
+                let state = if line.contains("state UP") { "UP" }
+                    else if line.contains("state DOWN") { "DOWN" }
+                    else { "UNKNOWN" };
+                Some(json!({ "name": name, "state": state }))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let active_count = interfaces.iter()
+        .filter(|i| i.get("state").and_then(|v| v.as_str()) == Some("UP"))
+        .count();
+
+    let human_summary = format!(
+        "Network: {} interfaces ({} up), default route: {}, NetworkManager: {}",
+        interfaces.len(),
+        active_count,
+        if default_route.is_empty() { "none" } else { "yes" },
+        nm_status
+    );
+
+    ToolResult {
+        tool_name: "network_status".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "interfaces": interfaces,
+            "default_route": default_route,
+            "dns_servers": dns_servers,
+            "networkmanager_status": nm_status,
+            "systemd_networkd_status": networkd_status,
+            "ip_link_raw": ip_link.lines().take(10).collect::<Vec<_>>(),
+            "ip_addr_raw": ip_addr.lines().take(10).collect::<Vec<_>>(),
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+fn execute_audio_status(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Check pipewire status
+    let pipewire_status = Command::new("systemctl")
+        .args(["--user", "is-active", "pipewire"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Check wireplumber status
+    let wireplumber_status = Command::new("systemctl")
+        .args(["--user", "is-active", "wireplumber"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Check pulseaudio status (fallback)
+    let pulseaudio_status = Command::new("systemctl")
+        .args(["--user", "is-active", "pulseaudio"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Get audio devices with pactl
+    let pactl_sinks = Command::new("pactl")
+        .args(["list", "short", "sinks"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    let pactl_sources = Command::new("pactl")
+        .args(["list", "short", "sources"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    // Get ALSA cards
+    let alsa_cards = std::fs::read_to_string("/proc/asound/cards")
+        .unwrap_or_else(|_| "No ALSA cards found".to_string());
+
+    // Parse sinks and sources
+    let sinks: Vec<String> = pactl_sinks.lines()
+        .filter_map(|l| l.split_whitespace().nth(1).map(|s| s.to_string()))
+        .collect();
+
+    let sources: Vec<String> = pactl_sources.lines()
+        .filter_map(|l| l.split_whitespace().nth(1).map(|s| s.to_string()))
+        .collect();
+
+    let audio_backend = if pipewire_status == "active" {
+        "pipewire"
+    } else if pulseaudio_status == "active" {
+        "pulseaudio"
+    } else {
+        "none"
+    };
+
+    let human_summary = format!(
+        "Audio: {} (pipewire: {}, wireplumber: {}), {} sinks, {} sources",
+        audio_backend,
+        pipewire_status,
+        wireplumber_status,
+        sinks.len(),
+        sources.len()
+    );
+
+    ToolResult {
+        tool_name: "audio_status".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "pipewire_status": pipewire_status,
+            "wireplumber_status": wireplumber_status,
+            "pulseaudio_status": pulseaudio_status,
+            "audio_backend": audio_backend,
+            "sinks": sinks,
+            "sources": sources,
+            "sink_count": sinks.len(),
+            "source_count": sources.len(),
+            "alsa_cards": alsa_cards.lines().take(5).collect::<Vec<_>>(),
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+// =============================================================================
+// v0.0.46: Domain-Specific Evidence Tools
+// These tools provide targeted evidence for specific question domains
+// =============================================================================
+
+/// uname_summary - kernel version and architecture
+fn execute_uname_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let kernel_release = Command::new("uname")
+        .arg("-r")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let machine = Command::new("uname")
+        .arg("-m")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let kernel_name = Command::new("uname")
+        .arg("-s")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let human_summary = format!("Kernel: {} {} ({})", kernel_name, kernel_release, machine);
+
+    ToolResult {
+        tool_name: "uname_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "kernel_release": kernel_release,
+            "kernel_name": kernel_name,
+            "machine": machine,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// mem_summary - memory total and available from /proc/meminfo
+fn execute_mem_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let meminfo = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+
+    let mut mem_total_kb: u64 = 0;
+    let mut mem_available_kb: u64 = 0;
+
+    for line in meminfo.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let value = parts[1].parse::<u64>().unwrap_or(0);
+            match parts[0] {
+                "MemTotal:" => mem_total_kb = value,
+                "MemAvailable:" => mem_available_kb = value,
+                _ => {}
+            }
+        }
+    }
+
+    let total_gib = mem_total_kb as f64 / 1024.0 / 1024.0;
+    let available_gib = mem_available_kb as f64 / 1024.0 / 1024.0;
+    let used_gib = total_gib - available_gib;
+    let used_percent = if total_gib > 0.0 { (used_gib / total_gib) * 100.0 } else { 0.0 };
+
+    let human_summary = format!(
+        "Memory: {:.1} GiB total, {:.1} GiB available ({:.0}% used)",
+        total_gib, available_gib, used_percent
+    );
+
+    ToolResult {
+        tool_name: "mem_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "mem_total_kb": mem_total_kb,
+            "mem_available_kb": mem_available_kb,
+            "mem_total_gib": format!("{:.2}", total_gib),
+            "mem_available_gib": format!("{:.2}", available_gib),
+            "mem_used_gib": format!("{:.2}", used_gib),
+            "mem_used_percent": format!("{:.1}", used_percent),
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// mount_usage - disk space for / and key mounts
+fn execute_mount_usage(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Use df with block output for precise bytes
+    let df_output = Command::new("df")
+        .args(["-B1", "--output=source,size,used,avail,pcent,target"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    let mut mounts: Vec<serde_json::Value> = Vec::new();
+    let mut root_info: Option<serde_json::Value> = None;
+
+    for line in df_output.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 6 {
+            let source = parts[0];
+            let size_bytes: u64 = parts[1].parse().unwrap_or(0);
+            let used_bytes: u64 = parts[2].parse().unwrap_or(0);
+            let avail_bytes: u64 = parts[3].parse().unwrap_or(0);
+            let use_pct = parts[4].trim_end_matches('%');
+            let target = parts[5];
+
+            // Format human-readable sizes
+            let size_human = format_bytes_human(size_bytes);
+            let avail_human = format_bytes_human(avail_bytes);
+
+            let mount = json!({
+                "source": source,
+                "target": target,
+                "size_bytes": size_bytes,
+                "used_bytes": used_bytes,
+                "avail_bytes": avail_bytes,
+                "use_percent": use_pct,
+                "size_human": size_human,
+                "avail_human": avail_human,
+            });
+
+            if target == "/" {
+                root_info = Some(mount.clone());
+            }
+
+            // Include key mounts only
+            if target == "/" || target == "/home" || target == "/boot" || target == "/var" {
+                mounts.push(mount);
+            }
+        }
+    }
+
+    let (root_free, root_pct) = if let Some(ref root) = root_info {
+        (
+            root.get("avail_human").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+            root.get("use_percent").and_then(|v| v.as_str()).unwrap_or("0").to_string(),
+        )
+    } else {
+        ("unknown".to_string(), "0".to_string())
+    };
+
+    let human_summary = format!(
+        "Disk /: {} free ({}% used)",
+        root_free, root_pct
+    );
+
+    ToolResult {
+        tool_name: "mount_usage".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "root": root_info,
+            "mounts": mounts,
+            "root_free_human": root_free,
+            "root_used_percent": root_pct,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// Format bytes to human-readable string
+fn format_bytes_human(bytes: u64) -> String {
+    const KIB: u64 = 1024;
+    const MIB: u64 = KIB * 1024;
+    const GIB: u64 = MIB * 1024;
+    const TIB: u64 = GIB * 1024;
+
+    if bytes >= TIB {
+        format!("{:.1} TiB", bytes as f64 / TIB as f64)
+    } else if bytes >= GIB {
+        format!("{:.1} GiB", bytes as f64 / GIB as f64)
+    } else if bytes >= MIB {
+        format!("{:.1} MiB", bytes as f64 / MIB as f64)
+    } else if bytes >= KIB {
+        format!("{:.1} KiB", bytes as f64 / KIB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
+}
+
+/// nm_summary - NetworkManager status and active connections
+fn execute_nm_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Check NetworkManager service state
+    let nm_active = Command::new("systemctl")
+        .args(["is-active", "NetworkManager"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Get active connections via nmcli if available
+    let nmcli_output = Command::new("nmcli")
+        .args(["-t", "-f", "NAME,TYPE,DEVICE,STATE", "connection", "show", "--active"])
+        .output()
+        .ok();
+
+    let connections: Vec<serde_json::Value> = nmcli_output
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter_map(|line| {
+                    let parts: Vec<&str> = line.split(':').collect();
+                    if parts.len() >= 4 {
+                        Some(json!({
+                            "name": parts[0],
+                            "type": parts[1],
+                            "device": parts[2],
+                            "state": parts[3],
+                        }))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let human_summary = format!(
+        "NetworkManager: {}, {} active connections",
+        nm_active, connections.len()
+    );
+
+    ToolResult {
+        tool_name: "nm_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "networkmanager_status": nm_active,
+            "active_connection_count": connections.len(),
+            "connections": connections,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// ip_route_summary - default route and routing table summary
+fn execute_ip_route_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Get default route
+    let default_route = Command::new("ip")
+        .args(["route", "show", "default"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    // Parse gateway and interface from default route
+    let (gateway, interface) = if !default_route.is_empty() {
+        let parts: Vec<&str> = default_route.split_whitespace().collect();
+        let gw = parts.iter().skip_while(|&&p| p != "via")
+            .nth(1).map(|s| s.to_string()).unwrap_or_default();
+        let dev = parts.iter().skip_while(|&&p| p != "dev")
+            .nth(1).map(|s| s.to_string()).unwrap_or_default();
+        (gw, dev)
+    } else {
+        (String::new(), String::new())
+    };
+
+    // Count total routes
+    let route_count = Command::new("ip")
+        .args(["route", "show"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).lines().count())
+        .unwrap_or(0);
+
+    let has_default = !default_route.is_empty();
+    let human_summary = if has_default {
+        format!("Default route via {} on {}, {} total routes", gateway, interface, route_count)
+    } else {
+        format!("No default route, {} routes", route_count)
+    };
+
+    ToolResult {
+        tool_name: "ip_route_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "has_default_route": has_default,
+            "default_gateway": gateway,
+            "default_interface": interface,
+            "default_route_raw": default_route,
+            "total_routes": route_count,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// link_state_summary - interface up/down and carrier status
+fn execute_link_state_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let ip_link = Command::new("ip")
+        .args(["-o", "link", "show"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    let mut interfaces: Vec<serde_json::Value> = Vec::new();
+    let mut up_count = 0;
+    let mut carrier_count = 0;
+
+    for line in ip_link.lines() {
+        // Parse: "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> ..."
+        let parts: Vec<&str> = line.splitn(3, ':').collect();
+        if parts.len() >= 2 {
+            let name = parts[1].trim().split('@').next().unwrap_or(parts[1].trim());
+            let flags = if let Some(flags_part) = line.split('<').nth(1) {
+                flags_part.split('>').next().unwrap_or("")
+            } else { "" };
+
+            let is_up = flags.contains("UP");
+            let has_carrier = flags.contains("LOWER_UP");
+            let state = if line.contains("state UP") { "UP" }
+                else if line.contains("state DOWN") { "DOWN" }
+                else { "UNKNOWN" };
+
+            // Skip loopback for reporting
+            if name != "lo" {
+                if is_up { up_count += 1; }
+                if has_carrier { carrier_count += 1; }
+
+                interfaces.push(json!({
+                    "name": name,
+                    "state": state,
+                    "up": is_up,
+                    "carrier": has_carrier,
+                }));
+            }
+        }
+    }
+
+    let human_summary = format!(
+        "Interfaces: {} total, {} up, {} with carrier",
+        interfaces.len(), up_count, carrier_count
+    );
+
+    ToolResult {
+        tool_name: "link_state_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "interface_count": interfaces.len(),
+            "up_count": up_count,
+            "carrier_count": carrier_count,
+            "interfaces": interfaces,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// audio_services_summary - pipewire and wireplumber service states
+fn execute_audio_services_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Check user services
+    let pipewire_user = Command::new("systemctl")
+        .args(["--user", "is-active", "pipewire"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let wireplumber_user = Command::new("systemctl")
+        .args(["--user", "is-active", "wireplumber"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let pipewire_pulse_user = Command::new("systemctl")
+        .args(["--user", "is-active", "pipewire-pulse"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Check system pulseaudio (legacy)
+    let pulseaudio = Command::new("systemctl")
+        .args(["--user", "is-active", "pulseaudio"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "inactive".to_string());
+
+    let audio_working = pipewire_user == "active" && wireplumber_user == "active";
+
+    let human_summary = format!(
+        "Audio services: pipewire={}, wireplumber={}, pipewire-pulse={}",
+        pipewire_user, wireplumber_user, pipewire_pulse_user
+    );
+
+    ToolResult {
+        tool_name: "audio_services_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "pipewire_status": pipewire_user,
+            "wireplumber_status": wireplumber_user,
+            "pipewire_pulse_status": pipewire_pulse_user,
+            "pulseaudio_status": pulseaudio,
+            "audio_working": audio_working,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// pactl_summary - default audio sink/source names
+fn execute_pactl_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    // Check if pactl is available
+    let pactl_available = Command::new("which")
+        .arg("pactl")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !pactl_available {
+        return ToolResult {
+            tool_name: "pactl_summary".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({
+                "available": false,
+                "reason": "pactl not installed"
+            }),
+            human_summary: "pactl not available (pipewire/pulseaudio tools not installed)".to_string(),
+            success: true,
+            error: None,
+            timestamp,
+        };
+    }
+
+    // Get default sink
+    let default_sink = Command::new("pactl")
+        .args(["get-default-sink"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Get default source
+    let default_source = Command::new("pactl")
+        .args(["get-default-source"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    // Count sinks and sources
+    let sink_count = Command::new("pactl")
+        .args(["list", "short", "sinks"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).lines().count())
+        .unwrap_or(0);
+
+    let source_count = Command::new("pactl")
+        .args(["list", "short", "sources"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).lines().count())
+        .unwrap_or(0);
+
+    let human_summary = format!(
+        "Audio: default sink={}, {} sinks, {} sources",
+        default_sink.split('.').last().unwrap_or(&default_sink),
+        sink_count, source_count
+    );
+
+    ToolResult {
+        tool_name: "pactl_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "available": true,
+            "default_sink": default_sink,
+            "default_source": default_source,
+            "sink_count": sink_count,
+            "source_count": source_count,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// boot_time_summary - boot time from systemd-analyze
+fn execute_boot_time_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
+    let analyze_output = Command::new("systemd-analyze")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "systemd-analyze not available".to_string());
+
+    // Parse boot time from output like:
+    // "Startup finished in 1.234s (kernel) + 5.678s (userspace) = 6.912s"
+    let total_time = analyze_output
+        .split('=')
+        .last()
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    // Extract kernel and userspace times
+    let kernel_time = analyze_output
+        .split('+')
+        .next()
+        .and_then(|s| s.split("in").last())
+        .map(|s| s.trim().trim_end_matches("(kernel)").trim().to_string())
+        .unwrap_or_default();
+
+    let userspace_time = analyze_output
+        .split('+')
+        .nth(1)
+        .map(|s| s.split('=').next().unwrap_or(s).trim().trim_end_matches("(userspace)").trim().to_string())
+        .unwrap_or_default();
+
+    let human_summary = format!("Boot time: {}", total_time);
+
+    ToolResult {
+        tool_name: "boot_time_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "total_time": total_time,
+            "kernel_time": kernel_time,
+            "userspace_time": userspace_time,
+            "raw_output": analyze_output,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+/// recent_errors_summary - journalctl warnings/errors summarized by service
+fn execute_recent_errors_summary(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
+    let minutes = params.get("minutes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(30) as u32;
+
+    // Get errors and warnings from journal
+    let journal_output = Command::new("journalctl")
+        .args([
+            "--priority=warning",
+            &format!("--since={} min ago", minutes),
+            "--no-pager",
+            "-o", "short",
+        ])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .unwrap_or_default();
+
+    // Count by service/unit
+    let mut service_counts: HashMap<String, u32> = HashMap::new();
+    let mut total_count: u32 = 0;
+
+    for line in journal_output.lines().take(200) { // Limit to 200 lines
+        total_count += 1;
+        // Extract service name from log line
+        // Format: "Dec 03 12:34:56 hostname service[pid]: message"
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 5 {
+            let service = parts[4].split('[').next().unwrap_or("unknown").trim_end_matches(':');
+            *service_counts.entry(service.to_string()).or_insert(0) += 1;
+        }
+    }
+
+    // Sort by count descending and take top 10
+    let mut sorted: Vec<_> = service_counts.iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(a.1));
+    let top_services: Vec<serde_json::Value> = sorted.iter().take(10)
+        .map(|(svc, count)| json!({ "service": svc, "count": count }))
+        .collect();
+
+    let human_summary = if total_count == 0 {
+        format!("No errors/warnings in last {} minutes", minutes)
+    } else {
+        format!(
+            "{} warnings/errors in last {} min from {} services",
+            total_count, minutes, service_counts.len()
+        )
+    };
+
+    ToolResult {
+        tool_name: "recent_errors_summary".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "minutes": minutes,
+            "total_count": total_count,
+            "service_count": service_counts.len(),
+            "top_services": top_services,
+            "sample_lines": journal_output.lines().take(10).collect::<Vec<_>>(),
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+// =============================================================================
+// v0.0.47: File Evidence Tools for Mutation Support
+// =============================================================================
+
+fn execute_file_stat(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let path_str = params.get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if path_str.is_empty() {
+        return ToolResult {
+            tool_name: "file_stat".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": "Missing 'path' parameter" }),
+            human_summary: "Error: missing path parameter".to_string(),
+            success: false,
+            error: Some("Missing 'path' parameter".to_string()),
+            timestamp,
+        };
+    }
+
+    let path = std::path::Path::new(path_str);
+    let exists = path.exists();
+
+    if !exists {
+        return ToolResult {
+            tool_name: "file_stat".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({
+                "path": path_str,
+                "exists": false,
+            }),
+            human_summary: format!("File does not exist: {}", path_str),
+            success: true,
+            error: None,
+            timestamp,
+        };
+    }
+
+    match std::fs::metadata(path) {
+        Ok(meta) => {
+            use std::os::unix::fs::MetadataExt;
+            let uid = meta.uid();
+            let gid = meta.gid();
+            let mode = meta.mode();
+            let size = meta.len();
+            let mtime = meta.mtime();
+            let is_file = meta.is_file();
+            let is_dir = meta.is_dir();
+
+            let human_summary = format!(
+                "{}: {}bytes, uid={}, gid={}, mode={:o}",
+                path_str, size, uid, gid, mode & 0o7777
+            );
+
+            ToolResult {
+                tool_name: "file_stat".to_string(),
+                evidence_id: evidence_id.to_string(),
+                data: json!({
+                    "path": path_str,
+                    "exists": true,
+                    "uid": uid,
+                    "gid": gid,
+                    "mode": format!("{:o}", mode & 0o7777),
+                    "mode_raw": mode,
+                    "size": size,
+                    "mtime": mtime,
+                    "is_file": is_file,
+                    "is_dir": is_dir,
+                }),
+                human_summary,
+                success: true,
+                error: None,
+                timestamp,
+            }
+        }
+        Err(e) => ToolResult {
+            tool_name: "file_stat".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({
+                "path": path_str,
+                "exists": true,
+                "error": e.to_string(),
+            }),
+            human_summary: format!("Cannot stat {}: {}", path_str, e),
+            success: false,
+            error: Some(e.to_string()),
+            timestamp,
+        },
+    }
+}
+
+fn execute_file_preview(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    use crate::redaction::redact_transcript;
+
+    let path_str = params.get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let max_bytes = params.get("max_bytes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(2048) as usize;
+
+    if path_str.is_empty() {
+        return ToolResult {
+            tool_name: "file_preview".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": "Missing 'path' parameter" }),
+            human_summary: "Error: missing path parameter".to_string(),
+            success: false,
+            error: Some("Missing 'path' parameter".to_string()),
+            timestamp,
+        };
+    }
+
+    let path = std::path::Path::new(path_str);
+
+    if !path.exists() {
+        return ToolResult {
+            tool_name: "file_preview".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({
+                "path": path_str,
+                "exists": false,
+            }),
+            human_summary: format!("File does not exist: {}", path_str),
+            success: true,
+            error: None,
+            timestamp,
+        };
+    }
+
+    match std::fs::read(path) {
+        Ok(bytes) => {
+            let truncated = bytes.len() > max_bytes;
+            let preview_bytes = if truncated { &bytes[..max_bytes] } else { &bytes };
+
+            // Convert to string, handling non-UTF8
+            let content = String::from_utf8_lossy(preview_bytes);
+
+            // Apply secrets redaction
+            let redacted = redact_transcript(&content);
+
+            // Get last N lines for diff context
+            let lines: Vec<&str> = redacted.lines().collect();
+            let line_count = lines.len();
+            let last_20_lines: Vec<&str> = lines.iter().rev().take(20).rev().copied().collect();
+
+            let human_summary = format!(
+                "{}: {} bytes, {} lines{}",
+                path_str,
+                bytes.len(),
+                line_count,
+                if truncated { " (truncated)" } else { "" }
+            );
+
+            ToolResult {
+                tool_name: "file_preview".to_string(),
+                evidence_id: evidence_id.to_string(),
+                data: json!({
+                    "path": path_str,
+                    "exists": true,
+                    "total_bytes": bytes.len(),
+                    "preview_bytes": preview_bytes.len(),
+                    "truncated": truncated,
+                    "line_count": line_count,
+                    "last_20_lines": last_20_lines,
+                    "content_redacted": redacted,
+                }),
+                human_summary,
+                success: true,
+                error: None,
+                timestamp,
+            }
+        }
+        Err(e) => ToolResult {
+            tool_name: "file_preview".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({
+                "path": path_str,
+                "error": e.to_string(),
+            }),
+            human_summary: format!("Cannot read {}: {}", path_str, e),
+            success: false,
+            error: Some(e.to_string()),
+            timestamp,
+        },
+    }
+}
+
+fn execute_file_hash(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let path_str = params.get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if path_str.is_empty() {
+        return ToolResult {
+            tool_name: "file_hash".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": "Missing 'path' parameter" }),
+            human_summary: "Error: missing path parameter".to_string(),
+            success: false,
+            error: Some("Missing 'path' parameter".to_string()),
+            timestamp,
+        };
+    }
+
+    let path = std::path::Path::new(path_str);
+
+    if !path.exists() {
+        return ToolResult {
+            tool_name: "file_hash".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({
+                "path": path_str,
+                "exists": false,
+            }),
+            human_summary: format!("File does not exist: {}", path_str),
+            success: true,
+            error: None,
+            timestamp,
+        };
+    }
+
+    match std::fs::read(path) {
+        Ok(bytes) => {
+            // Use a simple hash for now (same as RollbackManager)
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            let mut hasher = DefaultHasher::new();
+            bytes.hash(&mut hasher);
+            let hash = format!("{:016x}", hasher.finish());
+
+            let human_summary = format!("{}: hash={}", path_str, &hash[..12]);
+
+            ToolResult {
+                tool_name: "file_hash".to_string(),
+                evidence_id: evidence_id.to_string(),
+                data: json!({
+                    "path": path_str,
+                    "exists": true,
+                    "hash": hash,
+                    "size": bytes.len(),
+                }),
+                human_summary,
+                success: true,
+                error: None,
+                timestamp,
+            }
+        }
+        Err(e) => ToolResult {
+            tool_name: "file_hash".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({
+                "path": path_str,
+                "error": e.to_string(),
+            }),
+            human_summary: format!("Cannot hash {}: {}", path_str, e),
+            success: false,
+            error: Some(e.to_string()),
+            timestamp,
+        },
+    }
+}
+
+fn execute_path_policy_check(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    use crate::mutation_tools::check_path_policy;
+
+    let path_str = params.get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if path_str.is_empty() {
+        return ToolResult {
+            tool_name: "path_policy_check".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": "Missing 'path' parameter" }),
+            human_summary: "Error: missing path parameter".to_string(),
+            success: false,
+            error: Some("Missing 'path' parameter".to_string()),
+            timestamp,
+        };
+    }
+
+    let path = std::path::Path::new(path_str);
+    let policy_result = check_path_policy(path);
+
+    // Also check dev sandbox allowlist (v0.0.47)
+    let cwd = std::env::current_dir().ok();
+    let in_cwd = cwd.as_ref().map(|c| path.starts_with(c)).unwrap_or(false);
+    let in_tmp = path.starts_with("/tmp");
+    let in_sandbox = in_cwd || in_tmp;
+
+    let human_summary = if policy_result.allowed {
+        format!("{}: ALLOWED [{}] - {}", path_str, policy_result.evidence_id, policy_result.reason)
+    } else {
+        format!("{}: BLOCKED [{}] - {}", path_str, policy_result.evidence_id, policy_result.reason)
+    };
+
+    ToolResult {
+        tool_name: "path_policy_check".to_string(),
+        evidence_id: evidence_id.to_string(),
+        data: json!({
+            "path": path_str,
+            "allowed": policy_result.allowed,
+            "in_sandbox": in_sandbox,
+            "in_cwd": in_cwd,
+            "in_tmp": in_tmp,
+            "reason": policy_result.reason,
+            "policy_evidence_id": policy_result.evidence_id,
+            "policy_rule": policy_result.policy_rule,
+        }),
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
+    }
+}
+
+// =============================================================================
+// v0.0.48: Knowledge Search Tools
+// =============================================================================
+
+fn execute_learned_recipe_search(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    use crate::learning::LearningManager;
+
+    let query = params.get("query")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let limit = params.get("limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5) as usize;
+
+    if query.is_empty() {
+        return ToolResult {
+            tool_name: "learned_recipe_search".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": "Missing 'query' parameter" }),
+            human_summary: "Error: missing query parameter".to_string(),
+            success: false,
+            error: Some("Missing 'query' parameter".to_string()),
+            timestamp,
+        };
+    }
+
+    match LearningManager::search_all(query, limit) {
+        Ok(hits) => {
+            let results: Vec<serde_json::Value> = hits.iter().map(|h| {
+                json!({
+                    "evidence_id": h.evidence_id,
+                    "recipe_id": h.recipe.recipe_id,
+                    "title": h.recipe.title,
+                    "pack_id": h.pack_id,
+                    "pack_name": h.pack_name,
+                    "triggers": h.recipe.triggers,
+                    "targets": h.recipe.targets,
+                    "score": h.score,
+                    "wins": h.recipe.wins,
+                    "summary": h.summary(),
+                    "match_reason": h.match_reason(),
+                })
+            }).collect();
+
+            let human_summary = if hits.is_empty() {
+                format!("No matching recipes found for: {}", query)
+            } else {
+                let top_titles: Vec<&str> = hits.iter().take(3).map(|h| h.recipe.title.as_str()).collect();
+                format!("Found {} recipes: {}", hits.len(), top_titles.join(", "))
+            };
+
+            ToolResult {
+                tool_name: "learned_recipe_search".to_string(),
+                evidence_id: evidence_id.to_string(),
+                data: json!({
+                    "query": query,
+                    "result_count": hits.len(),
+                    "results": results,
+                }),
+                human_summary,
+                success: true,
+                error: None,
+                timestamp,
+            }
+        }
+        Err(e) => ToolResult {
+            tool_name: "learned_recipe_search".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": e.to_string() }),
+            human_summary: format!("Search failed: {}", e),
+            success: false,
+            error: Some(e.to_string()),
+            timestamp,
+        },
+    }
+}
+
+fn execute_learning_stats(
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    use crate::learning::LearningManager;
+
+    match LearningManager::get_stats() {
+        Ok(stats) => {
+            let human_summary = format!(
+                "Level {} {} | XP: {}/{} | {} recipes in {} packs",
+                stats.xp_summary.level,
+                stats.xp_summary.title,
+                stats.xp_summary.current_xp,
+                stats.xp_summary.next_level_xp,
+                stats.recipe_count,
+                stats.pack_count
+            );
+
+            ToolResult {
+                tool_name: "learning_stats".to_string(),
+                evidence_id: evidence_id.to_string(),
+                data: json!({
+                    "level": stats.xp_summary.level,
+                    "title": stats.xp_summary.title,
+                    "current_xp": stats.xp_summary.current_xp,
+                    "next_level_xp": stats.xp_summary.next_level_xp,
+                    "successful_answers": stats.xp_summary.successful_answers,
+                    "recipes_created": stats.xp_summary.recipes_created,
+                    "recipes_improved": stats.xp_summary.recipes_improved,
+                    "pack_count": stats.pack_count,
+                    "recipe_count": stats.recipe_count,
+                    "max_packs": stats.max_packs,
+                    "max_recipes": stats.max_recipes,
+                }),
+                human_summary,
+                success: true,
+                error: None,
+                timestamp,
+            }
+        }
+        Err(e) => ToolResult {
+            tool_name: "learning_stats".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": e.to_string() }),
+            human_summary: format!("Stats failed: {}", e),
+            success: false,
+            error: Some(e.to_string()),
+            timestamp,
+        },
     }
 }
 

@@ -1167,7 +1167,7 @@ fn matches_glob_pattern(text: &str, pattern: &str) -> bool {
 }
 
 /// Result of a policy check
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyCheckResult {
     pub allowed: bool,
     pub reason: String,

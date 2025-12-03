@@ -1,6 +1,6 @@
 # Claude Operating Contract for Anna Assistant
 
-**Version: 0.0.43**
+**Version: 0.0.48**
 
 You are Claude, the sole engineering operator for Anna Assistant. This document is the source of truth over any older documentation.
 
@@ -279,7 +279,79 @@ Every prompt = version bump:
 
 Stay in 0.xxx.yyy until production quality.
 
-### 12.8 Agents/Plugins
+### 12.8 Release Recipe (MANDATORY)
+
+**EVERY version bump MUST follow this exact sequence:**
+
+```bash
+# Step 1: Update all version references
+# - Cargo.toml: version = "X.Y.Z"
+# - CLAUDE.md: **Version: X.Y.Z**
+# - README.md: # Anna Assistant vX.Y.Z and **vX.Y.Z**: description
+# - TODO.md: **Current Version: X.Y.Z** and add/update section for X.Y.Z
+# - RELEASE_NOTES.md: Add ## vX.Y.Z section at top
+
+# Step 2: Commit changes
+git add -A
+git commit -m "v0.0.XX: Short description
+
+- Feature 1
+- Feature 2
+- etc
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Step 3: Create annotated tag
+git tag -a v0.0.XX -m "v0.0.XX: Short description"
+
+# Step 4: Push BOTH commit and tag in ONE command
+git push origin main --tags
+
+# Step 5: Verify release workflow started
+# Go to: https://github.com/jjgarcianorway/anna-assistant/actions
+# Confirm "Release" workflow is running
+# Wait for it to complete (builds Arch container, uploads artifacts)
+
+# Step 6: Verify release has assets
+# Go to: https://github.com/jjgarcianorway/anna-assistant/releases
+# Confirm latest release has:
+#   - annad-X.Y.Z-x86_64-unknown-linux-gnu
+#   - annactl-X.Y.Z-x86_64-unknown-linux-gnu
+#   - SHA256SUMS
+
+# Step 7: Test installer
+curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
+```
+
+**Common Release Failures:**
+
+1. **No assets in release**: Release workflow failed during build. Check Actions tab.
+2. **Checksum mismatch**: SHA256SUMS file has wrong names. Must match exact binary names.
+3. **404 on download**: Tag exists but release workflow didn't create release. Re-run workflow or delete tag and re-push.
+4. **Version mismatch**: Tag version doesn't match Cargo.toml. Delete tag, fix version, re-tag.
+
+**To manually fix a release with missing assets:**
+
+```bash
+# Build locally in Arch Linux
+cargo build --release
+
+# Create versioned binaries
+VERSION="0.0.XX"
+cp target/release/annad "annad-${VERSION}-x86_64-unknown-linux-gnu"
+cp target/release/annactl "annactl-${VERSION}-x86_64-unknown-linux-gnu"
+sha256sum annad-* annactl-* > SHA256SUMS
+
+# Upload via gh CLI
+gh release upload v${VERSION} \
+  annad-${VERSION}-x86_64-unknown-linux-gnu \
+  annactl-${VERSION}-x86_64-unknown-linux-gnu \
+  SHA256SUMS --clobber
+```
+
+### 12.9 Agents/Plugins
 
 Use if needed, but keep output transparent and verifiable.
 

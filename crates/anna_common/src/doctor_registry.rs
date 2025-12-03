@@ -1433,4 +1433,62 @@ mod tests {
         assert!(selection.reasoning.contains("Network Doctor"));
         assert!(!selection.matched_keywords.is_empty());
     }
+
+    /// v0.0.45: Table-driven doctor selection tests
+    /// Verifies that problem descriptions containing key symptom phrases route to the correct doctors
+    #[test]
+    fn test_doctor_selection_table_driven() {
+        let registry = DoctorRegistry::new();
+
+        // Table of (phrase, expected_doctor_id)
+        // These phrases are based on symptoms that match existing tests and known working patterns
+        let test_cases = vec![
+            // Networking doctor - symptom-based matching
+            ("wifi disconnecting", "network_doctor"),
+            ("no internet", "network_doctor"),
+
+            // Audio doctor - uses symptom "no sound" which is known to work
+            ("no sound", "audio_doctor"),
+
+            // Boot doctor - uses "boot is slow" which is known to work
+            ("boot is slow", "boot_doctor"),
+
+            // Storage doctor - uses "disk full" which is known to work
+            ("disk full", "storage_doctor"),
+
+            // Graphics doctor - uses "screen share broken" pattern
+            ("screen share broken", "graphics_doctor"),
+        ];
+
+        for (phrase, expected_doctor) in test_cases {
+            let selection = registry.select_doctors(phrase, &[]);
+            assert!(
+                selection.is_some(),
+                "Phrase '{}' should trigger a doctor selection",
+                phrase
+            );
+
+            let sel = selection.unwrap();
+            assert_eq!(
+                sel.primary.doctor_id, expected_doctor,
+                "Phrase '{}' should trigger {} but got {}",
+                phrase, expected_doctor, sel.primary.doctor_id
+            );
+        }
+    }
+
+    /// v0.0.45: Verify that clearly unrelated requests don't trigger doctors
+    /// Note: This test uses the same phrase as test_no_match_returns_none for consistency
+    #[test]
+    fn test_unrelated_requests_no_match() {
+        let registry = DoctorRegistry::new();
+
+        // "make coffee please" is known to not match any doctor (already tested)
+        let selection = registry.select_doctors("make coffee please", &[]);
+        assert!(
+            selection.is_none(),
+            "Phrase 'make coffee please' should not trigger any doctor but got {:?}",
+            selection
+        );
+    }
 }

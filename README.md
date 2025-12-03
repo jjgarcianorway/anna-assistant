@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.43
+# Anna Assistant v0.0.48
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.43**: Doctor Registry + Unified Entry Flow - Anna now auto-detects which Doctor to run based on your request. Data-driven registry (doctors.toml) with keyword/intent matching. Unified lifecycle: select_doctor → collect_evidence → diagnosis_flow → playbook_offer → apply_fix → verify → close. All runs tracked in doctor_run.json. Junior verifies doctor choice, diagnosis steps, and policy compliance. Status shows last doctor run.
+**v0.0.48**: Learning System - Anna now stores learned recipes from successful interactions, searches existing knowledge, and tracks XP progression from "Intern" to "Grandmaster". Local-only, bounded (50 packs, 500 recipes max), token-based matching. New tools: learned_recipe_search, learning_stats.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 
