@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.1**
+**Current Version: 0.0.2**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -8,19 +8,19 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.2 - Strict CLI Surface
-- [ ] Remove `sw` command from public surface
-- [ ] Remove `hw` command from public surface
-- [ ] Remove all JSON flags from public surface
-- [ ] Keep only: `annactl`, `annactl <request>`, `annactl status`, `annactl --version`
+### 0.0.2 - Strict CLI Surface (COMPLETED)
+- [x] Remove `sw` command from public surface
+- [x] Remove `hw` command from public surface
+- [x] Remove all JSON flags from public surface
+- [x] Keep only: `annactl`, `annactl <request>`, `annactl status`, `annactl --version`
+- [x] Legacy commands route as natural language requests (no custom error)
+- [x] REPL mode basic implementation (exit, quit, help, status)
+- [x] CLI tests for new surface
+
+### 0.0.3 - REPL Mode Enhancement
 - [ ] Add `annactl reset` command (stub)
 - [ ] Add `annactl uninstall` command (stub)
-
-### 0.0.3 - REPL Mode Foundation
-- [ ] Implement basic REPL loop in annactl
-- [ ] Add exit commands (exit, quit, bye, q)
-- [ ] Add help command in REPL
-- [ ] Add status command in REPL
+- [ ] Improve REPL welcome message with version/level
 
 ---
 

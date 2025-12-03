@@ -1,49 +1,24 @@
-//! Anna CLI (annactl) v7.42.1 - Inline Diagnostics
+//! Anna CLI (annactl) v0.0.2 - Strict CLI Surface
 //!
-//! ARCHITECTURE RULE: annactl NEVER does heavyweight scanning.
-//! All data comes from snapshots written by annad daemon.
+//! Public CLI surface (strict):
+//! - annactl                  REPL mode (interactive)
+//! - annactl <request...>     one-shot natural language request
+//! - annactl status           self-status
+//! - annactl --version        version (also: -V)
 //!
-//! v7.42.1: Inline Diagnostics
-//! - status command now includes all diagnostic checks inline
-//! - Removed separate doctor command (status is self-sufficient)
-//! - [PATHS] section shows writable/not-writable status
-//!
-//! v7.42.0: Daemon/CLI Contract Fix
-//! - status shows DAEMON (socket/systemd) and SNAPSHOT (file) separately
-//! - Never conflate "no snapshot" with "daemon stopped"
-//! - Control socket check for authoritative daemon health
-//!
-//! Commands:
-//! - annactl                  show help
-//! - annactl --version        show version (also: annactl version)
-//! - annactl status           health, diagnostics, and runtime
-//! - annactl sw               software overview (compact)
-//! - annactl sw --full        software overview (all sections)
-//! - annactl sw --json        software data (JSON)
-//! - annactl sw NAME          software profile
-//! - annactl hw               hardware overview
-//! - annactl hw NAME          hardware profile
+//! All other commands route through natural language processing.
+//! Internal capabilities (sw, hw, snapshots) are accessed via requests.
 
 mod commands;
 
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
+use std::io::{self, Write};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-use anna_common::grounded::categoriser::is_valid_category;
-
 const THIN_SEP: &str = "------------------------------------------------------------";
-
-/// Check if name is a software category (using rule-based categoriser + services)
-fn is_sw_category(name: &str) -> bool {
-    // Special case: services is always a category
-    if name.eq_ignore_ascii_case("services") || name.eq_ignore_ascii_case("service") {
-        return true;
-    }
-    is_valid_category(name)
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -58,95 +33,135 @@ async fn main() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
 
     match args.as_slice() {
-        // annactl (no args) - show help
-        [] => run_help(),
+        // annactl (no args) - REPL mode
+        [] => run_repl().await,
 
-        // annactl --version or annactl version (v7.40.0: both work)
-        [cmd] if cmd == "--version" || cmd == "-V" || cmd == "version" => run_version(),
+        // annactl --version or -V
+        [cmd] if cmd == "--version" || cmd == "-V" => run_version(),
 
-        // annactl status (v7.42.1: includes inline diagnostics, no separate doctor command)
+        // annactl --help or -h (show help, not REPL)
+        [cmd] if cmd == "--help" || cmd == "-h" => run_help(),
+
+        // annactl status - self-status
         [cmd] if cmd.eq_ignore_ascii_case("status") => commands::status::run().await,
 
-        // annactl reset (v7.42.5: factory reset)
-        [cmd] if cmd.eq_ignore_ascii_case("reset") => {
-            commands::reset::run(commands::reset::ResetOptions::default()).await
-        }
-
-        // annactl reset --dry-run (show what would happen)
-        [cmd, flag] if cmd.eq_ignore_ascii_case("reset") && flag == "--dry-run" => {
-            commands::reset::run(commands::reset::ResetOptions { dry_run: true, force: false }).await
-        }
-
-        // annactl reset --force (skip confirmation)
-        [cmd, flag] if cmd.eq_ignore_ascii_case("reset") && (flag == "--force" || flag == "-f") => {
-            commands::reset::run(commands::reset::ResetOptions { dry_run: false, force: true }).await
-        }
-
-        // annactl sw (software overview - default compact)
-        [cmd] if cmd.eq_ignore_ascii_case("sw") => commands::sw::run().await,
-
-        // annactl sw --full (full detailed view)
-        [cmd, flag] if cmd.eq_ignore_ascii_case("sw") && flag == "--full" => {
-            commands::sw::run_full().await
-        }
-
-        // annactl sw --json (JSON output)
-        [cmd, flag] if cmd.eq_ignore_ascii_case("sw") && flag == "--json" => {
-            commands::sw::run_json().await
-        }
-
-        // annactl sw <name-or-category>
-        [cmd, name] if cmd.eq_ignore_ascii_case("sw") => {
-            if is_sw_category(name) {
-                commands::sw_detail::run_category(name).await
-            } else {
-                commands::sw_detail::run_object(name).await
-            }
-        }
-
-        // annactl hw (hardware overview)
-        [cmd] if cmd.eq_ignore_ascii_case("hw") => commands::hw::run().await,
-
-        // annactl hw <name>
-        [cmd, name] if cmd.eq_ignore_ascii_case("hw") => {
-            commands::hw_detail::run(name).await
-        }
-
-        // Unknown command
-        _ => run_unknown(&args),
+        // Everything else is a natural language request
+        _ => run_request(&args.join(" ")).await,
     }
 }
 
-/// Top-level help - concise list of commands
-fn run_help() -> Result<()> {
+/// REPL mode - interactive natural language chat
+async fn run_repl() -> Result<()> {
     println!();
-    println!("{}", "  Anna CLI".bold());
+    println!("{}", "  Anna Assistant".bold());
     println!("{}", THIN_SEP);
-    println!("  annactl                  show this help");
-    println!("  annactl --version        show version");
-    println!("  annactl status           health, diagnostics, and runtime");
-    println!("  annactl reset            factory reset (requires root)");
-    println!("  annactl sw               software overview");
-    println!("  annactl sw NAME          software profile");
-    println!("  annactl hw               hardware overview");
-    println!("  annactl hw NAME          hardware profile");
+    println!("  Natural language interface to your system.");
+    println!("  Type your question or request. Type 'exit' to quit.");
     println!("{}", THIN_SEP);
+    println!();
+
+    loop {
+        print!("  {} ", "you>".bright_white().bold());
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_err() {
+            break;
+        }
+
+        let input = input.trim();
+
+        if input.is_empty() {
+            continue;
+        }
+
+        if input.eq_ignore_ascii_case("exit")
+            || input.eq_ignore_ascii_case("quit")
+            || input.eq_ignore_ascii_case("bye")
+            || input == "q"
+        {
+            println!();
+            println!("  Goodbye!");
+            println!();
+            break;
+        }
+
+        if input.eq_ignore_ascii_case("help") {
+            print_repl_help();
+            continue;
+        }
+
+        if input.eq_ignore_ascii_case("status") {
+            commands::status::run().await?;
+            continue;
+        }
+
+        // Process as natural language request
+        process_request(input).await;
+    }
+
+    Ok(())
+}
+
+/// One-shot natural language request
+async fn run_request(request: &str) -> Result<()> {
+    println!();
+    process_request(request).await;
     println!();
     Ok(())
 }
 
-/// Print version - outputs "annactl vX.Y.Z"
-/// v7.40.0: Changed format for better parseability
+/// Process a natural language request (stub for v0.0.2)
+async fn process_request(request: &str) {
+    // v0.0.2: Stub - natural language processing not yet implemented
+    // This will be replaced with Translator -> Anna -> Junior pipeline
+    println!();
+    println!("  {}", "[you] to [anna]:".dimmed());
+    println!("  {}", request);
+    println!();
+    println!("  {}", "[anna] to [you]:".dimmed());
+    println!("  Natural language processing is not yet implemented.");
+    println!("  This request will be handled in a future version.");
+    println!();
+    println!("  {}", "Reliability: 0%".dimmed());
+}
+
+/// Print REPL help
+fn print_repl_help() {
+    println!();
+    println!("  {}", "Commands:".bold());
+    println!("    exit, quit, bye, q  - leave REPL");
+    println!("    status              - show Anna's status");
+    println!("    help                - show this help");
+    println!();
+    println!("  {}", "Examples:".bold());
+    println!("    what CPU do I have?");
+    println!("    is nginx running?");
+    println!("    show me disk usage");
+    println!();
+}
+
+/// Print version
 fn run_version() -> Result<()> {
     println!("annactl v{}", env!("CARGO_PKG_VERSION"));
     Ok(())
 }
 
-fn run_unknown(args: &[String]) -> Result<()> {
-    eprintln!();
-    eprintln!("  {} '{}' is not a recognized command.", "error:".red(), args.join(" "));
-    eprintln!();
-    eprintln!("  Run 'annactl' for available commands.");
-    eprintln!();
-    std::process::exit(1);
+/// Print help (--help flag)
+fn run_help() -> Result<()> {
+    println!();
+    println!("{}", "  Anna Assistant".bold());
+    println!("{}", THIN_SEP);
+    println!("  annactl                  interactive mode (REPL)");
+    println!("  annactl <request>        one-shot natural language request");
+    println!("  annactl status           show Anna's status");
+    println!("  annactl --version        show version");
+    println!("{}", THIN_SEP);
+    println!();
+    println!("  {}", "Examples:".bold());
+    println!("    annactl \"what CPU do I have?\"");
+    println!("    annactl \"is docker running?\"");
+    println!("    annactl \"show me recent errors\"");
+    println!();
+    Ok(())
 }

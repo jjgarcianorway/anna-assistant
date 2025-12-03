@@ -2,6 +2,68 @@
 
 ---
 
+## v0.0.2 - Strict CLI Surface
+
+**Release Date:** 2024-12-03
+
+### Summary
+
+Enforces the strict CLI surface. All legacy commands (sw, hw, JSON flags) are removed from public dispatch and now route through natural language processing.
+
+### Supported Entrypoints
+
+```bash
+annactl                  # REPL mode (interactive)
+annactl <request>        # One-shot natural language request
+annactl status           # Self-status
+annactl --version        # Version (also: -V)
+annactl --help           # Help (also: -h)
+```
+
+**That's the entire public surface.**
+
+### Changes
+
+**CLI Surface:**
+- Removed `sw` command from public surface
+- Removed `hw` command from public surface
+- Removed all JSON flags (--json, --full) from public surface
+- Legacy commands now route as natural language requests (no custom error message)
+- Added --help/-h flags for explicit help display
+
+**REPL Mode:**
+- Implemented basic REPL loop
+- Exit commands: exit, quit, bye, q
+- Help command shows REPL-specific help
+- Status command works in REPL
+
+**Dialogue Format:**
+- Natural language requests show `[you] to [anna]:` format
+- Responses show `[anna] to [you]:` format
+- Reliability score displayed (stub: 0% until LLM integration)
+
+**Tests:**
+- Added test for --help showing strict surface only
+- Added test for status command exit 0
+- Added test for --version format
+- Added test for legacy command routing (sw, hw)
+- Added test for natural language request format
+
+### Breaking Changes
+
+- `annactl sw` no longer shows software overview (routes as request)
+- `annactl hw` no longer shows hardware overview (routes as request)
+- `annactl` (no args) now enters REPL instead of showing help
+- Use `annactl --help` or `annactl -h` for help
+
+### Internal
+
+- Snapshot architecture preserved (internal capabilities only)
+- Status command unchanged
+- Version output format unchanged: `annactl vX.Y.Z`
+
+---
+
 ## v0.0.1 - Specification Lock-In
 
 **Release Date:** 2024-12-03
