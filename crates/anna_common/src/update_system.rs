@@ -619,6 +619,88 @@ impl UpdateManager {
 
         Ok(())
     }
+
+    /// Perform complete update: check, download, verify, install, restart
+    /// v0.0.26: Full auto-update implementation
+    pub fn perform_update(&mut self) -> Result<String, String> {
+        // Step 1: Check for updates
+        let release = self.check_for_updates()?
+            .ok_or_else(|| "No update available".to_string())?;
+
+        let new_version = release.version.clone();
+        self.ops_log.log("update_system", "performing_update", Some(&new_version));
+
+        // Step 2: Run guardrails
+        let guardrail = self.check_guardrails();
+        if !guardrail.is_passed() {
+            if let GuardrailResult::Failed { reason } = guardrail {
+                return Err(format!("Guardrail failed: {}", reason));
+            }
+        }
+
+        // Step 3: Create update marker
+        let marker = UpdateMarker {
+            target_version: new_version.clone(),
+            phase: UpdatePhase::Downloading { progress_percent: 0, eta_seconds: None },
+            previous_version: self.current_version.clone(),
+            backup_paths: Vec::new(),
+            started_at: Utc::now(),
+            updated_at: Utc::now(),
+            evidence_id: generate_update_evidence_id(),
+        };
+        marker.save().map_err(|e| format!("Failed to save update marker: {}", e))?;
+
+        // Step 4: Download artifacts
+        let mut artifacts = self.download_artifacts(&release, |_progress, _eta| {
+            // Progress callback - could update marker here
+        })?;
+
+        // Step 5: Verify integrity
+        self.verify_integrity(&mut artifacts)?;
+
+        // Step 6: Create backups
+        let backups = self.create_backup()?;
+
+        // Update marker with backup paths
+        let mut marker = UpdateMarker::load().unwrap_or(marker);
+        marker.backup_paths = backups.clone();
+        marker.phase = UpdatePhase::Installing;
+        let _ = marker.save();
+
+        // Step 7: Atomic install
+        self.atomic_install(&artifacts)?;
+
+        // Step 8: Cleanup
+        let _ = self.cleanup_staging(&new_version);
+        let _ = self.cleanup_old_backups();
+
+        // Step 9: Update marker to completed
+        marker.phase = UpdatePhase::Completed { version: new_version.clone() };
+        let _ = marker.save();
+
+        // Step 10: Log completion
+        self.ops_log.log("update_system", "update_complete", Some(&new_version));
+
+        // Don't restart immediately - let the daemon handle it gracefully
+        Ok(new_version)
+    }
+}
+
+/// Perform auto-update if available - v0.0.26: convenience function for daemon
+/// Returns Ok(Some(version)) if updated, Ok(None) if no update, Err on failure
+pub fn perform_auto_update(current_version: &str) -> Result<Option<String>, String> {
+    let mut manager = UpdateManager::new(current_version, UpdateChannel::Stable);
+
+    // Check if update available first
+    let release = manager.check_for_updates()?;
+
+    if release.is_none() {
+        return Ok(None);
+    }
+
+    // Perform the update
+    let new_version = manager.perform_update()?;
+    Ok(Some(new_version))
 }
 
 /// Fetch releases from GitHub API

@@ -683,6 +683,28 @@ async fn main() -> Result<()> {
                 }
                 CheckResult::UpdateAvailable { version } => {
                     info!("[+]  Update check: v{} available (current: v{})", version, current_version);
+
+                    // v0.0.26: Actually perform the auto-update
+                    info!("[*]  Starting auto-update to v{}...", version);
+                    use anna_common::perform_auto_update;
+
+                    match perform_auto_update(&current_version) {
+                        Ok(Some(new_version)) => {
+                            info!("[+]  Auto-update to v{} completed, requesting restart...", new_version);
+                            // Request systemd restart
+                            let _ = std::process::Command::new("systemctl")
+                                .args(["restart", "annad"])
+                                .spawn();
+                            // Give systemd a moment to process
+                            std::thread::sleep(Duration::from_secs(2));
+                        }
+                        Ok(None) => {
+                            info!("[*]  No update needed after recheck");
+                        }
+                        Err(e) => {
+                            warn!("[!]  Auto-update failed: {}", e);
+                        }
+                    }
                 }
                 CheckResult::Error { message } => {
                     warn!("[!]  Update check failed: {}", message);

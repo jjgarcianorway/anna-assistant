@@ -695,11 +695,13 @@ pub use installer_review::{
 };
 
 // v0.0.11: Update system exports
+// v0.0.26: Added perform_auto_update for full auto-update in daemon
 pub use update_system::{
     UpdateManager, UpdateChannel as UpdateSystemChannel, UpdatePhase,
     UpdateMarker, BackupEntry, ReleaseInfo, ReleaseArtifact,
     IntegrityStatus, GuardrailResult,
     is_newer_version, generate_update_evidence_id, handle_post_restart,
+    perform_auto_update,
     UPDATE_STAGE_DIR, UPDATE_BACKUP_DIR, UPDATE_MARKER_FILE, MIN_DISK_SPACE_BYTES,
 };
 
