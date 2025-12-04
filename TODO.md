@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.60**
+**Current Version: 0.0.69**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -8,12 +8,151 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.61 - Mutation Execution Engine v1 + Rollback Records (NEXT)
-- [ ] Full mutation execution with rollback support
-- [ ] Confirmation flow with risk-appropriate phrases
-- [ ] Post-mutation verification
-- [ ] Rollback on failure with evidence trail
-- [ ] Mutation audit log
+### 0.0.70 - Multi-Doctor Handoff + Senior Escalation (NEXT)
+- [ ] Multi-doctor case handoff for complex issues
+- [ ] Department collaboration for cross-domain problems
+- [ ] Senior escalation when Junior < 50%
+- [ ] Multi-round improvement loops
+- [ ] Evidence bundle aggregation across departments
+
+### 0.0.69 - Service Desk Case Coordinator (COMPLETED)
+- [x] CaseCoordinator: open_case, triage, dispatch, merge_reports, compose_user_answer, log
+- [x] DepartmentReport: summary_human, findings, evidence_topics, confidence, recommended_next_steps, action_plan, policy_notes
+- [x] RequestIntent enum: SystemQuery, ProblemReport, ActionRequest
+- [x] classify_intent() with hard rules (queries start with "how much", "what is" = SystemQuery)
+- [x] Fix wrong targeting: memory queries no longer become ActionRequest, disk queries get DiskFree not CPU info
+- [x] get_evidence_topics_for_target() mapping table: memory→MemoryInfo, disk→DiskFree, network→NetworkStatus, etc.
+- [x] TriageDecision: primary department + up to 2 supporting departments
+- [x] Multi-dept detection for compound queries ("wifi disconnecting and sound crackling")
+- [x] ConsolidatedAssessment: merge multiple department reports with weighted confidence
+- [x] EvidenceTopicSummary: topic title, summary_human, raw_ref for department reports
+- [x] ActionPlan: steps_human, risk, confirmation_phrase, rollback_plan
+- [x] Human Mode transcript: "[service-desk] Opening case", "[networking] Network is stable"
+- [x] Debug Mode transcript: timestamps, case_id, triage rationale, report details
+- [x] compose_user_answer() with reliability footer ("84% good evidence coverage")
+- [x] 9 unit tests: intent classification, evidence mapping, triage, multi-dept, transcript validation
+
+### 0.0.68 - Two-Layer Transcript Renderer (COMPLETED)
+- [x] TranscriptMode: Human (default) vs Debug with full separation
+- [x] TranscriptEventV2: Structured events with dual summaries (summary_human, summary_debug)
+- [x] TranscriptRole: Visible roles (departments) vs internal (translator/junior/annad)
+- [x] Human Mode: No evidence IDs ([E1]), no tool names, no raw commands
+- [x] Human Mode: Topic-based evidence display ("Link State: WiFi is connected")
+- [x] Debug Mode: Full fidelity (exact prompts, tool names, evidence IDs, timings)
+- [x] Humanized reliability line: "Reliability: 84% (good evidence coverage)"
+- [x] TranscriptStreamV2: Event collector with coverage and reliability tracking
+- [x] render_human() / render_debug() / render() for mode-based rendering
+- [x] print_human_colored() for terminal output with role colors
+- [x] write_transcripts() writes both human.log and debug.log to case directory
+- [x] validate_human_output() checks for forbidden terms (tool names, evidence IDs)
+- [x] 5 unit tests: human mode no evidence IDs, debug mode has IDs, internal roles hidden, reliability line, validation
+
+### 0.0.67 - Department Evidence Playbooks v1 (COMPLETED)
+- [x] PlaybookTopic struct: id, title, why_it_matters, tool_steps, required
+- [x] PlaybookEvidence struct: topic_id, summary_human, summary_debug, raw_refs, success, duration_ms
+- [x] PlaybookBundle struct: items, coverage_score, missing_topics, department
+- [x] NetworkCauseCategory enum: Link, Dhcp, Dns, ManagerConflict, DriverFirmware, Unknown
+- [x] StorageRiskLevel enum (playbook): None, Low, Medium, High
+- [x] NetworkingDiagnosis and StorageDiagnosis result types
+- [x] ActionProposal struct: id, title, risk, confirmation_phrase, rollback_plan_human, steps_human, steps_debug, affected_*
+- [x] ActionProposal builders: read_only(), low_risk(), medium_risk(), high_risk() with appropriate confirmation gates
+- [x] networking_actions module: restart_networkmanager, restart_iwd, reconnect_wifi, flush_dns_cache, switch_to_iwd, install_helper
+- [x] storage_actions module: check_filesystem, btrfs_scrub_start, btrfs_balance_start, clean_package_cache, create_btrfs_snapshot, dangerous_btrfs_check_repair
+- [x] Networking Playbook: collect_link_evidence, collect_addr_route_evidence, collect_dns_evidence, collect_manager_evidence, collect_errors_evidence
+- [x] Storage Playbook: collect_mount_evidence, collect_btrfs_evidence, collect_smart_evidence, collect_io_errors_evidence, collect_fstab_evidence
+- [x] run_networking_playbook() and run_storage_playbook() for full diagnosis flows
+- [x] classify_network_cause() for root cause classification
+- [x] Human Mode: summary_human shows topics and findings without tool names
+- [x] Debug Mode: summary_debug shows commands and technical details
+- [x] 19 unit tests for playbook framework, action proposals, and evidence collection
+
+### 0.0.66 - Service Desk Dispatcher + Department Protocol (COMPLETED)
+- [x] CaseFile schema extended: ticket_type, outcome, human_transcript, evidence_summaries, debug_trace_path
+- [x] TicketType enum: Question, Incident, ChangeRequest
+- [x] CaseOutcome enum: Pending, Answered, NeedsConfirmation, BlockedByPolicy, InsufficientEvidence, Abandoned
+- [x] Case folder structure: /var/lib/anna/cases/<case_id>/ with case.json, human.log, debug.log
+- [x] Department Protocol: DepartmentTrait, DepartmentName, RoutingDecision, WorkOrder
+- [x] DepartmentResult: findings, evidence_bundle, recommended_actions, reliability_hint, needs_escalation
+- [x] Service Desk: detect_ticket_type(), create_work_order(), create_routing_decision()
+- [x] Department tone tags: ServiceDesk (terse), Networking (investigative), Storage (cautious), Audio (practical), Graphics (driver-aware), Boot (timeline-focused)
+- [x] ActorVoice enum extended with department voices
+- [x] get_investigation_message(), get_summary_prefix(), format_department_message()
+- [x] Config: ui.show_spinner flag
+- [x] Multi-department escalation support (max 2 departments)
+- [x] WorkOrder.can_escalate() and record_escalation()
+- [x] EvidenceBundle.empty() method for department protocol
+- [x] Integration tests: network/disk routing, human mode no evidence IDs, debug mode has details, department tone visible
+
+### 0.0.65 - Evidence Topics v1 + Answer Shaping (COMPLETED)
+- [x] Typed evidence system: EvidenceRecord, EvidenceBundle, EvidenceSchema
+- [x] ProbeKind enum (Passive vs Active) for read-only vs traffic-generating probes
+- [x] Evidence Router: route_evidence() maps queries to correct topics
+- [x] tool_satisfies_topic() prevents hw/sw_snapshot_summary from satisfying specific queries
+- [x] get_tool_for_topic() returns correct tool for each topic
+- [x] AnswerShaper: shape_answer() generates topic-appropriate responses
+- [x] ShapedAnswer with confidence_notes for audio/network (no overclaiming "working")
+- [x] Junior verification: verify_answer_with_topic() + check_tool_relevance()
+- [x] IRRELEVANT_TOOL_PENALTY (-40%) caps at 45% for wrong tools
+- [x] format_human_answer() / format_debug_answer() for output modes
+- [x] Integration tests: disk/kernel/network/audio queries must return relevant info
+- [x] Regression test: disk query must NOT contain CPU model
+
+### 0.0.64 - Service Desk Dispatcher + Doctor Lifecycle (COMPLETED)
+- [x] Service Desk dispatcher with Ticket, RoutingPlan, HumanNarrationPlan
+- [x] Every request gets a Ticket (A-YYYYMMDD-XXXX) with category and severity
+- [x] TicketSeverity: Low, Medium, High, Critical (based on problem keywords)
+- [x] TicketCategory: Networking, Storage, Audio, Boot, Graphics, Security, Performance, Services, Packages, General
+- [x] dispatch_request() runs FIRST, creates Ticket and determines routing
+- [x] Problem reports route to Doctors, informational queries use Evidence Topic Router
+- [x] is_problem_report() detects problem vs informational queries
+- [x] Doctor trait enhanced with explicit lifecycle stages (Intake, EvidenceGathering, Diagnosis, Planning, Verification, HandOff, Complete)
+- [x] DoctorLifecycleStage enum, IntakeResult struct, DoctorLifecycleState tracker
+- [x] intake(), evidence_topics(), human_dialogue(), domain_label(), checking_what() methods
+- [x] Narrator events: TicketOpened, RoutingDecision, DoctorStage
+- [x] Human Mode narration describes tickets, routing, and doctor actions
+- [x] Debug Mode shows ticket_id, category, severity, stage details
+- [x] CaseFileV2 extended with ticket and routing fields (ticket_id, ticket_category, ticket_severity, primary_doctor, secondary_doctors, evidence_topics, doctor_stages_completed, used_doctor_flow)
+- [x] Pipeline integration: dispatch before translator, narrate ticket/routing
+- [x] Integration tests for dispatch, problem detection, severity heuristics
+
+### 0.0.63 - Deterministic Evidence Router + Strict Validation (COMPLETED)
+- [x] Deterministic topic router: detect_topic() runs BEFORE LLM
+- [x] Topic-based tool routing in classify_intent_deterministic()
+- [x] generate_tool_plan_from_topic() for deterministic tool selection
+- [x] Strict answer validation with 40% reliability cap for mismatched answers
+- [x] cap_reliability() function enforces max score for wrong answers
+- [x] Evidence freshness tracking (calculate_freshness_penalty)
+- [x] with_evidence_freshness() updates validation with age penalty
+- [x] Human Mode narration for evidence collection (topic_evidence_narration)
+- [x] audio_status tool label added to human_labels registry
+- [x] Network/audio pattern detection improved (wifi working, pipewire running)
+- [x] Integration tests for 5 common questions: memory, disk, kernel, network, audio
+- [x] TopicValidation extended with evidence_age_secs, freshness_penalty
+
+### 0.0.62 - Human Mode vs Debug Mode (COMPLETED)
+- [x] Narrator component (narrator.rs) for human-readable IT department dialogue
+- [x] Human Mode (default): No tool names, evidence IDs, or raw prompts
+- [x] Debug Mode (--debug or ANNA_DEBUG=1): Full internal details
+- [x] IT department tone: Anna calm/competent, Translator brisk, Junior skeptical
+- [x] ActorVoice enum for consistent role presentation
+- [x] NarratorEvent enum for all transcript events
+- [x] Evidence displayed by topic description, not by ID
+- [x] Honest narration of fallbacks and retries
+- [x] --debug CLI flag support
+- [x] ANNA_DEBUG env var support
+- [x] Status page shows mode and toggle instructions
+- [x] Integration tests for Human/Debug mode contracts
+
+### 0.0.61 - Evidence Topics (Targeted Answers) (COMPLETED)
+- [x] EvidenceTopic enum with 13 topics (CpuInfo, MemoryInfo, KernelVersion, DiskFree, NetworkStatus, AudioStatus, ServiceState, RecentErrors, BootTime, PackagesChanged, GraphicsStatus, Alerts, Unknown)
+- [x] TopicConfig with required_tools, required_fields, evidence_description
+- [x] detect_topic() deterministic pre-LLM pattern matching
+- [x] TopicDetection with confidence, secondary, service_name, is_diagnostic
+- [x] generate_answer() templates for structured responses
+- [x] validate_evidence() for Junior verification
+- [x] human_label() and working_message() for transcript
+- [x] Pipeline integration: detect_topic runs before translator
+- [x] Answer validation: penalizes mismatched topic responses
 
 ### 0.0.60 - 3-Tier Transcript Rendering (COMPLETED)
 - [x] TranscriptMode enum: Human (default), Debug, Test

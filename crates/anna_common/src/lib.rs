@@ -1,4 +1,42 @@
-//! Anna Common v0.0.60 - 3-Tier Transcript Rendering
+//! Anna Common v0.0.68 - Two-Layer Transcript Renderer
+//!
+//! v0.0.68: Human Mode vs Debug Mode with full separation
+//! - Human Mode (default): Natural IT department conversation
+//!   - No evidence IDs ([E1]), no tool names, no raw commands
+//!   - Shows topic-based evidence summaries
+//!   - Readable, professional dialogue
+//! - Debug Mode: Full fidelity for troubleshooting
+//!   - Exact prompts, tool names, evidence IDs
+//!   - Raw refs, parse warnings, timings
+//! - TranscriptEventV2: Structured events with dual summaries
+//! - TranscriptRole: Visible roles (departments) vs internal (translator/junior)
+//! - Case files store BOTH human.log and debug.log
+//! - validate_human_output() ensures no forbidden terms leak
+//!
+//! v0.0.67: Evidence-based department playbooks for Networking and Storage
+//!
+//! v0.0.63: Fix "obviously wrong answers" - strict topic-to-tool routing
+//! - Deterministic topic detection routes to correct tools FIRST
+//! - Strict answer validation: caps reliability at 40% for mismatched answers
+//! - Memory/disk/kernel/network/audio questions must get matching evidence
+//! - Topic configs define required tools and answer validation rules
+//! - cap_reliability() enforces max score for wrong answer content
+//!
+//! v0.0.62: Human Mode vs Debug Mode (First-Class UX)
+//! - Narrator component for human-readable IT department dialogue
+//! - Human Mode (default): No tool names, evidence IDs, or raw prompts
+//! - Debug Mode (--debug or ANNA_DEBUG=1): Full internal details
+//! - IT department tone: Anna calm/competent, Translator brisk, Junior skeptical
+//! - Evidence displayed by topic, not by ID
+//! - Honest narration of fallbacks and retries
+//!
+//! v0.0.61: Evidence Topics for deterministic routing
+//! - EvidenceTopic enum: CpuInfo, MemoryInfo, KernelVersion, DiskFree, etc.
+//! - Pre-LLM topic detection: detect_topic() runs before translator
+//! - Topic configs: required tools, fields, human labels
+//! - Answer templates: generate_answer() for structured responses
+//! - Topic validation: validate_evidence() for Junior verification
+//! - Human labels: working_message() for transcript
 //!
 //! v0.0.60: Human-readable transcript mode (default)
 //! - TranscriptMode enum: Human (default), Debug, Test
@@ -436,6 +474,34 @@ pub mod human_labels;
 pub mod transcript_renderer;
 #[cfg(test)]
 mod transcript_mode_tests;
+
+// v0.0.61: Evidence Topics (Targeted Answers)
+pub mod evidence_topic;
+
+// v0.0.62: Human Mode vs Debug Mode (Narrator)
+pub mod narrator;
+
+// v0.0.65: Typed Evidence System + Answer Shaping
+pub mod evidence_record;
+pub mod evidence_router;
+pub mod answer_shaper;
+#[cfg(test)]
+mod narrator_tests;
+
+// v0.0.66: Service Desk Dispatcher + Department Protocol
+pub mod department_protocol;
+
+// v0.0.67: Department Evidence Playbooks v1
+pub mod evidence_playbook;
+pub mod action_proposal;
+pub mod networking_playbook;
+pub mod storage_playbook;
+
+// v0.0.68: Two-Layer Transcript Renderer
+pub mod transcript_v068;
+
+// v0.0.69: Service Desk Case Coordinator
+pub mod case_coordinator;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -1243,9 +1309,12 @@ pub use learning::{
 };
 
 // v0.0.49: Doctor Lifecycle System
+// v0.0.64: Added DoctorLifecycleStage, IntakeResult, DoctorLifecycleState
 pub use doctor_lifecycle::{
     // Core trait
     Doctor,
+    // v0.0.64: Lifecycle stages
+    DoctorLifecycleStage, IntakeResult, DoctorLifecycleState,
     // Diagnostic planning
     DiagnosticCheck,
     // Evidence collection
@@ -1404,9 +1473,11 @@ pub use evidence_coverage::{
 pub use junior_rubric::{
     VerificationResult, Penalty,
     verify_answer, is_clearly_wrong_evidence, get_evidence_suggestions,
+    // v0.0.65: Topic-based relevance verification
+    verify_answer_with_topic, check_tool_relevance,
     SHIP_IT_THRESHOLD, BASE_SCORE,
     WRONG_EVIDENCE_PENALTY, MISSING_EVIDENCE_PENALTY, ANSWER_MISMATCH_PENALTY,
-    UNCITED_CLAIM_PENALTY, HIGH_COVERAGE_BONUS,
+    UNCITED_CLAIM_PENALTY, HIGH_COVERAGE_BONUS, IRRELEVANT_TOOL_PENALTY,
 };
 
 // v0.0.58: Proactive Monitoring Loop v1
@@ -1444,18 +1515,39 @@ pub use alert_probes::{
 };
 
 // v0.0.59: Auto-Case Opening + Departmental IT Org
+// v0.0.66: Added TicketType, CaseOutcome for enhanced case tracking
 pub use case_lifecycle::{
     CaseStatus, CaseFileV2, Department, Participant,
     ActionRisk as CaseActionRisk,  // Renamed to avoid conflict
     ProposedAction as CaseProposedAction,  // Renamed to avoid conflict
     TimelineEvent, TimelineEventType,
+    // v0.0.66: Ticket type and outcome
+    TicketType, CaseOutcome as CaseLifecycleOutcome,  // Renamed to avoid conflict with case_engine
     CASE_SCHEMA_VERSION_V2,
     load_case_v2, list_active_cases, count_active_cases,
 };
+// v0.0.64: Service Desk Dispatcher with Ticket and RoutingPlan
+// v0.0.66: Added detect_ticket_type, create_work_order, create_routing_decision
 pub use service_desk::{
+    // v0.0.64: Dispatch result
+    DispatchResult, dispatch_request,
+    // v0.0.64: Ticket types
+    Ticket, TicketSeverity, TicketCategory, RoutingPlan, HumanNarrationPlan,
+    // v0.0.64: Problem detection
+    is_problem_report,
+    // v0.0.66: Ticket type detection and work order
+    detect_ticket_type, create_work_order, create_routing_decision,
+    // Legacy triage
     TriageResult, triage_request, dispatch_to_specialist,
     should_auto_open_case, find_case_for_alert, open_case_for_alert,
     progress_case_triage, progress_case_investigating, progress_case_plan_ready,
+};
+// v0.0.66: Department Protocol exports
+pub use department_protocol::{
+    DepartmentName, RoutingDecision, WorkOrder,
+    InvestigateCtx, DepartmentFinding,
+    FindingSeverity as DepartmentFindingSeverity,  // Renamed to avoid conflict with doctor_registry
+    RecommendedAction, DepartmentResult, DepartmentTrait,
 };
 pub use transcript_v2::{
     TranscriptLine,
@@ -1464,4 +1556,89 @@ pub use transcript_v2::{
     Hypothesis as DepartmentHypothesis,  // Renamed to avoid conflict
     render_case_transcript, render_handoff, render_junior_disagreement,
     render_collaboration, render_active_cases_status,
+};
+
+// v0.0.61: Evidence Topics (Targeted Answers)
+// v0.0.63: cap_reliability for strict answer validation + freshness tracking
+pub use evidence_topic::{
+    EvidenceTopic, TopicConfig, TopicDetection, TopicValidation,
+    detect_topic, get_topic_config, generate_answer, validate_evidence,
+    cap_reliability, calculate_freshness_penalty, with_evidence_freshness,
+};
+
+// v0.0.65: Typed Evidence System + Answer Shaping
+pub use evidence_record::{
+    ProbeKind, EvidenceRecord, EvidenceBundle, EvidenceSchema,
+    get_evidence_schema, validate_evidence_data,
+};
+pub use evidence_router::{
+    EvidenceRouting, route_evidence,
+    tool_satisfies_topic, get_tool_for_topic,
+};
+pub use answer_shaper::{
+    ShapedAnswer, shape_answer,
+    format_human_answer, format_debug_answer,
+};
+
+// v0.0.62: Human Mode vs Debug Mode (Narrator)
+pub use narrator::{
+    get_output_mode, is_debug_mode, narrate, clear_working,
+    NarratorEvent, ActorVoice,
+    phase as narrator_phase, working as narrator_working,
+    topic_evidence_description,
+};
+
+// v0.0.67: Department Evidence Playbooks v1
+pub use evidence_playbook::{
+    PlaybookTopic, PlaybookEvidence, PlaybookBundle,
+    NetworkCauseCategory, StorageRiskLevel as PlaybookStorageRiskLevel,
+    NetworkingDiagnosis, StorageDiagnosis,
+};
+pub use action_proposal::{
+    ActionProposal,
+    networking_actions, storage_actions,
+};
+pub use networking_playbook::{
+    LinkEvidence, AddrRouteEvidence, DnsEvidence, ManagerEvidence, NetworkErrorsEvidence,
+    networking_topics, run_networking_playbook,
+    collect_link_evidence, collect_addr_route_evidence, collect_dns_evidence,
+    collect_manager_evidence, collect_errors_evidence as collect_network_errors_evidence,
+};
+pub use storage_playbook::{
+    MountEvidence, BtrfsEvidence, BtrfsDeviceError, SmartEvidence,
+    IoErrorsEvidence, FstabEvidence, FstabEntry,
+    storage_topics, run_storage_playbook,
+    collect_mount_evidence, collect_btrfs_evidence, collect_smart_evidence,
+    collect_io_errors_evidence, collect_fstab_evidence,
+};
+
+// v0.0.68: Two-Layer Transcript Renderer
+pub use transcript_v068::{
+    TranscriptEventV2, TranscriptRole, TranscriptStreamV2, TimestampedEvent,
+    render_human as render_transcript_human,
+    render_debug as render_transcript_debug,
+    render as render_transcript,
+    render_to_string as render_transcript_to_string,
+    write_transcripts,
+    print_human_colored,
+    validate_human_output,
+};
+
+// v0.0.69: Service Desk Case Coordinator
+pub use case_coordinator::{
+    // Intent classification
+    RequestIntent,
+    classify_intent as classify_request_intent,
+    // Evidence topic mapping
+    get_evidence_topics_for_target,
+    // Triage
+    TriageDecision,
+    // Department reports
+    DepartmentReport,
+    ActionPlan as CaseActionPlan,
+    EvidenceTopicSummary,
+    // Consolidated assessment
+    ConsolidatedAssessment,
+    // Main coordinator
+    CaseCoordinator,
 };

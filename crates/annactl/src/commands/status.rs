@@ -1,4 +1,9 @@
-//! Status Command v0.0.60 - 3-Tier Transcript Mode Display
+//! Status Command v0.0.62 - Human Mode vs Debug Mode Display
+//!
+//! v0.0.62: Enhanced output mode display in [CASES] section
+//! - Shows current output mode (Human/Debug)
+//! - Shows how to toggle (--debug flag, ANNA_DEBUG env)
+//! - Debug mode indicator when active
 //!
 //! v0.0.60: Transcript mode display in [CASES] section
 //! - Shows current transcript mode (human/debug/test)
@@ -664,20 +669,19 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [CASES] section - v0.0.59: show active cases count and recent case files
+/// [CASES] section - v0.0.62: show output mode and active cases
 fn print_cases_section(mode: &DisplayMode) {
     println!("{}", "[CASES]".cyan());
 
-    let config = AnnaConfig::load();
-
-    // v0.0.60: Show transcript mode
-    let transcript_mode = config.ui.effective_transcript_mode();
-    let transcript_mode_str = match transcript_mode {
-        anna_common::transcript_events::TranscriptMode::Human => "human".green().to_string(),
-        anna_common::transcript_events::TranscriptMode::Debug => "debug".yellow().to_string(),
-        anna_common::transcript_events::TranscriptMode::Test => "test".yellow().to_string(),
-    };
-    println!("  Transcript: {}", transcript_mode_str);
+    // v0.0.62: Show output mode (Human vs Debug)
+    let is_debug = anna_common::narrator::is_debug_mode();
+    if is_debug {
+        println!("  Mode:       {} (raw prompts, evidence IDs, timings visible)", "Debug".yellow().bold());
+        println!("              To disable: remove --debug flag or unset ANNA_DEBUG");
+    } else {
+        println!("  Mode:       {} (professional IT dialogue, no internals)", "Human".green());
+        println!("              To enable debug: {} or {}", "annactl --debug".cyan(), "ANNA_DEBUG=1".cyan());
+    }
 
     // v0.0.59: Show active cases count
     let active_count = anna_common::case_lifecycle::count_active_cases();

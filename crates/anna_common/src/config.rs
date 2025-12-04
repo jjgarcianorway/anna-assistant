@@ -1,10 +1,11 @@
-//! Anna Configuration v0.0.22 - Reliability Engineering
+//! Anna Configuration v0.0.66 - Service Desk + UI Modes
 //!
 //! Simplified system configuration for the telemetry daemon.
 //! No LLM config - pure system monitoring.
 //!
 //! Configuration lives in /etc/anna/config.toml
 //!
+//! v0.0.66: Added ui.show_spinner for progress indicator
 //! v6.0.2: Added auto-update configuration
 //! v7.6.0: Added telemetry enable/disable, max_keys limit
 //! v7.26.0: Added instrumentation settings (AUR gate, auto-install)
@@ -987,7 +988,7 @@ pub struct AnnaConfig {
     pub reliability: ReliabilityConfig,
 }
 
-/// UI configuration (v0.0.15, v0.0.33: dev_mode)
+/// UI configuration (v0.0.15, v0.0.33: dev_mode, v0.0.66: show_spinner)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiConfig {
     /// Debug level: 0=minimal, 1=normal, 2=full (default in dev mode)
@@ -1016,6 +1017,14 @@ pub struct UiConfig {
     /// - test: Same as debug, for automated testing
     #[serde(default = "default_transcript_mode")]
     pub transcript_mode: String,
+
+    /// v0.0.66: Whether to show spinner during long operations
+    #[serde(default = "default_show_spinner")]
+    pub show_spinner: bool,
+}
+
+fn default_show_spinner() -> bool {
+    true
 }
 
 fn default_transcript_mode() -> String {
@@ -1219,6 +1228,7 @@ impl Default for UiConfig {
             max_width: 0,
             dev_mode: default_dev_mode(),
             transcript_mode: default_transcript_mode(),
+            show_spinner: default_show_spinner(),
         }
     }
 }

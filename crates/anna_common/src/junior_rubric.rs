@@ -1,12 +1,14 @@
-//! Junior Rubric v0.0.57 - Evidence-Based Answer Verification
+//! Junior Rubric v0.0.65 - Evidence-Based Answer Verification
 //!
 //! Junior's job is to verify answers against evidence and penalize:
 //! - Wrong evidence (CPU info for disk question) -> max 20%
 //! - Missing evidence (no disk fields at all) -> max 50%
 //! - Answer doesn't match question -> max 60%
+//! - Irrelevant tools (hw_snapshot for specific query) -> penalty
 //! - Uncited claims -> penalty
 //! - Low coverage -> penalty
 //!
+//! v0.0.65: Added relevance checks with tool_satisfies_topic
 //! This rubric is deterministic - no LLM needed for basic verification.
 
 use serde::{Deserialize, Serialize};
@@ -15,6 +17,8 @@ use crate::evidence_coverage::{
     analyze_coverage, check_evidence_mismatch, get_max_score_for_coverage,
     EvidenceCoverage, COVERAGE_SUFFICIENT_THRESHOLD,
 };
+use crate::evidence_router::tool_satisfies_topic;
+use crate::evidence_topic::EvidenceTopic;
 use crate::system_query_router::{validate_answer_for_target, QueryTarget};
 use crate::tools::ToolResult;
 
@@ -247,6 +251,70 @@ fn generate_verdict(
 /// Quick check if evidence is clearly wrong for target
 pub fn is_clearly_wrong_evidence(target: QueryTarget, evidence: &[ToolResult]) -> bool {
     check_evidence_mismatch(target, evidence).is_some()
+}
+
+// ============================================================================
+// v0.0.65: Topic-Based Relevance Verification
+// ============================================================================
+
+/// Penalty for using irrelevant tools
+pub const IRRELEVANT_TOOL_PENALTY: i32 = -40; // Caps at 45%
+
+/// Check if tools used are relevant for the topic
+/// Returns (has_irrelevant, irrelevant_tools)
+pub fn check_tool_relevance(topic: EvidenceTopic, evidence: &[ToolResult]) -> (bool, Vec<String>) {
+    let mut irrelevant = Vec::new();
+
+    for result in evidence {
+        if result.success && !tool_satisfies_topic(&result.tool_name, topic) {
+            irrelevant.push(result.tool_name.clone());
+        }
+    }
+
+    (!irrelevant.is_empty(), irrelevant)
+}
+
+/// v0.0.65: Verify answer with topic-based relevance checking
+pub fn verify_answer_with_topic(
+    target: QueryTarget,
+    topic: EvidenceTopic,
+    answer: &str,
+    evidence: &[ToolResult],
+) -> VerificationResult {
+    // Start with standard verification
+    let mut result = verify_answer(target, answer, evidence);
+
+    // Additional check: tool relevance for the topic
+    let (has_irrelevant, irrelevant_tools) = check_tool_relevance(topic, evidence);
+
+    if has_irrelevant && topic != EvidenceTopic::Unknown {
+        // Add penalty for irrelevant tools
+        result.penalties.push(Penalty {
+            reason: format!(
+                "Irrelevant tool(s) for {}: {}",
+                topic.human_label(),
+                irrelevant_tools.join(", ")
+            ),
+            points: IRRELEVANT_TOOL_PENALTY,
+        });
+
+        // Recalculate score
+        let total_penalty: i32 = result.penalties.iter().map(|p| p.points).sum();
+        let raw_score = (result.base_score as i32 + total_penalty).max(0) as u8;
+        let max_allowed = get_max_score_for_coverage(&result.coverage, result.has_mismatch);
+        result.reliability_score = raw_score.min(max_allowed).min(45); // Cap at 45% for irrelevant tools
+
+        // Update verdict
+        result.verdict = format!(
+            "Reliability {}%. Wrong tools for {}. Need: {}.",
+            result.reliability_score,
+            topic.human_label(),
+            crate::evidence_router::get_tool_for_topic(topic)
+        );
+        result.ship_it = result.reliability_score >= SHIP_IT_THRESHOLD;
+    }
+
+    result
 }
 
 /// Get suggestions when evidence is insufficient

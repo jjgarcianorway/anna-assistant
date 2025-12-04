@@ -1,9 +1,16 @@
-//! Doctor Lifecycle - Unified diagnostic interface and runner
+//! Doctor Lifecycle v0.0.64 - First-Class Doctor Flows
 //!
-//! v0.0.49: Doctor Lifecycle Contract
+//! v0.0.64: Doctors are first-class flows with explicit lifecycle stages:
+//! 1. Intake: What symptoms? What we're checking now
+//! 2. EvidenceGathering: Target specific evidence topics
+//! 3. Diagnosis: Ranked hypotheses
+//! 4. Plan: Read-only suggestions or mutation plan with risk tier
+//! 5. Verify: Confirm evidence coherence (read-only) or post-check (actions)
+//! 6. HandOff: If needs another doctor
 //!
 //! This module provides:
-//! - Doctor trait defining the lifecycle contract
+//! - Doctor trait with lifecycle methods
+//! - DoctorLifecycleStage enum for tracking progress
 //! - DoctorRunner for orchestrating diagnosis flows
 //! - Structured output formats for findings and reports
 //! - Integration with knowledge learning system
@@ -17,6 +24,123 @@ use crate::doctor_registry::{
     FindingSeverity, KeyFinding, PlaybookRunResult, StageStatus, StageTiming,
     VerificationStatus,
 };
+use crate::evidence_topic::EvidenceTopic;
+use crate::service_desk::Ticket;
+
+// =============================================================================
+// v0.0.64: Doctor Lifecycle Stages
+// =============================================================================
+
+/// Lifecycle stage for doctor flow
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DoctorLifecycleStage {
+    /// Initial intake - understanding symptoms
+    Intake,
+    /// Gathering evidence from tools
+    EvidenceGathering,
+    /// Running diagnosis on evidence
+    Diagnosis,
+    /// Creating action plan
+    Planning,
+    /// Verifying results
+    Verification,
+    /// Handing off to another doctor
+    HandOff,
+    /// Completed
+    Complete,
+}
+
+impl DoctorLifecycleStage {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DoctorLifecycleStage::Intake => "intake",
+            DoctorLifecycleStage::EvidenceGathering => "evidence_gathering",
+            DoctorLifecycleStage::Diagnosis => "diagnosis",
+            DoctorLifecycleStage::Planning => "planning",
+            DoctorLifecycleStage::Verification => "verification",
+            DoctorLifecycleStage::HandOff => "hand_off",
+            DoctorLifecycleStage::Complete => "complete",
+        }
+    }
+
+    pub fn human_label(&self) -> &'static str {
+        match self {
+            DoctorLifecycleStage::Intake => "Understanding symptoms",
+            DoctorLifecycleStage::EvidenceGathering => "Gathering evidence",
+            DoctorLifecycleStage::Diagnosis => "Analyzing findings",
+            DoctorLifecycleStage::Planning => "Creating plan",
+            DoctorLifecycleStage::Verification => "Verifying results",
+            DoctorLifecycleStage::HandOff => "Consulting specialist",
+            DoctorLifecycleStage::Complete => "Complete",
+        }
+    }
+}
+
+impl std::fmt::Display for DoctorLifecycleStage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.human_label())
+    }
+}
+
+/// Intake result from doctor - what symptoms they identified
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntakeResult {
+    /// Symptoms identified from request
+    pub symptoms: Vec<String>,
+    /// What the doctor will check
+    pub checking: Vec<String>,
+    /// Human-readable intake summary
+    pub summary: String,
+    /// Evidence topics to gather
+    pub evidence_topics: Vec<EvidenceTopic>,
+}
+
+/// Lifecycle state tracking for a doctor flow
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DoctorLifecycleState {
+    /// Current stage
+    pub current_stage: DoctorLifecycleStage,
+    /// Stages completed
+    pub completed_stages: Vec<DoctorLifecycleStage>,
+    /// Stage timings (milliseconds)
+    pub stage_timings: HashMap<DoctorLifecycleStage, u64>,
+    /// Intake result (if completed)
+    pub intake: Option<IntakeResult>,
+    /// Whether hand-off to another doctor is needed
+    pub needs_handoff: bool,
+    /// Doctor to hand off to (if any)
+    pub handoff_doctor: Option<String>,
+}
+
+impl DoctorLifecycleState {
+    pub fn new() -> Self {
+        Self {
+            current_stage: DoctorLifecycleStage::Intake,
+            completed_stages: Vec::new(),
+            stage_timings: HashMap::new(),
+            intake: None,
+            needs_handoff: false,
+            handoff_doctor: None,
+        }
+    }
+
+    pub fn advance_to(&mut self, stage: DoctorLifecycleStage, duration_ms: u64) {
+        self.completed_stages.push(self.current_stage);
+        self.stage_timings.insert(self.current_stage, duration_ms);
+        self.current_stage = stage;
+    }
+
+    pub fn complete(&mut self, duration_ms: u64) {
+        self.advance_to(DoctorLifecycleStage::Complete, duration_ms);
+    }
+}
+
+impl Default for DoctorLifecycleState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 // =============================================================================
 // Doctor Trait - The Lifecycle Contract
@@ -288,6 +412,13 @@ impl DoctorReport {
 // =============================================================================
 
 /// The Doctor trait defines the lifecycle contract for all diagnostic doctors
+///
+/// v0.0.64: Enhanced with lifecycle stage methods:
+/// - intake(): Understand symptoms, return what we're checking
+/// - evidence_plan(): Return evidence topics to collect
+/// - diagnose(): Analyze evidence and produce findings
+/// - plan(): Create action plan from diagnosis
+/// - human_dialogue(): Get human-readable messages for stages
 pub trait Doctor: Send + Sync {
     /// Stable identifier for this doctor
     fn id(&self) -> &str;
@@ -314,6 +445,90 @@ pub trait Doctor: Send + Sync {
 
     /// Run diagnosis on collected evidence
     fn diagnose(&self, evidence: &[CollectedEvidence]) -> DiagnosisResult;
+
+    // =========================================================================
+    // v0.0.64: Lifecycle Stage Methods
+    // =========================================================================
+
+    /// Intake stage: understand symptoms and return what we'll check
+    fn intake(&self, ticket: &Ticket) -> IntakeResult {
+        // Default implementation extracts keywords from ticket
+        let symptoms = ticket.matched_keywords.clone();
+        let checking = self.plan().iter()
+            .map(|c| c.description.clone())
+            .collect();
+
+        IntakeResult {
+            symptoms,
+            checking,
+            summary: format!("{} reviewing symptoms", self.name()),
+            evidence_topics: self.evidence_topics(),
+        }
+    }
+
+    /// Return the evidence topics this doctor needs
+    fn evidence_topics(&self) -> Vec<EvidenceTopic> {
+        // Default: map domain to evidence topic
+        match self.domain() {
+            DoctorDomain::Network => vec![EvidenceTopic::NetworkStatus],
+            DoctorDomain::Storage => vec![EvidenceTopic::DiskFree],
+            DoctorDomain::Audio => vec![EvidenceTopic::AudioStatus],
+            DoctorDomain::Boot => vec![EvidenceTopic::BootTime],
+            DoctorDomain::Graphics => vec![EvidenceTopic::GraphicsStatus],
+            DoctorDomain::System => vec![EvidenceTopic::Unknown],
+        }
+    }
+
+    /// Human dialogue for current stage
+    fn human_dialogue(&self, stage: DoctorLifecycleStage) -> String {
+        match stage {
+            DoctorLifecycleStage::Intake => {
+                format!("I'm looking at your {} issue.", self.domain_label())
+            }
+            DoctorLifecycleStage::EvidenceGathering => {
+                format!("Checking {}.", self.checking_what())
+            }
+            DoctorLifecycleStage::Diagnosis => {
+                "Analyzing what I found.".to_string()
+            }
+            DoctorLifecycleStage::Planning => {
+                "Preparing recommendations.".to_string()
+            }
+            DoctorLifecycleStage::Verification => {
+                "Verifying the findings.".to_string()
+            }
+            DoctorLifecycleStage::HandOff => {
+                "Consulting with another specialist.".to_string()
+            }
+            DoctorLifecycleStage::Complete => {
+                "Analysis complete.".to_string()
+            }
+        }
+    }
+
+    /// Human-readable domain label
+    fn domain_label(&self) -> &'static str {
+        match self.domain() {
+            DoctorDomain::Network => "network",
+            DoctorDomain::Storage => "storage",
+            DoctorDomain::Audio => "audio",
+            DoctorDomain::Boot => "boot",
+            DoctorDomain::Graphics => "graphics",
+            DoctorDomain::System => "system",
+        }
+    }
+
+    /// Human-readable description of what this doctor checks
+    fn checking_what(&self) -> String {
+        match self.domain() {
+            DoctorDomain::Network => "link state, IP, default route, and DNS".to_string(),
+            DoctorDomain::Storage => "disk usage, filesystems, and mount points".to_string(),
+            DoctorDomain::Audio => "audio services, devices, and mixer state".to_string(),
+            DoctorDomain::Boot => "boot time, service delays, and startup issues".to_string(),
+            DoctorDomain::Graphics => "GPU status, display configuration, and compositor".to_string(),
+            DoctorDomain::System => "general system state".to_string(),
+        }
+    }
 }
 
 // =============================================================================

@@ -2,6 +2,772 @@
 
 ---
 
+## v0.0.69 - Service Desk Case Coordinator
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Introduces the CaseCoordinator layer that runs for every request, orchestrating the full case lifecycle from opening through final answer composition. Fixes the "wrong targeting" bugs where memory queries became action requests or disk queries got CPU info. Adds structured DepartmentReport output with dual human/debug summaries and evidence topic mapping.
+
+### The Problem This Solves
+
+Before v0.0.69:
+```
+User: "how much memory do I have"
+→ Intent: ActionRequest (WRONG!)
+→ Topics: [CpuInfo] (WRONG!)
+→ Department: Performance (WRONG!)
+```
+
+After v0.0.69:
+```
+User: "how much memory do I have"
+→ Intent: SystemQuery (CORRECT)
+→ Topics: [MemoryInfo] (CORRECT)
+→ Department: Performance (CORRECT, but now with proper routing)
+```
+
+### Key Features
+
+**1. CaseCoordinator Orchestration**
+```rust
+let mut coord = CaseCoordinator::open_case("how much disk space is free");
+let triage = coord.triage(request);  // primary + supporting depts
+// ... dispatch to departments ...
+coord.add_report(networking_report);
+coord.merge_reports();
+let answer = coord.compose_user_answer();
+```
+
+**2. Hard Rules in classify_intent()**
+- Queries starting with "how much", "what is", "show me" = SystemQuery
+- Keywords "install", "remove", "enable" = ActionRequest
+- Keywords "broken", "disconnecting", "not working" = ProblemReport
+
+**3. Evidence Topic Mapping Table**
+| Query Contains | Evidence Topics |
+|----------------|-----------------|
+| memory, ram | MemoryInfo |
+| disk, space, storage | DiskFree |
+| network, wifi, internet | NetworkStatus |
+| audio, sound | AudioStatus |
+| boot, startup | BootTime, ServiceState |
+
+**4. DepartmentReport Structure**
+```rust
+DepartmentReport {
+    department: DepartmentName::Networking,
+    summary_human: "Network is stable, all interfaces up.",
+    findings: vec![...],
+    evidence_topics: vec![EvidenceTopicSummary { ... }],
+    confidence: 90,
+    recommended_next_steps: vec![...],
+    action_plan: Some(ActionPlan { ... }),
+    policy_notes: vec![],
+}
+```
+
+**5. Multi-Department Triage**
+```rust
+TriageDecision {
+    primary_dept: Networking,
+    supporting_depts: vec![Audio],  // "wifi and sound problems"
+    intent: ProblemReport,
+    matched_keywords: vec!["wifi", "sound"],
+    confidence: 85,
+}
+```
+
+### Unit Tests (9 tests)
+1. `test_classify_intent_system_query` - Queries are SystemQuery
+2. `test_classify_intent_action_request` - Install/remove are ActionRequest
+3. `test_classify_intent_problem_report` - "disconnecting" is ProblemReport
+4. `test_evidence_topics_for_memory` - Memory query → MemoryInfo
+5. `test_evidence_topics_for_disk` - Disk query → DiskFree
+6. `test_case_coordinator_triage` - Full triage flow
+7. `test_multi_dept_detection` - Compound queries route to multiple depts
+8. `test_department_report_merge` - Reports merge with weighted confidence
+9. `test_human_transcript_no_internals` - Human mode has no debug info
+
+### Human Mode Output Example
+
+```
+[service-desk] Opening case and reviewing request.
+[service-desk] I'll have Performance look into this.
+[performance] Memory usage is normal at 45%.
+
+Reliability: 90% (good evidence coverage)
+```
+
+### Files Changed
+- **NEW**: `crates/anna_common/src/case_coordinator.rs` (832 lines)
+- `crates/anna_common/src/lib.rs` - Added case_coordinator exports
+
+---
+
+## v0.0.68 - Two-Layer Transcript Renderer
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Implements a complete separation between Human Mode and Debug Mode for the transcript system. Human Mode (default) shows a natural IT department conversation without any internal details. Debug Mode provides full fidelity for troubleshooting with exact prompts, evidence IDs, tool names, and timings. Case files now store both human.log and debug.log.
+
+### The Problem This Solves
+
+Before v0.0.68:
+```
+[annad] tool=hw_snapshot_summary [E1] (42ms)
+[junior] Evidence coverage 85%, [E1] matches cpu query
+```
+
+After v0.0.68 (Human Mode):
+```
+[service-desk] I'll check your system information.
+[networking] Link State: WiFi is connected and interface is up.
+[service-desk] Your CPU is an AMD Ryzen 9 with 12 cores.
+
+Reliability: 94% (good evidence coverage)
+```
+
+After v0.0.68 (Debug Mode):
+```
+12:34:56.789 [tool_call] [annad] tool=hw_snapshot_cpu [E1] (42ms)
+12:34:56.831 [decision] [junior] Evidence coverage 100%, reliability=94%
+```
+
+### Key Features
+
+**1. TranscriptEventV2 with Dual Summaries**
+```rust
+TranscriptEventV2::EvidenceTopicSummary {
+    topic_title: "Link State",
+    summary_human: "WiFi is connected",  // No tool names!
+    summary_debug: "wlan0: UP (carrier=true)",
+    evidence_ids: vec!["E1"],  // Hidden in human mode
+    tool_names: vec!["network_status"],  // Hidden in human mode
+}
+```
+
+**2. TranscriptRole with Visibility Control**
+- Visible in Human Mode: service-desk, networking, storage, boot, audio, graphics
+- Hidden in Human Mode: translator, junior, annad (internal roles)
+
+**3. Humanized Reliability Line**
+- 80%+: "Reliability: X% (good evidence coverage)"
+- 60-79%: "Reliability: X% (some evidence gaps)"
+- <60%: "Reliability: X% (limited evidence, some assumptions)"
+
+**4. validate_human_output() Contract**
+Rejects output containing:
+- Evidence IDs: `[E1]`, `[E2]`, etc.
+- Tool name patterns: `_summary`, `_snapshot`, `_probe`
+- Command names: `journalctl`, `systemctl`, `nmcli`, `ip `, `btrfs `
+
+**5. Case Files Store Both Transcripts**
+```
+/var/lib/anna/cases/<case_id>/
+├── case.json      # Full case state
+├── human.log      # What the user saw (no internals)
+└── debug.log      # Full trace for debugging
+```
+
+### Files Added
+
+- `transcript_v068.rs` (NEW): TranscriptEventV2, TranscriptRole, TranscriptStreamV2, render_human(), render_debug(), write_transcripts(), validate_human_output()
+
+### Files Changed
+
+- `lib.rs`: Added v0.0.68 module and exports
+
+### Unit Tests Added
+
+- `test_human_mode_no_evidence_ids` - Evidence IDs hidden
+- `test_debug_mode_has_evidence_ids` - Evidence IDs visible
+- `test_internal_roles_hidden_in_human_mode` - Translator/Junior/Annad hidden
+- `test_reliability_line_human_mode` - Humanized reliability display
+- `test_validate_human_output` - Forbidden term detection
+
+---
+
+## v0.0.67 - Department Evidence Playbooks v1
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Introduces evidence-based playbooks for Networking and Storage departments. Each playbook defines topics to investigate, collects structured evidence, and produces diagnoses with cause classification. Human Mode shows findings without tool names or IDs; Debug Mode shows commands and technical details. ActionProposal provides safe, rollbackable action templates with tiered confirmation gates.
+
+### The Problem This Solves
+
+Before v0.0.67:
+```
+[networking] Looking at network...
+[networking] IP: 192.168.1.100, DNS: 8.8.8.8
+```
+
+After v0.0.67:
+```
+[networking] Checking link state, IP configuration, DNS, and network manager status.
+[networking] Findings:
+  - WiFi connection is active
+  - IP address configured, internet route present
+  - 2 DNS server(s) configured
+  - NetworkManager active (connected)
+[networking] Cause: Unknown (all checks passed). Confidence: 30%
+```
+
+### Key Features
+
+**1. PlaybookTopic Framework**
+```rust
+PlaybookTopic {
+    id: "net_link",
+    title: "Link State",
+    why_it_matters: "Physical or wireless link must be UP",
+    tool_steps: ["ip link show", "/sys/class/net"],
+    required: true,
+}
+```
+
+**2. PlaybookEvidence with Dual Summaries**
+```rust
+PlaybookEvidence {
+    topic_id: "net_link",
+    summary_human: "WiFi connection is active",  // No tool names!
+    summary_debug: "wlan0: UP (operstate=up, carrier=true)",
+    raw_refs: ["ip link show", "/sys/class/net/wlan0/operstate"],
+}
+```
+
+**3. PlaybookBundle with Coverage Scoring**
+- Tracks which required topics have evidence
+- Calculates coverage_score (0-100%)
+- Lists missing_topics for retry logic
+
+**4. Cause Classification**
+- NetworkCauseCategory: Link, Dhcp, Dns, ManagerConflict, DriverFirmware, Unknown
+- StorageRiskLevel: None, Low, Medium, High
+- Confidence score based on evidence quality
+
+**5. ActionProposal with Confirmation Gates**
+| Risk Level | Confirmation Phrase | Example |
+|------------|---------------------|---------|
+| read_only  | (none)              | flush DNS cache |
+| low        | "y"                 | restart NetworkManager |
+| medium     | "confirm"           | install package |
+| high       | "I assume the risk" | switch WiFi backend |
+
+**6. Pre-built Action Templates**
+- `networking_actions::restart_networkmanager()`
+- `networking_actions::switch_to_iwd()`
+- `storage_actions::btrfs_scrub_start(mount)`
+- `storage_actions::dangerous_btrfs_check_repair(mount)`
+
+### Files Added
+
+- `evidence_playbook.rs` (NEW): PlaybookTopic, PlaybookEvidence, PlaybookBundle, NetworkCauseCategory, StorageRiskLevel
+- `action_proposal.rs` (NEW): ActionProposal with builders, networking_actions, storage_actions
+- `networking_playbook.rs` (NEW): LinkEvidence, AddrRouteEvidence, DnsEvidence, ManagerEvidence, collect_* functions, run_networking_playbook()
+- `storage_playbook.rs` (NEW): MountEvidence, BtrfsEvidence, SmartEvidence, IoErrorsEvidence, FstabEvidence, collect_* functions, run_storage_playbook()
+
+### Files Changed
+
+- `lib.rs`: Added v0.0.67 modules and exports
+
+### Unit Tests Added
+
+- `test_playbook_topic` - topic construction
+- `test_playbook_evidence` - evidence creation
+- `test_playbook_bundle_coverage` - coverage calculation
+- `test_human_summary_no_tool_names` - human mode contract
+- `test_network_cause_category` - cause labels
+- `test_storage_risk_level` - risk labels
+- `test_action_proposal_read_only` - no confirmation needed
+- `test_action_proposal_low_risk` - "y" confirmation
+- `test_action_proposal_high_risk` - "I assume the risk" confirmation
+- `test_networking_actions` - action templates
+- `test_storage_actions` - action templates
+- `test_human_description_no_commands` - human mode
+- `test_debug_description_has_commands` - debug mode
+- `test_networking_topics` - topic definitions
+- `test_classify_link_down` - cause classification
+- `test_classify_no_ip` - DHCP detection
+- `test_storage_topics` - storage topics
+- `test_fstab_parsing` - fstab evidence
+- `test_btrfs_device_error` - BTRFS error detection
+
+---
+
+## v0.0.66 - Service Desk Dispatcher + Department Protocol
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Makes the "IT department" structure real in the architecture. Service Desk receives requests and routes to specialized departments (Networking, Storage, Audio, Boot, Graphics) with a shared case file. Each request creates a case folder with case.json, human.log, and debug.log. Department trait enables structured investigations with findings, evidence, and reliability hints. Human Mode shows fly-on-the-wall dialogue; Debug Mode shows full traces.
+
+### The Problem This Solves
+
+Before v0.0.66:
+```
+[you] wifi keeps disconnecting
+[anna] *runs random tools*
+[anna] Here's some network info...
+```
+
+After v0.0.66:
+```
+[you -> anna] wifi keeps disconnecting
+[service desk] Opening ticket #A-20251204-1234. Routing to Networking.
+[networking] Checking link state, IP, route, and DNS configuration.
+[networking] Link is up, IP assigned, route exists, DNS configured.
+[service desk] Summary: Network stack appears healthy. Reliability: 88%
+```
+
+### Key Features
+
+**1. Enhanced CaseFile Schema**
+- `TicketType`: Question, Incident, ChangeRequest
+- `CaseOutcome`: Pending, Answered, NeedsConfirmation, BlockedByPolicy, InsufficientEvidence, Abandoned
+- `human_transcript[]`: Human Mode lines (no tool names, no evidence IDs)
+- `evidence_summaries[]`: Human-readable evidence descriptions
+- `debug_trace_path`: Path to debug.log file
+
+**2. Case Folder Structure**
+```
+/var/lib/anna/cases/<case_id>/
+├── case.json      # Full case state
+├── human.log      # Fly-on-the-wall dialogue
+└── debug.log      # Full trace with evidence IDs
+```
+
+**3. Department Protocol**
+- `DepartmentTrait`: name(), can_handle(), required_topics(), investigate()
+- `DepartmentName`: ServiceDesk, Networking, Storage, Audio, Boot, Graphics, InfoDesk
+- `DepartmentResult`: findings, evidence_bundle, recommended_actions, reliability_hint
+- `WorkOrder`: department, goals, required_topics, max_escalations
+
+**4. Service Desk Enhancements**
+- `detect_ticket_type()`: Question vs Incident vs ChangeRequest
+- `create_work_order()`: Goals and required evidence topics
+- `create_routing_decision()`: Department, confidence, reason
+
+**5. Department Tone Tags**
+Each department has personality in Human Mode:
+- Service Desk: calm, structured, slightly terse
+- Networking: investigative, skeptical, "prove it"
+- Storage: cautious, rollback-minded
+- Audio: practical, checks stack/services/devices
+- Graphics: driver-aware, configuration-sensitive
+- Boot: timeline-focused, service-aware
+
+**6. Multi-Department Escalation (v1)**
+- `WorkOrder.can_escalate()` and `record_escalation()`
+- Max 1 additional department consultation
+- `DepartmentResult.needs_escalation` and `escalation_target`
+
+### Files Changed
+
+- `case_lifecycle.rs`: TicketType, CaseOutcome, save_human_log(), save_debug_log(), save_all()
+- `department_protocol.rs` (NEW): DepartmentTrait, DepartmentName, RoutingDecision, WorkOrder, DepartmentResult
+- `service_desk.rs`: detect_ticket_type(), create_work_order(), create_routing_decision(), DispatchResult extended
+- `narrator.rs`: ActorVoice extended with department voices, get_investigation_message(), format_department_message()
+- `config.rs`: UiConfig.show_spinner
+- `evidence_record.rs`: EvidenceBundle::empty()
+- `lib.rs`: New exports for department protocol
+
+### Integration Tests Added
+
+- `test_annactl_network_routes_to_networking_department`
+- `test_annactl_disk_routes_to_storage_department`
+- `test_annactl_human_mode_no_evidence_ids`
+- `test_annactl_debug_mode_has_details`
+- `test_annactl_department_tone_visible`
+
+---
+
+## v0.0.65 - Evidence Topics v1 + Answer Shaping
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Fixes "obviously wrong answers" where disk queries got CPU info. Introduces typed evidence system (EvidenceRecord, EvidenceBundle) that forces relevance. Evidence Router prevents hw_snapshot_summary from satisfying specific queries. AnswerShaper generates topic-appropriate responses. Junior verification now penalizes irrelevant tools (-40%). Audio/network queries don't overclaim "working" status.
+
+### The Problem This Solves
+
+Before v0.0.65:
+```
+[you] how much disk space do I have?
+[anna] You have an AMD Ryzen 9... (CPU info)  # WRONG - generic hw_snapshot!
+```
+
+After v0.0.65:
+```
+[you] how much disk space do I have?
+[anna] Root filesystem: 234 GiB total, 156 GiB free (67%)  # CORRECT - mount_usage!
+```
+
+### Key Features
+
+**1. Typed Evidence System (EvidenceRecord, EvidenceBundle)**
+- `ProbeKind`: Passive (read-only) vs Active (traffic-generating)
+- `EvidenceRecord`: topic, human_summary, debug_source, evidence_id, raw_data, timestamp, success, probe_kind, duration_ms
+- `EvidenceBundle`: records, primary_topic, complete, missing_topics
+- `EvidenceSchema`: defines required/optional fields per topic
+
+**2. Evidence Router**
+- `route_evidence()`: Determines topics and tools from request text
+- `tool_satisfies_topic()`: **Key gatekeeper** - blacklists generic tools from specific queries
+- `get_tool_for_topic()`: Returns correct tool for each evidence topic
+- Generic tools (hw_snapshot_summary, sw_snapshot_summary) can ONLY satisfy GraphicsStatus/Unknown
+
+**3. AnswerShaper**
+- `shape_answer()`: Generates topic-specific response text
+- `ShapedAnswer`: text, topic, complete, confidence_notes, evidence_summary, debug_evidence
+- Audio/network confidence_notes prevent overclaiming "working" status
+- `format_human_answer()` / `format_debug_answer()` for output modes
+
+**4. Junior Verification Upgrade**
+- `check_tool_relevance()`: Validates evidence matches query topic
+- `IRRELEVANT_TOOL_PENALTY`: -40% (caps answer at 45%)
+- `verify_answer_with_topic()`: Topic-aware verification
+- Wrong evidence type now properly penalized
+
+**5. Human Mode Evidence Descriptions**
+- Evidence shown as human-readable summaries, not tool names/IDs
+- Example: "Disk usage from mount points" not "[mount_usage]"
+
+### Evidence Topic Routing
+
+| Query | Topic | Tool | NOT Satisfied By |
+|-------|-------|------|------------------|
+| "disk space" | DiskFree | mount_usage | hw_snapshot_summary |
+| "kernel version" | KernelVersion | kernel_version | sw_snapshot_summary |
+| "memory" | MemoryUsage | memory_info | hw_snapshot_summary |
+| "audio working" | AudioStatus | audio_status | hw_snapshot_summary |
+| "network" | NetworkStatus | network_status | hw_snapshot_summary |
+
+### Confidence Notes (No Overclaiming)
+
+Audio and network queries now include confidence notes:
+```
+AudioStatus: "Audio device detection doesn't confirm playback is working"
+NetworkStatus: "Interface status doesn't confirm end-to-end connectivity"
+```
+
+### Files Changed
+
+- `evidence_record.rs` (NEW): ProbeKind, EvidenceRecord, EvidenceBundle, EvidenceSchema
+- `evidence_router.rs` (NEW): route_evidence(), tool_satisfies_topic(), get_tool_for_topic()
+- `answer_shaper.rs` (NEW): ShapedAnswer, shape_answer(), format_human_answer(), format_debug_answer()
+- `junior_rubric.rs`: check_tool_relevance(), verify_answer_with_topic(), IRRELEVANT_TOOL_PENALTY
+- `lib.rs`: New module declarations and exports
+- `cli_tests.rs`: v0.0.65 regression tests (disk, kernel, network, audio queries)
+
+### Regression Tests Added
+
+- `test_annactl_disk_query_not_cpu_info`: Disk queries must not return CPU info
+- `test_annactl_kernel_query_not_hw_summary`: Kernel queries must not return hw blob
+- `test_annactl_network_query_mentions_details`: Network queries must mention interface details
+- `test_annactl_audio_query_no_overclaim`: Audio queries must not overclaim "working"
+
+---
+
+## v0.0.64 - Service Desk Dispatcher + Doctor Lifecycle
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Every request now flows through a Service Desk dispatcher that creates a Ticket (A-YYYYMMDD-XXXX) with category and severity. Problem reports ("wifi down", "no sound") route to specialist Doctors, while informational queries use the Evidence Topic Router. Human Mode narration describes tickets, routing, and doctor actions like an IT department conversation.
+
+### The IT Department Model
+
+```
+[anna] Opening ticket #A-20251204-1234. Triage: Networking. Severity: high.
+[anna] → Routing this to Network Doctor team.
+[network_doctor] Recording symptoms: connectivity issues, wifi keeps disconnecting
+[network_doctor] Checking: interface state, wifi signal, DNS resolution
+[network_doctor] Diagnosis: Possible interference or driver issue on wlan0
+```
+
+### Key Features
+
+**1. Service Desk Dispatcher**
+- `dispatch_request()` runs FIRST, creates Ticket and RoutingPlan
+- Ticket ID format: A-YYYYMMDD-XXXX (e.g., A-20251204-1234)
+- TicketSeverity: Low, Medium, High, Critical
+- TicketCategory: Networking, Storage, Audio, Boot, Graphics, Security, Performance, Services, Packages, General
+
+**2. Problem Detection**
+- `is_problem_report()` detects problem vs informational queries
+- Problem keywords: down, broken, not working, failed, error, slow, dead, no sound, no internet, etc.
+- Informational prefixes: "what is", "how much", "show me", "list", etc.
+
+**3. Severity Heuristic**
+- Critical: "completely", "total", "nothing works"
+- High: "down", "dead", "no internet", "no sound", "not booting"
+- Medium: Problem report without outage keywords
+- Low: Informational query
+
+**4. Doctor Lifecycle Stages**
+- Intake: Record symptoms and checking points
+- EvidenceGathering: Collect diagnostic data
+- Diagnosis: Analyze findings
+- Planning: Propose next steps
+- Verification: Confirm diagnosis
+- HandOff: Return to user
+
+**5. Human Mode Narration**
+- TicketOpened: "Opening ticket #A-20251204-1234. Triage: Networking. Severity: high."
+- RoutingDecision: "Routing this to Network Doctor team."
+- DoctorStage: "[network_doctor] Recording symptoms: connectivity issues"
+
+### Routing Logic
+
+| Request Type | Route To | Example |
+|-------------|----------|---------|
+| Problem report + network keywords | Network Doctor | "wifi keeps disconnecting" |
+| Problem report + audio keywords | Audio Doctor | "no sound from speakers" |
+| Informational query | Evidence Topic Router | "how much memory do I have" |
+| General query | ServiceDesk (no doctor) | "what's the status" |
+
+### Files Changed
+
+- `service_desk.rs`: Ticket, TicketSeverity, TicketCategory, RoutingPlan, HumanNarrationPlan, dispatch_request()
+- `doctor_lifecycle.rs`: DoctorLifecycleStage, IntakeResult, DoctorLifecycleState, enhanced Doctor trait
+- `case_lifecycle.rs`: ticket_id, ticket_category, ticket_severity, doctor_stages_completed fields
+- `narrator.rs`: TicketOpened, RoutingDecision, DoctorStage events in Human and Debug modes
+- `pipeline.rs`: Service Desk dispatcher integration before translator
+- `lib.rs`: New exports for dispatch types
+
+---
+
+## v0.0.63 - Deterministic Evidence Router + Strict Validation
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Fixes "obviously wrong answers" where questions like "how much memory do I have?" would get CPU/GPU blob summaries instead of memory information. The deterministic topic router now runs BEFORE the LLM and ensures the correct domain tools are selected.
+
+### The Problem This Solves
+
+Before v0.0.63:
+```
+[you] how much memory do I have?
+[anna] (returns hw_snapshot_summary with CPU/GPU info)  # WRONG!
+```
+
+After v0.0.63:
+```
+[you] how much memory do I have?
+[anna] You have 32 GiB total memory, 12.5 GiB available.  # CORRECT!
+```
+
+### Key Features
+
+**1. Deterministic Topic Router**
+- `detect_topic()` runs BEFORE any LLM call
+- Routes common questions to the correct domain tools:
+  - "how much memory" → `memory_info` tool
+  - "disk space free" → `mount_usage` tool
+  - "kernel version" → `kernel_version` tool
+  - "network working" → `network_status` tool
+  - "audio working" → `audio_status` tool
+
+**2. Strict Answer Validation (40% Cap)**
+- If answer doesn't contain expected data, reliability is CAPPED at 40%
+- A memory question with GPU-only answer can never exceed 40%
+- Uses `cap_reliability()` function for enforcement
+
+**3. Evidence Freshness Tracking**
+- Evidence older than 5 minutes gets freshness penalty
+- 5-30 min: -5%, 30-60 min: -10%, 1-2 hours: -15%, >2 hours: -20%
+- `with_evidence_freshness()` updates validation with age penalty
+
+**4. Human Mode Narration**
+- `topic_evidence_narration()` describes collected evidence without tool names
+- Example: "To answer your memory question, I gathered: memory usage report."
+
+### Acceptance Criteria (5 Common Questions)
+
+| Question | Expected Topic | Required Content |
+|----------|---------------|------------------|
+| "how much memory do I have" | MemoryInfo | GiB/GB, total/available |
+| "how much disk is free" | DiskFree | GiB/GB, %, mount points |
+| "what kernel am I running" | KernelVersion | 6.x.x-arch, linux |
+| "is my network working" | NetworkStatus | connected/interface/wifi |
+| "is my audio working" | AudioStatus | pipewire/pulseaudio/alsa |
+
+### Files Changed
+
+- `evidence_topic.rs`: TopicValidation extended, cap_reliability, freshness tracking
+- `pipeline.rs`: Topic-based routing in classify_intent_deterministic
+- `human_labels.rs`: topic_evidence_narration, audio_status label
+- `lib.rs`: New exports for freshness functions
+- `cli_tests.rs`: Integration tests for 5 common questions
+
+---
+
+## v0.0.62 - Human Mode vs Debug Mode
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Two distinct output modes for different needs. Human Mode (default) shows a professional IT department dialogue without exposing internal implementation details. Debug Mode shows everything for troubleshooting.
+
+### Human Mode (Default)
+
+What you see:
+```
+[you] to [anna]: how much disk space is free
+
+[translator] I've reviewed your request. SystemQuery query, ReadOnly risk. (92% confident)
+
+[anna] Let me gather the relevant information.
+[annad] Evidence: disk usage for mounted filesystems
+
+[junior] Reliability 94%. Verified.
+
+[anna] to [you]: Free space on /: 50 GiB (40% free).
+
+Reliability: 94%
+Based on: disk usage snapshot
+```
+
+What you DON'T see:
+- Tool names (no `mount_usage`, `hw_snapshot_summary`)
+- Evidence IDs (no `[E1]`, `[E2]`)
+- Raw JSON or prompts
+- Parse errors or internal warnings
+- Internal struct dumps
+
+### Debug Mode (--debug)
+
+Enable with:
+- `annactl --debug "your request"`
+- `ANNA_DEBUG=1 annactl "your request"`
+- `ANNA_UI_TRANSCRIPT_MODE=debug`
+
+Shows everything:
+```
+10:24:15.123 [classification] [translator]
+    INTENT: SystemQuery
+    TARGETS: disk, storage
+    RISK: ReadOnly
+    CONFIDENCE: 92%
+    LLM_BACKED: true
+
+10:24:15.145 [tool_result] tool=mount_usage OK [E1] (22ms)
+10:24:15.200 [verification] [junior]
+    SCORE: 94%
+    CRITIQUE: (none)
+```
+
+### CLI Changes
+
+```bash
+annactl "request"           # Human Mode (default)
+annactl --debug "request"   # Debug Mode
+annactl --debug             # Debug Mode REPL
+annactl status              # Shows current mode
+```
+
+### Status Page
+
+`annactl status` now shows:
+```
+[CASES]
+  Mode:       Human (professional IT dialogue, no internals)
+              To enable debug: annactl --debug or ANNA_DEBUG=1
+```
+
+### New Files
+
+- `narrator.rs` - Narrator component with IT department voices
+
+### Technical Details
+
+New types:
+- `NarratorEvent` - All events the narrator can describe
+- `ActorVoice` - IT department role voices (Anna, Translator, Junior, etc.)
+
+Functions:
+- `get_output_mode()` - Returns current TranscriptMode
+- `is_debug_mode()` - Quick check for debug mode
+- `narrate(event)` - Renders event based on current mode
+- `topic_evidence_description(topic)` - Human-readable evidence description
+
+### Tests
+
+25 new tests ensuring:
+- Human Mode hides evidence IDs and tool names
+- Debug Mode exposes all internal details
+- Mode switching via env vars works correctly
+- All actor voices produce valid output
+
+---
+
+## v0.0.61 - Evidence Topics (Targeted Answers)
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Answers now match the question. Pre-LLM topic detection ensures disk queries return disk info, kernel queries return kernel versions, and CPU queries return CPU info. No more nonsense answers mixing unrelated data.
+
+### What This Means
+
+**Before v0.0.61:**
+```
+User: "how much disk space is free"
+Anna: [Evidence about CPU, GPU, or random system info]
+```
+
+**After v0.0.61:**
+```
+User: "how much disk space is free"
+Anna: Free space on /: 50 GiB (40% free).
+```
+
+### How It Works
+
+1. **detect_topic()** runs BEFORE the LLM translator
+2. Deterministic pattern matching identifies 13 distinct topics:
+   - CpuInfo, MemoryInfo, KernelVersion, DiskFree
+   - NetworkStatus, AudioStatus, ServiceState, RecentErrors
+   - BootTime, PackagesChanged, GraphicsStatus, Alerts, Unknown
+3. Each topic has:
+   - Required tools (e.g., DiskFree requires `mount_usage`)
+   - Required fields (e.g., DiskFree requires `root`)
+   - Answer template (e.g., "Free space on /: X GiB (Y% free)")
+4. Junior verification penalizes mismatched answers
+
+### Technical Details
+
+New types in `anna_common`:
+- `EvidenceTopic` enum - closed set of 13 topics
+- `TopicConfig` - required_tools, required_fields, evidence_description
+- `TopicDetection` - topic, confidence, secondary, service_name, is_diagnostic
+- `TopicValidation` - topic_match, missing_fields, answer_contains_value, penalty
+
+Functions:
+- `detect_topic(request)` - returns TopicDetection with confidence 0-100
+- `get_topic_config(topic)` - returns TopicConfig for routing
+- `generate_answer(topic, data)` - returns templated answer string
+- `validate_evidence(topic, data, answer)` - returns TopicValidation
+
+### New File
+
+- `evidence_topic.rs` - Core topic detection, configs, and validation
+
+---
+
 ## v0.0.60 - 3-Tier Transcript Rendering
 
 **Release Date:** 2025-12-04

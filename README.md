@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.60
+# Anna Assistant v0.0.69
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.60**: 3-Tier Transcript Rendering - Human-readable by default. Transcript mode can be `human` (default), `debug`, or `test`. Human mode shows professional IT department dialogue without tool names, evidence IDs, or raw prompts. Debug/test modes show full internal details. Set via `ANNA_UI_TRANSCRIPT_MODE` env var or `/etc/anna/config.toml`. Full debug logs always saved to case directories.
+**v0.0.69**: Service Desk Case Coordinator - CaseCoordinator runs for every request with open_case, triage, dispatch, merge_reports, compose_user_answer. DepartmentReport structured output with summary_human, findings, evidence_topics, confidence, recommended_next_steps, action_plan. Multi-department triage (primary + up to 2 supporting). Hard rules in classify_intent() fix memory/disk misclassification. Evidence topic mapping table routes queries to correct domains. Human Mode shows natural IT team coordination without internals.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 

@@ -250,10 +250,12 @@ mod tests {
 
     #[test]
     fn test_wrap_text() {
-        let text = "This is a very long line that should be wrapped";
-        let wrapped = wrap_text(text, 20);
+        // Note: wrap_text has min width of 40, so use a longer test
+        let text = "This is a very long line that should definitely be wrapped at some point because it has many words";
+        let wrapped = wrap_text(text, 50);
         for line in wrapped.lines() {
-            assert!(line.len() <= 20 || !line.contains(' '));
+            // Lines should be <= 50 chars or be single words (no space to wrap on)
+            assert!(line.len() <= 50 || !line.contains(' '), "Line too long: {}", line);
         }
     }
 

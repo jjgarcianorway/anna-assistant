@@ -1,6 +1,7 @@
-//! Anna Request Pipeline v0.0.53 - Doctor Flow v1
+//! Anna Request Pipeline v0.0.64 - Service Desk Dispatcher + Doctor Lifecycle
 //!
 //! Multi-party dialogue transcript with:
+//! - Service Desk: Dispatcher for all requests with Ticket, RoutingPlan
 //! - Translator: LLM-backed intent classification with simplified canonical format
 //! - Tool execution via read-only tool catalog with Evidence IDs
 //! - Junior: LLM verification with strict no-guessing enforcement
@@ -8,7 +9,17 @@
 //! - Doctor Flow: Interactive diagnostic flows with evidence collection
 //! - Case logging: All requests logged for troubleshooting
 //! - System Query Router: Deterministic routing to correct domain tools
+//! - Evidence Topics: Pre-LLM topic detection for targeted answers
 //!
+//! v0.0.64: Service Desk Dispatcher + Doctor Lifecycle
+//! - dispatch_request() runs FIRST, creates Ticket with id, category, severity
+//! - Problem reports route to Doctors, informational queries use Evidence Topics
+//! - Narrator provides IT department dialogue in Human Mode
+//! v0.0.63: Deterministic topic router + 40% cap for wrong answers
+//! - detect_topic() runs FIRST, routes to correct tools
+//! - Strict validation caps reliability at 40% for mismatched answers
+//! - Topic-based tool plan generation
+//! v0.0.61: Evidence Topics - detect_topic runs before LLM, answer templates
 //! v0.0.53: Doctor Flow v1 - auto-trigger, evidence-first, case-backed diagnostics
 //! v0.0.52: System Query Router for correct tool routing, Junior answer validation
 //! v0.0.44: Translator format simplified, doctor integration, case logging
@@ -56,6 +67,14 @@ use anna_common::{
     // v0.0.53: Doctor Flow
     detect_problem_phrase, DoctorFlowExecutor, DoctorFlowResult, DoctorCaseFile,
     Doctor, DiagnosticCheck, NetworkingDoctorV2,
+    // v0.0.61: Evidence Topics for targeted answers
+    // v0.0.63: cap_reliability for strict 40% cap on mismatched answers
+    EvidenceTopic, TopicDetection, TopicConfig, TopicValidation,
+    detect_topic, get_topic_config, generate_answer as topic_generate_answer, validate_evidence as topic_validate_evidence,
+    cap_reliability,
+    // v0.0.64: Service Desk Dispatcher + Narrator
+    dispatch_request, DispatchResult, Ticket, TicketSeverity, TicketCategory, RoutingPlan,
+    narrate, NarratorEvent, DoctorLifecycleStage,
 };
 use owo_colors::OwoColorize;
 use std::fmt;
@@ -822,8 +841,18 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
 fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentType, RiskLevel, Vec<String>) {
     let request_lower = request.to_lowercase();
 
-    // v0.0.52: Use System Query Router FIRST for canonical system queries
-    // This ensures disk/memory/kernel queries get the right tools
+    // v0.0.63: Use EvidenceTopic detection FIRST - this is the deterministic router
+    // detect_topic() runs before any LLM to route to correct domain tools
+    let topic_detection = detect_topic(&request_lower);
+    if topic_detection.topic != EvidenceTopic::Unknown && topic_detection.confidence >= 70 {
+        let config = get_topic_config(topic_detection.topic);
+        let tools: Vec<String> = config.required_tools.iter().map(|s| s.to_string()).collect();
+        if !tools.is_empty() {
+            return (IntentType::SystemQuery, RiskLevel::ReadOnly, tools);
+        }
+    }
+
+    // v0.0.52: Fallback to System Query Router for lower confidence matches
     let (query_target, confidence) = detect_target(&request_lower);
     if confidence >= 80 && query_target != QueryTarget::Unknown {
         let routing = get_tool_routing(query_target);
@@ -1997,8 +2026,9 @@ fn enforce_learning_claims(
     verification
 }
 
-/// v0.0.52: Validate that the answer matches the query target
-/// Returns penalized verification if answer is for wrong target
+/// v0.0.63: Enhanced answer-target validation using EvidenceTopic with strict 40% cap
+/// Uses detect_topic for deterministic routing, falls back to QueryTarget
+/// For strict topics, if answer doesn't contain expected data, score is CAPPED at 40%
 fn enforce_answer_target_correctness(
     mut verification: JuniorVerification,
     translator_output: &TranslatorOutput,
@@ -2010,10 +2040,58 @@ fn enforce_answer_target_correctness(
         return verification;
     }
 
-    // Use original request to detect what was asked
-    let (query_target, confidence) = detect_target(original_request);
+    // v0.0.63: Use detect_topic for deterministic pre-LLM detection
+    let topic_detection = detect_topic(original_request);
 
-    // Also check targets from translator
+    // If topic is known with high confidence, validate using topic system
+    if topic_detection.topic != EvidenceTopic::Unknown && topic_detection.confidence >= 70 {
+        // Create minimal evidence JSON for validation (without actual evidence data)
+        let evidence_data = serde_json::json!({});
+        let topic_validation = topic_validate_evidence(
+            topic_detection.topic,
+            &evidence_data,
+            final_answer,
+        );
+
+        // v0.0.63: Use cap_reliability to enforce strict 40% cap for mismatched answers
+        // This is the key fix: wrong answers can NEVER exceed 40% reliability
+        let capped_score = cap_reliability(verification.score, &topic_validation);
+
+        if capped_score < verification.score {
+            // Score was capped - add critique explaining why
+            if !verification.critique.is_empty() {
+                verification.critique.push_str("; ");
+            }
+
+            if topic_validation.strict_topic && topic_validation.max_reliability == Some(40) {
+                verification.critique.push_str(&format!(
+                    "STRICT CAP: {} answer required but not found (max {}%)",
+                    topic_detection.topic.human_label(),
+                    topic_validation.max_reliability.unwrap_or(100)
+                ));
+            } else {
+                verification.critique.push_str(&format!(
+                    "TOPIC MISMATCH: Expected {} answer (penalty: -{})",
+                    topic_detection.topic.human_label(),
+                    topic_validation.penalty
+                ));
+            }
+
+            if !verification.suggestions.is_empty() {
+                verification.suggestions.push_str("; ");
+            }
+            verification.suggestions.push_str(&format!(
+                "Answer should contain {} information",
+                topic_detection.topic.human_label()
+            ));
+        }
+
+        verification.score = capped_score;
+        return verification;
+    }
+
+    // Fall back to legacy QueryTarget validation
+    let (query_target, confidence) = detect_target(original_request);
     let alt_target = if let Some(first_target) = translator_output.targets.first() {
         QueryTarget::parse(first_target)
     } else {
@@ -2028,22 +2106,18 @@ fn enforce_answer_target_correctness(
         return verification; // Can't validate
     };
 
-    // Validate the answer
     let (is_valid, critique_msg) = validate_answer_for_target(target_to_check, final_answer);
 
     if !is_valid {
-        // Major penalty: answer is for wrong target
-        let penalty: u8 = 50; // Drops score by 50 points
+        let penalty: u8 = 50;
         verification.score = verification.score.saturating_sub(penalty);
 
-        // Update critique
         if !verification.critique.is_empty() {
             verification.critique.push_str("; ");
         }
         verification.critique.push_str("WRONG TARGET: ");
         verification.critique.push_str(&critique_msg);
 
-        // Update suggestions
         if !verification.suggestions.is_empty() {
             verification.suggestions.push_str("; ");
         }
@@ -2559,6 +2633,36 @@ pub async fn process(request: &str) {
     // [you] to [anna]: user's request (already shown in fast header, skip in normal flow)
     // dialogue(Actor::You, Actor::Anna, request); // Shown in print_fast_header
     // println!();
+
+    // ==========================================================================
+    // v0.0.64: Service Desk Dispatcher - runs FIRST
+    // Creates Ticket, determines routing (doctor vs evidence topic)
+    // ==========================================================================
+    let dispatch = dispatch_request(request, &[]);
+
+    // Narrate ticket opening (Human Mode: IT department dialogue)
+    narrate(&NarratorEvent::TicketOpened {
+        ticket_id: dispatch.ticket.id.clone(),
+        category: dispatch.ticket.category,
+        severity: dispatch.ticket.severity,
+    });
+
+    // Narrate routing decision
+    narrate(&NarratorEvent::RoutingDecision {
+        team_name: dispatch.routing.primary_doctor.clone(),
+        use_doctor_flow: dispatch.routing.use_doctor_flow,
+        reason: dispatch.routing.reasoning.clone(),
+    });
+
+    // Log ticket and routing info via tracing (case file doesn't have meta_tags yet)
+    tracing::info!(
+        ticket_id = %dispatch.ticket.id,
+        category = %dispatch.ticket.category.as_str(),
+        severity = %dispatch.ticket.severity.as_str(),
+        use_doctor_flow = dispatch.routing.use_doctor_flow,
+        primary_doctor = ?dispatch.routing.primary_doctor,
+        "Service Desk dispatch complete"
+    );
 
     // [anna] to [translator]: request for classification
     dialogue(

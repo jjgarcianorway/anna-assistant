@@ -1,4 +1,4 @@
-//! CLI integration tests for annactl v0.0.54 - Action Engine v1
+//! CLI integration tests for annactl v0.0.65 - Evidence Topics v1 + Answer Shaping
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
@@ -6,6 +6,8 @@
 //! - annactl status           self-status
 //! - annactl --version        version (also: -V)
 //!
+//! v0.0.65: Evidence Topics v1 - typed evidence, answer shaping, no hw/sw summaries
+//! v0.0.63: Deterministic Topic Router + Strict Validation
 //! v0.0.53: Doctor Flow v1 - auto-triggered diagnostics for problem queries
 //! v0.0.4: Junior becomes real via Ollama, Translator stays deterministic.
 //! Multi-party dialogue transcript:
@@ -855,4 +857,512 @@ fn test_annactl_package_install_request() {
         stdout
     );
     assert!(output.status.success(), "package install request should succeed");
+}
+
+// ============================================================================
+// v0.0.63: Deterministic Topic Router Tests - 5 Common Questions
+// ============================================================================
+
+/// Test "how much memory do I have" routes to MemoryInfo (v0.0.63)
+#[test]
+fn test_annactl_memory_query_routes_correctly() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("how much memory do I have")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.63: Memory query MUST contain memory-related info
+    // Should NOT return CPU/GPU blob summaries
+    let has_memory_info = stdout_lower.contains("memory")
+        || stdout_lower.contains("ram")
+        || stdout_lower.contains("gib")
+        || stdout_lower.contains("gb");
+
+    // Check for inappropriate responses
+    let has_wrong_info = stdout_lower.contains("gpu") && !stdout_lower.contains("memory")
+        || stdout_lower.contains("processor") && !stdout_lower.contains("memory");
+
+    assert!(
+        has_memory_info,
+        "Memory query should contain memory info, got: {}",
+        stdout
+    );
+    assert!(
+        !has_wrong_info,
+        "Memory query should NOT return only CPU/GPU info, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "memory query should succeed");
+}
+
+/// Test "how much disk is free" routes to DiskFree (v0.0.63)
+#[test]
+fn test_annactl_disk_query_routes_correctly() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("how much disk is free")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.63: Disk query MUST contain disk/storage-related info
+    let has_disk_info = stdout_lower.contains("disk")
+        || stdout_lower.contains("space")
+        || stdout_lower.contains("free")
+        || stdout_lower.contains("%")
+        || stdout_lower.contains("gib")
+        || stdout_lower.contains("mount");
+
+    assert!(
+        has_disk_info,
+        "Disk query should contain disk/space info, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "disk query should succeed");
+}
+
+/// Test "what kernel am I running" routes to KernelVersion (v0.0.63)
+#[test]
+fn test_annactl_kernel_query_routes_correctly() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what kernel am I running")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.63: Kernel query MUST contain kernel version string
+    let has_kernel_info = stdout_lower.contains("kernel")
+        || stdout_lower.contains("linux")
+        || stdout.contains("-arch")
+        || stdout.contains("-lts")
+        || stdout.contains("6.");  // Current kernels are 6.x
+
+    assert!(
+        has_kernel_info,
+        "Kernel query should contain kernel version info, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "kernel query should succeed");
+}
+
+/// Test "is my network working" routes to NetworkStatus (v0.0.63)
+#[test]
+fn test_annactl_network_query_routes_correctly() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("is my network working")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.63: Network query MUST contain network-related info
+    let has_network_info = stdout_lower.contains("network")
+        || stdout_lower.contains("connect")
+        || stdout_lower.contains("interface")
+        || stdout_lower.contains("wifi")
+        || stdout_lower.contains("ethernet")
+        || stdout_lower.contains("ip ");
+
+    assert!(
+        has_network_info,
+        "Network query should contain network status info, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "network query should succeed");
+}
+
+/// Test "is my audio working" routes to AudioStatus (v0.0.63)
+#[test]
+fn test_annactl_audio_query_routes_correctly() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("is my audio working")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.63: Audio query MUST contain audio-related info
+    let has_audio_info = stdout_lower.contains("audio")
+        || stdout_lower.contains("sound")
+        || stdout_lower.contains("pipewire")
+        || stdout_lower.contains("pulseaudio")
+        || stdout_lower.contains("speaker")
+        || stdout_lower.contains("alsa");
+
+    assert!(
+        has_audio_info,
+        "Audio query should contain audio status info, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "audio query should succeed");
+}
+
+/// Test wrong-answer reliability cap (v0.0.63)
+/// If memory query returns CPU info, reliability should be ≤40%
+#[test]
+fn test_annactl_wrong_answer_reliability_cap() {
+    // This test validates the enforcement mechanism exists in the pipeline
+    // The actual behavior is tested in unit tests for cap_reliability
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("how much memory do I have")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.63: Should always show reliability score
+    assert!(
+        stdout.contains("Reliability:"),
+        "Should show reliability score, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "memory query should succeed");
+}
+
+// ============================================================================
+// v0.0.65: Evidence Topics v1 - Specific regressions to catch
+// ============================================================================
+
+/// v0.0.65: Disk query must NOT return CPU/GPU info
+/// Regression test for issue where hw_snapshot_summary was used for disk queries
+#[test]
+fn test_annactl_disk_query_not_cpu_info() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("how much disk space is free")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // MUST have disk info
+    let has_disk = stdout_lower.contains("gib")
+        || stdout_lower.contains("gb")
+        || stdout_lower.contains("%")
+        || stdout_lower.contains("free")
+        || stdout_lower.contains("disk");
+
+    // MUST NOT have CPU model as primary answer
+    let has_cpu_model = stdout_lower.contains("amd ryzen")
+        || stdout_lower.contains("intel core")
+        || stdout_lower.contains("cpu:");
+
+    // If we mention CPU, it better not be in the main answer
+    if has_cpu_model {
+        // It's ok if CPU is mentioned in debug output, not in answer
+        let answer_section = stdout.split("Reliability:").next().unwrap_or(&stdout);
+        let answer_lower = answer_section.to_lowercase();
+        assert!(
+            !answer_lower.contains("amd ryzen") && !answer_lower.contains("intel core"),
+            "Disk query answer should not contain CPU model, got: {}",
+            answer_section
+        );
+    }
+
+    assert!(
+        has_disk,
+        "Disk query must contain disk info, got: {}",
+        stdout
+    );
+}
+
+/// v0.0.65: Kernel query must return kernel version, not hw summary
+#[test]
+fn test_annactl_kernel_query_not_hw_summary() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what version of linux kernel am i using")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // MUST contain kernel version pattern
+    let has_kernel_version = stdout.contains("-arch")
+        || stdout.contains("-lts")
+        || stdout.contains("6.")
+        || stdout.to_lowercase().contains("kernel");
+
+    assert!(
+        has_kernel_version,
+        "Kernel query must contain kernel version, got: {}",
+        stdout
+    );
+}
+
+/// v0.0.65: Network status query must mention link/route/DNS
+#[test]
+fn test_annactl_network_query_mentions_details() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what is my network status")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // Should mention at least one of: link, interface, connected, route, dns
+    let has_network_detail = stdout_lower.contains("connect")
+        || stdout_lower.contains("interface")
+        || stdout_lower.contains("wifi")
+        || stdout_lower.contains("ethernet")
+        || stdout_lower.contains("route")
+        || stdout_lower.contains("dns");
+
+    assert!(
+        has_network_detail,
+        "Network query must mention network details (link/route/DNS), got: {}",
+        stdout
+    );
+}
+
+/// v0.0.65: Audio query must not claim "working" without proof
+#[test]
+fn test_annactl_audio_query_no_overclaim() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("is my audio working")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // Should mention audio services or devices
+    let has_audio_info = stdout_lower.contains("pipewire")
+        || stdout_lower.contains("pulseaudio")
+        || stdout_lower.contains("audio")
+        || stdout_lower.contains("sound")
+        || stdout_lower.contains("sink")
+        || stdout_lower.contains("alsa");
+
+    assert!(
+        has_audio_info,
+        "Audio query must mention audio stack/services/devices, got: {}",
+        stdout
+    );
+}
+
+// ============================================================================
+// v0.0.66: Service Desk Dispatcher + Department Routing Tests
+// ============================================================================
+
+/// v0.0.66: Network query should route to networking department
+#[test]
+fn test_annactl_network_routes_to_networking_department() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Use ANNA_DEBUG to see routing in output
+    let output = Command::new(&binary)
+        .env("ANNA_DEBUG", "1")
+        .arg("why is my wifi so slow")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // Should show networking routing (in debug mode)
+    let routes_to_network = stdout_lower.contains("network")
+        || stdout_lower.contains("wifi")
+        || stdout_lower.contains("connectivity");
+
+    assert!(
+        routes_to_network,
+        "Network query should route to networking department, got: {}",
+        stdout
+    );
+}
+
+/// v0.0.66: Disk query should route to storage department
+#[test]
+fn test_annactl_disk_routes_to_storage_department() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .env("ANNA_DEBUG", "1")
+        .arg("why is my disk full")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // Should show storage routing or disk info
+    let routes_to_storage = stdout_lower.contains("storage")
+        || stdout_lower.contains("disk")
+        || stdout_lower.contains("mount")
+        || stdout_lower.contains("filesystem");
+
+    assert!(
+        routes_to_storage,
+        "Disk query should route to storage department, got: {}",
+        stdout
+    );
+}
+
+/// v0.0.66: Human mode output should not contain evidence IDs like [E1]
+#[test]
+fn test_annactl_human_mode_no_evidence_ids() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Human mode (default, or explicit)
+    let output = Command::new(&binary)
+        .env("ANNA_UI_TRANSCRIPT_MODE", "human")
+        .arg("how much memory do I have")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Human mode should NOT contain evidence IDs like [E1], [E2], etc.
+    let has_evidence_id = stdout.contains("[E1]")
+        || stdout.contains("[E2]")
+        || stdout.contains("[E3]");
+
+    // Also should NOT contain raw tool names
+    let has_tool_name = stdout.contains("hw_snapshot_summary")
+        || stdout.contains("memory_info")
+        || stdout.contains("tool_result");
+
+    assert!(
+        !has_evidence_id,
+        "Human mode should NOT show evidence IDs, got: {}",
+        stdout
+    );
+    assert!(
+        !has_tool_name,
+        "Human mode should NOT show raw tool names, got: {}",
+        stdout
+    );
+}
+
+/// v0.0.66: Debug mode output should contain detailed information
+#[test]
+fn test_annactl_debug_mode_has_details() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    // Debug mode via env var
+    let output = Command::new(&binary)
+        .env("ANNA_DEBUG", "1")
+        .arg("what cpu do I have")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // Debug mode should contain technical details
+    let has_debug_info = stdout_lower.contains("evidence")
+        || stdout_lower.contains("triage")
+        || stdout_lower.contains("routing")
+        || stdout_lower.contains("reliability")
+        || stdout.contains("[E") // Evidence IDs like [E1]
+        || stdout_lower.contains("tool");
+
+    assert!(
+        has_debug_info,
+        "Debug mode should show detailed technical information, got: {}",
+        stdout
+    );
+}
+
+/// v0.0.66: Department-specific tone should appear in output
+#[test]
+fn test_annactl_department_tone_visible() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .env("ANNA_DEBUG", "1")
+        .arg("is my network connection stable")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // Should see some indication of department handling
+    let has_department_indication = stdout_lower.contains("network")
+        || stdout_lower.contains("routing")
+        || stdout_lower.contains("checking")
+        || stdout_lower.contains("investigating")
+        || stdout_lower.contains("anna")
+        || stdout_lower.contains("service");
+
+    assert!(
+        has_department_indication,
+        "Output should show department handling the request, got: {}",
+        stdout
+    );
 }

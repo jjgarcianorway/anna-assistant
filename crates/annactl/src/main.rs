@@ -1,4 +1,4 @@
-//! Anna CLI (annactl) v0.0.23 - Self-Sufficiency
+//! Anna CLI (annactl) v0.0.62 - Human Mode vs Debug Mode
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
@@ -7,9 +7,14 @@
 //! - annactl reset            factory reset (requires root)
 //! - annactl uninstall        complete removal (requires root)
 //! - annactl --version        version (also: -V)
+//! - annactl --debug          enable debug mode (also: ANNA_DEBUG=1)
 //!
 //! All other commands route through natural language processing.
 //! Internal capabilities (sw, hw, snapshots) are accessed via requests.
+//!
+//! v0.0.62: Human Mode vs Debug Mode
+//! - Human Mode (default): Professional IT dialogue, no internals
+//! - Debug Mode (--debug): Full internal details, evidence IDs, timings
 //!
 //! v0.0.12: Proactive Anomaly Detection
 //! - Alert surfacing in REPL: "New alerts since last session"
@@ -33,6 +38,7 @@ mod pipeline;
 
 use anna_common::{AnnaConfig, OllamaClient, select_junior_model, AlertQueue, AnomalySeverity};
 use anna_common::model_selection::{BootstrapState, BootstrapPhase};
+use anna_common::narrator::is_debug_mode;
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
@@ -54,6 +60,15 @@ async fn main() -> Result<()> {
 
     let args: Vec<String> = env::args().skip(1).collect();
 
+    // v0.0.62: Handle --debug flag by setting ANNA_DEBUG env var
+    // This allows it to work as a prefix flag with any command
+    let args: Vec<String> = if args.first().map(|s| s.as_str()) == Some("--debug") {
+        std::env::set_var("ANNA_DEBUG", "1");
+        args.into_iter().skip(1).collect()
+    } else {
+        args
+    };
+
     match args.as_slice() {
         // annactl (no args) - REPL mode
         [] => run_repl().await,
@@ -63,6 +78,12 @@ async fn main() -> Result<()> {
 
         // annactl --help or -h (show help, not REPL)
         [cmd] if cmd == "--help" || cmd == "-h" => run_help(),
+
+        // annactl --debug (alone) - REPL mode with debug
+        [cmd] if cmd == "--debug" => {
+            std::env::set_var("ANNA_DEBUG", "1");
+            run_repl().await
+        }
 
         // annactl status - self-status
         [cmd] if cmd.eq_ignore_ascii_case("status") => commands::status::run().await,
@@ -189,6 +210,12 @@ async fn run_repl() -> Result<()> {
     println!("{}", format!("  Anna Assistant v{}", version).bold());
     println!("{}", THIN_SEP);
     println!("  Natural language interface to your system.");
+
+    // v0.0.62: Show mode indicator
+    if is_debug_mode() {
+        println!("  {} Debug mode enabled", "[DEBUG]".yellow().bold());
+        println!("         Raw prompts, evidence IDs, and timings will be shown.");
+    }
 
     // Check Junior status
     check_junior_status().await;
@@ -355,7 +382,14 @@ fn run_help() -> Result<()> {
     println!("  annactl reset            factory reset (requires root)");
     println!("  annactl uninstall        complete removal (requires root)");
     println!("  annactl --version        show version");
+    println!("  annactl --debug          enable debug mode (show internals)");
     println!("{}", THIN_SEP);
+    println!();
+    println!("  {}", "Output modes:".bold());
+    println!("    Human (default)        Professional IT dialogue, no internals");
+    println!("    Debug (--debug)        Full details: evidence IDs, timings, prompts");
+    println!();
+    println!("    Also: ANNA_DEBUG=1 or ANNA_UI_TRANSCRIPT_MODE=debug");
     println!();
     println!("  {}", "Reset options:".bold());
     println!("    --dry-run              show what would be deleted");
@@ -369,7 +403,7 @@ fn run_help() -> Result<()> {
     println!("  {}", "Examples:".bold());
     println!("    annactl \"what CPU do I have?\"");
     println!("    annactl \"is docker running?\"");
-    println!("    annactl \"show me recent errors\"");
+    println!("    annactl --debug \"show me disk space\"");
     println!();
     Ok(())
 }

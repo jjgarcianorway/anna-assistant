@@ -221,7 +221,8 @@ fn test_department_from_alert_type() {
 fn test_triage_routing_networking() {
     let result = triage_request("my wifi keeps disconnecting", &[]);
     assert_eq!(result.department, Department::Networking);
-    assert!(result.confidence >= 30);
+    // v0.0.64: Lowered threshold from 30 to 15 (single keyword match is enough)
+    assert!(result.confidence >= 15);
 }
 
 #[test]

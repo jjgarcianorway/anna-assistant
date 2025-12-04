@@ -1,4 +1,17 @@
-//! Case Lifecycle v0.0.59 - Real IT Incident Workflow
+//! Case Lifecycle v0.0.66 - IT Department Case Management
+//!
+//! v0.0.66: Service Desk Dispatcher + Department Protocol
+//! - Every request creates a case folder under /var/lib/anna/cases/<case_id>/
+//! - case.json: Full case state with ticket_type, outcome, evidence_summaries
+//! - human.log: Fly-on-the-wall dialogue (no tool names, no evidence IDs)
+//! - debug.log: Full trace with evidence IDs, tool calls, timings
+//!
+//! v0.0.64: Enhanced with Service Desk ticketing and Doctor lifecycle tracking
+//! - Ticket ID and category/severity from Service Desk
+//! - Routing plan (which doctors were selected)
+//! - Evidence topics requested
+//! - Doctor lifecycle stages completed
+//! - Coverage checks results
 //!
 //! Explicit stages that map to real IT operations:
 //! new -> triaged -> investigating -> plan_ready -> awaiting_confirmation
@@ -14,15 +27,101 @@ use std::io;
 use std::path::PathBuf;
 
 use crate::atomic_write::atomic_write_bytes;
+use crate::doctor_lifecycle::DoctorLifecycleStage;
 use crate::doctor_registry::DoctorDomain;
+use crate::evidence_topic::EvidenceTopic;
 use crate::proactive_alerts::AlertType;
 use crate::redaction::redact_transcript;
+use crate::service_desk::{TicketCategory, TicketSeverity};
 
 /// Schema version for case files v2
 pub const CASE_SCHEMA_VERSION_V2: u32 = 2;
 
 /// Base directory for case files
 pub const CASE_FILES_DIR: &str = "/var/lib/anna/cases";
+
+// ============================================================================
+// v0.0.66: Ticket Type and Case Outcome
+// ============================================================================
+
+/// Type of ticket/request
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TicketType {
+    /// User asking a question (informational)
+    #[default]
+    Question,
+    /// User reporting an incident (something is broken)
+    Incident,
+    /// User requesting a change (install, modify, etc.)
+    ChangeRequest,
+}
+
+impl TicketType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            TicketType::Question => "question",
+            TicketType::Incident => "incident",
+            TicketType::ChangeRequest => "change_request",
+        }
+    }
+
+    pub fn human_label(&self) -> &'static str {
+        match self {
+            TicketType::Question => "Question",
+            TicketType::Incident => "Incident",
+            TicketType::ChangeRequest => "Change Request",
+        }
+    }
+}
+
+impl std::fmt::Display for TicketType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.human_label())
+    }
+}
+
+/// Outcome of a case
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CaseOutcome {
+    /// Case not yet completed
+    #[default]
+    Pending,
+    /// Question answered successfully
+    Answered,
+    /// User needs to confirm before proceeding
+    NeedsConfirmation,
+    /// Blocked by policy (not allowed)
+    BlockedByPolicy,
+    /// Not enough evidence to answer/diagnose
+    InsufficientEvidence,
+    /// User abandoned the case
+    Abandoned,
+}
+
+impl CaseOutcome {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CaseOutcome::Pending => "pending",
+            CaseOutcome::Answered => "answered",
+            CaseOutcome::NeedsConfirmation => "needs_confirmation",
+            CaseOutcome::BlockedByPolicy => "blocked_by_policy",
+            CaseOutcome::InsufficientEvidence => "insufficient_evidence",
+            CaseOutcome::Abandoned => "abandoned",
+        }
+    }
+
+    pub fn is_terminal(&self) -> bool {
+        !matches!(self, CaseOutcome::Pending | CaseOutcome::NeedsConfirmation)
+    }
+}
+
+impl std::fmt::Display for CaseOutcome {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
 
 // ============================================================================
 // Case Lifecycle Stages
@@ -350,6 +449,49 @@ pub struct CaseFileV2 {
     /// Participants who contributed
     pub participants: Vec<Participant>,
 
+    // v0.0.64: Service Desk Ticketing
+    /// Service Desk ticket ID (format: A-YYYYMMDD-XXXX)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ticket_id: Option<String>,
+    /// Ticket category
+    #[serde(default)]
+    pub ticket_category: Option<TicketCategory>,
+    /// Ticket severity
+    #[serde(default)]
+    pub ticket_severity: Option<TicketSeverity>,
+    /// Primary doctor name (if routed to doctor)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub primary_doctor: Option<String>,
+    /// Secondary doctors consulted
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub secondary_doctors: Vec<String>,
+    /// Evidence topics requested
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_topics: Vec<EvidenceTopic>,
+    /// Doctor lifecycle stages completed
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub doctor_stages_completed: Vec<DoctorLifecycleStage>,
+    /// Whether doctor flow was used (vs evidence topic router)
+    #[serde(default)]
+    pub used_doctor_flow: bool,
+
+    // v0.0.66: Enhanced case tracking
+    /// Type of ticket: question, incident, or change_request
+    #[serde(default)]
+    pub ticket_type: TicketType,
+    /// Case outcome
+    #[serde(default)]
+    pub outcome: CaseOutcome,
+    /// Human-readable transcript lines (no tool names, no evidence IDs)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub human_transcript: Vec<String>,
+    /// Evidence summaries (human-readable descriptions)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_summaries: Vec<String>,
+    /// Path to debug.log file (full trace)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debug_trace_path: Option<String>,
+
     // Evidence
     /// Evidence IDs collected
     pub evidence_ids: Vec<String>,
@@ -415,6 +557,22 @@ impl CaseFileV2 {
             risk: ActionRisk::ReadOnly,
             assigned_department: Department::ServiceDesk,
             participants: vec![Participant::You, Participant::Anna],
+            // v0.0.64: Service Desk ticketing fields
+            ticket_id: None,
+            ticket_category: None,
+            ticket_severity: None,
+            primary_doctor: None,
+            secondary_doctors: Vec::new(),
+            evidence_topics: Vec::new(),
+            doctor_stages_completed: Vec::new(),
+            used_doctor_flow: false,
+            // v0.0.66: Enhanced case tracking
+            ticket_type: TicketType::Question,
+            outcome: CaseOutcome::Pending,
+            human_transcript: Vec::new(),
+            evidence_summaries: Vec::new(),
+            debug_trace_path: None,
+            // Evidence
             evidence_ids: Vec::new(),
             evidence_count: 0,
             coverage_pct: 0,
@@ -500,6 +658,43 @@ impl CaseFileV2 {
                 },
                 &format!("[{}] joined the case", participant),
             );
+        }
+    }
+
+    // =========================================================================
+    // v0.0.64: Service Desk Ticketing Methods
+    // =========================================================================
+
+    /// Set ticket information from Service Desk dispatch
+    pub fn set_ticket(
+        &mut self,
+        ticket_id: &str,
+        category: TicketCategory,
+        severity: TicketSeverity,
+    ) {
+        self.ticket_id = Some(ticket_id.to_string());
+        self.ticket_category = Some(category);
+        self.ticket_severity = Some(severity);
+    }
+
+    /// Set routing information (which doctors were selected)
+    pub fn set_routing(
+        &mut self,
+        primary_doctor: Option<String>,
+        secondary_doctors: Vec<String>,
+        evidence_topics: Vec<EvidenceTopic>,
+        use_doctor_flow: bool,
+    ) {
+        self.primary_doctor = primary_doctor;
+        self.secondary_doctors = secondary_doctors;
+        self.evidence_topics = evidence_topics;
+        self.used_doctor_flow = use_doctor_flow;
+    }
+
+    /// Record completion of a doctor lifecycle stage
+    pub fn record_doctor_stage(&mut self, stage: DoctorLifecycleStage) {
+        if !self.doctor_stages_completed.contains(&stage) {
+            self.doctor_stages_completed.push(stage);
         }
     }
 
@@ -651,6 +846,117 @@ impl CaseFileV2 {
         )?;
 
         Ok(case_dir)
+    }
+
+    // =========================================================================
+    // v0.0.66: Human/Debug Transcript Methods
+    // =========================================================================
+
+    /// Add a line to the human transcript
+    pub fn add_human_line(&mut self, line: &str) {
+        self.human_transcript.push(line.to_string());
+        self.updated_at = Utc::now();
+    }
+
+    /// Add evidence summary (human-readable description)
+    pub fn add_evidence_summary(&mut self, summary: &str) {
+        self.evidence_summaries.push(summary.to_string());
+    }
+
+    /// Set ticket type based on request analysis
+    pub fn set_ticket_type(&mut self, ticket_type: TicketType) {
+        self.ticket_type = ticket_type;
+    }
+
+    /// Set case outcome
+    pub fn set_outcome(&mut self, outcome: CaseOutcome) {
+        self.outcome = outcome;
+    }
+
+    /// Save human.log file
+    pub fn save_human_log(&self) -> io::Result<PathBuf> {
+        let case_dir = self.get_dir();
+        fs::create_dir_all(&case_dir)?;
+
+        let human_log_path = case_dir.join("human.log");
+        let content = self.render_human_transcript();
+        atomic_write_bytes(
+            &human_log_path.to_string_lossy(),
+            redact_transcript(&content).as_bytes(),
+        )?;
+
+        Ok(human_log_path)
+    }
+
+    /// Save debug.log file
+    pub fn save_debug_log(&self, debug_content: &str) -> io::Result<PathBuf> {
+        let case_dir = self.get_dir();
+        fs::create_dir_all(&case_dir)?;
+
+        let debug_log_path = case_dir.join("debug.log");
+        atomic_write_bytes(
+            &debug_log_path.to_string_lossy(),
+            redact_transcript(debug_content).as_bytes(),
+        )?;
+
+        Ok(debug_log_path)
+    }
+
+    /// Save all case files (case.json, human.log, debug.log)
+    pub fn save_all(&mut self, debug_content: &str) -> io::Result<PathBuf> {
+        let case_dir = self.get_dir();
+        fs::create_dir_all(&case_dir)?;
+
+        // Set debug trace path
+        self.debug_trace_path = Some(case_dir.join("debug.log").to_string_lossy().to_string());
+
+        // Save case.json
+        self.save()?;
+
+        // Save human.log
+        self.save_human_log()?;
+
+        // Save debug.log
+        self.save_debug_log(debug_content)?;
+
+        Ok(case_dir)
+    }
+
+    /// Render human-readable transcript (fly-on-the-wall style)
+    pub fn render_human_transcript(&self) -> String {
+        let mut lines = Vec::new();
+
+        lines.push(format!("=== Case {} ===", self.case_id));
+        lines.push(format!("Type: {} | Outcome: {}", self.ticket_type, self.outcome));
+        if let Some(ticket) = &self.ticket_id {
+            lines.push(format!("Ticket: #{}", ticket));
+        }
+        lines.push(format!("Department: {} | Reliability: {}%",
+            self.assigned_department, self.reliability_pct));
+        lines.push(String::new());
+
+        // Add human transcript lines
+        for line in &self.human_transcript {
+            lines.push(line.clone());
+        }
+
+        // Add evidence summaries if we have them
+        if !self.evidence_summaries.is_empty() {
+            lines.push(String::new());
+            lines.push("Evidence gathered:".to_string());
+            for summary in &self.evidence_summaries {
+                lines.push(format!("  - {}", summary));
+            }
+        }
+
+        // Add final answer if present
+        if let Some(answer) = &self.final_answer {
+            lines.push(String::new());
+            lines.push(format!("Summary: {}", answer));
+            lines.push(format!("Reliability: {}%", self.reliability_pct));
+        }
+
+        lines.join("\n")
     }
 
     /// Render readable transcript

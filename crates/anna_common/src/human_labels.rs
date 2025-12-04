@@ -1,4 +1,4 @@
-//! Human Labels v0.0.60 - Tool/Evidence to Human Description Registry
+//! Human Labels v0.0.63 - Tool/Evidence to Human Description Registry
 //!
 //! Maps internal tool names and evidence IDs to human-readable descriptions.
 //! Used by the human transcript mode to present a professional IT department
@@ -160,6 +160,13 @@ lazy_static! {
         action: "checking network routes",
         evidence: "routing table check",
         working: "Checking routes...",
+    });
+
+    // Audio tools
+    m.insert("audio_status", ToolLabel {
+        action: "checking audio configuration",
+        evidence: "audio device and mixer status",
+        working: "Checking audio...",
     });
 
     // Doctor tools
@@ -337,6 +344,53 @@ pub fn department_description(department: &str) -> &'static str {
 }
 
 // ============================================================================
+// v0.0.63: Topic-Aware Evidence Narration
+// ============================================================================
+
+/// Human-readable narration for evidence collection based on topic
+/// Used in Human Mode to describe what evidence was gathered without tool names
+pub fn topic_evidence_narration(topic_label: &str, tool_names: &[String]) -> String {
+    // Generate human descriptions for each tool
+    let evidence_types: Vec<String> = tool_names.iter()
+        .map(|t| tool_evidence_desc(t))
+        .collect();
+
+    if evidence_types.is_empty() {
+        return format!("I checked your {} information.", topic_label.to_lowercase());
+    }
+
+    // Build a nice narrative
+    match evidence_types.len() {
+        1 => format!(
+            "To answer your {} question, I gathered: {}.",
+            topic_label.to_lowercase(),
+            evidence_types[0]
+        ),
+        2 => format!(
+            "To answer your {} question, I gathered: {} and {}.",
+            topic_label.to_lowercase(),
+            evidence_types[0],
+            evidence_types[1]
+        ),
+        _ => {
+            let last = evidence_types.last().unwrap();
+            let rest = &evidence_types[..evidence_types.len() - 1];
+            format!(
+                "To answer your {} question, I gathered: {}, and {}.",
+                topic_label.to_lowercase(),
+                rest.join(", "),
+                last
+            )
+        }
+    }
+}
+
+/// Short progress message for evidence collection by topic
+pub fn topic_working_msg(topic_label: &str) -> String {
+    format!("Gathering {} information...", topic_label.to_lowercase())
+}
+
+// ============================================================================
 // Evidence Grouping for Human Display
 // ============================================================================
 
@@ -445,5 +499,43 @@ mod tests {
         // Should have at least hardware and software groups
         let categories: Vec<_> = groups.iter().map(|g| g.category).collect();
         assert!(categories.contains(&"Hardware"));
+    }
+
+    // v0.0.63: Topic narration tests
+    #[test]
+    fn test_topic_evidence_narration_single() {
+        let tools = vec!["memory_info".to_string()];
+        let narration = topic_evidence_narration("Memory", &tools);
+        assert!(narration.contains("memory"));
+        assert!(narration.contains("memory usage report"));
+        assert!(!narration.contains("memory_info")); // No raw tool names
+    }
+
+    #[test]
+    fn test_topic_evidence_narration_multiple() {
+        let tools = vec![
+            "network_status".to_string(),
+            "dns_check".to_string(),
+        ];
+        let narration = topic_evidence_narration("Network", &tools);
+        assert!(narration.contains("network"));
+        assert!(narration.contains("network status check"));
+        assert!(narration.contains("DNS resolution test"));
+        assert!(narration.contains(" and ")); // Uses proper grammar
+    }
+
+    #[test]
+    fn test_topic_working_msg() {
+        let msg = topic_working_msg("Disk Space");
+        assert!(msg.contains("disk space"));
+        assert!(msg.contains("Gathering"));
+    }
+
+    #[test]
+    fn test_audio_status_label() {
+        // Verify the new audio_status label is defined
+        let label = get_tool_label("audio_status");
+        assert!(label.is_some());
+        assert!(label.unwrap().evidence.contains("audio"));
     }
 }

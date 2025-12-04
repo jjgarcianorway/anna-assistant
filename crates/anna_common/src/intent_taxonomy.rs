@@ -79,7 +79,8 @@ const META_PATTERNS: &[(&str, u8)] = &[
     ("what can you do", 95), ("what are you", 90),
     ("help", 70), ("show recipes", 90), ("list recipes", 90),
     ("show memory", 85), ("show cases", 85),
-    ("version", 80), ("about anna", 90), ("who are you", 85),
+    ("anna version", 80), ("your version", 80), ("annactl version", 85),
+    ("about anna", 90), ("who are you", 85),
     ("your level", 85), ("your xp", 85), ("show stats", 85),
 ];
 
