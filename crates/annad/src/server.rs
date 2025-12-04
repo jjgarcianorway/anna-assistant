@@ -14,7 +14,7 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::time::{interval, Duration};
 use tracing::{error, info, warn};
 
-use crate::hardware::{probe_hardware, select_model};
+use crate::hardware::probe_hardware;
 use crate::health::health_check_loop;
 use crate::ollama;
 use crate::rpc_handler::handle_request;
@@ -158,33 +158,55 @@ impl Server {
             state.set_benchmark_result(cpu_status, ram_status, gpu_status);
         }
 
-        // Select model
-        let model_name = select_model(&hardware);
+        // Get required models from config
+        let required_models = {
+            let state = self.state.read().await;
+            state.config.required_models()
+        };
 
-        // Phase: Pulling model
+        // Get model roles from config
+        let (translator_model, specialist_model, supervisor_model) = {
+            let state = self.state.read().await;
+            (
+                state.config.llm.translator_model.clone(),
+                state.config.llm.specialist_model.clone(),
+                state.config.llm.supervisor_model.clone(),
+            )
+        };
+
+        // Phase: Pulling models
         {
             let mut state = self.state.write().await;
             state.set_llm_phase("pulling_models");
         }
 
-        if !ollama::has_model(&model_name).await {
-            ollama::pull_model(&model_name).await?;
-            let mut state = self.state.write().await;
-            state.ledger.add(LedgerEntry::new(
-                LedgerEntryKind::ModelPulled,
-                model_name.clone(),
-                false,
-            ));
+        for model_name in &required_models {
+            if !ollama::has_model(model_name).await {
+                info!("Pulling model: {}", model_name);
+                ollama::pull_model(model_name).await?;
+                let mut state = self.state.write().await;
+                state.ledger.add(LedgerEntry::new(
+                    LedgerEntryKind::ModelPulled,
+                    model_name.clone(),
+                    false,
+                ));
+            } else {
+                info!("Model already available: {}", model_name);
+            }
         }
 
-        // Add model to status
+        // Add models to status with their roles
         {
             let mut state = self.state.write().await;
-            state.add_model(&model_name, "general", 0);
+            state.add_model(&translator_model, "translator", 0);
+            state.add_model(&specialist_model, "specialist", 0);
+            if supervisor_model != translator_model && supervisor_model != specialist_model {
+                state.add_model(&supervisor_model, "supervisor", 0);
+            }
         }
 
-        // Run benchmark
-        let _throughput = ollama::benchmark(&model_name).await.unwrap_or(0.0);
+        // Run benchmark on specialist model (primary inference model)
+        let _throughput = ollama::benchmark(&specialist_model).await.unwrap_or(0.0);
 
         // Save ledger
         {

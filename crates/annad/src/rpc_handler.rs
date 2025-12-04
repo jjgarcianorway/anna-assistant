@@ -1,12 +1,13 @@
 //! RPC request handlers with timeouts and progress tracking.
 
-use anna_shared::progress::{ProgressEvent, RequestStage, TimeoutConfig};
+use anna_shared::progress::{ProgressEvent, RequestStage};
 use anna_shared::rpc::{ProbeResult, RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
 use tracing::{error, info, warn};
 
+use crate::config::LlmConfig;
 use crate::deterministic;
 use crate::handlers;
 use crate::ollama;
@@ -14,7 +15,7 @@ use crate::probes;
 use crate::progress_tracker::ProgressTracker;
 use crate::service_desk;
 use crate::state::SharedState;
-use crate::translator;
+use crate::translator::{self, TranslatorInput};
 
 /// Handle an RPC request
 pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
@@ -37,22 +38,23 @@ async fn handle_llm_request(
     id: String,
     params: Option<serde_json::Value>,
 ) -> RpcResponse {
-    let config = TimeoutConfig::default();
     let mut progress = ProgressTracker::new();
     let request_id = uuid::Uuid::new_v4().to_string();
 
-    // Check if LLM is ready and get model name
-    let model = {
+    // Get config, models, and hardware from state
+    let (llm_config, translator_model, specialist_model, hw_cores, hw_ram_gb, has_gpu) = {
         let state = state.read().await;
         if state.llm.state != LlmState::Ready {
             return RpcResponse::error(id, -32002, format!("LLM not ready: {}", state.llm.state));
         }
-        state
-            .llm
-            .models
-            .first()
-            .map(|m| m.name.clone())
-            .unwrap_or_else(|| "llama3.2:1b".to_string())
+        (
+            state.config.llm.clone(),
+            state.config.llm.translator_model.clone(),
+            state.config.llm.specialist_model.clone(),
+            state.hardware.cpu_cores,
+            state.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0),
+            state.hardware.gpu.is_some(),
+        )
     };
 
     // Parse parameters
@@ -78,12 +80,18 @@ async fn handle_llm_request(
     }
 
     // Step 1: Translator with timeout (fallback on failure)
-    progress.start_stage(RequestStage::Translator, config.translator_secs);
+    // Build minimal translator input (no probe output, just hw summary)
+    let translator_input = TranslatorInput::new(query, hw_cores, hw_ram_gb, has_gpu);
+    progress.start_stage(RequestStage::Translator, llm_config.translator_timeout_secs);
     let translator_timed_out;
 
     let ticket = match timeout(
-        Duration::from_secs(config.translator_secs),
-        translator::translate(&model, query),
+        Duration::from_secs(llm_config.translator_timeout_secs),
+        translator::translate_with_context(
+            &translator_model,
+            &translator_input,
+            llm_config.translator_timeout_secs,
+        ),
     )
     .await
     {
@@ -135,11 +143,11 @@ async fn handle_llm_request(
     }
 
     // Step 3: Run probes with timeout
-    progress.start_stage(RequestStage::Probes, config.probes_total_secs);
+    progress.start_stage(RequestStage::Probes, llm_config.probes_total_timeout_secs);
 
     let probe_results = match timeout(
-        Duration::from_secs(config.probes_total_secs),
-        run_probes_with_timeout(&state, &ticket, &config, &mut progress),
+        Duration::from_secs(llm_config.probes_total_timeout_secs),
+        run_probes_with_timeout(&state, &ticket, &llm_config, &mut progress),
     )
     .await
     {
@@ -176,15 +184,15 @@ async fn handle_llm_request(
     };
 
     // Step 5: Try specialist LLM, fall back to deterministic answerer on timeout/error
-    progress.start_stage(RequestStage::Specialist, config.specialist_secs);
+    progress.start_stage(RequestStage::Specialist, llm_config.specialist_timeout_secs);
 
     let system_prompt =
         service_desk::build_specialist_prompt(ticket.domain, &context, &probe_results);
     let full_prompt = format!("{}\n\nUser: {}", system_prompt, query);
 
     let (answer, used_deterministic) = match timeout(
-        Duration::from_secs(config.specialist_secs),
-        ollama::chat_with_timeout(&model, &full_prompt, config.specialist_secs),
+        Duration::from_secs(llm_config.specialist_timeout_secs),
+        ollama::chat_with_timeout(&specialist_model, &full_prompt, llm_config.specialist_timeout_secs),
     )
     .await
     {
@@ -221,7 +229,7 @@ async fn handle_llm_request(
     }
 
     // Step 6: Supervisor - build final result with proper scoring
-    progress.start_stage(RequestStage::Supervisor, config.supervisor_secs);
+    progress.start_stage(RequestStage::Supervisor, llm_config.supervisor_timeout_secs);
     progress.add_anna_response(&answer);
 
     let result = service_desk::build_result_with_flags(
@@ -269,7 +277,7 @@ fn try_deterministic_answer(
 async fn run_probes_with_timeout(
     state: &SharedState,
     ticket: &anna_shared::rpc::TranslatorTicket,
-    config: &TimeoutConfig,
+    config: &LlmConfig,
     progress: &mut ProgressTracker,
 ) -> Vec<ProbeResult> {
     let mut results = Vec::new();
@@ -305,7 +313,7 @@ async fn run_probes_with_timeout(
                 // Run probe with timeout
                 let probe_start = Instant::now();
                 let result = match timeout(
-                    Duration::from_secs(config.probe_each_secs),
+                    Duration::from_secs(config.probe_timeout_secs),
                     tokio::task::spawn_blocking({
                         let cmd = cmd.to_string();
                         move || probes::run_command_structured(&cmd)
@@ -331,7 +339,7 @@ async fn run_probes_with_timeout(
                             exit_code: -1,
                             stdout: String::new(),
                             stderr: "Probe timeout".to_string(),
-                            timing_ms: config.probe_each_secs * 1000,
+                            timing_ms: config.probe_timeout_secs * 1000,
                         }
                     }
                 };

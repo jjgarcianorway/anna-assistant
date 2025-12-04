@@ -29,15 +29,10 @@ async fn check_and_repair(state: SharedState) -> anyhow::Result<()> {
     // Check 0: Permissions - ensure anna group and user access
     check_permissions();
 
-    // Get current expected model
-    let model_name = {
+    // Get required models from config
+    let required_models = {
         let state = state.read().await;
-        state
-            .llm
-            .models
-            .first()
-            .map(|m| m.name.clone())
-            .unwrap_or_else(|| "llama3.2:1b".to_string())
+        state.config.required_models()
     };
 
     // Check 1: Is Ollama installed?
@@ -61,14 +56,16 @@ async fn check_and_repair(state: SharedState) -> anyhow::Result<()> {
         info!("Health check: Ollama restarted successfully");
     }
 
-    // Check 3: Is the model available?
-    if !ollama::has_model(&model_name).await {
-        warn!(
-            "Health check: Model {} not available, triggering repair",
-            model_name
-        );
-        trigger_repair(state.clone(), "model_missing").await?;
-        return Ok(());
+    // Check 3: Are all required models available?
+    for model_name in &required_models {
+        if !ollama::has_model(model_name).await {
+            warn!(
+                "Health check: Model {} not available, triggering repair",
+                model_name
+            );
+            trigger_repair(state.clone(), "model_missing").await?;
+            return Ok(());
+        }
     }
 
     // All checks passed - ensure state is Ready
@@ -120,15 +117,10 @@ async fn trigger_repair(state: SharedState, reason: &str) -> anyhow::Result<()> 
         state.ollama = ollama::get_status().await;
     }
 
-    // Step 3: Get the model name and ensure it's pulled
-    let model_name = {
+    // Step 3: Get required models and ensure they're pulled
+    let required_models = {
         let state = state.read().await;
-        state
-            .llm
-            .models
-            .first()
-            .map(|m| m.name.clone())
-            .unwrap_or_else(|| "llama3.2:1b".to_string())
+        state.config.required_models()
     };
 
     {
@@ -136,8 +128,11 @@ async fn trigger_repair(state: SharedState, reason: &str) -> anyhow::Result<()> 
         state.set_llm_phase("pulling_models");
     }
 
-    if !ollama::has_model(&model_name).await {
-        ollama::pull_model(&model_name).await?;
+    for model_name in &required_models {
+        if !ollama::has_model(model_name).await {
+            info!("Pulling missing model: {}", model_name);
+            ollama::pull_model(model_name).await?;
+        }
     }
 
     // Step 4: Mark ready

@@ -52,52 +52,43 @@ struct TranslatorOutput {
     confidence: f32,
 }
 
-/// Build the translator system prompt
+/// Minimal translator input - keeps payload small for fast inference
+#[derive(Debug, Clone)]
+pub struct TranslatorInput {
+    pub query: String,
+    pub hw_summary: String, // one line: "CPU cores: 8, RAM: 16GB, GPU: none"
+}
+
+impl TranslatorInput {
+    /// Create minimal input for translator
+    pub fn new(query: &str, cpu_cores: u32, ram_gb: f64, has_gpu: bool) -> Self {
+        let gpu_str = if has_gpu { "yes" } else { "none" };
+        let hw_summary = format!("CPU cores: {}, RAM: {:.0}GB, GPU: {}", cpu_cores, ram_gb, gpu_str);
+        Self {
+            query: query.to_string(),
+            hw_summary,
+        }
+    }
+}
+
+/// Build the translator system prompt - minimal, no probe output
 fn build_translator_prompt() -> String {
     format!(
-        r#"You are a query translator for a Linux system assistant. Your job is to analyze user queries and output a structured JSON ticket.
+        r#"Classify query. Output JSON only:
+{{"intent":"<question|request|investigate>","domain":"<system|network|storage|security|packages>","entities":[],"needs_probes":[],"clarification_question":null,"confidence":0.9}}
 
-STRICT OUTPUT FORMAT - You must respond with ONLY valid JSON:
-{{
-  "intent": "<question|request|investigate>",
-  "domain": "<system|network|storage|security|packages>",
-  "entities": ["list", "of", "extracted", "entities"],
-  "needs_probes": ["probe_ids", "from", "allowlist"],
-  "clarification_question": null or "question string if query is ambiguous",
-  "confidence": 0.0 to 1.0
-}}
-
-DOMAIN RULES:
-- system: CPU, memory, processes, services, systemd, logs
-- network: IP addresses, interfaces, routes, DNS, ports, connections
-- storage: disks, partitions, filesystems, mounts, space
-- security: firewalls, permissions, SELinux, AppArmor, SSH, audit
-- packages: apt, dnf, pacman, yum, install, update, upgrade
-
-INTENT RULES:
-- question: user wants information (what, which, how much, show me)
-- request: user wants action (install, start, stop, configure)
-- investigate: user wants diagnosis (why, debug, troubleshoot, fix)
-
-AVAILABLE PROBE IDS (only select from this list):
-{}
-
-PROBE SELECTION RULES:
-- For memory questions: top_memory, memory_info
-- For CPU questions: top_cpu, cpu_info
-- For disk/storage: disk_usage, block_devices
-- For network: network_addrs, network_routes, listening_ports
-- For services/errors: failed_services, system_logs
-- Select ONLY probes that will help answer the query
-
-CLARIFICATION RULES:
-- Set clarification_question if query is too vague (e.g., "help", "fix it")
-- Set confidence < 0.5 if unsure about domain or intent
-- Short queries (1-2 words) without clear intent need clarification
-
-RESPOND WITH JSON ONLY. NO OTHER TEXT."#,
-        PROBE_IDS.join(", ")
+Domains: system(CPU/memory/processes), network(IP/ports), storage(disk/mount), security(firewall/ssh), packages(apt/pacman)
+Probes: {}
+Rules: Select 1-3 probes max. Set clarification_question if query is vague.
+JSON ONLY."#,
+        PROBE_IDS.join(",")
     )
+}
+
+/// Build minimal translator request (< 2KB)
+pub fn build_translator_request(input: &TranslatorInput) -> String {
+    let prompt = build_translator_prompt();
+    format!("{}\nHW: {}\nQuery: {}", prompt, input.hw_summary, input.query)
 }
 
 /// Parse intent string to enum
@@ -130,16 +121,44 @@ fn filter_valid_probes(probes: Vec<String>) -> Vec<String> {
         .collect()
 }
 
-/// Translate user query to structured ticket using LLM
+/// Translate user query to structured ticket using LLM (with minimal input)
+pub async fn translate_with_context(
+    model: &str,
+    input: &TranslatorInput,
+    timeout_secs: u64,
+) -> Result<TranslatorTicket, String> {
+    let full_prompt = build_translator_request(input);
+
+    info!(
+        "Translator: processing query (payload {} bytes)",
+        full_prompt.len()
+    );
+
+    let response = ollama::chat_with_timeout(model, &full_prompt, timeout_secs)
+        .await
+        .map_err(|e| format!("LLM error: {}", e))?;
+
+    parse_translator_response(&response)
+}
+
+/// Legacy translate function (for compatibility/tests)
+#[allow(dead_code)]
 pub async fn translate(model: &str, query: &str) -> Result<TranslatorTicket, String> {
-    let system_prompt = build_translator_prompt();
-    let full_prompt = format!("{}\n\nUser query: {}", system_prompt, query);
+    // Use default hardware values for legacy calls
+    let input = TranslatorInput::new(query, 4, 8.0, false);
+    let full_prompt = build_translator_request(&input);
 
     info!("Translator: processing query");
 
     let response = ollama::chat(model, &full_prompt)
         .await
         .map_err(|e| format!("LLM error: {}", e))?;
+
+    parse_translator_response(&response)
+}
+
+/// Parse translator LLM response into ticket
+fn parse_translator_response(response: &str) -> Result<TranslatorTicket, String> {
 
     // Try to extract JSON from response (handle markdown code blocks)
     let json_str = extract_json(&response)?;
@@ -176,54 +195,30 @@ pub async fn translate(model: &str, query: &str) -> Result<TranslatorTicket, Str
 
 /// Extract JSON from LLM response (handles markdown code blocks)
 fn extract_json(response: &str) -> Result<String, String> {
-    let trimmed = response.trim();
-
-    // Try direct parse first
-    if trimmed.starts_with('{') && trimmed.ends_with('}') {
-        return Ok(trimmed.to_string());
-    }
-
-    // Try to extract from markdown code block
-    if let Some(start) = trimmed.find("```json") {
-        if let Some(end) = trimmed[start..]
-            .find("```\n")
-            .or(trimmed[start..].rfind("```"))
-        {
-            let json_start = start + 7; // skip ```json
-            let json_end = start + end;
-            if json_start < json_end {
-                return Ok(trimmed[json_start..json_end].trim().to_string());
-            }
+    let t = response.trim();
+    // Direct JSON
+    if t.starts_with('{') && t.ends_with('}') { return Ok(t.to_string()); }
+    // Markdown code block
+    if let Some(s) = t.find("```json") {
+        if let Some(e) = t[s..].find("```\n").or(t[s..].rfind("```")) {
+            let js = s + 7; let je = s + e;
+            if js < je { return Ok(t[js..je].trim().to_string()); }
         }
     }
-
-    // Try to extract from plain code block
-    if let Some(start) = trimmed.find("```") {
-        let after_start = start + 3;
-        if let Some(end) = trimmed[after_start..].find("```") {
-            let json_part = &trimmed[after_start..after_start + end];
-            // Skip language identifier if present
-            let json_str = json_part
-                .lines()
+    // Plain code block
+    if let Some(s) = t.find("```") {
+        if let Some(e) = t[s+3..].find("```") {
+            let json_str = t[s+3..s+3+e].lines()
                 .skip_while(|l| !l.trim().starts_with('{'))
-                .collect::<Vec<_>>()
-                .join("\n");
-            if !json_str.is_empty() {
-                return Ok(json_str);
-            }
+                .collect::<Vec<_>>().join("\n");
+            if !json_str.is_empty() { return Ok(json_str); }
         }
     }
-
-    // Try to find JSON object anywhere in response
-    if let Some(start) = trimmed.find('{') {
-        if let Some(end) = trimmed.rfind('}') {
-            if start < end {
-                return Ok(trimmed[start..=end].to_string());
-            }
-        }
+    // Find JSON anywhere
+    if let (Some(s), Some(e)) = (t.find('{'), t.rfind('}')) {
+        if s < e { return Ok(t[s..=e].to_string()); }
     }
-
-    Err("No valid JSON found in translator response".to_string())
+    Err("No valid JSON found".to_string())
 }
 
 /// Fallback keyword-based translation (used when LLM fails)
@@ -304,6 +299,9 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
     }
 }
 
+/// Maximum allowed translator payload size (8KB)
+pub const MAX_TRANSLATOR_PAYLOAD_SIZE: usize = 8192;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -353,5 +351,39 @@ mod tests {
 
         let ticket = translate_fallback("check network interfaces");
         assert_eq!(ticket.domain, SpecialistDomain::Network);
+    }
+
+    #[test]
+    fn test_translator_payload_size() {
+        // Test with typical query
+        let input = TranslatorInput::new("what processes are using the most memory", 8, 16.0, true);
+        let payload = build_translator_request(&input);
+
+        // Payload must be under 8KB
+        assert!(
+            payload.len() < MAX_TRANSLATOR_PAYLOAD_SIZE,
+            "Translator payload {} bytes exceeds max {} bytes",
+            payload.len(),
+            MAX_TRANSLATOR_PAYLOAD_SIZE
+        );
+
+        // Should be well under 2KB for typical requests
+        assert!(
+            payload.len() < 2048,
+            "Translator payload {} bytes should be under 2KB",
+            payload.len()
+        );
+    }
+
+    #[test]
+    fn test_translator_payload_minimal() {
+        let input = TranslatorInput::new("show disk space", 4, 8.0, false);
+        let payload = build_translator_request(&input);
+        // No probe output in payload
+        assert!(!payload.contains("USER       PID"));
+        assert!(!payload.contains("/dev/sda"));
+        assert!(!payload.contains("stdout"));
+        // HW summary present
+        assert!(payload.contains("CPU cores: 4"));
     }
 }

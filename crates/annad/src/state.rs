@@ -15,6 +15,8 @@ use anna_shared::{DEFAULT_UPDATE_CHECK_INTERVAL, VERSION};
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
+use crate::config::Config;
+
 /// Probe cache TTL (30 seconds)
 pub const PROBE_CACHE_TTL: Duration = Duration::from_secs(30);
 
@@ -47,6 +49,8 @@ pub struct DaemonStateInner {
     pub probe_cache: HashMap<String, CachedProbe>,
     /// Progress events for current/last request (for polling)
     pub progress_events: Vec<ProgressEvent>,
+    /// Configuration loaded from file
+    pub config: Config,
 }
 
 /// Update state tracking
@@ -87,6 +91,7 @@ impl DaemonStateInner {
             last_error: None,
             probe_cache: HashMap::new(),
             progress_events: Vec::new(),
+            config: Config::load(),
         }
     }
 

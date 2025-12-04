@@ -7,7 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.12] - 2024-12-04
+## [0.0.13] - 2025-12-04
+
+### Added
+- **Per-stage model selection**: Configure different models for each pipeline stage
+  - `translator_model`: Fast small model for query classification (default: qwen2.5:1.5b-instruct)
+  - `specialist_model`: Capable model for domain expert answers (default: qwen2.5:7b-instruct)
+  - `supervisor_model`: Validation model (default: qwen2.5:1.5b-instruct)
+- **Config file support**: `/etc/anna/config.toml` with LLM section
+- **Configurable timeouts**: Per-stage timeouts in config file
+  - `translator_timeout_secs`: 4s (default)
+  - `specialist_timeout_secs`: 12s (default)
+  - `supervisor_timeout_secs`: 6s (default)
+  - `probe_timeout_secs`: 4s (default)
+
+### Changed
+- **Translator payload minimized**: < 2KB for typical requests
+  - Inputs: user query, one-line hardware summary, probe ID list
+  - NO probe stdout/stderr, NO evidence blocks, NO long policy text
+- **Daemon pulls all required models on startup/healthcheck**
+- **Status shows all models with roles** (translator, specialist, supervisor)
+- **Models pulled based on config**, not hardware detection
+
+### Fixed
+- Translator no longer receives large probe outputs
+- Consistent timeout values across pipeline stages
+
+## [0.0.12] - 2025-12-04
 
 ### Added
 - **Deterministic Answerer**: Fallback module that answers common queries without LLM
@@ -274,7 +300,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.12...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.13...HEAD
+[0.0.13]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.12...v0.0.13
 [0.0.12]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.7...v0.0.11
 [0.0.7]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.6...v0.0.7
