@@ -1,10 +1,11 @@
 #!/bin/bash
 # Anna Installer
-# Usage: curl -sSL <url>/install.sh | sudo bash
+# Usage: curl -sSL <url>/install.sh | bash
+# Note: sudo is NOT required for curl - installer will request it when needed
 
 set -e
 
-VERSION="0.0.1"
+VERSION="0.0.2"
 REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -12,11 +13,12 @@ STATE_DIR="/var/lib/anna"
 LOG_DIR="/var/log/anna"
 SYSTEMD_DIR="/etc/systemd/system"
 
-# Colors
+# Colors (24-bit true color)
 C_HEADER=$'\033[38;2;255;210;120m'
 C_OK=$'\033[38;2;120;255;120m'
 C_ERR=$'\033[38;2;255;100;100m'
 C_DIM=$'\033[38;2;140;140;140m'
+C_CYAN=$'\033[38;2;120;200;255m'
 C_BOLD=$'\033[1m'
 C_RESET=$'\033[0m'
 
@@ -25,12 +27,24 @@ SYM_OK="✓"
 SYM_ERR="✗"
 SYM_ARROW="›"
 
+HR="${C_DIM}──────────────────────────────────────────────────────────────────────────────${C_RESET}"
+
+# Get current username
+USERNAME=$(whoami)
+
 print_header() {
     echo ""
     echo "${C_HEADER}anna-install v${VERSION}${C_RESET}"
-    echo "${C_DIM}──────────────────────────────────────────────────────────────────────────────${C_RESET}"
+    echo "$HR"
     echo "No hidden steps. Every action is shown. Checksums are mandatory."
-    echo "${C_DIM}──────────────────────────────────────────────────────────────────────────────${C_RESET}"
+    echo "$HR"
+    echo ""
+}
+
+print_greeting() {
+    echo ""
+    echo "${C_CYAN}Hello ${USERNAME}${C_RESET}, thanks a lot for giving me the opportunity to live"
+    echo "in your computer! I promise to take good care of it... and you! ;)"
     echo ""
 }
 
@@ -52,9 +66,9 @@ print_err() {
 
 print_footer() {
     echo ""
-    echo "${C_DIM}──────────────────────────────────────────────────────────────────────────────${C_RESET}"
+    echo "$HR"
     echo "Run: ${C_BOLD}annactl status${C_RESET}"
-    echo "${C_DIM}──────────────────────────────────────────────────────────────────────────────${C_RESET}"
+    echo "$HR"
     echo ""
 }
 
@@ -161,17 +175,30 @@ verify_checksums() {
     echo ""
 }
 
-# Request sudo if needed
+# Request sudo with explanation
 request_sudo() {
-    if [ "$EUID" -ne 0 ]; then
-        print_section "sudo" "needed to write to /usr/local/bin, /etc, systemd, /var/lib"
-        echo "${SYM_ARROW} Requesting sudo access..."
-        sudo -v || fail "sudo access required"
-        echo ""
-        SUDO="sudo"
-    else
+    print_section "sudo" "needed to write to /usr/local/bin, /etc, systemd, /var/lib"
+    echo ""
+    echo "  Anna needs root access to:"
+    echo "    ${SYM_ARROW} Install binaries to /usr/local/bin"
+    echo "    ${SYM_ARROW} Create config in /etc/anna"
+    echo "    ${SYM_ARROW} Create data directory in /var/lib/anna"
+    echo "    ${SYM_ARROW} Install systemd service"
+    echo ""
+
+    if [ "$EUID" -eq 0 ]; then
         SUDO=""
+        print_ok "already running as root"
+    else
+        echo "  ${SYM_ARROW} Requesting sudo access..."
+        if sudo -v; then
+            SUDO="sudo"
+            print_ok "sudo access granted"
+        else
+            fail "sudo access required but denied"
+        fi
     fi
+    echo ""
 }
 
 # Install binaries
@@ -269,6 +296,7 @@ trap cleanup EXIT
 # Main
 main() {
     print_header
+    print_greeting
     preflight
     fetch_artifacts
     verify_checksums
