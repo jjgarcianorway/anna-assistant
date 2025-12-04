@@ -1,16 +1,15 @@
 //! RPC request handlers.
 
 use anna_shared::ledger::LedgerEntryKind;
-use anna_shared::rpc::{
-    ProbeParams, RequestParams, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult,
-};
+use anna_shared::rpc::{ProbeParams, RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::ollama;
 use crate::probes;
 use crate::service_desk;
 use crate::state::SharedState;
+use crate::translator;
 
 /// Handle an RPC request
 pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
@@ -38,13 +37,19 @@ async fn handle_llm_request(
     id: String,
     params: Option<serde_json::Value>,
 ) -> RpcResponse {
-    // Check if LLM is ready
-    {
+    // Check if LLM is ready and get model name
+    let model = {
         let state = state.read().await;
         if state.llm.state != LlmState::Ready {
             return RpcResponse::error(id, -32002, format!("LLM not ready: {}", state.llm.state));
         }
-    }
+        state
+            .llm
+            .models
+            .first()
+            .map(|m| m.name.clone())
+            .unwrap_or_else(|| "llama3.2:1b".to_string())
+    };
 
     // Parse parameters
     let params: RequestParams = match params {
@@ -61,45 +66,51 @@ async fn handle_llm_request(
 
     let query = &params.prompt;
 
-    // Step 1: Check for ambiguity (clarification rules)
-    if let Some(question) = service_desk::check_ambiguity(query) {
-        let result = service_desk::create_clarification_response(&question);
+    // Step 1: Translator - convert query to structured ticket
+    info!("Step 1: Translating query");
+    let ticket = match translator::translate(&model, query).await {
+        Ok(t) => t,
+        Err(e) => {
+            warn!("LLM translator failed, using fallback: {}", e);
+            translator::translate_fallback(query)
+        }
+    };
+
+    info!(
+        "Translator: intent={}, domain={}, confidence={:.2}, probes={:?}",
+        ticket.intent, ticket.domain, ticket.confidence, ticket.needs_probes
+    );
+
+    // Step 2: Check if clarification needed
+    if let Some(question) = &ticket.clarification_question {
+        info!("Clarification needed: {}", question);
+        let question_owned = question.clone();
+        let result = service_desk::create_clarification_response(ticket, &question_owned);
         return RpcResponse::success(id, serde_json::to_value(result).unwrap());
     }
 
-    // Step 2: Translator - classify to domain
-    let domain = service_desk::translate_to_domain(query);
-    info!("Dispatcher: routing to {} specialist", domain);
+    // Step 3: Dispatcher - run probes from ticket (with caching)
+    info!("Step 3: Running probes");
+    let probe_results = run_probes_with_cache(&state, &ticket).await;
 
-    // Step 3: Dispatcher - determine required probes
-    let required_probes = service_desk::dispatch_probes(domain, query);
-    info!("Probes required: {:?}", required_probes);
+    info!(
+        "Probes executed: {} ({} successful)",
+        probe_results.len(),
+        probe_results.iter().filter(|p| p.exit_code == 0).count()
+    );
 
-    // Step 4: Run probes
-    let probe_results = service_desk::run_allowed_probes(&required_probes);
-    let probes_used: Vec<String> = probe_results
-        .iter()
-        .filter(|(_, v)| !v.starts_with("ERROR:") && !v.starts_with("DENIED:"))
-        .map(|(k, _)| k.clone())
-        .collect();
-
-    // Step 5: Build context and specialist prompt
-    let (context, model) = {
+    // Step 4: Build context and specialist prompt
+    let context = {
         let state = state.read().await;
-        let ctx = service_desk::build_context(&state.hardware, &probe_results);
-        let model = state
-            .llm
-            .models
-            .first()
-            .map(|m| m.name.clone())
-            .unwrap_or_else(|| "llama3.2:1b".to_string());
-        (ctx, model)
+        service_desk::build_context(&state.hardware, &probe_results)
     };
 
-    let system_prompt = service_desk::build_specialist_prompt(domain, &context, &probe_results);
+    let system_prompt =
+        service_desk::build_specialist_prompt(ticket.domain, &context, &probe_results);
     let full_prompt = format!("{}\n\nUser: {}", system_prompt, query);
 
-    // Step 6: Specialist - call LLM
+    // Step 5: Specialist - call LLM for answer
+    info!("Step 5: Calling specialist LLM");
     let answer = match ollama::chat(&model, &full_prompt).await {
         Ok(response) => response,
         Err(e) => {
@@ -108,27 +119,60 @@ async fn handle_llm_request(
         }
     };
 
-    // Step 7: Supervisor - estimate reliability
-    let reliability_score = service_desk::estimate_reliability(query, &probe_results, domain);
+    // Step 6: Supervisor - build result with reliability scoring
+    info!("Step 6: Building result with reliability scoring");
+    let result = service_desk::build_result(answer, ticket, probe_results);
 
     info!(
         "Request completed: domain={}, reliability={}, probes={}",
-        domain,
-        reliability_score,
-        probes_used.len()
+        result.domain,
+        result.reliability_score,
+        result.evidence.probes_executed.len()
     );
 
-    // Build unified response
-    let result = ServiceDeskResult {
-        answer,
-        reliability_score,
-        domain,
-        probes_used,
-        needs_clarification: false,
-        clarification_question: None,
-    };
-
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
+}
+
+/// Run probes with caching support
+async fn run_probes_with_cache(
+    state: &SharedState,
+    ticket: &anna_shared::rpc::TranslatorTicket,
+) -> Vec<anna_shared::rpc::ProbeResult> {
+    let mut results = Vec::new();
+
+    for probe_id in &ticket.needs_probes {
+        if let Some(cmd) = translator::probe_id_to_command(probe_id) {
+            // Check cache first
+            let cached = {
+                let state = state.read().await;
+                state.get_cached_probe(cmd)
+            };
+
+            if let Some(cached_result) = cached {
+                info!("Using cached probe result for: {}", cmd);
+                results.push(cached_result);
+            } else {
+                // Run probe and cache result
+                let result = probes::run_command_structured(cmd);
+
+                // Cache successful results
+                if result.exit_code == 0 {
+                    let mut state = state.write().await;
+                    state.cache_probe(result.clone());
+                }
+
+                results.push(result);
+            }
+        }
+    }
+
+    // Clean expired cache entries periodically
+    {
+        let mut state = state.write().await;
+        state.clean_probe_cache();
+    }
+
+    results
 }
 
 async fn handle_probe(

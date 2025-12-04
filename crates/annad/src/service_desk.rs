@@ -1,17 +1,20 @@
 //! Service desk architecture with internal roles.
 //!
 //! Roles (internal, not CLI commands):
-//! - Translator: converts user text to structured ticket
-//! - Dispatcher: Anna, routes to specialist
-//! - Specialist: domain expert (system, network, storage, security, packages)
-//! - Supervisor: validates output, requests more probes, assigns reliability score
+//! - Translator: converts user text to structured ticket (LLM-based)
+//! - Dispatcher: runs probes based on ticket
+//! - Specialist: domain expert generates answer
+//! - Supervisor: validates output, assigns reliability score
 
-use crate::probes;
 use anna_shared::rpc::{
-    Capabilities, HardwareSummary, RuntimeContext, ServiceDeskResult, SpecialistDomain,
+    Capabilities, EvidenceBlock, HardwareSummary, ProbeResult, ReliabilitySignals, RuntimeContext,
+    ServiceDeskResult, SpecialistDomain, TranslatorTicket,
 };
 use anna_shared::VERSION;
 use std::collections::HashMap;
+use tracing::info;
+
+use crate::scoring;
 
 /// Allowlist of read-only probes that specialists can request
 pub const ALLOWED_PROBES: &[&str] = &[
@@ -29,148 +32,23 @@ pub const ALLOWED_PROBES: &[&str] = &[
 ];
 
 /// Check if a probe is in the allowlist
+#[allow(dead_code)]
 pub fn is_probe_allowed(probe: &str) -> bool {
     ALLOWED_PROBES.iter().any(|p| probe.starts_with(p))
-}
-
-/// Translator role: Classify query into specialist domain
-pub fn translate_to_domain(query: &str) -> SpecialistDomain {
-    let q = query.to_lowercase();
-
-    if q.contains("network")
-        || q.contains("ip ")
-        || q.contains("interface")
-        || q.contains("dns")
-        || q.contains("ping")
-        || q.contains("route")
-        || q.contains("port")
-        || q.contains("socket")
-        || q.contains("connection")
-    {
-        return SpecialistDomain::Network;
-    }
-
-    if q.contains("disk")
-        || q.contains("storage")
-        || q.contains("space")
-        || q.contains("mount")
-        || q.contains("partition")
-        || q.contains("filesystem")
-        || q.contains("lsblk")
-        || q.contains("df ")
-    {
-        return SpecialistDomain::Storage;
-    }
-
-    if q.contains("security")
-        || q.contains("firewall")
-        || q.contains("permission")
-        || q.contains("selinux")
-        || q.contains("apparmor")
-        || q.contains("audit")
-        || q.contains("fail2ban")
-        || q.contains("ssh")
-    {
-        return SpecialistDomain::Security;
-    }
-
-    if q.contains("package")
-        || q.contains("install")
-        || q.contains("pacman")
-        || q.contains("apt")
-        || q.contains("dnf")
-        || q.contains("yum")
-        || q.contains("update")
-        || q.contains("upgrade")
-    {
-        return SpecialistDomain::Packages;
-    }
-
-    // Default to system for CPU, memory, processes, services
-    SpecialistDomain::System
-}
-
-/// Dispatcher role: Determine which probes are needed based on domain and query
-pub fn dispatch_probes(domain: SpecialistDomain, query: &str) -> Vec<String> {
-    let q = query.to_lowercase();
-    let mut probes = Vec::new();
-
-    match domain {
-        SpecialistDomain::System => {
-            if q.contains("memory") || q.contains("ram") || q.contains("process") {
-                probes.push("ps aux --sort=-%mem".to_string());
-                probes.push("free -h".to_string());
-            }
-            if q.contains("cpu") {
-                if q.contains("process") || q.contains("using") || q.contains("top") {
-                    probes.push("ps aux --sort=-%cpu".to_string());
-                }
-                probes.push("lscpu".to_string());
-            }
-            if q.contains("service") || q.contains("failed") || q.contains("systemd") {
-                probes.push("systemctl --failed".to_string());
-            }
-            if q.contains("error") || q.contains("warning") || q.contains("log") {
-                probes.push("journalctl -p warning..alert -n 200 --no-pager".to_string());
-            }
-        }
-        SpecialistDomain::Network => {
-            probes.push("ip addr show".to_string());
-            if q.contains("route") || q.contains("gateway") {
-                probes.push("ip route".to_string());
-            }
-            if q.contains("port") || q.contains("listen") || q.contains("socket") {
-                probes.push("ss -tulpn".to_string());
-            }
-        }
-        SpecialistDomain::Storage => {
-            probes.push("df -h".to_string());
-            if q.contains("disk") || q.contains("partition") || q.contains("device") {
-                probes.push("lsblk".to_string());
-            }
-        }
-        SpecialistDomain::Security => {
-            if q.contains("port") || q.contains("listen") {
-                probes.push("ss -tulpn".to_string());
-            }
-            probes.push("journalctl -p warning..alert -n 200 --no-pager".to_string());
-        }
-        SpecialistDomain::Packages => {
-            // Package queries usually don't need probes
-        }
-    }
-
-    probes
-}
-
-/// Run allowed probes and return results
-pub fn run_allowed_probes(probe_commands: &[String]) -> HashMap<String, String> {
-    let mut results = HashMap::new();
-
-    for cmd in probe_commands {
-        if !is_probe_allowed(cmd) {
-            results.insert(
-                cmd.clone(),
-                format!("DENIED: probe '{}' not in allowlist", cmd),
-            );
-            continue;
-        }
-
-        let result = probes::run_command(cmd);
-        results.insert(
-            cmd.clone(),
-            result.unwrap_or_else(|e| format!("ERROR: {}", e)),
-        );
-    }
-
-    results
 }
 
 /// Build runtime context for LLM
 pub fn build_context(
     hardware: &anna_shared::status::HardwareInfo,
-    probe_results: &HashMap<String, String>,
+    probe_results: &[ProbeResult],
 ) -> RuntimeContext {
+    // Convert structured probe results to HashMap for context
+    let probes: HashMap<String, String> = probe_results
+        .iter()
+        .filter(|p| p.exit_code == 0)
+        .map(|p| (p.command.clone(), p.stdout.clone()))
+        .collect();
+
     RuntimeContext {
         version: VERSION.to_string(),
         daemon_running: true,
@@ -185,32 +63,66 @@ pub fn build_context(
                 .as_ref()
                 .map(|g| g.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0)),
         },
-        probes: probe_results.clone(),
+        probes,
     }
 }
 
-/// Check if query is ambiguous and needs clarification
-pub fn check_ambiguity(query: &str) -> Option<String> {
-    let q = query.to_lowercase();
+/// Determine which hardware fields are relevant to the query
+pub fn get_relevant_hardware_fields(ticket: &TranslatorTicket) -> Vec<String> {
+    let mut fields = Vec::new();
 
-    // Very short queries are often ambiguous
-    if q.split_whitespace().count() <= 2 && !q.contains("cpu") && !q.contains("memory") {
-        return Some("Could you provide more details about what you'd like to know?".to_string());
+    // Always include version
+    fields.push("version".to_string());
+
+    match ticket.domain {
+        SpecialistDomain::System => {
+            fields.push("cpu_model".to_string());
+            fields.push("cpu_cores".to_string());
+            fields.push("ram_gb".to_string());
+        }
+        SpecialistDomain::Network => {
+            // Network doesn't use hardware fields directly
+        }
+        SpecialistDomain::Storage => {
+            // Storage uses probes, not hardware snapshot
+        }
+        SpecialistDomain::Security => {
+            // Security uses probes
+        }
+        SpecialistDomain::Packages => {
+            // Packages don't need hardware
+        }
     }
 
-    // "Help" without context
-    if q == "help" || q == "help me" {
-        return Some("What specifically do you need help with?".to_string());
+    // GPU if relevant
+    if ticket
+        .entities
+        .iter()
+        .any(|e| e.to_lowercase().contains("gpu"))
+    {
+        fields.push("gpu".to_string());
+        fields.push("gpu_vram_gb".to_string());
     }
 
-    None
+    fields
+}
+
+/// Build evidence block from ticket and probe results
+pub fn build_evidence(ticket: TranslatorTicket, probe_results: Vec<ProbeResult>) -> EvidenceBlock {
+    let hardware_fields = get_relevant_hardware_fields(&ticket);
+
+    EvidenceBlock {
+        hardware_fields,
+        probes_executed: probe_results,
+        translator_ticket: ticket,
+    }
 }
 
 /// Build grounded system prompt with runtime context for specialist
 pub fn build_specialist_prompt(
     domain: SpecialistDomain,
     context: &RuntimeContext,
-    probe_results: &HashMap<String, String>,
+    probe_results: &[ProbeResult],
 ) -> String {
     let specialist_intro = match domain {
         SpecialistDomain::System => {
@@ -260,8 +172,15 @@ Hardware (from system probe):
     // Add probe results if any
     if !probe_results.is_empty() {
         prompt.push_str("\n\n=== PROBE RESULTS ===");
-        for (name, result) in probe_results {
-            prompt.push_str(&format!("\n[{}]\n{}", name, result));
+        for probe in probe_results {
+            if probe.exit_code == 0 {
+                prompt.push_str(&format!("\n[{}]\n{}", probe.command, probe.stdout));
+            } else {
+                prompt.push_str(&format!(
+                    "\n[{}] FAILED (exit {}): {}",
+                    probe.command, probe.exit_code, probe.stderr
+                ));
+            }
         }
     }
 
@@ -275,6 +194,7 @@ Hardware (from system probe):
 4. If data is missing: Say exactly what data is missing.
 5. NEVER suggest manual commands when you have the data above.
 6. Use the exact version shown above when discussing Anna's version.
+7. Reference the specific data you're using in your answer.
 
 === END CONTEXT ===
 
@@ -284,56 +204,122 @@ Answer using ONLY the data provided above. Be concise and direct."#,
     prompt
 }
 
-/// Supervisor role: Estimate reliability score based on context
-pub fn estimate_reliability(
-    _query: &str,
-    probe_results: &HashMap<String, String>,
-    domain: SpecialistDomain,
-) -> u8 {
-    let mut score: u8 = 50; // Base score
-
-    // More probes = higher reliability
-    let successful_probes = probe_results
-        .values()
-        .filter(|v| !v.starts_with("ERROR:") && !v.starts_with("DENIED:"))
-        .count();
-
-    score = score.saturating_add((successful_probes * 10).min(30) as u8);
-
-    // Domain-specific adjustments
-    match domain {
-        SpecialistDomain::System | SpecialistDomain::Storage => {
-            // These domains have good probe support
-            if successful_probes > 0 {
-                score = score.saturating_add(10);
-            }
-        }
-        SpecialistDomain::Network => {
-            if probe_results.contains_key("ip addr show") {
-                score = score.saturating_add(10);
-            }
-        }
-        SpecialistDomain::Packages => {
-            // Package queries without probes are less reliable
-            score = score.saturating_sub(10);
-        }
-        SpecialistDomain::Security => {
-            // Security requires careful verification
-            score = score.saturating_sub(5);
-        }
-    }
-
-    score.min(95) // Cap at 95, never claim 100% reliability
+/// Calculate reliability signals and score
+pub fn calculate_reliability(
+    ticket: &TranslatorTicket,
+    probe_results: &[ProbeResult],
+    answer: &str,
+) -> (ReliabilitySignals, u8) {
+    let signals = scoring::calculate_signals(ticket, probe_results, answer);
+    let score = signals.score();
+    (signals, score)
 }
 
 /// Create a clarification response
-pub fn create_clarification_response(question: &str) -> ServiceDeskResult {
+pub fn create_clarification_response(
+    ticket: TranslatorTicket,
+    question: &str,
+) -> ServiceDeskResult {
+    let signals = ReliabilitySignals {
+        translator_confident: false,
+        probe_coverage: false,
+        answer_grounded: false,
+        no_invention: true,
+        clarification_not_needed: false,
+    };
+
+    let evidence = EvidenceBlock {
+        hardware_fields: vec![],
+        probes_executed: vec![],
+        translator_ticket: ticket,
+    };
+
     ServiceDeskResult {
         answer: String::new(),
-        reliability_score: 0,
+        reliability_score: signals.score(),
+        reliability_signals: signals,
         domain: SpecialistDomain::System,
-        probes_used: vec![],
+        evidence,
         needs_clarification: true,
         clarification_question: Some(question.to_string()),
+    }
+}
+
+/// Build final ServiceDeskResult
+pub fn build_result(
+    answer: String,
+    ticket: TranslatorTicket,
+    probe_results: Vec<ProbeResult>,
+) -> ServiceDeskResult {
+    let (signals, score) = calculate_reliability(&ticket, &probe_results, &answer);
+    let domain = ticket.domain;
+    let evidence = build_evidence(ticket, probe_results);
+
+    info!(
+        "Supervisor: reliability={} (confident={}, coverage={}, grounded={}, no_invention={}, no_clarify={})",
+        score,
+        signals.translator_confident,
+        signals.probe_coverage,
+        signals.answer_grounded,
+        signals.no_invention,
+        signals.clarification_not_needed
+    );
+
+    ServiceDeskResult {
+        answer,
+        reliability_score: score,
+        reliability_signals: signals,
+        domain,
+        evidence,
+        needs_clarification: false,
+        clarification_question: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anna_shared::rpc::QueryIntent;
+
+    fn make_ticket() -> TranslatorTicket {
+        TranslatorTicket {
+            intent: QueryIntent::Question,
+            domain: SpecialistDomain::System,
+            entities: vec![],
+            needs_probes: vec!["top_memory".to_string()],
+            clarification_question: None,
+            confidence: 0.8,
+        }
+    }
+
+    #[test]
+    fn test_is_probe_allowed() {
+        assert!(is_probe_allowed("ps aux --sort=-%mem"));
+        assert!(is_probe_allowed("df -h"));
+        assert!(!is_probe_allowed("rm -rf /"));
+    }
+
+    #[test]
+    fn test_get_relevant_hardware_fields() {
+        let ticket = make_ticket();
+        let fields = get_relevant_hardware_fields(&ticket);
+        assert!(fields.contains(&"cpu_model".to_string()));
+        assert!(fields.contains(&"ram_gb".to_string()));
+    }
+
+    #[test]
+    fn test_build_evidence() {
+        let ticket = make_ticket();
+        let probes = vec![ProbeResult {
+            command: "ps aux --sort=-%mem".to_string(),
+            exit_code: 0,
+            stdout: "output".to_string(),
+            stderr: String::new(),
+            timing_ms: 100,
+        }];
+
+        let evidence = build_evidence(ticket, probes);
+        assert_eq!(evidence.probes_executed.len(), 1);
+        assert!(evidence.hardware_fields.contains(&"cpu_model".to_string()));
     }
 }

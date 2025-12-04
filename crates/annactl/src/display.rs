@@ -321,14 +321,22 @@ pub fn print_transcript(prompt: &str, result: &ServiceDeskResult) {
     );
     println!("{}", result.answer);
 
-    // Show probes used if any
-    if !result.probes_used.is_empty() {
+    // Show evidence block (probes used)
+    let probes_used: Vec<&str> = result
+        .evidence
+        .probes_executed
+        .iter()
+        .filter(|p| p.exit_code == 0)
+        .map(|p| p.command.as_str())
+        .collect();
+
+    if !probes_used.is_empty() {
         println!();
         println!(
             "{}probes:{} {}",
             colors::DIM,
             colors::RESET,
-            result.probes_used.join(", ")
+            probes_used.join(", ")
         );
     }
 

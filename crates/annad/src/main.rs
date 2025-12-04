@@ -6,9 +6,11 @@ mod ollama;
 mod permissions;
 mod probes;
 mod rpc_handler;
+mod scoring;
 mod server;
 mod service_desk;
 mod state;
+mod translator;
 mod update;
 
 use anyhow::Result;

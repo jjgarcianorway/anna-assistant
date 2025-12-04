@@ -1,4 +1,4 @@
-# Anna Specification v0.0.7
+# Anna Specification v0.0.8
 
 This document is the authoritative specification for Anna. All implementation
 must conform to this spec. If code and spec conflict, update spec first, then code.
@@ -79,18 +79,20 @@ No other commands or flags are permitted.
 - If annad is unreachable, display error and suggest re-running installer
 - If problems detected, automatically trigger autofix via annad
 
-## Service Desk Architecture (v0.0.7)
+## Service Desk Architecture (v0.0.8)
 
 Anna implements a service desk with internal roles (not CLI commands):
 
 ### Internal Roles
 
-1. **Translator**: Converts user text to structured intent
-   - Classifies query into specialist domain
-   - Detects ambiguity and need for clarification
+1. **Translator** (LLM-based): Converts user text to structured JSON ticket
+   - Returns strict JSON with: intent, domain, entities, needs_probes, clarification_question, confidence
+   - May only select known domains and probe IDs from allowlist
+   - Falls back to keyword matching if LLM fails
 
 2. **Dispatcher**: Routes to appropriate specialist
-   - Determines required probes based on domain and query
+   - Runs probes requested in translator ticket
+   - Caches probe results for 30 seconds (TTL)
    - Selects specialist for the domain
 
 3. **Specialist**: Domain expert with deep knowledge
@@ -100,9 +102,39 @@ Anna implements a service desk with internal roles (not CLI commands):
    - **Security**: Permissions, firewalls, audit, ssh
    - **Packages**: Package managers, installation, updates
 
-4. **Supervisor**: Quality control
-   - Estimates reliability score (0-100)
+4. **Supervisor**: Quality control with deterministic scoring
+   - Calculates reliability score from concrete signals (not vibes)
+   - Builds evidence block showing data sources
    - Validates response is grounded in probe data
+
+### Translator Ticket Format
+
+```json
+{
+  "intent": "question|request|investigate",
+  "domain": "system|network|storage|security|packages",
+  "entities": ["process_name", "service_name", ...],
+  "needs_probes": ["top_memory", "cpu_info", ...],
+  "clarification_question": null | "What do you mean?",
+  "confidence": 0.0-1.0
+}
+```
+
+### Probe IDs (maps to allowlist commands)
+
+| Probe ID | Command |
+|----------|---------|
+| top_memory | `ps aux --sort=-%mem` |
+| top_cpu | `ps aux --sort=-%cpu` |
+| cpu_info | `lscpu` |
+| memory_info | `free -h` |
+| disk_usage | `df -h` |
+| block_devices | `lsblk` |
+| network_addrs | `ip addr show` |
+| network_routes | `ip route` |
+| listening_ports | `ss -tulpn` |
+| failed_services | `systemctl --failed` |
+| system_logs | `journalctl -p warning..alert -n 200 --no-pager` |
 
 ### Probe Allowlist (Read-Only)
 
@@ -121,13 +153,54 @@ Only these commands are allowed for probes:
 
 Any command not in this list is DENIED.
 
+### Structured Probe Results
+
+Probe results include metadata for evidence tracking:
+```json
+{
+  "command": "ps aux --sort=-%mem",
+  "exit_code": 0,
+  "stdout": "USER PID %MEM...",
+  "stderr": "",
+  "timing_ms": 45
+}
+```
+
+### Deterministic Reliability Scoring
+
+The reliability score is calculated from 5 boolean signals, each worth 20 points:
+
+| Signal | Condition | Points |
+|--------|-----------|--------|
+| translator_confident | confidence >= 0.7 | 20 |
+| probe_coverage | all requested probes succeeded | 20 |
+| answer_grounded | answer references probe/hardware data | 20 |
+| no_invention | no hedging words (probably, typically, etc.) | 20 |
+| clarification_not_needed | no clarification question | 20 |
+
+**Formula**: `score = sum(signal * 20 for signal in signals)`
+
+This is deterministic: same inputs always produce the same score.
+
+### Evidence Block
+
+Every response includes an evidence block showing exactly what data was used:
+```json
+{
+  "hardware_fields": ["cpu_model", "ram_gb", "version"],
+  "probes_executed": [/* ProbeResult objects */],
+  "translator_ticket": {/* TranslatorTicket object */}
+}
+```
+
 ### Response Format
 
 Every response includes:
 - `answer`: The LLM's response text
-- `reliability_score`: 0-100 confidence rating
+- `reliability_score`: 0-100 deterministic score from signals
+- `reliability_signals`: The 5 boolean signals used to calculate score
 - `domain`: Which specialist handled it (system/network/storage/security/packages)
-- `probes_used`: List of probes that were run
+- `evidence`: Evidence block with hardware_fields, probes_executed, translator_ticket
 - `needs_clarification`: Whether more info is needed
 - `clarification_question`: Question to ask if clarification needed
 
@@ -149,9 +222,12 @@ probes: <list of probes used>
 
 ### Clarification Rules
 
-Clarification is requested when:
-- Query has 2 or fewer words (except "cpu" or "memory")
-- Query is just "help" or "help me"
+Clarification is requested when (determined by LLM translator):
+- Query is too vague to classify with confidence
+- LLM translator sets clarification_question and low confidence
+- Falls back to keyword rules if LLM fails:
+  - Query has 2 or fewer words (except "cpu" or "memory")
+  - Query is just "help" or "help me"
 
 ## LLM Pipeline
 
@@ -224,5 +300,5 @@ curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/s
 
 ## Version
 
-- Version: 0.0.7
-- Status: Service desk with unified output and reliability scores
+- Version: 0.0.8
+- Status: Evidence-based dispatch and deterministic reliability scoring

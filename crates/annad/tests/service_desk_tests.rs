@@ -1,69 +1,18 @@
 //! Integration tests for service desk architecture.
 //!
 //! These tests verify:
-//! - Domain classification consistency
+//! - Translator ticket structure
 //! - Probe allowlist security
-//! - Reliability scoring
+//! - Reliability scoring (deterministic)
 //! - Response format consistency
+//! - Evidence block structure
 
-use anna_shared::rpc::{ServiceDeskResult, SpecialistDomain};
-use std::collections::HashMap;
+use anna_shared::rpc::{
+    EvidenceBlock, ProbeResult, QueryIntent, ReliabilitySignals, ServiceDeskResult,
+    SpecialistDomain, TranslatorTicket,
+};
 
-// Re-implement key service desk functions for testing
-// (mirrors service_desk.rs logic)
-
-fn translate_to_domain(query: &str) -> SpecialistDomain {
-    let q = query.to_lowercase();
-
-    if q.contains("network")
-        || q.contains("ip ")
-        || q.contains("interface")
-        || q.contains("dns")
-        || q.contains("ping")
-        || q.contains("route")
-        || q.contains("port")
-        || q.contains("socket")
-        || q.contains("connection")
-    {
-        return SpecialistDomain::Network;
-    }
-
-    if q.contains("disk")
-        || q.contains("storage")
-        || q.contains("space")
-        || q.contains("mount")
-        || q.contains("partition")
-        || q.contains("filesystem")
-    {
-        return SpecialistDomain::Storage;
-    }
-
-    if q.contains("security")
-        || q.contains("firewall")
-        || q.contains("permission")
-        || q.contains("selinux")
-        || q.contains("apparmor")
-        || q.contains("audit")
-        || q.contains("fail2ban")
-        || q.contains("ssh")
-    {
-        return SpecialistDomain::Security;
-    }
-
-    if q.contains("package")
-        || q.contains("install")
-        || q.contains("pacman")
-        || q.contains("apt")
-        || q.contains("dnf")
-        || q.contains("yum")
-        || q.contains("update")
-        || q.contains("upgrade")
-    {
-        return SpecialistDomain::Packages;
-    }
-
-    SpecialistDomain::System
-}
+// === Probe Allowlist Constants (mirrors service_desk.rs) ===
 
 const ALLOWED_PROBES: &[&str] = &[
     "ps aux --sort=-%mem",
@@ -83,110 +32,45 @@ fn is_probe_allowed(probe: &str) -> bool {
     ALLOWED_PROBES.iter().any(|p| probe.starts_with(p))
 }
 
-// === Domain Classification Tests ===
+// === Helper Functions ===
 
-#[test]
-fn test_memory_queries_route_to_system() {
-    assert_eq!(
-        translate_to_domain("what is using all my memory"),
-        SpecialistDomain::System
-    );
-    assert_eq!(
-        translate_to_domain("show me memory usage"),
-        SpecialistDomain::System
-    );
-    assert_eq!(
-        translate_to_domain("which process uses most RAM"),
-        SpecialistDomain::System
-    );
+fn make_ticket(domain: SpecialistDomain, probes: Vec<&str>, confidence: f32) -> TranslatorTicket {
+    TranslatorTicket {
+        intent: QueryIntent::Question,
+        domain,
+        entities: vec![],
+        needs_probes: probes.into_iter().map(String::from).collect(),
+        clarification_question: None,
+        confidence,
+    }
 }
 
-#[test]
-fn test_cpu_queries_route_to_system() {
-    assert_eq!(
-        translate_to_domain("what is using cpu"),
-        SpecialistDomain::System
-    );
-    assert_eq!(
-        translate_to_domain("show cpu information"),
-        SpecialistDomain::System
-    );
+fn make_probe_result(cmd: &str, exit_code: i32, stdout: &str) -> ProbeResult {
+    ProbeResult {
+        command: cmd.to_string(),
+        exit_code,
+        stdout: stdout.to_string(),
+        stderr: String::new(),
+        timing_ms: 100,
+    }
 }
 
-#[test]
-fn test_network_queries_route_to_network() {
-    assert_eq!(
-        translate_to_domain("show my ip address"),
-        SpecialistDomain::Network
-    );
-    assert_eq!(
-        translate_to_domain("what ports are listening"),
-        SpecialistDomain::Network
-    );
-    assert_eq!(
-        translate_to_domain("check network interfaces"),
-        SpecialistDomain::Network
-    );
-    assert_eq!(
-        translate_to_domain("show route table"),
-        SpecialistDomain::Network
-    );
+fn make_evidence(ticket: TranslatorTicket, probes: Vec<ProbeResult>) -> EvidenceBlock {
+    EvidenceBlock {
+        hardware_fields: vec!["cpu_model".to_string(), "ram_gb".to_string()],
+        probes_executed: probes,
+        translator_ticket: ticket,
+    }
 }
 
-#[test]
-fn test_disk_queries_route_to_storage() {
-    assert_eq!(
-        translate_to_domain("how much disk space"),
-        SpecialistDomain::Storage
-    );
-    assert_eq!(
-        translate_to_domain("show storage usage"),
-        SpecialistDomain::Storage
-    );
-    assert_eq!(
-        translate_to_domain("list partitions"),
-        SpecialistDomain::Storage
-    );
-    assert_eq!(
-        translate_to_domain("check filesystem"),
-        SpecialistDomain::Storage
-    );
-}
-
-#[test]
-fn test_security_queries_route_to_security() {
-    assert_eq!(
-        translate_to_domain("check security settings"),
-        SpecialistDomain::Security
-    );
-    assert_eq!(
-        translate_to_domain("show ssh logs"),
-        SpecialistDomain::Security
-    );
-    assert_eq!(
-        translate_to_domain("audit file permissions"),
-        SpecialistDomain::Security
-    );
-    assert_eq!(
-        translate_to_domain("selinux status"),
-        SpecialistDomain::Security
-    );
-}
-
-#[test]
-fn test_package_queries_route_to_packages() {
-    assert_eq!(
-        translate_to_domain("install nodejs"),
-        SpecialistDomain::Packages
-    );
-    assert_eq!(
-        translate_to_domain("update packages"),
-        SpecialistDomain::Packages
-    );
-    assert_eq!(
-        translate_to_domain("pacman -S firefox"),
-        SpecialistDomain::Packages
-    );
+fn make_signals(confident: bool, coverage: bool, grounded: bool) -> ReliabilitySignals {
+    ReliabilitySignals {
+        translator_confident: confident,
+        probe_coverage: coverage,
+        answer_grounded: grounded,
+        no_invention: true,
+        clarification_not_needed: true,
+    }
 }
 
 // === Probe Allowlist Security Tests ===
@@ -233,32 +117,129 @@ fn test_partial_matches_work() {
     assert!(is_probe_allowed("ip addr show"));
 }
 
+// === TranslatorTicket Tests ===
+
+#[test]
+fn test_translator_ticket_structure() {
+    let ticket = make_ticket(SpecialistDomain::System, vec!["top_memory"], 0.85);
+
+    assert_eq!(ticket.intent, QueryIntent::Question);
+    assert_eq!(ticket.domain, SpecialistDomain::System);
+    assert_eq!(ticket.needs_probes.len(), 1);
+    assert!(ticket.confidence > 0.7);
+    assert!(ticket.clarification_question.is_none());
+}
+
+#[test]
+fn test_translator_ticket_with_clarification() {
+    let ticket = TranslatorTicket {
+        intent: QueryIntent::Question,
+        domain: SpecialistDomain::System,
+        entities: vec![],
+        needs_probes: vec![],
+        clarification_question: Some("Could you provide more details?".to_string()),
+        confidence: 0.3,
+    };
+
+    assert!(ticket.clarification_question.is_some());
+    assert!(ticket.confidence < 0.5);
+}
+
+// === Reliability Signals Tests ===
+
+#[test]
+fn test_reliability_score_calculation() {
+    // All signals true = 100
+    let signals = ReliabilitySignals {
+        translator_confident: true,
+        probe_coverage: true,
+        answer_grounded: true,
+        no_invention: true,
+        clarification_not_needed: true,
+    };
+    assert_eq!(signals.score(), 100);
+
+    // All signals false = 0
+    let signals = ReliabilitySignals {
+        translator_confident: false,
+        probe_coverage: false,
+        answer_grounded: false,
+        no_invention: false,
+        clarification_not_needed: false,
+    };
+    assert_eq!(signals.score(), 0);
+
+    // Each signal = 20 points
+    let signals = ReliabilitySignals {
+        translator_confident: true,
+        probe_coverage: false,
+        answer_grounded: false,
+        no_invention: false,
+        clarification_not_needed: false,
+    };
+    assert_eq!(signals.score(), 20);
+}
+
+#[test]
+fn test_reliability_score_deterministic() {
+    // Same inputs must always produce same score
+    let signals1 = make_signals(true, true, false);
+    let signals2 = make_signals(true, true, false);
+
+    assert_eq!(signals1.score(), signals2.score());
+    assert_eq!(signals1.score(), 80); // confident + coverage + no_invention + no_clarify
+}
+
 // === ServiceDeskResult Format Tests ===
 
 #[test]
 fn test_service_desk_result_structure() {
+    let ticket = make_ticket(SpecialistDomain::System, vec!["top_memory"], 0.85);
+    let probes = vec![make_probe_result("ps aux --sort=-%mem", 0, "output")];
+    let evidence = make_evidence(ticket, probes);
+    let signals = make_signals(true, true, true);
+
     let result = ServiceDeskResult {
         answer: "Test answer".to_string(),
-        reliability_score: 75,
+        reliability_score: signals.score(),
+        reliability_signals: signals,
         domain: SpecialistDomain::System,
-        probes_used: vec!["ps aux --sort=-%mem".to_string()],
+        evidence,
         needs_clarification: false,
         clarification_question: None,
     };
 
     assert!(!result.answer.is_empty());
     assert!(result.reliability_score <= 100);
-    assert!(!result.probes_used.is_empty());
+    assert!(!result.evidence.probes_executed.is_empty());
     assert!(!result.needs_clarification);
 }
 
 #[test]
 fn test_clarification_response_format() {
+    let ticket = TranslatorTicket {
+        intent: QueryIntent::Question,
+        domain: SpecialistDomain::System,
+        entities: vec![],
+        needs_probes: vec![],
+        clarification_question: Some("Could you provide more details?".to_string()),
+        confidence: 0.2,
+    };
+    let evidence = make_evidence(ticket, vec![]);
+    let signals = ReliabilitySignals {
+        translator_confident: false,
+        probe_coverage: false,
+        answer_grounded: false,
+        no_invention: true,
+        clarification_not_needed: false,
+    };
+
     let result = ServiceDeskResult {
         answer: String::new(),
-        reliability_score: 0,
+        reliability_score: signals.score(),
+        reliability_signals: signals,
         domain: SpecialistDomain::System,
-        probes_used: vec![],
+        evidence,
         needs_clarification: true,
         clarification_question: Some("Could you provide more details?".to_string()),
     };
@@ -266,36 +247,40 @@ fn test_clarification_response_format() {
     assert!(result.needs_clarification);
     assert!(result.clarification_question.is_some());
     assert!(result.answer.is_empty());
-    assert_eq!(result.reliability_score, 0);
+    assert_eq!(result.reliability_score, 20); // Only no_invention is true
 }
 
-// === Reliability Score Tests ===
+// === Evidence Block Tests ===
 
 #[test]
-fn test_reliability_score_range() {
-    // Reliability should always be 0-100
-    for score in [0u8, 50, 75, 95, 100] {
-        assert!(score <= 100, "Score {} exceeds 100", score);
-    }
+fn test_evidence_block_contains_probes() {
+    let ticket = make_ticket(SpecialistDomain::System, vec!["top_memory"], 0.9);
+    let probes = vec![
+        make_probe_result("ps aux --sort=-%mem", 0, "USER PID %MEM"),
+        make_probe_result("free -h", 0, "total 16G"),
+    ];
+    let evidence = make_evidence(ticket, probes);
+
+    assert_eq!(evidence.probes_executed.len(), 2);
+    assert!(evidence.probes_executed.iter().all(|p| p.exit_code == 0));
 }
 
 #[test]
-fn test_reliability_increases_with_probes() {
-    // More successful probes should increase reliability
-    let probes_0: HashMap<String, String> = HashMap::new();
-    let mut probes_1: HashMap<String, String> = HashMap::new();
-    probes_1.insert("ps aux".to_string(), "output".to_string());
-    let mut probes_2: HashMap<String, String> = HashMap::new();
-    probes_2.insert("ps aux".to_string(), "output".to_string());
-    probes_2.insert("free -h".to_string(), "output".to_string());
+fn test_evidence_block_includes_ticket() {
+    let ticket = make_ticket(SpecialistDomain::Network, vec!["network_addrs"], 0.75);
+    let evidence = make_evidence(ticket, vec![]);
 
-    // Simulate scoring logic
-    let score_0 = 50 + (probes_0.len() * 10).min(30) as u8;
-    let score_1 = 50 + (probes_1.len() * 10).min(30) as u8;
-    let score_2 = 50 + (probes_2.len() * 10).min(30) as u8;
+    assert_eq!(evidence.translator_ticket.domain, SpecialistDomain::Network);
+    assert!(evidence.translator_ticket.confidence >= 0.7);
+}
 
-    assert!(score_1 > score_0, "One probe should score higher than none");
-    assert!(score_2 > score_1, "Two probes should score higher than one");
+#[test]
+fn test_evidence_block_hardware_fields() {
+    let ticket = make_ticket(SpecialistDomain::System, vec![], 0.8);
+    let evidence = make_evidence(ticket, vec![]);
+
+    assert!(evidence.hardware_fields.contains(&"cpu_model".to_string()));
+    assert!(evidence.hardware_fields.contains(&"ram_gb".to_string()));
 }
 
 // === Domain Display Tests ===
@@ -309,48 +294,63 @@ fn test_domain_display() {
     assert_eq!(format!("{}", SpecialistDomain::Packages), "packages");
 }
 
-// === Output Consistency Tests (Golden Tests) ===
+#[test]
+fn test_intent_display() {
+    assert_eq!(format!("{}", QueryIntent::Question), "question");
+    assert_eq!(format!("{}", QueryIntent::Request), "request");
+    assert_eq!(format!("{}", QueryIntent::Investigate), "investigate");
+}
+
+// === ProbeResult Tests ===
 
 #[test]
-fn test_response_has_required_fields() {
-    // Any ServiceDeskResult must have these fields
+fn test_probe_result_success() {
+    let result = make_probe_result("df -h", 0, "Filesystem Size Used");
+    assert_eq!(result.exit_code, 0);
+    assert!(!result.stdout.is_empty());
+    assert!(result.stderr.is_empty());
+}
+
+#[test]
+fn test_probe_result_failure() {
+    let result = ProbeResult {
+        command: "invalid_cmd".to_string(),
+        exit_code: 127,
+        stdout: String::new(),
+        stderr: "command not found".to_string(),
+        timing_ms: 50,
+    };
+    assert_ne!(result.exit_code, 0);
+    assert!(!result.stderr.is_empty());
+}
+
+// === Golden Tests ===
+
+#[test]
+fn test_response_has_all_required_fields() {
+    let ticket = make_ticket(SpecialistDomain::System, vec!["top_memory"], 0.8);
+    let probes = vec![make_probe_result("ps aux --sort=-%mem", 0, "output")];
+    let evidence = make_evidence(ticket, probes);
+    let signals = make_signals(true, true, true);
+
     let result = ServiceDeskResult {
         answer: "The top memory process is...".to_string(),
-        reliability_score: 80,
+        reliability_score: signals.score(),
+        reliability_signals: signals,
         domain: SpecialistDomain::System,
-        probes_used: vec!["ps aux --sort=-%mem".to_string()],
+        evidence,
         needs_clarification: false,
         clarification_question: None,
     };
 
-    // These fields are required for unified display
+    // All required fields exist and are accessible
     let _ = &result.answer;
     let _ = &result.reliability_score;
+    let _ = &result.reliability_signals;
     let _ = &result.domain;
-    let _ = &result.probes_used;
+    let _ = &result.evidence;
     let _ = &result.needs_clarification;
-}
-
-#[test]
-fn test_ambiguous_query_detection() {
-    // Very short queries should trigger clarification
-    fn check_ambiguity(query: &str) -> Option<String> {
-        let q = query.to_lowercase();
-        if q.split_whitespace().count() <= 2 && !q.contains("cpu") && !q.contains("memory") {
-            return Some("Could you provide more details?".to_string());
-        }
-        if q == "help" || q == "help me" {
-            return Some("What specifically do you need help with?".to_string());
-        }
-        None
-    }
-
-    assert!(check_ambiguity("fix it").is_some());
-    assert!(check_ambiguity("help").is_some());
-    assert!(check_ambiguity("help me").is_some());
-
-    // But specific queries should not trigger clarification
-    assert!(check_ambiguity("what is using cpu").is_none());
-    assert!(check_ambiguity("show me memory usage").is_none());
-    assert!(check_ambiguity("what processes are using the most memory").is_none());
+    let _ = &result.evidence.translator_ticket;
+    let _ = &result.evidence.probes_executed;
+    let _ = &result.evidence.hardware_fields;
 }

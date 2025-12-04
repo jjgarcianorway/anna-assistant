@@ -152,7 +152,6 @@ impl Default for HardwareInfo {
     }
 }
 
-
 impl Default for LlmStatus {
     fn default() -> Self {
         Self {

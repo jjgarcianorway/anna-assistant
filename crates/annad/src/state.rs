@@ -1,9 +1,11 @@
 //! Daemon state management.
 
+use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anna_shared::ledger::Ledger;
+use anna_shared::rpc::ProbeResult;
 use anna_shared::status::{
     BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus, ModelInfo,
     OllamaStatus, ProgressInfo, UpdateStatus,
@@ -11,6 +13,22 @@ use anna_shared::status::{
 use anna_shared::{DEFAULT_UPDATE_CHECK_INTERVAL, VERSION};
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
+
+/// Probe cache TTL (30 seconds)
+pub const PROBE_CACHE_TTL: Duration = Duration::from_secs(30);
+
+/// Cached probe result with timestamp
+#[derive(Debug, Clone)]
+pub struct CachedProbe {
+    pub result: ProbeResult,
+    pub cached_at: Instant,
+}
+
+impl CachedProbe {
+    pub fn is_valid(&self) -> bool {
+        self.cached_at.elapsed() < PROBE_CACHE_TTL
+    }
+}
 
 /// Shared daemon state
 pub struct DaemonStateInner {
@@ -24,6 +42,8 @@ pub struct DaemonStateInner {
     pub hardware: HardwareInfo,
     pub ledger: Ledger,
     pub last_error: Option<String>,
+    /// Probe result cache (command -> cached result)
+    pub probe_cache: HashMap<String, CachedProbe>,
 }
 
 /// Update state tracking
@@ -62,7 +82,35 @@ impl DaemonStateInner {
             hardware: HardwareInfo::default(),
             ledger: Ledger::new(),
             last_error: None,
+            probe_cache: HashMap::new(),
         }
+    }
+
+    /// Get cached probe result if still valid
+    pub fn get_cached_probe(&self, command: &str) -> Option<ProbeResult> {
+        self.probe_cache.get(command).and_then(|cached| {
+            if cached.is_valid() {
+                Some(cached.result.clone())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Cache a probe result
+    pub fn cache_probe(&mut self, result: ProbeResult) {
+        self.probe_cache.insert(
+            result.command.clone(),
+            CachedProbe {
+                result,
+                cached_at: Instant::now(),
+            },
+        );
+    }
+
+    /// Clean expired probe cache entries
+    pub fn clean_probe_cache(&mut self) {
+        self.probe_cache.retain(|_, cached| cached.is_valid());
     }
 
     pub fn to_status(&self) -> DaemonStatus {

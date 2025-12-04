@@ -164,17 +164,119 @@ impl std::fmt::Display for SpecialistDomain {
     }
 }
 
+/// Intent classification from translator
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryIntent {
+    Question,
+    Request,
+    Investigate,
+}
+
+impl std::fmt::Display for QueryIntent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Question => write!(f, "question"),
+            Self::Request => write!(f, "request"),
+            Self::Investigate => write!(f, "investigate"),
+        }
+    }
+}
+
+/// Translator ticket - structured output from LLM translator
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranslatorTicket {
+    /// Query intent classification
+    pub intent: QueryIntent,
+    /// Target specialist domain
+    pub domain: SpecialistDomain,
+    /// Extracted entities (processes, services, mounts, etc.)
+    pub entities: Vec<String>,
+    /// Probe IDs needed from allowlist
+    pub needs_probes: Vec<String>,
+    /// Clarification question if query is ambiguous
+    pub clarification_question: Option<String>,
+    /// Translator confidence 0.0-1.0
+    pub confidence: f32,
+}
+
+/// Structured probe result with metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProbeResult {
+    /// Command that was run
+    pub command: String,
+    /// Exit code (0 = success)
+    pub exit_code: i32,
+    /// First N lines of stdout
+    pub stdout: String,
+    /// First N lines of stderr
+    pub stderr: String,
+    /// Execution time in milliseconds
+    pub timing_ms: u64,
+}
+
+/// Evidence block showing what data was used
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceBlock {
+    /// Hardware snapshot fields used
+    pub hardware_fields: Vec<String>,
+    /// Probes that were executed
+    pub probes_executed: Vec<ProbeResult>,
+    /// Translator ticket that routed this query
+    pub translator_ticket: TranslatorTicket,
+}
+
+/// Reliability scoring signals (all boolean for deterministic calculation)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReliabilitySignals {
+    /// Translator confidence >= 0.7
+    pub translator_confident: bool,
+    /// All requested probes succeeded
+    pub probe_coverage: bool,
+    /// Answer references probe/hardware data
+    pub answer_grounded: bool,
+    /// No invented facts detected
+    pub no_invention: bool,
+    /// No clarification needed
+    pub clarification_not_needed: bool,
+}
+
+impl ReliabilitySignals {
+    /// Calculate score: 20 points per signal, max 100
+    pub fn score(&self) -> u8 {
+        let mut score: u8 = 0;
+        if self.translator_confident {
+            score += 20;
+        }
+        if self.probe_coverage {
+            score += 20;
+        }
+        if self.answer_grounded {
+            score += 20;
+        }
+        if self.no_invention {
+            score += 20;
+        }
+        if self.clarification_not_needed {
+            score += 20;
+        }
+        score
+    }
+}
+
 /// Unified response from service desk pipeline
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceDeskResult {
     /// The LLM's answer text
     pub answer: String,
-    /// Reliability score 0-100
+    /// Reliability score 0-100 (deterministic from signals)
     pub reliability_score: u8,
+    /// Reliability scoring signals
+    pub reliability_signals: ReliabilitySignals,
     /// Which specialist handled this
     pub domain: SpecialistDomain,
-    /// Probes that were run
-    pub probes_used: Vec<String>,
+    /// Evidence block showing data sources
+    pub evidence: EvidenceBlock,
     /// Whether clarification is needed
     pub needs_clarification: bool,
     /// Question to ask if clarification needed
