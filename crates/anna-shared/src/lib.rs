@@ -5,6 +5,7 @@ pub mod ledger;
 pub mod progress;
 pub mod rpc;
 pub mod status;
+pub mod transcript;
 pub mod ui;
 
 pub use error::AnnaError;

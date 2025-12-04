@@ -1,100 +1,33 @@
 //! RPC request handlers with timeouts and progress tracking.
 
-use anna_shared::ledger::LedgerEntryKind;
 use anna_shared::progress::{ProgressEvent, RequestStage, TimeoutConfig};
-use anna_shared::rpc::{ProbeParams, ProbeResult, RequestParams, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{ProbeResult, RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
-use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
 use tracing::{error, info, warn};
 
+use crate::handlers;
 use crate::ollama;
 use crate::probes;
+use crate::progress_tracker::ProgressTracker;
 use crate::service_desk;
 use crate::state::SharedState;
 use crate::translator;
-
-/// Progress tracker for request handling
-pub struct ProgressTracker {
-    events: Vec<ProgressEvent>,
-    start_time: Instant,
-    current_stage: Option<RequestStage>,
-}
-
-impl ProgressTracker {
-    pub fn new() -> Self {
-        Self {
-            events: Vec::new(),
-            start_time: Instant::now(),
-            current_stage: None,
-        }
-    }
-
-    pub fn elapsed_ms(&self) -> u64 {
-        self.start_time.elapsed().as_millis() as u64
-    }
-
-    pub fn add(&mut self, event: ProgressEvent) {
-        info!("{}", event.format_debug());
-        self.events.push(event);
-    }
-
-    pub fn start_stage(&mut self, stage: RequestStage, timeout_secs: u64) {
-        self.current_stage = Some(stage);
-        self.add(ProgressEvent::starting(stage, timeout_secs, self.elapsed_ms()));
-    }
-
-    pub fn complete_stage(&mut self, stage: RequestStage) {
-        self.add(ProgressEvent::complete(stage, self.elapsed_ms()));
-        self.current_stage = None;
-    }
-
-    pub fn timeout_stage(&mut self, stage: RequestStage) {
-        self.add(ProgressEvent::timeout(stage, self.elapsed_ms()));
-        self.current_stage = None;
-    }
-
-    pub fn events(&self) -> &[ProgressEvent] {
-        &self.events
-    }
-}
-
-/// Shared progress state for polling (reserved for future watchdog use)
-#[allow(dead_code)]
-pub type SharedProgress = Arc<RwLock<ProgressTracker>>;
-
-#[allow(dead_code)]
-pub fn create_progress_tracker() -> SharedProgress {
-    Arc::new(RwLock::new(ProgressTracker::new()))
-}
 
 /// Handle an RPC request
 pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
     let id = request.id.clone();
 
     match request.method {
-        RpcMethod::Status => handle_status(state, id).await,
+        RpcMethod::Status => handlers::handle_status(state, id).await,
         RpcMethod::Request => handle_llm_request(state, id, request.params).await,
-        RpcMethod::Reset => handle_reset(state, id).await,
-        RpcMethod::Uninstall => handle_uninstall(state, id).await,
-        RpcMethod::Autofix => handle_autofix(state, id).await,
-        RpcMethod::Probe => handle_probe(state, id, request.params).await,
-        RpcMethod::Progress => handle_progress(state, id).await,
+        RpcMethod::Reset => handlers::handle_reset(state, id).await,
+        RpcMethod::Uninstall => handlers::handle_uninstall(state, id).await,
+        RpcMethod::Autofix => handlers::handle_autofix(state, id).await,
+        RpcMethod::Probe => handlers::handle_probe(state, id, request.params).await,
+        RpcMethod::Progress => handlers::handle_progress(state, id).await,
     }
-}
-
-async fn handle_status(state: SharedState, id: String) -> RpcResponse {
-    let state = state.read().await;
-    let status = state.to_status();
-    RpcResponse::success(id, serde_json::to_value(status).unwrap())
-}
-
-async fn handle_progress(state: SharedState, id: String) -> RpcResponse {
-    let state = state.read().await;
-    let events: Vec<_> = state.progress_events.iter().cloned().collect();
-    RpcResponse::success(id, serde_json::to_value(events).unwrap())
 }
 
 /// Service desk pipeline with timeouts: translate -> dispatch -> specialist -> supervisor
@@ -105,6 +38,7 @@ async fn handle_llm_request(
 ) -> RpcResponse {
     let config = TimeoutConfig::default();
     let mut progress = ProgressTracker::new();
+    let request_id = uuid::Uuid::new_v4().to_string();
 
     // Check if LLM is ready and get model name
     let model = {
@@ -134,6 +68,7 @@ async fn handle_llm_request(
     };
 
     let query = &params.prompt;
+    progress.add_user_message(query);
 
     // Clear previous progress events
     {
@@ -156,20 +91,21 @@ async fn handle_llm_request(
         }
         Ok(Err(e)) => {
             warn!("Translator error, using fallback: {}", e);
-            progress.add(ProgressEvent::error(
-                RequestStage::Translator,
-                e.clone(),
-                progress.elapsed_ms(),
-            ));
+            progress.error_stage(RequestStage::Translator, &e);
             translator::translate_fallback(query)
         }
         Err(_) => {
-            // Translator timeout - use fallback instead of failing
             warn!("Translator timeout, using fallback");
             progress.timeout_stage(RequestStage::Translator);
             translator::translate_fallback(query)
         }
     };
+
+    // Add translator output to transcript
+    progress.add_translator_message(&format!(
+        "domain={}, intent={}, probes={:?}",
+        ticket.domain, ticket.intent, ticket.needs_probes
+    ));
 
     info!(
         "Translator: intent={}, domain={}, confidence={:.2}, probes={:?}",
@@ -180,7 +116,12 @@ async fn handle_llm_request(
     if let Some(question) = ticket.clarification_question.clone() {
         info!("Clarification needed: {}", question);
         save_progress(&state, &progress).await;
-        let result = service_desk::create_clarification_response(ticket, &question);
+        let result = service_desk::create_clarification_response(
+            request_id,
+            ticket,
+            &question,
+            progress.take_transcript(),
+        );
         return RpcResponse::success(id, serde_json::to_value(result).unwrap());
     }
 
@@ -200,7 +141,13 @@ async fn handle_llm_request(
         Err(_) => {
             progress.timeout_stage(RequestStage::Probes);
             save_progress(&state, &progress).await;
-            let result = service_desk::create_timeout_response("probes", Some(ticket), vec![]);
+            let result = service_desk::create_timeout_response(
+                request_id,
+                "probes",
+                Some(ticket),
+                vec![],
+                progress.take_transcript(),
+            );
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         }
     };
@@ -232,20 +179,19 @@ async fn handle_llm_request(
     {
         Ok(Ok(response)) => {
             progress.complete_stage(RequestStage::Specialist);
+            progress.add_specialist_message(&response);
             response
         }
         Ok(Err(e)) => {
             error!("Specialist LLM error: {}", e);
-            progress.add(ProgressEvent::error(
-                RequestStage::Specialist,
-                e.to_string(),
-                progress.elapsed_ms(),
-            ));
+            progress.error_stage(RequestStage::Specialist, &e.to_string());
             save_progress(&state, &progress).await;
             let result = service_desk::create_timeout_response(
+                request_id,
                 "specialist",
                 Some(ticket),
                 probe_results,
+                progress.take_transcript(),
             );
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         }
@@ -253,9 +199,11 @@ async fn handle_llm_request(
             progress.timeout_stage(RequestStage::Specialist);
             save_progress(&state, &progress).await;
             let result = service_desk::create_timeout_response(
+                request_id,
                 "specialist",
                 Some(ticket),
                 probe_results,
+                progress.take_transcript(),
             );
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         }
@@ -263,7 +211,14 @@ async fn handle_llm_request(
 
     // Step 6: Supervisor
     progress.start_stage(RequestStage::Supervisor, config.supervisor_secs);
-    let result = service_desk::build_result(answer, ticket, probe_results);
+    progress.add_anna_response(&answer);
+    let result = service_desk::build_result(
+        request_id,
+        answer,
+        ticket,
+        probe_results,
+        progress.transcript_clone(),
+    );
     progress.complete_stage(RequestStage::Supervisor);
 
     info!(
@@ -288,7 +243,11 @@ async fn run_probes_with_timeout(
 
     for probe_id in &ticket.needs_probes {
         if let Some(cmd) = translator::probe_id_to_command(probe_id) {
-            progress.add(ProgressEvent::probe_running(probe_id, progress.elapsed_ms()));
+            progress.add(ProgressEvent::probe_running(
+                probe_id,
+                progress.elapsed_ms(),
+            ));
+            progress.add_probe_start(probe_id, cmd);
 
             // Check cache first
             let cached = {
@@ -298,6 +257,13 @@ async fn run_probes_with_timeout(
 
             if let Some(cached_result) = cached {
                 info!("Using cached probe result for: {}", cmd);
+                let preview = cached_result.stdout.lines().next().map(|s| s.to_string());
+                progress.add_probe_end(
+                    probe_id,
+                    cached_result.exit_code,
+                    cached_result.timing_ms,
+                    preview,
+                );
                 progress.add(ProgressEvent::probe_complete(
                     probe_id,
                     cached_result.exit_code,
@@ -340,6 +306,8 @@ async fn run_probes_with_timeout(
                     }
                 };
 
+                let preview = result.stdout.lines().next().map(|s| s.to_string());
+                progress.add_probe_end(probe_id, result.exit_code, result.timing_ms, preview);
                 progress.add(ProgressEvent::probe_complete(
                     probe_id,
                     result.exit_code,
@@ -371,136 +339,4 @@ async fn run_probes_with_timeout(
 async fn save_progress(state: &SharedState, progress: &ProgressTracker) {
     let mut state = state.write().await;
     state.progress_events = progress.events().to_vec();
-}
-
-async fn handle_probe(
-    _state: SharedState,
-    id: String,
-    params: Option<serde_json::Value>,
-) -> RpcResponse {
-    let params: ProbeParams = match params {
-        Some(p) => match serde_json::from_value(p) {
-            Ok(p) => p,
-            Err(e) => {
-                return RpcResponse::error(id, -32602, format!("Invalid params: {}", e));
-            }
-        },
-        None => {
-            return RpcResponse::error(id, -32602, "Missing params".to_string());
-        }
-    };
-
-    match probes::run_probe(&params.probe_type) {
-        Ok(result) => {
-            info!("Probe {:?} completed", params.probe_type);
-            RpcResponse::success(id, serde_json::json!({ "result": result }))
-        }
-        Err(e) => {
-            error!("Probe failed: {}", e);
-            RpcResponse::error(id, -32005, format!("Probe error: {}", e))
-        }
-    }
-}
-
-async fn handle_reset(state: SharedState, id: String) -> RpcResponse {
-    info!("Processing reset request");
-
-    let mut state = state.write().await;
-    state.ledger.reset_non_base();
-
-    if let Err(e) = state.ledger.save() {
-        error!("Failed to save ledger: {}", e);
-        return RpcResponse::error(id, -32004, format!("Failed to save ledger: {}", e));
-    }
-
-    info!("Reset completed");
-    RpcResponse::success(id, serde_json::json!({ "status": "reset_complete" }))
-}
-
-async fn handle_uninstall(state: SharedState, id: String) -> RpcResponse {
-    info!("Processing uninstall request");
-
-    let state = state.read().await;
-    let ledger = &state.ledger;
-
-    let mut commands: Vec<String> = Vec::new();
-
-    for entry in ledger.entries.iter().rev() {
-        match entry.kind {
-            LedgerEntryKind::ModelPulled => {
-                commands.push(format!("ollama rm {}", entry.target));
-            }
-            LedgerEntryKind::FileCreated => {
-                commands.push(format!("rm -f {}", entry.target));
-            }
-            LedgerEntryKind::DirectoryCreated => {
-                commands.push(format!("rmdir --ignore-fail-on-non-empty {}", entry.target));
-            }
-            LedgerEntryKind::ServiceEnabled => {
-                commands.push(format!("systemctl disable {}", entry.target));
-                commands.push(format!("systemctl stop {}", entry.target));
-            }
-            _ => {}
-        }
-    }
-
-    let models: Vec<String> = state.llm.models.iter().map(|m| m.name.clone()).collect();
-
-    commands.push("systemctl stop annad".to_string());
-    commands.push("systemctl disable annad".to_string());
-    commands.push("rm -f /usr/local/bin/annactl".to_string());
-    commands.push("rm -f /usr/local/bin/annad".to_string());
-    commands.push("rm -f /etc/systemd/system/annad.service".to_string());
-    commands.push("rm -rf /etc/anna".to_string());
-    commands.push("rm -rf /var/lib/anna".to_string());
-    commands.push("rm -rf /var/log/anna".to_string());
-    commands.push("systemctl daemon-reload".to_string());
-
-    RpcResponse::success(
-        id,
-        serde_json::json!({
-            "status": "uninstall_prepared",
-            "commands": commands,
-            "helpers": {
-                "ollama": state.ollama.installed,
-                "models": models
-            }
-        }),
-    )
-}
-
-async fn handle_autofix(state: SharedState, id: String) -> RpcResponse {
-    info!("Running autofix");
-
-    let mut fixes_applied: Vec<String> = Vec::new();
-
-    if !ollama::is_installed() {
-        info!("Autofix: Ollama not installed, installing...");
-        if let Err(e) = ollama::install().await {
-            return RpcResponse::error(id, -32002, format!("Failed to install Ollama: {}", e));
-        }
-        fixes_applied.push("Installed Ollama".to_string());
-    }
-
-    if !ollama::is_running().await {
-        info!("Autofix: Ollama not running, starting...");
-        if let Err(e) = ollama::start_service().await {
-            return RpcResponse::error(id, -32002, format!("Failed to start Ollama: {}", e));
-        }
-        fixes_applied.push("Started Ollama service".to_string());
-    }
-
-    {
-        let mut state = state.write().await;
-        state.ollama = ollama::get_status().await;
-    }
-
-    info!("Autofix completed: {} fixes", fixes_applied.len());
-    RpcResponse::success(
-        id,
-        serde_json::json!({
-            "status": "autofix_complete",
-            "fixes_applied": fixes_applied
-        }),
-    )
 }

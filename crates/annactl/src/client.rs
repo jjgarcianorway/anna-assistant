@@ -60,7 +60,8 @@ impl AnnadClient {
         method: RpcMethod,
         params: Option<serde_json::Value>,
     ) -> Result<RpcResponse> {
-        self.call_with_timeout(method, params, RPC_TIMEOUT_SECS).await
+        self.call_with_timeout(method, params, RPC_TIMEOUT_SECS)
+            .await
     }
 
     /// Send an RPC request with custom timeout
@@ -88,10 +89,13 @@ impl AnnadClient {
         let mut reader = BufReader::new(reader);
         let mut line = String::new();
 
-        timeout(Duration::from_secs(timeout_secs), reader.read_line(&mut line))
-            .await
-            .map_err(|_| anyhow!("Request timed out after {}s", timeout_secs))?
-            .map_err(|e| anyhow!("Failed to read from daemon: {}", e))?;
+        timeout(
+            Duration::from_secs(timeout_secs),
+            reader.read_line(&mut line),
+        )
+        .await
+        .map_err(|_| anyhow!("Request timed out after {}s", timeout_secs))?
+        .map_err(|e| anyhow!("Failed to read from daemon: {}", e))?;
 
         let response: RpcResponse = serde_json::from_str(&line)
             .map_err(|e| anyhow!("Invalid response from daemon: {}", e))?;

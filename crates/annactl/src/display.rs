@@ -1,7 +1,6 @@
 //! Display helpers for annactl UI.
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
-use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::ui::{colors, symbols, HR};
 use anna_shared::VERSION;
@@ -278,82 +277,6 @@ pub async fn show_bootstrap_progress() -> Result<()> {
         spinner_idx = (spinner_idx + 1) % spinner.len();
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
-}
-
-/// Unified display for service desk responses
-/// Used by both one-shot and REPL to ensure consistent output
-pub fn print_transcript(prompt: &str, result: &ServiceDeskResult) {
-    println!();
-    println!(
-        "{}anna v{} (dispatch){} {}",
-        colors::HEADER,
-        VERSION,
-        colors::RESET,
-        colors::DIM
-    );
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-
-    // Show user input
-    println!("{}[you]{}", colors::CYAN, colors::RESET);
-    println!("{}", prompt);
-    println!();
-
-    // Check if clarification needed
-    if result.needs_clarification {
-        if let Some(question) = &result.clarification_question {
-            println!(
-                "{}[anna]{} needs clarification",
-                colors::WARN,
-                colors::RESET
-            );
-            println!("{}", question);
-            println!("{}{}{}", colors::DIM, HR, colors::RESET);
-            return;
-        }
-    }
-
-    // Show response with metadata
-    println!(
-        "{}[anna]{} {} specialist  reliability: {}",
-        colors::OK,
-        colors::RESET,
-        result.domain,
-        format_reliability(result.reliability_score)
-    );
-    println!("{}", result.answer);
-
-    // Show evidence block (probes used)
-    let probes_used: Vec<&str> = result
-        .evidence
-        .probes_executed
-        .iter()
-        .filter(|p| p.exit_code == 0)
-        .map(|p| p.command.as_str())
-        .collect();
-
-    if !probes_used.is_empty() {
-        println!();
-        println!(
-            "{}probes:{} {}",
-            colors::DIM,
-            colors::RESET,
-            probes_used.join(", ")
-        );
-    }
-
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-}
-
-/// Format reliability score with color
-fn format_reliability(score: u8) -> String {
-    let color = if score >= 80 {
-        colors::OK
-    } else if score >= 50 {
-        colors::WARN
-    } else {
-        colors::ERR
-    };
-    format!("{}{}%{}", color, score, colors::RESET)
 }
 
 /// Print a progress event in debug mode

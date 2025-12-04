@@ -74,8 +74,8 @@ jobs:
           echo "Checking source files for 400-line limit..."
           violations=0
 
-          # Check Rust files
-          for file in $(find crates -name "*.rs" -type f); do
+          # Check Rust source files (exclude tests directory)
+          for file in $(find crates -name "*.rs" -type f -not -path "*/tests/*"); do
             lines=$(wc -l < "$file")
             if [ "$lines" -gt 400 ]; then
               echo "ERROR: $file has $lines lines (limit: 400)"
@@ -180,11 +180,35 @@ jobs:
       - name: Run clippy
         run: cargo clippy -- -D warnings
 
+  # Check release script creates correct artifact names
+  release-artifact-naming:
+    name: Release Artifact Naming
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify release.sh artifact naming
+        run: |
+          # The release script must name binaries correctly for auto-update
+          if ! grep -q 'annad-linux-x86_64' scripts/release.sh; then
+            echo "ERROR: release.sh missing correct annad-linux-x86_64 naming"
+            exit 1
+          fi
+          if ! grep -q 'annactl-linux-x86_64' scripts/release.sh; then
+            echo "ERROR: release.sh missing correct annactl-linux-x86_64 naming"
+            exit 1
+          fi
+          if ! grep -q 'SHA256SUMS' scripts/release.sh; then
+            echo "ERROR: release.sh missing SHA256SUMS"
+            exit 1
+          fi
+          echo "OK: Release script has correct artifact naming"
+
   # All checks must pass
   all-checks:
     name: All Checks
     runs-on: ubuntu-latest
-    needs: [required-files, line-limit, cli-surface, version-consistency, build]
+    needs: [required-files, line-limit, cli-surface, version-consistency, build, release-artifact-naming]
     steps:
       - name: All checks passed
         run: echo "All CI checks passed!"

@@ -55,7 +55,11 @@ pub enum ProgressEventType {
     /// Probe-specific: running a probe
     ProbeRunning { probe_id: String },
     /// Probe-specific: probe completed
-    ProbeComplete { probe_id: String, exit_code: i32, timing_ms: u64 },
+    ProbeComplete {
+        probe_id: String,
+        exit_code: i32,
+        timing_ms: u64,
+    },
 }
 
 impl ProgressEvent {
@@ -132,7 +136,10 @@ impl ProgressEvent {
     pub fn format_debug(&self) -> String {
         match &self.event {
             ProgressEventType::Starting { timeout_secs } => {
-                format!("[anna->{}] starting (timeout {}s)", self.stage, timeout_secs)
+                format!(
+                    "[anna->{}] starting (timeout {}s)",
+                    self.stage, timeout_secs
+                )
             }
             ProgressEventType::Complete => {
                 format!("[anna] {} complete", self.stage)
@@ -145,13 +152,24 @@ impl ProgressEvent {
             }
             ProgressEventType::Heartbeat => {
                 let detail = self.detail.as_deref().unwrap_or("working");
-                format!("[anna] still working: {} ({:.1}s)", detail, self.elapsed_ms as f64 / 1000.0)
+                format!(
+                    "[anna] still working: {} ({:.1}s)",
+                    detail,
+                    self.elapsed_ms as f64 / 1000.0
+                )
             }
             ProgressEventType::ProbeRunning { probe_id } => {
                 format!("[anna->probe] running {} (timeout 4s)", probe_id)
             }
-            ProgressEventType::ProbeComplete { probe_id, exit_code, timing_ms } => {
-                format!("[anna] probe {} complete exit={} time={}ms", probe_id, exit_code, timing_ms)
+            ProgressEventType::ProbeComplete {
+                probe_id,
+                exit_code,
+                timing_ms,
+            } => {
+                format!(
+                    "[anna] probe {} complete exit={} time={}ms",
+                    probe_id, exit_code, timing_ms
+                )
             }
         }
     }

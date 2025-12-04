@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.11] - 2024-12-04
+
+### Added
+- **Transcript event model**
+  - Single `TranscriptEvent` type for pipeline visibility
+  - Events: Message, StageStart, StageEnd, ProbeStart, ProbeEnd, Note
+  - Actors: You, Anna, Translator, Dispatcher, Probe, Specialist, Supervisor, System
+  - Full request tracing with elapsed timestamps
+
+- **Two render modes**
+  - debug OFF: Human-readable fly-on-the-wall format
+  - debug ON: Full troubleshooting view with stage timings
+
+- **REPL improvements**
+  - Prompt changed to `anna> `
+  - Ctrl-D (EOF) now exits cleanly
+  - Empty lines after answers for readability
+
+- **CI improvements**
+  - Release artifact naming check
+  - Test files excluded from 400-line limit
+
+### Changed
+- ServiceDeskResult now includes `request_id` and `transcript`
+- Transcript events generated during pipeline execution
+- Refactored rpc_handler.rs to stay under 400 lines
+  - Extracted utility handlers to handlers.rs
+  - Extracted ProgressTracker to progress_tracker.rs
+
+### Fixed
+- Release script already had correct artifact naming (annad-linux-x86_64, annactl-linux-x86_64)
+- CI now verifies release script uses correct names
+
 ## [0.0.7] - 2024-12-04
 
 ### Added
@@ -215,7 +248,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.7...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.11...HEAD
+[0.0.11]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.7...v0.0.11
 [0.0.7]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.4...v0.0.5

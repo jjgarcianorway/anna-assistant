@@ -3,6 +3,7 @@
 mod client;
 mod commands;
 mod display;
+mod transcript_render;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};

@@ -11,9 +11,9 @@ use std::io::{self, Write};
 
 use crate::client::{AnnadClient, StreamingClient};
 use crate::display::{
-    print_progress_event, print_repl_header, print_status_display, print_transcript,
-    show_bootstrap_progress,
+    print_progress_event, print_repl_header, print_status_display, show_bootstrap_progress,
 };
+use crate::transcript_render;
 
 /// Handle status command
 pub async fn handle_status() -> Result<()> {
@@ -26,10 +26,7 @@ pub async fn handle_status() -> Result<()> {
 
 /// Core request function with progress streaming
 /// Used by both one-shot and REPL for consistent behavior
-async fn send_request_with_progress(
-    prompt: &str,
-    debug_mode: bool,
-) -> Result<ServiceDeskResult> {
+async fn send_request_with_progress(prompt: &str, debug_mode: bool) -> Result<ServiceDeskResult> {
     if debug_mode {
         // Use streaming client with progress display
         StreamingClient::request_with_progress(prompt, |event| {
@@ -76,9 +73,8 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
         print!("\r\x1b[K");
     }
 
-    // Use unified display
-    print_transcript(prompt, &result);
-    println!();
+    // Use unified transcript display
+    transcript_render::render(&result, debug_mode);
 
     Ok(())
 }
@@ -103,11 +99,19 @@ pub async fn handle_repl() -> Result<()> {
     };
 
     loop {
-        print!("{}anna>{} ", colors::HEADER, colors::RESET);
+        print!("{}anna> {}", colors::HEADER, colors::RESET);
         io::stdout().flush()?;
 
         let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        let bytes_read = io::stdin().read_line(&mut input)?;
+
+        // Handle Ctrl-D (EOF)
+        if bytes_read == 0 {
+            println!();
+            println!("Goodbye! ;)");
+            break;
+        }
+
         let input = input.trim();
 
         if input.is_empty() {
@@ -149,8 +153,8 @@ pub async fn handle_repl() -> Result<()> {
 
                 match send_request_with_progress(input, debug_mode).await {
                     Ok(result) => {
-                        // Use unified display - same as one-shot
-                        print_transcript(input, &result);
+                        // Use unified transcript display - same as one-shot
+                        transcript_render::render(&result, debug_mode);
                     }
                     Err(e) => {
                         let err_str = e.to_string();

@@ -11,6 +11,7 @@ use anna_shared::rpc::{
     EvidenceBlock, ProbeResult, QueryIntent, ReliabilitySignals, ServiceDeskResult,
     SpecialistDomain, TranslatorTicket,
 };
+use anna_shared::transcript::Transcript;
 
 // === Probe Allowlist Constants (mirrors service_desk.rs) ===
 
@@ -201,6 +202,7 @@ fn test_service_desk_result_structure() {
     let signals = make_signals(true, true, true);
 
     let result = ServiceDeskResult {
+        request_id: "test-id".to_string(),
         answer: "Test answer".to_string(),
         reliability_score: signals.score(),
         reliability_signals: signals,
@@ -208,6 +210,7 @@ fn test_service_desk_result_structure() {
         evidence,
         needs_clarification: false,
         clarification_question: None,
+        transcript: Transcript::new(),
     };
 
     assert!(!result.answer.is_empty());
@@ -236,6 +239,7 @@ fn test_clarification_response_format() {
     };
 
     let result = ServiceDeskResult {
+        request_id: "test-id".to_string(),
         answer: String::new(),
         reliability_score: signals.score(),
         reliability_signals: signals,
@@ -243,6 +247,7 @@ fn test_clarification_response_format() {
         evidence,
         needs_clarification: true,
         clarification_question: Some("Could you provide more details?".to_string()),
+        transcript: Transcript::new(),
     };
 
     assert!(result.needs_clarification);
@@ -335,6 +340,7 @@ fn test_response_has_all_required_fields() {
     let signals = make_signals(true, true, true);
 
     let result = ServiceDeskResult {
+        request_id: "test-id".to_string(),
         answer: "The top memory process is...".to_string(),
         reliability_score: signals.score(),
         reliability_signals: signals,
@@ -342,9 +348,11 @@ fn test_response_has_all_required_fields() {
         evidence,
         needs_clarification: false,
         clarification_question: None,
+        transcript: Transcript::new(),
     };
 
     // All required fields exist and are accessible
+    let _ = &result.request_id;
     let _ = &result.answer;
     let _ = &result.reliability_score;
     let _ = &result.reliability_signals;
@@ -354,6 +362,7 @@ fn test_response_has_all_required_fields() {
     let _ = &result.evidence.translator_ticket;
     let _ = &result.evidence.probes_executed;
     let _ = &result.evidence.hardware_fields;
+    let _ = &result.transcript;
 }
 
 // === Timeout Response Tests ===
@@ -386,6 +395,7 @@ fn test_timeout_response_format() {
     };
 
     let result = ServiceDeskResult {
+        request_id: "test-id".to_string(),
         answer: String::new(),
         reliability_score: signals.score().min(20), // Max 20 for timeout
         reliability_signals: signals,
@@ -396,6 +406,7 @@ fn test_timeout_response_format() {
             "The translator stage timed out. Please try again or simplify your request."
                 .to_string(),
         ),
+        transcript: Transcript::new(),
     };
 
     // Timeout response must:
@@ -443,6 +454,7 @@ fn test_timeout_at_different_stages() {
         };
 
         let result = ServiceDeskResult {
+            request_id: "test-id".to_string(),
             answer: String::new(),
             reliability_score: signals.score().min(20),
             reliability_signals: signals,
@@ -453,16 +465,12 @@ fn test_timeout_at_different_stages() {
                 "The {} stage timed out. Please try again or simplify your request.",
                 stage
             )),
+            transcript: Transcript::new(),
         };
 
         assert!(result.reliability_score <= 20);
         assert!(result.evidence.last_error.is_some());
-        assert!(result
-            .evidence
-            .last_error
-            .as_ref()
-            .unwrap()
-            .contains(stage));
+        assert!(result.evidence.last_error.as_ref().unwrap().contains(stage));
     }
 }
 
@@ -477,7 +485,11 @@ fn test_evidence_includes_partial_probes_on_timeout() {
         clarification_not_needed: false,
     };
 
-    let ticket = make_ticket(SpecialistDomain::System, vec!["top_memory", "disk_usage"], 0.8);
+    let ticket = make_ticket(
+        SpecialistDomain::System,
+        vec!["top_memory", "disk_usage"],
+        0.8,
+    );
 
     // One probe completed before timeout
     let partial_probes = vec![make_probe_result("ps aux --sort=-%mem", 0, "output")];
@@ -490,6 +502,7 @@ fn test_evidence_includes_partial_probes_on_timeout() {
     };
 
     let result = ServiceDeskResult {
+        request_id: "test-id".to_string(),
         answer: String::new(),
         reliability_score: signals.score().min(20),
         reliability_signals: signals,
@@ -497,6 +510,7 @@ fn test_evidence_includes_partial_probes_on_timeout() {
         evidence,
         needs_clarification: true,
         clarification_question: Some("The probes stage timed out.".to_string()),
+        transcript: Transcript::new(),
     };
 
     // Should preserve partial probe results

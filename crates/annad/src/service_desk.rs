@@ -10,6 +10,7 @@ use anna_shared::rpc::{
     Capabilities, EvidenceBlock, HardwareSummary, ProbeResult, ReliabilitySignals, RuntimeContext,
     ServiceDeskResult, SpecialistDomain, TranslatorTicket,
 };
+use anna_shared::transcript::Transcript;
 use anna_shared::VERSION;
 use std::collections::HashMap;
 use tracing::info;
@@ -74,24 +75,10 @@ pub fn get_relevant_hardware_fields(ticket: &TranslatorTicket) -> Vec<String> {
     // Always include version
     fields.push("version".to_string());
 
-    match ticket.domain {
-        SpecialistDomain::System => {
-            fields.push("cpu_model".to_string());
-            fields.push("cpu_cores".to_string());
-            fields.push("ram_gb".to_string());
-        }
-        SpecialistDomain::Network => {
-            // Network doesn't use hardware fields directly
-        }
-        SpecialistDomain::Storage => {
-            // Storage uses probes, not hardware snapshot
-        }
-        SpecialistDomain::Security => {
-            // Security uses probes
-        }
-        SpecialistDomain::Packages => {
-            // Packages don't need hardware
-        }
+    if ticket.domain == SpecialistDomain::System {
+        fields.push("cpu_model".to_string());
+        fields.push("cpu_cores".to_string());
+        fields.push("ram_gb".to_string());
     }
 
     // GPU if relevant
@@ -222,8 +209,10 @@ pub fn calculate_reliability(
 
 /// Create a clarification response
 pub fn create_clarification_response(
+    request_id: String,
     ticket: TranslatorTicket,
     question: &str,
+    transcript: Transcript,
 ) -> ServiceDeskResult {
     let signals = ReliabilitySignals {
         translator_confident: false,
@@ -241,6 +230,7 @@ pub fn create_clarification_response(
     };
 
     ServiceDeskResult {
+        request_id,
         answer: String::new(),
         reliability_score: signals.score(),
         reliability_signals: signals,
@@ -248,14 +238,17 @@ pub fn create_clarification_response(
         evidence,
         needs_clarification: true,
         clarification_question: Some(question.to_string()),
+        transcript,
     }
 }
 
 /// Create a timeout error response
 pub fn create_timeout_response(
+    request_id: String,
     stage: &str,
     ticket: Option<TranslatorTicket>,
     probe_results: Vec<ProbeResult>,
+    transcript: Transcript,
 ) -> ServiceDeskResult {
     let signals = ReliabilitySignals {
         translator_confident: false,
@@ -281,6 +274,7 @@ pub fn create_timeout_response(
     );
 
     ServiceDeskResult {
+        request_id,
         answer: String::new(),
         reliability_score: signals.score().min(20), // Max 20 for timeout
         reliability_signals: signals,
@@ -291,14 +285,17 @@ pub fn create_timeout_response(
             "The {} stage timed out. Please try again or simplify your request.",
             stage
         )),
+        transcript,
     }
 }
 
 /// Build final ServiceDeskResult
 pub fn build_result(
+    request_id: String,
     answer: String,
     ticket: TranslatorTicket,
     probe_results: Vec<ProbeResult>,
+    transcript: Transcript,
 ) -> ServiceDeskResult {
     let (signals, score) = calculate_reliability(&ticket, &probe_results, &answer);
     let domain = ticket.domain;
@@ -315,6 +312,7 @@ pub fn build_result(
     );
 
     ServiceDeskResult {
+        request_id,
         answer,
         reliability_score: score,
         reliability_signals: signals,
@@ -322,6 +320,7 @@ pub fn build_result(
         evidence,
         needs_clarification: false,
         clarification_question: None,
+        transcript,
     }
 }
 
@@ -383,7 +382,13 @@ mod tests {
 
     #[test]
     fn test_create_timeout_response() {
-        let result = create_timeout_response("translator", None, vec![]);
+        let result = create_timeout_response(
+            "test-id".to_string(),
+            "translator",
+            None,
+            vec![],
+            Transcript::new(),
+        );
         assert!(result.needs_clarification);
         assert!(result.evidence.last_error.is_some());
         assert!(result.reliability_score <= 20);

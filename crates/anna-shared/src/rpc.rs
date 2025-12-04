@@ -1,5 +1,6 @@
 //! JSON-RPC 2.0 types for annad communication.
 
+use crate::transcript::Transcript;
 use serde::{Deserialize, Serialize};
 
 /// RPC methods supported by annad
@@ -272,6 +273,8 @@ impl ReliabilitySignals {
 /// Unified response from service desk pipeline
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceDeskResult {
+    /// Unique request ID for tracking
+    pub request_id: String,
     /// The LLM's answer text
     pub answer: String,
     /// Reliability score 0-100 (deterministic from signals)
@@ -286,6 +289,8 @@ pub struct ServiceDeskResult {
     pub needs_clarification: bool,
     /// Question to ask if clarification needed
     pub clarification_question: Option<String>,
+    /// Full transcript of pipeline events
+    pub transcript: Transcript,
 }
 
 #[cfg(test)]
