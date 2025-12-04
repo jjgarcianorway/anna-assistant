@@ -180,7 +180,9 @@ jobs:
           cd release
 
           # Verify binaries exist before creating checksums
-          if [[ ! -f annad-* ]] || [[ ! -f annactl-* ]]; then
+          ANNAD_FILES=$(ls annad-* 2>/dev/null | wc -l)
+          ANNACTL_FILES=$(ls annactl-* 2>/dev/null | wc -l)
+          if [[ "$ANNAD_FILES" -eq 0 ]] || [[ "$ANNACTL_FILES" -eq 0 ]]; then
             echo "ERROR: Binary files not found in release directory!"
             ls -la
             exit 1
