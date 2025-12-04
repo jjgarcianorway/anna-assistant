@@ -8,6 +8,29 @@ use tracing::{info, warn};
 
 const OLLAMA_API: &str = "http://127.0.0.1:11434";
 
+/// Detect the system's package manager
+fn detect_package_manager() -> Option<&'static str> {
+    // Check for pacman (Arch, Manjaro, EndeavourOS)
+    if Command::new("which").arg("pacman").output()
+        .map(|o| o.status.success()).unwrap_or(false) {
+        return Some("pacman");
+    }
+
+    // Check for apt (Debian, Ubuntu)
+    if Command::new("which").arg("apt").output()
+        .map(|o| o.status.success()).unwrap_or(false) {
+        return Some("apt");
+    }
+
+    // Check for dnf (Fedora)
+    if Command::new("which").arg("dnf").output()
+        .map(|o| o.status.success()).unwrap_or(false) {
+        return Some("dnf");
+    }
+
+    None
+}
+
 /// Check if Ollama is installed
 pub fn is_installed() -> bool {
     Command::new("which")
@@ -17,21 +40,51 @@ pub fn is_installed() -> bool {
         .unwrap_or(false)
 }
 
-/// Install Ollama using the official installer
+/// Install Ollama using the system package manager
 pub async fn install() -> Result<()> {
     info!("Installing Ollama...");
 
-    let output = Command::new("bash")
-        .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
-        .output()?;
+    let pkg_manager = detect_package_manager();
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("Failed to install Ollama: {}", stderr));
+    let result = match pkg_manager {
+        Some("pacman") => {
+            info!("Using pacman to install Ollama");
+            Command::new("pacman")
+                .args(["-S", "--noconfirm", "ollama"])
+                .output()
+        }
+        Some("apt") => {
+            info!("Using apt to install Ollama");
+            // For apt, we need to add the repo first or use the script
+            Command::new("bash")
+                .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+                .output()
+        }
+        Some("dnf") => {
+            info!("Using dnf to install Ollama");
+            Command::new("bash")
+                .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+                .output()
+        }
+        _ => {
+            info!("Using official installer script");
+            Command::new("bash")
+                .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+                .output()
+        }
+    };
+
+    match result {
+        Ok(output) if output.status.success() => {
+            info!("Ollama installed successfully");
+            Ok(())
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(anyhow!("Failed to install Ollama: {}", stderr))
+        }
+        Err(e) => Err(anyhow!("Failed to run installer: {}", e)),
     }
-
-    info!("Ollama installed successfully");
-    Ok(())
 }
 
 /// Check if Ollama service is running

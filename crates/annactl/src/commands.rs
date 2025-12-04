@@ -1,12 +1,13 @@
 //! Command handlers for annactl.
 
-use anna_shared::status::{DaemonStatus, LlmState};
+use anna_shared::status::LlmState;
 use anna_shared::ui::{colors, symbols, HR};
 use anna_shared::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
 
 use crate::client::AnnadClient;
+use crate::display::{print_repl_header, print_status_display, show_bootstrap_progress};
 
 /// Handle status command
 pub async fn handle_status() -> Result<()> {
@@ -17,113 +18,6 @@ pub async fn handle_status() -> Result<()> {
     Ok(())
 }
 
-fn print_status_display(status: &DaemonStatus) {
-    println!();
-    println!(
-        "{}annactl v{}{}",
-        colors::HEADER,
-        status.version,
-        colors::RESET
-    );
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-
-    let kw = 15; // key width
-
-    // Daemon info
-    print_kv("daemon", &format!("{}   (pid {})", status.state, status.pid.unwrap_or(0)), kw);
-    print_kv("debug_mode", if status.debug_mode { "ON" } else { "OFF" }, kw);
-
-    let update_str = if status.auto_update {
-        match &status.last_update_check {
-            Some(t) => {
-                let ago = chrono::Utc::now().signed_duration_since(*t);
-                format!("ENABLED   last check {:02}:{:02}:{:02} ago",
-                    ago.num_hours(), ago.num_minutes() % 60, ago.num_seconds() % 60)
-            }
-            None => "ENABLED   ( every 600s )".to_string()
-        }
-    } else {
-        "DISABLED".to_string()
-    };
-    print_kv("auto_update", &update_str, kw);
-    println!();
-
-    // LLM info
-    let llm_state_color = match status.llm.state {
-        LlmState::Ready => colors::OK,
-        LlmState::Bootstrapping => colors::WARN,
-        LlmState::Error => colors::ERR,
-    };
-    println!(
-        "{:width$} {}{}{}{}",
-        "llm",
-        llm_state_color,
-        status.llm.state,
-        if status.llm.state == LlmState::Bootstrapping { " (required)" } else { "" },
-        colors::RESET,
-        width = kw
-    );
-    print_kv("provider", &status.llm.provider, kw);
-
-    if let Some(phase) = &status.llm.phase {
-        print_kv("phase", phase, kw);
-    }
-
-    if let Some(progress) = &status.llm.progress {
-        let bar = anna_shared::ui::progress_bar(progress.percent(), 30);
-        let current = anna_shared::ui::format_bytes(progress.current_bytes);
-        let total = anna_shared::ui::format_bytes(progress.total_bytes);
-        let speed = anna_shared::ui::format_bytes(progress.speed_bytes_per_sec);
-        let eta = anna_shared::ui::format_duration(progress.eta_seconds);
-        println!(
-            "{:width$} {} {:.0}%",
-            "progress",
-            bar,
-            progress.percent() * 100.0,
-            width = kw
-        );
-        println!(
-            "{:width$} {} / {}   {}/s   eta {}",
-            "traffic", current, total, speed, eta,
-            width = kw
-        );
-    }
-
-    if let Some(bench) = &status.llm.benchmark {
-        print_kv("benchmark", &format!("DONE   cpu {}, ram {}, gpu {}", bench.cpu, bench.ram, bench.gpu), kw);
-    }
-
-    if !status.llm.models.is_empty() {
-        let models_str = status.llm.models.iter()
-            .map(|m| format!("{}: {}", m.role, m.name))
-            .collect::<Vec<_>>()
-            .join("\n               ");
-        print_kv("models", &models_str, kw);
-    }
-
-    if let Some(err) = &status.last_error {
-        println!(
-            "{:width$} {}{}{}",
-            "last_error", colors::ERR, err, colors::RESET,
-            width = kw
-        );
-    } else {
-        print_kv("last_error", "none", kw);
-    }
-
-    println!();
-    if status.llm.state == LlmState::Ready {
-        print_kv("health", &format!("{}OK{}", colors::OK, colors::RESET), kw);
-    }
-
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!();
-}
-
-fn print_kv(key: &str, value: &str, width: usize) {
-    println!("{:width$} {}", key, value, width = width);
-}
-
 /// Handle a single request
 pub async fn handle_request(prompt: &str) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
@@ -131,25 +25,9 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
     // First check if daemon is ready
     let status = client.status().await?;
     if status.llm.state != LlmState::Ready {
-        println!();
-        println!(
-            "{}anna (status){}",
-            colors::HEADER,
-            colors::RESET
-        );
-        println!("{}{}{}", colors::DIM, HR, colors::RESET);
-        println!(
-            "LLM is {}{}{}, please wait for bootstrap to complete.",
-            colors::WARN,
-            status.llm.state,
-            colors::RESET
-        );
-        if let Some(phase) = &status.llm.phase {
-            println!("Current phase: {}", phase);
-        }
-        println!("{}{}{}", colors::DIM, HR, colors::RESET);
-        println!();
-        return Ok(());
+        drop(client);
+        show_bootstrap_progress().await?;
+        client = AnnadClient::connect().await?;
     }
 
     println!();
@@ -180,6 +58,20 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
 /// Handle REPL mode
 pub async fn handle_repl() -> Result<()> {
     print_repl_header();
+
+    // Check if daemon is ready, show bootstrap if not
+    {
+        let status = match AnnadClient::connect().await {
+            Ok(mut client) => client.status().await.ok(),
+            Err(_) => None,
+        };
+
+        if let Some(status) = status {
+            if status.llm.state != LlmState::Ready {
+                show_bootstrap_progress().await?;
+            }
+        }
+    }
 
     let mut client = AnnadClient::connect().await?;
 
@@ -213,6 +105,14 @@ pub async fn handle_repl() -> Result<()> {
                 println!("  <anything>  - Send as request to Anna");
             }
             _ => {
+                // Check if still ready before request
+                let status = client.status().await?;
+                if status.llm.state != LlmState::Ready {
+                    drop(client);
+                    show_bootstrap_progress().await?;
+                    client = AnnadClient::connect().await?;
+                }
+
                 match client.request(input).await {
                     Ok(response) => {
                         println!();
@@ -221,9 +121,22 @@ pub async fn handle_repl() -> Result<()> {
                         println!();
                     }
                     Err(e) => {
-                        eprintln!("{}Error:{} {}", colors::ERR, colors::RESET, e);
-                        if let Ok(new_client) = AnnadClient::connect().await {
-                            client = new_client;
+                        let err_str = e.to_string();
+                        if err_str.contains("LLM") || err_str.contains("connect") {
+                            println!();
+                            println!(
+                                "{}Oops!{} Something went wrong. Let me fix that...",
+                                colors::WARN,
+                                colors::RESET
+                            );
+                            drop(client);
+                            show_bootstrap_progress().await?;
+                            client = AnnadClient::connect().await?;
+                        } else {
+                            eprintln!("{}Error:{} {}", colors::ERR, colors::RESET, e);
+                            if let Ok(new_client) = AnnadClient::connect().await {
+                                client = new_client;
+                            }
                         }
                     }
                 }
@@ -232,28 +145,6 @@ pub async fn handle_repl() -> Result<()> {
     }
 
     Ok(())
-}
-
-fn print_repl_header() {
-    println!();
-    println!(
-        "{}annactl v{}{}",
-        colors::HEADER,
-        VERSION,
-        colors::RESET
-    );
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("Anna is a local Linux service desk living on your machine.");
-    println!(
-        "Public commands: {}annactl{} | {}annactl <request>{} | {}annactl status{} | {}annactl -V{} | {}annactl uninstall{}",
-        colors::BOLD, colors::RESET,
-        colors::BOLD, colors::RESET,
-        colors::BOLD, colors::RESET,
-        colors::BOLD, colors::RESET,
-        colors::BOLD, colors::RESET
-    );
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!();
 }
 
 /// Handle reset command
@@ -333,7 +224,6 @@ pub async fn handle_uninstall() -> Result<()> {
     println!();
     println!("Executing uninstall...");
 
-    // Execute commands
     for cmd in &uninstall_info.commands {
         println!("  {} {}", symbols::ARROW, cmd);
         let status = std::process::Command::new("sudo")

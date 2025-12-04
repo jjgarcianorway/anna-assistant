@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2024-12-04
+
+### Added
+- **Self-healing health checks**
+  - Periodic health check loop (every 30 seconds)
+  - Automatic detection of missing Ollama or models
+  - Auto-repair sequence when issues detected
+- **Package manager support**
+  - Ollama installation via pacman on Arch Linux
+  - Fallback to official installer for other distros
+- **Friendly bootstrap UI**
+  - Live progress display when environment not ready
+  - "Hello! I'm setting up my environment. Come back soon! ;)"
+  - Spinner with phase and progress bar
+  - Auto-continues when ready
+
+### Changed
+- annactl now waits and shows progress if LLM not ready
+- REPL shows bootstrap progress before accepting input
+- Requests wait for bootstrap completion automatically
+- Split display code into separate module for maintainability
+
+### Fixed
+- Socket permissions allow regular users to connect
+- Installer stops existing service before upgrade
+
 ## [0.0.2] - 2024-12-04
 
 ### Added
@@ -66,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.0.1

@@ -15,6 +15,7 @@ use tokio::time::{interval, Duration};
 use tracing::{error, info};
 
 use crate::hardware::{probe_hardware, select_model};
+use crate::health::health_check_loop;
 use crate::ollama;
 use crate::rpc_handler::handle_request;
 use crate::state::{create_shared_state, SharedState};
@@ -41,6 +42,12 @@ impl Server {
         let state_clone = self.state.clone();
         tokio::spawn(async move {
             update_check_loop(state_clone).await;
+        });
+
+        // Start health check loop
+        let state_clone = self.state.clone();
+        tokio::spawn(async move {
+            health_check_loop(state_clone).await;
         });
 
         // Start socket server
