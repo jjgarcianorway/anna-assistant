@@ -1,6 +1,8 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.74**
+**Current Version: 0.0.75**
+
+**Expected Project Completion: 18.5%** (Deep test scheduled at 20%)
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -8,12 +10,45 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.74 - Multi-Doctor Handoff + Senior Escalation (NEXT)
+### 0.0.76 - Multi-Doctor Handoff + Senior Escalation (NEXT)
 - [ ] Multi-doctor case handoff for complex issues
 - [ ] Department collaboration for cross-domain problems
 - [ ] Senior escalation when Junior < 50%
 - [ ] Multi-round improvement loops
 - [ ] Evidence bundle aggregation across departments
+
+### 0.0.75 - Persistent Learning + RPG Stats + Transcript Polish (COMPLETED)
+- [x] Persistent Recipe system that changes future behavior
+  - [x] RecipeEngine with intent-pattern matching on canonical fields
+  - [x] Reliability thresholds: 90% read-only, 80% doctor, 95% mutation
+  - [x] Evidence requirements: 1 (read-only), 2 (doctor), 3 (mutation)
+  - [x] Automatic recipe demotion after consecutive failures
+  - [x] Recipe coverage tracking for status display
+  - [x] RecipeEngineState with rolling statistics
+- [x] RPG Stats block in annactl status
+  - [x] XP and Level (0-100) with non-linear progression
+  - [x] Titles: Intern→Apprentice→Technician→Analyst→Engineer→Senior→Architect→Wizard→Sage→Grandmaster
+  - [x] Request counters: total, successes, failures
+  - [x] Reliability metrics: average, rolling last-50
+  - [x] Escalation percentages: junior, doctor, recipe-solved
+  - [x] Latency metrics: median, p95
+  - [x] By-domain breakdown
+  - [x] Progress bars for XP, success rate, recipe coverage
+- [x] Transcript polish: human vs debug mode separation
+  - [x] Human mode: No evidence IDs, no tool names
+  - [x] Evidence as descriptions ("Hardware snapshot: Intel i9-14900HX")
+  - [x] Confidence-based prefixes ("It looks like..." for medium)
+  - [x] Debug mode: Full internals
+  - [x] validate_human_output() prevents forbidden terms
+- [x] 22+ integration tests for learning + stats
+
+### 0.0.74 - Direct Answers + Classification Fix (COMPLETED)
+- [x] System queries return direct answers, not action plans
+- [x] Intent classification order: SYSTEM_QUERY before ACTION_REQUEST
+- [x] is_read_only_query() function prevents false action classification
+- [x] direct_answer.rs module for topic-based answer generation
+- [x] Structured doctor outputs for transcript rendering
+- [x] 26 integration tests
 
 ### 0.0.73 - Human Transcript Realism + Auto-Update Rewrite (COMPLETED)
 - [x] Role-based phrasing per department in humanizer/phrases.rs

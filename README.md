@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.74
+# Anna Assistant v0.0.75
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.74**: Direct Answers + Classification Fix - System queries (RAM, kernel, disk, network, service status) now return direct answers instead of "Proposed action plan" scaffolding. Fixed intent classification to check SYSTEM_QUERY before ACTION_REQUEST. Added direct_answer module for topic-based answer generation. Structured doctor outputs for transcript rendering. Enhanced humanizer with direct answer formatting. 26 new integration tests.
+**v0.0.75**: Persistent Learning + RPG Stats + Transcript Polish - Recipes now change future behavior with configurable reliability thresholds (90% read-only, 80% doctor, 95% mutation). RPG stats block in `annactl status` shows XP/level, success rates, reliability metrics, latency percentiles. Enhanced human/debug transcript separation. Recipe coverage tracking. 22+ new integration tests.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 
@@ -395,6 +395,34 @@ All builds and tests run on **Arch Linux only**.
 ---
 
 ## Recent Changes
+
+### v0.0.75
+- **Persistent Learning System**: Recipes now actually change future behavior
+  - Reliability thresholds: 90% read-only, 80% doctor, 95% mutation
+  - Evidence requirements: 1 (read-only), 2 (doctor), 3 (mutation)
+  - Automatic recipe demotion after consecutive failures
+  - Recipe coverage tracking for status display
+- **RPG Stats in Status**: XP, levels, and metrics displayed in `annactl status`
+  - Level 0-100 with titles (Intern→Apprentice→Technician→...→Grandmaster)
+  - Request counters (total, success, failed)
+  - Reliability metrics (average, rolling last-50)
+  - Escalation percentages (junior, doctor, recipe-solved)
+  - Latency metrics (median, p95)
+  - By-domain breakdown
+  - Progress bars for XP, success rate, recipe coverage
+- **Transcript Polish**: Human mode vs debug mode fully separated
+  - Human mode: No evidence IDs, no tool names
+  - Evidence as descriptions ("Hardware snapshot: Intel i9-14900HX")
+  - Confidence-based prefixes ("It looks like..." for medium confidence)
+  - Debug mode: Full internals (evidence IDs, tool names, timing)
+- **Integration Tests**: 22+ tests for learning + stats system
+
+### v0.0.74
+- **Direct Answers**: System queries return answers, not action plans
+- **Classification Fix**: SYSTEM_QUERY checked before ACTION_REQUEST
+- **Direct Answer Module**: Topic-based answer generation
+- **Structured Doctor Outputs**: For transcript rendering
+- **26 Integration Tests**: For direct answer system
 
 ### v0.0.57
 - **Evidence Coverage Scoring**: Deterministic `EvidenceCoverage` checks evidence types against query targets

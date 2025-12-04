@@ -520,6 +520,13 @@ pub mod humanizer;
 // v0.0.72: Unified Dual Mode Transcript
 pub mod transcript_v072;
 
+// v0.0.75: Enhanced Recipe Engine + RPG Stats + Transcript v075
+#[cfg(test)]
+mod learning_stats_tests;
+pub mod recipe_engine;
+pub mod rpg_stats;
+pub mod transcript_v075;
+
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
 pub use config::*;
@@ -2095,4 +2102,28 @@ pub use transcript_v072::{
     WarningCategoryV72,
     FORBIDDEN_HUMAN_LITERALS,
     FORBIDDEN_HUMAN_PATTERNS,
+};
+
+// v0.0.75: Recipe Engine exports
+pub use recipe_engine::{
+    DomainRecipeStats, RecipeEngine, RecipeEngineState, RecipeEngineStats, RecipeGate, RecipeMatch,
+    RecipeUseRecord, DEMOTION_FAILURE_THRESHOLD, MIN_EVIDENCE_DOCTOR, MIN_EVIDENCE_MUTATION,
+    MIN_EVIDENCE_READ_ONLY, MIN_MATCH_SCORE, MIN_RELIABILITY_DOCTOR, MIN_RELIABILITY_MUTATION,
+    MIN_RELIABILITY_READ_ONLY, RECIPE_ENGINE_STATE_FILE,
+};
+
+// v0.0.75: RPG Stats exports
+pub use rpg_stats::{
+    title_for_level, DomainStats, EscalationMetrics, LatencyMetrics, ReliabilityMetrics,
+    RequestCounters, RpgStats, RpgStatsManager, XpData, ROLLING_WINDOW_SIZE, STATS_FILE,
+};
+
+// v0.0.75: Transcript v075 exports
+pub use transcript_v075::{
+    get_transcript_mode as get_transcript_mode_v75, human_case_open as human_case_open_v75,
+    human_finding as human_finding_v75, human_missing_evidence as human_missing_evidence_v75,
+    human_reliability_footer, human_timing_summary, human_triage as human_triage_v75,
+    humanize_evidence as humanize_evidence_v75, is_debug_mode as is_debug_mode_v75,
+    render_debug_evidence, render_human_evidence,
+    validate_human_output as validate_human_output_v75, HumanEvidence, HumanStaffMessage,
 };

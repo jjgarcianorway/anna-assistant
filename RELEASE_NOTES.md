@@ -2,6 +2,121 @@
 
 ---
 
+## v0.0.75 - Persistent Learning + RPG Stats + Transcript Polish
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Recipes now actually change future behavior with configurable reliability thresholds. RPG stats block added to `annactl status`. Human vs debug transcript separation fully implemented. Expected project completion: 18.5%.
+
+### Part A: Persistent Learning System
+
+**New Module: recipe_engine.rs**
+- Recipe matching using canonical translator fields (INTENT/TARGETS/RISK/TOOLS/DOCTOR/CONFIDENCE)
+- Precondition validation before recipe use
+- Automatic recipe demotion after 3 consecutive failures
+
+**Reliability Thresholds (Configurable):**
+- Read-only queries: 90% minimum reliability
+- Doctor workflows: 80% minimum reliability
+- Mutation plans: 95% minimum reliability
+
+**Evidence Requirements:**
+- Read-only: 1 evidence item minimum
+- Doctor: 2 evidence items minimum
+- Mutation: 3 evidence items minimum
+
+**Recipe Lifecycle:**
+- Active: Full reliability, auto-suggested
+- Draft: Created when reliability below threshold
+- Archived: Demoted after consecutive failures
+
+**Coverage Tracking:**
+- Rolling request/match counters
+- Coverage percentage for status display
+- By-domain statistics
+
+### Part B: RPG Stats in annactl status
+
+**New Module: rpg_stats.rs**
+- XP and Level (0-100) with non-linear progression
+- Titles: Intern→Apprentice→Technician→Analyst→Engineer→Senior Engineer→Architect→Wizard→Sage→Grandmaster
+
+**Metrics Tracked:**
+- Request counters: total, successes, failures
+- Reliability: average (all-time), rolling last-50
+- Escalation percentages: junior used, doctor used, recipe-solved
+- Latency: median, p95 (total request)
+- By-domain breakdown: count, success rate, avg reliability
+
+**Visual Progress Bars:**
+- XP progress bar (= characters)
+- Success rate bar (# characters)
+- Recipe coverage bar (* characters)
+
+**Storage:** `/var/lib/anna/internal/stats.json`
+
+### Part C: Transcript Polish
+
+**New Module: transcript_v075.rs**
+- Complete human/debug mode separation
+- Evidence as descriptions, not IDs
+
+**Human Mode:**
+- No evidence IDs ([E1], [E2])
+- No tool names (hw_snapshot_summary, memory_info)
+- Topics as descriptions: "Hardware snapshot: Intel i9-14900HX"
+- Confidence-based prefixes:
+  - 90%+: Direct statement
+  - 75-90%: "It looks like..."
+  - 60-75%: "I think..."
+  - <60%: "I'm not certain, but..."
+
+**Debug Mode:**
+- Full evidence IDs and tool names
+- Timing information
+- Parse warnings and retries
+
+**Validation:**
+- `validate_human_output()` checks for forbidden terms
+- Forbidden: [E#], _summary, _probe, _v1, tool names, etc.
+
+### Part D: Integration Tests
+
+**22+ New Tests in learning_stats_tests.rs:**
+- Recipe creation gate tests (thresholds by risk level)
+- RPG stats recording and calculation tests
+- Rolling reliability window tests
+- Latency percentile calculation tests
+- Level title mapping tests
+- Human transcript validation tests
+- Evidence description format tests
+- Confidence prefix tests
+- CLI surface verification (no new commands)
+
+### Files Changed
+
+**New Files:**
+- `crates/anna_common/src/recipe_engine.rs` - Enhanced recipe matching and lifecycle
+- `crates/anna_common/src/rpg_stats.rs` - RPG stats and metrics system
+- `crates/anna_common/src/transcript_v075.rs` - Transcript rendering enhancements
+- `crates/anna_common/src/learning_stats_tests.rs` - Integration tests
+
+**Modified Files:**
+- `crates/anna_common/src/lib.rs` - New module exports
+- `README.md` - v0.0.75 description
+- `CLAUDE.md` - Version bump
+- `TODO.md` - v0.0.75 completed, v0.0.76 planned
+
+### Storage Locations
+
+- Recipe engine state: `/var/lib/anna/internal/recipe_engine_state.json`
+- RPG stats: `/var/lib/anna/internal/stats.json`
+- Recipes: `/var/lib/anna/recipes/` (unchanged)
+
+---
+
 ## v0.0.74 - Direct Answers + Classification Fix
 
 **Release Date:** 2025-12-04
