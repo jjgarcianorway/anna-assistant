@@ -88,8 +88,8 @@ pub async fn handle_repl() -> Result<()> {
         }
 
         match input.to_lowercase().as_str() {
-            "exit" | "quit" => {
-                println!("Goodbye!");
+            "exit" | "quit" | "bye" | "q" | ":q" | ":wq" => {
+                println!("Goodbye! ;)");
                 break;
             }
             "status" => {
@@ -99,10 +99,10 @@ pub async fn handle_repl() -> Result<()> {
             }
             "help" => {
                 println!("Commands:");
-                println!("  exit, quit  - Exit REPL");
-                println!("  status      - Show Anna status");
-                println!("  help        - Show this help");
-                println!("  <anything>  - Send as request to Anna");
+                println!("  exit, quit, bye, q  - Exit REPL");
+                println!("  status              - Show Anna status");
+                println!("  help                - Show this help");
+                println!("  <anything>          - Send as request to Anna");
             }
             _ => {
                 // Check if still ready before request

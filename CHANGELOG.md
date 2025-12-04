@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2024-12-04
+
+### Added
+- **Enhanced status display**
+  - CPU model and core count
+  - RAM total in GB
+  - GPU model and VRAM
+- **Improved REPL exit commands**
+  - Added: bye, q, :q, :wq (for vim users!)
+
+### Changed
+- **Smarter model selection**
+  - With 8GB VRAM: llama3.1:8b (was llama3.2:3b)
+  - With 12GB+ VRAM: qwen2.5:14b
+  - Better tiered selection based on GPU/RAM
+
+### Fixed
+- Friendlier goodbye message
+
 ## [0.0.4] - 2024-12-04
 
 ### Added
@@ -118,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.4...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.5...HEAD
+[0.0.5]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.1...v0.0.2

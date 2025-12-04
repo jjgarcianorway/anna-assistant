@@ -60,6 +60,19 @@ pub fn print_status_display(status: &DaemonStatus) {
     print_kv("auto_update", auto_str, kw);
     println!();
 
+    // Hardware info
+    let ram_gb = status.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+    print_kv("cpu", &format!("{} ({} cores)", status.hardware.cpu_model, status.hardware.cpu_cores), kw);
+    print_kv("ram", &format!("{:.1} GB", ram_gb), kw);
+
+    if let Some(gpu) = &status.hardware.gpu {
+        let vram_gb = gpu.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+        print_kv("gpu", &format!("{} ({:.1} GB VRAM)", gpu.model, vram_gb), kw);
+    } else {
+        print_kv("gpu", "none", kw);
+    }
+    println!();
+
     // LLM info
     let llm_state_color = match status.llm.state {
         LlmState::Ready => colors::OK,
@@ -99,10 +112,6 @@ pub fn print_status_display(status: &DaemonStatus) {
             "traffic", current, total, speed, eta,
             width = kw
         );
-    }
-
-    if let Some(bench) = &status.llm.benchmark {
-        print_kv("benchmark", &format!("DONE   cpu {}, ram {}, gpu {}", bench.cpu, bench.ram, bench.gpu), kw);
     }
 
     if !status.llm.models.is_empty() {

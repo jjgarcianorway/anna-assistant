@@ -149,7 +149,6 @@ fn format_bytes(bytes: u64) -> String {
 /// Select appropriate model based on hardware
 pub fn select_model(hardware: &HardwareInfo) -> String {
     let ram_gb = hardware.ram_bytes / (1024 * 1024 * 1024);
-    let has_gpu = hardware.gpu.is_some();
     let vram_gb = hardware
         .gpu
         .as_ref()
@@ -157,11 +156,25 @@ pub fn select_model(hardware: &HardwareInfo) -> String {
         .unwrap_or(0);
 
     // Model selection logic based on available resources
-    let model = if has_gpu && vram_gb >= 8 {
-        // Good GPU - can run larger models
+    // With GPU acceleration, VRAM is the main constraint
+    // Models need roughly: 7B ~4GB, 8B ~5GB, 14B ~8GB in Q4 quantization
+    let model = if vram_gb >= 12 {
+        // High-end GPU - can run 14B+ models
+        "qwen2.5:14b"
+    } else if vram_gb >= 8 {
+        // Good GPU (8GB) - can run 8B models comfortably
+        "llama3.1:8b"
+    } else if vram_gb >= 6 {
+        // Mid-range GPU - 7B models
+        "qwen2.5:7b"
+    } else if vram_gb >= 4 {
+        // Entry GPU - smaller models
         "llama3.2:3b"
+    } else if ram_gb >= 32 {
+        // No GPU but lots of RAM - CPU inference with larger model
+        "llama3.1:8b"
     } else if ram_gb >= 16 {
-        // Plenty of RAM for CPU inference
+        // Good RAM for CPU inference
         "llama3.2:3b"
     } else if ram_gb >= 8 {
         // Moderate RAM
@@ -209,5 +222,20 @@ mod tests {
             gpu: None,
         };
         assert_eq!(select_model(&hw), "llama3.2:3b");
+    }
+
+    #[test]
+    fn test_select_model_good_gpu() {
+        let hw = HardwareInfo {
+            cpu_cores: 8,
+            cpu_model: "Test".to_string(),
+            ram_bytes: 32 * 1024 * 1024 * 1024,
+            gpu: Some(GpuInfo {
+                vendor: "NVIDIA".to_string(),
+                model: "RTX 4060".to_string(),
+                vram_bytes: 8 * 1024 * 1024 * 1024,
+            }),
+        };
+        assert_eq!(select_model(&hw), "llama3.1:8b");
     }
 }
