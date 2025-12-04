@@ -194,8 +194,9 @@ impl Server {
         let listener = UnixListener::bind(SOCKET_PATH)?;
         info!("Listening on {}", SOCKET_PATH);
 
-        // Set socket permissions
-        fs::set_permissions(SOCKET_PATH, fs::Permissions::from_mode(0o660))?;
+        // Set socket permissions to allow all users to connect
+        // Socket is owned by root but needs to be accessible by regular users
+        fs::set_permissions(SOCKET_PATH, fs::Permissions::from_mode(0o666))?;
 
         loop {
             match listener.accept().await {
