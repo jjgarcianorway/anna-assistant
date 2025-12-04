@@ -2,6 +2,200 @@
 
 ---
 
+## v0.0.82 - "Stop the Nonsense" UX Stabilization
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Major UX stabilization release: Pre-router for deterministic routing without LLM, translator JSON schema with robust parsing, debug mode toggle via natural language, and comprehensive golden tests for clean output. Project completion: 28.9%.
+
+### Features
+
+**Pre-Router (Deterministic Routing):**
+- Routes common queries directly without LLM: stats, memory, disk, CPU, kernel, network, editor, updates, capabilities, debug toggle
+- Typo tolerance: "rum" interpreted as "RAM"
+- Falls through to translator for complex/action requests
+- Module: `pre_router.rs` with `PreRouterIntent` enum
+
+**Translator JSON Schema:**
+- Strict JSON schema for translator output
+- Robust parser supports: direct JSON, markdown code blocks, embedded JSON, legacy text format
+- Silent in normal mode (no parse warnings to stdout)
+- Deterministic fallback when JSON parsing fails
+- Module: `translator_v082.rs`
+
+**Debug Mode Toggle:**
+- Enable: "enable debug", "debug on", "turn debug on"
+- Disable: "disable debug", "debug off", "turn debug off"
+- Session-based via ANNA_DEBUG_TRANSCRIPT env var
+- Persistent via config.toml update
+- Module: `debug_toggle.rs`
+
+**Direct Handlers (Skip Translator):**
+- Stats: RPG stats display with level, XP, title
+- Memory: Parse /proc/meminfo, show usage in GB
+- Disk: Run df -h with human-readable output
+- CPU: Parse /proc/cpuinfo for model, cores, speed
+- Kernel: Read /proc/sys/kernel for release/version
+- Network: Ping test + ip addr output
+- Editor: Check $VISUAL, $EDITOR, installed editors
+- Updates: checkupdates or pacman -Qu
+- Capabilities: Help text with Anna's abilities
+- Module: `pipeline_v082.rs`
+
+**Golden Tests:**
+- 52 tests for normal mode clean output
+- Verify no evidence IDs, tool names, or debug info
+- Test pre-router matching for all query variations
+- Test handler output cleanliness
+- Test reliability scores (100% for deterministic)
+- Module: `golden_tests_v082.rs`
+
+### Technical Details
+
+**New Modules in anna_common:**
+- `pre_router.rs` - Deterministic routing before translator
+- `translator_v082.rs` - JSON schema + robust parser
+- `debug_toggle.rs` - Natural language debug mode control
+- `pipeline_v082.rs` - Direct handler execution
+- `golden_tests_v082.rs` - Clean output verification tests
+
+**New Exports:**
+- `pre_route`, `PreRouterIntent`, `PreRouterResult`
+- `parse_translator_json`, `TranslatorJsonOutput`, `classify_deterministic`
+- `toggle_debug_session`, `toggle_debug_persistent`, `DebugMode`
+- `try_direct_handle`, `DirectHandlerResult`
+
+### Tests
+
+- All 52 v0.0.82 tests pass
+- Pre-router tests: 11 (query variations, no-match cases)
+- Translator tests: 9 (JSON parsing, legacy format, deterministic)
+- Debug toggle tests: 6 (enable/disable patterns, session toggle)
+- Pipeline tests: 10 (direct handlers for all query types)
+- Golden tests: 18 (output cleanliness, reliability)
+
+---
+
+## v0.0.81 - Mutation Engine Refinements
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Refinements to the Mutation Engine: real verification, smart previews, reliability gating, unified transcript modes, enhanced status display, and reliable rollback execution. Project completion: 24.5%.
+
+### Features
+
+**A) Real Verification (not generic):**
+- Service verification: Uses `systemctl is-active` and `is-enabled` with actual state comparison
+- Package verification: Uses `pacman -Qi` to check installed version
+- Config verification: Checks actual file content and backup existence
+- Diagnostic output on verification failure
+
+**B) Smart and Specific Previews:**
+- Service unit resolution: "docker" → "docker.service", "networkmanager" → "NetworkManager.service"
+- Package info from `pacman -Si`: version, size, dependencies (top 5)
+- Warning if package not found in repositories
+
+**C) Reliability Gating:**
+- Mutations require 90% minimum reliability to proceed
+- Read-only queries: 70% minimum
+- Diagnostic flows: 80% minimum
+- Clear feedback when blocked with improvement suggestions
+
+**D) Transcript Mode Overhaul:**
+- Unified `transcript_config` module
+- Human mode: Professional IT department dialogue, no raw tool names/evidence IDs
+- Debug mode: Full internals, timing, retries, parse warnings
+- Mode switching via ANNA_DEBUG_TRANSCRIPT=1 or ANNA_UI_TRANSCRIPT_MODE=debug
+
+**E) Case File Schema v0.0.81:**
+- Unified schema at `/var/lib/anna/cases/<case_id>.json`
+- Includes mutation artifacts: backups, rollback info, verification results
+- Doctor data: findings, causes, suggested actions
+- Methods for save/load/list_recent
+
+**F) Reliable Rollback Executor:**
+- File rollback: Restore from backup with content verification
+- Service rollback: Restore previous active/enabled state
+- Package rollback: Use cached `.pkg.tar.zst` from `/var/cache/pacman/pkg`
+- Verification after every rollback
+
+**G) Enhanced Status Display:**
+- Debug mode indicator (source: env var, config, or default)
+- Last 3 cases with reliability scores and mutation indicator
+- Mutation stats: total, successful, failed, rollbacks, by-type breakdown
+- Doctor stats: invocations, successes, by-domain breakdown
+
+### New Modules
+
+- `mutation_verification.rs`: Real verification for all mutation types
+- `reliability_gate.rs`: Reliability-based action gating
+- `transcript_config.rs`: Unified transcript mode configuration
+- `case_file_v081.rs`: Case file schema with mutation artifacts
+- `rollback_executor.rs`: Actual rollback execution
+- `status_v081.rs`: Enhanced status information
+
+### Tests
+
+- All existing tests pass (1372 in anna_common, 41 in annactl)
+- New tests for each new module
+
+---
+
+## v0.0.80 - Mutation Engine v1
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+First implementation of the Mutation Engine with safe, transparent system changes. Anna can now execute service control, package management, and config file edits with full plan/preview/confirm/execute/verify/rollback pipeline.
+
+### Features
+
+**Mutation Pipeline:**
+- Plan → Preview → Confirm → Execute → Verify → Rollback (if needed)
+- Unified diff previews for config file changes
+- Risk-based confirmation phrases: "I CONFIRM (low risk)", "I CONFIRM (medium risk)", "I CONFIRM (high risk)"
+- Automatic rollback on verification failure with "I CONFIRM ROLLBACK" confirmation
+
+**Supported Mutations (v0.0.80 scope - deliberately limited):**
+- **Service Control**: NetworkManager, sshd, docker, bluetooth (whitelist only)
+  - Actions: start, stop, restart, enable, disable
+- **Package Management**: pacman install/remove (no AUR support yet)
+- **Config File Editing**: /etc/pacman.conf, /etc/ssh/sshd_config, /etc/NetworkManager/NetworkManager.conf
+  - Operations: add line, replace line, comment, uncomment
+
+**Privilege Handling:**
+- Detects root or passwordless sudo without hanging on prompts
+- Shows manual commands when privilege not available
+- Graceful degradation - never blocks waiting for password
+
+**Transcript Integration:**
+- "Change Manager" dialogue layer in human mode
+- Full plan/step IDs in debug mode
+- Risk levels shown as colloquial phrases ("straightforward, low-risk", etc.)
+
+**Recipe Learning:**
+- Mutations can be learned as recipes if reliability >= 95%
+- Requires 3+ evidence items (stricter than read-only recipes)
+- Rollback blocks recipe extraction
+
+**Status Display:**
+- New [MUTATIONS] section in annactl status
+- Shows capability (privilege status), successful/rollback/blocked counts
+- Lists supported scope for v0.0.80
+
+### Tests
+
+- 23 integration tests for mutation engine
+- Tests for privilege detection, allowlists, risk levels, confirmation validation
+- Tests for plan creation, rollback creation, verification creation
+
+---
+
 ## v0.0.77 - Version Detection Fix
 
 **Release Date:** 2025-12-04

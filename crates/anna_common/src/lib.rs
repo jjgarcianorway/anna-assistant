@@ -527,6 +527,51 @@ pub mod recipe_engine;
 pub mod rpg_stats;
 pub mod transcript_v075;
 
+// v0.0.80: Mutation Engine v1 (safe system mutations)
+pub mod config_mutation;
+pub mod mutation_engine_v1;
+pub mod mutation_orchestrator;
+pub mod mutation_transcript;
+#[cfg(test)]
+mod mutation_tests_v080;
+pub mod package_mutation;
+pub mod privilege;
+pub mod service_mutation;
+
+// v0.0.81: Real verification for mutations
+pub mod mutation_verification;
+
+// v0.0.81: Reliability gate for mutation safety
+pub mod reliability_gate;
+
+// v0.0.81: Unified transcript configuration
+pub mod transcript_config;
+
+// v0.0.81: Case file schema v0.0.81
+pub mod case_file_v081;
+
+// v0.0.81: Rollback executor
+pub mod rollback_executor;
+
+// v0.0.81: Status enhancements
+pub mod status_v081;
+
+// v0.0.82: Pre-router for deterministic routing before translator
+pub mod pre_router;
+
+// v0.0.82: Translator JSON schema + robust parser
+pub mod translator_v082;
+
+// v0.0.82: Debug mode toggle via natural language
+pub mod debug_toggle;
+
+// v0.0.82: Pipeline integration with pre-router + direct handlers
+pub mod pipeline_v082;
+
+// v0.0.82: Golden tests for normal mode clean output
+#[cfg(test)]
+mod golden_tests_v082;
+
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
 pub use config::*;
@@ -1753,9 +1798,10 @@ pub use case_file_v1::{
 pub use evidence_tools::{plan_evidence, validate_evidence_for_query, EvidencePlan, PlannedTool};
 pub use intent_taxonomy::{classify_intent, domain_to_doctor, IntentClassification};
 pub use recipe_extractor::{
-    calculate_case_xp, check_recipe_gate, check_state_recipe_gate, extract_recipe,
-    RecipeExtractionResult, MIN_EVIDENCE_FOR_RECIPE as RECIPE_MIN_EVIDENCE,
-    MIN_RELIABILITY_FOR_RECIPE as RECIPE_MIN_RELIABILITY,
+    calculate_case_xp, check_mutation_recipe_gate, check_recipe_gate, check_state_recipe_gate,
+    extract_mutation_recipe, extract_recipe, MutationRecipeExtractionResult, RecipeExtractionResult,
+    MIN_EVIDENCE_FOR_MUTATION_RECIPE, MIN_EVIDENCE_FOR_RECIPE as RECIPE_MIN_EVIDENCE,
+    MIN_RELIABILITY_FOR_MUTATION_RECIPE, MIN_RELIABILITY_FOR_RECIPE as RECIPE_MIN_RELIABILITY,
 };
 pub use transcript_render::{
     render_compact_summary, render_recent_cases, render_transcript_from_file,
@@ -2127,3 +2173,114 @@ pub use transcript_v075::{
     render_debug_evidence, render_human_evidence,
     validate_human_output as validate_human_output_v75, HumanEvidence, HumanStaffMessage,
 };
+
+// v0.0.80: Mutation Engine v1 exports
+pub use config_mutation::{
+    create_config_rollback, create_config_verification, execute_config_edit,
+    generate_config_manual_commands, get_config_edit_risk, preview_config_edit,
+    rollback_config_edit,
+};
+pub use mutation_engine_v1::{
+    is_config_allowed, is_service_allowed, ConfigEditOp, MutationCategory, MutationDetail,
+    MutationExecutionResult, MutationPlanState, MutationPlanV1, MutationPreview,
+    MutationRiskLevel as MutationRiskLevelV1, MutationStats, MutationStep, PackageAction,
+    RollbackResult as MutationRollbackResult, RollbackStep, ServiceAction as ServiceActionV1,
+    StepExecutionResult, StepPreview, VerificationCheck, VerificationResult as MutationVerifyResult,
+    ALLOWED_CONFIG_FILES, ALLOWED_SERVICES, MUTATION_STATS_FILE,
+};
+pub use mutation_orchestrator::{
+    execute_plan as execute_mutation_plan_v1, execute_rollback as execute_mutation_rollback,
+    format_preview_human, generate_preview, plan_config_mutation, plan_package_mutation,
+    plan_service_mutation, update_stats, validate_confirmation as validate_mutation_confirmation_v1,
+    verify_plan,
+};
+pub use package_mutation::{
+    create_install_rollback, create_install_verification, create_remove_rollback,
+    create_remove_verification, execute_package_install, execute_package_remove,
+    generate_package_manual_commands, get_package_action_risk, get_package_info,
+    is_package_installed as is_pkg_installed_v1, preview_package_install, preview_package_remove,
+    PackageInfo,
+};
+pub use privilege::{
+    check_privilege, format_privilege_blocked, generate_manual_commands as generate_priv_commands,
+    has_passwordless_sudo, is_root, run_privileged, PrivilegeMethod, PrivilegeStatus,
+};
+pub use service_mutation::{
+    create_service_rollback, create_service_verification, execute_service_action,
+    generate_service_manual_commands, get_service_action_risk, get_service_state as get_svc_state_v1,
+    preview_service_action as preview_svc_action_v1, ServiceStateInfo,
+};
+pub use mutation_transcript::{
+    debug_execution_step, debug_mutation_preview, debug_plan_header, debug_rollback_result,
+    debug_state_transition, debug_step_preview, debug_verification_result,
+    get_transcript_mode as get_mutation_transcript_mode, human_confirmation_received,
+    human_execution_step, human_mutation_preview, human_plan_header, human_privilege_blocked,
+    human_rollback_result, human_step_preview, human_verification_result,
+    is_debug_mode as is_mutation_debug_mode, render_execution_step, render_mutation_preview,
+    render_plan_header, render_rollback, render_verification,
+};
+
+// v0.0.81: Real mutation verification exports
+pub use mutation_verification::{
+    get_package_info_detailed, resolve_service_unit, verify_backup_exists, verify_config_edit,
+    verify_mutation_plan, verify_mutation_plan_detailed, verify_package_install,
+    verify_package_remove, verify_service_action, DetailedVerificationResult, PackageInfoDetailed,
+    ServiceUnitResolution,
+};
+
+// v0.0.81: Reliability gate exports
+pub use reliability_gate::{
+    check_reliability_gate, format_gate_blocked, format_gate_for_transcript,
+    ActionType as ReliabilityActionType, ReliabilityGateResult, MIN_RELIABILITY_FOR_DIAGNOSIS,
+    MIN_RELIABILITY_FOR_MUTATION, MIN_RELIABILITY_FOR_READ_ONLY,
+};
+
+// v0.0.81: Transcript config exports
+pub use transcript_config::{
+    format_timing, get_transcript_mode as get_transcript_mode_v81,
+    humanize_evidence_ref, humanize_fallback, humanize_llm_error, humanize_parse_retry,
+    humanize_tool_name, is_debug_mode as is_debug_mode_v81, render_if_debug, render_mode_aware,
+    strip_evidence_ids, TranscriptMode as TranscriptModeV81,
+};
+
+// v0.0.81: Case file v0.0.81 exports (with v81 suffix to avoid conflicts)
+pub use case_file_v081::{
+    BackupRecord as BackupRecordV81, CaseDoctorData, CaseEvidence as CaseEvidenceV81,
+    CaseFileV081, CaseMutationData, CaseStatus as CaseStatusV81, CaseSummaryV081,
+    CaseTiming as CaseTimingV081, CaseVerification as CaseVerificationV81, DoctorFinding,
+    MutationExecutionRecord, RollbackRecord as RollbackRecordV81, StepRecord,
+    VerificationRecord as VerificationRecordV81, CASES_DIR as CASES_DIR_V81,
+    CASE_SCHEMA_VERSION as CASE_SCHEMA_VERSION_V81,
+};
+
+// v0.0.81: Rollback executor exports
+pub use rollback_executor::{
+    find_cached_package, rollback_file, rollback_mutation, rollback_package_install,
+    rollback_package_remove, rollback_service, RollbackResult as RollbackResultV81,
+    PACMAN_CACHE_DIR,
+};
+
+// v0.0.81: Status enhancement exports (with V81 suffix for conflicting names)
+pub use status_v081::{
+    format_enhanced_status, get_debug_mode_status, get_enhanced_status, get_recent_cases,
+    DebugModeStatus, DoctorStats, MutationStats as MutationStatsV81, StatusEnhancedV081,
+    DOCTOR_STATS_FILE, MUTATION_STATS_FILE as MUTATION_STATS_FILE_V81,
+};
+
+// v0.0.82: Pre-router exports
+pub use pre_router::{pre_route, PreRouterIntent, PreRouterResult};
+
+// v0.0.82: Translator JSON schema exports
+pub use translator_v082::{
+    classify_deterministic, parse_translator_json, TranslatorIntent, TranslatorJsonOutput,
+    TranslatorParseResult, TranslatorRisk, TRANSLATOR_JSON_SCHEMA, TRANSLATOR_JSON_SYSTEM_PROMPT,
+};
+
+// v0.0.82: Debug toggle exports
+pub use debug_toggle::{
+    generate_toggle_response, get_debug_status_message, parse_debug_toggle_request,
+    toggle_debug_persistent, toggle_debug_session, DebugMode, ToggleResult,
+};
+
+// v0.0.82: Pipeline integration exports
+pub use pipeline_v082::{try_direct_handle, DirectHandlerResult};

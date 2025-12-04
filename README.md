@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.77
+# Anna Assistant v0.0.82
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.77**: Version Detection Fix - Filter for Anna releases (0.0.x) only, ignore legacy installer releases (7.x.x). Fixes version detection finding 7.42.5 instead of 0.0.76.
+**v0.0.82**: "Stop the Nonsense" UX Stabilization - Pre-router for deterministic routing (no LLM for common queries), translator JSON schema with robust parsing, debug mode toggle via natural language, clean transcript in normal mode, typo tolerance ("rum" → RAM), and 52 golden tests for clean output.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 

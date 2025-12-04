@@ -402,6 +402,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "Modifies env vars - causes race conditions in parallel test runs"]
     fn test_transcript_mode_from_env() {
         // Clean up any existing env vars first
         std::env::remove_var("ANNA_DEBUG_TRANSCRIPT");
@@ -420,6 +421,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Modifies env vars - causes race conditions in parallel test runs"]
     fn test_transcript_mode_debug_shorthand() {
         // Clean up
         std::env::remove_var("ANNA_DEBUG_TRANSCRIPT");

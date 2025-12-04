@@ -1,6 +1,6 @@
 # Claude Operating Contract for Anna Assistant
 
-**Version: 0.0.77**
+**Version: 0.0.82**
 
 You are Claude, the sole engineering operator for Anna Assistant. This document is the source of truth over any older documentation.
 
@@ -304,7 +304,25 @@ Stay in 0.xxx.yyy until production quality.
 
 ### 12.8 Release Recipe (MANDATORY)
 
-**EVERY version bump MUST follow this exact sequence:**
+**IMPORTANT: Version bumps in code mean NOTHING without a published GitHub release.**
+**The curl installer and auto-update only see published releases, not Cargo.toml.**
+
+**Use the release script (recommended):**
+
+```bash
+# After updating version in all files and committing:
+./scripts/release.sh
+
+# The script will:
+# 1. Verify working tree is clean
+# 2. Verify all docs are updated
+# 3. Run tests
+# 4. Create and push tag
+# 5. Trigger GitHub Actions release workflow
+# 6. Provide monitoring links
+```
+
+**Manual release process (if script unavailable):**
 
 ```bash
 # Step 1: Update all version references
@@ -316,37 +334,40 @@ Stay in 0.xxx.yyy until production quality.
 
 # Step 2: Commit changes
 git add -A
-git commit -m "v0.0.XX: Short description
-
-- Feature 1
-- Feature 2
-- etc
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+git commit -m "v0.0.XX: Short description"
 
 # Step 3: Create annotated tag
 git tag -a v0.0.XX -m "v0.0.XX: Short description"
 
-# Step 4: Push BOTH commit and tag in ONE command
+# Step 4: Push BOTH commit and tag
 git push origin main --tags
 
-# Step 5: Verify release workflow started
+# Step 5: WAIT for release workflow to complete
 # Go to: https://github.com/jjgarcianorway/anna-assistant/actions
-# Confirm "Release" workflow is running
-# Wait for it to complete (builds Arch container, uploads artifacts)
+# The "Release" workflow MUST complete successfully
 
-# Step 6: Verify release has assets
+# Step 6: VERIFY release has assets
 # Go to: https://github.com/jjgarcianorway/anna-assistant/releases
 # Confirm latest release has:
 #   - annad-X.Y.Z-x86_64-unknown-linux-gnu
 #   - annactl-X.Y.Z-x86_64-unknown-linux-gnu
 #   - SHA256SUMS
 
-# Step 7: Test installer
+# Step 7: Test installer sees new version
 curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
 ```
+
+**Why releases get "stuck" at old version (e.g., 0.0.77):**
+
+The installer fetches from GitHub Releases API. If you:
+- Bump Cargo.toml but don't push a tag → no release created
+- Push tag but workflow fails → no release assets
+- Forget to push tag entirely → outside world sees old version
+
+The ONLY way users see a new version is when:
+1. Tag is pushed to GitHub
+2. Release workflow completes successfully
+3. Release has downloadable assets
 
 **Common Release Failures:**
 

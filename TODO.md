@@ -1,8 +1,8 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.77**
+**Current Version: 0.0.82**
 
-**Expected Project Completion: 18.5%** (Deep test scheduled at 20%)
+**Expected Project Completion: 28.9%**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -10,12 +10,48 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.78 - Multi-Doctor Handoff + Senior Escalation (NEXT)
+### 0.0.83 - Multi-Doctor Handoff + Senior Escalation (NEXT)
 - [ ] Multi-doctor case handoff for complex issues
 - [ ] Department collaboration for cross-domain problems
 - [ ] Senior escalation when Junior < 50%
 - [ ] Multi-round improvement loops
 - [ ] Evidence bundle aggregation across departments
+
+### 0.0.82 - "Stop the Nonsense" UX Stabilization (COMPLETED)
+- [x] Pre-router: Deterministic routing BEFORE the translator for common queries
+- [x] Translator JSON schema with robust parser (supports JSON, markdown blocks, legacy format)
+- [x] Debug mode toggle via natural language ("enable debug" / "disable debug")
+- [x] Clean transcript in normal mode (no evidence IDs, tool names, parse errors)
+- [x] Stats query handler (RPG stats display)
+- [x] Editor detection handler ($VISUAL, $EDITOR, installed editors)
+- [x] Typo tolerance ("rum" → RAM)
+- [x] Updates check handler (pacman/checkupdates)
+- [x] Memory/Disk/CPU/Kernel/Network direct handlers
+- [x] Capabilities/help handler
+- [x] 52 golden tests for normal mode clean output
+
+### 0.0.81 - Mutation Engine Refinements (COMPLETED)
+- [x] A) Real verification for service/package/config (systemctl is-active, pacman -Qi, file content checks)
+- [x] B) Smart previews (unit resolution, pacman -Si info, diff display)
+- [x] C) Reliability gating (90% minimum for mutations)
+- [x] D) Unified transcript config (human vs debug mode switching)
+- [x] E) Case file schema v0.0.81 with mutation artifacts
+- [x] F) Reliable rollback executor (file/service/package)
+- [x] G) Enhanced status display (debug mode, recent cases, mutation/doctor stats)
+- [x] H) Tests for all new functionality
+
+### 0.0.80 - Mutation Engine v1 (COMPLETED)
+- [x] Mutation Engine v1 with plan/preview/confirm/execute/verify/rollback stages
+- [x] Systemd service control mutations (NetworkManager, sshd, docker, bluetooth whitelist)
+- [x] Package install/remove mutations (pacman only, no AUR)
+- [x] Config file safe edit mutations (/etc/pacman.conf, /etc/ssh/sshd_config, /etc/NetworkManager/NetworkManager.conf)
+- [x] Privilege handling (sudo detection without hanging on password prompts)
+- [x] Risk-based confirmation phrases: "I CONFIRM (low risk)", "I CONFIRM (medium risk)", "I CONFIRM (high risk)"
+- [x] Rollback confirmation: "I CONFIRM ROLLBACK"
+- [x] Fly-on-the-wall transcript improvements for mutations (Change Manager dialogue)
+- [x] Recipe extension for mutation learning (95% reliability threshold)
+- [x] Mutation stats in annactl status section
+- [x] Integration tests for mutation engine
 
 ### 0.0.77 - Version Detection Fix (COMPLETED)
 - [x] Filter for Anna releases (0.0.x) only in version detection

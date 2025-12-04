@@ -315,6 +315,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "Requires running systemd - CI container may not have full systemd"]
     fn test_service_counts() {
         let counts = ServiceCounts::query();
         // Any systemd system should have services
@@ -322,6 +323,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Requires running systemd-journald - CI container may not have it"]
     fn test_service_state() {
         // These should exist on any systemd system
         let info = get_service_info("systemd-journald");

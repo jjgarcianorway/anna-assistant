@@ -1,4 +1,4 @@
-//! Status Command v0.0.73 - Enhanced Auto-Update Display
+//! Status Command v0.0.80 - Mutation Engine Stats Display
 //!
 //! v0.0.70: Enhanced transcript mode display in [CASES] section
 //! - Shows Human mode: IT dialogue, no tool names/evidence IDs
@@ -79,6 +79,8 @@ use anna_common::transcript::{
     find_last_failure, get_cases_storage_size, list_recent_cases, load_case_summary, CaseOutcome,
 };
 use anna_common::updater::UpdateStateV73;
+use anna_common::privilege::check_privilege;
+use anna_common::mutation_engine_v1::MutationStats;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -149,6 +151,9 @@ pub async fn run() -> Result<()> {
 
     // [MODELS] - LLM status (critical for Q&A)
     print_models_section();
+
+    // [MUTATIONS] - v0.0.80: Mutation Engine status
+    print_mutations_section();
 
     println!("{}", thin_sep);
     println!();
@@ -1810,6 +1815,86 @@ fn print_storage_section(mode: &DisplayMode) {
         "  Retention:  {} days telemetry",
         config.telemetry.retention_days
     );
+
+    println!();
+}
+
+/// [MUTATIONS] section - v0.0.80: show mutation engine stats
+fn print_mutations_section() {
+    println!("{}", "[MUTATIONS]".cyan());
+
+    // Check privilege status
+    let priv_status = check_privilege();
+
+    // Load mutation stats
+    let mut stats = MutationStats::load();
+    stats.privilege_available = priv_status.available;
+
+    // Privilege status
+    let priv_str = if priv_status.available {
+        format!("available ({})", priv_status.method).green().to_string()
+    } else {
+        "blocked (needs privilege)".yellow().to_string()
+    };
+    println!("  Capability: {}", priv_str);
+
+    // Success/rollback/blocked counts
+    println!("  Successful: {}", stats.successful_count.to_string().green());
+    println!(
+        "  Rollbacks:  {}",
+        if stats.rollback_count > 0 {
+            stats.rollback_count.to_string().yellow().to_string()
+        } else {
+            stats.rollback_count.to_string().dimmed().to_string()
+        }
+    );
+    println!(
+        "  Blocked:    {}",
+        if stats.blocked_privilege_count > 0 {
+            stats.blocked_privilege_count.to_string().yellow().to_string()
+        } else {
+            stats.blocked_privilege_count.to_string().dimmed().to_string()
+        }
+    );
+
+    // Last mutation outcome
+    if let Some(ref outcome) = stats.last_mutation_outcome {
+        let outcome_str = match outcome.as_str() {
+            "success" => "success".green().to_string(),
+            "rolled_back" => "rolled_back".yellow().to_string(),
+            "blocked_privilege" => "blocked".red().to_string(),
+            _ => outcome.dimmed().to_string(),
+        };
+
+        let time_str = stats
+            .last_mutation_timestamp
+            .map(|ts| {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                let ago = now.saturating_sub(ts);
+                if ago < 60 {
+                    format!("{}s ago", ago)
+                } else if ago < 3600 {
+                    format!("{}m ago", ago / 60)
+                } else if ago < 86400 {
+                    format!("{}h ago", ago / 3600)
+                } else {
+                    format!("{}d ago", ago / 86400)
+                }
+            })
+            .unwrap_or_else(|| "unknown".to_string());
+
+        println!("  Last:       {} ({})", outcome_str, time_str.dimmed());
+    }
+
+    // Show supported scope
+    println!();
+    println!("  Scope (v0.0.80):");
+    println!("    Services: NetworkManager, sshd, docker, bluetooth");
+    println!("    Packages: pacman install/remove (no AUR)");
+    println!("    Configs:  /etc/pacman.conf, /etc/ssh/sshd_config");
 
     println!();
 }
