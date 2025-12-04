@@ -258,6 +258,7 @@ pub fn detect_target(request: &str) -> (QueryTarget, u8) {
     }
 
     // Service status - pattern: "is X running" or "X status"
+    // v0.0.74: Exclude mutation verbs - "stop X", "restart X", etc.
     let service_keywords = [
         "nginx",
         "docker",
@@ -271,14 +272,26 @@ pub fn detect_target(request: &str) -> (QueryTarget, u8) {
         "systemd",
         "networkmanager",
     ];
-    for svc in service_keywords {
-        if request_lower.contains(svc) {
-            if request_lower.contains("running")
-                || request_lower.contains("status")
-                || request_lower.contains("started")
-                || request_lower.contains("enabled")
-            {
-                return (QueryTarget::ServicesStatus, 85);
+    let mutation_verbs = [
+        "stop", "start", "restart", "enable", "disable", "kill", "remove", "install",
+    ];
+    let has_mutation_verb = mutation_verbs
+        .iter()
+        .any(|v| request_lower.starts_with(v) || request_lower.contains(&format!(" {} ", v)));
+
+    // Only match as service status if NOT a mutation
+    if !has_mutation_verb {
+        for svc in service_keywords {
+            if request_lower.contains(svc) {
+                if request_lower.contains("running")
+                    || request_lower.contains(" status")
+                    || request_lower.ends_with("status")
+                    || request_lower.contains("started")
+                    || request_lower.contains("enabled")
+                    || request_lower.contains("is ")
+                {
+                    return (QueryTarget::ServicesStatus, 85);
+                }
             }
         }
     }

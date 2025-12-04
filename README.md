@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.73
+# Anna Assistant v0.0.74
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.73**: Human Transcript Realism + Auto-Update Rewrite - Role-based phrasing per department ("Network team is taking this case"), evidence labels with source context ("CPU model from hardware snapshot"), doctor selection shows ownership and first check. Complete auto-update rewrite with state machine, hard filesystem locking, atomic installs, correct restart semantics, automatic rollback, and version mismatch detection. 49 new tests.
+**v0.0.74**: Direct Answers + Classification Fix - System queries (RAM, kernel, disk, network, service status) now return direct answers instead of "Proposed action plan" scaffolding. Fixed intent classification to check SYSTEM_QUERY before ACTION_REQUEST. Added direct_answer module for topic-based answer generation. Structured doctor outputs for transcript rendering. Enhanced humanizer with direct answer formatting. 26 new integration tests.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 

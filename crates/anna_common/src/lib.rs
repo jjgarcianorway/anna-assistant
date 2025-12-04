@@ -488,6 +488,11 @@ pub mod narrator;
 pub mod answer_shaper;
 pub mod evidence_record;
 pub mod evidence_router;
+
+// v0.0.74: Direct Answer Generator
+pub mod direct_answer;
+#[cfg(test)]
+mod direct_answer_tests;
 #[cfg(test)]
 mod narrator_tests;
 

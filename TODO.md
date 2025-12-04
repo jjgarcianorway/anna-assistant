@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.73**
+**Current Version: 0.0.74**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 

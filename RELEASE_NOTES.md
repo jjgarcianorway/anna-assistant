@@ -2,6 +2,84 @@
 
 ---
 
+## v0.0.74 - Direct Answers + Classification Fix
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+System queries (RAM, kernel, disk, network, service status) now return direct answers instead of "Proposed action plan" scaffolding. Fixed classification order to ensure read-only queries never become action requests.
+
+### Part A: Request Classification Fix
+
+**Classification Reordering:**
+- SYSTEM_QUERY patterns now checked BEFORE ACTION_REQUEST patterns
+- Added `is_read_only_query()` function to guard against false action classification
+- Service verbs (stop/start/restart) detected at request start for proper action classification
+
+**New Query Patterns:**
+- Memory: "how much ram do i have", "memory do i have"
+- Kernel: "kernel am i using", "running kernel"
+- Disk: "space free", "space left"
+- Network: "am i connected", "am i online"
+- Service: "is X running", "is X enabled"
+
+### Part B: Direct Answer Generation
+
+**New Module: direct_answer.rs**
+- Topic-based answer routing using evidence detection
+- Generates human-readable answers from tool results
+- No "Proposed action plan" scaffolding for read-only queries
+
+**Answer Formats:**
+- Memory: "You have 32 GiB of RAM total, 16 GiB available."
+- Kernel: "You are running Linux kernel 6.17.9-arch1-1."
+- Disk: "Your root filesystem has 100 GiB free (40% available)."
+- Network: "Network is connected, primary interface: enp5s0."
+- Service: "docker is running."
+
+### Part C: Structured Doctor Outputs
+
+**New Types in doctor_registry.rs:**
+- `StructuredDoctorOutput`: title, findings, evidence_topics, recommendations, risk, reliability_hint
+- `HumanFinding`: description, severity, source
+- `ReliabilityHint`: evidence_count, confidence, coverage
+
+**Human/Debug Mode Formatting:**
+- Human mode: No IDs, no tool names, conversational output
+- Debug mode: Full IDs and evidence references
+
+### Part D: Transcript Improvements
+
+**New Humanizer Functions (humanizer/transform.rs):**
+- `humanize_direct_answer()`: Format direct answers for Human mode
+- `humanize_system_query_answer()`: Format with evidence validation
+
+### Part E: Integration Tests
+
+**26 New Tests in direct_answer_tests.rs:**
+- Classification tests (memory/kernel/disk/network/service → SystemQuery)
+- Topic detection tests (correct EvidenceTopic for each query type)
+- Query target tests (correct tool routing)
+- Direct answer generation tests
+- Regression tests (no action plan for system queries)
+- Human mode verification (no leaked IDs or tool names)
+
+### Files Changed
+
+**New Files:**
+- `crates/anna_common/src/direct_answer.rs`
+- `crates/anna_common/src/direct_answer_tests.rs`
+
+**Modified Files:**
+- `crates/anna_common/src/intent_taxonomy.rs` - Classification reordering, read-only detection
+- `crates/anna_common/src/system_query_router.rs` - Mutation verb exclusion for service detection
+- `crates/anna_common/src/doctor_registry.rs` - Structured output types
+- `crates/anna_common/src/humanizer/transform.rs` - Direct answer formatting
+- `crates/anna_common/src/lib.rs` - New module exports
+
+---
+
 ## v0.0.73 - Human Transcript Realism + Auto-Update Rewrite
 
 **Release Date:** 2025-12-04

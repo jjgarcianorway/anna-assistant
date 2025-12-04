@@ -1,6 +1,7 @@
 //! Doctor Registry - Unified entry flow for Anna's diagnostic doctors
 //!
 //! v0.0.43: Doctor Registry + Unified Entry Flow
+//! v0.0.74: Structured Doctor Output for transcript rendering
 //!
 //! This module provides:
 //! - Data-driven doctor registration from TOML config
@@ -8,6 +9,7 @@
 //! - Unified lifecycle for all doctor runs
 //! - Consistent output schemas (doctor_run.json)
 //! - Junior verification integration
+//! - Structured output for Human/Debug transcript modes
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1187,6 +1189,205 @@ pub fn get_doctor_run_stats() -> DoctorRunStats {
         }),
         runs_today,
         success_rate_today: success_rate,
+    }
+}
+
+// ============================================================================
+// v0.0.74: Structured Doctor Output for Transcript
+// ============================================================================
+
+/// Structured doctor output for transcript rendering
+/// Contains everything needed to render Human or Debug mode output
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StructuredDoctorOutput {
+    /// Title/header (e.g., "Network Team is taking this case")
+    pub title: String,
+    /// Key findings (human-readable, no evidence IDs)
+    pub findings: Vec<HumanFinding>,
+    /// Evidence topics used (human labels, not tool names)
+    pub evidence_topics: Vec<String>,
+    /// Recommendations (what to do next)
+    pub recommendations: Vec<String>,
+    /// Risk level if any actions are suggested
+    pub risk: Option<String>,
+    /// Reliability hint (evidence count, confidence)
+    pub reliability_hint: ReliabilityHint,
+}
+
+/// Human-readable finding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HumanFinding {
+    /// Human-readable description
+    pub description: String,
+    /// Severity level
+    pub severity: FindingSeverity,
+    /// Source (human label like "network snapshot")
+    pub source: String,
+}
+
+/// Reliability hint for the output
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReliabilityHint {
+    /// Number of evidence items
+    pub evidence_count: usize,
+    /// Confidence level (0-100)
+    pub confidence: u8,
+    /// Coverage description (e.g., "good coverage", "some gaps")
+    pub coverage: String,
+}
+
+impl StructuredDoctorOutput {
+    /// Create a new structured output from a doctor run
+    pub fn from_doctor_run(run: &DoctorRun) -> Self {
+        // Extract domain from doctor_id (e.g., "network_doctor" -> "Network")
+        let domain_name = extract_domain_name(&run.selection.primary.doctor_id);
+
+        let findings: Vec<HumanFinding> = run
+            .key_findings
+            .iter()
+            .map(|f| HumanFinding {
+                description: f.description.clone(),
+                severity: f.severity,
+                source: format!("{} evidence", domain_name.to_lowercase()),
+            })
+            .collect();
+
+        let evidence_count = run
+            .key_findings
+            .iter()
+            .flat_map(|f| &f.evidence_ids)
+            .count();
+
+        let confidence = run.reliability.unwrap_or(50) as u8;
+        let coverage = if confidence >= 80 {
+            "good evidence coverage"
+        } else if confidence >= 60 {
+            "some evidence gaps"
+        } else {
+            "limited evidence"
+        };
+
+        Self {
+            title: format!("{} team is taking this case.", domain_name),
+            findings,
+            evidence_topics: run
+                .key_findings
+                .iter()
+                .map(|f| humanize_evidence_topic(&f.id))
+                .collect(),
+            recommendations: vec![],
+            risk: None,
+            reliability_hint: ReliabilityHint {
+                evidence_count,
+                confidence,
+                coverage: coverage.to_string(),
+            },
+        }
+    }
+
+    /// Format for human mode (no IDs, no tool names)
+    pub fn format_human(&self) -> String {
+        let mut output = vec![self.title.clone()];
+
+        if !self.findings.is_empty() {
+            output.push(String::new());
+            output.push("Checks performed:".to_string());
+            for (i, finding) in self.findings.iter().enumerate() {
+                output.push(format!(
+                    "  {}. {} (from {})",
+                    i + 1,
+                    finding.description,
+                    finding.source
+                ));
+            }
+        }
+
+        if !self.recommendations.is_empty() {
+            output.push(String::new());
+            output.push("Recommendations:".to_string());
+            for rec in &self.recommendations {
+                output.push(format!("  - {}", rec));
+            }
+        }
+
+        output.push(String::new());
+        output.push(format!(
+            "Reliability: {}% ({}, {} evidence items)",
+            self.reliability_hint.confidence,
+            self.reliability_hint.coverage,
+            self.reliability_hint.evidence_count
+        ));
+
+        output.join("\n")
+    }
+
+    /// Format for debug mode (with IDs)
+    pub fn format_debug(&self, run: &DoctorRun) -> String {
+        let mut output = vec![format!(
+            "[Doctor: {}] {}",
+            run.selection.primary.doctor_id, self.title
+        )];
+
+        if !run.key_findings.is_empty() {
+            output.push(String::new());
+            output.push("Findings:".to_string());
+            for finding in &run.key_findings {
+                output.push(format!(
+                    "  [{}] {} ({})",
+                    finding.id,
+                    finding.description,
+                    finding.evidence_ids.join(", ")
+                ));
+            }
+        }
+
+        output.push(String::new());
+        output.push(format!(
+            "Reliability: {}% | Evidence count: {}",
+            self.reliability_hint.confidence, self.reliability_hint.evidence_count
+        ));
+
+        output.join("\n")
+    }
+}
+
+/// Helper: extract domain name from doctor_id
+fn extract_domain_name(doctor_id: &str) -> String {
+    // Convert "network_doctor" -> "Network"
+    // Convert "audio_doctor" -> "Audio"
+    let lower = doctor_id.to_lowercase();
+    if lower.contains("network") {
+        "Network".to_string()
+    } else if lower.contains("audio") {
+        "Audio".to_string()
+    } else if lower.contains("boot") {
+        "Boot".to_string()
+    } else if lower.contains("storage") {
+        "Storage".to_string()
+    } else if lower.contains("graphics") || lower.contains("display") {
+        "Graphics".to_string()
+    } else if lower.contains("performance") {
+        "Performance".to_string()
+    } else {
+        "System".to_string()
+    }
+}
+
+/// Helper: convert finding ID to human-readable topic
+fn humanize_evidence_topic(id: &str) -> String {
+    // Convert "pipewire-stopped" to "PipeWire status"
+    // Convert "no-default-route" to "network routing"
+    let cleaned = id.replace('-', " ").replace('_', " ");
+    if cleaned.contains("pipewire") || cleaned.contains("pulse") {
+        "audio services".to_string()
+    } else if cleaned.contains("route") || cleaned.contains("interface") {
+        "network connectivity".to_string()
+    } else if cleaned.contains("disk") || cleaned.contains("mount") {
+        "storage status".to_string()
+    } else if cleaned.contains("boot") {
+        "boot timeline".to_string()
+    } else {
+        cleaned
     }
 }
 

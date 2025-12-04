@@ -1,7 +1,9 @@
-//! Message Transformation for Humanizer v0.0.73
+//! Message Transformation for Humanizer v0.0.74
 //!
 //! Transforms internal events into natural human-readable messages.
 //! Uses role-appropriate phrasing per department (v0.0.73).
+//!
+//! v0.0.74: Added direct answer formatting for system queries
 //!
 //! Can introduce slight disagreement/clarifying exchanges ONLY when real
 //! uncertainty exists (translator confidence low, tool returned no evidence).
@@ -316,6 +318,104 @@ pub enum AnswerValidation {
         expected: &'static str,
     },
     MissingEvidence,
+}
+
+// ============================================================================
+// v0.0.74: Direct Answer Formatting
+// ============================================================================
+
+/// Format a direct answer for Human mode
+/// Produces clean, conversational output without IDs or tool names
+pub fn humanize_direct_answer(answer: &str, source: &str, confidence: u8) -> Vec<HumanizedMessage> {
+    let mut messages = Vec::new();
+
+    // Main answer from service desk
+    messages.push(HumanizedMessage::new("service desk", answer));
+
+    // Add source as side note
+    let source_note = format!("(from {})", source);
+    messages.push(
+        HumanizedMessage::new("", &source_note)
+            .with_tone(MessageTone::Neutral)
+            .as_side_thread(),
+    );
+
+    // Add reliability footer
+    let reliability_text = format_reliability(confidence, source);
+    messages.push(HumanizedMessage::new("", &reliability_text));
+
+    messages
+}
+
+/// Format a system query answer with structured evidence
+pub fn humanize_system_query_answer(
+    query: &str,
+    answer: &str,
+    evidence_sources: &[&str],
+    confidence: u8,
+) -> Vec<HumanizedMessage> {
+    let mut messages = Vec::new();
+
+    // Opening acknowledgment
+    messages.push(HumanizedMessage::new("service desk", "Got it, checking..."));
+
+    // Evidence gathering side thread
+    if !evidence_sources.is_empty() {
+        let sources_str = evidence_sources.join(", ");
+        messages.push(
+            HumanizedMessage::new("service desk", &format!("  Pulling from {}.", sources_str))
+                .with_tone(MessageTone::Neutral)
+                .as_side_thread(),
+        );
+    }
+
+    // Main answer
+    messages.push(HumanizedMessage::new("service desk", answer));
+
+    // Validate answer matches query
+    let validation = validate_answer_relevance(query, answer);
+    match validation {
+        AnswerValidation::Ok => {
+            // Good answer, add reliability
+            let reason = if evidence_sources.is_empty() {
+                "based on snapshot"
+            } else {
+                evidence_sources.first().unwrap_or(&"snapshot")
+            };
+            let reliability_text = format_reliability(confidence, reason);
+            messages.push(HumanizedMessage::new("", &reliability_text));
+        }
+        AnswerValidation::WrongTopic { expected, got_hint } => {
+            // Answer doesn't match query - add warning
+            messages.push(
+                HumanizedMessage::new(
+                    "junior",
+                    &format!(
+                        "Warning: You asked about {} but got {} info.",
+                        expected, got_hint
+                    ),
+                )
+                .with_tone(MessageTone::Skeptical),
+            );
+        }
+        AnswerValidation::TooGeneric { expected } => {
+            messages.push(
+                HumanizedMessage::new(
+                    "junior",
+                    &format!("Could be more specific about {}.", expected),
+                )
+                .with_tone(MessageTone::Cautious),
+            );
+        }
+        AnswerValidation::MissingEvidence => {
+            messages.push(
+                HumanizedMessage::new("junior", "Answer not backed by evidence.")
+                    .with_tone(MessageTone::Skeptical),
+            );
+        }
+    }
+
+    messages
 }
 
 #[cfg(test)]
