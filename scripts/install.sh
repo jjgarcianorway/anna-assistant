@@ -201,6 +201,19 @@ request_sudo() {
     echo ""
 }
 
+# Stop existing service if running (for upgrades)
+stop_existing_service() {
+    if systemctl is-active --quiet annad 2>/dev/null; then
+        print_section "upgrade" "stopping existing annad service"
+        $SUDO systemctl stop annad
+        print_ok "annad stopped"
+        echo ""
+        UPGRADE_MODE=true
+    else
+        UPGRADE_MODE=false
+    fi
+}
+
 # Install binaries
 install_binaries() {
     print_section "install" "binaries"
@@ -301,6 +314,7 @@ main() {
     fetch_artifacts
     verify_checksums
     request_sudo
+    stop_existing_service
     install_binaries
     install_directories
     install_config
