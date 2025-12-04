@@ -2,7 +2,7 @@
 
 use anna_shared::ledger::LedgerEntryKind;
 use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse};
-use anna_shared::status::DaemonState;
+use anna_shared::status::LlmState;
 use tracing::{error, info};
 
 use crate::ollama;
@@ -32,14 +32,14 @@ async fn handle_llm_request(
     id: String,
     params: Option<serde_json::Value>,
 ) -> RpcResponse {
-    // Check if daemon is ready
+    // Check if LLM is ready
     {
         let state = state.read().await;
-        if state.state != DaemonState::Ready {
+        if state.llm.state != LlmState::Ready {
             return RpcResponse::error(
                 id,
                 -32002,
-                format!("Daemon not ready: {}", state.state),
+                format!("LLM not ready: {}", state.llm.state),
             );
         }
     }
@@ -61,8 +61,9 @@ async fn handle_llm_request(
     let model = {
         let state = state.read().await;
         state
-            .model
-            .as_ref()
+            .llm
+            .models
+            .first()
             .map(|m| m.name.clone())
             .unwrap_or_else(|| "llama3.2:1b".to_string())
     };
@@ -135,19 +136,29 @@ async fn handle_uninstall(state: SharedState, id: String) -> RpcResponse {
         }
     }
 
+    // Collect models for display
+    let models: Vec<String> = state.llm.models.iter().map(|m| m.name.clone()).collect();
+
     // Add final cleanup
-    commands.push("rm -f /usr/local/bin/annad".to_string());
+    commands.push("systemctl stop annad".to_string());
+    commands.push("systemctl disable annad".to_string());
     commands.push("rm -f /usr/local/bin/annactl".to_string());
+    commands.push("rm -f /usr/local/bin/annad".to_string());
     commands.push("rm -f /etc/systemd/system/annad.service".to_string());
+    commands.push("rm -rf /etc/anna".to_string());
     commands.push("rm -rf /var/lib/anna".to_string());
-    commands.push("rm -rf /run/anna".to_string());
+    commands.push("rm -rf /var/log/anna".to_string());
     commands.push("systemctl daemon-reload".to_string());
 
     RpcResponse::success(
         id,
         serde_json::json!({
             "status": "uninstall_prepared",
-            "commands": commands
+            "commands": commands,
+            "helpers": {
+                "ollama": state.ollama.installed,
+                "models": models
+            }
         }),
     )
 }

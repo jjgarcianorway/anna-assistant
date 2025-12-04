@@ -1,11 +1,11 @@
 //! Unix socket server for annad.
 
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use anna_shared::ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 use anna_shared::rpc::RpcRequest;
-use anna_shared::status::{DaemonState, ModelInfo};
 use anna_shared::{SOCKET_PATH, STATE_DIR, UPDATE_CHECK_INTERVAL};
 use anyhow::Result;
 use chrono::Utc;
@@ -83,8 +83,12 @@ impl Server {
             }
         }
 
-        // Install Ollama if needed
-        self.update_state(DaemonState::InstallingOllama).await;
+        // Phase: Installing Ollama
+        {
+            let mut state = self.state.write().await;
+            state.set_llm_phase("installing_ollama");
+        }
+
         if !ollama::is_installed() {
             ollama::install().await?;
             let mut state = self.state.write().await;
@@ -106,19 +110,51 @@ impl Server {
             state.ollama = ollama::get_status().await;
         }
 
-        // Probe hardware
-        self.update_state(DaemonState::ProbingHardware).await;
+        // Phase: Probing hardware
+        {
+            let mut state = self.state.write().await;
+            state.set_llm_phase("probing_hardware");
+        }
+
         let hardware = probe_hardware()?;
         {
             let mut state = self.state.write().await;
             state.hardware = hardware.clone();
         }
 
+        // Phase: Benchmarking
+        {
+            let mut state = self.state.write().await;
+            state.set_llm_phase("benchmarking");
+        }
+
+        // Set benchmark result based on hardware
+        {
+            let mut state = self.state.write().await;
+            let cpu_status = if state.hardware.cpu_cores >= 4 { "ok" } else { "limited" };
+            let ram_status = if state.hardware.ram_bytes >= 8 * 1024 * 1024 * 1024 {
+                "ok"
+            } else {
+                "limited"
+            };
+            let gpu_status = state
+                .hardware
+                .gpu
+                .as_ref()
+                .map(|_| "detected")
+                .unwrap_or("none");
+            state.set_benchmark_result(cpu_status, ram_status, gpu_status);
+        }
+
         // Select model
         let model_name = select_model(&hardware);
 
-        // Pull model if needed
-        self.update_state(DaemonState::PullingModel).await;
+        // Phase: Pulling model
+        {
+            let mut state = self.state.write().await;
+            state.set_llm_phase("pulling_models");
+        }
+
         if !ollama::has_model(&model_name).await {
             ollama::pull_model(&model_name).await?;
             let mut state = self.state.write().await;
@@ -129,20 +165,14 @@ impl Server {
             ));
         }
 
-        // Run benchmark
-        self.update_state(DaemonState::Benchmarking).await;
-        let _throughput = ollama::benchmark(&model_name).await.unwrap_or(0.0);
-
-        // Set model info
+        // Add model to status
         {
             let mut state = self.state.write().await;
-            state.model = Some(ModelInfo {
-                name: model_name,
-                size_bytes: 0, // TODO: get actual size
-                quantization: None,
-                pulled: true,
-            });
+            state.add_model(&model_name, "general", 0);
         }
+
+        // Run benchmark
+        let _throughput = ollama::benchmark(&model_name).await.unwrap_or(0.0);
 
         // Save ledger
         {
@@ -151,16 +181,13 @@ impl Server {
         }
 
         // Mark ready
-        self.update_state(DaemonState::Ready).await;
+        {
+            let mut state = self.state.write().await;
+            state.set_llm_ready();
+        }
+
         info!("Daemon initialized and ready");
-
         Ok(())
-    }
-
-    async fn update_state(&self, new_state: DaemonState) {
-        let mut state = self.state.write().await;
-        state.state = new_state.clone();
-        info!("State: {}", new_state);
     }
 
     async fn run_socket_server(&self) -> Result<()> {
@@ -212,7 +239,9 @@ async fn handle_connection(state: SharedState, stream: UnixStream) -> Result<()>
 
         let response = handle_request(state.clone(), request).await;
         let response_json = serde_json::to_string(&response)?;
-        writer.write_all(format!("{}\n", response_json).as_bytes()).await?;
+        writer
+            .write_all(format!("{}\n", response_json).as_bytes())
+            .await?;
 
         line.clear();
     }
@@ -234,13 +263,10 @@ async fn update_check_loop(state: SharedState) {
         {
             let mut state = state.write().await;
             state.last_update_check = Some(Utc::now());
-            state.next_update_check = Some(
-                Utc::now() + chrono::Duration::seconds(UPDATE_CHECK_INTERVAL as i64),
-            );
+            state.next_update_check =
+                Some(Utc::now() + chrono::Duration::seconds(UPDATE_CHECK_INTERVAL as i64));
         }
 
         info!("Update check complete");
     }
 }
-
-use std::os::unix::fs::PermissionsExt;

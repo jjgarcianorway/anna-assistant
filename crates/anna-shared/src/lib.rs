@@ -4,11 +4,15 @@ pub mod error;
 pub mod ledger;
 pub mod rpc;
 pub mod status;
+pub mod ui;
 
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{RpcRequest, RpcResponse, RpcMethod};
-pub use status::{DaemonStatus, OllamaStatus, ModelInfo, HardwareInfo};
+pub use status::{
+    DaemonStatus, DaemonState, OllamaStatus, ModelInfo, HardwareInfo,
+    LlmStatus, LlmState, ProgressInfo, BenchmarkResult,
+};
 
 /// Socket path for annad
 pub const SOCKET_PATH: &str = "/run/anna/anna.sock";
