@@ -6,19 +6,20 @@ use std::path::Path;
 
 use anna_shared::ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 use anna_shared::rpc::RpcRequest;
-use anna_shared::{SOCKET_PATH, STATE_DIR, UPDATE_CHECK_INTERVAL};
+use anna_shared::{SOCKET_PATH, STATE_DIR, VERSION};
 use anyhow::Result;
 use chrono::Utc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::time::{interval, Duration};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::hardware::{probe_hardware, select_model};
 use crate::health::health_check_loop;
 use crate::ollama;
 use crate::rpc_handler::handle_request;
 use crate::state::{create_shared_state, SharedState};
+use crate::update::{check_latest_version, is_newer_version, perform_update};
 
 pub struct Server {
     state: SharedState,
@@ -38,7 +39,7 @@ impl Server {
         // Initialize daemon
         self.initialize().await?;
 
-        // Start background tasks
+        // Start update check loop
         let state_clone = self.state.clone();
         tokio::spawn(async move {
             update_check_loop(state_clone).await;
@@ -201,9 +202,11 @@ impl Server {
         let listener = UnixListener::bind(SOCKET_PATH)?;
         info!("Listening on {}", SOCKET_PATH);
 
-        // Set socket permissions to allow all users to connect
-        // Socket is owned by root but needs to be accessible by regular users
-        fs::set_permissions(SOCKET_PATH, fs::Permissions::from_mode(0o666))?;
+        // Set socket permissions: owner rw, group rw (anna group)
+        fs::set_permissions(SOCKET_PATH, fs::Permissions::from_mode(0o660))?;
+
+        // Set socket group to anna (if the group exists)
+        set_socket_group(SOCKET_PATH);
 
         loop {
             match listener.accept().await {
@@ -258,23 +261,98 @@ async fn handle_connection(state: SharedState, stream: UnixStream) -> Result<()>
 }
 
 async fn update_check_loop(state: SharedState) {
-    let mut interval = interval(Duration::from_secs(UPDATE_CHECK_INTERVAL));
+    // Get check interval from state
+    let check_interval = {
+        let state = state.read().await;
+        state.update.check_interval_secs
+    };
+
+    let mut interval = interval(Duration::from_secs(check_interval));
+
+    // Set initial next_check time
+    {
+        let mut state = state.write().await;
+        state.update.next_check = Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
+    }
 
     loop {
         interval.tick().await;
 
-        info!("Running update check...");
+        info!("Checking for updates...");
 
-        // TODO: Implement actual update check against GitHub releases
-        // For v0.0.1, just record the check time
+        // Check GitHub for latest version
+        match check_latest_version().await {
+            Ok(latest_version) => {
+                let should_update = is_newer_version(VERSION, &latest_version);
 
-        {
-            let mut state = state.write().await;
-            state.last_update_check = Some(Utc::now());
-            state.next_update_check =
-                Some(Utc::now() + chrono::Duration::seconds(UPDATE_CHECK_INTERVAL as i64));
+                {
+                    let mut state = state.write().await;
+                    state.update.last_check = Some(Utc::now());
+                    state.update.next_check = Some(
+                        Utc::now() + chrono::Duration::seconds(check_interval as i64)
+                    );
+                    state.update.available_version = Some(latest_version.clone());
+                    state.update.update_available = should_update;
+                }
+
+                if should_update {
+                    info!("New version available: {} -> {}", VERSION, latest_version);
+
+                    // Check if auto-update is enabled
+                    let auto_update_enabled = {
+                        let state = state.read().await;
+                        state.update.enabled
+                    };
+
+                    if auto_update_enabled {
+                        info!("Auto-update enabled, performing update...");
+                        match perform_update(&latest_version).await {
+                            Ok(()) => {
+                                info!("Update initiated, daemon will restart");
+                            }
+                            Err(e) => {
+                                error!("Auto-update failed: {}", e);
+                                let mut state = state.write().await;
+                                state.last_error = Some(format!("Auto-update failed: {}", e));
+                            }
+                        }
+                    } else {
+                        info!("Auto-update disabled, skipping");
+                    }
+                } else {
+                    info!("Already on latest version: {}", VERSION);
+                }
+            }
+            Err(e) => {
+                warn!("Failed to check for updates: {}", e);
+                let mut state = state.write().await;
+                state.update.last_check = Some(Utc::now());
+                state.update.next_check = Some(
+                    Utc::now() + chrono::Duration::seconds(check_interval as i64)
+                );
+            }
         }
+    }
+}
 
-        info!("Update check complete");
+/// Set socket group to 'anna' using chgrp command
+fn set_socket_group(path: &str) {
+    use std::process::Command;
+
+    // Try to set the group to 'anna'
+    match Command::new("chgrp").args(["anna", path]).output() {
+        Ok(output) => {
+            if output.status.success() {
+                info!("Set socket group to 'anna'");
+            } else {
+                // Group might not exist on this system, that's OK - 0o666 fallback
+                warn!("Could not set socket group to 'anna', using permissive mode");
+                let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o666));
+            }
+        }
+        Err(e) => {
+            warn!("Failed to run chgrp: {}, using permissive mode", e);
+            let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o666));
+        }
     }
 }

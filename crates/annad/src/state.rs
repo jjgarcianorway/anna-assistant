@@ -6,9 +6,9 @@ use std::time::Instant;
 use anna_shared::ledger::Ledger;
 use anna_shared::status::{
     BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus,
-    ModelInfo, OllamaStatus, ProgressInfo,
+    ModelInfo, OllamaStatus, ProgressInfo, UpdateStatus,
 };
-use anna_shared::VERSION;
+use anna_shared::{DEFAULT_UPDATE_CHECK_INTERVAL, VERSION};
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
@@ -18,14 +18,35 @@ pub struct DaemonStateInner {
     pub pid: u32,
     pub started_at: Instant,
     pub debug_mode: bool,
-    pub auto_update: bool,
-    pub last_update_check: Option<DateTime<Utc>>,
-    pub next_update_check: Option<DateTime<Utc>>,
+    pub update: UpdateStateInner,
     pub ollama: OllamaStatus,
     pub llm: LlmStatus,
     pub hardware: HardwareInfo,
     pub ledger: Ledger,
     pub last_error: Option<String>,
+}
+
+/// Update state tracking
+pub struct UpdateStateInner {
+    pub enabled: bool,
+    pub check_interval_secs: u64,
+    pub last_check: Option<DateTime<Utc>>,
+    pub next_check: Option<DateTime<Utc>>,
+    pub available_version: Option<String>,
+    pub update_available: bool,
+}
+
+impl Default for UpdateStateInner {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            check_interval_secs: DEFAULT_UPDATE_CHECK_INTERVAL,
+            last_check: None,
+            next_check: None,
+            available_version: None,
+            update_available: false,
+        }
+    }
 }
 
 impl DaemonStateInner {
@@ -35,9 +56,7 @@ impl DaemonStateInner {
             pid: std::process::id(),
             started_at: Instant::now(),
             debug_mode: true,
-            auto_update: true,
-            last_update_check: None,
-            next_update_check: None,
+            update: UpdateStateInner::default(),
             ollama: OllamaStatus::default(),
             llm: LlmStatus::default(),
             hardware: HardwareInfo::default(),
@@ -53,9 +72,14 @@ impl DaemonStateInner {
             pid: Some(self.pid),
             uptime_seconds: self.started_at.elapsed().as_secs(),
             debug_mode: self.debug_mode,
-            auto_update: self.auto_update,
-            last_update_check: self.last_update_check,
-            next_update_check: self.next_update_check,
+            update: UpdateStatus {
+                enabled: self.update.enabled,
+                check_interval_secs: self.update.check_interval_secs,
+                last_check: self.update.last_check,
+                next_check: self.update.next_check,
+                available_version: self.update.available_version.clone(),
+                update_available: self.update.update_available,
+            },
             llm: self.llm.clone(),
             hardware: self.hardware.clone(),
             ledger: self.ledger.summary(),

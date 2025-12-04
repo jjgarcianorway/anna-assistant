@@ -13,13 +13,22 @@ pub struct DaemonStatus {
     pub pid: Option<u32>,
     pub uptime_seconds: u64,
     pub debug_mode: bool,
-    pub auto_update: bool,
-    pub last_update_check: Option<DateTime<Utc>>,
-    pub next_update_check: Option<DateTime<Utc>>,
+    pub update: UpdateStatus,
     pub llm: LlmStatus,
     pub hardware: HardwareInfo,
     pub ledger: LedgerSummary,
     pub last_error: Option<String>,
+}
+
+/// Update subsystem status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateStatus {
+    pub enabled: bool,
+    pub check_interval_secs: u64,
+    pub last_check: Option<DateTime<Utc>>,
+    pub next_check: Option<DateTime<Utc>>,
+    pub available_version: Option<String>,
+    pub update_available: bool,
 }
 
 /// LLM subsystem status
@@ -162,6 +171,19 @@ impl Default for LlmStatus {
             progress: None,
             benchmark: None,
             models: Vec::new(),
+        }
+    }
+}
+
+impl Default for UpdateStatus {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            check_interval_secs: crate::DEFAULT_UPDATE_CHECK_INTERVAL,
+            last_check: None,
+            next_check: None,
+            available_version: None,
+            update_available: false,
         }
     }
 }

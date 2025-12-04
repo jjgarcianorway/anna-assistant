@@ -25,20 +25,39 @@ pub fn print_status_display(status: &DaemonStatus) {
     // Daemon info
     print_kv("daemon", &format!("{}   (pid {})", status.state, status.pid.unwrap_or(0)), kw);
     print_kv("debug_mode", if status.debug_mode { "ON" } else { "OFF" }, kw);
+    println!();
 
-    let update_str = if status.auto_update {
-        match &status.last_update_check {
-            Some(t) => {
-                let ago = chrono::Utc::now().signed_duration_since(*t);
-                format!("ENABLED   last check {:02}:{:02}:{:02} ago",
-                    ago.num_hours(), ago.num_minutes() % 60, ago.num_seconds() % 60)
-            }
-            None => "ENABLED   ( every 600s )".to_string()
-        }
+    // Version/Update section
+    print_kv("version", &status.version, kw);
+
+    // Show available version from GitHub
+    let available = status.update.available_version.as_deref().unwrap_or("checking...");
+    if status.update.update_available {
+        println!(
+            "{:width$} {}{}{} ({}update available{})",
+            "available",
+            colors::OK, available, colors::RESET,
+            colors::WARN, colors::RESET,
+            width = kw
+        );
     } else {
-        "DISABLED".to_string()
-    };
-    print_kv("auto_update", &update_str, kw);
+        print_kv("available", available, kw);
+    }
+
+    // Update check pace
+    print_kv("check_pace", &format!("every {}s", status.update.check_interval_secs), kw);
+
+    // Countdown to next check
+    if let Some(next) = &status.update.next_check {
+        let now = chrono::Utc::now();
+        let remaining = next.signed_duration_since(now);
+        let secs = remaining.num_seconds().max(0);
+        print_kv("next_check", &format!("in {}s", secs), kw);
+    }
+
+    // Auto-update status
+    let auto_str = if status.update.enabled { "ENABLED" } else { "DISABLED" };
+    print_kv("auto_update", auto_str, kw);
     println!();
 
     // LLM info

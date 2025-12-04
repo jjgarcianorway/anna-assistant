@@ -11,7 +11,7 @@ pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{RpcRequest, RpcResponse, RpcMethod};
 pub use status::{
     DaemonStatus, DaemonState, OllamaStatus, ModelInfo, HardwareInfo,
-    LlmStatus, LlmState, ProgressInfo, BenchmarkResult,
+    LlmStatus, LlmState, ProgressInfo, BenchmarkResult, UpdateStatus,
 };
 
 /// Socket path for annad
@@ -26,8 +26,11 @@ pub const LEDGER_PATH: &str = "/var/lib/anna/ledger.json";
 /// Config file path
 pub const CONFIG_PATH: &str = "/var/lib/anna/config.json";
 
-/// Update check interval in seconds
-pub const UPDATE_CHECK_INTERVAL: u64 = 600;
+/// Update check interval in seconds (default, can be overridden by config)
+pub const DEFAULT_UPDATE_CHECK_INTERVAL: u64 = 60;
+
+/// GitHub repository for version checks
+pub const GITHUB_REPO: &str = "jjgarcianorway/anna-assistant";
 
 /// Anna version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

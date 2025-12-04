@@ -3,9 +3,11 @@
 mod hardware;
 mod health;
 mod ollama;
+mod permissions;
 mod rpc_handler;
 mod server;
 mod state;
+mod update;
 
 use anyhow::Result;
 use tracing::{info, Level};

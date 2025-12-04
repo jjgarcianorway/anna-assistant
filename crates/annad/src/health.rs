@@ -1,6 +1,7 @@
 //! Health check module - monitors Ollama and model availability.
 
 use crate::ollama;
+use crate::permissions;
 use crate::state::SharedState;
 use anna_shared::status::LlmState;
 use std::time::Duration;
@@ -25,6 +26,9 @@ pub async fn health_check_loop(state: SharedState) {
 
 /// Check system health and repair if needed
 async fn check_and_repair(state: SharedState) -> anyhow::Result<()> {
+    // Check 0: Permissions - ensure anna group and user access
+    check_permissions();
+
     // Get current expected model
     let model_name = {
         let state = state.read().await;
@@ -141,4 +145,23 @@ async fn trigger_repair(state: SharedState, reason: &str) -> anyhow::Result<()> 
 
     info!("Repair sequence completed successfully");
     Ok(())
+}
+
+/// Check and fix permissions (group setup, user access)
+fn check_permissions() {
+    // Ensure anna group exists and directories are properly configured
+    if let Err(e) = permissions::ensure_permissions() {
+        warn!("Permissions check failed: {}", e);
+        return;
+    }
+
+    // Check if any regular users need to be added to the anna group
+    let fixed = permissions::check_and_fix_user_access();
+    if !fixed.is_empty() {
+        info!(
+            "Added {} user(s) to anna group: {}",
+            fixed.len(),
+            fixed.join(", ")
+        );
+    }
 }

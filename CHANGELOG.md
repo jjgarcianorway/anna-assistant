@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4] - 2024-12-04
+
+### Added
+- **Auto-update system**
+  - GitHub release version checking every 60 seconds
+  - Automatic download and verification of new releases
+  - Zero-downtime updates via atomic binary replacement
+  - SHA256 checksum verification for security
+- **Enhanced status display**
+  - Current version and available version from GitHub
+  - Update check pace (every 60s)
+  - Countdown to next update check
+  - Auto-update enabled/disabled status
+  - "update available" indicator when new version exists
+- **Security and permissions**
+  - Dedicated `anna` group for socket access
+  - Installer automatically creates group and adds user
+  - Health check auto-adds new users to anna group
+  - No reboot needed - `newgrp anna` activates immediately
+  - Fallback to permissive mode if group unavailable
+
+### Changed
+- Update check interval reduced from 600s to 60s
+- Status output now shows comprehensive version/update information
+- Socket permissions now use group-based access (more secure)
+
 ## [0.0.3] - 2024-12-04
 
 ### Added
@@ -92,7 +118,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/jjgarcianorway/anna-assistant/releases/tag/v0.0.1

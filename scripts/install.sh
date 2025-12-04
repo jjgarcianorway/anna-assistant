@@ -5,13 +5,15 @@
 
 set -e
 
-VERSION="0.0.3"
+VERSION="0.0.4"
 REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
 STATE_DIR="/var/lib/anna"
 LOG_DIR="/var/log/anna"
+RUN_DIR="/run/anna"
 SYSTEMD_DIR="/etc/systemd/system"
+ANNA_GROUP="anna"
 
 # Colors (24-bit true color)
 C_HEADER=$'\033[38;2;255;210;120m'
@@ -67,6 +69,11 @@ print_err() {
 print_footer() {
     echo ""
     echo "$HR"
+    if [ "$GROUP_ADDED" = true ]; then
+        echo "Group membership applied. To use anna in this terminal:"
+        echo "  ${C_BOLD}newgrp anna${C_RESET}  (or start a new terminal)"
+        echo ""
+    fi
     echo "Run: ${C_BOLD}annactl status${C_RESET}"
     echo "$HR"
     echo ""
@@ -228,6 +235,31 @@ install_binaries() {
     echo ""
 }
 
+# Setup anna group and add current user
+setup_group() {
+    print_section "security" "group setup"
+
+    # Create anna group if it doesn't exist
+    if ! getent group "$ANNA_GROUP" > /dev/null 2>&1; then
+        $SUDO groupadd "$ANNA_GROUP"
+        print_ok "created group: ${ANNA_GROUP}"
+    else
+        print_ok "group exists: ${ANNA_GROUP}"
+    fi
+
+    # Add current user to anna group if not already member
+    if ! groups "$USERNAME" 2>/dev/null | grep -q "\b${ANNA_GROUP}\b"; then
+        $SUDO usermod -aG "$ANNA_GROUP" "$USERNAME"
+        print_ok "added ${USERNAME} to ${ANNA_GROUP} group"
+        # Apply group immediately without logout using newgrp trick
+        GROUP_ADDED=true
+    else
+        print_ok "${USERNAME} already in ${ANNA_GROUP} group"
+        GROUP_ADDED=false
+    fi
+    echo ""
+}
+
 # Install directories
 install_directories() {
     print_section "install" "directories"
@@ -236,10 +268,19 @@ install_directories() {
     print_item_ok "/etc/anna"
 
     $SUDO mkdir -p "$STATE_DIR"
+    $SUDO chgrp "$ANNA_GROUP" "$STATE_DIR"
+    $SUDO chmod 775 "$STATE_DIR"
     print_item_ok "/var/lib/anna"
 
     $SUDO mkdir -p "$LOG_DIR"
+    $SUDO chgrp "$ANNA_GROUP" "$LOG_DIR"
+    $SUDO chmod 775 "$LOG_DIR"
     print_item_ok "/var/log/anna"
+
+    $SUDO mkdir -p "$RUN_DIR"
+    $SUDO chgrp "$ANNA_GROUP" "$RUN_DIR"
+    $SUDO chmod 775 "$RUN_DIR"
+    print_item_ok "/run/anna"
     echo ""
 }
 
@@ -316,6 +357,7 @@ main() {
     request_sudo
     stop_existing_service
     install_binaries
+    setup_group
     install_directories
     install_config
     install_service
