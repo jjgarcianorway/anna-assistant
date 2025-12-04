@@ -2,7 +2,6 @@
 name = "annactl"
 version.workspace = true
 edition.workspace = true
-authors.workspace = true
 license.workspace = true
 
 [[bin]]
@@ -10,21 +9,9 @@ name = "annactl"
 path = "src/main.rs"
 
 [dependencies]
-anna_common = { path = "../anna_common" }
+anna-shared.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
 clap.workspace = true
-chrono.workspace = true
-reqwest.workspace = true
-owo-colors.workspace = true
-sysinfo.workspace = true
-toml.workspace = true
-dirs = "5.0"
-futures-util = "0.3"
-libc = "0.2"
-once_cell = "1.19"

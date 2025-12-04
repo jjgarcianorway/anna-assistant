@@ -1,27 +1,3 @@
-# Anna Assistant CI - Arch Linux Only
-# v0.0.83: Blocking Gates for Mechanical Reliability
-#
-# This workflow runs on every PR and push to main.
-# All jobs run in an Arch Linux container - the only supported platform.
-#
-# BLOCKING GATES (must pass to merge):
-# - build: Compiles in Arch Linux
-# - test: All unit and integration tests pass
-# - smoke: CLI smoke tests
-# - hygiene: Version consistency, SPEC.md exists, CLI surface check
-# - cli-surface: No unauthorized public commands
-# - file-size-new: No NEW files over 400 lines
-# - install-uninstall: Install/uninstall invariants hold
-# - security-tests: Redaction, policy, reliability tests
-#
-# ADVISORY (warnings only):
-# - clippy, fmt, audit
-#
-# Rules:
-# - No green, no merge
-# - No regressions allowed
-# - All tests must pass on Arch Linux
-
 name: CI
 
 on:
@@ -32,657 +8,183 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
 
 jobs:
-  # ==========================================================================
-  # Build Matrix (Arch Linux only)
-  # ==========================================================================
-  build:
-    name: Build (${{ matrix.profile }})
+  # Check required files exist
+  required-files:
+    name: Required Files
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    strategy:
-      matrix:
-        profile: [debug, release]
     steps:
-      - name: Install dependencies
+      - uses: actions/checkout@v4
+
+      - name: Check VERSION exists and is valid
         run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel rustup
-          rustup default stable
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-arch-cargo-${{ matrix.profile }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-arch-cargo-${{ matrix.profile }}-
-
-      - name: Build (${{ matrix.profile }})
-        run: |
-          if [ "${{ matrix.profile }}" = "release" ]; then
-            cargo build --release --workspace
-          else
-            cargo build --workspace
-          fi
-
-      - name: Upload artifacts (release only)
-        if: matrix.profile == 'release'
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries-arch
-          path: |
-            target/release/annad
-            target/release/annactl
-
-  # ==========================================================================
-  # Unit Tests
-  # ==========================================================================
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    needs: build
-    steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel rustup
-          rustup default stable
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-arch-cargo-test-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run unit tests
-        run: cargo test --workspace --lib
-
-      - name: Run integration tests
-        run: cargo test --workspace --test '*'
-
-  # ==========================================================================
-  # Clippy Lints
-  # ==========================================================================
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel rustup
-          rustup default stable
-          rustup component add clippy
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-arch-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-        continue-on-error: true  # Warn but don't fail for now (many existing warnings)
-
-  # ==========================================================================
-  # Rustfmt Check
-  # ==========================================================================
-  fmt:
-    name: Format
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel rustup
-          rustup default stable
-          rustup component add rustfmt
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-        continue-on-error: true  # Warn but don't fail for now
-
-  # ==========================================================================
-  # Security Audit
-  # ==========================================================================
-  audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel rustup
-          rustup default stable
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked || echo "cargo-audit install failed, continuing"
-
-      - name: Run cargo audit
-        run: |
-          if command -v cargo-audit &> /dev/null; then
-            cargo audit || echo "Audit found issues (advisory)"
-          else
-            echo "cargo-audit not available, skipping"
-          fi
-        continue-on-error: true  # Advisory only
-
-  # ==========================================================================
-  # Integration Smoke Tests
-  # ==========================================================================
-  smoke:
-    name: Smoke Tests
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    needs: build
-    steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel rustup time procps-ng
-          rustup default stable
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-arch-cargo-smoke-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build release
-        run: cargo build --release --workspace
-
-      - name: Test --version
-        run: |
-          ./target/release/annactl --version
-          VERSION=$(./target/release/annactl --version | grep -oP 'v\d+\.\d+\.\d+' || echo "unknown")
-          echo "Detected version: $VERSION"
-          if [ "$VERSION" = "unknown" ]; then
-            echo "ERROR: Could not detect version"
+          if [ ! -f VERSION ]; then
+            echo "ERROR: VERSION file missing"
             exit 1
           fi
-
-      - name: Test --help (strict surface)
-        run: |
-          ./target/release/annactl --help
-          # Verify strict CLI surface - no legacy commands
-          if ./target/release/annactl --help | grep -qE 'annactl\s+(sw|hw)\s' ; then
-            echo "ERROR: Legacy commands found in help output"
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Invalid version format: $VERSION"
             exit 1
           fi
-          echo "OK: No legacy commands in help"
+          echo "VERSION: $VERSION"
 
-      - name: Test status (no daemon)
+      - name: Check required files
         run: |
-          # Status should handle missing daemon gracefully (exit 0 or show error)
-          ./target/release/annactl status 2>&1 || true
-          echo "OK: status handled gracefully"
+          files=(
+            "SPEC.md"
+            "CHANGELOG.md"
+            "RELEASE_CONTRACT.md"
+            "scripts/install.sh"
+            "scripts/uninstall.sh"
+            "scripts/release.sh"
+            "docs/UPDATE_PROTOCOL.md"
+          )
+          missing=0
+          for file in "${files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: Missing required file: $file"
+              missing=1
+            else
+              echo "OK: $file"
+            fi
+          done
+          exit $missing
 
-      - name: Test natural language (fallback mode)
+      - name: Check scripts are executable
         run: |
-          # Should produce output even without Ollama
-          OUTPUT=$(./target/release/annactl "what CPU do I have?" 2>&1 || true)
-          echo "$OUTPUT"
-          # Must contain reliability line (even with fallback)
-          if ! echo "$OUTPUT" | grep -qi "reliability"; then
-            echo "ERROR: No reliability score in output"
-            exit 1
-          fi
-          echo "OK: Reliability score present"
+          for script in scripts/*.sh; do
+            if [ ! -x "$script" ]; then
+              echo "ERROR: $script is not executable"
+              exit 1
+            fi
+            echo "OK: $script is executable"
+          done
 
-      - name: Test debug transcript format
-        run: |
-          OUTPUT=$(./target/release/annactl "test query" 2>&1 || true)
-          echo "$OUTPUT"
-          # Must show dialogue format
-          if ! echo "$OUTPUT" | grep -qE '\[you\]|\[anna\]|\[translator\]'; then
-            echo "WARNING: No dialogue markers in output (may be debug level 0)"
-          fi
-
-  # ==========================================================================
-  # Repo Hygiene Checks
-  # ==========================================================================
-  hygiene:
-    name: Repo Hygiene
+  # Check 400-line limit
+  line-limit:
+    name: 400-Line Limit
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Check for legacy commands in docs
+      - name: Check file line counts
         run: |
-          # Fail if docs mention legacy CLI commands as valid
-          # Allow mentions in "removed" or historical context
-          if grep -rE 'annactl\s+(sw|hw)\s+#|^\s+annactl\s+(sw|hw)\s*$' README.md CLAUDE.md 2>/dev/null; then
-            echo "ERROR: Legacy commands found as valid in documentation"
-            exit 1
-          fi
-          echo "OK: No legacy commands presented as valid in docs"
+          echo "Checking source files for 400-line limit..."
+          violations=0
+
+          # Check Rust files
+          for file in $(find crates -name "*.rs" -type f); do
+            lines=$(wc -l < "$file")
+            if [ "$lines" -gt 400 ]; then
+              echo "ERROR: $file has $lines lines (limit: 400)"
+              violations=1
+            else
+              echo "OK: $file ($lines lines)"
+            fi
+          done
+
+          # Check shell scripts
+          for file in $(find scripts -name "*.sh" -type f); do
+            lines=$(wc -l < "$file")
+            if [ "$lines" -gt 400 ]; then
+              echo "ERROR: $file has $lines lines (limit: 400)"
+              violations=1
+            else
+              echo "OK: $file ($lines lines)"
+            fi
+          done
+
+          exit $violations
+
+  # Check CLI surface is locked
+  cli-surface:
+    name: CLI Surface Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build annactl
+        run: cargo build --release -p annactl
+
+      - name: Verify CLI surface
+        run: |
+          ANNACTL="./target/release/annactl"
+
+          # Test --version works
+          $ANNACTL --version
+
+          # Test -V works
+          $ANNACTL -V
+
+          # Test help shows only allowed commands
+          help_output=$($ANNACTL --help)
+
+          # Allowed commands
+          allowed=("status" "uninstall" "reset")
+          for cmd in "${allowed[@]}"; do
+            if ! echo "$help_output" | grep -q "$cmd"; then
+              echo "ERROR: Missing allowed command: $cmd"
+              exit 1
+            fi
+            echo "OK: Found allowed command: $cmd"
+          done
+
+          echo "CLI surface check passed"
+
+  # Check version consistency
+  version-consistency:
+    name: Version Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Check version consistency
         run: |
-          CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
-          CLAUDE_VERSION=$(grep -oP 'Version: \K[\d.]+' CLAUDE.md || echo "not found")
-          README_VERSION=$(grep -oP 'Anna Assistant v\K[\d.]+' README.md || echo "not found")
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "VERSION file: $VERSION"
 
-          echo "Cargo.toml: $CARGO_VERSION"
-          echo "CLAUDE.md: $CLAUDE_VERSION"
-          echo "README.md: $README_VERSION"
-
-          if [ "$CARGO_VERSION" != "$CLAUDE_VERSION" ]; then
-            echo "ERROR: Version mismatch between Cargo.toml and CLAUDE.md"
+          # Check install.sh
+          INSTALL_VERSION=$(grep '^VERSION=' scripts/install.sh | cut -d'"' -f2)
+          if [ "$INSTALL_VERSION" != "$VERSION" ]; then
+            echo "ERROR: scripts/install.sh VERSION=$INSTALL_VERSION doesn't match $VERSION"
             exit 1
           fi
-          if [ "$CARGO_VERSION" != "$README_VERSION" ]; then
-            echo "ERROR: Version mismatch between Cargo.toml and README.md"
-            exit 1
-          fi
-          echo "OK: Versions consistent"
+          echo "OK: install.sh version matches"
 
-      - name: Check TODO.md version
-        run: |
-          CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
-          TODO_VERSION=$(grep -oP 'Current Version: \K[\d.]+' TODO.md || echo "not found")
+          echo "Version consistency check passed"
 
-          echo "Cargo.toml: $CARGO_VERSION"
-          echo "TODO.md: $TODO_VERSION"
-
-          if [ "$CARGO_VERSION" != "$TODO_VERSION" ]; then
-            echo "ERROR: TODO.md version not updated"
-            exit 1
-          fi
-          echo "OK: TODO.md version matches"
-
-      - name: Check RELEASE_NOTES has current version
-        run: |
-          CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
-          if ! grep -q "## v$CARGO_VERSION" RELEASE_NOTES.md; then
-            echo "ERROR: RELEASE_NOTES.md missing entry for v$CARGO_VERSION"
-            exit 1
-          fi
-          echo "OK: RELEASE_NOTES.md has entry for v$CARGO_VERSION"
-
-      - name: Check for root-level cruft
-        run: |
-          # Allowlist of expected root files/dirs
-          ALLOWLIST="Cargo.toml Cargo.lock README.md CLAUDE.md SPEC.md TODO.md RELEASE_NOTES.md TRUTH_REPORT.md LICENSE .gitignore .github rustfmt.toml crates scripts target"
-
-          WARNINGS=0
-          for f in * .[!.]*; do
-            [ "$f" = "*" ] && continue
-            [ "$f" = ".[!.]*" ] && continue
-            ALLOWED=false
-            for a in $ALLOWLIST; do
-              if [ "$f" = "$a" ]; then
-                ALLOWED=true
-                break
-              fi
-            done
-            if [ "$ALLOWED" = "false" ]; then
-              echo "NOTE: Unexpected item in root: $f"
-              WARNINGS=$((WARNINGS + 1))
-            fi
-          done
-          echo "Root hygiene check complete ($WARNINGS notes)"
-
-      - name: Check SPEC.md exists
-        run: |
-          if [ ! -f SPEC.md ]; then
-            echo "ERROR: SPEC.md not found - authoritative specification required"
-            exit 1
-          fi
-          echo "OK: SPEC.md exists"
-
-      - name: Check CLI surface (BLOCKING)
-        run: |
-          # Allowed public commands from SPEC.md
-          # annactl, annactl <request>, status, reset, uninstall, --version, --help, --debug
-          # Also allowed: REPL-internal commands (exit, quit, bye, help) - not public CLI
-
-          echo "Checking CLI surface matches SPEC.md..."
-
-          MAIN_RS="crates/annactl/src/main.rs"
-          VIOLATIONS=0
-
-          # Check for clap subcommands (if using clap) - would need review
-          if grep -E '#\[command\]|Subcommand' "$MAIN_RS" 2>/dev/null | grep -v '//' | head -5; then
-            echo "Found clap subcommands - verify they match SPEC.md"
-          fi
-
-          # Extract the main() function's match block (lines ~76-147)
-          # This is where CLI commands are dispatched
-          # REPL commands (exit, quit, bye, help) are in run_repl() and are internal
-
-          # Check for public CLI commands in the main dispatch
-          # Pattern: [cmd] if cmd.eq_ignore_ascii_case("XXX") at top level
-          # We look for match arms that match single-arg commands
-
-          # Allowed public CLI commands
-          ALLOWED="status reset uninstall"
-
-          # Extract commands from main dispatch block (not REPL)
-          # The main dispatch is in fn main() before run_repl is called
-          CMDS=$(head -200 "$MAIN_RS" | grep 'eq_ignore_ascii_case' | grep -oP 'eq_ignore_ascii_case\("\K[^"]+' | sort -u || true)
-
-          for cmd in $CMDS; do
-            FOUND=false
-            for allowed in $ALLOWED; do
-              if [ "$cmd" = "$allowed" ]; then
-                FOUND=true
-                break
-              fi
-            done
-            if [ "$FOUND" = "false" ]; then
-              echo "ERROR: Unauthorized CLI command found: $cmd"
-              VIOLATIONS=$((VIOLATIONS + 1))
-            fi
-          done
-
-          if [ "$VIOLATIONS" -gt 0 ]; then
-            echo "ERROR: $VIOLATIONS unauthorized CLI commands found!"
-            echo "Update SPEC.md if new commands are approved, or remove unauthorized commands."
-            exit 1
-          fi
-
-          echo "OK: CLI surface matches SPEC.md (checked first 200 lines of main.rs)"
-
-  # ==========================================================================
-  # File Size Gate (NEW files only - BLOCKING)
-  # ==========================================================================
-  file-size-new:
-    name: File Size (New Files)
+  # Build and test
+  build:
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history to compare
+      - uses: actions/checkout@v4
 
-      - name: Check new files don't exceed 400 lines (BLOCKING)
-        run: |
-          LIMIT=400
-          VIOLATIONS=0
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
 
-          echo "Checking NEW source files don't exceed $LIMIT lines..."
+      - name: Build
+        run: cargo build --release
 
-          # Get list of files added in this PR/commit compared to main
-          # For PRs: compare to base branch
-          # For pushes to main: compare to previous commit
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
-          else
-            BASE="HEAD~1"
-          fi
+      - name: Run tests
+        run: cargo test
 
-          # Get new files (A = added)
-          NEW_FILES=$(git diff --name-only --diff-filter=A "$BASE" HEAD 2>/dev/null || echo "")
+      - name: Check formatting
+        run: cargo fmt --check
 
-          for f in $NEW_FILES; do
-            # Only check .rs and .sh files
-            if [[ "$f" == *.rs ]] || [[ "$f" == *.sh ]]; then
-              if [ -f "$f" ]; then
-                LINES=$(wc -l < "$f")
-                if [ "$LINES" -gt "$LIMIT" ]; then
-                  echo "ERROR: New file $f has $LINES lines (limit: $LIMIT)"
-                  VIOLATIONS=$((VIOLATIONS + 1))
-                fi
-              fi
-            fi
-          done
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
 
-          if [ "$VIOLATIONS" -gt 0 ]; then
-            echo ""
-            echo "ERROR: $VIOLATIONS new files exceed the 400-line limit!"
-            echo "Split large files into modules before committing."
-            exit 1
-          fi
-
-          echo "OK: All new files are within size limit"
-
-  # ==========================================================================
-  # Install/Uninstall Integration Test (BLOCKING)
-  # ==========================================================================
-  install-uninstall:
-    name: Install/Uninstall Invariants
+  # All checks must pass
+  all-checks:
+    name: All Checks
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    needs: build
-    steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel rustup systemd
-          rustup default stable
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-arch-cargo-install-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build release binaries
-        run: cargo build --release --workspace
-
-      - name: Test install/uninstall invariants (BLOCKING)
-        run: |
-          echo "=== Install/Uninstall Invariant Test ==="
-          echo ""
-
-          # Expected paths from SPEC.md
-          EXPECTED_PATHS="/usr/local/bin/annad /usr/local/bin/annactl /etc/systemd/system/annad.service"
-          OPTIONAL_PATHS="/etc/anna /var/lib/anna /var/log/anna /run/anna"
-
-          # Step 1: Run installer in non-interactive mode
-          echo "Step 1: Running installer..."
-          # Copy built binaries to expected location for installer to find version
-          mkdir -p dist
-          VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
-          cp target/release/annad "dist/annad-${VERSION}-x86_64-unknown-linux-gnu"
-          cp target/release/annactl "dist/annactl-${VERSION}-x86_64-unknown-linux-gnu"
-
-          # Create a mock install (installer needs network, so we simulate)
-          echo "Simulating install by creating expected paths..."
-          mkdir -p /usr/local/bin /etc/anna /var/lib/anna /var/log/anna /run/anna
-          mkdir -p /etc/systemd/system
-          cp target/release/annad /usr/local/bin/annad
-          cp target/release/annactl /usr/local/bin/annactl
-          chmod 755 /usr/local/bin/annad /usr/local/bin/annactl
-
-          # Create service file (simulating installer)
-          cat > /etc/systemd/system/annad.service << 'EOF'
-          [Unit]
-          Description=Anna Telemetry Daemon
-          After=network.target
-
-          [Service]
-          Type=simple
-          ExecStart=/usr/local/bin/annad
-          WorkingDirectory=/var/lib/anna
-          Restart=always
-
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-
-          # Step 2: Verify install created expected paths
-          echo ""
-          echo "Step 2: Verifying install created expected paths..."
-          MISSING=0
-          for path in $EXPECTED_PATHS; do
-            if [ ! -e "$path" ]; then
-              echo "ERROR: Expected path missing after install: $path"
-              MISSING=$((MISSING + 1))
-            else
-              echo "OK: $path exists"
-            fi
-          done
-
-          if [ "$MISSING" -gt 0 ]; then
-            echo "ERROR: Install did not create all expected paths"
-            exit 1
-          fi
-
-          # Step 3: Run uninstaller (non-interactive, force mode)
-          echo ""
-          echo "Step 3: Running uninstaller..."
-
-          # Stop service if running (won't be in CI, but be safe)
-          systemctl stop annad 2>/dev/null || true
-          systemctl disable annad 2>/dev/null || true
-
-          # Remove binaries
-          rm -f /usr/local/bin/annad
-          rm -f /usr/local/bin/annactl
-
-          # Remove service
-          rm -f /etc/systemd/system/annad.service
-
-          # Remove optional paths (simulating --force uninstall)
-          rm -rf /etc/anna
-          rm -rf /var/lib/anna
-          rm -rf /var/log/anna
-          rm -rf /run/anna
-
-          # Step 4: Verify uninstall removed paths
-          echo ""
-          echo "Step 4: Verifying uninstall removed paths..."
-          REMAINING=0
-          for path in $EXPECTED_PATHS $OPTIONAL_PATHS; do
-            if [ -e "$path" ]; then
-              echo "ERROR: Path still exists after uninstall: $path"
-              REMAINING=$((REMAINING + 1))
-            else
-              echo "OK: $path removed"
-            fi
-          done
-
-          if [ "$REMAINING" -gt 0 ]; then
-            echo "ERROR: Uninstall did not remove all paths"
-            exit 1
-          fi
-
-          echo ""
-          echo "=== Install/Uninstall Invariant Test PASSED ==="
-
-  # ==========================================================================
-  # Policy and Redaction Tests
-  # ==========================================================================
-  security-tests:
-    name: Security Tests
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:latest
-    steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm git base-devel rustup
-          rustup default stable
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-arch-cargo-security-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run redaction tests
-        run: cargo test --package anna_common -- redaction
-
-      - name: Run policy tests
-        run: cargo test --package anna_common -- policy
-
-      - name: Run reliability tests
-        run: cargo test --package anna_common -- reliability
-
-  # ==========================================================================
-  # Final Gate (ALL BLOCKING JOBS)
-  # ==========================================================================
-  ci-pass:
-    name: CI Pass
-    runs-on: ubuntu-latest
-    needs: [build, test, smoke, hygiene, file-size-new, install-uninstall, security-tests]
-    # Note: clippy, fmt, audit are advisory and not blocking
+    needs: [required-files, line-limit, cli-surface, version-consistency, build]
     steps:
       - name: All checks passed
-        run: |
-          echo "=========================================="
-          echo "  All CI checks passed (BLOCKING GATES)"
-          echo ""
-          echo "  Blocking gates verified:"
-          echo "    - build: Arch Linux compilation"
-          echo "    - test: Unit and integration tests"
-          echo "    - smoke: CLI smoke tests"
-          echo "    - hygiene: Version discipline, SPEC.md, CLI surface"
-          echo "    - file-size-new: No new files over 400 lines"
-          echo "    - install-uninstall: Install/uninstall invariants"
-          echo "    - security-tests: Redaction, policy, reliability"
-          echo ""
-          echo "  Ready for merge (Arch Linux verified)"
-          echo "=========================================="
+        run: echo "All CI checks passed!"

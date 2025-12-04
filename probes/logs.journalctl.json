@@ -1,7 +1,0 @@
-{
-  "id": "logs.journalctl",
-  "cmd": ["journalctl", "--no-pager", "-n", "100", "--priority=err..emerg"],
-  "parser": "journalctl_v1",
-  "cache_policy": "DYNAMIC",
-  "ttl": 60
-}

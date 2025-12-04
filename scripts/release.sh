@@ -1,280 +1,270 @@
 #!/bin/bash
-# Anna Release Script v1.0.0
-#
-# Usage: ./scripts/release.sh [VERSION]
-#
-# If VERSION is omitted, uses version from Cargo.toml.
-# This script:
-#   1. Verifies working tree is clean
-#   2. Verifies Cargo.toml version matches (or use provided VERSION)
-#   3. Verifies all docs are updated (README, CLAUDE.md, TODO.md, RELEASE_NOTES.md)
-#   4. Runs tests
-#   5. Creates annotated git tag
-#   6. Pushes commit and tag to origin
-#   7. Waits for CI release workflow to start
-#   8. Provides link to monitor release
-#
-# The GitHub Actions release.yml workflow handles:
-#   - Building binaries in Arch Linux container
-#   - Creating GitHub release with artifacts
-#   - Uploading checksums
-#
-# After release completes, the curl installer will automatically see the new version.
+# Anna Release Script
+# Creates a complete release: build, tag, push, GitHub release, artifacts
 
-set -euo pipefail
+set -e
 
 # Colors
-RED=$'\033[31m'
-GREEN=$'\033[32m'
-YELLOW=$'\033[33m'
-BLUE=$'\033[34m'
-BOLD=$'\033[1m'
-NC=$'\033[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-REPO="jjgarcianorway/anna-assistant"
+log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
+
+# Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BUILD_DIR="$REPO_ROOT/target/release"
+ARTIFACTS_DIR="$REPO_ROOT/artifacts"
+
+# Required files
+REQUIRED_FILES=(
+    "VERSION"
+    "SPEC.md"
+    "CHANGELOG.md"
+    "RELEASE_CONTRACT.md"
+    "scripts/install.sh"
+    "scripts/uninstall.sh"
+    "docs/UPDATE_PROTOCOL.md"
+)
 
 cd "$REPO_ROOT"
 
-log_info() { echo "${BLUE}[INFO]${NC} $1"; }
-log_ok() { echo "${GREEN}[OK]${NC} $1"; }
-log_warn() { echo "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo "${RED}[ERROR]${NC} $1"; }
-log_step() { echo "${BOLD}==> $1${NC}"; }
+# Check for clean working tree
+check_clean() {
+    log_step "Checking working tree..."
 
-# =============================================================================
-# Parse Arguments
-# =============================================================================
-
-if [[ $# -ge 1 ]]; then
-    VERSION="$1"
-else
-    VERSION=""
-fi
-
-# =============================================================================
-# Step 1: Verify working tree is clean
-# =============================================================================
-
-log_step "Checking working tree status..."
-
-if ! git diff --quiet HEAD 2>/dev/null; then
-    log_error "Working tree has uncommitted changes."
-    echo ""
-    git status --short
-    echo ""
-    log_error "Commit or stash changes before releasing."
-    exit 1
-fi
-
-log_ok "Working tree is clean"
-
-# =============================================================================
-# Step 2: Extract and verify version
-# =============================================================================
-
-log_step "Checking version..."
-
-CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
-log_info "Cargo.toml version: $CARGO_VERSION"
-
-if [[ -n "$VERSION" ]]; then
-    if [[ "$VERSION" != "$CARGO_VERSION" ]]; then
-        log_error "Provided version ($VERSION) does not match Cargo.toml ($CARGO_VERSION)"
-        log_error "Either update Cargo.toml or use: ./scripts/release.sh"
+    if [ -n "$(git status --porcelain)" ]; then
+        log_error "Working tree is dirty. Commit or stash changes first."
+        git status --short
         exit 1
     fi
-else
-    VERSION="$CARGO_VERSION"
-fi
 
-log_ok "Version: $VERSION"
+    log_info "Working tree is clean"
+}
 
-# =============================================================================
-# Step 3: Verify documentation is updated
-# =============================================================================
+# Read and validate version
+read_version() {
+    log_step "Reading version..."
 
-log_step "Verifying documentation..."
-
-# Check README.md
-if ! grep -q "Anna Assistant v$VERSION" README.md; then
-    log_error "README.md not updated for v$VERSION"
-    log_error "Expected: 'Anna Assistant v$VERSION' in README.md"
-    exit 1
-fi
-log_ok "README.md updated"
-
-# Check CLAUDE.md
-if ! grep -q "Version: $VERSION" CLAUDE.md; then
-    log_error "CLAUDE.md not updated for v$VERSION"
-    log_error "Expected: 'Version: $VERSION' in CLAUDE.md"
-    exit 1
-fi
-log_ok "CLAUDE.md updated"
-
-# Check TODO.md
-TODO_VERSION=$(grep -oP 'Current Version: \K[\d.]+' TODO.md || echo "not found")
-if [[ "$TODO_VERSION" != "$VERSION" ]]; then
-    log_error "TODO.md version ($TODO_VERSION) does not match $VERSION"
-    log_error "Update 'Current Version: $VERSION' in TODO.md"
-    exit 1
-fi
-log_ok "TODO.md updated"
-
-# Check RELEASE_NOTES.md
-if ! grep -q "## v$VERSION" RELEASE_NOTES.md; then
-    log_error "RELEASE_NOTES.md missing entry for v$VERSION"
-    log_error "Add '## v$VERSION' section to RELEASE_NOTES.md"
-    exit 1
-fi
-log_ok "RELEASE_NOTES.md updated"
-
-# Check SPEC.md exists
-if [[ ! -f "SPEC.md" ]]; then
-    log_error "SPEC.md not found - authoritative specification required"
-    exit 1
-fi
-log_ok "SPEC.md exists"
-
-# Check SPEC.md version
-if ! grep -q "# Anna Specification v$VERSION" SPEC.md; then
-    log_warn "SPEC.md header version mismatch (expected v$VERSION)"
-    log_info "Update SPEC.md header to: # Anna Specification v$VERSION"
-    # Advisory only - don't block release for this
-fi
-
-# =============================================================================
-# Step 4: Run tests
-# =============================================================================
-
-log_step "Running tests..."
-
-if ! cargo test --workspace 2>&1; then
-    log_error "Tests failed. Fix tests before releasing."
-    exit 1
-fi
-
-log_ok "All tests pass"
-
-# =============================================================================
-# Step 5: Check if tag already exists
-# =============================================================================
-
-log_step "Checking for existing tag..."
-
-TAG="v$VERSION"
-
-if git rev-parse "$TAG" >/dev/null 2>&1; then
-    log_warn "Tag $TAG already exists locally"
-
-    # Check if it's on remote
-    if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
-        log_error "Tag $TAG already exists on remote!"
-        log_error "If you need to re-release, delete the tag first:"
-        log_error "  git tag -d $TAG"
-        log_error "  git push origin :refs/tags/$TAG"
+    if [ ! -f VERSION ]; then
+        log_error "VERSION file not found"
         exit 1
-    else
-        log_info "Tag exists locally but not on remote. Will push."
     fi
-else
-    log_step "Creating tag $TAG..."
 
-    # Create annotated tag
-    git tag -a "$TAG" -m "Release $TAG
+    VERSION=$(cat VERSION | tr -d '[:space:]')
 
-$(grep -A 50 "## v$VERSION" RELEASE_NOTES.md | head -20)
-"
-    log_ok "Tag $TAG created"
-fi
+    if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        log_error "Invalid version format: $VERSION (expected X.Y.Z)"
+        exit 1
+    fi
 
-# =============================================================================
-# Step 6: Push to remote
-# =============================================================================
+    TAG="v$VERSION"
+    log_info "Version: $VERSION (tag: $TAG)"
+}
 
-log_step "Pushing to origin..."
+# Check required files exist
+check_required_files() {
+    log_step "Checking required files..."
 
-# Get current branch
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-# Push branch
-git push origin "$BRANCH"
-log_ok "Pushed branch $BRANCH"
-
-# Push tag
-git push origin "$TAG"
-log_ok "Pushed tag $TAG"
-
-# =============================================================================
-# Step 7: Provide release monitoring info
-# =============================================================================
-
-echo ""
-echo "${BOLD}════════════════════════════════════════════════════════════${NC}"
-echo "${GREEN}Release $TAG initiated!${NC}"
-echo "${BOLD}════════════════════════════════════════════════════════════${NC}"
-echo ""
-echo "The GitHub Actions release workflow is now running."
-echo ""
-echo "Monitor progress:"
-echo "  ${BLUE}https://github.com/$REPO/actions${NC}"
-echo ""
-echo "Once complete, the release will be available at:"
-echo "  ${BLUE}https://github.com/$REPO/releases/tag/$TAG${NC}"
-echo ""
-echo "Users can then install with:"
-echo "  ${YELLOW}curl -fsSL https://raw.githubusercontent.com/$REPO/main/scripts/install.sh | bash${NC}"
-echo ""
-echo "The installer automatically fetches the latest release (now $TAG)."
-echo ""
-
-# =============================================================================
-# Step 8: Optional - wait and verify
-# =============================================================================
-
-read -p "Wait for release to complete and verify? [y/N] " -n 1 -r
-echo ""
-
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    log_step "Waiting for release workflow..."
-
-    # Give CI a moment to start
-    sleep 5
-
-    # Check workflow status (requires gh CLI)
-    if command -v gh &>/dev/null; then
-        log_info "Checking workflow status..."
-        gh run list --repo "$REPO" --limit 3
-
-        echo ""
-        log_info "Waiting for release workflow to complete (this may take a few minutes)..."
-
-        # Wait for the release workflow
-        if gh run watch --repo "$REPO" --exit-status 2>/dev/null; then
-            log_ok "Release workflow completed successfully!"
-
-            # Verify release exists
-            echo ""
-            log_step "Verifying release..."
-
-            RELEASE_INFO=$(gh release view "$TAG" --repo "$REPO" 2>/dev/null || echo "")
-
-            if [[ -n "$RELEASE_INFO" ]]; then
-                log_ok "Release $TAG is live!"
-                echo ""
-                gh release view "$TAG" --repo "$REPO"
-            else
-                log_warn "Release not found yet. Check GitHub manually."
-            fi
-        else
-            log_error "Release workflow failed. Check GitHub Actions."
+    local missing=0
+    for file in "${REQUIRED_FILES[@]}"; do
+        if [ ! -f "$file" ]; then
+            log_error "Missing required file: $file"
+            missing=1
         fi
-    else
-        log_warn "GitHub CLI (gh) not installed. Monitor release manually at:"
-        log_info "https://github.com/$REPO/actions"
-    fi
-fi
+    done
 
-echo ""
-log_ok "Done!"
+    if [ $missing -eq 1 ]; then
+        exit 1
+    fi
+
+    log_info "All required files present"
+}
+
+# Check CHANGELOG has entry for this version
+check_changelog() {
+    log_step "Checking CHANGELOG..."
+
+    if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
+        log_error "CHANGELOG.md missing entry for version $VERSION"
+        log_error "Add a section: ## [$VERSION] - $(date +%Y-%m-%d)"
+        exit 1
+    fi
+
+    log_info "CHANGELOG has entry for $VERSION"
+}
+
+# Check version consistency
+check_version_consistency() {
+    log_step "Checking version consistency..."
+
+    # Check install.sh
+    local install_version=$(grep '^VERSION=' scripts/install.sh | cut -d'"' -f2)
+    if [ "$install_version" != "$VERSION" ]; then
+        log_error "scripts/install.sh VERSION=$install_version doesn't match $VERSION"
+        exit 1
+    fi
+
+    log_info "Version is consistent across files"
+}
+
+# Check tag doesn't already exist
+check_tag() {
+    log_step "Checking tag..."
+
+    if git rev-parse "$TAG" >/dev/null 2>&1; then
+        log_error "Tag $TAG already exists"
+        log_error "If re-releasing, delete the tag first: git tag -d $TAG && git push origin :$TAG"
+        exit 1
+    fi
+
+    log_info "Tag $TAG is available"
+}
+
+# Build release binaries
+build_binaries() {
+    log_step "Building release binaries..."
+
+    cargo build --release
+
+    mkdir -p "$ARTIFACTS_DIR"
+
+    # Copy binaries
+    cp "$BUILD_DIR/annad" "$ARTIFACTS_DIR/annad-linux-x86_64"
+    cp "$BUILD_DIR/annactl" "$ARTIFACTS_DIR/annactl-linux-x86_64"
+
+    log_info "Binaries built: $ARTIFACTS_DIR/"
+}
+
+# Generate checksums
+generate_checksums() {
+    log_step "Generating checksums..."
+
+    cd "$ARTIFACTS_DIR"
+    sha256sum annad-* annactl-* > SHA256SUMS
+    cd "$REPO_ROOT"
+
+    log_info "Checksums generated"
+    cat "$ARTIFACTS_DIR/SHA256SUMS"
+}
+
+# Create release commit
+create_commit() {
+    log_step "Creating release commit..."
+
+    git add -A
+    git commit --allow-empty -m "release v$VERSION"
+
+    log_info "Release commit created"
+}
+
+# Create annotated tag
+create_tag() {
+    log_step "Creating annotated tag..."
+
+    # Extract release notes from CHANGELOG
+    local notes=$(sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | head -n -1)
+
+    git tag -a "$TAG" -m "Release $VERSION" -m "$notes"
+
+    log_info "Tag $TAG created"
+}
+
+# Push to remote
+push_to_remote() {
+    log_step "Pushing to remote..."
+
+    git push origin main
+    git push origin "$TAG"
+
+    log_info "Pushed commit and tag to origin"
+}
+
+# Create GitHub release
+create_github_release() {
+    log_step "Creating GitHub release..."
+
+    if ! command -v gh &> /dev/null; then
+        log_error "GitHub CLI (gh) not found!"
+        echo
+        echo "To complete the release manually:"
+        echo "1. Go to https://github.com/jjgarcianorway/anna-assistant/releases/new"
+        echo "2. Choose tag: $TAG"
+        echo "3. Title: $TAG"
+        echo "4. Upload artifacts from: $ARTIFACTS_DIR/"
+        echo "5. Copy release notes from CHANGELOG.md"
+        echo
+        exit 1
+    fi
+
+    # Check if authenticated
+    if ! gh auth status &> /dev/null; then
+        log_error "GitHub CLI not authenticated. Run: gh auth login"
+        exit 1
+    fi
+
+    # Extract release notes
+    local notes=$(sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | head -n -1 | tail -n +2)
+
+    # Create release and upload artifacts
+    gh release create "$TAG" \
+        --title "$TAG" \
+        --notes "$notes" \
+        "$ARTIFACTS_DIR/annad-linux-x86_64" \
+        "$ARTIFACTS_DIR/annactl-linux-x86_64" \
+        "$ARTIFACTS_DIR/SHA256SUMS"
+
+    log_info "GitHub release created"
+}
+
+# Print summary
+print_summary() {
+    echo
+    echo -e "${GREEN}════════════════════════════════════════${NC}"
+    echo -e "${GREEN}  Release $TAG completed successfully!${NC}"
+    echo -e "${GREEN}════════════════════════════════════════${NC}"
+    echo
+    echo "Summary:"
+    echo "  - Version: $VERSION"
+    echo "  - Tag: $TAG"
+    echo "  - Commit: $(git rev-parse --short HEAD)"
+    echo "  - Artifacts: $ARTIFACTS_DIR/"
+    echo
+    echo "Artifacts uploaded:"
+    ls -la "$ARTIFACTS_DIR/"
+    echo
+    echo "Release URL:"
+    echo "  https://github.com/jjgarcianorway/anna-assistant/releases/tag/$TAG"
+    echo
+}
+
+# Main release flow
+main() {
+    echo
+    echo "════════════════════════════════════════"
+    echo "        Anna Release Script"
+    echo "════════════════════════════════════════"
+    echo
+
+    check_clean
+    read_version
+    check_required_files
+    check_changelog
+    check_version_consistency
+    check_tag
+    build_binaries
+    generate_checksums
+    create_commit
+    create_tag
+    push_to_remote
+    create_github_release
+    print_summary
+}
+
+main "$@"

@@ -1,212 +1,141 @@
-# Anna Specification v0.0.83
+# Anna Specification v0.0.1
 
-This document is the **authoritative source of truth** for Anna's invariants.
-It supersedes any conflicting information in other documentation.
+This document is the authoritative specification for Anna. All implementation
+must conform to this spec. If code and spec conflict, update spec first, then code.
 
----
+## Overview
 
-## 1. Public CLI Surface (Strict)
+Anna is a local AI assistant for Linux systems. It consists of two components:
+- **annad**: A root-level systemd service that manages system state, Ollama, and models
+- **annactl**: A user-facing CLI that communicates with annad over a Unix socket
 
-The ONLY public commands are:
+## Architecture
 
 ```
-annactl                     # REPL mode (interactive)
-annactl <request...>        # One-shot natural language request
-annactl status              # Self-status display
-annactl reset [--dry-run] [--force]     # Factory reset (root required)
-annactl uninstall [--dry-run] [--force] # Complete removal (root required)
-annactl --version | -V      # Show version
-annactl --help | -h         # Show help
-annactl --debug [command]   # Enable debug mode
+┌─────────────┐     Unix Socket     ┌─────────────┐
+│   annactl   │ ◄─────────────────► │    annad    │
+│  (user CLI) │    JSON-RPC 2.0     │  (root svc) │
+└─────────────┘                     └─────────────┘
+                                           │
+                                           ▼
+                                    ┌─────────────┐
+                                    │   Ollama    │
+                                    │  (managed)  │
+                                    └─────────────┘
 ```
 
-**No other public commands.** All capabilities are accessed via natural language.
+## Component Specifications
 
-### Adding New Commands
+### annad (Daemon)
 
-New public commands require:
-1. Explicit user approval
-2. Update to this SPEC.md
-3. Update to CLAUDE.md
-4. CI gate verification
+**Runs as**: root (systemd service)
+**Socket**: `/run/anna/anna.sock`
+**State directory**: `/var/lib/anna/`
+**Log**: systemd journal
 
----
+**Responsibilities**:
+1. Install and manage Ollama
+2. Probe hardware (CPU, RAM, GPU) and run throughput benchmark
+3. Select and pull appropriate model based on hardware
+4. Maintain installation ledger at `/var/lib/anna/ledger.json`
+5. Provide RPC interface for annactl
+6. Run update check every 600 seconds
+7. Auto-fix: repair permissions, restart services, re-pull models if needed
 
-## 2. File Size Limit
+**Ledger** tracks:
+- Packages installed by Anna
+- Models pulled
+- Files created
+- Configuration changes made
 
-**Maximum file size: 400 lines**
+**RPC Methods** (JSON-RPC 2.0):
+- `status` - Returns daemon state, model info, ledger summary
+- `request` - Send a natural language request to the LLM pipeline
+- `reset` - Wipe learned data and post-install ledger entries
+- `uninstall` - Execute safe uninstall using ledger
+- `autofix` - Trigger self-repair routines
 
-This applies to:
-- All `.rs` files in `crates/`
-- All `.sh` files in `scripts/`
+### annactl (CLI)
 
-Exceptions (grandfathered, must not grow):
-- Files listed in TRUTH_REPORT.md as existing violations
+**Runs as**: Current user
+**Connects to**: `/run/anna/anna.sock`
 
-Remediation:
-- Split into modules
-- Quarantine unused code to `_quarantine/` directory (do not delete)
+**Commands** (locked CLI surface - no additions allowed):
+- `annactl <request>` - Send request to Anna
+- `annactl` (no args) - Enter REPL mode
+- `annactl status` - Show system status
+- `annactl uninstall` - Trigger safe uninstall
+- `annactl reset` - Reset learned data
+- `annactl -V` / `annactl --version` - Show version
 
----
+No other commands or flags are permitted.
 
-## 3. Version Discipline
+**Behavior**:
+- If annad is unreachable, display error and suggest re-running installer
+- If problems detected, automatically trigger autofix via annad
 
-### Versioning Rule
-Anna uses `0.xxx.yyy` format until production quality.
-Every meaningful change = version bump.
+### LLM Pipeline (v0.0.1)
 
-### Version Locations (must all match)
-1. `Cargo.toml` - `version = "X.Y.Z"`
-2. `CLAUDE.md` - `**Version: X.Y.Z**`
-3. `README.md` - `Anna Assistant vX.Y.Z`
-4. `TODO.md` - `**Current Version: X.Y.Z**`
-5. `RELEASE_NOTES.md` - `## vX.Y.Z` section
-6. Git tag - `vX.Y.Z`
+For v0.0.1, the pipeline is simplified:
+- Single model selected based on hardware
+- Requests are processed with system prompt for safe, read-only operations
+- Pipeline asks clarifying questions when request is ambiguous
+- No write operations to user system in v0.0.1
 
-### Release Checklist
-1. Update version in all 5 files
-2. Add RELEASE_NOTES.md entry
-3. Commit
-4. Create annotated tag: `git tag -a vX.Y.Z -m "vX.Y.Z: description"`
-5. Push commit and tag: `git push origin main --tags`
-6. Verify GitHub release workflow completes
-7. Verify release has assets (annad, annactl, SHA256SUMS)
+Future versions will implement full translator/dispatcher/specialist/approver roles.
 
----
+## Installation
 
-## 4. Install/Uninstall Invariants
+**Single command**: `curl -sSL https://anna.example.com/install.sh | sudo bash`
 
-### Paths Created by Installer
+**Installer performs**:
+1. Install annad and annactl binaries to `/usr/local/bin/`
+2. Create systemd service file
+3. Create required directories with correct permissions
+4. Add user to `anna` group
+5. Enable and start annad service
+6. Wait for annad to complete initialization (Ollama + model)
 
-| Path | Purpose | Owner |
-|------|---------|-------|
-| `/usr/local/bin/annad` | Daemon binary | root:root |
-| `/usr/local/bin/annactl` | CLI binary | root:root |
-| `/etc/anna/` | Configuration | root:root |
-| `/etc/anna/config.toml` | Main config | root:root |
-| `/var/lib/anna/` | Data directory | root:root |
-| `/var/lib/anna/internal/` | Internal state | root:root |
-| `/var/lib/anna/internal/version.json` | Version stamp | root:root |
-| `/var/log/anna/` | Log directory | root:root |
-| `/run/anna/` | Runtime directory | root:root |
-| `/etc/systemd/system/annad.service` | Systemd unit | root:root |
+**Requirements**:
+- Linux with systemd
+- curl, bash
+- 8GB+ RAM recommended
+- Internet connection for initial setup
 
-### Uninstall Must Remove
+## Uninstallation
 
-**Every path the installer creates must be removed by uninstaller.**
+`annactl uninstall` triggers:
+1. annad reads ledger
+2. Removes only what Anna installed (packages, models, files)
+3. Stops and disables annad service
+4. Removes annad and annactl binaries
+5. Removes Anna directories
 
-No extra paths. No leftover files. No orphaned users/groups.
+If annad is dead, user must re-run installer to get a working annad for uninstall,
+or manually remove files.
 
-### Invariant Test
+## File Layout
 
-```bash
-# Before install: snapshot filesystem
-# Run install
-# Run uninstall --force
-# After uninstall: compare filesystem
-# Difference must be empty (except logs if user chose to keep)
+```
+/usr/local/bin/annad          # Daemon binary
+/usr/local/bin/annactl        # CLI binary
+/run/anna/anna.sock           # Unix socket (runtime)
+/var/lib/anna/                # State directory
+/var/lib/anna/ledger.json     # Installation ledger
+/var/lib/anna/config.json     # Runtime configuration
+/etc/systemd/system/annad.service  # Systemd unit
 ```
 
----
+## Constraints
 
-## 5. CI Gates (Mandatory)
+1. **400-line limit**: No source file may exceed 400 lines
+2. **CLI surface locked**: Only the commands listed above are allowed
+3. **LLM mandatory**: Anna without a working LLM is considered broken
+4. **Ledger discipline**: Every system change must be recorded in ledger
+5. **No invented facts**: Documentation must reflect actual behavior
 
-### Blocking Gates (must pass to merge)
+## Version
 
-| Gate | Description |
-|------|-------------|
-| build | Compiles in Arch Linux (debug + release) |
-| test | All unit and integration tests pass |
-| smoke | CLI smoke tests (--version, --help, status, natural language) |
-| hygiene | Version consistency across all files |
-| version-match | Cargo.toml = CLAUDE.md = README.md = TODO.md |
-| release-notes | RELEASE_NOTES.md has entry for current version |
-| file-size | No source file exceeds 400 lines (new files only) |
-| install-paths | Install/uninstall path consistency |
-
-### Advisory Gates (warnings only)
-
-| Gate | Description |
-|------|-------------|
-| clippy | Rust lints |
-| fmt | Code formatting |
-| audit | Security vulnerabilities |
-
----
-
-## 6. No Invention Rule
-
-When uncertain about implementation:
-
-1. **Inspect first** - Read existing code before writing new code
-2. **Ask if unclear** - Don't guess at requirements
-3. **Preserve working code** - Don't delete without quarantining
-4. **No feature creep** - Only implement what's explicitly requested
-
----
-
-## 7. Debug Mode
-
-Debug mode is enabled by:
-1. `annactl --debug <command>`
-2. `ANNA_DEBUG=1` environment variable
-3. `ANNA_DEBUG_TRANSCRIPT=1` environment variable
-4. Config: `[ui] transcript_mode = "debug"`
-
-Debug mode shows:
-- Tool names and evidence IDs
-- Timing information
-- Internal dialogue steps
-- Parse warnings and retries
-
-Human mode (default) shows:
-- Professional IT dialogue
-- Human-readable descriptions
-- No internal identifiers
-
----
-
-## 8. Structured Logging
-
-### Log Levels
-- `error` - Failures requiring attention
-- `warn` - Degraded operation
-- `info` - Normal operation events
-- `debug` - Detailed debugging
-- `trace` - Verbose tracing
-
-### Log Format
-```
-[timestamp] [level] [component] [correlation_id] message
-```
-
-### Correlation ID
-Every request gets a unique correlation ID that flows through:
-- annactl → annad (via RPC)
-- All internal operations
-- All log entries
-
----
-
-## 9. Change Control
-
-This SPEC.md can only be modified:
-1. With explicit user approval
-2. With corresponding version bump
-3. With CI verification that changes are reflected in code
-
----
-
-## Appendix: File Headers
-
-All source files should have a header comment indicating:
-- Purpose
-- Current version (matching SPEC)
-- Key functionality
-
-Example:
-```rust
-//! Module Name v0.0.82
-//!
-//! Purpose: Brief description
-```
+- Version: 0.0.1
+- Status: Initial release
+- Model selection: Automatic based on hardware probe

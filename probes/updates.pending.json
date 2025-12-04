@@ -1,7 +1,0 @@
-{
-  "id": "updates.pending",
-  "cmd": ["pacman", "-Qu"],
-  "parser": "raw_v1",
-  "cache_policy": "DYNAMIC",
-  "ttl": 300
-}

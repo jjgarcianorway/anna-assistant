@@ -2,37 +2,19 @@
 name = "annad"
 version.workspace = true
 edition.workspace = true
-authors.workspace = true
 license.workspace = true
-
-[lib]
-name = "annad"
-path = "src/lib.rs"
 
 [[bin]]
 name = "annad"
 path = "src/main.rs"
 
 [dependencies]
-anna_common = { path = "../anna_common" }
+anna-shared.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
-thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-axum.workspace = true
-tower.workspace = true
-tower-http.workspace = true
-chrono.workspace = true
-regex.workspace = true
 reqwest.workspace = true
-sha2 = "0.10"
-tempfile = "3.10"
-flate2 = "1.0"
-tar = "0.4"
-futures-util = "0.3"
-tokio-stream = "0.1"
-async-trait = "0.1"
-sysinfo = "0.32"
+chrono.workspace = true

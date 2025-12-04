@@ -1,7 +1,0 @@
-{
-  "id": "hardware.ram",
-  "cmd": ["cat", "/proc/meminfo"],
-  "parser": "meminfo_v1",
-  "cache_policy": "SLOW",
-  "ttl": 3600
-}
