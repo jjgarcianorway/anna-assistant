@@ -1,4 +1,9 @@
-//! Status Command v0.0.62 - Human Mode vs Debug Mode Display
+//! Status Command v0.0.70 - Dual Transcript Renderer
+//!
+//! v0.0.70: Enhanced transcript mode display in [CASES] section
+//! - Shows Human mode: IT dialogue, no tool names/evidence IDs
+//! - Shows Debug mode: tool names, evidence IDs, timing, parse warnings
+//! - Toggle via ANNA_UI_TRANSCRIPT_MODE env var or --debug flag
 //!
 //! v0.0.62: Enhanced output mode display in [CASES] section
 //! - Shows current output mode (Human/Debug)
@@ -669,18 +674,24 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [CASES] section - v0.0.62: show output mode and active cases
+/// [CASES] section - v0.0.70: show transcript mode and active cases
 fn print_cases_section(mode: &DisplayMode) {
     println!("{}", "[CASES]".cyan());
 
-    // v0.0.62: Show output mode (Human vs Debug)
-    let is_debug = anna_common::narrator::is_debug_mode();
-    if is_debug {
-        println!("  Mode:       {} (raw prompts, evidence IDs, timings visible)", "Debug".yellow().bold());
-        println!("              To disable: remove --debug flag or unset ANNA_DEBUG");
-    } else {
-        println!("  Mode:       {} (professional IT dialogue, no internals)", "Human".green());
-        println!("              To enable debug: {} or {}", "annactl --debug".cyan(), "ANNA_DEBUG=1".cyan());
+    // v0.0.70: Show transcript mode (Human vs Debug)
+    let transcript_mode = anna_common::narrator::get_output_mode();
+    match transcript_mode {
+        anna_common::transcript_events::TranscriptMode::Human => {
+            println!("  Transcript: {} (IT dialogue, no tool names/evidence IDs)", "Human".green());
+            println!("              Enable debug: {} or {}", "ANNA_UI_TRANSCRIPT_MODE=debug".cyan(), "--debug".cyan());
+        }
+        anna_common::transcript_events::TranscriptMode::Debug => {
+            println!("  Transcript: {} (tool names, evidence IDs, timing, parse warnings)", "Debug".yellow().bold());
+            println!("              Disable: {} or remove --debug", "ANNA_UI_TRANSCRIPT_MODE=human".cyan());
+        }
+        anna_common::transcript_events::TranscriptMode::Test => {
+            println!("  Transcript: {} (same as debug, for automated testing)", "Test".cyan());
+        }
     }
 
     // v0.0.59: Show active cases count

@@ -503,6 +503,9 @@ pub mod transcript_v068;
 // v0.0.69: Service Desk Case Coordinator
 pub mod case_coordinator;
 
+// v0.0.70: Dual Transcript Renderer
+pub mod transcript_v070;
+
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
 pub use config::*;
@@ -1641,4 +1644,28 @@ pub use case_coordinator::{
     ConsolidatedAssessment,
     // Main coordinator
     CaseCoordinator,
+};
+
+// v0.0.70: Dual Transcript Renderer
+pub use transcript_v070::{
+    // Evidence topic abstraction
+    EvidenceTopicV70, tool_to_evidence_topic,
+    // Actors
+    ActorV70,
+    // Events
+    EventV70, TimestampedEventV70, TranscriptStreamV70, TranscriptStatsV70,
+    // Rendering
+    render_human as render_human_v70,
+    render_debug as render_debug_v70,
+    render as render_v70,
+    render_to_string as render_to_string_v70,
+    print_human_colored as print_human_colored_v70,
+    print_debug_colored as print_debug_colored_v70,
+    print_colored as print_colored_v70,
+    // File I/O
+    write_transcripts as write_transcripts_v70,
+    // Validation
+    validate_human_output as validate_human_output_v70,
+    validate_debug_has_internals,
+    FORBIDDEN_HUMAN,
 };

@@ -2,6 +2,147 @@
 
 ---
 
+## v0.0.70 - Dual Transcript Renderer
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Complete separation between Human Mode and Debug Mode transcript rendering. Human Mode presents a "fly on the wall" IT department conversation without internal details, while Debug Mode provides full transparency for developers and testing.
+
+### Key Concepts
+
+**Human Mode (default):**
+- No tool names (hw_snapshot_summary, sw_snapshot_summary, etc.)
+- No evidence IDs ([E1], [E2], etc.)
+- No raw commands (journalctl, systemctl, etc.)
+- No parse errors or fallback indicators
+- Uses topic abstractions: "hardware inventory snapshot", "network status snapshot"
+
+**Debug Mode:**
+- Canonical translator output (6-line format)
+- Tool names, evidence IDs, timing
+- Parse warnings, retries, fallbacks
+- Raw evidence payloads
+- Reliability scoring inputs
+
+### Key Features
+
+**1. Evidence Topic Abstraction**
+```rust
+tool_to_evidence_topic("hw_snapshot_summary") → EvidenceTopicV70::HardwareInventory
+tool_to_evidence_topic("network_status") → EvidenceTopicV70::NetworkSnapshot
+
+// Human-readable descriptions
+EvidenceTopicV70::HardwareInventory.human_description() → "hardware inventory snapshot"
+EvidenceTopicV70::NetworkSnapshot.human_description() → "network status snapshot"
+```
+
+**2. Actor Visibility**
+```rust
+// Visible in human mode:
+ActorV70::You, ServiceDesk, Networking, Storage, Boot, Audio, Graphics, Security, Performance, InfoDesk
+
+// Hidden in human mode (internal):
+ActorV70::Translator, Junior, Senior, Annad
+```
+
+**3. Event Types**
+```rust
+EventV70::UserToAnna { text }                    // User's request
+EventV70::StaffMessage { from, to, ... }         // Staff dialogue
+EventV70::Evidence { actor, topic, ... }         // Evidence with dual summaries
+EventV70::ToolCall { tool_name, duration_ms }    // Debug only
+EventV70::ParseWarning { subsystem, details }    // Debug only
+EventV70::TranslatorCanonical { ... }            // Debug only (6-line format)
+EventV70::Reliability { score, rationale_* }     // Score with dual rationales
+EventV70::FinalAnswer { text, reliability }      // Final response
+```
+
+**4. Validation**
+```rust
+// Forbidden terms in human mode output
+FORBIDDEN_HUMAN: &[&str] = &[
+    "[E1]", "[E2]", "_snapshot", "_summary",
+    "journalctl", "systemctl", "Parse error",
+    "deterministic fallback", "tool=", "evidence_id",
+];
+
+let violations = validate_human_output(&human_lines);
+assert!(violations.is_empty());
+```
+
+**5. Toggle Mode**
+```bash
+# Environment variable
+export ANNA_UI_TRANSCRIPT_MODE=debug
+annactl "what is my wifi status"
+
+# Or flag
+annactl --debug "what is my wifi status"
+```
+
+### Human Mode Example Output
+```
+[you] what is my wifi status
+[networking] Evidence from network status snapshot: WiFi connected to "MyNetwork"
+[service-desk] Your WiFi is connected to the network "MyNetwork" with good signal strength.
+
+Reliability: 85% (direct evidence)
+```
+
+### Debug Mode Example Output
+```
+=== Case: case_abc123 ===
+Stats: 3 tools (42ms), 0 parse warnings, 0 retries, 0 fallbacks
+
+14:32:15.123 [you] what is my wifi status
+14:32:15.125 [translator] CANONICAL OUTPUT:
+    INTENT: question
+    TARGET: networking
+    DEPTH: quick
+    TOPICS: wifi, network_status
+    ACTIONS: none
+    SAFETY: read-only
+14:32:15.130 [networking] EVIDENCE [E1] tool=network_status topic=NetworkSnapshot (42ms)
+    wlan0: UP, carrier=true, ssid="MyNetwork", signal=-45dBm
+14:32:15.150 [FINAL] reliability=85% (direct evidence)
+    Your WiFi is connected to the network "MyNetwork" with good signal strength.
+```
+
+### Status Command Integration
+
+The `annactl status` command now shows transcript mode in the [CASES] section:
+```
+[CASES]
+  Transcript: Human (IT dialogue, no tool names/evidence IDs)
+              Enable debug: ANNA_UI_TRANSCRIPT_MODE=debug or --debug
+```
+
+### Module Structure
+
+All files under 400 lines per CLAUDE.md requirement:
+```
+transcript_v070/
+├── mod.rs       (174 lines) - Module exports and integration tests
+├── events.rs    (272 lines) - ActorV70, EventV70, TranscriptStreamV70
+├── topics.rs    (165 lines) - EvidenceTopicV70, tool_to_evidence_topic()
+├── render.rs    (330 lines) - render_human(), render_debug(), write_transcripts()
+├── colored.rs   (321 lines) - print_human_colored(), print_debug_colored()
+└── validation.rs (60 lines) - FORBIDDEN_HUMAN, validate_human_output()
+```
+
+### Tests
+
+11 unit tests covering:
+- Topic mapping (tool names → topic categories)
+- Actor visibility (internal actors hidden in human mode)
+- Event stats tracking (parse warnings, retries, fallbacks)
+- Human/debug separation (no tool names in human, full detail in debug)
+- Validation (forbidden terms detected)
+
+---
+
 ## v0.0.69 - Service Desk Case Coordinator
 
 **Release Date:** 2025-12-04

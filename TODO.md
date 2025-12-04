@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.69**
+**Current Version: 0.0.70**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -8,12 +8,30 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.70 - Multi-Doctor Handoff + Senior Escalation (NEXT)
+### 0.0.71 - Multi-Doctor Handoff + Senior Escalation (NEXT)
 - [ ] Multi-doctor case handoff for complex issues
 - [ ] Department collaboration for cross-domain problems
 - [ ] Senior escalation when Junior < 50%
 - [ ] Multi-round improvement loops
 - [ ] Evidence bundle aggregation across departments
+
+### 0.0.70 - Dual Transcript Renderer (COMPLETED)
+- [x] Human Mode: IT department dialogue without tool names, evidence IDs, or raw commands
+- [x] Human Mode: Topic abstractions ("hardware inventory snapshot", "network status snapshot")
+- [x] Debug Mode: Full transparency with canonical translator output (6-line format)
+- [x] Debug Mode: Tool names, evidence IDs, timing, parse warnings, retries, fallbacks
+- [x] Modular transcript_v070 system: events.rs, topics.rs, render.rs, colored.rs, validation.rs
+- [x] EvidenceTopicV70 enum with 16 topic categories + Custom variant
+- [x] tool_to_evidence_topic() maps tool names to human-readable topics
+- [x] ActorV70: You, ServiceDesk, Networking, Storage, Boot, Audio, Graphics, Security, Performance, InfoDesk + internal (Translator, Junior, Senior, Annad)
+- [x] EventV70: UserToAnna, StaffMessage, Evidence, ToolCall, ToolResult, ParseWarning, TranslatorCanonical, Reliability, Perf, Retry, FinalAnswer, Phase, Working
+- [x] TranscriptStreamV70 with TranscriptStatsV70 tracking (parse warnings, retries, fallbacks, tool calls)
+- [x] render_human() / render_debug() for text output; print_human_colored() / print_debug_colored() for terminal
+- [x] FORBIDDEN_HUMAN validation prevents tool names, evidence IDs, raw commands in human output
+- [x] annactl status shows transcript mode in [CASES] section
+- [x] Toggle via ANNA_UI_TRANSCRIPT_MODE env var or --debug flag
+- [x] 11 unit tests: topic mapping, actor visibility, event stats, human/debug separation, validation
+- [x] All files under 400 lines per CLAUDE.md requirement
 
 ### 0.0.69 - Service Desk Case Coordinator (COMPLETED)
 - [x] CaseCoordinator: open_case, triage, dispatch, merge_reports, compose_user_answer, log
