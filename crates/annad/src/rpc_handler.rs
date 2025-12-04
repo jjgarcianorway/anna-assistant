@@ -1,8 +1,13 @@
-//! RPC request handlers.
+//! RPC request handlers with timeouts and progress tracking.
 
 use anna_shared::ledger::LedgerEntryKind;
-use anna_shared::rpc::{ProbeParams, RequestParams, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::progress::{ProgressEvent, RequestStage, TimeoutConfig};
+use anna_shared::rpc::{ProbeParams, ProbeResult, RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
+use std::sync::Arc;
+use std::time::Instant;
+use tokio::sync::RwLock;
+use tokio::time::{timeout, Duration};
 use tracing::{error, info, warn};
 
 use crate::ollama;
@@ -10,6 +15,60 @@ use crate::probes;
 use crate::service_desk;
 use crate::state::SharedState;
 use crate::translator;
+
+/// Progress tracker for request handling
+pub struct ProgressTracker {
+    events: Vec<ProgressEvent>,
+    start_time: Instant,
+    current_stage: Option<RequestStage>,
+}
+
+impl ProgressTracker {
+    pub fn new() -> Self {
+        Self {
+            events: Vec::new(),
+            start_time: Instant::now(),
+            current_stage: None,
+        }
+    }
+
+    pub fn elapsed_ms(&self) -> u64 {
+        self.start_time.elapsed().as_millis() as u64
+    }
+
+    pub fn add(&mut self, event: ProgressEvent) {
+        info!("{}", event.format_debug());
+        self.events.push(event);
+    }
+
+    pub fn start_stage(&mut self, stage: RequestStage, timeout_secs: u64) {
+        self.current_stage = Some(stage);
+        self.add(ProgressEvent::starting(stage, timeout_secs, self.elapsed_ms()));
+    }
+
+    pub fn complete_stage(&mut self, stage: RequestStage) {
+        self.add(ProgressEvent::complete(stage, self.elapsed_ms()));
+        self.current_stage = None;
+    }
+
+    pub fn timeout_stage(&mut self, stage: RequestStage) {
+        self.add(ProgressEvent::timeout(stage, self.elapsed_ms()));
+        self.current_stage = None;
+    }
+
+    pub fn events(&self) -> &[ProgressEvent] {
+        &self.events
+    }
+}
+
+/// Shared progress state for polling (reserved for future watchdog use)
+#[allow(dead_code)]
+pub type SharedProgress = Arc<RwLock<ProgressTracker>>;
+
+#[allow(dead_code)]
+pub fn create_progress_tracker() -> SharedProgress {
+    Arc::new(RwLock::new(ProgressTracker::new()))
+}
 
 /// Handle an RPC request
 pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
@@ -22,6 +81,7 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         RpcMethod::Uninstall => handle_uninstall(state, id).await,
         RpcMethod::Autofix => handle_autofix(state, id).await,
         RpcMethod::Probe => handle_probe(state, id, request.params).await,
+        RpcMethod::Progress => handle_progress(state, id).await,
     }
 }
 
@@ -31,12 +91,21 @@ async fn handle_status(state: SharedState, id: String) -> RpcResponse {
     RpcResponse::success(id, serde_json::to_value(status).unwrap())
 }
 
-/// Service desk pipeline: translate -> dispatch -> specialist -> supervisor
+async fn handle_progress(state: SharedState, id: String) -> RpcResponse {
+    let state = state.read().await;
+    let events: Vec<_> = state.progress_events.iter().cloned().collect();
+    RpcResponse::success(id, serde_json::to_value(events).unwrap())
+}
+
+/// Service desk pipeline with timeouts: translate -> dispatch -> specialist -> supervisor
 async fn handle_llm_request(
     state: SharedState,
     id: String,
     params: Option<serde_json::Value>,
 ) -> RpcResponse {
+    let config = TimeoutConfig::default();
+    let mut progress = ProgressTracker::new();
+
     // Check if LLM is ready and get model name
     let model = {
         let state = state.read().await;
@@ -66,13 +135,39 @@ async fn handle_llm_request(
 
     let query = &params.prompt;
 
-    // Step 1: Translator - convert query to structured ticket
-    info!("Step 1: Translating query");
-    let ticket = match translator::translate(&model, query).await {
-        Ok(t) => t,
-        Err(e) => {
-            warn!("LLM translator failed, using fallback: {}", e);
+    // Clear previous progress events
+    {
+        let mut state = state.write().await;
+        state.progress_events.clear();
+    }
+
+    // Step 1: Translator with timeout
+    progress.start_stage(RequestStage::Translator, config.translator_secs);
+
+    let ticket = match timeout(
+        Duration::from_secs(config.translator_secs),
+        translator::translate(&model, query),
+    )
+    .await
+    {
+        Ok(Ok(t)) => {
+            progress.complete_stage(RequestStage::Translator);
+            t
+        }
+        Ok(Err(e)) => {
+            warn!("Translator error, using fallback: {}", e);
+            progress.add(ProgressEvent::error(
+                RequestStage::Translator,
+                e.clone(),
+                progress.elapsed_ms(),
+            ));
             translator::translate_fallback(query)
+        }
+        Err(_) => {
+            progress.timeout_stage(RequestStage::Translator);
+            save_progress(&state, &progress).await;
+            let result = service_desk::create_timeout_response("translator", None, vec![]);
+            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         }
     };
 
@@ -82,16 +177,33 @@ async fn handle_llm_request(
     );
 
     // Step 2: Check if clarification needed
-    if let Some(question) = &ticket.clarification_question {
+    if let Some(question) = ticket.clarification_question.clone() {
         info!("Clarification needed: {}", question);
-        let question_owned = question.clone();
-        let result = service_desk::create_clarification_response(ticket, &question_owned);
+        save_progress(&state, &progress).await;
+        let result = service_desk::create_clarification_response(ticket, &question);
         return RpcResponse::success(id, serde_json::to_value(result).unwrap());
     }
 
-    // Step 3: Dispatcher - run probes from ticket (with caching)
-    info!("Step 3: Running probes");
-    let probe_results = run_probes_with_cache(&state, &ticket).await;
+    // Step 3: Run probes with timeout
+    progress.start_stage(RequestStage::Probes, config.probes_total_secs);
+
+    let probe_results = match timeout(
+        Duration::from_secs(config.probes_total_secs),
+        run_probes_with_timeout(&state, &ticket, &config, &mut progress),
+    )
+    .await
+    {
+        Ok(results) => {
+            progress.complete_stage(RequestStage::Probes);
+            results
+        }
+        Err(_) => {
+            progress.timeout_stage(RequestStage::Probes);
+            save_progress(&state, &progress).await;
+            let result = service_desk::create_timeout_response("probes", Some(ticket), vec![]);
+            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+        }
+    };
 
     info!(
         "Probes executed: {} ({} successful)",
@@ -109,19 +221,50 @@ async fn handle_llm_request(
         service_desk::build_specialist_prompt(ticket.domain, &context, &probe_results);
     let full_prompt = format!("{}\n\nUser: {}", system_prompt, query);
 
-    // Step 5: Specialist - call LLM for answer
-    info!("Step 5: Calling specialist LLM");
-    let answer = match ollama::chat(&model, &full_prompt).await {
-        Ok(response) => response,
-        Err(e) => {
-            error!("LLM request failed: {}", e);
-            return RpcResponse::error(id, -32003, format!("LLM error: {}", e));
+    // Step 5: Specialist with timeout
+    progress.start_stage(RequestStage::Specialist, config.specialist_secs);
+
+    let answer = match timeout(
+        Duration::from_secs(config.specialist_secs),
+        ollama::chat_with_timeout(&model, &full_prompt, config.specialist_secs),
+    )
+    .await
+    {
+        Ok(Ok(response)) => {
+            progress.complete_stage(RequestStage::Specialist);
+            response
+        }
+        Ok(Err(e)) => {
+            error!("Specialist LLM error: {}", e);
+            progress.add(ProgressEvent::error(
+                RequestStage::Specialist,
+                e.to_string(),
+                progress.elapsed_ms(),
+            ));
+            save_progress(&state, &progress).await;
+            let result = service_desk::create_timeout_response(
+                "specialist",
+                Some(ticket),
+                probe_results,
+            );
+            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+        }
+        Err(_) => {
+            progress.timeout_stage(RequestStage::Specialist);
+            save_progress(&state, &progress).await;
+            let result = service_desk::create_timeout_response(
+                "specialist",
+                Some(ticket),
+                probe_results,
+            );
+            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         }
     };
 
-    // Step 6: Supervisor - build result with reliability scoring
-    info!("Step 6: Building result with reliability scoring");
+    // Step 6: Supervisor
+    progress.start_stage(RequestStage::Supervisor, config.supervisor_secs);
     let result = service_desk::build_result(answer, ticket, probe_results);
+    progress.complete_stage(RequestStage::Supervisor);
 
     info!(
         "Request completed: domain={}, reliability={}, probes={}",
@@ -130,18 +273,23 @@ async fn handle_llm_request(
         result.evidence.probes_executed.len()
     );
 
+    save_progress(&state, &progress).await;
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
 }
 
-/// Run probes with caching support
-async fn run_probes_with_cache(
+/// Run probes with individual timeouts
+async fn run_probes_with_timeout(
     state: &SharedState,
     ticket: &anna_shared::rpc::TranslatorTicket,
-) -> Vec<anna_shared::rpc::ProbeResult> {
+    config: &TimeoutConfig,
+    progress: &mut ProgressTracker,
+) -> Vec<ProbeResult> {
     let mut results = Vec::new();
 
     for probe_id in &ticket.needs_probes {
         if let Some(cmd) = translator::probe_id_to_command(probe_id) {
+            progress.add(ProgressEvent::probe_running(probe_id, progress.elapsed_ms()));
+
             // Check cache first
             let cached = {
                 let state = state.read().await;
@@ -150,10 +298,54 @@ async fn run_probes_with_cache(
 
             if let Some(cached_result) = cached {
                 info!("Using cached probe result for: {}", cmd);
+                progress.add(ProgressEvent::probe_complete(
+                    probe_id,
+                    cached_result.exit_code,
+                    cached_result.timing_ms,
+                    progress.elapsed_ms(),
+                ));
                 results.push(cached_result);
             } else {
-                // Run probe and cache result
-                let result = probes::run_command_structured(cmd);
+                // Run probe with timeout
+                let probe_start = Instant::now();
+                let result = match timeout(
+                    Duration::from_secs(config.probe_each_secs),
+                    tokio::task::spawn_blocking({
+                        let cmd = cmd.to_string();
+                        move || probes::run_command_structured(&cmd)
+                    }),
+                )
+                .await
+                {
+                    Ok(Ok(r)) => r,
+                    Ok(Err(e)) => {
+                        warn!("Probe task error: {}", e);
+                        ProbeResult {
+                            command: cmd.to_string(),
+                            exit_code: -1,
+                            stdout: String::new(),
+                            stderr: format!("Task error: {}", e),
+                            timing_ms: probe_start.elapsed().as_millis() as u64,
+                        }
+                    }
+                    Err(_) => {
+                        warn!("Probe timeout: {}", cmd);
+                        ProbeResult {
+                            command: cmd.to_string(),
+                            exit_code: -1,
+                            stdout: String::new(),
+                            stderr: "Probe timeout".to_string(),
+                            timing_ms: config.probe_each_secs * 1000,
+                        }
+                    }
+                };
+
+                progress.add(ProgressEvent::probe_complete(
+                    probe_id,
+                    result.exit_code,
+                    result.timing_ms,
+                    progress.elapsed_ms(),
+                ));
 
                 // Cache successful results
                 if result.exit_code == 0 {
@@ -166,13 +358,19 @@ async fn run_probes_with_cache(
         }
     }
 
-    // Clean expired cache entries periodically
+    // Clean expired cache
     {
         let mut state = state.write().await;
         state.clean_probe_cache();
     }
 
     results
+}
+
+/// Save progress events to state for polling
+async fn save_progress(state: &SharedState, progress: &ProgressTracker) {
+    let mut state = state.write().await;
+    state.progress_events = progress.events().to_vec();
 }
 
 async fn handle_probe(

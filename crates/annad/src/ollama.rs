@@ -217,10 +217,15 @@ pub async fn has_model(model: &str) -> bool {
     }
 }
 
-/// Send a chat request to Ollama
+/// Send a chat request to Ollama (default timeout)
 pub async fn chat(model: &str, prompt: &str) -> Result<String> {
+    chat_with_timeout(model, prompt, 120).await
+}
+
+/// Send a chat request to Ollama with explicit timeout
+pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(120))
+        .timeout(Duration::from_secs(timeout_secs))
         .build()?;
 
     let body = serde_json::json!({

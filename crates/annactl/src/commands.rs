@@ -1,5 +1,7 @@
 //! Command handlers for annactl.
 
+#[allow(unused_imports)]
+use anna_shared::progress::ProgressEvent;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
 use anna_shared::ui::{colors, symbols, HR};
@@ -7,9 +9,10 @@ use anna_shared::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
 
-use crate::client::AnnadClient;
+use crate::client::{AnnadClient, StreamingClient};
 use crate::display::{
-    print_repl_header, print_status_display, print_transcript, show_bootstrap_progress,
+    print_progress_event, print_repl_header, print_status_display, print_transcript,
+    show_bootstrap_progress,
 };
 
 /// Handle status command
@@ -21,31 +24,57 @@ pub async fn handle_status() -> Result<()> {
     Ok(())
 }
 
-/// Core request function - used by both one-shot and REPL
-/// Ensures consistent behavior and output format
-async fn send_request(client: &mut AnnadClient, prompt: &str) -> Result<ServiceDeskResult> {
-    client.request(prompt).await
+/// Core request function with progress streaming
+/// Used by both one-shot and REPL for consistent behavior
+async fn send_request_with_progress(
+    prompt: &str,
+    debug_mode: bool,
+) -> Result<ServiceDeskResult> {
+    if debug_mode {
+        // Use streaming client with progress display
+        StreamingClient::request_with_progress(prompt, |event| {
+            print_progress_event(event);
+        })
+        .await
+    } else {
+        // Simple request without progress polling
+        let mut client = AnnadClient::connect().await?;
+        client.request(prompt).await
+    }
 }
 
 /// Handle a single request (one-shot mode)
 pub async fn handle_request(prompt: &str) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
 
-    // First check if daemon is ready
+    // First check if daemon is ready and get debug mode
     let status = client.status().await?;
+    let debug_mode = status.debug_mode;
+
     if status.llm.state != LlmState::Ready {
         drop(client);
         show_bootstrap_progress().await?;
-        client = AnnadClient::connect().await?;
     }
 
-    print!("{} collecting context", symbols::SPINNER[0]);
-    io::stdout().flush()?;
+    // Show initial status
+    if debug_mode {
+        println!();
+        println!(
+            "{}[anna->pipeline]{} starting request",
+            colors::DIM,
+            colors::RESET
+        );
+    } else {
+        print!("{} collecting context", symbols::SPINNER[0]);
+        io::stdout().flush()?;
+    }
 
-    let result = send_request(&mut client, prompt).await?;
+    let result = send_request_with_progress(prompt, debug_mode).await?;
 
-    // Clear spinner line
-    print!("\r\x1b[K");
+    // Clear spinner line if not debug mode
+    if !debug_mode {
+        print!("\r\x1b[K");
+    }
 
     // Use unified display
     print_transcript(prompt, &result);
@@ -58,21 +87,20 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
 pub async fn handle_repl() -> Result<()> {
     print_repl_header();
 
-    // Check if daemon is ready, show bootstrap if not
-    {
+    // Check if daemon is ready, show bootstrap if not, and get debug mode
+    let debug_mode = {
         let status = match AnnadClient::connect().await {
             Ok(mut client) => client.status().await.ok(),
             Err(_) => None,
         };
 
-        if let Some(status) = status {
+        if let Some(status) = &status {
             if status.llm.state != LlmState::Ready {
                 show_bootstrap_progress().await?;
             }
         }
-    }
-
-    let mut client = AnnadClient::connect().await?;
+        status.map(|s| s.debug_mode).unwrap_or(true)
+    };
 
     loop {
         print!("{}anna>{} ", colors::HEADER, colors::RESET);
@@ -92,9 +120,7 @@ pub async fn handle_repl() -> Result<()> {
                 break;
             }
             "status" => {
-                drop(client);
                 handle_status().await?;
-                client = AnnadClient::connect().await?;
             }
             "help" => {
                 println!("Commands:");
@@ -105,14 +131,23 @@ pub async fn handle_repl() -> Result<()> {
             }
             _ => {
                 // Check if still ready before request
-                let status = client.status().await?;
-                if status.llm.state != LlmState::Ready {
-                    drop(client);
-                    show_bootstrap_progress().await?;
-                    client = AnnadClient::connect().await?;
+                if let Ok(mut client) = AnnadClient::connect().await {
+                    if let Ok(status) = client.status().await {
+                        if status.llm.state != LlmState::Ready {
+                            show_bootstrap_progress().await?;
+                        }
+                    }
                 }
 
-                match send_request(&mut client, input).await {
+                if debug_mode {
+                    println!(
+                        "{}[anna->pipeline]{} starting request",
+                        colors::DIM,
+                        colors::RESET
+                    );
+                }
+
+                match send_request_with_progress(input, debug_mode).await {
                     Ok(result) => {
                         // Use unified display - same as one-shot
                         print_transcript(input, &result);
@@ -126,14 +161,9 @@ pub async fn handle_repl() -> Result<()> {
                                 colors::WARN,
                                 colors::RESET
                             );
-                            drop(client);
                             show_bootstrap_progress().await?;
-                            client = AnnadClient::connect().await?;
                         } else {
                             eprintln!("{}Error:{} {}", colors::ERR, colors::RESET, e);
-                            if let Ok(new_client) = AnnadClient::connect().await {
-                                client = new_client;
-                            }
                         }
                     }
                 }

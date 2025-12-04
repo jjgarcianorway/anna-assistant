@@ -108,13 +108,18 @@ pub fn get_relevant_hardware_fields(ticket: &TranslatorTicket) -> Vec<String> {
 }
 
 /// Build evidence block from ticket and probe results
-pub fn build_evidence(ticket: TranslatorTicket, probe_results: Vec<ProbeResult>) -> EvidenceBlock {
+pub fn build_evidence(
+    ticket: TranslatorTicket,
+    probe_results: Vec<ProbeResult>,
+    last_error: Option<String>,
+) -> EvidenceBlock {
     let hardware_fields = get_relevant_hardware_fields(&ticket);
 
     EvidenceBlock {
         hardware_fields,
         probes_executed: probe_results,
         translator_ticket: ticket,
+        last_error,
     }
 }
 
@@ -232,6 +237,7 @@ pub fn create_clarification_response(
         hardware_fields: vec![],
         probes_executed: vec![],
         translator_ticket: ticket,
+        last_error: None,
     };
 
     ServiceDeskResult {
@@ -245,6 +251,49 @@ pub fn create_clarification_response(
     }
 }
 
+/// Create a timeout error response
+pub fn create_timeout_response(
+    stage: &str,
+    ticket: Option<TranslatorTicket>,
+    probe_results: Vec<ProbeResult>,
+) -> ServiceDeskResult {
+    let signals = ReliabilitySignals {
+        translator_confident: false,
+        probe_coverage: false,
+        answer_grounded: false,
+        no_invention: true,
+        clarification_not_needed: false,
+    };
+
+    let default_ticket = ticket.unwrap_or_else(|| TranslatorTicket {
+        intent: anna_shared::rpc::QueryIntent::Question,
+        domain: SpecialistDomain::System,
+        entities: vec![],
+        needs_probes: vec![],
+        clarification_question: None,
+        confidence: 0.0,
+    });
+
+    let evidence = build_evidence(
+        default_ticket,
+        probe_results,
+        Some(format!("timeout at {}", stage)),
+    );
+
+    ServiceDeskResult {
+        answer: String::new(),
+        reliability_score: signals.score().min(20), // Max 20 for timeout
+        reliability_signals: signals,
+        domain: SpecialistDomain::System,
+        evidence,
+        needs_clarification: true,
+        clarification_question: Some(format!(
+            "The {} stage timed out. Please try again or simplify your request.",
+            stage
+        )),
+    }
+}
+
 /// Build final ServiceDeskResult
 pub fn build_result(
     answer: String,
@@ -253,7 +302,7 @@ pub fn build_result(
 ) -> ServiceDeskResult {
     let (signals, score) = calculate_reliability(&ticket, &probe_results, &answer);
     let domain = ticket.domain;
-    let evidence = build_evidence(ticket, probe_results);
+    let evidence = build_evidence(ticket, probe_results, None);
 
     info!(
         "Supervisor: reliability={} (confident={}, coverage={}, grounded={}, no_invention={}, no_clarify={})",
@@ -318,8 +367,25 @@ mod tests {
             timing_ms: 100,
         }];
 
-        let evidence = build_evidence(ticket, probes);
+        let evidence = build_evidence(ticket, probes, None);
         assert_eq!(evidence.probes_executed.len(), 1);
         assert!(evidence.hardware_fields.contains(&"cpu_model".to_string()));
+        assert!(evidence.last_error.is_none());
+    }
+
+    #[test]
+    fn test_build_evidence_with_error() {
+        let ticket = make_ticket();
+        let evidence = build_evidence(ticket, vec![], Some("timeout at translator".to_string()));
+        assert!(evidence.last_error.is_some());
+        assert!(evidence.last_error.unwrap().contains("timeout"));
+    }
+
+    #[test]
+    fn test_create_timeout_response() {
+        let result = create_timeout_response("translator", None, vec![]);
+        assert!(result.needs_clarification);
+        assert!(result.evidence.last_error.is_some());
+        assert!(result.reliability_score <= 20);
     }
 }

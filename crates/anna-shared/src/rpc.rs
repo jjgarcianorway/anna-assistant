@@ -12,6 +12,8 @@ pub enum RpcMethod {
     Uninstall,
     Autofix,
     Probe,
+    /// Get progress events for current/last request
+    Progress,
 }
 
 /// JSON-RPC 2.0 request
@@ -224,6 +226,9 @@ pub struct EvidenceBlock {
     pub probes_executed: Vec<ProbeResult>,
     /// Translator ticket that routed this query
     pub translator_ticket: TranslatorTicket,
+    /// Last error if any (e.g., "timeout at translator")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
 }
 
 /// Reliability scoring signals (all boolean for deterministic calculation)

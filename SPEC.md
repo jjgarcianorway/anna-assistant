@@ -1,4 +1,4 @@
-# Anna Specification v0.0.8
+# Anna Specification v0.0.9
 
 This document is the authoritative specification for Anna. All implementation
 must conform to this spec. If code and spec conflict, update spec first, then code.
@@ -54,6 +54,7 @@ Anna is a local AI assistant for Linux systems. It consists of two components:
 - `status` - Returns daemon state, hardware info, model info, update status
 - `request` - Send a natural language request (service desk pipeline)
 - `probe` - Run a read-only system probe (top_memory, top_cpu, disk_usage, etc.)
+- `progress` - Get progress events for current/last request (for polling)
 - `reset` - Wipe learned data and post-install ledger entries
 - `uninstall` - Execute safe uninstall using ledger
 - `autofix` - Trigger self-repair routines
@@ -79,7 +80,7 @@ No other commands or flags are permitted.
 - If annad is unreachable, display error and suggest re-running installer
 - If problems detected, automatically trigger autofix via annad
 
-## Service Desk Architecture (v0.0.8)
+## Service Desk Architecture (v0.0.9)
 
 Anna implements a service desk with internal roles (not CLI commands):
 
@@ -189,7 +190,8 @@ Every response includes an evidence block showing exactly what data was used:
 {
   "hardware_fields": ["cpu_model", "ram_gb", "version"],
   "probes_executed": [/* ProbeResult objects */],
-  "translator_ticket": {/* TranslatorTicket object */}
+  "translator_ticket": {/* TranslatorTicket object */},
+  "last_error": null | "timeout at translator"
 }
 ```
 
@@ -228,6 +230,35 @@ Clarification is requested when (determined by LLM translator):
 - Falls back to keyword rules if LLM fails:
   - Query has 2 or fewer words (except "cpu" or "memory")
   - Query is just "help" or "help me"
+
+### Timeout Handling (v0.0.9)
+
+All LLM calls and probes have hard timeouts to prevent indefinite hangs:
+
+| Stage | Timeout | Description |
+|-------|---------|-------------|
+| Translator | 8s | LLM translation of user query |
+| Probe (each) | 4s | Individual probe execution |
+| Probes (total) | 10s | Total time for all probes |
+| Specialist | 12s | LLM specialist response |
+| Supervisor | 8s | Response validation |
+| RPC call | 45s | Client-side total request timeout |
+
+**Timeout Response Format**:
+- `reliability_score` ≤ 20 (max for timeout)
+- `needs_clarification` = true
+- `clarification_question` = actionable message about the timeout
+- `evidence.last_error` = "timeout at <stage>"
+
+**Progress Streaming**:
+- In debug mode (default ON), structured progress events are emitted
+- Client polls `/progress` RPC method every 250ms
+- Events include: starting, complete, timeout, error, probe_running, probe_complete
+
+**Debug Mode**:
+- Enabled by default (`debug_mode: true` in status)
+- Shows stage transitions instead of static spinner
+- Visible in `annactl status` output
 
 ## LLM Pipeline
 
@@ -300,5 +331,5 @@ curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/s
 
 ## Version
 
-- Version: 0.0.8
-- Status: Evidence-based dispatch and deterministic reliability scoring
+- Version: 0.0.9
+- Status: Timeout handling, progress streaming, hang prevention

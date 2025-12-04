@@ -2,6 +2,7 @@
 
 pub mod error;
 pub mod ledger;
+pub mod progress;
 pub mod rpc;
 pub mod status;
 pub mod ui;

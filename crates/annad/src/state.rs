@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anna_shared::ledger::Ledger;
+use anna_shared::progress::ProgressEvent;
 use anna_shared::rpc::ProbeResult;
 use anna_shared::status::{
     BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus, ModelInfo,
@@ -44,6 +45,8 @@ pub struct DaemonStateInner {
     pub last_error: Option<String>,
     /// Probe result cache (command -> cached result)
     pub probe_cache: HashMap<String, CachedProbe>,
+    /// Progress events for current/last request (for polling)
+    pub progress_events: Vec<ProgressEvent>,
 }
 
 /// Update state tracking
@@ -75,7 +78,7 @@ impl DaemonStateInner {
             state: DaemonState::Starting,
             pid: std::process::id(),
             started_at: Instant::now(),
-            debug_mode: true,
+            debug_mode: true, // Debug mode ON by default
             update: UpdateStateInner::default(),
             ollama: OllamaStatus::default(),
             llm: LlmStatus::default(),
@@ -83,6 +86,7 @@ impl DaemonStateInner {
             ledger: Ledger::new(),
             last_error: None,
             probe_cache: HashMap::new(),
+            progress_events: Vec::new(),
         }
     }
 

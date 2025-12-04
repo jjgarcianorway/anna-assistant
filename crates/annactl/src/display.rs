@@ -1,5 +1,6 @@
 //! Display helpers for annactl UI.
 
+use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::ui::{colors, symbols, HR};
@@ -353,4 +354,95 @@ fn format_reliability(score: u8) -> String {
         colors::ERR
     };
     format!("{}{}%{}", color, score, colors::RESET)
+}
+
+/// Print a progress event in debug mode
+pub fn print_progress_event(event: &ProgressEvent) {
+    let elapsed = format!("{:.1}s", event.elapsed_ms as f64 / 1000.0);
+
+    match &event.event {
+        ProgressEventType::Starting { timeout_secs } => {
+            println!(
+                "{}[anna->{}]{} starting (timeout {}s) [{}]",
+                colors::DIM,
+                event.stage,
+                colors::RESET,
+                timeout_secs,
+                elapsed
+            );
+        }
+        ProgressEventType::Complete => {
+            println!(
+                "{}[anna]{} {} {}complete{} [{}]",
+                colors::DIM,
+                colors::RESET,
+                event.stage,
+                colors::OK,
+                colors::RESET,
+                elapsed
+            );
+        }
+        ProgressEventType::Timeout => {
+            println!(
+                "{}[anna]{} {} {}TIMEOUT{} [{}]",
+                colors::DIM,
+                colors::RESET,
+                event.stage,
+                colors::ERR,
+                colors::RESET,
+                elapsed
+            );
+        }
+        ProgressEventType::Error { message } => {
+            println!(
+                "{}[anna]{} {} {}error:{} {} [{}]",
+                colors::DIM,
+                colors::RESET,
+                event.stage,
+                colors::ERR,
+                colors::RESET,
+                message,
+                elapsed
+            );
+        }
+        ProgressEventType::Heartbeat => {
+            let detail = event.detail.as_deref().unwrap_or("working");
+            println!(
+                "{}[anna]{} still working: {} [{}]",
+                colors::DIM,
+                colors::RESET,
+                detail,
+                elapsed
+            );
+        }
+        ProgressEventType::ProbeRunning { probe_id } => {
+            println!(
+                "{}[anna->probe]{} running {} [{}]",
+                colors::DIM,
+                colors::RESET,
+                probe_id,
+                elapsed
+            );
+        }
+        ProgressEventType::ProbeComplete {
+            probe_id,
+            exit_code,
+            timing_ms,
+        } => {
+            let status = if *exit_code == 0 {
+                format!("{}ok{}", colors::OK, colors::RESET)
+            } else {
+                format!("{}exit {}{}", colors::WARN, exit_code, colors::RESET)
+            };
+            println!(
+                "{}[anna]{} probe {} {} ({}ms) [{}]",
+                colors::DIM,
+                colors::RESET,
+                probe_id,
+                status,
+                timing_ms,
+                elapsed
+            );
+        }
+    }
 }

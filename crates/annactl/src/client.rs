@@ -1,12 +1,18 @@
 //! Unix socket client for communicating with annad.
 
+use anna_shared::progress::ProgressEvent;
 use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
 use anna_shared::status::DaemonStatus;
 use anna_shared::SOCKET_PATH;
 use anyhow::{anyhow, Result};
 use std::path::Path;
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
+use tokio::time::timeout;
+
+/// Default RPC call timeout (covers translator + probes + specialist + supervisor)
+const RPC_TIMEOUT_SECS: u64 = 45;
 
 /// Uninstall information returned by daemon
 pub struct UninstallInfo {
@@ -48,27 +54,47 @@ impl AnnadClient {
         Ok(Self { stream })
     }
 
-    /// Send an RPC request and get the response
+    /// Send an RPC request and get the response with timeout
     pub async fn call(
         &mut self,
         method: RpcMethod,
         params: Option<serde_json::Value>,
     ) -> Result<RpcResponse> {
+        self.call_with_timeout(method, params, RPC_TIMEOUT_SECS).await
+    }
+
+    /// Send an RPC request with custom timeout
+    pub async fn call_with_timeout(
+        &mut self,
+        method: RpcMethod,
+        params: Option<serde_json::Value>,
+        timeout_secs: u64,
+    ) -> Result<RpcResponse> {
         let request = RpcRequest::new(method, params);
         let request_json = serde_json::to_string(&request)?;
 
-        // Send request
-        self.stream
-            .write_all(format!("{}\n", request_json).as_bytes())
-            .await?;
+        // Send request with timeout
+        timeout(Duration::from_secs(5), async {
+            self.stream
+                .write_all(format!("{}\n", request_json).as_bytes())
+                .await
+        })
+        .await
+        .map_err(|_| anyhow!("Timeout writing to daemon"))?
+        .map_err(|e| anyhow!("Failed to write to daemon: {}", e))?;
 
-        // Read response
+        // Read response with timeout
         let (reader, _) = self.stream.split();
         let mut reader = BufReader::new(reader);
         let mut line = String::new();
-        reader.read_line(&mut line).await?;
 
-        let response: RpcResponse = serde_json::from_str(&line)?;
+        timeout(Duration::from_secs(timeout_secs), reader.read_line(&mut line))
+            .await
+            .map_err(|_| anyhow!("Request timed out after {}s", timeout_secs))?
+            .map_err(|e| anyhow!("Failed to read from daemon: {}", e))?;
+
+        let response: RpcResponse = serde_json::from_str(&line)
+            .map_err(|e| anyhow!("Invalid response from daemon: {}", e))?;
         Ok(response)
     }
 
@@ -179,5 +205,65 @@ impl AnnadClient {
             .unwrap_or_default();
 
         Ok(fixes)
+    }
+
+    /// Get progress events for current/last request
+    pub async fn progress(&mut self) -> Result<Vec<ProgressEvent>> {
+        let response = self.call(RpcMethod::Progress, None).await?;
+
+        if let Some(error) = response.error {
+            return Err(anyhow!("Progress error: {}", error.message));
+        }
+
+        let result = response
+            .result
+            .ok_or_else(|| anyhow!("No result in response"))?;
+        let events: Vec<ProgressEvent> = serde_json::from_value(result)?;
+        Ok(events)
+    }
+}
+
+/// Client for streaming requests with progress polling
+pub struct StreamingClient;
+
+impl StreamingClient {
+    /// Send request with progress polling - returns (result, events)
+    pub async fn request_with_progress(
+        prompt: &str,
+        mut on_progress: impl FnMut(&ProgressEvent),
+    ) -> Result<ServiceDeskResult> {
+        // Start request in background
+        let prompt_owned = prompt.to_string();
+        let request_handle = tokio::spawn(async move {
+            let mut client = AnnadClient::connect().await?;
+            client.request(&prompt_owned).await
+        });
+
+        // Poll for progress every 250ms
+        let poll_interval = std::time::Duration::from_millis(250);
+        let mut last_event_count = 0;
+
+        loop {
+            tokio::time::sleep(poll_interval).await;
+
+            // Check if request completed
+            if request_handle.is_finished() {
+                break;
+            }
+
+            // Poll for new progress events
+            if let Ok(mut poll_client) = AnnadClient::connect().await {
+                if let Ok(events) = poll_client.progress().await {
+                    // Report only new events
+                    for event in events.iter().skip(last_event_count) {
+                        on_progress(event);
+                    }
+                    last_event_count = events.len();
+                }
+            }
+        }
+
+        // Get final result
+        request_handle.await?
     }
 }
