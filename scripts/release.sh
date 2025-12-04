@@ -130,6 +130,20 @@ if ! grep -q "## v$VERSION" RELEASE_NOTES.md; then
 fi
 log_ok "RELEASE_NOTES.md updated"
 
+# Check SPEC.md exists
+if [[ ! -f "SPEC.md" ]]; then
+    log_error "SPEC.md not found - authoritative specification required"
+    exit 1
+fi
+log_ok "SPEC.md exists"
+
+# Check SPEC.md version
+if ! grep -q "# Anna Specification v$VERSION" SPEC.md; then
+    log_warn "SPEC.md header version mismatch (expected v$VERSION)"
+    log_info "Update SPEC.md header to: # Anna Specification v$VERSION"
+    # Advisory only - don't block release for this
+fi
+
 # =============================================================================
 # Step 4: Run tests
 # =============================================================================

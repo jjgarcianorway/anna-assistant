@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
-# Anna v0.0.1 - Uninstall Script
+# Anna v0.0.82 - Uninstall Script
 # Removes Anna components, preserves user data optionally
+#
+# Paths removed (must match installer):
+#   /usr/local/bin/annad
+#   /usr/local/bin/annactl
+#   /etc/systemd/system/annad.service
+#   /etc/anna/ (optional)
+#   /var/lib/anna/ (optional)
+#   /var/log/anna/ (optional)
+#   /run/anna/ (optional)
 
 set -euo pipefail
 
@@ -84,13 +93,15 @@ remove_service() {
     log_success "Removed systemd service"
 }
 
-# Remove probes
+# Remove probes (DEPRECATED - installer no longer creates this)
+# Kept for backwards compatibility with older installations
 remove_probes() {
-    log_info "Removing probes..."
-
-    rm -rf /usr/share/anna
-
-    log_success "Removed probes"
+    if [[ -d /usr/share/anna ]]; then
+        log_info "Removing legacy probes directory..."
+        rm -rf /usr/share/anna
+        log_success "Removed legacy probes"
+    fi
+    # No-op if directory doesn't exist
 }
 
 # Remove config (optional)
@@ -121,19 +132,21 @@ remove_user_data() {
     fi
 }
 
-# Remove anna user (optional)
+# Remove anna user (DEPRECATED - installer no longer creates this since v6.0.0)
+# Kept for backwards compatibility with older installations
 remove_user() {
-    read -p "Remove anna user? [y/N] " -n 1 -r
-    echo
+    if id "anna" &>/dev/null; then
+        read -p "Found legacy anna user. Remove it? [y/N] " -n 1 -r
+        echo
 
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        if id "anna" &>/dev/null; then
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
             userdel anna 2>/dev/null || true
-            log_success "Removed anna user"
+            log_success "Removed legacy anna user"
+        else
+            log_info "Anna user preserved"
         fi
-    else
-        log_info "Anna user preserved"
     fi
+    # No-op if user doesn't exist
 }
 
 # Confirm uninstall

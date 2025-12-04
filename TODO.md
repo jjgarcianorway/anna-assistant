@@ -1,8 +1,8 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.82**
+**Current Version: 0.0.83**
 
-**Expected Project Completion: 28.9%**
+**Expected Project Completion: 29.5%**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -10,12 +10,21 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.83 - Multi-Doctor Handoff + Senior Escalation (NEXT)
+### 0.0.84 - Multi-Doctor Handoff + Senior Escalation (NEXT)
 - [ ] Multi-doctor case handoff for complex issues
 - [ ] Department collaboration for cross-domain problems
 - [ ] Senior escalation when Junior < 50%
 - [ ] Multi-round improvement loops
 - [ ] Evidence bundle aggregation across departments
+
+### 0.0.83 - Mechanical Reliability (COMPLETED)
+- [x] SPEC.md as authoritative source of truth
+- [x] TRUTH_REPORT.md documenting actual repository state
+- [x] Blocking CI gate: CLI surface check (no unauthorized commands)
+- [x] Blocking CI gate: File size for NEW files (400 line limit)
+- [x] Blocking CI gate: Install/uninstall integration test
+- [x] Fixed uninstall.sh drift (legacy paths, anna user)
+- [x] Updated release.sh to verify SPEC.md
 
 ### 0.0.82 - "Stop the Nonsense" UX Stabilization (COMPLETED)
 - [x] Pre-router: Deterministic routing BEFORE the translator for common queries

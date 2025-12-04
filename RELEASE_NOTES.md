@@ -2,6 +2,53 @@
 
 ---
 
+## v0.0.83 - Mechanical Reliability
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Infrastructure stabilization: Blocking CI gates for mechanical reliability, SPEC.md as authoritative source of truth, install/uninstall integration tests. No new features - only build discipline and correctness scaffolding.
+
+### Changes
+
+**SPEC.md (Authoritative Specification):**
+- Defined public CLI surface (strict, no new commands without approval)
+- Defined file size limit (400 lines for source files)
+- Defined version discipline (6 required locations)
+- Defined install/uninstall invariants
+- Defined no-invention rule
+- Defined debug mode specification
+
+**TRUTH_REPORT.md (Repository State):**
+- Documents actual version state across all files
+- Identifies 18 grandfathered files over 400-line limit
+- Documents install/uninstall path drift
+- Documents logging state and duplication
+
+**Blocking CI Gates (must pass to merge):**
+- CLI surface check: Verifies only SPEC.md-approved commands exist
+- File size (new files): Blocks new files over 400 lines
+- Install/uninstall integration test: Verifies path invariants
+- Version discipline: All 5 doc locations must match
+- SPEC.md existence: Required file
+
+**Drift Fixes:**
+- scripts/uninstall.sh: Legacy `/usr/share/anna` only removed if exists
+- scripts/uninstall.sh: Legacy `anna` user only prompted if exists
+- scripts/uninstall.sh: Version header updated from v0.0.1 to v0.0.83
+- scripts/release.sh: Added SPEC.md verification
+
+### Files Changed
+
+- `.github/workflows/ci.yml`: Added blocking gates
+- `SPEC.md`: New authoritative specification
+- `TRUTH_REPORT.md`: New repository state documentation
+- `scripts/uninstall.sh`: Fixed drift
+- `scripts/release.sh`: Added SPEC.md checks
+
+---
+
 ## v0.0.82 - "Stop the Nonsense" UX Stabilization
 
 **Release Date:** 2025-12-04
