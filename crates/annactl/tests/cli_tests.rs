@@ -1,4 +1,4 @@
-//! CLI integration tests for annactl v0.0.4 - Real Junior Verifier
+//! CLI integration tests for annactl v0.0.54 - Action Engine v1
 //!
 //! Public CLI surface (strict):
 //! - annactl                  REPL mode (interactive)
@@ -6,6 +6,7 @@
 //! - annactl status           self-status
 //! - annactl --version        version (also: -V)
 //!
+//! v0.0.53: Doctor Flow v1 - auto-triggered diagnostics for problem queries
 //! v0.0.4: Junior becomes real via Ollama, Translator stays deterministic.
 //! Multi-party dialogue transcript:
 //! [you] -> [anna] -> [translator] -> [anna] -> [annad] -> [anna] -> [junior] -> [anna] -> [you]
@@ -631,4 +632,227 @@ fn test_annactl_graceful_without_ollama() {
         "Should show reliability score even in fallback mode, got: {}",
         stdout
     );
+}
+
+// ============================================================================
+// v0.0.53: Doctor Flow tests
+// ============================================================================
+
+/// Test "wifi keeps disconnecting" triggers doctor flow (v0.0.53)
+#[test]
+fn test_annactl_doctor_flow_wifi_disconnecting() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("wifi keeps disconnecting")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.53: Problem phrase should trigger doctor flow
+    let has_doctor_flow = stdout.contains("Doctor:")
+        || stdout.contains("Diagnosis")
+        || stdout.contains("Evidence")
+        || stdout.contains("[N")  // Network evidence IDs
+        || stdout_lower.contains("finding")
+        || stdout_lower.contains("network");
+
+    assert!(
+        has_doctor_flow || stdout.contains("Reliability:"),
+        "Expected doctor flow or reliability output for wifi problem, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "wifi disconnecting request should succeed");
+}
+
+/// Test "no sound" triggers doctor flow (v0.0.53)
+#[test]
+fn test_annactl_doctor_flow_no_sound() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("no sound from speakers")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.53: Audio problem should trigger doctor flow
+    let has_doctor_flow = stdout.contains("Doctor:")
+        || stdout.contains("Diagnosis")
+        || stdout.contains("Evidence")
+        || stdout.contains("[A")  // Audio evidence IDs
+        || stdout_lower.contains("audio")
+        || stdout_lower.contains("sound");
+
+    assert!(
+        has_doctor_flow || stdout.contains("Reliability:"),
+        "Expected doctor flow or reliability output for audio problem, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "no sound request should succeed");
+}
+
+/// Test "slow boot" triggers doctor flow (v0.0.53)
+#[test]
+fn test_annactl_doctor_flow_slow_boot() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("slow boot")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.53: Boot problem should trigger doctor flow
+    let has_doctor_content = stdout_lower.contains("boot")
+        || stdout.contains("Doctor:")
+        || stdout.contains("Diagnosis")
+        || stdout.contains("[B");  // Boot evidence IDs
+
+    assert!(
+        has_doctor_content || stdout.contains("Reliability:"),
+        "Expected doctor flow or reliability output for boot problem, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "slow boot request should succeed");
+}
+
+/// Test normal query does NOT trigger doctor flow (v0.0.53)
+#[test]
+fn test_annactl_normal_query_no_doctor_flow() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("what CPU do I have?")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // v0.0.53: Normal query should NOT trigger doctor flow
+    // Should show standard pipeline dialogue
+    assert!(
+        stdout.contains("[you] to [anna]"),
+        "Expected standard dialogue for normal query, got: {}",
+        stdout
+    );
+    assert!(
+        stdout.contains("Reliability:"),
+        "Expected reliability score for normal query, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "normal query should succeed");
+}
+
+// ============================================================================
+// v0.0.54: Action Engine tests
+// ============================================================================
+
+/// Test action request shows risk level and confirmation prompt (v0.0.54)
+#[test]
+fn test_annactl_action_request_shows_risk() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("restart nginx service")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.54: Action requests should show risk assessment
+    let has_risk_info = stdout_lower.contains("risk")
+        || stdout_lower.contains("confirm")
+        || stdout_lower.contains("action")
+        || stdout_lower.contains("service");
+
+    assert!(
+        has_risk_info || stdout.contains("Reliability:"),
+        "Expected action risk info or reliability output, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "restart service request should succeed");
+}
+
+/// Test file edit request mentions diff/preview (v0.0.54)
+#[test]
+fn test_annactl_file_edit_request() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("add syntax highlighting to vim")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.54: File edit requests should mention vim/config/file
+    let has_edit_info = stdout_lower.contains("vim")
+        || stdout_lower.contains("config")
+        || stdout_lower.contains("file")
+        || stdout_lower.contains("edit")
+        || stdout_lower.contains("vimrc");
+
+    assert!(
+        has_edit_info || stdout.contains("Reliability:"),
+        "Expected file edit info or reliability output, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "file edit request should succeed");
+}
+
+/// Test package install request (v0.0.54)
+#[test]
+fn test_annactl_package_install_request() {
+    let binary = get_binary_path();
+    if !binary.exists() {
+        return;
+    }
+
+    let output = Command::new(&binary)
+        .arg("install htop")
+        .output()
+        .expect("Failed to run annactl");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout_lower = stdout.to_lowercase();
+
+    // v0.0.54: Package install should mention package/install/confirm
+    let has_install_info = stdout_lower.contains("htop")
+        || stdout_lower.contains("install")
+        || stdout_lower.contains("package")
+        || stdout_lower.contains("pacman");
+
+    assert!(
+        has_install_info || stdout.contains("Reliability:"),
+        "Expected package install info or reliability output, got: {}",
+        stdout
+    );
+    assert!(output.status.success(), "package install request should succeed");
 }

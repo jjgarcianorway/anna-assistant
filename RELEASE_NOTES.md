@@ -2,6 +2,1036 @@
 
 ---
 
+## v0.0.60 - 3-Tier Transcript Rendering
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Transcript output is now human-readable by default. The system supports three rendering modes: `human` (default), `debug`, and `test`. Human mode shows a professional IT department conversation without exposing internal tool names, evidence IDs, or raw prompts. Debug and test modes show full internal details for troubleshooting.
+
+### What This Means
+
+In Human mode (default):
+```
+----- investigation -----
+[annad] I'm checking hardware inventory.
+[annad] Evidence: hardware inventory snapshot
+[anna] Your CPU is an AMD Ryzen 9 5900X with 12 cores.
+```
+
+In Debug mode:
+```
+10:24:15.123 [tool_call] [annad] tool=hw_snapshot_summary
+10:24:15.145 [tool_result] [annad] tool=hw_snapshot_summary [E1] (22ms)
+10:24:15.200 [final] [anna] Your CPU is an AMD Ryzen 9 5900X with 12 cores.
+```
+
+### Configuration
+
+Set transcript mode via:
+1. Environment variable (highest priority): `ANNA_UI_TRANSCRIPT_MODE=debug`
+2. Config file `/etc/anna/config.toml`:
+   ```toml
+   [ui]
+   transcript_mode = "human"  # human|debug|test
+   ```
+3. Default: `human`
+
+### New Files
+
+- `transcript_events.rs` - Event bus for all transcript steps
+- `human_labels.rs` - Registry mapping tools to human descriptions
+- `transcript_renderer.rs` - Mode-aware rendering system
+- `transcript_mode_tests.rs` - Integration tests
+
+### Status Display
+
+The `[CASES]` section in `annactl status` now shows:
+```
+[CASES]
+  Transcript: human
+  Active:     1 case(s) in progress
+```
+
+---
+
+## v0.0.59 - Auto-Case Opening + Departmental IT Org
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Anna now operates like a structured IT department. Every request creates a case with explicit lifecycle stages, and the Service Desk routes to specialist departments based on keyword analysis and alert context. The fly-on-the-wall transcript shows professional departmental handoffs, Junior QA verification, and structured findings with evidence - no theater, just professional diagnostic flow.
+
+### What This Means
+
+Before v0.0.59:
+```
+[anna] Checking network...
+[anna] Here's what I found...
+```
+
+After v0.0.59:
+```
+=== Case net-001 ===
+
+----- intake -----
+[you] my wifi keeps disconnecting
+
+----- triage -----
+[translator] Intent: diagnose. Targets: [network_status].
+[anna] Assigning to [networking] due to targets: network_status
+
+----- investigation -----
+[annad] Collected 3 evidence item(s): [E1, E2, E3]
+[junior] Coverage 85%. Below threshold. May need additional evidence.
+
+----- diagnosis -----
+[networking] Findings:
+  - WiFi signal strength: -72 dBm (weak)
+  - Frequent reconnects in journal
+[networking] Hypotheses:
+  - [H1] Distance from AP causing instability (75% confidence)
+
+----- verification -----
+[junior] Reliability 78%. Coverage 85%. Acceptable. Ship it.
+
+Case: net-001 | Status: plan_ready | Coverage: 85% | Reliability: 78%
+```
+
+### Case Lifecycle Stages
+
+| Stage | Description |
+|-------|-------------|
+| `new` | Just created, not yet triaged |
+| `triaged` | Intent classified, department assigned |
+| `investigating` | Gathering evidence, running diagnostics |
+| `plan_ready` | Diagnosis complete, action plan ready |
+| `awaiting_confirmation` | Mutations proposed, waiting for user |
+| `executing` | User confirmed, executing mutations |
+| `verifying` | Checking results after mutation |
+| `resolved` | Successfully completed |
+| `abandoned` | User stopped or cannot proceed |
+
+### Departments
+
+| Department | Keywords | Doctor Domain |
+|------------|----------|---------------|
+| `networking` | wifi, dns, ethernet, route | Network |
+| `storage` | disk, space, mount, btrfs | Storage |
+| `boot` | boot, startup, systemd, slow | Boot |
+| `audio` | sound, pipewire, speaker | Audio |
+| `graphics` | gpu, wayland, screen, display | Graphics |
+| `security` | permission, sudo, ssh, key | System |
+| `performance` | slow, cpu, memory, thermal | System |
+| `service_desk` | General fallback | - |
+
+### Key Features
+
+**Case Lifecycle (`case_lifecycle.rs`):**
+- `CaseFileV2` schema with full lifecycle tracking
+- `CaseStatus` enum with 9 explicit states
+- `Department` enum with 8 IT departments
+- `Participant` tracking (you, anna, translator, junior, annad, specialists)
+- `TimelineEvent` append-only audit trail
+- `ProposedAction` for mutation planning
+- Alert linking via `linked_alert_ids`
+- `count_active_cases()` for status display
+
+**Service Desk (`service_desk.rs`):**
+- `triage_request()` with keyword-based department scoring
+- Confidence scoring (0-100) for routing decisions
+- `find_linked_alerts()` matches queries to active alerts
+- `dispatch_to_specialist()` maps department to DoctorRegistry
+- `open_case_for_alert()` for alert-triggered cases
+- `progress_case_*` functions for lifecycle transitions
+
+**Transcript v2 (`transcript_v2.rs`):**
+- `TranscriptBuilder` for structured output
+- `DepartmentOutput` with:
+  - Findings (bullets)
+  - Evidence IDs
+  - Hypotheses (labeled, with confidence, evidence-backed)
+  - Next checks (read-only, auto-run)
+  - Action plan (mutations gated)
+- `render_case_transcript()` with phase separators
+- `render_handoff()` for departmental assignments
+- `render_junior_disagreement()` when evidence insufficient
+- `render_collaboration()` for multi-doctor consultation
+
+### Transcript Participants
+
+| Actor | Role | Style |
+|-------|------|-------|
+| `[you]` | User | Literal input |
+| `[anna]` | Service Desk lead | Calm, structured |
+| `[translator]` | Intake analyst | Terse, checklist |
+| `[junior]` | QA/reliability | Skeptical, calls out gaps |
+| `[annad]` | Operator | Robotic, facts only |
+| `[networking]` | Specialist | Concise findings |
+| `[storage]` | Specialist | Concise findings |
+| `[boot]` | Specialist | Concise findings |
+| `[audio]` | Specialist | Concise findings |
+| `[graphics]` | Specialist | Concise findings |
+
+### Design Principles
+
+1. **Every request = case** - Full audit trail for every interaction
+2. **Deterministic routing** - Keywords + targets + alerts → department
+3. **Evidence-first** - All findings backed by [E#] references
+4. **Professional tone** - No jokes, no emojis, no theater
+5. **Structured output** - Findings, hypotheses, actions in clear format
+6. **Junior verification** - QA checkpoint with coverage/reliability gates
+
+### Files Added
+
+- `crates/anna_common/src/case_lifecycle.rs` - Case schema and lifecycle
+- `crates/anna_common/src/service_desk.rs` - Triage and routing
+- `crates/anna_common/src/transcript_v2.rs` - Departmental transcript
+- `crates/anna_common/src/case_lifecycle_tests.rs` - Integration tests
+
+### Files Modified
+
+- `crates/anna_common/src/lib.rs` - Module exports
+- `crates/annactl/src/commands/status.rs` - Active cases count
+
+---
+
+## v0.0.58 - Proactive Monitoring Loop v1
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Anna now notices problems without being asked - like a real sysadmin who spots issues before they become crises. This release introduces a daemon-owned **Proactive Alerts** system that detects 5 high-signal issue types with evidence trails. Alerts show in `annactl status`, and "show alerts" / "why are you warning me?" queries route to alert evidence.
+
+### What This Means
+
+Before v0.0.58:
+```
+User: annactl status
+[ALERTS]
+  Critical: 0
+  Warnings: 0
+```
+
+After v0.0.58:
+```
+User: annactl status
+[ALERTS]
+  Critical:   1
+  Warnings:   2
+  Info:       0
+
+  Active alerts:
+    [CRITICAL] Service failed: nginx.service [E1] (3h)
+    [WARNING] Disk pressure on /: 8.2 GiB free (6%) [E2] (1d)
+    [WARNING] Boot regression: 45s (baseline 28s) [E3] (2h)
+
+  Snapshot:   just now
+```
+
+### Alert Types
+
+| Type | Trigger | Severity |
+|------|---------|----------|
+| **BOOT_REGRESSION** | Boot time > baseline + 2 stddev, delta >= 5s | Warning |
+| **DISK_PRESSURE** | / free < 10% or < 15 GiB | Warning |
+| **DISK_PRESSURE** | / free < 5% or < 5 GiB | Critical |
+| **JOURNAL_ERROR_BURST** | >= 20 errors in 10 min per unit | Warning |
+| **JOURNAL_ERROR_BURST** | >= 50 errors in 10 min per unit | Critical |
+| **SERVICE_FAILED** | Any systemd unit in failed state | Critical |
+| **THERMAL_THROTTLING** | CPU temp > 85C | Warning |
+| **THERMAL_THROTTLING** | CPU temp > 95C | Critical |
+
+### Key Features
+
+**Alerts Subsystem (`proactive_alerts.rs`):**
+- `ProactiveAlert` struct with stable ID (hash of type + dedupe_key)
+- `AlertType` enum: BOOT_REGRESSION, DISK_PRESSURE, JOURNAL_ERROR_BURST, SERVICE_FAILED, THERMAL_THROTTLING
+- `AlertSeverity`: Critical, Warning, Info
+- `AlertStatus`: Active, Resolved
+- `ProactiveAlertsState` with upsert/resolve/get_active/count_by_severity
+- State persisted to `/var/lib/anna/internal/alerts.json`
+
+**Alert Detectors (`alert_detectors.rs`):**
+- `detect_boot_regression()` - compares to rolling baseline
+- `detect_disk_pressure()` - checks / filesystem
+- `detect_journal_error_burst()` - parses `journalctl -p err` for 10 min window
+- `detect_service_failed()` - runs `systemctl --failed`
+- `detect_thermal_throttling()` - reads hwmon sensors (coretemp/k10temp)
+- `run_all_detectors()` - executes all 5 and returns alerts
+
+**Daemon Probes (`alert_probes.rs`):**
+- `probe_alerts_summary()` - for "show alerts" queries
+- `probe_boot_time_summary()`, `probe_disk_pressure_summary()`
+- `probe_journal_error_burst_summary()`, `probe_failed_units_summary()`
+- `probe_thermal_summary()`
+
+**Tool Routing (`system_query_router.rs`):**
+- `QueryTarget::Alerts` routes to `proactive_alerts_summary`
+- Patterns: "show alerts", "any warnings", "why are you warning me?"
+- `validate_answer_for_target()` validates alert-related answers
+
+**Status Integration (`status.rs`):**
+- `[ALERTS]` section shows counts by severity
+- Top 3 active alerts with evidence IDs and age
+- Snapshot age indicator
+
+### Design Principles
+
+1. **No auto-fixing** - Only detection + reporting with evidence trail
+2. **High-signal only** - 5 carefully chosen alert types, not noisy
+3. **Daemon-owned** - State written by annad, read by annactl
+4. **Evidence-linked** - Every alert has [E#] references
+5. **Deduplicated** - Same alert type + key = upsert, not duplicate
+
+### Files Added
+
+- `crates/anna_common/src/proactive_alerts.rs` - Alert schema and state
+- `crates/anna_common/src/alert_detectors.rs` - 5 detector implementations
+- `crates/anna_common/src/alert_probes.rs` - Daemon probes for detection
+
+### Files Modified
+
+- `crates/anna_common/src/lib.rs` - Module exports
+- `crates/anna_common/src/tools.rs` - Tool catalog entries
+- `crates/anna_common/src/tool_executor.rs` - Tool executors
+- `crates/anna_common/src/system_query_router.rs` - Alert routing
+- `crates/anna_common/src/evidence_coverage.rs` - Alerts target facets
+- `crates/anna_common/src/evidence_tools.rs` - Alerts evidence planning
+- `crates/annactl/src/commands/status.rs` - Status display
+
+---
+
+## v0.0.57 - Evidence Coverage + Correct Tool Routing
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+This release fixes a critical bug where Anna would answer disk/memory/network queries with unrelated evidence (e.g., answering "how much disk space" with CPU info). A new **Evidence Coverage** system ensures the RIGHT evidence backs each claim, and Junior's rubric now aggressively penalizes wrong or missing evidence.
+
+### The Bug We Fixed
+
+Before v0.0.57:
+```
+User: how much disk space is free?
+Anna: You have an AMD Ryzen 7 5800X [E1] with 8 cores.
+Junior: Reliability 85%. Ship it.  <-- WRONG!
+```
+
+After v0.0.57:
+```
+User: how much disk space is free?
+[junior]: Coverage 0%. Evidence doesn't include disk_free. Missing: root_fs_free
+[anna]: Coverage too low. Pulling mount_usage for disk_free evidence.
+Anna: You have 433 GiB free on / [E1].
+Junior: Reliability 92%. Ship it.
+```
+
+### Key Features
+
+**Evidence Coverage (`evidence_coverage.rs`):**
+- `TargetFacets` struct defines required/optional fields per query target
+- `analyze_coverage()` computes coverage % by checking if evidence contains required fields
+- `check_evidence_mismatch()` detects when evidence is for the wrong target entirely
+- `get_gap_filling_tools()` suggests which tools to run to fill coverage gaps
+- `COVERAGE_SUFFICIENT_THRESHOLD = 90` - below this, retry is triggered
+- `COVERAGE_PENALTY_THRESHOLD = 50` - below this, Junior caps score at 50%
+
+**Target Facet Map:**
+| Target | Required Fields | Providing Tools |
+|--------|----------------|-----------------|
+| cpu | cpu_model, cores | hw_snapshot_cpu, hw_snapshot_summary |
+| memory | mem_total | memory_info, mem_summary |
+| disk_free | root_fs_free, root_fs_total | mount_usage, disk_usage |
+| kernel_version | kernel_release | kernel_version, uname_summary |
+| network_status | link_state, has_ip | network_status, nm_summary |
+
+**Junior Rubric v2 (`junior_rubric.rs`):**
+- `verify_answer()` produces `VerificationResult` with coverage analysis
+- Wrong evidence type → reliability capped at **20%**
+- Missing required fields → reliability capped at **50%**
+- Answer doesn't match question → reliability capped at **60%**
+- Uncited claims → **-10 points** per claim
+- High coverage (≥95%) → **+10 bonus** points
+
+**Transcript Integration:**
+- `render_junior_coverage_check()` shows coverage in fly-on-wall log
+- `render_anna_coverage_retry()` shows retry dialogue when fetching more evidence
+- Example: `[junior] to [anna]: Coverage 30%. Evidence doesn't include disk_free.`
+
+**Case File Extensions:**
+- `evidence_coverage_percent: u8` - coverage score stored in case
+- `missing_evidence_fields: Vec<String>` - list of missing fields
+- `evidence_retry_triggered: bool` - whether retry was needed
+
+### Files Added
+
+- `crates/anna_common/src/evidence_coverage.rs` - Coverage scoring and facet map
+- `crates/anna_common/src/junior_rubric.rs` - Evidence-based verification rubric
+- `crates/anna_common/src/evidence_coverage_tests.rs` - 20+ integration tests
+
+### Files Modified
+
+- `crates/anna_common/src/case_file_v1.rs` - Added coverage fields
+- `crates/anna_common/src/dialogue_renderer.rs` - Added coverage display functions
+- `crates/anna_common/src/lib.rs` - Added module exports
+- `README.md` - Updated version and description
+- `CLAUDE.md` - Updated version
+- `TODO.md` - Added v0.0.57 section, next step for 0.0.58
+
+### Integration Tests
+
+Tests assert:
+1. Disk query with CPU evidence → fails (reliability ≤ 20%)
+2. Memory query with CPU evidence → fails
+3. Kernel query with CPU evidence → fails
+4. Network query with CPU evidence → fails
+5. Correct evidence for each target → passes (reliability ≥ 85%)
+6. Gap filling suggests correct tools
+7. Empty evidence → fails
+8. Multiple evidence sources → improves coverage
+
+### Upgrade Notes
+
+No breaking changes. The coverage system is additive - existing cases will have `evidence_coverage_percent: 0` which is harmless. The new Junior rubric only affects new verifications.
+
+---
+
+## v0.0.56 - Fly-on-the-Wall Dialogue Layer v1
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+This release introduces the **Fly-on-the-Wall Dialogue Layer** - transcripts now feel like eavesdropping on a real IT department. Each actor has a consistent voice: Anna is calm and evidence-focused, Translator is brisk and checklist-driven, Junior is skeptical QA, and Doctors feel like specialized departments with proper handoffs.
+
+### Key Features
+
+**DialogueRenderer (`dialogue_renderer.rs`):**
+- Actor voices applied at render-time only (logic layer stays deterministic)
+- `[anna]` - calm senior admin, concise, honest, dry humor, pushes for evidence
+- `[translator]` - service desk triage, brisk, checklist-driven
+- `[junior]` - skeptical QA, calls out missing evidence, disagrees when warranted
+- `[annad]` - robotic/operational, terse, structured
+- `DialogueContext` for tracking intent confidence, reliability, doctor domain
+
+**Explicit Agree/Disagree Moments:**
+- Translator classification with acknowledgment: "Acknowledged, I agree" vs "proceed carefully"
+- Junior verification with QA signoff: "Ship it" vs "Not good enough"
+- Anna responds to Junior's verdict appropriately
+
+**Doctors as Departments:**
+- Doctor actor names: `[networking-doctor]`, `[audio-doctor]`, `[storage-doctor]`, etc.
+- Proper handoff dialogue: "You're up. Collect link state, routes, DNS..."
+- Doctors initiate probe requests when present (not anna)
+
+**Transcript Ergonomics:**
+- Phase separators: `----- triage -----`, `----- evidence -----`, `----- verification -----`
+- Evidence summaries: "Evidence collected: [E1, E2, E3]"
+- QA-style reliability footer with verdict
+
+**Uncertainty Handling:**
+- `CONFIDENCE_CERTAIN_THRESHOLD = 80` - Below this, translator says "Not fully certain"
+- `RELIABILITY_SHIP_THRESHOLD = 75` - Below this, junior says "Not good enough"
+- Fallback handling: "Taking a conservative route"
+
+**Golden Tests (`dialogue_golden_tests.rs`):**
+- SYSTEM_QUERY tests: actors, evidence IDs, agree/disagree, no raw command spam
+- DIAGNOSE tests: doctor handoff, multiple evidence, correct actors
+- ACTION_REQUEST tests: evidence, confirmation mentions
+- Low confidence tests: uncertainty expressions
+- Low reliability tests: junior disagreement
+
+### Sample Transcript
+
+```
+=== Case: cpu-query-001 ===
+
+----- intake -----
+[you] to [anna]: what cpu do i have
+
+----- triage -----
+[anna] to [translator]: What are we looking at?
+[translator] to [anna]: Clear SYSTEM_QUERY request. 95% confidence.
+[anna] to [translator]: Acknowledged, I agree.
+
+----- evidence -----
+[anna] to [annad]: Run the probes.
+[annad]: [E1] hw_snapshot_cpu -> AMD Ryzen 7 5800X, 8 cores, 16 threads, 3.8GHz
+[annad] to [anna]: Evidence collected: [E1]
+
+----- verification -----
+[anna] to [junior]: Check this before I ship it.
+[junior] to [anna]: Reliability 92%. Solid evidence. Ship it.
+[anna] to [junior]: Good. Shipping response.
+
+----- response -----
+[anna] to [you]:
+  You have an AMD Ryzen 7 5800X [E1]. It has 8 cores and 16 threads.
+
+Reliability: 92% - Verified.
+(45ms)
+```
+
+### Files Added
+
+- `crates/anna_common/src/dialogue_renderer.rs` - Dialogue rendering with actor voices
+- `crates/anna_common/src/dialogue_golden_tests.rs` - Golden tests for transcript stability
+
+### Files Modified
+
+- `crates/anna_common/src/lib.rs` - Added module exports
+- `README.md` - Updated version and description
+- `CLAUDE.md` - Updated version
+- `TODO.md` - Added v0.0.56 section
+- `RELEASE_NOTES.md` - This file
+
+### Upgrade Notes
+
+No breaking changes. The Dialogue Renderer provides tone at render-time only - the Case Engine and Doctors remain deterministic. All existing functionality continues to work unchanged.
+
+---
+
+## v0.0.55 - Deterministic Case Engine + Doctor-first Routing
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+This release introduces the **Deterministic Case Engine** - a 10-phase state machine that orchestrates all request processing with complete audit trails. Every request flows through explicit phases from Intake to LearnRecipe, with deterministic intent classification and doctor routing.
+
+### Key Features
+
+**Case Engine State Machine (`case_engine.rs`):**
+- `CasePhase` enum with 10 phases:
+  1. Intake - Receive and validate request
+  2. Triage - Classify intent (SYSTEM_QUERY, DIAGNOSE, ACTION_REQUEST, HOWTO, META)
+  3. DoctorSelect - Select doctor for DIAGNOSE intents
+  4. EvidencePlan - Plan which evidence to collect
+  5. EvidenceGather - Execute tool calls
+  6. SynthesisDraft - Generate answer draft
+  7. JuniorVerify - Verify with Junior model
+  8. Respond - Send response to user
+  9. RecordCase - Persist case file
+  10. LearnRecipe - Extract recipe if reliability >= 80%
+- `CaseState` tracks phase, events, timings, evidence IDs
+- `IntentType` enum for canonical intent classification
+
+**Intent Taxonomy (`intent_taxonomy.rs`):**
+- `classify_intent()` with pattern-based detection
+- SYSTEM_QUERY: "what cpu", "disk space", "kernel version"
+- DIAGNOSE: "wifi not working", "no sound", "slow boot"
+- ACTION_REQUEST: "install nginx", "restart sshd"
+- HOWTO: "how do I configure", "how can I"
+- META: "status", "what can you do"
+- Query target detection for correct tool routing
+- Problem domain detection for doctor selection
+
+**Evidence Tools (`evidence_tools.rs`):**
+- `EvidencePlan` with list of `PlannedTool` entries
+- `plan_evidence()` creates plan based on intent classification
+- Correct tool routing:
+  - CPU queries → hw_snapshot_cpu
+  - Memory queries → memory_info
+  - Disk queries → mount_usage
+  - Kernel queries → kernel_version
+- `validate_evidence_for_query()` ensures evidence matches target
+
+**Case File Schema v1 (`case_file_v1.rs`):**
+- `CaseFileV1` with complete audit fields:
+  - Intent classification with confidence
+  - Doctor selection (for DIAGNOSE)
+  - Evidence records with tool names and summaries
+  - Phase timings
+  - XP gained
+- Atomic save to `/var/lib/anna/cases/<case_id>/`:
+  - `case.json` - Full case data
+  - `summary.txt` - Human-readable summary
+  - `transcript.log` - Readable transcript
+
+**Recipe Extractor (`recipe_extractor.rs`):**
+- Gate rules: reliability >= 80%, >= 2 evidence items, success
+- `check_recipe_gate()` validates case eligibility
+- `extract_recipe()` creates recipe from successful case
+- `calculate_case_xp()` determines XP based on outcome
+
+**Transcript Renderer (`transcript_render.rs`):**
+- `[actor] to [actor]: message` format
+- Phase separators: `--- Phase ---`
+- Evidence citations: `[E#]` inline
+- `render_compact_summary()` for status display
+- `render_recent_cases()` for case list
+
+### Files Added
+
+- `crates/anna_common/src/case_engine.rs` - Case Engine state machine
+- `crates/anna_common/src/intent_taxonomy.rs` - Intent classification
+- `crates/anna_common/src/evidence_tools.rs` - Evidence planning
+- `crates/anna_common/src/case_file_v1.rs` - Case file schema v1
+- `crates/anna_common/src/recipe_extractor.rs` - Recipe extraction
+- `crates/anna_common/src/transcript_render.rs` - Transcript rendering
+
+### Files Modified
+
+- `crates/anna_common/src/lib.rs` - Added new module exports
+- `README.md` - Updated version and description
+- `CLAUDE.md` - Updated version
+- `TODO.md` - Added v0.0.55 section
+- `RELEASE_NOTES.md` - This file
+
+### Upgrade Notes
+
+No breaking changes. The Case Engine provides the foundation for deterministic request processing but does not change existing behavior. Integration with the main pipeline will be completed in future versions.
+
+---
+
+## v0.0.54 - Action Engine v1 (Safe Mutations)
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+This release introduces **Action Engine v1** for safe, auditable mutations on Arch Linux. The engine executes mutation steps only after user confirmation, shows diff previews for file edits, and creates rollback records for every executed mutation.
+
+### Key Features
+
+**Action Engine Contract (`action_engine.rs`):**
+- `ActionPlan` with risk, summary, steps, and confirmation phrase
+- `ActionStep` with precheck_probes, verify_probes, rollback_hint, and evidence_ids
+- `ActionType` enum: EditFile, WriteFile, DeleteFile, Systemd, Pacman
+- `MutationRiskLevel`: Low, Medium, High, Destructive, Denied
+
+**Risk Scoring (`action_risk.rs`):**
+- `score_path_risk()`: /etc → medium, /etc/fstab → high, /proc → denied
+- `score_systemd_risk()`: NetworkManager → medium, sshd → high, systemd-journald → denied
+- `score_package_risk()`: install → low, remove → medium, kernel remove → denied
+- `score_delete_risk()`: always high or destructive
+
+**Confirmation Phrases (hardcoded safety contract):**
+- Low: `yes`
+- Medium: `I CONFIRM (medium risk)`
+- High: `I CONFIRM (high risk)`
+- Destructive: `I ACCEPT DATA LOSS RISK`
+
+**Diff Preview Pipeline (`action_executor.rs`):**
+- `generate_action_diff_preview()` with unified diff format
+- `ActionDiffPreview` shows additions, deletions, truncation indicator
+- Backup path displayed before execution
+- Maximum 50 lines with "(truncated)" indicator
+
+**Rollback Scaffolding:**
+- `RollbackRecord` with steps, backups, restore_instructions, verifications
+- Saved to `/var/lib/anna/cases/<case_id>/rollback.json`
+- `BackupRecord` with original_path, backup_path, SHA256 hash
+- Human-readable restore instructions generated automatically
+
+**Step Execution:**
+- Atomic writes: write to temp file, fsync, rename
+- `execute_action_step()` for individual steps
+- `execute_action_plan()` with confirmation validation
+- Systemd operations via `systemctl`
+- Pacman operations via `pacman -S --noconfirm --needed` / `pacman -Rs --noconfirm`
+
+### Files Added/Modified
+
+**New Files:**
+- `crates/anna_common/src/action_engine.rs` - Action engine types and contracts
+- `crates/anna_common/src/action_risk.rs` - Deterministic risk scoring
+- `crates/anna_common/src/action_executor.rs` - Diff preview and step execution
+
+**Modified Files:**
+- `crates/anna_common/src/lib.rs` - Added action engine module exports
+- `crates/anna_common/Cargo.toml` - Added sha2 dependency
+- `crates/annactl/tests/cli_tests.rs` - Added action engine integration tests
+
+### Risk Scoring Examples
+
+| Path/Service/Package | Operation | Risk Level |
+|---------------------|-----------|------------|
+| /home/user/.bashrc | Edit | Low |
+| /etc/hosts | Edit | Medium |
+| /etc/fstab | Edit | High |
+| /proc/any | Any | Denied |
+| nginx.service | Restart | Low |
+| NetworkManager | Restart | Medium |
+| sshd | Stop | High |
+| systemd-journald | Any | Denied |
+| htop | Install | Low |
+| htop | Remove | Medium |
+| linux | Remove | Denied |
+
+### Upgrade Notes
+
+No breaking changes. The Action Engine provides infrastructure for safe mutations but does not change existing behavior. Integration with the pipeline for automatic action execution will be completed in future versions.
+
+---
+
+## v0.0.53 - Doctor Flow v1 (Interactive Diagnostics)
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+This release introduces **Doctor Flow v1** for interactive diagnostic flows. When users report problems ("wifi keeps disconnecting", "no sound", "slow boot"), Anna automatically triggers specialized diagnostic doctors that collect evidence, analyze findings, and produce actionable conclusions with full audit trails.
+
+### Key Features
+
+**Doctor Flow Orchestration (`doctor_flow.rs`):**
+- `DoctorFlowExecutor` orchestrates diagnostic flows with evidence collection
+- `DoctorFlowStep` tracks each step: Pending, Running, Success, Failed, Skipped
+- `DoctorFlowResult` bundles evidence, diagnosis, and human-readable report
+- `DoctorCaseFile` persists full diagnostic session for audit trails
+
+**Problem Phrase Detection:**
+- `detect_problem_phrase()` with confidence scoring (0-100)
+- Multi-word phrases: "not working", "keeps disconnecting", "no sound", etc.
+- Single-word indicators: "broken", "crashed", "slow", "stuck", etc.
+- Triggers FixIt intent when confidence >= 25
+
+**Interactive Diagnostic Flow:**
+- Problem queries route to specialized doctors (Network, Audio, Storage, Boot, Graphics)
+- Diagnostic plan shows steps before execution
+- Evidence collected with unique IDs (N1, N2 for network, A1, A2 for audio, etc.)
+- Human-readable transcript (no raw command spam)
+
+**Case File Persistence:**
+- Stored at `/var/lib/anna/cases/<case_id>/doctor.json`
+- Steps executed with tool names and durations
+- Findings with severity (Critical, Error, Warning, Info)
+- Most likely cause and suggested next steps
+- Reliability score for diagnosis confidence
+
+**Doctor Report Format:**
+- Diagnosis Confidence percentage
+- Findings list with evidence references
+- Most Likely Cause summary
+- Suggested Next Steps
+- Optional Fixes (with risk level and confirmation phrases)
+
+### Files Added/Modified
+
+**New Files:**
+- `crates/anna_common/src/doctor_flow.rs` - Doctor flow orchestration (398 lines)
+
+**Modified Files:**
+- `crates/anna_common/src/lib.rs` - Added doctor_flow module and exports
+- `crates/annactl/src/pipeline.rs` - Integrated doctor flow into pipeline routing
+- `crates/annactl/tests/cli_tests.rs` - Added doctor flow integration tests
+
+### Example Interaction
+
+```
+[you] to [anna]: wifi keeps disconnecting
+
+[anna] to [annad]: Running diagnostic plan with 7 checks:
+  1. Check network interfaces (net_interfaces_summary)
+  2. Check routing table (net_routes_summary)
+  3. Check DNS configuration (dns_summary)
+  ...
+
+[annad] to [anna]: [N1] net_interfaces_summary: Found 3 interfaces (2 up, 1 down)
+[annad] to [anna]: [N2] net_routes_summary: Default route via 192.168.1.1
+...
+
+[anna] to [you]:
+Doctor: NetworkingDoctor v2
+Diagnosis Confidence: 75%
+
+Findings:
+  [WARNING] Wireless interface shows intermittent carrier drops [N1]
+  [INFO] DNS configured via NetworkManager [N3]
+
+Most Likely Cause: Wireless driver or access point instability
+
+Suggested Next Steps:
+  - Check dmesg for wireless driver errors
+  - Try connecting to a different access point
+```
+
+### Upgrade Notes
+
+No breaking changes. Problem queries now trigger diagnostic flows automatically.
+
+---
+
+## v0.0.52 - System Query Router v1 (Quality Sprint)
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+This release fixes critical bugs where system queries returned wrong data. Disk space queries were returning CPU info, kernel version queries were returning CPU info, and memory questions were being misclassified. The new System Query Router ensures each query type uses the correct evidence tool.
+
+### Key Features
+
+**System Query Router (`system_query_router.rs`):**
+- `QueryTarget` enum: Cpu, Memory, DiskFree, KernelVersion, NetworkStatus, AudioStatus, ServicesStatus
+- `ToolRouting` struct with required_tools, optional_tools, output_description
+- `detect_target()` with confidence scoring (0-100) for pattern matching
+- `get_tool_routing()` maps targets to domain-specific tools
+- `validate_answer_for_target()` verifies answer content matches query
+
+**Fixed Query-Tool Mappings:**
+- Disk space queries → `mount_usage` (was `hw_snapshot_summary`)
+- Kernel version queries → `kernel_version` (was `hw_snapshot_summary`)
+- Memory queries → `memory_info` (was `hw_snapshot_summary`)
+- Network queries → `network_status`
+- Audio queries → `audio_status`
+- CPU queries → `hw_snapshot_summary` (correct)
+
+**Translator Contract Update:**
+- Domain-specific tools listed in system prompt with examples
+- Examples for memory, disk, kernel, network, audio queries
+- `hw_snapshot_summary` reserved for general CPU/GPU queries only
+
+**Junior Verification Upgrade:**
+- `enforce_answer_target_correctness()` validates answer matches query target
+- 50-point penalty for wrong-target answers
+- Critique includes "WRONG TARGET" message with details
+- Ensures disk queries don't return CPU info (and vice versa)
+
+**Pattern Matching Examples:**
+- "how much disk space" → DiskFree (95% confidence)
+- "what kernel version" → KernelVersion (95% confidence)
+- "how much memory" → Memory (95% confidence)
+- "am I connected" → NetworkStatus (90% confidence)
+- "is audio working" → AudioStatus (90% confidence)
+- "is docker running" → ServicesStatus (85% confidence)
+
+### Files Added/Modified
+
+**New Files:**
+- `crates/anna_common/src/system_query_router.rs` - Query routing logic (392 lines)
+
+**Modified Files:**
+- `crates/anna_common/src/lib.rs` - Added module and exports
+- `crates/annactl/src/pipeline.rs` - Updated Translator prompt, classify_intent_deterministic(), added enforce_answer_target_correctness()
+
+### Upgrade Notes
+
+No breaking changes. Existing queries will now return more accurate results.
+
+---
+
+## v0.0.51 - Action Engine v1 (Systemd Service Operations)
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+This release introduces the **Action Engine v1** for safe systemd service operations. The engine provides probe, preview, apply, and rollback functionality for service management with risk-based confirmation requirements and automatic state verification.
+
+### Key Features
+
+**Systemd Action Engine (`systemd_action.rs`):**
+- `ServiceOperation` enum: Start, Stop, Restart, Enable, Disable
+- `RiskLevel` enum: Low, Medium, High, Denied
+- `ServiceAction` struct with service, operation, reason
+- `assess_risk()` for automatic risk classification based on service type
+- `normalize_service_name()` adds .service suffix if needed
+
+**Risk-Based Service Classification:**
+- Low risk: Normal services (nginx, docker, etc.)
+- Medium risk: Network services (NetworkManager, iwd, systemd-resolved, etc.)
+- High risk: Critical services (sshd, display-manager, gdm, sddm, etc.)
+- Denied: Core systemd services (systemd-journald, dbus, systemd-logind, etc.)
+
+**Confirmation Phrases:**
+- `LOW_RISK_CONFIRMATION = "I CONFIRM (low risk)"`
+- `MEDIUM_RISK_CONFIRMATION = "I CONFIRM (medium risk)"` (shared with mutation_tools)
+- `HIGH_RISK_CONFIRMATION = "I ASSUME THE RISK"`
+
+**4 New Systemd Service Tools:**
+- `systemd_service_probe_v1` - Probe current state (active, enabled, description, PID)
+- `systemd_service_preview_v1` - Preview action with risk assessment and expected changes
+- `systemd_service_apply_v1` - Apply action with pre/post state capture and verification
+- `systemd_service_rollback_v1` - Rollback to pre-action state by case_id
+
+**Evidence-Driven Execution:**
+- Pre-state capture before action
+- Post-state verification after action
+- verify_message with success/warning status
+- Rollback command included in apply result
+
+**Rollback Infrastructure:**
+- Rollback metadata at `/var/lib/anna/rollback/<case_id>/service_rollback.json`
+- Records: case_id, service, operation, pre_state, post_state, timestamp
+- Automatic state restoration on rollback
+
+**Modular File Structure (< 400 lines each):**
+- `systemd_action.rs` - Core types, operations, risk assessment (308 lines)
+- `systemd_probe.rs` - Service probing functionality (169 lines)
+- `systemd_apply.rs` - Preview and apply functions (355 lines)
+- `systemd_rollback.rs` - Rollback functionality (150 lines)
+- `systemd_tools.rs` - Tool executors (249 lines)
+
+### Files Added/Modified
+
+**New Files:**
+- `crates/anna_common/src/systemd_action.rs`
+- `crates/anna_common/src/systemd_probe.rs`
+- `crates/anna_common/src/systemd_apply.rs`
+- `crates/anna_common/src/systemd_rollback.rs`
+- `crates/anna_common/src/systemd_tools.rs`
+
+**Modified Files:**
+- `crates/anna_common/src/lib.rs` - Module and export declarations
+- `crates/anna_common/src/tools.rs` - Tool definitions for 4 new tools
+- `crates/anna_common/src/tool_executor.rs` - Tool dispatch
+
+### Tests
+
+Unit tests in `systemd_action.rs`:
+- `test_normalize_service_name` - Service name normalization
+- `test_risk_assessment_network` - Network service risk (medium)
+- `test_risk_assessment_critical` - Critical service risk (high)
+- `test_risk_assessment_core` - Core systemd service risk (denied)
+- `test_risk_assessment_normal` - Normal service risk (low)
+- `test_confirmation_phrases` - Confirmation phrase mapping
+- `test_operation_inverse` - Operation inverse mapping
+
+---
+
+## v0.0.50 - User File Mutations
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+This release introduces the **User File Mutations** system: the first real mutation execution capability for user-scope files with safe diff preview, confirmation flow, and rollback support. Only paths under $HOME are allowed, with symlink escape detection to prevent accessing system files via symlinks.
+
+### Key Features
+
+**User File Edit Primitive (`user_file_mutation.rs`):**
+- `UserFileEditAction` struct with path, mode, line, key, value, separator
+- `EditMode` enum: `AppendLine` (append a line) and `SetKeyValue` (add/update key=value)
+- `VerifyStrategy` enum: `FileContains`, `HashChanged`, `None`
+- Idempotent operations (skip if line/key already exists with same value)
+- `check_path_policy()` for HOME-only enforcement
+
+**Path Policy Enforcement:**
+- Only paths under $HOME are allowed in v0.0.50
+- Blocked prefixes: /etc, /usr, /var, /boot, /root, /proc, /sys, /dev, /run, /lib, /lib64, /bin, /sbin, /opt
+- Symlink escape detection (symlinks pointing outside $HOME are blocked)
+- `PathPolicyResult` with allowed, reason, evidence_id, resolved_path, is_symlink
+
+**3 New File Edit Tools (`tools.rs` + `file_edit_tools.rs`):**
+- `file_edit_preview_v1` - Read-only preview with unified diff, would_change flag, policy check
+- `file_edit_apply_v1` - Apply changes with backup, verification, and rollback info
+- `file_edit_rollback_v1` - Restore from backup by case_id
+
+**Backup and Rollback Infrastructure:**
+- Backups stored at `/var/lib/anna/rollback/<case_id>/backup/<sanitized_path>`
+- `apply_result.json` records: success, path, mode, hashes, backup_path, verified
+- Operations logged to `/var/lib/anna/internal/ops.log`
+- Rollback restores original file and verifies hash match
+
+**Confirmation Flow:**
+- `USER_FILE_CONFIRMATION = "I CONFIRM (medium risk)"` required for apply
+- `preview_id` must be provided (Junior will verify preview exists)
+- Verification after apply (FileContains or HashChanged)
+- Rollback command included in apply result
+
+**Integration Tests:**
+- Path policy tests (blocked paths, home paths, symlink escape)
+- Preview tests (append, set_key_value, idempotent skip)
+- Action validation tests
+
+### Files Added/Modified
+
+**New Files:**
+- `crates/anna_common/src/user_file_mutation.rs` (~700 lines)
+- `crates/anna_common/src/file_edit_tools.rs` (~450 lines)
+
+**Modified Files:**
+- `crates/anna_common/src/lib.rs` - Module and export declarations
+- `crates/anna_common/src/tools.rs` - Tool definitions
+- `crates/anna_common/src/tool_executor.rs` - Tool dispatch
+
+---
+
+## v0.0.49 - Doctor Lifecycle System
+
+**Release Date:** 2025-12-03
+
+### Summary
+
+This release introduces the **Doctor Lifecycle System**: a unified interface for all diagnostic doctors with structured diagnostic plans, evidence-based diagnosis, and knowledge learning integration. The new NetworkingDoctorV2 demonstrates the full lifecycle with ordered checks, confidence-scored findings, and proposed actions with risk levels. Also fixes case file permissions for non-root users.
+
+### Key Features
+
+**Doctor Trait (`doctor_lifecycle.rs`):**
+- `Doctor` trait defining lifecycle contract with id(), domains(), matches(), plan(), diagnose()
+- `DiagnosticCheck` for ordered evidence collection with tool_name and params
+- `CollectedEvidence` linking checks to gathered data with evidence IDs
+- `DiagnosisFinding` with severity, evidence_ids, confidence scores, and tags
+- `DiagnosisResult` with summary, most_likely_cause, findings, next_steps
+- `ProposedAction` with risk levels (Low/Medium/High) and rollback commands
+- `SafeNextStep` for read-only suggestions
+- `DoctorRunner` for orchestrating evidence collection
+- `DoctorReport` with render() for human-readable output
+
+**NetworkingDoctorV2 (`networking_doctor_v2.rs`):**
+- Implements Doctor trait for network diagnosis
+- Ordered diagnostic plan: interfaces → routes → DNS → NM status → wireless → connectivity → errors
+- Layer-by-layer analysis (link, routes, DNS, connectivity, wireless)
+- Confidence-scored findings with severity levels
+- Manager conflict detection
+- Proposed actions with confirmation phrases and rollback
+
+**6 New Network Evidence Tools (`doctor_network_tools.rs`):**
+- `net_interfaces_summary` - Detailed interface info (state, carrier, MAC, IPs, wireless)
+- `net_routes_summary` - Routing table (default gateway, route count)
+- `dns_summary` - DNS config (servers, source, stub resolver status)
+- `iw_summary` - Wireless status (SSID, signal dBm, quality, frequency)
+- `recent_network_errors` - Network-specific journal errors and warnings
+- `ping_check` - Single-packet connectivity test with latency
+
+**Case File Permission Fix (`transcript.rs`):**
+- Case files now save to user directory first (`~/.local/share/anna/cases/`)
+- Falls back to system directory (`/var/lib/anna/cases/`) for daemon use
+- Fixes "Permission denied" error for non-root users running annactl
+
+**Knowledge Learning Integration:**
+- `qualifies_for_learning()` method on DoctorReport
+- Requires: reliability >= 90%, confidence >= 80%, evidence >= 3
+- `tools_used()` and `targets()` methods for recipe creation
+
+### Technical Details
+
+**Doctor Lifecycle Flow:**
+```
+User Request → Translator → Doctor Selection → Plan → Evidence Collection → Diagnose → Report
+```
+
+**Finding Severity Levels:**
+- Critical: Service-breaking issues requiring immediate attention
+- Error: Significant problems affecting functionality
+- Warning: Potential issues that should be monitored
+- Info: Informational findings
+
+**Action Risk Levels:**
+- Low: Read-only or easily reversible (e.g., scan networks)
+- Medium: Service restart or config change (e.g., restart NetworkManager)
+- High: Destructive or hard to undo
+
+### Files Changed
+
+- **NEW** `doctor_lifecycle.rs` - Doctor trait and lifecycle types
+- **NEW** `doctor_network_tools.rs` - Network evidence tool implementations
+- **NEW** `networking_doctor_v2.rs` - Doctor trait implementation for network
+- **MODIFIED** `transcript.rs` - Case file permission fix
+- **MODIFIED** `tools.rs` - Added 6 new network tools
+- **MODIFIED** `tool_executor.rs` - Dispatch for new tools
+- **MODIFIED** `lib.rs` - Module exports
+- **MODIFIED** `learning.rs` - Fixed test (XP title assertion)
+
+---
+
 ## v0.0.48 - Learning System
 
 **Release Date:** 2025-12-03

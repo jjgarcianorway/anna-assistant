@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna_common"
-version = "0.0.48"
+version = "0.0.60"
 dependencies = [
  "anyhow",
  "chrono",
@@ -54,6 +54,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "terminal_size",
  "thiserror",
@@ -65,7 +66,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.0.48"
+version = "0.0.60"
 dependencies = [
  "anna_common",
  "anyhow",
@@ -89,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.0.48"
+version = "0.0.60"
 dependencies = [
  "anna_common",
  "anyhow",

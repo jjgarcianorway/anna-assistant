@@ -1,4 +1,14 @@
-//! Anna Common v0.0.48 - Learning System (Knowledge Packs + XP)
+//! Anna Common v0.0.60 - 3-Tier Transcript Rendering
+//!
+//! v0.0.60: Human-readable transcript mode (default)
+//! - TranscriptMode enum: Human (default), Debug, Test
+//! - ANNA_UI_TRANSCRIPT_MODE env var for override
+//! - Human mode shows professional IT department dialogue without internals
+//! - Debug/Test modes show tool names, evidence IDs, prompts, timings
+//! - Human labels registry maps tools to plain-language descriptions
+//! - Events always saved to debug log, filtered for human log
+//!
+//! v0.0.59: Auto-Case Opening + Departmental IT Org
 //!
 //! v0.0.37: Recipe Engine v1 (Reusable Fixes)
 //! - RecipeStatus enum: Active, Draft, Archived
@@ -357,6 +367,75 @@ pub mod doctor_registry;
 
 // v0.0.48: Learning System (Knowledge Packs + XP)
 pub mod learning;
+
+// v0.0.49: Doctor Lifecycle System (unified interface + evidence-based diagnosis)
+pub mod doctor_lifecycle;
+pub mod doctor_network_tools;
+pub mod networking_doctor_v2;
+
+// v0.0.50: User File Mutation (append_line, set_key_value with rollback)
+pub mod user_file_mutation;
+
+// v0.0.50: File Edit Tool Executors
+pub mod file_edit_tools;
+
+// v0.0.51: Systemd Action Engine (modular)
+pub mod systemd_action;
+pub mod systemd_probe;
+pub mod systemd_apply;
+pub mod systemd_rollback;
+
+// v0.0.51: Systemd Tool Executors
+pub mod systemd_tools;
+
+// v0.0.52: System Query Router
+pub mod system_query_router;
+
+// v0.0.53: Doctor Flow (orchestrates diagnostic flows)
+pub mod doctor_flow;
+
+// v0.0.54: Action Engine (safe mutations with diffs, rollback, confirmations)
+pub mod action_engine;
+pub mod action_risk;
+pub mod action_executor;
+
+// v0.0.55: Deterministic Case Engine + Doctor-first routing
+pub mod case_engine;
+pub mod intent_taxonomy;
+pub mod evidence_tools;
+pub mod case_file_v1;
+pub mod recipe_extractor;
+pub mod transcript_render;
+
+// v0.0.56: Fly-on-the-Wall Dialogue Layer
+pub mod dialogue_renderer;
+#[cfg(test)]
+mod dialogue_golden_tests;
+
+// v0.0.57: Evidence Coverage + Correct Tool Routing
+pub mod evidence_coverage;
+pub mod junior_rubric;
+#[cfg(test)]
+mod evidence_coverage_tests;
+
+// v0.0.58: Proactive Monitoring Loop v1
+pub mod proactive_alerts;
+pub mod alert_detectors;
+pub mod alert_probes;
+
+// v0.0.59: Auto-Case Opening + Departmental IT Org
+pub mod case_lifecycle;
+pub mod service_desk;
+pub mod transcript_v2;
+#[cfg(test)]
+mod case_lifecycle_tests;
+
+// v0.0.60: 3-Tier Transcript Rendering
+pub mod transcript_events;
+pub mod human_labels;
+pub mod transcript_renderer;
+#[cfg(test)]
+mod transcript_mode_tests;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -1161,4 +1240,228 @@ pub use learning::{
     MIN_RELIABILITY_FOR_LEARNING, MIN_EVIDENCE_FOR_LEARNING,
     KNOWLEDGE_EVIDENCE_PREFIX as LEARNED_EVIDENCE_PREFIX,
     LEARNING_PACK_SCHEMA_VERSION,
+};
+
+// v0.0.49: Doctor Lifecycle System
+pub use doctor_lifecycle::{
+    // Core trait
+    Doctor,
+    // Diagnostic planning
+    DiagnosticCheck,
+    // Evidence collection
+    CollectedEvidence,
+    // Diagnosis output (DiagnosisResult renamed to avoid conflict with networking_doctor)
+    DiagnosisFinding, DiagnosisResult as DoctorDiagnosis,
+    SafeNextStep, ProposedAction, ActionRisk,
+    // Report
+    DoctorReport,
+    // Runner
+    DoctorRunner,
+    // Network evidence helpers
+    NetInterfaceSummary, RouteSummary, DnsSummary,
+    NmSummary, WifiSummary, NetworkErrorsSummary,
+};
+
+// v0.0.49: NetworkingDoctor v2 (Doctor trait implementation)
+pub use networking_doctor_v2::NetworkingDoctorV2;
+
+// v0.0.50: User File Mutation
+pub use user_file_mutation::{
+    // Edit action and mode
+    UserFileEditAction, EditMode, VerifyStrategy,
+    // Path policy
+    PathPolicyResult, check_path_policy,
+    // Preview
+    EditPreview, FileStat, generate_edit_preview,
+    // Apply
+    ApplyResult, apply_edit,
+    // Rollback
+    RollbackResult as UserFileRollbackResult, execute_rollback as execute_user_file_rollback,
+    // Helpers
+    generate_mutation_case_id as generate_user_file_case_id, USER_FILE_CONFIRMATION,
+};
+
+// v0.0.50: File Edit Tool Executors
+pub use file_edit_tools::{
+    execute_file_edit_preview_v1,
+    execute_file_edit_apply_v1,
+    execute_file_edit_rollback_v1,
+};
+
+// v0.0.51: Systemd Action Engine (modular)
+pub use systemd_action::{
+    // Operations
+    ServiceOperation, ServiceAction, RiskLevel,
+    // Confirmation phrases (MEDIUM_RISK_CONFIRMATION is already exported from mutation_tools)
+    LOW_RISK_CONFIRMATION, HIGH_RISK_CONFIRMATION,
+    // Risk assessment
+    assess_risk, normalize_service_name,
+};
+pub use systemd_probe::{ServiceProbe, probe_service, MAX_STATUS_LINES};
+pub use systemd_apply::{
+    ServicePreview, preview_service_action,
+    ServiceApplyResult, ServiceStateSnapshot, apply_service_action,
+};
+pub use systemd_rollback::{
+    ServiceRollbackResult, rollback_service_action,
+    generate_service_case_id, ROLLBACK_BASE,
+};
+
+// v0.0.52: System Query Router
+pub use system_query_router::{
+    QueryTarget, ToolRouting,
+    detect_target, get_tool_routing, validate_answer_for_target,
+    map_translator_targets, get_required_tools,
+};
+
+// v0.0.51: Systemd Tool Executors
+pub use systemd_tools::{
+    execute_systemd_service_probe_v1,
+    execute_systemd_service_preview_v1,
+    execute_systemd_service_apply_v1,
+    execute_systemd_service_rollback_v1,
+};
+
+// v0.0.53: Doctor Flow
+pub use doctor_flow::{
+    detect_problem_phrase,
+    DoctorFlowStep, StepStatus,
+    DoctorFlowResult, DoctorFlowExecutor,
+    DoctorCaseFile, CaseStep, CaseSuggestedAction,
+};
+
+// v0.0.54: Action Engine
+pub use action_engine::{
+    MutationRiskLevel, ActionPlan, ActionStep, ActionType, ActionResult,
+    StepResult as ActionStepResult, PlanStatus,
+    StepStatus as ActionStepStatus,
+    EditFileAction, EditIntent, WriteFileAction, DeleteFileAction,
+    SystemdAction as ActionSystemdAction, SystemdOperation as ActionSystemdOp,
+    PacmanAction, PacmanOperation, PackageReason,
+    ActionDiffPreview, ActionDiffLine, DiffLineType as ActionDiffLineType,
+    RollbackHint as ActionRollbackHint, RollbackRecord, RollbackStepRecord, BackupRecord, VerificationRecord,
+    CONFIRM_LOW, CONFIRM_MEDIUM, CONFIRM_HIGH, CONFIRM_DESTRUCTIVE,
+};
+pub use action_risk::{
+    score_action_risk, score_path_risk, score_systemd_risk, score_package_risk,
+    score_delete_risk, describe_risk,
+};
+pub use action_executor::{
+    generate_action_diff_preview, validate_confirmation as validate_action_confirmation,
+    execute_step as execute_action_step, execute_plan as execute_action_plan,
+    compute_hash as action_compute_hash, get_backup_path as action_get_backup_path,
+    backup_file as action_backup_file,
+};
+
+// v0.0.55: Case Engine + Intent Taxonomy
+pub use case_engine::{
+    CasePhase, IntentType, CaseEvent, CaseActor, CaseEventType,
+    CaseState, PhaseTiming,
+};
+pub use intent_taxonomy::{
+    IntentClassification, classify_intent, domain_to_doctor,
+};
+pub use evidence_tools::{
+    EvidencePlan, PlannedTool, plan_evidence, validate_evidence_for_query,
+};
+pub use case_file_v1::{
+    CaseFileV1, EvidenceRecordV1, PhaseTimingRecord,
+    load_case, list_recent_case_ids,
+    CASE_SCHEMA_VERSION, CASE_FILES_DIR,
+};
+pub use recipe_extractor::{
+    RecipeExtractionResult, check_recipe_gate, check_state_recipe_gate,
+    extract_recipe, calculate_case_xp,
+    MIN_RELIABILITY_FOR_RECIPE as RECIPE_MIN_RELIABILITY,
+    MIN_EVIDENCE_FOR_RECIPE as RECIPE_MIN_EVIDENCE,
+};
+pub use transcript_render::{
+    render_transcript_from_state, render_transcript_from_file,
+    render_compact_summary, render_recent_cases,
+    wrap_text as transcript_wrap_text, truncate as transcript_truncate,
+};
+
+// v0.0.56: Fly-on-the-Wall Dialogue Layer
+pub use dialogue_renderer::{
+    DialogueContext, render_dialogue_transcript,
+    phase_separator, doctor_actor_name,
+    render_translator_classification, render_anna_translator_response,
+    render_doctor_handoff, render_evidence_summary, render_evidence_item,
+    render_junior_verification, render_anna_junior_response,
+    render_final_response, render_reliability_footer,
+    // v0.0.57: Coverage display in transcript
+    render_junior_coverage_check, render_anna_coverage_retry,
+    RELIABILITY_SHIP_THRESHOLD, CONFIDENCE_CERTAIN_THRESHOLD,
+};
+
+// v0.0.57: Evidence Coverage + Junior Rubric
+pub use evidence_coverage::{
+    TargetFacets, EvidenceCoverage,
+    get_target_facets, analyze_coverage, check_evidence_mismatch,
+    get_gap_filling_tools, calculate_coverage_penalty, get_max_score_for_coverage,
+    COVERAGE_SUFFICIENT_THRESHOLD, COVERAGE_PENALTY_THRESHOLD,
+};
+pub use junior_rubric::{
+    VerificationResult, Penalty,
+    verify_answer, is_clearly_wrong_evidence, get_evidence_suggestions,
+    SHIP_IT_THRESHOLD, BASE_SCORE,
+    WRONG_EVIDENCE_PENALTY, MISSING_EVIDENCE_PENALTY, ANSWER_MISMATCH_PENALTY,
+    UNCITED_CLAIM_PENALTY, HIGH_COVERAGE_BONUS,
+};
+
+// v0.0.58: Proactive Monitoring Loop v1
+pub use proactive_alerts::{
+    AlertType,
+    AlertSeverity as ProactiveAlertSeverity,  // Renamed to avoid conflict with reliability::AlertSeverity
+    AlertStatus,
+    ProactiveAlert, ProactiveAlertsState, AlertCounts,
+    PROACTIVE_ALERTS_SCHEMA, PROACTIVE_ALERTS_FILE,
+};
+pub use alert_detectors::{
+    // Evidence types
+    BootRegressionEvidence, DiskPressureEvidence, JournalErrorBurstEvidence,
+    ServiceFailedEvidence, ThermalThrottlingEvidence,
+    // Thresholds
+    BOOT_REGRESSION_STDDEV_FACTOR, BOOT_REGRESSION_MIN_DELTA_SECS,
+    DISK_PRESSURE_WARNING_PERCENT, DISK_PRESSURE_WARNING_GIB,
+    DISK_PRESSURE_CRITICAL_PERCENT, DISK_PRESSURE_CRITICAL_GIB,
+    JOURNAL_ERROR_BURST_WARNING, JOURNAL_ERROR_BURST_CRITICAL,
+    JOURNAL_ERROR_BURST_WINDOW_MINS,
+    THERMAL_WARNING_TEMP, THERMAL_CRITICAL_TEMP,
+    // Detectors
+    detect_boot_regression, detect_disk_pressure, detect_journal_error_burst,
+    detect_service_failed, detect_thermal_throttling, run_all_detectors,
+};
+pub use alert_probes::{
+    // Probe results
+    BootTimeSummary, DiskPressureSummary, JournalErrorBurstSummary,
+    FailedUnitsSummary, ThermalSummary, AlertsSummary,
+    AlertCountsData, AlertSummaryEntry,
+    // Probes
+    probe_boot_time_summary, probe_disk_pressure_summary,
+    probe_journal_error_burst_summary, probe_failed_units_summary,
+    probe_thermal_summary, probe_alerts_summary,
+};
+
+// v0.0.59: Auto-Case Opening + Departmental IT Org
+pub use case_lifecycle::{
+    CaseStatus, CaseFileV2, Department, Participant,
+    ActionRisk as CaseActionRisk,  // Renamed to avoid conflict
+    ProposedAction as CaseProposedAction,  // Renamed to avoid conflict
+    TimelineEvent, TimelineEventType,
+    CASE_SCHEMA_VERSION_V2,
+    load_case_v2, list_active_cases, count_active_cases,
+};
+pub use service_desk::{
+    TriageResult, triage_request, dispatch_to_specialist,
+    should_auto_open_case, find_case_for_alert, open_case_for_alert,
+    progress_case_triage, progress_case_investigating, progress_case_plan_ready,
+};
+pub use transcript_v2::{
+    TranscriptLine,
+    TranscriptBuilder as TranscriptBuilderV2,  // Renamed to avoid conflict
+    DepartmentOutput,
+    Hypothesis as DepartmentHypothesis,  // Renamed to avoid conflict
+    render_case_transcript, render_handoff, render_junior_disagreement,
+    render_collaboration, render_active_cases_status,
 };

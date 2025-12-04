@@ -629,11 +629,34 @@ impl CaseFile {
     }
 
     /// Save case file atomically
+    ///
+    /// v0.0.49: Tries system directory first (/var/lib/anna/cases/), falls back
+    /// to user directory (~/.local/share/anna/cases/) if permission denied.
     pub fn save(&self) -> io::Result<PathBuf> {
-        let case_dir = self.get_path();
+        // v0.0.49: Try user directory first for non-root users
+        // This avoids permission errors when running as regular user
+        if let Ok(home) = std::env::var("HOME") {
+            let user_case_dir = PathBuf::from(format!(
+                "{}/.local/share/anna/cases/{}",
+                home,
+                self.summary.request_id
+            ));
 
+            // Try user directory - this is the primary location for annactl
+            if let Ok(path) = self.save_to_dir(&user_case_dir) {
+                return Ok(path);
+            }
+        }
+
+        // Fallback: Try system directory (for daemon/root use)
+        let case_dir = self.get_path();
+        self.save_to_dir(&case_dir)
+    }
+
+    /// Save case file to a specific directory
+    fn save_to_dir(&self, case_dir: &Path) -> io::Result<PathBuf> {
         // Create directory
-        fs::create_dir_all(&case_dir)?;
+        fs::create_dir_all(case_dir)?;
 
         // Helper to convert PathBuf to string for atomic_write_bytes
         let path_str = |p: PathBuf| -> String { p.to_string_lossy().to_string() };
@@ -672,17 +695,7 @@ impl CaseFile {
             atomic_write_bytes(&timeline_path, redact_transcript(timeline).as_bytes())?;
         }
 
-        // v0.0.47: Create user-readable copy in $HOME/.local/share/anna/cases/
-        if let Ok(home) = std::env::var("HOME") {
-            let user_case_dir = PathBuf::from(format!(
-                "{}/.local/share/anna/cases/{}",
-                home,
-                self.summary.request_id
-            ));
-            let _ = self.save_user_copy(&user_case_dir);
-        }
-
-        Ok(case_dir)
+        Ok(case_dir.to_path_buf())
     }
 
     /// v0.0.47: Save a user-readable copy of the case file

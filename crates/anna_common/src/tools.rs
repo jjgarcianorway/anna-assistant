@@ -572,6 +572,217 @@ impl ToolCatalog {
             human_request: "get Anna's learning progress and statistics",
         });
 
+        // =====================================================================
+        // v0.0.49: Doctor Network Evidence Tools
+        // Specialized tools for NetworkingDoctor diagnosis
+        // =====================================================================
+
+        tools.insert("net_interfaces_summary", ToolDef {
+            name: "net_interfaces_summary",
+            description: "Returns detailed interface info: name, state, operstate, carrier, MAC, IPv4/IPv6, is_wireless. Used by NetworkingDoctor.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get detailed network interface information",
+        });
+
+        tools.insert("net_routes_summary", ToolDef {
+            name: "net_routes_summary",
+            description: "Returns routing info: has_default_route, default_gateway, default_interface, route_count. Used by NetworkingDoctor.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get network routing information",
+        });
+
+        tools.insert("dns_summary", ToolDef {
+            name: "dns_summary",
+            description: "Returns DNS config: servers, source (resolv.conf/systemd-resolved/NM), is_stub_resolver, search domains. Used by NetworkingDoctor.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get DNS configuration details",
+        });
+
+        tools.insert("iw_summary", ToolDef {
+            name: "iw_summary",
+            description: "Returns wireless info: connected, ssid, signal_dbm, signal_quality, frequency, bitrate. Used by NetworkingDoctor.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "get wireless connection details",
+        });
+
+        tools.insert("recent_network_errors", ToolDef {
+            name: "recent_network_errors",
+            description: "Returns network-specific errors from journal: error_count, warning_count, recent messages. Used by NetworkingDoctor.",
+            parameters: &[
+                ("minutes", "integer", false), // default: 30
+            ],
+            security: ToolSecurity::SensitiveRead,
+            latency: LatencyHint::Medium,
+            human_request: "get recent network-related errors from journal",
+        });
+
+        tools.insert("ping_check", ToolDef {
+            name: "ping_check",
+            description: "Pings a target (default: 1.1.1.1) with single packet. Returns success, latency_ms, error. Used by NetworkingDoctor.",
+            parameters: &[
+                ("target", "string", false), // default: 1.1.1.1
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Slow,
+            human_request: "test network connectivity with ping",
+        });
+
+        // =====================================================================
+        // v0.0.58: Proactive Alerts Tools
+        // Daemon-owned alerts for high-signal issue detection
+        // =====================================================================
+
+        tools.insert("proactive_alerts_summary", ToolDef {
+            name: "proactive_alerts_summary",
+            description: "Returns current proactive alerts: counts by severity, active alerts with evidence IDs, recently resolved. For 'show alerts' / 'why are you warning me?' queries.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "get current proactive alerts and warnings",
+        });
+
+        tools.insert("disk_pressure_summary", ToolDef {
+            name: "disk_pressure_summary",
+            description: "Returns disk pressure status: mount point, free space, pressure flag. For disk space alert queries.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "check disk pressure status",
+        });
+
+        tools.insert("failed_units_summary", ToolDef {
+            name: "failed_units_summary",
+            description: "Returns list of failed systemd units with evidence. For service failure alert queries.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "check for failed systemd units",
+        });
+
+        tools.insert("thermal_status_summary", ToolDef {
+            name: "thermal_status_summary",
+            description: "Returns CPU temperature and throttling status. For thermal alert queries.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "check CPU temperature and thermal status",
+        });
+
+        tools.insert("journal_error_burst_summary", ToolDef {
+            name: "journal_error_burst_summary",
+            description: "Returns units with recent error bursts (>= 20 errors in 10 min). For journal error alert queries.",
+            parameters: &[],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Medium,
+            human_request: "check for journal error bursts",
+        });
+
+        // =====================================================================
+        // v0.0.50: User File Mutation Tools
+        // For editing user-owned config files with preview, apply, rollback
+        // =====================================================================
+
+        tools.insert("file_edit_preview_v1", ToolDef {
+            name: "file_edit_preview_v1",
+            description: "Preview a file edit without applying. Returns diff, would_change flag, policy check. For user files under $HOME only.",
+            parameters: &[
+                ("path", "string", true),
+                ("mode", "string", true),      // append_line | set_key_value
+                ("line", "string", false),     // for append_line
+                ("key", "string", false),      // for set_key_value
+                ("value", "string", false),    // for set_key_value
+                ("separator", "string", false), // default: "="
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "preview file edit without applying",
+        });
+
+        tools.insert("file_edit_apply_v1", ToolDef {
+            name: "file_edit_apply_v1",
+            description: "Apply a file edit with backup. Creates rollback at /var/lib/anna/rollback/<case_id>/. For user files under $HOME only.",
+            parameters: &[
+                ("path", "string", true),
+                ("mode", "string", true),      // append_line | set_key_value
+                ("line", "string", false),     // for append_line
+                ("key", "string", false),      // for set_key_value
+                ("value", "string", false),    // for set_key_value
+                ("separator", "string", false), // default: "="
+                ("case_id", "string", true),   // for rollback tracking
+            ],
+            security: ToolSecurity::SensitiveRead, // Actually mutates, marked sensitive
+            latency: LatencyHint::Medium,
+            human_request: "apply file edit with backup",
+        });
+
+        tools.insert("file_edit_rollback_v1", ToolDef {
+            name: "file_edit_rollback_v1",
+            description: "Rollback a previous file edit by case_id. Restores from /var/lib/anna/rollback/<case_id>/backup/.",
+            parameters: &[
+                ("case_id", "string", true),
+            ],
+            security: ToolSecurity::SensitiveRead, // Actually mutates, marked sensitive
+            latency: LatencyHint::Medium,
+            human_request: "rollback file edit by case ID",
+        });
+
+        // v0.0.51: Systemd service action tools
+        tools.insert("systemd_service_probe_v1", ToolDef {
+            name: "systemd_service_probe_v1",
+            description: "Probe a systemd service for its current state. Returns exists, active state, enabled state, description, last failure.",
+            parameters: &[
+                ("service", "string", true),  // Service name (e.g., "nginx" or "nginx.service")
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "probe systemd service state",
+        });
+
+        tools.insert("systemd_service_preview_v1", ToolDef {
+            name: "systemd_service_preview_v1",
+            description: "Preview a systemd service action without executing. Returns current state, expected changes, risk level, required confirmation.",
+            parameters: &[
+                ("service", "string", true),     // Service name
+                ("operation", "string", true),   // start | stop | restart | enable | disable
+            ],
+            security: ToolSecurity::ReadOnly,
+            latency: LatencyHint::Fast,
+            human_request: "preview systemd service action",
+        });
+
+        tools.insert("systemd_service_apply_v1", ToolDef {
+            name: "systemd_service_apply_v1",
+            description: "Apply a systemd service action. Requires prior preview and correct confirmation phrase. Creates rollback metadata.",
+            parameters: &[
+                ("service", "string", true),        // Service name
+                ("operation", "string", true),      // start | stop | restart | enable | disable
+                ("preview_id", "string", true),     // Evidence ID from preview
+                ("confirmation", "string", true),   // Confirmation phrase (e.g., "I CONFIRM (low risk)")
+            ],
+            security: ToolSecurity::SensitiveRead, // Actually mutates
+            latency: LatencyHint::Medium,
+            human_request: "apply systemd service action",
+        });
+
+        tools.insert("systemd_service_rollback_v1", ToolDef {
+            name: "systemd_service_rollback_v1",
+            description: "Rollback a previous systemd service action by case_id. Restores previous active and enabled states.",
+            parameters: &[
+                ("case_id", "string", true),
+            ],
+            security: ToolSecurity::SensitiveRead, // Actually mutates
+            latency: LatencyHint::Medium,
+            human_request: "rollback systemd service action",
+        });
+
         Self { tools }
     }
 

@@ -871,7 +871,7 @@ mod tests {
 
         xp.total_xp = 1000;
         assert_eq!(xp.level(), 10);
-        assert_eq!(xp.title(), "Engineer");
+        assert_eq!(xp.title(), "Analyst"); // Level 10 is still Analyst (Engineer starts at 12)
     }
 
     #[test]

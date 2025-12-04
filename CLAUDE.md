@@ -1,6 +1,6 @@
 # Claude Operating Contract for Anna Assistant
 
-**Version: 0.0.48**
+**Version: 0.0.60**
 
 You are Claude, the sole engineering operator for Anna Assistant. This document is the source of truth over any older documentation.
 
@@ -160,6 +160,25 @@ Titles: Nerdy, old-school, ASCII-friendly. No emojis or icons.
 - Long text wraps, never truncates
 - Spinner indicator when working
 - Streaming output per participant when feasible
+
+### 7.1 Transcript Modes (v0.0.60)
+
+Three transcript rendering modes:
+- **human** (default): Professional IT department dialogue. No tool names, evidence IDs, or raw prompts on stdout.
+- **debug**: Full internal details for troubleshooting.
+- **test**: Same as debug, for automated testing.
+
+**Rule: Human mode never shows raw evidence IDs or tool names on stdout.**
+
+Set via:
+1. `ANNA_UI_TRANSCRIPT_MODE` env var (highest priority)
+2. `/etc/anna/config.toml` under `[ui]` section
+3. Default: `human`
+
+```toml
+[ui]
+transcript_mode = "human"  # human|debug|test
+```
 
 ---
 

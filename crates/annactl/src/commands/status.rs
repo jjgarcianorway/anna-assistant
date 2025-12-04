@@ -1,4 +1,13 @@
-//! Status Command v0.0.45 - Version Mismatch Display
+//! Status Command v0.0.60 - 3-Tier Transcript Mode Display
+//!
+//! v0.0.60: Transcript mode display in [CASES] section
+//! - Shows current transcript mode (human/debug/test)
+//! - Replaces dev mode indicator
+//!
+//! v0.0.58: Proactive alerts integration in [ALERTS] section
+//! - Shows proactive alert counts (critical, warning, info)
+//! - Displays top 3 active proactive alerts
+//! - Includes alert snapshot age
 //!
 //! v0.0.36: Re-enabled [KNOWLEDGE] section for offline Q&A visibility
 //! - Packs count, document count, index size, last indexed time
@@ -45,6 +54,7 @@ use anna_common::terminal::{DisplayMode, get_terminal_size};
 use anna_common::self_observation::SelfObservation;
 use anna_common::control_socket::{check_daemon_health, DaemonHealth, SOCKET_PATH};
 use anna_common::anomaly_engine::AlertQueue;
+use anna_common::proactive_alerts::{ProactiveAlertsState, AlertSeverity as ProactiveAlertSeverity};
 use anna_common::recipes::RecipeManager;
 use anna_common::memory::MemoryManager;
 use anna_common::policy::{get_policy, POLICY_DIR};
@@ -564,38 +574,70 @@ fn print_updates_section(daemon_health: &DaemonHealth, snapshot: &Option<StatusS
     println!();
 }
 
-/// [ALERTS] section - v0.0.12: enhanced with actual alerts from alert queue
+/// [ALERTS] section - v0.0.58: enhanced with proactive alerts
 fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
     println!("{}", "[ALERTS]".cyan());
 
-    // Load alert queue directly
+    // v0.0.58: Load proactive alerts state (daemon-owned, high-signal)
+    let proactive_state = ProactiveAlertsState::load();
+    let proactive_counts = proactive_state.count_by_severity();
+    let proactive_active = proactive_state.get_active();
+
+    // Also load legacy anomaly queue for backwards compatibility
     let queue = AlertQueue::load();
-    let (critical, warning, info) = queue.count_by_severity();
-    let _total = critical + warning + info;
+    let (anomaly_critical, anomaly_warning, anomaly_info) = queue.count_by_severity();
+
+    // Combine counts (proactive alerts take precedence in display)
+    let total_critical = proactive_counts.critical + anomaly_critical;
+    let total_warning = proactive_counts.warning + anomaly_warning;
+    let total_info = proactive_counts.info + anomaly_info;
 
     // Show summary counts
-    println!("  Critical:   {}", if critical > 0 {
-        critical.to_string().red().to_string()
+    println!("  Critical:   {}", if total_critical > 0 {
+        total_critical.to_string().red().to_string()
     } else {
         "0".green().to_string()
     });
-    println!("  Warnings:   {}", if warning > 0 {
-        warning.to_string().yellow().to_string()
+    println!("  Warnings:   {}", if total_warning > 0 {
+        total_warning.to_string().yellow().to_string()
     } else {
         "0".green().to_string()
     });
-    println!("  Info:       {}", if info > 0 {
-        info.to_string().dimmed().to_string()
+    println!("  Info:       {}", if total_info > 0 {
+        total_info.to_string().dimmed().to_string()
     } else {
         "0".dimmed().to_string()
     });
 
-    // Show latest 3 alerts with evidence IDs
-    let active = queue.get_active();
-    if !active.is_empty() {
+    // v0.0.58: Show proactive alerts first (high-signal)
+    if !proactive_active.is_empty() {
         println!();
-        println!("  Latest alerts:");
-        for anomaly in active.iter().take(3) {
+        println!("  Active alerts:");
+        for alert in proactive_active.iter().take(3) {
+            let severity_badge = match alert.severity {
+                ProactiveAlertSeverity::Critical => format!("[{}]", "CRITICAL".red()),
+                ProactiveAlertSeverity::Warning => format!("[{}]", "WARNING".yellow()),
+                ProactiveAlertSeverity::Info => format!("[{}]", "INFO".dimmed()),
+            };
+            // Show evidence IDs if available
+            let evidence_str = if !alert.evidence_ids.is_empty() {
+                format!(" [{}]", alert.evidence_ids.join(", ").cyan())
+            } else {
+                String::new()
+            };
+            println!("    {} {}{} ({})", severity_badge, alert.title, evidence_str, alert.age_str().dimmed());
+        }
+        if proactive_active.len() > 3 {
+            println!("    {} more alert(s)...", (proactive_active.len() - 3).to_string().dimmed());
+        }
+    }
+
+    // Show legacy anomaly alerts if any (and no proactive alerts shown)
+    let legacy_active = queue.get_active();
+    if proactive_active.is_empty() && !legacy_active.is_empty() {
+        println!();
+        println!("  Anomaly alerts:");
+        for anomaly in legacy_active.iter().take(3) {
             let severity_badge = match anomaly.severity {
                 anna_common::AnomalySeverity::Critical => format!("[{}]", "CRITICAL".red()),
                 anna_common::AnomalySeverity::Warning => format!("[{}]", "WARNING".yellow()),
@@ -603,24 +645,14 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
             };
             println!("    {} [{}] {}", severity_badge, anomaly.evidence_id.cyan(), anomaly.title);
         }
-        if active.len() > 3 {
-            println!("    {} more alert(s)...", (active.len() - 3).to_string().dimmed());
+        if legacy_active.len() > 3 {
+            println!("    {} more alert(s)...", (legacy_active.len() - 3).to_string().dimmed());
         }
     }
 
-    // Show last check time
-    if let Some(ref last_check) = queue.last_check {
-        let ago = (chrono::Utc::now() - *last_check).num_seconds().max(0) as u64;
-        let ago_str = if ago < 60 {
-            format!("{}s ago", ago)
-        } else if ago < 3600 {
-            format!("{}m ago", ago / 60)
-        } else {
-            format!("{}h ago", ago / 3600)
-        };
-        println!();
-        println!("  Last scan:  {}", ago_str.dimmed());
-    }
+    // v0.0.58: Show proactive alerts snapshot age
+    println!();
+    println!("  Snapshot:   {}", proactive_state.snapshot_age_str().dimmed());
 
     // Show instrumentation count from snapshot
     if let Some(s) = snapshot {
@@ -632,15 +664,25 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [CASES] section - v0.0.33: show recent case files and last failure
+/// [CASES] section - v0.0.59: show active cases count and recent case files
 fn print_cases_section(mode: &DisplayMode) {
     println!("{}", "[CASES]".cyan());
 
     let config = AnnaConfig::load();
 
-    // Show dev mode indicator
-    if config.ui.is_dev_mode() {
-        println!("  Dev mode:   {} (max verbosity)", "active".green());
+    // v0.0.60: Show transcript mode
+    let transcript_mode = config.ui.effective_transcript_mode();
+    let transcript_mode_str = match transcript_mode {
+        anna_common::transcript_events::TranscriptMode::Human => "human".green().to_string(),
+        anna_common::transcript_events::TranscriptMode::Debug => "debug".yellow().to_string(),
+        anna_common::transcript_events::TranscriptMode::Test => "test".yellow().to_string(),
+    };
+    println!("  Transcript: {}", transcript_mode_str);
+
+    // v0.0.59: Show active cases count
+    let active_count = anna_common::case_lifecycle::count_active_cases();
+    if active_count > 0 {
+        println!("  Active:     {} case(s) in progress", active_count.to_string().yellow());
     }
 
     // Get recent case paths and load summaries

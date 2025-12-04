@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.48
+# Anna Assistant v0.0.60
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.48**: Learning System - Anna now stores learned recipes from successful interactions, searches existing knowledge, and tracks XP progression from "Intern" to "Grandmaster". Local-only, bounded (50 packs, 500 recipes max), token-based matching. New tools: learned_recipe_search, learning_stats.
+**v0.0.60**: 3-Tier Transcript Rendering - Human-readable by default. Transcript mode can be `human` (default), `debug`, or `test`. Human mode shows professional IT department dialogue without tool names, evidence IDs, or raw prompts. Debug/test modes show full internal details. Set via `ANNA_UI_TRANSCRIPT_MODE` env var or `/etc/anna/config.toml`. Full debug logs always saved to case directories.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 
@@ -57,21 +57,44 @@ Every interaction involves four participants:
 | **Junior** | Verifies Anna's answers, attempts improvements, produces reliability score |
 | **Senior** | Slower, wiser. Junior escalates after unsuccessful improvement rounds |
 
-### Debug Mode (Always On)
+### Fly-on-the-Wall Transcripts (v0.0.56)
 
-All internal dialogue is visible:
+All internal dialogue is visible with consistent actor voices:
 
 ```
-[you] to [anna]: what CPU do I have?
-[anna] to [translator]: parse user intent
-[translator] to [anna]: query type: hardware.cpu, detail: model
-[anna] to [annad]: retrieve CPU info from snapshot
-[annad] to [anna]: AMD Ryzen 9 5900X (12 cores, 24 threads)
-[anna] to [junior]: validate answer: "AMD Ryzen 9 5900X, 12 cores"
-[junior] to [anna]: confidence 94% - answer verified against /proc/cpuinfo
-[anna] to [you]: You have an AMD Ryzen 9 5900X with 12 cores (24 threads).
-                 Reliability: 94%
+=== Case: cpu-query-001 ===
+
+----- intake -----
+[you] to [anna]: what cpu do i have
+
+----- triage -----
+[anna] to [translator]: What are we looking at?
+[translator] to [anna]: Clear SYSTEM_QUERY request. 95% confidence.
+[anna] to [translator]: Acknowledged, I agree.
+
+----- evidence -----
+[anna] to [annad]: Run the probes.
+[annad]: [E1] hw_snapshot_cpu -> AMD Ryzen 9 5900X, 12 cores, 24 threads
+[annad] to [anna]: Evidence collected: [E1]
+
+----- verification -----
+[anna] to [junior]: Check this before I ship it.
+[junior] to [anna]: Reliability 94%. Solid evidence. Ship it.
+[anna] to [junior]: Good. Shipping response.
+
+----- response -----
+[anna] to [you]:
+  You have an AMD Ryzen 9 5900X [E1] with 12 cores (24 threads).
+
+Reliability: 94% - Verified.
+(42ms)
 ```
+
+**Actor Voices:**
+- `[anna]` - Calm senior admin, concise, honest, pushes for evidence
+- `[translator]` - Service desk triage, brisk, checklist-driven
+- `[junior]` - Skeptical QA, calls out missing evidence, disagrees when warranted
+- `[annad]` - Robotic/operational, terse, structured
 
 ### Reliability Scores
 
@@ -372,6 +395,25 @@ All builds and tests run on **Arch Linux only**.
 ---
 
 ## Recent Changes
+
+### v0.0.57
+- **Evidence Coverage Scoring**: Deterministic `EvidenceCoverage` checks evidence types against query targets
+- **Target Facet Map**: Defines required fields per target (cpu needs `cpu_model`, disk_free needs `root_fs_free`)
+- **Junior Rubric v2**: Wrong evidence caps at 20%, missing evidence caps at 50%, uncited claims penalized
+- **Tool Routing Fix**: disk -> `mount_usage`, memory -> `memory_info`, kernel -> `kernel_version`, network -> `network_status`
+- **Coverage Retry**: Automatic retry with correct tools when initial evidence misses required facets
+- **Transcript Integration**: Coverage shown in fly-on-wall log when low (`[junior]: Coverage 30%...`)
+- **Integration Tests**: 20+ tests asserting correct routing and evidence validation
+
+### v0.0.56
+- **Fly-on-the-Wall Dialogue Layer**: Transcripts feel like a real IT department
+- **Actor Voices**: `[anna]` calm/honest, `[translator]` brisk/checklist-driven, `[junior]` skeptical QA
+- **Agree/Disagree Moments**: Explicit acknowledgment after Translator and Junior
+- **Doctor Handoffs**: Doctors render as departments (`[networking-doctor]`)
+- **Phase Separators**: `----- triage -----`, `----- evidence -----`, etc.
+- **Evidence Summaries**: `Evidence collected: [E1, E2, E3]`
+- **QA Signoff**: Reliability footer with verdict
+- **Golden Tests**: Transcript stability tests
 
 ### v0.0.41
 - **Arch Boot Doctor v1 (Slow Boot + Service Regressions)**: Diagnoses slow boot causes

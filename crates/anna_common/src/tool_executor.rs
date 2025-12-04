@@ -1,5 +1,9 @@
-//! Tool Executor v0.0.48
+//! Tool Executor v0.0.58
 //!
+//! v0.0.58: Proactive alerts tools (proactive_alerts_summary, disk_pressure_summary, etc.)
+//! v0.0.51: Systemd service action tools (probe, preview, apply, rollback)
+//! v0.0.50: User file edit tools (file_edit_preview_v1, file_edit_apply_v1, file_edit_rollback_v1)
+//! v0.0.49: Doctor network evidence tools (net_interfaces_summary, dns_summary, etc.)
 //! v0.0.48: Knowledge search tools (learned_recipe_search, learning_stats)
 //! v0.0.47: File evidence tools for mutation support (file_stat, file_preview, file_hash, path_policy_check)
 //! v0.0.46: Domain-specific evidence tools to prevent generic summary answers
@@ -14,6 +18,21 @@ use crate::anomaly_engine::{AlertQueue, what_changed, analyze_slowness};
 use crate::knowledge_packs::{KnowledgeIndex, DEFAULT_TOP_K};
 use crate::source_labels::{AnswerContext, SourcePlan, QaStats, classify_question_type};
 use crate::reliability::{DiagnosticsReport, MetricsStore, ErrorBudgets, calculate_budget_status, check_budget_alerts};
+use crate::doctor_network_tools::{
+    execute_net_interfaces_summary, execute_net_routes_summary, execute_dns_summary,
+    execute_iw_summary, execute_recent_network_errors, execute_ping_check,
+};
+use crate::file_edit_tools::{
+    execute_file_edit_preview_v1, execute_file_edit_apply_v1, execute_file_edit_rollback_v1,
+};
+use crate::systemd_tools::{
+    execute_systemd_service_probe_v1, execute_systemd_service_preview_v1,
+    execute_systemd_service_apply_v1, execute_systemd_service_rollback_v1,
+};
+use crate::alert_probes::{
+    probe_alerts_summary, probe_disk_pressure_summary, probe_failed_units_summary,
+    probe_thermal_summary, probe_journal_error_burst_summary,
+};
 use serde_json::json;
 use std::collections::HashMap;
 use std::process::Command;
@@ -90,6 +109,28 @@ pub fn execute_tool(
         // v0.0.48: Knowledge search tools
         "learned_recipe_search" => execute_learned_recipe_search(&request.parameters, evidence_id, timestamp),
         "learning_stats" => execute_learning_stats(evidence_id, timestamp),
+        // v0.0.49: Doctor network evidence tools
+        "net_interfaces_summary" => execute_net_interfaces_summary(evidence_id, timestamp),
+        "net_routes_summary" => execute_net_routes_summary(evidence_id, timestamp),
+        "dns_summary" => execute_dns_summary(evidence_id, timestamp),
+        "iw_summary" => execute_iw_summary(evidence_id, timestamp),
+        "recent_network_errors" => execute_recent_network_errors(&request.parameters, evidence_id, timestamp),
+        "ping_check" => execute_ping_check(&request.parameters, evidence_id, timestamp),
+        // v0.0.50: User file edit tools
+        "file_edit_preview_v1" => execute_file_edit_preview_v1(&request.parameters, evidence_id, timestamp),
+        "file_edit_apply_v1" => execute_file_edit_apply_v1(&request.parameters, evidence_id, timestamp),
+        "file_edit_rollback_v1" => execute_file_edit_rollback_v1(&request.parameters, evidence_id, timestamp),
+        // v0.0.51: Systemd service action tools
+        "systemd_service_probe_v1" => execute_systemd_service_probe_v1(&request.parameters, evidence_id, timestamp),
+        "systemd_service_preview_v1" => execute_systemd_service_preview_v1(&request.parameters, evidence_id, timestamp),
+        "systemd_service_apply_v1" => execute_systemd_service_apply_v1(&request.parameters, evidence_id, timestamp),
+        "systemd_service_rollback_v1" => execute_systemd_service_rollback_v1(&request.parameters, evidence_id, timestamp),
+        // v0.0.58: Proactive alerts tools
+        "proactive_alerts_summary" => execute_proactive_alerts_summary(evidence_id, timestamp),
+        "disk_pressure_summary" => execute_disk_pressure_summary(evidence_id, timestamp),
+        "failed_units_summary" => execute_failed_units_summary(evidence_id, timestamp),
+        "thermal_status_summary" => execute_thermal_status_summary(evidence_id, timestamp),
+        "journal_error_burst_summary" => execute_journal_error_burst_summary(evidence_id, timestamp),
         _ => unavailable_result(&request.tool_name, evidence_id),
     }
 }
@@ -2785,6 +2826,45 @@ fn execute_learning_stats(
             timestamp,
         },
     }
+}
+
+// ============================================================================
+// v0.0.58: Proactive Alerts Tool Executors
+// ============================================================================
+
+fn execute_proactive_alerts_summary(
+    evidence_id: &str,
+    _timestamp: u64,
+) -> ToolResult {
+    probe_alerts_summary(evidence_id)
+}
+
+fn execute_disk_pressure_summary(
+    evidence_id: &str,
+    _timestamp: u64,
+) -> ToolResult {
+    probe_disk_pressure_summary(evidence_id)
+}
+
+fn execute_failed_units_summary(
+    evidence_id: &str,
+    _timestamp: u64,
+) -> ToolResult {
+    probe_failed_units_summary(evidence_id)
+}
+
+fn execute_thermal_status_summary(
+    evidence_id: &str,
+    _timestamp: u64,
+) -> ToolResult {
+    probe_thermal_summary(evidence_id)
+}
+
+fn execute_journal_error_burst_summary(
+    evidence_id: &str,
+    _timestamp: u64,
+) -> ToolResult {
+    probe_journal_error_burst_summary(evidence_id)
 }
 
 #[cfg(test)]

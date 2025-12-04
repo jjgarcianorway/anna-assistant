@@ -1,12 +1,16 @@
-//! Anna Request Pipeline v0.0.44 - Translator Stabilization
+//! Anna Request Pipeline v0.0.53 - Doctor Flow v1
 //!
 //! Multi-party dialogue transcript with:
 //! - Translator: LLM-backed intent classification with simplified canonical format
 //! - Tool execution via read-only tool catalog with Evidence IDs
 //! - Junior: LLM verification with strict no-guessing enforcement
 //! - Doctor Registry: Automatic routing to domain-specific doctors
+//! - Doctor Flow: Interactive diagnostic flows with evidence collection
 //! - Case logging: All requests logged for troubleshooting
+//! - System Query Router: Deterministic routing to correct domain tools
 //!
+//! v0.0.53: Doctor Flow v1 - auto-trigger, evidence-first, case-backed diagnostics
+//! v0.0.52: System Query Router for correct tool routing, Junior answer validation
 //! v0.0.44: Translator format simplified, doctor integration, case logging
 //! v0.0.43: Doctor Registry module added (unused in pipeline)
 //! v0.0.21: Performance and latency optimizations
@@ -47,6 +51,11 @@ use anna_common::{
     DoctorRegistry, DoctorSelection,
     // v0.0.44: Case file logging for all requests
     CaseFile, CaseOutcome, CaseTiming, generate_case_id,
+    // v0.0.52: System Query Router
+    QueryTarget, detect_target, get_tool_routing, validate_answer_for_target,
+    // v0.0.53: Doctor Flow
+    detect_problem_phrase, DoctorFlowExecutor, DoctorFlowResult, DoctorCaseFile,
+    Doctor, DiagnosticCheck, NetworkingDoctorV2,
 };
 use owo_colors::OwoColorize;
 use std::fmt;
@@ -293,8 +302,9 @@ impl Default for JuniorVerification {
 // Translator LLM (v0.0.44 - simplified canonical format)
 // =============================================================================
 
-/// System prompt for Translator (v0.0.44: simplified canonical format for small models)
+/// System prompt for Translator (v0.0.52: domain-specific tool routing)
 /// This format is designed to be extremely easy for small models to follow.
+/// v0.0.52: Added domain-specific tools to prevent wrong answers
 const TRANSLATOR_SYSTEM_PROMPT: &str = r#"Classify the user request. Output EXACTLY 6 lines:
 
 INTENT: system_query OR action_request OR knowledge_query OR doctor_query
@@ -310,13 +320,15 @@ INTENT RULES:
 - knowledge_query = asks HOW TO do something or WHAT IS something
 - doctor_query = reports a problem (slow, broken, disconnecting, not working)
 
-TOOLS (pick relevant ones):
-- hw_snapshot_summary = CPU, RAM, GPU, storage info
+TOOLS (MUST pick the RIGHT tool for the question):
+- memory_info = RAM/memory questions ("how much memory", "ram available")
+- mount_usage = disk space questions ("disk free", "space available", "storage")
+- kernel_version = kernel version questions ("what kernel", "linux version")
+- network_status = network status ("am I connected", "network status")
+- audio_status = audio status ("is audio working", "sound status")
+- hw_snapshot_summary = general hardware (CPU model, GPU, specs)
+- service_status = check a service ("is docker running")
 - sw_snapshot_summary = packages, services
-- disk_usage = filesystem usage
-- service_status = check a service
-- journal_warnings = recent errors/warnings
-- knowledge_search = documentation lookup
 
 DOCTOR (only for problems):
 - networking = wifi, ethernet, DNS, connection issues
@@ -334,21 +346,37 @@ TOOLS: hw_snapshot_summary
 DOCTOR: none
 CONFIDENCE: 95
 
+User: "how much disk space is free"
+INTENT: system_query
+TARGETS: disk
+RISK: read_only
+TOOLS: mount_usage
+DOCTOR: none
+CONFIDENCE: 95
+
+User: "what kernel version am I using"
+INTENT: system_query
+TARGETS: kernel
+RISK: read_only
+TOOLS: kernel_version
+DOCTOR: none
+CONFIDENCE: 95
+
+User: "how much memory do I have"
+INTENT: system_query
+TARGETS: memory
+RISK: read_only
+TOOLS: memory_info
+DOCTOR: none
+CONFIDENCE: 95
+
 User: "install nginx"
 INTENT: action_request
 TARGETS: nginx
 RISK: medium
 TOOLS: sw_snapshot_summary
 DOCTOR: none
-CONFIDENCE: 90
-
-User: "wifi keeps disconnecting"
-INTENT: doctor_query
-TARGETS: wifi,network
-RISK: read_only
-TOOLS: hw_snapshot_summary,journal_warnings
-DOCTOR: networking
-CONFIDENCE: 85"#;
+CONFIDENCE: 90"#;
 
 /// Maximum retries for Translator LLM before fallback
 const TRANSLATOR_MAX_RETRIES: u32 = 2;
@@ -673,7 +701,7 @@ pub fn translator_classify_deterministic(request: &str) -> TranslatorOutput {
     }
 }
 
-/// Generate a ToolPlan from evidence_needs (v0.0.7, v0.0.31: reliability tools, v0.0.46: domain-specific)
+/// Generate a ToolPlan from evidence_needs (v0.0.7, v0.0.31: reliability tools, v0.0.52: router tools)
 fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[String]) -> Option<ToolPlan> {
     use std::collections::HashMap;
 
@@ -685,7 +713,20 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
 
     for need in evidence_needs {
         match need.as_str() {
-            // v0.0.46: Domain-specific tools take priority over generic snapshots
+            // v0.0.52: Direct domain-specific tools from System Query Router
+            "memory_info" => {
+                plan.add_tool("memory_info", HashMap::new());
+            }
+            "kernel_version" => {
+                plan.add_tool("kernel_version", HashMap::new());
+            }
+            "network_status" => {
+                plan.add_tool("network_status", HashMap::new());
+            }
+            "audio_status" => {
+                plan.add_tool("audio_status", HashMap::new());
+            }
+            // v0.0.46: Domain-specific tools (legacy aliases)
             "mount_usage" => {
                 plan.add_tool("mount_usage", HashMap::new());
             }
@@ -696,13 +737,10 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
                 plan.add_tool("mem_summary", HashMap::new());
             }
             "network_tools" => {
-                plan.add_tool("nm_summary", HashMap::new());
-                plan.add_tool("ip_route_summary", HashMap::new());
-                plan.add_tool("link_state_summary", HashMap::new());
+                plan.add_tool("network_status", HashMap::new());
             }
             "audio_tools" => {
-                plan.add_tool("audio_services_summary", HashMap::new());
-                plan.add_tool("pactl_summary", HashMap::new());
+                plan.add_tool("audio_status", HashMap::new());
             }
             "boot_tools" => {
                 plan.add_tool("boot_time_summary", HashMap::new());
@@ -713,16 +751,16 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
                 plan.add_tool("recent_errors_summary", params);
             }
             // Legacy tools (still valid for general queries)
-            "hw_snapshot" => {
+            "hw_snapshot" | "hw_snapshot_summary" => {
                 plan.add_tool("hw_snapshot_summary", HashMap::new());
             }
-            "sw_snapshot" => {
+            "sw_snapshot" | "sw_snapshot_summary" => {
                 plan.add_tool("sw_snapshot_summary", HashMap::new());
             }
-            "status" => {
+            "status" | "status_snapshot" => {
                 plan.add_tool("status_snapshot", HashMap::new());
             }
-            "journalctl" => {
+            "journalctl" | "journal_warnings" => {
                 // Add journal_warnings for relevant targets
                 for target in targets {
                     if ["nginx", "docker", "sshd", "systemd"].contains(&target.as_str()) {
@@ -734,7 +772,6 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
                     }
                 }
                 if plan.tools.iter().all(|t| t.tool_name != "journal_warnings") {
-                    // Generic system journal
                     let mut params = HashMap::new();
                     params.insert("minutes".to_string(), serde_json::json!(60));
                     plan.add_tool("journal_warnings", params);
@@ -752,7 +789,13 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
             "error_budgets" => {
                 plan.add_tool("error_budgets", HashMap::new());
             }
-            _ => {}
+            // v0.0.52: Handle any tool name directly
+            _ => {
+                // Try to add the tool directly if it looks like a valid tool name
+                if !need.contains(' ') && !need.is_empty() {
+                    plan.add_tool(need, HashMap::new());
+                }
+            }
         }
     }
 
@@ -777,17 +820,27 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
 }
 
 fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentType, RiskLevel, Vec<String>) {
-    // v0.0.31: Check for reliability engineering requests first
+    let request_lower = request.to_lowercase();
+
+    // v0.0.52: Use System Query Router FIRST for canonical system queries
+    // This ensures disk/memory/kernel queries get the right tools
+    let (query_target, confidence) = detect_target(&request_lower);
+    if confidence >= 80 && query_target != QueryTarget::Unknown {
+        let routing = get_tool_routing(query_target);
+        let tools: Vec<String> = routing.required_tools.iter().map(|s| s.to_string()).collect();
+        return (IntentType::SystemQuery, RiskLevel::ReadOnly, tools);
+    }
+
+    // v0.0.31: Check for reliability engineering requests
     let reliability_keywords = [
         "diagnostics", "diagnostic", "self-diagnostics", "bug report",
         "metrics", "reliability", "error budget", "error budgets",
     ];
     for keyword in reliability_keywords {
-        if request.contains(keyword) {
-            // Map to specific tool
-            if request.contains("diagnostics") || request.contains("bug report") {
+        if request_lower.contains(keyword) {
+            if request_lower.contains("diagnostics") || request_lower.contains("bug report") {
                 return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["self_diagnostics".to_string()]);
-            } else if request.contains("budget") {
+            } else if request_lower.contains("budget") {
                 return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["error_budgets".to_string()]);
             } else {
                 return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["metrics_summary".to_string()]);
@@ -799,42 +852,32 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
     let case_keywords = ["case", "cases", "failure", "failures", "transcript", "conversation"];
     let case_action_words = ["show", "list", "get", "what happened", "last", "today", "recent"];
 
-    let has_case_keyword = case_keywords.iter().any(|k| request.contains(k));
-    let has_case_action = case_action_words.iter().any(|k| request.contains(k));
+    let has_case_keyword = case_keywords.iter().any(|k| request_lower.contains(k));
+    let has_case_action = case_action_words.iter().any(|k| request_lower.contains(k));
 
     if has_case_keyword && has_case_action {
-        // Determine which case tool to use
-        if request.contains("failure") {
+        if request_lower.contains("failure") {
             return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["last_failure_summary".to_string()]);
-        } else if request.contains("today") {
+        } else if request_lower.contains("today") {
             return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["list_today_cases".to_string()]);
-        } else if request.contains("recent") || request.contains("list") {
+        } else if request_lower.contains("recent") || request_lower.contains("list") {
             return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["list_recent_cases".to_string()]);
         } else {
-            // Default: show last case summary
             return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["last_case_summary".to_string()]);
         }
     }
 
-    // v0.0.34: Check for Fix-It mode requests (troubleshooting)
-    let fix_patterns = [
-        "fix my", "fix the", "repair", "troubleshoot", "debug",
-        "not working", "won't work", "doesn't work", "broken",
-        "keeps disconnecting", "keeps crashing", "keeps failing",
-        "is slow", "is slower", "is broken", "is failing",
-        "won't start", "can't connect", "cannot connect",
-        "help me fix", "something wrong", "having issues",
-        "having problems", "having trouble",
-    ];
+    // v0.0.53: Enhanced problem phrase detection for doctor flow
+    let (is_problem, problem_confidence, _matched_phrases) = detect_problem_phrase(request);
+    if is_problem && problem_confidence >= 25 {
+        // Route to doctor flow - tools will be determined by doctor selection
+        return (IntentType::FixIt, RiskLevel::ReadOnly, vec!["doctor_flow".to_string()]);
+    }
 
-    if fix_patterns.iter().any(|p| request.contains(p)) {
-        // Fix-It mode: collect evidence based on problem category
-        let evidence_needs = vec![
-            "hw_snapshot".to_string(),
-            "sw_snapshot".to_string(),
-            "journal_warnings".to_string(),
-        ];
-        return (IntentType::FixIt, RiskLevel::MediumRisk, evidence_needs);
+    // v0.0.34: Legacy fix patterns (fallback for explicit requests)
+    let fix_patterns = ["fix my", "fix the", "repair", "troubleshoot", "debug", "help me fix"];
+    if fix_patterns.iter().any(|p| request_lower.contains(p)) {
+        return (IntentType::FixIt, RiskLevel::ReadOnly, vec!["doctor_flow".to_string()]);
     }
 
     // Action keywords (verbs that imply mutation)
@@ -852,29 +895,33 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
         "status", "state", "info", "information", "details", "version",
     ];
 
-    // Check for action requests first (higher risk)
-    for keyword in action_keywords {
-        if request.contains(keyword) {
-            let risk = determine_action_risk(keyword);
-            let evidence_needs = vec!["sw_snapshot".to_string()];
-            return (IntentType::ActionRequest, risk, evidence_needs);
+    // Check for action requests (higher risk) - but NOT if it looks like a query
+    // "how much memory" should NOT match "how" as action
+    let is_query_like = request_lower.contains("how much") || request_lower.contains("what ")
+        || request_lower.contains("which ") || request_lower.contains("?");
+
+    if !is_query_like {
+        for keyword in action_keywords {
+            if request_lower.contains(keyword) {
+                let risk = determine_action_risk(keyword);
+                let evidence_needs = vec!["sw_snapshot".to_string()];
+                return (IntentType::ActionRequest, risk, evidence_needs);
+            }
         }
     }
 
-    // v0.0.46: Domain-specific evidence routing
-    // These domain queries MUST use domain-specific tools, NOT generic snapshots
-    let evidence_needs = route_to_domain_evidence(request, targets);
+    // v0.0.46: Domain-specific evidence routing (fallback for lower confidence matches)
+    let evidence_needs = route_to_domain_evidence(&request_lower, targets);
     if !evidence_needs.is_empty() {
         return (IntentType::SystemQuery, RiskLevel::ReadOnly, evidence_needs);
     }
 
     // Check for system queries (needs snapshots) - fallback for non-domain queries
     for keyword in system_query_keywords {
-        if request.contains(keyword) {
+        if request_lower.contains(keyword) {
             let evidence_needs = if targets.iter().any(|t| ["nginx", "docker", "systemd", "ssh", "sshd"].contains(&t.as_str())) {
                 vec!["sw_snapshot".to_string(), "status".to_string()]
             } else if targets.iter().any(|t| ["cpu", "gpu", "battery", "temperature", "fan"].contains(&t.as_str())) {
-                // CPU/GPU can still use hw_snapshot as they need model info
                 vec!["hw_snapshot".to_string()]
             } else {
                 vec!["hw_snapshot".to_string(), "sw_snapshot".to_string()]
@@ -884,13 +931,12 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
     }
 
     // Check if it's a general question
-    if request.contains('?') || request.starts_with("is ") || request.starts_with("are ")
-        || request.starts_with("does ") || request.starts_with("do ")
-        || request.starts_with("can ") || request.starts_with("will ")
+    if request_lower.contains('?') || request_lower.starts_with("is ") || request_lower.starts_with("are ")
+        || request_lower.starts_with("does ") || request_lower.starts_with("do ")
+        || request_lower.starts_with("can ") || request_lower.starts_with("will ")
     {
         if !targets.is_empty() {
-            // Try domain routing first
-            let domain_evidence = route_to_domain_evidence(request, targets);
+            let domain_evidence = route_to_domain_evidence(&request_lower, targets);
             if !domain_evidence.is_empty() {
                 return (IntentType::SystemQuery, RiskLevel::ReadOnly, domain_evidence);
             }
@@ -1951,6 +1997,65 @@ fn enforce_learning_claims(
     verification
 }
 
+/// v0.0.52: Validate that the answer matches the query target
+/// Returns penalized verification if answer is for wrong target
+fn enforce_answer_target_correctness(
+    mut verification: JuniorVerification,
+    translator_output: &TranslatorOutput,
+    original_request: &str,
+    final_answer: &str,
+) -> JuniorVerification {
+    // Only validate for SystemQuery intent
+    if translator_output.intent_type != IntentType::SystemQuery {
+        return verification;
+    }
+
+    // Use original request to detect what was asked
+    let (query_target, confidence) = detect_target(original_request);
+
+    // Also check targets from translator
+    let alt_target = if let Some(first_target) = translator_output.targets.first() {
+        QueryTarget::parse(first_target)
+    } else {
+        QueryTarget::Unknown
+    };
+
+    let target_to_check = if confidence >= 80 && query_target != QueryTarget::Unknown {
+        query_target
+    } else if alt_target != QueryTarget::Unknown {
+        alt_target
+    } else {
+        return verification; // Can't validate
+    };
+
+    // Validate the answer
+    let (is_valid, critique_msg) = validate_answer_for_target(target_to_check, final_answer);
+
+    if !is_valid {
+        // Major penalty: answer is for wrong target
+        let penalty: u8 = 50; // Drops score by 50 points
+        verification.score = verification.score.saturating_sub(penalty);
+
+        // Update critique
+        if !verification.critique.is_empty() {
+            verification.critique.push_str("; ");
+        }
+        verification.critique.push_str("WRONG TARGET: ");
+        verification.critique.push_str(&critique_msg);
+
+        // Update suggestions
+        if !verification.suggestions.is_empty() {
+            verification.suggestions.push_str("; ");
+        }
+        verification.suggestions.push_str(&format!(
+            "Answer should address '{}' query, not return unrelated data",
+            target_to_check.as_str()
+        ));
+    }
+
+    verification
+}
+
 /// Fallback scoring when Junior LLM is unavailable
 fn fallback_junior_score(translator_output: &TranslatorOutput, evidence: &[Evidence]) -> JuniorVerification {
     let mut score: u8 = 0;
@@ -2538,8 +2643,8 @@ pub async fn process(request: &str) {
         println!();
     }
 
-    // v0.0.44: Doctor Registry integration for FixIt mode
-    let doctor_selection: Option<DoctorSelection> = if translator_output.intent_type == IntentType::FixIt {
+    // v0.0.53: Doctor Flow integration for FixIt mode
+    let doctor_flow_result: Option<DoctorFlowResult> = if translator_output.intent_type == IntentType::FixIt {
         match DoctorRegistry::load() {
             Ok(registry) => {
                 let intent_tags: Vec<String> = translator_output.targets.clone();
@@ -2547,23 +2652,21 @@ pub async fn process(request: &str) {
                     // Show doctor selection in transcript
                     dialogue(
                         Actor::Anna,
-                        Actor::Translator,
+                        Actor::You,
                         &format!(
-                            "Routing to doctor: {} ({})\nReason: {}",
+                            "Selecting doctor: {} (score {})\nReason: {}",
                             selection.primary.doctor_name,
-                            selection.primary.doctor_id,
+                            selection.confidence,
                             selection.reasoning
                         ),
                     );
                     println!();
-                    Some(selection)
+
+                    // v0.0.53: Run doctor flow
+                    let result = run_doctor_flow(&selection, request, &catalog).await;
+                    Some(result)
                 } else {
-                    // No specific doctor matched - fallback to general evidence gathering
-                    dialogue(
-                        Actor::Anna,
-                        Actor::Translator,
-                        "No specific doctor matched - using general troubleshooting approach",
-                    );
+                    dialogue(Actor::Anna, Actor::You, "No specific doctor matched - using general troubleshooting");
                     println!();
                     None
                 }
@@ -2577,8 +2680,36 @@ pub async fn process(request: &str) {
         None
     };
 
-    // Silence unused variable warning - doctor_selection is used for tracking
-    let _ = &doctor_selection;
+    // v0.0.53: If doctor flow ran, use its results and skip normal evidence gathering
+    if let Some(ref flow_result) = doctor_flow_result {
+        // Show doctor report in transcript
+        dialogue(Actor::Anna, Actor::You, &format!(
+            "{} Report\n\nWhat I Checked:\n{}\n\nWhat I Found:\n{}\n\n{}",
+            flow_result.doctor_name,
+            flow_result.what_i_checked().iter().map(|c| format!("  - {}", c)).collect::<Vec<_>>().join("\n"),
+            flow_result.what_i_found().iter().map(|f| format!("  - {}", f)).collect::<Vec<_>>().join("\n"),
+            flow_result.render_summary()
+        ));
+        println!();
+
+        // Save doctor case file
+        let case_file = DoctorCaseFile::from_flow_result(flow_result, flow_result.diagnosis.confidence as u32);
+        if let Ok(path) = case_file.save() {
+            tracing::info!("Doctor case file saved: {}", path);
+        }
+
+        // Display reliability and return early - doctor handled everything
+        let reliability_display = format!("Reliability: {}%", flow_result.diagnosis.confidence);
+        if flow_result.diagnosis.confidence >= 80 {
+            println!("  {}", reliability_display.green());
+        } else if flow_result.diagnosis.confidence >= 50 {
+            println!("  {}", reliability_display.yellow());
+        } else {
+            println!("  {}", reliability_display.red());
+        }
+        println!();
+        return;
+    }
 
     // v0.0.7: Execute tools and gather evidence with Evidence IDs
     let (tool_results, evidence) = if translator_output.intent_type == IntentType::SystemQuery
@@ -2774,6 +2905,10 @@ pub async fn process(request: &str) {
     };
     junior_ms = junior_start.elapsed().as_millis() as u64;
     metrics.record_latency("junior", junior_ms);
+
+    // v0.0.52: Apply answer-target correctness check
+    // Penalizes answers that don't match the query target (e.g., CPU info for disk query)
+    let verification = enforce_answer_target_correctness(verification, &translator_output, request, &draft_answer);
 
     // [junior] to [anna]: verification result (v0.0.7: include uncited claims)
     let uncited_str = if verification.uncited_claims.is_empty() {
@@ -3060,6 +3195,93 @@ async fn handle_mutation_execution(
     } else {
         println!("  {}", "Some mutation(s) failed".red());
     }
+}
+
+/// v0.0.53: Run a doctor diagnostic flow
+async fn run_doctor_flow(
+    selection: &DoctorSelection,
+    request: &str,
+    catalog: &ToolCatalog,
+) -> DoctorFlowResult {
+    use anna_common::doctor_registry::DoctorDomain;
+    use anna_common::tool_executor::execute_tool;
+    use anna_common::tools::ToolRequest;
+
+    // Infer domain from doctor_id
+    let domain = if selection.primary.doctor_id.contains("network") {
+        DoctorDomain::Network
+    } else if selection.primary.doctor_id.contains("audio") {
+        DoctorDomain::Audio
+    } else if selection.primary.doctor_id.contains("storage") {
+        DoctorDomain::Storage
+    } else if selection.primary.doctor_id.contains("boot") {
+        DoctorDomain::Boot
+    } else if selection.primary.doctor_id.contains("graphics") {
+        DoctorDomain::Graphics
+    } else {
+        DoctorDomain::System
+    };
+
+    // Get the appropriate doctor based on domain
+    let doctor: Box<dyn Doctor> = match domain {
+        DoctorDomain::Network => Box::new(NetworkingDoctorV2::new()),
+        _ => Box::new(NetworkingDoctorV2::new()), // Fallback to network for now
+    };
+
+    // Create flow executor
+    let mut executor = DoctorFlowExecutor::new(domain);
+
+    // Get diagnostic plan
+    let steps = executor.prepare_steps(doctor.as_ref());
+
+    // Show plan in transcript
+    dialogue(
+        Actor::Anna,
+        Actor::Annad,
+        &format!(
+            "Running diagnostic plan with {} checks:\n{}",
+            steps.len(),
+            steps.iter().map(|s| format!("  {}. {}", s.step_number, s.check.description)).collect::<Vec<_>>().join("\n")
+        ),
+    );
+    println!();
+
+    // Execute each step
+    for (i, step) in steps.iter().enumerate() {
+        let start = std::time::Instant::now();
+
+        // Build tool request
+        let tool_request = ToolRequest {
+            tool_name: step.check.tool_name.clone(),
+            parameters: step.check.tool_params.clone(),
+        };
+
+        // Execute the tool using the proper executor
+        let evidence_id = format!("D{}", i + 1);
+        let tool_result = execute_tool(&tool_request, catalog, &evidence_id);
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        let data = tool_result.data.clone();
+        let summary = tool_result.human_summary.clone();
+        let success = tool_result.success;
+
+        // Record evidence
+        if let Some(evidence) = executor.record_step_evidence(i, data, &summary, success, duration_ms) {
+            // Show in transcript (condensed)
+            dialogue(
+                Actor::Annad,
+                Actor::Anna,
+                &format!("[{}] {}: {}", evidence.evidence_id, step.check.tool_name, summary),
+            );
+            println!();
+        }
+    }
+
+    // Run diagnosis
+    let diagnosis = executor.diagnose(doctor.as_ref());
+
+    // Build final result
+    executor.build_result(doctor.as_ref(), selection, request, diagnosis)
 }
 
 /// Generate a draft response based on intent and evidence

@@ -1009,6 +1009,17 @@ pub struct UiConfig {
     /// When true, debug_level defaults to 2 and all diagnostics are visible
     #[serde(default = "default_dev_mode")]
     pub dev_mode: bool,
+
+    /// v0.0.60: Transcript rendering mode
+    /// - human (default): Professional IT department dialogue, no internals
+    /// - debug: Full internal details (tool names, evidence IDs, prompts)
+    /// - test: Same as debug, for automated testing
+    #[serde(default = "default_transcript_mode")]
+    pub transcript_mode: String,
+}
+
+fn default_transcript_mode() -> String {
+    "human".to_string()
 }
 
 /// Performance configuration (v0.0.21)
@@ -1207,6 +1218,7 @@ impl Default for UiConfig {
             colors_enabled: default_colors_enabled(),
             max_width: 0,
             dev_mode: default_dev_mode(),
+            transcript_mode: default_transcript_mode(),
         }
     }
 }
@@ -1261,6 +1273,18 @@ impl UiConfig {
         } else {
             self.debug_level
         }
+    }
+
+    /// v0.0.60: Get the effective transcript mode with env var precedence
+    /// Priority: 1. ANNA_UI_TRANSCRIPT_MODE env var, 2. config, 3. default
+    pub fn effective_transcript_mode(&self) -> crate::transcript_events::TranscriptMode {
+        // 1. Check environment variable first
+        if let Ok(mode) = std::env::var("ANNA_UI_TRANSCRIPT_MODE") {
+            return crate::transcript_events::TranscriptMode::from_str(&mode);
+        }
+
+        // 2. Use config value
+        crate::transcript_events::TranscriptMode::from_str(&self.transcript_mode)
     }
 }
 
