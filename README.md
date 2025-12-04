@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.75
+# Anna Assistant v0.0.76
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.75**: Persistent Learning + RPG Stats + Transcript Polish - Recipes now change future behavior with configurable reliability thresholds (90% read-only, 80% doctor, 95% mutation). RPG stats block in `annactl status` shows XP/level, success rates, reliability metrics, latency percentiles. Enhanced human/debug transcript separation. Recipe coverage tracking. 22+ new integration tests.
+**v0.0.76**: Semantic Version Fix - Fixed install script and auto-updater to find highest version by semver, not by release creation date. Previously, backfilling old releases caused them to be picked as "latest". Now fetches all releases and sorts by semantic version. Installer v7.43.0.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 

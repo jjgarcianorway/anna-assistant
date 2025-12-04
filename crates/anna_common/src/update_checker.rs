@@ -1,7 +1,12 @@
-//! Update Checker v7.34.0 - Real Update Checking Implementation
+//! Update Checker v7.43.0 - Find Highest Semantic Version
 //!
 //! Performs actual update checks:
 //! - Anna releases from GitHub API
+//!
+//! v7.43.0: Fetch ALL releases and find highest semantic version
+//! - The /releases/latest endpoint returns most recently CREATED release
+//! - This caused bugs when backfilling old releases
+//! - Now fetches all releases and picks highest version using semver comparison
 //!
 //! v7.34.0: Uses config::UpdateState for consistent state management
 //! All results stored to /var/lib/anna/internal/update_state.json
@@ -22,8 +27,11 @@ pub enum CheckResult {
 }
 
 /// Check for Anna updates from GitHub
+/// v7.43.0: Fetches ALL releases and finds highest semantic version
 pub fn check_anna_updates(current_version: &str) -> CheckResult {
-    // Use GitHub API to check latest release with timeout
+    // v7.43.0: Fetch ALL releases, not just /releases/latest
+    // The /latest endpoint returns the most recently CREATED release,
+    // not the highest version. This caused bugs when backfilling releases.
     let output = std::process::Command::new("curl")
         .args([
             "-sS",
@@ -31,7 +39,7 @@ pub fn check_anna_updates(current_version: &str) -> CheckResult {
             "10",
             "-H",
             "Accept: application/vnd.github.v3+json",
-            "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/latest",
+            "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases?per_page=100",
         ])
         .output();
 
@@ -47,18 +55,42 @@ pub fn check_anna_updates(current_version: &str) -> CheckResult {
             let stdout = String::from_utf8_lossy(&result.stdout);
             match serde_json::from_str::<serde_json::Value>(&stdout) {
                 Ok(json) => {
-                    if let Some(tag) = json.get("tag_name").and_then(|v| v.as_str()) {
-                        let latest = tag.trim_start_matches('v');
-                        if is_newer_version(latest, current_version) {
-                            CheckResult::UpdateAvailable {
-                                version: latest.to_string(),
+                    // v7.43.0: Parse array of releases and find highest version
+                    if let Some(releases) = json.as_array() {
+                        let mut highest: Option<(u32, u32, u32, String)> = None;
+
+                        for release in releases {
+                            if let Some(tag) = release.get("tag_name").and_then(|v| v.as_str()) {
+                                let version_str = tag.trim_start_matches('v');
+                                if let Some((major, minor, patch)) = parse_version(version_str) {
+                                    let dominated = highest
+                                        .as_ref()
+                                        .map(|(hm, hn, hp, _)| {
+                                            (major, minor, patch) > (*hm, *hn, *hp)
+                                        })
+                                        .unwrap_or(true);
+                                    if dominated {
+                                        highest =
+                                            Some((major, minor, patch, version_str.to_string()));
+                                    }
+                                }
+                            }
+                        }
+
+                        if let Some((_, _, _, latest)) = highest {
+                            if is_newer_version(&latest, current_version) {
+                                CheckResult::UpdateAvailable { version: latest }
+                            } else {
+                                CheckResult::UpToDate
                             }
                         } else {
-                            CheckResult::UpToDate
+                            CheckResult::Error {
+                                message: "No valid releases found".to_string(),
+                            }
                         }
                     } else {
                         CheckResult::Error {
-                            message: "No tag_name in response".to_string(),
+                            message: "Response is not an array of releases".to_string(),
                         }
                     }
                 }
@@ -70,6 +102,21 @@ pub fn check_anna_updates(current_version: &str) -> CheckResult {
         Err(e) => CheckResult::Error {
             message: format!("Network error: {}", e),
         },
+    }
+}
+
+/// Parse version string into (major, minor, patch) tuple
+fn parse_version(v: &str) -> Option<(u32, u32, u32)> {
+    let parts: Vec<&str> = v.split('.').collect();
+    if parts.len() >= 3 {
+        let major = parts[0].parse().ok()?;
+        let minor = parts[1].parse().ok()?;
+        // Handle patch with potential suffix like "75-beta"
+        let patch_str = parts[2].split('-').next().unwrap_or(parts[2]);
+        let patch = patch_str.parse().ok()?;
+        Some((major, minor, patch))
+    } else {
+        None
     }
 }
 
@@ -124,22 +171,9 @@ pub fn is_check_due(state: &UpdateState) -> bool {
 
 /// Compare semantic versions (returns true if latest > current)
 fn is_newer_version(latest: &str, current: &str) -> bool {
-    let parse_version = |v: &str| -> (u32, u32, u32) {
-        let parts: Vec<&str> = v.split('.').collect();
-        let major = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
-        let minor = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-        let patch = parts
-            .get(2)
-            .and_then(|s| s.split('-').next())
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0);
-        (major, minor, patch)
-    };
-
-    let (lmaj, lmin, lpat) = parse_version(latest);
-    let (cmaj, cmin, cpat) = parse_version(current);
-
-    (lmaj, lmin, lpat) > (cmaj, cmin, cpat)
+    let l = parse_version(latest).unwrap_or((0, 0, 0));
+    let c = parse_version(current).unwrap_or((0, 0, 0));
+    l > c
 }
 
 /// Check if daemon is running

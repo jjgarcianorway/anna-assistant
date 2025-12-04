@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.75**
+**Current Version: 0.0.76**
 
 **Expected Project Completion: 18.5%** (Deep test scheduled at 20%)
 
@@ -10,12 +10,22 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.76 - Multi-Doctor Handoff + Senior Escalation (NEXT)
+### 0.0.77 - Multi-Doctor Handoff + Senior Escalation (NEXT)
 - [ ] Multi-doctor case handoff for complex issues
 - [ ] Department collaboration for cross-domain problems
 - [ ] Senior escalation when Junior < 50%
 - [ ] Multi-round improvement loops
 - [ ] Evidence bundle aggregation across departments
+
+### 0.0.76 - Semantic Version Fix (COMPLETED)
+- [x] Fixed install script to find highest semantic version
+  - [x] Changed from /releases/latest to /releases?per_page=100
+  - [x] Uses sort -V to find highest version, not most recently created
+- [x] Fixed daemon auto-updater with same fix
+  - [x] update_checker.rs fetches all releases and picks highest semver
+  - [x] parse_version() helper for robust version parsing
+- [x] Installer version bumped to 7.43.0
+- [x] Fixed by marking v0.0.75 as Latest in GitHub
 
 ### 0.0.75 - Persistent Learning + RPG Stats + Transcript Polish (COMPLETED)
 - [x] Persistent Recipe system that changes future behavior

@@ -1,9 +1,14 @@
 #!/bin/bash
-# Anna Installer v7.38.0 - Smoke Check & Strict Version Format
+# Anna Installer v7.43.0 - Find Highest Semantic Version
 #
 # This installer is versioned INDEPENDENTLY from Anna itself.
-# Installer version: 7.38.0
+# Installer version: 7.43.0
 # Anna version: fetched from GitHub releases
+#
+# v7.43.0: Find highest semantic version
+#   - Fetches ALL releases instead of just /releases/latest
+#   - Uses sort -V to find highest semantic version
+#   - Fixes issue where backfilled releases were picked as "latest"
 #
 # v7.38.0: Smoke check and strict version format
 #   - Verifies daemon actually starts after install
@@ -43,7 +48,7 @@ set -uo pipefail
 # CONFIGURATION
 # ============================================================
 
-INSTALLER_VERSION="7.42.5"
+INSTALLER_VERSION="7.43.0"
 GITHUB_REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
@@ -254,7 +259,10 @@ detect_installed_version() {
 fetch_latest_version() {
     LATEST_VERSION=""
 
-    local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+    # v7.43.0: Fetch ALL releases and find highest semantic version
+    # The /releases/latest endpoint returns most recently CREATED, not highest version
+    # This caused issues when backfilling missing releases
+    local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=100"
     local response
 
     if command -v curl &>/dev/null; then
@@ -264,7 +272,8 @@ fetch_latest_version() {
     fi
 
     if [[ -n "$response" ]]; then
-        LATEST_VERSION=$(echo "$response" | grep -oP '"tag_name":\s*"v?\K[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+        # Extract all version tags and find the highest using sort -V
+        LATEST_VERSION=$(echo "$response" | grep -oP '"tag_name":\s*"v?\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1 || true)
     fi
 
     if [[ -z "$LATEST_VERSION" ]]; then

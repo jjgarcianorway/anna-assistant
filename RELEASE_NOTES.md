@@ -2,6 +2,38 @@
 
 ---
 
+## v0.0.76 - Semantic Version Fix
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Fixed install script and daemon auto-updater to find the highest semantic version, not the most recently created release. This caused issues when backfilling old missing releases.
+
+### Problem
+
+The GitHub API endpoint `/releases/latest` returns the **most recently published** release, not the one with the highest version number. When backfilling missing releases (v0.0.60, v0.0.69, etc.), they were being created with recent timestamps, causing:
+
+- Install script reported v0.0.60 as latest instead of v0.0.75
+- Auto-updater showed v0.0.48 -> v0.0.70 instead of v0.0.75
+
+### Solution
+
+**Install Script (v7.43.0):**
+- Changed from `/releases/latest` to `/releases?per_page=100`
+- Extracts all version tags and uses `sort -V | tail -1` to find highest
+
+**Update Checker (v7.43.0):**
+- Fetches all releases instead of just latest
+- Parses versions with `parse_version()` helper
+- Finds highest (major, minor, patch) tuple
+
+### Also Fixed
+
+- Marked v0.0.75 as "Latest" release in GitHub using `gh release edit v0.0.75 --latest`
+
+---
+
 ## v0.0.75 - Persistent Learning + RPG Stats + Transcript Polish
 
 **Release Date:** 2025-12-04
