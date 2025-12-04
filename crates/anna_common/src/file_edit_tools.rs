@@ -7,16 +7,17 @@
 
 use crate::tools::ToolResult;
 use crate::user_file_mutation::{
-    UserFileEditAction, EditMode,
-    generate_edit_preview, apply_edit, execute_rollback,
-    generate_mutation_case_id,
+    apply_edit, execute_rollback, generate_edit_preview, generate_mutation_case_id, EditMode,
+    UserFileEditAction,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
 /// Helper to extract string from Value
 fn get_string_param(params: &HashMap<String, Value>, key: &str) -> Option<String> {
-    params.get(key).and_then(|v| v.as_str().map(|s| s.to_string()))
+    params
+        .get(key)
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
 }
 
 // =============================================================================
@@ -45,12 +46,16 @@ pub fn execute_file_edit_preview_v1(
         }
     };
 
-    let mode_str = get_string_param(parameters, "mode").unwrap_or_else(|| "append_line".to_string());
+    let mode_str =
+        get_string_param(parameters, "mode").unwrap_or_else(|| "append_line".to_string());
     let mode = match mode_str.as_str() {
         "append_line" => EditMode::AppendLine,
         "set_key_value" => EditMode::SetKeyValue,
         _ => {
-            let err = format!("Invalid mode: {}. Use append_line or set_key_value", mode_str);
+            let err = format!(
+                "Invalid mode: {}. Use append_line or set_key_value",
+                mode_str
+            );
             return ToolResult {
                 tool_name: "file_edit_preview_v1".to_string(),
                 evidence_id: evidence_id.to_string(),
@@ -73,7 +78,8 @@ pub fn execute_file_edit_preview_v1(
                         tool_name: "file_edit_preview_v1".to_string(),
                         evidence_id: evidence_id.to_string(),
                         data: json!({ "error": "append_line mode requires 'line' parameter" }),
-                        human_summary: "Error: missing 'line' parameter for append_line mode".to_string(),
+                        human_summary: "Error: missing 'line' parameter for append_line mode"
+                            .to_string(),
                         success: false,
                         error: Some("append_line mode requires 'line' parameter".to_string()),
                         timestamp,
@@ -91,7 +97,8 @@ pub fn execute_file_edit_preview_v1(
                         tool_name: "file_edit_preview_v1".to_string(),
                         evidence_id: evidence_id.to_string(),
                         data: json!({ "error": "set_key_value mode requires 'key' parameter" }),
-                        human_summary: "Error: missing 'key' parameter for set_key_value mode".to_string(),
+                        human_summary: "Error: missing 'key' parameter for set_key_value mode"
+                            .to_string(),
                         success: false,
                         error: Some("set_key_value mode requires 'key' parameter".to_string()),
                         timestamp,
@@ -105,14 +112,16 @@ pub fn execute_file_edit_preview_v1(
                         tool_name: "file_edit_preview_v1".to_string(),
                         evidence_id: evidence_id.to_string(),
                         data: json!({ "error": "set_key_value mode requires 'value' parameter" }),
-                        human_summary: "Error: missing 'value' parameter for set_key_value mode".to_string(),
+                        human_summary: "Error: missing 'value' parameter for set_key_value mode"
+                            .to_string(),
                         success: false,
                         error: Some("set_key_value mode requires 'value' parameter".to_string()),
                         timestamp,
                     };
                 }
             };
-            let separator = get_string_param(parameters, "separator").unwrap_or_else(|| "=".to_string());
+            let separator =
+                get_string_param(parameters, "separator").unwrap_or_else(|| "=".to_string());
             let target_user = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
             UserFileEditAction::set_key_value(&path, &key, &value, &separator, &target_user)
         }
@@ -124,16 +133,12 @@ pub fn execute_file_edit_preview_v1(
             let human_summary = if preview.would_change {
                 format!(
                     "Preview: {}\nPath: {}\nFile exists: {}\n\nDiff:\n{}",
-                    preview.change_description,
-                    preview.path,
-                    preview.exists,
-                    preview.diff_unified
+                    preview.change_description, preview.path, preview.exists, preview.diff_unified
                 )
             } else {
                 format!(
                     "No changes needed: {}\nPath: {}",
-                    preview.change_description,
-                    preview.path
+                    preview.change_description, preview.path
                 )
             };
 
@@ -159,17 +164,15 @@ pub fn execute_file_edit_preview_v1(
                 timestamp,
             }
         }
-        Err(e) => {
-            ToolResult {
-                tool_name: "file_edit_preview_v1".to_string(),
-                evidence_id: evidence_id.to_string(),
-                data: json!({ "error": &e }),
-                human_summary: format!("Preview failed: {}", e),
-                success: false,
-                error: Some(e),
-                timestamp,
-            }
-        }
+        Err(e) => ToolResult {
+            tool_name: "file_edit_preview_v1".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": &e }),
+            human_summary: format!("Preview failed: {}", e),
+            success: false,
+            error: Some(e),
+            timestamp,
+        },
     }
 }
 
@@ -199,7 +202,8 @@ pub fn execute_file_edit_apply_v1(
         }
     };
 
-    let mode_str = get_string_param(parameters, "mode").unwrap_or_else(|| "append_line".to_string());
+    let mode_str =
+        get_string_param(parameters, "mode").unwrap_or_else(|| "append_line".to_string());
     let mode = match mode_str.as_str() {
         "append_line" => EditMode::AppendLine,
         "set_key_value" => EditMode::SetKeyValue,
@@ -307,7 +311,8 @@ pub fn execute_file_edit_apply_v1(
                     };
                 }
             };
-            let separator = get_string_param(parameters, "separator").unwrap_or_else(|| "=".to_string());
+            let separator =
+                get_string_param(parameters, "separator").unwrap_or_else(|| "=".to_string());
             let target_user = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
             UserFileEditAction::set_key_value(&path, &key, &value, &separator, &target_user)
         }
@@ -360,17 +365,15 @@ pub fn execute_file_edit_apply_v1(
                 timestamp,
             }
         }
-        Err(e) => {
-            ToolResult {
-                tool_name: "file_edit_apply_v1".to_string(),
-                evidence_id: evidence_id.to_string(),
-                data: json!({ "error": &e }),
-                human_summary: format!("Apply failed: {}", e),
-                success: false,
-                error: Some(e),
-                timestamp,
-            }
-        }
+        Err(e) => ToolResult {
+            tool_name: "file_edit_apply_v1".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": &e }),
+            human_summary: format!("Apply failed: {}", e),
+            success: false,
+            error: Some(e),
+            timestamp,
+        },
     }
 }
 
@@ -406,9 +409,7 @@ pub fn execute_file_edit_rollback_v1(
             let human_summary = if result.success {
                 format!(
                     "Rollback successful:\n  Case ID: {}\n  Path: {}\n  Hashes match: {}",
-                    result.case_id,
-                    result.path,
-                    result.hashes_match
+                    result.case_id, result.path, result.hashes_match
                 )
             } else {
                 format!(
@@ -438,16 +439,14 @@ pub fn execute_file_edit_rollback_v1(
                 timestamp,
             }
         }
-        Err(e) => {
-            ToolResult {
-                tool_name: "file_edit_rollback_v1".to_string(),
-                evidence_id: evidence_id.to_string(),
-                data: json!({ "error": &e }),
-                human_summary: format!("Rollback failed: {}", e),
-                success: false,
-                error: Some(e),
-                timestamp,
-            }
-        }
+        Err(e) => ToolResult {
+            tool_name: "file_edit_rollback_v1".to_string(),
+            evidence_id: evidence_id.to_string(),
+            data: json!({ "error": &e }),
+            human_summary: format!("Rollback failed: {}", e),
+            success: false,
+            error: Some(e),
+            timestamp,
+        },
     }
 }

@@ -263,7 +263,11 @@ pub fn store_document(
         let truncated_content = &sanitized[..MAX_DOC_BYTES];
         // Find last complete line
         let last_newline = truncated_content.rfind('\n').unwrap_or(MAX_DOC_BYTES);
-        (sanitized[..last_newline].to_string(), true, Some(last_newline))
+        (
+            sanitized[..last_newline].to_string(),
+            true,
+            Some(last_newline),
+        )
     } else {
         (sanitized, false, None)
     };
@@ -294,7 +298,9 @@ pub fn store_document(
         + facts.env_vars.len();
 
     // Write facts to disk
-    let facts_path = PathBuf::from(CHUNK_STORE_PATH).join("facts").join(format!("{}.json", id));
+    let facts_path = PathBuf::from(CHUNK_STORE_PATH)
+        .join("facts")
+        .join(format!("{}.json", id));
     if let Some(parent) = facts_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -344,7 +350,9 @@ pub fn read_chunks(id: &str) -> Vec<String> {
 
 /// Read facts for a document
 pub fn read_facts(id: &str) -> Option<ExtractedFacts> {
-    let facts_path = PathBuf::from(CHUNK_STORE_PATH).join("facts").join(format!("{}.json", id));
+    let facts_path = PathBuf::from(CHUNK_STORE_PATH)
+        .join("facts")
+        .join(format!("{}.json", id));
     if let Ok(content) = fs::read_to_string(&facts_path) {
         serde_json::from_str(&content).ok()
     } else {
@@ -361,7 +369,9 @@ pub fn delete_document(id: &str) -> std::io::Result<()> {
     }
 
     // Remove facts file
-    let facts_path = PathBuf::from(CHUNK_STORE_PATH).join("facts").join(format!("{}.json", id));
+    let facts_path = PathBuf::from(CHUNK_STORE_PATH)
+        .join("facts")
+        .join(format!("{}.json", id));
     if facts_path.exists() {
         fs::remove_file(&facts_path)?;
     }
@@ -545,26 +555,29 @@ fn extract_facts(content: &str) -> ExtractedFacts {
     ).unwrap();
 
     // Service unit patterns
-    let service_re = regex::Regex::new(
-        r"\b([a-z][a-z0-9_-]*\.(?:service|socket|timer|mount|target))\b"
-    ).unwrap();
+    let service_re =
+        regex::Regex::new(r"\b([a-z][a-z0-9_-]*\.(?:service|socket|timer|mount|target))\b")
+            .unwrap();
 
     // Kernel module patterns
-    let module_re = regex::Regex::new(
-        r"(?:modprobe|insmod|rmmod|lsmod.*)\s+([a-z][a-z0-9_]+)"
-    ).unwrap();
+    let module_re =
+        regex::Regex::new(r"(?:modprobe|insmod|rmmod|lsmod.*)\s+([a-z][a-z0-9_]+)").unwrap();
 
     // Package patterns (pacman -S, apt install, etc.)
     let package_re = regex::Regex::new(
-        r"(?:pacman\s+-S[yu]*|apt\s+install|dnf\s+install|yay\s+-S)\s+([a-z][a-z0-9._+-]+)"
-    ).unwrap();
+        r"(?:pacman\s+-S[yu]*|apt\s+install|dnf\s+install|yay\s+-S)\s+([a-z][a-z0-9._+-]+)",
+    )
+    .unwrap();
 
     // Environment variable patterns
-    let env_re = regex::Regex::new(
-        r"\$\{?([A-Z][A-Z0-9_]+)\}?"
-    ).unwrap();
+    let env_re = regex::Regex::new(r"\$\{?([A-Z][A-Z0-9_]+)\}?").unwrap();
 
-    for (chunk_idx, chunk) in content.split('\n').collect::<Vec<_>>().chunks(100).enumerate() {
+    for (chunk_idx, chunk) in content
+        .split('\n')
+        .collect::<Vec<_>>()
+        .chunks(100)
+        .enumerate()
+    {
         let chunk_text = chunk.join("\n");
 
         for cap in config_re.captures_iter(&chunk_text) {
@@ -611,7 +624,16 @@ fn extract_facts(content: &str) -> ExtractedFacts {
             if let Some(m) = cap.get(1) {
                 let var = m.as_str();
                 // Filter common env vars
-                if ["HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "PATH", "USER", "SHELL"].contains(&var) {
+                if [
+                    "HOME",
+                    "XDG_CONFIG_HOME",
+                    "XDG_DATA_HOME",
+                    "PATH",
+                    "USER",
+                    "SHELL",
+                ]
+                .contains(&var)
+                {
                     facts.env_vars.push(FactWithSource {
                         value: var.to_string(),
                         source_chunk: chunk_idx,
@@ -686,13 +708,19 @@ mod tests {
         let content = format!("{}\n{}\n{}\n", line, line, line);
         let chunks = chunk_content(&content.repeat(10));
         for chunk in &chunks {
-            assert!(chunk.len() <= MAX_CHUNK_BYTES, "Chunk exceeds max: {} > {}", chunk.len(), MAX_CHUNK_BYTES);
+            assert!(
+                chunk.len() <= MAX_CHUNK_BYTES,
+                "Chunk exceeds max: {} > {}",
+                chunk.len(),
+                MAX_CHUNK_BYTES
+            );
         }
     }
 
     #[test]
     fn test_extract_toc() {
-        let content = "# Introduction\n\nSome text\n\n## Installation\n\nMore text\n\n### Dependencies";
+        let content =
+            "# Introduction\n\nSome text\n\n## Installation\n\nMore text\n\n### Dependencies";
         let toc = extract_toc(content, 10);
         assert_eq!(toc, vec!["Introduction", "Installation", "Dependencies"]);
     }
@@ -709,13 +737,19 @@ mod tests {
     fn test_fact_extraction_config_paths() {
         let content = "Edit /etc/pacman.conf to configure";
         let facts = extract_facts(content);
-        assert!(facts.config_paths.iter().any(|f| f.value.contains("pacman.conf")));
+        assert!(facts
+            .config_paths
+            .iter()
+            .any(|f| f.value.contains("pacman.conf")));
     }
 
     #[test]
     fn test_fact_extraction_services() {
         let content = "Enable systemd-networkd.service";
         let facts = extract_facts(content);
-        assert!(facts.service_units.iter().any(|f| f.value == "systemd-networkd.service"));
+        assert!(facts
+            .service_units
+            .iter()
+            .any(|f| f.value == "systemd-networkd.service"));
     }
 }

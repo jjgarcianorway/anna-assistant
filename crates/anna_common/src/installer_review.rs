@@ -19,9 +19,9 @@
 //! - Re-run model selection metadata if missing
 //! - Create default policy files if missing (v0.0.14)
 
-use crate::install_state::{InstallState, LastReview, ReviewResult};
-use crate::helpers::{get_helper_status_list, InstalledBy, is_package_present};
 use crate::config::AnnaConfig;
+use crate::helpers::{get_helper_status_list, is_package_present, InstalledBy};
+use crate::install_state::{InstallState, LastReview, ReviewResult};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -110,7 +110,10 @@ pub struct InstallerReviewReport {
 impl InstallerReviewReport {
     /// Check if all checks passed (with or without repair)
     pub fn is_healthy(&self) -> bool {
-        matches!(self.overall, ReviewResult::Healthy | ReviewResult::Repaired { .. })
+        matches!(
+            self.overall,
+            ReviewResult::Healthy | ReviewResult::Repaired { .. }
+        )
     }
 
     /// Get list of issues
@@ -138,7 +141,10 @@ impl InstallerReviewReport {
         let repairs = self.checks.iter().filter(|c| c.repair_success).count();
 
         if repairs > 0 {
-            format!("{}/{} checks passed ({} auto-repaired)", passed, total, repairs)
+            format!(
+                "{}/{} checks passed ({} auto-repaired)",
+                passed, total, repairs
+            )
         } else {
             format!("{}/{} checks passed", passed, total)
         }
@@ -168,7 +174,10 @@ pub fn run_installer_review(auto_repair: bool) -> InstallerReviewReport {
     checks.extend(check_systemd_correctness(auto_repair, &mut evidence_ids));
 
     // 3. Directory and permission checks
-    checks.extend(check_directories_and_permissions(auto_repair, &mut evidence_ids));
+    checks.extend(check_directories_and_permissions(
+        auto_repair,
+        &mut evidence_ids,
+    ));
 
     // 4. Config file check
     checks.push(check_config_file());
@@ -196,14 +205,13 @@ pub fn run_installer_review(auto_repair: bool) -> InstallerReviewReport {
             ReviewResult::Healthy
         } else {
             ReviewResult::Repaired {
-                fixes: repairs.iter()
-                    .filter_map(|c| c.issue.clone())
-                    .collect(),
+                fixes: repairs.iter().filter_map(|c| c.issue.clone()).collect(),
             }
         }
     } else {
         ReviewResult::NeedsAttention {
-            issues: failed_checks.iter()
+            issues: failed_checks
+                .iter()
                 .filter_map(|c| c.issue.clone())
                 .collect(),
         }
@@ -246,7 +254,10 @@ fn check_binary_presence(name: &str) -> CheckResult {
 }
 
 /// Check systemd correctness
-fn check_systemd_correctness(auto_repair: bool, evidence_ids: &mut Vec<String>) -> Vec<CheckResult> {
+fn check_systemd_correctness(
+    auto_repair: bool,
+    evidence_ids: &mut Vec<String>,
+) -> Vec<CheckResult> {
     let mut results = Vec::new();
 
     // Check unit file exists
@@ -268,10 +279,9 @@ fn check_systemd_correctness(auto_repair: bool, evidence_ids: &mut Vec<String>) 
             let mode = meta.permissions().mode() & 0o777;
             if mode != 0o644 {
                 if auto_repair {
-                    if let Ok(()) = fs::set_permissions(
-                        unit_path,
-                        fs::Permissions::from_mode(0o644),
-                    ) {
+                    if let Ok(()) =
+                        fs::set_permissions(unit_path, fs::Permissions::from_mode(0o644))
+                    {
                         let eid = generate_evidence_id();
                         evidence_ids.push(eid.clone());
                         results.push(CheckResult::repaired(
@@ -282,13 +292,19 @@ fn check_systemd_correctness(auto_repair: bool, evidence_ids: &mut Vec<String>) 
                     } else {
                         results.push(CheckResult::repair_failed(
                             "systemd_unit_perms",
-                            &format!("Unit file has wrong permissions: {:o} (expected 0644)", mode),
+                            &format!(
+                                "Unit file has wrong permissions: {:o} (expected 0644)",
+                                mode
+                            ),
                         ));
                     }
                 } else {
                     results.push(CheckResult::fail(
                         "systemd_unit_perms",
-                        &format!("Unit file has wrong permissions: {:o} (expected 0644)", mode),
+                        &format!(
+                            "Unit file has wrong permissions: {:o} (expected 0644)",
+                            mode
+                        ),
                     ));
                 }
             } else {
@@ -370,7 +386,10 @@ fn check_systemd_correctness(auto_repair: bool, evidence_ids: &mut Vec<String>) 
 }
 
 /// Check directories and permissions
-fn check_directories_and_permissions(auto_repair: bool, evidence_ids: &mut Vec<String>) -> Vec<CheckResult> {
+fn check_directories_and_permissions(
+    auto_repair: bool,
+    evidence_ids: &mut Vec<String>,
+) -> Vec<CheckResult> {
     let mut results = Vec::new();
 
     let dirs = [
@@ -422,10 +441,8 @@ fn check_directories_and_permissions(auto_repair: bool, evidence_ids: &mut Vec<S
                 // Directories should be at least 0755
                 if mode & 0o755 != 0o755 {
                     if auto_repair {
-                        if let Ok(()) = fs::set_permissions(
-                            path,
-                            fs::Permissions::from_mode(0o755),
-                        ) {
+                        if let Ok(()) = fs::set_permissions(path, fs::Permissions::from_mode(0o755))
+                        {
                             let eid = generate_evidence_id();
                             evidence_ids.push(eid.clone());
                             results.push(CheckResult::repaired(
@@ -495,10 +512,7 @@ fn check_update_scheduler() -> CheckResult {
         .unwrap_or(0);
 
     if state.last_check_at > now + 86400 {
-        return CheckResult::fail(
-            "update_scheduler",
-            "Update state has future timestamp",
-        );
+        return CheckResult::fail("update_scheduler", "Update state has future timestamp");
     }
 
     CheckResult::pass("update_scheduler")
@@ -548,8 +562,8 @@ fn check_ollama_health() -> Vec<CheckResult> {
 /// Check policy files sanity (v0.0.14)
 fn check_policy_sanity(auto_repair: bool, evidence_ids: &mut Vec<String>) -> Vec<CheckResult> {
     use crate::policy::{
-        Policy, POLICY_DIR, CAPABILITIES_FILE, RISK_FILE, BLOCKED_FILE, HELPERS_FILE,
-        POLICY_SCHEMA_VERSION, generate_policy_evidence_id,
+        generate_policy_evidence_id, Policy, BLOCKED_FILE, CAPABILITIES_FILE, HELPERS_FILE,
+        POLICY_DIR, POLICY_SCHEMA_VERSION, RISK_FILE,
     };
 
     let mut results = Vec::new();
@@ -730,7 +744,8 @@ blocked_categories = ["kernel", "bootloader", "init"]
 [global]
 timeout_ms = 30000
 audit_logging = true
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Generate default risk.toml content
@@ -774,7 +789,8 @@ timeout_seconds = 300
 min_mutation_reliability = 70
 min_package_reliability = 75
 max_concurrent_mutations = 1
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Generate default blocked.toml content
@@ -816,7 +832,8 @@ patterns = []
 [commands]
 exact = []
 patterns = []
-"#.to_string()
+"#
+    .to_string()
 }
 
 /// Generate default helpers.toml content
@@ -865,7 +882,8 @@ provides_commands = ["ethtool"]
 enabled = true
 offer_removal_on_uninstall = true
 state_file = "/var/lib/anna/internal/helpers_state.json"
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn check_helper_inventory() -> CheckResult {
@@ -961,7 +979,9 @@ mod tests {
                 CheckResult::pass("test2"),
                 CheckResult::fail("test3", "issue"),
             ],
-            overall: ReviewResult::NeedsAttention { issues: vec!["issue".into()] },
+            overall: ReviewResult::NeedsAttention {
+                issues: vec!["issue".into()],
+            },
             evidence_ids: vec![],
         };
         assert_eq!(report.format_summary(), "2/3 checks passed");

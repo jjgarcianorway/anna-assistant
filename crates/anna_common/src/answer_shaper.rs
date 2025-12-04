@@ -7,8 +7,8 @@
 //!
 //! Prevents over-claiming and ensures relevance.
 
-use crate::evidence_topic::EvidenceTopic;
 use crate::evidence_record::EvidenceBundle;
+use crate::evidence_topic::EvidenceTopic;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -34,11 +34,7 @@ pub struct ShapedAnswer {
 
 impl ShapedAnswer {
     /// Create a shaped answer
-    pub fn new(
-        text: String,
-        topic: EvidenceTopic,
-        bundle: &EvidenceBundle,
-    ) -> Self {
+    pub fn new(text: String, topic: EvidenceTopic, bundle: &EvidenceBundle) -> Self {
         Self {
             text,
             topic,
@@ -89,8 +85,14 @@ pub fn shape_answer(
 
 fn shape_disk_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> ShapedAnswer {
     let text = if let Some(root) = data.get("root") {
-        let avail = root.get("avail_human").and_then(|v| v.as_str()).unwrap_or("?");
-        let use_pct = root.get("use_percent").and_then(|v| v.as_str()).unwrap_or("?");
+        let avail = root
+            .get("avail_human")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?");
+        let use_pct = root
+            .get("use_percent")
+            .and_then(|v| v.as_str())
+            .unwrap_or("?");
         let free_pct = use_pct.parse::<u8>().map(|p| 100 - p).unwrap_or(0);
         format!("Root disk free: {} ({}% available).", avail, free_pct)
     } else {
@@ -126,7 +128,10 @@ fn shape_memory_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> Sha
 fn shape_cpu_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> ShapedAnswer {
     let text = if let Some(model) = data.get("cpu_model").and_then(|v| v.as_str()) {
         let cores = data.get("cores").and_then(|v| v.as_u64()).unwrap_or(0);
-        let threads = data.get("threads").and_then(|v| v.as_u64()).unwrap_or(cores);
+        let threads = data
+            .get("threads")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(cores);
         if cores > 0 {
             format!("CPU: {} ({} cores, {} threads).", model, cores, threads)
         } else {
@@ -140,9 +145,18 @@ fn shape_cpu_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> Shaped
 }
 
 fn shape_network_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> ShapedAnswer {
-    let has_route = data.get("has_default_route").and_then(|v| v.as_bool()).unwrap_or(false);
-    let primary = data.get("primary_interface").and_then(|v| v.as_str()).unwrap_or("unknown");
-    let dns_ok = data.get("dns_working").and_then(|v| v.as_bool()).unwrap_or(false);
+    let has_route = data
+        .get("has_default_route")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let primary = data
+        .get("primary_interface")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let dns_ok = data
+        .get("dns_working")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     let mut parts = Vec::new();
 
@@ -182,9 +196,18 @@ fn shape_network_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> Sh
 }
 
 fn shape_audio_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> ShapedAnswer {
-    let pipewire = data.get("pipewire_running").and_then(|v| v.as_bool()).unwrap_or(false);
-    let wireplumber = data.get("wireplumber_running").and_then(|v| v.as_bool()).unwrap_or(false);
-    let pulse = data.get("pulseaudio_running").and_then(|v| v.as_bool()).unwrap_or(false);
+    let pipewire = data
+        .get("pipewire_running")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let wireplumber = data
+        .get("wireplumber_running")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let pulse = data
+        .get("pulseaudio_running")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     let mut parts = Vec::new();
 
@@ -218,8 +241,14 @@ fn shape_audio_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> Shap
 }
 
 fn shape_service_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> ShapedAnswer {
-    let service_name = data.get("service_name").and_then(|v| v.as_str()).unwrap_or("service");
-    let active = data.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
+    let service_name = data
+        .get("service_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("service");
+    let active = data
+        .get("active")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let enabled = data.get("enabled").and_then(|v| v.as_bool());
 
     let status = if active { "running" } else { "stopped" };
@@ -255,7 +284,8 @@ fn shape_graphics_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> S
         if gpus.is_empty() {
             "No GPU detected.".to_string()
         } else {
-            let gpu_names: Vec<&str> = gpus.iter()
+            let gpu_names: Vec<&str> = gpus
+                .iter()
                 .filter_map(|g| g.get("name").and_then(|n| n.as_str()))
                 .collect();
             format!("GPU(s): {}.", gpu_names.join(", "))
@@ -268,19 +298,28 @@ fn shape_graphics_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> S
 }
 
 fn shape_alerts_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> ShapedAnswer {
-    let count = data.get("alert_count").and_then(|v| v.as_u64()).unwrap_or(0);
+    let count = data
+        .get("alert_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
 
     let text = if count == 0 {
         "No active alerts.".to_string()
     } else {
-        format!("{} active alert(s). Check 'annactl status' for details.", count)
+        format!(
+            "{} active alert(s). Check 'annactl status' for details.",
+            count
+        )
     };
 
     ShapedAnswer::new(text, EvidenceTopic::Alerts, bundle)
 }
 
 fn shape_errors_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> ShapedAnswer {
-    let count = data.get("error_count").and_then(|v| v.as_u64()).unwrap_or(0);
+    let count = data
+        .get("error_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
 
     let text = if count == 0 {
         "No recent errors in system journal.".to_string()
@@ -292,7 +331,10 @@ fn shape_errors_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> Sha
 }
 
 fn shape_packages_answer(bundle: &EvidenceBundle, data: &serde_json::Value) -> ShapedAnswer {
-    let count = data.get("changes_count").and_then(|v| v.as_u64()).unwrap_or(0);
+    let count = data
+        .get("changes_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
 
     let text = if count == 0 {
         "No recent package changes.".to_string()
@@ -426,7 +468,10 @@ mod tests {
         assert!(answer.text.contains("Connected"));
         assert!(answer.text.contains("wlan0"));
         // Should have note about actual connectivity
-        assert!(answer.confidence_notes.iter().any(|n| n.contains("not verified")));
+        assert!(answer
+            .confidence_notes
+            .iter()
+            .any(|n| n.contains("not verified")));
     }
 
     #[test]

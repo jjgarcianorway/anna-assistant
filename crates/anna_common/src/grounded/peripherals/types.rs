@@ -238,7 +238,7 @@ pub struct HardwareOverview {
     pub storage_names: Vec<String>,
     pub network_wired: u32,
     pub network_wireless: u32,
-    pub network_interfaces: Vec<String>,  // v7.35.1: Interface names for AVAILABLE QUERIES
+    pub network_interfaces: Vec<String>, // v7.35.1: Interface names for AVAILABLE QUERIES
     pub bluetooth: BluetoothSummary,
     pub usb: UsbSummary,
     pub audio: AudioSummary,

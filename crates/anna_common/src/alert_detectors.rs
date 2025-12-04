@@ -95,7 +95,9 @@ pub const THERMAL_CRITICAL_TEMP: f64 = 95.0;
 // ============================================================================
 
 /// Detect boot regression by comparing to baseline
-pub fn detect_boot_regression(evidence_id: &str) -> Option<(ProactiveAlert, BootRegressionEvidence)> {
+pub fn detect_boot_regression(
+    evidence_id: &str,
+) -> Option<(ProactiveAlert, BootRegressionEvidence)> {
     // Get boot times using systemd-analyze
     let boot_times = get_boot_times(10)?;
 
@@ -108,9 +110,8 @@ pub fn detect_boot_regression(evidence_id: &str) -> Option<(ProactiveAlert, Boot
 
     // Calculate baseline statistics
     let mean: f64 = baseline.iter().sum::<f64>() / baseline.len() as f64;
-    let variance: f64 = baseline.iter()
-        .map(|t| (t - mean).powi(2))
-        .sum::<f64>() / baseline.len() as f64;
+    let variance: f64 =
+        baseline.iter().map(|t| (t - mean).powi(2)).sum::<f64>() / baseline.len() as f64;
     let stddev = variance.sqrt();
 
     // Check trigger: last > mean + 2*stddev AND > mean + 5s
@@ -151,10 +152,7 @@ pub fn detect_boot_regression(evidence_id: &str) -> Option<(ProactiveAlert, Boot
 /// Get recent boot times from systemd-analyze
 fn get_boot_times(count: usize) -> Option<Vec<f64>> {
     // Try systemd-analyze time first for current boot
-    let output = Command::new("systemd-analyze")
-        .arg("time")
-        .output()
-        .ok()?;
+    let output = Command::new("systemd-analyze").arg("time").output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -178,7 +176,7 @@ fn parse_systemd_analyze_time(output: &str) -> Option<f64> {
         if line.contains("Startup finished") {
             // Find the total time after "="
             if let Some(pos) = line.rfind('=') {
-                let time_str = line[pos+1..].trim();
+                let time_str = line[pos + 1..].trim();
                 return parse_time_duration(time_str);
             }
         }
@@ -226,7 +224,9 @@ pub fn detect_disk_pressure(evidence_id: &str) -> Option<(ProactiveAlert, DiskPr
     let free_gib = evidence.free_gib;
 
     // Determine severity
-    let severity = if free_percent < DISK_PRESSURE_CRITICAL_PERCENT || free_gib < DISK_PRESSURE_CRITICAL_GIB {
+    let severity = if free_percent < DISK_PRESSURE_CRITICAL_PERCENT
+        || free_gib < DISK_PRESSURE_CRITICAL_GIB
+    {
         AlertSeverity::Critical
     } else if free_percent < DISK_PRESSURE_WARNING_PERCENT || free_gib < DISK_PRESSURE_WARNING_GIB {
         AlertSeverity::Warning
@@ -236,7 +236,9 @@ pub fn detect_disk_pressure(evidence_id: &str) -> Option<(ProactiveAlert, DiskPr
 
     let summary = format!(
         "Root filesystem {} free ({:.1} GiB), {:.1}% used",
-        format_percent(free_percent), free_gib, evidence.used_percent
+        format_percent(free_percent),
+        free_gib,
+        evidence.used_percent
     );
 
     let alert = ProactiveAlert::new(
@@ -312,7 +314,9 @@ fn get_disk_usage(mount_point: &str) -> Option<DiskPressureEvidence> {
 // ============================================================================
 
 /// Detect burst of journal errors from any unit
-pub fn detect_journal_error_burst(evidence_id: &str) -> Vec<(ProactiveAlert, JournalErrorBurstEvidence)> {
+pub fn detect_journal_error_burst(
+    evidence_id: &str,
+) -> Vec<(ProactiveAlert, JournalErrorBurstEvidence)> {
     let mut alerts = Vec::new();
 
     // Get error counts by unit in last N minutes
@@ -372,7 +376,8 @@ fn get_journal_error_counts(minutes: u32) -> Vec<(String, u32, Vec<String>)> {
     };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut unit_errors: std::collections::HashMap<String, (u32, Vec<String>)> = std::collections::HashMap::new();
+    let mut unit_errors: std::collections::HashMap<String, (u32, Vec<String>)> =
+        std::collections::HashMap::new();
 
     for line in stdout.lines() {
         // Parse unit from journal line
@@ -386,7 +391,8 @@ fn get_journal_error_counts(minutes: u32) -> Vec<(String, u32, Vec<String>)> {
         }
     }
 
-    unit_errors.into_iter()
+    unit_errors
+        .into_iter()
         .map(|(unit, (count, samples))| (unit, count, samples))
         .collect()
 }
@@ -506,7 +512,9 @@ fn get_unit_result(unit: &str) -> Option<String> {
 // ============================================================================
 
 /// Detect thermal throttling (best-effort)
-pub fn detect_thermal_throttling(evidence_id: &str) -> Option<(ProactiveAlert, ThermalThrottlingEvidence)> {
+pub fn detect_thermal_throttling(
+    evidence_id: &str,
+) -> Option<(ProactiveAlert, ThermalThrottlingEvidence)> {
     // Try to read CPU package temperature from hwmon
     let evidence = get_cpu_temperature()?;
 
@@ -565,7 +573,8 @@ fn get_cpu_temperature() -> Option<ThermalThrottlingEvidence> {
 
             // Try to read critical threshold
             let crit_path = path.join("temp1_crit");
-            let crit_temp = std::fs::read_to_string(&crit_path).ok()
+            let crit_temp = std::fs::read_to_string(&crit_path)
+                .ok()
                 .and_then(|s| s.trim().parse::<i64>().ok())
                 .map(|t| t as f64 / 1000.0);
 

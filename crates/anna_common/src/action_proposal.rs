@@ -158,9 +158,10 @@ impl ActionProposal {
 
     /// Debug description with commands
     pub fn debug_description(&self) -> String {
-        let mut parts = vec![
-            format!("[{}] {} (risk: {:?})", self.id, self.title, self.risk),
-        ];
+        let mut parts = vec![format!(
+            "[{}] {} (risk: {:?})",
+            self.id, self.title, self.risk
+        )];
 
         if !self.steps_debug.is_empty() {
             parts.push(format!("Commands:\n  {}", self.steps_debug.join("\n  ")));
@@ -214,9 +215,7 @@ pub mod networking_actions {
             "Restart the NetworkManager service".to_string(),
             "Wait for connections to re-establish".to_string(),
         ])
-        .with_steps_debug(vec![
-            "systemctl restart NetworkManager".to_string(),
-        ])
+        .with_steps_debug(vec!["systemctl restart NetworkManager".to_string()])
         .with_services(vec!["NetworkManager.service".to_string()])
     }
 
@@ -230,9 +229,7 @@ pub mod networking_actions {
             "Restart the iwd WiFi service".to_string(),
             "Reconnect to WiFi network".to_string(),
         ])
-        .with_steps_debug(vec![
-            "systemctl restart iwd".to_string(),
-        ])
+        .with_steps_debug(vec!["systemctl restart iwd".to_string()])
         .with_services(vec!["iwd.service".to_string()])
     }
 
@@ -253,17 +250,12 @@ pub mod networking_actions {
     }
 
     pub fn flush_dns_cache() -> ActionProposal {
-        ActionProposal::read_only(
-            "net_flush_dns",
-            "Flush DNS cache",
-        )
-        .with_steps_human(vec![
-            "Clear cached DNS entries".to_string(),
-            "New lookups will query DNS servers directly".to_string(),
-        ])
-        .with_steps_debug(vec![
-            "resolvectl flush-caches".to_string(),
-        ])
+        ActionProposal::read_only("net_flush_dns", "Flush DNS cache")
+            .with_steps_human(vec![
+                "Clear cached DNS entries".to_string(),
+                "New lookups will query DNS servers directly".to_string(),
+            ])
+            .with_steps_debug(vec!["resolvectl flush-caches".to_string()])
     }
 
     pub fn switch_to_iwd() -> ActionProposal {
@@ -280,13 +272,19 @@ pub mod networking_actions {
         .with_steps_debug(vec![
             "pacman -S --noconfirm iwd".to_string(),
             "mkdir -p /etc/NetworkManager/conf.d".to_string(),
-            "echo '[device]\nwifi.backend=iwd' > /etc/NetworkManager/conf.d/wifi_backend.conf".to_string(),
+            "echo '[device]\nwifi.backend=iwd' > /etc/NetworkManager/conf.d/wifi_backend.conf"
+                .to_string(),
             "systemctl enable --now iwd".to_string(),
             "systemctl restart NetworkManager".to_string(),
         ])
         .with_packages(vec!["iwd".to_string()])
-        .with_services(vec!["iwd.service".to_string(), "NetworkManager.service".to_string()])
-        .with_files(vec!["/etc/NetworkManager/conf.d/wifi_backend.conf".to_string()])
+        .with_services(vec![
+            "iwd.service".to_string(),
+            "NetworkManager.service".to_string(),
+        ])
+        .with_files(vec![
+            "/etc/NetworkManager/conf.d/wifi_backend.conf".to_string()
+        ])
     }
 
     pub fn install_helper(package: &str, purpose: &str) -> ActionProposal {
@@ -295,12 +293,8 @@ pub mod networking_actions {
             &format!("Install {} ({})", package, purpose),
             &format!("Remove with: pacman -R {}", package),
         )
-        .with_steps_human(vec![
-            format!("Install the {} package", package),
-        ])
-        .with_steps_debug(vec![
-            format!("pacman -S --noconfirm {}", package),
-        ])
+        .with_steps_human(vec![format!("Install the {} package", package)])
+        .with_steps_debug(vec![format!("pacman -S --noconfirm {}", package)])
         .with_packages(vec![package.to_string()])
     }
 }
@@ -314,9 +308,7 @@ pub mod storage_actions {
             "storage_check_fs",
             &format!("Check filesystem on {}", mount),
         )
-        .with_steps_human(vec![
-            format!("Run filesystem check on {}", mount),
-        ])
+        .with_steps_human(vec![format!("Run filesystem check on {}", mount)])
     }
 
     pub fn btrfs_scrub_start(mount: &str) -> ActionProposal {
@@ -326,12 +318,13 @@ pub mod storage_actions {
             "Scrub can be cancelled with: btrfs scrub cancel",
         )
         .with_steps_human(vec![
-            format!("Start background scrub to verify data integrity on {}", mount),
+            format!(
+                "Start background scrub to verify data integrity on {}",
+                mount
+            ),
             "This may take several hours depending on data size".to_string(),
         ])
-        .with_steps_debug(vec![
-            format!("btrfs scrub start {}", mount),
-        ])
+        .with_steps_debug(vec![format!("btrfs scrub start {}", mount)])
     }
 
     pub fn btrfs_balance_start(mount: &str) -> ActionProposal {
@@ -344,9 +337,7 @@ pub mod storage_actions {
             format!("Rebalance data across devices on {}", mount),
             "WARNING: This can take many hours and heavily use disk I/O".to_string(),
         ])
-        .with_steps_debug(vec![
-            format!("btrfs balance start {}", mount),
-        ])
+        .with_steps_debug(vec![format!("btrfs balance start {}", mount)])
     }
 
     pub fn clean_package_cache() -> ActionProposal {
@@ -359,9 +350,7 @@ pub mod storage_actions {
             "Remove old package versions from cache".to_string(),
             "Keep only the 3 most recent versions".to_string(),
         ])
-        .with_steps_debug(vec![
-            "paccache -r".to_string(),
-        ])
+        .with_steps_debug(vec!["paccache -r".to_string()])
     }
 
     pub fn create_btrfs_snapshot(subvol: &str, name: &str) -> ActionProposal {
@@ -370,12 +359,11 @@ pub mod storage_actions {
             &format!("Create BTRFS snapshot of {}", subvol),
             &format!("Delete snapshot with: btrfs subvolume delete {}", name),
         )
-        .with_steps_human(vec![
-            format!("Create read-only snapshot of {}", subvol),
-        ])
-        .with_steps_debug(vec![
-            format!("btrfs subvolume snapshot -r {} {}", subvol, name),
-        ])
+        .with_steps_human(vec![format!("Create read-only snapshot of {}", subvol)])
+        .with_steps_debug(vec![format!(
+            "btrfs subvolume snapshot -r {} {}",
+            subvol, name
+        )])
     }
 
     pub fn dangerous_btrfs_check_repair(mount: &str) -> ActionProposal {
@@ -401,9 +389,7 @@ pub mod storage_actions {
             "storage_do_nothing",
             "No action needed - storage is healthy",
         )
-        .with_steps_human(vec![
-            "Continue monitoring system health".to_string(),
-        ])
+        .with_steps_human(vec!["Continue monitoring system health".to_string()])
     }
 }
 
@@ -444,7 +430,9 @@ mod tests {
     #[test]
     fn test_networking_actions() {
         let restart = networking_actions::restart_networkmanager();
-        assert!(restart.affected_services.contains(&"NetworkManager.service".to_string()));
+        assert!(restart
+            .affected_services
+            .contains(&"NetworkManager.service".to_string()));
 
         let switch = networking_actions::switch_to_iwd();
         assert_eq!(switch.risk, ActionRisk::High);

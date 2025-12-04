@@ -6,7 +6,7 @@
 //! - Rollback instruction generation
 //! - Package management with provenance tracking
 
-use crate::mutation_tools::{ServiceState, RollbackInfo, FileEditOp};
+use crate::mutation_tools::{FileEditOp, RollbackInfo, ServiceState};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Write};
@@ -239,11 +239,25 @@ impl RollbackManager {
         let op_descriptions: Vec<String> = operations
             .iter()
             .map(|op| match op {
-                FileEditOp::InsertLine { line_number, content } => {
-                    format!("Insert at line {}: '{}'", line_number + 1, truncate_str(content, 50))
+                FileEditOp::InsertLine {
+                    line_number,
+                    content,
+                } => {
+                    format!(
+                        "Insert at line {}: '{}'",
+                        line_number + 1,
+                        truncate_str(content, 50)
+                    )
                 }
-                FileEditOp::ReplaceLine { line_number, content } => {
-                    format!("Replace line {}: '{}'", line_number + 1, truncate_str(content, 50))
+                FileEditOp::ReplaceLine {
+                    line_number,
+                    content,
+                } => {
+                    format!(
+                        "Replace line {}: '{}'",
+                        line_number + 1,
+                        truncate_str(content, 50)
+                    )
                 }
                 FileEditOp::DeleteLine { line_number } => {
                     format!("Delete line {}", line_number + 1)
@@ -251,8 +265,15 @@ impl RollbackManager {
                 FileEditOp::AppendLine { content } => {
                     format!("Append: '{}'", truncate_str(content, 50))
                 }
-                FileEditOp::ReplaceText { pattern, replacement } => {
-                    format!("Replace '{}' with '{}'", truncate_str(pattern, 30), truncate_str(replacement, 30))
+                FileEditOp::ReplaceText {
+                    pattern,
+                    replacement,
+                } => {
+                    format!(
+                        "Replace '{}' with '{}'",
+                        truncate_str(pattern, 30),
+                        truncate_str(replacement, 30)
+                    )
                 }
             })
             .collect();
@@ -359,10 +380,9 @@ impl RollbackManager {
     fn write_log_entry(&self, entry: &MutationLogEntry) -> io::Result<()> {
         self.ensure_dirs()?;
 
-        let log_file = self.logs_dir().join(format!(
-            "{}_{}.json",
-            entry.timestamp, entry.request_id
-        ));
+        let log_file = self
+            .logs_dir()
+            .join(format!("{}_{}.json", entry.timestamp, entry.request_id));
 
         let json = serde_json::to_string_pretty(entry)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -376,19 +396,15 @@ impl RollbackManager {
             .append(true)
             .open(&main_log)?;
 
-        let json_line = serde_json::to_string(entry)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let json_line =
+            serde_json::to_string(entry).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         writeln!(file, "{}", json_line)?;
 
         Ok(())
     }
 
     /// Generate rollback info for a file edit
-    pub fn file_rollback_info(
-        &self,
-        file_path: &Path,
-        backup_path: &Path,
-    ) -> RollbackInfo {
+    pub fn file_rollback_info(&self, file_path: &Path, backup_path: &Path) -> RollbackInfo {
         RollbackInfo {
             backup_path: Some(backup_path.to_path_buf()),
             rollback_command: Some(format!(
@@ -424,7 +440,9 @@ impl RollbackManager {
                      Run: sudo systemctl restart {}\n\
                      Note: Service state before: {}",
                     service,
-                    prior_state.map(|s| s.to_string()).unwrap_or("unknown".to_string())
+                    prior_state
+                        .map(|s| s.to_string())
+                        .unwrap_or("unknown".to_string())
                 );
                 (cmd, instr)
             }
@@ -444,7 +462,9 @@ impl RollbackManager {
                      Run: sudo systemctl disable --now {}\n\
                      State before: {}",
                     service,
-                    prior_state.map(|s| s.to_string()).unwrap_or("unknown".to_string())
+                    prior_state
+                        .map(|s| s.to_string())
+                        .unwrap_or("unknown".to_string())
                 );
                 (cmd, instr)
             }
@@ -455,13 +475,16 @@ impl RollbackManager {
                      Run: sudo systemctl enable --now {}\n\
                      State before: {}",
                     service,
-                    prior_state.map(|s| s.to_string()).unwrap_or("unknown".to_string())
+                    prior_state
+                        .map(|s| s.to_string())
+                        .unwrap_or("unknown".to_string())
                 );
                 (cmd, instr)
             }
             "daemon_reload" => {
                 let cmd = "systemctl daemon-reload".to_string();
-                let instr = "Daemon reload completed. This operation has no direct rollback.".to_string();
+                let instr =
+                    "Daemon reload completed. This operation has no direct rollback.".to_string();
                 (cmd, instr)
             }
             _ => {
@@ -530,9 +553,15 @@ mod tests {
     #[test]
     fn test_diff_summary_generation() {
         let ops = vec![
-            FileEditOp::InsertLine { line_number: 0, content: "new line".to_string() },
+            FileEditOp::InsertLine {
+                line_number: 0,
+                content: "new line".to_string(),
+            },
             FileEditOp::DeleteLine { line_number: 5 },
-            FileEditOp::ReplaceLine { line_number: 10, content: "replaced".to_string() },
+            FileEditOp::ReplaceLine {
+                line_number: 10,
+                content: "replaced".to_string(),
+            },
         ];
 
         let summary = RollbackManager::generate_diff_summary(&ops);
@@ -593,9 +622,15 @@ mod tests {
         let systemd_info = manager.systemd_rollback_info(
             "enable_now",
             "nginx.service",
-            Some(&ServiceState { is_active: false, is_enabled: false }),
+            Some(&ServiceState {
+                is_active: false,
+                is_enabled: false,
+            }),
         );
-        assert!(systemd_info.rollback_command.unwrap().contains("disable --now"));
+        assert!(systemd_info
+            .rollback_command
+            .unwrap()
+            .contains("disable --now"));
     }
 
     #[test]
@@ -604,16 +639,21 @@ mod tests {
         let rollback_dir = temp_dir.path().join("rollback");
         let manager = RollbackManager::with_base_dir(rollback_dir.clone());
 
-        manager.log_systemd_operation(
-            "req123",
-            &["E1".to_string()],
-            MutationType::SystemdRestart,
-            "nginx.service",
-            "restart",
-            Some(ServiceState { is_active: true, is_enabled: true }),
-            true,
-            None,
-        ).unwrap();
+        manager
+            .log_systemd_operation(
+                "req123",
+                &["E1".to_string()],
+                MutationType::SystemdRestart,
+                "nginx.service",
+                "restart",
+                Some(ServiceState {
+                    is_active: true,
+                    is_enabled: true,
+                }),
+                true,
+                None,
+            )
+            .unwrap();
 
         let logs = manager.recent_logs(10).unwrap();
         assert_eq!(logs.len(), 1);
@@ -623,6 +663,9 @@ mod tests {
     #[test]
     fn test_truncate_str() {
         assert_eq!(truncate_str("short", 10), "short");
-        assert_eq!(truncate_str("this is a very long string", 10), "this is a ...");
+        assert_eq!(
+            truncate_str("this is a very long string", 10),
+            "this is a ..."
+        );
     }
 }

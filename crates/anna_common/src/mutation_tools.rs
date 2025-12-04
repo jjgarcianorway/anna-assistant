@@ -65,7 +65,10 @@ pub enum FileEditOp {
     /// Append line at end
     AppendLine { content: String },
     /// Replace text matching pattern
-    ReplaceText { pattern: String, replacement: String },
+    ReplaceText {
+        pattern: String,
+        replacement: String,
+    },
 }
 
 /// Mutation request
@@ -189,22 +192,42 @@ impl std::fmt::Display for MutationError {
         match self {
             MutationError::PathNotAllowed(p) => write!(f, "Path not in allowlist: {}", p.display()),
             MutationError::FileTooLarge { path, size, max } => {
-                write!(f, "File too large: {} ({} bytes, max {})", path.display(), size, max)
+                write!(
+                    f,
+                    "File too large: {} ({} bytes, max {})",
+                    path.display(),
+                    size,
+                    max
+                )
             }
             MutationError::MissingConfirmation => write!(f, "Missing confirmation phrase"),
             MutationError::WrongConfirmation { expected, got } => {
-                write!(f, "Wrong confirmation: expected '{}', got '{}'", expected, got)
+                write!(
+                    f,
+                    "Wrong confirmation: expected '{}', got '{}'",
+                    expected, got
+                )
             }
             MutationError::RiskNotAllowed(risk) => write!(f, "Risk level '{}' not allowed", risk),
-            MutationError::ToolNotAllowed(name) => write!(f, "Tool '{}' not in mutation allowlist", name),
+            MutationError::ToolNotAllowed(name) => {
+                write!(f, "Tool '{}' not in mutation allowlist", name)
+            }
             MutationError::FileNotFound(p) => write!(f, "File not found: {}", p.display()),
             MutationError::PermissionDenied(p) => write!(f, "Permission denied: {}", p.display()),
             MutationError::BinaryFile(p) => write!(f, "Binary file not supported: {}", p.display()),
             MutationError::JuniorReliabilityTooLow { score, required } => {
-                write!(f, "Junior reliability {}% too low (requires {}%)", score, required)
+                write!(
+                    f,
+                    "Junior reliability {}% too low (requires {}%)",
+                    score, required
+                )
             }
-            MutationError::PackageAlreadyInstalled(pkg) => write!(f, "Package '{}' is already installed", pkg),
-            MutationError::PackageNotInstalled(pkg) => write!(f, "Package '{}' is not installed", pkg),
+            MutationError::PackageAlreadyInstalled(pkg) => {
+                write!(f, "Package '{}' is already installed", pkg)
+            }
+            MutationError::PackageNotInstalled(pkg) => {
+                write!(f, "Package '{}' is not installed", pkg)
+            }
             MutationError::PackageNotRemovable { package, reason } => {
                 write!(f, "Package '{}' cannot be removed: {}", package, reason)
             }
@@ -214,9 +237,20 @@ impl std::fmt::Display for MutationError {
             MutationError::PackageRemoveFailed { package, reason } => {
                 write!(f, "Failed to remove '{}': {}", package, reason)
             }
-            MutationError::PolicyBlocked { path, reason, evidence_id, policy_rule } => {
-                write!(f, "Blocked by policy [{}]: {} (rule: {}, target: {})",
-                    evidence_id, reason, policy_rule, path.display())
+            MutationError::PolicyBlocked {
+                path,
+                reason,
+                evidence_id,
+                policy_rule,
+            } => {
+                write!(
+                    f,
+                    "Blocked by policy [{}]: {} (rule: {}, target: {})",
+                    evidence_id,
+                    reason,
+                    policy_rule,
+                    path.display()
+                )
             }
             MutationError::Other(msg) => write!(f, "{}", msg),
         }
@@ -235,95 +269,109 @@ impl MutationToolCatalog {
         let mut tools = HashMap::new();
 
         // File edit tool
-        tools.insert("edit_file_lines", MutationToolDef {
-            name: "edit_file_lines",
-            description: "Edit lines in a text config file (insert, replace, delete)",
-            risk: MutationRisk::Medium,
-            parameters: &[
-                ("path", "Absolute path to file", true),
-                ("operations", "Array of edit operations", true),
-            ],
-            rollback_supported: true,
-            human_action: "edit config file",
-        });
+        tools.insert(
+            "edit_file_lines",
+            MutationToolDef {
+                name: "edit_file_lines",
+                description: "Edit lines in a text config file (insert, replace, delete)",
+                risk: MutationRisk::Medium,
+                parameters: &[
+                    ("path", "Absolute path to file", true),
+                    ("operations", "Array of edit operations", true),
+                ],
+                rollback_supported: true,
+                human_action: "edit config file",
+            },
+        );
 
         // Systemd operations
-        tools.insert("systemd_restart", MutationToolDef {
-            name: "systemd_restart",
-            description: "Restart a systemd service",
-            risk: MutationRisk::Medium,
-            parameters: &[
-                ("service", "Service unit name (e.g., nginx.service)", true),
-            ],
-            rollback_supported: true,
-            human_action: "restart service",
-        });
+        tools.insert(
+            "systemd_restart",
+            MutationToolDef {
+                name: "systemd_restart",
+                description: "Restart a systemd service",
+                risk: MutationRisk::Medium,
+                parameters: &[("service", "Service unit name (e.g., nginx.service)", true)],
+                rollback_supported: true,
+                human_action: "restart service",
+            },
+        );
 
-        tools.insert("systemd_reload", MutationToolDef {
-            name: "systemd_reload",
-            description: "Reload a systemd service configuration",
-            risk: MutationRisk::Medium,
-            parameters: &[
-                ("service", "Service unit name (e.g., nginx.service)", true),
-            ],
-            rollback_supported: true,
-            human_action: "reload service",
-        });
+        tools.insert(
+            "systemd_reload",
+            MutationToolDef {
+                name: "systemd_reload",
+                description: "Reload a systemd service configuration",
+                risk: MutationRisk::Medium,
+                parameters: &[("service", "Service unit name (e.g., nginx.service)", true)],
+                rollback_supported: true,
+                human_action: "reload service",
+            },
+        );
 
-        tools.insert("systemd_enable_now", MutationToolDef {
-            name: "systemd_enable_now",
-            description: "Enable and start a systemd service",
-            risk: MutationRisk::Medium,
-            parameters: &[
-                ("service", "Service unit name (e.g., nginx.service)", true),
-            ],
-            rollback_supported: true,
-            human_action: "enable and start service",
-        });
+        tools.insert(
+            "systemd_enable_now",
+            MutationToolDef {
+                name: "systemd_enable_now",
+                description: "Enable and start a systemd service",
+                risk: MutationRisk::Medium,
+                parameters: &[("service", "Service unit name (e.g., nginx.service)", true)],
+                rollback_supported: true,
+                human_action: "enable and start service",
+            },
+        );
 
-        tools.insert("systemd_disable_now", MutationToolDef {
-            name: "systemd_disable_now",
-            description: "Disable and stop a systemd service",
-            risk: MutationRisk::Medium,
-            parameters: &[
-                ("service", "Service unit name (e.g., nginx.service)", true),
-            ],
-            rollback_supported: true,
-            human_action: "disable and stop service",
-        });
+        tools.insert(
+            "systemd_disable_now",
+            MutationToolDef {
+                name: "systemd_disable_now",
+                description: "Disable and stop a systemd service",
+                risk: MutationRisk::Medium,
+                parameters: &[("service", "Service unit name (e.g., nginx.service)", true)],
+                rollback_supported: true,
+                human_action: "disable and stop service",
+            },
+        );
 
-        tools.insert("systemd_daemon_reload", MutationToolDef {
-            name: "systemd_daemon_reload",
-            description: "Reload systemd manager configuration",
-            risk: MutationRisk::Medium,
-            parameters: &[],
-            rollback_supported: false,
-            human_action: "reload systemd daemon",
-        });
+        tools.insert(
+            "systemd_daemon_reload",
+            MutationToolDef {
+                name: "systemd_daemon_reload",
+                description: "Reload systemd manager configuration",
+                risk: MutationRisk::Medium,
+                parameters: &[],
+                rollback_supported: false,
+                human_action: "reload systemd daemon",
+            },
+        );
 
         // v0.0.9: Package management tools
-        tools.insert("package_install", MutationToolDef {
-            name: "package_install",
-            description: "Install a package via pacman (tracks as anna-installed)",
-            risk: MutationRisk::Medium,
-            parameters: &[
-                ("package", "Package name to install", true),
-                ("reason", "Why Anna is installing this package", true),
-            ],
-            rollback_supported: true,
-            human_action: "install package",
-        });
+        tools.insert(
+            "package_install",
+            MutationToolDef {
+                name: "package_install",
+                description: "Install a package via pacman (tracks as anna-installed)",
+                risk: MutationRisk::Medium,
+                parameters: &[
+                    ("package", "Package name to install", true),
+                    ("reason", "Why Anna is installing this package", true),
+                ],
+                rollback_supported: true,
+                human_action: "install package",
+            },
+        );
 
-        tools.insert("package_remove", MutationToolDef {
-            name: "package_remove",
-            description: "Remove a package via pacman (only anna-installed packages)",
-            risk: MutationRisk::Medium,
-            parameters: &[
-                ("package", "Package name to remove", true),
-            ],
-            rollback_supported: true,
-            human_action: "remove package",
-        });
+        tools.insert(
+            "package_remove",
+            MutationToolDef {
+                name: "package_remove",
+                description: "Remove a package via pacman (only anna-installed packages)",
+                risk: MutationRisk::Medium,
+                parameters: &[("package", "Package name to remove", true)],
+                rollback_supported: true,
+                human_action: "remove package",
+            },
+        );
 
         Self { tools }
     }
@@ -507,7 +555,8 @@ pub fn validate_mutation_request<'a>(
     catalog: &'a MutationToolCatalog,
 ) -> Result<&'a MutationToolDef, MutationError> {
     // Check tool is allowed
-    let tool = catalog.get(&request.tool_name)
+    let tool = catalog
+        .get(&request.tool_name)
         .ok_or_else(|| MutationError::ToolNotAllowed(request.tool_name.clone()))?;
 
     // Check risk level (only medium allowed in v0.0.8)
@@ -516,7 +565,10 @@ pub fn validate_mutation_request<'a>(
     }
 
     // Check confirmation
-    validate_confirmation(request.confirmation_token.as_deref(), MEDIUM_RISK_CONFIRMATION)?;
+    validate_confirmation(
+        request.confirmation_token.as_deref(),
+        MEDIUM_RISK_CONFIRMATION,
+    )?;
 
     // For file edits, validate the path
     if request.tool_name == "edit_file_lines" {
@@ -550,7 +602,10 @@ pub fn get_service_state(service: &str) -> Option<ServiceState> {
         .ok()?;
     let is_enabled = String::from_utf8_lossy(&enabled_output.stdout).trim() == "enabled";
 
-    Some(ServiceState { is_active, is_enabled })
+    Some(ServiceState {
+        is_active,
+        is_enabled,
+    })
 }
 
 /// Service state
@@ -563,7 +618,11 @@ pub struct ServiceState {
 impl std::fmt::Display for ServiceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let active = if self.is_active { "active" } else { "inactive" };
-        let enabled = if self.is_enabled { "enabled" } else { "disabled" };
+        let enabled = if self.is_enabled {
+            "enabled"
+        } else {
+            "disabled"
+        };
         write!(f, "{}/{}", active, enabled)
     }
 }
@@ -631,7 +690,9 @@ mod tests {
     fn test_path_allowed_etc() {
         assert!(is_path_allowed(Path::new("/etc/nginx/nginx.conf")));
         assert!(is_path_allowed(Path::new("/etc/hosts")));
-        assert!(is_path_allowed(Path::new("/etc/systemd/system/foo.service")));
+        assert!(is_path_allowed(Path::new(
+            "/etc/systemd/system/foo.service"
+        )));
     }
 
     #[test]
@@ -651,8 +712,15 @@ mod tests {
 
     #[test]
     fn test_confirmation_valid() {
-        assert!(validate_confirmation(Some("I CONFIRM (medium risk)"), MEDIUM_RISK_CONFIRMATION).is_ok());
-        assert!(validate_confirmation(Some("  I CONFIRM (medium risk)  "), MEDIUM_RISK_CONFIRMATION).is_ok());
+        assert!(
+            validate_confirmation(Some("I CONFIRM (medium risk)"), MEDIUM_RISK_CONFIRMATION)
+                .is_ok()
+        );
+        assert!(validate_confirmation(
+            Some("  I CONFIRM (medium risk)  "),
+            MEDIUM_RISK_CONFIRMATION
+        )
+        .is_ok());
     }
 
     #[test]

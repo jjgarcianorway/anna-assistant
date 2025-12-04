@@ -13,12 +13,12 @@
 //!   - Only removes anna-installed helpers (asks user)
 //!   - Never leaves broken permissions
 
-use anna_common::install_state::{InstallState, discover_install_state};
-use anna_common::helpers::{get_helper_status_list, InstalledBy, HELPERS_STATE_FILE, HelperState};
+use anna_common::helpers::{get_helper_status_list, HelperState, InstalledBy, HELPERS_STATE_FILE};
+use anna_common::install_state::{discover_install_state, InstallState};
 use anyhow::Result;
 use owo_colors::OwoColorize;
-use std::path::{Path, PathBuf};
 use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -118,7 +118,10 @@ pub async fn run(options: UninstallOptions) -> Result<()> {
 
     // Confirm unless --force
     if !options.force {
-        println!("{}", "This will completely remove Anna from your system.".red());
+        println!(
+            "{}",
+            "This will completely remove Anna from your system.".red()
+        );
         print!("Type {} to confirm: ", "I CONFIRM (uninstall)".red().bold());
         io::stdout().flush()?;
 
@@ -152,9 +155,7 @@ pub async fn run(options: UninstallOptions) -> Result<()> {
     // 1. Stop and disable service
     print!("  Stopping annad service... ");
     io::stdout().flush()?;
-    let _ = Command::new("systemctl")
-        .args(["stop", "annad"])
-        .output();
+    let _ = Command::new("systemctl").args(["stop", "annad"]).output();
     println!("{}", "done".green());
 
     print!("  Disabling annad service... ");
@@ -167,7 +168,8 @@ pub async fn run(options: UninstallOptions) -> Result<()> {
     // 2. Remove systemd unit file
     print!("  Removing systemd unit... ");
     io::stdout().flush()?;
-    let unit_path = state.annad_unit
+    let unit_path = state
+        .annad_unit
         .as_ref()
         .map(|u| u.path.clone())
         .unwrap_or_else(|| PathBuf::from("/etc/systemd/system/annad.service"));
@@ -181,9 +183,7 @@ pub async fn run(options: UninstallOptions) -> Result<()> {
     }
 
     // Reload systemd
-    let _ = Command::new("systemctl")
-        .args(["daemon-reload"])
-        .output();
+    let _ = Command::new("systemctl").args(["daemon-reload"]).output();
 
     // 3. Remove binaries
     print!("  Removing binaries... ");
@@ -282,7 +282,12 @@ pub async fn run(options: UninstallOptions) -> Result<()> {
         }
 
         if failed > 0 {
-            println!("{} ({} removed, {} failed)", "partial".yellow(), removed, failed);
+            println!(
+                "{} ({} removed, {} failed)",
+                "partial".yellow(),
+                removed,
+                failed
+            );
         } else {
             println!("{} ({} removed)", "done".green(), removed);
         }

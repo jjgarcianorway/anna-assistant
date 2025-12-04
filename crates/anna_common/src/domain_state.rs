@@ -37,13 +37,13 @@ pub const RESPONSES_DIR: &str = "/var/lib/anna/internal/responses";
 #[serde(rename_all = "snake_case")]
 pub enum Domain {
     // Hardware
-    HwStatic,      // CPU model, RAM size, motherboard, GPU model (rarely changes)
-    HwDynamic,     // Temps, throttling, link state (changes frequently)
+    HwStatic,  // CPU model, RAM size, motherboard, GPU model (rarely changes)
+    HwDynamic, // Temps, throttling, link state (changes frequently)
 
     // Software
-    SwPackages,    // Installed packages
-    SwCommands,    // Commands on PATH
-    SwServices,    // Systemd services
+    SwPackages,       // Installed packages
+    SwCommands,       // Commands on PATH
+    SwServices,       // Systemd services
     SwConfigCoverage, // Config file coverage
 
     // Network
@@ -151,7 +151,7 @@ impl Domain {
             Domain::PeripheralsBluetooth => 120,
 
             // Storage - moderate frequency
-            Domain::StorageDevices => 300, // 5 minutes
+            Domain::StorageDevices => 300,    // 5 minutes
             Domain::StorageFilesystems => 60, // 1 minute (for usage)
 
             // Docs - infrequent
@@ -260,7 +260,8 @@ impl DomainRefreshState {
 
     /// Get file path for this domain state
     pub fn file_path(&self) -> PathBuf {
-        PathBuf::from(DOMAIN_STATE_DIR).join(format!("{}.json", self.domain.as_str().replace('.', "_")))
+        PathBuf::from(DOMAIN_STATE_DIR)
+            .join(format!("{}.json", self.domain.as_str().replace('.', "_")))
     }
 
     /// Load domain state from disk
@@ -333,9 +334,8 @@ impl DomainRefreshState {
 
         // Schedule next refresh
         let interval_secs = self.domain.default_refresh_interval_secs();
-        self.next_suggested_refresh_at = Some(
-            Utc::now() + chrono::Duration::seconds(interval_secs as i64)
-        );
+        self.next_suggested_refresh_at =
+            Some(Utc::now() + chrono::Duration::seconds(interval_secs as i64));
     }
 
     /// Record a skipped refresh (no changes)
@@ -344,9 +344,8 @@ impl DomainRefreshState {
 
         // Still schedule next check
         let interval_secs = self.domain.default_refresh_interval_secs();
-        self.next_suggested_refresh_at = Some(
-            Utc::now() + chrono::Duration::seconds(interval_secs as i64)
-        );
+        self.next_suggested_refresh_at =
+            Some(Utc::now() + chrono::Duration::seconds(interval_secs as i64));
     }
 
     /// Record a failed refresh
@@ -355,9 +354,7 @@ impl DomainRefreshState {
         self.error_message = Some(error.to_string());
 
         // Retry sooner on failure
-        self.next_suggested_refresh_at = Some(
-            Utc::now() + chrono::Duration::seconds(60)
-        );
+        self.next_suggested_refresh_at = Some(Utc::now() + chrono::Duration::seconds(60));
     }
 
     /// Format age for display
@@ -400,7 +397,12 @@ pub struct RefreshRequest {
 
 impl RefreshRequest {
     /// Create a new request
-    pub fn new(command: &str, target: Option<&str>, required_domains: Vec<Domain>, deadline_ms: u64) -> Self {
+    pub fn new(
+        command: &str,
+        target: Option<&str>,
+        required_domains: Vec<Domain>,
+        deadline_ms: u64,
+    ) -> Self {
         // Get UID from /proc/self/status or fallback to PID
         let requested_by = std::fs::read_to_string("/proc/self/status")
             .ok()
@@ -488,7 +490,10 @@ impl RefreshResponse {
         std::fs::create_dir_all(RESPONSES_DIR)?;
         let content = serde_json::to_string(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        atomic_write(&Self::file_path(&self.request_id).to_string_lossy(), &content)
+        atomic_write(
+            &Self::file_path(&self.request_id).to_string_lossy(),
+            &content,
+        )
     }
 
     /// Delete response file

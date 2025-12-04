@@ -2,8 +2,8 @@
 //!
 //! Discovers SD/MMC card readers from /sys/block, lsblk, and lspci.
 
-use std::process::Command;
 use super::types::{SdCardReader, SdCardSummary};
+use std::process::Command;
 
 /// Get SD card reader summary
 pub fn get_sdcard_summary() -> SdCardSummary {
@@ -49,7 +49,8 @@ pub fn get_sdcard_summary() -> SdCardSummary {
             // Get driver
             let driver_path = device_path.join("device/driver");
             if let Ok(link) = std::fs::read_link(&driver_path) {
-                reader.driver = link.file_name()
+                reader.driver = link
+                    .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default();
             }
@@ -93,12 +94,19 @@ fn check_sd_controllers(summary: &mut SdCardSummary) {
             let stdout = String::from_utf8_lossy(&out.stdout);
 
             for line in stdout.lines() {
-                if line.contains("SD Host controller") || line.contains("Card reader") ||
-                   line.contains("RTS5") || line.contains("SDHCI") {
+                if line.contains("SD Host controller")
+                    || line.contains("Card reader")
+                    || line.contains("RTS5")
+                    || line.contains("SDHCI")
+                {
                     if summary.readers.is_empty() {
                         summary.readers.push(SdCardReader {
                             name: "SD Card Reader".to_string(),
-                            driver: if line.contains("rtsx") { "rtsx_pci".to_string() } else { "sdhci".to_string() },
+                            driver: if line.contains("rtsx") {
+                                "rtsx_pci".to_string()
+                            } else {
+                                "sdhci".to_string()
+                            },
                             bus: "PCIe".to_string(),
                             device_path: None,
                             media_present: false,

@@ -36,7 +36,11 @@ impl CpuHotspot {
 
     /// Format compact for status: "name (X percent)"
     pub fn format_compact(&self) -> String {
-        format!("{} ({} percent)", self.name, self.avg_percent.round() as i64)
+        format!(
+            "{} ({} percent)",
+            self.name,
+            self.avg_percent.round() as i64
+        )
     }
 }
 
@@ -217,7 +221,7 @@ pub struct SoftwareHotspots {
 pub struct HardwareHotspots {
     pub warm_devices: Vec<TempHotspot>,
     pub heavy_io: Vec<IoHotspot>,
-    pub network_io: Vec<NetworkHotspot>,  // v7.28.0
+    pub network_io: Vec<NetworkHotspot>, // v7.28.0
     pub high_load: Vec<LoadHotspot>,
     pub has_data: bool,
 }
@@ -441,18 +445,34 @@ pub fn format_status_hotspots_section(
 
     // Top CPU (compact)
     if sw_hotspots.top_cpu.len() >= 2 {
-        let cpu_str: Vec<String> = sw_hotspots.top_cpu.iter().take(2).map(|h| h.format_compact()).collect();
+        let cpu_str: Vec<String> = sw_hotspots
+            .top_cpu
+            .iter()
+            .take(2)
+            .map(|h| h.format_compact())
+            .collect();
         lines.push(format!("  Top CPU:      {}", cpu_str.join(", ")));
     } else if !sw_hotspots.top_cpu.is_empty() {
-        lines.push(format!("  Top CPU:      {}", sw_hotspots.top_cpu[0].format_compact()));
+        lines.push(format!(
+            "  Top CPU:      {}",
+            sw_hotspots.top_cpu[0].format_compact()
+        ));
     }
 
     // Top memory (compact)
     if sw_hotspots.top_memory.len() >= 2 {
-        let mem_str: Vec<String> = sw_hotspots.top_memory.iter().take(2).map(|h| h.format_compact()).collect();
+        let mem_str: Vec<String> = sw_hotspots
+            .top_memory
+            .iter()
+            .take(2)
+            .map(|h| h.format_compact())
+            .collect();
         lines.push(format!("  Top memory:   {}", mem_str.join(", ")));
     } else if !sw_hotspots.top_memory.is_empty() {
-        lines.push(format!("  Top memory:   {}", sw_hotspots.top_memory[0].format_compact()));
+        lines.push(format!(
+            "  Top memory:   {}",
+            sw_hotspots.top_memory[0].format_compact()
+        ));
     }
 
     // Warm devices (compact)
@@ -469,13 +489,23 @@ pub fn format_status_hotspots_section(
 
     // v7.28.0: Disk IO (compact)
     if !hw_hotspots.heavy_io.is_empty() {
-        let io_str: Vec<String> = hw_hotspots.heavy_io.iter().take(2).map(|h| h.format_compact()).collect();
+        let io_str: Vec<String> = hw_hotspots
+            .heavy_io
+            .iter()
+            .take(2)
+            .map(|h| h.format_compact())
+            .collect();
         lines.push(format!("  Disk IO:      {}", io_str.join(", ")));
     }
 
     // v7.28.0: Network IO (compact)
     if !hw_hotspots.network_io.is_empty() {
-        let net_str: Vec<String> = hw_hotspots.network_io.iter().take(2).map(|h| h.format_compact()).collect();
+        let net_str: Vec<String> = hw_hotspots
+            .network_io
+            .iter()
+            .take(2)
+            .map(|h| h.format_compact())
+            .collect();
         lines.push(format!("  Network IO:   {}", net_str.join(", ")));
     }
 

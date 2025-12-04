@@ -14,15 +14,15 @@ use std::process::Command;
 use std::time::Instant;
 
 use chrono::Utc;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 use crate::action_engine::{
-    ActionPlan, ActionResult, ActionStep, ActionType, MutationRiskLevel, StepStatus, StepResult,
-    ActionDiffPreview, ActionDiffLine, DiffLineType, RollbackHint, RollbackRecord, RollbackStepRecord,
-    BackupRecord, VerificationRecord, PlanStatus,
-    EditFileAction, EditIntent, WriteFileAction, DeleteFileAction,
-    SystemdAction, SystemdOperation, PacmanAction, PacmanOperation, PackageReason,
-    CONFIRM_LOW, CONFIRM_MEDIUM, CONFIRM_HIGH, CONFIRM_DESTRUCTIVE,
+    ActionDiffLine, ActionDiffPreview, ActionPlan, ActionResult, ActionStep, ActionType,
+    BackupRecord, DeleteFileAction, DiffLineType, EditFileAction, EditIntent, MutationRiskLevel,
+    PackageReason, PacmanAction, PacmanOperation, PlanStatus, RollbackHint, RollbackRecord,
+    RollbackStepRecord, StepResult, StepStatus, SystemdAction, SystemdOperation,
+    VerificationRecord, WriteFileAction, CONFIRM_DESTRUCTIVE, CONFIRM_HIGH, CONFIRM_LOW,
+    CONFIRM_MEDIUM,
 };
 use crate::action_risk::score_action_risk;
 
@@ -42,7 +42,10 @@ pub const MAX_DIFF_LINES: usize = 50;
 // =============================================================================
 
 /// Generate a diff preview for a file edit action
-pub fn generate_action_diff_preview(action: &EditFileAction, case_id: &str) -> io::Result<ActionDiffPreview> {
+pub fn generate_action_diff_preview(
+    action: &EditFileAction,
+    case_id: &str,
+) -> io::Result<ActionDiffPreview> {
     let path = &action.path;
     let file_exists = path.exists();
 
@@ -64,8 +67,14 @@ pub fn generate_action_diff_preview(action: &EditFileAction, case_id: &str) -> i
     // Generate unified diff
     let diff_lines = generate_unified_diff(&current_content, &new_content, path);
 
-    let additions = diff_lines.iter().filter(|l| l.line_type == DiffLineType::Addition).count();
-    let deletions = diff_lines.iter().filter(|l| l.line_type == DiffLineType::Deletion).count();
+    let additions = diff_lines
+        .iter()
+        .filter(|l| l.line_type == DiffLineType::Addition)
+        .count();
+    let deletions = diff_lines
+        .iter()
+        .filter(|l| l.line_type == DiffLineType::Deletion)
+        .count();
     let truncated = diff_lines.len() > MAX_DIFF_LINES;
 
     // Determine backup path
@@ -93,14 +102,20 @@ fn apply_edit_intent(content: &str, intent: &EditIntent) -> io::Result<String> {
                 lines.push(line.clone());
             }
         }
-        EditIntent::Replace { content: new_content } => {
+        EditIntent::Replace {
+            content: new_content,
+        } => {
             return Ok(new_content.clone());
         }
         EditIntent::Patch => {
             // Patch is applied separately
             return Ok(content.to_string());
         }
-        EditIntent::SetKeyValue { key, value, separator } => {
+        EditIntent::SetKeyValue {
+            key,
+            value,
+            separator,
+        } => {
             let pattern = format!("{}{}*", key, separator);
             let new_line = format!("{}{}{}", key, separator, value);
             let mut found = false;
@@ -117,7 +132,10 @@ fn apply_edit_intent(content: &str, intent: &EditIntent) -> io::Result<String> {
                 lines.push(new_line);
             }
         }
-        EditIntent::InsertLine { line_number, content: line_content } => {
+        EditIntent::InsertLine {
+            line_number,
+            content: line_content,
+        } => {
             let idx = (*line_number).min(lines.len());
             lines.insert(idx, line_content.clone());
         }
@@ -221,7 +239,8 @@ pub fn compute_hash(content: &str) -> String {
 /// Get backup path for a file
 pub fn get_backup_path(original_path: &Path, case_id: &str) -> PathBuf {
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S").to_string();
-    let file_name = original_path.file_name()
+    let file_name = original_path
+        .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
@@ -337,19 +356,19 @@ fn execute_edit_file(
     // Write atomically (write to temp, fsync, rename)
     let temp_path = path.with_extension("anna_tmp");
     {
-        let mut file = fs::File::create(&temp_path)
-            .map_err(|e| format!("Create temp file failed: {}", e))?;
+        let mut file =
+            fs::File::create(&temp_path).map_err(|e| format!("Create temp file failed: {}", e))?;
         file.write_all(new_content.as_bytes())
             .map_err(|e| format!("Write failed: {}", e))?;
-        file.sync_all()
-            .map_err(|e| format!("Sync failed: {}", e))?;
+        file.sync_all().map_err(|e| format!("Sync failed: {}", e))?;
     }
-    fs::rename(&temp_path, path)
-        .map_err(|e| format!("Rename failed: {}", e))?;
+    fs::rename(&temp_path, path).map_err(|e| format!("Rename failed: {}", e))?;
 
     // Set permissions if specified
     if let Some(mode) = &edit.mode {
-        if let Ok(mode_int) = u32::from_str_radix(mode.trim_start_matches("0o").trim_start_matches("0"), 8) {
+        if let Ok(mode_int) =
+            u32::from_str_radix(mode.trim_start_matches("0o").trim_start_matches("0"), 8)
+        {
             fs::set_permissions(path, fs::Permissions::from_mode(mode_int))
                 .map_err(|e| format!("chmod failed: {}", e))?;
         }
@@ -358,16 +377,27 @@ fn execute_edit_file(
     let rollback_hint = RollbackHint {
         instructions: format!(
             "To restore: cp {} {}",
-            backup.as_ref().map(|b| b.backup_path.display().to_string()).unwrap_or_default(),
+            backup
+                .as_ref()
+                .map(|b| b.backup_path.display().to_string())
+                .unwrap_or_default(),
             path.display()
         ),
-        command: backup.as_ref().map(|b| format!("cp '{}' '{}'", b.backup_path.display(), path.display())),
+        command: backup
+            .as_ref()
+            .map(|b| format!("cp '{}' '{}'", b.backup_path.display(), path.display())),
         backup_path: backup.as_ref().map(|b| b.backup_path.clone()),
         prior_state: Some(compute_hash(&current_content)),
     };
 
     let summary = format!("Edited {}", path.display());
-    let evidence_id = format!("E{}", crate::generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "E{}",
+        crate::generate_request_id()
+            .chars()
+            .take(8)
+            .collect::<String>()
+    );
 
     Ok((summary, rollback_hint, vec![evidence_id]))
 }
@@ -381,25 +411,24 @@ fn execute_write_file(
 
     // Create parent directories
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Create dirs failed: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Create dirs failed: {}", e))?;
     }
 
     // Write atomically
     let temp_path = path.with_extension("anna_tmp");
     {
-        let mut file = fs::File::create(&temp_path)
-            .map_err(|e| format!("Create failed: {}", e))?;
+        let mut file = fs::File::create(&temp_path).map_err(|e| format!("Create failed: {}", e))?;
         file.write_all(write.content.as_bytes())
             .map_err(|e| format!("Write failed: {}", e))?;
-        file.sync_all()
-            .map_err(|e| format!("Sync failed: {}", e))?;
+        file.sync_all().map_err(|e| format!("Sync failed: {}", e))?;
     }
-    fs::rename(&temp_path, path)
-        .map_err(|e| format!("Rename failed: {}", e))?;
+    fs::rename(&temp_path, path).map_err(|e| format!("Rename failed: {}", e))?;
 
     // Set permissions
-    if let Ok(mode_int) = u32::from_str_radix(write.mode.trim_start_matches("0o").trim_start_matches("0"), 8) {
+    if let Ok(mode_int) = u32::from_str_radix(
+        write.mode.trim_start_matches("0o").trim_start_matches("0"),
+        8,
+    ) {
         fs::set_permissions(path, fs::Permissions::from_mode(mode_int))
             .map_err(|e| format!("chmod failed: {}", e))?;
     }
@@ -412,7 +441,13 @@ fn execute_write_file(
     };
 
     let summary = format!("Created {}", path.display());
-    let evidence_id = format!("E{}", crate::generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "E{}",
+        crate::generate_request_id()
+            .chars()
+            .take(8)
+            .collect::<String>()
+    );
 
     Ok((summary, rollback_hint, vec![evidence_id]))
 }
@@ -430,8 +465,7 @@ fn execute_delete_file(
 
     // Verify hash if required
     if let Some(required_hash) = &delete.require_hash {
-        let content = fs::read_to_string(path)
-            .map_err(|e| format!("Read failed: {}", e))?;
+        let content = fs::read_to_string(path).map_err(|e| format!("Read failed: {}", e))?;
         let actual_hash = compute_hash(&content);
         if actual_hash != *required_hash {
             return Err(format!(
@@ -443,22 +477,34 @@ fn execute_delete_file(
 
     // Create backup before deletion
     let backup_path = get_backup_path(path, case_id);
-    let backup = backup_file(path, &backup_path)
-        .map_err(|e| format!("Backup failed: {}", e))?;
+    let backup = backup_file(path, &backup_path).map_err(|e| format!("Backup failed: {}", e))?;
 
     // Delete file
-    fs::remove_file(path)
-        .map_err(|e| format!("Delete failed: {}", e))?;
+    fs::remove_file(path).map_err(|e| format!("Delete failed: {}", e))?;
 
     let rollback_hint = RollbackHint {
-        instructions: format!("To restore: cp '{}' '{}'", backup.backup_path.display(), path.display()),
-        command: Some(format!("cp '{}' '{}'", backup.backup_path.display(), path.display())),
+        instructions: format!(
+            "To restore: cp '{}' '{}'",
+            backup.backup_path.display(),
+            path.display()
+        ),
+        command: Some(format!(
+            "cp '{}' '{}'",
+            backup.backup_path.display(),
+            path.display()
+        )),
         backup_path: Some(backup.backup_path.clone()),
         prior_state: Some(backup.hash),
     };
 
     let summary = format!("Deleted {}", path.display());
-    let evidence_id = format!("E{}", crate::generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "E{}",
+        crate::generate_request_id()
+            .chars()
+            .take(8)
+            .collect::<String>()
+    );
 
     Ok((summary, rollback_hint, vec![evidence_id]))
 }
@@ -492,7 +538,13 @@ fn execute_systemd(action: &SystemdAction) -> Result<(String, RollbackHint, Vec<
     };
 
     let summary = format!("{}ed {}", op, unit);
-    let evidence_id = format!("S{}", crate::generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "S{}",
+        crate::generate_request_id()
+            .chars()
+            .take(8)
+            .collect::<String>()
+    );
 
     Ok((summary, rollback_hint, vec![evidence_id]))
 }
@@ -514,8 +566,7 @@ fn execute_pacman(action: &PacmanAction) -> Result<(String, RollbackHint, Vec<St
         cmd.arg(pkg);
     }
 
-    let output = cmd.output()
-        .map_err(|e| format!("pacman failed: {}", e))?;
+    let output = cmd.output().map_err(|e| format!("pacman failed: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -535,7 +586,13 @@ fn execute_pacman(action: &PacmanAction) -> Result<(String, RollbackHint, Vec<St
     };
 
     let summary = format!("{} {}", verb, packages);
-    let evidence_id = format!("P{}", crate::generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "P{}",
+        crate::generate_request_id()
+            .chars()
+            .take(8)
+            .collect::<String>()
+    );
 
     Ok((summary, rollback_hint, vec![evidence_id]))
 }
@@ -607,7 +664,9 @@ pub fn execute_plan(plan: &mut ActionPlan, confirmation: &str) -> Result<ActionR
     let duration_ms = start.elapsed().as_millis() as u64;
 
     // Build rollback record
-    let rollback_steps: Vec<RollbackStepRecord> = plan.steps.iter()
+    let rollback_steps: Vec<RollbackStepRecord> = plan
+        .steps
+        .iter()
         .zip(step_results.iter())
         .map(|(step, result)| RollbackStepRecord {
             step_id: step.step_id.clone(),
@@ -631,7 +690,8 @@ pub fn execute_plan(plan: &mut ActionPlan, confirmation: &str) -> Result<ActionR
         })
         .collect();
 
-    let restore_instructions: Vec<String> = step_results.iter()
+    let restore_instructions: Vec<String> = step_results
+        .iter()
         .filter(|r| r.success)
         .map(|r| r.rollback_hint.instructions.clone())
         .collect();
@@ -678,7 +738,9 @@ mod tests {
     #[test]
     fn test_apply_edit_intent_append() {
         let content = "line1\nline2\n";
-        let intent = EditIntent::Append { lines: vec!["line3".to_string()] };
+        let intent = EditIntent::Append {
+            lines: vec!["line3".to_string()],
+        };
         let result = apply_edit_intent(content, &intent).unwrap();
         assert!(result.contains("line3"));
     }

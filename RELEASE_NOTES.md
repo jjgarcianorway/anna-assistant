@@ -2,6 +2,307 @@
 
 ---
 
+## v0.0.73 - Human Transcript Realism + Auto-Update Rewrite
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Two major deliverables: (1) Human transcript now reads like a real IT department with role-appropriate phrasing, and (2) auto-update has been completely rewritten for reliability with proper locking, atomic installs, and automatic rollback.
+
+### Part 1: Human Transcript Realism
+
+**Role-Based Phrasing (humanizer/phrases.rs):**
+- Service Desk: "I'm triaging the request and deciding who should handle it."
+- Network: "Looking at link state and active connections."
+- Storage: "Checking disk and filesystem status."
+- Performance: "Checking the latest hardware and load snapshot."
+- Audio: "Checking audio server and device status."
+
+**Doctor Selection UX:**
+```
+[network] Network team is taking this case.
+  [network] We'll start by checking interface state and connectivity.
+```
+
+**Evidence Labels with Source Context:**
+- "CPU model and core count (from latest hardware snapshot)"
+- "Disk usage summary (from storage snapshot)"
+- "Running services summary (from service snapshot)"
+
+No evidence IDs or tool names exposed in Human mode.
+
+### Part 2: Auto-Update Rewrite
+
+**State Machine (updater/steps.rs):**
+11-step update flow with persistence after each step:
+1. acquire_lock
+2. check_remote_release
+3. compare_versions
+4. download_assets
+5. verify_assets
+6. install_cli (optional)
+7. install_daemon (optional)
+8. restart_daemon (optional)
+9. healthcheck
+10. release_lock
+11. rollback (on failure)
+
+**Hard Locking (updater/lock.rs):**
+- Filesystem lock file at `/var/lib/anna/internal/update.lock`
+- Contains PID, timestamp, hostname, current step
+- Stale lock detection (>5 minutes) with automatic recovery
+- Dead process detection via /proc check
+
+**Atomic Installs:**
+- Download to staging directory
+- Verify SHA256 checksums
+- Verify ELF executable format
+- Rename into place atomically
+- Backup previous binaries to `/var/lib/anna/internal/backups/`
+
+**Rollback Guarantees:**
+- Automatic rollback if daemon restart fails
+- Automatic rollback if healthcheck fails
+- Checksums verified on restore
+- Daemon restarted after rollback
+
+**Version Mismatch Detection:**
+- `annactl status` shows WARNING if CLI and daemon versions differ
+- Auto-update attempts to resolve mismatches
+
+### Key Files
+
+**Part 1 (Humanizer):**
+- `crates/anna_common/src/humanizer/phrases.rs` - Role-based phrasing (NEW)
+- `crates/anna_common/src/humanizer/transform.rs` - Updated with doctor selection
+- `crates/anna_common/src/humanizer/mod.rs` - Re-exports and tests
+
+**Part 2 (Updater):**
+- `crates/anna_common/src/updater/mod.rs` - Module entry (NEW)
+- `crates/anna_common/src/updater/lock.rs` - Hard locking (NEW)
+- `crates/anna_common/src/updater/state.rs` - State machine (NEW)
+- `crates/anna_common/src/updater/steps.rs` - Execution flow (NEW)
+- `crates/annactl/src/commands/status.rs` - Version mismatch display
+
+### Tests
+
+- 11 updater tests (lock, state, steps)
+- 38 humanizer tests (phrases, transform, workflows)
+- 49 new tests total
+
+---
+
+## v0.0.72 - Dual Transcript Mode
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Both Human and Debug transcript modes are now generated from a SINGLE event stream, ensuring they cannot diverge. Human mode shows clean IT department dialogue without tool names, evidence IDs, or raw commands. Debug mode shows full internals for troubleshooting.
+
+### Key Concepts
+
+**Single Event Stream, Dual Renderers:**
+- All transcript events stored in `TranscriptStreamV72`
+- `render_human_v72()` produces clean output
+- `render_debug_v72()` produces full internal details
+- Both modes are faithful representations of the same events
+
+**Enable Debug Mode:**
+- `ANNA_DEBUG_TRANSCRIPT=1` env var (shorthand for tests)
+- `ANNA_UI_TRANSCRIPT_MODE=debug` env var
+- `/etc/anna/config.toml` with `transcript_mode = "debug"`
+- No new public CLI commands or flags
+
+### Key Features
+
+**1. Unified Event Types**
+```rust
+pub enum EventDataV72 {
+    UserMessage { text: String },
+    StaffMessage { role: RoleV72, tone: ToneV72, content_human: String, content_debug: Option<String> },
+    Evidence { evidence_id: String, tool_name: String, human_label: String, summary_human: String, summary_debug: Option<String>, duration_ms: u64 },
+    ToolCall { tool_name: String, action_human: String, args: Option<String> },
+    Classification { understood_human: String, canonical_lines: Option<Vec<String>>, parse_attempts: Option<u8>, fallback_used: bool },
+    Reliability { score: u8, rationale_short: String, rationale_full: Option<String>, uncited_claims: Option<Vec<String>> },
+    Confirmation { change_description: String, risk_level: RiskLevelV72, confirm_phrase: String, rollback_summary: String, rollback_details: Option<String> },
+    Warning { message_human: String, details_debug: Option<String>, category: WarningCategoryV72 },
+    // ...
+}
+```
+
+**2. Humanized Equivalents**
+- "Translator struggled to classify this; we used house rules." (instead of "deterministic fallback")
+- "Hardware: Pulled inventory from the latest hardware snapshot." (instead of "[E1] hw_snapshot_summary")
+- Parse warnings hidden in human mode, visible in debug
+
+**3. Confirmation Safety Preserved**
+- Confirmation phrase unchanged in both modes
+- Risk level and rollback info always shown
+- Only the description is humanized
+
+**4. Forbidden Pattern Validation**
+```rust
+pub static FORBIDDEN_HUMAN_PATTERNS: &[&str] = &[
+    r"\[E\d+\]",           // Evidence IDs
+    r"hw_snapshot_",       // Tool names
+    r"sw_snapshot_",
+    r"journalctl",         // Raw commands
+    r"systemctl\s",
+    // ...
+];
+```
+
+### Files
+
+- `crates/anna_common/src/transcript_v072/events.rs` - Unified event types
+- `crates/anna_common/src/transcript_v072/render.rs` - Dual renderers
+- `crates/anna_common/src/transcript_v072/validation.rs` - Forbidden pattern validation
+- `crates/anna_common/src/transcript_v072/output.rs` - File output utilities
+- `crates/anna_common/src/transcript_v072/mod.rs` - Module re-exports
+- `scripts/anna_deep_test.sh` - Updated with `run_dual_mode_tests()`
+
+### Tests
+
+- 26 tests in `transcript_v072` module
+- Integration tests: `test_complete_workflow_human_clean`, `test_complete_workflow_debug_has_internals`
+- Validation tests: `validate_human_output()`, `validate_debug_has_internals()`
+- Deep test harness: `run_dual_mode_tests()` with `transcripts-human/` and `transcripts-debug/` directories
+
+---
+
+## v0.0.71 - Real IT Department Humanizer
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Makes the Human transcript read like a competent IT org operating in real time, while remaining a faithful rendering of internal events. Adds role/tone metadata, natural language phrasing, micro-threads for complex cases, shorter human labels, and validation to prevent misclassification.
+
+### Key Concepts
+
+**Role/Tone Metadata:**
+- StaffRole: ServiceDesk, Department, Anna, Translator, Junior, Senior
+- MessageTone: Neutral, Brisk, Skeptical, Helpful, Cautious, Urgent
+- ConfidenceHint: Low, Medium, High (derived from scores)
+- DepartmentTag: Network, Storage, Performance, Audio, Graphics, Boot, Security, InfoDesk
+
+**Humanizer Layer:**
+- Transforms internal events to natural language
+- HumanizedMessage with tag, text, tone, is_side_thread
+- HumanizerContext tracks confidence, evidence_missing, complexity
+
+**Micro-Threads:**
+- ThreadBuilder creates multi-threaded transcripts
+- Side threads for evidence gathering (indented with 2 spaces)
+- Main thread for case open, triage, findings, final answer
+
+**Human Labels (v0.0.71):**
+- Shorter labels without "snapshot" suffix
+- "hardware inventory" instead of "hardware inventory snapshot"
+- "network link and routing signals" instead of "network status snapshot"
+
+### Key Features
+
+**1. Role and Tone System**
+```rust
+pub enum StaffRole { ServiceDesk, Department, Anna, Translator, Junior, Senior }
+pub enum MessageTone { Neutral, Brisk, Skeptical, Helpful, Cautious, Urgent }
+
+impl MessageTone {
+    pub fn from_confidence(confidence: u8) -> Self {
+        if confidence >= 85 { Self::Brisk }
+        else if confidence >= 70 { Self::Neutral }
+        else if confidence >= 50 { Self::Helpful }
+        else { Self::Skeptical }
+    }
+}
+```
+
+**2. Humanized Messages**
+```rust
+pub struct HumanizedMessage {
+    pub tag: String,           // "service desk", "network", etc.
+    pub text: String,          // Natural language text
+    pub tone: MessageTone,
+    pub is_side_thread: bool,  // Indented evidence gathering
+}
+
+// Example: humanize_case_open("what is my cpu", &ctx)
+// → HumanizedMessage { tag: "service desk", text: "Opening case and reviewing request.", ... }
+```
+
+**3. Micro-Thread Rendering**
+```rust
+let mut builder = ThreadBuilder::new();
+builder.case_open(humanize_case_open("memory check", &ctx));
+builder.start_evidence(DepartmentTag::Performance);
+builder.evidence(humanize_evidence_gather(...));  // Side thread (indented)
+builder.end_evidence();
+builder.finding(humanize_finding(...));           // Main thread
+
+// Output:
+// [service desk] Opening case and reviewing request.
+//   [performance] hardware inventory: 32 GiB total, 45% used
+// [performance] Your system has 32 GiB of RAM.
+```
+
+**4. Answer Validation**
+```rust
+pub fn validate_answer_relevance(query: &str, answer: &str) -> AnswerValidation {
+    // Memory query should not get CPU answer
+    if query.contains("memory") && !answer.contains("memory") && !answer.contains("ram") {
+        return AnswerValidation::WrongTopic { expected: "memory", got_hint: "cpu" };
+    }
+    // Disk query should not get CPU answer
+    // Systemd query should have specific answer
+    ...
+}
+```
+
+**5. Human Labels**
+```rust
+pub enum HumanLabel {
+    HardwareInventory,   // "hardware inventory"
+    SoftwareServices,    // "software/services inventory"
+    NetworkSignals,      // "network link and routing signals"
+    StorageStatus,       // "storage status"
+    ...
+}
+```
+
+### Module Structure
+
+```
+anna_common/src/humanizer/
+├── mod.rs         # Re-exports, standard tags, integration tests
+├── roles.rs       # StaffRole, MessageTone, ConfidenceHint, DepartmentTag
+├── labels.rs      # HumanLabel, EvidenceSummary, humanize_evidence
+├── transform.rs   # HumanizedMessage, HumanizerContext, humanize_*, validate_*
+└── threads.rs     # ThreadBuilder, ThreadSegment, ThreadedTranscript
+```
+
+### Tests
+
+- 29 humanizer tests covering workflow, validation, threading
+- Misclassification guardrail tests in case_coordinator
+- Integration tests for complete workflows
+
+### What's Allowed vs. NOT Allowed
+
+**Allowed Realism (reflects real uncertainty):**
+- "I can't confirm link state from snapshots alone; I need live signals."
+- "Let's keep it read-only for now and gather more evidence."
+- "Your answer is okay, but you didn't ground it in the hardware inventory."
+
+**NOT Allowed (fabrication):**
+- Pretending a command ran if it did not
+- Claiming a file was read when snapshots didn't include it
+- Inventing device names or numbers
+
+---
+
 ## v0.0.70 - Dual Transcript Renderer
 
 **Release Date:** 2025-12-04

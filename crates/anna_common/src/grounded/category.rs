@@ -10,8 +10,8 @@
 //! - No hardcoded category lists
 //! - If no source found, return "unknown"
 
-use std::process::Command;
 use std::path::Path;
+use std::process::Command;
 
 /// A category with its source
 #[derive(Debug, Clone)]
@@ -87,7 +87,11 @@ fn map_group_to_category(groups: &str) -> String {
     }
 
     // Return first group as-is if no mapping
-    groups.split_whitespace().next().unwrap_or(groups).to_string()
+    groups
+        .split_whitespace()
+        .next()
+        .unwrap_or(groups)
+        .to_string()
 }
 
 /// Get category from .desktop file
@@ -134,7 +138,11 @@ fn parse_desktop_categories(categories: &str) -> Option<String> {
     for cat in &cats {
         let cat_lower = cat.to_lowercase();
         // Skip overly generic categories
-        if cat_lower == "application" || cat_lower == "utility" || cat_lower == "gtk" || cat_lower == "qt" {
+        if cat_lower == "application"
+            || cat_lower == "utility"
+            || cat_lower == "gtk"
+            || cat_lower == "qt"
+        {
             continue;
         }
         return Some(cat.to_string());
@@ -147,7 +155,7 @@ fn parse_desktop_categories(categories: &str) -> Option<String> {
 /// Get category from man page section
 pub fn category_from_man(name: &str) -> Option<CategoryInfo> {
     let output = Command::new("man")
-        .args(["-w", name])  // -w returns path to man page
+        .args(["-w", name]) // -w returns path to man page
         .output()
         .ok()?;
 

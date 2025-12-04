@@ -121,14 +121,17 @@ impl ToolCatalog {
         });
 
         // recent_installs - packages installed recently
-        tools.insert("recent_installs", ToolDef {
-            name: "recent_installs",
-            description: "Returns packages installed in the last N days from pacman log",
-            parameters: &[("days", "integer", false)],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Medium,
-            human_request: "check what packages were installed recently",
-        });
+        tools.insert(
+            "recent_installs",
+            ToolDef {
+                name: "recent_installs",
+                description: "Returns packages installed in the last N days from pacman log",
+                parameters: &[("days", "integer", false)],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Medium,
+                human_request: "check what packages were installed recently",
+            },
+        );
 
         // journal_warnings - recent log warnings
         tools.insert("journal_warnings", ToolDef {
@@ -144,54 +147,70 @@ impl ToolCatalog {
         });
 
         // boot_time_trend - boot performance over time
-        tools.insert("boot_time_trend", ToolDef {
-            name: "boot_time_trend",
-            description: "Returns boot time trends over the last N days",
-            parameters: &[("days", "integer", false)],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Medium,
-            human_request: "analyze boot time trends",
-        });
+        tools.insert(
+            "boot_time_trend",
+            ToolDef {
+                name: "boot_time_trend",
+                description: "Returns boot time trends over the last N days",
+                parameters: &[("days", "integer", false)],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Medium,
+                human_request: "analyze boot time trends",
+            },
+        );
 
         // top_resource_processes - high resource usage processes
-        tools.insert("top_resource_processes", ToolDef {
-            name: "top_resource_processes",
-            description: "Returns processes with highest CPU/memory usage in the specified time window",
-            parameters: &[("window_minutes", "integer", false)],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Medium,
-            human_request: "identify processes using the most resources",
-        });
+        tools.insert(
+            "top_resource_processes",
+            ToolDef {
+                name: "top_resource_processes",
+                description:
+                    "Returns processes with highest CPU/memory usage in the specified time window",
+                parameters: &[("window_minutes", "integer", false)],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Medium,
+                human_request: "identify processes using the most resources",
+            },
+        );
 
         // package_info - details about a specific package
-        tools.insert("package_info", ToolDef {
-            name: "package_info",
-            description: "Returns detailed information about a specific installed package",
-            parameters: &[("name", "string", true)],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Fast,
-            human_request: "look up information about a specific package",
-        });
+        tools.insert(
+            "package_info",
+            ToolDef {
+                name: "package_info",
+                description: "Returns detailed information about a specific installed package",
+                parameters: &[("name", "string", true)],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Fast,
+                human_request: "look up information about a specific package",
+            },
+        );
 
         // service_status - status of a specific service
-        tools.insert("service_status", ToolDef {
-            name: "service_status",
-            description: "Returns the status of a specific systemd service",
-            parameters: &[("name", "string", true)],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Fast,
-            human_request: "check the status of a specific service",
-        });
+        tools.insert(
+            "service_status",
+            ToolDef {
+                name: "service_status",
+                description: "Returns the status of a specific systemd service",
+                parameters: &[("name", "string", true)],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Fast,
+                human_request: "check the status of a specific service",
+            },
+        );
 
         // disk_usage - disk space information
-        tools.insert("disk_usage", ToolDef {
-            name: "disk_usage",
-            description: "Returns disk usage information for all mounted filesystems",
-            parameters: &[],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Fast,
-            human_request: "check disk space usage",
-        });
+        tools.insert(
+            "disk_usage",
+            ToolDef {
+                name: "disk_usage",
+                description: "Returns disk usage information for all mounted filesystems",
+                parameters: &[],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Fast,
+                human_request: "check disk space usage",
+            },
+        );
 
         // v0.0.12: Anomaly detection tools
 
@@ -337,28 +356,36 @@ impl ToolCatalog {
             human_request: "list today's cases",
         });
 
-        tools.insert("list_recent_cases", ToolDef {
-            name: "list_recent_cases",
-            description: "Lists recent case files with timestamps, outcomes, and reliability scores",
-            parameters: &[
-                ("limit", "number", false), // default: 10
-            ],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Fast,
-            human_request: "list recent cases",
-        });
+        tools.insert(
+            "list_recent_cases",
+            ToolDef {
+                name: "list_recent_cases",
+                description:
+                    "Lists recent case files with timestamps, outcomes, and reliability scores",
+                parameters: &[
+                    ("limit", "number", false), // default: 10
+                ],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Fast,
+                human_request: "list recent cases",
+            },
+        );
 
         // v0.0.45: Direct evidence tools for correctness
 
         // kernel_version - direct uname output
-        tools.insert("kernel_version", ToolDef {
-            name: "kernel_version",
-            description: "Returns the kernel version string from uname -r and full uname -a output",
-            parameters: &[],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Fast,
-            human_request: "get the kernel version",
-        });
+        tools.insert(
+            "kernel_version",
+            ToolDef {
+                name: "kernel_version",
+                description:
+                    "Returns the kernel version string from uname -r and full uname -a output",
+                parameters: &[],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Fast,
+                human_request: "get the kernel version",
+            },
+        );
 
         // memory_info - direct /proc/meminfo data
         tools.insert("memory_info", ToolDef {
@@ -524,16 +551,18 @@ impl ToolCatalog {
             human_request: "preview file contents for diff generation",
         });
 
-        tools.insert("file_hash", ToolDef {
-            name: "file_hash",
-            description: "Returns SHA256 hash of file contents. Used for before/after verification.",
-            parameters: &[
-                ("path", "string", true),
-            ],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Fast,
-            human_request: "compute file hash for integrity verification",
-        });
+        tools.insert(
+            "file_hash",
+            ToolDef {
+                name: "file_hash",
+                description:
+                    "Returns SHA256 hash of file contents. Used for before/after verification.",
+                parameters: &[("path", "string", true)],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Fast,
+                human_request: "compute file hash for integrity verification",
+            },
+        );
 
         tools.insert("path_policy_check", ToolDef {
             name: "path_policy_check",
@@ -667,14 +696,18 @@ impl ToolCatalog {
             human_request: "check for failed systemd units",
         });
 
-        tools.insert("thermal_status_summary", ToolDef {
-            name: "thermal_status_summary",
-            description: "Returns CPU temperature and throttling status. For thermal alert queries.",
-            parameters: &[],
-            security: ToolSecurity::ReadOnly,
-            latency: LatencyHint::Fast,
-            human_request: "check CPU temperature and thermal status",
-        });
+        tools.insert(
+            "thermal_status_summary",
+            ToolDef {
+                name: "thermal_status_summary",
+                description:
+                    "Returns CPU temperature and throttling status. For thermal alert queries.",
+                parameters: &[],
+                security: ToolSecurity::ReadOnly,
+                latency: LatencyHint::Fast,
+                human_request: "check CPU temperature and thermal status",
+            },
+        );
 
         tools.insert("journal_error_burst_summary", ToolDef {
             name: "journal_error_burst_summary",
@@ -807,19 +840,22 @@ impl ToolCatalog {
     }
 
     /// Generate a natural language request description for a tool
-    pub fn natural_request(&self, tool_name: &str, params: &HashMap<String, serde_json::Value>) -> String {
+    pub fn natural_request(
+        &self,
+        tool_name: &str,
+        params: &HashMap<String, serde_json::Value>,
+    ) -> String {
         if let Some(tool) = self.get(tool_name) {
             let mut request = format!("Please {}", tool.human_request);
 
             // Add parameter context
             if !params.is_empty() {
-                let param_strs: Vec<String> = params.iter()
-                    .filter_map(|(k, v)| {
-                        match v {
-                            serde_json::Value::Number(n) => Some(format!("{}: {}", k, n)),
-                            serde_json::Value::String(s) => Some(format!("{}: {}", k, s)),
-                            _ => None,
-                        }
+                let param_strs: Vec<String> = params
+                    .iter()
+                    .filter_map(|(k, v)| match v {
+                        serde_json::Value::Number(n) => Some(format!("{}: {}", k, n)),
+                        serde_json::Value::String(s) => Some(format!("{}: {}", k, s)),
+                        _ => None,
                     })
                     .collect();
                 if !param_strs.is_empty() {
@@ -973,14 +1009,14 @@ pub fn parse_tool_plan(output: &str) -> Option<ToolPlan> {
                 // Parse tool_name or tool_name(param=value, ...)
                 if let Some(paren_idx) = tool_spec.find('(') {
                     let name = &tool_spec[..paren_idx];
-                    let params_str = tool_spec[paren_idx+1..].trim_end_matches(')');
+                    let params_str = tool_spec[paren_idx + 1..].trim_end_matches(')');
                     let mut params = HashMap::new();
 
                     for param in params_str.split(',') {
                         let param = param.trim();
                         if let Some(eq_idx) = param.find('=') {
                             let key = param[..eq_idx].trim();
-                            let value = param[eq_idx+1..].trim();
+                            let value = param[eq_idx + 1..].trim();
 
                             // Try to parse as number, otherwise string
                             if let Ok(n) = value.parse::<i64>() {
@@ -1039,7 +1075,10 @@ pub fn unknown_tool_result(tool_name: &str, evidence_id: &str) -> ToolResult {
             "status": "unknown",
             "reason": "Tool not in allowlist"
         }),
-        human_summary: format!("Unknown tool '{}' - not in the allowed tool catalog.", tool_name),
+        human_summary: format!(
+            "Unknown tool '{}' - not in the allowed tool catalog.",
+            tool_name
+        ),
         success: false,
         error: Some("Tool not in allowlist".to_string()),
         timestamp: SystemTime::now()
@@ -1082,10 +1121,19 @@ mod tests {
         let plan = parse_tool_plan(output).unwrap();
         assert_eq!(plan.tools.len(), 2);
         assert_eq!(plan.tools[0].tool_name, "recent_installs");
-        assert_eq!(plan.tools[0].parameters.get("days"), Some(&serde_json::json!(7)));
+        assert_eq!(
+            plan.tools[0].parameters.get("days"),
+            Some(&serde_json::json!(7))
+        );
         assert_eq!(plan.tools[1].tool_name, "journal_warnings");
-        assert_eq!(plan.tools[1].parameters.get("service"), Some(&serde_json::json!("nginx")));
-        assert_eq!(plan.tools[1].parameters.get("minutes"), Some(&serde_json::json!(60)));
+        assert_eq!(
+            plan.tools[1].parameters.get("service"),
+            Some(&serde_json::json!("nginx"))
+        );
+        assert_eq!(
+            plan.tools[1].parameters.get("minutes"),
+            Some(&serde_json::json!(60))
+        );
     }
 
     #[test]
@@ -1136,7 +1184,10 @@ mod tests {
         let collector = EvidenceCollector::new();
         assert_eq!(collector.format_citations(&[]), "");
         assert_eq!(collector.format_citations(&["E1"]), "[E1]");
-        assert_eq!(collector.format_citations(&["E1", "E2", "E3"]), "[E1, E2, E3]");
+        assert_eq!(
+            collector.format_citations(&["E1", "E2", "E3"]),
+            "[E1, E2, E3]"
+        );
     }
 
     #[test]

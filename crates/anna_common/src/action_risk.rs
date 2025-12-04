@@ -3,8 +3,8 @@
 //! Deterministic risk scoring for actions without LLM dependence.
 //! Rules are policy-driven but with sensible defaults.
 
+use crate::action_engine::{ActionType, MutationRiskLevel, PacmanOperation, SystemdOperation};
 use std::path::Path;
-use crate::action_engine::{MutationRiskLevel, ActionType, SystemdOperation, PacmanOperation};
 
 // =============================================================================
 // Path-Based Risk Scoring
@@ -25,25 +25,13 @@ const HIGH_RISK_PATHS: &[&str] = &[
 ];
 
 /// Destructive paths (data loss risk)
-const DESTRUCTIVE_PATH_PATTERNS: &[&str] = &[
-    "/dev/sd",
-    "/dev/nvme",
-    "/dev/mapper",
-];
+const DESTRUCTIVE_PATH_PATTERNS: &[&str] = &["/dev/sd", "/dev/nvme", "/dev/mapper"];
 
 /// Medium-risk paths (general config)
-const MEDIUM_RISK_PATH_PREFIXES: &[&str] = &[
-    "/etc/",
-    "/var/lib/",
-];
+const MEDIUM_RISK_PATH_PREFIXES: &[&str] = &["/etc/", "/var/lib/"];
 
 /// Blocked paths (never allowed)
-const BLOCKED_PATHS: &[&str] = &[
-    "/proc",
-    "/sys",
-    "/dev",
-    "/run",
-];
+const BLOCKED_PATHS: &[&str] = &["/proc", "/sys", "/dev", "/run"];
 
 /// Score risk for a file path
 pub fn score_path_risk(path: &Path) -> MutationRiskLevel {
@@ -128,7 +116,8 @@ const NETWORK_SERVICES: &[&str] = &[
 
 /// Score risk for a systemd operation
 pub fn score_systemd_risk(unit: &str, operation: SystemdOperation) -> MutationRiskLevel {
-    let unit_base = unit.trim_end_matches(".service")
+    let unit_base = unit
+        .trim_end_matches(".service")
         .trim_end_matches(".socket")
         .trim_end_matches(".timer")
         .trim_end_matches(".target");
@@ -163,9 +152,7 @@ pub fn score_systemd_risk(unit: &str, operation: SystemdOperation) -> MutationRi
         SystemdOperation::Start | SystemdOperation::Enable | SystemdOperation::EnableNow => {
             MutationRiskLevel::Low
         }
-        SystemdOperation::Restart | SystemdOperation::Reload => {
-            MutationRiskLevel::Low
-        }
+        SystemdOperation::Restart | SystemdOperation::Reload => MutationRiskLevel::Low,
     }
 }
 
@@ -193,14 +180,7 @@ const CRITICAL_PACKAGES: &[&str] = &[
 ];
 
 /// High-risk packages to remove
-const HIGH_RISK_PACKAGES: &[&str] = &[
-    "networkmanager",
-    "iwd",
-    "openssh",
-    "sudo",
-    "doas",
-    "polkit",
-];
+const HIGH_RISK_PACKAGES: &[&str] = &["networkmanager", "iwd", "openssh", "sudo", "doas", "polkit"];
 
 /// Score risk for a package operation
 pub fn score_package_risk(packages: &[String], operation: PacmanOperation) -> MutationRiskLevel {
@@ -284,9 +264,15 @@ pub fn score_action_risk(action: &ActionType) -> MutationRiskLevel {
 pub fn describe_risk(risk: MutationRiskLevel) -> &'static str {
     match risk {
         MutationRiskLevel::Low => "This action is low risk and easily reversible.",
-        MutationRiskLevel::Medium => "This action modifies system configuration. A backup will be created.",
-        MutationRiskLevel::High => "This action affects critical system components. Review carefully.",
-        MutationRiskLevel::Destructive => "This action may result in data loss. Cannot be fully undone.",
+        MutationRiskLevel::Medium => {
+            "This action modifies system configuration. A backup will be created."
+        }
+        MutationRiskLevel::High => {
+            "This action affects critical system components. Review carefully."
+        }
+        MutationRiskLevel::Destructive => {
+            "This action may result in data loss. Cannot be fully undone."
+        }
         MutationRiskLevel::Denied => "This action is not allowed for safety reasons.",
     }
 }
@@ -298,10 +284,22 @@ mod tests {
 
     #[test]
     fn test_path_risk_scoring() {
-        assert_eq!(score_path_risk(Path::new("/home/user/.bashrc")), MutationRiskLevel::Low);
-        assert_eq!(score_path_risk(Path::new("/etc/hosts")), MutationRiskLevel::Medium);
-        assert_eq!(score_path_risk(Path::new("/etc/fstab")), MutationRiskLevel::High);
-        assert_eq!(score_path_risk(Path::new("/proc/1/status")), MutationRiskLevel::Denied);
+        assert_eq!(
+            score_path_risk(Path::new("/home/user/.bashrc")),
+            MutationRiskLevel::Low
+        );
+        assert_eq!(
+            score_path_risk(Path::new("/etc/hosts")),
+            MutationRiskLevel::Medium
+        );
+        assert_eq!(
+            score_path_risk(Path::new("/etc/fstab")),
+            MutationRiskLevel::High
+        );
+        assert_eq!(
+            score_path_risk(Path::new("/proc/1/status")),
+            MutationRiskLevel::Denied
+        );
     }
 
     #[test]

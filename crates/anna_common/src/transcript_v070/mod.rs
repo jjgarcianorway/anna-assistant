@@ -22,7 +22,9 @@ pub mod validation;
 
 // Re-export main types for convenience
 pub use colored::{print_colored, print_debug_colored, print_human_colored};
-pub use events::{ActorV70, EventV70, TimestampedEventV70, TranscriptStatsV70, TranscriptStreamV70};
+pub use events::{
+    ActorV70, EventV70, TimestampedEventV70, TranscriptStatsV70, TranscriptStreamV70,
+};
 pub use render::{render, render_debug, render_human, render_to_string, write_transcripts};
 pub use topics::{tool_to_evidence_topic, EvidenceTopicV70};
 pub use validation::{validate_debug_has_internals, validate_human_output, FORBIDDEN_HUMAN};
@@ -55,7 +57,8 @@ mod tests {
             !human_str.contains("[E1]"),
             "Human mode must not show evidence IDs"
         );
-        assert!(human_str.contains("network status snapshot"));
+        // v0.0.71: shorter label
+        assert!(human_str.contains("network link and routing signals"));
     }
 
     #[test]

@@ -165,11 +165,14 @@ impl SelfObservation {
 
         // Check CPU threshold
         if avg_cpu > self.cpu_threshold && self.samples.len() >= 5 {
-            if self.warning.is_none() || self.warning.as_ref().map(|w| w.kind) != Some(WarningKind::HighCpu) {
+            if self.warning.is_none()
+                || self.warning.as_ref().map(|w| w.kind) != Some(WarningKind::HighCpu)
+            {
                 self.warning_since = Some(Utc::now());
             }
 
-            let duration = self.warning_since
+            let duration = self
+                .warning_since
                 .map(|t| (Utc::now() - t).num_seconds().max(0) as u64)
                 .unwrap_or(0);
 
@@ -184,11 +187,14 @@ impl SelfObservation {
 
         // Check memory threshold
         if current_rss > self.rss_threshold_bytes {
-            if self.warning.is_none() || self.warning.as_ref().map(|w| w.kind) != Some(WarningKind::HighMemory) {
+            if self.warning.is_none()
+                || self.warning.as_ref().map(|w| w.kind) != Some(WarningKind::HighMemory)
+            {
                 self.warning_since = Some(Utc::now());
             }
 
-            let duration = self.warning_since
+            let duration = self
+                .warning_since
                 .map(|t| (Utc::now() - t).num_seconds().max(0) as u64)
                 .unwrap_or(0);
 
@@ -259,10 +265,16 @@ impl SelfObservation {
             let duration_str = format_duration_compact(warning.duration_secs);
             match warning.kind {
                 WarningKind::HighCpu => {
-                    format!("WARNING: High CPU ({} avg for {})", warning.current_value, duration_str)
+                    format!(
+                        "WARNING: High CPU ({} avg for {})",
+                        warning.current_value, duration_str
+                    )
                 }
                 WarningKind::HighMemory => {
-                    format!("WARNING: High memory ({} for {})", warning.current_value, duration_str)
+                    format!(
+                        "WARNING: High memory ({} for {})",
+                        warning.current_value, duration_str
+                    )
                 }
             }
         } else {

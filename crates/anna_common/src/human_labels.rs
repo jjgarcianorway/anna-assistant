@@ -10,8 +10,8 @@
 //! - Descriptions should be truthful and accurate
 //! - Describe WHAT is being checked, not HOW
 
-use std::collections::HashMap;
 use lazy_static::lazy_static;
+use std::collections::HashMap;
 
 // ============================================================================
 // Tool Name -> Human Description
@@ -351,9 +351,7 @@ pub fn department_description(department: &str) -> &'static str {
 /// Used in Human Mode to describe what evidence was gathered without tool names
 pub fn topic_evidence_narration(topic_label: &str, tool_names: &[String]) -> String {
     // Generate human descriptions for each tool
-    let evidence_types: Vec<String> = tool_names.iter()
-        .map(|t| tool_evidence_desc(t))
-        .collect();
+    let evidence_types: Vec<String> = tool_names.iter().map(|t| tool_evidence_desc(t)).collect();
 
     if evidence_types.is_empty() {
         return format!("I checked your {} information.", topic_label.to_lowercase());
@@ -411,20 +409,28 @@ pub fn categorize_evidence(descriptions: &[String]) -> Vec<EvidenceGroup> {
 
     for desc in descriptions {
         let lower = desc.to_lowercase();
-        if lower.contains("hardware") || lower.contains("cpu") || lower.contains("memory")
-            || lower.contains("disk") || lower.contains("gpu")
+        if lower.contains("hardware")
+            || lower.contains("cpu")
+            || lower.contains("memory")
+            || lower.contains("disk")
+            || lower.contains("gpu")
         {
             hardware.push(desc.clone());
-        } else if lower.contains("software") || lower.contains("package")
+        } else if lower.contains("software")
+            || lower.contains("package")
             || lower.contains("service")
         {
             software.push(desc.clone());
-        } else if lower.contains("log") || lower.contains("journal")
-            || lower.contains("warning") || lower.contains("error")
+        } else if lower.contains("log")
+            || lower.contains("journal")
+            || lower.contains("warning")
+            || lower.contains("error")
         {
             logs.push(desc.clone());
-        } else if lower.contains("network") || lower.contains("dns")
-            || lower.contains("route") || lower.contains("interface")
+        } else if lower.contains("network")
+            || lower.contains("dns")
+            || lower.contains("route")
+            || lower.contains("interface")
         {
             network.push(desc.clone());
         } else {
@@ -434,19 +440,34 @@ pub fn categorize_evidence(descriptions: &[String]) -> Vec<EvidenceGroup> {
 
     let mut groups = Vec::new();
     if !hardware.is_empty() {
-        groups.push(EvidenceGroup { category: "Hardware", items: hardware });
+        groups.push(EvidenceGroup {
+            category: "Hardware",
+            items: hardware,
+        });
     }
     if !software.is_empty() {
-        groups.push(EvidenceGroup { category: "Software & Services", items: software });
+        groups.push(EvidenceGroup {
+            category: "Software & Services",
+            items: software,
+        });
     }
     if !logs.is_empty() {
-        groups.push(EvidenceGroup { category: "System Logs", items: logs });
+        groups.push(EvidenceGroup {
+            category: "System Logs",
+            items: logs,
+        });
     }
     if !network.is_empty() {
-        groups.push(EvidenceGroup { category: "Network", items: network });
+        groups.push(EvidenceGroup {
+            category: "Network",
+            items: network,
+        });
     }
     if !other.is_empty() {
-        groups.push(EvidenceGroup { category: "Other", items: other });
+        groups.push(EvidenceGroup {
+            category: "Other",
+            items: other,
+        });
     }
 
     groups
@@ -470,7 +491,10 @@ mod tests {
     #[test]
     fn test_tool_action_fallback() {
         // Known tool
-        assert_eq!(tool_action("hw_snapshot_summary"), "checking hardware inventory");
+        assert_eq!(
+            tool_action("hw_snapshot_summary"),
+            "checking hardware inventory"
+        );
 
         // Unknown tool - should still produce reasonable output
         let action = tool_action("some_unknown_tool");
@@ -513,10 +537,7 @@ mod tests {
 
     #[test]
     fn test_topic_evidence_narration_multiple() {
-        let tools = vec![
-            "network_status".to_string(),
-            "dns_check".to_string(),
-        ];
+        let tools = vec!["network_status".to_string(), "dns_check".to_string()];
         let narration = topic_evidence_narration("Network", &tools);
         assert!(narration.contains("network"));
         assert!(narration.contains("network status check"));

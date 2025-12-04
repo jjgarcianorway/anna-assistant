@@ -87,10 +87,7 @@ impl EvidenceRouting {
 // ============================================================================
 
 /// Route a query to the appropriate evidence topics
-pub fn route_evidence(
-    request: &str,
-    ticket: Option<&Ticket>,
-) -> EvidenceRouting {
+pub fn route_evidence(request: &str, ticket: Option<&Ticket>) -> EvidenceRouting {
     let lower = request.to_lowercase();
 
     // Check ticket category hint first
@@ -107,26 +104,17 @@ pub fn route_evidence(
 
     // Kernel version queries
     if is_kernel_query(&lower) {
-        return EvidenceRouting::single(
-            EvidenceTopic::KernelVersion,
-            "checking kernel version",
-        );
+        return EvidenceRouting::single(EvidenceTopic::KernelVersion, "checking kernel version");
     }
 
     // Memory queries
     if is_memory_query(&lower) {
-        return EvidenceRouting::single(
-            EvidenceTopic::MemoryInfo,
-            "checking memory usage",
-        );
+        return EvidenceRouting::single(EvidenceTopic::MemoryInfo, "checking memory usage");
     }
 
     // CPU queries
     if is_cpu_query(&lower) {
-        return EvidenceRouting::single(
-            EvidenceTopic::CpuInfo,
-            "checking CPU information",
-        );
+        return EvidenceRouting::single(EvidenceTopic::CpuInfo, "checking CPU information");
     }
 
     // Network queries
@@ -144,15 +132,13 @@ pub fn route_evidence(
         return EvidenceRouting::single(
             EvidenceTopic::ServiceState,
             &format!("checking {} status", service),
-        ).for_service(&service);
+        )
+        .for_service(&service);
     }
 
     // Boot time queries
     if is_boot_query(&lower) {
-        return EvidenceRouting::single(
-            EvidenceTopic::BootTime,
-            "checking boot time",
-        );
+        return EvidenceRouting::single(EvidenceTopic::BootTime, "checking boot time");
     }
 
     // Package queries
@@ -173,10 +159,7 @@ pub fn route_evidence(
 
     // Alert queries
     if is_alert_query(&lower) {
-        return EvidenceRouting::single(
-            EvidenceTopic::Alerts,
-            "checking system alerts",
-        );
+        return EvidenceRouting::single(EvidenceTopic::Alerts, "checking system alerts");
     }
 
     // Errors/warnings queries
@@ -188,10 +171,7 @@ pub fn route_evidence(
     }
 
     // Default: unknown - will need LLM classification
-    EvidenceRouting::single(
-        EvidenceTopic::Unknown,
-        "gathering system information",
-    )
+    EvidenceRouting::single(EvidenceTopic::Unknown, "gathering system information")
 }
 
 /// Route based on ticket category
@@ -210,72 +190,137 @@ fn route_by_category(category: TicketCategory, request: &str) -> Option<Evidence
 
 fn is_disk_query(request: &str) -> bool {
     let patterns = [
-        "disk space", "disk free", "free space", "storage space",
-        "how much space", "space left", "space available", "disk usage",
-        "running out of space", "disk full", "storage left", "how full",
-        "root partition", "disk", "filesystem",
+        "disk space",
+        "disk free",
+        "free space",
+        "storage space",
+        "how much space",
+        "space left",
+        "space available",
+        "disk usage",
+        "running out of space",
+        "disk full",
+        "storage left",
+        "how full",
+        "root partition",
+        "disk",
+        "filesystem",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
 
 fn is_kernel_query(request: &str) -> bool {
     let patterns = [
-        "kernel version", "kernel release", "what kernel", "linux version",
-        "which kernel", "running kernel", "uname", "kernel am i",
+        "kernel version",
+        "kernel release",
+        "what kernel",
+        "linux version",
+        "which kernel",
+        "running kernel",
+        "uname",
+        "kernel am i",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
 
 fn is_memory_query(request: &str) -> bool {
     let patterns = [
-        "how much memory", "how much ram", "ram available", "memory available",
-        "ram free", "memory free", "total memory", "total ram", "ram usage",
-        "memory usage", "how much mem", "ram do i have", "memory do i have",
+        "how much memory",
+        "how much ram",
+        "ram available",
+        "memory available",
+        "ram free",
+        "memory free",
+        "total memory",
+        "total ram",
+        "ram usage",
+        "memory usage",
+        "how much mem",
+        "ram do i have",
+        "memory do i have",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
 
 fn is_cpu_query(request: &str) -> bool {
     let patterns = [
-        "what cpu", "which cpu", "cpu model", "processor model",
-        "cpu info", "processor info", "what processor", "how many cores",
-        "cpu cores", "cpu do i have",
+        "what cpu",
+        "which cpu",
+        "cpu model",
+        "processor model",
+        "cpu info",
+        "processor info",
+        "what processor",
+        "how many cores",
+        "cpu cores",
+        "cpu do i have",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
 
 fn is_network_query(request: &str) -> bool {
     let patterns = [
-        "network status", "network connection", "internet connection",
-        "am i connected", "am i online", "is network", "is wifi",
-        "wifi status", "ethernet status", "wifi connected", "wifi working",
-        "connection status", "default route", "network info", "dns",
-        "ip address", "my ip", "ping",
+        "network status",
+        "network connection",
+        "internet connection",
+        "am i connected",
+        "am i online",
+        "is network",
+        "is wifi",
+        "wifi status",
+        "ethernet status",
+        "wifi connected",
+        "wifi working",
+        "connection status",
+        "default route",
+        "network info",
+        "dns",
+        "ip address",
+        "my ip",
+        "ping",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
 
 fn is_audio_query(request: &str) -> bool {
     let patterns = [
-        "audio status", "sound status", "is audio", "is sound",
-        "audio working", "sound working", "pipewire", "pulseaudio",
-        "no sound", "no audio", "speakers", "audio device",
+        "audio status",
+        "sound status",
+        "is audio",
+        "is sound",
+        "audio working",
+        "sound working",
+        "pipewire",
+        "pulseaudio",
+        "no sound",
+        "no audio",
+        "speakers",
+        "audio device",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
 
 fn is_boot_query(request: &str) -> bool {
     let patterns = [
-        "boot time", "startup time", "how long to boot",
-        "boot slow", "slow boot", "boot analysis", "uptime",
+        "boot time",
+        "startup time",
+        "how long to boot",
+        "boot slow",
+        "slow boot",
+        "boot analysis",
+        "uptime",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
 
 fn is_package_query(request: &str) -> bool {
     let patterns = [
-        "what changed", "recently installed", "installed recently",
-        "packages changed", "new packages", "updated packages",
+        "what changed",
+        "recently installed",
+        "installed recently",
+        "packages changed",
+        "new packages",
+        "updated packages",
         "package version",
     ];
     patterns.iter().any(|p| request.contains(p))
@@ -283,16 +328,28 @@ fn is_package_query(request: &str) -> bool {
 
 fn is_graphics_query(request: &str) -> bool {
     let patterns = [
-        "gpu", "graphics card", "video card", "graphics driver",
-        "nvidia", "amd gpu", "intel graphics", "display",
+        "gpu",
+        "graphics card",
+        "video card",
+        "graphics driver",
+        "nvidia",
+        "amd gpu",
+        "intel graphics",
+        "display",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
 
 fn is_alert_query(request: &str) -> bool {
     let patterns = [
-        "show alerts", "what alerts", "any alerts", "any warnings",
-        "show warnings", "any issues", "system alerts", "active alerts",
+        "show alerts",
+        "what alerts",
+        "any alerts",
+        "any warnings",
+        "show warnings",
+        "any issues",
+        "system alerts",
+        "active alerts",
     ];
     patterns.iter().any(|p| request.contains(p))
 }
@@ -308,8 +365,8 @@ fn is_error_query(request: &str) -> bool {
 
 /// Route disk queries - might need multiple topics
 fn route_disk_query(request: &str) -> EvidenceRouting {
-    let is_problem = request.contains("full") || request.contains("running out")
-        || request.contains("no space");
+    let is_problem =
+        request.contains("full") || request.contains("running out") || request.contains("no space");
 
     let mut routing = EvidenceRouting::single(
         EvidenceTopic::DiskFree,
@@ -325,8 +382,10 @@ fn route_disk_query(request: &str) -> EvidenceRouting {
 
 /// Route network queries - might need multiple sub-checks
 fn route_network_query(request: &str) -> EvidenceRouting {
-    let is_problem = request.contains("not working") || request.contains("disconnect")
-        || request.contains("slow") || request.contains("can't connect");
+    let is_problem = request.contains("not working")
+        || request.contains("disconnect")
+        || request.contains("slow")
+        || request.contains("can't connect");
 
     let mut routing = EvidenceRouting::single(
         EvidenceTopic::NetworkStatus,
@@ -342,13 +401,13 @@ fn route_network_query(request: &str) -> EvidenceRouting {
 
 /// Route audio queries
 fn route_audio_query(request: &str) -> EvidenceRouting {
-    let is_problem = request.contains("not working") || request.contains("no sound")
-        || request.contains("no audio") || request.contains("broken");
+    let is_problem = request.contains("not working")
+        || request.contains("no sound")
+        || request.contains("no audio")
+        || request.contains("broken");
 
-    let mut routing = EvidenceRouting::single(
-        EvidenceTopic::AudioStatus,
-        "checking audio stack status",
-    );
+    let mut routing =
+        EvidenceRouting::single(EvidenceTopic::AudioStatus, "checking audio stack status");
 
     if is_problem {
         routing = routing.diagnostic();
@@ -360,18 +419,30 @@ fn route_audio_query(request: &str) -> EvidenceRouting {
 /// Extract service name from query
 fn extract_service_name(request: &str) -> Option<String> {
     let service_keywords = [
-        ("nginx", "nginx"), ("docker", "docker"), ("sshd", "sshd"),
-        ("ssh", "sshd"), ("apache", "apache2"), ("httpd", "httpd"),
-        ("mysql", "mysql"), ("mariadb", "mariadb"), ("postgresql", "postgresql"),
-        ("redis", "redis"), ("mongodb", "mongodb"), ("systemd", "systemd"),
-        ("networkmanager", "NetworkManager"), ("bluetooth", "bluetooth"),
+        ("nginx", "nginx"),
+        ("docker", "docker"),
+        ("sshd", "sshd"),
+        ("ssh", "sshd"),
+        ("apache", "apache2"),
+        ("httpd", "httpd"),
+        ("mysql", "mysql"),
+        ("mariadb", "mariadb"),
+        ("postgresql", "postgresql"),
+        ("redis", "redis"),
+        ("mongodb", "mongodb"),
+        ("systemd", "systemd"),
+        ("networkmanager", "NetworkManager"),
+        ("bluetooth", "bluetooth"),
     ];
 
     for (keyword, service) in service_keywords {
         if request.contains(keyword) {
-            if request.contains("running") || request.contains("status")
-                || request.contains("started") || request.contains("enabled")
-                || request.contains("active") || request.contains("is ")
+            if request.contains("running")
+                || request.contains("status")
+                || request.contains("started")
+                || request.contains("enabled")
+                || request.contains("active")
+                || request.contains("is ")
             {
                 return Some(service.to_string());
             }
@@ -388,11 +459,18 @@ fn extract_service_name(request: &str) -> Option<String> {
 /// This prevents hw/sw_snapshot_summary from satisfying specific queries
 pub fn tool_satisfies_topic(tool_name: &str, topic: EvidenceTopic) -> bool {
     // Generic summaries can ONLY satisfy Unknown or broad queries
-    let generic_tools = ["hw_snapshot_summary", "sw_snapshot_summary", "status_snapshot"];
+    let generic_tools = [
+        "hw_snapshot_summary",
+        "sw_snapshot_summary",
+        "status_snapshot",
+    ];
 
     if generic_tools.contains(&tool_name) {
         // Generic tools can only satisfy GraphicsStatus (for GPU info) or Unknown
-        return matches!(topic, EvidenceTopic::GraphicsStatus | EvidenceTopic::Unknown);
+        return matches!(
+            topic,
+            EvidenceTopic::GraphicsStatus | EvidenceTopic::Unknown
+        );
     }
 
     // Specific tools must match their topics
@@ -401,11 +479,17 @@ pub fn tool_satisfies_topic(tool_name: &str, topic: EvidenceTopic) -> bool {
         EvidenceTopic::KernelVersion => tool_name == "kernel_version",
         EvidenceTopic::MemoryInfo => tool_name == "memory_info",
         EvidenceTopic::CpuInfo => tool_name == "cpu_info" || tool_name == "hw_snapshot_summary",
-        EvidenceTopic::NetworkStatus => tool_name == "network_status" || tool_name == "net_interfaces_summary",
+        EvidenceTopic::NetworkStatus => {
+            tool_name == "network_status" || tool_name == "net_interfaces_summary"
+        }
         EvidenceTopic::AudioStatus => tool_name == "audio_status",
-        EvidenceTopic::ServiceState => tool_name == "service_status" || tool_name == "systemd_service_probe_v1",
+        EvidenceTopic::ServiceState => {
+            tool_name == "service_status" || tool_name == "systemd_service_probe_v1"
+        }
         EvidenceTopic::BootTime => tool_name == "boot_time_trend",
-        EvidenceTopic::PackagesChanged => tool_name == "recent_installs" || tool_name == "what_changed",
+        EvidenceTopic::PackagesChanged => {
+            tool_name == "recent_installs" || tool_name == "what_changed"
+        }
         EvidenceTopic::GraphicsStatus => true, // hw_snapshot_summary is OK for GPU
         EvidenceTopic::Alerts => tool_name == "proactive_alerts_summary",
         EvidenceTopic::RecentErrors => tool_name == "journal_warnings",
@@ -450,7 +534,9 @@ mod tests {
     #[test]
     fn test_kernel_routing() {
         let routing = route_evidence("what kernel version am I running", None);
-        assert!(routing.required_topics.contains(&EvidenceTopic::KernelVersion));
+        assert!(routing
+            .required_topics
+            .contains(&EvidenceTopic::KernelVersion));
     }
 
     #[test]
@@ -462,13 +548,17 @@ mod tests {
     #[test]
     fn test_network_routing() {
         let routing = route_evidence("what is my network status", None);
-        assert!(routing.required_topics.contains(&EvidenceTopic::NetworkStatus));
+        assert!(routing
+            .required_topics
+            .contains(&EvidenceTopic::NetworkStatus));
     }
 
     #[test]
     fn test_audio_routing() {
         let routing = route_evidence("is my audio working", None);
-        assert!(routing.required_topics.contains(&EvidenceTopic::AudioStatus));
+        assert!(routing
+            .required_topics
+            .contains(&EvidenceTopic::AudioStatus));
     }
 
     #[test]
@@ -483,20 +573,41 @@ mod tests {
     #[test]
     fn test_tool_blacklist() {
         // hw_snapshot_summary should NOT satisfy DiskFree
-        assert!(!tool_satisfies_topic("hw_snapshot_summary", EvidenceTopic::DiskFree));
-        assert!(!tool_satisfies_topic("sw_snapshot_summary", EvidenceTopic::KernelVersion));
+        assert!(!tool_satisfies_topic(
+            "hw_snapshot_summary",
+            EvidenceTopic::DiskFree
+        ));
+        assert!(!tool_satisfies_topic(
+            "sw_snapshot_summary",
+            EvidenceTopic::KernelVersion
+        ));
 
         // Correct tools should satisfy their topics
         assert!(tool_satisfies_topic("mount_usage", EvidenceTopic::DiskFree));
-        assert!(tool_satisfies_topic("kernel_version", EvidenceTopic::KernelVersion));
-        assert!(tool_satisfies_topic("memory_info", EvidenceTopic::MemoryInfo));
+        assert!(tool_satisfies_topic(
+            "kernel_version",
+            EvidenceTopic::KernelVersion
+        ));
+        assert!(tool_satisfies_topic(
+            "memory_info",
+            EvidenceTopic::MemoryInfo
+        ));
     }
 
     #[test]
     fn test_service_extraction() {
-        assert_eq!(extract_service_name("is docker running"), Some("docker".to_string()));
-        assert_eq!(extract_service_name("is nginx active"), Some("nginx".to_string()));
-        assert_eq!(extract_service_name("status of sshd"), Some("sshd".to_string()));
+        assert_eq!(
+            extract_service_name("is docker running"),
+            Some("docker".to_string())
+        );
+        assert_eq!(
+            extract_service_name("is nginx active"),
+            Some("nginx".to_string())
+        );
+        assert_eq!(
+            extract_service_name("status of sshd"),
+            Some("sshd".to_string())
+        );
         assert_eq!(extract_service_name("hello world"), None);
     }
 }

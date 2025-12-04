@@ -113,7 +113,10 @@ impl HardwareProfile {
 
         // Try to detect GPU VRAM (nvidia-smi for NVIDIA)
         if let Ok(output) = std::process::Command::new("nvidia-smi")
-            .args(["--query-gpu=memory.total,name", "--format=csv,noheader,nounits"])
+            .args([
+                "--query-gpu=memory.total,name",
+                "--format=csv,noheader,nounits",
+            ])
             .output()
         {
             if output.status.success() {
@@ -569,7 +572,11 @@ pub fn translator_benchmark_cases() -> Vec<BenchmarkCase> {
             id: "t29".to_string(),
             prompt: "Classify: 'show CPU and memory usage'".to_string(),
             system: Some("Output only: INTENT: [type] TARGETS: [list] RISK: [level]".to_string()),
-            expected_patterns: vec!["system_query".to_string(), "cpu".to_string(), "memory".to_string()],
+            expected_patterns: vec![
+                "system_query".to_string(),
+                "cpu".to_string(),
+                "memory".to_string(),
+            ],
             max_latency_ms: 2000,
         },
         BenchmarkCase {
@@ -733,7 +740,10 @@ pub async fn run_benchmark(
     for case in cases {
         let start = Instant::now();
 
-        let case_result = match client.generate(model, &case.prompt, case.system.as_deref()).await {
+        let case_result = match client
+            .generate(model, &case.prompt, case.system.as_deref())
+            .await
+        {
             Ok(resp) => {
                 let latency_ms = start.elapsed().as_millis() as u64;
                 let output_lower = resp.response.to_lowercase();
@@ -835,8 +845,9 @@ pub fn select_model_for_role(
                 let size = parts[1].split('-').next().unwrap_or(parts[1]);
                 available_models.iter().any(|m| {
                     // Exact match or prefix match with same size
-                    m == &c.name || m.starts_with(&c.name) ||
-                    (m.starts_with(base) && m.contains(&format!(":{}", size)))
+                    m == &c.name
+                        || m.starts_with(&c.name)
+                        || (m.starts_with(base) && m.contains(&format!(":{}", size)))
                 })
             } else {
                 // No size specifier - match any variant
@@ -870,7 +881,8 @@ pub fn select_model_for_role(
                     let base = parts[0];
                     let size = parts[1];
                     available_models.iter().find(|m| {
-                        m.starts_with(base) && m.contains(&format!(":{}", size.split('-').next().unwrap_or(size)))
+                        m.starts_with(base)
+                            && m.contains(&format!(":{}", size.split('-').next().unwrap_or(size)))
                     })
                 } else {
                     None
@@ -1037,16 +1049,15 @@ impl BootstrapState {
         }
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        let path_str = path.to_str()
+        let path_str = path
+            .to_str()
             .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
         crate::atomic_write(path_str, &content)
     }
 
     /// Check if ready for requests
     pub fn is_ready(&self) -> bool {
-        self.phase == BootstrapPhase::Ready
-            && self.translator.is_some()
-            && self.junior.is_some()
+        self.phase == BootstrapPhase::Ready && self.translator.is_some() && self.junior.is_some()
     }
 
     /// Get translator model if ready
@@ -1124,28 +1135,25 @@ mod tests {
             tier: HardwareTier::High,
         };
 
-        let candidates = vec![
-            ModelCandidate {
-                name: "qwen2.5:0.5b".to_string(),
-                size_bytes: 400 * 1024 * 1024,
-                priority: 1,
-                min_tier: HardwareTier::Low,
-                description: "Tiny model".to_string(),
-            },
-        ];
+        let candidates = vec![ModelCandidate {
+            name: "qwen2.5:0.5b".to_string(),
+            size_bytes: 400 * 1024 * 1024,
+            priority: 1,
+            min_tier: HardwareTier::Low,
+            description: "Tiny model".to_string(),
+        }];
 
         // Only qwen2.5:14b-instruct available (NOT 0.5b)
         let available = vec!["qwen2.5:14b-instruct".to_string()];
 
-        let selection = select_model_for_role(
-            LlmRole::Translator,
-            &hardware,
-            &available,
-            &candidates,
-        );
+        let selection =
+            select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
 
         // Should NOT select anything because 0.5b isn't available
-        assert!(selection.is_none(), "Should not match 14b when requesting 0.5b");
+        assert!(
+            selection.is_none(),
+            "Should not match 14b when requesting 0.5b"
+        );
     }
 
     #[test]
@@ -1162,25 +1170,19 @@ mod tests {
             tier: HardwareTier::High,
         };
 
-        let candidates = vec![
-            ModelCandidate {
-                name: "qwen2.5:0.5b".to_string(),
-                size_bytes: 400 * 1024 * 1024,
-                priority: 1,
-                min_tier: HardwareTier::Low,
-                description: "Tiny model".to_string(),
-            },
-        ];
+        let candidates = vec![ModelCandidate {
+            name: "qwen2.5:0.5b".to_string(),
+            size_bytes: 400 * 1024 * 1024,
+            priority: 1,
+            min_tier: HardwareTier::Low,
+            description: "Tiny model".to_string(),
+        }];
 
         // 0.5b-instruct available (variant of 0.5b)
         let available = vec!["qwen2.5:0.5b-instruct".to_string()];
 
-        let selection = select_model_for_role(
-            LlmRole::Translator,
-            &hardware,
-            &available,
-            &candidates,
-        );
+        let selection =
+            select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
 
         assert!(selection.is_some());
         assert_eq!(selection.unwrap().model, "qwen2.5:0.5b-instruct");
@@ -1202,12 +1204,8 @@ mod tests {
         let candidates = default_candidates(LlmRole::Translator);
         let available = vec!["qwen2.5:0.5b".to_string(), "mistral:7b".to_string()];
 
-        let selection = select_model_for_role(
-            LlmRole::Translator,
-            &hardware,
-            &available,
-            &candidates,
-        );
+        let selection =
+            select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
 
         assert!(selection.is_some());
         let sel = selection.unwrap();
@@ -1358,7 +1356,8 @@ mod tests {
         ];
         let available = vec!["model-a".to_string(), "model-b".to_string()];
 
-        let selection = select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
+        let selection =
+            select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
         assert!(selection.is_some());
         assert_eq!(selection.unwrap().model, "model-a");
     }
@@ -1395,7 +1394,8 @@ mod tests {
         // Only model-b available
         let available = vec!["model-b".to_string()];
 
-        let selection = select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
+        let selection =
+            select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
         assert!(selection.is_some());
         assert_eq!(selection.unwrap().model, "model-b");
     }
@@ -1431,7 +1431,8 @@ mod tests {
         ];
         let available = vec!["model-high".to_string(), "model-low".to_string()];
 
-        let selection = select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
+        let selection =
+            select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
         assert!(selection.is_some());
         // Should pick model-low since hardware is Low tier
         assert_eq!(selection.unwrap().model, "model-low");
@@ -1450,18 +1451,17 @@ mod tests {
             tier: HardwareTier::Low,
         };
 
-        let candidates = vec![
-            ModelCandidate {
-                name: "model-high".to_string(),
-                size_bytes: 8 * 1024 * 1024 * 1024,
-                priority: 0,
-                min_tier: HardwareTier::High,
-                description: "High tier only".to_string(),
-            },
-        ];
+        let candidates = vec![ModelCandidate {
+            name: "model-high".to_string(),
+            size_bytes: 8 * 1024 * 1024 * 1024,
+            priority: 0,
+            min_tier: HardwareTier::High,
+            description: "High tier only".to_string(),
+        }];
         let available = vec!["model-high".to_string()];
 
-        let selection = select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
+        let selection =
+            select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
         // Should be None because model requires High tier but hardware is Low
         assert!(selection.is_none());
     }
@@ -1482,7 +1482,8 @@ mod tests {
         let candidates = default_candidates(LlmRole::Translator);
         let available: Vec<String> = vec![]; // No models installed
 
-        let selection = select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
+        let selection =
+            select_model_for_role(LlmRole::Translator, &hardware, &available, &candidates);
         assert!(selection.is_none());
     }
 
@@ -1494,14 +1495,23 @@ mod tests {
         assert_eq!(HardwareProfile::format_memory(2048), "2 KB");
         assert_eq!(HardwareProfile::format_memory(1024 * 1024), "1.0 MB");
         assert_eq!(HardwareProfile::format_memory(1024 * 1024 * 1024), "1.0 GB");
-        assert_eq!(HardwareProfile::format_memory(2 * 1024 * 1024 * 1024), "2.0 GB");
+        assert_eq!(
+            HardwareProfile::format_memory(2 * 1024 * 1024 * 1024),
+            "2.0 GB"
+        );
     }
 
     #[test]
     fn test_bootstrap_phases() {
         // Verify all phases have string representation
-        assert_eq!(BootstrapPhase::DetectingOllama.to_string(), "detecting_ollama");
-        assert_eq!(BootstrapPhase::InstallingOllama.to_string(), "installing_ollama");
+        assert_eq!(
+            BootstrapPhase::DetectingOllama.to_string(),
+            "detecting_ollama"
+        );
+        assert_eq!(
+            BootstrapPhase::InstallingOllama.to_string(),
+            "installing_ollama"
+        );
         assert_eq!(BootstrapPhase::PullingModels.to_string(), "pulling_models");
         assert_eq!(BootstrapPhase::Benchmarking.to_string(), "benchmarking");
         assert_eq!(BootstrapPhase::Ready.to_string(), "ready");

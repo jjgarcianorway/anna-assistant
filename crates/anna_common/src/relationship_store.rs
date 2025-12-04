@@ -145,14 +145,15 @@ impl RelationshipStore {
 
     /// Get links from a source
     pub fn get_links_from(&self, source: &str) -> SqlResult<Vec<Link>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT link_type, source, target, evidence FROM links WHERE source = ?1",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT link_type, source, target, evidence FROM links WHERE source = ?1")?;
 
         let links = stmt
             .query_map(params![source], |row| {
                 let link_type_str: String = row.get(0)?;
-                let link_type = LinkType::from_str(&link_type_str).unwrap_or(LinkType::PackageToService);
+                let link_type =
+                    LinkType::from_str(&link_type_str).unwrap_or(LinkType::PackageToService);
                 Ok(Link {
                     link_type,
                     source: row.get(1)?,
@@ -168,14 +169,15 @@ impl RelationshipStore {
 
     /// Get links to a target
     pub fn get_links_to(&self, target: &str) -> SqlResult<Vec<Link>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT link_type, source, target, evidence FROM links WHERE target = ?1",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT link_type, source, target, evidence FROM links WHERE target = ?1")?;
 
         let links = stmt
             .query_map(params![target], |row| {
                 let link_type_str: String = row.get(0)?;
-                let link_type = LinkType::from_str(&link_type_str).unwrap_or(LinkType::PackageToService);
+                let link_type =
+                    LinkType::from_str(&link_type_str).unwrap_or(LinkType::PackageToService);
                 Ok(Link {
                     link_type,
                     source: row.get(1)?,
@@ -190,7 +192,11 @@ impl RelationshipStore {
     }
 
     /// Get links of a specific type from a source
-    pub fn get_links_from_of_type(&self, source: &str, link_type: LinkType) -> SqlResult<Vec<Link>> {
+    pub fn get_links_from_of_type(
+        &self,
+        source: &str,
+        link_type: LinkType,
+    ) -> SqlResult<Vec<Link>> {
         let mut stmt = self.conn.prepare(
             "SELECT link_type, source, target, evidence FROM links
              WHERE source = ?1 AND link_type = ?2",
@@ -275,7 +281,10 @@ pub fn discover_package_service_links(package: &str) -> Vec<Link> {
     if let Some(services) = get_services_using_package_binaries(package) {
         sources_used.insert("systemctl show");
         for service in services {
-            if !links.iter().any(|l| l.target == format!("service:{}", service)) {
+            if !links
+                .iter()
+                .any(|l| l.target == format!("service:{}", service))
+            {
                 links.push(Link {
                     link_type: LinkType::PackageToService,
                     source: format!("package:{}", package),
@@ -570,9 +579,11 @@ pub fn discover_device_driver_links(device: &str) -> Vec<Link> {
 /// Get driver for a network device
 fn get_network_device_driver(device: &str) -> Option<String> {
     let driver_link = format!("/sys/class/net/{}/device/driver", device);
-    std::fs::read_link(&driver_link)
-        .ok()
-        .and_then(|p| p.file_name().and_then(|n| n.to_str()).map(|s| s.to_string()))
+    std::fs::read_link(&driver_link).ok().and_then(|p| {
+        p.file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string())
+    })
 }
 
 /// Get driver for a PCI device

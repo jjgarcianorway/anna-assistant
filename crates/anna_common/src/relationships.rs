@@ -10,8 +10,8 @@
 //! - All fractions [0,1] shown as percentages
 
 use crate::relationship_store::{
-    discover_device_driver_links, discover_driver_firmware_links,
-    discover_package_service_links, discover_service_process_links,
+    discover_device_driver_links, discover_driver_firmware_links, discover_package_service_links,
+    discover_service_process_links,
 };
 use std::collections::HashSet;
 use std::path::Path;
@@ -183,7 +183,11 @@ pub fn get_hardware_relationships(device: &str) -> HardwareRelationships {
             let loaded = is_module_loaded(drv_name);
             rels.drivers.push(DriverRelation {
                 name: drv_name.to_string(),
-                state: if loaded { "loaded".to_string() } else { "not loaded".to_string() },
+                state: if loaded {
+                    "loaded".to_string()
+                } else {
+                    "not loaded".to_string()
+                },
             });
             rels.has_data = true;
 
@@ -242,7 +246,11 @@ pub fn format_software_relationships_section(rels: &SoftwareRelationships) -> Ve
     if sources.is_empty() {
         lines.push("  Source: Anna links.db".to_string());
     } else {
-        let source_str = sources.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ");
+        let source_str = sources
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
         lines.push(format!("  Source: Anna links.db ({})", source_str));
     }
     lines.push(String::new());
@@ -256,7 +264,9 @@ pub fn format_software_relationships_section(rels: &SoftwareRelationships) -> Ve
     if !rels.services.is_empty() {
         lines.push("  Services:".to_string());
         for svc in &rels.services {
-            let pkg_note = svc.package.as_ref()
+            let pkg_note = svc
+                .package
+                .as_ref()
                 .map(|p| format!(" (package: {})", p))
                 .unwrap_or_default();
             lines.push(format!("    {}  [{}]{}", svc.name, svc.state, pkg_note));
@@ -296,7 +306,11 @@ pub fn format_software_relationships_section(rels: &SoftwareRelationships) -> Ve
 
     // Other packages in same stack
     if !rels.stack_packages.is_empty() {
-        let pkg_names: Vec<&str> = rels.stack_packages.iter().map(|p| p.name.as_str()).collect();
+        let pkg_names: Vec<&str> = rels
+            .stack_packages
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect();
         lines.push("  Other packages in the same stack:".to_string());
         lines.push(format!("    {}", pkg_names.join(", ")));
     }
@@ -315,7 +329,11 @@ pub fn format_hardware_relationships_section(rels: &HardwareRelationships) -> Ve
     if sources.is_empty() {
         lines.push("  Source: Anna links.db".to_string());
     } else {
-        let source_str = sources.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ");
+        let source_str = sources
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
         lines.push(format!("  Source: Anna links.db ({})", source_str));
     }
     lines.push(String::new());
@@ -448,9 +466,11 @@ fn get_network_interfaces_used(_name: &str) -> Option<Vec<String>> {
 
 fn get_interface_driver(iface: &str) -> Option<String> {
     let driver_link = format!("/sys/class/net/{}/device/driver", iface);
-    std::fs::read_link(&driver_link)
-        .ok()
-        .and_then(|p| p.file_name().and_then(|n| n.to_str()).map(|s| s.to_string()))
+    std::fs::read_link(&driver_link).ok().and_then(|p| {
+        p.file_name()
+            .and_then(|n| n.to_str())
+            .map(|s| s.to_string())
+    })
 }
 
 fn get_driver_primary_firmware(driver: &str) -> Option<String> {
@@ -469,10 +489,7 @@ fn get_driver_primary_firmware(driver: &str) -> Option<String> {
 
 fn get_related_stack_packages(name: &str) -> Option<Vec<String>> {
     // Get optional dependencies and common stack packages
-    let output = Command::new("pacman")
-        .args(["-Qi", name])
-        .output()
-        .ok()?;
+    let output = Command::new("pacman").args(["-Qi", name]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -523,12 +540,13 @@ fn get_related_stack_packages(name: &str) -> Option<Vec<String>> {
 }
 
 fn is_module_loaded(module: &str) -> bool {
-    let output = Command::new("lsmod")
-        .output();
+    let output = Command::new("lsmod").output();
 
     if let Ok(out) = output {
         let stdout = String::from_utf8_lossy(&out.stdout);
-        stdout.lines().any(|l| l.split_whitespace().next() == Some(module))
+        stdout
+            .lines()
+            .any(|l| l.split_whitespace().next() == Some(module))
     } else {
         false
     }
@@ -559,9 +577,7 @@ fn get_services_for_device(device: &str) -> Option<Vec<String>> {
         ];
 
         for svc in &candidates {
-            let output = Command::new("systemctl")
-                .args(["is-active", svc])
-                .output();
+            let output = Command::new("systemctl").args(["is-active", svc]).output();
 
             if let Ok(out) = output {
                 let state = String::from_utf8_lossy(&out.stdout).trim().to_string();
@@ -581,7 +597,9 @@ fn get_services_for_device(device: &str) -> Option<Vec<String>> {
     }
 }
 
-fn get_software_using_device_24h(_device: &str) -> Option<Vec<(String, f64, Option<u64>, Option<u64>)>> {
+fn get_software_using_device_24h(
+    _device: &str,
+) -> Option<Vec<(String, f64, Option<u64>, Option<u64>)>> {
     // This would query telemetry to find processes that have used this device
     // For now, return None - full implementation would need device-process correlation
     None

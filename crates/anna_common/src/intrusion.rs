@@ -540,8 +540,12 @@ impl IntrusionIndex {
         for pattern in INTRUSION_PATTERNS {
             for pat in pattern.patterns {
                 if lower_message.contains(&pat.to_lowercase()) {
-                    let mut event =
-                        IntrusionEvent::new(pattern.intrusion_type.clone(), pattern.name, message.to_string(), source);
+                    let mut event = IntrusionEvent::new(
+                        pattern.intrusion_type.clone(),
+                        pattern.name,
+                        message.to_string(),
+                        source,
+                    );
 
                     event.extract_source_ip();
                     event.extract_username();
@@ -684,15 +688,20 @@ impl IntrusionIndex {
                 continue;
             }
 
-            let ip = event.source_ip.clone().unwrap_or_else(|| "unknown".to_string());
+            let ip = event
+                .source_ip
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string());
 
-            let entry = ip_analysis.entry(ip.clone()).or_insert_with(|| IntrusionAnalysisEntry {
-                source_ip: ip,
-                attempt_count: 0,
-                usernames: Vec::new(),
-                first_seen: event.timestamp,
-                last_seen: event.timestamp,
-            });
+            let entry = ip_analysis
+                .entry(ip.clone())
+                .or_insert_with(|| IntrusionAnalysisEntry {
+                    source_ip: ip,
+                    attempt_count: 0,
+                    usernames: Vec::new(),
+                    first_seen: event.timestamp,
+                    last_seen: event.timestamp,
+                });
 
             entry.attempt_count += 1;
             if event.timestamp < entry.first_seen {
@@ -744,7 +753,9 @@ mod tests {
 
     #[test]
     fn test_intrusion_type_severity() {
-        assert!(IntrusionType::PrivilegeEscalation.severity() > IntrusionType::FailedAuth.severity());
+        assert!(
+            IntrusionType::PrivilegeEscalation.severity() > IntrusionType::FailedAuth.severity()
+        );
         assert!(IntrusionType::RootkitIndicator.severity() == 5);
     }
 

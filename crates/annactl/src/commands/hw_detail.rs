@@ -37,37 +37,31 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::process::Command;
 
+use anna_common::change_journal::get_package_history;
+use anna_common::grounded::deps::{get_driver_related_services, get_module_deps};
 use anna_common::grounded::drivers::get_pci_device_by_class_index;
 use anna_common::grounded::health::{
-    get_cpu_health, get_disk_health, get_battery_health,
-    get_network_health, HealthStatus,
-};
-use anna_common::grounded::deps::{get_module_deps, get_driver_related_services};
-use anna_common::grounded::network::{
-    get_interfaces, InterfaceType, format_traffic,
+    get_battery_health, get_cpu_health, get_disk_health, get_network_health, HealthStatus,
 };
 use anna_common::grounded::log_patterns::{
-    extract_patterns_for_driver, extract_driver_patterns_with_history,
-    LogPatternSummary, LogHistorySummary, format_time_short,
+    extract_driver_patterns_with_history, extract_patterns_for_driver, format_time_short,
+    LogHistorySummary, LogPatternSummary,
 };
+use anna_common::grounded::network::{format_traffic, get_interfaces, InterfaceType};
+use anna_common::grounded::signal_quality::{get_nvme_signal, get_storage_signal, get_wifi_signal};
 use anna_common::{find_hardware_related_units, ServiceLifecycle};
-use anna_common::change_journal::get_package_history;
-use anna_common::grounded::signal_quality::{
-    get_wifi_signal, get_storage_signal, get_nvme_signal,
-};
 // v7.22.0: Scenario lenses
 use anna_common::scenario_lens::{
-    NetworkLens, StorageLens, GraphicsLens, AudioLens,
-    format_bytes as lens_format_bytes,
+    format_bytes as lens_format_bytes, AudioLens, GraphicsLens, NetworkLens, StorageLens,
 };
 // v7.24.0: Relationships
 use anna_common::relationships::{
-    get_hardware_relationships, format_hardware_relationships_section,
+    format_hardware_relationships_section, get_hardware_relationships,
 };
 // v7.25.0: Peripherals
 use anna_common::grounded::peripherals::{
-    get_usb_summary, get_bluetooth_summary, get_thunderbolt_summary,
-    get_firewire_summary, get_sdcard_summary, BluetoothState,
+    get_bluetooth_summary, get_firewire_summary, get_sdcard_summary, get_thunderbolt_summary,
+    get_usb_summary, BluetoothState,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -185,7 +179,8 @@ async fn run_cpu_profile() -> Result<()> {
                         "Flags" => {
                             // Extract key flags
                             let important = ["aes", "avx", "avx2", "avx512f", "fma", "sse4_2"];
-                            let found: Vec<_> = important.iter()
+                            let found: Vec<_> = important
+                                .iter()
                                 .filter(|f| val.contains(*f))
                                 .map(|s| *s)
                                 .collect();
@@ -216,7 +211,10 @@ async fn run_cpu_profile() -> Result<()> {
 
     // [FIRMWARE] - v7.15.0: Microcode section
     println!("{}", "[FIRMWARE]".cyan());
-    println!("  {}", "(sources: /sys/devices/system/cpu/microcode, journalctl -b -k)".dimmed());
+    println!(
+        "  {}",
+        "(sources: /sys/devices/system/cpu/microcode, journalctl -b -k)".dimmed()
+    );
     println!();
 
     // Get microcode version
@@ -241,10 +239,12 @@ async fn run_cpu_profile() -> Result<()> {
         println!("  Source:         /sys/devices/system/cpu/microcode");
 
         // Check if microcode package is installed
-        let ucode_pkg = if vendor == "genuineintel" { "intel-ucode" } else { "amd-ucode" };
-        let pkg_check = Command::new("pacman")
-            .args(["-Qi", ucode_pkg])
-            .output();
+        let ucode_pkg = if vendor == "genuineintel" {
+            "intel-ucode"
+        } else {
+            "amd-ucode"
+        };
+        let pkg_check = Command::new("pacman").args(["-Qi", ucode_pkg]).output();
 
         if let Ok(out) = pkg_check {
             if out.status.success() {
@@ -271,7 +271,10 @@ async fn run_cpu_profile() -> Result<()> {
     // [HEALTH]
     println!("{}", "[HEALTH]".cyan());
     if let Some(source) = &cpu_health.temp_source {
-        println!("  {}", format!("(sources: {}, journalctl -b)", source).dimmed());
+        println!(
+            "  {}",
+            format!("(sources: {}, journalctl -b)", source).dimmed()
+        );
     } else {
         println!("  {}", "(sources: journalctl -b)".dimmed());
     }
@@ -288,7 +291,11 @@ async fn run_cpu_profile() -> Result<()> {
     }
 
     if cpu_health.throttling_detected {
-        println!("  Throttling:      {} ({} events)", "detected".yellow(), cpu_health.throttle_events);
+        println!(
+            "  Throttling:      {} ({} events)",
+            "detected".yellow(),
+            cpu_health.throttle_events
+        );
     } else {
         println!("  Throttling:      {}", "none detected this boot".green());
     }
@@ -316,7 +323,7 @@ async fn run_cpu_profile() -> Result<()> {
 
 /// Print pattern-based kernel logs for a device/driver - v7.20.0 with baseline tags
 fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
-    use anna_common::{find_or_create_device_baseline, tag_pattern, normalize_message};
+    use anna_common::{find_or_create_device_baseline, normalize_message, tag_pattern};
 
     println!("{}", "[LOGS]".cyan());
 
@@ -340,9 +347,11 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
     // v7.20.0: Pattern summary header with baseline info
     println!();
     println!("  Patterns (this boot):");
-    println!("    Total warnings/errors: {} ({} patterns)",
-             summary.total_count.to_string().yellow(),
-             summary.pattern_count);
+    println!(
+        "    Total warnings/errors: {} ({} patterns)",
+        summary.total_count.to_string().yellow(),
+        summary.pattern_count
+    );
     println!();
 
     // v7.20.0: Show top 3 patterns with baseline tags
@@ -365,9 +374,19 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
         if tag_str.is_empty() {
             println!("    {}) \"{}\"", i + 1, pattern.pattern);
         } else if tag_str.contains("new since") {
-            println!("    {}) \"{}\" {}", i + 1, pattern.pattern, tag_str.yellow());
+            println!(
+                "    {}) \"{}\" {}",
+                i + 1,
+                pattern.pattern,
+                tag_str.yellow()
+            );
         } else {
-            println!("    {}) \"{}\" {}", i + 1, pattern.pattern, tag_str.dimmed());
+            println!(
+                "    {}) \"{}\" {}",
+                i + 1,
+                pattern.pattern,
+                tag_str.dimmed()
+            );
         }
         println!("       ({}, last at {})", count_str.dimmed(), time_hint);
     }
@@ -375,16 +394,18 @@ fn print_device_logs(device: &str, _keywords: &[&str]) -> LogPatternSummary {
     // Show if there are more patterns
     if summary.pattern_count > 3 {
         println!();
-        println!("    (and {} more patterns)",
-                 summary.pattern_count - 3);
+        println!("    (and {} more patterns)", summary.pattern_count - 3);
     }
 
     // v7.20.0: Baseline info
     if let Some(ref bl) = baseline {
         println!();
         println!("  Baseline:");
-        println!("    Boot: -{}, {} known warning patterns",
-                 bl.boot_id.abs(), bl.warning_count);
+        println!(
+            "    Boot: -{}, {} known warning patterns",
+            bl.boot_id.abs(),
+            bl.warning_count
+        );
     }
 
     println!();
@@ -418,7 +439,9 @@ fn print_hw_history(driver_pkg: &str) {
             .unwrap_or_else(|| "unknown".to_string());
 
         let action = event.change_type.as_str();
-        let details = event.details.as_ref()
+        let details = event
+            .details
+            .as_ref()
             .map(|d| {
                 if let Some(ref new_ver) = d.new_version {
                     if let Some(ref old_ver) = d.old_version {
@@ -437,7 +460,13 @@ fn print_hw_history(driver_pkg: &str) {
         if details.is_empty() {
             println!("    {}  {:<12} {}", ts, action, driver_pkg);
         } else {
-            println!("    {}  {:<12} {}  {}", ts, action, driver_pkg, details.dimmed());
+            println!(
+                "    {}  {:<12} {}  {}",
+                ts,
+                action,
+                driver_pkg,
+                details.dimmed()
+            );
         }
     }
     // v7.29.0: Show all GPU driver history events (no truncation)
@@ -646,7 +675,11 @@ async fn run_gpu_profile(name: &str) -> Result<()> {
         // Get driver package - v7.10.0
         let pkg = get_driver_package(drv);
         if let Some(pkg_name) = pkg {
-            println!("  Driver package:  {} {}", pkg_name, "(pacman -Qo)".dimmed());
+            println!(
+                "  Driver package:  {} {}",
+                pkg_name,
+                "(pacman -Qo)".dimmed()
+            );
         }
 
         // Firmware section - v7.10.0, v7.29.0: Show all, no truncation
@@ -672,7 +705,10 @@ async fn run_gpu_profile(name: &str) -> Result<()> {
         }
     } else {
         println!("  Kernel module:   {}", "none".yellow());
-        println!("  {}", "Note: PCI device present with no bound kernel driver".dimmed());
+        println!(
+            "  {}",
+            "Note: PCI device present with no bound kernel driver".dimmed()
+        );
 
         // v7.28.0: Driver guidance for missing driver
         if let Some(ref dev) = pci_device {
@@ -728,7 +764,9 @@ async fn run_storage_category() -> Result<()> {
 
     // [IDENTITY]
     println!("{}", "[IDENTITY]".cyan());
-    let bus_types: Vec<_> = lens.devices.iter()
+    let bus_types: Vec<_> = lens
+        .devices
+        .iter()
         .map(|d| d.bus.as_str())
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
@@ -784,9 +822,12 @@ async fn run_storage_category() -> Result<()> {
     println!();
 
     // Temperature if available
-    let temps: Vec<_> = lens.devices.iter()
+    let temps: Vec<_> = lens
+        .devices
+        .iter()
         .filter_map(|d| {
-            lens.health.get(&d.name)
+            lens.health
+                .get(&d.name)
                 .and_then(|h| h.temp_avg_24h)
                 .map(|t| (d.name.as_str(), t))
         })
@@ -821,12 +862,7 @@ async fn run_storage_category() -> Result<()> {
         println!("  Storage related patterns (current boot, warning and above):");
         // v7.29.0: No truncation - show full messages
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
-            println!(
-                "    [{}] {} ({}x)",
-                id,
-                msg,
-                count
-            );
+            println!("    [{}] {} ({}x)", id, msg, count);
         }
         println!();
     }
@@ -838,7 +874,11 @@ async fn run_storage_category() -> Result<()> {
         if let Some(date) = lens.first_seen.get(&dev.name) {
             println!("    {:<12} {}", format!("{}:", dev.name), date);
         } else {
-            println!("    {:<12} {}", format!("{}:", dev.name), "(from Anna telemetry)".dimmed());
+            println!(
+                "    {:<12} {}",
+                format!("{}:", dev.name),
+                "(from Anna telemetry)".dimmed()
+            );
         }
     }
     println!();
@@ -933,7 +973,10 @@ async fn run_storage_profile(name: &str) -> Result<()> {
         // Unsafe shutdowns (NVMe only, if high)
         if let Some(unsafe_shutdowns) = health.unsafe_shutdowns {
             if unsafe_shutdowns > 5 {
-                println!("  Unsafe shutdowns: {}", unsafe_shutdowns.to_string().yellow());
+                println!(
+                    "  Unsafe shutdowns: {}",
+                    unsafe_shutdowns.to_string().yellow()
+                );
             }
         }
     } else if let Some(ref reason) = health.smart_unavailable_reason {
@@ -1020,18 +1063,24 @@ fn print_storage_signal_section(name: &str, device_type: &str) {
 
         // Unsafe shutdowns
         if signal.unsafe_shutdowns > 10 {
-            println!("  Unsafe shutdowns: {}", signal.unsafe_shutdowns.to_string().yellow());
+            println!(
+                "  Unsafe shutdowns: {}",
+                signal.unsafe_shutdowns.to_string().yellow()
+            );
         }
 
         // Health assessment
         let health = signal.health();
-        let health_str = format!("{} {}", health.emoji(),
+        let health_str = format!(
+            "{} {}",
+            health.emoji(),
             match health {
                 anna_common::grounded::signal_quality::SignalHealth::Good => "Good",
                 anna_common::grounded::signal_quality::SignalHealth::Warning => "Warning",
                 anna_common::grounded::signal_quality::SignalHealth::Critical => "Critical",
                 anna_common::grounded::signal_quality::SignalHealth::Unknown => "Unknown",
-            });
+            }
+        );
         println!("  Assessment:   {}", health_str);
     } else {
         let signal = get_storage_signal(&device);
@@ -1067,19 +1116,28 @@ fn print_storage_signal_section(name: &str, device_type: &str) {
 
         // Bad sectors
         if signal.reallocated_sectors > 0 || signal.pending_sectors > 0 {
-            println!("  Reallocated:  {} sectors", signal.reallocated_sectors.to_string().yellow());
-            println!("  Pending:      {} sectors", signal.pending_sectors.to_string().yellow());
+            println!(
+                "  Reallocated:  {} sectors",
+                signal.reallocated_sectors.to_string().yellow()
+            );
+            println!(
+                "  Pending:      {} sectors",
+                signal.pending_sectors.to_string().yellow()
+            );
         }
 
         // Health assessment
         let health = signal.health();
-        let health_str = format!("{} {}", health.emoji(),
+        let health_str = format!(
+            "{} {}",
+            health.emoji(),
             match health {
                 anna_common::grounded::signal_quality::SignalHealth::Good => "Good",
                 anna_common::grounded::signal_quality::SignalHealth::Warning => "Warning",
                 anna_common::grounded::signal_quality::SignalHealth::Critical => "Critical",
                 anna_common::grounded::signal_quality::SignalHealth::Unknown => "Unknown",
-            });
+            }
+        );
         println!("  Assessment:   {}", health_str);
     }
 
@@ -1089,7 +1147,10 @@ fn print_storage_signal_section(name: &str, device_type: &str) {
 /// Format bytes as human-readable
 fn format_bytes_human(bytes: u64) -> String {
     if bytes >= 1024 * 1024 * 1024 * 1024 {
-        format!("{:.1} TiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0 * 1024.0))
+        format!(
+            "{:.1} TiB",
+            bytes as f64 / (1024.0 * 1024.0 * 1024.0 * 1024.0)
+        )
     } else if bytes >= 1024 * 1024 * 1024 {
         format!("{:.1} GiB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
     } else if bytes >= 1024 * 1024 {
@@ -1116,7 +1177,9 @@ async fn run_network_category() -> Result<()> {
 
     // [IDENTITY]
     println!("{}", "[IDENTITY]".cyan());
-    let iface_types: Vec<_> = lens.interfaces.iter()
+    let iface_types: Vec<_> = lens
+        .interfaces
+        .iter()
         .map(|i| i.iface_type.as_str())
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
@@ -1131,20 +1194,39 @@ async fn run_network_category() -> Result<()> {
         println!("  {}:", iface.name.bold());
         println!("    interface:  {}", iface.name);
         if let Some(ref driver) = iface.driver {
-            let loaded = if iface.link_state == "up" { "(loaded)" } else { "" };
+            let loaded = if iface.link_state == "up" {
+                "(loaded)"
+            } else {
+                ""
+            };
             println!("    driver:     {} {}", driver.cyan(), loaded);
         }
         if let Some(ref fw) = iface.firmware {
             println!("    firmware:   {}", fw);
         } else if iface.iface_type != "wifi" {
-            println!("    firmware:   {}", "not required or not reported".dimmed());
+            println!(
+                "    firmware:   {}",
+                "not required or not reported".dimmed()
+            );
         }
         if let Some(blocked) = iface.rfkill_blocked {
-            let status = if blocked { "blocked".red().to_string() } else { "unblocked".green().to_string() };
+            let status = if blocked {
+                "blocked".red().to_string()
+            } else {
+                "unblocked".green().to_string()
+            };
             println!("    rfkill:     {}", status);
         }
         let link_status = if iface.link_state == "up" {
-            format!("{}, {}", "up".green(), if iface.carrier { "carrier" } else { "no carrier" })
+            format!(
+                "{}, {}",
+                "up".green(),
+                if iface.carrier {
+                    "carrier"
+                } else {
+                    "no carrier"
+                }
+            )
         } else {
             iface.link_state.red().to_string()
         };
@@ -1189,12 +1271,7 @@ async fn run_network_category() -> Result<()> {
         println!("  Network related patterns (current boot, warning and above):");
         // v7.29.0: No truncation - show full messages
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
-            println!(
-                "    [{}] {} ({}x)",
-                id,
-                msg,
-                count
-            );
+            println!("    [{}] {} ({}x)", id, msg, count);
         }
         println!();
     }
@@ -1206,7 +1283,11 @@ async fn run_network_category() -> Result<()> {
         if let Some(date) = lens.first_seen.get(&iface.name) {
             println!("    {:<12} {}", format!("{}:", iface.name), date);
         } else {
-            println!("    {:<12} {}", format!("{}:", iface.name), "(from Anna telemetry)".dimmed());
+            println!(
+                "    {:<12} {}",
+                format!("{}:", iface.name),
+                "(from Anna telemetry)".dimmed()
+            );
         }
     }
     println!();
@@ -1219,7 +1300,8 @@ async fn run_network_category() -> Result<()> {
 /// Wi-Fi category profile
 async fn run_wifi_profile() -> Result<()> {
     let networks = get_network_health();
-    let wifi_ifaces: Vec<_> = networks.iter()
+    let wifi_ifaces: Vec<_> = networks
+        .iter()
         .filter(|n| n.interface_type == "wifi")
         .collect();
 
@@ -1287,10 +1369,16 @@ async fn run_wifi_profile() -> Result<()> {
 
         // Error counters
         if iface.rx_errors > 0 || iface.tx_errors > 0 {
-            println!("  Errors:      RX={}, TX={}", iface.rx_errors, iface.tx_errors);
+            println!(
+                "  Errors:      RX={}, TX={}",
+                iface.rx_errors, iface.tx_errors
+            );
         }
         if iface.rx_dropped > 0 || iface.tx_dropped > 0 {
-            println!("  Dropped:     RX={}, TX={}", iface.rx_dropped, iface.tx_dropped);
+            println!(
+                "  Dropped:     RX={}, TX={}",
+                iface.rx_dropped, iface.tx_dropped
+            );
         }
 
         println!();
@@ -1318,11 +1406,11 @@ async fn run_wifi_profile() -> Result<()> {
         print_wifi_signal_section(&iface.interface);
 
         // [LOGS]
-        let keywords: Vec<&str> = vec![
-            &iface.interface,
-            iface.driver.as_deref().unwrap_or("wifi"),
-        ];
-        let _log_summary = print_device_logs("wifi", &keywords.iter().map(|s| s.as_ref()).collect::<Vec<_>>());
+        let keywords: Vec<&str> = vec![&iface.interface, iface.driver.as_deref().unwrap_or("wifi")];
+        let _log_summary = print_device_logs(
+            "wifi",
+            &keywords.iter().map(|s| s.as_ref()).collect::<Vec<_>>(),
+        );
     }
 
     println!("{}", THIN_SEP);
@@ -1387,13 +1475,16 @@ fn print_wifi_signal_section(interface: &str) {
 
     // Health assessment
     let health = signal.health();
-    let health_str = format!("{} {}", health.emoji(),
+    let health_str = format!(
+        "{} {}",
+        health.emoji(),
         match health {
             anna_common::grounded::signal_quality::SignalHealth::Good => "Good",
             anna_common::grounded::signal_quality::SignalHealth::Warning => "Warning",
             anna_common::grounded::signal_quality::SignalHealth::Critical => "Critical",
             anna_common::grounded::signal_quality::SignalHealth::Unknown => "Unknown",
-        });
+        }
+    );
     println!("  Assessment:   {}", health_str);
 
     println!();
@@ -1402,7 +1493,8 @@ fn print_wifi_signal_section(interface: &str) {
 /// Ethernet category profile
 async fn run_ethernet_profile() -> Result<()> {
     let networks = get_network_health();
-    let eth_ifaces: Vec<_> = networks.iter()
+    let eth_ifaces: Vec<_> = networks
+        .iter()
         .filter(|n| n.interface_type == "ethernet")
         .collect();
 
@@ -1457,10 +1549,16 @@ async fn run_ethernet_profile() -> Result<()> {
 
         // Error counters
         if iface.rx_errors > 0 || iface.tx_errors > 0 {
-            println!("  Errors:      RX={}, TX={}", iface.rx_errors, iface.tx_errors);
+            println!(
+                "  Errors:      RX={}, TX={}",
+                iface.rx_errors, iface.tx_errors
+            );
         }
         if iface.rx_dropped > 0 || iface.tx_dropped > 0 {
-            println!("  Dropped:     RX={}, TX={}", iface.rx_dropped, iface.tx_dropped);
+            println!(
+                "  Dropped:     RX={}, TX={}",
+                iface.rx_dropped, iface.tx_dropped
+            );
         }
 
         println!();
@@ -1568,28 +1666,49 @@ async fn run_usb_category() -> Result<()> {
         println!("  {}", "not detected".dimmed());
     } else {
         for ctrl in &usb.controllers {
-            println!("  {} {} (driver: {})", ctrl.pci_address, ctrl.usb_version, ctrl.driver.green());
+            println!(
+                "  {} {} (driver: {})",
+                ctrl.pci_address,
+                ctrl.usb_version,
+                ctrl.driver.green()
+            );
         }
     }
     println!();
 
     // [DEVICES]
     println!("{}", "[DEVICES]".cyan());
-    println!("  {} device(s), {} root hub(s)", usb.device_count, usb.root_hubs);
+    println!(
+        "  {} device(s), {} root hub(s)",
+        usb.device_count, usb.root_hubs
+    );
     println!();
 
     // Group by type
     let hubs: Vec<_> = usb.devices.iter().filter(|d| d.is_hub).collect();
-    let storage: Vec<_> = usb.devices.iter().filter(|d| d.device_class == "Mass Storage").collect();
-    let hid: Vec<_> = usb.devices.iter().filter(|d| d.device_class == "HID").collect();
-    let other: Vec<_> = usb.devices.iter()
+    let storage: Vec<_> = usb
+        .devices
+        .iter()
+        .filter(|d| d.device_class == "Mass Storage")
+        .collect();
+    let hid: Vec<_> = usb
+        .devices
+        .iter()
+        .filter(|d| d.device_class == "HID")
+        .collect();
+    let other: Vec<_> = usb
+        .devices
+        .iter()
         .filter(|d| !d.is_hub && d.device_class != "Mass Storage" && d.device_class != "HID")
         .collect();
 
     if !hubs.is_empty() {
         println!("  {}:", "Hubs".dimmed());
         for dev in hubs.iter().take(3) {
-            println!("    Bus{:02} Dev{:03}: {}", dev.bus, dev.device, dev.product_name);
+            println!(
+                "    Bus{:02} Dev{:03}: {}",
+                dev.bus, dev.device, dev.product_name
+            );
         }
         if hubs.len() > 3 {
             println!("    ... and {} more", hubs.len() - 3);
@@ -1601,11 +1720,24 @@ async fn run_usb_category() -> Result<()> {
     if !storage.is_empty() {
         println!("  {}:", "Storage".dimmed());
         for dev in &storage {
-            let speed = if dev.speed.is_empty() { "".to_string() } else { format!(" [{}]", dev.speed) };
-            let power = dev.power_ma.map(|p| format!(" {}mA", p)).unwrap_or_default();
-            let driver = dev.driver.as_ref().map(|d| format!(" driver:{}", d.green())).unwrap_or_default();
-            println!("    Bus{:02} Dev{:03}: {} ({}){}{}{}",
-                dev.bus, dev.device, dev.product_name, dev.vendor_name, speed, power, driver);
+            let speed = if dev.speed.is_empty() {
+                "".to_string()
+            } else {
+                format!(" [{}]", dev.speed)
+            };
+            let power = dev
+                .power_ma
+                .map(|p| format!(" {}mA", p))
+                .unwrap_or_default();
+            let driver = dev
+                .driver
+                .as_ref()
+                .map(|d| format!(" driver:{}", d.green()))
+                .unwrap_or_default();
+            println!(
+                "    Bus{:02} Dev{:03}: {} ({}){}{}{}",
+                dev.bus, dev.device, dev.product_name, dev.vendor_name, speed, power, driver
+            );
         }
         println!();
     }
@@ -1613,11 +1745,24 @@ async fn run_usb_category() -> Result<()> {
     if !hid.is_empty() {
         println!("  {}:", "HID (keyboards, mice)".dimmed());
         for dev in &hid {
-            let speed = if dev.speed.is_empty() { "".to_string() } else { format!(" [{}]", dev.speed) };
-            let power = dev.power_ma.map(|p| format!(" {}mA", p)).unwrap_or_default();
-            let driver = dev.driver.as_ref().map(|d| format!(" driver:{}", d.green())).unwrap_or_default();
-            println!("    Bus{:02} Dev{:03}: {} ({}){}{}{}",
-                dev.bus, dev.device, dev.product_name, dev.vendor_name, speed, power, driver);
+            let speed = if dev.speed.is_empty() {
+                "".to_string()
+            } else {
+                format!(" [{}]", dev.speed)
+            };
+            let power = dev
+                .power_ma
+                .map(|p| format!(" {}mA", p))
+                .unwrap_or_default();
+            let driver = dev
+                .driver
+                .as_ref()
+                .map(|d| format!(" driver:{}", d.green()))
+                .unwrap_or_default();
+            println!(
+                "    Bus{:02} Dev{:03}: {} ({}){}{}{}",
+                dev.bus, dev.device, dev.product_name, dev.vendor_name, speed, power, driver
+            );
         }
         println!();
     }
@@ -1625,12 +1770,29 @@ async fn run_usb_category() -> Result<()> {
     if !other.is_empty() {
         println!("  {}:", "Other".dimmed());
         for dev in other.iter().take(5) {
-            let class = if dev.device_class.is_empty() { "?".to_string() } else { dev.device_class.clone() };
-            let speed = if dev.speed.is_empty() { "".to_string() } else { format!(" [{}]", dev.speed) };
-            let power = dev.power_ma.map(|p| format!(" {}mA", p)).unwrap_or_default();
-            let driver = dev.driver.as_ref().map(|d| format!(" driver:{}", d.green())).unwrap_or_default();
-            println!("    Bus{:02} Dev{:03}: {} [{}]{}{}{}",
-                dev.bus, dev.device, dev.product_name, class, speed, power, driver);
+            let class = if dev.device_class.is_empty() {
+                "?".to_string()
+            } else {
+                dev.device_class.clone()
+            };
+            let speed = if dev.speed.is_empty() {
+                "".to_string()
+            } else {
+                format!(" [{}]", dev.speed)
+            };
+            let power = dev
+                .power_ma
+                .map(|p| format!(" {}mA", p))
+                .unwrap_or_default();
+            let driver = dev
+                .driver
+                .as_ref()
+                .map(|d| format!(" driver:{}", d.green()))
+                .unwrap_or_default();
+            println!(
+                "    Bus{:02} Dev{:03}: {} [{}]{}{}{}",
+                dev.bus, dev.device, dev.product_name, class, speed, power, driver
+            );
         }
         if other.len() > 5 {
             println!("    ... and {} more", other.len() - 5);
@@ -1672,9 +1834,16 @@ async fn run_thunderbolt_category() -> Result<()> {
     println!("  {}", format!("(source: {})", tb.source).dimmed());
 
     for ctrl in &tb.controllers {
-        let gen = ctrl.generation.map(|g| format!("Thunderbolt {}", g))
+        let gen = ctrl
+            .generation
+            .map(|g| format!("Thunderbolt {}", g))
             .unwrap_or_else(|| "Thunderbolt".to_string());
-        println!("  {} {} (driver: {})", ctrl.pci_address, gen, ctrl.driver.green());
+        println!(
+            "  {} {} (driver: {})",
+            ctrl.pci_address,
+            gen,
+            ctrl.driver.green()
+        );
     }
     println!();
 
@@ -1736,7 +1905,8 @@ async fn run_sdcard_category() -> Result<()> {
         println!("    Driver:    {}", reader.driver);
 
         if reader.media_present {
-            let size = reader.media_size
+            let size = reader
+                .media_size
                 .map(|s| format_size_bytes_detail(s))
                 .unwrap_or_else(|| "?".to_string());
             let fs = reader.media_fs.as_deref().unwrap_or("unknown");
@@ -1801,7 +1971,12 @@ async fn run_firewire_category() -> Result<()> {
     println!("  {}", format!("(source: {})", fw.source).dimmed());
 
     for ctrl in &fw.controllers {
-        println!("  {} {} (driver: {})", ctrl.pci_address, ctrl.name, ctrl.driver.green());
+        println!(
+            "  {} {} (driver: {})",
+            ctrl.pci_address,
+            ctrl.name,
+            ctrl.driver.green()
+        );
     }
     println!();
 
@@ -1847,8 +2022,7 @@ async fn run_network_interface_profile(name: &str) -> Result<()> {
     // Try to find driver
     let driver_path = format!("/sys/class/net/{}/device/driver", name);
     let driver_name = if let Ok(link) = std::fs::read_link(&driver_path) {
-        link.file_name()
-            .map(|n| n.to_string_lossy().to_string())
+        link.file_name().map(|n| n.to_string_lossy().to_string())
     } else {
         None
     };
@@ -1891,10 +2065,16 @@ async fn run_network_interface_profile(name: &str) -> Result<()> {
         }
 
         if health.rx_errors > 0 || health.tx_errors > 0 {
-            println!("  Errors:      RX={}, TX={}", health.rx_errors, health.tx_errors);
+            println!(
+                "  Errors:      RX={}, TX={}",
+                health.rx_errors, health.tx_errors
+            );
         }
         if health.rx_dropped > 0 || health.tx_dropped > 0 {
-            println!("  Dropped:     RX={}, TX={}", health.rx_dropped, health.tx_dropped);
+            println!(
+                "  Dropped:     RX={}, TX={}",
+                health.rx_dropped, health.tx_dropped
+            );
         }
 
         println!();
@@ -2098,7 +2278,10 @@ async fn run_battery_profile() -> Result<()> {
         // Full now (actual max charge)
         if let (Some(full), Some(design)) = (bat.full_capacity_wh, bat.design_capacity_wh) {
             let pct_of_design = (full / design * 100.0).round();
-            println!("  Full now:      {:.0} Wh ({}% of design)", full, pct_of_design);
+            println!(
+                "  Full now:      {:.0} Wh ({}% of design)",
+                full, pct_of_design
+            );
         } else if let Some(full) = bat.full_capacity_wh {
             println!("  Full now:      {:.0} Wh", full);
         }
@@ -2114,7 +2297,10 @@ async fn run_battery_profile() -> Result<()> {
             } else {
                 pct_str.red().to_string()
             };
-            println!("  Charge now:    {:.0} Wh ({} of full)", charge_wh, pct_colored);
+            println!(
+                "  Charge now:    {:.0} Wh ({} of full)",
+                charge_wh, pct_colored
+            );
         } else if let Some(pct) = bat.capacity_percent {
             let pct_str = format!("{}%", pct);
             println!("  Charge now:    {}", pct_str);
@@ -2359,17 +2545,27 @@ fn get_driver_package(driver_name: &str) -> Option<String> {
 
     // Try common paths
     let paths = [
-        format!("/usr/lib/modules/{}/kernel/drivers/gpu/drm/{}/{}.ko.zst", kernel_version, driver_name, driver_name),
-        format!("/usr/lib/modules/{}/kernel/drivers/gpu/drm/{}/{}.ko", kernel_version, driver_name, driver_name),
-        format!("/usr/lib/modules/{}/extramodules/{}.ko.zst", kernel_version, driver_name),
-        format!("/usr/lib/modules/{}/updates/dkms/{}.ko.zst", kernel_version, driver_name),
+        format!(
+            "/usr/lib/modules/{}/kernel/drivers/gpu/drm/{}/{}.ko.zst",
+            kernel_version, driver_name, driver_name
+        ),
+        format!(
+            "/usr/lib/modules/{}/kernel/drivers/gpu/drm/{}/{}.ko",
+            kernel_version, driver_name, driver_name
+        ),
+        format!(
+            "/usr/lib/modules/{}/extramodules/{}.ko.zst",
+            kernel_version, driver_name
+        ),
+        format!(
+            "/usr/lib/modules/{}/updates/dkms/{}.ko.zst",
+            kernel_version, driver_name
+        ),
     ];
 
     for path in &paths {
         if std::path::Path::new(path).exists() {
-            let output = Command::new("pacman")
-                .args(["-Qo", path])
-                .output();
+            let output = Command::new("pacman").args(["-Qo", path]).output();
             if let Ok(out) = output {
                 if out.status.success() {
                     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -2396,9 +2592,7 @@ fn get_driver_package(driver_name: &str) -> Option<String> {
             }
         }
         // Check nvidia-dkms
-        let check = Command::new("pacman")
-            .args(["-Qi", "nvidia-dkms"])
-            .output();
+        let check = Command::new("pacman").args(["-Qi", "nvidia-dkms"]).output();
         if let Ok(out) = check {
             if out.status.success() {
                 return Some("nvidia-dkms".to_string());
@@ -2411,10 +2605,7 @@ fn get_driver_package(driver_name: &str) -> Option<String> {
 
 /// Get the running kernel version
 fn get_kernel_version() -> Option<String> {
-    let output = Command::new("uname")
-        .arg("-r")
-        .output()
-        .ok()?;
+    let output = Command::new("uname").arg("-r").output().ok()?;
     if output.status.success() {
         return Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
     }
@@ -2511,7 +2702,8 @@ fn print_interfaces_section(iface_type: InterfaceType) {
     println!();
 
     let interfaces = get_interfaces();
-    let filtered: Vec<_> = interfaces.iter()
+    let filtered: Vec<_> = interfaces
+        .iter()
         .filter(|i| i.iface_type == iface_type)
         .collect();
 
@@ -2550,9 +2742,11 @@ fn print_interfaces_section(iface_type: InterfaceType) {
 
         // Traffic (since boot)
         if iface.rx_bytes > 0 || iface.tx_bytes > 0 {
-            println!("    Traffic:    RX {} / TX {} (since boot)",
+            println!(
+                "    Traffic:    RX {} / TX {} (since boot)",
                 format_traffic(iface.rx_bytes),
-                format_traffic(iface.tx_bytes));
+                format_traffic(iface.tx_bytes)
+            );
         }
 
         println!();
@@ -2590,10 +2784,16 @@ fn print_hw_service_lifecycle_section(component: &str) {
         if lifecycle.failures_24h > 0 || lifecycle.failures_7d > 0 {
             println!("    Failures:");
             if lifecycle.failures_24h > 0 {
-                println!("      last 24h:  {}", lifecycle.failures_24h.to_string().yellow());
+                println!(
+                    "      last 24h:  {}",
+                    lifecycle.failures_24h.to_string().yellow()
+                );
             }
             if lifecycle.failures_7d > 0 {
-                println!("      last 7d:   {}", lifecycle.failures_7d.to_string().yellow());
+                println!(
+                    "      last 7d:   {}",
+                    lifecycle.failures_7d.to_string().yellow()
+                );
             }
         }
         println!();
@@ -2624,13 +2824,22 @@ fn print_device_logs_v716(device: &str, _keywords: &[&str]) -> LogHistorySummary
         println!("    {} {} warnings or errors", "✓".green(), "No".green());
     } else {
         if summary.this_boot_critical > 0 {
-            println!("    Critical: {}", summary.this_boot_critical.to_string().red().bold());
+            println!(
+                "    Critical: {}",
+                summary.this_boot_critical.to_string().red().bold()
+            );
         }
         if summary.this_boot_error > 0 {
-            println!("    Errors:   {}", summary.this_boot_error.to_string().red());
+            println!(
+                "    Errors:   {}",
+                summary.this_boot_error.to_string().red()
+            );
         }
         if summary.this_boot_warning > 0 {
-            println!("    Warnings: {}", summary.this_boot_warning.to_string().yellow());
+            println!(
+                "    Warnings: {}",
+                summary.this_boot_warning.to_string().yellow()
+            );
         }
     }
     println!();
@@ -2657,13 +2866,16 @@ fn print_device_logs_v716(device: &str, _keywords: &[&str]) -> LogHistorySummary
 
             // v7.29.0: No truncation
             println!("    {}) \"{}\"", i + 1, pattern.pattern);
-            println!("       {} ({})", pattern.priority.dimmed(), history_str.dimmed());
+            println!(
+                "       {} ({})",
+                pattern.priority.dimmed(),
+                history_str.dimmed()
+            );
         }
 
         if summary.patterns.len() > 3 {
             println!();
-            println!("    (and {} more patterns)",
-                     summary.patterns.len() - 3);
+            println!("    (and {} more patterns)", summary.patterns.len() - 3);
         }
     }
 
@@ -2674,9 +2886,11 @@ fn print_device_logs_v716(device: &str, _keywords: &[&str]) -> LogHistorySummary
         println!("  Recurring (seen in previous boots):");
         for pattern in recurring.iter().take(2) {
             // v7.29.0: No truncation
-            println!("    - \"{}\" ({} boots)",
-                     pattern.pattern.dimmed(),
-                     pattern.boots_seen);
+            println!(
+                "    - \"{}\" ({} boots)",
+                pattern.pattern.dimmed(),
+                pattern.boots_seen
+            );
         }
     }
 
@@ -2714,7 +2928,8 @@ fn get_driver_guidance(vendor_id: &str, device_id: &str) -> Vec<String> {
         "10de" => {
             guidance.push("Vendor: NVIDIA Corporation".to_string());
             guidance.push("Options:".to_string());
-            guidance.push("  1. nvidia (proprietary): sudo pacman -S nvidia nvidia-utils".to_string());
+            guidance
+                .push("  1. nvidia (proprietary): sudo pacman -S nvidia nvidia-utils".to_string());
             guidance.push("  2. nvidia-open (open-source): sudo pacman -S nvidia-open".to_string());
             guidance.push("  3. nouveau (open-source, included): modprobe nouveau".to_string());
             guidance.push("Note: Reboot required after driver installation".to_string());
@@ -2755,7 +2970,10 @@ async fn run_sensors_category() -> Result<()> {
     println!();
 
     println!("{}", "[SENSORS]".cyan());
-    println!("  {}", "(source: /sys/class/hwmon, /sys/class/thermal)".dimmed());
+    println!(
+        "  {}",
+        "(source: /sys/class/hwmon, /sys/class/thermal)".dimmed()
+    );
 
     // Enumerate hwmon devices
     let hwmon_path = std::path::Path::new("/sys/class/hwmon");
@@ -3014,7 +3232,10 @@ async fn run_firmware_category() -> Result<()> {
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
 
-    println!("    BIOS:         {} {} ({})", bios_vendor, bios_version, bios_date);
+    println!(
+        "    BIOS:         {} {} ({})",
+        bios_vendor, bios_version, bios_date
+    );
 
     // Product info
     let product_name = std::fs::read_to_string("/sys/class/dmi/id/product_name")
@@ -3035,9 +3256,10 @@ async fn run_firmware_category() -> Result<()> {
     }
 
     // CPU microcode
-    let microcode_version = std::fs::read_to_string("/sys/devices/system/cpu/cpu0/microcode/version")
-        .map(|s| s.trim().to_string())
-        .ok();
+    let microcode_version =
+        std::fs::read_to_string("/sys/devices/system/cpu/cpu0/microcode/version")
+            .map(|s| s.trim().to_string())
+            .ok();
 
     if let Some(ver) = microcode_version {
         println!("    Microcode:    {}", ver);
@@ -3059,7 +3281,10 @@ async fn run_firmware_category() -> Result<()> {
 
             for line in stdout.lines() {
                 // Look for "Loading firmware" or "loaded firmware" patterns
-                if line.contains("firmware:") || line.contains("Loading firmware") || line.contains("loaded firmware") {
+                if line.contains("firmware:")
+                    || line.contains("Loading firmware")
+                    || line.contains("loaded firmware")
+                {
                     // Extract firmware filename
                     if let Some(start) = line.find("firmware:") {
                         let rest = &line[start + 9..];
@@ -3087,7 +3312,11 @@ async fn run_firmware_category() -> Result<()> {
             println!("    {}", fw);
         }
         if firmware_files.len() > 15 {
-            println!("    {} ({} more)", "...".dimmed(), firmware_files.len() - 15);
+            println!(
+                "    {} ({} more)",
+                "...".dimmed(),
+                firmware_files.len() - 15
+            );
         }
     }
 
@@ -3095,9 +3324,7 @@ async fn run_firmware_category() -> Result<()> {
     println!();
     println!("  {}:", "Firmware Packages".dimmed());
 
-    let output = Command::new("pacman")
-        .args(["-Qs", "firmware"])
-        .output();
+    let output = Command::new("pacman").args(["-Qs", "firmware"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -3137,17 +3364,17 @@ async fn run_pci_category() -> Result<()> {
     println!("{}", "[PCI DEVICES]".cyan());
     println!("  {}", "(source: lspci -k)".dimmed());
 
-    let output = Command::new("lspci")
-        .args(["-k"])
-        .output();
+    let output = Command::new("lspci").args(["-k"]).output();
 
     match output {
         Ok(out) if out.status.success() => {
             let stdout = String::from_utf8_lossy(&out.stdout);
 
             // Group devices by category
-            let mut categories: std::collections::HashMap<String, Vec<(String, String, Option<String>)>> =
-                std::collections::HashMap::new();
+            let mut categories: std::collections::HashMap<
+                String,
+                Vec<(String, String, Option<String>)>,
+            > = std::collections::HashMap::new();
 
             let mut current_addr = String::new();
             let mut current_name = String::new();
@@ -3158,9 +3385,14 @@ async fn run_pci_category() -> Result<()> {
                 if !line.starts_with('\t') && !line.starts_with(' ') {
                     // New device - save previous if exists
                     if !current_name.is_empty() {
-                        categories.entry(current_category.clone())
+                        categories
+                            .entry(current_category.clone())
                             .or_default()
-                            .push((current_addr.clone(), current_name.clone(), current_driver.clone()));
+                            .push((
+                                current_addr.clone(),
+                                current_name.clone(),
+                                current_driver.clone(),
+                            ));
                     }
 
                     // Parse new device line: "00:00.0 Host bridge: Intel Corporation ..."
@@ -3187,20 +3419,33 @@ async fn run_pci_category() -> Result<()> {
 
             // Save last device
             if !current_name.is_empty() {
-                categories.entry(current_category)
-                    .or_default()
-                    .push((current_addr, current_name, current_driver));
+                categories.entry(current_category).or_default().push((
+                    current_addr,
+                    current_name,
+                    current_driver,
+                ));
             }
 
             // Print by category
             let order = [
-                "Host bridge", "PCI bridge", "ISA bridge",
-                "VGA compatible controller", "3D controller", "Display controller",
-                "Audio device", "Multimedia audio controller",
-                "Network controller", "Ethernet controller", "Wireless Network Adapter",
-                "USB controller", "SATA controller", "NVMe controller",
-                "Communication controller", "Serial controller",
-                "Signal processing controller", "System peripheral",
+                "Host bridge",
+                "PCI bridge",
+                "ISA bridge",
+                "VGA compatible controller",
+                "3D controller",
+                "Display controller",
+                "Audio device",
+                "Multimedia audio controller",
+                "Network controller",
+                "Ethernet controller",
+                "Wireless Network Adapter",
+                "USB controller",
+                "SATA controller",
+                "NVMe controller",
+                "Communication controller",
+                "Serial controller",
+                "Signal processing controller",
+                "System peripheral",
             ];
 
             for cat in order {
@@ -3208,7 +3453,8 @@ async fn run_pci_category() -> Result<()> {
                     println!();
                     println!("  {}:", cat.cyan());
                     for (addr, name, driver) in devices {
-                        let driver_str = driver.as_ref()
+                        let driver_str = driver
+                            .as_ref()
                             .map(|d| format!(" [{}]", d.green()))
                             .unwrap_or_else(|| format!(" [{}]", "no driver".yellow()));
 
@@ -3223,10 +3469,7 @@ async fn run_pci_category() -> Result<()> {
                             name.clone()
                         };
 
-                        println!("    {} {}{}",
-                            addr.dimmed(),
-                            short_name,
-                            driver_str);
+                        println!("    {} {}{}", addr.dimmed(), short_name, driver_str);
                     }
                 }
             }
@@ -3237,13 +3480,11 @@ async fn run_pci_category() -> Result<()> {
                     println!();
                     println!("  {}:", cat.cyan());
                     for (addr, name, driver) in devices {
-                        let driver_str = driver.as_ref()
+                        let driver_str = driver
+                            .as_ref()
                             .map(|d| format!(" [{}]", d.green()))
                             .unwrap_or_else(|| format!(" [{}]", "no driver".yellow()));
-                        println!("    {} {}{}",
-                            addr.dimmed(),
-                            name,
-                            driver_str);
+                        println!("    {} {}{}", addr.dimmed(), name, driver_str);
                     }
                 }
             }
@@ -3257,4 +3498,3 @@ async fn run_pci_category() -> Result<()> {
     println!("{}", THIN_SEP);
     Ok(())
 }
-

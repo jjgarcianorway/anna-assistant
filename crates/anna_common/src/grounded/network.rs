@@ -46,8 +46,11 @@ impl InterfaceType {
             InterfaceType::Ethernet
         } else if name_lower.starts_with("br") || name_lower.starts_with("virbr") {
             InterfaceType::Bridge
-        } else if name_lower.starts_with("veth") || name_lower.starts_with("docker")
-                  || name_lower.starts_with("tun") || name_lower.starts_with("tap") {
+        } else if name_lower.starts_with("veth")
+            || name_lower.starts_with("docker")
+            || name_lower.starts_with("tun")
+            || name_lower.starts_with("tap")
+        {
             InterfaceType::Virtual
         } else if name_lower.starts_with("bn") || name_lower.contains("bluetooth") {
             InterfaceType::Bluetooth
@@ -122,18 +125,30 @@ impl NetworkSummary {
 
         if !self.wifi_interfaces.is_empty() {
             let status = if self.wifi_up > 0 { "up" } else { "down" };
-            parts.push(format!("wifi: {} [{}]", self.wifi_interfaces.join(", "), status));
+            parts.push(format!(
+                "wifi: {} [{}]",
+                self.wifi_interfaces.join(", "),
+                status
+            ));
         }
 
         if !self.ethernet_interfaces.is_empty() {
             let status = if self.ethernet_up > 0 { "up" } else { "down" };
-            parts.push(format!("ethernet: {} [{}]", self.ethernet_interfaces.join(", "), status));
+            parts.push(format!(
+                "ethernet: {} [{}]",
+                self.ethernet_interfaces.join(", "),
+                status
+            ));
         }
 
         if parts.is_empty() {
             "no physical interfaces".to_string()
         } else {
-            format!("{} interfaces ({})", self.total_interfaces, parts.join(", "))
+            format!(
+                "{} interfaces ({})",
+                self.total_interfaces,
+                parts.join(", ")
+            )
         }
     }
 }
@@ -170,12 +185,10 @@ pub fn get_interfaces() -> Vec<NetworkInterface> {
             // Get link state
             let state = fs::read_to_string(iface_path.join("operstate"))
                 .ok()
-                .map(|s| {
-                    match s.trim() {
-                        "up" => LinkState::Up,
-                        "down" => LinkState::Down,
-                        _ => LinkState::Unknown,
-                    }
+                .map(|s| match s.trim() {
+                    "up" => LinkState::Up,
+                    "down" => LinkState::Down,
+                    _ => LinkState::Unknown,
                 })
                 .unwrap_or(LinkState::Unknown);
 
@@ -205,10 +218,7 @@ pub fn get_interfaces() -> Vec<NetworkInterface> {
     }
 
     // Enrich with IP addresses from ip addr
-    if let Ok(output) = Command::new("ip")
-        .args(["-o", "addr", "show"])
-        .output()
-    {
+    if let Ok(output) = Command::new("ip").args(["-o", "addr", "show"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
@@ -238,10 +248,12 @@ pub fn get_interfaces() -> Vec<NetworkInterface> {
 pub fn get_network_summary() -> NetworkSummary {
     let interfaces = get_interfaces();
 
-    let wifi: Vec<_> = interfaces.iter()
+    let wifi: Vec<_> = interfaces
+        .iter()
         .filter(|i| i.iface_type == InterfaceType::WiFi)
         .collect();
-    let ethernet: Vec<_> = interfaces.iter()
+    let ethernet: Vec<_> = interfaces
+        .iter()
         .filter(|i| i.iface_type == InterfaceType::Ethernet)
         .collect();
 
@@ -261,7 +273,8 @@ pub fn get_interface(name: &str) -> Option<NetworkInterface> {
 
 /// Get interfaces by type (wifi, ethernet, etc)
 pub fn get_interfaces_by_type(iface_type: InterfaceType) -> Vec<NetworkInterface> {
-    get_interfaces().into_iter()
+    get_interfaces()
+        .into_iter()
         .filter(|i| i.iface_type == iface_type)
         .collect()
 }
@@ -279,10 +292,7 @@ pub fn get_wifi_info(iface: &str) -> WiFiInfo {
     let mut info = WiFiInfo::default();
 
     // Try iw dev <iface> link
-    if let Ok(output) = Command::new("iw")
-        .args(["dev", iface, "link"])
-        .output()
-    {
+    if let Ok(output) = Command::new("iw").args(["dev", iface, "link"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
@@ -321,17 +331,29 @@ pub fn get_traffic_stats(iface: &str) -> TrafficStats {
     let base = format!("/sys/class/net/{}/statistics", iface);
 
     stats.rx_bytes = fs::read_to_string(format!("{}/rx_bytes", base))
-        .ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
     stats.tx_bytes = fs::read_to_string(format!("{}/tx_bytes", base))
-        .ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
     stats.rx_packets = fs::read_to_string(format!("{}/rx_packets", base))
-        .ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
     stats.tx_packets = fs::read_to_string(format!("{}/tx_packets", base))
-        .ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
     stats.rx_errors = fs::read_to_string(format!("{}/rx_errors", base))
-        .ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
     stats.tx_errors = fs::read_to_string(format!("{}/tx_errors", base))
-        .ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
 
     stats
 }
@@ -360,10 +382,7 @@ pub struct BluetoothInfo {
 
 pub fn get_bluetooth_info() -> Option<BluetoothInfo> {
     // Try bluetoothctl show
-    if let Ok(output) = Command::new("bluetoothctl")
-        .args(["show"])
-        .output()
-    {
+    if let Ok(output) = Command::new("bluetoothctl").args(["show"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let mut name = String::new();

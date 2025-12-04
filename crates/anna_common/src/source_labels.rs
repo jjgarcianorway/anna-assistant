@@ -90,7 +90,9 @@ impl QuestionType {
     pub fn source_priority(&self) -> Vec<SourceType> {
         match self {
             QuestionType::HowTo => vec![SourceType::KnowledgeDocs, SourceType::SystemEvidence],
-            QuestionType::SystemStatus => vec![SourceType::SystemEvidence, SourceType::KnowledgeDocs],
+            QuestionType::SystemStatus => {
+                vec![SourceType::SystemEvidence, SourceType::KnowledgeDocs]
+            }
             QuestionType::Mixed => vec![SourceType::SystemEvidence, SourceType::KnowledgeDocs],
             QuestionType::General => vec![SourceType::KnowledgeDocs, SourceType::Reasoning],
         }
@@ -103,25 +105,53 @@ pub fn classify_question_type(request: &str) -> QuestionType {
 
     // How-to patterns
     let how_to_patterns = [
-        "how do i", "how can i", "how to", "how should i",
-        "what's the best way to", "what is the best way to",
-        "steps to", "guide to", "tutorial",
-        "enable", "disable", "configure", "set up", "setup",
-        "where can i find", "where is",
+        "how do i",
+        "how can i",
+        "how to",
+        "how should i",
+        "what's the best way to",
+        "what is the best way to",
+        "steps to",
+        "guide to",
+        "tutorial",
+        "enable",
+        "disable",
+        "configure",
+        "set up",
+        "setup",
+        "where can i find",
+        "where is",
     ];
 
     // System status patterns
     let system_patterns = [
-        "what is happening", "what's happening",
-        "why is my", "why does my", "why am i",
-        "what is using", "what's using",
-        "what did i install", "what was installed",
-        "what changed", "what's changed",
-        "is my", "is the", "are there",
-        "check my", "show my", "list my",
-        "performance", "slow", "high cpu", "high memory",
-        "disk space", "running out of",
-        "crash", "error", "fail", "warning",
+        "what is happening",
+        "what's happening",
+        "why is my",
+        "why does my",
+        "why am i",
+        "what is using",
+        "what's using",
+        "what did i install",
+        "what was installed",
+        "what changed",
+        "what's changed",
+        "is my",
+        "is the",
+        "are there",
+        "check my",
+        "show my",
+        "list my",
+        "performance",
+        "slow",
+        "high cpu",
+        "high memory",
+        "disk space",
+        "running out of",
+        "crash",
+        "error",
+        "fail",
+        "warning",
     ];
 
     // Check patterns
@@ -139,7 +169,8 @@ pub fn classify_question_type(request: &str) -> QuestionType {
 
     // Check for mixed indicators
     let has_how = lower.contains("how") || lower.contains("what");
-    let has_my_machine = lower.contains("my ") || lower.contains("system") || lower.contains("machine");
+    let has_my_machine =
+        lower.contains("my ") || lower.contains("system") || lower.contains("machine");
 
     if has_how && has_my_machine {
         return QuestionType::Mixed;
@@ -169,8 +200,10 @@ impl SourcePlan {
                 (
                     Some(keywords.join(" ")),
                     vec![],
-                    format!("How-to question: searching knowledge packs for documentation on '{}'",
-                        keywords.join(", "))
+                    format!(
+                        "How-to question: searching knowledge packs for documentation on '{}'",
+                        keywords.join(", ")
+                    ),
                 )
             }
             QuestionType::SystemStatus => {
@@ -178,8 +211,14 @@ impl SourcePlan {
                 (
                     None,
                     tools.clone(),
-                    format!("System status question: using {} to gather evidence",
-                        if tools.is_empty() { "status_snapshot".to_string() } else { tools.join(", ") })
+                    format!(
+                        "System status question: using {} to gather evidence",
+                        if tools.is_empty() {
+                            "status_snapshot".to_string()
+                        } else {
+                            tools.join(", ")
+                        }
+                    ),
                 )
             }
             QuestionType::Mixed => {
@@ -196,9 +235,14 @@ impl SourcePlan {
             QuestionType::General => {
                 let keywords = extract_keywords(request);
                 (
-                    if keywords.is_empty() { None } else { Some(keywords.join(" ")) },
+                    if keywords.is_empty() {
+                        None
+                    } else {
+                        Some(keywords.join(" "))
+                    },
                     vec![],
-                    "General question: using knowledge packs if relevant, otherwise reasoning".to_string()
+                    "General question: using knowledge packs if relevant, otherwise reasoning"
+                        .to_string(),
                 )
             }
         };
@@ -293,15 +337,23 @@ impl AnswerContext {
         }
 
         if !self.relevant_packages.is_empty() {
-            parts.push(format!("Relevant packages: {}", self.relevant_packages.join(", ")));
+            parts.push(format!(
+                "Relevant packages: {}",
+                self.relevant_packages.join(", ")
+            ));
         }
 
         if !self.relevant_services.is_empty() {
-            parts.push(format!("Relevant services: {}", self.relevant_services.join(", ")));
+            parts.push(format!(
+                "Relevant services: {}",
+                self.relevant_services.join(", ")
+            ));
         }
 
-        parts.push(format!("Knowledge packs: {} ({} documents indexed)",
-            self.knowledge_packs_available, self.knowledge_docs_count));
+        parts.push(format!(
+            "Knowledge packs: {} ({} documents indexed)",
+            self.knowledge_packs_available, self.knowledge_docs_count
+        ));
 
         parts.join("\n")
     }
@@ -344,7 +396,8 @@ impl QaStats {
         self.total_reliability += reliability as u64;
 
         for source_type in source_types {
-            let count = self.source_type_counts
+            let count = self
+                .source_type_counts
                 .entry(source_type.as_str().to_string())
                 .or_insert(0);
             *count += 1;
@@ -369,7 +422,9 @@ impl QaStats {
 
     /// Get top source types
     pub fn top_source_types(&self, n: usize) -> Vec<(String, usize)> {
-        let mut sorted: Vec<_> = self.source_type_counts.iter()
+        let mut sorted: Vec<_> = self
+            .source_type_counts
+            .iter()
             .map(|(k, v)| (k.clone(), *v))
             .collect();
         sorted.sort_by(|a, b| b.1.cmp(&a.1));
@@ -423,7 +478,10 @@ impl MissingEvidenceReport {
 
     /// Suggest a knowledge query
     pub fn suggest_query(&mut self, query: &str) {
-        if !self.suggested_knowledge_queries.contains(&query.to_string()) {
+        if !self
+            .suggested_knowledge_queries
+            .contains(&query.to_string())
+        {
             self.suggested_knowledge_queries.push(query.to_string());
         }
     }
@@ -433,18 +491,24 @@ impl MissingEvidenceReport {
         let mut parts = Vec::new();
 
         if !self.what_is_missing.is_empty() {
-            parts.push(format!("Missing information:\n  - {}",
-                self.what_is_missing.join("\n  - ")));
+            parts.push(format!(
+                "Missing information:\n  - {}",
+                self.what_is_missing.join("\n  - ")
+            ));
         }
 
         if !self.suggested_tools.is_empty() {
-            parts.push(format!("Could check with tools: {}",
-                self.suggested_tools.join(", ")));
+            parts.push(format!(
+                "Could check with tools: {}",
+                self.suggested_tools.join(", ")
+            ));
         }
 
         if !self.suggested_knowledge_queries.is_empty() {
-            parts.push(format!("Could search knowledge for: {}",
-                self.suggested_knowledge_queries.join(", ")));
+            parts.push(format!(
+                "Could search knowledge for: {}",
+                self.suggested_knowledge_queries.join(", ")
+            ));
         }
 
         if self.can_partially_answer {
@@ -467,23 +531,17 @@ impl Default for MissingEvidenceReport {
 
 fn extract_keywords(request: &str) -> Vec<String> {
     let stop_words = [
-        "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could", "should",
-        "may", "might", "must", "shall", "can", "need", "to", "of", "in", "for",
-        "on", "with", "at", "by", "from", "up", "about", "into", "through",
-        "how", "what", "when", "where", "which", "who", "why",
-        "i", "my", "me", "we", "our", "you", "your", "it", "its",
-        "this", "that", "these", "those",
+        "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+        "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "shall",
+        "can", "need", "to", "of", "in", "for", "on", "with", "at", "by", "from", "up", "about",
+        "into", "through", "how", "what", "when", "where", "which", "who", "why", "i", "my", "me",
+        "we", "our", "you", "your", "it", "its", "this", "that", "these", "those",
     ];
 
     request
         .to_lowercase()
         .split(|c: char| !c.is_alphanumeric())
-        .filter(|word| {
-            !word.is_empty() &&
-            word.len() > 2 &&
-            !stop_words.contains(&word.as_ref())
-        })
+        .filter(|word| !word.is_empty() && word.len() > 2 && !stop_words.contains(&word.as_ref()))
         .map(String::from)
         .take(5)
         .collect()
@@ -500,8 +558,12 @@ fn suggest_tools_for_query(request: &str) -> Vec<String> {
     }
 
     // Performance-related
-    if lower.contains("slow") || lower.contains("performance") || lower.contains("cpu")
-       || lower.contains("memory") || lower.contains("ram") {
+    if lower.contains("slow")
+        || lower.contains("performance")
+        || lower.contains("cpu")
+        || lower.contains("memory")
+        || lower.contains("ram")
+    {
         tools.push("top_resource_processes".to_string());
         tools.push("slowness_hypotheses".to_string());
     }
@@ -517,8 +579,11 @@ fn suggest_tools_for_query(request: &str) -> Vec<String> {
     }
 
     // Error/warning related
-    if lower.contains("error") || lower.contains("warning") || lower.contains("fail")
-       || lower.contains("crash") {
+    if lower.contains("error")
+        || lower.contains("warning")
+        || lower.contains("fail")
+        || lower.contains("crash")
+    {
         tools.push("journal_warnings".to_string());
         tools.push("active_alerts".to_string());
     }
@@ -529,8 +594,11 @@ fn suggest_tools_for_query(request: &str) -> Vec<String> {
     }
 
     // Hardware
-    if lower.contains("hardware") || lower.contains("cpu") || lower.contains("gpu")
-       || lower.contains("memory") {
+    if lower.contains("hardware")
+        || lower.contains("cpu")
+        || lower.contains("gpu")
+        || lower.contains("memory")
+    {
         tools.push("hw_snapshot_summary".to_string());
     }
 
@@ -684,24 +752,48 @@ mod tests {
 
     #[test]
     fn test_classify_question_how_to() {
-        assert_eq!(classify_question_type("How do I enable syntax highlighting in vim?"), QuestionType::HowTo);
-        assert_eq!(classify_question_type("how to configure nginx"), QuestionType::HowTo);
-        assert_eq!(classify_question_type("What's the best way to set up ssh keys?"), QuestionType::HowTo);
+        assert_eq!(
+            classify_question_type("How do I enable syntax highlighting in vim?"),
+            QuestionType::HowTo
+        );
+        assert_eq!(
+            classify_question_type("how to configure nginx"),
+            QuestionType::HowTo
+        );
+        assert_eq!(
+            classify_question_type("What's the best way to set up ssh keys?"),
+            QuestionType::HowTo
+        );
     }
 
     #[test]
     fn test_classify_question_system_status() {
-        assert_eq!(classify_question_type("What is happening on my machine?"), QuestionType::SystemStatus);
-        assert_eq!(classify_question_type("Why is my system slow?"), QuestionType::SystemStatus);
-        assert_eq!(classify_question_type("What did I install recently?"), QuestionType::SystemStatus);
+        assert_eq!(
+            classify_question_type("What is happening on my machine?"),
+            QuestionType::SystemStatus
+        );
+        assert_eq!(
+            classify_question_type("Why is my system slow?"),
+            QuestionType::SystemStatus
+        );
+        assert_eq!(
+            classify_question_type("What did I install recently?"),
+            QuestionType::SystemStatus
+        );
     }
 
     #[test]
     fn test_classify_question_mixed() {
         // Questions with both "what/how" and "my system" indicators get Mixed
-        assert_eq!(classify_question_type("What services are running on my system and why?"), QuestionType::Mixed);
+        assert_eq!(
+            classify_question_type("What services are running on my system and why?"),
+            QuestionType::Mixed
+        );
         // Pure how-to with "how can I" pattern
-        assert_eq!(classify_question_type("How can I fix this error?"), QuestionType::HowTo);
+        assert_eq!(
+            classify_question_type("How can I fix this error?"),
+            QuestionType::HowTo
+        );
     }
 
     #[test]
@@ -736,7 +828,8 @@ mod tests {
 
     #[test]
     fn test_count_citations() {
-        let text = "Based on [E1] and [E2], with knowledge from [K1], (Reasoning) this is my answer.";
+        let text =
+            "Based on [E1] and [E2], with knowledge from [K1], (Reasoning) this is my answer.";
         let (e, k, r) = count_citations(text);
         assert_eq!(e, 2);
         assert_eq!(k, 1);

@@ -317,7 +317,9 @@ impl ProactiveAlertsState {
 
     /// Get active alerts sorted by severity (critical first)
     pub fn get_active(&self) -> Vec<&ProactiveAlert> {
-        let mut alerts: Vec<_> = self.alerts.values()
+        let mut alerts: Vec<_> = self
+            .alerts
+            .values()
             .filter(|a| a.status == AlertStatus::Active)
             .collect();
         alerts.sort_by(|a, b| b.severity.cmp(&a.severity));
@@ -328,9 +330,18 @@ impl ProactiveAlertsState {
     pub fn count_by_severity(&self) -> AlertCounts {
         let active = self.get_active();
         AlertCounts {
-            critical: active.iter().filter(|a| a.severity == AlertSeverity::Critical).count(),
-            warning: active.iter().filter(|a| a.severity == AlertSeverity::Warning).count(),
-            info: active.iter().filter(|a| a.severity == AlertSeverity::Info).count(),
+            critical: active
+                .iter()
+                .filter(|a| a.severity == AlertSeverity::Critical)
+                .count(),
+            warning: active
+                .iter()
+                .filter(|a| a.severity == AlertSeverity::Warning)
+                .count(),
+            info: active
+                .iter()
+                .filter(|a| a.severity == AlertSeverity::Info)
+                .count(),
         }
     }
 
@@ -342,7 +353,10 @@ impl ProactiveAlertsState {
     /// Check if an alert exists and is active
     pub fn has_active_alert(&self, alert_type: AlertType, dedupe_key: &str) -> bool {
         let id = ProactiveAlert::generate_id(alert_type, dedupe_key);
-        self.alerts.get(&id).map(|a| a.status == AlertStatus::Active).unwrap_or(false)
+        self.alerts
+            .get(&id)
+            .map(|a| a.status == AlertStatus::Active)
+            .unwrap_or(false)
     }
 
     /// Cleanup old resolved alerts (> 7 days)
@@ -466,13 +480,25 @@ mod tests {
         let mut state = ProactiveAlertsState::default();
 
         state.upsert_alert(ProactiveAlert::new(
-            AlertType::ServiceFailed, AlertSeverity::Critical, "a", "A", "A",
+            AlertType::ServiceFailed,
+            AlertSeverity::Critical,
+            "a",
+            "A",
+            "A",
         ));
         state.upsert_alert(ProactiveAlert::new(
-            AlertType::DiskPressure, AlertSeverity::Warning, "b", "B", "B",
+            AlertType::DiskPressure,
+            AlertSeverity::Warning,
+            "b",
+            "B",
+            "B",
         ));
         state.upsert_alert(ProactiveAlert::new(
-            AlertType::BootRegression, AlertSeverity::Warning, "c", "C", "C",
+            AlertType::BootRegression,
+            AlertSeverity::Warning,
+            "c",
+            "C",
+            "C",
         ));
 
         let counts = state.count_by_severity();
@@ -486,13 +512,25 @@ mod tests {
         let mut state = ProactiveAlertsState::default();
 
         state.upsert_alert(ProactiveAlert::new(
-            AlertType::DiskPressure, AlertSeverity::Warning, "a", "A", "A",
+            AlertType::DiskPressure,
+            AlertSeverity::Warning,
+            "a",
+            "A",
+            "A",
         ));
         state.upsert_alert(ProactiveAlert::new(
-            AlertType::ServiceFailed, AlertSeverity::Critical, "b", "B", "B",
+            AlertType::ServiceFailed,
+            AlertSeverity::Critical,
+            "b",
+            "B",
+            "B",
         ));
         state.upsert_alert(ProactiveAlert::new(
-            AlertType::BootRegression, AlertSeverity::Info, "c", "C", "C",
+            AlertType::BootRegression,
+            AlertSeverity::Info,
+            "c",
+            "C",
+            "C",
         ));
 
         let top = state.get_top_alerts(2);

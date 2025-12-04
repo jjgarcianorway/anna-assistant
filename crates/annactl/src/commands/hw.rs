@@ -37,22 +37,18 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::process::Command;
 
-use anna_common::grounded::health::{
-    get_battery_health, get_network_health, get_all_disk_health,
-};
-use anna_common::grounded::peripherals::get_hardware_overview;
+use anna_common::config::AnnaConfig;
+use anna_common::grounded::health::{get_all_disk_health, get_battery_health, get_network_health};
 use anna_common::grounded::network_topology::{
     get_default_route, get_dns_config, get_interface_manager, InterfaceManager,
 };
-use anna_common::grounded::storage_topology::{
-    get_filesystem_mounts, get_device_health,
-};
+use anna_common::grounded::peripherals::get_hardware_overview;
 use anna_common::grounded::service_topology::get_gpu_driver_stacks;
 use anna_common::grounded::signal_quality::get_hot_signals;
+use anna_common::grounded::storage_topology::{get_device_health, get_filesystem_mounts};
+use anna_common::hotspots::{format_hardware_hotspots_section, get_hardware_hotspots};
+use anna_common::impact_view::{format_bytes_compact, get_hardware_impact};
 use anna_common::topology_map::build_hardware_topology;
-use anna_common::impact_view::{get_hardware_impact, format_bytes_compact};
-use anna_common::hotspots::{get_hardware_hotspots, format_hardware_hotspots_section};
-use anna_common::config::AnnaConfig;
 
 const THIN_SEP: &str = "------------------------------------------------------------";
 
@@ -67,15 +63,19 @@ fn print_overview_section() {
     let hw = get_hardware_overview();
 
     // CPU summary
-    println!("  CPU:          {} socket(s), {} logical cores",
-        hw.cpu_sockets, hw.cpu_logical_cores);
+    println!(
+        "  CPU:          {} socket(s), {} logical cores",
+        hw.cpu_sockets, hw.cpu_logical_cores
+    );
 
     // GPU summary
     let gpu_total = hw.gpu_discrete + hw.gpu_integrated;
     if gpu_total > 0 {
         if hw.gpu_integrated > 0 && hw.gpu_discrete > 0 {
-            println!("  GPU:          {} ({} discrete, {} integrated)",
-                gpu_total, hw.gpu_discrete, hw.gpu_integrated);
+            println!(
+                "  GPU:          {} ({} discrete, {} integrated)",
+                gpu_total, hw.gpu_discrete, hw.gpu_integrated
+            );
         } else if hw.gpu_discrete > 0 {
             println!("  GPU:          {} discrete", hw.gpu_discrete);
         } else {
@@ -89,18 +89,26 @@ fn print_overview_section() {
     // Storage - v7.42.4: show all names, no truncation
     if hw.storage_devices > 0 {
         let names = hw.storage_names.join(", ");
-        println!("  Storage:      {} device(s) ({})", hw.storage_devices, names);
+        println!(
+            "  Storage:      {} device(s) ({})",
+            hw.storage_devices, names
+        );
     }
 
     // Network
     let net_total = hw.network_wired + hw.network_wireless;
     if net_total > 0 {
-        println!("  Network:      {} wired, {} wireless", hw.network_wired, hw.network_wireless);
+        println!(
+            "  Network:      {} wired, {} wireless",
+            hw.network_wired, hw.network_wireless
+        );
     }
 
     // USB
-    println!("  USB:          {} controller(s), {} device(s)",
-        hw.usb.root_hubs, hw.usb.device_count);
+    println!(
+        "  USB:          {} controller(s), {} device(s)",
+        hw.usb.root_hubs, hw.usb.device_count
+    );
 
     // Bluetooth
     if hw.bluetooth.adapter_count > 0 {
@@ -119,19 +127,28 @@ fn print_overview_section() {
 
     // Input
     if hw.input.device_count > 0 {
-        println!("  Input:        {} device(s) ({} kbd, {} mouse)",
-            hw.input.device_count, hw.input.keyboard_count, hw.input.mouse_count);
+        println!(
+            "  Input:        {} device(s) ({} kbd, {} mouse)",
+            hw.input.device_count, hw.input.keyboard_count, hw.input.mouse_count
+        );
     }
 
     // Power
     if hw.battery_count > 0 {
-        let ac = if hw.ac_present { "AC connected" } else { "on battery" };
+        let ac = if hw.ac_present {
+            "AC connected"
+        } else {
+            "on battery"
+        };
         println!("  Power:        {} battery, {}", hw.battery_count, ac);
     }
 
     // Thunderbolt
     if hw.thunderbolt.controller_count > 0 {
-        println!("  Thunderbolt:  {} controller(s)", hw.thunderbolt.controller_count);
+        println!(
+            "  Thunderbolt:  {} controller(s)",
+            hw.thunderbolt.controller_count
+        );
     }
 
     // SD card
@@ -141,7 +158,10 @@ fn print_overview_section() {
         } else {
             "no media"
         };
-        println!("  SD Card:      {} reader(s), {}", hw.sdcard.reader_count, media);
+        println!(
+            "  SD Card:      {} reader(s), {}",
+            hw.sdcard.reader_count, media
+        );
     }
 
     println!();
@@ -163,14 +183,30 @@ fn print_categories_section() {
         println!("    {}", "not detected".dimmed());
     } else {
         for ctrl in &hw.usb.controllers {
-            println!("    {} {} ({})", ctrl.pci_address, ctrl.usb_version, ctrl.driver);
+            println!(
+                "    {} {} ({})",
+                ctrl.pci_address, ctrl.usb_version, ctrl.driver
+            );
         }
         // Count devices by class
         let hubs = hw.usb.devices.iter().filter(|d| d.is_hub).count();
-        let hid = hw.usb.devices.iter().filter(|d| d.device_class == "HID").count();
-        let storage = hw.usb.devices.iter().filter(|d| d.device_class == "Mass Storage").count();
+        let hid = hw
+            .usb
+            .devices
+            .iter()
+            .filter(|d| d.device_class == "HID")
+            .count();
+        let storage = hw
+            .usb
+            .devices
+            .iter()
+            .filter(|d| d.device_class == "Mass Storage")
+            .count();
         let other = hw.usb.device_count as usize - hid - storage;
-        println!("    {} hubs, {} HID, {} storage, {} other", hubs, hid, storage, other);
+        println!(
+            "    {} hubs, {} HID, {} storage, {} other",
+            hubs, hid, storage, other
+        );
     }
 
     // Bluetooth summary
@@ -181,10 +217,15 @@ fn print_categories_section() {
         for adapter in &hw.bluetooth.adapters {
             let state = match adapter.state {
                 anna_common::grounded::peripherals::BluetoothState::Up => "UP".green().to_string(),
-                anna_common::grounded::peripherals::BluetoothState::Blocked => "BLOCKED".yellow().to_string(),
+                anna_common::grounded::peripherals::BluetoothState::Blocked => {
+                    "BLOCKED".yellow().to_string()
+                }
                 _ => "down".dimmed().to_string(),
             };
-            println!("    {} {} ({}, {})", adapter.name, adapter.manufacturer, adapter.driver, state);
+            println!(
+                "    {} {} ({}, {})",
+                adapter.name, adapter.manufacturer, adapter.driver, state
+            );
         }
     }
 
@@ -192,7 +233,10 @@ fn print_categories_section() {
     if hw.thunderbolt.controller_count > 0 || hw.thunderbolt.device_count > 0 {
         println!("  {}:", "Thunderbolt".dimmed());
         for ctrl in &hw.thunderbolt.controllers {
-            let gen = ctrl.generation.map(|g| format!("TB{}", g)).unwrap_or_else(|| "TB".to_string());
+            let gen = ctrl
+                .generation
+                .map(|g| format!("TB{}", g))
+                .unwrap_or_else(|| "TB".to_string());
             println!("    {} {} ({})", ctrl.pci_address, gen, ctrl.driver);
         }
         for dev in &hw.thunderbolt.devices {
@@ -210,11 +254,25 @@ fn print_categories_section() {
         println!("  {}:", "SD Card".dimmed());
         for reader in &hw.sdcard.readers {
             if reader.media_present {
-                let size = reader.media_size.map(|s| format_size_bytes(s)).unwrap_or_else(|| "?".to_string());
+                let size = reader
+                    .media_size
+                    .map(|s| format_size_bytes(s))
+                    .unwrap_or_else(|| "?".to_string());
                 let fs = reader.media_fs.as_deref().unwrap_or("?");
-                println!("    {} ({}) [{}] {}", reader.name, reader.bus, size, fs.green());
+                println!(
+                    "    {} ({}) [{}] {}",
+                    reader.name,
+                    reader.bus,
+                    size,
+                    fs.green()
+                );
             } else {
-                println!("    {} ({}) [{}]", reader.name, reader.bus, "no media".dimmed());
+                println!(
+                    "    {} ({}) [{}]",
+                    reader.name,
+                    reader.bus,
+                    "no media".dimmed()
+                );
             }
         }
     }
@@ -236,7 +294,10 @@ fn print_categories_section() {
 
 fn print_available_queries_section() {
     println!("{}", "[AVAILABLE QUERIES]".cyan());
-    println!("  {}", "(valid categories and detected devices for 'annactl hw NAME')".dimmed());
+    println!(
+        "  {}",
+        "(valid categories and detected devices for 'annactl hw NAME')".dimmed()
+    );
 
     let hw = get_hardware_overview();
 
@@ -377,7 +438,10 @@ pub async fn run() -> Result<()> {
     print_hw_hotspots_section();
 
     println!("{}", THIN_SEP);
-    println!("  {}", "'annactl hw NAME' for a specific component or category.".dimmed());
+    println!(
+        "  {}",
+        "'annactl hw NAME' for a specific component or category.".dimmed()
+    );
     println!();
 
     Ok(())
@@ -448,7 +512,10 @@ fn print_cpu_section() {
 fn get_microcode_info() -> Option<(String, String)> {
     // Try reading /sys/devices/system/cpu/cpu0/microcode/version
     let version_path = "/sys/devices/system/cpu/cpu0/microcode/version";
-    let version = std::fs::read_to_string(version_path).ok()?.trim().to_string();
+    let version = std::fs::read_to_string(version_path)
+        .ok()?
+        .trim()
+        .to_string();
 
     if version.is_empty() {
         return None;
@@ -474,9 +541,7 @@ fn get_microcode_info() -> Option<(String, String)> {
 fn print_gpu_section() {
     println!("{}", "[GPU]".cyan());
 
-    let output = Command::new("lspci")
-        .args(["-k"])
-        .output();
+    let output = Command::new("lspci").args(["-k"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -488,7 +553,10 @@ fn print_gpu_section() {
             let mut is_integrated = false;
 
             for line in stdout.lines() {
-                if line.contains("VGA") || line.contains("3D controller") || line.contains("Display controller") {
+                if line.contains("VGA")
+                    || line.contains("3D controller")
+                    || line.contains("Display controller")
+                {
                     in_gpu = true;
                     found_gpu = true;
 
@@ -500,15 +568,19 @@ fn print_gpu_section() {
                     }
 
                     // Check if integrated (Intel usually)
-                    is_integrated = gpu_name.to_lowercase().contains("intel") &&
-                                   !gpu_name.to_lowercase().contains("arc");
+                    is_integrated = gpu_name.to_lowercase().contains("intel")
+                        && !gpu_name.to_lowercase().contains("arc");
                 } else if in_gpu && line.contains("Kernel driver in use:") {
                     if let Some(drv) = line.split(':').nth(1) {
                         driver = drv.trim().to_string();
                     }
 
                     // Print this GPU
-                    let label = if is_integrated { "Integrated" } else { "Discrete" };
+                    let label = if is_integrated {
+                        "Integrated"
+                    } else {
+                        "Discrete"
+                    };
                     println!("  {}:   {} (driver: {})", label, gpu_name, driver.green());
 
                     in_gpu = false;
@@ -516,7 +588,11 @@ fn print_gpu_section() {
                     driver.clear();
                 } else if in_gpu && !line.starts_with('\t') && !line.starts_with(' ') {
                     // New device, previous had no driver
-                    let label = if is_integrated { "Integrated" } else { "Discrete" };
+                    let label = if is_integrated {
+                        "Integrated"
+                    } else {
+                        "Discrete"
+                    };
                     println!("  {}:   {} (driver: {})", label, gpu_name, "none".yellow());
                     in_gpu = false;
                     gpu_name.clear();
@@ -569,9 +645,7 @@ fn print_memory_section() {
     }
 
     // Try to get slot info from dmidecode (requires root)
-    let output = Command::new("dmidecode")
-        .args(["-t", "memory"])
-        .output();
+    let output = Command::new("dmidecode").args(["-t", "memory"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -593,7 +667,10 @@ fn print_memory_section() {
             }
 
             if total_slots > 0 {
-                println!("  Layout:       {} slots ({} used)", total_slots, used_slots);
+                println!(
+                    "  Layout:       {} slots ({} used)",
+                    total_slots, used_slots
+                );
             }
         }
     }
@@ -640,7 +717,12 @@ fn print_storage_section() {
         }
         info_parts.push(size);
 
-        println!("    {} [{}]  {}", device_name, health_status, info_parts.join(", "));
+        println!(
+            "    {} [{}]  {}",
+            device_name,
+            health_status,
+            info_parts.join(", ")
+        );
     }
 
     // Get filesystem mounts
@@ -663,7 +745,9 @@ fn print_storage_section() {
                 };
 
                 let device = mount.device.trim_start_matches("/dev/");
-                let subvol_info = mount.subvolume.as_ref()
+                let subvol_info = mount
+                    .subvolume
+                    .as_ref()
                     .map(|sv| format!(" [{}]", sv))
                     .unwrap_or_default();
 
@@ -707,7 +791,8 @@ fn print_network_section() {
     println!("  {}:", "Interfaces".dimmed());
 
     // WiFi interfaces
-    let wifi_ifaces: Vec<_> = networks.iter()
+    let wifi_ifaces: Vec<_> = networks
+        .iter()
         .filter(|n| n.interface_type == "wifi")
         .collect();
 
@@ -739,12 +824,15 @@ fn print_network_section() {
             String::new()
         };
 
-        println!("    {:8} wifi     {}, {}{}",
-            name, state, manager_str, ip_info);
+        println!(
+            "    {:8} wifi     {}, {}{}",
+            name, state, manager_str, ip_info
+        );
     }
 
     // Ethernet interfaces
-    let eth_ifaces: Vec<_> = networks.iter()
+    let eth_ifaces: Vec<_> = networks
+        .iter()
         .filter(|n| n.interface_type == "ethernet")
         .collect();
 
@@ -774,8 +862,10 @@ fn print_network_section() {
             String::new()
         };
 
-        println!("    {:8} ethernet {}, {}{}",
-            name, state, manager_str, ip_info);
+        println!(
+            "    {:8} ethernet {}, {}{}",
+            name, state, manager_str, ip_info
+        );
     }
 
     // Loopback
@@ -799,7 +889,12 @@ fn print_network_section() {
                     "unknown".to_string()
                 };
 
-                println!("    {:8} bluetooth {} (driver: {})", name, "up".green().to_string(), driver);
+                println!(
+                    "    {:8} bluetooth {} (driver: {})",
+                    name,
+                    "up".green().to_string(),
+                    driver
+                );
             }
         }
     }
@@ -872,9 +967,7 @@ fn get_pci_device_name_for_interface(iface: &str) -> Option<String> {
     if let Ok(link) = std::fs::read_link(&device_path) {
         let link_str = link.to_string_lossy();
         if let Some(pci_part) = link_str.split('/').last() {
-            let output = Command::new("lspci")
-                .args(["-s", pci_part])
-                .output();
+            let output = Command::new("lspci").args(["-s", pci_part]).output();
 
             if let Ok(out) = output {
                 if out.status.success() {
@@ -935,8 +1028,10 @@ fn get_driver_firmware_status(driver: &str) -> Option<String> {
             }
 
             // Check for failures
-            if stdout_lower.contains(&format!("{}: ", driver.to_lowercase())) &&
-               (stdout_lower.contains("firmware: failed") || stdout_lower.contains("firmware not found")) {
+            if stdout_lower.contains(&format!("{}: ", driver.to_lowercase()))
+                && (stdout_lower.contains("firmware: failed")
+                    || stdout_lower.contains("firmware not found"))
+            {
                 return Some("failed".yellow().to_string());
             }
         }
@@ -981,9 +1076,7 @@ fn shorten_device_name(name: &str, _max_len: usize) -> String {
 fn print_audio_section() {
     println!("{}", "[AUDIO]".cyan());
 
-    let output = Command::new("lspci")
-        .args(["-k"])
-        .output();
+    let output = Command::new("lspci").args(["-k"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -1048,8 +1141,14 @@ fn print_input_section() {
 
     // Skip these pseudo-devices when looking for keyboard
     let skip_devices = [
-        "sleep", "power", "video", "lid", "wmi", "button",
-        "pc speaker", "hda intel",
+        "sleep",
+        "power",
+        "video",
+        "lid",
+        "wmi",
+        "button",
+        "pc speaker",
+        "hda intel",
     ];
 
     // Parse /proc/bus/input/devices for input devices
@@ -1058,7 +1157,8 @@ fn print_input_section() {
 
         for line in content.lines() {
             if line.starts_with("N: Name=") {
-                current_name = line.trim_start_matches("N: Name=")
+                current_name = line
+                    .trim_start_matches("N: Name=")
                     .trim_matches('"')
                     .to_string();
             } else if line.starts_with("H: Handlers=") {
@@ -1068,9 +1168,11 @@ fn print_input_section() {
                 // Check if keyboard - skip pseudo-devices
                 let is_skip = skip_devices.iter().any(|s| name_lower.contains(s));
 
-                if handlers.contains("kbd") && handlers.contains("event")
-                   && !is_skip
-                   && !found_keyboard {
+                if handlers.contains("kbd")
+                    && handlers.contains("event")
+                    && !is_skip
+                    && !found_keyboard
+                {
                     // Prefer actual keyboard names (AT keyboard, USB keyboard, etc.)
                     if name_lower.contains("keyboard") || name_lower.contains("at translated") {
                         println!("  Keyboard:     {}", current_name);
@@ -1080,8 +1182,9 @@ fn print_input_section() {
 
                 // Check if touchpad/mouse
                 if (handlers.contains("mouse") || name_lower.contains("touchpad"))
-                   && !name_lower.contains("trackpoint")
-                   && !found_touchpad {
+                    && !name_lower.contains("trackpoint")
+                    && !found_touchpad
+                {
                     if name_lower.contains("touchpad") {
                         println!("  Touchpad:     {}", current_name);
                         found_touchpad = true;
@@ -1205,16 +1308,20 @@ fn print_drivers_section() {
         found_any = true;
         let fw_status = get_firmware_status(&stack.primary_driver);
         if stack.additional_modules.is_empty() {
-            println!("  GPU:          {} {} {}",
-                     stack.primary_driver,
-                     "[loaded]".green(),
-                     fw_status);
+            println!(
+                "  GPU:          {} {} {}",
+                stack.primary_driver,
+                "[loaded]".green(),
+                fw_status
+            );
         } else {
-            println!("  GPU:          {} + {} {} {}",
-                     stack.primary_driver,
-                     stack.additional_modules.join(", "),
-                     "[loaded]".green(),
-                     fw_status);
+            println!(
+                "  GPU:          {} + {} {} {}",
+                stack.primary_driver,
+                stack.additional_modules.join(", "),
+                "[loaded]".green(),
+                fw_status
+            );
         }
     }
 
@@ -1222,20 +1329,24 @@ fn print_drivers_section() {
     for driver in &wifi_drivers {
         found_any = true;
         let fw_status = get_firmware_status(driver);
-        println!("  WiFi:         {} {} {}",
-                 driver,
-                 "[loaded]".green(),
-                 fw_status);
+        println!(
+            "  WiFi:         {} {} {}",
+            driver,
+            "[loaded]".green(),
+            fw_status
+        );
     }
 
     // Bluetooth drivers with firmware info
     for driver in &bt_drivers {
         found_any = true;
         let fw_status = get_firmware_status(driver);
-        println!("  Bluetooth:    {} {} {}",
-                 driver,
-                 "[loaded]".green(),
-                 fw_status);
+        println!(
+            "  Bluetooth:    {} {} {}",
+            driver,
+            "[loaded]".green(),
+            fw_status
+        );
     }
 
     if !found_any {
@@ -1293,8 +1404,10 @@ fn get_loaded_drivers_for_type(driver_type: &str) -> Vec<String> {
 
     // Define patterns for each type
     let patterns: &[&str] = match driver_type {
-        "wifi" => &["iwlwifi", "iwlmvm", "ath9k", "ath10k", "ath11k", "mt7921",
-                   "rtw88", "rtw89", "brcmfmac", "rtl8xxxu"],
+        "wifi" => &[
+            "iwlwifi", "iwlmvm", "ath9k", "ath10k", "ath11k", "mt7921", "rtw88", "rtw89",
+            "brcmfmac", "rtl8xxxu",
+        ],
         "bluetooth" => &["btusb", "btintel", "btrtl", "btbcm", "btmtk", "bluetooth"],
         _ => &[],
     };
@@ -1365,8 +1478,10 @@ fn print_hw_topology_section() {
 
     // CPU summary
     if let Some(cpu) = &topology.cpu {
-        println!("  CPU:          {} ({} cores, {} threads)",
-            cpu.model, cpu.cores_physical, cpu.threads);
+        println!(
+            "  CPU:          {} ({} cores, {} threads)",
+            cpu.model, cpu.cores_physical, cpu.threads
+        );
     }
 
     // Memory summary
@@ -1376,9 +1491,15 @@ fn print_hw_topology_section() {
 
     // GPU summary
     for gpu in &topology.gpus {
-        let gpu_type = if gpu.is_igpu { "integrated" } else { "discrete" };
-        println!("  GPU:          {} ({}, driver: {})",
-            gpu.name, gpu_type, gpu.driver);
+        let gpu_type = if gpu.is_igpu {
+            "integrated"
+        } else {
+            "discrete"
+        };
+        println!(
+            "  GPU:          {} ({}, driver: {})",
+            gpu.name, gpu_type, gpu.driver
+        );
     }
 
     // Storage summary
@@ -1388,21 +1509,31 @@ fn print_hw_topology_section() {
         } else {
             "check warnings".yellow().to_string()
         };
-        println!("  Storage:      {} devices [{}]",
+        println!(
+            "  Storage:      {} devices [{}]",
             topology.storage.len(),
-            storage_status);
+            storage_status
+        );
     }
 
     // Network summary
     if !topology.network.is_empty() {
-        let types: Vec<_> = topology.network.iter()
+        let types: Vec<_> = topology
+            .network
+            .iter()
             .map(|n| n.iface_type.as_str())
             .collect();
-        let unique_types: Vec<_> = types.iter().cloned().collect::<std::collections::HashSet<_>>()
-            .into_iter().collect();
-        println!("  Network:      {} interfaces ({})",
+        let unique_types: Vec<_> = types
+            .iter()
+            .cloned()
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        println!(
+            "  Network:      {} interfaces ({})",
             topology.network.len(),
-            unique_types.join(", "));
+            unique_types.join(", ")
+        );
     }
 
     println!();
@@ -1426,14 +1557,17 @@ fn print_hw_impact_section() {
     if !impact.disk_pressure.is_empty() {
         println!("  Disk I/O (since boot):");
         for disk in &impact.disk_pressure {
-            let temp_str = disk.temp_avg
+            let temp_str = disk
+                .temp_avg
                 .map(|t| format!(" ({}°C)", t as i32))
                 .unwrap_or_default();
-            println!("    {} R: {} W: {}{}",
+            println!(
+                "    {} R: {} W: {}{}",
                 disk.device,
                 format_bytes_compact(disk.read_bytes_24h),
                 format_bytes_compact(disk.write_bytes_24h),
-                temp_str);
+                temp_str
+            );
         }
     }
 
@@ -1441,10 +1575,12 @@ fn print_hw_impact_section() {
     if !impact.network_usage.is_empty() {
         println!("  Network I/O (since boot):");
         for net in &impact.network_usage {
-            println!("    {:8} RX: {} TX: {}",
+            println!(
+                "    {:8} RX: {} TX: {}",
                 net.interface,
                 format_bytes_compact(net.rx_bytes_24h),
-                format_bytes_compact(net.tx_bytes_24h));
+                format_bytes_compact(net.tx_bytes_24h)
+            );
         }
     }
 

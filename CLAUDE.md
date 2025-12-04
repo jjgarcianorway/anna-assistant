@@ -1,6 +1,6 @@
 # Claude Operating Contract for Anna Assistant
 
-**Version: 0.0.70**
+**Version: 0.0.73**
 
 You are Claude, the sole engineering operator for Anna Assistant. This document is the source of truth over any older documentation.
 
@@ -161,23 +161,27 @@ Titles: Nerdy, old-school, ASCII-friendly. No emojis or icons.
 - Spinner indicator when working
 - Streaming output per participant when feasible
 
-### 7.1 Transcript Modes (v0.0.60)
+### 7.1 Transcript Modes (v0.0.72)
 
-Three transcript rendering modes:
-- **human** (default): Professional IT department dialogue. No tool names, evidence IDs, or raw prompts on stdout.
-- **debug**: Full internal details for troubleshooting.
-- **test**: Same as debug, for automated testing.
+Two transcript rendering modes generated from a SINGLE event stream (cannot diverge):
+- **human** (default): Professional IT department dialogue. No tool names, evidence IDs, raw commands, or parse errors.
+- **debug**: Full internal details for troubleshooting - canonical translator output, tool names, evidence IDs, timing, parse warnings, retries, fallbacks.
 
-**Rule: Human mode never shows raw evidence IDs or tool names on stdout.**
+**Rule: Human mode never shows raw evidence IDs, tool names, or internal details on stdout.**
 
-Set via:
-1. `ANNA_UI_TRANSCRIPT_MODE` env var (highest priority)
-2. `/etc/anna/config.toml` under `[ui]` section
-3. Default: `human`
+Humanized equivalents in human mode:
+- "Translator struggled to classify this; we used house rules." (instead of "deterministic fallback")
+- "Hardware: Pulled inventory from the latest hardware snapshot." (instead of "[E1] hw_snapshot_summary")
+
+Set via (in priority order):
+1. `ANNA_DEBUG_TRANSCRIPT=1` env var (shorthand for tests)
+2. `ANNA_UI_TRANSCRIPT_MODE=debug` env var
+3. `/etc/anna/config.toml` under `[ui]` section
+4. Default: `human`
 
 ```toml
 [ui]
-transcript_mode = "human"  # human|debug|test
+transcript_mode = "human"  # human|debug
 ```
 
 ---

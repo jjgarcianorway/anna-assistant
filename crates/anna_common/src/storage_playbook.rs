@@ -13,7 +13,7 @@
 //! - raw_refs: Commands used (debug only)
 
 use crate::evidence_playbook::{
-    PlaybookTopic, PlaybookEvidence, PlaybookBundle, StorageRiskLevel, StorageDiagnosis,
+    PlaybookBundle, PlaybookEvidence, PlaybookTopic, StorageDiagnosis, StorageRiskLevel,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -66,7 +66,7 @@ pub struct SmartEvidence {
     pub device: String,
     pub smart_supported: bool,
     pub smart_enabled: bool,
-    pub overall_health: Option<String>,  // PASSED, FAILED
+    pub overall_health: Option<String>, // PASSED, FAILED
     pub temperature_c: Option<u32>,
     pub power_on_hours: Option<u64>,
     pub reallocated_sectors: Option<u64>,
@@ -163,8 +163,11 @@ pub fn collect_mount_evidence() -> (Vec<MountEvidence>, PlaybookEvidence) {
 
             // Skip virtual filesystems
             let fs_type = parts[2];
-            if fs_type == "tmpfs" || fs_type == "devtmpfs" || fs_type == "efivarfs"
-                || fs_type == "squashfs" || parts[0].starts_with("/dev/loop")
+            if fs_type == "tmpfs"
+                || fs_type == "devtmpfs"
+                || fs_type == "efivarfs"
+                || fs_type == "squashfs"
+                || parts[0].starts_with("/dev/loop")
             {
                 continue;
             }
@@ -193,7 +196,10 @@ pub fn collect_mount_evidence() -> (Vec<MountEvidence>, PlaybookEvidence) {
 
     // Human summary
     let human = if !low_space_mounts.is_empty() {
-        format!("{} filesystem(s) running low on space", low_space_mounts.len())
+        format!(
+            "{} filesystem(s) running low on space",
+            low_space_mounts.len()
+        )
     } else if mounts.is_empty() {
         "No filesystems found".to_string()
     } else {
@@ -201,11 +207,7 @@ pub fn collect_mount_evidence() -> (Vec<MountEvidence>, PlaybookEvidence) {
     };
 
     // Debug summary
-    let debug = format!(
-        "{} mounts, low space: {:?}",
-        mounts.len(),
-        low_space_mounts
-    );
+    let debug = format!("{} mounts, low space: {:?}", mounts.len(), low_space_mounts);
 
     let evidence = PlaybookEvidence::success("storage_mount", &human, &debug)
         .with_refs(vec!["df -h".to_string()])
@@ -272,8 +274,10 @@ pub fn collect_btrfs_evidence() -> (Option<BtrfsEvidence>, PlaybookEvidence) {
                         generation_errors: generation_err,
                     });
                 }
-                current_device = line.trim_start_matches('[')
-                    .split(']').next()
+                current_device = line
+                    .trim_start_matches('[')
+                    .split(']')
+                    .next()
                     .unwrap_or("")
                     .to_string();
                 write_err = 0;
@@ -385,10 +389,7 @@ pub fn collect_smart_evidence() -> (Vec<SmartEvidence>, PlaybookEvidence) {
         let dev_path = format!("/dev/{}", dev_name);
 
         // Try smartctl
-        if let Ok(output) = Command::new("smartctl")
-            .args(["-a", &dev_path])
-            .output()
-        {
+        if let Ok(output) = Command::new("smartctl").args(["-a", &dev_path]).output() {
             let stdout = String::from_utf8_lossy(&output.stdout);
 
             let smart_supported = stdout.contains("SMART support is: Available");
@@ -407,7 +408,8 @@ pub fn collect_smart_evidence() -> (Vec<SmartEvidence>, PlaybookEvidence) {
             }
 
             // Parse temperature
-            let temperature_c = stdout.lines()
+            let temperature_c = stdout
+                .lines()
                 .find(|l| l.contains("Temperature_Celsius") || l.contains("temperature"))
                 .and_then(|l| {
                     l.split_whitespace()
@@ -416,11 +418,10 @@ pub fn collect_smart_evidence() -> (Vec<SmartEvidence>, PlaybookEvidence) {
                 });
 
             // Parse power on hours
-            let power_on_hours = stdout.lines()
+            let power_on_hours = stdout
+                .lines()
                 .find(|l| l.contains("Power_On_Hours"))
-                .and_then(|l| {
-                    l.split_whitespace().last().and_then(|w| w.parse().ok())
-                });
+                .and_then(|l| l.split_whitespace().last().and_then(|w| w.parse().ok()));
 
             devices.push(SmartEvidence {
                 device: dev_name,
@@ -439,7 +440,10 @@ pub fn collect_smart_evidence() -> (Vec<SmartEvidence>, PlaybookEvidence) {
 
     // Human summary
     let human = if !unhealthy.is_empty() {
-        format!("SMART failure detected on {} drive(s) - backup immediately!", unhealthy.len())
+        format!(
+            "SMART failure detected on {} drive(s) - backup immediately!",
+            unhealthy.len()
+        )
     } else if devices.is_empty() {
         "No SMART-capable drives found".to_string()
     } else {
@@ -472,17 +476,22 @@ pub fn collect_io_errors_evidence(minutes: u32) -> (IoErrorsEvidence, PlaybookEv
     if let Ok(output) = Command::new("journalctl")
         .args([
             "-k",
-            "--since", &format!("{} minutes ago", minutes),
-            "-p", "err",
-            "--no-pager", "-q",
+            "--since",
+            &format!("{} minutes ago", minutes),
+            "-p",
+            "err",
+            "--no-pager",
+            "-q",
         ])
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             let lower = line.to_lowercase();
-            if lower.contains("i/o error") || lower.contains("blk_update_request")
-                || lower.contains("buffer i/o error") || lower.contains("ata")
+            if lower.contains("i/o error")
+                || lower.contains("blk_update_request")
+                || lower.contains("buffer i/o error")
+                || lower.contains("ata")
             {
                 error_count += 1;
                 if recent_errors.len() < 5 {
@@ -518,7 +527,10 @@ pub fn collect_io_errors_evidence(minutes: u32) -> (IoErrorsEvidence, PlaybookEv
     let human = if error_count == 0 {
         format!("No I/O errors in the last {} minutes", minutes)
     } else {
-        format!("{} I/O error(s) detected - investigate affected drives", error_count)
+        format!(
+            "{} I/O error(s) detected - investigate affected drives",
+            error_count
+        )
     };
 
     // Debug summary
@@ -528,9 +540,10 @@ pub fn collect_io_errors_evidence(minutes: u32) -> (IoErrorsEvidence, PlaybookEv
     );
 
     let evidence = PlaybookEvidence::success("storage_errors", &human, &debug)
-        .with_refs(vec![
-            format!("journalctl -k --since '{} minutes ago' -p err", minutes),
-        ])
+        .with_refs(vec![format!(
+            "journalctl -k --since '{} minutes ago' -p err",
+            minutes
+        )])
         .with_duration(duration);
 
     (errors, evidence)
@@ -598,7 +611,10 @@ pub fn collect_fstab_evidence() -> (FstabEvidence, PlaybookEvidence) {
     // Debug summary
     let debug = format!(
         "{} entries, btrfs: {}, compress: {}, autodefrag: {}",
-        entries.len(), has_btrfs, has_compression, has_autodefrag
+        entries.len(),
+        has_btrfs,
+        has_compression,
+        has_autodefrag
     );
 
     let evidence = PlaybookEvidence::success("storage_fstab", &human, &debug)
@@ -644,11 +660,17 @@ pub fn run_storage_playbook() -> StorageDiagnosis {
     // Check disk space
     for mount in &mounts {
         if mount.use_percent >= 95 {
-            findings.push(format!("{} is {}% full - critical", mount.mount_point, mount.use_percent));
+            findings.push(format!(
+                "{} is {}% full - critical",
+                mount.mount_point, mount.use_percent
+            ));
             risk_signals.push(format!("disk_full:{}", mount.mount_point));
             risk_level = StorageRiskLevel::High;
         } else if mount.use_percent >= 90 {
-            findings.push(format!("{} is {}% full - warning", mount.mount_point, mount.use_percent));
+            findings.push(format!(
+                "{} is {}% full - warning",
+                mount.mount_point, mount.use_percent
+            ));
             risk_signals.push(format!("disk_warning:{}", mount.mount_point));
             if risk_level == StorageRiskLevel::None {
                 risk_level = StorageRiskLevel::Low;
@@ -658,12 +680,17 @@ pub fn run_storage_playbook() -> StorageDiagnosis {
 
     // Check BTRFS health
     if let Some(ref btrfs) = btrfs {
-        let total_errors: u64 = btrfs.device_errors.iter()
+        let total_errors: u64 = btrfs
+            .device_errors
+            .iter()
             .map(|e| e.write_errors + e.read_errors + e.flush_errors + e.corruption_errors)
             .sum();
 
         if total_errors > 0 {
-            findings.push(format!("BTRFS device errors detected ({} total)", total_errors));
+            findings.push(format!(
+                "BTRFS device errors detected ({} total)",
+                total_errors
+            ));
             risk_signals.push("btrfs_device_errors".to_string());
             risk_level = StorageRiskLevel::High;
         }
@@ -672,7 +699,10 @@ pub fn run_storage_playbook() -> StorageDiagnosis {
     // Check SMART health
     for dev in &smart {
         if dev.overall_health.as_deref() == Some("FAILED") {
-            findings.push(format!("SMART failure on {} - backup immediately!", dev.device));
+            findings.push(format!(
+                "SMART failure on {} - backup immediately!",
+                dev.device
+            ));
             risk_signals.push(format!("smart_failed:{}", dev.device));
             risk_level = StorageRiskLevel::High;
         }
@@ -747,8 +777,11 @@ mod tests {
             generation_errors: 0,
         };
 
-        let total = err.write_errors + err.read_errors + err.flush_errors
-            + err.corruption_errors + err.generation_errors;
+        let total = err.write_errors
+            + err.read_errors
+            + err.flush_errors
+            + err.corruption_errors
+            + err.generation_errors;
         assert_eq!(total, 1);
     }
 }

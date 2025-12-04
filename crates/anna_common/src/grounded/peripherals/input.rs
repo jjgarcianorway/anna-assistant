@@ -2,7 +2,7 @@
 //!
 //! Discovers input devices from /proc/bus/input/devices.
 
-use super::types::{InputDevice, InputType, InputSummary};
+use super::types::{InputDevice, InputSummary, InputType};
 
 /// Get input device summary
 pub fn get_input_summary() -> InputSummary {
@@ -32,7 +32,8 @@ pub fn get_input_summary() -> InputSummary {
                     summary.devices.push(dev);
                 }
 
-                current_name = line.trim_start_matches("N: Name=")
+                current_name = line
+                    .trim_start_matches("N: Name=")
                     .trim_matches('"')
                     .to_string();
                 current_handlers.clear();
@@ -47,14 +48,16 @@ pub fn get_input_summary() -> InputSummary {
                     }
                 }
             } else if line.starts_with("H: Handlers=") {
-                current_handlers = line.trim_start_matches("H: Handlers=")
+                current_handlers = line
+                    .trim_start_matches("H: Handlers=")
                     .split_whitespace()
                     .map(|s| s.to_string())
                     .collect();
 
                 let device_type = classify_input_device(&current_name, &current_handlers);
 
-                let event_path = current_handlers.iter()
+                let event_path = current_handlers
+                    .iter()
                     .find(|h| h.starts_with("event"))
                     .map(|e| format!("/dev/input/{}", e));
 
@@ -84,7 +87,15 @@ pub fn get_input_summary() -> InputSummary {
     }
 
     // Filter out pseudo-devices
-    let skip_patterns = ["sleep", "power", "video", "lid", "wmi", "button", "pc speaker"];
+    let skip_patterns = [
+        "sleep",
+        "power",
+        "video",
+        "lid",
+        "wmi",
+        "button",
+        "pc speaker",
+    ];
     summary.devices.retain(|dev| {
         let name_lower = dev.name.to_lowercase();
         !skip_patterns.iter().any(|p| name_lower.contains(p))
@@ -115,8 +126,10 @@ pub fn classify_input_device(name: &str, handlers: &[String]) -> InputType {
         InputType::Touchscreen
     } else if name_lower.contains("tablet") || name_lower.contains("wacom") {
         InputType::Tablet
-    } else if name_lower.contains("gamepad") || name_lower.contains("joystick") ||
-              name_lower.contains("controller") {
+    } else if name_lower.contains("gamepad")
+        || name_lower.contains("joystick")
+        || name_lower.contains("controller")
+    {
         InputType::Gamepad
     } else if has_mouse && !has_kbd {
         InputType::Mouse
@@ -155,12 +168,21 @@ mod tests {
     #[test]
     fn test_classify_input_device() {
         let handlers = vec!["kbd".to_string(), "event0".to_string()];
-        assert_eq!(classify_input_device("AT Translated Set 2 keyboard", &handlers), InputType::Keyboard);
+        assert_eq!(
+            classify_input_device("AT Translated Set 2 keyboard", &handlers),
+            InputType::Keyboard
+        );
 
         let mouse_handlers = vec!["mouse0".to_string(), "event1".to_string()];
-        assert_eq!(classify_input_device("Logitech Receiver", &mouse_handlers), InputType::Mouse);
+        assert_eq!(
+            classify_input_device("Logitech Receiver", &mouse_handlers),
+            InputType::Mouse
+        );
 
         let tp_handlers = vec!["mouse1".to_string(), "event2".to_string()];
-        assert_eq!(classify_input_device("SynPS/2 Synaptics TouchPad", &tp_handlers), InputType::Touchpad);
+        assert_eq!(
+            classify_input_device("SynPS/2 Synaptics TouchPad", &tp_handlers),
+            InputType::Touchpad
+        );
     }
 }

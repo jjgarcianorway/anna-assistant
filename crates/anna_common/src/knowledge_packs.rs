@@ -252,8 +252,7 @@ impl KnowledgeIndex {
 
     /// Open with a custom path (for testing)
     pub fn open_with_path(path: &Path) -> Result<Self> {
-        let conn = Connection::open(path)
-            .with_context(|| format!("Failed to open {:?}", path))?;
+        let conn = Connection::open(path).with_context(|| format!("Failed to open {:?}", path))?;
 
         let index = Self { conn };
         index.init_schema()?;
@@ -375,10 +374,58 @@ impl KnowledgeIndex {
 
     /// Get a pack by ID
     pub fn get_pack(&self, pack_id: &str) -> Result<Option<KnowledgePack>> {
-        let result = self.conn.query_row(
-            "SELECT * FROM packs WHERE id = ?1",
-            params![pack_id],
-            |row| {
+        let result = self
+            .conn
+            .query_row(
+                "SELECT * FROM packs WHERE id = ?1",
+                params![pack_id],
+                |row| {
+                    let source_str: String = row.get(2)?;
+                    let trust_str: String = row.get(3)?;
+                    let retention_str: String = row.get(4)?;
+                    let source_paths_json: String = row.get(5)?;
+
+                    Ok(KnowledgePack {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        source: match source_str.as_str() {
+                            "manpages" => PackSource::Manpages,
+                            "package_docs" => PackSource::PackageDocs,
+                            "project_docs" => PackSource::ProjectDocs,
+                            "user_notes" => PackSource::UserNotes,
+                            "archwiki_cache" => PackSource::ArchwikiCache,
+                            _ => PackSource::LocalMarkdown,
+                        },
+                        trust: match trust_str.as_str() {
+                            "official" => TrustLevel::Official,
+                            "local" => TrustLevel::Local,
+                            _ => TrustLevel::User,
+                        },
+                        retention: match retention_str.as_str() {
+                            "permanent" => RetentionPolicy::Permanent,
+                            "refreshonupdate" => RetentionPolicy::RefreshOnUpdate,
+                            _ => RetentionPolicy::Manual,
+                        },
+                        source_paths: serde_json::from_str(&source_paths_json).unwrap_or_default(),
+                        created_at: row.get(6)?,
+                        last_indexed_at: row.get(7)?,
+                        document_count: row.get::<_, i64>(8)? as usize,
+                        index_size_bytes: row.get::<_, i64>(9)? as u64,
+                        description: row.get(10)?,
+                        enabled: row.get::<_, i32>(11)? != 0,
+                    })
+                },
+            )
+            .optional()?;
+
+        Ok(result)
+    }
+
+    /// List all packs
+    pub fn list_packs(&self) -> Result<Vec<KnowledgePack>> {
+        let mut stmt = self.conn.prepare("SELECT * FROM packs ORDER BY name")?;
+        let packs = stmt
+            .query_map([], |row| {
                 let source_str: String = row.get(2)?;
                 let trust_str: String = row.get(3)?;
                 let retention_str: String = row.get(4)?;
@@ -413,51 +460,8 @@ impl KnowledgeIndex {
                     description: row.get(10)?,
                     enabled: row.get::<_, i32>(11)? != 0,
                 })
-            },
-        ).optional()?;
-
-        Ok(result)
-    }
-
-    /// List all packs
-    pub fn list_packs(&self) -> Result<Vec<KnowledgePack>> {
-        let mut stmt = self.conn.prepare("SELECT * FROM packs ORDER BY name")?;
-        let packs = stmt.query_map([], |row| {
-            let source_str: String = row.get(2)?;
-            let trust_str: String = row.get(3)?;
-            let retention_str: String = row.get(4)?;
-            let source_paths_json: String = row.get(5)?;
-
-            Ok(KnowledgePack {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                source: match source_str.as_str() {
-                    "manpages" => PackSource::Manpages,
-                    "package_docs" => PackSource::PackageDocs,
-                    "project_docs" => PackSource::ProjectDocs,
-                    "user_notes" => PackSource::UserNotes,
-                    "archwiki_cache" => PackSource::ArchwikiCache,
-                    _ => PackSource::LocalMarkdown,
-                },
-                trust: match trust_str.as_str() {
-                    "official" => TrustLevel::Official,
-                    "local" => TrustLevel::Local,
-                    _ => TrustLevel::User,
-                },
-                retention: match retention_str.as_str() {
-                    "permanent" => RetentionPolicy::Permanent,
-                    "refreshonupdate" => RetentionPolicy::RefreshOnUpdate,
-                    _ => RetentionPolicy::Manual,
-                },
-                source_paths: serde_json::from_str(&source_paths_json).unwrap_or_default(),
-                created_at: row.get(6)?,
-                last_indexed_at: row.get(7)?,
-                document_count: row.get::<_, i64>(8)? as usize,
-                index_size_bytes: row.get::<_, i64>(9)? as u64,
-                description: row.get(10)?,
-                enabled: row.get::<_, i32>(11)? != 0,
-            })
-        })?.collect::<std::result::Result<Vec<_>, _>>()?;
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok(packs)
     }
@@ -540,24 +544,34 @@ impl KnowledgeIndex {
             let keywords_str: String = row.get(8)?;
 
             Ok((
-                row.get::<_, i64>(0)?,       // doc_id
-                row.get::<_, String>(1)?,    // title
-                row.get::<_, String>(2)?,    // pack_id
-                row.get::<_, String>(3)?,    // pack_name
-                row.get::<_, String>(4)?,    // source_path
+                row.get::<_, i64>(0)?,    // doc_id
+                row.get::<_, String>(1)?, // title
+                row.get::<_, String>(2)?, // pack_id
+                row.get::<_, String>(3)?, // pack_name
+                row.get::<_, String>(4)?, // source_path
                 trust_str,
-                row.get::<_, String>(6)?,    // excerpt
-                row.get::<_, f64>(7)?,       // score
+                row.get::<_, String>(6)?, // excerpt
+                row.get::<_, f64>(7)?,    // score
                 keywords_str,
             ))
         })?;
 
         for row in rows {
-            let (doc_id, title, pack_id, pack_name, source_path, trust_str, excerpt, score, keywords_str) = row?;
+            let (
+                doc_id,
+                title,
+                pack_id,
+                pack_name,
+                source_path,
+                trust_str,
+                excerpt,
+                score,
+                keywords_str,
+            ) = row?;
 
             // Apply redaction to excerpt
-            let redacted_excerpt = redact_evidence(&excerpt, Some(&source_path))
-                .unwrap_or_else(|e| e);
+            let redacted_excerpt =
+                redact_evidence(&excerpt, Some(&source_path)).unwrap_or_else(|e| e);
 
             // Update query stats for this pack
             self.conn.execute(
@@ -585,7 +599,8 @@ impl KnowledgeIndex {
                 },
                 excerpt: redacted_excerpt,
                 score: score.abs(), // BM25 returns negative scores
-                matched_keywords: keywords_str.split_whitespace()
+                matched_keywords: keywords_str
+                    .split_whitespace()
                     .filter(|kw| query.to_lowercase().contains(&kw.to_lowercase()))
                     .map(String::from)
                     .collect(),
@@ -599,17 +614,16 @@ impl KnowledgeIndex {
 
     /// Get knowledge statistics
     pub fn get_stats(&self) -> Result<KnowledgeStats> {
-        let pack_count: usize = self.conn.query_row(
-            "SELECT COUNT(*) FROM packs",
-            [],
-            |row| row.get::<_, i64>(0),
-        )? as usize;
+        let pack_count: usize = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM packs", [], |row| row.get::<_, i64>(0))?
+            as usize;
 
-        let document_count: usize = self.conn.query_row(
-            "SELECT COUNT(*) FROM documents",
-            [],
-            |row| row.get::<_, i64>(0),
-        )? as usize;
+        let document_count: usize =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM documents", [], |row| {
+                    row.get::<_, i64>(0)
+                })? as usize;
 
         let total_size_bytes: u64 = self.conn.query_row(
             "SELECT COALESCE(SUM(index_size_bytes), 0) FROM packs",
@@ -617,17 +631,18 @@ impl KnowledgeIndex {
             |row| row.get::<_, i64>(0),
         )? as u64;
 
-        let last_indexed_at: Option<u64> = self.conn.query_row(
-            "SELECT MAX(last_indexed_at) FROM packs",
-            [],
-            |row| row.get::<_, Option<i64>>(0),
-        )?.map(|v| v as u64);
+        let last_indexed_at: Option<u64> = self
+            .conn
+            .query_row("SELECT MAX(last_indexed_at) FROM packs", [], |row| {
+                row.get::<_, Option<i64>>(0)
+            })?
+            .map(|v| v as u64);
 
         // Packs by source
         let mut packs_by_source = HashMap::new();
-        let mut stmt = self.conn.prepare(
-            "SELECT source, COUNT(*) FROM packs GROUP BY source"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT source, COUNT(*) FROM packs GROUP BY source")?;
         let source_counts = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
         })?;
@@ -644,11 +659,14 @@ impl KnowledgeIndex {
             LEFT JOIN query_stats qs ON p.id = qs.pack_id
             ORDER BY queries DESC
             LIMIT 5
-            "#
+            "#,
         )?;
-        let top_packs: Vec<(String, usize)> = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
-        })?.filter_map(|r| r.ok()).collect();
+        let top_packs: Vec<(String, usize)> = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as usize))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
 
         Ok(KnowledgeStats {
             pack_count,
@@ -662,15 +680,21 @@ impl KnowledgeIndex {
 
     /// Delete a pack and all its documents
     pub fn delete_pack(&self, pack_id: &str) -> Result<()> {
-        self.conn.execute("DELETE FROM documents WHERE pack_id = ?1", params![pack_id])?;
-        self.conn.execute("DELETE FROM query_stats WHERE pack_id = ?1", params![pack_id])?;
-        self.conn.execute("DELETE FROM packs WHERE id = ?1", params![pack_id])?;
+        self.conn
+            .execute("DELETE FROM documents WHERE pack_id = ?1", params![pack_id])?;
+        self.conn.execute(
+            "DELETE FROM query_stats WHERE pack_id = ?1",
+            params![pack_id],
+        )?;
+        self.conn
+            .execute("DELETE FROM packs WHERE id = ?1", params![pack_id])?;
         Ok(())
     }
 
     /// Clear all documents from a pack (for re-indexing)
     pub fn clear_pack_documents(&self, pack_id: &str) -> Result<()> {
-        self.conn.execute("DELETE FROM documents WHERE pack_id = ?1", params![pack_id])?;
+        self.conn
+            .execute("DELETE FROM documents WHERE pack_id = ?1", params![pack_id])?;
         self.conn.execute(
             "UPDATE packs SET document_count = 0 WHERE id = ?1",
             params![pack_id],
@@ -870,7 +894,12 @@ pub fn ingest_package_docs(index: &KnowledgeIndex, limit: Option<usize>) -> Resu
                             title: format!("{} - {}", pkg_name, pattern),
                             content,
                             source_path: path_str,
-                            doc_type: if pattern.ends_with(".md") { "markdown" } else { "text" }.to_string(),
+                            doc_type: if pattern.ends_with(".md") {
+                                "markdown"
+                            } else {
+                                "text"
+                            }
+                            .to_string(),
                             keywords: vec![pkg_name.clone()],
                             indexed_at: timestamp,
                         };
@@ -987,8 +1016,8 @@ pub fn ingest_user_note(
         ));
     }
 
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path_str))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read {}", path_str))?;
 
     let doc_title = title.map(String::from).unwrap_or_else(|| {
         path.file_name()
@@ -1063,7 +1092,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test_index.db");
         let index = KnowledgeIndex::open_with_path(&db_path).unwrap();
-        (index, temp_dir)  // Return both to keep temp_dir alive
+        (index, temp_dir) // Return both to keep temp_dir alive
     }
 
     #[test]
@@ -1119,7 +1148,8 @@ mod tests {
             id: 0,
             pack_id: "test-pack".to_string(),
             title: "Vim Configuration Guide".to_string(),
-            content: "To enable syntax highlighting in Vim, add 'syntax on' to your .vimrc file.".to_string(),
+            content: "To enable syntax highlighting in Vim, add 'syntax on' to your .vimrc file."
+                .to_string(),
             source_path: "/tmp/vim-guide.md".to_string(),
             doc_type: "markdown".to_string(),
             keywords: vec!["vim".to_string(), "editor".to_string()],
@@ -1226,7 +1256,7 @@ mod tests {
     fn test_sanitize_fts_query() {
         assert_eq!(sanitize_fts_query("simple"), "simple");
         assert_eq!(sanitize_fts_query("vim syntax"), "vim OR syntax");
-        assert_eq!(sanitize_fts_query("test \"quoted\""), "test OR quoted");  // quotes removed, words joined with OR
+        assert_eq!(sanitize_fts_query("test \"quoted\""), "test OR quoted"); // quotes removed, words joined with OR
         assert_eq!(sanitize_fts_query("test*"), "test");
     }
 

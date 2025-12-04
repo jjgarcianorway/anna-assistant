@@ -29,24 +29,24 @@ pub enum EvidenceTopicV70 {
 }
 
 impl EvidenceTopicV70 {
-    /// Human-readable description for display
+    /// Human-readable description for display (v0.0.71: shorter labels)
     pub fn human_description(&self) -> &str {
         match self {
-            Self::HardwareInventory => "hardware inventory snapshot",
-            Self::SoftwareInventory => "software and services inventory snapshot",
-            Self::ServiceInventory => "service inventory",
-            Self::NetworkSnapshot => "network status snapshot",
-            Self::StorageSnapshot => "storage status snapshot",
-            Self::AudioSnapshot => "audio stack snapshot",
-            Self::GraphicsSnapshot => "graphics status snapshot",
-            Self::BootTimeline => "boot timing history",
-            Self::JournalErrorIndex => "journal error index",
-            Self::PackageHistory => "package change history",
-            Self::SystemStatus => "system status",
-            Self::DaemonStatus => "Anna daemon status snapshot",
-            Self::ConfigState => "configuration state",
-            Self::DiagnosticsSignals => "diagnostics signals",
-            Self::DocumentationSearch => "documentation search",
+            Self::HardwareInventory => "hardware inventory",
+            Self::SoftwareInventory => "software/services inventory",
+            Self::ServiceInventory => "service status",
+            Self::NetworkSnapshot => "network link and routing signals",
+            Self::StorageSnapshot => "storage status",
+            Self::AudioSnapshot => "audio stack",
+            Self::GraphicsSnapshot => "graphics status",
+            Self::BootTimeline => "boot timeline",
+            Self::JournalErrorIndex => "system error journal summary",
+            Self::PackageHistory => "package changes",
+            Self::SystemStatus => "system load",
+            Self::DaemonStatus => "daemon health",
+            Self::ConfigState => "config state",
+            Self::DiagnosticsSignals => "diagnostics",
+            Self::DocumentationSearch => "documentation",
             Self::Custom(s) => s,
         }
     }
@@ -56,16 +56,20 @@ impl EvidenceTopicV70 {
 pub fn tool_to_evidence_topic(tool_name: &str) -> EvidenceTopicV70 {
     match tool_name {
         // Hardware tools
-        "hw_snapshot_summary" | "hw_snapshot_cpu" | "hw_snapshot_memory"
-        | "hw_snapshot_gpu" | "hw_snapshot_disk" | "hardware_info" => {
-            EvidenceTopicV70::HardwareInventory
-        }
+        "hw_snapshot_summary"
+        | "hw_snapshot_cpu"
+        | "hw_snapshot_memory"
+        | "hw_snapshot_gpu"
+        | "hw_snapshot_disk"
+        | "hardware_info" => EvidenceTopicV70::HardwareInventory,
 
         // Software tools
-        "sw_snapshot_summary" | "sw_snapshot_packages" | "sw_snapshot_services"
-        | "recent_installs" | "package_info" | "installed_packages" => {
-            EvidenceTopicV70::SoftwareInventory
-        }
+        "sw_snapshot_summary"
+        | "sw_snapshot_packages"
+        | "sw_snapshot_services"
+        | "recent_installs"
+        | "package_info"
+        | "installed_packages" => EvidenceTopicV70::SoftwareInventory,
 
         // Service tools
         "service_status" | "service_logs" | "service_inventory" | "systemd_units" => {
@@ -73,14 +77,17 @@ pub fn tool_to_evidence_topic(tool_name: &str) -> EvidenceTopicV70 {
         }
 
         // Network tools
-        "network_status" | "network_interfaces" | "network_connectivity"
-        | "dns_check" | "ping_check" | "wifi_status" | "ip_addresses" => {
-            EvidenceTopicV70::NetworkSnapshot
-        }
+        "network_status"
+        | "network_interfaces"
+        | "network_connectivity"
+        | "dns_check"
+        | "ping_check"
+        | "wifi_status"
+        | "ip_addresses" => EvidenceTopicV70::NetworkSnapshot,
 
         // Storage tools
-        "disk_usage" | "disk_free" | "mount_info" | "storage_health"
-        | "btrfs_status" | "fstab_check" => EvidenceTopicV70::StorageSnapshot,
+        "disk_usage" | "disk_free" | "mount_info" | "storage_health" | "btrfs_status"
+        | "fstab_check" => EvidenceTopicV70::StorageSnapshot,
 
         // Audio tools
         "audio_status" | "pipewire_status" | "pulseaudio_status" | "alsa_info" => {
@@ -108,9 +115,7 @@ pub fn tool_to_evidence_topic(tool_name: &str) -> EvidenceTopicV70 {
         }
 
         // System tools
-        "uptime" | "load_average" | "memory_usage" | "cpu_usage" => {
-            EvidenceTopicV70::SystemStatus
-        }
+        "uptime" | "load_average" | "memory_usage" | "cpu_usage" => EvidenceTopicV70::SystemStatus,
 
         // Daemon tools
         "anna_status" | "daemon_health" | "daemon_metrics" => EvidenceTopicV70::DaemonStatus,
@@ -122,9 +127,7 @@ pub fn tool_to_evidence_topic(tool_name: &str) -> EvidenceTopicV70 {
         "diagnostics" | "health_check" | "system_scan" => EvidenceTopicV70::DiagnosticsSignals,
 
         // Documentation
-        "man_search" | "doc_search" | "knowledge_search" => {
-            EvidenceTopicV70::DocumentationSearch
-        }
+        "man_search" | "doc_search" | "knowledge_search" => EvidenceTopicV70::DocumentationSearch,
 
         // Default
         _ => EvidenceTopicV70::Custom(tool_name.to_string()),
@@ -153,13 +156,14 @@ mod tests {
 
     #[test]
     fn test_human_description() {
+        // v0.0.71: shorter labels, no "snapshot" suffix
         assert_eq!(
             EvidenceTopicV70::HardwareInventory.human_description(),
-            "hardware inventory snapshot"
+            "hardware inventory"
         );
         assert_eq!(
             EvidenceTopicV70::NetworkSnapshot.human_description(),
-            "network status snapshot"
+            "network link and routing signals"
         );
     }
 }

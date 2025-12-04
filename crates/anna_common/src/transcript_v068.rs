@@ -29,9 +29,7 @@ use std::path::Path;
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TranscriptEventV2 {
     /// User's message
-    UserMessage {
-        text: String,
-    },
+    UserMessage { text: String },
 
     /// Role-to-role message
     RoleMessage {
@@ -98,9 +96,7 @@ pub enum TranscriptEventV2 {
     },
 
     /// Phase separator
-    Phase {
-        name: String,
-    },
+    Phase { name: String },
 
     /// Warning (fallback used, uncertainty, etc.)
     Warning {
@@ -153,7 +149,10 @@ impl TranscriptRole {
 
     /// Whether this role should be visible in human mode
     pub fn visible_in_human_mode(&self) -> bool {
-        !matches!(self, TranscriptRole::Translator | TranscriptRole::Junior | TranscriptRole::Annad)
+        !matches!(
+            self,
+            TranscriptRole::Translator | TranscriptRole::Junior | TranscriptRole::Annad
+        )
     }
 
     /// From Department
@@ -231,19 +230,38 @@ pub fn render_human(stream: &TranscriptStreamV2) -> Vec<String> {
                 lines.push(format!("[you] {}", text));
             }
 
-            TranscriptEventV2::RoleMessage { from, to: _, text_human, .. } => {
+            TranscriptEventV2::RoleMessage {
+                from,
+                to: _,
+                text_human,
+                ..
+            } => {
                 if from.visible_in_human_mode() && !text_human.is_empty() {
                     lines.push(format!("[{}] {}", from.display_name(), text_human));
                 }
             }
 
-            TranscriptEventV2::EvidenceTopicSummary { role, topic_title, summary_human, .. } => {
+            TranscriptEventV2::EvidenceTopicSummary {
+                role,
+                topic_title,
+                summary_human,
+                ..
+            } => {
                 if role.visible_in_human_mode() {
-                    lines.push(format!("[{}] {}: {}", role.display_name(), topic_title, summary_human));
+                    lines.push(format!(
+                        "[{}] {}: {}",
+                        role.display_name(),
+                        topic_title,
+                        summary_human
+                    ));
                 }
             }
 
-            TranscriptEventV2::Decision { role, decision_human, .. } => {
+            TranscriptEventV2::Decision {
+                role,
+                decision_human,
+                ..
+            } => {
                 if role.visible_in_human_mode() && !decision_human.is_empty() {
                     lines.push(format!("[{}] {}", role.display_name(), decision_human));
                 }
@@ -257,7 +275,10 @@ pub fn render_human(stream: &TranscriptStreamV2) -> Vec<String> {
                 steps_human,
                 ..
             } => {
-                lines.push(format!("[service-desk] Proposed action: {}", proposal_title));
+                lines.push(format!(
+                    "[service-desk] Proposed action: {}",
+                    proposal_title
+                ));
                 lines.push(format!("  Risk level: {:?}", risk));
                 for step in steps_human {
                     lines.push(format!("  - {}", step));
@@ -276,10 +297,17 @@ pub fn render_human(stream: &TranscriptStreamV2) -> Vec<String> {
                 }
             }
 
-            TranscriptEventV2::FinalAnswer { text, reliability, reliability_reason } => {
+            TranscriptEventV2::FinalAnswer {
+                text,
+                reliability,
+                reliability_reason,
+            } => {
                 lines.push(format!("[service-desk] {}", text));
                 lines.push(String::new());
-                lines.push(format!("Reliability: {}% ({})", reliability, reliability_reason));
+                lines.push(format!(
+                    "Reliability: {}% ({})",
+                    reliability, reliability_reason
+                ));
             }
 
             TranscriptEventV2::Perf { .. } => {
@@ -296,7 +324,11 @@ pub fn render_human(stream: &TranscriptStreamV2) -> Vec<String> {
                 lines.push(format!("----- {} -----", name));
             }
 
-            TranscriptEventV2::Warning { role, message_human, .. } => {
+            TranscriptEventV2::Warning {
+                role,
+                message_human,
+                ..
+            } => {
                 // Show warnings from service-desk only in human mode
                 if matches!(role, TranscriptRole::ServiceDesk) && !message_human.is_empty() {
                     lines.push(format!("[service-desk] Note: {}", message_human));
@@ -320,8 +352,19 @@ pub fn render_debug(stream: &TranscriptStreamV2) -> Vec<String> {
                 lines.push(format!("{} [you] {}", ts, text));
             }
 
-            TranscriptEventV2::RoleMessage { from, to, text_debug, .. } => {
-                lines.push(format!("{} [{}] -> [{}]: {}", ts, from.display_name(), to.display_name(), text_debug));
+            TranscriptEventV2::RoleMessage {
+                from,
+                to,
+                text_debug,
+                ..
+            } => {
+                lines.push(format!(
+                    "{} [{}] -> [{}]: {}",
+                    ts,
+                    from.display_name(),
+                    to.display_name(),
+                    text_debug
+                ));
             }
 
             TranscriptEventV2::EvidenceTopicSummary {
@@ -345,8 +388,17 @@ pub fn render_debug(stream: &TranscriptStreamV2) -> Vec<String> {
                 lines.push(format!("    {}", summary_debug));
             }
 
-            TranscriptEventV2::Decision { role, decision_debug, .. } => {
-                lines.push(format!("{} [{}] Decision: {}", ts, role.display_name(), decision_debug));
+            TranscriptEventV2::Decision {
+                role,
+                decision_debug,
+                ..
+            } => {
+                lines.push(format!(
+                    "{} [{}] Decision: {}",
+                    ts,
+                    role.display_name(),
+                    decision_debug
+                ));
             }
 
             TranscriptEventV2::ActionProposalPresented {
@@ -356,25 +408,43 @@ pub fn render_debug(stream: &TranscriptStreamV2) -> Vec<String> {
                 steps_debug,
                 ..
             } => {
-                lines.push(format!("{} [action] {} - {} (risk: {:?})", ts, proposal_id, proposal_title, risk));
+                lines.push(format!(
+                    "{} [action] {} - {} (risk: {:?})",
+                    ts, proposal_id, proposal_title, risk
+                ));
                 for step in steps_debug {
                     lines.push(format!("    $ {}", step));
                 }
             }
 
-            TranscriptEventV2::ConfirmationResult { accepted, phrase_entered } => {
+            TranscriptEventV2::ConfirmationResult {
+                accepted,
+                phrase_entered,
+            } => {
                 lines.push(format!(
                     "{} [confirm] accepted={}, phrase={:?}",
                     ts, accepted, phrase_entered
                 ));
             }
 
-            TranscriptEventV2::FinalAnswer { text, reliability, reliability_reason } => {
-                lines.push(format!("{} [final] reliability={}% ({})", ts, reliability, reliability_reason));
+            TranscriptEventV2::FinalAnswer {
+                text,
+                reliability,
+                reliability_reason,
+            } => {
+                lines.push(format!(
+                    "{} [final] reliability={}% ({})",
+                    ts, reliability, reliability_reason
+                ));
                 lines.push(format!("    {}", text));
             }
 
-            TranscriptEventV2::Perf { total_ms, llm_ms, tool_ms, tool_count } => {
+            TranscriptEventV2::Perf {
+                total_ms,
+                llm_ms,
+                tool_ms,
+                tool_count,
+            } => {
                 lines.push(format!(
                     "{} [perf] total={}ms, llm={:?}ms, tools={}ms ({}x)",
                     ts, total_ms, llm_ms, tool_ms, tool_count
@@ -382,15 +452,29 @@ pub fn render_debug(stream: &TranscriptStreamV2) -> Vec<String> {
             }
 
             TranscriptEventV2::Working { role, message } => {
-                lines.push(format!("{} [{}] WORKING: {}", ts, role.display_name(), message));
+                lines.push(format!(
+                    "{} [{}] WORKING: {}",
+                    ts,
+                    role.display_name(),
+                    message
+                ));
             }
 
             TranscriptEventV2::Phase { name } => {
                 lines.push(format!("{} === {} ===", ts, name.to_uppercase()));
             }
 
-            TranscriptEventV2::Warning { role, message_debug, .. } => {
-                lines.push(format!("{} [{}] WARN: {}", ts, role.display_name(), message_debug));
+            TranscriptEventV2::Warning {
+                role,
+                message_debug,
+                ..
+            } => {
+                lines.push(format!(
+                    "{} [{}] WARN: {}",
+                    ts,
+                    role.display_name(),
+                    message_debug
+                ));
             }
         }
     }
@@ -448,28 +532,48 @@ pub fn print_human_colored(stream: &TranscriptStreamV2) {
                 println!("{} {}", "[you]".white().bold(), text);
             }
 
-            TranscriptEventV2::RoleMessage { from, text_human, .. } => {
+            TranscriptEventV2::RoleMessage {
+                from, text_human, ..
+            } => {
                 if from.visible_in_human_mode() && !text_human.is_empty() {
                     let actor = format!("[{}]", from.display_name());
                     println!("{} {}", style_role(from, &actor), text_human);
                 }
             }
 
-            TranscriptEventV2::EvidenceTopicSummary { role, topic_title, summary_human, .. } => {
+            TranscriptEventV2::EvidenceTopicSummary {
+                role,
+                topic_title,
+                summary_human,
+                ..
+            } => {
                 if role.visible_in_human_mode() {
                     let actor = format!("[{}]", role.display_name());
-                    println!("{} {}: {}", style_role(role, &actor), topic_title.cyan(), summary_human);
+                    println!(
+                        "{} {}: {}",
+                        style_role(role, &actor),
+                        topic_title.cyan(),
+                        summary_human
+                    );
                 }
             }
 
-            TranscriptEventV2::Decision { role, decision_human, .. } => {
+            TranscriptEventV2::Decision {
+                role,
+                decision_human,
+                ..
+            } => {
                 if role.visible_in_human_mode() && !decision_human.is_empty() {
                     let actor = format!("[{}]", role.display_name());
                     println!("{} {}", style_role(role, &actor), decision_human);
                 }
             }
 
-            TranscriptEventV2::FinalAnswer { text, reliability, reliability_reason } => {
+            TranscriptEventV2::FinalAnswer {
+                text,
+                reliability,
+                reliability_reason,
+            } => {
                 let actor = "[service-desk]".green();
                 println!("{} {}", actor, text);
                 println!();
@@ -494,9 +598,17 @@ pub fn print_human_colored(stream: &TranscriptStreamV2) {
                 }
             }
 
-            TranscriptEventV2::Warning { role, message_human, .. } => {
+            TranscriptEventV2::Warning {
+                role,
+                message_human,
+                ..
+            } => {
                 if matches!(role, TranscriptRole::ServiceDesk) && !message_human.is_empty() {
-                    println!("{} {}", "[service-desk]".green(), format!("Note: {}", message_human).yellow());
+                    println!(
+                        "{} {}",
+                        "[service-desk]".green(),
+                        format!("Note: {}", message_human).yellow()
+                    );
                 }
             }
 
@@ -530,11 +642,31 @@ fn style_role(role: &TranscriptRole, text: &str) -> String {
 pub fn validate_human_output(lines: &[String]) -> Vec<String> {
     let forbidden = [
         // Evidence IDs
-        "[E1]", "[E2]", "[E3]", "[E4]", "[E5]", "[E6]", "[E7]", "[E8]", "[E9]",
+        "[E1]",
+        "[E2]",
+        "[E3]",
+        "[E4]",
+        "[E5]",
+        "[E6]",
+        "[E7]",
+        "[E8]",
+        "[E9]",
         // Tool names
-        "_summary", "_snapshot", "_probe", "_check", "_info",
-        "journalctl", "systemctl", "nmcli", "ip ", "iw ", "btrfs ", "smartctl",
-        "pacman ", "resolvectl", "hostnamectl",
+        "_summary",
+        "_snapshot",
+        "_probe",
+        "_check",
+        "_info",
+        "journalctl",
+        "systemctl",
+        "nmcli",
+        "ip ",
+        "iw ",
+        "btrfs ",
+        "smartctl",
+        "pacman ",
+        "resolvectl",
+        "hostnamectl",
     ];
 
     let mut violations = Vec::new();
@@ -572,8 +704,14 @@ mod tests {
         let human = render_human(&stream);
         let human_str = human.join("\n");
 
-        assert!(!human_str.contains("[E1]"), "Human mode should not contain evidence IDs");
-        assert!(!human_str.contains("network_status"), "Human mode should not contain tool names");
+        assert!(
+            !human_str.contains("[E1]"),
+            "Human mode should not contain evidence IDs"
+        );
+        assert!(
+            !human_str.contains("network_status"),
+            "Human mode should not contain tool names"
+        );
         assert!(human_str.contains("WiFi is connected"));
     }
 
@@ -593,8 +731,14 @@ mod tests {
         let debug = render_debug(&stream);
         let debug_str = debug.join("\n");
 
-        assert!(debug_str.contains("E1"), "Debug mode should contain evidence IDs");
-        assert!(debug_str.contains("network_status"), "Debug mode should contain tool names");
+        assert!(
+            debug_str.contains("E1"),
+            "Debug mode should contain evidence IDs"
+        );
+        assert!(
+            debug_str.contains("network_status"),
+            "Debug mode should contain tool names"
+        );
     }
 
     #[test]
@@ -610,7 +754,10 @@ mod tests {
         let human = render_human(&stream);
         let human_str = human.join("\n");
 
-        assert!(!human_str.contains("translator"), "Translator should be hidden in human mode");
+        assert!(
+            !human_str.contains("translator"),
+            "Translator should be hidden in human mode"
+        );
         assert!(!human_str.contains("Internal parse"));
     }
 

@@ -45,9 +45,8 @@ pub const MAX_FILE_SIZE: u64 = 1024 * 1024;
 
 /// Blocked path prefixes (system directories)
 const BLOCKED_PREFIXES: &[&str] = &[
-    "/etc", "/usr", "/var", "/boot", "/root",
-    "/proc", "/sys", "/dev", "/run", "/lib",
-    "/lib64", "/bin", "/sbin", "/opt",
+    "/etc", "/usr", "/var", "/boot", "/root", "/proc", "/sys", "/dev", "/run", "/lib", "/lib64",
+    "/bin", "/sbin", "/opt",
 ];
 
 // =============================================================================
@@ -214,7 +213,10 @@ pub struct PathPolicyResult {
 
 /// Check if path is allowed for user file mutation (v0.0.50 policy)
 pub fn check_path_policy(path: &str) -> PathPolicyResult {
-    let evidence_id = format!("POL{}", generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "POL{}",
+        generate_request_id().chars().take(8).collect::<String>()
+    );
     let path_obj = Path::new(path);
 
     // Get home directory
@@ -294,7 +296,10 @@ pub fn check_path_policy(path: &str) -> PathPolicyResult {
 }
 
 /// Check for symlink and potential escape
-fn check_symlink_escape(path: &Path, home: &Option<String>) -> (bool, Option<String>, Option<String>) {
+fn check_symlink_escape(
+    path: &Path,
+    home: &Option<String>,
+) -> (bool, Option<String>, Option<String>) {
     // Check if path itself is a symlink
     if let Ok(meta) = fs::symlink_metadata(path) {
         if meta.file_type().is_symlink() {
@@ -358,7 +363,10 @@ pub struct FileStat {
 
 /// Generate edit preview
 pub fn generate_edit_preview(action: &UserFileEditAction) -> Result<EditPreview, String> {
-    let evidence_id = format!("E{}", generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "E{}",
+        generate_request_id().chars().take(8).collect::<String>()
+    );
     let path = Path::new(&action.path);
 
     // Check policy first
@@ -405,7 +413,13 @@ pub fn generate_edit_preview(action: &UserFileEditAction) -> Result<EditPreview,
 
     // Get head and tail
     let current_head: Vec<String> = lines.iter().take(10).map(|s| s.to_string()).collect();
-    let current_tail: Vec<String> = lines.iter().rev().take(10).rev().map(|s| s.to_string()).collect();
+    let current_tail: Vec<String> = lines
+        .iter()
+        .rev()
+        .take(10)
+        .rev()
+        .map(|s| s.to_string())
+        .collect();
 
     // Generate diff and determine if would change
     let (diff_unified, would_change, change_description) = match action.mode {
@@ -421,11 +435,7 @@ pub fn generate_edit_preview(action: &UserFileEditAction) -> Result<EditPreview,
                 )
             } else {
                 let diff = generate_append_diff(&content, line, current_line_count);
-                (
-                    diff,
-                    true,
-                    format!("Will append line: '{}'", line),
-                )
+                (diff, true, format!("Will append line: '{}'", line))
             }
         }
         EditMode::SetKeyValue => {
@@ -435,9 +445,9 @@ pub fn generate_edit_preview(action: &UserFileEditAction) -> Result<EditPreview,
             let new_line = format!("{}{}{}", key, sep, value);
 
             // Find existing key
-            let existing_idx = lines.iter().position(|l| {
-                l.trim().starts_with(key) && l.contains(sep)
-            });
+            let existing_idx = lines
+                .iter()
+                .position(|l| l.trim().starts_with(key) && l.contains(sep));
 
             if let Some(idx) = existing_idx {
                 let old_line = lines[idx];
@@ -452,7 +462,12 @@ pub fn generate_edit_preview(action: &UserFileEditAction) -> Result<EditPreview,
                     (
                         diff,
                         true,
-                        format!("Will update key '{}' from '{}' to '{}'", key, old_line.trim(), new_line),
+                        format!(
+                            "Will update key '{}' from '{}' to '{}'",
+                            key,
+                            old_line.trim(),
+                            new_line
+                        ),
                     )
                 }
             } else {
@@ -500,9 +515,13 @@ fn generate_append_diff(content: &str, new_line: &str, line_count: usize) -> Str
     let context_start = line_count.saturating_sub(3);
 
     if line_count > 0 {
-        diff.push_str(&format!("@@ -{},{} +{},{} @@\n",
-            context_start + 1, 3.min(line_count),
-            context_start + 1, 3.min(line_count) + 1));
+        diff.push_str(&format!(
+            "@@ -{},{} +{},{} @@\n",
+            context_start + 1,
+            3.min(line_count),
+            context_start + 1,
+            3.min(line_count) + 1
+        ));
 
         for (i, line) in lines.iter().skip(context_start).take(3).enumerate() {
             diff.push_str(&format!(" {}\n", line));
@@ -530,11 +549,20 @@ fn generate_set_key_diff(content: &str, idx: usize, old_line: &str, new_line: &s
     let context_start = idx.saturating_sub(2);
     let context_end = (idx + 3).min(lines.len());
 
-    diff.push_str(&format!("@@ -{},{} +{},{} @@\n",
-        context_start + 1, context_end - context_start,
-        context_start + 1, context_end - context_start));
+    diff.push_str(&format!(
+        "@@ -{},{} +{},{} @@\n",
+        context_start + 1,
+        context_end - context_start,
+        context_start + 1,
+        context_end - context_start
+    ));
 
-    for (i, line) in lines.iter().enumerate().skip(context_start).take(context_end - context_start) {
+    for (i, line) in lines
+        .iter()
+        .enumerate()
+        .skip(context_start)
+        .take(context_end - context_start)
+    {
         if i == idx {
             diff.push_str(&format!("-{}\n", old_line));
             diff.push_str(&format!("+{}\n", new_line));
@@ -569,7 +597,10 @@ pub struct ApplyResult {
 
 /// Apply the edit action
 pub fn apply_edit(action: &UserFileEditAction, case_id: &str) -> Result<ApplyResult, String> {
-    let evidence_id = format!("E{}", generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "E{}",
+        generate_request_id().chars().take(8).collect::<String>()
+    );
     let path = Path::new(&action.path);
 
     // Validate action
@@ -607,7 +638,11 @@ pub fn apply_edit(action: &UserFileEditAction, case_id: &str) -> Result<ApplyRes
     fs::create_dir_all(&backup_dir).map_err(|e| format!("Cannot create backup dir: {}", e))?;
 
     // Sanitize path for backup filename
-    let sanitized_path = action.path.replace('/', "_").trim_start_matches('_').to_string();
+    let sanitized_path = action
+        .path
+        .replace('/', "_")
+        .trim_start_matches('_')
+        .to_string();
     let backup_path = backup_dir.join(&sanitized_path);
 
     // Create backup
@@ -615,7 +650,8 @@ pub fn apply_edit(action: &UserFileEditAction, case_id: &str) -> Result<ApplyRes
         fs::copy(path, &backup_path).map_err(|e| format!("Cannot backup: {}", e))?;
     } else {
         // Create marker for new file
-        fs::write(&backup_path, "__NEW_FILE__").map_err(|e| format!("Cannot create marker: {}", e))?;
+        fs::write(&backup_path, "__NEW_FILE__")
+            .map_err(|e| format!("Cannot create marker: {}", e))?;
     }
 
     // Apply the edit
@@ -645,9 +681,9 @@ pub fn apply_edit(action: &UserFileEditAction, case_id: &str) -> Result<ApplyRes
             let new_line = format!("{}{}{}", key, sep, value);
 
             let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-            let existing_idx = lines.iter().position(|l| {
-                l.trim().starts_with(key) && l.contains(sep)
-            });
+            let existing_idx = lines
+                .iter()
+                .position(|l| l.trim().starts_with(key) && l.contains(sep));
 
             if let Some(idx) = existing_idx {
                 lines[idx] = new_line;
@@ -681,7 +717,8 @@ pub fn apply_edit(action: &UserFileEditAction, case_id: &str) -> Result<ApplyRes
     }
 
     // Compute after hash
-    let after_content = fs::read_to_string(path).map_err(|e| format!("Cannot read after: {}", e))?;
+    let after_content =
+        fs::read_to_string(path).map_err(|e| format!("Cannot read after: {}", e))?;
     let after_hash = hash_content(&after_content);
 
     // Verify
@@ -700,8 +737,11 @@ pub fn apply_edit(action: &UserFileEditAction, case_id: &str) -> Result<ApplyRes
         "verified": verified,
         "timestamp": timestamp(),
     });
-    fs::write(&result_path, serde_json::to_string_pretty(&result_json).unwrap())
-        .map_err(|e| format!("Cannot write result: {}", e))?;
+    fs::write(
+        &result_path,
+        serde_json::to_string_pretty(&result_json).unwrap(),
+    )
+    .map_err(|e| format!("Cannot write result: {}", e))?;
 
     // Log to ops.log
     log_operation(case_id, &action.path, "apply", true, None)?;
@@ -741,16 +781,17 @@ fn verify_edit(action: &UserFileEditAction, content: &str) -> (bool, String) {
             if content.contains(expected) {
                 (true, format!("Verified: file contains '{}'", expected))
             } else {
-                (false, format!("Verification failed: '{}' not found", expected))
+                (
+                    false,
+                    format!("Verification failed: '{}' not found", expected),
+                )
             }
         }
         VerifyStrategy::HashChanged => {
             // Just verify file is readable (hash change checked externally)
             (true, "File updated successfully".to_string())
         }
-        VerifyStrategy::None => {
-            (true, "No verification requested".to_string())
-        }
+        VerifyStrategy::None => (true, "No verification requested".to_string()),
     }
 }
 
@@ -780,23 +821,26 @@ pub fn execute_rollback(case_id: &str) -> Result<RollbackResult, String> {
 
     // Read apply_result.json
     let result_path = rollback_dir.join("apply_result.json");
-    let result_content = fs::read_to_string(&result_path)
-        .map_err(|e| format!("Cannot read apply result: {}", e))?;
+    let result_content =
+        fs::read_to_string(&result_path).map_err(|e| format!("Cannot read apply result: {}", e))?;
     let result: serde_json::Value = serde_json::from_str(&result_content)
         .map_err(|e| format!("Cannot parse apply result: {}", e))?;
 
-    let path = result["path"].as_str()
+    let path = result["path"]
+        .as_str()
         .ok_or("Missing path in apply result")?;
-    let backup_path_str = result["backup_path"].as_str()
+    let backup_path_str = result["backup_path"]
+        .as_str()
         .ok_or("Missing backup_path in apply result")?;
-    let before_hash = result["before_hash"].as_str()
+    let before_hash = result["before_hash"]
+        .as_str()
         .ok_or("Missing before_hash in apply result")?;
 
     let backup_path = PathBuf::from(backup_path_str);
 
     // Check if backup is a new file marker
-    let backup_content = fs::read_to_string(&backup_path)
-        .map_err(|e| format!("Cannot read backup: {}", e))?;
+    let backup_content =
+        fs::read_to_string(&backup_path).map_err(|e| format!("Cannot read backup: {}", e))?;
 
     if backup_content == "__NEW_FILE__" {
         // File was created - delete it
@@ -817,8 +861,8 @@ pub fn execute_rollback(case_id: &str) -> Result<RollbackResult, String> {
     fs::copy(&backup_path, path).map_err(|e| format!("Cannot restore: {}", e))?;
 
     // Verify restoration
-    let restored_content = fs::read_to_string(path)
-        .map_err(|e| format!("Cannot read restored: {}", e))?;
+    let restored_content =
+        fs::read_to_string(path).map_err(|e| format!("Cannot read restored: {}", e))?;
     let restored_hash = hash_content(&restored_content);
     let backup_hash = hash_content(&backup_content);
     let hashes_match = restored_hash == before_hash;
@@ -864,7 +908,13 @@ fn is_running_as_root() -> bool {
 }
 
 /// Log operation to ops.log
-fn log_operation(case_id: &str, path: &str, operation: &str, success: bool, error: Option<&str>) -> Result<(), String> {
+fn log_operation(
+    case_id: &str,
+    path: &str,
+    operation: &str,
+    success: bool,
+    error: Option<&str>,
+) -> Result<(), String> {
     let log_dir = PathBuf::from("/var/lib/anna/internal");
     let _ = fs::create_dir_all(&log_dir);
 
@@ -945,11 +995,8 @@ mod tests {
         // Set HOME to temp dir for test
         std::env::set_var("HOME", temp_dir.path());
 
-        let action = UserFileEditAction::append_line(
-            test_file.to_str().unwrap(),
-            "new line",
-            "test",
-        );
+        let action =
+            UserFileEditAction::append_line(test_file.to_str().unwrap(), "new line", "test");
 
         let preview = generate_edit_preview(&action);
         assert!(preview.is_ok());
@@ -966,11 +1013,8 @@ mod tests {
 
         std::env::set_var("HOME", temp_dir.path());
 
-        let action = UserFileEditAction::append_line(
-            test_file.to_str().unwrap(),
-            "existing line",
-            "test",
-        );
+        let action =
+            UserFileEditAction::append_line(test_file.to_str().unwrap(), "existing line", "test");
 
         let preview = generate_edit_preview(&action);
         assert!(preview.is_ok());

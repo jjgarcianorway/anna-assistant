@@ -83,12 +83,10 @@ fn count_service_units() -> usize {
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter(|line| !line.trim().is_empty())
-                .count()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count(),
         _ => 0,
     }
 }
@@ -97,16 +95,19 @@ fn count_service_units() -> usize {
 /// Source: systemctl list-units --type=service --state=active
 fn count_running_services() -> usize {
     let output = Command::new("systemctl")
-        .args(["list-units", "--type=service", "--state=active", "--no-legend"])
+        .args([
+            "list-units",
+            "--type=service",
+            "--state=active",
+            "--no-legend",
+        ])
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter(|line| !line.trim().is_empty())
-                .count()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count(),
         _ => 0,
     }
 }
@@ -119,12 +120,10 @@ fn count_failed_services() -> usize {
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter(|line| !line.trim().is_empty())
-                .count()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count(),
         _ => 0,
     }
 }
@@ -133,16 +132,19 @@ fn count_failed_services() -> usize {
 /// Source: systemctl list-unit-files --type=service --state=enabled
 fn count_enabled_services() -> usize {
     let output = Command::new("systemctl")
-        .args(["list-unit-files", "--type=service", "--state=enabled", "--no-legend"])
+        .args([
+            "list-unit-files",
+            "--type=service",
+            "--state=enabled",
+            "--no-legend",
+        ])
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter(|line| !line.trim().is_empty())
-                .count()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count(),
         _ => 0,
     }
 }
@@ -183,9 +185,7 @@ pub fn get_service_info(name: &str) -> Option<Service> {
 /// Get service active state
 /// Source: systemctl is-active <unit>
 fn get_service_state(unit: &str) -> ServiceState {
-    let output = Command::new("systemctl")
-        .args(["is-active", unit])
-        .output();
+    let output = Command::new("systemctl").args(["is-active", unit]).output();
 
     match output {
         Ok(out) => {
@@ -251,14 +251,10 @@ pub fn list_failed_services() -> Vec<String> {
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter_map(|line| {
-                    line.split_whitespace().next().map(|s| s.to_string())
-                })
-                .collect()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| line.split_whitespace().next().map(|s| s.to_string()))
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -271,19 +267,17 @@ pub fn list_service_units() -> Vec<(String, String)> {
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter_map(|line| {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 2 {
-                        Some((parts[0].to_string(), parts[1].to_string()))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    Some((parts[0].to_string(), parts[1].to_string()))
+                } else {
+                    None
+                }
+            })
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -292,23 +286,26 @@ pub fn list_service_units() -> Vec<(String, String)> {
 /// Source: systemctl list-unit-files --type=service --state=enabled
 pub fn list_enabled_services() -> Vec<String> {
     let output = Command::new("systemctl")
-        .args(["list-unit-files", "--type=service", "--state=enabled", "--no-legend"])
+        .args([
+            "list-unit-files",
+            "--type=service",
+            "--state=enabled",
+            "--no-legend",
+        ])
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter_map(|line| {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if !parts.is_empty() {
-                        Some(parts[0].to_string())
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if !parts.is_empty() {
+                    Some(parts[0].to_string())
+                } else {
+                    None
+                }
+            })
+            .collect(),
         _ => Vec::new(),
     }
 }

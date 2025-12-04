@@ -35,7 +35,10 @@ impl Confidence {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EvidenceSource {
     /// From .desktop file Categories field
-    DesktopCategories { path: String, categories: Vec<String> },
+    DesktopCategories {
+        path: String,
+        categories: Vec<String>,
+    },
     /// From pacman package description
     PacmanDescription { description: String },
     /// From pacman package groups
@@ -69,7 +72,10 @@ impl EvidenceSource {
             Self::PacmanGroups { groups } => {
                 format!("pacman: groups [{}]", groups.join(", "))
             }
-            Self::ManSection { section, description } => {
+            Self::ManSection {
+                section,
+                description,
+            } => {
                 format!("man({}): {}", section, description)
             }
             Self::SteamManifest { appid, name } => {
@@ -122,7 +128,8 @@ impl CategoryAssignment {
         if self.evidence.is_empty() {
             return "(no evidence)".to_string();
         }
-        self.evidence.iter()
+        self.evidence
+            .iter()
             .map(|e| e.describe())
             .collect::<Vec<_>>()
             .join("; ")
@@ -158,19 +165,25 @@ fn classify_from_desktop(name: &str) -> Option<CategoryAssignment> {
     let search_paths = [
         format!("/usr/share/applications/{}.desktop", name),
         format!("/usr/share/applications/{}.desktop", name.to_lowercase()),
-        format!("{}/.local/share/applications/{}.desktop",
-            std::env::var("HOME").unwrap_or_default(), name),
+        format!(
+            "{}/.local/share/applications/{}.desktop",
+            std::env::var("HOME").unwrap_or_default(),
+            name
+        ),
     ];
 
     for path in &search_paths {
         if let Ok(content) = std::fs::read_to_string(path) {
             if let Some(categories) = parse_desktop_categories(&content) {
                 if let Some(category) = map_desktop_to_anna_category(&categories) {
-                    return Some(CategoryAssignment::new(category, Confidence::High)
-                        .with_evidence(EvidenceSource::DesktopCategories {
-                            path: path.clone(),
-                            categories,
-                        }));
+                    return Some(
+                        CategoryAssignment::new(category, Confidence::High).with_evidence(
+                            EvidenceSource::DesktopCategories {
+                                path: path.clone(),
+                                categories,
+                            },
+                        ),
+                    );
                 }
             }
         }
@@ -183,7 +196,8 @@ fn parse_desktop_categories(content: &str) -> Option<Vec<String>> {
     for line in content.lines() {
         if line.starts_with("Categories=") {
             let value = line.trim_start_matches("Categories=");
-            let categories: Vec<String> = value.split(';')
+            let categories: Vec<String> = value
+                .split(';')
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string())
                 .collect();
@@ -208,31 +222,31 @@ fn map_desktop_to_anna_category(categories: &[String]) -> Option<String> {
 
         // Map to Anna categories
         let mapped = match cat.as_str() {
-            "Game" | "ActionGame" | "AdventureGame" | "ArcadeGame" | "BoardGame" |
-            "BlocksGame" | "CardGame" | "KidsGame" | "LogicGame" | "RolePlaying" |
-            "Shooter" | "Simulation" | "SportsGame" | "StrategyGame" => "Games",
+            "Game" | "ActionGame" | "AdventureGame" | "ArcadeGame" | "BoardGame" | "BlocksGame"
+            | "CardGame" | "KidsGame" | "LogicGame" | "RolePlaying" | "Shooter" | "Simulation"
+            | "SportsGame" | "StrategyGame" => "Games",
 
-            "AudioVideo" | "Audio" | "Video" | "Player" | "Recorder" |
-            "Music" | "Mixer" | "Sequencer" | "Tuner" | "TV" => "Multimedia",
+            "AudioVideo" | "Audio" | "Video" | "Player" | "Recorder" | "Music" | "Mixer"
+            | "Sequencer" | "Tuner" | "TV" => "Multimedia",
 
-            "Development" | "IDE" | "Debugger" | "GUIDesigner" | "Profiling" |
-            "RevisionControl" | "Translation" | "WebDevelopment" | "Building" => "Development",
+            "Development" | "IDE" | "Debugger" | "GUIDesigner" | "Profiling"
+            | "RevisionControl" | "Translation" | "WebDevelopment" | "Building" => "Development",
 
             "TextEditor" | "WordProcessor" => "Editors",
 
-            "Network" | "Dialup" | "InstantMessaging" | "Chat" | "IRCClient" |
-            "Feed" | "FileTransfer" | "HamRadio" | "News" | "P2P" |
-            "RemoteAccess" | "Telephony" | "VideoConference" | "WebBrowser" => "Network",
+            "Network" | "Dialup" | "InstantMessaging" | "Chat" | "IRCClient" | "Feed"
+            | "FileTransfer" | "HamRadio" | "News" | "P2P" | "RemoteAccess" | "Telephony"
+            | "VideoConference" | "WebBrowser" => "Network",
 
-            "System" | "FileManager" | "Monitor" | "Security" | "Accessibility" |
-            "Core" | "PackageManager" | "Emulator" => "System",
+            "System" | "FileManager" | "Monitor" | "Security" | "Accessibility" | "Core"
+            | "PackageManager" | "Emulator" => "System",
 
             "TerminalEmulator" => "Terminals",
 
             "Shell" => "Shells",
 
-            "Settings" | "DesktopSettings" | "HardwareSettings" | "Printing" |
-            "Documentation" | "Help" => "System",
+            "Settings" | "DesktopSettings" | "HardwareSettings" | "Printing" | "Documentation"
+            | "Help" => "System",
 
             _ => continue,
         };
@@ -265,7 +279,8 @@ fn classify_from_pacman(name: &str) -> Option<CategoryAssignment> {
             }
         } else if line.starts_with("Groups") {
             if let Some(grp) = line.split(':').nth(1) {
-                groups = grp.trim()
+                groups = grp
+                    .trim()
                     .split_whitespace()
                     .filter(|s| *s != "None")
                     .map(|s| s.to_string())
@@ -277,16 +292,20 @@ fn classify_from_pacman(name: &str) -> Option<CategoryAssignment> {
     // Try to categorize from groups first
     if !groups.is_empty() {
         if let Some(category) = categorize_from_groups(&groups) {
-            return Some(CategoryAssignment::new(category, Confidence::High)
-                .with_evidence(EvidenceSource::PacmanGroups { groups }));
+            return Some(
+                CategoryAssignment::new(category, Confidence::High)
+                    .with_evidence(EvidenceSource::PacmanGroups { groups }),
+            );
         }
     }
 
     // Then try description
     if !description.is_empty() {
         if let Some(category) = categorize_from_description(&description) {
-            return Some(CategoryAssignment::new(category, Confidence::Medium)
-                .with_evidence(EvidenceSource::PacmanDescription { description }));
+            return Some(
+                CategoryAssignment::new(category, Confidence::Medium)
+                    .with_evidence(EvidenceSource::PacmanDescription { description }),
+            );
         }
     }
 
@@ -321,14 +340,19 @@ fn categorize_from_description(desc: &str) -> Option<String> {
     let lower = desc.to_lowercase();
 
     // Games - check first as Steam description contains "game"
-    if lower.contains("game") || lower.contains("gaming") ||
-       lower.contains("steam") || lower.contains("launcher for games") {
+    if lower.contains("game")
+        || lower.contains("gaming")
+        || lower.contains("steam")
+        || lower.contains("launcher for games")
+    {
         return Some("Games".to_string());
     }
 
     // Editors
-    if lower.contains("editor") && !lower.contains("video editor") &&
-       !lower.contains("audio editor") {
+    if lower.contains("editor")
+        && !lower.contains("video editor")
+        && !lower.contains("audio editor")
+    {
         return Some("Editors".to_string());
     }
 
@@ -338,14 +362,19 @@ fn categorize_from_description(desc: &str) -> Option<String> {
     }
 
     // Shells
-    if lower.contains("command shell") || lower.contains("unix shell") ||
-       (lower.contains("shell") && lower.contains("command")) {
+    if lower.contains("command shell")
+        || lower.contains("unix shell")
+        || (lower.contains("shell") && lower.contains("command"))
+    {
         return Some("Shells".to_string());
     }
 
     // Compositors
-    if lower.contains("compositor") || lower.contains("window manager") ||
-       lower.contains("wayland compositor") || lower.contains("x11 window") {
+    if lower.contains("compositor")
+        || lower.contains("window manager")
+        || lower.contains("wayland compositor")
+        || lower.contains("x11 window")
+    {
         return Some("Compositors".to_string());
     }
 
@@ -355,55 +384,81 @@ fn categorize_from_description(desc: &str) -> Option<String> {
     }
 
     // Multimedia
-    if lower.contains("media player") || lower.contains("video player") ||
-       lower.contains("audio player") || lower.contains("music player") ||
-       lower.contains("multimedia") || lower.contains("video editor") ||
-       lower.contains("audio editor") {
+    if lower.contains("media player")
+        || lower.contains("video player")
+        || lower.contains("audio player")
+        || lower.contains("music player")
+        || lower.contains("multimedia")
+        || lower.contains("video editor")
+        || lower.contains("audio editor")
+    {
         return Some("Multimedia".to_string());
     }
 
     // Development
-    if lower.contains("compiler") || lower.contains("debugger") ||
-       lower.contains("programming") || lower.contains("development") ||
-       lower.contains("sdk") || lower.contains("ide") ||
-       lower.contains("version control") {
+    if lower.contains("compiler")
+        || lower.contains("debugger")
+        || lower.contains("programming")
+        || lower.contains("development")
+        || lower.contains("sdk")
+        || lower.contains("ide")
+        || lower.contains("version control")
+    {
         return Some("Development".to_string());
     }
 
     // Network
-    if lower.contains("network") || lower.contains("vpn") ||
-       lower.contains("firewall") || lower.contains("wireless") ||
-       lower.contains("wifi") || lower.contains("ethernet") {
+    if lower.contains("network")
+        || lower.contains("vpn")
+        || lower.contains("firewall")
+        || lower.contains("wireless")
+        || lower.contains("wifi")
+        || lower.contains("ethernet")
+    {
         return Some("Network".to_string());
     }
 
     // Power
-    if lower.contains("power") || lower.contains("battery") ||
-       lower.contains("cpu frequency") || lower.contains("thermal") {
+    if lower.contains("power")
+        || lower.contains("battery")
+        || lower.contains("cpu frequency")
+        || lower.contains("thermal")
+    {
         return Some("Power".to_string());
     }
 
     // Virtualization
-    if lower.contains("virtual machine") || lower.contains("virtualization") ||
-       lower.contains("hypervisor") {
+    if lower.contains("virtual machine")
+        || lower.contains("virtualization")
+        || lower.contains("hypervisor")
+    {
         return Some("Virtualization".to_string());
     }
 
     // Containers
-    if lower.contains("container") || lower.contains("docker") ||
-       lower.contains("podman") || lower.contains("kubernetes") {
+    if lower.contains("container")
+        || lower.contains("docker")
+        || lower.contains("podman")
+        || lower.contains("kubernetes")
+    {
         return Some("Containers".to_string());
     }
 
     // System
-    if lower.contains("system") || lower.contains("boot") ||
-       lower.contains("init") || lower.contains("daemon") {
+    if lower.contains("system")
+        || lower.contains("boot")
+        || lower.contains("init")
+        || lower.contains("daemon")
+    {
         return Some("System".to_string());
     }
 
     // Tools (generic utilities)
-    if lower.contains("utility") || lower.contains("tool") ||
-       lower.contains("command line") || lower.contains("cli") {
+    if lower.contains("utility")
+        || lower.contains("tool")
+        || lower.contains("command line")
+        || lower.contains("cli")
+    {
         return Some("Tools".to_string());
     }
 
@@ -424,18 +479,18 @@ fn classify_from_man(name: &str) -> Option<CategoryAssignment> {
     let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     // Extract section number from path like /usr/share/man/man1/foo.1.gz
-    let section = path.rsplit('/')
-        .next()
-        .and_then(|filename| {
-            // Parse foo.1.gz or foo.1
-            let parts: Vec<_> = filename.split('.').collect();
-            if parts.len() >= 2 {
-                parts[parts.len() - 2].parse::<u8>().ok()
-                    .or_else(|| parts.get(1).and_then(|s| s.parse::<u8>().ok()))
-            } else {
-                None
-            }
-        })?;
+    let section = path.rsplit('/').next().and_then(|filename| {
+        // Parse foo.1.gz or foo.1
+        let parts: Vec<_> = filename.split('.').collect();
+        if parts.len() >= 2 {
+            parts[parts.len() - 2]
+                .parse::<u8>()
+                .ok()
+                .or_else(|| parts.get(1).and_then(|s| s.parse::<u8>().ok()))
+        } else {
+            None
+        }
+    })?;
 
     let (category, description) = match section {
         1 => ("Tools", "User command"),
@@ -450,11 +505,14 @@ fn classify_from_man(name: &str) -> Option<CategoryAssignment> {
         _ => return None,
     };
 
-    Some(CategoryAssignment::new(category, Confidence::Low)
-        .with_evidence(EvidenceSource::ManSection {
-            section,
-            description: description.to_string(),
-        }))
+    Some(
+        CategoryAssignment::new(category, Confidence::Low).with_evidence(
+            EvidenceSource::ManSection {
+                section,
+                description: description.to_string(),
+            },
+        ),
+    )
 }
 
 #[cfg(test)]

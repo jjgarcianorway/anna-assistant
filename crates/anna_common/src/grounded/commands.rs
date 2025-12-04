@@ -91,18 +91,13 @@ pub fn get_command_info(name: &str) -> Option<SystemCommand> {
 /// Get command path using which
 /// Source: which <cmd>
 pub fn get_command_path(name: &str) -> Option<String> {
-    let output = Command::new("which")
-        .arg(name)
-        .output()
-        .ok()?;
+    let output = Command::new("which").arg(name).output().ok()?;
 
     if !output.status.success() {
         return None;
     }
 
-    let path = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     if path.is_empty() {
         None
@@ -131,10 +126,7 @@ pub fn get_command_description(name: &str) -> String {
 /// Get description from man -f (whatis)
 /// Source: man -f <cmd>
 fn get_man_description(name: &str) -> Option<String> {
-    let output = Command::new("man")
-        .args(["-f", name])
-        .output()
-        .ok()?;
+    let output = Command::new("man").args(["-f", name]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -168,7 +160,11 @@ fn get_help_description(name: &str) -> Option<String> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    let text = if stdout.len() > stderr.len() { stdout } else { stderr };
+    let text = if stdout.len() > stderr.len() {
+        stdout
+    } else {
+        stderr
+    };
 
     // Get first meaningful line
     for line in text.lines().take(5) {

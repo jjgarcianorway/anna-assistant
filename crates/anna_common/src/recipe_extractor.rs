@@ -11,7 +11,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::case_engine::{CaseState, IntentType};
 use crate::case_file_v1::CaseFileV1;
-use crate::recipes::{Recipe, IntentPattern, RecipeStatus, RecipeRiskLevel, RecipeToolPlan, RecipeToolStep};
+use crate::recipes::{
+    IntentPattern, Recipe, RecipeRiskLevel, RecipeStatus, RecipeToolPlan, RecipeToolStep,
+};
 
 /// Minimum reliability score required for recipe extraction
 pub const MIN_RELIABILITY_FOR_RECIPE: u8 = 80;
@@ -49,25 +51,34 @@ pub fn check_recipe_gate(case: &CaseFileV1) -> (bool, String) {
 
     // Gate 2: Reliability >= 80%
     if case.reliability_score < MIN_RELIABILITY_FOR_RECIPE {
-        return (false, format!(
-            "Reliability {} < {} required",
-            case.reliability_score, MIN_RELIABILITY_FOR_RECIPE
-        ));
+        return (
+            false,
+            format!(
+                "Reliability {} < {} required",
+                case.reliability_score, MIN_RELIABILITY_FOR_RECIPE
+            ),
+        );
     }
 
     // Gate 3: >= 2 evidence items
     if case.evidence_count < MIN_EVIDENCE_FOR_RECIPE {
-        return (false, format!(
-            "Evidence count {} < {} required",
-            case.evidence_count, MIN_EVIDENCE_FOR_RECIPE
-        ));
+        return (
+            false,
+            format!(
+                "Evidence count {} < {} required",
+                case.evidence_count, MIN_EVIDENCE_FOR_RECIPE
+            ),
+        );
     }
 
     // Gate 4: Must be SYSTEM_QUERY or DIAGNOSE (not HOWTO/META)
     match case.intent {
         IntentType::SystemQuery | IntentType::Diagnose => {}
         _ => {
-            return (false, format!("Intent {} not eligible for recipes", case.intent));
+            return (
+                false,
+                format!("Intent {} not eligible for recipes", case.intent),
+            );
         }
     }
 
@@ -84,10 +95,13 @@ pub fn check_state_recipe_gate(state: &CaseState) -> (bool, String) {
     // Gate 2: Reliability >= 80%
     if let Some(reliability) = state.reliability_score {
         if reliability < MIN_RELIABILITY_FOR_RECIPE {
-            return (false, format!(
-                "Reliability {} < {} required",
-                reliability, MIN_RELIABILITY_FOR_RECIPE
-            ));
+            return (
+                false,
+                format!(
+                    "Reliability {} < {} required",
+                    reliability, MIN_RELIABILITY_FOR_RECIPE
+                ),
+            );
         }
     } else {
         return (false, "No reliability score".to_string());
@@ -95,10 +109,14 @@ pub fn check_state_recipe_gate(state: &CaseState) -> (bool, String) {
 
     // Gate 3: >= 2 evidence items
     if state.evidence_ids.len() < MIN_EVIDENCE_FOR_RECIPE {
-        return (false, format!(
-            "Evidence count {} < {} required",
-            state.evidence_ids.len(), MIN_EVIDENCE_FOR_RECIPE
-        ));
+        return (
+            false,
+            format!(
+                "Evidence count {} < {} required",
+                state.evidence_ids.len(),
+                MIN_EVIDENCE_FOR_RECIPE
+            ),
+        );
     }
 
     // Gate 4: Must have classified intent
@@ -157,12 +175,19 @@ pub fn extract_recipe(case: &CaseFileV1) -> RecipeExtractionResult {
     };
 
     // Calculate XP
-    let xp_gained = if status == RecipeStatus::Active { 100 } else { 50 };
+    let xp_gained = if status == RecipeStatus::Active {
+        100
+    } else {
+        50
+    };
 
     RecipeExtractionResult {
         extracted: true,
         recipe_id: Some(recipe_id),
-        reason: format!("Recipe extracted with status {:?}, reliability {}%", status, case.reliability_score),
+        reason: format!(
+            "Recipe extracted with status {:?}, reliability {}%",
+            status, case.reliability_score
+        ),
         xp_gained,
     }
 }
@@ -181,7 +206,9 @@ fn generate_recipe_id(intent: &IntentType, request: &str) -> String {
     let word = request
         .to_lowercase()
         .split_whitespace()
-        .find(|w| w.len() > 3 && !["what", "how", "is", "the", "my", "do", "can", "why"].contains(w))
+        .find(|w| {
+            w.len() > 3 && !["what", "how", "is", "the", "my", "do", "can", "why"].contains(w)
+        })
         .unwrap_or("generic")
         .chars()
         .filter(|c| c.is_alphanumeric())
@@ -194,7 +221,9 @@ fn generate_recipe_id(intent: &IntentType, request: &str) -> String {
 
 /// Extract keywords from request for intent matching
 fn extract_keywords(request: &str) -> Vec<String> {
-    let stop_words = ["what", "how", "is", "the", "my", "do", "can", "i", "a", "an", "have", "does", "am"];
+    let stop_words = [
+        "what", "how", "is", "the", "my", "do", "can", "i", "a", "an", "have", "does", "am",
+    ];
 
     request
         .to_lowercase()
@@ -207,7 +236,8 @@ fn extract_keywords(request: &str) -> Vec<String> {
 
 /// Build tool plan from case evidence
 fn build_tool_plan(case: &CaseFileV1) -> RecipeToolPlan {
-    let steps: Vec<RecipeToolStep> = case.evidence
+    let steps: Vec<RecipeToolStep> = case
+        .evidence
         .iter()
         .map(|e| RecipeToolStep {
             tool_name: e.tool_name.clone(),

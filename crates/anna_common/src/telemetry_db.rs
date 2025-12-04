@@ -20,7 +20,7 @@
 //! v7.6.0: PHASE 19 - Retention enforcement, max_keys limits
 
 use anyhow::Result;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use std::path::Path;
 
 /// Default telemetry database path
@@ -171,10 +171,8 @@ impl TelemetryDb {
             return None;
         }
         // Open with read-only flag
-        let conn = Connection::open_with_flags(
-            path,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
-        ).ok()?;
+        let conn =
+            Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).ok()?;
         Some(Self { conn })
     }
 
@@ -211,11 +209,14 @@ impl TelemetryDb {
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
-            "#
+            "#,
         )?;
 
         // v7.27.0: Add boot_id column if it doesn't exist (migration for existing DBs)
-        let _ = conn.execute("ALTER TABLE process_samples ADD COLUMN boot_id TEXT DEFAULT ''", []);
+        let _ = conn.execute(
+            "ALTER TABLE process_samples ADD COLUMN boot_id TEXT DEFAULT ''",
+            [],
+        );
 
         // Set world-readable permissions so annactl can read
         // (only on new database creation)
@@ -285,7 +286,7 @@ impl TelemetryDb {
                 MAX(timestamp) as last_seen
             FROM process_samples
             WHERE name = ?1
-            "#
+            "#,
         )?;
 
         let result = stmt.query_row(params![name], |row| {
@@ -323,7 +324,7 @@ impl TelemetryDb {
                 MIN(timestamp) as first_sample,
                 MAX(timestamp) as last_sample
             FROM process_samples
-            "#
+            "#,
         )?;
 
         let result = stmt.query_row([], |row| {
@@ -364,7 +365,7 @@ impl TelemetryDb {
             GROUP BY name
             ORDER BY total_cpu DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
         let rows = stmt.query_map(params![since as i64, limit as i64], |row| {
@@ -388,7 +389,7 @@ impl TelemetryDb {
             GROUP BY name
             ORDER BY peak_mem DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
         let rows = stmt.query_map(params![since as i64, limit as i64], |row| {
@@ -412,7 +413,7 @@ impl TelemetryDb {
             GROUP BY name
             ORDER BY avg_cpu DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
         let rows = stmt.query_map(params![boot_id, limit as i64], |row| {
@@ -427,7 +428,11 @@ impl TelemetryDb {
     }
 
     /// v7.27.0: Get top N processes by memory for current boot
-    pub fn top_by_memory_this_boot(&self, boot_id: &str, limit: usize) -> Result<Vec<(String, u64)>> {
+    pub fn top_by_memory_this_boot(
+        &self,
+        boot_id: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, u64)>> {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT name, MAX(mem_bytes) as peak_mem
@@ -436,7 +441,7 @@ impl TelemetryDb {
             GROUP BY name
             ORDER BY peak_mem DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
         let rows = stmt.query_map(params![boot_id, limit as i64], |row| {
@@ -509,7 +514,7 @@ impl TelemetryDb {
             GROUP BY name
             ORDER BY last_seen ASC
             LIMIT ?1
-            "#
+            "#,
         )?;
 
         let keys_to_remove: Vec<String> = stmt
@@ -524,10 +529,9 @@ impl TelemetryDb {
         // Delete samples for these keys
         let mut total_deleted = 0u64;
         for key in &keys_to_remove {
-            let deleted = self.conn.execute(
-                "DELETE FROM process_samples WHERE name = ?1",
-                params![key],
-            )?;
+            let deleted = self
+                .conn
+                .execute("DELETE FROM process_samples WHERE name = ?1", params![key])?;
             total_deleted += deleted as u64;
         }
 
@@ -536,7 +540,11 @@ impl TelemetryDb {
 
     /// Run full maintenance: prune old samples and enforce max_keys
     /// Call this periodically (e.g., every few minutes)
-    pub fn run_maintenance(&self, retention_days: u64, max_keys: usize) -> Result<MaintenanceResult> {
+    pub fn run_maintenance(
+        &self,
+        retention_days: u64,
+        max_keys: usize,
+    ) -> Result<MaintenanceResult> {
         let pruned_by_age = self.prune_old_samples(retention_days)?;
         let pruned_by_keys = self.enforce_max_keys(max_keys)?;
 
@@ -620,10 +628,14 @@ impl TelemetryDb {
         }
 
         if stats.coverage_hours < 24.0 {
-            return DataStatus::PartialWindow { hours: stats.coverage_hours };
+            return DataStatus::PartialWindow {
+                hours: stats.coverage_hours,
+            };
         }
 
-        DataStatus::Ok { hours: stats.coverage_hours }
+        DataStatus::Ok {
+            hours: stats.coverage_hours,
+        }
     }
 
     /// Get sample counts for a command in different time windows
@@ -643,17 +655,21 @@ impl TelemetryDb {
                 SUM(CASE WHEN timestamp >= ?5 THEN 1 ELSE 0 END) as cnt_30d
             FROM process_samples
             WHERE name = ?1
-            "#
+            "#,
         )?;
 
-        stmt.query_row(params![name, h1 as i64, h24 as i64, d7 as i64, d30 as i64], |row| {
-            Ok(SampleCounts {
-                last_1h: row.get::<_, i64>(0).unwrap_or(0) as u64,
-                last_24h: row.get::<_, i64>(1).unwrap_or(0) as u64,
-                last_7d: row.get::<_, i64>(2).unwrap_or(0) as u64,
-                last_30d: row.get::<_, i64>(3).unwrap_or(0) as u64,
-            })
-        }).map_err(|e| e.into())
+        stmt.query_row(
+            params![name, h1 as i64, h24 as i64, d7 as i64, d30 as i64],
+            |row| {
+                Ok(SampleCounts {
+                    last_1h: row.get::<_, i64>(0).unwrap_or(0) as u64,
+                    last_24h: row.get::<_, i64>(1).unwrap_or(0) as u64,
+                    last_7d: row.get::<_, i64>(2).unwrap_or(0) as u64,
+                    last_30d: row.get::<_, i64>(3).unwrap_or(0) as u64,
+                })
+            },
+        )
+        .map_err(|e| e.into())
     }
 
     /// Get usage stats for a command in the last 24h
@@ -673,7 +689,7 @@ impl TelemetryDb {
                 MAX(timestamp) as last_ts
             FROM process_samples
             WHERE name = ?1 AND timestamp >= ?2
-            "#
+            "#,
         )?;
 
         stmt.query_row(params![name, h24 as i64], |row| {
@@ -696,7 +712,8 @@ impl TelemetryDb {
                 peak_mem_bytes: row.get::<_, i64>(4).unwrap_or(0) as u64,
                 has_enough_data: duration_minutes >= 10.0 || cnt >= 40, // ~10min at 15s intervals
             })
-        }).map_err(|e| e.into())
+        })
+        .map_err(|e| e.into())
     }
 
     /// Get global peak CPU in last 24h
@@ -711,7 +728,7 @@ impl TelemetryDb {
             WHERE timestamp >= ?1
             ORDER BY cpu_percent DESC
             LIMIT 1
-            "#
+            "#,
         )?;
 
         let result = stmt.query_row(params![h24 as i64], |row| {
@@ -742,7 +759,7 @@ impl TelemetryDb {
             WHERE timestamp >= ?1
             ORDER BY mem_bytes DESC
             LIMIT 1
-            "#
+            "#,
         )?;
 
         let result = stmt.query_row(params![h24 as i64], |row| {
@@ -778,7 +795,7 @@ impl TelemetryDb {
             GROUP BY name
             ORDER BY cnt DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
         let rows = stmt.query_map(params![h24 as i64, limit as i64], |row| {
@@ -806,7 +823,7 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY avg_cpu DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
         let rows = stmt.query_map(params![h24 as i64, limit as i64], |row| {
@@ -834,7 +851,7 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY avg_mem DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
         let rows = stmt.query_map(params![h24 as i64, limit as i64], |row| {
@@ -859,8 +876,7 @@ impl TelemetryDb {
     /// Format timestamp as human-readable
     pub fn format_timestamp(ts: u64) -> String {
         use chrono::{DateTime, Utc};
-        let dt = DateTime::<Utc>::from_timestamp(ts as i64, 0)
-            .unwrap_or_default();
+        let dt = DateTime::<Utc>::from_timestamp(ts as i64, 0).unwrap_or_default();
         dt.format("%Y-%m-%d %H:%M").to_string()
     }
 
@@ -885,7 +901,7 @@ impl TelemetryDb {
                 MAX(timestamp) as last_ts
             FROM process_samples
             WHERE name = ?1 AND timestamp >= ?2
-            "#
+            "#,
         )?;
 
         stmt.query_row(params![name, since as i64], |row| {
@@ -908,7 +924,8 @@ impl TelemetryDb {
                 peak_mem_bytes: row.get::<_, i64>(4).unwrap_or(0) as u64,
                 has_enough_data: duration_minutes >= 10.0 || cnt >= 40,
             })
-        }).map_err(|e| e.into())
+        })
+        .map_err(|e| e.into())
     }
 
     /// Get multi-window stats for an object (1h, 24h, 7d, 30d)
@@ -932,7 +949,7 @@ impl TelemetryDb {
             SELECT COUNT(DISTINCT pid)
             FROM process_samples
             WHERE name = ?1 AND timestamp >= ?2
-            "#
+            "#,
         )?;
 
         let count: i64 = stmt.query_row(params![name, since as i64], |row| row.get(0))?;
@@ -957,7 +974,11 @@ impl TelemetryDb {
     const SAMPLE_INTERVAL_SECS: f64 = 15.0;
 
     /// Get enhanced usage stats for a specific time window
-    pub fn get_enhanced_usage_stats(&self, name: &str, window_secs: u64) -> Result<EnhancedUsageStats> {
+    pub fn get_enhanced_usage_stats(
+        &self,
+        name: &str,
+        window_secs: u64,
+    ) -> Result<EnhancedUsageStats> {
         let now = Self::now();
         let since = now.saturating_sub(window_secs);
 
@@ -974,7 +995,7 @@ impl TelemetryDb {
                 COUNT(*) as sample_count
             FROM process_samples
             WHERE name = ?1 AND timestamp >= ?2
-            "#
+            "#,
         )?;
 
         stmt.query_row(params![name, since as i64], |row| {
@@ -1001,7 +1022,8 @@ impl TelemetryDb {
                 sample_count: sample_count as u64,
                 has_data: sample_count > 0,
             })
-        }).map_err(|e| e.into())
+        })
+        .map_err(|e| e.into())
     }
 
     /// Get enhanced multi-window stats for an object
@@ -1033,18 +1055,21 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY cpu_time DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
-            Ok(TopProcessEntry {
-                name: row.get(0)?,
-                cpu_time_secs: row.get(1)?,
-                cpu_peak_percent: row.get::<_, f64>(2)? as f32,
-                rss_peak_bytes: row.get::<_, i64>(3)? as u64,
-                exec_count: row.get::<_, i64>(4)? as u64,
-            })
-        })?;
+        let rows = stmt.query_map(
+            params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS],
+            |row| {
+                Ok(TopProcessEntry {
+                    name: row.get(0)?,
+                    cpu_time_secs: row.get(1)?,
+                    cpu_peak_percent: row.get::<_, f64>(2)? as f32,
+                    rss_peak_bytes: row.get::<_, i64>(3)? as u64,
+                    exec_count: row.get::<_, i64>(4)? as u64,
+                })
+            },
+        )?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -1072,18 +1097,21 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY mem_peak DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
-            Ok(TopProcessEntry {
-                name: row.get(0)?,
-                cpu_time_secs: row.get(1)?,
-                cpu_peak_percent: row.get::<_, f64>(2)? as f32,
-                rss_peak_bytes: row.get::<_, i64>(3)? as u64,
-                exec_count: row.get::<_, i64>(4)? as u64,
-            })
-        })?;
+        let rows = stmt.query_map(
+            params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS],
+            |row| {
+                Ok(TopProcessEntry {
+                    name: row.get(0)?,
+                    cpu_time_secs: row.get(1)?,
+                    cpu_peak_percent: row.get::<_, f64>(2)? as f32,
+                    rss_peak_bytes: row.get::<_, i64>(3)? as u64,
+                    exec_count: row.get::<_, i64>(4)? as u64,
+                })
+            },
+        )?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -1093,7 +1121,11 @@ impl TelemetryDb {
     }
 
     /// Get top N processes by exec count in a window
-    pub fn top_by_exec_count(&self, window_secs: u64, limit: usize) -> Result<Vec<TopProcessEntry>> {
+    pub fn top_by_exec_count(
+        &self,
+        window_secs: u64,
+        limit: usize,
+    ) -> Result<Vec<TopProcessEntry>> {
         let now = Self::now();
         let since = now.saturating_sub(window_secs);
 
@@ -1111,18 +1143,21 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 1
             ORDER BY exec_count DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
-            Ok(TopProcessEntry {
-                name: row.get(0)?,
-                cpu_time_secs: row.get(1)?,
-                cpu_peak_percent: row.get::<_, f64>(2)? as f32,
-                rss_peak_bytes: row.get::<_, i64>(3)? as u64,
-                exec_count: row.get::<_, i64>(4)? as u64,
-            })
-        })?;
+        let rows = stmt.query_map(
+            params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS],
+            |row| {
+                Ok(TopProcessEntry {
+                    name: row.get(0)?,
+                    cpu_time_secs: row.get(1)?,
+                    cpu_peak_percent: row.get::<_, f64>(2)? as f32,
+                    rss_peak_bytes: row.get::<_, i64>(3)? as u64,
+                    exec_count: row.get::<_, i64>(4)? as u64,
+                })
+            },
+        )?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -1171,11 +1206,14 @@ impl TelemetryDb {
         let samples_24h = if stats.last_sample_at > 0 {
             // Count samples in last 24h
             let h24 = now.saturating_sub(WINDOW_24H);
-            let count: i64 = self.conn.query_row(
-                "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
-                params![h24 as i64],
-                |row| row.get(0),
-            ).unwrap_or(0);
+            let count: i64 = self
+                .conn
+                .query_row(
+                    "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
+                    params![h24 as i64],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0);
             count as u64
         } else {
             0
@@ -1225,22 +1263,26 @@ impl TelemetryDb {
 
     /// Count samples since a given timestamp
     fn count_samples_since(&self, since: u64) -> Result<u64> {
-        let count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
-            params![since as i64],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
+                params![since as i64],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
         Ok(count as u64)
     }
 
     /// Get age of oldest sample in seconds
     fn get_oldest_sample_age(&self) -> Result<u64> {
         let now = Self::now();
-        let oldest: i64 = self.conn.query_row(
-            "SELECT MIN(timestamp) FROM process_samples",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(now as i64);
+        let oldest: i64 = self
+            .conn
+            .query_row("SELECT MIN(timestamp) FROM process_samples", [], |row| {
+                row.get(0)
+            })
+            .unwrap_or(now as i64);
 
         if oldest == 0 {
             return Ok(0);
@@ -1268,7 +1310,7 @@ impl TelemetryDb {
                 COUNT(*) as sample_count
             FROM process_samples
             WHERE name = ?1 AND timestamp >= ?2
-            "#
+            "#,
         )?;
 
         stmt.query_row(params![name, since as i64], |row| {
@@ -1288,7 +1330,8 @@ impl TelemetryDb {
                 last_seen: last_seen as u64,
                 has_data: sample_count > 0,
             })
-        }).map_err(|e| e.into())
+        })
+        .map_err(|e| e.into())
     }
 
     /// Get all four standard window stats for an object (PHASE 23 format)
@@ -1319,17 +1362,20 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY cpu_secs DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
-            Ok(TopCompactEntry {
-                name: row.get(0)?,
-                cpu_secs: row.get(1)?,
-                execs: row.get::<_, i64>(2)? as u64,
-                max_rss: row.get::<_, i64>(3)? as u64,
-            })
-        })?;
+        let rows = stmt.query_map(
+            params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS],
+            |row| {
+                Ok(TopCompactEntry {
+                    name: row.get(0)?,
+                    cpu_secs: row.get(1)?,
+                    execs: row.get::<_, i64>(2)? as u64,
+                    max_rss: row.get::<_, i64>(3)? as u64,
+                })
+            },
+        )?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -1339,7 +1385,11 @@ impl TelemetryDb {
     }
 
     /// Get top N by memory with compact format (for [USAGE HIGHLIGHTS])
-    pub fn top_memory_compact(&self, window_secs: u64, limit: usize) -> Result<Vec<TopCompactEntry>> {
+    pub fn top_memory_compact(
+        &self,
+        window_secs: u64,
+        limit: usize,
+    ) -> Result<Vec<TopCompactEntry>> {
         let now = Self::now();
         let since = now.saturating_sub(window_secs);
 
@@ -1356,17 +1406,20 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY max_rss DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
-            Ok(TopCompactEntry {
-                name: row.get(0)?,
-                cpu_secs: row.get(1)?,
-                execs: row.get::<_, i64>(2)? as u64,
-                max_rss: row.get::<_, i64>(3)? as u64,
-            })
-        })?;
+        let rows = stmt.query_map(
+            params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS],
+            |row| {
+                Ok(TopCompactEntry {
+                    name: row.get(0)?,
+                    cpu_secs: row.get(1)?,
+                    execs: row.get::<_, i64>(2)? as u64,
+                    max_rss: row.get::<_, i64>(3)? as u64,
+                })
+            },
+        )?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -1391,7 +1444,7 @@ impl TelemetryDb {
                 COUNT(*) as sample_count
             FROM process_samples
             WHERE name = ?1 AND timestamp >= ?2 AND timestamp < ?3
-            "#
+            "#,
         )?;
 
         stmt.query_row(params![name, since as i64, until as i64], |row| {
@@ -1410,7 +1463,8 @@ impl TelemetryDb {
                 last_seen: last_seen as u64,
                 has_data: sample_count > 0,
             })
-        }).map_err(|e| e.into())
+        })
+        .map_err(|e| e.into())
     }
 
     /// Calculate trend for an identity (comparing 24h vs 7d as per v7.9.0 spec)
@@ -1431,13 +1485,13 @@ impl TelemetryDb {
         // Compare avg CPU (24h vs 7d)
         let cpu_trend = Trend::calculate(
             stats_24h.avg_cpu_percent as f64,
-            stats_7d.avg_cpu_percent as f64
+            stats_7d.avg_cpu_percent as f64,
         );
 
         // Compare avg memory (24h vs 7d)
         let memory_trend = Trend::calculate(
             stats_24h.avg_mem_bytes as f64,
-            stats_7d.avg_mem_bytes as f64
+            stats_7d.avg_mem_bytes as f64,
         );
 
         Ok(TrendData {
@@ -1457,7 +1511,7 @@ impl TelemetryDb {
         let cpu_trend = if has_enough_data {
             Trend::calculate(
                 stats_24h.avg_cpu_percent as f64,
-                stats_7d.avg_cpu_percent as f64
+                stats_7d.avg_cpu_percent as f64,
             )
         } else {
             None
@@ -1466,7 +1520,7 @@ impl TelemetryDb {
         let memory_trend = if has_enough_data {
             Trend::calculate(
                 stats_24h.avg_mem_bytes as f64,
-                stats_7d.avg_mem_bytes as f64
+                stats_7d.avg_mem_bytes as f64,
             )
         } else {
             None
@@ -1547,21 +1601,29 @@ impl TelemetryDb {
                 SUM(CASE WHEN timestamp >= ?3 THEN 1 ELSE 0 END) as cnt_7d,
                 SUM(CASE WHEN timestamp >= ?4 THEN 1 ELSE 0 END) as cnt_30d
             FROM process_samples
-            "#
+            "#,
         )?;
 
-        stmt.query_row(params![h1 as i64, h24 as i64, d7 as i64, d30 as i64], |row| {
-            Ok(SampleCounts {
-                last_1h: row.get::<_, i64>(0).unwrap_or(0) as u64,
-                last_24h: row.get::<_, i64>(1).unwrap_or(0) as u64,
-                last_7d: row.get::<_, i64>(2).unwrap_or(0) as u64,
-                last_30d: row.get::<_, i64>(3).unwrap_or(0) as u64,
-            })
-        }).map_err(|e| e.into())
+        stmt.query_row(
+            params![h1 as i64, h24 as i64, d7 as i64, d30 as i64],
+            |row| {
+                Ok(SampleCounts {
+                    last_1h: row.get::<_, i64>(0).unwrap_or(0) as u64,
+                    last_24h: row.get::<_, i64>(1).unwrap_or(0) as u64,
+                    last_7d: row.get::<_, i64>(2).unwrap_or(0) as u64,
+                    last_30d: row.get::<_, i64>(3).unwrap_or(0) as u64,
+                })
+            },
+        )
+        .map_err(|e| e.into())
     }
 
     /// Get top CPU consumers for TELEMETRY HIGHLIGHTS with runtime
-    pub fn top_cpu_with_runtime(&self, window_secs: u64, limit: usize) -> Result<Vec<TopHighlightEntry>> {
+    pub fn top_cpu_with_runtime(
+        &self,
+        window_secs: u64,
+        limit: usize,
+    ) -> Result<Vec<TopHighlightEntry>> {
         let now = Self::now();
         let since = now.saturating_sub(window_secs);
 
@@ -1580,22 +1642,25 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY cpu_secs DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
-            let sample_count: i64 = row.get(5)?;
-            // Estimate runtime from sample count * interval
-            let runtime_secs = sample_count as f64 * Self::SAMPLE_INTERVAL_SECS;
+        let rows = stmt.query_map(
+            params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS],
+            |row| {
+                let sample_count: i64 = row.get(5)?;
+                // Estimate runtime from sample count * interval
+                let runtime_secs = sample_count as f64 * Self::SAMPLE_INTERVAL_SECS;
 
-            Ok(TopHighlightEntry {
-                name: row.get(0)?,
-                avg_cpu_percent: row.get::<_, f64>(1)? as f32,
-                cpu_time_secs: row.get(2)?,
-                runtime_secs,
-                max_rss: row.get::<_, i64>(4)? as u64,
-            })
-        })?;
+                Ok(TopHighlightEntry {
+                    name: row.get(0)?,
+                    avg_cpu_percent: row.get::<_, f64>(1)? as f32,
+                    cpu_time_secs: row.get(2)?,
+                    runtime_secs,
+                    max_rss: row.get::<_, i64>(4)? as u64,
+                })
+            },
+        )?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -1605,7 +1670,11 @@ impl TelemetryDb {
     }
 
     /// Get top memory consumers for TELEMETRY HIGHLIGHTS
-    pub fn top_memory_with_peak(&self, window_secs: u64, limit: usize) -> Result<Vec<TopHighlightEntry>> {
+    pub fn top_memory_with_peak(
+        &self,
+        window_secs: u64,
+        limit: usize,
+    ) -> Result<Vec<TopHighlightEntry>> {
         let now = Self::now();
         let since = now.saturating_sub(window_secs);
 
@@ -1624,21 +1693,24 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY max_rss DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let rows = stmt.query_map(params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS], |row| {
-            let sample_count: i64 = row.get(5)?;
-            let runtime_secs = sample_count as f64 * Self::SAMPLE_INTERVAL_SECS;
+        let rows = stmt.query_map(
+            params![since as i64, limit as i64, Self::SAMPLE_INTERVAL_SECS],
+            |row| {
+                let sample_count: i64 = row.get(5)?;
+                let runtime_secs = sample_count as f64 * Self::SAMPLE_INTERVAL_SECS;
 
-            Ok(TopHighlightEntry {
-                name: row.get(0)?,
-                avg_cpu_percent: row.get::<_, f64>(1)? as f32,
-                cpu_time_secs: row.get(2)?,
-                runtime_secs,
-                max_rss: row.get::<_, i64>(4)? as u64,
-            })
-        })?;
+                Ok(TopHighlightEntry {
+                    name: row.get(0)?,
+                    avg_cpu_percent: row.get::<_, f64>(1)? as f32,
+                    cpu_time_secs: row.get(2)?,
+                    runtime_secs,
+                    max_rss: row.get::<_, i64>(4)? as u64,
+                })
+            },
+        )?;
 
         let mut results = Vec::new();
         for row in rows {
@@ -1669,14 +1741,13 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY peak_cpu DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let names: Vec<String> = stmt.query_map(params![since_24h as i64, limit as i64], |row| {
-            row.get(0)
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
+        let names: Vec<String> = stmt
+            .query_map(params![since_24h as i64, limit as i64], |row| row.get(0))?
+            .filter_map(|r| r.ok())
+            .collect();
 
         // For each name, get 24h and 7d stats to compute trend
         let mut results = Vec::new();
@@ -1687,7 +1758,7 @@ impl TelemetryDb {
             let cpu_trend = if stats_24h.sample_count >= 2 && stats_7d.sample_count >= 2 {
                 Trend::calculate(
                     stats_24h.avg_cpu_percent as f64,
-                    stats_7d.avg_cpu_percent as f64
+                    stats_7d.avg_cpu_percent as f64,
                 )
             } else {
                 None
@@ -1725,14 +1796,13 @@ impl TelemetryDb {
             HAVING COUNT(*) >= 2
             ORDER BY avg_mem DESC
             LIMIT ?2
-            "#
+            "#,
         )?;
 
-        let names: Vec<String> = stmt.query_map(params![since_24h as i64, limit as i64], |row| {
-            row.get(0)
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
+        let names: Vec<String> = stmt
+            .query_map(params![since_24h as i64, limit as i64], |row| row.get(0))?
+            .filter_map(|r| r.ok())
+            .collect();
 
         // For each name, get 24h and 7d stats to compute trend
         let mut results = Vec::new();
@@ -1743,7 +1813,7 @@ impl TelemetryDb {
             let memory_trend = if stats_24h.sample_count >= 2 && stats_7d.sample_count >= 2 {
                 Trend::calculate(
                     stats_24h.avg_mem_bytes as f64,
-                    stats_7d.avg_mem_bytes as f64
+                    stats_7d.avg_mem_bytes as f64,
                 )
             } else {
                 None
@@ -1767,11 +1837,13 @@ impl TelemetryDb {
     pub fn get_samples_24h_count(&self) -> u64 {
         let now = Self::now();
         let since = now.saturating_sub(WINDOW_24H);
-        self.conn.query_row(
-            "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
-            params![since as i64],
-            |row| row.get::<_, i64>(0)
-        ).unwrap_or(0) as u64
+        self.conn
+            .query_row(
+                "SELECT COUNT(*) FROM process_samples WHERE timestamp >= ?1",
+                params![since as i64],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(0) as u64
     }
 }
 

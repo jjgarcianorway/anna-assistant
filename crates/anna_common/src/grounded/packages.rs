@@ -20,15 +20,15 @@ pub struct Package {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InstallReason {
-    Explicit,    // User installed
-    Dependency,  // Auto-installed as dependency
+    Explicit,   // User installed
+    Dependency, // Auto-installed as dependency
     Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PackageSource {
-    Official,    // From official repos
-    Aur,         // Foreign/AUR package
+    Official, // From official repos
+    Aur,      // Foreign/AUR package
     Unknown,
 }
 
@@ -61,16 +61,10 @@ fn count_packages(cmd: &str) -> usize {
         return 0;
     }
 
-    let output = Command::new(parts[0])
-        .args(&parts[1..])
-        .output();
+    let output = Command::new(parts[0]).args(&parts[1..]).output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .count()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).lines().count(),
         _ => 0,
     }
 }
@@ -78,10 +72,7 @@ fn count_packages(cmd: &str) -> usize {
 /// Get package info from pacman -Qi
 /// Returns None if package not installed
 pub fn get_package_info(name: &str) -> Option<Package> {
-    let output = Command::new("pacman")
-        .args(["-Qi", name])
-        .output()
-        .ok()?;
+    let output = Command::new("pacman").args(["-Qi", name]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -172,9 +163,7 @@ fn parse_size(s: &str) -> u64 {
 /// Check if package is foreign (AUR)
 /// Source: pacman -Qm
 fn is_foreign_package(name: &str) -> bool {
-    let output = Command::new("pacman")
-        .args(["-Qm", name])
-        .output();
+    let output = Command::new("pacman").args(["-Qm", name]).output();
 
     matches!(output, Ok(out) if out.status.success())
 }
@@ -182,9 +171,7 @@ fn is_foreign_package(name: &str) -> bool {
 /// Get config files for a package
 /// Source: pacman -Ql filtered to /etc/
 pub fn get_package_config_files(name: &str) -> Vec<String> {
-    let output = Command::new("pacman")
-        .args(["-Ql", name])
-        .output();
+    let output = Command::new("pacman").args(["-Ql", name]).output();
 
     match output {
         Ok(out) if out.status.success() => {
@@ -210,10 +197,7 @@ pub fn get_package_config_files(name: &str) -> Vec<String> {
 /// Get which package owns a file
 /// Source: pacman -Qo
 pub fn get_owning_package(path: &str) -> Option<String> {
-    let output = Command::new("pacman")
-        .args(["-Qo", path])
-        .output()
-        .ok()?;
+    let output = Command::new("pacman").args(["-Qo", path]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -234,24 +218,20 @@ pub fn get_owning_package(path: &str) -> Option<String> {
 /// List all installed packages
 /// Source: pacman -Q
 pub fn list_installed_packages() -> Vec<(String, String)> {
-    let output = Command::new("pacman")
-        .args(["-Q"])
-        .output();
+    let output = Command::new("pacman").args(["-Q"]).output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter_map(|line| {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 2 {
-                        Some((parts[0].to_string(), parts[1].to_string()))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    Some((parts[0].to_string(), parts[1].to_string()))
+                } else {
+                    None
+                }
+            })
+            .collect(),
         _ => Vec::new(),
     }
 }

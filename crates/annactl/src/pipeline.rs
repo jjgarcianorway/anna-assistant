@@ -34,51 +34,106 @@
 //! v0.0.4: Junior becomes real via Ollama
 
 use anna_common::{
-    AnnaConfig, OllamaClient, OllamaError,
-    select_junior_model,
+    cap_reliability,
     daemon_state::StatusSnapshot,
-    ToolCatalog, ToolRequest, ToolResult, ToolPlan,
-    EvidenceCollector, parse_tool_plan,
-    execute_tool, execute_tool_plan,
-    // v0.0.8: Mutation tools
-    MutationToolCatalog, MutationPlan, MutationRequest, MutationResult,
-    MutationRisk, MutationError, FileEditOp, RollbackInfo,
-    RollbackManager, is_path_allowed, validate_confirmation,
-    execute_mutation, generate_request_id,
-    MEDIUM_RISK_CONFIRMATION,
-    // v0.0.17: Target user system
-    TargetUserSelector, TargetUserSelection, SelectionResult, UserInfo,
-    get_policy,
-    // v0.0.18: Secrets redaction
-    redact_transcript, redact_evidence, is_path_restricted, get_restriction_message,
-    // v0.0.21: Performance and caching
-    ToolCache, ToolCacheKey, LlmCache, LlmCacheKey,
-    PerfStats, LatencySample, BudgetViolation,
-    get_snapshot_hash, get_policy_version,
-    TOOL_CACHE_TTL_SECS, LLM_CACHE_TTL_SECS,
-    // v0.0.31: Reliability metrics
-    MetricsStore, MetricType,
-    // v0.0.44: Doctor Registry integration
-    DoctorRegistry, DoctorSelection,
-    // v0.0.44: Case file logging for all requests
-    CaseFile, CaseOutcome, CaseTiming, generate_case_id,
-    // v0.0.52: System Query Router
-    QueryTarget, detect_target, get_tool_routing, validate_answer_for_target,
     // v0.0.53: Doctor Flow
-    detect_problem_phrase, DoctorFlowExecutor, DoctorFlowResult, DoctorCaseFile,
-    Doctor, DiagnosticCheck, NetworkingDoctorV2,
+    detect_problem_phrase,
+    detect_target,
+    detect_topic,
+    // v0.0.64: Service Desk Dispatcher + Narrator
+    dispatch_request,
+    execute_mutation,
+    execute_tool,
+    execute_tool_plan,
+    generate_answer as topic_generate_answer,
+    generate_case_id,
+    generate_request_id,
+    get_policy,
+    get_policy_version,
+    get_restriction_message,
+    get_snapshot_hash,
+    get_tool_routing,
+    get_topic_config,
+    is_path_allowed,
+    is_path_restricted,
+    narrate,
+    parse_tool_plan,
+    redact_evidence,
+    // v0.0.18: Secrets redaction
+    redact_transcript,
+    select_junior_model,
+    validate_answer_for_target,
+    validate_confirmation,
+    validate_evidence as topic_validate_evidence,
+    AnnaConfig,
+    BudgetViolation,
+    // v0.0.44: Case file logging for all requests
+    CaseFile,
+    CaseOutcome,
+    CaseTiming,
+    DiagnosticCheck,
+    DispatchResult,
+    Doctor,
+    DoctorCaseFile,
+    DoctorFlowExecutor,
+    DoctorFlowResult,
+    DoctorLifecycleStage,
+    // v0.0.44: Doctor Registry integration
+    DoctorRegistry,
+    DoctorSelection,
+    EvidenceCollector,
     // v0.0.61: Evidence Topics for targeted answers
     // v0.0.63: cap_reliability for strict 40% cap on mismatched answers
-    EvidenceTopic, TopicDetection, TopicConfig, TopicValidation,
-    detect_topic, get_topic_config, generate_answer as topic_generate_answer, validate_evidence as topic_validate_evidence,
-    cap_reliability,
-    // v0.0.64: Service Desk Dispatcher + Narrator
-    dispatch_request, DispatchResult, Ticket, TicketSeverity, TicketCategory, RoutingPlan,
-    narrate, NarratorEvent, DoctorLifecycleStage,
+    EvidenceTopic,
+    FileEditOp,
+    LatencySample,
+    LlmCache,
+    LlmCacheKey,
+    MetricType,
+    // v0.0.31: Reliability metrics
+    MetricsStore,
+    MutationError,
+    MutationPlan,
+    MutationRequest,
+    MutationResult,
+    MutationRisk,
+    // v0.0.8: Mutation tools
+    MutationToolCatalog,
+    NarratorEvent,
+    NetworkingDoctorV2,
+    OllamaClient,
+    OllamaError,
+    PerfStats,
+    // v0.0.52: System Query Router
+    QueryTarget,
+    RollbackInfo,
+    RollbackManager,
+    RoutingPlan,
+    SelectionResult,
+    TargetUserSelection,
+    // v0.0.17: Target user system
+    TargetUserSelector,
+    Ticket,
+    TicketCategory,
+    TicketSeverity,
+    // v0.0.21: Performance and caching
+    ToolCache,
+    ToolCacheKey,
+    ToolCatalog,
+    ToolPlan,
+    ToolRequest,
+    ToolResult,
+    TopicConfig,
+    TopicDetection,
+    TopicValidation,
+    UserInfo,
+    LLM_CACHE_TTL_SECS,
+    MEDIUM_RISK_CONFIRMATION,
+    TOOL_CACHE_TTL_SECS,
 };
 use owo_colors::OwoColorize;
 use std::fmt;
-use std::io::{self, Write, BufRead};
+use std::io::{self, BufRead, Write};
 
 /// Maximum evidence excerpt size in bytes (8KB)
 const MAX_EVIDENCE_BYTES: usize = 8 * 1024;
@@ -118,7 +173,10 @@ fn should_show_dialogue(from: Actor, to: Actor, debug_level: u8) -> bool {
     match debug_level {
         0 => {
             // Minimal: only you<->anna exchanges
-            matches!((from, to), (Actor::You, Actor::Anna) | (Actor::Anna, Actor::You))
+            matches!(
+                (from, to),
+                (Actor::You, Actor::Anna) | (Actor::Anna, Actor::You)
+            )
         }
         1 => {
             // Normal: all main dialogue except internal translator/junior details
@@ -152,7 +210,10 @@ pub fn dialogue(from: Actor, to: Actor, message: &str) {
         for (i, line) in redacted.lines().take(2).enumerate() {
             println!("  {}", line);
             if i == 1 {
-                println!("  {}", format!("... ({} more lines)", redacted.lines().count() - 2).dimmed());
+                println!(
+                    "  {}",
+                    format!("... ({} more lines)", redacted.lines().count() - 2).dimmed()
+                );
             }
         }
     } else {
@@ -270,7 +331,6 @@ pub struct TranslatorOutput {
     pub llm_backed: bool, // True if from LLM, false if deterministic fallback
 }
 
-
 /// Evidence from snapshots
 #[derive(Debug, Clone)]
 pub struct Evidence {
@@ -298,11 +358,11 @@ pub struct ActionPlan {
 /// Junior's reliability assessment (v0.0.7: with uncited claims tracking)
 #[derive(Debug, Clone)]
 pub struct JuniorVerification {
-    pub score: u8,              // 0-100
-    pub critique: String,       // What is missing, speculative
+    pub score: u8,                   // 0-100
+    pub critique: String,            // What is missing, speculative
     pub uncited_claims: Vec<String>, // v0.0.7: claims without [E#] citations
-    pub suggestions: String,    // Minimal edits to improve
-    pub mutation_warning: bool, // If action request, warn about mutations
+    pub suggestions: String,         // Minimal edits to improve
+    pub mutation_warning: bool,      // If action request, warn about mutations
 }
 
 impl Default for JuniorVerification {
@@ -415,13 +475,14 @@ async fn call_translator_llm(
     for attempt in 0..TRANSLATOR_MAX_RETRIES {
         let response = match client
             .generate(model, &prompt, Some(TRANSLATOR_SYSTEM_PROMPT))
-            .await {
-                Ok(r) => r,
-                Err(e) => {
-                    last_error = Some(e);
-                    continue;
-                }
-            };
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                last_error = Some(e);
+                continue;
+            }
+        };
 
         // Parse the response
         match parse_translator_response(&response.response) {
@@ -429,20 +490,28 @@ async fn call_translator_llm(
             None => {
                 // Log the failure
                 if attempt == 0 {
-                    tracing::warn!("Translator LLM parse failed (attempt {}): {}",
+                    tracing::warn!(
+                        "Translator LLM parse failed (attempt {}): {}",
                         attempt + 1,
-                        response.response.lines().take(3).collect::<Vec<_>>().join(" | "));
+                        response
+                            .response
+                            .lines()
+                            .take(3)
+                            .collect::<Vec<_>>()
+                            .join(" | ")
+                    );
                 }
-                last_error = Some(OllamaError::ParseError(
-                    format!("Invalid format on attempt {}", attempt + 1)
-                ));
+                last_error = Some(OllamaError::ParseError(format!(
+                    "Invalid format on attempt {}",
+                    attempt + 1
+                )));
             }
         }
     }
 
     // All retries exhausted
-    Err(last_error.unwrap_or_else(||
-        OllamaError::ParseError("All Translator retries failed".to_string())))
+    Err(last_error
+        .unwrap_or_else(|| OllamaError::ParseError("All Translator retries failed".to_string())))
 }
 
 /// Parse Translator LLM response into structured output
@@ -481,8 +550,10 @@ fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
                     // Fallback: check for keywords in value
                     if value_lower.contains("system") || value_lower.contains("query") {
                         Some(IntentType::SystemQuery)
-                    } else if value_lower.contains("action") || value_lower.contains("install")
-                        || value_lower.contains("restart") {
+                    } else if value_lower.contains("action")
+                        || value_lower.contains("install")
+                        || value_lower.contains("restart")
+                    {
                         Some(IntentType::ActionRequest)
                     } else if value_lower.contains("doctor") || value_lower.contains("fix") {
                         Some(IntentType::FixIt)
@@ -498,7 +569,8 @@ fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
         else if let Some(value) = strip_prefix_case_insensitive(line, "TARGETS:") {
             let value = value.trim().trim_matches('"');
             if !value.eq_ignore_ascii_case("none") && !value.is_empty() {
-                targets = value.split(',')
+                targets = value
+                    .split(',')
                     .map(|s| s.trim().to_lowercase())
                     .filter(|s| !s.is_empty() && s != "none")
                     .collect();
@@ -506,13 +578,18 @@ fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
         }
         // Parse RISK
         else if let Some(value) = strip_prefix_case_insensitive(line, "RISK:") {
-            risk = value.trim().to_lowercase().parse().unwrap_or(RiskLevel::ReadOnly);
+            risk = value
+                .trim()
+                .to_lowercase()
+                .parse()
+                .unwrap_or(RiskLevel::ReadOnly);
         }
         // Parse TOOLS
         else if let Some(value) = strip_prefix_case_insensitive(line, "TOOLS:") {
             let value = value.trim();
             if !value.eq_ignore_ascii_case("none") && !value.is_empty() {
-                tools_list = value.split(',')
+                tools_list = value
+                    .split(',')
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty() && !s.eq_ignore_ascii_case("none"))
                     .collect();
@@ -540,13 +617,20 @@ fn parse_translator_response(response: &str) -> Option<TranslatorOutput> {
     let tool_plan = generate_tool_plan_from_tools_list(&tools_list);
 
     // Generate evidence_needs from tools (for backwards compat)
-    let evidence_needs = tools_list.iter()
+    let evidence_needs = tools_list
+        .iter()
         .map(|t| {
-            if t.contains("hw_snapshot") { "hw_snapshot".to_string() }
-            else if t.contains("sw_snapshot") { "sw_snapshot".to_string() }
-            else if t.contains("journal") { "journalctl".to_string() }
-            else if t.contains("status") { "status".to_string() }
-            else { t.clone() }
+            if t.contains("hw_snapshot") {
+                "hw_snapshot".to_string()
+            } else if t.contains("sw_snapshot") {
+                "sw_snapshot".to_string()
+            } else if t.contains("journal") {
+                "journalctl".to_string()
+            } else if t.contains("status") {
+                "status".to_string()
+            } else {
+                t.clone()
+            }
         })
         .collect();
 
@@ -595,7 +679,9 @@ fn generate_tool_plan_from_tools_list(tools: &[String]) -> Option<ToolPlan> {
         // Parse tool(args) format
         if let Some(paren_idx) = tool.find('(') {
             let tool_name = &tool[..paren_idx];
-            let args_str = tool.get(paren_idx + 1..tool.len().saturating_sub(1)).unwrap_or("");
+            let args_str = tool
+                .get(paren_idx + 1..tool.len().saturating_sub(1))
+                .unwrap_or("");
             let mut params = HashMap::new();
 
             // Parse key=value pairs
@@ -654,7 +740,10 @@ fn parse_clarification(s: &str) -> Option<Clarification> {
     for part in &parts[1..] {
         let part = part.trim();
         if let Some(n) = part.strip_prefix("default:") {
-            default_option = n.trim_matches(|c| c == '"' || c == ']').parse().unwrap_or(0);
+            default_option = n
+                .trim_matches(|c| c == '"' || c == ']')
+                .parse()
+                .unwrap_or(0);
         } else if !part.is_empty() && !part.starts_with('[') && !part.ends_with(']') {
             // Reject placeholder options like "option1", "option2", etc.
             if part == "option1" || part == "option2" || part == "option3" || part == "option4" {
@@ -691,10 +780,30 @@ pub fn translator_classify_deterministic(request: &str) -> TranslatorOutput {
     // Detect targets (common system entities)
     let mut targets = Vec::new();
     let target_patterns = [
-        "cpu", "memory", "ram", "disk", "network", "wifi", "ethernet",
-        "nginx", "docker", "systemd", "kernel", "pacman", "yay",
-        "battery", "temperature", "fan", "gpu", "audio", "bluetooth",
-        "ssh", "sshd", "firewall", "ufw", "iptables",
+        "cpu",
+        "memory",
+        "ram",
+        "disk",
+        "network",
+        "wifi",
+        "ethernet",
+        "nginx",
+        "docker",
+        "systemd",
+        "kernel",
+        "pacman",
+        "yay",
+        "battery",
+        "temperature",
+        "fan",
+        "gpu",
+        "audio",
+        "bluetooth",
+        "ssh",
+        "sshd",
+        "firewall",
+        "ufw",
+        "iptables",
     ];
     for pattern in target_patterns {
         if request_lower.contains(pattern) {
@@ -703,7 +812,8 @@ pub fn translator_classify_deterministic(request: &str) -> TranslatorOutput {
     }
 
     // Classify intent type and risk
-    let (intent_type, risk, evidence_needs) = classify_intent_deterministic(&request_lower, &targets);
+    let (intent_type, risk, evidence_needs) =
+        classify_intent_deterministic(&request_lower, &targets);
 
     // v0.0.7: Generate tool_plan from evidence_needs
     let tool_plan = generate_tool_plan_from_evidence_needs(&evidence_needs, &targets);
@@ -715,13 +825,16 @@ pub fn translator_classify_deterministic(request: &str) -> TranslatorOutput {
         evidence_needs,
         tool_plan,
         clarification: None, // Deterministic doesn't do clarification
-        confidence: 70, // Lower confidence for deterministic
+        confidence: 70,      // Lower confidence for deterministic
         llm_backed: false,
     }
 }
 
 /// Generate a ToolPlan from evidence_needs (v0.0.7, v0.0.31: reliability tools, v0.0.52: router tools)
-fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[String]) -> Option<ToolPlan> {
+fn generate_tool_plan_from_evidence_needs(
+    evidence_needs: &[String],
+    targets: &[String],
+) -> Option<ToolPlan> {
     use std::collections::HashMap;
 
     if evidence_needs.is_empty() {
@@ -838,7 +951,10 @@ fn generate_tool_plan_from_evidence_needs(evidence_needs: &[String], targets: &[
     }
 }
 
-fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentType, RiskLevel, Vec<String>) {
+fn classify_intent_deterministic(
+    request: &str,
+    targets: &[String],
+) -> (IntentType, RiskLevel, Vec<String>) {
     let request_lower = request.to_lowercase();
 
     // v0.0.63: Use EvidenceTopic detection FIRST - this is the deterministic router
@@ -846,7 +962,11 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
     let topic_detection = detect_topic(&request_lower);
     if topic_detection.topic != EvidenceTopic::Unknown && topic_detection.confidence >= 70 {
         let config = get_topic_config(topic_detection.topic);
-        let tools: Vec<String> = config.required_tools.iter().map(|s| s.to_string()).collect();
+        let tools: Vec<String> = config
+            .required_tools
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         if !tools.is_empty() {
             return (IntentType::SystemQuery, RiskLevel::ReadOnly, tools);
         }
@@ -856,43 +976,96 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
     let (query_target, confidence) = detect_target(&request_lower);
     if confidence >= 80 && query_target != QueryTarget::Unknown {
         let routing = get_tool_routing(query_target);
-        let tools: Vec<String> = routing.required_tools.iter().map(|s| s.to_string()).collect();
+        let tools: Vec<String> = routing
+            .required_tools
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         return (IntentType::SystemQuery, RiskLevel::ReadOnly, tools);
     }
 
     // v0.0.31: Check for reliability engineering requests
     let reliability_keywords = [
-        "diagnostics", "diagnostic", "self-diagnostics", "bug report",
-        "metrics", "reliability", "error budget", "error budgets",
+        "diagnostics",
+        "diagnostic",
+        "self-diagnostics",
+        "bug report",
+        "metrics",
+        "reliability",
+        "error budget",
+        "error budgets",
     ];
     for keyword in reliability_keywords {
         if request_lower.contains(keyword) {
             if request_lower.contains("diagnostics") || request_lower.contains("bug report") {
-                return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["self_diagnostics".to_string()]);
+                return (
+                    IntentType::SystemQuery,
+                    RiskLevel::ReadOnly,
+                    vec!["self_diagnostics".to_string()],
+                );
             } else if request_lower.contains("budget") {
-                return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["error_budgets".to_string()]);
+                return (
+                    IntentType::SystemQuery,
+                    RiskLevel::ReadOnly,
+                    vec!["error_budgets".to_string()],
+                );
             } else {
-                return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["metrics_summary".to_string()]);
+                return (
+                    IntentType::SystemQuery,
+                    RiskLevel::ReadOnly,
+                    vec!["metrics_summary".to_string()],
+                );
             }
         }
     }
 
     // v0.0.33: Check for case file requests
-    let case_keywords = ["case", "cases", "failure", "failures", "transcript", "conversation"];
-    let case_action_words = ["show", "list", "get", "what happened", "last", "today", "recent"];
+    let case_keywords = [
+        "case",
+        "cases",
+        "failure",
+        "failures",
+        "transcript",
+        "conversation",
+    ];
+    let case_action_words = [
+        "show",
+        "list",
+        "get",
+        "what happened",
+        "last",
+        "today",
+        "recent",
+    ];
 
     let has_case_keyword = case_keywords.iter().any(|k| request_lower.contains(k));
     let has_case_action = case_action_words.iter().any(|k| request_lower.contains(k));
 
     if has_case_keyword && has_case_action {
         if request_lower.contains("failure") {
-            return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["last_failure_summary".to_string()]);
+            return (
+                IntentType::SystemQuery,
+                RiskLevel::ReadOnly,
+                vec!["last_failure_summary".to_string()],
+            );
         } else if request_lower.contains("today") {
-            return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["list_today_cases".to_string()]);
+            return (
+                IntentType::SystemQuery,
+                RiskLevel::ReadOnly,
+                vec!["list_today_cases".to_string()],
+            );
         } else if request_lower.contains("recent") || request_lower.contains("list") {
-            return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["list_recent_cases".to_string()]);
+            return (
+                IntentType::SystemQuery,
+                RiskLevel::ReadOnly,
+                vec!["list_recent_cases".to_string()],
+            );
         } else {
-            return (IntentType::SystemQuery, RiskLevel::ReadOnly, vec!["last_case_summary".to_string()]);
+            return (
+                IntentType::SystemQuery,
+                RiskLevel::ReadOnly,
+                vec!["last_case_summary".to_string()],
+            );
         }
     }
 
@@ -900,34 +1073,86 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
     let (is_problem, problem_confidence, _matched_phrases) = detect_problem_phrase(request);
     if is_problem && problem_confidence >= 25 {
         // Route to doctor flow - tools will be determined by doctor selection
-        return (IntentType::FixIt, RiskLevel::ReadOnly, vec!["doctor_flow".to_string()]);
+        return (
+            IntentType::FixIt,
+            RiskLevel::ReadOnly,
+            vec!["doctor_flow".to_string()],
+        );
     }
 
     // v0.0.34: Legacy fix patterns (fallback for explicit requests)
-    let fix_patterns = ["fix my", "fix the", "repair", "troubleshoot", "debug", "help me fix"];
+    let fix_patterns = [
+        "fix my",
+        "fix the",
+        "repair",
+        "troubleshoot",
+        "debug",
+        "help me fix",
+    ];
     if fix_patterns.iter().any(|p| request_lower.contains(p)) {
-        return (IntentType::FixIt, RiskLevel::ReadOnly, vec!["doctor_flow".to_string()]);
+        return (
+            IntentType::FixIt,
+            RiskLevel::ReadOnly,
+            vec!["doctor_flow".to_string()],
+        );
     }
 
     // Action keywords (verbs that imply mutation)
     let action_keywords = [
-        "install", "remove", "uninstall", "delete", "update", "upgrade",
-        "start", "stop", "restart", "enable", "disable", "kill",
-        "create", "add", "set", "change", "modify", "edit",
-        "mount", "unmount", "format", "clean", "clear",
+        "install",
+        "remove",
+        "uninstall",
+        "delete",
+        "update",
+        "upgrade",
+        "start",
+        "stop",
+        "restart",
+        "enable",
+        "disable",
+        "kill",
+        "create",
+        "add",
+        "set",
+        "change",
+        "modify",
+        "edit",
+        "mount",
+        "unmount",
+        "format",
+        "clean",
+        "clear",
     ];
 
     // System query keywords (need snapshot data)
     let system_query_keywords = [
-        "what", "which", "how much", "how many", "show", "list", "display",
-        "running", "installed", "using", "usage", "available", "free",
-        "status", "state", "info", "information", "details", "version",
+        "what",
+        "which",
+        "how much",
+        "how many",
+        "show",
+        "list",
+        "display",
+        "running",
+        "installed",
+        "using",
+        "usage",
+        "available",
+        "free",
+        "status",
+        "state",
+        "info",
+        "information",
+        "details",
+        "version",
     ];
 
     // Check for action requests (higher risk) - but NOT if it looks like a query
     // "how much memory" should NOT match "how" as action
-    let is_query_like = request_lower.contains("how much") || request_lower.contains("what ")
-        || request_lower.contains("which ") || request_lower.contains("?");
+    let is_query_like = request_lower.contains("how much")
+        || request_lower.contains("what ")
+        || request_lower.contains("which ")
+        || request_lower.contains("?");
 
     if !is_query_like {
         for keyword in action_keywords {
@@ -948,9 +1173,15 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
     // Check for system queries (needs snapshots) - fallback for non-domain queries
     for keyword in system_query_keywords {
         if request_lower.contains(keyword) {
-            let evidence_needs = if targets.iter().any(|t| ["nginx", "docker", "systemd", "ssh", "sshd"].contains(&t.as_str())) {
+            let evidence_needs = if targets
+                .iter()
+                .any(|t| ["nginx", "docker", "systemd", "ssh", "sshd"].contains(&t.as_str()))
+            {
                 vec!["sw_snapshot".to_string(), "status".to_string()]
-            } else if targets.iter().any(|t| ["cpu", "gpu", "battery", "temperature", "fan"].contains(&t.as_str())) {
+            } else if targets
+                .iter()
+                .any(|t| ["cpu", "gpu", "battery", "temperature", "fan"].contains(&t.as_str()))
+            {
                 vec!["hw_snapshot".to_string()]
             } else {
                 vec!["hw_snapshot".to_string(), "sw_snapshot".to_string()]
@@ -960,14 +1191,22 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
     }
 
     // Check if it's a general question
-    if request_lower.contains('?') || request_lower.starts_with("is ") || request_lower.starts_with("are ")
-        || request_lower.starts_with("does ") || request_lower.starts_with("do ")
-        || request_lower.starts_with("can ") || request_lower.starts_with("will ")
+    if request_lower.contains('?')
+        || request_lower.starts_with("is ")
+        || request_lower.starts_with("are ")
+        || request_lower.starts_with("does ")
+        || request_lower.starts_with("do ")
+        || request_lower.starts_with("can ")
+        || request_lower.starts_with("will ")
     {
         if !targets.is_empty() {
             let domain_evidence = route_to_domain_evidence(&request_lower, targets);
             if !domain_evidence.is_empty() {
-                return (IntentType::SystemQuery, RiskLevel::ReadOnly, domain_evidence);
+                return (
+                    IntentType::SystemQuery,
+                    RiskLevel::ReadOnly,
+                    domain_evidence,
+                );
             }
             let evidence_needs = vec!["hw_snapshot".to_string(), "sw_snapshot".to_string()];
             return (IntentType::SystemQuery, RiskLevel::ReadOnly, evidence_needs);
@@ -984,37 +1223,54 @@ fn classify_intent_deterministic(request: &str, targets: &[String]) -> (IntentTy
 fn route_to_domain_evidence(request: &str, targets: &[String]) -> Vec<String> {
     // Disk/storage domain - MUST use mount_usage, NOT hw_snapshot
     let disk_patterns = [
-        "disk space", "disk free", "free space", "storage space",
-        "how much space", "space left", "space available", "space on /",
-        "disk usage", "disk full", "running out of space",
+        "disk space",
+        "disk free",
+        "free space",
+        "storage space",
+        "how much space",
+        "space left",
+        "space available",
+        "space on /",
+        "disk usage",
+        "disk full",
+        "running out of space",
     ];
-    if disk_patterns.iter().any(|p| request.contains(p))
-        || targets.iter().any(|t| t == "disk")
-    {
+    if disk_patterns.iter().any(|p| request.contains(p)) || targets.iter().any(|t| t == "disk") {
         return vec!["mount_usage".to_string()];
     }
 
     // Kernel domain - MUST use uname_summary, NOT hw_snapshot
     let kernel_patterns = [
-        "kernel version", "kernel release", "what kernel",
-        "linux version", "uname",
+        "kernel version",
+        "kernel release",
+        "what kernel",
+        "linux version",
+        "uname",
     ];
-    if kernel_patterns.iter().any(|p| request.contains(p))
-        || targets.iter().any(|t| t == "kernel")
+    if kernel_patterns.iter().any(|p| request.contains(p)) || targets.iter().any(|t| t == "kernel")
     {
         return vec!["uname_summary".to_string()];
     }
 
     // Memory domain - MUST use mem_summary, NOT hw_snapshot
     let memory_patterns = [
-        "memory available", "memory free", "memory used", "memory usage",
-        "how much memory", "how much ram", "ram available", "ram free",
-        "ram usage", "ram used",
+        "memory available",
+        "memory free",
+        "memory used",
+        "memory usage",
+        "how much memory",
+        "how much ram",
+        "ram available",
+        "ram free",
+        "ram usage",
+        "ram used",
     ];
     if memory_patterns.iter().any(|p| request.contains(p))
         || (targets.iter().any(|t| t == "memory" || t == "ram")
-            && (request.contains("how much") || request.contains("available")
-                || request.contains("free") || request.contains("used")
+            && (request.contains("how much")
+                || request.contains("available")
+                || request.contains("free")
+                || request.contains("used")
                 || request.contains("usage")))
     {
         return vec!["mem_summary".to_string()];
@@ -1022,29 +1278,54 @@ fn route_to_domain_evidence(request: &str, targets: &[String]) -> Vec<String> {
 
     // Network domain - MUST use network tools, NOT hw_snapshot
     let network_patterns = [
-        "network status", "network connection", "internet connection",
-        "default route", "network interface", "networkmanager",
-        "is network", "is internet", "can i connect", "am i online",
-        "wifi status", "ethernet status", "connection status",
+        "network status",
+        "network connection",
+        "internet connection",
+        "default route",
+        "network interface",
+        "networkmanager",
+        "is network",
+        "is internet",
+        "can i connect",
+        "am i online",
+        "wifi status",
+        "ethernet status",
+        "connection status",
     ];
     if network_patterns.iter().any(|p| request.contains(p))
-        || (targets.iter().any(|t| t == "network" || t == "wifi" || t == "ethernet")
-            && (request.contains("status") || request.contains("running")
-                || request.contains("working") || request.contains("connected")))
+        || (targets
+            .iter()
+            .any(|t| t == "network" || t == "wifi" || t == "ethernet")
+            && (request.contains("status")
+                || request.contains("running")
+                || request.contains("working")
+                || request.contains("connected")))
     {
         return vec!["network_tools".to_string()];
     }
 
     // Audio domain - MUST use audio tools, NOT hw_snapshot
     let audio_patterns = [
-        "audio status", "audio working", "sound working", "sound status",
-        "pipewire", "wireplumber", "pulseaudio", "audio output",
-        "no sound", "no audio", "is audio", "is sound",
-        "speaker", "headphone", "microphone",
+        "audio status",
+        "audio working",
+        "sound working",
+        "sound status",
+        "pipewire",
+        "wireplumber",
+        "pulseaudio",
+        "audio output",
+        "no sound",
+        "no audio",
+        "is audio",
+        "is sound",
+        "speaker",
+        "headphone",
+        "microphone",
     ];
     if audio_patterns.iter().any(|p| request.contains(p))
         || (targets.iter().any(|t| t == "audio")
-            && (request.contains("status") || request.contains("working")
+            && (request.contains("status")
+                || request.contains("working")
                 || request.contains("running")))
     {
         return vec!["audio_tools".to_string()];
@@ -1052,8 +1333,12 @@ fn route_to_domain_evidence(request: &str, targets: &[String]) -> Vec<String> {
 
     // Boot domain - MUST use boot tools
     let boot_patterns = [
-        "boot time", "boot speed", "boot slow", "startup time",
-        "how long to boot", "systemd-analyze",
+        "boot time",
+        "boot speed",
+        "boot slow",
+        "startup time",
+        "how long to boot",
+        "systemd-analyze",
     ];
     if boot_patterns.iter().any(|p| request.contains(p)) {
         return vec!["boot_tools".to_string()];
@@ -1061,8 +1346,14 @@ fn route_to_domain_evidence(request: &str, targets: &[String]) -> Vec<String> {
 
     // Error/logs domain - MUST use error tools
     let error_patterns = [
-        "recent errors", "show errors", "system errors", "error log",
-        "journal errors", "warnings", "what errors", "any errors",
+        "recent errors",
+        "show errors",
+        "system errors",
+        "error log",
+        "journal errors",
+        "warnings",
+        "what errors",
+        "any errors",
     ];
     if error_patterns.iter().any(|p| request.contains(p)) {
         return vec!["error_tools".to_string()];
@@ -1093,24 +1384,34 @@ pub fn apply_tool_sanity_gate(
     let has_mount_usage = plan.tools.iter().any(|t| t.tool_name == "mount_usage");
     let has_uname = plan.tools.iter().any(|t| t.tool_name == "uname_summary");
     let has_mem = plan.tools.iter().any(|t| t.tool_name == "mem_summary");
-    let has_network = plan.tools.iter().any(|t|
-        t.tool_name == "nm_summary" || t.tool_name == "ip_route_summary"
-        || t.tool_name == "link_state_summary" || t.tool_name == "network_status"
-    );
-    let has_audio = plan.tools.iter().any(|t|
-        t.tool_name == "audio_services_summary" || t.tool_name == "pactl_summary"
-        || t.tool_name == "audio_status"
-    );
+    let has_network = plan.tools.iter().any(|t| {
+        t.tool_name == "nm_summary"
+            || t.tool_name == "ip_route_summary"
+            || t.tool_name == "link_state_summary"
+            || t.tool_name == "network_status"
+    });
+    let has_audio = plan.tools.iter().any(|t| {
+        t.tool_name == "audio_services_summary"
+            || t.tool_name == "pactl_summary"
+            || t.tool_name == "audio_status"
+    });
 
-    let has_generic_hw = plan.tools.iter().any(|t| t.tool_name == "hw_snapshot_summary");
+    let has_generic_hw = plan
+        .tools
+        .iter()
+        .any(|t| t.tool_name == "hw_snapshot_summary");
 
     // Check targets to see if we need domain tools
     let needs_disk = translator_output.targets.iter().any(|t| t == "disk");
     let needs_kernel = translator_output.targets.iter().any(|t| t == "kernel");
-    let needs_memory = translator_output.targets.iter().any(|t| t == "memory" || t == "ram");
-    let needs_network = translator_output.targets.iter().any(|t|
-        t == "network" || t == "wifi" || t == "ethernet"
-    );
+    let needs_memory = translator_output
+        .targets
+        .iter()
+        .any(|t| t == "memory" || t == "ram");
+    let needs_network = translator_output
+        .targets
+        .iter()
+        .any(|t| t == "network" || t == "wifi" || t == "ethernet");
     let needs_audio = translator_output.targets.iter().any(|t| t == "audio");
 
     // If using generic hw_snapshot but needs domain tools, replace
@@ -1149,9 +1450,14 @@ pub fn apply_tool_sanity_gate(
 
 fn determine_action_risk(keyword: &str) -> RiskLevel {
     match keyword {
-        "delete" | "remove" | "uninstall" | "format" | "kill" | "clean" | "clear" => RiskLevel::HighRisk,
-        "install" | "update" | "upgrade" | "change" | "modify" | "edit" | "create" | "add" | "set" => RiskLevel::MediumRisk,
-        "start" | "stop" | "restart" | "enable" | "disable" | "mount" | "unmount" => RiskLevel::LowRisk,
+        "delete" | "remove" | "uninstall" | "format" | "kill" | "clean" | "clear" => {
+            RiskLevel::HighRisk
+        }
+        "install" | "update" | "upgrade" | "change" | "modify" | "edit" | "create" | "add"
+        | "set" => RiskLevel::MediumRisk,
+        "start" | "stop" | "restart" | "enable" | "disable" | "mount" | "unmount" => {
+            RiskLevel::LowRisk
+        }
         _ => RiskLevel::LowRisk,
     }
 }
@@ -1192,7 +1498,8 @@ pub fn retrieve_evidence(translator_output: &TranslatorOutput) -> Vec<Evidence> 
                 }
             }
             "journalctl" => {
-                if let Some(ev) = load_journal_evidence(&translator_output.targets, remaining_bytes) {
+                if let Some(ev) = load_journal_evidence(&translator_output.targets, remaining_bytes)
+                {
                     total_bytes += ev.data.len();
                     evidence.push(ev);
                 }
@@ -1256,16 +1563,16 @@ fn load_status_evidence(max_bytes: usize) -> Option<Evidence> {
     if let Some(snapshot) = StatusSnapshot::load() {
         let data = format!(
             "Daemon: v{}, uptime: {}s, healthy: {}, objects: {}",
-            snapshot.version,
-            snapshot.uptime_secs,
-            snapshot.healthy,
-            snapshot.knowledge_objects
+            snapshot.version, snapshot.uptime_secs, snapshot.healthy, snapshot.knowledge_objects
         );
         let (data, excerpted) = excerpt_data(&data, max_bytes);
         return Some(Evidence {
             source: "snapshot:status".to_string(),
             data,
-            timestamp: snapshot.generated_at.map(|t| t.to_rfc3339()).unwrap_or_else(|| "unknown".to_string()),
+            timestamp: snapshot
+                .generated_at
+                .map(|t| t.to_rfc3339())
+                .unwrap_or_else(|| "unknown".to_string()),
             excerpted,
         });
     }
@@ -1274,7 +1581,8 @@ fn load_status_evidence(max_bytes: usize) -> Option<Evidence> {
 
 fn load_journal_evidence(targets: &[String], max_bytes: usize) -> Option<Evidence> {
     // Get recent journal entries for relevant services
-    let services: Vec<&str> = targets.iter()
+    let services: Vec<&str> = targets
+        .iter()
         .filter(|t| ["nginx", "docker", "sshd", "ssh", "systemd"].contains(&t.as_str()))
         .map(|s| s.as_str())
         .collect();
@@ -1296,7 +1604,9 @@ fn load_journal_evidence(targets: &[String], max_bytes: usize) -> Option<Evidenc
         return Some(Evidence {
             source: format!("journalctl:{}", unit),
             data,
-            timestamp: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+            timestamp: chrono::Utc::now()
+                .format("%Y-%m-%d %H:%M:%S UTC")
+                .to_string(),
             excerpted,
         });
     }
@@ -1308,7 +1618,8 @@ fn load_target_evidence(target: &str, max_bytes: usize) -> Option<Evidence> {
         "cpu" => {
             if let Ok(content) = std::fs::read_to_string("/proc/cpuinfo") {
                 // Extract just model name and core count
-                let lines: Vec<&str> = content.lines()
+                let lines: Vec<&str> = content
+                    .lines()
                     .filter(|l| l.starts_with("model name") || l.starts_with("processor"))
                     .take(5)
                     .collect();
@@ -1324,8 +1635,13 @@ fn load_target_evidence(target: &str, max_bytes: usize) -> Option<Evidence> {
         }
         "memory" | "ram" => {
             if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
-                let lines: Vec<&str> = content.lines()
-                    .filter(|l| l.starts_with("MemTotal") || l.starts_with("MemFree") || l.starts_with("MemAvailable"))
+                let lines: Vec<&str> = content
+                    .lines()
+                    .filter(|l| {
+                        l.starts_with("MemTotal")
+                            || l.starts_with("MemFree")
+                            || l.starts_with("MemAvailable")
+                    })
                     .collect();
                 let summary = lines.join("\n");
                 let (data, excerpted) = excerpt_data(&summary, max_bytes);
@@ -1375,7 +1691,10 @@ fn extract_relevant_sw_data(content: &str, targets: &[String]) -> String {
     let mut relevant_lines = Vec::new();
     for line in content.lines() {
         let line_lower = line.to_lowercase();
-        if targets.iter().any(|t| line_lower.contains(&t.to_lowercase())) {
+        if targets
+            .iter()
+            .any(|t| line_lower.contains(&t.to_lowercase()))
+        {
             relevant_lines.push(line);
             if relevant_lines.len() > 50 {
                 break;
@@ -1431,7 +1750,10 @@ fn generate_action_plan(translator_output: &TranslatorOutput, request: &str) -> 
         // Package install - NOT executable in v0.0.8
         for target in &translator_output.targets {
             steps.push(format!("1. Check if '{}' is already installed", target));
-            steps.push(format!("2. Run: pacman -S {} (or yay -S {})", target, target));
+            steps.push(format!(
+                "2. Run: pacman -S {} (or yay -S {})",
+                target, target
+            ));
             steps.push(format!("3. Verify installation: pacman -Qi {}", target));
             affected_packages.push(target.clone());
         }
@@ -1771,15 +2093,22 @@ async fn call_junior_llm(
             .map(|r| {
                 let status = if r.success { "OK" } else { "FAILED" };
                 // v0.0.18: Redact secrets from evidence summaries
-                let redacted_summary = redact_evidence(&r.human_summary, None)
-                    .unwrap_or_else(|e| e);
-                format!("[{}] {} ({}): {}", r.evidence_id, r.tool_name, status, redacted_summary)
+                let redacted_summary =
+                    redact_evidence(&r.human_summary, None).unwrap_or_else(|e| e);
+                format!(
+                    "[{}] {} ({}): {}",
+                    r.evidence_id, r.tool_name, status, redacted_summary
+                )
             })
             .collect::<Vec<_>>()
             .join("\n")
     };
 
-    let translator_source = if translator_output.llm_backed { "LLM" } else { "deterministic fallback" };
+    let translator_source = if translator_output.llm_backed {
+        "LLM"
+    } else {
+        "deterministic fallback"
+    };
 
     // v0.0.18: Redact draft answer before sending to Junior
     let redacted_draft = redact_transcript(draft_answer);
@@ -1806,7 +2135,11 @@ Provide your verification in the exact format specified."#,
         request,
         translator_source,
         translator_output.intent_type,
-        if translator_output.targets.is_empty() { "(none)".to_string() } else { translator_output.targets.join(", ") },
+        if translator_output.targets.is_empty() {
+            "(none)".to_string()
+        } else {
+            translator_output.targets.join(", ")
+        },
         translator_output.risk,
         translator_output.confidence,
         evidence_text,
@@ -1840,15 +2173,24 @@ async fn call_junior_llm_legacy(
             .map(|(i, e)| {
                 let excerpt_note = if e.excerpted { " [EXCERPT]" } else { "" };
                 // v0.0.18: Redact secrets from evidence data
-                let redacted_data = redact_evidence(&e.data, Some(&e.source))
-                    .unwrap_or_else(|e| e);
-                format!("[E{}] {}{}: {}", i + 1, e.source, excerpt_note, redacted_data)
+                let redacted_data = redact_evidence(&e.data, Some(&e.source)).unwrap_or_else(|e| e);
+                format!(
+                    "[E{}] {}{}: {}",
+                    i + 1,
+                    e.source,
+                    excerpt_note,
+                    redacted_data
+                )
             })
             .collect::<Vec<_>>()
             .join("\n")
     };
 
-    let translator_source = if translator_output.llm_backed { "LLM" } else { "deterministic fallback" };
+    let translator_source = if translator_output.llm_backed {
+        "LLM"
+    } else {
+        "deterministic fallback"
+    };
 
     // v0.0.18: Redact draft answer before sending to Junior
     let redacted_draft = redact_transcript(draft_answer);
@@ -1875,7 +2217,11 @@ Provide your verification in the exact format specified."#,
         request,
         translator_source,
         translator_output.intent_type,
-        if translator_output.targets.is_empty() { "(none)".to_string() } else { translator_output.targets.join(", ") },
+        if translator_output.targets.is_empty() {
+            "(none)".to_string()
+        } else {
+            translator_output.targets.join(", ")
+        },
         translator_output.risk,
         translator_output.confidence,
         evidence_text,
@@ -1890,12 +2236,18 @@ Provide your verification in the exact format specified."#,
 }
 
 /// Parse Junior's LLM response into structured verification (v0.0.7: with uncited claims)
-fn parse_junior_response(response: &str, translator_output: &TranslatorOutput) -> JuniorVerification {
+fn parse_junior_response(
+    response: &str,
+    translator_output: &TranslatorOutput,
+) -> JuniorVerification {
     let mut verification = JuniorVerification::default();
 
     // Parse SCORE
     if let Some(score_line) = response.lines().find(|l| l.trim().starts_with("SCORE:")) {
-        if let Some(score_str) = score_line.strip_prefix("SCORE:").or_else(|| score_line.trim().strip_prefix("SCORE:")) {
+        if let Some(score_str) = score_line
+            .strip_prefix("SCORE:")
+            .or_else(|| score_line.trim().strip_prefix("SCORE:"))
+        {
             if let Ok(score) = score_str.trim().parse::<u8>() {
                 verification.score = score.min(100);
             }
@@ -1910,7 +2262,10 @@ fn parse_junior_response(response: &str, translator_output: &TranslatorOutput) -
     }
 
     // Parse UNCITED_CLAIMS (v0.0.7)
-    if let Some(uncited_line) = response.lines().find(|l| l.trim().starts_with("UNCITED_CLAIMS:")) {
+    if let Some(uncited_line) = response
+        .lines()
+        .find(|l| l.trim().starts_with("UNCITED_CLAIMS:"))
+    {
         if let Some(uncited) = uncited_line.trim().strip_prefix("UNCITED_CLAIMS:") {
             let uncited = uncited.trim();
             if uncited != "none" && !uncited.is_empty() {
@@ -1924,14 +2279,20 @@ fn parse_junior_response(response: &str, translator_output: &TranslatorOutput) -
     }
 
     // Parse SUGGESTIONS
-    if let Some(suggestions_line) = response.lines().find(|l| l.trim().starts_with("SUGGESTIONS:")) {
+    if let Some(suggestions_line) = response
+        .lines()
+        .find(|l| l.trim().starts_with("SUGGESTIONS:"))
+    {
         if let Some(suggestions) = suggestions_line.trim().strip_prefix("SUGGESTIONS:") {
             verification.suggestions = suggestions.trim().to_string();
         }
     }
 
     // Parse MUTATION_WARNING
-    if let Some(warning_line) = response.lines().find(|l| l.trim().starts_with("MUTATION_WARNING:")) {
+    if let Some(warning_line) = response
+        .lines()
+        .find(|l| l.trim().starts_with("MUTATION_WARNING:"))
+    {
         if let Some(warning) = warning_line.trim().strip_prefix("MUTATION_WARNING:") {
             verification.mutation_warning = warning.trim().eq_ignore_ascii_case("yes");
         }
@@ -1961,13 +2322,24 @@ fn detect_uncited_learning_claims(text: &str) -> Vec<String> {
 
     // Learning claim patterns
     let learning_patterns = [
-        "i learned", "i've learned", "i have learned",
-        "i remember", "i've remembered", "i recalled",
-        "i know how", "i know that", "i know about",
-        "i have a recipe", "i've got a recipe",
-        "my recipe", "my memory", "my knowledge",
-        "based on what i learned", "from what i remember",
-        "as i recall", "as i remember",
+        "i learned",
+        "i've learned",
+        "i have learned",
+        "i remember",
+        "i've remembered",
+        "i recalled",
+        "i know how",
+        "i know that",
+        "i know about",
+        "i have a recipe",
+        "i've got a recipe",
+        "my recipe",
+        "my memory",
+        "my knowledge",
+        "based on what i learned",
+        "from what i remember",
+        "as i recall",
+        "as i remember",
     ];
 
     let text_lower = text.to_lowercase();
@@ -1980,11 +2352,13 @@ fn detect_uncited_learning_claims(text: &str) -> Vec<String> {
         if text_lower.contains(pattern) {
             // Check if there's a citation nearby
             if !has_mem_citation && !has_rcp_citation {
-                uncited.push(format!("Learning claim '{}...' without MEM/RCP citation",
+                uncited.push(format!(
+                    "Learning claim '{}...' without MEM/RCP citation",
                     &text_lower[text_lower.find(pattern).unwrap_or(0)..]
                         .chars()
                         .take(40)
-                        .collect::<String>()));
+                        .collect::<String>()
+                ));
             }
         }
     }
@@ -2012,15 +2386,17 @@ fn enforce_learning_claims(
         if !verification.critique.is_empty() {
             verification.critique.push_str("; ");
         }
-        verification.critique.push_str("LEARNING CLAIMS FABRICATION DETECTED");
+        verification
+            .critique
+            .push_str("LEARNING CLAIMS FABRICATION DETECTED");
 
         // Update suggestions
         if !verification.suggestions.is_empty() {
             verification.suggestions.push_str("; ");
         }
-        verification.suggestions.push_str(
-            "Remove learning claims without [MEM#####] or [RCP#####] citations"
-        );
+        verification
+            .suggestions
+            .push_str("Remove learning claims without [MEM#####] or [RCP#####] citations");
     }
 
     verification
@@ -2047,11 +2423,8 @@ fn enforce_answer_target_correctness(
     if topic_detection.topic != EvidenceTopic::Unknown && topic_detection.confidence >= 70 {
         // Create minimal evidence JSON for validation (without actual evidence data)
         let evidence_data = serde_json::json!({});
-        let topic_validation = topic_validate_evidence(
-            topic_detection.topic,
-            &evidence_data,
-            final_answer,
-        );
+        let topic_validation =
+            topic_validate_evidence(topic_detection.topic, &evidence_data, final_answer);
 
         // v0.0.63: Use cap_reliability to enforce strict 40% cap for mismatched answers
         // This is the key fix: wrong answers can NEVER exceed 40% reliability
@@ -2131,7 +2504,10 @@ fn enforce_answer_target_correctness(
 }
 
 /// Fallback scoring when Junior LLM is unavailable
-fn fallback_junior_score(translator_output: &TranslatorOutput, evidence: &[Evidence]) -> JuniorVerification {
+fn fallback_junior_score(
+    translator_output: &TranslatorOutput,
+    evidence: &[Evidence],
+) -> JuniorVerification {
     let mut score: u8 = 0;
     let mut breakdown_parts = Vec::new();
 
@@ -2148,7 +2524,10 @@ fn fallback_junior_score(translator_output: &TranslatorOutput, evidence: &[Evide
         score += 30;
         breakdown_parts.push(format!("+30 confident ({}%)", translator_output.confidence));
     } else {
-        breakdown_parts.push(format!("+0 low confidence ({}%)", translator_output.confidence));
+        breakdown_parts.push(format!(
+            "+0 low confidence ({}%)",
+            translator_output.confidence
+        ));
     }
 
     // +20: observational + cited (read-only with evidence)
@@ -2179,7 +2558,10 @@ fn fallback_junior_score(translator_output: &TranslatorOutput, evidence: &[Evide
 }
 
 /// Fallback scoring with ToolResults (v0.0.7)
-fn fallback_junior_score_v2(translator_output: &TranslatorOutput, tool_results: &[ToolResult]) -> JuniorVerification {
+fn fallback_junior_score_v2(
+    translator_output: &TranslatorOutput,
+    tool_results: &[ToolResult],
+) -> JuniorVerification {
     let mut score: u8 = 0;
     let mut breakdown_parts = Vec::new();
 
@@ -2197,7 +2579,10 @@ fn fallback_junior_score_v2(translator_output: &TranslatorOutput, tool_results: 
         score += 30;
         breakdown_parts.push(format!("+30 confident ({}%)", translator_output.confidence));
     } else {
-        breakdown_parts.push(format!("+0 low confidence ({}%)", translator_output.confidence));
+        breakdown_parts.push(format!(
+            "+0 low confidence ({}%)",
+            translator_output.confidence
+        ));
     }
 
     // +20: observational + cited (read-only with evidence)
@@ -2256,7 +2641,12 @@ pub enum LlmAvailability {
 pub enum LlmNotReadyReason {
     Disabled,
     OllamaUnavailable,
-    Pulling { model: String, percent: f64, eta_secs: Option<u64>, speed: Option<f64> },
+    Pulling {
+        model: String,
+        percent: f64,
+        eta_secs: Option<u64>,
+        speed: Option<f64>,
+    },
     Benchmarking,
     Error(String),
     NoModel,
@@ -2267,22 +2657,38 @@ impl LlmNotReadyReason {
         match self {
             LlmNotReadyReason::Disabled => "LLM disabled in config".to_string(),
             LlmNotReadyReason::OllamaUnavailable => "Ollama not available".to_string(),
-            LlmNotReadyReason::Pulling { model, percent, eta_secs, speed } => {
-                let speed_str = speed.map(|s| {
-                    if s >= 1024.0 * 1024.0 {
-                        format!(" @ {:.1} MB/s", s / (1024.0 * 1024.0))
-                    } else if s >= 1024.0 {
-                        format!(" @ {:.1} KB/s", s / 1024.0)
-                    } else {
-                        String::new()
-                    }
-                }).unwrap_or_default();
-                let eta_str = eta_secs.map(|s| {
-                    if s < 60 { format!(" ETA {}s", s) }
-                    else if s < 3600 { format!(" ETA {}m {}s", s / 60, s % 60) }
-                    else { format!(" ETA {}h {}m", s / 3600, (s % 3600) / 60) }
-                }).unwrap_or_else(|| " ETA calculating...".to_string());
-                format!("Pulling '{}': {:.1}%{}{}", model, percent, speed_str, eta_str)
+            LlmNotReadyReason::Pulling {
+                model,
+                percent,
+                eta_secs,
+                speed,
+            } => {
+                let speed_str = speed
+                    .map(|s| {
+                        if s >= 1024.0 * 1024.0 {
+                            format!(" @ {:.1} MB/s", s / (1024.0 * 1024.0))
+                        } else if s >= 1024.0 {
+                            format!(" @ {:.1} KB/s", s / 1024.0)
+                        } else {
+                            String::new()
+                        }
+                    })
+                    .unwrap_or_default();
+                let eta_str = eta_secs
+                    .map(|s| {
+                        if s < 60 {
+                            format!(" ETA {}s", s)
+                        } else if s < 3600 {
+                            format!(" ETA {}m {}s", s / 60, s % 60)
+                        } else {
+                            format!(" ETA {}h {}m", s / 3600, (s % 3600) / 60)
+                        }
+                    })
+                    .unwrap_or_else(|| " ETA calculating...".to_string());
+                format!(
+                    "Pulling '{}': {:.1}%{}{}",
+                    model, percent, speed_str, eta_str
+                )
             }
             LlmNotReadyReason::Benchmarking => "Benchmarking models...".to_string(),
             LlmNotReadyReason::Error(e) => format!("LLM error: {}", e),
@@ -2304,7 +2710,9 @@ async fn get_translator_client() -> LlmAvailability {
         match snapshot.llm_bootstrap_phase.as_deref() {
             Some("pulling_models") => {
                 return LlmAvailability::NotReady(LlmNotReadyReason::Pulling {
-                    model: snapshot.llm_downloading_model.unwrap_or_else(|| "unknown".to_string()),
+                    model: snapshot
+                        .llm_downloading_model
+                        .unwrap_or_else(|| "unknown".to_string()),
                     percent: snapshot.llm_download_percent.unwrap_or(0.0),
                     eta_secs: snapshot.llm_download_eta_secs,
                     speed: snapshot.llm_download_speed,
@@ -2315,7 +2723,7 @@ async fn get_translator_client() -> LlmAvailability {
             }
             Some("error") => {
                 return LlmAvailability::NotReady(LlmNotReadyReason::Error(
-                    snapshot.llm_error.unwrap_or_else(|| "unknown".to_string())
+                    snapshot.llm_error.unwrap_or_else(|| "unknown".to_string()),
                 ));
             }
             _ => {}
@@ -2344,7 +2752,13 @@ async fn get_translator_client() -> LlmAvailability {
             Ok(models) => {
                 let names: Vec<String> = models.iter().map(|m| m.name.clone()).collect();
                 // Prefer small fast models for translator - exact match or closest match
-                let preferred = ["qwen2.5:0.5b", "qwen2.5:1.5b", "phi3:mini", "gemma2:2b", "llama3.2:1b"];
+                let preferred = [
+                    "qwen2.5:0.5b",
+                    "qwen2.5:1.5b",
+                    "phi3:mini",
+                    "gemma2:2b",
+                    "llama3.2:1b",
+                ];
                 for pref in preferred {
                     // First try exact match
                     if let Some(exact) = names.iter().find(|n| *n == pref) {
@@ -2383,7 +2797,9 @@ async fn get_junior_client() -> LlmAvailability {
         match snapshot.llm_bootstrap_phase.as_deref() {
             Some("pulling_models") => {
                 return LlmAvailability::NotReady(LlmNotReadyReason::Pulling {
-                    model: snapshot.llm_downloading_model.unwrap_or_else(|| "unknown".to_string()),
+                    model: snapshot
+                        .llm_downloading_model
+                        .unwrap_or_else(|| "unknown".to_string()),
                     percent: snapshot.llm_download_percent.unwrap_or(0.0),
                     eta_secs: snapshot.llm_download_eta_secs,
                     speed: snapshot.llm_download_speed,
@@ -2394,15 +2810,15 @@ async fn get_junior_client() -> LlmAvailability {
             }
             Some("error") => {
                 return LlmAvailability::NotReady(LlmNotReadyReason::Error(
-                    snapshot.llm_error.unwrap_or_else(|| "unknown".to_string())
+                    snapshot.llm_error.unwrap_or_else(|| "unknown".to_string()),
                 ));
             }
             _ => {}
         }
     }
 
-    let client = OllamaClient::with_url(&config.llm.ollama_url)
-        .with_timeout(config.llm.junior.timeout_ms);
+    let client =
+        OllamaClient::with_url(&config.llm.ollama_url).with_timeout(config.llm.junior.timeout_ms);
 
     if !client.is_available().await {
         return LlmAvailability::NotReady(LlmNotReadyReason::OllamaUnavailable);
@@ -2447,12 +2863,20 @@ fn ask_clarification(clarification: &Clarification) -> usize {
     println!();
 
     for (i, option) in clarification.options.iter().enumerate() {
-        let marker = if i == clarification.default_option { "*" } else { " " };
+        let marker = if i == clarification.default_option {
+            "*"
+        } else {
+            " "
+        };
         println!("  {}[{}] {}", marker, i + 1, option);
     }
 
     println!();
-    println!("  {} [default: {}]", "Enter choice (1-N):".dimmed(), clarification.default_option + 1);
+    println!(
+        "  {} [default: {}]",
+        "Enter choice (1-N):".dimmed(),
+        clarification.default_option + 1
+    );
     print!("  > ");
     io::stdout().flush().ok();
 
@@ -2496,13 +2920,12 @@ fn apply_clarification(translator_output: &mut TranslatorOutput, choice_idx: usi
 // v0.0.17: Target User Selection
 // =============================================================================
 
-use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
 /// Global target user selector (for REPL session continuity)
-static TARGET_USER_SELECTOR: Lazy<Mutex<TargetUserSelector>> = Lazy::new(|| {
-    Mutex::new(TargetUserSelector::new())
-});
+static TARGET_USER_SELECTOR: Lazy<Mutex<TargetUserSelector>> =
+    Lazy::new(|| Mutex::new(TargetUserSelector::new()));
 
 /// Select the target user, with clarification prompt if ambiguous
 fn select_target_user() -> Option<TargetUserSelection> {
@@ -2540,13 +2963,28 @@ fn select_target_user() -> Option<TargetUserSelection> {
 /// Check if a request involves user home directory changes
 fn request_involves_user_home(request: &str) -> bool {
     let home_keywords = [
-        "~", "$HOME", ".bashrc", ".zshrc", ".config", ".local",
-        "dotfile", "profile", "shell config", "vim", "nvim", "neovim",
-        "syntax highlight", "theme", "colorscheme", "terminal",
+        "~",
+        "$HOME",
+        ".bashrc",
+        ".zshrc",
+        ".config",
+        ".local",
+        "dotfile",
+        "profile",
+        "shell config",
+        "vim",
+        "nvim",
+        "neovim",
+        "syntax highlight",
+        "theme",
+        "colorscheme",
+        "terminal",
     ];
 
     let lower = request.to_lowercase();
-    home_keywords.iter().any(|k| lower.contains(&k.to_lowercase()))
+    home_keywords
+        .iter()
+        .any(|k| lower.contains(&k.to_lowercase()))
 }
 
 // =============================================================================
@@ -2565,7 +3003,10 @@ fn print_fast_header(request: &str) {
     }
     println!();
     // Working indicator - shows we're processing
-    print!("  {} ", "I'm starting analysis and gathering evidence...".dimmed());
+    print!(
+        "  {} ",
+        "I'm starting analysis and gathering evidence...".dimmed()
+    );
     let _ = io::stdout().flush();
 }
 
@@ -2693,14 +3134,25 @@ pub async fn process(request: &str) {
                     if err_str.contains("timeout") || err_str.contains("timed out") {
                         metrics.record(MetricType::TranslatorTimeout);
                     }
-                    println!("  {} {} - using deterministic fallback", "Translator LLM error:".yellow(), e);
-                    (translator_classify_deterministic(request), Some(format!("LLM error: {}", e)))
+                    println!(
+                        "  {} {} - using deterministic fallback",
+                        "Translator LLM error:".yellow(),
+                        e
+                    );
+                    (
+                        translator_classify_deterministic(request),
+                        Some(format!("LLM error: {}", e)),
+                    )
                 }
             }
         }
         LlmAvailability::NotReady(reason) => {
             let reason_str = reason.format();
-            println!("  {} {} - using deterministic fallback", "Translator:".cyan(), reason_str.dimmed());
+            println!(
+                "  {} {} - using deterministic fallback",
+                "Translator:".cyan(),
+                reason_str.dimmed()
+            );
             (translator_classify_deterministic(request), Some(reason_str))
         }
     };
@@ -2708,18 +3160,41 @@ pub async fn process(request: &str) {
     metrics.record_latency("translator", translator_ms);
 
     // [translator] to [anna]: classification result (v0.0.7: include tool plan)
-    let tool_plan_str = translator_output.tool_plan.as_ref()
-        .map(|p| format!("\nTools: {}", p.tools.iter().map(|t| t.tool_name.as_str()).collect::<Vec<_>>().join(", ")))
+    let tool_plan_str = translator_output
+        .tool_plan
+        .as_ref()
+        .map(|p| {
+            format!(
+                "\nTools: {}",
+                p.tools
+                    .iter()
+                    .map(|t| t.tool_name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })
         .unwrap_or_default();
     let translator_response = format!(
         "Intent: {}\nTargets: {}\nRisk: {}{}\nConfidence: {}%{}{}",
         translator_output.intent_type,
-        if translator_output.targets.is_empty() { "(none)".to_string() } else { translator_output.targets.join(", ") },
+        if translator_output.targets.is_empty() {
+            "(none)".to_string()
+        } else {
+            translator_output.targets.join(", ")
+        },
         translator_output.risk,
         tool_plan_str,
         translator_output.confidence,
-        if translator_output.llm_backed { "" } else { "\n[deterministic fallback]" },
-        if translator_output.clarification.is_some() { "\n[clarification requested]" } else { "" }
+        if translator_output.llm_backed {
+            ""
+        } else {
+            "\n[deterministic fallback]"
+        },
+        if translator_output.clarification.is_some() {
+            "\n[clarification requested]"
+        } else {
+            ""
+        }
     );
     dialogue(Actor::Translator, Actor::Anna, &translator_response);
     println!();
@@ -2730,8 +3205,20 @@ pub async fn process(request: &str) {
         let clarification_msg = format!(
             "I need to clarify before proceeding:\n{}\n\nOptions:\n{}",
             clarification.question,
-            clarification.options.iter().enumerate()
-                .map(|(i, o)| format!("  [{}] {}{}", i + 1, o, if i == clarification.default_option { " (default)" } else { "" }))
+            clarification
+                .options
+                .iter()
+                .enumerate()
+                .map(|(i, o)| format!(
+                    "  [{}] {}{}",
+                    i + 1,
+                    o,
+                    if i == clarification.default_option {
+                        " (default)"
+                    } else {
+                        ""
+                    }
+                ))
                 .collect::<Vec<_>>()
                 .join("\n")
         );
@@ -2742,62 +3229,86 @@ pub async fn process(request: &str) {
         apply_clarification(&mut translator_output, choice);
 
         // [you] to [anna]: clarification answer
-        let answer = translator_output.targets.first().cloned().unwrap_or_else(|| format!("option {}", choice + 1));
+        let answer = translator_output
+            .targets
+            .first()
+            .cloned()
+            .unwrap_or_else(|| format!("option {}", choice + 1));
         dialogue(Actor::You, Actor::Anna, &format!("Selected: {}", answer));
         println!();
     }
 
     // v0.0.53: Doctor Flow integration for FixIt mode
-    let doctor_flow_result: Option<DoctorFlowResult> = if translator_output.intent_type == IntentType::FixIt {
-        match DoctorRegistry::load() {
-            Ok(registry) => {
-                let intent_tags: Vec<String> = translator_output.targets.clone();
-                if let Some(selection) = registry.select_doctors(request, &intent_tags) {
-                    // Show doctor selection in transcript
-                    dialogue(
-                        Actor::Anna,
-                        Actor::You,
-                        &format!(
-                            "Selecting doctor: {} (score {})\nReason: {}",
-                            selection.primary.doctor_name,
-                            selection.confidence,
-                            selection.reasoning
-                        ),
-                    );
-                    println!();
+    let doctor_flow_result: Option<DoctorFlowResult> =
+        if translator_output.intent_type == IntentType::FixIt {
+            match DoctorRegistry::load() {
+                Ok(registry) => {
+                    let intent_tags: Vec<String> = translator_output.targets.clone();
+                    if let Some(selection) = registry.select_doctors(request, &intent_tags) {
+                        // Show doctor selection in transcript
+                        dialogue(
+                            Actor::Anna,
+                            Actor::You,
+                            &format!(
+                                "Selecting doctor: {} (score {})\nReason: {}",
+                                selection.primary.doctor_name,
+                                selection.confidence,
+                                selection.reasoning
+                            ),
+                        );
+                        println!();
 
-                    // v0.0.53: Run doctor flow
-                    let result = run_doctor_flow(&selection, request, &catalog).await;
-                    Some(result)
-                } else {
-                    dialogue(Actor::Anna, Actor::You, "No specific doctor matched - using general troubleshooting");
-                    println!();
+                        // v0.0.53: Run doctor flow
+                        let result = run_doctor_flow(&selection, request, &catalog).await;
+                        Some(result)
+                    } else {
+                        dialogue(
+                            Actor::Anna,
+                            Actor::You,
+                            "No specific doctor matched - using general troubleshooting",
+                        );
+                        println!();
+                        None
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to load doctor registry: {}", e);
                     None
                 }
             }
-            Err(e) => {
-                tracing::warn!("Failed to load doctor registry: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
+        } else {
+            None
+        };
 
     // v0.0.53: If doctor flow ran, use its results and skip normal evidence gathering
     if let Some(ref flow_result) = doctor_flow_result {
         // Show doctor report in transcript
-        dialogue(Actor::Anna, Actor::You, &format!(
-            "{} Report\n\nWhat I Checked:\n{}\n\nWhat I Found:\n{}\n\n{}",
-            flow_result.doctor_name,
-            flow_result.what_i_checked().iter().map(|c| format!("  - {}", c)).collect::<Vec<_>>().join("\n"),
-            flow_result.what_i_found().iter().map(|f| format!("  - {}", f)).collect::<Vec<_>>().join("\n"),
-            flow_result.render_summary()
-        ));
+        dialogue(
+            Actor::Anna,
+            Actor::You,
+            &format!(
+                "{} Report\n\nWhat I Checked:\n{}\n\nWhat I Found:\n{}\n\n{}",
+                flow_result.doctor_name,
+                flow_result
+                    .what_i_checked()
+                    .iter()
+                    .map(|c| format!("  - {}", c))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                flow_result
+                    .what_i_found()
+                    .iter()
+                    .map(|f| format!("  - {}", f))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                flow_result.render_summary()
+            ),
+        );
         println!();
 
         // Save doctor case file
-        let case_file = DoctorCaseFile::from_flow_result(flow_result, flow_result.diagnosis.confidence as u32);
+        let case_file =
+            DoctorCaseFile::from_flow_result(flow_result, flow_result.diagnosis.confidence as u32);
         if let Ok(path) = case_file.save() {
             tracing::info!("Doctor case file saved: {}", path);
         }
@@ -2819,13 +3330,19 @@ pub async fn process(request: &str) {
     let (tool_results, evidence) = if translator_output.intent_type == IntentType::SystemQuery
         || translator_output.intent_type == IntentType::ActionRequest
         || translator_output.intent_type == IntentType::FixIt
-        || (translator_output.intent_type == IntentType::Question && !translator_output.targets.is_empty())
+        || (translator_output.intent_type == IntentType::Question
+            && !translator_output.targets.is_empty())
     {
         // Use tool_plan if available, otherwise fall back to legacy evidence retrieval
         if let Some(ref original_plan) = translator_output.tool_plan {
             // v0.0.46: Apply tool sanity gate to ensure domain-specific tools are used
-            let plan = if let Some(fixed_plan) = apply_tool_sanity_gate(&translator_output, &translator_output.tool_plan) {
-                println!("  {} Tool sanity gate applied: using domain-specific tools", "[v0.0.46]".cyan());
+            let plan = if let Some(fixed_plan) =
+                apply_tool_sanity_gate(&translator_output, &translator_output.tool_plan)
+            {
+                println!(
+                    "  {} Tool sanity gate applied: using domain-specific tools",
+                    "[v0.0.46]".cyan()
+                );
                 fixed_plan
             } else {
                 original_plan.clone()
@@ -2833,10 +3350,7 @@ pub async fn process(request: &str) {
 
             // Natural language: Anna asks annad to gather evidence
             let tool_names: Vec<_> = plan.tools.iter().map(|t| t.tool_name.as_str()).collect();
-            let human_request = format!(
-                "Please gather evidence using: {}",
-                tool_names.join(", ")
-            );
+            let human_request = format!("Please gather evidence using: {}", tool_names.join(", "));
             dialogue(Actor::Anna, Actor::Annad, &human_request);
             println!();
 
@@ -2862,10 +3376,14 @@ pub async fn process(request: &str) {
             let evidence_summary = if results.is_empty() {
                 "No evidence gathered - tools returned no results.".to_string()
             } else {
-                results.iter()
+                results
+                    .iter()
                     .map(|r| {
                         let status = if r.success { "found" } else { "failed" };
-                        format!("[{}] {}: {} ({})", r.evidence_id, r.tool_name, r.human_summary, status)
+                        format!(
+                            "[{}] {}: {} ({})",
+                            r.evidence_id, r.tool_name, r.human_summary, status
+                        )
                     })
                     .collect::<Vec<_>>()
                     .join("\n")
@@ -2881,7 +3399,11 @@ pub async fn process(request: &str) {
                 Actor::Annad,
                 &format!(
                     "Retrieve evidence for: {}",
-                    if translator_output.targets.is_empty() { "(general query)".to_string() } else { translator_output.targets.join(", ") }
+                    if translator_output.targets.is_empty() {
+                        "(general query)".to_string()
+                    } else {
+                        translator_output.targets.join(", ")
+                    }
                 ),
             );
             println!();
@@ -2900,7 +3422,14 @@ pub async fn process(request: &str) {
                         } else {
                             e.data.clone()
                         };
-                        format!("[E{}] {}{} ({}): {}", i + 1, e.source, excerpt_note, e.timestamp, data_preview)
+                        format!(
+                            "[E{}] {}{} ({}): {}",
+                            i + 1,
+                            e.source,
+                            excerpt_note,
+                            e.timestamp,
+                            data_preview
+                        )
                     })
                     .collect::<Vec<_>>()
                     .join("\n")
@@ -2915,7 +3444,8 @@ pub async fn process(request: &str) {
     };
 
     // Generate draft answer with Evidence IDs (and action plan if action request)
-    let (draft_answer, action_plan) = if translator_output.intent_type == IntentType::ActionRequest {
+    let (draft_answer, action_plan) = if translator_output.intent_type == IntentType::ActionRequest
+    {
         let plan = generate_action_plan(&translator_output, request);
         let draft = format!(
             "This is an action request.\n\n\
@@ -2928,17 +3458,40 @@ pub async fn process(request: &str) {
              Required confirmation: \"{}\"\n\n\
              {}\n\n\
              [Action NOT executed - confirmation required]",
-            plan.steps.iter().map(|s| format!("  {}", s)).collect::<Vec<_>>().join("\n"),
-            if plan.affected_packages.is_empty() { "(none)".to_string() } else { plan.affected_packages.join(", ") },
-            if plan.affected_services.is_empty() { "(none)".to_string() } else { plan.affected_services.join(", ") },
-            if plan.affected_files.is_empty() { "(none)".to_string() } else { plan.affected_files.join(", ") },
+            plan.steps
+                .iter()
+                .map(|s| format!("  {}", s))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            if plan.affected_packages.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_packages.join(", ")
+            },
+            if plan.affected_services.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_services.join(", ")
+            },
+            if plan.affected_files.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_files.join(", ")
+            },
             plan.risk,
-            if plan.confirmation_phrase.is_empty() { "none" } else { &plan.confirmation_phrase },
+            if plan.confirmation_phrase.is_empty() {
+                "none"
+            } else {
+                &plan.confirmation_phrase
+            },
             plan.rollback_outline
         );
         (draft, Some(plan))
     } else if !tool_results.is_empty() {
-        (generate_draft_response_v2(&translator_output, &tool_results), None)
+        (
+            generate_draft_response_v2(&translator_output, &tool_results),
+            None,
+        )
     } else {
         (generate_draft_response(&translator_output, &evidence), None)
     };
@@ -2960,9 +3513,25 @@ pub async fn process(request: &str) {
             show_spinner(&format!("[junior verifying via {}...]", model));
 
             let result = if !tool_results.is_empty() {
-                call_junior_llm(&client, &model, request, &translator_output, &tool_results, &draft_answer).await
+                call_junior_llm(
+                    &client,
+                    &model,
+                    request,
+                    &translator_output,
+                    &tool_results,
+                    &draft_answer,
+                )
+                .await
             } else {
-                call_junior_llm_legacy(&client, &model, request, &translator_output, &evidence, &draft_answer).await
+                call_junior_llm_legacy(
+                    &client,
+                    &model,
+                    request,
+                    &translator_output,
+                    &evidence,
+                    &draft_answer,
+                )
+                .await
             };
 
             match result {
@@ -2980,9 +3549,15 @@ pub async fn process(request: &str) {
                     }
                     println!("  {} {}", "Junior LLM error:".yellow(), e);
                     if !tool_results.is_empty() {
-                        (fallback_junior_score_v2(&translator_output, &tool_results), Some(format!("LLM error: {}", e)))
+                        (
+                            fallback_junior_score_v2(&translator_output, &tool_results),
+                            Some(format!("LLM error: {}", e)),
+                        )
                     } else {
-                        (fallback_junior_score(&translator_output, &evidence), Some(format!("LLM error: {}", e)))
+                        (
+                            fallback_junior_score(&translator_output, &evidence),
+                            Some(format!("LLM error: {}", e)),
+                        )
                     }
                 }
             }
@@ -2994,7 +3569,13 @@ pub async fn process(request: &str) {
             if let LlmNotReadyReason::Pulling { percent, .. } = &reason {
                 let filled = (percent / 5.0) as usize;
                 let empty = 20 - filled.min(20);
-                println!("  {} [{}{}] {:.1}%", "Progress:".cyan(), "=".repeat(filled), " ".repeat(empty), percent);
+                println!(
+                    "  {} [{}{}] {:.1}%",
+                    "Progress:".cyan(),
+                    "=".repeat(filled),
+                    " ".repeat(empty),
+                    percent
+                );
             }
 
             let mut fallback = if !tool_results.is_empty() {
@@ -3012,30 +3593,56 @@ pub async fn process(request: &str) {
 
     // v0.0.52: Apply answer-target correctness check
     // Penalizes answers that don't match the query target (e.g., CPU info for disk query)
-    let verification = enforce_answer_target_correctness(verification, &translator_output, request, &draft_answer);
+    let verification =
+        enforce_answer_target_correctness(verification, &translator_output, request, &draft_answer);
 
     // [junior] to [anna]: verification result (v0.0.7: include uncited claims)
     let uncited_str = if verification.uncited_claims.is_empty() {
         String::new()
     } else {
-        format!("\nUncited claims: {}", verification.uncited_claims.join(", "))
+        format!(
+            "\nUncited claims: {}",
+            verification.uncited_claims.join(", ")
+        )
     };
     let junior_response = format!(
         "Reliability: {}%\nCritique: {}{}\nSuggestions: {}{}",
         verification.score,
-        if verification.critique.is_empty() { "(none)" } else { &verification.critique },
+        if verification.critique.is_empty() {
+            "(none)"
+        } else {
+            &verification.critique
+        },
         uncited_str,
-        if verification.suggestions.is_empty() { "(none)" } else { &verification.suggestions },
-        if verification.mutation_warning { "\n\n*** DO NOT EXECUTE without confirmation ***" } else { "" }
+        if verification.suggestions.is_empty() {
+            "(none)"
+        } else {
+            &verification.suggestions
+        },
+        if verification.mutation_warning {
+            "\n\n*** DO NOT EXECUTE without confirmation ***"
+        } else {
+            ""
+        }
     );
     dialogue(Actor::Junior, Actor::Anna, &junior_response);
     println!();
 
     // [anna] to [you]: final response (v0.0.7: with evidence citations)
     let final_response = if !tool_results.is_empty() {
-        generate_final_response_v2(&translator_output, &tool_results, &verification, action_plan.as_ref())
+        generate_final_response_v2(
+            &translator_output,
+            &tool_results,
+            &verification,
+            action_plan.as_ref(),
+        )
     } else {
-        generate_final_response(&translator_output, &evidence, &verification, action_plan.as_ref())
+        generate_final_response(
+            &translator_output,
+            &evidence,
+            &verification,
+            action_plan.as_ref(),
+        )
     };
 
     // v0.0.13: Enforce learning claims - apply penalty for uncited learning statements
@@ -3056,8 +3663,15 @@ pub async fn process(request: &str) {
 
     // Notes about fallbacks
     if translator_reason.is_some() || junior_reason.is_some() {
-        let reasons: Vec<String> = [translator_reason, junior_reason].into_iter().flatten().collect();
-        println!("  {} {}", "Note:".dimmed(), format!("Fallback used - {}", reasons.join("; ")).dimmed());
+        let reasons: Vec<String> = [translator_reason, junior_reason]
+            .into_iter()
+            .flatten()
+            .collect();
+        println!(
+            "  {} {}",
+            "Note:".dimmed(),
+            format!("Fallback used - {}", reasons.join("; ")).dimmed()
+        );
     }
 
     // v0.0.8: Handle mutation execution for medium-risk operations
@@ -3127,9 +3741,15 @@ pub async fn process(request: &str) {
     // Show performance note at debug level 2
     if config.ui.debug_level >= 2 {
         let cache_note = if cache_hit { " (cache hit)" } else { "" };
-        println!("  {} total: {}ms, translator: {}ms, tools: {}ms, junior: {}ms{}",
+        println!(
+            "  {} total: {}ms, translator: {}ms, tools: {}ms, junior: {}ms{}",
             "[perf]".dimmed(),
-            total_ms, translator_ms, tools_ms, junior_ms, cache_note.dimmed());
+            total_ms,
+            translator_ms,
+            tools_ms,
+            junior_ms,
+            cache_note.dimmed()
+        );
     }
 }
 
@@ -3172,7 +3792,12 @@ async fn handle_mutation_execution(
         mutation_plan.what_will_change,
         mutation_plan.why_required,
         mutation_plan.risk,
-        action_plan.rollback_outline.lines().map(|l| format!("  {}", l)).collect::<Vec<_>>().join("\n"),
+        action_plan
+            .rollback_outline
+            .lines()
+            .map(|l| format!("  {}", l))
+            .collect::<Vec<_>>()
+            .join("\n"),
         action_plan.confirmation_phrase.bold()
     );
     dialogue_always(Actor::Anna, Actor::You, &confirmation_msg);
@@ -3205,7 +3830,10 @@ async fn handle_mutation_execution(
             ),
         );
         println!();
-        println!("  {}", "Action cancelled - wrong or missing confirmation phrase".yellow());
+        println!(
+            "  {}",
+            "Action cancelled - wrong or missing confirmation phrase".yellow()
+        );
         return;
     }
 
@@ -3215,11 +3843,17 @@ async fn handle_mutation_execution(
         Actor::Annad,
         &format!(
             "User confirmed. Please execute the following operations:\n{}",
-            mutation_plan.mutations.iter()
-                .map(|m| format!("  - {} ({})", m.tool_name,
-                    m.parameters.get("service")
+            mutation_plan
+                .mutations
+                .iter()
+                .map(|m| format!(
+                    "  - {} ({})",
+                    m.tool_name,
+                    m.parameters
+                        .get("service")
                         .and_then(|v| v.as_str())
-                        .unwrap_or("system")))
+                        .unwrap_or("system")
+                ))
                 .collect::<Vec<_>>()
                 .join("\n")
         ),
@@ -3240,11 +3874,29 @@ async fn handle_mutation_execution(
 
         match execute_mutation(&mutation, &mutation_catalog, &rollback_manager) {
             Ok(result) => {
-                let status = if result.success { "SUCCESS".green().to_string() } else { "FAILED".red().to_string() };
-                println!("  {} {}: {}", status, result.tool_name, result.human_summary);
+                let status = if result.success {
+                    "SUCCESS".green().to_string()
+                } else {
+                    "FAILED".red().to_string()
+                };
+                println!(
+                    "  {} {}: {}",
+                    status, result.tool_name, result.human_summary
+                );
 
                 if let Some(ref rollback) = result.rollback_info {
-                    println!("    {}", format!("Rollback: {}", rollback.rollback_instructions.lines().next().unwrap_or("N/A")).dimmed());
+                    println!(
+                        "    {}",
+                        format!(
+                            "Rollback: {}",
+                            rollback
+                                .rollback_instructions
+                                .lines()
+                                .next()
+                                .unwrap_or("N/A")
+                        )
+                        .dimmed()
+                    );
                 }
 
                 if !result.success {
@@ -3287,9 +3939,11 @@ async fn handle_mutation_execution(
 
     // Final response
     let final_msg = if all_success {
-        "Operations completed. Rollback instructions are available in the logs if needed.".to_string()
+        "Operations completed. Rollback instructions are available in the logs if needed."
+            .to_string()
     } else {
-        "Some operations failed. Please check the logs and consider manual rollback if needed.".to_string()
+        "Some operations failed. Please check the logs and consider manual rollback if needed."
+            .to_string()
     };
     dialogue(Actor::Anna, Actor::You, &final_msg);
     println!();
@@ -3345,7 +3999,11 @@ async fn run_doctor_flow(
         &format!(
             "Running diagnostic plan with {} checks:\n{}",
             steps.len(),
-            steps.iter().map(|s| format!("  {}. {}", s.step_number, s.check.description)).collect::<Vec<_>>().join("\n")
+            steps
+                .iter()
+                .map(|s| format!("  {}. {}", s.step_number, s.check.description))
+                .collect::<Vec<_>>()
+                .join("\n")
         ),
     );
     println!();
@@ -3370,12 +4028,17 @@ async fn run_doctor_flow(
         let success = tool_result.success;
 
         // Record evidence
-        if let Some(evidence) = executor.record_step_evidence(i, data, &summary, success, duration_ms) {
+        if let Some(evidence) =
+            executor.record_step_evidence(i, data, &summary, success, duration_ms)
+        {
             // Show in transcript (condensed)
             dialogue(
                 Actor::Annad,
                 Actor::Anna,
-                &format!("[{}] {}: {}", evidence.evidence_id, step.check.tool_name, summary),
+                &format!(
+                    "[{}] {}: {}",
+                    evidence.evidence_id, step.check.tool_name, summary
+                ),
             );
             println!();
         }
@@ -3407,17 +4070,13 @@ fn generate_draft_response(translator_output: &TranslatorOutput, evidence: &[Evi
                 response
             }
         }
-        IntentType::Question => {
-            "This appears to be a general question.\n\n\
+        IntentType::Question => "This appears to be a general question.\n\n\
              General knowledge questions require LLM response generation,\n\
              which will be fully implemented in a future version."
-                .to_string()
-        }
-        IntentType::Unknown => {
-            "I wasn't able to classify this request with confidence.\n\n\
+            .to_string(),
+        IntentType::Unknown => "I wasn't able to classify this request with confidence.\n\n\
              Could you rephrase or provide more details?"
-                .to_string()
-        }
+            .to_string(),
         IntentType::ActionRequest => {
             // This case is handled separately with action plan
             "Action request - see plan above.".to_string()
@@ -3430,7 +4089,10 @@ fn generate_draft_response(translator_output: &TranslatorOutput, evidence: &[Evi
 }
 
 /// Generate a draft response with Evidence IDs from tool results (v0.0.7)
-fn generate_draft_response_v2(translator_output: &TranslatorOutput, tool_results: &[ToolResult]) -> String {
+fn generate_draft_response_v2(
+    translator_output: &TranslatorOutput,
+    tool_results: &[ToolResult],
+) -> String {
     match translator_output.intent_type {
         IntentType::SystemQuery => {
             let successful: Vec<_> = tool_results.iter().filter(|r| r.success).collect();
@@ -3445,9 +4107,7 @@ fn generate_draft_response_v2(translator_output: &TranslatorOutput, tool_results
                 for result in &successful {
                     response.push_str(&format!(
                         "[{}] {}: {}\n\n",
-                        result.evidence_id,
-                        result.tool_name,
-                        result.human_summary
+                        result.evidence_id, result.tool_name, result.human_summary
                     ));
                 }
 
@@ -3456,17 +4116,13 @@ fn generate_draft_response_v2(translator_output: &TranslatorOutput, tool_results
                 response
             }
         }
-        IntentType::Question => {
-            "This appears to be a general question.\n\n\
+        IntentType::Question => "This appears to be a general question.\n\n\
              General knowledge questions require LLM response generation,\n\
              which will be fully implemented in a future version."
-                .to_string()
-        }
-        IntentType::Unknown => {
-            "I wasn't able to classify this request with confidence.\n\n\
+            .to_string(),
+        IntentType::Unknown => "I wasn't able to classify this request with confidence.\n\n\
              Could you rephrase or provide more details?"
-                .to_string()
-        }
+            .to_string(),
         IntentType::ActionRequest => {
             // This case is handled separately with action plan
             "Action request - see plan above.".to_string()
@@ -3494,12 +4150,37 @@ fn generate_final_response(
              - Services: {}\n\
              - Files: {}\n\n\
              Risk: {} | Confirmation: \"{}\"",
-            plan.steps.iter().enumerate().map(|(i, s)| format!("{}. {}", i + 1, s.trim_start_matches(|c: char| c.is_numeric() || c == '.'))).collect::<Vec<_>>().join("\n"),
-            if plan.affected_packages.is_empty() { "(none)".to_string() } else { plan.affected_packages.join(", ") },
-            if plan.affected_services.is_empty() { "(none)".to_string() } else { plan.affected_services.join(", ") },
-            if plan.affected_files.is_empty() { "(none)".to_string() } else { plan.affected_files.join(", ") },
+            plan.steps
+                .iter()
+                .enumerate()
+                .map(|(i, s)| format!(
+                    "{}. {}",
+                    i + 1,
+                    s.trim_start_matches(|c: char| c.is_numeric() || c == '.')
+                ))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            if plan.affected_packages.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_packages.join(", ")
+            },
+            if plan.affected_services.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_services.join(", ")
+            },
+            if plan.affected_files.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_files.join(", ")
+            },
             plan.risk,
-            if plan.confirmation_phrase.is_empty() { "none" } else { &plan.confirmation_phrase }
+            if plan.confirmation_phrase.is_empty() {
+                "none"
+            } else {
+                &plan.confirmation_phrase
+            }
         )
     } else {
         generate_draft_response(translator_output, evidence)
@@ -3540,12 +4221,37 @@ fn generate_final_response_v2(
              - Services: {}\n\
              - Files: {}\n\n\
              Risk: {} | Confirmation: \"{}\"",
-            plan.steps.iter().enumerate().map(|(i, s)| format!("{}. {}", i + 1, s.trim_start_matches(|c: char| c.is_numeric() || c == '.'))).collect::<Vec<_>>().join("\n"),
-            if plan.affected_packages.is_empty() { "(none)".to_string() } else { plan.affected_packages.join(", ") },
-            if plan.affected_services.is_empty() { "(none)".to_string() } else { plan.affected_services.join(", ") },
-            if plan.affected_files.is_empty() { "(none)".to_string() } else { plan.affected_files.join(", ") },
+            plan.steps
+                .iter()
+                .enumerate()
+                .map(|(i, s)| format!(
+                    "{}. {}",
+                    i + 1,
+                    s.trim_start_matches(|c: char| c.is_numeric() || c == '.')
+                ))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            if plan.affected_packages.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_packages.join(", ")
+            },
+            if plan.affected_services.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_services.join(", ")
+            },
+            if plan.affected_files.is_empty() {
+                "(none)".to_string()
+            } else {
+                plan.affected_files.join(", ")
+            },
             plan.risk,
-            if plan.confirmation_phrase.is_empty() { "none" } else { &plan.confirmation_phrase }
+            if plan.confirmation_phrase.is_empty() {
+                "none"
+            } else {
+                &plan.confirmation_phrase
+            }
         )
     } else {
         // Generate response with citations
@@ -3557,13 +4263,9 @@ fn generate_final_response_v2(
 
             // Add each piece of evidence with its ID (v0.0.18: redacted for secrets)
             for result in &successful {
-                let redacted_summary = redact_evidence(&result.human_summary, None)
-                    .unwrap_or_else(|e| e);
-                response.push_str(&format!(
-                    "[{}] {}\n",
-                    result.evidence_id,
-                    redacted_summary
-                ));
+                let redacted_summary =
+                    redact_evidence(&result.human_summary, None).unwrap_or_else(|e| e);
+                response.push_str(&format!("[{}] {}\n", result.evidence_id, redacted_summary));
             }
 
             // Add evidence legend
@@ -3707,18 +4409,36 @@ mod tests {
 
     #[test]
     fn test_risk_level_parsing() {
-        assert_eq!("read_only".parse::<RiskLevel>().unwrap(), RiskLevel::ReadOnly);
+        assert_eq!(
+            "read_only".parse::<RiskLevel>().unwrap(),
+            RiskLevel::ReadOnly
+        );
         assert_eq!("low".parse::<RiskLevel>().unwrap(), RiskLevel::LowRisk);
-        assert_eq!("medium".parse::<RiskLevel>().unwrap(), RiskLevel::MediumRisk);
+        assert_eq!(
+            "medium".parse::<RiskLevel>().unwrap(),
+            RiskLevel::MediumRisk
+        );
         assert_eq!("high".parse::<RiskLevel>().unwrap(), RiskLevel::HighRisk);
     }
 
     #[test]
     fn test_intent_type_parsing() {
-        assert_eq!("question".parse::<IntentType>().unwrap(), IntentType::Question);
-        assert_eq!("system_query".parse::<IntentType>().unwrap(), IntentType::SystemQuery);
-        assert_eq!("action_request".parse::<IntentType>().unwrap(), IntentType::ActionRequest);
-        assert_eq!("unknown".parse::<IntentType>().unwrap(), IntentType::Unknown);
+        assert_eq!(
+            "question".parse::<IntentType>().unwrap(),
+            IntentType::Question
+        );
+        assert_eq!(
+            "system_query".parse::<IntentType>().unwrap(),
+            IntentType::SystemQuery
+        );
+        assert_eq!(
+            "action_request".parse::<IntentType>().unwrap(),
+            IntentType::ActionRequest
+        );
+        assert_eq!(
+            "unknown".parse::<IntentType>().unwrap(),
+            IntentType::Unknown
+        );
     }
 
     #[test]
@@ -3830,7 +4550,10 @@ mod tests {
         assert!(output.tool_plan.is_some());
         let plan = output.tool_plan.unwrap();
         assert!(!plan.tools.is_empty());
-        assert!(plan.tools.iter().any(|t| t.tool_name == "hw_snapshot_summary"));
+        assert!(plan
+            .tools
+            .iter()
+            .any(|t| t.tool_name == "hw_snapshot_summary"));
     }
 
     #[test]
@@ -3860,9 +4583,15 @@ mod tests {
         let verification = parse_junior_response(response, &output);
         assert_eq!(verification.score, 50);
         assert_eq!(verification.uncited_claims.len(), 3);
-        assert!(verification.uncited_claims.contains(&"CPU model".to_string()));
-        assert!(verification.uncited_claims.contains(&"memory size".to_string()));
-        assert!(verification.uncited_claims.contains(&"disk space".to_string()));
+        assert!(verification
+            .uncited_claims
+            .contains(&"CPU model".to_string()));
+        assert!(verification
+            .uncited_claims
+            .contains(&"memory size".to_string()));
+        assert!(verification
+            .uncited_claims
+            .contains(&"disk space".to_string()));
     }
 
     #[test]

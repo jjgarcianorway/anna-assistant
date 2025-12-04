@@ -14,11 +14,11 @@
 //! Performance targets:
 //! - annactl sw p95 < 1.0s when cache is warm
 
+use crate::atomic_write;
+use crate::daemon_state::INTERNAL_DIR;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::atomic_write;
-use crate::daemon_state::INTERNAL_DIR;
 
 /// Cache file path (daemon writes here, annactl reads)
 pub const SW_CACHE_PATH: &str = "/var/lib/anna/internal/sw_cache.json";
@@ -272,10 +272,8 @@ pub fn get_path_dir_mtimes() -> HashMap<String, u64> {
 /// Called by daemon or on cache miss
 pub fn build_sw_cache() -> SwCache {
     use crate::grounded::{
-        packages::PackageCounts,
-        commands::count_path_executables,
-        services::ServiceCounts,
-        categoriser::get_category_summary,
+        categoriser::get_category_summary, commands::count_path_executables,
+        packages::PackageCounts, services::ServiceCounts,
     };
     use crate::topology_map::build_software_topology;
 
@@ -319,14 +317,22 @@ pub fn build_sw_cache() -> SwCache {
     // Build topology
     let topo = build_software_topology();
     let topology = CachedTopology {
-        roles: topo.roles.iter().map(|r| CachedRole {
-            name: r.name.clone(),
-            components: r.components.clone(),
-        }).collect(),
-        service_groups: topo.service_groups.iter().map(|g| CachedServiceGroup {
-            name: g.name.clone(),
-            services: g.services.clone(),
-        }).collect(),
+        roles: topo
+            .roles
+            .iter()
+            .map(|r| CachedRole {
+                name: r.name.clone(),
+                components: r.components.clone(),
+            })
+            .collect(),
+        service_groups: topo
+            .service_groups
+            .iter()
+            .map(|g| CachedServiceGroup {
+                name: g.name.clone(),
+                services: g.services.clone(),
+            })
+            .collect(),
     };
 
     let build_duration_ms = start.elapsed().as_millis() as u64;
@@ -349,13 +355,54 @@ pub fn build_sw_cache() -> SwCache {
 
 /// Known apps to check for config coverage (same as sw.rs)
 const CONFIG_COVERAGE_APPS: &[&str] = &[
-    "vim", "nvim", "neovim", "emacs", "nano", "helix", "kakoune", "micro",
-    "alacritty", "kitty", "foot", "wezterm", "termite", "st", "urxvt", "xterm",
-    "hyprland", "sway", "wayfire", "river", "dwl", "i3", "bspwm", "openbox",
-    "mpv", "vlc", "mplayer", "mpd", "ncmpcpp", "cmus", "pipewire", "pulseaudio",
-    "networkmanager", "iwd", "wpa_supplicant", "systemd-networkd", "connman",
-    "tlp", "powertop", "acpid", "thermald", "auto-cpufreq",
-    "systemd", "grub", "mkinitcpio", "pacman", "yay", "paru",
+    "vim",
+    "nvim",
+    "neovim",
+    "emacs",
+    "nano",
+    "helix",
+    "kakoune",
+    "micro",
+    "alacritty",
+    "kitty",
+    "foot",
+    "wezterm",
+    "termite",
+    "st",
+    "urxvt",
+    "xterm",
+    "hyprland",
+    "sway",
+    "wayfire",
+    "river",
+    "dwl",
+    "i3",
+    "bspwm",
+    "openbox",
+    "mpv",
+    "vlc",
+    "mplayer",
+    "mpd",
+    "ncmpcpp",
+    "cmus",
+    "pipewire",
+    "pulseaudio",
+    "networkmanager",
+    "iwd",
+    "wpa_supplicant",
+    "systemd-networkd",
+    "connman",
+    "tlp",
+    "powertop",
+    "acpid",
+    "thermald",
+    "auto-cpufreq",
+    "systemd",
+    "grub",
+    "mkinitcpio",
+    "pacman",
+    "yay",
+    "paru",
 ];
 
 fn build_config_coverage() -> CachedConfigCoverage {

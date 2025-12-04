@@ -84,9 +84,7 @@ impl UserInfo {
 
     /// Check if this user has an interactive shell
     pub fn has_interactive_shell(&self) -> bool {
-        !self.shell.contains("nologin") &&
-        !self.shell.contains("false") &&
-        !self.shell.is_empty()
+        !self.shell.contains("nologin") && !self.shell.contains("false") && !self.shell.is_empty()
     }
 
     /// Check if the home directory exists
@@ -215,7 +213,8 @@ impl AmbiguousUserSelection {
         );
         selection.evidence_id = self.evidence_id.clone();
         selection.required_clarification = true;
-        selection.other_candidates = self.candidates
+        selection.other_candidates = self
+            .candidates
             .iter()
             .enumerate()
             .filter(|(i, _)| *i != choice - 1)
@@ -481,7 +480,8 @@ pub fn get_path_relative_to_home(path: &Path, user: &UserInfo) -> Option<PathBuf
     let canonical_home = user.home.canonicalize().ok()?;
     let canonical_path = path.canonicalize().ok()?;
 
-    canonical_path.strip_prefix(&canonical_home)
+    canonical_path
+        .strip_prefix(&canonical_home)
         .ok()
         .map(|p| p.to_path_buf())
 }
@@ -535,7 +535,9 @@ impl std::fmt::Display for UserScopeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             UserScopeError::UserNotFound(u) => write!(f, "User not found: {}", u),
-            UserScopeError::HomeNotFound(u) => write!(f, "Home directory not found for user: {}", u),
+            UserScopeError::HomeNotFound(u) => {
+                write!(f, "Home directory not found for user: {}", u)
+            }
             UserScopeError::PathNotInHome(p) => write!(f, "Path is not in user's home: {}", p),
             UserScopeError::PermissionDenied(p) => write!(f, "Permission denied: {}", p),
             UserScopeError::OperationFailed(e) => write!(f, "Operation failed: {}", e),
@@ -574,15 +576,17 @@ pub fn write_file_as_user(
 
     // Write using install command which can set ownership
     let temp_path = format!("/tmp/anna_write_{}.tmp", std::process::id());
-    fs::write(&temp_path, content)
-        .map_err(|e| UserScopeError::OperationFailed(e.to_string()))?;
+    fs::write(&temp_path, content).map_err(|e| UserScopeError::OperationFailed(e.to_string()))?;
 
     // Use install to copy with correct ownership
     let output = Command::new("install")
         .args([
-            "-o", &user.uid.to_string(),
-            "-g", &user.gid.to_string(),
-            "-m", "644",
+            "-o",
+            &user.uid.to_string(),
+            "-g",
+            &user.gid.to_string(),
+            "-m",
+            "644",
             &temp_path,
             &path.to_string_lossy(),
         ])
@@ -594,7 +598,7 @@ pub fn write_file_as_user(
     match output {
         Ok(o) if o.status.success() => Ok(()),
         Ok(o) => Err(UserScopeError::OperationFailed(
-            String::from_utf8_lossy(&o.stderr).to_string()
+            String::from_utf8_lossy(&o.stderr).to_string(),
         )),
         Err(e) => Err(UserScopeError::OperationFailed(e.to_string())),
     }
@@ -606,9 +610,12 @@ pub fn create_dir_as_user(path: &Path, user: &UserInfo) -> Result<(), UserScopeE
     let output = Command::new("install")
         .args([
             "-d",
-            "-o", &user.uid.to_string(),
-            "-g", &user.gid.to_string(),
-            "-m", "755",
+            "-o",
+            &user.uid.to_string(),
+            "-g",
+            &user.gid.to_string(),
+            "-m",
+            "755",
             &path.to_string_lossy(),
         ])
         .output();
@@ -616,7 +623,7 @@ pub fn create_dir_as_user(path: &Path, user: &UserInfo) -> Result<(), UserScopeE
     match output {
         Ok(o) if o.status.success() => Ok(()),
         Ok(o) => Err(UserScopeError::OperationFailed(
-            String::from_utf8_lossy(&o.stderr).to_string()
+            String::from_utf8_lossy(&o.stderr).to_string(),
         )),
         Err(e) => Err(UserScopeError::OperationFailed(e.to_string())),
     }
@@ -638,7 +645,8 @@ pub fn backup_file_as_user(
         .unwrap_or_default()
         .as_secs();
 
-    let filename = source.file_name()
+    let filename = source
+        .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "backup".to_string());
 
@@ -656,15 +664,12 @@ pub fn backup_file_as_user(
         Ok(o) if o.status.success() => {
             // Chown to user
             let _ = Command::new("chown")
-                .args([
-                    &format!("{}:{}", user.uid, user.gid),
-                    &backup_str,
-                ])
+                .args([&format!("{}:{}", user.uid, user.gid), &backup_str])
                 .output();
             Ok(backup_path)
         }
         Ok(o) => Err(UserScopeError::OperationFailed(
-            String::from_utf8_lossy(&o.stderr).to_string()
+            String::from_utf8_lossy(&o.stderr).to_string(),
         )),
         Err(e) => Err(UserScopeError::OperationFailed(e.to_string())),
     }
@@ -680,16 +685,13 @@ pub fn check_file_ownership(path: &Path, user: &UserInfo) -> Result<bool, io::Er
 pub fn fix_file_ownership(path: &Path, user: &UserInfo) -> Result<(), UserScopeError> {
     let path_str = path.to_string_lossy().to_string();
     let output = Command::new("chown")
-        .args([
-            &format!("{}:{}", user.uid, user.gid),
-            &path_str,
-        ])
+        .args([&format!("{}:{}", user.uid, user.gid), &path_str])
         .output();
 
     match output {
         Ok(o) if o.status.success() => Ok(()),
         Ok(o) => Err(UserScopeError::OperationFailed(
-            String::from_utf8_lossy(&o.stderr).to_string()
+            String::from_utf8_lossy(&o.stderr).to_string(),
         )),
         Err(e) => Err(UserScopeError::OperationFailed(e.to_string())),
     }
@@ -802,12 +804,18 @@ fn simple_wildcard_match(text: &str, pattern: &str) -> bool {
         // Multiple wildcards - check sequentially
         let mut pos = 0;
         for (i, part) in parts.iter().enumerate() {
-            if part.is_empty() { continue; }
+            if part.is_empty() {
+                continue;
+            }
             if i == 0 {
-                if !text.starts_with(part) { return false; }
+                if !text.starts_with(part) {
+                    return false;
+                }
                 pos = part.len();
             } else if i == parts.len() - 1 {
-                if !text.ends_with(part) { return false; }
+                if !text.ends_with(part) {
+                    return false;
+                }
             } else {
                 if let Some(found) = text[pos..].find(part) {
                     pos += found + part.len();
@@ -926,7 +934,10 @@ mod tests {
         assert!(!matches_glob_pattern(".bashrc_backup", ".bashrc"));
 
         // Wildcard
-        assert!(matches_glob_pattern(".mozilla/firefox/key3.db", ".mozilla/**/key*.db"));
+        assert!(matches_glob_pattern(
+            ".mozilla/firefox/key3.db",
+            ".mozilla/**/key*.db"
+        ));
 
         // Blocked paths
         assert!(matches_glob_pattern(".ssh/id_rsa", ".ssh/**"));
@@ -938,7 +949,9 @@ mod tests {
         // Allowed
         assert!(is_home_path_allowed(".config/nvim/init.vim"));
         assert!(is_home_path_allowed(".bashrc"));
-        assert!(is_home_path_allowed(".local/share/applications/test.desktop"));
+        assert!(is_home_path_allowed(
+            ".local/share/applications/test.desktop"
+        ));
 
         // Blocked (security-sensitive)
         assert!(!is_home_path_allowed(".ssh/id_rsa"));
@@ -952,9 +965,18 @@ mod tests {
 
     #[test]
     fn test_user_selection_source_display() {
-        assert_eq!(UserSelectionSource::SudoUser.to_string(), "SUDO_USER environment variable");
-        assert_eq!(UserSelectionSource::InvokingUser.to_string(), "invoking user");
-        assert_eq!(UserSelectionSource::ReplSession.to_string(), "REPL session choice");
+        assert_eq!(
+            UserSelectionSource::SudoUser.to_string(),
+            "SUDO_USER environment variable"
+        );
+        assert_eq!(
+            UserSelectionSource::InvokingUser.to_string(),
+            "invoking user"
+        );
+        assert_eq!(
+            UserSelectionSource::ReplSession.to_string(),
+            "REPL session choice"
+        );
     }
 
     #[test]

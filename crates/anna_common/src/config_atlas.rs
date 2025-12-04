@@ -23,14 +23,14 @@ pub struct ConfigEntry {
     pub path: String,
     pub category: ConfigCategory,
     pub status: ConfigStatus,
-    pub source: String,  // Where we learned about this path
+    pub source: String, // Where we learned about this path
 }
 
 /// Category of configuration file
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConfigCategory {
-    System,  // /etc, /usr/share
-    User,    // $HOME, $XDG_CONFIG_HOME
+    System, // /etc, /usr/share
+    User,   // $HOME, $XDG_CONFIG_HOME
 }
 
 impl ConfigCategory {
@@ -45,8 +45,8 @@ impl ConfigCategory {
 /// Status of configuration file
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConfigStatus {
-    Present,   // File exists and is readable
-    Missing,   // Documented but not present
+    Present, // File exists and is readable
+    Missing, // Documented but not present
 }
 
 impl ConfigStatus {
@@ -63,7 +63,7 @@ impl ConfigStatus {
 pub struct PrecedenceEntry {
     pub path: String,
     pub status: ConfigStatus,
-    pub order: u32,  // 1 = first match wins
+    pub order: u32, // 1 = first match wins
 }
 
 /// Complete config atlas for a component
@@ -87,14 +87,16 @@ pub struct ConfigAtlas {
 impl ConfigAtlas {
     /// Get system configs only
     pub fn system_configs(&self) -> Vec<&ConfigEntry> {
-        self.existing_configs.iter()
+        self.existing_configs
+            .iter()
             .filter(|c| c.category == ConfigCategory::System && c.status == ConfigStatus::Present)
             .collect()
     }
 
     /// Get user configs only
     pub fn user_configs(&self) -> Vec<&ConfigEntry> {
-        self.existing_configs.iter()
+        self.existing_configs
+            .iter()
             .filter(|c| c.category == ConfigCategory::User && c.status == ConfigStatus::Present)
             .collect()
     }
@@ -108,7 +110,7 @@ pub fn build_config_atlas(name: &str) -> ConfigAtlas {
     };
 
     let mut seen_paths: HashSet<String> = HashSet::new();
-    let mut doc_paths: Vec<(String, String)> = Vec::new();  // (path, source)
+    let mut doc_paths: Vec<(String, String)> = Vec::new(); // (path, source)
 
     // 1. Discover from man pages (most authoritative for precedence)
     let man_result = discover_from_man_scoped(name);
@@ -137,7 +139,9 @@ pub fn build_config_atlas(name: &str) -> ConfigAtlas {
         for (path, _) in &wiki_result.paths {
             if !seen_paths.contains(path) {
                 seen_paths.insert(path.clone());
-                let source = wiki_result.page_name.as_ref()
+                let source = wiki_result
+                    .page_name
+                    .as_ref()
                     .map(|p| format!("Arch Wiki: {}", p))
                     .unwrap_or_else(|| "Arch Wiki".to_string());
                 doc_paths.push((path.clone(), source));
@@ -218,7 +222,9 @@ pub fn build_config_atlas(name: &str) -> ConfigAtlas {
             if let Ok(metadata) = fs::metadata(&expanded) {
                 if let Ok(mtime) = metadata.modified() {
                     if let Ok(duration) = mtime.duration_since(std::time::UNIX_EPOCH) {
-                        atlas.config_mtimes.push((entry.path.clone(), duration.as_secs()));
+                        atlas
+                            .config_mtimes
+                            .push((entry.path.clone(), duration.as_secs()));
                     }
                 }
             }
@@ -238,14 +244,10 @@ fn discover_from_man_scoped(name: &str) -> ManDiscoveryResult {
     let mut result = ManDiscoveryResult::default();
 
     // Try to get man page content
-    let output = Command::new("man")
-        .args(["-P", "cat", name])
-        .output();
+    let output = Command::new("man").args(["-P", "cat", name]).output();
 
     let content = match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout).to_string()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).to_string(),
         _ => return result,
     };
 
@@ -262,7 +264,9 @@ fn discover_from_man_scoped(name: &str) -> ManDiscoveryResult {
         let paths = extract_paths_scoped(&config_section, name);
         for path in paths {
             if !result.paths.iter().any(|(p, _)| p == &path) {
-                result.paths.push((path, "CONFIGURATION section".to_string()));
+                result
+                    .paths
+                    .push((path, "CONFIGURATION section".to_string()));
             }
         }
     }
@@ -295,7 +299,12 @@ fn extract_man_section(content: &str, section_name: &str) -> Option<String> {
         }
 
         // End of section: another all-caps header
-        if in_section && !trimmed.is_empty() && trimmed.chars().all(|c| c.is_uppercase() || c.is_whitespace()) {
+        if in_section
+            && !trimmed.is_empty()
+            && trimmed
+                .chars()
+                .all(|c| c.is_uppercase() || c.is_whitespace())
+        {
             if trimmed.len() > 2 && !trimmed.contains('/') {
                 break;
             }
@@ -317,9 +326,8 @@ fn extract_man_section(content: &str, section_name: &str) -> Option<String> {
 /// Extract paths from text, scoped to the identity
 fn extract_paths_scoped(text: &str, identity: &str) -> Vec<String> {
     let mut paths = Vec::new();
-    let path_re = regex::Regex::new(
-        r#"(?:^|\s|["'])(/(?:etc|usr/share|home/\w+|~)[^\s"'<>|]+)"#
-    ).unwrap();
+    let path_re =
+        regex::Regex::new(r#"(?:^|\s|["'])(/(?:etc|usr/share|home/\w+|~)[^\s"'<>|]+)"#).unwrap();
 
     for cap in path_re.captures_iter(text) {
         let path = cap[1].to_string();
@@ -331,9 +339,7 @@ fn extract_paths_scoped(text: &str, identity: &str) -> Vec<String> {
     }
 
     // Also handle $HOME and $XDG patterns
-    let var_re = regex::Regex::new(
-        r#"(?:\$HOME|\$XDG_CONFIG_HOME)[^\s"'<>|]+"#
-    ).unwrap();
+    let var_re = regex::Regex::new(r#"(?:\$HOME|\$XDG_CONFIG_HOME)[^\s"'<>|]+"#).unwrap();
 
     for cap in var_re.captures_iter(text) {
         let path = cap[0].to_string();
@@ -530,7 +536,9 @@ fn search_arch_wiki_text(name: &str, wiki_dir: &Path) -> Option<WikiDiscoveryRes
                 // Extract paths scoped to this identity
                 let paths = extract_wiki_config_paths(&content, name);
                 for path in paths {
-                    result.paths.push((path, "configuration section".to_string()));
+                    result
+                        .paths
+                        .push((path, "configuration section".to_string()));
                 }
 
                 // Extract precedence if documented
@@ -565,7 +573,9 @@ fn search_arch_wiki_html(name: &str, wiki_dir: &Path) -> Option<WikiDiscoveryRes
 
                 let paths = extract_wiki_config_paths(&text, name);
                 for path in paths {
-                    result.paths.push((path, "configuration section".to_string()));
+                    result
+                        .paths
+                        .push((path, "configuration section".to_string()));
                 }
 
                 result.precedence = extract_wiki_precedence(&text, name);
@@ -585,18 +595,12 @@ fn read_wiki_file(path: &Path) -> Option<String> {
     let path_str = path.to_string_lossy();
 
     if path_str.ends_with(".zst") {
-        let output = Command::new("zstdcat")
-            .arg(path)
-            .output()
-            .ok()?;
+        let output = Command::new("zstdcat").arg(path).output().ok()?;
         if output.status.success() {
             return Some(String::from_utf8_lossy(&output.stdout).to_string());
         }
     } else if path_str.ends_with(".gz") {
-        let output = Command::new("zcat")
-            .arg(path)
-            .output()
-            .ok()?;
+        let output = Command::new("zcat").arg(path).output().ok()?;
         if output.status.success() {
             return Some(String::from_utf8_lossy(&output.stdout).to_string());
         }
@@ -664,7 +668,8 @@ fn extract_wiki_config_paths(content: &str, identity: &str) -> Vec<String> {
 
         // Check if leaving section (new heading)
         if in_relevant_section && !trimmed.is_empty() {
-            if (trimmed.starts_with('#') || trimmed.starts_with('=')) && !section_content.is_empty() {
+            if (trimmed.starts_with('#') || trimmed.starts_with('=')) && !section_content.is_empty()
+            {
                 // Process collected section
                 let section_paths = extract_paths_scoped(&section_content, identity);
                 for p in section_paths {
@@ -738,9 +743,7 @@ fn extract_wiki_precedence(content: &str, identity: &str) -> Vec<PrecedenceEntry
 fn discover_from_pacman_scoped(name: &str) -> Vec<String> {
     let mut paths = Vec::new();
 
-    let output = Command::new("pacman")
-        .args(["-Ql", name])
-        .output();
+    let output = Command::new("pacman").args(["-Ql", name]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -765,8 +768,8 @@ fn discover_from_filesystem_scoped(name: &str) -> Vec<String> {
     let mut paths = Vec::new();
 
     let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
-    let xdg_config = std::env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| format!("{}/.config", home));
+    let xdg_config =
+        std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
     // Conventional config locations to check
     let candidates = vec![
@@ -812,8 +815,8 @@ fn discover_from_filesystem_scoped(name: &str) -> Vec<String> {
 /// Expand path variables like $HOME, ~, $XDG_CONFIG_HOME
 fn expand_path(path: &str) -> String {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
-    let xdg_config = std::env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| format!("{}/.config", home));
+    let xdg_config =
+        std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
     path.replace("$HOME", &home)
         .replace("$XDG_CONFIG_HOME", &xdg_config)
@@ -823,9 +826,7 @@ fn expand_path(path: &str) -> String {
 /// Categorize path as system or user
 fn categorize_path(path: &str) -> ConfigCategory {
     let expanded = expand_path(path);
-    if expanded.starts_with("/etc")
-        || expanded.starts_with("/usr")
-        || expanded.starts_with("/var")
+    if expanded.starts_with("/etc") || expanded.starts_with("/usr") || expanded.starts_with("/var")
     {
         ConfigCategory::System
     } else {
@@ -881,7 +882,7 @@ fn build_default_precedence(atlas: &mut ConfigAtlas, doc_paths: &[(String, Strin
     if !atlas.precedence.is_empty() {
         atlas.precedence.push(PrecedenceEntry {
             path: "compiled-in defaults".to_string(),
-            status: ConfigStatus::Present,  // Always "present" conceptually
+            status: ConfigStatus::Present, // Always "present" conceptually
             order,
         });
     }

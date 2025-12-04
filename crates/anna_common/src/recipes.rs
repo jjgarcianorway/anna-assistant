@@ -356,10 +356,17 @@ impl Recipe {
             format!("[{}] Recipe: {}", self.id, self.name),
             format!("  Description: {}", self.description),
             format!("  Status:      {}", self.status.as_str().to_uppercase()),
-            format!("  Created:     {} by {:?}", self.created_at.format("%Y-%m-%d"), self.created_by),
+            format!(
+                "  Created:     {} by {:?}",
+                self.created_at.format("%Y-%m-%d"),
+                self.created_by
+            ),
             format!("  Updated:     {}", self.updated_at.format("%Y-%m-%d")),
             format!("  Confidence:  {:.0}%", self.confidence * 100.0),
-            format!("  Success:     {} uses, {} failures", self.success_count, self.failure_count),
+            format!(
+                "  Success:     {} uses, {} failures",
+                self.success_count, self.failure_count
+            ),
             format!("  Risk:        {}", self.safety.risk_level.as_str()),
         ];
 
@@ -372,11 +379,17 @@ impl Recipe {
         }
 
         if !self.intent_pattern.keywords.is_empty() {
-            lines.push(format!("  Keywords:    {}", self.intent_pattern.keywords.join(", ")));
+            lines.push(format!(
+                "  Keywords:    {}",
+                self.intent_pattern.keywords.join(", ")
+            ));
         }
 
         if !self.intent_pattern.targets.is_empty() {
-            lines.push(format!("  Targets:     {}", self.intent_pattern.targets.join(", ")));
+            lines.push(format!(
+                "  Targets:     {}",
+                self.intent_pattern.targets.join(", ")
+            ));
         }
 
         if !self.preconditions.is_empty() {
@@ -387,11 +400,17 @@ impl Recipe {
         }
 
         if !self.evidence_required.is_empty() {
-            lines.push(format!("  Evidence required: {}", self.evidence_required.join(", ")));
+            lines.push(format!(
+                "  Evidence required: {}",
+                self.evidence_required.join(", ")
+            ));
         }
 
         if !self.tool_plan.steps.is_empty() {
-            lines.push(format!("  Steps:       {} tool(s)", self.tool_plan.steps.len()));
+            lines.push(format!(
+                "  Steps:       {} tool(s)",
+                self.tool_plan.steps.len()
+            ));
             for step in &self.tool_plan.steps {
                 let mutation = if step.is_mutation { " [mutation]" } else { "" };
                 lines.push(format!("    - {}{}", step.tool_name, mutation));
@@ -406,7 +425,10 @@ impl Recipe {
         }
 
         if let Some(ref rollback) = self.rollback {
-            lines.push(format!("  Rollback:    {} (auto: {})", rollback.description, rollback.auto_rollback));
+            lines.push(format!(
+                "  Rollback:    {} (auto: {})",
+                rollback.description, rollback.auto_rollback
+            ));
         }
 
         if let Some(ref phrase) = self.safety.confirmation_phrase {
@@ -475,14 +497,17 @@ impl Recipe {
         let mut score = 0.0;
 
         // Intent match
-        if !self.intent_pattern.intent_type.is_empty() && self.intent_pattern.intent_type == intent {
+        if !self.intent_pattern.intent_type.is_empty() && self.intent_pattern.intent_type == intent
+        {
             score += 0.3;
         }
 
         // v0.0.37: Intent tags match
         let tag_count = self.intent_tags.len();
         if tag_count > 0 {
-            let matched = self.intent_tags.iter()
+            let matched = self
+                .intent_tags
+                .iter()
                 .filter(|t| request_lower.contains(&t.to_lowercase()))
                 .count();
             score += 0.2 * (matched as f64 / tag_count as f64);
@@ -491,7 +516,10 @@ impl Recipe {
         // Keyword matches
         let keyword_count = self.intent_pattern.keywords.len();
         if keyword_count > 0 {
-            let matched = self.intent_pattern.keywords.iter()
+            let matched = self
+                .intent_pattern
+                .keywords
+                .iter()
                 .filter(|k| request_lower.contains(&k.to_lowercase()))
                 .count();
             score += 0.3 * (matched as f64 / keyword_count as f64);
@@ -500,8 +528,15 @@ impl Recipe {
         // Target matches
         let target_count = self.intent_pattern.targets.len();
         if target_count > 0 {
-            let matched = self.intent_pattern.targets.iter()
-                .filter(|t| targets.iter().any(|rt| rt.to_lowercase() == t.to_lowercase()))
+            let matched = self
+                .intent_pattern
+                .targets
+                .iter()
+                .filter(|t| {
+                    targets
+                        .iter()
+                        .any(|rt| rt.to_lowercase() == t.to_lowercase())
+                })
                 .count();
             score += 0.2 * (matched as f64 / target_count as f64);
         }
@@ -591,7 +626,10 @@ impl RecipeManager {
         recipe.intent_pattern.intent_type = intent.to_string();
         recipe.intent_pattern.keywords = extract_keywords(request_text);
         recipe.intent_pattern.targets = targets.to_vec();
-        recipe.intent_pattern.examples.push(request_text.to_string());
+        recipe
+            .intent_pattern
+            .examples
+            .push(request_text.to_string());
 
         // v0.0.37: Store evidence requirements
         recipe.evidence_required = evidence_collected.to_vec();
@@ -674,7 +712,9 @@ impl RecipeManager {
     /// Get all recipes
     pub fn get_all() -> Vec<Recipe> {
         let index = RecipeIndex::load();
-        index.recipe_ids.iter()
+        index
+            .recipe_ids
+            .iter()
             .filter_map(|id| Recipe::load(id))
             .collect()
     }
@@ -685,7 +725,12 @@ impl RecipeManager {
     }
 
     /// Find matching recipes for a request
-    pub fn find_matches(request: &str, intent: &str, targets: &[String], limit: usize) -> Vec<(Recipe, f64)> {
+    pub fn find_matches(
+        request: &str,
+        intent: &str,
+        targets: &[String],
+        limit: usize,
+    ) -> Vec<(Recipe, f64)> {
         let mut matches: Vec<_> = Self::get_all()
             .into_iter()
             .map(|r| {
@@ -722,7 +767,11 @@ impl RecipeManager {
 
                 // Keyword matches
                 for word in &query_words {
-                    if r.intent_pattern.keywords.iter().any(|k| k.to_lowercase() == *word) {
+                    if r.intent_pattern
+                        .keywords
+                        .iter()
+                        .any(|k| k.to_lowercase() == *word)
+                    {
                         score += 3;
                     }
                 }
@@ -792,12 +841,19 @@ impl RecipeManager {
         let recipes = Self::get_all();
 
         // Count by status
-        let active_count = recipes.iter().filter(|r| r.status == RecipeStatus::Active).count();
-        let draft_count = recipes.iter().filter(|r| r.status == RecipeStatus::Draft).count();
+        let active_count = recipes
+            .iter()
+            .filter(|r| r.status == RecipeStatus::Active)
+            .count();
+        let draft_count = recipes
+            .iter()
+            .filter(|r| r.status == RecipeStatus::Draft)
+            .count();
         let total_uses: u64 = recipes.iter().map(|r| r.success_count).sum();
 
         // Find most used active recipes
-        let mut by_usage: Vec<_> = recipes.iter()
+        let mut by_usage: Vec<_> = recipes
+            .iter()
             .filter(|r| r.status == RecipeStatus::Active)
             .map(|r| (r.id.clone(), r.name.clone(), r.success_count))
             .collect();
@@ -910,7 +966,8 @@ impl RecipeStats {
             return "(none yet)".to_string();
         }
 
-        self.top_recipes.iter()
+        self.top_recipes
+            .iter()
             .map(|(_, name, uses)| format!("{} ({} uses)", name, uses))
             .collect::<Vec<_>>()
             .join(", ")
@@ -991,11 +1048,7 @@ mod tests {
         recipe.intent_pattern.targets = vec!["cpu".to_string()];
         recipe.confidence = 0.8;
 
-        let score = recipe.match_score(
-            "what cpu do I have",
-            "question",
-            &["cpu".to_string()],
-        );
+        let score = recipe.match_score("what cpu do I have", "question", &["cpu".to_string()]);
         assert!(score > 0.3);
     }
 
@@ -1040,9 +1093,7 @@ mod tests {
             archived_count: 1,
             total_uses: 50,
             last_created_at: None,
-            top_recipes: vec![
-                ("id1".to_string(), "Recipe 1".to_string(), 20),
-            ],
+            top_recipes: vec![("id1".to_string(), "Recipe 1".to_string(), 20)],
         };
         let summary = stats.format_summary();
         assert!(summary.contains("10 recipes"));
@@ -1119,21 +1170,36 @@ mod tests {
     fn test_post_check_types() {
         let check1 = PostCheck {
             description: "Check service is running".to_string(),
-            check_type: PostCheckType::ServiceRunning { name: "nginx".to_string() },
+            check_type: PostCheckType::ServiceRunning {
+                name: "nginx".to_string(),
+            },
         };
-        assert!(matches!(check1.check_type, PostCheckType::ServiceRunning { .. }));
+        assert!(matches!(
+            check1.check_type,
+            PostCheckType::ServiceRunning { .. }
+        ));
 
         let check2 = PostCheck {
             description: "Check file exists".to_string(),
-            check_type: PostCheckType::FileExists { path: "/etc/nginx/nginx.conf".to_string() },
+            check_type: PostCheckType::FileExists {
+                path: "/etc/nginx/nginx.conf".to_string(),
+            },
         };
-        assert!(matches!(check2.check_type, PostCheckType::FileExists { .. }));
+        assert!(matches!(
+            check2.check_type,
+            PostCheckType::FileExists { .. }
+        ));
 
         let check3 = PostCheck {
             description: "Check command succeeds".to_string(),
-            check_type: PostCheckType::CommandSucceeds { command: "nginx -t".to_string() },
+            check_type: PostCheckType::CommandSucceeds {
+                command: "nginx -t".to_string(),
+            },
         };
-        assert!(matches!(check3.check_type, PostCheckType::CommandSucceeds { .. }));
+        assert!(matches!(
+            check3.check_type,
+            PostCheckType::CommandSucceeds { .. }
+        ));
 
         let check4 = PostCheck {
             description: "Check output".to_string(),
@@ -1142,13 +1208,20 @@ mod tests {
                 expected: "localhost".to_string(),
             },
         };
-        assert!(matches!(check4.check_type, PostCheckType::OutputContains { .. }));
+        assert!(matches!(
+            check4.check_type,
+            PostCheckType::OutputContains { .. }
+        ));
     }
 
     #[test]
     fn test_recipe_intent_tags() {
         let mut recipe = Recipe::new("Check CPU", "Test", RecipeCreator::Anna);
-        recipe.intent_tags = vec!["hardware".to_string(), "cpu".to_string(), "info".to_string()];
+        recipe.intent_tags = vec![
+            "hardware".to_string(),
+            "cpu".to_string(),
+            "info".to_string(),
+        ];
         recipe.intent_pattern.intent_type = "question".to_string();
         recipe.intent_pattern.keywords = vec!["cpu".to_string()];
         recipe.confidence = 0.8;
@@ -1207,8 +1280,20 @@ mod tests {
         recipe.notes = "Some important notes".to_string();
 
         let detail = recipe.format_detail();
-        assert!(detail.contains("Status:      DRAFT"), "Expected DRAFT in: {}", detail);
-        assert!(detail.contains("test, demo"), "Expected intent_tags in: {}", detail);
-        assert!(detail.contains("Some important notes"), "Expected notes in: {}", detail);
+        assert!(
+            detail.contains("Status:      DRAFT"),
+            "Expected DRAFT in: {}",
+            detail
+        );
+        assert!(
+            detail.contains("test, demo"),
+            "Expected intent_tags in: {}",
+            detail
+        );
+        assert!(
+            detail.contains("Some important notes"),
+            "Expected notes in: {}",
+            detail
+        );
     }
 }

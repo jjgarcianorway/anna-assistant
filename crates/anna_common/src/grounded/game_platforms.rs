@@ -11,7 +11,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-pub use super::steam::{SteamGame, detect_steam_games, is_steam_installed, find_steam_game};
+pub use super::steam::{detect_steam_games, find_steam_game, is_steam_installed, SteamGame};
 
 /// Platform identifier
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -20,7 +20,7 @@ pub enum Platform {
     Heroic,
     Lutris,
     Bottles,
-    Native,  // Native Linux games (pacman packages)
+    Native, // Native Linux games (pacman packages)
 }
 
 impl Platform {
@@ -94,14 +94,20 @@ fn extract_heroic_games(json: &serde_json::Value, games: &mut Vec<PlatformGame>,
     // Handle different JSON structures from Heroic/Legendary
     if let Some(library) = json.get("library").and_then(|l| l.as_array()) {
         for game in library {
-            if let Some(title) = game.get("title").or(game.get("app_name")).and_then(|t| t.as_str()) {
+            if let Some(title) = game
+                .get("title")
+                .or(game.get("app_name"))
+                .and_then(|t| t.as_str())
+            {
                 games.push(PlatformGame {
                     name: title.to_string(),
                     platform: Platform::Heroic,
-                    install_path: game.get("install_path")
+                    install_path: game
+                        .get("install_path")
                         .and_then(|p| p.as_str())
                         .map(PathBuf::from),
-                    platform_id: game.get("app_name")
+                    platform_id: game
+                        .get("app_name")
                         .and_then(|n| n.as_str())
                         .map(|s| s.to_string()),
                     evidence: format!("heroic: {}", source),
@@ -118,7 +124,8 @@ fn extract_heroic_games(json: &serde_json::Value, games: &mut Vec<PlatformGame>,
                     games.push(PlatformGame {
                         name: title.to_string(),
                         platform: Platform::Heroic,
-                        install_path: info.get("install_path")
+                        install_path: info
+                            .get("install_path")
                             .and_then(|p| p.as_str())
                             .map(PathBuf::from),
                         platform_id: Some(app_name.clone()),
@@ -169,10 +176,7 @@ pub fn detect_lutris_games() -> Vec<PlatformGame> {
 fn parse_lutris_db(db_path: &str) -> Result<Vec<PlatformGame>, Box<dyn std::error::Error>> {
     use rusqlite::Connection;
 
-    let conn = Connection::open_with_flags(
-        db_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
-    )?;
+    let conn = Connection::open_with_flags(db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
     let mut stmt = conn.prepare("SELECT name, slug, directory FROM games WHERE installed = 1")?;
     let games = stmt.query_map([], |row| {
@@ -197,7 +201,10 @@ fn parse_lutris_config(path: &std::path::Path) -> Option<PlatformGame> {
 
     for line in content.lines() {
         if line.starts_with("name:") {
-            name = line.split(':').nth(1).map(|s| s.trim().trim_matches('"').to_string());
+            name = line
+                .split(':')
+                .nth(1)
+                .map(|s| s.trim().trim_matches('"').to_string());
         } else if line.starts_with("slug:") {
             slug = line.split(':').nth(1).map(|s| s.trim().to_string());
         }
@@ -227,7 +234,8 @@ pub fn detect_bottles_games() -> Vec<PlatformGame> {
             let path = entry.path();
             if path.is_dir() {
                 // Each directory is a bottle
-                let bottle_name = path.file_name()
+                let bottle_name = path
+                    .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("Unknown");
 
@@ -306,7 +314,11 @@ pub fn detect_all_platform_games() -> Vec<PlatformGame> {
             platform: Platform::Steam,
             install_path: Some(steam_game.install_path.clone()),
             platform_id: Some(steam_game.appid.to_string()),
-            evidence: format!("steam: appid {} in {}", steam_game.appid, steam_game.library_path.display()),
+            evidence: format!(
+                "steam: appid {} in {}",
+                steam_game.appid,
+                steam_game.library_path.display()
+            ),
         });
     }
 
@@ -320,11 +332,9 @@ pub fn detect_all_platform_games() -> Vec<PlatformGame> {
     games.extend(detect_bottles_games());
 
     // Sort by platform then name
-    games.sort_by(|a, b| {
-        match a.platform.label().cmp(b.platform.label()) {
-            std::cmp::Ordering::Equal => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-            other => other,
-        }
+    games.sort_by(|a, b| match a.platform.label().cmp(b.platform.label()) {
+        std::cmp::Ordering::Equal => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+        other => other,
     });
 
     games

@@ -9,14 +9,14 @@ use std::process::Command;
 /// Error/warning severity levels (systemd priorities)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Priority {
-    Emergency = 0,  // System unusable
-    Alert = 1,      // Action must be taken immediately
-    Critical = 2,   // Critical conditions
-    Error = 3,      // Error conditions
-    Warning = 4,    // Warning conditions
-    Notice = 5,     // Normal but significant
-    Info = 6,       // Informational
-    Debug = 7,      // Debug messages
+    Emergency = 0, // System unusable
+    Alert = 1,     // Action must be taken immediately
+    Critical = 2,  // Critical conditions
+    Error = 3,     // Error conditions
+    Warning = 4,   // Warning conditions
+    Notice = 5,    // Normal but significant
+    Info = 6,      // Informational
+    Debug = 7,     // Debug messages
 }
 
 impl Priority {
@@ -47,7 +47,10 @@ impl Priority {
     }
 
     pub fn is_error(&self) -> bool {
-        matches!(self, Priority::Emergency | Priority::Alert | Priority::Critical | Priority::Error)
+        matches!(
+            self,
+            Priority::Emergency | Priority::Alert | Priority::Critical | Priority::Error
+        )
     }
 }
 
@@ -94,12 +97,10 @@ fn count_priority(since: &str, priority: &str) -> usize {
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter(|line| !line.trim().is_empty())
-                .count()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .count(),
         _ => 0,
     }
 }
@@ -121,18 +122,19 @@ pub fn get_top_error_units(hours: u64, limit: usize) -> Vec<UnitErrorSummary> {
     // Use JSON output for reliable parsing
     let output = Command::new("journalctl")
         .args([
-            "--since", &since,
-            "-p", "err",
+            "--since",
+            &since,
+            "-p",
+            "err",
             "--no-pager",
-            "-o", "json",
+            "-o",
+            "json",
             "-q",
         ])
         .output();
 
     let entries = match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout).to_string()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).to_string(),
         _ => return Vec::new(),
     };
 
@@ -151,7 +153,8 @@ pub fn get_top_error_units(hours: u64, limit: usize) -> Vec<UnitErrorSummary> {
         };
 
         // Get unit name from _SYSTEMD_UNIT or SYSLOG_IDENTIFIER
-        let unit = json.get("_SYSTEMD_UNIT")
+        let unit = json
+            .get("_SYSTEMD_UNIT")
             .or_else(|| json.get("SYSLOG_IDENTIFIER"))
             .and_then(|v| v.as_str())
             .unwrap_or("unknown")
@@ -162,17 +165,21 @@ pub fn get_top_error_units(hours: u64, limit: usize) -> Vec<UnitErrorSummary> {
             continue;
         }
 
-        let message = json.get("MESSAGE")
+        let message = json
+            .get("MESSAGE")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
 
-        let time_str = json.get("__REALTIME_TIMESTAMP")
+        let time_str = json
+            .get("__REALTIME_TIMESTAMP")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
 
-        let entry = unit_counts.entry(unit).or_insert((0, String::new(), String::new()));
+        let entry = unit_counts
+            .entry(unit)
+            .or_insert((0, String::new(), String::new()));
         entry.0 += 1;
         entry.1 = time_str; // Update to latest
         if entry.2.is_empty() || entry.2.len() < message.len() {
@@ -181,7 +188,8 @@ pub fn get_top_error_units(hours: u64, limit: usize) -> Vec<UnitErrorSummary> {
     }
 
     // Sort by count descending
-    let mut results: Vec<_> = unit_counts.into_iter()
+    let mut results: Vec<_> = unit_counts
+        .into_iter()
         .map(|(unit, (count, time, msg))| UnitErrorSummary {
             unit,
             error_count: count,
@@ -211,13 +219,18 @@ pub fn get_unit_errors(unit: &str, hours: u64, limit: usize) -> Vec<LogEntry> {
 
     let output = Command::new("journalctl")
         .args([
-            "-u", &unit_pattern,
-            "-p", "err",
-            "--since", &since,
+            "-u",
+            &unit_pattern,
+            "-p",
+            "err",
+            "--since",
+            &since,
             "--no-pager",
-            "-o", "short",
+            "-o",
+            "short",
             "-q",
-            "-n", &limit.to_string(),
+            "-n",
+            &limit.to_string(),
         ])
         .output();
 
@@ -254,6 +267,9 @@ mod tests {
         // This should work on any systemd system
         let counts = ErrorCounts::query_24h();
         // Can't assert specific counts, just that it doesn't panic
-        println!("24h errors: {}, warnings: {}", counts.errors, counts.warnings);
+        println!(
+            "24h errors: {}, warnings: {}",
+            counts.errors, counts.warnings
+        );
     }
 }

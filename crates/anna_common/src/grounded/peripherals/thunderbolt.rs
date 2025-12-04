@@ -3,9 +3,12 @@
 //! Discovers Thunderbolt controllers/devices from lspci and /sys/bus/thunderbolt.
 //! Discovers FireWire controllers from lspci and /sys/bus/firewire.
 
-use std::process::Command;
-use super::types::{ThunderboltController, ThunderboltDevice, ThunderboltSummary, FirewireController, FirewireSummary};
+use super::types::{
+    FirewireController, FirewireSummary, ThunderboltController, ThunderboltDevice,
+    ThunderboltSummary,
+};
 use super::usb::shorten_name;
+use std::process::Command;
 
 /// Get Thunderbolt summary
 pub fn get_thunderbolt_summary() -> ThunderboltSummary {

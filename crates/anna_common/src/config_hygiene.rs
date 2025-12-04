@@ -125,8 +125,8 @@ fn get_component_config_paths(name: &str) -> Vec<(String, ConfigSource, Option<S
 
     // Get home directory
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let xdg_config = std::env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| format!("{}/.config", home));
+    let xdg_config =
+        std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
     // Common patterns based on component name
     let lower_name = name.to_lowercase();
@@ -134,35 +134,59 @@ fn get_component_config_paths(name: &str) -> Vec<(String, ConfigSource, Option<S
     // XDG config paths (highest priority)
     let xdg_dir = format!("{}/{}", xdg_config, lower_name);
     if Path::new(&xdg_dir).exists() {
-        paths.push((xdg_dir.clone(), ConfigSource::Filesystem, Some("user config".to_string())));
+        paths.push((
+            xdg_dir.clone(),
+            ConfigSource::Filesystem,
+            Some("user config".to_string()),
+        ));
     }
 
     let xdg_file = format!("{}/{}.conf", xdg_config, lower_name);
     if Path::new(&xdg_file).exists() {
-        paths.push((xdg_file, ConfigSource::Filesystem, Some("user config".to_string())));
+        paths.push((
+            xdg_file,
+            ConfigSource::Filesystem,
+            Some("user config".to_string()),
+        ));
     }
 
     // Dot files in home
     let dot_dir = format!("{}/.", home);
     let dotfile = format!("{}.{}", dot_dir, lower_name);
     if Path::new(&dotfile).exists() {
-        paths.push((dotfile, ConfigSource::Filesystem, Some("user dotfile".to_string())));
+        paths.push((
+            dotfile,
+            ConfigSource::Filesystem,
+            Some("user dotfile".to_string()),
+        ));
     }
 
     let dotrc = format!("{}.{}rc", dot_dir, lower_name);
     if Path::new(&dotrc).exists() {
-        paths.push((dotrc, ConfigSource::Filesystem, Some("user rc file".to_string())));
+        paths.push((
+            dotrc,
+            ConfigSource::Filesystem,
+            Some("user rc file".to_string()),
+        ));
     }
 
     // System config
     let etc_dir = format!("/etc/{}", lower_name);
     if Path::new(&etc_dir).exists() {
-        paths.push((etc_dir, ConfigSource::Filesystem, Some("system config".to_string())));
+        paths.push((
+            etc_dir,
+            ConfigSource::Filesystem,
+            Some("system config".to_string()),
+        ));
     }
 
     let etc_conf = format!("/etc/{}.conf", lower_name);
     if Path::new(&etc_conf).exists() {
-        paths.push((etc_conf, ConfigSource::Filesystem, Some("system config".to_string())));
+        paths.push((
+            etc_conf,
+            ConfigSource::Filesystem,
+            Some("system config".to_string()),
+        ));
     }
 
     // Component-specific paths from man pages
@@ -174,7 +198,11 @@ fn get_component_config_paths(name: &str) -> Vec<(String, ConfigSource, Option<S
     // Add recommended path if nothing exists
     if paths.is_empty() {
         let recommended = format!("{}/{}/{}.conf", xdg_config, lower_name, lower_name);
-        paths.push((recommended, ConfigSource::ManPage(name.to_string()), Some("recommended".to_string())));
+        paths.push((
+            recommended,
+            ConfigSource::ManPage(name.to_string()),
+            Some("recommended".to_string()),
+        ));
     }
 
     paths
@@ -185,16 +213,12 @@ fn get_config_paths_from_man(name: &str) -> Vec<(String, ConfigSource, Option<St
     let mut paths = Vec::new();
 
     // Try to get man page content
-    let output = Command::new("man")
-        .args(["-w", name])
-        .output();
+    let output = Command::new("man").args(["-w", name]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
             // Man page exists, try to extract config paths from FILES section
-            let man_output = Command::new("man")
-                .args(["-P", "cat", name])
-                .output();
+            let man_output = Command::new("man").args(["-P", "cat", name]).output();
 
             if let Ok(man_out) = man_output {
                 if man_out.status.success() {
@@ -210,7 +234,11 @@ fn get_config_paths_from_man(name: &str) -> Vec<(String, ConfigSource, Option<St
                         }
                         if in_files {
                             // Stop at next section
-                            if line.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+                            if line
+                                .chars()
+                                .next()
+                                .map(|c| c.is_uppercase())
+                                .unwrap_or(false)
                                 && !line.starts_with(' ')
                             {
                                 break;
@@ -218,7 +246,10 @@ fn get_config_paths_from_man(name: &str) -> Vec<(String, ConfigSource, Option<St
 
                             // Extract paths
                             let trimmed = line.trim();
-                            if trimmed.starts_with('/') || trimmed.starts_with("~") || trimmed.starts_with("$") {
+                            if trimmed.starts_with('/')
+                                || trimmed.starts_with("~")
+                                || trimmed.starts_with("$")
+                            {
                                 // Clean up the path
                                 let path = clean_path_from_man(trimmed);
                                 if is_valid_config_path(&path) && path.contains(name) {
@@ -268,7 +299,8 @@ fn get_config_paths_from_wiki(name: &str) -> Vec<(String, ConfigSource, Option<S
 fn clean_path_from_man(line: &str) -> String {
     let path = line.split_whitespace().next().unwrap_or(line);
     // Remove trailing punctuation
-    path.trim_end_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.').to_string()
+    path.trim_end_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.')
+        .to_string()
 }
 
 /// Check if a path looks like a valid config path
@@ -357,21 +389,45 @@ impl ConfigGraph {
     /// Build config graph with precedence for a component
     pub fn for_component(name: &str) -> Self {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-        let xdg_config = std::env::var("XDG_CONFIG_HOME")
-            .unwrap_or_else(|_| format!("{}/.config", home));
+        let xdg_config =
+            std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
         let lower_name = name.to_lowercase();
 
         // Define precedence order (first match wins)
         let precedence_paths: Vec<(String, Option<String>)> = vec![
-            (format!("{}/{}/{}.conf", xdg_config, lower_name, lower_name), Some("user XDG config".to_string())),
-            (format!("{}/{}", xdg_config, lower_name), Some("user XDG directory".to_string())),
-            (format!("{}.{}rc", home, lower_name), Some("user rc file".to_string())),
-            (format!("{}.{}", home, lower_name), Some("user dotfile".to_string())),
-            (format!("/etc/{}/{}.conf", lower_name, lower_name), Some("system config".to_string())),
-            (format!("/etc/{}.conf", lower_name), Some("system config".to_string())),
-            (format!("/etc/{}", lower_name), Some("system directory".to_string())),
-            (format!("/usr/share/{}", lower_name), Some("package defaults".to_string())),
+            (
+                format!("{}/{}/{}.conf", xdg_config, lower_name, lower_name),
+                Some("user XDG config".to_string()),
+            ),
+            (
+                format!("{}/{}", xdg_config, lower_name),
+                Some("user XDG directory".to_string()),
+            ),
+            (
+                format!("{}.{}rc", home, lower_name),
+                Some("user rc file".to_string()),
+            ),
+            (
+                format!("{}.{}", home, lower_name),
+                Some("user dotfile".to_string()),
+            ),
+            (
+                format!("/etc/{}/{}.conf", lower_name, lower_name),
+                Some("system config".to_string()),
+            ),
+            (
+                format!("/etc/{}.conf", lower_name),
+                Some("system config".to_string()),
+            ),
+            (
+                format!("/etc/{}", lower_name),
+                Some("system directory".to_string()),
+            ),
+            (
+                format!("/usr/share/{}", lower_name),
+                Some("package defaults".to_string()),
+            ),
         ];
 
         let mut precedence = Vec::new();
@@ -451,7 +507,11 @@ pub fn format_config_graph_section(graph: &ConfigGraph) -> Vec<String> {
     lines.push("  Precedence order:".to_string());
 
     for entry in &graph.precedence {
-        let status = if entry.exists { "[present]" } else { "[missing]" };
+        let status = if entry.exists {
+            "[present]"
+        } else {
+            "[missing]"
+        };
         lines.push(format!("    {}.  {}  {}", entry.rank, entry.path, status));
     }
 
@@ -466,7 +526,10 @@ mod tests {
     fn test_config_source_format() {
         assert_eq!(ConfigSource::Filesystem.format(), "filesystem");
         assert_eq!(ConfigSource::ManPage("vim".to_string()).format(), "man vim");
-        assert_eq!(ConfigSource::ArchWiki("Hyprland".to_string()).format(), "Arch Wiki (Hyprland)");
+        assert_eq!(
+            ConfigSource::ArchWiki("Hyprland".to_string()).format(),
+            "Arch Wiki (Hyprland)"
+        );
     }
 
     #[test]

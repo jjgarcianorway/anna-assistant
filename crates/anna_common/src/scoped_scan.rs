@@ -9,9 +9,9 @@
 //! - Track last_collected, ttl_seconds, collection_cost
 //! - Decide when to refresh
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
 
 /// Default time budget for scoped scans (250ms)
 pub const DEFAULT_TIME_BUDGET_MS: u64 = 250;
@@ -190,17 +190,11 @@ pub enum ScanData {
         swap_total_bytes: u64,
     },
     /// Storage data
-    Storage {
-        mounts: Vec<MountInfo>,
-    },
+    Storage { mounts: Vec<MountInfo> },
     /// Network data
-    Network {
-        interfaces: Vec<InterfaceInfo>,
-    },
+    Network { interfaces: Vec<InterfaceInfo> },
     /// Temperature data
-    Thermal {
-        sensors: Vec<TempSensor>,
-    },
+    Thermal { sensors: Vec<TempSensor> },
     /// Process data
     Process {
         pid: u32,
@@ -339,7 +333,8 @@ impl ScopedScanner {
         let duration_ms = scan_start.elapsed().as_millis() as u64;
 
         // Update staleness info
-        let staleness = self.staleness
+        let staleness = self
+            .staleness
             .entry(scope_key.clone())
             .or_insert_with(|| StalenessInfo::new(&scope_key, default_ttl(&scope)));
         staleness.mark_collected(duration_ms);
@@ -364,8 +359,7 @@ impl ScopedScanner {
 
     fn scan_cpu(&self) -> Result<ScanData, String> {
         // Read /proc/loadavg
-        let loadavg = std::fs::read_to_string("/proc/loadavg")
-            .map_err(|e| e.to_string())?;
+        let loadavg = std::fs::read_to_string("/proc/loadavg").map_err(|e| e.to_string())?;
         let parts: Vec<&str> = loadavg.split_whitespace().collect();
         if parts.len() < 4 {
             return Err("Invalid loadavg format".to_string());
@@ -374,15 +368,17 @@ impl ScopedScanner {
         let load_1m: f32 = parts[0].parse().unwrap_or(0.0);
         let load_5m: f32 = parts[1].parse().unwrap_or(0.0);
         let load_15m: f32 = parts[2].parse().unwrap_or(0.0);
-        let process_count: usize = parts[3].split('/').nth(1)
+        let process_count: usize = parts[3]
+            .split('/')
+            .nth(1)
             .and_then(|s| s.parse().ok())
             .unwrap_or(0);
 
         // Read /proc/stat for CPU usage (simplified)
-        let stat = std::fs::read_to_string("/proc/stat")
-            .map_err(|e| e.to_string())?;
+        let stat = std::fs::read_to_string("/proc/stat").map_err(|e| e.to_string())?;
         let cpu_line = stat.lines().next().ok_or("No CPU line")?;
-        let values: Vec<u64> = cpu_line.split_whitespace()
+        let values: Vec<u64> = cpu_line
+            .split_whitespace()
             .skip(1)
             .filter_map(|s| s.parse().ok())
             .collect();
@@ -409,8 +405,7 @@ impl ScopedScanner {
     }
 
     fn scan_memory(&self) -> Result<ScanData, String> {
-        let meminfo = std::fs::read_to_string("/proc/meminfo")
-            .map_err(|e| e.to_string())?;
+        let meminfo = std::fs::read_to_string("/proc/meminfo").map_err(|e| e.to_string())?;
 
         let mut mem_total: u64 = 0;
         let mut mem_available: u64 = 0;
@@ -478,17 +473,21 @@ impl ScopedScanner {
                     continue;
                 }
 
-                let carrier = std::fs::read_to_string(
-                    format!("/sys/class/net/{}/carrier", name)
-                ).map(|s| s.trim() == "1").unwrap_or(false);
+                let carrier = std::fs::read_to_string(format!("/sys/class/net/{}/carrier", name))
+                    .map(|s| s.trim() == "1")
+                    .unwrap_or(false);
 
-                let rx_bytes = std::fs::read_to_string(
-                    format!("/sys/class/net/{}/statistics/rx_bytes", name)
-                ).ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+                let rx_bytes =
+                    std::fs::read_to_string(format!("/sys/class/net/{}/statistics/rx_bytes", name))
+                        .ok()
+                        .and_then(|s| s.trim().parse().ok())
+                        .unwrap_or(0);
 
-                let tx_bytes = std::fs::read_to_string(
-                    format!("/sys/class/net/{}/statistics/tx_bytes", name)
-                ).ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+                let tx_bytes =
+                    std::fs::read_to_string(format!("/sys/class/net/{}/statistics/tx_bytes", name))
+                        .ok()
+                        .and_then(|s| s.trim().parse().ok())
+                        .unwrap_or(0);
 
                 interfaces.push(InterfaceInfo {
                     name,
@@ -509,7 +508,11 @@ impl ScopedScanner {
         if let Ok(entries) = std::fs::read_dir("/sys/class/thermal") {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if !path.file_name().map(|n| n.to_string_lossy().starts_with("thermal_zone")).unwrap_or(false) {
+                if !path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().starts_with("thermal_zone"))
+                    .unwrap_or(false)
+                {
                     continue;
                 }
 
@@ -552,16 +555,17 @@ impl ScopedScanner {
             .ok_or("No PID found")?;
 
         // Read /proc/<pid>/stat
-        let stat = std::fs::read_to_string(format!("/proc/{}/stat", pid))
-            .map_err(|e| e.to_string())?;
+        let stat =
+            std::fs::read_to_string(format!("/proc/{}/stat", pid)).map_err(|e| e.to_string())?;
         let parts: Vec<&str> = stat.split_whitespace().collect();
 
         let state = parts.get(2).map(|s| s.to_string()).unwrap_or_default();
 
         // Read /proc/<pid>/statm for memory
-        let statm = std::fs::read_to_string(format!("/proc/{}/statm", pid))
-            .map_err(|e| e.to_string())?;
-        let mem_pages: u64 = statm.split_whitespace()
+        let statm =
+            std::fs::read_to_string(format!("/proc/{}/statm", pid)).map_err(|e| e.to_string())?;
+        let mem_pages: u64 = statm
+            .split_whitespace()
             .nth(1)
             .and_then(|s| s.parse().ok())
             .unwrap_or(0);
@@ -578,7 +582,13 @@ impl ScopedScanner {
 
     fn scan_service(&self, name: &str) -> Result<ScanData, String> {
         let output = std::process::Command::new("systemctl")
-            .args(["show", name, "--no-pager", "-p", "ActiveState,SubState,UnitFileState"])
+            .args([
+                "show",
+                name,
+                "--no-pager",
+                "-p",
+                "ActiveState,SubState,UnitFileState",
+            ])
             .output()
             .map_err(|e| e.to_string())?;
 
@@ -612,8 +622,10 @@ impl ScopedScanner {
     fn scan_gpu(&self) -> Result<ScanData, String> {
         // Try nvidia-smi first
         if let Ok(output) = std::process::Command::new("nvidia-smi")
-            .args(["--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
-                   "--format=csv,noheader,nounits"])
+            .args([
+                "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
+                "--format=csv,noheader,nounits",
+            ])
             .output()
         {
             if output.status.success() {
@@ -651,7 +663,8 @@ fn parse_meminfo_kb(line: &str) -> u64 {
 fn num_cpus() -> f32 {
     std::fs::read_to_string("/proc/cpuinfo")
         .map(|content| {
-            content.lines()
+            content
+                .lines()
                 .filter(|l| l.starts_with("processor"))
                 .count() as f32
         })
@@ -660,9 +673,9 @@ fn num_cpus() -> f32 {
 
 fn default_ttl(scope: &ScanScope) -> u64 {
     match scope {
-        ScanScope::Cpu => 5,        // 5 seconds
+        ScanScope::Cpu => 5, // 5 seconds
         ScanScope::Memory => 5,
-        ScanScope::Storage => 60,   // 1 minute
+        ScanScope::Storage => 60, // 1 minute
         ScanScope::Network => 10,
         ScanScope::Gpu => 10,
         ScanScope::Thermal => 10,

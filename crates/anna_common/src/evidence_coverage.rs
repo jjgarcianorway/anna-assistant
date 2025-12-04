@@ -66,8 +66,13 @@ pub fn get_target_facets(target: QueryTarget) -> TargetFacets {
             target,
             required_fields: vec!["link_state", "has_ip"],
             optional_fields: vec!["default_route", "dns_servers", "nm_state"],
-            providing_tools: vec!["network_status", "nm_summary", "link_state_summary",
-                                  "ip_route_summary", "dns_summary"],
+            providing_tools: vec![
+                "network_status",
+                "nm_summary",
+                "link_state_summary",
+                "ip_route_summary",
+                "dns_summary",
+            ],
         },
         QueryTarget::AudioStatus => TargetFacets {
             target,
@@ -97,8 +102,12 @@ pub fn get_target_facets(target: QueryTarget) -> TargetFacets {
             target,
             required_fields: vec!["alert_count"],
             optional_fields: vec!["critical", "warning", "info", "active_alerts"],
-            providing_tools: vec!["proactive_alerts_summary", "failed_units_summary",
-                                  "disk_pressure_summary", "thermal_status_summary"],
+            providing_tools: vec![
+                "proactive_alerts_summary",
+                "failed_units_summary",
+                "disk_pressure_summary",
+                "thermal_status_summary",
+            ],
         },
         QueryTarget::Unknown => TargetFacets {
             target,
@@ -224,40 +233,48 @@ fn check_field_present(field: &str, evidence: &str, target: QueryTarget) -> bool
     match field {
         // CPU fields
         "cpu_model" => {
-            evidence.contains("amd") || evidence.contains("intel") ||
-            evidence.contains("ryzen") || evidence.contains("core") ||
-            evidence.contains("processor") || evidence.contains("cpu:")
+            evidence.contains("amd")
+                || evidence.contains("intel")
+                || evidence.contains("ryzen")
+                || evidence.contains("core")
+                || evidence.contains("processor")
+                || evidence.contains("cpu:")
         }
-        "cores" => {
-            evidence.contains("core") || evidence.contains("cores")
-        }
+        "cores" => evidence.contains("core") || evidence.contains("cores"),
         "threads" => evidence.contains("thread"),
         "frequency" => {
-            evidence.contains("ghz") || evidence.contains("mhz") ||
-            evidence.contains("frequency")
+            evidence.contains("ghz") || evidence.contains("mhz") || evidence.contains("frequency")
         }
 
         // Memory fields
         "mem_total" => {
-            evidence.contains("total") || evidence.contains("memtotal") ||
-            evidence.contains("gib") || evidence.contains("mib") ||
-            (evidence.contains("memory") && (evidence.contains("gb") || evidence.contains("mb")))
+            evidence.contains("total")
+                || evidence.contains("memtotal")
+                || evidence.contains("gib")
+                || evidence.contains("mib")
+                || (evidence.contains("memory")
+                    && (evidence.contains("gb") || evidence.contains("mb")))
         }
         "mem_available" => {
-            evidence.contains("available") || evidence.contains("memavailable") ||
-            evidence.contains("free")
+            evidence.contains("available")
+                || evidence.contains("memavailable")
+                || evidence.contains("free")
         }
         "mem_used" => evidence.contains("used"),
         "swap_total" => evidence.contains("swap"),
 
         // Disk fields
         "root_fs_free" => {
-            (evidence.contains("free") || evidence.contains("avail")) &&
-            (evidence.contains("/") || evidence.contains("root") || evidence.contains("disk"))
+            (evidence.contains("free") || evidence.contains("avail"))
+                && (evidence.contains("/")
+                    || evidence.contains("root")
+                    || evidence.contains("disk"))
         }
         "root_fs_total" => {
-            (evidence.contains("total") || evidence.contains("size")) &&
-            (evidence.contains("/") || evidence.contains("root") || evidence.contains("disk"))
+            (evidence.contains("total") || evidence.contains("size"))
+                && (evidence.contains("/")
+                    || evidence.contains("root")
+                    || evidence.contains("disk"))
         }
         "home_free" => evidence.contains("/home"),
         "mount_points" => evidence.contains("mount") || evidence.contains("/"),
@@ -265,56 +282,64 @@ fn check_field_present(field: &str, evidence: &str, target: QueryTarget) -> bool
         // Kernel fields
         "kernel_release" => {
             // Look for kernel version patterns like 6.x.x or 5.x.x
-            evidence.contains("kernel") ||
-            evidence.contains("linux") ||
-            has_version_pattern(evidence)
+            evidence.contains("kernel")
+                || evidence.contains("linux")
+                || has_version_pattern(evidence)
         }
         "kernel_version" => evidence.contains("version"),
         "arch" => {
-            evidence.contains("x86_64") || evidence.contains("aarch64") ||
-            evidence.contains("architecture")
+            evidence.contains("x86_64")
+                || evidence.contains("aarch64")
+                || evidence.contains("architecture")
         }
 
         // Network fields
         "link_state" => {
-            evidence.contains("up") || evidence.contains("down") ||
-            evidence.contains("state") || evidence.contains("link") ||
-            evidence.contains("carrier")
+            evidence.contains("up")
+                || evidence.contains("down")
+                || evidence.contains("state")
+                || evidence.contains("link")
+                || evidence.contains("carrier")
         }
         "has_ip" => {
-            evidence.contains("ip") || evidence.contains("inet") ||
-            evidence.contains("address") || evidence.contains("192.") ||
-            evidence.contains("10.") || evidence.contains("172.")
+            evidence.contains("ip")
+                || evidence.contains("inet")
+                || evidence.contains("address")
+                || evidence.contains("192.")
+                || evidence.contains("10.")
+                || evidence.contains("172.")
         }
         "default_route" => {
-            evidence.contains("route") || evidence.contains("gateway") ||
-            evidence.contains("default")
+            evidence.contains("route")
+                || evidence.contains("gateway")
+                || evidence.contains("default")
         }
         "dns_servers" => {
-            evidence.contains("dns") || evidence.contains("nameserver") ||
-            evidence.contains("resolver")
+            evidence.contains("dns")
+                || evidence.contains("nameserver")
+                || evidence.contains("resolver")
         }
         "nm_state" => {
-            evidence.contains("networkmanager") || evidence.contains("nm") ||
-            evidence.contains("connected") || evidence.contains("iwd")
+            evidence.contains("networkmanager")
+                || evidence.contains("nm")
+                || evidence.contains("connected")
+                || evidence.contains("iwd")
         }
 
         // Audio fields
-        "pipewire_running" => {
-            evidence.contains("pipewire") || evidence.contains("audio")
-        }
+        "pipewire_running" => evidence.contains("pipewire") || evidence.contains("audio"),
         "wireplumber_running" => evidence.contains("wireplumber"),
         "default_sink" => evidence.contains("sink") || evidence.contains("output"),
         "devices" => evidence.contains("device"),
 
         // Service fields
         "service_active" => {
-            evidence.contains("active") || evidence.contains("running") ||
-            evidence.contains("inactive") || evidence.contains("stopped")
+            evidence.contains("active")
+                || evidence.contains("running")
+                || evidence.contains("inactive")
+                || evidence.contains("stopped")
         }
-        "service_enabled" => {
-            evidence.contains("enabled") || evidence.contains("disabled")
-        }
+        "service_enabled" => evidence.contains("enabled") || evidence.contains("disabled"),
         "last_error" => evidence.contains("error") || evidence.contains("failed"),
 
         // Software fields
@@ -347,7 +372,8 @@ pub fn get_gap_filling_tools(coverage: &EvidenceCoverage) -> Vec<&'static str> {
     let facets = get_target_facets(coverage.target);
 
     // Return tools that weren't used and could provide missing fields
-    facets.providing_tools
+    facets
+        .providing_tools
         .into_iter()
         .filter(|&tool| !coverage.tools_used.iter().any(|t| t == tool))
         .collect()
@@ -360,7 +386,8 @@ pub fn check_evidence_mismatch(target: QueryTarget, evidence: &[ToolResult]) -> 
     // Check if we have evidence but it's for the wrong target
     if !evidence.is_empty() && coverage.coverage_percent < COVERAGE_PENALTY_THRESHOLD {
         // Check what the evidence actually contains
-        let all_text: String = evidence.iter()
+        let all_text: String = evidence
+            .iter()
             .filter(|e| e.success)
             .map(|e| e.human_summary.to_lowercase())
             .collect::<Vec<_>>()
@@ -398,7 +425,9 @@ pub fn check_evidence_mismatch(target: QueryTarget, evidence: &[ToolResult]) -> 
         }
 
         // Generic mismatch
-        if coverage.missing_fields.len() == coverage.present_fields.len() + coverage.missing_fields.len() {
+        if coverage.missing_fields.len()
+            == coverage.present_fields.len() + coverage.missing_fields.len()
+        {
             return Some(format!(
                 "Evidence missing required fields: {}",
                 coverage.missing_fields.join(", ")
@@ -421,18 +450,18 @@ pub fn calculate_coverage_penalty(coverage: &EvidenceCoverage) -> i32 {
 
     // Penalty scales with how much is missing
     let missing_ratio = if coverage.present_fields.len() + coverage.missing_fields.len() > 0 {
-        (coverage.missing_fields.len() * 100) /
-        (coverage.present_fields.len() + coverage.missing_fields.len())
+        (coverage.missing_fields.len() * 100)
+            / (coverage.present_fields.len() + coverage.missing_fields.len())
     } else {
         0
     };
 
     match missing_ratio {
-        0..=10 => 0,      // Minor gap
-        11..=30 => -10,   // Some missing
-        31..=50 => -20,   // Significant gap
-        51..=70 => -30,   // Major gap
-        _ => -50,         // Critical gap
+        0..=10 => 0,    // Minor gap
+        11..=30 => -10, // Some missing
+        31..=50 => -20, // Significant gap
+        51..=70 => -30, // Major gap
+        _ => -50,       // Critical gap
     }
 }
 
@@ -483,9 +512,10 @@ mod tests {
 
     #[test]
     fn test_cpu_coverage_full() {
-        let evidence = vec![
-            make_result("hw_snapshot_cpu", "CPU: AMD Ryzen 7 5800X, 8 cores, 16 threads"),
-        ];
+        let evidence = vec![make_result(
+            "hw_snapshot_cpu",
+            "CPU: AMD Ryzen 7 5800X, 8 cores, 16 threads",
+        )];
         let coverage = analyze_coverage(QueryTarget::Cpu, &evidence);
         assert!(coverage.is_sufficient);
         assert!(coverage.missing_fields.is_empty());
@@ -493,47 +523,51 @@ mod tests {
 
     #[test]
     fn test_disk_coverage_with_cpu_evidence() {
-        let evidence = vec![
-            make_result("hw_snapshot_cpu", "CPU: AMD Ryzen 7 5800X, 8 cores"),
-        ];
+        let evidence = vec![make_result(
+            "hw_snapshot_cpu",
+            "CPU: AMD Ryzen 7 5800X, 8 cores",
+        )];
         let coverage = analyze_coverage(QueryTarget::DiskFree, &evidence);
         assert!(!coverage.is_sufficient);
         assert!(!coverage.missing_fields.is_empty());
-        assert!(coverage.missing_fields.contains(&"root_fs_free".to_string()));
+        assert!(coverage
+            .missing_fields
+            .contains(&"root_fs_free".to_string()));
     }
 
     #[test]
     fn test_disk_coverage_correct() {
-        let evidence = vec![
-            make_result("mount_usage", "Disk /: 433 GiB free of 500 GiB total (13% used)"),
-        ];
+        let evidence = vec![make_result(
+            "mount_usage",
+            "Disk /: 433 GiB free of 500 GiB total (13% used)",
+        )];
         let coverage = analyze_coverage(QueryTarget::DiskFree, &evidence);
         assert!(coverage.is_sufficient);
     }
 
     #[test]
     fn test_memory_coverage() {
-        let evidence = vec![
-            make_result("memory_info", "Memory: 32 GiB total, 24 GiB available, 8 GiB used"),
-        ];
+        let evidence = vec![make_result(
+            "memory_info",
+            "Memory: 32 GiB total, 24 GiB available, 8 GiB used",
+        )];
         let coverage = analyze_coverage(QueryTarget::Memory, &evidence);
         assert!(coverage.is_sufficient);
     }
 
     #[test]
     fn test_kernel_coverage() {
-        let evidence = vec![
-            make_result("kernel_version", "Linux kernel 6.7.1-arch1-1"),
-        ];
+        let evidence = vec![make_result("kernel_version", "Linux kernel 6.7.1-arch1-1")];
         let coverage = analyze_coverage(QueryTarget::KernelVersion, &evidence);
         assert!(coverage.is_sufficient);
     }
 
     #[test]
     fn test_network_coverage_partial() {
-        let evidence = vec![
-            make_result("link_state_summary", "eth0: UP, carrier present"),
-        ];
+        let evidence = vec![make_result(
+            "link_state_summary",
+            "eth0: UP, carrier present",
+        )];
         let coverage = analyze_coverage(QueryTarget::NetworkStatus, &evidence);
         // Only has link_state, missing has_ip
         assert!(coverage.present_fields.contains(&"link_state".to_string()));
@@ -541,9 +575,10 @@ mod tests {
 
     #[test]
     fn test_mismatch_detection() {
-        let evidence = vec![
-            make_result("hw_snapshot_cpu", "CPU: AMD Ryzen 7 5800X, 8 cores"),
-        ];
+        let evidence = vec![make_result(
+            "hw_snapshot_cpu",
+            "CPU: AMD Ryzen 7 5800X, 8 cores",
+        )];
         let mismatch = check_evidence_mismatch(QueryTarget::DiskFree, &evidence);
         assert!(mismatch.is_some());
         assert!(mismatch.unwrap().contains("CPU"));
@@ -551,9 +586,7 @@ mod tests {
 
     #[test]
     fn test_gap_filling_tools() {
-        let evidence = vec![
-            make_result("hw_snapshot_cpu", "CPU info only"),
-        ];
+        let evidence = vec![make_result("hw_snapshot_cpu", "CPU info only")];
         let coverage = analyze_coverage(QueryTarget::DiskFree, &evidence);
         let tools = get_gap_filling_tools(&coverage);
         assert!(tools.contains(&"mount_usage"));

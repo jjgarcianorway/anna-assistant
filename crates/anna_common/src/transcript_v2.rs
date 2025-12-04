@@ -10,9 +10,7 @@
 //! - [annad]: Operator, reports facts only
 //! - [networking], [storage], [boot], [audio], [graphics]: Specialists, concise
 
-use crate::case_lifecycle::{
-    CaseFileV2, CaseStatus, Department, Participant, ProposedAction,
-};
+use crate::case_lifecycle::{CaseFileV2, CaseStatus, Department, Participant, ProposedAction};
 use owo_colors::OwoColorize;
 
 // ============================================================================
@@ -114,7 +112,11 @@ impl TranscriptBuilder {
 
     /// Build the full transcript
     pub fn build(&self) -> String {
-        self.lines.iter().map(|l| l.render()).collect::<Vec<_>>().join("\n")
+        self.lines
+            .iter()
+            .map(|l| l.render())
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
 
@@ -440,11 +442,7 @@ pub fn render_handoff(
 ) -> TranscriptLine {
     TranscriptLine::new(
         &actor_display(from),
-        &format!(
-            "Assigning to [{}]: {}",
-            to_department.actor_name(),
-            reason
-        ),
+        &format!("Assigning to [{}]: {}", to_department.actor_name(), reason),
     )
 }
 
@@ -467,7 +465,11 @@ pub fn render_junior_disagreement(missing: &[String]) -> TranscriptLine {
 }
 
 /// Generate a collaboration line when multiple doctors consult
-pub fn render_collaboration(primary: Department, secondary: Department, topic: &str) -> Vec<TranscriptLine> {
+pub fn render_collaboration(
+    primary: Department,
+    secondary: Department,
+    topic: &str,
+) -> Vec<TranscriptLine> {
     vec![
         TranscriptLine::new(
             &actor_display(&Participant::Specialist(primary)),
@@ -518,7 +520,9 @@ mod tests {
     #[test]
     fn test_department_output_render() {
         let mut output = DepartmentOutput::new(Department::Networking);
-        output.findings.push("DNS server not responding".to_string());
+        output
+            .findings
+            .push("DNS server not responding".to_string());
         output.evidence_ids.push("E1".to_string());
         output.hypotheses.push(Hypothesis {
             label: "H1".to_string(),

@@ -51,7 +51,10 @@ pub fn check_idle_state() -> IdleState {
     // Check CPU load
     let load_1m = get_load_average();
     if load_1m >= DEFAULT_LOAD_THRESHOLD {
-        busy_reasons.push(format!("load {:.1} >= {:.1}", load_1m, DEFAULT_LOAD_THRESHOLD));
+        busy_reasons.push(format!(
+            "load {:.1} >= {:.1}",
+            load_1m, DEFAULT_LOAD_THRESHOLD
+        ));
     }
 
     // Check pacman lock
@@ -75,7 +78,8 @@ fn get_load_average() -> f64 {
     std::fs::read_to_string("/proc/loadavg")
         .ok()
         .and_then(|content| {
-            content.split_whitespace()
+            content
+                .split_whitespace()
                 .next()
                 .and_then(|s| s.parse::<f64>().ok())
         })
@@ -110,7 +114,8 @@ pub fn get_cpu_count() -> usize {
     std::fs::read_to_string("/proc/cpuinfo")
         .ok()
         .map(|content| {
-            content.lines()
+            content
+                .lines()
                 .filter(|line| line.starts_with("processor"))
                 .count()
         })

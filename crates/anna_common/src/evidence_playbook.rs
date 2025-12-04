@@ -139,23 +139,26 @@ impl PlaybookBundle {
     }
 
     pub fn get(&self, topic_id: &str) -> Option<&PlaybookEvidence> {
-        self.items.iter().find(|e| e.topic_id == topic_id && e.success)
+        self.items
+            .iter()
+            .find(|e| e.topic_id == topic_id && e.success)
     }
 
     pub fn has_topic(&self, topic_id: &str) -> bool {
-        self.items.iter().any(|e| e.topic_id == topic_id && e.success)
+        self.items
+            .iter()
+            .any(|e| e.topic_id == topic_id && e.success)
     }
 
     /// Finalize bundle with coverage calculation
     pub fn finalize(&mut self, required_topics: &[PlaybookTopic]) {
-        let required_ids: Vec<_> = required_topics.iter()
+        let required_ids: Vec<_> = required_topics
+            .iter()
             .filter(|t| t.required)
             .map(|t| t.id.as_str())
             .collect();
 
-        let covered = required_ids.iter()
-            .filter(|id| self.has_topic(id))
-            .count();
+        let covered = required_ids.iter().filter(|id| self.has_topic(id)).count();
 
         self.coverage_score = if required_ids.is_empty() {
             100
@@ -163,7 +166,8 @@ impl PlaybookBundle {
             ((covered * 100) / required_ids.len()) as u8
         };
 
-        self.missing_topics = required_ids.iter()
+        self.missing_topics = required_ids
+            .iter()
             .filter(|id| !self.has_topic(id))
             .map(|s| s.to_string())
             .collect();
@@ -175,7 +179,8 @@ impl PlaybookBundle {
             return "No evidence collected.".to_string();
         }
 
-        self.items.iter()
+        self.items
+            .iter()
             .filter(|e| e.success)
             .map(|e| e.summary_human.as_str())
             .collect::<Vec<_>>()
@@ -184,7 +189,8 @@ impl PlaybookBundle {
 
     /// Debug summary (with tool names)
     pub fn debug_summary(&self) -> String {
-        self.items.iter()
+        self.items
+            .iter()
             .map(|e| {
                 let status = if e.success { "OK" } else { "FAIL" };
                 let refs = if e.raw_refs.is_empty() {
@@ -367,7 +373,8 @@ mod tests {
             "net_link",
             "WiFi connected to home-network",
             "wlan0: UP, SSID=home-network",
-        ).with_refs(vec!["ip link show".to_string()]);
+        )
+        .with_refs(vec!["ip link show".to_string()]);
 
         assert!(evidence.success);
         assert!(!evidence.summary_human.contains("ip link"));
@@ -393,11 +400,14 @@ mod tests {
     #[test]
     fn test_human_summary_no_tool_names() {
         let mut bundle = PlaybookBundle::new("networking");
-        bundle.add(PlaybookEvidence::success(
-            "net_link",
-            "WiFi connected",
-            "wlan0: UP via iw dev wlan0 link",
-        ).with_refs(vec!["iw dev wlan0 link".to_string()]));
+        bundle.add(
+            PlaybookEvidence::success(
+                "net_link",
+                "WiFi connected",
+                "wlan0: UP via iw dev wlan0 link",
+            )
+            .with_refs(vec!["iw dev wlan0 link".to_string()]),
+        );
 
         let summary = bundle.human_summary();
         assert!(summary.contains("WiFi connected"));
@@ -407,11 +417,17 @@ mod tests {
 
     #[test]
     fn test_network_cause_category() {
-        assert_eq!(NetworkCauseCategory::Dns.human_label(), "DNS resolution issue");
+        assert_eq!(
+            NetworkCauseCategory::Dns.human_label(),
+            "DNS resolution issue"
+        );
     }
 
     #[test]
     fn test_storage_risk_level() {
-        assert_eq!(StorageRiskLevel::High.human_label(), "critical risk - attention required");
+        assert_eq!(
+            StorageRiskLevel::High.human_label(),
+            "critical risk - attention required"
+        );
     }
 }

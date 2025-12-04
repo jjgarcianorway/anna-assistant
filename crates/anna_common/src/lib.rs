@@ -244,9 +244,11 @@ pub mod change_journal;
 pub mod config;
 pub mod display_format;
 pub mod error_index;
+pub mod golden_baseline;
 pub mod intrusion;
 pub mod knowledge_collector;
 pub mod knowledge_core;
+pub mod log_atlas;
 pub mod log_patterns_enhanced;
 pub mod needs;
 pub mod object_metadata;
@@ -257,28 +259,26 @@ pub mod telemetry;
 pub mod telemetry_db;
 pub mod telemetry_exec;
 pub mod telemetry_trends;
-pub mod log_atlas;
-pub mod golden_baseline;
 // v7.21.0: Config atlas, topology maps, impact view
 pub mod config_atlas;
-pub mod topology_map;
 pub mod impact_view;
+pub mod topology_map;
 // v7.22.0: Scenario lenses and self toolchain hygiene
 pub mod scenario_lens;
 pub mod sw_lens;
 pub mod toolchain;
 // v7.23.0: Time-anchored trends, boot snapshots, inventory drift, config provenance
-pub mod timeline;
 pub mod boot_snapshot;
-pub mod inventory_drift;
 pub mod config_hygiene;
+pub mod inventory_drift;
+pub mod timeline;
 // v7.24.0: Relationship store, hotspots, relationships
-pub mod relationship_store;
 pub mod hotspots;
+pub mod relationship_store;
 pub mod relationships;
 // v7.26.0: Instrumentation manifest and auto-install
-pub mod instrumentation;
 pub mod auto_install;
+pub mod instrumentation;
 pub mod local_docs;
 // v7.28.0: Text wrapping for zero truncation
 pub mod text_wrap;
@@ -309,8 +309,8 @@ pub mod self_observation;
 pub mod sw_cache;
 
 // v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
-pub mod snapshots;
 pub mod snapshot_builder;
+pub mod snapshots;
 
 // v7.42.0: Control socket for daemon/CLI contract
 pub mod control_socket;
@@ -322,13 +322,13 @@ pub mod ollama;
 pub mod model_selection;
 
 // v0.0.7: Read-only tool catalog and executor
-pub mod tools;
 pub mod tool_executor;
+pub mod tools;
 
 // v0.0.8: Mutation tools, rollback, and executor
+pub mod mutation_executor;
 pub mod mutation_tools;
 pub mod rollback;
-pub mod mutation_executor;
 
 // v0.0.47: Append line mutation with full rollback
 pub mod append_line_mutation;
@@ -343,17 +343,20 @@ pub mod installer_review;
 // v0.0.11: Safe auto-update system
 pub mod update_system;
 
+// v0.0.73: Reliable auto-update with state machine, locking, and rollback
+pub mod updater;
+
 // v0.0.12: Proactive anomaly detection
 pub mod anomaly_engine;
 
 // v0.0.13: Conversation memory and recipe system
+pub mod introspection;
 pub mod memory;
 pub mod recipes;
-pub mod introspection;
 
 // v0.0.14: Policy engine and security posture
-pub mod policy;
 pub mod audit_log;
+pub mod policy;
 
 // v0.0.16: Mutation safety system
 pub mod mutation_safety;
@@ -419,8 +422,8 @@ pub mod file_edit_tools;
 
 // v0.0.51: Systemd Action Engine (modular)
 pub mod systemd_action;
-pub mod systemd_probe;
 pub mod systemd_apply;
+pub mod systemd_probe;
 pub mod systemd_rollback;
 
 // v0.0.51: Systemd Tool Executors
@@ -434,46 +437,46 @@ pub mod doctor_flow;
 
 // v0.0.54: Action Engine (safe mutations with diffs, rollback, confirmations)
 pub mod action_engine;
-pub mod action_risk;
 pub mod action_executor;
+pub mod action_risk;
 
 // v0.0.55: Deterministic Case Engine + Doctor-first routing
 pub mod case_engine;
-pub mod intent_taxonomy;
-pub mod evidence_tools;
 pub mod case_file_v1;
+pub mod evidence_tools;
+pub mod intent_taxonomy;
 pub mod recipe_extractor;
 pub mod transcript_render;
 
 // v0.0.56: Fly-on-the-Wall Dialogue Layer
-pub mod dialogue_renderer;
 #[cfg(test)]
 mod dialogue_golden_tests;
+pub mod dialogue_renderer;
 
 // v0.0.57: Evidence Coverage + Correct Tool Routing
 pub mod evidence_coverage;
-pub mod junior_rubric;
 #[cfg(test)]
 mod evidence_coverage_tests;
+pub mod junior_rubric;
 
 // v0.0.58: Proactive Monitoring Loop v1
-pub mod proactive_alerts;
 pub mod alert_detectors;
 pub mod alert_probes;
+pub mod proactive_alerts;
 
 // v0.0.59: Auto-Case Opening + Departmental IT Org
 pub mod case_lifecycle;
-pub mod service_desk;
-pub mod transcript_v2;
 #[cfg(test)]
 mod case_lifecycle_tests;
+pub mod service_desk;
+pub mod transcript_v2;
 
 // v0.0.60: 3-Tier Transcript Rendering
-pub mod transcript_events;
 pub mod human_labels;
-pub mod transcript_renderer;
+pub mod transcript_events;
 #[cfg(test)]
 mod transcript_mode_tests;
+pub mod transcript_renderer;
 
 // v0.0.61: Evidence Topics (Targeted Answers)
 pub mod evidence_topic;
@@ -482,9 +485,9 @@ pub mod evidence_topic;
 pub mod narrator;
 
 // v0.0.65: Typed Evidence System + Answer Shaping
+pub mod answer_shaper;
 pub mod evidence_record;
 pub mod evidence_router;
-pub mod answer_shaper;
 #[cfg(test)]
 mod narrator_tests;
 
@@ -492,8 +495,8 @@ mod narrator_tests;
 pub mod department_protocol;
 
 // v0.0.67: Department Evidence Playbooks v1
-pub mod evidence_playbook;
 pub mod action_proposal;
+pub mod evidence_playbook;
 pub mod networking_playbook;
 pub mod storage_playbook;
 
@@ -505,6 +508,12 @@ pub mod case_coordinator;
 
 // v0.0.70: Dual Transcript Renderer
 pub mod transcript_v070;
+
+// v0.0.71: Humanizer Layer
+pub mod humanizer;
+
+// v0.0.72: Unified Dual Mode Transcript
+pub mod transcript_v072;
 
 // Re-exports for convenience
 pub use atomic_write::{atomic_write, atomic_write_bytes};
@@ -520,21 +529,33 @@ pub use object_metadata::*;
 pub use service_state::*;
 // Explicit telemetry exports to avoid conflicts with knowledge_core::TelemetryAggregates
 pub use telemetry::{
-    // Constants
-    TELEMETRY_DIR, TELEMETRY_STATE_FILE,
-    PROCESS_ACTIVITY_LOG, COMMAND_USAGE_LOG, SERVICE_CHANGES_LOG,
-    PACKAGE_CHANGES_LOG, ERROR_EVENTS_LOG,
+    command_stats,
+    days_ago,
+    // Time helpers
+    hours_ago,
+    now,
+    top_commands,
+    CommandEvent,
+    // Stats
+    CommandStats,
+    PackageChangeEvent,
+    PackageChangeType,
     // Event types
-    ProcessSample, CommandEvent, ServiceChangeEvent,
-    PackageChangeType, PackageChangeEvent,
+    ProcessSample,
+    ServiceChangeEvent,
+    TelemetryReader,
     // State
     TelemetryState,
     // Writer/Reader
-    TelemetryWriter, TelemetryReader,
-    // Time helpers
-    hours_ago, days_ago, now,
-    // Stats
-    CommandStats, command_stats, top_commands,
+    TelemetryWriter,
+    COMMAND_USAGE_LOG,
+    ERROR_EVENTS_LOG,
+    PACKAGE_CHANGES_LOG,
+    PROCESS_ACTIVITY_LOG,
+    SERVICE_CHANGES_LOG,
+    // Constants
+    TELEMETRY_DIR,
+    TELEMETRY_STATE_FILE,
 };
 // v7.2.0: SQLite telemetry database exports (with aggregations)
 // v7.5.0: Enhanced with CPU time, exec counts, hotspots
@@ -543,795 +564,1077 @@ pub use telemetry::{
 // v7.9.0: Added trend classification (24h vs 7d), TopIdentityWithTrend, TrendWithStats
 // v7.27.0: Added boot_id for "this boot" aggregations
 pub use telemetry_db::{
-    TelemetryDb, ProcessTelemetrySample, ObjectTelemetry, TelemetryStats,
-    SampleCounts, UsageStats, GlobalPeak, DataStatus, MaintenanceResult,
-    EnhancedUsageStats, EnhancedWindowedStats, TopProcessEntry,
-    HealthHotspot, TelemetryHealth,
-    WindowStats, AllWindowStats, TopCompactEntry, format_cpu_time_compact,
-    // v7.7.0: Trend and window status types
-    Trend, TrendData, WindowStatusInfo, TopHighlightEntry,
-    // v7.9.0: Enhanced trend types
-    TrendWithStats, TopIdentityWithTrend,
+    format_bytes_human,
+    format_cpu_time,
+    format_cpu_time_compact,
     // v7.27.0: Boot ID support
     get_current_boot_id,
+    AllWindowStats,
+    DataStatus,
+    EnhancedUsageStats,
+    EnhancedWindowedStats,
+    GlobalPeak,
+    HealthHotspot,
+    MaintenanceResult,
+    ObjectTelemetry,
+    ProcessTelemetrySample,
+    SampleCounts,
+    TelemetryDb,
+    TelemetryHealth,
+    TelemetryStats,
+    TopCompactEntry,
+    TopHighlightEntry,
+    TopIdentityWithTrend,
+    TopProcessEntry,
+    // v7.7.0: Trend and window status types
+    Trend,
+    TrendData,
+    // v7.9.0: Enhanced trend types
+    TrendWithStats,
+    UsageStats,
+    WindowStats,
+    WindowStatusInfo,
     TELEMETRY_DB_PATH,
-    WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D,
-    format_cpu_time, format_bytes_human,
+    WINDOW_1H,
+    WINDOW_24H,
+    WINDOW_30D,
+    WINDOW_7D,
 };
 // v8.0.0: Execution telemetry with per-object, per-day JSONL storage
 pub use telemetry_exec::{
-    ExecutionRecord, ExecTelemetryWriter, ExecTelemetryReader,
-    ObjectTelemetryResult, EXEC_TELEMETRY_DIR,
-    WindowStats as ExecWindowStats,
+    ExecTelemetryReader, ExecTelemetryWriter, ExecutionRecord, ObjectTelemetryResult,
+    WindowStats as ExecWindowStats, EXEC_TELEMETRY_DIR,
 };
 // v7.6.0: Anna needs model for missing tools and docs
 pub use needs::{
-    AnnaNeeds, Need, NeedType, NeedStatus, NeedScope, NeedsSummary,
-    HardwareDeps, is_smartctl_available, is_nvme_available, is_sensors_available,
-    is_nvidia_smi_available, is_iw_available, is_ethtool_available, is_man_available,
-    get_tool_status,
+    get_tool_status, is_ethtool_available, is_iw_available, is_man_available,
+    is_nvidia_smi_available, is_nvme_available, is_sensors_available, is_smartctl_available,
+    AnnaNeeds, HardwareDeps, Need, NeedScope, NeedStatus, NeedType, NeedsSummary,
 };
 // v7.12.0: Operations log for Anna's internal tooling audit trail
 pub use ops_log::{
-    OpsAction, OpsEntry, OpsLogWriter, OpsLogReader,
-    OpsActionCounts, OpsLogSummary,
-    INTERNAL_DIR, OPS_LOG_FILE,
+    OpsAction, OpsActionCounts, OpsEntry, OpsLogReader, OpsLogSummary, OpsLogWriter, INTERNAL_DIR,
+    OPS_LOG_FILE,
 };
 // v7.16.0: Service lifecycle tracking
 pub use service_lifecycle::{
-    ServiceLifecycle, ServiceLifecycleSummary,
-    find_related_units, find_hardware_related_units,
+    find_hardware_related_units, find_related_units, ServiceLifecycle, ServiceLifecycleSummary,
 };
 // v7.18.0: Change journal for tracking system changes
 pub use change_journal::{
-    ChangeType, ChangeEvent, ChangeDetails,
-    ChangeJournalWriter, ChangeJournalReader,
-    get_package_history, get_config_history, get_recent_changes,
-    scan_pacman_log, JOURNAL_DIR, JOURNAL_FILE,
+    get_config_history, get_package_history, get_recent_changes, scan_pacman_log, ChangeDetails,
+    ChangeEvent, ChangeJournalReader, ChangeJournalWriter, ChangeType, JOURNAL_DIR, JOURNAL_FILE,
 };
 // v7.18.0: Boot timeline for per-boot health view
 pub use boot_timeline::{
-    BootSummary, BootPhase, SlowUnit,
-    get_current_boot_summary, get_previous_boot_summary, get_boot_summary,
-    get_boot_list, get_service_log_patterns_by_boot, LogPatternEntry,
+    get_boot_list, get_boot_summary, get_current_boot_summary, get_previous_boot_summary,
+    get_service_log_patterns_by_boot, BootPhase, BootSummary, LogPatternEntry, SlowUnit,
     BOOT_TIMELINE_DIR,
 };
 // v7.18.0: Enhanced log patterns with pattern IDs and novelty
 pub use log_patterns_enhanced::{
-    LogPattern, PatternOccurrence, ServicePatternSummary,
-    LogPatternAnalyzer, get_service_log_counts,
-    LOG_PATTERNS_DIR,
+    get_service_log_counts, LogPattern, LogPatternAnalyzer, PatternOccurrence,
+    ServicePatternSummary, LOG_PATTERNS_DIR,
 };
 // v7.20.0: Telemetry trends with deterministic labels
 pub use telemetry_trends::{
-    TrendDirection, WindowStats as TrendWindowStats, ProcessTrends, HardwareTrends,
-    SignalTrends, get_process_trends, format_bytes_short,
+    format_bytes_short, get_process_trends, HardwareTrends, ProcessTrends, SignalTrends,
+    TrendDirection, WindowStats as TrendWindowStats,
 };
 // v7.20.0: Log atlas with pattern IDs and cross-boot visibility
 pub use log_atlas::{
-    LogPattern as AtlasLogPattern, ComponentAtlas, BootLogEntry, CrossBootLogSummary,
-    get_service_log_atlas, get_device_log_atlas, normalize_message, format_timestamp_short,
-    JOURNAL_DIR as ATLAS_JOURNAL_DIR, BASELINE_DIR,
+    format_timestamp_short, get_device_log_atlas, get_service_log_atlas, normalize_message,
+    BootLogEntry, ComponentAtlas, CrossBootLogSummary, LogPattern as AtlasLogPattern, BASELINE_DIR,
+    JOURNAL_DIR as ATLAS_JOURNAL_DIR,
 };
 // v7.20.0: Golden baseline for pattern comparison
 pub use golden_baseline::{
-    GoldenBaseline, BaselineTag, MAX_BASELINE_WARNINGS,
-    find_or_create_service_baseline, find_or_create_device_baseline,
-    tag_pattern, get_components_with_new_patterns,
+    find_or_create_device_baseline, find_or_create_service_baseline,
+    get_components_with_new_patterns, tag_pattern, BaselineTag, GoldenBaseline,
+    MAX_BASELINE_WARNINGS,
 };
 // v7.21.0: Config atlas for clean per-component config discovery
 pub use config_atlas::{
-    ConfigAtlas, ConfigEntry, ConfigCategory, ConfigStatus,
-    PrecedenceEntry, build_config_atlas,
+    build_config_atlas, ConfigAtlas, ConfigCategory, ConfigEntry, ConfigStatus, PrecedenceEntry,
 };
 // v7.21.0: Topology maps for software and hardware stacks
 pub use topology_map::{
-    SoftwareTopology, HardwareTopology, StackRole, ServiceGroup,
-    CpuInfo, MemoryInfo, GpuInfo, StorageInfo, NetworkInfo, AudioInfo,
-    build_software_topology, build_hardware_topology,
+    build_hardware_topology, build_software_topology, AudioInfo, CpuInfo, GpuInfo,
+    HardwareTopology, MemoryInfo, NetworkInfo, ServiceGroup, SoftwareTopology, StackRole,
+    StorageInfo,
 };
 // v7.21.0: Impact view for resource consumer rankings
 pub use impact_view::{
-    SoftwareImpact, HardwareImpact, ConsumerEntry, DiskPressure, NetworkUsage,
-    get_software_impact, get_hardware_impact,
-    format_bytes as impact_format_bytes, format_bytes_compact,
+    format_bytes as impact_format_bytes, format_bytes_compact, get_hardware_impact,
+    get_software_impact, ConsumerEntry, DiskPressure, HardwareImpact, NetworkUsage, SoftwareImpact,
 };
 // v7.22.0: Scenario lenses for category-aware views
 pub use scenario_lens::{
-    NetworkLens, NetworkInterface, NetworkTelemetry, NetworkEvent,
-    StorageLens, StorageDevice, StorageHealth, StorageTelemetry,
-    GraphicsLens, GpuDevice, DisplayConnector,
-    AudioLens, AudioDevice,
-    format_bytes as lens_format_bytes,
+    format_bytes as lens_format_bytes, AudioDevice, AudioLens, DisplayConnector, GpuDevice,
+    GraphicsLens, NetworkEvent, NetworkInterface, NetworkLens, NetworkTelemetry, StorageDevice,
+    StorageHealth, StorageLens, StorageTelemetry,
 };
 // v7.22.0: Software lenses for category views
 pub use sw_lens::{
-    NetworkSwLens, DisplaySwLens, AudioSwLens, PowerSwLens,
-    ServiceEntry, ConfigFileEntry, ServiceTelemetry,
-    is_sw_category, get_sw_category,
+    get_sw_category, is_sw_category, AudioSwLens, ConfigFileEntry, DisplaySwLens, NetworkSwLens,
+    PowerSwLens, ServiceEntry, ServiceTelemetry,
 };
 // v7.22.0: Self toolchain hygiene
 pub use toolchain::{
-    ToolCategory, AnnaTool, ToolStatus, ToolchainStatus, ToolchainSummary,
-    InstallResult,
-    get_anna_tools, check_toolchain, install_tool, ensure_tool,
-    format_toolchain_section, format_toolchain_status_section,
+    check_toolchain, ensure_tool, format_toolchain_section, format_toolchain_status_section,
+    get_anna_tools, install_tool, AnnaTool, InstallResult, ToolCategory, ToolStatus,
+    ToolchainStatus, ToolchainSummary,
 };
 // v7.23.0: Time-anchored trends
 pub use timeline::{
-    UsageTrends, HwTelemetryTrends, TimeWindow, TrendLabel,
-    get_usage_trends, get_hw_telemetry_trends,
-    format_usage_section, format_hw_telemetry_section,
-    format_cpu_percent_with_range, format_percent, format_fraction_as_percent,
-    format_memory as timeline_format_memory, format_temperature, format_io_bytes,
-    get_logical_cores,
+    format_cpu_percent_with_range, format_fraction_as_percent, format_hw_telemetry_section,
+    format_io_bytes, format_memory as timeline_format_memory, format_percent, format_temperature,
+    format_usage_section, get_hw_telemetry_trends, get_logical_cores, get_usage_trends,
+    HwTelemetryTrends, TimeWindow, TrendLabel, UsageTrends,
 };
 // v7.23.0: Boot snapshots
-pub use boot_snapshot::{
-    BootSnapshot, IncidentPattern,
-    format_boot_snapshot_section,
-};
+pub use boot_snapshot::{format_boot_snapshot_section, BootSnapshot, IncidentPattern};
 // v7.23.0: Inventory drift
-pub use inventory_drift::{
-    InventorySnapshot, DriftSummary,
-};
+pub use inventory_drift::{DriftSummary, InventorySnapshot};
 // v7.23.0: Config hygiene with provenance
 pub use config_hygiene::{
-    ConfigSource, ValidatedConfigEntry, ValidatedConfig,
-    ConfigGraph, ConfigPrecedenceEntry,
-    format_config_section, format_config_graph_section,
+    format_config_graph_section, format_config_section, ConfigGraph, ConfigPrecedenceEntry,
+    ConfigSource, ValidatedConfig, ValidatedConfigEntry,
 };
 // v7.24.0: Relationship store
 pub use relationship_store::{
-    LinkType, Link, RelationshipStore,
-    discover_package_service_links, discover_service_process_links,
-    discover_device_driver_links, discover_driver_firmware_links,
+    discover_device_driver_links, discover_driver_firmware_links, discover_package_service_links,
+    discover_service_process_links, Link, LinkType, RelationshipStore,
 };
 // v7.24.0: Hotspots (v7.28.0: added NetworkHotspot)
 pub use hotspots::{
-    CpuHotspot, MemoryHotspot, StartFrequencyHotspot,
-    TempHotspot, IoHotspot, LoadHotspot, GpuHotspot,
-    NetworkHotspot,  // v7.28.0
-    SoftwareHotspots, HardwareHotspots,
-    get_software_hotspots, get_hardware_hotspots,
-    format_software_hotspots_section, format_hardware_hotspots_section,
+    format_hardware_hotspots_section,
+    format_software_hotspots_section,
     format_status_hotspots_section,
+    get_hardware_hotspots,
+    get_software_hotspots,
+    CpuHotspot,
+    GpuHotspot,
+    HardwareHotspots,
+    IoHotspot,
+    LoadHotspot,
+    MemoryHotspot,
+    NetworkHotspot, // v7.28.0
+    SoftwareHotspots,
+    StartFrequencyHotspot,
+    TempHotspot,
 };
 // v7.24.0: Relationships
 pub use relationships::{
-    ServiceRelation, ProcessRelation, HardwareRelation, StackPackage,
-    SoftwareRelationships, DriverRelation, FirmwareRelation,
-    ServiceUsingDevice, SoftwareUsingDevice, HardwareRelationships,
-    get_software_relationships, get_hardware_relationships,
-    format_software_relationships_section, format_hardware_relationships_section,
+    format_hardware_relationships_section, format_software_relationships_section,
+    get_hardware_relationships, get_software_relationships, DriverRelation, FirmwareRelation,
+    HardwareRelation, HardwareRelationships, ProcessRelation, ServiceRelation, ServiceUsingDevice,
+    SoftwareRelationships, SoftwareUsingDevice, StackPackage,
 };
 // v7.26.0: Instrumentation manifest and auto-install
-pub use instrumentation::{
-    InstalledTool, AvailableTool, InstallAttempt, InstrumentationManifest,
-    INSTRUMENTATION_FILE,
-    get_known_tools, get_missing_tools, is_package_installed, get_package_version,
-};
 pub use auto_install::{
-    InstallResult as AutoInstallResult, InstrumentationStatus,
-    try_install, try_install_known_tool, get_instrumentation_status,
+    ensure_tool_for_command,
+    get_instrumentation_status,
+    is_package_installed as auto_is_package_installed,
+    try_install,
+    try_install_known_tool,
+    InstallDisclosure,
+    InstallResult as AutoInstallResult,
+    InstrumentationStatus,
     // v7.28.0: In-band disclosure for auto-install
-    PendingInstall, InstallDisclosure, ensure_tool_for_command,
-    is_package_installed as auto_is_package_installed, COMMON_TOOLS,
+    PendingInstall,
+    COMMON_TOOLS,
+};
+pub use instrumentation::{
+    get_known_tools, get_missing_tools, get_package_version, is_package_installed, AvailableTool,
+    InstallAttempt, InstalledTool, InstrumentationManifest, INSTRUMENTATION_FILE,
 };
 pub use local_docs::{
-    LocalDocResult, LocalDocsSummary,
-    has_man_page, get_man_path, get_man_description,
-    get_doc_paths, get_config_paths_from_pacman, get_sample_configs_from_pacman,
-    resolve_local_docs, get_local_docs_summary,
+    get_config_paths_from_pacman, get_doc_paths, get_local_docs_summary, get_man_description,
+    get_man_path, get_sample_configs_from_pacman, has_man_page, resolve_local_docs, LocalDocResult,
+    LocalDocsSummary,
 };
 // v7.28.0: Text wrapping for zero truncation
-pub use text_wrap::{
-    get_terminal_width, wrap_text, wrap_with_prefix,
-    format_kv, format_list_item,
-};
+pub use text_wrap::{format_kv, format_list_item, get_terminal_width, wrap_text, wrap_with_prefix};
 // v7.31.0: Telemetry format and update state
 pub use telemetry_format::{
-    TelemetryReadiness, WindowAvailability, TrendDelta,
-    TrendDirection as TelemetryTrendDirection,  // Alias to avoid conflict
-    get_logical_cpu_count, format_cpu_percent, format_cpu_percent_short,
-    format_cpu_avg_peak, format_memory as fmt_memory, format_memory_avg_peak,
-    format_duration_short, format_cpu_time as fmt_cpu_time,
-    MIN_SAMPLES_1H, MIN_SAMPLES_24H, MIN_SAMPLES_7D, MIN_SAMPLES_30D,
+    format_cpu_avg_peak,
+    format_cpu_percent,
+    format_cpu_percent_short,
+    format_cpu_time as fmt_cpu_time,
+    format_duration_short,
+    format_memory as fmt_memory,
+    format_memory_avg_peak,
+    get_logical_cpu_count,
+    TelemetryReadiness,
+    TrendDelta,
+    TrendDirection as TelemetryTrendDirection, // Alias to avoid conflict
+    WindowAvailability,
+    MIN_SAMPLES_1H,
+    MIN_SAMPLES_24H,
+    MIN_SAMPLES_30D,
+    MIN_SAMPLES_7D,
 };
 // v7.34.0: Update checking with consolidated state
-pub use update_checker::{
-    CheckResult, check_anna_updates, run_update_check,
-    is_check_due, is_daemon_running,
-};
 pub use ops_log::OpsLog;
+pub use update_checker::{
+    check_anna_updates, is_check_due, is_daemon_running, run_update_check, CheckResult,
+};
 // v7.32.0: Network trends and scoped scans
 pub use network_trends::{
-    InterfaceType, WiFiSample, EthernetSample, NetworkTrendWindow, InterfaceTrends,
-    collect_wifi_sample, collect_ethernet_sample, detect_interface_type,
-    list_network_interfaces, is_iw_available as network_is_iw_available,
-    is_ethtool_available as network_is_ethtool_available, is_nmcli_available,
-    format_rssi, format_link_quality,
+    collect_ethernet_sample, collect_wifi_sample, detect_interface_type, format_link_quality,
+    format_rssi, is_ethtool_available as network_is_ethtool_available,
+    is_iw_available as network_is_iw_available, is_nmcli_available, list_network_interfaces,
+    EthernetSample, InterfaceTrends, InterfaceType, NetworkTrendWindow, WiFiSample,
 };
 pub use scoped_scan::{
-    ScanScope, StalenessInfo, ScanResult, ScanData, ScopedScanner,
-    MountInfo, InterfaceInfo, TempSensor,
-    DEFAULT_TIME_BUDGET_MS, MAX_TIME_BUDGET_MS,
+    InterfaceInfo, MountInfo, ScanData, ScanResult, ScanScope, ScopedScanner, StalenessInfo,
+    TempSensor, DEFAULT_TIME_BUDGET_MS, MAX_TIME_BUDGET_MS,
 };
 // v7.36.0: Bounded knowledge storage with chunking
 pub use chunk_store::{
-    // Hard limits
-    MAX_CHUNK_BYTES, MAX_DOC_BYTES, MAX_CHUNKS_PER_DOC, CHUNK_STORE_PATH,
-    // Rendering budgets
-    BUDGET_STATUS, BUDGET_OVERVIEW, BUDGET_DETAIL,
-    // Types
-    DocType, DocEntry, DocIndex, ExtractedFacts, FactWithSource, LocationHint, LocationScope,
-    OverflowInfo,
+    delete_document,
+    read_chunks,
+    read_facts,
+    render_bounded,
+    sanitize_to_plain_text,
     // Operations
-    store_document, read_chunks, read_facts, delete_document,
-    render_bounded, sanitize_to_plain_text,
+    store_document,
+    DocEntry,
+    DocIndex,
+    // Types
+    DocType,
+    ExtractedFacts,
+    FactWithSource,
+    LocationHint,
+    LocationScope,
+    OverflowInfo,
+    BUDGET_DETAIL,
+    BUDGET_OVERVIEW,
+    // Rendering budgets
+    BUDGET_STATUS,
+    CHUNK_STORE_PATH,
+    MAX_CHUNKS_PER_DOC,
+    // Hard limits
+    MAX_CHUNK_BYTES,
+    MAX_DOC_BYTES,
 };
 // v7.32.0: Evidence-based categorization and game platform detection
 pub use grounded::{
-    // Category evidence
-    Confidence, EvidenceSource, CategoryAssignment, classify_software,
-    // Steam detection
-    SteamGame, SteamLibrary, detect_steam_games, detect_steam_libraries,
-    find_steam_game, is_steam_installed, get_steam_root, get_steam_games_count,
+    classify_software,
+    detect_all_platform_games,
+    detect_bottles_games,
+    detect_heroic_games,
+    detect_lutris_games,
+    detect_steam_games,
+    detect_steam_libraries,
+    find_steam_game,
     format_game_size,
-    // Game platforms
-    Platform, PlatformGame, detect_heroic_games, detect_lutris_games,
-    detect_bottles_games, detect_all_platform_games, get_platforms_summary,
+    get_audio_summary,
+    get_bluetooth_summary,
+    get_camera_summary,
+    get_hardware_overview,
+    get_input_summary,
+    get_platforms_summary,
+    get_sdcard_summary,
+    get_steam_games_count,
+    get_steam_root,
+    get_thunderbolt_summary,
+    get_usb_summary,
+    is_steam_installed,
+    AudioCard,
+    AudioSummary,
+    BluetoothAdapter,
+    BluetoothState,
+    BluetoothSummary,
+    CameraDevice,
+    CameraSummary,
+    CategoryAssignment,
+    // Category evidence
+    Confidence,
+    EvidenceSource,
+    FirewireController,
+    FirewireSummary,
+    HardwareOverview,
+    InputDevice,
+    InputSummary,
+    InputType,
     // v7.25.0+: Peripherals (USB, Bluetooth, Thunderbolt, SD, audio, input)
-    PeripheralUsbDevice, UsbController, UsbSummary,
-    BluetoothAdapter, BluetoothState, BluetoothSummary,
-    ThunderboltController, ThunderboltDevice, ThunderboltSummary,
-    SdCardReader, SdCardSummary,
-    CameraDevice, CameraSummary,
-    InputDevice, InputType, InputSummary,
-    AudioCard, AudioSummary,
-    HardwareOverview, FirewireSummary, FirewireController,
-    get_usb_summary, get_bluetooth_summary, get_thunderbolt_summary,
-    get_sdcard_summary, get_camera_summary, get_input_summary,
-    get_audio_summary, get_hardware_overview,
+    PeripheralUsbDevice,
+    // Game platforms
+    Platform,
+    PlatformGame,
+    SdCardReader,
+    SdCardSummary,
+    // Steam detection
+    SteamGame,
+    SteamLibrary,
+    ThunderboltController,
+    ThunderboltDevice,
+    ThunderboltSummary,
+    UsbController,
+    UsbSummary,
 };
 // v7.39.0: Domain-based incremental refresh
 pub use domain_state::{
-    Domain, DomainRefreshState, RefreshResult, RefreshRequest, RefreshResponse, DomainSummary,
-    DOMAIN_STATE_SCHEMA_VERSION, DOMAIN_STATE_DIR, REQUESTS_DIR, RESPONSES_DIR,
-    cleanup_old_requests,
+    cleanup_old_requests, Domain, DomainRefreshState, DomainSummary, RefreshRequest,
+    RefreshResponse, RefreshResult, DOMAIN_STATE_DIR, DOMAIN_STATE_SCHEMA_VERSION, REQUESTS_DIR,
+    RESPONSES_DIR,
 };
 // v7.39.0: Terminal-adaptive rendering
 pub use terminal::{
-    DisplayMode, SimpleTable,
-    get_terminal_size, truncate, wrap_text as terminal_wrap_text,
-    format_with_overflow, format_compact_line,
-    MIN_WIDTH, WIDE_WIDTH_THRESHOLD, COMPACT_HEIGHT_THRESHOLD, COMPACT_WIDTH_THRESHOLD,
+    format_compact_line, format_with_overflow, get_terminal_size, truncate,
+    wrap_text as terminal_wrap_text, DisplayMode, SimpleTable, COMPACT_HEIGHT_THRESHOLD,
+    COMPACT_WIDTH_THRESHOLD, MIN_WIDTH, WIDE_WIDTH_THRESHOLD,
 };
 // v7.39.0: Daemon self-observation
 pub use self_observation::{
-    SelfSample, SelfObservation, SelfWarning, WarningKind,
-    DEFAULT_CPU_THRESHOLD, DEFAULT_RSS_THRESHOLD_BYTES, CPU_WINDOW_SECONDS, SELF_SAMPLE_INTERVAL_SECS,
+    SelfObservation, SelfSample, SelfWarning, WarningKind, CPU_WINDOW_SECONDS,
+    DEFAULT_CPU_THRESHOLD, DEFAULT_RSS_THRESHOLD_BYTES, SELF_SAMPLE_INTERVAL_SECS,
 };
 // v0.0.4/v0.0.5: Ollama local LLM client
 pub use ollama::{
-    OllamaClient, OllamaStatus, OllamaModel, OllamaError,
-    GenerateRequest, GenerateResponse, GenerateOptions,
-    PullRequest, PullProgress,
-    select_junior_model, is_ollama_installed, get_ollama_version,
-    OLLAMA_DEFAULT_URL, HEALTH_CHECK_TIMEOUT_MS, GENERATE_TIMEOUT_MS,
+    get_ollama_version, is_ollama_installed, select_junior_model, GenerateOptions, GenerateRequest,
+    GenerateResponse, OllamaClient, OllamaError, OllamaModel, OllamaStatus, PullProgress,
+    PullRequest, GENERATE_TIMEOUT_MS, HEALTH_CHECK_TIMEOUT_MS, OLLAMA_DEFAULT_URL,
 };
 // v0.0.5: Role-based model selection and benchmarking
 pub use model_selection::{
-    HardwareProfile, HardwareTier, LlmRole,
-    ModelCandidate, ModelSelection,
-    BenchmarkCase, CaseResult, BenchmarkResults,
-    BootstrapPhase, BootstrapState, DownloadProgress,
-    default_candidates, translator_benchmark_cases, junior_benchmark_cases,
-    run_benchmark, select_model_for_role,
+    default_candidates, junior_benchmark_cases, run_benchmark, select_model_for_role,
+    translator_benchmark_cases, BenchmarkCase, BenchmarkResults, BootstrapPhase, BootstrapState,
+    CaseResult, DownloadProgress, HardwareProfile, HardwareTier, LlmRole, ModelCandidate,
+    ModelSelection,
 };
 // v0.0.7: Read-only tool catalog and executor
-pub use tools::{
-    ToolCatalog, ToolDef, ToolSecurity, LatencyHint,
-    ToolResult, ToolRequest, ToolPlan,
-    EvidenceCollector,
-    parse_tool_plan, unavailable_result, unknown_tool_result,
-};
 pub use tool_executor::{execute_tool, execute_tool_plan};
+pub use tools::{
+    parse_tool_plan, unavailable_result, unknown_tool_result, EvidenceCollector, LatencyHint,
+    ToolCatalog, ToolDef, ToolPlan, ToolRequest, ToolResult, ToolSecurity,
+};
 // v0.0.8: Mutation tools, rollback, and executor
+pub use mutation_executor::{
+    create_file_edit_request, create_package_install_request, create_package_remove_request,
+    create_systemd_request, execute_mutation, execute_mutation_plan, generate_request_id,
+};
 pub use mutation_tools::{
-    MutationToolCatalog, MutationToolDef, MutationRisk,
-    MutationRequest, MutationResult, MutationPlan, MutationError,
-    RollbackInfo, FileEditOp, ServiceState,
-    is_path_allowed, validate_mutation_path, validate_confirmation,
-    validate_mutation_request, get_service_state,
-    MEDIUM_RISK_CONFIRMATION, MAX_EDIT_FILE_SIZE,
+    get_service_state, is_path_allowed, validate_confirmation, validate_mutation_path,
+    validate_mutation_request, FileEditOp, MutationError, MutationPlan, MutationRequest,
+    MutationResult, MutationRisk, MutationToolCatalog, MutationToolDef, RollbackInfo, ServiceState,
+    MAX_EDIT_FILE_SIZE, MEDIUM_RISK_CONFIRMATION,
 };
 pub use rollback::{
-    RollbackManager, MutationLogEntry, MutationType, MutationDetails,
-    ROLLBACK_BASE_DIR, ROLLBACK_FILES_DIR, ROLLBACK_LOGS_DIR,
-};
-pub use mutation_executor::{
-    execute_mutation, execute_mutation_plan,
-    generate_request_id, create_file_edit_request, create_systemd_request,
-    create_package_install_request, create_package_remove_request,
+    MutationDetails, MutationLogEntry, MutationType, RollbackManager, ROLLBACK_BASE_DIR,
+    ROLLBACK_FILES_DIR, ROLLBACK_LOGS_DIR,
 };
 // v0.0.16: Mutation safety system exports
 pub use mutation_safety::{
-    MutationState, PreflightCheck, PreflightResult,
-    DiffLine, DiffPreview, PostCheck, PostCheckResult,
-    RollbackResult, SafeMutationExecutor,
-    generate_request_id as safety_generate_request_id,
+    generate_request_id as safety_generate_request_id, DiffLine, DiffPreview, MutationState,
+    PostCheck, PostCheckResult, PreflightCheck, PreflightResult, RollbackResult,
+    SafeMutationExecutor,
 };
 
 // v0.0.47: Append line mutation exports
 pub use append_line_mutation::{
-    SandboxCheck, RiskLevel as AppendRiskLevel,
-    AppendMutationEvidence, FileStatEvidence, FilePreviewEvidence,
-    AppendDiffPreview, AppendMutationResult,
-    RollbackResult as AppendRollbackResult,
-    check_sandbox, collect_evidence as collect_append_evidence,
-    generate_diff_preview, check_mutation_allowed,
-    execute_append_line, execute_rollback as execute_append_rollback,
-    generate_mutation_case_id,
-    SANDBOX_CONFIRMATION, HOME_CONFIRMATION,
+    check_mutation_allowed, check_sandbox, collect_evidence as collect_append_evidence,
+    execute_append_line, execute_rollback as execute_append_rollback, generate_diff_preview,
+    generate_mutation_case_id, AppendDiffPreview, AppendMutationEvidence, AppendMutationResult,
+    FilePreviewEvidence, FileStatEvidence, RiskLevel as AppendRiskLevel,
+    RollbackResult as AppendRollbackResult, SandboxCheck, HOME_CONFIRMATION, SANDBOX_CONFIRMATION,
 };
 
 // v0.0.9: Helper tracking exports
 // v0.0.23: Added install functions (install_package, install_ollama)
 pub use helpers::{
-    HelpersManifest, HelperState, HelperDefinition, InstalledBy,
-    HelpersSummary, HelperStatusEntry, InstallResult as HelperInstallResult,
-    get_helper_definitions, get_helper_status_list, get_helpers_summary,
-    refresh_helper_states, is_package_present, get_package_version as helpers_get_package_version,
-    install_package, install_ollama, is_command_available, get_ollama_version as helpers_get_ollama_version,
+    get_helper_definitions,
+    get_helper_status_list,
+    get_helpers_summary,
+    get_ollama_version as helpers_get_ollama_version,
+    get_package_version as helpers_get_package_version,
     // v0.0.30: Install all missing helpers on daemon start
     install_missing_helpers,
+    install_ollama,
+    install_package,
+    is_command_available,
+    is_package_present,
+    refresh_helper_states,
+    HelperDefinition,
+    HelperState,
+    HelperStatusEntry,
+    HelpersManifest,
+    HelpersSummary,
+    InstallResult as HelperInstallResult,
+    InstalledBy,
     HELPERS_STATE_FILE,
 };
 
 // v0.0.10: Install state and installer review exports
 // v0.0.25: Added InstallState::ensure_initialized for auto-creation on daemon start
 pub use install_state::{
-    InstallState, BinaryInfo, UnitInfo, DirectoryInfo, ReviewResult, LastReview,
-    discover_install_state, INSTALL_STATE_PATH, INSTALL_STATE_SCHEMA,
+    discover_install_state, BinaryInfo, DirectoryInfo, InstallState, LastReview, ReviewResult,
+    UnitInfo, INSTALL_STATE_PATH, INSTALL_STATE_SCHEMA,
 };
 pub use installer_review::{
-    CheckResult as InstallerCheckResult, InstallerReviewReport,
-    run_installer_review, run_and_record_review,
+    run_and_record_review, run_installer_review, CheckResult as InstallerCheckResult,
+    InstallerReviewReport,
 };
 
 // v0.0.11: Update system exports
 // v0.0.26: Added perform_auto_update for full auto-update in daemon
 pub use update_system::{
-    UpdateManager, UpdateChannel as UpdateSystemChannel, UpdatePhase,
-    UpdateMarker, BackupEntry, ReleaseInfo, ReleaseArtifact,
-    IntegrityStatus, GuardrailResult,
-    is_newer_version, generate_update_evidence_id, handle_post_restart,
-    perform_auto_update,
-    UPDATE_STAGE_DIR, UPDATE_BACKUP_DIR, UPDATE_MARKER_FILE, MIN_DISK_SPACE_BYTES,
+    generate_update_evidence_id, handle_post_restart, is_newer_version, perform_auto_update,
+    BackupEntry, GuardrailResult, IntegrityStatus, ReleaseArtifact, ReleaseInfo,
+    UpdateChannel as UpdateSystemChannel, UpdateManager, UpdateMarker, UpdatePhase,
+    MIN_DISK_SPACE_BYTES, UPDATE_BACKUP_DIR, UPDATE_MARKER_FILE, UPDATE_STAGE_DIR,
 };
 
 // v0.0.12: Anomaly detection exports
 pub use anomaly_engine::{
-    AnomalySeverity, AnomalySignal, TimeWindow as AnomalyTimeWindow, Anomaly,
-    AlertQueue, AnomalyThresholds, AnomalyEngine,
-    ALERTS_FILE, ALERTS_SCHEMA_VERSION,
-    // What changed tool
-    WhatChangedResult, PackageChange, ConfigChange as AnomalyConfigChange, what_changed,
+    analyze_slowness,
+    what_changed,
+    AlertQueue,
+    Anomaly,
+    AnomalyEngine,
+    AnomalySeverity,
+    AnomalySignal,
+    AnomalyThresholds,
+    ConfigChange as AnomalyConfigChange,
+    PackageChange,
+    SlownessAnalysisResult,
     // Slowness analysis tool
-    SlownessHypothesis, SlownessAnalysisResult, analyze_slowness,
+    SlownessHypothesis,
+    TimeWindow as AnomalyTimeWindow,
+    // What changed tool
+    WhatChangedResult,
+    ALERTS_FILE,
+    ALERTS_SCHEMA_VERSION,
 };
 
 // v0.0.13: Memory and recipe exports
+pub use introspection::{
+    detect_introspection_intent, execute_forget, execute_introspection, IntrospectionIntent,
+    IntrospectionItem, IntrospectionItemType, IntrospectionResult, FORGET_CONFIRMATION,
+};
 pub use memory::{
-    SessionRecord, TranslatorSummary, ToolUsage, RecipeAction, SessionType,
-    MemoryManager, MemoryStats, MemoryIndex,
-    MEMORY_DIR, SESSIONS_FILE, MEMORY_INDEX_FILE, MEMORY_ARCHIVE_DIR,
-    MEMORY_SCHEMA_VERSION, MEMORY_EVIDENCE_PREFIX,
-    generate_memory_evidence_id,
+    generate_memory_evidence_id, MemoryIndex, MemoryManager, MemoryStats, RecipeAction,
+    SessionRecord, SessionType, ToolUsage, TranslatorSummary, MEMORY_ARCHIVE_DIR, MEMORY_DIR,
+    MEMORY_EVIDENCE_PREFIX, MEMORY_INDEX_FILE, MEMORY_SCHEMA_VERSION, SESSIONS_FILE,
 };
 pub use recipes::{
-    Recipe, IntentPattern, RecipeToolPlan, RecipeToolStep,
-    RecipeSafety, RecipeRiskLevel, Precondition, PreconditionCheck,
-    RollbackTemplate, RecipeCreator, RecipeManager, RecipeStats, RecipeIndex,
-    ArchivedRecipe,
-    // v0.0.37: New recipe types
-    RecipeStatus, PostCheck as RecipePostCheck, PostCheckType as RecipePostCheckType,
-    RECIPES_DIR, RECIPE_INDEX_FILE, RECIPE_ARCHIVE_DIR,
-    RECIPE_SCHEMA_VERSION, RECIPE_EVIDENCE_PREFIX, MIN_RELIABILITY_FOR_RECIPE,
     generate_recipe_id,
-};
-pub use introspection::{
-    IntrospectionIntent, IntrospectionResult, IntrospectionItem, IntrospectionItemType,
-    FORGET_CONFIRMATION,
-    detect_introspection_intent, execute_introspection, execute_forget,
+    ArchivedRecipe,
+    IntentPattern,
+    PostCheck as RecipePostCheck,
+    PostCheckType as RecipePostCheckType,
+    Precondition,
+    PreconditionCheck,
+    Recipe,
+    RecipeCreator,
+    RecipeIndex,
+    RecipeManager,
+    RecipeRiskLevel,
+    RecipeSafety,
+    RecipeStats,
+    // v0.0.37: New recipe types
+    RecipeStatus,
+    RecipeToolPlan,
+    RecipeToolStep,
+    RollbackTemplate,
+    MIN_RELIABILITY_FOR_RECIPE,
+    RECIPES_DIR,
+    RECIPE_ARCHIVE_DIR,
+    RECIPE_EVIDENCE_PREFIX,
+    RECIPE_INDEX_FILE,
+    RECIPE_SCHEMA_VERSION,
 };
 
 // v0.0.14: Policy engine exports
 // v0.0.23: Added ensure_policy_defaults for auto-creation on first run
-pub use policy::{
-    Policy, PolicyError, PolicyCheckResult, PolicyValidation,
-    CapabilitiesPolicy, RiskPolicy, BlockedPolicy, HelpersPolicy,
-    FileEditPolicy, SystemdPolicy, PackagePolicy,
-    POLICY_DIR, CAPABILITIES_FILE, RISK_FILE, BLOCKED_FILE, HELPERS_FILE,
-    POLICY_SCHEMA_VERSION, POLICY_EVIDENCE_PREFIX,
-    generate_policy_evidence_id, get_policy, reload_policy, clear_policy_cache,
-    ensure_policy_defaults,
-};
 pub use audit_log::{
-    AuditLogger, AuditEntry, AuditEntryType, AuditResult,
-    sanitize_for_audit, redact_env_secrets,
-    AUDIT_DIR, AUDIT_LOG_FILE, AUDIT_ARCHIVE_DIR,
+    redact_env_secrets, sanitize_for_audit, AuditEntry, AuditEntryType, AuditLogger, AuditResult,
+    AUDIT_ARCHIVE_DIR, AUDIT_DIR, AUDIT_LOG_FILE,
+};
+pub use policy::{
+    clear_policy_cache, ensure_policy_defaults, generate_policy_evidence_id, get_policy,
+    reload_policy, BlockedPolicy, CapabilitiesPolicy, FileEditPolicy, HelpersPolicy, PackagePolicy,
+    Policy, PolicyCheckResult, PolicyError, PolicyValidation, RiskPolicy, SystemdPolicy,
+    BLOCKED_FILE, CAPABILITIES_FILE, HELPERS_FILE, POLICY_DIR, POLICY_EVIDENCE_PREFIX,
+    POLICY_SCHEMA_VERSION, RISK_FILE,
 };
 
 // v0.0.17: Target user and multi-user correctness exports
-pub use target_user::{
-    // User info
-    UserInfo, UserSelectionSource, TargetUserSelection, AmbiguousUserSelection,
-    SelectionResult, TargetUserSelector,
-    // Home directory functions
-    get_user_home, is_path_in_user_home, get_path_relative_to_home,
-    expand_home_path, contract_home_path,
-    // User-scoped operations
-    UserScopeError, write_file_as_user, create_dir_as_user,
-    backup_file_as_user, check_file_ownership, fix_file_ownership,
-    // Policy helpers
-    is_home_path_allowed, DEFAULT_ALLOWED_HOME_PATHS, DEFAULT_BLOCKED_HOME_PATHS,
-    // Evidence
-    USER_EVIDENCE_PREFIX, generate_user_evidence_id,
-};
 pub use policy::UserHomePolicy;
+pub use target_user::{
+    backup_file_as_user,
+    check_file_ownership,
+    contract_home_path,
+    create_dir_as_user,
+    expand_home_path,
+    fix_file_ownership,
+    generate_user_evidence_id,
+    get_path_relative_to_home,
+    // Home directory functions
+    get_user_home,
+    // Policy helpers
+    is_home_path_allowed,
+    is_path_in_user_home,
+    write_file_as_user,
+    AmbiguousUserSelection,
+    SelectionResult,
+    TargetUserSelection,
+    TargetUserSelector,
+    // User info
+    UserInfo,
+    // User-scoped operations
+    UserScopeError,
+    UserSelectionSource,
+    DEFAULT_ALLOWED_HOME_PATHS,
+    DEFAULT_BLOCKED_HOME_PATHS,
+    // Evidence
+    USER_EVIDENCE_PREFIX,
+};
 
 // v0.0.18: Secrets hygiene and redaction exports
 pub use redaction::{
-    // Main redaction functions
-    redact, redact_secrets, contains_secrets, detect_secret_types,
-    // Context-specific redaction
-    redact_transcript, redact_evidence, redact_audit_details, redact_memory_content,
-    // Environment variable redaction
-    redact_env_value, redact_env_map,
-    // Path restriction
-    is_path_restricted, get_restriction_message, RESTRICTED_EVIDENCE_PATHS,
     // Junior verification
-    check_for_leaks, LeakCheckResult,
+    check_for_leaks,
+    contains_secrets,
+    detect_secret_types,
+    generate_redaction_id,
+    get_restriction_message,
+    // Path restriction
+    is_path_restricted,
+    // Main redaction functions
+    redact,
+    redact_audit_details,
+    redact_env_map,
+    // Environment variable redaction
+    redact_env_value,
+    redact_evidence,
+    redact_memory_content,
+    redact_secrets,
+    // Context-specific redaction
+    redact_transcript,
+    LeakCheckResult,
+    RedactionResult,
     // Types
-    SecretType, RedactionResult,
+    SecretType,
     // Evidence
-    REDACTION_EVIDENCE_PREFIX, generate_redaction_id,
+    REDACTION_EVIDENCE_PREFIX,
+    RESTRICTED_EVIDENCE_PATHS,
 };
 
 // v0.0.19: Knowledge Packs exports
 pub use knowledge_packs::{
-    // Storage
-    KnowledgeIndex, KnowledgePack, KnowledgeDocument, KnowledgeStats,
-    // Types
-    PackSource, TrustLevel, RetentionPolicy, SearchResult,
-    // Ingestion
-    ingest_manpages, ingest_package_docs, ingest_project_docs, ingest_user_note,
-    // Constants
-    KNOWLEDGE_PACKS_DIR, KNOWLEDGE_INDEX_PATH, KNOWLEDGE_EVIDENCE_PREFIX,
-    MAX_EXCERPT_LENGTH, DEFAULT_TOP_K,
     // Evidence
     generate_knowledge_evidence_id,
+    // Ingestion
+    ingest_manpages,
+    ingest_package_docs,
+    ingest_project_docs,
+    ingest_user_note,
+    KnowledgeDocument,
+    // Storage
+    KnowledgeIndex,
+    KnowledgePack,
+    KnowledgeStats,
+    // Types
+    PackSource,
+    RetentionPolicy,
+    SearchResult,
+    TrustLevel,
+    DEFAULT_TOP_K,
+    KNOWLEDGE_EVIDENCE_PREFIX,
+    KNOWLEDGE_INDEX_PATH,
+    // Constants
+    KNOWLEDGE_PACKS_DIR,
+    MAX_EXCERPT_LENGTH,
 };
 
 // v0.0.20: Source labeling for Ask Me Anything mode
 pub use source_labels::{
-    // Types
-    SourceType, QuestionType, SourcePlan, AnswerContext, MissingEvidenceReport, QaStats,
     // Functions
-    classify_question_type, detect_source_types, has_proper_source_labels, count_citations,
+    classify_question_type,
+    count_citations,
+    detect_source_types,
+    has_proper_source_labels,
+    AnswerContext,
+    MissingEvidenceReport,
+    QaStats,
+    QuestionType,
+    SourcePlan,
+    // Types
+    SourceType,
     // Constants
-    QA_STATS_DIR, QA_STATS_FILE,
+    QA_STATS_DIR,
+    QA_STATS_FILE,
 };
 
 // v0.0.21: Performance and Latency Sprint
 pub use performance::{
-    // Token budgets
-    TokenBudget, BudgetSettings, BudgetViolation,
-    // Tool caching
-    ToolCacheKey, ToolCacheEntry, ToolCache,
-    // LLM caching
-    LlmCacheKey, LlmCacheEntry, LlmCache,
-    // Statistics
-    CacheStats, LlmCacheStats, LatencySample, PerfStats,
+    get_policy_version,
     // Helpers
-    get_snapshot_hash, get_policy_version,
+    get_snapshot_hash,
+    BudgetSettings,
+    BudgetViolation,
+    // Statistics
+    CacheStats,
+    LatencySample,
+    LlmCache,
+    LlmCacheEntry,
+    // LLM caching
+    LlmCacheKey,
+    LlmCacheStats,
+    PerfStats,
+    // Token budgets
+    TokenBudget,
+    ToolCache,
+    ToolCacheEntry,
+    // Tool caching
+    ToolCacheKey,
     // Constants
-    CACHE_DIR, TOOL_CACHE_DIR, LLM_CACHE_DIR, PERF_STATS_FILE,
-    TOOL_CACHE_TTL_SECS, LLM_CACHE_TTL_SECS, MAX_CACHE_ENTRIES,
+    CACHE_DIR,
+    LLM_CACHE_DIR,
+    LLM_CACHE_TTL_SECS,
+    MAX_CACHE_ENTRIES,
+    PERF_STATS_FILE,
+    TOOL_CACHE_DIR,
+    TOOL_CACHE_TTL_SECS,
 };
 
 // v0.0.22: Reliability Engineering
 pub use reliability::{
-    // Metrics
-    MetricType, DailyMetrics, MetricsStore, LatencyRecord,
-    // Error budgets
-    ErrorBudgets, BudgetStatus, BudgetState, BudgetAlert, AlertSeverity,
-    calculate_budget_status, check_budget_alerts,
-    // Operations log
-    OpsLogEntry, load_recent_ops_log, load_recent_errors,
+    calculate_budget_status,
+    check_budget_alerts,
+    load_recent_errors,
+    load_recent_ops_log,
+    AlertSeverity,
+    BudgetAlert,
+    BudgetState,
+    BudgetStatus,
+    DailyMetrics,
+    DiagStatus,
     // Self-diagnostics
-    DiagnosticsReport, DiagnosticsSection, DiagStatus,
+    DiagnosticsReport,
+    DiagnosticsSection,
+    // Error budgets
+    ErrorBudgets,
+    LatencyRecord,
+    // Metrics
+    MetricType,
+    MetricsStore,
+    // Operations log
+    OpsLogEntry,
+    DEFAULT_LLM_TIMEOUT_BUDGET,
+    DEFAULT_MUTATION_ROLLBACK_BUDGET,
+    DEFAULT_REQUEST_FAILURE_BUDGET,
+    DEFAULT_TOOL_FAILURE_BUDGET,
     // Constants
     METRICS_FILE,
-    DEFAULT_REQUEST_FAILURE_BUDGET, DEFAULT_TOOL_FAILURE_BUDGET,
-    DEFAULT_MUTATION_ROLLBACK_BUDGET, DEFAULT_LLM_TIMEOUT_BUDGET,
 };
 
 // v0.0.33: Human-first transcript and case files
 // Note: Some names conflict with other modules, so we use explicit prefixes
 pub use transcript::{
-    // Actors
-    Actor as TranscriptActor,
-    // Transcript building
-    TranscriptMessage, TranscriptBuilder,
-    // Case file structures (renamed to avoid conflicts)
-    CaseSummary, CaseOutcome, CaseFile,
-    EvidenceEntry as CaseEvidenceEntry,
-    PolicyRef as CasePolicyRef,
-    CaseTiming,
-    CaseResult as TranscriptCaseResult,
-    // v0.0.35: Model info for case files
-    CaseModelInfo,
-    // v0.0.36: Knowledge refs for case files
-    KnowledgeRef as CaseKnowledgeRef,
-    // v0.0.37: Recipe events for case files
-    RecipeEvent, RecipeEventType,
-    // v0.0.48: Learning records for case files
-    LearningRecord,
-    // Case retrieval
-    load_case_summary, list_recent_cases, list_today_cases, find_last_failure,
-    get_cases_storage_size, prune_cases,
+    find_last_failure,
     // Utilities (renamed to avoid conflict with mutation_executor)
     generate_request_id as generate_case_id,
+    get_cases_storage_size,
+    list_recent_cases,
+    list_today_cases,
+    // Case retrieval
+    load_case_summary,
+    prune_cases,
+    // Actors
+    Actor as TranscriptActor,
+    CaseFile,
+    // v0.0.35: Model info for case files
+    CaseModelInfo,
+    CaseOutcome,
+    CaseResult as TranscriptCaseResult,
+    // Case file structures (renamed to avoid conflicts)
+    CaseSummary,
+    CaseTiming,
+    EvidenceEntry as CaseEvidenceEntry,
+    // v0.0.36: Knowledge refs for case files
+    KnowledgeRef as CaseKnowledgeRef,
+    // v0.0.48: Learning records for case files
+    LearningRecord,
+    PolicyRef as CasePolicyRef,
+    // v0.0.37: Recipe events for case files
+    RecipeEvent,
+    RecipeEventType,
+    TranscriptBuilder,
+    // Transcript building
+    TranscriptMessage,
     // Constants
-    CASES_DIR, DEFAULT_RETENTION_DAYS, DEFAULT_MAX_SIZE_BYTES,
+    CASES_DIR,
+    DEFAULT_MAX_SIZE_BYTES,
+    DEFAULT_RETENTION_DAYS,
 };
 
 // v0.0.34: Fix-It Mode for bounded troubleshooting loops
 pub use fixit::{
-    // State machine
-    FixItState, FixItSession, ProblemCategory,
-    // Hypotheses
-    Hypothesis, HypothesisTestResult,
-    // Change sets (mutation batches)
-    ChangeSet, ChangeItem, ChangeResult, FixItRiskLevel,
-    // Timeline tracking
-    StateTransition, FixTimeline,
     // Detection
     is_fixit_request,
+    ChangeItem,
+    ChangeResult,
+    // Change sets (mutation batches)
+    ChangeSet,
+    FixItRiskLevel,
+    FixItSession,
+    // State machine
+    FixItState,
+    FixTimeline,
+    // Hypotheses
+    Hypothesis,
+    HypothesisTestResult,
+    ProblemCategory,
+    // Timeline tracking
+    StateTransition,
+    FIX_CONFIRMATION,
     // Constants
-    MAX_HYPOTHESIS_CYCLES, MAX_TOOLS_PER_PHASE, MAX_MUTATIONS_PER_BATCH, FIX_CONFIRMATION,
+    MAX_HYPOTHESIS_CYCLES,
+    MAX_MUTATIONS_PER_BATCH,
+    MAX_TOOLS_PER_PHASE,
 };
 
 // v0.0.35: Model policy and readiness
 pub use model_policy::{
-    // Policy types
-    ModelsPolicy, RolePolicy, GlobalPolicy, ScoringWeights,
     // Download progress (renamed to avoid conflict with model_selection::DownloadProgress)
     DownloadProgress as ModelDownloadProgress,
     DownloadStatus as ModelDownloadStatus,
+    GlobalPolicy,
     // Readiness state
     ModelReadinessState,
+    // Policy types
+    ModelsPolicy,
+    RolePolicy,
+    ScoringWeights,
+    DEFAULT_MODELS_POLICY,
+    MODELS_POLICY_DIR,
     // Constants
-    MODELS_POLICY_FILE, MODELS_POLICY_DIR, DEFAULT_MODELS_POLICY,
+    MODELS_POLICY_FILE,
 };
 
 // v0.0.38: Arch Networking Doctor
 pub use networking_doctor::{
-    // Network manager detection
-    NetworkManager, NetworkManagerStatus,
-    detect_network_manager, detect_manager_conflicts,
+    collect_network_evidence,
+    detect_manager_conflicts,
+    detect_network_manager,
+    get_fix_playbooks,
+    run_diagnosis,
+    DiagnosisResult,
+    DiagnosisStatus,
     // Diagnosis flow
-    DiagnosisStep, DiagnosisStepResult, DiagnosisResult, DiagnosisStatus,
+    DiagnosisStep,
+    DiagnosisStepResult,
+    // Fix playbooks
+    FixPlaybook,
+    FixResult,
+    FixRiskLevel,
+    FixStep,
+    InterfaceEvidence,
     // Evidence collection
-    NetworkEvidence, InterfaceEvidence,
-    collect_network_evidence, run_diagnosis,
+    NetworkEvidence,
     // Hypotheses
     NetworkHypothesis,
-    // Fix playbooks
-    FixPlaybook, FixStep, FixRiskLevel, FixResult,
-    get_fix_playbooks,
+    // Network manager detection
+    NetworkManager,
+    NetworkManagerStatus,
     // Case file
     NetworkingDoctorCase,
-    // Constants
-    PING_TIMEOUT_SECS, PING_COUNT, DNS_TEST_DOMAINS, RAW_IP_TEST,
+    DNS_TEST_DOMAINS,
     FIX_CONFIRMATION as NET_FIX_CONFIRMATION,
+    PING_COUNT,
+    // Constants
+    PING_TIMEOUT_SECS,
+    RAW_IP_TEST,
 };
 
 // v0.0.39: Arch Storage Doctor (BTRFS Focus)
 pub use storage_doctor::{
-    // Health status
-    StorageHealth as StorageDoctorHealth, RiskLevel as StorageRiskLevel, FilesystemType,
-    // Mount and device info
-    MountInfo as StorageMountInfo, BlockDevice,
+    BalanceStatus,
+    BlockDevice,
     // BTRFS specific
-    BtrfsDeviceStats, BtrfsUsage, BtrfsInfo,
-    ScrubStatus, BalanceStatus,
-    // SMART health
-    SmartHealth, IoErrorLog, IoErrorType,
-    // Evidence collection
-    StorageEvidence,
-    // Diagnosis flow
-    DiagnosisStep as StorageDiagnosisStep, Finding, StorageHypothesis,
+    BtrfsDeviceStats,
+    BtrfsInfo,
+    BtrfsUsage,
+    CaseNote as StorageCaseNote,
+    CaseStatus as StorageCaseStatus,
+    CheckResult as StorageCheckResult,
+    CommandResult,
     DiagnosisResult as StorageDiagnosisResult,
+    // Diagnosis flow
+    DiagnosisStep as StorageDiagnosisStep,
+    FilesystemType,
+    Finding,
+    IoErrorLog,
+    IoErrorType,
+    // Mount and device info
+    MountInfo as StorageMountInfo,
+    PostCheck as StoragePostCheck,
+    PreflightCheck as StoragePreflightCheck,
+    RepairCommand,
+    RepairPlan,
     // Repair plans
-    RepairPlanType, RepairPlan, RepairCommand,
-    PreflightCheck as StoragePreflightCheck, PostCheck as StoragePostCheck,
-    RollbackPlan as StorageRollbackPlan, RepairResult,
-    CommandResult, CheckResult as StorageCheckResult,
-    // Case file
-    StorageDoctorCase, CaseStatus as StorageCaseStatus, CaseNote as StorageCaseNote,
+    RepairPlanType,
+    RepairResult,
+    RiskLevel as StorageRiskLevel,
+    RollbackPlan as StorageRollbackPlan,
+    ScrubStatus,
+    // SMART health
+    SmartHealth,
     // Engine
     StorageDoctor,
+    // Case file
+    StorageDoctorCase,
+    // Evidence collection
+    StorageEvidence,
+    // Health status
+    StorageHealth as StorageDoctorHealth,
+    StorageHypothesis,
 };
 
 // v0.0.40: Arch Audio Doctor (PipeWire Focus)
 pub use audio_doctor::{
-    // Audio stack
-    AudioStack, AudioHealth, RiskLevel as AudioRiskLevel,
-    // Service state
-    ServiceState as AudioServiceState,
     // Devices
-    AlsaDevice, AudioNode,
-    // Bluetooth (aliased - base types from peripherals)
-    BluetoothAdapter as AudioBluetoothAdapter, BluetoothAudioDevice, BluetoothProfile,
-    BluetoothState as AudioBluetoothState,
-    // Permissions
-    AudioPermissions,
-    // Evidence
-    AudioEvidence,
-    // Diagnosis
-    StepResult as AudioStepResult, DiagnosisStep as AudioDiagnosisStep,
-    Finding as AudioFinding, AudioHypothesis,
-    DiagnosisResult as AudioDiagnosisResult,
-    // Playbooks
-    PlaybookType, PlaybookCommand as AudioPlaybookCommand,
-    PreflightCheck as AudioPreflightCheck, PostCheck as AudioPostCheck,
-    FixPlaybook as AudioFixPlaybook, PlaybookResult,
-    CommandResult as AudioCommandResult, CheckResult as AudioCheckResult,
-    // Recipe capture
-    RecipeCaptureRequest,
-    // Case file
-    AudioDoctorCase, CaseStatus as AudioCaseStatus, CaseNote as AudioCaseNote,
+    AlsaDevice,
     // Engine
     AudioDoctor,
+    // Case file
+    AudioDoctorCase,
+    // Evidence
+    AudioEvidence,
+    AudioHealth,
+    AudioHypothesis,
+    AudioNode,
+    // Permissions
+    AudioPermissions,
+    // Audio stack
+    AudioStack,
+    // Bluetooth (aliased - base types from peripherals)
+    BluetoothAdapter as AudioBluetoothAdapter,
+    BluetoothAudioDevice,
+    BluetoothProfile,
+    BluetoothState as AudioBluetoothState,
+    CaseNote as AudioCaseNote,
+    CaseStatus as AudioCaseStatus,
+    CheckResult as AudioCheckResult,
+    CommandResult as AudioCommandResult,
+    DiagnosisResult as AudioDiagnosisResult,
+    DiagnosisStep as AudioDiagnosisStep,
+    Finding as AudioFinding,
+    FixPlaybook as AudioFixPlaybook,
+    PlaybookCommand as AudioPlaybookCommand,
+    PlaybookResult,
+    // Playbooks
+    PlaybookType,
+    PostCheck as AudioPostCheck,
+    PreflightCheck as AudioPreflightCheck,
+    // Recipe capture
+    RecipeCaptureRequest,
+    RiskLevel as AudioRiskLevel,
+    // Service state
+    ServiceState as AudioServiceState,
+    // Diagnosis
+    StepResult as AudioStepResult,
     // Constants
     FIX_CONFIRMATION as AUDIO_FIX_CONFIRMATION,
 };
 
 // v0.0.41: Arch Boot Doctor (Slow Boot + Service Regressions)
 pub use boot_doctor::{
-    // Health types
-    BootHealth, RiskLevel as BootRiskLevel,
-    // Timing types
-    BootTiming, BootOffender, BootBaseline, BootTrend,
-    TrendDirection as BootTrendDirection,
-    // Change tracking (aliased - base types in telemetry_db)
-    ChangeEvent as BootChangeEvent, ChangeType as BootChangeType,
-    // Evidence
-    BootEvidence, JournalEntry as BootJournalEntry,
-    // Diagnosis
-    StepResult as BootStepResult, DiagnosisStep as BootDiagnosisStep,
-    Finding as BootFinding, BootHypothesis,
-    DiagnosisResult as BootDiagnosisResult,
-    // Playbooks
-    PlaybookType as BootPlaybookType, PlaybookCommand as BootPlaybookCommand,
-    PreflightCheck as BootPreflightCheck, PostCheck as BootPostCheck,
-    FixPlaybook as BootFixPlaybook, PlaybookResult as BootPlaybookResult,
-    CommandResult as BootCommandResult, CheckResult as BootCheckResult,
-    // Recipe capture
-    RecipeCaptureRequest as BootRecipeCaptureRequest,
-    // Case file
-    BootDoctorCase, CaseStatus as BootCaseStatus, CaseNote as BootCaseNote,
+    BootBaseline,
     // Engine
     BootDoctor,
+    // Case file
+    BootDoctorCase,
+    // Evidence
+    BootEvidence,
+    // Health types
+    BootHealth,
+    BootHypothesis,
+    BootOffender,
+    // Timing types
+    BootTiming,
+    BootTrend,
+    CaseNote as BootCaseNote,
+    CaseStatus as BootCaseStatus,
+    // Change tracking (aliased - base types in telemetry_db)
+    ChangeEvent as BootChangeEvent,
+    ChangeType as BootChangeType,
+    CheckResult as BootCheckResult,
+    CommandResult as BootCommandResult,
+    DiagnosisResult as BootDiagnosisResult,
+    DiagnosisStep as BootDiagnosisStep,
+    Finding as BootFinding,
+    FixPlaybook as BootFixPlaybook,
+    JournalEntry as BootJournalEntry,
+    PlaybookCommand as BootPlaybookCommand,
+    PlaybookResult as BootPlaybookResult,
+    // Playbooks
+    PlaybookType as BootPlaybookType,
+    PostCheck as BootPostCheck,
+    PreflightCheck as BootPreflightCheck,
+    // Recipe capture
+    RecipeCaptureRequest as BootRecipeCaptureRequest,
+    RiskLevel as BootRiskLevel,
+    // Diagnosis
+    StepResult as BootStepResult,
+    TrendDirection as BootTrendDirection,
     // Constants
     FIX_CONFIRMATION as BOOT_FIX_CONFIRMATION,
 };
 
 // v0.0.42: Arch GPU/Graphics Doctor (Wayland/X11, Drivers, Compositor Health)
 pub use graphics_doctor::{
-    // Session types (aliased - SessionType already in memory module)
-    SessionType as GraphicsSessionType, Compositor, SessionInfo,
-    // GPU/Driver types
-    GpuVendor, GpuInfo as GraphicsGpuInfo, DriverStack, DriverPackages,
-    // Portal types
-    PortalBackend, PortalState,
-    // Monitor types
-    MonitorInfo, LogEntry as GraphicsLogEntry,
-    // Health types
-    GraphicsHealth, RiskLevel as GraphicsRiskLevel,
-    // Evidence
-    GraphicsEvidence,
-    // Diagnosis
-    StepResult as GraphicsStepResult, DiagnosisStep as GraphicsDiagnosisStep,
-    Finding as GraphicsFinding, GraphicsHypothesis,
+    CaseNote as GraphicsCaseNote,
+    CaseStatus as GraphicsCaseStatus,
+    CheckResult as GraphicsCheckResult,
+    CommandResult as GraphicsCommandResult,
+    Compositor,
     DiagnosisResult as GraphicsDiagnosisResult,
-    // Playbooks
-    PlaybookType as GraphicsPlaybookType, PlaybookCommand as GraphicsPlaybookCommand,
-    PreflightCheck as GraphicsPreflightCheck, PostCheck as GraphicsPostCheck,
-    FixPlaybook as GraphicsFixPlaybook, PlaybookResult as GraphicsPlaybookResult,
-    CommandResult as GraphicsCommandResult, CheckResult as GraphicsCheckResult,
-    // Recipe capture
-    RecipeCaptureRequest as GraphicsRecipeCaptureRequest,
-    // Case file
-    GraphicsDoctorCase, CaseStatus as GraphicsCaseStatus, CaseNote as GraphicsCaseNote,
+    DiagnosisStep as GraphicsDiagnosisStep,
+    DriverPackages,
+    DriverStack,
+    Finding as GraphicsFinding,
+    FixPlaybook as GraphicsFixPlaybook,
+    GpuInfo as GraphicsGpuInfo,
+    // GPU/Driver types
+    GpuVendor,
     // Engine
     GraphicsDoctor,
+    // Case file
+    GraphicsDoctorCase,
+    // Evidence
+    GraphicsEvidence,
+    // Health types
+    GraphicsHealth,
+    GraphicsHypothesis,
+    LogEntry as GraphicsLogEntry,
+    // Monitor types
+    MonitorInfo,
+    PlaybookCommand as GraphicsPlaybookCommand,
+    PlaybookResult as GraphicsPlaybookResult,
+    // Playbooks
+    PlaybookType as GraphicsPlaybookType,
+    // Portal types
+    PortalBackend,
+    PortalState,
+    PostCheck as GraphicsPostCheck,
+    PreflightCheck as GraphicsPreflightCheck,
+    // Recipe capture
+    RecipeCaptureRequest as GraphicsRecipeCaptureRequest,
+    RiskLevel as GraphicsRiskLevel,
+    SessionInfo,
+    // Session types (aliased - SessionType already in memory module)
+    SessionType as GraphicsSessionType,
+    // Diagnosis
+    StepResult as GraphicsStepResult,
     // Constants
     FIX_CONFIRMATION as GRAPHICS_FIX_CONFIRMATION,
 };
 
 // v0.0.43: Doctor Registry + Unified Entry Flow
 pub use doctor_registry::{
-    // Registry config types
-    DoctorRegistryConfig, DoctorEntry, DoctorDomain,
-    // Selection types
-    DoctorSelection, SelectedDoctor,
-    // Run lifecycle types
-    DoctorRunStage, StageTiming, StageStatus, DoctorRunResult,
-    KeyFinding, FindingSeverity,
-    // Run output schema
-    DoctorRun, PlaybookRunResult, VerificationStatus, JuniorVerification,
-    DOCTOR_RUN_SCHEMA_VERSION,
-    // Registry
-    DoctorRegistry,
-    // Status integration
-    LastDoctorRunSummary, DoctorRunStats, get_doctor_run_stats,
     // Config generation
     generate_default_config,
+    get_doctor_run_stats,
+    DoctorDomain,
+    DoctorEntry,
+    // Registry
+    DoctorRegistry,
+    // Registry config types
+    DoctorRegistryConfig,
+    // Run output schema
+    DoctorRun,
+    DoctorRunResult,
+    // Run lifecycle types
+    DoctorRunStage,
+    DoctorRunStats,
+    // Selection types
+    DoctorSelection,
+    FindingSeverity,
+    JuniorVerification,
+    KeyFinding,
+    // Status integration
+    LastDoctorRunSummary,
+    PlaybookRunResult,
+    SelectedDoctor,
+    StageStatus,
+    StageTiming,
+    VerificationStatus,
+    DOCTOR_RUNS_DIR,
+    DOCTOR_RUN_SCHEMA_VERSION,
     // Constants
-    REGISTRY_CONFIG_PATH, REGISTRY_CONFIG_PATH_USER, DOCTOR_RUNS_DIR,
+    REGISTRY_CONFIG_PATH,
+    REGISTRY_CONFIG_PATH_USER,
 };
 
 // v0.0.48: Learning System (Knowledge Packs + XP)
 // Note: Some types renamed to avoid conflicts with knowledge_packs and transcript modules
 pub use learning::{
-    // XP System
-    XpState, XpSummary,
-    XP_GAIN_SUCCESS_85, XP_GAIN_SUCCESS_90, XP_GAIN_RECIPE_CREATED,
-    // Knowledge Packs (renamed to avoid conflicts)
-    KnowledgePack as LearnedKnowledgePack,
-    PackSource as LearnedPackSource,
-    LearnedRecipe,
-    RecipeIntent as LearnedRecipeIntent,
-    RecipeAction as LearnedRecipeAction,
-    // Learning Manager
-    LearningManager, SearchHit, LearningResult, LearningStats,
     // Search (renamed to avoid conflict)
     generate_knowledge_evidence_id as generate_learned_evidence_id,
-    // Constants (renamed to avoid conflicts)
-    LEARNING_PACKS_DIR, XP_STATE_FILE,
-    MAX_PACKS as MAX_LEARNED_PACKS,
-    MAX_RECIPES_TOTAL, MAX_RECIPE_SIZE_BYTES,
-    MIN_RELIABILITY_FOR_LEARNING, MIN_EVIDENCE_FOR_LEARNING,
+    // Knowledge Packs (renamed to avoid conflicts)
+    KnowledgePack as LearnedKnowledgePack,
+    LearnedRecipe,
+    // Learning Manager
+    LearningManager,
+    LearningResult,
+    LearningStats,
+    PackSource as LearnedPackSource,
+    RecipeAction as LearnedRecipeAction,
+    RecipeIntent as LearnedRecipeIntent,
+    SearchHit,
+    // XP System
+    XpState,
+    XpSummary,
     KNOWLEDGE_EVIDENCE_PREFIX as LEARNED_EVIDENCE_PREFIX,
+    // Constants (renamed to avoid conflicts)
+    LEARNING_PACKS_DIR,
     LEARNING_PACK_SCHEMA_VERSION,
+    MAX_PACKS as MAX_LEARNED_PACKS,
+    MAX_RECIPES_TOTAL,
+    MAX_RECIPE_SIZE_BYTES,
+    MIN_EVIDENCE_FOR_LEARNING,
+    MIN_RELIABILITY_FOR_LEARNING,
+    XP_GAIN_RECIPE_CREATED,
+    XP_GAIN_SUCCESS_85,
+    XP_GAIN_SUCCESS_90,
+    XP_STATE_FILE,
 };
 
 // v0.0.49: Doctor Lifecycle System
 // v0.0.64: Added DoctorLifecycleStage, IntakeResult, DoctorLifecycleState
 pub use doctor_lifecycle::{
-    // Core trait
-    Doctor,
-    // v0.0.64: Lifecycle stages
-    DoctorLifecycleStage, IntakeResult, DoctorLifecycleState,
-    // Diagnostic planning
-    DiagnosticCheck,
+    ActionRisk,
     // Evidence collection
     CollectedEvidence,
     // Diagnosis output (DiagnosisResult renamed to avoid conflict with networking_doctor)
-    DiagnosisFinding, DiagnosisResult as DoctorDiagnosis,
-    SafeNextStep, ProposedAction, ActionRisk,
+    DiagnosisFinding,
+    DiagnosisResult as DoctorDiagnosis,
+    // Diagnostic planning
+    DiagnosticCheck,
+    DnsSummary,
+    // Core trait
+    Doctor,
+    // v0.0.64: Lifecycle stages
+    DoctorLifecycleStage,
+    DoctorLifecycleState,
     // Report
     DoctorReport,
     // Runner
     DoctorRunner,
+    IntakeResult,
     // Network evidence helpers
-    NetInterfaceSummary, RouteSummary, DnsSummary,
-    NmSummary, WifiSummary, NetworkErrorsSummary,
+    NetInterfaceSummary,
+    NetworkErrorsSummary,
+    NmSummary,
+    ProposedAction,
+    RouteSummary,
+    SafeNextStep,
+    WifiSummary,
 };
 
 // v0.0.49: NetworkingDoctor v2 (Doctor trait implementation)
@@ -1339,333 +1642,452 @@ pub use networking_doctor_v2::NetworkingDoctorV2;
 
 // v0.0.50: User File Mutation
 pub use user_file_mutation::{
-    // Edit action and mode
-    UserFileEditAction, EditMode, VerifyStrategy,
-    // Path policy
-    PathPolicyResult, check_path_policy,
-    // Preview
-    EditPreview, FileStat, generate_edit_preview,
-    // Apply
-    ApplyResult, apply_edit,
-    // Rollback
-    RollbackResult as UserFileRollbackResult, execute_rollback as execute_user_file_rollback,
+    apply_edit,
+    check_path_policy,
+    execute_rollback as execute_user_file_rollback,
+    generate_edit_preview,
     // Helpers
-    generate_mutation_case_id as generate_user_file_case_id, USER_FILE_CONFIRMATION,
+    generate_mutation_case_id as generate_user_file_case_id,
+    // Apply
+    ApplyResult,
+    EditMode,
+    // Preview
+    EditPreview,
+    FileStat,
+    // Path policy
+    PathPolicyResult,
+    // Rollback
+    RollbackResult as UserFileRollbackResult,
+    // Edit action and mode
+    UserFileEditAction,
+    VerifyStrategy,
+    USER_FILE_CONFIRMATION,
 };
 
 // v0.0.50: File Edit Tool Executors
 pub use file_edit_tools::{
-    execute_file_edit_preview_v1,
-    execute_file_edit_apply_v1,
-    execute_file_edit_rollback_v1,
+    execute_file_edit_apply_v1, execute_file_edit_preview_v1, execute_file_edit_rollback_v1,
 };
 
 // v0.0.51: Systemd Action Engine (modular)
 pub use systemd_action::{
-    // Operations
-    ServiceOperation, ServiceAction, RiskLevel,
-    // Confirmation phrases (MEDIUM_RISK_CONFIRMATION is already exported from mutation_tools)
-    LOW_RISK_CONFIRMATION, HIGH_RISK_CONFIRMATION,
     // Risk assessment
-    assess_risk, normalize_service_name,
+    assess_risk,
+    normalize_service_name,
+    RiskLevel,
+    ServiceAction,
+    // Operations
+    ServiceOperation,
+    HIGH_RISK_CONFIRMATION,
+    // Confirmation phrases (MEDIUM_RISK_CONFIRMATION is already exported from mutation_tools)
+    LOW_RISK_CONFIRMATION,
 };
-pub use systemd_probe::{ServiceProbe, probe_service, MAX_STATUS_LINES};
 pub use systemd_apply::{
-    ServicePreview, preview_service_action,
-    ServiceApplyResult, ServiceStateSnapshot, apply_service_action,
+    apply_service_action, preview_service_action, ServiceApplyResult, ServicePreview,
+    ServiceStateSnapshot,
 };
+pub use systemd_probe::{probe_service, ServiceProbe, MAX_STATUS_LINES};
 pub use systemd_rollback::{
-    ServiceRollbackResult, rollback_service_action,
-    generate_service_case_id, ROLLBACK_BASE,
+    generate_service_case_id, rollback_service_action, ServiceRollbackResult, ROLLBACK_BASE,
 };
 
 // v0.0.52: System Query Router
 pub use system_query_router::{
-    QueryTarget, ToolRouting,
-    detect_target, get_tool_routing, validate_answer_for_target,
-    map_translator_targets, get_required_tools,
+    detect_target, get_required_tools, get_tool_routing, map_translator_targets,
+    validate_answer_for_target, QueryTarget, ToolRouting,
 };
 
 // v0.0.51: Systemd Tool Executors
 pub use systemd_tools::{
-    execute_systemd_service_probe_v1,
-    execute_systemd_service_preview_v1,
-    execute_systemd_service_apply_v1,
-    execute_systemd_service_rollback_v1,
+    execute_systemd_service_apply_v1, execute_systemd_service_preview_v1,
+    execute_systemd_service_probe_v1, execute_systemd_service_rollback_v1,
 };
 
 // v0.0.53: Doctor Flow
 pub use doctor_flow::{
-    detect_problem_phrase,
-    DoctorFlowStep, StepStatus,
-    DoctorFlowResult, DoctorFlowExecutor,
-    DoctorCaseFile, CaseStep, CaseSuggestedAction,
+    detect_problem_phrase, CaseStep, CaseSuggestedAction, DoctorCaseFile, DoctorFlowExecutor,
+    DoctorFlowResult, DoctorFlowStep, StepStatus,
 };
 
 // v0.0.54: Action Engine
 pub use action_engine::{
-    MutationRiskLevel, ActionPlan, ActionStep, ActionType, ActionResult,
-    StepResult as ActionStepResult, PlanStatus,
-    StepStatus as ActionStepStatus,
-    EditFileAction, EditIntent, WriteFileAction, DeleteFileAction,
-    SystemdAction as ActionSystemdAction, SystemdOperation as ActionSystemdOp,
-    PacmanAction, PacmanOperation, PackageReason,
-    ActionDiffPreview, ActionDiffLine, DiffLineType as ActionDiffLineType,
-    RollbackHint as ActionRollbackHint, RollbackRecord, RollbackStepRecord, BackupRecord, VerificationRecord,
-    CONFIRM_LOW, CONFIRM_MEDIUM, CONFIRM_HIGH, CONFIRM_DESTRUCTIVE,
-};
-pub use action_risk::{
-    score_action_risk, score_path_risk, score_systemd_risk, score_package_risk,
-    score_delete_risk, describe_risk,
+    ActionDiffLine, ActionDiffPreview, ActionPlan, ActionResult, ActionStep, ActionType,
+    BackupRecord, DeleteFileAction, DiffLineType as ActionDiffLineType, EditFileAction, EditIntent,
+    MutationRiskLevel, PackageReason, PacmanAction, PacmanOperation, PlanStatus,
+    RollbackHint as ActionRollbackHint, RollbackRecord, RollbackStepRecord,
+    StepResult as ActionStepResult, StepStatus as ActionStepStatus,
+    SystemdAction as ActionSystemdAction, SystemdOperation as ActionSystemdOp, VerificationRecord,
+    WriteFileAction, CONFIRM_DESTRUCTIVE, CONFIRM_HIGH, CONFIRM_LOW, CONFIRM_MEDIUM,
 };
 pub use action_executor::{
-    generate_action_diff_preview, validate_confirmation as validate_action_confirmation,
-    execute_step as execute_action_step, execute_plan as execute_action_plan,
-    compute_hash as action_compute_hash, get_backup_path as action_get_backup_path,
-    backup_file as action_backup_file,
+    backup_file as action_backup_file, compute_hash as action_compute_hash,
+    execute_plan as execute_action_plan, execute_step as execute_action_step,
+    generate_action_diff_preview, get_backup_path as action_get_backup_path,
+    validate_confirmation as validate_action_confirmation,
+};
+pub use action_risk::{
+    describe_risk, score_action_risk, score_delete_risk, score_package_risk, score_path_risk,
+    score_systemd_risk,
 };
 
 // v0.0.55: Case Engine + Intent Taxonomy
 pub use case_engine::{
-    CasePhase, IntentType, CaseEvent, CaseActor, CaseEventType,
-    CaseState, PhaseTiming,
-};
-pub use intent_taxonomy::{
-    IntentClassification, classify_intent, domain_to_doctor,
-};
-pub use evidence_tools::{
-    EvidencePlan, PlannedTool, plan_evidence, validate_evidence_for_query,
+    CaseActor, CaseEvent, CaseEventType, CasePhase, CaseState, IntentType, PhaseTiming,
 };
 pub use case_file_v1::{
-    CaseFileV1, EvidenceRecordV1, PhaseTimingRecord,
-    load_case, list_recent_case_ids,
-    CASE_SCHEMA_VERSION, CASE_FILES_DIR,
+    list_recent_case_ids, load_case, CaseFileV1, EvidenceRecordV1, PhaseTimingRecord,
+    CASE_FILES_DIR, CASE_SCHEMA_VERSION,
 };
+pub use evidence_tools::{plan_evidence, validate_evidence_for_query, EvidencePlan, PlannedTool};
+pub use intent_taxonomy::{classify_intent, domain_to_doctor, IntentClassification};
 pub use recipe_extractor::{
-    RecipeExtractionResult, check_recipe_gate, check_state_recipe_gate,
-    extract_recipe, calculate_case_xp,
+    calculate_case_xp, check_recipe_gate, check_state_recipe_gate, extract_recipe,
+    RecipeExtractionResult, MIN_EVIDENCE_FOR_RECIPE as RECIPE_MIN_EVIDENCE,
     MIN_RELIABILITY_FOR_RECIPE as RECIPE_MIN_RELIABILITY,
-    MIN_EVIDENCE_FOR_RECIPE as RECIPE_MIN_EVIDENCE,
 };
 pub use transcript_render::{
-    render_transcript_from_state, render_transcript_from_file,
-    render_compact_summary, render_recent_cases,
-    wrap_text as transcript_wrap_text, truncate as transcript_truncate,
+    render_compact_summary, render_recent_cases, render_transcript_from_file,
+    render_transcript_from_state, truncate as transcript_truncate,
+    wrap_text as transcript_wrap_text,
 };
 
 // v0.0.56: Fly-on-the-Wall Dialogue Layer
 pub use dialogue_renderer::{
-    DialogueContext, render_dialogue_transcript,
-    phase_separator, doctor_actor_name,
-    render_translator_classification, render_anna_translator_response,
-    render_doctor_handoff, render_evidence_summary, render_evidence_item,
-    render_junior_verification, render_anna_junior_response,
-    render_final_response, render_reliability_footer,
+    doctor_actor_name,
+    phase_separator,
+    render_anna_coverage_retry,
+    render_anna_junior_response,
+    render_anna_translator_response,
+    render_dialogue_transcript,
+    render_doctor_handoff,
+    render_evidence_item,
+    render_evidence_summary,
+    render_final_response,
     // v0.0.57: Coverage display in transcript
-    render_junior_coverage_check, render_anna_coverage_retry,
-    RELIABILITY_SHIP_THRESHOLD, CONFIDENCE_CERTAIN_THRESHOLD,
+    render_junior_coverage_check,
+    render_junior_verification,
+    render_reliability_footer,
+    render_translator_classification,
+    DialogueContext,
+    CONFIDENCE_CERTAIN_THRESHOLD,
+    RELIABILITY_SHIP_THRESHOLD,
 };
 
 // v0.0.57: Evidence Coverage + Junior Rubric
 pub use evidence_coverage::{
-    TargetFacets, EvidenceCoverage,
-    get_target_facets, analyze_coverage, check_evidence_mismatch,
-    get_gap_filling_tools, calculate_coverage_penalty, get_max_score_for_coverage,
-    COVERAGE_SUFFICIENT_THRESHOLD, COVERAGE_PENALTY_THRESHOLD,
+    analyze_coverage, calculate_coverage_penalty, check_evidence_mismatch, get_gap_filling_tools,
+    get_max_score_for_coverage, get_target_facets, EvidenceCoverage, TargetFacets,
+    COVERAGE_PENALTY_THRESHOLD, COVERAGE_SUFFICIENT_THRESHOLD,
 };
 pub use junior_rubric::{
-    VerificationResult, Penalty,
-    verify_answer, is_clearly_wrong_evidence, get_evidence_suggestions,
+    check_tool_relevance,
+    get_evidence_suggestions,
+    is_clearly_wrong_evidence,
+    verify_answer,
     // v0.0.65: Topic-based relevance verification
-    verify_answer_with_topic, check_tool_relevance,
-    SHIP_IT_THRESHOLD, BASE_SCORE,
-    WRONG_EVIDENCE_PENALTY, MISSING_EVIDENCE_PENALTY, ANSWER_MISMATCH_PENALTY,
-    UNCITED_CLAIM_PENALTY, HIGH_COVERAGE_BONUS, IRRELEVANT_TOOL_PENALTY,
+    verify_answer_with_topic,
+    Penalty,
+    VerificationResult,
+    ANSWER_MISMATCH_PENALTY,
+    BASE_SCORE,
+    HIGH_COVERAGE_BONUS,
+    IRRELEVANT_TOOL_PENALTY,
+    MISSING_EVIDENCE_PENALTY,
+    SHIP_IT_THRESHOLD,
+    UNCITED_CLAIM_PENALTY,
+    WRONG_EVIDENCE_PENALTY,
 };
 
 // v0.0.58: Proactive Monitoring Loop v1
-pub use proactive_alerts::{
-    AlertType,
-    AlertSeverity as ProactiveAlertSeverity,  // Renamed to avoid conflict with reliability::AlertSeverity
-    AlertStatus,
-    ProactiveAlert, ProactiveAlertsState, AlertCounts,
-    PROACTIVE_ALERTS_SCHEMA, PROACTIVE_ALERTS_FILE,
-};
 pub use alert_detectors::{
-    // Evidence types
-    BootRegressionEvidence, DiskPressureEvidence, JournalErrorBurstEvidence,
-    ServiceFailedEvidence, ThermalThrottlingEvidence,
-    // Thresholds
-    BOOT_REGRESSION_STDDEV_FACTOR, BOOT_REGRESSION_MIN_DELTA_SECS,
-    DISK_PRESSURE_WARNING_PERCENT, DISK_PRESSURE_WARNING_GIB,
-    DISK_PRESSURE_CRITICAL_PERCENT, DISK_PRESSURE_CRITICAL_GIB,
-    JOURNAL_ERROR_BURST_WARNING, JOURNAL_ERROR_BURST_CRITICAL,
-    JOURNAL_ERROR_BURST_WINDOW_MINS,
-    THERMAL_WARNING_TEMP, THERMAL_CRITICAL_TEMP,
     // Detectors
-    detect_boot_regression, detect_disk_pressure, detect_journal_error_burst,
-    detect_service_failed, detect_thermal_throttling, run_all_detectors,
+    detect_boot_regression,
+    detect_disk_pressure,
+    detect_journal_error_burst,
+    detect_service_failed,
+    detect_thermal_throttling,
+    run_all_detectors,
+    // Evidence types
+    BootRegressionEvidence,
+    DiskPressureEvidence,
+    JournalErrorBurstEvidence,
+    ServiceFailedEvidence,
+    ThermalThrottlingEvidence,
+    BOOT_REGRESSION_MIN_DELTA_SECS,
+    // Thresholds
+    BOOT_REGRESSION_STDDEV_FACTOR,
+    DISK_PRESSURE_CRITICAL_GIB,
+    DISK_PRESSURE_CRITICAL_PERCENT,
+    DISK_PRESSURE_WARNING_GIB,
+    DISK_PRESSURE_WARNING_PERCENT,
+    JOURNAL_ERROR_BURST_CRITICAL,
+    JOURNAL_ERROR_BURST_WARNING,
+    JOURNAL_ERROR_BURST_WINDOW_MINS,
+    THERMAL_CRITICAL_TEMP,
+    THERMAL_WARNING_TEMP,
 };
 pub use alert_probes::{
-    // Probe results
-    BootTimeSummary, DiskPressureSummary, JournalErrorBurstSummary,
-    FailedUnitsSummary, ThermalSummary, AlertsSummary,
-    AlertCountsData, AlertSummaryEntry,
+    probe_alerts_summary,
     // Probes
-    probe_boot_time_summary, probe_disk_pressure_summary,
-    probe_journal_error_burst_summary, probe_failed_units_summary,
-    probe_thermal_summary, probe_alerts_summary,
+    probe_boot_time_summary,
+    probe_disk_pressure_summary,
+    probe_failed_units_summary,
+    probe_journal_error_burst_summary,
+    probe_thermal_summary,
+    AlertCountsData,
+    AlertSummaryEntry,
+    AlertsSummary,
+    // Probe results
+    BootTimeSummary,
+    DiskPressureSummary,
+    FailedUnitsSummary,
+    JournalErrorBurstSummary,
+    ThermalSummary,
+};
+pub use proactive_alerts::{
+    AlertCounts,
+    AlertSeverity as ProactiveAlertSeverity, // Renamed to avoid conflict with reliability::AlertSeverity
+    AlertStatus,
+    AlertType,
+    ProactiveAlert,
+    ProactiveAlertsState,
+    PROACTIVE_ALERTS_FILE,
+    PROACTIVE_ALERTS_SCHEMA,
 };
 
 // v0.0.59: Auto-Case Opening + Departmental IT Org
 // v0.0.66: Added TicketType, CaseOutcome for enhanced case tracking
 pub use case_lifecycle::{
-    CaseStatus, CaseFileV2, Department, Participant,
-    ActionRisk as CaseActionRisk,  // Renamed to avoid conflict
-    ProposedAction as CaseProposedAction,  // Renamed to avoid conflict
-    TimelineEvent, TimelineEventType,
+    count_active_cases,
+    list_active_cases,
+    load_case_v2,
+    ActionRisk as CaseActionRisk, // Renamed to avoid conflict
+    CaseFileV2,
+    CaseOutcome as CaseLifecycleOutcome, // Renamed to avoid conflict with case_engine
+    CaseStatus,
+    Department,
+    Participant,
+    ProposedAction as CaseProposedAction, // Renamed to avoid conflict
     // v0.0.66: Ticket type and outcome
-    TicketType, CaseOutcome as CaseLifecycleOutcome,  // Renamed to avoid conflict with case_engine
+    TicketType,
+    TimelineEvent,
+    TimelineEventType,
     CASE_SCHEMA_VERSION_V2,
-    load_case_v2, list_active_cases, count_active_cases,
 };
 // v0.0.64: Service Desk Dispatcher with Ticket and RoutingPlan
 // v0.0.66: Added detect_ticket_type, create_work_order, create_routing_decision
 pub use service_desk::{
-    // v0.0.64: Dispatch result
-    DispatchResult, dispatch_request,
-    // v0.0.64: Ticket types
-    Ticket, TicketSeverity, TicketCategory, RoutingPlan, HumanNarrationPlan,
+    create_routing_decision,
+    create_work_order,
+    // v0.0.66: Ticket type detection and work order
+    detect_ticket_type,
+    dispatch_request,
+    dispatch_to_specialist,
+    find_case_for_alert,
     // v0.0.64: Problem detection
     is_problem_report,
-    // v0.0.66: Ticket type detection and work order
-    detect_ticket_type, create_work_order, create_routing_decision,
+    open_case_for_alert,
+    progress_case_investigating,
+    progress_case_plan_ready,
+    progress_case_triage,
+    should_auto_open_case,
+    triage_request,
+    // v0.0.64: Dispatch result
+    DispatchResult,
+    HumanNarrationPlan,
+    RoutingPlan,
+    // v0.0.64: Ticket types
+    Ticket,
+    TicketCategory,
+    TicketSeverity,
     // Legacy triage
-    TriageResult, triage_request, dispatch_to_specialist,
-    should_auto_open_case, find_case_for_alert, open_case_for_alert,
-    progress_case_triage, progress_case_investigating, progress_case_plan_ready,
+    TriageResult,
 };
 // v0.0.66: Department Protocol exports
 pub use department_protocol::{
-    DepartmentName, RoutingDecision, WorkOrder,
-    InvestigateCtx, DepartmentFinding,
-    FindingSeverity as DepartmentFindingSeverity,  // Renamed to avoid conflict with doctor_registry
-    RecommendedAction, DepartmentResult, DepartmentTrait,
+    DepartmentFinding,
+    DepartmentName,
+    DepartmentResult,
+    DepartmentTrait,
+    FindingSeverity as DepartmentFindingSeverity, // Renamed to avoid conflict with doctor_registry
+    InvestigateCtx,
+    RecommendedAction,
+    RoutingDecision,
+    WorkOrder,
 };
 pub use transcript_v2::{
-    TranscriptLine,
-    TranscriptBuilder as TranscriptBuilderV2,  // Renamed to avoid conflict
+    render_active_cases_status,
+    render_case_transcript,
+    render_collaboration,
+    render_handoff,
+    render_junior_disagreement,
     DepartmentOutput,
-    Hypothesis as DepartmentHypothesis,  // Renamed to avoid conflict
-    render_case_transcript, render_handoff, render_junior_disagreement,
-    render_collaboration, render_active_cases_status,
+    Hypothesis as DepartmentHypothesis, // Renamed to avoid conflict
+    TranscriptBuilder as TranscriptBuilderV2, // Renamed to avoid conflict
+    TranscriptLine,
 };
 
 // v0.0.61: Evidence Topics (Targeted Answers)
 // v0.0.63: cap_reliability for strict answer validation + freshness tracking
 pub use evidence_topic::{
-    EvidenceTopic, TopicConfig, TopicDetection, TopicValidation,
-    detect_topic, get_topic_config, generate_answer, validate_evidence,
-    cap_reliability, calculate_freshness_penalty, with_evidence_freshness,
+    calculate_freshness_penalty, cap_reliability, detect_topic, generate_answer, get_topic_config,
+    validate_evidence, with_evidence_freshness, EvidenceTopic, TopicConfig, TopicDetection,
+    TopicValidation,
 };
 
 // v0.0.65: Typed Evidence System + Answer Shaping
+pub use answer_shaper::{format_debug_answer, format_human_answer, shape_answer, ShapedAnswer};
 pub use evidence_record::{
-    ProbeKind, EvidenceRecord, EvidenceBundle, EvidenceSchema,
-    get_evidence_schema, validate_evidence_data,
+    get_evidence_schema, validate_evidence_data, EvidenceBundle, EvidenceRecord, EvidenceSchema,
+    ProbeKind,
 };
 pub use evidence_router::{
-    EvidenceRouting, route_evidence,
-    tool_satisfies_topic, get_tool_for_topic,
-};
-pub use answer_shaper::{
-    ShapedAnswer, shape_answer,
-    format_human_answer, format_debug_answer,
+    get_tool_for_topic, route_evidence, tool_satisfies_topic, EvidenceRouting,
 };
 
 // v0.0.62: Human Mode vs Debug Mode (Narrator)
 pub use narrator::{
-    get_output_mode, is_debug_mode, narrate, clear_working,
-    NarratorEvent, ActorVoice,
-    phase as narrator_phase, working as narrator_working,
-    topic_evidence_description,
+    clear_working, get_output_mode, is_debug_mode, narrate, phase as narrator_phase,
+    topic_evidence_description, working as narrator_working, ActorVoice, NarratorEvent,
 };
 
 // v0.0.67: Department Evidence Playbooks v1
+pub use action_proposal::{networking_actions, storage_actions, ActionProposal};
 pub use evidence_playbook::{
-    PlaybookTopic, PlaybookEvidence, PlaybookBundle,
-    NetworkCauseCategory, StorageRiskLevel as PlaybookStorageRiskLevel,
-    NetworkingDiagnosis, StorageDiagnosis,
-};
-pub use action_proposal::{
-    ActionProposal,
-    networking_actions, storage_actions,
+    NetworkCauseCategory, NetworkingDiagnosis, PlaybookBundle, PlaybookEvidence, PlaybookTopic,
+    StorageDiagnosis, StorageRiskLevel as PlaybookStorageRiskLevel,
 };
 pub use networking_playbook::{
-    LinkEvidence, AddrRouteEvidence, DnsEvidence, ManagerEvidence, NetworkErrorsEvidence,
-    networking_topics, run_networking_playbook,
-    collect_link_evidence, collect_addr_route_evidence, collect_dns_evidence,
-    collect_manager_evidence, collect_errors_evidence as collect_network_errors_evidence,
+    collect_addr_route_evidence, collect_dns_evidence,
+    collect_errors_evidence as collect_network_errors_evidence, collect_link_evidence,
+    collect_manager_evidence, networking_topics, run_networking_playbook, AddrRouteEvidence,
+    DnsEvidence, LinkEvidence, ManagerEvidence, NetworkErrorsEvidence,
 };
 pub use storage_playbook::{
-    MountEvidence, BtrfsEvidence, BtrfsDeviceError, SmartEvidence,
-    IoErrorsEvidence, FstabEvidence, FstabEntry,
-    storage_topics, run_storage_playbook,
-    collect_mount_evidence, collect_btrfs_evidence, collect_smart_evidence,
-    collect_io_errors_evidence, collect_fstab_evidence,
+    collect_btrfs_evidence, collect_fstab_evidence, collect_io_errors_evidence,
+    collect_mount_evidence, collect_smart_evidence, run_storage_playbook, storage_topics,
+    BtrfsDeviceError, BtrfsEvidence, FstabEntry, FstabEvidence, IoErrorsEvidence, MountEvidence,
+    SmartEvidence,
 };
 
 // v0.0.68: Two-Layer Transcript Renderer
 pub use transcript_v068::{
-    TranscriptEventV2, TranscriptRole, TranscriptStreamV2, TimestampedEvent,
-    render_human as render_transcript_human,
-    render_debug as render_transcript_debug,
-    render as render_transcript,
-    render_to_string as render_transcript_to_string,
-    write_transcripts,
-    print_human_colored,
-    validate_human_output,
+    print_human_colored, render as render_transcript, render_debug as render_transcript_debug,
+    render_human as render_transcript_human, render_to_string as render_transcript_to_string,
+    validate_human_output, write_transcripts, TimestampedEvent, TranscriptEventV2, TranscriptRole,
+    TranscriptStreamV2,
 };
 
 // v0.0.69: Service Desk Case Coordinator
 pub use case_coordinator::{
-    // Intent classification
-    RequestIntent,
     classify_intent as classify_request_intent,
     // Evidence topic mapping
     get_evidence_topics_for_target,
-    // Triage
-    TriageDecision,
-    // Department reports
-    DepartmentReport,
     ActionPlan as CaseActionPlan,
-    EvidenceTopicSummary,
-    // Consolidated assessment
-    ConsolidatedAssessment,
     // Main coordinator
     CaseCoordinator,
+    // Consolidated assessment
+    ConsolidatedAssessment,
+    // Department reports
+    DepartmentReport,
+    EvidenceTopicSummary,
+    // Intent classification
+    RequestIntent,
+    // Triage
+    TriageDecision,
 };
 
 // v0.0.70: Dual Transcript Renderer
 pub use transcript_v070::{
-    // Evidence topic abstraction
-    EvidenceTopicV70, tool_to_evidence_topic,
+    print_colored as print_colored_v70,
+    print_debug_colored as print_debug_colored_v70,
+    print_human_colored as print_human_colored_v70,
+    render as render_v70,
+    render_debug as render_debug_v70,
+    // Rendering
+    render_human as render_human_v70,
+    render_to_string as render_to_string_v70,
+    tool_to_evidence_topic,
+    validate_debug_has_internals,
+    // Validation
+    validate_human_output as validate_human_output_v70,
+    // File I/O
+    write_transcripts as write_transcripts_v70,
     // Actors
     ActorV70,
     // Events
-    EventV70, TimestampedEventV70, TranscriptStreamV70, TranscriptStatsV70,
-    // Rendering
-    render_human as render_human_v70,
-    render_debug as render_debug_v70,
-    render as render_v70,
-    render_to_string as render_to_string_v70,
-    print_human_colored as print_human_colored_v70,
-    print_debug_colored as print_debug_colored_v70,
-    print_colored as print_colored_v70,
-    // File I/O
-    write_transcripts as write_transcripts_v70,
-    // Validation
-    validate_human_output as validate_human_output_v70,
-    validate_debug_has_internals,
+    EventV70,
+    // Evidence topic abstraction
+    EvidenceTopicV70,
+    TimestampedEventV70,
+    TranscriptStatsV70,
+    TranscriptStreamV70,
     FORBIDDEN_HUMAN,
+};
+
+// v0.0.71: Humanizer Layer
+pub use humanizer::{
+    humanize_case_open,
+    humanize_caution,
+    humanize_evidence,
+    humanize_evidence_gather,
+    humanize_final_answer,
+    humanize_finding,
+    humanize_junior_critique,
+    humanize_missing_evidence,
+    humanize_triage,
+    // Standard tags
+    tags as humanizer_tags,
+    // Validation
+    validate_answer_relevance,
+    AnswerValidation,
+    ConfidenceHint,
+    DepartmentTag,
+    EvidenceSummary,
+    // Labels
+    HumanLabel,
+    // Transform functions
+    HumanizedMessage,
+    HumanizerContext,
+    MessageTone,
+    // Roles and tones
+    StaffRole,
+    // Threads
+    ThreadBuilder,
+    ThreadSegment,
+    ThreadType,
+    ThreadedTranscript,
+};
+
+// v0.0.72: Unified Dual Mode Transcript
+pub use transcript_v072::{
+    format_transcript_v72,
+    is_line_clean_for_human,
+    print_transcript_v72,
+    // Rendering
+    render_event_v72,
+    render_stream_v72,
+    render_to_string_v72,
+    strip_ansi as strip_ansi_v72,
+    validate_debug_has_internals as validate_debug_has_internals_v72,
+    // Validation
+    validate_human_output as validate_human_output_v72,
+    // Output
+    write_case_logs_v72,
+    write_debug_log_v72,
+    write_human_log_v72,
+    write_line_v72,
+    DebugValidation,
+    // Events
+    EventDataV72,
+    PerfBreakdownV72,
+    RenderedLineV72,
+    RiskLevelV72,
+    RoleV72,
+    ToneV72,
+    TranscriptEventV72,
+    TranscriptStreamV72,
+    WarningCategoryV72,
+    FORBIDDEN_HUMAN_LITERALS,
+    FORBIDDEN_HUMAN_PATTERNS,
 };

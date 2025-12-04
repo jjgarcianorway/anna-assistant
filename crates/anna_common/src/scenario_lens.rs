@@ -28,11 +28,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkInterface {
     pub name: String,
-    pub iface_type: String,  // wifi, ethernet, bridge, veth, etc.
+    pub iface_type: String, // wifi, ethernet, bridge, veth, etc.
     pub driver: Option<String>,
     pub firmware: Option<String>,
     pub rfkill_blocked: Option<bool>,
-    pub link_state: String,  // up, down, unknown
+    pub link_state: String, // up, down, unknown
     pub carrier: bool,
     pub mac: Option<String>,
 }
@@ -58,8 +58,8 @@ pub struct NetworkLens {
     pub interfaces: Vec<NetworkInterface>,
     pub telemetry: HashMap<String, NetworkTelemetry>,
     pub events: Vec<NetworkEvent>,
-    pub log_patterns: Vec<(String, String, usize)>,  // (pattern_id, message, count)
-    pub first_seen: HashMap<String, String>,  // interface -> date
+    pub log_patterns: Vec<(String, String, usize)>, // (pattern_id, message, count)
+    pub first_seen: HashMap<String, String>,        // interface -> date
 }
 
 impl NetworkLens {
@@ -85,9 +85,7 @@ fn discover_network_interfaces() -> Vec<NetworkInterface> {
     let mut interfaces = Vec::new();
 
     // Use ip link to get all interfaces
-    let output = Command::new("ip")
-        .args(["-o", "link", "show"])
-        .output();
+    let output = Command::new("ip").args(["-o", "link", "show"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -136,7 +134,8 @@ fn parse_ip_link_line(line: &str) -> Option<NetworkInterface> {
         "libvirt"
     } else {
         "other"
-    }.to_string();
+    }
+    .to_string();
 
     let link_state = if line.contains("state UP") {
         "up"
@@ -144,7 +143,8 @@ fn parse_ip_link_line(line: &str) -> Option<NetworkInterface> {
         "down"
     } else {
         "unknown"
-    }.to_string();
+    }
+    .to_string();
 
     let carrier = line.contains("LOWER_UP");
 
@@ -166,8 +166,7 @@ fn enrich_interface_info(iface: &mut NetworkInterface) {
     // Get driver
     let driver_path = format!("{}/device/driver", sys_path);
     if let Ok(link) = fs::read_link(&driver_path) {
-        iface.driver = link.file_name()
-            .map(|n| n.to_string_lossy().to_string());
+        iface.driver = link.file_name().map(|n| n.to_string_lossy().to_string());
     }
 
     // Get MAC address
@@ -192,9 +191,7 @@ fn enrich_interface_info(iface: &mut NetworkInterface) {
 
 fn check_rfkill_status(iface_name: &str) -> Option<bool> {
     // Check via rfkill command
-    let output = Command::new("rfkill")
-        .args(["list"])
-        .output();
+    let output = Command::new("rfkill").args(["list"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -223,7 +220,7 @@ fn check_rfkill_status(iface_name: &str) -> Option<bool> {
     // Fallback to /sys check
     let phy_path = format!("/sys/class/net/{}/phy80211", iface_name);
     if Path::new(&phy_path).exists() {
-        return Some(false);  // Assume not blocked if phy exists
+        return Some(false); // Assume not blocked if phy exists
     }
 
     None
@@ -231,9 +228,7 @@ fn check_rfkill_status(iface_name: &str) -> Option<bool> {
 
 fn get_wifi_firmware(iface_name: &str) -> Option<String> {
     // Try to get firmware from ethtool -i
-    let output = Command::new("ethtool")
-        .args(["-i", iface_name])
-        .output();
+    let output = Command::new("ethtool").args(["-i", iface_name]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -281,10 +276,13 @@ fn collect_network_telemetry(interfaces: &[NetworkInterface]) -> HashMap<String,
             .and_then(|s| s.trim().parse().ok())
             .unwrap_or(0);
 
-        telemetry.insert(iface.name.clone(), NetworkTelemetry {
-            rx_bytes_24h: rx,  // Note: These are cumulative, not 24h
-            tx_bytes_24h: tx,
-        });
+        telemetry.insert(
+            iface.name.clone(),
+            NetworkTelemetry {
+                rx_bytes_24h: rx, // Note: These are cumulative, not 24h
+                tx_bytes_24h: tx,
+            },
+        );
     }
 
     telemetry
@@ -296,9 +294,21 @@ fn collect_network_events() -> Vec<NetworkEvent> {
 
     // Query journalctl for network-related events
     let output = Command::new("journalctl")
-        .args(["-b", "-u", "NetworkManager", "-u", "wpa_supplicant",
-               "-u", "systemd-networkd", "-p", "warning..alert",
-               "--no-pager", "-q", "-o", "cat"])
+        .args([
+            "-b",
+            "-u",
+            "NetworkManager",
+            "-u",
+            "wpa_supplicant",
+            "-u",
+            "systemd-networkd",
+            "-p",
+            "warning..alert",
+            "--no-pager",
+            "-q",
+            "-o",
+            "cat",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -355,8 +365,19 @@ fn collect_network_log_patterns() -> Vec<(String, String, usize)> {
     let mut patterns: HashMap<String, usize> = HashMap::new();
 
     let output = Command::new("journalctl")
-        .args(["-b", "-u", "NetworkManager", "-u", "wpa_supplicant",
-               "-p", "warning..alert", "--no-pager", "-q", "-o", "cat"])
+        .args([
+            "-b",
+            "-u",
+            "NetworkManager",
+            "-u",
+            "wpa_supplicant",
+            "-p",
+            "warning..alert",
+            "--no-pager",
+            "-q",
+            "-o",
+            "cat",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -373,9 +394,10 @@ fn collect_network_log_patterns() -> Vec<(String, String, usize)> {
         }
     }
 
-    let mut result: Vec<_> = patterns.into_iter()
+    let mut result: Vec<_> = patterns
+        .into_iter()
         .map(|(msg, count)| {
-            (String::new(), msg, count)  // ID assigned later
+            (String::new(), msg, count) // ID assigned later
         })
         .collect();
 
@@ -386,7 +408,7 @@ fn collect_network_log_patterns() -> Vec<(String, String, usize)> {
         *id = format!("NET{:03}", i + 1);
     }
 
-    result.truncate(10);  // Keep top 10
+    result.truncate(10); // Keep top 10
     result
 }
 
@@ -432,7 +454,7 @@ fn get_network_first_seen(_interfaces: &[NetworkInterface]) -> HashMap<String, S
 pub struct StorageDevice {
     pub name: String,
     pub model: Option<String>,
-    pub bus: String,  // nvme, sata, usb
+    pub bus: String, // nvme, sata, usb
     pub driver: Option<String>,
     pub size_bytes: u64,
     pub mount_points: Vec<String>,
@@ -441,7 +463,7 @@ pub struct StorageDevice {
 /// SMART/NVMe health status
 #[derive(Debug, Clone, Default)]
 pub struct StorageHealth {
-    pub status: String,  // OK, Warning, Critical
+    pub status: String, // OK, Warning, Critical
     pub media_errors: u64,
     pub critical_warnings: u64,
     pub temp_avg_24h: Option<f32>,
@@ -524,27 +546,24 @@ fn parse_lsblk_line(line: &str) -> Option<StorageDevice> {
         return None;
     }
 
-    let size_bytes = parts.get(1)
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0);
+    let size_bytes = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
 
-    let model = parts.get(2)
+    let model = parts
+        .get(2)
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
 
-    let bus = parts.get(3)
-        .map(|s| s.to_lowercase())
-        .unwrap_or_else(|| {
-            if name.starts_with("nvme") {
-                "nvme".to_string()
-            } else if name.starts_with("sd") {
-                "sata".to_string()
-            } else if name.starts_with("mmcblk") {
-                "mmc".to_string()
-            } else {
-                "unknown".to_string()
-            }
-        });
+    let bus = parts.get(3).map(|s| s.to_lowercase()).unwrap_or_else(|| {
+        if name.starts_with("nvme") {
+            "nvme".to_string()
+        } else if name.starts_with("sd") {
+            "sata".to_string()
+        } else if name.starts_with("mmcblk") {
+            "mmc".to_string()
+        } else {
+            "unknown".to_string()
+        }
+    });
 
     Some(StorageDevice {
         name,
@@ -601,8 +620,7 @@ fn get_mount_points(device: &str) -> Vec<String> {
 fn get_block_driver(device: &str) -> Option<String> {
     let driver_path = format!("/sys/block/{}/device/driver", device);
     if let Ok(link) = fs::read_link(&driver_path) {
-        return link.file_name()
-            .map(|n| n.to_string_lossy().to_string());
+        return link.file_name().map(|n| n.to_string_lossy().to_string());
     }
     None
 }
@@ -639,7 +657,8 @@ fn get_nvme_health(device: &str) -> StorageHealth {
                     "Warning"
                 } else {
                     "OK"
-                }.to_string();
+                }
+                .to_string();
 
                 return StorageHealth {
                     status,
@@ -692,17 +711,16 @@ fn collect_storage_telemetry(devices: &[StorageDevice]) -> HashMap<String, Stora
             let parts: Vec<&str> = stat.split_whitespace().collect();
             // Fields: read_ios, read_merges, read_sectors, read_ticks, ...
             // Sector 2 = read sectors, sector 6 = write sectors (512 bytes each)
-            let read_sectors: u64 = parts.get(2)
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0);
-            let write_sectors: u64 = parts.get(6)
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(0);
+            let read_sectors: u64 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
+            let write_sectors: u64 = parts.get(6).and_then(|s| s.parse().ok()).unwrap_or(0);
 
-            telemetry.insert(dev.name.clone(), StorageTelemetry {
-                read_bytes_24h: read_sectors * 512,
-                write_bytes_24h: write_sectors * 512,
-            });
+            telemetry.insert(
+                dev.name.clone(),
+                StorageTelemetry {
+                    read_bytes_24h: read_sectors * 512,
+                    write_bytes_24h: write_sectors * 512,
+                },
+            );
         }
     }
 
@@ -714,7 +732,16 @@ fn collect_storage_log_patterns() -> Vec<(String, String, usize)> {
 
     // Query kernel logs for storage events
     let output = Command::new("journalctl")
-        .args(["-b", "-k", "-p", "warning..alert", "--no-pager", "-q", "-o", "cat"])
+        .args([
+            "-b",
+            "-k",
+            "-p",
+            "warning..alert",
+            "--no-pager",
+            "-q",
+            "-o",
+            "cat",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -723,9 +750,12 @@ fn collect_storage_log_patterns() -> Vec<(String, String, usize)> {
             for line in stdout.lines() {
                 let lower = line.to_lowercase();
                 // Filter for storage-related messages
-                if lower.contains("nvme") || lower.contains("ata")
-                    || lower.contains("sd") || lower.contains("disk")
-                    || lower.contains("i/o error") || lower.contains("reset")
+                if lower.contains("nvme")
+                    || lower.contains("ata")
+                    || lower.contains("sd")
+                    || lower.contains("disk")
+                    || lower.contains("i/o error")
+                    || lower.contains("reset")
                 {
                     let normalized = normalize_storage_pattern(line);
                     *patterns.entry(normalized).or_insert(0) += 1;
@@ -734,7 +764,8 @@ fn collect_storage_log_patterns() -> Vec<(String, String, usize)> {
         }
     }
 
-    let mut result: Vec<_> = patterns.into_iter()
+    let mut result: Vec<_> = patterns
+        .into_iter()
         .map(|(msg, count)| (String::new(), msg, count))
         .collect();
 
@@ -791,7 +822,7 @@ pub struct GpuDevice {
 #[derive(Debug, Clone)]
 pub struct DisplayConnector {
     pub name: String,
-    pub status: String,  // connected, disconnected
+    pub status: String, // connected, disconnected
     pub resolution: Option<String>,
 }
 
@@ -820,9 +851,7 @@ impl GraphicsLens {
 fn discover_gpus() -> Vec<GpuDevice> {
     let mut gpus = Vec::new();
 
-    let output = Command::new("lspci")
-        .args(["-k"])
-        .output();
+    let output = Command::new("lspci").args(["-k"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -832,24 +861,28 @@ fn discover_gpus() -> Vec<GpuDevice> {
             let mut i = 0;
             while i < lines.len() {
                 let line = lines[i];
-                if line.contains("VGA") || line.contains("3D controller")
-                    || line.contains("Display controller") {
-
+                if line.contains("VGA")
+                    || line.contains("3D controller")
+                    || line.contains("Display controller")
+                {
                     let parts: Vec<&str> = line.splitn(2, ": ").collect();
                     let name = parts.get(1).unwrap_or(&"Unknown GPU").to_string();
 
                     let vendor = if name.to_lowercase().contains("nvidia") {
                         "NVIDIA"
-                    } else if name.to_lowercase().contains("amd") || name.to_lowercase().contains("radeon") {
+                    } else if name.to_lowercase().contains("amd")
+                        || name.to_lowercase().contains("radeon")
+                    {
                         "AMD"
                     } else if name.to_lowercase().contains("intel") {
                         "Intel"
                     } else {
                         "Unknown"
-                    }.to_string();
+                    }
+                    .to_string();
 
-                    let is_discrete = vendor == "NVIDIA" ||
-                        (vendor == "AMD" && !name.to_lowercase().contains("integrated"));
+                    let is_discrete = vendor == "NVIDIA"
+                        || (vendor == "AMD" && !name.to_lowercase().contains("integrated"));
 
                     // Look for driver info in following lines
                     let mut driver = None;
@@ -857,15 +890,14 @@ fn discover_gpus() -> Vec<GpuDevice> {
 
                     for j in (i + 1)..std::cmp::min(i + 4, lines.len()) {
                         if lines[j].contains("Kernel driver in use:") {
-                            driver = lines[j].split(':').nth(1)
-                                .map(|s| s.trim().to_string());
+                            driver = lines[j].split(':').nth(1).map(|s| s.trim().to_string());
                             driver_loaded = true;
                             break;
                         }
                         if lines[j].contains("Kernel modules:") && driver.is_none() {
-                            driver = lines[j].split(':').nth(1)
-                                .map(|s| s.trim().split_whitespace().next()
-                                    .unwrap_or("").to_string());
+                            driver = lines[j].split(':').nth(1).map(|s| {
+                                s.trim().split_whitespace().next().unwrap_or("").to_string()
+                            });
                         }
                     }
 
@@ -926,7 +958,16 @@ fn collect_graphics_log_patterns() -> Vec<(String, String, usize)> {
     let mut patterns: HashMap<String, usize> = HashMap::new();
 
     let output = Command::new("journalctl")
-        .args(["-b", "-k", "-p", "warning..alert", "--no-pager", "-q", "-o", "cat"])
+        .args([
+            "-b",
+            "-k",
+            "-p",
+            "warning..alert",
+            "--no-pager",
+            "-q",
+            "-o",
+            "cat",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -934,9 +975,12 @@ fn collect_graphics_log_patterns() -> Vec<(String, String, usize)> {
             let stdout = String::from_utf8_lossy(&out.stdout);
             for line in stdout.lines() {
                 let lower = line.to_lowercase();
-                if lower.contains("drm") || lower.contains("gpu")
-                    || lower.contains("nvidia") || lower.contains("amdgpu")
-                    || lower.contains("i915") || lower.contains("display")
+                if lower.contains("drm")
+                    || lower.contains("gpu")
+                    || lower.contains("nvidia")
+                    || lower.contains("amdgpu")
+                    || lower.contains("i915")
+                    || lower.contains("display")
                 {
                     *patterns.entry(line.to_string()).or_insert(0) += 1;
                 }
@@ -944,7 +988,8 @@ fn collect_graphics_log_patterns() -> Vec<(String, String, usize)> {
         }
     }
 
-    let mut result: Vec<_> = patterns.into_iter()
+    let mut result: Vec<_> = patterns
+        .into_iter()
         .map(|(msg, count)| (String::new(), msg, count))
         .collect();
 
@@ -966,7 +1011,7 @@ fn collect_graphics_log_patterns() -> Vec<(String, String, usize)> {
 #[derive(Debug, Clone)]
 pub struct AudioDevice {
     pub name: String,
-    pub card_type: String,  // PCH, USB, HDMI
+    pub card_type: String, // PCH, USB, HDMI
     pub driver: Option<String>,
     pub driver_loaded: bool,
 }
@@ -994,9 +1039,7 @@ fn discover_audio_devices() -> Vec<AudioDevice> {
     let mut devices = Vec::new();
 
     // Use aplay -l to list audio devices
-    let output = Command::new("aplay")
-        .args(["-l"])
-        .output();
+    let output = Command::new("aplay").args(["-l"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -1012,7 +1055,8 @@ fn discover_audio_devices() -> Vec<AudioDevice> {
                                 "HDMI"
                             } else {
                                 "PCH"
-                            }.to_string();
+                            }
+                            .to_string();
 
                             devices.push(AudioDevice {
                                 name: name.to_string(),
@@ -1038,9 +1082,21 @@ fn collect_audio_log_patterns() -> Vec<(String, String, usize)> {
     let mut patterns: HashMap<String, usize> = HashMap::new();
 
     let output = Command::new("journalctl")
-        .args(["-b", "-u", "pipewire", "-u", "pipewire-pulse",
-               "-u", "wireplumber", "-p", "warning..alert",
-               "--no-pager", "-q", "-o", "cat"])
+        .args([
+            "-b",
+            "-u",
+            "pipewire",
+            "-u",
+            "pipewire-pulse",
+            "-u",
+            "wireplumber",
+            "-p",
+            "warning..alert",
+            "--no-pager",
+            "-q",
+            "-o",
+            "cat",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -1056,7 +1112,16 @@ fn collect_audio_log_patterns() -> Vec<(String, String, usize)> {
 
     // Also check kernel audio logs
     let output = Command::new("journalctl")
-        .args(["-b", "-k", "-p", "warning..alert", "--no-pager", "-q", "-o", "cat"])
+        .args([
+            "-b",
+            "-k",
+            "-p",
+            "warning..alert",
+            "--no-pager",
+            "-q",
+            "-o",
+            "cat",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -1064,8 +1129,10 @@ fn collect_audio_log_patterns() -> Vec<(String, String, usize)> {
             let stdout = String::from_utf8_lossy(&out.stdout);
             for line in stdout.lines() {
                 let lower = line.to_lowercase();
-                if lower.contains("snd") || lower.contains("audio")
-                    || lower.contains("hda") || lower.contains("pulse")
+                if lower.contains("snd")
+                    || lower.contains("audio")
+                    || lower.contains("hda")
+                    || lower.contains("pulse")
                 {
                     *patterns.entry(line.to_string()).or_insert(0) += 1;
                 }
@@ -1073,7 +1140,8 @@ fn collect_audio_log_patterns() -> Vec<(String, String, usize)> {
         }
     }
 
-    let mut result: Vec<_> = patterns.into_iter()
+    let mut result: Vec<_> = patterns
+        .into_iter()
         .map(|(msg, count)| (String::new(), msg, count))
         .collect();
 

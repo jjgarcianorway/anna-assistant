@@ -5,12 +5,11 @@
 
 #[cfg(test)]
 mod tests {
+    use crate::evidence_topic::EvidenceTopic;
     use crate::narrator::{
-        get_output_mode, is_debug_mode, NarratorEvent, ActorVoice,
-        topic_evidence_description,
+        get_output_mode, is_debug_mode, topic_evidence_description, ActorVoice, NarratorEvent,
     };
     use crate::transcript_events::TranscriptMode;
-    use crate::evidence_topic::EvidenceTopic;
 
     // ========================================================================
     // Mode Detection Tests
@@ -149,7 +148,12 @@ mod tests {
         };
 
         match event {
-            NarratorEvent::EvidenceCollected { tool_name, evidence_id, success, duration_ms } => {
+            NarratorEvent::EvidenceCollected {
+                tool_name,
+                evidence_id,
+                success,
+                duration_ms,
+            } => {
                 assert_eq!(tool_name, "mount_usage");
                 assert_eq!(evidence_id, "E1");
                 assert!(success);
@@ -168,7 +172,11 @@ mod tests {
         };
 
         match event {
-            NarratorEvent::FinalAnswer { answer, reliability, evidence_summary } => {
+            NarratorEvent::FinalAnswer {
+                answer,
+                reliability,
+                evidence_summary,
+            } => {
                 assert!(answer.contains("50 GiB"));
                 assert_eq!(reliability, 92);
                 assert!(evidence_summary.contains("disk"));
@@ -194,9 +202,21 @@ mod tests {
         ];
 
         for desc in descriptions {
-            assert!(!desc.contains("[E"), "Human description contains evidence ID pattern: {}", desc);
-            assert!(!desc.contains("E1"), "Human description contains E1: {}", desc);
-            assert!(!desc.contains("E2"), "Human description contains E2: {}", desc);
+            assert!(
+                !desc.contains("[E"),
+                "Human description contains evidence ID pattern: {}",
+                desc
+            );
+            assert!(
+                !desc.contains("E1"),
+                "Human description contains E1: {}",
+                desc
+            );
+            assert!(
+                !desc.contains("E2"),
+                "Human description contains E2: {}",
+                desc
+            );
         }
     }
 
@@ -210,14 +230,25 @@ mod tests {
         ];
 
         let internal_terms = [
-            "mount_usage", "hw_snapshot", "kernel_version", "memory_info",
-            "network_status", "tool_", "_tool", "TOOLS:", "Parse error",
+            "mount_usage",
+            "hw_snapshot",
+            "kernel_version",
+            "memory_info",
+            "network_status",
+            "tool_",
+            "_tool",
+            "TOOLS:",
+            "Parse error",
         ];
 
         for desc in &descriptions {
             for term in &internal_terms {
-                assert!(!desc.contains(term),
-                    "Human description '{}' contains internal term '{}'", desc, term);
+                assert!(
+                    !desc.contains(term),
+                    "Human description '{}' contains internal term '{}'",
+                    desc,
+                    term
+                );
             }
         }
     }
@@ -234,7 +265,11 @@ mod tests {
 
         // The event structure supports these fields
         match event {
-            NarratorEvent::FinalAnswer { reliability, evidence_summary, .. } => {
+            NarratorEvent::FinalAnswer {
+                reliability,
+                evidence_summary,
+                ..
+            } => {
                 assert!(reliability > 0);
                 assert!(!evidence_summary.is_empty());
             }

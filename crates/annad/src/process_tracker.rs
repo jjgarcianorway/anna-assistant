@@ -8,12 +8,12 @@
 //! - Tracks start time for duration calculation
 //! - Only tracks processes that Anna knows about (on PATH)
 
-use anna_common::{ExecutionRecord, ExecTelemetryWriter};
+use anna_common::{ExecTelemetryWriter, ExecutionRecord};
 use chrono::Utc;
-use sysinfo::{System, ProcessStatus};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
+use sysinfo::{ProcessStatus, System};
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
@@ -53,14 +53,12 @@ impl ProcessTracker {
     /// Update tracking state and record exits
     pub async fn update(&mut self, system: &System) {
         let now = Instant::now();
-        let current_pids: std::collections::HashSet<u32> = system
-            .processes()
-            .keys()
-            .map(|pid| pid.as_u32())
-            .collect();
+        let current_pids: std::collections::HashSet<u32> =
+            system.processes().keys().map(|pid| pid.as_u32()).collect();
 
         // Find processes that have exited
-        let exited_pids: Vec<u32> = self.tracked
+        let exited_pids: Vec<u32> = self
+            .tracked
             .keys()
             .filter(|pid| !current_pids.contains(pid))
             .copied()
@@ -74,16 +72,30 @@ impl ProcessTracker {
                 let record = ExecutionRecord {
                     timestamp: Utc::now().to_rfc3339(),
                     pid,
-                    cpu_percent: if tracked.last_cpu > 0.0 { Some(tracked.last_cpu) } else { None },
-                    mem_rss_kb: if tracked.last_mem > 0 { Some(tracked.last_mem / 1024) } else { None },
+                    cpu_percent: if tracked.last_cpu > 0.0 {
+                        Some(tracked.last_cpu)
+                    } else {
+                        None
+                    },
+                    mem_rss_kb: if tracked.last_mem > 0 {
+                        Some(tracked.last_mem / 1024)
+                    } else {
+                        None
+                    },
                     duration_ms: Some(duration_ms),
                     exit_code: None, // Cannot reliably get exit code from /proc after exit
                 };
 
                 if let Err(e) = self.writer.record(&tracked.name, &record) {
-                    warn!("[!]  Failed to record execution for {}: {}", tracked.name, e);
+                    warn!(
+                        "[!]  Failed to record execution for {}: {}",
+                        tracked.name, e
+                    );
                 } else {
-                    debug!("[EXEC] {} (pid={}) exited after {}ms", tracked.name, pid, duration_ms);
+                    debug!(
+                        "[EXEC] {} (pid={}) exited after {}ms",
+                        tracked.name, pid, duration_ms
+                    );
                 }
             }
         }
@@ -112,12 +124,15 @@ impl ProcessTracker {
                     continue;
                 }
 
-                self.tracked.insert(pid_u32, TrackedProcess {
-                    name,
-                    start_time: now,
-                    last_cpu: process.cpu_usage(),
-                    last_mem: process.memory(),
-                });
+                self.tracked.insert(
+                    pid_u32,
+                    TrackedProcess {
+                        name,
+                        start_time: now,
+                        last_cpu: process.cpu_usage(),
+                        last_mem: process.memory(),
+                    },
+                );
             }
         }
     }
@@ -136,8 +151,16 @@ impl ProcessTracker {
             let record = ExecutionRecord {
                 timestamp: Utc::now().to_rfc3339(),
                 pid,
-                cpu_percent: if tracked.last_cpu > 0.0 { Some(tracked.last_cpu) } else { None },
-                mem_rss_kb: if tracked.last_mem > 0 { Some(tracked.last_mem / 1024) } else { None },
+                cpu_percent: if tracked.last_cpu > 0.0 {
+                    Some(tracked.last_cpu)
+                } else {
+                    None
+                },
+                mem_rss_kb: if tracked.last_mem > 0 {
+                    Some(tracked.last_mem / 1024)
+                } else {
+                    None
+                },
                 duration_ms: Some(duration_ms),
                 exit_code: None,
             };

@@ -17,7 +17,7 @@
 //! 6. Post-restart validation
 //! 7. Cleanup or rollback
 
-use crate::config::{UpdateMode, UpdateState, UpdateResult, DATA_DIR};
+use crate::config::{UpdateMode, UpdateResult, UpdateState, DATA_DIR};
 use crate::install_state::{InstallState, ReviewResult};
 use crate::installer_review::run_installer_review;
 use crate::ops_log::OpsLog;
@@ -84,7 +84,10 @@ pub enum UpdatePhase {
     /// Checking for updates
     Checking,
     /// Downloading artifacts
-    Downloading { progress_percent: u8, eta_seconds: Option<u64> },
+    Downloading {
+        progress_percent: u8,
+        eta_seconds: Option<u64>,
+    },
     /// Verifying integrity
     Verifying,
     /// Staging binaries
@@ -111,14 +114,20 @@ impl Default for UpdatePhase {
 
 impl UpdatePhase {
     pub fn is_in_progress(&self) -> bool {
-        !matches!(self, UpdatePhase::Idle | UpdatePhase::Completed { .. } | UpdatePhase::Failed { .. })
+        !matches!(
+            self,
+            UpdatePhase::Idle | UpdatePhase::Completed { .. } | UpdatePhase::Failed { .. }
+        )
     }
 
     pub fn format_display(&self) -> String {
         match self {
             UpdatePhase::Idle => "idle".to_string(),
             UpdatePhase::Checking => "checking for updates...".to_string(),
-            UpdatePhase::Downloading { progress_percent, eta_seconds } => {
+            UpdatePhase::Downloading {
+                progress_percent,
+                eta_seconds,
+            } => {
                 if let Some(eta) = eta_seconds {
                     format!("downloading... {}% (ETA: {}s)", progress_percent, eta)
                 } else {
@@ -152,7 +161,10 @@ pub enum IntegrityStatus {
 
 impl IntegrityStatus {
     pub fn is_verified(&self) -> bool {
-        matches!(self, IntegrityStatus::StrongVerified { .. } | IntegrityStatus::WeakComputed { .. })
+        matches!(
+            self,
+            IntegrityStatus::StrongVerified { .. } | IntegrityStatus::WeakComputed { .. }
+        )
     }
 
     pub fn is_strong(&self) -> bool {
@@ -304,7 +316,10 @@ impl UpdateManager {
         // 1. Check installer review status
         let review = run_installer_review(false);
         if let ReviewResult::NeedsAttention { issues } = &review.overall {
-            if issues.iter().any(|i| i.contains("symlink") || i.contains("unknown binary")) {
+            if issues
+                .iter()
+                .any(|i| i.contains("symlink") || i.contains("unknown binary"))
+            {
                 return GuardrailResult::Failed {
                     reason: format!("Installer review found unsafe state: {:?}", issues),
                 };
@@ -349,7 +364,11 @@ impl UpdateManager {
 
     /// Check for available updates from GitHub
     pub fn check_for_updates(&mut self) -> Result<Option<ReleaseInfo>, String> {
-        self.ops_log.log("update_system", "check_started", Some(&self.current_version));
+        self.ops_log.log(
+            "update_system",
+            "check_started",
+            Some(&self.current_version),
+        );
 
         let releases = fetch_github_releases()?;
 
@@ -379,7 +398,8 @@ impl UpdateManager {
         release: &ReleaseInfo,
         progress_callback: impl Fn(u8, Option<u64>),
     ) -> Result<Vec<ReleaseArtifact>, String> {
-        self.ops_log.log("update_system", "download_started", Some(&release.version));
+        self.ops_log
+            .log("update_system", "download_started", Some(&release.version));
 
         // Create staging directory
         let stage_dir = PathBuf::from(UPDATE_STAGE_DIR).join(&release.version);
@@ -402,7 +422,11 @@ impl UpdateManager {
         }
 
         progress_callback(100, None);
-        self.ops_log.log("update_system", "download_completed", Some(&release.version));
+        self.ops_log.log(
+            "update_system",
+            "download_completed",
+            Some(&release.version),
+        );
 
         Ok(downloaded)
     }
@@ -412,7 +436,9 @@ impl UpdateManager {
         self.ops_log.log("update_system", "verify_started", None);
 
         for artifact in artifacts.iter_mut() {
-            let local_path = artifact.local_path.as_ref()
+            let local_path = artifact
+                .local_path
+                .as_ref()
                 .ok_or_else(|| format!("Artifact {} not downloaded", artifact.name))?;
 
             let computed_checksum = compute_sha256(local_path)?;
@@ -444,7 +470,10 @@ impl UpdateManager {
                     IntegrityStatus::Failed { reason } => reason.clone(),
                     _ => "Unknown verification failure".to_string(),
                 };
-                return Err(format!("Integrity check failed for {}: {}", artifact.name, reason));
+                return Err(format!(
+                    "Integrity check failed for {}: {}",
+                    artifact.name, reason
+                ));
             }
         }
 
@@ -495,7 +524,11 @@ impl UpdateManager {
             }
         }
 
-        self.ops_log.log("update_system", "backup_completed", Some(&format!("{} files", backups.len())));
+        self.ops_log.log(
+            "update_system",
+            "backup_completed",
+            Some(&format!("{} files", backups.len())),
+        );
         Ok(backups)
     }
 
@@ -507,7 +540,9 @@ impl UpdateManager {
         let install_state = InstallState::load_or_default();
 
         for artifact in artifacts {
-            let staged_path = artifact.local_path.as_ref()
+            let staged_path = artifact
+                .local_path
+                .as_ref()
                 .ok_or_else(|| format!("Artifact {} not staged", artifact.name))?;
 
             // v0.0.29: Extract base binary name from artifact name
@@ -557,8 +592,13 @@ impl UpdateManager {
 
         for backup in backups {
             if backup.backup_path.exists() {
-                fs::copy(&backup.backup_path, &backup.original_path)
-                    .map_err(|e| format!("Failed to restore {}: {}", backup.original_path.display(), e))?;
+                fs::copy(&backup.backup_path, &backup.original_path).map_err(|e| {
+                    format!(
+                        "Failed to restore {}: {}",
+                        backup.original_path.display(),
+                        e
+                    )
+                })?;
 
                 // Verify restored file
                 let restored_checksum = compute_sha256(&backup.original_path)?;
@@ -571,7 +611,8 @@ impl UpdateManager {
             }
         }
 
-        self.ops_log.log("update_system", "rollback_completed", None);
+        self.ops_log
+            .log("update_system", "rollback_completed", None);
         Ok(())
     }
 
@@ -618,8 +659,14 @@ impl UpdateManager {
 
         // Sort by modification time (newest first)
         entries.sort_by(|a, b| {
-            let a_time = a.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
-            let b_time = b.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+            let a_time = a
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            let b_time = b
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
             b_time.cmp(&a_time)
         });
 
@@ -635,11 +682,13 @@ impl UpdateManager {
     /// v0.0.26: Full auto-update implementation
     pub fn perform_update(&mut self) -> Result<String, String> {
         // Step 1: Check for updates
-        let release = self.check_for_updates()?
+        let release = self
+            .check_for_updates()?
             .ok_or_else(|| "No update available".to_string())?;
 
         let new_version = release.version.clone();
-        self.ops_log.log("update_system", "performing_update", Some(&new_version));
+        self.ops_log
+            .log("update_system", "performing_update", Some(&new_version));
 
         // Step 2: Run guardrails
         let guardrail = self.check_guardrails();
@@ -652,14 +701,19 @@ impl UpdateManager {
         // Step 3: Create update marker
         let marker = UpdateMarker {
             target_version: new_version.clone(),
-            phase: UpdatePhase::Downloading { progress_percent: 0, eta_seconds: None },
+            phase: UpdatePhase::Downloading {
+                progress_percent: 0,
+                eta_seconds: None,
+            },
             previous_version: self.current_version.clone(),
             backup_paths: Vec::new(),
             started_at: Utc::now(),
             updated_at: Utc::now(),
             evidence_id: generate_update_evidence_id(),
         };
-        marker.save().map_err(|e| format!("Failed to save update marker: {}", e))?;
+        marker
+            .save()
+            .map_err(|e| format!("Failed to save update marker: {}", e))?;
 
         // Step 4: Download artifacts
         let mut artifacts = self.download_artifacts(&release, |_progress, _eta| {
@@ -686,11 +740,14 @@ impl UpdateManager {
         let _ = self.cleanup_old_backups();
 
         // Step 9: Update marker to completed
-        marker.phase = UpdatePhase::Completed { version: new_version.clone() };
+        marker.phase = UpdatePhase::Completed {
+            version: new_version.clone(),
+        };
         let _ = marker.save();
 
         // Step 10: Log completion
-        self.ops_log.log("update_system", "update_complete", Some(&new_version));
+        self.ops_log
+            .log("update_system", "update_complete", Some(&new_version));
 
         // Don't restart immediately - let the daemon handle it gracefully
         Ok(new_version)
@@ -719,9 +776,12 @@ fn fetch_github_releases() -> Result<Vec<ReleaseInfo>, String> {
     let output = Command::new("curl")
         .args([
             "-sS",
-            "--max-time", "30",
-            "-H", "Accept: application/vnd.github.v3+json",
-            "-H", "User-Agent: anna-assistant",
+            "--max-time",
+            "30",
+            "-H",
+            "Accept: application/vnd.github.v3+json",
+            "-H",
+            "User-Agent: anna-assistant",
             "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases",
         ])
         .output()
@@ -735,25 +795,30 @@ fn fetch_github_releases() -> Result<Vec<ReleaseInfo>, String> {
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| format!("Failed to parse GitHub response: {}", e))?;
 
-    let releases = json.as_array()
+    let releases = json
+        .as_array()
         .ok_or_else(|| "Invalid GitHub response: expected array".to_string())?;
 
     let mut result = Vec::new();
     for release in releases {
-        let tag = release.get("tag_name")
+        let tag = release
+            .get("tag_name")
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
 
         let version = tag.trim_start_matches('v').to_string();
-        let prerelease = release.get("prerelease")
+        let prerelease = release
+            .get("prerelease")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
-        let html_url = release.get("html_url")
+        let html_url = release
+            .get("html_url")
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
-        let published_at = release.get("published_at")
+        let published_at = release
+            .get("published_at")
             .and_then(|v| v.as_str())
             .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&Utc));
@@ -762,7 +827,8 @@ fn fetch_github_releases() -> Result<Vec<ReleaseInfo>, String> {
         let mut artifacts = Vec::new();
         if let Some(assets) = release.get("assets").and_then(|v| v.as_array()) {
             for asset in assets {
-                let name = asset.get("name")
+                let name = asset
+                    .get("name")
                     .and_then(|v| v.as_str())
                     .unwrap_or_default()
                     .to_string();
@@ -770,12 +836,12 @@ fn fetch_github_releases() -> Result<Vec<ReleaseInfo>, String> {
                 // v0.0.29: Filter to binary artifacts (now with architecture suffix)
                 // Match: annad-X.X.X-arch or annactl-X.X.X-arch
                 if name.starts_with("annad-") || name.starts_with("annactl-") {
-                    let url = asset.get("browser_download_url")
+                    let url = asset
+                        .get("browser_download_url")
                         .and_then(|v| v.as_str())
                         .unwrap_or_default()
                         .to_string();
-                    let size_bytes = asset.get("size")
-                        .and_then(|v| v.as_u64());
+                    let size_bytes = asset.get("size").and_then(|v| v.as_u64());
 
                     artifacts.push(ReleaseArtifact {
                         name,
@@ -808,8 +874,10 @@ fn download_file(url: &str, local_path: &Path) -> Result<(), String> {
         .args([
             "-sS",
             "-L",
-            "--max-time", "300",
-            "-o", local_path.to_str().unwrap_or_default(),
+            "--max-time",
+            "300",
+            "-o",
+            local_path.to_str().unwrap_or_default(),
             url,
         ])
         .output()
@@ -835,7 +903,9 @@ fn compute_sha256(path: &Path) -> Result<String, String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let checksum = stdout.split_whitespace().next()
+    let checksum = stdout
+        .split_whitespace()
+        .next()
         .ok_or_else(|| "Invalid sha256sum output".to_string())?;
 
     Ok(checksum.to_string())
@@ -858,7 +928,9 @@ fn check_disk_space(path: &str) -> Result<u64, String> {
         return Err("Invalid df output".to_string());
     }
 
-    lines[1].trim().parse::<u64>()
+    lines[1]
+        .trim()
+        .parse::<u64>()
         .map_err(|_| "Failed to parse disk space".to_string())
 }
 
@@ -875,7 +947,11 @@ fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
         let parts: Vec<&str> = v.split('.').collect();
         let major = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
         let minor = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-        let patch = parts.get(2).and_then(|s| s.split('-').next()).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let patch = parts
+            .get(2)
+            .and_then(|s| s.split('-').next())
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
         (major, minor, patch)
     };
 
@@ -908,13 +984,23 @@ pub fn handle_post_restart() -> Option<String> {
             // Check if new version is running
             let current = env!("CARGO_PKG_VERSION");
             if current == marker.target_version {
-                ops_log.log("update_system", "update_succeeded", Some(&marker.target_version));
+                ops_log.log(
+                    "update_system",
+                    "update_succeeded",
+                    Some(&marker.target_version),
+                );
                 let _ = UpdateMarker::remove();
                 return Some(marker.target_version);
             } else {
                 // Version mismatch - update may have failed
-                ops_log.log("update_system", "update_version_mismatch",
-                    Some(&format!("expected {}, got {}", marker.target_version, current)));
+                ops_log.log(
+                    "update_system",
+                    "update_version_mismatch",
+                    Some(&format!(
+                        "expected {}, got {}",
+                        marker.target_version, current
+                    )),
+                );
                 // Don't remove marker - might need manual intervention
             }
         }
@@ -959,13 +1045,23 @@ mod tests {
     #[test]
     fn test_update_phase_display() {
         assert_eq!(UpdatePhase::Idle.format_display(), "idle");
-        assert_eq!(UpdatePhase::Checking.format_display(), "checking for updates...");
         assert_eq!(
-            UpdatePhase::Downloading { progress_percent: 50, eta_seconds: Some(30) }.format_display(),
+            UpdatePhase::Checking.format_display(),
+            "checking for updates..."
+        );
+        assert_eq!(
+            UpdatePhase::Downloading {
+                progress_percent: 50,
+                eta_seconds: Some(30)
+            }
+            .format_display(),
             "downloading... 50% (ETA: 30s)"
         );
         assert_eq!(
-            UpdatePhase::Completed { version: "0.0.11".to_string() }.format_display(),
+            UpdatePhase::Completed {
+                version: "0.0.11".to_string()
+            }
+            .format_display(),
             "completed (v0.0.11)"
         );
     }
@@ -973,7 +1069,10 @@ mod tests {
     #[test]
     fn test_guardrail_result() {
         assert!(GuardrailResult::Passed.is_passed());
-        assert!(!GuardrailResult::Failed { reason: "test".to_string() }.is_passed());
+        assert!(!GuardrailResult::Failed {
+            reason: "test".to_string()
+        }
+        .is_passed());
     }
 
     #[test]
@@ -992,7 +1091,9 @@ mod tests {
         assert!(weak.is_verified());
         assert!(!weak.is_strong());
 
-        let failed = IntegrityStatus::Failed { reason: "test".to_string() };
+        let failed = IntegrityStatus::Failed {
+            reason: "test".to_string(),
+        };
         assert!(!failed.is_verified());
     }
 }

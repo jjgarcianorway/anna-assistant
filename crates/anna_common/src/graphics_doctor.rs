@@ -392,8 +392,11 @@ impl GraphicsEvidence {
 
         // Check for crash indicators in logs
         let crash_keywords = ["crash", "segfault", "SIGSEGV", "fatal", "GPU hang"];
-        let has_crashes = self.compositor_logs.iter()
-            .any(|l| crash_keywords.iter().any(|k| l.message.to_lowercase().contains(&k.to_lowercase())));
+        let has_crashes = self.compositor_logs.iter().any(|l| {
+            crash_keywords
+                .iter()
+                .any(|k| l.message.to_lowercase().contains(&k.to_lowercase()))
+        });
         if has_crashes {
             return GraphicsHealth::Degraded;
         }
@@ -808,9 +811,7 @@ pub struct GraphicsDoctor {
 impl GraphicsDoctor {
     /// Create new Graphics Doctor
     pub fn new() -> Self {
-        Self {
-            max_hypotheses: 3,
-        }
+        Self { max_hypotheses: 3 }
     }
 
     /// Collect graphics evidence
@@ -964,9 +965,7 @@ impl GraphicsDoctor {
         }
 
         // Also check 3D controllers (NVIDIA discrete usually)
-        let output = Command::new("lspci")
-            .args(["-nn", "-d", "::0302"])
-            .output();
+        let output = Command::new("lspci").args(["-nn", "-d", "::0302"]).output();
 
         if let Ok(out) = output {
             let stdout = String::from_utf8_lossy(&out.stdout);
@@ -1033,9 +1032,7 @@ impl GraphicsDoctor {
         };
 
         for module in modules_to_check {
-            let output = Command::new("lsmod")
-                .output()
-                .ok()?;
+            let output = Command::new("lsmod").output().ok()?;
             let stdout = String::from_utf8_lossy(&output.stdout);
             if stdout.lines().any(|l| l.starts_with(module)) {
                 return Some(module.to_string());
@@ -1069,9 +1066,7 @@ impl GraphicsDoctor {
         let check_packages = |patterns: &[&str]| -> Vec<String> {
             let mut found = vec![];
             for pattern in patterns {
-                let output = Command::new("pacman")
-                    .args(["-Qq", pattern])
-                    .output();
+                let output = Command::new("pacman").args(["-Qq", pattern]).output();
                 if let Ok(out) = output {
                     if out.status.success() {
                         let stdout = String::from_utf8_lossy(&out.stdout);
@@ -1089,8 +1084,18 @@ impl GraphicsDoctor {
         DriverPackages {
             nvidia: check_packages(&["nvidia", "nvidia-open", "nvidia-dkms", "nvidia-utils"]),
             mesa: check_packages(&["mesa", "lib32-mesa"]),
-            vulkan: check_packages(&["vulkan-icd-loader", "vulkan-intel", "vulkan-radeon", "nvidia-utils"]),
-            libva: check_packages(&["libva", "libva-mesa-driver", "libva-intel-driver", "libva-nvidia-driver"]),
+            vulkan: check_packages(&[
+                "vulkan-icd-loader",
+                "vulkan-intel",
+                "vulkan-radeon",
+                "nvidia-utils",
+            ]),
+            libva: check_packages(&[
+                "libva",
+                "libva-mesa-driver",
+                "libva-intel-driver",
+                "libva-nvidia-driver",
+            ]),
             vdpau: check_packages(&["libvdpau", "mesa-vdpau"]),
         }
     }
@@ -1134,7 +1139,11 @@ impl GraphicsDoctor {
     }
 
     /// Check user service status
-    fn check_user_service(&self, service: &str, target_user: Option<&str>) -> (bool, bool, Option<String>) {
+    fn check_user_service(
+        &self,
+        service: &str,
+        target_user: Option<&str>,
+    ) -> (bool, bool, Option<String>) {
         let user_arg = target_user.map(|u| format!("--user={}", u));
 
         // Check if active
@@ -1143,9 +1152,7 @@ impl GraphicsDoctor {
         if let Some(ref ua) = user_arg {
             cmd.arg(ua);
         }
-        let running = cmd.output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+        let running = cmd.output().map(|o| o.status.success()).unwrap_or(false);
 
         // Check if enabled
         let mut cmd = Command::new("systemctl");
@@ -1153,13 +1160,14 @@ impl GraphicsDoctor {
         if let Some(ref ua) = user_arg {
             cmd.arg(ua);
         }
-        let enabled = cmd.output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+        let enabled = cmd.output().map(|o| o.status.success()).unwrap_or(false);
 
         // Get any error from status
         let mut cmd = Command::new("systemctl");
-        cmd.arg("--user").arg("status").arg(service).arg("--no-pager");
+        cmd.arg("--user")
+            .arg("status")
+            .arg(service)
+            .arg("--no-pager");
         if let Some(ref ua) = user_arg {
             cmd.arg(ua);
         }
@@ -1201,7 +1209,8 @@ impl GraphicsDoctor {
         }
 
         // Check if main portal is running but no backend
-        let main_running = portals.iter()
+        let main_running = portals
+            .iter()
             .any(|p| p.service == "xdg-desktop-portal.service" && p.running);
 
         if main_running {
@@ -1232,14 +1241,18 @@ impl GraphicsDoctor {
                         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
                             if let Some(arr) = json.as_array() {
                                 for m in arr {
-                                    let name = m.get("name")
+                                    let name = m
+                                        .get("name")
                                         .and_then(|v| v.as_str())
                                         .unwrap_or("unknown")
                                         .to_string();
-                                    let width = m.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
-                                    let height = m.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
+                                    let width =
+                                        m.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
+                                    let height =
+                                        m.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
                                     let refresh = m.get("refreshRate").and_then(|v| v.as_f64());
-                                    let focused = m.get("focused").and_then(|v| v.as_bool()).unwrap_or(false);
+                                    let focused =
+                                        m.get("focused").and_then(|v| v.as_bool()).unwrap_or(false);
 
                                     monitors.push(MonitorInfo {
                                         name,
@@ -1265,8 +1278,13 @@ impl GraphicsDoctor {
                             let parts: Vec<&str> = line.split_whitespace().collect();
                             if let Some(name) = parts.first() {
                                 let is_primary = line.contains("primary");
-                                let resolution = parts.iter()
-                                    .find(|p| p.contains('x') && p.chars().all(|c| c.is_numeric() || c == 'x' || c == '+'))
+                                let resolution = parts
+                                    .iter()
+                                    .find(|p| {
+                                        p.contains('x')
+                                            && p.chars()
+                                                .all(|c| c.is_numeric() || c == 'x' || c == '+')
+                                    })
                                     .map(|r| r.split('+').next().unwrap_or(*r))
                                     .unwrap_or("unknown")
                                     .to_string();
@@ -1327,7 +1345,16 @@ impl GraphicsDoctor {
         let mut logs = vec![];
 
         let output = Command::new("journalctl")
-            .args(["--user", "-u", "xdg-desktop-portal*", "-n", "20", "--no-pager", "-p", "warning"])
+            .args([
+                "--user",
+                "-u",
+                "xdg-desktop-portal*",
+                "-n",
+                "20",
+                "--no-pager",
+                "-p",
+                "warning",
+            ])
             .output();
 
         if let Ok(out) = output {
@@ -1412,7 +1439,11 @@ impl GraphicsDoctor {
     }
 
     /// Step 1: Session and compositor
-    fn step_session_compositor(&self, evidence: &GraphicsEvidence, findings: &mut Vec<Finding>) -> DiagnosisStep {
+    fn step_session_compositor(
+        &self,
+        evidence: &GraphicsEvidence,
+        findings: &mut Vec<Finding>,
+    ) -> DiagnosisStep {
         let session = &evidence.session;
 
         let (result, details, implication) = match session.session_type {
@@ -1427,7 +1458,10 @@ impl GraphicsDoctor {
 
                 (
                     StepResult::Pass,
-                    format!("Wayland session detected. Compositor: {}", session.compositor),
+                    format!(
+                        "Wayland session detected. Compositor: {}",
+                        session.compositor
+                    ),
                     "Modern Wayland session running.".to_string(),
                 )
             }
@@ -1442,7 +1476,10 @@ impl GraphicsDoctor {
 
                 (
                     StepResult::Pass,
-                    format!("X11 session detected. WM/Compositor: {}", session.compositor),
+                    format!(
+                        "X11 session detected. WM/Compositor: {}",
+                        session.compositor
+                    ),
                     "Legacy X11 session running.".to_string(),
                 )
             }
@@ -1470,7 +1507,11 @@ impl GraphicsDoctor {
     }
 
     /// Step 2: GPU and driver
-    fn step_gpu_driver(&self, evidence: &GraphicsEvidence, findings: &mut Vec<Finding>) -> DiagnosisStep {
+    fn step_gpu_driver(
+        &self,
+        evidence: &GraphicsEvidence,
+        findings: &mut Vec<Finding>,
+    ) -> DiagnosisStep {
         if evidence.gpus.is_empty() {
             return DiagnosisStep {
                 name: "GPU Detection".to_string(),
@@ -1487,8 +1528,10 @@ impl GraphicsDoctor {
         for gpu in &evidence.gpus {
             findings.push(Finding {
                 id: format!("gpu-{}", gpu.pci_slot.replace('.', "-").replace(':', "-")),
-                description: format!("{} GPU: {} (module: {:?})",
-                    gpu.vendor, gpu.device_name, gpu.kernel_module),
+                description: format!(
+                    "{} GPU: {} (module: {:?})",
+                    gpu.vendor, gpu.device_name, gpu.kernel_module
+                ),
                 risk: RiskLevel::Info,
                 component: Some("gpu".to_string()),
                 evidence_ids: vec![format!("{}-gpu", evidence.evidence_id)],
@@ -1499,12 +1542,19 @@ impl GraphicsDoctor {
             }
         }
 
-        let primary_gpu = evidence.gpus.iter().find(|g| g.is_primary).or(evidence.gpus.first());
+        let primary_gpu = evidence
+            .gpus
+            .iter()
+            .find(|g| g.is_primary)
+            .or(evidence.gpus.first());
         let (result, details, implication) = if let Some(gpu) = primary_gpu {
             if gpu.kernel_module.is_some() {
                 (
                     StepResult::Pass,
-                    format!("{} GPU with {} driver loaded", gpu.vendor, evidence.driver_stack),
+                    format!(
+                        "{} GPU with {} driver loaded",
+                        gpu.vendor, evidence.driver_stack
+                    ),
                     "GPU driver loaded successfully.".to_string(),
                 )
             } else {
@@ -1526,7 +1576,11 @@ impl GraphicsDoctor {
             name: "GPU Detection".to_string(),
             description: "Identify GPU and loaded driver".to_string(),
             step_number: 2,
-            result: if all_loaded { result } else { StepResult::Partial },
+            result: if all_loaded {
+                result
+            } else {
+                StepResult::Partial
+            },
             details,
             implication,
             evidence_ids: vec![format!("{}-gpu", evidence.evidence_id)],
@@ -1534,23 +1588,31 @@ impl GraphicsDoctor {
     }
 
     /// Step 3: Packages
-    fn step_packages(&self, evidence: &GraphicsEvidence, findings: &mut Vec<Finding>) -> DiagnosisStep {
+    fn step_packages(
+        &self,
+        evidence: &GraphicsEvidence,
+        findings: &mut Vec<Finding>,
+    ) -> DiagnosisStep {
         let packages = &evidence.packages;
 
         // Check for required packages based on GPU
         let mut missing = vec![];
 
         // Mesa is required for AMD/Intel
-        let needs_mesa = evidence.gpus.iter()
+        let needs_mesa = evidence
+            .gpus
+            .iter()
             .any(|g| g.vendor == GpuVendor::Amd || g.vendor == GpuVendor::Intel);
         if needs_mesa && packages.mesa.is_empty() {
             missing.push("mesa");
         }
 
         // NVIDIA needs nvidia packages
-        let needs_nvidia = evidence.gpus.iter()
-            .any(|g| g.vendor == GpuVendor::Nvidia);
-        if needs_nvidia && packages.nvidia.is_empty() && evidence.driver_stack != DriverStack::Nouveau {
+        let needs_nvidia = evidence.gpus.iter().any(|g| g.vendor == GpuVendor::Nvidia);
+        if needs_nvidia
+            && packages.nvidia.is_empty()
+            && evidence.driver_stack != DriverStack::Nouveau
+        {
             missing.push("nvidia or nouveau");
         }
 
@@ -1568,8 +1630,12 @@ impl GraphicsDoctor {
         let (result, details, implication) = if missing.is_empty() {
             (
                 StepResult::Pass,
-                format!("Required packages present: mesa={}, nvidia={}, vulkan={}",
-                    packages.mesa.len(), packages.nvidia.len(), packages.vulkan.len()),
+                format!(
+                    "Required packages present: mesa={}, nvidia={}, vulkan={}",
+                    packages.mesa.len(),
+                    packages.nvidia.len(),
+                    packages.vulkan.len()
+                ),
                 "Graphics packages properly installed.".to_string(),
             )
         } else {
@@ -1600,7 +1666,11 @@ impl GraphicsDoctor {
     }
 
     /// Step 4: Portal health
-    fn step_portal_health(&self, evidence: &GraphicsEvidence, findings: &mut Vec<Finding>) -> DiagnosisStep {
+    fn step_portal_health(
+        &self,
+        evidence: &GraphicsEvidence,
+        findings: &mut Vec<Finding>,
+    ) -> DiagnosisStep {
         // Only relevant for Wayland
         if evidence.session.session_type != SessionType::Wayland {
             return DiagnosisStep {
@@ -1614,10 +1684,14 @@ impl GraphicsDoctor {
             };
         }
 
-        let main_portal = evidence.portals.iter()
+        let main_portal = evidence
+            .portals
+            .iter()
             .find(|p| p.service == "xdg-desktop-portal.service");
 
-        let backend_portal = evidence.portals.iter()
+        let backend_portal = evidence
+            .portals
+            .iter()
             .find(|p| p.running && p.service != "xdg-desktop-portal.service");
 
         let (result, details, implication) = match (main_portal, backend_portal) {
@@ -1626,8 +1700,10 @@ impl GraphicsDoctor {
                 if !evidence.is_portal_backend_correct() {
                     findings.push(Finding {
                         id: "wrong-portal-backend".to_string(),
-                        description: format!("Portal backend {} may not be optimal for {}",
-                            evidence.portal_backend, evidence.session.compositor),
+                        description: format!(
+                            "Portal backend {} may not be optimal for {}",
+                            evidence.portal_backend, evidence.session.compositor
+                        ),
                         risk: RiskLevel::Medium,
                         component: Some("portal".to_string()),
                         evidence_ids: vec![format!("{}-portal", evidence.evidence_id)],
@@ -1635,16 +1711,25 @@ impl GraphicsDoctor {
 
                     (
                         StepResult::Partial,
-                        format!("Portals running but {} may not be optimal for {}",
-                            evidence.portal_backend, evidence.session.compositor),
-                        format!("Consider installing xdg-desktop-portal-{} for best compatibility.",
-                            evidence.expected_portal_backend().to_string().to_lowercase()),
+                        format!(
+                            "Portals running but {} may not be optimal for {}",
+                            evidence.portal_backend, evidence.session.compositor
+                        ),
+                        format!(
+                            "Consider installing xdg-desktop-portal-{} for best compatibility.",
+                            evidence
+                                .expected_portal_backend()
+                                .to_string()
+                                .to_lowercase()
+                        ),
                     )
                 } else {
                     (
                         StepResult::Pass,
-                        format!("Portal stack healthy: {} backend for {}",
-                            evidence.portal_backend, evidence.session.compositor),
+                        format!(
+                            "Portal stack healthy: {} backend for {}",
+                            evidence.portal_backend, evidence.session.compositor
+                        ),
                         "Screen sharing and file dialogs should work.".to_string(),
                     )
                 }
@@ -1719,18 +1804,38 @@ impl GraphicsDoctor {
     }
 
     /// Step 5: Check logs
-    fn step_check_logs(&self, evidence: &GraphicsEvidence, findings: &mut Vec<Finding>) -> DiagnosisStep {
-        let crash_keywords = ["crash", "segfault", "SIGSEGV", "fatal", "GPU hang", "error", "failed"];
+    fn step_check_logs(
+        &self,
+        evidence: &GraphicsEvidence,
+        findings: &mut Vec<Finding>,
+    ) -> DiagnosisStep {
+        let crash_keywords = [
+            "crash", "segfault", "SIGSEGV", "fatal", "GPU hang", "error", "failed",
+        ];
 
-        let compositor_issues: Vec<_> = evidence.compositor_logs.iter()
-            .filter(|l| crash_keywords.iter().any(|k| l.message.to_lowercase().contains(&k.to_lowercase())))
+        let compositor_issues: Vec<_> = evidence
+            .compositor_logs
+            .iter()
+            .filter(|l| {
+                crash_keywords
+                    .iter()
+                    .any(|k| l.message.to_lowercase().contains(&k.to_lowercase()))
+            })
             .collect();
 
-        let portal_issues: Vec<_> = evidence.portal_logs.iter()
-            .filter(|l| crash_keywords.iter().any(|k| l.message.to_lowercase().contains(&k.to_lowercase())))
+        let portal_issues: Vec<_> = evidence
+            .portal_logs
+            .iter()
+            .filter(|l| {
+                crash_keywords
+                    .iter()
+                    .any(|k| l.message.to_lowercase().contains(&k.to_lowercase()))
+            })
             .collect();
 
-        let (result, details, implication) = if compositor_issues.is_empty() && portal_issues.is_empty() {
+        let (result, details, implication) = if compositor_issues.is_empty()
+            && portal_issues.is_empty()
+        {
             (
                 StepResult::Pass,
                 "No recent errors in compositor or portal logs".to_string(),
@@ -1759,8 +1864,11 @@ impl GraphicsDoctor {
 
             (
                 StepResult::Partial,
-                format!("Found {} compositor and {} portal issues in logs",
-                    compositor_issues.len(), portal_issues.len()),
+                format!(
+                    "Found {} compositor and {} portal issues in logs",
+                    compositor_issues.len(),
+                    portal_issues.len()
+                ),
                 "Recent errors detected. May indicate instability.".to_string(),
             )
         };
@@ -1777,7 +1885,11 @@ impl GraphicsDoctor {
     }
 
     /// Generate hypotheses
-    fn generate_hypotheses(&self, findings: &[Finding], evidence: &GraphicsEvidence) -> Vec<GraphicsHypothesis> {
+    fn generate_hypotheses(
+        &self,
+        findings: &[Finding],
+        evidence: &GraphicsEvidence,
+    ) -> Vec<GraphicsHypothesis> {
         let mut hypotheses = vec![];
 
         // Hypothesis: Portal not running
@@ -1798,12 +1910,17 @@ impl GraphicsDoctor {
             let expected = evidence.expected_portal_backend();
             hypotheses.push(GraphicsHypothesis {
                 id: "wrong-backend".to_string(),
-                summary: format!("Portal backend {} may not work well with {}",
-                    evidence.portal_backend, evidence.session.compositor),
+                summary: format!(
+                    "Portal backend {} may not work well with {}",
+                    evidence.portal_backend, evidence.session.compositor
+                ),
                 explanation: format!(
                     "Your compositor ({}) works best with the {} portal backend. \
                      Consider installing xdg-desktop-portal-{} for proper screen sharing.",
-                    evidence.session.compositor, expected, expected.to_string().to_lowercase()),
+                    evidence.session.compositor,
+                    expected,
+                    expected.to_string().to_lowercase()
+                ),
                 confidence: 80,
                 supporting_evidence: vec![format!("{}-portal", evidence.evidence_id)],
                 suggested_playbook: None, // Don't auto-install packages
@@ -1816,7 +1933,8 @@ impl GraphicsDoctor {
                 id: "pipewire-screen-share".to_string(),
                 summary: "PipeWire not running - screen sharing will fail".to_string(),
                 explanation: "PipeWire is required for screen sharing on Wayland. \
-                    Restarting PipeWire and portal services may help.".to_string(),
+                    Restarting PipeWire and portal services may help."
+                    .to_string(),
                 confidence: 85,
                 supporting_evidence: vec![format!("{}-pipewire", evidence.evidence_id)],
                 suggested_playbook: Some("restart_pipewire_portals".to_string()),
@@ -1825,9 +1943,12 @@ impl GraphicsDoctor {
 
         // Hypothesis: NVIDIA on Wayland issues
         if evidence.gpus.iter().any(|g| g.vendor == GpuVendor::Nvidia)
-            && evidence.session.session_type == SessionType::Wayland {
+            && evidence.session.session_type == SessionType::Wayland
+        {
             // Check for common NVIDIA+Wayland issues
-            let has_drm_modeset = evidence.env_vars.iter()
+            let has_drm_modeset = evidence
+                .env_vars
+                .iter()
                 .any(|(k, _)| k.contains("NVIDIA") || k.contains("__GLX"));
 
             if !has_drm_modeset {
@@ -1836,7 +1957,8 @@ impl GraphicsDoctor {
                     summary: "NVIDIA Wayland may need additional configuration".to_string(),
                     explanation: "NVIDIA on Wayland often requires specific kernel parameters \
                         (nvidia_drm.modeset=1) and environment variables. Check the Arch Wiki \
-                        for NVIDIA Wayland setup.".to_string(),
+                        for NVIDIA Wayland setup."
+                        .to_string(),
                     confidence: 70,
                     supporting_evidence: vec![format!("{}-gpu", evidence.evidence_id)],
                     suggested_playbook: None, // Read-only guidance
@@ -1850,7 +1972,8 @@ impl GraphicsDoctor {
                 id: "compositor-unstable".to_string(),
                 summary: "Compositor may be experiencing crashes".to_string(),
                 explanation: "Errors in compositor logs suggest instability. \
-                    This could be due to driver issues, configuration problems, or bugs.".to_string(),
+                    This could be due to driver issues, configuration problems, or bugs."
+                    .to_string(),
                 confidence: 75,
                 supporting_evidence: vec![format!("{}-logs", evidence.evidence_id)],
                 suggested_playbook: Some("collect_crash_report".to_string()),
@@ -1875,8 +1998,12 @@ impl GraphicsDoctor {
             let top = hypotheses.first().unwrap();
             (
                 StepResult::Pass,
-                format!("Generated {} hypothesis(es). Top: {} ({}% confidence)",
-                    hypotheses.len(), top.summary, top.confidence),
+                format!(
+                    "Generated {} hypothesis(es). Top: {} ({}% confidence)",
+                    hypotheses.len(),
+                    top.summary,
+                    top.confidence
+                ),
                 "Potential issues identified.".to_string(),
             )
         };
@@ -1893,10 +2020,20 @@ impl GraphicsDoctor {
     }
 
     /// Determine overall health
-    fn determine_health(&self, steps: &[DiagnosisStep], evidence: &GraphicsEvidence) -> GraphicsHealth {
+    fn determine_health(
+        &self,
+        steps: &[DiagnosisStep],
+        evidence: &GraphicsEvidence,
+    ) -> GraphicsHealth {
         let evidence_health = evidence.health();
-        let fails = steps.iter().filter(|s| s.result == StepResult::Fail).count();
-        let partials = steps.iter().filter(|s| s.result == StepResult::Partial).count();
+        let fails = steps
+            .iter()
+            .filter(|s| s.result == StepResult::Fail)
+            .count();
+        let partials = steps
+            .iter()
+            .filter(|s| s.result == StepResult::Partial)
+            .count();
 
         if evidence_health == GraphicsHealth::Broken || fails >= 2 {
             GraphicsHealth::Broken
@@ -1910,8 +2047,15 @@ impl GraphicsDoctor {
     }
 
     /// Generate summary
-    fn generate_summary(&self, health: &GraphicsHealth, hypotheses: &[GraphicsHypothesis], evidence: &GraphicsEvidence) -> String {
-        let gpu_str = evidence.gpus.first()
+    fn generate_summary(
+        &self,
+        health: &GraphicsHealth,
+        hypotheses: &[GraphicsHypothesis],
+        evidence: &GraphicsEvidence,
+    ) -> String {
+        let gpu_str = evidence
+            .gpus
+            .first()
             .map(|g| format!("{} ({})", g.vendor, evidence.driver_stack))
             .unwrap_or_else(|| "Unknown GPU".to_string());
 
@@ -1922,16 +2066,20 @@ impl GraphicsDoctor {
             ),
             GraphicsHealth::Degraded => {
                 if let Some(h) = hypotheses.first() {
-                    format!("Graphics degraded. Likely cause: {} ({}% confidence)",
-                        h.summary, h.confidence)
+                    format!(
+                        "Graphics degraded. Likely cause: {} ({}% confidence)",
+                        h.summary, h.confidence
+                    )
                 } else {
                     "Graphics degraded. Some issues detected.".to_string()
                 }
             }
             GraphicsHealth::Broken => {
                 if let Some(h) = hypotheses.first() {
-                    format!("Graphics broken. Top issue: {} ({}% confidence)",
-                        h.summary, h.confidence)
+                    format!(
+                        "Graphics broken. Top issue: {} ({}% confidence)",
+                        h.summary, h.confidence
+                    )
                 } else {
                     "Graphics broken. Critical issues detected.".to_string()
                 }
@@ -1941,14 +2089,24 @@ impl GraphicsDoctor {
     }
 
     /// Recommend playbooks
-    fn recommend_playbooks(&self, hypotheses: &[GraphicsHypothesis], _evidence: &GraphicsEvidence) -> Vec<String> {
-        hypotheses.iter()
+    fn recommend_playbooks(
+        &self,
+        hypotheses: &[GraphicsHypothesis],
+        _evidence: &GraphicsEvidence,
+    ) -> Vec<String> {
+        hypotheses
+            .iter()
             .filter_map(|h| h.suggested_playbook.clone())
             .collect()
     }
 
     /// Create a playbook
-    pub fn create_playbook(&self, playbook_id: &str, evidence: &GraphicsEvidence, hypothesis_id: Option<&str>) -> Option<FixPlaybook> {
+    pub fn create_playbook(
+        &self,
+        playbook_id: &str,
+        evidence: &GraphicsEvidence,
+        hypothesis_id: Option<&str>,
+    ) -> Option<FixPlaybook> {
         let user = evidence.target_user.clone();
 
         match playbook_id {
@@ -2108,10 +2266,7 @@ impl GraphicsDoctor {
         // Run preflight checks
         for check in &playbook.preflight {
             let start = std::time::Instant::now();
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg(&check.command)
-                .output();
+            let output = Command::new("sh").arg("-c").arg(&check.command).output();
 
             match output {
                 Ok(out) => {
@@ -2159,10 +2314,7 @@ impl GraphicsDoctor {
         // Execute commands
         for cmd in &playbook.commands {
             let start = std::time::Instant::now();
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg(&cmd.command)
-                .output();
+            let output = Command::new("sh").arg("-c").arg(&cmd.command).output();
 
             match output {
                 Ok(out) => {
@@ -2205,17 +2357,15 @@ impl GraphicsDoctor {
                 std::thread::sleep(std::time::Duration::from_secs(check.wait_secs as u64));
             }
 
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg(&check.command)
-                .output();
+            let output = Command::new("sh").arg("-c").arg(&check.command).output();
 
             if let Ok(out) = output {
                 let stdout = String::from_utf8_lossy(&out.stdout).to_string();
                 if let Some(pattern) = &check.expected_pattern {
                     if !regex::Regex::new(pattern)
                         .map(|re| re.is_match(&stdout))
-                        .unwrap_or(false) {
+                        .unwrap_or(false)
+                    {
                         post_checks_passed = false;
                     }
                 }
@@ -2237,7 +2387,12 @@ impl GraphicsDoctor {
     }
 
     /// Maybe capture recipe
-    pub fn maybe_capture_recipe(&self, playbook: &FixPlaybook, result: &PlaybookResult, evidence: &GraphicsEvidence) -> Option<RecipeCaptureRequest> {
+    pub fn maybe_capture_recipe(
+        &self,
+        playbook: &FixPlaybook,
+        result: &PlaybookResult,
+        evidence: &GraphicsEvidence,
+    ) -> Option<RecipeCaptureRequest> {
         if !result.success || result.reliability < 80 {
             return None;
         }
@@ -2249,9 +2404,11 @@ impl GraphicsDoctor {
         };
 
         Some(RecipeCaptureRequest {
-            name: format!("Fix: {} on {}",
+            name: format!(
+                "Fix: {} on {}",
                 playbook.name.to_lowercase().replace(' ', "_"),
-                evidence.session.compositor),
+                evidence.session.compositor
+            ),
             problem,
             solution: playbook.description.clone(),
             preconditions: vec![
@@ -2387,7 +2544,10 @@ mod tests {
 
     #[test]
     fn test_driver_stack_display() {
-        assert_eq!(DriverStack::NvidiaProprietary.to_string(), "NVIDIA Proprietary");
+        assert_eq!(
+            DriverStack::NvidiaProprietary.to_string(),
+            "NVIDIA Proprietary"
+        );
         assert_eq!(DriverStack::Amdgpu.to_string(), "AMDGPU");
         assert_eq!(DriverStack::I915.to_string(), "Intel i915");
     }
@@ -2510,7 +2670,9 @@ mod tests {
         let doctor = GraphicsDoctor::new();
         let evidence = create_portal_broken_evidence();
 
-        let playbook = doctor.create_playbook("restart_portals", &evidence, Some("portal-restart")).unwrap();
+        let playbook = doctor
+            .create_playbook("restart_portals", &evidence, Some("portal-restart"))
+            .unwrap();
 
         let result = PlaybookResult {
             playbook_id: playbook.id.clone(),
@@ -2546,7 +2708,10 @@ mod tests {
         evidence.pipewire_running = false;
 
         let result = doctor.diagnose(&evidence);
-        assert!(result.hypotheses.iter().any(|h| h.id == "pipewire-screen-share"));
+        assert!(result
+            .hypotheses
+            .iter()
+            .any(|h| h.id == "pipewire-screen-share"));
     }
 
     #[test]
@@ -2565,6 +2730,9 @@ mod tests {
 
         let result = doctor.diagnose(&evidence);
         // Should suggest NVIDIA Wayland config
-        assert!(result.hypotheses.iter().any(|h| h.id == "nvidia-wayland-config"));
+        assert!(result
+            .hypotheses
+            .iter()
+            .any(|h| h.id == "nvidia-wayland-config"));
     }
 }

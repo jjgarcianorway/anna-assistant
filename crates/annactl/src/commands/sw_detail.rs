@@ -26,29 +26,31 @@ use owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::process::Command;
 
+use anna_common::change_journal::{get_config_history, get_package_history};
 use anna_common::grounded::{
-    packages::{get_package_info, Package, PackageSource, InstallReason},
-    commands::{get_command_info, command_exists, SystemCommand},
-    services::{get_service_info, Service, ServiceState, EnabledState},
-    config::discover_service_config,
-    category::get_category,
     categoriser::{normalize_category, packages_in_category},
-    deps::{get_package_deps, get_service_deps},
-    log_patterns::{extract_patterns_for_unit, extract_patterns_with_history, LogPatternSummary, LogHistorySummary, format_time_short},
+    category::get_category,
+    commands::{command_exists, get_command_info, SystemCommand},
+    config::discover_service_config,
     config_graph::get_config_graph_for_software,
+    deps::{get_package_deps, get_service_deps},
+    log_patterns::{
+        extract_patterns_for_unit, extract_patterns_with_history, format_time_short,
+        LogHistorySummary, LogPatternSummary,
+    },
+    packages::{get_package_info, InstallReason, Package, PackageSource},
+    services::{get_service_info, EnabledState, Service, ServiceState},
 };
 use anna_common::ServiceLifecycle;
-use anna_common::change_journal::{get_package_history, get_config_history};
 // v7.30.0: Evidence-based config discovery
 use anna_common::config_locator::{discover_config, ConfigDiscovery, ConfigScope};
 // v7.22.0: Software scenario lenses
 use anna_common::sw_lens::{
-    is_sw_category, get_sw_category,
-    NetworkSwLens, DisplaySwLens, AudioSwLens, PowerSwLens,
+    get_sw_category, is_sw_category, AudioSwLens, DisplaySwLens, NetworkSwLens, PowerSwLens,
 };
 // v7.24.0: Relationships
 use anna_common::relationships::{
-    get_software_relationships, format_software_relationships_section,
+    format_software_relationships_section, get_software_relationships,
 };
 
 const THIN_SEP: &str = "------------------------------------------------------------";
@@ -97,7 +99,11 @@ async fn run_rule_based_category(category_name: &str) -> Result<()> {
     if packages.is_empty() {
         println!("  No {} found.", category_name.to_lowercase());
     } else {
-        println!("  {} {} installed:", packages.len(), category_name.to_lowercase());
+        println!(
+            "  {} {} installed:",
+            packages.len(),
+            category_name.to_lowercase()
+        );
         println!();
 
         for (name, desc, version) in &packages {
@@ -135,16 +141,20 @@ async fn run_services_category() -> Result<()> {
     let enabled_units = list_enabled_services();
 
     // Filter out template units (contain @) - they're not real running services
-    let concrete_units: Vec<_> = enabled_units
-        .iter()
-        .filter(|u| !u.contains('@'))
-        .collect();
+    let concrete_units: Vec<_> = enabled_units.iter().filter(|u| !u.contains('@')).collect();
 
     let total = concrete_units.len();
     let display_count = total.min(20);
 
-    println!("  {} enabled services{}:", total,
-        if total > 20 { format!(" (showing first {})", display_count) } else { String::new() });
+    println!(
+        "  {} enabled services{}:",
+        total,
+        if total > 20 {
+            format!(" (showing first {})", display_count)
+        } else {
+            String::new()
+        }
+    );
     println!();
 
     for unit in concrete_units.iter().take(20) {
@@ -157,7 +167,12 @@ async fn run_services_category() -> Result<()> {
                 ServiceState::Unknown => "unknown".to_string(),
             };
             // v7.29.0: No truncation - show full description
-            println!("  {:<28} [{}] {}", name.cyan(), state_str, svc.description.dimmed());
+            println!(
+                "  {:<28} [{}] {}",
+                name.cyan(),
+                state_str,
+                svc.description.dimmed()
+            );
         } else {
             println!("  {:<28}", name.cyan());
         }
@@ -197,16 +212,21 @@ async fn run_network_sw_lens() -> Result<()> {
 
     // [IDENTITY]
     println!("{}", "[IDENTITY]".cyan());
-    let service_names: Vec<_> = lens.services.iter()
+    let service_names: Vec<_> = lens
+        .services
+        .iter()
         .filter(|s| s.active)
         .map(|s| s.name.as_str())
         .collect();
     println!("  Category:    network");
-    println!("  Components:  {}", if service_names.is_empty() {
-        "none active".to_string()
-    } else {
-        service_names.join(", ")
-    });
+    println!(
+        "  Components:  {}",
+        if service_names.is_empty() {
+            "none active".to_string()
+        } else {
+            service_names.join(", ")
+        }
+    );
     println!();
 
     // [TOPOLOGY]
@@ -251,7 +271,8 @@ async fn run_network_sw_lens() -> Result<()> {
         println!("  Service CPU and memory (avg last 24h):");
         for (name, tel) in &lens.telemetry {
             if tel.cpu_avg_24h > 0.0 || tel.memory_rss_avg_24h > 0 {
-                println!("    {:<20} cpu {} percent, rss {} MiB",
+                println!(
+                    "    {:<20} cpu {} percent, rss {} MiB",
                     format!("{}:", name),
                     tel.cpu_avg_24h as u32,
                     tel.memory_rss_avg_24h / (1024 * 1024)
@@ -267,12 +288,7 @@ async fn run_network_sw_lens() -> Result<()> {
         println!("  Patterns (current boot, warning and above):");
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
             // v7.29.0: No truncation - show full message
-            println!(
-                "    [{}] {} ({}x)",
-                id,
-                msg,
-                count
-            );
+            println!("    [{}] {} ({}x)", id, msg, count);
         }
         println!();
     }
@@ -293,16 +309,21 @@ async fn run_display_sw_lens() -> Result<()> {
 
     // [IDENTITY]
     println!("{}", "[IDENTITY]".cyan());
-    let active_services: Vec<_> = lens.services.iter()
+    let active_services: Vec<_> = lens
+        .services
+        .iter()
         .filter(|s| s.active)
         .map(|s| s.name.as_str())
         .collect();
     println!("  Category:    display");
-    println!("  Components:  {}", if active_services.is_empty() {
-        "none detected".to_string()
-    } else {
-        active_services.join(", ")
-    });
+    println!(
+        "  Components:  {}",
+        if active_services.is_empty() {
+            "none detected".to_string()
+        } else {
+            active_services.join(", ")
+        }
+    );
     println!();
 
     // [TOPOLOGY]
@@ -338,10 +359,7 @@ async fn run_display_sw_lens() -> Result<()> {
         println!("  Patterns (current boot, warning and above):");
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
             // v7.29.0: No truncation - show full message
-            println!(
-                "    [{}] {} ({}x)",
-                id, msg, count
-            );
+            println!("    [{}] {} ({}x)", id, msg, count);
         }
         println!();
     }
@@ -362,16 +380,21 @@ async fn run_audio_sw_lens() -> Result<()> {
 
     // [IDENTITY]
     println!("{}", "[IDENTITY]".cyan());
-    let active_services: Vec<_> = lens.services.iter()
+    let active_services: Vec<_> = lens
+        .services
+        .iter()
         .filter(|s| s.active)
         .map(|s| s.name.as_str())
         .collect();
     println!("  Category:    audio");
-    println!("  Components:  {}", if active_services.is_empty() {
-        "none detected".to_string()
-    } else {
-        active_services.join(", ")
-    });
+    println!(
+        "  Components:  {}",
+        if active_services.is_empty() {
+            "none detected".to_string()
+        } else {
+            active_services.join(", ")
+        }
+    );
     println!();
 
     // [TOPOLOGY]
@@ -408,10 +431,7 @@ async fn run_audio_sw_lens() -> Result<()> {
         println!("  Patterns (current boot, warning and above):");
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
             // v7.29.0: No truncation - show full message
-            println!(
-                "    [{}] {} ({}x)",
-                id, msg, count
-            );
+            println!("    [{}] {} ({}x)", id, msg, count);
         }
         println!();
     }
@@ -432,16 +452,21 @@ async fn run_power_sw_lens() -> Result<()> {
 
     // [IDENTITY]
     println!("{}", "[IDENTITY]".cyan());
-    let active_services: Vec<_> = lens.services.iter()
+    let active_services: Vec<_> = lens
+        .services
+        .iter()
         .filter(|s| s.active)
         .map(|s| s.name.as_str())
         .collect();
     println!("  Category:    power");
-    println!("  Components:  {}", if active_services.is_empty() {
-        "none detected".to_string()
-    } else {
-        active_services.join(", ")
-    });
+    println!(
+        "  Components:  {}",
+        if active_services.is_empty() {
+            "none detected".to_string()
+        } else {
+            active_services.join(", ")
+        }
+    );
     println!();
 
     // [TOPOLOGY]
@@ -478,10 +503,7 @@ async fn run_power_sw_lens() -> Result<()> {
         println!("  Patterns (current boot, warning and above):");
         for (id, msg, count) in lens.log_patterns.iter().take(5) {
             // v7.29.0: No truncation - show full message
-            println!(
-                "    [{}] {} ({}x)",
-                id, msg, count
-            );
+            println!("    [{}] {} ({}x)", id, msg, count);
         }
         println!();
     }
@@ -612,7 +634,10 @@ pub async fn run_object(name: &str) -> Result<()> {
     println!("{}", THIN_SEP);
     println!();
     println!("{}", "[NOT FOUND]".yellow());
-    println!("  '{}' is not a known package, command, or service.", input_name);
+    println!(
+        "  '{}' is not a known package, command, or service.",
+        input_name
+    );
     println!();
     println!("  Checked:");
     println!("    - pacman -Qi {}", input_name);
@@ -633,10 +658,7 @@ pub async fn run_object(name: &str) -> Result<()> {
 
 /// Try case-insensitive package lookup
 fn try_case_insensitive_package(name: &str) -> Option<Package> {
-    let output = Command::new("pacman")
-        .args(["-Qq"])
-        .output()
-        .ok()?;
+    let output = Command::new("pacman").args(["-Qq"]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -661,9 +683,15 @@ fn get_object_type(name: &str) -> String {
     let is_svc = get_service_info(name).is_some();
 
     let mut types = Vec::new();
-    if is_pkg { types.push("package"); }
-    if is_cmd { types.push("command"); }
-    if is_svc { types.push("service"); }
+    if is_pkg {
+        types.push("package");
+    }
+    if is_cmd {
+        types.push("command");
+    }
+    if is_svc {
+        types.push("service");
+    }
 
     if types.is_empty() {
         "unknown".to_string()
@@ -685,7 +713,10 @@ fn print_package_profile(pkg: &Package) {
     // Dynamic category from real sources
     if let Some(cat_info) = get_category(&pkg.name) {
         println!("  Category:    {}", cat_info.category);
-        println!("               {}", format!("(source: {})", cat_info.source).dimmed());
+        println!(
+            "               {}",
+            format!("(source: {})", cat_info.source).dimmed()
+        );
     }
     println!();
 
@@ -749,7 +780,10 @@ fn print_command_profile(cmd: &SystemCommand) {
     // Dynamic category from real sources
     if let Some(cat_info) = get_category(&cmd.name) {
         println!("  Category:    {}", cat_info.category);
-        println!("               {}", format!("(source: {})", cat_info.source).dimmed());
+        println!(
+            "               {}",
+            format!("(source: {})", cat_info.source).dimmed()
+        );
     }
     println!();
 
@@ -790,7 +824,11 @@ fn print_command_section(cmd: &SystemCommand) {
     println!("  {}", "(source: which)".dimmed());
     println!("  Path:        {}", cmd.path);
     if !cmd.description.is_empty() {
-        println!("  Man:         {} {}", cmd.description, "(source: man -f)".dimmed());
+        println!(
+            "  Man:         {} {}",
+            cmd.description,
+            "(source: man -f)".dimmed()
+        );
     }
     println!();
 }
@@ -801,7 +839,11 @@ fn print_service_profile(svc: &Service, name: &str) {
     println!("  Name:        {}", svc.name.bold());
     println!("  Type:        service");
     if !svc.description.is_empty() {
-        println!("  Description: {} {}", svc.description, "(source: systemctl show)".dimmed());
+        println!(
+            "  Description: {} {}",
+            svc.description,
+            "(source: systemctl show)".dimmed()
+        );
     }
     println!();
 
@@ -898,9 +940,11 @@ fn print_service_logs(unit_name: &str) -> LogPatternSummary {
     // v7.14.0: Pattern summary header
     println!();
     println!("  Patterns (this boot):");
-    println!("    Total warnings/errors: {} ({} patterns)",
-             summary.total_count.to_string().yellow(),
-             summary.pattern_count);
+    println!(
+        "    Total warnings/errors: {} ({} patterns)",
+        summary.total_count.to_string().yellow(),
+        summary.pattern_count
+    );
     println!();
 
     // v7.14.0: Show top 3 patterns with counts and time hints
@@ -915,16 +959,13 @@ fn print_service_logs(unit_name: &str) -> LogPatternSummary {
         };
 
         println!("    {}) \"{}\"", i + 1, pattern.pattern);
-        println!("       ({}, last at {})",
-                 count_str.dimmed(),
-                 time_hint);
+        println!("       ({}, last at {})", count_str.dimmed(), time_hint);
     }
 
     // Show if there are more patterns
     if summary.pattern_count > 3 {
         println!();
-        println!("    (and {} more patterns)",
-                 summary.pattern_count - 3);
+        println!("    (and {} more patterns)", summary.pattern_count - 3);
     }
 
     println!();
@@ -940,8 +981,10 @@ fn print_logs_health_note(summary: &LogPatternSummary) {
         if let Some(top) = summary.patterns.first() {
             if top.count > 5 {
                 println!();
-                println!("  Health note: {} repeated errors (most common: {} occurrences).",
-                         summary.total_count, top.count);
+                println!(
+                    "  Health note: {} repeated errors (most common: {} occurrences).",
+                    summary.total_count, top.count
+                );
             }
         }
     }
@@ -968,7 +1011,7 @@ impl LogEntry {
         if let Some(ref ts_str) = self.realtime_timestamp {
             if let Ok(ts_us) = ts_str.parse::<u64>() {
                 let ts_secs = ts_us / 1_000_000;
-                use chrono::{DateTime, Utc, Local};
+                use chrono::{DateTime, Local, Utc};
                 if let Some(dt) = DateTime::<Utc>::from_timestamp(ts_secs as i64, 0) {
                     let local: DateTime<Local> = dt.into();
                     return local.format("%H:%M:%S").to_string();
@@ -983,7 +1026,7 @@ impl LogEntry {
         if let Some(ref ts_str) = self.realtime_timestamp {
             if let Ok(ts_us) = ts_str.parse::<u64>() {
                 let ts_secs = ts_us / 1_000_000;
-                use chrono::{DateTime, Utc, Local};
+                use chrono::{DateTime, Local, Utc};
                 if let Some(dt) = DateTime::<Utc>::from_timestamp(ts_secs as i64, 0) {
                     let local: DateTime<Local> = dt.into();
                     return local.format("%Y-%m-%d %H:%M:%S").to_string();
@@ -1101,37 +1144,45 @@ fn print_config_section(name: &str) {
             let kind_str = format!("[{}]", cfg.kind.label());
             let age_str = format_config_age(cfg.last_modified_epoch);
 
-            println!("  {}  {} {} {}",
+            println!(
+                "  {}  {} {} {}",
                 cfg.path,
                 scope_str.dimmed(),
                 kind_str.dimmed(),
-                age_str.dimmed());
+                age_str.dimmed()
+            );
         }
         println!();
     }
 
     // v7.30.0: [CONFIG - RECOMMENDED] - from docs only, NOT detected
     // Only show paths that are NOT in detected
-    let detected_paths: std::collections::HashSet<_> = discovery.detected.iter()
-        .map(|d| &d.path)
-        .collect();
+    let detected_paths: std::collections::HashSet<_> =
+        discovery.detected.iter().map(|d| &d.path).collect();
 
-    let undetected: Vec<_> = discovery.recommended.iter()
+    let undetected: Vec<_> = discovery
+        .recommended
+        .iter()
         .filter(|r| !detected_paths.contains(&r.path_pattern))
         .collect();
 
     if !undetected.is_empty() {
         println!("{}", "[CONFIG - RECOMMENDED]".cyan());
-        println!("  {}", "(from documentation, not detected on this system)".dimmed());
+        println!(
+            "  {}",
+            "(from documentation, not detected on this system)".dimmed()
+        );
 
         for rec in &undetected {
             let scope_str = format!("({})", rec.scope.label());
             let source_str = format!("[{}]", rec.source.label());
 
-            println!("  {}  {} {}",
+            println!(
+                "  {}  {} {}",
                 rec.path_pattern,
                 scope_str.dimmed(),
-                source_str.dimmed());
+                source_str.dimmed()
+            );
 
             // Show source reference if available
             if !rec.source_ref.is_empty() {
@@ -1203,7 +1254,11 @@ fn print_config_graph_section(name: &str) {
     if !existing_reads.is_empty() {
         println!("  Reads:");
         for cfg in existing_reads {
-            println!("    {}  {}", cfg.path, format!("({})", cfg.evidence).dimmed());
+            println!(
+                "    {}  {}",
+                cfg.path,
+                format!("({})", cfg.evidence).dimmed()
+            );
         }
     }
 
@@ -1212,7 +1267,11 @@ fn print_config_graph_section(name: &str) {
     if !existing_shared.is_empty() {
         println!("  Shared:");
         for cfg in existing_shared {
-            println!("    {}  {}", cfg.path, format!("({})", cfg.evidence).dimmed());
+            println!(
+                "    {}  {}",
+                cfg.path,
+                format!("({})", cfg.evidence).dimmed()
+            );
         }
     }
 
@@ -1247,7 +1306,9 @@ fn print_history_section(name: &str) {
                 .unwrap_or_else(|| "unknown".to_string());
 
             let action = event.change_type.as_str();
-            let details = event.details.as_ref()
+            let details = event
+                .details
+                .as_ref()
                 .map(|d| {
                     if let Some(ref new_ver) = d.new_version {
                         if let Some(ref old_ver) = d.old_version {
@@ -1283,7 +1344,9 @@ fn print_history_section(name: &str) {
                 })
                 .unwrap_or_else(|| "unknown".to_string());
 
-            let path = event.details.as_ref()
+            let path = event
+                .details
+                .as_ref()
                 .and_then(|d| d.config_path.as_ref())
                 .map(|p| p.as_str())
                 .unwrap_or(&event.subject);
@@ -1311,9 +1374,19 @@ fn print_config_line_v712(cfg: &anna_common::grounded::config::ConfigFile) {
 
     // Print with alignment - show path dim if not present
     if cfg.exists {
-        println!("    {:<45} {}   {}", cfg.path, status_str, format!("({})", source_short).dimmed());
+        println!(
+            "    {:<45} {}   {}",
+            cfg.path,
+            status_str,
+            format!("({})", source_short).dimmed()
+        );
     } else {
-        println!("    {:<45} {} {}", cfg.path.dimmed(), status_str, format!("({})", source_short).dimmed());
+        println!(
+            "    {:<45} {} {}",
+            cfg.path.dimmed(),
+            status_str,
+            format!("({})", source_short).dimmed()
+        );
     }
 }
 
@@ -1332,9 +1405,19 @@ fn print_config_line_v710(cfg: &anna_common::grounded::config::ConfigFile) {
 
     // Print with alignment - show path dim if not present
     if cfg.exists {
-        println!("    {:<45} {}   {}", cfg.path, status_str, format!("({})", source_short).dimmed());
+        println!(
+            "    {:<45} {}   {}",
+            cfg.path,
+            status_str,
+            format!("({})", source_short).dimmed()
+        );
     } else {
-        println!("    {:<45} {} {}", cfg.path.dimmed(), status_str, format!("({})", source_short).dimmed());
+        println!(
+            "    {:<45} {} {}",
+            cfg.path.dimmed(),
+            status_str,
+            format!("({})", source_short).dimmed()
+        );
     }
 }
 
@@ -1361,9 +1444,19 @@ fn print_config_line(cfg: &anna_common::grounded::config::ConfigFile, is_user: b
 
     // Print with alignment
     if cfg.exists {
-        println!("    {:<45} {}    {}", path, status_str, format!("({})", source_short).dimmed());
+        println!(
+            "    {:<45} {}    {}",
+            path,
+            status_str,
+            format!("({})", source_short).dimmed()
+        );
     } else {
-        println!("    {:<45} {}    {}", path.dimmed(), status_str, format!("({})", source_short).dimmed());
+        println!(
+            "    {:<45} {}    {}",
+            path.dimmed(),
+            status_str,
+            format!("({})", source_short).dimmed()
+        );
     }
 }
 
@@ -1504,7 +1597,10 @@ fn resolve_user_path_display(path: &str) -> String {
 /// Print [CONFIG] section for a service - v7.6.0 enhanced layout
 fn print_service_config_section(svc_name: &str) {
     println!("{}", "[CONFIG]".cyan());
-    println!("  {}", "(sources: systemctl show, pacman -Ql, filesystem)".dimmed());
+    println!(
+        "  {}",
+        "(sources: systemctl show, pacman -Ql, filesystem)".dimmed()
+    );
 
     let info = discover_service_config(svc_name);
 
@@ -1519,7 +1615,11 @@ fn print_service_config_section(svc_name: &str) {
     println!();
     println!("  Overrides:");
 
-    let has_override = info.override_unit.as_ref().map(|u| u.exists).unwrap_or(false);
+    let has_override = info
+        .override_unit
+        .as_ref()
+        .map(|u| u.exists)
+        .unwrap_or(false);
     let has_dropins = !info.drop_in_files.is_empty();
 
     if has_override || has_dropins {
@@ -1538,11 +1638,16 @@ fn print_service_config_section(svc_name: &str) {
     if let Some(ref drop_in) = info.drop_in_dir {
         if !drop_in.exists && info.drop_in_files.is_empty() {
             println!("    Missing:");
-            println!("      - {:<44} {}", drop_in.path, "(declared, not present)".dimmed());
+            println!(
+                "      - {:<44} {}",
+                drop_in.path,
+                "(declared, not present)".dimmed()
+            );
         }
     }
 
-    if !has_override && !has_dropins && info.drop_in_dir.as_ref().map(|d| d.exists).unwrap_or(true) {
+    if !has_override && !has_dropins && info.drop_in_dir.as_ref().map(|d| d.exists).unwrap_or(true)
+    {
         println!("    (none)");
     }
 
@@ -1595,8 +1700,9 @@ fn print_relationships_section(name: &str) {
 /// Print [USAGE] section with v7.23.0 format: Time-anchored trends with percentage+range
 fn print_telemetry_section(name: &str) {
     use anna_common::config::AnnaConfig;
-    use anna_common::{get_usage_trends, format_cpu_percent_with_range,
-                      timeline_format_memory, TrendLabel};
+    use anna_common::{
+        format_cpu_percent_with_range, get_usage_trends, timeline_format_memory, TrendLabel,
+    };
 
     println!("{}", "[USAGE]".cyan());
 
@@ -1623,22 +1729,28 @@ fn print_telemetry_section(name: &str) {
     println!("  CPU avg:");
     if let Some(ref w) = trends.cpu_1h {
         if w.is_valid() {
-            println!("    last 1h:    {}",
-                     format_cpu_percent_with_range(w.avg, trends.logical_cores));
+            println!(
+                "    last 1h:    {}",
+                format_cpu_percent_with_range(w.avg, trends.logical_cores)
+            );
         }
     }
     if let Some(ref w) = trends.cpu_24h {
         if w.is_valid() {
-            println!("    last 24h:   {}",
-                     format_cpu_percent_with_range(w.avg, trends.logical_cores));
+            println!(
+                "    last 24h:   {}",
+                format_cpu_percent_with_range(w.avg, trends.logical_cores)
+            );
         }
     } else if trends.cpu_1h.is_some() {
         println!("    last 24h:   {}", "n/a (insufficient data)".dimmed());
     }
     if let Some(ref w) = trends.cpu_7d {
         if w.is_valid() {
-            println!("    last 7d:    {}",
-                     format_cpu_percent_with_range(w.avg, trends.logical_cores));
+            println!(
+                "    last 7d:    {}",
+                format_cpu_percent_with_range(w.avg, trends.logical_cores)
+            );
         }
     } else if trends.cpu_24h.is_some() {
         println!("    last 7d:    {}", "n/a (insufficient data)".dimmed());
@@ -1760,11 +1872,18 @@ fn print_telemetry_health_notes(name: &str, stats_24h: &Option<anna_common::Usag
     // Check for high CPU usage
     if let Some(stats) = stats_24h {
         if stats.peak_cpu_percent > 90.0 {
-            notes.push(format!("High CPU usage detected (peak {:.0}%) - check for runaway processes", stats.peak_cpu_percent));
+            notes.push(format!(
+                "High CPU usage detected (peak {:.0}%) - check for runaway processes",
+                stats.peak_cpu_percent
+            ));
         }
-        if stats.peak_mem_bytes > 4 * 1024 * 1024 * 1024 { // 4 GiB
+        if stats.peak_mem_bytes > 4 * 1024 * 1024 * 1024 {
+            // 4 GiB
             let gb = stats.peak_mem_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-            notes.push(format!("High memory usage (peak {:.1} GiB) - consider memory limits", gb));
+            notes.push(format!(
+                "High memory usage (peak {:.1} GiB) - consider memory limits",
+                gb
+            ));
         }
     }
 
@@ -1772,7 +1891,10 @@ fn print_telemetry_health_notes(name: &str, stats_24h: &Option<anna_common::Usag
     let unit_name = format!("{}.service", name);
     let error_count = get_service_error_count(&unit_name);
     if error_count > 0 {
-        notes.push(format!("{} error(s) in logs this boot - see [LOGS] section above", error_count));
+        notes.push(format!(
+            "{} error(s) in logs this boot - see [LOGS] section above",
+            error_count
+        ));
     }
 
     // Only show section if we have notes
@@ -1789,12 +1911,15 @@ fn print_telemetry_health_notes(name: &str, stats_24h: &Option<anna_common::Usag
 fn get_service_error_count(unit_name: &str) -> usize {
     let output = Command::new("journalctl")
         .args([
-            "-u", unit_name,
-            "-p", "err..alert",
+            "-u",
+            unit_name,
+            "-p",
+            "err..alert",
             "-b",
             "--no-pager",
             "-q",
-            "-o", "short",
+            "-o",
+            "short",
         ])
         .output();
 
@@ -1836,7 +1961,11 @@ fn print_package_dependencies_section(name: &str) {
 
         // Show optional deps if any (limited)
         if !pkg_deps.optional.is_empty() {
-            println!("    {} {}", "optional:".dimmed(), pkg_deps.optional.join(", ").dimmed());
+            println!(
+                "    {} {}",
+                "optional:".dimmed(),
+                pkg_deps.optional.join(", ").dimmed()
+            );
         }
     }
 
@@ -1943,8 +2072,10 @@ fn get_service_related_hardware(service_name: &str) -> Vec<&'static str> {
     let mut related = Vec::new();
 
     // Network services -> network hardware
-    if name_lower.contains("networkmanager") || name_lower.contains("network")
-        || name_lower.contains("wpa_supplicant") {
+    if name_lower.contains("networkmanager")
+        || name_lower.contains("network")
+        || name_lower.contains("wpa_supplicant")
+    {
         related.push("wifi");
         related.push("ethernet");
     }
@@ -1955,8 +2086,10 @@ fn get_service_related_hardware(service_name: &str) -> Vec<&'static str> {
     }
 
     // Audio services -> audio hardware
-    if name_lower.contains("pipewire") || name_lower.contains("pulseaudio")
-        || name_lower.contains("audio") {
+    if name_lower.contains("pipewire")
+        || name_lower.contains("pulseaudio")
+        || name_lower.contains("audio")
+    {
         related.push("audio");
     }
 
@@ -2006,16 +2139,22 @@ fn print_service_lifecycle_section(unit_name: &str) {
 
     // Activation failures
     println!("  Failures:");
-    println!("    last 24h:  {}", if lifecycle.failures_24h == 0 {
-        "0".green().to_string()
-    } else {
-        lifecycle.failures_24h.to_string().yellow().to_string()
-    });
-    println!("    last 7d:   {}", if lifecycle.failures_7d == 0 {
-        "0".green().to_string()
-    } else {
-        lifecycle.failures_7d.to_string().yellow().to_string()
-    });
+    println!(
+        "    last 24h:  {}",
+        if lifecycle.failures_24h == 0 {
+            "0".green().to_string()
+        } else {
+            lifecycle.failures_24h.to_string().yellow().to_string()
+        }
+    );
+    println!(
+        "    last 7d:   {}",
+        if lifecycle.failures_7d == 0 {
+            "0".green().to_string()
+        } else {
+            lifecycle.failures_7d.to_string().yellow().to_string()
+        }
+    );
 
     println!();
 }
@@ -2047,13 +2186,22 @@ fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
         println!("    {} {} warnings or errors", "✓".green(), "No".green());
     } else {
         if summary.this_boot_critical > 0 {
-            println!("    Critical: {}", summary.this_boot_critical.to_string().red().bold());
+            println!(
+                "    Critical: {}",
+                summary.this_boot_critical.to_string().red().bold()
+            );
         }
         if summary.this_boot_error > 0 {
-            println!("    Errors:   {}", summary.this_boot_error.to_string().red());
+            println!(
+                "    Errors:   {}",
+                summary.this_boot_error.to_string().red()
+            );
         }
         if summary.this_boot_warning > 0 {
-            println!("    Warnings: {}", summary.this_boot_warning.to_string().yellow());
+            println!(
+                "    Warnings: {}",
+                summary.this_boot_warning.to_string().yellow()
+            );
         }
     }
     println!();
@@ -2083,13 +2231,16 @@ fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
 
             // v7.29.0: No truncation - show full pattern
             println!("    {}) \"{}\"", i + 1, pattern.pattern);
-            println!("       {} ({})", pattern.priority.dimmed(), history_str.dimmed());
+            println!(
+                "       {} ({})",
+                pattern.priority.dimmed(),
+                history_str.dimmed()
+            );
         }
 
         if summary.patterns.len() > 3 {
             println!();
-            println!("    (and {} more patterns)",
-                     summary.patterns.len() - 3);
+            println!("    (and {} more patterns)", summary.patterns.len() - 3);
         }
     }
 
@@ -2101,10 +2252,12 @@ fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
         println!("  Recurring patterns (seen in previous boots):");
         for pattern in history_patterns.iter().take(2) {
             // v7.29.0: Show full pattern without truncation
-            println!("    - \"{}\" ({} boots, {} total in 7d)",
-                     pattern.pattern.dimmed(),
-                     pattern.boots_seen,
-                     pattern.count_7d);
+            println!(
+                "    - \"{}\" ({} boots, {} total in 7d)",
+                pattern.pattern.dimmed(),
+                pattern.boots_seen,
+                pattern.count_7d
+            );
         }
     }
 
@@ -2121,7 +2274,7 @@ fn print_service_logs_v716(unit_name: &str) -> LogHistorySummary {
 /// Print [LOGS] section with v7.20.0 boot-anchored patterns and baseline tags
 fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
     use anna_common::log_patterns_enhanced::LogPatternAnalyzer;
-    use anna_common::{find_or_create_service_baseline, tag_pattern, normalize_message};
+    use anna_common::{find_or_create_service_baseline, normalize_message, tag_pattern};
 
     println!("{}", "[LOGS]".cyan());
 
@@ -2156,13 +2309,22 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
         println!("    {} {} warnings or errors", "✓".green(), "No".green());
     } else {
         if summary.this_boot_critical > 0 {
-            println!("    Critical: {}", summary.this_boot_critical.to_string().red().bold());
+            println!(
+                "    Critical: {}",
+                summary.this_boot_critical.to_string().red().bold()
+            );
         }
         if summary.this_boot_error > 0 {
-            println!("    Errors:   {}", summary.this_boot_error.to_string().red());
+            println!(
+                "    Errors:   {}",
+                summary.this_boot_error.to_string().red()
+            );
         }
         if summary.this_boot_warning > 0 {
-            println!("    Warnings: {}", summary.this_boot_warning.to_string().yellow());
+            println!(
+                "    Warnings: {}",
+                summary.this_boot_warning.to_string().yellow()
+            );
         }
     }
     println!();
@@ -2185,18 +2347,24 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
                 format!("(seen {} times this boot)", occurrence.count_this_boot)
             };
 
-            println!("    [{}] \"{}\" {}",
-                     occurrence.pattern.short_id().yellow(),
-                     display,
-                     baseline_tag.format().yellow());
-            println!("           {} {}",
-                     occurrence.pattern.priority.dimmed(),
-                     seen_str.dimmed());
+            println!(
+                "    [{}] \"{}\" {}",
+                occurrence.pattern.short_id().yellow(),
+                display,
+                baseline_tag.format().yellow()
+            );
+            println!(
+                "           {} {}",
+                occurrence.pattern.priority.dimmed(),
+                seen_str.dimmed()
+            );
         }
         if pattern_summary.new_this_boot.len() > 20 {
             // v7.29.0: No ellipsis
-            println!("    (and {} more new patterns)",
-                     pattern_summary.new_this_boot.len() - 20);
+            println!(
+                "    (and {} more new patterns)",
+                pattern_summary.new_this_boot.len() - 20
+            );
         }
         println!();
     }
@@ -2215,29 +2383,43 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
 
             // v7.27.0: Format "(seen N times this boot)" per spec
             let seen_str = if occurrence.count_this_boot == 1 {
-                format!("(seen 1 time this boot, {} in 7d, {} boots)", occurrence.count_7d, occurrence.boots_seen)
+                format!(
+                    "(seen 1 time this boot, {} in 7d, {} boots)",
+                    occurrence.count_7d, occurrence.boots_seen
+                )
             } else {
-                format!("(seen {} times this boot, {} in 7d, {} boots)", occurrence.count_this_boot, occurrence.count_7d, occurrence.boots_seen)
+                format!(
+                    "(seen {} times this boot, {} in 7d, {} boots)",
+                    occurrence.count_this_boot, occurrence.count_7d, occurrence.boots_seen
+                )
             };
 
             if tag_str.is_empty() {
-                println!("    [{}] \"{}\"",
-                         occurrence.pattern.short_id().dimmed(),
-                         display);
+                println!(
+                    "    [{}] \"{}\"",
+                    occurrence.pattern.short_id().dimmed(),
+                    display
+                );
             } else {
-                println!("    [{}] \"{}\" {}",
-                         occurrence.pattern.short_id().dimmed(),
-                         display,
-                         tag_str.dimmed());
+                println!(
+                    "    [{}] \"{}\" {}",
+                    occurrence.pattern.short_id().dimmed(),
+                    display,
+                    tag_str.dimmed()
+                );
             }
-            println!("           {} {}",
-                     occurrence.pattern.priority.dimmed(),
-                     seen_str.dimmed());
+            println!(
+                "           {} {}",
+                occurrence.pattern.priority.dimmed(),
+                seen_str.dimmed()
+            );
         }
         if pattern_summary.known_patterns.len() > 20 {
             // v7.29.0: No ellipsis
-            println!("    (and {} more known patterns)",
-                     pattern_summary.known_patterns.len() - 20);
+            println!(
+                "    (and {} more known patterns)",
+                pattern_summary.known_patterns.len() - 20
+            );
         }
         println!();
     }
@@ -2245,18 +2427,27 @@ fn print_service_logs_v718(unit_name: &str) -> LogHistorySummary {
     // v7.20.0: Baseline info
     if let Some(ref bl) = baseline {
         println!("  Baseline:");
-        println!("    Boot: -{}, {} known warning patterns",
-                 bl.boot_id.abs(), bl.warning_count);
+        println!(
+            "    Boot: -{}, {} known warning patterns",
+            bl.boot_id.abs(),
+            bl.warning_count
+        );
         println!();
     }
 
     // v7.18.0: Previous boot summary (if available)
     if !pattern_summary.previous_boot.is_empty() {
-        let prev_count: u32 = pattern_summary.previous_boot.iter()
+        let prev_count: u32 = pattern_summary
+            .previous_boot
+            .iter()
             .map(|p| p.count_24h)
             .sum();
         println!("  Boot -1 (previous):");
-        println!("    {} patterns, {} total events", pattern_summary.previous_boot.len(), prev_count);
+        println!(
+            "    {} patterns, {} total events",
+            pattern_summary.previous_boot.len(),
+            prev_count
+        );
         println!();
     }
 
@@ -2309,4 +2500,3 @@ fn print_cross_notes_sw_v716(log_summary: &LogHistorySummary, _name: &str) {
         }
     }
 }
-

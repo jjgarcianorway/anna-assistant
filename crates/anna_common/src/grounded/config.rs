@@ -18,12 +18,12 @@
 //! - v7.6.1: Identity-focused filtering, ranked paths, lean output
 //! - v7.8.0: Filesystem source, precise status indicators, source attribution per path
 
+use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
-use regex::Regex;
 
-use super::arch_wiki::{ArchWikiIndex, PathType, resolve_user_path};
+use super::arch_wiki::{resolve_user_path, ArchWikiIndex, PathType};
 
 /// Status indicator for config files - v7.8.0
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,8 +131,8 @@ pub fn get_source_description() -> String {
 pub fn discover_from_filesystem(name: &str) -> Vec<ConfigFile> {
     let mut configs = Vec::new();
     let home = std::env::var("HOME").unwrap_or_default();
-    let xdg_config = std::env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| format!("{}/.config", home));
+    let xdg_config =
+        std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
     // Get identity aliases for broader matching
     let aliases = get_identity_aliases(name);
@@ -222,9 +222,7 @@ pub struct ServiceConfigInfo {
 
 /// Discover config files from pacman -Ql
 pub fn discover_from_pacman(package: &str) -> Vec<ConfigFile> {
-    let output = Command::new("pacman")
-        .args(["-Ql", package])
-        .output();
+    let output = Command::new("pacman").args(["-Ql", package]).output();
 
     let mut configs = Vec::new();
 
@@ -238,7 +236,8 @@ pub fn discover_from_pacman(package: &str) -> Vec<ConfigFile> {
                 if let Some(path) = line.split_whitespace().nth(1) {
                     // Include: /etc files (configs) or /usr/{share,lib} templates
                     let is_etc_config = path.starts_with("/etc/") && !path.ends_with('/');
-                    let is_usr_template = (path.starts_with("/usr/share/") || path.starts_with("/usr/lib/"))
+                    let is_usr_template = (path.starts_with("/usr/share/")
+                        || path.starts_with("/usr/lib/"))
                         && is_config_template(path);
 
                     if is_etc_config || is_usr_template {
@@ -255,7 +254,11 @@ pub fn discover_from_pacman(package: &str) -> Vec<ConfigFile> {
                             exists,
                             is_user_config: false,
                             is_directory: false,
-                            status: if exists { ConfigStatus::Present } else { ConfigStatus::Missing },
+                            status: if exists {
+                                ConfigStatus::Present
+                            } else {
+                                ConfigStatus::Missing
+                            },
                             category,
                             is_recommended: false,
                         });
@@ -354,8 +357,14 @@ fn extract_man_section(content: &str, section_name: &str) -> Option<String> {
         }
 
         // End section when we hit another header (all caps, no indent)
-        if in_section && !trimmed.is_empty() && trimmed.chars().all(|c| c.is_uppercase() || c.is_whitespace())
-            && trimmed.len() > 2 && !trimmed.starts_with('/') {
+        if in_section
+            && !trimmed.is_empty()
+            && trimmed
+                .chars()
+                .all(|c| c.is_uppercase() || c.is_whitespace())
+            && trimmed.len() > 2
+            && !trimmed.starts_with('/')
+        {
             break;
         }
 
@@ -392,7 +401,8 @@ fn extract_paths_from_text_for_identity(
 ) {
     // Regex for system paths
     let sys_re = Regex::new(r"(/etc/[a-zA-Z0-9_./-]+)").unwrap();
-    let usr_share_re = Regex::new(r"(/usr/share/[a-zA-Z0-9_./-]+\.(conf|ini|yaml|yml|toml|cfg))").unwrap();
+    let usr_share_re =
+        Regex::new(r"(/usr/share/[a-zA-Z0-9_./-]+\.(conf|ini|yaml|yml|toml|cfg))").unwrap();
 
     // Regex for user paths
     let user_re = Regex::new(r"(~/[a-zA-Z0-9_./-]+|\$HOME/[a-zA-Z0-9_./-]+|\$XDG_CONFIG_HOME/[a-zA-Z0-9_./-]+|~\.[a-zA-Z0-9_]+)").unwrap();
@@ -418,7 +428,13 @@ fn extract_paths_from_text_for_identity(
                 exists,
                 is_user_config: false,
                 is_directory: path.ends_with('/') || Path::new(path).is_dir(),
-                status: if exists { ConfigStatus::Present } else if is_recommended_source { ConfigStatus::Recommended } else { ConfigStatus::Missing },
+                status: if exists {
+                    ConfigStatus::Present
+                } else if is_recommended_source {
+                    ConfigStatus::Recommended
+                } else {
+                    ConfigStatus::Missing
+                },
                 category: ConfigCategory::System,
                 is_recommended: is_recommended_source && !exists,
             });
@@ -443,7 +459,11 @@ fn extract_paths_from_text_for_identity(
                 exists,
                 is_user_config: false,
                 is_directory: false,
-                status: if exists { ConfigStatus::Present } else { ConfigStatus::Missing },
+                status: if exists {
+                    ConfigStatus::Present
+                } else {
+                    ConfigStatus::Missing
+                },
                 category: ConfigCategory::Other, // Templates go to Other
                 is_recommended: false,
             });
@@ -471,7 +491,13 @@ fn extract_paths_from_text_for_identity(
                 exists,
                 is_user_config: true,
                 is_directory: false,
-                status: if exists { ConfigStatus::Present } else if is_recommended_source { ConfigStatus::Recommended } else { ConfigStatus::Missing },
+                status: if exists {
+                    ConfigStatus::Present
+                } else if is_recommended_source {
+                    ConfigStatus::Recommended
+                } else {
+                    ConfigStatus::Missing
+                },
                 category: ConfigCategory::User,
                 is_recommended: is_recommended_source && !exists,
             });
@@ -502,8 +528,10 @@ fn path_belongs_to_identity(path: &str, identity: &str) -> bool {
         return false;
     }
     // nvim should not match pure /vim/ paths
-    if id_lower == "nvim" && path_contains_identity_segment(&path_lower, "vim")
-        && !path_contains_identity_segment(&path_lower, "nvim") {
+    if id_lower == "nvim"
+        && path_contains_identity_segment(&path_lower, "vim")
+        && !path_contains_identity_segment(&path_lower, "nvim")
+    {
         return false;
     }
 
@@ -529,28 +557,69 @@ fn is_path_for_other_tool(path: &str, current_identity: &str) -> bool {
     // v7.10.0: Expanded list of well-known tools to filter
     let other_tools = [
         // Wayland ecosystem
-        "uwsm", "mako", "waybar", "dunst", "rofi", "wofi", "swaylock",
-        "swayidle", "wlogout", "eww", "ags", "nwg", "wlr", "sway",
+        "uwsm",
+        "mako",
+        "waybar",
+        "dunst",
+        "rofi",
+        "wofi",
+        "swaylock",
+        "swayidle",
+        "wlogout",
+        "eww",
+        "ags",
+        "nwg",
+        "wlr",
+        "sway",
         // Terminals
-        "kitty", "alacritty", "foot", "wezterm", "konsole", "gnome-terminal",
+        "kitty",
+        "alacritty",
+        "foot",
+        "wezterm",
+        "konsole",
+        "gnome-terminal",
         // Notification daemons
-        "fnott", "deadd", "linux_notification_center",
+        "fnott",
+        "deadd",
+        "linux_notification_center",
         // Launchers
-        "bemenu", "dmenu", "tofi", "fuzzel",
+        "bemenu",
+        "dmenu",
+        "tofi",
+        "fuzzel",
         // Bar/panels
-        "polybar", "lemonbar", "i3bar", "swaybar",
+        "polybar",
+        "lemonbar",
+        "i3bar",
+        "swaybar",
         // Lock screens
-        "i3lock", "betterlockscreen", "gtklock", "hyprlock",
+        "i3lock",
+        "betterlockscreen",
+        "gtklock",
+        "hyprlock",
         // Idle managers
-        "xidlehook", "hypridle",
+        "xidlehook",
+        "hypridle",
         // Wallpaper setters
-        "hyprpaper", "swaybg", "nitrogen", "feh",
+        "hyprpaper",
+        "swaybg",
+        "nitrogen",
+        "feh",
         // Screen capture
-        "grim", "slurp", "flameshot", "spectacle",
+        "grim",
+        "slurp",
+        "flameshot",
+        "spectacle",
         // Clipboard managers
-        "wl-clipboard", "cliphist", "clipman",
+        "wl-clipboard",
+        "cliphist",
+        "clipman",
         // Display managers
-        "ly", "greetd", "lightdm", "sddm", "gdm",
+        "ly",
+        "greetd",
+        "lightdm",
+        "sddm",
+        "gdm",
     ];
 
     for tool in &other_tools {
@@ -589,9 +658,16 @@ fn is_non_config_path(path: &str) -> bool {
     }
 
     // Also exclude paths ending in common non-config extensions
-    if path.ends_with(".png") || path.ends_with(".jpg") || path.ends_with(".jpeg") ||
-       path.ends_with(".svg") || path.ends_with(".gif") || path.ends_with(".ico") ||
-       path.ends_with(".sh") || path.ends_with(".bash") || path.ends_with(".zsh") {
+    if path.ends_with(".png")
+        || path.ends_with(".jpg")
+        || path.ends_with(".jpeg")
+        || path.ends_with(".svg")
+        || path.ends_with(".gif")
+        || path.ends_with(".ico")
+        || path.ends_with(".sh")
+        || path.ends_with(".bash")
+        || path.ends_with(".zsh")
+    {
         return true;
     }
 
@@ -608,8 +684,12 @@ fn path_contains_identity_segment(path: &str, identity: &str) -> bool {
         let end_pos = abs_pos + identity.len();
 
         // Check character before (should be / or . or start of string or ~)
-        let before_ok = abs_pos == 0 ||
-            path.chars().nth(abs_pos - 1).map(|c| c == '/' || c == '.' || c == '-' || c == '_' || c == '~').unwrap_or(false);
+        let before_ok = abs_pos == 0
+            || path
+                .chars()
+                .nth(abs_pos - 1)
+                .map(|c| c == '/' || c == '.' || c == '-' || c == '_' || c == '~')
+                .unwrap_or(false);
 
         // Check character after (should be / or . or - or _ or rc or end of string)
         let after_char = path.chars().nth(end_pos);
@@ -640,7 +720,11 @@ fn get_identity_aliases(identity: &str) -> Vec<String> {
         "networkmanager" => vec!["nm".to_string(), "network-manager".to_string()],
         "pulseaudio" => vec!["pulse".to_string()],
         "pipewire" => vec!["pw".to_string()],
-        "bluetooth" | "bluez" => vec!["bt".to_string(), "bluetooth".to_string(), "bluez".to_string()],
+        "bluetooth" | "bluez" => vec![
+            "bt".to_string(),
+            "bluetooth".to_string(),
+            "bluez".to_string(),
+        ],
         _ => vec![],
     }
 }
@@ -667,8 +751,14 @@ fn extract_precedence_from_text(text: &str, source: &str, rules: &mut Vec<Preced
         ("falls back", "falls back to"),
         ("read first", "is read first"),
         ("read last", "is read last"),
-        ("user.* config.* system", "user configuration overrides system"),
-        ("system.* user", "system configuration is overridden by user"),
+        (
+            "user.* config.* system",
+            "user configuration overrides system",
+        ),
+        (
+            "system.* user",
+            "system configuration is overridden by user",
+        ),
     ];
 
     for (pattern, _desc_hint) in patterns {
@@ -725,7 +815,7 @@ pub fn discover_from_arch_wiki(name: &str) -> (Vec<ConfigFile>, Vec<PrecedenceRu
                         ConfigCategory::Other
                     };
                     (exists, false, cat)
-                },
+                }
                 PathType::User => {
                     let exists = resolve_user_path(&hint.path)
                         .map(|p| p.exists())
@@ -741,7 +831,11 @@ pub fn discover_from_arch_wiki(name: &str) -> (Vec<ConfigFile>, Vec<PrecedenceRu
                 exists,
                 is_user_config: is_user,
                 is_directory: false,
-                status: if exists { ConfigStatus::Present } else { ConfigStatus::Recommended },
+                status: if exists {
+                    ConfigStatus::Present
+                } else {
+                    ConfigStatus::Recommended
+                },
                 category,
                 is_recommended: !exists,
             });
@@ -774,7 +868,12 @@ pub fn discover_service_config(unit_name: &str) -> ServiceConfigInfo {
 
     // Get unit file path using systemctl show
     let output = Command::new("systemctl")
-        .args(["show", "-p", "FragmentPath,DropInPaths,UnitFileState", &unit])
+        .args([
+            "show",
+            "-p",
+            "FragmentPath,DropInPaths,UnitFileState",
+            &unit,
+        ])
         .output();
 
     if let Ok(result) = output {
@@ -790,7 +889,11 @@ pub fn discover_service_config(unit_name: &str) -> ServiceConfigInfo {
                             exists: Path::new(path).exists(),
                             is_user_config: false,
                             is_directory: false,
-                            status: if Path::new(path).exists() { ConfigStatus::Present } else { ConfigStatus::Missing },
+                            status: if Path::new(path).exists() {
+                                ConfigStatus::Present
+                            } else {
+                                ConfigStatus::Missing
+                            },
                             category: ConfigCategory::System,
                             is_recommended: false,
                         });
@@ -819,7 +922,11 @@ pub fn discover_service_config(unit_name: &str) -> ServiceConfigInfo {
                                 if let Ok(entries) = std::fs::read_dir(path) {
                                     for entry in entries.flatten() {
                                         let file_path = entry.path();
-                                        if file_path.extension().map(|e| e == "conf").unwrap_or(false) {
+                                        if file_path
+                                            .extension()
+                                            .map(|e| e == "conf")
+                                            .unwrap_or(false)
+                                        {
                                             info.drop_in_files.push(ConfigFile {
                                                 path: file_path.display().to_string(),
                                                 source: "drop-in directory".to_string(),
@@ -866,7 +973,11 @@ pub fn discover_service_config(unit_name: &str) -> ServiceConfigInfo {
             exists,
             is_user_config: false,
             is_directory: true,
-            status: if exists { ConfigStatus::Present } else { ConfigStatus::Recommended },
+            status: if exists {
+                ConfigStatus::Present
+            } else {
+                ConfigStatus::Recommended
+            },
             category: ConfigCategory::System,
             is_recommended: !exists,
         });
@@ -918,7 +1029,11 @@ fn parse_unit_file_for_configs(path: &str, info: &mut ServiceConfigInfo) {
                 exists,
                 is_user_config: false,
                 is_directory: false,
-                status: if exists { ConfigStatus::Present } else { ConfigStatus::Missing },
+                status: if exists {
+                    ConfigStatus::Present
+                } else {
+                    ConfigStatus::Missing
+                },
                 category: ConfigCategory::System,
                 is_recommended: false,
             });
@@ -937,7 +1052,11 @@ fn parse_unit_file_for_configs(path: &str, info: &mut ServiceConfigInfo) {
                 exists,
                 is_user_config: false,
                 is_directory: false,
-                status: if exists { ConfigStatus::Present } else { ConfigStatus::Missing },
+                status: if exists {
+                    ConfigStatus::Present
+                } else {
+                    ConfigStatus::Missing
+                },
                 category: ConfigCategory::System,
                 is_recommended: false,
             });
@@ -976,7 +1095,8 @@ pub fn discover_config_info(name: &str) -> ConfigInfo {
         if !path_belongs_to_identity(&cfg.path, name) {
             continue;
         }
-        let entry = path_map.entry(cfg.path.clone())
+        let entry = path_map
+            .entry(cfg.path.clone())
             .or_insert_with(|| ConfigEntry {
                 sources: Vec::new(),
                 exists: cfg.exists,
@@ -996,7 +1116,8 @@ pub fn discover_config_info(name: &str) -> ConfigInfo {
         if !path_belongs_to_identity(&cfg.path, name) {
             continue;
         }
-        let entry = path_map.entry(cfg.path.clone())
+        let entry = path_map
+            .entry(cfg.path.clone())
             .or_insert_with(|| ConfigEntry {
                 sources: Vec::new(),
                 exists: cfg.exists,
@@ -1014,7 +1135,8 @@ pub fn discover_config_info(name: &str) -> ConfigInfo {
     // Source 2: man pages (filtered by identity)
     let (man_configs, man_precedence) = discover_from_man_filtered(name);
     for cfg in man_configs {
-        let entry = path_map.entry(cfg.path.clone())
+        let entry = path_map
+            .entry(cfg.path.clone())
             .or_insert_with(|| ConfigEntry {
                 sources: Vec::new(),
                 exists: cfg.exists,
@@ -1034,7 +1156,8 @@ pub fn discover_config_info(name: &str) -> ConfigInfo {
     // Source 3: Arch Wiki (already filtered by identity)
     let (wiki_configs, wiki_precedence) = discover_from_arch_wiki(name);
     for cfg in wiki_configs {
-        let entry = path_map.entry(cfg.path.clone())
+        let entry = path_map
+            .entry(cfg.path.clone())
             .or_insert_with(|| ConfigEntry {
                 sources: Vec::new(),
                 exists: cfg.exists,
@@ -1113,7 +1236,8 @@ pub fn discover_config_info(name: &str) -> ConfigInfo {
     let mut seen_desc: std::collections::HashSet<String> = std::collections::HashSet::new();
     all_precedence.retain(|r| seen_desc.insert(r.description.clone()));
 
-    let has_configs = !system_configs.is_empty() || !user_configs.is_empty() || !other_configs.is_empty();
+    let has_configs =
+        !system_configs.is_empty() || !user_configs.is_empty() || !other_configs.is_empty();
     let source_description = get_source_description();
 
     ConfigInfo {
@@ -1134,8 +1258,16 @@ fn limit_configs(configs: &[ConfigFile], _identity: &str, limit: usize) -> Vec<C
 
     // Priority: existing first, then recommended, then others
     let mut existing: Vec<_> = configs.iter().filter(|c| c.exists).cloned().collect();
-    let recommended: Vec<_> = configs.iter().filter(|c| !c.exists && c.is_recommended).cloned().collect();
-    let missing: Vec<_> = configs.iter().filter(|c| !c.exists && !c.is_recommended).cloned().collect();
+    let recommended: Vec<_> = configs
+        .iter()
+        .filter(|c| !c.exists && c.is_recommended)
+        .cloned()
+        .collect();
+    let missing: Vec<_> = configs
+        .iter()
+        .filter(|c| !c.exists && !c.is_recommended)
+        .cloned()
+        .collect();
 
     // Take as many existing as we can
     existing.truncate(limit);
@@ -1175,13 +1307,25 @@ fn discover_from_man_filtered(name: &str) -> (Vec<ConfigFile>, Vec<PrecedenceRul
 
             // Extract from FILES section
             if let Some(files_section) = extract_man_section(&content, "FILES") {
-                extract_paths_from_text_for_identity(&files_section, &source, &mut configs, &mut seen_paths, Some(name));
+                extract_paths_from_text_for_identity(
+                    &files_section,
+                    &source,
+                    &mut configs,
+                    &mut seen_paths,
+                    Some(name),
+                );
                 extract_precedence_from_text(&files_section, &source, &mut precedence);
             }
 
             // Extract from CONFIGURATION section
             if let Some(config_section) = extract_man_section(&content, "CONFIGURATION") {
-                extract_paths_from_text_for_identity(&config_section, &source, &mut configs, &mut seen_paths, Some(name));
+                extract_paths_from_text_for_identity(
+                    &config_section,
+                    &source,
+                    &mut configs,
+                    &mut seen_paths,
+                    Some(name),
+                );
                 extract_precedence_from_text(&config_section, &source, &mut precedence);
             }
         }
@@ -1230,7 +1374,10 @@ pub fn looks_like_config_path(path: &str) -> bool {
 
 /// Check if a user path looks valid
 pub fn looks_like_user_config_path(path: &str) -> bool {
-    if !path.starts_with("~/") && !path.starts_with("$HOME/") && !path.starts_with("$XDG_CONFIG_HOME/") {
+    if !path.starts_with("~/")
+        && !path.starts_with("$HOME/")
+        && !path.starts_with("$XDG_CONFIG_HOME/")
+    {
         return false;
     }
 
@@ -1265,39 +1412,42 @@ pub fn get_config_highlights(packages: &[String], services: &[String]) -> Config
     let mut highlights = ConfigHighlights::default();
 
     // Check packages for user configs
-    for pkg in packages.iter().take(50) { // Limit for performance
+    for pkg in packages.iter().take(50) {
+        // Limit for performance
         let info = discover_config_info(pkg);
         if info.user_configs.iter().any(|c| c.exists) {
             highlights.user_configs_present.push(pkg.clone());
-        } else if info.system_configs.iter().any(|c| c.exists) && !info.user_configs.iter().any(|c| c.exists) {
+        } else if info.system_configs.iter().any(|c| c.exists)
+            && !info.user_configs.iter().any(|c| c.exists)
+        {
             highlights.default_config_only.push(pkg.clone());
         }
     }
 
     // Check services for overrides
-    for svc in services.iter().take(30) { // Limit for performance
+    for svc in services.iter().take(30) {
+        // Limit for performance
         let info = discover_service_config(svc);
 
         // Check for override unit or drop-ins
         if let Some(ref override_unit) = info.override_unit {
             if override_unit.exists {
-                highlights.services_with_overrides.push((
-                    svc.clone(),
-                    format!("override in {}", override_unit.path),
-                ));
+                highlights
+                    .services_with_overrides
+                    .push((svc.clone(), format!("override in {}", override_unit.path)));
                 continue;
             }
         }
 
         if !info.drop_in_files.is_empty() {
-            let drop_in_path = info.drop_in_dir
+            let drop_in_path = info
+                .drop_in_dir
                 .as_ref()
                 .map(|d| d.path.clone())
                 .unwrap_or_else(|| format!("/etc/systemd/system/{}.service.d/", svc));
-            highlights.services_with_overrides.push((
-                svc.clone(),
-                format!("drop-in in {}", drop_in_path),
-            ));
+            highlights
+                .services_with_overrides
+                .push((svc.clone(), format!("drop-in in {}", drop_in_path)));
         }
     }
 
@@ -1306,7 +1456,9 @@ pub fn get_config_highlights(packages: &[String], services: &[String]) -> Config
     highlights.user_configs_present.truncate(10);
     highlights.default_config_only.sort();
     highlights.default_config_only.truncate(10);
-    highlights.services_with_overrides.sort_by(|a, b| a.0.cmp(&b.0));
+    highlights
+        .services_with_overrides
+        .sort_by(|a, b| a.0.cmp(&b.0));
     highlights.services_with_overrides.truncate(10);
 
     highlights
@@ -1336,7 +1488,9 @@ mod tests {
         assert!(looks_like_user_config_path("~/.vimrc"));
         assert!(looks_like_user_config_path("~/.config/nvim/init.lua"));
         assert!(looks_like_user_config_path("$HOME/.bashrc"));
-        assert!(looks_like_user_config_path("$XDG_CONFIG_HOME/hypr/hyprland.conf"));
+        assert!(looks_like_user_config_path(
+            "$XDG_CONFIG_HOME/hypr/hyprland.conf"
+        ));
 
         // Invalid
         assert!(!looks_like_user_config_path("~/"));
@@ -1347,7 +1501,10 @@ mod tests {
     #[test]
     fn test_normalize_user_path() {
         assert_eq!(normalize_user_path("$HOME/.bashrc"), "~/.bashrc");
-        assert_eq!(normalize_user_path("$XDG_CONFIG_HOME/nvim"), "~/.config/nvim");
+        assert_eq!(
+            normalize_user_path("$XDG_CONFIG_HOME/nvim"),
+            "~/.config/nvim"
+        );
         assert_eq!(normalize_user_path("~/.vimrc"), "~/.vimrc");
     }
 
@@ -1380,21 +1537,36 @@ mod tests {
         assert!(path_contains_identity_segment("~/.vimrc", "vim"));
         assert!(path_contains_identity_segment("/etc/vim/vimrc", "vim"));
         assert!(path_contains_identity_segment("~/.vim/", "vim"));
-        assert!(path_contains_identity_segment("/usr/share/vim/vimfiles", "vim"));
+        assert!(path_contains_identity_segment(
+            "/usr/share/vim/vimfiles",
+            "vim"
+        ));
 
         // nvim directory should NOT match vim (nvim != vim)
-        assert!(!path_contains_identity_segment("~/.config/nvim/init.lua", "vim"));
+        assert!(!path_contains_identity_segment(
+            "~/.config/nvim/init.lua",
+            "vim"
+        ));
 
         // But sysinit.vim SHOULD match vim because the filename ends with .vim
         // This is correct - the filename genuinely contains "vim"
-        assert!(path_contains_identity_segment("/etc/xdg/nvim/sysinit.vim", "vim"));
+        assert!(path_contains_identity_segment(
+            "/etc/xdg/nvim/sysinit.vim",
+            "vim"
+        ));
     }
 
     #[test]
     fn test_identity_segment_matching_nvim() {
         // nvim should match nvim paths
-        assert!(path_contains_identity_segment("~/.config/nvim/init.lua", "nvim"));
-        assert!(path_contains_identity_segment("/etc/xdg/nvim/sysinit.vim", "nvim"));
+        assert!(path_contains_identity_segment(
+            "~/.config/nvim/init.lua",
+            "nvim"
+        ));
+        assert!(path_contains_identity_segment(
+            "/etc/xdg/nvim/sysinit.vim",
+            "nvim"
+        ));
 
         // vim should NOT match nvim (no false negatives)
         assert!(!path_contains_identity_segment("~/.vimrc", "nvim"));
@@ -1404,23 +1576,47 @@ mod tests {
     #[test]
     fn test_identity_segment_matching_hyprland() {
         // hyprland should match hypr* paths
-        assert!(path_contains_identity_segment("~/.config/hypr/hyprland.conf", "hyprland"));
-        assert!(path_belongs_to_identity("~/.config/hypr/hyprland.conf", "hyprland"));
+        assert!(path_contains_identity_segment(
+            "~/.config/hypr/hyprland.conf",
+            "hyprland"
+        ));
+        assert!(path_belongs_to_identity(
+            "~/.config/hypr/hyprland.conf",
+            "hyprland"
+        ));
 
         // unrelated wayland tools should NOT match
-        assert!(!path_contains_identity_segment("~/.config/mako/config", "hyprland"));
-        assert!(!path_contains_identity_segment("~/.config/uwsm/config", "hyprland"));
-        assert!(!path_contains_identity_segment("~/.config/waybar/config", "hyprland"));
+        assert!(!path_contains_identity_segment(
+            "~/.config/mako/config",
+            "hyprland"
+        ));
+        assert!(!path_contains_identity_segment(
+            "~/.config/uwsm/config",
+            "hyprland"
+        ));
+        assert!(!path_contains_identity_segment(
+            "~/.config/waybar/config",
+            "hyprland"
+        ));
 
         // Verify identity filtering rejects unrelated paths
-        assert!(!path_belongs_to_identity("~/.config/mako/config", "hyprland"));
-        assert!(!path_belongs_to_identity("~/.config/uwsm/config", "hyprland"));
+        assert!(!path_belongs_to_identity(
+            "~/.config/mako/config",
+            "hyprland"
+        ));
+        assert!(!path_belongs_to_identity(
+            "~/.config/uwsm/config",
+            "hyprland"
+        ));
     }
 
     #[test]
     fn test_identity_segment_boundary_chars() {
         // Test various boundary characters
-        assert!(path_contains_identity_segment("/etc/ssh/sshd_config", "ssh"));
+        assert!(path_contains_identity_segment(
+            "/etc/ssh/sshd_config",
+            "ssh"
+        ));
         assert!(path_contains_identity_segment("~/.ssh/config", "ssh"));
         assert!(path_contains_identity_segment("/etc/ssh.conf", "ssh"));
 
@@ -1432,7 +1628,10 @@ mod tests {
     #[test]
     fn test_identity_aliases() {
         // hyprland should also match hypr alias
-        assert!(path_belongs_to_identity("~/.config/hypr/hyprland.conf", "hyprland"));
+        assert!(path_belongs_to_identity(
+            "~/.config/hypr/hyprland.conf",
+            "hyprland"
+        ));
 
         // vim should match vi and gvim
         let vim_aliases = get_identity_aliases("vim");
@@ -1473,7 +1672,9 @@ mod tests {
 
         // Existing file should be included
         assert!(!limited.is_empty());
-        assert!(limited.iter().any(|c| c.exists && c.path.contains("/etc/vim/")));
+        assert!(limited
+            .iter()
+            .any(|c| c.exists && c.path.contains("/etc/vim/")));
     }
 
     #[test]
@@ -1536,15 +1737,30 @@ mod tests {
     #[test]
     fn test_other_tool_filtering() {
         // uwsm/env-hyprland should NOT belong to hyprland (it's a uwsm config)
-        assert!(!path_belongs_to_identity("~/.config/uwsm/env-hyprland", "hyprland"));
-        assert!(!path_belongs_to_identity("/home/user/.config/uwsm/env-hyprland", "hyprland"));
+        assert!(!path_belongs_to_identity(
+            "~/.config/uwsm/env-hyprland",
+            "hyprland"
+        ));
+        assert!(!path_belongs_to_identity(
+            "/home/user/.config/uwsm/env-hyprland",
+            "hyprland"
+        ));
 
         // mako configs should not show for hyprland
-        assert!(!path_belongs_to_identity("~/.config/mako/config", "hyprland"));
+        assert!(!path_belongs_to_identity(
+            "~/.config/mako/config",
+            "hyprland"
+        ));
 
         // waybar configs should not show for hyprland
-        assert!(!path_belongs_to_identity("~/.config/waybar/config", "hyprland"));
-        assert!(!path_belongs_to_identity("~/.config/waybar/style.css", "hyprland"));
+        assert!(!path_belongs_to_identity(
+            "~/.config/waybar/config",
+            "hyprland"
+        ));
+        assert!(!path_belongs_to_identity(
+            "~/.config/waybar/style.css",
+            "hyprland"
+        ));
     }
 
     #[test]
@@ -1569,11 +1785,20 @@ mod tests {
     #[test]
     fn test_path_belongs_excludes_scripts_and_wallpapers() {
         // Even if path contains identity, scripts/wallpapers should be excluded
-        assert!(!path_belongs_to_identity("~/.config/hypr/scripts/volume", "hyprland"));
-        assert!(!path_belongs_to_identity("~/.config/hypr/wallpapers/bg.png", "hyprland"));
+        assert!(!path_belongs_to_identity(
+            "~/.config/hypr/scripts/volume",
+            "hyprland"
+        ));
+        assert!(!path_belongs_to_identity(
+            "~/.config/hypr/wallpapers/bg.png",
+            "hyprland"
+        ));
 
         // But actual config files should still match
-        assert!(path_belongs_to_identity("~/.config/hypr/hyprland.conf", "hyprland"));
+        assert!(path_belongs_to_identity(
+            "~/.config/hypr/hyprland.conf",
+            "hyprland"
+        ));
     }
 
     #[test]
@@ -1626,6 +1851,9 @@ mod tests {
         assert!(!path_belongs_to_identity("~/.config/nvim/init.lua", "vim"));
 
         // nvim directory paths should not show up for vim queries
-        assert!(!path_belongs_to_identity("/etc/xdg/nvim/sysinit.vim", "vim"));
+        assert!(!path_belongs_to_identity(
+            "/etc/xdg/nvim/sysinit.vim",
+            "vim"
+        ));
     }
 }

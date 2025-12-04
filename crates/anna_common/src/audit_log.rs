@@ -199,7 +199,11 @@ impl AuditLogger {
     ) -> std::io::Result<()> {
         let mut entry = AuditEntry::new(
             AuditEntryType::ReadOnlyTool,
-            if success { AuditResult::Success } else { AuditResult::Failure },
+            if success {
+                AuditResult::Success
+            } else {
+                AuditResult::Failure
+            },
         )
         .with_tool(tool_name)
         .with_evidence(evidence_id);
@@ -244,7 +248,11 @@ impl AuditLogger {
     ) -> std::io::Result<()> {
         let mut entry = AuditEntry::new(
             AuditEntryType::PolicyCheck,
-            if allowed { AuditResult::Success } else { AuditResult::Blocked },
+            if allowed {
+                AuditResult::Success
+            } else {
+                AuditResult::Blocked
+            },
         )
         .with_evidence(evidence_id)
         .with_details(serde_json::json!({
@@ -278,10 +286,7 @@ impl AuditLogger {
     }
 
     /// Log a security event
-    pub fn log_security_event(
-        event: &str,
-        details: serde_json::Value,
-    ) -> std::io::Result<()> {
+    pub fn log_security_event(event: &str, details: serde_json::Value) -> std::io::Result<()> {
         let entry = AuditEntry::new(AuditEntryType::SecurityEvent, AuditResult::Success)
             .with_details(serde_json::json!({
                 "event": event,
@@ -359,8 +364,14 @@ pub fn sanitize_for_audit(text: &str) -> String {
 
     // Patterns that might indicate secrets
     let secret_patterns = [
-        (r"(?i)(password|passwd|pwd)\s*[=:]\s*\S+", "[REDACTED_PASSWORD]"),
-        (r"(?i)(api[_-]?key|apikey)\s*[=:]\s*\S+", "[REDACTED_API_KEY]"),
+        (
+            r"(?i)(password|passwd|pwd)\s*[=:]\s*\S+",
+            "[REDACTED_PASSWORD]",
+        ),
+        (
+            r"(?i)(api[_-]?key|apikey)\s*[=:]\s*\S+",
+            "[REDACTED_API_KEY]",
+        ),
         (r"(?i)(secret|token)\s*[=:]\s*\S+", "[REDACTED_SECRET]"),
         (r"(?i)(bearer)\s+\S+", "Bearer [REDACTED]"),
         (r"(?i)Authorization:\s*\S+", "Authorization: [REDACTED]"),
@@ -383,8 +394,19 @@ pub fn sanitize_for_audit(text: &str) -> String {
 /// Redact secrets from environment for logging
 pub fn redact_env_secrets(env_vars: &[(String, String)]) -> Vec<(String, String)> {
     let secret_keys = [
-        "PASSWORD", "PASSWD", "PWD", "SECRET", "TOKEN", "API_KEY", "APIKEY",
-        "AUTH", "CREDENTIAL", "PRIVATE_KEY", "AWS_", "AZURE_", "GCP_",
+        "PASSWORD",
+        "PASSWD",
+        "PWD",
+        "SECRET",
+        "TOKEN",
+        "API_KEY",
+        "APIKEY",
+        "AUTH",
+        "CREDENTIAL",
+        "PRIVATE_KEY",
+        "AWS_",
+        "AZURE_",
+        "GCP_",
     ];
 
     env_vars
@@ -456,7 +478,10 @@ mod tests {
         let env_vars = vec![
             ("HOME".to_string(), "/home/user".to_string()),
             ("API_KEY".to_string(), "secret123".to_string()),
-            ("AWS_SECRET_ACCESS_KEY".to_string(), "aws_secret".to_string()),
+            (
+                "AWS_SECRET_ACCESS_KEY".to_string(),
+                "aws_secret".to_string(),
+            ),
         ];
 
         let redacted = redact_env_secrets(&env_vars);

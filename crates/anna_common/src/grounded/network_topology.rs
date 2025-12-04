@@ -150,10 +150,7 @@ pub fn get_dns_config() -> DnsConfig {
 }
 
 fn get_dns_from_resolvectl() -> Option<DnsConfig> {
-    let output = Command::new("resolvectl")
-        .args(["status"])
-        .output()
-        .ok()?;
+    let output = Command::new("resolvectl").args(["status"]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -291,10 +288,7 @@ pub fn get_interface_manager(iface: &str) -> InterfaceManager {
     }
 
     // Check systemd-networkd
-    if let Ok(output) = Command::new("networkctl")
-        .args(["status", iface])
-        .output()
-    {
+    if let Ok(output) = Command::new("networkctl").args(["status", iface]).output() {
         if output.status.success() {
             return InterfaceManager::SystemdNetworkd;
         }
@@ -327,10 +321,7 @@ pub fn get_interface_topology(iface: &str) -> InterfaceTopology {
     }
 
     // Get speed and firmware from ethtool
-    if let Ok(output) = Command::new("ethtool")
-        .arg(iface)
-        .output()
-    {
+    if let Ok(output) = Command::new("ethtool").arg(iface).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
@@ -343,10 +334,7 @@ pub fn get_interface_topology(iface: &str) -> InterfaceTopology {
     }
 
     // Get firmware version from ethtool -i
-    if let Ok(output) = Command::new("ethtool")
-        .args(["-i", iface])
-        .output()
-    {
+    if let Ok(output) = Command::new("ethtool").args(["-i", iface]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {

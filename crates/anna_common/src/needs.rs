@@ -111,7 +111,9 @@ pub struct AnnaNeeds {
 
 impl AnnaNeeds {
     pub fn new() -> Self {
-        Self { needs: HashMap::new() }
+        Self {
+            needs: HashMap::new(),
+        }
     }
 
     /// Check all known tool dependencies
@@ -119,27 +121,55 @@ impl AnnaNeeds {
         let mut needs = Self::new();
 
         // Hardware health tools
-        needs.check_tool("smartctl", "smartmontools", "disk SMART health",
-            NeedScope::Hardware("disk".to_string()));
-        needs.check_tool("nvme", "nvme-cli", "NVMe disk health",
-            NeedScope::Hardware("disk".to_string()));
-        needs.check_tool("sensors", "lm_sensors", "CPU/GPU temperature monitoring",
-            NeedScope::Hardware("thermal".to_string()));
-        needs.check_tool("nvidia-smi", "nvidia-utils", "NVIDIA GPU monitoring",
-            NeedScope::Hardware("gpu".to_string()));
+        needs.check_tool(
+            "smartctl",
+            "smartmontools",
+            "disk SMART health",
+            NeedScope::Hardware("disk".to_string()),
+        );
+        needs.check_tool(
+            "nvme",
+            "nvme-cli",
+            "NVMe disk health",
+            NeedScope::Hardware("disk".to_string()),
+        );
+        needs.check_tool(
+            "sensors",
+            "lm_sensors",
+            "CPU/GPU temperature monitoring",
+            NeedScope::Hardware("thermal".to_string()),
+        );
+        needs.check_tool(
+            "nvidia-smi",
+            "nvidia-utils",
+            "NVIDIA GPU monitoring",
+            NeedScope::Hardware("gpu".to_string()),
+        );
 
         // Documentation tools
-        needs.check_tool("man", "man-db", "man page documentation",
-            NeedScope::Software("docs".to_string()));
+        needs.check_tool(
+            "man",
+            "man-db",
+            "man page documentation",
+            NeedScope::Software("docs".to_string()),
+        );
 
         // Arch Wiki local docs
         needs.check_arch_wiki();
 
         // Network tools
-        needs.check_tool("iw", "iw", "wireless interface details",
-            NeedScope::Hardware("network".to_string()));
-        needs.check_tool("ethtool", "ethtool", "ethernet interface details",
-            NeedScope::Hardware("network".to_string()));
+        needs.check_tool(
+            "iw",
+            "iw",
+            "wireless interface details",
+            NeedScope::Hardware("network".to_string()),
+        );
+        needs.check_tool(
+            "ethtool",
+            "ethtool",
+            "ethernet interface details",
+            NeedScope::Hardware("network".to_string()),
+        );
 
         needs
     }
@@ -154,15 +184,18 @@ impl AnnaNeeds {
             NeedStatus::Missing
         };
 
-        self.needs.insert(id.clone(), Need {
-            id,
-            need_type: NeedType::Tool,
-            status,
-            reason: reason.to_string(),
-            scope,
-            package: Some(package.to_string()),
-            error: None,
-        });
+        self.needs.insert(
+            id.clone(),
+            Need {
+                id,
+                need_type: NeedType::Tool,
+                status,
+                reason: reason.to_string(),
+                scope,
+                package: Some(package.to_string()),
+                error: None,
+            },
+        );
     }
 
     /// Check if Arch Wiki local docs are available
@@ -183,34 +216,37 @@ impl AnnaNeeds {
             NeedStatus::Missing
         };
 
-        self.needs.insert(id.clone(), Need {
-            id,
-            need_type: NeedType::Docs,
-            status,
-            reason: "local config documentation (improves config discovery)".to_string(),
-            scope: NeedScope::Software("config".to_string()),
-            package: Some("arch-wiki-docs".to_string()),
-            error: None,
-        });
+        self.needs.insert(
+            id.clone(),
+            Need {
+                id,
+                need_type: NeedType::Docs,
+                status,
+                reason: "local config documentation (improves config discovery)".to_string(),
+                scope: NeedScope::Software("config".to_string()),
+                package: Some("arch-wiki-docs".to_string()),
+                error: None,
+            },
+        );
     }
 
     /// Get needs by status
     pub fn by_status(&self, status: NeedStatus) -> Vec<&Need> {
-        self.needs.values()
-            .filter(|n| n.status == status)
-            .collect()
+        self.needs.values().filter(|n| n.status == status).collect()
     }
 
     /// Get unsatisfied needs (missing, blocked, or failed)
     pub fn unsatisfied(&self) -> Vec<&Need> {
-        self.needs.values()
+        self.needs
+            .values()
             .filter(|n| n.status != NeedStatus::Satisfied)
             .collect()
     }
 
     /// Get needs relevant to a specific scope prefix
     pub fn for_scope(&self, prefix: &str) -> Vec<&Need> {
-        self.needs.values()
+        self.needs
+            .values()
             .filter(|n| n.scope.as_str().starts_with(prefix))
             .collect()
     }
@@ -218,7 +254,8 @@ impl AnnaNeeds {
     /// Check if a specific tool is available
     pub fn is_tool_available(&self, tool: &str) -> bool {
         let id = format!("tool:{}", tool);
-        self.needs.get(&id)
+        self.needs
+            .get(&id)
             .map(|n| n.status == NeedStatus::Satisfied)
             .unwrap_or(false)
     }
@@ -294,11 +331,7 @@ pub fn is_man_available() -> bool {
 /// Get the missing tool message for display
 pub fn get_tool_status(tool: &str) -> (bool, &'static str) {
     let available = command_exists(tool);
-    let msg = if available {
-        "installed"
-    } else {
-        "missing"
-    };
+    let msg = if available { "installed" } else { "missing" };
     (available, msg)
 }
 
@@ -328,12 +361,24 @@ impl HardwareDeps {
     /// Get list of missing tools
     pub fn missing_tools(&self) -> Vec<(&'static str, &'static str)> {
         let mut missing = Vec::new();
-        if !self.smartctl.0 { missing.push(("smartctl", "smartmontools")); }
-        if !self.nvme.0 { missing.push(("nvme", "nvme-cli")); }
-        if !self.sensors.0 { missing.push(("sensors", "lm_sensors")); }
-        if !self.nvidia_smi.0 { missing.push(("nvidia-smi", "nvidia-utils")); }
-        if !self.iw.0 { missing.push(("iw", "iw")); }
-        if !self.ethtool.0 { missing.push(("ethtool", "ethtool")); }
+        if !self.smartctl.0 {
+            missing.push(("smartctl", "smartmontools"));
+        }
+        if !self.nvme.0 {
+            missing.push(("nvme", "nvme-cli"));
+        }
+        if !self.sensors.0 {
+            missing.push(("sensors", "lm_sensors"));
+        }
+        if !self.nvidia_smi.0 {
+            missing.push(("nvidia-smi", "nvidia-utils"));
+        }
+        if !self.iw.0 {
+            missing.push(("iw", "iw"));
+        }
+        if !self.ethtool.0 {
+            missing.push(("ethtool", "ethtool"));
+        }
         missing
     }
 }
@@ -364,7 +409,10 @@ mod tests {
     #[test]
     fn test_scope_as_str() {
         assert_eq!(NeedScope::Hardware("disk".to_string()).as_str(), "hw:disk");
-        assert_eq!(NeedScope::Software("config".to_string()).as_str(), "sw:config");
+        assert_eq!(
+            NeedScope::Software("config".to_string()).as_str(),
+            "sw:config"
+        );
         assert_eq!(NeedScope::System.as_str(), "system");
     }
 

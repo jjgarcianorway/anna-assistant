@@ -36,9 +36,9 @@
 mod commands;
 mod pipeline;
 
-use anna_common::{AnnaConfig, OllamaClient, select_junior_model, AlertQueue, AnomalySeverity};
-use anna_common::model_selection::{BootstrapState, BootstrapPhase};
+use anna_common::model_selection::{BootstrapPhase, BootstrapState};
 use anna_common::narrator::is_debug_mode;
+use anna_common::{select_junior_model, AlertQueue, AnnaConfig, AnomalySeverity, OllamaClient};
 use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::env;
@@ -55,7 +55,11 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "annactl=warn".into()),
         ))
-        .with(tracing_subscriber::fmt::layer().without_time().with_target(false))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .without_time()
+                .with_target(false),
+        )
         .init();
 
     let args: Vec<String> = env::args().skip(1).collect();
@@ -93,10 +97,18 @@ async fn main() -> Result<()> {
             commands::reset::run(commands::reset::ResetOptions::default()).await
         }
         [cmd, flag] if cmd.eq_ignore_ascii_case("reset") && (flag == "--dry-run") => {
-            commands::reset::run(commands::reset::ResetOptions { dry_run: true, force: false }).await
+            commands::reset::run(commands::reset::ResetOptions {
+                dry_run: true,
+                force: false,
+            })
+            .await
         }
         [cmd, flag] if cmd.eq_ignore_ascii_case("reset") && (flag == "--force" || flag == "-f") => {
-            commands::reset::run(commands::reset::ResetOptions { dry_run: false, force: true }).await
+            commands::reset::run(commands::reset::ResetOptions {
+                dry_run: false,
+                force: true,
+            })
+            .await
         }
 
         // annactl uninstall - complete removal (requires root)
@@ -104,13 +116,30 @@ async fn main() -> Result<()> {
             commands::uninstall::run(commands::uninstall::UninstallOptions::default()).await
         }
         [cmd, flag] if cmd.eq_ignore_ascii_case("uninstall") && (flag == "--dry-run") => {
-            commands::uninstall::run(commands::uninstall::UninstallOptions { dry_run: true, force: false, keep_helpers: false }).await
+            commands::uninstall::run(commands::uninstall::UninstallOptions {
+                dry_run: true,
+                force: false,
+                keep_helpers: false,
+            })
+            .await
         }
-        [cmd, flag] if cmd.eq_ignore_ascii_case("uninstall") && (flag == "--force" || flag == "-f") => {
-            commands::uninstall::run(commands::uninstall::UninstallOptions { dry_run: false, force: true, keep_helpers: false }).await
+        [cmd, flag]
+            if cmd.eq_ignore_ascii_case("uninstall") && (flag == "--force" || flag == "-f") =>
+        {
+            commands::uninstall::run(commands::uninstall::UninstallOptions {
+                dry_run: false,
+                force: true,
+                keep_helpers: false,
+            })
+            .await
         }
         [cmd, flag] if cmd.eq_ignore_ascii_case("uninstall") && (flag == "--keep-helpers") => {
-            commands::uninstall::run(commands::uninstall::UninstallOptions { dry_run: false, force: false, keep_helpers: true }).await
+            commands::uninstall::run(commands::uninstall::UninstallOptions {
+                dry_run: false,
+                force: false,
+                keep_helpers: true,
+            })
+            .await
         }
 
         // Everything else is a natural language request
@@ -140,15 +169,20 @@ async fn check_junior_status() -> Option<String> {
             println!("      Please wait a moment for LLM setup.");
         }
         BootstrapPhase::InstallingOllama => {
-            println!("  {} Anna is installing Ollama (this may take a few minutes)...", "[~]".cyan());
+            println!(
+                "  {} Anna is installing Ollama (this may take a few minutes)...",
+                "[~]".cyan()
+            );
             println!("      The daemon is setting up LLM infrastructure.");
         }
         BootstrapPhase::PullingModels => {
             if let Some(ref progress) = bootstrap.download_progress {
-                println!("  {} Downloading model: {} ({:.1}%)",
+                println!(
+                    "  {} Downloading model: {} ({:.1}%)",
                     "[~]".cyan(),
                     progress.model,
-                    progress.percent());
+                    progress.percent()
+                );
                 if let Some(eta) = progress.eta_seconds {
                     let eta_str = if eta < 60 {
                         format!("{}s", eta)
@@ -165,14 +199,19 @@ async fn check_junior_status() -> Option<String> {
             println!("      Please come back after download completes.");
         }
         BootstrapPhase::Benchmarking => {
-            println!("  {} Anna is benchmarking models to find the best fit...", "[~]".cyan());
+            println!(
+                "  {} Anna is benchmarking models to find the best fit...",
+                "[~]".cyan()
+            );
         }
         BootstrapPhase::Error => {
             if let Some(ref err) = bootstrap.error {
                 if err.contains("not available") {
                     println!("  {} Ollama not available", "[!]".yellow());
                     println!("      Anna's daemon will auto-install Ollama when possible.");
-                    println!("      Or install manually: curl -fsSL https://ollama.ai/install.sh | sh");
+                    println!(
+                        "      Or install manually: curl -fsSL https://ollama.ai/install.sh | sh"
+                    );
                 } else {
                     println!("  {} LLM setup error: {}", "[!]".yellow(), err);
                 }
@@ -301,25 +340,31 @@ fn show_alerts_summary() {
 
     println!();
     if critical > 0 {
-        println!("  {} {} critical alert(s) active!",
+        println!(
+            "  {} {} critical alert(s) active!",
             "[!]".red().bold(),
-            critical.to_string().red().bold());
+            critical.to_string().red().bold()
+        );
     }
     if warning > 0 {
-        println!("  {} {} warning(s) active",
+        println!(
+            "  {} {} warning(s) active",
             "[!]".yellow(),
-            warning.to_string().yellow());
+            warning.to_string().yellow()
+        );
     }
     if info > 0 && critical == 0 && warning == 0 {
-        println!("  {} {} info alert(s)",
-            "[i]".dimmed(),
-            info);
+        println!("  {} {} info alert(s)", "[i]".dimmed(), info);
     }
 
     // Show latest alert
     let active = queue.get_active();
     if let Some(latest) = active.first() {
-        println!("      Latest: [{}] {}", latest.evidence_id.cyan(), latest.title);
+        println!(
+            "      Latest: [{}] {}",
+            latest.evidence_id.cyan(),
+            latest.title
+        );
     }
 
     println!("      Run 'status' for details.");
@@ -339,14 +384,18 @@ fn show_alerts_footer() {
     println!("{}", THIN_SEP);
 
     if critical > 0 {
-        println!("  {} {} critical, {} warning alert(s) active. Run 'annactl status' for details.",
+        println!(
+            "  {} {} critical, {} warning alert(s) active. Run 'annactl status' for details.",
             "[!]".red().bold(),
             critical.to_string().red().bold(),
-            warning);
+            warning
+        );
     } else {
-        println!("  {} {} warning alert(s) active. Run 'annactl status' for details.",
+        println!(
+            "  {} {} warning alert(s) active. Run 'annactl status' for details.",
             "[!]".yellow(),
-            warning.to_string().yellow());
+            warning.to_string().yellow()
+        );
     }
 }
 

@@ -85,7 +85,9 @@ pub fn get_driver_summary() -> DriverSummary {
             summary.pci_with_driver += 1;
         } else {
             summary.pci_without_driver += 1;
-            summary.pci_unbound.push((dev.address.clone(), dev.description.clone()));
+            summary
+                .pci_unbound
+                .push((dev.address.clone(), dev.description.clone()));
         }
     }
 
@@ -96,7 +98,9 @@ pub fn get_driver_summary() -> DriverSummary {
             summary.usb_with_driver += 1;
         } else {
             summary.usb_without_driver += 1;
-            summary.usb_unbound.push((dev.path.clone(), dev.description.clone()));
+            summary
+                .usb_unbound
+                .push((dev.path.clone(), dev.description.clone()));
         }
     }
 
@@ -108,9 +112,7 @@ pub fn list_pci_devices() -> Vec<PciDevice> {
     let mut devices = Vec::new();
 
     // Get device list from lspci -nn
-    let output = Command::new("lspci")
-        .arg("-nn")
-        .output();
+    let output = Command::new("lspci").arg("-nn").output();
 
     let lspci_output = match output {
         Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).to_string(),
@@ -308,8 +310,7 @@ pub fn get_firmware_summary() -> FirmwareSummary {
         let is_failure = line_lower.contains("firmware: failed to load")
             || line_lower.contains("firmware load failed")
             || line_lower.contains("failed to load firmware")
-            || line_lower.contains("direct firmware load")
-                && line_lower.contains("failed");
+            || line_lower.contains("direct firmware load") && line_lower.contains("failed");
 
         // Check for firmware warnings
         let is_warning = !is_failure
@@ -342,11 +343,9 @@ pub fn get_firmware_summary() -> FirmwareSummary {
     }
 
     // Sort by failure first, then by count
-    summary.messages.sort_by(|a, b| {
-        b.is_failure
-            .cmp(&a.is_failure)
-            .then(b.count.cmp(&a.count))
-    });
+    summary
+        .messages
+        .sort_by(|a, b| b.is_failure.cmp(&a.is_failure).then(b.count.cmp(&a.count)));
 
     summary
 }
@@ -398,10 +397,7 @@ pub fn get_pci_device_by_class_index(class_pattern: &str, index: usize) -> Optio
 
 /// Get kernel module info via modinfo
 pub fn get_module_info(module_name: &str) -> Option<ModuleInfo> {
-    let output = Command::new("modinfo")
-        .arg(module_name)
-        .output()
-        .ok()?;
+    let output = Command::new("modinfo").arg(module_name).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -487,7 +483,8 @@ mod tests {
 
     #[test]
     fn test_extract_firmware_message() {
-        let journalctl_line = "Dec 01 10:30:45 myhost kernel: iwlwifi 0000:00:14.3: firmware: failed to load";
+        let journalctl_line =
+            "Dec 01 10:30:45 myhost kernel: iwlwifi 0000:00:14.3: firmware: failed to load";
         let msg = extract_firmware_message(journalctl_line);
         assert!(msg.contains("iwlwifi"));
         assert!(msg.contains("firmware"));

@@ -14,8 +14,8 @@ use crate::TelemetryDb;
 #[derive(Debug, Clone)]
 pub struct ConsumerEntry {
     pub name: String,
-    pub value: f64,      // Raw value (percent, bytes, etc.)
-    pub formatted: String,  // Human-readable value
+    pub value: f64,        // Raw value (percent, bytes, etc.)
+    pub formatted: String, // Human-readable value
 }
 
 /// Software impact summary
@@ -136,7 +136,7 @@ fn get_disk_pressure() -> Vec<DiskPressure> {
 
                     pressure.push(DiskPressure {
                         device: name.to_string(),
-                        read_bytes_24h: read_bytes,  // Note: This is total since boot
+                        read_bytes_24h: read_bytes, // Note: This is total since boot
                         write_bytes_24h: write_bytes,
                         temp_avg: temp,
                     });
@@ -205,7 +205,7 @@ fn get_network_usage() -> Vec<NetworkUsage> {
             if rx_bytes > 0 || tx_bytes > 0 {
                 usage.push(NetworkUsage {
                     interface: iface_name,
-                    rx_bytes_24h: rx_bytes,  // Note: This is total since boot
+                    rx_bytes_24h: rx_bytes, // Note: This is total since boot
                     tx_bytes_24h: tx_bytes,
                 });
             }

@@ -13,21 +13,21 @@
 //! - input: Input device discovery (keyboard, mouse, touchpad)
 //! - overview: Hardware overview aggregation
 
+pub mod bluetooth;
+pub mod input;
+pub mod multimedia;
+pub mod overview;
+pub mod sdcard;
+pub mod thunderbolt;
 pub mod types;
 pub mod usb;
-pub mod bluetooth;
-pub mod thunderbolt;
-pub mod sdcard;
-pub mod multimedia;
-pub mod input;
-pub mod overview;
 
 // Re-export all public types
+pub use bluetooth::*;
+pub use input::*;
+pub use multimedia::*;
+pub use overview::*;
+pub use sdcard::*;
+pub use thunderbolt::*;
 pub use types::*;
 pub use usb::*;
-pub use bluetooth::*;
-pub use thunderbolt::*;
-pub use sdcard::*;
-pub use multimedia::*;
-pub use input::*;
-pub use overview::*;

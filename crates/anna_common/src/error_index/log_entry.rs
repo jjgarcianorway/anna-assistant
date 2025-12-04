@@ -1,9 +1,9 @@
 //! Log Entry Structure
 
-use serde::{Deserialize, Serialize};
-use super::severity::LogSeverity;
-use super::error_type::ErrorType;
 use super::category::LogCategory;
+use super::error_type::ErrorType;
+use super::severity::LogSeverity;
+use serde::{Deserialize, Serialize};
 
 /// A single log entry from journalctl
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,11 +98,7 @@ impl LogEntry {
             .ok()?
             / 1_000_000; // Convert microseconds to seconds
 
-        let priority = json
-            .get("PRIORITY")?
-            .as_str()?
-            .parse::<u8>()
-            .unwrap_or(6);
+        let priority = json.get("PRIORITY")?.as_str()?.parse::<u8>().unwrap_or(6);
 
         let severity = LogSeverity::from_priority(priority);
         let message = json.get("MESSAGE")?.as_str()?.to_string();
@@ -253,7 +249,9 @@ mod tests {
         let msg = "Failed to open /etc/nginx/nginx.conf: Permission denied";
         let entry = LogEntry::new(1000, LogSeverity::Error, msg.to_string());
         assert!(!entry.related_files.is_empty());
-        assert!(entry.related_files.contains(&"/etc/nginx/nginx.conf".to_string()));
+        assert!(entry
+            .related_files
+            .contains(&"/etc/nginx/nginx.conf".to_string()));
     }
 
     #[test]

@@ -183,17 +183,13 @@ impl DriftSummary {
 
 /// Get installed packages from pacman
 fn get_installed_packages() -> HashSet<String> {
-    let output = Command::new("pacman")
-        .args(["-Qq"])
-        .output();
+    let output = Command::new("pacman").args(["-Qq"]).output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .map(|s| s.to_string())
-                .collect()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|s| s.to_string())
+            .collect(),
         _ => HashSet::new(),
     }
 }
@@ -201,18 +197,19 @@ fn get_installed_packages() -> HashSet<String> {
 /// Get systemd services
 fn get_systemd_services() -> HashSet<String> {
     let output = Command::new("systemctl")
-        .args(["list-unit-files", "--type=service", "--no-legend", "--no-pager"])
+        .args([
+            "list-unit-files",
+            "--type=service",
+            "--no-legend",
+            "--no-pager",
+        ])
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .filter_map(|line| {
-                    line.split_whitespace().next().map(|s| s.to_string())
-                })
-                .collect()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .filter_map(|line| line.split_whitespace().next().map(|s| s.to_string()))
+            .collect(),
         _ => HashSet::new(),
     }
 }
@@ -246,7 +243,10 @@ mod tests {
     #[test]
     fn test_drift_summary_format_no_changes() {
         let summary = DriftSummary::default();
-        assert_eq!(summary.format_status_line(), "ok (no changes since last scan)");
+        assert_eq!(
+            summary.format_status_line(),
+            "ok (no changes since last scan)"
+        );
     }
 
     #[test]

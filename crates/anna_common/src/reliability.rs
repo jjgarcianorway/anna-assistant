@@ -27,10 +27,10 @@ pub const METRICS_FILE: &str = "/var/lib/anna/internal/metrics.json";
 pub const OPS_LOG_FILE: &str = "/var/lib/anna/internal/ops_log.jsonl";
 
 /// Default error budget thresholds (percentage per day)
-pub const DEFAULT_REQUEST_FAILURE_BUDGET: f64 = 1.0;    // max 1% request failures
-pub const DEFAULT_TOOL_FAILURE_BUDGET: f64 = 2.0;       // max 2% tool failures
-pub const DEFAULT_MUTATION_ROLLBACK_BUDGET: f64 = 0.5;  // max 0.5% mutation rollbacks
-pub const DEFAULT_LLM_TIMEOUT_BUDGET: f64 = 3.0;        // max 3% LLM timeouts
+pub const DEFAULT_REQUEST_FAILURE_BUDGET: f64 = 1.0; // max 1% request failures
+pub const DEFAULT_TOOL_FAILURE_BUDGET: f64 = 2.0; // max 2% tool failures
+pub const DEFAULT_MUTATION_ROLLBACK_BUDGET: f64 = 0.5; // max 0.5% mutation rollbacks
+pub const DEFAULT_LLM_TIMEOUT_BUDGET: f64 = 3.0; // max 3% LLM timeouts
 
 /// Alert threshold multiplier (warn at 50% budget consumed, critical at 80%)
 pub const BUDGET_WARN_THRESHOLD: f64 = 0.5;
@@ -163,7 +163,8 @@ impl DailyMetrics {
 
     /// Calculate percentile latency for a category
     pub fn percentile_latency(&self, category: &str, percentile: f64) -> Option<u64> {
-        let mut samples: Vec<u64> = self.latencies
+        let mut samples: Vec<u64> = self
+            .latencies
             .iter()
             .filter(|l| l.category == category)
             .map(|l| l.latency_ms)
@@ -180,7 +181,8 @@ impl DailyMetrics {
 
     /// Calculate average latency for a category
     pub fn avg_latency(&self, category: &str) -> Option<u64> {
-        let samples: Vec<u64> = self.latencies
+        let samples: Vec<u64> = self
+            .latencies
             .iter()
             .filter(|l| l.category == category)
             .map(|l| l.latency_ms)
@@ -244,11 +246,13 @@ impl MetricsStore {
     /// Get or create today's metrics
     pub fn today(&mut self) -> &mut DailyMetrics {
         let today = today_string();
-        self.daily.entry(today.clone()).or_insert_with(|| DailyMetrics {
-            date: today,
-            counts: HashMap::new(),
-            latencies: Vec::new(),
-        })
+        self.daily
+            .entry(today.clone())
+            .or_insert_with(|| DailyMetrics {
+                date: today,
+                counts: HashMap::new(),
+                latencies: Vec::new(),
+            })
     }
 
     /// Get metrics for a specific date
@@ -313,10 +317,18 @@ pub struct ErrorBudgets {
     pub llm_timeout_percent: f64,
 }
 
-fn default_request_budget() -> f64 { DEFAULT_REQUEST_FAILURE_BUDGET }
-fn default_tool_budget() -> f64 { DEFAULT_TOOL_FAILURE_BUDGET }
-fn default_mutation_budget() -> f64 { DEFAULT_MUTATION_ROLLBACK_BUDGET }
-fn default_llm_budget() -> f64 { DEFAULT_LLM_TIMEOUT_BUDGET }
+fn default_request_budget() -> f64 {
+    DEFAULT_REQUEST_FAILURE_BUDGET
+}
+fn default_tool_budget() -> f64 {
+    DEFAULT_TOOL_FAILURE_BUDGET
+}
+fn default_mutation_budget() -> f64 {
+    DEFAULT_MUTATION_ROLLBACK_BUDGET
+}
+fn default_llm_budget() -> f64 {
+    DEFAULT_LLM_TIMEOUT_BUDGET
+}
 
 impl Default for ErrorBudgets {
     fn default() -> Self {
@@ -371,11 +383,15 @@ impl BudgetState {
 }
 
 /// Calculate budget status for all categories
-pub fn calculate_budget_status(metrics: &DailyMetrics, budgets: &ErrorBudgets) -> Vec<BudgetStatus> {
+pub fn calculate_budget_status(
+    metrics: &DailyMetrics,
+    budgets: &ErrorBudgets,
+) -> Vec<BudgetStatus> {
     let mut statuses = Vec::new();
 
     // Request failures
-    let request_total = metrics.get_count(MetricType::RequestSuccess) + metrics.get_count(MetricType::RequestFailure);
+    let request_total = metrics.get_count(MetricType::RequestSuccess)
+        + metrics.get_count(MetricType::RequestFailure);
     let request_failed = metrics.get_count(MetricType::RequestFailure);
     if request_total > 0 {
         let rate = (request_failed as f64 / request_total as f64) * 100.0;
@@ -390,7 +406,8 @@ pub fn calculate_budget_status(metrics: &DailyMetrics, budgets: &ErrorBudgets) -
     }
 
     // Tool failures
-    let tool_total = metrics.get_count(MetricType::ToolSuccess) + metrics.get_count(MetricType::ToolFailure);
+    let tool_total =
+        metrics.get_count(MetricType::ToolSuccess) + metrics.get_count(MetricType::ToolFailure);
     let tool_failed = metrics.get_count(MetricType::ToolFailure);
     if tool_total > 0 {
         let rate = (tool_failed as f64 / tool_total as f64) * 100.0;
@@ -405,7 +422,8 @@ pub fn calculate_budget_status(metrics: &DailyMetrics, budgets: &ErrorBudgets) -
     }
 
     // Mutation rollbacks
-    let mutation_total = metrics.get_count(MetricType::MutationSuccess) + metrics.get_count(MetricType::MutationRollback);
+    let mutation_total = metrics.get_count(MetricType::MutationSuccess)
+        + metrics.get_count(MetricType::MutationRollback);
     let mutation_rollback = metrics.get_count(MetricType::MutationRollback);
     if mutation_total > 0 {
         let rate = (mutation_rollback as f64 / mutation_total as f64) * 100.0;
@@ -420,10 +438,13 @@ pub fn calculate_budget_status(metrics: &DailyMetrics, budgets: &ErrorBudgets) -
     }
 
     // LLM timeouts (translator + junior)
-    let translator_total = metrics.get_count(MetricType::TranslatorSuccess) + metrics.get_count(MetricType::TranslatorTimeout);
-    let junior_total = metrics.get_count(MetricType::JuniorSuccess) + metrics.get_count(MetricType::JuniorTimeout);
+    let translator_total = metrics.get_count(MetricType::TranslatorSuccess)
+        + metrics.get_count(MetricType::TranslatorTimeout);
+    let junior_total =
+        metrics.get_count(MetricType::JuniorSuccess) + metrics.get_count(MetricType::JuniorTimeout);
     let llm_total = translator_total + junior_total;
-    let llm_timeouts = metrics.get_count(MetricType::TranslatorTimeout) + metrics.get_count(MetricType::JuniorTimeout);
+    let llm_timeouts = metrics.get_count(MetricType::TranslatorTimeout)
+        + metrics.get_count(MetricType::JuniorTimeout);
     if llm_total > 0 {
         let rate = (llm_timeouts as f64 / llm_total as f64) * 100.0;
         statuses.push(BudgetStatus {
@@ -730,7 +751,9 @@ impl DiagnosticsReport {
         sections.push(alerts_section);
 
         Self {
-            generated_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S %Z").to_string(),
+            generated_at: chrono::Local::now()
+                .format("%Y-%m-%d %H:%M:%S %Z")
+                .to_string(),
             version,
             sections,
             overall_status: worst_status,
@@ -743,13 +766,21 @@ impl DiagnosticsReport {
         let mut lines = Vec::new();
 
         lines.push("=== Anna Self-Diagnostics Report ===".to_string());
-        lines.push(format!("Generated: {} [{}]", self.generated_at, self.report_evidence_id));
+        lines.push(format!(
+            "Generated: {} [{}]",
+            self.generated_at, self.report_evidence_id
+        ));
         lines.push(format!("Version: {}", self.version));
         lines.push(format!("Overall Status: {}", self.overall_status.as_str()));
         lines.push(String::new());
 
         for section in &self.sections {
-            lines.push(format!("--- {} [{}] ({}) ---", section.title, section.evidence_id, section.status.as_str()));
+            lines.push(format!(
+                "--- {} [{}] ({}) ---",
+                section.title,
+                section.evidence_id,
+                section.status.as_str()
+            ));
             for line in &section.content {
                 lines.push(format!("  {}", line));
             }
@@ -769,37 +800,37 @@ fn gather_install_review_section(counter: &mut u32) -> DiagnosticsSection {
     let install_state = crate::install_state::InstallState::load();
 
     match install_state {
-        Some(state) => {
-            match &state.last_review {
-                Some(review) => {
-                    let status = match &review.result {
-                        crate::install_state::ReviewResult::Healthy => DiagStatus::Ok,
-                        crate::install_state::ReviewResult::Repaired { .. } => DiagStatus::Ok,
-                        crate::install_state::ReviewResult::NeedsAttention { .. } => DiagStatus::Warning,
-                        crate::install_state::ReviewResult::Failed { .. } => DiagStatus::Error,
-                    };
-
-                    let content = vec![
-                        format!("Last review: {}", review.timestamp.format("%Y-%m-%d %H:%M")),
-                        format!("Result: {:?}", review.result),
-                        format!("Duration: {}ms", review.duration_ms),
-                    ];
-
-                    DiagnosticsSection {
-                        title: "Install Review".to_string(),
-                        evidence_id,
-                        content,
-                        status,
+        Some(state) => match &state.last_review {
+            Some(review) => {
+                let status = match &review.result {
+                    crate::install_state::ReviewResult::Healthy => DiagStatus::Ok,
+                    crate::install_state::ReviewResult::Repaired { .. } => DiagStatus::Ok,
+                    crate::install_state::ReviewResult::NeedsAttention { .. } => {
+                        DiagStatus::Warning
                     }
-                }
-                None => DiagnosticsSection {
+                    crate::install_state::ReviewResult::Failed { .. } => DiagStatus::Error,
+                };
+
+                let content = vec![
+                    format!("Last review: {}", review.timestamp.format("%Y-%m-%d %H:%M")),
+                    format!("Result: {:?}", review.result),
+                    format!("Duration: {}ms", review.duration_ms),
+                ];
+
+                DiagnosticsSection {
                     title: "Install Review".to_string(),
                     evidence_id,
-                    content: vec!["No review performed yet".to_string()],
-                    status: DiagStatus::Warning,
-                },
+                    content,
+                    status,
+                }
             }
-        }
+            None => DiagnosticsSection {
+                title: "Install Review".to_string(),
+                evidence_id,
+                content: vec!["No review performed yet".to_string()],
+                status: DiagStatus::Warning,
+            },
+        },
         None => DiagnosticsSection {
             title: "Install Review".to_string(),
             evidence_id,
@@ -819,8 +850,12 @@ fn gather_update_state_section(counter: &mut u32) -> DiagnosticsSection {
         DiagStatus::Warning
     } else {
         match state.last_result {
-            crate::config::UpdateResult::Ok | crate::config::UpdateResult::UpdatedTo => DiagStatus::Ok,
-            crate::config::UpdateResult::Failed | crate::config::UpdateResult::RolledBack => DiagStatus::Error,
+            crate::config::UpdateResult::Ok | crate::config::UpdateResult::UpdatedTo => {
+                DiagStatus::Ok
+            }
+            crate::config::UpdateResult::Failed | crate::config::UpdateResult::RolledBack => {
+                DiagStatus::Error
+            }
             _ => DiagStatus::Ok,
         }
     };
@@ -871,7 +906,10 @@ fn gather_model_readiness_section(counter: &mut u32) -> DiagnosticsSection {
     ];
 
     if let Some(ref model) = junior_state.selected_model {
-        content.push(format!("Model: {} (ready: {})", model, junior_state.model_ready));
+        content.push(format!(
+            "Model: {} (ready: {})",
+            model, junior_state.model_ready
+        ));
     } else {
         content.push("Model: (none selected)".to_string());
     }
@@ -913,7 +951,10 @@ fn gather_policy_section(counter: &mut u32) -> DiagnosticsSection {
         if path.exists() {
             if let Ok(metadata) = fs::metadata(&path) {
                 if let Ok(modified) = metadata.modified() {
-                    let epoch = modified.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+                    let epoch = modified
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
                     content.push(format!("{}: OK (modified: {})", name, format_epoch(epoch)));
                 }
             }
@@ -925,7 +966,10 @@ fn gather_policy_section(counter: &mut u32) -> DiagnosticsSection {
 
     // Try to parse policy
     let policy = crate::policy::get_policy();
-    content.push(format!("Schema version: {}", policy.capabilities.schema_version));
+    content.push(format!(
+        "Schema version: {}",
+        policy.capabilities.schema_version
+    ));
 
     DiagnosticsSection {
         title: "Policy".to_string(),
@@ -983,7 +1027,10 @@ fn gather_budget_section(counter: &mut u32) -> DiagnosticsSection {
         for status in &statuses {
             content.push(format!(
                 "{}: {:.1}% / {:.1}% ({})",
-                status.category, status.current_percent, status.budget_percent, status.status.as_str()
+                status.category,
+                status.current_percent,
+                status.budget_percent,
+                status.status.as_str()
             ));
 
             match status.status {
@@ -1023,18 +1070,22 @@ fn gather_errors_section(counter: &mut u32) -> DiagnosticsSection {
     let content = if errors.is_empty() {
         vec!["No recent errors".to_string()]
     } else {
-        errors.iter().take(10).map(|e| {
-            let error_msg = e.error.as_deref().unwrap_or("unknown");
-            // Redact potential secrets
-            let redacted = crate::redaction::redact_transcript(error_msg);
-            format!(
-                "[{}] {}: {} ({})",
-                format_epoch(e.timestamp),
-                e.op_type,
-                redacted,
-                e.tool_name.as_deref().unwrap_or("-")
-            )
-        }).collect()
+        errors
+            .iter()
+            .take(10)
+            .map(|e| {
+                let error_msg = e.error.as_deref().unwrap_or("unknown");
+                // Redact potential secrets
+                let redacted = crate::redaction::redact_transcript(error_msg);
+                format!(
+                    "[{}] {}: {} ({})",
+                    format_epoch(e.timestamp),
+                    e.op_type,
+                    redacted,
+                    e.tool_name.as_deref().unwrap_or("-")
+                )
+            })
+            .collect()
     };
 
     DiagnosticsSection {
@@ -1066,7 +1117,10 @@ fn gather_alerts_section(counter: &mut u32) -> DiagnosticsSection {
     } else {
         let mut lines = vec![format!("{} critical, {} warning", critical, warning)];
         for alert in active.iter().take(10) {
-            lines.push(format!("[{}] {}: {}", alert.evidence_id, alert.severity, alert.title));
+            lines.push(format!(
+                "[{}] {}: {}",
+                alert.evidence_id, alert.severity, alert.title
+            ));
         }
         lines
     };
@@ -1100,7 +1154,7 @@ fn days_ago_string(days: i64) -> String {
 }
 
 fn format_epoch(epoch: u64) -> String {
-    use chrono::{TimeZone, Local};
+    use chrono::{Local, TimeZone};
     match Local.timestamp_opt(epoch as i64, 0) {
         chrono::LocalResult::Single(dt) => dt.format("%Y-%m-%d %H:%M").to_string(),
         _ => "unknown".to_string(),
@@ -1207,7 +1261,10 @@ mod tests {
         let statuses = calculate_budget_status(&metrics, &budgets);
 
         assert!(!statuses.is_empty());
-        let request_status = statuses.iter().find(|s| s.category == "request_failures").unwrap();
+        let request_status = statuses
+            .iter()
+            .find(|s| s.category == "request_failures")
+            .unwrap();
         assert_eq!(request_status.status, BudgetState::Ok);
         assert_eq!(request_status.current_percent, 0.0);
     }
@@ -1246,7 +1303,10 @@ mod tests {
 
         let budgets = ErrorBudgets::default();
         let statuses = calculate_budget_status(&metrics, &budgets);
-        let request_status = statuses.iter().find(|s| s.category == "request_failures").unwrap();
+        let request_status = statuses
+            .iter()
+            .find(|s| s.category == "request_failures")
+            .unwrap();
 
         // 0.5% failure rate with 1% budget = 50% burn = warning
         assert_eq!(request_status.status, BudgetState::Warning);
@@ -1263,8 +1323,7 @@ mod tests {
 
     #[test]
     fn test_ops_log_entry() {
-        let entry = OpsLogEntry::new("test_op")
-            .with_error("test error");
+        let entry = OpsLogEntry::new("test_op").with_error("test error");
 
         assert_eq!(entry.op_type, "test_op");
         assert!(!entry.success);

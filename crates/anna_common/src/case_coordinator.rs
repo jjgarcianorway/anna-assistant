@@ -33,8 +33,11 @@ pub fn get_evidence_topics_for_target(target: &str) -> Vec<EvidenceTopic> {
     }
 
     // Disk/storage queries
-    if lower.contains("disk") || lower.contains("space") || lower.contains("storage")
-        || lower.contains("mount") || lower.contains("filesystem")
+    if lower.contains("disk")
+        || lower.contains("space")
+        || lower.contains("storage")
+        || lower.contains("mount")
+        || lower.contains("filesystem")
     {
         return vec![EvidenceTopic::DiskFree];
     }
@@ -45,8 +48,11 @@ pub fn get_evidence_topics_for_target(target: &str) -> Vec<EvidenceTopic> {
     }
 
     // Network queries
-    if lower.contains("network") || lower.contains("wifi") || lower.contains("internet")
-        || lower.contains("connection") || lower.contains("ip")
+    if lower.contains("network")
+        || lower.contains("wifi")
+        || lower.contains("internet")
+        || lower.contains("connection")
+        || lower.contains("ip")
     {
         return vec![EvidenceTopic::NetworkStatus];
     }
@@ -108,14 +114,27 @@ pub fn classify_intent(request: &str) -> RequestIntent {
 
     // Hard rule: questions about system state are ALWAYS SystemQuery
     let query_starters = [
-        "how much", "how many", "what is", "what's", "what are",
-        "which", "show me", "show", "is my", "are my",
-        "tell me", "list", "do i have", "does my",
+        "how much",
+        "how many",
+        "what is",
+        "what's",
+        "what are",
+        "which",
+        "show me",
+        "show",
+        "is my",
+        "are my",
+        "tell me",
+        "list",
+        "do i have",
+        "does my",
     ];
     for starter in &query_starters {
         if trimmed.starts_with(starter) {
             // Unless followed by action verbs
-            let action_verbs = ["install", "remove", "delete", "disable", "enable", "edit", "change", "add", "fix"];
+            let action_verbs = [
+                "install", "remove", "delete", "disable", "enable", "edit", "change", "add", "fix",
+            ];
             let has_action = action_verbs.iter().any(|v| lower.contains(v));
             if !has_action {
                 return RequestIntent::SystemQuery;
@@ -125,10 +144,26 @@ pub fn classify_intent(request: &str) -> RequestIntent {
 
     // Hard rule: imperative action verbs = ActionRequest
     let action_starters = [
-        "install", "remove", "uninstall", "delete", "add",
-        "edit", "modify", "change", "update", "upgrade",
-        "enable", "disable", "start", "stop", "restart",
-        "configure", "setup", "set up", "write", "create",
+        "install",
+        "remove",
+        "uninstall",
+        "delete",
+        "add",
+        "edit",
+        "modify",
+        "change",
+        "update",
+        "upgrade",
+        "enable",
+        "disable",
+        "start",
+        "stop",
+        "restart",
+        "configure",
+        "setup",
+        "set up",
+        "write",
+        "create",
     ];
     for starter in &action_starters {
         if trimmed.starts_with(starter) {
@@ -142,7 +177,8 @@ pub fn classify_intent(request: &str) -> RequestIntent {
     }
 
     // "Can you X" or "Could you X" with action verbs = ActionRequest
-    if trimmed.starts_with("can you") || trimmed.starts_with("could you")
+    if trimmed.starts_with("can you")
+        || trimmed.starts_with("could you")
         || trimmed.starts_with("please")
     {
         let has_action = action_starters.iter().any(|v| lower.contains(v));
@@ -347,7 +383,9 @@ impl DepartmentReport {
             findings: result.findings.clone(),
             evidence_topics: Vec::new(),
             confidence: result.reliability_hint,
-            recommended_next_steps: result.recommended_actions.iter()
+            recommended_next_steps: result
+                .recommended_actions
+                .iter()
                 .map(|a| a.description.clone())
                 .collect(),
             action_plan: None,
@@ -401,12 +439,11 @@ impl ConsolidatedAssessment {
         }
 
         // Merge all findings
-        let all_findings: Vec<_> = reports.iter()
-            .flat_map(|r| r.findings.clone())
-            .collect();
+        let all_findings: Vec<_> = reports.iter().flat_map(|r| r.findings.clone()).collect();
 
         // Merge all evidence topics
-        let evidence_topics: Vec<_> = reports.iter()
+        let evidence_topics: Vec<_> = reports
+            .iter()
             .flat_map(|r| r.evidence_topics.clone())
             .collect();
 
@@ -415,27 +452,31 @@ impl ConsolidatedAssessment {
         let avg_conf = (total_conf / reports.len() as u32) as u8;
 
         // Highest risk level
-        let max_risk = reports.iter()
+        let max_risk = reports
+            .iter()
             .filter_map(|r| r.action_plan.as_ref().map(|p| p.risk))
             .max()
             .unwrap_or(ActionRisk::ReadOnly);
 
         // Check if confirmation needed
-        let needs_confirmation = reports.iter()
-            .any(|r| r.action_plan.as_ref().map(|p| p.confirmation_phrase.is_some()).unwrap_or(false));
+        let needs_confirmation = reports.iter().any(|r| {
+            r.action_plan
+                .as_ref()
+                .map(|p| p.confirmation_phrase.is_some())
+                .unwrap_or(false)
+        });
 
         // Use primary department's action plan if any
         let action_plan = reports.iter().find_map(|r| r.action_plan.clone());
 
         // Collect policy notes
-        let policy_notes: Vec<_> = reports.iter()
+        let policy_notes: Vec<_> = reports
+            .iter()
             .flat_map(|r| r.policy_notes.clone())
             .collect();
 
         // Build summary from all reports
-        let summary_parts: Vec<_> = reports.iter()
-            .map(|r| r.summary_human.clone())
-            .collect();
+        let summary_parts: Vec<_> = reports.iter().map(|r| r.summary_human.clone()).collect();
         let summary_human = summary_parts.join(" ");
 
         Self {
@@ -493,7 +534,10 @@ impl CaseCoordinator {
 
         // Log case opening
         coordinator.log_human("[service-desk] Opening case and reviewing request.");
-        coordinator.log_debug(&format!("case_id={}, request=\"{}\"", coordinator.case_id, request));
+        coordinator.log_debug(&format!(
+            "case_id={}, request=\"{}\"",
+            coordinator.case_id, request
+        ));
 
         coordinator
     }
@@ -536,7 +580,8 @@ impl CaseCoordinator {
         // Update case
         self.case.set_status(CaseStatus::Triaged);
         self.case.ticket_type = ticket_type;
-        self.case.assign_department(primary.to_department(), &rationale);
+        self.case
+            .assign_department(primary.to_department(), &rationale);
 
         // Log triage (human shows simplified version)
         if supporting.is_empty() {
@@ -566,12 +611,55 @@ impl CaseCoordinator {
 
         // Check each department's keywords
         let dept_keywords = [
-            (DepartmentName::Networking, &["wifi", "network", "internet", "dns", "connection", "ip", "ethernet"][..]),
-            (DepartmentName::Storage, &["disk", "storage", "space", "mount", "btrfs", "filesystem", "drive"][..]),
-            (DepartmentName::Audio, &["audio", "sound", "speaker", "microphone", "pipewire", "volume"][..]),
-            (DepartmentName::Boot, &["boot", "startup", "systemd", "slow boot", "service"][..]),
-            (DepartmentName::Graphics, &["graphics", "gpu", "display", "monitor", "screen", "nvidia", "wayland"][..]),
-            (DepartmentName::Performance, &["slow", "performance", "cpu", "memory", "ram", "lag"][..]),
+            (
+                DepartmentName::Networking,
+                &[
+                    "wifi",
+                    "network",
+                    "internet",
+                    "dns",
+                    "connection",
+                    "ip",
+                    "ethernet",
+                ][..],
+            ),
+            (
+                DepartmentName::Storage,
+                &[
+                    "disk",
+                    "storage",
+                    "space",
+                    "mount",
+                    "btrfs",
+                    "filesystem",
+                    "drive",
+                ][..],
+            ),
+            (
+                DepartmentName::Audio,
+                &[
+                    "audio",
+                    "sound",
+                    "speaker",
+                    "microphone",
+                    "pipewire",
+                    "volume",
+                ][..],
+            ),
+            (
+                DepartmentName::Boot,
+                &["boot", "startup", "systemd", "slow boot", "service"][..],
+            ),
+            (
+                DepartmentName::Graphics,
+                &[
+                    "graphics", "gpu", "display", "monitor", "screen", "nvidia", "wayland",
+                ][..],
+            ),
+            (
+                DepartmentName::Performance,
+                &["slow", "performance", "cpu", "memory", "ram", "lag"][..],
+            ),
         ];
 
         let mut best_dept = DepartmentName::InfoDesk;
@@ -595,7 +683,11 @@ impl CaseCoordinator {
     }
 
     /// Detect supporting departments for compound queries
-    fn detect_supporting_departments(&self, request: &str, primary: DepartmentName) -> Vec<DepartmentName> {
+    fn detect_supporting_departments(
+        &self,
+        request: &str,
+        primary: DepartmentName,
+    ) -> Vec<DepartmentName> {
         let lower = request.to_lowercase();
         let mut supporting = Vec::new();
 
@@ -673,7 +765,9 @@ impl CaseCoordinator {
     pub fn compose_user_answer(&mut self) -> String {
         // Clone values we need before borrowing self mutably
         let (answer, confidence, risk) = {
-            let assessment = self.assessment.as_ref()
+            let assessment = self
+                .assessment
+                .as_ref()
                 .expect("Must call merge_reports before compose_user_answer");
             (
                 assessment.summary_human.clone(),
@@ -694,9 +788,15 @@ impl CaseCoordinator {
         // Log final answer
         self.log_human(&format!("[service-desk] {}", answer));
         self.log_human("");
-        self.log_human(&format!("Reliability: {}% ({})", confidence, reliability_desc));
+        self.log_human(&format!(
+            "Reliability: {}% ({})",
+            confidence, reliability_desc
+        ));
 
-        self.log_debug(&format!("FINAL: reliability={}, risk={:?}", confidence, risk));
+        self.log_debug(&format!(
+            "FINAL: reliability={}, risk={:?}",
+            confidence, risk
+        ));
 
         answer
     }
@@ -748,25 +848,58 @@ mod tests {
 
     #[test]
     fn test_classify_intent_system_query() {
-        assert_eq!(classify_intent("how much memory do I have"), RequestIntent::SystemQuery);
-        assert_eq!(classify_intent("what is my kernel version"), RequestIntent::SystemQuery);
-        assert_eq!(classify_intent("show me disk space"), RequestIntent::SystemQuery);
-        assert_eq!(classify_intent("which packages are installed"), RequestIntent::SystemQuery);
+        assert_eq!(
+            classify_intent("how much memory do I have"),
+            RequestIntent::SystemQuery
+        );
+        assert_eq!(
+            classify_intent("what is my kernel version"),
+            RequestIntent::SystemQuery
+        );
+        assert_eq!(
+            classify_intent("show me disk space"),
+            RequestIntent::SystemQuery
+        );
+        assert_eq!(
+            classify_intent("which packages are installed"),
+            RequestIntent::SystemQuery
+        );
     }
 
     #[test]
     fn test_classify_intent_action_request() {
-        assert_eq!(classify_intent("install firefox"), RequestIntent::ActionRequest);
-        assert_eq!(classify_intent("please remove vim"), RequestIntent::ActionRequest);
-        assert_eq!(classify_intent("restart nginx"), RequestIntent::ActionRequest);
-        assert_eq!(classify_intent("enable ssh service"), RequestIntent::ActionRequest);
+        assert_eq!(
+            classify_intent("install firefox"),
+            RequestIntent::ActionRequest
+        );
+        assert_eq!(
+            classify_intent("please remove vim"),
+            RequestIntent::ActionRequest
+        );
+        assert_eq!(
+            classify_intent("restart nginx"),
+            RequestIntent::ActionRequest
+        );
+        assert_eq!(
+            classify_intent("enable ssh service"),
+            RequestIntent::ActionRequest
+        );
     }
 
     #[test]
     fn test_classify_intent_problem_report() {
-        assert_eq!(classify_intent("wifi keeps disconnecting"), RequestIntent::ProblemReport);
-        assert_eq!(classify_intent("no sound from speakers"), RequestIntent::ProblemReport);
-        assert_eq!(classify_intent("my system is slow"), RequestIntent::ProblemReport);
+        assert_eq!(
+            classify_intent("wifi keeps disconnecting"),
+            RequestIntent::ProblemReport
+        );
+        assert_eq!(
+            classify_intent("no sound from speakers"),
+            RequestIntent::ProblemReport
+        );
+        assert_eq!(
+            classify_intent("my system is slow"),
+            RequestIntent::ProblemReport
+        );
     }
 
     #[test]
@@ -799,7 +932,10 @@ mod tests {
 
         // Should have both networking and audio
         let all_depts = triage.all_departments();
-        assert!(all_depts.contains(&DepartmentName::Networking) || all_depts.contains(&DepartmentName::Audio));
+        assert!(
+            all_depts.contains(&DepartmentName::Networking)
+                || all_depts.contains(&DepartmentName::Audio)
+        );
     }
 
     #[test]
@@ -828,5 +964,33 @@ mod tests {
         assert!(!transcript.contains("case_id="));
         assert!(!transcript.contains("TRIAGE:"));
         assert!(transcript.contains("[service-desk]"));
+    }
+
+    // v0.0.71: Additional tests for misclassification guardrails
+
+    #[test]
+    fn test_systemd_query_evidence_topics() {
+        let topics = get_evidence_topics_for_target("is systemd running");
+        // Should include both boot time and service state evidence
+        assert!(
+            topics.contains(&EvidenceTopic::BootTime)
+                || topics.contains(&EvidenceTopic::ServiceState)
+        );
+    }
+
+    #[test]
+    fn test_memory_query_not_cpu() {
+        // Memory query should never get CPU evidence
+        let topics = get_evidence_topics_for_target("how much ram do i have");
+        assert!(topics.contains(&EvidenceTopic::MemoryInfo));
+        assert!(!topics.contains(&EvidenceTopic::CpuInfo));
+    }
+
+    #[test]
+    fn test_disk_query_not_cpu() {
+        // Disk query should never get CPU evidence
+        let topics = get_evidence_topics_for_target("how much storage do I have");
+        assert!(topics.contains(&EvidenceTopic::DiskFree));
+        assert!(!topics.contains(&EvidenceTopic::CpuInfo));
     }
 }

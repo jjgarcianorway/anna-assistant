@@ -6,13 +6,13 @@
 //! - Rollback support
 //! - Package management with helper provenance tracking
 
+use crate::helpers::{get_package_version, is_package_present, HelpersManifest, InstalledBy};
 use crate::mutation_tools::{
-    MutationError, MutationPlan, MutationRequest, MutationResult, MutationToolCatalog,
-    RollbackInfo, FileEditOp, ServiceState, get_service_state,
-    validate_mutation_request, MEDIUM_RISK_CONFIRMATION,
+    get_service_state, validate_mutation_request, FileEditOp, MutationError, MutationPlan,
+    MutationRequest, MutationResult, MutationToolCatalog, RollbackInfo, ServiceState,
+    MEDIUM_RISK_CONFIRMATION,
 };
-use crate::rollback::{RollbackManager, MutationType};
-use crate::helpers::{HelpersManifest, InstalledBy, is_package_present, get_package_version};
+use crate::rollback::{MutationType, RollbackManager};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -70,7 +70,9 @@ pub fn execute_mutation(
         "systemd_reload" => execute_systemd_reload(request, rollback_manager, timestamp),
         "systemd_enable_now" => execute_systemd_enable_now(request, rollback_manager, timestamp),
         "systemd_disable_now" => execute_systemd_disable_now(request, rollback_manager, timestamp),
-        "systemd_daemon_reload" => execute_systemd_daemon_reload(request, rollback_manager, timestamp),
+        "systemd_daemon_reload" => {
+            execute_systemd_daemon_reload(request, rollback_manager, timestamp)
+        }
         // v0.0.9: Package management
         "package_install" => execute_package_install(request, rollback_manager, timestamp),
         "package_remove" => execute_package_remove(request, rollback_manager, timestamp),
@@ -89,15 +91,21 @@ fn execute_file_edit(
     rollback_manager: &RollbackManager,
     timestamp: u64,
 ) -> Result<MutationResult, MutationError> {
-    let path_str = request.parameters.get("path")
+    let path_str = request
+        .parameters
+        .get("path")
         .and_then(|v| v.as_str())
         .ok_or_else(|| MutationError::Other("Missing 'path' parameter".to_string()))?;
 
     let path = Path::new(path_str);
 
-    let operations: Vec<FileEditOp> = request.parameters.get("operations")
+    let operations: Vec<FileEditOp> = request
+        .parameters
+        .get("operations")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .ok_or_else(|| MutationError::Other("Missing or invalid 'operations' parameter".to_string()))?;
+        .ok_or_else(|| {
+            MutationError::Other("Missing or invalid 'operations' parameter".to_string())
+        })?;
 
     // Create backup first
     let backup_path = rollback_manager
@@ -170,20 +178,28 @@ fn execute_file_edit(
 
 fn apply_file_edit_op(lines: &mut Vec<String>, op: &FileEditOp) -> Result<(), MutationError> {
     match op {
-        FileEditOp::InsertLine { line_number, content } => {
+        FileEditOp::InsertLine {
+            line_number,
+            content,
+        } => {
             if *line_number > lines.len() {
                 return Err(MutationError::Other(format!(
                     "Line number {} out of range (file has {} lines)",
-                    line_number, lines.len()
+                    line_number,
+                    lines.len()
                 )));
             }
             lines.insert(*line_number, content.clone());
         }
-        FileEditOp::ReplaceLine { line_number, content } => {
+        FileEditOp::ReplaceLine {
+            line_number,
+            content,
+        } => {
             if *line_number >= lines.len() {
                 return Err(MutationError::Other(format!(
                     "Line number {} out of range (file has {} lines)",
-                    line_number, lines.len()
+                    line_number,
+                    lines.len()
                 )));
             }
             lines[*line_number] = content.clone();
@@ -192,7 +208,8 @@ fn apply_file_edit_op(lines: &mut Vec<String>, op: &FileEditOp) -> Result<(), Mu
             if *line_number >= lines.len() {
                 return Err(MutationError::Other(format!(
                     "Line number {} out of range (file has {} lines)",
-                    line_number, lines.len()
+                    line_number,
+                    lines.len()
                 )));
             }
             lines.remove(*line_number);
@@ -200,7 +217,10 @@ fn apply_file_edit_op(lines: &mut Vec<String>, op: &FileEditOp) -> Result<(), Mu
         FileEditOp::AppendLine { content } => {
             lines.push(content.clone());
         }
-        FileEditOp::ReplaceText { pattern, replacement } => {
+        FileEditOp::ReplaceText {
+            pattern,
+            replacement,
+        } => {
             for line in lines.iter_mut() {
                 *line = line.replace(pattern, replacement);
             }
@@ -218,7 +238,9 @@ fn execute_systemd_restart(
     rollback_manager: &RollbackManager,
     timestamp: u64,
 ) -> Result<MutationResult, MutationError> {
-    let service = request.parameters.get("service")
+    let service = request
+        .parameters
+        .get("service")
         .and_then(|v| v.as_str())
         .ok_or_else(|| MutationError::Other("Missing 'service' parameter".to_string()))?;
 
@@ -252,7 +274,8 @@ fn execute_systemd_restart(
         )
         .ok();
 
-    let rollback_info = rollback_manager.systemd_rollback_info("restart", service, prior_state.as_ref());
+    let rollback_info =
+        rollback_manager.systemd_rollback_info("restart", service, prior_state.as_ref());
 
     Ok(MutationResult {
         tool_name: "systemd_restart".to_string(),
@@ -274,7 +297,9 @@ fn execute_systemd_reload(
     rollback_manager: &RollbackManager,
     timestamp: u64,
 ) -> Result<MutationResult, MutationError> {
-    let service = request.parameters.get("service")
+    let service = request
+        .parameters
+        .get("service")
         .and_then(|v| v.as_str())
         .ok_or_else(|| MutationError::Other("Missing 'service' parameter".to_string()))?;
 
@@ -305,7 +330,8 @@ fn execute_systemd_reload(
         )
         .ok();
 
-    let rollback_info = rollback_manager.systemd_rollback_info("reload", service, prior_state.as_ref());
+    let rollback_info =
+        rollback_manager.systemd_rollback_info("reload", service, prior_state.as_ref());
 
     Ok(MutationResult {
         tool_name: "systemd_reload".to_string(),
@@ -327,7 +353,9 @@ fn execute_systemd_enable_now(
     rollback_manager: &RollbackManager,
     timestamp: u64,
 ) -> Result<MutationResult, MutationError> {
-    let service = request.parameters.get("service")
+    let service = request
+        .parameters
+        .get("service")
         .and_then(|v| v.as_str())
         .ok_or_else(|| MutationError::Other("Missing 'service' parameter".to_string()))?;
 
@@ -358,7 +386,8 @@ fn execute_systemd_enable_now(
         )
         .ok();
 
-    let rollback_info = rollback_manager.systemd_rollback_info("enable_now", service, prior_state.as_ref());
+    let rollback_info =
+        rollback_manager.systemd_rollback_info("enable_now", service, prior_state.as_ref());
 
     Ok(MutationResult {
         tool_name: "systemd_enable_now".to_string(),
@@ -380,7 +409,9 @@ fn execute_systemd_disable_now(
     rollback_manager: &RollbackManager,
     timestamp: u64,
 ) -> Result<MutationResult, MutationError> {
-    let service = request.parameters.get("service")
+    let service = request
+        .parameters
+        .get("service")
         .and_then(|v| v.as_str())
         .ok_or_else(|| MutationError::Other("Missing 'service' parameter".to_string()))?;
 
@@ -411,7 +442,8 @@ fn execute_systemd_disable_now(
         )
         .ok();
 
-    let rollback_info = rollback_manager.systemd_rollback_info("disable_now", service, prior_state.as_ref());
+    let rollback_info =
+        rollback_manager.systemd_rollback_info("disable_now", service, prior_state.as_ref());
 
     Ok(MutationResult {
         tool_name: "systemd_disable_now".to_string(),
@@ -484,11 +516,15 @@ fn execute_package_install(
     rollback_manager: &RollbackManager,
     timestamp: u64,
 ) -> Result<MutationResult, MutationError> {
-    let package = request.parameters.get("package")
+    let package = request
+        .parameters
+        .get("package")
         .and_then(|v| v.as_str())
         .ok_or_else(|| MutationError::Other("Missing 'package' parameter".to_string()))?;
 
-    let reason = request.parameters.get("reason")
+    let reason = request
+        .parameters
+        .get("reason")
         .and_then(|v| v.as_str())
         .unwrap_or("Anna helper");
 
@@ -534,10 +570,7 @@ fn execute_package_install(
         let rollback_info = RollbackInfo {
             backup_path: None,
             rollback_command: Some(format!("pacman -R {}", package)),
-            rollback_instructions: format!(
-                "To remove this package:\n  sudo pacman -R {}",
-                package
-            ),
+            rollback_instructions: format!("To remove this package:\n  sudo pacman -R {}", package),
             prior_state: Some("not installed".to_string()),
         };
 
@@ -545,10 +578,7 @@ fn execute_package_install(
             tool_name: "package_install".to_string(),
             success: true,
             error: None,
-            human_summary: format!(
-                "Installed {} (tracked as Anna-installed helper)",
-                package
-            ),
+            human_summary: format!("Installed {} (tracked as Anna-installed helper)", package),
             rollback_info: Some(rollback_info),
             request_id: request.request_id.clone(),
             timestamp,
@@ -579,7 +609,9 @@ fn execute_package_remove(
     rollback_manager: &RollbackManager,
     timestamp: u64,
 ) -> Result<MutationResult, MutationError> {
-    let package = request.parameters.get("package")
+    let package = request
+        .parameters
+        .get("package")
         .and_then(|v| v.as_str())
         .ok_or_else(|| MutationError::Other("Missing 'package' parameter".to_string()))?;
 
@@ -733,7 +765,10 @@ pub fn create_file_edit_request(
 ) -> MutationRequest {
     let mut parameters = HashMap::new();
     parameters.insert("path".to_string(), serde_json::json!(path));
-    parameters.insert("operations".to_string(), serde_json::to_value(operations).unwrap());
+    parameters.insert(
+        "operations".to_string(),
+        serde_json::to_value(operations).unwrap(),
+    );
 
     MutationRequest {
         tool_name: "edit_file_lines".to_string(),
@@ -790,10 +825,16 @@ mod tests {
             tool_name: "edit_file_lines".to_string(),
             parameters: {
                 let mut p = HashMap::new();
-                p.insert("path".to_string(), serde_json::json!(test_file.to_string_lossy()));
-                p.insert("operations".to_string(), serde_json::json!([
-                    { "InsertLine": { "line_number": 1, "content": "inserted" } }
-                ]));
+                p.insert(
+                    "path".to_string(),
+                    serde_json::json!(test_file.to_string_lossy()),
+                );
+                p.insert(
+                    "operations".to_string(),
+                    serde_json::json!([
+                        { "InsertLine": { "line_number": 1, "content": "inserted" } }
+                    ]),
+                );
                 p
             },
             confirmation_token: Some(MEDIUM_RISK_CONFIRMATION.to_string()),
@@ -822,10 +863,16 @@ mod tests {
             tool_name: "edit_file_lines".to_string(),
             parameters: {
                 let mut p = HashMap::new();
-                p.insert("path".to_string(), serde_json::json!(test_file.to_string_lossy()));
-                p.insert("operations".to_string(), serde_json::json!([
-                    { "ReplaceLine": { "line_number": 1, "content": "replaced" } }
-                ]));
+                p.insert(
+                    "path".to_string(),
+                    serde_json::json!(test_file.to_string_lossy()),
+                );
+                p.insert(
+                    "operations".to_string(),
+                    serde_json::json!([
+                        { "ReplaceLine": { "line_number": 1, "content": "replaced" } }
+                    ]),
+                );
                 p
             },
             confirmation_token: Some(MEDIUM_RISK_CONFIRMATION.to_string()),
@@ -855,10 +902,16 @@ mod tests {
             tool_name: "edit_file_lines".to_string(),
             parameters: {
                 let mut p = HashMap::new();
-                p.insert("path".to_string(), serde_json::json!(test_file.to_string_lossy()));
-                p.insert("operations".to_string(), serde_json::json!([
-                    { "AppendLine": { "content": "new line" } }
-                ]));
+                p.insert(
+                    "path".to_string(),
+                    serde_json::json!(test_file.to_string_lossy()),
+                );
+                p.insert(
+                    "operations".to_string(),
+                    serde_json::json!([
+                        { "AppendLine": { "content": "new line" } }
+                    ]),
+                );
                 p
             },
             confirmation_token: Some(MEDIUM_RISK_CONFIRMATION.to_string()),
@@ -894,7 +947,10 @@ mod tests {
             tool_name: "edit_file_lines".to_string(),
             parameters: {
                 let mut p = HashMap::new();
-                p.insert("path".to_string(), serde_json::json!(test_file.to_string_lossy()));
+                p.insert(
+                    "path".to_string(),
+                    serde_json::json!(test_file.to_string_lossy()),
+                );
                 p.insert("operations".to_string(), serde_json::json!([]));
                 p
             },
@@ -905,7 +961,10 @@ mod tests {
 
         let result = execute_mutation(&request, &catalog, &manager);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MutationError::MissingConfirmation));
+        assert!(matches!(
+            result.unwrap_err(),
+            MutationError::MissingConfirmation
+        ));
     }
 
     #[test]
@@ -922,7 +981,10 @@ mod tests {
             tool_name: "edit_file_lines".to_string(),
             parameters: {
                 let mut p = HashMap::new();
-                p.insert("path".to_string(), serde_json::json!(test_file.to_string_lossy()));
+                p.insert(
+                    "path".to_string(),
+                    serde_json::json!(test_file.to_string_lossy()),
+                );
                 p.insert("operations".to_string(), serde_json::json!([]));
                 p
             },
@@ -933,7 +995,10 @@ mod tests {
 
         let result = execute_mutation(&request, &catalog, &manager);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MutationError::WrongConfirmation { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            MutationError::WrongConfirmation { .. }
+        ));
     }
 
     #[test]

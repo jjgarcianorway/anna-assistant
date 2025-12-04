@@ -87,13 +87,19 @@ pub fn attempt_install_arch_docs() -> (bool, String) {
 
     // Check if pacman is available
     if !is_pacman_available() {
-        return (false, "pacman not available (not an Arch-based system)".to_string());
+        return (
+            false,
+            "pacman not available (not an Arch-based system)".to_string(),
+        );
     }
 
     // Check if docs are already installed
     let (available, existing_pkg) = check_arch_docs_available();
     if available {
-        return (true, format!("{} already installed", existing_pkg.unwrap_or_default()));
+        return (
+            true,
+            format!("{} already installed", existing_pkg.unwrap_or_default()),
+        );
     }
 
     // Try to install arch-wiki-docs (most complete)
@@ -109,7 +115,10 @@ pub fn attempt_install_arch_docs() -> (bool, String) {
 
     let preferred_package = "arch-wiki-docs";
 
-    info!("[HEALTH] Attempting to install {} for rich documentation...", preferred_package);
+    info!(
+        "[HEALTH] Attempting to install {} for rich documentation...",
+        preferred_package
+    );
 
     // Try without sudo first (if running as root)
     let result = Command::new("pacman")
@@ -120,25 +129,54 @@ pub fn attempt_install_arch_docs() -> (bool, String) {
         Ok(output) => {
             if output.status.success() {
                 info!("[HEALTH] Successfully installed {}", preferred_package);
-                return (true, format!("successfully installed {}", preferred_package));
+                return (
+                    true,
+                    format!("successfully installed {}", preferred_package),
+                );
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
 
                 // If we get a permission error, try with sudo
-                if stderr.contains("permission") || stderr.contains("root") || stderr.contains("lock") {
+                if stderr.contains("permission")
+                    || stderr.contains("root")
+                    || stderr.contains("lock")
+                {
                     let sudo_result = Command::new("sudo")
-                        .args(["-n", "pacman", "-S", "--noconfirm", "--needed", preferred_package])
+                        .args([
+                            "-n",
+                            "pacman",
+                            "-S",
+                            "--noconfirm",
+                            "--needed",
+                            preferred_package,
+                        ])
                         .output();
 
                     match sudo_result {
                         Ok(sudo_output) => {
                             if sudo_output.status.success() {
-                                info!("[HEALTH] Successfully installed {} (via sudo)", preferred_package);
-                                return (true, format!("successfully installed {} (via sudo)", preferred_package));
+                                info!(
+                                    "[HEALTH] Successfully installed {} (via sudo)",
+                                    preferred_package
+                                );
+                                return (
+                                    true,
+                                    format!(
+                                        "successfully installed {} (via sudo)",
+                                        preferred_package
+                                    ),
+                                );
                             } else {
                                 let sudo_stderr = String::from_utf8_lossy(&sudo_output.stderr);
-                                warn!("[HEALTH] Failed to install {}: {}", preferred_package, sudo_stderr.trim());
-                                return (false, format!("sudo install failed: {}", sudo_stderr.trim()));
+                                warn!(
+                                    "[HEALTH] Failed to install {}: {}",
+                                    preferred_package,
+                                    sudo_stderr.trim()
+                                );
+                                return (
+                                    false,
+                                    format!("sudo install failed: {}", sudo_stderr.trim()),
+                                );
                             }
                         }
                         Err(e) => {
@@ -148,7 +186,11 @@ pub fn attempt_install_arch_docs() -> (bool, String) {
                     }
                 }
 
-                warn!("[HEALTH] Failed to install {}: {}", preferred_package, stderr.trim());
+                warn!(
+                    "[HEALTH] Failed to install {}: {}",
+                    preferred_package,
+                    stderr.trim()
+                );
                 (false, format!("install failed: {}", stderr.trim()))
             }
         }

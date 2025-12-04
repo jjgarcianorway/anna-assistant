@@ -105,8 +105,7 @@ mod tests {
         let mut stream = TranscriptEventStream::new();
 
         stream.push(
-            TranscriptEvent::new(EventActor::Anna, EventKind::Phase)
-                .with_message("investigation"),
+            TranscriptEvent::new(EventActor::Anna, EventKind::Phase).with_message("investigation"),
         );
 
         stream.push(
@@ -170,10 +169,7 @@ mod tests {
         );
 
         // Debug mode should show timing
-        assert!(
-            output.contains("15ms"),
-            "Debug stream should show timing"
-        );
+        assert!(output.contains("15ms"), "Debug stream should show timing");
     }
 
     /// Test that planning events are hidden in human mode

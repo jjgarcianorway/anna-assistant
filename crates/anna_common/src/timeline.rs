@@ -9,7 +9,7 @@
 //! - Trends are deterministic based on window comparisons
 //! - Missing data is explicitly marked as "n/a (insufficient data)"
 
-use crate::{TelemetryDb, WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D};
+use crate::{TelemetryDb, WINDOW_1H, WINDOW_24H, WINDOW_30D, WINDOW_7D};
 use std::process::Command;
 
 /// Format a CPU percentage with range for multi-core systems
@@ -73,7 +73,12 @@ pub fn get_logical_cores() -> u32 {
         .output()
         .ok()
         .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<u32>().ok())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .parse::<u32>()
+                .ok()
+        })
         .flatten()
         .unwrap_or(1);
     output
@@ -99,9 +104,13 @@ impl TrendLabel {
     pub fn from_memory_delta(avg_7d: f64, avg_30d: f64) -> Self {
         if avg_30d == 0.0 {
             if avg_7d == 0.0 {
-                return TrendLabel::Stable { delta: "no change".to_string() };
+                return TrendLabel::Stable {
+                    delta: "no change".to_string(),
+                };
             }
-            return TrendLabel::Rising { delta: format!("+{}", format_memory(avg_7d as u64)) };
+            return TrendLabel::Rising {
+                delta: format!("+{}", format_memory(avg_7d as u64)),
+            };
         }
 
         let delta_bytes = avg_7d - avg_30d;
@@ -110,15 +119,15 @@ impl TrendLabel {
         // Rising if >10% increase, falling if >10% decrease
         if percent_change > 10.0 {
             TrendLabel::Rising {
-                delta: format!("+{} over 7d", format_memory(delta_bytes.abs() as u64))
+                delta: format!("+{} over 7d", format_memory(delta_bytes.abs() as u64)),
             }
         } else if percent_change < -10.0 {
             TrendLabel::Falling {
-                delta: format!("-{} over 7d", format_memory(delta_bytes.abs() as u64))
+                delta: format!("-{} over 7d", format_memory(delta_bytes.abs() as u64)),
             }
         } else {
             TrendLabel::Stable {
-                delta: format!("±{} over 7d", format_memory(delta_bytes.abs() as u64))
+                delta: format!("±{} over 7d", format_memory(delta_bytes.abs() as u64)),
             }
         }
     }
@@ -127,9 +136,13 @@ impl TrendLabel {
     pub fn from_cpu_delta(avg_7d: f64, avg_30d: f64) -> Self {
         if avg_30d == 0.0 {
             if avg_7d == 0.0 {
-                return TrendLabel::Stable { delta: "no change".to_string() };
+                return TrendLabel::Stable {
+                    delta: "no change".to_string(),
+                };
             }
-            return TrendLabel::Rising { delta: format!("+{} percent", avg_7d.round() as i64) };
+            return TrendLabel::Rising {
+                delta: format!("+{} percent", avg_7d.round() as i64),
+            };
         }
 
         let delta = avg_7d - avg_30d;
@@ -137,15 +150,15 @@ impl TrendLabel {
 
         if percent_change > 10.0 {
             TrendLabel::Rising {
-                delta: format!("+{:.1} percent over 7d", delta.abs())
+                delta: format!("+{:.1} percent over 7d", delta.abs()),
             }
         } else if percent_change < -10.0 {
             TrendLabel::Falling {
-                delta: format!("-{:.1} percent over 7d", delta.abs())
+                delta: format!("-{:.1} percent over 7d", delta.abs()),
             }
         } else {
             TrendLabel::Stable {
-                delta: format!("±{:.1} percent over 7d", delta.abs())
+                delta: format!("±{:.1} percent over 7d", delta.abs()),
             }
         }
     }
@@ -316,7 +329,9 @@ pub fn get_usage_trends(name: &str) -> UsageTrends {
         }
     } else if let Some(ref cpu_7d) = &trends.cpu_7d {
         if cpu_7d.is_valid() {
-            trends.cpu_trend = TrendLabel::Stable { delta: "baseline building".to_string() };
+            trends.cpu_trend = TrendLabel::Stable {
+                delta: "baseline building".to_string(),
+            };
         }
     }
 
@@ -327,7 +342,9 @@ pub fn get_usage_trends(name: &str) -> UsageTrends {
         }
     } else if let Some(ref mem_7d) = &trends.mem_7d {
         if mem_7d.is_valid() {
-            trends.mem_trend = TrendLabel::Stable { delta: "baseline building".to_string() };
+            trends.mem_trend = TrendLabel::Stable {
+                delta: "baseline building".to_string(),
+            };
         }
     }
 
@@ -349,11 +366,14 @@ fn get_service_starts(name: &str, since: &str) -> u32 {
 
     let output = Command::new("journalctl")
         .args([
-            "-u", &unit_name,
-            "--since", since,
+            "-u",
+            &unit_name,
+            "--since",
+            since,
             "--no-pager",
             "-q",
-            "-o", "short",
+            "-o",
+            "short",
         ])
         .output();
 
@@ -464,13 +484,23 @@ pub fn get_hw_telemetry_trends(component: &str, component_type: &str) -> HwTelem
         // Calculate load trend
         if let (Some(ref load_24h), Some(ref load_7d)) = (&trends.load_24h, &trends.load_7d) {
             if load_24h.is_valid() && load_7d.is_valid() {
-                let ratio = if load_7d.avg > 0.0 { load_24h.avg / load_7d.avg } else { 1.0 };
-                if ratio > 1.1 {
-                    trends.load_trend = TrendLabel::Rising { delta: "vs 7d baseline".to_string() };
-                } else if ratio < 0.9 {
-                    trends.load_trend = TrendLabel::Falling { delta: "vs 7d baseline".to_string() };
+                let ratio = if load_7d.avg > 0.0 {
+                    load_24h.avg / load_7d.avg
                 } else {
-                    trends.load_trend = TrendLabel::Stable { delta: "normalised vs 7d baseline".to_string() };
+                    1.0
+                };
+                if ratio > 1.1 {
+                    trends.load_trend = TrendLabel::Rising {
+                        delta: "vs 7d baseline".to_string(),
+                    };
+                } else if ratio < 0.9 {
+                    trends.load_trend = TrendLabel::Falling {
+                        delta: "vs 7d baseline".to_string(),
+                    };
+                } else {
+                    trends.load_trend = TrendLabel::Stable {
+                        delta: "normalised vs 7d baseline".to_string(),
+                    };
                 }
             }
         }

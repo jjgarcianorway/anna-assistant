@@ -218,10 +218,7 @@ fn parse_boot_line_timestamp(parts: &[&str]) -> u64 {
 fn get_kernel_version(boot_idx: &str) -> Option<String> {
     // For current boot, use uname -r (most reliable)
     if boot_idx == "0" {
-        let output = Command::new("uname")
-            .args(["-r"])
-            .output()
-            .ok()?;
+        let output = Command::new("uname").args(["-r"]).output().ok()?;
 
         if output.status.success() {
             let version = String::from_utf8_lossy(&output.stdout);
@@ -232,7 +229,14 @@ fn get_kernel_version(boot_idx: &str) -> Option<String> {
     // For older boots, search journal for kernel version
     // Look for messages from kernel with version info
     let output = Command::new("journalctl")
-        .args(["-b", boot_idx, "-k", "--no-pager", "--grep", "Linux version"])
+        .args([
+            "-b",
+            boot_idx,
+            "-k",
+            "--no-pager",
+            "--grep",
+            "Linux version",
+        ])
         .output()
         .ok()?;
 
@@ -258,9 +262,7 @@ fn get_kernel_version(boot_idx: &str) -> Option<String> {
 fn get_boot_duration(boot_idx: &str) -> Option<f64> {
     // Try systemd-analyze for current boot
     if boot_idx == "0" {
-        let output = Command::new("systemd-analyze")
-            .output()
-            .ok()?;
+        let output = Command::new("systemd-analyze").output().ok()?;
 
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -367,7 +369,8 @@ fn get_failed_units_count(boot_idx: &str) -> u32 {
     if let Ok(out) = output {
         if out.status.success() {
             let stdout = String::from_utf8_lossy(&out.stdout);
-            let failed_count = stdout.lines()
+            let failed_count = stdout
+                .lines()
                 .filter(|l| l.contains("Failed to start") || l.contains("failed."))
                 .count();
             return failed_count as u32;
@@ -559,7 +562,15 @@ fn get_patterns_for_boot_service(boot_idx: &str, service: &str) -> Vec<LogPatter
     };
 
     let output = Command::new("journalctl")
-        .args(["-b", boot_idx, "-u", &unit_name, "-p", "warning..alert", "--no-pager"])
+        .args([
+            "-b",
+            boot_idx,
+            "-u",
+            &unit_name,
+            "-p",
+            "warning..alert",
+            "--no-pager",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -600,7 +611,8 @@ fn normalize_log_message(line: &str) -> (String, String) {
 
     // Skip timestamp prefix (usually first 2-3 fields)
     let parts: Vec<&str> = line.split_whitespace().collect();
-    let message_start = parts.iter()
+    let message_start = parts
+        .iter()
         .position(|p| !p.contains(':') || p.len() > 20)
         .unwrap_or(3)
         .min(4);

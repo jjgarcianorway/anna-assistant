@@ -42,7 +42,11 @@ fn strip_control_chars(s: &str) -> String {
 /// * `subsequent_indent` - Number of spaces for continuation lines
 /// * `width` - Maximum line width (0 = use terminal width)
 pub fn wrap_text(text: &str, indent: usize, subsequent_indent: usize, width: usize) -> String {
-    let width = if width == 0 { get_terminal_width() } else { width };
+    let width = if width == 0 {
+        get_terminal_width()
+    } else {
+        width
+    };
     let text = strip_control_chars(text);
 
     let mut result = String::new();
@@ -61,7 +65,11 @@ pub fn wrap_text(text: &str, indent: usize, subsequent_indent: usize, width: usi
 
         // Detect existing indentation in source
         let source_indent = line.len() - line.trim_start().len();
-        let effective_indent = if line_idx == 0 { indent } else { subsequent_indent.max(source_indent) };
+        let effective_indent = if line_idx == 0 {
+            indent
+        } else {
+            subsequent_indent.max(source_indent)
+        };
         let effective_indent_str = " ".repeat(effective_indent);
 
         let available_width = width.saturating_sub(effective_indent);
@@ -72,7 +80,12 @@ pub fn wrap_text(text: &str, indent: usize, subsequent_indent: usize, width: usi
             continue;
         }
 
-        let wrapped = wrap_line(trimmed, available_width, &effective_indent_str, &subsequent_str);
+        let wrapped = wrap_line(
+            trimmed,
+            available_width,
+            &effective_indent_str,
+            &subsequent_str,
+        );
         result.push_str(&wrapped);
     }
 
@@ -157,7 +170,11 @@ fn wrap_line(text: &str, width: usize, first_indent: &str, subsequent_indent: &s
 
 /// Wrap text with a prefix on the first line and subsequent indent
 pub fn wrap_with_prefix(prefix: &str, text: &str, width: usize) -> String {
-    let width = if width == 0 { get_terminal_width() } else { width };
+    let width = if width == 0 {
+        get_terminal_width()
+    } else {
+        width
+    };
     let text = strip_control_chars(text);
     let prefix_len = prefix.chars().count();
     let subsequent_indent = " ".repeat(prefix_len);
@@ -251,7 +268,10 @@ mod tests {
         let text = "This is a test with no truncation markers anywhere";
         let result = wrap_text(text, 0, 0, 80);
         assert!(!result.contains("..."), "Should not contain truncation");
-        assert!(result.contains("truncation markers"), "Should preserve content");
+        assert!(
+            result.contains("truncation markers"),
+            "Should preserve content"
+        );
     }
 
     #[test]
@@ -270,12 +290,19 @@ mod tests {
     #[test]
     fn snow_leopard_v728_no_truncation_markers() {
         // v7.28.0: Assert no "..." anywhere in wrapped output
-        let long_text = "This is a very long message that would previously be truncated with ellipsis \
+        let long_text =
+            "This is a very long message that would previously be truncated with ellipsis \
             but now should be fully preserved with word wrapping applied to fit the terminal width";
         let result = wrap_text(long_text, 2, 4, 60);
 
-        assert!(!result.contains("..."), "v7.28.0: Should never truncate with '...'");
-        assert!(result.contains("preserved"), "All content must be preserved");
+        assert!(
+            !result.contains("..."),
+            "v7.28.0: Should never truncate with '...'"
+        );
+        assert!(
+            result.contains("preserved"),
+            "All content must be preserved"
+        );
         assert!(result.contains("terminal width"), "No content loss allowed");
     }
 
@@ -284,7 +311,10 @@ mod tests {
         let value = "A very long value that should wrap but not be truncated ever";
         let result = format_kv("Key:", &value, 10, 2);
 
-        assert!(!result.contains("..."), "v7.28.0: KV format must not truncate");
+        assert!(
+            !result.contains("..."),
+            "v7.28.0: KV format must not truncate"
+        );
         assert!(result.contains("truncated ever"), "Full value preserved");
     }
 
@@ -294,7 +324,10 @@ mod tests {
             but now must wrap properly to preserve all information for the user";
         let result = format_list_item("-", &content, 2);
 
-        assert!(!result.contains("..."), "v7.28.0: List items must not truncate");
+        assert!(
+            !result.contains("..."),
+            "v7.28.0: List items must not truncate"
+        );
         assert!(result.contains("for the user"), "All content preserved");
     }
 

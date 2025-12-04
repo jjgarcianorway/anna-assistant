@@ -37,7 +37,7 @@ pub struct ServiceTopology {
 #[derive(Debug, Clone)]
 pub struct UnitInfo {
     pub name: String,
-    pub state: String,     // running, stopped, etc.
+    pub state: String, // running, stopped, etc.
     pub enabled: bool,
 }
 
@@ -46,7 +46,7 @@ pub struct UnitInfo {
 pub struct TopologyHint {
     pub unit: String,
     pub reverse_dep_count: usize,
-    pub dep_type: String,  // "required by" or "wanted by"
+    pub dep_type: String, // "required by" or "wanted by"
 }
 
 /// Get complete service topology for a unit
@@ -105,7 +105,8 @@ fn parse_systemctl_show(output: &str, topology: &mut ServiceTopology) {
 
 /// Filter unit names, removing noise and limiting count
 fn filter_units(units: &[String], limit: usize) -> Vec<String> {
-    units.iter()
+    units
+        .iter()
         .filter(|u| !u.is_empty() && *u != "-" && !u.contains("(null)"))
         // Skip very generic units that clutter output
         .filter(|u| !u.starts_with("-."))
@@ -132,7 +133,13 @@ fn find_related_units(unit: &str) -> Vec<UnitInfo> {
 
     // Get list of all units matching this base name
     if let Ok(output) = Command::new("systemctl")
-        .args(["list-units", "--all", "--no-pager", "--no-legend", &format!("{}*", base)])
+        .args([
+            "list-units",
+            "--all",
+            "--no-pager",
+            "--no-legend",
+            &format!("{}*", base),
+        ])
         .output()
     {
         if output.status.success() {
@@ -199,7 +206,8 @@ pub fn get_high_impact_services() -> Vec<TopologyHint> {
 
                 for line in stdout.lines() {
                     if let Some((key, value)) = line.split_once('=') {
-                        let count = value.split_whitespace()
+                        let count = value
+                            .split_whitespace()
                             .filter(|s| !s.is_empty() && *s != "(null)")
                             .count();
 
@@ -254,7 +262,8 @@ pub fn get_gpu_driver_stacks() -> Vec<DriverStackHint> {
         stacks.push(DriverStackHint {
             component: "GPU".to_string(),
             primary_driver: "nvidia".to_string(),
-            additional_modules: nvidia_modules.into_iter()
+            additional_modules: nvidia_modules
+                .into_iter()
                 .filter(|m| m != "nvidia")
                 .take(3)
                 .collect(),
@@ -267,7 +276,8 @@ pub fn get_gpu_driver_stacks() -> Vec<DriverStackHint> {
         stacks.push(DriverStackHint {
             component: "GPU".to_string(),
             primary_driver: "amdgpu".to_string(),
-            additional_modules: amd_modules.into_iter()
+            additional_modules: amd_modules
+                .into_iter()
                 .filter(|m| m != "amdgpu")
                 .take(3)
                 .collect(),
@@ -280,7 +290,8 @@ pub fn get_gpu_driver_stacks() -> Vec<DriverStackHint> {
         stacks.push(DriverStackHint {
             component: "GPU".to_string(),
             primary_driver: "i915".to_string(),
-            additional_modules: intel_modules.into_iter()
+            additional_modules: intel_modules
+                .into_iter()
                 .filter(|m| m != "i915")
                 .take(3)
                 .collect(),

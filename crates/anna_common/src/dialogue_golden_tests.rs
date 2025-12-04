@@ -21,7 +21,13 @@ mod tests {
     fn create_cpu_query_case() -> CaseFileV1 {
         let mut case = CaseFileV1::new("cpu-query-001", "what cpu do i have");
         case.set_intent(IntentType::SystemQuery, 95);
-        case.add_evidence("E1", "hw_snapshot_cpu", "AMD Ryzen 7 5800X, 8 cores, 16 threads, 3.8GHz base", 45, false);
+        case.add_evidence(
+            "E1",
+            "hw_snapshot_cpu",
+            "AMD Ryzen 7 5800X, 8 cores, 16 threads, 3.8GHz base",
+            45,
+            false,
+        );
         case.set_response("You have an AMD Ryzen 7 5800X [E1]. It has 8 cores and 16 threads with a base clock of 3.8GHz.", 92);
         case.complete(true, None);
         case
@@ -30,8 +36,17 @@ mod tests {
     fn create_memory_query_case() -> CaseFileV1 {
         let mut case = CaseFileV1::new("mem-query-001", "how much memory do i have");
         case.set_intent(IntentType::SystemQuery, 93);
-        case.add_evidence("E1", "memory_info", "Total: 32 GiB, Available: 24.5 GiB, Used: 7.5 GiB", 32, false);
-        case.set_response("You have 32 GiB of RAM [E1], with 24.5 GiB currently available.", 90);
+        case.add_evidence(
+            "E1",
+            "memory_info",
+            "Total: 32 GiB, Available: 24.5 GiB, Used: 7.5 GiB",
+            32,
+            false,
+        );
+        case.set_response(
+            "You have 32 GiB of RAM [E1], with 24.5 GiB currently available.",
+            90,
+        );
         case.complete(true, None);
         case
     }
@@ -41,9 +56,27 @@ mod tests {
         case.set_intent(IntentType::Diagnose, 88);
         case.set_problem_domain("network");
         case.set_doctor(DoctorDomain::Network, "networking_doctor", 92);
-        case.add_evidence("E1", "network_status", "wlan0: connected to HomeNetwork, signal -65dBm", 55, false);
-        case.add_evidence("E2", "nm_status", "NetworkManager running, connection active", 40, false);
-        case.add_evidence("E3", "journalctl_network", "3 disconnection events in last hour", 120, false);
+        case.add_evidence(
+            "E1",
+            "network_status",
+            "wlan0: connected to HomeNetwork, signal -65dBm",
+            55,
+            false,
+        );
+        case.add_evidence(
+            "E2",
+            "nm_status",
+            "NetworkManager running, connection active",
+            40,
+            false,
+        );
+        case.add_evidence(
+            "E3",
+            "journalctl_network",
+            "3 disconnection events in last hour",
+            120,
+            false,
+        );
         case.set_response("Your WiFi [E1] shows frequent disconnections [E3]. Signal strength is moderate at -65dBm. NetworkManager is running [E2]. Consider checking for interference or driver issues.", 85);
         case.complete(true, None);
         case
@@ -52,7 +85,13 @@ mod tests {
     fn create_action_request_case() -> CaseFileV1 {
         let mut case = CaseFileV1::new("action-001", "disable NetworkManager");
         case.set_intent(IntentType::ActionRequest, 90);
-        case.add_evidence("E1", "systemd_service_probe", "NetworkManager.service: active, running", 35, false);
+        case.add_evidence(
+            "E1",
+            "systemd_service_probe",
+            "NetworkManager.service: active, running",
+            35,
+            false,
+        );
         case.set_response("NetworkManager is currently active [E1]. This is a MEDIUM risk operation. To disable, you must confirm with: I CONFIRM (medium risk)", 88);
         case.complete(true, None);
         case
@@ -68,14 +107,35 @@ mod tests {
         let transcript = render_dialogue_transcript(&case, 80);
 
         // Must have [you], [anna], [translator], [junior], [annad]
-        assert!(transcript.contains("[you] to [anna]"), "Missing user message");
-        assert!(transcript.contains("[anna] to [translator]"), "Missing anna to translator");
-        assert!(transcript.contains("[translator] to [anna]"), "Missing translator response");
-        assert!(transcript.contains("to [annad]"), "Missing message to annad");
+        assert!(
+            transcript.contains("[you] to [anna]"),
+            "Missing user message"
+        );
+        assert!(
+            transcript.contains("[anna] to [translator]"),
+            "Missing anna to translator"
+        );
+        assert!(
+            transcript.contains("[translator] to [anna]"),
+            "Missing translator response"
+        );
+        assert!(
+            transcript.contains("to [annad]"),
+            "Missing message to annad"
+        );
         assert!(transcript.contains("[annad]"), "Missing annad response");
-        assert!(transcript.contains("[anna] to [junior]"), "Missing anna to junior");
-        assert!(transcript.contains("[junior] to [anna]"), "Missing junior response");
-        assert!(transcript.contains("[anna] to [you]"), "Missing final response");
+        assert!(
+            transcript.contains("[anna] to [junior]"),
+            "Missing anna to junior"
+        );
+        assert!(
+            transcript.contains("[junior] to [anna]"),
+            "Missing junior response"
+        );
+        assert!(
+            transcript.contains("[anna] to [you]"),
+            "Missing final response"
+        );
     }
 
     #[test]
@@ -84,7 +144,10 @@ mod tests {
         let transcript = render_dialogue_transcript(&case, 80);
 
         assert!(transcript.contains("[E1]"), "Missing evidence ID E1");
-        assert!(transcript.contains("Evidence collected: [E1]"), "Missing evidence summary");
+        assert!(
+            transcript.contains("Evidence collected: [E1]"),
+            "Missing evidence summary"
+        );
     }
 
     #[test]
@@ -112,7 +175,10 @@ mod tests {
 
         // Should not contain raw shell commands
         assert!(!transcript.contains("$ "), "Contains raw command prompt");
-        assert!(!transcript.contains("/proc/cpuinfo"), "Contains raw proc path");
+        assert!(
+            !transcript.contains("/proc/cpuinfo"),
+            "Contains raw proc path"
+        );
         assert!(!transcript.contains("cat /"), "Contains raw cat command");
     }
 
@@ -121,10 +187,22 @@ mod tests {
         let case = create_cpu_query_case();
         let transcript = render_dialogue_transcript(&case, 80);
 
-        assert!(transcript.contains("----- triage -----"), "Missing triage separator");
-        assert!(transcript.contains("----- evidence -----"), "Missing evidence separator");
-        assert!(transcript.contains("----- verification -----"), "Missing verification separator");
-        assert!(transcript.contains("----- response -----"), "Missing response separator");
+        assert!(
+            transcript.contains("----- triage -----"),
+            "Missing triage separator"
+        );
+        assert!(
+            transcript.contains("----- evidence -----"),
+            "Missing evidence separator"
+        );
+        assert!(
+            transcript.contains("----- verification -----"),
+            "Missing verification separator"
+        );
+        assert!(
+            transcript.contains("----- response -----"),
+            "Missing response separator"
+        );
     }
 
     #[test]
@@ -132,8 +210,14 @@ mod tests {
         let case = create_cpu_query_case();
         let transcript = render_dialogue_transcript(&case, 80);
 
-        assert!(transcript.contains("Reliability: 92%"), "Missing reliability score");
-        assert!(transcript.contains("Verified"), "Missing verification verdict");
+        assert!(
+            transcript.contains("Reliability: 92%"),
+            "Missing reliability score"
+        );
+        assert!(
+            transcript.contains("Verified"),
+            "Missing verification verdict"
+        );
     }
 
     // ========================================================================
@@ -164,7 +248,10 @@ mod tests {
         let transcript = render_dialogue_transcript(&case, 80);
 
         // Should have doctor selection phase
-        assert!(transcript.contains("----- doctor-select -----"), "Missing doctor-select separator");
+        assert!(
+            transcript.contains("----- doctor-select -----"),
+            "Missing doctor-select separator"
+        );
 
         // Should mention the doctor department
         assert!(
@@ -195,7 +282,10 @@ mod tests {
         assert!(transcript.contains("[E1]"), "Missing E1");
         assert!(transcript.contains("[E2]"), "Missing E2");
         assert!(transcript.contains("[E3]"), "Missing E3");
-        assert!(transcript.contains("Evidence collected: [E1, E2, E3]"), "Missing evidence summary");
+        assert!(
+            transcript.contains("Evidence collected: [E1, E2, E3]"),
+            "Missing evidence summary"
+        );
     }
 
     #[test]
@@ -221,7 +311,10 @@ mod tests {
         let transcript = render_dialogue_transcript(&case, 80);
 
         assert!(transcript.contains("[E1]"), "Missing evidence ID");
-        assert!(transcript.contains("systemd_service_probe"), "Missing probe name");
+        assert!(
+            transcript.contains("systemd_service_probe"),
+            "Missing probe name"
+        );
     }
 
     #[test]
@@ -322,6 +415,9 @@ mod tests {
 
         // Should not have "[] to []:" or similar malformed lines
         assert!(!transcript.contains("[] "), "Contains empty actor");
-        assert!(!transcript.contains("to []:"), "Contains empty target actor");
+        assert!(
+            !transcript.contains("to []:"),
+            "Contains empty target actor"
+        );
     }
 }

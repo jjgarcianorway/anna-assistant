@@ -82,8 +82,7 @@ pub async fn run_with_mode(mode: SwOutputMode) -> Result<()> {
 fn display_snapshot(snapshot: &SwSnapshot, mode: &SwOutputMode) -> Result<()> {
     // JSON mode - just dump the snapshot
     if *mode == SwOutputMode::Json {
-        let json = serde_json::to_string_pretty(snapshot)
-            .unwrap_or_else(|_| "{}".to_string());
+        let json = serde_json::to_string_pretty(snapshot).unwrap_or_else(|_| "{}".to_string());
         println!("{}", json);
         return Ok(());
     }
@@ -101,10 +100,12 @@ fn display_snapshot(snapshot: &SwSnapshot, mode: &SwOutputMode) -> Result<()> {
 
     // Show snapshot freshness (compact mode only)
     if !is_full {
-        println!("  {} {} (scanned in {}ms)",
+        println!(
+            "  {} {} (scanned in {}ms)",
             "◆".dimmed(),
             snapshot.format_age().dimmed(),
-            snapshot.scan_duration_ms);
+            snapshot.scan_duration_ms
+        );
     }
     println!();
 
@@ -142,16 +143,18 @@ fn display_snapshot(snapshot: &SwSnapshot, mode: &SwOutputMode) -> Result<()> {
 
 fn print_overview(snapshot: &SwSnapshot) {
     println!("{}", "[OVERVIEW]".cyan());
-    println!("  Packages:  {} ({} explicit, {} deps, {} AUR)",
+    println!(
+        "  Packages:  {} ({} explicit, {} deps, {} AUR)",
         snapshot.packages.total,
         snapshot.packages.explicit,
         snapshot.packages.dependency,
-        snapshot.packages.aur);
+        snapshot.packages.aur
+    );
     println!("  Commands:  {}", snapshot.commands.total);
-    println!("  Services:  {} ({} running, {} failed)",
-        snapshot.services.total,
-        snapshot.services.running,
-        snapshot.services.failed);
+    println!(
+        "  Services:  {} ({} running, {} failed)",
+        snapshot.services.total, snapshot.services.running, snapshot.services.failed
+    );
     println!();
 }
 
@@ -181,9 +184,10 @@ fn print_platforms(snapshot: &SwSnapshot, _is_full: bool) {
     println!("{}", "[PLATFORMS]".cyan());
 
     let total_gb = snapshot.platforms.steam_total_size_bytes as f64 / 1024.0 / 1024.0 / 1024.0;
-    println!("  Steam:  {} games ({:.1} GiB)",
-        snapshot.platforms.steam_game_count,
-        total_gb);
+    println!(
+        "  Steam:  {} games ({:.1} GiB)",
+        snapshot.platforms.steam_game_count, total_gb
+    );
 
     // v7.42.4: Show all top games - no truncation
     for game in &snapshot.platforms.steam_top_games {
@@ -199,7 +203,10 @@ fn print_config_coverage(snapshot: &SwSnapshot, _is_full: bool) {
     let pct = (cov.apps_with_config as f64 / cov.total_apps as f64 * 100.0) as u32;
 
     println!("{}", "[CONFIG COVERAGE]".cyan());
-    println!("  Coverage: {}/{} known apps ({}%)", cov.apps_with_config, cov.total_apps, pct);
+    println!(
+        "  Coverage: {}/{} known apps ({}%)",
+        cov.apps_with_config, cov.total_apps, pct
+    );
 
     // v7.42.4: Always show detected apps - no truncation
     if !cov.app_names.is_empty() {
@@ -239,10 +246,16 @@ fn print_services(snapshot: &SwSnapshot, is_full: bool) {
     println!("{}", "[SERVICES]".cyan());
 
     if snapshot.services.failed > 0 {
-        println!("  {} {} failed service{}:",
+        println!(
+            "  {} {} failed service{}:",
             "⚠".yellow(),
             snapshot.services.failed,
-            if snapshot.services.failed == 1 { "" } else { "s" });
+            if snapshot.services.failed == 1 {
+                ""
+            } else {
+                "s"
+            }
+        );
         for svc in &snapshot.services.failed_services {
             println!("    {}", svc.red());
         }
@@ -255,12 +268,24 @@ fn print_services(snapshot: &SwSnapshot, is_full: bool) {
 
 fn display_section(snapshot: &SwSnapshot, section: &str) -> Result<()> {
     match section.to_lowercase().as_str() {
-        "overview" => { print_overview(snapshot); }
-        "categories" => { print_categories(snapshot, true); }
-        "platforms" => { print_platforms(snapshot, true); }
-        "config" | "coverage" => { print_config_coverage(snapshot, true); }
-        "topology" => { print_topology(snapshot, true); }
-        "services" => { print_services(snapshot, true); }
+        "overview" => {
+            print_overview(snapshot);
+        }
+        "categories" => {
+            print_categories(snapshot, true);
+        }
+        "platforms" => {
+            print_platforms(snapshot, true);
+        }
+        "config" | "coverage" => {
+            print_config_coverage(snapshot, true);
+        }
+        "topology" => {
+            print_topology(snapshot, true);
+        }
+        "services" => {
+            print_services(snapshot, true);
+        }
         _ => {
             eprintln!("Unknown section: {}", section);
             eprintln!("Available: overview, categories, platforms, config, topology, services");

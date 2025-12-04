@@ -193,9 +193,7 @@ pub fn probe_disk_pressure_summary(evidence_id: &str) -> ToolResult {
 pub fn probe_journal_error_burst_summary(evidence_id: &str) -> ToolResult {
     let results = detect_journal_error_burst(evidence_id);
 
-    let units: Vec<JournalErrorBurstEvidence> = results.into_iter()
-        .map(|(_, e)| e)
-        .collect();
+    let units: Vec<JournalErrorBurstEvidence> = results.into_iter().map(|(_, e)| e).collect();
 
     let summary = JournalErrorBurstSummary {
         units_with_errors: units.clone(),
@@ -229,9 +227,7 @@ pub fn probe_journal_error_burst_summary(evidence_id: &str) -> ToolResult {
 pub fn probe_failed_units_summary(evidence_id: &str) -> ToolResult {
     let results = detect_service_failed(evidence_id);
 
-    let units: Vec<ServiceFailedEvidence> = results.into_iter()
-        .map(|(_, e)| e)
-        .collect();
+    let units: Vec<ServiceFailedEvidence> = results.into_iter().map(|(_, e)| e).collect();
 
     let summary = FailedUnitsSummary {
         failed_units: units.clone(),
@@ -299,7 +295,8 @@ pub fn probe_alerts_summary(evidence_id: &str) -> ToolResult {
     let state = ProactiveAlertsState::load();
 
     let counts = state.count_by_severity();
-    let active_alerts: Vec<AlertSummaryEntry> = state.get_active()
+    let active_alerts: Vec<AlertSummaryEntry> = state
+        .get_active()
         .into_iter()
         .map(|a| AlertSummaryEntry {
             id: a.id.clone(),
@@ -312,7 +309,8 @@ pub fn probe_alerts_summary(evidence_id: &str) -> ToolResult {
         })
         .collect();
 
-    let recently_resolved: Vec<AlertSummaryEntry> = state.recently_resolved
+    let recently_resolved: Vec<AlertSummaryEntry> = state
+        .recently_resolved
         .iter()
         .map(|a| AlertSummaryEntry {
             id: a.id.clone(),
@@ -342,7 +340,10 @@ pub fn probe_alerts_summary(evidence_id: &str) -> ToolResult {
     } else {
         format!(
             "{} active alerts ({} critical, {} warnings, {} info)",
-            counts.total(), counts.critical, counts.warning, counts.info
+            counts.total(),
+            counts.critical,
+            counts.warning,
+            counts.info
         )
     };
 
@@ -384,7 +385,7 @@ fn get_current_boot_time() -> Option<f64> {
     for line in stdout.lines() {
         if line.contains("Startup finished") {
             if let Some(pos) = line.rfind('=') {
-                let time_str = line[pos+1..].trim();
+                let time_str = line[pos + 1..].trim();
                 return parse_boot_time(time_str);
             }
         }
@@ -413,9 +414,7 @@ fn parse_boot_time(s: &str) -> Option<f64> {
 }
 
 fn get_root_disk_usage() -> (f64, f64) {
-    let output = std::process::Command::new("df")
-        .args(["-B1", "/"])
-        .output();
+    let output = std::process::Command::new("df").args(["-B1", "/"]).output();
 
     let output = match output {
         Ok(o) if o.status.success() => o,

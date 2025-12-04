@@ -118,12 +118,11 @@ pub fn find_steam_game(query: &str) -> Option<SteamGame> {
 
     // Try name match (case-insensitive)
     let query_lower = query.to_lowercase();
-    games.into_iter()
-        .find(|g| {
-            g.name.to_lowercase() == query_lower ||
-            g.name.to_lowercase().contains(&query_lower) ||
-            g.display_name().to_lowercase().contains(&query_lower)
-        })
+    games.into_iter().find(|g| {
+        g.name.to_lowercase() == query_lower
+            || g.name.to_lowercase().contains(&query_lower)
+            || g.display_name().to_lowercase().contains(&query_lower)
+    })
 }
 
 /// Parse libraryfolders.vdf to get all library paths
@@ -245,7 +244,8 @@ fn parse_appmanifest(acf_path: &Path, steamapps_path: &Path) -> Option<SteamGame
 /// Extract string value from VDF line like: "key"		"value"
 fn extract_vdf_string_value(line: &str) -> Option<String> {
     // Split by tab or multiple spaces
-    let parts: Vec<&str> = line.split(|c| c == '\t')
+    let parts: Vec<&str> = line
+        .split(|c| c == '\t')
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .collect();

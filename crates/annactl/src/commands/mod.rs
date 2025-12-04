@@ -16,10 +16,10 @@
 //! - hw: Hardware overview (CPU, memory, GPU, storage, network, audio)
 //! - hw_detail: Hardware profiles (cpu, memory, gpu, storage, network, audio, power, sensors, camera, firmware, pci)
 
-pub mod status;
-pub mod reset;
-pub mod uninstall;
-pub mod sw;
-pub mod sw_detail;
 pub mod hw;
 pub mod hw_detail;
+pub mod reset;
+pub mod status;
+pub mod sw;
+pub mod sw_detail;
+pub mod uninstall;

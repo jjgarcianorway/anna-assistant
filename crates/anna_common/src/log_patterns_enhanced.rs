@@ -279,7 +279,15 @@ fn get_patterns_for_boot(boot_idx: &str, service: &str) -> Vec<(LogPattern, u32,
     };
 
     let output = Command::new("journalctl")
-        .args(["-b", boot_idx, "-u", &unit_name, "-p", "warning..alert", "--no-pager"])
+        .args([
+            "-b",
+            boot_idx,
+            "-u",
+            &unit_name,
+            "-p",
+            "warning..alert",
+            "--no-pager",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -356,8 +364,9 @@ fn normalize_message(message: &str) -> String {
 
     // UUIDs -> %UUID%
     let uuid_re = regex::Regex::new(
-        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-    ).unwrap();
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+    )
+    .unwrap();
     result = uuid_re.replace_all(&result, "%UUID%").to_string();
 
     // Interface names (like wlp0s20f3) -> %IFACE%

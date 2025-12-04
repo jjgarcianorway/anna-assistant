@@ -13,7 +13,7 @@
 //! - raw_refs: Commands used (debug only)
 
 use crate::evidence_playbook::{
-    PlaybookTopic, PlaybookEvidence, PlaybookBundle, NetworkCauseCategory, NetworkingDiagnosis,
+    NetworkCauseCategory, NetworkingDiagnosis, PlaybookBundle, PlaybookEvidence, PlaybookTopic,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -28,9 +28,9 @@ use std::time::Instant;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkEvidence {
     pub name: String,
-    pub state: String,       // UP/DOWN
-    pub operstate: String,   // up/down/unknown
-    pub carrier: bool,       // cable connected
+    pub state: String,     // UP/DOWN
+    pub operstate: String, // up/down/unknown
+    pub carrier: bool,     // cable connected
     pub is_wireless: bool,
     pub mac: Option<String>,
 }
@@ -51,7 +51,7 @@ pub struct AddrRouteEvidence {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DnsEvidence {
     pub servers: Vec<String>,
-    pub source: String,  // systemd-resolved, resolv.conf
+    pub source: String, // systemd-resolved, resolv.conf
     pub is_stub: bool,
     pub domains: Vec<String>,
 }
@@ -226,17 +226,11 @@ pub fn collect_addr_route_evidence() -> (AddrRouteEvidence, PlaybookEvidence) {
                 continue;
             }
             if line.contains("inet ") && !line.contains("127.0.0.1") {
-                if let Some(addr) = line.split_whitespace()
-                    .skip_while(|s| *s != "inet")
-                    .nth(1)
-                {
+                if let Some(addr) = line.split_whitespace().skip_while(|s| *s != "inet").nth(1) {
                     ipv4_addrs.push(addr.to_string());
                 }
             } else if line.contains("inet6 ") && !line.contains("::1") && !line.contains("fe80:") {
-                if let Some(addr) = line.split_whitespace()
-                    .skip_while(|s| *s != "inet6")
-                    .nth(1)
-                {
+                if let Some(addr) = line.split_whitespace().skip_while(|s| *s != "inet6").nth(1) {
                     ipv6_addrs.push(addr.to_string());
                 }
             }
@@ -428,7 +422,8 @@ pub fn collect_manager_evidence() -> (ManagerEvidence, PlaybookEvidence) {
 
         if !uses_iwd_backend {
             conflict_detected = true;
-            conflict_reason = Some("NetworkManager and iwd both running without backend integration".to_string());
+            conflict_reason =
+                Some("NetworkManager and iwd both running without backend integration".to_string());
         }
     }
 
@@ -450,9 +445,14 @@ pub fn collect_manager_evidence() -> (ManagerEvidence, PlaybookEvidence) {
 
     // Human summary
     let human = if conflict_detected {
-        conflict_reason.clone().unwrap_or("Network manager conflict detected".to_string())
+        conflict_reason
+            .clone()
+            .unwrap_or("Network manager conflict detected".to_string())
     } else if nm_running {
-        format!("NetworkManager active ({})", nm_state.as_deref().unwrap_or("unknown"))
+        format!(
+            "NetworkManager active ({})",
+            nm_state.as_deref().unwrap_or("unknown")
+        )
     } else if iwd_running {
         "iwd managing WiFi".to_string()
     } else if networkd_running {
@@ -486,15 +486,24 @@ pub fn collect_errors_evidence(minutes: u32) -> (NetworkErrorsEvidence, Playbook
     let mut warning_count = 0;
     let mut recent_errors = Vec::new();
 
-    let units = ["NetworkManager", "systemd-networkd", "systemd-resolved", "wpa_supplicant"];
+    let units = [
+        "NetworkManager",
+        "systemd-networkd",
+        "systemd-resolved",
+        "wpa_supplicant",
+    ];
 
     for unit in &units {
         if let Ok(output) = Command::new("journalctl")
             .args([
-                "-u", unit,
-                "--since", &format!("{} minutes ago", minutes),
-                "-p", "warning",
-                "--no-pager", "-q",
+                "-u",
+                unit,
+                "--since",
+                &format!("{} minutes ago", minutes),
+                "-p",
+                "warning",
+                "--no-pager",
+                "-q",
             ])
             .output()
         {
@@ -526,21 +535,31 @@ pub fn collect_errors_evidence(minutes: u32) -> (NetworkErrorsEvidence, Playbook
     let human = if error_count == 0 && warning_count == 0 {
         format!("No network issues in the last {} minutes", minutes)
     } else if error_count > 0 {
-        format!("{} network error(s) in the last {} minutes", error_count, minutes)
+        format!(
+            "{} network error(s) in the last {} minutes",
+            error_count, minutes
+        )
     } else {
-        format!("{} network warning(s) in the last {} minutes", warning_count, minutes)
+        format!(
+            "{} network warning(s) in the last {} minutes",
+            warning_count, minutes
+        )
     };
 
     // Debug summary
     let debug = format!(
         "{} errors, {} warnings in {} min, samples: {:?}",
-        error_count, warning_count, minutes, recent_errors.first()
+        error_count,
+        warning_count,
+        minutes,
+        recent_errors.first()
     );
 
     let evidence = PlaybookEvidence::success("net_errors", &human, &debug)
-        .with_refs(vec![
-            format!("journalctl -u NetworkManager --since '{} minutes ago' -p warning", minutes),
-        ])
+        .with_refs(vec![format!(
+            "journalctl -u NetworkManager --since '{} minutes ago' -p warning",
+            minutes
+        )])
         .with_duration(duration);
 
     (errors, evidence)
@@ -592,10 +611,17 @@ pub fn run_networking_playbook() -> NetworkingDiagnosis {
         findings.push("No DNS servers configured".to_string());
     }
     if manager.conflict_detected {
-        findings.push(manager.conflict_reason.unwrap_or("Manager conflict".to_string()));
+        findings.push(
+            manager
+                .conflict_reason
+                .unwrap_or("Manager conflict".to_string()),
+        );
     }
     if errors.error_count > 0 {
-        findings.push(format!("{} recent network errors in journal", errors.error_count));
+        findings.push(format!(
+            "{} recent network errors in journal",
+            errors.error_count
+        ));
     }
 
     NetworkingDiagnosis::new(bundle)

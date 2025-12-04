@@ -279,7 +279,13 @@ impl ToolCache {
     }
 
     /// Store result in cache
-    pub fn put(&self, key: &ToolCacheKey, result: &str, exec_ms: u64, ttl_secs: u64) -> std::io::Result<()> {
+    pub fn put(
+        &self,
+        key: &ToolCacheKey,
+        result: &str,
+        exec_ms: u64,
+        ttl_secs: u64,
+    ) -> std::io::Result<()> {
         self.ensure_dir()?;
 
         let entry = ToolCacheEntry {
@@ -340,7 +346,10 @@ impl ToolCache {
                             if cached.is_expired() {
                                 stats.expired_entries += 1;
                             }
-                            *stats.entries_by_tool.entry(cached.key.tool_name.clone()).or_insert(0) += 1;
+                            *stats
+                                .entries_by_tool
+                                .entry(cached.key.tool_name.clone())
+                                .or_insert(0) += 1;
                         }
                     }
                 }
@@ -481,7 +490,8 @@ impl LlmCache {
 
     /// Get cache file path for a key
     fn cache_path(&self, key: &LlmCacheKey) -> PathBuf {
-        self.cache_dir.join(format!("{}_{}.json", key.role, key.to_hash()))
+        self.cache_dir
+            .join(format!("{}_{}.json", key.role, key.to_hash()))
     }
 
     /// Get cached response if valid
@@ -724,7 +734,10 @@ impl PerfStats {
 
     /// Record a tool cache hit
     pub fn record_tool_cache_hit(&mut self, tool_name: &str) {
-        *self.tool_cache_hits.entry(tool_name.to_string()).or_insert(0) += 1;
+        *self
+            .tool_cache_hits
+            .entry(tool_name.to_string())
+            .or_insert(0) += 1;
         self.cache_hits += 1;
     }
 
@@ -772,7 +785,9 @@ impl PerfStats {
 
     /// Get top 5 cached tools by hit count
     pub fn top_cached_tools(&self, n: usize) -> Vec<(String, u64)> {
-        let mut sorted: Vec<_> = self.tool_cache_hits.iter()
+        let mut sorted: Vec<_> = self
+            .tool_cache_hits
+            .iter()
             .map(|(k, v)| (k.clone(), *v))
             .collect();
         sorted.sort_by(|a, b| b.1.cmp(&a.1));
@@ -859,7 +874,10 @@ mod tests {
 
     #[test]
     fn test_token_budget_exceeded() {
-        let budget = TokenBudget { max_tokens: 256, max_ms: 1500 };
+        let budget = TokenBudget {
+            max_tokens: 256,
+            max_ms: 1500,
+        };
 
         // Not exceeded
         assert!(!budget.is_exceeded(100, 500));
@@ -877,15 +895,23 @@ mod tests {
 
     #[test]
     fn test_tool_cache_key_determinism() {
-        let key1 = ToolCacheKey::new("test_tool", &[
-            ("b".to_string(), "2".to_string()),
-            ("a".to_string(), "1".to_string()),
-        ], "hash123");
+        let key1 = ToolCacheKey::new(
+            "test_tool",
+            &[
+                ("b".to_string(), "2".to_string()),
+                ("a".to_string(), "1".to_string()),
+            ],
+            "hash123",
+        );
 
-        let key2 = ToolCacheKey::new("test_tool", &[
-            ("a".to_string(), "1".to_string()),
-            ("b".to_string(), "2".to_string()),
-        ], "hash123");
+        let key2 = ToolCacheKey::new(
+            "test_tool",
+            &[
+                ("a".to_string(), "1".to_string()),
+                ("b".to_string(), "2".to_string()),
+            ],
+            "hash123",
+        );
 
         // Same hash regardless of argument order
         assert_eq!(key1.to_hash(), key2.to_hash());
@@ -893,13 +919,17 @@ mod tests {
 
     #[test]
     fn test_tool_cache_key_different_args() {
-        let key1 = ToolCacheKey::new("test_tool", &[
-            ("a".to_string(), "1".to_string()),
-        ], "hash123");
+        let key1 = ToolCacheKey::new(
+            "test_tool",
+            &[("a".to_string(), "1".to_string())],
+            "hash123",
+        );
 
-        let key2 = ToolCacheKey::new("test_tool", &[
-            ("a".to_string(), "2".to_string()),
-        ], "hash123");
+        let key2 = ToolCacheKey::new(
+            "test_tool",
+            &[("a".to_string(), "2".to_string())],
+            "hash123",
+        );
 
         // Different hashes for different args
         assert_ne!(key1.to_hash(), key2.to_hash());
@@ -938,13 +968,7 @@ mod tests {
 
     #[test]
     fn test_llm_cache_key_policy_invalidation() {
-        let key1 = LlmCacheKey::new(
-            "translator",
-            "test request",
-            &[],
-            "pol_v1",
-            "model1",
-        );
+        let key1 = LlmCacheKey::new("translator", "test request", &[], "pol_v1", "model1");
 
         let key2 = LlmCacheKey::new(
             "translator",
@@ -960,13 +984,7 @@ mod tests {
 
     #[test]
     fn test_llm_cache_key_model_invalidation() {
-        let key1 = LlmCacheKey::new(
-            "translator",
-            "test request",
-            &[],
-            "pol1",
-            "model_v1",
-        );
+        let key1 = LlmCacheKey::new("translator", "test request", &[], "pol1", "model_v1");
 
         let key2 = LlmCacheKey::new(
             "translator",

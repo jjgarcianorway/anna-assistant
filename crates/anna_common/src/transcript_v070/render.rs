@@ -20,7 +20,9 @@ pub fn render_human(stream: &TranscriptStreamV70) -> Vec<String> {
             }
 
             EventV70::StaffMessage {
-                from, message_human, ..
+                from,
+                message_human,
+                ..
             } => {
                 if from.visible_in_human() && !message_human.is_empty() {
                     lines.push(format!("[{}] {}", from.display_name(), message_human));

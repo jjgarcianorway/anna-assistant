@@ -5,7 +5,6 @@
 //! - Relationship detection (e.g., aquamarine -> hyprland)
 //! - Extended category classification
 
-
 /// Object relationship information
 #[derive(Debug, Clone)]
 pub struct ObjectRelationship {
@@ -246,10 +245,12 @@ pub fn get_relationship(name: &str) -> Option<ObjectRelationship> {
         }),
 
         // Coreutils
-        "ls" | "cat" | "cp" | "mv" | "rm" | "mkdir" | "chmod" | "chown" => Some(ObjectRelationship {
-            related_to: "coreutils".to_string(),
-            relationship_type: RelationshipType::PartOf,
-        }),
+        "ls" | "cat" | "cp" | "mv" | "rm" | "mkdir" | "chmod" | "chown" => {
+            Some(ObjectRelationship {
+                related_to: "coreutils".to_string(),
+                relationship_type: RelationshipType::PartOf,
+            })
+        }
 
         _ => None,
     }
@@ -259,13 +260,17 @@ pub fn get_relationship(name: &str) -> Option<ObjectRelationship> {
 pub fn get_ecosystem(name: &str) -> Option<&'static str> {
     let lower = name.to_lowercase();
 
-    if lower.starts_with("hypr") || lower == "aquamarine" || lower == "xdg-desktop-portal-hyprland" {
+    if lower.starts_with("hypr") || lower == "aquamarine" || lower == "xdg-desktop-portal-hyprland"
+    {
         return Some("Hyprland");
     }
     if lower.starts_with("pipewire") || lower == "wireplumber" {
         return Some("PipeWire");
     }
-    if lower.starts_with("kde") || lower.starts_with("k") && matches!(lower.as_str(), "kate" | "konsole" | "kwin" | "dolphin") {
+    if lower.starts_with("kde")
+        || lower.starts_with("k")
+            && matches!(lower.as_str(), "kate" | "konsole" | "kwin" | "dolphin")
+    {
         return Some("KDE Plasma");
     }
     if lower.starts_with("gnome") || matches!(lower.as_str(), "nautilus" | "gedit" | "evolution") {
@@ -296,10 +301,22 @@ mod tests {
 
     #[test]
     fn test_get_description() {
-        assert_eq!(get_description("vim"), Some("Vi-improved text editor for the terminal"));
-        assert_eq!(get_description("VIM"), Some("Vi-improved text editor for the terminal"));
-        assert_eq!(get_description("hyprland"), Some("Dynamic tiling Wayland compositor"));
-        assert_eq!(get_description("aquamarine"), Some("Wayland rendering backend for Hyprland"));
+        assert_eq!(
+            get_description("vim"),
+            Some("Vi-improved text editor for the terminal")
+        );
+        assert_eq!(
+            get_description("VIM"),
+            Some("Vi-improved text editor for the terminal")
+        );
+        assert_eq!(
+            get_description("hyprland"),
+            Some("Dynamic tiling Wayland compositor")
+        );
+        assert_eq!(
+            get_description("aquamarine"),
+            Some("Wayland rendering backend for Hyprland")
+        );
     }
 
     #[test]

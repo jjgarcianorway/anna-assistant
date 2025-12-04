@@ -42,9 +42,11 @@ mod tests {
         assert!(confidence >= 90);
 
         // Wrong evidence: CPU info instead of disk info
-        let evidence = vec![
-            make_evidence("hw_snapshot_cpu", "CPU: AMD Ryzen 7 5800X, 8 cores, 16 threads", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "hw_snapshot_cpu",
+            "CPU: AMD Ryzen 7 5800X, 8 cores, 16 threads",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(target, &evidence);
         assert!(!coverage.is_sufficient);
@@ -55,7 +57,11 @@ mod tests {
 
         assert!(!result.ship_it);
         assert!(result.has_mismatch);
-        assert!(result.reliability_score <= 20, "Wrong evidence should cap at 20%, got {}%", result.reliability_score);
+        assert!(
+            result.reliability_score <= 20,
+            "Wrong evidence should cap at 20%, got {}%",
+            result.reliability_score
+        );
     }
 
     #[test]
@@ -64,18 +70,28 @@ mod tests {
         assert_eq!(target, QueryTarget::DiskFree);
 
         // Correct evidence: disk usage info
-        let evidence = vec![
-            make_evidence("mount_usage", "Disk /: 433 GiB free of 500 GiB total (13% used)", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "mount_usage",
+            "Disk /: 433 GiB free of 500 GiB total (13% used)",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(target, &evidence);
-        assert!(coverage.is_sufficient, "Coverage should be sufficient: {:?}", coverage);
+        assert!(
+            coverage.is_sufficient,
+            "Coverage should be sufficient: {:?}",
+            coverage
+        );
 
         let answer = "You have 433 GiB free on / [E1], out of 500 GiB total.";
         let result = verify_answer(target, answer, &evidence);
 
         assert!(result.ship_it, "Should ship: {:?}", result);
-        assert!(result.reliability_score >= 75, "Reliability should be >= 75%, got {}%", result.reliability_score);
+        assert!(
+            result.reliability_score >= 75,
+            "Reliability should be >= 75%, got {}%",
+            result.reliability_score
+        );
     }
 
     // ========================================================================
@@ -89,9 +105,11 @@ mod tests {
         assert!(confidence >= 90);
 
         // Wrong evidence
-        let evidence = vec![
-            make_evidence("hw_snapshot_cpu", "CPU: AMD Ryzen 5 3600, 6 cores", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "hw_snapshot_cpu",
+            "CPU: AMD Ryzen 5 3600, 6 cores",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(target, &evidence);
         assert!(!coverage.is_sufficient);
@@ -107,9 +125,11 @@ mod tests {
         let (target, _) = detect_target("how much ram do i have");
         assert_eq!(target, QueryTarget::Memory);
 
-        let evidence = vec![
-            make_evidence("memory_info", "Memory: Total 32 GiB, Available 24.5 GiB, Used 7.5 GiB", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "memory_info",
+            "Memory: Total 32 GiB, Available 24.5 GiB, Used 7.5 GiB",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(target, &evidence);
         assert!(coverage.is_sufficient);
@@ -131,9 +151,11 @@ mod tests {
         assert_eq!(target, QueryTarget::KernelVersion);
         assert!(confidence >= 90);
 
-        let evidence = vec![
-            make_evidence("hw_snapshot_cpu", "CPU: Intel Core i7-12700K", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "hw_snapshot_cpu",
+            "CPU: Intel Core i7-12700K",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(target, &evidence);
         assert!(!coverage.is_sufficient);
@@ -147,9 +169,11 @@ mod tests {
         let (target, _) = detect_target("what linux kernel version");
         assert_eq!(target, QueryTarget::KernelVersion);
 
-        let evidence = vec![
-            make_evidence("kernel_version", "Linux 6.7.1-arch1-1 x86_64", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "kernel_version",
+            "Linux 6.7.1-arch1-1 x86_64",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(target, &evidence);
         assert!(coverage.is_sufficient);
@@ -171,9 +195,11 @@ mod tests {
         assert_eq!(target, QueryTarget::NetworkStatus);
         assert!(confidence >= 90);
 
-        let evidence = vec![
-            make_evidence("hw_snapshot_cpu", "CPU: AMD Ryzen 9 5900X", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "hw_snapshot_cpu",
+            "CPU: AMD Ryzen 9 5900X",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(target, &evidence);
         assert!(!coverage.is_sufficient);
@@ -186,12 +212,18 @@ mod tests {
     fn test_network_query_with_correct_evidence_passes() {
         let (target, _) = detect_target("am i connected to the network");
 
-        let evidence = vec![
-            make_evidence("network_status", "eth0: UP, IP 192.168.1.100, gateway 192.168.1.1, DNS 8.8.8.8", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "network_status",
+            "eth0: UP, IP 192.168.1.100, gateway 192.168.1.1, DNS 8.8.8.8",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(target, &evidence);
-        assert!(coverage.is_sufficient, "Network coverage should be sufficient: {:?}", coverage);
+        assert!(
+            coverage.is_sufficient,
+            "Network coverage should be sufficient: {:?}",
+            coverage
+        );
 
         let answer = "You are connected via eth0 [E1] with IP 192.168.1.100. Default gateway is 192.168.1.1.";
         let result = verify_answer(target, answer, &evidence);
@@ -205,9 +237,7 @@ mod tests {
 
     #[test]
     fn test_gap_filling_suggests_correct_tools() {
-        let evidence = vec![
-            make_evidence("hw_snapshot_cpu", "CPU info only", "E1"),
-        ];
+        let evidence = vec![make_evidence("hw_snapshot_cpu", "CPU info only", "E1")];
 
         let coverage = analyze_coverage(QueryTarget::DiskFree, &evidence);
         let tools = get_gap_filling_tools(&coverage);
@@ -222,14 +252,19 @@ mod tests {
 
     #[test]
     fn test_no_gap_filling_when_sufficient() {
-        let evidence = vec![
-            make_evidence("mount_usage", "Disk /: 433 GiB free of 500 GiB total", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "mount_usage",
+            "Disk /: 433 GiB free of 500 GiB total",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(QueryTarget::DiskFree, &evidence);
         let tools = get_gap_filling_tools(&coverage);
 
-        assert!(tools.is_empty(), "Should not suggest tools when coverage is sufficient");
+        assert!(
+            tools.is_empty(),
+            "Should not suggest tools when coverage is sufficient"
+        );
     }
 
     // ========================================================================
@@ -238,9 +273,7 @@ mod tests {
 
     #[test]
     fn test_junior_caps_at_20_for_wrong_evidence() {
-        let evidence = vec![
-            make_evidence("hw_snapshot_cpu", "CPU: AMD Ryzen", "E1"),
-        ];
+        let evidence = vec![make_evidence("hw_snapshot_cpu", "CPU: AMD Ryzen", "E1")];
 
         let result = verify_answer(QueryTarget::DiskFree, "AMD Ryzen [E1]", &evidence);
         assert!(result.reliability_score <= 20);
@@ -250,9 +283,11 @@ mod tests {
     #[test]
     fn test_junior_caps_at_50_for_missing_evidence() {
         // Some evidence but missing key fields
-        let evidence = vec![
-            make_evidence("status_snapshot", "System up for 5 days", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "status_snapshot",
+            "System up for 5 days",
+            "E1",
+        )];
 
         let coverage = analyze_coverage(QueryTarget::DiskFree, &evidence);
         assert!(coverage.coverage_percent < 50);
@@ -263,14 +298,20 @@ mod tests {
 
     #[test]
     fn test_junior_rewards_high_coverage() {
-        let evidence = vec![
-            make_evidence("mount_usage", "Disk /: 433 GiB free of 500 GiB total (13% used)", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "mount_usage",
+            "Disk /: 433 GiB free of 500 GiB total (13% used)",
+            "E1",
+        )];
 
         let answer = "You have 433 GiB free on / [E1], out of 500 GiB total (13% used).";
         let result = verify_answer(QueryTarget::DiskFree, answer, &evidence);
 
-        assert!(result.reliability_score >= 85, "High coverage should yield high score: {}%", result.reliability_score);
+        assert!(
+            result.reliability_score >= 85,
+            "High coverage should yield high score: {}%",
+            result.reliability_score
+        );
     }
 
     // ========================================================================
@@ -334,39 +375,36 @@ mod tests {
         // Disk query with CPU answer
         let (valid, critique) = validate_answer_for_target(
             QueryTarget::DiskFree,
-            "CPU: AMD Ryzen 7, 8 cores, 16 threads"
+            "CPU: AMD Ryzen 7, 8 cores, 16 threads",
         );
         assert!(!valid);
         assert!(critique.contains("CPU"));
 
         // Kernel query with CPU answer
-        let (valid, critique) = validate_answer_for_target(
-            QueryTarget::KernelVersion,
-            "CPU: Intel i9, 12 cores"
-        );
+        let (valid, critique) =
+            validate_answer_for_target(QueryTarget::KernelVersion, "CPU: Intel i9, 12 cores");
         assert!(!valid);
         assert!(critique.contains("kernel"));
 
         // Memory query with correct answer
-        let (valid, _) = validate_answer_for_target(
-            QueryTarget::Memory,
-            "You have 32 GiB RAM available"
-        );
+        let (valid, _) =
+            validate_answer_for_target(QueryTarget::Memory, "You have 32 GiB RAM available");
         assert!(valid);
     }
 
     #[test]
     fn test_uncited_claims_penalized() {
-        let evidence = vec![
-            make_evidence("memory_info", "Memory: 32 GiB total", "E1"),
-        ];
+        let evidence = vec![make_evidence("memory_info", "Memory: 32 GiB total", "E1")];
 
         // Answer without citation
         let result = verify_answer(QueryTarget::Memory, "You have 32 GiB of RAM.", &evidence);
 
         // Should have penalty for uncited claim
         assert!(
-            result.penalties.iter().any(|p| p.reason.contains("citation")),
+            result
+                .penalties
+                .iter()
+                .any(|p| p.reason.contains("citation")),
             "Should penalize uncited claims: {:?}",
             result.penalties
         );
@@ -391,9 +429,7 @@ mod tests {
 
     #[test]
     fn test_unknown_target_lenient() {
-        let evidence = vec![
-            make_evidence("status_snapshot", "System status", "E1"),
-        ];
+        let evidence = vec![make_evidence("status_snapshot", "System status", "E1")];
 
         let coverage = analyze_coverage(QueryTarget::Unknown, &evidence);
         // Unknown targets have no requirements, so 100% coverage

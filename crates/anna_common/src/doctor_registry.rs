@@ -436,9 +436,7 @@ impl DoctorRun {
         if let Some(timing) = self.stage_timings.last_mut() {
             let now = Utc::now();
             timing.ended_at = Some(now);
-            timing.duration_ms = Some(
-                (now - timing.started_at).num_milliseconds().max(0) as u64
-            );
+            timing.duration_ms = Some((now - timing.started_at).num_milliseconds().max(0) as u64);
             timing.status = status;
             timing.notes = notes;
         }
@@ -494,7 +492,8 @@ impl DoctorRun {
 
     /// Get total duration in milliseconds
     pub fn total_duration_ms(&self) -> u64 {
-        self.stage_timings.iter()
+        self.stage_timings
+            .iter()
             .filter_map(|t| t.duration_ms)
             .sum()
     }
@@ -539,10 +538,15 @@ impl DoctorRegistry {
     /// Create a new registry with default doctors
     pub fn new() -> Self {
         let config = DoctorRegistryConfig::default();
-        let doctors_by_id = config.doctors.iter()
+        let doctors_by_id = config
+            .doctors
+            .iter()
             .map(|d| (d.id.clone(), d.clone()))
             .collect();
-        Self { config, doctors_by_id }
+        Self {
+            config,
+            doctors_by_id,
+        }
     }
 
     /// Load registry from config file
@@ -564,12 +568,17 @@ impl DoctorRegistry {
             DoctorRegistryConfig::default()
         };
 
-        let doctors_by_id = config.doctors.iter()
+        let doctors_by_id = config
+            .doctors
+            .iter()
             .filter(|d| d.enabled)
             .map(|d| (d.id.clone(), d.clone()))
             .collect();
 
-        Ok(Self { config, doctors_by_id })
+        Ok(Self {
+            config,
+            doctors_by_id,
+        })
     }
 
     /// Load from a specific path (for testing)
@@ -577,12 +586,17 @@ impl DoctorRegistry {
         let toml_str = fs::read_to_string(path)?;
         let config: DoctorRegistryConfig = toml::from_str(&toml_str)?;
 
-        let doctors_by_id = config.doctors.iter()
+        let doctors_by_id = config
+            .doctors
+            .iter()
             .filter(|d| d.enabled)
             .map(|d| (d.id.clone(), d.clone()))
             .collect();
 
-        Ok(Self { config, doctors_by_id })
+        Ok(Self {
+            config,
+            doctors_by_id,
+        })
     }
 
     /// Get a doctor by ID
@@ -597,7 +611,8 @@ impl DoctorRegistry {
 
     /// Get doctors for a domain
     pub fn get_doctors_by_domain(&self, domain: DoctorDomain) -> Vec<&DoctorEntry> {
-        self.doctors_by_id.values()
+        self.doctors_by_id
+            .values()
             .filter(|d| d.domain == domain)
             .collect()
     }
@@ -611,14 +626,17 @@ impl DoctorRegistry {
         let words: Vec<&str> = request_lower.split_whitespace().collect();
 
         // Score each doctor
-        let mut matches: Vec<SelectionMatch> = self.doctors_by_id.values()
+        let mut matches: Vec<SelectionMatch> = self
+            .doctors_by_id
+            .values()
             .map(|doctor| self.score_doctor(doctor, &request_lower, &words, intent_tags))
             .filter(|m| m.score > 0)
             .collect();
 
         // Sort by score (descending), then priority (descending)
         matches.sort_by(|a, b| {
-            b.score.cmp(&a.score)
+            b.score
+                .cmp(&a.score)
                 .then_with(|| b.priority.cmp(&a.priority))
         });
 
@@ -630,31 +648,35 @@ impl DoctorRegistry {
         let primary = &matches[0];
 
         // Check for secondary (only if from different domain and score > 30)
-        let secondary = matches.get(1)
-            .filter(|m| {
-                let primary_doctor = self.get_doctor(&primary.doctor_id);
-                let secondary_doctor = self.get_doctor(&m.doctor_id);
-                if let (Some(pd), Some(sd)) = (primary_doctor, secondary_doctor) {
-                    pd.domain != sd.domain && m.score >= 30
-                } else {
-                    false
-                }
-            });
+        let secondary = matches.get(1).filter(|m| {
+            let primary_doctor = self.get_doctor(&primary.doctor_id);
+            let secondary_doctor = self.get_doctor(&m.doctor_id);
+            if let (Some(pd), Some(sd)) = (primary_doctor, secondary_doctor) {
+                pd.domain != sd.domain && m.score >= 30
+            } else {
+                false
+            }
+        });
 
         // Build reasoning
         let reasoning = if let Some(sec) = secondary {
             format!(
                 "Selected {} (score: {}) as primary based on keywords: {}. \
                  Also selected {} (score: {}) as secondary for related {} domain issues.",
-                primary.doctor_name, primary.score,
+                primary.doctor_name,
+                primary.score,
                 primary.keyword_matches.join(", "),
-                sec.doctor_name, sec.score,
-                self.get_doctor(&sec.doctor_id).map(|d| d.domain.to_string()).unwrap_or_default()
+                sec.doctor_name,
+                sec.score,
+                self.get_doctor(&sec.doctor_id)
+                    .map(|d| d.domain.to_string())
+                    .unwrap_or_default()
             )
         } else {
             format!(
                 "Selected {} (score: {}) as primary based on keywords: {}{}",
-                primary.doctor_name, primary.score,
+                primary.doctor_name,
+                primary.score,
                 primary.keyword_matches.join(", "),
                 if !primary.symptom_matches.is_empty() {
                     format!(" and symptoms: {}", primary.symptom_matches.join(", "))
@@ -709,7 +731,10 @@ impl DoctorRegistry {
 
         // Keyword matching (10 points per keyword)
         for keyword in &doctor.keywords {
-            if words.iter().any(|w| w.contains(keyword) || keyword.contains(*w)) {
+            if words
+                .iter()
+                .any(|w| w.contains(keyword) || keyword.contains(*w))
+            {
                 score += 10;
                 keyword_matches.push(keyword.clone());
             } else if request_lower.contains(keyword) {
@@ -751,7 +776,8 @@ impl DoctorRegistry {
             evidence_bundles: [
                 doctor.required_evidence.clone(),
                 doctor.optional_evidence.clone(),
-            ].concat(),
+            ]
+            .concat(),
         }
     }
 
@@ -783,7 +809,8 @@ fn default_doctors() -> Vec<DoctorEntry> {
         DoctorEntry {
             id: "network_doctor".to_string(),
             name: "Network Doctor".to_string(),
-            description: "Diagnoses network connectivity, WiFi, DNS, and routing issues".to_string(),
+            description: "Diagnoses network connectivity, WiFi, DNS, and routing issues"
+                .to_string(),
             domain: DoctorDomain::Network,
             keywords: vec![
                 "network".to_string(),
@@ -1249,10 +1276,8 @@ mod tests {
     #[test]
     fn test_selection_with_intent_tags() {
         let registry = DoctorRegistry::new();
-        let selection = registry.select_doctors(
-            "help me fix this",
-            &["audio_diagnosis".to_string()]
-        );
+        let selection =
+            registry.select_doctors("help me fix this", &["audio_diagnosis".to_string()]);
 
         assert!(selection.is_some());
         let sel = selection.unwrap();
@@ -1280,7 +1305,10 @@ mod tests {
         assert_eq!(run.current_stage, DoctorRunStage::CollectEvidence);
 
         // Complete evidence collection
-        run.complete_stage(StageStatus::Completed, Some("Collected 5 evidence items".to_string()));
+        run.complete_stage(
+            StageStatus::Completed,
+            Some("Collected 5 evidence items".to_string()),
+        );
 
         // Start diagnosis
         run.start_stage(DoctorRunStage::DiagnosisFlow);
@@ -1322,7 +1350,10 @@ mod tests {
     #[test]
     fn test_doctor_run_result_display() {
         assert_eq!(DoctorRunResult::Success.to_string(), "Success");
-        assert_eq!(DoctorRunResult::VerificationPending.to_string(), "Verification Pending");
+        assert_eq!(
+            DoctorRunResult::VerificationPending.to_string(),
+            "Verification Pending"
+        );
     }
 
     #[test]
@@ -1410,8 +1441,7 @@ mod tests {
         let sel = selection.unwrap();
         // Primary should be one of them
         assert!(
-            sel.primary.doctor_id == "graphics_doctor" ||
-            sel.primary.doctor_id == "audio_doctor"
+            sel.primary.doctor_id == "graphics_doctor" || sel.primary.doctor_id == "audio_doctor"
         );
     }
 
@@ -1427,7 +1457,9 @@ mod tests {
     #[test]
     fn test_selection_explains_why() {
         let registry = DoctorRegistry::new();
-        let selection = registry.select_doctors("wifi keeps disconnecting", &[]).unwrap();
+        let selection = registry
+            .select_doctors("wifi keeps disconnecting", &[])
+            .unwrap();
 
         // Reasoning should explain the selection
         assert!(selection.reasoning.contains("Network Doctor"));
@@ -1446,16 +1478,12 @@ mod tests {
             // Networking doctor - symptom-based matching
             ("wifi disconnecting", "network_doctor"),
             ("no internet", "network_doctor"),
-
             // Audio doctor - uses symptom "no sound" which is known to work
             ("no sound", "audio_doctor"),
-
             // Boot doctor - uses "boot is slow" which is known to work
             ("boot is slow", "boot_doctor"),
-
             // Storage doctor - uses "disk full" which is known to work
             ("disk full", "storage_doctor"),
-
             // Graphics doctor - uses "screen share broken" pattern
             ("screen share broken", "graphics_doctor"),
         ];

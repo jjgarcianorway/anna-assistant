@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.70
+# Anna Assistant v0.0.73
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.70**: Dual Transcript Renderer - Human Mode shows IT department dialogue without tool names, evidence IDs, or raw commands; uses topic abstractions like "hardware inventory snapshot" and "network status snapshot". Debug Mode shows full transparency with canonical translator output (6-line format), tool names, evidence IDs, timing, parse warnings, retries, and fallbacks. Toggle via `ANNA_UI_TRANSCRIPT_MODE=debug` or `--debug` flag. Modular transcript_v070 system with events, topics, render, colored, and validation modules.
+**v0.0.73**: Human Transcript Realism + Auto-Update Rewrite - Role-based phrasing per department ("Network team is taking this case"), evidence labels with source context ("CPU model from hardware snapshot"), doctor selection shows ownership and first check. Complete auto-update rewrite with state machine, hard filesystem locking, atomic installs, correct restart semantics, automatic rollback, and version mismatch detection. 49 new tests.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 

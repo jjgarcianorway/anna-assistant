@@ -224,7 +224,10 @@ fn test_annactl_sw_routes_as_request() {
     );
 
     // The command should succeed (it's a valid request, just not implemented yet)
-    assert!(output.status.success(), "annactl sw should succeed as a request");
+    assert!(
+        output.status.success(),
+        "annactl sw should succeed as a request"
+    );
 }
 
 /// Test 'hw' routes as natural language request
@@ -255,7 +258,10 @@ fn test_annactl_hw_routes_as_request() {
         "'hw' should not trigger custom error message"
     );
 
-    assert!(output.status.success(), "annactl hw should succeed as a request");
+    assert!(
+        output.status.success(),
+        "annactl hw should succeed as a request"
+    );
 }
 
 /// Test natural language request format
@@ -290,7 +296,10 @@ fn test_annactl_natural_language_request() {
         stdout
     );
 
-    assert!(output.status.success(), "natural language request should succeed");
+    assert!(
+        output.status.success(),
+        "natural language request should succeed"
+    );
 }
 
 /// Test multi-word request
@@ -396,8 +405,8 @@ fn test_annactl_pipeline_shows_annad_for_system_query() {
 
     // v0.0.31: System queries may show annad evidence or fallback
     // When Translator fails, we go to deterministic fallback which may skip annad
-    let has_annad_exchange = stdout.contains("[anna] to [annad]")
-        || stdout.contains("[annad] to [anna]");
+    let has_annad_exchange =
+        stdout.contains("[anna] to [annad]") || stdout.contains("[annad] to [anna]");
     let has_fallback = stdout.contains("fallback") || stdout.contains("Fallback");
     let has_any_response = stdout.contains("Reliability:");
 
@@ -513,8 +522,10 @@ fn test_annactl_pipeline_action_risk_level() {
     // v0.0.31: Check for either structured risk output or action-related response
     // LLM may classify as action_request or respond with action plan
     let has_risk = stdout.contains("Risk:") || stdout.contains("risk:");
-    let has_action = stdout_lower.contains("action") || stdout_lower.contains("install")
-        || stdout_lower.contains("plan") || stdout_lower.contains("step");
+    let has_action = stdout_lower.contains("action")
+        || stdout_lower.contains("install")
+        || stdout_lower.contains("plan")
+        || stdout_lower.contains("step");
 
     assert!(
         has_risk || has_action,
@@ -669,7 +680,10 @@ fn test_annactl_doctor_flow_wifi_disconnecting() {
         "Expected doctor flow or reliability output for wifi problem, got: {}",
         stdout
     );
-    assert!(output.status.success(), "wifi disconnecting request should succeed");
+    assert!(
+        output.status.success(),
+        "wifi disconnecting request should succeed"
+    );
 }
 
 /// Test "no sound" triggers doctor flow (v0.0.53)
@@ -724,7 +738,7 @@ fn test_annactl_doctor_flow_slow_boot() {
     let has_doctor_content = stdout_lower.contains("boot")
         || stdout.contains("Doctor:")
         || stdout.contains("Diagnosis")
-        || stdout.contains("[B");  // Boot evidence IDs
+        || stdout.contains("[B"); // Boot evidence IDs
 
     assert!(
         has_doctor_content || stdout.contains("Reliability:"),
@@ -795,7 +809,10 @@ fn test_annactl_action_request_shows_risk() {
         "Expected action risk info or reliability output, got: {}",
         stdout
     );
-    assert!(output.status.success(), "restart service request should succeed");
+    assert!(
+        output.status.success(),
+        "restart service request should succeed"
+    );
 }
 
 /// Test file edit request mentions diff/preview (v0.0.54)
@@ -856,7 +873,10 @@ fn test_annactl_package_install_request() {
         "Expected package install info or reliability output, got: {}",
         stdout
     );
-    assert!(output.status.success(), "package install request should succeed");
+    assert!(
+        output.status.success(),
+        "package install request should succeed"
+    );
 }
 
 // ============================================================================
@@ -956,7 +976,7 @@ fn test_annactl_kernel_query_routes_correctly() {
         || stdout_lower.contains("linux")
         || stdout.contains("-arch")
         || stdout.contains("-lts")
-        || stdout.contains("6.");  // Current kernels are 6.x
+        || stdout.contains("6."); // Current kernels are 6.x
 
     assert!(
         has_kernel_info,
@@ -1281,9 +1301,8 @@ fn test_annactl_human_mode_no_evidence_ids() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     // Human mode should NOT contain evidence IDs like [E1], [E2], etc.
-    let has_evidence_id = stdout.contains("[E1]")
-        || stdout.contains("[E2]")
-        || stdout.contains("[E3]");
+    let has_evidence_id =
+        stdout.contains("[E1]") || stdout.contains("[E2]") || stdout.contains("[E3]");
 
     // Also should NOT contain raw tool names
     let has_tool_name = stdout.contains("hw_snapshot_summary")

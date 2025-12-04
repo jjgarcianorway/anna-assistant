@@ -35,7 +35,10 @@ pub struct ServiceProbe {
 
 /// Probe a systemd service for its current state
 pub fn probe_service(service: &str) -> ServiceProbe {
-    let evidence_id = format!("SVC{}", generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "SVC{}",
+        generate_request_id().chars().take(8).collect::<String>()
+    );
     let service = normalize_service_name(service);
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -108,10 +111,18 @@ pub fn probe_service(service: &str) -> ServiceProbe {
 /// Get service properties via systemctl show
 fn get_service_properties(
     service: &str,
-) -> (ActiveState, EnabledState, Option<String>, Option<u32>, Option<String>, Option<String>) {
+) -> (
+    ActiveState,
+    EnabledState,
+    Option<String>,
+    Option<u32>,
+    Option<String>,
+    Option<String>,
+) {
     let props_output = Command::new("systemctl")
         .args([
-            "show", service,
+            "show",
+            service,
             "--property=ActiveState,SubState,UnitFileState,MainPID,Description,FragmentPath,Result",
         ])
         .output();
@@ -152,13 +163,26 @@ fn get_service_properties(
         }
     }
 
-    (active_state, enabled_state, description, main_pid, unit_file_path, last_failure)
+    (
+        active_state,
+        enabled_state,
+        description,
+        main_pid,
+        unit_file_path,
+        last_failure,
+    )
 }
 
 /// Get bounded service status output
 fn get_service_status(service: &str) -> Option<String> {
     Command::new("systemctl")
-        .args(["status", service, "--no-pager", "-n", &MAX_STATUS_LINES.to_string()])
+        .args([
+            "status",
+            service,
+            "--no-pager",
+            "-n",
+            &MAX_STATUS_LINES.to_string(),
+        ])
         .output()
         .ok()
         .map(|o| {

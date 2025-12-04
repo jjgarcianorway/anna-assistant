@@ -197,7 +197,12 @@ pub struct InvestigateCtx {
 }
 
 impl InvestigateCtx {
-    pub fn new(ticket: Ticket, work_order: WorkOrder, evidence: EvidenceBundle, case: CaseFileV2) -> Self {
+    pub fn new(
+        ticket: Ticket,
+        work_order: WorkOrder,
+        evidence: EvidenceBundle,
+        case: CaseFileV2,
+    ) -> Self {
         Self {
             ticket,
             work_order,
@@ -324,8 +329,14 @@ pub struct DepartmentResult {
 
 impl DepartmentResult {
     /// Create a successful result with findings
-    pub fn success(department: DepartmentName, findings: Vec<DepartmentFinding>, summary: &str) -> Self {
-        let reliability = if findings.is_empty() { 50 } else {
+    pub fn success(
+        department: DepartmentName,
+        findings: Vec<DepartmentFinding>,
+        summary: &str,
+    ) -> Self {
+        let reliability = if findings.is_empty() {
+            50
+        } else {
             findings.iter().map(|f| f.confidence as u32).sum::<u32>() / findings.len() as u32
         };
 
@@ -437,11 +448,8 @@ mod tests {
 
     #[test]
     fn test_routing_decision() {
-        let decision = RoutingDecision::new(
-            DepartmentName::Networking,
-            85,
-            "Matched wifi keyword",
-        ).with_keywords(vec!["wifi".to_string()]);
+        let decision = RoutingDecision::new(DepartmentName::Networking, 85, "Matched wifi keyword")
+            .with_keywords(vec!["wifi".to_string()]);
 
         assert_eq!(decision.department, DepartmentName::Networking);
         assert_eq!(decision.confidence, 85);
@@ -463,11 +471,8 @@ mod tests {
 
     #[test]
     fn test_department_result() {
-        let finding = DepartmentFinding::new(
-            "Network interface is down",
-            FindingSeverity::Error,
-            90,
-        );
+        let finding =
+            DepartmentFinding::new("Network interface is down", FindingSeverity::Error, 90);
 
         let result = DepartmentResult::success(
             DepartmentName::Networking,

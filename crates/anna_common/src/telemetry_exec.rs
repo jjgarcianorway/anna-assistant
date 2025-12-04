@@ -14,7 +14,7 @@
 //! - Missing fields are omitted, not null
 //! - Directory structure enables efficient window queries
 
-use chrono::{DateTime, Utc, TimeZone, NaiveDate};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -297,10 +297,7 @@ impl ExecTelemetryWriter {
         }
 
         // Append record as JSON line
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)?;
+        let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
 
         let json = serde_json::to_string(record)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
@@ -356,7 +353,12 @@ impl ExecTelemetryReader {
     }
 
     /// List all dates that have telemetry for an object (within a range)
-    fn list_dates_in_range(&self, object: &str, start: NaiveDate, end: NaiveDate) -> Vec<NaiveDate> {
+    fn list_dates_in_range(
+        &self,
+        object: &str,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> Vec<NaiveDate> {
         let obj_dir = self.object_dir(object);
         let mut dates = Vec::new();
 
@@ -425,7 +427,8 @@ impl ExecTelemetryReader {
 
     /// Read records from a specific date's log file
     fn read_date_records(&self, object: &str, date: &NaiveDate) -> Vec<ExecutionRecord> {
-        let path = self.base_dir
+        let path = self
+            .base_dir
             .join(sanitize_object_name(object))
             .join(date.format("%Y").to_string())
             .join(date.format("%m").to_string())
@@ -443,18 +446,23 @@ impl ExecTelemetryReader {
 
         BufReader::new(file)
             .lines()
-            .filter_map(|line| {
-                line.ok().and_then(|l| serde_json::from_str(&l).ok())
-            })
+            .filter_map(|line| line.ok().and_then(|l| serde_json::from_str(&l).ok()))
             .collect()
     }
 
     /// Read all records for an object within a Unix timestamp range
-    pub fn read_records_in_range(&self, object: &str, since_unix: i64, until_unix: i64) -> Vec<ExecutionRecord> {
-        let since_dt = Utc.timestamp_opt(since_unix, 0)
+    pub fn read_records_in_range(
+        &self,
+        object: &str,
+        since_unix: i64,
+        until_unix: i64,
+    ) -> Vec<ExecutionRecord> {
+        let since_dt = Utc
+            .timestamp_opt(since_unix, 0)
             .single()
             .unwrap_or_else(Utc::now);
-        let until_dt = Utc.timestamp_opt(until_unix, 0)
+        let until_dt = Utc
+            .timestamp_opt(until_unix, 0)
             .single()
             .unwrap_or_else(Utc::now);
 
@@ -580,10 +588,7 @@ impl ExecTelemetryReader {
             .into_iter()
             .filter_map(|obj| {
                 let records = self.read_records_in_range(&obj, since_unix, now);
-                let total_cpu: f32 = records
-                    .iter()
-                    .filter_map(|r| r.cpu_percent)
-                    .sum();
+                let total_cpu: f32 = records.iter().filter_map(|r| r.cpu_percent).sum();
                 if total_cpu > 0.0 {
                     Some((obj, total_cpu))
                 } else {

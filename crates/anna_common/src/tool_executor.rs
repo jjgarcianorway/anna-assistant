@@ -11,27 +11,32 @@
 //! Executes read-only tools from the catalog with structured outputs
 //! and human-readable summaries.
 
-use crate::daemon_state::StatusSnapshot;
-use crate::snapshots::{SwSnapshot, HwSnapshot};
-use crate::tools::{ToolCatalog, ToolResult, ToolRequest, EvidenceCollector, unknown_tool_result, unavailable_result};
-use crate::anomaly_engine::{AlertQueue, what_changed, analyze_slowness};
-use crate::knowledge_packs::{KnowledgeIndex, DEFAULT_TOP_K};
-use crate::source_labels::{AnswerContext, SourcePlan, QaStats, classify_question_type};
-use crate::reliability::{DiagnosticsReport, MetricsStore, ErrorBudgets, calculate_budget_status, check_budget_alerts};
-use crate::doctor_network_tools::{
-    execute_net_interfaces_summary, execute_net_routes_summary, execute_dns_summary,
-    execute_iw_summary, execute_recent_network_errors, execute_ping_check,
-};
-use crate::file_edit_tools::{
-    execute_file_edit_preview_v1, execute_file_edit_apply_v1, execute_file_edit_rollback_v1,
-};
-use crate::systemd_tools::{
-    execute_systemd_service_probe_v1, execute_systemd_service_preview_v1,
-    execute_systemd_service_apply_v1, execute_systemd_service_rollback_v1,
-};
 use crate::alert_probes::{
     probe_alerts_summary, probe_disk_pressure_summary, probe_failed_units_summary,
-    probe_thermal_summary, probe_journal_error_burst_summary,
+    probe_journal_error_burst_summary, probe_thermal_summary,
+};
+use crate::anomaly_engine::{analyze_slowness, what_changed, AlertQueue};
+use crate::daemon_state::StatusSnapshot;
+use crate::doctor_network_tools::{
+    execute_dns_summary, execute_iw_summary, execute_net_interfaces_summary,
+    execute_net_routes_summary, execute_ping_check, execute_recent_network_errors,
+};
+use crate::file_edit_tools::{
+    execute_file_edit_apply_v1, execute_file_edit_preview_v1, execute_file_edit_rollback_v1,
+};
+use crate::knowledge_packs::{KnowledgeIndex, DEFAULT_TOP_K};
+use crate::reliability::{
+    calculate_budget_status, check_budget_alerts, DiagnosticsReport, ErrorBudgets, MetricsStore,
+};
+use crate::snapshots::{HwSnapshot, SwSnapshot};
+use crate::source_labels::{classify_question_type, AnswerContext, QaStats, SourcePlan};
+use crate::systemd_tools::{
+    execute_systemd_service_apply_v1, execute_systemd_service_preview_v1,
+    execute_systemd_service_probe_v1, execute_systemd_service_rollback_v1,
+};
+use crate::tools::{
+    unavailable_result, unknown_tool_result, EvidenceCollector, ToolCatalog, ToolRequest,
+    ToolResult,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -39,11 +44,7 @@ use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Execute a tool and return the result with evidence ID
-pub fn execute_tool(
-    request: &ToolRequest,
-    catalog: &ToolCatalog,
-    evidence_id: &str,
-) -> ToolResult {
+pub fn execute_tool(request: &ToolRequest, catalog: &ToolCatalog, evidence_id: &str) -> ToolResult {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or(Duration::ZERO)
@@ -61,14 +62,18 @@ pub fn execute_tool(
         "recent_installs" => execute_recent_installs(&request.parameters, evidence_id, timestamp),
         "journal_warnings" => execute_journal_warnings(&request.parameters, evidence_id, timestamp),
         "boot_time_trend" => execute_boot_time_trend(&request.parameters, evidence_id, timestamp),
-        "top_resource_processes" => execute_top_resource_processes(&request.parameters, evidence_id, timestamp),
+        "top_resource_processes" => {
+            execute_top_resource_processes(&request.parameters, evidence_id, timestamp)
+        }
         "package_info" => execute_package_info(&request.parameters, evidence_id, timestamp),
         "service_status" => execute_service_status(&request.parameters, evidence_id, timestamp),
         "disk_usage" => execute_disk_usage(evidence_id, timestamp),
         // v0.0.12: Anomaly detection tools
         "active_alerts" => execute_active_alerts(evidence_id, timestamp),
         "what_changed" => execute_what_changed(&request.parameters, evidence_id, timestamp),
-        "slowness_hypotheses" => execute_slowness_hypotheses(&request.parameters, evidence_id, timestamp),
+        "slowness_hypotheses" => {
+            execute_slowness_hypotheses(&request.parameters, evidence_id, timestamp)
+        }
         // v0.0.19: Knowledge pack tools
         "knowledge_search" => execute_knowledge_search(&request.parameters, evidence_id, timestamp),
         "knowledge_stats" => execute_knowledge_stats(evidence_id, timestamp),
@@ -84,7 +89,9 @@ pub fn execute_tool(
         "last_case_summary" => execute_last_case_summary(evidence_id, timestamp),
         "last_failure_summary" => execute_last_failure_summary(evidence_id, timestamp),
         "list_today_cases" => execute_list_today_cases(evidence_id, timestamp),
-        "list_recent_cases" => execute_list_recent_cases(&request.parameters, evidence_id, timestamp),
+        "list_recent_cases" => {
+            execute_list_recent_cases(&request.parameters, evidence_id, timestamp)
+        }
         // v0.0.45: Direct evidence tools for correctness
         "kernel_version" => execute_kernel_version(evidence_id, timestamp),
         "memory_info" => execute_memory_info(evidence_id, timestamp),
@@ -100,37 +107,61 @@ pub fn execute_tool(
         "audio_services_summary" => execute_audio_services_summary(evidence_id, timestamp),
         "pactl_summary" => execute_pactl_summary(evidence_id, timestamp),
         "boot_time_summary" => execute_boot_time_summary(evidence_id, timestamp),
-        "recent_errors_summary" => execute_recent_errors_summary(&request.parameters, evidence_id, timestamp),
+        "recent_errors_summary" => {
+            execute_recent_errors_summary(&request.parameters, evidence_id, timestamp)
+        }
         // v0.0.47: File evidence tools for mutations
         "file_stat" => execute_file_stat(&request.parameters, evidence_id, timestamp),
         "file_preview" => execute_file_preview(&request.parameters, evidence_id, timestamp),
         "file_hash" => execute_file_hash(&request.parameters, evidence_id, timestamp),
-        "path_policy_check" => execute_path_policy_check(&request.parameters, evidence_id, timestamp),
+        "path_policy_check" => {
+            execute_path_policy_check(&request.parameters, evidence_id, timestamp)
+        }
         // v0.0.48: Knowledge search tools
-        "learned_recipe_search" => execute_learned_recipe_search(&request.parameters, evidence_id, timestamp),
+        "learned_recipe_search" => {
+            execute_learned_recipe_search(&request.parameters, evidence_id, timestamp)
+        }
         "learning_stats" => execute_learning_stats(evidence_id, timestamp),
         // v0.0.49: Doctor network evidence tools
         "net_interfaces_summary" => execute_net_interfaces_summary(evidence_id, timestamp),
         "net_routes_summary" => execute_net_routes_summary(evidence_id, timestamp),
         "dns_summary" => execute_dns_summary(evidence_id, timestamp),
         "iw_summary" => execute_iw_summary(evidence_id, timestamp),
-        "recent_network_errors" => execute_recent_network_errors(&request.parameters, evidence_id, timestamp),
+        "recent_network_errors" => {
+            execute_recent_network_errors(&request.parameters, evidence_id, timestamp)
+        }
         "ping_check" => execute_ping_check(&request.parameters, evidence_id, timestamp),
         // v0.0.50: User file edit tools
-        "file_edit_preview_v1" => execute_file_edit_preview_v1(&request.parameters, evidence_id, timestamp),
-        "file_edit_apply_v1" => execute_file_edit_apply_v1(&request.parameters, evidence_id, timestamp),
-        "file_edit_rollback_v1" => execute_file_edit_rollback_v1(&request.parameters, evidence_id, timestamp),
+        "file_edit_preview_v1" => {
+            execute_file_edit_preview_v1(&request.parameters, evidence_id, timestamp)
+        }
+        "file_edit_apply_v1" => {
+            execute_file_edit_apply_v1(&request.parameters, evidence_id, timestamp)
+        }
+        "file_edit_rollback_v1" => {
+            execute_file_edit_rollback_v1(&request.parameters, evidence_id, timestamp)
+        }
         // v0.0.51: Systemd service action tools
-        "systemd_service_probe_v1" => execute_systemd_service_probe_v1(&request.parameters, evidence_id, timestamp),
-        "systemd_service_preview_v1" => execute_systemd_service_preview_v1(&request.parameters, evidence_id, timestamp),
-        "systemd_service_apply_v1" => execute_systemd_service_apply_v1(&request.parameters, evidence_id, timestamp),
-        "systemd_service_rollback_v1" => execute_systemd_service_rollback_v1(&request.parameters, evidence_id, timestamp),
+        "systemd_service_probe_v1" => {
+            execute_systemd_service_probe_v1(&request.parameters, evidence_id, timestamp)
+        }
+        "systemd_service_preview_v1" => {
+            execute_systemd_service_preview_v1(&request.parameters, evidence_id, timestamp)
+        }
+        "systemd_service_apply_v1" => {
+            execute_systemd_service_apply_v1(&request.parameters, evidence_id, timestamp)
+        }
+        "systemd_service_rollback_v1" => {
+            execute_systemd_service_rollback_v1(&request.parameters, evidence_id, timestamp)
+        }
         // v0.0.58: Proactive alerts tools
         "proactive_alerts_summary" => execute_proactive_alerts_summary(evidence_id, timestamp),
         "disk_pressure_summary" => execute_disk_pressure_summary(evidence_id, timestamp),
         "failed_units_summary" => execute_failed_units_summary(evidence_id, timestamp),
         "thermal_status_summary" => execute_thermal_status_summary(evidence_id, timestamp),
-        "journal_error_burst_summary" => execute_journal_error_burst_summary(evidence_id, timestamp),
+        "journal_error_burst_summary" => {
+            execute_journal_error_burst_summary(evidence_id, timestamp)
+        }
         _ => unavailable_result(&request.tool_name, evidence_id),
     }
 }
@@ -161,9 +192,7 @@ fn execute_status_snapshot(evidence_id: &str, timestamp: u64) -> ToolResult {
         Some(snapshot) => {
             let uptime_str = format_duration(snapshot.uptime_secs);
 
-            let llm_status = snapshot.llm_bootstrap_phase
-                .as_deref()
-                .unwrap_or("unknown");
+            let llm_status = snapshot.llm_bootstrap_phase.as_deref().unwrap_or("unknown");
 
             let human_summary = format!(
                 "Daemon uptime: {}, LLM status: {}, schema v{}",
@@ -192,7 +221,8 @@ fn execute_status_snapshot(evidence_id: &str, timestamp: u64) -> ToolResult {
             tool_name: "status_snapshot".to_string(),
             evidence_id: evidence_id.to_string(),
             data: json!({"error": "Status snapshot not available"}),
-            human_summary: "Status snapshot is not available (daemon may not be running).".to_string(),
+            human_summary: "Status snapshot is not available (daemon may not be running)."
+                .to_string(),
             success: false,
             error: Some("Snapshot not found".to_string()),
             timestamp,
@@ -216,7 +246,9 @@ fn execute_sw_snapshot_summary(evidence_id: &str, timestamp: u64) -> ToolResult 
             );
 
             // Extract categories
-            let categories: HashMap<String, usize> = snapshot.categories.iter()
+            let categories: HashMap<String, usize> = snapshot
+                .categories
+                .iter()
                 .map(|c| (c.name.clone(), c.count))
                 .collect();
 
@@ -256,12 +288,16 @@ fn execute_sw_snapshot_summary(evidence_id: &str, timestamp: u64) -> ToolResult 
 fn execute_hw_snapshot_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
     match HwSnapshot::load() {
         Some(snapshot) => {
-            let cpu_info = format!("{} ({} cores, {} threads)",
-                snapshot.cpu.model, snapshot.cpu.cores, snapshot.cpu.threads);
+            let cpu_info = format!(
+                "{} ({} cores, {} threads)",
+                snapshot.cpu.model, snapshot.cpu.cores, snapshot.cpu.threads
+            );
 
             let memory_gb = snapshot.memory.total_bytes / (1024 * 1024 * 1024);
 
-            let gpu_info = snapshot.gpu.as_ref()
+            let gpu_info = snapshot
+                .gpu
+                .as_ref()
                 .map(|g| g.name.clone())
                 .unwrap_or_else(|| "none detected".to_string());
 
@@ -308,10 +344,12 @@ fn execute_hw_snapshot_summary(evidence_id: &str, timestamp: u64) -> ToolResult 
     }
 }
 
-fn execute_recent_installs(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let days = params.get("days")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(14) as i64;
+fn execute_recent_installs(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let days = params.get("days").and_then(|v| v.as_i64()).unwrap_or(14) as i64;
 
     // Read pacman.log and find recent installs
     let pacman_log = std::fs::read_to_string("/var/log/pacman.log").unwrap_or_default();
@@ -362,21 +400,27 @@ fn execute_recent_installs(params: &HashMap<String, serde_json::Value>, evidence
     }
 }
 
-fn execute_journal_warnings(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let service = params.get("service")
+fn execute_journal_warnings(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let service = params
+        .get("service")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
-    let minutes = params.get("minutes")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(60) as u64;
+    let minutes = params.get("minutes").and_then(|v| v.as_i64()).unwrap_or(60) as u64;
 
     // Run journalctl with priority filter
     let mut cmd = Command::new("journalctl");
     cmd.arg("--no-pager")
-        .arg("-p").arg("warning")
-        .arg("--since").arg(format!("{} minutes ago", minutes))
-        .arg("-n").arg("50"); // Limit entries
+        .arg("-p")
+        .arg("warning")
+        .arg("--since")
+        .arg(format!("{} minutes ago", minutes))
+        .arg("-n")
+        .arg("50"); // Limit entries
 
     if let Some(svc) = &service {
         cmd.arg("-u").arg(svc);
@@ -389,9 +433,15 @@ fn execute_journal_warnings(params: &HashMap<String, serde_json::Value>, evidenc
             let total_lines = stdout.lines().count();
 
             let human_summary = if let Some(svc) = &service {
-                format!("Found {} warnings/errors for {} in the last {} minutes", total_lines, svc, minutes)
+                format!(
+                    "Found {} warnings/errors for {} in the last {} minutes",
+                    total_lines, svc, minutes
+                )
             } else {
-                format!("Found {} system warnings/errors in the last {} minutes", total_lines, minutes)
+                format!(
+                    "Found {} system warnings/errors in the last {} minutes",
+                    total_lines, minutes
+                )
             };
 
             ToolResult {
@@ -421,7 +471,11 @@ fn execute_journal_warnings(params: &HashMap<String, serde_json::Value>, evidenc
     }
 }
 
-fn execute_boot_time_trend(_params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
+fn execute_boot_time_trend(
+    _params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
     // Use systemd-analyze for boot time
     match Command::new("systemd-analyze").output() {
         Ok(output) => {
@@ -455,18 +509,22 @@ fn execute_boot_time_trend(_params: &HashMap<String, serde_json::Value>, evidenc
     }
 }
 
-fn execute_top_resource_processes(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
+fn execute_top_resource_processes(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
     // Use ps to get top CPU/memory consumers
-    match Command::new("ps")
-        .args(["aux", "--sort=-%cpu"])
-        .output()
-    {
+    match Command::new("ps").args(["aux", "--sort=-%cpu"]).output() {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let lines: Vec<&str> = stdout.lines().take(11).collect(); // Header + top 10
 
             let process_count = lines.len().saturating_sub(1);
-            let human_summary = format!("Retrieved top {} resource-consuming processes", process_count);
+            let human_summary = format!(
+                "Retrieved top {} resource-consuming processes",
+                process_count
+            );
 
             ToolResult {
                 tool_name: "top_resource_processes".to_string(),
@@ -493,10 +551,12 @@ fn execute_top_resource_processes(params: &HashMap<String, serde_json::Value>, e
     }
 }
 
-fn execute_package_info(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let name = params.get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+fn execute_package_info(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
 
     if name.is_empty() {
         return ToolResult {
@@ -524,10 +584,19 @@ fn execute_package_info(params: &HashMap<String, serde_json::Value>, evidence_id
                 }
             }
 
-            let version = info.get("version").cloned().unwrap_or_else(|| "unknown".to_string());
-            let installed_size = info.get("installed_size").cloned().unwrap_or_else(|| "unknown".to_string());
+            let version = info
+                .get("version")
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string());
+            let installed_size = info
+                .get("installed_size")
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string());
 
-            let human_summary = format!("Package {}: version {}, size {}", name, version, installed_size);
+            let human_summary = format!(
+                "Package {}: version {}, size {}",
+                name, version, installed_size
+            );
 
             ToolResult {
                 tool_name: "package_info".to_string(),
@@ -563,10 +632,12 @@ fn execute_package_info(params: &HashMap<String, serde_json::Value>, evidence_id
     }
 }
 
-fn execute_service_status(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let name = params.get("name")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+fn execute_service_status(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
 
     if name.is_empty() {
         return ToolResult {
@@ -587,7 +658,10 @@ fn execute_service_status(params: &HashMap<String, serde_json::Value>, evidence_
         format!("{}.service", name)
     };
 
-    match Command::new("systemctl").args(["status", &unit_name]).output() {
+    match Command::new("systemctl")
+        .args(["status", &unit_name])
+        .output()
+    {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let lines: Vec<&str> = stdout.lines().take(10).collect();
@@ -629,7 +703,10 @@ fn execute_service_status(params: &HashMap<String, serde_json::Value>, evidence_
 }
 
 fn execute_disk_usage(evidence_id: &str, timestamp: u64) -> ToolResult {
-    match Command::new("df").args(["-h", "--output=source,size,used,avail,pcent,target"]).output() {
+    match Command::new("df")
+        .args(["-h", "--output=source,size,used,avail,pcent,target"])
+        .output()
+    {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let lines: Vec<&str> = stdout.lines().collect();
@@ -638,7 +715,8 @@ fn execute_disk_usage(evidence_id: &str, timestamp: u64) -> ToolResult {
             let mut filesystems: Vec<serde_json::Value> = Vec::new();
             let mut root_info: Option<serde_json::Value> = None;
 
-            for line in lines.iter().skip(1) { // Skip header
+            for line in lines.iter().skip(1) {
+                // Skip header
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 6 {
                     let fs = json!({
@@ -661,8 +739,14 @@ fn execute_disk_usage(evidence_id: &str, timestamp: u64) -> ToolResult {
             // Get root filesystem free space for summary
             let (root_free, root_used_pct) = if let Some(ref root) = root_info {
                 (
-                    root.get("available").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
-                    root.get("use_percent").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+                    root.get("available")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string(),
+                    root.get("use_percent")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string(),
                 )
             } else {
                 ("unknown".to_string(), "unknown".to_string())
@@ -670,7 +754,9 @@ fn execute_disk_usage(evidence_id: &str, timestamp: u64) -> ToolResult {
 
             let human_summary = format!(
                 "Disk: / has {} free ({} used), {} filesystems mounted",
-                root_free, root_used_pct, filesystems.len()
+                root_free,
+                root_used_pct,
+                filesystems.len()
             );
 
             ToolResult {
@@ -714,21 +800,27 @@ fn execute_active_alerts(evidence_id: &str, timestamp: u64) -> ToolResult {
     } else {
         format!(
             "{} active alerts: {} critical, {} warnings, {} info",
-            active.len(), critical, warning, info
+            active.len(),
+            critical,
+            warning,
+            info
         )
     };
 
-    let alerts_data: Vec<serde_json::Value> = active.iter().map(|a| {
-        json!({
-            "evidence_id": a.evidence_id,
-            "severity": a.severity.as_str(),
-            "title": a.title,
-            "description": a.description,
-            "confidence": a.confidence,
-            "occurrence_count": a.occurrence_count,
-            "hints": a.hints,
+    let alerts_data: Vec<serde_json::Value> = active
+        .iter()
+        .map(|a| {
+            json!({
+                "evidence_id": a.evidence_id,
+                "severity": a.severity.as_str(),
+                "title": a.title,
+                "description": a.description,
+                "confidence": a.confidence,
+                "occurrence_count": a.occurrence_count,
+                "hints": a.hints,
+            })
         })
-    }).collect();
+        .collect();
 
     ToolResult {
         tool_name: "active_alerts".to_string(),
@@ -747,10 +839,12 @@ fn execute_active_alerts(evidence_id: &str, timestamp: u64) -> ToolResult {
     }
 }
 
-fn execute_what_changed(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let days = params.get("days")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(7) as u32;
+fn execute_what_changed(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let days = params.get("days").and_then(|v| v.as_i64()).unwrap_or(7) as u32;
 
     let result = what_changed(days);
     let human_summary = result.format_summary();
@@ -777,10 +871,12 @@ fn execute_what_changed(params: &HashMap<String, serde_json::Value>, evidence_id
     }
 }
 
-fn execute_slowness_hypotheses(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let days = params.get("days")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(7) as u32;
+fn execute_slowness_hypotheses(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let days = params.get("days").and_then(|v| v.as_i64()).unwrap_or(7) as u32;
 
     let result = analyze_slowness(days);
 
@@ -796,16 +892,20 @@ fn execute_slowness_hypotheses(params: &HashMap<String, serde_json::Value>, evid
         )
     };
 
-    let hypotheses_data: Vec<serde_json::Value> = result.hypotheses.iter().map(|h| {
-        json!({
-            "evidence_id": h.evidence_id,
-            "title": h.title,
-            "explanation": h.explanation,
-            "confidence": h.confidence,
-            "supporting_evidence": h.supporting_evidence,
-            "suggested_diagnostics": h.suggested_diagnostics,
+    let hypotheses_data: Vec<serde_json::Value> = result
+        .hypotheses
+        .iter()
+        .map(|h| {
+            json!({
+                "evidence_id": h.evidence_id,
+                "title": h.title,
+                "explanation": h.explanation,
+                "confidence": h.confidence,
+                "supporting_evidence": h.supporting_evidence,
+                "suggested_diagnostics": h.suggested_diagnostics,
+            })
         })
-    }).collect();
+        .collect();
 
     ToolResult {
         tool_name: "slowness_hypotheses".to_string(),
@@ -841,10 +941,12 @@ fn format_duration(secs: u64) -> String {
 
 // v0.0.19: Knowledge pack tool implementations
 
-fn execute_knowledge_search(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let query = params.get("query")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+fn execute_knowledge_search(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let query = params.get("query").and_then(|v| v.as_str()).unwrap_or("");
 
     if query.is_empty() {
         return ToolResult {
@@ -858,7 +960,8 @@ fn execute_knowledge_search(params: &HashMap<String, serde_json::Value>, evidenc
         };
     }
 
-    let top_k = params.get("top_k")
+    let top_k = params
+        .get("top_k")
         .and_then(|v| v.as_i64())
         .unwrap_or(DEFAULT_TOP_K as i64) as usize;
 
@@ -870,30 +973,33 @@ fn execute_knowledge_search(params: &HashMap<String, serde_json::Value>, evidenc
                     let result_count = results.len();
 
                     // Format results for JSON output
-                    let results_data: Vec<serde_json::Value> = results.iter().map(|r| {
-                        json!({
-                            "evidence_id": r.evidence_id,
-                            "title": r.title,
-                            "pack_id": r.pack_id,
-                            "pack_name": r.pack_name,
-                            "source_path": r.source_path,
-                            "trust": format!("{:?}", r.trust),
-                            "excerpt": r.excerpt,
-                            "score": r.score,
-                            "matched_keywords": r.matched_keywords,
+                    let results_data: Vec<serde_json::Value> = results
+                        .iter()
+                        .map(|r| {
+                            json!({
+                                "evidence_id": r.evidence_id,
+                                "title": r.title,
+                                "pack_id": r.pack_id,
+                                "pack_name": r.pack_name,
+                                "source_path": r.source_path,
+                                "trust": format!("{:?}", r.trust),
+                                "excerpt": r.excerpt,
+                                "score": r.score,
+                                "matched_keywords": r.matched_keywords,
+                            })
                         })
-                    }).collect();
+                        .collect();
 
                     let human_summary = if result_count == 0 {
                         format!("No results found for query: '{}'", query)
                     } else {
-                        let top_titles: Vec<&str> = results.iter()
-                            .take(3)
-                            .map(|r| r.title.as_str())
-                            .collect();
+                        let top_titles: Vec<&str> =
+                            results.iter().take(3).map(|r| r.title.as_str()).collect();
                         format!(
                             "Found {} results for '{}'. Top matches: {}",
-                            result_count, query, top_titles.join(", ")
+                            result_count,
+                            query,
+                            top_titles.join(", ")
                         )
                     };
 
@@ -946,7 +1052,10 @@ fn execute_knowledge_stats(evidence_id: &str, timestamp: u64) -> ToolResult {
                     } else if stats.total_size_bytes < 1024 * 1024 {
                         format!("{:.1} KB", stats.total_size_bytes as f64 / 1024.0)
                     } else {
-                        format!("{:.1} MB", stats.total_size_bytes as f64 / (1024.0 * 1024.0))
+                        format!(
+                            "{:.1} MB",
+                            stats.total_size_bytes as f64 / (1024.0 * 1024.0)
+                        )
                     };
 
                     // Format last index time
@@ -1003,7 +1112,7 @@ fn execute_knowledge_stats(evidence_id: &str, timestamp: u64) -> ToolResult {
                 "hint": "Knowledge index not initialized"
             }),
             human_summary: "Knowledge index not initialized. Run ingestion first.".to_string(),
-            success: true,  // Not a failure, just empty
+            success: true, // Not a failure, just empty
             error: None,
             timestamp,
         },
@@ -1017,9 +1126,7 @@ fn execute_answer_context(evidence_id: &str, timestamp: u64) -> ToolResult {
 
     let human_summary = format!(
         "Distro: {}, Knowledge: {} packs ({} docs)",
-        context.distro,
-        context.knowledge_packs_available,
-        context.knowledge_docs_count
+        context.distro, context.knowledge_packs_available, context.knowledge_docs_count
     );
 
     ToolResult {
@@ -1041,10 +1148,12 @@ fn execute_answer_context(evidence_id: &str, timestamp: u64) -> ToolResult {
     }
 }
 
-fn execute_source_plan(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let request = params.get("request")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+fn execute_source_plan(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let request = params.get("request").and_then(|v| v.as_str()).unwrap_or("");
 
     if request.is_empty() {
         return ToolResult {
@@ -1083,7 +1192,8 @@ fn execute_source_plan(params: &HashMap<String, serde_json::Value>, evidence_id:
 fn execute_qa_stats(evidence_id: &str, timestamp: u64) -> ToolResult {
     let stats = QaStats::load_today();
 
-    let top_sources: Vec<String> = stats.top_source_types(3)
+    let top_sources: Vec<String> = stats
+        .top_source_types(3)
         .iter()
         .map(|(name, count)| format!("{}: {}", name, count))
         .collect();
@@ -1095,7 +1205,11 @@ fn execute_qa_stats(evidence_id: &str, timestamp: u64) -> ToolResult {
             "{} answers today, avg reliability {}%, top sources: {}",
             stats.answers_count,
             stats.avg_reliability(),
-            if top_sources.is_empty() { "none".to_string() } else { top_sources.join(", ") }
+            if top_sources.is_empty() {
+                "none".to_string()
+            } else {
+                top_sources.join(", ")
+            }
         )
     };
 
@@ -1155,10 +1269,12 @@ fn execute_self_diagnostics(evidence_id: &str, timestamp: u64) -> ToolResult {
     }
 }
 
-fn execute_metrics_summary(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let days = params.get("days")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(1) as u32;
+fn execute_metrics_summary(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let days = params.get("days").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
 
     let metrics = MetricsStore::load();
     let totals = metrics.total_counts(days);
@@ -1193,11 +1309,14 @@ fn execute_metrics_summary(params: &HashMap<String, serde_json::Value>, evidence
 
     // Get latency percentiles from today
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    let (p50_e2e, p95_e2e) = metrics.for_date(&today)
-        .map(|m| (
-            m.percentile_latency("e2e", 50.0).unwrap_or(0),
-            m.percentile_latency("e2e", 95.0).unwrap_or(0)
-        ))
+    let (p50_e2e, p95_e2e) = metrics
+        .for_date(&today)
+        .map(|m| {
+            (
+                m.percentile_latency("e2e", 50.0).unwrap_or(0),
+                m.percentile_latency("e2e", 95.0).unwrap_or(0),
+            )
+        })
         .unwrap_or((0, 0));
 
     let human_summary = format!(
@@ -1232,7 +1351,8 @@ fn execute_error_budgets(evidence_id: &str, timestamp: u64) -> ToolResult {
     let budgets = ErrorBudgets::default();
 
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    let today_metrics = metrics.for_date(&today)
+    let today_metrics = metrics
+        .for_date(&today)
         .cloned()
         .unwrap_or_else(|| crate::reliability::DailyMetrics::default());
 
@@ -1240,17 +1360,23 @@ fn execute_error_budgets(evidence_id: &str, timestamp: u64) -> ToolResult {
     let alerts = check_budget_alerts(&statuses);
 
     let has_issues = statuses.iter().any(|s| {
-        s.status == crate::reliability::BudgetState::Warning ||
-        s.status == crate::reliability::BudgetState::Critical ||
-        s.status == crate::reliability::BudgetState::Exhausted
+        s.status == crate::reliability::BudgetState::Warning
+            || s.status == crate::reliability::BudgetState::Critical
+            || s.status == crate::reliability::BudgetState::Exhausted
     });
 
     let human_summary = if statuses.is_empty() {
         "No error budget data yet today".to_string()
     } else if has_issues {
-        let issues: Vec<String> = statuses.iter()
+        let issues: Vec<String> = statuses
+            .iter()
             .filter(|s| s.status != crate::reliability::BudgetState::Ok)
-            .map(|s| format!("{}: {:.1}%/{:.1}%", s.category, s.current_percent, s.budget_percent))
+            .map(|s| {
+                format!(
+                    "{}: {:.1}%/{:.1}%",
+                    s.category, s.current_percent, s.budget_percent
+                )
+            })
             .collect();
         format!("Error budget issues: {}", issues.join(", "))
     } else {
@@ -1411,14 +1537,18 @@ fn execute_last_failure_summary(evidence_id: &str, timestamp: u64) -> ToolResult
 fn execute_list_today_cases(evidence_id: &str, timestamp: u64) -> ToolResult {
     let cases = crate::transcript::list_today_cases();
 
-    let case_summaries: Vec<_> = cases.iter()
+    let case_summaries: Vec<_> = cases
+        .iter()
         .filter_map(|path| crate::transcript::load_case_summary(path))
         .collect();
 
     let human_summary = format!(
         "Today: {} cases, {} successful",
         case_summaries.len(),
-        case_summaries.iter().filter(|s| s.outcome == crate::transcript::CaseOutcome::Success).count()
+        case_summaries
+            .iter()
+            .filter(|s| s.outcome == crate::transcript::CaseOutcome::Success)
+            .count()
     );
 
     ToolResult {
@@ -1441,14 +1571,17 @@ fn execute_list_today_cases(evidence_id: &str, timestamp: u64) -> ToolResult {
     }
 }
 
-fn execute_list_recent_cases(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let limit = params.get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(10) as usize;
+fn execute_list_recent_cases(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
 
     let cases = crate::transcript::list_recent_cases(limit);
 
-    let case_summaries: Vec<_> = cases.iter()
+    let case_summaries: Vec<_> = cases
+        .iter()
         .filter_map(|path| crate::transcript::load_case_summary(path))
         .collect();
 
@@ -1629,14 +1762,19 @@ fn execute_network_status(evidence_id: &str, timestamp: u64) -> ToolResult {
         .unwrap_or_else(|_| "unknown".to_string());
 
     // Parse interfaces from ip link
-    let interfaces: Vec<serde_json::Value> = ip_link.lines()
+    let interfaces: Vec<serde_json::Value> = ip_link
+        .lines()
         .filter_map(|line| {
             let parts: Vec<&str> = line.split(':').collect();
             if parts.len() >= 2 {
                 let name = parts[1].trim();
-                let state = if line.contains("state UP") { "UP" }
-                    else if line.contains("state DOWN") { "DOWN" }
-                    else { "UNKNOWN" };
+                let state = if line.contains("state UP") {
+                    "UP"
+                } else if line.contains("state DOWN") {
+                    "DOWN"
+                } else {
+                    "UNKNOWN"
+                };
                 Some(json!({ "name": name, "state": state }))
             } else {
                 None
@@ -1644,7 +1782,8 @@ fn execute_network_status(evidence_id: &str, timestamp: u64) -> ToolResult {
         })
         .collect();
 
-    let active_count = interfaces.iter()
+    let active_count = interfaces
+        .iter()
         .filter(|i| i.get("state").and_then(|v| v.as_str()) == Some("UP"))
         .count();
 
@@ -1652,7 +1791,11 @@ fn execute_network_status(evidence_id: &str, timestamp: u64) -> ToolResult {
         "Network: {} interfaces ({} up), default route: {}, NetworkManager: {}",
         interfaces.len(),
         active_count,
-        if default_route.is_empty() { "none" } else { "yes" },
+        if default_route.is_empty() {
+            "none"
+        } else {
+            "yes"
+        },
         nm_status
     );
 
@@ -1715,11 +1858,13 @@ fn execute_audio_status(evidence_id: &str, timestamp: u64) -> ToolResult {
         .unwrap_or_else(|_| "No ALSA cards found".to_string());
 
     // Parse sinks and sources
-    let sinks: Vec<String> = pactl_sinks.lines()
+    let sinks: Vec<String> = pactl_sinks
+        .lines()
         .filter_map(|l| l.split_whitespace().nth(1).map(|s| s.to_string()))
         .collect();
 
-    let sources: Vec<String> = pactl_sources.lines()
+    let sources: Vec<String> = pactl_sources
+        .lines()
         .filter_map(|l| l.split_whitespace().nth(1).map(|s| s.to_string()))
         .collect();
 
@@ -1825,7 +1970,11 @@ fn execute_mem_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
     let total_gib = mem_total_kb as f64 / 1024.0 / 1024.0;
     let available_gib = mem_available_kb as f64 / 1024.0 / 1024.0;
     let used_gib = total_gib - available_gib;
-    let used_percent = if total_gib > 0.0 { (used_gib / total_gib) * 100.0 } else { 0.0 };
+    let used_percent = if total_gib > 0.0 {
+        (used_gib / total_gib) * 100.0
+    } else {
+        0.0
+    };
 
     let human_summary = format!(
         "Memory: {:.1} GiB total, {:.1} GiB available ({:.0}% used)",
@@ -1900,17 +2049,20 @@ fn execute_mount_usage(evidence_id: &str, timestamp: u64) -> ToolResult {
 
     let (root_free, root_pct) = if let Some(ref root) = root_info {
         (
-            root.get("avail_human").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
-            root.get("use_percent").and_then(|v| v.as_str()).unwrap_or("0").to_string(),
+            root.get("avail_human")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            root.get("use_percent")
+                .and_then(|v| v.as_str())
+                .unwrap_or("0")
+                .to_string(),
         )
     } else {
         ("unknown".to_string(), "0".to_string())
     };
 
-    let human_summary = format!(
-        "Disk /: {} free ({}% used)",
-        root_free, root_pct
-    );
+    let human_summary = format!("Disk /: {} free ({}% used)", root_free, root_pct);
 
     ToolResult {
         tool_name: "mount_usage".to_string(),
@@ -1959,7 +2111,14 @@ fn execute_nm_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
 
     // Get active connections via nmcli if available
     let nmcli_output = Command::new("nmcli")
-        .args(["-t", "-f", "NAME,TYPE,DEVICE,STATE", "connection", "show", "--active"])
+        .args([
+            "-t",
+            "-f",
+            "NAME,TYPE,DEVICE,STATE",
+            "connection",
+            "show",
+            "--active",
+        ])
         .output()
         .ok();
 
@@ -1986,7 +2145,8 @@ fn execute_nm_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
 
     let human_summary = format!(
         "NetworkManager: {}, {} active connections",
-        nm_active, connections.len()
+        nm_active,
+        connections.len()
     );
 
     ToolResult {
@@ -2016,10 +2176,18 @@ fn execute_ip_route_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
     // Parse gateway and interface from default route
     let (gateway, interface) = if !default_route.is_empty() {
         let parts: Vec<&str> = default_route.split_whitespace().collect();
-        let gw = parts.iter().skip_while(|&&p| p != "via")
-            .nth(1).map(|s| s.to_string()).unwrap_or_default();
-        let dev = parts.iter().skip_while(|&&p| p != "dev")
-            .nth(1).map(|s| s.to_string()).unwrap_or_default();
+        let gw = parts
+            .iter()
+            .skip_while(|&&p| p != "via")
+            .nth(1)
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+        let dev = parts
+            .iter()
+            .skip_while(|&&p| p != "dev")
+            .nth(1)
+            .map(|s| s.to_string())
+            .unwrap_or_default();
         (gw, dev)
     } else {
         (String::new(), String::new())
@@ -2034,7 +2202,10 @@ fn execute_ip_route_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
 
     let has_default = !default_route.is_empty();
     let human_summary = if has_default {
-        format!("Default route via {} on {}, {} total routes", gateway, interface, route_count)
+        format!(
+            "Default route via {} on {}, {} total routes",
+            gateway, interface, route_count
+        )
     } else {
         format!("No default route, {} routes", route_count)
     };
@@ -2075,18 +2246,28 @@ fn execute_link_state_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
             let name = parts[1].trim().split('@').next().unwrap_or(parts[1].trim());
             let flags = if let Some(flags_part) = line.split('<').nth(1) {
                 flags_part.split('>').next().unwrap_or("")
-            } else { "" };
+            } else {
+                ""
+            };
 
             let is_up = flags.contains("UP");
             let has_carrier = flags.contains("LOWER_UP");
-            let state = if line.contains("state UP") { "UP" }
-                else if line.contains("state DOWN") { "DOWN" }
-                else { "UNKNOWN" };
+            let state = if line.contains("state UP") {
+                "UP"
+            } else if line.contains("state DOWN") {
+                "DOWN"
+            } else {
+                "UNKNOWN"
+            };
 
             // Skip loopback for reporting
             if name != "lo" {
-                if is_up { up_count += 1; }
-                if has_carrier { carrier_count += 1; }
+                if is_up {
+                    up_count += 1;
+                }
+                if has_carrier {
+                    carrier_count += 1;
+                }
 
                 interfaces.push(json!({
                     "name": name,
@@ -2100,7 +2281,9 @@ fn execute_link_state_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
 
     let human_summary = format!(
         "Interfaces: {} total, {} up, {} with carrier",
-        interfaces.len(), up_count, carrier_count
+        interfaces.len(),
+        up_count,
+        carrier_count
     );
 
     ToolResult {
@@ -2188,7 +2371,8 @@ fn execute_pactl_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
                 "available": false,
                 "reason": "pactl not installed"
             }),
-            human_summary: "pactl not available (pipewire/pulseaudio tools not installed)".to_string(),
+            human_summary: "pactl not available (pipewire/pulseaudio tools not installed)"
+                .to_string(),
             success: true,
             error: None,
             timestamp,
@@ -2225,7 +2409,8 @@ fn execute_pactl_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
     let human_summary = format!(
         "Audio: default sink={}, {} sinks, {} sources",
         default_sink.split('.').last().unwrap_or(&default_sink),
-        sink_count, source_count
+        sink_count,
+        source_count
     );
 
     ToolResult {
@@ -2271,7 +2456,15 @@ fn execute_boot_time_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
     let userspace_time = analyze_output
         .split('+')
         .nth(1)
-        .map(|s| s.split('=').next().unwrap_or(s).trim().trim_end_matches("(userspace)").trim().to_string())
+        .map(|s| {
+            s.split('=')
+                .next()
+                .unwrap_or(s)
+                .trim()
+                .trim_end_matches("(userspace)")
+                .trim()
+                .to_string()
+        })
         .unwrap_or_default();
 
     let human_summary = format!("Boot time: {}", total_time);
@@ -2293,10 +2486,12 @@ fn execute_boot_time_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
 }
 
 /// recent_errors_summary - journalctl warnings/errors summarized by service
-fn execute_recent_errors_summary(params: &HashMap<String, serde_json::Value>, evidence_id: &str, timestamp: u64) -> ToolResult {
-    let minutes = params.get("minutes")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(30) as u32;
+fn execute_recent_errors_summary(
+    params: &HashMap<String, serde_json::Value>,
+    evidence_id: &str,
+    timestamp: u64,
+) -> ToolResult {
+    let minutes = params.get("minutes").and_then(|v| v.as_u64()).unwrap_or(30) as u32;
 
     // Get errors and warnings from journal
     let journal_output = Command::new("journalctl")
@@ -2304,7 +2499,8 @@ fn execute_recent_errors_summary(params: &HashMap<String, serde_json::Value>, ev
             "--priority=warning",
             &format!("--since={} min ago", minutes),
             "--no-pager",
-            "-o", "short",
+            "-o",
+            "short",
         ])
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
@@ -2314,13 +2510,18 @@ fn execute_recent_errors_summary(params: &HashMap<String, serde_json::Value>, ev
     let mut service_counts: HashMap<String, u32> = HashMap::new();
     let mut total_count: u32 = 0;
 
-    for line in journal_output.lines().take(200) { // Limit to 200 lines
+    for line in journal_output.lines().take(200) {
+        // Limit to 200 lines
         total_count += 1;
         // Extract service name from log line
         // Format: "Dec 03 12:34:56 hostname service[pid]: message"
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 5 {
-            let service = parts[4].split('[').next().unwrap_or("unknown").trim_end_matches(':');
+            let service = parts[4]
+                .split('[')
+                .next()
+                .unwrap_or("unknown")
+                .trim_end_matches(':');
             *service_counts.entry(service.to_string()).or_insert(0) += 1;
         }
     }
@@ -2328,7 +2529,9 @@ fn execute_recent_errors_summary(params: &HashMap<String, serde_json::Value>, ev
     // Sort by count descending and take top 10
     let mut sorted: Vec<_> = service_counts.iter().collect();
     sorted.sort_by(|a, b| b.1.cmp(a.1));
-    let top_services: Vec<serde_json::Value> = sorted.iter().take(10)
+    let top_services: Vec<serde_json::Value> = sorted
+        .iter()
+        .take(10)
         .map(|(svc, count)| json!({ "service": svc, "count": count }))
         .collect();
 
@@ -2337,7 +2540,9 @@ fn execute_recent_errors_summary(params: &HashMap<String, serde_json::Value>, ev
     } else {
         format!(
             "{} warnings/errors in last {} min from {} services",
-            total_count, minutes, service_counts.len()
+            total_count,
+            minutes,
+            service_counts.len()
         )
     };
 
@@ -2367,9 +2572,7 @@ fn execute_file_stat(
     evidence_id: &str,
     timestamp: u64,
 ) -> ToolResult {
-    let path_str = params.get("path")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let path_str = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
 
     if path_str.is_empty() {
         return ToolResult {
@@ -2414,7 +2617,11 @@ fn execute_file_stat(
 
             let human_summary = format!(
                 "{}: {}bytes, uid={}, gid={}, mode={:o}",
-                path_str, size, uid, gid, mode & 0o7777
+                path_str,
+                size,
+                uid,
+                gid,
+                mode & 0o7777
             );
 
             ToolResult {
@@ -2461,11 +2668,10 @@ fn execute_file_preview(
 ) -> ToolResult {
     use crate::redaction::redact_transcript;
 
-    let path_str = params.get("path")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let path_str = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
 
-    let max_bytes = params.get("max_bytes")
+    let max_bytes = params
+        .get("max_bytes")
         .and_then(|v| v.as_u64())
         .unwrap_or(2048) as usize;
 
@@ -2501,7 +2707,11 @@ fn execute_file_preview(
     match std::fs::read(path) {
         Ok(bytes) => {
             let truncated = bytes.len() > max_bytes;
-            let preview_bytes = if truncated { &bytes[..max_bytes] } else { &bytes };
+            let preview_bytes = if truncated {
+                &bytes[..max_bytes]
+            } else {
+                &bytes
+            };
 
             // Convert to string, handling non-UTF8
             let content = String::from_utf8_lossy(preview_bytes);
@@ -2561,9 +2771,7 @@ fn execute_file_hash(
     evidence_id: &str,
     timestamp: u64,
 ) -> ToolResult {
-    let path_str = params.get("path")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let path_str = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
 
     if path_str.is_empty() {
         return ToolResult {
@@ -2643,9 +2851,7 @@ fn execute_path_policy_check(
 ) -> ToolResult {
     use crate::mutation_tools::check_path_policy;
 
-    let path_str = params.get("path")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let path_str = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
 
     if path_str.is_empty() {
         return ToolResult {
@@ -2669,9 +2875,15 @@ fn execute_path_policy_check(
     let in_sandbox = in_cwd || in_tmp;
 
     let human_summary = if policy_result.allowed {
-        format!("{}: ALLOWED [{}] - {}", path_str, policy_result.evidence_id, policy_result.reason)
+        format!(
+            "{}: ALLOWED [{}] - {}",
+            path_str, policy_result.evidence_id, policy_result.reason
+        )
     } else {
-        format!("{}: BLOCKED [{}] - {}", path_str, policy_result.evidence_id, policy_result.reason)
+        format!(
+            "{}: BLOCKED [{}] - {}",
+            path_str, policy_result.evidence_id, policy_result.reason
+        )
     };
 
     ToolResult {
@@ -2705,13 +2917,9 @@ fn execute_learned_recipe_search(
 ) -> ToolResult {
     use crate::learning::LearningManager;
 
-    let query = params.get("query")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let query = params.get("query").and_then(|v| v.as_str()).unwrap_or("");
 
-    let limit = params.get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(5) as usize;
+    let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
 
     if query.is_empty() {
         return ToolResult {
@@ -2727,26 +2935,33 @@ fn execute_learned_recipe_search(
 
     match LearningManager::search_all(query, limit) {
         Ok(hits) => {
-            let results: Vec<serde_json::Value> = hits.iter().map(|h| {
-                json!({
-                    "evidence_id": h.evidence_id,
-                    "recipe_id": h.recipe.recipe_id,
-                    "title": h.recipe.title,
-                    "pack_id": h.pack_id,
-                    "pack_name": h.pack_name,
-                    "triggers": h.recipe.triggers,
-                    "targets": h.recipe.targets,
-                    "score": h.score,
-                    "wins": h.recipe.wins,
-                    "summary": h.summary(),
-                    "match_reason": h.match_reason(),
+            let results: Vec<serde_json::Value> = hits
+                .iter()
+                .map(|h| {
+                    json!({
+                        "evidence_id": h.evidence_id,
+                        "recipe_id": h.recipe.recipe_id,
+                        "title": h.recipe.title,
+                        "pack_id": h.pack_id,
+                        "pack_name": h.pack_name,
+                        "triggers": h.recipe.triggers,
+                        "targets": h.recipe.targets,
+                        "score": h.score,
+                        "wins": h.recipe.wins,
+                        "summary": h.summary(),
+                        "match_reason": h.match_reason(),
+                    })
                 })
-            }).collect();
+                .collect();
 
             let human_summary = if hits.is_empty() {
                 format!("No matching recipes found for: {}", query)
             } else {
-                let top_titles: Vec<&str> = hits.iter().take(3).map(|h| h.recipe.title.as_str()).collect();
+                let top_titles: Vec<&str> = hits
+                    .iter()
+                    .take(3)
+                    .map(|h| h.recipe.title.as_str())
+                    .collect();
                 format!("Found {} recipes: {}", hits.len(), top_titles.join(", "))
             };
 
@@ -2776,10 +2991,7 @@ fn execute_learned_recipe_search(
     }
 }
 
-fn execute_learning_stats(
-    evidence_id: &str,
-    timestamp: u64,
-) -> ToolResult {
+fn execute_learning_stats(evidence_id: &str, timestamp: u64) -> ToolResult {
     use crate::learning::LearningManager;
 
     match LearningManager::get_stats() {
@@ -2832,38 +3044,23 @@ fn execute_learning_stats(
 // v0.0.58: Proactive Alerts Tool Executors
 // ============================================================================
 
-fn execute_proactive_alerts_summary(
-    evidence_id: &str,
-    _timestamp: u64,
-) -> ToolResult {
+fn execute_proactive_alerts_summary(evidence_id: &str, _timestamp: u64) -> ToolResult {
     probe_alerts_summary(evidence_id)
 }
 
-fn execute_disk_pressure_summary(
-    evidence_id: &str,
-    _timestamp: u64,
-) -> ToolResult {
+fn execute_disk_pressure_summary(evidence_id: &str, _timestamp: u64) -> ToolResult {
     probe_disk_pressure_summary(evidence_id)
 }
 
-fn execute_failed_units_summary(
-    evidence_id: &str,
-    _timestamp: u64,
-) -> ToolResult {
+fn execute_failed_units_summary(evidence_id: &str, _timestamp: u64) -> ToolResult {
     probe_failed_units_summary(evidence_id)
 }
 
-fn execute_thermal_status_summary(
-    evidence_id: &str,
-    _timestamp: u64,
-) -> ToolResult {
+fn execute_thermal_status_summary(evidence_id: &str, _timestamp: u64) -> ToolResult {
     probe_thermal_summary(evidence_id)
 }
 
-fn execute_journal_error_burst_summary(
-    evidence_id: &str,
-    _timestamp: u64,
-) -> ToolResult {
+fn execute_journal_error_burst_summary(evidence_id: &str, _timestamp: u64) -> ToolResult {
     probe_journal_error_burst_summary(evidence_id)
 }
 

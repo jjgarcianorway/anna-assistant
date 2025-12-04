@@ -48,35 +48,48 @@ mod routes;
 mod server;
 
 use anna_common::{
-    AnnaConfig, KnowledgeBuilder,
-    // v0.0.36: Knowledge packs for offline Q&A
-    KnowledgeIndex, ingest_manpages, ingest_package_docs,
-    ErrorIndex, LogEntry,
-    ServiceIndex, IntrusionIndex, LogScanState,
-    TelemetryWriter, ProcessSample, TelemetryState,
-    PackageChangeEvent, PackageChangeType,
-    // v7.1.0: SQLite telemetry
-    TelemetryDb, ProcessTelemetrySample,
-    // v7.27.0: Boot ID for "this boot" aggregations
-    get_current_boot_id,
-    // v7.39.0: Domain-based incremental refresh
-    domain_state::{Domain, DomainRefreshState, RefreshResult, DomainSummary, RefreshRequest, RefreshResponse, REQUESTS_DIR, RESPONSES_DIR},
-    self_observation::{SelfObservation, SELF_SAMPLE_INTERVAL_SECS},
-    // v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
-    snapshots::SwMeta,
-    snapshot_builder::{build_hw_snapshot, build_and_save_sw_snapshot, sw_needs_rebuild},
+    control_socket::{ControlSocketServer, DaemonStatus},
     // v7.42.0: Daemon/CLI contract fix
     daemon_state::{StatusSnapshot, SNAPSHOTS_DIR, STATUS_SCHEMA_VERSION},
-    control_socket::{ControlSocketServer, DaemonStatus},
+    // v7.39.0: Domain-based incremental refresh
+    domain_state::{
+        Domain, DomainRefreshState, DomainSummary, RefreshRequest, RefreshResponse, RefreshResult,
+        REQUESTS_DIR, RESPONSES_DIR,
+    },
+    // v7.27.0: Boot ID for "this boot" aggregations
+    get_current_boot_id,
+    ingest_manpages,
+    ingest_package_docs,
+    self_observation::{SelfObservation, SELF_SAMPLE_INTERVAL_SECS},
+    snapshot_builder::{build_and_save_sw_snapshot, build_hw_snapshot, sw_needs_rebuild},
+    // v7.41.0: Snapshot-based architecture (daemon writes, annactl reads only)
+    snapshots::SwMeta,
+    AnnaConfig,
+    ErrorIndex,
+    IntrusionIndex,
+    KnowledgeBuilder,
+    // v0.0.36: Knowledge packs for offline Q&A
+    KnowledgeIndex,
+    LogEntry,
+    LogScanState,
+    PackageChangeEvent,
+    PackageChangeType,
+    ProcessSample,
+    ProcessTelemetrySample,
+    ServiceIndex,
+    // v7.1.0: SQLite telemetry
+    TelemetryDb,
+    TelemetryState,
+    TelemetryWriter,
 };
 use anyhow::Result;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
+use sysinfo::{ProcessesToUpdate, System};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use sysinfo::{System, ProcessesToUpdate};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Collection interval for package/binary discovery (5 minutes)
 const DISCOVERY_INTERVAL_SECS: u64 = 300;
@@ -151,7 +164,7 @@ async fn main() -> Result<()> {
     setup_panic_hook();
 
     // v7.38.0: Write last_start.json immediately
-    use anna_common::daemon_state::{LastStart, LastCrash, StatusSnapshot, verify_writable_dirs};
+    use anna_common::daemon_state::{verify_writable_dirs, LastCrash, LastStart, StatusSnapshot};
     if let Err(e) = LastStart::write_start() {
         eprintln!("[FATAL] Cannot write last_start.json: {}", e);
         return Err(anyhow::anyhow!("Cannot write last_start.json: {}", e));
@@ -185,11 +198,16 @@ async fn main() -> Result<()> {
         let sample_interval = config.telemetry.effective_sample_interval();
         let retention = config.telemetry.effective_retention_days();
         let max_keys = config.telemetry.effective_max_keys();
-        info!("[>]  Telemetry: enabled, {}s interval, {}d retention, {} max keys",
-            sample_interval, retention, max_keys);
+        info!(
+            "[>]  Telemetry: enabled, {}s interval, {}d retention, {} max keys",
+            sample_interval, retention, max_keys
+        );
 
         if config.telemetry.sample_interval_was_clamped() {
-            warn!("[!]  sample_interval_secs out of range, clamped to {}", sample_interval);
+            warn!(
+                "[!]  sample_interval_secs out of range, clamped to {}",
+                sample_interval
+            );
         }
         if config.telemetry.retention_days_was_clamped() {
             warn!("[!]  retention_days out of range, clamped to {}", retention);
@@ -222,7 +240,10 @@ async fn main() -> Result<()> {
         }
         let store = b.store();
         let (commands, packages, services) = store.count_by_type();
-        info!("[+]  Inventory: {} cmds, {} pkgs, {} svcs", commands, packages, services);
+        info!(
+            "[+]  Inventory: {} cmds, {} pkgs, {} svcs",
+            commands, packages, services
+        );
     }
 
     // Create app state for health endpoint
@@ -262,8 +283,10 @@ async fn main() -> Result<()> {
                         Err(e) => warn!("[!]  Failed to index package docs: {}", e),
                     }
                 } else {
-                    info!("[+]  Knowledge packs ready: {} packs, {} docs",
-                        stats.pack_count, stats.document_count);
+                    info!(
+                        "[+]  Knowledge packs ready: {} packs, {} docs",
+                        stats.pack_count, stats.document_count
+                    );
                 }
             }
             Err(e) => {
@@ -280,7 +303,9 @@ async fn main() -> Result<()> {
     if llm_enabled {
         tokio::spawn(async move {
             // Run bootstrap asynchronously - don't block daemon startup
-            if let Err(e) = llm_bootstrap::run_bootstrap(llm_state_for_bootstrap, &config_for_llm).await {
+            if let Err(e) =
+                llm_bootstrap::run_bootstrap(llm_state_for_bootstrap, &config_for_llm).await
+            {
                 warn!("[!]  LLM bootstrap failed: {}", e);
             }
         });
@@ -290,7 +315,10 @@ async fn main() -> Result<()> {
 
     // v8.0.0: Build known executables set for process tracking
     let known_executables = Arc::new(RwLock::new(process_tracker::build_known_executables()));
-    info!("[+]  Known executables: {} commands on PATH", known_executables.read().await.len());
+    info!(
+        "[+]  Known executables: {} commands on PATH",
+        known_executables.read().await.len()
+    );
 
     // v8.0.0: Spawn execution tracking task
     // Records process exits to per-object, per-day JSONL files
@@ -340,7 +368,10 @@ async fn main() -> Result<()> {
         let telemetry_db = match TelemetryDb::open() {
             Ok(db) => db,
             Err(e) => {
-                warn!("[!]  Failed to open telemetry DB: {}. Using log file fallback.", e);
+                warn!(
+                    "[!]  Failed to open telemetry DB: {}. Using log file fallback.",
+                    e
+                );
                 // Continue without SQLite - fall back to log file
                 let telemetry_writer = TelemetryWriter::new();
                 let mut system = System::new_all();
@@ -348,7 +379,10 @@ async fn main() -> Result<()> {
                 loop {
                     interval.tick().await;
                     system.refresh_processes(ProcessesToUpdate::All, true);
-                    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
                     let mut b = builder_process.write().await;
                     for (pid, process) in system.processes() {
                         let pid_u32 = pid.as_u32();
@@ -360,7 +394,13 @@ async fn main() -> Result<()> {
                         let cpu_time_ms = (cpu as u64) * sample_interval_secs * 10;
                         b.record_process_observation(&name, cpu_time_ms, mem);
                         if cpu > 5.0 || mem > 100_000_000 {
-                            let sample = ProcessSample { timestamp: now, name, pid: pid_u32, cpu_percent: cpu, mem_bytes: mem };
+                            let sample = ProcessSample {
+                                timestamp: now,
+                                name,
+                                pid: pid_u32,
+                                cpu_percent: cpu,
+                                mem_bytes: mem,
+                            };
                             let _ = telemetry_writer.record_process(&sample);
                         }
                     }
@@ -373,8 +413,12 @@ async fn main() -> Result<()> {
         match telemetry_db.run_maintenance(retention_days, max_keys) {
             Ok(result) => {
                 if result.samples_pruned_by_age > 0 || result.samples_pruned_by_key_limit > 0 {
-                    info!("[+]  Telemetry maintenance: pruned {} by age, {} by key limit ({} keys)",
-                        result.samples_pruned_by_age, result.samples_pruned_by_key_limit, result.current_key_count);
+                    info!(
+                        "[+]  Telemetry maintenance: pruned {} by age, {} by key limit ({} keys)",
+                        result.samples_pruned_by_age,
+                        result.samples_pruned_by_key_limit,
+                        result.current_key_count
+                    );
                 }
             }
             Err(e) => warn!("[!]  Telemetry maintenance failed: {}", e),
@@ -461,7 +505,9 @@ async fn main() -> Result<()> {
                 maintenance_counter = 0;
                 match telemetry_db.run_maintenance(retention_days, max_keys) {
                     Ok(result) => {
-                        if result.samples_pruned_by_age > 0 || result.samples_pruned_by_key_limit > 0 {
+                        if result.samples_pruned_by_age > 0
+                            || result.samples_pruned_by_key_limit > 0
+                        {
                             info!("[+]  Telemetry maintenance: pruned {} by age, {} by key limit ({} keys)",
                                 result.samples_pruned_by_age, result.samples_pruned_by_key_limit, result.current_key_count);
                         }
@@ -516,7 +562,13 @@ async fn main() -> Result<()> {
             let intrusions_before = intrusion_index.total_events;
 
             // v5.4.1: Cursor-based incremental scanning
-            scan_journal_logs(&builder_logs, &mut error_index, &mut intrusion_index, &mut log_scan_state).await;
+            scan_journal_logs(
+                &builder_logs,
+                &mut error_index,
+                &mut intrusion_index,
+                &mut log_scan_state,
+            )
+            .await;
 
             // Save indexes
             if let Err(e) = error_index.save() {
@@ -528,7 +580,9 @@ async fn main() -> Result<()> {
 
             // Update log scan state
             let new_errors = error_index.total_errors.saturating_sub(entries_before);
-            let new_intrusions = intrusion_index.total_events.saturating_sub(intrusions_before);
+            let new_intrusions = intrusion_index
+                .total_events
+                .saturating_sub(intrusions_before);
 
             log_scan_state.record_scan(new_errors, 0);
             if let Err(e) = log_scan_state.save() {
@@ -536,7 +590,10 @@ async fn main() -> Result<()> {
             }
 
             if new_errors > 0 || new_intrusions > 0 {
-                info!("[+]  Log scan: {} errors, {} intrusions", new_errors, new_intrusions);
+                info!(
+                    "[+]  Log scan: {} errors, {} intrusions",
+                    new_errors, new_intrusions
+                );
             }
         }
     });
@@ -558,10 +615,16 @@ async fn main() -> Result<()> {
                     info!("[helper] {}", msg);
                 }
                 if installed > 0 {
-                    info!("[+]  Helper health check: installed {} missing helper(s)", installed);
+                    info!(
+                        "[+]  Helper health check: installed {} missing helper(s)",
+                        installed
+                    );
                 }
                 if failed > 0 {
-                    warn!("[!]  Helper health check: failed to install {} helper(s)", failed);
+                    warn!(
+                        "[!]  Helper health check: failed to install {} helper(s)",
+                        failed
+                    );
                 }
             }
         }
@@ -632,7 +695,8 @@ async fn main() -> Result<()> {
                                 // [2024-12-01T10:30:00+0000] [ALPM] upgraded linux (6.6.1-1 -> 6.6.2-1)
                                 // [2024-12-01T10:30:00+0000] [ALPM] removed nano (7.2-1)
                                 if let Some(event) = parse_pacman_log_line(&line) {
-                                    info!("[PACMAN] {} {} {}",
+                                    info!(
+                                        "[PACMAN] {} {} {}",
                                         event.change_type.as_str(),
                                         event.package,
                                         event.to_version.as_deref().unwrap_or("")
@@ -649,23 +713,35 @@ async fn main() -> Result<()> {
                                         .as_secs();
 
                                     match event.change_type {
-                                        PackageChangeType::Installed | PackageChangeType::Upgraded => {
+                                        PackageChangeType::Installed
+                                        | PackageChangeType::Upgraded => {
                                             // First try targeted discovery
                                             b.targeted_discovery(&event.package);
 
                                             // Ensure the object exists and is marked installed
-                                            let obj = b.store_mut().objects.entry(event.package.clone())
+                                            let obj = b
+                                                .store_mut()
+                                                .objects
+                                                .entry(event.package.clone())
                                                 .or_insert_with(|| {
                                                     use anna_common::KnowledgeObject;
-                                                    let (category, wiki_ref) = anna_common::classify_tool(&event.package);
-                                                    let mut o = KnowledgeObject::new(&event.package, category);
+                                                    let (category, wiki_ref) =
+                                                        anna_common::classify_tool(&event.package);
+                                                    let mut o = KnowledgeObject::new(
+                                                        &event.package,
+                                                        category,
+                                                    );
                                                     o.wiki_ref = wiki_ref.map(|s| s.to_string());
                                                     o
                                                 });
                                             obj.installed = true;
                                             obj.removed_at = None;
-                                            if !obj.object_types.contains(&anna_common::ObjectType::Package) {
-                                                obj.object_types.push(anna_common::ObjectType::Package);
+                                            if !obj
+                                                .object_types
+                                                .contains(&anna_common::ObjectType::Package)
+                                            {
+                                                obj.object_types
+                                                    .push(anna_common::ObjectType::Package);
                                             }
                                             obj.package_name = Some(event.package.clone());
                                             if let Some(ref ver) = event.to_version {
@@ -675,11 +751,18 @@ async fn main() -> Result<()> {
                                         }
                                         PackageChangeType::Removed => {
                                             // Mark as removed - create entry if doesn't exist
-                                            let obj = b.store_mut().objects.entry(event.package.clone())
+                                            let obj = b
+                                                .store_mut()
+                                                .objects
+                                                .entry(event.package.clone())
                                                 .or_insert_with(|| {
                                                     use anna_common::KnowledgeObject;
-                                                    let (category, wiki_ref) = anna_common::classify_tool(&event.package);
-                                                    let mut o = KnowledgeObject::new(&event.package, category);
+                                                    let (category, wiki_ref) =
+                                                        anna_common::classify_tool(&event.package);
+                                                    let mut o = KnowledgeObject::new(
+                                                        &event.package,
+                                                        category,
+                                                    );
                                                     o.wiki_ref = wiki_ref.map(|s| s.to_string());
                                                     o
                                                 });
@@ -709,7 +792,7 @@ async fn main() -> Result<()> {
     // v7.34.0: Spawn update scheduler task with proper state management
     let current_version = env!("CARGO_PKG_VERSION").to_string();
     tokio::spawn(async move {
-        use anna_common::config::{UpdateState, UpdateMode};
+        use anna_common::config::{UpdateMode, UpdateState};
         use anna_common::{is_check_due, run_update_check, CheckResult};
 
         // Initialize state on daemon start
@@ -719,8 +802,11 @@ async fn main() -> Result<()> {
             if let Err(e) = state.save() {
                 warn!("[!]  Failed to initialize update state: {}", e);
             } else {
-                info!("[>]  Update scheduler initialized: mode={}, next_check={}",
-                    state.format_mode(), state.format_next_check());
+                info!(
+                    "[>]  Update scheduler initialized: mode={}, next_check={}",
+                    state.format_mode(),
+                    state.format_next_check()
+                );
             }
         }
 
@@ -747,7 +833,10 @@ async fn main() -> Result<()> {
                     info!("[+]  Update check: up to date (v{})", current_version);
                 }
                 CheckResult::UpdateAvailable { version } => {
-                    info!("[+]  Update check: v{} available (current: v{})", version, current_version);
+                    info!(
+                        "[+]  Update check: v{} available (current: v{})",
+                        version, current_version
+                    );
 
                     // v0.0.26: Actually perform the auto-update
                     info!("[*]  Starting auto-update to v{}...", version);
@@ -755,7 +844,10 @@ async fn main() -> Result<()> {
 
                     match perform_auto_update(&current_version) {
                         Ok(Some(new_version)) => {
-                            info!("[+]  Auto-update to v{} completed, requesting restart...", new_version);
+                            info!(
+                                "[+]  Auto-update to v{} completed, requesting restart...",
+                                new_version
+                            );
                             // Request systemd restart
                             let _ = std::process::Command::new("systemctl")
                                 .args(["restart", "annad"])
@@ -786,7 +878,10 @@ async fn main() -> Result<()> {
     let boot_id = get_current_boot_id();
     let llm_state_for_snapshot = llm_bootstrap_state.clone();
     tokio::spawn(async move {
-        info!("[>]  Status snapshot: writing to {} immediately and every 60s", SNAPSHOTS_DIR);
+        info!(
+            "[>]  Status snapshot: writing to {} immediately and every 60s",
+            SNAPSHOTS_DIR
+        );
 
         // Sequence number for ordering
         let mut seq: u64 = 0;
@@ -865,7 +960,10 @@ async fn main() -> Result<()> {
         let mut interval = tokio::time::interval(Duration::from_secs(SELF_SAMPLE_INTERVAL_SECS));
         let mut self_obs = SelfObservation::load();
         let mut last_cpu_ticks: Option<(u64, u64)> = None;
-        info!("[>]  Self-observation: monitoring daemon CPU/RAM every {}s", SELF_SAMPLE_INTERVAL_SECS);
+        info!(
+            "[>]  Self-observation: monitoring daemon CPU/RAM every {}s",
+            SELF_SAMPLE_INTERVAL_SECS
+        );
 
         loop {
             interval.tick().await;
@@ -884,7 +982,8 @@ async fn main() -> Result<()> {
                             let tick_delta = total_ticks.saturating_sub(last_ticks);
                             let time_delta = SELF_SAMPLE_INTERVAL_SECS;
                             // ticks are typically 100 Hz on Linux
-                            let cpu_percent = (tick_delta as f32 / (time_delta as f32 * 100.0)) * 100.0;
+                            let cpu_percent =
+                                (tick_delta as f32 / (time_delta as f32 * 100.0)) * 100.0;
                             sample.cpu_percent = cpu_percent;
                         }
 
@@ -953,7 +1052,10 @@ async fn main() -> Result<()> {
             .map(|d| DomainRefreshState::load(*d))
             .collect();
 
-        info!("[>]  Domain refresh: {} domains tracked", domain_states.len());
+        info!(
+            "[>]  Domain refresh: {} domains tracked",
+            domain_states.len()
+        );
 
         let mut interval = tokio::time::interval(Duration::from_secs(30)); // Check every 30s
 
@@ -977,26 +1079,45 @@ async fn main() -> Result<()> {
                         let (_, before_pkgs, _) = b.store().count_by_type();
                         b.collect_packages();
                         let (_, after_pkgs, _) = b.store().count_by_type();
-                        (after_pkgs, if after_pkgs != before_pkgs { RefreshResult::Ok } else { RefreshResult::Skipped })
+                        (
+                            after_pkgs,
+                            if after_pkgs != before_pkgs {
+                                RefreshResult::Ok
+                            } else {
+                                RefreshResult::Skipped
+                            },
+                        )
                     }
                     Domain::SwCommands => {
                         let mut b = builder_domain.write().await;
                         let (before_cmds, _, _) = b.store().count_by_type();
                         b.collect_binaries();
                         let (after_cmds, _, _) = b.store().count_by_type();
-                        (after_cmds, if after_cmds != before_cmds { RefreshResult::Ok } else { RefreshResult::Skipped })
+                        (
+                            after_cmds,
+                            if after_cmds != before_cmds {
+                                RefreshResult::Ok
+                            } else {
+                                RefreshResult::Skipped
+                            },
+                        )
                     }
                     Domain::SwServices => {
                         let mut b = builder_domain.write().await;
                         let before = b.store().get_services().len();
                         b.collect_services();
                         let after = b.store().get_services().len();
-                        (after, if after != before { RefreshResult::Ok } else { RefreshResult::Skipped })
+                        (
+                            after,
+                            if after != before {
+                                RefreshResult::Ok
+                            } else {
+                                RefreshResult::Skipped
+                            },
+                        )
                     }
                     // Other domains - stub for now (full implementation in future)
-                    _ => {
-                        (0, RefreshResult::Skipped)
-                    }
+                    _ => (0, RefreshResult::Skipped),
                 };
 
                 let duration_ms = start.elapsed().as_millis() as u64;
@@ -1009,14 +1130,18 @@ async fn main() -> Result<()> {
 
                 // Calculate next refresh time
                 let interval_secs = domain.default_refresh_interval_secs();
-                state.next_suggested_refresh_at = Some(now + chrono::Duration::seconds(interval_secs as i64));
+                state.next_suggested_refresh_at =
+                    Some(now + chrono::Duration::seconds(interval_secs as i64));
 
                 if let Err(e) = state.save() {
                     warn!("[!]  Failed to save domain state for {:?}: {}", domain, e);
                 }
 
                 if state.result == RefreshResult::Ok {
-                    info!("[+]  Domain {:?}: {} entities, {}ms", domain, entity_count, duration_ms);
+                    info!(
+                        "[+]  Domain {:?}: {} entities, {}ms",
+                        domain, entity_count, duration_ms
+                    );
                 }
             }
 
@@ -1091,11 +1216,13 @@ async fn main() -> Result<()> {
         // Build and save SW snapshot
         match build_and_save_sw_snapshot() {
             Ok(snapshot) => {
-                info!("[+]  sw.json built in {}ms ({} packages, {} commands, {} services)",
+                info!(
+                    "[+]  sw.json built in {}ms ({} packages, {} commands, {} services)",
                     snapshot.scan_duration_ms,
                     snapshot.packages.total,
                     snapshot.commands.total,
-                    snapshot.services.total);
+                    snapshot.services.total
+                );
             }
             Err(e) => {
                 warn!("[!]  Failed to save sw snapshot: {}", e);
@@ -1156,13 +1283,13 @@ fn ensure_data_dirs() {
         "/var/lib/anna",
         "/var/lib/anna/knowledge",
         "/var/lib/anna/telemetry",
-        "/var/lib/anna/internal",  // v7.33.0: Always create internal dir
-        "/var/lib/anna/internal/domains",  // v7.39.0: Domain states
+        "/var/lib/anna/internal", // v7.33.0: Always create internal dir
+        "/var/lib/anna/internal/domains", // v7.39.0: Domain states
         "/var/lib/anna/internal/requests", // v7.39.0: Refresh requests
         "/var/lib/anna/internal/responses", // v7.39.0: Refresh responses
         "/var/lib/anna/internal/snapshots", // v7.41.0: Daemon-written snapshots
-        "/var/lib/anna/internal/meta",      // v7.41.0: Delta detection metadata
-        "/var/lib/anna/kdb",       // v7.36.0: Chunk store
+        "/var/lib/anna/internal/meta", // v7.41.0: Delta detection metadata
+        "/var/lib/anna/kdb",      // v7.36.0: Chunk store
         "/var/lib/anna/kdb/chunks",
         "/var/lib/anna/kdb/facts",
     ];
@@ -1181,8 +1308,11 @@ fn ensure_data_dirs() {
     if let Err(e) = update_state.save() {
         warn!("[!]  Failed to initialize update state: {}", e);
     } else {
-        info!("[+]  Update state initialized: mode={}, next={}",
-            update_state.format_mode(), update_state.format_next_check());
+        info!(
+            "[+]  Update state initialized: mode={}, next={}",
+            update_state.format_mode(),
+            update_state.format_next_check()
+        );
     }
 
     // v0.0.23: Ensure default policy files exist on first run
@@ -1256,9 +1386,7 @@ async fn scan_journal_logs(
     }
     args.push("--show-cursor");
 
-    let output = Command::new("journalctl")
-        .args(&args)
-        .output();
+    let output = Command::new("journalctl").args(&args).output();
 
     let mut new_cursor: Option<String> = None;
 
@@ -1284,17 +1412,14 @@ async fn scan_journal_logs(
 
                 if let Some(entry) = LogEntry::from_journal_json(&json) {
                     // Try to associate with a known object
-                    let object_name = entry
-                        .unit
-                        .as_ref()
-                        .and_then(|u| {
-                            let unit_base = u.trim_end_matches(".service");
-                            if known_units.iter().any(|ku| ku.contains(unit_base)) {
-                                Some(unit_base.to_string())
-                            } else {
-                                None
-                            }
-                        });
+                    let object_name = entry.unit.as_ref().and_then(|u| {
+                        let unit_base = u.trim_end_matches(".service");
+                        if known_units.iter().any(|ku| ku.contains(unit_base)) {
+                            Some(unit_base.to_string())
+                        } else {
+                            None
+                        }
+                    });
 
                     // Add to error index
                     if let Some(ref name) = object_name {

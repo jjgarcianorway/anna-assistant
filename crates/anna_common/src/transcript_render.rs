@@ -18,11 +18,17 @@ pub fn render_transcript_from_state(state: &CaseState, terminal_width: usize) ->
 
     // Header
     lines.push(format!("=== Case: {} ===", state.case_id));
-    lines.push(format!("Request: {}", wrap_text(&state.request, width - 10)));
+    lines.push(format!(
+        "Request: {}",
+        wrap_text(&state.request, width - 10)
+    ));
     lines.push(String::new());
 
     // Initial user message
-    lines.push(format!("[you] to [anna]: {}", wrap_text(&state.request, width - 20)));
+    lines.push(format!(
+        "[you] to [anna]: {}",
+        wrap_text(&state.request, width - 20)
+    ));
     lines.push(String::new());
 
     // Events by phase
@@ -67,24 +73,37 @@ pub fn render_transcript_from_file(case: &CaseFileV1, terminal_width: usize) -> 
     // Header
     lines.push(format!("=== Case: {} ===", case.case_id));
     lines.push(format!("Request: {}", wrap_text(&case.request, width - 10)));
-    lines.push(format!("Intent: {} ({}%)", case.intent, case.intent_confidence));
+    lines.push(format!(
+        "Intent: {} ({}%)",
+        case.intent, case.intent_confidence
+    ));
     lines.push(String::new());
 
     // User message
-    lines.push(format!("[you] to [anna]: {}", wrap_text(&case.request, width - 20)));
+    lines.push(format!(
+        "[you] to [anna]: {}",
+        wrap_text(&case.request, width - 20)
+    ));
     lines.push(String::new());
 
     // Triage
     lines.push("--- Triage ---".to_string());
     lines.push(format!("[anna] to [translator]: classify request"));
-    lines.push(format!("[translator] to [anna]: {} ({}% confidence)", case.intent, case.intent_confidence));
+    lines.push(format!(
+        "[translator] to [anna]: {} ({}% confidence)",
+        case.intent, case.intent_confidence
+    ));
 
     // Doctor selection (if applicable)
     if let Some(doctor_id) = &case.doctor_id {
         lines.push(String::new());
         lines.push("--- DoctorSelect ---".to_string());
-        lines.push(format!("[anna] to [engine]: select doctor for {:?}", case.problem_domain));
-        lines.push(format!("[engine] to [anna]: selected {} ({}%)",
+        lines.push(format!(
+            "[anna] to [engine]: select doctor for {:?}",
+            case.problem_domain
+        ));
+        lines.push(format!(
+            "[engine] to [anna]: selected {} ({}%)",
             doctor_id,
             case.doctor_confidence.unwrap_or(0)
         ));
@@ -95,8 +114,14 @@ pub fn render_transcript_from_file(case: &CaseFileV1, terminal_width: usize) -> 
         lines.push(String::new());
         lines.push("--- EvidenceGather ---".to_string());
         for e in &case.evidence {
-            lines.push(format!("[anna] to [annad]: execute {} -> [{}]", e.tool_name, e.id));
-            lines.push(format!("[annad] to [anna]: {}", truncate(&e.summary, width - 20)));
+            lines.push(format!(
+                "[anna] to [annad]: execute {} -> [{}]",
+                e.tool_name, e.id
+            ));
+            lines.push(format!(
+                "[annad] to [anna]: {}",
+                truncate(&e.summary, width - 20)
+            ));
         }
     }
 
@@ -115,7 +140,10 @@ pub fn render_transcript_from_file(case: &CaseFileV1, terminal_width: usize) -> 
     lines.push(format!("Reliability: {}%", case.reliability_score));
     lines.push(format!("Duration: {}ms", case.duration_ms));
     if case.recipe_extracted {
-        lines.push(format!("Recipe: {}", case.recipe_id.as_deref().unwrap_or("unknown")));
+        lines.push(format!(
+            "Recipe: {}",
+            case.recipe_id.as_deref().unwrap_or("unknown")
+        ));
     }
 
     lines.join("\n")
@@ -255,7 +283,11 @@ mod tests {
         let wrapped = wrap_text(text, 50);
         for line in wrapped.lines() {
             // Lines should be <= 50 chars or be single words (no space to wrap on)
-            assert!(line.len() <= 50 || !line.contains(' '), "Line too long: {}", line);
+            assert!(
+                line.len() <= 50 || !line.contains(' '),
+                "Line too long: {}",
+                line
+            );
         }
     }
 

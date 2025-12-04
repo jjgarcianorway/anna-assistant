@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.70**
+**Current Version: 0.0.73**
 
 This roadmap migrates from the v7.42.5 snapshot-based architecture to the full natural language assistant while preserving performance.
 
@@ -8,12 +8,75 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.71 - Multi-Doctor Handoff + Senior Escalation (NEXT)
+### 0.0.74 - Multi-Doctor Handoff + Senior Escalation (NEXT)
 - [ ] Multi-doctor case handoff for complex issues
 - [ ] Department collaboration for cross-domain problems
 - [ ] Senior escalation when Junior < 50%
 - [ ] Multi-round improvement loops
 - [ ] Evidence bundle aggregation across departments
+
+### 0.0.73 - Human Transcript Realism + Auto-Update Rewrite (COMPLETED)
+- [x] Role-based phrasing per department in humanizer/phrases.rs
+- [x] Service Desk: "I'm triaging the request and deciding who should handle it."
+- [x] Network: "Looking at link state and active connections."
+- [x] Storage: "Checking disk and filesystem status."
+- [x] Performance: "Checking the latest hardware and load snapshot."
+- [x] Doctor selection shows ownership: "Network team is taking this case."
+- [x] Doctor selection shows first check (1 line, no tool names)
+- [x] Evidence labels with source context: "CPU model (from hardware snapshot)"
+- [x] HumanEvidenceLabel with topic + source formatting
+- [x] humanize_doctor_selection() returns ownership + first check messages
+- [x] Auto-update state machine in updater module (11 steps)
+- [x] UpdateStep enum: AcquireLock, CheckRemote, CompareVersions, DownloadAssets, VerifyAssets, InstallCli, InstallDaemon, RestartDaemon, Healthcheck, ReleaseLock, Rollback
+- [x] Hard filesystem locking with stale lock recovery
+- [x] LockInfo with pid, timestamp, hostname, step
+- [x] Atomic installs: download to temp, verify, rename in place
+- [x] Binary backups in /var/lib/anna/internal/backups/
+- [x] Automatic rollback on restart failure or healthcheck failure
+- [x] Version mismatch detection (CLI vs daemon)
+- [x] annactl status shows version mismatch warning
+- [x] UpdateStateV73 with complete update lifecycle tracking
+- [x] Ops log integration for all update steps
+- [x] 49 new tests (11 updater + 38 humanizer)
+
+### 0.0.72 - Dual Transcript Mode (COMPLETED)
+- [x] Human mode (default): Clean IT department dialogue, no tool names/evidence IDs/raw commands
+- [x] Debug mode: Full internals with canonical translator output, evidence IDs, timing, parse warnings
+- [x] Both modes from SAME event stream (cannot diverge)
+- [x] Enable debug via `/etc/anna/config.toml` with `transcript_mode = "debug"`
+- [x] Enable debug via `ANNA_UI_TRANSCRIPT_MODE=debug` env var
+- [x] Enable debug via `ANNA_DEBUG_TRANSCRIPT=1` shorthand (for tests)
+- [x] No new public CLI commands or flags
+- [x] Unified event types: TranscriptEventV72, EventDataV72, RoleV72, ToneV72
+- [x] Dual renderers: render_human_v72(), render_debug_v72()
+- [x] Forbidden pattern validation: FORBIDDEN_HUMAN_PATTERNS, FORBIDDEN_HUMAN_LITERALS
+- [x] validate_human_output() asserts no leakage of internals
+- [x] validate_debug_has_internals() asserts debug mode has expected details
+- [x] Humanized equivalents: "Translator struggled; we used house rules" instead of "deterministic fallback"
+- [x] Confirmation prompts humanized but exact confirm_phrase unchanged
+- [x] Reliability score in both modes: "85% (direct evidence)"
+- [x] Per-participant spinner/working indicators
+- [x] Deep test harness: run_dual_mode_tests() with transcripts-human/ and transcripts-debug/
+- [x] 26 transcript_v072 tests
+
+### 0.0.71 - Real IT Department Humanizer (COMPLETED)
+- [x] Role/tone metadata: StaffRole enum (ServiceDesk, Department, Anna, Translator, Junior, Senior)
+- [x] MessageTone enum with confidence-based selection (Brisk, Neutral, Helpful, Skeptical)
+- [x] ConfidenceHint enum derived from scores (Low, Medium, High)
+- [x] DepartmentTag enum for standard transcript tags
+- [x] Humanizer layer transforms events to natural language (humanize_*)
+- [x] HumanizedMessage struct with tag, text, tone, is_side_thread
+- [x] HumanizerContext tracks confidence, evidence_missing, complexity, parse warnings
+- [x] Micro-threads: ThreadBuilder with indented side threads for evidence gathering
+- [x] ThreadedTranscript with main thread + side thread rendering
+- [x] Shorter human labels (no "snapshot" suffix): "hardware inventory", "network link and routing signals"
+- [x] HumanLabel enum with from_legacy() for backwards compatibility
+- [x] EvidenceSummary generators for CPU, memory, disk, network, service, boot, audio
+- [x] validate_answer_relevance() prevents wrong-topic answers (memory→CPU, disk→CPU)
+- [x] AnswerValidation enum: Ok, WrongTopic, TooGeneric, MissingEvidence
+- [x] Junior critique phrasing: "didn't ground in X" instead of evidence IDs
+- [x] Allowed realism (uncertainty expressions) vs NOT allowed (fabrication)
+- [x] 29 humanizer tests + misclassification guardrail tests in case_coordinator
 
 ### 0.0.70 - Dual Transcript Renderer (COMPLETED)
 - [x] Human Mode: IT department dialogue without tool names, evidence IDs, or raw commands

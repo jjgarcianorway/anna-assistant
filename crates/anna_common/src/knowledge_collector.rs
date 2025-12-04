@@ -10,9 +10,8 @@
 //! v5.1.0: Paranoid archivist mode - tracks EVERYTHING executable
 
 use crate::knowledge_core::{
-    Category, DetectionSource, KnowledgeObject, KnowledgeStore,
-    TelemetryAggregates, classify_tool, get_config_paths,
-    ObjectType, InventoryProgress, InventoryPhase,
+    classify_tool, get_config_paths, Category, DetectionSource, InventoryPhase, InventoryProgress,
+    KnowledgeObject, KnowledgeStore, ObjectType, TelemetryAggregates,
 };
 use std::collections::HashSet;
 use std::fs;
@@ -27,17 +26,13 @@ use tracing::{debug, info};
 
 /// Discover installed packages via pacman
 pub fn discover_pacman_packages() -> Vec<String> {
-    let output = Command::new("pacman")
-        .args(["-Qq"])
-        .output();
+    let output = Command::new("pacman").args(["-Qq"]).output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .map(|s| s.to_string())
-                .collect()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|s| s.to_string())
+            .collect(),
         _ => {
             debug!("pacman not available or failed");
             vec![]
@@ -47,10 +42,7 @@ pub fn discover_pacman_packages() -> Vec<String> {
 
 /// Get package info from pacman
 pub fn get_pacman_package_info(pkg: &str) -> Option<String> {
-    let output = Command::new("pacman")
-        .args(["-Qi", pkg])
-        .output()
-        .ok()?;
+    let output = Command::new("pacman").args(["-Qi", pkg]).output().ok()?;
 
     if output.status.success() {
         Some(String::from_utf8_lossy(&output.stdout).to_string())
@@ -69,9 +61,7 @@ pub struct PackageInfo {
 
 /// v5.1.0: Get all installed packages with version info
 pub fn discover_pacman_packages_full() -> Vec<PackageInfo> {
-    let output = Command::new("pacman")
-        .args(["-Qi"])
-        .output();
+    let output = Command::new("pacman").args(["-Qi"]).output();
 
     match output {
         Ok(out) if out.status.success() => {
@@ -100,11 +90,17 @@ fn parse_pacman_qi_output(output: &str) -> Vec<PackageInfo> {
                     install_date: current_date,
                 });
             }
-            current_name = line.trim_start_matches("Name            :").trim().to_string();
+            current_name = line
+                .trim_start_matches("Name            :")
+                .trim()
+                .to_string();
             current_version.clear();
             current_date = None;
         } else if line.starts_with("Version         :") {
-            current_version = line.trim_start_matches("Version         :").trim().to_string();
+            current_version = line
+                .trim_start_matches("Version         :")
+                .trim()
+                .to_string();
         } else if line.starts_with("Install Date    :") {
             let date_str = line.trim_start_matches("Install Date    :").trim();
             current_date = parse_pacman_date(date_str);
@@ -149,9 +145,7 @@ fn parse_pacman_date(date_str: &str) -> Option<u64> {
 
 /// v5.1.0: List files owned by a package
 pub fn get_package_files(pkg: &str) -> Vec<String> {
-    let output = Command::new("pacman")
-        .args(["-Ql", pkg])
-        .output();
+    let output = Command::new("pacman").args(["-Ql", pkg]).output();
 
     match output {
         Ok(out) if out.status.success() => {
@@ -164,8 +158,10 @@ pub fn get_package_files(pkg: &str) -> Vec<String> {
                 })
                 .filter(|p| {
                     // Only keep executable files
-                    p.starts_with("/usr/bin/") || p.starts_with("/usr/sbin/") ||
-                    p.starts_with("/bin/") || p.starts_with("/sbin/")
+                    p.starts_with("/usr/bin/")
+                        || p.starts_with("/usr/sbin/")
+                        || p.starts_with("/bin/")
+                        || p.starts_with("/sbin/")
                 })
                 .collect()
         }
@@ -189,7 +185,12 @@ pub struct SystemdServiceInfo {
 /// v5.1.0: Discover systemd services
 pub fn discover_systemd_services() -> Vec<SystemdServiceInfo> {
     let output = Command::new("systemctl")
-        .args(["list-unit-files", "--type=service", "--no-legend", "--no-pager"])
+        .args([
+            "list-unit-files",
+            "--type=service",
+            "--no-legend",
+            "--no-pager",
+        ])
         .output();
 
     let mut services = Vec::new();
@@ -236,13 +237,16 @@ fn is_service_active(unit: &str) -> bool {
 /// v5.1.0: Count systemd services (quick method)
 pub fn count_systemd_services() -> usize {
     let output = Command::new("systemctl")
-        .args(["list-unit-files", "--type=service", "--no-legend", "--no-pager"])
+        .args([
+            "list-unit-files",
+            "--type=service",
+            "--no-legend",
+            "--no-pager",
+        ])
         .output();
 
     match output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout).lines().count()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).lines().count(),
         _ => 0,
     }
 }
@@ -324,10 +328,7 @@ pub fn discover_all_binaries() -> Vec<(String, String)> {
 
 /// Check if a binary exists on PATH
 pub fn binary_exists(name: &str) -> Option<String> {
-    let output = Command::new("which")
-        .arg(name)
-        .output()
-        .ok()?;
+    let output = Command::new("which").arg(name).output().ok()?;
 
     if output.status.success() {
         let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -375,10 +376,7 @@ pub fn discover_processes() -> Vec<ProcessInfo> {
 fn get_process_info(pid: u32) -> Option<ProcessInfo> {
     // Read /proc/[pid]/comm for process name
     let comm_path = format!("/proc/{}/comm", pid);
-    let name = fs::read_to_string(&comm_path)
-        .ok()?
-        .trim()
-        .to_string();
+    let name = fs::read_to_string(&comm_path).ok()?.trim().to_string();
 
     // Read /proc/[pid]/stat for CPU time
     let stat_path = format!("/proc/{}/stat", pid);
@@ -428,7 +426,8 @@ impl KnowledgeBuilder {
     pub fn new() -> Self {
         let store = KnowledgeStore::load();
         // Snapshot current packages for change detection
-        let prev_packages: HashSet<String> = store.objects
+        let prev_packages: HashSet<String> = store
+            .objects
             .values()
             .filter(|o| o.object_types.contains(&ObjectType::Package))
             .map(|o| o.name.clone())
@@ -529,7 +528,8 @@ impl KnowledgeBuilder {
         let packages = discover_pacman_packages_full();
         let total = packages.len();
 
-        self.progress.start_phase(InventoryPhase::ScanningPackages, total);
+        self.progress
+            .start_phase(InventoryPhase::ScanningPackages, total);
 
         let mut discovered = 0;
         let mut current_packages = HashSet::new();
@@ -540,11 +540,15 @@ impl KnowledgeBuilder {
             let (category, wiki_ref) = classify_tool(&pkg_info.name);
             let is_new = !self.store.objects.contains_key(&pkg_info.name);
 
-            let obj = self.store.objects.entry(pkg_info.name.clone()).or_insert_with(|| {
-                let mut o = KnowledgeObject::new(&pkg_info.name, category.clone());
-                o.wiki_ref = wiki_ref.map(|s| s.to_string());
-                o
-            });
+            let obj = self
+                .store
+                .objects
+                .entry(pkg_info.name.clone())
+                .or_insert_with(|| {
+                    let mut o = KnowledgeObject::new(&pkg_info.name, category.clone());
+                    o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                    o
+                });
 
             // Update with full info
             obj.installed = true;
@@ -675,7 +679,8 @@ impl KnowledgeBuilder {
         let binaries = discover_all_binaries();
         let total = binaries.len();
 
-        self.progress.start_phase(InventoryPhase::ScanningPath, total);
+        self.progress
+            .start_phase(InventoryPhase::ScanningPath, total);
 
         let mut discovered = 0;
 
@@ -741,7 +746,8 @@ impl KnowledgeBuilder {
         let services = discover_systemd_services();
         let total = services.len();
 
-        self.progress.start_phase(InventoryPhase::ScanningServices, total);
+        self.progress
+            .start_phase(InventoryPhase::ScanningServices, total);
 
         let mut discovered = 0;
 
@@ -749,11 +755,15 @@ impl KnowledgeBuilder {
             let (category, wiki_ref) = classify_tool(&svc.name);
             let is_new = !self.store.objects.contains_key(&svc.name);
 
-            let obj = self.store.objects.entry(svc.name.clone()).or_insert_with(|| {
-                let mut o = KnowledgeObject::new(&svc.name, category.clone());
-                o.wiki_ref = wiki_ref.map(|s| s.to_string());
-                o
-            });
+            let obj = self
+                .store
+                .objects
+                .entry(svc.name.clone())
+                .or_insert_with(|| {
+                    let mut o = KnowledgeObject::new(&svc.name, category.clone());
+                    o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                    o
+                });
 
             // Add Service type if not present
             if !obj.object_types.contains(&ObjectType::Service) {
@@ -883,8 +893,10 @@ impl KnowledgeBuilder {
         self.progress.complete();
 
         let (commands, packages, services) = self.store.count_by_type();
-        info!("[INVENTORY] Complete: {} commands, {} packages, {} services",
-            commands, packages, services);
+        info!(
+            "[INVENTORY] Complete: {} commands, {} packages, {} services",
+            commands, packages, services
+        );
     }
 
     /// v5.1.1: Targeted discovery for a single object (priority scan)
@@ -910,11 +922,15 @@ impl KnowledgeBuilder {
         if let Some(path) = binary_exists(name) {
             found = true;
             let (category, wiki_ref) = classify_tool(name);
-            let obj = self.store.objects.entry(name.to_string()).or_insert_with(|| {
-                let mut o = KnowledgeObject::new(name, category.clone());
-                o.wiki_ref = wiki_ref.map(|s| s.to_string());
-                o
-            });
+            let obj = self
+                .store
+                .objects
+                .entry(name.to_string())
+                .or_insert_with(|| {
+                    let mut o = KnowledgeObject::new(name, category.clone());
+                    o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                    o
+                });
 
             if !obj.object_types.contains(&ObjectType::Command) {
                 obj.object_types.push(ObjectType::Command);
@@ -934,11 +950,15 @@ impl KnowledgeBuilder {
         if let Some(pkg_info) = get_pacman_package_info(name) {
             found = true;
             let (category, wiki_ref) = classify_tool(name);
-            let obj = self.store.objects.entry(name.to_string()).or_insert_with(|| {
-                let mut o = KnowledgeObject::new(name, category.clone());
-                o.wiki_ref = wiki_ref.map(|s| s.to_string());
-                o
-            });
+            let obj = self
+                .store
+                .objects
+                .entry(name.to_string())
+                .or_insert_with(|| {
+                    let mut o = KnowledgeObject::new(name, category.clone());
+                    o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                    o
+                });
 
             obj.installed = true;
             obj.package_name = Some(name.to_string());
@@ -965,11 +985,15 @@ impl KnowledgeBuilder {
             if svc.name == name || svc.name.starts_with(name) {
                 found = true;
                 let (category, wiki_ref) = classify_tool(name);
-                let obj = self.store.objects.entry(name.to_string()).or_insert_with(|| {
-                    let mut o = KnowledgeObject::new(name, category.clone());
-                    o.wiki_ref = wiki_ref.map(|s| s.to_string());
-                    o
-                });
+                let obj = self
+                    .store
+                    .objects
+                    .entry(name.to_string())
+                    .or_insert_with(|| {
+                        let mut o = KnowledgeObject::new(name, category.clone());
+                        o.wiki_ref = wiki_ref.map(|s| s.to_string());
+                        o
+                    });
 
                 if !obj.object_types.contains(&ObjectType::Service) {
                     obj.object_types.push(ObjectType::Service);
@@ -1026,8 +1050,10 @@ impl KnowledgeBuilder {
     pub fn is_object_complete(&self, name: &str) -> bool {
         if let Some(obj) = self.store.get(name) {
             // Consider complete if we have at least one type and some info
-            !obj.object_types.is_empty() &&
-            (obj.binary_path.is_some() || obj.package_name.is_some() || obj.service_unit.is_some())
+            !obj.object_types.is_empty()
+                && (obj.binary_path.is_some()
+                    || obj.package_name.is_some()
+                    || obj.service_unit.is_some())
         } else {
             false
         }
@@ -1084,10 +1110,8 @@ mod tests {
 
     #[test]
     fn test_knowledge_builder() {
-        let mut builder = KnowledgeBuilder::from_stores(
-            KnowledgeStore::new(),
-            TelemetryAggregates::new(),
-        );
+        let mut builder =
+            KnowledgeBuilder::from_stores(KnowledgeStore::new(), TelemetryAggregates::new());
 
         // Collect processes (should work in any environment)
         builder.collect_processes();

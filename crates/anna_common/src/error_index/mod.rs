@@ -15,21 +15,21 @@
 //!
 //! All captured and shown. No filtering. No guessing. No generic messages.
 
-mod severity;
-mod error_type;
 mod category;
+mod error_type;
+mod index;
 mod log_entry;
 mod object_errors;
-mod index;
-mod summary;
 mod scan_state;
+mod severity;
+mod summary;
 
 // Re-export all public types
-pub use severity::LogSeverity;
-pub use error_type::ErrorType;
 pub use category::LogCategory;
-pub use log_entry::LogEntry;
-pub use object_errors::{ObjectErrors, MAX_LOGS_PER_OBJECT, MAX_ERRORS_PER_OBJECT};
+pub use error_type::ErrorType;
 pub use index::{ErrorIndex, ERROR_INDEX_PATH};
-pub use summary::{GroupedErrorSummary, UniversalErrorSummary, ObjectErrorEntry};
+pub use log_entry::LogEntry;
+pub use object_errors::{ObjectErrors, MAX_ERRORS_PER_OBJECT, MAX_LOGS_PER_OBJECT};
 pub use scan_state::{LogScanState, LOG_SCAN_STATE_PATH};
+pub use severity::LogSeverity;
+pub use summary::{GroupedErrorSummary, ObjectErrorEntry, UniversalErrorSummary};

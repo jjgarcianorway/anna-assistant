@@ -6,17 +6,19 @@
 //! - systemd_service_apply_v1: Apply action with rollback
 //! - systemd_service_rollback_v1: Rollback by case_id
 
-use crate::tools::ToolResult;
 use crate::systemd_action::{ServiceAction, ServiceOperation};
+use crate::systemd_apply::{apply_service_action, preview_service_action};
 use crate::systemd_probe::probe_service;
-use crate::systemd_apply::{preview_service_action, apply_service_action};
-use crate::systemd_rollback::{rollback_service_action, generate_service_case_id};
+use crate::systemd_rollback::{generate_service_case_id, rollback_service_action};
+use crate::tools::ToolResult;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
 /// Helper to extract string from Value
 fn get_string_param(params: &HashMap<String, Value>, key: &str) -> Option<String> {
-    params.get(key).and_then(|v| v.as_str().map(|s| s.to_string()))
+    params
+        .get(key)
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
 }
 
 /// Parse operation string to ServiceOperation enum
@@ -49,7 +51,14 @@ macro_rules! require_param {
     ($params:expr, $key:expr, $tool:expr, $eid:expr, $ts:expr) => {
         match get_string_param($params, $key) {
             Some(v) => v,
-            None => return error_result($tool, $eid, &format!("Missing required parameter: {}", $key), $ts),
+            None => {
+                return error_result(
+                    $tool,
+                    $eid,
+                    &format!("Missing required parameter: {}", $key),
+                    $ts,
+                )
+            }
         }
     };
 }
@@ -64,13 +73,21 @@ pub fn execute_systemd_service_probe_v1(
     evidence_id: &str,
     timestamp: u64,
 ) -> ToolResult {
-    let service = require_param!(parameters, "service", "systemd_service_probe_v1", evidence_id, timestamp);
+    let service = require_param!(
+        parameters,
+        "service",
+        "systemd_service_probe_v1",
+        evidence_id,
+        timestamp
+    );
     let probe = probe_service(&service);
 
     let human_summary = if probe.exists {
         format!(
             "Service: {}\n  Active: {}\n  Enabled: {}\n  Description: {}",
-            probe.service, probe.active_state.as_str(), probe.enabled_state.as_str(),
+            probe.service,
+            probe.active_state.as_str(),
+            probe.enabled_state.as_str(),
             probe.description.as_deref().unwrap_or("N/A")
         )
     } else {
@@ -90,7 +107,10 @@ pub fn execute_systemd_service_probe_v1(
                 "evidence_id": probe.evidence_id,
             }
         }),
-        human_summary, success: true, error: None, timestamp,
+        human_summary,
+        success: true,
+        error: None,
+        timestamp,
     }
 }
 
@@ -110,8 +130,17 @@ pub fn execute_systemd_service_preview_v1(
 
     let operation = match parse_operation(&operation_str) {
         Some(op) => op,
-        None => return error_result(TOOL, evidence_id,
-            &format!("Invalid operation: '{}'. Use: start, stop, restart, enable, disable", operation_str), timestamp),
+        None => {
+            return error_result(
+                TOOL,
+                evidence_id,
+                &format!(
+                    "Invalid operation: '{}'. Use: start, stop, restart, enable, disable",
+                    operation_str
+                ),
+                timestamp,
+            )
+        }
     };
 
     let action = ServiceAction::new(&service, operation);
@@ -142,10 +171,18 @@ pub fn execute_systemd_service_preview_v1(
                         "change_summary": preview.change_summary, "evidence_id": preview.evidence_id,
                     }
                 }),
-                human_summary, success: true, error: None, timestamp,
+                human_summary,
+                success: true,
+                error: None,
+                timestamp,
             }
         }
-        Err(e) => error_result(TOOL, evidence_id, &format!("Preview failed: {}", e), timestamp),
+        Err(e) => error_result(
+            TOOL,
+            evidence_id,
+            &format!("Preview failed: {}", e),
+            timestamp,
+        ),
     }
 }
 
@@ -167,7 +204,14 @@ pub fn execute_systemd_service_apply_v1(
 
     let operation = match parse_operation(&operation_str) {
         Some(op) => op,
-        None => return error_result(TOOL, evidence_id, &format!("Invalid operation: '{}'", operation_str), timestamp),
+        None => {
+            return error_result(
+                TOOL,
+                evidence_id,
+                &format!("Invalid operation: '{}'", operation_str),
+                timestamp,
+            )
+        }
     };
 
     let action = ServiceAction::new(&service, operation);
@@ -178,10 +222,16 @@ pub fn execute_systemd_service_apply_v1(
             let human_summary = format!(
                 "Result: {} {}\nCase ID: {}\nPre-state: active={}, enabled={}\n\
                  Post-state: active={}, enabled={}\nVerified: {}\n{}\n\nRollback: {}",
-                operation.past_tense(), result.service, result.case_id,
-                result.pre_state.active_state.as_str(), result.pre_state.enabled_state.as_str(),
-                result.post_state.active_state.as_str(), result.post_state.enabled_state.as_str(),
-                if result.verified { "yes" } else { "NO" }, result.verify_message, result.rollback_command
+                operation.past_tense(),
+                result.service,
+                result.case_id,
+                result.pre_state.active_state.as_str(),
+                result.pre_state.enabled_state.as_str(),
+                result.post_state.active_state.as_str(),
+                result.post_state.enabled_state.as_str(),
+                if result.verified { "yes" } else { "NO" },
+                result.verify_message,
+                result.rollback_command
             );
 
             ToolResult {
@@ -199,10 +249,18 @@ pub fn execute_systemd_service_apply_v1(
                         "rollback_command": result.rollback_command, "evidence_id": result.evidence_id,
                     }
                 }),
-                human_summary, success: true, error: None, timestamp,
+                human_summary,
+                success: true,
+                error: None,
+                timestamp,
             }
         }
-        Err(e) => error_result(TOOL, evidence_id, &format!("Apply failed: {}", e), timestamp),
+        Err(e) => error_result(
+            TOOL,
+            evidence_id,
+            &format!("Apply failed: {}", e),
+            timestamp,
+        ),
     }
 }
 
@@ -223,9 +281,16 @@ pub fn execute_systemd_service_rollback_v1(
         Ok(result) => {
             let human_summary = format!(
                 "Rollback: {}\nCase ID: {}\nService: {}\nRestored: active={}, enabled={}\n{}",
-                if result.success { "successful" } else { "completed with warnings" },
-                result.case_id, result.service, result.restored_active.as_str(),
-                result.restored_enabled.as_str(), result.message
+                if result.success {
+                    "successful"
+                } else {
+                    "completed with warnings"
+                },
+                result.case_id,
+                result.service,
+                result.restored_active.as_str(),
+                result.restored_enabled.as_str(),
+                result.message
             );
 
             ToolResult {
@@ -241,9 +306,17 @@ pub fn execute_systemd_service_rollback_v1(
                         "message": result.message,
                     }
                 }),
-                human_summary, success: result.success, error: result.error, timestamp,
+                human_summary,
+                success: result.success,
+                error: result.error,
+                timestamp,
             }
         }
-        Err(e) => error_result(TOOL, evidence_id, &format!("Rollback failed: {}", e), timestamp),
+        Err(e) => error_result(
+            TOOL,
+            evidence_id,
+            &format!("Rollback failed: {}", e),
+            timestamp,
+        ),
     }
 }

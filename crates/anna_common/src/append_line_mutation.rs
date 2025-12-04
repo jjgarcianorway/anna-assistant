@@ -15,8 +15,8 @@
 //! - Full rollback support via case_id
 
 use crate::mutation_tools::{FileEditOp, MutationError, RollbackInfo};
-use crate::rollback::{RollbackManager, MutationType, MutationDetails, MutationLogEntry};
-use crate::policy::{get_policy, PolicyCheckResult, generate_policy_evidence_id};
+use crate::policy::{generate_policy_evidence_id, get_policy, PolicyCheckResult};
+use crate::rollback::{MutationDetails, MutationLogEntry, MutationType, RollbackManager};
 use crate::transcript::{CaseFile, CaseOutcome};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -157,7 +157,10 @@ pub fn check_sandbox(path: &Path) -> SandboxCheck {
         (
             RiskLevel::Sandbox,
             SANDBOX_CONFIRMATION.to_string(),
-            format!("Path is in dev sandbox ({})", if in_cwd { "cwd" } else { "/tmp" }),
+            format!(
+                "Path is in dev sandbox ({})",
+                if in_cwd { "cwd" } else { "/tmp" }
+            ),
         )
     } else if in_home {
         (
@@ -208,7 +211,13 @@ pub fn collect_evidence(path: &Path) -> AppendMutationEvidence {
     let file_preview = if exists {
         fs::read_to_string(path).ok().map(|content| {
             let lines: Vec<&str> = content.lines().collect();
-            let last_20: Vec<String> = lines.iter().rev().take(20).rev().map(|s| s.to_string()).collect();
+            let last_20: Vec<String> = lines
+                .iter()
+                .rev()
+                .take(20)
+                .rev()
+                .map(|s| s.to_string())
+                .collect();
             FilePreviewEvidence {
                 line_count: lines.len(),
                 last_20_lines: last_20,
@@ -220,11 +229,7 @@ pub fn collect_evidence(path: &Path) -> AppendMutationEvidence {
     };
 
     // Before hash
-    let before_hash = if exists {
-        hash_file(path).ok()
-    } else {
-        None
-    };
+    let before_hash = if exists { hash_file(path).ok() } else { None };
 
     // Sandbox check
     let sandbox_check = check_sandbox(path);
@@ -245,12 +250,23 @@ pub fn collect_evidence(path: &Path) -> AppendMutationEvidence {
 }
 
 /// Generate diff preview for append operation
-pub fn generate_diff_preview(evidence: &AppendMutationEvidence, line_to_append: &str) -> AppendDiffPreview {
-    let current_lines = evidence.file_preview.as_ref().map(|p| p.line_count).unwrap_or(0);
-    let last_lines_before = evidence.file_preview.as_ref()
+pub fn generate_diff_preview(
+    evidence: &AppendMutationEvidence,
+    line_to_append: &str,
+) -> AppendDiffPreview {
+    let current_lines = evidence
+        .file_preview
+        .as_ref()
+        .map(|p| p.line_count)
+        .unwrap_or(0);
+    let last_lines_before = evidence
+        .file_preview
+        .as_ref()
         .map(|p| p.last_20_lines.clone())
         .unwrap_or_default();
-    let ends_with_newline = evidence.file_preview.as_ref()
+    let ends_with_newline = evidence
+        .file_preview
+        .as_ref()
         .map(|p| p.ends_with_newline)
         .unwrap_or(true);
 
@@ -287,7 +303,8 @@ pub fn check_mutation_allowed(evidence: &AppendMutationEvidence) -> Result<(), M
     if evidence.sandbox_check.risk_level == RiskLevel::System {
         return Err(MutationError::PolicyBlocked {
             path: PathBuf::from(&evidence.path),
-            reason: "System paths blocked in v0.0.47 - only sandbox (cwd, /tmp) and $HOME allowed".to_string(),
+            reason: "System paths blocked in v0.0.47 - only sandbox (cwd, /tmp) and $HOME allowed"
+                .to_string(),
             evidence_id: evidence.sandbox_check.evidence_id.clone(),
             policy_rule: "v0.0.47:sandbox_only".to_string(),
         });
@@ -327,11 +344,14 @@ pub fn execute_append_line(
 
     // Create backup
     let backup_path = if evidence.exists {
-        rollback_manager.backup_file(path, case_id)
+        rollback_manager
+            .backup_file(path, case_id)
             .map_err(|e| MutationError::Other(format!("Backup failed: {}", e)))?
     } else {
         // Create empty backup marker for new files
-        let backup_dir = rollback_manager.files_dir().join(format!("{}_{}", timestamp(), case_id));
+        let backup_dir = rollback_manager
+            .files_dir()
+            .join(format!("{}_{}", timestamp(), case_id));
         fs::create_dir_all(&backup_dir)
             .map_err(|e| MutationError::Other(format!("Backup dir failed: {}", e)))?;
         let marker = backup_dir.join("_new_file_marker.txt");
@@ -341,12 +361,14 @@ pub fn execute_append_line(
     };
 
     // Get before hash
-    let before_hash = evidence.before_hash.clone().unwrap_or_else(|| "none".to_string());
+    let before_hash = evidence
+        .before_hash
+        .clone()
+        .unwrap_or_else(|| "none".to_string());
 
     // Read current content or start empty
     let current_content = if evidence.exists {
-        fs::read_to_string(path)
-            .map_err(|e| MutationError::Other(format!("Read failed: {}", e)))?
+        fs::read_to_string(path).map_err(|e| MutationError::Other(format!("Read failed: {}", e)))?
     } else {
         String::new()
     };
@@ -377,22 +399,26 @@ pub fn execute_append_line(
     }
 
     // Get after hash
-    let after_hash = hash_file(path)
-        .map_err(|e| MutationError::Other(format!("After hash failed: {}", e)))?;
+    let after_hash =
+        hash_file(path).map_err(|e| MutationError::Other(format!("After hash failed: {}", e)))?;
 
     // Log the mutation
-    let operation = FileEditOp::AppendLine { content: line.to_string() };
-    rollback_manager.log_file_edit(
-        case_id,
-        &[evidence.sandbox_check.evidence_id.clone()],
-        path,
-        &backup_path,
-        &before_hash,
-        &after_hash,
-        &[operation],
-        true,
-        None,
-    ).map_err(|e| MutationError::Other(format!("Log failed: {}", e)))?;
+    let operation = FileEditOp::AppendLine {
+        content: line.to_string(),
+    };
+    rollback_manager
+        .log_file_edit(
+            case_id,
+            &[evidence.sandbox_check.evidence_id.clone()],
+            path,
+            &backup_path,
+            &before_hash,
+            &after_hash,
+            &[operation],
+            true,
+            None,
+        )
+        .map_err(|e| MutationError::Other(format!("Log failed: {}", e)))?;
 
     // Generate rollback info
     let rollback_info = RollbackInfo {
@@ -429,18 +455,23 @@ pub fn execute_rollback(case_id: &str) -> Result<RollbackResult, String> {
     let rollback_manager = RollbackManager::new();
 
     // Find the mutation log for this case
-    let logs = rollback_manager.recent_logs(100)
+    let logs = rollback_manager
+        .recent_logs(100)
         .map_err(|e| format!("Cannot read mutation logs: {}", e))?;
 
-    let entry = logs.iter()
+    let entry = logs
+        .iter()
         .find(|e| e.request_id == case_id)
         .ok_or_else(|| format!("No mutation found with case_id: {}", case_id))?;
 
     // Extract file details
     let (file_path, backup_path, expected_hash) = match &entry.details {
-        MutationDetails::FileEdit { file_path, backup_path, before_hash, .. } => {
-            (file_path.clone(), backup_path.clone(), before_hash.clone())
-        }
+        MutationDetails::FileEdit {
+            file_path,
+            backup_path,
+            before_hash,
+            ..
+        } => (file_path.clone(), backup_path.clone(), before_hash.clone()),
         _ => return Err(format!("Case {} is not a file edit mutation", case_id)),
     };
 
@@ -462,14 +493,17 @@ pub fn execute_rollback(case_id: &str) -> Result<RollbackResult, String> {
         let mode = meta.mode();
 
         let _ = std::process::Command::new("chown")
-            .args([&format!("{}:{}", uid, gid), &file_path.to_string_lossy().to_string()])
+            .args([
+                &format!("{}:{}", uid, gid),
+                &file_path.to_string_lossy().to_string(),
+            ])
             .output();
         let _ = fs::set_permissions(&file_path, fs::Permissions::from_mode(mode & 0o7777));
     }
 
     // Verify hash
-    let restored_hash = hash_file(&file_path)
-        .map_err(|e| format!("Cannot hash restored file: {}", e))?;
+    let restored_hash =
+        hash_file(&file_path).map_err(|e| format!("Cannot hash restored file: {}", e))?;
     let hashes_match = restored_hash == expected_hash;
 
     Ok(RollbackResult {

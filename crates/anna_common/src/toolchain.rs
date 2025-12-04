@@ -21,7 +21,7 @@ use std::process::Command;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::ops_log::{OpsLogWriter, OpsLogReader, OpsEntry, OpsAction};
+use crate::ops_log::{OpsAction, OpsEntry, OpsLogReader, OpsLogWriter};
 
 /// Internal ops log path
 pub const OPS_LOG_PATH: &str = "/var/lib/anna/internal/ops.log";
@@ -85,9 +85,7 @@ impl AnnaTool {
     /// Get version if available
     pub fn get_version(&self) -> Option<String> {
         // Try pacman -Q
-        let output = Command::new("pacman")
-            .args(["-Q", &self.package])
-            .output();
+        let output = Command::new("pacman").args(["-Q", &self.package]).output();
 
         if let Ok(out) = output {
             if out.status.success() {
@@ -127,9 +125,9 @@ impl ToolchainStatus {
 
         for status in &self.tools {
             let entry = by_category.entry(status.tool.category).or_insert((0, 0));
-            entry.1 += 1;  // Total
+            entry.1 += 1; // Total
             if status.available {
-                entry.0 += 1;  // Ready
+                entry.0 += 1; // Ready
             }
         }
 
@@ -143,7 +141,8 @@ impl ToolchainStatus {
 
     /// Check if category is ready
     pub fn is_category_ready(&self, category: ToolCategory) -> bool {
-        self.tools.iter()
+        self.tools
+            .iter()
             .filter(|t| t.tool.category == category)
             .all(|t| t.available)
     }
@@ -152,7 +151,7 @@ impl ToolchainStatus {
 /// Summary for compact display
 #[derive(Debug, Clone)]
 pub struct ToolchainSummary {
-    pub by_category: HashMap<ToolCategory, (usize, usize)>,  // (ready, total)
+    pub by_category: HashMap<ToolCategory, (usize, usize)>, // (ready, total)
 }
 
 impl ToolchainSummary {
@@ -182,7 +181,6 @@ pub fn get_anna_tools() -> Vec<AnnaTool> {
             check_command: None,
             check_path: Some("/usr/share/doc/arch-wiki/html".to_string()),
         },
-
         // Storage tools
         AnnaTool {
             name: "smartctl".to_string(),
@@ -200,7 +198,6 @@ pub fn get_anna_tools() -> Vec<AnnaTool> {
             check_command: Some("nvme".to_string()),
             check_path: None,
         },
-
         // Network tools
         AnnaTool {
             name: "ethtool".to_string(),
@@ -218,7 +215,6 @@ pub fn get_anna_tools() -> Vec<AnnaTool> {
             check_command: Some("iw".to_string()),
             check_path: None,
         },
-
         // Hardware tools
         AnnaTool {
             name: "lspci".to_string(),
@@ -294,7 +290,10 @@ pub fn install_tool(tool_name: &str, reason: &str) -> InstallResult {
     let tools = get_anna_tools();
 
     // Find the tool
-    let tool = match tools.iter().find(|t| t.name == tool_name || t.package == tool_name) {
+    let tool = match tools
+        .iter()
+        .find(|t| t.name == tool_name || t.package == tool_name)
+    {
         Some(t) => t,
         None => return InstallResult::NotAllowed,
     };
@@ -341,7 +340,10 @@ pub fn ensure_tool(tool_name: &str, reason: &str) -> bool {
     let tools = get_anna_tools();
 
     // Find the tool
-    let tool = match tools.iter().find(|t| t.name == tool_name || t.package == tool_name) {
+    let tool = match tools
+        .iter()
+        .find(|t| t.name == tool_name || t.package == tool_name)
+    {
         Some(t) => t,
         None => return false,
     };
@@ -378,7 +380,9 @@ pub fn format_toolchain_section(status: &ToolchainStatus) -> Vec<String> {
         ToolCategory::Network,
         ToolCategory::Hardware,
     ] {
-        let cat_tools: Vec<_> = status.tools.iter()
+        let cat_tools: Vec<_> = status
+            .tools
+            .iter()
             .filter(|t| t.tool.category == category)
             .collect();
 
@@ -397,7 +401,11 @@ pub fn format_toolchain_section(status: &ToolchainStatus) -> Vec<String> {
                 "missing".to_string()
             };
 
-            lines.push(format!("    {:<14} {}", tool.tool.name.to_string() + ":", status_str));
+            lines.push(format!(
+                "    {:<14} {}",
+                tool.tool.name.to_string() + ":",
+                status_str
+            ));
         }
     }
 
@@ -431,25 +439,35 @@ pub fn format_toolchain_status_section(status: &ToolchainStatus) -> Vec<String> 
 
     // Storage
     let storage_status = summary.format_status_line(ToolCategory::Storage);
-    let storage_missing: Vec<_> = status.tools.iter()
+    let storage_missing: Vec<_> = status
+        .tools
+        .iter()
         .filter(|t| t.tool.category == ToolCategory::Storage && !t.available)
         .map(|t| t.tool.name.as_str())
         .collect();
     if storage_missing.is_empty() {
         lines.push(format!("  Storage tools:  {}", storage_status));
     } else {
-        lines.push(format!("  Storage tools:  missing {}", storage_missing.join(", ")));
+        lines.push(format!(
+            "  Storage tools:  missing {}",
+            storage_missing.join(", ")
+        ));
     }
 
     // Network
-    let network_missing: Vec<_> = status.tools.iter()
+    let network_missing: Vec<_> = status
+        .tools
+        .iter()
         .filter(|t| t.tool.category == ToolCategory::Network && !t.available)
         .map(|t| t.tool.name.as_str())
         .collect();
     if network_missing.is_empty() {
         lines.push("  Network tools:  ready".to_string());
     } else {
-        lines.push(format!("  Network tools:  missing {}", network_missing.join(", ")));
+        lines.push(format!(
+            "  Network tools:  missing {}",
+            network_missing.join(", ")
+        ));
     }
 
     lines
@@ -465,7 +483,9 @@ mod tests {
         assert!(!tools.is_empty());
 
         // Should have tools in each category
-        assert!(tools.iter().any(|t| t.category == ToolCategory::Documentation));
+        assert!(tools
+            .iter()
+            .any(|t| t.category == ToolCategory::Documentation));
         assert!(tools.iter().any(|t| t.category == ToolCategory::Storage));
         assert!(tools.iter().any(|t| t.category == ToolCategory::Network));
         assert!(tools.iter().any(|t| t.category == ToolCategory::Hardware));

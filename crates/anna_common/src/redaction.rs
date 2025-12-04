@@ -124,81 +124,199 @@ impl RedactionPattern {
 static REDACTION_PATTERNS: LazyLock<Vec<RedactionPattern>> = LazyLock::new(|| {
     let patterns: Vec<(&str, SecretType, bool)> = vec![
         // JWT tokens (header.payload.signature format) - MUST be first to match before generic patterns
-        (r"eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]+", SecretType::JwtToken, true),
-
+        (
+            r"eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]+",
+            SecretType::JwtToken,
+            true,
+        ),
         // Password patterns
-        (r#"(?i)(password|passwd|pwd)\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::Password, false),
-        (r#"(?i)--password[=\s]+['"]?([^'"\s\n]+)['"]?"#, SecretType::Password, true),
-
+        (
+            r#"(?i)(password|passwd|pwd)\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::Password,
+            false,
+        ),
+        (
+            r#"(?i)--password[=\s]+['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::Password,
+            true,
+        ),
         // API Key patterns
-        (r#"(?i)(api[_-]?key|apikey)\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::ApiKey, false),
+        (
+            r#"(?i)(api[_-]?key|apikey)\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::ApiKey,
+            false,
+        ),
         (r"(?i)x-api-key:\s*(\S+)", SecretType::ApiKey, true),
-
         // Bearer tokens
-        (r"(?i)bearer\s+([a-zA-Z0-9_\-\.]+)", SecretType::BearerToken, true),
-        (r"(?i)authorization:\s*bearer\s+(\S+)", SecretType::BearerToken, true),
-
+        (
+            r"(?i)bearer\s+([a-zA-Z0-9_\-\.]+)",
+            SecretType::BearerToken,
+            true,
+        ),
+        (
+            r"(?i)authorization:\s*bearer\s+(\S+)",
+            SecretType::BearerToken,
+            true,
+        ),
         // Authorization headers
-        (r"(?i)authorization:\s*basic\s+(\S+)", SecretType::AuthHeader, true),
+        (
+            r"(?i)authorization:\s*basic\s+(\S+)",
+            SecretType::AuthHeader,
+            true,
+        ),
         (r"(?i)authorization:\s*(\S+)", SecretType::AuthHeader, true),
-
         // Private keys and PEM blocks
-        (r"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----", SecretType::PrivateKey, true),
-        (r"-----BEGIN\s+EC\s+PRIVATE\s+KEY-----[\s\S]*?-----END\s+EC\s+PRIVATE\s+KEY-----", SecretType::PrivateKey, true),
-        (r"-----BEGIN\s+OPENSSH\s+PRIVATE\s+KEY-----[\s\S]*?-----END\s+OPENSSH\s+PRIVATE\s+KEY-----", SecretType::SshKey, true),
-        (r"-----BEGIN\s+PGP\s+PRIVATE\s+KEY\s+BLOCK-----[\s\S]*?-----END\s+PGP\s+PRIVATE\s+KEY\s+BLOCK-----", SecretType::PrivateKey, true),
-        (r"-----BEGIN\s+ENCRYPTED\s+PRIVATE\s+KEY-----[\s\S]*?-----END\s+ENCRYPTED\s+PRIVATE\s+KEY-----", SecretType::PrivateKey, true),
-        (r"-----BEGIN\s+CERTIFICATE-----[\s\S]*?-----END\s+CERTIFICATE-----", SecretType::Certificate, true),
-
+        (
+            r"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----",
+            SecretType::PrivateKey,
+            true,
+        ),
+        (
+            r"-----BEGIN\s+EC\s+PRIVATE\s+KEY-----[\s\S]*?-----END\s+EC\s+PRIVATE\s+KEY-----",
+            SecretType::PrivateKey,
+            true,
+        ),
+        (
+            r"-----BEGIN\s+OPENSSH\s+PRIVATE\s+KEY-----[\s\S]*?-----END\s+OPENSSH\s+PRIVATE\s+KEY-----",
+            SecretType::SshKey,
+            true,
+        ),
+        (
+            r"-----BEGIN\s+PGP\s+PRIVATE\s+KEY\s+BLOCK-----[\s\S]*?-----END\s+PGP\s+PRIVATE\s+KEY\s+BLOCK-----",
+            SecretType::PrivateKey,
+            true,
+        ),
+        (
+            r"-----BEGIN\s+ENCRYPTED\s+PRIVATE\s+KEY-----[\s\S]*?-----END\s+ENCRYPTED\s+PRIVATE\s+KEY-----",
+            SecretType::PrivateKey,
+            true,
+        ),
+        (
+            r"-----BEGIN\s+CERTIFICATE-----[\s\S]*?-----END\s+CERTIFICATE-----",
+            SecretType::Certificate,
+            true,
+        ),
         // SSH keys (public key format isn't secret, but private key content lines are)
-        (r"ssh-(rsa|ed25519|ecdsa)\s+[A-Za-z0-9+/=]+\s+\S+@\S+", SecretType::SshKey, true),
-
+        (
+            r"ssh-(rsa|ed25519|ecdsa)\s+[A-Za-z0-9+/=]+\s+\S+@\S+",
+            SecretType::SshKey,
+            true,
+        ),
         // AWS credentials
-        (r#"(?i)aws_access_key_id\s*[=:]\s*['"]?([A-Z0-9]{20})['"]?"#, SecretType::AwsCredential, true),
-        (r#"(?i)aws_secret_access_key\s*[=:]\s*['"]?([A-Za-z0-9+/]{40})['"]?"#, SecretType::AwsCredential, true),
+        (
+            r#"(?i)aws_access_key_id\s*[=:]\s*['"]?([A-Z0-9]{20})['"]?"#,
+            SecretType::AwsCredential,
+            true,
+        ),
+        (
+            r#"(?i)aws_secret_access_key\s*[=:]\s*['"]?([A-Za-z0-9+/]{40})['"]?"#,
+            SecretType::AwsCredential,
+            true,
+        ),
         (r"AKIA[0-9A-Z]{16}", SecretType::AwsCredential, true),
-
         // Azure credentials
-        (r#"(?i)azure[_-]?(client[_-]?secret|storage[_-]?key)\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::AzureCredential, false),
-
+        (
+            r#"(?i)azure[_-]?(client[_-]?secret|storage[_-]?key)\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::AzureCredential,
+            false,
+        ),
         // GCP credentials
-        (r#"(?i)(gcp|google)[_-]?(api[_-]?key|credentials?|service[_-]?account)\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::GcpCredential, false),
-
+        (
+            r#"(?i)(gcp|google)[_-]?(api[_-]?key|credentials?|service[_-]?account)\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::GcpCredential,
+            false,
+        ),
         // Git credentials
-        (r"https?://[^:]+:[^@]+@[^\s]+\.git", SecretType::GitCredential, true),
+        (
+            r"https?://[^:]+:[^@]+@[^\s]+\.git",
+            SecretType::GitCredential,
+            true,
+        ),
         (r"git://[^:]+:[^@]+@[^\s]+", SecretType::GitCredential, true),
-
         // .netrc entries
-        (r"(?i)machine\s+\S+\s+login\s+\S+\s+password\s+(\S+)", SecretType::NetrcEntry, true),
-
+        (
+            r"(?i)machine\s+\S+\s+login\s+\S+\s+password\s+(\S+)",
+            SecretType::NetrcEntry,
+            true,
+        ),
         // Cookies
         (r"(?i)(set-)?cookie:\s*([^;\n]+)", SecretType::Cookie, true),
-        (r#"(?i)session[_-]?id\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::Cookie, false),
-
+        (
+            r#"(?i)session[_-]?id\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::Cookie,
+            false,
+        ),
         // Database URLs (with passwords)
-        (r"(?i)(postgres|mysql|mongodb|redis)://[^:]+:([^@]+)@[^\s]+", SecretType::DatabaseUrl, true),
-        (r#"(?i)database_url\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::DatabaseUrl, false),
-
+        (
+            r"(?i)(postgres|mysql|mongodb|redis)://[^:]+:([^@]+)@[^\s]+",
+            SecretType::DatabaseUrl,
+            true,
+        ),
+        (
+            r#"(?i)database_url\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::DatabaseUrl,
+            false,
+        ),
         // Connection strings
-        (r"(?i)(server|data\s+source)=[^;]+;.*password\s*=\s*([^;]+)", SecretType::ConnectionString, true),
-
+        (
+            r"(?i)(server|data\s+source)=[^;]+;.*password\s*=\s*([^;]+)",
+            SecretType::ConnectionString,
+            true,
+        ),
         // OAuth tokens
-        (r#"(?i)oauth[_-]?token\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::OAuthToken, false),
-        (r#"(?i)refresh[_-]?token\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::OAuthToken, false),
-        (r#"(?i)access[_-]?token\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::OAuthToken, false),
-
+        (
+            r#"(?i)oauth[_-]?token\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::OAuthToken,
+            false,
+        ),
+        (
+            r#"(?i)refresh[_-]?token\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::OAuthToken,
+            false,
+        ),
+        (
+            r#"(?i)access[_-]?token\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::OAuthToken,
+            false,
+        ),
         // Webhook secrets
-        (r#"(?i)webhook[_-]?secret\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::WebhookSecret, false),
-
+        (
+            r#"(?i)webhook[_-]?secret\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::WebhookSecret,
+            false,
+        ),
         // Encryption keys
-        (r#"(?i)(encryption|encrypt)[_-]?key\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::EncryptionKey, false),
-        (r#"(?i)(aes|des|rsa)[_-]?key\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::EncryptionKey, false),
-
+        (
+            r#"(?i)(encryption|encrypt)[_-]?key\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::EncryptionKey,
+            false,
+        ),
+        (
+            r#"(?i)(aes|des|rsa)[_-]?key\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::EncryptionKey,
+            false,
+        ),
         // Generic secrets and tokens
-        (r#"(?i)(secret|token|credential)\s*[=:]\s*['"]?([^'"\s\n]{8,})['"]?"#, SecretType::GenericSecret, false),
-        (r#"(?i)_token\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::GenericSecret, false),
-        (r#"(?i)_secret\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::GenericSecret, false),
-        (r#"(?i)_key\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#, SecretType::GenericSecret, false),
+        (
+            r#"(?i)(secret|token|credential)\s*[=:]\s*['"]?([^'"\s\n]{8,})['"]?"#,
+            SecretType::GenericSecret,
+            false,
+        ),
+        (
+            r#"(?i)_token\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::GenericSecret,
+            false,
+        ),
+        (
+            r#"(?i)_secret\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::GenericSecret,
+            false,
+        ),
+        (
+            r#"(?i)_key\s*[=:]\s*['"]?([^'"\s\n]+)['"]?"#,
+            SecretType::GenericSecret,
+            false,
+        ),
     ];
 
     patterns
@@ -231,10 +349,7 @@ static SECRET_ENV_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
         r"(?i).*_secret$",
     ];
 
-    patterns
-        .iter()
-        .filter_map(|p| Regex::new(p).ok())
-        .collect()
+    patterns.iter().filter_map(|p| Regex::new(p).ok()).collect()
 });
 
 // =============================================================================
@@ -303,21 +418,23 @@ pub fn redact_secrets(text: &str) -> RedactionResult {
             }
         } else {
             // Replace only the value part (preserve the key for context)
-            let new_result = pattern.regex.replace_all(&result, |caps: &regex::Captures| {
-                if caps.len() > 2 {
-                    // Pattern has key and value groups: key=value -> key=[REDACTED:TYPE]
-                    format!(
-                        "{}{}",
-                        caps.get(1).map(|m| m.as_str()).unwrap_or(""),
-                        placeholder
-                    )
-                } else if caps.len() > 1 {
-                    // Pattern has one capture group
-                    placeholder.to_string()
-                } else {
-                    placeholder.to_string()
-                }
-            });
+            let new_result = pattern
+                .regex
+                .replace_all(&result, |caps: &regex::Captures| {
+                    if caps.len() > 2 {
+                        // Pattern has key and value groups: key=value -> key=[REDACTED:TYPE]
+                        format!(
+                            "{}{}",
+                            caps.get(1).map(|m| m.as_str()).unwrap_or(""),
+                            placeholder
+                        )
+                    } else if caps.len() > 1 {
+                        // Pattern has one capture group
+                        placeholder.to_string()
+                    } else {
+                        placeholder.to_string()
+                    }
+                });
             if new_result != result {
                 count += pattern.regex.find_iter(&result).count();
                 types_found.insert(pattern.secret_type);
@@ -391,35 +508,29 @@ pub const RESTRICTED_EVIDENCE_PATHS: &[&str] = &[
     "$HOME/.ssh/",
     "/home/*/.ssh/",
     "/root/.ssh/",
-
     // GPG
     "~/.gnupg/",
     "$HOME/.gnupg/",
     "/home/*/.gnupg/",
     "/root/.gnupg/",
-
     // System secrets
     "/etc/shadow",
     "/etc/gshadow",
     "/etc/sudoers.d/",
-
     // Keyrings
     "~/.local/share/keyrings/",
     "$HOME/.local/share/keyrings/",
     "/home/*/.local/share/keyrings/",
-
     // Browser profiles (credentials)
     "~/.mozilla/**/key*.db",
     "~/.mozilla/**/logins.json",
     "~/.config/chromium/**/Login Data",
     "~/.config/google-chrome/**/Login Data",
     "~/.config/BraveSoftware/**/Login Data",
-
     // Password stores
     "~/.password-store/",
     "$HOME/.password-store/",
     "~/.config/keepassxc/",
-
     // Credential files
     "~/.netrc",
     "~/.git-credentials",
@@ -428,7 +539,6 @@ pub const RESTRICTED_EVIDENCE_PATHS: &[&str] = &[
     "~/.aws/credentials",
     "~/.azure/",
     "~/.config/gcloud/",
-
     // Process environment (contains secrets)
     "/proc/*/environ",
 ];
@@ -479,8 +589,7 @@ fn matches_pattern_impl(path: &str, pattern: &str) -> bool {
     if pattern.contains("/**/") {
         let parts: Vec<&str> = pattern.split("/**/").collect();
         if parts.len() == 2 {
-            return path.starts_with(parts[0]) &&
-                   (parts[1].is_empty() || path.contains(parts[1]));
+            return path.starts_with(parts[0]) && (parts[1].is_empty() || path.contains(parts[1]));
         }
     }
 
@@ -524,10 +633,14 @@ fn matches_pattern_impl(path: &str, pattern: &str) -> bool {
                 continue;
             }
             if pattern_pos == 0 {
-                if !path.starts_with(part) { return false; }
+                if !path.starts_with(part) {
+                    return false;
+                }
                 path_pos = part.len();
             } else if pattern_pos == parts.len() - 1 {
-                if !path.ends_with(part) { return false; }
+                if !path.ends_with(part) {
+                    return false;
+                }
                 return true;
             } else {
                 if let Some(found) = path[path_pos..].find(part) {
@@ -565,7 +678,8 @@ pub fn generate_redaction_id() -> u32 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_micros() as u32 % 100000
+        .as_micros() as u32
+        % 100000
 }
 
 // =============================================================================
@@ -593,16 +707,17 @@ pub fn redact_evidence(content: &str, path: Option<&str>) -> Result<String, Stri
 /// Redact secrets from audit log details
 pub fn redact_audit_details(details: &serde_json::Value) -> serde_json::Value {
     match details {
-        serde_json::Value::String(s) => {
-            serde_json::Value::String(redact(s))
-        }
+        serde_json::Value::String(s) => serde_json::Value::String(redact(s)),
         serde_json::Value::Object(map) => {
             let mut new_map = serde_json::Map::new();
             for (k, v) in map {
                 // Redact both key-value if key suggests secret
                 let is_secret_key = SECRET_ENV_PATTERNS.iter().any(|p| p.is_match(k));
                 if is_secret_key {
-                    new_map.insert(k.clone(), serde_json::Value::String("[REDACTED:ENV_SECRET]".to_string()));
+                    new_map.insert(
+                        k.clone(),
+                        serde_json::Value::String("[REDACTED:ENV_SECRET]".to_string()),
+                    );
                 } else {
                     new_map.insert(k.clone(), redact_audit_details(v));
                 }
@@ -641,7 +756,9 @@ pub fn check_for_leaks(text: &str) -> LeakCheckResult {
         LeakCheckResult {
             has_leaks: true,
             leak_types: secret_types,
-            recommendation: Some("Response contains potential secrets. Apply redaction and regenerate.".to_string()),
+            recommendation: Some(
+                "Response contains potential secrets. Apply redaction and regenerate.".to_string(),
+            ),
             penalty,
         }
     }
@@ -662,15 +779,18 @@ pub struct LeakCheckResult {
 
 /// Calculate the penalty for leaking certain secret types
 fn calculate_leak_penalty(types: &[SecretType]) -> i32 {
-    types.iter().map(|t| match t {
-        SecretType::PrivateKey | SecretType::SshKey => -50,
-        SecretType::Password | SecretType::AwsCredential => -40,
-        SecretType::ApiKey | SecretType::BearerToken => -35,
-        SecretType::DatabaseUrl | SecretType::ConnectionString => -35,
-        SecretType::JwtToken | SecretType::OAuthToken => -30,
-        SecretType::Cookie | SecretType::AuthHeader => -25,
-        _ => -20,
-    }).sum()
+    types
+        .iter()
+        .map(|t| match t {
+            SecretType::PrivateKey | SecretType::SshKey => -50,
+            SecretType::Password | SecretType::AwsCredential => -40,
+            SecretType::ApiKey | SecretType::BearerToken => -35,
+            SecretType::DatabaseUrl | SecretType::ConnectionString => -35,
+            SecretType::JwtToken | SecretType::OAuthToken => -30,
+            SecretType::Cookie | SecretType::AuthHeader => -25,
+            _ => -20,
+        })
+        .sum()
 }
 
 // =============================================================================
@@ -759,19 +879,31 @@ MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy...
         let jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
         let result = redact_secrets(jwt);
         assert!(result.was_redacted, "JWT should be detected as secret");
-        assert!(result.text.contains("[REDACTED:JWT]"), "JWT should be redacted with [REDACTED:JWT], got: {}", result.text);
+        assert!(
+            result.text.contains("[REDACTED:JWT]"),
+            "JWT should be redacted with [REDACTED:JWT], got: {}",
+            result.text
+        );
 
         // JWT in bearer header
         let bearer_jwt = "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig";
         let result2 = redact_secrets(bearer_jwt);
-        assert!(result2.was_redacted, "Bearer JWT should be detected as secret");
+        assert!(
+            result2.was_redacted,
+            "Bearer JWT should be detected as secret"
+        );
 
         // When assigned to "token = X", generic secret pattern takes precedence
         // which is acceptable since both redact the sensitive value
-        let token_assign = "token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig";
+        let token_assign =
+            "token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig";
         let result3 = redact_secrets(token_assign);
         assert!(result3.was_redacted, "Token assignment should be redacted");
-        assert!(result3.text.contains("[REDACTED:"), "Value should be redacted: {}", result3.text);
+        assert!(
+            result3.text.contains("[REDACTED:"),
+            "Value should be redacted: {}",
+            result3.text
+        );
     }
 
     #[test]
@@ -798,9 +930,18 @@ MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy...
 
     #[test]
     fn test_redact_env_value() {
-        assert_eq!(redact_env_value("HOME", "/home/user").as_ref(), "/home/user");
-        assert_eq!(redact_env_value("API_KEY", "secret123").as_ref(), "[REDACTED:ENV_SECRET]");
-        assert_eq!(redact_env_value("AWS_SECRET_KEY", "awssecret").as_ref(), "[REDACTED:ENV_SECRET]");
+        assert_eq!(
+            redact_env_value("HOME", "/home/user").as_ref(),
+            "/home/user"
+        );
+        assert_eq!(
+            redact_env_value("API_KEY", "secret123").as_ref(),
+            "[REDACTED:ENV_SECRET]"
+        );
+        assert_eq!(
+            redact_env_value("AWS_SECRET_KEY", "awssecret").as_ref(),
+            "[REDACTED:ENV_SECRET]"
+        );
     }
 
     #[test]
@@ -835,8 +976,18 @@ MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy...
         let redacted = redact_audit_details(&details);
         let obj = redacted.as_object().unwrap();
         assert_eq!(obj.get("path").unwrap(), "/etc/config");
-        assert!(obj.get("password").unwrap().as_str().unwrap().contains("REDACTED"));
-        assert!(obj.get("api_key").unwrap().as_str().unwrap().contains("REDACTED"));
+        assert!(obj
+            .get("password")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains("REDACTED"));
+        assert!(obj
+            .get("api_key")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains("REDACTED"));
     }
 
     #[test]
@@ -859,7 +1010,10 @@ MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy...
     fn test_secret_type_placeholders() {
         assert_eq!(SecretType::Password.placeholder(), "[REDACTED:PASSWORD]");
         assert_eq!(SecretType::ApiKey.placeholder(), "[REDACTED:API_KEY]");
-        assert_eq!(SecretType::PrivateKey.placeholder(), "[REDACTED:PRIVATE_KEY]");
+        assert_eq!(
+            SecretType::PrivateKey.placeholder(),
+            "[REDACTED:PRIVATE_KEY]"
+        );
     }
 
     #[test]

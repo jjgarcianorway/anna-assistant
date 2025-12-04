@@ -35,18 +35,13 @@ pub fn has_man_page(cmd: &str) -> bool {
 
 /// Get man page path for a command
 pub fn get_man_path(cmd: &str) -> Option<PathBuf> {
-    let output = Command::new("man")
-        .args(["-w", cmd])
-        .output()
-        .ok()?;
+    let output = Command::new("man").args(["-w", cmd]).output().ok()?;
 
     if !output.status.success() {
         return None;
     }
 
-    let path = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     if path.is_empty() {
         None
@@ -57,10 +52,7 @@ pub fn get_man_path(cmd: &str) -> Option<PathBuf> {
 
 /// Get short description from man -f (whatis)
 pub fn get_man_description(cmd: &str) -> Option<String> {
-    let output = Command::new("man")
-        .args(["-f", cmd])
-        .output()
-        .ok()?;
+    let output = Command::new("man").args(["-f", cmd]).output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -89,7 +81,14 @@ pub fn get_doc_paths(package: &str) -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
     // Common doc file names
-    let doc_files = ["README", "README.md", "README.txt", "INSTALL", "USAGE", "EXAMPLES"];
+    let doc_files = [
+        "README",
+        "README.md",
+        "README.txt",
+        "INSTALL",
+        "USAGE",
+        "EXAMPLES",
+    ];
 
     for name in &doc_files {
         let path = doc_dir.join(name);
@@ -120,9 +119,7 @@ pub fn get_doc_paths(package: &str) -> Vec<PathBuf> {
 
 /// Get config file paths from pacman -Ql for a package
 pub fn get_config_paths_from_pacman(package: &str) -> Vec<PathBuf> {
-    let output = match Command::new("pacman")
-        .args(["-Ql", package])
-        .output() {
+    let output = match Command::new("pacman").args(["-Ql", package]).output() {
         Ok(o) => o,
         Err(_) => return Vec::new(),
     };
@@ -157,9 +154,7 @@ pub fn get_config_paths_from_pacman(package: &str) -> Vec<PathBuf> {
 
 /// Get sample config files from pacman -Ql
 pub fn get_sample_configs_from_pacman(package: &str) -> Vec<PathBuf> {
-    let output = match Command::new("pacman")
-        .args(["-Ql", package])
-        .output() {
+    let output = match Command::new("pacman").args(["-Ql", package]).output() {
         Ok(o) => o,
         Err(_) => return Vec::new(),
     };
@@ -210,9 +205,11 @@ pub fn resolve_local_docs(name: &str) -> Vec<LocalDocResult> {
         results.push(LocalDocResult {
             source: "doc".to_string(),
             path: path.clone(),
-            description: Some(path.file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default()),
+            description: Some(
+                path.file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+            ),
         });
     }
 

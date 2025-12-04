@@ -123,11 +123,9 @@ impl InstrumentationManifest {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let path_str = path.to_str()
-            .ok_or_else(|| std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid path",
-            ))?;
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         crate::atomic_write(path_str, &content)
@@ -166,7 +164,8 @@ impl InstrumentationManifest {
     /// Check if we're rate limited (max installs per 24h)
     pub fn is_rate_limited(&self, config: &AnnaConfig) -> bool {
         let cutoff = Utc::now() - chrono::Duration::hours(24);
-        let recent_count = self.recent_attempts
+        let recent_count = self
+            .recent_attempts
             .iter()
             .filter(|a| a.attempted_at > cutoff && a.success)
             .count();
@@ -287,18 +286,21 @@ pub fn get_missing_tools(config: &AnnaConfig) -> Vec<AvailableTool> {
     let manifest = InstrumentationManifest::load();
     let known = get_known_tools();
 
-    known.into_iter().filter(|tool| {
-        // Not already installed by Anna
-        if manifest.is_installed(&tool.package) {
-            return false;
-        }
-        // Not blocked by AUR gate
-        if tool.source == "aur" && !config.instrumentation.allow_aur {
-            return false;
-        }
-        // Check if actually missing from system
-        !is_package_installed(&tool.package)
-    }).collect()
+    known
+        .into_iter()
+        .filter(|tool| {
+            // Not already installed by Anna
+            if manifest.is_installed(&tool.package) {
+                return false;
+            }
+            // Not blocked by AUR gate
+            if tool.source == "aur" && !config.instrumentation.allow_aur {
+                return false;
+            }
+            // Check if actually missing from system
+            !is_package_installed(&tool.package)
+        })
+        .collect()
 }
 
 /// Check if a package is installed on the system
@@ -326,9 +328,7 @@ pub fn get_package_version(package: &str) -> Option<String> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines() {
         if line.starts_with("Version") {
-            return line.split(':')
-                .nth(1)
-                .map(|v| v.trim().to_string());
+            return line.split(':').nth(1).map(|v| v.trim().to_string());
         }
     }
     None

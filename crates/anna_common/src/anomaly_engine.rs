@@ -80,8 +80,12 @@ impl AnomalySignal {
             AnomalySignal::CpuLoadIncrease => "cpu_load".to_string(),
             AnomalySignal::MemoryPressure => "memory_pressure".to_string(),
             AnomalySignal::DiskIoLatency => "disk_io_latency".to_string(),
-            AnomalySignal::JournalWarningsIncrease { service } => format!("journal_warnings:{}", service),
-            AnomalySignal::JournalErrorsIncrease { service } => format!("journal_errors:{}", service),
+            AnomalySignal::JournalWarningsIncrease { service } => {
+                format!("journal_warnings:{}", service)
+            }
+            AnomalySignal::JournalErrorsIncrease { service } => {
+                format!("journal_errors:{}", service)
+            }
             AnomalySignal::SystemCrash => "system_crash".to_string(),
             AnomalySignal::ServiceCrash { service } => format!("service_crash:{}", service),
             AnomalySignal::ServiceFailed { service } => format!("service_failed:{}", service),
@@ -159,7 +163,12 @@ pub struct Anomaly {
 }
 
 impl Anomaly {
-    pub fn new(signal: AnomalySignal, severity: AnomalySeverity, title: &str, description: &str) -> Self {
+    pub fn new(
+        signal: AnomalySignal,
+        severity: AnomalySeverity,
+        title: &str,
+        description: &str,
+    ) -> Self {
         let now = Utc::now();
         Self {
             evidence_id: generate_evidence_id(),
@@ -208,7 +217,12 @@ impl Anomaly {
 
     /// Format for status display (concise)
     pub fn format_short(&self) -> String {
-        format!("[{}] {} ({})", self.evidence_id, self.title, self.severity.as_str())
+        format!(
+            "[{}] {} ({})",
+            self.evidence_id,
+            self.title,
+            self.severity.as_str()
+        )
     }
 
     /// Format for detailed display
@@ -231,9 +245,18 @@ impl Anomaly {
             lines.push(format!("  Confidence: {:.0}%", self.confidence * 100.0));
         }
 
-        if let (Some(ref baseline), Some(ref recent)) = (&self.baseline_window, &self.recent_window) {
-            lines.push(format!("  Baseline: {} ({} samples)", baseline.format_range(), baseline.sample_count));
-            lines.push(format!("  Recent: {} ({} samples)", recent.format_range(), recent.sample_count));
+        if let (Some(ref baseline), Some(ref recent)) = (&self.baseline_window, &self.recent_window)
+        {
+            lines.push(format!(
+                "  Baseline: {} ({} samples)",
+                baseline.format_range(),
+                baseline.sample_count
+            ));
+            lines.push(format!(
+                "  Recent: {} ({} samples)",
+                recent.format_range(),
+                recent.sample_count
+            ));
         }
 
         if !self.hints.is_empty() {
@@ -289,7 +312,11 @@ impl AlertQueue {
         let dedup_key = anomaly.signal.dedup_key();
 
         // Find existing anomaly with same signal
-        if let Some(existing) = self.anomalies.iter_mut().find(|a| a.signal.dedup_key() == dedup_key) {
+        if let Some(existing) = self
+            .anomalies
+            .iter_mut()
+            .find(|a| a.signal.dedup_key() == dedup_key)
+        {
             // Update existing
             existing.last_seen = Utc::now();
             existing.occurrence_count += 1;
@@ -309,10 +336,7 @@ impl AlertQueue {
 
     /// Get unacknowledged anomalies by severity
     pub fn get_active(&self) -> Vec<&Anomaly> {
-        self.anomalies
-            .iter()
-            .filter(|a| !a.acknowledged)
-            .collect()
+        self.anomalies.iter().filter(|a| !a.acknowledged).collect()
     }
 
     /// Get critical alerts
@@ -334,15 +358,28 @@ impl AlertQueue {
     /// Get count by severity
     pub fn count_by_severity(&self) -> (usize, usize, usize) {
         let active = self.get_active();
-        let critical = active.iter().filter(|a| a.severity == AnomalySeverity::Critical).count();
-        let warning = active.iter().filter(|a| a.severity == AnomalySeverity::Warning).count();
-        let info = active.iter().filter(|a| a.severity == AnomalySeverity::Info).count();
+        let critical = active
+            .iter()
+            .filter(|a| a.severity == AnomalySeverity::Critical)
+            .count();
+        let warning = active
+            .iter()
+            .filter(|a| a.severity == AnomalySeverity::Warning)
+            .count();
+        let info = active
+            .iter()
+            .filter(|a| a.severity == AnomalySeverity::Info)
+            .count();
         (critical, warning, info)
     }
 
     /// Acknowledge an anomaly by evidence ID
     pub fn acknowledge(&mut self, evidence_id: &str) -> bool {
-        if let Some(anomaly) = self.anomalies.iter_mut().find(|a| a.evidence_id == evidence_id) {
+        if let Some(anomaly) = self
+            .anomalies
+            .iter_mut()
+            .find(|a| a.evidence_id == evidence_id)
+        {
             anomaly.acknowledged = true;
             true
         } else {
@@ -353,9 +390,8 @@ impl AlertQueue {
     /// Remove old acknowledged anomalies (> 7 days)
     pub fn cleanup(&mut self) {
         let cutoff = Utc::now() - chrono::Duration::days(7);
-        self.anomalies.retain(|a| {
-            !a.acknowledged || a.last_seen > cutoff
-        });
+        self.anomalies
+            .retain(|a| !a.acknowledged || a.last_seen > cutoff);
     }
 
     /// Format summary for status display
@@ -491,12 +527,16 @@ impl AnomalyEngine {
                     AnomalySignal::BootTimeRegression,
                     severity,
                     "Boot time increased",
-                    &format!("Boot time is {:.1}s, {:.0}% higher than baseline", total_secs, delta * 100.0),
+                    &format!(
+                        "Boot time is {:.1}s, {:.0}% higher than baseline",
+                        total_secs,
+                        delta * 100.0
+                    ),
                 )
                 .with_delta(delta)
                 .with_confidence(0.7)
                 .with_hint("Run 'systemd-analyze blame' to see slow services")
-                .with_hint("Check for new services added recently")
+                .with_hint("Check for new services added recently"),
             );
         }
 
@@ -538,7 +578,7 @@ impl AnomalyEngine {
                 )
                 .with_confidence(0.8)
                 .with_hint("Run 'top' or 'htop' to identify resource-heavy processes")
-                .with_hint("Check for runaway processes or background tasks")
+                .with_hint("Check for runaway processes or background tasks"),
             );
         }
 
@@ -588,7 +628,7 @@ impl AnomalyEngine {
                 )
                 .with_confidence(0.9)
                 .with_hint("Identify memory-heavy processes with 'ps aux --sort=-%mem | head'")
-                .with_hint("Consider closing unused applications")
+                .with_hint("Consider closing unused applications"),
             );
         }
 
@@ -606,7 +646,7 @@ impl AnomalyEngine {
                 )
                 .with_confidence(0.7)
                 .with_hint("High swap usage can slow down the system")
-                .with_hint("Check memory usage of running applications")
+                .with_hint("Check memory usage of running applications"),
             );
         }
 
@@ -652,8 +692,10 @@ impl AnomalyEngine {
                                         ),
                                     )
                                     .with_confidence(0.95)
-                                    .with_hint("Run 'du -sh /* | sort -h' to find large directories")
-                                    .with_hint("Clear package cache with 'sudo pacman -Sc'")
+                                    .with_hint(
+                                        "Run 'du -sh /* | sort -h' to find large directories",
+                                    )
+                                    .with_hint("Clear package cache with 'sudo pacman -Sc'"),
                                 );
                             }
                         }
@@ -679,14 +721,15 @@ impl AnomalyEngine {
                     AnomalySignal::SystemCrash,
                     AnomalySeverity::Warning,
                     "Recent system crash detected",
-                    &format!("Anna daemon crashed {} ago: {}",
+                    &format!(
+                        "Anna daemon crashed {} ago: {}",
                         format_duration(crash_age.num_seconds() as u64),
                         crash.reason
                     ),
                 )
                 .with_confidence(1.0)
                 .with_hint("Check logs: journalctl -u annad -n 50")
-                .with_hint("Review system state before crash")
+                .with_hint("Review system state before crash"),
             );
         }
 
@@ -719,7 +762,7 @@ impl AnomalyEngine {
                             )
                             .with_confidence(1.0)
                             .with_hint(&format!("Check logs: journalctl -u {} -n 30", unit))
-                            .with_hint(&format!("Try restarting: sudo systemctl restart {}", unit))
+                            .with_hint(&format!("Try restarting: sudo systemctl restart {}", unit)),
                         );
                     }
                 }
@@ -735,7 +778,15 @@ impl AnomalyEngine {
 
         // Get recent errors from journal (last hour)
         let output = std::process::Command::new("journalctl")
-            .args(["--since", "1 hour ago", "-p", "err", "--no-pager", "-o", "cat"])
+            .args([
+                "--since",
+                "1 hour ago",
+                "-p",
+                "err",
+                "--no-pager",
+                "-o",
+                "cat",
+            ])
             .output();
 
         if let Ok(output) = output {
@@ -755,7 +806,7 @@ impl AnomalyEngine {
                         )
                         .with_confidence(0.8)
                         .with_hint("Check recent errors: journalctl -p err --since '1 hour ago'")
-                        .with_hint("Look for patterns in error messages")
+                        .with_hint("Look for patterns in error messages"),
                     );
                 }
             }
@@ -915,19 +966,28 @@ impl WhatChangedResult {
         let mut parts = Vec::new();
 
         if !self.packages_installed.is_empty() {
-            parts.push(format!("{} packages installed", self.packages_installed.len()));
+            parts.push(format!(
+                "{} packages installed",
+                self.packages_installed.len()
+            ));
         }
         if !self.packages_removed.is_empty() {
             parts.push(format!("{} packages removed", self.packages_removed.len()));
         }
         if !self.packages_upgraded.is_empty() {
-            parts.push(format!("{} packages upgraded", self.packages_upgraded.len()));
+            parts.push(format!(
+                "{} packages upgraded",
+                self.packages_upgraded.len()
+            ));
         }
         if !self.services_enabled.is_empty() {
             parts.push(format!("{} services enabled", self.services_enabled.len()));
         }
         if !self.services_disabled.is_empty() {
-            parts.push(format!("{} services disabled", self.services_disabled.len()));
+            parts.push(format!(
+                "{} services disabled",
+                self.services_disabled.len()
+            ));
         }
         if !self.config_changes.is_empty() {
             parts.push(format!("{} config changes", self.config_changes.len()));
@@ -945,37 +1005,64 @@ impl WhatChangedResult {
 
     /// Format detailed output
     pub fn format_detail(&self) -> String {
-        let mut lines = vec![
-            format!("[{}] System changes in last {} days", self.evidence_id, self.days),
-        ];
+        let mut lines = vec![format!(
+            "[{}] System changes in last {} days",
+            self.evidence_id, self.days
+        )];
 
         if !self.packages_installed.is_empty() {
             lines.push(String::new());
-            lines.push(format!("Packages installed ({}):", self.packages_installed.len()));
+            lines.push(format!(
+                "Packages installed ({}):",
+                self.packages_installed.len()
+            ));
             for pkg in &self.packages_installed {
-                lines.push(format!("  - {} {} ({})", pkg.name, pkg.version, pkg.timestamp.format("%Y-%m-%d")));
+                lines.push(format!(
+                    "  - {} {} ({})",
+                    pkg.name,
+                    pkg.version,
+                    pkg.timestamp.format("%Y-%m-%d")
+                ));
             }
         }
 
         if !self.packages_removed.is_empty() {
             lines.push(String::new());
-            lines.push(format!("Packages removed ({}):", self.packages_removed.len()));
+            lines.push(format!(
+                "Packages removed ({}):",
+                self.packages_removed.len()
+            ));
             for pkg in &self.packages_removed {
-                lines.push(format!("  - {} ({})", pkg.name, pkg.timestamp.format("%Y-%m-%d")));
+                lines.push(format!(
+                    "  - {} ({})",
+                    pkg.name,
+                    pkg.timestamp.format("%Y-%m-%d")
+                ));
             }
         }
 
         if !self.packages_upgraded.is_empty() {
             lines.push(String::new());
-            lines.push(format!("Packages upgraded ({}):", self.packages_upgraded.len()));
+            lines.push(format!(
+                "Packages upgraded ({}):",
+                self.packages_upgraded.len()
+            ));
             for pkg in &self.packages_upgraded {
-                lines.push(format!("  - {} -> {} ({})", pkg.name, pkg.version, pkg.timestamp.format("%Y-%m-%d")));
+                lines.push(format!(
+                    "  - {} -> {} ({})",
+                    pkg.name,
+                    pkg.version,
+                    pkg.timestamp.format("%Y-%m-%d")
+                ));
             }
         }
 
         if !self.services_enabled.is_empty() {
             lines.push(String::new());
-            lines.push(format!("Services enabled ({}):", self.services_enabled.len()));
+            lines.push(format!(
+                "Services enabled ({}):",
+                self.services_enabled.len()
+            ));
             for svc in &self.services_enabled {
                 lines.push(format!("  - {}", svc));
             }
@@ -983,7 +1070,10 @@ impl WhatChangedResult {
 
         if !self.services_disabled.is_empty() {
             lines.push(String::new());
-            lines.push(format!("Services disabled ({}):", self.services_disabled.len()));
+            lines.push(format!(
+                "Services disabled ({}):",
+                self.services_disabled.len()
+            ));
             for svc in &self.services_disabled {
                 lines.push(format!("  - {}", svc));
             }
@@ -993,7 +1083,12 @@ impl WhatChangedResult {
             lines.push(String::new());
             lines.push(format!("Config changes ({}):", self.config_changes.len()));
             for cfg in &self.config_changes {
-                lines.push(format!("  - {} [{}] ({})", cfg.path, cfg.change_type, cfg.timestamp.format("%Y-%m-%d")));
+                lines.push(format!(
+                    "  - {} [{}] ({})",
+                    cfg.path,
+                    cfg.change_type,
+                    cfg.timestamp.format("%Y-%m-%d")
+                ));
             }
         }
 
@@ -1059,7 +1154,17 @@ pub fn what_changed(days: u32) -> WhatChangedResult {
 
     // Check for service state changes via journal
     if let Ok(output) = std::process::Command::new("journalctl")
-        .args(["--since", &format!("{} days ago", days), "-u", "systemd-*", "--grep", "Succeeded|Started|Stopped|Enabled|Disabled", "-o", "cat", "--no-pager"])
+        .args([
+            "--since",
+            &format!("{} days ago", days),
+            "-u",
+            "systemd-*",
+            "--grep",
+            "Succeeded|Started|Stopped|Enabled|Disabled",
+            "-o",
+            "cat",
+            "--no-pager",
+        ])
         .output()
     {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -1246,9 +1351,10 @@ impl SlownessAnalysisResult {
 
     /// Format for display
     pub fn format_detail(&self) -> String {
-        let mut lines = vec![
-            format!("[{}] Slowness Analysis (last {} days)", self.evidence_id, self.days),
-        ];
+        let mut lines = vec![format!(
+            "[{}] Slowness Analysis (last {} days)",
+            self.evidence_id, self.days
+        )];
 
         if !self.hypotheses.is_empty() {
             lines.push(String::new());
@@ -1284,7 +1390,10 @@ impl SlownessAnalysisResult {
 
         if !self.active_anomalies.is_empty() {
             lines.push(String::new());
-            lines.push(format!("Active Anomalies: {}", self.active_anomalies.join(", ")));
+            lines.push(format!(
+                "Active Anomalies: {}",
+                self.active_anomalies.join(", ")
+            ));
         }
 
         if !self.top_processes.is_empty() {
@@ -1330,7 +1439,9 @@ pub fn analyze_slowness(days: u32) -> SlownessAnalysisResult {
                 } else {
                     cmd
                 };
-                result.top_processes.push(format!("{}% CPU, {}% MEM: {}", cpu, mem, cmd_short));
+                result
+                    .top_processes
+                    .push(format!("{}% CPU, {}% MEM: {}", cpu, mem, cmd_short));
             }
         }
     }
@@ -1339,7 +1450,12 @@ pub fn analyze_slowness(days: u32) -> SlownessAnalysisResult {
 
     // Hypothesis: Recent package installs
     if !changes.packages_installed.is_empty() {
-        let pkg_names: Vec<&str> = changes.packages_installed.iter().map(|p| p.name.as_str()).take(3).collect();
+        let pkg_names: Vec<&str> = changes
+            .packages_installed
+            .iter()
+            .map(|p| p.name.as_str())
+            .take(3)
+            .collect();
         let mut h = SlownessHypothesis::new(
             "Recent package installations",
             &format!(
@@ -1364,14 +1480,10 @@ pub fn analyze_slowness(days: u32) -> SlownessAnalysisResult {
     for anomaly in queue.get_active() {
         if matches!(anomaly.signal, AnomalySignal::CpuLoadIncrease) {
             result.hypotheses.push(
-                SlownessHypothesis::new(
-                    "High CPU load",
-                    &anomaly.description,
-                    0.85,
-                )
-                .with_evidence(&anomaly.evidence_id)
-                .with_diagnostic("top -bn1 -o %CPU | head -15")
-                .with_diagnostic("ps aux --sort=-%cpu | head -10")
+                SlownessHypothesis::new("High CPU load", &anomaly.description, 0.85)
+                    .with_evidence(&anomaly.evidence_id)
+                    .with_diagnostic("top -bn1 -o %CPU | head -15")
+                    .with_diagnostic("ps aux --sort=-%cpu | head -10"),
             );
         }
 
@@ -1385,7 +1497,7 @@ pub fn analyze_slowness(days: u32) -> SlownessAnalysisResult {
                 .with_evidence(&anomaly.evidence_id)
                 .with_diagnostic("free -h")
                 .with_diagnostic("ps aux --sort=-%mem | head -10")
-                .with_diagnostic("cat /proc/meminfo | grep -E 'Swap|Mem'")
+                .with_diagnostic("cat /proc/meminfo | grep -E 'Swap|Mem'"),
             );
         }
 
@@ -1417,21 +1529,22 @@ pub fn analyze_slowness(days: u32) -> SlownessAnalysisResult {
 
         if matches!(anomaly.signal, AnomalySignal::BootTimeRegression) {
             result.hypotheses.push(
-                SlownessHypothesis::new(
-                    "Boot time regression",
-                    &anomaly.description,
-                    0.5,
-                )
-                .with_evidence(&anomaly.evidence_id)
-                .with_diagnostic("systemd-analyze blame | head -10")
-                .with_diagnostic("systemd-analyze critical-chain")
+                SlownessHypothesis::new("Boot time regression", &anomaly.description, 0.5)
+                    .with_evidence(&anomaly.evidence_id)
+                    .with_diagnostic("systemd-analyze blame | head -10")
+                    .with_diagnostic("systemd-analyze critical-chain"),
             );
         }
     }
 
     // Hypothesis: Service changes
     if !changes.services_enabled.is_empty() {
-        let svc_names: Vec<&str> = changes.services_enabled.iter().map(|s| s.as_str()).take(3).collect();
+        let svc_names: Vec<&str> = changes
+            .services_enabled
+            .iter()
+            .map(|s| s.as_str())
+            .take(3)
+            .collect();
         result.hypotheses.push(
             SlownessHypothesis::new(
                 "Recently enabled services",
@@ -1442,7 +1555,7 @@ pub fn analyze_slowness(days: u32) -> SlownessAnalysisResult {
                 0.55,
             )
             .with_evidence(&changes.evidence_id)
-            .with_diagnostic("systemctl status")
+            .with_diagnostic("systemctl status"),
         );
     }
 
@@ -1456,13 +1569,20 @@ pub fn analyze_slowness(days: u32) -> SlownessAnalysisResult {
                     0.6,
                 )
                 .with_evidence(&anomaly.evidence_id)
-                .with_diagnostic(&format!("journalctl -u {} -p err --since '1 hour ago'", service))
+                .with_diagnostic(&format!(
+                    "journalctl -u {} -p err --since '1 hour ago'",
+                    service
+                )),
             );
         }
     }
 
     // Sort hypotheses by confidence (highest first)
-    result.hypotheses.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+    result.hypotheses.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     result
 }
@@ -1480,8 +1600,12 @@ mod tests {
     #[test]
     fn test_anomaly_signal_dedup_key() {
         let s1 = AnomalySignal::BootTimeRegression;
-        let s2 = AnomalySignal::ServiceFailed { service: "nginx".to_string() };
-        let s3 = AnomalySignal::ServiceFailed { service: "nginx".to_string() };
+        let s2 = AnomalySignal::ServiceFailed {
+            service: "nginx".to_string(),
+        };
+        let s3 = AnomalySignal::ServiceFailed {
+            service: "nginx".to_string(),
+        };
 
         assert_eq!(s1.dedup_key(), "boot_time");
         assert_eq!(s2.dedup_key(), "service_failed:nginx");
@@ -1639,13 +1763,9 @@ mod tests {
 
     #[test]
     fn test_slowness_hypothesis_builders() {
-        let h = SlownessHypothesis::new(
-            "Test hypothesis",
-            "Test explanation",
-            0.75,
-        )
-        .with_evidence("E1")
-        .with_diagnostic("test diagnostic");
+        let h = SlownessHypothesis::new("Test hypothesis", "Test explanation", 0.75)
+            .with_evidence("E1")
+            .with_diagnostic("test diagnostic");
 
         assert_eq!(h.title, "Test hypothesis");
         assert_eq!(h.confidence, 0.75);
@@ -1686,7 +1806,10 @@ mod tests {
         assert_eq!(AnomalySignal::BootTimeRegression.metric_name(), "boot_time");
         assert_eq!(AnomalySignal::CpuLoadIncrease.metric_name(), "cpu_load");
         assert_eq!(
-            AnomalySignal::ServiceFailed { service: "nginx".to_string() }.metric_name(),
+            AnomalySignal::ServiceFailed {
+                service: "nginx".to_string()
+            }
+            .metric_name(),
             "service_failed:nginx"
         );
     }

@@ -20,9 +20,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::doctor_registry::{
-    DoctorDomain, DoctorRun, DoctorRunResult, DoctorRunStage, DoctorSelection,
-    FindingSeverity, KeyFinding, PlaybookRunResult, StageStatus, StageTiming,
-    VerificationStatus,
+    DoctorDomain, DoctorRun, DoctorRunResult, DoctorRunStage, DoctorSelection, FindingSeverity,
+    KeyFinding, PlaybookRunResult, StageStatus, StageTiming, VerificationStatus,
 };
 use crate::evidence_topic::EvidenceTopic;
 use crate::service_desk::Ticket;
@@ -345,14 +344,20 @@ impl DoctorReport {
                 } else {
                     format!(" [{}]", finding.evidence_ids.join(", "))
                 };
-                lines.push(format!("  [{:?}] {}{}", finding.severity, finding.description, evidence));
+                lines.push(format!(
+                    "  [{:?}] {}{}",
+                    finding.severity, finding.description, evidence
+                ));
             }
             lines.push(String::new());
         }
 
         // Most likely cause
         if let Some(cause) = &self.diagnosis.most_likely_cause {
-            lines.push(format!("Most Likely Cause: {} ({}% confidence)", cause, self.diagnosis.confidence));
+            lines.push(format!(
+                "Most Likely Cause: {} ({}% confidence)",
+                cause, self.diagnosis.confidence
+            ));
             lines.push(String::new());
         }
 
@@ -380,21 +385,23 @@ impl DoctorReport {
         }
 
         // Footer
-        lines.push(format!("Report ID: {} | Duration: {}ms", self.report_id, self.duration_ms));
+        lines.push(format!(
+            "Report ID: {} | Duration: {}ms",
+            self.report_id, self.duration_ms
+        ));
 
         lines.join("\n")
     }
 
     /// Check if this report qualifies for recipe learning
     pub fn qualifies_for_learning(&self, reliability_score: u32) -> bool {
-        reliability_score >= 90
-            && self.diagnosis.confidence >= 80
-            && self.evidence.len() >= 3
+        reliability_score >= 90 && self.diagnosis.confidence >= 80 && self.evidence.len() >= 3
     }
 
     /// Get tools used in this diagnosis for recipe creation
     pub fn tools_used(&self) -> Vec<String> {
-        self.evidence.iter()
+        self.evidence
+            .iter()
             .map(|e| e.tool_name.clone())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
@@ -454,9 +461,7 @@ pub trait Doctor: Send + Sync {
     fn intake(&self, ticket: &Ticket) -> IntakeResult {
         // Default implementation extracts keywords from ticket
         let symptoms = ticket.matched_keywords.clone();
-        let checking = self.plan().iter()
-            .map(|c| c.description.clone())
-            .collect();
+        let checking = self.plan().iter().map(|c| c.description.clone()).collect();
 
         IntakeResult {
             symptoms,
@@ -488,21 +493,11 @@ pub trait Doctor: Send + Sync {
             DoctorLifecycleStage::EvidenceGathering => {
                 format!("Checking {}.", self.checking_what())
             }
-            DoctorLifecycleStage::Diagnosis => {
-                "Analyzing what I found.".to_string()
-            }
-            DoctorLifecycleStage::Planning => {
-                "Preparing recommendations.".to_string()
-            }
-            DoctorLifecycleStage::Verification => {
-                "Verifying the findings.".to_string()
-            }
-            DoctorLifecycleStage::HandOff => {
-                "Consulting with another specialist.".to_string()
-            }
-            DoctorLifecycleStage::Complete => {
-                "Analysis complete.".to_string()
-            }
+            DoctorLifecycleStage::Diagnosis => "Analyzing what I found.".to_string(),
+            DoctorLifecycleStage::Planning => "Preparing recommendations.".to_string(),
+            DoctorLifecycleStage::Verification => "Verifying the findings.".to_string(),
+            DoctorLifecycleStage::HandOff => "Consulting with another specialist.".to_string(),
+            DoctorLifecycleStage::Complete => "Analysis complete.".to_string(),
         }
     }
 
@@ -525,7 +520,9 @@ pub trait Doctor: Send + Sync {
             DoctorDomain::Storage => "disk usage, filesystems, and mount points".to_string(),
             DoctorDomain::Audio => "audio services, devices, and mixer state".to_string(),
             DoctorDomain::Boot => "boot time, service delays, and startup issues".to_string(),
-            DoctorDomain::Graphics => "GPU status, display configuration, and compositor".to_string(),
+            DoctorDomain::Graphics => {
+                "GPU status, display configuration, and compositor".to_string()
+            }
             DoctorDomain::System => "general system state".to_string(),
         }
     }
@@ -590,9 +587,7 @@ impl DoctorRunner {
         start_time: DateTime<Utc>,
     ) -> DoctorReport {
         let plan = doctor.plan();
-        let checks_performed: Vec<String> = plan.iter()
-            .map(|c| c.description.clone())
-            .collect();
+        let checks_performed: Vec<String> = plan.iter().map(|c| c.description.clone()).collect();
 
         let duration_ms = (Utc::now() - start_time).num_milliseconds() as u64;
 
@@ -619,8 +614,8 @@ impl DoctorRunner {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetInterfaceSummary {
     pub name: String,
-    pub state: String,  // UP, DOWN, UNKNOWN
-    pub operstate: String,  // up, down, unknown
+    pub state: String,     // UP, DOWN, UNKNOWN
+    pub operstate: String, // up, down, unknown
     pub carrier: bool,
     pub mac: Option<String>,
     pub ip4: Vec<String>,
@@ -641,7 +636,7 @@ pub struct RouteSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DnsSummary {
     pub servers: Vec<String>,
-    pub source: String,  // resolv.conf, systemd-resolved, NetworkManager
+    pub source: String, // resolv.conf, systemd-resolved, NetworkManager
     pub is_stub_resolver: bool,
     pub domains: Vec<String>,
 }
@@ -651,7 +646,7 @@ pub struct DnsSummary {
 pub struct NmSummary {
     pub installed: bool,
     pub running: bool,
-    pub connectivity: String,  // full, limited, portal, none, unknown
+    pub connectivity: String, // full, limited, portal, none, unknown
     pub primary_connection: Option<String>,
     pub wifi_enabled: bool,
 }
@@ -662,7 +657,7 @@ pub struct WifiSummary {
     pub connected: bool,
     pub ssid: Option<String>,
     pub signal_dbm: Option<i32>,
-    pub signal_quality: Option<String>,  // excellent, good, fair, poor, none
+    pub signal_quality: Option<String>, // excellent, good, fair, poor, none
     pub frequency: Option<String>,
     pub bitrate: Option<String>,
 }

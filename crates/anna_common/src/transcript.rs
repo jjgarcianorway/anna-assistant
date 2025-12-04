@@ -63,8 +63,8 @@ impl std::fmt::Display for Actor {
 pub struct TranscriptMessage {
     pub from: Actor,
     pub to: Actor,
-    pub intent: String,        // One-line intent (always shown)
-    pub details: Option<String>, // Additional details (shown at higher debug levels)
+    pub intent: String,            // One-line intent (always shown)
+    pub details: Option<String>,   // Additional details (shown at higher debug levels)
     pub evidence_ids: Vec<String>, // Referenced evidence IDs [E1, E2]
     pub timestamp: DateTime<Utc>,
 }
@@ -180,7 +180,8 @@ impl TranscriptBuilder {
     }
 
     pub fn add_with_details(&mut self, from: Actor, to: Actor, intent: &str, details: &str) {
-        self.messages.push(TranscriptMessage::new(from, to, intent).with_details(details));
+        self.messages
+            .push(TranscriptMessage::new(from, to, intent).with_details(details));
     }
 
     pub fn finish(&mut self) {
@@ -243,7 +244,12 @@ impl CaseSummary {
     pub fn to_text(&self) -> String {
         let mut lines = vec![
             format!("Case: {}", self.request_id),
-            format!("Time: {}", self.timestamp.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S")),
+            format!(
+                "Time: {}",
+                self.timestamp
+                    .with_timezone(&Local)
+                    .format("%Y-%m-%d %H:%M:%S")
+            ),
             format!("Request: {}", self.user_request),
             format!("Intent: {}", self.intent_type),
             format!("Outcome: {}", self.outcome),
@@ -264,9 +270,9 @@ impl CaseSummary {
 /// Evidence entry for evidence.json
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvidenceEntry {
-    pub id: String,           // E1, E2, etc.
+    pub id: String, // E1, E2, etc.
     pub tool_name: String,
-    pub tool_args: String,    // Redacted
+    pub tool_args: String, // Redacted
     pub timestamp: DateTime<Utc>,
     pub summary: String,
     pub restricted: bool,
@@ -275,7 +281,7 @@ pub struct EvidenceEntry {
 /// Policy reference for policy_refs.json
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyRef {
-    pub rule_id: String,      // e.g., "blocked.toml:rule_12"
+    pub rule_id: String, // e.g., "blocked.toml:rule_12"
     pub explanation: String,
 }
 
@@ -295,7 +301,7 @@ pub struct CaseResult {
     pub reliability_score: u8,
     pub rollback_occurred: bool,
     pub rollback_actions: Vec<String>,
-    pub errors: Vec<String>,  // Redacted
+    pub errors: Vec<String>, // Redacted
 }
 
 /// v0.0.36: Knowledge reference for case files
@@ -603,16 +609,16 @@ impl CaseFile {
 
     /// v0.0.37: Check if a recipe was executed in this case
     pub fn recipe_was_executed(&self, recipe_id: &str) -> bool {
-        self.recipe_events.iter().any(|e| {
-            e.recipe_id == recipe_id && e.event_type == RecipeEventType::Executed
-        })
+        self.recipe_events
+            .iter()
+            .any(|e| e.recipe_id == recipe_id && e.event_type == RecipeEventType::Executed)
     }
 
     /// v0.0.37: Check if a recipe was created from this case
     pub fn recipe_was_created(&self, recipe_id: &str) -> bool {
-        self.recipe_events.iter().any(|e| {
-            e.recipe_id == recipe_id && e.event_type == RecipeEventType::Created
-        })
+        self.recipe_events
+            .iter()
+            .any(|e| e.recipe_id == recipe_id && e.event_type == RecipeEventType::Created)
     }
 
     /// Get the path for this case file
@@ -638,8 +644,7 @@ impl CaseFile {
         if let Ok(home) = std::env::var("HOME") {
             let user_case_dir = PathBuf::from(format!(
                 "{}/.local/share/anna/cases/{}",
-                home,
-                self.summary.request_id
+                home, self.summary.request_id
             ));
 
             // Try user directory - this is the primary location for annactl
@@ -663,30 +668,36 @@ impl CaseFile {
 
         // Write each file atomically with redaction
         let summary_path = path_str(case_dir.join("summary.txt"));
-        atomic_write_bytes(&summary_path, redact_transcript(&self.summary.to_text()).as_bytes())?;
+        atomic_write_bytes(
+            &summary_path,
+            redact_transcript(&self.summary.to_text()).as_bytes(),
+        )?;
 
         let transcript_path = path_str(case_dir.join("transcript.log"));
         let transcript_text = self.transcript.render(2, 120); // Full verbosity for logs
-        atomic_write_bytes(&transcript_path, redact_transcript(&transcript_text).as_bytes())?;
+        atomic_write_bytes(
+            &transcript_path,
+            redact_transcript(&transcript_text).as_bytes(),
+        )?;
 
         let evidence_path = path_str(case_dir.join("evidence.json"));
-        let evidence_json = serde_json::to_string_pretty(&self.evidence)
-            .unwrap_or_else(|_| "[]".to_string());
+        let evidence_json =
+            serde_json::to_string_pretty(&self.evidence).unwrap_or_else(|_| "[]".to_string());
         atomic_write_bytes(&evidence_path, redact_transcript(&evidence_json).as_bytes())?;
 
         let policy_path = path_str(case_dir.join("policy_refs.json"));
-        let policy_json = serde_json::to_string_pretty(&self.policy_refs)
-            .unwrap_or_else(|_| "[]".to_string());
+        let policy_json =
+            serde_json::to_string_pretty(&self.policy_refs).unwrap_or_else(|_| "[]".to_string());
         atomic_write_bytes(&policy_path, policy_json.as_bytes())?;
 
         let timing_path = path_str(case_dir.join("timing.json"));
-        let timing_json = serde_json::to_string_pretty(&self.timing)
-            .unwrap_or_else(|_| "{}".to_string());
+        let timing_json =
+            serde_json::to_string_pretty(&self.timing).unwrap_or_else(|_| "{}".to_string());
         atomic_write_bytes(&timing_path, timing_json.as_bytes())?;
 
         let result_path = path_str(case_dir.join("result.json"));
-        let result_json = serde_json::to_string_pretty(&self.result)
-            .unwrap_or_else(|_| "{}".to_string());
+        let result_json =
+            serde_json::to_string_pretty(&self.result).unwrap_or_else(|_| "{}".to_string());
         atomic_write_bytes(&result_path, redact_transcript(&result_json).as_bytes())?;
 
         // v0.0.34: Write fix_timeline.json if present (Fix-It mode sessions)
@@ -706,24 +717,37 @@ impl CaseFile {
 
         // Write summary
         let summary_path = path_str(user_dir.join("summary.txt"));
-        atomic_write_bytes(&summary_path, redact_transcript(&self.summary.to_text()).as_bytes())?;
+        atomic_write_bytes(
+            &summary_path,
+            redact_transcript(&self.summary.to_text()).as_bytes(),
+        )?;
 
         // Write transcript
         let transcript_path = path_str(user_dir.join("transcript.log"));
         let transcript_text = self.transcript.render(2, 120);
-        atomic_write_bytes(&transcript_path, redact_transcript(&transcript_text).as_bytes())?;
+        atomic_write_bytes(
+            &transcript_path,
+            redact_transcript(&transcript_text).as_bytes(),
+        )?;
 
         // Write evidence
         let evidence_path = path_str(user_dir.join("evidence.json"));
-        let evidence_json = serde_json::to_string_pretty(&self.evidence)
-            .unwrap_or_else(|_| "[]".to_string());
+        let evidence_json =
+            serde_json::to_string_pretty(&self.evidence).unwrap_or_else(|_| "[]".to_string());
         atomic_write_bytes(&evidence_path, redact_transcript(&evidence_json).as_bytes())?;
 
         Ok(user_dir.to_path_buf())
     }
 
     /// Add an evidence entry
-    pub fn add_evidence(&mut self, id: &str, tool_name: &str, tool_args: &str, summary: &str, restricted: bool) {
+    pub fn add_evidence(
+        &mut self,
+        id: &str,
+        tool_name: &str,
+        tool_args: &str,
+        summary: &str,
+        restricted: bool,
+    ) {
         self.evidence.push(EvidenceEntry {
             id: id.to_string(),
             tool_name: tool_name.to_string(),
@@ -745,7 +769,13 @@ impl CaseFile {
     }
 
     /// Set timing information
-    pub fn set_timing(&mut self, translator_ms: u64, evidence_ms: u64, junior_ms: u64, total_ms: u64) {
+    pub fn set_timing(
+        &mut self,
+        translator_ms: u64,
+        evidence_ms: u64,
+        junior_ms: u64,
+        total_ms: u64,
+    ) {
         self.timing = CaseTiming {
             translator_ms,
             evidence_ms,
@@ -786,26 +816,28 @@ pub fn load_case_summary(case_dir: &Path) -> Option<CaseSummary> {
     if let Ok(content) = fs::read_to_string(&result_path) {
         if let Ok(result) = serde_json::from_str::<CaseResult>(&content) {
             // Extract request_id from directory name
-            let request_id = case_dir.file_name()
+            let request_id = case_dir
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown")
                 .to_string();
 
             // Try to get more info from summary.txt
-            let (user_request, intent_type) = if let Ok(summary_text) = fs::read_to_string(&summary_path) {
-                let mut req = String::new();
-                let mut intent = String::new();
-                for line in summary_text.lines() {
-                    if line.starts_with("Request: ") {
-                        req = line.trim_start_matches("Request: ").to_string();
-                    } else if line.starts_with("Intent: ") {
-                        intent = line.trim_start_matches("Intent: ").to_string();
+            let (user_request, intent_type) =
+                if let Ok(summary_text) = fs::read_to_string(&summary_path) {
+                    let mut req = String::new();
+                    let mut intent = String::new();
+                    for line in summary_text.lines() {
+                        if line.starts_with("Request: ") {
+                            req = line.trim_start_matches("Request: ").to_string();
+                        } else if line.starts_with("Intent: ") {
+                            intent = line.trim_start_matches("Intent: ").to_string();
+                        }
                     }
-                }
-                (req, intent)
-            } else {
-                (String::new(), String::new())
-            };
+                    (req, intent)
+                } else {
+                    (String::new(), String::new())
+                };
 
             // Get timestamp from directory structure
             let timestamp = Utc::now(); // Fallback, should parse from path
@@ -815,7 +847,11 @@ pub fn load_case_summary(case_dir: &Path) -> Option<CaseSummary> {
                 timestamp,
                 user_request,
                 intent_type,
-                outcome: if result.success { CaseOutcome::Success } else { CaseOutcome::Failure },
+                outcome: if result.success {
+                    CaseOutcome::Success
+                } else {
+                    CaseOutcome::Failure
+                },
                 reliability_score: result.reliability_score,
                 evidence_count: 0,
                 policy_refs_count: 0,
@@ -912,9 +948,7 @@ pub fn get_cases_storage_size() -> u64 {
             fs::metadata(path).map(|m| m.len()).unwrap_or(0)
         } else if path.is_dir() {
             fs::read_dir(path)
-                .map(|entries| {
-                    entries.flatten().map(|e| dir_size(&e.path())).sum()
-                })
+                .map(|entries| entries.flatten().map(|e| dir_size(&e.path())).sum())
                 .unwrap_or(0)
         } else {
             0
@@ -1027,7 +1061,8 @@ mod tests {
 
     #[test]
     fn test_wrap_text() {
-        let text = "This is a very long line that should be wrapped to fit within the terminal width";
+        let text =
+            "This is a very long line that should be wrapped to fit within the terminal width";
         let wrapped = wrap_text(text, 40);
         for line in wrapped.lines() {
             assert!(line.len() <= 40 || !line.contains(' ')); // Either within limit or no space to break
@@ -1137,7 +1172,10 @@ mod tests {
 
         assert_eq!(case.summary.outcome, CaseOutcome::Failure);
         assert_eq!(case.summary.reliability_score, 45);
-        assert_eq!(case.summary.error_message, Some("Connection timeout".to_string()));
+        assert_eq!(
+            case.summary.error_message,
+            Some("Connection timeout".to_string())
+        );
         assert!(!case.result.success);
         assert_eq!(case.result.errors, vec!["Connection timeout".to_string()]);
     }
@@ -1325,9 +1363,16 @@ mod tests {
 
     #[test]
     fn test_recipe_event_created() {
-        let event = RecipeEvent::created("R2", "Restart postgres", "created as draft, reliability 75%");
+        let event = RecipeEvent::created(
+            "R2",
+            "Restart postgres",
+            "created as draft, reliability 75%",
+        );
         assert_eq!(event.event_type, RecipeEventType::Created);
-        assert_eq!(event.notes, Some("created as draft, reliability 75%".to_string()));
+        assert_eq!(
+            event.notes,
+            Some("created as draft, reliability 75%".to_string())
+        );
     }
 
     #[test]
@@ -1353,7 +1398,11 @@ mod tests {
     fn test_case_file_recipe_created() {
         let mut case = CaseFile::new("test-create", "fixed postgres issue");
 
-        case.add_recipe_event(RecipeEvent::created("R5", "Fix postgres", "created as active, reliability 85%"));
+        case.add_recipe_event(RecipeEvent::created(
+            "R5",
+            "Fix postgres",
+            "created as active, reliability 85%",
+        ));
 
         assert!(case.recipe_was_created("R5"));
         assert!(!case.recipe_was_created("R1"));

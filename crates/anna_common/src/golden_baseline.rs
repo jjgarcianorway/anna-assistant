@@ -10,13 +10,13 @@
 //! This is not a guess. It is a strict rule using severity and counts.
 //! Persisted under /var/lib/anna/journal/baseline.
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use serde::{Deserialize, Serialize};
 
-use crate::log_atlas::{BASELINE_DIR, normalize_message};
+use crate::log_atlas::{normalize_message, BASELINE_DIR};
 
 /// Maximum warning patterns allowed in a golden baseline
 pub const MAX_BASELINE_WARNINGS: usize = 3;
@@ -66,8 +66,7 @@ impl GoldenBaseline {
 
     /// Load baseline from disk
     pub fn load(component: &str) -> Option<Self> {
-        let path = Path::new(BASELINE_DIR)
-            .join(format!("{}.json", component.replace('/', "_")));
+        let path = Path::new(BASELINE_DIR).join(format!("{}.json", component.replace('/', "_")));
 
         if !path.exists() {
             return None;
@@ -79,8 +78,7 @@ impl GoldenBaseline {
 
     /// Check if baseline exists for component
     pub fn exists(component: &str) -> bool {
-        let path = Path::new(BASELINE_DIR)
-            .join(format!("{}.json", component.replace('/', "_")));
+        let path = Path::new(BASELINE_DIR).join(format!("{}.json", component.replace('/', "_")));
         path.exists()
     }
 }
@@ -102,9 +100,7 @@ impl BaselineTag {
             BaselineTag::Known { baseline_id } => {
                 format!("[known, baseline {}]", baseline_id)
             }
-            BaselineTag::NewSinceBaseline => {
-                "[new since baseline]".to_string()
-            }
+            BaselineTag::NewSinceBaseline => "[new since baseline]".to_string(),
             BaselineTag::NoBaseline => String::new(),
         }
     }
@@ -116,11 +112,14 @@ struct BootLogSummary {
     boot_offset: i32,
     error_count: usize,
     critical_count: usize,
-    warning_patterns: Vec<(String, String)>,  // (pattern_id, normalized)
+    warning_patterns: Vec<(String, String)>, // (pattern_id, normalized)
 }
 
 /// Find or create golden baseline for a service
-pub fn find_or_create_service_baseline(unit_name: &str, max_boots_to_scan: u32) -> Option<GoldenBaseline> {
+pub fn find_or_create_service_baseline(
+    unit_name: &str,
+    max_boots_to_scan: u32,
+) -> Option<GoldenBaseline> {
     // Check if baseline already exists
     if let Some(baseline) = GoldenBaseline::load(unit_name) {
         return Some(baseline);
@@ -146,8 +145,16 @@ pub fn find_or_create_service_baseline(unit_name: &str, max_boots_to_scan: u32) 
                 boot_id: -boot_offset,
                 boot_number: (max_boots_to_scan as i32 - boot_offset) as u32,
                 recorded_at: now,
-                pattern_ids: summary.warning_patterns.iter().map(|(id, _)| id.clone()).collect(),
-                patterns: summary.warning_patterns.iter().map(|(_, n)| n.clone()).collect(),
+                pattern_ids: summary
+                    .warning_patterns
+                    .iter()
+                    .map(|(id, _)| id.clone())
+                    .collect(),
+                patterns: summary
+                    .warning_patterns
+                    .iter()
+                    .map(|(_, n)| n.clone())
+                    .collect(),
                 warning_count: summary.warning_patterns.len(),
             };
 
@@ -157,11 +164,14 @@ pub fn find_or_create_service_baseline(unit_name: &str, max_boots_to_scan: u32) 
         }
     }
 
-    None  // No qualifying boot found
+    None // No qualifying boot found
 }
 
 /// Find or create golden baseline for a device
-pub fn find_or_create_device_baseline(device: &str, max_boots_to_scan: u32) -> Option<GoldenBaseline> {
+pub fn find_or_create_device_baseline(
+    device: &str,
+    max_boots_to_scan: u32,
+) -> Option<GoldenBaseline> {
     if let Some(baseline) = GoldenBaseline::load(device) {
         return Some(baseline);
     }
@@ -183,8 +193,16 @@ pub fn find_or_create_device_baseline(device: &str, max_boots_to_scan: u32) -> O
                 boot_id: -boot_offset,
                 boot_number: (max_boots_to_scan as i32 - boot_offset) as u32,
                 recorded_at: now,
-                pattern_ids: summary.warning_patterns.iter().map(|(id, _)| id.clone()).collect(),
-                patterns: summary.warning_patterns.iter().map(|(_, n)| n.clone()).collect(),
+                pattern_ids: summary
+                    .warning_patterns
+                    .iter()
+                    .map(|(id, _)| id.clone())
+                    .collect(),
+                patterns: summary
+                    .warning_patterns
+                    .iter()
+                    .map(|(_, n)| n.clone())
+                    .collect(),
                 warning_count: summary.warning_patterns.len(),
             };
 
@@ -212,12 +230,15 @@ fn analyze_boot_for_service(unit_name: &str, boot_offset: i32) -> BootLogSummary
     // Get error and critical messages
     let output = Command::new("journalctl")
         .args([
-            "-u", unit_name,
+            "-u",
+            unit_name,
             &boot_arg,
-            "-p", "err..alert",
+            "-p",
+            "err..alert",
             "--no-pager",
             "-q",
-            "-o", "cat",
+            "-o",
+            "cat",
         ])
         .output();
 
@@ -228,7 +249,8 @@ fn analyze_boot_for_service(unit_name: &str, boot_offset: i32) -> BootLogSummary
                 if line.is_empty() {
                     continue;
                 }
-                if line.to_lowercase().contains("critical") || line.to_lowercase().contains("crit") {
+                if line.to_lowercase().contains("critical") || line.to_lowercase().contains("crit")
+                {
                     summary.critical_count += 1;
                 } else {
                     summary.error_count += 1;
@@ -240,12 +262,15 @@ fn analyze_boot_for_service(unit_name: &str, boot_offset: i32) -> BootLogSummary
     // Get warning messages and deduplicate by pattern
     let output = Command::new("journalctl")
         .args([
-            "-u", unit_name,
+            "-u",
+            unit_name,
             &boot_arg,
-            "-p", "warning..warning",
+            "-p",
+            "warning..warning",
             "--no-pager",
             "-q",
-            "-o", "cat",
+            "-o",
+            "cat",
         ])
         .output();
 
@@ -363,7 +388,8 @@ pub fn get_components_with_new_patterns() -> Vec<(String, usize)> {
                 if let Ok(content) = fs::read_to_string(&path) {
                     if let Ok(baseline) = serde_json::from_str::<GoldenBaseline>(&content) {
                         // Count new patterns in current boot
-                        let new_count = count_new_patterns_for_component(&baseline.component, &baseline);
+                        let new_count =
+                            count_new_patterns_for_component(&baseline.component, &baseline);
                         if new_count > 0 {
                             result.push((baseline.component.clone(), new_count));
                         }
@@ -373,7 +399,7 @@ pub fn get_components_with_new_patterns() -> Vec<(String, usize)> {
         }
     }
 
-    result.sort_by(|a, b| b.1.cmp(&a.1));  // Sort by count descending
+    result.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
     result
 }
 
@@ -385,19 +411,25 @@ fn count_new_patterns_for_component(component: &str, baseline: &GoldenBaseline) 
     let output = if is_service {
         Command::new("journalctl")
             .args([
-                "-u", component,
+                "-u",
+                component,
                 "-b",
-                "-p", "warning..alert",
+                "-p",
+                "warning..alert",
                 "--no-pager",
                 "-q",
-                "-o", "cat",
+                "-o",
+                "cat",
             ])
             .output()
     } else {
         Command::new("sh")
             .args([
                 "-c",
-                &format!("journalctl -k -b --no-pager -q -o cat | grep -i {}", component),
+                &format!(
+                    "journalctl -k -b --no-pager -q -o cat | grep -i {}",
+                    component
+                ),
             ])
             .output()
     };

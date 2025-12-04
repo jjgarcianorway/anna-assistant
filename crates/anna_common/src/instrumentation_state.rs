@@ -8,8 +8,8 @@
 //! - Show in annactl status
 //! - Log all installs to ops_log
 
-use crate::config::DATA_DIR;
 use crate::atomic_write;
+use crate::config::DATA_DIR;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -173,7 +173,8 @@ pub static TOOL_REGISTRY: &[ToolRegistryEntry] = &[
 
 /// Get tools needed for a specific scope
 pub fn get_tools_for_scope(scope: &ToolScope) -> Vec<&'static ToolRegistryEntry> {
-    TOOL_REGISTRY.iter()
+    TOOL_REGISTRY
+        .iter()
         .filter(|t| t.scopes.contains(scope))
         .collect()
 }
@@ -219,11 +220,9 @@ impl InstrumentationState {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let path_str = path.to_str()
-            .ok_or_else(|| std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid path",
-            ))?;
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         atomic_write(path_str, &content)
@@ -237,21 +236,24 @@ impl InstrumentationState {
 
     /// Check if a tool is installed by Anna
     pub fn is_installed(&self, tool_id: &str) -> bool {
-        self.installed.get(tool_id)
+        self.installed
+            .get(tool_id)
             .map(|r| r.outcome == InstallOutcome::Success)
             .unwrap_or(false)
     }
 
     /// Get count of successfully installed tools
     pub fn installed_count(&self) -> usize {
-        self.installed.values()
+        self.installed
+            .values()
             .filter(|r| r.outcome == InstallOutcome::Success)
             .count()
     }
 
     /// Get all successfully installed tools
     pub fn installed_tools(&self) -> impl Iterator<Item = &InstalledToolRecord> {
-        self.installed.values()
+        self.installed
+            .values()
             .filter(|r| r.outcome == InstallOutcome::Success)
     }
 

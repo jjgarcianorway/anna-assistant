@@ -21,7 +21,7 @@
 
 use crate::doctor_lifecycle::DoctorLifecycleStage;
 use crate::evidence_topic::EvidenceTopic;
-use crate::human_labels::{tool_evidence_desc, department_working_msg};
+use crate::human_labels::{department_working_msg, tool_evidence_desc};
 use crate::service_desk::{TicketCategory, TicketSeverity};
 use crate::transcript_events::TranscriptMode;
 use owo_colors::OwoColorize;
@@ -34,7 +34,10 @@ use std::io::{self, Write};
 /// Get the effective output mode, checking CLI flag and env var
 pub fn get_output_mode() -> TranscriptMode {
     // 1. Check ANNA_DEBUG env var (highest priority for debug)
-    if std::env::var("ANNA_DEBUG").map(|v| v == "1" || v.to_lowercase() == "true").unwrap_or(false) {
+    if std::env::var("ANNA_DEBUG")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false)
+    {
         return TranscriptMode::Debug;
     }
 
@@ -178,7 +181,6 @@ pub enum NarratorEvent {
     // =========================================================================
     // v0.0.64: Service Desk Ticketing Events
     // =========================================================================
-
     /// Ticket opened by Service Desk
     TicketOpened {
         ticket_id: String,
@@ -205,7 +207,6 @@ pub enum NarratorEvent {
     },
 
     // =========================================================================
-
     /// Topic identified (pre-LLM)
     TopicIdentified {
         topic: EvidenceTopic,
@@ -225,10 +226,7 @@ pub enum NarratorEvent {
     TranslatorFallback { reason: String },
 
     /// Doctor selected for problem
-    DoctorSelected {
-        doctor_name: String,
-        reason: String,
-    },
+    DoctorSelected { doctor_name: String, reason: String },
 
     /// Evidence gathering started
     EvidenceGathering { tools: Vec<String> },
@@ -303,36 +301,62 @@ fn narrate_human(event: &NarratorEvent) {
     match event {
         NarratorEvent::RequestReceived { request } => {
             println!();
-            println!("  {} to {}: {}", ActorVoice::You.tag(), ActorVoice::Anna.tag(), request);
+            println!(
+                "  {} to {}: {}",
+                ActorVoice::You.tag(),
+                ActorVoice::Anna.tag(),
+                request
+            );
             println!();
         }
 
         // v0.0.64: Service Desk Ticketing Events
-        NarratorEvent::TicketOpened { ticket_id, category, severity } => {
+        NarratorEvent::TicketOpened {
+            ticket_id,
+            category,
+            severity,
+        } => {
             let tag = ActorVoice::Anna.tag();
-            println!("  {} Opening ticket #{}. Triage: {}. Severity: {}.",
-                tag, ticket_id, category, severity);
+            println!(
+                "  {} Opening ticket #{}. Triage: {}. Severity: {}.",
+                tag, ticket_id, category, severity
+            );
         }
 
-        NarratorEvent::RoutingDecision { team_name, use_doctor_flow, reason: _ } => {
+        NarratorEvent::RoutingDecision {
+            team_name,
+            use_doctor_flow,
+            reason: _,
+        } => {
             let tag = ActorVoice::Anna.tag();
             if *use_doctor_flow {
                 if let Some(team) = team_name {
-                    println!("  {} → {} Routing this to {} team.",
-                        tag, ActorVoice::Anna.tag(), team);
+                    println!(
+                        "  {} → {} Routing this to {} team.",
+                        tag,
+                        ActorVoice::Anna.tag(),
+                        team
+                    );
                 }
             }
             // For non-doctor flow, we don't mention routing explicitly
         }
 
-        NarratorEvent::DoctorStage { doctor_name, stage: _, message } => {
+        NarratorEvent::DoctorStage {
+            doctor_name,
+            stage: _,
+            message,
+        } => {
             // Format doctor name into a tag
             let tag_str = format!("[{}]", doctor_name.to_lowercase().replace(' ', "_"));
             let doctor_tag = tag_str.green();
             println!("  {} {}", doctor_tag, message);
         }
 
-        NarratorEvent::TopicIdentified { topic, confidence: _ } => {
+        NarratorEvent::TopicIdentified {
+            topic,
+            confidence: _,
+        } => {
             // In human mode, we don't show topic detection explicitly
             // It's implied by the evidence we gather
             let _ = topic; // Suppress unused warning
@@ -348,11 +372,15 @@ fn narrate_human(event: &NarratorEvent) {
             let tag = ActorVoice::Translator.tag();
             // Keep it brief in human mode
             if *llm_backed {
-                println!("  {} I've reviewed your request. {} query, {} risk. ({}% confident)",
-                    tag, intent, risk, confidence);
+                println!(
+                    "  {} I've reviewed your request. {} query, {} risk. ({}% confident)",
+                    tag, intent, risk, confidence
+                );
             } else {
-                println!("  {} Quick classification: {} query, {} risk.",
-                    tag, intent, risk);
+                println!(
+                    "  {} Quick classification: {} query, {} risk.",
+                    tag, intent, risk
+                );
             }
             println!();
         }
@@ -360,13 +388,22 @@ fn narrate_human(event: &NarratorEvent) {
         NarratorEvent::TranslatorFallback { reason } => {
             let tag = ActorVoice::Anna.tag();
             // Honest narration of fallback
-            println!("  {} Note: {}, using quick classification instead.", tag, reason);
+            println!(
+                "  {} Note: {}, using quick classification instead.",
+                tag, reason
+            );
             println!();
         }
 
-        NarratorEvent::DoctorSelected { doctor_name, reason } => {
+        NarratorEvent::DoctorSelected {
+            doctor_name,
+            reason,
+        } => {
             let tag = ActorVoice::Anna.tag();
-            println!("  {} Routing to {} specialist: {}", tag, doctor_name, reason);
+            println!(
+                "  {} Routing to {} specialist: {}",
+                tag, doctor_name, reason
+            );
             println!();
         }
 
@@ -375,7 +412,12 @@ fn narrate_human(event: &NarratorEvent) {
             println!("  {} Let me gather the relevant information.", tag);
         }
 
-        NarratorEvent::EvidenceCollected { tool_name, evidence_id: _, success, duration_ms: _ } => {
+        NarratorEvent::EvidenceCollected {
+            tool_name,
+            evidence_id: _,
+            success,
+            duration_ms: _,
+        } => {
             // In human mode, we only mention failed evidence
             if !success {
                 let tag = ActorVoice::Annad.tag();
@@ -394,7 +436,11 @@ fn narrate_human(event: &NarratorEvent) {
             }
         }
 
-        NarratorEvent::JuniorVerification { score, critique, suggestions: _ } => {
+        NarratorEvent::JuniorVerification {
+            score,
+            critique,
+            suggestions: _,
+        } => {
             let tag = ActorVoice::Junior.tag();
             let verdict = if *score >= 80 {
                 "Verified.".green().to_string()
@@ -418,7 +464,11 @@ fn narrate_human(event: &NarratorEvent) {
             println!();
         }
 
-        NarratorEvent::ConfirmationRequired { risk_level, phrase, action_summary } => {
+        NarratorEvent::ConfirmationRequired {
+            risk_level,
+            phrase,
+            action_summary,
+        } => {
             let tag = ActorVoice::Anna.tag();
             println!();
             println!("  {} This is a {} operation.", tag, risk_level.yellow());
@@ -428,7 +478,11 @@ fn narrate_human(event: &NarratorEvent) {
             println!();
         }
 
-        NarratorEvent::FinalAnswer { answer, reliability, evidence_summary } => {
+        NarratorEvent::FinalAnswer {
+            answer,
+            reliability,
+            evidence_summary,
+        } => {
             let tag = ActorVoice::Anna.tag();
             println!("  {} to {}: {}", tag, ActorVoice::You.tag(), answer);
             println!();
@@ -487,30 +541,70 @@ fn narrate_debug(event: &NarratorEvent) {
     match event {
         NarratorEvent::RequestReceived { request } => {
             println!();
-            println!("  {} {} [you] -> [anna]: {}", ts.to_string().dimmed(), "[request]".blue(), request);
+            println!(
+                "  {} {} [you] -> [anna]: {}",
+                ts.to_string().dimmed(),
+                "[request]".blue(),
+                request
+            );
             println!();
         }
 
         // v0.0.64: Service Desk Ticketing Events
-        NarratorEvent::TicketOpened { ticket_id, category, severity } => {
-            println!("  {} {} ticket_id={} category={:?} severity={:?}",
-                ts.to_string().dimmed(), "[ticket]".blue(), ticket_id, category, severity);
+        NarratorEvent::TicketOpened {
+            ticket_id,
+            category,
+            severity,
+        } => {
+            println!(
+                "  {} {} ticket_id={} category={:?} severity={:?}",
+                ts.to_string().dimmed(),
+                "[ticket]".blue(),
+                ticket_id,
+                category,
+                severity
+            );
         }
 
-        NarratorEvent::RoutingDecision { team_name, use_doctor_flow, reason } => {
+        NarratorEvent::RoutingDecision {
+            team_name,
+            use_doctor_flow,
+            reason,
+        } => {
             let team_str = team_name.clone().unwrap_or_else(|| "(none)".to_string());
-            println!("  {} {} team={} doctor_flow={} reason=\"{}\"",
-                ts.to_string().dimmed(), "[routing]".blue(), team_str, use_doctor_flow, reason);
+            println!(
+                "  {} {} team={} doctor_flow={} reason=\"{}\"",
+                ts.to_string().dimmed(),
+                "[routing]".blue(),
+                team_str,
+                use_doctor_flow,
+                reason
+            );
         }
 
-        NarratorEvent::DoctorStage { doctor_name, stage, message } => {
-            println!("  {} {} doctor={} stage={:?} message=\"{}\"",
-                ts.to_string().dimmed(), "[doctor_stage]".green(), doctor_name, stage, message);
+        NarratorEvent::DoctorStage {
+            doctor_name,
+            stage,
+            message,
+        } => {
+            println!(
+                "  {} {} doctor={} stage={:?} message=\"{}\"",
+                ts.to_string().dimmed(),
+                "[doctor_stage]".green(),
+                doctor_name,
+                stage,
+                message
+            );
         }
 
         NarratorEvent::TopicIdentified { topic, confidence } => {
-            println!("  {} {} topic={:?} confidence={}",
-                ts.to_string().dimmed(), "[topic]".blue(), topic, confidence);
+            println!(
+                "  {} {} topic={:?} confidence={}",
+                ts.to_string().dimmed(),
+                "[topic]".blue(),
+                topic,
+                confidence
+            );
         }
 
         NarratorEvent::ClassificationComplete {
@@ -520,8 +614,16 @@ fn narrate_debug(event: &NarratorEvent) {
             confidence,
             llm_backed,
         } => {
-            let targets_str = if targets.is_empty() { "(none)".to_string() } else { targets.join(", ") };
-            println!("  {} {} [translator]", ts.to_string().dimmed(), "[classification]".blue());
+            let targets_str = if targets.is_empty() {
+                "(none)".to_string()
+            } else {
+                targets.join(", ")
+            };
+            println!(
+                "  {} {} [translator]",
+                ts.to_string().dimmed(),
+                "[classification]".blue()
+            );
             println!("      INTENT: {}", intent);
             println!("      TARGETS: {}", targets_str);
             println!("      RISK: {}", risk);
@@ -531,35 +633,78 @@ fn narrate_debug(event: &NarratorEvent) {
         }
 
         NarratorEvent::TranslatorFallback { reason } => {
-            println!("  {} {} reason={}",
-                ts.to_string().dimmed(), "[fallback]".yellow(), reason);
+            println!(
+                "  {} {} reason={}",
+                ts.to_string().dimmed(),
+                "[fallback]".yellow(),
+                reason
+            );
         }
 
-        NarratorEvent::DoctorSelected { doctor_name, reason } => {
-            println!("  {} {} doctor={} reason=\"{}\"",
-                ts.to_string().dimmed(), "[doctor]".green(), doctor_name, reason);
+        NarratorEvent::DoctorSelected {
+            doctor_name,
+            reason,
+        } => {
+            println!(
+                "  {} {} doctor={} reason=\"{}\"",
+                ts.to_string().dimmed(),
+                "[doctor]".green(),
+                doctor_name,
+                reason
+            );
         }
 
         NarratorEvent::EvidenceGathering { tools } => {
-            println!("  {} {} tools=[{}]",
-                ts.to_string().dimmed(), "[evidence_start]".blue(), tools.join(", "));
+            println!(
+                "  {} {} tools=[{}]",
+                ts.to_string().dimmed(),
+                "[evidence_start]".blue(),
+                tools.join(", ")
+            );
         }
 
-        NarratorEvent::EvidenceCollected { tool_name, evidence_id, success, duration_ms } => {
-            let status = if *success { "OK".green().to_string() } else { "FAIL".red().to_string() };
-            println!("  {} {} tool={} {} [{}] ({}ms)",
-                ts.to_string().dimmed(), "[tool_result]".blue(),
-                tool_name.cyan(), status, evidence_id.green(), duration_ms);
+        NarratorEvent::EvidenceCollected {
+            tool_name,
+            evidence_id,
+            success,
+            duration_ms,
+        } => {
+            let status = if *success {
+                "OK".green().to_string()
+            } else {
+                "FAIL".red().to_string()
+            };
+            println!(
+                "  {} {} tool={} {} [{}] ({}ms)",
+                ts.to_string().dimmed(),
+                "[tool_result]".blue(),
+                tool_name.cyan(),
+                status,
+                evidence_id.green(),
+                duration_ms
+            );
         }
 
         NarratorEvent::EvidenceSummary { descriptions } => {
-            println!("  {} {} count={} items=[{}]",
-                ts.to_string().dimmed(), "[evidence_summary]".blue(),
-                descriptions.len(), descriptions.join("; "));
+            println!(
+                "  {} {} count={} items=[{}]",
+                ts.to_string().dimmed(),
+                "[evidence_summary]".blue(),
+                descriptions.len(),
+                descriptions.join("; ")
+            );
         }
 
-        NarratorEvent::JuniorVerification { score, critique, suggestions } => {
-            println!("  {} {} [junior]", ts.to_string().dimmed(), "[verification]".magenta());
+        NarratorEvent::JuniorVerification {
+            score,
+            critique,
+            suggestions,
+        } => {
+            println!(
+                "  {} {} [junior]",
+                ts.to_string().dimmed(),
+                "[verification]".magenta()
+            );
             println!("      SCORE: {}%", score);
             if !critique.is_empty() {
                 println!("      CRITIQUE: {}", critique);
@@ -571,18 +716,39 @@ fn narrate_debug(event: &NarratorEvent) {
         }
 
         NarratorEvent::JuniorDisagrees { reason } => {
-            println!("  {} {} reason=\"{}\"",
-                ts.to_string().dimmed(), "[junior_disagrees]".yellow(), reason);
+            println!(
+                "  {} {} reason=\"{}\"",
+                ts.to_string().dimmed(),
+                "[junior_disagrees]".yellow(),
+                reason
+            );
         }
 
-        NarratorEvent::ConfirmationRequired { risk_level, phrase, action_summary } => {
-            println!("  {} {} risk={} phrase=\"{}\"",
-                ts.to_string().dimmed(), "[confirmation]".yellow(), risk_level, phrase);
+        NarratorEvent::ConfirmationRequired {
+            risk_level,
+            phrase,
+            action_summary,
+        } => {
+            println!(
+                "  {} {} risk={} phrase=\"{}\"",
+                ts.to_string().dimmed(),
+                "[confirmation]".yellow(),
+                risk_level,
+                phrase
+            );
             println!("      ACTION: {}", action_summary);
         }
 
-        NarratorEvent::FinalAnswer { answer, reliability, evidence_summary } => {
-            println!("  {} {} [anna] -> [you]", ts.to_string().dimmed(), "[final]".green());
+        NarratorEvent::FinalAnswer {
+            answer,
+            reliability,
+            evidence_summary,
+        } => {
+            println!(
+                "  {} {} [anna] -> [you]",
+                ts.to_string().dimmed(),
+                "[final]".green()
+            );
             println!("      ANSWER: {}", answer);
             println!("      RELIABILITY: {}%", reliability);
             println!("      EVIDENCE: {}", evidence_summary);
@@ -590,28 +756,48 @@ fn narrate_debug(event: &NarratorEvent) {
         }
 
         NarratorEvent::RollbackPreview { steps } => {
-            println!("  {} {} steps=[{}]",
-                ts.to_string().dimmed(), "[rollback_plan]".blue(), steps.join("; "));
+            println!(
+                "  {} {} steps=[{}]",
+                ts.to_string().dimmed(),
+                "[rollback_plan]".blue(),
+                steps.join("; ")
+            );
         }
 
         NarratorEvent::Warning { message } => {
-            println!("  {} {} {}",
-                ts.to_string().dimmed(), "[warning]".yellow(), message);
+            println!(
+                "  {} {} {}",
+                ts.to_string().dimmed(),
+                "[warning]".yellow(),
+                message
+            );
         }
 
         NarratorEvent::Error { message } => {
-            println!("  {} {} {}",
-                ts.to_string().dimmed(), "[error]".red(), message);
+            println!(
+                "  {} {} {}",
+                ts.to_string().dimmed(),
+                "[error]".red(),
+                message
+            );
         }
 
         NarratorEvent::Phase { name } => {
-            println!("  {} {} ----- {} -----",
-                ts.to_string().dimmed(), "[phase]".blue(), name);
+            println!(
+                "  {} {} ----- {} -----",
+                ts.to_string().dimmed(),
+                "[phase]".blue(),
+                name
+            );
         }
 
         NarratorEvent::Working { message } => {
-            println!("  {} {} {}",
-                ts.to_string().dimmed(), "[working]".dimmed(), message);
+            println!(
+                "  {} {} {}",
+                ts.to_string().dimmed(),
+                "[working]".dimmed(),
+                message
+            );
         }
     }
 }
@@ -628,12 +814,16 @@ pub fn clear_working() {
 
 /// Show phase separator
 pub fn phase(name: &str) {
-    narrate(&NarratorEvent::Phase { name: name.to_string() });
+    narrate(&NarratorEvent::Phase {
+        name: name.to_string(),
+    });
 }
 
 /// Show working indicator
 pub fn working(message: &str) {
-    narrate(&NarratorEvent::Working { message: message.to_string() });
+    narrate(&NarratorEvent::Working {
+        message: message.to_string(),
+    });
 }
 
 /// Get evidence topic description for human mode

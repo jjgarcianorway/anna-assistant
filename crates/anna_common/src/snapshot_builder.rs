@@ -11,8 +11,8 @@
 use chrono::Utc;
 use std::process::Command;
 
+use crate::grounded::steam::{detect_steam_games, is_steam_installed};
 use crate::snapshots::*;
-use crate::grounded::steam::{is_steam_installed, detect_steam_games};
 
 // =============================================================================
 // SOFTWARE SNAPSHOT BUILDER
@@ -49,9 +49,7 @@ pub fn build_sw_snapshot() -> SwSnapshot {
 }
 
 fn build_package_snapshot() -> PackageSnapshot {
-    let output = Command::new("pacman")
-        .args(["-Q"])
-        .output();
+    let output = Command::new("pacman").args(["-Q"]).output();
 
     let mut total = 0;
     let mut explicit = 0;
@@ -152,7 +150,13 @@ fn build_service_snapshot() -> ServiceSnapshot {
 
     // Count enabled services
     if let Ok(out) = Command::new("systemctl")
-        .args(["list-unit-files", "--type=service", "--state=enabled", "--no-pager", "--no-legend"])
+        .args([
+            "list-unit-files",
+            "--type=service",
+            "--state=enabled",
+            "--no-pager",
+            "--no-legend",
+        ])
         .output()
     {
         if out.status.success() {
@@ -175,9 +179,7 @@ fn build_categories() -> Vec<CategoryEntry> {
     use std::collections::HashMap as StdHashMap;
 
     // Get all explicit packages with their descriptions in ONE pacman call
-    let output = Command::new("pacman")
-        .args(["-Qi"])
-        .output();
+    let output = Command::new("pacman").args(["-Qi"]).output();
 
     let Ok(out) = output else {
         return Vec::new();
@@ -236,9 +238,21 @@ fn build_categories() -> Vec<CategoryEntry> {
 
     // Build result in standard order
     let order = [
-        "Editors", "Terminals", "Shells", "Compositors", "Browsers",
-        "Multimedia", "Development", "Network", "System", "Power",
-        "Virtualization", "Containers", "Games", "Tools", "Other"
+        "Editors",
+        "Terminals",
+        "Shells",
+        "Compositors",
+        "Browsers",
+        "Multimedia",
+        "Development",
+        "Network",
+        "System",
+        "Power",
+        "Virtualization",
+        "Containers",
+        "Games",
+        "Tools",
+        "Other",
     ];
 
     let mut result = Vec::new();
@@ -263,93 +277,135 @@ fn categorize_by_description(name: &str, desc: &str) -> String {
     let name_lower = name.to_lowercase();
 
     // Editors
-    if desc_lower.contains("text editor") || desc_lower.contains("editor for")
-        || desc_lower.contains("vi improved") || name_lower == "vim"
-        || name_lower == "nano" || name_lower == "emacs" || name_lower == "helix"
-        || name_lower == "neovim" || name_lower == "nvim" {
+    if desc_lower.contains("text editor")
+        || desc_lower.contains("editor for")
+        || desc_lower.contains("vi improved")
+        || name_lower == "vim"
+        || name_lower == "nano"
+        || name_lower == "emacs"
+        || name_lower == "helix"
+        || name_lower == "neovim"
+        || name_lower == "nvim"
+    {
         return "Editors".to_string();
     }
 
     // Terminals
-    if desc_lower.contains("terminal emulator") || desc_lower.contains("terminal application")
-        || name_lower == "alacritty" || name_lower == "kitty" || name_lower == "foot"
-        || name_lower == "wezterm" {
+    if desc_lower.contains("terminal emulator")
+        || desc_lower.contains("terminal application")
+        || name_lower == "alacritty"
+        || name_lower == "kitty"
+        || name_lower == "foot"
+        || name_lower == "wezterm"
+    {
         return "Terminals".to_string();
     }
 
     // Shells
-    if desc_lower.contains("command interpreter") || desc_lower.contains("unix shell")
-        || name_lower == "bash" || name_lower == "zsh" || name_lower == "fish" {
+    if desc_lower.contains("command interpreter")
+        || desc_lower.contains("unix shell")
+        || name_lower == "bash"
+        || name_lower == "zsh"
+        || name_lower == "fish"
+    {
         return "Shells".to_string();
     }
 
     // Compositors
-    if desc_lower.contains("wayland compositor") || desc_lower.contains("window manager")
-        || name_lower == "hyprland" || name_lower == "sway" || name_lower == "i3" {
+    if desc_lower.contains("wayland compositor")
+        || desc_lower.contains("window manager")
+        || name_lower == "hyprland"
+        || name_lower == "sway"
+        || name_lower == "i3"
+    {
         return "Compositors".to_string();
     }
 
     // Browsers
-    if desc_lower.contains("web browser") || desc_lower.contains("browser")
-        || name_lower.contains("firefox") || name_lower.contains("chrome")
-        || name_lower.contains("chromium") {
+    if desc_lower.contains("web browser")
+        || desc_lower.contains("browser")
+        || name_lower.contains("firefox")
+        || name_lower.contains("chrome")
+        || name_lower.contains("chromium")
+    {
         return "Browsers".to_string();
     }
 
     // Multimedia
-    if desc_lower.contains("media player") || desc_lower.contains("video player")
-        || desc_lower.contains("audio") || desc_lower.contains("music")
-        || name_lower == "mpv" || name_lower == "vlc" {
+    if desc_lower.contains("media player")
+        || desc_lower.contains("video player")
+        || desc_lower.contains("audio")
+        || desc_lower.contains("music")
+        || name_lower == "mpv"
+        || name_lower == "vlc"
+    {
         return "Multimedia".to_string();
     }
 
     // Development
-    if desc_lower.contains("compiler") || desc_lower.contains("programming")
-        || desc_lower.contains("development") || desc_lower.contains("debugger")
-        || desc_lower.contains("sdk") || name_lower.contains("git")
-        || name_lower.contains("rust") || name_lower.contains("python") {
+    if desc_lower.contains("compiler")
+        || desc_lower.contains("programming")
+        || desc_lower.contains("development")
+        || desc_lower.contains("debugger")
+        || desc_lower.contains("sdk")
+        || name_lower.contains("git")
+        || name_lower.contains("rust")
+        || name_lower.contains("python")
+    {
         return "Development".to_string();
     }
 
     // Network
-    if desc_lower.contains("network") || desc_lower.contains("ssh")
-        || desc_lower.contains("wireless") || desc_lower.contains("wifi") {
+    if desc_lower.contains("network")
+        || desc_lower.contains("ssh")
+        || desc_lower.contains("wireless")
+        || desc_lower.contains("wifi")
+    {
         return "Network".to_string();
     }
 
     // System
-    if desc_lower.contains("system") || desc_lower.contains("boot")
-        || desc_lower.contains("firmware") || desc_lower.contains("kernel") {
+    if desc_lower.contains("system")
+        || desc_lower.contains("boot")
+        || desc_lower.contains("firmware")
+        || desc_lower.contains("kernel")
+    {
         return "System".to_string();
     }
 
     // Power
-    if desc_lower.contains("power") || desc_lower.contains("battery")
-        || desc_lower.contains("energy") || name_lower == "tlp" {
+    if desc_lower.contains("power")
+        || desc_lower.contains("battery")
+        || desc_lower.contains("energy")
+        || name_lower == "tlp"
+    {
         return "Power".to_string();
     }
 
     // Virtualization
-    if desc_lower.contains("virtual") || desc_lower.contains("emulator")
-        || name_lower.contains("qemu") || name_lower.contains("virt") {
+    if desc_lower.contains("virtual")
+        || desc_lower.contains("emulator")
+        || name_lower.contains("qemu")
+        || name_lower.contains("virt")
+    {
         return "Virtualization".to_string();
     }
 
     // Containers
-    if desc_lower.contains("container") || name_lower.contains("docker")
-        || name_lower.contains("podman") {
+    if desc_lower.contains("container")
+        || name_lower.contains("docker")
+        || name_lower.contains("podman")
+    {
         return "Containers".to_string();
     }
 
     // Games
-    if desc_lower.contains("game") || name_lower == "steam"
-        || name_lower == "discord" {
+    if desc_lower.contains("game") || name_lower == "steam" || name_lower == "discord" {
         return "Games".to_string();
     }
 
     // Default to Tools for utilities
-    if desc_lower.contains("tool") || desc_lower.contains("utility")
-        || desc_lower.contains("cli") {
+    if desc_lower.contains("tool") || desc_lower.contains("utility") || desc_lower.contains("cli") {
         return "Tools".to_string();
     }
 
@@ -360,9 +416,22 @@ fn build_config_coverage() -> ConfigCoverage {
     use crate::config_locator::discover_config;
 
     const APPS: &[&str] = &[
-        "vim", "nvim", "emacs", "foot", "hyprland", "sway", "mpv",
-        "pipewire", "networkmanager", "wpa_supplicant", "tlp",
-        "systemd", "grub", "mkinitcpio", "pacman", "yay",
+        "vim",
+        "nvim",
+        "emacs",
+        "foot",
+        "hyprland",
+        "sway",
+        "mpv",
+        "pipewire",
+        "networkmanager",
+        "wpa_supplicant",
+        "tlp",
+        "systemd",
+        "grub",
+        "mkinitcpio",
+        "pacman",
+        "yay",
     ];
 
     let mut app_names = Vec::new();
@@ -387,14 +456,22 @@ fn build_topology() -> TopologySnapshot {
     let topo = build_software_topology();
 
     TopologySnapshot {
-        roles: topo.roles.iter().map(|r| RoleEntry {
-            name: r.name.clone(),
-            components: r.components.clone(),
-        }).collect(),
-        service_groups: topo.service_groups.iter().map(|g| ServiceGroupEntry {
-            name: g.name.clone(),
-            services: g.services.clone(),
-        }).collect(),
+        roles: topo
+            .roles
+            .iter()
+            .map(|r| RoleEntry {
+                name: r.name.clone(),
+                components: r.components.clone(),
+            })
+            .collect(),
+        service_groups: topo
+            .service_groups
+            .iter()
+            .map(|g| ServiceGroupEntry {
+                name: g.name.clone(),
+                services: g.services.clone(),
+            })
+            .collect(),
     }
 }
 
@@ -410,7 +487,8 @@ fn build_platform_snapshot() -> PlatformSnapshot {
     let mut sorted_games = games.clone();
     sorted_games.sort_by(|a, b| b.size_on_disk.cmp(&a.size_on_disk));
 
-    let top_games: Vec<GameEntry> = sorted_games.iter()
+    let top_games: Vec<GameEntry> = sorted_games
+        .iter()
         .take(5)
         .map(|g| GameEntry {
             name: g.name.clone(),
@@ -520,9 +598,7 @@ fn build_memory_snapshot() -> MemorySnapshot {
 }
 
 fn parse_meminfo_kb(line: &str) -> Option<u64> {
-    line.split_whitespace()
-        .nth(1)
-        .and_then(|s| s.parse().ok())
+    line.split_whitespace().nth(1).and_then(|s| s.parse().ok())
 }
 
 fn build_storage_snapshot() -> Vec<StorageEntry> {
@@ -569,8 +645,8 @@ fn build_network_snapshot() -> Vec<NetworkEntry> {
             let is_wireless = entry.path().join("wireless").exists();
 
             // Check if up
-            let operstate = std::fs::read_to_string(entry.path().join("operstate"))
-                .unwrap_or_default();
+            let operstate =
+                std::fs::read_to_string(entry.path().join("operstate")).unwrap_or_default();
             let is_up = operstate.trim() == "up";
 
             // Get MAC
@@ -630,7 +706,8 @@ pub fn sw_needs_rebuild(meta: &SwMeta) -> bool {
     let current_systemd = get_systemd_fingerprint();
     if current_systemd.unit_files_hash != meta.systemd.unit_files_hash
         || current_systemd.etc_mtime != meta.systemd.etc_mtime
-        || current_systemd.usr_lib_mtime != meta.systemd.usr_lib_mtime {
+        || current_systemd.usr_lib_mtime != meta.systemd.usr_lib_mtime
+    {
         return true;
     }
 
@@ -646,7 +723,8 @@ pub fn sw_needs_rebuild(meta: &SwMeta) -> bool {
                 Some(old_fp) => {
                     if old_fp.mtime != current_fp.mtime
                         || old_fp.file_count != current_fp.file_count
-                        || old_fp.names_hash != current_fp.names_hash {
+                        || old_fp.names_hash != current_fp.names_hash
+                    {
                         return true;
                     }
                 }
@@ -692,7 +770,13 @@ mod tests {
     #[test]
     fn test_categorize_by_description() {
         assert_eq!(categorize_by_description("vim", "Vi IMproved"), "Editors");
-        assert_eq!(categorize_by_description("foot", "terminal emulator"), "Terminals");
-        assert_eq!(categorize_by_description("firefox", "web browser"), "Browsers");
+        assert_eq!(
+            categorize_by_description("foot", "terminal emulator"),
+            "Terminals"
+        );
+        assert_eq!(
+            categorize_by_description("firefox", "web browser"),
+            "Browsers"
+        );
     }
 }

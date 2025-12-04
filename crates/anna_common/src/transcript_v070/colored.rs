@@ -15,7 +15,9 @@ pub fn print_human_colored(stream: &TranscriptStreamV70) {
             }
 
             EventV70::StaffMessage {
-                from, message_human, ..
+                from,
+                message_human,
+                ..
             } => {
                 if from.visible_in_human() && !message_human.is_empty() {
                     let actor = format!("[{}]", from.display_name());

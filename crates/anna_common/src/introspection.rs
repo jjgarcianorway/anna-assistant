@@ -67,11 +67,10 @@ pub fn detect_introspection_intent(request: &str) -> IntrospectionIntent {
         || request_lower.starts_with("recipe for")
         || request_lower.contains("how do you handle")
     {
-        let query = extract_query_part(&request_lower, &[
-            "show recipe for",
-            "recipe for",
-            "how do you handle",
-        ]);
+        let query = extract_query_part(
+            &request_lower,
+            &["show recipe for", "recipe for", "how do you handle"],
+        );
         return IntrospectionIntent::ShowRecipe { query };
     }
 
@@ -80,18 +79,19 @@ pub fn detect_introspection_intent(request: &str) -> IntrospectionIntent {
         || request_lower.contains("forget about")
         || request_lower.contains("delete what you know")
     {
-        let query = extract_query_part(&request_lower, &[
-            "forget what you learned about",
-            "forget about",
-            "delete what you know about",
-        ]);
+        let query = extract_query_part(
+            &request_lower,
+            &[
+                "forget what you learned about",
+                "forget about",
+                "delete what you know about",
+            ],
+        );
         return IntrospectionIntent::ForgetLearning { query };
     }
 
     // Delete recipe
-    if request_lower.starts_with("delete recipe")
-        || request_lower.starts_with("remove recipe")
-    {
+    if request_lower.starts_with("delete recipe") || request_lower.starts_with("remove recipe") {
         let recipe_id = extract_query_part(&request_lower, &["delete recipe", "remove recipe"]);
         return IntrospectionIntent::DeleteRecipe { recipe_id };
     }
@@ -119,11 +119,14 @@ pub fn detect_introspection_intent(request: &str) -> IntrospectionIntent {
         || request_lower.starts_with("search your memory for")
         || request_lower.contains("do you remember")
     {
-        let query = extract_query_part(&request_lower, &[
-            "search memory for",
-            "search your memory for",
-            "do you remember",
-        ]);
+        let query = extract_query_part(
+            &request_lower,
+            &[
+                "search memory for",
+                "search your memory for",
+                "do you remember",
+            ],
+        );
         return IntrospectionIntent::SearchMemory { query };
     }
 
@@ -134,11 +137,17 @@ pub fn detect_introspection_intent(request: &str) -> IntrospectionIntent {
 fn extract_query_part(text: &str, prefixes: &[&str]) -> String {
     for prefix in prefixes {
         if let Some(rest) = text.strip_prefix(prefix) {
-            return rest.trim().trim_matches(|c| c == '"' || c == '\'').to_string();
+            return rest
+                .trim()
+                .trim_matches(|c| c == '"' || c == '\'')
+                .to_string();
         }
         if let Some(idx) = text.find(prefix) {
             let rest = &text[idx + prefix.len()..];
-            return rest.trim().trim_matches(|c| c == '"' || c == '\'').to_string();
+            return rest
+                .trim()
+                .trim_matches(|c| c == '"' || c == '\'')
+                .to_string();
         }
     }
     text.to_string()
@@ -242,7 +251,7 @@ fn list_recent_learning() -> IntrospectionResult {
     if learning_sessions.is_empty() {
         return IntrospectionResult::success(
             "I haven't learned anything yet. As I help you with more requests, \
-             I'll create recipes for patterns I recognize."
+             I'll create recipes for patterns I recognize.",
         );
     }
 
@@ -280,7 +289,7 @@ fn list_recipes() -> IntrospectionResult {
     if recipes.is_empty() {
         return IntrospectionResult::success(
             "I don't have any recipes yet. Recipes are created when I successfully \
-             handle requests with high reliability (80%+)."
+             handle requests with high reliability (80%+).",
         );
     }
 
@@ -323,8 +332,7 @@ fn show_recipe(query: &str) -> IntrospectionResult {
     // First try exact ID match
     if query.starts_with(RECIPE_EVIDENCE_PREFIX) {
         if let Some(recipe) = RecipeManager::get(query) {
-            return IntrospectionResult::success(&recipe.format_detail())
-                .with_evidence(&recipe.id);
+            return IntrospectionResult::success(&recipe.format_detail()).with_evidence(&recipe.id);
         }
     }
 
@@ -340,14 +348,14 @@ fn show_recipe(query: &str) -> IntrospectionResult {
 
     if matches.len() == 1 {
         let recipe = &matches[0];
-        return IntrospectionResult::success(&recipe.format_detail())
-            .with_evidence(&recipe.id);
+        return IntrospectionResult::success(&recipe.format_detail()).with_evidence(&recipe.id);
     }
 
     // Multiple matches
     let mut result = IntrospectionResult::success(&format!(
         "Found {} recipes matching '{}'. Here they are:",
-        matches.len(), query
+        matches.len(),
+        query
     ));
 
     for recipe in &matches {
@@ -376,7 +384,9 @@ fn forget_learning_request(query: &str) -> IntrospectionResult {
 
     let mut result = IntrospectionResult::needs_confirmation(&format!(
         "I found {} session(s) matching '{}'. To forget, type:\n  {}\n\nMatching sessions:",
-        matches.len(), query, FORGET_CONFIRMATION
+        matches.len(),
+        query,
+        FORGET_CONFIRMATION
     ));
 
     for session in &matches {
@@ -428,7 +438,7 @@ fn explain_plan() -> IntrospectionResult {
          3. Selecting appropriate tools based on targets\n\
          4. Applying safety gates for mutations\n\
          5. Verifying with Junior before responding\n\n\
-         For specific plan explanations, ask right after I answer a question."
+         For specific plan explanations, ask right after I answer a question.",
     )
 }
 
@@ -439,14 +449,12 @@ fn list_recent_sessions() -> IntrospectionResult {
 
     if sessions.is_empty() {
         return IntrospectionResult::success(
-            "No recent sessions recorded. Memory starts from the next request."
+            "No recent sessions recorded. Memory starts from the next request.",
         );
     }
 
-    let mut result = IntrospectionResult::success(&format!(
-        "Your {} most recent sessions:",
-        sessions.len()
-    ));
+    let mut result =
+        IntrospectionResult::success(&format!("Your {} most recent sessions:", sessions.len()));
 
     for session in &sessions {
         result = result.with_item(IntrospectionItem {
@@ -478,7 +486,8 @@ fn search_memory(query: &str) -> IntrospectionResult {
 
     let mut result = IntrospectionResult::success(&format!(
         "Found {} session(s) matching '{}':",
-        sessions.len(), query
+        sessions.len(),
+        query
     ));
 
     for session in &sessions {
@@ -508,14 +517,10 @@ pub fn execute_forget(evidence_id: &str) -> IntrospectionResult {
                  It's stored in the archive if you ever need to recover it.",
                 evidence_id
             )),
-            Ok(false) => IntrospectionResult::failure(&format!(
-                "Session [{}] not found.",
-                evidence_id
-            )),
-            Err(e) => IntrospectionResult::failure(&format!(
-                "Failed to archive session: {}",
-                e
-            )),
+            Ok(false) => {
+                IntrospectionResult::failure(&format!("Session [{}] not found.", evidence_id))
+            }
+            Err(e) => IntrospectionResult::failure(&format!("Failed to archive session: {}", e)),
         }
     } else if evidence_id.starts_with(RECIPE_EVIDENCE_PREFIX) {
         match RecipeManager::archive(evidence_id, "user_requested_delete") {
@@ -524,20 +529,13 @@ pub fn execute_forget(evidence_id: &str) -> IntrospectionResult {
                  It's stored in the archive if you ever need to recover it.",
                 evidence_id
             )),
-            Ok(false) => IntrospectionResult::failure(&format!(
-                "Recipe [{}] not found.",
-                evidence_id
-            )),
-            Err(e) => IntrospectionResult::failure(&format!(
-                "Failed to archive recipe: {}",
-                e
-            )),
+            Ok(false) => {
+                IntrospectionResult::failure(&format!("Recipe [{}] not found.", evidence_id))
+            }
+            Err(e) => IntrospectionResult::failure(&format!("Failed to archive recipe: {}", e)),
         }
     } else {
-        IntrospectionResult::failure(&format!(
-            "Unknown evidence ID format: {}",
-            evidence_id
-        ))
+        IntrospectionResult::failure(&format!("Unknown evidence ID format: {}", evidence_id))
     }
 }
 
@@ -577,13 +575,17 @@ mod tests {
     #[test]
     fn test_detect_show_recipe() {
         let intent = detect_introspection_intent("show recipe for checking cpu");
-        assert!(matches!(intent, IntrospectionIntent::ShowRecipe { query } if query == "checking cpu"));
+        assert!(
+            matches!(intent, IntrospectionIntent::ShowRecipe { query } if query == "checking cpu")
+        );
     }
 
     #[test]
     fn test_detect_forget() {
         let intent = detect_introspection_intent("forget what you learned about docker");
-        assert!(matches!(intent, IntrospectionIntent::ForgetLearning { query } if query == "docker"));
+        assert!(
+            matches!(intent, IntrospectionIntent::ForgetLearning { query } if query == "docker")
+        );
     }
 
     #[test]

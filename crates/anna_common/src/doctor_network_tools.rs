@@ -4,7 +4,7 @@
 //! These tools return structured data matching doctor_lifecycle types.
 
 use crate::doctor_lifecycle::{
-    NetInterfaceSummary, RouteSummary, DnsSummary, NmSummary, WifiSummary, NetworkErrorsSummary,
+    DnsSummary, NetInterfaceSummary, NetworkErrorsSummary, NmSummary, RouteSummary, WifiSummary,
 };
 use crate::tools::ToolResult;
 use serde_json::json;
@@ -92,18 +92,12 @@ fn get_interface_ips(iface: &str) -> (Vec<String>, Vec<String>) {
         for line in stdout.lines() {
             if line.contains("inet ") {
                 // Extract IPv4: "2: eth0    inet 192.168.1.100/24 ..."
-                if let Some(addr) = line.split_whitespace()
-                    .skip_while(|s| *s != "inet")
-                    .nth(1)
-                {
+                if let Some(addr) = line.split_whitespace().skip_while(|s| *s != "inet").nth(1) {
                     ip4.push(addr.to_string());
                 }
             } else if line.contains("inet6 ") {
                 // Extract IPv6
-                if let Some(addr) = line.split_whitespace()
-                    .skip_while(|s| *s != "inet6")
-                    .nth(1)
-                {
+                if let Some(addr) = line.split_whitespace().skip_while(|s| *s != "inet6").nth(1) {
                     ip6.push(addr.to_string());
                 }
             }
@@ -120,10 +114,7 @@ pub fn execute_net_routes_summary(evidence_id: &str, timestamp: u64) -> ToolResu
     let mut default_iface: Option<String> = None;
     let mut route_count = 0;
 
-    if let Ok(output) = Command::new("ip")
-        .args(["route", "show"])
-        .output()
-    {
+    if let Ok(output) = Command::new("ip").args(["route", "show"]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             route_count += 1;
@@ -287,10 +278,7 @@ pub fn execute_iw_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
         bitrate: None,
     };
 
-    if let Ok(output) = Command::new("iw")
-        .args(["dev", &iface, "link"])
-        .output()
-    {
+    if let Ok(output) = Command::new("iw").args(["dev", &iface, "link"]).output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         if stdout.contains("Not connected") {
@@ -323,7 +311,10 @@ pub fn execute_iw_summary(evidence_id: &str, timestamp: u64) -> ToolResult {
         format!(
             "Connected to {} ({} dBm, {})",
             summary.ssid.as_deref().unwrap_or("?"),
-            summary.signal_dbm.map(|d| d.to_string()).unwrap_or_else(|| "?".into()),
+            summary
+                .signal_dbm
+                .map(|d| d.to_string())
+                .unwrap_or_else(|| "?".into()),
             summary.signal_quality.as_deref().unwrap_or("?")
         )
     } else {
@@ -373,9 +364,7 @@ pub fn execute_recent_network_errors(
     evidence_id: &str,
     timestamp: u64,
 ) -> ToolResult {
-    let minutes = params.get("minutes")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(30) as u32;
+    let minutes = params.get("minutes").and_then(|v| v.as_u64()).unwrap_or(30) as u32;
 
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
@@ -392,12 +381,16 @@ pub fn execute_recent_network_errors(
     for unit in &units {
         if let Ok(output) = Command::new("journalctl")
             .args([
-                "-u", unit,
-                "--since", &format!("{} minutes ago", minutes),
-                "-p", "warning",
+                "-u",
+                unit,
+                "--since",
+                &format!("{} minutes ago", minutes),
+                "-p",
+                "warning",
                 "--no-pager",
                 "-q",
-                "-o", "short-iso",
+                "-o",
+                "short-iso",
             ])
             .output()
         {
@@ -422,9 +415,7 @@ pub fn execute_recent_network_errors(
 
     let human_summary = format!(
         "{} errors, {} warnings in last {} minutes",
-        summary.error_count,
-        summary.warning_count,
-        minutes
+        summary.error_count, summary.warning_count, minutes
     );
 
     ToolResult {
@@ -444,7 +435,8 @@ pub fn execute_ping_check(
     evidence_id: &str,
     timestamp: u64,
 ) -> ToolResult {
-    let target = params.get("target")
+    let target = params
+        .get("target")
         .and_then(|v| v.as_str())
         .unwrap_or("1.1.1.1");
 
@@ -459,10 +451,10 @@ pub fn execute_ping_check(
             let stdout = String::from_utf8_lossy(&result.stdout);
 
             // Parse latency from "time=X.XX ms"
-            let latency_ms: Option<f64> = stdout.lines()
-                .find(|l| l.contains("time="))
-                .and_then(|l| {
-                    l.split("time=").nth(1)
+            let latency_ms: Option<f64> =
+                stdout.lines().find(|l| l.contains("time=")).and_then(|l| {
+                    l.split("time=")
+                        .nth(1)
                         .and_then(|t| t.split_whitespace().next())
                         .and_then(|t| t.parse().ok())
                 });
@@ -471,7 +463,9 @@ pub fn execute_ping_check(
                 format!(
                     "Ping {} OK ({}ms)",
                     target,
-                    latency_ms.map(|l| format!("{:.1}", l)).unwrap_or_else(|| "?".into())
+                    latency_ms
+                        .map(|l| format!("{:.1}", l))
+                        .unwrap_or_else(|| "?".into())
                 )
             } else {
                 format!("Ping {} failed", target)

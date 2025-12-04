@@ -167,7 +167,9 @@ impl ChangeJournalWriter {
 
     /// Ensure journal directory exists
     fn ensure_dir(&self) -> std::io::Result<()> {
-        let dir = Path::new(&self.path).parent().unwrap_or(Path::new(JOURNAL_DIR));
+        let dir = Path::new(&self.path)
+            .parent()
+            .unwrap_or(Path::new(JOURNAL_DIR));
         fs::create_dir_all(dir)
     }
 
@@ -420,8 +422,11 @@ impl ConfigTracker {
     /// Create tracker for a config file
     pub fn new(path: &str) -> Option<Self> {
         let metadata = fs::metadata(path).ok()?;
-        let mtime = metadata.modified().ok()?
-            .duration_since(UNIX_EPOCH).ok()?
+        let mtime = metadata
+            .modified()
+            .ok()?
+            .duration_since(UNIX_EPOCH)
+            .ok()?
             .as_secs();
 
         let content = fs::read(path).ok()?;
@@ -437,8 +442,11 @@ impl ConfigTracker {
     /// Check if file has changed
     pub fn has_changed(&self) -> Option<ChangeEvent> {
         let metadata = fs::metadata(&self.path).ok()?;
-        let current_mtime = metadata.modified().ok()?
-            .duration_since(UNIX_EPOCH).ok()?
+        let current_mtime = metadata
+            .modified()
+            .ok()?
+            .duration_since(UNIX_EPOCH)
+            .ok()?
             .as_secs();
 
         if current_mtime == self.last_mtime {
@@ -454,8 +462,8 @@ impl ConfigTracker {
         }
 
         // Content actually changed
-        let event = ChangeEvent::new(ChangeType::ConfigChange, self.path.clone())
-            .with_details(ChangeDetails {
+        let event = ChangeEvent::new(ChangeType::ConfigChange, self.path.clone()).with_details(
+            ChangeDetails {
                 version: None,
                 new_version: None,
                 old_version: None,
@@ -463,7 +471,8 @@ impl ConfigTracker {
                 new_state: None,
                 content_hash: Some(current_hash),
                 config_path: Some(self.path.clone()),
-            });
+            },
+        );
 
         Some(event)
     }
@@ -573,13 +582,18 @@ fn get_kernel_for_boot(boot_idx: &str) -> Option<String> {
 /// Get history for a specific package
 pub fn get_package_history(pkg_name: &str) -> Vec<ChangeEvent> {
     let reader = ChangeJournalReader::new();
-    let mut events: Vec<ChangeEvent> = reader.read_for_subject(pkg_name)
+    let mut events: Vec<ChangeEvent> = reader
+        .read_for_subject(pkg_name)
         .into_iter()
-        .filter(|e| matches!(
-            e.change_type,
-            ChangeType::PkgInstall | ChangeType::PkgUpgrade |
-            ChangeType::PkgDowngrade | ChangeType::PkgRemove
-        ))
+        .filter(|e| {
+            matches!(
+                e.change_type,
+                ChangeType::PkgInstall
+                    | ChangeType::PkgUpgrade
+                    | ChangeType::PkgDowngrade
+                    | ChangeType::PkgRemove
+            )
+        })
         .collect();
 
     // Also scan pacman.log for events we might not have recorded yet
@@ -597,7 +611,8 @@ pub fn get_package_history(pkg_name: &str) -> Vec<ChangeEvent> {
 /// Get history for a specific config path
 pub fn get_config_history(config_path: &str) -> Vec<ChangeEvent> {
     let reader = ChangeJournalReader::new();
-    reader.read_for_subject(config_path)
+    reader
+        .read_for_subject(config_path)
         .into_iter()
         .filter(|e| e.change_type == ChangeType::ConfigChange)
         .collect()
@@ -642,8 +657,8 @@ mod tests {
 
     #[test]
     fn test_change_event_format() {
-        let event = ChangeEvent::new(ChangeType::PkgInstall, "nano".to_string())
-            .with_details(ChangeDetails {
+        let event = ChangeEvent::new(ChangeType::PkgInstall, "nano".to_string()).with_details(
+            ChangeDetails {
                 version: Some("8.7-1".to_string()),
                 new_version: Some("8.7-1".to_string()),
                 old_version: None,
@@ -651,7 +666,8 @@ mod tests {
                 new_state: None,
                 content_hash: None,
                 config_path: None,
-            });
+            },
+        );
 
         let short = event.format_short();
         assert!(short.contains("pkg_install"));

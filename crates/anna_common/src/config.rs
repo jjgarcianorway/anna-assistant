@@ -466,7 +466,8 @@ impl UpdateState {
     pub fn save(&self) -> std::io::Result<()> {
         Self::ensure_internal_dir()?;
         let path = Self::state_path();
-        let path_str = path.to_str()
+        let path_str = path
+            .to_str()
             .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
@@ -643,7 +644,13 @@ impl UpdateState {
     }
 
     /// v0.0.11: Set update in progress
-    pub fn set_update_in_progress(&mut self, version: &str, phase: &str, progress: Option<u8>, eta: Option<u64>) {
+    pub fn set_update_in_progress(
+        &mut self,
+        version: &str,
+        phase: &str,
+        progress: Option<u8>,
+        eta: Option<u64>,
+    ) {
         self.last_result = UpdateResult::InProgress;
         self.updating_to_version = Some(version.to_string());
         self.update_phase = Some(phase.to_string());
@@ -913,7 +920,8 @@ impl JuniorState {
         }
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        let path_str = path.to_str()
+        let path_str = path
+            .to_str()
             .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid path"))?;
         crate::atomic_write(path_str, &content)
     }
@@ -1067,11 +1075,21 @@ pub struct PerformanceBudgets {
     pub log_overruns: bool,
 }
 
-fn default_translator_max_tokens() -> u32 { 256 }
-fn default_translator_max_ms() -> u64 { 1500 }
-fn default_junior_max_tokens() -> u32 { 384 }
-fn default_junior_max_ms() -> u64 { 2500 }
-fn default_true_fn() -> bool { true }
+fn default_translator_max_tokens() -> u32 {
+    256
+}
+fn default_translator_max_ms() -> u64 {
+    1500
+}
+fn default_junior_max_tokens() -> u32 {
+    384
+}
+fn default_junior_max_ms() -> u64 {
+    2500
+}
+fn default_true_fn() -> bool {
+    true
+}
 
 impl Default for PerformanceBudgets {
     fn default() -> Self {
@@ -1109,9 +1127,15 @@ pub struct PerformanceCacheConfig {
     pub max_entries: usize,
 }
 
-fn default_tool_cache_ttl() -> u64 { 300 }
-fn default_llm_cache_ttl() -> u64 { 600 }
-fn default_max_cache_entries() -> usize { 1000 }
+fn default_tool_cache_ttl() -> u64 {
+    300
+}
+fn default_llm_cache_ttl() -> u64 {
+    600
+}
+fn default_max_cache_entries() -> usize {
+    1000
+}
 
 impl Default for PerformanceCacheConfig {
     fn default() -> Self {
@@ -1166,10 +1190,18 @@ pub struct ReliabilityBudgets {
     pub llm_timeout_percent: f64,
 }
 
-fn default_request_failure() -> f64 { 1.0 }
-fn default_tool_failure() -> f64 { 2.0 }
-fn default_mutation_rollback() -> f64 { 0.5 }
-fn default_llm_timeout() -> f64 { 3.0 }
+fn default_request_failure() -> f64 {
+    1.0
+}
+fn default_tool_failure() -> f64 {
+    2.0
+}
+fn default_mutation_rollback() -> f64 {
+    0.5
+}
+fn default_llm_timeout() -> f64 {
+    3.0
+}
 
 impl Default for ReliabilityBudgets {
     fn default() -> Self {
@@ -1194,8 +1226,12 @@ pub struct MetricsSettings {
     pub retention_days: u32,
 }
 
-fn default_metrics_enabled() -> bool { true }
-fn default_metrics_retention() -> u32 { 7 }
+fn default_metrics_enabled() -> bool {
+    true
+}
+fn default_metrics_retention() -> u32 {
+    7
+}
 
 impl Default for MetricsSettings {
     fn default() -> Self {
@@ -1216,9 +1252,15 @@ impl Default for ReliabilityConfig {
 }
 
 // v0.0.33: Default to debug_level=2 during development (dev_mode=true)
-fn default_debug_level() -> u8 { 2 }  // Full verbosity during development
-fn default_colors_enabled() -> bool { true }
-fn default_dev_mode() -> bool { true }  // Dev mode on by default during development
+fn default_debug_level() -> u8 {
+    2
+} // Full verbosity during development
+fn default_colors_enabled() -> bool {
+    true
+}
+fn default_dev_mode() -> bool {
+    true
+} // Dev mode on by default during development
 
 impl Default for UiConfig {
     fn default() -> Self {
@@ -1285,15 +1327,26 @@ impl UiConfig {
         }
     }
 
-    /// v0.0.60: Get the effective transcript mode with env var precedence
-    /// Priority: 1. ANNA_UI_TRANSCRIPT_MODE env var, 2. config, 3. default
+    /// v0.0.72: Get the effective transcript mode with env var precedence
+    /// Priority:
+    ///   1. ANNA_DEBUG_TRANSCRIPT=1 env var (shorthand for debug mode)
+    ///   2. ANNA_UI_TRANSCRIPT_MODE env var (human/debug/test)
+    ///   3. /etc/anna/config.toml [ui] transcript_mode
+    ///   4. Default: Human
     pub fn effective_transcript_mode(&self) -> crate::transcript_events::TranscriptMode {
-        // 1. Check environment variable first
+        // 1. Check ANNA_DEBUG_TRANSCRIPT=1 shorthand (for tests)
+        if let Ok(val) = std::env::var("ANNA_DEBUG_TRANSCRIPT") {
+            if val == "1" || val.eq_ignore_ascii_case("true") {
+                return crate::transcript_events::TranscriptMode::Debug;
+            }
+        }
+
+        // 2. Check ANNA_UI_TRANSCRIPT_MODE env var
         if let Ok(mode) = std::env::var("ANNA_UI_TRANSCRIPT_MODE") {
             return crate::transcript_events::TranscriptMode::from_str(&mode);
         }
 
-        // 2. Use config value
+        // 3. Use config value (from /etc/anna/config.toml)
         crate::transcript_events::TranscriptMode::from_str(&self.transcript_mode)
     }
 }
@@ -1322,10 +1375,18 @@ pub struct MemoryConfig {
     pub max_recipes: u64,
 }
 
-fn default_true() -> bool { true }
-fn default_max_sessions() -> u64 { 10000 }
-fn default_min_reliability() -> u32 { 80 }
-fn default_max_recipes() -> u64 { 500 }
+fn default_true() -> bool {
+    true
+}
+fn default_max_sessions() -> u64 {
+    10000
+}
+fn default_min_reliability() -> u32 {
+    80
+}
+fn default_max_recipes() -> u64 {
+    500
+}
 
 impl Default for MemoryConfig {
     fn default() -> Self {
@@ -1439,7 +1500,10 @@ mod tests {
     fn test_instrumentation_aur_gate_default_off() {
         // v7.26.0: AUR gate must be OFF by default
         let config = AnnaConfig::default();
-        assert!(!config.instrumentation.allow_aur, "AUR gate must be OFF by default");
+        assert!(
+            !config.instrumentation.allow_aur,
+            "AUR gate must be OFF by default"
+        );
     }
 
     // v0.0.15: UI config tests (v0.0.33: updated for dev_mode defaults)
@@ -1447,10 +1511,22 @@ mod tests {
     fn test_ui_config_defaults() {
         let config = AnnaConfig::default();
         // v0.0.33: Default is now debug_level=2 (full) during development
-        assert_eq!(config.ui.debug_level, 2, "Default debug level should be 2 (full) in dev mode");
-        assert!(config.ui.colors_enabled, "Colors should be enabled by default");
-        assert_eq!(config.ui.max_width, 0, "Default max_width should be 0 (auto-detect)");
-        assert!(config.ui.dev_mode, "Dev mode should be enabled by default during development");
+        assert_eq!(
+            config.ui.debug_level, 2,
+            "Default debug level should be 2 (full) in dev mode"
+        );
+        assert!(
+            config.ui.colors_enabled,
+            "Colors should be enabled by default"
+        );
+        assert_eq!(
+            config.ui.max_width, 0,
+            "Default max_width should be 0 (auto-detect)"
+        );
+        assert!(
+            config.ui.dev_mode,
+            "Dev mode should be enabled by default during development"
+        );
     }
 
     #[test]

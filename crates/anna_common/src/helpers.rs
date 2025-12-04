@@ -229,23 +229,20 @@ impl HelpersManifest {
 
     /// Get all helpers eligible for removal (installed_by=anna)
     pub fn removal_eligible(&self) -> Vec<&HelperState> {
-        self.helpers.values()
+        self.helpers
+            .values()
             .filter(|h| h.removal_eligible && h.installed_by == InstalledBy::Anna)
             .collect()
     }
 
     /// Get all present helpers
     pub fn present_helpers(&self) -> Vec<&HelperState> {
-        self.helpers.values()
-            .filter(|h| h.present)
-            .collect()
+        self.helpers.values().filter(|h| h.present).collect()
     }
 
     /// Get all missing helpers
     pub fn missing_helpers(&self) -> Vec<&HelperState> {
-        self.helpers.values()
-            .filter(|h| !h.present)
-            .collect()
+        self.helpers.values().filter(|h| !h.present).collect()
     }
 
     /// Record that Anna installed a helper
@@ -491,9 +488,7 @@ pub fn get_package_version(package: &str) -> Option<String> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines() {
         if line.starts_with("Version") {
-            return line.split(':')
-                .nth(1)
-                .map(|v| v.trim().to_string());
+            return line.split(':').nth(1).map(|v| v.trim().to_string());
         }
     }
     None
@@ -580,7 +575,9 @@ pub fn install_ollama() -> InstallResult {
                     InstallResult {
                         success: false,
                         version: None,
-                        error: Some("Install script succeeded but ollama command not found".to_string()),
+                        error: Some(
+                            "Install script succeeded but ollama command not found".to_string(),
+                        ),
                     }
                 }
             } else {
@@ -641,7 +638,11 @@ pub fn install_missing_helpers() -> (usize, usize, Vec<String>) {
 
         if result.success {
             installed += 1;
-            messages.push(format!("  + {} installed ({})", def.name, result.version.as_deref().unwrap_or("unknown")));
+            messages.push(format!(
+                "  + {} installed ({})",
+                def.name,
+                result.version.as_deref().unwrap_or("unknown")
+            ));
 
             // Update manifest - mark as anna-installed
             let state = manifest.get_or_create(&def);
@@ -652,7 +653,11 @@ pub fn install_missing_helpers() -> (usize, usize, Vec<String>) {
             state.first_seen = Some(Utc::now());
         } else {
             failed += 1;
-            messages.push(format!("  ! {} failed: {}", def.name, result.error.as_deref().unwrap_or("unknown error")));
+            messages.push(format!(
+                "  ! {} failed: {}",
+                def.name,
+                result.error.as_deref().unwrap_or("unknown error")
+            ));
         }
     }
 
@@ -702,12 +707,20 @@ pub fn refresh_helper_states() -> HelpersManifest {
             } else {
                 // Command not found, check if package is installed anyway
                 let pkg_present = is_package_present(&def.name);
-                let ver = if pkg_present { get_package_version(&def.name) } else { None };
+                let ver = if pkg_present {
+                    get_package_version(&def.name)
+                } else {
+                    None
+                };
                 (pkg_present, ver)
             }
         } else {
             let pkg_present = is_package_present(&def.name);
-            let ver = if pkg_present { get_package_version(&def.name) } else { None };
+            let ver = if pkg_present {
+                get_package_version(&def.name)
+            } else {
+                None
+            };
             (pkg_present, ver)
         };
 
@@ -738,23 +751,26 @@ pub fn get_helper_status_list() -> Vec<HelperState> {
     // v0.0.28: Use relevant helpers only (filtered by system hardware)
     let definitions = get_relevant_helper_definitions();
 
-    definitions.iter().map(|def| {
-        // v0.0.28: Check provides_command first for non-pacman installs
-        let (present, version) = check_helper_presence(def);
+    definitions
+        .iter()
+        .map(|def| {
+            // v0.0.28: Check provides_command first for non-pacman installs
+            let (present, version) = check_helper_presence(def);
 
-        if let Some(state) = manifest.get(&def.name) {
-            let mut state = state.clone();
-            state.present = present;
-            state.version = version;
-            state
-        } else {
-            if present {
-                HelperState::new_user_installed(&def.name, &def.purpose, version)
+            if let Some(state) = manifest.get(&def.name) {
+                let mut state = state.clone();
+                state.present = present;
+                state.version = version;
+                state
             } else {
-                HelperState::new_missing(&def.name, &def.purpose)
+                if present {
+                    HelperState::new_user_installed(&def.name, &def.purpose, version)
+                } else {
+                    HelperState::new_missing(&def.name, &def.purpose)
+                }
             }
-        }
-    }).collect()
+        })
+        .collect()
 }
 
 /// Check if a helper is present - v0.0.28: unified detection
@@ -772,7 +788,11 @@ fn check_helper_presence(def: &HelperDefinition) -> (bool, Option<String>) {
     }
     // Fall back to package check
     let pkg_present = is_package_present(&def.name);
-    let ver = if pkg_present { get_package_version(&def.name) } else { None };
+    let ver = if pkg_present {
+        get_package_version(&def.name)
+    } else {
+        None
+    };
     (pkg_present, ver)
 }
 
@@ -823,7 +843,10 @@ pub fn get_helpers_summary() -> HelpersSummary {
 
     let present = states.iter().filter(|h| h.present).count();
     let missing = states.iter().filter(|h| !h.present).count();
-    let installed_by_anna = states.iter().filter(|h| h.installed_by == InstalledBy::Anna).count();
+    let installed_by_anna = states
+        .iter()
+        .filter(|h| h.installed_by == InstalledBy::Anna)
+        .count();
     let removal_eligible = states.iter().filter(|h| h.removal_eligible).count();
 
     let helpers: Vec<HelperStatusEntry> = states.iter().map(|h| h.into()).collect();

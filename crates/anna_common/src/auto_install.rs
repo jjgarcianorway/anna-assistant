@@ -9,8 +9,7 @@
 
 use crate::config::AnnaConfig;
 use crate::instrumentation::{
-    AvailableTool, InstalledTool, InstrumentationManifest,
-    get_package_version,
+    get_package_version, AvailableTool, InstalledTool, InstrumentationManifest,
 };
 use crate::ops_log::{OpsAction, OpsEntry, OpsLogWriter};
 use chrono::Utc;
@@ -42,20 +41,23 @@ impl InstallResult {
 
     pub fn message(&self) -> String {
         match self {
-            InstallResult::Success { package, version } =>
-                format!("✓  Installed {} v{}", package, version),
-            InstallResult::RateLimited { reset_at } =>
-                format!("⏳  Rate limited, retry after {}", reset_at),
-            InstallResult::AurBlocked { package } =>
-                format!("🚫  {} is AUR package (gate disabled)", package),
-            InstallResult::Disabled =>
-                "⚙️  Auto-install disabled in config".to_string(),
-            InstallResult::AlreadyInstalled { package } =>
-                format!("✓  {} already installed", package),
-            InstallResult::PacmanFailed { package, error } =>
-                format!("✗  Failed to install {}: {}", package, error),
-            InstallResult::UnknownPackage { package } =>
-                format!("?  Unknown package: {}", package),
+            InstallResult::Success { package, version } => {
+                format!("✓  Installed {} v{}", package, version)
+            }
+            InstallResult::RateLimited { reset_at } => {
+                format!("⏳  Rate limited, retry after {}", reset_at)
+            }
+            InstallResult::AurBlocked { package } => {
+                format!("🚫  {} is AUR package (gate disabled)", package)
+            }
+            InstallResult::Disabled => "⚙️  Auto-install disabled in config".to_string(),
+            InstallResult::AlreadyInstalled { package } => {
+                format!("✓  {} already installed", package)
+            }
+            InstallResult::PacmanFailed { package, error } => {
+                format!("✗  Failed to install {}: {}", package, error)
+            }
+            InstallResult::UnknownPackage { package } => format!("?  Unknown package: {}", package),
         }
     }
 }
@@ -77,12 +79,15 @@ pub fn try_install(
 
     // Guard 2: Check if already installed
     if manifest.is_installed(package) {
-        return InstallResult::AlreadyInstalled { package: package.to_string() };
+        return InstallResult::AlreadyInstalled {
+            package: package.to_string(),
+        };
     }
 
     // Guard 3: Check rate limit
     if manifest.is_rate_limited(&config) {
-        let reset_at = manifest.rate_limit_reset_time()
+        let reset_at = manifest
+            .rate_limit_reset_time()
             .map(|t| t.format("%H:%M").to_string())
             .unwrap_or_else(|| "soon".to_string());
         return InstallResult::RateLimited { reset_at };
@@ -91,23 +96,23 @@ pub fn try_install(
     // Guard 4: Check AUR gate
     let source = get_package_source(package);
     if source == "aur" && !config.instrumentation.allow_aur {
-        return InstallResult::AurBlocked { package: package.to_string() };
+        return InstallResult::AurBlocked {
+            package: package.to_string(),
+        };
     }
 
     // Guard 5: Verify package exists in repos
     if !package_exists_in_repos(package) {
-        return InstallResult::UnknownPackage { package: package.to_string() };
+        return InstallResult::UnknownPackage {
+            package: package.to_string(),
+        };
     }
 
     // Execute install
     let result = run_pacman_install(package);
 
     // Record attempt
-    manifest.record_attempt(
-        package,
-        result.is_ok(),
-        result.as_ref().err().cloned(),
-    );
+    manifest.record_attempt(package, result.is_ok(), result.as_ref().err().cloned());
 
     match result {
         Ok(version) => {
@@ -127,7 +132,10 @@ pub fn try_install(
             // Log to ops_log
             log_install_to_ops(package, &version, reason, true, None);
 
-            InstallResult::Success { package: package.to_string(), version }
+            InstallResult::Success {
+                package: package.to_string(),
+                version,
+            }
         }
         Err(error) => {
             let _ = manifest.save();
@@ -153,9 +161,7 @@ pub fn try_install_known_tool(tool: &AvailableTool) -> InstallResult {
 /// Get package source (official or aur)
 fn get_package_source(package: &str) -> String {
     // Check if package is in official repos
-    let output = Command::new("pacman")
-        .args(["-Si", package])
-        .output();
+    let output = Command::new("pacman").args(["-Si", package]).output();
 
     match output {
         Ok(o) if o.status.success() => {
@@ -164,10 +170,7 @@ fn get_package_source(package: &str) -> String {
                 // Extract repo name
                 for line in stdout.lines() {
                     if line.starts_with("Repository") {
-                        let repo = line.split(':')
-                            .nth(1)
-                            .map(|s| s.trim())
-                            .unwrap_or("");
+                        let repo = line.split(':').nth(1).map(|s| s.trim()).unwrap_or("");
                         if repo == "core" || repo == "extra" || repo == "multilib" {
                             return "official".to_string();
                         }
@@ -199,7 +202,11 @@ fn run_pacman_install(package: &str) -> Result<String, String> {
     // --noprogressbar: Clean output for logging
     let output = Command::new("sudo")
         .args([
-            "pacman", "-S", "--noconfirm", "--needed", "--noprogressbar",
+            "pacman",
+            "-S",
+            "--noconfirm",
+            "--needed",
+            "--noprogressbar",
             package,
         ])
         .output()
@@ -207,8 +214,7 @@ fn run_pacman_install(package: &str) -> Result<String, String> {
 
     if output.status.success() {
         // Get installed version
-        let version = get_package_version(package)
-            .unwrap_or_else(|| "unknown".to_string());
+        let version = get_package_version(package).unwrap_or_else(|| "unknown".to_string());
         Ok(version)
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -225,7 +231,10 @@ fn log_install_to_ops(
     error: Option<&str>,
 ) {
     let details = if success {
-        format!("package={} version={} reason=\"{}\"", package, version, reason)
+        format!(
+            "package={} version={} reason=\"{}\"",
+            package, version, reason
+        )
     } else {
         format!(
             "package={} reason=\"{}\" error=\"{}\"",
@@ -273,7 +282,8 @@ pub fn get_instrumentation_status() -> InstrumentationStatus {
     let manifest = InstrumentationManifest::load();
 
     let cutoff = Utc::now() - chrono::Duration::hours(24);
-    let recent_count = manifest.recent_attempts
+    let recent_count = manifest
+        .recent_attempts
         .iter()
         .filter(|a| a.attempted_at > cutoff && a.success)
         .count() as u32;
@@ -353,8 +363,14 @@ pub fn ensure_tool_for_command(
                  Reason:  {}\n  \
                  Metrics: {}\n  \
                  Command: {}",
-                package, version, reason,
-                if metrics.is_empty() { "general".to_string() } else { metrics.join(", ") },
+                package,
+                version,
+                reason,
+                if metrics.is_empty() {
+                    "general".to_string()
+                } else {
+                    metrics.join(", ")
+                },
                 command
             );
             (true, Some(msg))
@@ -365,7 +381,9 @@ pub fn ensure_tool_for_command(
                 "  [INSTALL FAILED] {}\n  \
                  Section omitted due to missing tool: {}\n  \
                  Manual install: sudo pacman -S {}",
-                result.message(), tool_name, package
+                result.message(),
+                tool_name,
+                package
             );
             (false, Some(msg))
         }
@@ -385,14 +403,54 @@ pub fn is_package_installed(package: &str) -> bool {
 
 /// v7.28.0: Common tools Anna may auto-install
 pub const COMMON_TOOLS: &[(&str, &str, &str, &[&str])] = &[
-    ("lspci", "pciutils", "PCI device enumeration", &["pci_devices", "gpu_info"]),
-    ("lsusb", "usbutils", "USB device enumeration", &["usb_devices"]),
-    ("ethtool", "ethtool", "Ethernet interface details", &["network_speed", "link_status"]),
-    ("iw", "iw", "WiFi interface details", &["wifi_signal", "wifi_config"]),
-    ("dmidecode", "dmidecode", "DMI/SMBIOS data", &["system_info", "memory_info"]),
-    ("smartctl", "smartmontools", "Disk SMART health", &["disk_health", "disk_temp"]),
-    ("nvme", "nvme-cli", "NVMe disk health", &["nvme_health", "nvme_temp"]),
-    ("sensors", "lm_sensors", "Hardware sensors", &["cpu_temp", "fan_speed"]),
+    (
+        "lspci",
+        "pciutils",
+        "PCI device enumeration",
+        &["pci_devices", "gpu_info"],
+    ),
+    (
+        "lsusb",
+        "usbutils",
+        "USB device enumeration",
+        &["usb_devices"],
+    ),
+    (
+        "ethtool",
+        "ethtool",
+        "Ethernet interface details",
+        &["network_speed", "link_status"],
+    ),
+    (
+        "iw",
+        "iw",
+        "WiFi interface details",
+        &["wifi_signal", "wifi_config"],
+    ),
+    (
+        "dmidecode",
+        "dmidecode",
+        "DMI/SMBIOS data",
+        &["system_info", "memory_info"],
+    ),
+    (
+        "smartctl",
+        "smartmontools",
+        "Disk SMART health",
+        &["disk_health", "disk_temp"],
+    ),
+    (
+        "nvme",
+        "nvme-cli",
+        "NVMe disk health",
+        &["nvme_health", "nvme_temp"],
+    ),
+    (
+        "sensors",
+        "lm_sensors",
+        "Hardware sensors",
+        &["cpu_temp", "fan_speed"],
+    ),
 ];
 
 #[cfg(test)]
@@ -482,6 +540,9 @@ mod tests {
 
         let msg = success.message();
         assert!(!msg.contains("..."), "Install message should not truncate");
-        assert!(msg.contains("very-long-package-name"), "Package name preserved");
+        assert!(
+            msg.contains("very-long-package-name"),
+            "Package name preserved"
+        );
     }
 }

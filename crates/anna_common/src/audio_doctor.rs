@@ -385,8 +385,18 @@ impl AudioEvidence {
 
     /// Check if there are output devices
     pub fn has_output_devices(&self) -> bool {
-        !self.nodes.iter().filter(|n| n.is_sink).collect::<Vec<_>>().is_empty()
-            || !self.alsa_devices.iter().filter(|d| d.is_output).collect::<Vec<_>>().is_empty()
+        !self
+            .nodes
+            .iter()
+            .filter(|n| n.is_sink)
+            .collect::<Vec<_>>()
+            .is_empty()
+            || !self
+                .alsa_devices
+                .iter()
+                .filter(|d| d.is_output)
+                .collect::<Vec<_>>()
+                .is_empty()
     }
 
     /// Check if default sink is okay
@@ -788,18 +798,28 @@ impl AudioDoctorCase {
                     // Find the playbook and create recipe request
                     if let Some(pb) = self.playbooks.iter().find(|p| p.id == result.playbook_id) {
                         let request = RecipeCaptureRequest {
-                            problem: format!("Audio issue: {}",
-                                self.diagnosis.as_ref().map(|d| d.summary.as_str()).unwrap_or("unknown")),
+                            problem: format!(
+                                "Audio issue: {}",
+                                self.diagnosis
+                                    .as_ref()
+                                    .map(|d| d.summary.as_str())
+                                    .unwrap_or("unknown")
+                            ),
                             solution: pb.description.clone(),
                             playbook_id: pb.id.clone(),
                             preconditions: vec![
                                 format!("Audio stack: {}", self.evidence.stack),
                                 format!("Target user: {}", self.target_user),
                             ],
-                            evidence_patterns: self.diagnosis.as_ref()
-                                .map(|d| d.hypotheses.iter()
-                                    .flat_map(|h| h.supporting_evidence.clone())
-                                    .collect())
+                            evidence_patterns: self
+                                .diagnosis
+                                .as_ref()
+                                .map(|d| {
+                                    d.hypotheses
+                                        .iter()
+                                        .flat_map(|h| h.supporting_evidence.clone())
+                                        .collect()
+                                })
                                 .unwrap_or_default(),
                             reliability_score: score,
                         };
@@ -810,7 +830,11 @@ impl AudioDoctorCase {
         }
 
         self.executed_playbooks.push(result);
-        self.status = if success { CaseStatus::Resolved } else { CaseStatus::PlaybookApplied };
+        self.status = if success {
+            CaseStatus::Resolved
+        } else {
+            CaseStatus::PlaybookApplied
+        };
         self.updated_at = Utc::now();
     }
 
@@ -849,7 +873,7 @@ pub struct AudioDoctor {
 impl Default for AudioDoctor {
     fn default() -> Self {
         Self {
-            allow_stop_pulseaudio: false, // Higher risk, blocked by default
+            allow_stop_pulseaudio: false,  // Higher risk, blocked by default
             allow_bluetooth_restart: true, // Allowed by default
         }
     }
@@ -968,16 +992,29 @@ impl AudioDoctor {
                 } else if pw_ok && !wp_ok {
                     (
                         StepResult::Partial,
-                        format!("PipeWire running but WirePlumber {}",
-                            if evidence.wireplumber.installed { "stopped" } else { "not installed" }),
-                        "Session/policy management missing. Audio may not route correctly.".to_string(),
+                        format!(
+                            "PipeWire running but WirePlumber {}",
+                            if evidence.wireplumber.installed {
+                                "stopped"
+                            } else {
+                                "not installed"
+                            }
+                        ),
+                        "Session/policy management missing. Audio may not route correctly."
+                            .to_string(),
                     )
                 } else {
                     (
                         StepResult::Fail,
-                        format!("PipeWire {} (installed: {})",
-                            if evidence.pipewire.active { "running" } else { "stopped" },
-                            evidence.pipewire.installed),
+                        format!(
+                            "PipeWire {} (installed: {})",
+                            if evidence.pipewire.active {
+                                "running"
+                            } else {
+                                "stopped"
+                            },
+                            evidence.pipewire.installed
+                        ),
                         "Core audio service not running. Audio will not work.".to_string(),
                     )
                 }
@@ -1023,7 +1060,11 @@ impl AudioDoctor {
     /// Step 3: Confirm devices exist
     fn step_confirm_devices(&self, evidence: &AudioEvidence) -> DiagnosisStep {
         let alsa_outputs = evidence.alsa_devices.iter().filter(|d| d.is_output).count();
-        let alsa_inputs = evidence.alsa_devices.iter().filter(|d| !d.is_output).count();
+        let alsa_inputs = evidence
+            .alsa_devices
+            .iter()
+            .filter(|d| !d.is_output)
+            .count();
         let node_sinks = evidence.nodes.iter().filter(|n| n.is_sink).count();
         let node_sources = evidence.nodes.iter().filter(|n| !n.is_sink).count();
 
@@ -1036,14 +1077,19 @@ impl AudioDoctor {
         } else if node_sinks == 0 && evidence.is_pipewire() {
             (
                 StepResult::Partial,
-                format!("ALSA sees {} outputs but PipeWire has no sinks", alsa_outputs),
+                format!(
+                    "ALSA sees {} outputs but PipeWire has no sinks",
+                    alsa_outputs
+                ),
                 "Hardware detected but PipeWire not exposing it. Service issue likely.".to_string(),
             )
         } else {
             (
                 StepResult::Pass,
-                format!("Found {} sink(s), {} source(s) (ALSA: {} out, {} in)",
-                    node_sinks, node_sources, alsa_outputs, alsa_inputs),
+                format!(
+                    "Found {} sink(s), {} source(s) (ALSA: {} out, {} in)",
+                    node_sinks, node_sources, alsa_outputs, alsa_inputs
+                ),
                 "Audio hardware detected and accessible.".to_string(),
             )
         };
@@ -1075,13 +1121,19 @@ impl AudioDoctor {
                 } else if volume < 10.0 {
                     (
                         StepResult::Partial,
-                        format!("Default sink '{}' volume very low ({:.0}%)", sink.description, volume),
+                        format!(
+                            "Default sink '{}' volume very low ({:.0}%)",
+                            sink.description, volume
+                        ),
                         "Volume too low to hear. Increase volume.".to_string(),
                     )
                 } else {
                     (
                         StepResult::Pass,
-                        format!("Default sink '{}' at {:.0}% volume, not muted", sink.description, volume),
+                        format!(
+                            "Default sink '{}' at {:.0}% volume, not muted",
+                            sink.description, volume
+                        ),
                         "Output configured correctly.".to_string(),
                     )
                 }
@@ -1112,7 +1164,10 @@ impl AudioDoctor {
                 "PulseAudio running alongside PipeWire".to_string(),
                 "Both audio servers running causes conflicts. Stop one.".to_string(),
             )
-        } else if evidence.is_pipewire() && evidence.pulseaudio.installed && !evidence.pulseaudio.active {
+        } else if evidence.is_pipewire()
+            && evidence.pulseaudio.installed
+            && !evidence.pulseaudio.active
+        {
             (
                 StepResult::Pass,
                 "PulseAudio installed but not running (no conflict)".to_string(),
@@ -1177,18 +1232,24 @@ impl AudioDoctor {
             if connected.is_empty() {
                 (
                     StepResult::Partial,
-                    format!("Bluetooth active, {} audio device(s) paired but none connected",
-                        bt.audio_devices.len()),
+                    format!(
+                        "Bluetooth active, {} audio device(s) paired but none connected",
+                        bt.audio_devices.len()
+                    ),
                     "Connect to a paired audio device.".to_string(),
                 )
             } else {
                 let dev = &connected[0];
-                let profile_info = dev.profile
+                let profile_info = dev
+                    .profile
                     .map(|p| format!(", profile: {}", p))
                     .unwrap_or_default();
                 (
                     StepResult::Pass,
-                    format!("Bluetooth audio device '{}' connected{}", dev.name, profile_info),
+                    format!(
+                        "Bluetooth audio device '{}' connected{}",
+                        dev.name, profile_info
+                    ),
                     "Bluetooth audio available.".to_string(),
                 )
             }
@@ -1217,7 +1278,11 @@ impl AudioDoctor {
             };
 
             findings.push(Finding {
-                id: format!("find-{}-{}", step.name.to_lowercase().replace(' ', "-"), Utc::now().timestamp()),
+                id: format!(
+                    "find-{}-{}",
+                    step.name.to_lowercase().replace(' ', "-"),
+                    Utc::now().timestamp()
+                ),
                 summary: step.details.clone(),
                 detail: step.implication.clone(),
                 risk,
@@ -1229,7 +1294,11 @@ impl AudioDoctor {
     }
 
     /// Generate hypotheses
-    fn generate_hypotheses(&self, findings: &[Finding], evidence: &AudioEvidence) -> Vec<AudioHypothesis> {
+    fn generate_hypotheses(
+        &self,
+        findings: &[Finding],
+        evidence: &AudioEvidence,
+    ) -> Vec<AudioHypothesis> {
         let mut hypotheses = Vec::new();
 
         // Hypothesis: PipeWire service not running
@@ -1238,7 +1307,8 @@ impl AudioDoctor {
                 id: format!("hyp-pw-stopped-{}", Utc::now().timestamp()),
                 summary: "PipeWire user service not running".to_string(),
                 explanation: "The PipeWire audio service is not active. This is required for \
-                              audio to work on modern Arch systems.".to_string(),
+                              audio to work on modern Arch systems."
+                    .to_string(),
                 confidence: 95,
                 supporting_evidence: vec![format!("ev-services-{}", Utc::now().timestamp())],
                 suggested_playbook: Some("restart_pipewire".to_string()),
@@ -1250,8 +1320,10 @@ impl AudioDoctor {
             hypotheses.push(AudioHypothesis {
                 id: format!("hyp-wp-stopped-{}", Utc::now().timestamp()),
                 summary: "WirePlumber session manager not running".to_string(),
-                explanation: "PipeWire is running but WirePlumber (session/policy manager) is not. \
-                              Audio routing and device management require WirePlumber.".to_string(),
+                explanation:
+                    "PipeWire is running but WirePlumber (session/policy manager) is not. \
+                              Audio routing and device management require WirePlumber."
+                        .to_string(),
                 confidence: 90,
                 supporting_evidence: vec![format!("ev-services-{}", Utc::now().timestamp())],
                 suggested_playbook: Some("restart_wireplumber".to_string()),
@@ -1264,8 +1336,10 @@ impl AudioDoctor {
                 hypotheses.push(AudioHypothesis {
                     id: format!("hyp-muted-{}", Utc::now().timestamp()),
                     summary: "Default output is muted".to_string(),
-                    explanation: format!("The default sink '{}' is muted. Unmuting will restore audio.",
-                        sink.description),
+                    explanation: format!(
+                        "The default sink '{}' is muted. Unmuting will restore audio.",
+                        sink.description
+                    ),
                     confidence: 95,
                     supporting_evidence: vec![format!("ev-defaults-{}", Utc::now().timestamp())],
                     suggested_playbook: Some("unmute_volume".to_string()),
@@ -1274,8 +1348,10 @@ impl AudioDoctor {
                 hypotheses.push(AudioHypothesis {
                     id: format!("hyp-low-volume-{}", Utc::now().timestamp()),
                     summary: "Volume too low".to_string(),
-                    explanation: format!("Default sink volume at {:.0}%, too low to hear.",
-                        sink.volume_percent.unwrap_or(0.0)),
+                    explanation: format!(
+                        "Default sink volume at {:.0}%, too low to hear.",
+                        sink.volume_percent.unwrap_or(0.0)
+                    ),
                     confidence: 85,
                     supporting_evidence: vec![format!("ev-defaults-{}", Utc::now().timestamp())],
                     suggested_playbook: Some("set_volume".to_string()),
@@ -1289,7 +1365,8 @@ impl AudioDoctor {
                 id: format!("hyp-no-default-{}", Utc::now().timestamp()),
                 summary: "No default output device set".to_string(),
                 explanation: "Output devices exist but none is set as default. \
-                              Setting a default sink should restore audio.".to_string(),
+                              Setting a default sink should restore audio."
+                    .to_string(),
                 confidence: 85,
                 supporting_evidence: vec![format!("ev-defaults-{}", Utc::now().timestamp())],
                 suggested_playbook: Some("set_default_sink".to_string()),
@@ -1302,7 +1379,8 @@ impl AudioDoctor {
                 id: format!("hyp-pa-conflict-{}", Utc::now().timestamp()),
                 summary: "PulseAudio running alongside PipeWire".to_string(),
                 explanation: "Both audio servers are running, causing conflicts. \
-                              Stop PulseAudio to let PipeWire work properly.".to_string(),
+                              Stop PulseAudio to let PipeWire work properly."
+                    .to_string(),
                 confidence: 90,
                 supporting_evidence: vec![format!("ev-conflicts-{}", Utc::now().timestamp())],
                 suggested_playbook: Some("stop_pulseaudio".to_string()),
@@ -1312,7 +1390,9 @@ impl AudioDoctor {
         // Hypothesis: Bluetooth profile wrong
         if let Some(bt) = &evidence.bluetooth {
             for dev in bt.connected_audio_devices() {
-                if dev.profile == Some(BluetoothProfile::Hsp) || dev.profile == Some(BluetoothProfile::Hfp) {
+                if dev.profile == Some(BluetoothProfile::Hsp)
+                    || dev.profile == Some(BluetoothProfile::Hfp)
+                {
                     if dev.available_profiles.contains(&BluetoothProfile::A2dp) {
                         hypotheses.push(AudioHypothesis {
                             id: format!("hyp-bt-profile-{}", Utc::now().timestamp()),
@@ -1337,7 +1417,8 @@ impl AudioDoctor {
                 summary: "Audio device permission issue".to_string(),
                 explanation: format!(
                     "User '{}' may lack access to audio devices. Check group membership.",
-                    evidence.permissions.username),
+                    evidence.permissions.username
+                ),
                 confidence: 60, // Lower confidence, modern systems often don't need it
                 supporting_evidence: vec![format!("ev-permissions-{}", Utc::now().timestamp())],
                 suggested_playbook: None, // No automatic fix for permissions
@@ -1352,11 +1433,18 @@ impl AudioDoctor {
 
     /// Determine overall health
     fn determine_health(&self, steps: &[DiagnosisStep]) -> AudioHealth {
-        let fails = steps.iter().filter(|s| s.result == StepResult::Fail).count();
-        let partials = steps.iter().filter(|s| s.result == StepResult::Partial).count();
+        let fails = steps
+            .iter()
+            .filter(|s| s.result == StepResult::Fail)
+            .count();
+        let partials = steps
+            .iter()
+            .filter(|s| s.result == StepResult::Partial)
+            .count();
 
         // Check for critical failures (services down = broken audio)
-        let service_step_failed = steps.iter()
+        let service_step_failed = steps
+            .iter()
             .any(|s| s.step_number == 2 && s.result == StepResult::Fail);
 
         if fails >= 2 || service_step_failed {
@@ -1372,7 +1460,12 @@ impl AudioDoctor {
     }
 
     /// Generate summary
-    fn generate_summary(&self, health: &AudioHealth, hypotheses: &[AudioHypothesis], evidence: &AudioEvidence) -> String {
+    fn generate_summary(
+        &self,
+        health: &AudioHealth,
+        hypotheses: &[AudioHypothesis],
+        evidence: &AudioEvidence,
+    ) -> String {
         match health {
             AudioHealth::Healthy => format!(
                 "Audio healthy. {} stack with {} output device(s).",
@@ -1381,14 +1474,20 @@ impl AudioDoctor {
             ),
             AudioHealth::Degraded => {
                 if let Some(h) = hypotheses.first() {
-                    format!("Audio degraded. Likely cause: {} ({}% confidence)", h.summary, h.confidence)
+                    format!(
+                        "Audio degraded. Likely cause: {} ({}% confidence)",
+                        h.summary, h.confidence
+                    )
                 } else {
                     "Audio degraded. Check findings for details.".to_string()
                 }
             }
             AudioHealth::Broken => {
                 if let Some(h) = hypotheses.first() {
-                    format!("Audio NOT WORKING. Primary issue: {} ({}% confidence)", h.summary, h.confidence)
+                    format!(
+                        "Audio NOT WORKING. Primary issue: {} ({}% confidence)",
+                        h.summary, h.confidence
+                    )
                 } else {
                     "Audio not working. No clear hypothesis.".to_string()
                 }
@@ -1398,7 +1497,11 @@ impl AudioDoctor {
     }
 
     /// Generate fix playbooks based on diagnosis
-    pub fn generate_playbooks(&self, diagnosis: &DiagnosisResult, evidence: &AudioEvidence) -> Vec<FixPlaybook> {
+    pub fn generate_playbooks(
+        &self,
+        diagnosis: &DiagnosisResult,
+        evidence: &AudioEvidence,
+    ) -> Vec<FixPlaybook> {
         let mut playbooks = Vec::new();
 
         for hyp in &diagnosis.hypotheses {
@@ -1413,7 +1516,12 @@ impl AudioDoctor {
     }
 
     /// Create a specific playbook
-    fn create_playbook(&self, playbook_id: &str, evidence: &AudioEvidence, hypothesis_id: Option<&str>) -> Option<FixPlaybook> {
+    fn create_playbook(
+        &self,
+        playbook_id: &str,
+        evidence: &AudioEvidence,
+        hypothesis_id: Option<&str>,
+    ) -> Option<FixPlaybook> {
         let user = &evidence.target_user;
 
         match playbook_id {
@@ -1424,22 +1532,19 @@ impl AudioDoctor {
                 description: "Restart pipewire and wireplumber user services".to_string(),
                 risk: RiskLevel::Low,
                 target_user: user.clone(),
-                preflight: vec![
-                    PreflightCheck {
-                        name: "PipeWire installed".to_string(),
-                        command: "pacman -Q pipewire".to_string(),
-                        as_user: false,
-                        error_message: "PipeWire not installed".to_string(),
-                    },
-                ],
-                commands: vec![
-                    PlaybookCommand {
-                        command: "systemctl --user restart pipewire pipewire-pulse wireplumber".to_string(),
-                        description: "Restart PipeWire stack".to_string(),
-                        as_user: true,
-                        timeout_secs: 10,
-                    },
-                ],
+                preflight: vec![PreflightCheck {
+                    name: "PipeWire installed".to_string(),
+                    command: "pacman -Q pipewire".to_string(),
+                    as_user: false,
+                    error_message: "PipeWire not installed".to_string(),
+                }],
+                commands: vec![PlaybookCommand {
+                    command: "systemctl --user restart pipewire pipewire-pulse wireplumber"
+                        .to_string(),
+                    description: "Restart PipeWire stack".to_string(),
+                    as_user: true,
+                    timeout_secs: 10,
+                }],
                 post_checks: vec![
                     PostCheck {
                         name: "PipeWire running".to_string(),
@@ -1470,31 +1575,25 @@ impl AudioDoctor {
                 description: "Restart wireplumber session manager".to_string(),
                 risk: RiskLevel::Low,
                 target_user: user.clone(),
-                preflight: vec![
-                    PreflightCheck {
-                        name: "WirePlumber installed".to_string(),
-                        command: "pacman -Q wireplumber".to_string(),
-                        as_user: false,
-                        error_message: "WirePlumber not installed".to_string(),
-                    },
-                ],
-                commands: vec![
-                    PlaybookCommand {
-                        command: "systemctl --user restart wireplumber".to_string(),
-                        description: "Restart WirePlumber".to_string(),
-                        as_user: true,
-                        timeout_secs: 10,
-                    },
-                ],
-                post_checks: vec![
-                    PostCheck {
-                        name: "WirePlumber running".to_string(),
-                        command: "systemctl --user is-active wireplumber".to_string(),
-                        as_user: true,
-                        wait_secs: 2,
-                        expected: "active".to_string(),
-                    },
-                ],
+                preflight: vec![PreflightCheck {
+                    name: "WirePlumber installed".to_string(),
+                    command: "pacman -Q wireplumber".to_string(),
+                    as_user: false,
+                    error_message: "WirePlumber not installed".to_string(),
+                }],
+                commands: vec![PlaybookCommand {
+                    command: "systemctl --user restart wireplumber".to_string(),
+                    description: "Restart WirePlumber".to_string(),
+                    as_user: true,
+                    timeout_secs: 10,
+                }],
+                post_checks: vec![PostCheck {
+                    name: "WirePlumber running".to_string(),
+                    command: "systemctl --user is-active wireplumber".to_string(),
+                    as_user: true,
+                    wait_secs: 2,
+                    expected: "active".to_string(),
+                }],
                 rollback: vec![],
                 policy_blocked: false,
                 policy_block_reason: None,
@@ -1524,15 +1623,13 @@ impl AudioDoctor {
                         timeout_secs: 5,
                     },
                 ],
-                post_checks: vec![
-                    PostCheck {
-                        name: "Volume check".to_string(),
-                        command: "wpctl get-volume @DEFAULT_AUDIO_SINK@".to_string(),
-                        as_user: true,
-                        wait_secs: 1,
-                        expected: "Volume: 0.50".to_string(),
-                    },
-                ],
+                post_checks: vec![PostCheck {
+                    name: "Volume check".to_string(),
+                    command: "wpctl get-volume @DEFAULT_AUDIO_SINK@".to_string(),
+                    as_user: true,
+                    wait_secs: 1,
+                    expected: "Volume: 0.50".to_string(),
+                }],
                 rollback: vec![],
                 policy_blocked: false,
                 policy_block_reason: None,
@@ -1551,23 +1648,19 @@ impl AudioDoctor {
                     risk: RiskLevel::Low,
                     target_user: user.clone(),
                     preflight: vec![],
-                    commands: vec![
-                        PlaybookCommand {
-                            command: format!("wpctl set-default {}", sink.id),
-                            description: format!("Set sink {} as default", sink.id),
-                            as_user: true,
-                            timeout_secs: 5,
-                        },
-                    ],
-                    post_checks: vec![
-                        PostCheck {
-                            name: "Default set".to_string(),
-                            command: "wpctl status | grep -A1 'Audio/Sink'".to_string(),
-                            as_user: true,
-                            wait_secs: 1,
-                            expected: sink.description.clone(),
-                        },
-                    ],
+                    commands: vec![PlaybookCommand {
+                        command: format!("wpctl set-default {}", sink.id),
+                        description: format!("Set sink {} as default", sink.id),
+                        as_user: true,
+                        timeout_secs: 5,
+                    }],
+                    post_checks: vec![PostCheck {
+                        name: "Default set".to_string(),
+                        command: "wpctl status | grep -A1 'Audio/Sink'".to_string(),
+                        as_user: true,
+                        wait_secs: 1,
+                        expected: sink.description.clone(),
+                    }],
                     rollback: vec![],
                     policy_blocked: false,
                     policy_block_reason: None,
@@ -1580,48 +1673,46 @@ impl AudioDoctor {
                 id: "stop_pulseaudio".to_string(),
                 playbook_type: PlaybookType::StopConflict,
                 name: "Stop PulseAudio".to_string(),
-                description: "Stop and disable PulseAudio user service (conflict with PipeWire)".to_string(),
+                description: "Stop and disable PulseAudio user service (conflict with PipeWire)"
+                    .to_string(),
                 risk: RiskLevel::Medium,
                 target_user: user.clone(),
-                preflight: vec![
-                    PreflightCheck {
-                        name: "PulseAudio running".to_string(),
-                        command: "systemctl --user is-active pulseaudio".to_string(),
-                        as_user: true,
-                        error_message: "PulseAudio not running".to_string(),
-                    },
-                ],
+                preflight: vec![PreflightCheck {
+                    name: "PulseAudio running".to_string(),
+                    command: "systemctl --user is-active pulseaudio".to_string(),
+                    as_user: true,
+                    error_message: "PulseAudio not running".to_string(),
+                }],
                 commands: vec![
                     PlaybookCommand {
-                        command: "systemctl --user stop pulseaudio.socket pulseaudio.service".to_string(),
+                        command: "systemctl --user stop pulseaudio.socket pulseaudio.service"
+                            .to_string(),
                         description: "Stop PulseAudio".to_string(),
                         as_user: true,
                         timeout_secs: 10,
                     },
                     PlaybookCommand {
-                        command: "systemctl --user mask pulseaudio.socket pulseaudio.service".to_string(),
+                        command: "systemctl --user mask pulseaudio.socket pulseaudio.service"
+                            .to_string(),
                         description: "Mask PulseAudio to prevent restart".to_string(),
                         as_user: true,
                         timeout_secs: 5,
                     },
                 ],
-                post_checks: vec![
-                    PostCheck {
-                        name: "PulseAudio stopped".to_string(),
-                        command: "systemctl --user is-active pulseaudio || echo inactive".to_string(),
-                        as_user: true,
-                        wait_secs: 1,
-                        expected: "inactive".to_string(),
-                    },
-                ],
-                rollback: vec![
-                    PlaybookCommand {
-                        command: "systemctl --user unmask pulseaudio.socket pulseaudio.service".to_string(),
-                        description: "Unmask PulseAudio".to_string(),
-                        as_user: true,
-                        timeout_secs: 5,
-                    },
-                ],
+                post_checks: vec![PostCheck {
+                    name: "PulseAudio stopped".to_string(),
+                    command: "systemctl --user is-active pulseaudio || echo inactive".to_string(),
+                    as_user: true,
+                    wait_secs: 1,
+                    expected: "inactive".to_string(),
+                }],
+                rollback: vec![PlaybookCommand {
+                    command: "systemctl --user unmask pulseaudio.socket pulseaudio.service"
+                        .to_string(),
+                    description: "Unmask PulseAudio".to_string(),
+                    as_user: true,
+                    timeout_secs: 5,
+                }],
                 policy_blocked: !self.allow_stop_pulseaudio,
                 policy_block_reason: if !self.allow_stop_pulseaudio {
                     Some("Stopping PulseAudio blocked by policy (medium risk)".to_string())
@@ -1820,7 +1911,10 @@ mod tests {
 
         let result = doctor.diagnose(&evidence);
         assert_eq!(result.health, AudioHealth::Degraded);
-        assert!(result.hypotheses.iter().any(|h| h.summary.contains("muted")));
+        assert!(result
+            .hypotheses
+            .iter()
+            .any(|h| h.summary.contains("muted")));
     }
 
     #[test]
@@ -1839,7 +1933,10 @@ mod tests {
 
         let result = doctor.diagnose(&evidence);
         assert_eq!(result.health, AudioHealth::Degraded);
-        assert!(result.hypotheses.iter().any(|h| h.summary.contains("PulseAudio")));
+        assert!(result
+            .hypotheses
+            .iter()
+            .any(|h| h.summary.contains("PulseAudio")));
     }
 
     #[test]
@@ -1957,7 +2054,10 @@ mod tests {
         });
 
         let result = doctor.diagnose(&evidence);
-        assert!(result.hypotheses.iter().any(|h| h.summary.contains("low-quality profile")));
+        assert!(result
+            .hypotheses
+            .iter()
+            .any(|h| h.summary.contains("low-quality profile")));
     }
 
     #[test]

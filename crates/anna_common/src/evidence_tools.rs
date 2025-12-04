@@ -62,7 +62,10 @@ pub fn plan_evidence(case_id: &str, classification: &IntentClassification) -> Ev
 }
 
 /// Plan evidence for SYSTEM_QUERY intent
-fn plan_system_query_evidence(case_id: &str, classification: &IntentClassification) -> EvidencePlan {
+fn plan_system_query_evidence(
+    case_id: &str,
+    classification: &IntentClassification,
+) -> EvidencePlan {
     let mut tools = Vec::new();
     let mut evidence_id = 1;
 
@@ -465,7 +468,10 @@ mod tests {
         };
         let plan = plan_evidence("test-1", &classification);
         assert!(!plan.tools.is_empty());
-        assert!(plan.tools[0].tool_name.contains("hw_snapshot") || plan.tools[0].tool_name.contains("cpu"));
+        assert!(
+            plan.tools[0].tool_name.contains("hw_snapshot")
+                || plan.tools[0].tool_name.contains("cpu")
+        );
     }
 
     #[test]
@@ -488,30 +494,24 @@ mod tests {
     fn test_validate_cpu_evidence() {
         let (valid, _) = validate_evidence_for_query(
             &QueryTarget::Cpu,
-            "CPU: AMD Ryzen 7 5800X, 8 cores, 16 threads"
+            "CPU: AMD Ryzen 7 5800X, 8 cores, 16 threads",
         );
         assert!(valid);
 
-        let (valid, critique) = validate_evidence_for_query(
-            &QueryTarget::Cpu,
-            "Disk free: 100 GiB on /"
-        );
+        let (valid, critique) =
+            validate_evidence_for_query(&QueryTarget::Cpu, "Disk free: 100 GiB on /");
         assert!(!valid);
         assert!(critique.contains("CPU"));
     }
 
     #[test]
     fn test_validate_disk_evidence() {
-        let (valid, _) = validate_evidence_for_query(
-            &QueryTarget::DiskFree,
-            "Mount /: 100 GiB free, 50% used"
-        );
+        let (valid, _) =
+            validate_evidence_for_query(&QueryTarget::DiskFree, "Mount /: 100 GiB free, 50% used");
         assert!(valid);
 
-        let (valid, critique) = validate_evidence_for_query(
-            &QueryTarget::DiskFree,
-            "CPU: Intel Core i9"
-        );
+        let (valid, critique) =
+            validate_evidence_for_query(&QueryTarget::DiskFree, "CPU: Intel Core i9");
         assert!(!valid);
         assert!(critique.contains("disk"));
     }

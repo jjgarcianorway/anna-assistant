@@ -315,11 +315,14 @@ impl CaseState {
             error: None,
         };
         // Start timing for Intake phase
-        state.phase_timings.insert(CasePhase::Intake, PhaseTiming {
-            started_at: now,
-            ended_at: None,
-            duration_ms: None,
-        });
+        state.phase_timings.insert(
+            CasePhase::Intake,
+            PhaseTiming {
+                started_at: now,
+                ended_at: None,
+                duration_ms: None,
+            },
+        );
         state
     }
 
@@ -371,17 +374,18 @@ impl CaseState {
         // End timing for current phase
         if let Some(timing) = self.phase_timings.get_mut(&self.phase) {
             timing.ended_at = Some(now);
-            timing.duration_ms = Some(
-                (now - timing.started_at).num_milliseconds().max(0) as u64
-            );
+            timing.duration_ms = Some((now - timing.started_at).num_milliseconds().max(0) as u64);
         }
 
         // Start timing for next phase
-        self.phase_timings.insert(next_phase, PhaseTiming {
-            started_at: now,
-            ended_at: None,
-            duration_ms: None,
-        });
+        self.phase_timings.insert(
+            next_phase,
+            PhaseTiming {
+                started_at: now,
+                ended_at: None,
+                duration_ms: None,
+            },
+        );
 
         // Record transition event
         self.add_event(
@@ -408,9 +412,7 @@ impl CaseState {
         // End timing for current phase
         if let Some(timing) = self.phase_timings.get_mut(&self.phase) {
             timing.ended_at = Some(now);
-            timing.duration_ms = Some(
-                (now - timing.started_at).num_milliseconds().max(0) as u64
-            );
+            timing.duration_ms = Some((now - timing.started_at).num_milliseconds().max(0) as u64);
         }
     }
 
@@ -447,7 +449,10 @@ mod tests {
 
     #[test]
     fn test_intent_parsing() {
-        assert_eq!(IntentType::parse("system_query"), Some(IntentType::SystemQuery));
+        assert_eq!(
+            IntentType::parse("system_query"),
+            Some(IntentType::SystemQuery)
+        );
         assert_eq!(IntentType::parse("DIAGNOSE"), Some(IntentType::Diagnose));
         assert_eq!(IntentType::parse("action"), Some(IntentType::ActionRequest));
         assert_eq!(IntentType::parse("howto"), Some(IntentType::Howto));
@@ -484,7 +489,11 @@ mod tests {
     #[test]
     fn test_case_state_events() {
         let mut state = CaseState::new("test-789", "test request");
-        state.add_event(CaseActor::User, CaseEventType::RequestReceived, "test request");
+        state.add_event(
+            CaseActor::User,
+            CaseEventType::RequestReceived,
+            "test request",
+        );
         assert_eq!(state.events.len(), 1);
         assert_eq!(state.events[0].id, "E1");
         assert_eq!(state.next_event_id(), "E2");

@@ -2,8 +2,8 @@
 //!
 //! Discovers Bluetooth adapters from /sys/class/bluetooth and rfkill.
 
-use std::process::Command;
 use super::types::{BluetoothAdapter, BluetoothState, BluetoothSummary};
+use std::process::Command;
 
 /// Get Bluetooth summary
 pub fn get_bluetooth_summary() -> BluetoothSummary {
@@ -46,7 +46,8 @@ pub fn get_bluetooth_summary() -> BluetoothSummary {
             if device_path.exists() {
                 let driver_path = device_path.join("driver");
                 if let Ok(link) = std::fs::read_link(&driver_path) {
-                    adapter.driver = link.file_name()
+                    adapter.driver = link
+                        .file_name()
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_default();
                 }
@@ -94,9 +95,7 @@ fn get_bluetooth_manufacturer(device_path: &std::path::Path) -> String {
 
 fn get_bluetooth_state(adapter_name: &str) -> BluetoothState {
     // Check rfkill
-    let output = Command::new("rfkill")
-        .args(["list", "bluetooth"])
-        .output();
+    let output = Command::new("rfkill").args(["list", "bluetooth"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {

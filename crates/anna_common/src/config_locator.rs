@@ -11,11 +11,11 @@
 //! 1. "Detected on this system" (facts) - paths that exist right now
 //! 2. "Recommended locations" (references) - from documentation only
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use serde::{Deserialize, Serialize};
 
 /// Detected config entry - a path that EXISTS on this system
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,18 +26,18 @@ pub struct DetectedConfig {
     pub owner_uid: u32,
     pub owner_gid: u32,
     pub last_modified_epoch: u64,
-    pub evidence: String,  // exact probe used (stat, find, etc.)
+    pub evidence: String, // exact probe used (stat, find, etc.)
 }
 
 /// Recommended config entry - from documentation, may not exist
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecommendedConfig {
-    pub path_pattern: String,  // may include $XDG_CONFIG_HOME, $HOME, etc.
+    pub path_pattern: String, // may include $XDG_CONFIG_HOME, $HOME, etc.
     pub scope: ConfigScope,
-    pub priority: u32,  // lower is more canonical
+    pub priority: u32, // lower is more canonical
     pub source: DocSource,
-    pub source_ref: String,  // page name and section header when possible
-    pub note: String,  // short explanation, no HTML
+    pub source_ref: String, // page name and section header when possible
+    pub note: String,       // short explanation, no HTML
 }
 
 /// Kind of config entry
@@ -125,10 +125,10 @@ impl DocSource {
 /// Documented precedence rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrecedenceRule {
-    pub paths: Vec<String>,  // ordered list of paths
+    pub paths: Vec<String>, // ordered list of paths
     pub source: DocSource,
     pub source_ref: String,
-    pub verbatim_quote: String,  // exact text from docs stating precedence
+    pub verbatim_quote: String, // exact text from docs stating precedence
 }
 
 /// Complete config discovery result for a software identity
@@ -137,7 +137,7 @@ pub struct ConfigDiscovery {
     pub identity: String,
     pub detected: Vec<DetectedConfig>,
     pub recommended: Vec<RecommendedConfig>,
-    pub precedence: Option<PrecedenceRule>,  // None if not explicitly documented
+    pub precedence: Option<PrecedenceRule>, // None if not explicitly documented
     pub doc_excerpts_path: Option<String>,  // path to cleaned excerpt file
 }
 
@@ -220,8 +220,10 @@ pub fn config_index_stale() -> bool {
 
     // Check if pacman log is newer than index
     let pacman_log = Path::new("/var/log/pacman.log");
-    if let (Ok(index_meta), Ok(pacman_meta)) = (fs::metadata(index_path), fs::metadata(pacman_log)) {
-        if let (Ok(index_mtime), Ok(pacman_mtime)) = (index_meta.modified(), pacman_meta.modified()) {
+    if let (Ok(index_meta), Ok(pacman_meta)) = (fs::metadata(index_path), fs::metadata(pacman_log))
+    {
+        if let (Ok(index_mtime), Ok(pacman_mtime)) = (index_meta.modified(), pacman_meta.modified())
+        {
             if pacman_mtime > index_mtime {
                 return true;
             }
@@ -253,7 +255,9 @@ fn gather_documentation(identity: &str) -> DocResult {
         let cleaned = extract_config_relevant_lines(&man_content, identity);
         if !cleaned.is_empty() {
             result.man_content = Some(cleaned.clone());
-            result.excerpts.push(format!("# Source: man {}\n\n{}", identity, cleaned));
+            result
+                .excerpts
+                .push(format!("# Source: man {}\n\n{}", identity, cleaned));
         }
     }
 
@@ -263,7 +267,9 @@ fn gather_documentation(identity: &str) -> DocResult {
         if !cleaned.is_empty() {
             result.wiki_content = Some(cleaned.clone());
             result.wiki_page_name = Some(page_name.clone());
-            result.excerpts.push(format!("# Source: Arch Wiki: {}\n\n{}", page_name, cleaned));
+            result
+                .excerpts
+                .push(format!("# Source: Arch Wiki: {}\n\n{}", page_name, cleaned));
         }
     }
 
@@ -272,7 +278,10 @@ fn gather_documentation(identity: &str) -> DocResult {
         let cleaned = extract_config_relevant_lines(&doc_content, identity);
         if !cleaned.is_empty() {
             result.usr_share_doc_content = Some(cleaned.clone());
-            result.excerpts.push(format!("# Source: /usr/share/doc/{}\n\n{}", identity, cleaned));
+            result.excerpts.push(format!(
+                "# Source: /usr/share/doc/{}\n\n{}",
+                identity, cleaned
+            ));
         }
     }
 
@@ -281,7 +290,9 @@ fn gather_documentation(identity: &str) -> DocResult {
         let cleaned = extract_config_relevant_lines(&help_content, identity);
         if !cleaned.is_empty() && cleaned.contains("config") {
             result.help_content = Some(cleaned.clone());
-            result.excerpts.push(format!("# Source: {} --help\n\n{}", identity, cleaned));
+            result
+                .excerpts
+                .push(format!("# Source: {} --help\n\n{}", identity, cleaned));
         }
     }
 
@@ -336,7 +347,13 @@ fn get_usr_share_doc_content(identity: &str) -> Option<String> {
     let mut content = String::new();
 
     // Look for README, CONFIGURATION, etc.
-    let interesting_files = ["README", "README.md", "CONFIGURATION", "CONFIG", "config.md"];
+    let interesting_files = [
+        "README",
+        "README.md",
+        "CONFIGURATION",
+        "CONFIG",
+        "config.md",
+    ];
 
     if let Ok(entries) = fs::read_dir(&doc_dir) {
         for entry in entries.flatten() {
@@ -362,20 +379,14 @@ fn get_usr_share_doc_content(identity: &str) -> Option<String> {
 
 fn get_help_flag_content(identity: &str) -> Option<String> {
     // Only run --help for commands in PATH
-    let which_output = Command::new("which")
-        .arg(identity)
-        .output()
-        .ok()?;
+    let which_output = Command::new("which").arg(identity).output().ok()?;
 
     if !which_output.status.success() {
         return None;
     }
 
     // Try --help
-    let output = Command::new(identity)
-        .arg("--help")
-        .output()
-        .ok()?;
+    let output = Command::new(identity).arg("--help").output().ok()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -421,7 +432,8 @@ fn strip_html_completely(html: &str) -> String {
     result = toc_re.replace_all(&result, "").to_string();
 
     // Remove sidebar
-    let sidebar_re = regex::Regex::new(r#"(?is)<div[^>]*class="[^"]*sidebar[^"]*"[^>]*>.*?</div>"#).unwrap();
+    let sidebar_re =
+        regex::Regex::new(r#"(?is)<div[^>]*class="[^"]*sidebar[^"]*"[^>]*>.*?</div>"#).unwrap();
     result = sidebar_re.replace_all(&result, "").to_string();
 
     // Remove all remaining HTML tags
@@ -458,9 +470,22 @@ fn strip_html_completely(html: &str) -> String {
 /// Keeps lines containing config-related tokens
 fn extract_config_relevant_lines(content: &str, identity: &str) -> String {
     let config_tokens = [
-        "config", "configuration", ".conf", "xdg_config_home", "~/.config",
-        "/etc/", "rc file", "rc-file", "profile", "include", "drop-in",
-        ".d/", "conf.d", "settings", "options file", identity,
+        "config",
+        "configuration",
+        ".conf",
+        "xdg_config_home",
+        "~/.config",
+        "/etc/",
+        "rc file",
+        "rc-file",
+        "profile",
+        "include",
+        "drop-in",
+        ".d/",
+        "conf.d",
+        "settings",
+        "options file",
+        identity,
     ];
 
     let identity_lower = identity.to_lowercase();
@@ -469,7 +494,7 @@ fn extract_config_relevant_lines(content: &str, identity: &str) -> String {
 
     for line in content.lines() {
         if line_count >= 40 {
-            break;  // Max 40 lines of excerpts per app
+            break; // Max 40 lines of excerpts per app
         }
 
         let line_lower = line.to_lowercase();
@@ -585,12 +610,15 @@ fn extract_paths_strict(text: &str, identity: &str) -> Vec<String> {
     let identity_lower = identity.to_lowercase();
 
     // Regex for absolute paths
-    let abs_path_re = regex::Regex::new(
-        r#"(?:^|\s|["'`])(/(?:etc|usr/share|home/\w+|var)[^\s"'`<>|;,\)\]]+)"#
-    ).unwrap();
+    let abs_path_re =
+        regex::Regex::new(r#"(?:^|\s|["'`])(/(?:etc|usr/share|home/\w+|var)[^\s"'`<>|;,\)\]]+)"#)
+            .unwrap();
 
     for cap in abs_path_re.captures_iter(text) {
-        let path = cap[1].to_string().trim_end_matches(&['.', ',', ';', ':'][..]).to_string();
+        let path = cap[1]
+            .to_string()
+            .trim_end_matches(&['.', ',', ';', ':'][..])
+            .to_string();
         if path_strictly_belongs_to(&path, &identity_lower) && looks_like_config(&path) {
             if !paths.contains(&path) {
                 paths.push(path);
@@ -599,15 +627,18 @@ fn extract_paths_strict(text: &str, identity: &str) -> Vec<String> {
     }
 
     // Regex for ~/.config/X paths - more specific
-    let tilde_config_re = regex::Regex::new(
-        r#"~/\.config/([a-zA-Z0-9_-]+)(?:/[^\s"'`<>|;,\)\]]+)?"#
-    ).unwrap();
+    let tilde_config_re =
+        regex::Regex::new(r#"~/\.config/([a-zA-Z0-9_-]+)(?:/[^\s"'`<>|;,\)\]]+)?"#).unwrap();
 
     for cap in tilde_config_re.captures_iter(text) {
         let dir_name = &cap[1];
-        if dir_name.to_lowercase() == identity_lower || dir_name.to_lowercase().starts_with(&identity_lower) {
+        if dir_name.to_lowercase() == identity_lower
+            || dir_name.to_lowercase().starts_with(&identity_lower)
+        {
             let full_match = cap[0].to_string();
-            let path = full_match.trim_end_matches(&['.', ',', ';', ':'][..]).to_string();
+            let path = full_match
+                .trim_end_matches(&['.', ',', ';', ':'][..])
+                .to_string();
             if !paths.contains(&path) {
                 paths.push(path);
             }
@@ -615,15 +646,18 @@ fn extract_paths_strict(text: &str, identity: &str) -> Vec<String> {
     }
 
     // Regex for $XDG_CONFIG_HOME/X paths
-    let xdg_config_re = regex::Regex::new(
-        r#"\$XDG_CONFIG_HOME/([a-zA-Z0-9_-]+)(?:/[^\s"'`<>|;,\)\]]+)?"#
-    ).unwrap();
+    let xdg_config_re =
+        regex::Regex::new(r#"\$XDG_CONFIG_HOME/([a-zA-Z0-9_-]+)(?:/[^\s"'`<>|;,\)\]]+)?"#).unwrap();
 
     for cap in xdg_config_re.captures_iter(text) {
         let dir_name = &cap[1];
-        if dir_name.to_lowercase() == identity_lower || dir_name.to_lowercase().starts_with(&identity_lower) {
+        if dir_name.to_lowercase() == identity_lower
+            || dir_name.to_lowercase().starts_with(&identity_lower)
+        {
             let full_match = cap[0].to_string();
-            let path = full_match.trim_end_matches(&['.', ',', ';', ':'][..]).to_string();
+            let path = full_match
+                .trim_end_matches(&['.', ',', ';', ':'][..])
+                .to_string();
             if !paths.contains(&path) {
                 paths.push(path);
             }
@@ -631,15 +665,15 @@ fn extract_paths_strict(text: &str, identity: &str) -> Vec<String> {
     }
 
     // Regex for $HOME/.X paths (dotfiles)
-    let home_dot_re = regex::Regex::new(
-        r#"\$HOME/\.([a-zA-Z0-9_-]+)(?:rc|\.conf)?"#
-    ).unwrap();
+    let home_dot_re = regex::Regex::new(r#"\$HOME/\.([a-zA-Z0-9_-]+)(?:rc|\.conf)?"#).unwrap();
 
     for cap in home_dot_re.captures_iter(text) {
         let name = &cap[1];
         if name.to_lowercase() == identity_lower {
             let full_match = cap[0].to_string();
-            let path = full_match.trim_end_matches(&['.', ',', ';', ':'][..]).to_string();
+            let path = full_match
+                .trim_end_matches(&['.', ',', ';', ':'][..])
+                .to_string();
             if !paths.contains(&path) {
                 paths.push(path);
             }
@@ -674,9 +708,8 @@ fn path_strictly_belongs_to(path: &str, identity: &str) -> bool {
     }
 
     // Check for ~/.identity or $XDG_CONFIG_HOME/identity
-    let filename_re = regex::Regex::new(
-        &format!(r"[/~]\.?{}(?:$|/|\.)", regex::escape(identity))
-    ).unwrap();
+    let filename_re =
+        regex::Regex::new(&format!(r"[/~]\.?{}(?:$|/|\.)", regex::escape(identity))).unwrap();
     if filename_re.is_match(&path_lower) {
         return true;
     }
@@ -689,9 +722,7 @@ fn looks_like_config(path: &str) -> bool {
     let p = path.to_lowercase();
 
     // Must start with known config-related prefixes
-    let valid_prefixes = [
-        "/etc", "/usr/share", "/home", "~", "$home", "$xdg",
-    ];
+    let valid_prefixes = ["/etc", "/usr/share", "/home", "~", "$home", "$xdg"];
     let has_valid_prefix = valid_prefixes.iter().any(|prefix| p.starts_with(prefix));
     if !has_valid_prefix {
         return false;
@@ -699,12 +730,26 @@ fn looks_like_config(path: &str) -> bool {
 
     // Reject obvious non-config paths
     let reject_patterns = [
-        "/bin/", "/lib/", "/lib64/", "/libexec/",
-        "/include/", "/doc/", "/man/", "/info/",
-        "/locale/", "/icons/", "/themes/", "/fonts/",
-        "/pixmaps/", "/applications/", "/mime/",
-        "/licenses/", "/completions/", "/bash-completion/",
-        "/zsh/", "/fish/",
+        "/bin/",
+        "/lib/",
+        "/lib64/",
+        "/libexec/",
+        "/include/",
+        "/doc/",
+        "/man/",
+        "/info/",
+        "/locale/",
+        "/icons/",
+        "/themes/",
+        "/fonts/",
+        "/pixmaps/",
+        "/applications/",
+        "/mime/",
+        "/licenses/",
+        "/completions/",
+        "/bash-completion/",
+        "/zsh/",
+        "/fish/",
     ];
 
     if reject_patterns.iter().any(|pat| p.contains(pat)) {
@@ -723,14 +768,28 @@ fn extract_precedence_from_docs(identity: &str, doc_result: &DocResult) -> Optio
     // Do not invent precedence rules
 
     let precedence_keywords = [
-        "precedence", "read first", "read before", "reads first",
-        "overrides", "takes priority", "priority over", "loaded before",
-        "loaded after", "first match", "fallback to",
+        "precedence",
+        "read first",
+        "read before",
+        "reads first",
+        "overrides",
+        "takes priority",
+        "priority over",
+        "loaded before",
+        "loaded after",
+        "first match",
+        "fallback to",
     ];
 
     // Check man page first
     if let Some(ref content) = doc_result.man_content {
-        if let Some(rule) = find_explicit_precedence(content, identity, DocSource::Man, &format!("man {}", identity), &precedence_keywords) {
+        if let Some(rule) = find_explicit_precedence(
+            content,
+            identity,
+            DocSource::Man,
+            &format!("man {}", identity),
+            &precedence_keywords,
+        ) {
             return Some(rule);
         }
     }
@@ -738,14 +797,26 @@ fn extract_precedence_from_docs(identity: &str, doc_result: &DocResult) -> Optio
     // Check wiki
     if let Some(ref content) = doc_result.wiki_content {
         let page_name = doc_result.wiki_page_name.as_deref().unwrap_or(identity);
-        if let Some(rule) = find_explicit_precedence(content, identity, DocSource::ArchWikiDocs, &format!("Arch Wiki: {}", page_name), &precedence_keywords) {
+        if let Some(rule) = find_explicit_precedence(
+            content,
+            identity,
+            DocSource::ArchWikiDocs,
+            &format!("Arch Wiki: {}", page_name),
+            &precedence_keywords,
+        ) {
             return Some(rule);
         }
     }
 
     // Check /usr/share/doc
     if let Some(ref content) = doc_result.usr_share_doc_content {
-        if let Some(rule) = find_explicit_precedence(content, identity, DocSource::UsrShareDoc, &format!("/usr/share/doc/{}", identity), &precedence_keywords) {
+        if let Some(rule) = find_explicit_precedence(
+            content,
+            identity,
+            DocSource::UsrShareDoc,
+            &format!("/usr/share/doc/{}", identity),
+            &precedence_keywords,
+        ) {
             return Some(rule);
         }
     }
@@ -753,7 +824,13 @@ fn extract_precedence_from_docs(identity: &str, doc_result: &DocResult) -> Optio
     None
 }
 
-fn find_explicit_precedence(content: &str, identity: &str, source: DocSource, source_ref: &str, keywords: &[&str]) -> Option<PrecedenceRule> {
+fn find_explicit_precedence(
+    content: &str,
+    identity: &str,
+    source: DocSource,
+    source_ref: &str,
+    keywords: &[&str],
+) -> Option<PrecedenceRule> {
     for line in content.lines() {
         let line_lower = line.to_lowercase();
 
@@ -779,13 +856,16 @@ fn find_explicit_precedence(content: &str, identity: &str, source: DocSource, so
 // Detection of Existing Configs
 // ============================================================================
 
-fn detect_existing_configs(identity: &str, recommended: &[RecommendedConfig]) -> Vec<DetectedConfig> {
+fn detect_existing_configs(
+    identity: &str,
+    recommended: &[RecommendedConfig],
+) -> Vec<DetectedConfig> {
     let mut detected = Vec::new();
     let mut seen_paths: HashSet<String> = HashSet::new();
 
     let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
-    let xdg_config = std::env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| format!("{}/.config", home));
+    let xdg_config =
+        std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
     // Check recommended paths first
     for rec in recommended {
@@ -859,7 +939,9 @@ fn probe_path(expanded_path: &str, original_pattern: &str) -> Option<DetectedCon
     #[cfg(not(unix))]
     let (uid, gid) = (0u32, 0u32);
 
-    let mtime = metadata.modified().ok()
+    let mtime = metadata
+        .modified()
+        .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
         .unwrap_or(0);
@@ -909,8 +991,8 @@ fn get_identity_aliases(identity: &str) -> Vec<&'static str> {
 
 fn expand_path_vars(path: &str) -> String {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string());
-    let xdg_config = std::env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| format!("{}/.config", home));
+    let xdg_config =
+        std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
     path.replace("$HOME", &home)
         .replace("$XDG_CONFIG_HOME", &xdg_config)
@@ -953,13 +1035,22 @@ mod tests {
     #[test]
     fn test_path_strictly_belongs_to() {
         // Hyprland paths
-        assert!(path_strictly_belongs_to("/etc/hypr/hyprland.conf", "hyprland"));
+        assert!(path_strictly_belongs_to(
+            "/etc/hypr/hyprland.conf",
+            "hyprland"
+        ));
         assert!(path_strictly_belongs_to("~/.config/hypr", "hypr"));
-        assert!(path_strictly_belongs_to("/usr/share/hypr/hyprland.conf", "hyprland"));
+        assert!(path_strictly_belongs_to(
+            "/usr/share/hypr/hyprland.conf",
+            "hyprland"
+        ));
 
         // Should NOT match other apps
         assert!(!path_strictly_belongs_to("/etc/mako/config", "hyprland"));
-        assert!(!path_strictly_belongs_to("~/.config/foot/foot.ini", "hyprland"));
+        assert!(!path_strictly_belongs_to(
+            "~/.config/foot/foot.ini",
+            "hyprland"
+        ));
 
         // Vim paths
         assert!(path_strictly_belongs_to("~/.vimrc", "vim"));
@@ -982,10 +1073,19 @@ mod tests {
 
     #[test]
     fn test_config_scope() {
-        assert_eq!(ConfigScope::from_path("/etc/vim/vimrc"), ConfigScope::System);
+        assert_eq!(
+            ConfigScope::from_path("/etc/vim/vimrc"),
+            ConfigScope::System
+        );
         assert_eq!(ConfigScope::from_path("~/.vimrc"), ConfigScope::User);
-        assert_eq!(ConfigScope::from_path("$HOME/.config/vim"), ConfigScope::User);
-        assert_eq!(ConfigScope::from_path("/usr/share/hypr/hyprland.conf"), ConfigScope::System);
+        assert_eq!(
+            ConfigScope::from_path("$HOME/.config/vim"),
+            ConfigScope::User
+        );
+        assert_eq!(
+            ConfigScope::from_path("/usr/share/hypr/hyprland.conf"),
+            ConfigScope::System
+        );
     }
 
     #[test]

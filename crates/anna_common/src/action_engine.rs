@@ -153,7 +153,11 @@ pub enum EditIntent {
     /// Apply unified diff patch
     Patch,
     /// Set key=value in config file
-    SetKeyValue { key: String, value: String, separator: String },
+    SetKeyValue {
+        key: String,
+        value: String,
+        separator: String,
+    },
     /// Insert line at position
     InsertLine { line_number: usize, content: String },
     /// Delete line at position
@@ -359,7 +363,9 @@ impl ActionPlan {
         // Update overall risk if step risk is higher
         if self.risk_level(step.risk) > self.risk_level(self.risk) {
             self.risk = step.risk;
-            self.confirmation_phrase = step.risk.confirmation_phrase()
+            self.confirmation_phrase = step
+                .risk
+                .confirmation_phrase()
                 .unwrap_or(CONFIRM_LOW)
                 .to_string();
         }
@@ -378,8 +384,11 @@ impl ActionPlan {
 
     /// Check if plan can be executed (no denied steps)
     pub fn is_executable(&self) -> bool {
-        self.risk != MutationRiskLevel::Denied &&
-        !self.steps.iter().any(|s| s.risk == MutationRiskLevel::Denied)
+        self.risk != MutationRiskLevel::Denied
+            && !self
+                .steps
+                .iter()
+                .any(|s| s.risk == MutationRiskLevel::Denied)
     }
 
     /// Get count of steps by status
@@ -593,9 +602,18 @@ mod tests {
     #[test]
     fn test_action_risk_confirmation() {
         assert_eq!(MutationRiskLevel::Low.confirmation_phrase(), Some("yes"));
-        assert_eq!(MutationRiskLevel::Medium.confirmation_phrase(), Some("I CONFIRM (medium risk)"));
-        assert_eq!(MutationRiskLevel::High.confirmation_phrase(), Some("I CONFIRM (high risk)"));
-        assert_eq!(MutationRiskLevel::Destructive.confirmation_phrase(), Some("I ACCEPT DATA LOSS RISK"));
+        assert_eq!(
+            MutationRiskLevel::Medium.confirmation_phrase(),
+            Some("I CONFIRM (medium risk)")
+        );
+        assert_eq!(
+            MutationRiskLevel::High.confirmation_phrase(),
+            Some("I CONFIRM (high risk)")
+        );
+        assert_eq!(
+            MutationRiskLevel::Destructive.confirmation_phrase(),
+            Some("I ACCEPT DATA LOSS RISK")
+        );
         assert_eq!(MutationRiskLevel::Denied.confirmation_phrase(), None);
     }
 
@@ -625,8 +643,14 @@ mod tests {
 
     #[test]
     fn test_systemd_operation_inverse() {
-        assert_eq!(SystemdOperation::Start.inverse(), Some(SystemdOperation::Stop));
-        assert_eq!(SystemdOperation::Enable.inverse(), Some(SystemdOperation::Disable));
+        assert_eq!(
+            SystemdOperation::Start.inverse(),
+            Some(SystemdOperation::Stop)
+        );
+        assert_eq!(
+            SystemdOperation::Enable.inverse(),
+            Some(SystemdOperation::Disable)
+        );
         assert_eq!(SystemdOperation::Restart.inverse(), None);
     }
 }

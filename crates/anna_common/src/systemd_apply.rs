@@ -10,8 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::generate_request_id;
 use crate::service_state::{ActiveState, EnabledState};
-use crate::systemd_action::{ServiceAction, ServiceOperation, RiskLevel, assess_risk};
-use crate::systemd_probe::{ServiceProbe, probe_service};
+use crate::systemd_action::{assess_risk, RiskLevel, ServiceAction, ServiceOperation};
+use crate::systemd_probe::{probe_service, ServiceProbe};
 use crate::systemd_rollback::ROLLBACK_BASE;
 
 // =============================================================================
@@ -39,7 +39,10 @@ pub struct ServicePreview {
 
 /// Generate a preview of service action without executing
 pub fn preview_service_action(action: &ServiceAction) -> Result<ServicePreview, String> {
-    let evidence_id = format!("PRV{}", generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "PRV{}",
+        generate_request_id().chars().take(8).collect::<String>()
+    );
 
     // Probe current state
     let probe = probe_service(&action.service);
@@ -60,7 +63,8 @@ pub fn preview_service_action(action: &ServiceAction) -> Result<ServicePreview, 
 
     // Determine expected state changes
     let (will_change_active, expected_active) = compute_active_changes(&action.operation, &probe);
-    let (will_change_enabled, expected_enabled) = compute_enabled_changes(&action.operation, &probe);
+    let (will_change_enabled, expected_enabled) =
+        compute_enabled_changes(&action.operation, &probe);
 
     // Generate change summary
     let change_summary = generate_change_summary(
@@ -89,7 +93,10 @@ pub fn preview_service_action(action: &ServiceAction) -> Result<ServicePreview, 
     })
 }
 
-fn compute_active_changes(operation: &ServiceOperation, probe: &ServiceProbe) -> (bool, ActiveState) {
+fn compute_active_changes(
+    operation: &ServiceOperation,
+    probe: &ServiceProbe,
+) -> (bool, ActiveState) {
     match operation {
         ServiceOperation::Start => {
             let will_change = !probe.active_state.is_running();
@@ -99,16 +106,15 @@ fn compute_active_changes(operation: &ServiceOperation, probe: &ServiceProbe) ->
             let will_change = probe.active_state.is_running();
             (will_change, ActiveState::Inactive)
         }
-        ServiceOperation::Restart => {
-            (true, ActiveState::Active)
-        }
-        ServiceOperation::Enable | ServiceOperation::Disable => {
-            (false, probe.active_state.clone())
-        }
+        ServiceOperation::Restart => (true, ActiveState::Active),
+        ServiceOperation::Enable | ServiceOperation::Disable => (false, probe.active_state.clone()),
     }
 }
 
-fn compute_enabled_changes(operation: &ServiceOperation, probe: &ServiceProbe) -> (bool, EnabledState) {
+fn compute_enabled_changes(
+    operation: &ServiceOperation,
+    probe: &ServiceProbe,
+) -> (bool, EnabledState) {
     match operation {
         ServiceOperation::Enable => {
             let will_change = probe.enabled_state != EnabledState::Enabled;
@@ -194,7 +200,10 @@ pub fn apply_service_action(
     case_id: &str,
     confirmation: &str,
 ) -> Result<ServiceApplyResult, String> {
-    let evidence_id = format!("APL{}", generate_request_id().chars().take(8).collect::<String>());
+    let evidence_id = format!(
+        "APL{}",
+        generate_request_id().chars().take(8).collect::<String>()
+    );
 
     // Preview first (validates service exists and action is allowed)
     let preview = preview_service_action(action)?;
@@ -267,7 +276,11 @@ fn execute_systemctl_action(action: &ServiceAction) -> Result<(), String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("systemctl {} failed: {}", action.operation, stderr.trim()));
+        return Err(format!(
+            "systemctl {} failed: {}",
+            action.operation,
+            stderr.trim()
+        ));
     }
 
     Ok(())
@@ -279,35 +292,59 @@ fn verify_action_result(action: &ServiceAction, post_probe: &ServiceProbe) -> (b
             if post_probe.active_state.is_running() {
                 (true, format!("Verified: {} is now active", action.service))
             } else {
-                (false, format!("Warning: {} is not active after start", action.service))
+                (
+                    false,
+                    format!("Warning: {} is not active after start", action.service),
+                )
             }
         }
         ServiceOperation::Stop => {
             if !post_probe.active_state.is_running() {
-                (true, format!("Verified: {} is now inactive", action.service))
+                (
+                    true,
+                    format!("Verified: {} is now inactive", action.service),
+                )
             } else {
-                (false, format!("Warning: {} is still active after stop", action.service))
+                (
+                    false,
+                    format!("Warning: {} is still active after stop", action.service),
+                )
             }
         }
         ServiceOperation::Restart => {
             if post_probe.active_state.is_running() {
-                (true, format!("Verified: {} restarted successfully", action.service))
+                (
+                    true,
+                    format!("Verified: {} restarted successfully", action.service),
+                )
             } else {
-                (false, format!("Warning: {} is not active after restart", action.service))
+                (
+                    false,
+                    format!("Warning: {} is not active after restart", action.service),
+                )
             }
         }
         ServiceOperation::Enable => {
             if post_probe.enabled_state == EnabledState::Enabled {
                 (true, format!("Verified: {} is now enabled", action.service))
             } else {
-                (false, format!("Warning: {} is not enabled after enable", action.service))
+                (
+                    false,
+                    format!("Warning: {} is not enabled after enable", action.service),
+                )
             }
         }
         ServiceOperation::Disable => {
             if post_probe.enabled_state == EnabledState::Disabled {
-                (true, format!("Verified: {} is now disabled", action.service))
+                (
+                    true,
+                    format!("Verified: {} is now disabled", action.service),
+                )
             } else {
-                (false, format!("Warning: {} is not disabled after disable", action.service))
+                (
+                    false,
+                    format!("Warning: {} is not disabled after disable", action.service),
+                )
             }
         }
     }
@@ -320,8 +357,7 @@ fn write_rollback_metadata(
     post_state: &ServiceStateSnapshot,
 ) -> Result<(), String> {
     let rollback_dir = PathBuf::from(ROLLBACK_BASE).join(case_id);
-    fs::create_dir_all(&rollback_dir)
-        .map_err(|e| format!("Cannot create rollback dir: {}", e))?;
+    fs::create_dir_all(&rollback_dir).map_err(|e| format!("Cannot create rollback dir: {}", e))?;
 
     let metadata = serde_json::json!({
         "case_id": case_id,
@@ -348,8 +384,7 @@ fn write_rollback_metadata(
     let content = serde_json::to_string_pretty(&metadata)
         .map_err(|e| format!("Cannot serialize metadata: {}", e))?;
 
-    fs::write(&metadata_path, content)
-        .map_err(|e| format!("Cannot write metadata: {}", e))?;
+    fs::write(&metadata_path, content).map_err(|e| format!("Cannot write metadata: {}", e))?;
 
     Ok(())
 }

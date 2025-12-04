@@ -249,18 +249,18 @@ pub enum ScrubStatus {
         errors_corrected: u64,
     },
     /// Aborted or failed
-    Failed {
-        reason: String,
-    },
+    Failed { reason: String },
 }
 
 impl ScrubStatus {
     /// Check if scrub found uncorrected errors
     pub fn has_uncorrected_errors(&self) -> bool {
         match self {
-            ScrubStatus::Completed { errors_found, errors_corrected, .. } => {
-                errors_found > errors_corrected
-            }
+            ScrubStatus::Completed {
+                errors_found,
+                errors_corrected,
+                ..
+            } => errors_found > errors_corrected,
             _ => false,
         }
     }
@@ -317,7 +317,11 @@ impl BtrfsInfo {
     /// Check overall health
     pub fn health_status(&self) -> StorageHealth {
         // Critical conditions
-        if self.device_stats.iter().any(|d| d.corruption_errs > 0 || d.generation_errs > 0) {
+        if self
+            .device_stats
+            .iter()
+            .any(|d| d.corruption_errs > 0 || d.generation_errs > 0)
+        {
             return StorageHealth::Critical;
         }
         if let Some(usage) = &self.usage {
@@ -959,8 +963,16 @@ impl StorageDoctor {
         let mut evidence_ids = Vec::new();
 
         let btrfs_count = evidence.mounts.iter().filter(|m| m.is_btrfs()).count();
-        let ext4_count = evidence.mounts.iter().filter(|m| m.fs_type == FilesystemType::Ext4).count();
-        let xfs_count = evidence.mounts.iter().filter(|m| m.fs_type == FilesystemType::Xfs).count();
+        let ext4_count = evidence
+            .mounts
+            .iter()
+            .filter(|m| m.fs_type == FilesystemType::Ext4)
+            .count();
+        let xfs_count = evidence
+            .mounts
+            .iter()
+            .filter(|m| m.fs_type == FilesystemType::Xfs)
+            .count();
 
         let evidence_id = format!("ev-fs-types-{}", Utc::now().timestamp());
         evidence_ids.push(evidence_id.clone());
@@ -983,7 +995,10 @@ impl StorageDoctor {
             findings.push(Finding {
                 id: format!("find-ext4-detected-{}", Utc::now().timestamp()),
                 summary: format!("{} EXT4 filesystem(s) detected", ext4_count),
-                detail: format!("Found {} EXT4 mount(s). Basic health checks will be performed.", ext4_count),
+                detail: format!(
+                    "Found {} EXT4 mount(s). Basic health checks will be performed.",
+                    ext4_count
+                ),
                 risk: RiskLevel::Info,
                 evidence_id: evidence_id.clone(),
                 location: None,
@@ -994,7 +1009,10 @@ impl StorageDoctor {
             findings.push(Finding {
                 id: format!("find-xfs-detected-{}", Utc::now().timestamp()),
                 summary: format!("{} XFS filesystem(s) detected", xfs_count),
-                detail: format!("Found {} XFS mount(s). Basic health checks will be performed.", xfs_count),
+                detail: format!(
+                    "Found {} XFS mount(s). Basic health checks will be performed.",
+                    xfs_count
+                ),
                 risk: RiskLevel::Info,
                 evidence_id,
                 location: None,
@@ -1019,14 +1037,21 @@ impl StorageDoctor {
 
         // Check mount point space
         for mount in &evidence.mounts {
-            let evidence_id = format!("ev-space-{}-{}", mount.mount_point.replace('/', "-"), Utc::now().timestamp());
+            let evidence_id = format!(
+                "ev-space-{}-{}",
+                mount.mount_point.replace('/', "-"),
+                Utc::now().timestamp()
+            );
             evidence_ids.push(evidence_id.clone());
 
             if mount.is_space_critical() {
                 passed = false;
                 findings.push(Finding {
                     id: format!("find-space-critical-{}", Utc::now().timestamp()),
-                    summary: format!("{} is {:.1}% full (CRITICAL)", mount.mount_point, mount.usage_percent),
+                    summary: format!(
+                        "{} is {:.1}% full (CRITICAL)",
+                        mount.mount_point, mount.usage_percent
+                    ),
                     detail: format!(
                         "Mount point {} has {:.1}% disk usage. Available: {} bytes. \
                          Critical threshold is 90%.",
@@ -1054,7 +1079,11 @@ impl StorageDoctor {
         // Check BTRFS metadata space
         for btrfs in &evidence.btrfs_filesystems {
             if let Some(usage) = &btrfs.usage {
-                let evidence_id = format!("ev-metadata-{}-{}", btrfs.mount_point.replace('/', "-"), Utc::now().timestamp());
+                let evidence_id = format!(
+                    "ev-metadata-{}-{}",
+                    btrfs.mount_point.replace('/', "-"),
+                    Utc::now().timestamp()
+                );
                 evidence_ids.push(evidence_id.clone());
 
                 if usage.is_metadata_critical() {
@@ -1117,7 +1146,11 @@ impl StorageDoctor {
         for btrfs in &evidence.btrfs_filesystems {
             for stats in &btrfs.device_stats {
                 if stats.has_errors() {
-                    let evidence_id = format!("ev-btrfs-stats-{}-{}", stats.device.replace('/', "-"), Utc::now().timestamp());
+                    let evidence_id = format!(
+                        "ev-btrfs-stats-{}-{}",
+                        stats.device.replace('/', "-"),
+                        Utc::now().timestamp()
+                    );
                     evidence_ids.push(evidence_id.clone());
 
                     let risk = stats.risk_level();
@@ -1152,7 +1185,11 @@ impl StorageDoctor {
 
         // Check SMART health
         for smart in &evidence.smart_health {
-            let evidence_id = format!("ev-smart-{}-{}", smart.device.replace('/', "-"), Utc::now().timestamp());
+            let evidence_id = format!(
+                "ev-smart-{}-{}",
+                smart.device.replace('/', "-"),
+                Utc::now().timestamp()
+            );
             evidence_ids.push(evidence_id.clone());
 
             if !smart.passed {
@@ -1171,7 +1208,7 @@ impl StorageDoctor {
                     location: Some(smart.device.clone()),
                 });
             } else if smart.has_warnings() {
-                passed = false;  // Any warnings means step didn't fully pass
+                passed = false; // Any warnings means step didn't fully pass
                 let mut warnings = Vec::new();
                 if let Some(realloc) = smart.reallocated_sectors {
                     if realloc > 0 {
@@ -1221,7 +1258,11 @@ impl StorageDoctor {
         let mut passed = true;
 
         for btrfs in &evidence.btrfs_filesystems {
-            let evidence_id = format!("ev-maint-{}-{}", btrfs.mount_point.replace('/', "-"), Utc::now().timestamp());
+            let evidence_id = format!(
+                "ev-maint-{}-{}",
+                btrfs.mount_point.replace('/', "-"),
+                Utc::now().timestamp()
+            );
             evidence_ids.push(evidence_id.clone());
 
             // Check scrub status
@@ -1240,7 +1281,11 @@ impl StorageDoctor {
                         location: Some(btrfs.mount_point.clone()),
                     });
                 }
-                ScrubStatus::Completed { errors_found, errors_corrected, .. } => {
+                ScrubStatus::Completed {
+                    errors_found,
+                    errors_corrected,
+                    ..
+                } => {
                     if errors_found > errors_corrected {
                         passed = false;
                         findings.push(Finding {
@@ -1288,7 +1333,8 @@ impl StorageDoctor {
                 findings.push(Finding {
                     id: format!("find-balance-running-{}", Utc::now().timestamp()),
                     summary: format!("Balance running on {}", btrfs.mount_point),
-                    detail: "A balance operation is in progress. This may affect performance.".to_string(),
+                    detail: "A balance operation is in progress. This may affect performance."
+                        .to_string(),
                     risk: RiskLevel::Info,
                     evidence_id,
                     location: Some(btrfs.mount_point.clone()),
@@ -1331,13 +1377,20 @@ impl StorageDoctor {
                 };
 
                 findings.push(Finding {
-                    id: format!("find-io-errors-{}-{}", device.replace('/', "-"), Utc::now().timestamp()),
+                    id: format!(
+                        "find-io-errors-{}-{}",
+                        device.replace('/', "-"),
+                        Utc::now().timestamp()
+                    ),
                     summary: format!("{} I/O error(s) on {}", errors.len(), device),
                     detail: format!(
                         "Found {} I/O errors in kernel log for {}. Latest: {}",
                         errors.len(),
                         device,
-                        errors.first().map(|e| e.message.as_str()).unwrap_or("unknown")
+                        errors
+                            .first()
+                            .map(|e| e.message.as_str())
+                            .unwrap_or("unknown")
                     ),
                     risk,
                     evidence_id: evidence_id.clone(),
@@ -1374,13 +1427,17 @@ impl StorageDoctor {
     }
 
     /// Generate hypotheses from findings
-    fn generate_hypotheses(&self, findings: &[Finding], evidence: &StorageEvidence) -> Vec<StorageHypothesis> {
+    fn generate_hypotheses(
+        &self,
+        findings: &[Finding],
+        evidence: &StorageEvidence,
+    ) -> Vec<StorageHypothesis> {
         let mut hypotheses = Vec::new();
 
         // Check for dying drive hypothesis
-        let smart_critical = findings.iter().any(|f| {
-            f.summary.contains("SMART") && f.risk == RiskLevel::Critical
-        });
+        let smart_critical = findings
+            .iter()
+            .any(|f| f.summary.contains("SMART") && f.risk == RiskLevel::Critical);
         let io_errors = findings.iter().any(|f| f.summary.contains("I/O error"));
 
         if smart_critical || (io_errors && evidence.smart_health.iter().any(|s| s.has_warnings())) {
@@ -1388,7 +1445,8 @@ impl StorageDoctor {
                 id: format!("hyp-dying-drive-{}", Utc::now().timestamp()),
                 summary: "Failing storage device".to_string(),
                 explanation: "SMART data and/or I/O errors suggest a storage device is failing. \
-                              This requires immediate attention to prevent data loss.".to_string(),
+                              This requires immediate attention to prevent data loss."
+                    .to_string(),
                 confidence: if smart_critical { 90 } else { 70 },
                 supporting_evidence: findings
                     .iter()
@@ -1409,9 +1467,9 @@ impl StorageDoctor {
         }
 
         // Check for BTRFS metadata pressure
-        let metadata_critical = findings.iter().any(|f| {
-            f.summary.contains("metadata") && f.risk == RiskLevel::Critical
-        });
+        let metadata_critical = findings
+            .iter()
+            .any(|f| f.summary.contains("metadata") && f.risk == RiskLevel::Critical);
 
         if metadata_critical {
             hypotheses.push(StorageHypothesis {
@@ -1441,7 +1499,9 @@ impl StorageDoctor {
         // Check for corruption
         let corruption = findings.iter().any(|f| {
             f.detail.contains("corruption_errs") && !f.detail.contains("corruption_errs=0")
-        }) || findings.iter().any(|f| f.summary.contains("uncorrected errors"));
+        }) || findings
+            .iter()
+            .any(|f| f.summary.contains("uncorrected errors"));
 
         if corruption {
             hypotheses.push(StorageHypothesis {
@@ -1477,7 +1537,9 @@ impl StorageDoctor {
     /// Generate summary message
     fn generate_summary(&self, status: &StorageHealth, hypotheses: &[StorageHypothesis]) -> String {
         match status {
-            StorageHealth::Healthy => "All storage systems healthy. No issues detected.".to_string(),
+            StorageHealth::Healthy => {
+                "All storage systems healthy. No issues detected.".to_string()
+            }
             StorageHealth::Degraded => {
                 if let Some(h) = hypotheses.first() {
                     format!("Storage degraded. Primary hypothesis: {}", h.summary)
@@ -1487,18 +1549,26 @@ impl StorageDoctor {
             }
             StorageHealth::Critical => {
                 if let Some(h) = hypotheses.first() {
-                    format!("CRITICAL storage issues. Primary hypothesis: {} ({}% confidence)",
-                            h.summary, h.confidence)
+                    format!(
+                        "CRITICAL storage issues. Primary hypothesis: {} ({}% confidence)",
+                        h.summary, h.confidence
+                    )
                 } else {
                     "CRITICAL storage issues detected. Immediate action required.".to_string()
                 }
             }
-            StorageHealth::Unknown => "Unable to determine storage health. Evidence collection failed.".to_string(),
+            StorageHealth::Unknown => {
+                "Unable to determine storage health. Evidence collection failed.".to_string()
+            }
         }
     }
 
     /// Generate repair plans based on diagnosis
-    pub fn generate_repair_plans(&self, diagnosis: &DiagnosisResult, evidence: &StorageEvidence) -> Vec<RepairPlan> {
+    pub fn generate_repair_plans(
+        &self,
+        diagnosis: &DiagnosisResult,
+        evidence: &StorageEvidence,
+    ) -> Vec<RepairPlan> {
         let mut plans = Vec::new();
 
         // Read-only plans (always available)
@@ -1534,13 +1604,19 @@ impl StorageDoctor {
                 }],
                 preflight_checks: vec![PreflightCheck {
                     name: "Drive supports SMART".to_string(),
-                    command: format!("smartctl -i {} | grep -q 'SMART support is: Enabled'", smart.device),
+                    command: format!(
+                        "smartctl -i {} | grep -q 'SMART support is: Enabled'",
+                        smart.device
+                    ),
                     expected_pattern: "".to_string(), // Just check exit code
                     error_message: "SMART not enabled on this drive".to_string(),
                 }],
                 post_checks: vec![PostCheck {
                     name: "Test started".to_string(),
-                    command: format!("smartctl -a {} | grep -E 'Self-test.*in progress'", smart.device),
+                    command: format!(
+                        "smartctl -a {} | grep -E 'Self-test.*in progress'",
+                        smart.device
+                    ),
                     expected_pattern: "in progress".to_string(),
                     wait_secs: 5,
                 }],
@@ -1581,7 +1657,11 @@ impl StorageDoctor {
     }
 
     /// Generate mutation plans
-    fn generate_mutation_plans(&self, diagnosis: &DiagnosisResult, evidence: &StorageEvidence) -> Vec<RepairPlan> {
+    fn generate_mutation_plans(
+        &self,
+        diagnosis: &DiagnosisResult,
+        evidence: &StorageEvidence,
+    ) -> Vec<RepairPlan> {
         let mut plans = Vec::new();
 
         // Check hypotheses for suggested repairs
@@ -1649,10 +1729,7 @@ impl StorageDoctor {
                 },
                 PreflightCheck {
                     name: "Filesystem mounted read-write".to_string(),
-                    command: format!(
-                        "mount | grep {} | grep -qv 'ro,'",
-                        btrfs.mount_point
-                    ),
+                    command: format!("mount | grep {} | grep -qv 'ro,'", btrfs.mount_point),
                     expected_pattern: "".to_string(),
                     error_message: "Filesystem is mounted read-only".to_string(),
                 },
@@ -1824,7 +1901,10 @@ mod tests {
         assert_eq!(FilesystemType::from("ext4"), FilesystemType::Ext4);
         assert_eq!(FilesystemType::from("xfs"), FilesystemType::Xfs);
         assert_eq!(FilesystemType::from("zfs"), FilesystemType::Zfs);
-        assert!(matches!(FilesystemType::from("ntfs"), FilesystemType::Other(_)));
+        assert!(matches!(
+            FilesystemType::from("ntfs"),
+            FilesystemType::Other(_)
+        ));
     }
 
     #[test]
@@ -1962,7 +2042,10 @@ mod tests {
         let result = doctor.diagnose(&evidence);
         assert_eq!(result.status, StorageHealth::Critical);
         assert!(!result.hypotheses.is_empty());
-        assert!(result.hypotheses.iter().any(|h| h.summary.contains("corruption")));
+        assert!(result
+            .hypotheses
+            .iter()
+            .any(|h| h.summary.contains("corruption")));
     }
 
     #[test]
@@ -1977,7 +2060,10 @@ mod tests {
 
         let result = doctor.diagnose(&evidence);
         assert_eq!(result.status, StorageHealth::Critical);
-        assert!(result.hypotheses.iter().any(|h| h.summary.contains("metadata")));
+        assert!(result
+            .hypotheses
+            .iter()
+            .any(|h| h.summary.contains("metadata")));
     }
 
     #[test]
@@ -2065,7 +2151,9 @@ mod tests {
         assert_eq!(evidence.overall_health(), StorageHealth::Healthy);
 
         // With collection errors, status is Unknown
-        evidence.collection_errors.push("Failed to read SMART".to_string());
+        evidence
+            .collection_errors
+            .push("Failed to read SMART".to_string());
         assert_eq!(evidence.overall_health(), StorageHealth::Unknown);
 
         // Clear errors and add healthy BTRFS

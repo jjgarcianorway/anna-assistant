@@ -3,9 +3,9 @@
 //! Discovers cameras from /dev/video* and v4l2-ctl.
 //! Discovers audio cards from /proc/asound/cards.
 
+use super::types::{AudioCard, AudioSummary, CameraDevice, CameraSummary};
 use std::collections::HashSet;
 use std::process::Command;
-use super::types::{CameraDevice, CameraSummary, AudioCard, AudioSummary};
 
 /// Get camera summary
 pub fn get_camera_summary() -> CameraSummary {
@@ -68,9 +68,7 @@ fn get_camera_info(device_path: &str) -> Option<CameraDevice> {
                     }
                 } else if line.contains("Capabilities") {
                     if let Some(caps) = line.split(':').nth(1) {
-                        capabilities = caps.split_whitespace()
-                            .map(|s| s.to_string())
-                            .collect();
+                        capabilities = caps.split_whitespace().map(|s| s.to_string()).collect();
                     }
                 }
             }
@@ -118,7 +116,13 @@ pub fn get_audio_summary() -> AudioSummary {
     if let Ok(content) = std::fs::read_to_string(cards_path) {
         for line in content.lines() {
             let line = line.trim();
-            if line.is_empty() || !line.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+            if line.is_empty()
+                || !line
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(false)
+            {
                 continue;
             }
 
@@ -139,7 +143,10 @@ pub fn get_audio_summary() -> AudioSummary {
             let name_parts: Vec<&str> = parts2[1].splitn(2, " - ").collect();
 
             let driver = name_parts.get(0).unwrap_or(&"").to_string();
-            let name = name_parts.get(1).map(|s| s.to_string()).unwrap_or_else(|| driver.clone());
+            let name = name_parts
+                .get(1)
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| driver.clone());
 
             let card_type = if name.to_lowercase().contains("hdmi") {
                 "HDMI".to_string()

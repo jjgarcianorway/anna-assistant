@@ -766,9 +766,7 @@ impl BootDoctor {
 
     /// Collect timing from systemd-analyze
     fn collect_timing(&self) -> BootTiming {
-        let output = Command::new("systemd-analyze")
-            .arg("time")
-            .output();
+        let output = Command::new("systemd-analyze").arg("time").output();
 
         match output {
             Ok(out) => {
@@ -824,8 +822,11 @@ impl BootDoctor {
             }
         }
 
-        let total_ms = firmware_ms.unwrap_or(0) + loader_ms.unwrap_or(0) +
-                       kernel_ms + initrd_ms + userspace_ms;
+        let total_ms = firmware_ms.unwrap_or(0)
+            + loader_ms.unwrap_or(0)
+            + kernel_ms
+            + initrd_ms
+            + userspace_ms;
 
         BootTiming {
             firmware_ms,
@@ -865,9 +866,7 @@ impl BootDoctor {
 
     /// Collect blame (top offenders)
     fn collect_blame(&self, baseline: &Option<BootBaseline>) -> Vec<BootOffender> {
-        let output = Command::new("systemd-analyze")
-            .arg("blame")
-            .output();
+        let output = Command::new("systemd-analyze").arg("blame").output();
 
         let baseline_map: HashMap<String, u64> = baseline
             .as_ref()
@@ -949,7 +948,11 @@ impl BootDoctor {
     }
 
     /// Parse critical chain output
-    fn parse_critical_chain(&self, output: &str, baseline: &HashMap<String, u64>) -> Vec<BootOffender> {
+    fn parse_critical_chain(
+        &self,
+        output: &str,
+        baseline: &HashMap<String, u64>,
+    ) -> Vec<BootOffender> {
         let mut offenders = vec![];
 
         // Critical chain format is more complex with tree structure
@@ -973,15 +976,20 @@ impl BootDoctor {
                 // Extract time
                 if let Some(ref re) = re {
                     if let Some(caps) = re.captures(line) {
-                        let time_ms = caps.get(2)
+                        let time_ms = caps
+                            .get(2)
                             .and_then(|m| self.extract_time_ms(&format!("{}s", m.as_str())))
-                            .or_else(|| caps.get(1).and_then(|m| self.extract_time_ms(&format!("{}s", m.as_str()))))
+                            .or_else(|| {
+                                caps.get(1)
+                                    .and_then(|m| self.extract_time_ms(&format!("{}s", m.as_str())))
+                            })
                             .unwrap_or(0);
 
                         if time_ms > 0 {
                             let previous_ms = baseline.get(&unit).copied();
                             let is_new = previous_ms.is_none() && !baseline.is_empty();
-                            let is_regressed = previous_ms.map(|p| time_ms > p + 1000).unwrap_or(false);
+                            let is_regressed =
+                                previous_ms.map(|p| time_ms > p + 1000).unwrap_or(false);
 
                             offenders.push(BootOffender {
                                 unit,
@@ -1103,7 +1111,11 @@ impl BootDoctor {
                     let package = self.extract_package_from_log_line(line);
 
                     // Check if kernel update
-                    let actual_type = if package.as_ref().map(|p| p.starts_with("linux")).unwrap_or(false) {
+                    let actual_type = if package
+                        .as_ref()
+                        .map(|p| p.starts_with("linux"))
+                        .unwrap_or(false)
+                    {
                         ChangeType::KernelUpdate
                     } else {
                         ct
@@ -1198,15 +1210,21 @@ impl BootDoctor {
         let (result, details, implication) = if timing.is_very_slow() {
             (
                 StepResult::Fail,
-                format!("Boot time: {} (userspace: {}ms > 60s threshold)",
-                    timing.to_summary(), timing.userspace_ms),
+                format!(
+                    "Boot time: {} (userspace: {}ms > 60s threshold)",
+                    timing.to_summary(),
+                    timing.userspace_ms
+                ),
                 "Boot is severely slow. Investigation needed.".to_string(),
             )
         } else if timing.is_slow() {
             (
                 StepResult::Partial,
-                format!("Boot time: {} (userspace: {}ms > 30s threshold)",
-                    timing.to_summary(), timing.userspace_ms),
+                format!(
+                    "Boot time: {} (userspace: {}ms > 30s threshold)",
+                    timing.to_summary(),
+                    timing.userspace_ms
+                ),
                 "Boot is slower than ideal. Optimization possible.".to_string(),
             )
         } else {
@@ -1229,9 +1247,15 @@ impl BootDoctor {
     }
 
     /// Step 2: Top offenders
-    fn step_top_offenders(&self, evidence: &BootEvidence, findings: &mut Vec<Finding>) -> DiagnosisStep {
+    fn step_top_offenders(
+        &self,
+        evidence: &BootEvidence,
+        findings: &mut Vec<Finding>,
+    ) -> DiagnosisStep {
         let slow_threshold_ms = 5000; // 5 seconds
-        let slow_offenders: Vec<_> = evidence.blame.iter()
+        let slow_offenders: Vec<_> = evidence
+            .blame
+            .iter()
             .filter(|o| o.time_ms > slow_threshold_ms)
             .collect();
 
@@ -1247,20 +1271,29 @@ impl BootDoctor {
                 findings.push(Finding {
                     id: format!("slow-{}", offender.unit.replace('.', "-")),
                     description: format!("{} takes {}ms to start", offender.unit, offender.time_ms),
-                    risk: if offender.time_ms > 20000 { RiskLevel::High } else { RiskLevel::Medium },
+                    risk: if offender.time_ms > 20000 {
+                        RiskLevel::High
+                    } else {
+                        RiskLevel::Medium
+                    },
                     unit: Some(offender.unit.clone()),
                     evidence_ids: vec![format!("{}-blame", evidence.evidence_id)],
                 });
             }
 
-            let top3: Vec<String> = slow_offenders.iter()
+            let top3: Vec<String> = slow_offenders
+                .iter()
                 .take(3)
                 .map(|o| format!("{} ({}ms)", o.unit, o.time_ms))
                 .collect();
 
             (
                 StepResult::Partial,
-                format!("Found {} slow units: {}", slow_offenders.len(), top3.join(", ")),
+                format!(
+                    "Found {} slow units: {}",
+                    slow_offenders.len(),
+                    top3.join(", ")
+                ),
                 "These units are delaying boot.".to_string(),
             )
         };
@@ -1277,7 +1310,11 @@ impl BootDoctor {
     }
 
     /// Step 3: Regression check
-    fn step_regression_check(&self, evidence: &BootEvidence, findings: &mut Vec<Finding>) -> DiagnosisStep {
+    fn step_regression_check(
+        &self,
+        evidence: &BootEvidence,
+        findings: &mut Vec<Finding>,
+    ) -> DiagnosisStep {
         if evidence.baseline.is_none() {
             return DiagnosisStep {
                 name: "Regression Check".to_string(),
@@ -1292,13 +1329,17 @@ impl BootDoctor {
 
         let baseline = evidence.baseline.as_ref().unwrap();
         let new_offenders: Vec<_> = evidence.blame.iter().filter(|o| o.is_new).collect();
-        let regressed_offenders: Vec<_> = evidence.blame.iter().filter(|o| o.is_regressed).collect();
+        let regressed_offenders: Vec<_> =
+            evidence.blame.iter().filter(|o| o.is_regressed).collect();
 
         // Add findings
         for offender in &new_offenders {
             findings.push(Finding {
                 id: format!("new-{}", offender.unit.replace('.', "-")),
-                description: format!("NEW: {} ({}ms) not in baseline", offender.unit, offender.time_ms),
+                description: format!(
+                    "NEW: {} ({}ms) not in baseline",
+                    offender.unit, offender.time_ms
+                ),
                 risk: RiskLevel::Medium,
                 unit: Some(offender.unit.clone()),
                 evidence_ids: vec![format!("{}-baseline", evidence.evidence_id)],
@@ -1309,29 +1350,45 @@ impl BootDoctor {
             if let Some(pct) = offender.regression_percent() {
                 findings.push(Finding {
                     id: format!("regressed-{}", offender.unit.replace('.', "-")),
-                    description: format!("REGRESSED: {} now {}ms (was {}ms, +{:.0}%)",
-                        offender.unit, offender.time_ms, offender.previous_ms.unwrap_or(0), pct),
-                    risk: if pct > 100.0 { RiskLevel::High } else { RiskLevel::Medium },
+                    description: format!(
+                        "REGRESSED: {} now {}ms (was {}ms, +{:.0}%)",
+                        offender.unit,
+                        offender.time_ms,
+                        offender.previous_ms.unwrap_or(0),
+                        pct
+                    ),
+                    risk: if pct > 100.0 {
+                        RiskLevel::High
+                    } else {
+                        RiskLevel::Medium
+                    },
                     unit: Some(offender.unit.clone()),
                     evidence_ids: vec![format!("{}-baseline", evidence.evidence_id)],
                 });
             }
         }
 
-        let (result, details, implication) = if new_offenders.is_empty() && regressed_offenders.is_empty() {
-            (
-                StepResult::Pass,
-                format!("Boot time stable vs baseline (was {}ms)", baseline.userspace_ms),
-                "No new slow units or regressions detected.".to_string(),
-            )
-        } else {
-            (
-                StepResult::Fail,
-                format!("{} new slow units, {} regressed units",
-                    new_offenders.len(), regressed_offenders.len()),
-                "Boot has degraded since baseline.".to_string(),
-            )
-        };
+        let (result, details, implication) =
+            if new_offenders.is_empty() && regressed_offenders.is_empty() {
+                (
+                    StepResult::Pass,
+                    format!(
+                        "Boot time stable vs baseline (was {}ms)",
+                        baseline.userspace_ms
+                    ),
+                    "No new slow units or regressions detected.".to_string(),
+                )
+            } else {
+                (
+                    StepResult::Fail,
+                    format!(
+                        "{} new slow units, {} regressed units",
+                        new_offenders.len(),
+                        regressed_offenders.len()
+                    ),
+                    "Boot has degraded since baseline.".to_string(),
+                )
+            };
 
         DiagnosisStep {
             name: "Regression Check".to_string(),
@@ -1345,7 +1402,11 @@ impl BootDoctor {
     }
 
     /// Step 4: Correlation with changes
-    fn step_correlation(&self, evidence: &BootEvidence, findings: &mut Vec<Finding>) -> DiagnosisStep {
+    fn step_correlation(
+        &self,
+        evidence: &BootEvidence,
+        findings: &mut Vec<Finding>,
+    ) -> DiagnosisStep {
         if evidence.recent_changes.is_empty() {
             return DiagnosisStep {
                 name: "Correlation Analysis".to_string(),
@@ -1367,20 +1428,24 @@ impl BootDoctor {
             }
 
             // Look for related package
-            let unit_base = offender.unit
+            let unit_base = offender
+                .unit
                 .trim_end_matches(".service")
                 .trim_end_matches(".target");
 
             for change in &evidence.recent_changes {
                 if let Some(pkg) = &change.package {
                     // Check if package name relates to unit
-                    if unit_base.to_lowercase().contains(&pkg.to_lowercase()) ||
-                       pkg.to_lowercase().contains(&unit_base.to_lowercase()) {
+                    if unit_base.to_lowercase().contains(&pkg.to_lowercase())
+                        || pkg.to_lowercase().contains(&unit_base.to_lowercase())
+                    {
                         correlations.push((offender.unit.clone(), change.clone()));
                         findings.push(Finding {
                             id: format!("corr-{}-{}", offender.unit.replace('.', "-"), pkg),
-                            description: format!("CORRELATION: {} slow after {} {}",
-                                offender.unit, change.change_type, pkg),
+                            description: format!(
+                                "CORRELATION: {} slow after {} {}",
+                                offender.unit, change.change_type, pkg
+                            ),
                             risk: RiskLevel::Info,
                             unit: Some(offender.unit.clone()),
                             evidence_ids: vec![change.evidence_id.clone()],
@@ -1391,33 +1456,46 @@ impl BootDoctor {
         }
 
         // Check for kernel updates
-        let kernel_updates: Vec<_> = evidence.recent_changes.iter()
+        let kernel_updates: Vec<_> = evidence
+            .recent_changes
+            .iter()
             .filter(|c| c.change_type == ChangeType::KernelUpdate)
             .collect();
 
         if !kernel_updates.is_empty() {
             findings.push(Finding {
                 id: "kernel-update".to_string(),
-                description: format!("Kernel updated {} time(s) in last {} days",
-                    kernel_updates.len(), evidence.lookback_days),
+                description: format!(
+                    "Kernel updated {} time(s) in last {} days",
+                    kernel_updates.len(),
+                    evidence.lookback_days
+                ),
                 risk: RiskLevel::Info,
                 unit: None,
-                evidence_ids: kernel_updates.iter().map(|c| c.evidence_id.clone()).collect(),
+                evidence_ids: kernel_updates
+                    .iter()
+                    .map(|c| c.evidence_id.clone())
+                    .collect(),
             });
         }
 
         let (result, details, implication) = if correlations.is_empty() {
             (
                 StepResult::Partial,
-                format!("Found {} changes in last {} days, no direct correlations",
-                    evidence.recent_changes.len(), evidence.lookback_days),
+                format!(
+                    "Found {} changes in last {} days, no direct correlations",
+                    evidence.recent_changes.len(),
+                    evidence.lookback_days
+                ),
                 "Changes found but no obvious link to slow units.".to_string(),
             )
         } else {
             (
                 StepResult::Pass,
-                format!("Found {} correlation(s) between slow units and recent changes",
-                    correlations.len()),
+                format!(
+                    "Found {} correlation(s) between slow units and recent changes",
+                    correlations.len()
+                ),
                 "Potential causes identified.".to_string(),
             )
         };
@@ -1429,12 +1507,20 @@ impl BootDoctor {
             result,
             details,
             implication,
-            evidence_ids: evidence.recent_changes.iter().map(|c| c.evidence_id.clone()).collect(),
+            evidence_ids: evidence
+                .recent_changes
+                .iter()
+                .map(|c| c.evidence_id.clone())
+                .collect(),
         }
     }
 
     /// Step 5: Generate hypotheses
-    fn generate_hypotheses(&self, findings: &[Finding], evidence: &BootEvidence) -> Vec<BootHypothesis> {
+    fn generate_hypotheses(
+        &self,
+        findings: &[Finding],
+        evidence: &BootEvidence,
+    ) -> Vec<BootHypothesis> {
         let mut hypotheses = vec![];
 
         // Hypothesis: NetworkManager-wait-online is slow
@@ -1509,7 +1595,10 @@ impl BootDoctor {
                     ),
                     confidence: 70,
                     supporting_evidence: vec![format!("{}-chain", evidence.evidence_id)],
-                    suggested_playbook: Some(format!("restart_{}", offender.unit.replace('.', "_"))),
+                    suggested_playbook: Some(format!(
+                        "restart_{}",
+                        offender.unit.replace('.', "_")
+                    )),
                     correlated_change: None,
                 });
             }
@@ -1533,8 +1622,12 @@ impl BootDoctor {
             let top = hypotheses.first().unwrap();
             (
                 StepResult::Pass,
-                format!("Generated {} hypothesis(es). Top: {} ({}% confidence)",
-                    hypotheses.len(), top.summary, top.confidence),
+                format!(
+                    "Generated {} hypothesis(es). Top: {} ({}% confidence)",
+                    hypotheses.len(),
+                    top.summary,
+                    top.confidence
+                ),
                 "Potential causes identified for investigation.".to_string(),
             )
         };
@@ -1556,7 +1649,10 @@ impl BootDoctor {
         let evidence_health = evidence.health();
 
         // Check steps
-        let fails = steps.iter().filter(|s| s.result == StepResult::Fail).count();
+        let fails = steps
+            .iter()
+            .filter(|s| s.result == StepResult::Fail)
+            .count();
 
         if evidence_health == BootHealth::Broken || fails >= 2 {
             BootHealth::Broken
@@ -1570,7 +1666,12 @@ impl BootDoctor {
     }
 
     /// Generate summary
-    fn generate_summary(&self, health: &BootHealth, hypotheses: &[BootHypothesis], evidence: &BootEvidence) -> String {
+    fn generate_summary(
+        &self,
+        health: &BootHealth,
+        hypotheses: &[BootHypothesis],
+        evidence: &BootEvidence,
+    ) -> String {
         match health {
             BootHealth::Healthy => format!(
                 "Boot healthy. Userspace: {}ms.",
@@ -1578,41 +1679,64 @@ impl BootDoctor {
             ),
             BootHealth::Degraded => {
                 if let Some(h) = hypotheses.first() {
-                    format!("Boot degraded. Likely cause: {} ({}% confidence)",
-                        h.summary, h.confidence)
+                    format!(
+                        "Boot degraded. Likely cause: {} ({}% confidence)",
+                        h.summary, h.confidence
+                    )
                 } else {
-                    format!("Boot slower than ideal ({}ms userspace)", evidence.timing.userspace_ms)
+                    format!(
+                        "Boot slower than ideal ({}ms userspace)",
+                        evidence.timing.userspace_ms
+                    )
                 }
             }
             BootHealth::Broken => {
                 if let Some(h) = hypotheses.first() {
-                    format!("Boot severely slow. Top issue: {} ({}% confidence)",
-                        h.summary, h.confidence)
+                    format!(
+                        "Boot severely slow. Top issue: {} ({}% confidence)",
+                        h.summary, h.confidence
+                    )
                 } else {
-                    format!("Boot severely slow ({}ms userspace). Investigation needed.",
-                        evidence.timing.userspace_ms)
+                    format!(
+                        "Boot severely slow ({}ms userspace). Investigation needed.",
+                        evidence.timing.userspace_ms
+                    )
                 }
             }
             BootHealth::Unknown => {
-                format!("Boot time: {}ms. No baseline for comparison.",
-                    evidence.timing.userspace_ms)
+                format!(
+                    "Boot time: {}ms. No baseline for comparison.",
+                    evidence.timing.userspace_ms
+                )
             }
         }
     }
 
     /// Recommend playbooks based on hypotheses
-    fn recommend_playbooks(&self, hypotheses: &[BootHypothesis], _evidence: &BootEvidence) -> Vec<String> {
-        hypotheses.iter()
+    fn recommend_playbooks(
+        &self,
+        hypotheses: &[BootHypothesis],
+        _evidence: &BootEvidence,
+    ) -> Vec<String> {
+        hypotheses
+            .iter()
             .filter_map(|h| h.suggested_playbook.clone())
             .collect()
     }
 
     /// Create a playbook for a given action
-    pub fn create_playbook(&self, playbook_id: &str, evidence: &BootEvidence, hypothesis_id: Option<&str>) -> Option<FixPlaybook> {
+    pub fn create_playbook(
+        &self,
+        playbook_id: &str,
+        evidence: &BootEvidence,
+        hypothesis_id: Option<&str>,
+    ) -> Option<FixPlaybook> {
         match playbook_id {
             "disable_wait_online" => {
                 // Find the wait-online unit
-                let unit = evidence.blame.iter()
+                let unit = evidence
+                    .blame
+                    .iter()
                     .find(|o| o.unit.contains("wait-online"))
                     .map(|o| o.unit.clone())?;
 
@@ -1620,48 +1744,45 @@ impl BootDoctor {
                     id: "disable_wait_online".to_string(),
                     playbook_type: PlaybookType::DisableService,
                     name: "Disable Network Wait Online".to_string(),
-                    description: format!("Disable {} to speed up boot. Network will still work, \
-                        but network-dependent services may start before network is fully ready.", unit),
+                    description: format!(
+                        "Disable {} to speed up boot. Network will still work, \
+                        but network-dependent services may start before network is fully ready.",
+                        unit
+                    ),
                     risk: RiskLevel::Medium,
                     target_user: None,
-                    preflight: vec![
-                        PreflightCheck {
-                            name: "Unit exists".to_string(),
-                            command: format!("systemctl cat {}", unit),
-                            expected_pattern: Some("\\[Unit\\]".to_string()),
-                            error_message: format!("Unit {} not found", unit),
-                        },
-                    ],
-                    commands: vec![
-                        PlaybookCommand {
-                            command: format!("systemctl disable --now {}", unit),
-                            description: format!("Disable {}", unit),
-                            as_user: false,
-                            timeout_secs: 30,
-                        },
-                    ],
-                    post_checks: vec![
-                        PostCheck {
-                            name: "Unit disabled".to_string(),
-                            command: format!("systemctl is-enabled {}", unit),
-                            expected_pattern: Some("disabled".to_string()),
-                            wait_secs: 2,
-                            verify_on_reboot: Some("Check boot time with systemd-analyze".to_string()),
-                        },
-                    ],
-                    rollback: vec![
-                        PlaybookCommand {
-                            command: format!("systemctl enable --now {}", unit),
-                            description: format!("Re-enable {}", unit),
-                            as_user: false,
-                            timeout_secs: 30,
-                        },
-                    ],
+                    preflight: vec![PreflightCheck {
+                        name: "Unit exists".to_string(),
+                        command: format!("systemctl cat {}", unit),
+                        expected_pattern: Some("\\[Unit\\]".to_string()),
+                        error_message: format!("Unit {} not found", unit),
+                    }],
+                    commands: vec![PlaybookCommand {
+                        command: format!("systemctl disable --now {}", unit),
+                        description: format!("Disable {}", unit),
+                        as_user: false,
+                        timeout_secs: 30,
+                    }],
+                    post_checks: vec![PostCheck {
+                        name: "Unit disabled".to_string(),
+                        command: format!("systemctl is-enabled {}", unit),
+                        expected_pattern: Some("disabled".to_string()),
+                        wait_secs: 2,
+                        verify_on_reboot: Some("Check boot time with systemd-analyze".to_string()),
+                    }],
+                    rollback: vec![PlaybookCommand {
+                        command: format!("systemctl enable --now {}", unit),
+                        description: format!("Re-enable {}", unit),
+                        as_user: false,
+                        timeout_secs: 30,
+                    }],
                     confirmation_phrase: FIX_CONFIRMATION.to_string(),
                     addresses_hypothesis: hypothesis_id.map(String::from),
                     policy_blocked: false,
                     policy_block_reason: None,
-                    verification_pending: Some("Boot time improvement will be verified on next boot".to_string()),
+                    verification_pending: Some(
+                        "Boot time improvement will be verified on next boot".to_string(),
+                    ),
                 })
             }
 
@@ -1675,31 +1796,25 @@ impl BootDoctor {
                     description: format!("Restart {} to clear any stuck state.", unit),
                     risk: RiskLevel::Low,
                     target_user: None,
-                    preflight: vec![
-                        PreflightCheck {
-                            name: "Unit exists".to_string(),
-                            command: format!("systemctl cat {}", unit),
-                            expected_pattern: Some("\\[Unit\\]".to_string()),
-                            error_message: format!("Unit {} not found", unit),
-                        },
-                    ],
-                    commands: vec![
-                        PlaybookCommand {
-                            command: format!("systemctl restart {}", unit),
-                            description: format!("Restart {}", unit),
-                            as_user: false,
-                            timeout_secs: 60,
-                        },
-                    ],
-                    post_checks: vec![
-                        PostCheck {
-                            name: "Unit running".to_string(),
-                            command: format!("systemctl is-active {}", unit),
-                            expected_pattern: Some("active".to_string()),
-                            wait_secs: 5,
-                            verify_on_reboot: None,
-                        },
-                    ],
+                    preflight: vec![PreflightCheck {
+                        name: "Unit exists".to_string(),
+                        command: format!("systemctl cat {}", unit),
+                        expected_pattern: Some("\\[Unit\\]".to_string()),
+                        error_message: format!("Unit {} not found", unit),
+                    }],
+                    commands: vec![PlaybookCommand {
+                        command: format!("systemctl restart {}", unit),
+                        description: format!("Restart {}", unit),
+                        as_user: false,
+                        timeout_secs: 60,
+                    }],
+                    post_checks: vec![PostCheck {
+                        name: "Unit running".to_string(),
+                        command: format!("systemctl is-active {}", unit),
+                        expected_pattern: Some("active".to_string()),
+                        wait_secs: 5,
+                        verify_on_reboot: None,
+                    }],
                     rollback: vec![],
                     confirmation_phrase: FIX_CONFIRMATION.to_string(),
                     addresses_hypothesis: hypothesis_id.map(String::from),
@@ -1713,52 +1828,47 @@ impl BootDoctor {
                 let unit = id.strip_prefix("disable_")?.replace('_', ".");
 
                 // Check if this is a critical service that should be blocked
-                let is_critical = unit.contains("systemd") ||
-                                  unit.contains("dbus") ||
-                                  unit.contains("login") ||
-                                  unit.contains("udev");
+                let is_critical = unit.contains("systemd")
+                    || unit.contains("dbus")
+                    || unit.contains("login")
+                    || unit.contains("udev");
 
                 Some(FixPlaybook {
                     id: id.to_string(),
                     playbook_type: PlaybookType::DisableService,
                     name: format!("Disable {}", unit),
-                    description: format!("Disable {} to speed up boot. WARNING: This may affect \
-                        system functionality. Only disable if you understand the implications.", unit),
+                    description: format!(
+                        "Disable {} to speed up boot. WARNING: This may affect \
+                        system functionality. Only disable if you understand the implications.",
+                        unit
+                    ),
                     risk: RiskLevel::Medium,
                     target_user: None,
-                    preflight: vec![
-                        PreflightCheck {
-                            name: "Unit exists".to_string(),
-                            command: format!("systemctl cat {}", unit),
-                            expected_pattern: Some("\\[Unit\\]".to_string()),
-                            error_message: format!("Unit {} not found", unit),
-                        },
-                    ],
-                    commands: vec![
-                        PlaybookCommand {
-                            command: format!("systemctl disable --now {}", unit),
-                            description: format!("Disable {}", unit),
-                            as_user: false,
-                            timeout_secs: 30,
-                        },
-                    ],
-                    post_checks: vec![
-                        PostCheck {
-                            name: "Unit disabled".to_string(),
-                            command: format!("systemctl is-enabled {}", unit),
-                            expected_pattern: Some("disabled".to_string()),
-                            wait_secs: 2,
-                            verify_on_reboot: Some("Check boot time with systemd-analyze".to_string()),
-                        },
-                    ],
-                    rollback: vec![
-                        PlaybookCommand {
-                            command: format!("systemctl enable --now {}", unit),
-                            description: format!("Re-enable {}", unit),
-                            as_user: false,
-                            timeout_secs: 30,
-                        },
-                    ],
+                    preflight: vec![PreflightCheck {
+                        name: "Unit exists".to_string(),
+                        command: format!("systemctl cat {}", unit),
+                        expected_pattern: Some("\\[Unit\\]".to_string()),
+                        error_message: format!("Unit {} not found", unit),
+                    }],
+                    commands: vec![PlaybookCommand {
+                        command: format!("systemctl disable --now {}", unit),
+                        description: format!("Disable {}", unit),
+                        as_user: false,
+                        timeout_secs: 30,
+                    }],
+                    post_checks: vec![PostCheck {
+                        name: "Unit disabled".to_string(),
+                        command: format!("systemctl is-enabled {}", unit),
+                        expected_pattern: Some("disabled".to_string()),
+                        wait_secs: 2,
+                        verify_on_reboot: Some("Check boot time with systemd-analyze".to_string()),
+                    }],
+                    rollback: vec![PlaybookCommand {
+                        command: format!("systemctl enable --now {}", unit),
+                        description: format!("Re-enable {}", unit),
+                        as_user: false,
+                        timeout_secs: 30,
+                    }],
                     confirmation_phrase: FIX_CONFIRMATION.to_string(),
                     addresses_hypothesis: hypothesis_id.map(String::from),
                     policy_blocked: is_critical,
@@ -1767,7 +1877,9 @@ impl BootDoctor {
                     } else {
                         None
                     },
-                    verification_pending: Some("Boot time improvement will be verified on next boot".to_string()),
+                    verification_pending: Some(
+                        "Boot time improvement will be verified on next boot".to_string(),
+                    ),
                 })
             }
 
@@ -1795,10 +1907,7 @@ impl BootDoctor {
         // Run preflight checks
         for check in &playbook.preflight {
             let start = std::time::Instant::now();
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg(&check.command)
-                .output();
+            let output = Command::new("sh").arg("-c").arg(&check.command).output();
 
             match output {
                 Ok(out) => {
@@ -1850,15 +1959,9 @@ impl BootDoctor {
             let start = std::time::Instant::now();
             let output = if cmd.as_user {
                 // Would need to run as target user
-                Command::new("sh")
-                    .arg("-c")
-                    .arg(&cmd.command)
-                    .output()
+                Command::new("sh").arg("-c").arg(&cmd.command).output()
             } else {
-                Command::new("sh")
-                    .arg("-c")
-                    .arg(&cmd.command)
-                    .output()
+                Command::new("sh").arg("-c").arg(&cmd.command).output()
             };
 
             match output {
@@ -1904,17 +2007,15 @@ impl BootDoctor {
                 std::thread::sleep(std::time::Duration::from_secs(check.wait_secs as u64));
             }
 
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg(&check.command)
-                .output();
+            let output = Command::new("sh").arg("-c").arg(&check.command).output();
 
             if let Ok(out) = output {
                 let stdout = String::from_utf8_lossy(&out.stdout).to_string();
                 if let Some(pattern) = &check.expected_pattern {
                     if !regex::Regex::new(pattern)
                         .map(|re| re.is_match(&stdout))
-                        .unwrap_or(false) {
+                        .unwrap_or(false)
+                    {
                         post_checks_passed = false;
                     }
                 }
@@ -1944,22 +2045,31 @@ impl BootDoctor {
     }
 
     /// Create recipe capture request if appropriate
-    pub fn maybe_capture_recipe(&self, playbook: &FixPlaybook, result: &PlaybookResult, evidence: &BootEvidence) -> Option<RecipeCaptureRequest> {
+    pub fn maybe_capture_recipe(
+        &self,
+        playbook: &FixPlaybook,
+        result: &PlaybookResult,
+        evidence: &BootEvidence,
+    ) -> Option<RecipeCaptureRequest> {
         if !result.success || result.reliability < 80 {
             return None;
         }
 
         // Find related hypothesis
         let problem = if let Some(hyp_id) = &playbook.addresses_hypothesis {
-            format!("Boot slow due to {} (hypothesis: {})",
-                playbook.name, hyp_id)
+            format!(
+                "Boot slow due to {} (hypothesis: {})",
+                playbook.name, hyp_id
+            )
         } else {
             format!("Boot slow due to {}", playbook.name)
         };
 
         Some(RecipeCaptureRequest {
-            name: format!("Fix: slow boot due to {}",
-                playbook.name.to_lowercase().replace(' ', "_")),
+            name: format!(
+                "Fix: slow boot due to {}",
+                playbook.name.to_lowercase().replace(' ', "_")
+            ),
             problem,
             solution: playbook.description.clone(),
             preconditions: vec![
@@ -1968,9 +2078,7 @@ impl BootDoctor {
             ],
             playbook_id: playbook.id.clone(),
             reliability: result.reliability,
-            evidence_patterns: vec![
-                evidence.evidence_id.clone(),
-            ],
+            evidence_patterns: vec![evidence.evidence_id.clone()],
         })
     }
 }
@@ -2001,17 +2109,15 @@ mod tests {
                 total_ms: 21500,
                 graphical_ms: Some(20000),
             },
-            blame: vec![
-                BootOffender {
-                    unit: "NetworkManager.service".to_string(),
-                    time_ms: 2500,
-                    is_new: false,
-                    is_regressed: false,
-                    previous_ms: Some(2400),
-                    correlation: None,
-                    in_critical_chain: false,
-                },
-            ],
+            blame: vec![BootOffender {
+                unit: "NetworkManager.service".to_string(),
+                time_ms: 2500,
+                is_new: false,
+                is_regressed: false,
+                previous_ms: Some(2400),
+                correlation: None,
+                in_critical_chain: false,
+            }],
             critical_chain: vec![],
             enabled_units: vec!["NetworkManager.service".to_string()],
             journal_boot_errors: vec![],
@@ -2060,41 +2166,35 @@ mod tests {
                     in_critical_chain: false,
                 },
             ],
-            critical_chain: vec![
-                BootOffender {
-                    unit: "NetworkManager-wait-online.service".to_string(),
-                    time_ms: 30000,
-                    is_new: false,
-                    is_regressed: true,
-                    previous_ms: Some(5000),
-                    correlation: None,
-                    in_critical_chain: true,
-                },
-            ],
+            critical_chain: vec![BootOffender {
+                unit: "NetworkManager-wait-online.service".to_string(),
+                time_ms: 30000,
+                is_new: false,
+                is_regressed: true,
+                previous_ms: Some(5000),
+                correlation: None,
+                in_critical_chain: true,
+            }],
             enabled_units: vec![
                 "NetworkManager.service".to_string(),
                 "NetworkManager-wait-online.service".to_string(),
                 "docker.service".to_string(),
             ],
             journal_boot_errors: vec![],
-            recent_changes: vec![
-                ChangeEvent {
-                    timestamp: Utc::now() - chrono::Duration::days(2),
-                    change_type: ChangeType::PackageInstall,
-                    description: "Installed docker".to_string(),
-                    package: Some("docker".to_string()),
-                    unit: None,
-                    evidence_id: "ev-pacman-1".to_string(),
-                },
-            ],
+            recent_changes: vec![ChangeEvent {
+                timestamp: Utc::now() - chrono::Duration::days(2),
+                change_type: ChangeType::PackageInstall,
+                description: "Installed docker".to_string(),
+                package: Some("docker".to_string()),
+                unit: None,
+                evidence_id: "ev-pacman-1".to_string(),
+            }],
             boot_trend: None,
             baseline: Some(BootBaseline {
                 recorded_at: Utc::now() - chrono::Duration::days(7),
                 userspace_ms: 14000,
                 total_ms: 20000,
-                top_offenders: vec![
-                    ("NetworkManager-wait-online.service".to_string(), 5000),
-                ],
+                top_offenders: vec![("NetworkManager-wait-online.service".to_string(), 5000)],
             }),
             lookback_days: 14,
             evidence_id: "ev-test-456".to_string(),
@@ -2224,9 +2324,10 @@ mod tests {
         let result = doctor.diagnose(&evidence);
 
         // Should correlate docker install with docker.service being slow
-        assert!(result.findings.iter().any(|f|
-            f.id.starts_with("corr-") && f.description.contains("docker")
-        ));
+        assert!(result
+            .findings
+            .iter()
+            .any(|f| f.id.starts_with("corr-") && f.description.contains("docker")));
     }
 
     #[test]
@@ -2314,7 +2415,9 @@ mod tests {
         let doctor = BootDoctor::new();
         let evidence = create_slow_evidence();
 
-        let playbook = doctor.create_playbook("disable_wait_online", &evidence, Some("wait-online-slow")).unwrap();
+        let playbook = doctor
+            .create_playbook("disable_wait_online", &evidence, Some("wait-online-slow"))
+            .unwrap();
 
         // Simulate successful result
         let result = PlaybookResult {

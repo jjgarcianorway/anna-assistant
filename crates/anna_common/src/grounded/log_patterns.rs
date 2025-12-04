@@ -121,7 +121,8 @@ impl LogHistorySummary {
 
     /// Get patterns that have history beyond this boot
     pub fn patterns_with_history(&self) -> Vec<&LogPatternHistory> {
-        self.patterns.iter()
+        self.patterns
+            .iter()
             .filter(|p| p.count_7d > p.count_this_boot || p.boots_seen > 1)
             .collect()
     }
@@ -139,9 +140,12 @@ pub fn extract_patterns_for_unit(unit: &str) -> LogPatternSummary {
     let output = Command::new("journalctl")
         .args([
             "-b",
-            "-u", unit,
-            "-p", "warning..alert",
-            "-o", "json",
+            "-u",
+            unit,
+            "-p",
+            "warning..alert",
+            "-o",
+            "json",
             "--no-pager",
             "-q",
         ])
@@ -163,7 +167,8 @@ pub fn extract_patterns_for_unit(unit: &str) -> LogPatternSummary {
         }
 
         if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
-            let message = entry.get("MESSAGE")
+            let message = entry
+                .get("MESSAGE")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -172,21 +177,23 @@ pub fn extract_patterns_for_unit(unit: &str) -> LogPatternSummary {
                 continue;
             }
 
-            let priority = entry.get("PRIORITY")
+            let priority = entry
+                .get("PRIORITY")
                 .and_then(|v| v.as_str())
                 .map(priority_to_name)
                 .unwrap_or_else(|| "warning".to_string());
 
-            let timestamp = entry.get("__REALTIME_TIMESTAMP")
+            let timestamp = entry
+                .get("__REALTIME_TIMESTAMP")
                 .and_then(|v| v.as_str())
                 .map(|ts| parse_realtime_timestamp(ts))
                 .unwrap_or_else(|| now.format("%Y-%m-%d %H:%M:%S").to_string());
 
             let pattern = normalize_message(&message);
 
-            let is_last_hour = if let Ok(ts) = chrono::NaiveDateTime::parse_from_str(
-                &timestamp, "%Y-%m-%d %H:%M:%S"
-            ) {
+            let is_last_hour = if let Ok(ts) =
+                chrono::NaiveDateTime::parse_from_str(&timestamp, "%Y-%m-%d %H:%M:%S")
+            {
                 let ts_utc = ts.and_utc();
                 ts_utc >= one_hour_ago
             } else {
@@ -252,12 +259,14 @@ pub fn extract_patterns_with_history(unit: &str) -> LogHistorySummary {
     // This boot
     let this_boot = extract_logs_for_window(unit, "boot");
     for (pattern, data) in &this_boot {
-        let entry = pattern_map.entry(pattern.clone()).or_insert_with(|| LogPatternHistory {
-            pattern: pattern.clone(),
-            sample_message: data.sample_message.clone(),
-            priority: data.priority.clone(),
-            ..Default::default()
-        });
+        let entry = pattern_map
+            .entry(pattern.clone())
+            .or_insert_with(|| LogPatternHistory {
+                pattern: pattern.clone(),
+                sample_message: data.sample_message.clone(),
+                priority: data.priority.clone(),
+                ..Default::default()
+            });
         entry.count_this_boot = data.count;
         entry.first_seen = data.first_seen.clone();
         entry.last_seen = data.last_seen.clone();
@@ -273,12 +282,14 @@ pub fn extract_patterns_with_history(unit: &str) -> LogHistorySummary {
     // Last 24h
     let last_24h = extract_logs_for_window(unit, "24h");
     for (pattern, data) in &last_24h {
-        let entry = pattern_map.entry(pattern.clone()).or_insert_with(|| LogPatternHistory {
-            pattern: pattern.clone(),
-            sample_message: data.sample_message.clone(),
-            priority: data.priority.clone(),
-            ..Default::default()
-        });
+        let entry = pattern_map
+            .entry(pattern.clone())
+            .or_insert_with(|| LogPatternHistory {
+                pattern: pattern.clone(),
+                sample_message: data.sample_message.clone(),
+                priority: data.priority.clone(),
+                ..Default::default()
+            });
         entry.count_24h = data.count;
         if entry.first_seen.is_empty() || data.first_seen < entry.first_seen {
             entry.first_seen = data.first_seen.clone();
@@ -291,12 +302,14 @@ pub fn extract_patterns_with_history(unit: &str) -> LogHistorySummary {
     // Last 7 days
     let last_7d = extract_logs_for_window(unit, "7d");
     for (pattern, data) in &last_7d {
-        let entry = pattern_map.entry(pattern.clone()).or_insert_with(|| LogPatternHistory {
-            pattern: pattern.clone(),
-            sample_message: data.sample_message.clone(),
-            priority: data.priority.clone(),
-            ..Default::default()
-        });
+        let entry = pattern_map
+            .entry(pattern.clone())
+            .or_insert_with(|| LogPatternHistory {
+                pattern: pattern.clone(),
+                sample_message: data.sample_message.clone(),
+                priority: data.priority.clone(),
+                ..Default::default()
+            });
         entry.count_7d = data.count;
         // Estimate boots based on spread
         if data.count > entry.count_this_boot {
@@ -306,7 +319,9 @@ pub fn extract_patterns_with_history(unit: &str) -> LogHistorySummary {
 
     // Convert to vec and sort
     summary.patterns = pattern_map.into_values().collect();
-    summary.patterns.sort_by(|a, b| b.count_this_boot.cmp(&a.count_this_boot));
+    summary
+        .patterns
+        .sort_by(|a, b| b.count_this_boot.cmp(&a.count_this_boot));
 
     summary
 }
@@ -316,16 +331,57 @@ fn extract_logs_for_window(unit: &str, window: &str) -> HashMap<String, PatternD
     let mut pattern_map: HashMap<String, PatternData> = HashMap::new();
 
     let args: Vec<&str> = match window {
-        "boot" => vec!["-b", "-u", unit, "-p", "warning..alert", "-o", "json", "--no-pager", "-q"],
-        "24h" => vec!["--since", "24 hours ago", "-u", unit, "-p", "warning..alert", "-o", "json", "--no-pager", "-q"],
-        "7d" => vec!["--since", "7 days ago", "-u", unit, "-p", "warning..alert", "-o", "json", "--no-pager", "-q"],
-        "30d" => vec!["--since", "30 days ago", "-u", unit, "-p", "warning..alert", "-o", "json", "--no-pager", "-q"],
+        "boot" => vec![
+            "-b",
+            "-u",
+            unit,
+            "-p",
+            "warning..alert",
+            "-o",
+            "json",
+            "--no-pager",
+            "-q",
+        ],
+        "24h" => vec![
+            "--since",
+            "24 hours ago",
+            "-u",
+            unit,
+            "-p",
+            "warning..alert",
+            "-o",
+            "json",
+            "--no-pager",
+            "-q",
+        ],
+        "7d" => vec![
+            "--since",
+            "7 days ago",
+            "-u",
+            unit,
+            "-p",
+            "warning..alert",
+            "-o",
+            "json",
+            "--no-pager",
+            "-q",
+        ],
+        "30d" => vec![
+            "--since",
+            "30 days ago",
+            "-u",
+            unit,
+            "-p",
+            "warning..alert",
+            "-o",
+            "json",
+            "--no-pager",
+            "-q",
+        ],
         _ => return pattern_map,
     };
 
-    let output = Command::new("journalctl")
-        .args(&args)
-        .output();
+    let output = Command::new("journalctl").args(&args).output();
 
     let logs = match output {
         Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
@@ -340,7 +396,8 @@ fn extract_logs_for_window(unit: &str, window: &str) -> HashMap<String, PatternD
         }
 
         if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
-            let message = entry.get("MESSAGE")
+            let message = entry
+                .get("MESSAGE")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -349,12 +406,14 @@ fn extract_logs_for_window(unit: &str, window: &str) -> HashMap<String, PatternD
                 continue;
             }
 
-            let priority = entry.get("PRIORITY")
+            let priority = entry
+                .get("PRIORITY")
                 .and_then(|v| v.as_str())
                 .map(priority_to_name)
                 .unwrap_or_else(|| "warning".to_string());
 
-            let timestamp = entry.get("__REALTIME_TIMESTAMP")
+            let timestamp = entry
+                .get("__REALTIME_TIMESTAMP")
                 .and_then(|v| v.as_str())
                 .map(|ts| parse_realtime_timestamp(ts))
                 .unwrap_or_else(|| now.format("%Y-%m-%d %H:%M:%S").to_string());
@@ -409,8 +468,10 @@ pub fn extract_patterns_for_driver(driver: &str) -> LogPatternSummary {
         .args([
             "-b",
             "-k",
-            "-p", "warning..alert",
-            "-o", "json",
+            "-p",
+            "warning..alert",
+            "-o",
+            "json",
             "--no-pager",
             "-q",
         ])
@@ -432,7 +493,8 @@ pub fn extract_patterns_for_driver(driver: &str) -> LogPatternSummary {
         }
 
         if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
-            let message = entry.get("MESSAGE")
+            let message = entry
+                .get("MESSAGE")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -442,21 +504,23 @@ pub fn extract_patterns_for_driver(driver: &str) -> LogPatternSummary {
                 continue;
             }
 
-            let priority = entry.get("PRIORITY")
+            let priority = entry
+                .get("PRIORITY")
                 .and_then(|v| v.as_str())
                 .map(priority_to_name)
                 .unwrap_or_else(|| "warning".to_string());
 
-            let timestamp = entry.get("__REALTIME_TIMESTAMP")
+            let timestamp = entry
+                .get("__REALTIME_TIMESTAMP")
                 .and_then(|v| v.as_str())
                 .map(|ts| parse_realtime_timestamp(ts))
                 .unwrap_or_else(|| now.format("%Y-%m-%d %H:%M:%S").to_string());
 
             let pattern = normalize_message(&message);
 
-            let is_last_hour = if let Ok(ts) = chrono::NaiveDateTime::parse_from_str(
-                &timestamp, "%Y-%m-%d %H:%M:%S"
-            ) {
+            let is_last_hour = if let Ok(ts) =
+                chrono::NaiveDateTime::parse_from_str(&timestamp, "%Y-%m-%d %H:%M:%S")
+            {
                 let ts_utc = ts.and_utc();
                 ts_utc >= one_hour_ago
             } else {
@@ -521,12 +585,14 @@ pub fn extract_driver_patterns_with_history(driver: &str) -> LogHistorySummary {
     // This boot
     let this_boot = extract_kernel_logs_for_window(&driver_lower, "boot");
     for (pattern, data) in &this_boot {
-        let entry = pattern_map.entry(pattern.clone()).or_insert_with(|| LogPatternHistory {
-            pattern: pattern.clone(),
-            sample_message: data.sample_message.clone(),
-            priority: data.priority.clone(),
-            ..Default::default()
-        });
+        let entry = pattern_map
+            .entry(pattern.clone())
+            .or_insert_with(|| LogPatternHistory {
+                pattern: pattern.clone(),
+                sample_message: data.sample_message.clone(),
+                priority: data.priority.clone(),
+                ..Default::default()
+            });
         entry.count_this_boot = data.count;
         entry.first_seen = data.first_seen.clone();
         entry.last_seen = data.last_seen.clone();
@@ -542,12 +608,14 @@ pub fn extract_driver_patterns_with_history(driver: &str) -> LogHistorySummary {
     // Last 7 days
     let last_7d = extract_kernel_logs_for_window(&driver_lower, "7d");
     for (pattern, data) in &last_7d {
-        let entry = pattern_map.entry(pattern.clone()).or_insert_with(|| LogPatternHistory {
-            pattern: pattern.clone(),
-            sample_message: data.sample_message.clone(),
-            priority: data.priority.clone(),
-            ..Default::default()
-        });
+        let entry = pattern_map
+            .entry(pattern.clone())
+            .or_insert_with(|| LogPatternHistory {
+                pattern: pattern.clone(),
+                sample_message: data.sample_message.clone(),
+                priority: data.priority.clone(),
+                ..Default::default()
+            });
         entry.count_7d = data.count;
         if data.count > entry.count_this_boot {
             entry.boots_seen = estimate_boots_from_spread(&data.first_seen, &data.last_seen);
@@ -555,24 +623,46 @@ pub fn extract_driver_patterns_with_history(driver: &str) -> LogHistorySummary {
     }
 
     summary.patterns = pattern_map.into_values().collect();
-    summary.patterns.sort_by(|a, b| b.count_this_boot.cmp(&a.count_this_boot));
+    summary
+        .patterns
+        .sort_by(|a, b| b.count_this_boot.cmp(&a.count_this_boot));
 
     summary
 }
 
 /// Extract kernel logs for a specific time window
-fn extract_kernel_logs_for_window(driver_filter: &str, window: &str) -> HashMap<String, PatternData> {
+fn extract_kernel_logs_for_window(
+    driver_filter: &str,
+    window: &str,
+) -> HashMap<String, PatternData> {
     let mut pattern_map: HashMap<String, PatternData> = HashMap::new();
 
     let args: Vec<&str> = match window {
-        "boot" => vec!["-b", "-k", "-p", "warning..alert", "-o", "json", "--no-pager", "-q"],
-        "7d" => vec!["--since", "7 days ago", "-k", "-p", "warning..alert", "-o", "json", "--no-pager", "-q"],
+        "boot" => vec![
+            "-b",
+            "-k",
+            "-p",
+            "warning..alert",
+            "-o",
+            "json",
+            "--no-pager",
+            "-q",
+        ],
+        "7d" => vec![
+            "--since",
+            "7 days ago",
+            "-k",
+            "-p",
+            "warning..alert",
+            "-o",
+            "json",
+            "--no-pager",
+            "-q",
+        ],
         _ => return pattern_map,
     };
 
-    let output = Command::new("journalctl")
-        .args(&args)
-        .output();
+    let output = Command::new("journalctl").args(&args).output();
 
     let logs = match output {
         Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
@@ -587,7 +677,8 @@ fn extract_kernel_logs_for_window(driver_filter: &str, window: &str) -> HashMap<
         }
 
         if let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) {
-            let message = entry.get("MESSAGE")
+            let message = entry
+                .get("MESSAGE")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -596,12 +687,14 @@ fn extract_kernel_logs_for_window(driver_filter: &str, window: &str) -> HashMap<
                 continue;
             }
 
-            let priority = entry.get("PRIORITY")
+            let priority = entry
+                .get("PRIORITY")
                 .and_then(|v| v.as_str())
                 .map(priority_to_name)
                 .unwrap_or_else(|| "warning".to_string());
 
-            let timestamp = entry.get("__REALTIME_TIMESTAMP")
+            let timestamp = entry
+                .get("__REALTIME_TIMESTAMP")
                 .and_then(|v| v.as_str())
                 .map(|ts| parse_realtime_timestamp(ts))
                 .unwrap_or_else(|| now.format("%Y-%m-%d %H:%M:%S").to_string());
@@ -686,7 +779,8 @@ pub fn normalize_message(message: &str) -> String {
     pattern = path_re.replace_all(&pattern, "%PATH%").to_string();
 
     // Replace domain names
-    let domain_re = Regex::new(r"\b[a-zA-Z0-9][-a-zA-Z0-9]*(\.[a-zA-Z0-9][-a-zA-Z0-9]*)+\b").unwrap();
+    let domain_re =
+        Regex::new(r"\b[a-zA-Z0-9][-a-zA-Z0-9]*(\.[a-zA-Z0-9][-a-zA-Z0-9]*)+\b").unwrap();
     pattern = domain_re.replace_all(&pattern, "%DOMAIN%").to_string();
 
     // Replace usernames after "user" or "User"
@@ -729,7 +823,13 @@ pub fn format_time_short(timestamp: &str) -> String {
     }
     // Just extract time part
     if let Some(time_part) = timestamp.split(' ').nth(1) {
-        if let Some(hm) = time_part.split(':').take(2).collect::<Vec<_>>().join(":").into() {
+        if let Some(hm) = time_part
+            .split(':')
+            .take(2)
+            .collect::<Vec<_>>()
+            .join(":")
+            .into()
+        {
             return hm;
         }
     }

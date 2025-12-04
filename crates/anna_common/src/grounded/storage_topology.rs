@@ -12,8 +12,8 @@
 //! - smartctl, nvme list, nvme smart-log
 //! - /sys/block/*, /proc/mounts
 
-use std::process::Command;
 use serde::{Deserialize, Serialize};
+use std::process::Command;
 
 /// Block device type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,9 +21,9 @@ pub enum BlockDeviceType {
     Nvme,
     Sata,
     Usb,
-    Mmc,  // SD cards, eMMC
+    Mmc, // SD cards, eMMC
     Loop,
-    Dm,   // Device mapper (LVM, LUKS)
+    Dm, // Device mapper (LVM, LUKS)
     Unknown,
 }
 
@@ -67,7 +67,7 @@ pub struct BlockDevice {
     pub size_bytes: u64,
     pub size_human: String,
     pub device_type: String,
-    pub transport: String,  // NVMe, SATA, USB
+    pub transport: String, // NVMe, SATA, USB
     pub firmware: Option<String>,
     pub partitions: Vec<Partition>,
     pub health: DeviceHealth,
@@ -89,13 +89,13 @@ pub struct Partition {
 /// Device health from SMART/NVMe
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DeviceHealth {
-    pub status: String,      // OK, WARNING, FAILING
+    pub status: String, // OK, WARNING, FAILING
     pub smart_available: bool,
     pub power_on_hours: Option<u64>,
     pub temperature_c: Option<i32>,
     pub media_errors: Option<u64>,
     pub reallocated_sectors: Option<u64>,
-    pub percentage_used: Option<u8>,  // NVMe wear indicator
+    pub percentage_used: Option<u8>, // NVMe wear indicator
     pub warnings: Vec<String>,
     pub source: String,
 }
@@ -130,7 +130,12 @@ pub fn get_block_devices() -> Vec<BlockDevice> {
 
     // Use lsblk with JSON output for reliable parsing
     let output = Command::new("lsblk")
-        .args(["-J", "-b", "-o", "NAME,SIZE,TYPE,MODEL,SERIAL,TRAN,FSTYPE,LABEL,UUID,MOUNTPOINT"])
+        .args([
+            "-J",
+            "-b",
+            "-o",
+            "NAME,SIZE,TYPE,MODEL,SERIAL,TRAN,FSTYPE,LABEL,UUID,MOUNTPOINT",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -150,14 +155,21 @@ pub fn get_block_devices() -> Vec<BlockDevice> {
                             }
 
                             let size = dev.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
-                            let transport = dev.get("tran").and_then(|v| v.as_str())
-                                .unwrap_or("").to_string();
+                            let transport = dev
+                                .get("tran")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
 
                             let mut block_dev = BlockDevice {
                                 name: name.to_string(),
-                                model: dev.get("model").and_then(|v| v.as_str())
+                                model: dev
+                                    .get("model")
+                                    .and_then(|v| v.as_str())
                                     .map(|s| s.trim().to_string()),
-                                serial: dev.get("serial").and_then(|v| v.as_str())
+                                serial: dev
+                                    .get("serial")
+                                    .and_then(|v| v.as_str())
                                     .map(|s| s.to_string()),
                                 size_bytes: size,
                                 size_human: format_size(size),
@@ -175,19 +187,30 @@ pub fn get_block_devices() -> Vec<BlockDevice> {
                             // Parse children (partitions)
                             if let Some(children) = dev.get("children").and_then(|v| v.as_array()) {
                                 for child in children {
-                                    if let Some(child_name) = child.get("name").and_then(|v| v.as_str()) {
-                                        let child_size = child.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+                                    if let Some(child_name) =
+                                        child.get("name").and_then(|v| v.as_str())
+                                    {
+                                        let child_size =
+                                            child.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
                                         let partition = Partition {
                                             name: child_name.to_string(),
                                             size_bytes: child_size,
                                             size_human: format_size(child_size),
-                                            fstype: child.get("fstype").and_then(|v| v.as_str())
+                                            fstype: child
+                                                .get("fstype")
+                                                .and_then(|v| v.as_str())
                                                 .map(|s| s.to_string()),
-                                            label: child.get("label").and_then(|v| v.as_str())
+                                            label: child
+                                                .get("label")
+                                                .and_then(|v| v.as_str())
                                                 .map(|s| s.to_string()),
-                                            uuid: child.get("uuid").and_then(|v| v.as_str())
+                                            uuid: child
+                                                .get("uuid")
+                                                .and_then(|v| v.as_str())
                                                 .map(|s| s.to_string()),
-                                            mountpoint: child.get("mountpoint").and_then(|v| v.as_str())
+                                            mountpoint: child
+                                                .get("mountpoint")
+                                                .and_then(|v| v.as_str())
                                                 .map(|s| s.to_string()),
                                             mount_options: None,
                                         };
@@ -237,29 +260,32 @@ fn get_nvme_health(dev_path: &str) -> DeviceHealth {
         Ok(out) if out.status.success() => {
             health.smart_available = true;
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
-                health.temperature_c = json.get("temperature")
+                health.temperature_c = json
+                    .get("temperature")
                     .and_then(|v| v.as_i64())
                     .map(|t| (t - 273) as i32); // Convert from Kelvin
 
-                health.power_on_hours = json.get("power_on_hours")
-                    .and_then(|v| v.as_u64());
+                health.power_on_hours = json.get("power_on_hours").and_then(|v| v.as_u64());
 
-                health.media_errors = json.get("media_errors")
-                    .and_then(|v| v.as_u64());
+                health.media_errors = json.get("media_errors").and_then(|v| v.as_u64());
 
-                health.percentage_used = json.get("percent_used")
+                health.percentage_used = json
+                    .get("percent_used")
                     .and_then(|v| v.as_u64())
                     .map(|p| p as u8);
 
                 // Determine status
-                let critical_warning = json.get("critical_warning")
+                let critical_warning = json
+                    .get("critical_warning")
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0);
 
                 if critical_warning > 0 || health.media_errors.unwrap_or(0) > 0 {
                     health.status = "WARNING".to_string();
                     if critical_warning > 0 {
-                        health.warnings.push(format!("Critical warning flags: {}", critical_warning));
+                        health
+                            .warnings
+                            .push(format!("Critical warning flags: {}", critical_warning));
                     }
                     if let Some(errors) = health.media_errors {
                         if errors > 0 {
@@ -316,18 +342,25 @@ fn get_smart_health(dev_path: &str) -> DeviceHealth {
                 }
 
                 // Get reallocated sectors from SMART attributes
-                if let Some(attrs) = json.get("ata_smart_attributes").and_then(|v| v.get("table")) {
+                if let Some(attrs) = json
+                    .get("ata_smart_attributes")
+                    .and_then(|v| v.get("table"))
+                {
                     if let Some(table) = attrs.as_array() {
                         for attr in table {
                             let id = attr.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
-                            if id == 5 { // Reallocated Sector Count
-                                health.reallocated_sectors = attr.get("raw")
+                            if id == 5 {
+                                // Reallocated Sector Count
+                                health.reallocated_sectors = attr
+                                    .get("raw")
                                     .and_then(|v| v.get("value"))
                                     .and_then(|v| v.as_u64());
                                 if let Some(sectors) = health.reallocated_sectors {
                                     if sectors > 0 {
                                         health.status = "WARNING".to_string();
-                                        health.warnings.push(format!("{} reallocated sectors", sectors));
+                                        health
+                                            .warnings
+                                            .push(format!("{} reallocated sectors", sectors));
                                     }
                                 }
                             }
@@ -378,22 +411,44 @@ fn parse_mount_entry(entry: &serde_json::Value, mounts: &mut Vec<FilesystemMount
         entry.get("fstype").and_then(|v| v.as_str()),
     ) {
         // Skip pseudo filesystems
-        if matches!(fstype, "sysfs" | "proc" | "devtmpfs" | "devpts" | "tmpfs" |
-                   "securityfs" | "cgroup2" | "pstore" | "efivarfs" | "bpf" |
-                   "autofs" | "hugetlbfs" | "mqueue" | "debugfs" | "tracefs" |
-                   "fusectl" | "configfs" | "ramfs" | "fuse.portal") {
+        if matches!(
+            fstype,
+            "sysfs"
+                | "proc"
+                | "devtmpfs"
+                | "devpts"
+                | "tmpfs"
+                | "securityfs"
+                | "cgroup2"
+                | "pstore"
+                | "efivarfs"
+                | "bpf"
+                | "autofs"
+                | "hugetlbfs"
+                | "mqueue"
+                | "debugfs"
+                | "tracefs"
+                | "fusectl"
+                | "configfs"
+                | "ramfs"
+                | "fuse.portal"
+        ) {
             // Still include /tmp if it's tmpfs
             if !(fstype == "tmpfs" && target == "/tmp") {
                 return;
             }
         }
 
-        let options = entry.get("options").and_then(|v| v.as_str())
-            .unwrap_or("").to_string();
+        let options = entry
+            .get("options")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
 
         // Extract subvolume for btrfs
         let subvolume = if fstype == "btrfs" {
-            options.split(',')
+            options
+                .split(',')
                 .find(|o| o.starts_with("subvol="))
                 .map(|s| s.trim_start_matches("subvol=").to_string())
         } else {
@@ -448,21 +503,20 @@ pub fn get_storage_topology() -> StorageTopology {
     let mounts = get_filesystem_mounts();
 
     // Find root device
-    let root_device = mounts.iter()
-        .find(|m| m.mountpoint == "/")
-        .map(|m| {
-            // Extract base device from partition (e.g., nvme0n1 from /dev/nvme0n1p2)
-            let dev = m.device.trim_start_matches("/dev/");
-            if dev.starts_with("nvme") {
-                // NVMe: remove pN suffix
-                dev.split('p').next().unwrap_or(dev).to_string()
-            } else if dev.starts_with("sd") || dev.starts_with("vd") {
-                // SATA/virtio: remove numeric suffix
-                dev.trim_end_matches(|c: char| c.is_ascii_digit()).to_string()
-            } else {
-                dev.to_string()
-            }
-        });
+    let root_device = mounts.iter().find(|m| m.mountpoint == "/").map(|m| {
+        // Extract base device from partition (e.g., nvme0n1 from /dev/nvme0n1p2)
+        let dev = m.device.trim_start_matches("/dev/");
+        if dev.starts_with("nvme") {
+            // NVMe: remove pN suffix
+            dev.split('p').next().unwrap_or(dev).to_string()
+        } else if dev.starts_with("sd") || dev.starts_with("vd") {
+            // SATA/virtio: remove numeric suffix
+            dev.trim_end_matches(|c: char| c.is_ascii_digit())
+                .to_string()
+        } else {
+            dev.to_string()
+        }
+    });
 
     StorageTopology {
         devices,
@@ -488,30 +542,50 @@ pub fn format_size(bytes: u64) -> String {
 
 /// Format device summary for hw overview
 pub fn format_devices_summary(devices: &[BlockDevice]) -> Vec<String> {
-    devices.iter()
+    devices
+        .iter()
         .map(|d| {
             let health_str = if d.health.smart_available {
-                format!("({} {})", d.health.source.split_whitespace().next().unwrap_or("SMART"), d.health.status)
+                format!(
+                    "({} {})",
+                    d.health.source.split_whitespace().next().unwrap_or("SMART"),
+                    d.health.status
+                )
             } else {
                 "(health unknown)".to_string()
             };
-            format!("{:<10} {:<10} {:<6} {}",
-                    d.name, d.size_human, d.device_type, health_str)
+            format!(
+                "{:<10} {:<10} {:<6} {}",
+                d.name, d.size_human, d.device_type, health_str
+            )
         })
         .collect()
 }
 
 /// Format filesystem summary for hw overview
 pub fn format_filesystems_summary(mounts: &[FilesystemMount]) -> Vec<String> {
-    mounts.iter()
-        .filter(|m| matches!(m.mountpoint.as_str(), "/" | "/home" | "/boot" | "/boot/efi" | "/var" | "/tmp"))
+    mounts
+        .iter()
+        .filter(|m| {
+            matches!(
+                m.mountpoint.as_str(),
+                "/" | "/home" | "/boot" | "/boot/efi" | "/var" | "/tmp"
+            )
+        })
         .map(|m| {
-            let subvol = m.subvolume.as_ref()
+            let subvol = m
+                .subvolume
+                .as_ref()
                 .map(|s| format!(" subvolume {}", s))
                 .unwrap_or_default();
-            format!("{:<10} {} on {}{} ({} percent used)",
-                    m.mountpoint, m.fstype, m.device.trim_start_matches("/dev/"),
-                    subvol, m.use_percent)
+            format!(
+                "{:<10} {} on {}{} ({} percent used)",
+                m.mountpoint,
+                m.fstype,
+                m.device.trim_start_matches("/dev/"),
+                subvol,
+                m.use_percent
+            )
         })
         .collect()
 }

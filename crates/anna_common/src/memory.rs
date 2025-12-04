@@ -153,8 +153,12 @@ impl SessionRecord {
     /// Format as a one-line summary
     pub fn format_summary(&self) -> String {
         let recipe_info = match &self.recipe_action {
-            Some(RecipeAction::Created { recipe_id }) => format!(" [recipe created: {}]", recipe_id),
-            Some(RecipeAction::Updated { recipe_id }) => format!(" [recipe updated: {}]", recipe_id),
+            Some(RecipeAction::Created { recipe_id }) => {
+                format!(" [recipe created: {}]", recipe_id)
+            }
+            Some(RecipeAction::Updated { recipe_id }) => {
+                format!(" [recipe updated: {}]", recipe_id)
+            }
             Some(RecipeAction::Reused { recipe_id }) => format!(" [used recipe: {}]", recipe_id),
             Some(RecipeAction::DraftCreated { recipe_id }) => format!(" [draft: {}]", recipe_id),
             None => String::new(),
@@ -174,19 +178,33 @@ impl SessionRecord {
     pub fn format_detail(&self) -> String {
         let mut lines = vec![
             format!("[{}] Session Record", self.evidence_id),
-            format!("  Timestamp:   {}", self.timestamp.format("%Y-%m-%d %H:%M:%S UTC")),
+            format!(
+                "  Timestamp:   {}",
+                self.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
+            ),
             format!("  Type:        {:?}", self.session_type),
             format!("  Request:     {}", self.request_text),
             format!("  Intent:      {}", self.translator_summary.intent),
-            format!("  Targets:     {}", self.translator_summary.targets.join(", ")),
+            format!(
+                "  Targets:     {}",
+                self.translator_summary.targets.join(", ")
+            ),
             format!("  Risk:        {}", self.translator_summary.risk),
             format!("  Reliability: {}%", self.reliability_score),
             format!("  Success:     {}", self.success),
         ];
 
         if !self.tools_used.is_empty() {
-            let tools: Vec<String> = self.tools_used.iter()
-                .map(|t| if t.is_mutation { format!("{}*", t.tool_name) } else { t.tool_name.clone() })
+            let tools: Vec<String> = self
+                .tools_used
+                .iter()
+                .map(|t| {
+                    if t.is_mutation {
+                        format!("{}*", t.tool_name)
+                    } else {
+                        t.tool_name.clone()
+                    }
+                })
                 .collect();
             lines.push(format!("  Tools:       {}", tools.join(", ")));
         }
@@ -199,7 +217,10 @@ impl SessionRecord {
             lines.push(format!("  Recipe:      {:?}", action));
         }
 
-        lines.push(format!("  Answer:      {}", truncate_string(&self.answer_summary, 100)));
+        lines.push(format!(
+            "  Answer:      {}",
+            truncate_string(&self.answer_summary, 100)
+        ));
 
         lines.join("\n")
     }
@@ -267,13 +288,16 @@ impl MemoryManager {
         }
 
         // Add to recent sessions (keep last 100)
-        index.recent_session_ids.insert(0, record.evidence_id.clone());
+        index
+            .recent_session_ids
+            .insert(0, record.evidence_id.clone());
         index.recent_session_ids.truncate(100);
 
         // Update keyword index (simple word extraction)
         let words = extract_keywords(&record.request_text);
         for word in words {
-            index.keyword_index
+            index
+                .keyword_index
                 .entry(word)
                 .or_insert_with(Vec::new)
                 .push(record.evidence_id.clone());
@@ -325,7 +349,8 @@ impl MemoryManager {
         let query_words = extract_keywords(query);
 
         // Find matching evidence IDs
-        let mut matches: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut matches: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         for word in &query_words {
             if let Some(ids) = index.keyword_index.get(word) {
@@ -533,15 +558,14 @@ pub struct MemoryStats {
 impl MemoryStats {
     /// Format for status display
     pub fn format_summary(&self) -> String {
-        let last = self.last_session_at
+        let last = self
+            .last_session_at
             .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
             .unwrap_or_else(|| "never".to_string());
 
         format!(
             "{} sessions ({} with recipes), last: {}",
-            self.total_sessions,
-            self.sessions_with_recipes,
-            last
+            self.total_sessions, self.sessions_with_recipes, last
         )
     }
 }

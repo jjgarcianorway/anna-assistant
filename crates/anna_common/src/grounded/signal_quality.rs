@@ -45,7 +45,7 @@ pub struct EthernetSignal {
 pub struct StorageSignal {
     pub device: String,
     pub model: String,
-    pub smart_status: String,  // PASSED, FAILED, or unknown
+    pub smart_status: String, // PASSED, FAILED, or unknown
     pub temperature_c: Option<u32>,
     pub power_on_hours: Option<u64>,
     pub media_errors: u64,
@@ -105,10 +105,7 @@ pub fn get_wifi_signal(interface: &str) -> WifiSignal {
     }
 
     // Get SSID from iw
-    if let Ok(output) = Command::new("iw")
-        .args(["dev", interface, "link"])
-        .output()
-    {
+    if let Ok(output) = Command::new("iw").args(["dev", interface, "link"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
@@ -122,7 +119,14 @@ pub fn get_wifi_signal(interface: &str) -> WifiSignal {
 
     // Try to get disconnect count from journalctl (last hour)
     if let Ok(output) = Command::new("journalctl")
-        .args(["--since", "1 hour ago", "-u", "NetworkManager", "--no-pager", "-q"])
+        .args([
+            "--since",
+            "1 hour ago",
+            "-u",
+            "NetworkManager",
+            "--no-pager",
+            "-q",
+        ])
         .output()
     {
         if output.status.success() {
@@ -151,15 +155,21 @@ fn parse_iw_station(output: &str, signal: &mut WifiSignal) {
         } else if line.starts_with("rx bitrate:") {
             signal.rx_bitrate = line.split(':').nth(1).map(|s| s.trim().to_string());
         } else if line.starts_with("tx failed:") {
-            signal.tx_failed = line.split(':').nth(1)
+            signal.tx_failed = line
+                .split(':')
+                .nth(1)
                 .and_then(|s| s.trim().parse().ok())
                 .unwrap_or(0);
         } else if line.starts_with("tx retries:") {
-            signal.tx_retries = line.split(':').nth(1)
+            signal.tx_retries = line
+                .split(':')
+                .nth(1)
                 .and_then(|s| s.trim().parse().ok())
                 .unwrap_or(0);
         } else if line.starts_with("beacon loss:") {
-            signal.beacon_loss = line.split(':').nth(1)
+            signal.beacon_loss = line
+                .split(':')
+                .nth(1)
                 .and_then(|s| s.trim().parse().ok())
                 .unwrap_or(0);
         }
@@ -218,10 +228,7 @@ pub fn get_ethernet_signal(interface: &str) -> EthernetSignal {
     signal.source = "ethtool, /sys/class/net".to_string();
 
     // Get link status from ethtool
-    if let Ok(output) = Command::new("ethtool")
-        .arg(interface)
-        .output()
-    {
+    if let Ok(output) = Command::new("ethtool").arg(interface).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
@@ -285,10 +292,7 @@ pub fn get_storage_signal(device: &str) -> StorageSignal {
     signal.source = "smartctl".to_string();
 
     // Try smartctl -a
-    if let Ok(output) = Command::new("smartctl")
-        .args(["-a", device])
-        .output()
-    {
+    if let Ok(output) = Command::new("smartctl").args(["-a", device]).output() {
         if output.status.success() || output.status.code() == Some(4) {
             let stdout = String::from_utf8_lossy(&output.stdout);
             parse_smartctl(&stdout, &mut signal);
@@ -378,10 +382,7 @@ pub fn get_nvme_signal(device: &str) -> NvmeSignal {
     signal.source = "nvme smart-log".to_string();
 
     // Try nvme smart-log
-    if let Ok(output) = Command::new("nvme")
-        .args(["smart-log", device])
-        .output()
-    {
+    if let Ok(output) = Command::new("nvme").args(["smart-log", device]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             parse_nvme_smart(&stdout, &mut signal);
@@ -415,7 +416,9 @@ fn parse_nvme_smart(output: &str, signal: &mut NvmeSignal) {
         if line.contains("temperature") && !line.contains("warning") {
             if let Some(temp_str) = line.split(':').nth(1) {
                 let temp_str = temp_str.trim().replace(" c", "").replace(",", "");
-                signal.temperature_c = temp_str.split_whitespace().next()
+                signal.temperature_c = temp_str
+                    .split_whitespace()
+                    .next()
                     .and_then(|s| s.parse().ok());
             }
         } else if line.contains("percentage_used") || line.contains("percentage used") {
@@ -477,10 +480,7 @@ pub fn get_hot_signals() -> Vec<String> {
     let mut signals = Vec::new();
 
     // Check WiFi interfaces
-    if let Ok(output) = Command::new("iw")
-        .args(["dev"])
-        .output()
-    {
+    if let Ok(output) = Command::new("iw").args(["dev"]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {

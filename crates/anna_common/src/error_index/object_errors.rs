@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::severity::LogSeverity;
-use super::error_type::ErrorType;
 use super::category::LogCategory;
+use super::error_type::ErrorType;
 use super::log_entry::LogEntry;
+use super::severity::LogSeverity;
 
 /// Maximum log entries per object
 pub const MAX_LOGS_PER_OBJECT: usize = 100;
@@ -208,7 +208,10 @@ impl ObjectErrors {
             .iter()
             .filter(|l| {
                 l.severity.is_error()
-                    && l.error_type.as_ref().map(|t| t == &ErrorType::Permission).unwrap_or(false)
+                    && l.error_type
+                        .as_ref()
+                        .map(|t| t == &ErrorType::Permission)
+                        .unwrap_or(false)
             })
             .collect()
     }
@@ -219,7 +222,10 @@ impl ObjectErrors {
             .iter()
             .filter(|l| {
                 l.severity.is_error()
-                    && l.error_type.as_ref().map(|t| t == &ErrorType::Configuration).unwrap_or(false)
+                    && l.error_type
+                        .as_ref()
+                        .map(|t| t == &ErrorType::Configuration)
+                        .unwrap_or(false)
             })
             .collect()
     }
@@ -272,7 +278,8 @@ impl ObjectErrors {
 
     /// v5.2.3: Get all related files from errors
     pub fn all_related_files(&self) -> Vec<&str> {
-        let mut files: Vec<&str> = self.logs
+        let mut files: Vec<&str> = self
+            .logs
             .iter()
             .filter(|l| l.severity.is_warning_or_worse())
             .flat_map(|l| l.related_files.iter().map(|s| s.as_str()))
@@ -313,7 +320,11 @@ mod tests {
         let mut obj_errors = ObjectErrors::new("test_service");
 
         let entry1 = LogEntry::new(1000, LogSeverity::Error, "Permission denied".to_string());
-        let entry2 = LogEntry::new(1001, LogSeverity::Warning, "Deprecation warning".to_string());
+        let entry2 = LogEntry::new(
+            1001,
+            LogSeverity::Warning,
+            "Deprecation warning".to_string(),
+        );
 
         obj_errors.add_log(entry1);
         obj_errors.add_log(entry2);

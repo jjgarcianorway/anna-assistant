@@ -5,16 +5,43 @@
 /// Forbidden terms in human mode output
 pub const FORBIDDEN_HUMAN: &[&str] = &[
     // Evidence IDs
-    "[E1]", "[E2]", "[E3]", "[E4]", "[E5]", "[E6]", "[E7]", "[E8]", "[E9]",
+    "[E1]",
+    "[E2]",
+    "[E3]",
+    "[E4]",
+    "[E5]",
+    "[E6]",
+    "[E7]",
+    "[E8]",
+    "[E9]",
     // Tool patterns
-    "_snapshot", "_summary", "_probe", "_check", "_status", "_info",
+    "_snapshot",
+    "_summary",
+    "_probe",
+    "_check",
+    "_status",
+    "_info",
     // Raw commands
-    "journalctl", "systemctl", "nmcli", "btrfs ", "smartctl", "pacman ",
-    "resolvectl", "hostnamectl", "iw ", "ip addr", "ip route",
+    "journalctl",
+    "systemctl",
+    "nmcli",
+    "btrfs ",
+    "smartctl",
+    "pacman ",
+    "resolvectl",
+    "hostnamectl",
+    "iw ",
+    "ip addr",
+    "ip route",
     // Parse/internal
-    "Parse error", "parse error", "ParseError",
-    "deterministic fallback", "fallback_used",
-    "CANONICAL", "tool=", "evidence_id",
+    "Parse error",
+    "parse error",
+    "ParseError",
+    "deterministic fallback",
+    "fallback_used",
+    "CANONICAL",
+    "tool=",
+    "evidence_id",
 ];
 
 /// Validate human mode output
@@ -51,9 +78,7 @@ mod tests {
         ];
         assert!(validate_human_output(&good_lines).is_empty());
 
-        let bad_lines = vec![
-            "[networking] [E1] network_status: carrier=true".to_string(),
-        ];
+        let bad_lines = vec!["[networking] [E1] network_status: carrier=true".to_string()];
         let violations = validate_human_output(&bad_lines);
         assert!(!violations.is_empty());
     }

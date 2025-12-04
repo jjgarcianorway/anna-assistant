@@ -193,7 +193,12 @@ impl CaseFileV1 {
     }
 
     /// Set evidence coverage (v0.0.57)
-    pub fn set_evidence_coverage(&mut self, percent: u8, missing: Vec<String>, retry_triggered: bool) {
+    pub fn set_evidence_coverage(
+        &mut self,
+        percent: u8,
+        missing: Vec<String>,
+        retry_triggered: bool,
+    ) {
         self.evidence_coverage_percent = percent;
         self.missing_evidence_fields = missing;
         self.evidence_retry_triggered = retry_triggered;
@@ -223,7 +228,14 @@ impl CaseFileV1 {
     }
 
     /// Add evidence
-    pub fn add_evidence(&mut self, id: &str, tool_name: &str, summary: &str, duration_ms: u64, restricted: bool) {
+    pub fn add_evidence(
+        &mut self,
+        id: &str,
+        tool_name: &str,
+        summary: &str,
+        duration_ms: u64,
+        restricted: bool,
+    ) {
         self.evidence.push(EvidenceRecordV1 {
             id: id.to_string(),
             tool_name: tool_name.to_string(),
@@ -252,7 +264,10 @@ impl CaseFileV1 {
     }
 
     /// Set phase timings
-    pub fn set_phase_timings(&mut self, timings: impl IntoIterator<Item = (CasePhase, PhaseTiming)>) {
+    pub fn set_phase_timings(
+        &mut self,
+        timings: impl IntoIterator<Item = (CasePhase, PhaseTiming)>,
+    ) {
         self.phase_timings = timings
             .into_iter()
             .map(|(phase, timing)| PhaseTimingRecord::from((phase, &timing)))
@@ -269,7 +284,9 @@ impl CaseFileV1 {
     /// Complete the case
     pub fn complete(&mut self, success: bool, error: Option<&str>) {
         self.ended_at = Some(Utc::now());
-        self.duration_ms = (self.ended_at.unwrap() - self.started_at).num_milliseconds().max(0) as u64;
+        self.duration_ms = (self.ended_at.unwrap() - self.started_at)
+            .num_milliseconds()
+            .max(0) as u64;
         self.success = success;
         self.error = error.map(|s| s.to_string());
     }
@@ -288,17 +305,26 @@ impl CaseFileV1 {
         let case_json = serde_json::to_string_pretty(self)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let case_path = case_dir.join("case.json");
-        atomic_write_bytes(&case_path.to_string_lossy(), redact_transcript(&case_json).as_bytes())?;
+        atomic_write_bytes(
+            &case_path.to_string_lossy(),
+            redact_transcript(&case_json).as_bytes(),
+        )?;
 
         // Save summary.txt
         let summary = self.render_summary();
         let summary_path = case_dir.join("summary.txt");
-        atomic_write_bytes(&summary_path.to_string_lossy(), redact_transcript(&summary).as_bytes())?;
+        atomic_write_bytes(
+            &summary_path.to_string_lossy(),
+            redact_transcript(&summary).as_bytes(),
+        )?;
 
         // Save transcript.log
         let transcript = self.render_transcript();
         let transcript_path = case_dir.join("transcript.log");
-        atomic_write_bytes(&transcript_path.to_string_lossy(), redact_transcript(&transcript).as_bytes())?;
+        atomic_write_bytes(
+            &transcript_path.to_string_lossy(),
+            redact_transcript(&transcript).as_bytes(),
+        )?;
 
         Ok(case_dir)
     }
@@ -322,9 +348,15 @@ impl CaseFileV1 {
         }
 
         lines.push(format!("Evidence: {} items", self.evidence_count));
-        lines.push(format!("Evidence Coverage: {}%", self.evidence_coverage_percent));
+        lines.push(format!(
+            "Evidence Coverage: {}%",
+            self.evidence_coverage_percent
+        ));
         if !self.missing_evidence_fields.is_empty() {
-            lines.push(format!("Missing Fields: {}", self.missing_evidence_fields.join(", ")));
+            lines.push(format!(
+                "Missing Fields: {}",
+                self.missing_evidence_fields.join(", ")
+            ));
         }
         if self.evidence_retry_triggered {
             lines.push("Evidence Retry: Yes".to_string());
@@ -334,7 +366,10 @@ impl CaseFileV1 {
         lines.push(format!("Duration: {}ms", self.duration_ms));
 
         if self.recipe_extracted {
-            lines.push(format!("Recipe: {}", self.recipe_id.as_deref().unwrap_or("unknown")));
+            lines.push(format!(
+                "Recipe: {}",
+                self.recipe_id.as_deref().unwrap_or("unknown")
+            ));
         }
         if self.xp_gained > 0 {
             lines.push(format!("XP Gained: {}", self.xp_gained));
@@ -354,7 +389,13 @@ impl CaseFileV1 {
         for event in &self.events {
             let actor = format!("[{}]", event.actor);
             let phase = format!("[{}]", event.phase);
-            lines.push(format!("{} {} {}: {}", actor, phase, event.event_type_str(), event.summary));
+            lines.push(format!(
+                "{} {} {}: {}",
+                actor,
+                phase,
+                event.event_type_str(),
+                event.summary
+            ));
         }
 
         if lines.is_empty() {
@@ -393,8 +434,7 @@ impl CaseEvent {
 pub fn load_case(case_id: &str) -> io::Result<CaseFileV1> {
     let case_path = PathBuf::from(format!("{}/{}/case.json", CASE_FILES_DIR, case_id));
     let content = fs::read_to_string(&case_path)?;
-    serde_json::from_str(&content)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    serde_json::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
 /// List recent case IDs

@@ -12,20 +12,60 @@ use crate::generate_request_id;
 
 /// Keywords indicating a problem/diagnostic query
 const PROBLEM_PHRASES: &[&str] = &[
-    "not working", "doesn't work", "isn't working", "won't work",
-    "broken", "fails", "failed", "failing", "error", "crash", "crashed",
-    "disconnecting", "disconnects", "can't connect", "cannot connect",
-    "no sound", "no audio", "no internet", "no network", "no wifi",
-    "slow", "lag", "lagging", "stuttering", "freezing", "frozen",
-    "black screen", "blank screen", "can't mount", "won't mount",
-    "slow boot", "takes forever", "hangs", "hanging", "stuck",
-    "keeps disconnecting", "keeps crashing", "keeps failing",
+    "not working",
+    "doesn't work",
+    "isn't working",
+    "won't work",
+    "broken",
+    "fails",
+    "failed",
+    "failing",
+    "error",
+    "crash",
+    "crashed",
+    "disconnecting",
+    "disconnects",
+    "can't connect",
+    "cannot connect",
+    "no sound",
+    "no audio",
+    "no internet",
+    "no network",
+    "no wifi",
+    "slow",
+    "lag",
+    "lagging",
+    "stuttering",
+    "freezing",
+    "frozen",
+    "black screen",
+    "blank screen",
+    "can't mount",
+    "won't mount",
+    "slow boot",
+    "takes forever",
+    "hangs",
+    "hanging",
+    "stuck",
+    "keeps disconnecting",
+    "keeps crashing",
+    "keeps failing",
 ];
 
 /// Single-word problem indicators
 const PROBLEM_WORDS: &[&str] = &[
-    "broken", "failed", "error", "crash", "slow", "lag", "stuck",
-    "disconnecting", "stuttering", "freezing", "hanging", "offline",
+    "broken",
+    "failed",
+    "error",
+    "crash",
+    "slow",
+    "lag",
+    "stuck",
+    "disconnecting",
+    "stuttering",
+    "freezing",
+    "hanging",
+    "offline",
 ];
 
 /// Detect if request expresses a problem (0-100 confidence)
@@ -44,7 +84,10 @@ pub fn detect_problem_phrase(request: &str) -> (bool, u8, Vec<String>) {
 
     // Check single words
     for word in PROBLEM_WORDS {
-        if lower.split_whitespace().any(|w| w == *word || w.trim_matches(|c: char| !c.is_alphanumeric()) == *word) {
+        if lower
+            .split_whitespace()
+            .any(|w| w == *word || w.trim_matches(|c: char| !c.is_alphanumeric()) == *word)
+        {
             if !matched.iter().any(|m| m.contains(word)) {
                 matched.push(word.to_string());
                 score += 15;
@@ -101,13 +144,25 @@ pub struct DoctorFlowResult {
 impl DoctorFlowResult {
     /// Render human-readable summary for transcript
     pub fn render_summary(&self) -> String {
-        let mut lines = vec![format!("Diagnosis Confidence: {}%\n", self.diagnosis.confidence)];
+        let mut lines = vec![format!(
+            "Diagnosis Confidence: {}%\n",
+            self.diagnosis.confidence
+        )];
 
         if !self.diagnosis.findings.is_empty() {
             lines.push("Findings:".into());
             for f in &self.diagnosis.findings {
-                let ev = if f.evidence_ids.is_empty() { String::new() } else { format!(" [{}]", f.evidence_ids.join(", ")) };
-                let sev = match f.severity { FindingSeverity::Critical => "CRITICAL", FindingSeverity::Error => "ERROR", FindingSeverity::Warning => "WARNING", FindingSeverity::Info => "INFO" };
+                let ev = if f.evidence_ids.is_empty() {
+                    String::new()
+                } else {
+                    format!(" [{}]", f.evidence_ids.join(", "))
+                };
+                let sev = match f.severity {
+                    FindingSeverity::Critical => "CRITICAL",
+                    FindingSeverity::Error => "ERROR",
+                    FindingSeverity::Warning => "WARNING",
+                    FindingSeverity::Info => "INFO",
+                };
                 lines.push(format!("  [{}] {}{}", sev, f.description, ev));
             }
             lines.push(String::new());
@@ -117,28 +172,44 @@ impl DoctorFlowResult {
         }
         if !self.diagnosis.next_steps.is_empty() {
             lines.push("Suggested Next Steps:".into());
-            for s in &self.diagnosis.next_steps { lines.push(format!("  - {}", s.description)); }
+            for s in &self.diagnosis.next_steps {
+                lines.push(format!("  - {}", s.description));
+            }
             lines.push(String::new());
         }
         if !self.diagnosis.proposed_actions.is_empty() {
             lines.push("Optional Fixes (require confirmation):".into());
             for a in &self.diagnosis.proposed_actions {
                 lines.push(format!("  [{} risk] {}", a.risk, a.description));
-                if let Some(p) = &a.confirmation_phrase { lines.push(format!("    Say: \"{}\"", p)); }
+                if let Some(p) = &a.confirmation_phrase {
+                    lines.push(format!("    Say: \"{}\"", p));
+                }
             }
         }
         lines.join("\n")
     }
 
     pub fn what_i_checked(&self) -> Vec<String> {
-        self.steps.iter().filter(|s| s.status == StepStatus::Success).map(|s| s.check.description.clone()).collect()
+        self.steps
+            .iter()
+            .filter(|s| s.status == StepStatus::Success)
+            .map(|s| s.check.description.clone())
+            .collect()
     }
 
     pub fn what_i_found(&self) -> Vec<String> {
-        self.diagnosis.findings.iter().map(|f| {
-            let ev = if f.evidence_ids.is_empty() { String::new() } else { format!(" [{}]", f.evidence_ids.join(", ")) };
-            format!("{}{}", f.description, ev)
-        }).collect()
+        self.diagnosis
+            .findings
+            .iter()
+            .map(|f| {
+                let ev = if f.evidence_ids.is_empty() {
+                    String::new()
+                } else {
+                    format!(" [{}]", f.evidence_ids.join(", "))
+                };
+                format!("{}{}", f.description, ev)
+            })
+            .collect()
     }
 }
 
@@ -202,16 +273,20 @@ impl DoctorFlowExecutor {
         }
 
         let step = &mut self.steps[step_index];
-        let evidence = self.runner.record_evidence(&step.check, tool_result, summary, success);
+        let evidence = self
+            .runner
+            .record_evidence(&step.check, tool_result, summary, success);
 
-        step.status = if success { StepStatus::Success } else { StepStatus::Failed };
+        step.status = if success {
+            StepStatus::Success
+        } else {
+            StepStatus::Failed
+        };
         step.evidence = Some(evidence.clone());
         step.duration_ms = duration_ms;
         step.dialogue = format!(
             "[{}] {}: {}",
-            evidence.evidence_id,
-            step.check.tool_name,
-            summary
+            evidence.evidence_id, step.check.tool_name, summary
         );
 
         self.evidence.push(evidence.clone());
@@ -270,12 +345,18 @@ impl DoctorFlowExecutor {
 
     /// Get evidence IDs collected so far
     pub fn evidence_ids(&self) -> Vec<String> {
-        self.evidence.iter().map(|e| e.evidence_id.clone()).collect()
+        self.evidence
+            .iter()
+            .map(|e| e.evidence_id.clone())
+            .collect()
     }
 
     /// Get count of successful steps
     pub fn successful_steps(&self) -> usize {
-        self.steps.iter().filter(|s| s.status == StepStatus::Success).count()
+        self.steps
+            .iter()
+            .filter(|s| s.status == StepStatus::Success)
+            .count()
     }
 }
 
@@ -342,7 +423,11 @@ impl DoctorCaseFile {
                     duration_ms: s.duration_ms,
                 })
                 .collect(),
-            evidence_ids: result.evidence.iter().map(|e| e.evidence_id.clone()).collect(),
+            evidence_ids: result
+                .evidence
+                .iter()
+                .map(|e| e.evidence_id.clone())
+                .collect(),
             findings_count: result.diagnosis.findings.len(),
             most_likely_cause: result.diagnosis.most_likely_cause.clone(),
             confidence: result.diagnosis.confidence,

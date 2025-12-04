@@ -42,46 +42,91 @@ pub struct IntentClassification {
 
 /// System query patterns with confidence
 const SYSTEM_QUERY_PATTERNS: &[(&str, u8)] = &[
-    ("what cpu", 95), ("which cpu", 90), ("cpu model", 90),
-    ("what processor", 90), ("how many cores", 85), ("cpu info", 85),
-    ("how much memory", 95), ("how much ram", 95), ("ram available", 90),
-    ("total memory", 90), ("memory usage", 85),
-    ("disk space", 95), ("free space", 90), ("disk usage", 85),
-    ("how much space", 90), ("storage space", 85),
-    ("kernel version", 95), ("what kernel", 90), ("linux version", 85),
-    ("which kernel", 90), ("running kernel", 90),
-    ("system info", 80), ("what's my", 75), ("show me my", 75),
-    ("tell me my", 75), ("what is my", 80),
+    ("what cpu", 95),
+    ("which cpu", 90),
+    ("cpu model", 90),
+    ("what processor", 90),
+    ("how many cores", 85),
+    ("cpu info", 85),
+    ("how much memory", 95),
+    ("how much ram", 95),
+    ("ram available", 90),
+    ("total memory", 90),
+    ("memory usage", 85),
+    ("disk space", 95),
+    ("free space", 90),
+    ("disk usage", 85),
+    ("how much space", 90),
+    ("storage space", 85),
+    ("kernel version", 95),
+    ("what kernel", 90),
+    ("linux version", 85),
+    ("which kernel", 90),
+    ("running kernel", 90),
+    ("system info", 80),
+    ("what's my", 75),
+    ("show me my", 75),
+    ("tell me my", 75),
+    ("what is my", 80),
 ];
 
 /// HOWTO patterns - "how do I" questions
 const HOWTO_PATTERNS: &[(&str, u8)] = &[
-    ("how do i", 95), ("how can i", 90), ("how to", 90),
-    ("how would i", 85), ("what's the way to", 85),
-    ("what is the command", 85), ("what command", 80),
-    ("explain how", 85), ("teach me", 80), ("show me how", 90),
-    ("guide me", 80), ("help me understand", 80),
+    ("how do i", 95),
+    ("how can i", 90),
+    ("how to", 90),
+    ("how would i", 85),
+    ("what's the way to", 85),
+    ("what is the command", 85),
+    ("what command", 80),
+    ("explain how", 85),
+    ("teach me", 80),
+    ("show me how", 90),
+    ("guide me", 80),
+    ("help me understand", 80),
 ];
 
 /// ACTION_REQUEST patterns - mutation requests
 const ACTION_PATTERNS: &[(&str, u8)] = &[
-    ("install", 90), ("uninstall", 90), ("remove package", 90),
-    ("restart", 85), ("start service", 90), ("stop service", 90),
-    ("enable service", 85), ("disable service", 85),
-    ("edit", 80), ("modify", 80), ("change", 75), ("update", 75),
-    ("create file", 85), ("delete file", 90), ("add line", 85),
-    ("append to", 85), ("set", 75),
+    ("install", 90),
+    ("uninstall", 90),
+    ("remove package", 90),
+    ("restart", 85),
+    ("start service", 90),
+    ("stop service", 90),
+    ("enable service", 85),
+    ("disable service", 85),
+    ("edit", 80),
+    ("modify", 80),
+    ("change", 75),
+    ("update", 75),
+    ("create file", 85),
+    ("delete file", 90),
+    ("add line", 85),
+    ("append to", 85),
+    ("set", 75),
 ];
 
 /// META patterns - introspection and status
 const META_PATTERNS: &[(&str, u8)] = &[
-    ("status", 90), ("your status", 95), ("anna status", 95),
-    ("what can you do", 95), ("what are you", 90),
-    ("help", 70), ("show recipes", 90), ("list recipes", 90),
-    ("show memory", 85), ("show cases", 85),
-    ("anna version", 80), ("your version", 80), ("annactl version", 85),
-    ("about anna", 90), ("who are you", 85),
-    ("your level", 85), ("your xp", 85), ("show stats", 85),
+    ("status", 90),
+    ("your status", 95),
+    ("anna status", 95),
+    ("what can you do", 95),
+    ("what are you", 90),
+    ("help", 70),
+    ("show recipes", 90),
+    ("list recipes", 90),
+    ("show memory", 85),
+    ("show cases", 85),
+    ("anna version", 80),
+    ("your version", 80),
+    ("annactl version", 85),
+    ("about anna", 90),
+    ("who are you", 85),
+    ("your level", 85),
+    ("your xp", 85),
+    ("show stats", 85),
 ];
 
 // ============================================================================
@@ -161,7 +206,11 @@ pub fn classify_intent(request: &str) -> IntentClassification {
             intent: IntentType::SystemQuery,
             confidence,
             matched_patterns,
-            query_target: if query_target != QueryTarget::Unknown { Some(query_target) } else { None },
+            query_target: if query_target != QueryTarget::Unknown {
+                Some(query_target)
+            } else {
+                None
+            },
             problem_domain: None,
             action_type: None,
             reasoning: "Detected system query".to_string(),
@@ -169,9 +218,12 @@ pub fn classify_intent(request: &str) -> IntentClassification {
     }
 
     // 6. Default: HOWTO for questions, SYSTEM_QUERY for statements
-    if request_lower.contains('?') || request_lower.starts_with("what")
-        || request_lower.starts_with("which") || request_lower.starts_with("where")
-        || request_lower.starts_with("when") || request_lower.starts_with("why")
+    if request_lower.contains('?')
+        || request_lower.starts_with("what")
+        || request_lower.starts_with("which")
+        || request_lower.starts_with("where")
+        || request_lower.starts_with("when")
+        || request_lower.starts_with("why")
     {
         IntentClassification {
             intent: IntentType::Howto,
@@ -221,11 +273,13 @@ fn check_action_patterns(request: &str) -> (u8, Vec<String>, String) {
         "package_install"
     } else if request.contains("uninstall") || request.contains("remove package") {
         "package_remove"
-    } else if request.contains("restart") || request.contains("start service")
+    } else if request.contains("restart")
+        || request.contains("start service")
         || request.contains("stop service")
     {
         "service_action"
-    } else if request.contains("edit") || request.contains("modify") || request.contains("add line") {
+    } else if request.contains("edit") || request.contains("modify") || request.contains("add line")
+    {
         "file_edit"
     } else {
         "unknown_action"
@@ -236,22 +290,36 @@ fn check_action_patterns(request: &str) -> (u8, Vec<String>, String) {
 
 /// Detect problem domain from request
 fn detect_problem_domain(request: &str) -> String {
-    if request.contains("wifi") || request.contains("network") || request.contains("internet")
-        || request.contains("ethernet") || request.contains("connect")
+    if request.contains("wifi")
+        || request.contains("network")
+        || request.contains("internet")
+        || request.contains("ethernet")
+        || request.contains("connect")
     {
         "network".to_string()
-    } else if request.contains("audio") || request.contains("sound") || request.contains("speaker")
-        || request.contains("headphone") || request.contains("pipewire")
+    } else if request.contains("audio")
+        || request.contains("sound")
+        || request.contains("speaker")
+        || request.contains("headphone")
+        || request.contains("pipewire")
     {
         "audio".to_string()
-    } else if request.contains("boot") || request.contains("startup") || request.contains("slow boot") {
+    } else if request.contains("boot")
+        || request.contains("startup")
+        || request.contains("slow boot")
+    {
         "boot".to_string()
-    } else if request.contains("disk") || request.contains("storage") || request.contains("mount")
+    } else if request.contains("disk")
+        || request.contains("storage")
+        || request.contains("mount")
         || request.contains("btrfs")
     {
         "storage".to_string()
-    } else if request.contains("gpu") || request.contains("graphics") || request.contains("display")
-        || request.contains("screen") || request.contains("monitor")
+    } else if request.contains("gpu")
+        || request.contains("graphics")
+        || request.contains("display")
+        || request.contains("screen")
+        || request.contains("monitor")
     {
         "graphics".to_string()
     } else {

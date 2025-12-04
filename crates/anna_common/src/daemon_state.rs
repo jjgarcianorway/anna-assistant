@@ -71,7 +71,9 @@ impl LastStart {
             version: env!("CARGO_PKG_VERSION").to_string(),
             pid: std::process::id(),
             startup_complete: false,
-            binary_path: std::env::current_exe().ok().map(|p| p.to_string_lossy().to_string()),
+            binary_path: std::env::current_exe()
+                .ok()
+                .map(|p| p.to_string_lossy().to_string()),
         };
         start.save()
     }
@@ -87,7 +89,8 @@ impl LastStart {
 
     pub fn load() -> Option<Self> {
         let path = Self::file_path();
-        std::fs::read_to_string(&path).ok()
+        std::fs::read_to_string(&path)
+            .ok()
             .and_then(|c| serde_json::from_str(&c).ok())
     }
 
@@ -154,7 +157,8 @@ impl LastCrash {
 
     pub fn load() -> Option<Self> {
         let path = Self::file_path();
-        std::fs::read_to_string(&path).ok()
+        std::fs::read_to_string(&path)
+            .ok()
             .and_then(|c| serde_json::from_str(&c).ok())
     }
 
@@ -301,7 +305,8 @@ impl StatusSnapshot {
     }
 
     fn load_from_path(path: &PathBuf) -> Option<Self> {
-        std::fs::read_to_string(path).ok()
+        std::fs::read_to_string(path)
+            .ok()
             .and_then(|c| serde_json::from_str(&c).ok())
     }
 
@@ -394,7 +399,8 @@ impl StatusSnapshot {
             Some("pulling_models") => {
                 let model = self.llm_downloading_model.as_deref().unwrap_or("unknown");
                 let percent = self.llm_download_percent.unwrap_or(0.0);
-                let eta = self.llm_download_eta_secs
+                let eta = self
+                    .llm_download_eta_secs
                     .map(|s| format!(" ETA {}s", s))
                     .unwrap_or_default();
                 format!("pulling {} ({:.1}%{})", model, percent, eta)
@@ -424,9 +430,7 @@ impl StatusSnapshot {
     pub fn format_helpers_status(&self) -> String {
         format!(
             "{} present, {} missing ({} installed by Anna)",
-            self.helpers_present,
-            self.helpers_missing,
-            self.helpers_anna_installed
+            self.helpers_present, self.helpers_missing, self.helpers_anna_installed
         )
     }
 }
@@ -448,9 +452,15 @@ impl SnapshotStatus {
             Some(s) => {
                 let age = s.age_secs();
                 if age > STALE_THRESHOLD_SECS {
-                    SnapshotStatus::Stale { age_secs: age, seq: s.seq }
+                    SnapshotStatus::Stale {
+                        age_secs: age,
+                        seq: s.seq,
+                    }
                 } else {
-                    SnapshotStatus::Available { age_secs: age, seq: s.seq }
+                    SnapshotStatus::Available {
+                        age_secs: age,
+                        seq: s.seq,
+                    }
                 }
             }
             None => SnapshotStatus::Missing,

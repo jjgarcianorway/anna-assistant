@@ -50,7 +50,10 @@ pub enum DaemonHealth {
 
 impl DaemonHealth {
     pub fn is_running(&self) -> bool {
-        matches!(self, DaemonHealth::Running(_) | DaemonHealth::RunningSystemd)
+        matches!(
+            self,
+            DaemonHealth::Running(_) | DaemonHealth::RunningSystemd
+        )
     }
 }
 
@@ -78,8 +81,7 @@ pub fn ping_socket() -> Result<DaemonStatus, String> {
         return Err("socket does not exist".to_string());
     }
 
-    let mut stream = UnixStream::connect(path)
-        .map_err(|e| format!("connect failed: {}", e))?;
+    let mut stream = UnixStream::connect(path).map_err(|e| format!("connect failed: {}", e))?;
 
     // Set timeout
     let timeout = Duration::from_millis(CLIENT_TIMEOUT_MS);
@@ -87,17 +89,18 @@ pub fn ping_socket() -> Result<DaemonStatus, String> {
     stream.set_write_timeout(Some(timeout)).ok();
 
     // Send STATUS request
-    stream.write_all(b"STATUS\n")
+    stream
+        .write_all(b"STATUS\n")
         .map_err(|e| format!("write failed: {}", e))?;
 
     // Read response
     let mut response = String::new();
-    stream.read_to_string(&mut response)
+    stream
+        .read_to_string(&mut response)
         .map_err(|e| format!("read failed: {}", e))?;
 
     // Parse JSON response
-    serde_json::from_str(&response)
-        .map_err(|e| format!("parse failed: {}", e))
+    serde_json::from_str(&response).map_err(|e| format!("parse failed: {}", e))
 }
 
 /// Check if socket exists and is connectable (simple PING)

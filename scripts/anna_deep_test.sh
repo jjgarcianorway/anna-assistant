@@ -1,19 +1,24 @@
 #!/bin/bash
-# Anna Deep Test Harness v0.0.48
+# Anna Deep Test Harness v0.0.72
 #
 # Produces a deterministic test artifact directory with comprehensive
 # testing of Anna's CLI, Translator stability, correctness, doctor routing,
-# mutation execution with rollback (v0.0.47), and learning system (v0.0.48).
+# mutation execution with rollback (v0.0.47), learning system (v0.0.48),
+# and dual transcript mode validation (v0.0.72).
 #
 # Usage: ./scripts/anna_deep_test.sh [--release]
 #
 # Output: anna-deep-test-YYYYMMDD-HHMMSS/
-#   |- REPORT.md          - Human-readable test report
-#   |- report.json        - Machine-readable test data
-#   |- environment.txt    - System environment capture
-#   |- transcripts/       - Full transcripts for each test
-#   |- cases/             - Copies of case files (sanitized)
-#   |- mutations/         - Mutation test files (v0.0.47)
+#   |- REPORT.md             - Human-readable test report
+#   |- report.json           - Machine-readable test data
+#   |- environment.txt       - System environment capture
+#   |- transcripts/          - Full transcripts for each test
+#   |- transcripts-human/    - Human mode transcripts (v0.0.72)
+#   |- transcripts-debug/    - Debug mode transcripts (v0.0.72)
+#   |- terminal-human.log    - Human mode full output (v0.0.72)
+#   |- terminal-debug.log    - Debug mode full output (v0.0.72)
+#   |- cases/                - Copies of case files (sanitized)
+#   |- mutations/            - Mutation test files (v0.0.47)
 #
 # Requirements: Arch Linux, annactl built
 
@@ -114,6 +119,8 @@ find_annactl() {
 setup_artifact_dir() {
     mkdir -p "$ARTIFACT_DIR"
     mkdir -p "$ARTIFACT_DIR/transcripts"
+    mkdir -p "$ARTIFACT_DIR/transcripts-human"
+    mkdir -p "$ARTIFACT_DIR/transcripts-debug"
     mkdir -p "$ARTIFACT_DIR/cases"
     log_info "Artifact directory: $ARTIFACT_DIR"
 }
@@ -631,6 +638,138 @@ run_learning_tests() {
 }
 
 # ============================================================================
+# B5) v0.0.72: Dual Transcript Mode Validation
+# ============================================================================
+
+run_dual_mode_tests() {
+    log_info "Running dual transcript mode tests (v0.0.72)..."
+
+    # Forbidden patterns in human mode (from transcript_v072/validation.rs)
+    local forbidden_patterns=(
+        '\[E[0-9]+\]'           # Evidence IDs
+        'hw_snapshot_'          # Tool names
+        'sw_snapshot_'
+        'status_snapshot'
+        '_summary'
+        'journalctl'
+        'systemctl '
+        'Parse error'
+        'deterministic fallback'
+        'fallback_used'
+        'CANONICAL'
+        'tool='
+        'evidence_id'
+        'parse_attempts'
+    )
+
+    # Test queries
+    local test_queries=(
+        "what cpu do i have"
+        "how much memory"
+        "disk space on /"
+    )
+
+    local human_log="$ARTIFACT_DIR/terminal-human.log"
+    local debug_log="$ARTIFACT_DIR/terminal-debug.log"
+
+    # Clear logs
+    > "$human_log"
+    > "$debug_log"
+
+    log_info "Phase 1: Running queries in Human mode..."
+
+    for query in "${test_queries[@]}"; do
+        local safe_name
+        safe_name=$(echo "$query" | tr ' ' '_' | tr -cd 'a-zA-Z0-9_')
+
+        # Run in Human mode (default)
+        unset ANNA_DEBUG_TRANSCRIPT
+        unset ANNA_UI_TRANSCRIPT_MODE
+        local human_output
+        human_output=$("$ANNACTL" "$query" 2>&1) || true
+        echo "$human_output" > "$ARTIFACT_DIR/transcripts-human/${safe_name}.txt"
+        echo "=== Query: $query ===" >> "$human_log"
+        echo "$human_output" >> "$human_log"
+        echo "" >> "$human_log"
+    done
+
+    log_info "Phase 2: Running queries in Debug mode..."
+
+    for query in "${test_queries[@]}"; do
+        local safe_name
+        safe_name=$(echo "$query" | tr ' ' '_' | tr -cd 'a-zA-Z0-9_')
+
+        # Run in Debug mode
+        export ANNA_DEBUG_TRANSCRIPT=1
+        local debug_output
+        debug_output=$("$ANNACTL" "$query" 2>&1) || true
+        echo "$debug_output" > "$ARTIFACT_DIR/transcripts-debug/${safe_name}.txt"
+        echo "=== Query: $query ===" >> "$debug_log"
+        echo "$debug_output" >> "$debug_log"
+        echo "" >> "$debug_log"
+        unset ANNA_DEBUG_TRANSCRIPT
+    done
+
+    log_info "Phase 3: Validating Human mode output..."
+
+    # Check human log for forbidden patterns
+    local human_violations=0
+    for pattern in "${forbidden_patterns[@]}"; do
+        if grep -qE "$pattern" "$human_log" 2>/dev/null; then
+            log_fail "Human mode contains forbidden pattern: $pattern"
+            human_violations=$((human_violations + 1))
+        fi
+    done
+
+    if [[ $human_violations -eq 0 ]]; then
+        log_pass "Human mode output is clean (no forbidden patterns)"
+    else
+        log_fail "Human mode has $human_violations forbidden pattern(s)"
+    fi
+
+    log_info "Phase 4: Validating Debug mode output..."
+
+    # Check debug log contains expected internals
+    local debug_has_tools=false
+    local debug_has_evidence=false
+
+    if grep -qE "tool=" "$debug_log" 2>/dev/null; then
+        debug_has_tools=true
+        log_info "Debug mode contains tool names"
+    fi
+
+    if grep -qE '\[E[0-9]+\]' "$debug_log" 2>/dev/null; then
+        debug_has_evidence=true
+        log_info "Debug mode contains evidence IDs"
+    fi
+
+    if [[ "$debug_has_tools" == "true" ]] || [[ "$debug_has_evidence" == "true" ]]; then
+        log_pass "Debug mode contains expected internals"
+    else
+        log_fail "Debug mode missing expected internals (tool names or evidence IDs)"
+    fi
+
+    log_info "Phase 5: Delta summary..."
+
+    local human_lines
+    human_lines=$(wc -l < "$human_log")
+    local debug_lines
+    debug_lines=$(wc -l < "$debug_log")
+
+    log_info "Human log: $human_lines lines"
+    log_info "Debug log: $debug_lines lines"
+
+    # Debug should be more verbose
+    if [[ $debug_lines -gt $human_lines ]]; then
+        log_pass "Debug mode is more verbose than human mode"
+    else
+        log_info "Debug mode not significantly more verbose (may be expected)"
+    fi
+
+    log_info "Dual mode validation complete"
+}
+
+# ============================================================================
 # C) Doctor Auto-Trigger Tests
 # ============================================================================
 
@@ -911,6 +1050,13 @@ main() {
 
     # v0.0.48: Learning system tests
     run_learning_tests
+
+    echo ""
+    echo "----------------------------------------"
+    echo ""
+
+    # v0.0.72: Dual transcript mode tests
+    run_dual_mode_tests
 
     echo ""
     echo "----------------------------------------"

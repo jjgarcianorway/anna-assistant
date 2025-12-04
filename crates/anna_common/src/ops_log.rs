@@ -294,13 +294,34 @@ impl OpsLogReader {
     pub fn count_by_action(&self) -> OpsActionCounts {
         let entries = self.read_all();
         OpsActionCounts {
-            install: entries.iter().filter(|e| e.action == OpsAction::Install).count(),
-            remove: entries.iter().filter(|e| e.action == OpsAction::Remove).count(),
-            enable: entries.iter().filter(|e| e.action == OpsAction::Enable).count(),
-            disable: entries.iter().filter(|e| e.action == OpsAction::Disable).count(),
-            config: entries.iter().filter(|e| e.action == OpsAction::Config).count(),
-            pkg_installed: entries.iter().filter(|e| e.action == OpsAction::PackageInstalled).count(),
-            pkg_install_failed: entries.iter().filter(|e| e.action == OpsAction::PackageInstallFailed).count(),
+            install: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Install)
+                .count(),
+            remove: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Remove)
+                .count(),
+            enable: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Enable)
+                .count(),
+            disable: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Disable)
+                .count(),
+            config: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Config)
+                .count(),
+            pkg_installed: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::PackageInstalled)
+                .count(),
+            pkg_install_failed: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::PackageInstallFailed)
+                .count(),
         }
     }
 
@@ -308,13 +329,34 @@ impl OpsLogReader {
     pub fn get_summary(&self) -> OpsLogSummary {
         let entries = self.read_all();
         let counts = OpsActionCounts {
-            install: entries.iter().filter(|e| e.action == OpsAction::Install).count(),
-            remove: entries.iter().filter(|e| e.action == OpsAction::Remove).count(),
-            enable: entries.iter().filter(|e| e.action == OpsAction::Enable).count(),
-            disable: entries.iter().filter(|e| e.action == OpsAction::Disable).count(),
-            config: entries.iter().filter(|e| e.action == OpsAction::Config).count(),
-            pkg_installed: entries.iter().filter(|e| e.action == OpsAction::PackageInstalled).count(),
-            pkg_install_failed: entries.iter().filter(|e| e.action == OpsAction::PackageInstallFailed).count(),
+            install: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Install)
+                .count(),
+            remove: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Remove)
+                .count(),
+            enable: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Enable)
+                .count(),
+            disable: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Disable)
+                .count(),
+            config: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::Config)
+                .count(),
+            pkg_installed: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::PackageInstalled)
+                .count(),
+            pkg_install_failed: entries
+                .iter()
+                .filter(|e| e.action == OpsAction::PackageInstallFailed)
+                .count(),
         };
 
         let first_entry = entries.first().map(|e| e.timestamp);
@@ -351,8 +393,13 @@ pub struct OpsActionCounts {
 
 impl OpsActionCounts {
     pub fn total(&self) -> usize {
-        self.install + self.remove + self.enable + self.disable + self.config
-            + self.pkg_installed + self.pkg_install_failed
+        self.install
+            + self.remove
+            + self.enable
+            + self.disable
+            + self.config
+            + self.pkg_installed
+            + self.pkg_install_failed
     }
 }
 

@@ -219,7 +219,9 @@ pub fn assess_risk(action: &ServiceAction) -> RiskLevel {
 
     // Check for critical services (high risk)
     for critical in CRITICAL_SERVICES {
-        if base_name == critical.to_lowercase() || base_name.contains(critical.to_lowercase().as_str()) {
+        if base_name == critical.to_lowercase()
+            || base_name.contains(critical.to_lowercase().as_str())
+        {
             return RiskLevel::High;
         }
     }
@@ -292,9 +294,18 @@ mod tests {
 
     #[test]
     fn test_confirmation_phrases() {
-        assert_eq!(RiskLevel::Low.confirmation_phrase(), Some(LOW_RISK_CONFIRMATION));
-        assert_eq!(RiskLevel::Medium.confirmation_phrase(), Some(MEDIUM_RISK_CONFIRMATION));
-        assert_eq!(RiskLevel::High.confirmation_phrase(), Some(HIGH_RISK_CONFIRMATION));
+        assert_eq!(
+            RiskLevel::Low.confirmation_phrase(),
+            Some(LOW_RISK_CONFIRMATION)
+        );
+        assert_eq!(
+            RiskLevel::Medium.confirmation_phrase(),
+            Some(MEDIUM_RISK_CONFIRMATION)
+        );
+        assert_eq!(
+            RiskLevel::High.confirmation_phrase(),
+            Some(HIGH_RISK_CONFIRMATION)
+        );
         assert_eq!(RiskLevel::Denied.confirmation_phrase(), None);
     }
 
@@ -302,7 +313,13 @@ mod tests {
     fn test_operation_inverse() {
         assert_eq!(ServiceOperation::Start.inverse(), ServiceOperation::Stop);
         assert_eq!(ServiceOperation::Stop.inverse(), ServiceOperation::Start);
-        assert_eq!(ServiceOperation::Enable.inverse(), ServiceOperation::Disable);
-        assert_eq!(ServiceOperation::Disable.inverse(), ServiceOperation::Enable);
+        assert_eq!(
+            ServiceOperation::Enable.inverse(),
+            ServiceOperation::Disable
+        );
+        assert_eq!(
+            ServiceOperation::Disable.inverse(),
+            ServiceOperation::Enable
+        );
     }
 }

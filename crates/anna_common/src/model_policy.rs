@@ -139,8 +139,12 @@ pub struct GlobalPolicy {
     pub benchmark_cache_hours: u64,
 }
 
-fn default_true() -> bool { true }
-fn default_benchmark_hours() -> u64 { 168 }
+fn default_true() -> bool {
+    true
+}
+fn default_benchmark_hours() -> u64 {
+    168
+}
 
 impl Default for GlobalPolicy {
     fn default() -> Self {
@@ -409,7 +413,9 @@ impl ModelReadinessState {
 
     /// Check if any models are downloading
     pub fn has_active_downloads(&self) -> bool {
-        self.downloads_in_progress.iter().any(|d| d.status == DownloadStatus::Downloading)
+        self.downloads_in_progress
+            .iter()
+            .any(|d| d.status == DownloadStatus::Downloading)
     }
 
     /// Get human-readable summary
@@ -417,7 +423,10 @@ impl ModelReadinessState {
         let mut parts = Vec::new();
 
         if self.translator_ready {
-            parts.push(format!("Translator: {} (ready)", self.translator_model.as_deref().unwrap_or("unknown")));
+            parts.push(format!(
+                "Translator: {} (ready)",
+                self.translator_model.as_deref().unwrap_or("unknown")
+            ));
         } else if self.translator_fallback_active {
             parts.push("Translator: deterministic fallback".to_string());
         } else {
@@ -425,15 +434,23 @@ impl ModelReadinessState {
         }
 
         if self.junior_ready {
-            parts.push(format!("Junior: {} (ready)", self.junior_model.as_deref().unwrap_or("unknown")));
+            parts.push(format!(
+                "Junior: {} (ready)",
+                self.junior_model.as_deref().unwrap_or("unknown")
+            ));
         } else if self.junior_fallback_active {
-            parts.push(format!("Junior: unavailable (reliability capped at {}%)", self.reliability_cap.unwrap_or(60)));
+            parts.push(format!(
+                "Junior: unavailable (reliability capped at {}%)",
+                self.reliability_cap.unwrap_or(60)
+            ));
         } else {
             parts.push("Junior: not ready".to_string());
         }
 
         if self.has_active_downloads() {
-            let downloading: Vec<_> = self.downloads_in_progress.iter()
+            let downloading: Vec<_> = self
+                .downloads_in_progress
+                .iter()
                 .filter(|d| d.status == DownloadStatus::Downloading)
                 .map(|d| format!("{} ({})", d.model, d.format_progress()))
                 .collect();

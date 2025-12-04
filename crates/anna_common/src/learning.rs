@@ -12,7 +12,7 @@
 //!
 //! Storage: /var/lib/anna/knowledge_packs/installed/*.json
 
-use chrono::{DateTime, Utc, Local, Datelike};
+use chrono::{DateTime, Datelike, Local, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -58,28 +58,28 @@ pub const MIN_EVIDENCE_FOR_LEARNING: usize = 1;
 /// XP progression curve (non-linear)
 /// Level N requires XP_CURVE[N] total XP
 const XP_CURVE: &[u64] = &[
-    0,      // Level 0
-    10,     // Level 1
-    25,     // Level 2
-    50,     // Level 3
-    100,    // Level 4
-    175,    // Level 5
-    275,    // Level 6
-    400,    // Level 7
-    550,    // Level 8
-    750,    // Level 9
-    1000,   // Level 10
-    1300,   // Level 11
-    1650,   // Level 12
-    2050,   // Level 13
-    2500,   // Level 14
-    3000,   // Level 15
-    3600,   // Level 16
-    4300,   // Level 17
-    5100,   // Level 18
-    6000,   // Level 19
-    7000,   // Level 20
-    // Beyond 20: each level requires 1000 more than previous
+    0,    // Level 0
+    10,   // Level 1
+    25,   // Level 2
+    50,   // Level 3
+    100,  // Level 4
+    175,  // Level 5
+    275,  // Level 6
+    400,  // Level 7
+    550,  // Level 8
+    750,  // Level 9
+    1000, // Level 10
+    1300, // Level 11
+    1650, // Level 12
+    2050, // Level 13
+    2500, // Level 14
+    3000, // Level 15
+    3600, // Level 16
+    4300, // Level 17
+    5100, // Level 18
+    6000, // Level 19
+    7000, // Level 20
+          // Beyond 20: each level requires 1000 more than previous
 ];
 
 /// Level titles (fun, nerdy, stable)
@@ -97,8 +97,8 @@ const LEVEL_TITLES: &[(&str, u8)] = &[
 ];
 
 /// XP gains
-pub const XP_GAIN_SUCCESS_85: u64 = 2;      // >= 85% reliability
-pub const XP_GAIN_SUCCESS_90: u64 = 5;      // >= 90% reliability
+pub const XP_GAIN_SUCCESS_85: u64 = 2; // >= 85% reliability
+pub const XP_GAIN_SUCCESS_90: u64 = 5; // >= 90% reliability
 pub const XP_GAIN_RECIPE_CREATED: u64 = 10; // Recipe created/improved
 
 /// XP state stored on disk
@@ -359,7 +359,8 @@ impl KnowledgePack {
             self.entries[idx].wins += 1;
             self.entries[idx].last_used_at = Some(Utc::now());
             if self.entries[idx].examples.len() < 3
-               && !self.entries[idx].examples.contains(&recipe.examples[0]) {
+                && !self.entries[idx].examples.contains(&recipe.examples[0])
+            {
                 self.entries[idx].examples.push(recipe.examples[0].clone());
             }
             self.updated_at = Utc::now();
@@ -368,7 +369,9 @@ impl KnowledgePack {
             // Check limits
             if self.entries.len() >= MAX_RECIPES_TOTAL / MAX_PACKS {
                 // Evict least used recipe
-                if let Some(idx) = self.entries.iter()
+                if let Some(idx) = self
+                    .entries
+                    .iter()
                     .enumerate()
                     .min_by_key(|(_, r)| r.wins)
                     .map(|(i, _)| i)
@@ -387,7 +390,9 @@ impl KnowledgePack {
         let query_lower = query.to_lowercase();
         let query_tokens: Vec<&str> = query_lower.split_whitespace().collect();
 
-        let mut results: Vec<_> = self.entries.iter()
+        let mut results: Vec<_> = self
+            .entries
+            .iter()
             .map(|r| {
                 let score = r.match_score(&query_tokens);
                 (r, score)
@@ -555,7 +560,12 @@ impl LearningManager {
 
         if let Ok(entries) = fs::read_dir(LEARNING_PACKS_DIR) {
             for entry in entries.flatten() {
-                if entry.path().extension().map(|e| e == "json").unwrap_or(false) {
+                if entry
+                    .path()
+                    .extension()
+                    .map(|e| e == "json")
+                    .unwrap_or(false)
+                {
                     if let Ok(content) = fs::read_to_string(entry.path()) {
                         if let Ok(pack) = serde_json::from_str::<KnowledgePack>(&content) {
                             packs.push(pack);
@@ -618,7 +628,11 @@ impl LearningManager {
             }
         }
 
-        all_results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        all_results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         all_results.truncate(limit);
 
         // Assign evidence IDs after sorting
@@ -646,7 +660,10 @@ impl LearningManager {
         if reliability < MIN_RELIABILITY_FOR_LEARNING {
             return Ok(LearningResult {
                 learned: false,
-                reason: format!("Reliability {} < {} required", reliability, MIN_RELIABILITY_FOR_LEARNING),
+                reason: format!(
+                    "Reliability {} < {} required",
+                    reliability, MIN_RELIABILITY_FOR_LEARNING
+                ),
                 recipe_id: None,
                 xp_gained: 0,
             });
@@ -655,7 +672,10 @@ impl LearningManager {
         if evidence_count < MIN_EVIDENCE_FOR_LEARNING {
             return Ok(LearningResult {
                 learned: false,
-                reason: format!("Evidence count {} < {} required", evidence_count, MIN_EVIDENCE_FOR_LEARNING),
+                reason: format!(
+                    "Evidence count {} < {} required",
+                    evidence_count, MIN_EVIDENCE_FOR_LEARNING
+                ),
                 recipe_id: None,
                 xp_gained: 0,
             });
@@ -689,9 +709,10 @@ impl LearningManager {
             ],
             actions: Vec::new(),
             rollback: None,
-            confidence_rules: vec![
-                format!("Requires reliability >= {}", MIN_RELIABILITY_FOR_LEARNING),
-            ],
+            confidence_rules: vec![format!(
+                "Requires reliability >= {}",
+                MIN_RELIABILITY_FOR_LEARNING
+            )],
             notes: format!("Learned from case {}", case_id),
             examples: vec![request.to_string()],
             wins: 1,
@@ -720,7 +741,11 @@ impl LearningManager {
 
         Ok(LearningResult {
             learned: true,
-            reason: if is_new { "New recipe created".to_string() } else { "Existing recipe improved".to_string() },
+            reason: if is_new {
+                "New recipe created".to_string()
+            } else {
+                "Existing recipe improved".to_string()
+            },
             recipe_id: Some(recipe_id),
             xp_gained: total_xp,
         })
@@ -782,8 +807,7 @@ impl SearchHit {
     pub fn match_reason(&self) -> String {
         format!(
             "Matched triggers: {:?}, targets: {:?}",
-            self.recipe.triggers,
-            self.recipe.targets
+            self.recipe.triggers, self.recipe.targets
         )
     }
 }
@@ -835,8 +859,10 @@ fn build_recipe_title(request: &str, intent: &RecipeIntent, targets: &[String]) 
 
 /// Extract trigger keywords from request
 fn extract_triggers(request: &str) -> Vec<String> {
-    let stop_words = ["the", "a", "an", "is", "are", "was", "were", "what", "how",
-                      "do", "does", "can", "could", "my", "i", "me", "to", "of"];
+    let stop_words = [
+        "the", "a", "an", "is", "are", "was", "were", "what", "how", "do", "does", "can", "could",
+        "my", "i", "me", "to", "of",
+    ];
 
     request
         .to_lowercase()

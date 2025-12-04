@@ -7,7 +7,7 @@
 //! All results stored to /var/lib/anna/internal/update_state.json
 //! Audit trail written to /var/lib/anna/internal/ops.log
 
-use crate::config::{UpdateState, UpdateMode};
+use crate::config::{UpdateMode, UpdateState};
 use crate::ops_log::OpsLog;
 
 /// Result of an update check operation
@@ -27,9 +27,11 @@ pub fn check_anna_updates(current_version: &str) -> CheckResult {
     let output = std::process::Command::new("curl")
         .args([
             "-sS",
-            "--max-time", "10",
-            "-H", "Accept: application/vnd.github.v3+json",
-            "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/latest"
+            "--max-time",
+            "10",
+            "-H",
+            "Accept: application/vnd.github.v3+json",
+            "https://api.github.com/repos/jjgarcianorway/anna-assistant/releases/latest",
         ])
         .output();
 
@@ -48,7 +50,9 @@ pub fn check_anna_updates(current_version: &str) -> CheckResult {
                     if let Some(tag) = json.get("tag_name").and_then(|v| v.as_str()) {
                         let latest = tag.trim_start_matches('v');
                         if is_newer_version(latest, current_version) {
-                            CheckResult::UpdateAvailable { version: latest.to_string() }
+                            CheckResult::UpdateAvailable {
+                                version: latest.to_string(),
+                            }
                         } else {
                             CheckResult::UpToDate
                         }
@@ -89,11 +93,19 @@ pub fn run_update_check(current_version: &str) -> CheckResult {
         }
         CheckResult::UpdateAvailable { version } => {
             state.record_success(current_version, Some(version.clone()));
-            ops_log.log("update_check", "finished", Some(&format!("update_available:{}", version)));
+            ops_log.log(
+                "update_check",
+                "finished",
+                Some(&format!("update_available:{}", version)),
+            );
         }
         CheckResult::Error { message } => {
             state.record_failure(current_version, message);
-            ops_log.log("update_check", "finished", Some(&format!("error:{}", message)));
+            ops_log.log(
+                "update_check",
+                "finished",
+                Some(&format!("error:{}", message)),
+            );
         }
     }
 
@@ -116,7 +128,11 @@ fn is_newer_version(latest: &str, current: &str) -> bool {
         let parts: Vec<&str> = v.split('.').collect();
         let major = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
         let minor = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-        let patch = parts.get(2).and_then(|s| s.split('-').next()).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let patch = parts
+            .get(2)
+            .and_then(|s| s.split('-').next())
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
         (major, minor, patch)
     };
 

@@ -260,12 +260,7 @@ impl DiagnosisStep {
     }
 
     pub fn format_summary(&self) -> String {
-        format!(
-            "{} {} - {}",
-            self.result.symbol(),
-            self.name,
-            self.details
-        )
+        format!("{} {} - {}", self.result.symbol(), self.name, self.details)
     }
 
     pub fn format_detail(&self) -> String {
@@ -733,7 +728,10 @@ pub fn run_diagnosis() -> DiagnosisResult {
     if ip_connectivity.result == DiagnosisStepResult::Pass {
         dns_step = check_dns(&evidence);
     } else {
-        dns_step = dns_step.fail("Skipped - no IP connectivity", "Cannot test DNS without IP connectivity");
+        dns_step = dns_step.fail(
+            "Skipped - no IP connectivity",
+            "Cannot test DNS without IP connectivity",
+        );
     }
     steps.push(dns_step.clone());
 
@@ -915,10 +913,7 @@ fn check_dns(evidence: &NetworkEvidence) -> DiagnosisStep {
     let mut test_results = Vec::new();
 
     for domain in DNS_TEST_DOMAINS {
-        if let Ok(output) = Command::new("getent")
-            .args(["hosts", domain])
-            .output()
-        {
+        if let Ok(output) = Command::new("getent").args(["hosts", domain]).output() {
             if output.status.success() {
                 resolved = true;
                 test_results.push(format!("{}: OK", domain));
@@ -983,7 +978,11 @@ fn check_manager_health(evidence: &NetworkEvidence) -> DiagnosisStep {
     if status.has_errors {
         let err_msg = status.error_summary.as_deref().unwrap_or("unknown errors");
         return step.partial(
-            &format!("{} running with errors: {}", status.manager.as_str(), err_msg),
+            &format!(
+                "{} running with errors: {}",
+                status.manager.as_str(),
+                err_msg
+            ),
             "Check service logs for details",
         );
     }
@@ -1044,7 +1043,10 @@ fn generate_summary(
 ) -> String {
     let mut lines = Vec::new();
 
-    lines.push(format!("Network Status: {}", status.as_str().to_uppercase()));
+    lines.push(format!(
+        "Network Status: {}",
+        status.as_str().to_uppercase()
+    ));
     lines.push(String::new());
 
     lines.push("Diagnosis Steps:".to_string());
@@ -1056,7 +1058,12 @@ fn generate_summary(
         lines.push(String::new());
         lines.push("Hypotheses:".to_string());
         for (i, h) in hypotheses.iter().enumerate() {
-            lines.push(format!("  {}. {} (confidence: {}%)", i + 1, h.description, h.confidence));
+            lines.push(format!(
+                "  {}. {} (confidence: {}%)",
+                i + 1,
+                h.description,
+                h.confidence
+            ));
         }
     }
 
@@ -1103,7 +1110,9 @@ fn generate_hypotheses(
                 if evidence.interfaces.iter().any(|i| i.iface_type == "wifi") {
                     hypotheses.push(NetworkHypothesis {
                         id: generate_request_id(),
-                        description: "WiFi not connected - may need to reconnect or check credentials".to_string(),
+                        description:
+                            "WiFi not connected - may need to reconnect or check credentials"
+                                .to_string(),
                         confidence: 70,
                         supporting_evidence: vec![step.evidence_id.clone()],
                         refuting_evidence: Vec::new(),
@@ -1113,7 +1122,11 @@ fn generate_hypotheses(
                 }
 
                 // Ethernet issues
-                if evidence.interfaces.iter().any(|i| i.iface_type == "ethernet") {
+                if evidence
+                    .interfaces
+                    .iter()
+                    .any(|i| i.iface_type == "ethernet")
+                {
                     hypotheses.push(NetworkHypothesis {
                         id: generate_request_id(),
                         description: "Ethernet cable disconnected or link down".to_string(),
@@ -1191,7 +1204,10 @@ fn generate_hypotheses(
                 if !evidence.manager_status.is_running {
                     hypotheses.push(NetworkHypothesis {
                         id: generate_request_id(),
-                        description: format!("{} service not running", evidence.manager_status.manager.as_str()),
+                        description: format!(
+                            "{} service not running",
+                            evidence.manager_status.manager.as_str()
+                        ),
                         confidence: 90,
                         supporting_evidence: vec![step.evidence_id.clone()],
                         refuting_evidence: Vec::new(),
@@ -1205,7 +1221,11 @@ fn generate_hypotheses(
                         id: generate_request_id(),
                         description: "Conflicting network managers detected".to_string(),
                         confidence: 85,
-                        supporting_evidence: evidence.manager_conflicts.iter().map(|c| c.clone()).collect(),
+                        supporting_evidence: evidence
+                            .manager_conflicts
+                            .iter()
+                            .map(|c| c.clone())
+                            .collect(),
                         refuting_evidence: Vec::new(),
                         next_test: "Disable conflicting services".to_string(),
                         fix_playbook: Some("disable_conflicting".to_string()),
@@ -1293,7 +1313,8 @@ pub fn get_fix_playbooks() -> HashMap<String, FixPlaybook> {
         FixPlaybook {
             id: "restart_manager".to_string(),
             name: "Restart Network Manager".to_string(),
-            description: "Restart the active network manager service to reset connections".to_string(),
+            description: "Restart the active network manager service to reset connections"
+                .to_string(),
             risk_level: FixRiskLevel::Low,
             confirmation_required: true,
             confirmation_phrase: FIX_CONFIRMATION.to_string(),
@@ -1302,10 +1323,7 @@ pub fn get_fix_playbooks() -> HashMap<String, FixPlaybook> {
                 command: "systemctl restart {MANAGER_SERVICE}".to_string(),
                 requires_root: true,
             }],
-            post_checks: vec![
-                "check_ip_connectivity".to_string(),
-                "check_dns".to_string(),
-            ],
+            post_checks: vec!["check_ip_connectivity".to_string(), "check_dns".to_string()],
             rollback_steps: Vec::new(), // No rollback needed - just restart again
         },
     );
@@ -1322,7 +1340,8 @@ pub fn get_fix_playbooks() -> HashMap<String, FixPlaybook> {
             confirmation_phrase: FIX_CONFIRMATION.to_string(),
             steps: vec![FixStep {
                 description: "Renew DHCP lease via network manager".to_string(),
-                command: "nmcli connection down {CONNECTION} && nmcli connection up {CONNECTION}".to_string(),
+                command: "nmcli connection down {CONNECTION} && nmcli connection up {CONNECTION}"
+                    .to_string(),
                 requires_root: false,
             }],
             post_checks: vec![
@@ -1638,7 +1657,10 @@ impl DiagnosisResult {
             lines.push(format!("  {} - {}", fix.name, fix.description));
             lines.push(format!("  Risk: {}", fix.risk_level.as_str()));
             if fix.confirmation_required {
-                lines.push(format!("  To apply, confirm with: {}", fix.confirmation_phrase));
+                lines.push(format!(
+                    "  To apply, confirm with: {}",
+                    fix.confirmation_phrase
+                ));
             }
         }
 
@@ -1681,8 +1703,7 @@ mod tests {
 
     #[test]
     fn test_diagnosis_step_creation() {
-        let step = DiagnosisStep::new("test", "A test step")
-            .pass("All good", "Everything works");
+        let step = DiagnosisStep::new("test", "A test step").pass("All good", "Everything works");
 
         assert_eq!(step.name, "test");
         assert_eq!(step.result, DiagnosisStepResult::Pass);
@@ -1722,9 +1743,7 @@ mod tests {
     #[test]
     fn test_hypothesis_generation_empty() {
         let evidence = NetworkEvidence::new();
-        let steps = vec![
-            DiagnosisStep::new("test", "test").pass("ok", "good"),
-        ];
+        let steps = vec![DiagnosisStep::new("test", "test").pass("ok", "good")];
         let hypotheses = generate_hypotheses(&evidence, &steps);
         assert!(hypotheses.is_empty()); // No failures = no hypotheses
     }

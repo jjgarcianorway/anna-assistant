@@ -40,9 +40,7 @@ pub fn atomic_write(path: &str, content: &str) -> io::Result<()> {
 
     // Create temp file in same directory (ensures same filesystem for atomic rename)
     let dir = path.parent().unwrap_or(Path::new("."));
-    let filename = path.file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("temp");
+    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("temp");
     let temp_path = dir.join(format!(".{}.tmp.{}", filename, std::process::id()));
 
     // Write to temp file with restricted permissions
@@ -54,7 +52,7 @@ pub fn atomic_write(path: &str, content: &str) -> io::Result<()> {
             .write(true)
             .create(true)
             .truncate(true)
-            .mode(0o644)  // rw-r--r-- (world readable)
+            .mode(0o644) // rw-r--r-- (world readable)
             .open(&temp_path)?;
 
         #[cfg(not(unix))]
@@ -91,9 +89,7 @@ pub fn atomic_write_bytes(path: &str, content: &[u8]) -> io::Result<()> {
     }
 
     let dir = path.parent().unwrap_or(Path::new("."));
-    let filename = path.file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("temp");
+    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("temp");
     let temp_path = dir.join(format!(".{}.tmp.{}", filename, std::process::id()));
 
     {

@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 pub struct ServiceEntry {
     pub name: String,
     pub unit: String,
-    pub status: String,  // running, enabled, disabled, masked
+    pub status: String, // running, enabled, disabled, masked
     pub active: bool,
 }
 
@@ -61,7 +61,8 @@ impl NetworkSwLens {
         let services = discover_network_services();
         let configs = discover_network_configs();
         let precedence_hints = get_network_precedence_hints();
-        let telemetry = collect_service_telemetry(&["NetworkManager", "wpa_supplicant", "systemd-networkd"]);
+        let telemetry =
+            collect_service_telemetry(&["NetworkManager", "wpa_supplicant", "systemd-networkd"]);
         let log_patterns = collect_sw_log_patterns(&["NetworkManager", "wpa_supplicant"]);
 
         Self {
@@ -77,7 +78,10 @@ impl NetworkSwLens {
 fn discover_network_services() -> Vec<ServiceEntry> {
     let network_units = [
         ("NetworkManager", "NetworkManager.service"),
-        ("NetworkManager-dispatcher", "NetworkManager-dispatcher.service"),
+        (
+            "NetworkManager-dispatcher",
+            "NetworkManager-dispatcher.service",
+        ),
         ("wpa_supplicant", "wpa_supplicant.service"),
         ("systemd-networkd", "systemd-networkd.service"),
         ("systemd-resolved", "systemd-resolved.service"),
@@ -95,13 +99,9 @@ fn discover_network_services() -> Vec<ServiceEntry> {
 }
 
 fn check_service_status(name: &str, unit: &str) -> Option<ServiceEntry> {
-    let output = Command::new("systemctl")
-        .args(["is-active", unit])
-        .output();
+    let output = Command::new("systemctl").args(["is-active", unit]).output();
 
-    let active = output.as_ref()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    let active = output.as_ref().map(|o| o.status.success()).unwrap_or(false);
 
     let status_output = Command::new("systemctl")
         .args(["is-enabled", unit])
@@ -136,14 +136,24 @@ fn check_service_status(name: &str, unit: &str) -> Option<ServiceEntry> {
 
 fn discover_network_configs() -> Vec<ConfigFileEntry> {
     let config_paths = [
-        ("/etc/NetworkManager/NetworkManager.conf", "main configuration"),
-        ("/etc/NetworkManager/system-connections", "connection profiles"),
-        ("/etc/wpa_supplicant/wpa_supplicant.conf", "WPA configuration"),
+        (
+            "/etc/NetworkManager/NetworkManager.conf",
+            "main configuration",
+        ),
+        (
+            "/etc/NetworkManager/system-connections",
+            "connection profiles",
+        ),
+        (
+            "/etc/wpa_supplicant/wpa_supplicant.conf",
+            "WPA configuration",
+        ),
         ("/etc/systemd/network", "systemd-networkd config"),
         ("/etc/resolv.conf", "DNS resolver"),
     ];
 
-    config_paths.iter()
+    config_paths
+        .iter()
         .map(|(path, desc)| ConfigFileEntry {
             path: path.to_string(),
             exists: Path::new(path).exists(),
@@ -199,7 +209,10 @@ fn discover_display_services() -> Vec<ServiceEntry> {
         ("mutter", "gnome-shell.service"),
         // Portals
         ("xdg-desktop-portal", "xdg-desktop-portal.service"),
-        ("xdg-desktop-portal-hyprland", "xdg-desktop-portal-hyprland.service"),
+        (
+            "xdg-desktop-portal-hyprland",
+            "xdg-desktop-portal-hyprland.service",
+        ),
         ("xdg-desktop-portal-gtk", "xdg-desktop-portal-gtk.service"),
         ("xdg-desktop-portal-wlr", "xdg-desktop-portal-wlr.service"),
         // Display managers
@@ -234,9 +247,7 @@ fn check_user_service_status(name: &str, unit: &str) -> Option<ServiceEntry> {
         .args(["--user", "is-active", unit])
         .output();
 
-    let active = output.as_ref()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    let active = output.as_ref().map(|o| o.status.success()).unwrap_or(false);
 
     if !active {
         return None;
@@ -252,24 +263,31 @@ fn check_user_service_status(name: &str, unit: &str) -> Option<ServiceEntry> {
 
 fn discover_display_configs() -> Vec<ConfigFileEntry> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let xdg_config = std::env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| format!("{}/.config", home));
+    let xdg_config =
+        std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
     let config_paths = [
-        (format!("{}/hypr/hyprland.conf", xdg_config), "Hyprland config"),
+        (
+            format!("{}/hypr/hyprland.conf", xdg_config),
+            "Hyprland config",
+        ),
         (format!("{}/sway/config", xdg_config), "Sway config"),
         ("/etc/gdm/custom.conf".to_string(), "GDM config"),
         ("/etc/sddm.conf".to_string(), "SDDM config"),
-        (format!("{}/xdg-desktop-portal/portals.conf", xdg_config), "Portal config"),
+        (
+            format!("{}/xdg-desktop-portal/portals.conf", xdg_config),
+            "Portal config",
+        ),
     ];
 
-    config_paths.into_iter()
+    config_paths
+        .into_iter()
         .map(|(path, desc)| ConfigFileEntry {
             exists: Path::new(&path).exists(),
             path,
             description: Some(desc.to_string()),
         })
-        .filter(|c| c.exists)  // Only show existing for display
+        .filter(|c| c.exists) // Only show existing for display
         .collect()
 }
 
@@ -331,17 +349,30 @@ fn discover_audio_services() -> Vec<ServiceEntry> {
 
 fn discover_audio_configs() -> Vec<ConfigFileEntry> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let xdg_config = std::env::var("XDG_CONFIG_HOME")
-        .unwrap_or_else(|_| format!("{}/.config", home));
+    let xdg_config =
+        std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
 
     let config_paths = [
-        (format!("{}/pipewire/pipewire.conf", xdg_config), "PipeWire config"),
-        (format!("{}/wireplumber/wireplumber.conf", xdg_config), "WirePlumber config"),
-        ("/etc/pipewire/pipewire.conf".to_string(), "System PipeWire config"),
-        (format!("{}/pulse/default.pa", xdg_config), "PulseAudio config"),
+        (
+            format!("{}/pipewire/pipewire.conf", xdg_config),
+            "PipeWire config",
+        ),
+        (
+            format!("{}/wireplumber/wireplumber.conf", xdg_config),
+            "WirePlumber config",
+        ),
+        (
+            "/etc/pipewire/pipewire.conf".to_string(),
+            "System PipeWire config",
+        ),
+        (
+            format!("{}/pulse/default.pa", xdg_config),
+            "PulseAudio config",
+        ),
     ];
 
-    config_paths.into_iter()
+    config_paths
+        .into_iter()
         .map(|(path, desc)| ConfigFileEntry {
             exists: Path::new(&path).exists(),
             path,
@@ -407,7 +438,8 @@ fn discover_power_configs() -> Vec<ConfigFileEntry> {
         ("/etc/thermald", "thermald config"),
     ];
 
-    config_paths.iter()
+    config_paths
+        .iter()
         .map(|(path, desc)| ConfigFileEntry {
             path: path.to_string(),
             exists: Path::new(path).exists(),
@@ -437,8 +469,17 @@ fn collect_sw_log_patterns(service_names: &[&str]) -> Vec<(String, String, usize
 
     for name in service_names {
         let output = Command::new("journalctl")
-            .args(["-b", "-u", &format!("{}.service", name),
-                   "-p", "warning..alert", "--no-pager", "-q", "-o", "cat"])
+            .args([
+                "-b",
+                "-u",
+                &format!("{}.service", name),
+                "-p",
+                "warning..alert",
+                "--no-pager",
+                "-q",
+                "-o",
+                "cat",
+            ])
             .output();
 
         if let Ok(out) = output {
@@ -453,7 +494,8 @@ fn collect_sw_log_patterns(service_names: &[&str]) -> Vec<(String, String, usize
         }
     }
 
-    let mut result: Vec<_> = patterns.into_iter()
+    let mut result: Vec<_> = patterns
+        .into_iter()
         .map(|(msg, count)| (String::new(), msg, count))
         .collect();
 
@@ -462,7 +504,10 @@ fn collect_sw_log_patterns(service_names: &[&str]) -> Vec<(String, String, usize
     // Assign pattern IDs based on category
     let prefix = if service_names.iter().any(|n| n.contains("Network")) {
         "NET"
-    } else if service_names.iter().any(|n| n.contains("pipewire") || n.contains("pulse")) {
+    } else if service_names
+        .iter()
+        .any(|n| n.contains("pipewire") || n.contains("pulse"))
+    {
         "AUD"
     } else {
         "SVC"
@@ -479,7 +524,8 @@ fn collect_sw_log_patterns(service_names: &[&str]) -> Vec<(String, String, usize
 /// Check if this is a known software category
 pub fn is_sw_category(name: &str) -> bool {
     let lower = name.to_lowercase();
-    matches!(lower.as_str(),
+    matches!(
+        lower.as_str(),
         "network" | "net" | "display" | "audio" | "sound" | "power" | "battery"
     )
 }

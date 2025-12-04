@@ -183,11 +183,34 @@ const PERFORMANCE_KEYWORDS: &[&str] = &[
 
 /// Keywords indicating a problem report (not just informational)
 const PROBLEM_KEYWORDS: &[&str] = &[
-    "down", "broken", "not working", "doesn't work", "can't", "cannot",
-    "failed", "failing", "error", "problem", "issue", "wrong", "slow",
-    "dead", "no sound", "no audio", "no internet", "no connection",
-    "keeps", "disconnecting", "crashing", "freezing", "stuck",
-    "won't", "help", "fix", "why is", "what's wrong",
+    "down",
+    "broken",
+    "not working",
+    "doesn't work",
+    "can't",
+    "cannot",
+    "failed",
+    "failing",
+    "error",
+    "problem",
+    "issue",
+    "wrong",
+    "slow",
+    "dead",
+    "no sound",
+    "no audio",
+    "no internet",
+    "no connection",
+    "keeps",
+    "disconnecting",
+    "crashing",
+    "freezing",
+    "stuck",
+    "won't",
+    "help",
+    "fix",
+    "why is",
+    "what's wrong",
 ];
 
 /// Check if request looks like a problem report (vs informational query)
@@ -203,8 +226,14 @@ pub fn is_problem_report(request: &str) -> bool {
 
     // Informational queries start with "what", "how much", "which", etc.
     let informational_starts = [
-        "what is", "what's my", "how much", "how many",
-        "which", "show me", "tell me about", "list",
+        "what is",
+        "what's my",
+        "how much",
+        "how many",
+        "which",
+        "show me",
+        "tell me about",
+        "list",
     ];
     for start in informational_starts {
         if lower.starts_with(start) {
@@ -222,10 +251,26 @@ pub fn is_problem_report(request: &str) -> bool {
 
 /// Keywords that indicate a change request
 const CHANGE_REQUEST_KEYWORDS: &[&str] = &[
-    "install", "remove", "uninstall", "update", "upgrade",
-    "enable", "disable", "start", "stop", "restart",
-    "configure", "setup", "set up", "change", "modify",
-    "add", "delete", "create", "edit", "fix",
+    "install",
+    "remove",
+    "uninstall",
+    "update",
+    "upgrade",
+    "enable",
+    "disable",
+    "start",
+    "stop",
+    "restart",
+    "configure",
+    "setup",
+    "set up",
+    "change",
+    "modify",
+    "add",
+    "delete",
+    "create",
+    "edit",
+    "fix",
 ];
 
 /// Detect the ticket type from request text
@@ -262,9 +307,7 @@ pub fn detect_ticket_type(request: &str) -> TicketType {
 
 /// Create a work order from ticket and routing plan
 pub fn create_work_order(ticket: &Ticket, routing: &RoutingPlan) -> WorkOrder {
-    let department = DepartmentName::from_department(
-        ticket.category.to_department()
-    );
+    let department = DepartmentName::from_department(ticket.category.to_department());
 
     let goals = generate_goals(ticket);
     let topics = routing.evidence_topics.clone();
@@ -568,7 +611,9 @@ impl HumanNarrationPlan {
             "I'll gather the information for you.".to_string()
         };
 
-        let evidence_descriptions = routing.evidence_topics.iter()
+        let evidence_descriptions = routing
+            .evidence_topics
+            .iter()
             .map(|t| t.human_label().to_string())
             .collect();
 
@@ -630,8 +675,10 @@ pub fn dispatch_request(request: &str, targets: &[String]) -> DispatchResult {
         severity,
         confidence: triage.confidence,
         suspected_domains: if let Some(sec) = triage.secondary {
-            vec![TicketCategory::from_department(triage.department),
-                 TicketCategory::from_department(sec)]
+            vec![
+                TicketCategory::from_department(triage.department),
+                TicketCategory::from_department(sec),
+            ]
         } else {
             vec![TicketCategory::from_department(triage.department)]
         },
@@ -687,7 +734,12 @@ fn determine_severity(request: &str, triage: &TriageResult, is_problem: bool) ->
     }
 
     // Medium: problem but not outage
-    if is_problem || triage.linked_alerts.iter().any(|(_, t)| *t != AlertType::JournalErrorBurst) {
+    if is_problem
+        || triage
+            .linked_alerts
+            .iter()
+            .any(|(_, t)| *t != AlertType::JournalErrorBurst)
+    {
         return TicketSeverity::Medium;
     }
 
@@ -720,11 +772,7 @@ fn create_routing_plan(
     if let Some(name) = doctor_name {
         // Map category to relevant evidence topics
         let topics = category_to_evidence_topics(ticket.category);
-        RoutingPlan::doctor(
-            name,
-            topics,
-            &format!("Problem report routed to {}", name),
-        )
+        RoutingPlan::doctor(name, topics, &format!("Problem report routed to {}", name))
     } else {
         // Fallback to evidence topic router
         if topic != EvidenceTopic::Unknown {
@@ -935,9 +983,7 @@ fn find_linked_alerts(request: &str) -> Vec<(String, AlertType)> {
                     || request.contains("full")
             }
             AlertType::BootRegression => {
-                request.contains("boot")
-                    || request.contains("slow")
-                    || request.contains("startup")
+                request.contains("boot") || request.contains("slow") || request.contains("startup")
             }
             AlertType::ServiceFailed => {
                 request.contains("service")
@@ -1011,7 +1057,8 @@ pub fn find_case_for_alert(alert_id: &str) -> Option<CaseFileV2> {
     for entry in std::fs::read_dir(cases_dir).ok()? {
         let entry = entry.ok()?;
         if entry.path().is_dir() {
-            if let Ok(case) = crate::case_lifecycle::load_case_v2(&entry.file_name().to_string_lossy())
+            if let Ok(case) =
+                crate::case_lifecycle::load_case_v2(&entry.file_name().to_string_lossy())
             {
                 if case.linked_alert_ids.contains(&alert_id.to_string()) && case.status.is_active()
                 {
@@ -1095,7 +1142,7 @@ mod tests {
     fn test_triage_networking() {
         let result = triage_request("my wifi keeps disconnecting", &[]);
         assert_eq!(result.department, Department::Networking);
-        assert!(result.confidence >= 15);  // v0.0.64: lowered threshold
+        assert!(result.confidence >= 15); // v0.0.64: lowered threshold
         assert!(result.matched_keywords.contains(&"wifi".to_string()));
     }
 
@@ -1128,7 +1175,7 @@ mod tests {
 
     #[test]
     fn test_triage_ambiguous() {
-        let result = triage_request("hello", &[]);  // "help" triggers PROBLEM_KEYWORDS
+        let result = triage_request("hello", &[]); // "help" triggers PROBLEM_KEYWORDS
         assert_eq!(result.department, Department::ServiceDesk);
         assert!(result.confidence < 15);
     }
@@ -1208,23 +1255,47 @@ mod tests {
     // v0.0.66: Ticket Type Detection Tests
     #[test]
     fn test_ticket_type_question() {
-        assert_eq!(detect_ticket_type("how much memory do I have"), TicketType::Question);
-        assert_eq!(detect_ticket_type("what is my kernel version"), TicketType::Question);
-        assert_eq!(detect_ticket_type("show me disk usage"), TicketType::Question);
+        assert_eq!(
+            detect_ticket_type("how much memory do I have"),
+            TicketType::Question
+        );
+        assert_eq!(
+            detect_ticket_type("what is my kernel version"),
+            TicketType::Question
+        );
+        assert_eq!(
+            detect_ticket_type("show me disk usage"),
+            TicketType::Question
+        );
     }
 
     #[test]
     fn test_ticket_type_incident() {
-        assert_eq!(detect_ticket_type("wifi keeps disconnecting"), TicketType::Incident);
-        assert_eq!(detect_ticket_type("no sound from speakers"), TicketType::Incident);
+        assert_eq!(
+            detect_ticket_type("wifi keeps disconnecting"),
+            TicketType::Incident
+        );
+        assert_eq!(
+            detect_ticket_type("no sound from speakers"),
+            TicketType::Incident
+        );
         assert_eq!(detect_ticket_type("network is down"), TicketType::Incident);
     }
 
     #[test]
     fn test_ticket_type_change_request() {
-        assert_eq!(detect_ticket_type("install firefox"), TicketType::ChangeRequest);
-        assert_eq!(detect_ticket_type("please restart the service"), TicketType::ChangeRequest);
-        assert_eq!(detect_ticket_type("can you enable bluetooth"), TicketType::ChangeRequest);
+        assert_eq!(
+            detect_ticket_type("install firefox"),
+            TicketType::ChangeRequest
+        );
+        assert_eq!(
+            detect_ticket_type("please restart the service"),
+            TicketType::ChangeRequest
+        );
+        assert_eq!(
+            detect_ticket_type("can you enable bluetooth"),
+            TicketType::ChangeRequest
+        );
     }
 
     // v0.0.66: Work Order Tests

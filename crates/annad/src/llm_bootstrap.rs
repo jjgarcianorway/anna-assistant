@@ -9,19 +9,17 @@
 //! - Tracks installations as anna-installed for clean uninstall
 
 use anna_common::{
-    AnnaConfig,
-    OllamaClient, OllamaError,
-    model_selection::{
-        BootstrapPhase, BootstrapState, HardwareProfile, LlmRole,
-        ModelCandidate, ModelSelection, DownloadProgress,
-        default_candidates, select_model_for_role,
-    },
     helpers::{install_ollama, is_command_available, HelpersManifest},
+    model_selection::{
+        default_candidates, select_model_for_role, BootstrapPhase, BootstrapState,
+        DownloadProgress, HardwareProfile, LlmRole, ModelCandidate, ModelSelection,
+    },
+    AnnaConfig, OllamaClient, OllamaError,
 };
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 /// Shared bootstrap state for status reporting
 pub type SharedBootstrapState = Arc<RwLock<BootstrapState>>;
@@ -109,12 +107,18 @@ pub async fn run_bootstrap(
             let install_result = install_ollama();
 
             if install_result.success {
-                info!("[+]  Ollama installed successfully (version: {})",
-                    install_result.version.as_deref().unwrap_or("unknown"));
+                info!(
+                    "[+]  Ollama installed successfully (version: {})",
+                    install_result.version.as_deref().unwrap_or("unknown")
+                );
 
                 // Record as anna-installed for clean uninstall
                 let mut manifest = HelpersManifest::load();
-                manifest.record_anna_install("ollama", "Local LLM inference", install_result.version);
+                manifest.record_anna_install(
+                    "ollama",
+                    "Local LLM inference",
+                    install_result.version,
+                );
                 let _ = manifest.save();
 
                 // Enable and start Ollama service
@@ -128,7 +132,9 @@ pub async fn run_bootstrap(
                 // Wait for service to come up
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             } else {
-                let err_msg = install_result.error.unwrap_or_else(|| "Unknown error".to_string());
+                let err_msg = install_result
+                    .error
+                    .unwrap_or_else(|| "Unknown error".to_string());
                 error!("[!]  Failed to install Ollama: {}", err_msg);
 
                 let mut s = state.write().await;
@@ -137,7 +143,10 @@ pub async fn run_bootstrap(
                 s.touch();
                 let _ = s.save();
 
-                return Err(OllamaError::NotAvailable(format!("Install failed: {}", err_msg)));
+                return Err(OllamaError::NotAvailable(format!(
+                    "Install failed: {}",
+                    err_msg
+                )));
             }
         }
 
@@ -147,7 +156,10 @@ pub async fn run_bootstrap(
             {
                 let mut s = state.write().await;
                 s.phase = BootstrapPhase::Error;
-                s.error = Some(format!("Ollama not available at {} after setup", ollama_url));
+                s.error = Some(format!(
+                    "Ollama not available at {} after setup",
+                    ollama_url
+                ));
                 s.touch();
                 let _ = s.save();
             }
@@ -177,29 +189,41 @@ pub async fn run_bootstrap(
     let translator_candidates = if config.llm.translator_candidates.is_empty() {
         default_candidates(LlmRole::Translator)
     } else {
-        config.llm.translator_candidates.iter().enumerate().map(|(i, name)| {
-            ModelCandidate {
-                name: name.clone(),
-                size_bytes: 2 * 1024 * 1024 * 1024, // Assume 2GB for custom
-                priority: i as u32,
-                min_tier: anna_common::model_selection::HardwareTier::Low,
-                description: "Custom candidate".to_string(),
-            }
-        }).collect()
+        config
+            .llm
+            .translator_candidates
+            .iter()
+            .enumerate()
+            .map(|(i, name)| {
+                ModelCandidate {
+                    name: name.clone(),
+                    size_bytes: 2 * 1024 * 1024 * 1024, // Assume 2GB for custom
+                    priority: i as u32,
+                    min_tier: anna_common::model_selection::HardwareTier::Low,
+                    description: "Custom candidate".to_string(),
+                }
+            })
+            .collect()
     };
 
     let junior_candidates = if config.llm.junior_candidates.is_empty() {
         default_candidates(LlmRole::Junior)
     } else {
-        config.llm.junior_candidates.iter().enumerate().map(|(i, name)| {
-            ModelCandidate {
-                name: name.clone(),
-                size_bytes: 4 * 1024 * 1024 * 1024, // Assume 4GB for custom
-                priority: i as u32,
-                min_tier: anna_common::model_selection::HardwareTier::Low,
-                description: "Custom candidate".to_string(),
-            }
-        }).collect()
+        config
+            .llm
+            .junior_candidates
+            .iter()
+            .enumerate()
+            .map(|(i, name)| {
+                ModelCandidate {
+                    name: name.clone(),
+                    size_bytes: 4 * 1024 * 1024 * 1024, // Assume 4GB for custom
+                    priority: i as u32,
+                    min_tier: anna_common::model_selection::HardwareTier::Low,
+                    description: "Custom candidate".to_string(),
+                }
+            })
+            .collect()
     };
 
     // Use config-specified model if set, otherwise auto-select
@@ -213,7 +237,12 @@ pub async fn run_bootstrap(
             timestamp: now_epoch(),
         })
     } else {
-        select_model_for_role(LlmRole::Translator, &hardware, &available_models, &translator_candidates)
+        select_model_for_role(
+            LlmRole::Translator,
+            &hardware,
+            &available_models,
+            &translator_candidates,
+        )
     };
 
     let junior_selection = if !config.llm.junior.model.is_empty() {
@@ -226,7 +255,12 @@ pub async fn run_bootstrap(
             timestamp: now_epoch(),
         })
     } else {
-        select_model_for_role(LlmRole::Junior, &hardware, &available_models, &junior_candidates)
+        select_model_for_role(
+            LlmRole::Junior,
+            &hardware,
+            &available_models,
+            &junior_candidates,
+        )
     };
 
     if translator_selection.is_none() && junior_selection.is_none() {
@@ -244,13 +278,19 @@ pub async fn run_bootstrap(
     let mut models_to_pull: Vec<(String, String)> = Vec::new();
 
     if let Some(ref sel) = translator_selection {
-        if !available_models.iter().any(|m| model_matches(m, &sel.model)) {
+        if !available_models
+            .iter()
+            .any(|m| model_matches(m, &sel.model))
+        {
             models_to_pull.push((sel.model.clone(), "translator".to_string()));
         }
     }
 
     if let Some(ref sel) = junior_selection {
-        if !available_models.iter().any(|m| model_matches(m, &sel.model)) {
+        if !available_models
+            .iter()
+            .any(|m| model_matches(m, &sel.model))
+        {
             if !models_to_pull.iter().any(|(m, _)| m == &sel.model) {
                 models_to_pull.push((sel.model.clone(), "junior".to_string()));
             }
@@ -258,7 +298,11 @@ pub async fn run_bootstrap(
     }
 
     if !models_to_pull.is_empty() {
-        info!("[+]  Need to pull {} models: {:?}", models_to_pull.len(), models_to_pull.iter().map(|(m, _)| m).collect::<Vec<_>>());
+        info!(
+            "[+]  Need to pull {} models: {:?}",
+            models_to_pull.len(),
+            models_to_pull.iter().map(|(m, _)| m).collect::<Vec<_>>()
+        );
 
         {
             let mut s = state.write().await;
@@ -385,7 +429,9 @@ pub async fn run_bootstrap(
 fn model_matches(available: &str, target: &str) -> bool {
     let available_base = available.split(':').next().unwrap_or(available);
     let target_base = target.split(':').next().unwrap_or(target);
-    available_base == target_base || available.starts_with(target_base) || target.starts_with(available_base)
+    available_base == target_base
+        || available.starts_with(target_base)
+        || target.starts_with(available_base)
 }
 
 /// Get current epoch timestamp

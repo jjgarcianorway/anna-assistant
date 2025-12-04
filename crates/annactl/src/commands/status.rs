@@ -1,4 +1,4 @@
-//! Status Command v0.0.70 - Dual Transcript Renderer
+//! Status Command v0.0.73 - Enhanced Auto-Update Display
 //!
 //! v0.0.70: Enhanced transcript mode display in [CASES] section
 //! - Shows Human mode: IT dialogue, no tool names/evidence IDs
@@ -51,30 +51,34 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 use std::path::Path;
 
-use anna_common::config::{AnnaConfig, UpdateState, UpdateResult, UpdateMode, JuniorState};
-use anna_common::model_selection::{BootstrapState, BootstrapPhase};
-use anna_common::format_duration_secs;
-use anna_common::daemon_state::{
-    StatusSnapshot, LastCrash, SnapshotStatus,
-    INTERNAL_DIR, SNAPSHOTS_DIR, STATUS_SNAPSHOT_PATH,
-};
-use anna_common::helpers::{get_helper_status_list, InstalledBy};
-use anna_common::domain_state::{DomainSummary, RefreshRequest, REQUESTS_DIR};
-use anna_common::terminal::{DisplayMode, get_terminal_size};
-use anna_common::self_observation::SelfObservation;
-use anna_common::control_socket::{check_daemon_health, DaemonHealth, SOCKET_PATH};
 use anna_common::anomaly_engine::AlertQueue;
-use anna_common::proactive_alerts::{ProactiveAlertsState, AlertSeverity as ProactiveAlertSeverity};
-use anna_common::recipes::RecipeManager;
-use anna_common::memory::MemoryManager;
-use anna_common::policy::{get_policy, POLICY_DIR};
 use anna_common::audit_log::{AuditLogger, AUDIT_LOG_FILE};
-use anna_common::knowledge_packs::{KnowledgeIndex, KNOWLEDGE_PACKS_DIR};
-use anna_common::source_labels::QaStats;
-use anna_common::performance::{PerfStats, ToolCache, LlmCache};
-use anna_common::reliability::{MetricsStore, ErrorBudgets, BudgetState, calculate_budget_status};
+use anna_common::config::{AnnaConfig, JuniorState, UpdateMode, UpdateResult, UpdateState};
+use anna_common::control_socket::{check_daemon_health, DaemonHealth, SOCKET_PATH};
+use anna_common::daemon_state::{
+    LastCrash, SnapshotStatus, StatusSnapshot, INTERNAL_DIR, SNAPSHOTS_DIR, STATUS_SNAPSHOT_PATH,
+};
 use anna_common::display_format::{format_bytes, format_timestamp};
-use anna_common::transcript::{list_recent_cases, find_last_failure, get_cases_storage_size, load_case_summary, CaseOutcome};
+use anna_common::domain_state::{DomainSummary, RefreshRequest, REQUESTS_DIR};
+use anna_common::format_duration_secs;
+use anna_common::helpers::{get_helper_status_list, InstalledBy};
+use anna_common::knowledge_packs::{KnowledgeIndex, KNOWLEDGE_PACKS_DIR};
+use anna_common::memory::MemoryManager;
+use anna_common::model_selection::{BootstrapPhase, BootstrapState};
+use anna_common::performance::{LlmCache, PerfStats, ToolCache};
+use anna_common::policy::{get_policy, POLICY_DIR};
+use anna_common::proactive_alerts::{
+    AlertSeverity as ProactiveAlertSeverity, ProactiveAlertsState,
+};
+use anna_common::recipes::RecipeManager;
+use anna_common::reliability::{calculate_budget_status, BudgetState, ErrorBudgets, MetricsStore};
+use anna_common::self_observation::SelfObservation;
+use anna_common::source_labels::QaStats;
+use anna_common::terminal::{get_terminal_size, DisplayMode};
+use anna_common::transcript::{
+    find_last_failure, get_cases_storage_size, list_recent_cases, load_case_summary, CaseOutcome,
+};
+use anna_common::updater::UpdateStateV73;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -180,7 +184,11 @@ fn print_version_section() {
     // Get installed binary version if different
     let installed_version = get_installed_version();
     if !installed_version.is_empty() && installed_version != VERSION {
-        println!("  Installed:  v{} {}", installed_version, "(mismatch)".yellow());
+        println!(
+            "  Installed:  v{} {}",
+            installed_version,
+            "(mismatch)".yellow()
+        );
     }
 
     println!();
@@ -195,7 +203,8 @@ fn get_installed_version() -> String {
         .and_then(|o| {
             let stdout = String::from_utf8_lossy(&o.stdout);
             // Parse "annactl vX.X.X" format
-            stdout.split_whitespace()
+            stdout
+                .split_whitespace()
                 .find(|s| s.starts_with('v'))
                 .map(|s| s.trim_start_matches('v').to_string())
         })
@@ -220,11 +229,18 @@ fn print_daemon_section(
 
             // v0.0.45: Check for version mismatch between running daemon and CLI
             if status.version != VERSION {
-                println!("  {}", format!(
-                    "Version mismatch: daemon v{} != CLI v{}",
-                    status.version, VERSION
-                ).yellow());
-                println!("  {}", "Daemon restart scheduled as part of update apply.".dimmed());
+                println!(
+                    "  {}",
+                    format!(
+                        "Version mismatch: daemon v{} != CLI v{}",
+                        status.version, VERSION
+                    )
+                    .yellow()
+                );
+                println!(
+                    "  {}",
+                    "Daemon restart scheduled as part of update apply.".dimmed()
+                );
             }
 
             println!("  Uptime:     {}", format_duration_secs(status.uptime_secs));
@@ -232,7 +248,11 @@ fn print_daemon_section(
 
             if !checking_domains.is_empty() {
                 let domains_str = checking_domains.join(", ");
-                println!("  Refresh:    {} ({})", "checking...".yellow(), domains_str.dimmed());
+                println!(
+                    "  Refresh:    {} ({})",
+                    "checking...".yellow(),
+                    domains_str.dimmed()
+                );
             }
         }
         DaemonHealth::RunningSystemd => {
@@ -251,14 +271,24 @@ fn print_daemon_section(
 
                     // v0.0.45: Check version from snapshot
                     if !s.version.is_empty() {
-                        println!("  Version:    v{} {}", s.version,
-                            "(from snapshot)".dimmed());
+                        println!(
+                            "  Version:    v{} {}",
+                            s.version,
+                            "(from snapshot)".dimmed()
+                        );
                         if s.version != VERSION {
-                            println!("  {}", format!(
-                                "Version mismatch: daemon v{} != CLI v{}",
-                                s.version, VERSION
-                            ).yellow());
-                            println!("  {}", "Daemon restart scheduled as part of update apply.".dimmed());
+                            println!(
+                                "  {}",
+                                format!(
+                                    "Version mismatch: daemon v{} != CLI v{}",
+                                    s.version, VERSION
+                                )
+                                .yellow()
+                            );
+                            println!(
+                                "  {}",
+                                "Daemon restart scheduled as part of update apply.".dimmed()
+                            );
                         }
                     }
                 }
@@ -309,7 +339,10 @@ fn print_snapshot_section(status: &SnapshotStatus) {
         }
         SnapshotStatus::Missing => {
             println!("  Status:     {}", "missing".red());
-            println!("  {}", "(daemon may not have written snapshot yet)".dimmed());
+            println!(
+                "  {}",
+                "(daemon may not have written snapshot yet)".dimmed()
+            );
         }
     }
 
@@ -337,16 +370,23 @@ fn print_health_section(
             } else {
                 let total_alerts = s.alerts_critical + s.alerts_warning;
                 if s.alerts_critical > 0 {
-                    println!("  Overall:    {} {} critical, {} warning",
+                    println!(
+                        "  Overall:    {} {} critical, {} warning",
                         "✗".red(),
                         s.alerts_critical.to_string().red(),
-                        s.alerts_warning);
+                        s.alerts_warning
+                    );
                 } else if total_alerts > 0 {
-                    println!("  Overall:    {} {} warning(s)",
+                    println!(
+                        "  Overall:    {} {} warning(s)",
                         "⚠".yellow(),
-                        s.alerts_warning.to_string().yellow());
+                        s.alerts_warning.to_string().yellow()
+                    );
                 } else {
-                    println!("  Overall:    {} (snapshot indicates unhealthy)", "⚠".yellow());
+                    println!(
+                        "  Overall:    {} (snapshot indicates unhealthy)",
+                        "⚠".yellow()
+                    );
                 }
             }
 
@@ -388,7 +428,11 @@ fn print_data_section(
                 } else {
                     format!("{}h ago", scan_age / 3600)
                 };
-                println!("  Last scan:  {} (took {}ms)", age_str.dimmed(), s.last_scan_duration_ms);
+                println!(
+                    "  Last scan:  {} (took {}ms)",
+                    age_str.dimmed(),
+                    s.last_scan_duration_ms
+                );
             } else {
                 println!("  Last scan:  {}", "pending".dimmed());
             }
@@ -398,12 +442,19 @@ fn print_data_section(
                 if let Some(ds) = domain_summary {
                     let total_domains = ds.fresh_domains + ds.stale_domains + ds.missing_domains;
                     if ds.stale_domains > 0 || ds.missing_domains > 0 {
-                        println!("  Domains:    {}/{} fresh, {} stale, {} missing",
-                            ds.fresh_domains, total_domains,
+                        println!(
+                            "  Domains:    {}/{} fresh, {} stale, {} missing",
+                            ds.fresh_domains,
+                            total_domains,
                             ds.stale_domains.to_string().yellow(),
-                            ds.missing_domains);
+                            ds.missing_domains
+                        );
                     } else {
-                        println!("  Domains:    {}/{} fresh", ds.fresh_domains.to_string().green(), total_domains);
+                        println!(
+                            "  Domains:    {}/{} fresh",
+                            ds.fresh_domains.to_string().green(),
+                            total_domains
+                        );
                     }
                 }
             }
@@ -457,15 +508,34 @@ fn print_telemetry_section(snapshot: &Option<StatusSnapshot>) {
     println!();
 }
 
-/// [UPDATES] section - update scheduler state (v0.0.11 enhanced)
+/// [UPDATES] section - update scheduler state (v0.0.73: enhanced with version mismatch)
 fn print_updates_section(daemon_health: &DaemonHealth, snapshot: &Option<StatusSnapshot>) {
     println!("{}", "[UPDATES]".cyan());
 
     let state = UpdateState::load();
+    let state_v73 = UpdateStateV73::load();
     let daemon_running = daemon_health.is_running();
 
+    // v0.0.73: Check for version mismatch between CLI and daemon
+    if state_v73.has_version_mismatch() {
+        println!(
+            "  {} CLI v{} / Daemon v{}",
+            "WARNING:".yellow().bold(),
+            state_v73.current_version,
+            state_v73.current_daemon_version
+        );
+        println!(
+            "          {}",
+            "Version mismatch! Auto-update will attempt to resolve.".dimmed()
+        );
+    }
+
     // Mode and channel
-    println!("  Mode:       {} ({})", state.format_mode(), state.format_channel());
+    println!(
+        "  Mode:       {} ({})",
+        state.format_mode(),
+        state.format_channel()
+    );
 
     // Interval
     println!("  Interval:   {}", state.format_interval());
@@ -485,7 +555,11 @@ fn print_updates_section(daemon_health: &DaemonHealth, snapshot: &Option<StatusS
             println!("  Progress:   {}", progress_str.yellow());
         }
         if let Some(ref target) = state.updating_to_version {
-            println!("  Updating:   {} -> {}", state.last_checked_version_installed, target.green());
+            println!(
+                "  Updating:   {} -> {}",
+                state.last_checked_version_installed,
+                target.green()
+            );
         }
         println!();
         return;
@@ -545,9 +619,11 @@ fn print_updates_section(daemon_health: &DaemonHealth, snapshot: &Option<StatusS
     // Available version
     if let Some(ref ver) = state.last_checked_version_available {
         if !state.last_checked_version_installed.is_empty() {
-            println!("  Available:  {} -> {}",
+            println!(
+                "  Available:  {} -> {}",
                 state.last_checked_version_installed,
-                ver.green());
+                ver.green()
+            );
         }
     }
 
@@ -568,8 +644,12 @@ fn print_updates_section(daemon_health: &DaemonHealth, snapshot: &Option<StatusS
                 format!("{}h ago", ago / 3600)
             };
             if let Some(ref prev) = state.previous_version {
-                println!("  Last update: {} -> {} ({})",
-                    prev, state.last_checked_version_installed.green(), ago_str.dimmed());
+                println!(
+                    "  Last update: {} -> {} ({})",
+                    prev,
+                    state.last_checked_version_installed.green(),
+                    ago_str.dimmed()
+                );
             }
         }
     }
@@ -603,21 +683,30 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
     let total_info = proactive_counts.info + anomaly_info;
 
     // Show summary counts
-    println!("  Critical:   {}", if total_critical > 0 {
-        total_critical.to_string().red().to_string()
-    } else {
-        "0".green().to_string()
-    });
-    println!("  Warnings:   {}", if total_warning > 0 {
-        total_warning.to_string().yellow().to_string()
-    } else {
-        "0".green().to_string()
-    });
-    println!("  Info:       {}", if total_info > 0 {
-        total_info.to_string().dimmed().to_string()
-    } else {
-        "0".dimmed().to_string()
-    });
+    println!(
+        "  Critical:   {}",
+        if total_critical > 0 {
+            total_critical.to_string().red().to_string()
+        } else {
+            "0".green().to_string()
+        }
+    );
+    println!(
+        "  Warnings:   {}",
+        if total_warning > 0 {
+            total_warning.to_string().yellow().to_string()
+        } else {
+            "0".green().to_string()
+        }
+    );
+    println!(
+        "  Info:       {}",
+        if total_info > 0 {
+            total_info.to_string().dimmed().to_string()
+        } else {
+            "0".dimmed().to_string()
+        }
+    );
 
     // v0.0.58: Show proactive alerts first (high-signal)
     if !proactive_active.is_empty() {
@@ -635,10 +724,19 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
             } else {
                 String::new()
             };
-            println!("    {} {}{} ({})", severity_badge, alert.title, evidence_str, alert.age_str().dimmed());
+            println!(
+                "    {} {}{} ({})",
+                severity_badge,
+                alert.title,
+                evidence_str,
+                alert.age_str().dimmed()
+            );
         }
         if proactive_active.len() > 3 {
-            println!("    {} more alert(s)...", (proactive_active.len() - 3).to_string().dimmed());
+            println!(
+                "    {} more alert(s)...",
+                (proactive_active.len() - 3).to_string().dimmed()
+            );
         }
     }
 
@@ -653,16 +751,27 @@ fn print_alerts_section(snapshot: &Option<StatusSnapshot>) {
                 anna_common::AnomalySeverity::Warning => format!("[{}]", "WARNING".yellow()),
                 anna_common::AnomalySeverity::Info => format!("[{}]", "INFO".dimmed()),
             };
-            println!("    {} [{}] {}", severity_badge, anomaly.evidence_id.cyan(), anomaly.title);
+            println!(
+                "    {} [{}] {}",
+                severity_badge,
+                anomaly.evidence_id.cyan(),
+                anomaly.title
+            );
         }
         if legacy_active.len() > 3 {
-            println!("    {} more alert(s)...", (legacy_active.len() - 3).to_string().dimmed());
+            println!(
+                "    {} more alert(s)...",
+                (legacy_active.len() - 3).to_string().dimmed()
+            );
         }
     }
 
     // v0.0.58: Show proactive alerts snapshot age
     println!();
-    println!("  Snapshot:   {}", proactive_state.snapshot_age_str().dimmed());
+    println!(
+        "  Snapshot:   {}",
+        proactive_state.snapshot_age_str().dimmed()
+    );
 
     // Show instrumentation count from snapshot
     if let Some(s) = snapshot {
@@ -682,32 +791,54 @@ fn print_cases_section(mode: &DisplayMode) {
     let transcript_mode = anna_common::narrator::get_output_mode();
     match transcript_mode {
         anna_common::transcript_events::TranscriptMode::Human => {
-            println!("  Transcript: {} (IT dialogue, no tool names/evidence IDs)", "Human".green());
-            println!("              Enable debug: {} or {}", "ANNA_UI_TRANSCRIPT_MODE=debug".cyan(), "--debug".cyan());
+            println!(
+                "  Transcript: {} (IT dialogue, no tool names/evidence IDs)",
+                "Human".green()
+            );
+            println!(
+                "              Enable debug: {} or {}",
+                "ANNA_UI_TRANSCRIPT_MODE=debug".cyan(),
+                "--debug".cyan()
+            );
         }
         anna_common::transcript_events::TranscriptMode::Debug => {
-            println!("  Transcript: {} (tool names, evidence IDs, timing, parse warnings)", "Debug".yellow().bold());
-            println!("              Disable: {} or remove --debug", "ANNA_UI_TRANSCRIPT_MODE=human".cyan());
+            println!(
+                "  Transcript: {} (tool names, evidence IDs, timing, parse warnings)",
+                "Debug".yellow().bold()
+            );
+            println!(
+                "              Disable: {} or remove --debug",
+                "ANNA_UI_TRANSCRIPT_MODE=human".cyan()
+            );
         }
         anna_common::transcript_events::TranscriptMode::Test => {
-            println!("  Transcript: {} (same as debug, for automated testing)", "Test".cyan());
+            println!(
+                "  Transcript: {} (same as debug, for automated testing)",
+                "Test".cyan()
+            );
         }
     }
 
     // v0.0.59: Show active cases count
     let active_count = anna_common::case_lifecycle::count_active_cases();
     if active_count > 0 {
-        println!("  Active:     {} case(s) in progress", active_count.to_string().yellow());
+        println!(
+            "  Active:     {} case(s) in progress",
+            active_count.to_string().yellow()
+        );
     }
 
     // Get recent case paths and load summaries
     let recent_paths = list_recent_cases(5);
-    let recent_summaries: Vec<_> = recent_paths.iter()
+    let recent_summaries: Vec<_> = recent_paths
+        .iter()
         .filter_map(|p| load_case_summary(p))
         .collect();
 
     let last_failure_path = find_last_failure();
-    let last_failure = last_failure_path.as_ref().and_then(|p| load_case_summary(p));
+    let last_failure = last_failure_path
+        .as_ref()
+        .and_then(|p| load_case_summary(p));
     let storage_bytes = get_cases_storage_size();
 
     if recent_summaries.is_empty() {
@@ -717,12 +848,28 @@ fn print_cases_section(mode: &DisplayMode) {
     }
 
     // Summary
-    let success_count = recent_summaries.iter().filter(|c| c.outcome == CaseOutcome::Success).count();
-    let failure_count = recent_summaries.iter().filter(|c| c.outcome == CaseOutcome::Failure).count();
-    println!("  Recent:     {} ({} success, {} failure)",
+    let success_count = recent_summaries
+        .iter()
+        .filter(|c| c.outcome == CaseOutcome::Success)
+        .count();
+    let failure_count = recent_summaries
+        .iter()
+        .filter(|c| c.outcome == CaseOutcome::Failure)
+        .count();
+    println!(
+        "  Recent:     {} ({} success, {} failure)",
         recent_summaries.len(),
-        if success_count > 0 { success_count.to_string().green().to_string() } else { "0".to_string() },
-        if failure_count > 0 { failure_count.to_string().red().to_string() } else { "0".to_string() });
+        if success_count > 0 {
+            success_count.to_string().green().to_string()
+        } else {
+            "0".to_string()
+        },
+        if failure_count > 0 {
+            failure_count.to_string().red().to_string()
+        } else {
+            "0".to_string()
+        }
+    );
 
     // Storage
     println!("  Storage:    {}", format_bytes(storage_bytes));
@@ -734,10 +881,12 @@ fn print_cases_section(mode: &DisplayMode) {
             CaseOutcome::Partial => "partial".yellow().to_string(),
             _ => "unknown".dimmed().to_string(),
         };
-        println!("  Last fail:  {} - {} ({})",
+        println!(
+            "  Last fail:  {} - {} ({})",
             failure.request_id.cyan(),
             truncate_str(&failure.user_request, 30),
-            outcome_str);
+            outcome_str
+        );
     }
 
     // In compact mode, skip case list
@@ -758,11 +907,13 @@ fn print_cases_section(mode: &DisplayMode) {
         };
         // Format timestamp
         let time_str = case.timestamp.format("%H:%M:%S").to_string();
-        println!("    {} {} {} {}",
+        println!(
+            "    {} {} {} {}",
             time_str.dimmed(),
             outcome_badge,
             case.request_id.cyan(),
-            truncate_str(&case.user_request, 35));
+            truncate_str(&case.user_request, 35)
+        );
     }
 
     println!();
@@ -806,7 +957,11 @@ fn print_paths_section() {
     if Path::new(SOCKET_PATH).exists() {
         println!("  Socket:     {}", SOCKET_PATH);
     } else {
-        println!("  Socket:     {} {}", SOCKET_PATH, "(daemon will create)".dimmed());
+        println!(
+            "  Socket:     {} {}",
+            SOCKET_PATH,
+            "(daemon will create)".dimmed()
+        );
     }
 
     // Logs hint
@@ -830,12 +985,21 @@ fn print_helpers_section(mode: &DisplayMode) {
     // Count stats
     let present_count = helpers.iter().filter(|h| h.present).count();
     let missing_count = helpers.iter().filter(|h| !h.present).count();
-    let anna_installed = helpers.iter().filter(|h| h.installed_by == InstalledBy::Anna).count();
+    let anna_installed = helpers
+        .iter()
+        .filter(|h| h.installed_by == InstalledBy::Anna)
+        .count();
 
-    println!("  Summary:    {} present, {} missing ({} by Anna)",
+    println!(
+        "  Summary:    {} present, {} missing ({} by Anna)",
         present_count.to_string().green(),
-        if missing_count > 0 { missing_count.to_string().yellow().to_string() } else { "0".to_string() },
-        anna_installed);
+        if missing_count > 0 {
+            missing_count.to_string().yellow().to_string()
+        } else {
+            "0".to_string()
+        },
+        anna_installed
+    );
 
     // In compact mode, just show summary
     if *mode == DisplayMode::Compact {
@@ -856,7 +1020,10 @@ fn print_helpers_section(mode: &DisplayMode) {
             ("present".green().to_string(), by)
         } else {
             // v0.0.30: Missing helper - Anna installs on daemon restart
-            ("missing".yellow().to_string(), "restart daemon to install".dimmed().to_string())
+            (
+                "missing".yellow().to_string(),
+                "restart daemon to install".dimmed().to_string(),
+            )
         };
 
         println!("  {} ({}, {})", helper.name, presence, action);
@@ -883,13 +1050,18 @@ fn print_learning_section(mode: &DisplayMode) {
     let memory_stats = MemoryManager::default().get_stats();
 
     // Recipes count
-    println!("  Recipes:    {}", if recipe_stats.total_recipes > 0 {
-        format!("{} ({} total uses)",
-            recipe_stats.total_recipes.to_string().green(),
-            recipe_stats.total_uses)
-    } else {
-        "0 (none yet)".dimmed().to_string()
-    });
+    println!(
+        "  Recipes:    {}",
+        if recipe_stats.total_recipes > 0 {
+            format!(
+                "{} ({} total uses)",
+                recipe_stats.total_recipes.to_string().green(),
+                recipe_stats.total_uses
+            )
+        } else {
+            "0 (none yet)".dimmed().to_string()
+        }
+    );
 
     // Last learned time
     if let Some(last) = recipe_stats.last_created_at {
@@ -923,20 +1095,32 @@ fn print_learning_section(mode: &DisplayMode) {
         println!();
         println!("  Top recipes:");
         for recipe in &top_recipes {
-            println!("    [{}] {} ({} uses, {:.0}%)",
+            println!(
+                "    [{}] {} ({} uses, {:.0}%)",
                 recipe.id.cyan(),
                 truncate_str(&recipe.name, 30),
                 recipe.success_count,
-                recipe.confidence * 100.0);
+                recipe.confidence * 100.0
+            );
         }
     }
 
     // Memory settings (in standard/wide mode)
     println!();
     println!("  Settings:");
-    println!("    Store raw:      {}", if config.memory.store_raw { "yes" } else { "no (summaries only)" });
+    println!(
+        "    Store raw:      {}",
+        if config.memory.store_raw {
+            "yes"
+        } else {
+            "no (summaries only)"
+        }
+    );
     println!("    Max sessions:   {}", config.memory.max_sessions);
-    println!("    Min reliability: {}%", config.memory.min_reliability_for_recipe);
+    println!(
+        "    Min reliability: {}%",
+        config.memory.min_reliability_for_recipe
+    );
 
     println!();
 }
@@ -993,11 +1177,14 @@ fn print_knowledge_section(mode: &DisplayMode) {
                     };
 
                     // Show summary
-                    println!("  Packs:      {}", if stats.pack_count > 0 {
-                        stats.pack_count.to_string().green().to_string()
-                    } else {
-                        "0 (none)".dimmed().to_string()
-                    });
+                    println!(
+                        "  Packs:      {}",
+                        if stats.pack_count > 0 {
+                            stats.pack_count.to_string().green().to_string()
+                        } else {
+                            "0 (none)".dimmed().to_string()
+                        }
+                    );
                     println!("  Documents:  {}", stats.document_count);
                     println!("  Index size: {}", size_str);
                     println!("  Last index: {}", last_indexed_str);
@@ -1067,15 +1254,16 @@ fn print_qa_section() {
     println!("  Avg reliability: {}", reliability_color);
 
     // Show citation counts
-    println!("  Citations:  K:{} E:{} R:{}",
-        stats.knowledge_citations,
-        stats.evidence_citations,
-        stats.reasoning_labels);
+    println!(
+        "  Citations:  K:{} E:{} R:{}",
+        stats.knowledge_citations, stats.evidence_citations, stats.reasoning_labels
+    );
 
     // Show top source types
     let top_sources = stats.top_source_types(3);
     if !top_sources.is_empty() {
-        let sources_str: Vec<String> = top_sources.iter()
+        let sources_str: Vec<String> = top_sources
+            .iter()
             .map(|(name, count)| format!("{}: {}", name, count))
             .collect();
         println!("  Top sources: {}", sources_str.join(", "));
@@ -1116,8 +1304,10 @@ fn print_performance_section(mode: &DisplayMode) {
     } else {
         format!("{}%", hit_rate).dimmed().to_string()
     };
-    println!("  Cache hit:  {} ({} hits, {} misses)",
-        hit_rate_str, stats.cache_hits, stats.cache_misses);
+    println!(
+        "  Cache hit:  {} ({} hits, {} misses)",
+        hit_rate_str, stats.cache_hits, stats.cache_misses
+    );
 
     // In compact mode, skip details
     if *mode == DisplayMode::Compact {
@@ -1138,24 +1328,36 @@ fn print_performance_section(mode: &DisplayMode) {
     // Cache storage stats
     let tool_stats = tool_cache.stats();
     let llm_stats = llm_cache.stats();
-    if tool_stats.total_entries > 0 || llm_stats.translator_entries > 0 || llm_stats.junior_entries > 0 {
+    if tool_stats.total_entries > 0
+        || llm_stats.translator_entries > 0
+        || llm_stats.junior_entries > 0
+    {
         println!();
         println!("  Cache storage:");
         if tool_stats.total_entries > 0 {
-            println!("    Tool cache:  {} entries ({})",
-                tool_stats.total_entries, format_bytes(tool_stats.total_size_bytes));
+            println!(
+                "    Tool cache:  {} entries ({})",
+                tool_stats.total_entries,
+                format_bytes(tool_stats.total_size_bytes)
+            );
         }
         if llm_stats.translator_entries > 0 || llm_stats.junior_entries > 0 {
-            println!("    LLM cache:   {} translator, {} junior ({})",
-                llm_stats.translator_entries, llm_stats.junior_entries,
-                format_bytes(llm_stats.total_size_bytes));
+            println!(
+                "    LLM cache:   {} translator, {} junior ({})",
+                llm_stats.translator_entries,
+                llm_stats.junior_entries,
+                format_bytes(llm_stats.total_size_bytes)
+            );
         }
     }
 
     // Budget violations
     if !stats.budget_violations.is_empty() {
         println!();
-        println!("  Budget violations: {}", stats.budget_violations.len().to_string().yellow());
+        println!(
+            "  Budget violations: {}",
+            stats.budget_violations.len().to_string().yellow()
+        );
     }
 
     println!();
@@ -1189,17 +1391,27 @@ fn print_reliability_section(mode: &DisplayMode) {
     }
 
     // Check for any issues
-    let critical_count = statuses.iter()
+    let critical_count = statuses
+        .iter()
         .filter(|s| s.status == BudgetState::Critical || s.status == BudgetState::Exhausted)
         .count();
-    let warning_count = statuses.iter()
+    let warning_count = statuses
+        .iter()
         .filter(|s| s.status == BudgetState::Warning)
         .count();
 
     if critical_count > 0 {
-        println!("  Status:     {} ({} budget(s) critical)", "CRITICAL".red().bold(), critical_count);
+        println!(
+            "  Status:     {} ({} budget(s) critical)",
+            "CRITICAL".red().bold(),
+            critical_count
+        );
     } else if warning_count > 0 {
-        println!("  Status:     {} ({} budget(s) warning)", "warning".yellow(), warning_count);
+        println!(
+            "  Status:     {} ({} budget(s) warning)",
+            "warning".yellow(),
+            warning_count
+        );
     } else {
         println!("  Status:     {} (all budgets healthy)", "healthy".green());
     }
@@ -1207,18 +1419,20 @@ fn print_reliability_section(mode: &DisplayMode) {
     // Show each budget status
     println!();
     for status in &statuses {
-        let burn_str = format!("{:.1}%/{:.1}%", status.current_percent, status.budget_percent);
+        let burn_str = format!(
+            "{:.1}%/{:.1}%",
+            status.current_percent, status.budget_percent
+        );
         let status_str = match status.status {
             BudgetState::Ok => burn_str.green().to_string(),
             BudgetState::Warning => burn_str.yellow().to_string(),
             BudgetState::Critical => burn_str.red().to_string(),
             BudgetState::Exhausted => format!("{} EXCEEDED", burn_str).red().bold().to_string(),
         };
-        println!("  {}: {} ({}/{})",
-            status.category,
-            status_str,
-            status.failed_events,
-            status.total_events);
+        println!(
+            "  {}: {} ({}/{})",
+            status.category, status_str, status.failed_events, status.total_events
+        );
     }
 
     // In compact mode, skip extra details
@@ -1234,8 +1448,10 @@ fn print_reliability_section(mode: &DisplayMode) {
     if request_total > 0 {
         let rate = (request_success as f64 / request_total as f64) * 100.0;
         println!();
-        println!("  Requests:   {}/{} ({:.1}% success)",
-            request_success, request_total, rate);
+        println!(
+            "  Requests:   {}/{} ({:.1}% success)",
+            request_success, request_total, rate
+        );
     }
 
     // Show latency percentiles if available
@@ -1257,9 +1473,15 @@ fn print_policy_section() {
     // Check if policy files exist
     let policy_dir = Path::new(POLICY_DIR);
     if !policy_dir.exists() {
-        println!("  Status:     {} (policy dir missing)", "not loaded".yellow());
+        println!(
+            "  Status:     {} (policy dir missing)",
+            "not loaded".yellow()
+        );
         println!("  Path:       {}", POLICY_DIR);
-        println!("  Run:        {} to create defaults", "annactl reset".dimmed());
+        println!(
+            "  Run:        {} to create defaults",
+            "annactl reset".dimmed()
+        );
         println!();
         return;
     }
@@ -1270,8 +1492,16 @@ fn print_policy_section() {
 
     // Show capabilities summary
     let caps = &policy.capabilities;
-    let read_only_str = if caps.read_only_tools.enabled { "enabled".green().to_string() } else { "disabled".yellow().to_string() };
-    let mutation_str = if caps.mutation_tools.enabled { "enabled".green().to_string() } else { "disabled".yellow().to_string() };
+    let read_only_str = if caps.read_only_tools.enabled {
+        "enabled".green().to_string()
+    } else {
+        "disabled".yellow().to_string()
+    };
+    let mutation_str = if caps.mutation_tools.enabled {
+        "enabled".green().to_string()
+    } else {
+        "disabled".yellow().to_string()
+    };
     println!("  Read-only:  {}", read_only_str);
     println!("  Mutations:  {}", mutation_str);
 
@@ -1279,12 +1509,15 @@ fn print_policy_section() {
     let blocked = &policy.blocked;
     let blocked_packages = blocked.packages.exact.len() + blocked.packages.patterns.len();
     let blocked_services = blocked.services.exact.len() + blocked.services.patterns.len();
-    let blocked_paths = blocked.paths.exact.len() + blocked.paths.prefixes.len() + blocked.paths.patterns.len();
+    let blocked_paths =
+        blocked.paths.exact.len() + blocked.paths.prefixes.len() + blocked.paths.patterns.len();
     let blocked_commands = blocked.commands.exact.len() + blocked.commands.patterns.len();
     let total_blocked = blocked_packages + blocked_services + blocked_paths + blocked_commands;
     if total_blocked > 0 {
-        println!("  Protected:  {} paths Anna won't modify (safety policy)",
-            blocked_paths);
+        println!(
+            "  Protected:  {} paths Anna won't modify (safety policy)",
+            blocked_paths
+        );
     } else {
         println!("  Protected:  default safety rules");
     }
@@ -1292,7 +1525,10 @@ fn print_policy_section() {
     // Show last modified time for policy files
     if let Ok(metadata) = std::fs::metadata(format!("{}/capabilities.toml", POLICY_DIR)) {
         if let Ok(modified) = metadata.modified() {
-            let epoch = modified.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+            let epoch = modified
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
             println!("  Modified:   {}", format_timestamp(epoch).dimmed());
         }
     }
@@ -1326,7 +1562,9 @@ fn print_models_section() {
                 if err.contains("not available") {
                     "unavailable".red().to_string()
                 } else {
-                    format!("error: {}", truncate_str(err, 40)).red().to_string()
+                    format!("error: {}", truncate_str(err, 40))
+                        .red()
+                        .to_string()
                 }
             } else {
                 "error".red().to_string()
@@ -1338,10 +1576,12 @@ fn print_models_section() {
 
     // v0.0.35: Hardware tier for model selection context
     if let Some(ref hw) = bootstrap_state.hardware {
-        println!("  Hardware:   {} tier ({} RAM, {} cores)",
+        println!(
+            "  Hardware:   {} tier ({} RAM, {} cores)",
             hw.tier.to_string().cyan(),
             anna_common::model_selection::HardwareProfile::format_memory(hw.total_ram_bytes),
-            hw.cpu_cores);
+            hw.cpu_cores
+        );
     }
 
     // Translator model from bootstrap state
@@ -1351,9 +1591,11 @@ fn print_models_section() {
         // Show download progress if available
         if let Some(ref progress) = bootstrap_state.download_progress {
             if progress.role == "translator" {
-                format!("downloading {} ({:.1}%)",
+                format!(
+                    "downloading {} ({:.1}%)",
                     progress.model.yellow(),
-                    (progress.downloaded_bytes as f64 / progress.total_bytes.max(1) as f64) * 100.0)
+                    (progress.downloaded_bytes as f64 / progress.total_bytes.max(1) as f64) * 100.0
+                )
             } else {
                 "(waiting)".yellow().to_string()
             }
@@ -1361,9 +1603,17 @@ fn print_models_section() {
             "(downloading)".yellow().to_string()
         }
     } else if !config.llm.translator.model.is_empty() {
-        format!("{} ({})", config.llm.translator.model, "configured".dimmed())
+        format!(
+            "{} ({})",
+            config.llm.translator.model,
+            "configured".dimmed()
+        )
     } else {
-        format!("{} ({})", "(auto-select)".dimmed(), "fallback: deterministic".yellow())
+        format!(
+            "{} ({})",
+            "(auto-select)".dimmed(),
+            "fallback: deterministic".yellow()
+        )
     };
     println!("  Translator: {}", translator_status);
 
@@ -1373,9 +1623,11 @@ fn print_models_section() {
     } else if bootstrap_state.phase == BootstrapPhase::PullingModels {
         if let Some(ref progress) = bootstrap_state.download_progress {
             if progress.role == "junior" {
-                format!("downloading {} ({:.1}%)",
+                format!(
+                    "downloading {} ({:.1}%)",
                     progress.model.yellow(),
-                    (progress.downloaded_bytes as f64 / progress.total_bytes.max(1) as f64) * 100.0)
+                    (progress.downloaded_bytes as f64 / progress.total_bytes.max(1) as f64) * 100.0
+                )
             } else {
                 "(waiting)".yellow().to_string()
             }
@@ -1384,7 +1636,11 @@ fn print_models_section() {
         }
     } else {
         // v0.0.35: Show no-Junior fallback mode
-        format!("{} ({})", "(unavailable)".red(), "reliability capped at 60%".yellow())
+        format!(
+            "{} ({})",
+            "(unavailable)".red(),
+            "reliability capped at 60%".yellow()
+        )
     };
     println!("  Junior:     {}", junior_status);
 
@@ -1393,7 +1649,10 @@ fn print_models_section() {
     let junior_ready = bootstrap_state.junior.is_some();
 
     if !is_ready {
-        println!("  Readiness:  {}", "models still downloading - limited functionality".yellow());
+        println!(
+            "  Readiness:  {}",
+            "models still downloading - limited functionality".yellow()
+        );
     } else if translator_ready && junior_ready {
         println!("  Readiness:  {}", "full capability".green());
     } else if translator_ready && !junior_ready {
@@ -1438,20 +1697,33 @@ fn print_recent_actions_section(mode: &DisplayMode) {
     }
 
     // Count by type
-    let read_only_count = recent.iter()
+    let read_only_count = recent
+        .iter()
         .filter(|e| e.entry_type == anna_common::audit_log::AuditEntryType::ReadOnlyTool)
         .count();
-    let mutation_count = recent.iter()
+    let mutation_count = recent
+        .iter()
         .filter(|e| e.entry_type == anna_common::audit_log::AuditEntryType::MutationTool)
         .count();
-    let blocked_count = recent.iter()
+    let blocked_count = recent
+        .iter()
         .filter(|e| e.entry_type == anna_common::audit_log::AuditEntryType::ActionBlocked)
         .count();
 
-    println!("  Summary:    {} read-only, {} mutations, {} blocked",
+    println!(
+        "  Summary:    {} read-only, {} mutations, {} blocked",
         read_only_count,
-        if mutation_count > 0 { mutation_count.to_string().yellow().to_string() } else { "0".to_string() },
-        if blocked_count > 0 { blocked_count.to_string().red().to_string() } else { "0".to_string() });
+        if mutation_count > 0 {
+            mutation_count.to_string().yellow().to_string()
+        } else {
+            "0".to_string()
+        },
+        if blocked_count > 0 {
+            blocked_count.to_string().red().to_string()
+        } else {
+            "0".to_string()
+        }
+    );
 
     // In compact mode, skip details
     if *mode == DisplayMode::Compact {
@@ -1475,7 +1747,11 @@ fn print_recent_actions_section(mode: &DisplayMode) {
         };
 
         let tool_name = entry.tool_name.as_deref().unwrap_or("-");
-        let evidence = entry.evidence_id.as_deref().map(|e| format!("[{}]", e.cyan())).unwrap_or_default();
+        let evidence = entry
+            .evidence_id
+            .as_deref()
+            .map(|e| format!("[{}]", e.cyan()))
+            .unwrap_or_default();
         let result = match entry.result {
             anna_common::audit_log::AuditResult::Success => "ok".green().to_string(),
             anna_common::audit_log::AuditResult::Failure => "fail".red().to_string(),
@@ -1483,12 +1759,14 @@ fn print_recent_actions_section(mode: &DisplayMode) {
             anna_common::audit_log::AuditResult::Pending => "pending".yellow().to_string(),
         };
 
-        println!("    {} {} {} {} {}",
+        println!(
+            "    {} {} {} {} {}",
             timestamp.dimmed(),
             type_str,
             tool_name,
             evidence,
-            result);
+            result
+        );
     }
 
     println!();
@@ -1528,7 +1806,10 @@ fn print_storage_section(mode: &DisplayMode) {
 
     // Show retention settings
     let config = AnnaConfig::load();
-    println!("  Retention:  {} days telemetry", config.telemetry.retention_days);
+    println!(
+        "  Retention:  {} days telemetry",
+        config.telemetry.retention_days
+    );
 
     println!();
 }

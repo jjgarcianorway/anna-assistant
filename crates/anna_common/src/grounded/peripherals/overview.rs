@@ -3,14 +3,14 @@
 //! Aggregates all peripheral discovery into a complete hardware overview.
 //! v7.35.1: Added network_interfaces for AVAILABLE QUERIES section
 
-use std::process::Command;
-use super::types::HardwareOverview;
 use super::bluetooth::get_bluetooth_summary;
-use super::usb::get_usb_summary;
-use super::multimedia::{get_audio_summary, get_camera_summary};
 use super::input::get_input_summary;
-use super::thunderbolt::{get_firewire_summary, get_thunderbolt_summary};
+use super::multimedia::{get_audio_summary, get_camera_summary};
 use super::sdcard::get_sdcard_summary;
+use super::thunderbolt::{get_firewire_summary, get_thunderbolt_summary};
+use super::types::HardwareOverview;
+use super::usb::get_usb_summary;
+use std::process::Command;
 
 /// Get complete hardware overview
 pub fn get_hardware_overview() -> HardwareOverview {
@@ -90,7 +90,10 @@ fn get_gpu_counts() -> (u32, u32) {
             let stdout = String::from_utf8_lossy(&out.stdout);
 
             for line in stdout.lines() {
-                if line.contains("VGA") || line.contains("3D controller") || line.contains("Display controller") {
+                if line.contains("VGA")
+                    || line.contains("3D controller")
+                    || line.contains("Display controller")
+                {
                     let line_lower = line.to_lowercase();
                     if line_lower.contains("intel") && !line_lower.contains("arc") {
                         integrated += 1;

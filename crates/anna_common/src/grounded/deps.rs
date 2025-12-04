@@ -59,10 +59,7 @@ pub fn get_package_deps(package: &str) -> PackageDeps {
     deps.source = "pacman -Qi, pactree".to_string();
 
     // Get direct deps from pacman -Qi
-    if let Ok(output) = Command::new("pacman")
-        .args(["-Qi", package])
-        .output()
-    {
+    if let Ok(output) = Command::new("pacman").args(["-Qi", package]).output() {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
@@ -71,7 +68,9 @@ pub fn get_package_deps(package: &str) -> PackageDeps {
                     if deps_str != "None" {
                         deps.direct = deps_str
                             .split_whitespace()
-                            .filter(|s| !s.starts_with('>') && !s.starts_with('<') && !s.starts_with('='))
+                            .filter(|s| {
+                                !s.starts_with('>') && !s.starts_with('<') && !s.starts_with('=')
+                            })
                             .map(|s| s.split('>').next().unwrap_or(s))
                             .map(|s| s.split('<').next().unwrap_or(s))
                             .map(|s| s.split('=').next().unwrap_or(s))
@@ -107,7 +106,13 @@ pub fn get_package_deps(package: &str) -> PackageDeps {
                 .lines()
                 .skip(1) // Skip the package itself
                 .filter(|l| !l.trim().is_empty())
-                .map(|l| l.trim().trim_start_matches("├──").trim_start_matches("└──").trim().to_string())
+                .map(|l| {
+                    l.trim()
+                        .trim_start_matches("├──")
+                        .trim_start_matches("└──")
+                        .trim()
+                        .to_string()
+                })
                 .take(4)
                 .collect();
         }
@@ -223,21 +228,32 @@ pub fn get_driver_related_services(driver: &str) -> Vec<String> {
     let driver_lower = driver.to_lowercase();
 
     // Network drivers
-    if driver_lower.contains("iwl") || driver_lower.contains("ath") || driver_lower.contains("mt7")
-       || driver_lower.contains("rtw") || driver_lower.contains("brcm") {
+    if driver_lower.contains("iwl")
+        || driver_lower.contains("ath")
+        || driver_lower.contains("mt7")
+        || driver_lower.contains("rtw")
+        || driver_lower.contains("brcm")
+    {
         services.insert("NetworkManager.service".to_string());
         services.insert("wpa_supplicant.service".to_string());
     }
 
     // Ethernet drivers
-    if driver_lower.contains("r8169") || driver_lower.contains("e1000") || driver_lower.contains("igb")
-       || driver_lower.contains("i40e") || driver_lower.contains("mlx") {
+    if driver_lower.contains("r8169")
+        || driver_lower.contains("e1000")
+        || driver_lower.contains("igb")
+        || driver_lower.contains("i40e")
+        || driver_lower.contains("mlx")
+    {
         services.insert("NetworkManager.service".to_string());
         services.insert("systemd-networkd.service".to_string());
     }
 
     // Bluetooth drivers
-    if driver_lower.contains("btusb") || driver_lower.contains("bluetooth") || driver_lower.contains("hci") {
+    if driver_lower.contains("btusb")
+        || driver_lower.contains("bluetooth")
+        || driver_lower.contains("hci")
+    {
         services.insert("bluetooth.service".to_string());
     }
 
@@ -250,7 +266,10 @@ pub fn get_driver_related_services(driver: &str) -> Vec<String> {
     }
 
     // Audio drivers
-    if driver_lower.contains("snd") || driver_lower.contains("hda") || driver_lower.contains("audio") {
+    if driver_lower.contains("snd")
+        || driver_lower.contains("hda")
+        || driver_lower.contains("audio")
+    {
         services.insert("pipewire.service".to_string());
         services.insert("pulseaudio.service".to_string());
     }
@@ -274,13 +293,15 @@ pub fn get_driver_related_services(driver: &str) -> Vec<String> {
     // If no services found via mapping, try to find any related active services
     if active_services.is_empty() {
         // Try common network services for network drivers
-        if driver_lower.contains("net") || driver_lower.contains("wlan") || driver_lower.contains("wifi") {
+        if driver_lower.contains("net")
+            || driver_lower.contains("wlan")
+            || driver_lower.contains("wifi")
+        {
             for svc in ["NetworkManager.service", "systemd-networkd.service"] {
-                if let Ok(output) = Command::new("systemctl")
-                    .args(["is-active", svc])
-                    .output()
-                {
-                    if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "active" {
+                if let Ok(output) = Command::new("systemctl").args(["is-active", svc]).output() {
+                    if output.status.success()
+                        && String::from_utf8_lossy(&output.stdout).trim() == "active"
+                    {
                         active_services.push(svc.to_string());
                     }
                 }
@@ -347,7 +368,10 @@ mod tests {
         // pacman should exist on Arch
         let deps = get_package_deps("pacman");
         // Should have some dependencies
-        assert!(deps.has_data() || deps.direct.is_empty(), "Should be able to query pacman deps");
+        assert!(
+            deps.has_data() || deps.direct.is_empty(),
+            "Should be able to query pacman deps"
+        );
     }
 
     #[test]

@@ -10,8 +10,8 @@
 //! planned -> preflight_ok -> confirmed -> applied -> verified_ok | rolled_back
 
 use crate::mutation_tools::{
-    MutationError, MutationPlan, MutationRequest, MutationResult,
-    MutationRisk, FileEditOp, RollbackInfo, MEDIUM_RISK_CONFIRMATION,
+    FileEditOp, MutationError, MutationPlan, MutationRequest, MutationResult, MutationRisk,
+    RollbackInfo, MEDIUM_RISK_CONFIRMATION,
 };
 use crate::policy::{get_policy, PolicyCheckResult};
 use crate::rollback::RollbackManager;
@@ -156,10 +156,15 @@ impl PreflightResult {
 
         for check in &self.checks {
             let status = if check.passed { "[OK]" } else { "[FAIL]" };
-            let evidence = check.evidence_id.as_ref()
+            let evidence = check
+                .evidence_id
+                .as_ref()
                 .map(|id| format!(" [{}]", id))
                 .unwrap_or_default();
-            output.push_str(&format!("  {} {}: {}{}\n", status, check.name, check.message, evidence));
+            output.push_str(&format!(
+                "  {} {}: {}{}\n",
+                status, check.name, check.message, evidence
+            ));
         }
 
         if let Some(hash) = &self.file_hash {
@@ -188,7 +193,11 @@ pub enum DiffLine {
     /// Line removed
     Removed { line_num: usize, content: String },
     /// Line modified
-    Modified { line_num: usize, old: String, new: String },
+    Modified {
+        line_num: usize,
+        old: String,
+        new: String,
+    },
 }
 
 /// Diff preview for a file edit
@@ -210,8 +219,10 @@ impl DiffPreview {
         let mut output = String::new();
 
         output.push_str(&format!("Changes to {}:\n", self.path.display()));
-        output.push_str(&format!("  +{} added, -{} removed, ~{} modified\n\n",
-            self.additions, self.deletions, self.modifications));
+        output.push_str(&format!(
+            "  +{} added, -{} removed, ~{} modified\n\n",
+            self.additions, self.deletions, self.modifications
+        ));
 
         // Show diff excerpt
         for line in self.lines.iter().take(MAX_DIFF_PREVIEW_LINES) {
@@ -233,8 +244,10 @@ impl DiffPreview {
         }
 
         if self.truncated {
-            output.push_str(&format!("  ... ({} more changes)\n",
-                self.lines.len() - MAX_DIFF_PREVIEW_LINES));
+            output.push_str(&format!(
+                "  ... ({} more changes)\n",
+                self.lines.len() - MAX_DIFF_PREVIEW_LINES
+            ));
         }
 
         output.push_str(&format!("\nBackup: {}\n", self.backup_path.display()));
@@ -314,8 +327,10 @@ impl PostCheckResult {
 
         for check in &self.checks {
             let status = if check.passed { "[OK]" } else { "[FAIL]" };
-            output.push_str(&format!("  {} {}: expected '{}', got '{}'\n",
-                status, check.name, check.expected, check.actual));
+            output.push_str(&format!(
+                "  {} {}: expected '{}', got '{}'\n",
+                status, check.name, check.expected, check.actual
+            ));
         }
 
         output
@@ -400,7 +415,10 @@ impl SafeMutationExecutor {
                 if parent.exists() && parent.is_dir() {
                     result.add_check(PreflightCheck::pass(
                         "file_creatable",
-                        &format!("Parent directory {} exists, file can be created", parent.display()),
+                        &format!(
+                            "Parent directory {} exists, file can be created",
+                            parent.display()
+                        ),
                     ));
                 } else {
                     result.add_check(PreflightCheck::fail(
@@ -588,17 +606,11 @@ impl SafeMutationExecutor {
     }
 
     /// Run preflight checks for systemd operation
-    pub fn preflight_systemd(
-        &mut self,
-        service: &str,
-        operation: &str,
-    ) -> PreflightResult {
+    pub fn preflight_systemd(&mut self, service: &str, operation: &str) -> PreflightResult {
         let mut result = PreflightResult::new(&format!("systemd_{}", operation));
 
         // 1. Check unit exists
-        let status = Command::new("systemctl")
-            .args(["status", service])
-            .output();
+        let status = Command::new("systemctl").args(["status", service]).output();
 
         match status {
             Ok(output) => {
@@ -732,13 +744,20 @@ impl SafeMutationExecutor {
         if disk_free >= min_free {
             result.add_check(PreflightCheck::pass(
                 "disk_space",
-                &format!("{} MB free (minimum: {} MB)", disk_free / 1024 / 1024, min_free / 1024 / 1024),
+                &format!(
+                    "{} MB free (minimum: {} MB)",
+                    disk_free / 1024 / 1024,
+                    min_free / 1024 / 1024
+                ),
             ));
         } else {
             result.add_check(PreflightCheck::fail(
                 "disk_space",
-                &format!("Insufficient disk space: {} MB (need {} MB)",
-                    disk_free / 1024 / 1024, min_free / 1024 / 1024),
+                &format!(
+                    "Insufficient disk space: {} MB (need {} MB)",
+                    disk_free / 1024 / 1024,
+                    min_free / 1024 / 1024
+                ),
             ));
         }
 
@@ -775,17 +794,22 @@ impl SafeMutationExecutor {
         // Generate diff
         let diff_lines = generate_diff(&original_lines, &new_lines);
 
-        let additions = diff_lines.iter().filter(|l| matches!(l, DiffLine::Added { .. })).count();
-        let deletions = diff_lines.iter().filter(|l| matches!(l, DiffLine::Removed { .. })).count();
-        let modifications = diff_lines.iter().filter(|l| matches!(l, DiffLine::Modified { .. })).count();
+        let additions = diff_lines
+            .iter()
+            .filter(|l| matches!(l, DiffLine::Added { .. }))
+            .count();
+        let deletions = diff_lines
+            .iter()
+            .filter(|l| matches!(l, DiffLine::Removed { .. }))
+            .count();
+        let modifications = diff_lines
+            .iter()
+            .filter(|l| matches!(l, DiffLine::Modified { .. }))
+            .count();
 
         let truncated = diff_lines.len() > MAX_DIFF_PREVIEW_LINES;
 
-        let rollback_command = format!(
-            "cp {} {}",
-            backup_path.display(),
-            path.display()
-        );
+        let rollback_command = format!("cp {} {}", backup_path.display(), path.display());
 
         Ok(DiffPreview {
             path: path.to_path_buf(),
@@ -823,11 +847,7 @@ impl SafeMutationExecutor {
             ));
             return result;
         }
-        result.add_check(PostCheck::pass(
-            "file_exists",
-            "exists",
-            "exists",
-        ));
+        result.add_check(PostCheck::pass("file_exists", "exists", "exists"));
 
         // 2. Check file readable
         let content = match fs::read_to_string(path) {
@@ -841,11 +861,7 @@ impl SafeMutationExecutor {
                 return result;
             }
         };
-        result.add_check(PostCheck::pass(
-            "file_readable",
-            "readable",
-            "readable",
-        ));
+        result.add_check(PostCheck::pass("file_readable", "readable", "readable"));
         result.post_state = Some(format!("{} bytes", content.len()));
 
         // 3. Check expected content patterns
@@ -897,11 +913,7 @@ impl SafeMutationExecutor {
     }
 
     /// Run post-checks for systemd operation
-    pub fn postcheck_systemd(
-        &mut self,
-        service: &str,
-        operation: &str,
-    ) -> PostCheckResult {
+    pub fn postcheck_systemd(&mut self, service: &str, operation: &str) -> PostCheckResult {
         let mut result = PostCheckResult::new(&format!("systemd_{}", operation));
         let evidence_id = self.next_evidence_id("POST");
         result.evidence_id = Some(evidence_id.clone());
@@ -924,11 +936,7 @@ impl SafeMutationExecutor {
         match operation {
             "restart" | "reload" => {
                 if is_active {
-                    result.add_check(PostCheck::pass(
-                        "service_active",
-                        "active",
-                        "active",
-                    ));
+                    result.add_check(PostCheck::pass("service_active", "active", "active"));
 
                     // Check for immediate failure (service crashed right after restart)
                     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -952,11 +960,7 @@ impl SafeMutationExecutor {
                         ));
                     }
                 } else {
-                    result.add_check(PostCheck::fail(
-                        "service_active",
-                        "active",
-                        "inactive",
-                    ));
+                    result.add_check(PostCheck::fail("service_active", "active", "inactive"));
                 }
             }
             "enable_now" => {
@@ -990,11 +994,7 @@ impl SafeMutationExecutor {
     }
 
     /// Run post-checks for package operation
-    pub fn postcheck_package(
-        &mut self,
-        packages: &[&str],
-        operation: &str,
-    ) -> PostCheckResult {
+    pub fn postcheck_package(&mut self, packages: &[&str], operation: &str) -> PostCheckResult {
         let mut result = PostCheckResult::new(&format!("package_{}", operation));
         let evidence_id = self.next_evidence_id("POST");
         result.evidence_id = Some(evidence_id.clone());
@@ -1091,14 +1091,12 @@ impl SafeMutationExecutor {
                     restored_state: Some(restored_hash),
                 }
             }
-            Err(e) => {
-                RollbackResult {
-                    success: false,
-                    message: format!("Rollback failed: {}", e),
-                    evidence_id,
-                    restored_state: None,
-                }
-            }
+            Err(e) => RollbackResult {
+                success: false,
+                message: format!("Rollback failed: {}", e),
+                evidence_id,
+                restored_state: None,
+            },
         }
     }
 
@@ -1120,17 +1118,13 @@ impl SafeMutationExecutor {
 
         // Restore active state
         if was_active {
-            let result = Command::new("systemctl")
-                .args(["start", service])
-                .output();
+            let result = Command::new("systemctl").args(["start", service]).output();
             if result.is_err() || !result.unwrap().status.success() {
                 success = false;
                 messages.push(format!("Failed to restart {}", service));
             }
         } else {
-            let result = Command::new("systemctl")
-                .args(["stop", service])
-                .output();
+            let result = Command::new("systemctl").args(["stop", service]).output();
             if result.is_err() || !result.unwrap().status.success() {
                 success = false;
                 messages.push(format!("Failed to stop {}", service));
@@ -1139,9 +1133,7 @@ impl SafeMutationExecutor {
 
         // Restore enabled state
         if was_enabled {
-            let _ = Command::new("systemctl")
-                .args(["enable", service])
-                .output();
+            let _ = Command::new("systemctl").args(["enable", service]).output();
         } else {
             let _ = Command::new("systemctl")
                 .args(["disable", service])
@@ -1151,7 +1143,10 @@ impl SafeMutationExecutor {
         RollbackResult {
             success,
             message: if success {
-                format!("Rolled back {} to {} (reason: {})", service, prior_state, reason)
+                format!(
+                    "Rolled back {} to {} (reason: {})",
+                    service, prior_state, reason
+                )
             } else {
                 messages.join("; ")
             },
@@ -1213,16 +1208,23 @@ pub fn generate_request_id() -> String {
 /// Apply a single edit operation (for dry-run)
 fn apply_edit_op(lines: &mut Vec<String>, op: &FileEditOp) -> Result<(), MutationError> {
     match op {
-        FileEditOp::InsertLine { line_number, content } => {
+        FileEditOp::InsertLine {
+            line_number,
+            content,
+        } => {
             if *line_number > lines.len() {
                 return Err(MutationError::Other(format!(
                     "Line {} out of range (file has {} lines)",
-                    line_number, lines.len()
+                    line_number,
+                    lines.len()
                 )));
             }
             lines.insert(*line_number, content.clone());
         }
-        FileEditOp::ReplaceLine { line_number, content } => {
+        FileEditOp::ReplaceLine {
+            line_number,
+            content,
+        } => {
             if *line_number >= lines.len() {
                 return Err(MutationError::Other(format!(
                     "Line {} out of range",
@@ -1243,7 +1245,10 @@ fn apply_edit_op(lines: &mut Vec<String>, op: &FileEditOp) -> Result<(), Mutatio
         FileEditOp::AppendLine { content } => {
             lines.push(content.clone());
         }
-        FileEditOp::ReplaceText { pattern, replacement } => {
+        FileEditOp::ReplaceText {
+            pattern,
+            replacement,
+        } => {
             for line in lines.iter_mut() {
                 *line = line.replace(pattern, replacement);
             }
@@ -1370,9 +1375,18 @@ mod tests {
 
     #[test]
     fn test_diff_line_types() {
-        let context = DiffLine::Context { line_num: 1, content: "hello".to_string() };
-        let added = DiffLine::Added { line_num: 2, content: "world".to_string() };
-        let removed = DiffLine::Removed { line_num: 3, content: "old".to_string() };
+        let context = DiffLine::Context {
+            line_num: 1,
+            content: "hello".to_string(),
+        };
+        let added = DiffLine::Added {
+            line_num: 2,
+            content: "world".to_string(),
+        };
+        let removed = DiffLine::Removed {
+            line_num: 3,
+            content: "old".to_string(),
+        };
 
         // Just check they can be created
         assert!(matches!(context, DiffLine::Context { .. }));
@@ -1382,8 +1396,16 @@ mod tests {
 
     #[test]
     fn test_generate_diff_simple() {
-        let original = vec!["line1".to_string(), "line2".to_string(), "line3".to_string()];
-        let modified = vec!["line1".to_string(), "changed".to_string(), "line3".to_string()];
+        let original = vec![
+            "line1".to_string(),
+            "line2".to_string(),
+            "line3".to_string(),
+        ];
+        let modified = vec![
+            "line1".to_string(),
+            "changed".to_string(),
+            "line3".to_string(),
+        ];
 
         let diff = generate_diff(&original, &modified);
 
@@ -1418,8 +1440,14 @@ mod tests {
         let preview = DiffPreview {
             path: PathBuf::from("/tmp/test.conf"),
             lines: vec![
-                DiffLine::Context { line_num: 1, content: "# comment".to_string() },
-                DiffLine::Added { line_num: 2, content: "new_setting=true".to_string() },
+                DiffLine::Context {
+                    line_num: 1,
+                    content: "# comment".to_string(),
+                },
+                DiffLine::Added {
+                    line_num: 2,
+                    content: "new_setting=true".to_string(),
+                },
             ],
             additions: 1,
             deletions: 0,
@@ -1472,7 +1500,9 @@ mod tests {
     #[test]
     fn test_apply_edit_op_append() {
         let mut lines = vec!["line1".to_string()];
-        let op = FileEditOp::AppendLine { content: "line2".to_string() };
+        let op = FileEditOp::AppendLine {
+            content: "line2".to_string(),
+        };
 
         apply_edit_op(&mut lines, &op).unwrap();
 
@@ -1483,7 +1513,10 @@ mod tests {
     #[test]
     fn test_apply_edit_op_replace() {
         let mut lines = vec!["old".to_string()];
-        let op = FileEditOp::ReplaceLine { line_number: 0, content: "new".to_string() };
+        let op = FileEditOp::ReplaceLine {
+            line_number: 0,
+            content: "new".to_string(),
+        };
 
         apply_edit_op(&mut lines, &op).unwrap();
 
@@ -1504,7 +1537,10 @@ mod tests {
     #[test]
     fn test_apply_edit_op_insert() {
         let mut lines = vec!["line1".to_string(), "line3".to_string()];
-        let op = FileEditOp::InsertLine { line_number: 1, content: "line2".to_string() };
+        let op = FileEditOp::InsertLine {
+            line_number: 1,
+            content: "line2".to_string(),
+        };
 
         apply_edit_op(&mut lines, &op).unwrap();
 
@@ -1517,7 +1553,7 @@ mod tests {
         let mut lines = vec!["hello world".to_string()];
         let op = FileEditOp::ReplaceText {
             pattern: "world".to_string(),
-            replacement: "rust".to_string()
+            replacement: "rust".to_string(),
         };
 
         apply_edit_op(&mut lines, &op).unwrap();

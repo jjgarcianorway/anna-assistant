@@ -222,7 +222,16 @@ fn collect_wifi_sample_iw(interface: &str, timestamp: u64) -> Option<WiFiSample>
 /// Collect WiFi sample using nmcli
 fn collect_wifi_sample_nmcli(interface: &str, timestamp: u64) -> Option<WiFiSample> {
     let output = std::process::Command::new("nmcli")
-        .args(["-t", "-f", "DEVICE,STATE,CONNECTION,SIGNAL", "device", "wifi", "list", "ifname", interface])
+        .args([
+            "-t",
+            "-f",
+            "DEVICE,STATE,CONNECTION,SIGNAL",
+            "device",
+            "wifi",
+            "list",
+            "ifname",
+            interface,
+        ])
         .output()
         .ok()?;
 
@@ -250,7 +259,11 @@ fn collect_wifi_sample_nmcli(interface: &str, timestamp: u64) -> Option<WiFiSamp
                 rx_bitrate_mbps: None,
                 tx_retries: None,
                 tx_failed: None,
-                ssid: if parts.len() > 2 { Some(parts[2].to_string()) } else { None },
+                ssid: if parts.len() > 2 {
+                    Some(parts[2].to_string())
+                } else {
+                    None
+                },
                 connected: parts[1] == "connected",
             });
         }
@@ -333,11 +346,7 @@ pub fn collect_ethernet_sample(interface: &str) -> Option<EthernetSample> {
 
 fn read_sys_stat(stats_dir: &str, name: &str) -> Option<u64> {
     let path = format!("{}/{}", stats_dir, name);
-    std::fs::read_to_string(&path)
-        .ok()?
-        .trim()
-        .parse()
-        .ok()
+    std::fs::read_to_string(&path).ok()?.trim().parse().ok()
 }
 
 /// Detect network interface type

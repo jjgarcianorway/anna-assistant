@@ -47,15 +47,25 @@ impl TranscriptMode {
         }
     }
 
-    /// Get mode from environment or config, with precedence
+    /// v0.0.72: Get mode from environment, with precedence
+    /// Priority:
+    ///   1. ANNA_DEBUG_TRANSCRIPT=1 env var (shorthand for debug mode)
+    ///   2. ANNA_UI_TRANSCRIPT_MODE env var (human/debug/test)
+    ///   3. Default: Human (config loaded separately by caller)
     pub fn resolve() -> Self {
-        // 1. Check ANNA_UI_TRANSCRIPT_MODE env var
+        // 1. Check ANNA_DEBUG_TRANSCRIPT=1 shorthand (for tests)
+        if let Ok(val) = std::env::var("ANNA_DEBUG_TRANSCRIPT") {
+            if val == "1" || val.eq_ignore_ascii_case("true") {
+                return TranscriptMode::Debug;
+            }
+        }
+
+        // 2. Check ANNA_UI_TRANSCRIPT_MODE env var
         if let Ok(mode) = std::env::var("ANNA_UI_TRANSCRIPT_MODE") {
             return Self::from_str(&mode);
         }
 
-        // 2. Check config file (will be loaded by caller)
-        // 3. Default to human
+        // 3. Default to human (config loaded separately by caller)
         TranscriptMode::Human
     }
 
@@ -393,6 +403,10 @@ mod tests {
 
     #[test]
     fn test_transcript_mode_from_env() {
+        // Clean up any existing env vars first
+        std::env::remove_var("ANNA_DEBUG_TRANSCRIPT");
+        std::env::remove_var("ANNA_UI_TRANSCRIPT_MODE");
+
         std::env::set_var("ANNA_UI_TRANSCRIPT_MODE", "debug");
         assert_eq!(TranscriptMode::resolve(), TranscriptMode::Debug);
 
@@ -402,6 +416,30 @@ mod tests {
         std::env::set_var("ANNA_UI_TRANSCRIPT_MODE", "human");
         assert_eq!(TranscriptMode::resolve(), TranscriptMode::Human);
 
+        std::env::remove_var("ANNA_UI_TRANSCRIPT_MODE");
+    }
+
+    #[test]
+    fn test_transcript_mode_debug_shorthand() {
+        // Clean up
+        std::env::remove_var("ANNA_DEBUG_TRANSCRIPT");
+        std::env::remove_var("ANNA_UI_TRANSCRIPT_MODE");
+
+        // ANNA_DEBUG_TRANSCRIPT=1 should enable debug mode
+        std::env::set_var("ANNA_DEBUG_TRANSCRIPT", "1");
+        assert_eq!(TranscriptMode::resolve(), TranscriptMode::Debug);
+
+        // ANNA_DEBUG_TRANSCRIPT=true should also work
+        std::env::set_var("ANNA_DEBUG_TRANSCRIPT", "true");
+        assert_eq!(TranscriptMode::resolve(), TranscriptMode::Debug);
+
+        // ANNA_DEBUG_TRANSCRIPT takes precedence over ANNA_UI_TRANSCRIPT_MODE
+        std::env::set_var("ANNA_UI_TRANSCRIPT_MODE", "human");
+        std::env::set_var("ANNA_DEBUG_TRANSCRIPT", "1");
+        assert_eq!(TranscriptMode::resolve(), TranscriptMode::Debug);
+
+        // Clean up
+        std::env::remove_var("ANNA_DEBUG_TRANSCRIPT");
         std::env::remove_var("ANNA_UI_TRANSCRIPT_MODE");
     }
 

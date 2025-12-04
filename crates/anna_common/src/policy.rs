@@ -554,17 +554,30 @@ impl Default for BlockedPolicy {
                     BlockedCategory {
                         name: "kernel".to_string(),
                         reason: "Kernel modifications require manual intervention".to_string(),
-                        patterns: vec!["linux".to_string(), "linux-*".to_string(), "kernel*".to_string()],
+                        patterns: vec![
+                            "linux".to_string(),
+                            "linux-*".to_string(),
+                            "kernel*".to_string(),
+                        ],
                     },
                     BlockedCategory {
                         name: "bootloader".to_string(),
                         reason: "Bootloader changes can render system unbootable".to_string(),
-                        patterns: vec!["grub".to_string(), "systemd-boot".to_string(), "refind".to_string(), "syslinux".to_string()],
+                        patterns: vec![
+                            "grub".to_string(),
+                            "systemd-boot".to_string(),
+                            "refind".to_string(),
+                            "syslinux".to_string(),
+                        ],
                     },
                     BlockedCategory {
                         name: "init".to_string(),
                         reason: "Init system changes are critical".to_string(),
-                        patterns: vec!["systemd".to_string(), "openrc".to_string(), "runit".to_string()],
+                        patterns: vec![
+                            "systemd".to_string(),
+                            "openrc".to_string(),
+                            "runit".to_string(),
+                        ],
                     },
                 ],
             },
@@ -752,8 +765,9 @@ impl Policy {
             let content = fs::read_to_string(CAPABILITIES_FILE)
                 .map_err(|e| PolicyError::IoError(CAPABILITIES_FILE.to_string(), e.to_string()))?;
             checksums.insert(CAPABILITIES_FILE.to_string(), compute_checksum(&content));
-            policy.capabilities = toml::from_str(&content)
-                .map_err(|e| PolicyError::ParseError(CAPABILITIES_FILE.to_string(), e.to_string()))?;
+            policy.capabilities = toml::from_str(&content).map_err(|e| {
+                PolicyError::ParseError(CAPABILITIES_FILE.to_string(), e.to_string())
+            })?;
         }
 
         // Load risk
@@ -809,11 +823,15 @@ impl Policy {
         }
 
         // Check confirmation phrases aren't empty for required confirmations
-        if self.risk.levels.medium.requires_confirmation && self.risk.levels.medium.confirmation_phrase.is_empty() {
+        if self.risk.levels.medium.requires_confirmation
+            && self.risk.levels.medium.confirmation_phrase.is_empty()
+        {
             errors.push("Medium risk requires confirmation but phrase is empty".to_string());
         }
 
-        if self.risk.levels.high.requires_confirmation && self.risk.levels.high.confirmation_phrase.is_empty() {
+        if self.risk.levels.high.requires_confirmation
+            && self.risk.levels.high.confirmation_phrase.is_empty()
+        {
             errors.push("High risk requires confirmation but phrase is empty".to_string());
         }
 
@@ -835,12 +853,20 @@ impl Policy {
             if !self.capabilities.mutation_tools.enabled {
                 return false;
             }
-            !self.capabilities.mutation_tools.disabled_tools.contains(&tool_name.to_string())
+            !self
+                .capabilities
+                .mutation_tools
+                .disabled_tools
+                .contains(&tool_name.to_string())
         } else {
             if !self.capabilities.read_only_tools.enabled {
                 return false;
             }
-            !self.capabilities.read_only_tools.disabled_tools.contains(&tool_name.to_string())
+            !self
+                .capabilities
+                .read_only_tools
+                .disabled_tools
+                .contains(&tool_name.to_string())
         }
     }
 
@@ -862,7 +888,10 @@ impl Policy {
         for prefix in &self.blocked.paths.prefixes {
             if path.starts_with(prefix) {
                 return PolicyCheckResult::blocked(
-                    &format!("Path '{}' matches blocked prefix '{}' in blocked.toml", path, prefix),
+                    &format!(
+                        "Path '{}' matches blocked prefix '{}' in blocked.toml",
+                        path, prefix
+                    ),
                     &evidence_id,
                     "blocked.toml:paths.prefixes",
                 );
@@ -878,13 +907,20 @@ impl Policy {
             );
         }
 
-        let allowed = self.capabilities.mutation_tools.file_edit.allowed_paths
+        let allowed = self
+            .capabilities
+            .mutation_tools
+            .file_edit
+            .allowed_paths
             .iter()
             .any(|allowed| path.starts_with(allowed));
 
         if !allowed {
             return PolicyCheckResult::blocked(
-                &format!("Path '{}' is not in allowed paths list in capabilities.toml", path),
+                &format!(
+                    "Path '{}' is not in allowed paths list in capabilities.toml",
+                    path
+                ),
                 &evidence_id,
                 "capabilities.toml:mutation_tools.file_edit.allowed_paths",
             );
@@ -894,7 +930,10 @@ impl Policy {
         for blocked in &self.capabilities.mutation_tools.file_edit.blocked_paths {
             if path.starts_with(blocked) {
                 return PolicyCheckResult::blocked(
-                    &format!("Path '{}' matches blocked path '{}' in capabilities.toml", path, blocked),
+                    &format!(
+                        "Path '{}' matches blocked path '{}' in capabilities.toml",
+                        path, blocked
+                    ),
                     &evidence_id,
                     "capabilities.toml:mutation_tools.file_edit.blocked_paths",
                 );
@@ -911,7 +950,10 @@ impl Policy {
         // Check exact blocks
         if self.blocked.packages.exact.contains(&package.to_string()) {
             return PolicyCheckResult::blocked(
-                &format!("Package '{}' is explicitly blocked in blocked.toml", package),
+                &format!(
+                    "Package '{}' is explicitly blocked in blocked.toml",
+                    package
+                ),
                 &evidence_id,
                 "blocked.toml:packages.exact",
             );
@@ -921,7 +963,10 @@ impl Policy {
         for pattern in &self.blocked.packages.patterns {
             if matches_pattern(package, pattern) {
                 return PolicyCheckResult::blocked(
-                    &format!("Package '{}' matches blocked pattern '{}' in blocked.toml", package, pattern),
+                    &format!(
+                        "Package '{}' matches blocked pattern '{}' in blocked.toml",
+                        package, pattern
+                    ),
                     &evidence_id,
                     "blocked.toml:packages.patterns",
                 );
@@ -933,8 +978,10 @@ impl Policy {
             for pattern in &category.patterns {
                 if matches_pattern(package, pattern) {
                     return PolicyCheckResult::blocked(
-                        &format!("Package '{}' is in blocked category '{}': {} [blocked.toml]",
-                            package, category.name, category.reason),
+                        &format!(
+                            "Package '{}' is in blocked category '{}': {} [blocked.toml]",
+                            package, category.name, category.reason
+                        ),
                         &evidence_id,
                         &format!("blocked.toml:packages.categories.{}", category.name),
                     );
@@ -946,7 +993,10 @@ impl Policy {
         for pattern in &self.capabilities.mutation_tools.packages.blocked_patterns {
             if matches_pattern(package, pattern) {
                 return PolicyCheckResult::blocked(
-                    &format!("Package '{}' matches blocked pattern '{}' in capabilities.toml", package, pattern),
+                    &format!(
+                        "Package '{}' matches blocked pattern '{}' in capabilities.toml",
+                        package, pattern
+                    ),
                     &evidence_id,
                     "capabilities.toml:mutation_tools.packages.blocked_patterns",
                 );
@@ -964,7 +1014,10 @@ impl Policy {
         for critical in &self.blocked.services.critical {
             if service == critical || service.starts_with(&format!("{}.", critical)) {
                 return PolicyCheckResult::blocked(
-                    &format!("Service '{}' is a critical system service [blocked.toml]", service),
+                    &format!(
+                        "Service '{}' is a critical system service [blocked.toml]",
+                        service
+                    ),
                     &evidence_id,
                     "blocked.toml:services.critical",
                 );
@@ -974,7 +1027,10 @@ impl Policy {
         // Check exact blocks
         if self.blocked.services.exact.contains(&service.to_string()) {
             return PolicyCheckResult::blocked(
-                &format!("Service '{}' is explicitly blocked in blocked.toml", service),
+                &format!(
+                    "Service '{}' is explicitly blocked in blocked.toml",
+                    service
+                ),
                 &evidence_id,
                 "blocked.toml:services.exact",
             );
@@ -984,7 +1040,10 @@ impl Policy {
         for blocked in &self.capabilities.mutation_tools.systemd.blocked_units {
             if service == blocked || matches_pattern(service, blocked) {
                 return PolicyCheckResult::blocked(
-                    &format!("Service '{}' matches blocked unit '{}' in capabilities.toml", service, blocked),
+                    &format!(
+                        "Service '{}' matches blocked unit '{}' in capabilities.toml",
+                        service, blocked
+                    ),
                     &evidence_id,
                     "capabilities.toml:mutation_tools.systemd.blocked_units",
                 );
@@ -1006,9 +1065,18 @@ impl Policy {
             );
         }
 
-        if !self.capabilities.mutation_tools.systemd.allowed_operations.contains(&operation.to_string()) {
+        if !self
+            .capabilities
+            .mutation_tools
+            .systemd
+            .allowed_operations
+            .contains(&operation.to_string())
+        {
             return PolicyCheckResult::blocked(
-                &format!("Systemd operation '{}' is not in allowed operations list", operation),
+                &format!(
+                    "Systemd operation '{}' is not in allowed operations list",
+                    operation
+                ),
                 &evidence_id,
                 "capabilities.toml:mutation_tools.systemd.allowed_operations",
             );
@@ -1059,24 +1127,36 @@ impl Policy {
 
     /// Get max file size for edits
     pub fn get_max_file_size(&self) -> u64 {
-        self.capabilities.mutation_tools.file_edit.max_file_size_bytes
+        self.capabilities
+            .mutation_tools
+            .file_edit
+            .max_file_size_bytes
     }
 
     /// Get max packages per operation
     pub fn get_max_packages(&self) -> u32 {
-        self.capabilities.mutation_tools.packages.max_packages_per_operation
+        self.capabilities
+            .mutation_tools
+            .packages
+            .max_packages_per_operation
     }
 
     /// Check if a service requires elevated confirmation
     pub fn is_protected_service(&self, service: &str) -> bool {
-        self.capabilities.mutation_tools.systemd.protected_units
+        self.capabilities
+            .mutation_tools
+            .systemd
+            .protected_units
             .iter()
             .any(|p| service == p || matches_pattern(service, p))
     }
 
     /// Check if a package requires elevated confirmation
     pub fn is_protected_package(&self, package: &str) -> bool {
-        self.capabilities.mutation_tools.packages.protected_patterns
+        self.capabilities
+            .mutation_tools
+            .packages
+            .protected_patterns
             .iter()
             .any(|p| matches_pattern(package, p))
     }
@@ -1090,7 +1170,11 @@ impl Policy {
 
     /// Get max file size for user home edits
     pub fn get_user_home_max_file_size(&self) -> u64 {
-        self.capabilities.mutation_tools.file_edit.user_home.max_file_size_bytes
+        self.capabilities
+            .mutation_tools
+            .file_edit
+            .user_home
+            .max_file_size_bytes
     }
 
     /// Check if a subpath within a user's home is allowed for editing
@@ -1110,10 +1194,19 @@ impl Policy {
         }
 
         // Check blocked subpaths first (takes precedence)
-        for blocked in &self.capabilities.mutation_tools.file_edit.user_home.blocked_subpaths {
+        for blocked in &self
+            .capabilities
+            .mutation_tools
+            .file_edit
+            .user_home
+            .blocked_subpaths
+        {
             if matches_glob_pattern(relative_path, blocked) {
                 return PolicyCheckResult::blocked(
-                    &format!("Path '{}' matches blocked pattern '{}' in user home policy", relative_path, blocked),
+                    &format!(
+                        "Path '{}' matches blocked pattern '{}' in user home policy",
+                        relative_path, blocked
+                    ),
                     &evidence_id,
                     "capabilities.toml:mutation_tools.file_edit.user_home.blocked_subpaths",
                 );
@@ -1121,13 +1214,21 @@ impl Policy {
         }
 
         // Check allowed subpaths
-        let allowed = self.capabilities.mutation_tools.file_edit.user_home.allowed_subpaths
+        let allowed = self
+            .capabilities
+            .mutation_tools
+            .file_edit
+            .user_home
+            .allowed_subpaths
             .iter()
             .any(|pattern| matches_glob_pattern(relative_path, pattern));
 
         if !allowed {
             return PolicyCheckResult::blocked(
-                &format!("Path '{}' is not in allowed subpaths list for user home edits", relative_path),
+                &format!(
+                    "Path '{}' is not in allowed subpaths list for user home edits",
+                    relative_path
+                ),
                 &evidence_id,
                 "capabilities.toml:mutation_tools.file_edit.user_home.allowed_subpaths",
             );
@@ -1199,7 +1300,10 @@ impl PolicyCheckResult {
         if self.allowed {
             format!("[{}]", self.evidence_id)
         } else {
-            format!("[{}] Policy: {} ({})", self.evidence_id, self.reason, self.policy_rule)
+            format!(
+                "[{}] Policy: {} ({})",
+                self.evidence_id, self.reason, self.policy_rule
+            )
         }
     }
 }
@@ -1392,22 +1496,50 @@ fn matches_pattern(text: &str, pattern: &str) -> bool {
 // Default Value Functions
 // =============================================================================
 
-fn default_schema_version() -> u32 { POLICY_SCHEMA_VERSION }
-fn default_true() -> bool { true }
-fn default_max_evidence_bytes() -> usize { 8192 }
-fn default_max_file_size() -> u64 { 1_048_576 } // 1 MiB
-fn default_tool_timeout() -> u64 { 30_000 } // 30 seconds
-fn default_max_packages() -> u32 { 5 }
-fn default_min_mutation_reliability() -> u8 { 70 }
-fn default_min_package_reliability() -> u8 { 75 }
-fn default_max_concurrent_mutations() -> u32 { 1 }
-fn default_confirmation_timeout() -> u64 { 300 } // 5 minutes
+fn default_schema_version() -> u32 {
+    POLICY_SCHEMA_VERSION
+}
+fn default_true() -> bool {
+    true
+}
+fn default_max_evidence_bytes() -> usize {
+    8192
+}
+fn default_max_file_size() -> u64 {
+    1_048_576
+} // 1 MiB
+fn default_tool_timeout() -> u64 {
+    30_000
+} // 30 seconds
+fn default_max_packages() -> u32 {
+    5
+}
+fn default_min_mutation_reliability() -> u8 {
+    70
+}
+fn default_min_package_reliability() -> u8 {
+    75
+}
+fn default_max_concurrent_mutations() -> u32 {
+    1
+}
+fn default_confirmation_timeout() -> u64 {
+    300
+} // 5 minutes
 
-fn default_forget_confirmation() -> String { "I CONFIRM (forget)".to_string() }
-fn default_reset_confirmation() -> String { "I CONFIRM (reset)".to_string() }
-fn default_uninstall_confirmation() -> String { "I CONFIRM (uninstall)".to_string() }
+fn default_forget_confirmation() -> String {
+    "I CONFIRM (forget)".to_string()
+}
+fn default_reset_confirmation() -> String {
+    "I CONFIRM (reset)".to_string()
+}
+fn default_uninstall_confirmation() -> String {
+    "I CONFIRM (uninstall)".to_string()
+}
 
-fn default_helpers_state_file() -> String { "/var/lib/anna/internal/helpers_state.json".to_string() }
+fn default_helpers_state_file() -> String {
+    "/var/lib/anna/internal/helpers_state.json".to_string()
+}
 
 fn default_allowed_paths() -> Vec<String> {
     vec![
@@ -1503,7 +1635,9 @@ fn default_blocked_path_prefixes() -> Vec<String> {
 }
 
 // v0.0.17: User home policy defaults
-fn default_user_home_max_file_size() -> u64 { 1_048_576 } // 1 MiB
+fn default_user_home_max_file_size() -> u64 {
+    1_048_576
+} // 1 MiB
 
 fn default_allowed_home_subpaths() -> Vec<String> {
     vec![
@@ -1646,7 +1780,10 @@ mod tests {
     #[test]
     fn test_confirmation_phrase() {
         let policy = Policy::default();
-        assert_eq!(policy.get_confirmation_phrase("medium"), Some("I CONFIRM (medium risk)"));
+        assert_eq!(
+            policy.get_confirmation_phrase("medium"),
+            Some("I CONFIRM (medium risk)")
+        );
         assert_eq!(policy.get_confirmation_phrase("read_only"), None);
     }
 
@@ -1668,7 +1805,7 @@ mod tests {
         let blocked = PolicyCheckResult::blocked(
             "Package is blocked",
             "POL12345",
-            "blocked.toml:packages.exact"
+            "blocked.toml:packages.exact",
         );
         let citation = blocked.format_citation();
         assert!(citation.contains("POL12345"));
@@ -1689,7 +1826,10 @@ mod tests {
         let policy = Policy::default();
         // .config/** should be allowed
         let result = policy.is_user_home_subpath_allowed(".config/nvim/init.vim");
-        assert!(result.allowed, "Expected .config/nvim/init.vim to be allowed");
+        assert!(
+            result.allowed,
+            "Expected .config/nvim/init.vim to be allowed"
+        );
     }
 
     #[test]
@@ -1716,7 +1856,10 @@ mod tests {
         let policy = Policy::default();
         // .gnupg/** should be blocked
         let result = policy.is_user_home_subpath_allowed(".gnupg/private-keys");
-        assert!(!result.allowed, "Expected .gnupg/private-keys to be blocked");
+        assert!(
+            !result.allowed,
+            "Expected .gnupg/private-keys to be blocked"
+        );
     }
 
     #[test]
@@ -1724,7 +1867,10 @@ mod tests {
         let policy = Policy::default();
         // Random paths not in allowed list should be blocked
         let result = policy.is_user_home_subpath_allowed("Documents/secret.txt");
-        assert!(!result.allowed, "Expected Documents/secret.txt to be blocked");
+        assert!(
+            !result.allowed,
+            "Expected Documents/secret.txt to be blocked"
+        );
         assert!(result.reason.contains("not in allowed"));
     }
 
@@ -1732,11 +1878,17 @@ mod tests {
     fn test_matches_glob_pattern_recursive() {
         // Test ** matching
         assert!(matches_glob_pattern(".config/foo/bar", ".config/**"));
-        assert!(matches_glob_pattern(".config/deep/nested/file", ".config/**"));
+        assert!(matches_glob_pattern(
+            ".config/deep/nested/file",
+            ".config/**"
+        ));
         assert!(!matches_glob_pattern(".bashrc", ".config/**"));
 
         // Test ** in middle
-        assert!(matches_glob_pattern(".mozilla/firefox/key3.db", ".mozilla/**/key*.db"));
+        assert!(matches_glob_pattern(
+            ".mozilla/firefox/key3.db",
+            ".mozilla/**/key*.db"
+        ));
     }
 
     #[test]

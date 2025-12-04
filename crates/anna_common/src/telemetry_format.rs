@@ -15,9 +15,9 @@ use serde::{Deserialize, Serialize};
 /// - 7d: 20160 samples (7 days * 2880/day)
 /// - 30d: 86400 samples (30 days * 2880/day)
 /// We use 60% of ideal as "ready" threshold
-pub const MIN_SAMPLES_1H: u64 = 72;    // 60% of 120
-pub const MIN_SAMPLES_24H: u64 = 1728;  // 60% of 2880
-pub const MIN_SAMPLES_7D: u64 = 12096;  // 60% of 20160
+pub const MIN_SAMPLES_1H: u64 = 72; // 60% of 120
+pub const MIN_SAMPLES_24H: u64 = 1728; // 60% of 2880
+pub const MIN_SAMPLES_7D: u64 = 12096; // 60% of 20160
 pub const MIN_SAMPLES_30D: u64 = 51840; // 60% of 86400
 
 /// Telemetry readiness status - replaces vague "warming up"
@@ -106,21 +106,48 @@ impl TelemetryReadiness {
     pub fn format(&self) -> String {
         match self {
             Self::NoData => "no data".to_string(),
-            Self::Collecting { sample_count, oldest_sample_age_secs } => {
+            Self::Collecting {
+                sample_count,
+                oldest_sample_age_secs,
+            } => {
                 let age_str = format_duration_short(*oldest_sample_age_secs);
                 format!("collecting ({} samples, oldest {})", sample_count, age_str)
             }
-            Self::ReadyFor1h { sample_count, coverage_hours } => {
-                format!("ready for 1h ({} samples, {:.1}h coverage)", sample_count, coverage_hours)
+            Self::ReadyFor1h {
+                sample_count,
+                coverage_hours,
+            } => {
+                format!(
+                    "ready for 1h ({} samples, {:.1}h coverage)",
+                    sample_count, coverage_hours
+                )
             }
-            Self::ReadyFor24h { sample_count, coverage_hours } => {
-                format!("ready for 24h ({} samples, {:.1}h coverage)", sample_count, coverage_hours)
+            Self::ReadyFor24h {
+                sample_count,
+                coverage_hours,
+            } => {
+                format!(
+                    "ready for 24h ({} samples, {:.1}h coverage)",
+                    sample_count, coverage_hours
+                )
             }
-            Self::ReadyFor7d { sample_count, coverage_days } => {
-                format!("ready for 7d ({} samples, {:.1}d coverage)", sample_count, coverage_days)
+            Self::ReadyFor7d {
+                sample_count,
+                coverage_days,
+            } => {
+                format!(
+                    "ready for 7d ({} samples, {:.1}d coverage)",
+                    sample_count, coverage_days
+                )
             }
-            Self::ReadyFor30d { sample_count, coverage_days } => {
-                format!("ready for 30d ({} samples, {:.1}d coverage)", sample_count, coverage_days)
+            Self::ReadyFor30d {
+                sample_count,
+                coverage_days,
+            } => {
+                format!(
+                    "ready for 30d ({} samples, {:.1}d coverage)",
+                    sample_count, coverage_days
+                )
             }
         }
     }
@@ -141,7 +168,8 @@ impl TelemetryReadiness {
 pub fn get_logical_cpu_count() -> u32 {
     // Try /proc/cpuinfo first
     if let Ok(content) = std::fs::read_to_string("/proc/cpuinfo") {
-        let count = content.lines()
+        let count = content
+            .lines()
             .filter(|line| line.starts_with("processor"))
             .count();
         if count > 0 {
@@ -178,7 +206,10 @@ pub fn format_cpu_percent_short(value: f32) -> String {
 /// Format CPU percent with avg and peak, showing range
 pub fn format_cpu_avg_peak(avg: f32, peak: f32, logical_cores: u32) -> String {
     let max_percent = logical_cores * 100;
-    format!("avg {:.1}%, peak {:.1}% (range 0-{}%)", avg, peak, max_percent)
+    format!(
+        "avg {:.1}%, peak {:.1}% (range 0-{}%)",
+        avg, peak, max_percent
+    )
 }
 
 /// Format a fraction [0,1] as a percentage
@@ -202,7 +233,11 @@ pub fn format_memory(bytes: u64) -> String {
 
 /// Format memory with avg and peak
 pub fn format_memory_avg_peak(avg_bytes: u64, peak_bytes: u64) -> String {
-    format!("avg {}, peak {}", format_memory(avg_bytes), format_memory(peak_bytes))
+    format!(
+        "avg {}, peak {}",
+        format_memory(avg_bytes),
+        format_memory(peak_bytes)
+    )
 }
 
 /// Format a duration in seconds to human-readable
@@ -254,10 +289,18 @@ impl WindowAvailability {
 
     pub fn format_available(&self) -> String {
         let mut windows = Vec::new();
-        if self.w1h { windows.push("1h"); }
-        if self.w24h { windows.push("24h"); }
-        if self.w7d { windows.push("7d"); }
-        if self.w30d { windows.push("30d"); }
+        if self.w1h {
+            windows.push("1h");
+        }
+        if self.w24h {
+            windows.push("24h");
+        }
+        if self.w7d {
+            windows.push("7d");
+        }
+        if self.w30d {
+            windows.push("30d");
+        }
 
         if windows.is_empty() {
             "none".to_string()
@@ -271,7 +314,7 @@ impl WindowAvailability {
 #[derive(Debug, Clone)]
 pub struct TrendDelta {
     pub direction: TrendDirection,
-    pub delta_points: f64,  // percentage point difference
+    pub delta_points: f64, // percentage point difference
 }
 
 #[derive(Debug, Clone, PartialEq)]

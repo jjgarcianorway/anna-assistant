@@ -1,7 +1,7 @@
 //! Error Summary Types - v5.2.3
 
-use std::collections::HashMap;
 use super::category::LogCategory;
+use std::collections::HashMap;
 
 /// Grouped error summary for display
 #[derive(Debug, Clone)]
@@ -27,7 +27,11 @@ impl UniversalErrorSummary {
     pub fn total_errors(&self) -> usize {
         self.services.iter().map(|e| e.error_count).sum::<usize>()
             + self.packages.iter().map(|e| e.error_count).sum::<usize>()
-            + self.executables.iter().map(|e| e.error_count).sum::<usize>()
+            + self
+                .executables
+                .iter()
+                .map(|e| e.error_count)
+                .sum::<usize>()
             + self.filesystem.iter().map(|e| e.error_count).sum::<usize>()
             + self.kernel.iter().map(|e| e.error_count).sum::<usize>()
     }

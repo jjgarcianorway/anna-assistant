@@ -80,7 +80,9 @@ impl std::fmt::Display for ReviewResult {
         match self {
             ReviewResult::Healthy => write!(f, "healthy"),
             ReviewResult::Repaired { fixes } => write!(f, "repaired ({} fixes)", fixes.len()),
-            ReviewResult::NeedsAttention { issues } => write!(f, "needs attention ({} issues)", issues.len()),
+            ReviewResult::NeedsAttention { issues } => {
+                write!(f, "needs attention ({} issues)", issues.len())
+            }
             ReviewResult::Failed { reason } => write!(f, "failed: {}", reason),
         }
     }
@@ -432,14 +434,10 @@ pub fn discover_install_state() -> InstallState {
 
 /// Find a binary in PATH - v0.0.25
 fn which(name: &str) -> std::io::Result<PathBuf> {
-    let output = std::process::Command::new("which")
-        .arg(name)
-        .output()?;
+    let output = std::process::Command::new("which").arg(name).output()?;
 
     if output.status.success() {
-        let path = String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .to_string();
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(PathBuf::from(path))
     } else {
         Err(std::io::Error::new(
@@ -460,7 +458,13 @@ fn get_binary_version(name: &str) -> Option<String> {
         let stdout = String::from_utf8_lossy(&output.stdout);
         // Extract version from "name vX.Y.Z" or just "vX.Y.Z"
         for word in stdout.split_whitespace() {
-            if word.starts_with('v') || word.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+            if word.starts_with('v')
+                || word
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(false)
+            {
                 return Some(word.trim_start_matches('v').to_string());
             }
         }
@@ -483,7 +487,9 @@ mod tests {
     #[test]
     fn test_default_data_dirs() {
         let dirs = InstallState::default_data_dirs();
-        assert!(dirs.iter().any(|d| d.path == PathBuf::from("/var/lib/anna")));
+        assert!(dirs
+            .iter()
+            .any(|d| d.path == PathBuf::from("/var/lib/anna")));
         assert!(dirs.iter().all(|d| d.anna_internal));
     }
 
@@ -506,11 +512,21 @@ mod tests {
     fn test_review_result_display() {
         assert_eq!(format!("{}", ReviewResult::Healthy), "healthy");
         assert_eq!(
-            format!("{}", ReviewResult::Repaired { fixes: vec!["fix1".into()] }),
+            format!(
+                "{}",
+                ReviewResult::Repaired {
+                    fixes: vec!["fix1".into()]
+                }
+            ),
             "repaired (1 fixes)"
         );
         assert_eq!(
-            format!("{}", ReviewResult::NeedsAttention { issues: vec!["issue1".into(), "issue2".into()] }),
+            format!(
+                "{}",
+                ReviewResult::NeedsAttention {
+                    issues: vec!["issue1".into(), "issue2".into()]
+                }
+            ),
             "needs attention (2 issues)"
         );
     }
@@ -532,7 +548,9 @@ mod tests {
 
         let review2 = LastReview {
             timestamp: Utc::now(),
-            result: ReviewResult::Repaired { fixes: vec!["test".into()] },
+            result: ReviewResult::Repaired {
+                fixes: vec!["test".into()],
+            },
             evidence_ids: vec!["E1".into()],
             duration_ms: 200,
         };

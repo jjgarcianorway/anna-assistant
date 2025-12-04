@@ -382,7 +382,10 @@ pub enum TimelineEventType {
     /// Verification completed
     VerificationCompleted { passed: bool },
     /// Alert linked
-    AlertLinked { alert_id: String, alert_type: AlertType },
+    AlertLinked {
+        alert_id: String,
+        alert_type: AlertType,
+    },
     /// Error occurred
     Error { message: String },
     /// Case closed
@@ -602,7 +605,8 @@ impl CaseFileV2 {
 
     /// Add a timeline event
     pub fn add_event(&mut self, actor: Participant, event: TimelineEventType, summary: &str) {
-        self.timeline.push(TimelineEvent::new(actor, event, summary));
+        self.timeline
+            .push(TimelineEvent::new(actor, event, summary));
         self.updated_at = Utc::now();
     }
 
@@ -927,12 +931,17 @@ impl CaseFileV2 {
         let mut lines = Vec::new();
 
         lines.push(format!("=== Case {} ===", self.case_id));
-        lines.push(format!("Type: {} | Outcome: {}", self.ticket_type, self.outcome));
+        lines.push(format!(
+            "Type: {} | Outcome: {}",
+            self.ticket_type, self.outcome
+        ));
         if let Some(ticket) = &self.ticket_id {
             lines.push(format!("Ticket: #{}", ticket));
         }
-        lines.push(format!("Department: {} | Reliability: {}%",
-            self.assigned_department, self.reliability_pct));
+        lines.push(format!(
+            "Department: {} | Reliability: {}%",
+            self.assigned_department, self.reliability_pct
+        ));
         lines.push(String::new());
 
         // Add human transcript lines

@@ -247,25 +247,18 @@ impl OllamaClient {
             .map_err(|e| OllamaError::HttpError(e.to_string()))?;
 
         let url = format!("{}/api/tags", self.base_url);
-        let resp = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    OllamaError::Timeout
-                } else if e.is_connect() {
-                    OllamaError::NotAvailable(e.to_string())
-                } else {
-                    OllamaError::HttpError(e.to_string())
-                }
-            })?;
+        let resp = client.get(&url).send().await.map_err(|e| {
+            if e.is_timeout() {
+                OllamaError::Timeout
+            } else if e.is_connect() {
+                OllamaError::NotAvailable(e.to_string())
+            } else {
+                OllamaError::HttpError(e.to_string())
+            }
+        })?;
 
         if !resp.status().is_success() {
-            return Err(OllamaError::HttpError(format!(
-                "Status: {}",
-                resp.status()
-            )));
+            return Err(OllamaError::HttpError(format!("Status: {}", resp.status())));
         }
 
         let tags: TagsResponse = resp
@@ -312,20 +305,15 @@ impl OllamaClient {
         };
 
         let url = format!("{}/api/generate", self.base_url);
-        let resp = client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    OllamaError::Timeout
-                } else if e.is_connect() {
-                    OllamaError::NotAvailable(e.to_string())
-                } else {
-                    OllamaError::HttpError(e.to_string())
-                }
-            })?;
+        let resp = client.post(&url).json(&request).send().await.map_err(|e| {
+            if e.is_timeout() {
+                OllamaError::Timeout
+            } else if e.is_connect() {
+                OllamaError::NotAvailable(e.to_string())
+            } else {
+                OllamaError::HttpError(e.to_string())
+            }
+        })?;
 
         if !resp.status().is_success() {
             let status = resp.status();
@@ -365,13 +353,15 @@ impl OllamaClient {
             {
                 Ok(c) => c,
                 Err(e) => {
-                    let _ = tx.send(PullProgress {
-                        status: "error".to_string(),
-                        digest: None,
-                        total: 0,
-                        completed: 0,
-                        error: Some(e.to_string()),
-                    }).await;
+                    let _ = tx
+                        .send(PullProgress {
+                            status: "error".to_string(),
+                            digest: None,
+                            total: 0,
+                            completed: 0,
+                            error: Some(e.to_string()),
+                        })
+                        .await;
                     return;
                 }
             };
@@ -385,13 +375,15 @@ impl OllamaClient {
             let resp = match client.post(&url).json(&request).send().await {
                 Ok(r) => r,
                 Err(e) => {
-                    let _ = tx.send(PullProgress {
-                        status: "error".to_string(),
-                        digest: None,
-                        total: 0,
-                        completed: 0,
-                        error: Some(e.to_string()),
-                    }).await;
+                    let _ = tx
+                        .send(PullProgress {
+                            status: "error".to_string(),
+                            digest: None,
+                            total: 0,
+                            completed: 0,
+                            error: Some(e.to_string()),
+                        })
+                        .await;
                     return;
                 }
             };
@@ -412,7 +404,9 @@ impl OllamaClient {
                                 buffer = buffer[pos + 1..].to_string();
 
                                 if !line.is_empty() {
-                                    if let Ok(progress) = serde_json::from_str::<PullProgress>(&line) {
+                                    if let Ok(progress) =
+                                        serde_json::from_str::<PullProgress>(&line)
+                                    {
                                         if tx.send(progress).await.is_err() {
                                             return; // Receiver dropped
                                         }
@@ -422,26 +416,30 @@ impl OllamaClient {
                         }
                     }
                     Err(e) => {
-                        let _ = tx.send(PullProgress {
-                            status: "error".to_string(),
-                            digest: None,
-                            total: 0,
-                            completed: 0,
-                            error: Some(e.to_string()),
-                        }).await;
+                        let _ = tx
+                            .send(PullProgress {
+                                status: "error".to_string(),
+                                digest: None,
+                                total: 0,
+                                completed: 0,
+                                error: Some(e.to_string()),
+                            })
+                            .await;
                         return;
                     }
                 }
             }
 
             // Send final success if no error
-            let _ = tx.send(PullProgress {
-                status: "success".to_string(),
-                digest: None,
-                total: 0,
-                completed: 0,
-                error: None,
-            }).await;
+            let _ = tx
+                .send(PullProgress {
+                    status: "success".to_string(),
+                    digest: None,
+                    total: 0,
+                    completed: 0,
+                    error: None,
+                })
+                .await;
         });
 
         Ok(rx)
@@ -573,7 +571,9 @@ pub fn get_ollama_version() -> Option<String> {
         .ok()
         .and_then(|o| {
             if o.status.success() {
-                String::from_utf8(o.stdout).ok().map(|s| s.trim().to_string())
+                String::from_utf8(o.stdout)
+                    .ok()
+                    .map(|s| s.trim().to_string())
             } else {
                 None
             }

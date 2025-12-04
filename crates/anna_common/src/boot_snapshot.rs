@@ -60,12 +60,17 @@ fn get_boot_start_time() -> DateTime<Local> {
         if out.status.success() {
             let stdout = String::from_utf8_lossy(&out.stdout);
             // Parse first line like: " 0 abc123 2025-12-02 07:13:21 CET—2025-12-02 10:34:21 CET"
-            if let Some(line) = stdout.lines().find(|l| l.trim().starts_with("0 ") || l.trim().starts_with(" 0 ")) {
+            if let Some(line) = stdout
+                .lines()
+                .find(|l| l.trim().starts_with("0 ") || l.trim().starts_with(" 0 "))
+            {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 4 {
                     // Try to parse date+time
                     let date_str = format!("{} {}", parts[2], parts[3]);
-                    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S") {
+                    if let Ok(dt) =
+                        chrono::NaiveDateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S")
+                    {
                         return Local.from_local_datetime(&dt).unwrap();
                     }
                 }
@@ -117,7 +122,13 @@ fn format_duration(seconds: u64) -> String {
 /// Get Anna daemon start time
 fn get_anna_start_time() -> Option<DateTime<Local>> {
     let output = Command::new("systemctl")
-        .args(["show", "annad.service", "-p", "ExecMainStartTimestamp", "--no-pager"])
+        .args([
+            "show",
+            "annad.service",
+            "-p",
+            "ExecMainStartTimestamp",
+            "--no-pager",
+        ])
         .output()
         .ok()?;
 
@@ -150,7 +161,13 @@ fn get_anna_start_time() -> Option<DateTime<Local>> {
 /// Get Anna uptime
 fn get_anna_uptime() -> String {
     let output = Command::new("systemctl")
-        .args(["show", "annad.service", "-p", "ExecMainStartTimestamp", "--no-pager"])
+        .args([
+            "show",
+            "annad.service",
+            "-p",
+            "ExecMainStartTimestamp",
+            "--no-pager",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -163,7 +180,10 @@ fn get_anna_uptime() -> String {
                         let parts: Vec<&str> = ts_str.split_whitespace().collect();
                         if parts.len() >= 3 {
                             let date_time_str = format!("{} {}", parts[1], parts[2]);
-                            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&date_time_str, "%Y-%m-%d %H:%M:%S") {
+                            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
+                                &date_time_str,
+                                "%Y-%m-%d %H:%M:%S",
+                            ) {
                                 let start = Local.from_local_datetime(&dt).unwrap();
                                 let now = Local::now();
                                 let duration = now.signed_duration_since(start);
@@ -182,11 +202,20 @@ fn get_anna_uptime() -> String {
 /// Get incidents from current boot (warning and above)
 fn get_current_boot_incidents() -> Vec<IncidentPattern> {
     let mut incidents = Vec::new();
-    let mut pattern_counts: std::collections::HashMap<String, (String, String, u32)> = std::collections::HashMap::new();
+    let mut pattern_counts: std::collections::HashMap<String, (String, String, u32)> =
+        std::collections::HashMap::new();
 
     // Get all warning+ messages from current boot
     let output = Command::new("journalctl")
-        .args(["-b", "-p", "warning..alert", "-o", "short", "--no-pager", "-q"])
+        .args([
+            "-b",
+            "-p",
+            "warning..alert",
+            "-o",
+            "short",
+            "--no-pager",
+            "-q",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -236,7 +265,11 @@ fn get_current_boot_incidents() -> Vec<IncidentPattern> {
                     pattern_counts
                         .entry(pattern_key)
                         .and_modify(|e| e.2 += 1)
-                        .or_insert((pattern_id, format!("{}: {}", component, truncate_message(&normalized, 50)), 1));
+                        .or_insert((
+                            pattern_id,
+                            format!("{}: {}", component, truncate_message(&normalized, 50)),
+                            1,
+                        ));
                 }
             }
         }
@@ -244,7 +277,7 @@ fn get_current_boot_incidents() -> Vec<IncidentPattern> {
 
     // Convert to incident patterns, sorted by count
     let mut sorted: Vec<_> = pattern_counts.into_iter().collect();
-    sorted.sort_by(|a, b| b.1.2.cmp(&a.1.2));
+    sorted.sort_by(|a, b| b.1 .2.cmp(&a.1 .2));
 
     for (_, (pattern_id, message, count)) in sorted.into_iter().take(10) {
         let component = message.split(':').next().unwrap_or("unknown").to_string();
@@ -291,7 +324,13 @@ fn generate_pattern_id(component: &str, message: &str) -> String {
     let prefix = match component.to_lowercase().as_str() {
         s if s.contains("network") || s.contains("nm-") || s.contains("wpa") => "NET",
         s if s.contains("nvidia") || s.contains("gpu") || s.contains("drm") => "GPU",
-        s if s.contains("nvme") || s.contains("smart") || s.contains("ata") || s.contains("disk") => "STO",
+        s if s.contains("nvme")
+            || s.contains("smart")
+            || s.contains("ata")
+            || s.contains("disk") =>
+        {
+            "STO"
+        }
         s if s.contains("audio") || s.contains("pulse") || s.contains("pipewire") => "AUD",
         s if s.contains("usb") => "USB",
         s if s.contains("power") || s.contains("battery") || s.contains("acpi") => "PWR",
@@ -302,7 +341,9 @@ fn generate_pattern_id(component: &str, message: &str) -> String {
     };
 
     // Create a simple hash from message using wrapping operations
-    let hash: u32 = message.bytes().fold(0u32, |acc, b| acc.wrapping_add(b as u32).wrapping_mul(31));
+    let hash: u32 = message
+        .bytes()
+        .fold(0u32, |acc, b| acc.wrapping_add(b as u32).wrapping_mul(31));
     format!("[{}{}]", prefix, format!("{:03}", hash % 1000))
 }
 
@@ -321,11 +362,17 @@ pub fn format_boot_snapshot_section(snapshot: &BootSnapshot) -> Vec<String> {
 
     lines.push("[BOOT SNAPSHOT]".to_string());
     lines.push("  Current boot:".to_string());
-    lines.push(format!("    started:        {}", snapshot.boot_started.format("%Y-%m-%d %H:%M:%S %Z")));
+    lines.push(format!(
+        "    started:        {}",
+        snapshot.boot_started.format("%Y-%m-%d %H:%M:%S %Z")
+    ));
     lines.push(format!("    uptime:         {}", snapshot.uptime));
 
     if let Some(ref anna_start) = snapshot.anna_started {
-        lines.push(format!("    Anna start:     {}", anna_start.format("%Y-%m-%d %H:%M:%S %Z")));
+        lines.push(format!(
+            "    Anna start:     {}",
+            anna_start.format("%Y-%m-%d %H:%M:%S %Z")
+        ));
     }
     if let Some(ref anna_uptime) = snapshot.anna_uptime {
         lines.push(format!("    Anna uptime:    {}", anna_uptime));
@@ -345,9 +392,7 @@ pub fn format_boot_snapshot_section(snapshot: &BootSnapshot) -> Vec<String> {
             };
             lines.push(format!(
                 "    {} {}  {}",
-                incident.pattern_id,
-                incident.message,
-                count_str
+                incident.pattern_id, incident.message, count_str
             ));
         }
     }
@@ -394,6 +439,9 @@ mod tests {
     #[test]
     fn test_truncate_message() {
         assert_eq!(truncate_message("short", 10), "short");
-        assert_eq!(truncate_message("this is a very long message", 15), "this is a ve...");
+        assert_eq!(
+            truncate_message("this is a very long message", 15),
+            "this is a ve..."
+        );
     }
 }

@@ -65,7 +65,8 @@ impl PackageInfo {
                         if let Some(groups) = line.split(':').nth(1) {
                             let groups_str = groups.trim();
                             if groups_str != "None" {
-                                info.groups = groups_str.split_whitespace()
+                                info.groups = groups_str
+                                    .split_whitespace()
                                     .map(|s| s.to_string())
                                     .collect();
                             }
@@ -114,120 +115,198 @@ pub fn categorise(info: &PackageInfo) -> Vec<String> {
     // Order matters - more specific rules first
 
     // Editors
-    if desc.contains("text editor") || desc.contains("editor for")
-        || desc.contains("vi improved") || desc.contains("vim")
-        || (desc.contains("editor") && !desc.contains("video editor") && !desc.contains("hex editor"))
-        || name_lower == "nano" || name_lower == "emacs" || name_lower == "helix" {
+    if desc.contains("text editor")
+        || desc.contains("editor for")
+        || desc.contains("vi improved")
+        || desc.contains("vim")
+        || (desc.contains("editor")
+            && !desc.contains("video editor")
+            && !desc.contains("hex editor"))
+        || name_lower == "nano"
+        || name_lower == "emacs"
+        || name_lower == "helix"
+    {
         categories.push("Editors".to_string());
     }
 
     // Terminals
-    if desc.contains("terminal emulator") || desc.contains("terminal application")
+    if desc.contains("terminal emulator")
+        || desc.contains("terminal application")
         || (desc.contains("terminal") && desc.contains("gpu"))
-        || name_lower == "alacritty" || name_lower == "kitty" || name_lower == "foot"
-        || name_lower == "wezterm" || name_lower == "konsole" {
+        || name_lower == "alacritty"
+        || name_lower == "kitty"
+        || name_lower == "foot"
+        || name_lower == "wezterm"
+        || name_lower == "konsole"
+    {
         categories.push("Terminals".to_string());
     }
 
     // Shells
-    if desc.contains("command interpreter") || desc.contains("unix shell")
-        || desc.contains("bourne") || desc.contains("shell for")
+    if desc.contains("command interpreter")
+        || desc.contains("unix shell")
+        || desc.contains("bourne")
+        || desc.contains("shell for")
         || (desc.contains("shell") && (desc.contains("interactive") || desc.contains("scripting")))
         || info.groups.iter().any(|g| g == "base")
-        || name_lower == "bash" || name_lower == "zsh" || name_lower == "fish"
-        || name_lower == "dash" || name_lower == "nushell" {
+        || name_lower == "bash"
+        || name_lower == "zsh"
+        || name_lower == "fish"
+        || name_lower == "dash"
+        || name_lower == "nushell"
+    {
         categories.push("Shells".to_string());
     }
 
     // Compositors / Window Managers
-    if desc.contains("wayland compositor") || desc.contains("window manager")
-        || desc.contains("wm for") || desc.contains("tiling")
-        || name_lower == "hyprland" || name_lower == "sway" || name_lower == "i3"
-        || name_lower == "bspwm" || name_lower == "openbox" {
+    if desc.contains("wayland compositor")
+        || desc.contains("window manager")
+        || desc.contains("wm for")
+        || desc.contains("tiling")
+        || name_lower == "hyprland"
+        || name_lower == "sway"
+        || name_lower == "i3"
+        || name_lower == "bspwm"
+        || name_lower == "openbox"
+    {
         categories.push("Compositors".to_string());
     }
 
     // Browsers
-    if desc.contains("web browser") || desc.contains("browser for")
+    if desc.contains("web browser")
+        || desc.contains("browser for")
         || (desc.contains("browser") && (desc.contains("internet") || desc.contains("web")))
-        || name_lower == "firefox" || name_lower == "chromium" || name_lower == "brave"
-        || name_lower.contains("chrome") {
+        || name_lower == "firefox"
+        || name_lower == "chromium"
+        || name_lower == "brave"
+        || name_lower.contains("chrome")
+    {
         categories.push("Browsers".to_string());
     }
 
     // Multimedia
-    if desc.contains("video player") || desc.contains("audio player")
-        || desc.contains("media player") || desc.contains("multimedia")
-        || desc.contains("video edit") || desc.contains("audio edit")
-        || desc.contains("music player") || desc.contains("image viewer")
-        || name_lower == "mpv" || name_lower == "vlc" || name_lower == "ffmpeg"
-        || name_lower == "gimp" || name_lower == "inkscape" {
+    if desc.contains("video player")
+        || desc.contains("audio player")
+        || desc.contains("media player")
+        || desc.contains("multimedia")
+        || desc.contains("video edit")
+        || desc.contains("audio edit")
+        || desc.contains("music player")
+        || desc.contains("image viewer")
+        || name_lower == "mpv"
+        || name_lower == "vlc"
+        || name_lower == "ffmpeg"
+        || name_lower == "gimp"
+        || name_lower == "inkscape"
+    {
         categories.push("Multimedia".to_string());
     }
 
     // Development
-    if desc.contains("compiler") || desc.contains("debugger")
-        || desc.contains("programming") || desc.contains("development")
-        || desc.contains("ide") || desc.contains("sdk")
+    if desc.contains("compiler")
+        || desc.contains("debugger")
+        || desc.contains("programming")
+        || desc.contains("development")
+        || desc.contains("ide")
+        || desc.contains("sdk")
         || info.groups.iter().any(|g| g == "base-devel")
-        || name_lower == "gcc" || name_lower == "clang" || name_lower == "rustc"
-        || name_lower == "cargo" || name_lower == "python" || name_lower == "node" {
+        || name_lower == "gcc"
+        || name_lower == "clang"
+        || name_lower == "rustc"
+        || name_lower == "cargo"
+        || name_lower == "python"
+        || name_lower == "node"
+    {
         categories.push("Development".to_string());
     }
 
     // Network
-    if desc.contains("network") || desc.contains("networking")
-        || desc.contains("download") || desc.contains("http client")
-        || desc.contains("ssh") || desc.contains("ftp")
-        || desc.contains("dns") || desc.contains("vpn")
-        || name_lower == "curl" || name_lower == "wget" || name_lower == "ssh"
-        || name_lower == "rsync" {
+    if desc.contains("network")
+        || desc.contains("networking")
+        || desc.contains("download")
+        || desc.contains("http client")
+        || desc.contains("ssh")
+        || desc.contains("ftp")
+        || desc.contains("dns")
+        || desc.contains("vpn")
+        || name_lower == "curl"
+        || name_lower == "wget"
+        || name_lower == "ssh"
+        || name_lower == "rsync"
+    {
         categories.push("Network".to_string());
     }
 
     // System
-    if desc.contains("system monitor") || desc.contains("system information")
-        || desc.contains("process") || desc.contains("service manager")
-        || desc.contains("init") || desc.contains("boot")
-        || name_lower == "systemd" || name_lower == "htop" || name_lower == "btop"
-        || name_lower == "top" || name_lower == "ps" {
+    if desc.contains("system monitor")
+        || desc.contains("system information")
+        || desc.contains("process")
+        || desc.contains("service manager")
+        || desc.contains("init")
+        || desc.contains("boot")
+        || name_lower == "systemd"
+        || name_lower == "htop"
+        || name_lower == "btop"
+        || name_lower == "top"
+        || name_lower == "ps"
+    {
         categories.push("System".to_string());
     }
 
     // Power
-    if desc.contains("power management") || desc.contains("battery")
-        || desc.contains("acpi") || desc.contains("suspend")
-        || desc.contains("hibernate") || desc.contains("power saving")
-        || name_lower == "tlp" || name_lower == "powertop" {
+    if desc.contains("power management")
+        || desc.contains("battery")
+        || desc.contains("acpi")
+        || desc.contains("suspend")
+        || desc.contains("hibernate")
+        || desc.contains("power saving")
+        || name_lower == "tlp"
+        || name_lower == "powertop"
+    {
         categories.push("Power".to_string());
     }
 
     // Virtualization
-    if desc.contains("virtual machine") || desc.contains("virtualization")
-        || desc.contains("hypervisor") || desc.contains("emulator")
-        || name_lower == "qemu" || name_lower == "virtualbox" || name_lower == "libvirt" {
+    if desc.contains("virtual machine")
+        || desc.contains("virtualization")
+        || desc.contains("hypervisor")
+        || desc.contains("emulator")
+        || name_lower == "qemu"
+        || name_lower == "virtualbox"
+        || name_lower == "libvirt"
+    {
         categories.push("Virtualization".to_string());
     }
 
     // Containers
-    if desc.contains("container") || desc.contains("containerization")
-        || desc.contains("docker") || desc.contains("oci")
-        || name_lower == "docker" || name_lower == "podman" || name_lower == "containerd" {
+    if desc.contains("container")
+        || desc.contains("containerization")
+        || desc.contains("docker")
+        || desc.contains("oci")
+        || name_lower == "docker"
+        || name_lower == "podman"
+        || name_lower == "containerd"
+    {
         categories.push("Containers".to_string());
     }
 
     // Games
-    if desc.contains("game") || desc.contains("gaming")
-        || info.groups.iter().any(|g| g.contains("game")) {
+    if desc.contains("game")
+        || desc.contains("gaming")
+        || info.groups.iter().any(|g| g.contains("game"))
+    {
         categories.push("Games".to_string());
     }
 
     // Tools - catch common CLI utilities
     if categories.is_empty() {
         // Check if it's a common tool based on description
-        if desc.contains("utility") || desc.contains("tool")
-            || desc.contains("command") || desc.contains("cli")
-            || is_common_cli_tool(&name_lower) {
+        if desc.contains("utility")
+            || desc.contains("tool")
+            || desc.contains("command")
+            || desc.contains("cli")
+            || is_common_cli_tool(&name_lower)
+        {
             categories.push("Tools".to_string());
         }
     }
@@ -242,21 +321,42 @@ pub fn categorise(info: &PackageInfo) -> Vec<String> {
 
 /// Check if name is a common CLI tool
 fn is_common_cli_tool(name: &str) -> bool {
-    matches!(name,
-        "grep" | "awk" | "sed" | "tar" | "gzip" | "unzip" | "zip"
-        | "find" | "ls" | "cat" | "cp" | "mv" | "rm" | "mkdir"
-        | "make" | "cmake" | "ninja" | "meson"
-        | "jq" | "yq" | "fzf" | "ripgrep" | "rg" | "fd"
-        | "git" | "diff" | "patch"
+    matches!(
+        name,
+        "grep"
+            | "awk"
+            | "sed"
+            | "tar"
+            | "gzip"
+            | "unzip"
+            | "zip"
+            | "find"
+            | "ls"
+            | "cat"
+            | "cp"
+            | "mv"
+            | "rm"
+            | "mkdir"
+            | "make"
+            | "cmake"
+            | "ninja"
+            | "meson"
+            | "jq"
+            | "yq"
+            | "fzf"
+            | "ripgrep"
+            | "rg"
+            | "fd"
+            | "git"
+            | "diff"
+            | "patch"
     )
 }
 
 /// Get all installed packages in a category
 pub fn packages_in_category(category: &str) -> Vec<(String, String, String)> {
     // Get list of explicitly installed packages
-    let output = Command::new("pacman")
-        .args(["-Qe"])
-        .output();
+    let output = Command::new("pacman").args(["-Qe"]).output();
 
     let mut results = Vec::new();
 
@@ -273,7 +373,8 @@ pub fn packages_in_category(category: &str) -> Vec<(String, String, String)> {
                     let cats = categorise(&info);
 
                     if cats.iter().any(|c| c.eq_ignore_ascii_case(category)) {
-                        let desc = info.pacman_description
+                        let desc = info
+                            .pacman_description
                             .or(info.man_description)
                             .unwrap_or_default();
                         results.push((name.to_string(), desc, version.to_string()));
@@ -295,9 +396,7 @@ pub fn get_category_summary() -> Vec<(String, Vec<String>)> {
     use std::collections::{HashMap, HashSet};
 
     // Get list of explicitly installed packages
-    let output = Command::new("pacman")
-        .args(["-Qe"])
-        .output();
+    let output = Command::new("pacman").args(["-Qe"]).output();
 
     let mut category_packages: HashMap<String, Vec<String>> = HashMap::new();
     // v7.10.0: Track seen names (case-insensitive) to avoid duplicates
@@ -353,13 +452,16 @@ pub fn get_category_summary() -> Vec<(String, Vec<String>)> {
 /// Check if a string is a valid category name
 pub fn is_valid_category(name: &str) -> bool {
     let name_lower = name.to_lowercase();
-    CATEGORY_ORDER.iter().any(|c| c.to_lowercase() == name_lower)
+    CATEGORY_ORDER
+        .iter()
+        .any(|c| c.to_lowercase() == name_lower)
 }
 
 /// Normalize category name to standard form
 pub fn normalize_category(name: &str) -> Option<String> {
     let name_lower = name.to_lowercase();
-    CATEGORY_ORDER.iter()
+    CATEGORY_ORDER
+        .iter()
         .find(|c| c.to_lowercase() == name_lower)
         .map(|c| c.to_string())
 }
@@ -372,7 +474,10 @@ mod tests {
     fn test_categorise_editor() {
         let info = PackageInfo {
             name: "vim".to_string(),
-            pacman_description: Some("Vi Improved, a highly configurable, improved version of the vi text editor".to_string()),
+            pacman_description: Some(
+                "Vi Improved, a highly configurable, improved version of the vi text editor"
+                    .to_string(),
+            ),
             man_description: None,
             groups: vec![],
         };
@@ -384,7 +489,9 @@ mod tests {
     fn test_categorise_terminal() {
         let info = PackageInfo {
             name: "alacritty".to_string(),
-            pacman_description: Some("A cross-platform, GPU-accelerated terminal emulator".to_string()),
+            pacman_description: Some(
+                "A cross-platform, GPU-accelerated terminal emulator".to_string(),
+            ),
             man_description: None,
             groups: vec![],
         };
@@ -420,7 +527,9 @@ mod tests {
     fn test_categorise_compositor() {
         let info = PackageInfo {
             name: "hyprland".to_string(),
-            pacman_description: Some("A highly customizable dynamic tiling Wayland compositor".to_string()),
+            pacman_description: Some(
+                "A highly customizable dynamic tiling Wayland compositor".to_string(),
+            ),
             man_description: None,
             groups: vec![],
         };

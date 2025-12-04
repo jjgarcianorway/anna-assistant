@@ -7,8 +7,8 @@
 //!
 //! v0.0.65: Purposeful, typed evidence that matches questions
 
-use serde::{Deserialize, Serialize};
 use crate::evidence_topic::EvidenceTopic;
+use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // Probe Kind - Passive vs Active
@@ -184,7 +184,8 @@ impl EvidenceBundle {
             return "No evidence collected.".to_string();
         }
 
-        let summaries: Vec<&str> = self.successful_records()
+        let summaries: Vec<&str> = self
+            .successful_records()
             .iter()
             .map(|r| r.human_summary.as_str())
             .collect();
@@ -198,8 +199,10 @@ impl EvidenceBundle {
             .iter()
             .map(|r| {
                 let status = if r.success { "OK" } else { "FAIL" };
-                format!("[{}] {} ({}) - {}",
-                    r.evidence_id, r.debug_source, status, r.human_summary)
+                format!(
+                    "[{}] {} ({}) - {}",
+                    r.evidence_id, r.debug_source, status, r.human_summary
+                )
             })
             .collect::<Vec<_>>()
             .join("\n")

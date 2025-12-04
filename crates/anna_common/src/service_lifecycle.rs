@@ -157,12 +157,7 @@ fn count_activation_failures(unit: &str, window: &str) -> usize {
     };
 
     let output = Command::new("journalctl")
-        .args([
-            "--since", since,
-            "-u", unit,
-            "--no-pager",
-            "-q",
-        ])
+        .args(["--since", since, "-u", unit, "--no-pager", "-q"])
         .output();
 
     let logs = match output {
@@ -220,12 +215,17 @@ impl ServiceLifecycleSummary {
 
     /// Check if any unit has failures
     pub fn has_failures(&self) -> bool {
-        self.units.iter().any(|u| u.failures_24h > 0 || u.failures_7d > 0)
+        self.units
+            .iter()
+            .any(|u| u.failures_24h > 0 || u.failures_7d > 0)
     }
 
     /// Get units with restarts this boot
     pub fn units_with_restarts(&self) -> Vec<&ServiceLifecycle> {
-        self.units.iter().filter(|u| u.restarts_this_boot > 0).collect()
+        self.units
+            .iter()
+            .filter(|u| u.restarts_this_boot > 0)
+            .collect()
     }
 }
 
@@ -255,9 +255,7 @@ pub fn find_related_units(name: &str) -> Vec<String> {
     let base_name = name.trim_end_matches(".service");
     for suffix in &[".socket", ".timer"] {
         let unit = format!("{}{}", base_name, suffix);
-        let output = Command::new("systemctl")
-            .args(["cat", &unit])
-            .output();
+        let output = Command::new("systemctl").args(["cat", &unit]).output();
 
         if let Ok(out) = output {
             if out.status.success() {
@@ -268,15 +266,13 @@ pub fn find_related_units(name: &str) -> Vec<String> {
 
     // Try common variations
     let variations = [
-        format!("{}d.service", base_name),  // sshd, httpd, etc.
+        format!("{}d.service", base_name), // sshd, httpd, etc.
         format!("{}-daemon.service", base_name),
     ];
 
     for variant in &variations {
         if !units.contains(variant) {
-            let output = Command::new("systemctl")
-                .args(["cat", variant])
-                .output();
+            let output = Command::new("systemctl").args(["cat", variant]).output();
 
             if let Ok(out) = output {
                 if out.status.success() {
@@ -296,12 +292,39 @@ pub fn find_hardware_related_units(component: &str) -> Vec<String> {
 
     // Known mappings
     let mappings: &[(&str, &[&str])] = &[
-        ("wifi", &["NetworkManager.service", "wpa_supplicant.service", "iwd.service"]),
-        ("network", &["NetworkManager.service", "systemd-networkd.service", "systemd-resolved.service"]),
-        ("ethernet", &["NetworkManager.service", "systemd-networkd.service"]),
+        (
+            "wifi",
+            &[
+                "NetworkManager.service",
+                "wpa_supplicant.service",
+                "iwd.service",
+            ],
+        ),
+        (
+            "network",
+            &[
+                "NetworkManager.service",
+                "systemd-networkd.service",
+                "systemd-resolved.service",
+            ],
+        ),
+        (
+            "ethernet",
+            &["NetworkManager.service", "systemd-networkd.service"],
+        ),
         ("bluetooth", &["bluetooth.service"]),
-        ("audio", &["pipewire.service", "pipewire-pulse.service", "pulseaudio.service"]),
-        ("power", &["upower.service", "tlp.service", "thermald.service"]),
+        (
+            "audio",
+            &[
+                "pipewire.service",
+                "pipewire-pulse.service",
+                "pulseaudio.service",
+            ],
+        ),
+        (
+            "power",
+            &["upower.service", "tlp.service", "thermald.service"],
+        ),
         ("battery", &["upower.service"]),
         ("storage", &["udisks2.service"]),
         ("gpu", &["nvidia-persistenced.service"]),
@@ -311,9 +334,7 @@ pub fn find_hardware_related_units(component: &str) -> Vec<String> {
         if component_lower.contains(key) {
             for service in *services {
                 // Check if service exists
-                let output = Command::new("systemctl")
-                    .args(["cat", service])
-                    .output();
+                let output = Command::new("systemctl").args(["cat", service]).output();
 
                 if let Ok(out) = output {
                     if out.status.success() && !units.contains(&service.to_string()) {

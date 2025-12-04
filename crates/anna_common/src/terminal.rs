@@ -7,7 +7,7 @@
 //!
 //! Also provides table rendering helpers for wide terminals.
 
-use terminal_size::{terminal_size, Width, Height};
+use terminal_size::{terminal_size, Height, Width};
 
 /// Minimum terminal width to function
 pub const MIN_WIDTH: u16 = 40;
@@ -61,10 +61,11 @@ impl DisplayMode {
         match self {
             DisplayMode::Compact => {
                 // In compact mode, only show essential sections
-                is_essential || matches!(
-                    section.to_uppercase().as_str(),
-                    "[VERSION]" | "[DAEMON]" | "[HEALTH]" | "[ALERTS]" | "[UPDATES]"
-                )
+                is_essential
+                    || matches!(
+                        section.to_uppercase().as_str(),
+                        "[VERSION]" | "[DAEMON]" | "[HEALTH]" | "[ALERTS]" | "[UPDATES]"
+                    )
             }
             DisplayMode::Standard | DisplayMode::Wide => true,
         }
@@ -193,8 +194,8 @@ impl SimpleTable {
         let mut lines = Vec::new();
 
         // Calculate if we need to truncate columns
-        let total_width: usize = self.col_widths.iter().sum::<usize>()
-            + (self.col_widths.len() - 1) * 3; // " | " separators
+        let total_width: usize =
+            self.col_widths.iter().sum::<usize>() + (self.col_widths.len() - 1) * 3; // " | " separators
 
         let col_widths = if total_width > max_width && max_width > 20 {
             // Need to shrink columns proportionally
@@ -212,13 +213,23 @@ impl SimpleTable {
             .headers
             .iter()
             .enumerate()
-            .map(|(i, h)| format!("{:width$}", truncate(h, col_widths[i]), width = col_widths[i]))
+            .map(|(i, h)| {
+                format!(
+                    "{:width$}",
+                    truncate(h, col_widths[i]),
+                    width = col_widths[i]
+                )
+            })
             .collect::<Vec<_>>()
             .join(" | ");
         lines.push(format!("  {}", header_line));
 
         // Separator
-        let sep: String = col_widths.iter().map(|w| "-".repeat(*w)).collect::<Vec<_>>().join("-+-");
+        let sep: String = col_widths
+            .iter()
+            .map(|w| "-".repeat(*w))
+            .collect::<Vec<_>>()
+            .join("-+-");
         lines.push(format!("  {}", sep));
 
         // Data rows

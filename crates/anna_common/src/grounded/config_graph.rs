@@ -90,15 +90,13 @@ pub struct ConfigRelation {
 
 /// Get package owner of a file
 pub fn get_file_owner(path: &str) -> Option<String> {
-    let output = Command::new("pacman")
-        .args(["-Qo", path])
-        .output()
-        .ok()?;
+    let output = Command::new("pacman").args(["-Qo", path]).output().ok()?;
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         // Format: "/path/to/file is owned by package version"
-        stdout.split(" is owned by ")
+        stdout
+            .split(" is owned by ")
             .nth(1)
             .and_then(|s| s.split_whitespace().next())
             .map(|s| s.to_string())
@@ -112,7 +110,11 @@ pub fn get_unit_configs(unit_name: &str) -> Vec<ConfigRelation> {
     let mut configs = Vec::new();
 
     let output = Command::new("systemctl")
-        .args(["show", unit_name, "--property=ExecStart,EnvironmentFile,ConfigDirectory"])
+        .args([
+            "show",
+            unit_name,
+            "--property=ExecStart,EnvironmentFile,ConfigDirectory",
+        ])
         .output();
 
     if let Ok(out) = output {
@@ -127,8 +129,10 @@ pub fn get_unit_configs(unit_name: &str) -> Vec<ConfigRelation> {
                     for word in exec_part.split_whitespace() {
                         // -c /path, --config /path, --config=/path
                         if (word.starts_with("/etc/") || word.starts_with("/usr/"))
-                            && (word.ends_with(".conf") || word.ends_with(".cfg")
-                                || word.ends_with(".ini") || word.ends_with(".config"))
+                            && (word.ends_with(".conf")
+                                || word.ends_with(".cfg")
+                                || word.ends_with(".ini")
+                                || word.ends_with(".config"))
                         {
                             let path = word.split('=').last().unwrap_or(word);
                             configs.push(ConfigRelation {
@@ -142,8 +146,9 @@ pub fn get_unit_configs(unit_name: &str) -> Vec<ConfigRelation> {
 
                 // Parse EnvironmentFile
                 if line.starts_with("EnvironmentFile=") {
-                    let path = line.trim_start_matches("EnvironmentFile=")
-                        .trim_start_matches('-')  // Optional env file
+                    let path = line
+                        .trim_start_matches("EnvironmentFile=")
+                        .trim_start_matches('-') // Optional env file
                         .trim();
                     if !path.is_empty() {
                         configs.push(ConfigRelation {
@@ -285,9 +290,7 @@ fn get_configs_from_man(name: &str) -> Vec<String> {
     let mut configs = Vec::new();
 
     // Try to get FILES section from man page
-    let output = Command::new("man")
-        .args(["--pager=cat", name])
-        .output();
+    let output = Command::new("man").args(["--pager=cat", name]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -304,8 +307,13 @@ fn get_configs_from_man(name: &str) -> Vec<String> {
                 }
 
                 // End of FILES section
-                if in_files_section && (line.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
-                    && !line.starts_with('/'))
+                if in_files_section
+                    && (line
+                        .chars()
+                        .next()
+                        .map(|c| c.is_uppercase())
+                        .unwrap_or(false)
+                        && !line.starts_with('/'))
                 {
                     in_files_section = false;
                 }
@@ -314,7 +322,9 @@ fn get_configs_from_man(name: &str) -> Vec<String> {
                 if in_files_section {
                     for word in line.split_whitespace() {
                         if word.starts_with("/etc/") || word.starts_with("/usr/") {
-                            let path = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '/' && c != '.' && c != '_' && c != '-');
+                            let path = word.trim_matches(|c: char| {
+                                !c.is_alphanumeric() && c != '/' && c != '.' && c != '_' && c != '-'
+                            });
                             if !path.is_empty() && !configs.contains(&path.to_string()) {
                                 configs.push(path.to_string());
                             }
@@ -373,8 +383,10 @@ pub fn get_config_graph_for_hardware(component: &str) -> ConfigGraph {
     let component_lower = component.to_lowercase();
 
     // Network-related configs
-    if component_lower.contains("wifi") || component_lower.contains("wlan")
-        || component_lower.contains("network") || component_lower.contains("ethernet")
+    if component_lower.contains("wifi")
+        || component_lower.contains("wlan")
+        || component_lower.contains("network")
+        || component_lower.contains("ethernet")
     {
         // NetworkManager connections
         let nm_dir = "/etc/NetworkManager/system-connections";
@@ -382,7 +394,11 @@ pub fn get_config_graph_for_hardware(component: &str) -> ConfigGraph {
             if let Ok(entries) = fs::read_dir(nm_dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.extension().map(|e| e == "nmconnection").unwrap_or(false) {
+                    if path
+                        .extension()
+                        .map(|e| e == "nmconnection")
+                        .unwrap_or(false)
+                    {
                         graph.reads.push(ConfigRelation {
                             path: path.to_string_lossy().to_string(),
                             evidence: "NetworkManager".to_string(),
@@ -405,8 +421,10 @@ pub fn get_config_graph_for_hardware(component: &str) -> ConfigGraph {
     }
 
     // Storage-related configs
-    if component_lower.contains("nvme") || component_lower.contains("sd")
-        || component_lower.contains("storage") || component_lower.contains("disk")
+    if component_lower.contains("nvme")
+        || component_lower.contains("sd")
+        || component_lower.contains("storage")
+        || component_lower.contains("disk")
     {
         // fstab
         graph.reads.push(ConfigRelation {

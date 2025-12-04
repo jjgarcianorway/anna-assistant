@@ -7,8 +7,12 @@
 //!
 //! Also handles writing to log files in case directories.
 
-use crate::human_labels::{tool_action, tool_evidence_desc, tool_working_msg, department_working_msg};
-use crate::transcript_events::{EventActor, EventKind, TranscriptEvent, TranscriptEventStream, TranscriptMode};
+use crate::human_labels::{
+    department_working_msg, tool_action, tool_evidence_desc, tool_working_msg,
+};
+use crate::transcript_events::{
+    EventActor, EventKind, TranscriptEvent, TranscriptEventStream, TranscriptMode,
+};
 use owo_colors::OwoColorize;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
@@ -29,11 +33,17 @@ pub struct RenderedLine {
 
 impl RenderedLine {
     pub fn new(text: String) -> Self {
-        Self { text, is_progress: false }
+        Self {
+            text,
+            is_progress: false,
+        }
     }
 
     pub fn progress(text: String) -> Self {
-        Self { text, is_progress: true }
+        Self {
+            text,
+            is_progress: true,
+        }
     }
 }
 
@@ -63,7 +73,10 @@ fn render_human(event: &TranscriptEvent) -> Option<RenderedLine> {
 
         EventKind::Working => {
             // Progress indicators
-            let msg = event.summary.progress.as_deref()
+            let msg = event
+                .summary
+                .progress
+                .as_deref()
                 .or(event.summary.message.as_str().into())
                 .unwrap_or("Working...");
             let line = format!("{} {}", actor_colored, msg.dimmed());
@@ -77,7 +90,10 @@ fn render_human(event: &TranscriptEvent) -> Option<RenderedLine> {
                 let msg = format!("I'm {}.", action);
                 Some(RenderedLine::new(format!("{} {}", actor_colored, msg)))
             } else if !event.summary.message.is_empty() {
-                Some(RenderedLine::new(format!("{} {}", actor_colored, event.summary.message)))
+                Some(RenderedLine::new(format!(
+                    "{} {}",
+                    actor_colored, event.summary.message
+                )))
             } else {
                 None
             }
@@ -100,7 +116,10 @@ fn render_human(event: &TranscriptEvent) -> Option<RenderedLine> {
         EventKind::Handoff => {
             // Department handoff
             if !event.summary.message.is_empty() {
-                Some(RenderedLine::new(format!("{} {}", actor_colored, event.summary.message)))
+                Some(RenderedLine::new(format!(
+                    "{} {}",
+                    actor_colored, event.summary.message
+                )))
             } else {
                 None
             }
@@ -109,7 +128,10 @@ fn render_human(event: &TranscriptEvent) -> Option<RenderedLine> {
         EventKind::Decision => {
             // Decision point
             if !event.summary.message.is_empty() {
-                Some(RenderedLine::new(format!("{} {}", actor_colored, event.summary.message)))
+                Some(RenderedLine::new(format!(
+                    "{} {}",
+                    actor_colored, event.summary.message
+                )))
             } else {
                 None
             }
@@ -123,7 +145,10 @@ fn render_human(event: &TranscriptEvent) -> Option<RenderedLine> {
         EventKind::Final => {
             // Final answer
             if !event.summary.message.is_empty() {
-                Some(RenderedLine::new(format!("{} {}", actor_colored, event.summary.message)))
+                Some(RenderedLine::new(format!(
+                    "{} {}",
+                    actor_colored, event.summary.message
+                )))
             } else {
                 None
             }
@@ -133,7 +158,11 @@ fn render_human(event: &TranscriptEvent) -> Option<RenderedLine> {
             // Warnings (humanized, not raw)
             if !event.summary.message.is_empty() {
                 let msg = format!("Note: {}", event.summary.message);
-                Some(RenderedLine::new(format!("{} {}", actor_colored, msg.yellow())))
+                Some(RenderedLine::new(format!(
+                    "{} {}",
+                    actor_colored,
+                    msg.yellow()
+                )))
             } else {
                 None
             }
@@ -142,7 +171,10 @@ fn render_human(event: &TranscriptEvent) -> Option<RenderedLine> {
         EventKind::Confirmation => {
             // Confirmation requests
             if !event.summary.message.is_empty() {
-                Some(RenderedLine::new(format!("{} {}", actor_colored, event.summary.message)))
+                Some(RenderedLine::new(format!(
+                    "{} {}",
+                    actor_colored, event.summary.message
+                )))
             } else {
                 None
             }
@@ -225,7 +257,8 @@ fn style_actor(actor: &EventActor, text: &str) -> String {
 
 /// Render all events in a stream
 pub fn render_stream(stream: &TranscriptEventStream, mode: TranscriptMode) -> Vec<RenderedLine> {
-    stream.events()
+    stream
+        .events()
         .iter()
         .filter_map(|e| render_event(e, mode))
         .collect()
@@ -312,14 +345,12 @@ fn strip_ansi(s: &str) -> String {
 
 /// Create a phase separator event
 pub fn phase_event(phase_name: &str) -> TranscriptEvent {
-    TranscriptEvent::new(EventActor::Anna, EventKind::Phase)
-        .with_message(phase_name)
+    TranscriptEvent::new(EventActor::Anna, EventKind::Phase).with_message(phase_name)
 }
 
 /// Create a working indicator event
 pub fn working_event(actor: EventActor, message: &str) -> TranscriptEvent {
-    TranscriptEvent::new(actor, EventKind::Working)
-        .with_progress(message)
+    TranscriptEvent::new(actor, EventKind::Working).with_progress(message)
 }
 
 /// Create a tool call event
@@ -355,20 +386,17 @@ pub fn tool_result_event(
 /// Create a handoff event
 pub fn handoff_event(from: EventActor, to: EventActor, reason: &str) -> TranscriptEvent {
     let msg = format!("Assigning to [{}]: {}", to, reason);
-    TranscriptEvent::new(from, EventKind::Handoff)
-        .with_message(&msg)
+    TranscriptEvent::new(from, EventKind::Handoff).with_message(&msg)
 }
 
 /// Create a decision event
 pub fn decision_event(actor: EventActor, decision: &str) -> TranscriptEvent {
-    TranscriptEvent::new(actor, EventKind::Decision)
-        .with_message(decision)
+    TranscriptEvent::new(actor, EventKind::Decision).with_message(decision)
 }
 
 /// Create a final answer event
 pub fn final_event(actor: EventActor, answer: &str) -> TranscriptEvent {
-    TranscriptEvent::new(actor, EventKind::Final)
-        .with_message(answer)
+    TranscriptEvent::new(actor, EventKind::Final).with_message(answer)
 }
 
 // ============================================================================

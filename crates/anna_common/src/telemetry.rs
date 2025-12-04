@@ -111,8 +111,12 @@ impl CommandEvent {
             self.timestamp,
             self.command,
             self.args.as_deref().unwrap_or("-"),
-            self.exit_code.map(|c| c.to_string()).unwrap_or_else(|| "-".to_string()),
-            self.duration_ms.map(|d| d.to_string()).unwrap_or_else(|| "-".to_string())
+            self.exit_code
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "-".to_string()),
+            self.duration_ms
+                .map(|d| d.to_string())
+                .unwrap_or_else(|| "-".to_string())
         )
     }
 
@@ -125,7 +129,11 @@ impl CommandEvent {
         Some(Self {
             timestamp: parts[0].parse().ok()?,
             command: parts[2].to_string(),
-            args: if parts[3] == "-" { None } else { Some(parts[3].to_string()) },
+            args: if parts[3] == "-" {
+                None
+            } else {
+                Some(parts[3].to_string())
+            },
             exit_code: parts[4].parse().ok(),
             duration_ms: parts[5].parse().ok(),
         })
@@ -242,8 +250,16 @@ impl PackageChangeEvent {
             timestamp: parts[0].parse().ok()?,
             package: parts[2].to_string(),
             change_type: PackageChangeType::parse(parts[3])?,
-            from_version: if parts[4] == "-" { None } else { Some(parts[4].to_string()) },
-            to_version: if parts[5] == "-" { None } else { Some(parts[5].to_string()) },
+            from_version: if parts[4] == "-" {
+                None
+            } else {
+                Some(parts[4].to_string())
+            },
+            to_version: if parts[5] == "-" {
+                None
+            } else {
+                Some(parts[5].to_string())
+            },
         })
     }
 }
@@ -333,10 +349,7 @@ impl TelemetryWriter {
     /// Append a line to a log file
     fn append(&self, filename: &str, line: &str) -> std::io::Result<()> {
         let path = self.dir.join(filename);
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
+        let mut file = OpenOptions::new().create(true).append(true).open(path)?;
         writeln!(file, "{}", line)
     }
 

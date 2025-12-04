@@ -59,9 +59,7 @@ pub fn build_software_topology() -> SoftwareTopology {
 fn get_installed_packages_with_desc() -> HashMap<String, String> {
     let mut packages = HashMap::new();
 
-    let output = Command::new("pacman")
-        .args(["-Qi"])
-        .output();
+    let output = Command::new("pacman").args(["-Qi"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -95,16 +93,29 @@ fn identify_stack_roles(packages: &HashMap<String, String>) -> Vec<StackRole> {
 
     // Display stack
     let display_keywords = ["wayland", "compositor", "x11", "xorg", "display server"];
-    let display_packages = ["hyprland", "sway", "wayfire", "wlroots", "wayland",
-                           "xorg-server", "xwayland", "xdg-desktop-portal",
-                           "xdg-desktop-portal-hyprland", "xdg-desktop-portal-gtk"];
-    let display_found: Vec<String> = packages.keys()
+    let display_packages = [
+        "hyprland",
+        "sway",
+        "wayfire",
+        "wlroots",
+        "wayland",
+        "xorg-server",
+        "xwayland",
+        "xdg-desktop-portal",
+        "xdg-desktop-portal-hyprland",
+        "xdg-desktop-portal-gtk",
+    ];
+    let display_found: Vec<String> = packages
+        .keys()
         .filter(|pkg| {
             display_packages.contains(&pkg.as_str())
-                || packages.get(*pkg).map(|d| {
-                    let dl = d.to_lowercase();
-                    display_keywords.iter().any(|k| dl.contains(k))
-                }).unwrap_or(false)
+                || packages
+                    .get(*pkg)
+                    .map(|d| {
+                        let dl = d.to_lowercase();
+                        display_keywords.iter().any(|k| dl.contains(k))
+                    })
+                    .unwrap_or(false)
         })
         .cloned()
         .collect();
@@ -117,9 +128,17 @@ fn identify_stack_roles(packages: &HashMap<String, String>) -> Vec<StackRole> {
     }
 
     // Network stack
-    let network_packages = ["networkmanager", "wpa_supplicant", "iwd",
-                          "systemd-resolved", "resolvconf", "dhclient", "dhcpcd"];
-    let network_found: Vec<String> = packages.keys()
+    let network_packages = [
+        "networkmanager",
+        "wpa_supplicant",
+        "iwd",
+        "systemd-resolved",
+        "resolvconf",
+        "dhclient",
+        "dhcpcd",
+    ];
+    let network_found: Vec<String> = packages
+        .keys()
         .filter(|pkg| network_packages.contains(&pkg.to_lowercase().as_str()))
         .cloned()
         .collect();
@@ -133,15 +152,26 @@ fn identify_stack_roles(packages: &HashMap<String, String>) -> Vec<StackRole> {
 
     // Audio stack
     let audio_keywords = ["audio", "sound", "pulse", "pipewire", "alsa"];
-    let audio_packages = ["pipewire", "wireplumber", "pipewire-pulse", "pulseaudio",
-                         "alsa-lib", "alsa-utils", "pavucontrol"];
-    let audio_found: Vec<String> = packages.keys()
+    let audio_packages = [
+        "pipewire",
+        "wireplumber",
+        "pipewire-pulse",
+        "pulseaudio",
+        "alsa-lib",
+        "alsa-utils",
+        "pavucontrol",
+    ];
+    let audio_found: Vec<String> = packages
+        .keys()
         .filter(|pkg| {
             audio_packages.contains(&pkg.as_str())
-                || packages.get(*pkg).map(|d| {
-                    let dl = d.to_lowercase();
-                    audio_keywords.iter().any(|k| dl.contains(k))
-                }).unwrap_or(false)
+                || packages
+                    .get(*pkg)
+                    .map(|d| {
+                        let dl = d.to_lowercase();
+                        audio_keywords.iter().any(|k| dl.contains(k))
+                    })
+                    .unwrap_or(false)
         })
         .cloned()
         .collect();
@@ -154,9 +184,17 @@ fn identify_stack_roles(packages: &HashMap<String, String>) -> Vec<StackRole> {
     }
 
     // Graphics/GPU stack
-    let gpu_packages = ["nvidia", "nvidia-utils", "mesa", "vulkan-icd-loader",
-                       "lib32-mesa", "lib32-nvidia-utils", "amdgpu"];
-    let gpu_found: Vec<String> = packages.keys()
+    let gpu_packages = [
+        "nvidia",
+        "nvidia-utils",
+        "mesa",
+        "vulkan-icd-loader",
+        "lib32-mesa",
+        "lib32-nvidia-utils",
+        "amdgpu",
+    ];
+    let gpu_found: Vec<String> = packages
+        .keys()
         .filter(|pkg| {
             let pl = pkg.to_lowercase();
             gpu_packages.iter().any(|g| pl.contains(g))
@@ -179,8 +217,13 @@ fn identify_service_groups() -> Vec<ServiceGroup> {
     let mut groups = Vec::new();
 
     // Login and sessions
-    let login_services = ["systemd-logind.service", "seatd.service",
-                         "getty@tty1.service", "gdm.service", "sddm.service"];
+    let login_services = [
+        "systemd-logind.service",
+        "seatd.service",
+        "getty@tty1.service",
+        "gdm.service",
+        "sddm.service",
+    ];
     let login_found = find_active_services(&login_services);
     if !login_found.is_empty() {
         groups.push(ServiceGroup {
@@ -190,8 +233,12 @@ fn identify_service_groups() -> Vec<ServiceGroup> {
     }
 
     // Power management
-    let power_services = ["tlp.service", "power-profiles-daemon.service",
-                         "thermald.service", "auto-cpufreq.service"];
+    let power_services = [
+        "tlp.service",
+        "power-profiles-daemon.service",
+        "thermald.service",
+        "auto-cpufreq.service",
+    ];
     let power_found = find_active_services(&power_services);
     if !power_found.is_empty() {
         groups.push(ServiceGroup {
@@ -201,9 +248,13 @@ fn identify_service_groups() -> Vec<ServiceGroup> {
     }
 
     // Network services
-    let network_services = ["NetworkManager.service", "wpa_supplicant.service",
-                           "iwd.service", "systemd-networkd.service",
-                           "systemd-resolved.service"];
+    let network_services = [
+        "NetworkManager.service",
+        "wpa_supplicant.service",
+        "iwd.service",
+        "systemd-networkd.service",
+        "systemd-resolved.service",
+    ];
     let network_found = find_active_services(&network_services);
     if !network_found.is_empty() {
         groups.push(ServiceGroup {
@@ -253,7 +304,7 @@ pub struct CpuInfo {
 pub struct MemoryInfo {
     pub total_gib: f64,
     pub swap_gib: f64,
-    pub swap_type: String,  // "zram", "partition", "file", "none"
+    pub swap_type: String, // "zram", "partition", "file", "none"
 }
 
 /// GPU information
@@ -281,10 +332,10 @@ pub struct StorageInfo {
 #[derive(Debug, Clone)]
 pub struct NetworkInfo {
     pub interface: String,
-    pub iface_type: String,  // "wifi", "ethernet", "bluetooth"
+    pub iface_type: String, // "wifi", "ethernet", "bluetooth"
     pub driver: String,
     pub firmware_present: bool,
-    pub standard: String,  // e.g., "802.11ax" for wifi
+    pub standard: String, // e.g., "802.11ax" for wifi
 }
 
 /// Audio controller information
@@ -321,8 +372,7 @@ pub fn build_hardware_topology() -> HardwareTopology {
 
     // Storage
     topology.storage = get_storage_info();
-    topology.all_smart_ok = topology.storage.iter()
-        .all(|s| s.smart_ok.unwrap_or(true));
+    topology.all_smart_ok = topology.storage.iter().all(|s| s.smart_ok.unwrap_or(true));
 
     // Network
     topology.network = get_network_info();
@@ -436,9 +486,7 @@ fn get_memory_info() -> Option<MemoryInfo> {
 fn get_gpu_info() -> Vec<GpuInfo> {
     let mut gpus = Vec::new();
 
-    let output = Command::new("lspci")
-        .args(["-nnk"])
-        .output();
+    let output = Command::new("lspci").args(["-nnk"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -454,8 +502,8 @@ fn get_gpu_info() -> Vec<GpuInfo> {
                         name: extract_device_name(line),
                         driver: String::new(),
                         driver_loaded: false,
-                        firmware_present: true,  // Assume present unless we find otherwise
-                        is_primary: gpus.is_empty(),  // First GPU is primary
+                        firmware_present: true, // Assume present unless we find otherwise
+                        is_primary: gpus.is_empty(), // First GPU is primary
                         is_igpu: line.to_lowercase().contains("integrated")
                             || line.to_lowercase().contains("radeon graphics"),
                     };
@@ -471,8 +519,13 @@ fn get_gpu_info() -> Vec<GpuInfo> {
                         if lines[j].contains("Kernel modules:") {
                             if gpu.driver.is_empty() {
                                 if let Some(modules) = lines[j].split(':').nth(1) {
-                                    gpu.driver = modules.trim().split(',').next()
-                                        .unwrap_or("").trim().to_string();
+                                    gpu.driver = modules
+                                        .trim()
+                                        .split(',')
+                                        .next()
+                                        .unwrap_or("")
+                                        .trim()
+                                        .to_string();
                                 }
                             }
                         }
@@ -554,9 +607,7 @@ fn check_smart_status(device: &str) -> Option<bool> {
 
     // Try nvme first
     if base.starts_with("nvme") {
-        let output = Command::new("nvme")
-            .args(["smart-log", &dev_path])
-            .output();
+        let output = Command::new("nvme").args(["smart-log", &dev_path]).output();
 
         if let Ok(out) = output {
             if out.status.success() {
@@ -573,15 +624,13 @@ fn check_smart_status(device: &str) -> Option<bool> {
                         }
                     }
                 }
-                return Some(true);  // No critical warnings found
+                return Some(true); // No critical warnings found
             }
         }
     }
 
     // Try smartctl
-    let output = Command::new("smartctl")
-        .args(["-H", &dev_path])
-        .output();
+    let output = Command::new("smartctl").args(["-H", &dev_path]).output();
 
     if let Ok(out) = output {
         let stdout = String::from_utf8_lossy(&out.stdout);
@@ -592,7 +641,7 @@ fn check_smart_status(device: &str) -> Option<bool> {
         }
     }
 
-    None  // Unknown status
+    None // Unknown status
 }
 
 /// Get network interface information
@@ -669,9 +718,7 @@ fn get_network_info() -> Vec<NetworkInfo> {
 fn get_audio_info() -> Vec<AudioInfo> {
     let mut audio = Vec::new();
 
-    let output = Command::new("lspci")
-        .args(["-nnk"])
-        .output();
+    let output = Command::new("lspci").args(["-nnk"]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -741,6 +788,6 @@ mod tests {
     fn test_build_hardware_topology() {
         let topology = build_hardware_topology();
         // Should at least have CPU info on any Linux system
-        assert!(topology.cpu.is_some() || true);  // May fail in test env
+        assert!(topology.cpu.is_some() || true); // May fail in test env
     }
 }

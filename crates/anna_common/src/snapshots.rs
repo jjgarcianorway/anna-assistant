@@ -26,7 +26,7 @@ pub const SNAPSHOTS_DIR: &str = "/var/lib/anna/internal/snapshots";
 pub const META_DIR: &str = "/var/lib/anna/internal/meta";
 
 /// Current schema versions
-pub const SW_SNAPSHOT_VERSION: u32 = 2;  // v7.41.0: new format
+pub const SW_SNAPSHOT_VERSION: u32 = 2; // v7.41.0: new format
 pub const HW_SNAPSHOT_VERSION: u32 = 1;
 
 // =============================================================================
@@ -256,7 +256,8 @@ pub fn get_pacman_log_fingerprint() -> PacmanLogFingerprint {
 
     match std::fs::metadata(PACMAN_LOG) {
         Ok(meta) => {
-            let mtime = meta.modified()
+            let mtime = meta
+                .modified()
                 .ok()
                 .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs())
@@ -282,7 +283,8 @@ pub fn get_pacman_log_fingerprint() -> PacmanLogFingerprint {
 /// Get fingerprint for a directory
 pub fn get_dir_fingerprint(path: &str) -> Option<DirFingerprint> {
     let meta = std::fs::metadata(path).ok()?;
-    let mtime = meta.modified()
+    let mtime = meta
+        .modified()
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
@@ -345,7 +347,10 @@ pub fn get_systemd_fingerprint() -> SystemdFingerprint {
 }
 
 /// Check if pacman.log needs full rebuild (rotation/truncation)
-pub fn pacman_log_needs_full_rebuild(old: &PacmanLogFingerprint, new: &PacmanLogFingerprint) -> bool {
+pub fn pacman_log_needs_full_rebuild(
+    old: &PacmanLogFingerprint,
+    new: &PacmanLogFingerprint,
+) -> bool {
     // Inode changed = file rotated
     if old.inode != new.inode && old.inode != 0 {
         return true;

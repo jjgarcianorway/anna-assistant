@@ -91,7 +91,10 @@ pub fn render_translator_classification(
     let mut lines = Vec::new();
 
     if fallback_used {
-        lines.push("[translator] to [anna]: I'm not fully confident here. Parse failed, using fallback.".to_string());
+        lines.push(
+            "[translator] to [anna]: I'm not fully confident here. Parse failed, using fallback."
+                .to_string(),
+        );
     } else if confidence < CONFIDENCE_CERTAIN_THRESHOLD {
         lines.push(format!(
             "[translator] to [anna]: Classifying as {} ({}% confidence). Not fully certain.",
@@ -131,8 +134,14 @@ pub fn render_doctor_handoff(domain: &DoctorDomain, doctor_id: &str) -> Vec<Stri
     };
 
     vec![
-        format!("[translator] to [anna]: This looks like a DIAGNOSE case for {}.", domain),
-        format!("[anna] to [{}]: You're up. Collect {}.", doctor_name, evidence_hint),
+        format!(
+            "[translator] to [anna]: This looks like a DIAGNOSE case for {}.",
+            domain
+        ),
+        format!(
+            "[anna] to [{}]: You're up. Collect {}.",
+            doctor_name, evidence_hint
+        ),
         format!("[{}] to [anna]: Got it. Pulling evidence now.", doctor_name),
     ]
 }
@@ -151,10 +160,7 @@ pub fn render_evidence_summary(evidence_ids: &[String]) -> String {
 
 /// Render a single evidence item from annad
 pub fn render_evidence_item(evidence_id: &str, tool_name: &str, summary: &str) -> String {
-    format!(
-        "[annad]: [{}] {} -> {}",
-        evidence_id, tool_name, summary
-    )
+    format!("[annad]: [{}] {} -> {}", evidence_id, tool_name, summary)
 }
 
 /// Render junior verification result with QA signoff tone
@@ -298,7 +304,10 @@ pub fn render_dialogue_transcript(case: &CaseFileV1, width: usize) -> String {
     );
     lines.extend(translator_lines);
 
-    lines.push(render_anna_translator_response(case.intent_confidence, false));
+    lines.push(render_anna_translator_response(
+        case.intent_confidence,
+        false,
+    ));
     lines.push(String::new());
 
     // DoctorSelect (if DIAGNOSE)
@@ -355,7 +364,10 @@ pub fn render_dialogue_transcript(case: &CaseFileV1, width: usize) -> String {
     }
 
     // Footer
-    lines.extend(render_reliability_footer(case.reliability_score, case.duration_ms));
+    lines.extend(render_reliability_footer(
+        case.reliability_score,
+        case.duration_ms,
+    ));
 
     lines.join("\n")
 }
@@ -405,12 +417,18 @@ mod tests {
     #[test]
     fn test_phase_separator() {
         assert_eq!(phase_separator(CasePhase::Triage), "----- triage -----");
-        assert_eq!(phase_separator(CasePhase::EvidenceGather), "----- evidence -----");
+        assert_eq!(
+            phase_separator(CasePhase::EvidenceGather),
+            "----- evidence -----"
+        );
     }
 
     #[test]
     fn test_doctor_actor_name() {
-        assert_eq!(doctor_actor_name(&DoctorDomain::Network), "networking-doctor");
+        assert_eq!(
+            doctor_actor_name(&DoctorDomain::Network),
+            "networking-doctor"
+        );
         assert_eq!(doctor_actor_name(&DoctorDomain::Audio), "audio-doctor");
     }
 

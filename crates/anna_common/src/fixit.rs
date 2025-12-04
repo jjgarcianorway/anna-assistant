@@ -92,30 +92,51 @@ impl ProblemCategory {
     pub fn detect(problem: &str) -> Self {
         let lower = problem.to_lowercase();
 
-        if lower.contains("wifi") || lower.contains("network") || lower.contains("internet")
-            || lower.contains("ethernet") || lower.contains("disconnect") || lower.contains("connection")
+        if lower.contains("wifi")
+            || lower.contains("network")
+            || lower.contains("internet")
+            || lower.contains("ethernet")
+            || lower.contains("disconnect")
+            || lower.contains("connection")
         {
             ProblemCategory::Networking
-        } else if lower.contains("sound") || lower.contains("audio") || lower.contains("speaker")
-            || lower.contains("headphone") || lower.contains("volume") || lower.contains("pulseaudio")
+        } else if lower.contains("sound")
+            || lower.contains("audio")
+            || lower.contains("speaker")
+            || lower.contains("headphone")
+            || lower.contains("volume")
+            || lower.contains("pulseaudio")
             || lower.contains("pipewire")
         {
             ProblemCategory::Audio
-        } else if lower.contains("slow") || lower.contains("performance") || lower.contains("lag")
-            || lower.contains("freeze") || lower.contains("cpu") || lower.contains("memory")
+        } else if lower.contains("slow")
+            || lower.contains("performance")
+            || lower.contains("lag")
+            || lower.contains("freeze")
+            || lower.contains("cpu")
+            || lower.contains("memory")
             || lower.contains("ram")
         {
             ProblemCategory::Performance
-        } else if lower.contains("service") || lower.contains("systemd") || lower.contains("won't start")
-            || lower.contains("failed") || lower.contains("restart")
+        } else if lower.contains("service")
+            || lower.contains("systemd")
+            || lower.contains("won't start")
+            || lower.contains("failed")
+            || lower.contains("restart")
         {
             ProblemCategory::SystemdService
-        } else if lower.contains("disk") || lower.contains("storage") || lower.contains("mount")
-            || lower.contains("full") || lower.contains("space")
+        } else if lower.contains("disk")
+            || lower.contains("storage")
+            || lower.contains("mount")
+            || lower.contains("full")
+            || lower.contains("space")
         {
             ProblemCategory::Storage
-        } else if lower.contains("display") || lower.contains("screen") || lower.contains("gpu")
-            || lower.contains("graphics") || lower.contains("resolution")
+        } else if lower.contains("display")
+            || lower.contains("screen")
+            || lower.contains("gpu")
+            || lower.contains("graphics")
+            || lower.contains("resolution")
         {
             ProblemCategory::Graphics
         } else if lower.contains("boot") || lower.contains("startup") || lower.contains("grub") {
@@ -146,14 +167,10 @@ impl ProblemCategory {
                 "slowness_hypotheses(days=3)",
                 "what_changed(days=3)",
             ],
-            ProblemCategory::SystemdService => vec![
-                "sw_snapshot_summary",
-                "journal_warnings(minutes=60)",
-            ],
-            ProblemCategory::Storage => vec![
-                "disk_usage",
-                "hw_snapshot_summary",
-            ],
+            ProblemCategory::SystemdService => {
+                vec!["sw_snapshot_summary", "journal_warnings(minutes=60)"]
+            }
+            ProblemCategory::Storage => vec!["disk_usage", "hw_snapshot_summary"],
             ProblemCategory::Graphics => vec![
                 "hw_snapshot_summary",
                 "journal_warnings(service=Xorg, minutes=30)",
@@ -261,9 +278,17 @@ impl ChangeSet {
 
     pub fn format_for_confirmation(&self) -> String {
         let mut lines = Vec::new();
-        lines.push("╭─────────────────────────────────────────────────────────────────╮".to_string());
-        lines.push(format!("│ Change Set: {} ({} changes)", self.id, self.changes.len()));
-        lines.push("├─────────────────────────────────────────────────────────────────┤".to_string());
+        lines.push(
+            "╭─────────────────────────────────────────────────────────────────╮".to_string(),
+        );
+        lines.push(format!(
+            "│ Change Set: {} ({} changes)",
+            self.id,
+            self.changes.len()
+        ));
+        lines.push(
+            "├─────────────────────────────────────────────────────────────────┤".to_string(),
+        );
 
         for (i, change) in self.changes.iter().enumerate() {
             lines.push(format!("│ {}. {}", i + 1, change.what));
@@ -275,9 +300,13 @@ impl ChangeSet {
             }
         }
 
-        lines.push("├─────────────────────────────────────────────────────────────────┤".to_string());
+        lines.push(
+            "├─────────────────────────────────────────────────────────────────┤".to_string(),
+        );
         lines.push(format!("│ To apply, type: {}", FIX_CONFIRMATION));
-        lines.push("╰─────────────────────────────────────────────────────────────────╯".to_string());
+        lines.push(
+            "╰─────────────────────────────────────────────────────────────────╯".to_string(),
+        );
 
         lines.join("\n")
     }
@@ -408,13 +437,30 @@ pub fn is_fixit_request(request: &str) -> bool {
     let lower = request.to_lowercase();
 
     let fix_patterns = [
-        "fix my", "fix the", "repair", "troubleshoot", "debug",
-        "not working", "won't work", "doesn't work", "broken",
-        "keeps disconnecting", "keeps crashing", "keeps failing",
-        "is slow", "is slower", "is broken", "is failing",
-        "won't start", "can't connect", "cannot connect",
-        "help me fix", "something wrong", "having issues",
-        "having problems", "having trouble",
+        "fix my",
+        "fix the",
+        "repair",
+        "troubleshoot",
+        "debug",
+        "not working",
+        "won't work",
+        "doesn't work",
+        "broken",
+        "keeps disconnecting",
+        "keeps crashing",
+        "keeps failing",
+        "is slow",
+        "is slower",
+        "is broken",
+        "is failing",
+        "won't start",
+        "can't connect",
+        "cannot connect",
+        "help me fix",
+        "something wrong",
+        "having issues",
+        "having problems",
+        "having trouble",
     ];
 
     fix_patterns.iter().any(|p| lower.contains(p))
@@ -439,11 +485,26 @@ mod tests {
 
     #[test]
     fn test_problem_category_detection() {
-        assert_eq!(ProblemCategory::detect("WiFi keeps disconnecting"), ProblemCategory::Networking);
-        assert_eq!(ProblemCategory::detect("No sound from speakers"), ProblemCategory::Audio);
-        assert_eq!(ProblemCategory::detect("System is very slow"), ProblemCategory::Performance);
-        assert_eq!(ProblemCategory::detect("nginx service won't start"), ProblemCategory::SystemdService);
-        assert_eq!(ProblemCategory::detect("Disk is full"), ProblemCategory::Storage);
+        assert_eq!(
+            ProblemCategory::detect("WiFi keeps disconnecting"),
+            ProblemCategory::Networking
+        );
+        assert_eq!(
+            ProblemCategory::detect("No sound from speakers"),
+            ProblemCategory::Audio
+        );
+        assert_eq!(
+            ProblemCategory::detect("System is very slow"),
+            ProblemCategory::Performance
+        );
+        assert_eq!(
+            ProblemCategory::detect("nginx service won't start"),
+            ProblemCategory::SystemdService
+        );
+        assert_eq!(
+            ProblemCategory::detect("Disk is full"),
+            ProblemCategory::Storage
+        );
     }
 
     #[test]
@@ -457,7 +518,11 @@ mod tests {
     #[test]
     fn test_fixit_session_transitions() {
         let mut session = FixItSession::new("test-123", "WiFi issue");
-        session.transition(FixItState::Evidence, vec!["E1".to_string()], "Starting evidence collection");
+        session.transition(
+            FixItState::Evidence,
+            vec!["E1".to_string()],
+            "Starting evidence collection",
+        );
 
         assert_eq!(session.current_state, FixItState::Evidence);
         assert_eq!(session.timeline.len(), 1);
@@ -511,7 +576,9 @@ mod tests {
         assert!(bundle.iter().any(|t| t.contains("NetworkManager")));
 
         let bundle = ProblemCategory::Audio.get_tool_bundle();
-        assert!(bundle.iter().any(|t| t.contains("pipewire") || t.contains("pulseaudio")));
+        assert!(bundle
+            .iter()
+            .any(|t| t.contains("pipewire") || t.contains("pulseaudio")));
     }
 
     #[test]
@@ -524,7 +591,8 @@ mod tests {
             risk: FixItRiskLevel::Low,
             rollback_action: "Stop NetworkManager".to_string(),
             post_check: "Check network connectivity".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
 
         let formatted = cs.format_for_confirmation();
         assert!(formatted.contains("Restart NetworkManager"));

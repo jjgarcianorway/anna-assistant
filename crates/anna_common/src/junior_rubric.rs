@@ -14,8 +14,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::evidence_coverage::{
-    analyze_coverage, check_evidence_mismatch, get_max_score_for_coverage,
-    EvidenceCoverage, COVERAGE_SUFFICIENT_THRESHOLD,
+    analyze_coverage, check_evidence_mismatch, get_max_score_for_coverage, EvidenceCoverage,
+    COVERAGE_SUFFICIENT_THRESHOLD,
 };
 use crate::evidence_router::tool_satisfies_topic;
 use crate::evidence_topic::EvidenceTopic;
@@ -182,20 +182,28 @@ fn count_uncited_claims(answer: &str, evidence: &[ToolResult]) -> i32 {
     if evidence.is_empty() {
         // Check if answer makes specific claims
         let claim_indicators = [
-            "is", "has", "are", "running", "using", "have", "total",
-            "free", "available", "connected",
+            "is",
+            "has",
+            "are",
+            "running",
+            "using",
+            "have",
+            "total",
+            "free",
+            "available",
+            "connected",
         ];
-        let has_claims = claim_indicators.iter().any(|&word|
-            answer.to_lowercase().contains(word)
-        );
+        let has_claims = claim_indicators
+            .iter()
+            .any(|&word| answer.to_lowercase().contains(word));
 
         return if has_claims { 1 } else { 0 };
     }
 
     // Check if answer has any evidence citations
-    let has_citations = evidence.iter().any(|e|
-        answer.contains(&format!("[{}]", e.evidence_id))
-    );
+    let has_citations = evidence
+        .iter()
+        .any(|e| answer.contains(&format!("[{}]", e.evidence_id)));
 
     // If the answer has claims but no citations, that's a problem
     if !has_citations && !answer.trim().is_empty() {
@@ -228,19 +236,12 @@ fn generate_verdict(
     } else if !ship_it {
         format!(
             "Reliability {}%. Not good enough. Coverage {}%.",
-            score,
-            coverage.coverage_percent
+            score, coverage.coverage_percent
         )
     } else if score >= 90 {
-        format!(
-            "Reliability {}%. Solid evidence. Ship it.",
-            score
-        )
+        format!("Reliability {}%. Solid evidence. Ship it.", score)
     } else {
-        format!(
-            "Reliability {}%. Acceptable. Ship it.",
-            score
-        )
+        format!("Reliability {}%. Acceptable. Ship it.", score)
     }
 }
 
@@ -364,9 +365,11 @@ mod tests {
 
     #[test]
     fn test_correct_disk_answer() {
-        let evidence = vec![
-            make_evidence("mount_usage", "Disk /: 433 GiB free of 500 GiB total", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "mount_usage",
+            "Disk /: 433 GiB free of 500 GiB total",
+            "E1",
+        )];
         let answer = "You have 433 GiB free on / [E1].";
 
         let result = verify_answer(QueryTarget::DiskFree, answer, &evidence);
@@ -376,9 +379,11 @@ mod tests {
 
     #[test]
     fn test_wrong_evidence_for_disk() {
-        let evidence = vec![
-            make_evidence("hw_snapshot_cpu", "CPU: AMD Ryzen 7 5800X, 8 cores", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "hw_snapshot_cpu",
+            "CPU: AMD Ryzen 7 5800X, 8 cores",
+            "E1",
+        )];
         let answer = "Your CPU is AMD Ryzen 7 [E1].";
 
         let result = verify_answer(QueryTarget::DiskFree, answer, &evidence);
@@ -389,9 +394,11 @@ mod tests {
 
     #[test]
     fn test_memory_answer_correct() {
-        let evidence = vec![
-            make_evidence("memory_info", "Memory: 32 GiB total, 24 GiB available", "E1"),
-        ];
+        let evidence = vec![make_evidence(
+            "memory_info",
+            "Memory: 32 GiB total, 24 GiB available",
+            "E1",
+        )];
         let answer = "You have 32 GiB of RAM [E1], with 24 GiB available.";
 
         let result = verify_answer(QueryTarget::Memory, answer, &evidence);
@@ -401,9 +408,7 @@ mod tests {
 
     #[test]
     fn test_kernel_answer_correct() {
-        let evidence = vec![
-            make_evidence("kernel_version", "Linux 6.7.1-arch1-1", "E1"),
-        ];
+        let evidence = vec![make_evidence("kernel_version", "Linux 6.7.1-arch1-1", "E1")];
         let answer = "You are running Linux kernel 6.7.1-arch1-1 [E1].";
 
         let result = verify_answer(QueryTarget::KernelVersion, answer, &evidence);
@@ -412,14 +417,15 @@ mod tests {
 
     #[test]
     fn test_answer_without_citation() {
-        let evidence = vec![
-            make_evidence("memory_info", "Memory: 32 GiB total", "E1"),
-        ];
+        let evidence = vec![make_evidence("memory_info", "Memory: 32 GiB total", "E1")];
         let answer = "You have 32 GiB of RAM."; // Missing [E1]
 
         let result = verify_answer(QueryTarget::Memory, answer, &evidence);
         // Should have penalty for uncited claim
-        assert!(result.penalties.iter().any(|p| p.reason.contains("citation")));
+        assert!(result
+            .penalties
+            .iter()
+            .any(|p| p.reason.contains("citation")));
     }
 
     #[test]

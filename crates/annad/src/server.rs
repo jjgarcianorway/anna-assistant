@@ -5,12 +5,14 @@
 //! annactl is just a remote control that sends RPC requests.
 
 use anna_common::{
-    KnowledgeBuilder, TelemetryAggregates,
-    ErrorIndex, IntrusionIndex, LogScanState, ServiceIndex,
-    TelemetryState, InventoryProgress,
+    ErrorIndex, IntrusionIndex, InventoryProgress, KnowledgeBuilder, LogScanState, ServiceIndex,
+    TelemetryAggregates, TelemetryState,
 };
 use anyhow::Result;
-use axum::{routing::{get, post}, Json, Router};
+use axum::{
+    routing::{get, post},
+    Json, Router,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Instant;
@@ -296,13 +298,18 @@ async fn reset_handler(
         }
 
         let (commands, packages, services) = builder.store().count_by_type();
-        info!("[RESET] Rescan complete: {} cmds, {} pkgs, {} svcs",
-              commands, packages, services);
+        info!(
+            "[RESET] Rescan complete: {} cmds, {} pkgs, {} svcs",
+            commands, packages, services
+        );
     }
 
     let success = errors.is_empty();
     let message = if success {
-        format!("Reset complete. Cleared {} items and rescanned inventory.", cleared)
+        format!(
+            "Reset complete. Cleared {} items and rescanned inventory.",
+            cleared
+        )
     } else {
         format!("Reset completed with {} errors.", errors.len())
     };

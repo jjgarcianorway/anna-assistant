@@ -41,7 +41,7 @@ pub enum Category {
     Editor,
     Terminal,
     Shell,
-    Wm,         // Window Manager
+    Wm, // Window Manager
     Compositor,
     Browser,
     Tool,
@@ -648,7 +648,8 @@ impl InventoryProgress {
         } else if self.phase == InventoryPhase::Idle {
             "Waiting...".to_string()
         } else {
-            let eta = self.eta_secs
+            let eta = self
+                .eta_secs
                 .map(|s| format!(" (ETA: {}s)", s))
                 .unwrap_or_default();
             format!("{} {}%{}", self.phase.as_str(), self.percent, eta)
@@ -817,7 +818,10 @@ pub fn classify_tool(name: &str) -> (Category, Option<&'static str>) {
     if lower == "nano" {
         return (Category::Editor, Some("archwiki:Nano"));
     }
-    if matches!(lower.as_str(), "code" | "code-oss" | "vscode" | "visual-studio-code") {
+    if matches!(
+        lower.as_str(),
+        "code" | "code-oss" | "vscode" | "visual-studio-code"
+    ) {
         return (Category::Editor, Some("archwiki:Visual_Studio_Code"));
     }
     if lower == "emacs" {
@@ -944,41 +948,130 @@ pub fn classify_tool(name: &str) -> (Category, Option<&'static str>) {
     // v5.4.1: Expanded tool categories
 
     // Development tools
-    if matches!(lower.as_str(),
-        "git" | "cargo" | "rustc" | "rustup" |
-        "python" | "python3" | "pip" | "pip3" |
-        "node" | "nodejs" | "npm" | "npx" | "yarn" | "pnpm" |
-        "go" | "gcc" | "g++" | "clang" | "clang++" |
-        "make" | "cmake" | "meson" | "ninja" |
-        "docker" | "podman" | "kubectl" |
-        "gdb" | "lldb" | "valgrind" | "strace" | "ltrace"
+    if matches!(
+        lower.as_str(),
+        "git"
+            | "cargo"
+            | "rustc"
+            | "rustup"
+            | "python"
+            | "python3"
+            | "pip"
+            | "pip3"
+            | "node"
+            | "nodejs"
+            | "npm"
+            | "npx"
+            | "yarn"
+            | "pnpm"
+            | "go"
+            | "gcc"
+            | "g++"
+            | "clang"
+            | "clang++"
+            | "make"
+            | "cmake"
+            | "meson"
+            | "ninja"
+            | "docker"
+            | "podman"
+            | "kubectl"
+            | "gdb"
+            | "lldb"
+            | "valgrind"
+            | "strace"
+            | "ltrace"
     ) {
         return (Category::Tool, None);
     }
 
     // Core utilities (coreutils + common Unix tools)
-    if matches!(lower.as_str(),
-        "ls" | "cat" | "cp" | "mv" | "rm" | "mkdir" | "rmdir" |
-        "chmod" | "chown" | "chgrp" | "touch" | "ln" |
-        "head" | "tail" | "less" | "more" |
-        "grep" | "egrep" | "fgrep" | "rg" | "ripgrep" |
-        "find" | "fd" | "locate" | "which" | "whereis" |
-        "sed" | "awk" | "cut" | "sort" | "uniq" | "wc" | "tr" |
-        "tar" | "gzip" | "gunzip" | "zip" | "unzip" | "xz" | "zstd" |
-        "curl" | "wget" | "ssh" | "scp" | "rsync" |
-        "ps" | "top" | "htop" | "btop" | "kill" | "pkill" |
-        "df" | "du" | "free" | "lsblk" | "mount" | "umount" |
-        "date" | "cal" | "uptime" | "hostname" |
-        "echo" | "printf" | "tee" | "xargs" |
-        "diff" | "patch" | "md5sum" | "sha256sum" |
-        "env" | "export" | "source" | "alias" |
-        "man" | "info" | "help" | "whatis" | "apropos"
+    if matches!(
+        lower.as_str(),
+        "ls" | "cat"
+            | "cp"
+            | "mv"
+            | "rm"
+            | "mkdir"
+            | "rmdir"
+            | "chmod"
+            | "chown"
+            | "chgrp"
+            | "touch"
+            | "ln"
+            | "head"
+            | "tail"
+            | "less"
+            | "more"
+            | "grep"
+            | "egrep"
+            | "fgrep"
+            | "rg"
+            | "ripgrep"
+            | "find"
+            | "fd"
+            | "locate"
+            | "which"
+            | "whereis"
+            | "sed"
+            | "awk"
+            | "cut"
+            | "sort"
+            | "uniq"
+            | "wc"
+            | "tr"
+            | "tar"
+            | "gzip"
+            | "gunzip"
+            | "zip"
+            | "unzip"
+            | "xz"
+            | "zstd"
+            | "curl"
+            | "wget"
+            | "ssh"
+            | "scp"
+            | "rsync"
+            | "ps"
+            | "top"
+            | "htop"
+            | "btop"
+            | "kill"
+            | "pkill"
+            | "df"
+            | "du"
+            | "free"
+            | "lsblk"
+            | "mount"
+            | "umount"
+            | "date"
+            | "cal"
+            | "uptime"
+            | "hostname"
+            | "echo"
+            | "printf"
+            | "tee"
+            | "xargs"
+            | "diff"
+            | "patch"
+            | "md5sum"
+            | "sha256sum"
+            | "env"
+            | "export"
+            | "source"
+            | "alias"
+            | "man"
+            | "info"
+            | "help"
+            | "whatis"
+            | "apropos"
     ) {
         return (Category::Tool, None);
     }
 
     // Modern CLI replacements
-    if matches!(lower.as_str(),
+    if matches!(
+        lower.as_str(),
         "eza" | "exa" | "lsd" |         // ls replacements
         "bat" | "batcat" |               // cat replacement
         "fzf" | "sk" |                   // fuzzy finders
@@ -990,35 +1083,56 @@ pub fn classify_tool(name: &str) -> (Category, Option<&'static str>) {
         "zoxide" | "z" |                  // cd replacement
         "starship" |                      // prompt
         "tldr" |                          // man replacement
-        "neofetch" | "fastfetch" | "pfetch"  // system info
+        "neofetch" | "fastfetch" | "pfetch" // system info
     ) {
         return (Category::Tool, None);
     }
 
     // Image/media viewers
-    if matches!(lower.as_str(),
-        "swayimg" | "imv" | "feh" | "sxiv" | "nsxiv" |
-        "mpv" | "vlc" | "ffmpeg" | "ffplay" |
-        "fotoxx" | "gimp" | "inkscape"
+    if matches!(
+        lower.as_str(),
+        "swayimg"
+            | "imv"
+            | "feh"
+            | "sxiv"
+            | "nsxiv"
+            | "mpv"
+            | "vlc"
+            | "ffmpeg"
+            | "ffplay"
+            | "fotoxx"
+            | "gimp"
+            | "inkscape"
     ) {
         return (Category::Tool, None);
     }
 
     // System services
-    if matches!(lower.as_str(),
-        "systemd" | "systemctl" | "journalctl" |
-        "sshd" | "openssh" | "NetworkManager" |
-        "pipewire" | "wireplumber" | "pulseaudio" |
-        "bluetooth" | "bluez" | "cups" |
-        "ollama" | "docker" | "containerd"
+    if matches!(
+        lower.as_str(),
+        "systemd"
+            | "systemctl"
+            | "journalctl"
+            | "sshd"
+            | "openssh"
+            | "NetworkManager"
+            | "pipewire"
+            | "wireplumber"
+            | "pulseaudio"
+            | "bluetooth"
+            | "bluez"
+            | "cups"
+            | "ollama"
+            | "docker"
+            | "containerd"
     ) {
         return (Category::Service, None);
     }
 
     // File managers
-    if matches!(lower.as_str(),
-        "ranger" | "lf" | "nnn" | "vifm" |
-        "nautilus" | "dolphin" | "thunar" | "pcmanfm"
+    if matches!(
+        lower.as_str(),
+        "ranger" | "lf" | "nnn" | "vifm" | "nautilus" | "dolphin" | "thunar" | "pcmanfm"
     ) {
         return (Category::Tool, None);
     }
@@ -1032,37 +1146,24 @@ pub fn get_config_paths(name: &str) -> Vec<String> {
     let lower = name.to_lowercase();
 
     match lower.as_str() {
-        "vim" => vec![
-            format!("{}/.vimrc", home),
-        ],
+        "vim" => vec![format!("{}/.vimrc", home)],
         "nvim" | "neovim" => vec![
             format!("{}/.config/nvim/init.vim", home),
             format!("{}/.config/nvim/init.lua", home),
         ],
-        "zsh" => vec![
-            format!("{}/.zshrc", home),
-            format!("{}/.zshenv", home),
-        ],
+        "zsh" => vec![format!("{}/.zshrc", home), format!("{}/.zshenv", home)],
         "bash" => vec![
             format!("{}/.bashrc", home),
             format!("{}/.bash_profile", home),
         ],
-        "fish" => vec![
-            format!("{}/.config/fish/config.fish", home),
-        ],
+        "fish" => vec![format!("{}/.config/fish/config.fish", home)],
         "alacritty" => vec![
             format!("{}/.config/alacritty/alacritty.toml", home),
             format!("{}/.config/alacritty/alacritty.yml", home),
         ],
-        "kitty" => vec![
-            format!("{}/.config/kitty/kitty.conf", home),
-        ],
-        "hyprland" => vec![
-            format!("{}/.config/hypr/hyprland.conf", home),
-        ],
-        "sway" => vec![
-            format!("{}/.config/sway/config", home),
-        ],
+        "kitty" => vec![format!("{}/.config/kitty/kitty.conf", home)],
+        "hyprland" => vec![format!("{}/.config/hypr/hyprland.conf", home)],
+        "sway" => vec![format!("{}/.config/sway/config", home)],
         "i3" => vec![
             format!("{}/.config/i3/config", home),
             format!("{}/.i3/config", home),
@@ -1071,9 +1172,7 @@ pub fn get_config_paths(name: &str) -> Vec<String> {
             format!("{}/.config/waybar/config", home),
             format!("{}/.config/waybar/style.css", home),
         ],
-        "polybar" => vec![
-            format!("{}/.config/polybar/config.ini", home),
-        ],
+        "polybar" => vec![format!("{}/.config/polybar/config.ini", home)],
         _ => vec![],
     }
 }

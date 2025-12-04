@@ -2,8 +2,8 @@
 //!
 //! Discovers USB controllers and devices from lsusb and /sys.
 
-use std::process::Command;
 use super::types::{PeripheralUsbDevice, UsbController, UsbSummary};
+use std::process::Command;
 
 /// Get USB summary from lsusb and /sys
 pub fn get_usb_summary() -> UsbSummary {
@@ -50,7 +50,9 @@ fn get_usb_controllers() -> Vec<UsbController> {
                 } else if in_usb && line.contains("Kernel driver in use:") {
                     if let Some(drv) = line.split(':').nth(1) {
                         let driver = drv.trim().to_string();
-                        let usb_version = if current_name.contains("xHCI") || current_name.contains("USB 3") {
+                        let usb_version = if current_name.contains("xHCI")
+                            || current_name.contains("USB 3")
+                        {
                             "USB 3.x".to_string()
                         } else if current_name.contains("EHCI") || current_name.contains("USB 2") {
                             "USB 2.0".to_string()
@@ -123,13 +125,16 @@ fn parse_lsusb_line(line: &str) -> Option<PeripheralUsbDevice> {
     };
 
     let (vendor_name, product_name) = if let Some(idx) = full_name.find(", ") {
-        (full_name[..idx].to_string(), full_name[idx + 2..].to_string())
+        (
+            full_name[..idx].to_string(),
+            full_name[idx + 2..].to_string(),
+        )
     } else {
         ("Unknown".to_string(), full_name)
     };
 
-    let is_hub = product_name.to_lowercase().contains("hub") ||
-                 product_name.to_lowercase().contains("root hub");
+    let is_hub = product_name.to_lowercase().contains("hub")
+        || product_name.to_lowercase().contains("root hub");
 
     Some(PeripheralUsbDevice {
         bus,
@@ -176,8 +181,22 @@ fn parse_lsusb_tree_line(line: &str) -> Option<(u32, u32, String, String)> {
         return None;
     }
 
-    let bus = line.split("Bus ").nth(1)?.split('.').next()?.trim().parse::<u32>().ok()?;
-    let dev = line.split("Dev ").nth(1)?.split(',').next()?.trim().parse::<u32>().ok()?;
+    let bus = line
+        .split("Bus ")
+        .nth(1)?
+        .split('.')
+        .next()?
+        .trim()
+        .parse::<u32>()
+        .ok()?;
+    let dev = line
+        .split("Dev ")
+        .nth(1)?
+        .split(',')
+        .next()?
+        .trim()
+        .parse::<u32>()
+        .ok()?;
 
     let speed = if line.contains("5000M") || line.contains("10000M") || line.contains("20000M") {
         "SuperSpeed".to_string()
@@ -191,9 +210,18 @@ fn parse_lsusb_tree_line(line: &str) -> Option<(u32, u32, String, String)> {
         String::new()
     };
 
-    let driver = line.split("Driver=")
+    let driver = line
+        .split("Driver=")
         .nth(1)
-        .map(|s| s.split('/').next().unwrap_or("").split(',').next().unwrap_or("").to_string())
+        .map(|s| {
+            s.split('/')
+                .next()
+                .unwrap_or("")
+                .split(',')
+                .next()
+                .unwrap_or("")
+                .to_string()
+        })
         .unwrap_or_default();
 
     Some((bus, dev, speed, driver))

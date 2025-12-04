@@ -2,8 +2,8 @@
 //!
 //! Categories are inferred from log text and patterns, not hardcoded.
 
-use serde::{Deserialize, Serialize};
 use super::error_type::ErrorType;
+use serde::{Deserialize, Serialize};
 
 /// Log entry category (v5.2.3 - Universal Error Model)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

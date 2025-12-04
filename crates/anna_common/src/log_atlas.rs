@@ -9,11 +9,11 @@
 //! - A pattern is "the same" when normalized message matches exactly
 //! - Full message text is always shown (no truncation)
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use serde::{Deserialize, Serialize};
 
 /// Directory for log atlas persistence
 pub const JOURNAL_DIR: &str = "/var/lib/anna/journal";
@@ -46,7 +46,7 @@ pub struct LogPattern {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ComponentAtlas {
     pub component: String,
-    pub component_type: String,  // "service", "device", "kernel"
+    pub component_type: String, // "service", "device", "kernel"
     pub patterns: Vec<LogPattern>,
     pub last_updated: u64,
 }
@@ -63,7 +63,12 @@ impl ComponentAtlas {
 
         // Create new pattern ID
         let next_num = self.patterns.len() + 1;
-        let prefix = self.component_type.chars().next().unwrap_or('X').to_ascii_uppercase();
+        let prefix = self
+            .component_type
+            .chars()
+            .next()
+            .unwrap_or('X')
+            .to_ascii_uppercase();
         format!("{}{:02}", prefix, next_num)
     }
 
@@ -127,8 +132,7 @@ impl ComponentAtlas {
 
     /// Load atlas from disk
     pub fn load(component: &str) -> Option<Self> {
-        let path = Path::new(JOURNAL_DIR)
-            .join(format!("{}.json", component.replace('/', "_")));
+        let path = Path::new(JOURNAL_DIR).join(format!("{}.json", component.replace('/', "_")));
 
         if !path.exists() {
             return None;
@@ -147,7 +151,7 @@ pub struct BootLogEntry {
     pub message: String,
     pub count_this_boot: u32,
     pub timestamp: u64,
-    pub boot_offset: i32,  // 0 = current, -1 = previous, etc.
+    pub boot_offset: i32, // 0 = current, -1 = previous, etc.
 }
 
 /// Cross-boot log summary for a component
@@ -165,15 +169,14 @@ pub fn normalize_message(message: &str) -> String {
 
     // Strip common timestamp patterns
     // ISO format: 2025-12-01T14:37:00.123456
-    let timestamp_re = regex::Regex::new(
-        r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?"
-    ).unwrap();
-    normalized = timestamp_re.replace_all(&normalized, "%TIMESTAMP%").to_string();
+    let timestamp_re =
+        regex::Regex::new(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?").unwrap();
+    normalized = timestamp_re
+        .replace_all(&normalized, "%TIMESTAMP%")
+        .to_string();
 
     // Strip IP addresses BEFORE PIDs (IP addresses have dots that break PID pattern)
-    let ip_re = regex::Regex::new(
-        r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?"
-    ).unwrap();
+    let ip_re = regex::Regex::new(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?").unwrap();
     normalized = ip_re.replace_all(&normalized, "%IP%").to_string();
 
     // Strip PIDs like [1234] or (1234) - must have brackets or parens
@@ -181,15 +184,14 @@ pub fn normalize_message(message: &str) -> String {
     normalized = pid_re.replace_all(&normalized, "%PID%").to_string();
 
     // Strip MAC addresses
-    let mac_re = regex::Regex::new(
-        r"[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}"
-    ).unwrap();
+    let mac_re = regex::Regex::new(r"[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}").unwrap();
     normalized = mac_re.replace_all(&normalized, "%MAC%").to_string();
 
     // Strip UUIDs
     let uuid_re = regex::Regex::new(
-        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-    ).unwrap();
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+    )
+    .unwrap();
     normalized = uuid_re.replace_all(&normalized, "%UUID%").to_string();
 
     // Strip hex memory addresses like 0x7fff1234
@@ -229,11 +231,14 @@ pub fn get_service_log_atlas(unit_name: &str, max_boots: u32) -> CrossBootLogSum
 
         let output = Command::new("journalctl")
             .args([
-                "-u", unit_name,
+                "-u",
+                unit_name,
                 &boot_arg,
-                "-p", "warning..alert",
+                "-p",
+                "warning..alert",
                 "--no-pager",
-                "-o", "short-iso",
+                "-o",
+                "short-iso",
                 "-q",
             ])
             .output();
@@ -261,7 +266,11 @@ pub fn get_service_log_atlas(unit_name: &str, max_boots: u32) -> CrossBootLogSum
                         *pattern_counts.entry(pattern_id.clone()).or_insert(0) += 1;
 
                         // Add to current boot entries if not already there
-                        if !summary.current_boot_entries.iter().any(|e| e.pattern_id == pattern_id) {
+                        if !summary
+                            .current_boot_entries
+                            .iter()
+                            .any(|e| e.pattern_id == pattern_id)
+                        {
                             summary.current_boot_entries.push(BootLogEntry {
                                 pattern_id,
                                 severity: severity.clone(),
@@ -362,7 +371,11 @@ pub fn get_device_log_atlas(device: &str, max_boots: u32) -> CrossBootLogSummary
                         let pattern_id = atlas.get_or_create_pattern_id(&normalized);
                         *pattern_counts.entry(pattern_id.clone()).or_insert(0) += 1;
 
-                        if !summary.current_boot_entries.iter().any(|e| e.pattern_id == pattern_id) {
+                        if !summary
+                            .current_boot_entries
+                            .iter()
+                            .any(|e| e.pattern_id == pattern_id)
+                        {
                             summary.current_boot_entries.push(BootLogEntry {
                                 pattern_id,
                                 severity: severity.clone(),
@@ -412,14 +425,17 @@ fn parse_journal_line(line: &str) -> (String, String) {
         // Try to extract severity from priority prefix if present
         let severity = if message.contains("<error>") || message.contains("error:") {
             "error"
-        } else if message.contains("<warning>") || message.contains("warning:") || message.contains("<warn>") {
+        } else if message.contains("<warning>")
+            || message.contains("warning:")
+            || message.contains("<warn>")
+        {
             "warning"
         } else if message.contains("<alert>") {
             "alert"
         } else if message.contains("<critical>") || message.contains("<crit>") {
             "critical"
         } else {
-            "warning"  // Default for warning..alert filter
+            "warning" // Default for warning..alert filter
         };
         (severity.to_string(), message)
     } else {
@@ -463,10 +479,9 @@ fn severity_priority(severity: &str) -> u8 {
 
 /// Format timestamp for display
 pub fn format_timestamp_short(ts: u64) -> String {
-    use chrono::{DateTime, Utc, Local};
+    use chrono::{DateTime, Local, Utc};
 
-    let dt = DateTime::<Utc>::from_timestamp(ts as i64, 0)
-        .map(|d| d.with_timezone(&Local));
+    let dt = DateTime::<Utc>::from_timestamp(ts as i64, 0).map(|d| d.with_timezone(&Local));
 
     match dt {
         Some(d) => d.format("%Y-%m-%d %H:%M").to_string(),

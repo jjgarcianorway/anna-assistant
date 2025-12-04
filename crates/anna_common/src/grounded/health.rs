@@ -114,10 +114,14 @@ pub fn get_cpu_health() -> CpuHealth {
         // Check for high temperatures
         if current >= 95.0 || max >= 100.0 {
             health.status = HealthStatus::Critical;
-            health.alerts.push(format!("CPU temperature critical: {:.0}°C", max));
+            health
+                .alerts
+                .push(format!("CPU temperature critical: {:.0}°C", max));
         } else if current >= 85.0 || max >= 90.0 {
             health.status = HealthStatus::Warning;
-            health.alerts.push(format!("CPU temperature high: {:.0}°C max", max));
+            health
+                .alerts
+                .push(format!("CPU temperature high: {:.0}°C max", max));
         }
     }
 
@@ -128,7 +132,9 @@ pub fn get_cpu_health() -> CpuHealth {
 
     if throttling && health.status == HealthStatus::Ok {
         health.status = HealthStatus::Warning;
-        health.alerts.push(format!("CPU throttling detected ({} events)", events));
+        health
+            .alerts
+            .push(format!("CPU throttling detected ({} events)", events));
     }
 
     // Get CPU drivers
@@ -140,10 +146,7 @@ pub fn get_cpu_health() -> CpuHealth {
 /// Get CPU temperatures from sensors or /sys
 fn get_cpu_temperatures() -> Option<(f32, f32, String)> {
     // Try sensors command first
-    let output = Command::new("sensors")
-        .arg("-u")
-        .output()
-        .ok()?;
+    let output = Command::new("sensors").arg("-u").output().ok()?;
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -364,16 +367,23 @@ fn get_single_gpu_health(index: u32) -> GpuHealth {
     if let Some(temp) = health.current_temp_c {
         if temp >= 95.0 {
             health.status = HealthStatus::Critical;
-            health.alerts.push(format!("GPU{} temperature critical: {:.0}°C", index, temp));
+            health
+                .alerts
+                .push(format!("GPU{} temperature critical: {:.0}°C", index, temp));
         } else if temp >= 85.0 {
             health.status = HealthStatus::Warning;
-            health.alerts.push(format!("GPU{} temperature high: {:.0}°C", index, temp));
+            health
+                .alerts
+                .push(format!("GPU{} temperature high: {:.0}°C", index, temp));
         }
     }
 
     if health.driver_errors > 0 && health.status == HealthStatus::Ok {
         health.status = HealthStatus::Warning;
-        health.alerts.push(format!("GPU{} driver errors: {}", index, health.driver_errors));
+        health.alerts.push(format!(
+            "GPU{} driver errors: {}",
+            index, health.driver_errors
+        ));
     }
 
     health
@@ -632,12 +642,15 @@ fn get_smart_data(dev_path: &str, health: &mut DiskHealth) {
                         if let Some(attrs) = table.as_array() {
                             for attr in attrs {
                                 let id = attr.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
-                                let raw_value = attr.get("raw").and_then(|r| r.get("value")).and_then(|v| v.as_u64());
+                                let raw_value = attr
+                                    .get("raw")
+                                    .and_then(|r| r.get("value"))
+                                    .and_then(|v| v.as_u64());
 
                                 match id {
                                     5 => health.reallocated_sectors = raw_value, // Reallocated Sector Count
-                                    197 => health.pending_sectors = raw_value,    // Current Pending Sector Count
-                                    9 => health.power_on_hours = raw_value,       // Power-On Hours
+                                    197 => health.pending_sectors = raw_value, // Current Pending Sector Count
+                                    9 => health.power_on_hours = raw_value,    // Power-On Hours
                                     194 => {
                                         if health.temperature_c.is_none() {
                                             health.temperature_c = raw_value.map(|v| v as f32);
@@ -851,10 +864,15 @@ fn get_single_battery_health(name: &str, path: &Path) -> BatteryHealth {
     if let Some(wear) = health.wear_level_percent {
         if wear > 50.0 {
             health.health_status = HealthStatus::Critical;
-            health.alerts.push(format!("Battery {} wear level critical: {:.0}%", name, wear));
+            health.alerts.push(format!(
+                "Battery {} wear level critical: {:.0}%",
+                name, wear
+            ));
         } else if wear > 30.0 {
             health.health_status = HealthStatus::Warning;
-            health.alerts.push(format!("Battery {} wear level high: {:.0}%", name, wear));
+            health
+                .alerts
+                .push(format!("Battery {} wear level high: {:.0}%", name, wear));
         }
     }
 
@@ -977,7 +995,9 @@ fn get_single_network_health(interface: &str) -> NetworkHealth {
 
     if total_errors > 1000 || total_dropped > 10000 {
         health.status = HealthStatus::Warning;
-        health.alerts.push(format!("{}: high error/drop count", interface));
+        health
+            .alerts
+            .push(format!("{}: high error/drop count", interface));
     }
 
     health
@@ -1018,9 +1038,7 @@ fn parse_ip_stats(output: &str, health: &mut NetworkHealth) {
 /// Get Wi-Fi specific information
 fn get_wifi_info(interface: &str, health: &mut NetworkHealth) {
     // Try iw dev <interface> link
-    let output = Command::new("iw")
-        .args(["dev", interface, "link"])
-        .output();
+    let output = Command::new("iw").args(["dev", interface, "link"]).output();
 
     if let Ok(result) = output {
         if result.status.success() {
@@ -1082,7 +1100,10 @@ pub fn collect_hardware_alerts() -> Vec<Alert> {
             let reason = if disk.smart_passed == Some(false) {
                 "SMART self-assessment failed".to_string()
             } else if disk.reallocated_sectors.unwrap_or(0) > 0 {
-                format!("reallocated sectors: {}", disk.reallocated_sectors.unwrap_or(0))
+                format!(
+                    "reallocated sectors: {}",
+                    disk.reallocated_sectors.unwrap_or(0)
+                )
             } else if disk.pending_sectors.unwrap_or(0) > 0 {
                 format!("pending sectors: {}", disk.pending_sectors.unwrap_or(0))
             } else if disk.media_errors.unwrap_or(0) > 0 {
@@ -1150,14 +1171,21 @@ pub fn get_hardware_health_summary() -> HashMap<String, (HealthStatus, String)> 
     // GPU
     let gpus = get_gpu_health();
     if gpus.is_empty() {
-        summary.insert("GPU".to_string(), (HealthStatus::Unknown, "no GPU detected".to_string()));
+        summary.insert(
+            "GPU".to_string(),
+            (HealthStatus::Unknown, "no GPU detected".to_string()),
+        );
     } else {
-        let worst_status = gpus.iter().map(|g| g.status).max_by_key(|s| match s {
-            HealthStatus::Critical => 3,
-            HealthStatus::Warning => 2,
-            HealthStatus::Unknown => 1,
-            HealthStatus::Ok => 0,
-        }).unwrap_or(HealthStatus::Ok);
+        let worst_status = gpus
+            .iter()
+            .map(|g| g.status)
+            .max_by_key(|s| match s {
+                HealthStatus::Critical => 3,
+                HealthStatus::Warning => 2,
+                HealthStatus::Unknown => 1,
+                HealthStatus::Ok => 0,
+            })
+            .unwrap_or(HealthStatus::Ok);
 
         let gpu_desc = if let Some(gpu) = gpus.first() {
             if let Some(temp) = gpu.current_temp_c {
@@ -1176,12 +1204,27 @@ pub fn get_hardware_health_summary() -> HashMap<String, (HealthStatus, String)> 
     // Disks
     let disks = get_all_disk_health();
     if disks.is_empty() {
-        summary.insert("Disks".to_string(), (HealthStatus::Unknown, "no disks detected".to_string()));
+        summary.insert(
+            "Disks".to_string(),
+            (HealthStatus::Unknown, "no disks detected".to_string()),
+        );
     } else {
-        let ok_count = disks.iter().filter(|d| d.status == HealthStatus::Ok).count();
-        let warn_count = disks.iter().filter(|d| d.status == HealthStatus::Warning).count();
-        let crit_count = disks.iter().filter(|d| d.status == HealthStatus::Critical).count();
-        let unknown_count = disks.iter().filter(|d| d.status == HealthStatus::Unknown).count();
+        let ok_count = disks
+            .iter()
+            .filter(|d| d.status == HealthStatus::Ok)
+            .count();
+        let warn_count = disks
+            .iter()
+            .filter(|d| d.status == HealthStatus::Warning)
+            .count();
+        let crit_count = disks
+            .iter()
+            .filter(|d| d.status == HealthStatus::Critical)
+            .count();
+        let unknown_count = disks
+            .iter()
+            .filter(|d| d.status == HealthStatus::Unknown)
+            .count();
 
         let worst_status = if crit_count > 0 {
             HealthStatus::Critical
@@ -1209,18 +1252,30 @@ pub fn get_hardware_health_summary() -> HashMap<String, (HealthStatus, String)> 
     // Battery
     let batteries = get_battery_health();
     if batteries.is_empty() {
-        summary.insert("Battery".to_string(), (HealthStatus::Unknown, "not present".to_string()));
+        summary.insert(
+            "Battery".to_string(),
+            (HealthStatus::Unknown, "not present".to_string()),
+        );
     } else {
-        let worst_status = batteries.iter().map(|b| b.health_status).max_by_key(|s| match s {
-            HealthStatus::Critical => 3,
-            HealthStatus::Warning => 2,
-            HealthStatus::Unknown => 1,
-            HealthStatus::Ok => 0,
-        }).unwrap_or(HealthStatus::Ok);
+        let worst_status = batteries
+            .iter()
+            .map(|b| b.health_status)
+            .max_by_key(|s| match s {
+                HealthStatus::Critical => 3,
+                HealthStatus::Warning => 2,
+                HealthStatus::Unknown => 1,
+                HealthStatus::Ok => 0,
+            })
+            .unwrap_or(HealthStatus::Ok);
 
         let bat = batteries.first().unwrap();
         let desc = if let Some(wear) = bat.wear_level_percent {
-            format!("{:.0}% design capacity, {} cycles, {}", 100.0 - wear, bat.cycle_count.unwrap_or(0), bat.status)
+            format!(
+                "{:.0}% design capacity, {} cycles, {}",
+                100.0 - wear,
+                bat.cycle_count.unwrap_or(0),
+                bat.status
+            )
         } else {
             format!("{}%: {}", bat.capacity_percent.unwrap_or(0), bat.status)
         };
@@ -1230,12 +1285,16 @@ pub fn get_hardware_health_summary() -> HashMap<String, (HealthStatus, String)> 
 
     // Network
     let networks = get_network_health();
-    let physical: Vec<_> = networks.iter()
+    let physical: Vec<_> = networks
+        .iter()
         .filter(|n| n.interface_type == "ethernet" || n.interface_type == "wifi")
         .collect();
 
     if physical.is_empty() {
-        summary.insert("Network".to_string(), (HealthStatus::Unknown, "no physical interfaces".to_string()));
+        summary.insert(
+            "Network".to_string(),
+            (HealthStatus::Unknown, "no physical interfaces".to_string()),
+        );
     } else {
         let up_count = physical.iter().filter(|n| n.link_up).count();
         let total_errors: u64 = physical.iter().map(|n| n.rx_errors + n.tx_errors).sum();
@@ -1247,7 +1306,12 @@ pub fn get_hardware_health_summary() -> HashMap<String, (HealthStatus, String)> 
         };
 
         let desc = if total_errors > 0 {
-            format!("{}/{} up, {} errors", up_count, physical.len(), total_errors)
+            format!(
+                "{}/{} up, {} errors",
+                up_count,
+                physical.len(),
+                total_errors
+            )
         } else {
             format!("{}/{} interfaces up", up_count, physical.len())
         };
@@ -1273,10 +1337,12 @@ mod tests {
     fn test_cpu_health_basic() {
         let health = get_cpu_health();
         // Just verify it doesn't panic
-        assert!(health.status == HealthStatus::Ok
-            || health.status == HealthStatus::Warning
-            || health.status == HealthStatus::Critical
-            || health.status == HealthStatus::Unknown);
+        assert!(
+            health.status == HealthStatus::Ok
+                || health.status == HealthStatus::Warning
+                || health.status == HealthStatus::Critical
+                || health.status == HealthStatus::Unknown
+        );
     }
 
     #[test]

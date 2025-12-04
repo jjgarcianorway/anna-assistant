@@ -66,18 +66,14 @@ impl TrendDirection {
     pub fn is_increasing(&self) -> bool {
         matches!(
             self,
-            TrendDirection::SlightlyHigher
-                | TrendDirection::Higher
-                | TrendDirection::MuchHigher
+            TrendDirection::SlightlyHigher | TrendDirection::Higher | TrendDirection::MuchHigher
         )
     }
 
     pub fn is_decreasing(&self) -> bool {
         matches!(
             self,
-            TrendDirection::SlightlyLower
-                | TrendDirection::Lower
-                | TrendDirection::MuchLower
+            TrendDirection::SlightlyLower | TrendDirection::Lower | TrendDirection::MuchLower
         )
     }
 }
@@ -107,7 +103,7 @@ impl WindowStats {
 #[derive(Debug, Clone, Default)]
 pub struct ProcessTrends {
     pub name: String,
-    pub observation_start: Option<u64>,  // Unix timestamp
+    pub observation_start: Option<u64>, // Unix timestamp
     pub sample_count: usize,
     pub sample_interval_secs: u32,
 
@@ -127,7 +123,7 @@ pub struct ProcessTrends {
 
     // Service uptime patterns
     pub restarts_7d: u32,
-    pub last_restart: Option<u64>,  // Unix timestamp
+    pub last_restart: Option<u64>, // Unix timestamp
 }
 
 impl ProcessTrends {
@@ -150,7 +146,7 @@ impl ProcessTrends {
 #[derive(Debug, Clone, Default)]
 pub struct HardwareTrends {
     pub component: String,
-    pub component_type: String,  // "network", "storage", "gpu", etc.
+    pub component_type: String, // "network", "storage", "gpu", etc.
     pub sample_count: usize,
     pub sample_interval_secs: u32,
 
@@ -205,11 +201,11 @@ pub struct SignalTrends {
 
 /// Get process trends from telemetry database
 pub fn get_process_trends(name: &str) -> ProcessTrends {
-    use crate::{WINDOW_1H, WINDOW_24H, WINDOW_7D, WINDOW_30D};
+    use crate::{WINDOW_1H, WINDOW_24H, WINDOW_30D, WINDOW_7D};
 
     let mut trends = ProcessTrends {
         name: name.to_string(),
-        sample_interval_secs: 30,  // Default Anna interval
+        sample_interval_secs: 30, // Default Anna interval
         cpu_trend_24h_vs_7d: TrendDirection::InsufficientData,
         mem_trend_24h_vs_7d: TrendDirection::InsufficientData,
         ..Default::default()
@@ -227,7 +223,7 @@ pub fn get_process_trends(name: &str) -> ProcessTrends {
             trends.sample_count = trends.sample_count.max(stats.sample_count as usize);
             trends.cpu_1h = Some(WindowStats {
                 avg: stats.avg_cpu_percent as f64,
-                min: 0.0,  // UsageStats doesn't track min
+                min: 0.0, // UsageStats doesn't track min
                 max: stats.peak_cpu_percent as f64,
                 sample_count: stats.sample_count as usize,
             });
@@ -330,11 +326,14 @@ fn get_service_restarts_7d(name: &str) -> u32 {
 
     let output = Command::new("journalctl")
         .args([
-            "-u", &unit_name,
-            "--since", "7 days ago",
+            "-u",
+            &unit_name,
+            "--since",
+            "7 days ago",
             "--no-pager",
             "-q",
-            "-o", "short",
+            "-o",
+            "short",
         ])
         .output();
 
@@ -361,7 +360,13 @@ fn get_last_restart_time(name: &str) -> Option<u64> {
     };
 
     let output = Command::new("systemctl")
-        .args(["show", &unit_name, "-p", "ExecMainStartTimestamp", "--no-pager"])
+        .args([
+            "show",
+            &unit_name,
+            "-p",
+            "ExecMainStartTimestamp",
+            "--no-pager",
+        ])
         .output();
 
     match output {
@@ -377,7 +382,7 @@ fn get_last_restart_time(name: &str) -> Option<u64> {
                             std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
                                 .map(|d| d.as_secs())
-                                .unwrap_or(0)
+                                .unwrap_or(0),
                         );
                     }
                 }

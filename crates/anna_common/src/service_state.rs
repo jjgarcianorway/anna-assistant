@@ -326,8 +326,7 @@ impl ServiceState {
                     }
                     "Requires" => {
                         if !value.is_empty() {
-                            state.requires =
-                                value.split_whitespace().map(String::from).collect();
+                            state.requires = value.split_whitespace().map(String::from).collect();
                         }
                     }
                     "After" => {
@@ -499,7 +498,13 @@ impl ServiceIndex {
 
         // Get list of all services
         let output = Command::new("systemctl")
-            .args(["list-units", "--type=service", "--all", "--no-legend", "--no-pager"])
+            .args([
+                "list-units",
+                "--type=service",
+                "--all",
+                "--no-legend",
+                "--no-pager",
+            ])
             .output();
 
         if let Ok(result) = output {
@@ -629,8 +634,11 @@ impl ServiceIndex {
         self.services
             .values()
             .filter(|s| {
-                s.unit_name.contains(exe_name) ||
-                s.description.as_ref().map(|d| d.contains(exe_name)).unwrap_or(false)
+                s.unit_name.contains(exe_name)
+                    || s.description
+                        .as_ref()
+                        .map(|d| d.contains(exe_name))
+                        .unwrap_or(false)
             })
             .collect()
     }

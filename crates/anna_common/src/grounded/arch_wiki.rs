@@ -14,10 +14,10 @@
 //! - v7.6.1: Strip HTML before extraction, filter paths by identity
 //! - v7.10.0: Support arch-wiki-lite, use text browsers for HTML
 
+use regex::Regex;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use regex::Regex;
 
 /// Wiki source type - v7.10.0
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -93,7 +93,8 @@ impl ArchWikiIndex {
         for line in stdout.lines() {
             if let Some(path) = line.split_whitespace().nth(1) {
                 // arch-wiki-lite uses .txt or .txt.zst files
-                if path.ends_with(".txt") || path.ends_with(".txt.zst") || path.ends_with(".txt.gz") {
+                if path.ends_with(".txt") || path.ends_with(".txt.zst") || path.ends_with(".txt.gz")
+                {
                     files.push(path.to_string());
 
                     if root.is_none() {
@@ -169,7 +170,6 @@ impl ArchWikiIndex {
         })
     }
 
-
     /// Find candidate wiki pages for a package/command name
     pub fn find_candidates(&self, name: &str, max: usize) -> Vec<String> {
         if !self.enabled {
@@ -209,10 +209,7 @@ impl ArchWikiIndex {
         // Handle compressed files (arch-wiki-lite uses .txt.zst or .txt.gz)
         if file_path.ends_with(".zst") {
             // Try zstdcat
-            let output = Command::new("zstdcat")
-                .arg(file_path)
-                .output()
-                .ok()?;
+            let output = Command::new("zstdcat").arg(file_path).output().ok()?;
             if output.status.success() {
                 return Some(String::from_utf8_lossy(&output.stdout).to_string());
             }
@@ -221,10 +218,7 @@ impl ArchWikiIndex {
 
         if file_path.ends_with(".gz") {
             // Try zcat/gunzip
-            let output = Command::new("zcat")
-                .arg(file_path)
-                .output()
-                .ok()?;
+            let output = Command::new("zcat").arg(file_path).output().ok()?;
             if output.status.success() {
                 return Some(String::from_utf8_lossy(&output.stdout).to_string());
             }
@@ -266,7 +260,11 @@ impl ArchWikiIndex {
     /// Extract config paths from a wiki file, filtered by identity
     /// v7.6.1: Identity-focused filtering to avoid unrelated paths
     /// v7.10.0: Support for arch-wiki-lite text files and text browsers
-    pub fn extract_config_paths_for_identity(&self, file_path: &str, identity: Option<&str>) -> Vec<ConfigHint> {
+    pub fn extract_config_paths_for_identity(
+        &self,
+        file_path: &str,
+        identity: Option<&str>,
+    ) -> Vec<ConfigHint> {
         let clean_content = match self.read_wiki_content(file_path) {
             Some(c) => c,
             None => return Vec::new(),
@@ -287,7 +285,10 @@ impl ArchWikiIndex {
         // Regex for system paths
         let sys_path_re = Regex::new(r#"(/(?:etc|usr|var)/[a-zA-Z0-9_./-]+)"#).unwrap();
         // Regex for user paths
-        let user_path_re = Regex::new(r#"(~(?:/[a-zA-Z0-9_./-]+)+|(?:\$HOME|\$XDG_CONFIG_HOME)/[a-zA-Z0-9_./-]+)"#).unwrap();
+        let user_path_re = Regex::new(
+            r#"(~(?:/[a-zA-Z0-9_./-]+)+|(?:\$HOME|\$XDG_CONFIG_HOME)/[a-zA-Z0-9_./-]+)"#,
+        )
+        .unwrap();
 
         for line in clean_content.lines() {
             let line_lower = line.to_lowercase();
@@ -396,8 +397,10 @@ fn path_belongs_to_identity(path: &str, identity: &str) -> bool {
         return false;
     }
     // nvim should not match pure /vim/ paths
-    if id_lower == "nvim" && path_contains_identity_segment(&path_lower, "vim")
-        && !path_contains_identity_segment(&path_lower, "nvim") {
+    if id_lower == "nvim"
+        && path_contains_identity_segment(&path_lower, "vim")
+        && !path_contains_identity_segment(&path_lower, "nvim")
+    {
         return false;
     }
 
@@ -423,28 +426,69 @@ fn is_path_for_other_tool(path: &str, current_identity: &str) -> bool {
     // v7.10.0: Expanded list of well-known tools to filter
     let other_tools = [
         // Wayland ecosystem
-        "uwsm", "mako", "waybar", "dunst", "rofi", "wofi", "swaylock",
-        "swayidle", "wlogout", "eww", "ags", "nwg", "wlr", "sway",
+        "uwsm",
+        "mako",
+        "waybar",
+        "dunst",
+        "rofi",
+        "wofi",
+        "swaylock",
+        "swayidle",
+        "wlogout",
+        "eww",
+        "ags",
+        "nwg",
+        "wlr",
+        "sway",
         // Terminals
-        "kitty", "alacritty", "foot", "wezterm", "konsole", "gnome-terminal",
+        "kitty",
+        "alacritty",
+        "foot",
+        "wezterm",
+        "konsole",
+        "gnome-terminal",
         // Notification daemons
-        "fnott", "deadd", "linux_notification_center",
+        "fnott",
+        "deadd",
+        "linux_notification_center",
         // Launchers
-        "bemenu", "dmenu", "tofi", "fuzzel",
+        "bemenu",
+        "dmenu",
+        "tofi",
+        "fuzzel",
         // Bar/panels
-        "polybar", "lemonbar", "i3bar", "swaybar",
+        "polybar",
+        "lemonbar",
+        "i3bar",
+        "swaybar",
         // Lock screens
-        "i3lock", "betterlockscreen", "gtklock", "hyprlock",
+        "i3lock",
+        "betterlockscreen",
+        "gtklock",
+        "hyprlock",
         // Idle managers
-        "xidlehook", "hypridle",
+        "xidlehook",
+        "hypridle",
         // Wallpaper setters
-        "hyprpaper", "swaybg", "nitrogen", "feh",
+        "hyprpaper",
+        "swaybg",
+        "nitrogen",
+        "feh",
         // Screen capture
-        "grim", "slurp", "flameshot", "spectacle",
+        "grim",
+        "slurp",
+        "flameshot",
+        "spectacle",
         // Clipboard managers
-        "wl-clipboard", "cliphist", "clipman",
+        "wl-clipboard",
+        "cliphist",
+        "clipman",
         // Display managers
-        "ly", "greetd", "lightdm", "sddm", "gdm",
+        "ly",
+        "greetd",
+        "lightdm",
+        "sddm",
+        "gdm",
     ];
 
     for tool in &other_tools {
@@ -463,8 +507,15 @@ fn is_path_for_other_tool(path: &str, current_identity: &str) -> bool {
 /// Check if path is clearly not a config file - v7.6.1
 fn is_non_config_path(path: &str) -> bool {
     let non_config_patterns = [
-        "/scripts/", "/wallpapers/", "/wallpapers", "/icons/",
-        "/themes/", "/backgrounds/", "/screenshots/", "/cache/", "/logs/",
+        "/scripts/",
+        "/wallpapers/",
+        "/wallpapers",
+        "/icons/",
+        "/themes/",
+        "/backgrounds/",
+        "/screenshots/",
+        "/cache/",
+        "/logs/",
     ];
 
     for pattern in &non_config_patterns {
@@ -473,9 +524,16 @@ fn is_non_config_path(path: &str) -> bool {
         }
     }
 
-    if path.ends_with(".png") || path.ends_with(".jpg") || path.ends_with(".jpeg") ||
-       path.ends_with(".svg") || path.ends_with(".gif") || path.ends_with(".ico") ||
-       path.ends_with(".sh") || path.ends_with(".bash") || path.ends_with(".zsh") {
+    if path.ends_with(".png")
+        || path.ends_with(".jpg")
+        || path.ends_with(".jpeg")
+        || path.ends_with(".svg")
+        || path.ends_with(".gif")
+        || path.ends_with(".ico")
+        || path.ends_with(".sh")
+        || path.ends_with(".bash")
+        || path.ends_with(".zsh")
+    {
         return true;
     }
 
@@ -490,11 +548,19 @@ fn path_contains_identity_segment(path: &str, identity: &str) -> bool {
         let abs_pos = start + pos;
         let end_pos = abs_pos + identity.len();
 
-        let before_ok = abs_pos == 0 ||
-            path.chars().nth(abs_pos - 1).map(|c| c == '/' || c == '.' || c == '-' || c == '_').unwrap_or(false);
+        let before_ok = abs_pos == 0
+            || path
+                .chars()
+                .nth(abs_pos - 1)
+                .map(|c| c == '/' || c == '.' || c == '-' || c == '_')
+                .unwrap_or(false);
 
-        let after_ok = end_pos >= path.len() ||
-            path.chars().nth(end_pos).map(|c| c == '/' || c == '.' || c == '-' || c == '_').unwrap_or(false);
+        let after_ok = end_pos >= path.len()
+            || path
+                .chars()
+                .nth(end_pos)
+                .map(|c| c == '/' || c == '.' || c == '-' || c == '_')
+                .unwrap_or(false);
 
         if before_ok && after_ok {
             return true;
@@ -518,7 +584,11 @@ fn get_identity_aliases(identity: &str) -> Vec<String> {
         "networkmanager" => vec!["nm".to_string(), "network-manager".to_string()],
         "pulseaudio" => vec!["pulse".to_string()],
         "pipewire" => vec!["pw".to_string()],
-        "bluetooth" | "bluez" => vec!["bt".to_string(), "bluetooth".to_string(), "bluez".to_string()],
+        "bluetooth" | "bluez" => vec![
+            "bt".to_string(),
+            "bluetooth".to_string(),
+            "bluez".to_string(),
+        ],
         _ => vec![],
     }
 }
@@ -560,8 +630,12 @@ fn looks_like_valid_config_path(path: &str) -> bool {
     }
 
     // Must not contain HTML entities or weird chars
-    if path.contains('&') || path.contains('<') || path.contains('>')
-        || path.contains('"') || path.contains('\'') {
+    if path.contains('&')
+        || path.contains('<')
+        || path.contains('>')
+        || path.contains('"')
+        || path.contains('\'')
+    {
         return false;
     }
 
@@ -576,7 +650,10 @@ fn looks_like_valid_config_path(path: &str) -> bool {
 /// Check if a path looks like a valid user config path
 fn looks_like_valid_user_path(path: &str) -> bool {
     // Must start with ~/ or $HOME or $XDG_CONFIG_HOME
-    if !path.starts_with("~/") && !path.starts_with("$HOME/") && !path.starts_with("$XDG_CONFIG_HOME/") {
+    if !path.starts_with("~/")
+        && !path.starts_with("$HOME/")
+        && !path.starts_with("$XDG_CONFIG_HOME/")
+    {
         return false;
     }
 
@@ -607,8 +684,7 @@ pub fn resolve_user_path(path: &str) -> Option<PathBuf> {
     } else if path.starts_with("$HOME/") {
         Some(PathBuf::from(format!("{}{}", home, &path[5..])))
     } else if path.starts_with("$XDG_CONFIG_HOME/") {
-        let xdg = std::env::var("XDG_CONFIG_HOME")
-            .unwrap_or_else(|_| format!("{}/.config", home));
+        let xdg = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
         Some(PathBuf::from(format!("{}{}", xdg, &path[16..])))
     } else {
         None

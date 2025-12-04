@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::severity::LogSeverity;
 use super::category::LogCategory;
 use super::log_entry::LogEntry;
 use super::object_errors::ObjectErrors;
-use super::summary::{GroupedErrorSummary, UniversalErrorSummary, ObjectErrorEntry};
+use super::severity::LogSeverity;
+use super::summary::{GroupedErrorSummary, ObjectErrorEntry, UniversalErrorSummary};
 
 /// Error index store path
 pub const ERROR_INDEX_PATH: &str = "/var/lib/anna/knowledge/errors_v5.json";
@@ -177,7 +177,8 @@ impl ErrorIndex {
         let mut summaries = Vec::new();
 
         for (name, obj) in &self.objects {
-            let errors_24h: Vec<_> = obj.logs
+            let errors_24h: Vec<_> = obj
+                .logs
                 .iter()
                 .filter(|l| l.timestamp >= cutoff && l.severity.is_error())
                 .collect();
@@ -214,7 +215,9 @@ impl ErrorIndex {
         self.objects
             .iter()
             .filter(|(_, obj)| {
-                obj.logs.iter().any(|l| l.timestamp >= cutoff && l.severity.is_error())
+                obj.logs
+                    .iter()
+                    .any(|l| l.timestamp >= cutoff && l.severity.is_error())
             })
             .map(|(name, _)| name.as_str())
             .collect()
@@ -231,7 +234,8 @@ impl ErrorIndex {
         let mut summary = UniversalErrorSummary::default();
 
         for (name, obj) in &self.objects {
-            let errors_24h: Vec<_> = obj.logs
+            let errors_24h: Vec<_> = obj
+                .logs
                 .iter()
                 .filter(|l| l.timestamp >= cutoff && l.severity.is_warning_or_worse())
                 .collect();
@@ -274,11 +278,21 @@ impl ErrorIndex {
         }
 
         // Sort each category by error count
-        summary.services.sort_by(|a, b| b.error_count.cmp(&a.error_count));
-        summary.packages.sort_by(|a, b| b.error_count.cmp(&a.error_count));
-        summary.executables.sort_by(|a, b| b.error_count.cmp(&a.error_count));
-        summary.filesystem.sort_by(|a, b| b.error_count.cmp(&a.error_count));
-        summary.kernel.sort_by(|a, b| b.error_count.cmp(&a.error_count));
+        summary
+            .services
+            .sort_by(|a, b| b.error_count.cmp(&a.error_count));
+        summary
+            .packages
+            .sort_by(|a, b| b.error_count.cmp(&a.error_count));
+        summary
+            .executables
+            .sort_by(|a, b| b.error_count.cmp(&a.error_count));
+        summary
+            .filesystem
+            .sort_by(|a, b| b.error_count.cmp(&a.error_count));
+        summary
+            .kernel
+            .sort_by(|a, b| b.error_count.cmp(&a.error_count));
 
         summary
     }

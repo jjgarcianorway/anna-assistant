@@ -9,7 +9,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::service_state::{ActiveState, EnabledState};
-use crate::systemd_probe::{ServiceProbe, probe_service};
+use crate::systemd_probe::{probe_service, ServiceProbe};
 
 /// Rollback directory base
 pub const ROLLBACK_BASE: &str = "/var/lib/anna/rollback";
@@ -48,11 +48,14 @@ pub fn rollback_service_action(case_id: &str) -> Result<ServiceRollbackResult, S
     let metadata: serde_json::Value = serde_json::from_str(&metadata_content)
         .map_err(|e| format!("Cannot parse rollback metadata: {}", e))?;
 
-    let service = metadata["service"].as_str()
+    let service = metadata["service"]
+        .as_str()
         .ok_or("Missing service in rollback metadata")?;
-    let original_active = metadata["pre_state"]["active_state"].as_str()
+    let original_active = metadata["pre_state"]["active_state"]
+        .as_str()
         .ok_or("Missing original active state")?;
-    let original_enabled = metadata["pre_state"]["enabled_state"].as_str()
+    let original_enabled = metadata["pre_state"]["enabled_state"]
+        .as_str()
         .ok_or("Missing original enabled state")?;
 
     let original_active_state = ActiveState::parse(original_active);
@@ -62,7 +65,12 @@ pub fn rollback_service_action(case_id: &str) -> Result<ServiceRollbackResult, S
     let current = probe_service(service);
 
     // Execute restore operations
-    execute_restore_operations(service, &current, &original_active_state, &original_enabled_state)?;
+    execute_restore_operations(
+        service,
+        &current,
+        &original_active_state,
+        &original_enabled_state,
+    )?;
 
     // Verify restored state
     let restored = probe_service(service);
@@ -114,7 +122,11 @@ fn execute_restore_operations(
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Rollback failed at systemctl {}: {}", op, stderr.trim()));
+            return Err(format!(
+                "Rollback failed at systemctl {}: {}",
+                op,
+                stderr.trim()
+            ));
         }
     }
 
@@ -133,7 +145,11 @@ fn execute_restore_operations(
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Rollback failed at systemctl {}: {}", op, stderr.trim()));
+            return Err(format!(
+                "Rollback failed at systemctl {}: {}",
+                op,
+                stderr.trim()
+            ));
         }
     }
 

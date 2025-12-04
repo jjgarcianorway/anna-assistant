@@ -169,7 +169,10 @@ pub fn format_eta(remaining: u64, rate_per_sec: f64) -> String {
 
 /// v7.29.0: DEPRECATED - prefer text_wrap functions for zero truncation
 /// Truncate a string to max length, adding "..." if truncated
-#[deprecated(since = "7.29.0", note = "use text_wrap module for zero truncation output")]
+#[deprecated(
+    since = "7.29.0",
+    note = "use text_wrap module for zero truncation output"
+)]
 pub fn truncate_str(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
@@ -320,10 +323,34 @@ impl SectionFormatter {
         let label_width = 14;
         let formatted_key = format!("{:>width$}:", key, width = label_width);
         let status_str = match status {
-            StatusIndicator::Ok => if self.use_colors { colors::success("ok") } else { "ok".to_string() },
-            StatusIndicator::Warning => if self.use_colors { colors::warning("warning") } else { "warning".to_string() },
-            StatusIndicator::Error => if self.use_colors { colors::error("error") } else { "error".to_string() },
-            StatusIndicator::Info => if self.use_colors { colors::info("info") } else { "info".to_string() },
+            StatusIndicator::Ok => {
+                if self.use_colors {
+                    colors::success("ok")
+                } else {
+                    "ok".to_string()
+                }
+            }
+            StatusIndicator::Warning => {
+                if self.use_colors {
+                    colors::warning("warning")
+                } else {
+                    "warning".to_string()
+                }
+            }
+            StatusIndicator::Error => {
+                if self.use_colors {
+                    colors::error("error")
+                } else {
+                    "error".to_string()
+                }
+            }
+            StatusIndicator::Info => {
+                if self.use_colors {
+                    colors::info("info")
+                } else {
+                    "info".to_string()
+                }
+            }
             StatusIndicator::None => String::new(),
         };
         if status_str.is_empty() {
@@ -334,7 +361,12 @@ impl SectionFormatter {
             }
         } else {
             if self.use_colors {
-                format!("  {} {} ({})", colors::label(&formatted_key), value, status_str)
+                format!(
+                    "  {} {} ({})",
+                    colors::label(&formatted_key),
+                    value,
+                    status_str
+                )
             } else {
                 format!("  {} {} ({})", formatted_key, value, status_str)
             }
@@ -404,7 +436,10 @@ pub struct DialogueFormatter {
 impl DialogueFormatter {
     /// Create a new dialogue formatter
     pub fn new(debug_level: u8, use_colors: bool) -> Self {
-        Self { debug_level, use_colors }
+        Self {
+            debug_level,
+            use_colors,
+        }
     }
 
     /// Check if this dialogue line should be shown at current debug level
@@ -412,9 +447,9 @@ impl DialogueFormatter {
         match self.debug_level {
             0 => {
                 // Minimal: only user<->anna dialogues and confirmations
-                (from == "you" && to == "anna") ||
-                (from == "anna" && to == "you") ||
-                to == "confirmation"
+                (from == "you" && to == "anna")
+                    || (from == "anna" && to == "you")
+                    || to == "confirmation"
             }
             1 => {
                 // Normal: show all dialogues except internal tool details
@@ -456,20 +491,28 @@ impl DialogueFormatter {
         let evidence_str = if evidence_ids.is_empty() {
             String::new()
         } else {
-            let ids: Vec<String> = evidence_ids.iter().map(|id| {
-                if self.use_colors {
-                    colors::evidence_id(id)
-                } else {
-                    format!("[{}]", id)
-                }
-            }).collect();
+            let ids: Vec<String> = evidence_ids
+                .iter()
+                .map(|id| {
+                    if self.use_colors {
+                        colors::evidence_id(id)
+                    } else {
+                        format!("[{}]", id)
+                    }
+                })
+                .collect();
             format!(" {}", ids.join(", "))
         };
         format!("  Tools: {}{}", tools_str, evidence_str)
     }
 
     /// Format final answer with reliability
-    pub fn format_final_answer(&self, answer: &str, reliability: u32, evidence_ids: &[&str]) -> String {
+    pub fn format_final_answer(
+        &self,
+        answer: &str,
+        reliability: u32,
+        evidence_ids: &[&str],
+    ) -> String {
         let mut output = String::new();
 
         // Answer text
@@ -725,7 +768,11 @@ mod tests {
         // Check that tools and evidence IDs are in output
         assert!(summary.contains("status_snapshot"), "summary: {}", summary);
         assert!(summary.contains("disk_usage"), "summary: {}", summary);
-        assert!(summary.contains("E1") || summary.contains("[E1]"), "summary: {}", summary);
+        assert!(
+            summary.contains("E1") || summary.contains("[E1]"),
+            "summary: {}",
+            summary
+        );
     }
 
     #[test]

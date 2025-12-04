@@ -250,11 +250,21 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Disk/storage patterns - highest priority
     let disk_patterns = [
-        ("disk space", 98), ("disk free", 98), ("free space", 95),
-        ("storage space", 95), ("how much space", 98), ("space left", 95),
-        ("space available", 95), ("space on /", 98), ("disk usage", 90),
-        ("running out of space", 95), ("disk full", 90), ("disk is full", 95),
-        ("storage left", 95), ("how full is", 85), ("root partition", 90),
+        ("disk space", 98),
+        ("disk free", 98),
+        ("free space", 95),
+        ("storage space", 95),
+        ("how much space", 98),
+        ("space left", 95),
+        ("space available", 95),
+        ("space on /", 98),
+        ("disk usage", 90),
+        ("running out of space", 95),
+        ("disk full", 90),
+        ("disk is full", 95),
+        ("storage left", 95),
+        ("how full is", 85),
+        ("root partition", 90),
     ];
     for (pattern, confidence) in disk_patterns {
         if lower.contains(pattern) {
@@ -270,9 +280,14 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Kernel version patterns
     let kernel_patterns = [
-        ("kernel version", 98), ("kernel release", 98), ("what kernel", 95),
-        ("linux version", 90), ("which kernel", 95), ("running kernel", 95),
-        ("uname", 90), ("kernel am i", 95),
+        ("kernel version", 98),
+        ("kernel release", 98),
+        ("what kernel", 95),
+        ("linux version", 90),
+        ("which kernel", 95),
+        ("running kernel", 95),
+        ("uname", 90),
+        ("kernel am i", 95),
     ];
     for (pattern, confidence) in kernel_patterns {
         if lower.contains(pattern) {
@@ -288,10 +303,18 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Memory patterns
     let memory_patterns = [
-        ("how much memory", 98), ("how much ram", 98), ("ram available", 95),
-        ("memory available", 95), ("ram free", 95), ("memory free", 95),
-        ("total memory", 95), ("total ram", 95), ("ram usage", 90),
-        ("memory usage", 90), ("how much mem", 95), ("ram do i have", 95),
+        ("how much memory", 98),
+        ("how much ram", 98),
+        ("ram available", 95),
+        ("memory available", 95),
+        ("ram free", 95),
+        ("memory free", 95),
+        ("total memory", 95),
+        ("total ram", 95),
+        ("ram usage", 90),
+        ("memory usage", 90),
+        ("how much mem", 95),
+        ("ram do i have", 95),
         ("memory do i have", 95),
     ];
     for (pattern, confidence) in memory_patterns {
@@ -308,9 +331,15 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // CPU patterns
     let cpu_patterns = [
-        ("what cpu", 98), ("which cpu", 95), ("cpu model", 95),
-        ("processor model", 90), ("cpu info", 90), ("processor info", 90),
-        ("what processor", 95), ("how many cores", 90), ("cpu cores", 90),
+        ("what cpu", 98),
+        ("which cpu", 95),
+        ("cpu model", 95),
+        ("processor model", 90),
+        ("cpu info", 90),
+        ("processor info", 90),
+        ("what processor", 95),
+        ("how many cores", 90),
+        ("cpu cores", 90),
         ("cpu do i have", 98),
     ];
     for (pattern, confidence) in cpu_patterns {
@@ -327,17 +356,27 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Network patterns
     let network_patterns = [
-        ("network status", 98), ("network connection", 95),
-        ("internet connection", 95), ("am i connected", 95),
-        ("am i online", 95), ("is network", 90), ("is wifi", 90),
-        ("wifi status", 95), ("ethernet status", 95), ("wifi connected", 95),
-        ("wifi working", 95), ("connection status", 90), ("default route", 90),
+        ("network status", 98),
+        ("network connection", 95),
+        ("internet connection", 95),
+        ("am i connected", 95),
+        ("am i online", 95),
+        ("is network", 90),
+        ("is wifi", 90),
+        ("wifi status", 95),
+        ("ethernet status", 95),
+        ("wifi connected", 95),
+        ("wifi working", 95),
+        ("connection status", 90),
+        ("default route", 90),
         ("network info", 90),
     ];
     for (pattern, confidence) in network_patterns {
         if lower.contains(pattern) {
-            let is_diag = lower.contains("disconnect") || lower.contains("not working")
-                || lower.contains("slow") || lower.contains("problem");
+            let is_diag = lower.contains("disconnect")
+                || lower.contains("not working")
+                || lower.contains("slow")
+                || lower.contains("problem");
             return TopicDetection {
                 topic: EvidenceTopic::NetworkStatus,
                 confidence,
@@ -350,16 +389,26 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Audio patterns
     let audio_patterns = [
-        ("audio status", 98), ("sound status", 95), ("is audio", 90),
-        ("is sound", 90), ("audio working", 95), ("sound working", 95),
-        ("pipewire status", 95), ("pulseaudio status", 95),
-        ("pipewire running", 95), ("pulseaudio running", 95),
-        ("no sound", 90), ("no audio", 90), ("speakers", 85),
+        ("audio status", 98),
+        ("sound status", 95),
+        ("is audio", 90),
+        ("is sound", 90),
+        ("audio working", 95),
+        ("sound working", 95),
+        ("pipewire status", 95),
+        ("pulseaudio status", 95),
+        ("pipewire running", 95),
+        ("pulseaudio running", 95),
+        ("no sound", 90),
+        ("no audio", 90),
+        ("speakers", 85),
     ];
     for (pattern, confidence) in audio_patterns {
         if lower.contains(pattern) {
-            let is_diag = lower.contains("not working") || lower.contains("no sound")
-                || lower.contains("no audio") || lower.contains("problem");
+            let is_diag = lower.contains("not working")
+                || lower.contains("no sound")
+                || lower.contains("no audio")
+                || lower.contains("problem");
             return TopicDetection {
                 topic: EvidenceTopic::AudioStatus,
                 confidence,
@@ -372,17 +421,29 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Service status patterns - "is X running"
     let service_keywords = [
-        ("nginx", "nginx"), ("docker", "docker"), ("sshd", "sshd"),
-        ("ssh", "sshd"), ("apache", "apache2"), ("httpd", "httpd"),
-        ("mysql", "mysql"), ("mariadb", "mariadb"), ("postgresql", "postgresql"),
-        ("redis", "redis"), ("mongodb", "mongodb"), ("systemd", "systemd"),
-        ("networkmanager", "NetworkManager"), ("bluetooth", "bluetooth"),
+        ("nginx", "nginx"),
+        ("docker", "docker"),
+        ("sshd", "sshd"),
+        ("ssh", "sshd"),
+        ("apache", "apache2"),
+        ("httpd", "httpd"),
+        ("mysql", "mysql"),
+        ("mariadb", "mariadb"),
+        ("postgresql", "postgresql"),
+        ("redis", "redis"),
+        ("mongodb", "mongodb"),
+        ("systemd", "systemd"),
+        ("networkmanager", "NetworkManager"),
+        ("bluetooth", "bluetooth"),
     ];
     for (keyword, service) in service_keywords {
         if lower.contains(keyword) {
-            if lower.contains("running") || lower.contains("status")
-                || lower.contains("started") || lower.contains("enabled")
-                || lower.contains("active") || lower.contains("is ")
+            if lower.contains("running")
+                || lower.contains("status")
+                || lower.contains("started")
+                || lower.contains("enabled")
+                || lower.contains("active")
+                || lower.contains("is ")
             {
                 return TopicDetection {
                     topic: EvidenceTopic::ServiceState,
@@ -397,8 +458,12 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Boot time patterns
     let boot_patterns = [
-        ("boot time", 95), ("startup time", 95), ("how long to boot", 95),
-        ("boot slow", 90), ("slow boot", 90), ("boot analysis", 90),
+        ("boot time", 95),
+        ("startup time", 95),
+        ("how long to boot", 95),
+        ("boot slow", 90),
+        ("slow boot", 90),
+        ("boot analysis", 90),
     ];
     for (pattern, confidence) in boot_patterns {
         if lower.contains(pattern) {
@@ -414,9 +479,12 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Package change patterns
     let package_patterns = [
-        ("what changed", 90), ("recently installed", 95),
-        ("installed recently", 95), ("packages changed", 95),
-        ("new packages", 90), ("updated packages", 90),
+        ("what changed", 90),
+        ("recently installed", 95),
+        ("installed recently", 95),
+        ("packages changed", 95),
+        ("new packages", 90),
+        ("updated packages", 90),
     ];
     for (pattern, confidence) in package_patterns {
         if lower.contains(pattern) {
@@ -432,9 +500,15 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Alert patterns
     let alert_patterns = [
-        ("show alerts", 98), ("what alerts", 98), ("any alerts", 95),
-        ("any warnings", 95), ("show warnings", 95), ("any issues", 90),
-        ("why warning", 95), ("system alerts", 95), ("active alerts", 98),
+        ("show alerts", 98),
+        ("what alerts", 98),
+        ("any alerts", 95),
+        ("any warnings", 95),
+        ("show warnings", 95),
+        ("any issues", 90),
+        ("why warning", 95),
+        ("system alerts", 95),
+        ("active alerts", 98),
     ];
     for (pattern, confidence) in alert_patterns {
         if lower.contains(pattern) {
@@ -450,8 +524,12 @@ pub fn detect_topic(request: &str) -> TopicDetection {
 
     // Graphics patterns
     let graphics_patterns = [
-        ("gpu", 90), ("graphics card", 95), ("video card", 95),
-        ("graphics driver", 90), ("nvidia", 85), ("amd gpu", 90),
+        ("gpu", 90),
+        ("graphics card", 95),
+        ("video card", 95),
+        ("graphics driver", 90),
+        ("nvidia", 85),
+        ("amd gpu", 90),
         ("intel graphics", 90),
     ];
     for (pattern, confidence) in graphics_patterns {
@@ -510,15 +588,24 @@ pub fn generate_answer(topic: EvidenceTopic, data: &serde_json::Value) -> Option
         EvidenceTopic::MemoryInfo => {
             let total = data.get("total_gib")?.as_str()?;
             let avail = data.get("available_gib")?.as_str()?;
-            Some(format!("Memory: {} GiB total, {} GiB available.", total, avail))
+            Some(format!(
+                "Memory: {} GiB total, {} GiB available.",
+                total, avail
+            ))
         }
         EvidenceTopic::CpuInfo => {
             // Try to extract CPU info from hw_snapshot_summary format
             if let Some(cpu_model) = data.get("cpu_model").and_then(|v| v.as_str()) {
                 let cores = data.get("cores").and_then(|v| v.as_u64()).unwrap_or(0);
-                let threads = data.get("threads").and_then(|v| v.as_u64()).unwrap_or(cores);
+                let threads = data
+                    .get("threads")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(cores);
                 if cores > 0 {
-                    return Some(format!("CPU: {} ({} cores, {} threads).", cpu_model, cores, threads));
+                    return Some(format!(
+                        "CPU: {} ({} cores, {} threads).",
+                        cpu_model, cores, threads
+                    ));
                 }
                 return Some(format!("CPU: {}.", cpu_model));
             }
@@ -526,11 +613,19 @@ pub fn generate_answer(topic: EvidenceTopic, data: &serde_json::Value) -> Option
         }
         EvidenceTopic::NetworkStatus => {
             let has_route = data.get("has_default_route")?.as_bool()?;
-            let primary = data.get("primary_interface")
+            let primary = data
+                .get("primary_interface")
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown");
-            let status = if has_route { "connected" } else { "disconnected" };
-            Some(format!("Network: {}, primary interface: {}.", status, primary))
+            let status = if has_route {
+                "connected"
+            } else {
+                "disconnected"
+            };
+            Some(format!(
+                "Network: {}, primary interface: {}.",
+                status, primary
+            ))
         }
         EvidenceTopic::AudioStatus => {
             let pipewire = data.get("pipewire_running")?.as_bool()?;
@@ -539,7 +634,8 @@ pub fn generate_answer(topic: EvidenceTopic, data: &serde_json::Value) -> Option
         }
         EvidenceTopic::ServiceState => {
             let active = data.get("active")?.as_bool().unwrap_or(false);
-            let service_name = data.get("service_name")
+            let service_name = data
+                .get("service_name")
                 .and_then(|v| v.as_str())
                 .unwrap_or("service");
             let status = if active { "running" } else { "stopped" };
@@ -602,8 +698,7 @@ fn answer_has_data_for_topic(topic: EvidenceTopic, answer: &str) -> (bool, &'sta
 
         EvidenceTopic::KernelVersion => {
             // Must have: kernel version string like 6.x.x-arch or linux-x.x
-            let has_kernel = answer_lower.contains("kernel")
-                || answer_lower.contains("linux");
+            let has_kernel = answer_lower.contains("kernel") || answer_lower.contains("linux");
             let has_version = answer.contains("-arch")
                 || answer.contains("-lts")
                 || (answer.chars().any(|c| c == '.') && answer.chars().any(|c| c.is_ascii_digit()));
@@ -629,7 +724,10 @@ fn answer_has_data_for_topic(topic: EvidenceTopic, answer: &str) -> (bool, &'sta
             if has_memory && has_quantity {
                 (true, "")
             } else {
-                (false, "Answer must include memory quantity (GiB/GB). Got unrelated information.")
+                (
+                    false,
+                    "Answer must include memory quantity (GiB/GB). Got unrelated information.",
+                )
             }
         }
 
@@ -645,7 +743,10 @@ fn answer_has_data_for_topic(topic: EvidenceTopic, answer: &str) -> (bool, &'sta
             if has_cpu {
                 (true, "")
             } else {
-                (false, "Answer must include CPU information. Got unrelated information.")
+                (
+                    false,
+                    "Answer must include CPU information. Got unrelated information.",
+                )
             }
         }
 
@@ -663,7 +764,10 @@ fn answer_has_data_for_topic(topic: EvidenceTopic, answer: &str) -> (bool, &'sta
             if has_network {
                 (true, "")
             } else {
-                (false, "Answer must include network status information. Got unrelated information.")
+                (
+                    false,
+                    "Answer must include network status information. Got unrelated information.",
+                )
             }
         }
 
@@ -681,7 +785,10 @@ fn answer_has_data_for_topic(topic: EvidenceTopic, answer: &str) -> (bool, &'sta
             if has_audio {
                 (true, "")
             } else {
-                (false, "Answer must include audio status information. Got unrelated information.")
+                (
+                    false,
+                    "Answer must include audio status information. Got unrelated information.",
+                )
             }
         }
 
@@ -698,7 +805,10 @@ fn answer_has_data_for_topic(topic: EvidenceTopic, answer: &str) -> (bool, &'sta
             if has_service {
                 (true, "")
             } else {
-                (false, "Answer must include service status. Got unrelated information.")
+                (
+                    false,
+                    "Answer must include service status. Got unrelated information.",
+                )
             }
         }
 
@@ -746,8 +856,15 @@ pub fn validate_evidence(
     // v0.0.63: Calculate penalty and max reliability cap
     let (penalty, max_reliability, critique) = if !topic_match {
         // Missing evidence - heavy penalty
-        (60, Some(40), format!("Missing required evidence: {}. Need to gather {} data.",
-            missing.join(", "), topic.human_label()))
+        (
+            60,
+            Some(40),
+            format!(
+                "Missing required evidence: {}. Need to gather {} data.",
+                missing.join(", "),
+                topic.human_label()
+            ),
+        )
     } else if !answer_ok && strict {
         // v0.0.63: Answer doesn't contain expected data - CAP at 40%
         (60, Some(40), critique_msg.to_string())
@@ -776,11 +893,11 @@ pub fn validate_evidence(
 /// Stale evidence (>30 min) starts getting penalized
 pub fn calculate_freshness_penalty(evidence_age_secs: u64) -> u8 {
     match evidence_age_secs {
-        0..=300 => 0,       // < 5 min: fresh, no penalty
-        301..=1800 => 5,    // 5-30 min: slightly stale
-        1801..=3600 => 10,  // 30-60 min: stale
-        3601..=7200 => 15,  // 1-2 hours: quite stale
-        _ => 20,            // > 2 hours: very stale
+        0..=300 => 0,      // < 5 min: fresh, no penalty
+        301..=1800 => 5,   // 5-30 min: slightly stale
+        1801..=3600 => 10, // 30-60 min: stale
+        3601..=7200 => 15, // 1-2 hours: quite stale
+        _ => 20,           // > 2 hours: very stale
     }
 }
 
@@ -850,8 +967,13 @@ mod tests {
         ];
         for case in cases {
             let result = detect_topic(case);
-            assert_eq!(result.topic, EvidenceTopic::DiskFree,
-                "Expected DiskFree for '{}', got {:?}", case, result.topic);
+            assert_eq!(
+                result.topic,
+                EvidenceTopic::DiskFree,
+                "Expected DiskFree for '{}', got {:?}",
+                case,
+                result.topic
+            );
             assert!(result.confidence >= 85, "Low confidence for '{}'", case);
         }
     }
@@ -866,8 +988,13 @@ mod tests {
         ];
         for case in cases {
             let result = detect_topic(case);
-            assert_eq!(result.topic, EvidenceTopic::KernelVersion,
-                "Expected KernelVersion for '{}', got {:?}", case, result.topic);
+            assert_eq!(
+                result.topic,
+                EvidenceTopic::KernelVersion,
+                "Expected KernelVersion for '{}', got {:?}",
+                case,
+                result.topic
+            );
         }
     }
 
@@ -881,8 +1008,13 @@ mod tests {
         ];
         for case in cases {
             let result = detect_topic(case);
-            assert_eq!(result.topic, EvidenceTopic::MemoryInfo,
-                "Expected MemoryInfo for '{}', got {:?}", case, result.topic);
+            assert_eq!(
+                result.topic,
+                EvidenceTopic::MemoryInfo,
+                "Expected MemoryInfo for '{}', got {:?}",
+                case,
+                result.topic
+            );
         }
     }
 
@@ -896,8 +1028,13 @@ mod tests {
         ];
         for case in cases {
             let result = detect_topic(case);
-            assert_eq!(result.topic, EvidenceTopic::CpuInfo,
-                "Expected CpuInfo for '{}', got {:?}", case, result.topic);
+            assert_eq!(
+                result.topic,
+                EvidenceTopic::CpuInfo,
+                "Expected CpuInfo for '{}', got {:?}",
+                case,
+                result.topic
+            );
         }
     }
 
@@ -954,12 +1091,18 @@ mod tests {
         let bad_data = serde_json::json!({"other": "stuff"});
         let result = validate_evidence(EvidenceTopic::KernelVersion, &bad_data, good_answer);
         assert!(!result.topic_match);
-        assert!(result.missing_fields.contains(&"kernel_release".to_string()));
+        assert!(result
+            .missing_fields
+            .contains(&"kernel_release".to_string()));
         assert_eq!(result.penalty, 60);
         assert_eq!(result.max_reliability, Some(40)); // v0.0.63: capped at 40%
 
         // Wrong answer content for strict topic
-        let result = validate_evidence(EvidenceTopic::KernelVersion, &good_data, "Your CPU is AMD Ryzen");
+        let result = validate_evidence(
+            EvidenceTopic::KernelVersion,
+            &good_data,
+            "Your CPU is AMD Ryzen",
+        );
         assert!(result.topic_match);
         assert!(!result.answer_contains_value);
         assert_eq!(result.penalty, 60); // v0.0.63: strict topic
@@ -987,12 +1130,20 @@ mod tests {
         let disk_data = serde_json::json!({"root": {"avail_human": "50 GiB"}});
 
         // Good answer
-        let good = validate_evidence(EvidenceTopic::DiskFree, &disk_data, "Free space: 50 GiB (40%)");
+        let good = validate_evidence(
+            EvidenceTopic::DiskFree,
+            &disk_data,
+            "Free space: 50 GiB (40%)",
+        );
         assert!(good.answer_contains_value);
         assert_eq!(good.penalty, 0);
 
         // Bad answer (CPU info for disk question)
-        let bad = validate_evidence(EvidenceTopic::DiskFree, &disk_data, "AMD Ryzen 9 5900X processor");
+        let bad = validate_evidence(
+            EvidenceTopic::DiskFree,
+            &disk_data,
+            "AMD Ryzen 9 5900X processor",
+        );
         assert!(!bad.answer_contains_value);
         assert_eq!(bad.max_reliability, Some(40));
     }
@@ -1006,22 +1157,28 @@ mod tests {
         ];
         for case in cases {
             let result = detect_topic(case);
-            assert_eq!(result.topic, EvidenceTopic::NetworkStatus,
-                "Expected NetworkStatus for '{}', got {:?}", case, result.topic);
+            assert_eq!(
+                result.topic,
+                EvidenceTopic::NetworkStatus,
+                "Expected NetworkStatus for '{}', got {:?}",
+                case,
+                result.topic
+            );
         }
     }
 
     #[test]
     fn test_audio_detection() {
-        let cases = [
-            "is my audio working",
-            "audio status",
-            "is pipewire running",
-        ];
+        let cases = ["is my audio working", "audio status", "is pipewire running"];
         for case in cases {
             let result = detect_topic(case);
-            assert_eq!(result.topic, EvidenceTopic::AudioStatus,
-                "Expected AudioStatus for '{}', got {:?}", case, result.topic);
+            assert_eq!(
+                result.topic,
+                EvidenceTopic::AudioStatus,
+                "Expected AudioStatus for '{}', got {:?}",
+                case,
+                result.topic
+            );
         }
     }
 
@@ -1030,15 +1187,15 @@ mod tests {
     fn test_freshness_penalty_fresh() {
         // Fresh evidence (< 5 min) - no penalty
         assert_eq!(calculate_freshness_penalty(0), 0);
-        assert_eq!(calculate_freshness_penalty(60), 0);    // 1 min
-        assert_eq!(calculate_freshness_penalty(300), 0);   // 5 min exactly
+        assert_eq!(calculate_freshness_penalty(60), 0); // 1 min
+        assert_eq!(calculate_freshness_penalty(300), 0); // 5 min exactly
     }
 
     #[test]
     fn test_freshness_penalty_stale() {
         // Progressively stale evidence
-        assert_eq!(calculate_freshness_penalty(600), 5);   // 10 min
-        assert_eq!(calculate_freshness_penalty(1800), 5);  // 30 min
+        assert_eq!(calculate_freshness_penalty(600), 5); // 10 min
+        assert_eq!(calculate_freshness_penalty(1800), 5); // 30 min
         assert_eq!(calculate_freshness_penalty(3000), 10); // 50 min
         assert_eq!(calculate_freshness_penalty(3600), 10); // 1 hour
         assert_eq!(calculate_freshness_penalty(5400), 15); // 1.5 hours

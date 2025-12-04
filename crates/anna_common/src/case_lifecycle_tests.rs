@@ -34,7 +34,11 @@ fn test_doctor_query_case_lifecycle_progression() {
     assert_eq!(case.assigned_department, Department::ServiceDesk);
 
     // Triage phase
-    progress_case_triage(&mut case, "my wifi keeps disconnecting", &["network_status".to_string()]);
+    progress_case_triage(
+        &mut case,
+        "my wifi keeps disconnecting",
+        &["network_status".to_string()],
+    );
     assert_eq!(case.status, CaseStatus::Triaged);
     assert_eq!(case.assigned_department, Department::Networking);
     assert!(case
@@ -86,7 +90,9 @@ fn test_transcript_includes_handoff_and_case_id() {
     case.set_coverage(75);
     case.set_reliability(80);
     case.add_finding("PipeWire is running but no default sink configured");
-    case.set_final_answer("No default audio output is configured. Run 'pactl set-default-sink ...'");
+    case.set_final_answer(
+        "No default audio output is configured. Run 'pactl set-default-sink ...'",
+    );
 
     // Render transcript
     let transcript = render_case_transcript(&case);
@@ -130,7 +136,7 @@ fn test_junior_recheck_on_low_coverage() {
 
     // Low coverage scenario
     case.add_evidence("E1", "boot_time_summary");
-    case.set_coverage(45);  // Below 90% threshold
+    case.set_coverage(45); // Below 90% threshold
     case.set_reliability(60);
 
     // Generate junior disagreement
@@ -178,7 +184,9 @@ fn test_alert_linking_to_case() {
     );
 
     // Verify alert is linked
-    assert!(case.linked_alert_ids.contains(&"alert-boot-123".to_string()));
+    assert!(case
+        .linked_alert_ids
+        .contains(&"alert-boot-123".to_string()));
 
     // Verify correct department
     assert_eq!(case.assigned_department, Department::Boot);
@@ -188,7 +196,10 @@ fn test_alert_linking_to_case() {
 
     // Verify timeline has alert linkage event
     let has_alert_event = case.timeline.iter().any(|e| {
-        matches!(&e.event, crate::case_lifecycle::TimelineEventType::AlertLinked { .. })
+        matches!(
+            &e.event,
+            crate::case_lifecycle::TimelineEventType::AlertLinked { .. }
+        )
     });
     assert!(has_alert_event);
 }
@@ -265,7 +276,9 @@ fn test_triage_routing_ambiguous() {
 fn test_department_output_structured() {
     let mut output = DepartmentOutput::new(Department::Networking);
 
-    output.findings.push("DNS server not responding".to_string());
+    output
+        .findings
+        .push("DNS server not responding".to_string());
     output.findings.push("Default route is set".to_string());
     output.evidence_ids.push("E1".to_string());
     output.evidence_ids.push("E2".to_string());
@@ -362,5 +375,7 @@ fn test_participants_tracking() {
     assert!(case.participants.contains(&Participant::Junior));
 
     // Specialist added via department assignment
-    assert!(case.participants.contains(&Participant::Specialist(Department::Networking)));
+    assert!(case
+        .participants
+        .contains(&Participant::Specialist(Department::Networking)));
 }
