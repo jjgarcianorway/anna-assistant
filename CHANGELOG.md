@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.12] - 2024-12-04
+
+### Fixed
+- **Update check now verifies assets exist** before showing version as available
+  - HEAD requests to verify binaries and checksums are downloadable
+  - Prevents showing "update available" for incomplete releases
+
 ## [0.0.11] - 2024-12-04
 
 ### Added

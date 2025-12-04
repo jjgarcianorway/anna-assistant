@@ -11,7 +11,7 @@ struct GitHubRelease {
     tag_name: String,
 }
 
-/// Check GitHub for the latest version
+/// Check GitHub for the latest version (only returns if assets are downloadable)
 pub async fn check_latest_version() -> Result<String> {
     let url = format!(
         "https://api.github.com/repos/{}/releases/latest",
@@ -33,7 +33,47 @@ pub async fn check_latest_version() -> Result<String> {
 
     // Remove 'v' prefix if present
     let version = release.tag_name.trim_start_matches('v').to_string();
+
+    // Verify that required assets are actually downloadable
+    verify_assets_exist(&client, &version).await?;
+
     Ok(version)
+}
+
+/// Verify that release assets exist before reporting version as available
+async fn verify_assets_exist(client: &reqwest::Client, version: &str) -> Result<()> {
+    let arch = std::env::consts::ARCH;
+    let arch_name = match arch {
+        "x86_64" => "x86_64",
+        "aarch64" => "aarch64",
+        _ => return Err(anyhow!("Unsupported architecture: {}", arch)),
+    };
+
+    let base_url = format!(
+        "https://github.com/{}/releases/download/v{}",
+        GITHUB_REPO, version
+    );
+
+    // Check that all required assets exist via HEAD requests
+    let assets = [
+        format!("{}/annactl-linux-{}", base_url, arch_name),
+        format!("{}/annad-linux-{}", base_url, arch_name),
+        format!("{}/SHA256SUMS", base_url),
+    ];
+
+    for asset_url in &assets {
+        let response = client.head(asset_url).send().await?;
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "Release {} missing asset: {} ({})",
+                version,
+                asset_url,
+                response.status()
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 /// Compare versions, returns true if remote is newer
