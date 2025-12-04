@@ -69,11 +69,6 @@ print_err() {
 print_footer() {
     echo ""
     echo "$HR"
-    if [ "$GROUP_ADDED" = true ]; then
-        echo "Group membership applied. To use anna in this terminal:"
-        echo "  ${C_BOLD}newgrp anna${C_RESET}  (or start a new terminal)"
-        echo ""
-    fi
     echo "Run: ${C_BOLD}annactl status${C_RESET}"
     echo "$HR"
     echo ""
@@ -251,11 +246,8 @@ setup_group() {
     if ! groups "$USERNAME" 2>/dev/null | grep -q "\b${ANNA_GROUP}\b"; then
         $SUDO usermod -aG "$ANNA_GROUP" "$USERNAME"
         print_ok "added ${USERNAME} to ${ANNA_GROUP} group"
-        # Apply group immediately without logout using newgrp trick
-        GROUP_ADDED=true
     else
         print_ok "${USERNAME} already in ${ANNA_GROUP} group"
-        GROUP_ADDED=false
     fi
     echo ""
 }

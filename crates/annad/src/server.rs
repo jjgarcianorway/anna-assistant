@@ -202,11 +202,9 @@ impl Server {
         let listener = UnixListener::bind(SOCKET_PATH)?;
         info!("Listening on {}", SOCKET_PATH);
 
-        // Set socket permissions: owner rw, group rw (anna group)
-        fs::set_permissions(SOCKET_PATH, fs::Permissions::from_mode(0o660))?;
-
-        // Set socket group to anna (if the group exists)
-        set_socket_group(SOCKET_PATH);
+        // Set socket permissions: world accessible for zero-friction UX
+        // The anna group is used for directory permissions, not socket
+        fs::set_permissions(SOCKET_PATH, fs::Permissions::from_mode(0o666))?;
 
         loop {
             match listener.accept().await {
@@ -331,28 +329,6 @@ async fn update_check_loop(state: SharedState) {
                     Utc::now() + chrono::Duration::seconds(check_interval as i64)
                 );
             }
-        }
-    }
-}
-
-/// Set socket group to 'anna' using chgrp command
-fn set_socket_group(path: &str) {
-    use std::process::Command;
-
-    // Try to set the group to 'anna'
-    match Command::new("chgrp").args(["anna", path]).output() {
-        Ok(output) => {
-            if output.status.success() {
-                info!("Set socket group to 'anna'");
-            } else {
-                // Group might not exist on this system, that's OK - 0o666 fallback
-                warn!("Could not set socket group to 'anna', using permissive mode");
-                let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o666));
-            }
-        }
-        Err(e) => {
-            warn!("Failed to run chgrp: {}, using permissive mode", e);
-            let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o666));
         }
     }
 }
