@@ -243,6 +243,7 @@ pub fn build_result_with_flags(
     domain: SpecialistDomain,
     translator_timed_out: bool,
     used_deterministic: bool,
+    parsed_data_count: usize,
 ) -> ServiceDeskResult {
     let signals = calculate_signals_with_flags(
         &ticket,
@@ -250,9 +251,15 @@ pub fn build_result_with_flags(
         &answer,
         translator_timed_out,
         used_deterministic,
+        parsed_data_count,
     );
     let score = signals.score();
-    let evidence = build_evidence(ticket, probe_results, None);
+    let last_error = if used_deterministic && parsed_data_count == 0 {
+        Some("parser produced empty result".to_string())
+    } else {
+        None
+    };
+    let evidence = build_evidence(ticket, probe_results, last_error);
 
     info!(
         "Supervisor: reliability={} (confident={}, coverage={}, grounded={}, no_invention={}, no_clarify={})",
@@ -284,6 +291,7 @@ fn calculate_signals_with_flags(
     answer: &str,
     translator_timed_out: bool,
     used_deterministic: bool,
+    parsed_data_count: usize,
 ) -> ReliabilitySignals {
     // Translator confident only if it didn't timeout and has high confidence
     let translator_confident = !translator_timed_out && ticket.confidence >= 0.7;
@@ -296,22 +304,22 @@ fn calculate_signals_with_flags(
         successful >= ticket.needs_probes.len()
     };
 
-    // Deterministic answers are always grounded (they parse real data)
+    // Deterministic answers are grounded only if they actually parsed data
     let answer_grounded = if used_deterministic {
-        true
+        parsed_data_count > 0
     } else {
         scoring::check_answer_grounded(answer, probe_results)
     };
 
-    // Deterministic answers never invent
+    // Deterministic answers don't invent (unless empty result)
     let no_invention = if used_deterministic {
-        true
+        parsed_data_count > 0
     } else {
         scoring::check_no_invention(answer)
     };
 
-    // We produced an answer, so no clarification needed
-    let clarification_not_needed = !answer.is_empty();
+    // Clarification not needed if we have an answer with actual content
+    let clarification_not_needed = !answer.is_empty() && (!used_deterministic || parsed_data_count > 0);
 
     ReliabilitySignals {
         translator_confident,

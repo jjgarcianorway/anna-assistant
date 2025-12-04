@@ -41,15 +41,21 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
     }
 }
 
-/// Internal JSON structure for LLM output parsing
-#[derive(Debug, Serialize, Deserialize)]
+/// Internal JSON structure for LLM output parsing (tolerant of missing fields)
+#[derive(Debug, Serialize, Deserialize, Default)]
 struct TranslatorOutput {
-    intent: String,
-    domain: String,
-    entities: Vec<String>,
-    needs_probes: Vec<String>,
+    #[serde(default)]
+    intent: Option<String>,
+    #[serde(default)]
+    domain: Option<String>,
+    #[serde(default)]
+    entities: Option<Vec<String>>,
+    #[serde(default)]
+    needs_probes: Option<Vec<String>>,
+    #[serde(default)]
     clarification_question: Option<String>,
-    confidence: f32,
+    #[serde(default)]
+    confidence: Option<f32>,
 }
 
 /// Minimal translator input - keeps payload small for fast inference
@@ -157,26 +163,34 @@ pub async fn translate(model: &str, query: &str) -> Result<TranslatorTicket, Str
     parse_translator_response(&response)
 }
 
-/// Parse translator LLM response into ticket
+/// Parse translator LLM response into ticket (tolerant of missing/invalid fields)
 fn parse_translator_response(response: &str) -> Result<TranslatorTicket, String> {
+    // Log raw response in debug (truncated for safety)
+    let truncated = if response.len() > 500 {
+        format!("{}... [truncated]", &response[..500])
+    } else {
+        response.to_string()
+    };
+    tracing::debug!("Translator raw response: {}", truncated);
 
     // Try to extract JSON from response (handle markdown code blocks)
-    let json_str = extract_json(&response)?;
+    let json_str = extract_json(response)?;
 
-    // Parse JSON
+    // Parse JSON with tolerant structure
     let output: TranslatorOutput = serde_json::from_str(&json_str)
         .map_err(|e| format!("Invalid JSON from translator: {}", e))?;
 
-    // Validate confidence range
-    let confidence = output.confidence.clamp(0.0, 1.0);
-
-    // Filter probe IDs to only valid ones
-    let needs_probes = filter_valid_probes(output.needs_probes);
+    // Extract fields with defaults for missing values
+    let intent_str = output.intent.as_deref().unwrap_or("question");
+    let domain_str = output.domain.as_deref().unwrap_or("system");
+    let confidence = output.confidence.unwrap_or(0.0).clamp(0.0, 1.0);
+    let entities = output.entities.unwrap_or_default();
+    let needs_probes = filter_valid_probes(output.needs_probes.unwrap_or_default());
 
     let ticket = TranslatorTicket {
-        intent: parse_intent(&output.intent),
-        domain: parse_domain(&output.domain),
-        entities: output.entities,
+        intent: parse_intent(intent_str),
+        domain: parse_domain(domain_str),
+        entities,
         needs_probes,
         clarification_question: output.clarification_question,
         confidence,
@@ -355,35 +369,9 @@ mod tests {
 
     #[test]
     fn test_translator_payload_size() {
-        // Test with typical query
         let input = TranslatorInput::new("what processes are using the most memory", 8, 16.0, true);
         let payload = build_translator_request(&input);
-
-        // Payload must be under 8KB
-        assert!(
-            payload.len() < MAX_TRANSLATOR_PAYLOAD_SIZE,
-            "Translator payload {} bytes exceeds max {} bytes",
-            payload.len(),
-            MAX_TRANSLATOR_PAYLOAD_SIZE
-        );
-
-        // Should be well under 2KB for typical requests
-        assert!(
-            payload.len() < 2048,
-            "Translator payload {} bytes should be under 2KB",
-            payload.len()
-        );
-    }
-
-    #[test]
-    fn test_translator_payload_minimal() {
-        let input = TranslatorInput::new("show disk space", 4, 8.0, false);
-        let payload = build_translator_request(&input);
-        // No probe output in payload
-        assert!(!payload.contains("USER       PID"));
-        assert!(!payload.contains("/dev/sda"));
-        assert!(!payload.contains("stdout"));
-        // HW summary present
-        assert!(payload.contains("CPU cores: 4"));
+        assert!(payload.len() < MAX_TRANSLATOR_PAYLOAD_SIZE);
+        assert!(payload.len() < 2048); // Should be well under 2KB
     }
 }

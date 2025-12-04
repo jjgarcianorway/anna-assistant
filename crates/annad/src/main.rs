@@ -11,6 +11,7 @@ mod permissions;
 mod probes;
 mod progress_tracker;
 mod prompts;
+mod router;
 mod rpc_handler;
 mod scoring;
 mod server;

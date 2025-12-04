@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.14] - 2025-12-04
+
+### Added
+- **Deterministic Router**: Overrides LLM translator for known query classes
+  - CPU/RAM/GPU queries: Use hardware snapshot, no probes needed
+  - Memory processes: Automatically runs `top_memory` probe
+  - CPU processes: Automatically runs `top_cpu` probe
+  - Disk queries: Routes to Storage domain with `disk_usage` probe
+  - Network queries: Routes to Network domain with `network_addrs` probe
+  - "help": Returns deterministic help response
+  - "slow/sluggish": Runs multi-probe diagnostic (CPU, memory, disk)
+- **Help command**: "help" now returns comprehensive usage guide
+- **Interface type detection**: WiFi vs Ethernet heuristics (wlan*/wlp* = WiFi)
+- **Golden tests**: Router, translator robustness, scoring validation
+
+### Changed
+- **Translator JSON parsing tolerant**: Missing fields use sensible defaults
+  - Missing `confidence` → 0.0
+  - Null arrays → empty Vec
+  - Missing `intent`/`domain` → fallback to deterministic router
+- **Specialist skipped for known classes**: Deterministic answers bypass LLM
+- **Scoring reflects reality**:
+  - `grounded=true` only if parsed data count > 0
+  - Empty parser result = clarification needed, not 100% score
+  - Coverage based on actual probe success, not request count
+- **Improved deterministic outputs**:
+  - Process tables include PID column
+  - Disk usage shows critical (>=95%) and warning (>=85%) status
+  - Network interfaces show type (WiFi/Ethernet/Loopback)
+
+### Fixed
+- Known query classes can't be misrouted by LLM translator
+- Translator errors don't block deterministic answering
+- Empty parser results don't claim 100% reliability
+
 ## [0.0.13] - 2025-12-04
 
 ### Added
