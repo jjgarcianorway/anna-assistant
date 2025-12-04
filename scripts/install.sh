@@ -273,6 +273,9 @@ install_directories() {
     $SUDO chgrp "$ANNA_GROUP" "$RUN_DIR"
     $SUDO chmod 775 "$RUN_DIR"
     print_item_ok "/run/anna"
+
+    $SUDO mkdir -p "${STATE_DIR}/models"
+    print_item_ok "/var/lib/anna/models"
     echo ""
 }
 
@@ -312,6 +315,8 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+Environment="HOME=/root"
+Environment="OLLAMA_MODELS=/var/lib/anna/models"
 
 [Install]
 WantedBy=multi-user.target
