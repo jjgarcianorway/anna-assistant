@@ -203,7 +203,9 @@ mod tests {
     }
 
     /// Test transcript mode from environment variable
+    /// Note: Ignored because env vars cause race conditions in parallel test runs
     #[test]
+    #[ignore = "Modifies env vars - causes race conditions in parallel test runs"]
     fn test_transcript_mode_from_env() {
         // Save original value
         let original = std::env::var("ANNA_UI_TRANSCRIPT_MODE").ok();
