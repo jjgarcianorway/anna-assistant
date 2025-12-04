@@ -1,5 +1,6 @@
 //! Command handlers for annactl.
 
+use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
 use anna_shared::ui::{colors, symbols, HR};
 use anna_shared::VERSION;
@@ -7,7 +8,9 @@ use anyhow::Result;
 use std::io::{self, Write};
 
 use crate::client::AnnadClient;
-use crate::display::{print_repl_header, print_status_display, show_bootstrap_progress};
+use crate::display::{
+    print_repl_header, print_status_display, print_transcript, show_bootstrap_progress,
+};
 
 /// Handle status command
 pub async fn handle_status() -> Result<()> {
@@ -18,7 +21,13 @@ pub async fn handle_status() -> Result<()> {
     Ok(())
 }
 
-/// Handle a single request
+/// Core request function - used by both one-shot and REPL
+/// Ensures consistent behavior and output format
+async fn send_request(client: &mut AnnadClient, prompt: &str) -> Result<ServiceDeskResult> {
+    client.request(prompt).await
+}
+
+/// Handle a single request (one-shot mode)
 pub async fn handle_request(prompt: &str) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
 
@@ -30,26 +39,16 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
         client = AnnadClient::connect().await?;
     }
 
-    println!();
-    println!(
-        "{}anna (dispatch){} received request",
-        colors::HEADER,
-        colors::RESET
-    );
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}[you]{}     {}", colors::CYAN, colors::RESET, prompt);
-    println!();
-
     print!("{} collecting context", symbols::SPINNER[0]);
     io::stdout().flush()?;
 
-    let response = client.request(prompt).await?;
+    let result = send_request(&mut client, prompt).await?;
 
-    // Clear spinner line and print response
+    // Clear spinner line
     print!("\r\x1b[K");
-    println!("{}[anna]{}", colors::OK, colors::RESET);
-    println!("{}", response);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+
+    // Use unified display
+    print_transcript(prompt, &result);
     println!();
 
     Ok(())
@@ -113,12 +112,10 @@ pub async fn handle_repl() -> Result<()> {
                     client = AnnadClient::connect().await?;
                 }
 
-                match client.request(input).await {
-                    Ok(response) => {
-                        println!();
-                        println!("{}[anna]{}", colors::OK, colors::RESET);
-                        println!("{}", response);
-                        println!();
+                match send_request(&mut client, input).await {
+                    Ok(result) => {
+                        // Use unified display - same as one-shot
+                        print_transcript(input, &result);
                     }
                     Err(e) => {
                         let err_str = e.to_string();
@@ -162,7 +159,12 @@ pub async fn handle_reset() -> Result<()> {
 
     let mut client = AnnadClient::connect().await?;
     client.reset().await?;
-    println!("{}{}{}  Reset complete. Learned data has been cleared.", colors::OK, symbols::OK, colors::RESET);
+    println!(
+        "{}{}{}  Reset complete. Learned data has been cleared.",
+        colors::OK,
+        symbols::OK,
+        colors::RESET
+    );
     Ok(())
 }
 
@@ -186,7 +188,10 @@ pub async fn handle_uninstall() -> Result<()> {
 
     println!("{}Plan{}", colors::BOLD, colors::RESET);
     println!("  {} stop + disable: annad.service", symbols::ARROW);
-    println!("  {} remove: /usr/local/bin/annactl, /usr/local/bin/annad", symbols::ARROW);
+    println!(
+        "  {} remove: /usr/local/bin/annactl, /usr/local/bin/annad",
+        symbols::ARROW
+    );
     println!("  {} remove: /etc/anna", symbols::ARROW);
     println!("  {} remove: /var/lib/anna", symbols::ARROW);
     println!("  {} remove: /var/log/anna", symbols::ARROW);
@@ -206,7 +211,11 @@ pub async fn handle_uninstall() -> Result<()> {
     }
 
     println!("{}Confirmation required{}", colors::BOLD, colors::RESET);
-    println!("Type exactly: {}I UNDERSTAND THIS REMOVES ANNA AND ITS DATA{}", colors::WARN, colors::RESET);
+    println!(
+        "Type exactly: {}I UNDERSTAND THIS REMOVES ANNA AND ITS DATA{}",
+        colors::WARN,
+        colors::RESET
+    );
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
     print!("> ");
@@ -235,7 +244,12 @@ pub async fn handle_uninstall() -> Result<()> {
                 println!("    {}{}{}", colors::OK, symbols::OK, colors::RESET);
             }
             Ok(s) => {
-                println!("    {}Warning: exited with {}{}", colors::WARN, s, colors::RESET);
+                println!(
+                    "    {}Warning: exited with {}{}",
+                    colors::WARN,
+                    s,
+                    colors::RESET
+                );
             }
             Err(e) => {
                 println!("    {}Error: {}{}", colors::ERR, e, colors::RESET);
@@ -244,6 +258,11 @@ pub async fn handle_uninstall() -> Result<()> {
     }
 
     println!();
-    println!("{}{}{}  Uninstall complete.", colors::OK, symbols::OK, colors::RESET);
+    println!(
+        "{}{}{}  Uninstall complete.",
+        colors::OK,
+        symbols::OK,
+        colors::RESET
+    );
     Ok(())
 }

@@ -1,4 +1,4 @@
-# Anna Specification v0.0.6
+# Anna Specification v0.0.7
 
 This document is the authoritative specification for Anna. All implementation
 must conform to this spec. If code and spec conflict, update spec first, then code.
@@ -42,6 +42,7 @@ Anna is a local AI assistant for Linux systems. It consists of two components:
 6. Run update check every 60 seconds, auto-update if enabled
 7. Self-healing: repair permissions, restart services, re-pull models
 8. Run system probes for grounded LLM responses
+9. Execute service desk pipeline for all requests
 
 **Ledger** tracks:
 - Packages installed by Anna
@@ -51,7 +52,7 @@ Anna is a local AI assistant for Linux systems. It consists of two components:
 
 **RPC Methods** (JSON-RPC 2.0):
 - `status` - Returns daemon state, hardware info, model info, update status
-- `request` - Send a natural language request (with grounded context)
+- `request` - Send a natural language request (service desk pipeline)
 - `probe` - Run a read-only system probe (top_memory, top_cpu, disk_usage, etc.)
 - `reset` - Wipe learned data and post-install ledger entries
 - `uninstall` - Execute safe uninstall using ledger
@@ -78,7 +79,81 @@ No other commands or flags are permitted.
 - If annad is unreachable, display error and suggest re-running installer
 - If problems detected, automatically trigger autofix via annad
 
-### LLM Pipeline (v0.0.6)
+## Service Desk Architecture (v0.0.7)
+
+Anna implements a service desk with internal roles (not CLI commands):
+
+### Internal Roles
+
+1. **Translator**: Converts user text to structured intent
+   - Classifies query into specialist domain
+   - Detects ambiguity and need for clarification
+
+2. **Dispatcher**: Routes to appropriate specialist
+   - Determines required probes based on domain and query
+   - Selects specialist for the domain
+
+3. **Specialist**: Domain expert with deep knowledge
+   - **System**: CPU, memory, processes, services, systemd
+   - **Network**: Interfaces, routing, DNS, ports, connectivity
+   - **Storage**: Disks, partitions, mounts, filesystems
+   - **Security**: Permissions, firewalls, audit, ssh
+   - **Packages**: Package managers, installation, updates
+
+4. **Supervisor**: Quality control
+   - Estimates reliability score (0-100)
+   - Validates response is grounded in probe data
+
+### Probe Allowlist (Read-Only)
+
+Only these commands are allowed for probes:
+- `ps aux --sort=-%mem` - Top processes by memory
+- `ps aux --sort=-%cpu` - Top processes by CPU
+- `lscpu` - CPU information
+- `free -h` - Memory status
+- `df -h` - Disk usage
+- `lsblk` - Block devices
+- `ip addr show` - Network interfaces
+- `ip route` - Routing table
+- `ss -tulpn` - Listening ports
+- `systemctl --failed` - Failed services
+- `journalctl -p warning..alert -n 200 --no-pager` - Recent warnings
+
+Any command not in this list is DENIED.
+
+### Response Format
+
+Every response includes:
+- `answer`: The LLM's response text
+- `reliability_score`: 0-100 confidence rating
+- `domain`: Which specialist handled it (system/network/storage/security/packages)
+- `probes_used`: List of probes that were run
+- `needs_clarification`: Whether more info is needed
+- `clarification_question`: Question to ask if clarification needed
+
+### Unified Output
+
+One-shot and REPL modes use identical formatting:
+```
+anna v0.0.7 (dispatch)
+──────────────────────────────────────
+[you]
+<user query>
+
+[anna] <domain> specialist  reliability: <score>%
+<response>
+
+probes: <list of probes used>
+──────────────────────────────────────
+```
+
+### Clarification Rules
+
+Clarification is requested when:
+- Query has 2 or fewer words (except "cpu" or "memory")
+- Query is just "help" or "help me"
+
+## LLM Pipeline
 
 **Grounding Policy** (MANDATORY):
 1. Every LLM request includes a RuntimeContext with:
@@ -93,12 +168,6 @@ No other commands or flags are permitted.
    - Auto-run probes for process/memory/disk queries
    - Never suggest manual commands when data is available
    - Never claim capabilities not in the flags
-
-**Probe Types**:
-- `top_memory` - Top 10 processes by memory usage
-- `top_cpu` - Top 10 processes by CPU usage
-- `disk_usage` - Filesystem usage
-- `network_interfaces` - Network interface info
 
 **Model Selection** (based on hardware):
 - 12GB+ VRAM: qwen2.5:14b
@@ -151,8 +220,9 @@ curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/s
 4. **Ledger discipline**: Every system change must be recorded in ledger
 5. **Grounding mandatory**: All LLM responses must be grounded in runtime context
 6. **No invented facts**: Anna must never claim capabilities or state facts not in context
+7. **Probe allowlist**: Only read-only commands in the allowlist may be executed
 
 ## Version
 
-- Version: 0.0.6
-- Status: Grounded assistant with auto-update
+- Version: 0.0.7
+- Status: Service desk with unified output and reliability scores

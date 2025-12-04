@@ -1,6 +1,6 @@
 //! Unix socket client for communicating with annad.
 
-use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
 use anna_shared::status::DaemonStatus;
 use anna_shared::SOCKET_PATH;
 use anyhow::{anyhow, Result};
@@ -87,8 +87,8 @@ impl AnnadClient {
         Ok(status)
     }
 
-    /// Send a natural language request
-    pub async fn request(&mut self, prompt: &str) -> Result<String> {
+    /// Send a natural language request - returns full service desk result
+    pub async fn request(&mut self, prompt: &str) -> Result<ServiceDeskResult> {
         let params = serde_json::json!({ "prompt": prompt });
         let response = self.call(RpcMethod::Request, Some(params)).await?;
 
@@ -99,13 +99,9 @@ impl AnnadClient {
         let result = response
             .result
             .ok_or_else(|| anyhow!("No result in response"))?;
-        let response_text = result
-            .get("response")
-            .and_then(|r| r.as_str())
-            .unwrap_or("")
-            .to_string();
 
-        Ok(response_text)
+        let service_result: ServiceDeskResult = serde_json::from_value(result)?;
+        Ok(service_result)
     }
 
     /// Reset learned data

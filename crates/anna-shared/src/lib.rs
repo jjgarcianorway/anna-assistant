@@ -8,10 +8,13 @@ pub mod ui;
 
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
-pub use rpc::{RpcRequest, RpcResponse, RpcMethod, ProbeType, ProbeParams, RuntimeContext, Capabilities, HardwareSummary};
+pub use rpc::{
+    Capabilities, HardwareSummary, ProbeParams, ProbeType, RpcMethod, RpcRequest, RpcResponse,
+    RuntimeContext,
+};
 pub use status::{
-    DaemonStatus, DaemonState, OllamaStatus, ModelInfo, HardwareInfo,
-    LlmStatus, LlmState, ProgressInfo, BenchmarkResult, UpdateStatus,
+    BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus, ModelInfo,
+    OllamaStatus, ProgressInfo, UpdateStatus,
 };
 
 /// Socket path for annad

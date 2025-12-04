@@ -63,7 +63,10 @@ async fn check_and_repair(state: SharedState) -> anyhow::Result<()> {
 
     // Check 3: Is the model available?
     if !ollama::has_model(&model_name).await {
-        warn!("Health check: Model {} not available, triggering repair", model_name);
+        warn!(
+            "Health check: Model {} not available, triggering repair",
+            model_name
+        );
         trigger_repair(state.clone(), "model_missing").await?;
         return Ok(());
     }

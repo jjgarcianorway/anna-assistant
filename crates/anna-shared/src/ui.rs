@@ -25,7 +25,8 @@ pub mod symbols {
 }
 
 /// Horizontal rule
-pub const HR: &str = "──────────────────────────────────────────────────────────────────────────────";
+pub const HR: &str =
+    "──────────────────────────────────────────────────────────────────────────────";
 
 /// Print a styled header with version
 pub fn print_header(name: &str, version: &str) {
@@ -55,12 +56,24 @@ pub fn print_section(section: &str, description: &str) {
 
 /// Print an OK line with checkmark
 pub fn print_ok(message: &str) {
-    println!("  {}{}{} {}", colors::OK, symbols::OK, colors::RESET, message);
+    println!(
+        "  {}{}{} {}",
+        colors::OK,
+        symbols::OK,
+        colors::RESET,
+        message
+    );
 }
 
 /// Print an error line with X
 pub fn print_err(message: &str) {
-    println!("  {}{}{} {}", colors::ERR, symbols::ERR, colors::RESET, message);
+    println!(
+        "  {}{}{} {}",
+        colors::ERR,
+        symbols::ERR,
+        colors::RESET,
+        message
+    );
 }
 
 /// Print a key-value pair with alignment

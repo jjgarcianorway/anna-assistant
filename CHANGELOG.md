@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7] - 2024-12-04
+
+### Added
+- **Service desk architecture**
+  - Internal roles: translator, dispatcher, specialist, supervisor
+  - Specialist domains: system, network, storage, security, packages
+  - Automatic domain classification from query
+- **Reliability scores**
+  - Every response includes 0-100 reliability score
+  - Score increases with successful probes
+  - Color-coded display (green >80%, yellow 50-80%, red <50%)
+- **Unified output format**
+  - One-shot and REPL use identical formatting
+  - Shows version, specialist domain, reliability, probes used
+  - Consistent `[you]`/`[anna]` transcript blocks
+- **Probe allowlist**
+  - Only 11 read-only commands allowed
+  - Dangerous commands are explicitly denied
+  - Security tests verify allowlist safety
+- **Clarification rules**
+  - Short/ambiguous queries ask for more details
+  - "help" without context triggers clarification
+- **Golden tests**
+  - 16 new tests for service desk behavior
+  - Domain routing tests
+  - Probe security tests
+  - Output format consistency tests
+
+### Changed
+- **Request pipeline now uses service desk**
+  - translate → dispatch → specialist → supervisor
+  - All responses include ServiceDeskResult metadata
+- **Response format includes domain and reliability**
+  - No longer just raw text response
+  - Full metadata for transparency
+
+### Fixed
+- REPL and one-shot now produce identical output format
+- Commands.rs uses single send_request function for both modes
+
 ## [0.0.6] - 2024-12-04
 
 ### Added
@@ -175,7 +215,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.6...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.7...HEAD
+[0.0.7]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.3...v0.0.4

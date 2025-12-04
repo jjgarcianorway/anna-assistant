@@ -2,16 +2,14 @@
 
 use anna_shared::ledger::LedgerEntryKind;
 use anna_shared::rpc::{
-    Capabilities, HardwareSummary, ProbeParams, ProbeType, RequestParams,
-    RpcMethod, RpcRequest, RpcResponse, RuntimeContext,
+    ProbeParams, RequestParams, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult,
 };
 use anna_shared::status::LlmState;
-use anna_shared::VERSION;
-use std::collections::HashMap;
 use tracing::{error, info};
 
 use crate::ollama;
 use crate::probes;
+use crate::service_desk;
 use crate::state::SharedState;
 
 /// Handle an RPC request
@@ -34,87 +32,7 @@ async fn handle_status(state: SharedState, id: String) -> RpcResponse {
     RpcResponse::success(id, serde_json::to_value(status).unwrap())
 }
 
-/// Build runtime context from current state
-fn build_runtime_context(state: &crate::state::DaemonStateInner) -> RuntimeContext {
-    let hw = &state.hardware;
-    RuntimeContext {
-        version: VERSION.to_string(),
-        daemon_running: true,
-        capabilities: Capabilities::default(),
-        hardware: HardwareSummary {
-            cpu_model: hw.cpu_model.clone(),
-            cpu_cores: hw.cpu_cores,
-            ram_gb: hw.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0),
-            gpu: hw.gpu.as_ref().map(|g| g.model.clone()),
-            gpu_vram_gb: hw.gpu.as_ref().map(|g| g.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0)),
-        },
-        probes: HashMap::new(),
-    }
-}
-
-/// Build grounded system prompt with runtime context
-fn build_system_prompt(context: &RuntimeContext, probe_results: &HashMap<String, String>) -> String {
-    let mut prompt = format!(
-        r#"You are Anna, a local AI assistant running on this Linux machine.
-
-=== RUNTIME CONTEXT (AUTHORITATIVE - DO NOT CONTRADICT) ===
-Version: {}
-Daemon: running
-Capabilities:
-  - Read system info: {}
-  - Run probes: {}
-  - Modify files: {}
-  - Install packages: {}
-
-Hardware (from system probe):
-  - CPU: {} ({} cores)
-  - RAM: {:.1} GB"#,
-        context.version,
-        context.capabilities.can_read_system_info,
-        context.capabilities.can_run_probes,
-        context.capabilities.can_modify_files,
-        context.capabilities.can_install_packages,
-        context.hardware.cpu_model,
-        context.hardware.cpu_cores,
-        context.hardware.ram_gb,
-    );
-
-    if let Some(gpu) = &context.hardware.gpu {
-        if let Some(vram) = context.hardware.gpu_vram_gb {
-            prompt.push_str(&format!("\n  - GPU: {} ({:.1} GB VRAM)", gpu, vram));
-        } else {
-            prompt.push_str(&format!("\n  - GPU: {}", gpu));
-        }
-    } else {
-        prompt.push_str("\n  - GPU: none");
-    }
-
-    // Add probe results if any
-    if !probe_results.is_empty() {
-        prompt.push_str("\n\n=== PROBE RESULTS ===");
-        for (name, result) in probe_results {
-            prompt.push_str(&format!("\n[{}]\n{}", name, result));
-        }
-    }
-
-    prompt.push_str(r#"
-
-=== GROUNDING RULES (MANDATORY) ===
-1. NEVER invent or guess information not in the runtime context above.
-2. For hardware questions (CPU, RAM, GPU): Answer DIRECTLY from the hardware section above.
-3. For process/memory/disk questions: Use the probe results above if available.
-4. If data is missing: Say exactly what data is missing and offer to probe for it.
-5. NEVER suggest manual commands like `lscpu`, `free`, `ps` etc. when you have the data above.
-6. NEVER claim capabilities you don't have (check the Capabilities section).
-7. ALWAYS use the exact version shown above when discussing Anna's version.
-
-=== END CONTEXT ===
-
-Answer the user's question using ONLY the data provided above. Be helpful and concise."#);
-
-    prompt
-}
-
+/// Service desk pipeline: translate -> dispatch -> specialist -> supervisor
 async fn handle_llm_request(
     state: SharedState,
     id: String,
@@ -124,11 +42,7 @@ async fn handle_llm_request(
     {
         let state = state.read().await;
         if state.llm.state != LlmState::Ready {
-            return RpcResponse::error(
-                id,
-                -32002,
-                format!("LLM not ready: {}", state.llm.state),
-            );
+            return RpcResponse::error(id, -32002, format!("LLM not ready: {}", state.llm.state));
         }
     }
 
@@ -145,10 +59,34 @@ async fn handle_llm_request(
         }
     };
 
-    // Build runtime context
+    let query = &params.prompt;
+
+    // Step 1: Check for ambiguity (clarification rules)
+    if let Some(question) = service_desk::check_ambiguity(query) {
+        let result = service_desk::create_clarification_response(&question);
+        return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+    }
+
+    // Step 2: Translator - classify to domain
+    let domain = service_desk::translate_to_domain(query);
+    info!("Dispatcher: routing to {} specialist", domain);
+
+    // Step 3: Dispatcher - determine required probes
+    let required_probes = service_desk::dispatch_probes(domain, query);
+    info!("Probes required: {:?}", required_probes);
+
+    // Step 4: Run probes
+    let probe_results = service_desk::run_allowed_probes(&required_probes);
+    let probes_used: Vec<String> = probe_results
+        .iter()
+        .filter(|(_, v)| !v.starts_with("ERROR:") && !v.starts_with("DENIED:"))
+        .map(|(k, _)| k.clone())
+        .collect();
+
+    // Step 5: Build context and specialist prompt
     let (context, model) = {
         let state = state.read().await;
-        let ctx = build_runtime_context(&state);
+        let ctx = service_desk::build_context(&state.hardware, &probe_results);
         let model = state
             .llm
             .models
@@ -158,47 +96,39 @@ async fn handle_llm_request(
         (ctx, model)
     };
 
-    // Determine if we need to run probes based on the query
-    let mut probe_results: HashMap<String, String> = HashMap::new();
-    let prompt_lower = params.prompt.to_lowercase();
+    let system_prompt = service_desk::build_specialist_prompt(domain, &context, &probe_results);
+    let full_prompt = format!("{}\n\nUser: {}", system_prompt, query);
 
-    // Auto-run relevant probes based on query keywords
-    if prompt_lower.contains("memory") || prompt_lower.contains("ram") || prompt_lower.contains("process") {
-        if let Ok(result) = probes::run_probe(&ProbeType::TopMemory) {
-            probe_results.insert("top_memory_processes".to_string(), result);
-        }
-    }
-    if prompt_lower.contains("cpu") && prompt_lower.contains("process") {
-        if let Ok(result) = probes::run_probe(&ProbeType::TopCpu) {
-            probe_results.insert("top_cpu_processes".to_string(), result);
-        }
-    }
-    if prompt_lower.contains("disk") || prompt_lower.contains("storage") || prompt_lower.contains("space") {
-        if let Ok(result) = probes::run_probe(&ProbeType::DiskUsage) {
-            probe_results.insert("disk_usage".to_string(), result);
-        }
-    }
-    if prompt_lower.contains("network") || prompt_lower.contains("interface") || prompt_lower.contains("ip") {
-        if let Ok(result) = probes::run_probe(&ProbeType::NetworkInterfaces) {
-            probe_results.insert("network_interfaces".to_string(), result);
-        }
-    }
-
-    // Build grounded system prompt
-    let system_prompt = build_system_prompt(&context, &probe_results);
-    let full_prompt = format!("{}\n\nUser: {}", system_prompt, params.prompt);
-
-    // Call Ollama
-    match ollama::chat(&model, &full_prompt).await {
-        Ok(response) => {
-            info!("LLM request completed");
-            RpcResponse::success(id, serde_json::json!({ "response": response }))
-        }
+    // Step 6: Specialist - call LLM
+    let answer = match ollama::chat(&model, &full_prompt).await {
+        Ok(response) => response,
         Err(e) => {
             error!("LLM request failed: {}", e);
-            RpcResponse::error(id, -32003, format!("LLM error: {}", e))
+            return RpcResponse::error(id, -32003, format!("LLM error: {}", e));
         }
-    }
+    };
+
+    // Step 7: Supervisor - estimate reliability
+    let reliability_score = service_desk::estimate_reliability(query, &probe_results, domain);
+
+    info!(
+        "Request completed: domain={}, reliability={}, probes={}",
+        domain,
+        reliability_score,
+        probes_used.len()
+    );
+
+    // Build unified response
+    let result = ServiceDeskResult {
+        answer,
+        reliability_score,
+        domain,
+        probes_used,
+        needs_clarification: false,
+        clarification_question: None,
+    };
+
+    RpcResponse::success(id, serde_json::to_value(result).unwrap())
 }
 
 async fn handle_probe(

@@ -68,7 +68,7 @@ fn test_capabilities_default_safe() {
 fn test_system_prompt_grounding_format() {
     // Simulate what the system prompt builder does
     let context = RuntimeContext {
-        version: "0.0.6".to_string(),
+        version: "0.0.7".to_string(),
         daemon_running: true,
         capabilities: Capabilities::default(),
         hardware: HardwareSummary {
@@ -91,7 +91,7 @@ fn test_system_prompt_grounding_format() {
     );
 
     // Verify key elements are present
-    assert!(prompt.contains("0.0.6"));
+    assert!(prompt.contains("0.0.7"));
     assert!(prompt.contains("Test CPU"));
     assert!(prompt.contains("8 cores"));
     assert!(prompt.contains("16.0 GB"));
@@ -135,6 +135,9 @@ fn test_version_format() {
 
     // All parts should be numeric
     for part in parts {
-        assert!(part.parse::<u32>().is_ok(), "Version parts should be numeric");
+        assert!(
+            part.parse::<u32>().is_ok(),
+            "Version parts should be numeric"
+        );
     }
 }

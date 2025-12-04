@@ -141,6 +141,46 @@ pub struct HardwareSummary {
     pub gpu_vram_gb: Option<f64>,
 }
 
+/// Specialist domain for service desk routing
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpecialistDomain {
+    System,
+    Network,
+    Storage,
+    Security,
+    Packages,
+}
+
+impl std::fmt::Display for SpecialistDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::System => write!(f, "system"),
+            Self::Network => write!(f, "network"),
+            Self::Storage => write!(f, "storage"),
+            Self::Security => write!(f, "security"),
+            Self::Packages => write!(f, "packages"),
+        }
+    }
+}
+
+/// Unified response from service desk pipeline
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDeskResult {
+    /// The LLM's answer text
+    pub answer: String,
+    /// Reliability score 0-100
+    pub reliability_score: u8,
+    /// Which specialist handled this
+    pub domain: SpecialistDomain,
+    /// Probes that were run
+    pub probes_used: Vec<String>,
+    /// Whether clarification is needed
+    pub needs_clarification: bool,
+    /// Question to ask if clarification needed
+    pub clarification_question: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,10 +194,7 @@ mod tests {
 
     #[test]
     fn test_rpc_response_success() {
-        let resp = RpcResponse::success(
-            "test-id".to_string(),
-            serde_json::json!({"status": "ok"}),
-        );
+        let resp = RpcResponse::success("test-id".to_string(), serde_json::json!({"status": "ok"}));
         assert!(resp.result.is_some());
         assert!(resp.error.is_none());
     }

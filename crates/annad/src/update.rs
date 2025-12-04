@@ -38,11 +38,7 @@ pub async fn check_latest_version() -> Result<String> {
 
 /// Compare versions, returns true if remote is newer
 pub fn is_newer_version(current: &str, remote: &str) -> bool {
-    let parse = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|s| s.parse().ok())
-            .collect()
-    };
+    let parse = |v: &str| -> Vec<u32> { v.split('.').filter_map(|s| s.parse().ok()).collect() };
 
     let current_parts = parse(current);
     let remote_parts = parse(remote);
@@ -96,12 +92,26 @@ pub async fn perform_update(new_version: &str) -> Result<()> {
     let sums_path = tmp_dir.join("SHA256SUMS");
     download_file(&sums_url, &sums_path).await?;
 
-    verify_checksum(&annactl_path, &sums_path, &format!("annactl-linux-{}", arch_name))?;
-    verify_checksum(&annad_path, &sums_path, &format!("annad-linux-{}", arch_name))?;
+    verify_checksum(
+        &annactl_path,
+        &sums_path,
+        &format!("annactl-linux-{}", arch_name),
+    )?;
+    verify_checksum(
+        &annad_path,
+        &sums_path,
+        &format!("annad-linux-{}", arch_name),
+    )?;
 
     // Make executable
-    std::fs::set_permissions(&annactl_path, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
-    std::fs::set_permissions(&annad_path, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
+    std::fs::set_permissions(
+        &annactl_path,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )?;
+    std::fs::set_permissions(
+        &annad_path,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )?;
 
     // Replace binaries (annactl first, then schedule annad restart)
     info!("Installing new annactl...");
@@ -139,7 +149,11 @@ async fn download_file(url: &str, path: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-fn verify_checksum(file_path: &std::path::Path, sums_path: &std::path::Path, name: &str) -> Result<()> {
+fn verify_checksum(
+    file_path: &std::path::Path,
+    sums_path: &std::path::Path,
+    name: &str,
+) -> Result<()> {
     let sums_content = std::fs::read_to_string(sums_path)?;
 
     let expected = sums_content
@@ -148,9 +162,7 @@ fn verify_checksum(file_path: &std::path::Path, sums_path: &std::path::Path, nam
         .and_then(|line| line.split_whitespace().next())
         .ok_or_else(|| anyhow!("Checksum not found for {}", name))?;
 
-    let output = Command::new("sha256sum")
-        .arg(file_path)
-        .output()?;
+    let output = Command::new("sha256sum").arg(file_path).output()?;
 
     let actual = String::from_utf8_lossy(&output.stdout);
     let actual = actual.split_whitespace().next().unwrap_or("");
@@ -158,7 +170,9 @@ fn verify_checksum(file_path: &std::path::Path, sums_path: &std::path::Path, nam
     if actual != expected {
         return Err(anyhow!(
             "Checksum mismatch for {}: expected {}, got {}",
-            name, expected, actual
+            name,
+            expected,
+            actual
         ));
     }
 
@@ -176,7 +190,10 @@ systemctl restart annad
 
     let script_path = "/tmp/anna-restart.sh";
     std::fs::write(script_path, script)?;
-    std::fs::set_permissions(script_path, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
+    std::fs::set_permissions(
+        script_path,
+        std::os::unix::fs::PermissionsExt::from_mode(0o755),
+    )?;
 
     // Run in background so current process can exit cleanly
     Command::new("bash")

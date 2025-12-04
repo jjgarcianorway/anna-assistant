@@ -23,7 +23,10 @@ pub fn probe_hardware() -> Result<HardwareInfo> {
         "Hardware: {} cores, {} RAM, GPU: {}",
         info.cpu_cores,
         format_bytes(info.ram_bytes),
-        info.gpu.as_ref().map(|g| g.model.as_str()).unwrap_or("none")
+        info.gpu
+            .as_ref()
+            .map(|g| g.model.as_str())
+            .unwrap_or("none")
     );
 
     Ok(info)
@@ -81,7 +84,10 @@ fn detect_gpu() -> Option<GpuInfo> {
 
 fn detect_nvidia_gpu() -> Option<GpuInfo> {
     let output = Command::new("nvidia-smi")
-        .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+        .args([
+            "--query-gpu=name,memory.total",
+            "--format=csv,noheader,nounits",
+        ])
         .output()
         .ok()?;
 
@@ -97,7 +103,11 @@ fn detect_nvidia_gpu() -> Option<GpuInfo> {
         let model = parts[0].to_string();
         let vram_mb: u64 = parts[1].parse().unwrap_or(0);
 
-        info!("Detected NVIDIA GPU: {} with {} VRAM", model, format_bytes(vram_mb * 1024 * 1024));
+        info!(
+            "Detected NVIDIA GPU: {} with {} VRAM",
+            model,
+            format_bytes(vram_mb * 1024 * 1024)
+        );
 
         Some(GpuInfo {
             vendor: "NVIDIA".to_string(),

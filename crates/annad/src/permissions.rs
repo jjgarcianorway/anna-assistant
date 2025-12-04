@@ -109,12 +109,13 @@ pub fn check_and_fix_user_access() -> Vec<String> {
                 let shell = parts.get(6).unwrap_or(&"");
 
                 // Regular users typically have UID >= 1000 and a valid shell
-                if uid >= 1000 && !shell.contains("nologin") && !shell.contains("false") {
-                    if !user_in_group(username) {
-                        if add_user_to_group(username).is_ok() {
-                            fixed.push(username.to_string());
-                        }
-                    }
+                if uid >= 1000
+                    && !shell.contains("nologin")
+                    && !shell.contains("false")
+                    && !user_in_group(username)
+                    && add_user_to_group(username).is_ok()
+                {
+                    fixed.push(username.to_string());
                 }
             }
         }

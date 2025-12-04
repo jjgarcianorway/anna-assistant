@@ -19,20 +19,32 @@ fn ollama_cmd() -> Command {
 /// Detect the system's package manager
 fn detect_package_manager() -> Option<&'static str> {
     // Check for pacman (Arch, Manjaro, EndeavourOS)
-    if Command::new("which").arg("pacman").output()
-        .map(|o| o.status.success()).unwrap_or(false) {
+    if Command::new("which")
+        .arg("pacman")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         return Some("pacman");
     }
 
     // Check for apt (Debian, Ubuntu)
-    if Command::new("which").arg("apt").output()
-        .map(|o| o.status.success()).unwrap_or(false) {
+    if Command::new("which")
+        .arg("apt")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         return Some("apt");
     }
 
     // Check for dnf (Fedora)
-    if Command::new("which").arg("dnf").output()
-        .map(|o| o.status.success()).unwrap_or(false) {
+    if Command::new("which")
+        .arg("dnf")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         return Some("dnf");
     }
 
@@ -132,9 +144,7 @@ pub async fn start_service() -> Result<()> {
 
     // Fallback: try starting directly
     warn!("systemctl failed, trying direct start");
-    let _child = ollama_cmd()
-        .arg("serve")
-        .spawn()?;
+    let _child = ollama_cmd().arg("serve").spawn()?;
 
     for _ in 0..30 {
         if is_running().await {
@@ -149,10 +159,7 @@ pub async fn start_service() -> Result<()> {
 
 /// Get Ollama version
 pub async fn get_version() -> Option<String> {
-    let output = ollama_cmd()
-        .arg("--version")
-        .output()
-        .ok()?;
+    let output = ollama_cmd().arg("--version").output().ok()?;
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -175,9 +182,7 @@ pub async fn get_status() -> OllamaStatus {
 pub async fn pull_model(model: &str) -> Result<()> {
     info!("Pulling model: {}", model);
 
-    let output = ollama_cmd()
-        .args(["pull", model])
-        .output()?;
+    let output = ollama_cmd().args(["pull", model]).output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -192,10 +197,7 @@ pub async fn pull_model(model: &str) -> Result<()> {
 pub async fn has_model(model: &str) -> bool {
     let client = reqwest::Client::new();
 
-    let response = client
-        .get(format!("{}/api/tags", OLLAMA_API))
-        .send()
-        .await;
+    let response = client.get(format!("{}/api/tags", OLLAMA_API)).send().await;
 
     match response {
         Ok(resp) => {

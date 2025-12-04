@@ -139,7 +139,11 @@ impl Server {
         // Set benchmark result based on hardware
         {
             let mut state = self.state.write().await;
-            let cpu_status = if state.hardware.cpu_cores >= 4 { "ok" } else { "limited" };
+            let cpu_status = if state.hardware.cpu_cores >= 4 {
+                "ok"
+            } else {
+                "limited"
+            };
             let ram_status = if state.hardware.ram_bytes >= 8 * 1024 * 1024 * 1024 {
                 "ok"
             } else {
@@ -270,7 +274,8 @@ async fn update_check_loop(state: SharedState) {
     // Set initial next_check time
     {
         let mut state = state.write().await;
-        state.update.next_check = Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
+        state.update.next_check =
+            Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
     }
 
     loop {
@@ -286,9 +291,8 @@ async fn update_check_loop(state: SharedState) {
                 {
                     let mut state = state.write().await;
                     state.update.last_check = Some(Utc::now());
-                    state.update.next_check = Some(
-                        Utc::now() + chrono::Duration::seconds(check_interval as i64)
-                    );
+                    state.update.next_check =
+                        Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
                     state.update.available_version = Some(latest_version.clone());
                     state.update.update_available = should_update;
                 }
@@ -325,9 +329,8 @@ async fn update_check_loop(state: SharedState) {
                 warn!("Failed to check for updates: {}", e);
                 let mut state = state.write().await;
                 state.update.last_check = Some(Utc::now());
-                state.update.next_check = Some(
-                    Utc::now() + chrono::Duration::seconds(check_interval as i64)
-                );
+                state.update.next_check =
+                    Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
             }
         }
     }

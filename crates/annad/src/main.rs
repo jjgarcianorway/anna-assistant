@@ -7,6 +7,7 @@ mod permissions;
 mod probes;
 mod rpc_handler;
 mod server;
+mod service_desk;
 mod state;
 mod update;
 

@@ -108,7 +108,7 @@ impl std::fmt::Display for DaemonState {
 }
 
 /// Ollama service status (kept for internal use)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OllamaStatus {
     pub installed: bool,
     pub running: bool,
@@ -152,15 +152,6 @@ impl Default for HardwareInfo {
     }
 }
 
-impl Default for OllamaStatus {
-    fn default() -> Self {
-        Self {
-            installed: false,
-            running: false,
-            version: None,
-        }
-    }
-}
 
 impl Default for LlmStatus {
     fn default() -> Self {

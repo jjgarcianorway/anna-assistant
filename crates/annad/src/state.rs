@@ -5,8 +5,8 @@ use std::time::Instant;
 
 use anna_shared::ledger::Ledger;
 use anna_shared::status::{
-    BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus,
-    ModelInfo, OllamaStatus, ProgressInfo, UpdateStatus,
+    BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus, ModelInfo,
+    OllamaStatus, ProgressInfo, UpdateStatus,
 };
 use anna_shared::{DEFAULT_UPDATE_CHECK_INTERVAL, VERSION};
 use chrono::{DateTime, Utc};

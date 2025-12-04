@@ -1,5 +1,6 @@
 //! Display helpers for annactl UI.
 
+use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::ui::{colors, symbols, HR};
 use anna_shared::VERSION;
@@ -23,21 +24,36 @@ pub fn print_status_display(status: &DaemonStatus) {
     let kw = 15; // key width
 
     // Daemon info
-    print_kv("daemon", &format!("{}   (pid {})", status.state, status.pid.unwrap_or(0)), kw);
-    print_kv("debug_mode", if status.debug_mode { "ON" } else { "OFF" }, kw);
+    print_kv(
+        "daemon",
+        &format!("{}   (pid {})", status.state, status.pid.unwrap_or(0)),
+        kw,
+    );
+    print_kv(
+        "debug_mode",
+        if status.debug_mode { "ON" } else { "OFF" },
+        kw,
+    );
     println!();
 
     // Version/Update section
     print_kv("version", &status.version, kw);
 
     // Show available version from GitHub
-    let available = status.update.available_version.as_deref().unwrap_or("checking...");
+    let available = status
+        .update
+        .available_version
+        .as_deref()
+        .unwrap_or("checking...");
     if status.update.update_available {
         println!(
             "{:width$} {}{}{} ({}update available{})",
             "available",
-            colors::OK, available, colors::RESET,
-            colors::WARN, colors::RESET,
+            colors::OK,
+            available,
+            colors::RESET,
+            colors::WARN,
+            colors::RESET,
             width = kw
         );
     } else {
@@ -45,7 +61,11 @@ pub fn print_status_display(status: &DaemonStatus) {
     }
 
     // Update check pace
-    print_kv("check_pace", &format!("every {}s", status.update.check_interval_secs), kw);
+    print_kv(
+        "check_pace",
+        &format!("every {}s", status.update.check_interval_secs),
+        kw,
+    );
 
     // Countdown to next check
     if let Some(next) = &status.update.next_check {
@@ -56,18 +76,33 @@ pub fn print_status_display(status: &DaemonStatus) {
     }
 
     // Auto-update status
-    let auto_str = if status.update.enabled { "ENABLED" } else { "DISABLED" };
+    let auto_str = if status.update.enabled {
+        "ENABLED"
+    } else {
+        "DISABLED"
+    };
     print_kv("auto_update", auto_str, kw);
     println!();
 
     // Hardware info
     let ram_gb = status.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-    print_kv("cpu", &format!("{} ({} cores)", status.hardware.cpu_model, status.hardware.cpu_cores), kw);
+    print_kv(
+        "cpu",
+        &format!(
+            "{} ({} cores)",
+            status.hardware.cpu_model, status.hardware.cpu_cores
+        ),
+        kw,
+    );
     print_kv("ram", &format!("{:.1} GB", ram_gb), kw);
 
     if let Some(gpu) = &status.hardware.gpu {
         let vram_gb = gpu.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-        print_kv("gpu", &format!("{} ({:.1} GB VRAM)", gpu.model, vram_gb), kw);
+        print_kv(
+            "gpu",
+            &format!("{} ({:.1} GB VRAM)", gpu.model, vram_gb),
+            kw,
+        );
     } else {
         print_kv("gpu", "none", kw);
     }
@@ -84,7 +119,11 @@ pub fn print_status_display(status: &DaemonStatus) {
         "llm",
         llm_state_color,
         status.llm.state,
-        if status.llm.state == LlmState::Bootstrapping { " (required)" } else { "" },
+        if status.llm.state == LlmState::Bootstrapping {
+            " (required)"
+        } else {
+            ""
+        },
         colors::RESET,
         width = kw
     );
@@ -109,13 +148,20 @@ pub fn print_status_display(status: &DaemonStatus) {
         );
         println!(
             "{:width$} {} / {}   {}/s   eta {}",
-            "traffic", current, total, speed, eta,
+            "traffic",
+            current,
+            total,
+            speed,
+            eta,
             width = kw
         );
     }
 
     if !status.llm.models.is_empty() {
-        let models_str = status.llm.models.iter()
+        let models_str = status
+            .llm
+            .models
+            .iter()
             .map(|m| format!("{}: {}", m.role, m.name))
             .collect::<Vec<_>>()
             .join("\n               ");
@@ -125,7 +171,10 @@ pub fn print_status_display(status: &DaemonStatus) {
     if let Some(err) = &status.last_error {
         println!(
             "{:width$} {}{}{}",
-            "last_error", colors::ERR, err, colors::RESET,
+            "last_error",
+            colors::ERR,
+            err,
+            colors::RESET,
             width = kw
         );
     } else {
@@ -148,12 +197,7 @@ fn print_kv(key: &str, value: &str, width: usize) {
 /// Print REPL header
 pub fn print_repl_header() {
     println!();
-    println!(
-        "{}annactl v{}{}",
-        colors::HEADER,
-        VERSION,
-        colors::RESET
-    );
+    println!("{}annactl v{}{}", colors::HEADER, VERSION, colors::RESET);
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!("Anna is a local Linux service desk living on your machine.");
     println!(
@@ -171,11 +215,7 @@ pub fn print_repl_header() {
 /// Show bootstrap progress with live updates
 pub async fn show_bootstrap_progress() -> Result<()> {
     println!();
-    println!(
-        "{}anna (bootstrap){}",
-        colors::HEADER,
-        colors::RESET
-    );
+    println!("{}anna (bootstrap){}", colors::HEADER, colors::RESET);
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!();
     println!(
@@ -237,4 +277,72 @@ pub async fn show_bootstrap_progress() -> Result<()> {
         spinner_idx = (spinner_idx + 1) % spinner.len();
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
+}
+
+/// Unified display for service desk responses
+/// Used by both one-shot and REPL to ensure consistent output
+pub fn print_transcript(prompt: &str, result: &ServiceDeskResult) {
+    println!();
+    println!(
+        "{}anna v{} (dispatch){} {}",
+        colors::HEADER,
+        VERSION,
+        colors::RESET,
+        colors::DIM
+    );
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+
+    // Show user input
+    println!("{}[you]{}", colors::CYAN, colors::RESET);
+    println!("{}", prompt);
+    println!();
+
+    // Check if clarification needed
+    if result.needs_clarification {
+        if let Some(question) = &result.clarification_question {
+            println!(
+                "{}[anna]{} needs clarification",
+                colors::WARN,
+                colors::RESET
+            );
+            println!("{}", question);
+            println!("{}{}{}", colors::DIM, HR, colors::RESET);
+            return;
+        }
+    }
+
+    // Show response with metadata
+    println!(
+        "{}[anna]{} {} specialist  reliability: {}",
+        colors::OK,
+        colors::RESET,
+        result.domain,
+        format_reliability(result.reliability_score)
+    );
+    println!("{}", result.answer);
+
+    // Show probes used if any
+    if !result.probes_used.is_empty() {
+        println!();
+        println!(
+            "{}probes:{} {}",
+            colors::DIM,
+            colors::RESET,
+            result.probes_used.join(", ")
+        );
+    }
+
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+}
+
+/// Format reliability score with color
+fn format_reliability(score: u8) -> String {
+    let color = if score >= 80 {
+        colors::OK
+    } else if score >= 50 {
+        colors::WARN
+    } else {
+        colors::ERR
+    };
+    format!("{}{}%{}", color, score, colors::RESET)
 }
