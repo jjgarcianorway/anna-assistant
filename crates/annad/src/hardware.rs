@@ -167,31 +167,31 @@ pub fn select_model(hardware: &HardwareInfo) -> String {
 
     // Model selection logic based on available resources
     // With GPU acceleration, VRAM is the main constraint
-    // Models need roughly: 7B ~4GB, 8B ~5GB, 14B ~8GB in Q4 quantization
+    // Using instruction-tuned models for better JSON generation and faster response
     let model = if vram_gb >= 12 {
         // High-end GPU - can run 14B+ models
-        "qwen2.5:14b"
+        "qwen2.5:14b-instruct"
     } else if vram_gb >= 8 {
-        // Good GPU (8GB) - can run 8B models comfortably
-        "llama3.1:8b"
+        // Good GPU (8GB) - qwen2.5 7B instruct is fast and great at structured output
+        "qwen2.5:7b-instruct"
     } else if vram_gb >= 6 {
-        // Mid-range GPU - 7B models
-        "qwen2.5:7b"
+        // Mid-range GPU - 7B instruct models
+        "qwen2.5:7b-instruct"
     } else if vram_gb >= 4 {
-        // Entry GPU - smaller models
-        "llama3.2:3b"
+        // Entry GPU - smaller instruct models
+        "qwen2.5:3b-instruct"
     } else if ram_gb >= 32 {
         // No GPU but lots of RAM - CPU inference with larger model
-        "llama3.1:8b"
+        "qwen2.5:7b-instruct"
     } else if ram_gb >= 16 {
         // Good RAM for CPU inference
-        "llama3.2:3b"
+        "qwen2.5:3b-instruct"
     } else if ram_gb >= 8 {
         // Moderate RAM
-        "llama3.2:1b"
+        "qwen2.5:1.5b-instruct"
     } else {
         // Limited resources - smallest model
-        "qwen2.5:0.5b"
+        "qwen2.5:0.5b-instruct"
     };
 
     info!(
@@ -220,7 +220,7 @@ mod tests {
             ram_bytes: 4 * 1024 * 1024 * 1024,
             gpu: None,
         };
-        assert_eq!(select_model(&hw), "qwen2.5:0.5b");
+        assert_eq!(select_model(&hw), "qwen2.5:0.5b-instruct");
     }
 
     #[test]
@@ -231,7 +231,7 @@ mod tests {
             ram_bytes: 16 * 1024 * 1024 * 1024,
             gpu: None,
         };
-        assert_eq!(select_model(&hw), "llama3.2:3b");
+        assert_eq!(select_model(&hw), "qwen2.5:3b-instruct");
     }
 
     #[test]
@@ -246,6 +246,6 @@ mod tests {
                 vram_bytes: 8 * 1024 * 1024 * 1024,
             }),
         };
-        assert_eq!(select_model(&hw), "llama3.1:8b");
+        assert_eq!(select_model(&hw), "qwen2.5:7b-instruct");
     }
 }

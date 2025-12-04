@@ -164,10 +164,10 @@ async fn handle_llm_request(
             translator::translate_fallback(query)
         }
         Err(_) => {
+            // Translator timeout - use fallback instead of failing
+            warn!("Translator timeout, using fallback");
             progress.timeout_stage(RequestStage::Translator);
-            save_progress(&state, &progress).await;
-            let result = service_desk::create_timeout_response("translator", None, vec![]);
-            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+            translator::translate_fallback(query)
         }
     };
 
