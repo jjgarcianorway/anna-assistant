@@ -1,6 +1,6 @@
 # Anna
 
-A local AI assistant for Linux systems.
+A local AI assistant for Linux systems with grounded, accurate responses.
 
 ## Requirements
 
@@ -11,7 +11,7 @@ A local AI assistant for Linux systems.
 ## Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
 ```
 
 ## Usage
@@ -20,7 +20,7 @@ curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/s
 # Send a request
 annactl "what processes are using the most memory?"
 
-# Interactive mode
+# Interactive mode (exit with: quit, bye, q, :q)
 annactl
 
 # Check status
@@ -36,6 +36,14 @@ annactl uninstall
 annactl --version
 ```
 
+## Features
+
+- **Grounded responses**: Anna answers from actual system data, never invents facts
+- **Auto-probes**: Automatically runs system queries for memory/CPU/disk questions
+- **Hardware-aware**: Selects optimal model based on your CPU, RAM, and GPU
+- **Self-healing**: Auto-repairs Ollama and model issues
+- **Auto-update**: Checks for updates every 60 seconds
+
 ## Architecture
 
 Anna consists of two components:
@@ -46,11 +54,11 @@ Anna consists of two components:
 ## Documentation
 
 - [SPEC.md](SPEC.md) - Authoritative specification
-- [TRACKER.md](TRACKER.md) - Implementation tracker and release notes
+- [CHANGELOG.md](CHANGELOG.md) - Version history
 
 ## Version
 
-v0.0.1 - Initial release
+v0.0.6
 
 ## License
 

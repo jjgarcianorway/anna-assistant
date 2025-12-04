@@ -8,7 +8,7 @@ pub mod ui;
 
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
-pub use rpc::{RpcRequest, RpcResponse, RpcMethod};
+pub use rpc::{RpcRequest, RpcResponse, RpcMethod, ProbeType, ProbeParams, RuntimeContext, Capabilities, HardwareSummary};
 pub use status::{
     DaemonStatus, DaemonState, OllamaStatus, ModelInfo, HardwareInfo,
     LlmStatus, LlmState, ProgressInfo, BenchmarkResult, UpdateStatus,

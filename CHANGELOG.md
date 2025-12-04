@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6] - 2024-12-04
+
+### Added
+- **Grounded LLM responses**
+  - RuntimeContext injected into every LLM request
+  - Hardware snapshot (CPU, RAM, GPU) always available to LLM
+  - Capability flags prevent claiming abilities Anna doesn't have
+- **Auto-probes for queries**
+  - Memory/process queries auto-run `ps aux --sort=-%mem`
+  - Disk queries auto-run `df -h`
+  - Network queries auto-run `ip addr show`
+- **Probe RPC method**
+  - `top_memory` - Top processes by memory
+  - `top_cpu` - Top processes by CPU
+  - `disk_usage` - Filesystem usage
+  - `network_interfaces` - Network info
+- **Integration tests for grounding**
+  - Version consistency tests
+  - Hardware context tests
+  - Capability safety tests
+
+### Changed
+- **System prompt completely rewritten**
+  - Strict grounding rules enforced
+  - Never invents facts not in context
+  - Answers hardware questions from snapshot
+  - Never suggests manual commands when data available
+
+### Fixed
+- Anna no longer claims to be "v0.0.1" or wrong versions
+- Anna no longer suggests `lscpu` when CPU info is in context
+- Anna answers memory questions with actual process data
+
+### Documentation
+- SPEC.md updated to v0.0.6 with grounding policy
+- README.md updated with features
+- TRUTH_REPORT.md documents what was broken and how it was fixed
+
 ## [0.0.5] - 2024-12-04
 
 ### Added
@@ -137,7 +175,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.5...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.6...HEAD
+[0.0.6]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.2...v0.0.3

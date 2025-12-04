@@ -4,6 +4,7 @@ mod hardware;
 mod health;
 mod ollama;
 mod permissions;
+mod probes;
 mod rpc_handler;
 mod server;
 mod state;
