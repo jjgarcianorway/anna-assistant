@@ -1,6 +1,6 @@
 # Anna Assistant - Implementation Roadmap
 
-**Current Version: 0.0.76**
+**Current Version: 0.0.77**
 
 **Expected Project Completion: 18.5%** (Deep test scheduled at 20%)
 
@@ -10,12 +10,18 @@ This roadmap migrates from the v7.42.5 snapshot-based architecture to the full n
 
 ## Phase 1: CLI Surface Lockdown (0.0.x)
 
-### 0.0.77 - Multi-Doctor Handoff + Senior Escalation (NEXT)
+### 0.0.78 - Multi-Doctor Handoff + Senior Escalation (NEXT)
 - [ ] Multi-doctor case handoff for complex issues
 - [ ] Department collaboration for cross-domain problems
 - [ ] Senior escalation when Junior < 50%
 - [ ] Multi-round improvement loops
 - [ ] Evidence bundle aggregation across departments
+
+### 0.0.77 - Version Detection Fix (COMPLETED)
+- [x] Filter for Anna releases (0.0.x) only in version detection
+- [x] Ignore legacy installer releases (7.x.x) that were confusing semver sort
+- [x] Fixed install.sh regex: `0\.0\.[0-9]+` instead of `[0-9]+\.[0-9]+\.[0-9]+`
+- [x] Fixed update_checker.rs: skip versions not starting with "0.0."
 
 ### 0.0.76 - Semantic Version Fix (COMPLETED)
 - [x] Fixed install script to find highest semantic version

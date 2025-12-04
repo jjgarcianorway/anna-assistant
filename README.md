@@ -1,4 +1,4 @@
-# Anna Assistant v0.0.76
+# Anna Assistant v0.0.77
 
 **Local-first Virtual Senior Sysadmin for Arch Linux**
 
@@ -6,7 +6,7 @@
 
 Anna is a natural language assistant that answers questions, executes requests safely, monitors your system proactively, and continuously learns from interactions.
 
-**v0.0.76**: Semantic Version Fix - Fixed install script and auto-updater to find highest version by semver, not by release creation date. Previously, backfilling old releases caused them to be picked as "latest". Now fetches all releases and sorts by semantic version. Installer v7.43.0.
+**v0.0.77**: Version Detection Fix - Filter for Anna releases (0.0.x) only, ignore legacy installer releases (7.x.x). Fixes version detection finding 7.42.5 instead of 0.0.76.
 
 > **Supported Platform: Arch Linux only.** Other distributions are unsupported and untested.
 

@@ -56,12 +56,17 @@ pub fn check_anna_updates(current_version: &str) -> CheckResult {
             match serde_json::from_str::<serde_json::Value>(&stdout) {
                 Ok(json) => {
                     // v7.43.0: Parse array of releases and find highest version
+                    // Filter for Anna releases (0.0.x) - ignore installer versions (7.x.x)
                     if let Some(releases) = json.as_array() {
                         let mut highest: Option<(u32, u32, u32, String)> = None;
 
                         for release in releases {
                             if let Some(tag) = release.get("tag_name").and_then(|v| v.as_str()) {
                                 let version_str = tag.trim_start_matches('v');
+                                // Only consider 0.0.x versions (Anna releases, not installer)
+                                if !version_str.starts_with("0.0.") {
+                                    continue;
+                                }
                                 if let Some((major, minor, patch)) = parse_version(version_str) {
                                     let dominated = highest
                                         .as_ref()

@@ -272,8 +272,9 @@ fetch_latest_version() {
     fi
 
     if [[ -n "$response" ]]; then
-        # Extract all version tags and find the highest using sort -V
-        LATEST_VERSION=$(echo "$response" | grep -oP '"tag_name":\s*"v?\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1 || true)
+        # Extract Anna version tags (0.0.x) and find highest using sort -V
+        # Filter out installer version tags (7.x.x, etc.) - Anna uses 0.0.x format
+        LATEST_VERSION=$(echo "$response" | grep -oP '"tag_name":\s*"v?\K0\.0\.[0-9]+' | sort -V | tail -1 || true)
     fi
 
     if [[ -z "$LATEST_VERSION" ]]; then

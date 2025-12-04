@@ -2,6 +2,25 @@
 
 ---
 
+## v0.0.77 - Version Detection Fix
+
+**Release Date:** 2025-12-04
+
+### Summary
+
+Fixed version detection to filter for Anna releases (0.0.x) only, ignoring legacy installer releases (7.x.x) that were confusing semantic version sorting.
+
+### Problem
+
+After fixing v0.0.76 to use semver sorting, the install script found 7.42.5 as "latest" because old installer releases (7.x.x) were in the releases list, and 7.42.5 > 0.0.76 semantically.
+
+### Fix
+
+- Install script: Changed regex from `[0-9]+\.[0-9]+\.[0-9]+` to `0\.0\.[0-9]+`
+- Update checker: Added `if !version_str.starts_with("0.0.") { continue; }` filter
+
+---
+
 ## v0.0.76 - Semantic Version Fix
 
 **Release Date:** 2025-12-04
