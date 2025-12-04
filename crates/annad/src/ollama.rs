@@ -8,6 +8,14 @@ use tracing::{info, warn};
 
 const OLLAMA_API: &str = "http://127.0.0.1:11434";
 
+/// Create an ollama command with required environment variables
+fn ollama_cmd() -> Command {
+    let mut cmd = Command::new("ollama");
+    cmd.env("HOME", "/root");
+    cmd.env("OLLAMA_MODELS", "/var/lib/anna/models");
+    cmd
+}
+
 /// Detect the system's package manager
 fn detect_package_manager() -> Option<&'static str> {
     // Check for pacman (Arch, Manjaro, EndeavourOS)
@@ -124,7 +132,7 @@ pub async fn start_service() -> Result<()> {
 
     // Fallback: try starting directly
     warn!("systemctl failed, trying direct start");
-    let _child = Command::new("ollama")
+    let _child = ollama_cmd()
         .arg("serve")
         .spawn()?;
 
@@ -141,7 +149,7 @@ pub async fn start_service() -> Result<()> {
 
 /// Get Ollama version
 pub async fn get_version() -> Option<String> {
-    let output = Command::new("ollama")
+    let output = ollama_cmd()
         .arg("--version")
         .output()
         .ok()?;
@@ -167,7 +175,7 @@ pub async fn get_status() -> OllamaStatus {
 pub async fn pull_model(model: &str) -> Result<()> {
     info!("Pulling model: {}", model);
 
-    let output = Command::new("ollama")
+    let output = ollama_cmd()
         .args(["pull", model])
         .output()?;
 
