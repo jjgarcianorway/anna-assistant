@@ -67,8 +67,8 @@
 
 ### Phase 8: Release
 - [x] All validation checks pass
-- [ ] Commit and tag v0.0.1
-- [ ] Push and create GitHub release
+- [x] Commit and tag v0.0.1
+- [x] Push and create GitHub release
 
 ---
 
