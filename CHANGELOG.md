@@ -9,10 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.12] - 2024-12-04
 
+### Added
+- **Deterministic Answerer**: Fallback module that answers common queries without LLM
+  - CPU info: From hardware snapshot or lscpu probe
+  - RAM info: From hardware snapshot or free -h probe
+  - GPU info: From hardware snapshot
+  - Top memory processes: Parsed from ps aux --sort=-%mem
+  - Disk space: Parsed from df -h with critical/warning flags
+  - Network interfaces: Parsed from ip addr show
+  - Rules: Never invents facts, always produces grounded answers
+
+### Changed
+- **Specialist timeout behavior**: Now tries deterministic answerer instead of asking for clarification
+- **Scoring improvements**:
+  - Deterministic answers get `answer_grounded=true` and `no_invention=true` automatically
+  - `translator_confident` is false if translator timed out
+  - Score no longer capped at 20 when probes succeed with deterministic answer
+- **Domain consistency**: ServiceDeskResult.domain now matches the classified domain
+- **Update check**: Verifies release assets exist before showing update available
+
 ### Fixed
-- **Update check now verifies assets exist** before showing version as available
-  - HEAD requests to verify binaries and checksums are downloadable
-  - Prevents showing "update available" for incomplete releases
+- Anna now produces answers even when specialist LLM times out (reliability > 20)
+- Domain in summary now matches dispatcher routing
+- Clarification no longer shown when probe data is available
 
 ## [0.0.11] - 2024-12-04
 
@@ -255,7 +274,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.11...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.12...HEAD
+[0.0.12]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.7...v0.0.11
 [0.0.7]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.5...v0.0.6

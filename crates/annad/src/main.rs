@@ -1,12 +1,15 @@
 //! Anna daemon - manages system state, Ollama, and models.
 
+mod deterministic;
 mod handlers;
 mod hardware;
 mod health;
 mod ollama;
+mod parsers;
 mod permissions;
 mod probes;
 mod progress_tracker;
+mod prompts;
 mod rpc_handler;
 mod scoring;
 mod server;

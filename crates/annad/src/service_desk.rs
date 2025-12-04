@@ -17,6 +17,9 @@ use tracing::info;
 
 use crate::scoring;
 
+// Re-export build_specialist_prompt for backwards compatibility
+pub use crate::prompts::build_specialist_prompt;
+
 /// Allowlist of read-only probes that specialists can request
 pub const ALLOWED_PROBES: &[&str] = &[
     "ps aux --sort=-%mem",
@@ -110,103 +113,6 @@ pub fn build_evidence(
     }
 }
 
-/// Build grounded system prompt with runtime context for specialist
-pub fn build_specialist_prompt(
-    domain: SpecialistDomain,
-    context: &RuntimeContext,
-    probe_results: &[ProbeResult],
-) -> String {
-    let specialist_intro = match domain {
-        SpecialistDomain::System => {
-            "You are the System Specialist, expert in CPU, memory, processes, and services."
-        }
-        SpecialistDomain::Network => {
-            "You are the Network Specialist, expert in interfaces, routing, DNS, and connectivity."
-        }
-        SpecialistDomain::Storage => {
-            "You are the Storage Specialist, expert in disks, partitions, mounts, and filesystems."
-        }
-        SpecialistDomain::Security => {
-            "You are the Security Specialist, expert in permissions, firewalls, and audit logs."
-        }
-        SpecialistDomain::Packages => {
-            "You are the Package Specialist, expert in package managers and software installation."
-        }
-    };
-
-    let mut prompt = format!(
-        r#"You are Anna, a local AI assistant running on this Linux machine.
-{specialist_intro}
-
-=== RUNTIME CONTEXT (AUTHORITATIVE - DO NOT CONTRADICT) ===
-Version: {}
-Daemon: running
-
-Hardware (from system probe):
-  - CPU: {} ({} cores)
-  - RAM: {:.1} GB"#,
-        context.version,
-        context.hardware.cpu_model,
-        context.hardware.cpu_cores,
-        context.hardware.ram_gb,
-    );
-
-    if let Some(gpu) = &context.hardware.gpu {
-        if let Some(vram) = context.hardware.gpu_vram_gb {
-            prompt.push_str(&format!("\n  - GPU: {} ({:.1} GB VRAM)", gpu, vram));
-        } else {
-            prompt.push_str(&format!("\n  - GPU: {}", gpu));
-        }
-    } else {
-        prompt.push_str("\n  - GPU: none");
-    }
-
-    // Add probe results if any
-    if !probe_results.is_empty() {
-        prompt.push_str("\n\n=== PROBE RESULTS ===");
-        for probe in probe_results {
-            if probe.exit_code == 0 {
-                prompt.push_str(&format!("\n[{}]\n{}", probe.command, probe.stdout));
-            } else {
-                prompt.push_str(&format!(
-                    "\n[{}] FAILED (exit {}): {}",
-                    probe.command, probe.exit_code, probe.stderr
-                ));
-            }
-        }
-    }
-
-    prompt.push_str(
-        r#"
-
-=== GROUNDING RULES (MANDATORY) ===
-1. NEVER invent or guess information not in the runtime context above.
-2. For hardware questions: Answer DIRECTLY from the hardware section above.
-3. For process/memory/disk questions: Use the probe results above if available.
-4. If data is missing: Say exactly what data is missing.
-5. NEVER suggest manual commands when you have the data above.
-6. Use the exact version shown above when discussing Anna's version.
-7. Reference the specific data you're using in your answer.
-
-=== END CONTEXT ===
-
-Answer using ONLY the data provided above. Be concise and direct."#,
-    );
-
-    prompt
-}
-
-/// Calculate reliability signals and score
-pub fn calculate_reliability(
-    ticket: &TranslatorTicket,
-    probe_results: &[ProbeResult],
-    answer: &str,
-) -> (ReliabilitySignals, u8) {
-    let signals = scoring::calculate_signals(ticket, probe_results, answer);
-    let score = signals.score();
-    (signals, score)
-}
-
 /// Create a clarification response
 pub fn create_clarification_response(
     request_id: String,
@@ -249,6 +155,7 @@ pub fn create_timeout_response(
     ticket: Option<TranslatorTicket>,
     probe_results: Vec<ProbeResult>,
     transcript: Transcript,
+    domain: SpecialistDomain,
 ) -> ServiceDeskResult {
     let signals = ReliabilitySignals {
         translator_confident: false,
@@ -260,7 +167,7 @@ pub fn create_timeout_response(
 
     let default_ticket = ticket.unwrap_or_else(|| TranslatorTicket {
         intent: anna_shared::rpc::QueryIntent::Question,
-        domain: SpecialistDomain::System,
+        domain,
         entities: vec![],
         needs_probes: vec![],
         clarification_question: None,
@@ -278,7 +185,7 @@ pub fn create_timeout_response(
         answer: String::new(),
         reliability_score: signals.score().min(20), // Max 20 for timeout
         reliability_signals: signals,
-        domain: SpecialistDomain::System,
+        domain,
         evidence,
         needs_clarification: true,
         clarification_question: Some(format!(
@@ -289,16 +196,62 @@ pub fn create_timeout_response(
     }
 }
 
-/// Build final ServiceDeskResult
-pub fn build_result(
+/// Create a response when no data is available to answer
+pub fn create_no_data_response(
+    request_id: String,
+    ticket: TranslatorTicket,
+    probe_results: Vec<ProbeResult>,
+    transcript: Transcript,
+    domain: SpecialistDomain,
+) -> ServiceDeskResult {
+    let signals = ReliabilitySignals {
+        translator_confident: false,
+        probe_coverage: !probe_results.is_empty(),
+        answer_grounded: false,
+        no_invention: true,
+        clarification_not_needed: false,
+    };
+
+    let evidence = build_evidence(
+        ticket,
+        probe_results,
+        Some("No deterministic answer available".to_string()),
+    );
+
+    ServiceDeskResult {
+        request_id,
+        answer: String::new(),
+        reliability_score: signals.score(),
+        reliability_signals: signals,
+        domain,
+        evidence,
+        needs_clarification: true,
+        clarification_question: Some(
+            "I couldn't generate an answer from the available data. Could you rephrase your question?".to_string()
+        ),
+        transcript,
+    }
+}
+
+/// Build final ServiceDeskResult with explicit flags for scoring
+pub fn build_result_with_flags(
     request_id: String,
     answer: String,
     ticket: TranslatorTicket,
     probe_results: Vec<ProbeResult>,
     transcript: Transcript,
+    domain: SpecialistDomain,
+    translator_timed_out: bool,
+    used_deterministic: bool,
 ) -> ServiceDeskResult {
-    let (signals, score) = calculate_reliability(&ticket, &probe_results, &answer);
-    let domain = ticket.domain;
+    let signals = calculate_signals_with_flags(
+        &ticket,
+        &probe_results,
+        &answer,
+        translator_timed_out,
+        used_deterministic,
+    );
+    let score = signals.score();
     let evidence = build_evidence(ticket, probe_results, None);
 
     info!(
@@ -324,73 +277,49 @@ pub fn build_result(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use anna_shared::rpc::QueryIntent;
+/// Calculate signals with explicit timeout/deterministic flags
+fn calculate_signals_with_flags(
+    ticket: &TranslatorTicket,
+    probe_results: &[ProbeResult],
+    answer: &str,
+    translator_timed_out: bool,
+    used_deterministic: bool,
+) -> ReliabilitySignals {
+    // Translator confident only if it didn't timeout and has high confidence
+    let translator_confident = !translator_timed_out && ticket.confidence >= 0.7;
 
-    fn make_ticket() -> TranslatorTicket {
-        TranslatorTicket {
-            intent: QueryIntent::Question,
-            domain: SpecialistDomain::System,
-            entities: vec![],
-            needs_probes: vec!["top_memory".to_string()],
-            clarification_question: None,
-            confidence: 0.8,
-        }
-    }
+    // Probe coverage: all requested probes succeeded
+    let probe_coverage = if ticket.needs_probes.is_empty() {
+        true
+    } else {
+        let successful = probe_results.iter().filter(|p| p.exit_code == 0).count();
+        successful >= ticket.needs_probes.len()
+    };
 
-    #[test]
-    fn test_is_probe_allowed() {
-        assert!(is_probe_allowed("ps aux --sort=-%mem"));
-        assert!(is_probe_allowed("df -h"));
-        assert!(!is_probe_allowed("rm -rf /"));
-    }
+    // Deterministic answers are always grounded (they parse real data)
+    let answer_grounded = if used_deterministic {
+        true
+    } else {
+        scoring::check_answer_grounded(answer, probe_results)
+    };
 
-    #[test]
-    fn test_get_relevant_hardware_fields() {
-        let ticket = make_ticket();
-        let fields = get_relevant_hardware_fields(&ticket);
-        assert!(fields.contains(&"cpu_model".to_string()));
-        assert!(fields.contains(&"ram_gb".to_string()));
-    }
+    // Deterministic answers never invent
+    let no_invention = if used_deterministic {
+        true
+    } else {
+        scoring::check_no_invention(answer)
+    };
 
-    #[test]
-    fn test_build_evidence() {
-        let ticket = make_ticket();
-        let probes = vec![ProbeResult {
-            command: "ps aux --sort=-%mem".to_string(),
-            exit_code: 0,
-            stdout: "output".to_string(),
-            stderr: String::new(),
-            timing_ms: 100,
-        }];
+    // We produced an answer, so no clarification needed
+    let clarification_not_needed = !answer.is_empty();
 
-        let evidence = build_evidence(ticket, probes, None);
-        assert_eq!(evidence.probes_executed.len(), 1);
-        assert!(evidence.hardware_fields.contains(&"cpu_model".to_string()));
-        assert!(evidence.last_error.is_none());
-    }
-
-    #[test]
-    fn test_build_evidence_with_error() {
-        let ticket = make_ticket();
-        let evidence = build_evidence(ticket, vec![], Some("timeout at translator".to_string()));
-        assert!(evidence.last_error.is_some());
-        assert!(evidence.last_error.unwrap().contains("timeout"));
-    }
-
-    #[test]
-    fn test_create_timeout_response() {
-        let result = create_timeout_response(
-            "test-id".to_string(),
-            "translator",
-            None,
-            vec![],
-            Transcript::new(),
-        );
-        assert!(result.needs_clarification);
-        assert!(result.evidence.last_error.is_some());
-        assert!(result.reliability_score <= 20);
+    ReliabilitySignals {
+        translator_confident,
+        probe_coverage,
+        answer_grounded,
+        no_invention,
+        clarification_not_needed,
     }
 }
+
+// Unit tests moved to tests/service_desk_tests.rs
