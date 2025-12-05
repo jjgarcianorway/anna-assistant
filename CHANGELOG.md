@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.50] - 2025-12-05
+
+### Added - v0.45.4 Claim Grounding Integration
+
+- **Full ANCHOR Integration** (`service_desk.rs`):
+  - Integrated `extract_claims()` to parse numeric, percent, and status claims from answers
+  - Integrated `compute_grounding()` to verify claims against parsed probe evidence
+  - `grounding_ratio` and `total_claims` now populated from actual claim verification
+  - Uses `ParsedEvidence::from_probes()` to build evidence from probe results
+
+- **GUARD-based Invention Detection**:
+  - Replaced `check_no_invention()` heuristic with `check_no_invention_guard()`
+  - Uses claim extraction + evidence verification for accurate invention detection
+  - Detects contradictions between claims and evidence (e.g., "nginx is running" when nginx is failed)
+
+- **Claim Types Supported**:
+  - Numeric: `<subject> uses <size>` (e.g., "firefox uses 4.2GB")
+  - Percent: `<mount> is <N>% full` (e.g., "root is 85% full")
+  - Status: `<service> is <state>` (e.g., "nginx is running")
+
+### Changed
+
+- **Reliability Scoring**:
+  - `answer_grounded` now derived from claim grounding ratio when claims present
+  - Falls back to heuristic only when no auditable claims extracted
+  - `no_invention` uses GUARD verification with evidence context
+
 ## [0.0.49] - 2025-12-05
 
 ### Added - v0.45.4 Truth Enforcement

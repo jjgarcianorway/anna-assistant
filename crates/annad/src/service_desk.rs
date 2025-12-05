@@ -535,26 +535,47 @@ fn calculate_reliability_v2(
         .filter(|p| p.stderr.to_lowercase().contains("timeout"))
         .count();
 
-    // Determine answer quality
-    let answer_grounded = if used_deterministic {
-        parsed_data_count > 0
-    } else {
-        scoring::check_answer_grounded(answer, probe_results)
-    };
-
-    let no_invention = if used_deterministic {
-        parsed_data_count > 0
-    } else {
-        scoring::check_no_invention(answer)
-    };
-
     // Evidence requirement: prefer route capability (v0.45.x probe spine), fall back to heuristic
     let evidence_required = fallback_ctx.evidence_required
         .unwrap_or_else(|| query_requires_evidence(query));
 
-    // Build input for new scoring model (COST: includes resource cap signals)
-    // Note: grounding_ratio and total_claims default to 0 for now (legacy path)
-    // Full ANCHOR integration would extract claims and verify against parsed probe data
+    // v0.45.4: Parse probes and compute grounding via claim extraction
+    use anna_shared::claims::extract_claims;
+    use anna_shared::grounding::{compute_grounding, ParsedEvidence, is_answer_grounded as grounding_check};
+    use anna_shared::parsers::parse_probe_result;
+
+    // Parse probe results into structured data
+    let parsed_probes: Vec<_> = probe_results
+        .iter()
+        .map(parse_probe_result)
+        .collect();
+
+    // Build evidence from parsed probes
+    let evidence = ParsedEvidence::from_probes(&parsed_probes);
+
+    // Extract claims from answer and compute grounding
+    let claims = extract_claims(answer);
+    let grounding_report = compute_grounding(&claims, &evidence);
+
+    // Determine answer quality using grounding (v0.45.4)
+    let answer_grounded = if used_deterministic {
+        parsed_data_count > 0
+    } else if grounding_report.total_claims > 0 {
+        // Use claim-based grounding when claims were extracted
+        grounding_check(&grounding_report)
+    } else {
+        // Fallback to heuristic when no claims extracted
+        scoring::check_answer_grounded(answer, probe_results)
+    };
+
+    // Use GUARD-based invention check when we have evidence
+    let no_invention = if used_deterministic {
+        parsed_data_count > 0
+    } else {
+        scoring::check_no_invention_guard(answer, &evidence, evidence_required)
+    };
+
+    // Build input for new scoring model (v0.45.4: full claim integration)
     let input = ReliabilityInput {
         planned_probes,
         succeeded_probes,
@@ -564,8 +585,8 @@ fn calculate_reliability_v2(
         translator_used: !used_deterministic && !translator_timed_out,
         answer_grounded,
         no_invention,
-        grounding_ratio: 0.0,  // TODO: integrate with claims extraction
-        total_claims: 0,       // TODO: integrate with claims extraction
+        grounding_ratio: grounding_report.grounding_ratio,
+        total_claims: grounding_report.total_claims,
         evidence_required,
         used_deterministic,
         parsed_data_count,
