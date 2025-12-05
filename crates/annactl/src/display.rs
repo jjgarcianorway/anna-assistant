@@ -221,12 +221,43 @@ fn print_kv(key: &str, value: &str, width: usize) {
     println!("{:width$} {}", key, value, width = width);
 }
 
-/// Print REPL header
+/// Print REPL header with optional telemetry (v0.0.29)
 pub fn print_repl_header() {
+    use anna_shared::telemetry::TelemetrySnapshot;
+
     println!();
     println!("{}annactl v{}{}", colors::HEADER, VERSION, colors::RESET);
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!("Anna is a local Linux service desk living on your machine.");
+
+    // Show measured telemetry if available (v0.0.29)
+    let telemetry = TelemetrySnapshot::collect();
+    if telemetry.has_data() {
+        print!("{}[telemetry]{} ", colors::DIM, colors::RESET);
+        let mut parts = Vec::new();
+
+        if let Some(delta_ms) = telemetry.boot_delta_ms {
+            let delta_secs = delta_ms.abs() as f64 / 1000.0;
+            if delta_ms < 0 {
+                parts.push(format!("boot {:.1}s faster", delta_secs));
+            } else if delta_ms > 0 {
+                parts.push(format!("boot {:.1}s slower", delta_secs));
+            }
+        }
+
+        if let Some(pkg_count) = telemetry.package_changes {
+            if pkg_count > 0 {
+                parts.push(format!("{} pkg changes", pkg_count));
+            }
+        }
+
+        if !parts.is_empty() {
+            println!("{}", parts.join(", "));
+        } else {
+            println!("no recent changes");
+        }
+    }
+
     println!(
         "Public commands: {}annactl{} | {}annactl <request>{} | {}annactl status{} | {}annactl -V{} | {}annactl uninstall{}",
         colors::BOLD, colors::RESET,

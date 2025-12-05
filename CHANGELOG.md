@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.29] - 2025-12-05
+
+### Added
+- **StatusSnapshot (Phase 1)**: Comprehensive system state snapshot
+  - `status_snapshot.rs` module with complete system state capture
+  - `StatusSnapshot` struct: versions, daemon, permissions, update, helpers, models, config
+  - `VersionInfo`, `DaemonInfo`, `PermissionsInfo` for granular health data
+  - `UpdateInfo`, `UpdateResult` for update subsystem tracking
+  - `HelpersInfo`, `ModelsInfo`, `ConfigInfo` for component state
+  - `StatusSnapshot` RPC method for detailed status queries
+  - `health_status()` returns "OK", "DAEMON_DOWN", "OLLAMA_MISSING", etc.
+
+- **Update Ledger (Phase 2)**: Auto-update transparency and auditability
+  - `update_ledger.rs` module for tracking update checks
+  - `UpdateCheckEntry`: timestamp, local_version, remote_tag, result, duration
+  - `UpdateCheckResult` enum: UpToDate, UpdateAvailable, Downloaded, Installed, Failed
+  - `UpdateLedger` with max 20 entries, persisted to `~/.anna/update_ledger.json`
+  - Daemon update loop now records all check results with timing
+
+- **Model Registry (Phase 3)**: Hardware-aware model selection
+  - `model_registry.rs` module for role-model bindings
+  - `ModelSpec`: name, size_hint_gb, quantization
+  - `RoleBinding`: team + role to model mapping
+  - `HardwareTier` enum: Low/Medium/High/VeryHigh based on RAM/CPU/GPU
+  - `recommended_model_for_tier()` returns appropriate model spec
+  - `ModelRegistry` tracks bindings and model states
+  - `parse_ollama_list()` for model state detection
+
+- **Telemetry Snapshots (Phase 4)**: Measured system deltas
+  - `telemetry/mod.rs`, `telemetry/boot.rs`, `telemetry/pacman.rs` modules
+  - `BootSnapshot`: tracks boot time changes via systemd-analyze
+  - `parse_systemd_analyze_time()` parses various boot time formats
+  - `PacmanSnapshot`: tracks package events from /var/log/pacman.log
+  - `PackageEvent`: timestamp, kind (installed/upgraded/removed), package, version
+  - Checkpoint-based incremental log reading for efficiency
+  - REPL greeting now shows measured telemetry when available
+  - Shows "boot X.Xs faster/slower" and "N pkg changes" in greeting
+
+### Changed
+- `update_check_loop` now records all results to UpdateLedger
+- `DaemonStateInner.to_status_snapshot()` builds comprehensive snapshot
+- `print_repl_header()` shows telemetry data when available
+
+### Technical
+- All new modules under 400 lines per project guidelines
+- All tests passing (257+ tests)
+- StatusSnapshot RPC wired into daemon handlers
+
 ## [0.0.28] - 2025-12-05
 
 ### Added

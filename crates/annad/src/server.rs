@@ -285,6 +285,11 @@ async fn handle_connection(state: SharedState, stream: UnixStream) -> Result<()>
 }
 
 async fn update_check_loop(state: SharedState) {
+    use anna_shared::update_ledger::{
+        load_update_ledger, save_update_ledger, UpdateCheckEntry, UpdateCheckResult,
+    };
+    use std::time::Instant;
+
     // Get check interval from state
     let check_interval = {
         let state = state.read().await;
@@ -304,11 +309,29 @@ async fn update_check_loop(state: SharedState) {
         interval.tick().await;
 
         info!("Checking for updates...");
+        let check_start = Instant::now();
 
         // Check GitHub for latest version
         match check_latest_version().await {
             Ok(latest_version) => {
+                let duration_ms = check_start.elapsed().as_millis() as u64;
                 let should_update = is_newer_version(VERSION, &latest_version);
+
+                // Write to update ledger (v0.0.29)
+                let ledger_result = if should_update {
+                    UpdateCheckResult::UpdateAvailable {
+                        version: latest_version.clone(),
+                    }
+                } else {
+                    UpdateCheckResult::UpToDate
+                };
+                let entry = UpdateCheckEntry::new(VERSION, ledger_result, duration_ms)
+                    .with_remote_tag(format!("v{}", latest_version));
+                let mut ledger = load_update_ledger();
+                ledger.push(entry);
+                if let Err(e) = save_update_ledger(&ledger) {
+                    warn!("Failed to save update ledger: {}", e);
+                }
 
                 {
                     let mut state = state.write().await;
@@ -333,9 +356,32 @@ async fn update_check_loop(state: SharedState) {
                         match perform_update(&latest_version).await {
                             Ok(()) => {
                                 info!("Update initiated, daemon will restart");
+                                // Record successful install in ledger
+                                let entry = UpdateCheckEntry::new(
+                                    VERSION,
+                                    UpdateCheckResult::Installed {
+                                        version: latest_version.clone(),
+                                    },
+                                    0,
+                                );
+                                let mut ledger = load_update_ledger();
+                                ledger.push(entry);
+                                let _ = save_update_ledger(&ledger);
                             }
                             Err(e) => {
                                 error!("Auto-update failed: {}", e);
+                                // Record failure in ledger
+                                let entry = UpdateCheckEntry::new(
+                                    VERSION,
+                                    UpdateCheckResult::Failed {
+                                        reason: e.to_string(),
+                                    },
+                                    0,
+                                );
+                                let mut ledger = load_update_ledger();
+                                ledger.push(entry);
+                                let _ = save_update_ledger(&ledger);
+
                                 let mut state = state.write().await;
                                 state.last_error = Some(format!("Auto-update failed: {}", e));
                             }
@@ -348,7 +394,21 @@ async fn update_check_loop(state: SharedState) {
                 }
             }
             Err(e) => {
+                let duration_ms = check_start.elapsed().as_millis() as u64;
                 warn!("Failed to check for updates: {}", e);
+
+                // Record failure in ledger
+                let entry = UpdateCheckEntry::new(
+                    VERSION,
+                    UpdateCheckResult::Failed {
+                        reason: e.to_string(),
+                    },
+                    duration_ms,
+                );
+                let mut ledger = load_update_ledger();
+                ledger.push(entry);
+                let _ = save_update_ledger(&ledger);
+
                 let mut state = state.write().await;
                 state.update.last_check = Some(Utc::now());
                 state.update.next_check =

@@ -19,6 +19,8 @@ pub enum RpcMethod {
     Progress,
     /// Get per-team statistics (v0.0.27)
     Stats,
+    /// Get comprehensive status snapshot (v0.0.29)
+    StatusSnapshot,
 }
 
 /// JSON-RPC 2.0 request

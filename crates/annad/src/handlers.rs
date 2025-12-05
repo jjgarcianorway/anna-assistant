@@ -188,3 +188,10 @@ pub async fn handle_stats(_state: SharedState, id: String) -> RpcResponse {
     let stats = GlobalStats::new();
     RpcResponse::success(id, serde_json::to_value(stats).unwrap())
 }
+
+/// Handle status snapshot request (v0.0.29)
+pub async fn handle_status_snapshot(state: SharedState, id: String) -> RpcResponse {
+    let state = state.read().await;
+    let snapshot = state.to_status_snapshot();
+    RpcResponse::success(id, serde_json::to_value(snapshot).unwrap())
+}

@@ -11,6 +11,10 @@ use anna_shared::status::{
     BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus, ModelInfo,
     OllamaStatus, ProgressInfo, UpdateStatus,
 };
+use anna_shared::status_snapshot::{
+    ConfigInfo, DaemonInfo, HelpersInfo, ModelsInfo, PermissionsInfo, RoleModelBinding,
+    StatusSnapshot, UpdateInfo, UpdateResult, VersionInfo,
+};
 use anna_shared::{DEFAULT_UPDATE_CHECK_INTERVAL, VERSION};
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
@@ -256,6 +260,84 @@ impl DaemonStateInner {
             size_bytes: size,
             pulled: true,
         });
+    }
+
+    /// Build comprehensive status snapshot (v0.0.29)
+    pub fn to_status_snapshot(&self) -> StatusSnapshot {
+        use anna_shared::helpers::load_helpers;
+        use anna_shared::specialists::SpecialistRole;
+        use anna_shared::teams::Team;
+
+        let captured_at_ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        // Version info
+        let versions = VersionInfo::new(VERSION).with_remote(
+            self.update.available_version.clone(),
+        );
+
+        // Daemon info
+        let daemon = DaemonInfo::running(self.pid, self.started_at.elapsed().as_secs())
+            .with_error(self.last_error.clone().unwrap_or_default());
+
+        // Permissions info (basic - can be enhanced)
+        let perms = PermissionsInfo::current()
+            .with_daemon_access(true)
+            .with_data_dir_ok(true);
+
+        // Update info
+        let update = UpdateInfo {
+            interval_s: self.update.check_interval_secs,
+            last_check_ts: self.update.last_check.map(|dt| dt.timestamp() as u64),
+            next_check_ts: self.update.next_check.map(|dt| dt.timestamp() as u64),
+            last_result: if self.update.update_available {
+                UpdateResult::UpdateAvailable {
+                    version: self.update.available_version.clone().unwrap_or_default(),
+                }
+            } else if self.update.last_check.is_some() {
+                UpdateResult::UpToDate
+            } else {
+                UpdateResult::NotChecked
+            },
+        };
+
+        // Helpers info
+        let helpers_registry = load_helpers();
+        let helpers = HelpersInfo::from_registry(&helpers_registry);
+
+        // Models info
+        let models = ModelsInfo {
+            ollama_present: self.ollama.installed,
+            ollama_running: self.ollama.running,
+            ollama_version: self.ollama.version.clone(),
+            roles: self.llm.models.iter().map(|m| RoleModelBinding {
+                team: Team::General,
+                role: SpecialistRole::Junior,
+                model_name: m.name.clone(),
+                model_present: m.pulled,
+            }).collect(),
+            downloads: Vec::new(),
+        };
+
+        // Config info
+        let config = ConfigInfo {
+            debug_mode: self.config.debug_mode(),
+            repl_clean_mode: !self.config.debug_mode(),
+            autonomy_level: 0, // Conservative default
+        };
+
+        StatusSnapshot {
+            captured_at_ts,
+            versions,
+            daemon,
+            perms,
+            update,
+            helpers,
+            models,
+            config,
+        }
     }
 }
 
