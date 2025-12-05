@@ -4,37 +4,43 @@
 - Keep all files under 400 lines. Modularization and scalability is key.
 
 ## Release Workflow - CRITICAL - DO NOT SKIP ANY STEP!!!
-After completing any implementation work:
+After completing any implementation work, run ALL these steps:
 
-1. **Update VERSION file** - Bump version when making releases
-2. **Update CHANGELOG.md** - Document changes in the changelog
-3. **Run tests** - `cargo test --workspace`
-4. **Commit and push** - `git add -A && git commit && git push origin main`
-5. **Create and push tag** - `git tag v0.0.XX && git push origin v0.0.XX`
-6. **CREATE GITHUB RELEASE** - `gh release create v0.0.XX --title "v0.0.XX" --notes "description"`
-
-⚠️ **STEP 6 IS MANDATORY** - Anna auto-update checks GitHub RELEASES, not just tags!
-Without `gh release create`, users will NOT receive the update!
-
-### Quick Release Checklist
+### Quick Release Checklist (COPY-PASTE THIS EVERY TIME)
 ```bash
-# 1. Verify tests pass
+# 1. Update version in Cargo.toml
+# Edit Cargo.toml: version = "0.0.XX"
+
+# 2. Update CHANGELOG.md with changes
+
+# 3. Run tests
 cargo test --workspace
 
-# 2. Stage and commit changes
+# 4. Commit and push
 git add -A
 git commit -m "v0.0.XX: Description"
-
-# 3. Push to GitHub
 git push origin main
 
-# 4. Create and push tag
+# 5. Create and push tag
 git tag v0.0.XX
 git push origin v0.0.XX
 
-# 5. CREATE THE GITHUB RELEASE (THIS IS WHAT TRIGGERS AUTO-UPDATE!!!)
-gh release create v0.0.XX --title "v0.0.XX" --notes "Release notes here"
+# 6. Create GitHub release
+gh release create v0.0.XX --title "v0.0.XX" --notes "Release notes"
+
+# 7. BUILD RELEASE BINARIES
+cargo build --release --workspace
+
+# 8. PREPARE AND UPLOAD BINARIES (THIS IS WHAT AUTO-UPDATE NEEDS!!!)
+cp target/release/annactl annactl-linux-x86_64
+cp target/release/annad annad-linux-x86_64
+sha256sum annactl-linux-x86_64 annad-linux-x86_64 > SHA256SUMS
+gh release upload v0.0.XX annactl-linux-x86_64 annad-linux-x86_64 SHA256SUMS --clobber
+rm annactl-linux-x86_64 annad-linux-x86_64 SHA256SUMS
 ```
+
+⚠️ **STEPS 7-8 ARE MANDATORY** - Anna auto-update downloads binaries from GitHub releases!
+Without uploading `annactl-linux-x86_64`, `annad-linux-x86_64`, and `SHA256SUMS`, users will NOT receive the update!
 
 ## Project Structure
 - `crates/anna-shared/` - Shared types and utilities
