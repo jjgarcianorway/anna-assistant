@@ -33,9 +33,13 @@ pub struct LlmConfig {
     #[serde(default = "default_translator_timeout")]
     pub translator_timeout_secs: u64,
 
-    /// Specialist timeout in seconds
+    /// Specialist timeout in seconds (v0.0.30: reduced from 12 to 8 with fallback)
     #[serde(default = "default_specialist_timeout")]
     pub specialist_timeout_secs: u64,
+
+    /// Maximum specialist prompt size in bytes (v0.0.30: cap to prevent slow inference)
+    #[serde(default = "default_max_specialist_prompt")]
+    pub max_specialist_prompt_bytes: usize,
 
     /// Supervisor timeout in seconds
     #[serde(default = "default_supervisor_timeout")]
@@ -67,7 +71,11 @@ fn default_translator_timeout() -> u64 {
 }
 
 fn default_specialist_timeout() -> u64 {
-    12
+    8 // v0.0.30: reduced from 12 since we have deterministic fallback
+}
+
+fn default_max_specialist_prompt() -> usize {
+    16_384 // 16KB cap to prevent slow inference
 }
 
 fn default_supervisor_timeout() -> u64 {
@@ -90,6 +98,7 @@ impl Default for LlmConfig {
             supervisor_model: default_supervisor_model(),
             translator_timeout_secs: default_translator_timeout(),
             specialist_timeout_secs: default_specialist_timeout(),
+            max_specialist_prompt_bytes: default_max_specialist_prompt(),
             supervisor_timeout_secs: default_supervisor_timeout(),
             probe_timeout_secs: default_probe_timeout(),
             probes_total_timeout_secs: default_probes_total_timeout(),
@@ -323,7 +332,7 @@ translator_timeout_secs = 5
         assert_eq!(config.llm.translator_model, "custom:1b");
         assert_eq!(config.llm.specialist_model, "custom:7b");
         assert_eq!(config.llm.translator_timeout_secs, 5);
-        // Defaults for missing fields
-        assert_eq!(config.llm.specialist_timeout_secs, 12);
+        // Defaults for missing fields (v0.0.30: specialist timeout reduced to 8)
+        assert_eq!(config.llm.specialist_timeout_secs, 8);
     }
 }

@@ -180,6 +180,47 @@ pub enum TranscriptEventKind {
         issues_count: usize,
     },
 
+    // === Clarification events (v0.0.31) ===
+
+    /// Clarification question asked
+    ClarificationAsked {
+        /// Question ID
+        question_id: String,
+        /// The question prompt
+        prompt: String,
+        /// Available choices (if any)
+        choices: Vec<String>,
+        /// Reason clarification is needed
+        reason: String,
+    },
+    /// User provided clarification answer
+    ClarificationAnswered {
+        /// Question ID
+        question_id: String,
+        /// User's answer
+        answer: String,
+    },
+    /// Clarification verification result
+    ClarificationVerified {
+        /// Question ID
+        question_id: String,
+        /// Whether verification succeeded
+        verified: bool,
+        /// Verification source
+        source: String,
+        /// Alternative options (if verification failed)
+        alternatives: Vec<String>,
+    },
+    /// Fact stored from verified clarification
+    FactStored {
+        /// Fact key
+        key: String,
+        /// Fact value
+        value: String,
+        /// How the fact was verified
+        source: String,
+    },
+
     /// Unknown event kind (forward compatibility)
     /// Deserializes any unrecognized "type" value - old clients won't crash on new kinds.
     #[serde(other)]

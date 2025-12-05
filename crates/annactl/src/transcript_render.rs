@@ -207,6 +207,36 @@ fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
                     colors::CYAN, team, reviewer, colors::RESET, decision, issues_str);
                 last_actor = None;
             }
+            // Clarification events (v0.0.31)
+            TranscriptEventKind::ClarificationAsked { question_id: _, prompt, choices, reason } => {
+                println!("\n{}[clarify]{} {}", colors::WARN, colors::RESET, prompt);
+                if !choices.is_empty() {
+                    println!("{}  options: {}{}", colors::DIM, choices.join(", "), colors::RESET);
+                }
+                println!("{}  ({}){}", colors::DIM, reason, colors::RESET);
+                last_actor = None;
+            }
+            TranscriptEventKind::ClarificationAnswered { question_id: _, answer } => {
+                println!("{}[you]{} {}", colors::DIM, colors::RESET, answer);
+                last_actor = Some(Actor::You);
+            }
+            TranscriptEventKind::ClarificationVerified { question_id: _, verified, source, alternatives } => {
+                if *verified {
+                    println!("{}[verify]{} {}confirmed{} ({})",
+                        colors::DIM, colors::RESET, colors::OK, colors::RESET, source);
+                } else {
+                    println!("{}[verify]{} {}not found{} ({})",
+                        colors::DIM, colors::RESET, colors::WARN, colors::RESET, source);
+                    if !alternatives.is_empty() {
+                        println!("{}  alternatives: {}{}", colors::DIM, alternatives.join(", "), colors::RESET);
+                    }
+                }
+                last_actor = None;
+            }
+            TranscriptEventKind::FactStored { key, value, source } => {
+                println!("{}[fact]{} {} = {} (via {})", colors::DIM, colors::RESET, key, value, source);
+                last_actor = None;
+            }
             TranscriptEventKind::Unknown => {}
         }
     }

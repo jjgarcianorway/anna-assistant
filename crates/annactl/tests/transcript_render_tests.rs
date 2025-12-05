@@ -333,6 +333,10 @@ fn test_all_event_kinds_have_render_path() {
             TranscriptEventKind::RevisionApplied { .. } => "revision_applied",
             TranscriptEventKind::ReviewGateDecision { .. } => "review_gate_decision",
             TranscriptEventKind::TeamReview { .. } => "team_review",
+            TranscriptEventKind::ClarificationAsked { .. } => "clarification_asked",
+            TranscriptEventKind::ClarificationAnswered { .. } => "clarification_answered",
+            TranscriptEventKind::ClarificationVerified { .. } => "clarification_verified",
+            TranscriptEventKind::FactStored { .. } => "fact_stored",
             TranscriptEventKind::Unknown => "unknown",
         })
         .collect();

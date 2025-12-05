@@ -90,6 +90,15 @@ STRICT RULES:
 - confidence MUST be a decimal 0.0-1.0
 - Set clarification_question if query is ambiguous
 - Select 1-3 probes maximum
+
+IMPORTANT - Handle greetings and health queries:
+- IGNORE greetings (hello, hi, hey, good morning, emoticons like :) ;))
+- Focus on the actual question AFTER any greeting
+- "How is my computer?" = system health query = domain:system, probes:[memory_info,disk_usage,cpu_info]
+- "Any errors/problems?" = system health = domain:system, probes:[failed_services,system_logs,memory_info]
+- "Is everything ok?" = system health = domain:system, probes:[memory_info,disk_usage,failed_services]
+- These are NOT network queries even if phrased conversationally
+
 Output raw JSON only. No markdown. No explanation."#,
         PROBE_IDS.join(", ")
     )
@@ -247,6 +256,37 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
     warn!("Using fallback keyword translator");
     let q = query.to_lowercase();
 
+    // v0.0.30: Strip greetings before classification
+    let stripped = strip_greetings_for_fallback(&q);
+
+    // v0.0.30: Check for health/status queries FIRST (before domain classification)
+    let is_health_query = stripped.contains("how is my computer")
+        || stripped.contains("how's my computer")
+        || stripped.contains("how is the system")
+        || stripped.contains("any errors")
+        || stripped.contains("any problems")
+        || stripped.contains("problems so far")
+        || stripped.contains("what's wrong")
+        || stripped.contains("is everything ok")
+        || stripped.contains("check my system")
+        || stripped.contains("health")
+        || stripped.contains("summary")
+        || stripped.contains("status report")
+        || stripped.contains("overview")
+        || q.trim() == "status"
+        || q.trim() == "report";
+
+    if is_health_query {
+        return TranslatorTicket {
+            intent: QueryIntent::Question,
+            domain: SpecialistDomain::System,
+            entities: vec![],
+            needs_probes: vec!["memory_info".to_string(), "disk_usage".to_string(), "cpu_info".to_string(), "failed_services".to_string()],
+            clarification_question: None,
+            confidence: 0.8, // Higher confidence for health queries
+        };
+    }
+
     let domain = if q.contains("network") || q.contains("ip ") || q.contains("interface") || q.contains("dns") || q.contains("port") || q.contains("route") {
         SpecialistDomain::Network
     } else if q.contains("disk") || q.contains("storage") || q.contains("space") || q.contains("mount") || q.contains("partition") {
@@ -273,6 +313,17 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
     if q.contains("port") || q.contains("listen") { needs_probes.push("listening_ports".to_string()); }
 
     TranslatorTicket { intent, domain, entities: Vec::new(), needs_probes, clarification_question: None, confidence: 0.3 }
+}
+
+/// Strip greetings for fallback translator
+fn strip_greetings_for_fallback(q: &str) -> String {
+    let patterns = ["hello", "hi ", "hey ", "good morning", "good afternoon", "good evening",
+        "anna", ":)", ":(", ";)", ":d", ":p", "!", "?", "…", "..."];
+    let mut result = q.to_string();
+    for p in patterns {
+        result = result.replace(p, " ");
+    }
+    result.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// Maximum allowed translator payload size (8KB)

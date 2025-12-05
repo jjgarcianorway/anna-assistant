@@ -401,6 +401,23 @@ async fn try_specialist_llm(
         format!("{}\n\nUser: {}", prompt_result.prompt, query)
     };
 
+    // v0.0.30: Enforce prompt size cap - skip to fallback if prompt too large
+    if full_prompt.len() > config.max_specialist_prompt_bytes {
+        warn!("Specialist prompt exceeds cap ({}B > {}B), using fallback",
+            full_prompt.len(), config.max_specialist_prompt_bytes);
+        progress.skip_stage_deterministic(RequestStage::Specialist);
+        let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
+        let route_class = det.as_ref().map(|d| d.route_class.clone());
+        return SpecialistResult {
+            answer: ans,
+            used_deterministic: used_det,
+            det_result: det,
+            prompt_truncated: true,
+            outcome: SpecialistOutcome::BudgetExceeded,
+            fallback_route_class: route_class,
+        };
+    }
+
     let (answer, used_deterministic, det_result, outcome, fallback_route_class) = match timeout(
         Duration::from_secs(config.specialist_timeout_secs),
         ollama::chat_with_timeout(model, &full_prompt, config.specialist_timeout_secs),
@@ -442,19 +459,36 @@ async fn try_specialist_llm(
 }
 
 /// Try deterministic fallback after LLM failure
+/// v0.0.30: Now uses best-effort summary from evidence when query-based fallback fails
 fn try_deterministic_fallback(
     query: &str, context: &anna_shared::rpc::RuntimeContext,
     probe_results: &[ProbeResult], progress: &mut ProgressTracker,
 ) -> (String, bool, Option<DeterministicResult>) {
+    // First try query-based deterministic answer
     match deterministic::try_answer(query, context, probe_results) {
         Some(det) if det.parsed_data_count > 0 => {
             info!("Deterministic fallback produced answer");
             progress.add_specialist_message("[deterministic fallback]");
-            (det.answer.clone(), true, Some(det))
+            return (det.answer.clone(), true, Some(det));
         }
-        Some(det) => { warn!("Deterministic fallback produced empty result"); (String::new(), true, Some(det)) }
-        None => { warn!("Deterministic fallback could not produce answer"); (String::new(), true, None) }
+        _ => {}
     }
+
+    // v0.0.30: If query-based fallback fails, try best-effort summary from evidence
+    if let Some((answer, parsed_count)) = crate::answers::generate_best_effort_summary(probe_results) {
+        info!("Best-effort summary produced from {} evidence pieces", parsed_count);
+        progress.add_specialist_message("[best-effort fallback]");
+        let det = DeterministicResult {
+            answer: answer.clone(),
+            grounded: true,
+            parsed_data_count: parsed_count,
+            route_class: "best_effort".to_string(),
+        };
+        return (answer, true, Some(det));
+    }
+
+    warn!("No fallback could produce answer from available evidence");
+    (String::new(), true, None)
 }
 
 /// Save progress events to state for polling

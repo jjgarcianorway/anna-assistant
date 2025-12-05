@@ -29,3 +29,4 @@ pub mod ticket_service;
 pub mod translator;
 pub mod triage;
 pub mod update;
+pub mod verify_probes;

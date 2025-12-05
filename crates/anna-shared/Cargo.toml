@@ -11,6 +11,7 @@ thiserror.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 regex.workspace = true
+dirs = "5.0"
 
 [dev-dependencies]
 tempfile = "3.10"

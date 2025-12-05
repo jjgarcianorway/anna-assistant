@@ -25,6 +25,8 @@ pub enum RecipeKind {
     ConfigEditLineAppend,
     /// Ensure a specific line exists in config file
     ConfigEnsureLine,
+    /// Clarification template (v0.0.31) - learned pattern of what to ask
+    ClarificationTemplate,
     /// Install a package (future)
     #[serde(other)]
     Unknown,
@@ -39,26 +41,18 @@ impl Default for RecipeKind {
 /// Target for a recipe action (v0.0.27)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecipeTarget {
-    /// Application identifier (e.g., "vim", "nano", "bash")
     pub app_id: String,
-    /// Config path template (e.g., "$HOME/.vimrc")
     pub config_path_template: String,
 }
 
 impl RecipeTarget {
     pub fn new(app_id: impl Into<String>, config_path: impl Into<String>) -> Self {
-        Self {
-            app_id: app_id.into(),
-            config_path_template: config_path.into(),
-        }
+        Self { app_id: app_id.into(), config_path_template: config_path.into() }
     }
-
     /// Expand config path template with environment variables
     pub fn expand_path(&self) -> PathBuf {
-        let expanded = self.config_path_template
-            .replace("$HOME", &std::env::var("HOME").unwrap_or_else(|_| ".".to_string()))
-            .replace("~", &std::env::var("HOME").unwrap_or_else(|_| ".".to_string()));
-        PathBuf::from(expanded)
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        PathBuf::from(self.config_path_template.replace("$HOME", &home).replace("~", &home))
     }
 }
 
@@ -83,55 +77,31 @@ impl Default for RecipeAction {
 /// Rollback information for reversible changes (v0.0.27)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RollbackInfo {
-    /// Path to the backup file
     pub backup_path: PathBuf,
-    /// Description of how to rollback
     pub description: String,
-    /// Whether rollback has been tested
     #[serde(default)]
     pub tested: bool,
 }
 
 impl RollbackInfo {
     pub fn new(backup_path: PathBuf, description: impl Into<String>) -> Self {
-        Self {
-            backup_path,
-            description: description.into(),
-            tested: false,
-        }
+        Self { backup_path, description: description.into(), tested: false }
     }
 }
 
 /// Signature that uniquely identifies a query pattern.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RecipeSignature {
-    /// Domain (e.g., "system", "network", "storage")
     pub domain: String,
-    /// Intent (e.g., "question", "investigate", "request")
     pub intent: String,
-    /// Route class from classifier
     pub route_class: String,
-    /// Normalized query pattern (lowercase, trimmed)
     pub query_pattern: String,
 }
 
 impl RecipeSignature {
-    /// Create a new recipe signature
-    pub fn new(
-        domain: impl Into<String>,
-        intent: impl Into<String>,
-        route_class: impl Into<String>,
-        query: &str,
-    ) -> Self {
-        Self {
-            domain: domain.into(),
-            intent: intent.into(),
-            route_class: route_class.into(),
-            query_pattern: normalize_query(query),
-        }
+    pub fn new(domain: impl Into<String>, intent: impl Into<String>, route_class: impl Into<String>, query: &str) -> Self {
+        Self { domain: domain.into(), intent: intent.into(), route_class: route_class.into(), query_pattern: query.to_lowercase().trim().to_string() }
     }
-
-    /// Compute a deterministic hash of this signature
     pub fn hash_id(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
@@ -139,49 +109,69 @@ impl RecipeSignature {
     }
 }
 
-/// Normalize query for pattern matching
-fn normalize_query(query: &str) -> String {
-    query.to_lowercase().trim().to_string()
-}
-
 /// A learned recipe from a successful ticket resolution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Recipe {
-    /// Unique recipe ID (hash of signature + team)
     pub id: String,
-    /// Query signature this recipe applies to
     pub signature: RecipeSignature,
-    /// Team that handled this successfully
     pub team: Team,
-    /// Risk level of the original request
     pub risk_level: RiskLevel,
-    /// Evidence kinds required for this pattern
     pub required_evidence_kinds: Vec<EvidenceKind>,
-    /// Probe sequence that worked
     pub probe_sequence: Vec<String>,
-    /// Answer template (with placeholders for evidence)
     #[serde(default)]
     pub answer_template: String,
-    /// Unix timestamp when created
     pub created_at: u64,
-    /// Number of successful uses
     #[serde(default)]
     pub success_count: u32,
-    /// Reliability score when created
     pub reliability_score: u8,
-    // v0.0.27 fields
-    /// Kind of recipe (Query, ConfigEnsureLine, etc.)
     #[serde(default)]
     pub kind: RecipeKind,
-    /// Target for config edit recipes
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<RecipeTarget>,
-    /// Action to perform
     #[serde(default)]
     pub action: RecipeAction,
-    /// Rollback information for reversible changes
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rollback: Option<RollbackInfo>,
+    // v0.0.31 clarification template fields
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clarification_slots: Vec<RecipeSlot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_question_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub populates_facts: Vec<String>,
+}
+
+/// Slot definition for clarification template recipes (v0.0.31)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecipeSlot {
+    /// Slot name (e.g., "editor_name", "config_path")
+    pub name: String,
+    /// Question ID to use
+    pub question_id: String,
+    /// Whether this slot is required
+    #[serde(default = "default_true")]
+    pub required: bool,
+    /// Verification type (e.g., "binary", "unit", "mount")
+    #[serde(default)]
+    pub verify_type: String,
+}
+
+fn default_true() -> bool { true }
+
+impl RecipeSlot {
+    pub fn new(name: &str, question_id: &str) -> Self {
+        Self { name: name.to_string(), question_id: question_id.to_string(), required: true, verify_type: String::new() }
+    }
+
+    pub fn with_verify(mut self, verify_type: &str) -> Self {
+        self.verify_type = verify_type.to_string();
+        self
+    }
+
+    pub fn optional(mut self) -> Self {
+        self.required = false;
+        self
+    }
 }
 
 impl Recipe {
@@ -216,6 +206,9 @@ impl Recipe {
             target: None,
             action: RecipeAction::None,
             rollback: None,
+            clarification_slots: Vec::new(),
+            default_question_id: None,
+            populates_facts: Vec::new(),
         }
     }
 
@@ -254,6 +247,46 @@ impl Recipe {
             target: Some(target),
             action,
             rollback: None,
+            clarification_slots: Vec::new(),
+            default_question_id: None,
+            populates_facts: Vec::new(),
+        }
+    }
+
+    /// Create a clarification template recipe (v0.0.31)
+    /// Stores a learned pattern for what clarifications to ask for an intent
+    pub fn clarification_template(
+        signature: RecipeSignature,
+        team: Team,
+        slots: Vec<RecipeSlot>,
+        default_question: Option<String>,
+        populates: Vec<String>,
+        reliability_score: u8,
+    ) -> Self {
+        let id = compute_recipe_id(&signature, team);
+        let created_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        Self {
+            id,
+            signature,
+            team,
+            risk_level: RiskLevel::ReadOnly,
+            required_evidence_kinds: vec![],
+            probe_sequence: vec![],
+            answer_template: String::new(),
+            created_at,
+            success_count: 1,
+            reliability_score,
+            kind: RecipeKind::ClarificationTemplate,
+            target: None,
+            action: RecipeAction::None,
+            rollback: None,
+            clarification_slots: slots,
+            default_question_id: default_question,
+            populates_facts: populates,
         }
     }
 
@@ -279,6 +312,16 @@ impl Recipe {
             self.kind,
             RecipeKind::ConfigEnsureLine | RecipeKind::ConfigEditLineAppend
         )
+    }
+
+    /// Check if this is a clarification template recipe (v0.0.31)
+    pub fn is_clarification_template(&self) -> bool {
+        matches!(self.kind, RecipeKind::ClarificationTemplate)
+    }
+
+    /// Get clarification slots if this is a template
+    pub fn get_clarification_slots(&self) -> &[RecipeSlot] {
+        &self.clarification_slots
     }
 
     /// Get filesystem path for this recipe

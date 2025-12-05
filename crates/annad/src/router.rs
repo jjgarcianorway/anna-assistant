@@ -103,21 +103,60 @@ pub struct DeterministicRoute {
     pub can_answer_deterministically: bool,
 }
 
+/// Strip common greetings from query for better classification
+fn strip_greetings(query: &str) -> String {
+    let q = query.to_lowercase();
+    // Remove common greetings and emoticons
+    let patterns = [
+        "hello", "hi ", "hey ", "good morning", "good afternoon", "good evening",
+        "anna", ":)", ":(", ";)", ":d", ":p", "!", "?", "…", "...",
+    ];
+    let mut result = q;
+    for p in patterns {
+        result = result.replace(p, " ");
+    }
+    // Collapse multiple spaces
+    result.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// Classify query to a known class
 pub fn classify_query(query: &str) -> QueryClass {
     let q = query.to_lowercase();
+    let stripped = strip_greetings(query);
 
     // Help request (check first as it's specific)
     if q.trim() == "help" || q.contains("what can you do") || q.contains("how do i use") {
         return QueryClass::Help;
     }
 
-    // System health summary (multi-probe overview)
+    // System health summary (multi-probe overview) - v0.0.30: expanded patterns
+    // Catches "how is my computer", "any errors", "problems so far", etc.
     if q.contains("health")
         || q.contains("summary")
         || q.contains("status report")
         || q.contains("overview")
         || q.contains("system status")
+        // New patterns for v0.0.30 hotfix
+        || stripped.contains("how is my computer")
+        || stripped.contains("how's my computer")
+        || stripped.contains("how is the system")
+        || stripped.contains("how's the system")
+        || stripped.contains("any errors")
+        || stripped.contains("any problems")
+        || stripped.contains("problems so far")
+        || stripped.contains("errors so far")
+        || stripped.contains("what's wrong")
+        || stripped.contains("whats wrong")
+        || stripped.contains("is everything ok")
+        || stripped.contains("is everything okay")
+        || stripped.contains("check my system")
+        || stripped.contains("check the system")
+        || stripped.contains("system check")
+        || stripped.contains("how am i doing")
+        || stripped.contains("how are things")
+        || stripped.contains("computer doing")
+        || q.trim() == "status"
+        || q.trim() == "report"
     {
         return QueryClass::SystemHealthSummary;
     }

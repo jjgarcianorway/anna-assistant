@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.31] - 2025-12-05
+
+### Added
+- **Facts Store (Phase 1)**: Persistent store for verified user/system facts
+  - `facts.rs` module with FactKey enum for typed fact identification
+  - `Fact` struct with key, value, verified flag, source, and timestamp
+  - `FactsStore` with save/load, deterministic JSON serialization
+  - Facts persisted to `~/.anna/facts.json` only when verified
+  - `FactStatus` enum: Known, Unknown, Stale for fact querying
+
+- **Intake with Verification Plans (Phase 2)**: Clarification questions with verification
+  - `intake.rs` module for query analysis and clarification planning
+  - `VerifyPlan` enum: BinaryExists, UnitExists, MountExists, InterfaceExists, etc.
+  - `ClarificationQuestion` with question ID, prompt, choices, verify plan
+  - `IntakeResult` for intake analysis with clarifications and facts used
+  - `ClarificationSlot` enum: EditorName, ConfigPath, NetworkInterface, etc.
+  - `analyze_intake()` checks known facts before asking clarifications
+
+- **Verification Probes (Phase 3)**: Safe probes for clarification verification
+  - `verify_probes.rs` module with safe read-only verification commands
+  - `run_verify_probe()` executes verification based on VerifyPlan
+  - `verify_and_store()` verifies and stores fact if valid
+  - `VerificationResult` with verified flag, value, alternatives
+
+- **Clarification Ticket States (Phase 4)**: Ticket pause/resume for clarification
+  - `AwaitingClarification` and `VerifyingClarification` ticket statuses
+  - Clarification fields in Ticket: pending_clarification_id, answer, rounds
+  - `set_pending_clarification()`, `set_clarification_answer()`, `complete_clarification()`
+  - Transcript events: ClarificationAsked, ClarificationAnswered, ClarificationVerified, FactStored
+
+- **Clarification Templates (Phase 5)**: Learned clarification patterns in recipes
+  - `RecipeKind::ClarificationTemplate` for storing learned patterns
+  - `RecipeSlot` struct with name, question_id, required, verify_type
+  - `Recipe::clarification_template()` constructor for template recipes
+  - Templates store which clarifications to ask for an intent
+
+### Changed
+- Recipe now includes clarification_slots, default_question_id, populates_facts fields
+- Transcript renderer handles new clarification events in debug mode
+- Test coverage updated for new event types
+
+### Technical
+- All tests passing
+- Files remain under 400 lines
+- No breaking CLI changes
+
+## [0.0.30] - 2025-12-05
+
+### Fixed
+- **Specialist Timeout Fallback (Phase 1-2)**: Fixed "specialist TIMEOUT → useless rephrase" failure mode
+  - Health/status queries ("how is my computer", "any errors") now route deterministically before translator
+  - Added `strip_greetings()` to ignore "hello", "hi anna", emoticons in query classification
+  - Expanded `SystemHealthSummary` patterns to catch conversational health queries
+  - `generate_best_effort_summary()` produces useful answers from any available probe evidence
+  - When specialist times out but evidence exists, returns parsed summary instead of rephrase request
+
+- **Translator Hardening (Phase 3)**: Prevent greeting + health query misrouting
+  - Updated translator prompt with explicit instructions to ignore greetings
+  - Added health query examples to guide correct classification (system domain, not network)
+  - `translate_fallback()` now detects health queries before domain classification
+  - Health fallback returns comprehensive probe set: memory_info, disk_usage, cpu_info, failed_services
+
+### Added
+- **Latency Guardrails (Phase 4)**: Protect against slow specialist responses
+  - `max_specialist_prompt_bytes` config option (default 16KB) caps prompt size
+  - Prompts exceeding cap skip to deterministic fallback immediately
+  - Reduced default specialist timeout from 12s to 8s (deterministic fallback handles gaps)
+  - Early budget enforcement prevents wasted time on oversized prompts
+
+### Changed
+- Default `specialist_timeout_secs` reduced from 12 to 8 (fallback covers timeouts reliably)
+- New config option: `llm.max_specialist_prompt_bytes` (default 16384)
+- Router patterns expanded for health/status queries
+- Translator fallback now health-query-aware
+
+### Technical
+- All tests passing
+- Files remain under 400 lines
+- No breaking API changes
+
 ## [0.0.29] - 2025-12-05
 
 ### Added
