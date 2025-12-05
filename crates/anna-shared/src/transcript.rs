@@ -41,6 +41,7 @@ pub enum StageOutcome {
     Timeout,
     Error,
     Skipped,
+    Deterministic, // Used when deterministic router answered
 }
 
 impl std::fmt::Display for StageOutcome {
@@ -50,6 +51,7 @@ impl std::fmt::Display for StageOutcome {
             Self::Timeout => write!(f, "timeout"),
             Self::Error => write!(f, "error"),
             Self::Skipped => write!(f, "skipped"),
+            Self::Deterministic => write!(f, "deterministic"),
         }
     }
 }
@@ -308,5 +310,6 @@ mod tests {
         assert_eq!(format!("{}", StageOutcome::Timeout), "timeout");
         assert_eq!(format!("{}", StageOutcome::Error), "error");
         assert_eq!(format!("{}", StageOutcome::Skipped), "skipped");
+        assert_eq!(format!("{}", StageOutcome::Deterministic), "deterministic");
     }
 }

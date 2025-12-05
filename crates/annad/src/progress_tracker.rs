@@ -80,6 +80,17 @@ impl ProgressTracker {
         self.current_stage = None;
     }
 
+    /// Mark stage as skipped because deterministic router answered
+    pub fn skip_stage_deterministic(&mut self, stage: RequestStage) {
+        let stage_name = format!("{:?}", stage).to_lowercase();
+        self.transcript.push(TranscriptEvent::stage_end(
+            self.elapsed_ms(),
+            stage_name,
+            StageOutcome::Deterministic,
+        ));
+        self.current_stage = None;
+    }
+
     pub fn add_user_message(&mut self, text: &str) {
         self.transcript.push(TranscriptEvent::message(
             self.elapsed_ms(),

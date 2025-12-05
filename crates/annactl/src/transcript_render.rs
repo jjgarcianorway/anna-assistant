@@ -87,6 +87,7 @@ fn render_debug(result: &ServiceDeskResult) {
     println!();
 
     let mut last_actor: Option<Actor> = None;
+    let mut anna_answer_printed = false;
 
     for event in &result.transcript.events {
         match &event.kind {
@@ -103,6 +104,10 @@ fn render_debug(result: &ServiceDeskResult) {
                     if !line.trim().is_empty() {
                         println!("{}", line);
                     }
+                }
+                // Track if we printed Anna's answer
+                if *actor == Actor::Anna {
+                    anna_answer_printed = true;
                 }
             }
             TranscriptEventKind::StageStart { stage } => {
@@ -159,17 +164,19 @@ fn render_debug(result: &ServiceDeskResult) {
         }
     }
 
-    // Ensure final [anna] block with answer
-    println!();
-    println!("{}[anna]{}", colors::OK, colors::RESET);
-    if result.needs_clarification {
-        if let Some(q) = &result.clarification_question {
-            println!("{}", q);
+    // Only print final [anna] block if we haven't already printed it
+    if !anna_answer_printed {
+        println!();
+        println!("{}[anna]{}", colors::OK, colors::RESET);
+        if result.needs_clarification {
+            if let Some(q) = &result.clarification_question {
+                println!("{}", q);
+            }
+        } else if !result.answer.is_empty() {
+            println!("{}", result.answer);
+        } else {
+            println!("(no answer generated)");
         }
-    } else if !result.answer.is_empty() {
-        println!("{}", result.answer);
-    } else {
-        println!("(no answer generated)");
     }
 
     // Summary block
@@ -225,6 +232,7 @@ fn format_outcome(outcome: &StageOutcome) -> String {
         StageOutcome::Timeout => format!("{}TIMEOUT{}", colors::ERR, colors::RESET),
         StageOutcome::Error => format!("{}ERROR{}", colors::ERR, colors::RESET),
         StageOutcome::Skipped => format!("{}skipped{}", colors::WARN, colors::RESET),
+        StageOutcome::Deterministic => format!("{}skipped{} (deterministic)", colors::OK, colors::RESET),
     }
 }
 
@@ -277,5 +285,22 @@ mod tests {
     fn test_bool_symbol() {
         assert_eq!(bool_symbol(true), "✓");
         assert_eq!(bool_symbol(false), "✗");
+    }
+
+    #[test]
+    fn test_format_outcome_deterministic() {
+        let outcome = format_outcome(&StageOutcome::Deterministic);
+        assert!(outcome.contains("skipped"));
+        assert!(outcome.contains("deterministic"));
+    }
+
+    #[test]
+    fn test_format_outcome_all_variants() {
+        // Ensure all variants are handled (compile-time check)
+        let _ok = format_outcome(&StageOutcome::Ok);
+        let _timeout = format_outcome(&StageOutcome::Timeout);
+        let _error = format_outcome(&StageOutcome::Error);
+        let _skipped = format_outcome(&StageOutcome::Skipped);
+        let _det = format_outcome(&StageOutcome::Deterministic);
     }
 }

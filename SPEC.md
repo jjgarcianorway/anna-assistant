@@ -1,4 +1,4 @@
-# Anna Specification v0.0.17
+# Anna Specification v0.0.18
 
 This document is the authoritative specification for Anna. All implementation
 must conform to this spec. If code and spec conflict, update spec first, then code.
@@ -274,5 +274,5 @@ reliability 100% | domain system
 
 ## Version
 
-- Version: 0.0.17
-- Status: Verification docs, spec refresh, dead code cleanup
+- Version: 0.0.18
+- Status: UX hardening - fixed duplicate output, CLI help handling, deterministic stage display

@@ -15,8 +15,9 @@ use crate::commands::{handle_repl, handle_request, handle_reset, handle_status, 
 #[command(name = "annactl")]
 #[command(version = anna_shared::VERSION)]
 #[command(about = "Local AI assistant for Linux systems")]
+#[command(disable_help_subcommand = true)] // Prevent "help" from triggering clap help
 #[command(
-    after_help = "EXAMPLES:\n    annactl \"what processes are using the most memory?\"\n    annactl status\n    annactl  # Enter REPL mode"
+    after_help = "EXAMPLES:\n    annactl \"what processes are using the most memory?\"\n    annactl status\n    annactl  # Enter REPL mode\n    annactl help  # Ask Anna for help"
 )]
 struct Cli {
     #[command(subcommand)]

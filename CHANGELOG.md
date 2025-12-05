@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.18] - 2025-12-05
+
+### Fixed
+- **Duplicate `[anna]` block**: Debug mode no longer prints final answer twice
+  - Transcript renderer tracks if Anna's answer was already printed in event stream
+  - Only prints fallback `[anna]` block if no Anna message was rendered
+- **CLI `help` command conflict**: `annactl help` now sends "help" as a request to Anna
+  - Disabled clap's implicit help subcommand (`disable_help_subcommand = true`)
+  - `annactl --help` still shows CLI usage
+- **Misleading specialist output**: Deterministic path shows correct stage status
+  - New `StageOutcome::Deterministic` variant
+  - Shows `[specialist] skipped (deterministic)` instead of `ok`
+
+### Added
+- CLI integration tests for argument parsing regressions
+- `ProgressTracker::skip_stage_deterministic()` for cleaner stage handling
+
 ## [0.0.17] - 2025-12-05
 
 ### Added
@@ -412,7 +429,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.17...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.18...HEAD
+[0.0.18]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.17...v0.0.18
 [0.0.17]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.16...v0.0.17
 [0.0.16]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.14...v0.0.15

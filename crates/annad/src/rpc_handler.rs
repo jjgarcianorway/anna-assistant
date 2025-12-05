@@ -177,9 +177,8 @@ async fn handle_llm_request_inner(
         if let Some(det) = deterministic::try_answer(query, &context, &probe_results) {
             if det.parsed_data_count > 0 {
                 info!("Deterministic answer produced ({} entries)", det.parsed_data_count);
-                progress.start_stage(RequestStage::Specialist, 0);
-                progress.complete_stage(RequestStage::Specialist);
-                progress.add_specialist_message("[deterministic]");
+                // Skip specialist stage - deterministic router answered
+                progress.skip_stage_deterministic(RequestStage::Specialist);
                 (det.answer.clone(), true, Some(det))
             } else {
                 warn!("Deterministic parser produced empty result");
