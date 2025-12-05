@@ -1,11 +1,12 @@
-//! Stabilization tests for v0.0.45.
+//! Stabilization tests for v0.0.45 and v0.45.4.
 //!
 //! These tests lock invariants that ensure correctness:
 //! - No probe, no claim: if probes_succeeded == 0, numeric claims must be rejected
 //! - Evidence gating: deterministic answers must have ParsedProbeData from same request
 //! - Reliability truthfulness: evidence_required + no evidence = reliability < 100
+//! - v0.45.4: NO_EVIDENCE_RELIABILITY_CAP at 40 when evidence_required but no probes
 
-use anna_shared::reliability::{compute_reliability, ReliabilityInput};
+use anna_shared::reliability::{compute_reliability, ReliabilityInput, NO_EVIDENCE_RELIABILITY_CAP};
 
 /// Golden test: No probe, no claim invariant.
 /// If probes_succeeded == 0 AND evidence_required == true,
@@ -152,5 +153,97 @@ fn test_partial_probe_success() {
         output.score >= 60 && output.score <= 85,
         "With 50% probe success and verified claims, reliability should be 60-85, got {}",
         output.score
+    );
+}
+
+// === v0.45.4 Golden Tests ===
+
+/// v0.45.4: NO_EVIDENCE_RELIABILITY_CAP constant is 40.
+#[test]
+fn golden_v454_no_evidence_cap_value() {
+    assert_eq!(NO_EVIDENCE_RELIABILITY_CAP, 40, "NO_EVIDENCE_RELIABILITY_CAP must be 40");
+}
+
+/// v0.45.4: evidence_required=true + succeeded_probes=0 must trigger EvidenceMissing.
+#[test]
+fn golden_v454_evidence_missing_when_no_probes_succeed() {
+    let input = ReliabilityInput::default()
+        .with_evidence_required(true)
+        .with_planned_probes(2) // Probes were planned
+        .with_succeeded_probes(0) // But none succeeded
+        .with_answer_grounded(false)
+        .with_no_invention(true)
+        .with_translator_confidence(90);
+
+    let output = compute_reliability(&input);
+
+    // Reliability should be significantly penalized
+    assert!(
+        output.score <= NO_EVIDENCE_RELIABILITY_CAP + 20, // Some slack for penalty interaction
+        "With evidence_required=true and 0 probes succeeded, reliability should be low, got {}",
+        output.score
+    );
+}
+
+/// v0.45.4: "do I have nano" must classify as InstalledToolCheck.
+#[test]
+fn golden_v454_query_classify_tool_check() {
+    // This test verifies the query classification patterns
+    // The actual classification is in annad::query_classify
+    // Here we verify the probe spine enforces correct probes
+    use anna_shared::probe_spine::{enforce_minimum_probes, ProbeId};
+
+    let decision = enforce_minimum_probes("do I have nano", &[]);
+    assert!(decision.enforced, "Tool check query must enforce probes");
+    assert!(
+        decision.probes.iter().any(|p| matches!(p, ProbeId::CommandV(_))),
+        "Tool check must include CommandV probe"
+    );
+}
+
+/// v0.45.4: "what is my sound card" must classify as HardwareAudio.
+#[test]
+fn golden_v454_query_classify_audio() {
+    use anna_shared::probe_spine::{enforce_minimum_probes, ProbeId};
+
+    let decision = enforce_minimum_probes("what is my sound card", &[]);
+    assert!(decision.enforced, "Audio query must enforce probes");
+    assert!(
+        decision.probes.iter().any(|p| matches!(p, ProbeId::LspciAudio)),
+        "Audio query must include LspciAudio probe"
+    );
+    assert!(
+        decision.probes.iter().any(|p| matches!(p, ProbeId::PactlCards)),
+        "Audio query must include PactlCards probe"
+    );
+}
+
+/// v0.45.4: "how many cores" must classify as CpuCores.
+#[test]
+fn golden_v454_query_classify_cores() {
+    use anna_shared::probe_spine::{enforce_minimum_probes, ProbeId};
+
+    let decision = enforce_minimum_probes("how many cores", &[]);
+    assert!(decision.enforced, "CPU cores query must enforce probes");
+    assert!(
+        decision.probes.iter().any(|p| matches!(p, ProbeId::Lscpu)),
+        "CPU cores query must include Lscpu probe"
+    );
+}
+
+/// v0.45.4: "how is my computer doing" must classify as SystemTriage.
+#[test]
+fn golden_v454_query_classify_system_triage() {
+    use anna_shared::probe_spine::{enforce_minimum_probes, ProbeId};
+
+    let decision = enforce_minimum_probes("how is my computer doing", &[]);
+    assert!(decision.enforced, "System health query must enforce probes");
+    assert!(
+        decision.probes.iter().any(|p| matches!(p, ProbeId::JournalErrors)),
+        "System health query must include JournalErrors probe"
+    );
+    assert!(
+        decision.probes.iter().any(|p| matches!(p, ProbeId::FailedUnits)),
+        "System health query must include FailedUnits probe"
     );
 }

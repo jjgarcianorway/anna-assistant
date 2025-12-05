@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.49] - 2025-12-05
+
+### Added - v0.45.4 Truth Enforcement
+
+- **No Evidence, No Claims Rule** (`rpc_handler.rs`):
+  - Evidence enforcement check: if `evidence_required=true` AND `probe_stats.succeeded==0`, returns deterministic failure
+  - `create_no_evidence_response()` in `service_desk.rs` for clear failure message
+  - `NO_EVIDENCE_RELIABILITY_CAP` constant (40) in `reliability.rs`
+
+- **Extended Evidence Detection** (`trace.rs`):
+  - `EvidenceKind` enum extended with: CpuTemperature, Audio, Network, Processes, Packages, ToolExists, BootTime, System
+  - `evidence_kinds_from_probes()` now detects sensors, pactl, ip addr, ps aux, pacman, command -v, systemd-analyze, uname
+
+- **Improved Journal Parser** (`parsers/journalctl.rs`):
+  - `parse_journalctl_json()` function for JSON format parsing
+  - Proper SYSLOG_IDENTIFIER attribution (priority: SYSLOG_IDENTIFIER > _SYSTEMD_UNIT > _COMM > "unattributed")
+  - Auto-detect JSON vs text format in `parse_journalctl_priority()`
+  - Probe commands updated to use `-o json` format
+
+- **Enhanced Probe Commands** (`probe_spine.rs`):
+  - `CommandV` probe now uses `sh -lc 'command -v <name>'` for login shell PATH
+  - HardwareAudio route includes both LspciAudio and PactlCards probes
+
+- **Query Classification** (`query_classify.rs`):
+  - Generic tool check pattern: any "do I have <word>" triggers InstalledToolCheck
+  - Added "have I got" and "do you have" patterns
+
+### Changed
+
+- **Step Numbering** (`rpc_handler.rs`):
+  - New Step 5 for evidence enforcement, subsequent steps renumbered
+
+### Tests
+
+- **v0.45.4 Golden Tests** (`stabilization_tests.rs`):
+  - `golden_v454_no_evidence_cap_value`: NO_EVIDENCE_RELIABILITY_CAP == 40
+  - `golden_v454_evidence_missing_when_no_probes_succeed`: reliability penalized
+  - `golden_v454_query_classify_tool_check`: "do I have nano" enforces CommandV
+  - `golden_v454_query_classify_audio`: "sound card" enforces LspciAudio + PactlCards
+  - `golden_v454_query_classify_cores`: "how many cores" enforces Lscpu
+  - `golden_v454_query_classify_system_triage`: "how is my computer doing" enforces journal probes
+
+- **Journal JSON Tests** (`parsers/journalctl.rs`):
+  - JSON parsing with SYSLOG_IDENTIFIER
+  - Fallback to _SYSTEMD_UNIT
+  - Unattributed entries
+  - Auto-detect JSON format
+
 ## [0.0.48] - 2025-12-05
 
 ### Added - v0.45.3 Smart Clarifications & Minimal Probes

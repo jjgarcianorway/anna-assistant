@@ -83,16 +83,18 @@ pub fn classify_query(query: &str) -> QueryClass {
 
     // === ROUTE Phase: Typed query classes (check specific patterns first) ===
 
-    // v0.0.45: InstalledToolCheck - "do I have nano", "is vim installed"
+    // v0.45.4: InstalledToolCheck - "do I have nano", "is vim installed", "have I got firefox"
     // Check BEFORE ServiceStatus to avoid "is X running" collision
     // Exclude hardware queries (cpu, ram, memory, gpu, disk)
+    // Generic pattern: any "do I have <word>" is a tool check
     let is_hardware_query = q.contains("cpu") || q.contains("ram") || q.contains("memory")
         || q.contains("gpu") || q.contains("disk") || q.contains("core");
-    if !is_hardware_query && (
-        (q.contains("do i have") && (q.contains("nano") || q.contains("vim") || q.contains("git") || q.contains("emacs")))
+    let is_tool_check_query = q.contains("do i have")
+        || q.contains("do you have")
+        || q.contains("have i got")
         || (q.contains("is") && q.contains("installed"))
-        || (q.contains("have") && q.contains("installed"))
-    ) {
+        || (q.contains("have") && q.contains("installed"));
+    if !is_hardware_query && is_tool_check_query {
         return QueryClass::InstalledToolCheck;
     }
 

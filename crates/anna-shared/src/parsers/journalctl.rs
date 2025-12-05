@@ -1,20 +1,22 @@
 //! Journal log parsers for SystemTriage fast path.
 //!
 //! v0.0.35: Deterministic parsing of journalctl and systemd-analyze output.
+//! v0.45.4: Proper SYSLOG_IDENTIFIER attribution via JSON output.
 //! All grouping and ordering is stable across runs.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// A top entry from journal logs grouped by unit/source
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JournalTopItem {
-    /// Grouping key (unit name or source identifier)
+    /// Grouping key (SYSLOG_IDENTIFIER, _SYSTEMD_UNIT, or "unattributed")
     pub key: String,
     /// Count of occurrences
     pub count: u32,
 }
 
-/// Parsed journal summary with deterministic grouping
+/// Parsed journal summary with deterministic grouping (v0.45.4: proper attribution)
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JournalSummary {
     /// Total count of log entries
@@ -36,15 +38,90 @@ pub struct BootTimeInfo {
     pub total_ms: Option<u64>,
 }
 
-/// Parse journalctl output with priority filter.
+/// Parse journalctl JSON output with proper SYSLOG_IDENTIFIER attribution (v0.45.4).
 ///
-/// Extracts grouping key from each line using these rules:
-/// 1. Use "UNIT:" prefix if present (e.g., "systemd[1]" -> "systemd")
-/// 2. Else use first token before ":" as key
-/// 3. Else "unknown"
+/// Extracts grouping key using these rules (priority order):
+/// 1. SYSLOG_IDENTIFIER field (e.g., "systemd", "kernel", "nginx")
+/// 2. _SYSTEMD_UNIT field (e.g., "nginx.service")
+/// 3. _COMM field (command name)
+/// 4. "unattributed"
 ///
 /// Output is sorted by count descending, then key ascending for determinism.
+pub fn parse_journalctl_json(output: &str) -> JournalSummary {
+    use std::collections::HashMap;
+    let mut by_key: HashMap<String, u32> = HashMap::new();
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        // Try to parse as JSON
+        if let Ok(entry) = serde_json::from_str::<Value>(trimmed) {
+            let key = extract_attribution(&entry);
+            *by_key.entry(key).or_default() += 1;
+        } else {
+            // Fallback to legacy text parsing if not JSON
+            let key = extract_grouping_key(trimmed);
+            *by_key.entry(key).or_default() += 1;
+        }
+    }
+
+    let count_total: u32 = by_key.values().sum();
+
+    // Sort by count desc, then key asc (deterministic)
+    let mut sorted: Vec<_> = by_key.into_iter().collect();
+    sorted.sort_by(|a, b| {
+        b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0))
+    });
+
+    let top: Vec<JournalTopItem> = sorted
+        .into_iter()
+        .take(10) // Top 10 for summary
+        .map(|(key, count)| JournalTopItem { key, count })
+        .collect();
+
+    JournalSummary { count_total, top }
+}
+
+/// Extract attribution key from JSON journal entry (v0.45.4).
+/// Priority: SYSLOG_IDENTIFIER > _SYSTEMD_UNIT > _COMM > "unattributed"
+fn extract_attribution(entry: &Value) -> String {
+    // Try SYSLOG_IDENTIFIER first (most specific)
+    if let Some(id) = entry.get("SYSLOG_IDENTIFIER").and_then(|v| v.as_str()) {
+        if !id.is_empty() {
+            return id.to_lowercase();
+        }
+    }
+
+    // Try _SYSTEMD_UNIT (systemd unit name)
+    if let Some(unit) = entry.get("_SYSTEMD_UNIT").and_then(|v| v.as_str()) {
+        if !unit.is_empty() {
+            // Strip .service suffix for cleaner display
+            return unit.trim_end_matches(".service").to_lowercase();
+        }
+    }
+
+    // Try _COMM (command name)
+    if let Some(comm) = entry.get("_COMM").and_then(|v| v.as_str()) {
+        if !comm.is_empty() {
+            return comm.to_lowercase();
+        }
+    }
+
+    "unattributed".to_string()
+}
+
+/// Parse journalctl output with priority filter (legacy text format).
+/// Use parse_journalctl_json for JSON output (v0.45.4 preferred).
 pub fn parse_journalctl_priority(output: &str) -> JournalSummary {
+    // Detect if input is JSON (starts with '{') or text
+    let first_char = output.trim_start().chars().next();
+    if first_char == Some('{') {
+        return parse_journalctl_json(output);
+    }
+
     use std::collections::HashMap;
     let mut by_key: HashMap<String, u32> = HashMap::new();
 
@@ -75,7 +152,7 @@ pub fn parse_journalctl_priority(output: &str) -> JournalSummary {
     JournalSummary { count_total, top }
 }
 
-/// Extract grouping key from journal line.
+/// Extract grouping key from journal line (legacy text format).
 ///
 /// Format: "Dec 05 10:00:00 hostname unit[pid]: message"
 /// We want to extract "unit" as the key.
@@ -83,14 +160,14 @@ fn extract_grouping_key(line: &str) -> String {
     // Skip timestamp (3 fields: "Dec 05 10:00:00")
     let parts: Vec<&str> = line.splitn(5, ' ').collect();
     if parts.len() < 5 {
-        return "unknown".to_string();
+        return "unattributed".to_string();
     }
 
     // parts[3] = hostname, parts[4] = "unit[pid]: message" or "kernel: message"
-    let rest = parts.get(4).unwrap_or(&"unknown");
+    let rest = parts.get(4).unwrap_or(&"unattributed");
 
     // Extract unit name: everything before '[' or ':'
-    let unit = rest.split(['[', ':']).next().unwrap_or("unknown");
+    let unit = rest.split(['[', ':']).next().unwrap_or("unattributed");
 
     // Return lowercase for consistent grouping
     unit.to_lowercase()
@@ -340,5 +417,49 @@ Dec 05 10:00:02 host ccc[1]: msg";
             extract_grouping_key("Dec 05 10:00:00 host NGINX[1234]: message"),
             "nginx" // lowercase
         );
+    }
+
+    // === v0.45.4: JSON parsing tests ===
+
+    #[test]
+    fn test_parse_journalctl_json_syslog_identifier() {
+        let output = r#"{"SYSLOG_IDENTIFIER":"systemd","MESSAGE":"Starting service..."}
+{"SYSLOG_IDENTIFIER":"systemd","MESSAGE":"Failed to start..."}
+{"SYSLOG_IDENTIFIER":"nginx","MESSAGE":"Connection refused"}"#;
+
+        let summary = parse_journalctl_json(output);
+        assert_eq!(summary.count_total, 3);
+        assert_eq!(summary.top[0].key, "systemd");
+        assert_eq!(summary.top[0].count, 2);
+        assert_eq!(summary.top[1].key, "nginx");
+        assert_eq!(summary.top[1].count, 1);
+    }
+
+    #[test]
+    fn test_parse_journalctl_json_fallback_to_unit() {
+        // No SYSLOG_IDENTIFIER, falls back to _SYSTEMD_UNIT
+        let output = r#"{"_SYSTEMD_UNIT":"nginx.service","MESSAGE":"test"}"#;
+
+        let summary = parse_journalctl_json(output);
+        assert_eq!(summary.count_total, 1);
+        assert_eq!(summary.top[0].key, "nginx"); // .service stripped
+    }
+
+    #[test]
+    fn test_parse_journalctl_json_unattributed() {
+        // No identifying fields
+        let output = r#"{"MESSAGE":"anonymous error"}"#;
+
+        let summary = parse_journalctl_json(output);
+        assert_eq!(summary.count_total, 1);
+        assert_eq!(summary.top[0].key, "unattributed");
+    }
+
+    #[test]
+    fn test_parse_journalctl_auto_detect_json() {
+        // parse_journalctl_priority should auto-detect JSON format
+        let json_output = r#"{"SYSLOG_IDENTIFIER":"test","MESSAGE":"test"}"#;
+        let summary = parse_journalctl_priority(json_output);
+        assert_eq!(summary.top[0].key, "test");
     }
 }

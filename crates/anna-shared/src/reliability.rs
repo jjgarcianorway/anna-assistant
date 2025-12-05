@@ -62,6 +62,10 @@ pub const MEMORY_HIGH_THRESHOLD: f32 = 0.90;
 /// Small penalty - answer is still valid, just not LLM-enhanced
 pub const PENALTY_FALLBACK_USED: i8 = -5;
 
+/// Hard cap when evidence_required=true but no probes succeeded (v0.45.4)
+/// "No evidence, no claims" rule
+pub const NO_EVIDENCE_RELIABILITY_CAP: u8 = 40;
+
 /// Reason codes for reliability degradation.
 /// Stored as codes, mapped to text at the edge.
 /// Priority order matters - first is highest priority for user display.

@@ -357,17 +357,17 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
-        // Audio hardware - needs lspci + LLM interpretation
+        // Audio hardware - needs lspci + pactl + LLM interpretation (v0.45.4: both probes)
         QueryClass::HardwareAudio => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
-            probes: vec!["lspci_audio".to_string()],
+            probes: vec!["lspci_audio".to_string(), "pactl_cards".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: false, // NEVER deterministic
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Audio],
-                spine_probes: vec![ProbeId::LspciAudio],
+                spine_probes: vec![ProbeId::LspciAudio, ProbeId::PactlCards],
             },
         },
 

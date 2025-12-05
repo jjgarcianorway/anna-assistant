@@ -272,13 +272,29 @@ async fn handle_llm_request_inner(
         }
     };
 
-    // Step 5: Build context with summarized probes
+    // Step 5: v0.45.4 Evidence enforcement - "no evidence, no claims" rule
+    // If evidence_required=true AND no probes succeeded, return deterministic failure
+    let succeeded_probes = probe_results.iter().filter(|p| p.exit_code == 0).count();
+    if det_route.capability.evidence_required && succeeded_probes == 0 {
+        info!("v0.45.4: No probes succeeded but evidence required - returning deterministic failure");
+        save_progress(&state, &progress).await;
+        let required_evidence: Vec<String> = det_route.capability.required_evidence
+            .iter()
+            .map(|k| k.to_string())
+            .collect();
+        let result = service_desk::create_no_evidence_response(
+            request_id, ticket, probe_results, progress.take_transcript(), classified_domain, &required_evidence,
+        );
+        return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+    }
+
+    // Step 6: Build context with summarized probes
     let context = {
         let state = state.read().await;
         service_desk::build_context(&state.hardware, &probe_results)
     };
 
-    // Step 6: Try deterministic answer FIRST for known query classes
+    // Step 7: Try deterministic answer FIRST for known query classes
     let specialist_result = if det_route.can_answer_deterministically() {
         if let Some(det) = deterministic::try_answer(query, &context, &probe_results) {
             if det.parsed_data_count > 0 {
@@ -306,7 +322,7 @@ async fn handle_llm_request_inner(
     };
     let SpecialistResult { answer, used_deterministic, det_result, prompt_truncated, outcome, fallback_route_class } = specialist_result;
 
-    // Step 7: Handle no answer case
+    // Step 8: Handle no answer case
     if answer.is_empty() {
         save_progress(&state, &progress).await;
         let result = service_desk::create_no_data_response(
@@ -315,7 +331,7 @@ async fn handle_llm_request_inner(
         return RpcResponse::success(id, serde_json::to_value(result).unwrap());
     }
 
-    // Step 8: Build final result with proper scoring
+    // Step 9: Build final result with proper scoring
     progress.start_stage(RequestStage::Supervisor, llm_config.supervisor_timeout_secs);
     progress.add_final_answer(&answer);
 
@@ -351,7 +367,7 @@ async fn handle_llm_request_inner(
         parsed_data_count, prompt_truncated, fallback_ctx,
     );
 
-    // Step 9: Build execution trace
+    // Step 10: Build execution trace
     let probe_stats = ProbeStats::from_results(ticket_probes_planned, &probe_results);
     let evidence_kinds = actual_evidence_kinds;
 

@@ -121,6 +121,57 @@ pub fn build_evidence(
 /// Maximum reliability score for clarification responses
 pub const CLARIFICATION_MAX_RELIABILITY: u8 = 40;
 
+/// Create a deterministic "no evidence" failure response (v0.45.4).
+/// Used when evidence_required=true but probe_stats.succeeded==0.
+pub fn create_no_evidence_response(
+    request_id: String,
+    ticket: TranslatorTicket,
+    probe_results: Vec<ProbeResult>,
+    transcript: Transcript,
+    domain: SpecialistDomain,
+    required_evidence: &[String],
+) -> ServiceDeskResult {
+    // v0.45.4: Deterministic failure format
+    let evidence_list = if required_evidence.is_empty() {
+        "system data".to_string()
+    } else {
+        required_evidence.join(", ")
+    };
+    let answer = format!(
+        "I can't answer yet because I didn't collect evidence for: {}. Run: `annactl status` and retry.",
+        evidence_list
+    );
+
+    let signals = ReliabilitySignals {
+        translator_confident: false,
+        probe_coverage: false,
+        answer_grounded: false,
+        no_invention: true, // No claims made = no invention
+        clarification_not_needed: true, // We gave a clear answer
+    };
+
+    let evidence = build_evidence(
+        ticket,
+        probe_results,
+        Some("no probes succeeded".to_string()),
+    );
+
+    ServiceDeskResult {
+        request_id,
+        answer,
+        reliability_score: anna_shared::reliability::NO_EVIDENCE_RELIABILITY_CAP,
+        reliability_signals: signals,
+        reliability_explanation: None,
+        domain,
+        evidence,
+        needs_clarification: false,
+        clarification_question: None,
+        clarification_request: None,
+        transcript,
+        execution_trace: None,
+    }
+}
+
 /// Create a clarification response
 pub fn create_clarification_response(
     request_id: String,

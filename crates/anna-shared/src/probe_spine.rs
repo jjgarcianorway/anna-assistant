@@ -156,11 +156,13 @@ pub fn probe_to_command(probe: &ProbeId) -> String {
         ProbeId::TopCpu => "ps aux --sort=-%cpu | head -6".to_string(),
         ProbeId::FailedUnits => "systemctl --failed --no-pager".to_string(),
         ProbeId::IsActive(s) => format!("systemctl is-active {}", s),
-        ProbeId::JournalErrors => "journalctl -p err -b --no-pager | head -20".to_string(),
-        ProbeId::JournalWarnings => "journalctl -p warning -b --no-pager | head -20".to_string(),
+        // v0.45.4: Use JSON output for proper SYSLOG_IDENTIFIER attribution
+        ProbeId::JournalErrors => "journalctl -p err -b --no-pager -o json | head -50".to_string(),
+        ProbeId::JournalWarnings => "journalctl -p warning -b --no-pager -o json | head -50".to_string(),
         ProbeId::PacmanQ(p) => format!("pacman -Q {} 2>/dev/null", p),
         ProbeId::PacmanCount => "pacman -Qe | wc -l".to_string(),
-        ProbeId::CommandV(c) => format!("command -v {}", c),
+        // v0.45.4: Use login shell to get full PATH (e.g., ~/.bashrc exports)
+        ProbeId::CommandV(c) => format!("sh -lc 'command -v {}'", c),
         ProbeId::SystemdAnalyze => "systemd-analyze".to_string(),
         ProbeId::Uname => "uname -a".to_string(),
         ProbeId::Custom(c) => c.clone(),
