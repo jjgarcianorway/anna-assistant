@@ -149,6 +149,9 @@ pub struct Recipe {
     /// Preconditions required (e.g., ["vim_installed"])
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preconditions: Vec<String>,
+    /// v0.45.5: Clarification prerequisites - facts that must be known before execution
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clarify_prereqs: Vec<ClarifyPrereq>,
 }
 
 /// Slot definition for clarification template recipes (v0.0.31)
@@ -164,6 +167,45 @@ pub struct RecipeSlot {
     /// Verification type (e.g., "binary", "unit", "mount")
     #[serde(default)]
     pub verify_type: String,
+}
+
+/// Prerequisite for recipe execution requiring clarification (v0.45.5)
+/// When a recipe has a ClarifyPrereq, the system must ensure the fact
+/// is known and verified before executing the recipe.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClarifyPrereq {
+    /// The fact key that must be known (e.g., "preferred_editor")
+    pub fact_key: String,
+    /// Question ID to use if fact is unknown
+    pub question_id: String,
+    /// Must offer only installed/verified options
+    #[serde(default = "default_true")]
+    pub evidence_only: bool,
+    /// Verification command template (e.g., "command -v {}")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verify_template: Option<String>,
+}
+
+impl ClarifyPrereq {
+    pub fn new(fact_key: impl Into<String>, question_id: impl Into<String>) -> Self {
+        Self {
+            fact_key: fact_key.into(),
+            question_id: question_id.into(),
+            evidence_only: true,
+            verify_template: None,
+        }
+    }
+
+    pub fn with_verify(mut self, template: impl Into<String>) -> Self {
+        self.verify_template = Some(template.into());
+        self
+    }
+
+    /// Create prereq for editor selection
+    pub fn editor() -> Self {
+        Self::new("preferred_editor", "editor_select")
+            .with_verify("command -v {}")
+    }
 }
 
 fn default_true() -> bool { true }
@@ -222,6 +264,7 @@ impl Recipe {
             intent_tags: Vec::new(),
             targets: Vec::new(),
             preconditions: Vec::new(),
+            clarify_prereqs: Vec::new(),
         }
     }
 
@@ -266,6 +309,7 @@ impl Recipe {
             intent_tags: Vec::new(),
             targets: Vec::new(),
             preconditions: Vec::new(),
+            clarify_prereqs: Vec::new(),
         }
     }
 
@@ -306,6 +350,7 @@ impl Recipe {
             intent_tags: Vec::new(),
             targets: Vec::new(),
             preconditions: Vec::new(),
+            clarify_prereqs: Vec::new(),
         }
     }
 
@@ -331,6 +376,22 @@ impl Recipe {
     pub fn with_preconditions(mut self, preconditions: Vec<String>) -> Self {
         self.preconditions = preconditions;
         self
+    }
+
+    /// Set clarification prerequisites (v0.45.5)
+    pub fn with_clarify_prereqs(mut self, prereqs: Vec<ClarifyPrereq>) -> Self {
+        self.clarify_prereqs = prereqs;
+        self
+    }
+
+    /// Check if recipe requires clarification before execution (v0.45.5)
+    pub fn needs_clarification(&self) -> bool {
+        !self.clarify_prereqs.is_empty()
+    }
+
+    /// Get clarification prerequisites
+    pub fn get_clarify_prereqs(&self) -> &[ClarifyPrereq] {
+        &self.clarify_prereqs
     }
 
     /// Increment success count

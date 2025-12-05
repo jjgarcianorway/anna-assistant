@@ -67,6 +67,8 @@ pub fn try_answer(
         QueryClass::PackageCount => answer_package_count(probe_results, &route_class),
         // v0.0.45: InstalledToolCheck - uses command_v probe
         QueryClass::InstalledToolCheck => answer_installed_tool_check(probe_results, &route_class),
+        // v0.45.5: ConfigureEditor - needs clarification, cannot be answered deterministically
+        QueryClass::ConfigureEditor => None,
         QueryClass::Unknown => None,
     }
 }

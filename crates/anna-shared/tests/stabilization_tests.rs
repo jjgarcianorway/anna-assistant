@@ -247,3 +247,83 @@ fn golden_v454_query_classify_system_triage() {
         "System health query must include FailedUnits probe"
     );
 }
+
+// === v0.45.5 Golden Tests ===
+
+/// v0.45.5: StageOutcome::ClarificationRequired exists and has correct structure.
+#[test]
+fn golden_v455_stage_outcome_clarification_required() {
+    use anna_shared::transcript::StageOutcome;
+
+    let outcome = StageOutcome::clarification_required(
+        "Which editor do you prefer?",
+        vec!["vim".to_string(), "nano".to_string(), "emacs".to_string()],
+    );
+
+    assert!(outcome.is_clarification_required());
+    assert!(!outcome.can_proceed());
+
+    // Display format
+    let display = format!("{}", outcome);
+    assert!(display.contains("clarification_required"));
+    assert!(display.contains("3 choices"));
+}
+
+/// v0.45.5: ClarifyPrereq has correct structure for editor prereq.
+#[test]
+fn golden_v455_clarify_prereq_editor() {
+    use anna_shared::recipe::ClarifyPrereq;
+
+    let prereq = ClarifyPrereq::editor();
+
+    assert_eq!(prereq.fact_key, "preferred_editor");
+    assert_eq!(prereq.question_id, "editor_select");
+    assert!(prereq.evidence_only);
+    assert_eq!(prereq.verify_template.as_deref(), Some("command -v {}"));
+}
+
+/// v0.45.5: Recipe with clarify_prereqs correctly reports needs_clarification.
+#[test]
+fn golden_v455_recipe_needs_clarification() {
+    use anna_shared::recipe::{ClarifyPrereq, Recipe, RecipeSignature};
+    use anna_shared::teams::Team;
+    use anna_shared::ticket::RiskLevel;
+
+    let sig = RecipeSignature::new("system", "configure", "configure_editor", "enable syntax highlighting");
+    let recipe = Recipe::new(
+        sig,
+        Team::Desktop,
+        RiskLevel::LowRiskChange,
+        vec![],
+        vec![],
+        "Add 'syntax on' to ~/.vimrc".to_string(),
+        90,
+    )
+    .with_clarify_prereqs(vec![ClarifyPrereq::editor()]);
+
+    assert!(recipe.needs_clarification());
+    assert_eq!(recipe.get_clarify_prereqs().len(), 1);
+    assert_eq!(recipe.get_clarify_prereqs()[0].fact_key, "preferred_editor");
+}
+
+/// v0.45.5: Recipe without clarify_prereqs does not need clarification.
+#[test]
+fn golden_v455_recipe_no_clarification_needed() {
+    use anna_shared::recipe::{Recipe, RecipeSignature};
+    use anna_shared::teams::Team;
+    use anna_shared::ticket::RiskLevel;
+
+    let sig = RecipeSignature::new("system", "question", "memory_usage", "how much ram");
+    let recipe = Recipe::new(
+        sig,
+        Team::Performance,
+        RiskLevel::ReadOnly,
+        vec![],
+        vec!["free".to_string()],
+        "You have {} of RAM".to_string(),
+        90,
+    );
+
+    assert!(!recipe.needs_clarification());
+    assert!(recipe.get_clarify_prereqs().is_empty());
+}

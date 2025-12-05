@@ -66,6 +66,8 @@ pub enum QueryClass {
     InstalledToolCheck,
     /// App alternatives: from knowledge store + LLM
     AppAlternatives,
+    /// Configure editor: "enable syntax highlighting" => needs clarification + recipe (v0.45.5)
+    ConfigureEditor,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -96,6 +98,7 @@ impl std::fmt::Display for QueryClass {
             Self::PackageCount => "package_count",
             Self::InstalledToolCheck => "installed_tool_check",
             Self::AppAlternatives => "app_alternatives",
+            Self::ConfigureEditor => "configure_editor",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -129,6 +132,7 @@ impl QueryClass {
             "package_count" => Some(Self::PackageCount),
             "installed_tool_check" => Some(Self::InstalledToolCheck),
             "app_alternatives" => Some(Self::AppAlternatives),
+            "configure_editor" => Some(Self::ConfigureEditor),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -142,6 +146,20 @@ impl QueryClass {
     /// Check if this class is a fast-path (skip translator, no specialist)
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help)
+    }
+
+    /// Check if this class needs clarification before proceeding (v0.45.5)
+    /// These queries require user input (e.g., which editor) before action
+    pub fn needs_clarification(&self) -> bool {
+        matches!(self, Self::ConfigureEditor)
+    }
+
+    /// Get the fact key needed for clarification (v0.45.5)
+    pub fn clarification_fact_key(&self) -> Option<&'static str> {
+        match self {
+            Self::ConfigureEditor => Some("preferred_editor"),
+            _ => None,
+        }
     }
 }
 
@@ -478,6 +496,21 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 evidence_required: false, // Knowledge-based
                 required_evidence: vec![],
                 spine_probes: vec![],
+            },
+        },
+
+        // Configure editor: needs clarification + recipe (v0.45.5)
+        // "enable syntax highlighting", "enable line numbers"
+        QueryClass::ConfigureEditor => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System, // Editor config is system-level
+            intent: QueryIntent::Request, // Requesting a configuration change
+            probes: vec![], // Probes depend on editor choice (determined after clarification)
+            capability: RouteCapability {
+                can_answer_deterministically: false, // Needs clarification + recipe
+                evidence_required: true, // Must verify editor is installed
+                required_evidence: vec![EvidenceKind::ToolExists],
+                spine_probes: vec![], // Added after clarification
             },
         },
 

@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.51] - 2025-12-05
+
+### Added - v0.45.5 Clarification System
+
+- **ClarificationRequired StageOutcome** (`transcript.rs`):
+  - New `StageOutcome::ClarificationRequired { question, choices }` variant
+  - `clarification_required()` constructor for building clarification outcomes
+  - `is_clarification_required()` and `can_proceed()` helper methods
+  - Display format shows question and choice count
+
+- **ClarifyPrereq for Recipes** (`recipe.rs`):
+  - `ClarifyPrereq` struct for prerequisite facts before recipe execution
+  - Fields: `fact_key`, `question_id`, `evidence_only`, `verify_template`
+  - `ClarifyPrereq::editor()` factory for preferred editor prereqs
+  - `clarify_prereqs` field added to `Recipe` struct
+  - `needs_clarification()` and `get_clarify_prereqs()` methods
+
+- **ConfigureEditor Query Class** (`router.rs`, `query_classify.rs`):
+  - New `QueryClass::ConfigureEditor` for editor configuration queries
+  - Pattern matching: "enable syntax highlighting", "turn on line numbers"
+  - Pattern matching: "how do I enable X in vim/nano/etc"
+  - Route returns `evidence_required: true` with `ToolExists` evidence kind
+  - `needs_clarification()` method on `QueryClass`
+  - `clarification_fact_key()` method returns required fact key
+
+### Changed
+
+- **Transcript Rendering** (`transcript_render.rs`):
+  - `format_outcome()` now handles `ClarificationRequired` with yellow CLARIFY label
+
+### Tests
+
+- **v0.45.5 Golden Tests** (`stabilization_tests.rs`):
+  - `golden_v455_stage_outcome_clarification_required`: StageOutcome structure
+  - `golden_v455_clarify_prereq_editor`: ClarifyPrereq::editor() factory
+  - `golden_v455_recipe_needs_clarification`: Recipe with prereqs
+  - `golden_v455_recipe_no_clarification_needed`: Recipe without prereqs
+
 ## [0.0.50] - 2025-12-05
 
 ### Added - v0.45.4 Claim Grounding Integration

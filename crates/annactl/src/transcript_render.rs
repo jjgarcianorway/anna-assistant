@@ -315,6 +315,9 @@ fn format_outcome(outcome: &StageOutcome) -> String {
         StageOutcome::BudgetExceeded { stage, budget_ms, elapsed_ms } => {
             format!("{}BUDGET_EXCEEDED{} ({}: {}ms > {}ms)", colors::ERR, colors::RESET, stage, elapsed_ms, budget_ms)
         }
+        StageOutcome::ClarificationRequired { question, choices } => {
+            format!("{}CLARIFY{} ({}, {} choices)", colors::WARN, colors::RESET, question, choices.len())
+        }
     }
 }
 

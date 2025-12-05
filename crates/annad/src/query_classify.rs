@@ -273,5 +273,28 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::AppAlternatives;
     }
 
+    // v0.45.5: Configure editor - "enable syntax highlighting", "turn on line numbers"
+    // Requires clarification about which editor before action
+    if (q.contains("enable") || q.contains("turn on") || q.contains("activate") || q.contains("set up"))
+        && (q.contains("syntax highlight")
+            || q.contains("line number")
+            || q.contains("word wrap")
+            || q.contains("auto indent")
+            || q.contains("tab size")
+            || q.contains("color scheme")
+            || q.contains("theme"))
+    {
+        return QueryClass::ConfigureEditor;
+    }
+
+    // Also match "how do I enable X in vim/nano/etc"
+    if (q.contains("how") || q.contains("configure") || q.contains("setup"))
+        && (q.contains("vim") || q.contains("nvim") || q.contains("nano") || q.contains("emacs"))
+        && (q.contains("syntax") || q.contains("highlight") || q.contains("line number")
+            || q.contains("color") || q.contains("theme"))
+    {
+        return QueryClass::ConfigureEditor;
+    }
+
     QueryClass::Unknown
 }

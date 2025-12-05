@@ -60,6 +60,14 @@ pub enum StageOutcome {
         /// Actual elapsed time in milliseconds
         elapsed_ms: u64,
     },
+    /// Clarification required before proceeding (v0.45.5)
+    /// Stage paused waiting for user to select from verified choices
+    ClarificationRequired {
+        /// The question prompt
+        question: String,
+        /// Available choices (verified against evidence)
+        choices: Vec<String>,
+    },
 }
 
 impl StageOutcome {
@@ -72,9 +80,27 @@ impl StageOutcome {
         }
     }
 
+    /// Create a ClarificationRequired outcome (v0.45.5).
+    pub fn clarification_required(question: impl Into<String>, choices: Vec<String>) -> Self {
+        Self::ClarificationRequired {
+            question: question.into(),
+            choices,
+        }
+    }
+
     /// Check if this outcome represents a budget exceeded condition.
     pub fn is_budget_exceeded(&self) -> bool {
         matches!(self, Self::BudgetExceeded { .. })
+    }
+
+    /// Check if this outcome requires user clarification (v0.45.5).
+    pub fn is_clarification_required(&self) -> bool {
+        matches!(self, Self::ClarificationRequired { .. })
+    }
+
+    /// Check if this outcome allows the stage to proceed without user input.
+    pub fn can_proceed(&self) -> bool {
+        matches!(self, Self::Ok | Self::Deterministic)
     }
 }
 
@@ -88,6 +114,9 @@ impl std::fmt::Display for StageOutcome {
             Self::Deterministic => write!(f, "deterministic"),
             Self::BudgetExceeded { stage, budget_ms, elapsed_ms } => {
                 write!(f, "budget_exceeded({}: {}ms > {}ms)", stage, elapsed_ms, budget_ms)
+            }
+            Self::ClarificationRequired { question, choices } => {
+                write!(f, "clarification_required({}, {} choices)", question, choices.len())
             }
         }
     }
