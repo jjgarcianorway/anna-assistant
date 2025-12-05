@@ -6,6 +6,10 @@
 //! - Specialist: domain expert generates answer
 //! - Supervisor: validates output, assigns reliability score
 
+use anna_shared::reliability::{
+    compute_reliability, query_requires_evidence, ReliabilityExplanation, ReliabilityInput,
+    ReliabilityOutput,
+};
 use anna_shared::rpc::{
     Capabilities, EvidenceBlock, HardwareSummary, ProbeResult, ReliabilitySignals, RuntimeContext,
     ServiceDeskResult, SpecialistDomain, TranslatorTicket,
@@ -17,8 +21,8 @@ use tracing::info;
 
 use crate::scoring;
 
-// Re-export build_specialist_prompt for backwards compatibility
-pub use crate::prompts::build_specialist_prompt;
+// Re-export prompt building for backwards compatibility
+pub use crate::prompts::{build_specialist_prompt, PromptResult};
 
 /// Allowlist of read-only probes that specialists can request
 pub const ALLOWED_PROBES: &[&str] = &[
@@ -145,6 +149,7 @@ pub fn create_clarification_response(
         answer: String::new(),
         reliability_score: score,
         reliability_signals: signals,
+        reliability_explanation: None, // No explanation for clarification
         domain: SpecialistDomain::System,
         evidence,
         needs_clarification: true,
@@ -190,6 +195,7 @@ pub fn create_timeout_response(
         answer: String::new(),
         reliability_score: signals.score().min(20), // Max 20 for timeout
         reliability_signals: signals,
+        reliability_explanation: None, // No explanation for timeout
         domain,
         evidence,
         needs_clarification: true,
@@ -228,6 +234,7 @@ pub fn create_no_data_response(
         answer: String::new(),
         reliability_score: signals.score(),
         reliability_signals: signals,
+        reliability_explanation: None, // No explanation for no-data response
         domain,
         evidence,
         needs_clarification: true,
@@ -242,6 +249,7 @@ pub fn create_no_data_response(
 pub fn build_result_with_flags(
     request_id: String,
     answer: String,
+    query: &str,
     ticket: TranslatorTicket,
     probe_results: Vec<ProbeResult>,
     transcript: Transcript,
@@ -249,16 +257,28 @@ pub fn build_result_with_flags(
     translator_timed_out: bool,
     used_deterministic: bool,
     parsed_data_count: usize,
+    prompt_truncated: bool,
 ) -> ServiceDeskResult {
-    let signals = calculate_signals_with_flags(
+    // COST: Check if transcript was capped
+    let transcript_capped = transcript.was_capped();
+    if transcript_capped {
+        if let Some(diag) = transcript.diagnostic() {
+            info!("COST: {}", diag.format());
+        }
+    }
+
+    let (signals, output, input) = calculate_reliability_v2(
         &ticket,
         &probe_results,
         &answer,
+        query,
         translator_timed_out,
         used_deterministic,
         parsed_data_count,
+        prompt_truncated,
+        transcript_capped,
     );
-    let score = signals.score();
+
     let last_error = if used_deterministic && parsed_data_count == 0 {
         Some("parser produced empty result".to_string())
     } else {
@@ -266,21 +286,28 @@ pub fn build_result_with_flags(
     };
     let evidence = build_evidence(ticket, probe_results, last_error);
 
+    // TRUST: Build explanation if score < 80
+    let diagnostics = transcript.diagnostic().into_iter().collect();
+    let reliability_explanation = ReliabilityExplanation::build(&output, &input, diagnostics);
+
+    // Log with new reason codes
+    let reason_str: Vec<&str> = output.reasons.iter().map(|r| r.explanation()).collect();
     info!(
-        "Supervisor: reliability={} (confident={}, coverage={}, grounded={}, no_invention={}, no_clarify={})",
-        score,
+        "Supervisor: reliability={} reasons={:?} (confident={}, coverage={}, grounded={}, no_invention={})",
+        output.score,
+        reason_str,
         signals.translator_confident,
         signals.probe_coverage,
         signals.answer_grounded,
         signals.no_invention,
-        signals.clarification_not_needed
     );
 
     ServiceDeskResult {
         request_id,
         answer,
-        reliability_score: score,
+        reliability_score: output.score,
         reliability_signals: signals,
+        reliability_explanation,
         domain,
         evidence,
         needs_clarification: false,
@@ -289,50 +316,87 @@ pub fn build_result_with_flags(
     }
 }
 
-/// Calculate signals with explicit timeout/deterministic flags
-fn calculate_signals_with_flags(
+/// Calculate reliability using the new graduated scoring model.
+/// Returns (signals for backward compat, output, input) for explanation building.
+fn calculate_reliability_v2(
     ticket: &TranslatorTicket,
     probe_results: &[ProbeResult],
     answer: &str,
+    query: &str,
     translator_timed_out: bool,
     used_deterministic: bool,
     parsed_data_count: usize,
-) -> ReliabilitySignals {
-    // Translator confident only if it didn't timeout and has high confidence
-    let translator_confident = !translator_timed_out && ticket.confidence >= 0.7;
+    prompt_truncated: bool,
+    transcript_capped: bool,
+) -> (ReliabilitySignals, ReliabilityOutput, ReliabilityInput) {
+    // Count probe outcomes
+    let planned_probes = ticket.needs_probes.len();
+    let succeeded_probes = probe_results.iter().filter(|p| p.exit_code == 0).count();
+    let failed_probes = probe_results
+        .iter()
+        .filter(|p| p.exit_code != 0 && !p.stderr.to_lowercase().contains("timeout"))
+        .count();
+    let timed_out_probes = probe_results
+        .iter()
+        .filter(|p| p.stderr.to_lowercase().contains("timeout"))
+        .count();
 
-    // Probe coverage: all requested probes succeeded
-    let probe_coverage = if ticket.needs_probes.is_empty() {
-        true
-    } else {
-        let successful = probe_results.iter().filter(|p| p.exit_code == 0).count();
-        successful >= ticket.needs_probes.len()
-    };
-
-    // Deterministic answers are grounded only if they actually parsed data
+    // Determine answer quality
     let answer_grounded = if used_deterministic {
         parsed_data_count > 0
     } else {
         scoring::check_answer_grounded(answer, probe_results)
     };
 
-    // Deterministic answers don't invent (unless empty result)
     let no_invention = if used_deterministic {
         parsed_data_count > 0
     } else {
         scoring::check_no_invention(answer)
     };
 
-    // Clarification not needed if we have an answer with actual content
-    let clarification_not_needed = !answer.is_empty() && (!used_deterministic || parsed_data_count > 0);
+    // Evidence heuristic: does this query need evidence?
+    let evidence_required = query_requires_evidence(query);
 
-    ReliabilitySignals {
-        translator_confident,
-        probe_coverage,
+    // Build input for new scoring model (COST: includes resource cap signals)
+    // Note: grounding_ratio and total_claims default to 0 for now (legacy path)
+    // Full ANCHOR integration would extract claims and verify against parsed probe data
+    let input = ReliabilityInput {
+        planned_probes,
+        succeeded_probes,
+        failed_probes,
+        timed_out_probes,
+        translator_confidence: ticket.confidence,
+        translator_used: !used_deterministic && !translator_timed_out,
         answer_grounded,
         no_invention,
-        clarification_not_needed,
-    }
+        grounding_ratio: 0.0,  // TODO: integrate with claims extraction
+        total_claims: 0,       // TODO: integrate with claims extraction
+        evidence_required,
+        used_deterministic,
+        parsed_data_count,
+        prompt_truncated,
+        transcript_capped,
+        // METER phase: budget enforcement (integrated via rpc_handler)
+        budget_exceeded: false,
+        exceeded_stage: None,
+        stage_budget_ms: 0,
+        stage_elapsed_ms: 0,
+    };
+
+    // Compute using new model
+    let output = compute_reliability(&input);
+
+    // Build backward-compatible signals from output
+    let signals = ReliabilitySignals {
+        translator_confident: !translator_timed_out && ticket.confidence >= 0.7,
+        probe_coverage: output.probe_coverage_ratio >= 1.0,
+        answer_grounded,
+        no_invention,
+        clarification_not_needed: !answer.is_empty()
+            && (!used_deterministic || parsed_data_count > 0),
+    };
+
+    (signals, output, input)
 }
 
 // Unit tests moved to tests/service_desk_tests.rs

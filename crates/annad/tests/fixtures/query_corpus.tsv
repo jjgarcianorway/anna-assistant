@@ -1,0 +1,64 @@
+# Query corpus for deterministic router testing
+# Format: query<TAB>expected_class<TAB>expected_domain<TAB>expected_probes
+# expected_probes is comma-separated, empty string for no probes
+# Lines starting with # are comments
+query	expected_class	expected_domain	expected_probes
+# CPU queries
+what cpu do i have?	cpu_info	system
+show processor info	cpu_info	system
+how many cores does my system have?	cpu_info	system
+what's my cpu model?	cpu_info	system
+# RAM/Memory hardware queries
+how much ram do i have?	ram_info	system
+show memory	ram_info	system
+total ram installed	ram_info	system
+# GPU queries
+what gpu do i have?	gpu_info	system
+show graphics card	gpu_info	system
+vram size	gpu_info	system
+# Top memory processes
+what processes are using memory	top_memory_processes	system	top_memory
+top 5 memory hogs	top_memory_processes	system	top_memory
+which apps use most memory	top_memory_processes	system	top_memory
+what's using all my ram	top_memory_processes	system	top_memory
+# Top CPU processes
+what's using cpu	top_cpu_processes	system	top_cpu
+processes using cpu	top_cpu_processes	system	top_cpu
+cpu hogs	top_cpu_processes	system	top_cpu
+# Disk space (legacy)
+disk space free	disk_space	storage	disk_usage
+is storage full	disk_space	storage	disk_usage
+how much disk space	disk_space	storage	disk_usage
+filesystem free space	disk_space	storage	disk_usage
+# Network interfaces
+show network interfaces	network_interfaces	network	network_addrs
+wifi status	network_interfaces	network	network_addrs
+what's my ip	network_interfaces	network	network_addrs
+ethernet connection	network_interfaces	network	network_addrs
+# Help
+help	help	system
+what can you do	help	system
+how do i use this	help	system
+# System slow (diagnostic)
+it's slow	system_slow	system	top_cpu,top_memory,disk_usage
+system is sluggish	system_slow	system	top_cpu,top_memory,disk_usage
+computer is laggy	system_slow	system	top_cpu,top_memory,disk_usage
+# Memory usage (typed - free probe)
+memory usage	memory_usage	system	free
+how much memory used	memory_usage	system	free
+free memory	memory_usage	system	free
+available memory	memory_usage	system	free
+# Disk usage (typed - df probe)
+disk usage	disk_usage	storage	df
+filesystem usage	disk_usage	storage	df
+# Service status (typed - systemctl probe)
+is nginx running	service_status	system	systemctl
+service status	service_status	system	systemctl
+systemd units	service_status	system	systemctl
+is the database active	service_status	system	systemctl
+check if sshd is running	service_status	system	systemctl
+# Unknown queries (should be <= 20% of corpus)
+what's the weather like	unknown	system
+tell me a joke	unknown	system
+who is the president	unknown	system
+explain quantum physics	unknown	system

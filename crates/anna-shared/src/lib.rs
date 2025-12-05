@@ -1,8 +1,15 @@
 //! Shared types and utilities for Anna components.
 
+pub mod budget;
+pub mod claims;
 pub mod error;
+pub mod grounding;
+pub mod guard;
 pub mod ledger;
+pub mod parsers;
 pub mod progress;
+pub mod reliability;
+pub mod resource_limits;
 pub mod rpc;
 pub mod status;
 pub mod transcript;

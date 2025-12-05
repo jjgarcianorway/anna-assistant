@@ -1,5 +1,6 @@
 //! JSON-RPC 2.0 types for annad communication.
 
+use crate::reliability::ReliabilityExplanation;
 use crate::transcript::Transcript;
 use serde::{Deserialize, Serialize};
 
@@ -297,6 +298,9 @@ pub struct ServiceDeskResult {
     pub reliability_score: u8,
     /// Reliability scoring signals
     pub reliability_signals: ReliabilitySignals,
+    /// TRUST: Structured explanation when score < 80 (None otherwise)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reliability_explanation: Option<ReliabilityExplanation>,
     /// Which specialist handled this
     pub domain: SpecialistDomain,
     /// Evidence block showing data sources

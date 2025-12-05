@@ -97,6 +97,85 @@ impl Default for LlmConfig {
     }
 }
 
+/// Stage budget configuration (METER phase)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BudgetConfig {
+    /// Translator stage budget in milliseconds
+    #[serde(default = "default_translator_budget")]
+    pub translator_ms: u64,
+
+    /// Probes stage budget in milliseconds
+    #[serde(default = "default_probes_budget")]
+    pub probes_ms: u64,
+
+    /// Specialist stage budget in milliseconds
+    #[serde(default = "default_specialist_budget")]
+    pub specialist_ms: u64,
+
+    /// Supervisor stage budget in milliseconds
+    #[serde(default = "default_supervisor_budget")]
+    pub supervisor_ms: u64,
+
+    /// Total request budget in milliseconds
+    #[serde(default = "default_total_budget")]
+    pub total_ms: u64,
+
+    /// Margin for orchestration overhead in milliseconds
+    #[serde(default = "default_margin_budget")]
+    pub margin_ms: u64,
+}
+
+fn default_translator_budget() -> u64 {
+    5_000 // 5 seconds
+}
+
+fn default_probes_budget() -> u64 {
+    12_000 // 12 seconds
+}
+
+fn default_specialist_budget() -> u64 {
+    15_000 // 15 seconds
+}
+
+fn default_supervisor_budget() -> u64 {
+    8_000 // 8 seconds
+}
+
+fn default_total_budget() -> u64 {
+    25_000 // 25 seconds
+}
+
+fn default_margin_budget() -> u64 {
+    1_000 // 1 second
+}
+
+impl Default for BudgetConfig {
+    fn default() -> Self {
+        Self {
+            translator_ms: default_translator_budget(),
+            probes_ms: default_probes_budget(),
+            specialist_ms: default_specialist_budget(),
+            supervisor_ms: default_supervisor_budget(),
+            total_ms: default_total_budget(),
+            margin_ms: default_margin_budget(),
+        }
+    }
+}
+
+impl BudgetConfig {
+    /// Convert to StageBudget for use with BudgetEnforcer
+    pub fn to_stage_budget(&self) -> anna_shared::budget::StageBudget {
+        anna_shared::budget::StageBudget {
+            translator_ms: self.translator_ms,
+            probes_ms: self.probes_ms,
+            specialist_ms: self.specialist_ms,
+            supervisor_ms: self.supervisor_ms,
+            total_ms: self.total_ms,
+            margin_ms: self.margin_ms,
+        }
+    }
+}
+
 /// Daemon configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonConfig {
@@ -152,6 +231,10 @@ pub struct Config {
 
     #[serde(default)]
     pub llm: LlmConfig,
+
+    /// Stage budget configuration (METER phase)
+    #[serde(default)]
+    pub budget: BudgetConfig,
 }
 
 impl Config {

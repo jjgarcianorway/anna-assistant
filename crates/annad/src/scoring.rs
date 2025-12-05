@@ -1,7 +1,11 @@
 //! Deterministic reliability scoring.
 //!
 //! Calculates reliability score from concrete signals, not vibes.
+//! GUARD integration for evidence-based invention detection.
 
+use anna_shared::claims::extract_claims;
+use anna_shared::grounding::ParsedEvidence;
+use anna_shared::guard::{run_guard, GuardReport};
 use anna_shared::rpc::ProbeResult;
 
 /// Minimum translator confidence to be considered "confident"
@@ -58,7 +62,8 @@ pub fn check_answer_grounded(answer: &str, probe_results: &[ProbeResult]) -> boo
         .any(|phrase| answer_lower.contains(phrase))
 }
 
-/// Check if answer appears to invent facts
+/// Check if answer appears to invent facts (legacy heuristic).
+/// Kept for backwards compatibility; prefer check_no_invention_guard for new code.
 pub fn check_no_invention(answer: &str) -> bool {
     let answer_lower = answer.to_lowercase();
 
@@ -88,6 +93,31 @@ pub fn check_no_invention(answer: &str) -> bool {
     // Allow one hedging word, but flag if multiple
     invention_count <= 1
 }
+
+// === GUARD-based invention detection ===
+
+/// Run GUARD verification and return report.
+/// Uses claim extraction from ANCHOR phase.
+pub fn run_guard_check(
+    answer: &str,
+    evidence: &ParsedEvidence,
+    evidence_required: bool,
+) -> GuardReport {
+    let claims = extract_claims(answer);
+    run_guard(&claims, evidence, evidence_required)
+}
+
+/// Check for invention using GUARD (evidence-based).
+/// Returns true if NO invention detected (same semantics as check_no_invention).
+pub fn check_no_invention_guard(
+    answer: &str,
+    evidence: &ParsedEvidence,
+    evidence_required: bool,
+) -> bool {
+    let report = run_guard_check(answer, evidence, evidence_required);
+    !report.invention_detected
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -160,5 +190,78 @@ mod tests {
             clarification_not_needed: true,
         };
         assert_eq!(signals.score(), 80);
+    }
+
+    // === GUARD integration tests ===
+
+    use anna_shared::parsers::{DiskUsage, ServiceState, ServiceStatus};
+
+    #[test]
+    fn test_guard_verified_no_invention() {
+        let answer = "nginx is running";
+        let evidence = ParsedEvidence {
+            services: vec![ServiceStatus {
+                name: "nginx.service".to_string(),
+                state: ServiceState::Running,
+                description: None,
+            }],
+            ..Default::default()
+        };
+
+        assert!(check_no_invention_guard(answer, &evidence, true));
+    }
+
+    #[test]
+    fn test_guard_contradiction_flags_invention() {
+        let answer = "nginx is running";
+        let evidence = ParsedEvidence {
+            services: vec![ServiceStatus {
+                name: "nginx.service".to_string(),
+                state: ServiceState::Failed, // Contradiction!
+                description: None,
+            }],
+            ..Default::default()
+        };
+
+        // Contradiction flags invention regardless of evidence_required
+        assert!(!check_no_invention_guard(answer, &evidence, false));
+        assert!(!check_no_invention_guard(answer, &evidence, true));
+    }
+
+    #[test]
+    fn test_guard_unverifiable_with_evidence_required() {
+        let answer = "firefox uses 4294967296B";
+        let evidence = ParsedEvidence::default(); // No evidence
+
+        // Unverifiable only flags when evidence_required
+        assert!(check_no_invention_guard(answer, &evidence, false));
+        assert!(!check_no_invention_guard(answer, &evidence, true));
+    }
+
+    #[test]
+    fn test_guard_report_details() {
+        let answer = "root is 85% full and nginx is running";
+        let evidence = ParsedEvidence {
+            disks: vec![DiskUsage {
+                filesystem: "/dev/sda1".to_string(),
+                mount: "/".to_string(),
+                size_bytes: 100_000_000_000,
+                used_bytes: 85_000_000_000,
+                available_bytes: 15_000_000_000,
+                percent_used: 85,
+            }],
+            services: vec![ServiceStatus {
+                name: "nginx.service".to_string(),
+                state: ServiceState::Running,
+                description: None,
+            }],
+            ..Default::default()
+        };
+
+        let report = run_guard_check(answer, &evidence, true);
+        assert_eq!(report.total_specific_claims, 2);
+        assert_eq!(report.contradictions, 0);
+        assert_eq!(report.unverifiable_specifics, 0);
+        assert!(!report.invention_detected);
     }
 }

@@ -3,18 +3,70 @@
 //! Two modes:
 //! - debug OFF: Clean fly-on-the-wall format (user-facing)
 //! - debug ON: Full troubleshooting view with stages and timings
+//!
+//! INVARIANT: Exactly one [anna] block per request regardless of mode.
+//! The final answer source is determined by `get_final_answer()`.
+//!
+//! TTY awareness: When piped, markdown tables are converted to plain text.
 
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::transcript::{Actor, StageOutcome, TranscriptEventKind};
 use anna_shared::ui::colors;
 use anna_shared::VERSION;
 
+use crate::output::{format_for_output, OutputMode};
+
+/// Source of the final answer for display
+enum AnswerSource<'a> {
+    /// Answer came from transcript (Anna message already recorded)
+    Transcript(&'a str),
+    /// Clarification needed (from result)
+    Clarification(&'a str),
+    /// Direct answer (from result)
+    Answer(&'a str),
+    /// No answer available
+    Empty,
+}
+
+/// INVARIANT: Single source of truth for the final answer.
+/// Used by both render_clean() and render_debug() to ensure consistency.
+///
+/// The FinalAnswer event kind IS THE CONTRACT for answer source.
+/// Defense-in-depth checks (from == Anna, to == You) are guaranteed by
+/// TranscriptEvent::final_answer() but verified here anyway.
+fn get_final_answer(result: &ServiceDeskResult) -> AnswerSource<'_> {
+    // First, check if FinalAnswer event is present in transcript (THE contract)
+    for event in &result.transcript.events {
+        if let TranscriptEventKind::FinalAnswer { text } = &event.kind {
+            // Defense-in-depth: FinalAnswer should always be Anna -> You
+            debug_assert!(event.from == Actor::Anna, "FinalAnswer should be from Anna");
+            debug_assert!(event.to == Some(Actor::You), "FinalAnswer should be to You");
+            return AnswerSource::Transcript(text);
+        }
+    }
+
+    // Not in transcript - use result fields
+    if result.needs_clarification {
+        if let Some(q) = &result.clarification_question {
+            return AnswerSource::Clarification(q);
+        }
+        return AnswerSource::Clarification("I need more information to answer your question.");
+    }
+
+    if !result.answer.is_empty() {
+        return AnswerSource::Answer(&result.answer);
+    }
+
+    AnswerSource::Empty
+}
+
 /// Render transcript based on debug mode setting
 pub fn render(result: &ServiceDeskResult, debug_mode: bool) {
+    let output_mode = OutputMode::detect();
     if debug_mode {
-        render_debug(result);
+        render_debug(result, output_mode);
     } else {
-        render_clean(result);
+        render_clean(result, output_mode);
     }
 }
 
@@ -26,7 +78,7 @@ pub fn render(result: &ServiceDeskResult, debug_mode: bool) {
 ///   [anna]
 ///   <final answer>
 ///   reliability: NN%   domain: <domain>
-fn render_clean(result: &ServiceDeskResult) {
+fn render_clean(result: &ServiceDeskResult, output_mode: OutputMode) {
     println!();
     println!("anna v{}", VERSION);
     println!();
@@ -43,21 +95,16 @@ fn render_clean(result: &ServiceDeskResult) {
         }
     }
 
-    // Show anna's response
+    // Show anna's response (unified source, TTY-aware formatting)
     println!("{}[anna]{}", colors::OK, colors::RESET);
-
-    if result.needs_clarification {
-        if let Some(question) = &result.clarification_question {
-            println!("{}", question);
-        } else {
-            println!("I need more information to answer your question.");
+    match get_final_answer(result) {
+        AnswerSource::Transcript(text) | AnswerSource::Answer(text) | AnswerSource::Clarification(text) => {
+            println!("{}", format_for_output(text, output_mode));
         }
-    } else if result.answer.is_empty() {
-        println!("I couldn't find an answer. Please try rephrasing your question.");
-    } else {
-        println!("{}", result.answer);
+        AnswerSource::Empty => {
+            println!("I couldn't find an answer. Please try rephrasing your question.");
+        }
     }
-
     println!();
 
     // Footer with reliability and domain
@@ -76,7 +123,7 @@ fn render_clean(result: &ServiceDeskResult) {
 }
 
 /// Render in debug mode - full troubleshooting view
-fn render_debug(result: &ServiceDeskResult) {
+fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
     println!();
     println!(
         "{}[transcript]{} request_id={}",
@@ -86,8 +133,11 @@ fn render_debug(result: &ServiceDeskResult) {
     );
     println!();
 
+    // Get answer source ONCE at the start (unified logic)
+    let answer_source = get_final_answer(result);
+    let answer_in_transcript = matches!(answer_source, AnswerSource::Transcript(_));
+
     let mut last_actor: Option<Actor> = None;
-    let mut anna_answer_printed = false;
 
     for event in &result.transcript.events {
         match &event.kind {
@@ -99,15 +149,16 @@ fn render_debug(result: &ServiceDeskResult) {
                     println!("{}", format_actor_tag(actor));
                     last_actor = Some(*actor);
                 }
-                // Content on next line, indented
-                for line in text.lines() {
+                // Content on next line (TTY-aware formatting for Anna messages)
+                let formatted = if *actor == Actor::Anna {
+                    format_for_output(text, output_mode)
+                } else {
+                    text.clone()
+                };
+                for line in formatted.lines() {
                     if !line.trim().is_empty() {
                         println!("{}", line);
                     }
-                }
-                // Track if we printed Anna's answer
-                if *actor == Actor::Anna {
-                    anna_answer_printed = true;
                 }
             }
             TranscriptEventKind::StageStart { stage } => {
@@ -161,21 +212,31 @@ fn render_debug(result: &ServiceDeskResult) {
                     colors::RESET
                 );
             }
+            TranscriptEventKind::FinalAnswer { text } => {
+                // THE final answer - always print with [anna] tag
+                println!();
+                println!("{}[anna]{}", colors::OK, colors::RESET);
+                println!("{}", format_for_output(text, output_mode));
+                last_actor = Some(Actor::Anna);
+            }
+            TranscriptEventKind::Unknown => {
+                // Forward-compatible: silently skip unknown events
+            }
         }
     }
 
-    // Only print final [anna] block if we haven't already printed it
-    if !anna_answer_printed {
+    // Only print final [anna] block if answer wasn't already in transcript
+    if !answer_in_transcript {
         println!();
         println!("{}[anna]{}", colors::OK, colors::RESET);
-        if result.needs_clarification {
-            if let Some(q) = &result.clarification_question {
-                println!("{}", q);
+        match answer_source {
+            AnswerSource::Clarification(text) | AnswerSource::Answer(text) => {
+                println!("{}", format_for_output(text, output_mode));
             }
-        } else if !result.answer.is_empty() {
-            println!("{}", result.answer);
-        } else {
-            println!("(no answer generated)");
+            AnswerSource::Empty => {
+                println!("(no answer generated)");
+            }
+            AnswerSource::Transcript(_) => unreachable!(), // Already handled above
         }
     }
 
@@ -233,6 +294,10 @@ fn format_outcome(outcome: &StageOutcome) -> String {
         StageOutcome::Error => format!("{}ERROR{}", colors::ERR, colors::RESET),
         StageOutcome::Skipped => format!("{}skipped{}", colors::WARN, colors::RESET),
         StageOutcome::Deterministic => format!("{}skipped{} (deterministic)", colors::OK, colors::RESET),
+        StageOutcome::BudgetExceeded { stage, budget_ms, elapsed_ms } => {
+            format!("{}BUDGET_EXCEEDED{} ({}: {}ms > {}ms)",
+                colors::ERR, colors::RESET, stage, elapsed_ms, budget_ms)
+        }
     }
 }
 
@@ -302,5 +367,12 @@ mod tests {
         let _error = format_outcome(&StageOutcome::Error);
         let _skipped = format_outcome(&StageOutcome::Skipped);
         let _det = format_outcome(&StageOutcome::Deterministic);
+        let _budget = format_outcome(&StageOutcome::BudgetExceeded {
+            stage: "probes".to_string(),
+            budget_ms: 12000,
+            elapsed_ms: 15000,
+        });
     }
 }
+
+// Guardrail tests are in tests/transcript_render_tests.rs

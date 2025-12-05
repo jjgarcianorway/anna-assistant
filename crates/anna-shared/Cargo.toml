@@ -10,3 +10,4 @@ serde_json.workspace = true
 thiserror.workspace = true
 chrono.workspace = true
 uuid.workspace = true
+regex.workspace = true

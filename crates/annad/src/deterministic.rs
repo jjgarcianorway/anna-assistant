@@ -36,6 +36,10 @@ pub fn try_answer(
         QueryClass::NetworkInterfaces => answer_network_interfaces(probe_results),
         QueryClass::Help => Some(answer_help()),
         QueryClass::SystemSlow => answer_system_slow(probe_results),
+        // ROUTE Phase: Typed query classes - use answers module for these
+        QueryClass::MemoryUsage => answer_memory_usage(probe_results),
+        QueryClass::DiskUsage => answer_disk_usage(probe_results),
+        QueryClass::ServiceStatus => answer_service_status(probe_results),
         QueryClass::Unknown => None,
     }
 }
@@ -378,6 +382,41 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len - 3])
     }
+}
+
+// === ROUTE Phase: Typed query class handlers ===
+// Uses helper functions from answers module
+
+/// Answer memory usage query using parsed free output
+fn answer_memory_usage(probes: &[ProbeResult]) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "free")?;
+    let answer = crate::answers::answer_from_free_probe(probe)?;
+    Some(DeterministicResult { answer, grounded: true, parsed_data_count: 1 })
+}
+
+/// Answer disk usage query using parsed df output
+fn answer_disk_usage(probes: &[ProbeResult]) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "df")?;
+    let answer = crate::answers::answer_from_df_probe(probe)?;
+    Some(DeterministicResult { answer, grounded: true, parsed_data_count: 1 })
+}
+
+/// Answer service status query using parsed systemctl output
+fn answer_service_status(probes: &[ProbeResult]) -> Option<DeterministicResult> {
+    // Try is-active probe first
+    if let Some(probe) = find_probe(probes, "systemctl is-active") {
+        let service_name = probe.command.strip_prefix("systemctl is-active ").unwrap_or("service");
+        if let Some(answer) = crate::answers::answer_from_is_active_probe(probe, service_name) {
+            return Some(DeterministicResult { answer, grounded: true, parsed_data_count: 1 });
+        }
+    }
+    // Try failed units probe
+    if let Some(probe) = find_probe(probes, "systemctl --failed") {
+        if let Some(answer) = crate::answers::answer_from_failed_units_probe(probe) {
+            return Some(DeterministicResult { answer, grounded: true, parsed_data_count: 1 });
+        }
+    }
+    None
 }
 
 // Unit tests in tests/deterministic_tests.rs

@@ -142,13 +142,11 @@ impl ProgressTracker {
         ));
     }
 
-    pub fn add_anna_response(&mut self, text: &str) {
-        self.transcript.push(TranscriptEvent::message(
-            self.elapsed_ms(),
-            Actor::Anna,
-            Actor::You,
-            text,
-        ));
+    /// Record Anna's final answer (THE authoritative response to the user)
+    /// Uses FinalAnswer kind, not Message, to ensure proper answer source detection.
+    pub fn add_final_answer(&mut self, text: &str) {
+        self.transcript
+            .push(TranscriptEvent::final_answer(self.elapsed_ms(), text));
     }
 
     pub fn events(&self) -> &[ProgressEvent] {

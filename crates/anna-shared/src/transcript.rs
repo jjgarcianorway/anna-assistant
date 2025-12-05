@@ -1,7 +1,9 @@
 //! Transcript event model for consistent pipeline visibility.
 //!
 //! Single source of truth for rendering request/response conversations.
+//! Enforces size cap with diagnostic surfacing (COST phase).
 
+use crate::resource_limits::{ResourceDiagnostic, MAX_TRANSCRIPT_EVENTS};
 use serde::{Deserialize, Serialize};
 
 /// Actor in the transcript (who is speaking/acting)
@@ -34,7 +36,7 @@ impl std::fmt::Display for Actor {
 }
 
 /// Stage outcome for StageEnd events
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StageOutcome {
     Ok,
@@ -42,6 +44,32 @@ pub enum StageOutcome {
     Error,
     Skipped,
     Deterministic, // Used when deterministic router answered
+    /// Stage budget exceeded (METER phase)
+    /// Distinct from Timeout: budget is stage-level, timeout is operation-level
+    BudgetExceeded {
+        /// Which stage exceeded its budget
+        stage: String,
+        /// Budget in milliseconds
+        budget_ms: u64,
+        /// Actual elapsed time in milliseconds
+        elapsed_ms: u64,
+    },
+}
+
+impl StageOutcome {
+    /// Create a BudgetExceeded outcome.
+    pub fn budget_exceeded(stage: impl Into<String>, budget_ms: u64, elapsed_ms: u64) -> Self {
+        Self::BudgetExceeded {
+            stage: stage.into(),
+            budget_ms,
+            elapsed_ms,
+        }
+    }
+
+    /// Check if this outcome represents a budget exceeded condition.
+    pub fn is_budget_exceeded(&self) -> bool {
+        matches!(self, Self::BudgetExceeded { .. })
+    }
 }
 
 impl std::fmt::Display for StageOutcome {
@@ -52,16 +80,26 @@ impl std::fmt::Display for StageOutcome {
             Self::Error => write!(f, "error"),
             Self::Skipped => write!(f, "skipped"),
             Self::Deterministic => write!(f, "deterministic"),
+            Self::BudgetExceeded { stage, budget_ms, elapsed_ms } => {
+                write!(f, "budget_exceeded({}: {}ms > {}ms)", stage, elapsed_ms, budget_ms)
+            }
         }
     }
 }
 
 /// Kind of transcript event
+///
+/// WIRE COMPATIBILITY: The `Unknown` variant with `#[serde(other)]` ensures
+/// older clients can deserialize transcripts containing new event kinds
+/// without crashing. New kinds should be added BEFORE `Unknown`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TranscriptEventKind {
-    /// A message from one actor to another
+    /// A message from one actor to another (general conversation)
     Message { text: String },
+    /// The final answer to the user's query (THE discriminator for answer source)
+    /// This is the authoritative "Anna's response" - not Message, not Note.
+    FinalAnswer { text: String },
     /// Stage starting
     StageStart { stage: String },
     /// Stage ending with outcome
@@ -80,6 +118,10 @@ pub enum TranscriptEventKind {
     },
     /// Metadata note (debug mode only)
     Note { text: String },
+    /// Unknown event kind (forward compatibility)
+    /// Deserializes any unrecognized "type" value - old clients won't crash on new kinds.
+    #[serde(other)]
+    Unknown,
 }
 
 /// A single transcript event
@@ -97,13 +139,24 @@ pub struct TranscriptEvent {
 }
 
 impl TranscriptEvent {
-    /// Create a message event
+    /// Create a message event (general conversation, NOT the final answer)
     pub fn message(elapsed_ms: u64, from: Actor, to: Actor, text: impl Into<String>) -> Self {
         Self {
             elapsed_ms,
             from,
             to: Some(to),
             kind: TranscriptEventKind::Message { text: text.into() },
+        }
+    }
+
+    /// Create the final answer event (THE authoritative Anna response)
+    /// This is the discriminator for answer source - use this, not message(), for Anna's answer.
+    pub fn final_answer(elapsed_ms: u64, text: impl Into<String>) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::Anna,
+            to: Some(Actor::You),
+            kind: TranscriptEventKind::FinalAnswer { text: text.into() },
         }
     }
 
@@ -196,15 +249,48 @@ impl TranscriptEvent {
 pub struct Transcript {
     /// All events in chronological order
     pub events: Vec<TranscriptEvent>,
+    /// Number of events dropped due to cap (not serialized for wire compat)
+    #[serde(skip)]
+    dropped_events: usize,
 }
 
 impl Transcript {
     pub fn new() -> Self {
-        Self { events: Vec::new() }
+        Self {
+            events: Vec::new(),
+            dropped_events: 0,
+        }
     }
 
-    pub fn push(&mut self, event: TranscriptEvent) {
-        self.events.push(event);
+    /// Push event, enforcing cap. Returns true if event was added.
+    /// COST: Never silently truncate - track dropped count for diagnostic.
+    pub fn push(&mut self, event: TranscriptEvent) -> bool {
+        if self.events.len() >= MAX_TRANSCRIPT_EVENTS {
+            self.dropped_events += 1;
+            false
+        } else {
+            self.events.push(event);
+            true
+        }
+    }
+
+    /// Check if transcript was capped (events were dropped)
+    pub fn was_capped(&self) -> bool {
+        self.dropped_events > 0
+    }
+
+    /// Get number of dropped events
+    pub fn dropped_count(&self) -> usize {
+        self.dropped_events
+    }
+
+    /// Get resource diagnostic if capped
+    pub fn diagnostic(&self) -> Option<ResourceDiagnostic> {
+        if self.dropped_events > 0 {
+            Some(ResourceDiagnostic::transcript_capped(self.dropped_events))
+        } else {
+            None
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -215,101 +301,4 @@ impl Transcript {
         self.events.len()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_actor_display() {
-        assert_eq!(format!("{}", Actor::You), "you");
-        assert_eq!(format!("{}", Actor::Anna), "anna");
-        assert_eq!(format!("{}", Actor::System), "system");
-    }
-
-    #[test]
-    fn test_transcript_event_creation() {
-        let event = TranscriptEvent::message(100, Actor::You, Actor::Anna, "test query");
-        assert_eq!(event.elapsed_ms, 100);
-        assert_eq!(event.from, Actor::You);
-        assert_eq!(event.to, Some(Actor::Anna));
-    }
-
-    #[test]
-    fn test_is_debug_only() {
-        let note = TranscriptEvent::note(0, "debug info");
-        assert!(note.is_debug_only());
-
-        let message = TranscriptEvent::message(0, Actor::Anna, Actor::You, "answer");
-        assert!(!message.is_debug_only());
-    }
-
-    #[test]
-    fn test_transcript_push_and_len() {
-        let mut transcript = Transcript::new();
-        assert!(transcript.is_empty());
-
-        transcript.push(TranscriptEvent::message(
-            0,
-            Actor::You,
-            Actor::Anna,
-            "hello",
-        ));
-        assert_eq!(transcript.len(), 1);
-
-        transcript.push(TranscriptEvent::stage_start(100, "translator"));
-        assert_eq!(transcript.len(), 2);
-    }
-
-    #[test]
-    fn test_transcript_serialization() {
-        let mut transcript = Transcript::new();
-        transcript.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "test"));
-        transcript.push(TranscriptEvent::stage_end(
-            100,
-            "translator",
-            StageOutcome::Ok,
-        ));
-
-        let json = serde_json::to_string(&transcript).unwrap();
-        assert!(json.contains("\"type\":\"message\""));
-        assert!(json.contains("\"type\":\"stage_end\""));
-
-        let parsed: Transcript = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.len(), 2);
-    }
-
-    #[test]
-    fn test_probe_events() {
-        let start = TranscriptEvent::probe_start(50, "top_mem", "ps aux --sort=-%mem");
-        let end = TranscriptEvent::probe_end(100, "top_mem", 0, 50, Some("first line".to_string()));
-
-        if let TranscriptEventKind::ProbeStart { probe_id, command } = &start.kind {
-            assert_eq!(probe_id, "top_mem");
-            assert_eq!(command, "ps aux --sort=-%mem");
-        } else {
-            panic!("Expected ProbeStart");
-        }
-
-        if let TranscriptEventKind::ProbeEnd {
-            exit_code,
-            timing_ms,
-            ..
-        } = &end.kind
-        {
-            assert_eq!(*exit_code, 0);
-            assert_eq!(*timing_ms, 50);
-        } else {
-            panic!("Expected ProbeEnd");
-        }
-    }
-
-    #[test]
-    fn test_stage_outcome_display() {
-        assert_eq!(format!("{}", StageOutcome::Ok), "ok");
-        assert_eq!(format!("{}", StageOutcome::Timeout), "timeout");
-        assert_eq!(format!("{}", StageOutcome::Error), "error");
-        assert_eq!(format!("{}", StageOutcome::Skipped), "skipped");
-        assert_eq!(format!("{}", StageOutcome::Deterministic), "deterministic");
-    }
-}
+// Tests are in tests/transcript_tests.rs

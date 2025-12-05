@@ -1,6 +1,6 @@
 //! RPC request handlers with deterministic routing, triage, and fallback.
 
-use anna_shared::progress::{ProgressEvent, RequestStage};
+use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{ProbeResult, RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
 use std::time::Instant;
@@ -11,7 +11,7 @@ use crate::config::LlmConfig;
 use crate::deterministic::{self, DeterministicResult};
 use crate::handlers;
 use crate::ollama;
-use crate::probes;
+use crate::probe_runner;
 use crate::progress_tracker::ProgressTracker;
 use crate::redact;
 use crate::router;
@@ -58,6 +58,7 @@ fn make_timeout_response(id: String, request_id: String, timeout_secs: u64) -> R
     let result = anna_shared::rpc::ServiceDeskResult {
         request_id, answer: String::new(), reliability_score: 0,
         reliability_signals: anna_shared::rpc::ReliabilitySignals::default(),
+        reliability_explanation: None, // No explanation for hard timeout
         domain: anna_shared::rpc::SpecialistDomain::System,
         evidence: anna_shared::rpc::EvidenceBlock::default(),
         needs_clarification: true,
@@ -148,7 +149,7 @@ async fn handle_llm_request_inner(
 
     let probe_results = match timeout(
         Duration::from_secs(llm_config.probes_total_timeout_secs),
-        run_probes_with_timeout(&state, &ticket, &llm_config, &mut progress),
+        probe_runner::run_probes(&state, &ticket, &llm_config, &mut progress),
     ).await {
         Ok(results) => {
             progress.complete_stage(RequestStage::Probes);
@@ -173,13 +174,18 @@ async fn handle_llm_request_inner(
     };
 
     // Step 6: Try deterministic answer FIRST for known query classes
-    let (answer, used_deterministic, det_result) = if det_route.can_answer_deterministically {
+    let specialist_result = if det_route.can_answer_deterministically {
         if let Some(det) = deterministic::try_answer(query, &context, &probe_results) {
             if det.parsed_data_count > 0 {
                 info!("Deterministic answer produced ({} entries)", det.parsed_data_count);
                 // Skip specialist stage - deterministic router answered
                 progress.skip_stage_deterministic(RequestStage::Specialist);
-                (det.answer.clone(), true, Some(det))
+                SpecialistResult {
+                    answer: det.answer.clone(),
+                    used_deterministic: true,
+                    det_result: Some(det),
+                    prompt_truncated: false, // No prompt for deterministic path
+                }
             } else {
                 warn!("Deterministic parser produced empty result");
                 try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, debug_mode, &mut progress).await
@@ -190,6 +196,7 @@ async fn handle_llm_request_inner(
     } else {
         try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, debug_mode, &mut progress).await
     };
+    let SpecialistResult { answer, used_deterministic, det_result, prompt_truncated } = specialist_result;
 
     // Step 7: Handle no answer case
     if answer.is_empty() {
@@ -202,12 +209,13 @@ async fn handle_llm_request_inner(
 
     // Step 8: Build final result with proper scoring
     progress.start_stage(RequestStage::Supervisor, llm_config.supervisor_timeout_secs);
-    progress.add_anna_response(&answer);
+    progress.add_final_answer(&answer);
 
     let mut result = service_desk::build_result_with_flags(
-        request_id, answer, ticket, probe_results, progress.transcript_clone(),
+        request_id, answer, query, ticket, probe_results, progress.transcript_clone(),
         classified_domain, translator_timed_out, used_deterministic,
         det_result.map(|d| d.parsed_data_count).unwrap_or(0),
+        prompt_truncated,
     );
 
     // Add probe cap warning to evidence
@@ -264,6 +272,14 @@ async fn triage_path(
     (triage_result.ticket.clone(), Some(triage_result), translator_timed_out)
 }
 
+/// Specialist LLM result with resource tracking
+pub struct SpecialistResult {
+    pub answer: String,
+    pub used_deterministic: bool,
+    pub det_result: Option<DeterministicResult>,
+    pub prompt_truncated: bool,
+}
+
 /// Try specialist LLM with summarized probe output
 async fn try_specialist_llm(
     state: &SharedState,
@@ -275,22 +291,29 @@ async fn try_specialist_llm(
     model: &str,
     debug_mode: bool,
     progress: &mut ProgressTracker,
-) -> (String, bool, Option<DeterministicResult>) {
+) -> SpecialistResult {
     progress.start_stage(RequestStage::Specialist, config.specialist_timeout_secs);
     let stage_start = Instant::now();
 
     // Use summarized probe context (not raw output)
     let probe_context = summarizer::build_probe_context(probe_results);
-    let system_prompt = service_desk::build_specialist_prompt(ticket.domain, context, probe_results);
+    let prompt_result = service_desk::build_specialist_prompt(ticket.domain, context, probe_results);
+
+    // COST: Log if prompt was truncated
+    if prompt_result.was_truncated {
+        if let Some(diag) = &prompt_result.diagnostic {
+            warn!("COST: {}", diag.format());
+        }
+    }
 
     // Only include raw output if debug mode AND explicitly requested
     let full_prompt = if debug_mode && query.to_lowercase().contains("show raw") {
-        format!("{}\n\nProbe Output:\n{}\n\nUser: {}", system_prompt, probe_context, query)
+        format!("{}\n\nProbe Output:\n{}\n\nUser: {}", prompt_result.prompt, probe_context, query)
     } else {
-        format!("{}\n\nUser: {}", system_prompt, query)
+        format!("{}\n\nUser: {}", prompt_result.prompt, query)
     };
 
-    let result = match timeout(
+    let (answer, used_deterministic, det_result) = match timeout(
         Duration::from_secs(config.specialist_timeout_secs),
         ollama::chat_with_timeout(model, &full_prompt, config.specialist_timeout_secs),
     ).await {
@@ -316,7 +339,12 @@ async fn try_specialist_llm(
     // Record specialist latency
     { state.write().await.latency.specialist.add(stage_start.elapsed().as_millis() as u64); }
 
-    result
+    SpecialistResult {
+        answer,
+        used_deterministic,
+        det_result,
+        prompt_truncated: prompt_result.was_truncated,
+    }
 }
 
 /// Try deterministic fallback after LLM failure
@@ -333,64 +361,6 @@ fn try_deterministic_fallback(
         Some(det) => { warn!("Deterministic fallback produced empty result"); (String::new(), true, Some(det)) }
         None => { warn!("Deterministic fallback could not produce answer"); (String::new(), true, None) }
     }
-}
-
-/// Run probes with individual timeouts and redaction
-async fn run_probes_with_timeout(
-    state: &SharedState,
-    ticket: &anna_shared::rpc::TranslatorTicket,
-    config: &LlmConfig,
-    progress: &mut ProgressTracker,
-) -> Vec<ProbeResult> {
-    let mut results = Vec::new();
-
-    for probe_id in &ticket.needs_probes {
-        if let Some(cmd) = translator::probe_id_to_command(probe_id) {
-            progress.add(ProgressEvent::probe_running(probe_id, progress.elapsed_ms()));
-            progress.add_probe_start(probe_id, cmd);
-
-            let cached = { state.read().await.get_cached_probe(cmd) };
-
-            if let Some(mut cached_result) = cached {
-                info!("Using cached probe: {}", cmd);
-                // Redact cached output
-                let (stdout, stderr) = redact::redact_probe_output(&cached_result.stdout, &cached_result.stderr);
-                cached_result.stdout = stdout;
-                cached_result.stderr = stderr;
-                let preview = cached_result.stdout.lines().next().map(|s| s.to_string());
-                progress.add_probe_end(probe_id, cached_result.exit_code, cached_result.timing_ms, preview);
-                progress.add(ProgressEvent::probe_complete(probe_id, cached_result.exit_code, cached_result.timing_ms, progress.elapsed_ms()));
-                results.push(cached_result);
-            } else {
-                let probe_start = Instant::now();
-                let mut result = match timeout(
-                    Duration::from_secs(config.probe_timeout_secs),
-                    tokio::task::spawn_blocking({ let cmd = cmd.to_string(); move || probes::run_command_structured(&cmd) }),
-                ).await {
-                    Ok(Ok(r)) => r,
-                    Ok(Err(e)) => { warn!("Probe task error: {}", e); ProbeResult { command: cmd.to_string(), exit_code: -1, stdout: String::new(), stderr: format!("Task error: {}", e), timing_ms: probe_start.elapsed().as_millis() as u64 } }
-                    Err(_) => { warn!("Probe timeout: {}", cmd); ProbeResult { command: cmd.to_string(), exit_code: -1, stdout: String::new(), stderr: "Probe timeout".to_string(), timing_ms: config.probe_timeout_secs * 1000 } }
-                };
-
-                // Redact probe output
-                let (stdout, stderr) = redact::redact_probe_output(&result.stdout, &result.stderr);
-                result.stdout = stdout;
-                result.stderr = stderr;
-
-                let preview = result.stdout.lines().next().map(|s| s.to_string());
-                progress.add_probe_end(probe_id, result.exit_code, result.timing_ms, preview);
-                progress.add(ProgressEvent::probe_complete(probe_id, result.exit_code, result.timing_ms, progress.elapsed_ms()));
-
-                if result.exit_code == 0 {
-                    state.write().await.cache_probe(result.clone());
-                }
-                results.push(result);
-            }
-        }
-    }
-
-    { state.write().await.clean_probe_cache(); }
-    results
 }
 
 /// Save progress events to state for polling

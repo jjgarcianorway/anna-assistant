@@ -2,12 +2,16 @@
 //!
 //! Ensures reliable routing and probe selection for common queries,
 //! regardless of LLM translator behavior.
+//!
+//! ROUTE phase: Uses typed outputs from STRUCT-lite parsers.
 
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 /// Known query classes with deterministic routing
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum QueryClass {
     /// CPU info: cpu/processor/cores => domain=system, probes=[]
     CpuInfo,
@@ -27,8 +31,61 @@ pub enum QueryClass {
     Help,
     /// System slow: slow/sluggish => domain=system, probes=[top_cpu, top_memory, disk_usage]
     SystemSlow,
+    // === ROUTE Phase: New typed classes ===
+    /// Memory usage: "how much memory", "memory usage" => domain=system, probes=[free]
+    /// Uses ParsedProbeData::Memory (MemoryInfo) for typed answers
+    MemoryUsage,
+    /// Disk usage: "disk usage", "how full" => domain=storage, probes=[df]
+    /// Uses ParsedProbeData::Disk (Vec<DiskUsage>) for typed answers
+    DiskUsage,
+    /// Service status: "is nginx running", "service status" => domain=system, probes=[systemctl]
+    /// Uses ParsedProbeData::Service/Services for typed answers
+    ServiceStatus,
     /// Unknown: defer to LLM translator
     Unknown,
+}
+
+impl std::fmt::Display for QueryClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::CpuInfo => "cpu_info",
+            Self::RamInfo => "ram_info",
+            Self::GpuInfo => "gpu_info",
+            Self::TopMemoryProcesses => "top_memory_processes",
+            Self::TopCpuProcesses => "top_cpu_processes",
+            Self::DiskSpace => "disk_space",
+            Self::NetworkInterfaces => "network_interfaces",
+            Self::Help => "help",
+            Self::SystemSlow => "system_slow",
+            Self::MemoryUsage => "memory_usage",
+            Self::DiskUsage => "disk_usage",
+            Self::ServiceStatus => "service_status",
+            Self::Unknown => "unknown",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl QueryClass {
+    /// Parse from string (for corpus tests)
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "cpu_info" => Some(Self::CpuInfo),
+            "ram_info" => Some(Self::RamInfo),
+            "gpu_info" => Some(Self::GpuInfo),
+            "top_memory_processes" => Some(Self::TopMemoryProcesses),
+            "top_cpu_processes" => Some(Self::TopCpuProcesses),
+            "disk_space" => Some(Self::DiskSpace),
+            "network_interfaces" => Some(Self::NetworkInterfaces),
+            "help" => Some(Self::Help),
+            "system_slow" => Some(Self::SystemSlow),
+            "memory_usage" => Some(Self::MemoryUsage),
+            "disk_usage" => Some(Self::DiskUsage),
+            "service_status" => Some(Self::ServiceStatus),
+            "unknown" => Some(Self::Unknown),
+            _ => None,
+        }
+    }
 }
 
 /// Route result from deterministic router
@@ -54,6 +111,36 @@ pub fn classify_query(query: &str) -> QueryClass {
     if q.contains("slow") || q.contains("sluggish") || q.contains("laggy") {
         return QueryClass::SystemSlow;
     }
+
+    // === ROUTE Phase: Typed query classes (check specific patterns first) ===
+
+    // Memory usage (dynamic): "memory usage", "how much memory used"
+    // Check before RamInfo since these are more specific
+    if (q.contains("memory") && q.contains("usage"))
+        || (q.contains("memory") && q.contains("used"))
+        || q.contains("free memory")
+        || q.contains("available memory")
+    {
+        return QueryClass::MemoryUsage;
+    }
+
+    // Disk usage (dynamic): specific mount or usage patterns
+    // Check before DiskSpace since "disk usage" is more specific
+    if q.contains("disk usage") || q.contains("filesystem usage") {
+        return QueryClass::DiskUsage;
+    }
+
+    // Service status: "is X running", "status of X"
+    if q.contains("running")
+        || q.contains("service status")
+        || q.contains("systemd")
+        || (q.contains("status") && q.contains("service"))
+        || (q.contains("is") && (q.contains("active") || q.contains("enabled")))
+    {
+        return QueryClass::ServiceStatus;
+    }
+
+    // === Legacy query classes ===
 
     // Top memory processes (before RAM check)
     if (q.contains("process") && (q.contains("memory") || q.contains("ram")))
@@ -189,6 +276,28 @@ pub fn get_route(query: &str) -> DeterministicRoute {
             ],
             can_answer_deterministically: false, // Needs analysis
         },
+        // === ROUTE Phase: Typed query classes ===
+        QueryClass::MemoryUsage => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["free".to_string()],
+            can_answer_deterministically: true,
+        },
+        QueryClass::DiskUsage => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["df".to_string()],
+            can_answer_deterministically: true,
+        },
+        QueryClass::ServiceStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemctl".to_string()],
+            can_answer_deterministically: true,
+        },
         QueryClass::Unknown => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
@@ -240,99 +349,4 @@ fn create_default_ticket(route: DeterministicRoute) -> TranslatorTicket {
 #[allow(dead_code)]
 pub fn can_answer_deterministically(query: &str) -> bool {
     get_route(query).can_answer_deterministically
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_classify_cpu() {
-        assert_eq!(classify_query("what cpu do i have?"), QueryClass::CpuInfo);
-        assert_eq!(classify_query("show processor info"), QueryClass::CpuInfo);
-        assert_eq!(classify_query("how many cores"), QueryClass::CpuInfo);
-    }
-
-    #[test]
-    fn test_classify_memory() {
-        assert_eq!(classify_query("how much ram"), QueryClass::RamInfo);
-        assert_eq!(classify_query("show memory"), QueryClass::RamInfo);
-        // Process memory should be different
-        assert_eq!(
-            classify_query("processes using memory"),
-            QueryClass::TopMemoryProcesses
-        );
-    }
-
-    #[test]
-    fn test_classify_processes() {
-        assert_eq!(
-            classify_query("top 5 memory hogs"),
-            QueryClass::TopMemoryProcesses
-        );
-        assert_eq!(
-            classify_query("what's using cpu"),
-            QueryClass::TopCpuProcesses
-        );
-    }
-
-    #[test]
-    fn test_classify_disk() {
-        assert_eq!(classify_query("disk space free"), QueryClass::DiskSpace);
-        assert_eq!(classify_query("is storage full"), QueryClass::DiskSpace);
-    }
-
-    #[test]
-    fn test_classify_network() {
-        assert_eq!(
-            classify_query("show network interfaces"),
-            QueryClass::NetworkInterfaces
-        );
-        assert_eq!(classify_query("wifi status"), QueryClass::NetworkInterfaces);
-    }
-
-    #[test]
-    fn test_classify_help() {
-        assert_eq!(classify_query("help"), QueryClass::Help);
-        assert_eq!(classify_query("what can you do"), QueryClass::Help);
-    }
-
-    #[test]
-    fn test_classify_slow() {
-        assert_eq!(classify_query("it's slow"), QueryClass::SystemSlow);
-        assert_eq!(classify_query("system is sluggish"), QueryClass::SystemSlow);
-    }
-
-    #[test]
-    fn test_route_probes() {
-        let route = get_route("top memory processes");
-        assert_eq!(route.probes, vec!["top_memory"]);
-
-        let route = get_route("disk space");
-        assert_eq!(route.probes, vec!["disk_usage"]);
-
-        let route = get_route("it's slow");
-        assert!(route.probes.contains(&"top_cpu".to_string()));
-        assert!(route.probes.contains(&"top_memory".to_string()));
-    }
-
-    #[test]
-    fn test_apply_routing_overrides_llm() {
-        let llm_ticket = TranslatorTicket {
-            intent: QueryIntent::Request, // LLM got it wrong
-            domain: SpecialistDomain::Security, // LLM got it wrong
-            entities: vec![],
-            needs_probes: vec!["listening_ports".to_string()], // Wrong probes
-            clarification_question: None,
-            confidence: 0.9,
-        };
-
-        let ticket = apply_deterministic_routing("show disk space", Some(llm_ticket));
-
-        // Deterministic should override
-        assert_eq!(ticket.domain, SpecialistDomain::Storage);
-        assert_eq!(ticket.intent, QueryIntent::Question);
-        assert_eq!(ticket.needs_probes, vec!["disk_usage"]);
-        assert_eq!(ticket.confidence, 1.0);
-    }
 }
