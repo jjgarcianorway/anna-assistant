@@ -162,7 +162,22 @@ git push origin main --force-with-lease
 git push origin "$TAG"
 log_success "Pushed to origin"
 
-# Step 12: Create GitHub release
+# Step 12: Prepare release artifacts with proper names
+log_info "Preparing release artifacts..."
+ARCH=$(uname -m)
+ARTIFACTS_DIR="$PROJECT_ROOT/artifacts"
+mkdir -p "$ARTIFACTS_DIR"
+
+cp target/release/annad "$ARTIFACTS_DIR/annad-linux-$ARCH"
+cp target/release/annactl "$ARTIFACTS_DIR/annactl-linux-$ARCH"
+
+# Generate checksums
+cd "$ARTIFACTS_DIR"
+sha256sum annad-linux-$ARCH annactl-linux-$ARCH > SHA256SUMS
+cd "$PROJECT_ROOT"
+log_success "Artifacts prepared"
+
+# Step 13: Create GitHub release
 log_info "Creating GitHub release..."
 NOTES="## Anna $TAG
 
@@ -172,8 +187,8 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 \`\`\`
 
 ### Binaries
-- \`annad\` - Anna daemon
-- \`annactl\` - Anna CLI client
+- \`annad-linux-$ARCH\` - Anna daemon
+- \`annactl-linux-$ARCH\` - Anna CLI client
 
 ---
 *Release created automatically*"
@@ -181,8 +196,9 @@ curl -fsSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/
 gh release create "$TAG" \
     --title "Anna $TAG" \
     --notes "$NOTES" \
-    target/release/annad \
-    target/release/annactl
+    "$ARTIFACTS_DIR/annad-linux-$ARCH" \
+    "$ARTIFACTS_DIR/annactl-linux-$ARCH" \
+    "$ARTIFACTS_DIR/SHA256SUMS"
 
 log_success "GitHub release created"
 
