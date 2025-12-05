@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.43] - 2025-12-05
+
+### Added
+- **Spinner Animation v0.0.43** (`ui.rs`):
+  - `Spinner` struct for animated stage progress display
+  - `tick()` advances frame, `render()` shows current state with elapsed time
+  - `success()`, `error()`, `skip()` for completion states with timing
+  - `is_running()` and `stop()` for control flow
+  - ANSI spinner characters: ⠋ ⠙ ⠹ ⠸
+
+- **StageProgress Tracker v0.0.43** (`ui.rs`):
+  - `StageProgress` for pipeline visualization (translator → probes → specialist)
+  - `StageStatus` enum: Pending, Running, Complete, Skipped, Error
+  - `start()`, `complete()`, `skip()`, `error()` for stage transitions
+  - `render_line()` shows ○ ◉ ● - indicators with team colors
+  - `summary()` returns "N/M stages (Xms)" format
+
+### Changed
+- Compacted struct definitions in ui.rs to stay under 400 lines
+
 ## [0.0.42] - 2025-12-05
 
 ### Added
