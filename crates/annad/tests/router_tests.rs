@@ -3,7 +3,7 @@
 //! Verifies that known query classes are routed correctly and that
 //! the system handles invalid/missing translator JSON gracefully.
 
-use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
+use anna_shared::rpc::SpecialistDomain;
 
 /// Re-implement router logic for testing
 mod router {

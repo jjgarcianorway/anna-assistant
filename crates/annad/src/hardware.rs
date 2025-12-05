@@ -157,6 +157,7 @@ fn format_bytes(bytes: u64) -> String {
 }
 
 /// Select appropriate model based on hardware
+#[allow(dead_code)]
 pub fn select_model(hardware: &HardwareInfo) -> String {
     let ram_gb = hardware.ram_bytes / (1024 * 1024 * 1024);
     let vram_gb = hardware

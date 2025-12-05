@@ -1,6 +1,5 @@
 //! Command handlers for annactl.
 
-use anna_shared::progress::ProgressEvent;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
 use anna_shared::ui::{colors, symbols};

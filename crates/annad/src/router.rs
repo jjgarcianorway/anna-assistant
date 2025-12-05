@@ -237,6 +237,7 @@ fn create_default_ticket(route: DeterministicRoute) -> TranslatorTicket {
 }
 
 /// Check if query class can be answered deterministically
+#[allow(dead_code)]
 pub fn can_answer_deterministically(query: &str) -> bool {
     get_route(query).can_answer_deterministically
 }

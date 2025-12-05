@@ -13,6 +13,7 @@ use crate::router::{classify_query, QueryClass};
 /// Result from deterministic answerer with metadata
 pub struct DeterministicResult {
     pub answer: String,
+    #[allow(dead_code)]
     pub grounded: bool,
     pub parsed_data_count: usize, // Number of parsed entries (0 = empty)
 }

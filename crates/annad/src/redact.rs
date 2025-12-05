@@ -84,6 +84,7 @@ pub fn redact_probe_output(stdout: &str, stderr: &str) -> (String, String) {
 }
 
 /// Check if text contains sensitive patterns
+#[allow(dead_code)]
 pub fn contains_sensitive(text: &str) -> bool {
     REDACTION_PATTERNS
         .iter()

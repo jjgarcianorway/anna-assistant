@@ -13,6 +13,7 @@ pub const MAX_TRIAGE_PROBES: usize = 3;
 pub const MIN_CONFIDENCE_THRESHOLD: f32 = 0.7;
 
 /// Maximum reliability score when clarification is needed
+#[allow(dead_code)]
 pub const CLARIFICATION_MAX_RELIABILITY: u8 = 40;
 
 /// Result of triage routing

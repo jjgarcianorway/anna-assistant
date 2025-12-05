@@ -1,4 +1,4 @@
-# Anna Specification v0.0.12
+# Anna Specification v0.0.17
 
 This document is the authoritative specification for Anna. All implementation
 must conform to this spec. If code and spec conflict, update spec first, then code.
@@ -30,6 +30,7 @@ Anna is a local AI assistant for Linux systems. It consists of two components:
 
 **Runs as**: root (systemd service)
 **Socket**: `/run/anna/anna.sock`
+**Config**: `/etc/anna/config.toml`
 **State directory**: `/var/lib/anna/`
 **Log**: systemd journal
 
@@ -43,7 +44,8 @@ Anna is a local AI assistant for Linux systems. It consists of two components:
 7. Self-healing: repair permissions, restart services, re-pull models
 8. Run system probes for grounded LLM responses
 9. Execute service desk pipeline for all requests
-10. **Deterministic fallback**: Answer from data when LLM times out (v0.0.12)
+10. Deterministic fallback when LLM times out
+11. Track per-stage latency statistics (v0.0.16)
 
 ### annactl (CLI)
 
@@ -54,11 +56,33 @@ Anna is a local AI assistant for Linux systems. It consists of two components:
 - `annactl <request>` - Send request to Anna
 - `annactl` (no args) - Enter REPL mode
 - `annactl status` - Show system status
+- `annactl status --debug` - Show status with latency stats (v0.0.16)
 - `annactl reset` - Reset learned data
 - `annactl uninstall` - Trigger safe uninstall
 - `annactl -V` / `annactl --version` - Show version
 
-## Service Desk Architecture (v0.0.12)
+## Configuration (v0.0.13+)
+
+`/etc/anna/config.toml`:
+```toml
+[daemon]
+debug_mode = true
+auto_update = true
+update_interval = 600
+
+[llm]
+provider = "ollama"
+translator_model = "qwen2.5:1.5b-instruct"
+specialist_model = "qwen2.5:7b-instruct"
+supervisor_model = "qwen2.5:1.5b-instruct"
+translator_timeout_secs = 4
+specialist_timeout_secs = 12
+supervisor_timeout_secs = 6
+probe_timeout_secs = 4
+request_timeout_secs = 20  # v0.0.16: Global request timeout
+```
+
+## Service Desk Architecture
 
 ### Internal Roles
 
@@ -66,32 +90,84 @@ Anna is a local AI assistant for Linux systems. It consists of two components:
 2. **Dispatcher**: Routes to appropriate specialist, runs probes
 3. **Specialist**: Domain expert (System/Network/Storage/Security/Packages)
 4. **Supervisor**: Quality control with deterministic scoring
-5. **Deterministic Answerer** (NEW in v0.0.12): Fallback when LLM unavailable
+5. **Deterministic Answerer**: Fallback when LLM unavailable
 
-### Deterministic Answerer (v0.0.12)
+### Pipeline Flow
 
-When specialist LLM times out or errors, the deterministic answerer can produce
-answers for common queries by parsing hardware snapshots and probe outputs.
+```
+User Query
+    │
+    ▼
+┌─────────────────┐
+│  Deterministic  │──── Known query? ────► Direct Answer
+│     Router      │     (help, cpu, ram)
+└────────┬────────┘
+         │ Unknown
+         ▼
+┌─────────────────┐
+│   Translator    │──── Confidence < 0.7 ────► Clarification
+│    (LLM)        │
+└────────┬────────┘
+         │ High confidence
+         ▼
+┌─────────────────┐
+│   Dispatcher    │──► Run probes (max 3)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Specialist    │──── Timeout? ────► Deterministic Fallback
+│    (LLM)        │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Supervisor    │──► Score reliability
+└─────────────────┘
+```
+
+### Deterministic Router (v0.0.14+)
+
+Overrides LLM for known query classes:
+
+| Pattern | Action | Domain |
+|---------|--------|--------|
+| "help" | Return help text | - |
+| cpu/processor | Hardware snapshot | System |
+| ram/memory amount | Hardware snapshot | System |
+| gpu/graphics | Hardware snapshot | System |
+| "top memory/processes" | Run top_memory probe | System |
+| "top cpu" | Run top_cpu probe | System |
+| disk/storage/space | Run disk_usage probe | Storage |
+| network/interface/ip | Run network_addrs probe | Network |
+| slow/sluggish | Multi-probe diagnostic | System |
+
+### Triage Rules (v0.0.15+)
+
+- **Confidence threshold**: < 0.7 triggers clarification
+- **Probe cap**: Maximum 3 probes per query
+- **Clarification max reliability**: Capped at 40%
+
+### Deterministic Answerer
 
 **Supported Query Types**:
 
-| Query Type | Data Sources | Example Queries |
-|------------|--------------|-----------------|
-| CpuInfo | Hardware snapshot, lscpu | "what cpu do i have?" |
-| RamInfo | Hardware snapshot, free -h | "how much ram do i have?" |
-| GpuInfo | Hardware snapshot | "what gpu do i have?" |
-| TopMemoryProcesses | ps aux --sort=-%mem | "top 5 memory hogs" |
-| DiskSpace | df -h | "how much disk space is free?" |
-| NetworkInterfaces | ip addr show | "what are my network interfaces?" |
+| Query Type | Data Sources | Output Format |
+|------------|--------------|---------------|
+| CpuInfo | Hardware snapshot | Model, cores |
+| RamInfo | Hardware snapshot | Total GB |
+| GpuInfo | Hardware snapshot | Model, VRAM |
+| TopMemoryProcesses | ps aux --sort=-%mem | PID, COMMAND, %MEM, RSS, USER (10 rows) |
+| DiskSpace | df -h | Mount, usage %, CRITICAL/WARNING flags |
+| NetworkInterfaces | ip addr show | Active first, type detection |
 
-**Rules**:
-- Never invent facts. If parsing fails, say what was missing.
-- Must produce a clean final answer, not ask for clarification.
-- Deterministic answers are always grounded and never invent.
+**Output Requirements** (v0.0.16):
+- Process tables include PID column
+- RSS formatted human-readable (12M, 1.2G)
+- Disk shows CRITICAL (>=95%) and WARNING (>=85%)
+- Network shows active interface first with type (WiFi/Ethernet)
 
-### Reliability Scoring (v0.0.12)
-
-The reliability score is calculated from 5 boolean signals:
+### Reliability Scoring
 
 | Signal | Condition | Points |
 |--------|-----------|--------|
@@ -101,33 +177,20 @@ The reliability score is calculated from 5 boolean signals:
 | no_invention | deterministic OR no hedging words | 20 |
 | clarification_not_needed | answer is not empty | 20 |
 
-**Key Change in v0.0.12**: Deterministic answers automatically get `answer_grounded=true`
-and `no_invention=true` because they parse real data.
+**Scoring Rules**:
+- `grounded=true` only if parsed data count > 0
+- Empty parser result = clarification needed
+- Coverage based on actual probe success
 
-**Scoring Examples**:
-- LLM success, all probes: 100
-- Translator timeout + deterministic + probes: 80 (no translator_confident)
-- Full timeout, no data: 20 (only no_invention)
-
-### Timeout Handling (v0.0.12)
+### Timeout Handling
 
 | Stage | Timeout | On Timeout |
 |-------|---------|------------|
-| Translator | 8s | Use keyword fallback routing |
+| Global request | 20s (configurable) | Graceful timeout response |
+| Translator | 4s | Use deterministic router |
 | Probe (each) | 4s | Skip, mark as failed |
-| Probes (total) | 10s | Return timeout response |
-| Specialist | 12s | **Try deterministic answerer first** |
-| Supervisor | 8s | Deterministic scoring |
-
-**Critical Change**: Specialist timeout no longer returns clarification. Instead:
-1. Try deterministic answerer with available context
-2. Only if deterministic fails AND no probes succeeded: ask clarification
-
-### Domain Consistency (v0.0.12)
-
-The `ServiceDeskResult.domain` now always reflects the classified domain from
-the translator (or fallback routing), not a default value. This ensures the
-domain shown in summary matches the actual routing decision.
+| Specialist | 12s | Try deterministic answerer |
+| Supervisor | 6s | Deterministic scoring |
 
 ### Probe Allowlist
 
@@ -145,30 +208,59 @@ domain shown in summary matches the actual routing decision.
 | failed_services | `systemctl --failed` |
 | system_logs | `journalctl -p warning..alert -n 200 --no-pager` |
 
-### Response Format
+### Evidence Redaction (v0.0.15+)
 
-Every response includes:
-- `request_id`: Unique request ID for tracking
-- `answer`: The response text (LLM or deterministic)
-- `reliability_score`: 0-100 deterministic score
-- `reliability_signals`: The 5 boolean signals
-- `domain`: Which specialist domain (matches routing)
-- `evidence`: Hardware fields, probes, translator ticket
-- `needs_clarification`: Only true if no answer possible
-- `clarification_question`: Question if clarification needed
-- `transcript`: Full pipeline event transcript
+Automatic removal of sensitive patterns:
+- Private keys (BEGIN...PRIVATE KEY)
+- Password hashes (/etc/shadow format)
+- AWS keys (AKIA...)
+- API tokens (Bearer, api_key, etc.)
 
-### Transcript Events (v0.0.11+)
+Applied even in debug mode for security.
 
-Pipeline events for debugging/visibility:
-- **StageStart/StageEnd**: Track stage timings
-- **ProbeStart/ProbeEnd**: Individual probe execution
-- **Message**: Actor-to-actor communication
-- **Note**: Internal annotations
+## Latency Statistics (v0.0.16)
 
-**Render Modes**:
-- debug OFF: Human-readable format showing key messages
-- debug ON: Full troubleshooting view with timings
+Per-stage latency tracking for last 20 requests:
+
+- **translator**: LLM translation time
+- **probes**: Total probe execution time
+- **specialist**: LLM specialist time
+- **total**: End-to-end request time
+
+Exposed via `annactl status --debug`:
+```
+Latency Stats (last 20 requests):
+translator      avg 120ms, p95 250ms
+probes          avg 80ms, p95 150ms
+specialist      avg 1200ms, p95 2500ms
+total           avg 1500ms, p95 3000ms
+samples         20
+```
+
+## Display Modes
+
+**debug OFF** (fly-on-the-wall):
+```
+anna v0.0.16
+──────────────────────────────────────
+[you]
+what cpu do i have?
+
+[anna]
+AMD Ryzen 7 5800X (8 cores)
+
+reliability 100% | domain system
+──────────────────────────────────────
+```
+
+**debug ON** (troubleshooting):
+```
+[anna->translator] starting (timeout 4s) [0.0s]
+[anna] translator complete [0.12s]
+[anna->probe] running top_memory [0.12s]
+[anna] probe top_memory ok (45ms) [0.17s]
+...
+```
 
 ## Constraints
 
@@ -178,8 +270,9 @@ Pipeline events for debugging/visibility:
 4. **Grounding mandatory**: All responses must be grounded in data
 5. **No invented facts**: Never claim facts not in context
 6. **Probe allowlist**: Only read-only commands allowed
+7. **Max 3 probes**: Per query limit enforced
 
 ## Version
 
-- Version: 0.0.12
-- Status: Deterministic fallback answerer, domain consistency, improved scoring
+- Version: 0.0.17
+- Status: Verification docs, spec refresh, dead code cleanup

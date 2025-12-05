@@ -179,6 +179,7 @@ impl Config {
     }
 
     /// Save default config to path (for init)
+    #[allow(dead_code)]
     pub fn save_default(path: &str) -> Result<()> {
         let config = Config::default();
         let content = toml::to_string_pretty(&config)?;

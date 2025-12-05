@@ -242,6 +242,7 @@ fn extract_json(response: &str) -> Result<String, String> {
 }
 
 /// Fallback keyword-based translation (used when LLM fails)
+#[allow(dead_code)]
 pub fn translate_fallback(query: &str) -> TranslatorTicket {
     warn!("Using fallback keyword translator");
     let q = query.to_lowercase();
@@ -275,6 +276,7 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
 }
 
 /// Maximum allowed translator payload size (8KB)
+#[allow(dead_code)]
 pub const MAX_TRANSLATOR_PAYLOAD_SIZE: usize = 8192;
 
 #[cfg(test)]

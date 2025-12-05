@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.17] - 2025-12-05
+
+### Added
+- **docs/VERIFICATION.md**: Comprehensive verification guide with exact commands
+  - Binary verification, release asset checks, smoke tests
+  - Per-feature validation commands for deterministic outputs
+
+### Changed
+- **SPEC.md updated to v0.0.16**: Full specification refresh
+  - Documents all features from v0.0.13-v0.0.16
+  - Pipeline flow diagram, configuration reference
+  - Latency stats, timeout handling, probe allowlist
+
+### Fixed
+- Cleaned up dead code warnings with `#[allow(dead_code)]` annotations
+- Removed unused imports in test files and commands.rs
+
 ## [0.0.16] - 2025-12-05
 
 ### Added
@@ -395,7 +412,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.16...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.17...HEAD
+[0.0.17]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.16...v0.0.17
 [0.0.16]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.14...v0.0.15
 [0.0.14]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.13...v0.0.14

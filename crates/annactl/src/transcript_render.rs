@@ -5,7 +5,7 @@
 //! - debug ON: Full troubleshooting view with stages and timings
 
 use anna_shared::rpc::ServiceDeskResult;
-use anna_shared::transcript::{Actor, StageOutcome, TranscriptEvent, TranscriptEventKind};
+use anna_shared::transcript::{Actor, StageOutcome, TranscriptEventKind};
 use anna_shared::ui::colors;
 use anna_shared::VERSION;
 

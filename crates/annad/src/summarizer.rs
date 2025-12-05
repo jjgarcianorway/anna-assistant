@@ -14,7 +14,9 @@ pub struct SummarizedProbe {
     pub command: String,
     pub exit_code: i32,
     pub summary: String,
+    #[allow(dead_code)]
     pub line_count: usize,
+    #[allow(dead_code)]
     pub was_truncated: bool,
 }
 
@@ -44,6 +46,7 @@ pub fn summarize_probe(probe: &ProbeResult) -> SummarizedProbe {
 }
 
 /// Summarize all probe results
+#[allow(dead_code)]
 pub fn summarize_probes(probes: &[ProbeResult]) -> Vec<SummarizedProbe> {
     probes.iter().map(summarize_probe).collect()
 }
@@ -79,6 +82,7 @@ pub fn build_probe_context(probes: &[ProbeResult]) -> String {
 }
 
 /// Calculate total summarized size in bytes
+#[allow(dead_code)]
 pub fn total_summary_size(probes: &[ProbeResult]) -> usize {
     probes
         .iter()
