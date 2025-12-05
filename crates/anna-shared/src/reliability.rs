@@ -448,6 +448,59 @@ impl ReliabilityInput {
         };
         self.derive_answer_grounded();
     }
+
+    // === Builder methods for testing (v0.0.45) ===
+
+    /// Set whether evidence is required
+    pub fn with_evidence_required(mut self, required: bool) -> Self {
+        self.evidence_required = required;
+        self
+    }
+
+    /// Set planned probes count
+    pub fn with_planned_probes(mut self, count: usize) -> Self {
+        self.planned_probes = count;
+        self
+    }
+
+    /// Set succeeded probes count
+    pub fn with_succeeded_probes(mut self, count: usize) -> Self {
+        self.succeeded_probes = count;
+        self
+    }
+
+    /// Set total claims count
+    pub fn with_total_claims(mut self, count: u32) -> Self {
+        self.total_claims = count;
+        self
+    }
+
+    /// Set verified claims count (derives grounding_ratio)
+    pub fn with_verified_claims(mut self, count: u32) -> Self {
+        if self.total_claims > 0 {
+            self.grounding_ratio = count as f32 / self.total_claims as f32;
+        }
+        self
+    }
+
+    /// Set answer_grounded flag
+    pub fn with_answer_grounded(mut self, grounded: bool) -> Self {
+        self.answer_grounded = grounded;
+        self
+    }
+
+    /// Set no_invention flag (true = no invention detected)
+    pub fn with_no_invention(mut self, no_invention: bool) -> Self {
+        self.no_invention = no_invention;
+        self
+    }
+
+    /// Set translator confidence (0.0 to 1.0)
+    pub fn with_translator_confidence(mut self, confidence: u8) -> Self {
+        self.translator_confidence = confidence as f32 / 100.0;
+        self.translator_used = true;
+        self
+    }
 }
 
 /// Breakdown item for debug mode

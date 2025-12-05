@@ -11,7 +11,8 @@ mod tests {
     fn test_classify_cpu() {
         assert_eq!(classify_query("what cpu do i have?"), QueryClass::CpuInfo);
         assert_eq!(classify_query("show processor info"), QueryClass::CpuInfo);
-        assert_eq!(classify_query("how many cores"), QueryClass::CpuInfo);
+        // v0.0.45: "how many cores" now routes to CpuCores for specific probe
+        assert_eq!(classify_query("how many cores"), QueryClass::CpuCores);
     }
 
     #[test]

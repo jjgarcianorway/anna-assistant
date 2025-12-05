@@ -17,6 +17,7 @@ pub mod probe_runner;
 pub mod probes;
 pub mod progress_tracker;
 pub mod prompts;
+pub mod query_classify;
 pub mod rag_answerer;
 pub mod redact;
 pub mod router;

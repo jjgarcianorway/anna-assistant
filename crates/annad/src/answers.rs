@@ -239,6 +239,18 @@ pub fn answer_from_free_probe(probe: &ProbeResult) -> Option<String> {
     generate_answer(QueryClass::MemoryUsage, &data)
 }
 
+/// Try to generate available/free memory answer from probe output (v0.0.45).
+/// Distinct from answer_from_free_probe which shows total/used.
+pub fn answer_from_free_probe_available(probe: &ProbeResult) -> Option<String> {
+    let mem = parse_free("free", &probe.stdout).ok()?;
+    let avail_pct = (mem.available_bytes as f64 / mem.total_bytes as f64 * 100.0) as u8;
+    Some(format!(
+        "Available memory: {} ({avail_pct}% of total {})",
+        format_bytes_short(mem.available_bytes),
+        format_bytes_short(mem.total_bytes),
+    ))
+}
+
 /// Try to generate disk usage answer from probe output.
 pub fn answer_from_df_probe(probe: &ProbeResult) -> Option<String> {
     let disks = parse_df("df", &probe.stdout).ok()?;

@@ -32,10 +32,16 @@ pub fn try_answer(
         QueryClass::SystemTriage => crate::triage_answer::generate_triage_answer(probe_results),
         QueryClass::CpuInfo => probe_answers::answer_cpu_info(&context.hardware, probe_results)
             .map(|mut r| { r.route_class = route_class; r }),
+        // v0.0.45: CpuCores - uses lscpu probe
+        QueryClass::CpuCores => answer_cpu_cores(probe_results, &route_class),
+        // v0.0.45: CpuTemp - uses sensors probe
+        QueryClass::CpuTemp => answer_cpu_temp(probe_results, &route_class),
         QueryClass::RamInfo => probe_answers::answer_ram_info(&context.hardware, probe_results)
             .map(|mut r| { r.route_class = route_class; r }),
         QueryClass::GpuInfo => probe_answers::answer_gpu_info(&context.hardware)
             .map(|mut r| { r.route_class = route_class; r }),
+        // v0.0.45: HardwareAudio - uses lspci_audio probe
+        QueryClass::HardwareAudio => answer_hardware_audio(probe_results, &route_class),
         QueryClass::TopMemoryProcesses => probe_answers::answer_top_memory(probe_results)
             .map(|mut r| { r.route_class = route_class; r }),
         QueryClass::TopCpuProcesses => probe_answers::answer_top_cpu(probe_results)
@@ -48,6 +54,8 @@ pub fn try_answer(
         QueryClass::SystemSlow => probe_answers::answer_system_slow(probe_results)
             .map(|mut r| { r.route_class = route_class; r }),
         QueryClass::MemoryUsage => answer_memory_usage(probe_results, &route_class),
+        // v0.0.45: MemoryFree - uses free probe (same as MemoryUsage)
+        QueryClass::MemoryFree => answer_memory_free(probe_results, &route_class),
         QueryClass::DiskUsage => answer_disk_usage(probe_results, &route_class),
         QueryClass::ServiceStatus => answer_service_status(probe_results, &route_class),
         QueryClass::SystemHealthSummary => answer_system_health_summary(probe_results, &route_class),
@@ -55,6 +63,10 @@ pub fn try_answer(
         QueryClass::BootTimeStatus |
         QueryClass::InstalledPackagesOverview |
         QueryClass::AppAlternatives => None,
+        // v0.0.45: PackageCount - uses pacman_count probe
+        QueryClass::PackageCount => answer_package_count(probe_results, &route_class),
+        // v0.0.45: InstalledToolCheck - uses command_v probe
+        QueryClass::InstalledToolCheck => answer_installed_tool_check(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }
@@ -156,6 +168,183 @@ fn answer_system_health_summary(probes: &[ProbeResult], route_class: &str) -> Op
         grounded: true,
         parsed_data_count: count,
         route_class: route_class.to_string(),
+    })
+}
+
+// === v0.0.45: New query class handlers ===
+
+/// Answer CPU cores query using lscpu probe
+fn answer_cpu_cores(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "lscpu")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    // Parse lscpu output for cores and threads
+    let mut cores: Option<u32> = None;
+    let mut threads: Option<u32> = None;
+
+    for line in probe.stdout.lines() {
+        if line.starts_with("CPU(s):") {
+            threads = line.split(':').nth(1).and_then(|s| s.trim().parse().ok());
+        } else if line.starts_with("Core(s) per socket:") {
+            if let Some(c) = line.split(':').nth(1).and_then(|s| s.trim().parse::<u32>().ok()) {
+                cores = Some(cores.unwrap_or(0) + c);
+            }
+        } else if line.starts_with("Socket(s):") {
+            if let Some(s) = line.split(':').nth(1).and_then(|s| s.trim().parse::<u32>().ok()) {
+                if let Some(c) = cores {
+                    cores = Some(c * s);
+                }
+            }
+        }
+    }
+
+    let answer = match (cores, threads) {
+        (Some(c), Some(t)) => format!("Your CPU has {} cores ({} threads).", c, t),
+        (Some(c), None) => format!("Your CPU has {} cores.", c),
+        (None, Some(t)) => format!("Your CPU has {} logical processors.", t),
+        (None, None) => return None,
+    };
+
+    Some(DeterministicResult {
+        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+    })
+}
+
+/// Answer CPU temperature query using sensors probe
+fn answer_cpu_temp(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "sensors")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    // Parse sensors output for CPU temperature
+    let mut cpu_temps = Vec::new();
+    let mut in_cpu_section = false;
+
+    for line in probe.stdout.lines() {
+        // Look for CPU-related sections
+        if line.contains("coretemp") || line.contains("k10temp") || line.contains("cpu") {
+            in_cpu_section = true;
+        } else if !line.starts_with(' ') && !line.starts_with('\t') && !line.is_empty() {
+            in_cpu_section = false;
+        }
+
+        // Extract temperatures
+        if in_cpu_section || line.to_lowercase().contains("core") {
+            if let Some(temp) = extract_temperature(line) {
+                cpu_temps.push(temp);
+            }
+        }
+    }
+
+    if cpu_temps.is_empty() {
+        return None;
+    }
+
+    let avg_temp = cpu_temps.iter().sum::<f32>() / cpu_temps.len() as f32;
+    let max_temp = cpu_temps.iter().cloned().fold(0.0f32, f32::max);
+
+    let answer = format!(
+        "CPU temperature: {:.1}°C average, {:.1}°C max across {} sensors.",
+        avg_temp, max_temp, cpu_temps.len()
+    );
+
+    Some(DeterministicResult {
+        answer, grounded: true, parsed_data_count: cpu_temps.len(), route_class: route_class.to_string(),
+    })
+}
+
+/// Extract temperature from a sensors output line
+fn extract_temperature(line: &str) -> Option<f32> {
+    // Look for patterns like "+45.0°C" or "45.0 C"
+    for part in line.split_whitespace() {
+        let cleaned = part.trim_start_matches('+').trim_end_matches('°').trim_end_matches('C');
+        if let Ok(temp) = cleaned.parse::<f32>() {
+            if temp > 0.0 && temp < 150.0 {
+                return Some(temp);
+            }
+        }
+    }
+    None
+}
+
+/// Answer hardware audio query using lspci_audio probe
+fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "lspci")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    // Filter for audio devices
+    let audio_devices: Vec<&str> = probe.stdout.lines()
+        .filter(|l| l.to_lowercase().contains("audio") || l.to_lowercase().contains("sound"))
+        .collect();
+
+    if audio_devices.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No audio devices detected via lspci.".to_string(),
+            grounded: true, parsed_data_count: 0, route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = if audio_devices.len() == 1 {
+        format!("Audio device: {}", audio_devices[0].trim())
+    } else {
+        format!("Audio devices:\n{}", audio_devices.iter()
+            .map(|d| format!("• {}", d.trim()))
+            .collect::<Vec<_>>()
+            .join("\n"))
+    };
+
+    Some(DeterministicResult {
+        answer, grounded: true, parsed_data_count: audio_devices.len(), route_class: route_class.to_string(),
+    })
+}
+
+/// Answer memory free query using free probe
+fn answer_memory_free(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "free")?;
+    let answer = crate::answers::answer_from_free_probe_available(probe)?;
+    Some(DeterministicResult {
+        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+    })
+}
+
+/// Answer package count query using pacman_count probe
+fn answer_package_count(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "pacman")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    // Parse package count from output
+    let count: usize = probe.stdout.trim().parse().ok()?;
+
+    let answer = format!("You have {} packages installed.", count);
+
+    Some(DeterministicResult {
+        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+    })
+}
+
+/// Answer installed tool check query using command_v probe
+fn answer_installed_tool_check(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    // Look for command -v probe result
+    let probe = find_probe(probes, "command")?;
+
+    // Extract tool name from command (e.g., "command -v nano" -> "nano")
+    let tool_name = probe.command.split_whitespace().last().unwrap_or("tool");
+
+    let answer = if probe.exit_code == 0 && !probe.stdout.is_empty() {
+        format!("Yes, {} is installed at: {}", tool_name, probe.stdout.trim())
+    } else {
+        format!("No, {} is not installed on this system.", tool_name)
+    };
+
+    Some(DeterministicResult {
+        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
     })
 }
 

@@ -57,6 +57,32 @@ service status	service_status	system	systemctl
 systemd units	service_status	system	systemctl
 is the database active	service_status	system	systemctl
 check if sshd is running	service_status	system	systemctl
+# Installed tool check (v0.0.45)
+do I have nano?	installed_tool_check	system	command_v
+is vim installed	installed_tool_check	system	command_v
+do I have nano installed	installed_tool_check	system	command_v
+is emacs available	installed_tool_check	system	command_v
+is git installed?	installed_tool_check	system	command_v
+# Hardware audio (v0.0.45)
+what is my sound card?	hardware_audio	system	lspci_audio
+what audio device do I have	hardware_audio	system	lspci_audio
+show sound card	hardware_audio	system	lspci_audio
+# CPU temperature (v0.0.45)
+what temperature has my cpu?	cpu_temp	system	sensors
+cpu temperature	cpu_temp	system	sensors
+how hot is my cpu	cpu_temp	system	sensors
+# CPU cores (v0.0.45 - uses lscpu probe)
+how many cores has my cpu?	cpu_cores	system	lscpu
+how many cores do I have?	cpu_cores	system	lscpu
+how many threads	cpu_cores	system	lscpu
+# Package count (v0.0.45 - uses pacman probe)
+how many packages I have installed?	package_count	system	pacman_count
+how many packages are installed	package_count	system	pacman_count
+package count	package_count	system	pacman_count
+# Memory free/available (v0.0.45 - distinct from total)
+how much free ram do I have?	memory_free	system	free
+available ram	memory_free	system	free
+free memory available	memory_free	system	free
 # Unknown queries (should be <= 20% of corpus)
 what's the weather like	unknown	system
 tell me a joke	unknown	system
