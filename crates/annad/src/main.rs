@@ -11,13 +11,16 @@ mod permissions;
 mod probes;
 mod progress_tracker;
 mod prompts;
+mod redact;
 mod router;
 mod rpc_handler;
 mod scoring;
 mod server;
 mod service_desk;
 mod state;
+mod summarizer;
 mod translator;
+mod triage;
 mod update;
 
 use anyhow::Result;

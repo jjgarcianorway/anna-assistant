@@ -97,14 +97,60 @@ impl Default for LlmConfig {
     }
 }
 
+/// Daemon configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DaemonConfig {
+    /// Debug mode shows detailed pipeline output
+    #[serde(default = "default_debug_mode")]
+    pub debug_mode: bool,
+
+    /// Auto-update enabled
+    #[serde(default = "default_auto_update")]
+    pub auto_update: bool,
+
+    /// Update check interval in seconds
+    #[serde(default = "default_update_interval")]
+    pub update_interval: u64,
+}
+
+fn default_debug_mode() -> bool {
+    true // Debug ON by default
+}
+
+fn default_auto_update() -> bool {
+    true
+}
+
+fn default_update_interval() -> u64 {
+    600
+}
+
+impl Default for DaemonConfig {
+    fn default() -> Self {
+        Self {
+            debug_mode: default_debug_mode(),
+            auto_update: default_auto_update(),
+            update_interval: default_update_interval(),
+        }
+    }
+}
+
 /// Full daemon configuration
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(default)]
+    pub daemon: DaemonConfig,
+
     #[serde(default)]
     pub llm: LlmConfig,
 }
 
 impl Config {
+    /// Get debug mode setting
+    pub fn debug_mode(&self) -> bool {
+        self.daemon.debug_mode
+    }
+
     /// Load config from file, or return defaults
     pub fn load() -> Self {
         Self::load_from_path(CONFIG_PATH)

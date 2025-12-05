@@ -20,3 +20,7 @@ tracing-subscriber.workspace = true
 reqwest.workspace = true
 chrono.workspace = true
 uuid.workspace = true
+regex = "1.10"
+
+[dev-dependencies]
+regex = "1.10"

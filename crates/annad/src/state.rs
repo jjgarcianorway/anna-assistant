@@ -38,7 +38,6 @@ pub struct DaemonStateInner {
     pub state: DaemonState,
     pub pid: u32,
     pub started_at: Instant,
-    pub debug_mode: bool,
     pub update: UpdateStateInner,
     pub ollama: OllamaStatus,
     pub llm: LlmStatus,
@@ -82,7 +81,6 @@ impl DaemonStateInner {
             state: DaemonState::Starting,
             pid: std::process::id(),
             started_at: Instant::now(),
-            debug_mode: true, // Debug mode ON by default
             update: UpdateStateInner::default(),
             ollama: OllamaStatus::default(),
             llm: LlmStatus::default(),
@@ -128,7 +126,7 @@ impl DaemonStateInner {
             state: self.state.clone(),
             pid: Some(self.pid),
             uptime_seconds: self.started_at.elapsed().as_secs(),
-            debug_mode: self.debug_mode,
+            debug_mode: self.config.debug_mode(),
             update: UpdateStatus {
                 enabled: self.update.enabled,
                 check_interval_secs: self.update.check_interval_secs,

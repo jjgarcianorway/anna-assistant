@@ -1,4 +1,4 @@
-//! RPC request handlers with deterministic routing and fallback.
+//! RPC request handlers with deterministic routing, triage, and fallback.
 
 use anna_shared::progress::{ProgressEvent, RequestStage};
 use anna_shared::rpc::{ProbeResult, RequestParams, RpcMethod, RpcRequest, RpcResponse};
@@ -13,9 +13,12 @@ use crate::handlers;
 use crate::ollama;
 use crate::probes;
 use crate::progress_tracker::ProgressTracker;
+use crate::redact;
 use crate::router;
 use crate::service_desk;
 use crate::state::SharedState;
+use crate::summarizer;
+use crate::triage::{self, TriageResult, CLARIFICATION_MAX_RELIABILITY};
 use crate::translator::{self, TranslatorInput};
 
 /// Handle an RPC request
@@ -33,7 +36,7 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
     }
 }
 
-/// Service desk pipeline with deterministic routing and fallback
+/// Service desk pipeline with deterministic routing, triage, and fallback
 async fn handle_llm_request(
     state: SharedState,
     id: String,
@@ -43,7 +46,7 @@ async fn handle_llm_request(
     let request_id = uuid::Uuid::new_v4().to_string();
 
     // Get config, models, and hardware from state
-    let (llm_config, translator_model, specialist_model, hw_cores, hw_ram_gb, has_gpu) = {
+    let (llm_config, translator_model, specialist_model, hw_cores, hw_ram_gb, has_gpu, debug_mode) = {
         let state = state.read().await;
         if state.llm.state != LlmState::Ready {
             return RpcResponse::error(id, -32002, format!("LLM not ready: {}", state.llm.state));
@@ -55,6 +58,7 @@ async fn handle_llm_request(
             state.hardware.cpu_cores,
             state.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0),
             state.hardware.gpu.is_some(),
+            state.config.debug_mode,
         )
     };
 
@@ -69,41 +73,35 @@ async fn handle_llm_request(
 
     let query = &params.prompt;
     progress.add_user_message(query);
-
-    // Clear previous progress events
     { state.write().await.progress_events.clear(); }
 
-    // Step 1: Deterministic routing (always runs, overrides LLM for known classes)
+    // Step 1: Deterministic routing (always runs)
     let det_route = router::get_route(query);
     info!("Router: class={:?}, domain={}, probes={:?}", det_route.class, det_route.domain, det_route.probes);
 
-    // Step 2: Try LLM translator, then apply deterministic override
-    progress.start_stage(RequestStage::Translator, llm_config.translator_timeout_secs);
-    let translator_input = TranslatorInput::new(query, hw_cores, hw_ram_gb, has_gpu);
-    let translator_timed_out;
-
-    let llm_ticket = match timeout(
-        Duration::from_secs(llm_config.translator_timeout_secs),
-        translator::translate_with_context(&translator_model, &translator_input, llm_config.translator_timeout_secs),
-    ).await {
-        Ok(Ok(t)) => { progress.complete_stage(RequestStage::Translator); translator_timed_out = false; Some(t) }
-        Ok(Err(e)) => { warn!("Translator error: {}", e); progress.error_stage(RequestStage::Translator, &e); translator_timed_out = false; None }
-        Err(_) => { warn!("Translator timeout"); progress.timeout_stage(RequestStage::Translator); translator_timed_out = true; None }
+    // Step 2: Route based on query class
+    let (ticket, triage_result, translator_timed_out) = if det_route.class == router::QueryClass::Unknown {
+        // Unknown class -> use triage path with LLM translator
+        triage_path(&state, query, &llm_config, &translator_model, hw_cores, hw_ram_gb, has_gpu, &mut progress).await
+    } else {
+        // Known class -> deterministic ticket
+        let ticket = router::apply_deterministic_routing(query, None);
+        (ticket, None, false)
     };
 
-    // Apply deterministic routing (overrides LLM for known classes)
-    let ticket = router::apply_deterministic_routing(query, llm_ticket);
     let classified_domain = ticket.domain;
-
     progress.add_translator_message(&format!(
-        "domain={}, intent={}, probes={:?}",
-        ticket.domain, ticket.intent, ticket.needs_probes
+        "domain={}, intent={}, probes={:?}, confidence={:.2}",
+        ticket.domain, ticket.intent, ticket.needs_probes, ticket.confidence
     ));
 
-    // Step 3: Check if clarification needed (only for unknown classes with no probes)
-    if let Some(question) = ticket.clarification_question.clone() {
-        if ticket.needs_probes.is_empty() && det_route.class == router::QueryClass::Unknown {
+    // Step 3: Check if immediate clarification needed (from triage)
+    if let Some(ref triage) = triage_result {
+        if triage.needs_immediate_clarification {
             save_progress(&state, &progress).await;
+            let question = triage.clarification_question.clone().unwrap_or_else(|| {
+                triage::generate_heuristic_clarification(query)
+            });
             let result = service_desk::create_clarification_response(
                 request_id, ticket, &question, progress.take_transcript(),
             );
@@ -113,6 +111,8 @@ async fn handle_llm_request(
 
     // Step 4: Run probes with timeout
     progress.start_stage(RequestStage::Probes, llm_config.probes_total_timeout_secs);
+    let probe_cap_warning = triage_result.as_ref().map(|t| t.probe_cap_applied).unwrap_or(false);
+
     let probe_results = match timeout(
         Duration::from_secs(llm_config.probes_total_timeout_secs),
         run_probes_with_timeout(&state, &ticket, &llm_config, &mut progress),
@@ -128,7 +128,7 @@ async fn handle_llm_request(
         }
     };
 
-    // Step 5: Build context
+    // Step 5: Build context with summarized probes
     let context = {
         let state = state.read().await;
         service_desk::build_context(&state.hardware, &probe_results)
@@ -144,17 +144,14 @@ async fn handle_llm_request(
                 progress.add_specialist_message("[deterministic]");
                 (det.answer.clone(), true, Some(det))
             } else {
-                // Parser produced empty result - try LLM
                 warn!("Deterministic parser produced empty result");
-                try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, &mut progress).await
+                try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, debug_mode, &mut progress).await
             }
         } else {
-            // No deterministic answer available - try LLM
-            try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, &mut progress).await
+            try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, debug_mode, &mut progress).await
         }
     } else {
-        // Unknown query class - use LLM specialist
-        try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, &mut progress).await
+        try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, debug_mode, &mut progress).await
     };
 
     // Step 7: Handle no answer case
@@ -170,13 +167,18 @@ async fn handle_llm_request(
     progress.start_stage(RequestStage::Supervisor, llm_config.supervisor_timeout_secs);
     progress.add_anna_response(&answer);
 
-    let result = service_desk::build_result_with_flags(
+    let mut result = service_desk::build_result_with_flags(
         request_id, answer, ticket, probe_results, progress.transcript_clone(),
         classified_domain, translator_timed_out, used_deterministic,
         det_result.map(|d| d.parsed_data_count).unwrap_or(0),
     );
-    progress.complete_stage(RequestStage::Supervisor);
 
+    // Add probe cap warning to evidence
+    if probe_cap_warning {
+        result.evidence.last_error = Some("probe_cap_applied".to_string());
+    }
+
+    progress.complete_stage(RequestStage::Supervisor);
     info!("Request completed: domain={}, reliability={}, deterministic={}",
           result.domain, result.reliability_score, used_deterministic);
 
@@ -184,7 +186,39 @@ async fn handle_llm_request(
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
 }
 
-/// Try specialist LLM, return (answer, used_deterministic, det_result)
+/// Triage path for unknown queries - uses LLM translator with confidence threshold
+async fn triage_path(
+    state: &SharedState,
+    query: &str,
+    config: &LlmConfig,
+    translator_model: &str,
+    hw_cores: u32,
+    hw_ram_gb: f64,
+    has_gpu: bool,
+    progress: &mut ProgressTracker,
+) -> (anna_shared::rpc::TranslatorTicket, Option<TriageResult>, bool) {
+    progress.start_stage(RequestStage::Translator, config.translator_timeout_secs);
+    let translator_input = TranslatorInput::new(query, hw_cores, hw_ram_gb, has_gpu);
+
+    let (llm_ticket, translator_timed_out) = match timeout(
+        Duration::from_secs(config.translator_timeout_secs),
+        translator::translate_with_context(translator_model, &translator_input, config.translator_timeout_secs),
+    ).await {
+        Ok(Ok(t)) => { progress.complete_stage(RequestStage::Translator); (Some(t), false) }
+        Ok(Err(e)) => { warn!("Translator error: {}", e); progress.error_stage(RequestStage::Translator, &e); (None, false) }
+        Err(_) => { warn!("Translator timeout"); progress.timeout_stage(RequestStage::Translator); (None, true) }
+    };
+
+    // If translator failed completely, use fallback
+    let ticket = llm_ticket.unwrap_or_else(|| triage::create_fallback_ticket(query));
+
+    // Apply triage rules
+    let triage_result = triage::apply_triage_rules(ticket.clone());
+
+    (triage_result.ticket.clone(), Some(triage_result), translator_timed_out)
+}
+
+/// Try specialist LLM with summarized probe output
 async fn try_specialist_llm(
     state: &SharedState,
     query: &str,
@@ -193,12 +227,21 @@ async fn try_specialist_llm(
     ticket: &anna_shared::rpc::TranslatorTicket,
     config: &LlmConfig,
     model: &str,
+    debug_mode: bool,
     progress: &mut ProgressTracker,
 ) -> (String, bool, Option<DeterministicResult>) {
     progress.start_stage(RequestStage::Specialist, config.specialist_timeout_secs);
 
+    // Use summarized probe context (not raw output)
+    let probe_context = summarizer::build_probe_context(probe_results);
     let system_prompt = service_desk::build_specialist_prompt(ticket.domain, context, probe_results);
-    let full_prompt = format!("{}\n\nUser: {}", system_prompt, query);
+
+    // Only include raw output if debug mode AND explicitly requested
+    let full_prompt = if debug_mode && query.to_lowercase().contains("show raw") {
+        format!("{}\n\nProbe Output:\n{}\n\nUser: {}", system_prompt, probe_context, query)
+    } else {
+        format!("{}\n\nUser: {}", system_prompt, query)
+    };
 
     match timeout(
         Duration::from_secs(config.specialist_timeout_secs),
@@ -206,8 +249,10 @@ async fn try_specialist_llm(
     ).await {
         Ok(Ok(response)) => {
             progress.complete_stage(RequestStage::Specialist);
-            progress.add_specialist_message(&response);
-            (response, false, None)
+            // Redact sensitive content from response
+            let redacted = redact::redact(&response);
+            progress.add_specialist_message(&redacted);
+            (redacted, false, None)
         }
         Ok(Err(e)) => {
             error!("Specialist LLM error: {}", e);
@@ -244,7 +289,7 @@ fn try_deterministic_fallback(
     }
 }
 
-/// Run probes with individual timeouts
+/// Run probes with individual timeouts and redaction
 async fn run_probes_with_timeout(
     state: &SharedState,
     ticket: &anna_shared::rpc::TranslatorTicket,
@@ -258,18 +303,21 @@ async fn run_probes_with_timeout(
             progress.add(ProgressEvent::probe_running(probe_id, progress.elapsed_ms()));
             progress.add_probe_start(probe_id, cmd);
 
-            // Check cache first
             let cached = { state.read().await.get_cached_probe(cmd) };
 
-            if let Some(cached_result) = cached {
+            if let Some(mut cached_result) = cached {
                 info!("Using cached probe: {}", cmd);
+                // Redact cached output
+                let (stdout, stderr) = redact::redact_probe_output(&cached_result.stdout, &cached_result.stderr);
+                cached_result.stdout = stdout;
+                cached_result.stderr = stderr;
                 let preview = cached_result.stdout.lines().next().map(|s| s.to_string());
                 progress.add_probe_end(probe_id, cached_result.exit_code, cached_result.timing_ms, preview);
                 progress.add(ProgressEvent::probe_complete(probe_id, cached_result.exit_code, cached_result.timing_ms, progress.elapsed_ms()));
                 results.push(cached_result);
             } else {
                 let probe_start = Instant::now();
-                let result = match timeout(
+                let mut result = match timeout(
                     Duration::from_secs(config.probe_timeout_secs),
                     tokio::task::spawn_blocking({ let cmd = cmd.to_string(); move || probes::run_command_structured(&cmd) }),
                 ).await {
@@ -277,6 +325,11 @@ async fn run_probes_with_timeout(
                     Ok(Err(e)) => { warn!("Probe task error: {}", e); ProbeResult { command: cmd.to_string(), exit_code: -1, stdout: String::new(), stderr: format!("Task error: {}", e), timing_ms: probe_start.elapsed().as_millis() as u64 } }
                     Err(_) => { warn!("Probe timeout: {}", cmd); ProbeResult { command: cmd.to_string(), exit_code: -1, stdout: String::new(), stderr: "Probe timeout".to_string(), timing_ms: config.probe_timeout_secs * 1000 } }
                 };
+
+                // Redact probe output
+                let (stdout, stderr) = redact::redact_probe_output(&result.stdout, &result.stderr);
+                result.stdout = stdout;
+                result.stderr = stderr;
 
                 let preview = result.stdout.lines().next().map(|s| s.to_string());
                 progress.add_probe_end(probe_id, result.exit_code, result.timing_ms, preview);

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.15] - 2025-12-05
+
+### Added
+- **Triage Router**: Handles ambiguous queries with LLM translator and confidence thresholds
+  - Confidence < 0.7 triggers immediate clarification (reliability capped at 40%)
+  - Probe cap at 3 maximum per query, warning in evidence if exceeded
+  - Deterministic clarification generator fallback if translator fails
+- **Probe Summarizer**: Compacts probe outputs to <= 15 lines for specialist
+  - Raw output only sent in debug mode with explicit "show raw" request
+- **Evidence Redaction**: Automatic removal of sensitive patterns
+  - Private keys, password hashes, AWS keys, API tokens
+  - Applied even in debug mode for security
+- **Two Display Modes**:
+  - debug OFF: Clean fly-on-the-wall format (`anna vX.Y.Z`, `[you]`, `[anna]`, reliability/domain footer)
+  - debug ON: Full stages with consistent speaker tags on separate lines
+- **REPL Polish**:
+  - Spinner only in debug OFF mode while waiting
+  - Stage transitions shown in debug ON mode
+  - Improved help command with examples
+- **Config-based debug mode**: `daemon.debug_mode` in config.toml
+
+### Changed
+- **Specialist receives summarized probes**: Never raw stdout unless debug + "show raw"
+- **Scoring refinement**: Triage path grounded=true only if answer references probe/snapshot facts
+- **Clarification max reliability**: Capped at 40% when clarification returned
+- **Transcript format**: Content starts on line after speaker tag, no inline arrows
+
+### Fixed
+- Display consistency between REPL and one-shot modes
+- Redundant separators and spacing in output
+- Final [anna] block always present with answer (never empty)
+
 ## [0.0.14] - 2025-12-04
 
 ### Added
@@ -335,7 +367,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.13...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.15...HEAD
+[0.0.15]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.14...v0.0.15
+[0.0.14]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.12...v0.0.13
 [0.0.12]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.7...v0.0.11

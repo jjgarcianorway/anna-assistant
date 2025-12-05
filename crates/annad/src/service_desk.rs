@@ -113,6 +113,9 @@ pub fn build_evidence(
     }
 }
 
+/// Maximum reliability score for clarification responses
+pub const CLARIFICATION_MAX_RELIABILITY: u8 = 40;
+
 /// Create a clarification response
 pub fn create_clarification_response(
     request_id: String,
@@ -127,6 +130,8 @@ pub fn create_clarification_response(
         no_invention: true,
         clarification_not_needed: false,
     };
+    // Ensure reliability is capped for clarification
+    let score = signals.score().min(CLARIFICATION_MAX_RELIABILITY);
 
     let evidence = EvidenceBlock {
         hardware_fields: vec![],
@@ -138,7 +143,7 @@ pub fn create_clarification_response(
     ServiceDeskResult {
         request_id,
         answer: String::new(),
-        reliability_score: signals.score(),
+        reliability_score: score,
         reliability_signals: signals,
         domain: SpecialistDomain::System,
         evidence,
