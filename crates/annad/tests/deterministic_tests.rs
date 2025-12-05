@@ -112,25 +112,28 @@ mod deterministic_answerer {
             .iter()
             .find(|p| p.exit_code == 0 && p.command.contains("ps aux --sort=-%mem"))?;
 
-        let lines: Vec<&str> = probe.stdout.lines().skip(1).take(5).collect();
+        let lines: Vec<&str> = probe.stdout.lines().skip(1).take(10).collect();
         if lines.is_empty() {
             return None;
         }
 
-        let mut answer = String::from("**Top processes by memory usage:**\n\n");
-        answer.push_str("| # | Process | Memory | CPU | User |\n");
-        answer.push_str("|---|---------|--------|-----|------|\n");
+        let mut answer = String::from("**Top 10 processes by memory usage:**\n\n");
+        answer.push_str("| PID | COMMAND | %MEM | RSS | USER |\n");
+        answer.push_str("|-----|---------|------|-----|------|\n");
 
-        for (i, line) in lines.iter().enumerate() {
+        for line in lines.iter() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 11 {
+                // RSS in KB, format human-readable
+                let rss_kb: u64 = parts[5].parse().unwrap_or(0);
+                let rss = if rss_kb >= 1024 { format!("{}M", rss_kb / 1024) } else { format!("{}K", rss_kb) };
                 answer.push_str(&format!(
-                    "| {} | {} | {}% | {}% | {} |\n",
-                    i + 1,
-                    parts[10..].join(" "),
-                    parts[3],
-                    parts[2],
-                    parts[0]
+                    "| {} | {} | {}% | {} | {} |\n",
+                    parts[1], // PID
+                    parts[10..].join(" "), // COMMAND
+                    parts[3], // %MEM
+                    rss,
+                    parts[0]  // USER
                 ));
             }
         }
@@ -464,4 +467,67 @@ fn test_failed_probe_not_used() {
 
     // Should return None because probe failed
     assert!(answer.is_none());
+}
+
+// === v0.0.16 Golden Tests ===
+
+#[test]
+fn test_top_memory_shows_pid_column() {
+    // Golden test: top_memory output must include PID column
+    let context = make_context();
+    let probes = vec![make_ps_aux_output()];
+
+    let answer = deterministic_answerer::try_answer(
+        "what processes are using the most memory?",
+        &context,
+        &probes,
+    );
+
+    assert!(answer.is_some());
+    let answer = answer.unwrap();
+    // Must have PID in table header or content
+    assert!(
+        answer.contains("PID") || answer.contains("1234"),
+        "Output must include PID column. Got: {}",
+        answer
+    );
+}
+
+#[test]
+fn test_disk_space_shows_critical_warning() {
+    // Golden test: disk usage >= 95% shows CRITICAL, >= 85% shows warning
+    let context = make_context();
+    let probes = vec![make_df_h_output()]; // /home is at 96%
+
+    let answer =
+        deterministic_answerer::try_answer("how much disk space is free?", &context, &probes);
+
+    assert!(answer.is_some());
+    let answer = answer.unwrap();
+    assert!(
+        answer.contains("CRITICAL") || answer.contains("critical"),
+        "96% usage must show CRITICAL. Got: {}",
+        answer
+    );
+}
+
+#[test]
+fn test_network_shows_interface_state() {
+    // Golden test: network interfaces must show UP/DOWN state
+    let context = make_context();
+    let probes = vec![make_ip_addr_output()];
+
+    let answer = deterministic_answerer::try_answer(
+        "what are my network interfaces?",
+        &context,
+        &probes,
+    );
+
+    assert!(answer.is_some());
+    let answer = answer.unwrap();
+    assert!(
+        answer.contains("UP") && answer.contains("DOWN"),
+        "Output must show UP/DOWN states. Got: {}",
+        answer
+    );
 }

@@ -111,6 +111,10 @@ pub struct DaemonConfig {
     /// Update check interval in seconds
     #[serde(default = "default_update_interval")]
     pub update_interval: u64,
+
+    /// Global request timeout in seconds (entire pipeline)
+    #[serde(default = "default_request_timeout")]
+    pub request_timeout_secs: u64,
 }
 
 fn default_debug_mode() -> bool {
@@ -125,12 +129,17 @@ fn default_update_interval() -> u64 {
     600
 }
 
+fn default_request_timeout() -> u64 {
+    20 // 20 second total budget
+}
+
 impl Default for DaemonConfig {
     fn default() -> Self {
         Self {
             debug_mode: default_debug_mode(),
             auto_update: default_auto_update(),
             update_interval: default_update_interval(),
+            request_timeout_secs: default_request_timeout(),
         }
     }
 }

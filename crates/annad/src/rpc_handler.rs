@@ -18,7 +18,7 @@ use crate::router;
 use crate::service_desk;
 use crate::state::SharedState;
 use crate::summarizer;
-use crate::triage::{self, TriageResult, CLARIFICATION_MAX_RELIABILITY};
+use crate::triage::{self, TriageResult};
 use crate::translator::{self, TranslatorInput};
 
 /// Handle an RPC request
@@ -42,8 +42,40 @@ async fn handle_llm_request(
     id: String,
     params: Option<serde_json::Value>,
 ) -> RpcResponse {
-    let mut progress = ProgressTracker::new();
     let request_id = uuid::Uuid::new_v4().to_string();
+    let request_timeout = { state.read().await.config.daemon.request_timeout_secs };
+
+    match timeout(Duration::from_secs(request_timeout), handle_llm_request_inner(state.clone(), id.clone(), params, request_id.clone())).await {
+        Ok(response) => response,
+        Err(_) => {
+            warn!("Global request timeout ({}s)", request_timeout);
+            make_timeout_response(id, request_id, request_timeout)
+        }
+    }
+}
+
+fn make_timeout_response(id: String, request_id: String, timeout_secs: u64) -> RpcResponse {
+    let result = anna_shared::rpc::ServiceDeskResult {
+        request_id, answer: String::new(), reliability_score: 0,
+        reliability_signals: anna_shared::rpc::ReliabilitySignals::default(),
+        domain: anna_shared::rpc::SpecialistDomain::System,
+        evidence: anna_shared::rpc::EvidenceBlock::default(),
+        needs_clarification: true,
+        clarification_question: Some(format!("Request timed out after {}s. Please simplify your query.", timeout_secs)),
+        transcript: anna_shared::transcript::Transcript::default(),
+    };
+    RpcResponse::success(id, serde_json::to_value(result).unwrap())
+}
+
+/// Inner request handler (wrapped by global timeout)
+async fn handle_llm_request_inner(
+    state: SharedState,
+    id: String,
+    params: Option<serde_json::Value>,
+    request_id: String,
+) -> RpcResponse {
+    let request_start = Instant::now();
+    let mut progress = ProgressTracker::new();
 
     // Get config, models, and hardware from state
     let (llm_config, translator_model, specialist_model, hw_cores, hw_ram_gb, has_gpu, debug_mode) = {
@@ -58,7 +90,7 @@ async fn handle_llm_request(
             state.hardware.cpu_cores,
             state.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0),
             state.hardware.gpu.is_some(),
-            state.config.debug_mode,
+            state.config.debug_mode(),
         )
     };
 
@@ -112,12 +144,18 @@ async fn handle_llm_request(
     // Step 4: Run probes with timeout
     progress.start_stage(RequestStage::Probes, llm_config.probes_total_timeout_secs);
     let probe_cap_warning = triage_result.as_ref().map(|t| t.probe_cap_applied).unwrap_or(false);
+    let probes_start = Instant::now();
 
     let probe_results = match timeout(
         Duration::from_secs(llm_config.probes_total_timeout_secs),
         run_probes_with_timeout(&state, &ticket, &llm_config, &mut progress),
     ).await {
-        Ok(results) => { progress.complete_stage(RequestStage::Probes); results }
+        Ok(results) => {
+            progress.complete_stage(RequestStage::Probes);
+            // Record probes latency
+            { state.write().await.latency.probes.add(probes_start.elapsed().as_millis() as u64); }
+            results
+        }
         Err(_) => {
             progress.timeout_stage(RequestStage::Probes);
             save_progress(&state, &progress).await;
@@ -179,8 +217,13 @@ async fn handle_llm_request(
     }
 
     progress.complete_stage(RequestStage::Supervisor);
-    info!("Request completed: domain={}, reliability={}, deterministic={}",
-          result.domain, result.reliability_score, used_deterministic);
+
+    // Record total request latency
+    let total_ms = request_start.elapsed().as_millis() as u64;
+    { state.write().await.latency.total.add(total_ms); }
+
+    info!("Request completed: domain={}, reliability={}, deterministic={}, latency={}ms",
+          result.domain, result.reliability_score, used_deterministic, total_ms);
 
     save_progress(&state, &progress).await;
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
@@ -199,6 +242,7 @@ async fn triage_path(
 ) -> (anna_shared::rpc::TranslatorTicket, Option<TriageResult>, bool) {
     progress.start_stage(RequestStage::Translator, config.translator_timeout_secs);
     let translator_input = TranslatorInput::new(query, hw_cores, hw_ram_gb, has_gpu);
+    let stage_start = Instant::now();
 
     let (llm_ticket, translator_timed_out) = match timeout(
         Duration::from_secs(config.translator_timeout_secs),
@@ -208,6 +252,9 @@ async fn triage_path(
         Ok(Err(e)) => { warn!("Translator error: {}", e); progress.error_stage(RequestStage::Translator, &e); (None, false) }
         Err(_) => { warn!("Translator timeout"); progress.timeout_stage(RequestStage::Translator); (None, true) }
     };
+
+    // Record translator latency
+    { state.write().await.latency.translator.add(stage_start.elapsed().as_millis() as u64); }
 
     // If translator failed completely, use fallback
     let ticket = llm_ticket.unwrap_or_else(|| triage::create_fallback_ticket(query));
@@ -231,6 +278,7 @@ async fn try_specialist_llm(
     progress: &mut ProgressTracker,
 ) -> (String, bool, Option<DeterministicResult>) {
     progress.start_stage(RequestStage::Specialist, config.specialist_timeout_secs);
+    let stage_start = Instant::now();
 
     // Use summarized probe context (not raw output)
     let probe_context = summarizer::build_probe_context(probe_results);
@@ -243,7 +291,7 @@ async fn try_specialist_llm(
         format!("{}\n\nUser: {}", system_prompt, query)
     };
 
-    match timeout(
+    let result = match timeout(
         Duration::from_secs(config.specialist_timeout_secs),
         ollama::chat_with_timeout(model, &full_prompt, config.specialist_timeout_secs),
     ).await {
@@ -264,28 +312,27 @@ async fn try_specialist_llm(
             progress.timeout_stage(RequestStage::Specialist);
             try_deterministic_fallback(query, context, probe_results, progress)
         }
-    }
+    };
+
+    // Record specialist latency
+    { state.write().await.latency.specialist.add(stage_start.elapsed().as_millis() as u64); }
+
+    result
 }
 
 /// Try deterministic fallback after LLM failure
 fn try_deterministic_fallback(
-    query: &str,
-    context: &anna_shared::rpc::RuntimeContext,
-    probe_results: &[ProbeResult],
-    progress: &mut ProgressTracker,
+    query: &str, context: &anna_shared::rpc::RuntimeContext,
+    probe_results: &[ProbeResult], progress: &mut ProgressTracker,
 ) -> (String, bool, Option<DeterministicResult>) {
-    if let Some(det) = deterministic::try_answer(query, context, probe_results) {
-        if det.parsed_data_count > 0 {
+    match deterministic::try_answer(query, context, probe_results) {
+        Some(det) if det.parsed_data_count > 0 => {
             info!("Deterministic fallback produced answer");
             progress.add_specialist_message("[deterministic fallback]");
             (det.answer.clone(), true, Some(det))
-        } else {
-            warn!("Deterministic fallback produced empty result");
-            (String::new(), true, Some(det))
         }
-    } else {
-        warn!("Deterministic fallback could not produce answer");
-        (String::new(), true, None)
+        Some(det) => { warn!("Deterministic fallback produced empty result"); (String::new(), true, Some(det)) }
+        None => { warn!("Deterministic fallback could not produce answer"); (String::new(), true, None) }
     }
 }
 

@@ -13,10 +13,10 @@ use crate::display::{print_progress_event, print_repl_header, print_status_displ
 use crate::transcript_render;
 
 /// Handle status command
-pub async fn handle_status() -> Result<()> {
+pub async fn handle_status(debug: bool) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
     let status = client.status().await?;
-    print_status_display(&status);
+    print_status_display(&status, debug);
     Ok(())
 }
 
@@ -104,7 +104,7 @@ pub async fn handle_repl() -> Result<()> {
                 break;
             }
             "status" => {
-                handle_status().await?;
+                handle_status(false).await?;
             }
             "help" => {
                 print_repl_help();

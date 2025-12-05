@@ -145,9 +145,10 @@ pub struct HardwareSummary {
 }
 
 /// Specialist domain for service desk routing
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SpecialistDomain {
+    #[default]
     System,
     Network,
     Storage,
@@ -168,9 +169,10 @@ impl std::fmt::Display for SpecialistDomain {
 }
 
 /// Intent classification from translator
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryIntent {
+    #[default]
     Question,
     Request,
     Investigate,
@@ -187,19 +189,25 @@ impl std::fmt::Display for QueryIntent {
 }
 
 /// Translator ticket - structured output from LLM translator
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TranslatorTicket {
     /// Query intent classification
+    #[serde(default)]
     pub intent: QueryIntent,
     /// Target specialist domain
+    #[serde(default)]
     pub domain: SpecialistDomain,
     /// Extracted entities (processes, services, mounts, etc.)
+    #[serde(default)]
     pub entities: Vec<String>,
     /// Probe IDs needed from allowlist
+    #[serde(default)]
     pub needs_probes: Vec<String>,
     /// Clarification question if query is ambiguous
+    #[serde(default)]
     pub clarification_question: Option<String>,
     /// Translator confidence 0.0-1.0
+    #[serde(default)]
     pub confidence: f32,
 }
 
@@ -219,31 +227,39 @@ pub struct ProbeResult {
 }
 
 /// Evidence block showing what data was used
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EvidenceBlock {
     /// Hardware snapshot fields used
+    #[serde(default)]
     pub hardware_fields: Vec<String>,
     /// Probes that were executed
+    #[serde(default)]
     pub probes_executed: Vec<ProbeResult>,
     /// Translator ticket that routed this query
+    #[serde(default)]
     pub translator_ticket: TranslatorTicket,
     /// Last error if any (e.g., "timeout at translator")
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub last_error: Option<String>,
 }
 
 /// Reliability scoring signals (all boolean for deterministic calculation)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ReliabilitySignals {
     /// Translator confidence >= 0.7
+    #[serde(default)]
     pub translator_confident: bool,
     /// All requested probes succeeded
+    #[serde(default)]
     pub probe_coverage: bool,
     /// Answer references probe/hardware data
+    #[serde(default)]
     pub answer_grounded: bool,
     /// No invented facts detected
+    #[serde(default)]
     pub no_invention: bool,
     /// No clarification needed
+    #[serde(default)]
     pub clarification_not_needed: bool,
 }
 

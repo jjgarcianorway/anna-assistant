@@ -11,7 +11,7 @@ use std::time::Duration;
 use crate::client::AnnadClient;
 
 /// Print status display
-pub fn print_status_display(status: &DaemonStatus) {
+pub fn print_status_display(status: &DaemonStatus, show_debug: bool) {
     println!();
     println!(
         "{}annactl v{}{}",
@@ -184,6 +184,27 @@ pub fn print_status_display(status: &DaemonStatus) {
     println!();
     if status.llm.state == LlmState::Ready {
         print_kv("health", &format!("{}OK{}", colors::OK, colors::RESET), kw);
+    }
+
+    // Debug info - latency stats
+    if show_debug {
+        println!();
+        println!("{}Latency Stats (last 20 requests):{}", colors::BOLD, colors::RESET);
+        if let Some(lat) = &status.latency {
+            let fmt = |avg: Option<u64>, p95: Option<u64>| {
+                match (avg, p95) {
+                    (Some(a), Some(p)) => format!("avg {}ms, p95 {}ms", a, p),
+                    _ => "no data".to_string(),
+                }
+            };
+            print_kv("translator", &fmt(lat.translator_avg_ms, lat.translator_p95_ms), kw);
+            print_kv("probes", &fmt(lat.probes_avg_ms, lat.probes_p95_ms), kw);
+            print_kv("specialist", &fmt(lat.specialist_avg_ms, lat.specialist_p95_ms), kw);
+            print_kv("total", &fmt(lat.total_avg_ms, lat.total_p95_ms), kw);
+            print_kv("samples", &lat.sample_count.to_string(), kw);
+        } else {
+            println!("  No latency data yet (run some requests first)");
+        }
     }
 
     println!("{}{}{}", colors::DIM, HR, colors::RESET);

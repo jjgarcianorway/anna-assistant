@@ -30,7 +30,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Show Anna status
-    Status,
+    Status {
+        /// Show extended debug information (latency stats)
+        #[arg(long)]
+        debug: bool,
+    },
     /// Uninstall Anna
     Uninstall,
     /// Reset learned data (keeps base installation)
@@ -42,7 +46,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Command::Status) => handle_status().await,
+        Some(Command::Status { debug }) => handle_status(debug).await,
         Some(Command::Uninstall) => handle_uninstall().await,
         Some(Command::Reset) => handle_reset().await,
         None => {

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.16] - 2025-12-05
+
+### Added
+- **Global Request Timeout**: Configurable `request_timeout_secs` in config.toml (default 20s)
+  - Entire pipeline wrapped in global timeout
+  - Graceful timeout response with clarification message
+- **Per-Stage Latency Stats**: Track avg and p95 latency for last 20 requests
+  - Exposed via `annactl status --debug` flag
+  - Tracks translator, probes, specialist, and total latency
+- **`annactl status --debug`**: Extended status output showing latency statistics
+- **v0.0.16 Golden Tests**: Tests for PID column, CRITICAL warnings, state display
+
+### Changed
+- **Deterministic Outputs Improved**:
+  - top_memory: Shows 10 processes with PID, COMMAND, %MEM, RSS, USER
+  - network_addrs: Shows active connection at top ("Active: Wi-Fi (wlan0)...")
+  - RSS values formatted human-readable (12M, 1.2G)
+- **Translator JSON Parser**: Fully tolerant of malformed JSON
+  - Parse errors fallback to defaults instead of failing
+  - Missing confidence defaults to 0.0
+  - Null arrays become empty Vec
+- **Strict Translator Prompt**: Forces exact enum values (intent, domain)
+- **Parser Struct Updates**: ProcessInfo now includes `pid` and `rss` fields
+
+### Fixed
+- All source files kept under 400 line limit
+- Removed unused `extract_pid_from_process` function
+
 ## [0.0.15] - 2025-12-05
 
 ### Added
@@ -367,7 +395,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full LLM pipeline planned for future versions
 - Single model support only
 
-[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.15...HEAD
+[Unreleased]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.16...HEAD
+[0.0.16]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.14...v0.0.15
 [0.0.14]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/jjgarcianorway/anna-assistant/compare/v0.0.12...v0.0.13

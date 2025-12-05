@@ -143,25 +143,25 @@ fn answer_gpu_info(hardware: &HardwareSummary) -> Option<DeterministicResult> {
 /// Answer top memory processes from ps aux probe
 fn answer_top_memory(probes: &[ProbeResult]) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "ps aux --sort=-%mem")?;
-    let processes = parse_ps_aux(&probe.stdout, 5);
+    let processes = parse_ps_aux(&probe.stdout, 10);
 
     if processes.is_empty() {
         return None;
     }
 
-    let mut answer = String::from("**Top 5 processes by memory usage:**\n\n");
-    answer.push_str("| %MEM | PID | USER | COMMAND |\n");
-    answer.push_str("|------|-----|------|---------|\n");
+    let mut answer = String::from("**Top 10 processes by memory usage:**\n\n");
+    answer.push_str("| PID | COMMAND | %MEM | RSS | USER |\n");
+    answer.push_str("|-----|---------|------|-----|------|\n");
 
     for proc in &processes {
-        // Extract PID from raw line if available
-        let pid = extract_pid_from_process(&proc.user, &probe.stdout);
+        let rss_display = proc.rss.as_deref().unwrap_or("-");
         answer.push_str(&format!(
-            "| {}% | {} | {} | {} |\n",
+            "| {} | {} | {}% | {} | {} |\n",
+            proc.pid,
+            truncate(&proc.command, 30),
             proc.mem_percent,
-            pid.unwrap_or_else(|| "-".to_string()),
-            proc.user,
-            truncate(&proc.command, 40)
+            rss_display,
+            truncate(&proc.user, 10)
         ));
     }
 
@@ -175,24 +175,23 @@ fn answer_top_memory(probes: &[ProbeResult]) -> Option<DeterministicResult> {
 /// Answer top CPU processes
 fn answer_top_cpu(probes: &[ProbeResult]) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "ps aux --sort=-%cpu")?;
-    let processes = parse_ps_aux(&probe.stdout, 5);
+    let processes = parse_ps_aux(&probe.stdout, 10);
 
     if processes.is_empty() {
         return None;
     }
 
-    let mut answer = String::from("**Top 5 processes by CPU usage:**\n\n");
-    answer.push_str("| %CPU | PID | USER | COMMAND |\n");
-    answer.push_str("|------|-----|------|---------|\n");
+    let mut answer = String::from("**Top 10 processes by CPU usage:**\n\n");
+    answer.push_str("| PID | COMMAND | %CPU | USER |\n");
+    answer.push_str("|-----|---------|------|------|\n");
 
     for proc in &processes {
-        let pid = extract_pid_from_process(&proc.user, &probe.stdout);
         answer.push_str(&format!(
-            "| {}% | {} | {} | {} |\n",
+            "| {} | {} | {}% | {} |\n",
+            proc.pid,
+            truncate(&proc.command, 30),
             proc.cpu_percent,
-            pid.unwrap_or_else(|| "-".to_string()),
-            proc.user,
-            truncate(&proc.command, 40)
+            truncate(&proc.user, 10)
         ));
     }
 
@@ -264,16 +263,34 @@ fn answer_network_interfaces(probes: &[ProbeResult]) -> Option<DeterministicResu
         return None;
     }
 
-    let mut answer = String::from("**Network interfaces:**\n\n");
+    // Find active interface (UP, has IPv4, not loopback)
+    let active = interfaces.iter().find(|i| {
+        i.state == "UP" && i.ipv4.is_some() && i.name != "lo"
+    });
+
+    let mut answer = String::new();
+
+    // Show active connection at top
+    if let Some(iface) = active {
+        let iface_type = classify_interface_type(&iface.name);
+        let ip = iface.ipv4.as_deref().unwrap_or("-");
+        answer.push_str(&format!(
+            "**Active: {} ({})** - {}\n\n",
+            iface_type, iface.name, ip
+        ));
+    }
+
+    answer.push_str("**All interfaces:**\n\n");
     answer.push_str("| Interface | Type | IPv4 | State |\n");
     answer.push_str("|-----------|------|------|-------|\n");
 
     for iface in &interfaces {
         let iface_type = classify_interface_type(&iface.name);
         let ipv4 = iface.ipv4.as_deref().unwrap_or("-");
+        let state_display = if iface.state == "UP" { "UP ✓" } else { &iface.state };
         answer.push_str(&format!(
             "| {} | {} | {} | {} |\n",
-            iface.name, iface_type, ipv4, iface.state
+            iface.name, iface_type, ipv4, state_display
         ));
     }
 
@@ -351,19 +368,6 @@ fn classify_interface_type(name: &str) -> &'static str {
     } else {
         "Other"
     }
-}
-
-/// Extract PID from ps aux output line
-fn extract_pid_from_process(user: &str, raw_output: &str) -> Option<String> {
-    for line in raw_output.lines().skip(1) {
-        if line.starts_with(user) {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                return Some(parts[1].to_string());
-            }
-        }
-    }
-    None
 }
 
 /// Truncate string with ellipsis

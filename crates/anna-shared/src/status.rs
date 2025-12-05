@@ -18,6 +18,23 @@ pub struct DaemonStatus {
     pub hardware: HardwareInfo,
     pub ledger: LedgerSummary,
     pub last_error: Option<String>,
+    /// Per-stage latency statistics (populated in debug mode)
+    #[serde(default)]
+    pub latency: Option<LatencyStatus>,
+}
+
+/// Per-stage latency statistics
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LatencyStatus {
+    pub translator_avg_ms: Option<u64>,
+    pub translator_p95_ms: Option<u64>,
+    pub probes_avg_ms: Option<u64>,
+    pub probes_p95_ms: Option<u64>,
+    pub specialist_avg_ms: Option<u64>,
+    pub specialist_p95_ms: Option<u64>,
+    pub total_avg_ms: Option<u64>,
+    pub total_p95_ms: Option<u64>,
+    pub sample_count: usize,
 }
 
 /// Update subsystem status

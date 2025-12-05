@@ -20,6 +20,9 @@ use crate::config::Config;
 /// Probe cache TTL (30 seconds)
 pub const PROBE_CACHE_TTL: Duration = Duration::from_secs(30);
 
+/// Max number of latency records to keep per stage
+pub const MAX_LATENCY_RECORDS: usize = 20;
+
 /// Cached probe result with timestamp
 #[derive(Debug, Clone)]
 pub struct CachedProbe {
@@ -31,6 +34,53 @@ impl CachedProbe {
     pub fn is_valid(&self) -> bool {
         self.cached_at.elapsed() < PROBE_CACHE_TTL
     }
+}
+
+/// Latency stats for a pipeline stage
+#[derive(Debug, Clone, Default)]
+pub struct LatencyStats {
+    /// Last N latency samples in milliseconds
+    pub samples: Vec<u64>,
+}
+
+impl LatencyStats {
+    /// Add a latency sample
+    pub fn add(&mut self, ms: u64) {
+        self.samples.push(ms);
+        if self.samples.len() > MAX_LATENCY_RECORDS {
+            self.samples.remove(0);
+        }
+    }
+
+    /// Average latency in ms
+    pub fn avg_ms(&self) -> Option<u64> {
+        if self.samples.is_empty() {
+            None
+        } else {
+            Some(self.samples.iter().sum::<u64>() / self.samples.len() as u64)
+        }
+    }
+
+    /// P95 latency in ms
+    pub fn p95_ms(&self) -> Option<u64> {
+        if self.samples.is_empty() {
+            None
+        } else {
+            let mut sorted = self.samples.clone();
+            sorted.sort_unstable();
+            let idx = (sorted.len() as f64 * 0.95).ceil() as usize - 1;
+            Some(sorted[idx.min(sorted.len() - 1)])
+        }
+    }
+}
+
+/// Per-stage latency tracking
+#[derive(Debug, Clone, Default)]
+pub struct PipelineLatency {
+    pub translator: LatencyStats,
+    pub probes: LatencyStats,
+    pub specialist: LatencyStats,
+    pub total: LatencyStats,
 }
 
 /// Shared daemon state
@@ -50,6 +100,8 @@ pub struct DaemonStateInner {
     pub progress_events: Vec<ProgressEvent>,
     /// Configuration loaded from file
     pub config: Config,
+    /// Per-stage latency statistics
+    pub latency: PipelineLatency,
 }
 
 /// Update state tracking
@@ -90,6 +142,7 @@ impl DaemonStateInner {
             probe_cache: HashMap::new(),
             progress_events: Vec::new(),
             config: Config::load(),
+            latency: PipelineLatency::default(),
         }
     }
 
@@ -121,6 +174,24 @@ impl DaemonStateInner {
     }
 
     pub fn to_status(&self) -> DaemonStatus {
+        use anna_shared::status::LatencyStatus;
+
+        let latency = if !self.latency.total.samples.is_empty() {
+            Some(LatencyStatus {
+                translator_avg_ms: self.latency.translator.avg_ms(),
+                translator_p95_ms: self.latency.translator.p95_ms(),
+                probes_avg_ms: self.latency.probes.avg_ms(),
+                probes_p95_ms: self.latency.probes.p95_ms(),
+                specialist_avg_ms: self.latency.specialist.avg_ms(),
+                specialist_p95_ms: self.latency.specialist.p95_ms(),
+                total_avg_ms: self.latency.total.avg_ms(),
+                total_p95_ms: self.latency.total.p95_ms(),
+                sample_count: self.latency.total.samples.len(),
+            })
+        } else {
+            None
+        };
+
         DaemonStatus {
             version: VERSION.to_string(),
             state: self.state.clone(),
@@ -139,6 +210,7 @@ impl DaemonStateInner {
             hardware: self.hardware.clone(),
             ledger: self.ledger.summary(),
             last_error: self.last_error.clone(),
+            latency,
         }
     }
 

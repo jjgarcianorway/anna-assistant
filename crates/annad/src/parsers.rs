@@ -39,13 +39,16 @@ pub fn parse_free_total(output: &str) -> Option<String> {
 
 /// Process info from ps aux
 pub struct ProcessInfo {
+    pub pid: String,
     pub user: String,
     pub cpu_percent: String,
     pub mem_percent: String,
+    pub rss: Option<String>, // Resident set size in KB
     pub command: String,
 }
 
 /// Parse ps aux output
+/// Format: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
 pub fn parse_ps_aux(output: &str, limit: usize) -> Vec<ProcessInfo> {
     output
         .lines()
@@ -54,10 +57,15 @@ pub fn parse_ps_aux(output: &str, limit: usize) -> Vec<ProcessInfo> {
         .filter_map(|line| {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 11 {
+                // RSS is in KB, format it human-readable
+                let rss_kb: Option<u64> = parts[5].parse().ok();
+                let rss = rss_kb.map(format_rss);
                 Some(ProcessInfo {
+                    pid: parts[1].to_string(),
                     user: parts[0].to_string(),
                     cpu_percent: parts[2].to_string(),
                     mem_percent: parts[3].to_string(),
+                    rss,
                     command: parts[10..].join(" "),
                 })
             } else {
@@ -65,6 +73,17 @@ pub fn parse_ps_aux(output: &str, limit: usize) -> Vec<ProcessInfo> {
             }
         })
         .collect()
+}
+
+/// Format RSS (in KB) to human-readable
+fn format_rss(kb: u64) -> String {
+    if kb >= 1_048_576 {
+        format!("{:.1}G", kb as f64 / 1_048_576.0)
+    } else if kb >= 1024 {
+        format!("{:.0}M", kb as f64 / 1024.0)
+    } else {
+        format!("{}K", kb)
+    }
 }
 
 /// Filesystem info from df -h
@@ -171,11 +190,13 @@ mod tests {
     fn test_parse_ps_aux() {
         let output = "USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
 root         1  0.0  0.1 169936 12456 ?        Ss   Dec01   0:03 /sbin/init
-user      1234  5.0 10.2 500000 50000 ?        Sl   10:00   1:23 firefox";
+user      1234  5.0 10.2 500000 51200 ?        Sl   10:00   1:23 firefox";
         let procs = parse_ps_aux(output, 5);
         assert_eq!(procs.len(), 2);
+        assert_eq!(procs[1].pid, "1234");
         assert_eq!(procs[1].command, "firefox");
         assert_eq!(procs[1].mem_percent, "10.2");
+        assert_eq!(procs[1].rss, Some("50M".to_string()));
     }
 
     #[test]

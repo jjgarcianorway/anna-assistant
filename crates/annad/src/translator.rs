@@ -77,17 +77,21 @@ impl TranslatorInput {
     }
 }
 
-/// Build the translator system prompt - minimal, no probe output
+/// Build the translator system prompt - strict enum constraints
 fn build_translator_prompt() -> String {
     format!(
-        r#"Classify query. Output JSON only:
-{{"intent":"<question|request|investigate>","domain":"<system|network|storage|security|packages>","entities":[],"needs_probes":[],"clarification_question":null,"confidence":0.9}}
+        r#"Classify query. Output ONLY valid JSON matching this exact schema:
+{{"intent":"question|request|investigate","domain":"system|network|storage|security|packages","entities":[],"needs_probes":[],"clarification_question":null,"confidence":0.0-1.0}}
 
-Domains: system(CPU/memory/processes), network(IP/ports), storage(disk/mount), security(firewall/ssh), packages(apt/pacman)
-Probes: {}
-Rules: Select 1-3 probes max. Set clarification_question if query is vague.
-JSON ONLY."#,
-        PROBE_IDS.join(",")
+STRICT RULES:
+- intent MUST be exactly one of: question, request, investigate
+- domain MUST be exactly one of: system, network, storage, security, packages
+- needs_probes MUST only contain IDs from: {}
+- confidence MUST be a decimal 0.0-1.0
+- Set clarification_question if query is ambiguous
+- Select 1-3 probes maximum
+Output raw JSON only. No markdown. No explanation."#,
+        PROBE_IDS.join(", ")
     )
 }
 
@@ -176,9 +180,11 @@ fn parse_translator_response(response: &str) -> Result<TranslatorTicket, String>
     // Try to extract JSON from response (handle markdown code blocks)
     let json_str = extract_json(response)?;
 
-    // Parse JSON with tolerant structure
-    let output: TranslatorOutput = serde_json::from_str(&json_str)
-        .map_err(|e| format!("Invalid JSON from translator: {}", e))?;
+    // Parse JSON with tolerant structure - use default for any parse errors
+    let output: TranslatorOutput = serde_json::from_str(&json_str).unwrap_or_else(|e| {
+        warn!("JSON parse error, using defaults: {}", e);
+        TranslatorOutput::default()
+    });
 
     // Extract fields with defaults for missing values
     let intent_str = output.intent.as_deref().unwrap_or("question");
@@ -240,77 +246,32 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
     warn!("Using fallback keyword translator");
     let q = query.to_lowercase();
 
-    let domain = if q.contains("network")
-        || q.contains("ip ")
-        || q.contains("interface")
-        || q.contains("dns")
-        || q.contains("port")
-        || q.contains("route")
-    {
+    let domain = if q.contains("network") || q.contains("ip ") || q.contains("interface") || q.contains("dns") || q.contains("port") || q.contains("route") {
         SpecialistDomain::Network
-    } else if q.contains("disk")
-        || q.contains("storage")
-        || q.contains("space")
-        || q.contains("mount")
-        || q.contains("partition")
-    {
+    } else if q.contains("disk") || q.contains("storage") || q.contains("space") || q.contains("mount") || q.contains("partition") {
         SpecialistDomain::Storage
-    } else if q.contains("security")
-        || q.contains("firewall")
-        || q.contains("permission")
-        || q.contains("ssh")
-    {
+    } else if q.contains("security") || q.contains("firewall") || q.contains("permission") || q.contains("ssh") {
         SpecialistDomain::Security
-    } else if q.contains("package")
-        || q.contains("install")
-        || q.contains("pacman")
-        || q.contains("apt")
-    {
+    } else if q.contains("package") || q.contains("install") || q.contains("pacman") || q.contains("apt") {
         SpecialistDomain::Packages
     } else {
         SpecialistDomain::System
     };
 
-    let intent = if q.contains("install")
-        || q.contains("start")
-        || q.contains("stop")
-        || q.contains("configure")
-    {
+    let intent = if q.contains("install") || q.contains("start") || q.contains("stop") || q.contains("configure") {
         QueryIntent::Request
     } else if q.contains("why") || q.contains("debug") || q.contains("fix") {
         QueryIntent::Investigate
-    } else {
-        QueryIntent::Question
-    };
+    } else { QueryIntent::Question };
 
-    // Basic probe selection
     let mut needs_probes = Vec::new();
-    if q.contains("memory") || q.contains("ram") {
-        needs_probes.push("top_memory".to_string());
-        needs_probes.push("memory_info".to_string());
-    }
-    if q.contains("cpu") {
-        needs_probes.push("top_cpu".to_string());
-        needs_probes.push("cpu_info".to_string());
-    }
-    if q.contains("disk") || q.contains("space") {
-        needs_probes.push("disk_usage".to_string());
-    }
-    if q.contains("network") || q.contains("ip") {
-        needs_probes.push("network_addrs".to_string());
-    }
-    if q.contains("port") || q.contains("listen") {
-        needs_probes.push("listening_ports".to_string());
-    }
+    if q.contains("memory") || q.contains("ram") { needs_probes.extend(["top_memory", "memory_info"].map(String::from)); }
+    if q.contains("cpu") { needs_probes.extend(["top_cpu", "cpu_info"].map(String::from)); }
+    if q.contains("disk") || q.contains("space") { needs_probes.push("disk_usage".to_string()); }
+    if q.contains("network") || q.contains("ip") { needs_probes.push("network_addrs".to_string()); }
+    if q.contains("port") || q.contains("listen") { needs_probes.push("listening_ports".to_string()); }
 
-    TranslatorTicket {
-        intent,
-        domain,
-        entities: Vec::new(),
-        needs_probes,
-        clarification_question: None,
-        confidence: 0.3, // Low confidence for fallback
-    }
+    TranslatorTicket { intent, domain, entities: Vec::new(), needs_probes, clarification_question: None, confidence: 0.3 }
 }
 
 /// Maximum allowed translator payload size (8KB)
@@ -373,5 +334,31 @@ mod tests {
         let payload = build_translator_request(&input);
         assert!(payload.len() < MAX_TRANSLATOR_PAYLOAD_SIZE);
         assert!(payload.len() < 2048); // Should be well under 2KB
+    }
+
+    #[test]
+    fn test_tolerant_json_parsing_missing_fields() {
+        // Missing confidence -> 0.0
+        let response = r#"{"intent":"question","domain":"system"}"#;
+        let ticket = parse_translator_response(response).unwrap();
+        assert_eq!(ticket.confidence, 0.0);
+        assert_eq!(ticket.domain, SpecialistDomain::System);
+    }
+
+    #[test]
+    fn test_tolerant_json_parsing_null_arrays() {
+        // null arrays -> empty Vec
+        let response = r#"{"intent":"question","entities":null,"needs_probes":null}"#;
+        let ticket = parse_translator_response(response).unwrap();
+        assert!(ticket.entities.is_empty());
+        assert!(ticket.needs_probes.is_empty());
+    }
+
+    #[test]
+    fn test_tolerant_json_parsing_invalid_values() {
+        // Invalid domain -> default to System
+        let response = r#"{"intent":"question","domain":"invalid_domain"}"#;
+        let ticket = parse_translator_response(response).unwrap();
+        assert_eq!(ticket.domain, SpecialistDomain::System);
     }
 }
