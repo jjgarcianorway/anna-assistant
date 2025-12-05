@@ -80,7 +80,10 @@ impl ParsedEvidence {
                 ParsedProbeData::Service(s) => {
                     evidence.services.push(s.clone());
                 }
-                ParsedProbeData::Error(_) | ParsedProbeData::Unsupported => {}
+                ParsedProbeData::BlockDevices(_)
+                | ParsedProbeData::Cpu(_)
+                | ParsedProbeData::Error(_)
+                | ParsedProbeData::Unsupported => {}
             }
         }
 

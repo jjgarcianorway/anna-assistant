@@ -270,6 +270,16 @@ fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
         bool_symbol(signals.clarification_not_needed),
         colors::RESET
     );
+
+    // Execution trace in debug mode (v0.0.23+)
+    if let Some(trace) = &result.execution_trace {
+        println!(
+            "{}trace: {}{}",
+            colors::DIM,
+            trace,
+            colors::RESET
+        );
+    }
 }
 
 /// Format actor tag for debug mode

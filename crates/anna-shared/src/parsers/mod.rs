@@ -8,6 +8,8 @@
 //! - `free -h`: Memory and swap information → `MemoryInfo`
 //! - `df -h`: Disk usage per mount → `Vec<DiskUsage>`
 //! - `systemctl --failed` / `systemctl is-active`: Service status → `Vec<ServiceStatus>` / `ServiceStatus`
+//! - `lsblk`: Block device information → `Vec<BlockDevice>` (v0.0.22 STRUCT+)
+//! - `lscpu`: CPU information → `CpuInfo` (v0.0.22 STRUCT+)
 //!
 //! # Design Principles
 //!
@@ -19,6 +21,8 @@
 pub mod atoms;
 pub mod df;
 pub mod free;
+pub mod lsblk;
+pub mod lscpu;
 pub mod systemctl;
 
 // Re-export main types
@@ -28,6 +32,8 @@ pub use atoms::{
 };
 pub use df::{find_by_mount, parse_df, resolve_mount_alias, DiskUsage};
 pub use free::{parse_free, MemoryInfo};
+pub use lsblk::{parse_lsblk, find_root_device, total_disk_size, BlockDevice, BlockDeviceType};
+pub use lscpu::{parse_lscpu, CpuInfo};
 pub use systemctl::{
     parse_failed_units, parse_is_active, parse_status_verbose, ServiceState, ServiceStatus,
 };
@@ -48,6 +54,10 @@ pub enum ParsedProbeData {
     Services(Vec<ServiceStatus>),
     /// Single service status (from `systemctl is-active`)
     Service(ServiceStatus),
+    /// Block devices from `lsblk` (v0.0.22 STRUCT+)
+    BlockDevices(Vec<BlockDevice>),
+    /// CPU info from `lscpu` (v0.0.22 STRUCT+)
+    Cpu(CpuInfo),
     /// Parse error with diagnostic context
     Error(ParseError),
     /// Probe type not supported for structured parsing
@@ -99,6 +109,22 @@ impl ParsedProbeData {
             _ => None,
         }
     }
+
+    /// Get block devices if this is the BlockDevices variant.
+    pub fn as_block_devices(&self) -> Option<&Vec<BlockDevice>> {
+        match self {
+            Self::BlockDevices(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    /// Get CPU info if this is the Cpu variant.
+    pub fn as_cpu(&self) -> Option<&CpuInfo> {
+        match self {
+            Self::Cpu(c) => Some(c),
+            _ => None,
+        }
+    }
 }
 
 /// Probe ID constants for matching.
@@ -108,6 +134,8 @@ pub mod probe_ids {
     pub const SYSTEMCTL_FAILED: &str = "systemctl --failed";
     pub const TOP_MEMORY: &str = "ps aux --sort=-%mem";
     pub const TOP_CPU: &str = "ps aux --sort=-%cpu";
+    pub const LSBLK: &str = "lsblk";
+    pub const LSCPU: &str = "lscpu";
 }
 
 /// Parse a ProbeResult into structured data.
@@ -140,6 +168,16 @@ pub fn parse_probe_output(command: &str, stdout: &str) -> ParsedProbeData {
     } else if cmd_lower.starts_with("df") {
         match parse_df(command, stdout) {
             Ok(entries) => ParsedProbeData::Disk(entries),
+            Err(e) => ParsedProbeData::Error(e),
+        }
+    } else if cmd_lower.starts_with("lsblk") {
+        match parse_lsblk(command, stdout) {
+            Ok(devices) => ParsedProbeData::BlockDevices(devices),
+            Err(e) => ParsedProbeData::Error(e),
+        }
+    } else if cmd_lower.starts_with("lscpu") {
+        match parse_lscpu(command, stdout) {
+            Ok(info) => ParsedProbeData::Cpu(info),
             Err(e) => ParsedProbeData::Error(e),
         }
     } else if cmd_lower.contains("systemctl") && cmd_lower.contains("--failed") {
@@ -274,5 +312,60 @@ Swap:         4.0Gi       256Mi       3.8Gi
         ));
         assert!(err.is_error());
         assert!(err.as_error().is_some());
+    }
+
+    #[test]
+    fn test_parse_probe_output_lsblk() {
+        let output = r#"NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+nvme0n1     259:0    0 953.9G  0 disk
+├─nvme0n1p1 259:1    0   100M  0 part
+└─nvme0n1p6 259:6    0 802.1G  0 part /
+"#;
+        let result = parse_probe_output("lsblk", output);
+        assert!(matches!(result, ParsedProbeData::BlockDevices(_)));
+        if let ParsedProbeData::BlockDevices(devices) = result {
+            assert!(!devices.is_empty());
+            assert_eq!(devices[0].name, "nvme0n1");
+        }
+    }
+
+    #[test]
+    fn test_parse_probe_output_lscpu() {
+        let output = r#"Architecture: x86_64
+CPU(s): 8
+Model name: Intel Core i7
+"#;
+        let result = parse_probe_output("lscpu", output);
+        assert!(matches!(result, ParsedProbeData::Cpu(_)));
+        if let ParsedProbeData::Cpu(info) = result {
+            assert_eq!(info.architecture, "x86_64");
+            assert_eq!(info.cpu_count, 8);
+        }
+    }
+
+    #[test]
+    fn test_parsed_probe_data_accessors_block_devices() {
+        let devices = ParsedProbeData::BlockDevices(vec![BlockDevice {
+            name: "sda".to_string(),
+            size_bytes: 1024,
+            device_type: BlockDeviceType::Disk,
+            mountpoints: vec![],
+            parent: None,
+            read_only: false,
+        }]);
+        assert!(devices.as_block_devices().is_some());
+        assert!(devices.as_cpu().is_none());
+    }
+
+    #[test]
+    fn test_parsed_probe_data_accessors_cpu() {
+        let cpu = ParsedProbeData::Cpu(CpuInfo {
+            architecture: "x86_64".to_string(),
+            model_name: "Test".to_string(),
+            cpu_count: 4,
+            ..Default::default()
+        });
+        assert!(cpu.as_cpu().is_some());
+        assert!(cpu.as_block_devices().is_none());
     }
 }

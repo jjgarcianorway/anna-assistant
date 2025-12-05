@@ -3,9 +3,59 @@
 //! Pure function scoring with test-locked behavior.
 //! Reason codes (not text) for determinism.
 //! TRUST: Structured explanations when score < 80.
+//! RESCUE Hardening: Explicit thresholds for warnings.
 
 use crate::resource_limits::ResourceDiagnostic;
 use serde::{Deserialize, Serialize};
+
+// =============================================================================
+// RESCUE Hardening: Explicit threshold constants
+// =============================================================================
+
+/// Invention ceiling - score capped when invention detected
+pub const INVENTION_CEILING: u8 = 40;
+
+/// Penalty for ungrounded answer when evidence required
+pub const PENALTY_NOT_GROUNDED: i8 = -30;
+
+/// Penalty for budget exceeded
+pub const PENALTY_BUDGET_EXCEEDED: i8 = -15;
+
+/// Penalty for probe timeout
+pub const PENALTY_PROBE_TIMEOUT: i8 = -10;
+
+/// Penalty for probe truncation
+pub const PENALTY_PROMPT_TRUNCATED: i8 = -10;
+
+/// Penalty for transcript capped
+pub const PENALTY_TRANSCRIPT_CAPPED: i8 = -5;
+
+/// Penalty for low translator confidence (<70%)
+pub const PENALTY_LOW_CONFIDENCE: i8 = -20;
+
+/// Penalty for medium translator confidence (70-85%)
+pub const PENALTY_MEDIUM_CONFIDENCE: i8 = -10;
+
+/// Penalty for evidence missing when required
+pub const PENALTY_EVIDENCE_MISSING: i8 = -25;
+
+/// Maximum probe coverage penalty (100% missing = -30)
+pub const MAX_PROBE_COVERAGE_PENALTY: f32 = 30.0;
+
+/// Threshold for "low" translator confidence
+pub const CONFIDENCE_LOW_THRESHOLD: f32 = 0.70;
+
+/// Threshold for "medium" translator confidence
+pub const CONFIDENCE_MEDIUM_THRESHOLD: f32 = 0.85;
+
+/// Disk usage warning threshold (percentage)
+pub const DISK_WARNING_THRESHOLD: u8 = 85;
+
+/// Disk usage critical threshold (percentage)
+pub const DISK_CRITICAL_THRESHOLD: u8 = 95;
+
+/// Memory usage high threshold (percentage)
+pub const MEMORY_HIGH_THRESHOLD: f32 = 0.90;
 
 /// Reason codes for reliability degradation.
 /// Stored as codes, mapped to text at the edge.
@@ -70,7 +120,7 @@ impl ReliabilityReason {
     pub fn detail_template(&self, context: &ReasonContext) -> String {
         match self {
             Self::InventionDetected => {
-                "score capped at 40 due to detected assumptions".to_string()
+                format!("score capped at {} due to detected assumptions", INVENTION_CEILING)
             }
             Self::EvidenceMissing => {
                 format!(
@@ -87,10 +137,24 @@ impl ReliabilityReason {
                 )
             }
             Self::ProbeTimeout => {
-                format!(
-                    "{} of {} probes timed out",
-                    context.timed_out_probes, context.planned_probes
-                )
+                if context.used_deterministic_fallback && !context.evidence_kinds.is_empty() {
+                    format!(
+                        "{} of {} probes timed out; used deterministic fallback from {} evidence",
+                        context.timed_out_probes, context.planned_probes,
+                        context.evidence_kinds.join(", ")
+                    )
+                } else if context.used_deterministic_fallback {
+                    format!(
+                        "{} of {} probes timed out; used deterministic fallback ({})",
+                        context.timed_out_probes, context.planned_probes,
+                        context.fallback_route_class
+                    )
+                } else {
+                    format!(
+                        "{} of {} probes timed out",
+                        context.timed_out_probes, context.planned_probes
+                    )
+                }
             }
             Self::ProbeFailed => {
                 format!(
@@ -142,6 +206,10 @@ pub struct ReasonContext {
     pub exceeded_stage: String,
     pub stage_budget_ms: u64,
     pub stage_elapsed_ms: u64,
+    // Fallback context (TRUST+ phase)
+    pub used_deterministic_fallback: bool,
+    pub fallback_route_class: String,
+    pub evidence_kinds: Vec<String>,
 }
 
 impl ReasonContext {
@@ -158,6 +226,9 @@ impl ReasonContext {
             exceeded_stage: input.exceeded_stage.clone().unwrap_or_default(),
             stage_budget_ms: input.stage_budget_ms,
             stage_elapsed_ms: input.stage_elapsed_ms,
+            used_deterministic_fallback: input.used_deterministic_fallback,
+            fallback_route_class: input.fallback_route_class.clone(),
+            evidence_kinds: input.evidence_kinds.clone(),
         }
     }
 }
@@ -337,6 +408,11 @@ pub struct ReliabilityInput {
     // Deterministic path
     pub used_deterministic: bool,
     pub parsed_data_count: usize,
+
+    // Fallback context (TRUST+ phase)
+    pub used_deterministic_fallback: bool,
+    pub fallback_route_class: String,
+    pub evidence_kinds: Vec<String>,
 }
 
 impl ReliabilityInput {
@@ -413,9 +489,9 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
     };
 
     // === HARD CEILING: invention detection ===
-    // If no_invention is false, clamp to max 40
+    // If no_invention is false, clamp to INVENTION_CEILING
     if !input.no_invention {
-        let ceiling = 40i16;
+        let ceiling = INVENTION_CEILING as i16;
         if score > ceiling {
             let delta = ceiling - score;
             breakdown.push(ScoreComponent {
@@ -430,7 +506,7 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
 
     // === Evidence grounding ===
     if !input.answer_grounded && input.evidence_required {
-        let delta = -30;
+        let delta = PENALTY_NOT_GROUNDED;
         score += delta as i16;
         breakdown.push(ScoreComponent {
             name: "not_grounded",
@@ -443,9 +519,7 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
     // === Budget exceeded (METER phase) ===
     // BudgetExceeded subsumes ProbeTimeout - if budget exceeded, skip timeout penalty
     let budget_penalty_applied = if input.budget_exceeded {
-        // Budget exceeded penalty: -15 (more severe than probe timeout's -10)
-        // Rationale: stage-level budget exceeded affects entire stage, not just one probe
-        let delta = -15;
+        let delta = PENALTY_BUDGET_EXCEEDED;
         score += delta as i16;
         breakdown.push(ScoreComponent {
             name: "budget_exceeded",
@@ -462,7 +536,7 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
     if input.planned_probes == 0 {
         // No probes planned
         if input.evidence_required {
-            let delta = -25;
+            let delta = PENALTY_EVIDENCE_MISSING;
             score += delta as i16;
             breakdown.push(ScoreComponent {
                 name: "evidence_missing",
@@ -473,7 +547,7 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
         }
     } else {
         // Probes were planned - calculate coverage penalty
-        let coverage_penalty = ((1.0 - probe_coverage_ratio) * 30.0).round() as i8;
+        let coverage_penalty = ((1.0 - probe_coverage_ratio) * MAX_PROBE_COVERAGE_PENALTY).round() as i8;
         if coverage_penalty > 0 {
             score -= coverage_penalty as i16;
             breakdown.push(ScoreComponent {
@@ -487,7 +561,7 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
         // Extra penalty for timeouts (worse UX than failures)
         // NO DOUBLE PENALTY: Skip if budget_exceeded was already applied (subsumption)
         if input.timed_out_probes > 0 && !budget_penalty_applied {
-            let delta = -10;
+            let delta = PENALTY_PROBE_TIMEOUT;
             score += delta as i16;
             breakdown.push(ScoreComponent {
                 name: "probe_timeout",
@@ -500,8 +574,8 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
 
     // === Translator confidence (only if translator used) ===
     if input.translator_used {
-        if input.translator_confidence < 0.7 {
-            let delta = -20;
+        if input.translator_confidence < CONFIDENCE_LOW_THRESHOLD {
+            let delta = PENALTY_LOW_CONFIDENCE;
             score += delta as i16;
             breakdown.push(ScoreComponent {
                 name: "low_confidence",
@@ -509,8 +583,8 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
                 reason: Some(ReliabilityReason::LowConfidence),
             });
             reasons.push(ReliabilityReason::LowConfidence);
-        } else if input.translator_confidence < 0.85 {
-            let delta = -10;
+        } else if input.translator_confidence < CONFIDENCE_MEDIUM_THRESHOLD {
+            let delta = PENALTY_MEDIUM_CONFIDENCE;
             score += delta as i16;
             breakdown.push(ScoreComponent {
                 name: "medium_confidence",
@@ -523,7 +597,7 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
 
     // === Resource caps ===
     if input.prompt_truncated {
-        let delta = -10;
+        let delta = PENALTY_PROMPT_TRUNCATED;
         score += delta as i16;
         breakdown.push(ScoreComponent {
             name: "prompt_truncated",
@@ -534,7 +608,7 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
     }
 
     if input.transcript_capped {
-        let delta = -5;
+        let delta = PENALTY_TRANSCRIPT_CAPPED;
         score += delta as i16;
         breakdown.push(ScoreComponent {
             name: "transcript_capped",

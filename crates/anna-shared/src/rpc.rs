@@ -1,6 +1,7 @@
 //! JSON-RPC 2.0 types for annad communication.
 
 use crate::reliability::ReliabilityExplanation;
+use crate::trace::ExecutionTrace;
 use crate::transcript::Transcript;
 use serde::{Deserialize, Serialize};
 
@@ -311,6 +312,9 @@ pub struct ServiceDeskResult {
     pub clarification_question: Option<String>,
     /// Full transcript of pipeline events
     pub transcript: Transcript,
+    /// TRACE: Execution trace showing stages and paths (v0.0.23+)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execution_trace: Option<ExecutionTrace>,
 }
 
 #[cfg(test)]

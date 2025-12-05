@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.23] - 2025-12-05
+
+### Added
+- **TRACE Phase**: Structured execution trace for debugging degraded paths
+  - `ExecutionTrace` in ServiceDeskResult (wire-compatible, optional)
+  - `SpecialistOutcome` enum: Ok | Timeout | BudgetExceeded | Skipped | Error
+  - `FallbackUsed` enum: None | Deterministic { route_class }
+  - `ProbeStats`: planned/succeeded/failed/timed_out counts
+  - `EvidenceKind` enum: Memory | Disk | BlockDevices | Cpu | Services
+  - Trace rendering in `annactl` debug mode
+  - 12 golden tests for trace scenarios
+
+- **TRUST+ Phase**: Enhanced reliability explanations with fallback context
+  - `ReasonContext` extended with fallback fields
+  - ProbeTimeout explanation now mentions fallback source and evidence kinds
+  - Example: "2 of 3 probes timed out; used deterministic fallback from memory evidence"
+
+- **RESCUE Hardening**: Explicit threshold constants for reliability scoring
+  - `INVENTION_CEILING = 40`
+  - `PENALTY_NOT_GROUNDED = -30`
+  - `PENALTY_BUDGET_EXCEEDED = -15`
+  - `PENALTY_PROBE_TIMEOUT = -10`
+  - `PENALTY_EVIDENCE_MISSING = -25`
+  - `MAX_PROBE_COVERAGE_PENALTY = 30.0`
+  - Confidence thresholds: `CONFIDENCE_LOW_THRESHOLD = 0.70`, `CONFIDENCE_MEDIUM_THRESHOLD = 0.85`
+  - All magic numbers in `compute_reliability()` replaced with named constants
+
+- **New Parsers**: `lsblk.rs` and `lscpu.rs` for block device and CPU info
+- **Probe Answers Module**: Centralized deterministic answer generation
+
+### Changed
+- `DeterministicResult` now includes `route_class` field for trace auditing
+- All deterministic answers include route classification
+
 ## [0.0.18] - 2025-12-05
 
 ### Fixed

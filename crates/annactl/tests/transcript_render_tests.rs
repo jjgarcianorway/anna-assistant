@@ -219,6 +219,7 @@ fn make_result(
         needs_clarification,
         clarification_question: clarification.map(String::from),
         transcript,
+        execution_trace: None,
     }
 }
 

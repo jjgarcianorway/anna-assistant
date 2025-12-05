@@ -12,6 +12,7 @@ pub mod reliability;
 pub mod resource_limits;
 pub mod rpc;
 pub mod status;
+pub mod trace;
 pub mod transcript;
 pub mod ui;
 

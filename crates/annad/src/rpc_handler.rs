@@ -3,6 +3,9 @@
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{ProbeResult, RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
+use anna_shared::trace::{
+    evidence_kinds_from_route, ExecutionTrace, ProbeStats, SpecialistOutcome,
+};
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
 use tracing::{error, info, warn};
@@ -64,6 +67,7 @@ fn make_timeout_response(id: String, request_id: String, timeout_secs: u64) -> R
         needs_clarification: true,
         clarification_question: Some(format!("Request timed out after {}s. Please simplify your query.", timeout_secs)),
         transcript: anna_shared::transcript::Transcript::default(),
+        execution_trace: None, // Global timeout - no trace available
     };
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
 }
@@ -123,6 +127,7 @@ async fn handle_llm_request_inner(
     };
 
     let classified_domain = ticket.domain;
+    let ticket_probes_planned = ticket.needs_probes.len();
     progress.add_translator_message(&format!(
         "domain={}, intent={}, probes={:?}, confidence={:.2}",
         ticket.domain, ticket.intent, ticket.needs_probes, ticket.confidence
@@ -180,11 +185,14 @@ async fn handle_llm_request_inner(
                 info!("Deterministic answer produced ({} entries)", det.parsed_data_count);
                 // Skip specialist stage - deterministic router answered
                 progress.skip_stage_deterministic(RequestStage::Specialist);
+                let route_class = det.route_class.clone();
                 SpecialistResult {
                     answer: det.answer.clone(),
                     used_deterministic: true,
                     det_result: Some(det),
                     prompt_truncated: false, // No prompt for deterministic path
+                    outcome: SpecialistOutcome::Skipped,
+                    fallback_route_class: Some(route_class),
                 }
             } else {
                 warn!("Deterministic parser produced empty result");
@@ -196,7 +204,7 @@ async fn handle_llm_request_inner(
     } else {
         try_specialist_llm(&state, query, &context, &probe_results, &ticket, &llm_config, &specialist_model, debug_mode, &mut progress).await
     };
-    let SpecialistResult { answer, used_deterministic, det_result, prompt_truncated } = specialist_result;
+    let SpecialistResult { answer, used_deterministic, det_result, prompt_truncated, outcome, fallback_route_class } = specialist_result;
 
     // Step 7: Handle no answer case
     if answer.is_empty() {
@@ -211,12 +219,74 @@ async fn handle_llm_request_inner(
     progress.start_stage(RequestStage::Supervisor, llm_config.supervisor_timeout_secs);
     progress.add_final_answer(&answer);
 
+    let parsed_data_count = det_result.as_ref().map(|d| d.parsed_data_count).unwrap_or(0);
+
+    // Build fallback context for TRUST+ explanations
+    let fallback_ctx = service_desk::FallbackContext {
+        used_deterministic_fallback: matches!(outcome, SpecialistOutcome::Timeout | SpecialistOutcome::Error)
+            && used_deterministic && parsed_data_count > 0,
+        fallback_route_class: fallback_route_class.clone().unwrap_or_default(),
+        evidence_kinds: fallback_route_class.as_ref()
+            .map(|rc| evidence_kinds_from_route(rc).iter().map(|k| k.to_string()).collect())
+            .unwrap_or_default(),
+    };
+
     let mut result = service_desk::build_result_with_flags(
-        request_id, answer, query, ticket, probe_results, progress.transcript_clone(),
+        request_id, answer, query, ticket, probe_results.clone(), progress.transcript_clone(),
         classified_domain, translator_timed_out, used_deterministic,
-        det_result.map(|d| d.parsed_data_count).unwrap_or(0),
-        prompt_truncated,
+        parsed_data_count, prompt_truncated, fallback_ctx,
     );
+
+    // Step 9: Build execution trace
+    let probe_stats = ProbeStats::from_results(ticket_probes_planned, &probe_results);
+    let evidence_kinds = fallback_route_class.as_ref()
+        .map(|rc| evidence_kinds_from_route(rc))
+        .unwrap_or_default();
+
+    result.execution_trace = Some(match outcome {
+        SpecialistOutcome::Skipped => {
+            // Deterministic route answered directly
+            ExecutionTrace::deterministic_route(
+                fallback_route_class.as_deref().unwrap_or("unknown"),
+                probe_stats,
+                evidence_kinds,
+            )
+        }
+        SpecialistOutcome::Ok => {
+            // Specialist LLM answered successfully
+            ExecutionTrace::specialist_ok(probe_stats)
+        }
+        SpecialistOutcome::Timeout => {
+            if used_deterministic && parsed_data_count > 0 {
+                // Timeout with successful fallback
+                ExecutionTrace::specialist_timeout_with_fallback(
+                    fallback_route_class.as_deref().unwrap_or("unknown"),
+                    probe_stats,
+                    evidence_kinds,
+                )
+            } else {
+                // Timeout without successful fallback
+                ExecutionTrace::specialist_timeout_no_fallback(probe_stats)
+            }
+        }
+        SpecialistOutcome::Error => {
+            if used_deterministic && parsed_data_count > 0 {
+                // Error with successful fallback
+                ExecutionTrace::specialist_error_with_fallback(
+                    fallback_route_class.as_deref().unwrap_or("unknown"),
+                    probe_stats,
+                    evidence_kinds,
+                )
+            } else {
+                // Error without successful fallback - treat like timeout
+                ExecutionTrace::specialist_timeout_no_fallback(probe_stats)
+            }
+        }
+        SpecialistOutcome::BudgetExceeded => {
+            // Budget exceeded - similar to timeout
+            ExecutionTrace::specialist_timeout_no_fallback(probe_stats)
+        }
+    });
 
     // Add probe cap warning to evidence
     if probe_cap_warning {
@@ -229,8 +299,9 @@ async fn handle_llm_request_inner(
     let total_ms = request_start.elapsed().as_millis() as u64;
     { state.write().await.latency.total.add(total_ms); }
 
-    info!("Request completed: domain={}, reliability={}, deterministic={}, latency={}ms",
-          result.domain, result.reliability_score, used_deterministic, total_ms);
+    info!("Request completed: domain={}, reliability={}, deterministic={}, trace={}, latency={}ms",
+          result.domain, result.reliability_score, used_deterministic,
+          result.execution_trace.as_ref().map(|t| t.to_string()).unwrap_or_default(), total_ms);
 
     save_progress(&state, &progress).await;
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
@@ -278,6 +349,10 @@ pub struct SpecialistResult {
     pub used_deterministic: bool,
     pub det_result: Option<DeterministicResult>,
     pub prompt_truncated: bool,
+    /// Outcome of specialist stage (for trace)
+    pub outcome: SpecialistOutcome,
+    /// Whether fallback was used and what route class
+    pub fallback_route_class: Option<String>,
 }
 
 /// Try specialist LLM with summarized probe output
@@ -313,7 +388,7 @@ async fn try_specialist_llm(
         format!("{}\n\nUser: {}", prompt_result.prompt, query)
     };
 
-    let (answer, used_deterministic, det_result) = match timeout(
+    let (answer, used_deterministic, det_result, outcome, fallback_route_class) = match timeout(
         Duration::from_secs(config.specialist_timeout_secs),
         ollama::chat_with_timeout(model, &full_prompt, config.specialist_timeout_secs),
     ).await {
@@ -322,17 +397,21 @@ async fn try_specialist_llm(
             // Redact sensitive content from response
             let redacted = redact::redact(&response);
             progress.add_specialist_message(&redacted);
-            (redacted, false, None)
+            (redacted, false, None, SpecialistOutcome::Ok, None)
         }
         Ok(Err(e)) => {
             error!("Specialist LLM error: {}", e);
             progress.error_stage(RequestStage::Specialist, &e.to_string());
-            try_deterministic_fallback(query, context, probe_results, progress)
+            let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
+            let route_class = det.as_ref().map(|d| d.route_class.clone());
+            (ans, used_det, det, SpecialistOutcome::Error, route_class)
         }
         Err(_) => {
             warn!("Specialist timeout, trying deterministic fallback");
             progress.timeout_stage(RequestStage::Specialist);
-            try_deterministic_fallback(query, context, probe_results, progress)
+            let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
+            let route_class = det.as_ref().map(|d| d.route_class.clone());
+            (ans, used_det, det, SpecialistOutcome::Timeout, route_class)
         }
     };
 
@@ -344,6 +423,8 @@ async fn try_specialist_llm(
         used_deterministic,
         det_result,
         prompt_truncated: prompt_result.was_truncated,
+        outcome,
+        fallback_route_class,
     }
 }
 

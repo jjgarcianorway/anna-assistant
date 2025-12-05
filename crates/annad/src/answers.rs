@@ -4,7 +4,10 @@
 //! All answers emit claims in extractable format (bytes with B suffix,
 //! percents with %, service states as lowercase).
 
-use anna_shared::parsers::{ParsedProbeData, ServiceState, ServiceStatus};
+use anna_shared::parsers::{
+    BlockDevice, BlockDeviceType, CpuInfo, DiskUsage, MemoryInfo, ParsedProbeData, ServiceState,
+    ServiceStatus,
+};
 
 use crate::router::QueryClass;
 
@@ -94,6 +97,136 @@ fn format_service(svc: &ServiceStatus) -> String {
     format!("{} is {}", svc.name, state_str)
 }
 
+/// Generate system health summary from multiple probe outputs.
+/// Composes memory, disk, block devices, and CPU info into a single report.
+pub fn generate_health_summary(probes: &[ParsedProbeData]) -> Option<String> {
+    let mut sections: Vec<String> = Vec::new();
+
+    // Extract each data type from probes
+    let mut memory: Option<&MemoryInfo> = None;
+    let mut disks: Vec<&DiskUsage> = Vec::new();
+    let mut block_devices: Vec<&BlockDevice> = Vec::new();
+    let mut cpu: Option<&CpuInfo> = None;
+
+    for probe in probes {
+        match probe {
+            ParsedProbeData::Memory(m) => memory = Some(m),
+            ParsedProbeData::Disk(d) => disks.extend(d.iter()),
+            ParsedProbeData::BlockDevices(b) => block_devices.extend(b.iter()),
+            ParsedProbeData::Cpu(c) => cpu = Some(c),
+            _ => {}
+        }
+    }
+
+    // CPU section
+    if let Some(c) = cpu {
+        let mut cpu_lines = vec![format!("CPU: {}", c.model_name)];
+        cpu_lines.push(format!("  Logical CPUs: {}", c.cpu_count));
+        if let Some(cores) = c.physical_cores() {
+            cpu_lines.push(format!("  Physical cores: {}", cores));
+        }
+        if let Some(ht) = c.hyperthreading() {
+            cpu_lines.push(format!("  Hyperthreading: {}", if ht { "yes" } else { "no" }));
+        }
+        sections.push(cpu_lines.join("\n"));
+    }
+
+    // Memory section
+    if let Some(m) = memory {
+        let used_pct = (m.used_bytes as f64 / m.total_bytes as f64 * 100.0) as u8;
+        let avail_pct = (m.available_bytes as f64 / m.total_bytes as f64 * 100.0) as u8;
+        let mut mem_lines = vec!["Memory:".to_string()];
+        mem_lines.push(format!(
+            "  Total: {} ({}B)",
+            format_bytes_short(m.total_bytes),
+            m.total_bytes
+        ));
+        mem_lines.push(format!(
+            "  Used: {} ({}%) - {}B used",
+            format_bytes_short(m.used_bytes),
+            used_pct,
+            m.used_bytes
+        ));
+        mem_lines.push(format!(
+            "  Available: {} ({}%) - {}B available",
+            format_bytes_short(m.available_bytes),
+            avail_pct,
+            m.available_bytes
+        ));
+        sections.push(mem_lines.join("\n"));
+    }
+
+    // Storage section (from block devices)
+    if !block_devices.is_empty() {
+        let total_disk: u64 = block_devices
+            .iter()
+            .filter(|d| d.device_type == BlockDeviceType::Disk)
+            .map(|d| d.size_bytes)
+            .sum();
+        let mut storage_lines = vec!["Storage:".to_string()];
+        storage_lines.push(format!(
+            "  Total disk: {} ({}B)",
+            format_bytes_short(total_disk),
+            total_disk
+        ));
+
+        // List disks
+        for dev in block_devices.iter().filter(|d| d.device_type == BlockDeviceType::Disk) {
+            storage_lines.push(format!(
+                "  {} - {}",
+                dev.name,
+                format_bytes_short(dev.size_bytes)
+            ));
+        }
+        sections.push(storage_lines.join("\n"));
+    }
+
+    // Disk usage section (from df)
+    if !disks.is_empty() {
+        let mut disk_lines = vec!["Disk Usage:".to_string()];
+        for d in &disks {
+            let status = if d.percent_used >= 90 {
+                " [CRITICAL]"
+            } else if d.percent_used >= 80 {
+                " [WARNING]"
+            } else {
+                ""
+            };
+            disk_lines.push(format!(
+                "  {} is {}% full{}",
+                d.mount, d.percent_used, status
+            ));
+        }
+        sections.push(disk_lines.join("\n"));
+    }
+
+    if sections.is_empty() {
+        return None;
+    }
+
+    Some(format!("System Health Summary\n{}\n{}", "=".repeat(20), sections.join("\n\n")))
+}
+
+/// Format bytes in short human-readable form.
+fn format_bytes_short(bytes: u64) -> String {
+    const KIB: u64 = 1024;
+    const MIB: u64 = 1024 * 1024;
+    const GIB: u64 = 1024 * 1024 * 1024;
+    const TIB: u64 = 1024 * 1024 * 1024 * 1024;
+
+    if bytes >= TIB {
+        format!("{:.1} TiB", bytes as f64 / TIB as f64)
+    } else if bytes >= GIB {
+        format!("{:.1} GiB", bytes as f64 / GIB as f64)
+    } else if bytes >= MIB {
+        format!("{:.1} MiB", bytes as f64 / MIB as f64)
+    } else if bytes >= KIB {
+        format!("{:.1} KiB", bytes as f64 / KIB as f64)
+    } else {
+        format!("{}B", bytes)
+    }
+}
+
 // === Probe-to-answer helpers (used by deterministic.rs) ===
 
 use anna_shared::parsers::{parse_df, parse_failed_units, parse_free, parse_is_active};
@@ -149,111 +282,4 @@ pub fn format_bytes_human(bytes: u64) -> String {
     };
 
     format!("{:.1} {} ({}B)", value, unit, bytes)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use anna_shared::parsers::{DiskUsage, MemoryInfo};
-
-    #[test]
-    fn test_memory_answer_format() {
-        let data = ParsedProbeData::Memory(MemoryInfo {
-            total_bytes: 16_000_000_000,
-            used_bytes: 8_000_000_000,
-            free_bytes: 4_000_000_000,
-            shared_bytes: 100_000_000,
-            buff_cache_bytes: 2_000_000_000,
-            available_bytes: 6_000_000_000,
-            swap_total_bytes: None,
-            swap_used_bytes: None,
-            swap_free_bytes: None,
-        });
-
-        let answer = generate_answer(QueryClass::MemoryUsage, &data).unwrap();
-
-        // Verify extractable claims
-        assert!(answer.contains("8000000000B used"));
-        assert!(answer.contains("16000000000B total"));
-        assert!(answer.contains("6000000000B available"));
-    }
-
-    #[test]
-    fn test_disk_answer_format() {
-        let data = ParsedProbeData::Disk(vec![
-            DiskUsage {
-                filesystem: "/dev/sda1".to_string(),
-                mount: "/".to_string(),
-                size_bytes: 100_000_000_000,
-                used_bytes: 85_000_000_000,
-                available_bytes: 15_000_000_000,
-                percent_used: 85,
-            },
-            DiskUsage {
-                filesystem: "/dev/sdb1".to_string(),
-                mount: "/home".to_string(),
-                size_bytes: 500_000_000_000,
-                used_bytes: 250_000_000_000,
-                available_bytes: 250_000_000_000,
-                percent_used: 50,
-            },
-        ]);
-
-        let answer = generate_answer(QueryClass::DiskUsage, &data).unwrap();
-
-        // Verify extractable claims
-        assert!(answer.contains("/ is 85% full"));
-        assert!(answer.contains("/home is 50% full"));
-    }
-
-    #[test]
-    fn test_service_answer_format() {
-        let data = ParsedProbeData::Services(vec![
-            ServiceStatus {
-                name: "nginx.service".to_string(),
-                state: ServiceState::Running,
-                description: None,
-            },
-            ServiceStatus {
-                name: "sshd.service".to_string(),
-                state: ServiceState::Active,
-                description: None,
-            },
-        ]);
-
-        let answer = generate_answer(QueryClass::ServiceStatus, &data).unwrap();
-
-        // Verify extractable claims
-        assert!(answer.contains("nginx.service is running"));
-        assert!(answer.contains("sshd.service is active"));
-    }
-
-    #[test]
-    fn test_wrong_data_type_returns_none() {
-        let memory_data = ParsedProbeData::Memory(MemoryInfo {
-            total_bytes: 16_000_000_000,
-            used_bytes: 8_000_000_000,
-            free_bytes: 4_000_000_000,
-            shared_bytes: 0,
-            buff_cache_bytes: 0,
-            available_bytes: 6_000_000_000,
-            swap_total_bytes: None,
-            swap_used_bytes: None,
-            swap_free_bytes: None,
-        });
-
-        // DiskUsage class with memory data should return None
-        assert!(generate_answer(QueryClass::DiskUsage, &memory_data).is_none());
-    }
-
-    #[test]
-    fn test_format_bytes_human() {
-        assert_eq!(format_bytes_human(500), "500B");
-        assert_eq!(format_bytes_human(1024), "1.0 KiB (1024B)");
-        assert_eq!(format_bytes_human(1_073_741_824), "1.0 GiB (1073741824B)");
-        assert_eq!(
-            format_bytes_human(8_804_682_957),
-            "8.2 GiB (8804682957B)"
-        );
-    }
 }

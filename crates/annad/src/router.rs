@@ -41,6 +41,9 @@ pub enum QueryClass {
     /// Service status: "is nginx running", "service status" => domain=system, probes=[systemctl]
     /// Uses ParsedProbeData::Service/Services for typed answers
     ServiceStatus,
+    /// System health summary: "health", "summary", "overview" => domain=system
+    /// probes=[free, df, lsblk, lscpu] - Combines memory, disk, block devices, CPU info
+    SystemHealthSummary,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -60,6 +63,7 @@ impl std::fmt::Display for QueryClass {
             Self::MemoryUsage => "memory_usage",
             Self::DiskUsage => "disk_usage",
             Self::ServiceStatus => "service_status",
+            Self::SystemHealthSummary => "system_health_summary",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -82,6 +86,7 @@ impl QueryClass {
             "memory_usage" => Some(Self::MemoryUsage),
             "disk_usage" => Some(Self::DiskUsage),
             "service_status" => Some(Self::ServiceStatus),
+            "system_health_summary" => Some(Self::SystemHealthSummary),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -105,6 +110,16 @@ pub fn classify_query(query: &str) -> QueryClass {
     // Help request (check first as it's specific)
     if q.trim() == "help" || q.contains("what can you do") || q.contains("how do i use") {
         return QueryClass::Help;
+    }
+
+    // System health summary (multi-probe overview)
+    if q.contains("health")
+        || q.contains("summary")
+        || q.contains("status report")
+        || q.contains("overview")
+        || q.contains("system status")
+    {
+        return QueryClass::SystemHealthSummary;
     }
 
     // System slow (multi-probe diagnostic)
@@ -296,6 +311,18 @@ pub fn get_route(query: &str) -> DeterministicRoute {
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["systemctl".to_string()],
+            can_answer_deterministically: true,
+        },
+        QueryClass::SystemHealthSummary => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec![
+                "free".to_string(),
+                "df".to_string(),
+                "lsblk".to_string(),
+                "lscpu".to_string(),
+            ],
             can_answer_deterministically: true,
         },
         QueryClass::Unknown => DeterministicRoute {

@@ -1,37 +1,10 @@
 //! Anna daemon - manages system state, Ollama, and models.
 
-mod answers;
-mod config;
-mod deterministic;
-mod handlers;
-mod hardware;
-mod health;
-mod ollama;
-mod parsers;
-mod permissions;
-mod probe_runner;
-mod probes;
-mod progress_tracker;
-mod prompts;
-mod redact;
-mod router;
-#[cfg(test)]
-mod router_tests;
-mod rpc_handler;
-mod scoring;
-mod server;
-mod service_desk;
-mod state;
-mod summarizer;
-mod translator;
-mod triage;
-mod update;
-
 use anyhow::Result;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
-use crate::server::Server;
+use annad::server::Server;
 
 #[tokio::main]
 async fn main() -> Result<()> {

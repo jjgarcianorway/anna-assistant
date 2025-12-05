@@ -155,6 +155,7 @@ pub fn create_clarification_response(
         needs_clarification: true,
         clarification_question: Some(question.to_string()),
         transcript,
+        execution_trace: None, // Clarification response - no trace needed
     }
 }
 
@@ -204,6 +205,7 @@ pub fn create_timeout_response(
             stage
         )),
         transcript,
+        execution_trace: None, // Timeout response - trace populated by caller if needed
     }
 }
 
@@ -242,6 +244,7 @@ pub fn create_no_data_response(
             "I couldn't generate an answer from the available data. Could you rephrase your question?".to_string()
         ),
         transcript,
+        execution_trace: None, // No data response - trace populated by caller if needed
     }
 }
 
@@ -258,6 +261,7 @@ pub fn build_result_with_flags(
     used_deterministic: bool,
     parsed_data_count: usize,
     prompt_truncated: bool,
+    fallback_ctx: FallbackContext,
 ) -> ServiceDeskResult {
     // COST: Check if transcript was capped
     let transcript_capped = transcript.was_capped();
@@ -277,6 +281,7 @@ pub fn build_result_with_flags(
         parsed_data_count,
         prompt_truncated,
         transcript_capped,
+        &fallback_ctx,
     );
 
     let last_error = if used_deterministic && parsed_data_count == 0 {
@@ -313,6 +318,24 @@ pub fn build_result_with_flags(
         needs_clarification: false,
         clarification_question: None,
         transcript,
+        execution_trace: None, // Populated by caller
+    }
+}
+
+/// Fallback context for TRUST+ explanations
+pub struct FallbackContext {
+    pub used_deterministic_fallback: bool,
+    pub fallback_route_class: String,
+    pub evidence_kinds: Vec<String>,
+}
+
+impl Default for FallbackContext {
+    fn default() -> Self {
+        Self {
+            used_deterministic_fallback: false,
+            fallback_route_class: String::new(),
+            evidence_kinds: Vec::new(),
+        }
     }
 }
 
@@ -328,6 +351,7 @@ fn calculate_reliability_v2(
     parsed_data_count: usize,
     prompt_truncated: bool,
     transcript_capped: bool,
+    fallback_ctx: &FallbackContext,
 ) -> (ReliabilitySignals, ReliabilityOutput, ReliabilityInput) {
     // Count probe outcomes
     let planned_probes = ticket.needs_probes.len();
@@ -381,6 +405,10 @@ fn calculate_reliability_v2(
         exceeded_stage: None,
         stage_budget_ms: 0,
         stage_elapsed_ms: 0,
+        // TRUST+ phase: fallback context
+        used_deterministic_fallback: fallback_ctx.used_deterministic_fallback,
+        fallback_route_class: fallback_ctx.fallback_route_class.clone(),
+        evidence_kinds: fallback_ctx.evidence_kinds.clone(),
     };
 
     // Compute using new model
