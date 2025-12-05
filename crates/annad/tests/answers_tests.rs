@@ -242,12 +242,13 @@ fn test_system_health_summary_probes() {
     // v0.0.35: "system health" now routes to SystemTriage, test the full summary route
     let route = get_route("system summary");
     assert_eq!(route.class, QueryClass::SystemHealthSummary);
-    // v0.0.32: Health brief uses different probes for relevant-only reporting
+    // v0.45.x: Probes use command-style names
     assert!(route.probes.contains(&"disk_usage".to_string()));
-    assert!(route.probes.contains(&"memory_info".to_string()));
-    assert!(route.probes.contains(&"failed_services".to_string()));
+    assert!(route.probes.contains(&"free".to_string()));
+    assert!(route.probes.contains(&"failed_units".to_string()));
     assert!(route.probes.contains(&"top_cpu".to_string()));
-    assert!(route.can_answer_deterministically);
+    // v0.45.x: SystemHealthSummary needs LLM interpretation, not deterministic
+    assert!(!route.can_answer_deterministically());
 }
 
 #[test]
@@ -259,5 +260,5 @@ fn test_system_triage_probes() {
     assert!(route.probes.contains(&"journal_warnings".to_string()));
     assert!(route.probes.contains(&"failed_units".to_string()));
     assert!(route.probes.contains(&"boot_time".to_string()));
-    assert!(route.can_answer_deterministically);
+    assert!(route.can_answer_deterministically());
 }

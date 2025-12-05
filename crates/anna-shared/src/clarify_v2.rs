@@ -306,7 +306,7 @@ pub fn find_installed_alternatives(tool: &str, cache: &InventoryCache) -> Vec<St
     alts
 }
 
-/// Generate installed-only editor request
+/// Generate installed-only editor request (v0.45.x: shows only installed editors)
 pub fn editor_request(cache: &InventoryCache) -> ClarifyRequest {
     let editors = [
         ("vim", "Vim"), ("nvim", "Neovim"), ("nano", "Nano"),
@@ -318,14 +318,16 @@ pub fn editor_request(cache: &InventoryCache) -> ClarifyRequest {
 
     for (cmd, label) in &editors {
         if cache.is_installed(cmd).unwrap_or(false) && key < KEY_OTHER {
-            opts.push(ClarifyOption::tool(key, cmd));
+            // Use friendly label for display, command for value
+            opts.push(ClarifyOption::new(key, *label, *cmd)
+                .with_verify(VerifyExpectation::CommandExists { name: cmd.to_string() }));
             key += 1;
         }
     }
 
     ClarifyRequest::new("editor_select", "Which editor do you prefer?")
         .with_options(opts)
-        .with_reason("I need to know your editor to configure it")
+        .with_reason("Options shown are installed on your system")
 }
 
 /// Check if clarification can be skipped

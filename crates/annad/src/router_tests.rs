@@ -70,8 +70,9 @@ mod tests {
         let route = get_route("top memory processes");
         assert_eq!(route.probes, vec!["top_memory"]);
 
+        // v0.45.x: probes use command names
         let route = get_route("disk space");
-        assert_eq!(route.probes, vec!["disk_usage"]);
+        assert_eq!(route.probes, vec!["df"]);
 
         let route = get_route("it's slow");
         assert!(route.probes.contains(&"top_cpu".to_string()));
@@ -91,10 +92,10 @@ mod tests {
 
         let ticket = apply_deterministic_routing("show disk space", Some(llm_ticket));
 
-        // Deterministic should override
+        // Deterministic should override - v0.45.x uses command names
         assert_eq!(ticket.domain, SpecialistDomain::Storage);
         assert_eq!(ticket.intent, QueryIntent::Question);
-        assert_eq!(ticket.needs_probes, vec!["disk_usage"]);
+        assert_eq!(ticket.needs_probes, vec!["df"]);
         assert_eq!(ticket.confidence, 1.0);
     }
 
@@ -125,14 +126,14 @@ mod tests {
     fn test_route_typed_probes() {
         let route = get_route("memory usage");
         assert_eq!(route.probes, vec!["free"]);
-        assert!(route.can_answer_deterministically);
+        assert!(route.can_answer_deterministically());
 
         let route = get_route("disk usage");
         assert_eq!(route.probes, vec!["df"]);
-        assert!(route.can_answer_deterministically);
+        assert!(route.can_answer_deterministically());
 
         let route = get_route("is nginx running");
         assert_eq!(route.probes, vec!["systemctl"]);
-        assert!(route.can_answer_deterministically);
+        assert!(route.can_answer_deterministically());
     }
 }

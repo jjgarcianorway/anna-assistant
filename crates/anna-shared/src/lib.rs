@@ -27,6 +27,7 @@ pub mod narrator;
 pub mod parsers;
 pub mod pending;
 pub mod person_stats;
+pub mod probe_spine;
 pub mod progress;
 pub mod recipe;
 pub mod recipe_index;

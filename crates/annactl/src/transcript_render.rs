@@ -57,18 +57,18 @@ pub fn render(result: &ServiceDeskResult, debug_mode: bool) {
 fn render_clean(result: &ServiceDeskResult, output_mode: OutputMode) {
     println!();
 
-    // Show user query
+    // Show user query (v0.45.x: bracketed labels [you]/[anna])
     for event in &result.transcript.events {
         if let TranscriptEventKind::Message { text } = &event.kind {
             if event.from == Actor::You {
-                println!("{}You:{} {}\n", colors::CYAN, colors::RESET, text);
+                println!("{}[you]{} {}\n", colors::CYAN, colors::RESET, text);
                 break;
             }
         }
     }
 
-    // Show anna's response with IT department style
-    println!("{}Anna:{}", colors::OK, colors::RESET);
+    // Show anna's response with IT department style (v0.45.x: bracketed label)
+    println!("{}[anna]{}", colors::OK, colors::RESET);
     match get_final_answer(result) {
         AnswerSource::Transcript(t) | AnswerSource::Answer(t) => {
             println!("{}", format_for_output(t, output_mode));

@@ -1,7 +1,8 @@
 //! RPC request handlers with deterministic routing, triage, and fallback.
 
+use anna_shared::probe_spine::enforce_spine_probes;
 use anna_shared::progress::RequestStage;
-use anna_shared::rpc::{ProbeResult, RequestParams, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
 use anna_shared::trace::{
     evidence_kinds_from_route, ExecutionTrace, ProbeStats, SpecialistOutcome,
@@ -182,7 +183,7 @@ async fn handle_llm_request_inner(
     info!("Router: class={:?}, domain={}, probes={:?}", det_route.class, det_route.domain, det_route.probes);
 
     // Step 2: Route based on query class
-    let (ticket, triage_result, translator_timed_out) = if det_route.class == router::QueryClass::Unknown {
+    let (mut ticket, triage_result, translator_timed_out) = if det_route.class == router::QueryClass::Unknown {
         // Unknown class -> use triage path with LLM translator
         triage_path(&state, query, &llm_config, &translator_model, hw_cores, hw_ram_gb, has_gpu, &mut progress).await
     } else {
@@ -190,6 +191,15 @@ async fn handle_llm_request_inner(
         let ticket = router::apply_deterministic_routing(query, None);
         (ticket, None, false)
     };
+
+    // Step 2.5: Enforce probe spine (v0.45.x stabilization)
+    // If the translator proposed empty probes but the query requires evidence,
+    // enforce minimum probes from the spine.
+    let (enforced_probes, spine_reason) = enforce_spine_probes(&ticket.needs_probes, &det_route.capability);
+    if let Some(ref reason) = spine_reason {
+        info!("Probe spine enforced: {}", reason);
+        ticket.needs_probes = enforced_probes;
+    }
 
     let classified_domain = ticket.domain;
     let ticket_probes_planned = ticket.needs_probes.len();
@@ -244,7 +254,7 @@ async fn handle_llm_request_inner(
     };
 
     // Step 6: Try deterministic answer FIRST for known query classes
-    let specialist_result = if det_route.can_answer_deterministically {
+    let specialist_result = if det_route.can_answer_deterministically() {
         if let Some(det) = deterministic::try_answer(query, &context, &probe_results) {
             if det.parsed_data_count > 0 {
                 info!("Deterministic answer produced ({} entries)", det.parsed_data_count);
@@ -305,6 +315,8 @@ async fn handle_llm_request_inner(
             .unwrap_or_default(),
         specialist_outcome: Some(outcome),
         fallback_used,
+        // v0.45.x: Pass route capability's evidence_required for proper spine enforcement
+        evidence_required: Some(det_route.capability.evidence_required),
     };
 
     let mut result = service_desk::build_result_with_flags(

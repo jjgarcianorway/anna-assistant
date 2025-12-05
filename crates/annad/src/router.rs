@@ -1,10 +1,14 @@
-//! Deterministic router - overrides LLM translator for known query classes.
+//! Deterministic router - routes queries and enforces probe spine.
 //!
-//! Ensures reliable routing and probe selection for common queries,
-//! regardless of LLM translator behavior.
+//! v0.45.x stabilization: LLM-first reasoning with probe spine.
+//! Deterministic code selects tools and enforces safety, but does NOT invent answers.
 //!
-//! ROUTE phase: Uses typed outputs from STRUCT-lite parsers.
+//! Key policy:
+//! - can_answer_deterministically = true ONLY for narrow typed queries with extractable claims
+//! - All other queries go to LLM specialist with probe evidence
+//! - Probe spine enforces minimum probes when evidence is required
 
+use anna_shared::probe_spine::{EvidenceKind, ProbeId, RouteCapability};
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -16,51 +20,51 @@ pub use crate::query_classify::classify_query;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryClass {
-    /// System triage: "any errors", "any problems", "warnings" => fast path, no specialist
+    /// System triage: "any errors", "any problems" => fast path with probes
     SystemTriage,
-    /// CPU info: cpu/processor => domain=system, probes=[]
+    /// CPU info: cpu/processor => needs hardware snapshot
     CpuInfo,
-    /// CPU cores: "how many cores" => domain=system, probes=[lscpu] (v0.0.45)
+    /// CPU cores: "how many cores" => needs lscpu probe + LLM
     CpuCores,
-    /// CPU temperature: "cpu temp" => domain=system, probes=[sensors] (v0.0.45)
+    /// CPU temperature: "cpu temp" => needs sensors probe + LLM
     CpuTemp,
-    /// RAM info: ram/memory (not process) => domain=system, probes=[]
+    /// RAM info: ram/memory (not process) => needs free probe
     RamInfo,
-    /// GPU info: gpu/graphics/vram => domain=system, probes=[]
+    /// GPU info: gpu/graphics/vram => needs hardware snapshot
     GpuInfo,
-    /// Hardware audio: "sound card", "audio device" => probes=[lspci_audio] (v0.0.45)
+    /// Hardware audio: "sound card" => needs lspci probe + LLM
     HardwareAudio,
-    /// Memory processes: processes using memory => probes=[top_memory]
+    /// Memory processes: processes using memory => deterministic from probe
     TopMemoryProcesses,
-    /// CPU processes: processes using cpu => probes=[top_cpu]
+    /// CPU processes: processes using cpu => deterministic from probe
     TopCpuProcesses,
-    /// Disk space: disk/storage/filesystem => probes=[disk_usage]
+    /// Disk space: disk/storage => deterministic from probe
     DiskSpace,
-    /// Network interfaces: network/ip/wifi/ethernet => probes=[network_addrs]
+    /// Network interfaces: network/ip => deterministic from probe
     NetworkInterfaces,
-    /// Help request: help/usage => deterministic response
+    /// Help request: deterministic static response
     Help,
-    /// System slow: slow/sluggish => probes=[top_cpu, top_memory, disk_usage]
+    /// System slow: diagnostic => needs LLM interpretation
     SystemSlow,
-    /// Memory usage (total): "how much memory" => probes=[free]
+    /// Memory usage: "how much memory" => deterministic from probe
     MemoryUsage,
-    /// Memory free/available: "free ram" => probes=[free] (v0.0.45 - distinct from total)
+    /// Memory free: "free ram" => deterministic from probe
     MemoryFree,
-    /// Disk usage: "disk usage" => probes=[df]
+    /// Disk usage: "disk usage" => deterministic from probe
     DiskUsage,
-    /// Service status: "is nginx running" => probes=[systemctl]
+    /// Service status: "is nginx running" => deterministic from probe
     ServiceStatus,
-    /// System health summary: "health", "summary" => full system overview
+    /// System health summary: needs LLM interpretation
     SystemHealthSummary,
     /// Boot time status: from knowledge store
     BootTimeStatus,
     /// Installed packages overview: from knowledge store
     InstalledPackagesOverview,
-    /// Package count: "how many packages" => probes=[pacman_count] (v0.0.45)
+    /// Package count: needs probe + LLM interpretation
     PackageCount,
-    /// Installed tool check: "do I have nano" => probes=[command_v] (v0.0.45)
+    /// Installed tool check: "do I have nano" => needs probe + LLM
     InstalledToolCheck,
-    /// App alternatives: from knowledge store
+    /// App alternatives: from knowledge store + LLM
     AppAlternatives,
     /// Unknown: defer to LLM translator
     Unknown,
@@ -148,15 +152,28 @@ pub struct DeterministicRoute {
     pub domain: SpecialistDomain,
     pub intent: QueryIntent,
     pub probes: Vec<String>,
-    pub can_answer_deterministically: bool,
+    pub capability: RouteCapability,
+}
+
+impl DeterministicRoute {
+    /// Legacy accessor for can_answer_deterministically
+    pub fn can_answer_deterministically(&self) -> bool {
+        self.capability.can_answer_deterministically
+    }
 }
 
 /// Get deterministic route for a query
 pub fn get_route(query: &str) -> DeterministicRoute {
     let class = classify_query(query);
+    build_route(class)
+}
 
+/// Build route from query class
+fn build_route(class: QueryClass) -> DeterministicRoute {
     match class {
-        // FAST PATH: SystemTriage - errors/warnings only, no specialist needed
+        // === FAST PATH: Deterministic with probes ===
+
+        // SystemTriage: deterministic triage from probe data
         QueryClass::SystemTriage => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
@@ -167,85 +184,194 @@ pub fn get_route(query: &str) -> DeterministicRoute {
                 "failed_units".to_string(),
                 "boot_time".to_string(),
             ],
-            can_answer_deterministically: true,
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Journal, EvidenceKind::Services],
+                spine_probes: vec![ProbeId::JournalErrors, ProbeId::FailedUnits],
+            },
         },
-        QueryClass::CpuInfo => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec![],
-            can_answer_deterministically: true,
-        },
-        QueryClass::CpuCores => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec!["lscpu".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::CpuTemp => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec!["sensors".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::RamInfo => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec![],
-            can_answer_deterministically: true,
-        },
-        QueryClass::GpuInfo => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec![],
-            can_answer_deterministically: true,
-        },
-        QueryClass::HardwareAudio => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec!["lspci_audio".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::TopMemoryProcesses => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec!["top_memory".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::TopCpuProcesses => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec!["top_cpu".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::DiskSpace => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::Storage,
-            intent: QueryIntent::Question,
-            probes: vec!["disk_usage".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::NetworkInterfaces => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::Network,
-            intent: QueryIntent::Question,
-            probes: vec!["network_addrs".to_string()],
-            can_answer_deterministically: true,
-        },
+
+        // Help: deterministic static response, no evidence needed
         QueryClass::Help => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec![],
-            can_answer_deterministically: true,
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: false,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
         },
+
+        // === NARROW TYPED QUERIES: Deterministic from probe data ===
+
+        QueryClass::MemoryUsage | QueryClass::MemoryFree => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["free".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Memory],
+                spine_probes: vec![ProbeId::Free],
+            },
+        },
+
+        QueryClass::DiskUsage | QueryClass::DiskSpace => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["df".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![ProbeId::Df],
+            },
+        },
+
+        QueryClass::TopMemoryProcesses => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["top_memory".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Processes],
+                spine_probes: vec![ProbeId::TopMemory],
+            },
+        },
+
+        QueryClass::TopCpuProcesses => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["top_cpu".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Processes],
+                spine_probes: vec![ProbeId::TopCpu],
+            },
+        },
+
+        QueryClass::NetworkInterfaces => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["network_addrs".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![ProbeId::IpAddr],
+            },
+        },
+
+        QueryClass::ServiceStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemctl".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![ProbeId::FailedUnits],
+            },
+        },
+
+        // === LLM-REQUIRED: Need specialist interpretation ===
+
+        // CPU info from hardware snapshot - needs LLM to format
+        QueryClass::CpuInfo => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["lscpu".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false, // LLM formats hardware info
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Cpu],
+                spine_probes: vec![ProbeId::Lscpu],
+            },
+        },
+
+        // CPU cores - needs lscpu + LLM interpretation
+        QueryClass::CpuCores => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["lscpu".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Cpu],
+                spine_probes: vec![ProbeId::Lscpu],
+            },
+        },
+
+        // CPU temperature - needs sensors + LLM interpretation
+        // CRITICAL: Must NOT return CPU model!
+        QueryClass::CpuTemp => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["sensors".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false, // NEVER deterministic
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::CpuTemperature],
+                spine_probes: vec![ProbeId::Sensors],
+            },
+        },
+
+        QueryClass::RamInfo => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["free".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false, // LLM formats
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Memory],
+                spine_probes: vec![ProbeId::Free],
+            },
+        },
+
+        QueryClass::GpuInfo => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["lspci_gpu".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Gpu],
+                spine_probes: vec![],
+            },
+        },
+
+        // Audio hardware - needs lspci + LLM interpretation
+        QueryClass::HardwareAudio => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["lspci_audio".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false, // NEVER deterministic
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Audio],
+                spine_probes: vec![ProbeId::LspciAudio],
+            },
+        },
+
+        // System slow - diagnostic needs LLM
         QueryClass::SystemSlow => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
@@ -255,89 +381,118 @@ pub fn get_route(query: &str) -> DeterministicRoute {
                 "top_memory".to_string(),
                 "disk_usage".to_string(),
             ],
-            can_answer_deterministically: false,
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Processes, EvidenceKind::Disk],
+                spine_probes: vec![ProbeId::TopCpu, ProbeId::TopMemory, ProbeId::Df],
+            },
         },
-        QueryClass::MemoryUsage => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec!["free".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::MemoryFree => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec!["free".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::DiskUsage => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::Storage,
-            intent: QueryIntent::Question,
-            probes: vec!["df".to_string()],
-            can_answer_deterministically: true,
-        },
-        QueryClass::ServiceStatus => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec!["systemctl".to_string()],
-            can_answer_deterministically: true,
-        },
+
+        // System health summary - needs LLM interpretation
         QueryClass::SystemHealthSummary => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec![
                 "disk_usage".to_string(),
-                "memory_info".to_string(),
-                "failed_services".to_string(),
+                "free".to_string(),
+                "failed_units".to_string(),
                 "top_cpu".to_string(),
             ],
-            can_answer_deterministically: true,
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: true,
+                required_evidence: vec![
+                    EvidenceKind::Disk, EvidenceKind::Memory,
+                    EvidenceKind::Services, EvidenceKind::Processes,
+                ],
+                spine_probes: vec![ProbeId::Df, ProbeId::Free, ProbeId::FailedUnits],
+            },
         },
-        QueryClass::BootTimeStatus => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::System,
-            intent: QueryIntent::Question,
-            probes: vec![],
-            can_answer_deterministically: true,
-        },
-        QueryClass::InstalledPackagesOverview => DeterministicRoute {
-            class,
-            domain: SpecialistDomain::Packages,
-            intent: QueryIntent::Question,
-            probes: vec![],
-            can_answer_deterministically: true,
-        },
+
+        // Package count - needs probe + LLM formatting
         QueryClass::PackageCount => DeterministicRoute {
             class,
             domain: SpecialistDomain::Packages,
             intent: QueryIntent::Question,
             probes: vec!["pacman_count".to_string()],
-            can_answer_deterministically: true,
+            capability: RouteCapability {
+                can_answer_deterministically: false, // LLM formats
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Packages],
+                spine_probes: vec![ProbeId::PacmanCount],
+            },
         },
+
+        // Installed tool check - needs probe + LLM interpretation
+        // "do I have nano" must check with probe, not guess
         QueryClass::InstalledToolCheck => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["command_v".to_string()],
-            can_answer_deterministically: true,
+            capability: RouteCapability {
+                can_answer_deterministically: false, // NEVER deterministic
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::ToolExists],
+                spine_probes: vec![], // Specific tool added at runtime
+            },
         },
+
+        // === RAG-FIRST: Knowledge store + LLM ===
+
+        QueryClass::BootTimeStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["boot_time".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::BootTime],
+                spine_probes: vec![ProbeId::SystemdAnalyze],
+            },
+        },
+
+        QueryClass::InstalledPackagesOverview => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Packages,
+            intent: QueryIntent::Question,
+            probes: vec!["pacman_count".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Packages],
+                spine_probes: vec![ProbeId::PacmanCount],
+            },
+        },
+
         QueryClass::AppAlternatives => DeterministicRoute {
             class,
             domain: SpecialistDomain::Packages,
             intent: QueryIntent::Question,
             probes: vec![],
-            can_answer_deterministically: true,
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: false, // Knowledge-based
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
         },
+
+        // Unknown - full LLM path
         QueryClass::Unknown => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec![],
-            can_answer_deterministically: false,
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: false, // Let translator decide
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
         },
     }
 }
@@ -347,12 +502,12 @@ pub fn apply_deterministic_routing(query: &str, llm_ticket: Option<TranslatorTic
     let route = get_route(query);
 
     if route.class == QueryClass::Unknown {
-        return llm_ticket.unwrap_or_else(|| create_default_ticket(route));
+        return llm_ticket.unwrap_or_else(|| create_default_ticket(&route));
     }
 
     info!(
-        "Deterministic router: class={:?}, domain={}, probes={:?}",
-        route.class, route.domain, route.probes
+        "Deterministic router: class={:?}, domain={}, probes={:?}, can_det={}",
+        route.class, route.domain, route.probes, route.can_answer_deterministically()
     );
 
     TranslatorTicket {
@@ -366,12 +521,12 @@ pub fn apply_deterministic_routing(query: &str, llm_ticket: Option<TranslatorTic
 }
 
 /// Create default ticket from route
-fn create_default_ticket(route: DeterministicRoute) -> TranslatorTicket {
+fn create_default_ticket(route: &DeterministicRoute) -> TranslatorTicket {
     TranslatorTicket {
-        intent: route.intent,
-        domain: route.domain,
+        intent: route.intent.clone(),
+        domain: route.domain.clone(),
         entities: vec![],
-        needs_probes: route.probes,
+        needs_probes: route.probes.clone(),
         clarification_question: None,
         confidence: 0.5,
     }
@@ -380,5 +535,40 @@ fn create_default_ticket(route: DeterministicRoute) -> TranslatorTicket {
 /// Check if query class can be answered deterministically
 #[allow(dead_code)]
 pub fn can_answer_deterministically(query: &str) -> bool {
-    get_route(query).can_answer_deterministically
+    get_route(query).can_answer_deterministically()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cpu_temp_never_deterministic() {
+        let route = get_route("cpu temperature");
+        assert!(!route.can_answer_deterministically(),
+            "CpuTemp must NEVER be deterministic");
+        assert!(!route.probes.is_empty(),
+            "CpuTemp must have sensors probe");
+    }
+
+    #[test]
+    fn test_sound_card_never_deterministic() {
+        let route = get_route("what is my sound card");
+        assert!(!route.can_answer_deterministically(),
+            "HardwareAudio must NEVER be deterministic");
+    }
+
+    #[test]
+    fn test_installed_tool_never_deterministic() {
+        let route = get_route("do I have nano");
+        assert!(!route.can_answer_deterministically(),
+            "InstalledToolCheck must NEVER be deterministic");
+    }
+
+    #[test]
+    fn test_memory_usage_is_deterministic() {
+        let route = get_route("memory usage");
+        assert!(route.can_answer_deterministically(),
+            "MemoryUsage CAN be deterministic from probe data");
+    }
 }

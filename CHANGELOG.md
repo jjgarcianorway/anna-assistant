@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.46] - 2025-12-05
+
+### Added
+- **Probe Spine** (`probe_spine.rs`):
+  - `EvidenceKind` enum for categorizing system evidence types
+  - `ProbeId` enum for probe identifiers with command mappings
+  - `RouteCapability` struct with evidence requirements and spine probes
+  - `enforce_spine_probes()` ensures minimum probes when evidence required
+  - `probes_for_evidence()` maps evidence kinds to probe IDs
+  - `probe_to_command()` maps probe IDs to shell commands
+
+- **UX Regression Tests** (`ux_regression_tests.rs`):
+  - Actor label format tests ([you]/[anna])
+  - Probe spine enforcement tests
+  - Recipe persistence gate tests
+  - Timeout response tests
+  - Deterministic answer gating tests
+
+### Changed
+- **Router** (`router.rs`):
+  - Uses `RouteCapability` for deterministic answer gating
+  - `can_answer_deterministically()` now a method, not field
+  - Many query classes correctly marked non-deterministic (CpuTemp, HardwareAudio, etc.)
+  - SystemHealthSummary requires LLM interpretation
+
+- **Timeout Responses** (`service_desk.rs`):
+  - `create_timeout_response()` now provides evidence summary
+  - Never asks to rephrase - always provides factual status
+  - Higher reliability score when partial evidence available
+
+- **Reliability Scoring** (`service_desk.rs`):
+  - `evidence_required` passed from route capability
+  - `FallbackContext.evidence_required` field added
+
+- **Clarifications** (`clarify_v2.rs`):
+  - `editor_request()` uses friendly labels (Vim, Neovim, etc.)
+  - Reason updated to "Options shown are installed on your system"
+
+- **Recipe Persistence** (`recipe.rs`):
+  - `RECIPE_PERSIST_THRESHOLD` constant (80)
+  - `should_persist_recipe()` documented as ONLY gate
+
+- **Transcript Labels** (`transcript_render.rs`):
+  - Clean mode uses [you]/[anna] bracketed format
+  - Consistent with debug mode labels
+
+### Fixed
+- Deterministic answers no longer generated for queries requiring LLM interpretation
+- Timeout responses provide useful information instead of empty answers
+- Evidence requirement properly flows through reliability scoring pipeline
+
+## [0.0.45] - 2025-12-05
+
+### Added
+- Probe planning enhancements
+- Query classification improvements
+
 ## [0.0.44] - 2025-12-05
 
 ### Added

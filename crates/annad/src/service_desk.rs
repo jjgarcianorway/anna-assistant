@@ -160,7 +160,8 @@ pub fn create_clarification_response(
     }
 }
 
-/// Create a timeout error response
+/// Create a timeout error response with evidence summary (v0.45.x stabilization).
+/// Never asks to rephrase - always provides factual status.
 pub fn create_timeout_response(
     request_id: String,
     stage: &str,
@@ -169,12 +170,18 @@ pub fn create_timeout_response(
     transcript: Transcript,
     domain: SpecialistDomain,
 ) -> ServiceDeskResult {
+    // v0.45.x: Build evidence summary from available probe data
+    let answer = build_timeout_evidence_summary(stage, &probe_results);
+
+    let has_evidence = !probe_results.is_empty()
+        && probe_results.iter().any(|p| p.exit_code == 0);
+
     let signals = ReliabilitySignals {
         translator_confident: false,
-        probe_coverage: false,
-        answer_grounded: false,
+        probe_coverage: has_evidence,
+        answer_grounded: has_evidence,
         no_invention: true,
-        clarification_not_needed: false,
+        clarification_not_needed: true, // Never ask to rephrase
     };
 
     let default_ticket = ticket.unwrap_or_else(|| TranslatorTicket {
@@ -194,21 +201,62 @@ pub fn create_timeout_response(
 
     ServiceDeskResult {
         request_id,
-        answer: String::new(),
-        reliability_score: signals.score().min(20), // Max 20 for timeout
+        answer,
+        reliability_score: if has_evidence { 40 } else { 20 }, // Higher if we have evidence
         reliability_signals: signals,
-        reliability_explanation: None, // No explanation for timeout
+        reliability_explanation: None,
         domain,
         evidence,
-        // v0.0.32: Don't ask to rephrase - provide status instead
-        needs_clarification: false,
-        clarification_question: Some(format!(
-            "The {} stage took longer than expected. I've recorded this for analysis.",
-            stage
-        )),
+        needs_clarification: false, // Never ask to rephrase
+        clarification_question: None, // v0.45.x: No clarification - we provide status
         transcript,
-        execution_trace: None, // Timeout response - trace populated by caller if needed
+        execution_trace: None, // Populated by caller if needed
     }
+}
+
+/// Build evidence summary for timeout response (v0.45.x stabilization).
+fn build_timeout_evidence_summary(stage: &str, probe_results: &[ProbeResult]) -> String {
+    let mut answer = format!("**Timeout at {} stage**\n\n", stage);
+
+    let successful: Vec<_> = probe_results.iter().filter(|p| p.exit_code == 0).collect();
+    let failed: Vec<_> = probe_results.iter().filter(|p| p.exit_code != 0).collect();
+
+    if successful.is_empty() && failed.is_empty() {
+        answer.push_str("No probes were completed before the timeout.\n\n");
+    } else {
+        if !successful.is_empty() {
+            answer.push_str("**Evidence gathered before timeout:**\n\n");
+            for probe in &successful {
+                // Extract meaningful output (first 3 lines)
+                let output: String = probe.stdout
+                    .lines()
+                    .take(3)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if !output.trim().is_empty() {
+                    let truncated = if probe.stdout.lines().count() > 3 { "..." } else { "" };
+                    answer.push_str(&format!(
+                        "- `{}`: {}{}\n",
+                        probe.command,
+                        output.replace('\n', " | "),
+                        truncated
+                    ));
+                }
+            }
+            answer.push('\n');
+        }
+
+        if !failed.is_empty() {
+            answer.push_str(&format!(
+                "{} probe{} failed before timeout.\n",
+                failed.len(),
+                if failed.len() == 1 { "" } else { "s" }
+            ));
+        }
+    }
+
+    answer.push_str("*The request exceeded its time budget. Try a more specific query.*");
+    answer
 }
 
 /// Create a best-effort response when no deterministic answer is available (v0.0.32).
@@ -389,6 +437,8 @@ pub struct FallbackContext {
     /// Trace-based fields (v0.0.24) - source of truth for fallback guardrail
     pub specialist_outcome: Option<SpecialistOutcome>,
     pub fallback_used: Option<FallbackUsed>,
+    /// v0.45.x: Evidence requirement from route capability (probe spine enforcement)
+    pub evidence_required: Option<bool>,
 }
 
 impl Default for FallbackContext {
@@ -399,6 +449,7 @@ impl Default for FallbackContext {
             evidence_kinds: Vec::new(),
             specialist_outcome: None,
             fallback_used: None,
+            evidence_required: None,
         }
     }
 }
@@ -442,8 +493,9 @@ fn calculate_reliability_v2(
         scoring::check_no_invention(answer)
     };
 
-    // Evidence heuristic: does this query need evidence?
-    let evidence_required = query_requires_evidence(query);
+    // Evidence requirement: prefer route capability (v0.45.x probe spine), fall back to heuristic
+    let evidence_required = fallback_ctx.evidence_required
+        .unwrap_or_else(|| query_requires_evidence(query));
 
     // Build input for new scoring model (COST: includes resource cap signals)
     // Note: grounding_ratio and total_claims default to 0 for now (legacy path)

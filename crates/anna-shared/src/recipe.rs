@@ -408,11 +408,17 @@ pub fn recipe_filename(recipe_id: &str) -> PathBuf {
     recipe_dir().join(format!("{}.json", recipe_id))
 }
 
-/// Check if a recipe should be persisted
-/// Only persist when: Verified status AND reliability >= 80
+/// Check if a recipe should be persisted (v0.45.x stabilization gate).
+/// Only persist when: Verified status AND reliability >= 80.
+///
+/// This is the ONLY gate for recipe persistence - all callers MUST use this function.
+/// Rationale: Never learn from unverified outcomes; only from proven successes.
 pub fn should_persist_recipe(verified: bool, score: u8) -> bool {
     verified && score >= 80
 }
+
+/// Threshold for recipe persistence
+pub const RECIPE_PERSIST_THRESHOLD: u8 = 80;
 
 /// Clear all recipes (for reset) (v0.0.28)
 pub fn clear_all_recipes() -> std::io::Result<()> {
