@@ -1,15 +1,23 @@
 //! Command handlers for annactl.
 
+use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
 use anna_shared::ui::{colors, symbols};
 use anna_shared::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
+use std::time::{Duration, Instant};
 
 use crate::client::{AnnadClient, StreamingClient};
 use crate::display::{print_progress_event, print_repl_header, print_stats_display, print_status_display, show_bootstrap_progress};
 use crate::transcript_render;
+
+/// Pending clarification state for REPL mode
+struct PendingClarification {
+    request: ClarifyRequest,
+    started_at: Instant,
+}
 
 /// Handle status command
 pub async fn handle_status(debug: bool) -> Result<()> {
@@ -86,8 +94,16 @@ pub async fn handle_repl() -> Result<()> {
         status.map(|s| s.debug_mode).unwrap_or(true)
     };
 
+    // Track pending clarification (local state only)
+    let mut pending_clarification: Option<PendingClarification> = None;
+
     loop {
-        print!("{}anna> {}", colors::HEADER, colors::RESET);
+        // Show different prompt if clarification pending
+        if pending_clarification.is_some() {
+            print!("{}[choice]> {}", colors::BOLD, colors::RESET);
+        } else {
+            print!("{}anna> {}", colors::HEADER, colors::RESET);
+        }
         io::stdout().flush()?;
 
         let mut input = String::new();
@@ -105,6 +121,46 @@ pub async fn handle_repl() -> Result<()> {
             continue;
         }
 
+        // Handle pending clarification first
+        if let Some(ref pending) = pending_clarification {
+            // Check if expired
+            let elapsed = pending.started_at.elapsed();
+            let ttl = Duration::from_secs(pending.request.ttl_seconds as u64);
+
+            if elapsed > ttl && pending.request.ttl_seconds > 0 {
+                println!("{}Clarification timed out.{}", colors::WARN, colors::RESET);
+                pending_clarification = None;
+                continue;
+            }
+
+            // Parse clarification response
+            let response = ClarifyResponse::parse(input, &pending.request);
+
+            if response.cancelled {
+                println!("Cancelled.");
+                pending_clarification = None;
+                continue;
+            }
+
+            // Get the selected value
+            let value = if let Some(key) = response.selected {
+                pending.request.get_option(key).map(|o| o.value.clone())
+            } else {
+                response.free_text.clone()
+            };
+
+            if let Some(val) = value {
+                println!("Selected: {}{}{}", colors::OK, val, colors::RESET);
+                // TODO: Send clarification response to daemon when RPC is ready
+                // For now, clear state
+                pending_clarification = None;
+            } else {
+                println!("{}Invalid selection. Try again or type 'cancel'.{}", colors::WARN, colors::RESET);
+            }
+            continue;
+        }
+
+        // Normal REPL commands
         match input.to_lowercase().as_str() {
             "exit" | "quit" | "bye" | "q" | ":q" | ":wq" => {
                 println!("Goodbye! ;)");
@@ -137,6 +193,17 @@ pub async fn handle_repl() -> Result<()> {
                             clear_spinner();
                         }
                         transcript_render::render(&result, debug_mode);
+
+                        // Check for clarification request
+                        if let Some(req) = &result.clarification_request {
+                            println!();
+                            println!("{}", req.format_menu());
+                            pending_clarification = Some(PendingClarification {
+                                request: req.clone(),
+                                started_at: Instant::now(),
+                            });
+                        }
+
                         println!(); // Extra line for REPL readability
                     }
                     Err(e) => {

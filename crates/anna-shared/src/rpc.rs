@@ -1,5 +1,6 @@
 //! JSON-RPC 2.0 types for annad communication.
 
+use crate::clarify_v2::ClarifyRequest;
 use crate::reliability::ReliabilityExplanation;
 use crate::trace::ExecutionTrace;
 use crate::transcript::Transcript;
@@ -312,8 +313,11 @@ pub struct ServiceDeskResult {
     pub evidence: EvidenceBlock,
     /// Whether clarification is needed
     pub needs_clarification: bool,
-    /// Question to ask if clarification needed
+    /// Question to ask if clarification needed (legacy)
     pub clarification_question: Option<String>,
+    /// Full clarification request with options (v0.0.47+)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clarification_request: Option<ClarifyRequest>,
     /// Full transcript of pipeline events
     pub transcript: Transcript,
     /// TRACE: Execution trace showing stages and paths (v0.0.23+)

@@ -155,6 +155,7 @@ pub fn create_clarification_response(
         evidence,
         needs_clarification: true,
         clarification_question: Some(question.to_string()),
+        clarification_request: None, // TODO: Build ClarifyRequest from context
         transcript,
         execution_trace: None, // Clarification response - no trace needed
     }
@@ -209,6 +210,7 @@ pub fn create_timeout_response(
         evidence,
         needs_clarification: false, // Never ask to rephrase
         clarification_question: None, // v0.45.x: No clarification - we provide status
+        clarification_request: None,
         transcript,
         execution_trace: None, // Populated by caller if needed
     }
@@ -295,6 +297,7 @@ pub fn create_no_data_response(
         evidence,
         needs_clarification: false, // Never ask for rephrase
         clarification_question: None,
+        clarification_request: None,
         transcript,
         execution_trace: None,
     }
@@ -424,6 +427,7 @@ pub fn build_result_with_flags(
         evidence,
         needs_clarification: false,
         clarification_question: None,
+        clarification_request: None,
         transcript,
         execution_trace: None, // Populated by caller
     }

@@ -1,6 +1,8 @@
 //! RPC request handlers with deterministic routing, triage, and fallback.
 
-use anna_shared::probe_spine::{enforce_minimum_probes, enforce_spine_probes, probe_to_command};
+use anna_shared::probe_spine::{
+    enforce_minimum_probes, enforce_spine_probes, probe_to_command, reduce_probes, Urgency,
+};
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
@@ -106,6 +108,7 @@ fn make_timeout_response(id: String, request_id: String, timeout_secs: u64, quer
         evidence: anna_shared::rpc::EvidenceBlock::default(),
         needs_clarification: false, // Never ask to rephrase
         clarification_question: None,
+        clarification_request: None,
         transcript: anna_shared::transcript::Transcript::default(),
         execution_trace: Some(anna_shared::trace::ExecutionTrace::global_timeout(timeout_secs)),
     };
@@ -197,8 +200,15 @@ async fn handle_llm_request_inner(
     let spine_decision = enforce_minimum_probes(query, &ticket.needs_probes);
     if spine_decision.enforced {
         info!("Probe spine enforced from user text: {}", spine_decision.reason);
+        // Apply minimal probe policy (v0.45.3) - max 3 default, 4 for system health
+        let route_class = det_route.class.to_string();
+        let urgency = Urgency::Normal; // TODO: detect from query (e.g., "quick" -> Quick)
+        let reduced = reduce_probes(spine_decision.probes.clone(), &route_class, urgency);
+        if reduced.len() < spine_decision.probes.len() {
+            info!("Reduced probes from {} to {} for route {}", spine_decision.probes.len(), reduced.len(), route_class);
+        }
         // Convert ProbeId to command strings
-        ticket.needs_probes = spine_decision.probes.iter()
+        ticket.needs_probes = reduced.iter()
             .map(|p| probe_to_command(p))
             .collect();
     } else {
@@ -207,6 +217,12 @@ async fn handle_llm_request_inner(
         if let Some(ref reason) = spine_reason {
             info!("Probe spine enforced from route: {}", reason);
             ticket.needs_probes = enforced_probes;
+        }
+        // Apply probe cap for non-spine-enforced probes too (v0.45.3)
+        let max_probes = if det_route.class.to_string().contains("health") { 4 } else { 3 };
+        if ticket.needs_probes.len() > max_probes {
+            info!("Capping probes from {} to {}", ticket.needs_probes.len(), max_probes);
+            ticket.needs_probes.truncate(max_probes);
         }
     }
 

@@ -129,6 +129,7 @@ pub fn build_fast_path_result(
         evidence: EvidenceBlock::default(),
         needs_clarification: false,
         clarification_question: None,
+        clarification_request: None,
         transcript,
         execution_trace: Some(trace),
     }

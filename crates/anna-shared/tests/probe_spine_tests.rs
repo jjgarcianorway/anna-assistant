@@ -143,3 +143,64 @@ fn test_package_name_extraction() {
         .iter()
         .any(|p| matches!(p, ProbeId::PacmanQ(pkg) if pkg == "firefox")));
 }
+
+// === v0.45.3 Minimal Probe Policy Tests ===
+
+use anna_shared::probe_spine::{reduce_probes, Urgency};
+
+#[test]
+fn test_reduce_probes_default_max_3() {
+    let probes = vec![
+        ProbeId::Free,
+        ProbeId::Df,
+        ProbeId::Lscpu,
+        ProbeId::Sensors,
+        ProbeId::IpAddr,
+    ];
+    let reduced = reduce_probes(probes, "memory_usage", Urgency::Normal);
+    assert!(reduced.len() <= 3, "Default should be max 3 probes");
+}
+
+#[test]
+fn test_reduce_probes_system_health_max_4() {
+    let probes = vec![
+        ProbeId::JournalErrors,
+        ProbeId::FailedUnits,
+        ProbeId::SystemdAnalyze,
+        ProbeId::Df,
+        ProbeId::Free,
+    ];
+    let reduced = reduce_probes(probes, "system_health_summary", Urgency::Normal);
+    assert!(reduced.len() <= 4, "System health should be max 4 probes");
+    assert!(reduced.len() >= 3, "Should keep important probes");
+}
+
+#[test]
+fn test_reduce_probes_no_duplicate_journal() {
+    let probes = vec![
+        ProbeId::JournalErrors,
+        ProbeId::JournalWarnings,
+        ProbeId::FailedUnits,
+    ];
+    let reduced = reduce_probes(probes, "system_triage", Urgency::Normal);
+    // Should not have both errors and warnings (unless Detailed)
+    let has_errors = reduced.iter().any(|p| matches!(p, ProbeId::JournalErrors));
+    let has_warnings = reduced.iter().any(|p| matches!(p, ProbeId::JournalWarnings));
+    assert!(!(has_errors && has_warnings), "Should not have both errors and warnings");
+}
+
+#[test]
+fn test_reduce_probes_warnings_query_gets_warnings() {
+    use anna_shared::probe_spine::query_wants_warnings;
+    assert!(query_wants_warnings("show me warnings"));
+    assert!(!query_wants_warnings("show me errors"));
+    assert!(!query_wants_warnings("show me errors and warnings"));
+}
+
+#[test]
+fn test_reduce_probes_errors_query_gets_errors() {
+    use anna_shared::probe_spine::query_wants_errors;
+    assert!(query_wants_errors("show me errors"));
+    assert!(!query_wants_errors("show me warnings"));
+    assert!(!query_wants_errors("show me errors and warnings"));
+}

@@ -218,6 +218,7 @@ fn make_result(
         evidence: EvidenceBlock::default(),
         needs_clarification,
         clarification_question: clarification.map(String::from),
+        clarification_request: None,
         transcript,
         execution_trace: None,
     }

@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.48] - 2025-12-05
+
+### Added - v0.45.3 Smart Clarifications & Minimal Probes
+
+- **Minimal Probe Policy** (`probe_spine.rs`):
+  - `reduce_probes()` function limits probes to max 3 (default) or 4 (system health)
+  - `Urgency` enum: Normal (max 3), Quick (max 2), Detailed (max 5)
+  - `query_wants_warnings()` / `query_wants_errors()` detect explicit queries
+  - Never runs both JournalErrors AND JournalWarnings unless Detailed urgency
+
+- **Enhanced Clarification Request** (`clarify_v2.rs`):
+  - `ClarifyRequest.ttl_seconds` field (default 300 = 5 minutes)
+  - `ClarifyRequest.allow_custom` field to control free-text input
+  - `with_ttl()` and `no_custom()` builder methods
+  - Menu hides "Something else" option when allow_custom=false
+
+- **REPL Clarification State** (`commands.rs`):
+  - `PendingClarification` struct tracks pending clarification requests
+  - REPL prompt changes to `[choice]>` when clarification pending
+  - TTL enforcement: clarification expires after ttl_seconds
+  - Parses user input as choice number, custom text, or cancel
+
+- **ServiceDeskResult Extension** (`rpc.rs`):
+  - `clarification_request: Option<ClarifyRequest>` field for rich clarifications
+  - All ServiceDeskResult constructors updated with new field
+
+### Changed
+
+- **RPC Handler** (`rpc_handler.rs`):
+  - `reduce_probes()` called after spine enforcement
+  - Probe cap applied even without spine enforcement (max 3 or 4)
+
+- **Golden Tests**:
+  - `probe_spine_tests.rs`: Added minimal probe policy tests
+  - `clarify_v2.rs`: Added v0.45.3 TTL and allow_custom tests
+
 ## [0.0.47] - 2025-12-05
 
 ### Fixed - v0.45.2 Stabilization

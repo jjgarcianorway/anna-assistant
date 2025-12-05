@@ -12,19 +12,28 @@ use serde::{Deserialize, Serialize};
 pub const KEY_CANCEL: u8 = 0;
 pub const KEY_OTHER: u8 = 9;
 
-/// Clarification request (v0.0.44)
+/// Clarification request (v0.0.44, updated v0.0.47)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClarifyRequest {
     /// Unique identifier for this request
-    pub id: &'static str,
+    pub id: String,
     /// The question to ask
     pub question: String,
     /// Available options (only installed tools)
     pub options: Vec<ClarifyOption>,
+    /// Allow custom input (not just menu selection)
+    pub allow_custom: bool,
     /// Allow cancel option
     pub allow_cancel: bool,
     /// Reason for asking
     pub reason: Option<String>,
+    /// Time-to-live in seconds (0 = no expiry, default 300 = 5 min)
+    #[serde(default = "default_ttl")]
+    pub ttl_seconds: u32,
+}
+
+fn default_ttl() -> u32 {
+    300 // 5 minutes
 }
 
 /// A clarification option with verification (v0.0.44)
@@ -97,7 +106,7 @@ impl ClarifyResponse {
             if num == KEY_CANCEL {
                 return Self::cancel();
             }
-            if num == KEY_OTHER {
+            if num == KEY_OTHER && prompt.allow_custom {
                 return Self::other("");
             }
             if prompt.options.iter().any(|o| o.key == num) {
@@ -105,21 +114,38 @@ impl ClarifyResponse {
             }
         }
 
-        // Treat as free text (other)
-        Self::other(trimmed)
+        // Treat as free text (other) if allowed
+        if prompt.allow_custom {
+            Self::other(trimmed)
+        } else {
+            // If custom not allowed, treat unknown input as cancel
+            Self::cancel()
+        }
     }
 }
 
 impl ClarifyRequest {
     /// Create new request
-    pub fn new(id: &'static str, question: impl Into<String>) -> Self {
+    pub fn new(id: impl Into<String>, question: impl Into<String>) -> Self {
         Self {
-            id,
+            id: id.into(),
             question: question.into(),
             options: Vec::new(),
+            allow_custom: true,
             allow_cancel: true,
             reason: None,
+            ttl_seconds: default_ttl(),
         }
+    }
+
+    pub fn with_ttl(mut self, seconds: u32) -> Self {
+        self.ttl_seconds = seconds;
+        self
+    }
+
+    pub fn no_custom(mut self) -> Self {
+        self.allow_custom = false;
+        self
     }
 
     pub fn add_option(mut self, opt: ClarifyOption) -> Self {
@@ -149,7 +175,9 @@ impl ClarifyRequest {
         if self.allow_cancel {
             lines.push(format!("  [{}] Cancel", KEY_CANCEL));
         }
-        lines.push(format!("  [{}] Something else (type it)", KEY_OTHER));
+        if self.allow_custom {
+            lines.push(format!("  [{}] Something else (type it)", KEY_OTHER));
+        }
 
         if let Some(reason) = &self.reason {
             lines.push(String::new());
@@ -434,74 +462,4 @@ impl VerifyFailureTracker {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_clarify_request_format() {
-        let req = ClarifyRequest::new("test", "Which editor?")
-            .add_option(ClarifyOption::tool(1, "vim"))
-            .add_option(ClarifyOption::tool(2, "nano"));
-
-        let menu = req.format_menu();
-        assert!(menu.contains("[1] vim"));
-        assert!(menu.contains("[2] nano"));
-        assert!(menu.contains("[0] Cancel"));
-        assert!(menu.contains("[9] Something else"));
-    }
-
-    #[test]
-    fn test_parse_numeric_response() {
-        let req = ClarifyRequest::new("test", "Which?")
-            .add_option(ClarifyOption::tool(1, "vim"));
-
-        let resp = ClarifyResponse::parse("1", &req);
-        assert_eq!(resp.selected, Some(1));
-        assert!(!resp.cancelled);
-    }
-
-    #[test]
-    fn test_parse_cancel() {
-        let req = ClarifyRequest::new("test", "Which?");
-
-        let resp = ClarifyResponse::parse("0", &req);
-        assert!(resp.cancelled);
-
-        let resp = ClarifyResponse::parse("cancel", &req);
-        assert!(resp.cancelled);
-    }
-
-    #[test]
-    fn test_parse_free_text() {
-        let req = ClarifyRequest::new("test", "Which?");
-
-        let resp = ClarifyResponse::parse("emacs", &req);
-        assert_eq!(resp.free_text, Some("emacs".to_string()));
-    }
-
-    #[test]
-    fn test_single_option() {
-        let req = ClarifyRequest::new("test", "Which?")
-            .add_option(ClarifyOption::tool(1, "vim"));
-
-        assert!(req.is_single_option());
-        assert_eq!(req.single_option_value(), Some("vim"));
-    }
-
-    #[test]
-    fn test_verify_failure_tracker() {
-        let mut tracker = VerifyFailureTracker::new();
-
-        assert!(!tracker.should_reclarify("editor"));
-
-        tracker.record_failure("editor");
-        assert!(!tracker.should_reclarify("editor"));
-
-        tracker.record_failure("editor");
-        assert!(tracker.should_reclarify("editor"));
-
-        tracker.clear("editor");
-        assert!(!tracker.should_reclarify("editor"));
-    }
-}
+// Tests are in tests/clarify_v2_tests.rs

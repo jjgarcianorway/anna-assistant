@@ -211,6 +211,7 @@ fn test_service_desk_result_structure() {
         evidence,
         needs_clarification: false,
         clarification_question: None,
+        clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
     };
@@ -250,6 +251,7 @@ fn test_clarification_response_format() {
         evidence,
         needs_clarification: true,
         clarification_question: Some("Could you provide more details?".to_string()),
+        clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
     };
@@ -353,6 +355,7 @@ fn test_response_has_all_required_fields() {
         evidence,
         needs_clarification: false,
         clarification_question: None,
+        clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
     };
@@ -413,6 +416,7 @@ fn test_timeout_response_format() {
             "The translator stage timed out. Please try again or simplify your request."
                 .to_string(),
         ),
+        clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
     };
@@ -474,6 +478,7 @@ fn test_timeout_at_different_stages() {
                 "The {} stage timed out. Please try again or simplify your request.",
                 stage
             )),
+            clarification_request: None,
             transcript: Transcript::new(),
             execution_trace: None,
         };
@@ -521,6 +526,7 @@ fn test_evidence_includes_partial_probes_on_timeout() {
         evidence,
         needs_clarification: true,
         clarification_question: Some("The probes stage timed out.".to_string()),
+        clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
     };
