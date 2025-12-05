@@ -198,9 +198,17 @@ async fn handle_request_error(e: &anyhow::Error) -> Result<()> {
     Ok(())
 }
 
-/// Handle reset command
+/// Handle reset command (v0.0.28: true state wipe)
 pub async fn handle_reset() -> Result<()> {
-    print!("This will reset all learned data. Continue? [y/N] ");
+    println!();
+    println!("{}Anna Reset{}", colors::BOLD, colors::RESET);
+    println!();
+    println!("This will clear all learned data:");
+    println!("  {} Ledger (installation history)", symbols::ARROW);
+    println!("  {} Recipes (learned query patterns)", symbols::ARROW);
+    println!("  {} Helpers tracking (installed dependencies)", symbols::ARROW);
+    println!();
+    print!("Continue? [y/N] ");
     io::stdout().flush()?;
 
     let mut input = String::new();
@@ -213,12 +221,14 @@ pub async fn handle_reset() -> Result<()> {
 
     let mut client = AnnadClient::connect().await?;
     client.reset().await?;
+    println!();
     println!(
-        "{}{}{}  Reset complete. Learned data has been cleared.",
+        "{}{}{}  Reset complete. All learned data has been cleared.",
         colors::OK,
         symbols::OK,
         colors::RESET
     );
+    println!("    Anna is now in fresh install state.");
     Ok(())
 }
 

@@ -140,6 +140,49 @@ pub fn status_indicator(allow_publish: bool) -> &'static str {
     }
 }
 
+// === IT Department Dialog Style (v0.0.28) ===
+
+/// Phrases for IT department style greetings based on query type.
+/// Returns a contextual greeting for the service desk response.
+pub fn it_greeting(domain: &str) -> &'static str {
+    match domain.to_lowercase().as_str() {
+        "storage" | "disk" => "Let me check that storage information for you.",
+        "memory" | "ram" => "I'll look into the memory usage right away.",
+        "network" | "wifi" | "dns" => "Let me examine your network configuration.",
+        "performance" | "cpu" | "slow" => "I'll analyze the system performance.",
+        "service" | "systemd" => "Let me check those service statuses.",
+        "security" | "permission" => "I'll review the security information carefully.",
+        "hardware" | "gpu" => "Let me gather the hardware details.",
+        _ => "Let me look into that for you.",
+    }
+}
+
+/// Format reliability as IT confidence statement.
+pub fn it_confidence(score: u8) -> &'static str {
+    match score {
+        90..=100 => "This information is verified from system data.",
+        80..=89 => "This information is well-supported by system data.",
+        70..=79 => "This information is based on available system data.",
+        50..=69 => "This is based on partial data; some details may need verification.",
+        _ => "This information could not be fully verified.",
+    }
+}
+
+/// Format domain as IT department context.
+pub fn it_domain_context(domain: &str) -> &'static str {
+    match domain.to_lowercase().as_str() {
+        "storage" => "Storage & Filesystems",
+        "memory" => "Memory & RAM",
+        "network" => "Network & Connectivity",
+        "performance" => "System Performance",
+        "service" | "services" => "System Services",
+        "security" => "Security & Permissions",
+        "hardware" => "Hardware & Devices",
+        "system" => "System Status",
+        _ => "General Support",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,5 +275,31 @@ mod tests {
     fn test_status_indicator() {
         assert_eq!(status_indicator(true), "✓");
         assert_eq!(status_indicator(false), "✗");
+    }
+
+    // v0.0.28 tests
+
+    #[test]
+    fn test_it_greeting() {
+        assert!(it_greeting("storage").contains("storage"));
+        assert!(it_greeting("memory").contains("memory"));
+        assert!(it_greeting("network").contains("network"));
+        assert!(it_greeting("unknown").contains("look into"));
+    }
+
+    #[test]
+    fn test_it_confidence() {
+        assert!(it_confidence(95).contains("verified"));
+        assert!(it_confidence(85).contains("well-supported"));
+        assert!(it_confidence(75).contains("available"));
+        assert!(it_confidence(55).contains("partial"));
+        assert!(it_confidence(40).contains("not be fully"));
+    }
+
+    #[test]
+    fn test_it_domain_context() {
+        assert_eq!(it_domain_context("storage"), "Storage & Filesystems");
+        assert_eq!(it_domain_context("MEMORY"), "Memory & RAM");
+        assert_eq!(it_domain_context("unknown"), "General Support");
     }
 }

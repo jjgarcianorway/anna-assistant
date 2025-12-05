@@ -75,6 +75,29 @@
 - **Per-Team Stats**: Total, success, failed, avg rounds, avg score
 - **CLI**: `annactl stats` command
 
+### Team-Specialized Execution (v0.0.28)
+- **Prompt Accessors**: SpecialistProfile.prompt() returns team-specific prompt
+- **Registry Methods**: junior_prompt, senior_prompt, junior_model, senior_model
+- **Escalation Threshold**: Configurable per-team escalation threshold
+
+### Helpers Management (v0.0.28)
+- **HelperPackage**: id, name, version, install_source, available, binary_path
+- **InstallSource**: Anna, User, Bundled, Unknown
+- **HelpersRegistry**: Track installed helpers with source attribution
+- **Persistence**: ~/.anna/helpers.json
+- **Known Helpers**: ollama (required)
+
+### True Reset (v0.0.28)
+- **Full State Wipe**: Clears ledger, recipes, helpers store
+- **Enhanced Feedback**: Shows what will be cleared before confirmation
+- **Fresh Install State**: Returns Anna to initial configuration
+
+### IT Department Dialog (v0.0.28)
+- **Context-Aware Greeting**: Based on query domain
+- **Confidence Statements**: Reliability as IT confidence note
+- **Domain Labels**: IT department style context names
+- **Clean Output**: Polished non-debug user-facing format
+
 ## Not Yet Implemented
 
 ### Future

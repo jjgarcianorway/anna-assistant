@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.28] - 2025-12-05
+
+### Added
+- **Team-Specialized Junior/Senior Execution (Phase 1)**
+  - Extended `SpecialistsRegistry` with prompt accessors
+  - `SpecialistProfile.prompt()` returns team-specific prompt
+  - `SpecialistsRegistry.junior_prompt(team)` and `senior_prompt(team)`
+  - `SpecialistsRegistry.junior_model(team)` and `senior_model(team)`
+  - `SpecialistsRegistry.escalation_threshold(team)`
+
+- **Helpers Management (Phase 2)**: Track external dependencies
+  - `helpers.rs` module for helper package tracking
+  - `HelperPackage` struct: id, name, version, install_source, available
+  - `InstallSource` enum: Anna, User, Bundled, Unknown
+  - `HelpersRegistry` for managing tracked packages
+  - `known_helpers()` returns default helper definitions (ollama)
+  - `detect_helper()` for system package detection
+  - Persistence to `~/.anna/helpers.json`
+
+- **True Reset (Phase 3)**: `annactl reset` now wipes all learned data
+  - Clears ledger (existing behavior)
+  - Clears recipes (`~/.anna/recipes/`)
+  - Clears helpers store (`~/.anna/helpers.json`)
+  - Enhanced reset confirmation dialog showing what will be cleared
+  - Returns list of cleared stores in response
+
+- **IT Department Dialog Style (Phase 4)**: Polish for non-debug mode
+  - `it_greeting(domain)` - contextual greeting based on query type
+  - `it_confidence(score)` - reliability as IT confidence statement
+  - `it_domain_context(domain)` - domain as IT department context
+  - Clean mode output now uses IT department style formatting
+  - Footer shows: Domain Context | Confidence Note | Score
+
+### Changed
+- Moved specialists tests to `tests/specialists_tests.rs` (file now 232 lines)
+- Enhanced `handle_reset` handler to clear recipes and helpers
+- Updated `handle_reset` command with better user feedback
+
+### Tests
+- 6 new specialists registry tests for v0.0.28 features
+- 10 new helpers module tests
+- 3 new narrator IT department style tests
+
 ## [0.0.27] - 2025-12-05
 
 ### Added

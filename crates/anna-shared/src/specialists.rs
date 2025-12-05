@@ -1,8 +1,11 @@
 //! Specialists registry for team-scoped review roles.
 //!
-//! Defines per-team specialist profiles with model identifiers and thresholds.
-//! All defaults are deterministic and hardware-agnostic.
+//! Defines per-team specialist profiles with model identifiers, thresholds,
+//! and prompts. All defaults are deterministic and hardware-agnostic.
+//!
+//! v0.0.28: Added explicit prompt accessors for team-specialized review execution.
 
+use crate::review_prompts::{junior_prompt, senior_prompt};
 use crate::teams::Team;
 use serde::{Deserialize, Serialize};
 
@@ -86,6 +89,15 @@ impl SpecialistProfile {
     pub fn with_escalation_threshold(mut self, threshold: u8) -> Self {
         self.escalation_threshold = threshold;
         self
+    }
+
+    /// Get the prompt for this specialist profile (v0.0.28)
+    pub fn prompt(&self) -> &'static str {
+        match self.role {
+            SpecialistRole::Junior => junior_prompt(self.team),
+            SpecialistRole::Senior => senior_prompt(self.team),
+            SpecialistRole::Translator => "", // Translator uses separate prompt
+        }
     }
 }
 
@@ -186,135 +198,35 @@ impl SpecialistsRegistry {
             self.profiles.push(profile);
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_specialist_role_display() {
-        assert_eq!(SpecialistRole::Translator.to_string(), "translator");
-        assert_eq!(SpecialistRole::Junior.to_string(), "junior");
-        assert_eq!(SpecialistRole::Senior.to_string(), "senior");
+    /// Get junior prompt for a team (v0.0.28)
+    pub fn junior_prompt(&self, team: Team) -> &'static str {
+        junior_prompt(team)
     }
 
-    #[test]
-    fn test_specialist_profile_new() {
-        let profile = SpecialistProfile::new(Team::Storage, SpecialistRole::Junior);
-
-        assert_eq!(profile.team, Team::Storage);
-        assert_eq!(profile.role, SpecialistRole::Junior);
-        assert_eq!(profile.model_id, "local-default");
-        assert_eq!(profile.max_rounds, 3);
-        assert_eq!(profile.escalation_threshold, 60);
-        assert_eq!(profile.style_id, "storage-junior");
+    /// Get senior prompt for a team (v0.0.28)
+    pub fn senior_prompt(&self, team: Team) -> &'static str {
+        senior_prompt(team)
     }
 
-    #[test]
-    fn test_specialist_profile_builders() {
-        let profile = SpecialistProfile::new(Team::Network, SpecialistRole::Senior)
-            .with_model("llama3.2")
-            .with_max_rounds(5)
-            .with_escalation_threshold(70);
-
-        assert_eq!(profile.model_id, "llama3.2");
-        assert_eq!(profile.max_rounds, 5);
-        assert_eq!(profile.escalation_threshold, 70);
+    /// Get junior model ID for a team (v0.0.28)
+    pub fn junior_model(&self, team: Team) -> Option<&str> {
+        self.get(team, SpecialistRole::Junior)
+            .map(|p| p.model_id.as_str())
     }
 
-    #[test]
-    fn test_registry_with_defaults() {
-        let registry = SpecialistsRegistry::with_defaults();
-
-        // 8 teams × 3 roles = 24 profiles
-        assert_eq!(registry.len(), 24);
-        assert!(registry.is_complete());
+    /// Get senior model ID for a team (v0.0.28)
+    pub fn senior_model(&self, team: Team) -> Option<&str> {
+        self.get(team, SpecialistRole::Senior)
+            .map(|p| p.model_id.as_str())
     }
 
-    #[test]
-    fn test_registry_lookup() {
-        let registry = SpecialistsRegistry::with_defaults();
-
-        let junior = registry.get(Team::Storage, SpecialistRole::Junior);
-        assert!(junior.is_some());
-        assert_eq!(junior.unwrap().team, Team::Storage);
-        assert_eq!(junior.unwrap().role, SpecialistRole::Junior);
-
-        let senior = registry.get(Team::Performance, SpecialistRole::Senior);
-        assert!(senior.is_some());
-        assert_eq!(senior.unwrap().team, Team::Performance);
-    }
-
-    #[test]
-    fn test_registry_is_complete() {
-        let registry = SpecialistsRegistry::with_defaults();
-        assert!(registry.is_complete());
-
-        let empty = SpecialistsRegistry::new();
-        assert!(!empty.is_complete());
-    }
-
-    #[test]
-    fn test_deterministic_defaults_stable() {
-        let registry1 = SpecialistsRegistry::with_defaults();
-        let registry2 = SpecialistsRegistry::with_defaults();
-
-        // Same number of profiles
-        assert_eq!(registry1.len(), registry2.len());
-
-        // Same profiles in same order
-        for (p1, p2) in registry1.profiles().iter().zip(registry2.profiles().iter()) {
-            assert_eq!(p1.team, p2.team);
-            assert_eq!(p1.role, p2.role);
-            assert_eq!(p1.model_id, p2.model_id);
-            assert_eq!(p1.max_rounds, p2.max_rounds);
-            assert_eq!(p1.escalation_threshold, p2.escalation_threshold);
-        }
-    }
-
-    #[test]
-    fn test_all_teams_have_junior_and_senior() {
-        let registry = SpecialistsRegistry::with_defaults();
-
-        let teams = [
-            Team::Desktop,
-            Team::Storage,
-            Team::Network,
-            Team::Performance,
-            Team::Services,
-            Team::Security,
-            Team::Hardware,
-            Team::General,
-        ];
-
-        for team in teams {
-            assert!(
-                registry.get(team, SpecialistRole::Junior).is_some(),
-                "Missing junior for {:?}",
-                team
-            );
-            assert!(
-                registry.get(team, SpecialistRole::Senior).is_some(),
-                "Missing senior for {:?}",
-                team
-            );
-        }
-    }
-
-    #[test]
-    fn test_registry_set() {
-        let mut registry = SpecialistsRegistry::with_defaults();
-
-        let custom = SpecialistProfile::new(Team::Security, SpecialistRole::Junior)
-            .with_model("security-model");
-
-        registry.set(custom);
-
-        let profile = registry.get(Team::Security, SpecialistRole::Junior).unwrap();
-        assert_eq!(profile.model_id, "security-model");
-
-        // Count should not change (updated existing)
-        assert_eq!(registry.len(), 24);
+    /// Get escalation threshold for a team's junior reviewer (v0.0.28)
+    pub fn escalation_threshold(&self, team: Team) -> u8 {
+        self.get(team, SpecialistRole::Junior)
+            .map(|p| p.escalation_threshold)
+            .unwrap_or(60)
     }
 }
+
+// Tests: tests/specialists_tests.rs

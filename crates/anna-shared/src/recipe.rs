@@ -334,4 +334,24 @@ pub fn should_persist_recipe(verified: bool, score: u8) -> bool {
     verified && score >= 80
 }
 
+/// Clear all recipes (for reset) (v0.0.28)
+pub fn clear_all_recipes() -> std::io::Result<()> {
+    let dir = recipe_dir();
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir)?;
+    }
+    Ok(())
+}
+
+/// Count recipes in store
+pub fn recipe_count() -> usize {
+    let dir = recipe_dir();
+    if !dir.exists() {
+        return 0;
+    }
+    std::fs::read_dir(&dir)
+        .map(|entries| entries.filter_map(|e| e.ok()).count())
+        .unwrap_or(0)
+}
+
 // Tests moved to tests/recipe_tests.rs to keep this file under 400 lines

@@ -1,9 +1,11 @@
 //! Utility RPC handlers for status, probes, reset, uninstall, autofix, and stats.
 
+use anna_shared::helpers::clear_helpers_store;
 use anna_shared::ledger::LedgerEntryKind;
+use anna_shared::recipe::clear_all_recipes;
 use anna_shared::rpc::{ProbeParams, RpcResponse};
 use anna_shared::stats::GlobalStats;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::ollama;
 use crate::probes;
@@ -53,10 +55,11 @@ pub async fn handle_probe(
     }
 }
 
-/// Handle reset request
+/// Handle reset request (v0.0.28: true state wipe)
 pub async fn handle_reset(state: SharedState, id: String) -> RpcResponse {
-    info!("Processing reset request");
+    info!("Processing reset request - true state wipe");
 
+    // 1. Reset ledger (existing behavior)
     let mut state = state.write().await;
     state.ledger.reset_non_base();
 
@@ -64,9 +67,29 @@ pub async fn handle_reset(state: SharedState, id: String) -> RpcResponse {
         error!("Failed to save ledger: {}", e);
         return RpcResponse::error(id, -32004, format!("Failed to save ledger: {}", e));
     }
+    info!("Ledger reset complete");
 
-    info!("Reset completed");
-    RpcResponse::success(id, serde_json::json!({ "status": "reset_complete" }))
+    // 2. Clear recipes store (v0.0.28)
+    if let Err(e) = clear_all_recipes() {
+        warn!("Failed to clear recipes: {}", e);
+        // Not fatal, continue with reset
+    } else {
+        info!("Recipes cleared");
+    }
+
+    // 3. Clear helpers store (v0.0.28)
+    if let Err(e) = clear_helpers_store() {
+        warn!("Failed to clear helpers store: {}", e);
+        // Not fatal, continue with reset
+    } else {
+        info!("Helpers store cleared");
+    }
+
+    info!("Reset completed - all learned data cleared");
+    RpcResponse::success(id, serde_json::json!({
+        "status": "reset_complete",
+        "cleared": ["ledger", "recipes", "helpers"]
+    }))
 }
 
 /// Handle uninstall request

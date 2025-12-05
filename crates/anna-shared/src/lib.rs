@@ -8,6 +8,7 @@ pub mod config_intent;
 pub mod error;
 pub mod grounding;
 pub mod guard;
+pub mod helpers;
 pub mod ledger;
 pub mod narrator;
 pub mod parsers;

@@ -7,11 +7,10 @@
 //! INVARIANT: Exactly one [anna] block per request regardless of mode.
 //! The final answer source is determined by `get_final_answer()`.
 
-use anna_shared::narrator::status_indicator;
+use anna_shared::narrator::{it_confidence, it_domain_context, status_indicator};
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::transcript::{Actor, StageOutcome, TranscriptEventKind};
 use anna_shared::ui::colors;
-use anna_shared::VERSION;
 
 use crate::output::{format_for_output, OutputMode};
 
@@ -54,36 +53,43 @@ pub fn render(result: &ServiceDeskResult, debug_mode: bool) {
     }
 }
 
-/// Render in clean mode (debug OFF) - user-facing format
+/// Render in clean mode (debug OFF) - user-facing IT department format (v0.0.28)
 fn render_clean(result: &ServiceDeskResult, output_mode: OutputMode) {
-    println!("\nanna v{}\n", VERSION);
+    println!();
 
     // Show user query
     for event in &result.transcript.events {
         if let TranscriptEventKind::Message { text } = &event.kind {
             if event.from == Actor::You {
-                println!("{}[you]{}\n{}\n", colors::CYAN, colors::RESET, text);
+                println!("{}You:{} {}\n", colors::CYAN, colors::RESET, text);
                 break;
             }
         }
     }
 
-    // Show anna's response
-    println!("{}[anna]{}", colors::OK, colors::RESET);
+    // Show anna's response with IT department style
+    println!("{}Anna:{}", colors::OK, colors::RESET);
     match get_final_answer(result) {
-        AnswerSource::Transcript(t) | AnswerSource::Answer(t) | AnswerSource::Clarification(t) => {
+        AnswerSource::Transcript(t) | AnswerSource::Answer(t) => {
             println!("{}", format_for_output(t, output_mode));
         }
-        AnswerSource::Empty => println!("I couldn't find an answer. Please try rephrasing."),
+        AnswerSource::Clarification(t) => {
+            println!("{}", format_for_output(t, output_mode));
+        }
+        AnswerSource::Empty => println!("I need more information to help with this request."),
     }
     println!();
 
-    // Footer
+    // IT department style footer
     let rel_color = reliability_color(result.reliability_score);
+    let confidence_note = it_confidence(result.reliability_score);
+    let domain_str = result.domain.to_string();
+    let domain_context = it_domain_context(&domain_str);
+
     println!(
-        "{}reliability:{} {}{}%{}   {}domain:{} {}",
-        colors::DIM, colors::RESET, rel_color, result.reliability_score, colors::RESET,
-        colors::DIM, colors::RESET, result.domain
+        "{}{} | {} | {}{}%{}",
+        colors::DIM, domain_context, confidence_note,
+        rel_color, result.reliability_score, colors::RESET
     );
 }
 
