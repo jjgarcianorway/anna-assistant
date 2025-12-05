@@ -6,6 +6,7 @@ pub mod budget;
 pub mod change;
 pub mod claims;
 pub mod clarify;
+pub mod clarify_v2;
 pub mod config_intent;
 pub mod error;
 pub mod facts;
@@ -52,6 +53,7 @@ pub mod transcript;
 pub mod transcript_ext;
 pub mod ui;
 pub mod update_ledger;
+pub mod verify;
 
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};

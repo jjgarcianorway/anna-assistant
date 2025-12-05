@@ -154,10 +154,10 @@ fn test_editor_options_with_cache() {
     // Should have vim (installed), Other, and Cancel
     assert!(options.len() >= 3);
 
-    // Check vim is present with cached evidence
+    // Check vim is present with installed evidence
     let vim_opt = options.iter().find(|o| o.key == "vim");
     assert!(vim_opt.is_some());
-    assert!(vim_opt.unwrap().evidence.iter().any(|e| e.contains("cached")));
+    assert!(vim_opt.unwrap().evidence.iter().any(|e| e.contains("installed")));
 
     // Check nano is NOT present (not installed)
     let nano_opt = options.iter().find(|o| o.key == "nano");

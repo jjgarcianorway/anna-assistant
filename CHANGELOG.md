@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.44] - 2025-12-05
+
+### Added
+- **Clarification Engine v2** (`clarify_v2.rs`):
+  - `ClarifyRequest` with id, question, options, allow_cancel, reason
+  - `ClarifyOption` with numeric key (1-8), label, value, verify expectation
+  - `ClarifyResponse` with parse() for numeric and free text input
+  - `ClarifyResult` enum: Verified, AutoSelected, NeedsVerification, VerificationFailed, Cancelled
+  - Auto-select when only one option installed
+  - `VerifyFailureTracker` for re-clarification after 2+ failures
+
+- **Verification Engine** (`verify.rs`):
+  - `VerifyExpectation` enum: CommandExists, ExitCode, FileExists, FileContainsLine, PackageInstalled, ServiceState, OutputContains
+  - `VerificationStep` with mandatory/optional flag
+  - `PreActionVerify` batch for pre-change checks
+  - `PostActionVerify` batch for outcome confirmation
+  - Helper constructors: `editor_installed()`, `file_has_line()`, `service_is()`
+
+- **Facts Lifecycle Enhancements**:
+  - `invalidate_on_uninstall()` marks facts stale when tools are removed
+  - `should_skip()` checks if clarification can be bypassed (fresh fact or single option)
+  - `store_fact()` stores verified clarification with UserConfirmed source
+
+### Changed
+- Refactored clarify.rs to re-export v2 types from clarify_v2.rs
+- Installed-only menus: options only show actually installed tools
+- Verification before action: checks tool exists before proceeding
+- Facts automatically archived when referenced tool is uninstalled
+
 ## [0.0.43] - 2025-12-05
 
 ### Added
