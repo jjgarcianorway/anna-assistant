@@ -2,8 +2,10 @@
 
 use anna_shared::helpers::clear_helpers_store;
 use anna_shared::ledger::LedgerEntryKind;
+use anna_shared::pending::clear_pending;
 use anna_shared::recipe::clear_all_recipes;
 use anna_shared::rpc::{ProbeParams, RpcResponse};
+use anna_shared::snapshot::clear_snapshots;
 use anna_shared::stats::GlobalStats;
 use tracing::{error, info, warn};
 
@@ -85,10 +87,26 @@ pub async fn handle_reset(state: SharedState, id: String) -> RpcResponse {
         info!("Helpers store cleared");
     }
 
+    // 4. Clear snapshots store (v0.0.36)
+    if let Err(e) = clear_snapshots() {
+        warn!("Failed to clear snapshots: {}", e);
+        // Not fatal, continue with reset
+    } else {
+        info!("Snapshots cleared");
+    }
+
+    // 5. Clear pending clarification (v0.0.36)
+    if let Err(e) = clear_pending() {
+        warn!("Failed to clear pending clarification: {}", e);
+        // Not fatal, continue with reset
+    } else {
+        info!("Pending clarification cleared");
+    }
+
     info!("Reset completed - all learned data cleared");
     RpcResponse::success(id, serde_json::json!({
         "status": "reset_complete",
-        "cleared": ["ledger", "recipes", "helpers"]
+        "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending"]
     }))
 }
 

@@ -205,6 +205,10 @@ pub struct DaemonConfig {
     /// Global request timeout in seconds (entire pipeline)
     #[serde(default = "default_request_timeout")]
     pub request_timeout_secs: u64,
+
+    /// Snapshot max age in seconds before considered stale (v0.0.36)
+    #[serde(default = "default_snapshot_max_age")]
+    pub snapshot_max_age_secs: u64,
 }
 
 fn default_debug_mode() -> bool {
@@ -223,6 +227,10 @@ fn default_request_timeout() -> u64 {
     20 // 20 second total budget
 }
 
+fn default_snapshot_max_age() -> u64 {
+    300 // 5 minutes - v0.0.36: snapshot freshness window
+}
+
 impl Default for DaemonConfig {
     fn default() -> Self {
         Self {
@@ -230,6 +238,7 @@ impl Default for DaemonConfig {
             auto_update: default_auto_update(),
             update_interval: default_update_interval(),
             request_timeout_secs: default_request_timeout(),
+            snapshot_max_age_secs: default_snapshot_max_age(),
         }
     }
 }

@@ -97,16 +97,24 @@ impl TeamInfo {
     }
 }
 
-/// Per-stage latency statistics
+/// Per-stage latency statistics (v0.0.36: added p50, p90)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LatencyStatus {
     pub translator_avg_ms: Option<u64>,
+    pub translator_p50_ms: Option<u64>,
+    pub translator_p90_ms: Option<u64>,
     pub translator_p95_ms: Option<u64>,
     pub probes_avg_ms: Option<u64>,
+    pub probes_p50_ms: Option<u64>,
+    pub probes_p90_ms: Option<u64>,
     pub probes_p95_ms: Option<u64>,
     pub specialist_avg_ms: Option<u64>,
+    pub specialist_p50_ms: Option<u64>,
+    pub specialist_p90_ms: Option<u64>,
     pub specialist_p95_ms: Option<u64>,
     pub total_avg_ms: Option<u64>,
+    pub total_p50_ms: Option<u64>,
+    pub total_p90_ms: Option<u64>,
     pub total_p95_ms: Option<u64>,
     pub sample_count: usize,
 }

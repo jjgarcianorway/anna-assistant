@@ -65,16 +65,46 @@ impl LatencyStats {
         }
     }
 
+    /// P50 (median) latency in ms (v0.0.36)
+    pub fn p50_ms(&self) -> Option<u64> {
+        self.percentile_ms(0.50)
+    }
+
+    /// P90 latency in ms (v0.0.36)
+    pub fn p90_ms(&self) -> Option<u64> {
+        self.percentile_ms(0.90)
+    }
+
     /// P95 latency in ms
     pub fn p95_ms(&self) -> Option<u64> {
+        self.percentile_ms(0.95)
+    }
+
+    /// Calculate percentile latency (v0.0.36)
+    fn percentile_ms(&self, p: f64) -> Option<u64> {
         if self.samples.is_empty() {
             None
         } else {
             let mut sorted = self.samples.clone();
             sorted.sort_unstable();
-            let idx = (sorted.len() as f64 * 0.95).ceil() as usize - 1;
+            let idx = (sorted.len() as f64 * p).ceil() as usize - 1;
             Some(sorted[idx.min(sorted.len() - 1)])
         }
+    }
+
+    /// Min latency in ms (v0.0.36)
+    pub fn min_ms(&self) -> Option<u64> {
+        self.samples.iter().min().copied()
+    }
+
+    /// Max latency in ms (v0.0.36)
+    pub fn max_ms(&self) -> Option<u64> {
+        self.samples.iter().max().copied()
+    }
+
+    /// Number of samples collected
+    pub fn sample_count(&self) -> usize {
+        self.samples.len()
     }
 }
 
@@ -180,15 +210,24 @@ impl DaemonStateInner {
     pub fn to_status(&self) -> DaemonStatus {
         use anna_shared::status::LatencyStatus;
 
+        // v0.0.36: Include p50 and p90 percentiles
         let latency = if !self.latency.total.samples.is_empty() {
             Some(LatencyStatus {
                 translator_avg_ms: self.latency.translator.avg_ms(),
+                translator_p50_ms: self.latency.translator.p50_ms(),
+                translator_p90_ms: self.latency.translator.p90_ms(),
                 translator_p95_ms: self.latency.translator.p95_ms(),
                 probes_avg_ms: self.latency.probes.avg_ms(),
+                probes_p50_ms: self.latency.probes.p50_ms(),
+                probes_p90_ms: self.latency.probes.p90_ms(),
                 probes_p95_ms: self.latency.probes.p95_ms(),
                 specialist_avg_ms: self.latency.specialist.avg_ms(),
+                specialist_p50_ms: self.latency.specialist.p50_ms(),
+                specialist_p90_ms: self.latency.specialist.p90_ms(),
                 specialist_p95_ms: self.latency.specialist.p95_ms(),
                 total_avg_ms: self.latency.total.avg_ms(),
+                total_p50_ms: self.latency.total.p50_ms(),
+                total_p90_ms: self.latency.total.p90_ms(),
                 total_p95_ms: self.latency.total.p95_ms(),
                 sample_count: self.latency.total.samples.len(),
             })

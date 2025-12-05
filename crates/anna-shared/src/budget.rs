@@ -2,6 +2,8 @@
 //!
 //! Provides configurable budgets per stage and budget enforcement.
 //! Pure decision functions for testability.
+//!
+//! v0.0.36: Added ProbeBudget for controlling probe resource usage.
 
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
@@ -25,6 +27,82 @@ impl std::fmt::Display for Stage {
             Self::Supervisor => write!(f, "supervisor"),
         }
     }
+}
+
+// === Probe Budget (v0.0.36) ===
+
+/// Budget for probe resource usage.
+/// Limits the number of probes and total output size to prevent runaway costs.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ProbeBudget {
+    /// Maximum number of probes to run
+    pub max_probes: usize,
+    /// Maximum total probe output in bytes
+    pub max_output_bytes: usize,
+    /// Per-probe output cap in bytes
+    pub per_probe_cap_bytes: usize,
+}
+
+impl Default for ProbeBudget {
+    fn default() -> Self {
+        Self {
+            max_probes: 4,              // Match fast path probe count
+            max_output_bytes: 64_000,   // 64KB total
+            per_probe_cap_bytes: 16_000, // 16KB per probe
+        }
+    }
+}
+
+impl ProbeBudget {
+    /// Create a minimal probe budget for fast path queries
+    pub fn fast_path() -> Self {
+        Self {
+            max_probes: 4,
+            max_output_bytes: 32_000,
+            per_probe_cap_bytes: 8_000,
+        }
+    }
+
+    /// Create a standard probe budget for specialist queries
+    pub fn standard() -> Self {
+        Self::default()
+    }
+
+    /// Create an extended probe budget for complex queries
+    pub fn extended() -> Self {
+        Self {
+            max_probes: 6,
+            max_output_bytes: 128_000,
+            per_probe_cap_bytes: 32_000,
+        }
+    }
+
+    /// Check if adding output would exceed budget
+    pub fn would_exceed(&self, current_bytes: usize, new_bytes: usize) -> bool {
+        current_bytes + new_bytes > self.max_output_bytes
+    }
+
+    /// Cap output to per-probe limit
+    pub fn cap_output(&self, output: &str) -> String {
+        if output.len() <= self.per_probe_cap_bytes {
+            output.to_string()
+        } else {
+            let truncated = &output[..self.per_probe_cap_bytes];
+            format!("{}... [truncated, {} bytes exceeded cap]",
+                truncated, output.len() - self.per_probe_cap_bytes)
+        }
+    }
+}
+
+/// Result of probe budget check
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProbeBudgetCheck {
+    /// Within budget
+    Ok,
+    /// Probe count exceeded
+    ProbeCountExceeded { limit: usize, attempted: usize },
+    /// Output size exceeded
+    OutputSizeExceeded { limit: usize, current: usize },
 }
 
 /// Configurable budgets per stage (in milliseconds).
@@ -274,83 +352,4 @@ impl StageTiming {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_stage_budget_defaults() {
-        let budget = StageBudget::default();
-        assert_eq!(budget.translator_ms, 5_000);
-        assert_eq!(budget.probes_ms, 12_000);
-        assert_eq!(budget.specialist_ms, 15_000);
-        assert_eq!(budget.supervisor_ms, 8_000);
-        assert_eq!(budget.total_ms, 25_000);
-        assert_eq!(budget.margin_ms, 1_000);
-        assert_eq!(budget.effective_total(), 24_000);
-    }
-
-    #[test]
-    fn test_check_stage_budget_ok() {
-        let budget = StageBudget::default();
-        let result = check_stage_budget(Stage::Translator, 4_000, &budget);
-        assert_eq!(result, BudgetCheck::Ok);
-    }
-
-    #[test]
-    fn test_check_stage_budget_exceeded() {
-        let budget = StageBudget::default();
-        let result = check_stage_budget(Stage::Translator, 6_000, &budget);
-        assert!(matches!(
-            result,
-            BudgetCheck::StageExceeded {
-                stage: Stage::Translator,
-                budget_ms: 5_000,
-                elapsed_ms: 6_000,
-            }
-        ));
-    }
-
-    #[test]
-    fn test_check_total_budget_ok() {
-        let budget = StageBudget::default();
-        let result = check_total_budget(20_000, &budget);
-        assert_eq!(result, BudgetCheck::Ok);
-    }
-
-    #[test]
-    fn test_check_total_budget_exceeded() {
-        let budget = StageBudget::default();
-        // Effective total is 24_000 (25_000 - 1_000 margin)
-        let result = check_total_budget(25_000, &budget);
-        assert!(matches!(
-            result,
-            BudgetCheck::TotalExceeded {
-                budget_ms: 24_000,
-                elapsed_ms: 25_000,
-            }
-        ));
-    }
-
-    #[test]
-    fn test_stage_timing() {
-        let budget = StageBudget::default();
-        let timing = StageTiming::new(Stage::Probes, 15_000, &budget);
-        assert!(timing.exceeded);
-        assert_eq!(timing.budget_ms, 12_000);
-    }
-
-    #[test]
-    fn test_budget_check_is_exceeded() {
-        assert!(!BudgetCheck::Ok.is_exceeded());
-        assert!(BudgetCheck::StageExceeded {
-            stage: Stage::Translator,
-            budget_ms: 5_000,
-            elapsed_ms: 6_000,
-        }.is_exceeded());
-        assert!(BudgetCheck::TotalExceeded {
-            budget_ms: 24_000,
-            elapsed_ms: 25_000,
-        }.is_exceeded());
-    }
-}
+// Tests moved to tests/budget_tests.rs

@@ -249,9 +249,14 @@ fn extract_service_name(query: &str) -> Option<String> {
 /// Known editors to check for (v0.0.35)
 pub const KNOWN_EDITORS: &[&str] = &["vim", "vi", "nvim", "nano", "emacs", "code", "micro", "hx"];
 
+/// Special option keys for clarification (v0.0.36)
+pub const CLARIFY_CANCEL_KEY: &str = "__cancel__";
+pub const CLARIFY_OTHER_KEY: &str = "__other__";
+
 /// Generate editor options based on installed editors (v0.0.35)
 /// Probes `command -v <editor>` to check availability.
 /// Returns ClarifyOptions with evidence for installed status.
+/// v0.0.36: Always includes Cancel option; only shows installed editors.
 pub fn generate_editor_options_sync() -> Vec<ClarifyOption> {
     let mut options = Vec::new();
 
@@ -275,13 +280,25 @@ pub fn generate_editor_options_sync() -> Vec<ClarifyOption> {
         }
     }
 
-    // Always add "other" option
-    if !options.is_empty() {
-        options.push(ClarifyOption::new("other", "Other (specify)")
-            .with_evidence("custom input"));
-    }
+    // v0.0.36: Always add Other option for custom input
+    options.push(ClarifyOption::new(CLARIFY_OTHER_KEY, "Other (type name)")
+        .with_evidence("custom input"));
+
+    // v0.0.36: Always add Cancel option at the end
+    options.push(ClarifyOption::new(CLARIFY_CANCEL_KEY, "Cancel")
+        .with_evidence("skip question"));
 
     options
+}
+
+/// Check if user selected cancel (v0.0.36)
+pub fn is_cancel_selection(key: &str) -> bool {
+    key == CLARIFY_CANCEL_KEY
+}
+
+/// Check if user selected other/custom (v0.0.36)
+pub fn is_other_selection(key: &str) -> bool {
+    key == CLARIFY_OTHER_KEY
 }
 
 /// Verify that an editor is installed (v0.0.35)
@@ -312,107 +329,4 @@ pub fn generate_editor_clarification(facts: &FactsStore) -> (ClarifyQuestion, Ve
     (question, options)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_generate_editor_question() {
-        let facts = FactsStore::new();
-        let q = generate_question(ClarifyKind::PreferredEditor, &facts);
-        assert!(q.question.contains("editor"));
-        assert!(q.verify_probe.is_some());
-    }
-
-    #[test]
-    fn test_generate_editor_with_default() {
-        let mut facts = FactsStore::new();
-        facts.set_verified(FactKey::PreferredEditor, "vim".to_string(), "user".to_string());
-        let q = generate_question(ClarifyKind::PreferredEditor, &facts);
-        assert_eq!(q.default, Some("vim".to_string()));
-    }
-
-    #[test]
-    fn test_build_verify_command() {
-        let cmd = build_verify_command("which {}", "vim");
-        assert_eq!(cmd, "which vim");
-
-        let cmd = build_verify_command("systemctl is-active {}", "nginx");
-        assert_eq!(cmd, "systemctl is-active nginx");
-    }
-
-    #[test]
-    fn test_kind_to_fact_key() {
-        assert_eq!(
-            kind_to_fact_key(&ClarifyKind::PreferredEditor, "vim"),
-            Some(FactKey::PreferredEditor)
-        );
-        assert_eq!(
-            kind_to_fact_key(&ClarifyKind::ServiceName, "nginx"),
-            Some(FactKey::UnitExists("nginx".to_string()))
-        );
-    }
-
-    #[test]
-    fn test_needs_clarification_editor() {
-        let facts = FactsStore::new();
-
-        // Needs clarification
-        assert_eq!(
-            needs_clarification("edit the config file", &facts),
-            Some(ClarifyKind::PreferredEditor)
-        );
-
-        // Already specified editor
-        assert_eq!(needs_clarification("open in vim", &facts), None);
-    }
-
-    #[test]
-    fn test_needs_clarification_with_known_fact() {
-        let mut facts = FactsStore::new();
-        facts.set_verified(FactKey::PreferredEditor, "vim".to_string(), "user".to_string());
-
-        // No clarification needed - we know their editor
-        assert_eq!(needs_clarification("edit the config file", &facts), None);
-    }
-
-    #[test]
-    fn test_extract_service_name() {
-        assert_eq!(extract_service_name("is nginx running"), Some("nginx".to_string()));
-        assert_eq!(extract_service_name("check foo.service status"), Some("foo".to_string()));
-        assert_eq!(extract_service_name("show all services"), None);
-    }
-
-    #[test]
-    fn test_known_editors_list() {
-        assert!(KNOWN_EDITORS.contains(&"vim"));
-        assert!(KNOWN_EDITORS.contains(&"nano"));
-        assert!(KNOWN_EDITORS.contains(&"nvim"));
-    }
-
-    #[test]
-    fn test_clarify_option_with_evidence() {
-        let opt = ClarifyOption::new("vim", "Vim")
-            .with_evidence("installed: true")
-            .with_evidence("recently used: 5 times");
-        assert_eq!(opt.evidence.len(), 2);
-    }
-
-    #[test]
-    fn test_clarify_answer_structure() {
-        let answer = ClarifyAnswer {
-            question_id: "q1".to_string(),
-            selected_key: "vim".to_string(),
-        };
-        assert_eq!(answer.question_id, "q1");
-        assert_eq!(answer.selected_key, "vim");
-    }
-
-    #[test]
-    fn test_generate_editor_clarification() {
-        let facts = FactsStore::new();
-        let (question, _options) = generate_editor_clarification(&facts);
-        assert_eq!(question.kind, ClarifyKind::PreferredEditor);
-        assert!(question.question.contains("editor"));
-    }
-}
+// Tests moved to tests/clarify_tests.rs

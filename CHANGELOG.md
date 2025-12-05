@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.36] - 2025-12-05
+
+### Added
+- **SystemSnapshot (Preventive Anna)** (`snapshot.rs`):
+  - `SystemSnapshot` struct captures minimal deterministic system state
+  - Tracks: disk usage per mount, failed services, memory (total/used)
+  - `capture_snapshot()` parses df, free, and systemctl --failed output
+  - `diff_snapshots()` detects meaningful changes with anti-spam thresholds
+  - `DeltaItem` enum: DiskWarning, DiskCritical, NewFailedService, MemoryHigh, etc.
+  - Thresholds: DISK_WARN=85%, DISK_CRITICAL=95%, MEMORY_HIGH=85%
+  - Persistence: `save_snapshot()`, `load_last_snapshot()`, `clear_snapshots()`
+  - `is_fresh()` checks if snapshot is within `snapshot_max_age_secs` (default 300s)
+
+- **PendingClarification** (`pending.rs`):
+  - `PendingClarification` struct for REPL session continuity
+  - Persists pending questions to `~/.anna/pending.json`
+  - `ParseResult` enum: Selected, Custom, Cancelled, Invalid
+  - `VerifyResult` enum for answer verification (vim vs vi fallback)
+  - `format_prompt()` generates numbered option list
+  - `parse_input()` handles number, name, or custom input
+  - Stale detection: clarifications expire after 1 hour
+
+- **PacketPolicy per Team** (`ticket_packet.rs`):
+  - `PacketPolicy` struct: max_summary_lines, allowed_facts, required_probes, max_probes
+  - `for_team()` returns team-specific policy (Desktop, Storage, Network, etc.)
+  - `truncate_summary()` for deterministic truncation with "(n more lines omitted)"
+  - `is_fact_allowed()` validates fact access per team
+  - Desktop: max 10 lines, PreferredEditor fact allowed
+  - Storage: disk_usage + block_devices required
+  - Performance: max 5 probes, memory_info + cpu_info + top_cpu required
+
+- **ProbeBudget** (`budget.rs`):
+  - New `ProbeBudget` struct for controlling probe resource usage
+  - Methods: `fast_path()`, `standard()`, `extended()` presets
+  - `max_probes`, `max_output_bytes`, `per_probe_cap_bytes` limits
+  - `would_exceed()` and `cap_output()` for budget enforcement
+  - `ProbeBudgetCheck` enum for budget validation results
+
+- **Clarification Cancel option** (`clarify.rs`):
+  - `CLARIFY_CANCEL_KEY` and `CLARIFY_OTHER_KEY` constants
+  - `is_cancel_selection()` and `is_other_selection()` helpers
+  - Editor options now always include Cancel and Other options
+  - Cancel allows user to skip clarification without answering
+
+- **Enhanced latency tracking** (`state.rs`, `status.rs`):
+  - Added `p50_ms()` and `p90_ms()` percentile methods to LatencyStats
+  - Added `min_ms()` and `max_ms()` methods
+  - Updated `LatencyStatus` struct with p50, p90 fields for all stages
+  - Helper `percentile_ms()` method for flexible percentile calculation
+
+- **TicketPacket** (`ticket_packet.rs`):
+  - `TicketPacket` struct for domain-relevant evidence collection
+  - `PacketBudget` tracks probe execution stats
+  - `TicketPacketBuilder` with fluent API for packet construction
+  - `recommended_probes_for_domain()` returns domain-specific probes
+  - `evidence_kinds_for_domain()` returns required evidence kinds
+  - Methods: `find_probe()`, `successful_probes()`, `probe_success_rate()`
+
+### Changed
+- Latency status now reports p50, p90, p95 percentiles (was only p95)
+- Editor clarification always shows installed editors + Other + Cancel
+- `annactl reset` now clears snapshots and pending clarifications
+- Config: Added `snapshot_max_age_secs` (default 300s = 5 minutes)
+
 ## [0.0.35] - 2025-12-05
 
 ### Added
