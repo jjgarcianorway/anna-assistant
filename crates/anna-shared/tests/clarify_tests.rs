@@ -2,11 +2,12 @@
 
 use anna_shared::clarify::{
     build_verify_command, generate_editor_clarification, generate_editor_options_sync,
-    generate_question, is_cancel_selection, is_other_selection, kind_to_fact_key,
-    needs_clarification, ClarifyAnswer, ClarifyKind, ClarifyOption, CLARIFY_CANCEL_KEY,
-    CLARIFY_OTHER_KEY, KNOWN_EDITORS,
+    generate_editor_options_with_cache, generate_question, is_cancel_selection, is_other_selection,
+    kind_to_fact_key, needs_clarification, ClarifyAnswer, ClarifyKind, ClarifyOption,
+    CLARIFY_CANCEL_KEY, CLARIFY_OTHER_KEY, KNOWN_EDITORS,
 };
 use anna_shared::facts::{FactKey, FactsStore};
+use anna_shared::inventory::{InventoryCache, InventoryItem};
 
 #[test]
 fn test_generate_editor_question() {
@@ -134,4 +135,41 @@ fn test_editor_options_always_have_cancel_and_other() {
     // Second to last should be Other
     let other_pos = options.len() - 2;
     assert_eq!(options[other_pos].key, CLARIFY_OTHER_KEY);
+}
+
+// v0.0.39: Test inventory cache integration
+#[test]
+fn test_editor_options_with_cache() {
+    let mut cache = InventoryCache::new();
+    // Manually add vim as installed
+    cache
+        .items
+        .insert("vim".to_string(), InventoryItem::installed("vim", "/usr/bin/vim"));
+    cache
+        .items
+        .insert("nano".to_string(), InventoryItem::not_installed("nano"));
+
+    let options = generate_editor_options_with_cache(&cache);
+
+    // Should have vim (installed), Other, and Cancel
+    assert!(options.len() >= 3);
+
+    // Check vim is present with cached evidence
+    let vim_opt = options.iter().find(|o| o.key == "vim");
+    assert!(vim_opt.is_some());
+    assert!(vim_opt.unwrap().evidence.iter().any(|e| e.contains("cached")));
+
+    // Check nano is NOT present (not installed)
+    let nano_opt = options.iter().find(|o| o.key == "nano");
+    assert!(nano_opt.is_none());
+}
+
+#[test]
+fn test_editor_options_with_empty_cache_fallback() {
+    let cache = InventoryCache::new();
+    let options = generate_editor_options_with_cache(&cache);
+
+    // Should still have at least Other and Cancel
+    assert!(options.len() >= 2);
+    assert_eq!(options.last().unwrap().key, CLARIFY_CANCEL_KEY);
 }

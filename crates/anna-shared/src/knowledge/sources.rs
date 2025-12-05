@@ -22,6 +22,8 @@ pub enum KnowledgeSource {
     Journal,
     /// Usage telemetry (future)
     Usage,
+    /// Built-in static knowledge (v0.0.39, never expires)
+    BuiltIn,
 }
 
 impl std::fmt::Display for KnowledgeSource {
@@ -34,6 +36,7 @@ impl std::fmt::Display for KnowledgeSource {
             Self::AUR => write!(f, "aur"),
             Self::Journal => write!(f, "journal"),
             Self::Usage => write!(f, "usage"),
+            Self::BuiltIn => write!(f, "built_in"),
         }
     }
 }

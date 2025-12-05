@@ -7,6 +7,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.41] - 2025-12-05
+
+### Added
+- **Facts Ledger v1** (`facts.rs`, `facts_types.rs`):
+  - `FactSource` enum: ObservedProbe, UserConfirmed, Derived, Legacy
+  - `FactValue` enum: String, Number, Bool, List for typed fact storage
+  - Pinned TTL rules in `ttl` module: packages 7d, editor 90d, boot 30d, network 1d
+  - New fact keys: WallpaperFolder, BootTimeBaseline, InstalledPackage, Desktop, GpuPresent, Hostname, Kernel
+  - `get_fresh()` returns None if stale (enforces TTL at query time)
+  - `upsert_verified()` with typed source and confidence
+  - Fact `confidence` score (0-100)
+  - Extracted types to `facts_types.rs` for modularity
+
+- **System Inventory Snapshot** (`inventory.rs`):
+  - `SystemInfo` struct: hostname, user, arch, kernel, package_count, desktops, gpu_present, gpu_vendor
+  - `INVENTORY_TTL_SECS` = 600 (10 minutes for faster updates)
+  - `detect_desktops()` from XDG_CURRENT_DESKTOP and DE packages
+  - `detect_gpu()` using lspci for GPU vendor detection
+  - `refresh_system_info()`, `full_refresh()`, `get_system_info()` methods
+  - `is_inventory_fresh()` for cache validity checks
+
+- **RAG-lite Recipe Index** (`recipe_index.rs`):
+  - In-memory token index using BTreeMap for determinism
+  - `tokenize()` function: lowercase, alphanumeric, 2+ char tokens
+  - `RecipeIndex::search()` with score-based ranking
+  - `exact_match()` for zero-LLM queries (tokens fully match recipe)
+  - Scoring: TARGET_BOOST (3x), INTENT_TAG_BOOST (2x), BASE_MATCH (1x)
+  - Deterministic tie-breaker by recipe_id
+
+- **Recipe Retrieval Keys** (`recipe.rs`):
+  - `intent_tags: Vec<String>` for matching
+  - `targets: Vec<String>` for boosted matching
+  - `preconditions: Vec<String>` for required facts
+  - Builder methods: `with_intent_tags()`, `with_targets()`, `with_preconditions()`
+
+- **Health Deltas** (`health_delta.rs`):
+  - `HealthDelta` struct: changed_fields, prev_values, new_values, summary
+  - `SnapshotHistory` stores last 5 snapshots in memory
+  - `latest_delta()` compares current to previous snapshot
+  - `HealthSummary` for "how is my computer" queries (<1s response)
+  - `format_brief()` for compact status display
+  - `is_healthy()` and `status_emoji()` helpers
+
+- **LLM Budget Control** (`budget.rs`):
+  - Token constants: `LLM_MAX_DRAFT_TOKENS` (800), `LLM_MAX_SPECIALIST_TOKENS` (1200), `LLM_MAX_CONTEXT_TOKENS` (6000)
+  - Timeout constants: `TRANSLATOR_TIMEOUT_SECS` (30), `SPECIALIST_TIMEOUT_SECS` (45)
+  - `LlmBudget` struct with fast_path/standard/extended presets
+  - `LlmFallback` enum: Continue, TranslatorTimeout, SpecialistTimeout
+  - `check_llm_fallback()` for timeout-based fallback decisions
+  - `fallback_message()` for user-facing timeout explanations
+
+- **Timeout Fallback Events** (`transcript.rs`):
+  - `LlmTimeoutFallback` event: stage, timeout_secs, elapsed_secs, fallback_action
+  - `GracefulDegradation` event: reason, original_type, fallback_type
+  - Helper methods: `llm_timeout_fallback()`, `graceful_degradation()`
+
+### Changed
+- PreferredEditor TTL reduced from >100 days to 90 days (per spec)
+- InventoryItem TTL changed from 3600s to INVENTORY_TTL_SECS (600s)
+
+## [0.0.40] - 2025-12-05
+
+### Added
+- **Relevant Health View** (`health_view.rs`):
+  - `RelevantHealthSummary` produces minimal, actionable health output
+  - `HealthItem` with severity (Critical, Warning, Note) and category (Disk, Memory, Services)
+  - `HealthChange` for tracking changes since last snapshot
+  - `build_health_summary()` produces actionable-only output
+  - When healthy: "No critical issues detected. No warnings detected." (short!)
+  - Only shows disk/memory/service issues when thresholds exceeded
+
+- **Clarity Counters** (`stats.rs`):
+  - `clarifications_asked` - total clarification questions asked
+  - `clarifications_verified` - answers that passed verification
+  - `clarifications_failed` - answers that failed verification
+  - `facts_learned` - facts stored after verification
+  - `clarifications_cancelled` - user cancelled clarifications
+  - `clarification_verify_rate()` helper method
+
+- **Packet Size Limit** (`ticket_packet.rs`):
+  - `MAX_PACKET_BYTES` constant (8KB)
+  - `estimated_size()` and `exceeds_limit()` methods
+  - `truncate_to_limit()` automatically truncates probe outputs
+  - Builder enforces 8KB limit on build
+
+- **Timeout Fallback for Health Queries** (`fast_path_handler.rs`):
+  - `is_health_query()` checks if query is health-related
+  - `force_fast_path_fallback()` returns health status even with stale snapshot
+  - Health queries never produce "rephrase" on timeout - always fall back to cached data
+
+### Changed
+- `answer_system_health()` now uses `RelevantHealthSummary` for minimal output
+- Extracted `PersonStats` and `PersonStatsTracker` to `person_stats.rs` (keeps stats.rs under 400 lines)
+- `TicketPacketBuilder::build()` now enforces MAX_PACKET_BYTES limit
+
+### Fixed
+- Health queries no longer show verbose system info when healthy
+- Timeout responses for health queries now use fast path fallback instead of error message
+
+## [0.0.39] - 2025-12-05
+
+### Added
+- **Fast Path Engine** (`fastpath.rs`):
+  - Answers health/status queries without LLM calls
+  - `FastPathClass` enum: SystemHealth, DiskUsage, MemoryUsage, FailedServices, WhatChanged
+  - `FastPathPolicy` struct for configuration (snapshot_max_age, min_reliability)
+  - `classify_fast_path()` for deterministic query classification
+  - `try_fast_path()` produces answers from cached snapshot data
+  - Strips common greetings for better classification
+
+- **Inventory Cache** (`inventory.rs`):
+  - `InventoryCache` caches installed tools to avoid repeated checks
+  - `VIP_TOOLS` list: common editors, package managers, network tools
+  - `check_tool_installed()` uses `command -v` for detection
+  - `filter_installed_options()` for clarification filtering
+  - Integration with `clarify.rs` for installed-only editor options
+
+- **Knowledge Pack** (`knowledge/pack.rs`):
+  - Built-in Arch Linux knowledge for common questions
+  - 20 entries covering: package management, services, disk, network, troubleshooting
+  - `search_builtin_pack()` keyword-based retrieval
+  - `try_builtin_answer()` for high-confidence matches
+  - `KnowledgeSource::BuiltIn` for static knowledge that never expires
+
+- **Performance Statistics** (`stats.rs`):
+  - `fast_path_hits` counter for LLM-free answers
+  - `snapshot_cache_hits` / `snapshot_cache_misses` for cache effectiveness
+  - `knowledge_pack_hits` and `recipe_hits` for RAG tracking
+  - `translator_timeouts` and `specialist_timeouts` for timeout monitoring
+  - Helper methods: `fast_path_percentage()`, `snapshot_cache_hit_rate()`, `timeout_rate()`
+
+- **Fast Path Handler** (`fast_path_handler.rs`):
+  - Extracted from rpc_handler.rs for modularity
+  - `try_fast_path_answer()` checks cache and returns if handled
+  - `build_fast_path_result()` constructs ServiceDeskResult
+
+- **Transcript FastPath Event**:
+  - `TranscriptEventKind::FastPath` for debug mode visibility
+  - Shows class, cache status, and probes_needed flag
+
+### Changed
+- `generate_editor_options_sync()` now uses InventoryCache instead of running commands
+- Added `generate_editor_options_with_cache()` for testability
+- Fixed `parse_failed_services_into_snapshot()` to handle bullet point (●) prefix
+- Moved specialist handling to `specialist_handler.rs` (keeps rpc_handler.rs under 400 lines)
+
+### Fixed
+- Snapshot parsing now correctly extracts service names from systemctl --failed output
+
 ## [0.0.36] - 2025-12-05
 
 ### Added

@@ -160,6 +160,11 @@ impl ProgressTracker {
     pub fn transcript_clone(&self) -> Transcript {
         self.transcript.clone()
     }
+
+    /// Get mutable reference to transcript (v0.0.39)
+    pub fn transcript_mut(&mut self) -> &mut Transcript {
+        &mut self.transcript
+    }
 }
 
 /// Shared progress state for polling (reserved for future watchdog use)

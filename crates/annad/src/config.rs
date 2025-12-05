@@ -209,6 +209,22 @@ pub struct DaemonConfig {
     /// Snapshot max age in seconds before considered stale (v0.0.36)
     #[serde(default = "default_snapshot_max_age")]
     pub snapshot_max_age_secs: u64,
+
+    /// Fast path enabled (v0.0.39)
+    #[serde(default = "default_fast_path_enabled")]
+    pub fast_path_enabled: bool,
+
+    /// Fast path fallback on translator timeout (v0.0.39)
+    #[serde(default = "default_fast_path_fallback")]
+    pub fast_path_fallback_on_timeout: bool,
+}
+
+fn default_fast_path_enabled() -> bool {
+    true // Fast path enabled by default
+}
+
+fn default_fast_path_fallback() -> bool {
+    true // Fallback to fast path on translator timeout
 }
 
 fn default_debug_mode() -> bool {
@@ -239,6 +255,8 @@ impl Default for DaemonConfig {
             update_interval: default_update_interval(),
             request_timeout_secs: default_request_timeout(),
             snapshot_max_age_secs: default_snapshot_max_age(),
+            fast_path_enabled: default_fast_path_enabled(),
+            fast_path_fallback_on_timeout: default_fast_path_fallback(),
         }
     }
 }

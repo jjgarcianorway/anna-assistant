@@ -221,6 +221,43 @@ pub enum TranscriptEventKind {
         source: String,
     },
 
+    // === Fast path events (v0.0.39) ===
+
+    /// Fast path evaluation result
+    FastPath {
+        /// Whether fast path handled the query
+        handled: bool,
+        /// Fast path class (e.g., "system_health", "disk_usage")
+        class: String,
+        /// Reason for decision
+        reason: String,
+        /// Whether probes were needed
+        probes_needed: bool,
+    },
+
+    // === Timeout fallback events (v0.0.41) ===
+
+    /// LLM timeout triggered fallback (v0.0.41)
+    LlmTimeoutFallback {
+        /// Stage that timed out ("translator" or "specialist")
+        stage: String,
+        /// Timeout duration in seconds
+        timeout_secs: u64,
+        /// Actual elapsed time in seconds
+        elapsed_secs: u64,
+        /// Fallback action taken
+        fallback_action: String,
+    },
+    /// Graceful degradation applied (v0.0.41)
+    GracefulDegradation {
+        /// Reason for degradation
+        reason: String,
+        /// Original intended response type
+        original_type: String,
+        /// Fallback response type
+        fallback_type: String,
+    },
+
     /// Unknown event kind (forward compatibility)
     /// Deserializes any unrecognized "type" value - old clients won't crash on new kinds.
     #[serde(other)]
@@ -336,7 +373,68 @@ impl TranscriptEvent {
         }
     }
 
+    /// Create a fast path event (v0.0.39)
+    pub fn fast_path(
+        elapsed_ms: u64,
+        handled: bool,
+        class: impl Into<String>,
+        reason: impl Into<String>,
+        probes_needed: bool,
+    ) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::System,
+            to: None,
+            kind: TranscriptEventKind::FastPath {
+                handled,
+                class: class.into(),
+                reason: reason.into(),
+                probes_needed,
+            },
+        }
+    }
+
     // Ticket and review helpers in transcript_ext.rs (v0.0.25/v0.0.26)
+
+    /// Create LLM timeout fallback event (v0.0.41)
+    pub fn llm_timeout_fallback(
+        elapsed_ms: u64,
+        stage: impl Into<String>,
+        timeout_secs: u64,
+        elapsed_secs: u64,
+        fallback_action: impl Into<String>,
+    ) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::System,
+            to: None,
+            kind: TranscriptEventKind::LlmTimeoutFallback {
+                stage: stage.into(),
+                timeout_secs,
+                elapsed_secs,
+                fallback_action: fallback_action.into(),
+            },
+        }
+    }
+
+    /// Create graceful degradation event (v0.0.41)
+    pub fn graceful_degradation(
+        elapsed_ms: u64,
+        reason: impl Into<String>,
+        original_type: impl Into<String>,
+        fallback_type: impl Into<String>,
+    ) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::System,
+            to: None,
+            kind: TranscriptEventKind::GracefulDegradation {
+                reason: reason.into(),
+                original_type: original_type.into(),
+                fallback_type: fallback_type.into(),
+            },
+        }
+    }
 
     /// Check if this is a debug-only event
     pub fn is_debug_only(&self) -> bool {

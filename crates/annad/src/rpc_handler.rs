@@ -6,21 +6,21 @@ use anna_shared::status::LlmState;
 use anna_shared::trace::{
     evidence_kinds_from_route, ExecutionTrace, ProbeStats, SpecialistOutcome,
 };
+use anna_shared::transcript::TranscriptEvent;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
 use tracing::{error, info, warn};
 
 use crate::config::LlmConfig;
 use crate::deterministic::{self, DeterministicResult};
+use crate::fast_path_handler::{build_fast_path_result, force_fast_path_fallback, is_health_query, try_fast_path_answer};
 use crate::handlers;
-use crate::ollama;
 use crate::probe_runner;
 use crate::progress_tracker::ProgressTracker;
-use crate::redact;
 use crate::router;
 use crate::service_desk;
+use crate::specialist_handler::{try_specialist_llm, SpecialistResult};
 use crate::state::SharedState;
-use crate::summarizer;
 use crate::triage::{self, TriageResult};
 use crate::translator::{self, TranslatorInput};
 
@@ -50,16 +50,40 @@ async fn handle_llm_request(
     let request_id = uuid::Uuid::new_v4().to_string();
     let request_timeout = { state.read().await.config.daemon.request_timeout_secs };
 
+    // Extract query for timeout fallback (v0.0.40)
+    let query_for_fallback = params
+        .as_ref()
+        .and_then(|p| p.get("prompt"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
     match timeout(Duration::from_secs(request_timeout), handle_llm_request_inner(state.clone(), id.clone(), params, request_id.clone())).await {
         Ok(response) => response,
         Err(_) => {
             warn!("Global request timeout ({}s)", request_timeout);
-            make_timeout_response(id, request_id, request_timeout)
+            make_timeout_response(id, request_id, request_timeout, query_for_fallback.as_deref())
         }
     }
 }
 
-fn make_timeout_response(id: String, request_id: String, timeout_secs: u64) -> RpcResponse {
+fn make_timeout_response(id: String, request_id: String, timeout_secs: u64, query: Option<&str>) -> RpcResponse {
+    // v0.0.40: For health queries, use fast path fallback instead of timeout message
+    if let Some(q) = query {
+        if is_health_query(q) {
+            if let Some(fallback) = force_fast_path_fallback(q) {
+                info!("Using fast path fallback for health query on timeout");
+                let result = build_fast_path_result(
+                    request_id,
+                    fallback.answer,
+                    fallback.class,
+                    fallback.reliability,
+                    anna_shared::transcript::Transcript::default(),
+                );
+                return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+            }
+        }
+    }
+
     // v0.0.34: Never ask to rephrase - provide a deterministic status answer
     let answer = format!(
         "**Request Timeout**\n\n\
@@ -126,6 +150,32 @@ async fn handle_llm_request_inner(
     let query = &params.prompt;
     progress.add_user_message(query);
     { state.write().await.progress_events.clear(); }
+
+    // Step 0: Fast path check (v0.0.39) - answer health/status queries without LLM
+    let fast_path_config = {
+        let state = state.read().await;
+        (state.config.daemon.fast_path_enabled, state.config.daemon.snapshot_max_age_secs)
+    };
+
+    if fast_path_config.0 {
+        if let Some(result) = try_fast_path_answer(query, fast_path_config.1) {
+            info!("Fast path handled: class={}, reliability={}", result.class, result.reliability);
+
+            // Add fast path event to transcript
+            let elapsed = progress.elapsed_ms();
+            progress.transcript_mut().push(TranscriptEvent::fast_path(
+                elapsed,
+                true,
+                result.class.to_string(),
+                &result.trace_note,
+                false, // No probes needed if we had fresh snapshot
+            ));
+
+            // Build result and return immediately
+            let fast_result = build_fast_path_result(request_id, result.answer, result.class, result.reliability, progress.take_transcript());
+            return RpcResponse::success(id, serde_json::to_value(fast_result).unwrap());
+        }
+    }
 
     // Step 1: Deterministic routing (always runs)
     let det_route = router::get_route(query);
@@ -367,141 +417,6 @@ async fn triage_path(
     let triage_result = triage::apply_triage_rules(ticket.clone());
 
     (triage_result.ticket.clone(), Some(triage_result), translator_timed_out)
-}
-
-/// Specialist LLM result with resource tracking
-pub struct SpecialistResult {
-    pub answer: String,
-    pub used_deterministic: bool,
-    pub det_result: Option<DeterministicResult>,
-    pub prompt_truncated: bool,
-    /// Outcome of specialist stage (for trace)
-    pub outcome: SpecialistOutcome,
-    /// Whether fallback was used and what route class
-    pub fallback_route_class: Option<String>,
-}
-
-/// Try specialist LLM with summarized probe output
-async fn try_specialist_llm(
-    state: &SharedState,
-    query: &str,
-    context: &anna_shared::rpc::RuntimeContext,
-    probe_results: &[ProbeResult],
-    ticket: &anna_shared::rpc::TranslatorTicket,
-    config: &LlmConfig,
-    model: &str,
-    debug_mode: bool,
-    progress: &mut ProgressTracker,
-) -> SpecialistResult {
-    progress.start_stage(RequestStage::Specialist, config.specialist_timeout_secs);
-    let stage_start = Instant::now();
-
-    // Use summarized probe context (not raw output)
-    let probe_context = summarizer::build_probe_context(probe_results);
-    let prompt_result = service_desk::build_specialist_prompt(ticket.domain, context, probe_results);
-
-    // COST: Log if prompt was truncated
-    if prompt_result.was_truncated {
-        if let Some(diag) = &prompt_result.diagnostic {
-            warn!("COST: {}", diag.format());
-        }
-    }
-
-    // Only include raw output if debug mode AND explicitly requested
-    let full_prompt = if debug_mode && query.to_lowercase().contains("show raw") {
-        format!("{}\n\nProbe Output:\n{}\n\nUser: {}", prompt_result.prompt, probe_context, query)
-    } else {
-        format!("{}\n\nUser: {}", prompt_result.prompt, query)
-    };
-
-    // v0.0.30: Enforce prompt size cap - skip to fallback if prompt too large
-    if full_prompt.len() > config.max_specialist_prompt_bytes {
-        warn!("Specialist prompt exceeds cap ({}B > {}B), using fallback",
-            full_prompt.len(), config.max_specialist_prompt_bytes);
-        progress.skip_stage_deterministic(RequestStage::Specialist);
-        let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
-        let route_class = det.as_ref().map(|d| d.route_class.clone());
-        return SpecialistResult {
-            answer: ans,
-            used_deterministic: used_det,
-            det_result: det,
-            prompt_truncated: true,
-            outcome: SpecialistOutcome::BudgetExceeded,
-            fallback_route_class: route_class,
-        };
-    }
-
-    let (answer, used_deterministic, det_result, outcome, fallback_route_class) = match timeout(
-        Duration::from_secs(config.specialist_timeout_secs),
-        ollama::chat_with_timeout(model, &full_prompt, config.specialist_timeout_secs),
-    ).await {
-        Ok(Ok(response)) => {
-            progress.complete_stage(RequestStage::Specialist);
-            // Redact sensitive content from response
-            let redacted = redact::redact(&response);
-            progress.add_specialist_message(&redacted);
-            (redacted, false, None, SpecialistOutcome::Ok, None)
-        }
-        Ok(Err(e)) => {
-            error!("Specialist LLM error: {}", e);
-            progress.error_stage(RequestStage::Specialist, &e.to_string());
-            let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
-            let route_class = det.as_ref().map(|d| d.route_class.clone());
-            (ans, used_det, det, SpecialistOutcome::Error, route_class)
-        }
-        Err(_) => {
-            warn!("Specialist timeout, trying deterministic fallback");
-            progress.timeout_stage(RequestStage::Specialist);
-            let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
-            let route_class = det.as_ref().map(|d| d.route_class.clone());
-            (ans, used_det, det, SpecialistOutcome::Timeout, route_class)
-        }
-    };
-
-    // Record specialist latency
-    { state.write().await.latency.specialist.add(stage_start.elapsed().as_millis() as u64); }
-
-    SpecialistResult {
-        answer,
-        used_deterministic,
-        det_result,
-        prompt_truncated: prompt_result.was_truncated,
-        outcome,
-        fallback_route_class,
-    }
-}
-
-/// Try deterministic fallback after LLM failure
-/// v0.0.30: Now uses best-effort summary from evidence when query-based fallback fails
-fn try_deterministic_fallback(
-    query: &str, context: &anna_shared::rpc::RuntimeContext,
-    probe_results: &[ProbeResult], progress: &mut ProgressTracker,
-) -> (String, bool, Option<DeterministicResult>) {
-    // First try query-based deterministic answer
-    match deterministic::try_answer(query, context, probe_results) {
-        Some(det) if det.parsed_data_count > 0 => {
-            info!("Deterministic fallback produced answer");
-            progress.add_specialist_message("[deterministic fallback]");
-            return (det.answer.clone(), true, Some(det));
-        }
-        _ => {}
-    }
-
-    // v0.0.30: If query-based fallback fails, try best-effort summary from evidence
-    if let Some((answer, parsed_count)) = crate::answers::generate_best_effort_summary(probe_results) {
-        info!("Best-effort summary produced from {} evidence pieces", parsed_count);
-        progress.add_specialist_message("[best-effort fallback]");
-        let det = DeterministicResult {
-            answer: answer.clone(),
-            grounded: true,
-            parsed_data_count: parsed_count,
-            route_class: "best_effort".to_string(),
-        };
-        return (answer, true, Some(det));
-    }
-
-    warn!("No fallback could produce answer from available evidence");
-    (String::new(), true, None)
 }
 
 /// Save progress events to state for polling

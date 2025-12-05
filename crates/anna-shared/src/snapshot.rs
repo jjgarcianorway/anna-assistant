@@ -321,7 +321,8 @@ fn parse_free_into_snapshot(output: &str, snapshot: &mut SystemSnapshot) {
 /// Parse systemctl --failed output into snapshot
 fn parse_failed_services_into_snapshot(output: &str, snapshot: &mut SystemSnapshot) {
     // systemctl --failed output has units that are in failed state
-    // Format: UNIT LOAD ACTIVE SUB DESCRIPTION
+    // Format: [●] UNIT LOAD ACTIVE SUB DESCRIPTION
+    // The bullet point (●) may appear before the unit name
     for line in output.lines() {
         let line = line.trim();
         // Skip header and summary lines
@@ -334,11 +335,17 @@ fn parse_failed_services_into_snapshot(output: &str, snapshot: &mut SystemSnapsh
             continue;
         }
 
-        // Extract unit name (first column)
-        if let Some(unit) = line.split_whitespace().next() {
-            if unit.ends_with(".service") || unit.ends_with(".socket") || unit.ends_with(".timer")
-            {
-                snapshot.add_failed_service(unit);
+        // Extract unit name - handle bullet point prefix (●)
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        for part in parts {
+            // Skip the bullet point and empty strings
+            if part == "●" || part.is_empty() {
+                continue;
+            }
+            // Found the unit name
+            if part.ends_with(".service") || part.ends_with(".socket") || part.ends_with(".timer") {
+                snapshot.add_failed_service(part);
+                break; // Only take the first matching unit per line
             }
         }
     }

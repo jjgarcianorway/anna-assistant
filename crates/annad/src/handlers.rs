@@ -1,6 +1,7 @@
 //! Utility RPC handlers for status, probes, reset, uninstall, autofix, and stats.
 
 use anna_shared::helpers::clear_helpers_store;
+use anna_shared::inventory::clear_inventory;
 use anna_shared::ledger::LedgerEntryKind;
 use anna_shared::pending::clear_pending;
 use anna_shared::recipe::clear_all_recipes;
@@ -103,10 +104,18 @@ pub async fn handle_reset(state: SharedState, id: String) -> RpcResponse {
         info!("Pending clarification cleared");
     }
 
+    // 6. Clear inventory cache (v0.0.39)
+    if let Err(e) = clear_inventory() {
+        warn!("Failed to clear inventory cache: {}", e);
+        // Not fatal, continue with reset
+    } else {
+        info!("Inventory cache cleared");
+    }
+
     info!("Reset completed - all learned data cleared");
     RpcResponse::success(id, serde_json::json!({
         "status": "reset_complete",
-        "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending"]
+        "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending", "inventory"]
     }))
 }
 

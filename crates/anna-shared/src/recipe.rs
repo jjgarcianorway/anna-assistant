@@ -139,6 +139,16 @@ pub struct Recipe {
     pub default_question_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub populates_facts: Vec<String>,
+    // v0.0.41: Deterministic retrieval keys for RAG-lite
+    /// Intent tags for matching (e.g., ["enable", "syntax", "highlight"])
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub intent_tags: Vec<String>,
+    /// Target identifiers for boosted matching (e.g., ["vim", "vimrc"])
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<String>,
+    /// Preconditions required (e.g., ["vim_installed"])
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub preconditions: Vec<String>,
 }
 
 /// Slot definition for clarification template recipes (v0.0.31)
@@ -209,6 +219,9 @@ impl Recipe {
             clarification_slots: Vec::new(),
             default_question_id: None,
             populates_facts: Vec::new(),
+            intent_tags: Vec::new(),
+            targets: Vec::new(),
+            preconditions: Vec::new(),
         }
     }
 
@@ -250,6 +263,9 @@ impl Recipe {
             clarification_slots: Vec::new(),
             default_question_id: None,
             populates_facts: Vec::new(),
+            intent_tags: Vec::new(),
+            targets: Vec::new(),
+            preconditions: Vec::new(),
         }
     }
 
@@ -287,12 +303,33 @@ impl Recipe {
             clarification_slots: slots,
             default_question_id: default_question,
             populates_facts: populates,
+            intent_tags: Vec::new(),
+            targets: Vec::new(),
+            preconditions: Vec::new(),
         }
     }
 
     /// Set rollback info
     pub fn with_rollback(mut self, rollback: RollbackInfo) -> Self {
         self.rollback = Some(rollback);
+        self
+    }
+
+    /// Set intent tags for RAG-lite retrieval (v0.0.41)
+    pub fn with_intent_tags(mut self, tags: Vec<String>) -> Self {
+        self.intent_tags = tags;
+        self
+    }
+
+    /// Set targets for boosted matching (v0.0.41)
+    pub fn with_targets(mut self, targets: Vec<String>) -> Self {
+        self.targets = targets;
+        self
+    }
+
+    /// Set preconditions (v0.0.41)
+    pub fn with_preconditions(mut self, preconditions: Vec<String>) -> Self {
+        self.preconditions = preconditions;
         self
     }
 

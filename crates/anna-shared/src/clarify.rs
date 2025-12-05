@@ -2,8 +2,11 @@
 //!
 //! When information is missing to answer a query, we ask concrete clarification
 //! questions with associated probes to verify the answer.
+//!
+//! v0.0.39: Uses InventoryCache for installed tool detection.
 
 use crate::facts::{FactKey, FactsStore};
+use crate::inventory::{load_or_create_inventory, InventoryCache};
 use serde::{Deserialize, Serialize};
 
 /// What kind of clarification is needed
@@ -254,39 +257,56 @@ pub const CLARIFY_CANCEL_KEY: &str = "__cancel__";
 pub const CLARIFY_OTHER_KEY: &str = "__other__";
 
 /// Generate editor options based on installed editors (v0.0.35)
-/// Probes `command -v <editor>` to check availability.
+/// v0.0.39: Uses InventoryCache instead of running commands each time.
 /// Returns ClarifyOptions with evidence for installed status.
 /// v0.0.36: Always includes Cancel option; only shows installed editors.
 pub fn generate_editor_options_sync() -> Vec<ClarifyOption> {
+    generate_editor_options_with_cache(&load_or_create_inventory())
+}
+
+/// Generate editor options using provided cache (v0.0.39)
+/// Allows tests to inject mock cache.
+pub fn generate_editor_options_with_cache(cache: &InventoryCache) -> Vec<ClarifyOption> {
     let mut options = Vec::new();
 
+    // Get installed editors from cache
+    let installed_editors = cache.installed_editors();
+
     for editor in KNOWN_EDITORS {
-        let installed = std::process::Command::new("command")
-            .args(["-v", editor])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+        // Check cache first
+        if installed_editors.contains(editor) {
+            options.push(
+                ClarifyOption::new(*editor, *editor).with_evidence("installed: true (cached)"),
+            );
+        } else if let Some(true) = cache.is_installed(editor) {
+            // Fallback: check cache directly if not in installed_editors list
+            options.push(
+                ClarifyOption::new(*editor, *editor).with_evidence("installed: true (cached)"),
+            );
+        }
+    }
 
-        // Also try `which` as fallback (command -v may not work in all shells)
-        let installed = installed || std::process::Command::new("which")
-            .arg(editor)
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-
-        if installed {
-            options.push(ClarifyOption::new(*editor, *editor)
-                .with_evidence("installed: true"));
+    // If no editors found in cache, fall back to live check for at least one option
+    if options.is_empty() {
+        for editor in KNOWN_EDITORS {
+            if verify_editor_installed(editor) {
+                options.push(
+                    ClarifyOption::new(*editor, *editor).with_evidence("installed: true"),
+                );
+                break; // At least one editor
+            }
         }
     }
 
     // v0.0.36: Always add Other option for custom input
-    options.push(ClarifyOption::new(CLARIFY_OTHER_KEY, "Other (type name)")
-        .with_evidence("custom input"));
+    options.push(
+        ClarifyOption::new(CLARIFY_OTHER_KEY, "Other (type name)").with_evidence("custom input"),
+    );
 
     // v0.0.36: Always add Cancel option at the end
-    options.push(ClarifyOption::new(CLARIFY_CANCEL_KEY, "Cancel")
-        .with_evidence("skip question"));
+    options.push(
+        ClarifyOption::new(CLARIFY_CANCEL_KEY, "Cancel").with_evidence("skip question"),
+    );
 
     options
 }

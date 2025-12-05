@@ -337,6 +337,9 @@ fn test_all_event_kinds_have_render_path() {
             TranscriptEventKind::ClarificationAnswered { .. } => "clarification_answered",
             TranscriptEventKind::ClarificationVerified { .. } => "clarification_verified",
             TranscriptEventKind::FactStored { .. } => "fact_stored",
+            TranscriptEventKind::FastPath { .. } => "fast_path",
+            TranscriptEventKind::LlmTimeoutFallback { .. } => "llm_timeout_fallback",
+            TranscriptEventKind::GracefulDegradation { .. } => "graceful_degradation",
             TranscriptEventKind::Unknown => "unknown",
         })
         .collect();

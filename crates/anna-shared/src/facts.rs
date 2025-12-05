@@ -1,12 +1,18 @@
-//! Facts store with lifecycle management (v0.0.32).
+//! Facts store with lifecycle management (v0.0.32, enhanced v0.0.41).
 //!
 //! Persists validated facts with staleness policies and automatic expiration.
 //! Facts transition: Active -> Stale -> Archived based on TTL and verification.
+//!
+//! v0.0.41: Added FactSource, FactValue, confidence, and pinned TTL rules.
+//! Types extracted to facts_types.rs to keep under 400 lines.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+
+// Re-export types from facts_types
+pub use crate::facts_types::{FactSource, FactValue};
 
 /// Keys for facts that Anna can learn and remember
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -22,6 +28,14 @@ pub enum FactKey {
     PackageManager,
     UnitExists(String),
     MountExists(String),
+    // v0.0.41 additions
+    WallpaperFolder,
+    BootTimeBaseline,
+    InstalledPackage(String),
+    Desktop,
+    GpuPresent,
+    Hostname,
+    Kernel,
     Custom(String),
 }
 
@@ -38,16 +52,40 @@ impl Default for StalenessPolicy {
     fn default() -> Self { Self::TTLSeconds(30 * 24 * 3600) } // 30 days
 }
 
-/// Get default staleness policy for a fact key
+/// Pinned TTL constants for v0.0.41
+pub mod ttl {
+    /// Installed packages: 7 days (invalidated on pacman hooks later)
+    pub const INSTALLED_PACKAGE_SECS: u64 = 7 * 24 * 3600;
+    /// Preferred editor: 90 days
+    pub const PREFERRED_EDITOR_SECS: u64 = 90 * 24 * 3600;
+    /// Boot time baseline: 30 days (keep 14 samples in history)
+    pub const BOOT_TIME_SECS: u64 = 30 * 24 * 3600;
+    /// Network facts: 1 day
+    pub const NETWORK_SECS: u64 = 24 * 3600;
+    /// Binary available: 7 days
+    pub const BINARY_AVAILABLE_SECS: u64 = 7 * 24 * 3600;
+    /// Desktop environment: 30 days
+    pub const DESKTOP_SECS: u64 = 30 * 24 * 3600;
+}
+
+/// Get default staleness policy for a fact key (v0.0.41 pinned TTLs)
 pub fn default_policy(key: &FactKey) -> StalenessPolicy {
     match key {
-        FactKey::PreferredEditor => StalenessPolicy::TTLSeconds(180 * 24 * 3600), // 180 days
-        FactKey::BinaryAvailable(_) => StalenessPolicy::TTLSeconds(30 * 24 * 3600), // 30 days
-        FactKey::EditorInstalled(_) => StalenessPolicy::TTLSeconds(30 * 24 * 3600),
-        FactKey::NetworkPrimaryInterface => StalenessPolicy::TTLSeconds(30 * 24 * 3600),
-        FactKey::NetworkPreference => StalenessPolicy::TTLSeconds(180 * 24 * 3600),
-        FactKey::InitSystem | FactKey::PackageManager => StalenessPolicy::Never,
-        FactKey::UnitExists(_) | FactKey::MountExists(_) => StalenessPolicy::TTLSeconds(7 * 24 * 3600),
+        FactKey::PreferredEditor => StalenessPolicy::TTLSeconds(ttl::PREFERRED_EDITOR_SECS),
+        FactKey::BinaryAvailable(_) => StalenessPolicy::TTLSeconds(ttl::BINARY_AVAILABLE_SECS),
+        FactKey::EditorInstalled(_) => StalenessPolicy::TTLSeconds(ttl::BINARY_AVAILABLE_SECS),
+        FactKey::NetworkPrimaryInterface => StalenessPolicy::TTLSeconds(ttl::NETWORK_SECS),
+        FactKey::NetworkPreference => StalenessPolicy::TTLSeconds(ttl::NETWORK_SECS),
+        FactKey::InstalledPackage(_) => StalenessPolicy::TTLSeconds(ttl::INSTALLED_PACKAGE_SECS),
+        FactKey::BootTimeBaseline => StalenessPolicy::TTLSeconds(ttl::BOOT_TIME_SECS),
+        FactKey::Desktop => StalenessPolicy::TTLSeconds(ttl::DESKTOP_SECS),
+        FactKey::InitSystem | FactKey::PackageManager | FactKey::Hostname | FactKey::Kernel => {
+            StalenessPolicy::Never // System constants rarely change
+        }
+        FactKey::GpuPresent => StalenessPolicy::Never, // Hardware doesn't change
+        FactKey::UnitExists(_) | FactKey::MountExists(_) => {
+            StalenessPolicy::TTLSeconds(ttl::BINARY_AVAILABLE_SECS)
+        }
         _ => StalenessPolicy::TTLSeconds(30 * 24 * 3600),
     }
 }
@@ -75,18 +113,37 @@ impl std::fmt::Display for FactKey {
             Self::PackageManager => write!(f, "package_manager"),
             Self::UnitExists(u) => write!(f, "unit_exists:{}", u),
             Self::MountExists(m) => write!(f, "mount_exists:{}", m),
+            // v0.0.41 additions
+            Self::WallpaperFolder => write!(f, "wallpaper_folder"),
+            Self::BootTimeBaseline => write!(f, "boot_time_baseline"),
+            Self::InstalledPackage(p) => write!(f, "installed_package:{}", p),
+            Self::Desktop => write!(f, "desktop"),
+            Self::GpuPresent => write!(f, "gpu_present"),
+            Self::Hostname => write!(f, "hostname"),
+            Self::Kernel => write!(f, "kernel"),
             Self::Custom(k) => write!(f, "custom:{}", k),
         }
     }
 }
 
-/// A fact with lifecycle metadata (v0.0.32)
+/// A fact with lifecycle metadata (v0.0.32, enhanced v0.0.41)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fact {
     pub key: FactKey,
+    /// v0.0.41: Legacy string value, use typed_value for new facts
     pub value: String,
+    /// v0.0.41: Typed value (optional for backwards compat)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub typed_value: Option<FactValue>,
     pub verified: bool,
+    /// v0.0.41: Legacy string source, use fact_source for new facts
     pub source: String,
+    /// v0.0.41: Typed source (optional for backwards compat)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fact_source: Option<FactSource>,
+    /// v0.0.41: Confidence 0-100 (0 = unverified, 100 = probe-confirmed)
+    #[serde(default)]
+    pub confidence: u8,
     #[serde(default)]
     pub lifecycle: FactLifecycle,
     #[serde(default)]
@@ -107,15 +164,66 @@ impl Fact {
     pub fn verified(key: FactKey, value: String, source: String) -> Self {
         let now = now_epoch();
         let policy = default_policy(&key);
-        Self { key, value, verified: true, source, lifecycle: FactLifecycle::Active, policy,
-            created_at: now, last_verified_at: now, timestamp_compat: now }
+        Self {
+            key, value, typed_value: None, verified: true, source,
+            fact_source: None, confidence: 80, // Verified but legacy source
+            lifecycle: FactLifecycle::Active, policy,
+            created_at: now, last_verified_at: now, timestamp_compat: now
+        }
     }
 
     pub fn unverified(key: FactKey, value: String, source: String) -> Self {
         let now = now_epoch();
         let policy = default_policy(&key);
-        Self { key, value, verified: false, source, lifecycle: FactLifecycle::Active, policy,
-            created_at: now, last_verified_at: 0, timestamp_compat: now }
+        Self {
+            key, value, typed_value: None, verified: false, source,
+            fact_source: None, confidence: 0, // Unverified
+            lifecycle: FactLifecycle::Active, policy,
+            created_at: now, last_verified_at: 0, timestamp_compat: now
+        }
+    }
+
+    /// Create a verified fact with typed source (v0.0.41)
+    pub fn verified_with_source(key: FactKey, value: FactValue, source: FactSource, confidence: u8) -> Self {
+        let now = now_epoch();
+        let policy = default_policy(&key);
+        Self {
+            key,
+            value: value.to_string_value(),
+            typed_value: Some(value),
+            verified: true,
+            source: "typed".to_string(),
+            fact_source: Some(source),
+            confidence,
+            lifecycle: FactLifecycle::Active,
+            policy,
+            created_at: now,
+            last_verified_at: now,
+            timestamp_compat: now,
+        }
+    }
+
+    /// Create from probe observation (v0.0.41)
+    pub fn from_probe(key: FactKey, value: FactValue, probe_id: &str, output_hash: &str) -> Self {
+        Self::verified_with_source(
+            key,
+            value,
+            FactSource::ObservedProbe {
+                probe_id: probe_id.to_string(),
+                output_hash: output_hash.to_string(),
+            },
+            100, // Probe-confirmed = high confidence
+        )
+    }
+
+    /// Create from user confirmation (v0.0.41)
+    pub fn from_user(key: FactKey, value: FactValue, transcript_id: &str) -> Self {
+        Self::verified_with_source(
+            key,
+            value,
+            FactSource::UserConfirmed { transcript_id: transcript_id.to_string() },
+            90, // User-confirmed = high confidence
+        )
     }
 
     /// Check if this fact is stale based on current time
@@ -259,9 +367,28 @@ impl FactsStore {
             .map(|f| f.value.as_str())
     }
 
+    /// Get a fresh fact (v0.0.41) - returns None if stale
+    /// Use this for decisions that require current data
+    pub fn get_fresh(&self, key: &FactKey, now: u64) -> Option<&Fact> {
+        self.facts.get(key).filter(|f| f.is_usable() && !f.is_stale(now))
+    }
+
+    /// Upsert verified fact (v0.0.41) - updates last_verified on successful verification
+    pub fn upsert_verified(&mut self, key: FactKey, value: FactValue, source: FactSource, confidence: u8) {
+        let fact = Fact::verified_with_source(key.clone(), value, source, confidence);
+        self.facts.insert(key, fact);
+    }
+
     /// Check if a fact exists and is usable (verified + active lifecycle)
     pub fn has_verified(&self, key: &FactKey) -> bool {
         self.facts.get(key).map(|f| f.is_usable()).unwrap_or(false)
+    }
+
+    /// Check if fact is fresh (not stale) at given time (v0.0.41)
+    pub fn is_fresh(&self, key: &FactKey, now: u64) -> bool {
+        self.facts.get(key)
+            .map(|f| f.is_usable() && !f.is_stale(now))
+            .unwrap_or(false)
     }
 
     /// Set a verified fact (overwrites any existing)

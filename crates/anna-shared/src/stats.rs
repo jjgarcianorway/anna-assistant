@@ -1,12 +1,15 @@
-//! Per-team and per-person statistics for service desk analytics (v0.0.32).
+//! Per-team statistics for service desk analytics (v0.0.32).
 //!
-//! Tracks ticket resolution metrics by team and person for monitoring and optimization.
-//! Person stats allow tracking individual specialist performance.
+//! Tracks ticket resolution metrics by team for monitoring and optimization.
+//! v0.0.40: Added clarity counters for clarification verification tracking.
+//!
+//! Per-person stats moved to person_stats.rs to keep under 400 lines.
 
-use crate::roster::{person_for, Tier};
 use crate::teams::Team;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
+// Re-export PersonStats from person_stats module
+pub use crate::person_stats::{PersonStats, PersonStatsTracker};
 
 /// Statistics for a single team
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -81,6 +84,44 @@ pub struct GlobalStats {
     pub by_team: Vec<TeamStats>,
     /// Most consulted team (highest ticket count)
     pub most_consulted_team: Option<Team>,
+    // === v0.0.39 Performance Stats ===
+    /// Requests answered via fast path (no LLM)
+    #[serde(default)]
+    pub fast_path_hits: u64,
+    /// Requests where snapshot was fresh (cache hit)
+    #[serde(default)]
+    pub snapshot_cache_hits: u64,
+    /// Requests where snapshot was stale (required fresh probes)
+    #[serde(default)]
+    pub snapshot_cache_misses: u64,
+    /// Requests using knowledge pack answers
+    #[serde(default)]
+    pub knowledge_pack_hits: u64,
+    /// Requests using learned recipe answers
+    #[serde(default)]
+    pub recipe_hits: u64,
+    /// Translator timeouts (LLM took too long)
+    #[serde(default)]
+    pub translator_timeouts: u64,
+    /// Specialist timeouts (LLM took too long)
+    #[serde(default)]
+    pub specialist_timeouts: u64,
+    // === v0.0.40 Clarity Counters ===
+    /// Total clarification questions asked
+    #[serde(default)]
+    pub clarifications_asked: u64,
+    /// Clarification answers that passed verification
+    #[serde(default)]
+    pub clarifications_verified: u64,
+    /// Clarification answers that failed verification
+    #[serde(default)]
+    pub clarifications_failed: u64,
+    /// Facts learned from verified clarifications
+    #[serde(default)]
+    pub facts_learned: u64,
+    /// Clarifications cancelled by user
+    #[serde(default)]
+    pub clarifications_cancelled: u64,
 }
 
 impl GlobalStats {
@@ -99,6 +140,20 @@ impl GlobalStats {
                 TeamStats::new(Team::General),
             ],
             most_consulted_team: None,
+            // v0.0.39 performance stats
+            fast_path_hits: 0,
+            snapshot_cache_hits: 0,
+            snapshot_cache_misses: 0,
+            knowledge_pack_hits: 0,
+            recipe_hits: 0,
+            translator_timeouts: 0,
+            specialist_timeouts: 0,
+            // v0.0.40 clarity counters
+            clarifications_asked: 0,
+            clarifications_verified: 0,
+            clarifications_failed: 0,
+            facts_learned: 0,
+            clarifications_cancelled: 0,
         }
     }
 
@@ -150,149 +205,110 @@ impl GlobalStats {
                 / active.iter().map(|s| s.tickets_total as f32).sum::<f32>()
         }
     }
-}
 
-// === Per-Person Statistics (v0.0.32) ===
+    // === v0.0.39 Performance Recording ===
 
-/// Statistics for a single person in the roster
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct PersonStats {
-    /// Person ID from roster
-    pub person_id: String,
-    /// Display name for convenience
-    pub display_name: String,
-    /// Team this person belongs to
-    pub team: Team,
-    /// Tier (junior/senior)
-    pub tier: String,
-    /// Total tickets closed by this person
-    pub tickets_closed: u64,
-    /// Tickets escalated to senior (only for juniors)
-    pub escalations_sent: u64,
-    /// Tickets received via escalation (only for seniors)
-    pub escalations_received: u64,
-    /// Average review loops before closure
-    pub avg_loops: f32,
-    /// Average reliability score of closed tickets
-    pub avg_score: f32,
-}
+    /// Record a fast path hit
+    pub fn record_fast_path_hit(&mut self) {
+        self.total_requests += 1;
+        self.fast_path_hits += 1;
+    }
 
-impl PersonStats {
-    /// Create stats for a person
-    pub fn new(person_id: &str, display_name: &str, team: Team, tier: &str) -> Self {
-        Self {
-            person_id: person_id.to_string(),
-            display_name: display_name.to_string(),
-            team,
-            tier: tier.to_string(),
-            ..Default::default()
+    /// Record snapshot cache status
+    pub fn record_snapshot_cache(&mut self, hit: bool) {
+        if hit {
+            self.snapshot_cache_hits += 1;
+        } else {
+            self.snapshot_cache_misses += 1;
         }
     }
 
-    /// Create stats from roster entry
-    pub fn from_roster(team: Team, tier: Tier) -> Self {
-        let person = person_for(team, tier);
-        Self::new(person.person_id, person.display_name, team, &tier.to_string())
+    /// Record knowledge pack hit
+    pub fn record_knowledge_pack_hit(&mut self) {
+        self.knowledge_pack_hits += 1;
     }
 
-    /// Record a ticket closure
-    pub fn record_closure(&mut self, loops: u8, score: u8) {
-        self.tickets_closed += 1;
-        let n = self.tickets_closed as f32;
-        self.avg_loops = ((self.avg_loops * (n - 1.0)) + loops as f32) / n;
-        self.avg_score = ((self.avg_score * (n - 1.0)) + score as f32) / n;
+    /// Record recipe hit
+    pub fn record_recipe_hit(&mut self) {
+        self.recipe_hits += 1;
     }
 
-    /// Record an escalation sent (junior only)
-    pub fn record_escalation_sent(&mut self) {
-        self.escalations_sent += 1;
+    /// Record translator timeout
+    pub fn record_translator_timeout(&mut self) {
+        self.translator_timeouts += 1;
     }
 
-    /// Record an escalation received (senior only)
-    pub fn record_escalation_received(&mut self) {
-        self.escalations_received += 1;
-    }
-}
-
-/// Per-person statistics tracker (v0.0.32)
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct PersonStatsTracker {
-    /// Stats by person_id
-    pub by_person: HashMap<String, PersonStats>,
-}
-
-impl PersonStatsTracker {
-    /// Create new tracker with all roster entries
-    pub fn new() -> Self {
-        let mut by_person = HashMap::new();
-        for team in [
-            Team::Desktop, Team::Storage, Team::Network, Team::Performance,
-            Team::Services, Team::Security, Team::Hardware, Team::General,
-        ] {
-            for tier in [Tier::Junior, Tier::Senior] {
-                let stats = PersonStats::from_roster(team, tier);
-                by_person.insert(stats.person_id.clone(), stats);
-            }
-        }
-        Self { by_person }
+    /// Record specialist timeout
+    pub fn record_specialist_timeout(&mut self) {
+        self.specialist_timeouts += 1;
     }
 
-    /// Get or create stats for a person
-    pub fn get_person_mut(&mut self, person_id: &str) -> Option<&mut PersonStats> {
-        self.by_person.get_mut(person_id)
-    }
-
-    /// Get stats for a person
-    pub fn get_person(&self, person_id: &str) -> Option<&PersonStats> {
-        self.by_person.get(person_id)
-    }
-
-    /// Record a ticket closure by person
-    pub fn record_closure(&mut self, person_id: &str, loops: u8, score: u8) {
-        if let Some(stats) = self.by_person.get_mut(person_id) {
-            stats.record_closure(loops, score);
+    /// Get fast path percentage (0.0-100.0)
+    pub fn fast_path_percentage(&self) -> f32 {
+        if self.total_requests == 0 {
+            0.0
+        } else {
+            (self.fast_path_hits as f32 / self.total_requests as f32) * 100.0
         }
     }
 
-    /// Record an escalation from junior to senior
-    pub fn record_escalation(&mut self, junior_id: &str, senior_id: &str) {
-        if let Some(jr) = self.by_person.get_mut(junior_id) {
-            jr.record_escalation_sent();
+    /// Get snapshot cache hit rate (0.0-100.0)
+    pub fn snapshot_cache_hit_rate(&self) -> f32 {
+        let total = self.snapshot_cache_hits + self.snapshot_cache_misses;
+        if total == 0 {
+            0.0
+        } else {
+            (self.snapshot_cache_hits as f32 / total as f32) * 100.0
         }
-        if let Some(sr) = self.by_person.get_mut(senior_id) {
-            sr.record_escalation_received();
+    }
+
+    /// Get timeout rate (0.0-100.0)
+    pub fn timeout_rate(&self) -> f32 {
+        if self.total_requests == 0 {
+            0.0
+        } else {
+            let timeouts = self.translator_timeouts + self.specialist_timeouts;
+            (timeouts as f32 / self.total_requests as f32) * 100.0
         }
     }
 
-    /// Get top performers by tickets closed
-    pub fn top_closers(&self, limit: usize) -> Vec<&PersonStats> {
-        let mut sorted: Vec<_> = self.by_person.values()
-            .filter(|s| s.tickets_closed > 0)
-            .collect();
-        sorted.sort_by(|a, b| b.tickets_closed.cmp(&a.tickets_closed));
-        sorted.truncate(limit);
-        sorted
+    // === v0.0.40 Clarity Recording ===
+
+    /// Record a clarification question asked
+    pub fn record_clarification_asked(&mut self) {
+        self.clarifications_asked += 1;
     }
 
-    /// Get persons who escalated most (juniors)
-    pub fn top_escalators(&self, limit: usize) -> Vec<&PersonStats> {
-        let mut sorted: Vec<_> = self.by_person.values()
-            .filter(|s| s.escalations_sent > 0)
-            .collect();
-        sorted.sort_by(|a, b| b.escalations_sent.cmp(&a.escalations_sent));
-        sorted.truncate(limit);
-        sorted
+    /// Record a verified clarification answer
+    pub fn record_clarification_verified(&mut self) {
+        self.clarifications_verified += 1;
     }
 
-    /// Get persons with best average score
-    pub fn top_by_score(&self, limit: usize) -> Vec<&PersonStats> {
-        let mut sorted: Vec<_> = self.by_person.values()
-            .filter(|s| s.tickets_closed > 0)
-            .collect();
-        sorted.sort_by(|a, b| b.avg_score.partial_cmp(&a.avg_score).unwrap_or(std::cmp::Ordering::Equal));
-        sorted.truncate(limit);
-        sorted
+    /// Record a failed clarification verification
+    pub fn record_clarification_failed(&mut self) {
+        self.clarifications_failed += 1;
+    }
+
+    /// Record a fact learned from verified clarification
+    pub fn record_fact_learned(&mut self) {
+        self.facts_learned += 1;
+    }
+
+    /// Record a clarification cancelled by user
+    pub fn record_clarification_cancelled(&mut self) {
+        self.clarifications_cancelled += 1;
+    }
+
+    /// Get clarification verification rate (0.0-100.0)
+    pub fn clarification_verify_rate(&self) -> f32 {
+        let total = self.clarifications_verified + self.clarifications_failed;
+        if total == 0 {
+            0.0
+        } else {
+            (self.clarifications_verified as f32 / total as f32) * 100.0
+        }
     }
 }
 
 // Tests moved to tests/stats_tests.rs
+// PersonStats and PersonStatsTracker moved to person_stats.rs

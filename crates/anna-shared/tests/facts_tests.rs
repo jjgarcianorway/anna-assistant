@@ -72,7 +72,8 @@ fn test_fact_status() {
 fn test_staleness_policy_defaults() {
     assert_eq!(default_policy(&FactKey::InitSystem), StalenessPolicy::Never);
     match default_policy(&FactKey::PreferredEditor) {
-        StalenessPolicy::TTLSeconds(s) => assert!(s > 100 * 24 * 3600), // > 100 days
+        // v0.0.41: editor preference TTL = 90 days
+        StalenessPolicy::TTLSeconds(s) => assert_eq!(s, 90 * 24 * 3600),
         _ => panic!("expected TTL for PreferredEditor"),
     }
 }

@@ -4,9 +4,23 @@
 //! Pure decision functions for testability.
 //!
 //! v0.0.36: Added ProbeBudget for controlling probe resource usage.
+//! v0.0.41: Added LLM token budgets and timeout fallback constants.
 
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
+
+// === LLM Token Budget Constants (v0.0.41) ===
+
+/// Max tokens for LLM draft responses (keep tight for speed)
+pub const LLM_MAX_DRAFT_TOKENS: u32 = 800;
+/// Max tokens for LLM specialist responses
+pub const LLM_MAX_SPECIALIST_TOKENS: u32 = 1200;
+/// Max context tokens for local LLM (8k context models)
+pub const LLM_MAX_CONTEXT_TOKENS: u32 = 6000;
+/// Translator timeout in seconds (triggers fallback)
+pub const TRANSLATOR_TIMEOUT_SECS: u64 = 30;
+/// Specialist timeout in seconds (triggers graceful degradation)
+pub const SPECIALIST_TIMEOUT_SECS: u64 = 45;
 
 /// Stage names for budget tracking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -349,6 +363,132 @@ impl StageTiming {
             budget_ms,
             exceeded: elapsed_ms > budget_ms,
         }
+    }
+}
+
+// === LLM Budget (v0.0.41) ===
+
+/// Configurable LLM token budgets for local inference (v0.0.41)
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct LlmBudget {
+    /// Max tokens for draft/translation responses
+    pub max_draft_tokens: u32,
+    /// Max tokens for specialist responses
+    pub max_specialist_tokens: u32,
+    /// Max context tokens (prompt + response)
+    pub max_context_tokens: u32,
+    /// Translator timeout in seconds
+    pub translator_timeout_secs: u64,
+    /// Specialist timeout in seconds
+    pub specialist_timeout_secs: u64,
+}
+
+impl Default for LlmBudget {
+    fn default() -> Self {
+        Self {
+            max_draft_tokens: LLM_MAX_DRAFT_TOKENS,
+            max_specialist_tokens: LLM_MAX_SPECIALIST_TOKENS,
+            max_context_tokens: LLM_MAX_CONTEXT_TOKENS,
+            translator_timeout_secs: TRANSLATOR_TIMEOUT_SECS,
+            specialist_timeout_secs: SPECIALIST_TIMEOUT_SECS,
+        }
+    }
+}
+
+impl LlmBudget {
+    /// Create tight budget for fast path (minimal tokens)
+    pub fn fast_path() -> Self {
+        Self {
+            max_draft_tokens: 400,
+            max_specialist_tokens: 600,
+            max_context_tokens: 4000,
+            translator_timeout_secs: 15,
+            specialist_timeout_secs: 20,
+        }
+    }
+
+    /// Create standard budget for normal queries
+    pub fn standard() -> Self {
+        Self::default()
+    }
+
+    /// Create extended budget for complex queries
+    pub fn extended() -> Self {
+        Self {
+            max_draft_tokens: 1200,
+            max_specialist_tokens: 2000,
+            max_context_tokens: 8000,
+            translator_timeout_secs: 60,
+            specialist_timeout_secs: 90,
+        }
+    }
+
+    /// Check if elapsed time exceeds translator timeout
+    pub fn is_translator_timeout(&self, elapsed_secs: u64) -> bool {
+        elapsed_secs > self.translator_timeout_secs
+    }
+
+    /// Check if elapsed time exceeds specialist timeout
+    pub fn is_specialist_timeout(&self, elapsed_secs: u64) -> bool {
+        elapsed_secs > self.specialist_timeout_secs
+    }
+}
+
+/// Result of LLM fallback decision (v0.0.41)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LlmFallback {
+    /// Continue normally
+    Continue,
+    /// Translator timed out, use fallback interpretation
+    TranslatorTimeout { elapsed_secs: u64 },
+    /// Specialist timed out, return raw probe data
+    SpecialistTimeout { elapsed_secs: u64 },
+}
+
+impl LlmFallback {
+    /// Check if any timeout occurred
+    pub fn is_timeout(&self) -> bool {
+        !matches!(self, Self::Continue)
+    }
+
+    /// Get fallback message for user display
+    pub fn fallback_message(&self) -> Option<String> {
+        match self {
+            Self::Continue => None,
+            Self::TranslatorTimeout { elapsed_secs } => Some(format!(
+                "Request interpretation took too long ({}s). Using simplified routing.",
+                elapsed_secs
+            )),
+            Self::SpecialistTimeout { elapsed_secs } => Some(format!(
+                "Analysis took too long ({}s). Here's the raw system data:",
+                elapsed_secs
+            )),
+        }
+    }
+}
+
+/// Check if should fall back based on elapsed time (v0.0.41)
+pub fn check_llm_fallback(
+    stage: Stage,
+    elapsed_secs: u64,
+    budget: &LlmBudget,
+) -> LlmFallback {
+    match stage {
+        Stage::Translator => {
+            if budget.is_translator_timeout(elapsed_secs) {
+                LlmFallback::TranslatorTimeout { elapsed_secs }
+            } else {
+                LlmFallback::Continue
+            }
+        }
+        Stage::Specialist => {
+            if budget.is_specialist_timeout(elapsed_secs) {
+                LlmFallback::SpecialistTimeout { elapsed_secs }
+            } else {
+                LlmFallback::Continue
+            }
+        }
+        _ => LlmFallback::Continue,
     }
 }
 

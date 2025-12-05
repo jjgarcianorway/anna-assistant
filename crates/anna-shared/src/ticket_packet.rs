@@ -2,12 +2,17 @@
 //!
 //! A TicketPacket bundles all evidence relevant to a specific domain query,
 //! providing structured access to probe results, parsed data, and context.
+//!
+//! v0.0.40: Added MAX_PACKET_BYTES (8KB) limit for minimal packet size.
 
 use crate::budget::ProbeBudget;
 use crate::rpc::{ProbeResult, SpecialistDomain};
 use crate::teams::Team;
 use crate::trace::EvidenceKind;
 use serde::{Deserialize, Serialize};
+
+/// Maximum packet size in bytes (8KB) - v0.0.40
+pub const MAX_PACKET_BYTES: usize = 8 * 1024;
 
 /// A packet of evidence for a ticket (v0.0.36)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -124,6 +129,55 @@ impl TicketPacket {
     pub fn has_evidence(&self) -> bool {
         !self.probes.is_empty() || !self.evidence_kinds.is_empty()
     }
+
+    /// Estimate packet size in bytes (v0.0.40)
+    pub fn estimated_size(&self) -> usize {
+        self.budget.bytes_collected + self.summary.len() + self.route_class.len()
+    }
+
+    /// Check if packet exceeds MAX_PACKET_BYTES limit (v0.0.40)
+    pub fn exceeds_limit(&self) -> bool {
+        self.estimated_size() > MAX_PACKET_BYTES
+    }
+
+    /// Truncate probe outputs to fit within MAX_PACKET_BYTES (v0.0.40)
+    pub fn truncate_to_limit(&mut self) {
+        if !self.exceeds_limit() {
+            return;
+        }
+
+        // Truncate probe outputs proportionally
+        let target = MAX_PACKET_BYTES.saturating_sub(self.summary.len() + self.route_class.len() + 256);
+        let per_probe = if self.probes.is_empty() {
+            0
+        } else {
+            target / self.probes.len()
+        };
+
+        for probe in &mut self.probes {
+            if probe.stdout.len() > per_probe {
+                probe.stdout = format!(
+                    "{}...(truncated {} bytes)",
+                    &probe.stdout[..per_probe.saturating_sub(30)],
+                    probe.stdout.len() - per_probe
+                );
+            }
+            if probe.stderr.len() > per_probe / 4 {
+                let limit = per_probe / 4;
+                probe.stderr = format!(
+                    "{}...(truncated)",
+                    &probe.stderr[..limit.saturating_sub(20)]
+                );
+            }
+        }
+
+        // Recalculate bytes collected
+        self.budget.bytes_collected = self
+            .probes
+            .iter()
+            .map(|p| p.stdout.len() + p.stderr.len())
+            .sum();
+    }
 }
 
 /// Builder for creating domain-specific packets
@@ -189,9 +243,11 @@ impl TicketPacketBuilder {
         self
     }
 
-    /// Build the final packet
+    /// Build the final packet (v0.0.40: enforces MAX_PACKET_BYTES limit)
     pub fn build(mut self) -> TicketPacket {
         self.packet.build_summary();
+        // Enforce 8KB limit
+        self.packet.truncate_to_limit();
         self.packet
     }
 }

@@ -237,6 +237,27 @@ fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
                 println!("{}[fact]{} {} = {} (via {})", colors::DIM, colors::RESET, key, value, source);
                 last_actor = None;
             }
+            // Fast path events (v0.0.39)
+            TranscriptEventKind::FastPath { handled, class, reason, probes_needed } => {
+                if *handled {
+                    println!("{}[fast]{} {} {} (no LLM needed)",
+                        colors::OK, colors::RESET, class, if *probes_needed { "(probes run)" } else { "(cached)" });
+                } else {
+                    println!("{}[fast]{} skipped: {}", colors::DIM, colors::RESET, reason);
+                }
+                last_actor = None;
+            }
+            // Timeout fallback events (v0.0.41)
+            TranscriptEventKind::LlmTimeoutFallback { stage, timeout_secs, elapsed_secs, fallback_action } => {
+                println!("{}[timeout]{} {} timed out ({}s > {}s) -> {}",
+                    colors::WARN, colors::RESET, stage, elapsed_secs, timeout_secs, fallback_action);
+                last_actor = None;
+            }
+            TranscriptEventKind::GracefulDegradation { reason, original_type, fallback_type } => {
+                println!("{}[fallback]{} {} -> {} ({})",
+                    colors::WARN, colors::RESET, original_type, fallback_type, reason);
+                last_actor = None;
+            }
             TranscriptEventKind::Unknown => {}
         }
     }
