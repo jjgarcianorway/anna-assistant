@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.32] - 2025-12-05
+
+### Added
+- **Humanized IT Department Roster (Phase 1)**: Stable person profiles for service desk narration
+  - `roster.rs` module with PersonProfile struct (person_id, display_name, role_title, team, tier)
+  - Deterministic `person_for(team, tier)` mapping - same inputs always return same person
+  - 16 named specialists: Alex, Morgan, Jordan, Taylor, Riley, Casey, Drew, Quinn, etc.
+  - `team_roster()` and `all_persons()` for listing roster entries
+  - Person-based narration functions in `narrator.rs`
+
+- **Fact Lifecycle Management (Phase 2)**: Facts with TTL, staleness, and automatic expiration
+  - `StalenessPolicy` enum: Never, TTLSeconds(u64), SessionOnly
+  - `FactLifecycle` enum: Active, Stale, Archived
+  - Default policies per FactKey (e.g., InitSystem: Never, PreferredEditor: 180 days)
+  - `apply_lifecycle()` transitions facts based on current time
+  - `invalidate()`, `reverify()`, `stale_facts()`, `prune_archived()` methods
+  - Facts with `is_usable()` check for both verified AND active lifecycle
+
+- **Minimal Ticket Brief (Phase 3)**: Team-relevance filtering for specialist reviews
+  - `brief.rs` module with TicketBrief struct
+  - `relevant_evidence_for_team()` maps Team to relevant EvidenceKind
+  - `build_brief_from_ticket()` filters probe results by team domain
+  - Storage team only sees Disk/BlockDevices, Performance sees Memory/Cpu, etc.
+  - Reduces noise in specialist review context
+
+- **Per-Person Statistics (Phase 4)**: Track individual specialist performance
+  - `PersonStats` struct with tickets_closed, escalations_sent/received, avg_loops, avg_score
+  - `PersonStatsTracker` tracks all 16 roster entries
+  - `record_closure()`, `record_escalation()` methods
+  - `top_closers()`, `top_escalators()`, `top_by_score()` rankings
+
+### Changed
+- **Always-Answer Behavior (Phase 5)**: Removed "Could you rephrase" failure mode
+  - `create_no_data_response()` now builds best-effort answer from available probe data
+  - `build_best_effort_answer()` summarizes successful probes even when incomplete
+  - Never asks for rephrase - always provides actionable information
+  - Reliability score reflects data quality, not whether an answer was given
+
+### Technical
+- Tests moved to separate files to keep modules under 400 lines
+- All 300+ tests passing
+- Golden tests for deterministic person mapping and string output
+- Backward-compatible serialization for lifecycle fields
+
 ## [0.0.31] - 2025-12-05
 
 ### Added

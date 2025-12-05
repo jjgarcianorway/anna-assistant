@@ -1,9 +1,10 @@
 //! Team-aware dialog formatting for service desk narration.
 //!
 //! Provides consistent display names and narrative formatting for team actions.
-//! Used by transcript rendering to present team-based review activity.
+//! Uses roster.rs for humanized person profiles (v0.0.32).
 
 use crate::review::{ReviewArtifact, ReviewSeverity};
+use crate::roster::{person_for, Tier, PersonProfile};
 use crate::teams::Team;
 
 /// Get the display name for a team + reviewer combination.
@@ -120,6 +121,49 @@ pub fn narrate_ticket_assignment(team: Team, ticket_id: &str) -> String {
 /// Returns formatted badge like "[storage:junior]" or "[network:senior]"
 pub fn reviewer_badge(team: Team, reviewer: &str) -> String {
     format!("[{}:{}]", team_tag(team), reviewer)
+}
+
+// === Humanized Person-Based Narration (v0.0.32) ===
+
+/// Get person profile for a reviewer tier string
+fn tier_from_str(reviewer: &str) -> Tier {
+    if reviewer.to_lowercase().contains("senior") { Tier::Senior } else { Tier::Junior }
+}
+
+/// Get the person profile for a team + reviewer.
+pub fn get_person(team: Team, reviewer: &str) -> PersonProfile {
+    person_for(team, tier_from_str(reviewer))
+}
+
+/// Narrate a team action using the person's name (v0.0.32).
+/// Returns: "Riley (Network Administrator) is reviewing..."
+pub fn narrate_person_action(team: Team, reviewer: &str, action: &str) -> String {
+    let person = get_person(team, reviewer);
+    format!("{} {}", person.display(), action)
+}
+
+/// Narrate a review result using person's name (v0.0.32).
+pub fn narrate_person_review(artifact: &ReviewArtifact) -> String {
+    let person = get_person(artifact.team, &artifact.reviewer);
+    if artifact.allow_publish {
+        if artifact.issues.is_empty() {
+            format!("{}: approved (score {})", person.display(), artifact.score)
+        } else {
+            let warning_count = artifact.issue_count(ReviewSeverity::Warning);
+            format!("{}: approved with {} note{} (score {})", person.display(),
+                warning_count, if warning_count == 1 { "" } else { "s" }, artifact.score)
+        }
+    } else {
+        let blocker_count = artifact.issue_count(ReviewSeverity::Blocker);
+        format!("{}: needs revision - {} issue{} (score {})", person.display(),
+            blocker_count, if blocker_count == 1 { "" } else { "s" }, artifact.score)
+    }
+}
+
+/// Narrate an escalation using person's name (v0.0.32).
+pub fn narrate_person_escalation(from_team: Team, reason: &str) -> String {
+    let senior = person_for(from_team, Tier::Senior);
+    format!("Escalating to {} - {}", senior.display(), reason)
 }
 
 /// Format issues list for display.
@@ -301,5 +345,34 @@ mod tests {
         assert_eq!(it_domain_context("storage"), "Storage & Filesystems");
         assert_eq!(it_domain_context("MEMORY"), "Memory & RAM");
         assert_eq!(it_domain_context("unknown"), "General Support");
+    }
+
+    // v0.0.32 person-based narration tests
+
+    #[test]
+    fn test_get_person() {
+        let p = get_person(Team::Network, "junior");
+        assert_eq!(p.display_name, "Riley");
+        assert_eq!(p.role_title, "Network Administrator");
+    }
+
+    #[test]
+    fn golden_person_action_network_junior() {
+        let result = narrate_person_action(Team::Network, "junior", "is reviewing connectivity");
+        assert_eq!(result, "Riley (Network Administrator) is reviewing connectivity");
+    }
+
+    #[test]
+    fn golden_person_escalation_storage() {
+        let result = narrate_person_escalation(Team::Storage, "disk verification failed");
+        assert_eq!(result, "Escalating to Taylor (Storage Architect) - disk verification failed");
+    }
+
+    #[test]
+    fn test_person_review_approved() {
+        let artifact = ReviewArtifact::pass(Team::Performance, "junior", 90);
+        let result = narrate_person_review(&artifact);
+        assert!(result.contains("Drew (Performance Analyst)"));
+        assert!(result.contains("approved"));
     }
 }

@@ -210,7 +210,8 @@ pub fn create_timeout_response(
     }
 }
 
-/// Create a response when no data is available to answer
+/// Create a best-effort response when no deterministic answer is available (v0.0.32).
+/// Always answers - never asks to rephrase.
 pub fn create_no_data_response(
     request_id: String,
     ticket: TranslatorTicket,
@@ -218,34 +219,90 @@ pub fn create_no_data_response(
     transcript: Transcript,
     domain: SpecialistDomain,
 ) -> ServiceDeskResult {
+    // Build a best-effort answer from available probe data
+    let answer = build_best_effort_answer(&probe_results, domain);
+
     let signals = ReliabilitySignals {
         translator_confident: false,
         probe_coverage: !probe_results.is_empty(),
-        answer_grounded: false,
+        answer_grounded: !probe_results.is_empty(),
         no_invention: true,
-        clarification_not_needed: false,
+        clarification_not_needed: true, // We always provide an answer now
     };
 
     let evidence = build_evidence(
         ticket,
         probe_results,
-        Some("No deterministic answer available".to_string()),
+        Some("Best-effort answer from available data".to_string()),
     );
 
     ServiceDeskResult {
         request_id,
-        answer: String::new(),
+        answer,
         reliability_score: signals.score(),
         reliability_signals: signals,
-        reliability_explanation: None, // No explanation for no-data response
+        reliability_explanation: None,
         domain,
         evidence,
-        needs_clarification: true,
-        clarification_question: Some(
-            "I couldn't generate an answer from the available data. Could you rephrase your question?".to_string()
-        ),
+        needs_clarification: false, // Never ask for rephrase
+        clarification_question: None,
         transcript,
-        execution_trace: None, // No data response - trace populated by caller if needed
+        execution_trace: None,
+    }
+}
+
+/// Build a best-effort answer from available probe results (v0.0.32).
+/// Summarizes what data was gathered even if it's incomplete.
+fn build_best_effort_answer(probe_results: &[ProbeResult], domain: SpecialistDomain) -> String {
+    if probe_results.is_empty() {
+        return format!(
+            "I was unable to gather data for this {} query. \
+             The system probes didn't return results. \
+             Please ensure the relevant services are running and try again.",
+            domain
+        );
+    }
+
+    let successful: Vec<_> = probe_results.iter().filter(|p| p.exit_code == 0).collect();
+    let failed: Vec<_> = probe_results.iter().filter(|p| p.exit_code != 0).collect();
+
+    let mut answer = String::new();
+
+    if !successful.is_empty() {
+        answer.push_str("Based on the available system data:\n\n");
+
+        for probe in &successful {
+            // Extract meaningful output (first 3 lines or 200 chars)
+            let output = probe.stdout.lines().take(3).collect::<Vec<_>>().join("\n");
+            let output = if output.len() > 200 {
+                format!("{}...", &output[..200])
+            } else {
+                output
+            };
+
+            if !output.trim().is_empty() {
+                answer.push_str(&format!("**{}**:\n```\n{}\n```\n\n", probe.command, output));
+            }
+        }
+    }
+
+    if !failed.is_empty() {
+        answer.push_str(&format!(
+            "\nNote: {} probe{} failed to return data.",
+            failed.len(),
+            if failed.len() == 1 { "" } else { "s" }
+        ));
+    }
+
+    if answer.is_empty() {
+        format!(
+            "I ran {} probe{} but couldn't extract structured information. \
+             The raw data is available in the evidence block.",
+            probe_results.len(),
+            if probe_results.len() == 1 { "" } else { "s" }
+        )
+    } else {
+        answer
     }
 }
 

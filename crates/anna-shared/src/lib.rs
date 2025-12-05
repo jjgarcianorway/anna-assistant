@@ -1,6 +1,7 @@
 //! Shared types and utilities for Anna components.
 
 pub mod advice;
+pub mod brief;
 pub mod budget;
 pub mod change;
 pub mod claims;
@@ -24,6 +25,7 @@ pub mod review;
 pub mod review_gate;
 pub mod review_prompts;
 pub mod revision;
+pub mod roster;
 pub mod rpc;
 pub mod specialists;
 pub mod stats;

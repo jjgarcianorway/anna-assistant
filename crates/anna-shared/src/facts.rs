@@ -1,7 +1,7 @@
-//! Facts store for verified user/system facts.
+//! Facts store with lifecycle management (v0.0.32).
 //!
-//! Persists validated facts so Anna stops re-asking and can validate user clarifications.
-//! Facts are only stored after verification against system reality.
+//! Persists validated facts with staleness policies and automatic expiration.
+//! Facts transition: Active -> Stale -> Archived based on TTL and verification.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -12,28 +12,54 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum FactKey {
-    /// User's preferred text editor (verified to exist)
     PreferredEditor,
-    /// Whether a specific editor is installed: EditorInstalled("vim") -> true
     EditorInstalled(String),
-    /// Path to a binary: BinaryAvailable("vim") -> "/usr/bin/vim"
     BinaryAvailable(String),
-    /// Primary network interface: "wlan0" or "enp0s3"
     NetworkPrimaryInterface,
-    /// Interface type preference: "wifi" or "ethernet"
     NetworkPreference,
-    /// Default shell: "bash", "zsh", etc.
     PreferredShell,
-    /// Init system: "systemd", "openrc", etc.
     InitSystem,
-    /// Package manager: "pacman", "apt", "dnf"
     PackageManager,
-    /// Whether a systemd unit exists: UnitExists("nginx.service") -> true
     UnitExists(String),
-    /// Whether a mount point exists: MountExists("/var") -> true
     MountExists(String),
-    /// Custom fact with string key
     Custom(String),
+}
+
+/// Staleness policy for facts (v0.0.32)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StalenessPolicy {
+    Never,
+    TTLSeconds(u64),
+    SessionOnly,
+}
+
+impl Default for StalenessPolicy {
+    fn default() -> Self { Self::TTLSeconds(30 * 24 * 3600) } // 30 days
+}
+
+/// Get default staleness policy for a fact key
+pub fn default_policy(key: &FactKey) -> StalenessPolicy {
+    match key {
+        FactKey::PreferredEditor => StalenessPolicy::TTLSeconds(180 * 24 * 3600), // 180 days
+        FactKey::BinaryAvailable(_) => StalenessPolicy::TTLSeconds(30 * 24 * 3600), // 30 days
+        FactKey::EditorInstalled(_) => StalenessPolicy::TTLSeconds(30 * 24 * 3600),
+        FactKey::NetworkPrimaryInterface => StalenessPolicy::TTLSeconds(30 * 24 * 3600),
+        FactKey::NetworkPreference => StalenessPolicy::TTLSeconds(180 * 24 * 3600),
+        FactKey::InitSystem | FactKey::PackageManager => StalenessPolicy::Never,
+        FactKey::UnitExists(_) | FactKey::MountExists(_) => StalenessPolicy::TTLSeconds(7 * 24 * 3600),
+        _ => StalenessPolicy::TTLSeconds(30 * 24 * 3600),
+    }
+}
+
+/// Lifecycle status for facts (v0.0.32)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum FactLifecycle {
+    #[default]
+    Active,
+    Stale,
+    Archived,
 }
 
 impl std::fmt::Display for FactKey {
@@ -54,49 +80,83 @@ impl std::fmt::Display for FactKey {
     }
 }
 
-/// A verified fact about the user or system
+/// A fact with lifecycle metadata (v0.0.32)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fact {
-    /// The fact key
     pub key: FactKey,
-    /// The verified value
     pub value: String,
-    /// Whether this fact has been verified against system reality
     pub verified: bool,
-    /// How this fact was verified: "probe:which vim", "user+verify", "system_detect"
     pub source: String,
-    /// Unix timestamp when fact was stored
-    pub timestamp: u64,
+    #[serde(default)]
+    pub lifecycle: FactLifecycle,
+    #[serde(default)]
+    pub policy: StalenessPolicy,
+    #[serde(default)]
+    pub created_at: u64,
+    #[serde(default)]
+    pub last_verified_at: u64,
+    #[serde(default, rename = "timestamp")]
+    timestamp_compat: u64, // backwards compat
+}
+
+fn now_epoch() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 impl Fact {
-    /// Create a new verified fact
     pub fn verified(key: FactKey, value: String, source: String) -> Self {
-        Self {
-            key,
-            value,
-            verified: true,
-            source,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
+        let now = now_epoch();
+        let policy = default_policy(&key);
+        Self { key, value, verified: true, source, lifecycle: FactLifecycle::Active, policy,
+            created_at: now, last_verified_at: now, timestamp_compat: now }
+    }
+
+    pub fn unverified(key: FactKey, value: String, source: String) -> Self {
+        let now = now_epoch();
+        let policy = default_policy(&key);
+        Self { key, value, verified: false, source, lifecycle: FactLifecycle::Active, policy,
+            created_at: now, last_verified_at: 0, timestamp_compat: now }
+    }
+
+    /// Check if this fact is stale based on current time
+    pub fn is_stale(&self, now: u64) -> bool {
+        match self.policy {
+            StalenessPolicy::Never => false,
+            StalenessPolicy::SessionOnly => true, // Always stale for persistence purposes
+            StalenessPolicy::TTLSeconds(ttl) => {
+                if self.last_verified_at == 0 { return !self.verified; }
+                now.saturating_sub(self.last_verified_at) > ttl
+            }
         }
     }
 
-    /// Create an unverified fact (pending verification)
-    pub fn unverified(key: FactKey, value: String, source: String) -> Self {
-        Self {
-            key,
-            value,
-            verified: false,
-            source,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
+    /// Check if should be archived (stale for > 2x TTL)
+    pub fn should_archive(&self, now: u64) -> bool {
+        match self.policy {
+            StalenessPolicy::TTLSeconds(ttl) => {
+                if self.last_verified_at == 0 { return false; }
+                now.saturating_sub(self.last_verified_at) > ttl * 2
+            }
+            _ => false,
         }
     }
+
+    /// Re-verify this fact, resetting staleness
+    pub fn reverify(&mut self, source: String) {
+        self.verified = true;
+        self.source = source;
+        self.lifecycle = FactLifecycle::Active;
+        self.last_verified_at = now_epoch();
+    }
+
+    /// Mark as stale (failed re-verification)
+    pub fn mark_stale(&mut self) { self.lifecycle = FactLifecycle::Stale; }
+
+    /// Archive this fact
+    pub fn archive(&mut self) { self.lifecycle = FactLifecycle::Archived; }
+
+    /// Check if usable for decisions (verified and active)
+    pub fn is_usable(&self) -> bool { self.verified && self.lifecycle == FactLifecycle::Active }
 }
 
 /// Persistent store for verified facts (serializes as Vec for JSON compatibility)
@@ -192,16 +252,16 @@ impl FactsStore {
         self.facts.get(key)
     }
 
-    /// Get a verified fact value by key
+    /// Get a verified fact value by key (must be usable: verified + active)
     pub fn get_verified(&self, key: &FactKey) -> Option<&str> {
         self.facts.get(key)
-            .filter(|f| f.verified)
+            .filter(|f| f.is_usable())
             .map(|f| f.value.as_str())
     }
 
-    /// Check if a fact exists and is verified
+    /// Check if a fact exists and is usable (verified + active lifecycle)
     pub fn has_verified(&self, key: &FactKey) -> bool {
-        self.facts.get(key).map(|f| f.verified).unwrap_or(false)
+        self.facts.get(key).map(|f| f.is_usable()).unwrap_or(false)
     }
 
     /// Set a verified fact (overwrites any existing)
@@ -221,10 +281,8 @@ impl FactsStore {
         if let Some(fact) = self.facts.get_mut(key) {
             fact.verified = true;
             fact.source = source;
-            fact.timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
+            fact.lifecycle = FactLifecycle::Active;
+            fact.last_verified_at = now_epoch();
             true
         } else {
             false
@@ -236,197 +294,88 @@ impl FactsStore {
         self.facts.remove(key)
     }
 
-    /// Get all verified facts
+    /// Get all verified and active facts
     pub fn verified_facts(&self) -> Vec<&Fact> {
-        self.facts.values().filter(|f| f.verified).collect()
+        self.facts.values().filter(|f| f.is_usable()).collect()
     }
 
-    /// Get count of verified facts
+    /// Get count of usable facts
     pub fn verified_count(&self) -> usize {
-        self.facts.values().filter(|f| f.verified).count()
+        self.facts.values().filter(|f| f.is_usable()).count()
     }
 
     /// Clear all facts
-    pub fn clear(&mut self) {
-        self.facts.clear();
+    pub fn clear(&mut self) { self.facts.clear(); }
+
+    // === Lifecycle management (v0.0.32) ===
+
+    /// Apply lifecycle transitions based on current time
+    pub fn apply_lifecycle(&mut self, now: u64) {
+        for fact in self.facts.values_mut() {
+            if fact.lifecycle == FactLifecycle::Active && fact.is_stale(now) {
+                fact.lifecycle = FactLifecycle::Stale;
+            }
+            if fact.lifecycle == FactLifecycle::Stale && fact.should_archive(now) {
+                fact.lifecycle = FactLifecycle::Archived;
+            }
+        }
+    }
+
+    /// Mark a fact as stale (failed verification)
+    pub fn invalidate(&mut self, key: &FactKey) {
+        if let Some(fact) = self.facts.get_mut(key) {
+            fact.mark_stale();
+        }
+    }
+
+    /// Re-verify a fact, making it active again
+    pub fn reverify(&mut self, key: &FactKey, source: String) -> bool {
+        if let Some(fact) = self.facts.get_mut(key) {
+            fact.reverify(source);
+            true
+        } else { false }
+    }
+
+    /// Get stale facts that need re-verification
+    pub fn stale_facts(&self) -> Vec<&Fact> {
+        self.facts.values().filter(|f| f.lifecycle == FactLifecycle::Stale).collect()
+    }
+
+    /// Remove archived facts
+    pub fn prune_archived(&mut self) -> usize {
+        let before = self.facts.len();
+        self.facts.retain(|_, f| f.lifecycle != FactLifecycle::Archived);
+        before - self.facts.len()
+    }
+
+    /// Get mutable access to facts (for testing)
+    pub fn facts_mut(&mut self) -> &mut HashMap<FactKey, Fact> {
+        &mut self.facts
     }
 }
 
-/// Result of checking if a fact is known
+// Tests moved to tests/facts_tests.rs
+
+/// Result of checking if a fact is known (v0.0.32: includes Stale)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FactStatus {
-    /// Fact is known and verified
     Known(String),
-    /// Fact exists but is unverified
     Unverified(String),
-    /// Fact is unknown
+    Stale(String),
     Unknown,
 }
 
 impl FactsStore {
-    /// Check the status of a fact
+    /// Check the status of a fact (considers lifecycle)
     pub fn status(&self, key: &FactKey) -> FactStatus {
         match self.facts.get(key) {
-            Some(f) if f.verified => FactStatus::Known(f.value.clone()),
-            Some(f) => FactStatus::Unverified(f.value.clone()),
+            Some(f) if f.is_usable() => FactStatus::Known(f.value.clone()),
+            Some(f) if f.lifecycle == FactLifecycle::Stale => FactStatus::Stale(f.value.clone()),
+            Some(f) if !f.verified => FactStatus::Unverified(f.value.clone()),
+            Some(f) => FactStatus::Stale(f.value.clone()), // Archived treated as stale
             None => FactStatus::Unknown,
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_fact_key_display() {
-        assert_eq!(FactKey::PreferredEditor.to_string(), "preferred_editor");
-        assert_eq!(FactKey::EditorInstalled("vim".to_string()).to_string(), "editor_installed:vim");
-        assert_eq!(FactKey::BinaryAvailable("nvim".to_string()).to_string(), "binary_available:nvim");
-    }
-
-    #[test]
-    fn test_fact_creation() {
-        let fact = Fact::verified(
-            FactKey::PreferredEditor,
-            "vim".to_string(),
-            "probe:which vim".to_string(),
-        );
-        assert!(fact.verified);
-        assert_eq!(fact.value, "vim");
-        assert_eq!(fact.source, "probe:which vim");
-    }
-
-    #[test]
-    fn test_facts_store_set_get() {
-        let mut store = FactsStore::new();
-
-        store.set_verified(
-            FactKey::PreferredEditor,
-            "vim".to_string(),
-            "user+verify".to_string(),
-        );
-
-        assert!(store.has_verified(&FactKey::PreferredEditor));
-        assert_eq!(store.get_verified(&FactKey::PreferredEditor), Some("vim"));
-    }
-
-    #[test]
-    fn test_facts_store_unverified_not_returned_as_verified() {
-        let mut store = FactsStore::new();
-
-        store.set_unverified(
-            FactKey::PreferredEditor,
-            "vim".to_string(),
-            "user_claim".to_string(),
-        );
-
-        assert!(!store.has_verified(&FactKey::PreferredEditor));
-        assert_eq!(store.get_verified(&FactKey::PreferredEditor), None);
-
-        // But we can get the unverified fact
-        assert!(store.get(&FactKey::PreferredEditor).is_some());
-    }
-
-    #[test]
-    fn test_facts_store_verify() {
-        let mut store = FactsStore::new();
-
-        store.set_unverified(
-            FactKey::PreferredEditor,
-            "vim".to_string(),
-            "user_claim".to_string(),
-        );
-
-        assert!(!store.has_verified(&FactKey::PreferredEditor));
-
-        store.verify(&FactKey::PreferredEditor, "probe:which vim".to_string());
-
-        assert!(store.has_verified(&FactKey::PreferredEditor));
-        assert_eq!(store.get_verified(&FactKey::PreferredEditor), Some("vim"));
-    }
-
-    #[test]
-    fn test_facts_store_save_load_deterministic() {
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("facts.json");
-
-        let mut store = FactsStore::new();
-        store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
-        store.set_verified(FactKey::PreferredShell, "zsh".to_string(), "test".to_string());
-        store.set_verified(
-            FactKey::BinaryAvailable("vim".to_string()),
-            "/usr/bin/vim".to_string(),
-            "test".to_string(),
-        );
-
-        store.save_to_path(&path).unwrap();
-        let content1 = fs::read_to_string(&path).unwrap();
-
-        // Save again
-        store.save_to_path(&path).unwrap();
-        let content2 = fs::read_to_string(&path).unwrap();
-
-        // Deterministic output
-        assert_eq!(content1, content2);
-
-        // Load and verify
-        let loaded = FactsStore::load_from_path(&path);
-        assert_eq!(loaded.get_verified(&FactKey::PreferredEditor), Some("vim"));
-        assert_eq!(loaded.get_verified(&FactKey::PreferredShell), Some("zsh"));
-    }
-
-    #[test]
-    fn test_facts_store_only_saves_verified() {
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("facts.json");
-
-        let mut store = FactsStore::new();
-        store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "verified".to_string());
-        store.set_unverified(FactKey::PreferredShell, "zsh".to_string(), "unverified".to_string());
-
-        store.save_to_path(&path).unwrap();
-
-        let loaded = FactsStore::load_from_path(&path);
-        assert!(loaded.has_verified(&FactKey::PreferredEditor));
-        assert!(!loaded.has_verified(&FactKey::PreferredShell));
-        assert!(loaded.get(&FactKey::PreferredShell).is_none()); // Not saved at all
-    }
-
-    #[test]
-    fn test_facts_store_overwrite() {
-        let mut store = FactsStore::new();
-
-        store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test1".to_string());
-        assert_eq!(store.get_verified(&FactKey::PreferredEditor), Some("vim"));
-
-        store.set_verified(FactKey::PreferredEditor, "nvim".to_string(), "test2".to_string());
-        assert_eq!(store.get_verified(&FactKey::PreferredEditor), Some("nvim"));
-    }
-
-    #[test]
-    fn test_fact_status() {
-        let mut store = FactsStore::new();
-
-        assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Unknown);
-
-        store.set_unverified(FactKey::PreferredEditor, "vim".to_string(), "claim".to_string());
-        assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Unverified("vim".to_string()));
-
-        store.verify(&FactKey::PreferredEditor, "probe".to_string());
-        assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Known("vim".to_string()));
-    }
-
-    #[test]
-    fn test_verified_facts_list() {
-        let mut store = FactsStore::new();
-        store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
-        store.set_verified(FactKey::PreferredShell, "zsh".to_string(), "test".to_string());
-        store.set_unverified(FactKey::InitSystem, "systemd".to_string(), "claim".to_string());
-
-        assert_eq!(store.verified_count(), 2);
-        assert_eq!(store.verified_facts().len(), 2);
-    }
-}
+// Tests in tests/facts_tests.rs

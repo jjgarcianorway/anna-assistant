@@ -1,9 +1,12 @@
-//! Per-team statistics for service desk analytics.
+//! Per-team and per-person statistics for service desk analytics (v0.0.32).
 //!
-//! Tracks ticket resolution metrics by team for monitoring and optimization.
+//! Tracks ticket resolution metrics by team and person for monitoring and optimization.
+//! Person stats allow tracking individual specialist performance.
 
+use crate::roster::{person_for, Tier};
 use crate::teams::Team;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Statistics for a single team
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -149,79 +152,147 @@ impl GlobalStats {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// === Per-Person Statistics (v0.0.32) ===
 
-    #[test]
-    fn test_team_stats_new() {
-        let stats = TeamStats::new(Team::Storage);
-        assert_eq!(stats.team, Team::Storage);
-        assert_eq!(stats.tickets_total, 0);
+/// Statistics for a single person in the roster
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PersonStats {
+    /// Person ID from roster
+    pub person_id: String,
+    /// Display name for convenience
+    pub display_name: String,
+    /// Team this person belongs to
+    pub team: Team,
+    /// Tier (junior/senior)
+    pub tier: String,
+    /// Total tickets closed by this person
+    pub tickets_closed: u64,
+    /// Tickets escalated to senior (only for juniors)
+    pub escalations_sent: u64,
+    /// Tickets received via escalation (only for seniors)
+    pub escalations_received: u64,
+    /// Average review loops before closure
+    pub avg_loops: f32,
+    /// Average reliability score of closed tickets
+    pub avg_score: f32,
+}
+
+impl PersonStats {
+    /// Create stats for a person
+    pub fn new(person_id: &str, display_name: &str, team: Team, tier: &str) -> Self {
+        Self {
+            person_id: person_id.to_string(),
+            display_name: display_name.to_string(),
+            team,
+            tier: tier.to_string(),
+            ..Default::default()
+        }
     }
 
-    #[test]
-    fn test_team_stats_record_verified() {
-        let mut stats = TeamStats::new(Team::Network);
-        stats.record_verified(2, 85, false);
-
-        assert_eq!(stats.tickets_total, 1);
-        assert_eq!(stats.tickets_verified, 1);
-        assert_eq!(stats.avg_rounds, 2.0);
-        assert_eq!(stats.avg_reliability_score, 85.0);
-        assert_eq!(stats.escalation_rate, 0.0);
+    /// Create stats from roster entry
+    pub fn from_roster(team: Team, tier: Tier) -> Self {
+        let person = person_for(team, tier);
+        Self::new(person.person_id, person.display_name, team, &tier.to_string())
     }
 
-    #[test]
-    fn test_team_stats_success_rate() {
-        let mut stats = TeamStats::new(Team::Performance);
-        stats.record_verified(1, 90, false);
-        stats.record_verified(2, 85, false);
-        stats.record_failed(3, 50, true);
-
-        assert_eq!(stats.tickets_total, 3);
-        assert!((stats.success_rate() - 0.666).abs() < 0.01);
+    /// Record a ticket closure
+    pub fn record_closure(&mut self, loops: u8, score: u8) {
+        self.tickets_closed += 1;
+        let n = self.tickets_closed as f32;
+        self.avg_loops = ((self.avg_loops * (n - 1.0)) + loops as f32) / n;
+        self.avg_score = ((self.avg_score * (n - 1.0)) + score as f32) / n;
     }
 
-    #[test]
-    fn test_global_stats_new() {
-        let stats = GlobalStats::new();
-        assert_eq!(stats.by_team.len(), 8);
-        assert!(stats.most_consulted_team.is_none());
+    /// Record an escalation sent (junior only)
+    pub fn record_escalation_sent(&mut self) {
+        self.escalations_sent += 1;
     }
 
-    #[test]
-    fn test_global_stats_record_ticket() {
-        let mut stats = GlobalStats::new();
-        stats.record_ticket(Team::Storage, true, 1, 90, false);
-        stats.record_ticket(Team::Storage, true, 2, 85, false);
-        stats.record_ticket(Team::Network, false, 3, 50, true);
-
-        assert_eq!(stats.total_requests, 3);
-        assert_eq!(stats.get_team(Team::Storage).unwrap().tickets_total, 2);
-        assert_eq!(stats.get_team(Team::Network).unwrap().tickets_total, 1);
-        assert_eq!(stats.most_consulted_team, Some(Team::Storage));
-    }
-
-    #[test]
-    fn test_global_stats_overall_success_rate() {
-        let mut stats = GlobalStats::new();
-        stats.record_ticket(Team::Storage, true, 1, 90, false);
-        stats.record_ticket(Team::Network, true, 1, 85, false);
-        stats.record_ticket(Team::Hardware, false, 3, 50, true);
-
-        assert!((stats.overall_success_rate() - 0.666).abs() < 0.01);
-    }
-
-    #[test]
-    fn test_serialization() {
-        let mut stats = GlobalStats::new();
-        stats.record_ticket(Team::Security, true, 1, 88, false);
-
-        let json = serde_json::to_string(&stats).unwrap();
-        let parsed: GlobalStats = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(parsed.total_requests, 1);
-        assert_eq!(parsed.get_team(Team::Security).unwrap().tickets_verified, 1);
+    /// Record an escalation received (senior only)
+    pub fn record_escalation_received(&mut self) {
+        self.escalations_received += 1;
     }
 }
+
+/// Per-person statistics tracker (v0.0.32)
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PersonStatsTracker {
+    /// Stats by person_id
+    pub by_person: HashMap<String, PersonStats>,
+}
+
+impl PersonStatsTracker {
+    /// Create new tracker with all roster entries
+    pub fn new() -> Self {
+        let mut by_person = HashMap::new();
+        for team in [
+            Team::Desktop, Team::Storage, Team::Network, Team::Performance,
+            Team::Services, Team::Security, Team::Hardware, Team::General,
+        ] {
+            for tier in [Tier::Junior, Tier::Senior] {
+                let stats = PersonStats::from_roster(team, tier);
+                by_person.insert(stats.person_id.clone(), stats);
+            }
+        }
+        Self { by_person }
+    }
+
+    /// Get or create stats for a person
+    pub fn get_person_mut(&mut self, person_id: &str) -> Option<&mut PersonStats> {
+        self.by_person.get_mut(person_id)
+    }
+
+    /// Get stats for a person
+    pub fn get_person(&self, person_id: &str) -> Option<&PersonStats> {
+        self.by_person.get(person_id)
+    }
+
+    /// Record a ticket closure by person
+    pub fn record_closure(&mut self, person_id: &str, loops: u8, score: u8) {
+        if let Some(stats) = self.by_person.get_mut(person_id) {
+            stats.record_closure(loops, score);
+        }
+    }
+
+    /// Record an escalation from junior to senior
+    pub fn record_escalation(&mut self, junior_id: &str, senior_id: &str) {
+        if let Some(jr) = self.by_person.get_mut(junior_id) {
+            jr.record_escalation_sent();
+        }
+        if let Some(sr) = self.by_person.get_mut(senior_id) {
+            sr.record_escalation_received();
+        }
+    }
+
+    /// Get top performers by tickets closed
+    pub fn top_closers(&self, limit: usize) -> Vec<&PersonStats> {
+        let mut sorted: Vec<_> = self.by_person.values()
+            .filter(|s| s.tickets_closed > 0)
+            .collect();
+        sorted.sort_by(|a, b| b.tickets_closed.cmp(&a.tickets_closed));
+        sorted.truncate(limit);
+        sorted
+    }
+
+    /// Get persons who escalated most (juniors)
+    pub fn top_escalators(&self, limit: usize) -> Vec<&PersonStats> {
+        let mut sorted: Vec<_> = self.by_person.values()
+            .filter(|s| s.escalations_sent > 0)
+            .collect();
+        sorted.sort_by(|a, b| b.escalations_sent.cmp(&a.escalations_sent));
+        sorted.truncate(limit);
+        sorted
+    }
+
+    /// Get persons with best average score
+    pub fn top_by_score(&self, limit: usize) -> Vec<&PersonStats> {
+        let mut sorted: Vec<_> = self.by_person.values()
+            .filter(|s| s.tickets_closed > 0)
+            .collect();
+        sorted.sort_by(|a, b| b.avg_score.partial_cmp(&a.avg_score).unwrap_or(std::cmp::Ordering::Equal));
+        sorted.truncate(limit);
+        sorted
+    }
+}
+
+// Tests moved to tests/stats_tests.rs
