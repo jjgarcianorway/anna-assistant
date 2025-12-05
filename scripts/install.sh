@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="0.0.18"
+VERSION="0.0.21"
 REPO="jjgarcianorway/anna-assistant"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
