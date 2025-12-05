@@ -10,17 +10,24 @@ use crate::ollama;
 
 /// Probe IDs for translator to select from
 pub const PROBE_IDS: &[&str] = &[
-    "top_memory",      // ps aux --sort=-%mem
-    "top_cpu",         // ps aux --sort=-%cpu
-    "cpu_info",        // lscpu
-    "memory_info",     // free -h
-    "disk_usage",      // df -h
-    "block_devices",   // lsblk
-    "network_addrs",   // ip addr show
-    "network_routes",  // ip route
-    "listening_ports", // ss -tulpn
-    "failed_services", // systemctl --failed
-    "system_logs",     // journalctl -p warning..alert -n 200 --no-pager
+    "top_memory",       // ps aux --sort=-%mem
+    "top_cpu",          // ps aux --sort=-%cpu
+    "cpu_info",         // lscpu
+    "memory_info",      // free -h
+    "disk_usage",       // df -h
+    "block_devices",    // lsblk
+    "network_addrs",    // ip addr show
+    "network_routes",   // ip route
+    "listening_ports",  // ss -tulpn
+    "failed_services",  // systemctl --failed
+    "system_logs",      // journalctl -p warning..alert -n 200 --no-pager
+    // v0.0.35: SystemTriage fast-path probes
+    "journal_errors",   // journalctl -p 3 -b --no-pager (errors only)
+    "journal_warnings", // journalctl -p 4 -b --no-pager (warnings only)
+    "failed_units",     // systemctl --failed --no-pager
+    "boot_time",        // systemd-analyze
+    "free",             // free -h (alias for memory_info)
+    "df",               // df -h (alias for disk_usage)
 ];
 
 /// Map probe ID to actual command
@@ -29,14 +36,18 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "top_memory" => Some("ps aux --sort=-%mem"),
         "top_cpu" => Some("ps aux --sort=-%cpu"),
         "cpu_info" => Some("lscpu"),
-        "memory_info" => Some("free -h"),
-        "disk_usage" => Some("df -h"),
+        "memory_info" | "free" => Some("free -h"),
+        "disk_usage" | "df" => Some("df -h"),
         "block_devices" => Some("lsblk"),
         "network_addrs" => Some("ip addr show"),
         "network_routes" => Some("ip route"),
         "listening_ports" => Some("ss -tulpn"),
-        "failed_services" => Some("systemctl --failed"),
+        "failed_services" | "failed_units" => Some("systemctl --failed --no-pager"),
         "system_logs" => Some("journalctl -p warning..alert -n 200 --no-pager"),
+        // v0.0.35: SystemTriage fast-path probes
+        "journal_errors" => Some("journalctl -p 3 -b --no-pager"),
+        "journal_warnings" => Some("journalctl -p 4 -b --no-pager"),
+        "boot_time" => Some("systemd-analyze"),
         _ => None,
     }
 }

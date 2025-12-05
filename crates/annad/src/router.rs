@@ -152,8 +152,9 @@ pub fn classify_query(query: &str) -> QueryClass {
     }
 
     // SystemTriage (FAST PATH): error/warning focused queries - check BEFORE SystemHealthSummary
-    // These get fast probes: journal_errors, failed_units only
-    // Pattern: "any X?", "is everything ok?", "how is my computer?"
+    // v0.0.35: Must match: "how is my computer", "any errors", "any problems", "is everything ok",
+    //          "warnings", "errors", "health", "status"
+    // No translator needed. probes=[journal_errors, journal_warnings, failed_units, boot_time]
     if stripped.contains("any errors")
         || stripped.contains("any problems")
         || stripped.contains("any issues")
@@ -167,27 +168,28 @@ pub fn classify_query(query: &str) -> QueryClass {
         || stripped.contains("how is my computer")
         || stripped.contains("how's my computer")
         || stripped.contains("computer doing")
+        || q.contains("health")     // v0.0.35: "health" -> triage, not full report
         || q.trim() == "errors"
         || q.trim() == "warnings"
         || q.trim() == "problems"
+        || q.trim() == "status"     // v0.0.35: bare "status" -> triage
+        || q.trim() == "health"
     {
         return QueryClass::SystemTriage;
     }
 
-    // System health summary: full system overview (health, summary, status report)
-    if q.contains("health")
-        || q.contains("summary")
+    // System health summary: FULL system overview (explicit "summary", "report", "overview")
+    // v0.0.35: Narrowed - only triggers on explicit full-report keywords
+    if q.contains("summary")
         || q.contains("status report")
         || q.contains("overview")
+        || q.contains("full report")
         || q.contains("system status")
         || stripped.contains("how is the system")
         || stripped.contains("how's the system")
         || stripped.contains("check my system")
         || stripped.contains("check the system")
         || stripped.contains("system check")
-        || stripped.contains("how am i doing")
-        || stripped.contains("how are things")
-        || q.trim() == "status"
         || q.trim() == "report"
     {
         return QueryClass::SystemHealthSummary;
@@ -333,14 +335,16 @@ pub fn get_route(query: &str) -> DeterministicRoute {
 
     match class {
         // FAST PATH: SystemTriage - errors/warnings only, no specialist needed
+        // v0.0.35: probes = [journal_errors, journal_warnings, failed_units, boot_time]
         QueryClass::SystemTriage => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question, // Not Investigate - we don't need specialist
             probes: vec![
-                "journal_errors".to_string(),   // journalctl -p 3 -b (err+)
-                "journal_warnings".to_string(), // journalctl -p 4 -b (warn)
-                "failed_units".to_string(),     // systemctl --failed
+                "journal_errors".to_string(),   // journalctl -p 3 -b --no-pager
+                "journal_warnings".to_string(), // journalctl -p 4 -b --no-pager
+                "failed_units".to_string(),     // systemctl --failed --no-pager
+                "boot_time".to_string(),        // systemd-analyze
             ],
             can_answer_deterministically: true,
         },

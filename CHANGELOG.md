@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.35] - 2025-12-05
+
+### Added
+- **SystemTriage patterns extended** (v0.0.35):
+  - "health", "status" now route to SystemTriage (fast path), not full report
+  - Added `boot_time` probe (systemd-analyze) to triage probes
+  - Patterns: "how is my computer", "any errors", "any problems", "health", "status"
+
+- **Journalctl parser module** (`parsers/journalctl.rs`):
+  - `JournalSummary` with `count_total` and `top: Vec<JournalTopItem>`
+  - Deterministic grouping by unit name (case-insensitive)
+  - Stable ordering: count desc, then key asc
+  - `BootTimeInfo` with millisecond precision (`total_ms`, `kernel_ms`, `userspace_ms`)
+  - `parse_boot_time()` extracts timing from systemd-analyze output
+
+- **ParsedProbeData variants** (parsers/mod.rs):
+  - `JournalErrors(JournalSummary)` for journalctl -p 3
+  - `JournalWarnings(JournalSummary)` for journalctl -p 4
+  - `BootTime(BootTimeInfo)` for systemd-analyze
+
+- **Editor clarification** (clarify.rs):
+  - `KNOWN_EDITORS` constant with vim, vi, nvim, nano, emacs, code, micro, hx
+  - `generate_editor_options_sync()` probes `which <editor>` for installed editors
+  - `verify_editor_installed()` checks if user's choice is available
+  - `generate_editor_clarification()` returns question + detected options
+
+- **RAG-lite keyword search** (recipe.rs):
+  - `RecipeMatch` struct with score and matched keywords
+  - `search_recipes_by_keywords()` returns top N matches deterministically
+  - Scoring: keyword matches + route_class/domain bonuses + reliability/maturity
+  - `find_config_edit_recipes()` for use before junior escalation
+
+### Changed
+- **SystemHealthSummary narrowed**: Only triggers on explicit "summary", "report", "overview"
+- **Probe mappings** (translator.rs): Added journal_errors, journal_warnings, failed_units, boot_time
+- **Triage answer format**: Shows boot time, evidence sources, top 3 error/warning keys
+
 ## [0.0.34] - 2025-12-05
 
 ### Added

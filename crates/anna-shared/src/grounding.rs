@@ -82,6 +82,9 @@ impl ParsedEvidence {
                 }
                 ParsedProbeData::BlockDevices(_)
                 | ParsedProbeData::Cpu(_)
+                | ParsedProbeData::JournalErrors(_)
+                | ParsedProbeData::JournalWarnings(_)
+                | ParsedProbeData::BootTime(_)
                 | ParsedProbeData::Error(_)
                 | ParsedProbeData::Unsupported => {}
             }

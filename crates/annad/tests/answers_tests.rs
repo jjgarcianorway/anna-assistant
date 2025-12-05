@@ -209,12 +209,14 @@ fn test_health_summary_disk_warnings() {
 }
 
 // === SystemHealthSummary Routing Tests ===
+// v0.0.35: "health" routes to SystemTriage (fast path), "summary" to SystemHealthSummary
 
 #[test]
 fn test_system_health_summary_routing_health() {
-    assert_eq!(classify_query("system health"), QueryClass::SystemHealthSummary);
-    assert_eq!(classify_query("health check"), QueryClass::SystemHealthSummary);
-    assert_eq!(classify_query("show health"), QueryClass::SystemHealthSummary);
+    // v0.0.35: "health" now routes to SystemTriage for fast error checking
+    assert_eq!(classify_query("system health"), QueryClass::SystemTriage);
+    assert_eq!(classify_query("health check"), QueryClass::SystemTriage);
+    assert_eq!(classify_query("show health"), QueryClass::SystemTriage);
 }
 
 #[test]
@@ -237,12 +239,25 @@ fn test_system_health_summary_routing_overview() {
 
 #[test]
 fn test_system_health_summary_probes() {
-    let route = get_route("system health");
+    // v0.0.35: "system health" now routes to SystemTriage, test the full summary route
+    let route = get_route("system summary");
     assert_eq!(route.class, QueryClass::SystemHealthSummary);
     // v0.0.32: Health brief uses different probes for relevant-only reporting
     assert!(route.probes.contains(&"disk_usage".to_string()));
     assert!(route.probes.contains(&"memory_info".to_string()));
     assert!(route.probes.contains(&"failed_services".to_string()));
     assert!(route.probes.contains(&"top_cpu".to_string()));
+    assert!(route.can_answer_deterministically);
+}
+
+#[test]
+fn test_system_triage_probes() {
+    // v0.0.35: SystemTriage fast path probes
+    let route = get_route("system health");
+    assert_eq!(route.class, QueryClass::SystemTriage);
+    assert!(route.probes.contains(&"journal_errors".to_string()));
+    assert!(route.probes.contains(&"journal_warnings".to_string()));
+    assert!(route.probes.contains(&"failed_units".to_string()));
+    assert!(route.probes.contains(&"boot_time".to_string()));
     assert!(route.can_answer_deterministically);
 }

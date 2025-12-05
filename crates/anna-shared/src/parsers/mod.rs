@@ -21,6 +21,7 @@
 pub mod atoms;
 pub mod df;
 pub mod free;
+pub mod journalctl;
 pub mod lsblk;
 pub mod lscpu;
 pub mod systemctl;
@@ -32,6 +33,12 @@ pub use atoms::{
 };
 pub use df::{find_by_mount, parse_df, resolve_mount_alias, DiskUsage};
 pub use free::{parse_free, MemoryInfo};
+pub use journalctl::{
+    parse_journalctl_priority, parse_boot_time,
+    JournalSummary, JournalTopItem, BootTimeInfo,
+    FailedUnit as JournalFailedUnit, // Alias to avoid conflict with systemctl
+    parse_failed_units as parse_journal_failed_units,
+};
 pub use lsblk::{parse_lsblk, find_root_device, total_disk_size, BlockDevice, BlockDeviceType};
 pub use lscpu::{parse_lscpu, CpuInfo};
 pub use systemctl::{
@@ -58,6 +65,12 @@ pub enum ParsedProbeData {
     BlockDevices(Vec<BlockDevice>),
     /// CPU info from `lscpu` (v0.0.22 STRUCT+)
     Cpu(CpuInfo),
+    /// Journal errors from `journalctl -p 3` (v0.0.35)
+    JournalErrors(JournalSummary),
+    /// Journal warnings from `journalctl -p 4` (v0.0.35)
+    JournalWarnings(JournalSummary),
+    /// Boot time from `systemd-analyze` (v0.0.35)
+    BootTime(BootTimeInfo),
     /// Parse error with diagnostic context
     Error(ParseError),
     /// Probe type not supported for structured parsing
@@ -180,6 +193,15 @@ pub fn parse_probe_output(command: &str, stdout: &str) -> ParsedProbeData {
             Ok(info) => ParsedProbeData::Cpu(info),
             Err(e) => ParsedProbeData::Error(e),
         }
+    } else if cmd_lower.starts_with("journalctl -p 3") {
+        // v0.0.35: Journal errors (priority 3 = err)
+        ParsedProbeData::JournalErrors(parse_journalctl_priority(stdout))
+    } else if cmd_lower.starts_with("journalctl -p 4") {
+        // v0.0.35: Journal warnings (priority 4 = warning)
+        ParsedProbeData::JournalWarnings(parse_journalctl_priority(stdout))
+    } else if cmd_lower.starts_with("systemd-analyze") {
+        // v0.0.35: Boot time
+        ParsedProbeData::BootTime(parse_boot_time(stdout))
     } else if cmd_lower.contains("systemctl") && cmd_lower.contains("--failed") {
         match parse_failed_units(command, stdout) {
             Ok(units) => ParsedProbeData::Services(units),

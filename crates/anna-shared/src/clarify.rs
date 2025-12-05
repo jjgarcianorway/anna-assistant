@@ -246,6 +246,72 @@ fn extract_service_name(query: &str) -> Option<String> {
     None
 }
 
+/// Known editors to check for (v0.0.35)
+pub const KNOWN_EDITORS: &[&str] = &["vim", "vi", "nvim", "nano", "emacs", "code", "micro", "hx"];
+
+/// Generate editor options based on installed editors (v0.0.35)
+/// Probes `command -v <editor>` to check availability.
+/// Returns ClarifyOptions with evidence for installed status.
+pub fn generate_editor_options_sync() -> Vec<ClarifyOption> {
+    let mut options = Vec::new();
+
+    for editor in KNOWN_EDITORS {
+        let installed = std::process::Command::new("command")
+            .args(["-v", editor])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        // Also try `which` as fallback (command -v may not work in all shells)
+        let installed = installed || std::process::Command::new("which")
+            .arg(editor)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if installed {
+            options.push(ClarifyOption::new(*editor, *editor)
+                .with_evidence("installed: true"));
+        }
+    }
+
+    // Always add "other" option
+    if !options.is_empty() {
+        options.push(ClarifyOption::new("other", "Other (specify)")
+            .with_evidence("custom input"));
+    }
+
+    options
+}
+
+/// Verify that an editor is installed (v0.0.35)
+pub fn verify_editor_installed(editor: &str) -> bool {
+    // Try `which <editor>`
+    std::process::Command::new("which")
+        .arg(editor)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Generate editor clarification with detected options (v0.0.35)
+pub fn generate_editor_clarification(facts: &FactsStore) -> (ClarifyQuestion, Vec<ClarifyOption>) {
+    let default = facts.get_verified(&FactKey::PreferredEditor)
+        .map(|s| s.to_string());
+
+    let question = ClarifyQuestion::new(
+        ClarifyKind::PreferredEditor,
+        "Which text editor do you prefer?"
+    )
+    .with_verify("which {}")
+    .with_hint("Select from installed editors or specify another")
+    .with_default(default.unwrap_or_default());
+
+    let options = generate_editor_options_sync();
+
+    (question, options)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,5 +381,38 @@ mod tests {
         assert_eq!(extract_service_name("is nginx running"), Some("nginx".to_string()));
         assert_eq!(extract_service_name("check foo.service status"), Some("foo".to_string()));
         assert_eq!(extract_service_name("show all services"), None);
+    }
+
+    #[test]
+    fn test_known_editors_list() {
+        assert!(KNOWN_EDITORS.contains(&"vim"));
+        assert!(KNOWN_EDITORS.contains(&"nano"));
+        assert!(KNOWN_EDITORS.contains(&"nvim"));
+    }
+
+    #[test]
+    fn test_clarify_option_with_evidence() {
+        let opt = ClarifyOption::new("vim", "Vim")
+            .with_evidence("installed: true")
+            .with_evidence("recently used: 5 times");
+        assert_eq!(opt.evidence.len(), 2);
+    }
+
+    #[test]
+    fn test_clarify_answer_structure() {
+        let answer = ClarifyAnswer {
+            question_id: "q1".to_string(),
+            selected_key: "vim".to_string(),
+        };
+        assert_eq!(answer.question_id, "q1");
+        assert_eq!(answer.selected_key, "vim");
+    }
+
+    #[test]
+    fn test_generate_editor_clarification() {
+        let facts = FactsStore::new();
+        let (question, _options) = generate_editor_clarification(&facts);
+        assert_eq!(question.kind, ClarifyKind::PreferredEditor);
+        assert!(question.question.contains("editor"));
     }
 }
