@@ -28,6 +28,8 @@ pub fn try_answer(
     let route_class = query_class.to_string();
 
     match query_class {
+        // FAST PATH: SystemTriage - errors/warnings only, no specialist
+        QueryClass::SystemTriage => crate::triage_answer::generate_triage_answer(probe_results),
         QueryClass::CpuInfo => probe_answers::answer_cpu_info(&context.hardware, probe_results)
             .map(|mut r| { r.route_class = route_class; r }),
         QueryClass::RamInfo => probe_answers::answer_ram_info(&context.hardware, probe_results)
@@ -49,6 +51,10 @@ pub fn try_answer(
         QueryClass::DiskUsage => answer_disk_usage(probe_results, &route_class),
         QueryClass::ServiceStatus => answer_service_status(probe_results, &route_class),
         QueryClass::SystemHealthSummary => answer_system_health_summary(probe_results, &route_class),
+        // RAG-first classes - handled by rag_answerer, not here
+        QueryClass::BootTimeStatus |
+        QueryClass::InstalledPackagesOverview |
+        QueryClass::AppAlternatives => None,
         QueryClass::Unknown => None,
     }
 }
@@ -134,44 +140,22 @@ fn answer_service_status(probes: &[ProbeResult], route_class: &str) -> Option<De
     None
 }
 
-/// Answer system health summary using multiple parsed probe outputs
+/// Answer system health summary using health brief (v0.0.32: relevant-only, not full report)
 fn answer_system_health_summary(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
-    use anna_shared::parsers::{parse_df, parse_free, parse_lsblk, parse_lscpu, ParsedProbeData};
+    use crate::health_brief_builder::build_health_brief;
 
-    let mut parsed_data: Vec<ParsedProbeData> = Vec::new();
+    // Build health brief from probes (only shows warnings/errors)
+    let brief = build_health_brief(probes);
 
-    // Parse free output
-    if let Some(probe) = find_probe(probes, "free") {
-        if let Ok(mem) = parse_free("free", &probe.stdout) {
-            parsed_data.push(ParsedProbeData::Memory(mem));
-        }
-    }
+    // Always return an answer - even if healthy
+    let answer = brief.format_answer();
+    let count = if brief.all_healthy { 1 } else { brief.items.len() };
 
-    // Parse df output
-    if let Some(probe) = find_probe(probes, "df") {
-        if let Ok(disks) = parse_df("df", &probe.stdout) {
-            parsed_data.push(ParsedProbeData::Disk(disks));
-        }
-    }
-
-    // Parse lsblk output
-    if let Some(probe) = find_probe(probes, "lsblk") {
-        if let Ok(devices) = parse_lsblk("lsblk", &probe.stdout) {
-            parsed_data.push(ParsedProbeData::BlockDevices(devices));
-        }
-    }
-
-    // Parse lscpu output
-    if let Some(probe) = find_probe(probes, "lscpu") {
-        if let Ok(cpu) = parse_lscpu("lscpu", &probe.stdout) {
-            parsed_data.push(ParsedProbeData::Cpu(cpu));
-        }
-    }
-
-    let count = parsed_data.len();
-    let answer = crate::answers::generate_health_summary(&parsed_data)?;
     Some(DeterministicResult {
-        answer, grounded: true, parsed_data_count: count, route_class: route_class.to_string(),
+        answer,
+        grounded: true,
+        parsed_data_count: count,
+        route_class: route_class.to_string(),
     })
 }
 

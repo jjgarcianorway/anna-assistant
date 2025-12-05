@@ -182,6 +182,104 @@ pub fn parse_ip_addr(output: &str) -> Vec<InterfaceInfo> {
     interfaces
 }
 
+// === Journal/Systemd Parsers (v0.0.34 FAST PATH) ===
+
+/// Journal entry from journalctl output
+#[derive(Debug, Clone)]
+pub struct JournalEntry {
+    pub unit: String,
+    pub message: String,
+}
+
+/// Parsed journal output with grouped entries
+#[derive(Debug, Default)]
+pub struct JournalSummary {
+    pub total_count: usize,
+    pub by_unit: Vec<(String, usize)>, // (unit, count) sorted by count desc
+    pub sample_messages: Vec<String>,  // Top N unique messages
+}
+
+/// Parse journalctl output (priority 3=err or 4=warn)
+/// Format: "Dec 05 10:00:00 hostname unit[pid]: message"
+pub fn parse_journalctl(output: &str) -> JournalSummary {
+    use std::collections::HashMap;
+    let mut by_unit: HashMap<String, usize> = HashMap::new();
+    let mut messages: Vec<String> = Vec::new();
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            continue;
+        }
+        // Extract unit name (between hostname and [pid]:)
+        // Format: "Dec 05 10:00:00 hostname unit[pid]: message"
+        if let Some(unit) = extract_journal_unit(trimmed) {
+            *by_unit.entry(unit).or_default() += 1;
+        }
+        // Collect sample messages (first 10 unique)
+        if messages.len() < 10 && !messages.contains(&trimmed.to_string()) {
+            messages.push(trimmed.to_string());
+        }
+    }
+
+    // Sort by count descending
+    let mut sorted: Vec<_> = by_unit.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1));
+
+    JournalSummary {
+        total_count: sorted.iter().map(|(_, c)| c).sum(),
+        by_unit: sorted.into_iter().take(5).collect(),
+        sample_messages: messages,
+    }
+}
+
+/// Extract unit name from journal line
+fn extract_journal_unit(line: &str) -> Option<String> {
+    // Skip timestamp (3 fields: "Dec 05 10:00:00")
+    let parts: Vec<&str> = line.splitn(5, ' ').collect();
+    if parts.len() < 5 {
+        return None;
+    }
+    // parts[3] = hostname, parts[4] = "unit[pid]: message" or "kernel: message"
+    let rest = parts.get(4)?;
+    let unit = rest.split(['[', ':']).next()?;
+    Some(unit.to_string())
+}
+
+/// Failed unit from systemctl --failed output
+#[derive(Debug, Clone)]
+pub struct FailedUnit {
+    pub name: String,
+    pub load_state: String,
+    pub active_state: String,
+    pub description: String,
+}
+
+/// Parse systemctl --failed output
+pub fn parse_failed_units(output: &str) -> Vec<FailedUnit> {
+    let mut units = Vec::new();
+
+    for line in output.lines() {
+        let trimmed = line.trim().trim_start_matches('●').trim();
+        if trimmed.is_empty() || trimmed.starts_with("UNIT") || trimmed.contains("loaded units") {
+            continue;
+        }
+        // Format: "unit.service loaded failed failed Description"
+        // Use split_whitespace to handle variable spacing
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+        if parts.len() >= 4 && parts[0].contains('.') {
+            units.push(FailedUnit {
+                name: parts[0].to_string(),
+                load_state: parts.get(1).unwrap_or(&"").to_string(),
+                active_state: parts.get(2).unwrap_or(&"").to_string(),
+                description: parts.get(4..).map(|s| s.join(" ")).unwrap_or_default(),
+            });
+        }
+    }
+
+    units
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -223,5 +321,38 @@ user      1234  5.0 10.2 500000 51200 ?        Sl   10:00   1:23 firefox";
         assert_eq!(ifaces[1].name, "eth0");
         assert_eq!(ifaces[1].ipv4, Some("192.168.1.100".to_string()));
         assert_eq!(ifaces[1].state, "UP");
+    }
+
+    #[test]
+    fn test_parse_journalctl() {
+        let output = "Dec 05 10:00:00 myhost systemd[1]: Failed to start Some Service.
+Dec 05 10:01:00 myhost kernel: Error in something
+Dec 05 10:02:00 myhost systemd[1]: Another error message
+Dec 05 10:03:00 myhost nginx[1234]: Connection refused";
+        let summary = parse_journalctl(output);
+        assert_eq!(summary.total_count, 4);
+        assert_eq!(summary.by_unit[0].0, "systemd"); // Most frequent
+        assert_eq!(summary.by_unit[0].1, 2);
+        assert_eq!(summary.sample_messages.len(), 4);
+    }
+
+    #[test]
+    fn test_parse_failed_units() {
+        let output = "  UNIT                   LOAD   ACTIVE SUB    DESCRIPTION
+● nginx.service         loaded failed failed Nginx Web Server
+● redis.service         loaded failed failed Redis Database
+0 loaded units listed.";
+        let units = parse_failed_units(output);
+        assert_eq!(units.len(), 2);
+        assert_eq!(units[0].name, "nginx.service");
+        assert_eq!(units[0].active_state, "failed");
+    }
+
+    #[test]
+    fn test_empty_journal() {
+        let output = "";
+        let summary = parse_journalctl(output);
+        assert_eq!(summary.total_count, 0);
+        assert!(summary.by_unit.is_empty());
     }
 }

@@ -200,9 +200,10 @@ pub fn create_timeout_response(
         reliability_explanation: None, // No explanation for timeout
         domain,
         evidence,
-        needs_clarification: true,
+        // v0.0.32: Don't ask to rephrase - provide status instead
+        needs_clarification: false,
         clarification_question: Some(format!(
-            "The {} stage timed out. Please try again or simplify your request.",
+            "The {} stage took longer than expected. I've recorded this for analysis.",
             stage
         )),
         transcript,

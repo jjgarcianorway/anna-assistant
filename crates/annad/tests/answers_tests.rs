@@ -239,9 +239,10 @@ fn test_system_health_summary_routing_overview() {
 fn test_system_health_summary_probes() {
     let route = get_route("system health");
     assert_eq!(route.class, QueryClass::SystemHealthSummary);
-    assert!(route.probes.contains(&"free".to_string()));
-    assert!(route.probes.contains(&"df".to_string()));
-    assert!(route.probes.contains(&"lsblk".to_string()));
-    assert!(route.probes.contains(&"lscpu".to_string()));
+    // v0.0.32: Health brief uses different probes for relevant-only reporting
+    assert!(route.probes.contains(&"disk_usage".to_string()));
+    assert!(route.probes.contains(&"memory_info".to_string()));
+    assert!(route.probes.contains(&"failed_services".to_string()));
+    assert!(route.probes.contains(&"top_cpu".to_string()));
     assert!(route.can_answer_deterministically);
 }

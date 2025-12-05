@@ -221,7 +221,7 @@ fn print_kv(key: &str, value: &str, width: usize) {
     println!("{:width$} {}", key, value, width = width);
 }
 
-/// Print REPL header with optional telemetry (v0.0.29)
+/// Print REPL header with optional telemetry (v0.0.34: relevant-only, no full report)
 pub fn print_repl_header() {
     use anna_shared::telemetry::TelemetrySnapshot;
 
@@ -230,32 +230,57 @@ pub fn print_repl_header() {
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!("Anna is a local Linux service desk living on your machine.");
 
-    // Show measured telemetry if available (v0.0.29)
+    // v0.0.34: Show only relevant deltas - errors, failed units, boot changes
     let telemetry = TelemetrySnapshot::collect();
-    if telemetry.has_data() {
-        print!("{}[telemetry]{} ", colors::DIM, colors::RESET);
-        let mut parts = Vec::new();
+    let mut alerts = Vec::new();
 
-        if let Some(delta_ms) = telemetry.boot_delta_ms {
-            let delta_secs = delta_ms.abs() as f64 / 1000.0;
+    // Check for failed units (fast, no LLM)
+    if let Ok(output) = std::process::Command::new("systemctl")
+        .args(["--failed", "--no-pager", "-q"])
+        .output()
+    {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let failed_count = stdout.lines()
+                .filter(|l| l.contains(".service") || l.contains(".mount"))
+                .count();
+            if failed_count > 0 {
+                alerts.push(format!("{}{}failed units{}", colors::WARN, failed_count, colors::RESET));
+            }
+        }
+    }
+
+    // Check for recent errors this boot (journalctl -p 3 count, fast)
+    if let Ok(output) = std::process::Command::new("journalctl")
+        .args(["-p", "3", "-b", "--no-pager", "-q"])
+        .output()
+    {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let error_count = stdout.lines().count();
+            if error_count > 0 {
+                alerts.push(format!("{} journal errors", error_count));
+            }
+        }
+    }
+
+    // Boot time delta from telemetry
+    if let Some(delta_ms) = telemetry.boot_delta_ms {
+        let delta_secs = delta_ms.abs() as f64 / 1000.0;
+        if delta_ms.abs() > 500 { // Only show if > 0.5s change
             if delta_ms < 0 {
-                parts.push(format!("boot {:.1}s faster", delta_secs));
-            } else if delta_ms > 0 {
-                parts.push(format!("boot {:.1}s slower", delta_secs));
+                alerts.push(format!("boot {:.1}s faster", delta_secs));
+            } else {
+                alerts.push(format!("boot {:.1}s slower", delta_secs));
             }
         }
+    }
 
-        if let Some(pkg_count) = telemetry.package_changes {
-            if pkg_count > 0 {
-                parts.push(format!("{} pkg changes", pkg_count));
-            }
-        }
-
-        if !parts.is_empty() {
-            println!("{}", parts.join(", "));
-        } else {
-            println!("no recent changes");
-        }
+    // Show alerts or "all clear"
+    if !alerts.is_empty() {
+        println!("{}[status]{} {}", colors::DIM, colors::RESET, alerts.join(" | "));
+    } else {
+        println!("{}[status]{} {}{} no issues{}", colors::DIM, colors::RESET, colors::OK, symbols::OK, colors::RESET);
     }
 
     println!(

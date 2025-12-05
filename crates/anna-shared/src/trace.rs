@@ -163,6 +163,10 @@ pub enum EvidenceKind {
     BlockDevices,
     Cpu,
     Services,
+    /// Journal errors/warnings (v0.0.34)
+    Journal,
+    /// Failed systemd units (v0.0.34)
+    FailedUnits,
 }
 
 impl std::fmt::Display for EvidenceKind {
@@ -173,6 +177,8 @@ impl std::fmt::Display for EvidenceKind {
             Self::BlockDevices => "block_devices",
             Self::Cpu => "cpu",
             Self::Services => "services",
+            Self::Journal => "journal",
+            Self::FailedUnits => "failed_units",
         };
         write!(f, "{}", s)
     }
@@ -190,6 +196,11 @@ pub fn evidence_kinds_from_route(route_class: &str) -> Vec<EvidenceKind> {
             EvidenceKind::Disk,
             EvidenceKind::BlockDevices,
             EvidenceKind::Cpu,
+        ],
+        // v0.0.34: SystemTriage (FAST PATH)
+        "system_triage" => vec![
+            EvidenceKind::Journal,
+            EvidenceKind::FailedUnits,
         ],
         _ => vec![],
     }
@@ -270,6 +281,21 @@ impl ExecutionTrace {
             probe_stats,
             evidence_kinds: vec![],
             answer_is_deterministic: false,
+            reviewer_outcome: None,
+        }
+    }
+
+    /// Create a trace for global request timeout (v0.0.34)
+    pub fn global_timeout(timeout_secs: u64) -> Self {
+        Self {
+            specialist_outcome: SpecialistOutcome::Timeout,
+            fallback_used: FallbackUsed::Timeout {
+                route_class: "global".to_string(),
+                timeout_ms: timeout_secs * 1000,
+            },
+            probe_stats: ProbeStats::default(),
+            evidence_kinds: vec![],
+            answer_is_deterministic: true, // The timeout response is deterministic
             reviewer_outcome: None,
         }
     }

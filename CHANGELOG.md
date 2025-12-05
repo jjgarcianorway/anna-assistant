@@ -7,49 +7,131 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.34] - 2025-12-05
+
+### Added
+- **FAST PATH routing (SystemTriage)**: Zero-timeout path for "how is my computer?" queries
+  - New `QueryClass::SystemTriage` routes error-focused queries before SystemHealthSummary
+  - Probes: `journal_errors`, `journal_warnings`, `failed_units` only (no disk/memory unless needed)
+  - Matches: "any errors", "any problems", "is everything ok", "how is my computer"
+
+- **Journalctl parser** (`parsers.rs`):
+  - `parse_journalctl()`: Parses error/warning output with unit grouping
+  - `parse_failed_units()`: Extracts failed systemd units
+  - `JournalSummary` and `FailedUnit` structs for deterministic processing
+
+- **Deterministic triage answer generator** (`triage_answer.rs`):
+  - `generate_triage_answer()`: Produces deterministic answers from journal/systemctl evidence
+  - Rules: "No critical issues" + warnings, or list errors/failed units
+  - Always includes evidence summary for auditability
+
+- **CLARIFY loop enhancements** (`clarify.rs`):
+  - `ClarifyOption` with evidence strings (e.g., "installed: true")
+  - `ClarifyAnswer` for structured user responses
+  - Verification probes for all clarification types
+
+- **Evidence kinds** (`trace.rs`):
+  - New `EvidenceKind::Journal` and `EvidenceKind::FailedUnits`
+  - `evidence_kinds_from_route("system_triage")` returns Journal + FailedUnits
+
+- **REPL greeting UX** (`display.rs`):
+  - Shows only relevant deltas on startup: failed units, journal errors, boot delta
+  - No full report unless user asks `annactl report`
+
+### Changed
+- **RESCUE hardening (Phase D)**:
+  - Global timeout responses no longer say "please rephrase"
+  - Provides deterministic status answer with actionable suggestions
+  - New `ExecutionTrace::global_timeout()` for tracing
+  - All timeout responses set `needs_clarification: false`
+
+## [0.0.33] - 2025-12-05
+
+### Added
+- **Knowledge Store (RAG-first)**: Local retrieval system for fast, deterministic answers
+  - `knowledge/sources.rs`: KnowledgeDoc, KnowledgeSource enum (Recipe, SystemFact, PackageFact, ArchWiki, AUR, Journal, Usage)
+  - `knowledge/index.rs`: BM25-lite keyword index for sub-50ms retrieval
+  - `knowledge/retrieval.rs`: RetrievalQuery, RetrievalHit with source filtering
+  - `knowledge/store.rs`: KnowledgeStore with JSONL persistence at ~/.anna/knowledge/
+  - `knowledge/conversion.rs`: Recipe-to-KnowledgeDoc conversion for learning
+
+- **System Collectors**: On-demand knowledge gathering from system state
+  - `collectors.rs`: collect_boot_time() from systemd-analyze
+  - `collectors.rs`: collect_packages() from pacman -Q or dpkg
+  - `collectors.rs`: collect_journal_errors() from journalctl -p 3 -b
+  - Full provenance tracking for auditability
+
+- **RAG-first Query Classes**: Direct answers from knowledge store, skip LLM
+  - `QueryClass::BootTimeStatus`: "boot time", "how long to boot"
+  - `QueryClass::InstalledPackagesOverview`: "how many packages", "what's installed"
+  - `QueryClass::AppAlternatives`: "alternative to vim", "instead of firefox"
+  - `rag_answerer.rs`: try_rag_answer() routes queries through knowledge store
+
+### Changed
+- Knowledge answers use collectors on-demand if store is empty (collect-then-answer pattern)
+- App alternatives suggest importing Arch Wiki/AUR data when knowledge is missing
+
+### Fixed
+- BriefSeverity now implements Default (required for HealthBrief)
+- Integer overflow in health_brief_builder for terabyte sizes
+
 ## [0.0.32] - 2025-12-05
 
 ### Added
-- **Humanized IT Department Roster (Phase 1)**: Stable person profiles for service desk narration
+- **Humanized IT Department Roster**: Stable person profiles for service desk narration
   - `roster.rs` module with PersonProfile struct (person_id, display_name, role_title, team, tier)
   - Deterministic `person_for(team, tier)` mapping - same inputs always return same person
   - 16 named specialists: Alex, Morgan, Jordan, Taylor, Riley, Casey, Drew, Quinn, etc.
-  - `team_roster()` and `all_persons()` for listing roster entries
-  - Person-based narration functions in `narrator.rs`
 
-- **Fact Lifecycle Management (Phase 2)**: Facts with TTL, staleness, and automatic expiration
+- **Fact Lifecycle Management**: Facts with TTL, staleness, and automatic expiration
   - `StalenessPolicy` enum: Never, TTLSeconds(u64), SessionOnly
   - `FactLifecycle` enum: Active, Stale, Archived
-  - Default policies per FactKey (e.g., InitSystem: Never, PreferredEditor: 180 days)
   - `apply_lifecycle()` transitions facts based on current time
-  - `invalidate()`, `reverify()`, `stale_facts()`, `prune_archived()` methods
-  - Facts with `is_usable()` check for both verified AND active lifecycle
 
-- **Minimal Ticket Brief (Phase 3)**: Team-relevance filtering for specialist reviews
-  - `brief.rs` module with TicketBrief struct
-  - `relevant_evidence_for_team()` maps Team to relevant EvidenceKind
-  - `build_brief_from_ticket()` filters probe results by team domain
-  - Storage team only sees Disk/BlockDevices, Performance sees Memory/Cpu, etc.
-  - Reduces noise in specialist review context
+- **Health Brief (NEW)**: Relevant-only health status for "how is my computer" queries
+  - `health_brief.rs` module with BriefSeverity (Ok, Warning, Error) and BriefItem
+  - Only shows actionable items: disk warnings (>85%), memory pressure (>90%), failed services
+  - `HealthBrief.format_answer()` returns "Your system is healthy" when nothing needs attention
+  - Replaces full system reports for health queries
 
-- **Per-Person Statistics (Phase 4)**: Track individual specialist performance
+- **Clarify Module (NEW)**: Clarification questions with verification probes
+  - `clarify.rs` module with ClarifyKind enum (PreferredEditor, ServiceName, MountPoint, etc.)
+  - `ClarifyQuestion` struct with verification probe template
+  - `generate_question()` creates questions with defaults from facts
+  - `needs_clarification()` checks if clarification is needed based on query
+
+- **Per-Person Statistics**: Track individual specialist performance
   - `PersonStats` struct with tickets_closed, escalations_sent/received, avg_loops, avg_score
   - `PersonStatsTracker` tracks all 16 roster entries
-  - `record_closure()`, `record_escalation()` methods
-  - `top_closers()`, `top_escalators()`, `top_by_score()` rankings
 
 ### Changed
-- **Always-Answer Behavior (Phase 5)**: Removed "Could you rephrase" failure mode
+- **Fast Translator Model**: Use smaller, faster model to eliminate timeouts
+  - Changed default translator model from qwen2.5:1.5b-instruct to qwen2.5:0.5b-instruct
+  - Changed default supervisor model from qwen2.5:1.5b-instruct to qwen2.5:0.5b-instruct
+  - Reduced translator timeout from 4s to 2s
+  - Reduced specialist timeout from 8s to 6s
+
+- **Faster Budget Defaults**: Bias toward deterministic answers
+  - Translator budget: 5s → 1.5s
+  - Probes budget: 12s → 8s
+  - Specialist budget: 15s → 6s
+  - Supervisor budget: 8s → 4s
+  - Total budget: 25s → 18s
+
+- **Health Query Routing**: SystemHealthSummary now uses HealthBrief
+  - Routes to health_brief_builder instead of full system summary
+  - Uses disk_usage, memory_info, failed_services, top_cpu probes
+  - Returns "healthy" status when no issues detected
+
+- **Always-Answer Behavior**: Removed "Could you rephrase" failure mode
   - `create_no_data_response()` now builds best-effort answer from available probe data
-  - `build_best_effort_answer()` summarizes successful probes even when incomplete
   - Never asks for rephrase - always provides actionable information
-  - Reliability score reflects data quality, not whether an answer was given
+  - Timeout responses no longer ask user to "try again"
 
 ### Technical
-- Tests moved to separate files to keep modules under 400 lines
-- All 300+ tests passing
-- Golden tests for deterministic person mapping and string output
-- Backward-compatible serialization for lifecycle fields
+- Tests updated for new default values
+- Golden tests for deterministic health brief output
+- All files under 400 lines
 
 ## [0.0.31] - 2025-12-05
 

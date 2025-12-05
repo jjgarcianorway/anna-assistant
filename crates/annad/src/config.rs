@@ -55,7 +55,8 @@ pub struct LlmConfig {
 }
 
 fn default_translator_model() -> String {
-    "qwen2.5:1.5b-instruct".to_string()
+    // v0.0.32: Use smallest fast model for translator to avoid timeouts
+    "qwen2.5:0.5b-instruct".to_string()
 }
 
 fn default_specialist_model() -> String {
@@ -63,15 +64,16 @@ fn default_specialist_model() -> String {
 }
 
 fn default_supervisor_model() -> String {
-    "qwen2.5:1.5b-instruct".to_string()
+    // v0.0.32: Use same small model as translator for speed
+    "qwen2.5:0.5b-instruct".to_string()
 }
 
 fn default_translator_timeout() -> u64 {
-    4
+    2 // v0.0.32: reduced from 4 - fast translator should be quick
 }
 
 fn default_specialist_timeout() -> u64 {
-    8 // v0.0.30: reduced from 12 since we have deterministic fallback
+    6 // v0.0.32: reduced from 8 - bias toward deterministic fallback
 }
 
 fn default_max_specialist_prompt() -> usize {
@@ -135,23 +137,23 @@ pub struct BudgetConfig {
 }
 
 fn default_translator_budget() -> u64 {
-    5_000 // 5 seconds
+    1_500 // v0.0.32: 1.5s - fast translator with 0.5b model
 }
 
 fn default_probes_budget() -> u64 {
-    12_000 // 12 seconds
+    8_000 // v0.0.32: 8s - reasonable probe window
 }
 
 fn default_specialist_budget() -> u64 {
-    15_000 // 15 seconds
+    6_000 // v0.0.32: 6s - bias toward deterministic fallback
 }
 
 fn default_supervisor_budget() -> u64 {
-    8_000 // 8 seconds
+    4_000 // v0.0.32: 4s - review gate
 }
 
 fn default_total_budget() -> u64 {
-    25_000 // 25 seconds
+    18_000 // v0.0.32: 18s total - faster response bias
 }
 
 fn default_margin_budget() -> u64 {
@@ -307,9 +309,10 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = Config::default();
-        assert_eq!(config.llm.translator_model, "qwen2.5:1.5b-instruct");
+        // v0.0.32: fast translator with 0.5b model
+        assert_eq!(config.llm.translator_model, "qwen2.5:0.5b-instruct");
         assert_eq!(config.llm.specialist_model, "qwen2.5:7b-instruct");
-        assert_eq!(config.llm.translator_timeout_secs, 4);
+        assert_eq!(config.llm.translator_timeout_secs, 2);
     }
 
     #[test]
@@ -332,7 +335,7 @@ translator_timeout_secs = 5
         assert_eq!(config.llm.translator_model, "custom:1b");
         assert_eq!(config.llm.specialist_model, "custom:7b");
         assert_eq!(config.llm.translator_timeout_secs, 5);
-        // Defaults for missing fields (v0.0.30: specialist timeout reduced to 8)
-        assert_eq!(config.llm.specialist_timeout_secs, 8);
+        // Defaults for missing fields (v0.0.32: specialist timeout reduced to 6)
+        assert_eq!(config.llm.specialist_timeout_secs, 6);
     }
 }

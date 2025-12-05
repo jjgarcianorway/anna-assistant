@@ -60,16 +60,29 @@ async fn handle_llm_request(
 }
 
 fn make_timeout_response(id: String, request_id: String, timeout_secs: u64) -> RpcResponse {
+    // v0.0.34: Never ask to rephrase - provide a deterministic status answer
+    let answer = format!(
+        "**Request Timeout**\n\n\
+         The request exceeded the {}s budget. This typically means:\n\n\
+         - The LLM backend is under load or unavailable\n\
+         - The query requires complex analysis\n\n\
+         **What you can do:**\n\
+         - Check `annactl status` to verify LLM availability\n\
+         - Try a more specific question (e.g., \"any errors?\" instead of broad queries)\n\n\
+         *Evidence: global timeout, no probes completed*",
+        timeout_secs
+    );
+
     let result = anna_shared::rpc::ServiceDeskResult {
-        request_id, answer: String::new(), reliability_score: 0,
+        request_id, answer, reliability_score: 20, // Low but not zero - we provided info
         reliability_signals: anna_shared::rpc::ReliabilitySignals::default(),
-        reliability_explanation: None, // No explanation for hard timeout
+        reliability_explanation: None,
         domain: anna_shared::rpc::SpecialistDomain::System,
         evidence: anna_shared::rpc::EvidenceBlock::default(),
-        needs_clarification: true,
-        clarification_question: Some(format!("Request timed out after {}s. Please simplify your query.", timeout_secs)),
+        needs_clarification: false, // Never ask to rephrase
+        clarification_question: None,
         transcript: anna_shared::transcript::Transcript::default(),
-        execution_trace: None, // Global timeout - no trace available
+        execution_trace: Some(anna_shared::trace::ExecutionTrace::global_timeout(timeout_secs)),
     };
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
 }

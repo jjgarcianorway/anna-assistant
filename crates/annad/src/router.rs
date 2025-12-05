@@ -13,6 +13,9 @@ use tracing::info;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryClass {
+    /// System triage: "any errors", "any problems", "warnings" => fast path, no specialist
+    /// probes=[journal_errors, failed_units] - errors/warnings only, not full report
+    SystemTriage,
     /// CPU info: cpu/processor/cores => domain=system, probes=[]
     CpuInfo,
     /// RAM info: ram/memory (not process) => domain=system, probes=[]
@@ -31,19 +34,20 @@ pub enum QueryClass {
     Help,
     /// System slow: slow/sluggish => domain=system, probes=[top_cpu, top_memory, disk_usage]
     SystemSlow,
-    // === ROUTE Phase: New typed classes ===
-    /// Memory usage: "how much memory", "memory usage" => domain=system, probes=[free]
-    /// Uses ParsedProbeData::Memory (MemoryInfo) for typed answers
+    /// Memory usage: "how much memory" => domain=system, probes=[free]
     MemoryUsage,
-    /// Disk usage: "disk usage", "how full" => domain=storage, probes=[df]
-    /// Uses ParsedProbeData::Disk (Vec<DiskUsage>) for typed answers
+    /// Disk usage: "disk usage" => domain=storage, probes=[df]
     DiskUsage,
-    /// Service status: "is nginx running", "service status" => domain=system, probes=[systemctl]
-    /// Uses ParsedProbeData::Service/Services for typed answers
+    /// Service status: "is nginx running" => domain=system, probes=[systemctl]
     ServiceStatus,
-    /// System health summary: "health", "summary", "overview" => domain=system
-    /// probes=[free, df, lsblk, lscpu] - Combines memory, disk, block devices, CPU info
+    /// System health summary: "health", "summary" => full system overview
     SystemHealthSummary,
+    /// Boot time status: from knowledge store
+    BootTimeStatus,
+    /// Installed packages overview: from knowledge store
+    InstalledPackagesOverview,
+    /// App alternatives: from knowledge store
+    AppAlternatives,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -51,6 +55,7 @@ pub enum QueryClass {
 impl std::fmt::Display for QueryClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
+            Self::SystemTriage => "system_triage",
             Self::CpuInfo => "cpu_info",
             Self::RamInfo => "ram_info",
             Self::GpuInfo => "gpu_info",
@@ -64,6 +69,9 @@ impl std::fmt::Display for QueryClass {
             Self::DiskUsage => "disk_usage",
             Self::ServiceStatus => "service_status",
             Self::SystemHealthSummary => "system_health_summary",
+            Self::BootTimeStatus => "boot_time_status",
+            Self::InstalledPackagesOverview => "installed_packages_overview",
+            Self::AppAlternatives => "app_alternatives",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -74,6 +82,7 @@ impl QueryClass {
     /// Parse from string (for corpus tests)
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
+            "system_triage" => Some(Self::SystemTriage),
             "cpu_info" => Some(Self::CpuInfo),
             "ram_info" => Some(Self::RamInfo),
             "gpu_info" => Some(Self::GpuInfo),
@@ -87,9 +96,22 @@ impl QueryClass {
             "disk_usage" => Some(Self::DiskUsage),
             "service_status" => Some(Self::ServiceStatus),
             "system_health_summary" => Some(Self::SystemHealthSummary),
+            "boot_time_status" => Some(Self::BootTimeStatus),
+            "installed_packages_overview" => Some(Self::InstalledPackagesOverview),
+            "app_alternatives" => Some(Self::AppAlternatives),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
+    }
+
+    /// Check if this class is RAG-first (answered from knowledge store)
+    pub fn is_rag_first(&self) -> bool {
+        matches!(self, Self::BootTimeStatus | Self::InstalledPackagesOverview | Self::AppAlternatives)
+    }
+
+    /// Check if this class is a fast-path (skip translator, no specialist)
+    pub fn is_fast_path(&self) -> bool {
+        matches!(self, Self::SystemTriage | Self::Help)
     }
 }
 
@@ -129,32 +151,42 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::Help;
     }
 
-    // System health summary (multi-probe overview) - v0.0.30: expanded patterns
-    // Catches "how is my computer", "any errors", "problems so far", etc.
+    // SystemTriage (FAST PATH): error/warning focused queries - check BEFORE SystemHealthSummary
+    // These get fast probes: journal_errors, failed_units only
+    // Pattern: "any X?", "is everything ok?", "how is my computer?"
+    if stripped.contains("any errors")
+        || stripped.contains("any problems")
+        || stripped.contains("any issues")
+        || stripped.contains("any warnings")
+        || stripped.contains("errors so far")
+        || stripped.contains("problems so far")
+        || stripped.contains("what's wrong")
+        || stripped.contains("whats wrong")
+        || stripped.contains("is everything ok")
+        || stripped.contains("is everything okay")
+        || stripped.contains("how is my computer")
+        || stripped.contains("how's my computer")
+        || stripped.contains("computer doing")
+        || q.trim() == "errors"
+        || q.trim() == "warnings"
+        || q.trim() == "problems"
+    {
+        return QueryClass::SystemTriage;
+    }
+
+    // System health summary: full system overview (health, summary, status report)
     if q.contains("health")
         || q.contains("summary")
         || q.contains("status report")
         || q.contains("overview")
         || q.contains("system status")
-        // New patterns for v0.0.30 hotfix
-        || stripped.contains("how is my computer")
-        || stripped.contains("how's my computer")
         || stripped.contains("how is the system")
         || stripped.contains("how's the system")
-        || stripped.contains("any errors")
-        || stripped.contains("any problems")
-        || stripped.contains("problems so far")
-        || stripped.contains("errors so far")
-        || stripped.contains("what's wrong")
-        || stripped.contains("whats wrong")
-        || stripped.contains("is everything ok")
-        || stripped.contains("is everything okay")
         || stripped.contains("check my system")
         || stripped.contains("check the system")
         || stripped.contains("system check")
         || stripped.contains("how am i doing")
         || stripped.contains("how are things")
-        || stripped.contains("computer doing")
         || q.trim() == "status"
         || q.trim() == "report"
     {
@@ -255,6 +287,43 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::NetworkInterfaces;
     }
 
+    // === RAG-first classes (v0.0.32R): answered from knowledge store ===
+
+    // Boot time status
+    if q.contains("boot time")
+        || q.contains("bootup")
+        || q.contains("startup time")
+        || q.contains("how long to boot")
+        || q.contains("how fast does it boot")
+        || (q.contains("boot") && q.contains("seconds"))
+    {
+        return QueryClass::BootTimeStatus;
+    }
+
+    // Installed packages overview
+    if q.contains("how many packages")
+        || q.contains("packages installed")
+        || q.contains("what's installed")
+        || q.contains("what is installed")
+        || q.contains("list packages")
+        || q.contains("installed software")
+        || (q.contains("packages") && q.contains("count"))
+    {
+        return QueryClass::InstalledPackagesOverview;
+    }
+
+    // App alternatives
+    if q.contains("alternative to")
+        || q.contains("alternatives to")
+        || q.contains("instead of")
+        || q.contains("replacement for")
+        || q.contains("similar to")
+        || q.contains("like")
+        || (q.contains("what") && q.contains("use") && q.contains("instead"))
+    {
+        return QueryClass::AppAlternatives;
+    }
+
     QueryClass::Unknown
 }
 
@@ -263,6 +332,18 @@ pub fn get_route(query: &str) -> DeterministicRoute {
     let class = classify_query(query);
 
     match class {
+        // FAST PATH: SystemTriage - errors/warnings only, no specialist needed
+        QueryClass::SystemTriage => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question, // Not Investigate - we don't need specialist
+            probes: vec![
+                "journal_errors".to_string(),   // journalctl -p 3 -b (err+)
+                "journal_warnings".to_string(), // journalctl -p 4 -b (warn)
+                "failed_units".to_string(),     // systemctl --failed
+            ],
+            can_answer_deterministically: true,
+        },
         QueryClass::CpuInfo => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
@@ -356,12 +437,35 @@ pub fn get_route(query: &str) -> DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
+            // v0.0.32: Use health brief probes (relevant-only, not full report)
             probes: vec![
-                "free".to_string(),
-                "df".to_string(),
-                "lsblk".to_string(),
-                "lscpu".to_string(),
+                "disk_usage".to_string(),     // df -h: Disk warnings
+                "memory_info".to_string(),    // free -h: Memory pressure
+                "failed_services".to_string(), // systemctl --failed: Failed services
+                "top_cpu".to_string(),        // ps aux: High CPU processes
             ],
+            can_answer_deterministically: true,
+        },
+        // === RAG-first classes (v0.0.32R): answered from knowledge store ===
+        QueryClass::BootTimeStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec![], // Answered from knowledge store, may trigger collector
+            can_answer_deterministically: true,
+        },
+        QueryClass::InstalledPackagesOverview => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Packages,
+            intent: QueryIntent::Question,
+            probes: vec![], // Answered from knowledge store, may trigger collector
+            can_answer_deterministically: true,
+        },
+        QueryClass::AppAlternatives => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Packages,
+            intent: QueryIntent::Question,
+            probes: vec![], // Answered from knowledge store (cached wiki/aur data)
             can_answer_deterministically: true,
         },
         QueryClass::Unknown => DeterministicRoute {

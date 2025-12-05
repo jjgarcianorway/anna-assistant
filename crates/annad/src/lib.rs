@@ -1,11 +1,13 @@
 //! Anna daemon library - exposes modules for testing.
 
 pub mod answers;
+pub mod collectors;
 pub mod config;
 pub mod deterministic;
 pub mod handlers;
 pub mod hardware;
 pub mod health;
+pub mod health_brief_builder;
 pub mod ollama;
 pub mod parsers;
 pub mod permissions;
@@ -14,6 +16,7 @@ pub mod probe_runner;
 pub mod probes;
 pub mod progress_tracker;
 pub mod prompts;
+pub mod rag_answerer;
 pub mod redact;
 pub mod router;
 #[cfg(test)]
@@ -26,6 +29,7 @@ pub mod state;
 pub mod summarizer;
 pub mod ticket_loop;
 pub mod ticket_service;
+pub mod triage_answer;
 pub mod translator;
 pub mod triage;
 pub mod update;
