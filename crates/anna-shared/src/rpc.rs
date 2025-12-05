@@ -17,6 +17,8 @@ pub enum RpcMethod {
     Probe,
     /// Get progress events for current/last request
     Progress,
+    /// Get per-team statistics (v0.0.27)
+    Stats,
 }
 
 /// JSON-RPC 2.0 request

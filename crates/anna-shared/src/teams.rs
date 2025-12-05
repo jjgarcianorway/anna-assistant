@@ -116,10 +116,15 @@ fn team_from_route_class(route_class: &str) -> Option<Team> {
         s if s.contains("permission") => Some(Team::Security),
         s if s.contains("selinux") => Some(Team::Security),
 
-        // Desktop routes
+        // Desktop routes (v0.0.27: expanded for editor config)
         s if s.contains("editor") => Some(Team::Desktop),
         s if s.contains("desktop") => Some(Team::Desktop),
         s if s.contains("gui") => Some(Team::Desktop),
+        s if s.contains("vim") => Some(Team::Desktop),
+        s if s.contains("nano") => Some(Team::Desktop),
+        s if s.contains("emacs") => Some(Team::Desktop),
+        s if s.contains("syntax") => Some(Team::Desktop),
+        s if s.contains("config_edit") => Some(Team::Desktop),
 
         _ => None,
     }

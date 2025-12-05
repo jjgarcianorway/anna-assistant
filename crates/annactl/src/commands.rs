@@ -8,7 +8,7 @@ use anyhow::Result;
 use std::io::{self, Write};
 
 use crate::client::{AnnadClient, StreamingClient};
-use crate::display::{print_progress_event, print_repl_header, print_status_display, show_bootstrap_progress};
+use crate::display::{print_progress_event, print_repl_header, print_stats_display, print_status_display, show_bootstrap_progress};
 use crate::transcript_render;
 
 /// Handle status command
@@ -16,6 +16,14 @@ pub async fn handle_status(debug: bool) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
     let status = client.status().await?;
     print_status_display(&status, debug);
+    Ok(())
+}
+
+/// Handle stats command (v0.0.27)
+pub async fn handle_stats() -> Result<()> {
+    let mut client = AnnadClient::connect().await?;
+    let stats = client.stats().await?;
+    print_stats_display(&stats);
     Ok(())
 }
 

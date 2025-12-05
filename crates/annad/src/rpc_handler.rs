@@ -36,6 +36,7 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         RpcMethod::Autofix => handlers::handle_autofix(state, id).await,
         RpcMethod::Probe => handlers::handle_probe(state, id, request.params).await,
         RpcMethod::Progress => handlers::handle_progress(state, id).await,
+        RpcMethod::Stats => handlers::handle_stats(state, id).await,
     }
 }
 

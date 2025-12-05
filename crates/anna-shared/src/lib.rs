@@ -2,7 +2,9 @@
 
 pub mod advice;
 pub mod budget;
+pub mod change;
 pub mod claims;
+pub mod config_intent;
 pub mod error;
 pub mod grounding;
 pub mod guard;

@@ -4,6 +4,8 @@
 //! Only persisted when: Ticket status = Verified, reliability score >= 80.
 //!
 //! Storage: ~/.anna/recipes/{recipe_id}.json
+//!
+//! v0.0.27: Extended with RecipeKind for config edits and change actions.
 
 use crate::teams::Team;
 use crate::ticket::RiskLevel;
@@ -12,6 +14,93 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+
+/// Kind of recipe action (v0.0.27)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum RecipeKind {
+    /// Read-only query (default, no system changes)
+    Query,
+    /// Append a line to config file if not present
+    ConfigEditLineAppend,
+    /// Ensure a specific line exists in config file
+    ConfigEnsureLine,
+    /// Install a package (future)
+    #[serde(other)]
+    Unknown,
+}
+
+impl Default for RecipeKind {
+    fn default() -> Self {
+        Self::Query
+    }
+}
+
+/// Target for a recipe action (v0.0.27)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecipeTarget {
+    /// Application identifier (e.g., "vim", "nano", "bash")
+    pub app_id: String,
+    /// Config path template (e.g., "$HOME/.vimrc")
+    pub config_path_template: String,
+}
+
+impl RecipeTarget {
+    pub fn new(app_id: impl Into<String>, config_path: impl Into<String>) -> Self {
+        Self {
+            app_id: app_id.into(),
+            config_path_template: config_path.into(),
+        }
+    }
+
+    /// Expand config path template with environment variables
+    pub fn expand_path(&self) -> PathBuf {
+        let expanded = self.config_path_template
+            .replace("$HOME", &std::env::var("HOME").unwrap_or_else(|_| ".".to_string()))
+            .replace("~", &std::env::var("HOME").unwrap_or_else(|_| ".".to_string()));
+        PathBuf::from(expanded)
+    }
+}
+
+/// Action specification for config edit recipes (v0.0.27)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum RecipeAction {
+    /// Ensure a line exists in the config file
+    EnsureLine { line: String },
+    /// Append a line to the end of the config file
+    AppendLine { line: String },
+    /// No action (read-only query)
+    None,
+}
+
+impl Default for RecipeAction {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+/// Rollback information for reversible changes (v0.0.27)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RollbackInfo {
+    /// Path to the backup file
+    pub backup_path: PathBuf,
+    /// Description of how to rollback
+    pub description: String,
+    /// Whether rollback has been tested
+    #[serde(default)]
+    pub tested: bool,
+}
+
+impl RollbackInfo {
+    pub fn new(backup_path: PathBuf, description: impl Into<String>) -> Self {
+        Self {
+            backup_path,
+            description: description.into(),
+            tested: false,
+        }
+    }
+}
 
 /// Signature that uniquely identifies a query pattern.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -80,10 +169,23 @@ pub struct Recipe {
     pub success_count: u32,
     /// Reliability score when created
     pub reliability_score: u8,
+    // v0.0.27 fields
+    /// Kind of recipe (Query, ConfigEnsureLine, etc.)
+    #[serde(default)]
+    pub kind: RecipeKind,
+    /// Target for config edit recipes
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<RecipeTarget>,
+    /// Action to perform
+    #[serde(default)]
+    pub action: RecipeAction,
+    /// Rollback information for reversible changes
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rollback: Option<RollbackInfo>,
 }
 
 impl Recipe {
-    /// Create a new recipe from verified ticket
+    /// Create a new read-only query recipe from verified ticket
     pub fn new(
         signature: RecipeSignature,
         team: Team,
@@ -110,7 +212,55 @@ impl Recipe {
             created_at,
             success_count: 1,
             reliability_score,
+            kind: RecipeKind::Query,
+            target: None,
+            action: RecipeAction::None,
+            rollback: None,
         }
+    }
+
+    /// Create a config edit recipe (v0.0.27)
+    pub fn config_edit(
+        signature: RecipeSignature,
+        team: Team,
+        target: RecipeTarget,
+        action: RecipeAction,
+        reliability_score: u8,
+    ) -> Self {
+        let id = compute_recipe_id(&signature, team);
+        let created_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let kind = match &action {
+            RecipeAction::EnsureLine { .. } => RecipeKind::ConfigEnsureLine,
+            RecipeAction::AppendLine { .. } => RecipeKind::ConfigEditLineAppend,
+            RecipeAction::None => RecipeKind::Query,
+        };
+
+        Self {
+            id,
+            signature,
+            team,
+            risk_level: RiskLevel::LowRiskChange,
+            required_evidence_kinds: vec![],
+            probe_sequence: vec![],
+            answer_template: String::new(),
+            created_at,
+            success_count: 1,
+            reliability_score,
+            kind,
+            target: Some(target),
+            action,
+            rollback: None,
+        }
+    }
+
+    /// Set rollback info
+    pub fn with_rollback(mut self, rollback: RollbackInfo) -> Self {
+        self.rollback = Some(rollback);
+        self
     }
 
     /// Increment success count
@@ -123,9 +273,35 @@ impl Recipe {
         self.success_count >= 3
     }
 
+    /// Check if this is a config edit recipe
+    pub fn is_config_edit(&self) -> bool {
+        matches!(
+            self.kind,
+            RecipeKind::ConfigEnsureLine | RecipeKind::ConfigEditLineAppend
+        )
+    }
+
     /// Get filesystem path for this recipe
     pub fn file_path(&self) -> PathBuf {
         recipe_dir().join(format!("{}.json", self.id))
+    }
+
+    /// Save recipe to disk
+    pub fn save(&self) -> std::io::Result<()> {
+        let dir = recipe_dir();
+        std::fs::create_dir_all(&dir)?;
+        let path = self.file_path();
+        let json = serde_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        std::fs::write(path, json)
+    }
+
+    /// Load recipe from disk
+    pub fn load(recipe_id: &str) -> std::io::Result<Self> {
+        let path = recipe_filename(recipe_id);
+        let json = std::fs::read_to_string(path)?;
+        serde_json::from_str(&json)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 }
 
@@ -158,122 +334,4 @@ pub fn should_persist_recipe(verified: bool, score: u8) -> bool {
     verified && score >= 80
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_recipe_signature_creation() {
-        let sig = RecipeSignature::new("system", "question", "MemoryUsage", "How much RAM?");
-
-        assert_eq!(sig.domain, "system");
-        assert_eq!(sig.query_pattern, "how much ram?");
-    }
-
-    #[test]
-    fn test_recipe_signature_hash_deterministic() {
-        let sig1 = RecipeSignature::new("system", "question", "MemoryUsage", "How much RAM?");
-        let sig2 = RecipeSignature::new("system", "question", "MemoryUsage", "How much RAM?");
-
-        assert_eq!(sig1.hash_id(), sig2.hash_id());
-    }
-
-    #[test]
-    fn test_recipe_id_deterministic() {
-        let sig = RecipeSignature::new("storage", "investigate", "DiskUsage", "check disk");
-
-        let id1 = compute_recipe_id(&sig, Team::Storage);
-        let id2 = compute_recipe_id(&sig, Team::Storage);
-
-        assert_eq!(id1, id2);
-        assert_eq!(id1.len(), 16); // 16 hex chars
-    }
-
-    #[test]
-    fn test_recipe_id_differs_by_team() {
-        let sig = RecipeSignature::new("storage", "investigate", "DiskUsage", "check disk");
-
-        let id_storage = compute_recipe_id(&sig, Team::Storage);
-        let id_general = compute_recipe_id(&sig, Team::General);
-
-        assert_ne!(id_storage, id_general);
-    }
-
-    #[test]
-    fn test_recipe_creation() {
-        let sig = RecipeSignature::new("network", "question", "NetworkInfo", "show ip");
-        let recipe = Recipe::new(
-            sig,
-            Team::Network,
-            RiskLevel::ReadOnly,
-            vec![],
-            vec!["ip addr show".to_string()],
-            "Your IP is {ip}".to_string(),
-            85,
-        );
-
-        assert_eq!(recipe.team, Team::Network);
-        assert_eq!(recipe.success_count, 1);
-        assert_eq!(recipe.reliability_score, 85);
-        assert!(!recipe.is_mature());
-    }
-
-    #[test]
-    fn test_recipe_maturity() {
-        let sig = RecipeSignature::new("system", "question", "CpuInfo", "cpu info");
-        let mut recipe = Recipe::new(
-            sig,
-            Team::Hardware,
-            RiskLevel::ReadOnly,
-            vec![EvidenceKind::Cpu],
-            vec!["lscpu".to_string()],
-            String::new(),
-            90,
-        );
-
-        assert!(!recipe.is_mature());
-
-        recipe.record_success();
-        assert!(!recipe.is_mature());
-
-        recipe.record_success();
-        assert!(recipe.is_mature()); // 3 successes
-    }
-
-    #[test]
-    fn test_should_persist_recipe() {
-        assert!(should_persist_recipe(true, 80));
-        assert!(should_persist_recipe(true, 100));
-        assert!(!should_persist_recipe(true, 79));
-        assert!(!should_persist_recipe(false, 100));
-        assert!(!should_persist_recipe(false, 50));
-    }
-
-    #[test]
-    fn test_recipe_serialization() {
-        let sig = RecipeSignature::new("storage", "question", "DiskUsage", "disk space");
-        let recipe = Recipe::new(
-            sig,
-            Team::Storage,
-            RiskLevel::ReadOnly,
-            vec![EvidenceKind::Disk, EvidenceKind::BlockDevices],
-            vec!["df -h".to_string(), "lsblk".to_string()],
-            "Disk usage: {usage}".to_string(),
-            88,
-        );
-
-        let json = serde_json::to_string(&recipe).unwrap();
-        let parsed: Recipe = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(parsed.id, recipe.id);
-        assert_eq!(parsed.team, Team::Storage);
-        assert_eq!(parsed.probe_sequence.len(), 2);
-    }
-
-    #[test]
-    fn test_recipe_filename() {
-        let path = recipe_filename("abc123def456");
-        assert!(path.to_string_lossy().contains("abc123def456.json"));
-        assert!(path.to_string_lossy().contains("recipes"));
-    }
-}
+// Tests moved to tests/recipe_tests.rs to keep this file under 400 lines

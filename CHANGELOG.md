@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.27] - 2025-12-05
+
+### Added
+- **Recipe Learning Loop**: Team-tagged recipes for learning from successful patterns
+  - `RecipeKind` enum: Query, ConfigEnsureLine, ConfigEditLineAppend
+  - `RecipeTarget` struct with app_id and config_path_template
+  - `RecipeAction` enum: EnsureLine, AppendLine, None
+  - `RollbackInfo` struct for reversible changes
+  - Recipe persistence to `~/.anna/recipes/` with deterministic naming
+  - Only persists when: Ticket status = Verified, reliability score >= 80
+
+- **Safe Change Engine**: Backup-first, idempotent config edits
+  - `ChangePlan` struct describing what will change before execution
+  - `ChangeResult` struct with applied, was_noop, backup_path, diagnostics
+  - `ChangeOperation` enum: EnsureLine, AppendLine
+  - `ChangeRisk` levels: Low, Medium, High
+  - `plan_ensure_line()` function for planning changes
+  - `apply_change()` function with automatic backup
+  - `rollback()` function to restore from backup
+  - Deterministic backup naming using path hash
+
+- **Config Intent Detection**: Pattern-based detection for config edit requests
+  - `detect_vim_config_intent()` for vim config patterns
+  - `detect_config_intent()` for general config detection
+  - Supports: syntax on, line numbers, autoindent, mouse, tabs
+  - Bridges query classification to change engine
+
+- **Stats Command**: Per-team statistics via `annactl stats`
+  - Total requests, success rate, avg reliability
+  - Per-team breakdown: total, success, failed, avg rounds, avg score
+  - Most consulted team indicator
+
+- **Enhanced Team Routing**: Desktop team routes for editor configs
+  - Added vim, nano, emacs, syntax, config_edit route classes
+
+### Changed
+- Extracted change.rs tests to tests/change_tests.rs (under 400 lines)
+- Added `Stats` RPC method for statistics retrieval
+
+### Tests
+- 8 new change engine tests (tempdir-based)
+- 9 new config intent detection tests
+- 18 recipe tests including v0.0.27 config edit recipes
+
 ## [0.0.26] - 2025-12-05
 
 ### Added

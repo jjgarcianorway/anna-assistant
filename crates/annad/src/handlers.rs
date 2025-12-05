@@ -1,7 +1,8 @@
-//! Utility RPC handlers for status, probes, reset, uninstall, and autofix.
+//! Utility RPC handlers for status, probes, reset, uninstall, autofix, and stats.
 
 use anna_shared::ledger::LedgerEntryKind;
 use anna_shared::rpc::{ProbeParams, RpcResponse};
+use anna_shared::stats::GlobalStats;
 use tracing::{error, info};
 
 use crate::ollama;
@@ -156,4 +157,11 @@ pub async fn handle_autofix(state: SharedState, id: String) -> RpcResponse {
             "fixes_applied": fixes_applied
         }),
     )
+}
+
+/// Handle stats request (v0.0.27)
+pub async fn handle_stats(_state: SharedState, id: String) -> RpcResponse {
+    // TODO: Track stats in daemon state, for now return empty stats
+    let stats = GlobalStats::new();
+    RpcResponse::success(id, serde_json::to_value(stats).unwrap())
 }

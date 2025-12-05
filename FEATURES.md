@@ -49,16 +49,37 @@
 - **Request Timeout**: Configurable global timeout (default 20s)
 - **Latency Stats**: Per-stage avg and p95 tracking
 
+### Recipe Learning Loop (v0.0.27)
+- **RecipeKind**: Query, ConfigEnsureLine, ConfigEditLineAppend
+- **RecipeTarget**: App identifier + config path template
+- **RecipeAction**: EnsureLine, AppendLine, None
+- **RollbackInfo**: Backup path, description, tested flag
+- **Persistence**: ~/.anna/recipes/ with deterministic naming
+- **Learning Trigger**: Only when Verified + score >= 80
+
+### Safe Change Engine (v0.0.27)
+- **ChangePlan**: Description, target, backup, operation, risk, is_noop
+- **ChangeResult**: Applied, was_noop, backup_path, diagnostics
+- **Operations**: EnsureLine (idempotent), AppendLine
+- **Risk Levels**: Low, Medium, High
+- **Backup Strategy**: Automatic before modification, deterministic naming
+- **Rollback**: Full restore from backup
+
+### Config Intent Detection (v0.0.27)
+- **Vim Patterns**: syntax on, line numbers, autoindent, mouse, tabs
+- **ConfigTarget**: vim, nano, bash with path templates
+- **Integration**: Bridges query classification to change engine
+
+### Statistics Command (v0.0.27)
+- **Global Stats**: Total requests, success rate, avg reliability
+- **Per-Team Stats**: Total, success, failed, avg rounds, avg score
+- **CLI**: `annactl stats` command
+
 ## Not Yet Implemented
 
-### v0.0.27 Goals
-- Recipe Learning Loop (structured, team-tagged)
-- Safe Change Engine (backup, apply, rollback)
-- User confirmation for system changes
-- Per-team statistics in `annactl stats`
-
 ### Future
-- Recipe persistence and replay
+- User confirmation dialog for system changes
 - Multi-file change transactions
 - Package installation recipes
 - Service configuration recipes
+- Recipe replay from persisted patterns

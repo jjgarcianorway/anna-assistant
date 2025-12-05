@@ -10,7 +10,7 @@ mod transcript_render;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_repl, handle_request, handle_reset, handle_status, handle_uninstall};
+use crate::commands::{handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
 use crate::report_cmd::handle_report;
 
 /// Anna - Local AI Assistant
@@ -39,6 +39,8 @@ enum Command {
         #[arg(long)]
         debug: bool,
     },
+    /// Show per-team statistics (v0.0.27)
+    Stats,
     /// Generate a system health report
     Report {
         /// Output format: text (default) or md
@@ -57,6 +59,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Some(Command::Status { debug }) => handle_status(debug).await,
+        Some(Command::Stats) => handle_stats().await,
         Some(Command::Report { format }) => handle_report(&format).await,
         Some(Command::Uninstall) => handle_uninstall().await,
         Some(Command::Reset) => handle_reset().await,

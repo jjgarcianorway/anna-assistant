@@ -2,6 +2,7 @@
 
 use anna_shared::progress::ProgressEvent;
 use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
+use anna_shared::stats::GlobalStats;
 use anna_shared::status::DaemonStatus;
 use anna_shared::SOCKET_PATH;
 use anyhow::{anyhow, Result};
@@ -224,6 +225,21 @@ impl AnnadClient {
             .ok_or_else(|| anyhow!("No result in response"))?;
         let events: Vec<ProgressEvent> = serde_json::from_value(result)?;
         Ok(events)
+    }
+
+    /// Get per-team statistics (v0.0.27)
+    pub async fn stats(&mut self) -> Result<GlobalStats> {
+        let response = self.call(RpcMethod::Stats, None).await?;
+
+        if let Some(error) = response.error {
+            return Err(anyhow!("Stats error: {}", error.message));
+        }
+
+        let result = response
+            .result
+            .ok_or_else(|| anyhow!("No result in response"))?;
+        let stats: GlobalStats = serde_json::from_value(result)?;
+        Ok(stats)
     }
 }
 
