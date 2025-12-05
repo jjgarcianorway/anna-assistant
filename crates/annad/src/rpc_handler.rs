@@ -1,11 +1,11 @@
 //! RPC request handlers with deterministic routing, triage, and fallback.
 
-use anna_shared::probe_spine::enforce_spine_probes;
+use anna_shared::probe_spine::{enforce_minimum_probes, enforce_spine_probes, probe_to_command};
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
 use anna_shared::trace::{
-    evidence_kinds_from_route, ExecutionTrace, ProbeStats, SpecialistOutcome,
+    evidence_kinds_from_probes, ExecutionTrace, ProbeStats, SpecialistOutcome,
 };
 use anna_shared::transcript::TranscriptEvent;
 use std::time::Instant;
@@ -192,13 +192,22 @@ async fn handle_llm_request_inner(
         (ticket, None, false)
     };
 
-    // Step 2.5: Enforce probe spine (v0.45.x stabilization)
-    // If the translator proposed empty probes but the query requires evidence,
-    // enforce minimum probes from the spine.
-    let (enforced_probes, spine_reason) = enforce_spine_probes(&ticket.needs_probes, &det_route.capability);
-    if let Some(ref reason) = spine_reason {
-        info!("Probe spine enforced: {}", reason);
-        ticket.needs_probes = enforced_probes;
+    // Step 2.5: Enforce probe spine (v0.45.2 - user text based)
+    // FIRST: Use keyword matching on user text to force probes (last line of defense)
+    let spine_decision = enforce_minimum_probes(query, &ticket.needs_probes);
+    if spine_decision.enforced {
+        info!("Probe spine enforced from user text: {}", spine_decision.reason);
+        // Convert ProbeId to command strings
+        ticket.needs_probes = spine_decision.probes.iter()
+            .map(|p| probe_to_command(p))
+            .collect();
+    } else {
+        // FALLBACK: Try route-capability based enforcement
+        let (enforced_probes, spine_reason) = enforce_spine_probes(&ticket.needs_probes, &det_route.capability);
+        if let Some(ref reason) = spine_reason {
+            info!("Probe spine enforced from route: {}", reason);
+            ticket.needs_probes = enforced_probes;
+        }
     }
 
     let classified_domain = ticket.domain;
@@ -307,12 +316,13 @@ async fn handle_llm_request_inner(
         Some(anna_shared::trace::FallbackUsed::None)
     };
 
+    // v0.45.2: Derive evidence kinds from ACTUAL probes, not route class
+    let actual_evidence_kinds = evidence_kinds_from_probes(&probe_results);
+
     let fallback_ctx = service_desk::FallbackContext {
         used_deterministic_fallback,
         fallback_route_class: fallback_route_class.clone().unwrap_or_default(),
-        evidence_kinds: fallback_route_class.as_ref()
-            .map(|rc| evidence_kinds_from_route(rc).iter().map(|k| k.to_string()).collect())
-            .unwrap_or_default(),
+        evidence_kinds: actual_evidence_kinds.iter().map(|k| k.to_string()).collect(),
         specialist_outcome: Some(outcome),
         fallback_used,
         // v0.45.x: Pass route capability's evidence_required for proper spine enforcement
@@ -327,9 +337,7 @@ async fn handle_llm_request_inner(
 
     // Step 9: Build execution trace
     let probe_stats = ProbeStats::from_results(ticket_probes_planned, &probe_results);
-    let evidence_kinds = fallback_route_class.as_ref()
-        .map(|rc| evidence_kinds_from_route(rc))
-        .unwrap_or_default();
+    let evidence_kinds = actual_evidence_kinds;
 
     result.execution_trace = Some(match outcome {
         SpecialistOutcome::Skipped => {

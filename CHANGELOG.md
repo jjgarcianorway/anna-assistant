@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.47] - 2025-12-05
+
+### Fixed - v0.45.2 Stabilization
+- **Probe Spine Enforcement** (`probe_spine.rs`):
+  - NEW `enforce_minimum_probes()` function uses USER TEXT keyword matching
+  - Last line of defense: "do I have nano?" now forces pacman_q+command_v probes
+  - "sound card" queries force lspci_audio probe
+  - "temperature" queries force sensors probe
+  - "cores" queries force lscpu probe
+  - "how is my computer" queries force journal+failed_units probes
+
+- **UX Truthfulness** (`trace.rs`, `rpc_handler.rs`):
+  - NEW `evidence_kinds_from_probes()` derives evidence from ACTUAL probe results
+  - No longer claims evidence kinds from route class alone
+  - ExecutionTrace.evidence_kinds now truthfully reflects gathered data
+
+- **Golden Regression Tests** (`probe_spine_tests.rs`):
+  - Tests for all 6 failure scenarios that triggered v0.45.2 work
+  - "Do I have nano?" test ensures pacman_q probe enforced
+  - "What is my sound card?" test ensures lspci_audio enforced
+  - "CPU temperature?" test ensures sensors enforced
+  - "How many cores?" test ensures lscpu enforced
+  - "How is my computer doing?" test ensures journal probes enforced
+
+### Changed
+- Moved probe_spine tests to separate test file (under 400 line limit)
+
 ## [0.0.46] - 2025-12-05
 
 ### Added

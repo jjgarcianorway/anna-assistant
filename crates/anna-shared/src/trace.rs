@@ -184,7 +184,7 @@ impl std::fmt::Display for EvidenceKind {
     }
 }
 
-/// Derive evidence kinds from route class name
+/// Derive evidence kinds from route class name (legacy, use evidence_kinds_from_probes for truthfulness)
 pub fn evidence_kinds_from_route(route_class: &str) -> Vec<EvidenceKind> {
     match route_class {
         "memory_usage" | "ram_info" => vec![EvidenceKind::Memory],
@@ -197,13 +197,31 @@ pub fn evidence_kinds_from_route(route_class: &str) -> Vec<EvidenceKind> {
             EvidenceKind::BlockDevices,
             EvidenceKind::Cpu,
         ],
-        // v0.0.34: SystemTriage (FAST PATH)
         "system_triage" => vec![
             EvidenceKind::Journal,
             EvidenceKind::FailedUnits,
         ],
         _ => vec![],
     }
+}
+
+/// Derive evidence kinds from ACTUAL probe results (v0.45.2 truthfulness)
+pub fn evidence_kinds_from_probes(probe_results: &[crate::rpc::ProbeResult]) -> Vec<EvidenceKind> {
+    let mut kinds = Vec::new();
+    for probe in probe_results {
+        if probe.exit_code != 0 { continue; }
+        let cmd = probe.command.to_lowercase();
+        if cmd.contains("free") { kinds.push(EvidenceKind::Memory); }
+        if cmd.contains("df") { kinds.push(EvidenceKind::Disk); }
+        if cmd.contains("lsblk") { kinds.push(EvidenceKind::BlockDevices); }
+        if cmd.contains("lscpu") { kinds.push(EvidenceKind::Cpu); }
+        if cmd.contains("systemctl") { kinds.push(EvidenceKind::Services); }
+        if cmd.contains("journalctl") { kinds.push(EvidenceKind::Journal); }
+        if cmd.contains("--failed") { kinds.push(EvidenceKind::FailedUnits); }
+    }
+    kinds.sort_by_key(|k| format!("{:?}", k));
+    kinds.dedup();
+    kinds
 }
 
 /// Full execution trace for a request
