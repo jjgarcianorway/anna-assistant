@@ -4,12 +4,14 @@ mod client;
 mod commands;
 mod display;
 mod output;
+mod report_cmd;
 mod transcript_render;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use crate::commands::{handle_repl, handle_request, handle_reset, handle_status, handle_uninstall};
+use crate::report_cmd::handle_report;
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -37,6 +39,12 @@ enum Command {
         #[arg(long)]
         debug: bool,
     },
+    /// Generate a system health report
+    Report {
+        /// Output format: text (default) or md
+        #[arg(long, default_value = "text")]
+        format: String,
+    },
     /// Uninstall Anna
     Uninstall,
     /// Reset learned data (keeps base installation)
@@ -49,6 +57,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Some(Command::Status { debug }) => handle_status(debug).await,
+        Some(Command::Report { format }) => handle_report(&format).await,
         Some(Command::Uninstall) => handle_uninstall().await,
         Some(Command::Reset) => handle_reset().await,
         None => {

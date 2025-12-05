@@ -1,19 +1,32 @@
 //! Shared types and utilities for Anna components.
 
+pub mod advice;
 pub mod budget;
 pub mod claims;
 pub mod error;
 pub mod grounding;
 pub mod guard;
 pub mod ledger;
+pub mod narrator;
 pub mod parsers;
 pub mod progress;
+pub mod recipe;
 pub mod reliability;
+pub mod report;
 pub mod resource_limits;
+pub mod review;
+pub mod review_gate;
+pub mod review_prompts;
+pub mod revision;
 pub mod rpc;
+pub mod specialists;
+pub mod stats;
 pub mod status;
+pub mod teams;
+pub mod ticket;
 pub mod trace;
 pub mod transcript;
+pub mod transcript_ext;
 pub mod ui;
 
 pub use error::AnnaError;

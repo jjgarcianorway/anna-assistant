@@ -221,14 +221,25 @@ async fn handle_llm_request_inner(
 
     let parsed_data_count = det_result.as_ref().map(|d| d.parsed_data_count).unwrap_or(0);
 
-    // Build fallback context for TRUST+ explanations
+    // Build fallback context for TRUST+ explanations and v0.0.24 trace-based scoring
+    let used_deterministic_fallback = matches!(outcome, SpecialistOutcome::Timeout | SpecialistOutcome::Error)
+        && used_deterministic && parsed_data_count > 0;
+    let fallback_used = if used_deterministic_fallback {
+        Some(anna_shared::trace::FallbackUsed::Deterministic {
+            route_class: fallback_route_class.clone().unwrap_or_default(),
+        })
+    } else {
+        Some(anna_shared::trace::FallbackUsed::None)
+    };
+
     let fallback_ctx = service_desk::FallbackContext {
-        used_deterministic_fallback: matches!(outcome, SpecialistOutcome::Timeout | SpecialistOutcome::Error)
-            && used_deterministic && parsed_data_count > 0,
+        used_deterministic_fallback,
         fallback_route_class: fallback_route_class.clone().unwrap_or_default(),
         evidence_kinds: fallback_route_class.as_ref()
             .map(|rc| evidence_kinds_from_route(rc).iter().map(|k| k.to_string()).collect())
             .unwrap_or_default(),
+        specialist_outcome: Some(outcome),
+        fallback_used,
     };
 
     let mut result = service_desk::build_result_with_flags(

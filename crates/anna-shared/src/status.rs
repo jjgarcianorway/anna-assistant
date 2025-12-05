@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::ledger::LedgerSummary;
+use crate::teams::Team;
 
 /// Overall daemon status
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,6 +22,79 @@ pub struct DaemonStatus {
     /// Per-stage latency statistics (populated in debug mode)
     #[serde(default)]
     pub latency: Option<LatencyStatus>,
+    /// Team roster with active teams (v0.0.25)
+    #[serde(default)]
+    pub teams: TeamRoster,
+}
+
+/// Team roster showing which teams are active
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TeamRoster {
+    /// List of team information
+    pub teams: Vec<TeamInfo>,
+}
+
+/// Information about a team's status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TeamInfo {
+    /// Team type
+    pub team: Team,
+    /// Whether the team is active
+    pub active: bool,
+    /// Model used for junior reviews
+    pub junior_model: String,
+    /// Model used for senior reviews (if escalation enabled)
+    pub senior_model: String,
+}
+
+impl TeamRoster {
+    /// Create a new team roster with all teams in default state
+    pub fn new() -> Self {
+        Self {
+            teams: vec![
+                TeamInfo::new(Team::Desktop),
+                TeamInfo::new(Team::Storage),
+                TeamInfo::new(Team::Network),
+                TeamInfo::new(Team::Performance),
+                TeamInfo::new(Team::Services),
+                TeamInfo::new(Team::Security),
+                TeamInfo::new(Team::Hardware),
+                TeamInfo::new(Team::General),
+            ],
+        }
+    }
+
+    /// Get info for a specific team
+    pub fn get_team(&self, team: Team) -> Option<&TeamInfo> {
+        self.teams.iter().find(|t| t.team == team)
+    }
+
+    /// Count active teams
+    pub fn active_count(&self) -> usize {
+        self.teams.iter().filter(|t| t.active).count()
+    }
+}
+
+impl TeamInfo {
+    /// Create default team info
+    pub fn new(team: Team) -> Self {
+        Self {
+            team,
+            active: true,
+            junior_model: "local-default".to_string(),
+            senior_model: "local-default".to_string(),
+        }
+    }
+
+    /// Create inactive team info
+    pub fn inactive(team: Team) -> Self {
+        Self {
+            team,
+            active: false,
+            junior_model: String::new(),
+            senior_model: String::new(),
+        }
+    }
 }
 
 /// Per-stage latency statistics
@@ -192,5 +266,32 @@ impl Default for UpdateStatus {
             available_version: None,
             update_available: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_team_roster_new() {
+        let roster = TeamRoster::new();
+        assert_eq!(roster.teams.len(), 8);
+        assert_eq!(roster.active_count(), 8);
+    }
+
+    #[test]
+    fn test_team_roster_get_team() {
+        let roster = TeamRoster::new();
+        let storage = roster.get_team(Team::Storage).unwrap();
+        assert_eq!(storage.team, Team::Storage);
+        assert!(storage.active);
+    }
+
+    #[test]
+    fn test_team_info_inactive() {
+        let info = TeamInfo::inactive(Team::Network);
+        assert!(!info.active);
+        assert!(info.junior_model.is_empty());
     }
 }

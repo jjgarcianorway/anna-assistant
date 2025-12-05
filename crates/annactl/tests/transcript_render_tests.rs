@@ -326,6 +326,13 @@ fn test_all_event_kinds_have_render_path() {
             TranscriptEventKind::ProbeStart { .. } => "probe_start",
             TranscriptEventKind::ProbeEnd { .. } => "probe_end",
             TranscriptEventKind::Note { .. } => "note",
+            TranscriptEventKind::TicketCreated { .. } => "ticket_created",
+            TranscriptEventKind::TicketStatusChanged { .. } => "ticket_status_changed",
+            TranscriptEventKind::JuniorReview { .. } => "junior_review",
+            TranscriptEventKind::SeniorEscalation { .. } => "senior_escalation",
+            TranscriptEventKind::RevisionApplied { .. } => "revision_applied",
+            TranscriptEventKind::ReviewGateDecision { .. } => "review_gate_decision",
+            TranscriptEventKind::TeamReview { .. } => "team_review",
             TranscriptEventKind::Unknown => "unknown",
         })
         .collect();

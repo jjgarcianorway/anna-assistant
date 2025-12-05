@@ -46,6 +46,13 @@ pub enum FallbackUsed {
         /// The query class that was used for deterministic routing
         route_class: String,
     },
+    /// Timeout fallback (v0.0.26)
+    Timeout {
+        /// The query class attempted before timeout
+        route_class: String,
+        /// Timeout in milliseconds
+        timeout_ms: u64,
+    },
 }
 
 impl std::fmt::Display for FallbackUsed {
@@ -55,7 +62,48 @@ impl std::fmt::Display for FallbackUsed {
             Self::Deterministic { route_class } => {
                 write!(f, "deterministic ({})", route_class)
             }
+            Self::Timeout { route_class, timeout_ms } => {
+                write!(f, "timeout ({}ms, {})", timeout_ms, route_class)
+            }
         }
+    }
+}
+
+/// Outcome of review stage (v0.0.26)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewerOutcome {
+    /// Deterministic gate accepted (no LLM needed)
+    DeterministicAccept,
+    /// Deterministic gate rejected (revise/escalate)
+    DeterministicReject,
+    /// Junior LLM review completed and accepted
+    JuniorOk,
+    /// Junior escalated to senior
+    JuniorEscalated,
+    /// Senior LLM review completed
+    SeniorOk,
+    /// Senior failed (final rejection)
+    SeniorFailed,
+    /// Reviewer timed out
+    ReviewerTimeout,
+    /// Reviewer budget exceeded
+    ReviewerBudgetExceeded,
+}
+
+impl std::fmt::Display for ReviewerOutcome {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::DeterministicAccept => "deterministic_accept",
+            Self::DeterministicReject => "deterministic_reject",
+            Self::JuniorOk => "junior_ok",
+            Self::JuniorEscalated => "junior_escalated",
+            Self::SeniorOk => "senior_ok",
+            Self::SeniorFailed => "senior_failed",
+            Self::ReviewerTimeout => "reviewer_timeout",
+            Self::ReviewerBudgetExceeded => "reviewer_budget_exceeded",
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -160,6 +208,9 @@ pub struct ExecutionTrace {
     pub evidence_kinds: Vec<EvidenceKind>,
     /// Whether the final answer came from deterministic path
     pub answer_is_deterministic: bool,
+    /// Outcome of review stage (v0.0.26)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewer_outcome: Option<ReviewerOutcome>,
 }
 
 impl ExecutionTrace {
@@ -171,6 +222,7 @@ impl ExecutionTrace {
             probe_stats,
             evidence_kinds: vec![],
             answer_is_deterministic: false,
+            reviewer_outcome: None,
         }
     }
 
@@ -182,6 +234,7 @@ impl ExecutionTrace {
             probe_stats,
             evidence_kinds,
             answer_is_deterministic: true,
+            reviewer_outcome: None,
         }
     }
 
@@ -193,6 +246,7 @@ impl ExecutionTrace {
             probe_stats,
             evidence_kinds,
             answer_is_deterministic: true,
+            reviewer_outcome: None,
         }
     }
 
@@ -204,6 +258,7 @@ impl ExecutionTrace {
             probe_stats,
             evidence_kinds,
             answer_is_deterministic: true,
+            reviewer_outcome: None,
         }
     }
 
@@ -215,7 +270,14 @@ impl ExecutionTrace {
             probe_stats,
             evidence_kinds: vec![],
             answer_is_deterministic: false,
+            reviewer_outcome: None,
         }
+    }
+
+    /// Set reviewer outcome (v0.0.26)
+    pub fn with_reviewer_outcome(mut self, outcome: ReviewerOutcome) -> Self {
+        self.reviewer_outcome = Some(outcome);
+        self
     }
 }
 
@@ -227,6 +289,9 @@ impl std::fmt::Display for ExecutionTrace {
                 FallbackUsed::None => write!(f, "deterministic route")?,
                 FallbackUsed::Deterministic { route_class } => {
                     write!(f, "deterministic fallback ({})", route_class)?
+                }
+                FallbackUsed::Timeout { route_class, timeout_ms } => {
+                    write!(f, "timeout fallback ({}ms, {})", timeout_ms, route_class)?
                 }
             }
         } else {

@@ -24,6 +24,8 @@ pub mod server;
 pub mod service_desk;
 pub mod state;
 pub mod summarizer;
+pub mod ticket_loop;
+pub mod ticket_service;
 pub mod translator;
 pub mod triage;
 pub mod update;

@@ -12,13 +12,7 @@ use crate::client::AnnadClient;
 
 /// Print status display
 pub fn print_status_display(status: &DaemonStatus, show_debug: bool) {
-    println!();
-    println!(
-        "{}annactl v{}{}",
-        colors::HEADER,
-        status.version,
-        colors::RESET
-    );
+    println!("\n{}annactl v{}{}", colors::HEADER, status.version, colors::RESET);
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
     let kw = 15; // key width
@@ -204,6 +198,17 @@ pub fn print_status_display(status: &DaemonStatus, show_debug: bool) {
             print_kv("samples", &lat.sample_count.to_string(), kw);
         } else {
             println!("  No latency data yet (run some requests first)");
+        }
+
+        // Team roster (v0.0.25)
+        println!("\n{}Teams Active:{}", colors::BOLD, colors::RESET);
+        for t in &status.teams.teams {
+            let (icon, model) = if t.active {
+                (format!("{}{}{}", colors::OK, symbols::OK, colors::RESET), format!("[{}]", t.junior_model))
+            } else {
+                (format!("{}-{}", colors::DIM, colors::RESET), "[inactive]".to_string())
+            };
+            println!("  {:12} {} {}", t.team, model, icon);
         }
     }
 

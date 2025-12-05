@@ -14,6 +14,7 @@ use anna_shared::rpc::{
     Capabilities, EvidenceBlock, HardwareSummary, ProbeResult, ReliabilitySignals, RuntimeContext,
     ServiceDeskResult, SpecialistDomain, TranslatorTicket,
 };
+use anna_shared::trace::{FallbackUsed, SpecialistOutcome};
 use anna_shared::transcript::Transcript;
 use anna_shared::VERSION;
 use std::collections::HashMap;
@@ -322,11 +323,14 @@ pub fn build_result_with_flags(
     }
 }
 
-/// Fallback context for TRUST+ explanations
+/// Fallback context for TRUST+ explanations and v0.0.24 trace-based scoring
 pub struct FallbackContext {
     pub used_deterministic_fallback: bool,
     pub fallback_route_class: String,
     pub evidence_kinds: Vec<String>,
+    /// Trace-based fields (v0.0.24) - source of truth for fallback guardrail
+    pub specialist_outcome: Option<SpecialistOutcome>,
+    pub fallback_used: Option<FallbackUsed>,
 }
 
 impl Default for FallbackContext {
@@ -335,6 +339,8 @@ impl Default for FallbackContext {
             used_deterministic_fallback: false,
             fallback_route_class: String::new(),
             evidence_kinds: Vec::new(),
+            specialist_outcome: None,
+            fallback_used: None,
         }
     }
 }
@@ -409,6 +415,9 @@ fn calculate_reliability_v2(
         used_deterministic_fallback: fallback_ctx.used_deterministic_fallback,
         fallback_route_class: fallback_ctx.fallback_route_class.clone(),
         evidence_kinds: fallback_ctx.evidence_kinds.clone(),
+        // Trace context (v0.0.24) - source of truth for fallback guardrail
+        specialist_outcome: fallback_ctx.specialist_outcome,
+        fallback_used: fallback_ctx.fallback_used.clone(),
     };
 
     // Compute using new model

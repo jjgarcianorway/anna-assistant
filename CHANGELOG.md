@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.26] - 2025-12-05
+
+### Added
+- **SPECIALISTS Registry**: Team-scoped specialist system
+  - `SpecialistRole` enum: Translator, Junior, Senior
+  - `SpecialistProfile` struct with team, role, model_id, max_rounds, escalation_threshold
+  - `SpecialistsRegistry` with 24 default profiles (8 teams × 3 roles)
+  - Teams: Desktop, Storage, Network, Performance, Services, Security, Hardware, General
+
+- **Deterministic Review Gate**: Hybrid review that minimizes LLM calls
+  - `ReviewContext` struct with all deterministic signals
+  - `GateOutcome` with decision, reasons, requires_llm_review, confidence
+  - Pure `deterministic_review_gate()` function - no I/O
+  - Rules: Invention → Escalate, No claims → Revise, Low grounding → Revise, High score → Accept
+  - Medium scores (50-79) trigger LLM review only when needed
+
+- **Team-Specific Review Prompts**: Customized junior/senior prompts per team
+  - Each team has domain-specific verification rules
+  - Storage: verify df/lsblk output exactly
+  - Network: verify ip/ss output
+  - Performance: verify free/top output
+  - Security: flag risky operations
+
+- **Review Gate Transcript Events**:
+  - `ReviewGateDecision { decision, score, requires_llm }`
+  - `TeamReview { team, reviewer, decision, issues_count }`
+  - Full visibility into review decisions
+
+- **Trace Enhancements**:
+  - `ReviewerOutcome` enum for audit trail
+  - `FallbackUsed::Timeout` variant for timeout fallback tracking
+
+- **Ticket Service Integration**:
+  - `run_review_gate()` function wired into ticket verification
+  - Transcript events emitted for all gate decisions
+
+### Changed
+- Refactored `transcript.rs` (495→368 lines) with `transcript_ext.rs` extension module
+- Split `review_prompts.rs` into modular directory structure
+- All files now under 400 line limit per project standards
+
+### Tests
+- 550+ tests passing
+- Golden tests for specialists registry serialization
+- Golden tests for review gate decisions
+- Tests for transcript event creation
+
 ## [0.0.23] - 2025-12-05
 
 ### Added

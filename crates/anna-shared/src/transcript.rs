@@ -17,6 +17,9 @@ pub enum Actor {
     Probe,      // System probe execution
     Specialist, // Domain specialist LLM
     Supervisor, // Quality/reliability validator
+    Junior,     // Junior reviewer (v0.0.25 tickets)
+    Senior,     // Senior reviewer (v0.0.25 tickets)
+    Annad,      // Daemon for probe execution (v0.0.25 tickets)
     System,     // System messages (errors, timeouts, etc.)
 }
 
@@ -30,6 +33,9 @@ impl std::fmt::Display for Actor {
             Self::Probe => write!(f, "probe"),
             Self::Specialist => write!(f, "specialist"),
             Self::Supervisor => write!(f, "supervisor"),
+            Self::Junior => write!(f, "junior"),
+            Self::Senior => write!(f, "senior"),
+            Self::Annad => write!(f, "annad"),
             Self::System => write!(f, "system"),
         }
     }
@@ -118,6 +124,62 @@ pub enum TranscriptEventKind {
     },
     /// Metadata note (debug mode only)
     Note { text: String },
+
+    // === Ticket lifecycle events (v0.0.25) ===
+
+    /// Ticket created from user request
+    TicketCreated {
+        ticket_id: String,
+        domain: String,
+        intent: String,
+        evidence_required: bool,
+    },
+    /// Ticket status changed
+    TicketStatusChanged {
+        ticket_id: String,
+        from_status: String,
+        to_status: String,
+    },
+    /// Junior review result
+    JuniorReview {
+        attempt: u8,
+        score: u8,
+        verified: bool,
+        issues: Vec<String>,
+    },
+    /// Senior escalation
+    SeniorEscalation {
+        successful: bool,
+        reason: Option<String>,
+    },
+    /// Revision applied based on instruction
+    RevisionApplied {
+        changes_made: Vec<String>,
+    },
+
+    // === Review gate events (v0.0.26) ===
+
+    /// Review gate decision
+    ReviewGateDecision {
+        /// Decision made by the gate
+        decision: String,
+        /// Reliability score used
+        score: u8,
+        /// Whether LLM review is required
+        requires_llm: bool,
+    },
+    /// Team review exchange
+    TeamReview {
+        /// Team that performed the review
+        team: String,
+        /// Reviewer type ("junior", "senior", or "deterministic")
+        reviewer: String,
+        /// Decision made
+        decision: String,
+        /// Number of issues found
+        issues_count: usize,
+    },
+
     /// Unknown event kind (forward compatibility)
     /// Deserializes any unrecognized "type" value - old clients won't crash on new kinds.
     #[serde(other)]
@@ -232,6 +294,8 @@ impl TranscriptEvent {
             kind: TranscriptEventKind::Note { text: text.into() },
         }
     }
+
+    // Ticket and review helpers in transcript_ext.rs (v0.0.25/v0.0.26)
 
     /// Check if this is a debug-only event
     pub fn is_debug_only(&self) -> bool {

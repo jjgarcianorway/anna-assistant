@@ -211,6 +211,7 @@ impl DaemonStateInner {
             ledger: self.ledger.summary(),
             last_error: self.last_error.clone(),
             latency,
+            teams: anna_shared::status::TeamRoster::new(),
         }
     }
 

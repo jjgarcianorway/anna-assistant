@@ -6,6 +6,7 @@
 //! RESCUE Hardening: Explicit thresholds for warnings.
 
 use crate::resource_limits::ResourceDiagnostic;
+use crate::trace::{FallbackUsed, SpecialistOutcome};
 use serde::{Deserialize, Serialize};
 
 // =============================================================================
@@ -57,6 +58,10 @@ pub const DISK_CRITICAL_THRESHOLD: u8 = 95;
 /// Memory usage high threshold (percentage)
 pub const MEMORY_HIGH_THRESHOLD: f32 = 0.90;
 
+/// Penalty for using deterministic fallback (specialist did not complete)
+/// Small penalty - answer is still valid, just not LLM-enhanced
+pub const PENALTY_FALLBACK_USED: i8 = -5;
+
 /// Reason codes for reliability degradation.
 /// Stored as codes, mapped to text at the edge.
 /// Priority order matters - first is highest priority for user display.
@@ -73,6 +78,8 @@ pub enum ReliabilityReason {
     ProbeTimeout,
     /// One or more probes failed (non-zero exit)
     ProbeFailed,
+    /// Deterministic fallback was used (specialist did not complete)
+    FallbackUsed,
     /// Specialist prompt was truncated
     PromptTruncated,
     /// Transcript was capped at size limit
@@ -92,6 +99,7 @@ impl ReliabilityReason {
             Self::BudgetExceeded => "stage budget exceeded",
             Self::ProbeTimeout => "probe timed out",
             Self::ProbeFailed => "probe failed",
+            Self::FallbackUsed => "used deterministic fallback",
             Self::PromptTruncated => "context was truncated",
             Self::TranscriptCapped => "response was capped",
             Self::LowConfidence => "query interpretation uncertain",
@@ -108,10 +116,11 @@ impl ReliabilityReason {
             Self::BudgetExceeded => 2,  // Higher priority than ProbeTimeout
             Self::ProbeTimeout => 3,
             Self::ProbeFailed => 4,
-            Self::PromptTruncated => 5,
-            Self::TranscriptCapped => 6,
-            Self::LowConfidence => 7,
-            Self::NotGrounded => 8,
+            Self::FallbackUsed => 5,
+            Self::PromptTruncated => 6,
+            Self::TranscriptCapped => 7,
+            Self::LowConfidence => 8,
+            Self::NotGrounded => 9,
         }
     }
 
@@ -137,24 +146,10 @@ impl ReliabilityReason {
                 )
             }
             Self::ProbeTimeout => {
-                if context.used_deterministic_fallback && !context.evidence_kinds.is_empty() {
-                    format!(
-                        "{} of {} probes timed out; used deterministic fallback from {} evidence",
-                        context.timed_out_probes, context.planned_probes,
-                        context.evidence_kinds.join(", ")
-                    )
-                } else if context.used_deterministic_fallback {
-                    format!(
-                        "{} of {} probes timed out; used deterministic fallback ({})",
-                        context.timed_out_probes, context.planned_probes,
-                        context.fallback_route_class
-                    )
-                } else {
-                    format!(
-                        "{} of {} probes timed out",
-                        context.timed_out_probes, context.planned_probes
-                    )
-                }
+                format!(
+                    "{} of {} probes timed out",
+                    context.timed_out_probes, context.planned_probes
+                )
             }
             Self::ProbeFailed => {
                 format!(
@@ -163,6 +158,20 @@ impl ReliabilityReason {
                     context.planned_probes,
                     context.probe_coverage_ratio * 100.0
                 )
+            }
+            Self::FallbackUsed => {
+                if !context.evidence_kinds.is_empty() {
+                    format!(
+                        "specialist did not complete; used {} fallback with {} evidence",
+                        context.fallback_route_class,
+                        context.evidence_kinds.join(", ")
+                    )
+                } else {
+                    format!(
+                        "specialist did not complete; used {} fallback",
+                        context.fallback_route_class
+                    )
+                }
             }
             Self::PromptTruncated => {
                 "specialist prompt exceeded size limit".to_string()
@@ -413,6 +422,12 @@ pub struct ReliabilityInput {
     pub used_deterministic_fallback: bool,
     pub fallback_route_class: String,
     pub evidence_kinds: Vec<String>,
+
+    // Trace context (v0.0.24) - source of truth for fallback guardrail
+    /// Specialist outcome from ExecutionTrace
+    pub specialist_outcome: Option<SpecialistOutcome>,
+    /// Fallback used from ExecutionTrace
+    pub fallback_used: Option<FallbackUsed>,
 }
 
 impl ReliabilityInput {
@@ -616,6 +631,28 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
             reason: Some(ReliabilityReason::TranscriptCapped),
         });
         reasons.push(ReliabilityReason::TranscriptCapped);
+    }
+
+    // === Fallback penalty (v0.0.24) ===
+    // GUARDRAIL: Only penalize when specialist did NOT complete and fallback was used.
+    // Normal deterministic routing (specialist Skipped) is NOT penalized.
+    let fallback_penalty_applies = match (&input.specialist_outcome, &input.fallback_used) {
+        // Specialist didn't complete (Timeout/Error/BudgetExceeded) AND fallback was used
+        (Some(outcome), Some(FallbackUsed::Deterministic { .. })) => {
+            !matches!(outcome, SpecialistOutcome::Ok | SpecialistOutcome::Skipped)
+        }
+        _ => false,
+    };
+
+    if fallback_penalty_applies {
+        let delta = PENALTY_FALLBACK_USED;
+        score += delta as i16;
+        breakdown.push(ScoreComponent {
+            name: "fallback_used",
+            delta,
+            reason: Some(ReliabilityReason::FallbackUsed),
+        });
+        reasons.push(ReliabilityReason::FallbackUsed);
     }
 
     // Clamp to valid range
