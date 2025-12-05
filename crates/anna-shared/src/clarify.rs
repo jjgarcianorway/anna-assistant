@@ -4,10 +4,252 @@
 //! questions with associated probes to verify the answer.
 //!
 //! v0.0.39: Uses InventoryCache for installed tool detection.
+//! v0.0.42: Added menu-based prompts with numeric keys (0=cancel, 9=other).
+//!          Escape options always present. Verification before fact storage.
 
 use crate::facts::{FactKey, FactsStore};
 use crate::inventory::{load_or_create_inventory, InventoryCache};
 use serde::{Deserialize, Serialize};
+
+// === v0.0.42: Menu-based clarification system ===
+
+/// Reserved numeric keys for escape options (v0.0.42)
+pub const KEY_CANCEL: u8 = 0;
+pub const KEY_OTHER: u8 = 9;
+
+/// Menu-based clarification prompt (v0.0.42)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClarifyPrompt {
+    /// Unique identifier
+    pub id: String,
+    /// Title/header
+    pub title: String,
+    /// The question
+    pub question: String,
+    /// Available options (sorted by key)
+    pub options: Vec<MenuOption>,
+    /// Default selection key
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_key: Option<u8>,
+    /// Reason for clarification
+    #[serde(default)]
+    pub reason: String,
+}
+
+/// A menu option with numeric key (v0.0.42)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MenuOption {
+    /// Numeric key (1-8 for options, 0=cancel, 9=other)
+    pub key: u8,
+    /// Display label
+    pub label: String,
+    /// Fact key to set if selected
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fact_key: Option<String>,
+    /// Fact value to set if selected
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fact_value: Option<String>,
+    /// Verification command template
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verify_cmd: Option<String>,
+}
+
+impl MenuOption {
+    /// Create option with numeric key
+    pub fn new(key: u8, label: impl Into<String>) -> Self {
+        Self {
+            key,
+            label: label.into(),
+            fact_key: None,
+            fact_value: None,
+            verify_cmd: None,
+        }
+    }
+
+    /// Set fact to store
+    pub fn with_fact(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.fact_key = Some(key.into());
+        self.fact_value = Some(value.into());
+        self
+    }
+
+    /// Set verification command
+    pub fn with_verify(mut self, cmd: impl Into<String>) -> Self {
+        self.verify_cmd = Some(cmd.into());
+        self
+    }
+
+    /// Create cancel option (key 0)
+    pub fn cancel() -> Self {
+        Self::new(KEY_CANCEL, "Cancel")
+    }
+
+    /// Create "other" option (key 9)
+    pub fn other() -> Self {
+        Self::new(KEY_OTHER, "Other (specify)")
+    }
+}
+
+impl ClarifyPrompt {
+    /// Create new prompt with escape options
+    pub fn new(id: impl Into<String>, title: impl Into<String>, question: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            title: title.into(),
+            question: question.into(),
+            options: vec![MenuOption::cancel(), MenuOption::other()],
+            default_key: None,
+            reason: String::new(),
+        }
+    }
+
+    /// Add option (re-sorts and ensures escape options)
+    pub fn add_option(mut self, opt: MenuOption) -> Self {
+        self.options.retain(|o| o.key != KEY_CANCEL && o.key != KEY_OTHER);
+        self.options.push(opt);
+        self.options.sort_by_key(|o| o.key);
+        self.options.push(MenuOption::cancel());
+        self.options.push(MenuOption::other());
+        self
+    }
+
+    /// Set multiple options
+    pub fn with_options(mut self, opts: Vec<MenuOption>) -> Self {
+        self.options = opts;
+        self.ensure_escape_options();
+        self
+    }
+
+    /// Set default key
+    pub fn with_default(mut self, key: u8) -> Self {
+        self.default_key = Some(key);
+        self
+    }
+
+    /// Set reason
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = reason.into();
+        self
+    }
+
+    /// Ensure escape options present
+    fn ensure_escape_options(&mut self) {
+        if !self.options.iter().any(|o| o.key == KEY_CANCEL) {
+            self.options.push(MenuOption::cancel());
+        }
+        if !self.options.iter().any(|o| o.key == KEY_OTHER) {
+            self.options.push(MenuOption::other());
+        }
+        self.options.sort_by_key(|o| match o.key {
+            KEY_CANCEL => 100, // Put cancel at end
+            KEY_OTHER => 101,  // Put other last
+            k => k as u8,
+        });
+    }
+
+    /// Get option by key
+    pub fn get_option(&self, key: u8) -> Option<&MenuOption> {
+        self.options.iter().find(|o| o.key == key)
+    }
+
+    /// Format as menu string
+    pub fn format_menu(&self) -> String {
+        let mut lines = vec![
+            format!("╭─ {} ─╮", self.title),
+            self.question.clone(),
+            String::new(),
+        ];
+        for opt in &self.options {
+            let marker = if self.default_key == Some(opt.key) { " ←" } else { "" };
+            lines.push(format!("  [{}] {}{}", opt.key, opt.label, marker));
+        }
+        if !self.reason.is_empty() {
+            lines.push(String::new());
+            lines.push(format!("  ({})", self.reason));
+        }
+        lines.join("\n")
+    }
+}
+
+/// Outcome of menu interaction (v0.0.42)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClarifyOutcome {
+    /// User selected an option
+    Answered { key: u8, label: String, prompt_id: String },
+    /// User cancelled (key 0)
+    Cancelled,
+    /// User chose other with free text
+    Other { text: String },
+    /// Verification failed
+    VerificationFailed { selected: String, reason: String, alternative: Option<String> },
+}
+
+impl ClarifyOutcome {
+    /// Check if successful
+    pub fn is_success(&self) -> bool {
+        matches!(self, Self::Answered { .. } | Self::Other { .. })
+    }
+
+    /// Get selected text
+    pub fn selected_text(&self) -> Option<&str> {
+        match self {
+            Self::Answered { label, .. } => Some(label),
+            Self::Other { text } => Some(text),
+            _ => None,
+        }
+    }
+}
+
+/// Generate editor menu prompt from inventory (v0.0.42)
+pub fn editor_menu_prompt(cache: &InventoryCache) -> ClarifyPrompt {
+    let editors = [
+        ("vim", "Vim"), ("nvim", "Neovim"), ("nano", "Nano"),
+        ("emacs", "Emacs"), ("code", "VS Code"), ("micro", "Micro"),
+    ];
+
+    let mut opts = Vec::new();
+    let mut key: u8 = 1;
+
+    for (cmd, label) in &editors {
+        if cache.is_installed(cmd).unwrap_or(false) && key < KEY_OTHER {
+            opts.push(
+                MenuOption::new(key, *label)
+                    .with_fact("preferred_editor", *cmd)
+                    .with_verify(format!("command -v {}", cmd))
+            );
+            key += 1;
+        }
+    }
+
+    ClarifyPrompt::new("editor_select", "Editor Selection", "Which editor do you prefer?")
+        .with_options(opts)
+        .with_reason("I need to know your editor to configure it")
+}
+
+/// Find installed alternative when verification fails (v0.0.42)
+pub fn find_installed_alternative(tool: &str, cache: &InventoryCache) -> Option<String> {
+    let alts: &[(&str, &[&str])] = &[
+        ("vim", &["nvim", "vi", "nano"]),
+        ("nvim", &["vim", "vi", "nano"]),
+        ("emacs", &["vim", "nano", "code"]),
+        ("code", &["vim", "nano", "nvim"]),
+        ("nano", &["vim", "micro", "vi"]),
+    ];
+
+    for (t, alternatives) in alts {
+        if *t == tool {
+            for alt in *alternatives {
+                if cache.is_installed(alt).unwrap_or(false) {
+                    return Some(alt.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+// === Legacy types (v0.0.32-v0.0.39) preserved for backward compat ===
 
 /// What kind of clarification is needed
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

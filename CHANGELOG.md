@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.42] - 2025-12-05
+
+### Added
+- **Clarification Engine v0.0.42** (`clarify.rs`):
+  - Menu-based prompts with numeric keys (1-8 for options, 0=cancel, 9=other)
+  - `ClarifyPrompt` struct with title, question, options, default_key, reason
+  - `MenuOption` with fact_key, fact_value, verify_cmd for verification
+  - `ClarifyOutcome` enum: Answered, Cancelled, Other, VerificationFailed
+  - `editor_menu_prompt()` generates menus from installed editors
+  - `find_installed_alternative()` for fallback suggestions
+  - Escape options (cancel/other) always present in menus
+
+- **Named IT Department Roster v0.0.42** (`roster.rs`, `teams.rs`):
+  - Pinned staff names per team for deterministic display
+  - Network: Michael/Ana, Desktop: Sofia/Erik, Hardware: Nora/Jon
+  - Storage: Lars/Ines, Performance: Kari/Mateo, Security: Priya/Oskar
+  - Services: Hugo/Mina, Logs: Daniel/Lea, General: Tomas/Sara
+  - New `Team::Logs` variant for log analysis routing
+  - Team-aware transcript events use named staff
+
+- **IT-Style Health Output v0.0.42** (`health_delta.rs`):
+  - `format_it_style()` shows only warnings/issues (minimal noise)
+  - `one_liner()` for quick status display
+  - `issue_count()` and `warning_count()` methods
+  - "All systems operational" when healthy, detailed list when issues exist
+  - Thresholds: memory >=80% = high, disk >=80% = high, disk >=95% = critical
+
+### Changed
+- Updated roster.rs golden tests for new pinned names
+- Added Logs team prompts to review_prompts module
+- Updated narrator.rs for Logs team display names
+
 ## [0.0.41] - 2025-12-05
 
 ### Added

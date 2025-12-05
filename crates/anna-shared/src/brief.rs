@@ -58,6 +58,7 @@ pub fn relevant_evidence_for_team(team: Team) -> Vec<EvidenceKind> {
             EvidenceKind::Memory,
             EvidenceKind::BlockDevices,
         ],
+        Team::Logs => vec![], // Logs team reviews log output (v0.0.42)
         Team::General => vec![], // General sees all
     }
 }

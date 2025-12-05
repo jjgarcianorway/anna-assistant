@@ -76,13 +76,13 @@ fn test_global_stats_serialization() {
     assert_eq!(parsed.get_team(Team::Security).unwrap().tickets_verified, 1);
 }
 
-// v0.0.32 PersonStats tests
+// v0.0.42: PersonStats tests with updated names
 
 #[test]
 fn test_person_stats_from_roster() {
     let stats = PersonStats::from_roster(Team::Network, Tier::Junior);
     assert_eq!(stats.person_id, "network_jr");
-    assert_eq!(stats.display_name, "Riley");
+    assert_eq!(stats.display_name, "Michael");
     assert_eq!(stats.team, Team::Network);
     assert_eq!(stats.tier, "junior");
 }
@@ -172,17 +172,17 @@ fn test_person_stats_serialization() {
     assert_eq!(parsed.get_person("perf_jr").unwrap().avg_score, 92.0);
 }
 
-// Golden tests
+// v0.0.42: Golden tests with updated pinned names
 #[test]
-fn golden_riley_network_junior() {
+fn golden_michael_network_junior() {
     let stats = PersonStats::from_roster(Team::Network, Tier::Junior);
     assert_eq!(stats.person_id, "network_jr");
-    assert_eq!(stats.display_name, "Riley");
+    assert_eq!(stats.display_name, "Michael");
 }
 
 #[test]
-fn golden_taylor_storage_senior() {
+fn golden_ines_storage_senior() {
     let stats = PersonStats::from_roster(Team::Storage, Tier::Senior);
     assert_eq!(stats.person_id, "storage_sr");
-    assert_eq!(stats.display_name, "Taylor");
+    assert_eq!(stats.display_name, "Ines");
 }

@@ -358,6 +358,13 @@ impl PacketPolicy {
                 required_probes: vec!["cpu_info", "memory_info"],
                 max_probes: 3,
             },
+            Team::Logs => Self {
+                team,
+                max_summary_lines: 15,
+                allowed_facts: vec![],
+                required_probes: vec!["journal_errors"],
+                max_probes: 4,
+            },
             Team::General => Self::default(),
         }
     }

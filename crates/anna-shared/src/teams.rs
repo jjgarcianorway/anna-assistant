@@ -3,8 +3,10 @@
 //! Teams are service desk "specialists" that review answers based on domain expertise.
 //! Each team has specific evidence requirements and review focus areas.
 //!
+//! v0.0.42: Added named IT staff roster with pinned names per team.
+//!
 //! Pinned ordering for deterministic behavior:
-//! Desktop, Storage, Network, Performance, Services, Security, Hardware, General
+//! Desktop, Storage, Network, Performance, Services, Security, Hardware, Logs, General
 
 use crate::trace::EvidenceKind;
 use serde::{Deserialize, Serialize};
@@ -28,6 +30,8 @@ pub enum Team {
     Security,
     /// Hardware: GPU, CPU, RAM detection, drivers
     Hardware,
+    /// Logs: journalctl, syslog, application logs analysis (v0.0.42)
+    Logs,
     /// General: fallback for unclear or mixed-domain queries
     General,
 }
@@ -48,6 +52,7 @@ impl std::fmt::Display for Team {
             Self::Services => "services",
             Self::Security => "security",
             Self::Hardware => "hardware",
+            Self::Logs => "logs",
             Self::General => "general",
         };
         write!(f, "{}", s)
@@ -126,6 +131,12 @@ fn team_from_route_class(route_class: &str) -> Option<Team> {
         s if s.contains("syntax") => Some(Team::Desktop),
         s if s.contains("config_edit") => Some(Team::Desktop),
 
+        // Logs routes (v0.0.42)
+        s if s.contains("log") => Some(Team::Logs),
+        s if s.contains("journal") => Some(Team::Logs),
+        s if s.contains("syslog") => Some(Team::Logs),
+        s if s.contains("dmesg") => Some(Team::Logs),
+
         _ => None,
     }
 }
@@ -154,6 +165,7 @@ pub fn required_evidence_for_team(team: Team) -> Vec<EvidenceKind> {
         Team::Services => vec![EvidenceKind::Services],
         Team::Security => vec![], // Security evidence kinds not yet defined
         Team::Hardware => vec![EvidenceKind::Cpu, EvidenceKind::Memory],
+        Team::Logs => vec![], // Logs team reviews log analysis (v0.0.42)
         Team::General => vec![], // General team has no specific requirements
     }
 }
@@ -176,6 +188,8 @@ pub fn team_display_name(team: Team, reviewer: &str) -> &'static str {
         (Team::Security, "senior") => "Security Engineer",
         (Team::Hardware, "junior") => "Hardware Technician",
         (Team::Hardware, "senior") => "Hardware Engineer",
+        (Team::Logs, "junior") => "Logs Analyst",
+        (Team::Logs, "senior") => "Logs Engineer",
         (Team::General, "junior") => "Support Analyst",
         (Team::General, "senior") => "Support Specialist",
         _ => "Reviewer",
@@ -192,9 +206,13 @@ pub fn team_debug_tag(team: Team) -> &'static str {
         Team::Services => "services",
         Team::Security => "security",
         Team::Hardware => "hardware",
+        Team::Logs => "logs",
         Team::General => "general",
     }
 }
+
+// v0.0.42: Named staff roster is in roster.rs (PersonProfile type)
+// Use roster::person_for(team, tier) to get staff for a team.
 
 #[cfg(test)]
 mod tests {
@@ -299,5 +317,16 @@ mod tests {
     fn test_team_display() {
         assert_eq!(Team::Desktop.to_string(), "desktop");
         assert_eq!(Team::Performance.to_string(), "performance");
+        assert_eq!(Team::Logs.to_string(), "logs");
     }
+
+    #[test]
+    fn test_logs_team_routing() {
+        assert_eq!(team_from_domain_intent("", "", "log_analysis"), Team::Logs);
+        assert_eq!(team_from_domain_intent("", "", "journalctl"), Team::Logs);
+        assert_eq!(team_from_domain_intent("", "", "syslog_check"), Team::Logs);
+        assert_eq!(team_from_domain_intent("", "", "dmesg_errors"), Team::Logs);
+    }
+
+    // v0.0.42: Staff roster tests are in roster.rs
 }

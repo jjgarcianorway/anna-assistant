@@ -22,6 +22,7 @@ pub fn junior_prompt(team: Team) -> &'static str {
         Team::Services => SERVICES_JUNIOR_PROMPT,
         Team::Security => SECURITY_JUNIOR_PROMPT,
         Team::Hardware => HARDWARE_JUNIOR_PROMPT,
+        Team::Logs => LOGS_JUNIOR_PROMPT,
         Team::General => GENERAL_JUNIOR_PROMPT,
     }
 }
@@ -36,6 +37,7 @@ pub fn senior_prompt(team: Team) -> &'static str {
         Team::Services => SERVICES_SENIOR_PROMPT,
         Team::Security => SECURITY_SENIOR_PROMPT,
         Team::Hardware => HARDWARE_SENIOR_PROMPT,
+        Team::Logs => LOGS_SENIOR_PROMPT,
         Team::General => GENERAL_SENIOR_PROMPT,
     }
 }

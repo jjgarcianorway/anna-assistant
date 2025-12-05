@@ -34,6 +34,9 @@ pub fn team_role_name(team: Team, reviewer: &str) -> &'static str {
         // Hardware team
         (Team::Hardware, "junior") => "Hardware Technician",
         (Team::Hardware, "senior") => "Hardware Engineer",
+        // Logs team (v0.0.42)
+        (Team::Logs, "junior") => "Logs Analyst",
+        (Team::Logs, "senior") => "Logs Engineer",
         // General/fallback
         (Team::General, "junior") => "Support Analyst",
         (Team::General, "senior") => "Support Specialist",
@@ -52,6 +55,7 @@ pub fn team_tag(team: Team) -> &'static str {
         Team::Services => "services",
         Team::Security => "security",
         Team::Hardware => "hardware",
+        Team::Logs => "logs",
         Team::General => "general",
     }
 }
@@ -347,32 +351,32 @@ mod tests {
         assert_eq!(it_domain_context("unknown"), "General Support");
     }
 
-    // v0.0.32 person-based narration tests
+    // v0.0.42: Updated person-based narration tests with new names
 
     #[test]
     fn test_get_person() {
         let p = get_person(Team::Network, "junior");
-        assert_eq!(p.display_name, "Riley");
-        assert_eq!(p.role_title, "Network Administrator");
+        assert_eq!(p.display_name, "Michael");
+        assert_eq!(p.role_title, "Network Engineer");
     }
 
     #[test]
     fn golden_person_action_network_junior() {
         let result = narrate_person_action(Team::Network, "junior", "is reviewing connectivity");
-        assert_eq!(result, "Riley (Network Administrator) is reviewing connectivity");
+        assert_eq!(result, "Michael (Network Engineer) is reviewing connectivity");
     }
 
     #[test]
     fn golden_person_escalation_storage() {
         let result = narrate_person_escalation(Team::Storage, "disk verification failed");
-        assert_eq!(result, "Escalating to Taylor (Storage Architect) - disk verification failed");
+        assert_eq!(result, "Escalating to Ines (Storage Architect) - disk verification failed");
     }
 
     #[test]
     fn test_person_review_approved() {
         let artifact = ReviewArtifact::pass(Team::Performance, "junior", 90);
         let result = narrate_person_review(&artifact);
-        assert!(result.contains("Drew (Performance Analyst)"));
+        assert!(result.contains("Kari (Performance Analyst)"));
         assert!(result.contains("approved"));
     }
 }
