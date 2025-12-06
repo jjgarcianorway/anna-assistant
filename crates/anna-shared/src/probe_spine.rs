@@ -333,6 +333,23 @@ pub fn enforce_minimum_probes(
         }
     }
 
+    // Rule 6 (v0.45.7): Editor configuration queries need tool existence probes
+    // "enable syntax highlighting", "turn on line numbers", etc.
+    let is_editor_config = (lower.contains("enable") || lower.contains("turn on")
+        || lower.contains("activate") || lower.contains("set up") || lower.contains("configure"))
+        && (lower.contains("syntax") || lower.contains("highlight") || lower.contains("line number")
+            || lower.contains("word wrap") || lower.contains("auto indent") || lower.contains("theme"));
+
+    if is_editor_config {
+        // Add probes for common editors to detect which are installed
+        let editors = ["vim", "nvim", "nano", "emacs", "micro", "helix", "gedit", "kate"];
+        for editor in editors {
+            probes.push(ProbeId::CommandV(editor.to_string()));
+        }
+        evidence_kinds.push(EvidenceKind::ToolExists);
+        reasons.push("editor configuration needs installed editor detection");
+    }
+
     // Merge with translator probes (translator probes come first)
     let mut final_probes = probes.clone();
     for tp in translator_probes {

@@ -320,14 +320,14 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
-        // CPU cores - needs lscpu + LLM interpretation
+        // CPU cores - v0.45.7: deterministic from lscpu parse
         QueryClass::CpuCores => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["lscpu".to_string()],
             capability: RouteCapability {
-                can_answer_deterministically: false,
+                can_answer_deterministically: true, // v0.45.7: typed lscpu parser
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Cpu],
                 spine_probes: vec![ProbeId::Lscpu],
@@ -443,15 +443,15 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
-        // Installed tool check - needs probe + LLM interpretation
-        // "do I have nano" must check with probe, not guess
+        // Installed tool check - v0.45.7: CAN be deterministic with evidence
+        // "do I have nano" - exit code 0 = yes, exit code 1 = valid NO
         QueryClass::InstalledToolCheck => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["command_v".to_string()],
             capability: RouteCapability {
-                can_answer_deterministically: false, // NEVER deterministic
+                can_answer_deterministically: true, // v0.45.7: YES with evidence
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::ToolExists],
                 spine_probes: vec![], // Specific tool added at runtime
@@ -592,10 +592,13 @@ mod tests {
     }
 
     #[test]
-    fn test_installed_tool_never_deterministic() {
+    fn test_installed_tool_deterministic_with_evidence() {
+        // v0.45.7: InstalledToolCheck CAN be deterministic when we have evidence
         let route = get_route("do I have nano");
-        assert!(!route.can_answer_deterministically(),
-            "InstalledToolCheck must NEVER be deterministic");
+        assert!(route.can_answer_deterministically(),
+            "InstalledToolCheck should be deterministic with tool evidence");
+        assert!(route.capability.evidence_required,
+            "InstalledToolCheck still requires evidence");
     }
 
     #[test]

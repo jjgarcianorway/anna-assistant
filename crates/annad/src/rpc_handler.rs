@@ -272,11 +272,17 @@ async fn handle_llm_request_inner(
         }
     };
 
-    // Step 5: v0.45.4 Evidence enforcement - "no evidence, no claims" rule
-    // If evidence_required=true AND no probes succeeded, return deterministic failure
-    let succeeded_probes = probe_results.iter().filter(|p| p.exit_code == 0).count();
-    if det_route.capability.evidence_required && succeeded_probes == 0 {
-        info!("v0.45.4: No probes succeeded but evidence required - returning deterministic failure");
+    // Step 5: v0.45.7 Evidence enforcement - "no evidence, no claims" rule
+    // NOTE: For tool/package checks, exit_code=1 is VALID negative evidence!
+    // Count probes that produced valid evidence (including negative evidence)
+    let valid_evidence_count = {
+        use anna_shared::parsers::parse_probe_result;
+        probe_results.iter()
+            .filter(|p| parse_probe_result(p).is_valid_evidence())
+            .count()
+    };
+    if det_route.capability.evidence_required && valid_evidence_count == 0 {
+        info!("v0.45.7: No valid evidence collected but evidence required - returning deterministic failure");
         save_progress(&state, &progress).await;
         let required_evidence: Vec<String> = det_route.capability.required_evidence
             .iter()

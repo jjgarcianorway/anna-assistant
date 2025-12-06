@@ -449,3 +449,169 @@ fn golden_v456_evidence_binding() {
     let journal_probes = probes_for_evidence(EvidenceKind::Journal);
     assert!(!journal_probes.is_empty(), "Journal evidence must have probes");
 }
+
+// === v0.45.7 Golden Tests: Negative Evidence ===
+
+/// v0.45.7: Tool check with exit_code=1 is VALID NEGATIVE EVIDENCE.
+#[test]
+fn golden_v457_tool_not_found_is_valid_evidence() {
+    use anna_shared::parsers::{parse_probe_result, ParsedProbeData, ToolExistsMethod};
+    use anna_shared::rpc::ProbeResult;
+
+    // Exit code 1 = tool not found (VALID negative evidence!)
+    let probe = ProbeResult {
+        command: "sh -lc 'command -v nano'".to_string(),
+        exit_code: 1,
+        stdout: String::new(),
+        stderr: String::new(),
+        timing_ms: 5,
+    };
+
+    let parsed = parse_probe_result(&probe);
+
+    // Must parse as Tool variant (not Error!)
+    assert!(matches!(parsed, ParsedProbeData::Tool(_)),
+        "exit_code=1 from command -v must parse as Tool, got {:?}", parsed);
+
+    if let ParsedProbeData::Tool(t) = parsed {
+        assert_eq!(t.name, "nano");
+        assert!(!t.exists, "Tool with exit_code=1 must have exists=false");
+        assert_eq!(t.method, ToolExistsMethod::CommandV);
+        assert!(t.path.is_none(), "Non-existent tool must have no path");
+    }
+
+    // Must be valid evidence (not error or unsupported)
+    assert!(parsed.is_valid_evidence(),
+        "exit_code=1 from command -v must be valid evidence");
+}
+
+/// v0.45.7: Tool found (exit_code=0) is VALID POSITIVE EVIDENCE.
+#[test]
+fn golden_v457_tool_found_is_valid_evidence() {
+    use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
+    use anna_shared::rpc::ProbeResult;
+
+    let probe = ProbeResult {
+        command: "sh -lc 'command -v vim'".to_string(),
+        exit_code: 0,
+        stdout: "/usr/bin/vim\n".to_string(),
+        stderr: String::new(),
+        timing_ms: 5,
+    };
+
+    let parsed = parse_probe_result(&probe);
+
+    assert!(matches!(parsed, ParsedProbeData::Tool(_)));
+    if let ParsedProbeData::Tool(t) = parsed {
+        assert_eq!(t.name, "vim");
+        assert!(t.exists);
+        assert_eq!(t.path, Some("/usr/bin/vim".to_string()));
+    }
+    assert!(parsed.is_valid_evidence());
+}
+
+/// v0.45.7: Package not installed (exit_code=1) is VALID NEGATIVE EVIDENCE.
+#[test]
+fn golden_v457_package_not_installed_is_valid_evidence() {
+    use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
+    use anna_shared::rpc::ProbeResult;
+
+    let probe = ProbeResult {
+        command: "pacman -Q nano 2>/dev/null".to_string(),
+        exit_code: 1,
+        stdout: String::new(),
+        stderr: "error: package 'nano' was not found".to_string(),
+        timing_ms: 10,
+    };
+
+    let parsed = parse_probe_result(&probe);
+
+    assert!(matches!(parsed, ParsedProbeData::Package(_)),
+        "exit_code=1 from pacman -Q must parse as Package, got {:?}", parsed);
+
+    if let ParsedProbeData::Package(p) = parsed {
+        assert_eq!(p.name, "nano");
+        assert!(!p.installed, "Package with exit_code=1 must have installed=false");
+        assert!(p.version.is_none());
+    }
+
+    assert!(parsed.is_valid_evidence(),
+        "exit_code=1 from pacman -Q must be valid evidence");
+}
+
+/// v0.45.7: Package installed (exit_code=0) is VALID POSITIVE EVIDENCE.
+#[test]
+fn golden_v457_package_installed_is_valid_evidence() {
+    use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
+    use anna_shared::rpc::ProbeResult;
+
+    let probe = ProbeResult {
+        command: "pacman -Q vim 2>/dev/null".to_string(),
+        exit_code: 0,
+        stdout: "vim 9.0.1897-1\n".to_string(),
+        stderr: String::new(),
+        timing_ms: 10,
+    };
+
+    let parsed = parse_probe_result(&probe);
+
+    assert!(matches!(parsed, ParsedProbeData::Package(_)));
+    if let ParsedProbeData::Package(p) = parsed {
+        assert_eq!(p.name, "vim");
+        assert!(p.installed);
+        assert_eq!(p.version, Some("9.0.1897-1".to_string()));
+    }
+    assert!(parsed.is_valid_evidence());
+}
+
+/// v0.45.7: find_tool_evidence helper works correctly.
+#[test]
+fn golden_v457_find_tool_evidence() {
+    use anna_shared::parsers::{find_tool_evidence, ParsedProbeData, ToolExists, ToolExistsMethod};
+
+    let parsed = vec![
+        ParsedProbeData::Tool(ToolExists {
+            name: "vim".to_string(),
+            exists: true,
+            method: ToolExistsMethod::CommandV,
+            path: Some("/usr/bin/vim".to_string()),
+        }),
+        ParsedProbeData::Tool(ToolExists {
+            name: "nano".to_string(),
+            exists: false,
+            method: ToolExistsMethod::CommandV,
+            path: None,
+        }),
+    ];
+
+    // Can find existing tool
+    let vim = find_tool_evidence(&parsed, "vim");
+    assert!(vim.is_some());
+    assert!(vim.unwrap().exists);
+
+    // Can find non-existing tool (negative evidence)
+    let nano = find_tool_evidence(&parsed, "nano");
+    assert!(nano.is_some());
+    assert!(!nano.unwrap().exists);
+
+    // Returns None for unknown tool
+    let emacs = find_tool_evidence(&parsed, "emacs");
+    assert!(emacs.is_none());
+}
+
+/// v0.45.7: "enable syntax highlighting" must enforce editor tool probes.
+#[test]
+fn golden_v457_editor_config_enforces_tool_probes() {
+    use anna_shared::probe_spine::{enforce_minimum_probes, ProbeId};
+
+    let decision = enforce_minimum_probes("enable syntax highlighting", &[]);
+    assert!(decision.enforced, "Editor config query must enforce probes");
+
+    // Must include CommandV probes for common editors
+    let has_editor_probes = decision.probes.iter()
+        .filter(|p| matches!(p, ProbeId::CommandV(_)))
+        .count();
+    assert!(has_editor_probes >= 3,
+        "Editor config must check for at least 3 common editors, got {}",
+        has_editor_probes);
+}

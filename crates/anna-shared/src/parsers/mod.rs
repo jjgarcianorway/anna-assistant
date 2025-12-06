@@ -45,8 +45,66 @@ pub use systemctl::{
     parse_failed_units, parse_is_active, parse_status_verbose, ServiceState, ServiceStatus,
 };
 
+// v0.45.7: Tool/package evidence helper functions
+/// Find tool existence evidence for a given tool name
+pub fn find_tool_evidence<'a>(parsed: &'a [ParsedProbeData], name: &str) -> Option<&'a ToolExists> {
+    parsed.iter()
+        .filter_map(|p| p.as_tool())
+        .find(|t| t.name.to_lowercase() == name.to_lowercase())
+}
+
+/// Find package installation evidence for a given package name
+pub fn find_package_evidence<'a>(parsed: &'a [ParsedProbeData], name: &str) -> Option<&'a PackageInstalled> {
+    parsed.iter()
+        .filter_map(|p| p.as_package())
+        .find(|p| p.name.to_lowercase() == name.to_lowercase())
+}
+
+/// Check if any tool/package evidence exists (positive or negative) for a name
+pub fn has_evidence_for(parsed: &[ParsedProbeData], name: &str) -> bool {
+    find_tool_evidence(parsed, name).is_some() || find_package_evidence(parsed, name).is_some()
+}
+
 use crate::rpc::ProbeResult;
 use serde::{Deserialize, Serialize};
+
+/// Method used to check tool existence (v0.45.7)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolExistsMethod {
+    /// `command -v <name>` (POSIX)
+    CommandV,
+    /// `which <name>` (less portable)
+    Which,
+    /// `type <name>` (bash builtin)
+    Type,
+}
+
+/// Tool existence evidence (v0.45.7)
+/// Note: exit code 1 is VALID NEGATIVE EVIDENCE, not an error!
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolExists {
+    /// Name of the tool/binary
+    pub name: String,
+    /// Whether the tool exists (false = valid negative evidence)
+    pub exists: bool,
+    /// Method used to check
+    pub method: ToolExistsMethod,
+    /// Path if found (from stdout)
+    pub path: Option<String>,
+}
+
+/// Package installation evidence (v0.45.7)
+/// Note: exit code 1 is VALID NEGATIVE EVIDENCE, not an error!
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PackageInstalled {
+    /// Name of the package
+    pub name: String,
+    /// Whether the package is installed (false = valid negative evidence)
+    pub installed: bool,
+    /// Version if installed
+    pub version: Option<String>,
+}
 
 /// Parsed probe data or error.
 /// Used internally for enrichment; not serialized over the wire.
@@ -71,6 +129,10 @@ pub enum ParsedProbeData {
     JournalWarnings(JournalSummary),
     /// Boot time from `systemd-analyze` (v0.0.35)
     BootTime(BootTimeInfo),
+    /// Tool existence check (v0.45.7) - exit 1 = valid negative evidence
+    Tool(ToolExists),
+    /// Package installation check (v0.45.7) - exit 1 = valid negative evidence
+    Package(PackageInstalled),
     /// Parse error with diagnostic context
     Error(ParseError),
     /// Probe type not supported for structured parsing
@@ -138,6 +200,27 @@ impl ParsedProbeData {
             _ => None,
         }
     }
+
+    /// Get tool existence if this is the Tool variant (v0.45.7).
+    pub fn as_tool(&self) -> Option<&ToolExists> {
+        match self {
+            Self::Tool(t) => Some(t),
+            _ => None,
+        }
+    }
+
+    /// Get package installation if this is the Package variant (v0.45.7).
+    pub fn as_package(&self) -> Option<&PackageInstalled> {
+        match self {
+            Self::Package(p) => Some(p),
+            _ => None,
+        }
+    }
+
+    /// Check if this represents valid evidence (not error/unsupported) (v0.45.7).
+    pub fn is_valid_evidence(&self) -> bool {
+        !matches!(self, Self::Error(_) | Self::Unsupported)
+    }
 }
 
 /// Probe ID constants for matching.
@@ -153,9 +236,21 @@ pub mod probe_ids {
 
 /// Parse a ProbeResult into structured data.
 /// Returns `ParsedProbeData::Unsupported` for probes we don't have parsers for.
-/// Returns `ParsedProbeData::Error` if the probe failed (non-zero exit code).
+/// v0.45.7: Tool/package probes with exit code 1 are VALID NEGATIVE EVIDENCE, not errors!
 pub fn parse_probe_result(probe: &ProbeResult) -> ParsedProbeData {
-    // Failed probes return an error with the stderr
+    let cmd_lower = probe.command.to_lowercase();
+
+    // v0.45.7: Handle tool existence probes - exit 1 = tool not found (valid evidence!)
+    if let Some(parsed) = try_parse_tool_exists(probe, &cmd_lower) {
+        return parsed;
+    }
+
+    // v0.45.7: Handle package probes - exit 1 = package not installed (valid evidence!)
+    if let Some(parsed) = try_parse_package_installed(probe, &cmd_lower) {
+        return parsed;
+    }
+
+    // For other probes, non-zero exit code is an error
     if probe.exit_code != 0 {
         return ParsedProbeData::Error(ParseError::new(
             &probe.command,
@@ -165,6 +260,109 @@ pub fn parse_probe_result(probe: &ProbeResult) -> ParsedProbeData {
     }
 
     parse_probe_output(&probe.command, &probe.stdout)
+}
+
+/// Try to parse a tool existence probe (v0.45.7).
+/// Handles `command -v`, `which`, and `type` commands.
+/// Returns Some if this is a tool check probe, None otherwise.
+fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedProbeData> {
+    // Pattern: "command -v <name>" or "sh -lc 'command -v <name>'"
+    if cmd_lower.contains("command -v") {
+        let name = extract_tool_name_from_command_v(&probe.command);
+        let exists = probe.exit_code == 0;
+        let path = if exists && !probe.stdout.trim().is_empty() {
+            Some(probe.stdout.trim().to_string())
+        } else {
+            None
+        };
+        return Some(ParsedProbeData::Tool(ToolExists {
+            name,
+            exists,
+            method: ToolExistsMethod::CommandV,
+            path,
+        }));
+    }
+
+    // Pattern: "which <name>"
+    if cmd_lower.starts_with("which ") {
+        let name = probe.command.split_whitespace().nth(1)
+            .unwrap_or("unknown").to_string();
+        let exists = probe.exit_code == 0;
+        let path = if exists && !probe.stdout.trim().is_empty() {
+            Some(probe.stdout.trim().to_string())
+        } else {
+            None
+        };
+        return Some(ParsedProbeData::Tool(ToolExists {
+            name,
+            exists,
+            method: ToolExistsMethod::Which,
+            path,
+        }));
+    }
+
+    None
+}
+
+/// Try to parse a package installation probe (v0.45.7).
+/// Handles `pacman -Q` commands.
+fn try_parse_package_installed(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedProbeData> {
+    // Pattern: "pacman -Q <name>" or "pacman -Q <name> 2>/dev/null"
+    // Note: cmd_lower is already lowercase, so we check for lowercase -q
+    if cmd_lower.contains("pacman -q") {
+        let name = extract_package_name_from_pacman(&probe.command);
+        let installed = probe.exit_code == 0;
+        let version = if installed {
+            // pacman -Q outputs: "<name> <version>"
+            probe.stdout.split_whitespace().nth(1).map(|v| v.to_string())
+        } else {
+            None
+        };
+        return Some(ParsedProbeData::Package(PackageInstalled {
+            name,
+            installed,
+            version,
+        }));
+    }
+
+    None
+}
+
+/// Extract tool name from "command -v <name>" or "sh -lc 'command -v <name>'"
+fn extract_tool_name_from_command_v(cmd: &str) -> String {
+    // Handle: sh -lc 'command -v nano'
+    if let Some(pos) = cmd.find("command -v") {
+        let rest = &cmd[pos + "command -v".len()..];
+        let trimmed = rest.trim();
+        // Extract the tool name (first alphanumeric word, stop at quotes/pipes)
+        let name: String = trimmed.chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+            .collect();
+        if !name.is_empty() {
+            return name;
+        }
+    }
+    "unknown".to_string()
+}
+
+/// Extract package name from "pacman -Q <name>" command
+fn extract_package_name_from_pacman(cmd: &str) -> String {
+    // Find -Q or -Qi and take the next word
+    let cmd_lower = cmd.to_lowercase();
+    for pattern in ["-q ", "-qi "] {
+        if let Some(pos) = cmd_lower.find(pattern) {
+            let rest = &cmd[pos + pattern.len()..];
+            let trimmed = rest.trim();
+            // Extract package name (stop at whitespace or redirection)
+            let name: String = trimmed.chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
+                .collect();
+            if !name.is_empty() {
+                return name;
+            }
+        }
+    }
+    "unknown".to_string()
 }
 
 /// Parse probe output based on the command.
@@ -389,5 +587,155 @@ Model name: Intel Core i7
         });
         assert!(cpu.as_cpu().is_some());
         assert!(cpu.as_block_devices().is_none());
+    }
+
+    // v0.45.7: Tool existence evidence tests
+    #[test]
+    fn test_tool_exists_positive_evidence() {
+        let probe = ProbeResult {
+            command: "sh -lc 'command -v nano'".to_string(),
+            exit_code: 0,
+            stdout: "/usr/bin/nano\n".to_string(),
+            stderr: String::new(),
+            timing_ms: 5,
+        };
+        let result = parse_probe_result(&probe);
+        assert!(matches!(result, ParsedProbeData::Tool(_)));
+        if let ParsedProbeData::Tool(t) = result {
+            assert_eq!(t.name, "nano");
+            assert!(t.exists);
+            assert_eq!(t.method, ToolExistsMethod::CommandV);
+            assert_eq!(t.path, Some("/usr/bin/nano".to_string()));
+        }
+    }
+
+    #[test]
+    fn test_tool_exists_negative_evidence() {
+        // v0.45.7: exit code 1 is VALID NEGATIVE EVIDENCE, not an error!
+        let probe = ProbeResult {
+            command: "sh -lc 'command -v nano'".to_string(),
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: String::new(),
+            timing_ms: 5,
+        };
+        let result = parse_probe_result(&probe);
+        assert!(matches!(result, ParsedProbeData::Tool(_)));
+        if let ParsedProbeData::Tool(t) = result {
+            assert_eq!(t.name, "nano");
+            assert!(!t.exists); // Negative evidence!
+            assert!(t.path.is_none());
+        }
+        // Must NOT be an error
+        assert!(!result.is_error());
+        assert!(result.is_valid_evidence());
+    }
+
+    #[test]
+    fn test_package_installed_positive_evidence() {
+        let probe = ProbeResult {
+            command: "pacman -Q nano 2>/dev/null".to_string(),
+            exit_code: 0,
+            stdout: "nano 7.2-1\n".to_string(),
+            stderr: String::new(),
+            timing_ms: 10,
+        };
+        let result = parse_probe_result(&probe);
+        assert!(matches!(result, ParsedProbeData::Package(_)));
+        if let ParsedProbeData::Package(p) = result {
+            assert_eq!(p.name, "nano");
+            assert!(p.installed);
+            assert_eq!(p.version, Some("7.2-1".to_string()));
+        }
+    }
+
+    #[test]
+    fn test_package_installed_negative_evidence() {
+        // v0.45.7: exit code 1 is VALID NEGATIVE EVIDENCE!
+        let probe = ProbeResult {
+            command: "pacman -Q nano 2>/dev/null".to_string(),
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "error: package 'nano' was not found".to_string(),
+            timing_ms: 10,
+        };
+        let result = parse_probe_result(&probe);
+        assert!(matches!(result, ParsedProbeData::Package(_)));
+        if let ParsedProbeData::Package(p) = result {
+            assert_eq!(p.name, "nano");
+            assert!(!p.installed); // Negative evidence!
+            assert!(p.version.is_none());
+        }
+        // Must NOT be an error
+        assert!(!result.is_error());
+        assert!(result.is_valid_evidence());
+    }
+
+    #[test]
+    fn test_find_tool_evidence() {
+        let parsed = vec![
+            ParsedProbeData::Tool(ToolExists {
+                name: "nano".to_string(),
+                exists: true,
+                method: ToolExistsMethod::CommandV,
+                path: Some("/usr/bin/nano".to_string()),
+            }),
+            ParsedProbeData::Tool(ToolExists {
+                name: "vim".to_string(),
+                exists: false,
+                method: ToolExistsMethod::CommandV,
+                path: None,
+            }),
+        ];
+
+        let nano = find_tool_evidence(&parsed, "nano");
+        assert!(nano.is_some());
+        assert!(nano.unwrap().exists);
+
+        let vim = find_tool_evidence(&parsed, "vim");
+        assert!(vim.is_some());
+        assert!(!vim.unwrap().exists);
+
+        let emacs = find_tool_evidence(&parsed, "emacs");
+        assert!(emacs.is_none());
+    }
+
+    #[test]
+    fn test_find_package_evidence() {
+        let parsed = vec![
+            ParsedProbeData::Package(PackageInstalled {
+                name: "nano".to_string(),
+                installed: true,
+                version: Some("7.2-1".to_string()),
+            }),
+            ParsedProbeData::Package(PackageInstalled {
+                name: "vim".to_string(),
+                installed: false,
+                version: None,
+            }),
+        ];
+
+        let nano = find_package_evidence(&parsed, "nano");
+        assert!(nano.is_some());
+        assert!(nano.unwrap().installed);
+
+        let vim = find_package_evidence(&parsed, "vim");
+        assert!(vim.is_some());
+        assert!(!vim.unwrap().installed);
+    }
+
+    #[test]
+    fn test_has_evidence_for() {
+        let parsed = vec![
+            ParsedProbeData::Tool(ToolExists {
+                name: "nano".to_string(),
+                exists: false,
+                method: ToolExistsMethod::CommandV,
+                path: None,
+            }),
+        ];
+
+        assert!(has_evidence_for(&parsed, "nano"));
+        assert!(!has_evidence_for(&parsed, "vim"));
     }
 }

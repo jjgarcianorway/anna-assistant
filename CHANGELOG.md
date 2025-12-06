@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.53] - 2025-12-06
+
+### Fixed - v0.45.7 Negative Evidence Binding
+
+- **Root Cause**: Exit code 1 from `command -v` or `pacman -Q` was treated as an ERROR,
+  but it's actually VALID NEGATIVE EVIDENCE (tool/package not installed).
+
+- **Evidence Type System** (`parsers/mod.rs`):
+  - New `ToolExists` struct: `name`, `exists: bool`, `method`, `path`
+  - New `PackageInstalled` struct: `name`, `installed: bool`, `version`
+  - New `ToolExistsMethod` enum: `CommandV`, `Which`, `Type`
+  - `parse_probe_result()` now handles tool/package probes BEFORE exit code check
+  - Exit code 1 creates valid evidence with `exists=false` or `installed=false`
+
+- **Evidence Helpers** (`parsers/mod.rs`):
+  - `find_tool_evidence(parsed, name)` - find tool evidence by name
+  - `find_package_evidence(parsed, name)` - find package evidence by name
+  - `has_evidence_for(parsed, name)` - check if any evidence exists
+  - `is_valid_evidence()` - returns true for Tool/Package (even negative)
+
+- **Deterministic Answers** (`deterministic.rs`):
+  - `answer_installed_tool_check()` now uses typed evidence parsing
+  - Generates answers from `ToolExists` and `PackageInstalled` evidence
+  - Example: "**nano** is not found in your PATH" (from negative evidence)
+
+- **Route Updates** (`router.rs`):
+  - `InstalledToolCheck`: Now `can_answer_deterministically: true`
+  - `CpuCores`: Now `can_answer_deterministically: true`
+  - These routes skip specialist LLM when evidence is available
+
+- **Evidence Enforcement** (`rpc_handler.rs`):
+  - Updated evidence check to use `is_valid_evidence()` instead of `exit_code == 0`
+  - Negative evidence counts as valid evidence for reliability scoring
+
+- **Probe Spine** (`probe_spine.rs`):
+  - Rule 6: Editor configuration queries enforce tool probes for common editors
+  - "enable syntax highlighting" now probes vim, nvim, nano, emacs, etc.
+
+### Acceptance Criteria
+
+- `"do I have nano?"` with exit 1 → **"nano is not found in your PATH"** (deterministic, high reliability)
+- `"how many cores?"` → Deterministic answer from lscpu (no specialist timeout)
+- `"enable syntax highlighting"` → Probes for common editors enforced
+
+### Tests
+
+- **Parser Tests** (`parsers/mod.rs`):
+  - `test_tool_exists_positive_evidence`: exit 0 = tool exists
+  - `test_tool_exists_negative_evidence`: exit 1 = tool NOT exists (valid evidence!)
+  - `test_package_installed_positive_evidence`: exit 0 = package installed
+  - `test_package_installed_negative_evidence`: exit 1 = package NOT installed (valid evidence!)
+  - `test_find_tool_evidence`: Helper function works correctly
+  - `test_find_package_evidence`: Helper function works correctly
+  - `test_has_evidence_for`: Checks both positive and negative evidence
+
+- **v0.45.7 Golden Tests** (`stabilization_tests.rs`):
+  - `golden_v457_tool_not_found_is_valid_evidence`
+  - `golden_v457_tool_found_is_valid_evidence`
+  - `golden_v457_package_not_installed_is_valid_evidence`
+  - `golden_v457_package_installed_is_valid_evidence`
+  - `golden_v457_find_tool_evidence`
+  - `golden_v457_editor_config_enforces_tool_probes`
+
 ## [0.0.52] - 2025-12-06
 
 ### Fixed - v0.45.6 Probe Contract: No Silent No-Op
