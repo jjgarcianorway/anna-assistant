@@ -36,6 +36,8 @@ pub struct PersonProfile {
     /// v0.0.109: Specialization areas for this staff member
     #[serde(skip)]
     pub specializations: &'static [&'static str],
+    /// v0.0.110: Preferred work shift
+    pub shift: Shift,
 }
 
 impl PersonProfile {
@@ -57,10 +59,79 @@ impl PersonProfile {
             self.specializations.join(", ")
         }
     }
+
+    /// v0.0.110: Check if this person is currently on shift
+    pub fn is_on_shift(&self) -> bool {
+        self.shift.is_active()
+    }
+
+    /// v0.0.110: Get availability status
+    pub fn availability_status(&self) -> &'static str {
+        if self.is_on_shift() {
+            "on shift"
+        } else {
+            "off shift"
+        }
+    }
 }
 
-/// Roster entry with specializations
+/// Shift preference for staff
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Shift {
+    /// Morning shift (6am - 2pm)
+    Morning,
+    /// Day shift (9am - 5pm)
+    Day,
+    /// Evening shift (2pm - 10pm)
+    Evening,
+    /// Night shift (10pm - 6am)
+    Night,
+    /// Flexible (available any time)
+    Flexible,
+}
+
+impl Shift {
+    /// Check if this shift is currently active
+    pub fn is_active(&self) -> bool {
+        use chrono::Timelike;
+        let hour = chrono::Local::now().hour();
+        match self {
+            Shift::Morning => (6..14).contains(&hour),
+            Shift::Day => (9..17).contains(&hour),
+            Shift::Evening => (14..22).contains(&hour),
+            Shift::Night => hour >= 22 || hour < 6,
+            Shift::Flexible => true,
+        }
+    }
+
+    /// Get shift description
+    pub fn description(&self) -> &'static str {
+        match self {
+            Shift::Morning => "morning (6am-2pm)",
+            Shift::Day => "day (9am-5pm)",
+            Shift::Evening => "evening (2pm-10pm)",
+            Shift::Night => "night (10pm-6am)",
+            Shift::Flexible => "flexible hours",
+        }
+    }
+}
+
+impl std::fmt::Display for Shift {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Shift::Morning => write!(f, "morning"),
+            Shift::Day => write!(f, "day"),
+            Shift::Evening => write!(f, "evening"),
+            Shift::Night => write!(f, "night"),
+            Shift::Flexible => write!(f, "flexible"),
+        }
+    }
+}
+
+/// Roster entry with specializations and shift
 /// v0.0.109: Added specialization areas for each staff member
+/// v0.0.110: Added shift preferences
 struct RosterEntry {
     team: Team,
     tier: Tier,
@@ -68,57 +139,59 @@ struct RosterEntry {
     name: &'static str,
     role: &'static str,
     specs: &'static [&'static str],
+    shift: Shift,
 }
 
 /// Pinned roster table - deterministic mapping (Team, Tier) -> Person
 /// v0.0.42: Names updated per user specification. Order is stable.
 /// v0.0.109: Added specialization areas.
+/// v0.0.110: Added shift preferences for realistic scheduling.
 const ROSTER: &[RosterEntry] = &[
-    // Network team
+    // Network team - Michael works mornings, Ana is flexible (senior)
     RosterEntry { team: Team::Network, tier: Tier::Junior, id: "network_jr", name: "Michael",
-        role: "Network Engineer", specs: &["TCP/IP", "DNS", "DHCP"] },
+        role: "Network Engineer", specs: &["TCP/IP", "DNS", "DHCP"], shift: Shift::Morning },
     RosterEntry { team: Team::Network, tier: Tier::Senior, id: "network_sr", name: "Ana",
-        role: "Network Architect", specs: &["routing", "VPN", "firewall"] },
-    // Desktop team
+        role: "Network Architect", specs: &["routing", "VPN", "firewall"], shift: Shift::Flexible },
+    // Desktop team - Sofia works days, Erik evenings
     RosterEntry { team: Team::Desktop, tier: Tier::Junior, id: "desktop_jr", name: "Sofia",
-        role: "Desktop Administrator", specs: &["vim", "bash", "dotfiles"] },
+        role: "Desktop Administrator", specs: &["vim", "bash", "dotfiles"], shift: Shift::Day },
     RosterEntry { team: Team::Desktop, tier: Tier::Senior, id: "desktop_sr", name: "Erik",
-        role: "Desktop Specialist", specs: &["X11", "Wayland", "DE config"] },
-    // Hardware team
+        role: "Desktop Specialist", specs: &["X11", "Wayland", "DE config"], shift: Shift::Evening },
+    // Hardware team - Nora mornings, Jon flexible
     RosterEntry { team: Team::Hardware, tier: Tier::Junior, id: "hardware_jr", name: "Nora",
-        role: "Hardware Technician", specs: &["PCI", "USB", "audio"] },
+        role: "Hardware Technician", specs: &["PCI", "USB", "audio"], shift: Shift::Morning },
     RosterEntry { team: Team::Hardware, tier: Tier::Senior, id: "hardware_sr", name: "Jon",
-        role: "Hardware Engineer", specs: &["drivers", "firmware", "BIOS"] },
-    // Storage team
+        role: "Hardware Engineer", specs: &["drivers", "firmware", "BIOS"], shift: Shift::Flexible },
+    // Storage team - Lars days, Ines evenings
     RosterEntry { team: Team::Storage, tier: Tier::Junior, id: "storage_jr", name: "Lars",
-        role: "Storage Engineer", specs: &["ext4", "btrfs", "mount"] },
+        role: "Storage Engineer", specs: &["ext4", "btrfs", "mount"], shift: Shift::Day },
     RosterEntry { team: Team::Storage, tier: Tier::Senior, id: "storage_sr", name: "Ines",
-        role: "Storage Architect", specs: &["RAID", "LVM", "ZFS"] },
-    // Performance team
+        role: "Storage Architect", specs: &["RAID", "LVM", "ZFS"], shift: Shift::Evening },
+    // Performance team - Kari evenings, Mateo flexible
     RosterEntry { team: Team::Performance, tier: Tier::Junior, id: "perf_jr", name: "Kari",
-        role: "Performance Analyst", specs: &["htop", "memory", "CPU"] },
+        role: "Performance Analyst", specs: &["htop", "memory", "CPU"], shift: Shift::Evening },
     RosterEntry { team: Team::Performance, tier: Tier::Senior, id: "perf_sr", name: "Mateo",
-        role: "Performance Engineer", specs: &["profiling", "tuning", "cgroups"] },
-    // Security team
+        role: "Performance Engineer", specs: &["profiling", "tuning", "cgroups"], shift: Shift::Flexible },
+    // Security team - Priya days, Oskar nights (security needs 24/7)
     RosterEntry { team: Team::Security, tier: Tier::Junior, id: "security_jr", name: "Priya",
-        role: "Security Analyst", specs: &["permissions", "audit", "SELinux"] },
+        role: "Security Analyst", specs: &["permissions", "audit", "SELinux"], shift: Shift::Day },
     RosterEntry { team: Team::Security, tier: Tier::Senior, id: "security_sr", name: "Oskar",
-        role: "Security Engineer", specs: &["encryption", "hardening", "CVE"] },
-    // Services team
+        role: "Security Engineer", specs: &["encryption", "hardening", "CVE"], shift: Shift::Night },
+    // Services team - Hugo mornings, Mina flexible
     RosterEntry { team: Team::Services, tier: Tier::Junior, id: "services_jr", name: "Hugo",
-        role: "Services Administrator", specs: &["systemd", "services", "cron"] },
+        role: "Services Administrator", specs: &["systemd", "services", "cron"], shift: Shift::Morning },
     RosterEntry { team: Team::Services, tier: Tier::Senior, id: "services_sr", name: "Mina",
-        role: "Services Architect", specs: &["containers", "orchestration", "init"] },
-    // Logs team (v0.0.42)
+        role: "Services Architect", specs: &["containers", "orchestration", "init"], shift: Shift::Flexible },
+    // Logs team - Daniel nights, Lea days
     RosterEntry { team: Team::Logs, tier: Tier::Junior, id: "logs_jr", name: "Daniel",
-        role: "Logs Analyst", specs: &["journalctl", "syslog", "dmesg"] },
+        role: "Logs Analyst", specs: &["journalctl", "syslog", "dmesg"], shift: Shift::Night },
     RosterEntry { team: Team::Logs, tier: Tier::Senior, id: "logs_sr", name: "Lea",
-        role: "Logs Engineer", specs: &["log rotation", "ELK", "aggregation"] },
-    // General team
+        role: "Logs Engineer", specs: &["log rotation", "ELK", "aggregation"], shift: Shift::Day },
+    // General team - always available for overflow
     RosterEntry { team: Team::General, tier: Tier::Junior, id: "general_jr", name: "Tomas",
-        role: "Support Analyst", specs: &["triage", "documentation"] },
+        role: "Support Analyst", specs: &["triage", "documentation"], shift: Shift::Flexible },
     RosterEntry { team: Team::General, tier: Tier::Senior, id: "general_sr", name: "Sara",
-        role: "Support Specialist", specs: &["escalation", "coordination"] },
+        role: "Support Specialist", specs: &["escalation", "coordination"], shift: Shift::Flexible },
 ];
 
 /// Get the person profile for a given team and tier.
@@ -133,6 +206,7 @@ pub fn person_for(team: Team, tier: Tier) -> PersonProfile {
                 team: entry.team,
                 tier: entry.tier,
                 specializations: entry.specs,
+                shift: entry.shift,
             };
         }
     }
@@ -144,6 +218,7 @@ pub fn person_for(team: Team, tier: Tier) -> PersonProfile {
         team,
         tier,
         specializations: &[],
+        shift: Shift::Flexible,
     }
 }
 
@@ -158,6 +233,7 @@ pub fn person_by_id(person_id: &str) -> Option<PersonProfile> {
                 team: entry.team,
                 tier: entry.tier,
                 specializations: entry.specs,
+                shift: entry.shift,
             });
         }
     }
@@ -175,6 +251,7 @@ pub fn team_roster(team: Team) -> Vec<PersonProfile> {
             team: e.team,
             tier: e.tier,
             specializations: e.specs,
+            shift: e.shift,
         })
         .collect()
 }
@@ -189,6 +266,7 @@ pub fn all_persons() -> Vec<PersonProfile> {
             team: e.team,
             tier: e.tier,
             specializations: e.specs,
+            shift: e.shift,
         })
         .collect()
 }

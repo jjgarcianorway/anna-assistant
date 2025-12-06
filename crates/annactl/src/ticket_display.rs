@@ -1,34 +1,104 @@
 //! Ticket history display for Service Desk Theatre (v0.0.109).
 //!
 //! Shows past support tickets with status, resolution times, and staff.
+//! v0.0.110: Added search and filter capabilities.
 
 use anna_shared::ticket_tracker::{Ticket, TicketStatus, TicketTracker};
 use anna_shared::ui::colors;
 
-/// Display ticket history
-pub fn print_ticket_history(limit: usize) {
+/// Filter options for ticket display
+#[derive(Debug, Default)]
+pub struct TicketFilter {
+    /// Filter by team name (case-insensitive)
+    pub team: Option<String>,
+    /// Filter by status
+    pub status: Option<TicketStatus>,
+    /// Search in query text (case-insensitive)
+    pub search: Option<String>,
+    /// Show only escalated tickets
+    pub escalated_only: bool,
+}
+
+impl TicketFilter {
+    /// Check if a ticket matches the filter
+    pub fn matches(&self, ticket: &Ticket) -> bool {
+        // Team filter
+        if let Some(ref team) = self.team {
+            if !ticket.team.to_lowercase().contains(&team.to_lowercase()) {
+                return false;
+            }
+        }
+
+        // Status filter
+        if let Some(status) = self.status {
+            if ticket.status != status {
+                return false;
+            }
+        }
+
+        // Search in query
+        if let Some(ref search) = self.search {
+            if !ticket.query.to_lowercase().contains(&search.to_lowercase()) {
+                return false;
+            }
+        }
+
+        // Escalated only
+        if self.escalated_only && !ticket.was_escalated {
+            return false;
+        }
+
+        true
+    }
+
+    /// Check if any filter is active
+    pub fn is_active(&self) -> bool {
+        self.team.is_some() || self.status.is_some() ||
+        self.search.is_some() || self.escalated_only
+    }
+}
+
+/// Display ticket history with optional filters
+/// v0.0.110: Added filter support
+pub fn print_ticket_history(limit: usize, filter: &TicketFilter) {
     println!();
     println!("{}Service Desk Ticket History{}", colors::BOLD, colors::RESET);
+
+    // Show active filters
+    if filter.is_active() {
+        print_active_filters(filter);
+    }
+
     println!();
 
     // Try system-wide first, then user-specific
     let tracker = TicketTracker::new();
-    let tickets = match tracker.recent(limit) {
+    let all_tickets = match tracker.recent(limit * 2) { // Get more to filter from
         Ok(t) if !t.is_empty() => t,
         _ => {
             // Try user-specific location
             let user_tracker = TicketTracker::for_user();
-            match user_tracker.recent(limit) {
+            match user_tracker.recent(limit * 2) {
                 Ok(t) => t,
                 Err(_) => Vec::new(),
             }
         }
     };
 
+    // Apply filters
+    let tickets: Vec<_> = all_tickets.iter()
+        .filter(|t| filter.matches(t))
+        .take(limit)
+        .collect();
+
     if tickets.is_empty() {
-        println!("{}No tickets found.{}", colors::DIM, colors::RESET);
-        println!();
-        println!("Start asking questions to create tickets!");
+        if filter.is_active() {
+            println!("{}No tickets match your filter.{}", colors::DIM, colors::RESET);
+        } else {
+            println!("{}No tickets found.{}", colors::DIM, colors::RESET);
+            println!();
+            println!("Start asking questions to create tickets!");
+        }
         return;
     }
 
@@ -39,8 +109,34 @@ pub fn print_ticket_history(limit: usize) {
 
     println!();
 
-    // Print summary stats
-    print_ticket_stats();
+    // Print summary stats (unfiltered)
+    if !filter.is_active() {
+        print_ticket_stats();
+    } else {
+        println!(
+            "{}Showing {} of {} tickets{}",
+            colors::DIM, tickets.len(), all_tickets.len(), colors::RESET
+        );
+        println!();
+    }
+}
+
+/// Print active filter summary
+fn print_active_filters(filter: &TicketFilter) {
+    print!("{}Filters:", colors::DIM);
+    if let Some(ref team) = filter.team {
+        print!(" team={}", team);
+    }
+    if let Some(status) = filter.status {
+        print!(" status={}", format_status(status));
+    }
+    if let Some(ref search) = filter.search {
+        print!(" search=\"{}\"", search);
+    }
+    if filter.escalated_only {
+        print!(" escalated");
+    }
+    println!("{}", colors::RESET);
 }
 
 /// Print a single ticket row

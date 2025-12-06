@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.110] - 2025-12-06
+
+### Added - Service Desk Theatre UX Enhancements (Phase 30)
+
+**Ticket Filtering, Staff Roster, and Shift Awareness**
+
+Adds operational commands and realistic shift scheduling to the IT
+department experience.
+
+**Ticket Search & Filtering**:
+- `annactl tickets --team desktop` filters by team
+- `annactl tickets --search vim` searches in query text
+- `annactl tickets --escalated` shows only escalated tickets
+- Shows filter summary and match count
+
+**Staff Roster Command**:
+- New `annactl staff` command shows full IT department
+- Displays all 18 staff across 9 teams
+- Shows tier badges [jr]/[sr], workload stats, specializations
+- Includes department summary with activity metrics
+
+**Shift Scheduling**:
+- Each staff member has assigned shifts (morning/day/evening/night/flexible)
+- Green ● shows currently on shift, dim ○ for off shift
+- Shift times: Morning 6am-2pm, Day 9am-5pm, Evening 2pm-10pm, Night 10pm-6am
+- Seniors often flexible, security has 24/7 coverage
+
+**New Files**:
+- `staff_display.rs` - Staff roster and workload display
+
+**Code Changes**:
+- `ticket_display.rs`: Added TicketFilter for search/filter
+- `roster.rs`: Added Shift enum and shift field to PersonProfile
+- `main.rs`: Added Staff command, enhanced Tickets with filter options
+
+**Progress**: ~55% of full vision complete (operational commands)
+
 ## [0.0.109] - 2025-12-06
 
 ### Added - Service Desk Theatre Deep Integration (Phase 29)

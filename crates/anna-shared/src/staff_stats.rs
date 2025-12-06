@@ -140,6 +140,11 @@ impl StaffStats {
     pub fn total_tickets(&self) -> u32 {
         self.by_staff.values().map(|m| m.tickets_handled).sum()
     }
+
+    /// v0.0.110: Get metrics for a specific staff member
+    pub fn get(&self, person_id: &str) -> Option<&StaffMetrics> {
+        self.by_staff.get(person_id)
+    }
 }
 
 #[cfg(test)]

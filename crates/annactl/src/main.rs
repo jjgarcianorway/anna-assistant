@@ -3,6 +3,7 @@
 //! v0.0.85: Added time_format module for date/tenure display.
 //! v0.0.97: Added change_commands module for history/undo.
 //! v0.0.109: Added ticket_display module for ticket history.
+//! v0.0.110: Added staff_display module for IT department roster.
 
 mod change_commands;
 mod client;
@@ -12,6 +13,7 @@ mod greeting;
 mod output;
 mod progress_display;
 mod report_cmd;
+mod staff_display;
 mod stats_display;
 mod theatre_render;
 mod ticket_display;
@@ -23,7 +25,8 @@ use clap::{Parser, Subcommand};
 
 use crate::commands::{handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
 use crate::report_cmd::handle_report;
-use crate::ticket_display::print_ticket_history;
+use crate::staff_display::print_staff_roster;
+use crate::ticket_display::{print_ticket_history, TicketFilter};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -75,11 +78,23 @@ enum Command {
         id: String,
     },
     /// v0.0.109: Show Service Desk ticket history
+    /// v0.0.110: Added search and filter options
     Tickets {
         /// Maximum number of tickets to show (default: 10)
         #[arg(short = 'n', long, default_value = "10")]
         limit: usize,
+        /// Filter by team (e.g., --team desktop)
+        #[arg(short = 't', long)]
+        team: Option<String>,
+        /// Search in query text
+        #[arg(short = 's', long)]
+        search: Option<String>,
+        /// Show only escalated tickets
+        #[arg(short = 'e', long)]
+        escalated: bool,
     },
+    /// v0.0.110: Show IT department staff roster and workload
+    Staff,
 }
 
 #[tokio::main]
@@ -95,8 +110,18 @@ async fn main() -> Result<()> {
         Some(Command::Reset) => handle_reset().await,
         Some(Command::History) => handle_history().await,
         Some(Command::Undo { id }) => handle_undo(&id).await,
-        Some(Command::Tickets { limit }) => {
-            print_ticket_history(limit);
+        Some(Command::Tickets { limit, team, search, escalated }) => {
+            let filter = TicketFilter {
+                team,
+                search,
+                escalated_only: escalated,
+                ..Default::default()
+            };
+            print_ticket_history(limit, &filter);
+            Ok(())
+        }
+        Some(Command::Staff) => {
+            print_staff_roster();
             Ok(())
         }
         None => {
