@@ -356,6 +356,8 @@ pub fn build_recipe_result(
 
     ServiceDeskResult {
         request_id,
+        case_number: None,
+        assigned_staff: None,
         answer,
         reliability_score: recipe.reliability_score,
         reliability_signals: signals,

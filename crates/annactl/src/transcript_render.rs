@@ -56,8 +56,15 @@ pub fn render_with_options(result: &ServiceDeskResult, debug_mode: bool, show_in
 }
 
 /// Render in debug mode - full troubleshooting view
+/// v0.0.106: Shows case number and assigned staff
 fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
-    println!("\n{}[transcript]{} request_id={}\n", colors::DIM, colors::RESET, &result.request_id[..8]);
+    // v0.0.106: Show case number if present
+    let case_info = match (&result.case_number, &result.assigned_staff) {
+        (Some(cn), Some(staff)) => format!(" {}case={} staff={}{}", colors::CYAN, cn, staff, colors::RESET),
+        (Some(cn), None) => format!(" {}case={}{}", colors::CYAN, cn, colors::RESET),
+        _ => String::new(),
+    };
+    println!("\n{}[transcript]{} request_id={}{}\n", colors::DIM, colors::RESET, &result.request_id[..8], case_info);
 
     let answer_source = get_final_answer(result);
     let answer_in_transcript = matches!(answer_source, AnswerSource::Transcript);

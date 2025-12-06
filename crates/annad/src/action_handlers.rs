@@ -81,6 +81,8 @@ pub fn extract_service_info(query: &str) -> Option<(String, ServiceAction)> {
 fn make_result(answer: String, score: u8, proposed_change: Option<ChangePlan>) -> ServiceDeskResult {
     ServiceDeskResult {
         request_id: uuid::Uuid::new_v4().to_string(),
+        case_number: None,
+        assigned_staff: None,
         answer,
         reliability_score: score,
         reliability_signals: ReliabilitySignals::default(),

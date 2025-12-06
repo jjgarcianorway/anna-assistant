@@ -228,6 +228,8 @@ mod tests {
     fn mock_result(verified: bool, score: u8) -> ServiceDeskResult {
         ServiceDeskResult {
             request_id: "test-123".to_string(),
+            case_number: None,
+            assigned_staff: None,
             answer: "Your disk is 50% full.".to_string(),
             domain: SpecialistDomain::Storage,
             reliability_score: score,

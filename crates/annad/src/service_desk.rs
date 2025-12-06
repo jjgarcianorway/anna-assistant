@@ -158,6 +158,8 @@ pub fn create_no_evidence_response(
 
     ServiceDeskResult {
         request_id,
+        case_number: None,
+        assigned_staff: None,
         answer,
         reliability_score: anna_shared::reliability::NO_EVIDENCE_RELIABILITY_CAP,
         reliability_signals: signals,
@@ -222,6 +224,8 @@ pub fn create_clarification_response_grounded(
 
     ServiceDeskResult {
         request_id,
+        case_number: None,
+        assigned_staff: None,
         answer: String::new(),
         reliability_score: score,
         reliability_signals: signals,
@@ -310,6 +314,8 @@ pub fn create_clarification_with_options(
 
     ServiceDeskResult {
         request_id,
+        case_number: None,
+        assigned_staff: None,
         answer: String::new(),
         reliability_score: score,
         reliability_signals: signals,
@@ -368,6 +374,8 @@ pub fn create_timeout_response(
 
     ServiceDeskResult {
         request_id,
+        case_number: None,
+        assigned_staff: None,
         answer,
         reliability_score: if has_evidence { 40 } else { 20 }, // Higher if we have evidence
         reliability_signals: signals,
@@ -457,6 +465,8 @@ pub fn create_no_data_response(
 
     ServiceDeskResult {
         request_id,
+        case_number: None,
+        assigned_staff: None,
         answer,
         reliability_score: signals.score(),
         reliability_signals: signals,
@@ -589,6 +599,8 @@ pub fn build_result_with_flags(
 
     ServiceDeskResult {
         request_id,
+        case_number: None,
+        assigned_staff: None,
         answer,
         reliability_score: output.score,
         reliability_signals: signals,

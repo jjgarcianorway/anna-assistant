@@ -205,6 +205,8 @@ fn test_service_desk_result_structure() {
 
     let result = ServiceDeskResult {
         request_id: "test-id".to_string(),
+        case_number: None,
+        assigned_staff: None,
         answer: "Test answer".to_string(),
         reliability_score: signals.score(),
         reliability_signals: signals,
@@ -248,6 +250,8 @@ fn test_clarification_response_format() {
 
     let result = ServiceDeskResult {
         request_id: "test-id".to_string(),
+        case_number: None,
+        assigned_staff: None,
         answer: String::new(),
         reliability_score: signals.score(),
         reliability_signals: signals,
@@ -354,6 +358,8 @@ fn test_response_has_all_required_fields() {
 
     let result = ServiceDeskResult {
         request_id: "test-id".to_string(),
+        case_number: None,
+        assigned_staff: None,
         answer: "The top memory process is...".to_string(),
         reliability_score: signals.score(),
         reliability_signals: signals,
@@ -415,6 +421,8 @@ fn test_timeout_response_format() {
 
     let result = ServiceDeskResult {
         request_id: "test-id".to_string(),
+        case_number: None,
+        assigned_staff: None,
         answer: String::new(),
         reliability_score: signals.score().min(20), // Max 20 for timeout
         reliability_signals: signals,
@@ -479,6 +487,8 @@ fn test_timeout_at_different_stages() {
 
         let result = ServiceDeskResult {
             request_id: "test-id".to_string(),
+            case_number: None,
+            assigned_staff: None,
             answer: String::new(),
             reliability_score: signals.score().min(20),
             reliability_signals: signals,
@@ -532,6 +542,8 @@ fn test_evidence_includes_partial_probes_on_timeout() {
 
     let result = ServiceDeskResult {
         request_id: "test-id".to_string(),
+        case_number: None,
+        assigned_staff: None,
         answer: String::new(),
         reliability_score: signals.score().min(20),
         reliability_signals: signals,

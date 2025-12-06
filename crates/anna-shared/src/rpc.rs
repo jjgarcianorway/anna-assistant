@@ -339,6 +339,12 @@ impl ReliabilitySignals {
 pub struct ServiceDeskResult {
     /// Unique request ID for tracking
     pub request_id: String,
+    /// v0.0.106: Case number (e.g., "CN-0001-06122025")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub case_number: Option<String>,
+    /// v0.0.106: Staff member who handled this request
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assigned_staff: Option<String>,
     /// The LLM's answer text
     pub answer: String,
     /// Reliability score 0-100 (deterministic from signals)

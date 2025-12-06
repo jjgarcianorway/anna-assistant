@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.106] - 2025-12-06
+
+### Added - Service Desk Theatre Integration (Phase 26)
+
+**Case Numbers & Named Staff in Responses**
+
+Every request now gets a case number and assigned staff member, creating
+the "IT Department inside your computer" experience.
+
+**Theatre Integration**:
+- Every response shows case number (e.g., CN-0001-06122025)
+- Staff member assigned per domain (e.g., "Sofia (Desktop Administrator)")
+- Ticket history saved to ~/.anna/tickets/
+- Theatre context flows from request start to response
+
+**Display Updates**:
+- Theatre mode footer shows case number and assigned staff
+- Debug mode shows case/staff in transcript header
+- User patterns shown in REPL greeting (streak, preferred editor, top topics)
+
+**User Profile Integration**:
+- Session tracking updates streak days
+- Personalized patterns in greeting ("I've noticed you prefer vim")
+- Profile saved after each REPL session
+
+**New Files**:
+- `theatre.rs` - Theatre context for request flow
+
+**Progress**: ~35% of full vision complete (theatre integration active)
+
 ## [0.0.105] - 2025-12-06
 
 ### Added - Service Desk Foundation (Phase 25)

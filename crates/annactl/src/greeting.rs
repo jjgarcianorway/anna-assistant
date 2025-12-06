@@ -2,16 +2,23 @@
 //!
 //! Creates a personal, aware greeting that makes Anna feel like a real
 //! IT support person who knows the user and their system.
+//!
+//! v0.0.106: Integrates user profile for personalized patterns.
 
 use anna_shared::snapshot::{self, DeltaItem, SystemSnapshot};
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::telemetry::TelemetrySnapshot;
 use anna_shared::ui::{colors, HR};
+use anna_shared::user_profile::UserProfile;
 
 /// Print the theatre-style REPL greeting
 /// Shows: personalized greeting, time since last visit, health deltas, patterns
+/// v0.0.106: Loads user profile for personalized patterns
 pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
+
+    // v0.0.106: Load user profile
+    let mut profile = UserProfile::load();
 
     // Load last snapshot for comparison
     let last_snapshot = snapshot::load_last_snapshot();
@@ -37,6 +44,9 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     // Personalized greeting based on interaction history
     print_personalized_greeting(&username, &interaction_info);
 
+    // v0.0.106: Show personalized patterns if we have history
+    print_user_patterns(&profile);
+
     // "Since last time" section if we have history
     if last_snapshot.is_some() {
         print_since_last_time(&telemetry, &health_deltas, failed_services, &interaction_info);
@@ -51,6 +61,10 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     println!();
     println!("{}But I believe you want to ask me something, don't you?{}", colors::DIM, colors::RESET);
     println!();
+
+    // v0.0.106: Update profile and save
+    profile.record_session();
+    let _ = profile.save();
 
     // Save snapshot for next time
     let _ = snapshot::save_snapshot(&current_snapshot);
@@ -122,6 +136,53 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
         }
     } else {
         println!("Hello {}, welcome back.", username);
+    }
+}
+
+/// v0.0.106: Print personalized patterns from user profile
+fn print_user_patterns(profile: &UserProfile) {
+    // Only show if we have meaningful data
+    if profile.tool_usage.is_empty() && profile.topic_interests.is_empty() {
+        return;
+    }
+
+    let mut patterns = Vec::new();
+
+    // Streak info
+    if profile.streak_days > 1 {
+        patterns.push(format!(
+            "{} {} day streak! Keep it going.",
+            bullet(), profile.streak_days
+        ));
+    }
+
+    // Preferred editor
+    if let Some(ref editor) = profile.preferred_editor {
+        if profile.tool_usage.get(editor).copied().unwrap_or(0) > 3 {
+            patterns.push(format!(
+                "{} I've noticed you prefer {}.",
+                bullet(), editor
+            ));
+        }
+    }
+
+    // Top topic
+    if let Some(topic) = profile.top_topic() {
+        let count = profile.topic_interests.get(topic).copied().unwrap_or(0);
+        if count > 2 {
+            patterns.push(format!(
+                "{} You ask about {} a lot ({} times).",
+                bullet(), topic, count
+            ));
+        }
+    }
+
+    // Show patterns if we have any
+    if !patterns.is_empty() {
+        println!();
+        for pattern in patterns.iter().take(2) {
+            println!("{}{}{}", colors::DIM, pattern, colors::RESET);
+        }
     }
 }
 

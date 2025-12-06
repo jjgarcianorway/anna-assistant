@@ -36,6 +36,7 @@ pub mod scoring;
 pub mod server;
 pub mod service_desk;
 pub mod specialist_handler;
+pub mod theatre;
 pub mod state;
 pub mod summarizer;
 pub mod ticket_loop;

@@ -26,10 +26,12 @@ use crate::router;
 use crate::service_desk;
 use crate::specialist_handler::{try_specialist_llm, SpecialistResult};
 use crate::state::SharedState;
+use crate::theatre::TheatreContext;
 use crate::triage::{self, TriageResult};
 use crate::translator::{self, TranslatorInput};
 
 /// Wrap result in response and try to learn from it (v0.0.94)
+/// v0.0.106: Optionally populate case_number and assigned_staff from TheatreContext
 fn success_with_learning(id: String, result: ServiceDeskResult) -> RpcResponse {
     // Try to learn recipe from successful result
     let learn_result = try_learn_from_result(&result);
@@ -39,6 +41,26 @@ fn success_with_learning(id: String, result: ServiceDeskResult) -> RpcResponse {
         }
     }
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
+}
+
+/// v0.0.106: Wrap result with theatre context for Service Desk Theatre
+fn success_with_theatre(
+    id: String,
+    mut result: ServiceDeskResult,
+    theatre: Option<TheatreContext>,
+) -> RpcResponse {
+    // Populate case_number and assigned_staff from theatre context
+    if let Some(ctx) = theatre {
+        result.case_number = Some(ctx.case_number.clone());
+        result.assigned_staff = Some(ctx.staff_display());
+
+        // Save ticket to history (best effort - don't fail request on save error)
+        if let Err(e) = ctx.save() {
+            debug!("Failed to save ticket to history: {}", e);
+        }
+    }
+
+    success_with_learning(id, result)
 }
 
 /// Handle an RPC request
@@ -119,7 +141,11 @@ fn make_timeout_response(id: String, request_id: String, timeout_secs: u64, quer
     );
 
     let result = anna_shared::rpc::ServiceDeskResult {
-        request_id, answer, reliability_score: 20, // Low but not zero - we provided info
+        request_id,
+        case_number: None,
+        assigned_staff: None,
+        answer,
+        reliability_score: 20, // Low but not zero - we provided info
         reliability_signals: anna_shared::rpc::ReliabilitySignals::default(),
         reliability_explanation: None,
         domain: anna_shared::rpc::SpecialistDomain::System,
@@ -621,8 +647,14 @@ async fn handle_llm_request_inner(
           result.execution_trace.as_ref().map(|t| t.to_string()).unwrap_or_default(), total_ms);
 
     save_progress(&state, &progress).await;
-    // v0.0.94: Try to learn recipe from successful result
-    success_with_learning(id, result)
+
+    // v0.0.106: Create theatre context for Service Desk Theatre
+    let mut theatre = TheatreContext::new(query, classified_domain);
+    theatre.start_work();
+    theatre.resolve(result.answer.clone(), result.reliability_score, total_ms);
+
+    // v0.0.106: Return with theatre context (case number, assigned staff)
+    success_with_theatre(id, result, Some(theatre))
 }
 
 /// Triage path for unknown queries - uses LLM translator with confidence threshold

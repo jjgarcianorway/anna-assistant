@@ -199,11 +199,23 @@ fn get_final_answer_text(result: &ServiceDeskResult) -> String {
 }
 
 /// Print the footer
+/// v0.0.106: Shows case number and assigned staff when available
 fn print_footer(result: &ServiceDeskResult) {
     let rel_color = reliability_color(result.reliability_score);
     let confidence_note = it_confidence(result.reliability_score);
     let domain_str = result.domain.to_string();
     let domain_context = it_domain_context(&domain_str);
+
+    // v0.0.106: Case number header
+    if let Some(ref case_num) = result.case_number {
+        let staff_info = result.assigned_staff.as_ref()
+            .map(|s| format!(" ({})", s))
+            .unwrap_or_default();
+        println!(
+            "{}{}{}{} {}",
+            colors::CYAN, case_num, colors::RESET, colors::DIM, staff_info
+        );
+    }
 
     // Evidence source
     let evidence_source = if result.reliability_signals.answer_grounded {

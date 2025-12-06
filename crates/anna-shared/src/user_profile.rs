@@ -158,6 +158,11 @@ impl UserProfile {
         self.last_seen = now;
     }
 
+    /// v0.0.106: Record a session start (alias for record_interaction)
+    pub fn record_session(&mut self) {
+        self.record_interaction();
+    }
+
     /// Record tool usage (e.g., "vim", "nano", "htop")
     pub fn record_tool_usage(&mut self, tool: &str) {
         *self.tool_usage.entry(tool.to_string()).or_insert(0) += 1;
