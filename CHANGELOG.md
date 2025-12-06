@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.81] - 2025-12-06
+
+### Added - Service Desk Theatre (Phase 1)
+
+**Narrative UX Layer - Cinematic IT Department Experience**
+
+This release begins the transformation of Anna's output into a "fly on the wall"
+IT department experience. Users now see:
+
+- **Named personas**: 18 IT department members with real names
+  - Network: Michael (Junior), Ana (Senior)
+  - Storage: Lars (Junior), Ines (Senior)
+  - Desktop: Sofia (Junior), Erik (Senior)
+  - And more across all teams...
+
+- **Theatre rendering**: Clean mode now uses cinematic narrative flow
+  - Shows what Anna is checking (not raw probe output)
+  - Internal IT communications can be shown with `--internal` flag
+  - Professional footer with domain context and reliability
+
+**New Modules**
+- `anna-shared/src/theatre.rs`: Core narrative building system
+  - `NarrativeSegment`: Typed dialogue chunks with speaker info
+  - `Speaker`: Enum for Anna, You, TeamMember, Narrator
+  - `NarrativeBuilder`: Fluent API for building narratives
+  - `describe_check()`: Human-friendly probe descriptions
+
+- `annactl/src/theatre_render.rs`: Theatre-mode renderer
+  - Replaces render_clean in normal mode
+  - Shows IT department style output
+  - Supports internal communications toggle
+
+**Code Changes**
+- `transcript_render.rs`: Now delegates to theatre_render in clean mode
+- `lib.rs`: Added theatre module export
+
+**Example Output (debug OFF)**
+```
+[you] what is my disk usage?
+
+Checking disk space...
+
+[anna]
+Your disk usage:
+- /: 45% used (120GB of 256GB)
+- /home: 78% used (400GB of 512GB)
+
+Storage & Filesystems | Based on system data | 85% | Verified from disk
+```
+
 ## [0.0.80] - 2025-12-06
 
 ### Fixed - STABILIZE: Answer Minimality (B1)

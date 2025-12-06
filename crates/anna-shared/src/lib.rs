@@ -75,6 +75,9 @@ pub mod presentation;
 pub mod recipe_store;
 pub mod result_signals;
 
+// v0.0.81: Service Desk Theatre - cinematic narrative
+pub mod theatre;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

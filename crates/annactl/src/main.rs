@@ -7,6 +7,7 @@ mod output;
 mod progress_display;
 mod report_cmd;
 mod stats_display;
+mod theatre_render;
 mod transcript_render;
 
 use anyhow::Result;

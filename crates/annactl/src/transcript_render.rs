@@ -1,8 +1,9 @@
 //! Transcript rendering for consistent pipeline visibility.
 //!
-//! Two modes:
-//! - debug OFF: Clean fly-on-the-wall format (user-facing)
+//! Three modes:
+//! - debug OFF: Theatre mode - cinematic IT department experience (v0.0.81)
 //! - debug ON: Full troubleshooting view with stages and timings
+//! - internal ON: Theatre mode with internal IT communications visible
 //!
 //! INVARIANT: Exactly one [anna] block per request regardless of mode.
 //! The final answer source is determined by `get_final_answer()`.
@@ -13,6 +14,7 @@ use anna_shared::transcript::{Actor, StageOutcome, TranscriptEventKind};
 use anna_shared::ui::colors;
 
 use crate::output::{format_for_output, OutputMode};
+use crate::theatre_render;
 
 /// Source of the final answer for display
 enum AnswerSource<'a> {
@@ -44,12 +46,19 @@ fn get_final_answer(result: &ServiceDeskResult) -> AnswerSource<'_> {
 }
 
 /// Render transcript based on debug mode setting
+/// v0.0.81: Clean mode now uses theatre rendering
 pub fn render(result: &ServiceDeskResult, debug_mode: bool) {
-    let output_mode = OutputMode::detect();
+    render_with_options(result, debug_mode, false)
+}
+
+/// Render with explicit internal communications option
+pub fn render_with_options(result: &ServiceDeskResult, debug_mode: bool, show_internal: bool) {
     if debug_mode {
+        let output_mode = OutputMode::detect();
         render_debug(result, output_mode);
     } else {
-        render_clean(result, output_mode);
+        // v0.0.81: Use theatre renderer for cinematic experience
+        theatre_render::render_theatre(result, show_internal);
     }
 }
 
