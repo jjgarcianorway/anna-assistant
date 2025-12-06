@@ -1,7 +1,9 @@
 //! Anna CLI - user interface to annad.
 //! v0.0.83: Added --internal flag for IT department communications view.
 //! v0.0.85: Added time_format module for date/tenure display.
+//! v0.0.97: Added change_commands module for history/undo.
 
+mod change_commands;
 mod client;
 mod commands;
 mod display;
@@ -17,7 +19,7 @@ mod transcript_render;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
+use crate::commands::{handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
 use crate::report_cmd::handle_report;
 
 /// Anna - Local AI Assistant
@@ -62,6 +64,13 @@ enum Command {
     Uninstall,
     /// Reset learned data (keeps base installation)
     Reset,
+    /// v0.0.97: Show config change history
+    History,
+    /// v0.0.97: Undo a config change by ID
+    Undo {
+        /// Change ID to undo (from history)
+        id: String,
+    },
 }
 
 #[tokio::main]
@@ -75,6 +84,8 @@ async fn main() -> Result<()> {
         Some(Command::Report { format }) => handle_report(&format).await,
         Some(Command::Uninstall) => handle_uninstall().await,
         Some(Command::Reset) => handle_reset().await,
+        Some(Command::History) => handle_history().await,
+        Some(Command::Undo { id }) => handle_undo(&id).await,
         None => {
             if cli.request.is_empty() {
                 // No args - enter REPL mode

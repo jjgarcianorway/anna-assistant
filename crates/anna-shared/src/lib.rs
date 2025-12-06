@@ -8,6 +8,7 @@ pub mod answer_contract;
 pub mod brief;
 pub mod budget;
 pub mod change;
+pub mod change_history;
 pub mod claims;
 pub mod clarify;
 pub mod clarify_v2;

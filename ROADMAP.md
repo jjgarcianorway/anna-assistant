@@ -1,6 +1,6 @@
 # Anna Roadmap
 
-## Current Focus (v0.0.96+)
+## Current Focus (v0.0.97+)
 
 **Theme**: Hollywood IT Department Experience
 
@@ -14,12 +14,19 @@ named IT personas, and RPG-style progression.
 - [x] RPG stats with XP, levels, and titles
 - [x] Recipe learning system (v0.0.94)
 - [x] Safe change engine with rollback (v0.0.95)
-- [ ] Desktop team flow: "enable syntax highlighting in vim"
-- [ ] CLI confirmation for config changes
+- [x] Desktop team flow with CLI confirmation (v0.0.96)
+- [ ] Multi-file change transactions
+- [ ] Undo history viewer in CLI
 
 ---
 
 ## Completed
+
+### v0.0.96 - Desktop Team Editor Config Flow (Phase 16) ✓
+- [x] Natural language editor configuration ("enable syntax highlighting")
+- [x] proposed_change field in ServiceDeskResult
+- [x] CLI confirmation flow for config changes
+- [x] Integration with Safe Change Engine
 
 ### v0.0.95 - Safe Change Engine (Phase 15) ✓
 - [x] PlanChange, ApplyChange, RollbackChange RPC methods
@@ -166,10 +173,8 @@ named IT personas, and RPG-style progression.
 
 ## Planned
 
-### v0.0.96+ - Future
-- [ ] Desktop team flow: "enable syntax highlighting in vim"
-- [ ] CLI confirmation for config changes
+### v0.0.97+ - Future
 - [ ] Multi-file change transactions
+- [ ] Undo history viewer in CLI
 - [ ] Package installation recipes
 - [ ] Service configuration recipes
-- [ ] Undo history viewer in CLI

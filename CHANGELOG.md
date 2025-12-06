@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.97] - 2025-12-06
+
+### Added - Change History and Undo (Phase 17)
+
+**Change History Tracking**
+
+All config changes are now recorded for audit and undo:
+
+- `annactl history` - View recent config changes
+- `annactl undo <id>` - Restore file from backup
+- Changes recorded in `~/.anna/change_history.jsonl`
+
+**New Commands**
+
+```bash
+# View change history
+annactl history
+
+# Undo a specific change
+annactl undo abc12345
+```
+
+**History Entry Fields**
+- ID: Unique 8-character identifier
+- Timestamp: When the change was applied
+- Description: What was changed
+- Target path: File that was modified
+- Backup path: Location of backup file
+- Status: can undo / undone / no backup
+
+**New Modules**
+- `change_history.rs` - History recording and undo logic
+- `change_commands.rs` - CLI handlers for history/undo
+
 ## [0.0.96] - 2025-12-06
 
 ### Added - Desktop Team Editor Config Flow (Phase 16)
