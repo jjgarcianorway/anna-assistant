@@ -24,7 +24,7 @@ use clap::{Parser, Subcommand};
 
 use crate::commands::{handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
 use crate::report_cmd::handle_report;
-use crate::ticket_commands::{handle_email, handle_reply, handle_ticket};
+use crate::ticket_commands::{handle_email, handle_health, handle_reply, handle_ticket};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -92,6 +92,8 @@ enum Command {
         /// Your email address (or "off" to disable)
         address: String,
     },
+    /// v0.0.114: Check Anna's health and dependencies
+    Health,
 }
 
 #[tokio::main]
@@ -110,6 +112,7 @@ async fn main() -> Result<()> {
         Some(Command::Reply { case, message }) => handle_reply(&case, &message).await,
         Some(Command::Ticket { case }) => handle_ticket(&case).await,
         Some(Command::Email { address }) => handle_email(&address).await,
+        Some(Command::Health) => handle_health().await,
         None => {
             if cli.request.is_empty() {
                 // No args - enter REPL mode

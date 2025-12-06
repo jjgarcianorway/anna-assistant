@@ -4,11 +4,13 @@
 //! - annactl reply <case> <message> - Reply to an open ticket
 //! - annactl ticket <case> - Show ticket conversation
 //! - annactl email <address> - Configure email notifications
+//! - annactl health - Check Anna's health and dependencies (v0.0.114)
 
-use anna_shared::email::EmailConfig;
+use anna_shared::email::{EmailConfig, EmailHealth, ANNA_EMAIL};
 use anna_shared::ticket_tracker::{TicketTracker, TicketStatus};
 use anna_shared::ui::colors;
 use anyhow::Result;
+use std::io::{self, Write};
 
 /// Handle reply command - add user reply to a ticket
 pub async fn handle_reply(case: &str, message: &str) -> Result<()> {
@@ -175,6 +177,103 @@ pub async fn handle_email(address: &str) -> Result<()> {
     println!("{}To disable:{} annactl email off", colors::DIM, colors::RESET);
 
     Ok(())
+}
+
+/// Handle health command - check Anna's dependencies and offer to install
+pub async fn handle_health() -> Result<()> {
+    println!();
+    println!("{}Anna Health Check{}", colors::BOLD, colors::RESET);
+    println!();
+
+    // Check email system
+    let email_health = EmailHealth::check();
+
+    println!("{}Email System:{}", colors::BOLD, colors::RESET);
+    if email_health.can_send {
+        println!("  {} Mail command available", ok_symbol());
+    } else {
+        println!("  {} Mail command not found", warn_symbol());
+        println!("    Package needed: {}", email_health.package_name);
+        println!();
+        print!("  Install now? [y/N] ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        if input.trim().eq_ignore_ascii_case("y") {
+            println!();
+            println!("  Running: {}", email_health.install_cmd);
+            let status = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(&email_health.install_cmd)
+                .status();
+
+            match status {
+                Ok(s) if s.success() => {
+                    println!("  {} Email package installed!", ok_symbol());
+                }
+                _ => {
+                    println!("  {} Installation failed. Try manually:", warn_symbol());
+                    println!("    {}", email_health.install_cmd);
+                }
+            }
+        }
+    }
+
+    // Check user email
+    println!();
+    println!("{}Your Email:{}", colors::BOLD, colors::RESET);
+    if let Some(ref email) = email_health.user_email {
+        println!("  {} Configured: {}", ok_symbol(), email);
+    } else {
+        println!("  {} Not configured", warn_symbol());
+        println!("    Run: annactl email your@email.com");
+    }
+
+    // Show Anna's email
+    println!();
+    println!("{}Contact Anna:{}", colors::BOLD, colors::RESET);
+    println!("  {} annactl \"your question\"  (one-shot)", bullet());
+    println!("  {} annactl                   (interactive)", bullet());
+    println!("  {} email {}       (async ticket)", bullet(), ANNA_EMAIL);
+
+    // Open tickets
+    println!();
+    let tracker = TicketTracker::for_user();
+    if let Ok(open) = tracker.open_tickets() {
+        if !open.is_empty() {
+            println!("{}Open Tickets:{}", colors::BOLD, colors::RESET);
+            for t in open.iter().take(5) {
+                println!("  {} {} - {}", bullet(), t.case_number, truncate(&t.query, 40));
+            }
+            if open.len() > 5 {
+                println!("  {} ...and {} more", bullet(), open.len() - 5);
+            }
+        }
+    }
+
+    // Summary
+    println!();
+    if email_health.is_ready() {
+        println!("{}All systems ready!{}", colors::OK, colors::RESET);
+    } else {
+        println!("{}Setup needed for full email support.{}", colors::WARN, colors::RESET);
+    }
+
+    Ok(())
+}
+
+fn ok_symbol() -> &'static str {
+    "✓"
+}
+
+fn warn_symbol() -> &'static str {
+    "!"
+}
+
+fn bullet() -> &'static str {
+    "›"
 }
 
 /// Truncate a string with ellipsis

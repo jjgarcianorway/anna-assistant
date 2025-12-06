@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.114] - 2025-12-06
+
+### Added - Self-Healing Email & Contact Options (Phase 33)
+
+**Anna Takes Care of Herself**
+
+Anna now checks her own health and can install dependencies she needs.
+Users see all the ways to contact her: one-shot, REPL, or email.
+
+**Health Check Command**:
+- `annactl health` - Shows Anna's health status
+- Checks if email system is available
+- Offers to install mail package if missing (auto-detects distro)
+- Shows user's email config status
+- Lists all ways to contact Anna
+- Shows open tickets
+
+**Contact Options Everywhere**:
+- First-time greeting shows 3 ways to reach Anna
+- Help response includes email address and commands
+- Anna's email: `anna@localhost` (for async tickets)
+
+**Email System Health**:
+- `is_email_available()` - Check if mail command exists
+- `email_package_name()` - Detect correct package for distro
+- `install_email_command()` - Generate install command
+- `EmailHealth` struct for complete status
+
+**Distro-Specific Packages**:
+- Arch Linux: `s-nail`
+- Debian/Ubuntu: `mailutils`
+- Fedora/RHEL: `mailx`
+
+**Code Changes**:
+- `email.rs`: Added health check, auto-install, ANNA_EMAIL constant
+- `greeting.rs`: Shows 3 ways to contact Anna on first visit
+- `deterministic.rs`: Help response includes email and commands
+- `ticket_commands.rs`: Added handle_health()
+- `main.rs`: Added Health command
+
 ## [0.0.113] - 2025-12-06
 
 ### Added - Async Ticket System with Email Notifications (Phase 32)

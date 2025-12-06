@@ -95,33 +95,33 @@ pub fn try_answer(
 
 /// Help response describing available commands
 fn answer_help(route_class: &str) -> DeterministicResult {
-    let answer = r#"**Anna - Linux System Assistant**
+    let anna_email = anna_shared::email::ANNA_EMAIL;
+    let answer = format!(r#"**Anna - Linux System Assistant**
 
 I can answer questions about your system:
 
-**Hardware Information:**
-- "What CPU do I have?" - Show CPU model and cores
-- "How much RAM?" - Show total memory
-- "What GPU?" - Show graphics card info
+**Hardware:** "What CPU?", "How much RAM?", "What GPU?"
+**Processes:** "Top memory processes", "What's using CPU?"
+**Storage:** "Disk space", "How full is my disk?"
+**Network:** "Network interfaces", "What's my IP?"
+**Health:** "System health", "Any errors?", "Status report"
+**Diagnostics:** "It's slow" - Full diagnostic
 
-**Process Monitoring:**
-- "Top memory processes" - Show processes using most RAM
-- "What's using CPU?" - Show processes using most CPU
+**Service Desk:**
+- "Who is on shift?" - Meet the IT team
+- "How does this work?" - Learn about ticket workflow
 
-**Storage:**
-- "Disk space" - Show filesystem usage with warnings
+**Ways to reach me:**
+- `annactl "question"` - One-shot query
+- `annactl` - Interactive REPL
+- `email {}` - Async ticket (I'll reply!)
 
-**Network:**
-- "Network interfaces" - Show IPs and interface status
+**Commands:**
+- `annactl status` - Daemon status
+- `annactl stats` - Team statistics
+- `annactl email you@example.com` - Get notified
 
-**System Health:**
-- "System health" - Full system summary
-- "Status report" - Overview of CPU, memory, disk
-
-**Diagnostics:**
-- "It's slow" - Run full diagnostic (CPU, memory, disk)
-
-Ask a question to get started!"#;
+Ask a question to get started!"#, anna_email);
 
     DeterministicResult {
         answer: answer.to_string(),

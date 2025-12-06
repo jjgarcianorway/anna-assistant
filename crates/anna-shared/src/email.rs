@@ -7,12 +7,98 @@
 //!
 //! Uses the system's `sendmail` or `mail` command.
 //! User can configure their email with `annactl config email user@example.com`
+//!
+//! v0.0.114: Added health check, auto-install, and Anna's email address.
 
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
 use crate::ticket_tracker::Ticket;
+
+/// Anna's Service Desk email address (for incoming queries)
+/// Users can email questions directly to Anna
+pub const ANNA_EMAIL: &str = "anna@localhost";
+
+/// Check if email system is available
+pub fn is_email_available() -> bool {
+    // Check for mail command
+    Command::new("which")
+        .arg("mail")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// Get the package name for email support on this distro
+pub fn email_package_name() -> &'static str {
+    // Check for Arch
+    if PathBuf::from("/etc/arch-release").exists() {
+        return "s-nail"; // Arch Linux
+    }
+    // Check for Debian/Ubuntu
+    if PathBuf::from("/etc/debian_version").exists() {
+        return "mailutils";
+    }
+    // Check for Fedora/RHEL
+    if PathBuf::from("/etc/fedora-release").exists() || PathBuf::from("/etc/redhat-release").exists() {
+        return "mailx";
+    }
+    // Default
+    "mailutils"
+}
+
+/// Install email package (returns command to run)
+pub fn install_email_command() -> String {
+    let pkg = email_package_name();
+
+    // Detect package manager
+    if PathBuf::from("/usr/bin/pacman").exists() {
+        format!("sudo pacman -S --noconfirm {}", pkg)
+    } else if PathBuf::from("/usr/bin/apt").exists() {
+        format!("sudo apt install -y {}", pkg)
+    } else if PathBuf::from("/usr/bin/dnf").exists() {
+        format!("sudo dnf install -y {}", pkg)
+    } else if PathBuf::from("/usr/bin/yum").exists() {
+        format!("sudo yum install -y {}", pkg)
+    } else {
+        format!("# Install {} using your package manager", pkg)
+    }
+}
+
+/// Email health status
+#[derive(Debug, Clone)]
+pub struct EmailHealth {
+    /// Is email sending available?
+    pub can_send: bool,
+    /// Package name needed
+    pub package_name: &'static str,
+    /// Install command
+    pub install_cmd: String,
+    /// User's configured email
+    pub user_email: Option<String>,
+    /// Anna's email address
+    pub anna_email: &'static str,
+}
+
+impl EmailHealth {
+    /// Check email system health
+    pub fn check() -> Self {
+        let config = EmailConfig::load();
+        Self {
+            can_send: is_email_available(),
+            package_name: email_package_name(),
+            install_cmd: install_email_command(),
+            user_email: config.user_email,
+            anna_email: ANNA_EMAIL,
+        }
+    }
+
+    /// Is everything ready for email?
+    pub fn is_ready(&self) -> bool {
+        self.can_send && self.user_email.is_some()
+    }
+}
 
 /// Email configuration
 #[derive(Debug, Clone, Default)]
