@@ -85,6 +85,10 @@ pub enum QueryClass {
     ConfigureGit,
     /// v0.0.104: SSH key management: "generate ssh key", "copy ssh key"
     SshKeyManagement,
+    /// v0.0.111: Ticket history queries: "show my tickets", "recent cases"
+    TicketHistory,
+    /// v0.0.111: Staff roster queries: "who is on shift", "show IT team"
+    StaffRoster,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -124,6 +128,8 @@ impl std::fmt::Display for QueryClass {
             Self::ConfigureShell => "configure_shell",
             Self::ConfigureGit => "configure_git",
             Self::SshKeyManagement => "ssh_key_management",
+            Self::TicketHistory => "ticket_history",
+            Self::StaffRoster => "staff_roster",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -166,6 +172,8 @@ impl QueryClass {
             "configure_shell" => Some(Self::ConfigureShell),
             "configure_git" => Some(Self::ConfigureGit),
             "ssh_key_management" => Some(Self::SshKeyManagement),
+            "ticket_history" => Some(Self::TicketHistory),
+            "staff_roster" => Some(Self::StaffRoster),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -178,8 +186,10 @@ impl QueryClass {
 
     /// Check if this class is a fast-path (skip translator, no specialist)
     /// v0.0.77: Added MetaSmallTalk - bypasses LLM entirely
+    /// v0.0.111: Added TicketHistory, StaffRoster - internal data
     pub fn is_fast_path(&self) -> bool {
-        matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk)
+        matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
+            | Self::TicketHistory | Self::StaffRoster)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -691,6 +701,34 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
+        // v0.0.111: Ticket history - deterministic from ticket tracker
+        QueryClass::TicketHistory => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec![], // Uses internal ticket tracker
+            capability: RouteCapability {
+                can_answer_deterministically: true, // Static from tracker
+                evidence_required: false,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.111: Staff roster - deterministic from roster data
+        QueryClass::StaffRoster => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec![], // Uses internal roster
+            capability: RouteCapability {
+                can_answer_deterministically: true, // Static from roster
+                evidence_required: false,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
         // Unknown - full LLM path
         QueryClass::Unknown => DeterministicRoute {
             class,
@@ -848,7 +886,7 @@ mod tests {
     fn test_evidence_required_routes_have_probes() {
         
 
-        // All known query classes (v0.0.99: added InstallPackage, ManageService)
+        // All known query classes (v0.0.111: added TicketHistory, StaffRoster)
         let all_classes = [
             QueryClass::SystemTriage, QueryClass::CpuInfo, QueryClass::CpuCores,
             QueryClass::CpuTemp, QueryClass::RamInfo, QueryClass::GpuInfo,
@@ -862,7 +900,9 @@ mod tests {
             QueryClass::ConfigureEditor, QueryClass::MetaSmallTalk,
             QueryClass::KernelVersion, QueryClass::ConfigFileLocation,
             QueryClass::InstallPackage, QueryClass::ManageService,
-            QueryClass::ConfigureShell, QueryClass::ConfigureGit, QueryClass::Unknown,
+            QueryClass::ConfigureShell, QueryClass::ConfigureGit,
+            QueryClass::SshKeyManagement, QueryClass::TicketHistory, QueryClass::StaffRoster,
+            QueryClass::Unknown,
         ];
 
         let mut failures = Vec::new();

@@ -411,5 +411,33 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::SshKeyManagement;
     }
 
+    // v0.0.111: Ticket history - "show my tickets", "recent cases", "ticket history"
+    if q.contains("ticket")
+        || q.contains("case number")
+        || q.contains("my cases")
+        || q.contains("recent cases")
+        || q.contains("past questions")
+        || q.contains("previous questions")
+        || q.contains("what have i asked")
+        || q.contains("support history")
+    {
+        return QueryClass::TicketHistory;
+    }
+
+    // v0.0.111: Staff roster - "who is on shift", "show IT team", "who works here"
+    if q.contains("who is on shift")
+        || q.contains("who's on shift")
+        || q.contains("on duty")
+        || q.contains("it team")
+        || q.contains("it department")
+        || q.contains("who works here")
+        || q.contains("staff")
+        || q.contains("team roster")
+        || q.contains("support team")
+        || (q.contains("who") && q.contains("available"))
+    {
+        return QueryClass::StaffRoster;
+    }
+
     QueryClass::Unknown
 }

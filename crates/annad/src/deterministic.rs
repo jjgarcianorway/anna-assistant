@@ -85,6 +85,10 @@ pub fn try_answer(
         QueryClass::ConfigureGit => None,
         // v0.0.104: SshKeyManagement - recipe-based, handled in recipe_fast_path
         QueryClass::SshKeyManagement => None,
+        // v0.0.111: TicketHistory - deterministic from internal stats
+        QueryClass::TicketHistory => Some(answer_ticket_history(&route_class)),
+        // v0.0.111: StaffRoster - deterministic from roster data
+        QueryClass::StaffRoster => Some(answer_staff_roster(&route_class)),
         QueryClass::Unknown => None,
     }
 }
@@ -564,6 +568,82 @@ fn answer_config_file_location(query: &str, route_class: &str) -> Option<Determi
         parsed_data_count: 1,
         route_class: route_class.to_string(),
     })
+}
+
+// === v0.0.111: Ticket and Staff query handlers ===
+
+/// Answer ticket history query - shows support desk activity summary
+fn answer_ticket_history(route_class: &str) -> DeterministicResult {
+    // v0.0.111: Since we removed dedicated CLI commands, provide helpful info
+    // about how ticket tracking works in the Service Desk Theatre model
+    let answer = r#"**Support Ticket Activity**
+
+Anna tracks your support interactions internally. Each question you ask creates a case in our Service Desk Theatre model.
+
+The IT department reviews each case and assigns specialists based on your question type:
+- Hardware questions → Hardware team
+- Network issues → Network team
+- Storage problems → Storage team
+- Performance concerns → Performance team
+
+Your questions are processed, verified, and answered by our virtual IT staff. To see department statistics, try asking "how is the IT team doing?" or "show me stats"."#;
+
+    DeterministicResult {
+        answer: answer.to_string(),
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    }
+}
+
+/// Answer staff roster query - shows who is on shift
+fn answer_staff_roster(route_class: &str) -> DeterministicResult {
+    use anna_shared::roster::all_persons;
+
+    let all = all_persons();
+    let on_shift: Vec<_> = all.iter().filter(|p| p.is_on_shift()).collect();
+    let off_shift_count = all.len() - on_shift.len();
+
+    let mut answer = String::from("**IT Department Staff**\n\n");
+    answer.push_str(&format!("Currently on shift ({}):\n", on_shift.len()));
+
+    // Group by team for cleaner display
+    let mut teams: std::collections::HashMap<String, Vec<_>> = std::collections::HashMap::new();
+    for person in &on_shift {
+        teams.entry(person.team.to_string())
+            .or_default()
+            .push(person);
+    }
+
+    // Sort teams alphabetically
+    let mut team_names: Vec<_> = teams.keys().cloned().collect();
+    team_names.sort();
+
+    for team_name in team_names {
+        if let Some(members) = teams.get(&team_name) {
+            answer.push_str(&format!("\n{} Team:\n", team_name));
+            for person in members {
+                let specs = if person.specializations.is_empty() {
+                    String::new()
+                } else {
+                    format!(" - {}", person.specializations.join(", "))
+                };
+                answer.push_str(&format!("  {} ({}){}\n",
+                    person.display_name, person.role_title, specs));
+            }
+        }
+    }
+
+    if off_shift_count > 0 {
+        answer.push_str(&format!("\n{} staff members are currently off shift.", off_shift_count));
+    }
+
+    DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: on_shift.len(),
+        route_class: route_class.to_string(),
+    }
 }
 
 // Unit tests in tests/deterministic_tests.rs

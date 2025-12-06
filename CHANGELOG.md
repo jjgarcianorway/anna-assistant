@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.111] - 2025-12-06
+
+### Changed - Natural Language Everything (Phase 31)
+
+**Remove CLI Commands, Add Natural Language Queries**
+
+Anna's philosophy is natural language first. This release removes dedicated
+CLI commands (`annactl tickets`, `annactl staff`) and replaces them with
+natural language queries that feel more like talking to IT support.
+
+**Natural Language for Tickets**:
+- "show my tickets" → explains how ticket tracking works
+- "what have I asked before" → describes Service Desk model
+- "recent cases" → shows support activity summary
+- "ticket history" → explains IT department workflow
+
+**Natural Language for Staff**:
+- "who is on shift" → shows currently available IT staff
+- "show IT team" → lists staff by team with specializations
+- "it department" → displays full roster with shift status
+- "who is available" → shows on-shift staff with expertise
+
+**Query Classification**:
+- Added `QueryClass::TicketHistory` for ticket-related queries
+- Added `QueryClass::StaffRoster` for staff-related queries
+- Both are fast-path (no LLM needed, deterministic)
+
+**Deleted Files**:
+- `ticket_display.rs` - replaced by natural language handler
+- `staff_display.rs` - replaced by natural language handler
+
+**Code Changes**:
+- `query_classify.rs`: Pattern matching for ticket/staff queries
+- `router.rs`: Routes for TicketHistory and StaffRoster
+- `deterministic.rs`: Handlers for ticket and staff answers
+- `main.rs`: Removed Tickets and Staff CLI commands
+
+**Progress**: Natural language interface complete for all Service Desk queries
+
 ## [0.0.110] - 2025-12-06
 
 ### Added - Service Desk Theatre UX Enhancements (Phase 30)
