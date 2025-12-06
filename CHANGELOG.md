@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.121] - 2025-12-07
+
+### Changed - Documentation & License (Phase 40)
+
+**README Overhaul**
+- Simplified and modernized README
+- Clear quick start section
+- Concise feature descriptions
+- Clean command reference
+
+**License Change**
+- Changed from Apache-2.0 to GPL-3.0
+
 ## [0.0.120] - 2025-12-06
 
 ### Changed - Modularization (Phase 39)
