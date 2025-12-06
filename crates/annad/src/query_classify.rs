@@ -350,5 +350,35 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::ConfigureEditor;
     }
 
+    // v0.0.99: Install package - "install htop", "install vim", "add package htop"
+    // Check for install/add commands with package names
+    if q.starts_with("install ")
+        || q.starts_with("add ")
+        || q.contains("install package")
+        || q.contains("install the")
+        || (q.contains("can you install") && !q.contains("installed"))
+        || q.contains("please install")
+        || q.contains("i need to install")
+        || q.contains("how do i install")
+    {
+        return QueryClass::InstallPackage;
+    }
+
+    // v0.0.99: Manage service - "restart docker", "start sshd", "stop nginx"
+    // Common service control verbs at the start of query
+    let service_verbs = ["start ", "stop ", "restart ", "enable ", "disable ", "reload "];
+    for verb in &service_verbs {
+        if q.starts_with(verb) {
+            return QueryClass::ManageService;
+        }
+    }
+    // Also match "can you restart X", "please start X"
+    if (q.contains("can you") || q.contains("please") || q.contains("could you"))
+        && (q.contains("start ") || q.contains("stop ") || q.contains("restart ")
+            || q.contains("enable ") || q.contains("disable "))
+    {
+        return QueryClass::ManageService;
+    }
+
     QueryClass::Unknown
 }

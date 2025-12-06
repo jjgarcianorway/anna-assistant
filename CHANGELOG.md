@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.99] - 2025-12-06
+
+### Added - Natural Language Package & Service Management (Phase 19)
+
+**Package Installation via Natural Language**
+
+Install packages with simple commands:
+
+```bash
+annactl "install htop"
+annactl "install vim"
+annactl "add nano"
+```
+
+- Automatic package manager detection (pacman, apt, dnf)
+- Cross-distro package name mapping
+- Confirmation prompt before installation
+- Known package database with descriptions
+
+**Service Management via Natural Language**
+
+Control systemd services naturally:
+
+```bash
+annactl "restart docker"
+annactl "start sshd"
+annactl "enable bluetooth"
+```
+
+- Service action detection (start, stop, restart, enable, disable, reload)
+- Protected service prevention (journald, dbus, udev cannot be modified)
+- Risk level assessment (Low, Medium, High)
+- Rollback command suggestions
+
+**New Query Classes**
+- `InstallPackage` - Routes "install X" queries
+- `ManageService` - Routes "restart X", "start X" queries
+
+**New Module**
+- `action_handlers.rs` - Handles package and service actions
+
 ## [0.0.98] - 2025-12-06
 
 ### Added - Multi-file Transactions & Recipe Systems (Phase 18)

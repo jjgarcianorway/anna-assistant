@@ -1,6 +1,6 @@
 # Anna Roadmap
 
-## Current Focus (v0.0.97+)
+## Current Focus (v0.0.99+)
 
 **Theme**: Hollywood IT Department Experience
 
@@ -15,12 +15,29 @@ named IT personas, and RPG-style progression.
 - [x] Recipe learning system (v0.0.94)
 - [x] Safe change engine with rollback (v0.0.95)
 - [x] Desktop team flow with CLI confirmation (v0.0.96)
-- [ ] Multi-file change transactions
-- [ ] Undo history viewer in CLI
+- [x] Change history and undo (v0.0.97)
+- [x] Multi-file change transactions (v0.0.98)
+- [x] Package installation recipes (v0.0.98)
+- [x] Service configuration recipes (v0.0.98)
+- [ ] Package install via natural language
+- [ ] Service management via natural language
 
 ---
 
 ## Completed
+
+### v0.0.98 - Multi-file Transactions & Recipe Systems (Phase 18) ✓
+- [x] ChangeTransaction for atomic multi-file changes
+- [x] Automatic rollback on failure
+- [x] Package recipes with multi-manager support (pacman, apt, dnf, flatpak, snap)
+- [x] Service recipes with risk levels and protected services
+- [x] Cross-distro package name mapping
+
+### v0.0.97 - Change History and Undo (Phase 17) ✓
+- [x] Change history tracking in ~/.anna/change_history.jsonl
+- [x] `annactl history` command
+- [x] `annactl undo <id>` command
+- [x] Backup-based restoration
 
 ### v0.0.96 - Desktop Team Editor Config Flow (Phase 16) ✓
 - [x] Natural language editor configuration ("enable syntax highlighting")
@@ -173,8 +190,9 @@ named IT personas, and RPG-style progression.
 
 ## Planned
 
-### v0.0.97+ - Future
-- [ ] Multi-file change transactions
-- [ ] Undo history viewer in CLI
-- [ ] Package installation recipes
-- [ ] Service configuration recipes
+### v0.0.99+ - Future
+- [ ] Package install via natural language ("install htop")
+- [ ] Service management via natural language ("restart docker")
+- [ ] Shell configuration recipes (.bashrc, .zshrc)
+- [ ] Git configuration recipes (.gitconfig)
+- [ ] SSH key management

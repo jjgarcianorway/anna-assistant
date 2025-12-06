@@ -75,6 +75,10 @@ pub fn try_answer(
         QueryClass::KernelVersion => answer_kernel_version(probe_results, &route_class),
         // v0.0.77: ConfigFileLocation - deterministic from known paths
         QueryClass::ConfigFileLocation => answer_config_file_location(query, &route_class),
+        // v0.0.99: InstallPackage - needs user confirmation, handled in rpc_handler
+        QueryClass::InstallPackage => None,
+        // v0.0.99: ManageService - needs user confirmation, handled in rpc_handler
+        QueryClass::ManageService => None,
         QueryClass::Unknown => None,
     }
 }

@@ -75,6 +75,10 @@ pub enum QueryClass {
     KernelVersion,
     /// v0.0.77: Config file location queries: "where is vim config", "hyprland config"
     ConfigFileLocation,
+    /// v0.0.99: Install package: "install htop", "install vim"
+    InstallPackage,
+    /// v0.0.99: Manage service: "restart docker", "start sshd"
+    ManageService,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -109,6 +113,8 @@ impl std::fmt::Display for QueryClass {
             Self::MetaSmallTalk => "meta_small_talk",
             Self::KernelVersion => "kernel_version",
             Self::ConfigFileLocation => "config_file_location",
+            Self::InstallPackage => "install_package",
+            Self::ManageService => "manage_service",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -146,6 +152,8 @@ impl QueryClass {
             "meta_small_talk" => Some(Self::MetaSmallTalk),
             "kernel_version" => Some(Self::KernelVersion),
             "config_file_location" => Some(Self::ConfigFileLocation),
+            "install_package" => Some(Self::InstallPackage),
+            "manage_service" => Some(Self::ManageService),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -166,6 +174,12 @@ impl QueryClass {
     /// These queries require user input (e.g., which editor) before action
     pub fn needs_clarification(&self) -> bool {
         matches!(self, Self::ConfigureEditor)
+    }
+
+    /// v0.0.99: Check if this class requires confirmation before action
+    /// These modify the system (install, service control)
+    pub fn needs_confirmation(&self) -> bool {
+        matches!(self, Self::InstallPackage | Self::ManageService | Self::ConfigureEditor)
     }
 
     /// Get the fact key needed for clarification (v0.45.5)
@@ -587,6 +601,36 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
+        // v0.0.99: Install package - "install htop", "install vim"
+        // Requires confirmation before action
+        QueryClass::InstallPackage => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Packages,
+            intent: QueryIntent::Request,
+            probes: vec![], // Package manager detection is done in handler
+            capability: RouteCapability {
+                can_answer_deterministically: true, // We know what to do
+                evidence_required: false, // No probes needed
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.99: Manage service - "restart docker", "start sshd"
+        // Requires confirmation before action
+        QueryClass::ManageService => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Request,
+            probes: vec![], // Service management is done in handler
+            capability: RouteCapability {
+                can_answer_deterministically: true, // We know what to do
+                evidence_required: false, // No probes needed
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
         // Unknown - full LLM path
         QueryClass::Unknown => DeterministicRoute {
             class,
@@ -744,7 +788,7 @@ mod tests {
     fn test_evidence_required_routes_have_probes() {
         
 
-        // All known query classes (v0.0.77: added MetaSmallTalk, KernelVersion, ConfigFileLocation)
+        // All known query classes (v0.0.99: added InstallPackage, ManageService)
         let all_classes = [
             QueryClass::SystemTriage, QueryClass::CpuInfo, QueryClass::CpuCores,
             QueryClass::CpuTemp, QueryClass::RamInfo, QueryClass::GpuInfo,
@@ -756,7 +800,8 @@ mod tests {
             QueryClass::InstalledPackagesOverview, QueryClass::PackageCount,
             QueryClass::InstalledToolCheck, QueryClass::AppAlternatives,
             QueryClass::ConfigureEditor, QueryClass::MetaSmallTalk,
-            QueryClass::KernelVersion, QueryClass::ConfigFileLocation, QueryClass::Unknown,
+            QueryClass::KernelVersion, QueryClass::ConfigFileLocation,
+            QueryClass::InstallPackage, QueryClass::ManageService, QueryClass::Unknown,
         ];
 
         let mut failures = Vec::new();
