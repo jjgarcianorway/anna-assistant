@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.120] - 2025-12-06
+
+### Changed - Modularization (Phase 39)
+
+**Split reliability.rs (780 → 3 files)**
+- `reliability/mod.rs` (275 lines): Constants and core computation
+- `reliability/reasons.rs` (288 lines): Reason codes and explanations
+- `reliability/types.rs` (165 lines): Input/output types
+
+All files now under 400 lines per project guidelines.
+
 ## [0.0.119] - 2025-12-06
 
 ### Changed - UX Polish (Phase 38)
