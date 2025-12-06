@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.107] - 2025-12-06
+
+### Added - Service Desk Theatre Enhancements (Phase 27)
+
+**Topic Tracking, Internal Comms, and Staff Performance**
+
+Deepens the "IT Department inside your computer" experience with user
+personalization and staff metrics.
+
+**Topic Tracking**:
+- User profile now tracks topics from each query
+- Topics derived from domain (desktop, network, storage, etc.)
+- Enables personalized greetings ("You ask about network a lot")
+
+**Internal IT Communications**:
+- Theatre mode now shows Anna dispatching to team with case number
+- Named staff appear in internal comms based on assigned_staff
+
+**Staff Performance System**:
+- New `staff_stats.rs` tracks per-staff metrics
+- Tickets handled, resolved, escalated per staff member
+- Success rate and average response time
+- Staff performance leaderboard in `annactl stats`
+
+**Display Updates**:
+- Stats display now shows top 5 performers with metrics
+- Performance table with tickets, resolved, rate, avg time
+
+**New Files**:
+- `staff_stats.rs` - Staff performance tracking
+
+**Progress**: ~40% of full vision complete (personalization active)
+
 ## [0.0.106] - 2025-12-06
 
 ### Added - Service Desk Theatre Integration (Phase 26)

@@ -49,6 +49,7 @@ fn print_user_query(result: &ServiceDeskResult) {
 }
 
 /// Build narrative from result
+/// v0.0.107: Uses assigned_staff from result for internal comms
 fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<NarrativeSegment> {
     let mut builder = NarrativeBuilder::new();
     if show_internal {
@@ -59,6 +60,13 @@ fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<Narra
 
     // Get team from domain
     let team = team_from_domain(&domain_str);
+
+    // v0.0.107: Add dispatch with case number if internal comms enabled
+    if show_internal {
+        if let Some(ref case_num) = result.case_number {
+            builder.add_dispatch(team, case_num);
+        }
+    }
 
     // Check if we have probes
     let has_probes = !result.evidence.probes_executed.is_empty();

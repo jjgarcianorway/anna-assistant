@@ -653,6 +653,12 @@ async fn handle_llm_request_inner(
     theatre.start_work();
     theatre.resolve(result.answer.clone(), result.reliability_score, total_ms);
 
+    // v0.0.107: Record topic to user profile for personalized greetings
+    theatre.record_topic_to_profile();
+
+    // v0.0.107: Record staff performance metrics
+    theatre.record_staff_stats(result.reliability_score, total_ms);
+
     // v0.0.106: Return with theatre context (case number, assigned staff)
     success_with_theatre(id, result, Some(theatre))
 }

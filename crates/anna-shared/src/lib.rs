@@ -105,6 +105,9 @@ pub mod achievements;
 pub mod ticket_tracker;
 pub mod user_profile;
 
+// v0.0.107: Staff performance tracking
+pub mod staff_stats;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

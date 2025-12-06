@@ -2,11 +2,15 @@
 //!
 //! Handles ticket creation, staff assignment, and case numbers for requests.
 //! Named IT staff create the feeling of "an IT department inside the computer."
+//!
+//! v0.0.107: Added topic tracking for user profile personalization.
 
 use anna_shared::roster::{person_for, PersonProfile, Tier};
 use anna_shared::rpc::SpecialistDomain;
+use anna_shared::staff_stats::StaffStats;
 use anna_shared::teams::Team;
 use anna_shared::ticket_tracker::{Ticket, TicketTracker};
+use anna_shared::user_profile::UserProfile;
 
 /// Theatre context for a single request
 #[derive(Debug, Clone)]
@@ -79,6 +83,30 @@ impl TheatreContext {
     pub fn save(&self) -> std::io::Result<()> {
         let tracker = TicketTracker::new();
         tracker.save_ticket(&self.ticket)
+    }
+
+    /// v0.0.107: Record topic to user profile for personalization
+    pub fn record_topic_to_profile(&self) {
+        let topic = self.team.to_string().to_lowercase();
+        let mut profile = UserProfile::load();
+        profile.record_topic(&topic);
+        let _ = profile.save();
+    }
+
+    /// v0.0.107: Record staff performance metrics
+    pub fn record_staff_stats(&self, reliability: u8, duration_ms: u64) {
+        let resolved = self.ticket.status == anna_shared::ticket_tracker::TicketStatus::Resolved;
+        let escalated = self.ticket.was_escalated;
+
+        let mut stats = StaffStats::load();
+        stats.record_ticket(
+            self.staff.person_id,
+            resolved,
+            escalated,
+            reliability,
+            duration_ms,
+        );
+        let _ = stats.save();
     }
 }
 

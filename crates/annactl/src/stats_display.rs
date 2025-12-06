@@ -6,10 +6,12 @@
 //! v0.0.90: Added achievement badges.
 //! v0.0.91: ASCII-style badges (no emojis) for Hollywood IT aesthetic.
 //! v0.0.105: Added per-staff statistics, ticket tracking, recipe counts.
+//! v0.0.107: Added staff performance leaderboard.
 
 use anna_shared::achievements::{check_achievements, format_achievements};
 use anna_shared::event_log::{AggregatedEvents, EventLog};
 use anna_shared::recipe_matcher::recipe_count;
+use anna_shared::staff_stats::StaffStats;
 use anna_shared::stats::GlobalStats;
 use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::{colors, HR};
@@ -216,6 +218,9 @@ fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
         );
     }
 
+    // v0.0.107: Staff performance section
+    print_staff_performance();
+
     // v0.0.84: Fun stats section
     print_fun_stats(agg);
 }
@@ -355,6 +360,62 @@ fn print_achievements(agg: &AggregatedEvents) {
 fn is_notable(id: &str) -> bool {
     matches!(id, "hundred_queries" | "five_hundred" | "streak_7" | "streak_30" |
         "perfect_10" | "no_failures" | "all_teams" | "recipe_master" | "month_old")
+}
+
+/// v0.0.107: Print staff performance leaderboard
+fn print_staff_performance() {
+    let stats = StaffStats::load();
+    if stats.total_tickets() == 0 {
+        return;
+    }
+
+    println!();
+    println!("{}Staff Performance{}", colors::BOLD, colors::RESET);
+
+    let top = stats.top_performers(5);
+    if top.is_empty() {
+        return;
+    }
+
+    println!(
+        "  {:18} {:>8} {:>8} {:>8} {:>10}",
+        "Staff", "Tickets", "Resolved", "Rate", "Avg Time"
+    );
+    println!("  {}", "-".repeat(55));
+
+    for (person_id, metrics) in top {
+        // Extract display name from person_id (e.g., "desktop_jr_sofia" -> "Sofia")
+        let name = person_id
+            .split('_')
+            .last()
+            .map(|s| {
+                let mut chars = s.chars();
+                match chars.next() {
+                    Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+                    None => s.to_string(),
+                }
+            })
+            .unwrap_or_else(|| person_id.clone());
+
+        let rate_color = if metrics.success_rate() >= 80.0 {
+            colors::OK
+        } else if metrics.success_rate() >= 50.0 {
+            colors::WARN
+        } else {
+            colors::ERR
+        };
+
+        println!(
+            "  {:18} {:>8} {:>8} {}{:>7.0}%{} {:>9}ms",
+            name,
+            metrics.tickets_handled,
+            metrics.tickets_resolved,
+            rate_color,
+            metrics.success_rate(),
+            colors::RESET,
+            metrics.avg_time_ms()
+        );
+    }
 }
 
 fn bullet() -> &'static str {
