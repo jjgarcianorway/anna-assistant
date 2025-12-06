@@ -378,8 +378,8 @@ async fn handle_llm_request_inner(
             ));
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         } else {
-            // v0.0.59: Multiple editors - structured ClarifyRequest with proper options
-            let question = "Which editor would you like to configure?";
+            // v0.0.55: Multiple editors - statement (no question mark) with numbered options
+            let question = "Select editor to configure";
             let options: Vec<(String, String)> = installed_editors.iter()
                 .map(|e| (e.clone(), e.clone()))
                 .collect();

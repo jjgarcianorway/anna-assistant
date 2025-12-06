@@ -499,22 +499,24 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
-        // Configure editor: v0.0.57 - deterministic with editor probes
+        // Configure editor: v0.0.55 - deterministic with editor probes
         // "enable syntax highlighting", "enable line numbers"
         // Must probe supported editors to offer only installed options
+        // v0.0.55: Fixed probe list - must include hx (helix binary)
         QueryClass::ConfigureEditor => DeterministicRoute {
             class,
             domain: SpecialistDomain::System, // Editor config is system-level
             intent: QueryIntent::Request, // Requesting a configuration change
             probes: vec![
-                // v0.0.57: Probe all supported editors (expanded list)
-                "command_v_code".to_string(),
+                // v0.0.55: Probe all supported editors (must match parser's EDITOR_MAP)
                 "command_v_vim".to_string(),
                 "command_v_nvim".to_string(),
                 "command_v_nano".to_string(),
                 "command_v_emacs".to_string(),
                 "command_v_micro".to_string(),
                 "command_v_helix".to_string(),
+                "command_v_hx".to_string(),     // v0.0.55: helix binary name
+                "command_v_code".to_string(),
                 "command_v_kate".to_string(),
                 "command_v_gedit".to_string(),
             ],

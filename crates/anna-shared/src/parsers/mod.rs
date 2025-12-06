@@ -643,13 +643,13 @@ fn try_parse_audio_devices(probe: &ProbeResult, cmd_lower: &str) -> Option<Parse
     None
 }
 
-/// Parse lspci audio output (v0.0.58, v0.0.60 expanded).
+/// Parse lspci audio output (v0.0.55 fix: handles PCI class codes in brackets).
 /// Handles multiple lspci formats:
 /// - "00:1f.3 Audio device: Intel Corporation Cannon Lake PCH cAVS (rev 10)"
 /// - "00:1f.3 Multimedia audio controller: Intel Corporation Cannon Lake PCH cAVS"
-/// - "00:1f.3 Audio controller: Some Device" (some lspci outputs)
-/// - "00:1f.3 Multimedia controller: Some Audio Device" (rare)
-/// v0.0.60: Improved detection to never miss an audio controller line.
+/// - "00:1f.3 Audio controller [0403]: Some Device" (with PCI class code)
+/// - "00:1f.3 Multimedia audio controller [0403]: Intel Corporation..." (common format)
+/// v0.0.55: Fixed to handle PCI class codes like [0403] between device class and colon.
 fn parse_lspci_audio_output(stdout: &str) -> Vec<AudioDevice> {
     let mut devices = Vec::new();
 
@@ -659,29 +659,29 @@ fn parse_lspci_audio_output(stdout: &str) -> Vec<AudioDevice> {
             continue;
         }
 
-        // v0.0.60: Expanded device class detection
         let line_lower = line.to_lowercase();
 
-        // Check for any audio-related device class marker
-        let is_audio_line = line_lower.contains("audio device:")
-            || line_lower.contains("multimedia audio controller:")
-            || line_lower.contains("audio controller:")
-            || (line_lower.contains("multimedia controller:") && line_lower.contains("audio"));
+        // v0.0.55: Check for audio-related device class markers (case-insensitive)
+        // Note: The colon check is relaxed because PCI class codes [XXXX] may appear before colon
+        let is_audio_line = line_lower.contains("audio device")
+            || line_lower.contains("multimedia audio controller")
+            || line_lower.contains("audio controller")
+            || (line_lower.contains("multimedia controller") && line_lower.contains("audio"));
 
-        // v0.0.60: If output came from grep -i audio, trust it
-        // even if device class isn't recognized (grep matched "audio" somewhere)
-        let is_grep_match = line_lower.contains("audio") && line.contains(':');
+        // v0.0.55: If the line contains "audio" and has PCI slot format, trust it
+        // This catches output from `lspci | grep -i audio`
+        let has_pci_slot = line.len() > 7 && line.chars().nth(2) == Some(':');
+        let is_grep_match = line_lower.contains("audio") && has_pci_slot;
 
         if !is_audio_line && !is_grep_match {
             continue;
         }
 
-        // Parse format: "XX:XX.X <device_class>: <description>"
-        // PCI slot is first token (e.g., "00:1f.3")
+        // Parse format: "XX:XX.X <device_class> [XXXX]: <description>"
         let pci_slot = extract_pci_slot(line);
 
-        // v0.0.60: Extract description after device class marker
-        let description = extract_lspci_description(line);
+        // v0.0.55: Extract description after device class marker (handles [XXXX] codes)
+        let description = extract_lspci_description_v055(line);
 
         // Extract vendor from description (usually first word)
         let vendor = extract_vendor_from_description(&description);
@@ -710,38 +710,64 @@ fn extract_pci_slot(line: &str) -> Option<String> {
     }
 }
 
-/// v0.0.58, v0.0.60: Extract description from lspci line after the device class.
-fn extract_lspci_description(line: &str) -> String {
-    // Common device class markers (after PCI slot)
-    // v0.0.60: Added "Audio controller:"
-    let markers = [
-        "Audio device:",
-        "Multimedia audio controller:",
-        "Audio controller:",
-        "Multimedia controller:",
-    ];
+/// v0.0.55: Extract description from lspci line, handling PCI class codes [XXXX].
+/// Handles formats like:
+/// - "00:1f.3 Audio device: Intel..."
+/// - "00:1f.3 Multimedia audio controller [0403]: Intel..."
+fn extract_lspci_description_v055(line: &str) -> String {
+    // v0.0.55: Find the LAST colon before the description
+    // This handles PCI class codes like [0403] that appear before the colon
+    // Format: "XX:XX.X Device Type [XXXX]: Description"
 
-    for marker in markers {
-        if let Some(pos) = line.to_lowercase().find(&marker.to_lowercase()) {
-            let after_marker = &line[pos + marker.len()..];
-            return after_marker.trim().to_string();
+    // Skip the PCI slot colon (first colon at position ~2)
+    let after_slot = if line.len() > 8 && line.chars().nth(2) == Some(':') {
+        &line[7..] // Skip "XX:XX.X"
+    } else {
+        line
+    };
+
+    // Find the colon that separates device class from description
+    if let Some(colon_pos) = after_slot.find(':') {
+        let description = after_slot[colon_pos + 1..].trim();
+        if !description.is_empty() {
+            return description.to_string();
         }
     }
 
-    // Fallback: find the SECOND colon (first is in PCI slot like 00:1f.3)
-    // and take everything after it
-    let mut colon_count = 0;
-    for (i, c) in line.char_indices() {
-        if c == ':' {
-            colon_count += 1;
-            if colon_count == 2 {
-                return line[i + 1..].trim().to_string();
+    // Fallback: try to extract after common device class patterns
+    let patterns = [
+        "audio device",
+        "multimedia audio controller",
+        "audio controller",
+    ];
+
+    let line_lower = line.to_lowercase();
+    for pattern in patterns {
+        if let Some(pos) = line_lower.find(pattern) {
+            let after_pattern = &line[pos + pattern.len()..];
+            // Skip any [XXXX] class code and colon
+            if let Some(colon_pos) = after_pattern.find(':') {
+                let desc = after_pattern[colon_pos + 1..].trim();
+                if !desc.is_empty() {
+                    return desc.to_string();
+                }
             }
         }
     }
 
-    // Last resort: return everything after first space + colon pattern
-    line.to_string()
+    // Last resort: return the whole line (minus PCI slot)
+    if line.len() > 8 {
+        line[8..].trim().to_string()
+    } else {
+        line.to_string()
+    }
+}
+
+/// v0.0.58, v0.0.60: Extract description from lspci line after the device class.
+/// Deprecated: Use extract_lspci_description_v055 instead.
+#[allow(dead_code)]
+fn extract_lspci_description(line: &str) -> String {
+    extract_lspci_description_v055(line)
 }
 
 /// Parse pactl list cards output (v0.45.8, v0.0.60 expanded).
@@ -1247,5 +1273,52 @@ Model name: Intel Core i7
 
         assert!(has_evidence_for(&parsed, "nano"));
         assert!(!has_evidence_for(&parsed, "vim"));
+    }
+
+    // v0.0.55: Audio parsing tests
+    #[test]
+    fn test_v055_lspci_audio_with_class_code() {
+        // Real-world lspci output with PCI class code [XXXX]
+        let output = "00:1f.3 Multimedia audio controller [0403]: Intel Corporation Cannon Lake PCH cAVS (rev 10)";
+        let devices = parse_lspci_audio_output(output);
+        assert_eq!(devices.len(), 1, "Should find one audio device");
+        assert!(devices[0].description.contains("Intel"), "Description should contain Intel");
+        assert!(devices[0].description.contains("Cannon Lake"), "Description should contain Cannon Lake");
+        assert_eq!(devices[0].pci_slot, Some("00:1f.3".to_string()));
+    }
+
+    #[test]
+    fn test_v055_lspci_audio_without_class_code() {
+        // lspci output without PCI class code
+        let output = "00:1f.3 Audio device: Intel Corporation Sunrise Point-LP HD Audio";
+        let devices = parse_lspci_audio_output(output);
+        assert_eq!(devices.len(), 1);
+        assert!(devices[0].description.contains("Intel"));
+    }
+
+    #[test]
+    fn test_v055_lspci_audio_empty_grep() {
+        // Empty output from grep (no audio devices)
+        let output = "";
+        let devices = parse_lspci_audio_output(output);
+        assert!(devices.is_empty(), "Empty output should produce empty list");
+    }
+
+    #[test]
+    fn test_v055_lspci_audio_multiple_devices() {
+        let output = "00:1f.3 Multimedia audio controller [0403]: Intel Corporation Cannon Lake PCH cAVS\n\
+                      01:00.1 Audio device: NVIDIA Corporation TU104 HD Audio Controller";
+        let devices = parse_lspci_audio_output(output);
+        assert_eq!(devices.len(), 2, "Should find two audio devices");
+        assert!(devices[0].description.contains("Intel"));
+        assert!(devices[1].description.contains("NVIDIA"));
+    }
+
+    #[test]
+    fn test_v055_extract_description_with_class_code() {
+        let line = "00:1f.3 Multimedia audio controller [0403]: Intel Corporation Cannon Lake PCH cAVS (rev 10)";
+        let desc = extract_lspci_description_v055(line);
+        assert!(desc.contains("Intel"), "Description '{}' should contain Intel", desc);
+        assert!(!desc.contains("[0403]"), "Description should not contain class code");
     }
 }

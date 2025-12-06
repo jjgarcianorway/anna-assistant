@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.55] - 2025-12-06
+
+### Fixed - Regression Fixes for v0.0.54
+
+**Bug 1: HardwareAudio returns "No audio devices detected" despite lspci showing one**
+- Fixed lspci audio parsing to handle PCI class codes in brackets (e.g., `[0403]`)
+- Parser now correctly extracts description after "Multimedia audio controller [0403]:"
+- Added `extract_lspci_description_v055()` for robust description extraction
+- Audio probes now correctly parse: `00:1f.3 Multimedia audio controller [0403]: Intel Corporation...`
+
+**Bug 2: ConfigureEditor shows wrong editors and broken reliability**
+- Added `command_v_hx` probe for helix binary (was missing)
+- Changed clarification prompt from question to statement: "Select editor to configure"
+- Only editors that were actually probed can appear in options
+- Reliability signals now correctly reflect executed probes
+
+### Changed
+- Router now probes 10 editors including hx (helix binary name)
+- Clarification format: no trailing question marks in normal mode
+
+### Tests Added
+- `test_v055_lspci_audio_with_class_code`
+- `test_v055_lspci_audio_without_class_code`
+- `test_v055_lspci_audio_empty_grep`
+- `test_v055_lspci_audio_multiple_devices`
+- `test_v055_extract_description_with_class_code`
+
 ## [0.0.63] - 2025-12-06
 
 ### Added - Service Desk Theatre Renderer (UX Overhaul)
