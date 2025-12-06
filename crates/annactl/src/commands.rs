@@ -282,16 +282,16 @@ fn clear_spinner() {
 /// Print REPL help
 fn print_repl_help() {
     println!();
-    println!("{}Commands:{}", colors::BOLD, colors::RESET);
-    println!("  exit, quit, bye, q  Exit REPL");
-    println!("  status              Show Anna status");
-    println!("  help                Show this help");
-    println!("  <anything>          Send as request to Anna");
+    println!("{}Just ask me anything about your system!{}", colors::DIM, colors::RESET);
     println!();
     println!("{}Examples:{}", colors::BOLD, colors::RESET);
     println!("  what cpu do i have?");
     println!("  show disk usage");
-    println!("  top memory processes");
+    println!("  is my system healthy?");
+    println!("  who is on shift?");
+    println!("  show my tickets");
+    println!();
+    println!("{}Commands:{} exit, status, help", colors::DIM, colors::RESET);
     println!();
 }
 

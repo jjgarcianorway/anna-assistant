@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.118] - 2025-12-06
+
+### Changed - Clean UX Overhaul (Phase 37)
+
+**Status Display - Clean & Focused**
+
+Simplified `annactl status` to show what matters:
+- Status: Ready/Starting/Error (color-coded)
+- Version, Uptime, LLM state
+- Open tickets count
+- Update available (if any)
+- Debug info (hardware, models, latency) hidden behind `--debug`
+
+**Stats Display - Streamlined**
+
+Simplified `annactl stats` to highlight achievements:
+- Profile: Level with XP progress bar
+- Activity: Cases handled, success rate, reliability
+- Teams: Top 6 with performance metrics
+- Top Performers: Top 3 with medals
+- Achievements: Unlocked badges
+- Highlights: Streak, tenure, favorites
+
+**REPL UX - Examples First**
+
+Cleaner help with examples at top:
+- Shows 5 natural language examples first
+- Commands (exit, status, help) shown minimally
+- Greeting ends with "How can I help you today?"
+
+**Code Changes**:
+- `display.rs`: Rewritten for clean status (~160 lines)
+- `stats_display.rs`: Rewritten for clean stats (~215 lines)
+- `commands.rs`: Simplified REPL help
+- `greeting.rs`: Cleaner closing message
+
 ## [0.0.117] - 2025-12-06
 
 ### Fixed - No Message Truncation (Phase 36)

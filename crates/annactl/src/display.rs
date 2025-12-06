@@ -1,19 +1,11 @@
 //! Display helpers for annactl UI.
-//! v0.0.67: Service Desk narrative renderer integration.
-//! v0.0.69: "Since last time" narrative summary.
-//! v0.0.70: Fixed status output contract with proper version display.
-//! v0.0.71: Version truth - shows installed (annactl), daemon (annad), available.
-//! v0.0.72: Restructured status with factual sections, REPL greeting baseline.
-//! v0.0.73: Single source of truth via version module, client/daemon mismatch warning.
-//! v0.0.105: Enhanced IT Department view with roster and config.
+//! v0.0.118: Clean, focused status display.
 
 use anna_shared::rpc::DaemonInfo;
-use anna_shared::roster::{all_persons, Tier};
-use anna_shared::status::{DaemonStatus, LlmState, UpdateCheckState};
-use anna_shared::teams::Team;
+use anna_shared::status::{DaemonStatus, LlmState};
+use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::{colors, HR};
-use anna_shared::user_profile::UserProfile;
-use anna_shared::version::{VersionInfo, PROTOCOL_VERSION, VERSION, GIT_SHA};
+use anna_shared::version::{VersionInfo, VERSION};
 use chrono::{DateTime, Local, Utc};
 
 // Re-export from dedicated modules
@@ -21,294 +13,140 @@ pub use crate::progress_display::{print_progress_event, show_bootstrap_progress}
 pub use crate::stats_display::print_stats_display;
 
 /// Print status display
-/// v0.0.72: Structured sections: daemon, version, update, system, llm, health
-/// v0.0.73: Uses daemon_info for accurate version comparison
 #[allow(dead_code)]
 pub fn print_status_display(status: &DaemonStatus, show_debug: bool) {
-    // For backward compatibility, call with None for daemon_info
     print_status_display_with_daemon_info(status, None, show_debug);
 }
 
-/// v0.0.73: Print status with daemon info for accurate version comparison
+/// v0.0.118: Clean, focused status display
 pub fn print_status_display_with_daemon_info(
     status: &DaemonStatus,
     daemon_info: Option<&DaemonInfo>,
     show_debug: bool,
 ) {
-    println!("\n{}annactl status{}", colors::HEADER, colors::RESET);
+    println!();
+    println!("{}Anna Service Desk{}", colors::HEADER, colors::RESET);
     println!("{}", HR);
 
-    let kw = 18; // key width
     let client_version = VersionInfo::current();
 
-    // === DAEMON SECTION ===
-    print_section("daemon");
-    let state_str = match status.state {
-        anna_shared::status::DaemonState::Running => format!("{}RUNNING{}", colors::OK, colors::RESET),
-        anna_shared::status::DaemonState::Starting => format!("{}STARTING{}", colors::WARN, colors::RESET),
-        anna_shared::status::DaemonState::Error => format!("{}ERROR{}", colors::ERR, colors::RESET),
-    };
-    print_kv("state", &state_str, kw);
-    if let Some(pid) = status.pid {
-        print_kv("pid", &pid.to_string(), kw);
-    }
-    print_kv("uptime", &format_uptime(status.uptime_seconds), kw);
-    print_kv("debug_mode", if status.debug_mode { "ON" } else { "OFF" }, kw);
-
-    // === VERSION SECTION ===
-    // v0.0.73: Show full version info with git SHA
-    print_section("version");
-    let client_display = if GIT_SHA != "unknown" {
-        format!("{} ({})", VERSION, GIT_SHA)
-    } else {
-        VERSION.to_string()
-    };
-    print_kv("annactl", &client_display, kw);
-
-    // Show daemon version from DaemonInfo if available, otherwise from status
-    let (daemon_ver, daemon_sha, version_mismatch) = if let Some(info) = daemon_info {
-        let mismatch = !client_version.matches(&info.version_info);
-        let sha_str = if info.version_info.git_sha != "unknown" {
-            format!(" ({})", info.version_info.git_sha)
-        } else {
-            String::new()
-        };
-        (info.version_info.version.clone(), sha_str, mismatch)
-    } else {
-        let mismatch = status.version != VERSION;
-        (status.version.clone(), String::new(), mismatch)
-    };
-
-    if version_mismatch {
-        println!(
-            "  {:width$} {}{} {}[MISMATCH]{}",
-            "annad", daemon_ver, daemon_sha, colors::ERR, colors::RESET, width = kw
-        );
-    } else {
-        print_kv("annad", &format!("{}{}", daemon_ver, daemon_sha), kw);
-    }
-
-    print_kv("protocol", &PROTOCOL_VERSION.to_string(), kw);
-
-    // === UPDATE SECTION ===
-    print_section("update");
-    let auto_str = if status.update.enabled {
-        format!("{}ENABLED{}", colors::OK, colors::RESET)
-    } else {
-        format!("{}DISABLED{}", colors::WARN, colors::RESET)
-    };
-    print_kv("auto_update", &auto_str, kw);
-    print_kv("check_pace", &format!("every {}s", status.update.check_interval_secs), kw);
-
-    // v0.0.72: Show real timestamps in local time
-    match &status.update.last_check_at {
-        Some(dt) => print_kv("last_check_at", &format_local_time(dt), kw),
-        None => print_kv("last_check_at", "never", kw),
-    }
-    match &status.update.next_check_at {
-        Some(dt) => print_kv("next_check_at", &format_local_time(dt), kw),
-        None => print_kv("next_check_at", "unknown", kw),
-    }
-
-    // v0.0.72: Show available_version with check state
-    let available_str = match (&status.update.latest_version, &status.update.check_state) {
-        (Some(v), UpdateCheckState::Success) if status.update.update_available => {
-            format!("{}{}{} ({}update available{})", colors::OK, v, colors::RESET, colors::WARN, colors::RESET)
-        }
-        (Some(v), UpdateCheckState::Success) => v.clone(),
-        (Some(v), UpdateCheckState::Failed) => {
-            format!("{} ({}last check failed{})", v, colors::WARN, colors::RESET)
-        }
-        (None, UpdateCheckState::NeverChecked) => format!("{}unknown{}", colors::DIM, colors::RESET),
-        (None, _) => format!("{}unknown{}", colors::DIM, colors::RESET),
-        (Some(v), _) => v.clone(),
-    };
-    print_kv("available_version", &available_str, kw);
-
-    // v0.0.72: Show when we last successfully got the version
-    match &status.update.latest_checked_at {
-        Some(dt) => print_kv("available_checked_at", &format_local_time(dt), kw),
-        None => print_kv("available_checked_at", "never", kw),
-    }
-
-    // === SYSTEM SECTION ===
-    print_section("system");
-    let ram_gb = status.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-    print_kv("cpu", &format!("{} ({} cores)", status.hardware.cpu_model, status.hardware.cpu_cores), kw);
-    print_kv("ram", &format!("{:.1} GB", ram_gb), kw);
-    if let Some(gpu) = &status.hardware.gpu {
-        let vram_gb = gpu.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-        print_kv("gpu", &format!("{} ({:.1} GB)", gpu.model, vram_gb), kw);
-    } else {
-        print_kv("gpu", "none", kw);
-    }
-
-    // === LLM SECTION ===
-    print_section("llm");
-    let llm_state_str = match status.llm.state {
-        LlmState::Ready => format!("{}READY{}", colors::OK, colors::RESET),
-        LlmState::Bootstrapping => format!("{}BOOTSTRAPPING{}", colors::WARN, colors::RESET),
-        LlmState::Error => format!("{}ERROR{}", colors::ERR, colors::RESET),
-    };
-    print_kv("state", &llm_state_str, kw);
-    print_kv("provider", &status.llm.provider, kw);
-
-    if let Some(phase) = &status.llm.phase {
-        print_kv("phase", phase, kw);
-    }
-
-    if let Some(progress) = &status.llm.progress {
-        let bar = anna_shared::ui::progress_bar(progress.percent(), 30);
-        let current = anna_shared::ui::format_bytes(progress.current_bytes);
-        let total = anna_shared::ui::format_bytes(progress.total_bytes);
-        println!("{:width$} {} {:.0}%", "progress", bar, progress.percent() * 100.0, width = kw);
-        println!("{:width$} {} / {}", "downloaded", current, total, width = kw);
-    }
-
-    if !status.llm.models.is_empty() {
-        for m in &status.llm.models {
-            print_kv(&format!("model.{}", m.role), &m.name, kw);
-        }
-    }
-
-    // === HEALTH SECTION ===
-    // v0.0.73: Include version mismatch warning in health
-    print_section("health");
-
-    // Determine health status considering version mismatch
-    let has_version_mismatch = if let Some(info) = daemon_info {
+    // === HEALTH SUMMARY (most important info first) ===
+    let version_mismatch = if let Some(info) = daemon_info {
         !client_version.matches(&info.version_info)
     } else {
         status.version != VERSION
     };
 
-    if has_version_mismatch {
-        println!(
-            "{:width$} {}WARN{}: client/daemon version mismatch",
-            "status", colors::WARN, colors::RESET, width = kw
-        );
-    } else if status.llm.state == LlmState::Ready && status.last_error.is_none() {
-        println!("{:width$} {}OK{}", "status", colors::OK, colors::RESET, width = kw);
+    // Overall status line
+    print!("\n  Status: ");
+    if status.llm.state == LlmState::Ready && !version_mismatch && status.last_error.is_none() {
+        println!("{}Ready{}", colors::OK, colors::RESET);
+    } else if status.llm.state == LlmState::Bootstrapping {
+        println!("{}Starting up{}", colors::WARN, colors::RESET);
+    } else if version_mismatch {
+        println!("{}Version mismatch{} (restart annad)", colors::WARN, colors::RESET);
     } else if let Some(err) = &status.last_error {
-        println!("{:width$} {}ERROR{}: {}", "status", colors::ERR, colors::RESET, err, width = kw);
+        println!("{}Error:{} {}", colors::ERR, colors::RESET, err);
     } else {
-        println!("{:width$} {}DEGRADED{}", "status", colors::WARN, colors::RESET, width = kw);
+        println!("{}Degraded{}", colors::WARN, colors::RESET);
     }
 
-    // Debug info - latency stats (only in debug mode)
-    if show_debug {
-        print_section("latency");
-        if let Some(lat) = &status.latency {
-            let fmt = |avg: Option<u64>, p95: Option<u64>| {
-                match (avg, p95) {
-                    (Some(a), Some(p)) => format!("avg {}ms, p95 {}ms", a, p),
-                    _ => "no data".to_string(),
-                }
-            };
-            print_kv("translator", &fmt(lat.translator_avg_ms, lat.translator_p95_ms), kw);
-            print_kv("probes", &fmt(lat.probes_avg_ms, lat.probes_p95_ms), kw);
-            print_kv("specialist", &fmt(lat.specialist_avg_ms, lat.specialist_p95_ms), kw);
-            print_kv("total", &fmt(lat.total_avg_ms, lat.total_p95_ms), kw);
-            print_kv("samples", &lat.sample_count.to_string(), kw);
-        } else {
-            println!("  No latency data yet");
-        }
+    // Version
+    println!("  Version: {}", VERSION);
 
-        print_section("teams");
-        for t in &status.teams.teams {
-            let state = if t.active {
-                format!("{}active{}", colors::OK, colors::RESET)
+    // Uptime
+    println!("  Uptime: {}", format_uptime(status.uptime_seconds));
+
+    // LLM status
+    let llm_str = match status.llm.state {
+        LlmState::Ready => format!("{}Ready{} ({})", colors::OK, colors::RESET, status.llm.provider),
+        LlmState::Bootstrapping => {
+            if let Some(phase) = &status.llm.phase {
+                format!("{}{}{}...", colors::WARN, phase, colors::RESET)
             } else {
-                format!("{}inactive{}", colors::DIM, colors::RESET)
-            };
-            print_kv(&format!("{}", t.team), &state, kw);
+                format!("{}Starting{}...", colors::WARN, colors::RESET)
+            }
+        }
+        LlmState::Error => format!("{}Error{}", colors::ERR, colors::RESET),
+    };
+    println!("  LLM: {}", llm_str);
+
+    // Download progress if bootstrapping
+    if let Some(progress) = &status.llm.progress {
+        let bar = anna_shared::ui::progress_bar(progress.percent(), 25);
+        let current = anna_shared::ui::format_bytes(progress.current_bytes);
+        let total = anna_shared::ui::format_bytes(progress.total_bytes);
+        println!("       {} {:.0}% ({}/{})", bar, progress.percent() * 100.0, current, total);
+    }
+
+    // Update status (only if relevant)
+    if status.update.update_available {
+        if let Some(ver) = &status.update.latest_version {
+            println!("  Update: {}v{} available{}", colors::CYAN, ver, colors::RESET);
         }
     }
 
-    // === IT DEPARTMENT SECTION (v0.0.105) ===
-    if show_debug {
-        print_it_department_section();
+    // Open tickets
+    if let Ok(open) = TicketTracker::for_user().open_tickets() {
+        if !open.is_empty() {
+            println!("  Tickets: {} open", open.len());
+        }
     }
 
-    // === CONFIG SECTION (v0.0.105) ===
-    print_config_section();
+    // === DEBUG INFO (only with --debug) ===
+    if show_debug {
+        println!();
+        println!("{}[debug]{}", colors::DIM, colors::RESET);
 
-    println!("{}", HR);
-}
+        // Hardware
+        let ram_gb = status.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+        println!("  CPU: {} ({} cores)", status.hardware.cpu_model, status.hardware.cpu_cores);
+        println!("  RAM: {:.1} GB", ram_gb);
+        if let Some(gpu) = &status.hardware.gpu {
+            let vram_gb = gpu.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+            println!("  GPU: {} ({:.1} GB)", gpu.model, vram_gb);
+        }
 
-/// v0.0.105: Print IT Department roster
-fn print_it_department_section() {
-    print_section("it_department");
+        // Models
+        if !status.llm.models.is_empty() {
+            for m in &status.llm.models {
+                println!("  Model ({}): {}", m.role, m.name);
+            }
+        }
 
-    let all = all_persons();
-    let teams: Vec<Team> = vec![
-        Team::Desktop, Team::Network, Team::Hardware, Team::Storage,
-        Team::Performance, Team::Security, Team::Services, Team::Logs, Team::General,
-    ];
+        // Latency
+        if let Some(lat) = &status.latency {
+            if lat.sample_count > 0 {
+                if let Some(avg) = lat.total_avg_ms {
+                    println!("  Avg response: {}ms ({} samples)", avg, lat.sample_count);
+                }
+            }
+        }
 
-    println!("  {:12} {:18} {:18}", "Team", "Junior", "Senior");
-    println!("  {}", "-".repeat(50));
+        // Active teams
+        let active_teams: Vec<_> = status.teams.teams.iter()
+            .filter(|t| t.active)
+            .map(|t| t.team.to_string())
+            .collect();
+        if !active_teams.is_empty() {
+            println!("  Teams: {}", active_teams.join(", "));
+        }
 
-    for team in teams {
-        let jr = all.iter().find(|p| p.team == team && p.tier == Tier::Junior);
-        let sr = all.iter().find(|p| p.team == team && p.tier == Tier::Senior);
-
-        let jr_name = jr.map(|p| p.display_name).unwrap_or("-");
-        let sr_name = sr.map(|p| p.display_name).unwrap_or("-");
-
-        println!("  {:12} {:18} {:18}", format!("{:?}", team), jr_name, sr_name);
+        // PID
+        if let Some(pid) = status.pid {
+            println!("  PID: {}", pid);
+        }
     }
 
     println!();
-    println!("  {}Total staff: {} members{}", colors::DIM, all.len(), colors::RESET);
-}
-
-/// v0.0.105: Print user config section
-fn print_config_section() {
-    print_section("config");
-
-    let profile = UserProfile::load();
-    let kw = 18;
-
-    print_kv("learning_mode", if profile.preferences.learning_mode { "ON" } else { "OFF" }, kw);
-    print_kv("show_internal", if profile.preferences.show_internal_comms { "ON" } else { "OFF" }, kw);
-    print_kv("auto_confirm", if profile.preferences.auto_confirm_low_risk { "ON" } else { "OFF" }, kw);
-    print_kv("verbosity", &profile.preferences.verbosity.to_string(), kw);
-
-    if let Some(ref editor) = profile.preferred_editor {
-        print_kv("preferred_editor", editor, kw);
-    }
-    if let Some(ref shell) = profile.preferred_shell {
-        print_kv("preferred_shell", shell, kw);
-    }
-
-    // Personality traits
-    let formality = match profile.preferences.personality.formality {
-        0 => "casual",
-        1 => "balanced",
-        _ => "formal",
-    };
-    let humor = match profile.preferences.personality.humor {
-        0 => "none",
-        1 => "subtle",
-        _ => "playful",
-    };
-    print_kv("personality", &format!("{}, {}", formality, humor), kw);
-}
-
-fn print_section(name: &str) {
-    println!("\n{}[{}]{}", colors::BOLD, name, colors::RESET);
-}
-
-fn print_kv(key: &str, value: &str, width: usize) {
-    println!("  {:width$} {}", key, value, width = width);
+    println!("{}", HR);
 }
 
 fn format_uptime(seconds: u64) -> String {
     if seconds < 60 {
         format!("{}s", seconds)
     } else if seconds < 3600 {
-        format!("{}m {}s", seconds / 60, seconds % 60)
+        format!("{}m", seconds / 60)
     } else if seconds < 86400 {
         format!("{}h {}m", seconds / 3600, (seconds % 3600) / 60)
     } else {
@@ -316,7 +154,8 @@ fn format_uptime(seconds: u64) -> String {
     }
 }
 
+#[allow(dead_code)]
 fn format_local_time(dt: &DateTime<Utc>) -> String {
     let local: DateTime<Local> = dt.with_timezone(&Local);
-    local.format("%Y-%m-%d %H:%M:%S").to_string()
+    local.format("%Y-%m-%d %H:%M").to_string()
 }

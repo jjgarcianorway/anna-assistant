@@ -64,7 +64,7 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
 
     // Closing
     println!();
-    println!("{}But I believe you want to ask me something, don't you?{}", colors::DIM, colors::RESET);
+    println!("{}How can I help you today?{}", colors::DIM, colors::RESET);
     println!();
 
     // v0.0.106: Update profile and save
