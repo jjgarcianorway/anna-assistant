@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.112] - 2025-12-06
+
+### Improved - Welcome Experience and Service Desk Explanations
+
+**Enhanced First-Time Greeting**:
+- Shows example questions to try on first visit
+- Points users to `annactl stats` and `annactl status` for detailed info
+- Introduces the IT team concept naturally
+
+**Better Service Desk Explanation**:
+- "how does this work?" / "show my tickets" now explains the full pipeline
+- Step-by-step: question → ticket → team assignment → investigation → review → answer
+- Guides users to related commands (staff roster, stats, status)
+
+**Code Changes**:
+- `greeting.rs`: Enhanced first-time welcome with example queries
+- `deterministic.rs`: Improved ticket history response with workflow explanation
+
 ## [0.0.111] - 2025-12-06
 
 ### Changed - Natural Language Everything (Phase 31)

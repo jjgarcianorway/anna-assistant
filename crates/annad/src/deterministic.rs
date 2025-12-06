@@ -574,19 +574,20 @@ fn answer_config_file_location(query: &str, route_class: &str) -> Option<Determi
 
 /// Answer ticket history query - shows support desk activity summary
 fn answer_ticket_history(route_class: &str) -> DeterministicResult {
-    // v0.0.111: Since we removed dedicated CLI commands, provide helpful info
-    // about how ticket tracking works in the Service Desk Theatre model
-    let answer = r#"**Support Ticket Activity**
+    // v0.0.112: Natural explanation of how the Service Desk works
+    let answer = r#"When you ask me a question, here's what happens behind the scenes:
 
-Anna tracks your support interactions internally. Each question you ask creates a case in our Service Desk Theatre model.
+1. **Your question becomes a support case** - I create an internal ticket
+2. **The right team gets assigned** - Hardware, Network, Storage, or other specialists
+3. **A staff member investigates** - They run probes to gather system data
+4. **Quality check** - Another specialist reviews the answer for accuracy
+5. **You get a verified response** - With a reliability score
 
-The IT department reviews each case and assigns specialists based on your question type:
-- Hardware questions → Hardware team
-- Network issues → Network team
-- Storage problems → Storage team
-- Performance concerns → Performance team
+This Service Desk model ensures every answer is grounded in real system data.
 
-Your questions are processed, verified, and answered by our virtual IT staff. To see department statistics, try asking "how is the IT team doing?" or "show me stats"."#;
+**Want to see the IT team?** Ask "who is on shift"
+**Want department stats?** Run `annactl stats`
+**Want system status?** Run `annactl status`"#;
 
     DeterministicResult {
         answer: answer.to_string(),

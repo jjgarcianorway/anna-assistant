@@ -104,8 +104,15 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
     if info.is_first_time {
         println!("Hello {}, welcome to Anna!", username);
         println!();
-        println!("I'm your local IT department. Ask me anything about your system -");
-        println!("from disk space to service status, I'm here to help.");
+        println!("I'm your local IT department - a team of specialists ready to help.");
+        println!();
+        println!("{}Try asking me:{}", colors::DIM, colors::RESET);
+        println!("  {} \"how much disk space do I have?\"", bullet());
+        println!("  {} \"what's using the most memory?\"", bullet());
+        println!("  {} \"is my system healthy?\"", bullet());
+        println!("  {} \"who is on shift?\" (meet the IT team)", bullet());
+        println!();
+        println!("{}For detailed stats: annactl stats | For system status: annactl status{}", colors::DIM, colors::RESET);
     } else if let Some(days) = info.days_since_last {
         if days >= 1 {
             println!(
