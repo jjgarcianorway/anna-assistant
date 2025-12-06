@@ -44,15 +44,17 @@ fn success_with_learning(id: String, result: ServiceDeskResult) -> RpcResponse {
 }
 
 /// v0.0.106: Wrap result with theatre context for Service Desk Theatre
+/// v0.0.109: Also populates staff_id for specialization lookup
 fn success_with_theatre(
     id: String,
     mut result: ServiceDeskResult,
     theatre: Option<TheatreContext>,
 ) -> RpcResponse {
-    // Populate case_number and assigned_staff from theatre context
+    // Populate case_number, assigned_staff, and staff_id from theatre context
     if let Some(ctx) = theatre {
         result.case_number = Some(ctx.case_number.clone());
         result.assigned_staff = Some(ctx.staff_display());
+        result.staff_id = Some(ctx.staff.person_id.to_string());
 
         // Save ticket to history (best effort - don't fail request on save error)
         if let Err(e) = ctx.save() {
@@ -144,6 +146,7 @@ fn make_timeout_response(id: String, request_id: String, timeout_secs: u64, quer
         request_id,
         case_number: None,
         assigned_staff: None,
+        staff_id: None,
         answer,
         reliability_score: 20, // Low but not zero - we provided info
         reliability_signals: anna_shared::rpc::ReliabilitySignals::default(),

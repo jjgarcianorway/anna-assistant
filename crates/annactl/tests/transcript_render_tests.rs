@@ -212,6 +212,7 @@ fn make_result(
         request_id: "test-12345678".to_string(),
         case_number: None,
         assigned_staff: None,
+        staff_id: None,
         answer: answer.to_string(),
         reliability_score: 80,
         reliability_signals: ReliabilitySignals::default(),

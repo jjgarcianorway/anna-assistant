@@ -123,6 +123,7 @@ pub fn build_fast_path_result(
         request_id,
         case_number: None,
         assigned_staff: None,
+        staff_id: None,
         answer,
         reliability_score: reliability,
         reliability_signals: signals,

@@ -83,6 +83,7 @@ fn make_result(answer: String, score: u8, proposed_change: Option<ChangePlan>) -
         request_id: uuid::Uuid::new_v4().to_string(),
         case_number: None,
         assigned_staff: None,
+        staff_id: None,
         answer,
         reliability_score: score,
         reliability_signals: ReliabilitySignals::default(),

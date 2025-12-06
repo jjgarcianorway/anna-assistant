@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.109] - 2025-12-06
+
+### Added - Service Desk Theatre Deep Integration (Phase 29)
+
+**Ticket History, Staff Specializations, and Resolution Metrics**
+
+Deepens the Service Desk experience with historical tracking and
+staff expertise visibility.
+
+**Ticket History Command**:
+- New `annactl tickets` command shows past support cases
+- Displays case number, status, team, resolution time, reliability
+- Shows truncated query preview for each ticket
+- Summary statistics: total, resolved, escalated rates
+
+**Staff Specializations**:
+- Each of 18 staff members now has 2-3 expertise areas
+- Specializations shown in footer (e.g., "Specializes in: vim, bash, dotfiles")
+- Added `staff_id` field to responses for profile lookup
+- Desktop: vim, bash, X11, Wayland; Network: TCP/IP, VPN, firewall; etc.
+
+**Resolution Time Tracking**:
+- Stats now show average resolution time per ticket
+- Average reliability displayed alongside resolution metrics
+- Staff performance shows individual resolution times
+
+**New Files**:
+- `ticket_display.rs` - Ticket history rendering
+
+**Code Changes**:
+- `roster.rs`: Added `RosterEntry` struct with specializations
+- `rpc.rs`: Added `staff_id` field to ServiceDeskResult
+- `theatre_render.rs`: Shows staff specializations in footer
+- `stats_display.rs`: Enhanced ticket stats with resolution times
+
+**Progress**: ~50% of full vision complete (deep integration)
+
 ## [0.0.108] - 2025-12-06
 
 ### Added - Service Desk Theatre Polish (Phase 28)

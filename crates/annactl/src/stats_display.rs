@@ -185,6 +185,7 @@ fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
     }
 
     // v0.0.105: Ticket tracking
+    // v0.0.109: Added resolution time tracking
     if let Ok(ticket_stats) = TicketTracker::for_user().stats() {
         if ticket_stats.total_tickets > 0 {
             println!(
@@ -193,6 +194,14 @@ fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
                 ticket_stats.resolved_tickets,
                 ticket_stats.escalated_tickets
             );
+            // v0.0.109: Show average resolution time
+            if ticket_stats.avg_resolution_ms > 0 {
+                println!(
+                    "  Avg resolution: {}   Avg reliability: {:.0}%",
+                    format_duration_ms(ticket_stats.avg_resolution_ms),
+                    ticket_stats.avg_reliability
+                );
+            }
         }
     }
 
@@ -420,6 +429,19 @@ fn print_staff_performance() {
 
 fn bullet() -> &'static str {
     "›"
+}
+
+/// v0.0.109: Format duration in milliseconds to human-readable
+fn format_duration_ms(ms: u64) -> String {
+    if ms < 1000 {
+        format!("{}ms", ms)
+    } else if ms < 60_000 {
+        format!("{:.1}s", ms as f64 / 1000.0)
+    } else {
+        let minutes = ms / 60_000;
+        let secs = (ms % 60_000) / 1000;
+        format!("{}m {}s", minutes, secs)
+    }
 }
 
 /// Get XP required for next level

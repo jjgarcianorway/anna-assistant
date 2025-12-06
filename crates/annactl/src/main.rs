@@ -2,6 +2,7 @@
 //! v0.0.83: Added --internal flag for IT department communications view.
 //! v0.0.85: Added time_format module for date/tenure display.
 //! v0.0.97: Added change_commands module for history/undo.
+//! v0.0.109: Added ticket_display module for ticket history.
 
 mod change_commands;
 mod client;
@@ -13,6 +14,7 @@ mod progress_display;
 mod report_cmd;
 mod stats_display;
 mod theatre_render;
+mod ticket_display;
 mod time_format;
 mod transcript_render;
 
@@ -21,6 +23,7 @@ use clap::{Parser, Subcommand};
 
 use crate::commands::{handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
 use crate::report_cmd::handle_report;
+use crate::ticket_display::print_ticket_history;
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -71,6 +74,12 @@ enum Command {
         /// Change ID to undo (from history)
         id: String,
     },
+    /// v0.0.109: Show Service Desk ticket history
+    Tickets {
+        /// Maximum number of tickets to show (default: 10)
+        #[arg(short = 'n', long, default_value = "10")]
+        limit: usize,
+    },
 }
 
 #[tokio::main]
@@ -86,6 +95,10 @@ async fn main() -> Result<()> {
         Some(Command::Reset) => handle_reset().await,
         Some(Command::History) => handle_history().await,
         Some(Command::Undo { id }) => handle_undo(&id).await,
+        Some(Command::Tickets { limit }) => {
+            print_ticket_history(limit);
+            Ok(())
+        }
         None => {
             if cli.request.is_empty() {
                 // No args - enter REPL mode

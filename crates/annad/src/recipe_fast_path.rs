@@ -358,6 +358,7 @@ pub fn build_recipe_result(
         request_id,
         case_number: None,
         assigned_staff: None,
+        staff_id: None,
         answer,
         reliability_score: recipe.reliability_score,
         reliability_signals: signals,

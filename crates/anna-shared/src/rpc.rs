@@ -342,9 +342,12 @@ pub struct ServiceDeskResult {
     /// v0.0.106: Case number (e.g., "CN-0001-06122025")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub case_number: Option<String>,
-    /// v0.0.106: Staff member who handled this request
+    /// v0.0.106: Staff member who handled this request (display string)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assigned_staff: Option<String>,
+    /// v0.0.109: Staff person ID for lookup (e.g., "desktop_jr")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub staff_id: Option<String>,
     /// The LLM's answer text
     pub answer: String,
     /// Reliability score 0-100 (deterministic from signals)

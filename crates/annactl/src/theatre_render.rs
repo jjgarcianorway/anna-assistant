@@ -4,6 +4,7 @@
 //! Shows the IT department working like a fly on the wall.
 
 use anna_shared::narrator::{it_confidence, it_domain_context};
+use anna_shared::roster::person_by_id;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::teams::Team;
 use anna_shared::theatre::{describe_check, NarrativeBuilder, NarrativeSegment, Speaker};
@@ -208,13 +209,15 @@ fn get_final_answer_text(result: &ServiceDeskResult) -> String {
 
 /// Print the footer
 /// v0.0.106: Shows case number and assigned staff when available
+/// v0.0.109: Shows staff specializations
 fn print_footer(result: &ServiceDeskResult) {
     let rel_color = reliability_color(result.reliability_score);
     let confidence_note = it_confidence(result.reliability_score);
     let domain_str = result.domain.to_string();
     let domain_context = it_domain_context(&domain_str);
 
-    // v0.0.106: Case number header
+    // v0.0.106: Case number header with staff info
+    // v0.0.109: Enhanced with specializations
     if let Some(ref case_num) = result.case_number {
         let staff_info = result.assigned_staff.as_ref()
             .map(|s| format!(" ({})", s))
@@ -223,6 +226,19 @@ fn print_footer(result: &ServiceDeskResult) {
             "{}{}{}{} {}",
             colors::CYAN, case_num, colors::RESET, colors::DIM, staff_info
         );
+
+        // v0.0.109: Show specializations if we have staff_id
+        if let Some(ref staff_id) = result.staff_id {
+            if let Some(person) = person_by_id(staff_id) {
+                if !person.specializations.is_empty() {
+                    let specs = person.specialization_str();
+                    println!(
+                        "{}  Specializes in: {}{}",
+                        colors::DIM, specs, colors::RESET
+                    );
+                }
+            }
+        }
     }
 
     // Evidence source
