@@ -54,6 +54,7 @@ pub fn render(result: &ServiceDeskResult, debug_mode: bool) {
 }
 
 /// Render in clean mode (debug OFF) - user-facing IT department format (v0.0.28)
+/// v0.0.63: Service Desk Theatre with narrative flow
 fn render_clean(result: &ServiceDeskResult, output_mode: OutputMode) {
     println!();
 
@@ -67,6 +68,9 @@ fn render_clean(result: &ServiceDeskResult, output_mode: OutputMode) {
         }
     }
 
+    // v0.0.63: Show evidence summary (what we checked, not raw output)
+    render_evidence_summary_clean(&result.evidence);
+
     // Show anna's response with IT department style (v0.45.x: bracketed label)
     println!("{}[anna]{}", colors::OK, colors::RESET);
     match get_final_answer(result) {
@@ -74,23 +78,167 @@ fn render_clean(result: &ServiceDeskResult, output_mode: OutputMode) {
             println!("{}", format_for_output(t, output_mode));
         }
         AnswerSource::Clarification(t) => {
+            // v0.0.63: Show clarification options if available
             println!("{}", format_for_output(t, output_mode));
+            render_clarification_options_clean(result);
         }
         AnswerSource::Empty => println!("I need more information to help with this request."),
     }
     println!();
 
-    // IT department style footer
+    // IT department style footer with v0.0.63 evidence source
     let rel_color = reliability_color(result.reliability_score);
     let confidence_note = it_confidence(result.reliability_score);
     let domain_str = result.domain.to_string();
     let domain_context = it_domain_context(&domain_str);
 
-    println!(
-        "{}{} | {} | {}{}%{}",
-        colors::DIM, domain_context, confidence_note,
-        rel_color, result.reliability_score, colors::RESET
-    );
+    // v0.0.63: Add evidence source to footer if grounded
+    let evidence_source = if result.reliability_signals.answer_grounded {
+        format_evidence_source(&result.evidence, result.execution_trace.as_ref())
+    } else {
+        String::new()
+    };
+
+    if evidence_source.is_empty() {
+        println!(
+            "{}{} | {} | {}{}%{}",
+            colors::DIM, domain_context, confidence_note,
+            rel_color, result.reliability_score, colors::RESET
+        );
+    } else {
+        println!(
+            "{}{} | {} | {}{}%{} | {}{}",
+            colors::DIM, domain_context, confidence_note,
+            rel_color, result.reliability_score, colors::RESET,
+            colors::DIM, evidence_source
+        );
+    }
+}
+
+/// v0.0.63: Show brief evidence summary without raw probe output
+fn render_evidence_summary_clean(evidence: &anna_shared::rpc::EvidenceBlock) {
+    if evidence.probes_executed.is_empty() {
+        return;
+    }
+
+    let probe_count = evidence.probes_executed.len();
+    let success_count = evidence.probes_executed.iter().filter(|p| p.exit_code == 0).count();
+
+    // Describe what we checked based on probe commands
+    let check_description = describe_probes_checked(&evidence.probes_executed);
+
+    if !check_description.is_empty() {
+        println!("{}{}...{}\n", colors::DIM, check_description, colors::RESET);
+    } else if success_count > 0 {
+        println!(
+            "{}Checked {} data source{}...{}\n",
+            colors::DIM,
+            probe_count,
+            if probe_count == 1 { "" } else { "s" },
+            colors::RESET
+        );
+    }
+}
+
+/// v0.0.63: Describe what probes checked in human terms
+fn describe_probes_checked(probes: &[anna_shared::rpc::ProbeResult]) -> String {
+    // Categorize probes by what they check
+    let mut has_audio = false;
+    let mut has_editor = false;
+    let mut has_memory = false;
+    let mut has_disk = false;
+    let mut has_cpu = false;
+    let mut has_network = false;
+    let mut has_services = false;
+
+    for probe in probes {
+        let cmd = probe.command.to_lowercase();
+        if cmd.contains("audio") || cmd.contains("pactl") || cmd.contains("lspci") && cmd.contains("audio") {
+            has_audio = true;
+        }
+        if cmd.contains("command -v") {
+            has_editor = true;
+        }
+        if cmd.contains("free") {
+            has_memory = true;
+        }
+        if cmd.contains("df") || cmd.contains("lsblk") {
+            has_disk = true;
+        }
+        if cmd.contains("lscpu") || cmd.contains("sensors") {
+            has_cpu = true;
+        }
+        if cmd.contains("ip ") || cmd.contains("ss ") {
+            has_network = true;
+        }
+        if cmd.contains("systemctl") || cmd.contains("journalctl") {
+            has_services = true;
+        }
+    }
+
+    // Build description
+    let mut parts = Vec::new();
+    if has_audio { parts.push("audio hardware"); }
+    if has_editor { parts.push("installed editors"); }
+    if has_memory { parts.push("memory"); }
+    if has_disk { parts.push("disk"); }
+    if has_cpu { parts.push("CPU"); }
+    if has_network { parts.push("network"); }
+    if has_services { parts.push("services"); }
+
+    if parts.is_empty() {
+        return String::new();
+    }
+
+    format!("Checking {}", parts.join(", "))
+}
+
+/// v0.0.63: Show clarification options if available
+fn render_clarification_options_clean(result: &ServiceDeskResult) {
+    if let Some(ref clarify) = result.clarification_request {
+        if !clarify.options.is_empty() {
+            for (i, opt) in clarify.options.iter().enumerate() {
+                println!("  {}. {}", i + 1, opt.label);
+            }
+        }
+    }
+}
+
+/// v0.0.63: Format evidence source for footer
+fn format_evidence_source(
+    evidence: &anna_shared::rpc::EvidenceBlock,
+    trace: Option<&anna_shared::trace::ExecutionTrace>,
+) -> String {
+    // Get evidence kinds from trace if available
+    if let Some(t) = trace {
+        if !t.evidence_kinds.is_empty() {
+            let kinds: Vec<&str> = t.evidence_kinds.iter()
+                .map(|k| match k {
+                    anna_shared::trace::EvidenceKind::Audio => "lspci+pactl",
+                    anna_shared::trace::EvidenceKind::ToolExists => "command -v",
+                    anna_shared::trace::EvidenceKind::Memory => "free",
+                    anna_shared::trace::EvidenceKind::Disk => "df",
+                    anna_shared::trace::EvidenceKind::Cpu => "lscpu",
+                    anna_shared::trace::EvidenceKind::Processes => "ps",
+                    anna_shared::trace::EvidenceKind::Network => "ip",
+                    anna_shared::trace::EvidenceKind::Services => "systemctl",
+                    anna_shared::trace::EvidenceKind::Journal => "journalctl",
+                    _ => "probe",
+                })
+                .collect();
+            return format!("Verified from {}", kinds.join("+"));
+        }
+    }
+
+    // Fallback: just say verified if we have probes
+    if !evidence.probes_executed.is_empty() {
+        let success = evidence.probes_executed.iter().filter(|p| p.exit_code == 0).count();
+        if success > 0 {
+            return format!("Verified from {} probe{}", success, if success == 1 { "" } else { "s" });
+        }
+    }
+
+    String::new()
 }
 
 /// Render in debug mode - full troubleshooting view
@@ -256,6 +404,45 @@ fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
             TranscriptEventKind::GracefulDegradation { reason, original_type, fallback_type } => {
                 println!("{}[fallback]{} {} -> {} ({})",
                     colors::WARN, colors::RESET, original_type, fallback_type, reason);
+                last_actor = None;
+            }
+            // Service Desk Theatre events (v0.0.63)
+            TranscriptEventKind::EvidenceSummary { evidence_kinds, probe_count, key_findings } => {
+                println!("{}[evidence]{} {} probe{}, kinds: {:?}",
+                    colors::DIM, colors::RESET, probe_count,
+                    if *probe_count == 1 { "" } else { "s" }, evidence_kinds);
+                if !key_findings.is_empty() {
+                    for finding in key_findings {
+                        println!("{}  - {}{}", colors::DIM, finding, colors::RESET);
+                    }
+                }
+                last_actor = None;
+            }
+            TranscriptEventKind::DeterministicPath { route_class, evidence_used } => {
+                println!("{}[deterministic]{} {} (evidence: {:?})",
+                    colors::OK, colors::RESET, route_class, evidence_used);
+                last_actor = None;
+            }
+            TranscriptEventKind::ProposedAction { action_id, description, risk_level, rollback_available } => {
+                let risk_color = match risk_level.as_str() {
+                    "high" => colors::ERR,
+                    "medium" => colors::WARN,
+                    _ => colors::OK,
+                };
+                println!("\n{}[action]{} {} (risk: {}{}{})",
+                    colors::WARN, colors::RESET, &action_id[..8.min(action_id.len())],
+                    risk_color, risk_level, colors::RESET);
+                println!("{}  {}{}", colors::DIM, description, colors::RESET);
+                if *rollback_available {
+                    println!("{}  rollback: available{}", colors::DIM, colors::RESET);
+                }
+                last_actor = None;
+            }
+            TranscriptEventKind::ActionConfirmationRequest { action_id: _, prompt, options } => {
+                println!("{}[confirm]{} {}", colors::WARN, colors::RESET, prompt);
+                if !options.is_empty() {
+                    println!("{}  options: {}{}", colors::DIM, options.join(", "), colors::RESET);
+                }
                 last_actor = None;
             }
             TranscriptEventKind::Unknown => {}

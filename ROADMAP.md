@@ -31,6 +31,23 @@
 
 ## Completed
 
+### v0.0.63 - Service Desk Theatre Renderer ✓
+- [x] Narrative flow in normal mode ("Checking X...")
+- [x] Evidence source in footer when grounded
+- [x] Clarification options numbered display
+- [x] New transcript events (EvidenceSummary, DeterministicPath, ProposedAction, ActionConfirmationRequest)
+- [x] Debug mode rendering for all new events
+
+### v0.0.62 - ConfigureEditor Grounding ✓
+- [x] Proper probe accounting with valid_evidence_count
+- [x] Execution trace for all ConfigureEditor paths
+- [x] Grounding signals based on valid evidence
+
+### v0.0.61 - HardwareAudio Parser ✓
+- [x] Content-based audio detection (not just command pattern)
+- [x] pactl detection by "Card #" blocks
+- [x] Evidence merge from lspci + pactl
+
 ### v0.0.45 - Query Classification & Probe Planning ✓
 - [x] New QueryClass variants: InstalledToolCheck, HardwareAudio, CpuTemp, CpuCores, PackageCount, MemoryFree
 - [x] Modularized router.rs + query_classify.rs

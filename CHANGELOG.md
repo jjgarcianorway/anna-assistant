@@ -7,6 +7,328 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.63] - 2025-12-06
+
+### Added - Service Desk Theatre Renderer (UX Overhaul)
+
+**1. Clean mode narrative flow**
+- Normal mode now shows "Checking X..." before answers (e.g., "Checking audio hardware...", "Checking installed editors...")
+- Evidence source shown in footer when answer is grounded (e.g., "Verified from lspci+pactl")
+- Clarification options displayed with numbered list when multiple choices available
+- No raw probe output ever leaks in clean mode
+
+**2. New transcript event types**
+- `EvidenceSummary`: Human-readable summary of what probes found
+- `DeterministicPath`: Which deterministic route was used
+- `ProposedAction`: Privileged actions requiring confirmation
+- `ActionConfirmationRequest`: User confirmation prompts
+
+**3. Debug mode enhancements**
+- All new event types rendered with appropriate formatting
+- Risk levels color-coded for ProposedAction (high=red, medium=yellow, low=green)
+- Rollback availability shown for actions
+
+### Changed
+
+- `transcript_render.rs`: Refactored `render_clean` for Service Desk Theatre
+- Added `describe_probes_checked()` to categorize probes (audio, editor, memory, disk, etc.)
+- Added `format_evidence_source()` for footer evidence source text
+- Added `render_clarification_options_clean()` for numbered option display
+
+### Tests Added
+
+- `golden_v063_evidence_summary_event`
+- `golden_v063_deterministic_path_event`
+- `golden_v063_proposed_action_event`
+- `golden_v063_action_confirmation_request_event`
+- `golden_v063_probe_description_categories`
+
+## [0.0.62] - 2025-12-06
+
+### Fixed - ConfigureEditor Grounded Evidence + Reliability Accounting
+
+**1. Proper probe accounting for ConfigureEditor**
+- **Issue**: ConfigureEditor interception returned `probes: 0` and `grounded=✗` even when tool existence probes ran successfully.
+- **Fix** (`rpc_handler.rs`): Now correctly counts valid evidence from ToolExists probes and sets execution_trace with probe stats.
+- All ConfigureEditor paths (no-editors, single-editor, multi-editor) now include `execution_trace` with accurate probe stats.
+
+**2. Fixed grounding signal for clarification responses**
+- **Issue**: `create_clarification_with_options` didn't set `execution_trace` and used hasProbes instead of valid evidence count.
+- **Fix** (`service_desk.rs`): Updated to:
+  - Count valid evidence using `is_valid_evidence()`
+  - Set `answer_grounded`, `probe_coverage`, `translator_confident` based on valid evidence count
+  - Build and attach `execution_trace` with `ProbeStats` and `evidence_kinds`
+
+**3. Simplified clarification question text**
+- **Fix**: Changed multi-editor clarification question from "Which editor would you like to configure for syntax highlighting?" to "Which editor would you like to configure?" for cleaner output.
+
+### Tests Added
+
+- `golden_v062_configure_editor_tool_evidence_extraction`
+- `golden_v062_tool_exists_is_valid_evidence`
+- `golden_v062_configure_editor_valid_evidence_count`
+
+## [0.0.61] - 2025-12-06
+
+### Fixed - HardwareAudio Parser + Deterministic Merge
+
+**1. Content-based audio detection**
+- **Issue**: Parser only matched command strings like `lspci | grep -i audio`. If the actual command varied, parsing could fail even when output contained audio device info.
+- **Fix** (`parsers/mod.rs`): Added `stdout_contains_audio_device()` function to detect audio device output by content patterns:
+  - `Audio device:`
+  - `Multimedia audio controller:`
+  - `Audio controller:`
+  - `Multimedia controller:` (if line contains "audio")
+- Now parses audio devices by output content, not just command pattern.
+
+**2. pactl content-based detection**
+- **Fix**: Added detection of pactl cards output by `Card #` blocks in stdout.
+- Works even when command string doesn't contain "cards".
+
+**3. Parser robustness improvements**
+- `try_parse_audio_devices()` now tries content-based detection first for lspci.
+- Falls back to command pattern matching for backwards compatibility.
+- Added `stdout_contains_audio_device()` and `is_lspci_audio_command()` helpers.
+
+### Tests Added
+
+- `golden_v061_lspci_audio_detected_by_output_content`
+- `golden_v061_answer_hardware_audio_prefers_positive_lspci`
+- `golden_v061_answer_hardware_audio_prefers_positive_pactl`
+- `golden_v061_pactl_detected_by_output_content`
+- `golden_v061_no_audio_only_when_both_empty`
+
+## [0.0.60] - 2025-12-06
+
+### Fixed - HardwareAudio False Negatives
+
+**1. Expanded lspci audio parsing**
+- **Issue**: Parser only recognized "Audio device:" but missed "Multimedia audio controller:" and "Audio controller:" lines from lspci, causing false "No audio devices detected" responses.
+- **Fix** (`parsers/mod.rs`): Updated `parse_lspci_audio_output()` to recognize all variants:
+  - `Audio device:`
+  - `Multimedia audio controller:`
+  - `Audio controller:`
+  - `Multimedia controller:` (if line contains "audio")
+- Added `is_lspci_audio_command()` helper to centralize probe detection.
+- Added `extract_pci_slot()` helper for consistent PCI slot parsing.
+
+**2. Correct grep exit code handling**
+- **Issue**: grep exit code 1 (no matches) was treated inconsistently - sometimes as error, sometimes as empty evidence.
+- **Fix**: Now correctly treats:
+  - exit 0 = matches found (devices present)
+  - exit 1 = no matches (valid empty evidence)
+  - exit 2+ = grep error
+
+**3. Improved pactl cards parsing**
+- **Fix** (`parsers/mod.rs`): Updated `parse_pactl_cards_output()` to handle multiple properties:
+  - `alsa.card_name`
+  - `device.description`
+  - `card.name`
+  - `device.product.name`
+- Now properly tracks Card # blocks for multiple sound cards.
+
+**4. Audio source merging with deduplication**
+- **Fix**: When both lspci and pactl return devices, merge them with deduplication:
+  - Prefers lspci devices (have PCI slot)
+  - Detects overlapping descriptions (e.g., "Intel Corporation..." and "HDA Intel PCH")
+  - Source shows "lspci+pactl" when merged
+
+**5. Improved deterministic answer**
+- **Fix** (`deterministic.rs`): Updated `answer_hardware_audio()`:
+  - Counts all audio evidence sources for `parsed_data_count`
+  - Message indicates which sources were checked: "No audio hardware detected by lspci/pactl."
+  - Single device: `**Audio device:** Intel Corporation Cannon Lake PCH cAVS (PCI 00:1f.3)`
+  - Multiple devices: Numbered list with PCI slots
+
+### Fixed - ConfigureEditor Grounded Selection
+
+**6. ConfigureEditor now selects editors only from probe evidence**
+- **Issue**: ConfigureEditor would suggest "code, vim" even when "code" probe returned exit_code=1 (not installed). The editor list was not grounded in actual probe results.
+- **Root Cause**: `reduce_probes()` capped probes to 3 by default, but ConfigureEditor needs 10 probes (all editors).
+- **Fix** (`probe_spine.rs`): `reduce_probes()` now allows 10 probes for `configure_editor` route class.
+- **Fix** (`rpc_handler.rs`): Added matching probe cap exception for ConfigureEditor in fallback path.
+
+**7. Existing helper already correct**
+- `installed_editors_from_parsed()` correctly filters `exists == true` only
+- Now all 10 editor probes run, so the selection is truly grounded
+
+### Tests Added
+
+- `golden_v060_lspci_multimedia_audio_controller_parses_positive`
+- `golden_v060_pactl_cards_parses_to_audio_devices`
+- `golden_v060_audio_dedupe_merges_sources`
+- `golden_v060_grep_exit_1_is_valid_empty_evidence`
+- `golden_v060_audio_controller_variant_parses`
+- `golden_v060_configure_editor_never_invents_code`
+- `golden_v060_configure_editor_single_editor_autopicks`
+- `golden_v060_probe_spine_allows_10_editor_probes`
+- `golden_v060_probe_spine_other_routes_cap_at_3`
+- `golden_v060_no_editors_grounded_negative_evidence`
+
+## [0.0.59] - 2025-12-06
+
+### Fixed - ConfigureEditor Evidence-Grounded Flow
+
+**1. ConfigureEditor now grounded in live probe evidence only**
+- **Issue**: Response showed "probes: 0" and "grounded: ✗" even when probes ran; editor list included editors not actually probed.
+- **Fix** (`rpc_handler.rs`): ConfigureEditor detection uses ONLY `ParsedProbeData::Tool(ToolExists)` from current request's `probe_results`. No inventory cache, no stale data.
+- **New** (`parsers/mod.rs`): Added `installed_editors_from_parsed()` helper for consistent editor extraction from probe evidence.
+- **New** (`probe_spine.rs`): Added `hx` probe (Helix binary name) to ensure both `helix` and `hx` are detected.
+
+**2. Proper ClarifyRequest structure for multiple editors**
+- **Issue**: Multi-editor scenario returned plain text question in answer field instead of structured clarification.
+- **Fix** (`service_desk.rs`): Added `create_clarification_with_options()` that builds proper `ClarifyRequest` with structured `ClarifyOption` items.
+- Multi-editor response now uses `clarification_request` field (v0.0.47+ format) with numeric menu options.
+
+**3. Reliability signals correctly reflect probe state**
+- Clarification responses now have `probe_coverage: true` when probes ran.
+- `evidence.probes_executed` contains actual probe results (not empty).
+- `grounded: true` when options derived from current probe evidence.
+
+**4. Single-editor answer is deterministic with no questions**
+- When exactly one editor detected: returns editor-specific instructions.
+- No "Would you like...?" or "Do you want...?" in answer text.
+- Questions only appear in proper ClarificationRequired flow.
+
+**5. No-editors-found response lists what was checked**
+- When no supported editors found: lists which editors were probed.
+- Still grounded (`grounded: true`) because we have valid negative evidence.
+
+### Tests Added
+
+- `golden_v059_editor_probes_include_code`
+- `golden_v059_installed_editors_from_tool_evidence`
+- `golden_v059_multi_editor_clarification_is_grounded`
+- `golden_v059_single_editor_answer_no_questions`
+- `golden_v059_no_editors_found_lists_checked`
+
+## [0.0.58] - 2025-12-06
+
+### Fixed - HardwareAudio Parsing and Deterministic Answers
+
+**1. Expanded lspci audio parsing**
+- **Issue**: Parser only recognized "Audio device:" but not "Multimedia audio controller:" lines from lspci, causing false "No audio devices detected" responses.
+- **Fix** (`parsers/mod.rs`): Updated `parse_lspci_audio_output()` to recognize:
+  - `Audio device:`
+  - `Multimedia audio controller:`
+  - `Multimedia controller:` (if line contains "audio")
+- Added `extract_lspci_description()` helper to properly extract device description after device class marker.
+
+**2. Improved PCI slot and vendor extraction**
+- PCI slot (e.g., `00:1f.3`) now correctly extracted from first token.
+- Description no longer includes device class prefix ("Multimedia audio controller:").
+- Vendor extracted from known vendor list (Intel, NVIDIA, AMD, Realtek, etc.).
+
+**3. Valid negative evidence for audio**
+- Empty lspci output with exit_code 0 = valid negative evidence (no devices).
+- grep exit_code 1 (no match) = valid negative evidence (no devices).
+- Both cases parse to `AudioDevices { devices: [], source: "lspci" }` with `is_valid_evidence() = true`.
+
+**4. Improved deterministic audio answer**
+- **Fix** (`deterministic.rs`): Updated `answer_hardware_audio()`:
+  - Single device: `**Audio device:** Intel Corporation Cannon Lake PCH cAVS (PCI 00:1f.3)`
+  - Multiple devices: Numbered list with PCI slots
+  - No devices: `No audio devices detected from lspci.`
+- Answer now includes PCI slot for hardware identification.
+
+### Tests Added
+
+- `golden_v058_lspci_empty_output_is_valid_negative_evidence`
+- `golden_v058_lspci_grep_exit_1_is_valid_negative_evidence`
+- `golden_v058_lspci_extracts_pci_slot`
+- `golden_v058_lspci_description_no_device_class_prefix`
+- `golden_v058_sound_card_query_uses_lspci_audio_probe`
+
+## [0.0.57] - 2025-12-06
+
+### Fixed - ConfigureEditor Flow: No Inventory, No Questions
+
+**1. ConfigureEditor uses ONLY current probe evidence**
+- **Issue**: ConfigureEditor could potentially use stale inventory data.
+- **Fix** (`rpc_handler.rs`): Removed any inventory dependency. Editor detection now exclusively uses current request's `probe_results` via `get_installed_tools()`.
+
+**2. Expanded supported editors list**
+- Added `kate` and `gedit` to supported editors (now 9 total: code, vim, nvim, nano, emacs, micro, helix, kate, gedit).
+- Updated `router.rs`, `translator.rs`, and `probe_spine.rs` with new editor probes.
+
+**3. Single-editor answers are editor-specific, no questions**
+- **Issue**: Single-editor answer showed generic multi-editor instructions.
+- **Fix** (`rpc_handler.rs`): Added `build_editor_config_answer()` that returns editor-specific steps:
+  - **vim/vi**: `~/.vimrc` with `syntax on`
+  - **nvim**: `~/.config/nvim/init.vim` or `init.lua`
+  - **nano**: `~/.nanorc` with `include "/usr/share/nano/*.nanorc"`
+  - **emacs**: `~/.emacs` with `(global-font-lock-mode t)`
+  - **helix**: Syntax on by default; themes via `~/.config/helix/config.toml`
+  - **micro**: Syntax on by default; settings via `~/.config/micro/settings.json`
+  - **code**: Language mode based; mentions extensions and Color Theme
+  - **kate**: Fonts & Colors in Settings > Configure Kate
+  - **gedit**: Preferences > Font & Colors
+- No question marks in any answer (no "Would you like...?").
+
+**4. Multi-editor clarification is grounded**
+- Clarification question format: `"Which editor would you like to configure? Detected: vim, code"`
+- Does not leak raw probe output (no `/usr/bin/vim` paths in message).
+- `grounded=true` because options derived from current probe evidence.
+
+### Tests Added
+
+- `golden_v057_single_editor_answer_vim_only`
+- `golden_v057_multi_editor_clarification_format`
+- `golden_v057_configure_editor_route_includes_all_editors`
+- `golden_v057_grounded_clarification_has_probe_coverage`
+- `golden_v057_editor_specific_answer_formats`
+- `test_vim_answer_no_questions` (in annad)
+- `test_nvim_answer_correct_paths` (in annad)
+- `test_editor_answers_are_specific` (in annad)
+- `test_vi_uses_vim_config` (in annad)
+
+## [0.0.56] - 2025-12-06
+
+### Fixed - UX, Routing, and Grounding Hardening
+
+**1. Clarification responses now attach probes and transcript**
+- **Issue**: ClarificationRequired responses (e.g., ConfigureEditor multi-choice) showed `probes: 0` and `grounded=✗` even though probes ran.
+- **Fix** (`service_desk.rs`): Added `create_clarification_response_grounded()` helper that attaches probe evidence and sets `grounded=true` when options are derived from current probe evidence.
+- **Fix** (`rpc_handler.rs`): ConfigureEditor multi-editor path now uses grounded clarification.
+
+**2. ConfigureEditor routing made explicit and deterministic**
+- **Issue**: "enable syntax highlighting" relied on rpc_handler intercept with no probes.
+- **Fix** (`router.rs`): ConfigureEditor route now:
+  - `can_answer_deterministically: true`
+  - `evidence_required: true`
+  - `probes: ["command_v_vim", "command_v_nvim", "command_v_nano", "command_v_emacs", "command_v_micro", "command_v_helix", "command_v_code"]`
+- **Fix** (`translator.rs`): Added probe ID mappings for all editor command_v variants.
+
+**3. Probe spine expanded for editor config phrases**
+- **Issue**: Phrases like "turn on syntax highlighting" and "set vim to show line numbers" didn't trigger editor probes.
+- **Fix** (`probe_spine.rs`): Expanded Rule 6 to match:
+  - Verbs: `enable`, `turn on`, `activate`, `set up`, `configure`, `show`, `set `
+  - Features: `syntax`, `highlight`, `line number`, `word wrap`, `auto indent`, `theme`, `colorscheme`, `color scheme`
+  - Named editors: ` vim`, ` nvim`, ` nano`, ` emacs`, ` micro`, ` helix`, ` code`, `vscode`
+
+**4. Audio dual evidence source merging**
+- **Issue**: When both lspci and pactl probes ran, only first was used.
+- **Fix** (`parsers/mod.rs`): `find_audio_evidence()` now merges sources:
+  - If both have devices, prefer lspci (hardware identity)
+  - If only one has devices, use that source
+  - If both empty, return grounded negative evidence
+  - Never say "No audio devices" if either source has devices
+
+**5. Output policy: No follow-up questions**
+- **Fix** (`rpc_handler.rs`): Removed "Would you like me to help configure {}?" from single-editor answer.
+
+### Tests Added
+
+- `golden_clarification_attaches_probes_and_transcript`
+- `golden_clarification_is_grounded_when_options_come_from_evidence`
+- `test_configure_editor_route_is_deterministic_and_requires_evidence`
+- `test_configure_editor_route_adds_editor_probes`
+- `golden_editor_config_probe_spine_matches_common_phrasings`
+- `golden_editor_config_probe_spine_does_not_trigger_on_unrelated_enable`
+- `golden_audio_merges_lspci_and_pactl_when_both_present`
+- `golden_audio_negative_evidence_is_grounded`
+- `golden_audio_uses_non_empty_source`
+
 ## [0.0.55] - 2025-12-06
 
 ### Fixed - v0.45.8 Regression Fixes

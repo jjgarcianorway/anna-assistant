@@ -219,7 +219,15 @@ async fn handle_llm_request_inner(
             ticket.needs_probes = enforced_probes;
         }
         // Apply probe cap for non-spine-enforced probes too (v0.45.3)
-        let max_probes = if det_route.class.to_string().contains("health") { 4 } else { 3 };
+        // v0.0.60: ConfigureEditor needs 10 probes for all editors
+        let route_class = det_route.class.to_string();
+        let max_probes = if route_class.contains("health") {
+            4
+        } else if route_class == "configure_editor" {
+            10  // v0.0.60: Need all editor probes for grounded selection
+        } else {
+            3
+        };
         if ticket.needs_probes.len() > max_probes {
             info!("Capping probes from {} to {}", ticket.needs_probes.len(), max_probes);
             ticket.needs_probes.truncate(max_probes);
@@ -294,55 +302,97 @@ async fn handle_llm_request_inner(
         return RpcResponse::success(id, serde_json::to_value(result).unwrap());
     }
 
-    // Step 5.5: v0.45.8 ConfigureEditor - use probe evidence, never go to specialist
+    // Step 5.5: v0.0.59 ConfigureEditor - use ONLY current probe evidence, no inventory
+    // v0.0.62: Fixed probe accounting and execution trace for grounded output
     if det_route.class == router::QueryClass::ConfigureEditor {
-        use anna_shared::parsers::{parse_probe_result, get_installed_tools};
+        use anna_shared::parsers::{parse_probe_result, get_installed_tools, installed_editors_from_parsed};
+        use anna_shared::trace::{ProbeStats, ExecutionTrace, EvidenceKind};
 
-        // Parse probe_results to get installed editors from ToolExists evidence
+        // v0.0.59: Parse probe_results to get installed editors from ToolExists evidence ONLY
         let parsed: Vec<_> = probe_results.iter().map(|p| parse_probe_result(p)).collect();
+
+        // v0.0.59: Use dedicated helper for consistent editor extraction
+        let installed_editors = installed_editors_from_parsed(&parsed);
+
+        // Track what we checked (for no-editors-found message)
         let tools = get_installed_tools(&parsed);
-        let editor_names = ["vim", "nvim", "nano", "emacs", "code", "micro", "vi"];
-        let installed_editors: Vec<String> = tools.iter()
-            .filter(|t| t.exists && editor_names.contains(&t.name.as_str()))
+        let checked_editors: Vec<String> = tools.iter()
             .map(|t| t.name.clone())
             .collect();
 
-        info!("v0.45.8: ConfigureEditor - found {} installed editors from probes: {:?}", installed_editors.len(), installed_editors);
+        // v0.0.62: Count valid evidence for proper grounding
+        let valid_evidence_count = parsed.iter()
+            .filter(|p| p.is_valid_evidence())
+            .count();
+
+        info!("v0.0.62: ConfigureEditor - checked {:?}, found installed: {:?}, valid_evidence={}",
+            checked_editors, installed_editors, valid_evidence_count);
+
+        // v0.0.62: Build execution trace for ConfigureEditor paths
+        let probe_stats = ProbeStats::from_results(ticket.needs_probes.len(), &probe_results);
+        let evidence_kinds = vec![EvidenceKind::ToolExists];
 
         if installed_editors.is_empty() {
-            // No editors found in probe evidence - deterministic "not found" answer
-            let answer = "No supported text editors were detected from the probes. \
-                Please ensure vim, nano, or another editor is installed.".to_string();
+            // v0.0.59: No editors found - grounded negative evidence (we checked, found none)
+            let checked_list = if checked_editors.is_empty() {
+                "vim, nano, emacs, code".to_string()
+            } else {
+                checked_editors.join(", ")
+            };
+            let answer = format!(
+                "No supported text editors were detected.\n\n\
+                Checked: {}\n\n\
+                Install vim, nano, or another editor and retry.",
+                checked_list
+            );
             save_progress(&state, &progress).await;
-            let result = service_desk::build_result_with_flags(
+            // v0.0.62: Use valid_evidence_count for proper grounding
+            let mut result = service_desk::build_result_with_flags(
                 request_id, answer, query, ticket, probe_results.clone(), progress.transcript_clone(),
-                classified_domain, false, true, 0, false,
+                classified_domain, false, true, valid_evidence_count, false,
                 service_desk::FallbackContext { used_deterministic_fallback: false, fallback_route_class: "configure_editor".to_string(), evidence_kinds: vec!["tool_exists".to_string()], specialist_outcome: Some(SpecialistOutcome::Skipped), fallback_used: Some(anna_shared::trace::FallbackUsed::None), evidence_required: Some(true) },
             );
+            // v0.0.62: Set execution trace
+            result.execution_trace = Some(ExecutionTrace::deterministic_route(
+                "configure_editor",
+                probe_stats,
+                evidence_kinds,
+            ));
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         } else if installed_editors.len() == 1 {
-            // Exactly one editor - auto-pick and return deterministic answer
+            // v0.0.59: Exactly one editor - deterministic answer, NO questions
             let editor = &installed_editors[0];
-            let answer = format!(
-                "To configure **{}** for syntax highlighting, you can edit its configuration file.\n\n\
-                For {}, the typical approach is:\n\
-                - **vim/nvim**: Add `syntax on` to `~/.vimrc` or `~/.config/nvim/init.vim`\n\
-                - **nano**: Uncomment `include` lines in `/etc/nanorc` or `~/.nanorc`\n\
-                - **emacs**: Add `(global-font-lock-mode t)` to `~/.emacs`\n\n\
-                Would you like me to help configure {}?",
-                editor, editor, editor
-            );
+            let answer = build_editor_config_answer(editor);
             save_progress(&state, &progress).await;
-            let result = service_desk::build_result_with_flags(
+            // v0.0.62: Use valid_evidence_count for proper grounding
+            let mut result = service_desk::build_result_with_flags(
                 request_id, answer, query, ticket, probe_results.clone(), progress.transcript_clone(),
-                classified_domain, false, true, 1, false,
+                classified_domain, false, true, valid_evidence_count, false,
                 service_desk::FallbackContext { used_deterministic_fallback: false, fallback_route_class: "configure_editor".to_string(), evidence_kinds: vec!["tool_exists".to_string()], specialist_outcome: Some(SpecialistOutcome::Skipped), fallback_used: Some(anna_shared::trace::FallbackUsed::None), evidence_required: Some(true) },
             );
+            // v0.0.62: Set execution trace
+            result.execution_trace = Some(ExecutionTrace::deterministic_route(
+                "configure_editor",
+                probe_stats,
+                evidence_kinds,
+            ));
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         } else {
-            // Multiple editors - return ClarificationRequired with probes attached
-            let question = format!("Which editor would you like to configure? Available: {}", installed_editors.join(", "));
-            let result = service_desk::create_clarification_response(request_id, ticket, &question, progress.take_transcript());
+            // v0.0.59: Multiple editors - structured ClarifyRequest with proper options
+            let question = "Which editor would you like to configure?";
+            let options: Vec<(String, String)> = installed_editors.iter()
+                .map(|e| (e.clone(), e.clone()))
+                .collect();
+            save_progress(&state, &progress).await;
+            // v0.0.62: create_clarification_with_options now sets execution_trace internally
+            let result = service_desk::create_clarification_with_options(
+                request_id,
+                ticket,
+                question,
+                options,
+                probe_results.clone(),
+                progress.take_transcript(),
+            );
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         }
     }
@@ -533,4 +583,139 @@ async fn triage_path(
 /// Save progress events to state for polling
 async fn save_progress(state: &SharedState, progress: &ProgressTracker) {
     state.write().await.progress_events = progress.events().to_vec();
+}
+
+/// v0.0.57: Build editor-specific syntax highlighting config answer.
+/// Returns deterministic steps for the detected editor, no questions.
+fn build_editor_config_answer(editor: &str) -> String {
+    match editor {
+        "vim" | "vi" => format!(
+            "I detected **{}** installed. To enable syntax highlighting:\n\n\
+            1. Edit `~/.vimrc` (create if needed)\n\
+            2. Add: `syntax on`\n\
+            3. Save and reopen vim\n\n\
+            For line numbers, also add: `set number`",
+            editor
+        ),
+        "nvim" => String::from(
+            "I detected **nvim** installed. To enable syntax highlighting:\n\n\
+            1. Edit `~/.config/nvim/init.vim` (or `init.lua`)\n\
+            2. Add: `syntax on` (or `vim.cmd(\"syntax on\")` in Lua)\n\
+            3. Save and reopen nvim\n\n\
+            For line numbers: `set number` (or `vim.opt.number = true`)"
+        ),
+        "nano" => String::from(
+            "I detected **nano** installed. To enable syntax highlighting:\n\n\
+            1. Ensure syntax files exist: `/usr/share/nano/*.nanorc`\n\
+            2. Edit `~/.nanorc` (or `/etc/nanorc` system-wide)\n\
+            3. Add: `include \"/usr/share/nano/*.nanorc\"`\n\
+            4. Save and reopen nano\n\n\
+            For line numbers: `set linenumbers`"
+        ),
+        "emacs" => String::from(
+            "I detected **emacs** installed. To enable syntax highlighting:\n\n\
+            1. Edit `~/.emacs` (or `~/.emacs.d/init.el`)\n\
+            2. Add: `(global-font-lock-mode t)`\n\
+            3. Save and restart emacs\n\n\
+            For line numbers: `(global-display-line-numbers-mode t)`"
+        ),
+        "helix" => String::from(
+            "I detected **helix** installed. Syntax highlighting is enabled by default.\n\n\
+            To customize themes:\n\
+            1. Edit `~/.config/helix/config.toml`\n\
+            2. Add: `theme = \"gruvbox\"` (or another theme name)\n\
+            3. Save and reopen helix\n\n\
+            List themes with `:theme` command inside helix"
+        ),
+        "micro" => String::from(
+            "I detected **micro** installed. Syntax highlighting is enabled by default.\n\n\
+            To customize:\n\
+            1. Press `Ctrl+E` then type `set colorscheme ...`\n\
+            2. Or edit `~/.config/micro/settings.json`\n\
+            3. Set `\"colorscheme\": \"monokai\"` (or another scheme)\n\n\
+            For line numbers: `set ruler true`"
+        ),
+        "code" => String::from(
+            "I detected **VS Code** installed. Syntax highlighting is automatic based on file type.\n\n\
+            To configure:\n\
+            1. Open a file - VS Code detects language from extension\n\
+            2. Click language indicator (bottom-right) to change mode\n\
+            3. Install language extensions for better support (Ctrl+Shift+X)\n\n\
+            Theme: File > Preferences > Color Theme"
+        ),
+        "kate" => String::from(
+            "I detected **kate** installed. Syntax highlighting is enabled by default.\n\n\
+            To configure:\n\
+            1. Settings > Configure Kate > Fonts & Colors\n\
+            2. Select a color scheme\n\
+            3. For specific languages: Settings > Configure Kate > Open/Save > Modes & Filetypes\n\n\
+            Line numbers: Settings > Configure Kate > Appearance > Show line numbers"
+        ),
+        "gedit" => String::from(
+            "I detected **gedit** installed. Syntax highlighting is enabled by default.\n\n\
+            To configure:\n\
+            1. Preferences > Font & Colors\n\
+            2. Select a color scheme\n\
+            3. For line numbers: Preferences > View > Display line numbers\n\n\
+            Gedit auto-detects file types for highlighting"
+        ),
+        _ => format!(
+            "I detected **{}** installed. Check its documentation for syntax highlighting configuration.",
+            editor
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// v0.0.57: Vim answer must not contain question marks.
+    #[test]
+    fn test_vim_answer_no_questions() {
+        let answer = build_editor_config_answer("vim");
+        assert!(answer.contains("vim"), "Must mention vim");
+        assert!(answer.contains(".vimrc"), "Must mention .vimrc");
+        assert!(!answer.contains('?'), "Must not contain question marks");
+    }
+
+    /// v0.0.57: Nvim answer has correct config paths.
+    #[test]
+    fn test_nvim_answer_correct_paths() {
+        let answer = build_editor_config_answer("nvim");
+        assert!(answer.contains("nvim"), "Must mention nvim");
+        assert!(answer.contains("init.vim") || answer.contains("init.lua"),
+            "Must mention nvim config file");
+        assert!(!answer.contains('?'), "Must not contain question marks");
+    }
+
+    /// v0.0.57: Each editor has specific answer without other editors' paths.
+    #[test]
+    fn test_editor_answers_are_specific() {
+        let editors = ["vim", "nvim", "nano", "emacs", "helix", "micro", "code", "kate", "gedit"];
+
+        for editor in editors {
+            let answer = build_editor_config_answer(editor);
+
+            // Must mention the detected editor
+            assert!(answer.to_lowercase().contains(editor) ||
+                    (editor == "code" && answer.contains("VS Code")),
+                "Answer for {} must mention the editor", editor);
+
+            // Must NOT contain question marks
+            assert!(!answer.contains('?'),
+                "Answer for {} must not contain question marks", editor);
+
+            // Answers should be distinct (not generic)
+            assert!(answer.len() > 100,
+                "Answer for {} should be detailed (got {} chars)", editor, answer.len());
+        }
+    }
+
+    /// v0.0.57: vi is treated like vim.
+    #[test]
+    fn test_vi_uses_vim_config() {
+        let answer = build_editor_config_answer("vi");
+        assert!(answer.contains(".vimrc"), "vi should use vim config");
+    }
 }

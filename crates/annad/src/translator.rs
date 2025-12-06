@@ -35,14 +35,14 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
     match id {
         "top_memory" => Some("ps aux --sort=-%mem"),
         "top_cpu" => Some("ps aux --sort=-%cpu"),
-        "cpu_info" => Some("lscpu"),
+        "cpu_info" | "lscpu" => Some("lscpu"),
         "memory_info" | "free" => Some("free -h"),
         "disk_usage" | "df" => Some("df -h"),
         "block_devices" => Some("lsblk"),
         "network_addrs" => Some("ip addr show"),
         "network_routes" => Some("ip route"),
         "listening_ports" => Some("ss -tulpn"),
-        "failed_services" | "failed_units" => Some("systemctl --failed --no-pager"),
+        "failed_services" | "failed_units" | "systemctl" => Some("systemctl --failed --no-pager"),
         "system_logs" => Some("journalctl -p warning..alert -n 200 --no-pager"),
         // v0.0.35: SystemTriage fast-path probes
         "journal_errors" => Some("journalctl -p 3 -b --no-pager"),
@@ -51,6 +51,21 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         // v0.45.8: Audio probes
         "lspci_audio" => Some("lspci | grep -i audio"),
         "pactl_cards" => Some("pactl list cards"),
+        // v0.0.56: Hardware probes
+        "sensors" => Some("sensors"),
+        "lspci_gpu" => Some("lspci | grep -i vga"),
+        "pacman_count" => Some("pacman -Qq | wc -l"),
+        // v0.0.59: Editor probes for ConfigureEditor (expanded list with hx)
+        "command_v_vim" => Some("sh -lc 'command -v vim'"),
+        "command_v_nvim" => Some("sh -lc 'command -v nvim'"),
+        "command_v_nano" => Some("sh -lc 'command -v nano'"),
+        "command_v_emacs" => Some("sh -lc 'command -v emacs'"),
+        "command_v_micro" => Some("sh -lc 'command -v micro'"),
+        "command_v_helix" => Some("sh -lc 'command -v helix'"),
+        "command_v_hx" => Some("sh -lc 'command -v hx'"),
+        "command_v_code" => Some("sh -lc 'command -v code'"),
+        "command_v_kate" => Some("sh -lc 'command -v kate'"),
+        "command_v_gedit" => Some("sh -lc 'command -v gedit'"),
         _ => None,
     }
 }

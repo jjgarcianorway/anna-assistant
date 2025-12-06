@@ -23,6 +23,9 @@ annactl "what processes are using the most memory?"
 # Interactive mode (exit with: quit, bye, q, :q)
 annactl
 
+# Debug mode - show full pipeline (translator, probes, evidence, traces)
+annactl -d "what is my sound card?"
+
 # Check status
 annactl status
 
@@ -35,6 +38,21 @@ annactl uninstall
 # Version
 annactl --version
 ```
+
+## Output Modes
+
+Anna has two display modes:
+
+**Normal mode** (default): Clean, IT department style output
+- Shows what was checked (e.g., "Checking audio hardware...")
+- Clean answer with reliability indicator
+- Evidence source in footer when grounded
+
+**Debug mode** (`-d` or `--debug`): Full pipeline visibility
+- Shows translator intent and domain
+- Probe execution with commands, exit codes, timing
+- Evidence kinds and deterministic routing
+- Full reliability signals breakdown
 
 ## Features
 
@@ -61,7 +79,7 @@ Anna consists of two components:
 
 ## Version
 
-v0.0.26
+v0.0.63
 
 ## License
 

@@ -272,39 +272,54 @@ fn extract_temperature(line: &str) -> Option<f32> {
     None
 }
 
-/// Answer hardware audio query using typed AudioDevices evidence (v0.45.8)
+/// Answer hardware audio query using typed AudioDevices evidence (v0.0.58, v0.0.60)
+/// v0.0.60: Merges devices from all sources, deduplicates, improved messaging.
 fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
     use anna_shared::parsers::{parse_probe_result, ParsedProbeData, find_audio_evidence};
 
-    // v0.45.8: Parse all probes to typed evidence
+    // v0.0.60: Parse all probes to typed evidence
     let parsed: Vec<ParsedProbeData> = probes.iter()
         .map(|p| parse_probe_result(p))
         .collect();
 
-    // Find audio evidence from parsed probes
+    // Count how many audio evidence sources we have
+    let audio_evidence_count = parsed.iter()
+        .filter(|p| p.as_audio().is_some())
+        .count();
+
+    // Find merged audio evidence from parsed probes
     if let Some(audio) = find_audio_evidence(&parsed) {
         if audio.devices.is_empty() {
+            // v0.0.60: Clearer message for grounded negative evidence
+            // Indicate which sources were checked
+            let source_msg = if audio.source.contains('+') {
+                "lspci/pactl"
+            } else {
+                &audio.source
+            };
             return Some(DeterministicResult {
-                answer: "No audio devices detected.".to_string(),
+                answer: format!("No audio hardware detected by {}.", source_msg),
                 grounded: true,
-                parsed_data_count: 1, // We have evidence, it's just empty
+                parsed_data_count: audio_evidence_count.max(1), // We have evidence, it's just empty
                 route_class: route_class.to_string(),
             });
         }
 
+        // v0.0.60: Format answer with PCI slot when available
         let answer = if audio.devices.len() == 1 {
             let dev = &audio.devices[0];
-            let vendor_info = dev.vendor.as_ref()
-                .map(|v| format!(" ({})", v))
+            let pci_info = dev.pci_slot.as_ref()
+                .map(|s| format!(" (PCI {})", s))
                 .unwrap_or_default();
-            format!("**Audio device{}**: {}", vendor_info, dev.description)
+            format!("**Audio device:** {}{}", dev.description, pci_info)
         } else {
             let devices_list: Vec<String> = audio.devices.iter()
-                .map(|d| {
-                    let vendor_info = d.vendor.as_ref()
-                        .map(|v| format!(" [{}]", v))
+                .enumerate()
+                .map(|(i, d)| {
+                    let pci_info = d.pci_slot.as_ref()
+                        .map(|s| format!(" (PCI {})", s))
                         .unwrap_or_default();
-                    format!("• {}{}", d.description, vendor_info)
+                    format!("{}. {}{}", i + 1, d.description, pci_info)
                 })
                 .collect();
             format!("**Audio devices ({}):**\n{}", audio.devices.len(), devices_list.join("\n"))
@@ -313,7 +328,7 @@ fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<De
         return Some(DeterministicResult {
             answer,
             grounded: true,
-            parsed_data_count: audio.devices.len(),
+            parsed_data_count: audio.devices.len().max(audio_evidence_count),
             route_class: route_class.to_string(),
         });
     }

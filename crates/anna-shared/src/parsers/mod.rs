@@ -65,22 +65,155 @@ pub fn has_evidence_for(parsed: &[ParsedProbeData], name: &str) -> bool {
     find_tool_evidence(parsed, name).is_some() || find_package_evidence(parsed, name).is_some()
 }
 
-/// Find audio devices evidence (v0.45.8)
-pub fn find_audio_evidence(parsed: &[ParsedProbeData]) -> Option<&AudioDevices> {
+/// Find audio devices evidence (v0.45.8, v0.0.56, v0.0.60 merged).
+/// If multiple sources exist (lspci + pactl), merge them:
+/// - Use lspci for hardware identity (PCI slot, device name)
+/// - Use pactl for card names/profiles if lspci found nothing
+/// Never return "No audio" if either source has devices.
+/// v0.0.60: Improved merging with deduplication by (pci_slot, description).
+pub fn find_audio_evidence(parsed: &[ParsedProbeData]) -> Option<AudioDevices> {
+    let all_audio: Vec<&AudioDevices> = parsed.iter()
+        .filter_map(|p| p.as_audio())
+        .collect();
+
+    if all_audio.is_empty() {
+        return None;
+    }
+
+    // If only one source, return it
+    if all_audio.len() == 1 {
+        return Some(all_audio[0].clone());
+    }
+
+    // v0.0.60: Merge all sources with deduplication
+    let lspci_audio = all_audio.iter().find(|a| a.source == "lspci");
+    let pactl_audio = all_audio.iter().find(|a| a.source == "pactl");
+
+    match (lspci_audio, pactl_audio) {
+        (Some(lspci), Some(pactl)) => {
+            // v0.0.60: Merge devices from both sources, deduplicate
+            let merged = merge_audio_devices(&lspci.devices, &pactl.devices);
+            if merged.is_empty() {
+                // Both empty - return lspci (grounded negative evidence)
+                Some(AudioDevices {
+                    devices: vec![],
+                    source: "lspci+pactl".to_string(),
+                })
+            } else {
+                Some(AudioDevices {
+                    devices: merged,
+                    source: "lspci+pactl".to_string(),
+                })
+            }
+        },
+        (Some(lspci), None) => Some((*lspci).clone()),
+        (None, Some(pactl)) => Some((*pactl).clone()),
+        (None, None) => {
+            // Unknown sources - return first with devices, or first
+            all_audio.iter()
+                .find(|a| !a.devices.is_empty())
+                .or(all_audio.first())
+                .map(|a| (*a).clone())
+        }
+    }
+}
+
+/// v0.0.60: Merge audio devices from lspci and pactl, deduplicating by description.
+/// Prefers lspci devices (have PCI slot) over pactl (no PCI slot).
+fn merge_audio_devices(lspci: &[AudioDevice], pactl: &[AudioDevice]) -> Vec<AudioDevice> {
+    let mut merged: Vec<AudioDevice> = Vec::new();
+
+    // Add all lspci devices first (preferred source)
+    for dev in lspci {
+        merged.push(dev.clone());
+    }
+
+    // Add pactl devices that aren't duplicates
+    for pactl_dev in pactl {
+        // Check if this pactl device is a duplicate of an lspci device
+        // Compare by normalized description (case-insensitive, trim whitespace)
+        let is_duplicate = merged.iter().any(|existing| {
+            // Check if descriptions overlap (one contains the other)
+            let existing_lower = existing.description.to_lowercase();
+            let pactl_lower = pactl_dev.description.to_lowercase();
+            existing_lower.contains(&pactl_lower) || pactl_lower.contains(&existing_lower)
+        });
+
+        if !is_duplicate {
+            merged.push(pactl_dev.clone());
+        }
+    }
+
+    merged
+}
+
+/// Find audio devices evidence returning a reference (v0.45.8 legacy)
+pub fn find_audio_evidence_ref(parsed: &[ParsedProbeData]) -> Option<&AudioDevices> {
     parsed.iter()
         .filter_map(|p| p.as_audio())
         .next()
 }
 
-/// Get all installed tools from evidence (v0.45.8)
+/// Get all tool evidence from parsed probes (v0.45.8, v0.0.56 fix).
+/// Returns both positive (exists=true) and negative (exists=false) evidence.
+/// Caller should filter by `.exists` if only installed tools are needed.
 pub fn get_installed_tools(parsed: &[ParsedProbeData]) -> Vec<&ToolExists> {
     parsed.iter()
         .filter_map(|p| p.as_tool())
-        .filter(|t| t.exists)
         .collect()
 }
 
+/// v0.0.59: Extract installed editor names from parsed probe evidence.
+/// Only returns editors that exist (exists=true) in current probe results.
+/// Maps tool names to canonical editor identifiers.
+/// Returns sorted, deduplicated list for stable output.
+pub fn installed_editors_from_parsed(parsed: &[ParsedProbeData]) -> Vec<String> {
+    // Supported editor mappings: tool_name -> canonical_name
+    const EDITOR_MAP: &[(&str, &str)] = &[
+        ("vim", "vim"),
+        ("nvim", "nvim"),
+        ("nano", "nano"),
+        ("emacs", "emacs"),
+        ("micro", "micro"),
+        ("hx", "helix"),
+        ("helix", "helix"),
+        ("code", "code"),
+        ("kate", "kate"),
+        ("gedit", "gedit"),
+    ];
+
+    let tools = get_installed_tools(parsed);
+    let mut editors: Vec<String> = tools.iter()
+        .filter(|t| t.exists)
+        .filter_map(|t| {
+            EDITOR_MAP.iter()
+                .find(|(tool, _)| *tool == t.name.as_str())
+                .map(|(_, canonical)| canonical.to_string())
+        })
+        .collect();
+
+    // Deduplicate (in case hx and helix both map to helix)
+    editors.sort();
+    editors.dedup();
+    editors
+}
+
 use crate::rpc::ProbeResult;
+
+/// Count how many probes produced valid evidence (v0.0.56).
+/// A probe produces valid evidence if parse_probe_result returns is_valid_evidence().
+/// This is used for reliability scoring - exit_code=1 for tool checks is valid negative evidence!
+pub fn count_valid_evidence_probes(probes: &[ProbeResult]) -> usize {
+    probes.iter()
+        .filter(|p| parse_probe_result(p).is_valid_evidence())
+        .count()
+}
+
+/// Check if a probe result produced valid evidence (v0.0.56).
+/// Tool/package probes with exit_code=1 are VALID negative evidence, not failures!
+pub fn is_probe_valid_evidence(probe: &ProbeResult) -> bool {
+    parse_probe_result(probe).is_valid_evidence()
+}
 use serde::{Deserialize, Serialize};
 
 /// Method used to check tool existence (v0.45.7)
@@ -313,12 +446,24 @@ pub fn parse_probe_result(probe: &ProbeResult) -> ParsedProbeData {
     parse_probe_output(&probe.command, &probe.stdout)
 }
 
-/// Try to parse a tool existence probe (v0.45.7).
+/// Try to parse a tool existence probe (v0.45.7, v0.0.57 hardening).
 /// Handles `command -v`, `which`, and `type` commands.
 /// Returns Some if this is a tool check probe, None otherwise.
+///
+/// v0.0.57: exit_code=127 ("command not found") is an ERROR, not valid evidence.
+/// Only exit_code=0 (found) and exit_code=1 (not found) are valid evidence.
 fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedProbeData> {
     // Pattern: "command -v <name>" or "sh -lc 'command -v <name>'"
     if cmd_lower.contains("command -v") {
+        // v0.0.57: exit_code=127 means the shell itself failed - this is an error
+        if probe.exit_code == 127 {
+            return Some(ParsedProbeData::Error(ParseError::new(
+                &probe.command,
+                ParseErrorReason::MissingSection("shell error: command not found".to_string()),
+                &probe.stderr,
+            )));
+        }
+
         let name = extract_tool_name_from_command_v(&probe.command);
         let exists = probe.exit_code == 0;
         let path = if exists && !probe.stdout.trim().is_empty() {
@@ -336,6 +481,15 @@ fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedP
 
     // Pattern: "which <name>"
     if cmd_lower.starts_with("which ") {
+        // v0.0.57: exit_code=127 means the shell itself failed - this is an error
+        if probe.exit_code == 127 {
+            return Some(ParsedProbeData::Error(ParseError::new(
+                &probe.command,
+                ParseErrorReason::MissingSection("shell error: command not found".to_string()),
+                &probe.stderr,
+            )));
+        }
+
         let name = probe.command.split_whitespace().nth(1)
             .unwrap_or("unknown").to_string();
         let exists = probe.exit_code == 0;
@@ -379,14 +533,74 @@ fn try_parse_package_installed(probe: &ProbeResult, cmd_lower: &str) -> Option<P
     None
 }
 
-/// Try to parse audio devices from lspci or pactl (v0.45.8).
-/// Handles `lspci | grep -i audio` and `pactl list cards` commands.
-fn try_parse_audio_devices(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedProbeData> {
-    // Pattern: "lspci | grep -i audio" or just contains both "lspci" and "audio"
+/// v0.0.60, v0.0.61: Check if a command is an lspci audio probe.
+/// Matches:
+/// - "lspci | grep -i audio"
+/// - "lspci_audio" probe ID
+/// - Raw lspci output when context suggests audio
+/// v0.0.61: Also check stdout for audio controller patterns
+fn is_lspci_audio_command(cmd: &str) -> bool {
+    let cmd_lower = cmd.to_lowercase();
+    // Explicit audio grep pattern
     if cmd_lower.contains("lspci") && cmd_lower.contains("audio") {
-        // Only valid if exit code is 0
-        if probe.exit_code != 0 {
-            // No audio devices found - still valid evidence (empty list)
+        return true;
+    }
+    // Probe ID form
+    if cmd_lower == "lspci_audio" {
+        return true;
+    }
+    false
+}
+
+/// v0.0.61: Check if stdout contains lspci audio device output.
+/// This catches cases where the command doesn't match but output is clearly lspci audio.
+fn stdout_contains_audio_device(stdout: &str) -> bool {
+    let lower = stdout.to_lowercase();
+    // Check for common lspci audio device class patterns
+    // Note: lspci may show "[0403]" PCI class code between name and colon
+    lower.contains("audio device") ||
+    lower.contains("multimedia audio controller") ||
+    lower.contains("audio controller") ||
+    (lower.contains("multimedia controller") && lower.contains("audio"))
+}
+
+/// Try to parse audio devices from lspci or pactl (v0.45.8, v0.0.60, v0.0.61 expanded).
+/// Handles `lspci | grep -i audio` and `pactl list cards` commands.
+/// v0.0.60: Improved to handle more lspci variants and grep exit codes.
+/// v0.0.61: Also detect audio device output in stdout (fallback for command mismatch).
+fn try_parse_audio_devices(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedProbeData> {
+    // v0.0.61: First check if stdout contains audio device output
+    // This catches cases where command pattern doesn't match exactly
+    let has_lspci_audio_output = stdout_contains_audio_device(&probe.stdout);
+
+    // Pattern: lspci audio probe (by command or by output content)
+    if is_lspci_audio_command(&probe.command) || has_lspci_audio_output {
+        // v0.0.60: Handle grep exit codes correctly
+        // exit_code 0 = matches found (devices present)
+        // exit_code 1 = no matches (valid empty evidence for grep)
+        // exit_code 2+ = grep error
+
+        // v0.0.61: If we detected audio output, always try to parse it
+        if has_lspci_audio_output && probe.exit_code == 0 {
+            let devices = parse_lspci_audio_output(&probe.stdout);
+            if !devices.is_empty() {
+                return Some(ParsedProbeData::Audio(AudioDevices {
+                    devices,
+                    source: "lspci".to_string(),
+                }));
+            }
+        }
+
+        if probe.exit_code == 1 && probe.stdout.trim().is_empty() {
+            // grep found no matches - valid negative evidence
+            return Some(ParsedProbeData::Audio(AudioDevices {
+                devices: vec![],
+                source: "lspci".to_string(),
+            }));
+        }
+
+        if probe.exit_code != 0 && probe.exit_code != 1 {
+            // Real error (exit code 2+)
             return Some(ParsedProbeData::Audio(AudioDevices {
                 devices: vec![],
                 source: "lspci".to_string(),
@@ -417,11 +631,25 @@ fn try_parse_audio_devices(probe: &ProbeResult, cmd_lower: &str) -> Option<Parse
         }));
     }
 
+    // v0.0.61: Also detect pactl output by content (Card # blocks)
+    if probe.stdout.contains("Card #") && probe.exit_code == 0 {
+        let devices = parse_pactl_cards_output(&probe.stdout);
+        return Some(ParsedProbeData::Audio(AudioDevices {
+            devices,
+            source: "pactl".to_string(),
+        }));
+    }
+
     None
 }
 
-/// Parse lspci audio output (v0.45.8).
-/// Example line: "00:1f.3 Audio device: Intel Corporation Cannon Lake PCH cAVS (rev 10)"
+/// Parse lspci audio output (v0.0.58, v0.0.60 expanded).
+/// Handles multiple lspci formats:
+/// - "00:1f.3 Audio device: Intel Corporation Cannon Lake PCH cAVS (rev 10)"
+/// - "00:1f.3 Multimedia audio controller: Intel Corporation Cannon Lake PCH cAVS"
+/// - "00:1f.3 Audio controller: Some Device" (some lspci outputs)
+/// - "00:1f.3 Multimedia controller: Some Audio Device" (rare)
+/// v0.0.60: Improved detection to never miss an audio controller line.
 fn parse_lspci_audio_output(stdout: &str) -> Vec<AudioDevice> {
     let mut devices = Vec::new();
 
@@ -431,68 +659,152 @@ fn parse_lspci_audio_output(stdout: &str) -> Vec<AudioDevice> {
             continue;
         }
 
-        // Parse format: "XX:XX.X Audio device: Description"
-        // or "XX:XX.X Multimedia audio controller: Description"
-        let pci_slot = line.split_whitespace().next()
-            .map(|s| s.to_string());
+        // v0.0.60: Expanded device class detection
+        let line_lower = line.to_lowercase();
 
-        // Find the description after the colon
-        let description = if let Some(pos) = line.find(':') {
-            // Skip "Audio device:" or "Multimedia audio controller:" prefix
-            let after_first_colon = &line[pos + 1..];
-            if let Some(pos2) = after_first_colon.find(':') {
-                after_first_colon[pos2 + 1..].trim().to_string()
-            } else {
-                after_first_colon.trim().to_string()
-            }
-        } else {
-            line.to_string()
-        };
+        // Check for any audio-related device class marker
+        let is_audio_line = line_lower.contains("audio device:")
+            || line_lower.contains("multimedia audio controller:")
+            || line_lower.contains("audio controller:")
+            || (line_lower.contains("multimedia controller:") && line_lower.contains("audio"));
 
-        // Extract vendor from description (usually first word or two)
+        // v0.0.60: If output came from grep -i audio, trust it
+        // even if device class isn't recognized (grep matched "audio" somewhere)
+        let is_grep_match = line_lower.contains("audio") && line.contains(':');
+
+        if !is_audio_line && !is_grep_match {
+            continue;
+        }
+
+        // Parse format: "XX:XX.X <device_class>: <description>"
+        // PCI slot is first token (e.g., "00:1f.3")
+        let pci_slot = extract_pci_slot(line);
+
+        // v0.0.60: Extract description after device class marker
+        let description = extract_lspci_description(line);
+
+        // Extract vendor from description (usually first word)
         let vendor = extract_vendor_from_description(&description);
 
-        devices.push(AudioDevice {
-            description,
-            pci_slot,
-            vendor,
-        });
+        if !description.is_empty() {
+            devices.push(AudioDevice {
+                description,
+                pci_slot,
+                vendor,
+            });
+        }
     }
 
     devices
 }
 
-/// Parse pactl list cards output (v0.45.8).
+/// v0.0.60: Extract PCI slot from lspci line.
+/// Expects format like "00:1f.3" at the beginning of the line.
+fn extract_pci_slot(line: &str) -> Option<String> {
+    let first_token = line.split_whitespace().next()?;
+    // PCI slot format: XX:XX.X (e.g., 00:1f.3)
+    if first_token.contains(':') && first_token.contains('.') {
+        Some(first_token.to_string())
+    } else {
+        None
+    }
+}
+
+/// v0.0.58, v0.0.60: Extract description from lspci line after the device class.
+fn extract_lspci_description(line: &str) -> String {
+    // Common device class markers (after PCI slot)
+    // v0.0.60: Added "Audio controller:"
+    let markers = [
+        "Audio device:",
+        "Multimedia audio controller:",
+        "Audio controller:",
+        "Multimedia controller:",
+    ];
+
+    for marker in markers {
+        if let Some(pos) = line.to_lowercase().find(&marker.to_lowercase()) {
+            let after_marker = &line[pos + marker.len()..];
+            return after_marker.trim().to_string();
+        }
+    }
+
+    // Fallback: find the SECOND colon (first is in PCI slot like 00:1f.3)
+    // and take everything after it
+    let mut colon_count = 0;
+    for (i, c) in line.char_indices() {
+        if c == ':' {
+            colon_count += 1;
+            if colon_count == 2 {
+                return line[i + 1..].trim().to_string();
+            }
+        }
+    }
+
+    // Last resort: return everything after first space + colon pattern
+    line.to_string()
+}
+
+/// Parse pactl list cards output (v0.45.8, v0.0.60 expanded).
+/// v0.0.60: Also looks for driver, card.name, and other properties.
 fn parse_pactl_cards_output(stdout: &str) -> Vec<AudioDevice> {
     let mut devices = Vec::new();
-    let mut current_name: Option<String> = None;
+    let mut current_card_name: Option<String> = None;
+    let mut current_card_description: Option<String> = None;
+    let mut in_card_block = false;
 
     for line in stdout.lines() {
         let line = line.trim();
 
-        // Look for "Name:" lines
-        if line.starts_with("Name:") {
-            current_name = Some(line.trim_start_matches("Name:").trim().to_string());
-        }
-        // Look for "alsa.card_name" or "device.description"
-        else if line.contains("alsa.card_name") || line.contains("device.description") {
-            if let Some(pos) = line.find('=') {
-                let value = line[pos + 1..].trim().trim_matches('"').to_string();
-                if !value.is_empty() {
-                    let vendor = extract_vendor_from_description(&value);
+        // Detect card block start
+        if line.starts_with("Card #") {
+            // Save previous card if any
+            if in_card_block {
+                if let Some(desc) = current_card_description.take().or(current_card_name.take()) {
+                    let vendor = extract_vendor_from_description(&desc);
                     devices.push(AudioDevice {
-                        description: value,
+                        description: desc,
                         pci_slot: None,
                         vendor,
                     });
                 }
             }
+            in_card_block = true;
+            current_card_name = None;
+            current_card_description = None;
+        }
+
+        // Look for "Name:" lines
+        if line.starts_with("Name:") {
+            current_card_name = Some(line.trim_start_matches("Name:").trim().to_string());
+        }
+        // Look for card description properties
+        else if line.contains("alsa.card_name") || line.contains("device.description")
+            || line.contains("card.name") || line.contains("device.product.name")
+        {
+            if let Some(pos) = line.find('=') {
+                let value = line[pos + 1..].trim().trim_matches('"').to_string();
+                if !value.is_empty() && current_card_description.is_none() {
+                    current_card_description = Some(value);
+                }
+            }
         }
     }
 
-    // If we found a name but no description, use the name
+    // Save last card
+    if in_card_block {
+        if let Some(desc) = current_card_description.take().or(current_card_name.take()) {
+            let vendor = extract_vendor_from_description(&desc);
+            devices.push(AudioDevice {
+                description: desc,
+                pci_slot: None,
+                vendor,
+            });
+        }
+    }
+
+    // Fallback: if we found a name but no description anywhere
     if devices.is_empty() {
-        if let Some(name) = current_name {
+        if let Some(name) = current_card_name {
             devices.push(AudioDevice {
                 description: name,
                 pci_slot: None,

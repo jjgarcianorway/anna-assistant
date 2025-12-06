@@ -287,6 +287,48 @@ pub enum TranscriptEventKind {
         fallback_type: String,
     },
 
+    // === Service Desk Theatre events (v0.0.63) ===
+
+    /// Evidence summary - what probes found without raw output (v0.0.63)
+    /// Used in clean mode to show "Checking X data sources..." without leaking probe output
+    EvidenceSummary {
+        /// Types of evidence gathered (e.g., ["audio", "tool_exists"])
+        evidence_kinds: Vec<String>,
+        /// Number of probes executed
+        probe_count: usize,
+        /// Key findings in human-readable form (no raw output)
+        key_findings: Vec<String>,
+    },
+    /// Deterministic route taken (v0.0.63)
+    /// Shows which deterministic path was used to answer
+    DeterministicPath {
+        /// Route class (e.g., "hardware_audio", "configure_editor")
+        route_class: String,
+        /// Evidence kinds used for the answer
+        evidence_used: Vec<String>,
+    },
+    /// Proposed action requiring user confirmation (v0.0.63)
+    /// Used for privileged actions that need explicit approval
+    ProposedAction {
+        /// Unique action identifier
+        action_id: String,
+        /// Human-readable description of the action
+        description: String,
+        /// Risk level: "low", "medium", "high"
+        risk_level: String,
+        /// Whether rollback is available
+        rollback_available: bool,
+    },
+    /// Confirmation request for proposed action (v0.0.63)
+    ActionConfirmationRequest {
+        /// Action ID this confirms
+        action_id: String,
+        /// Confirmation prompt
+        prompt: String,
+        /// Available options (e.g., ["yes", "no", "show diff"])
+        options: Vec<String>,
+    },
+
     /// Unknown event kind (forward compatibility)
     /// Deserializes any unrecognized "type" value - old clients won't crash on new kinds.
     #[serde(other)]
@@ -473,6 +515,83 @@ impl TranscriptEvent {
                 | TranscriptEventKind::StageStart { .. }
                 | TranscriptEventKind::StageEnd { .. }
         )
+    }
+
+    /// Create evidence summary event (v0.0.63)
+    /// Used in clean mode to show "Checking X data sources..."
+    pub fn evidence_summary(
+        elapsed_ms: u64,
+        evidence_kinds: Vec<String>,
+        probe_count: usize,
+        key_findings: Vec<String>,
+    ) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::System,
+            to: None,
+            kind: TranscriptEventKind::EvidenceSummary {
+                evidence_kinds,
+                probe_count,
+                key_findings,
+            },
+        }
+    }
+
+    /// Create deterministic path event (v0.0.63)
+    pub fn deterministic_path(
+        elapsed_ms: u64,
+        route_class: impl Into<String>,
+        evidence_used: Vec<String>,
+    ) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::System,
+            to: None,
+            kind: TranscriptEventKind::DeterministicPath {
+                route_class: route_class.into(),
+                evidence_used,
+            },
+        }
+    }
+
+    /// Create proposed action event (v0.0.63)
+    pub fn proposed_action(
+        elapsed_ms: u64,
+        action_id: impl Into<String>,
+        description: impl Into<String>,
+        risk_level: impl Into<String>,
+        rollback_available: bool,
+    ) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::Anna,
+            to: Some(Actor::You),
+            kind: TranscriptEventKind::ProposedAction {
+                action_id: action_id.into(),
+                description: description.into(),
+                risk_level: risk_level.into(),
+                rollback_available,
+            },
+        }
+    }
+
+    /// Create action confirmation request event (v0.0.63)
+    pub fn action_confirmation_request(
+        elapsed_ms: u64,
+        action_id: impl Into<String>,
+        prompt: impl Into<String>,
+        options: Vec<String>,
+    ) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::Anna,
+            to: Some(Actor::You),
+            kind: TranscriptEventKind::ActionConfirmationRequest {
+                action_id: action_id.into(),
+                prompt: prompt.into(),
+                options,
+            },
+        }
     }
 }
 

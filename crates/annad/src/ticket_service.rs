@@ -7,6 +7,7 @@
 //! - Senior escalation when junior rounds exhausted
 //! - Full transcript visibility
 
+use anna_shared::parsers::parse_probe_result;
 use anna_shared::reliability::{compute_reliability, ReliabilityInput, ReliabilityOutput};
 use anna_shared::review::ReviewDecision;
 use anna_shared::review_gate::{deterministic_review_gate, GateOutcome, ReviewContext};
@@ -178,9 +179,13 @@ fn build_revision_instruction(
             anna_shared::reliability::ReliabilityReason::ProbeFailed
             | anna_shared::reliability::ReliabilityReason::ProbeTimeout => {
                 inst = inst.with_issue(RevisionIssue::MissingProbes);
-                // Recommend re-running failed probes
+                // Recommend re-running probes that didn't produce valid evidence
+                // v0.0.56: exit_code=1 for tool checks is valid negative evidence, not failure
                 for probe in &ticket.planned_probes {
-                    if !probe_results.iter().any(|p| p.command == *probe && p.exit_code == 0) {
+                    let has_valid_evidence = probe_results.iter()
+                        .filter(|p| p.command == *probe)
+                        .any(|p| parse_probe_result(p).is_valid_evidence());
+                    if !has_valid_evidence {
                         inst = inst.with_recommended_probe(probe.clone());
                     }
                 }

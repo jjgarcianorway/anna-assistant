@@ -98,6 +98,24 @@
 - **Domain Labels**: IT department style context names
 - **Clean Output**: Polished non-debug user-facing format
 
+### Service Desk Theatre Renderer (v0.0.63)
+- **Narrative Flow**: Normal mode shows "Checking X..." before answers
+- **Evidence Source**: Footer shows verification source when grounded
+- **Clarification Options**: Numbered list display for multiple choices
+- **No Probe Leak**: Raw probe output never leaks in normal mode
+- **New Transcript Events**: EvidenceSummary, DeterministicPath, ProposedAction, ActionConfirmationRequest
+- **Debug Enhancements**: Risk-colored actions, rollback indicators
+
+### ConfigureEditor Grounding (v0.0.62)
+- **Proper Probe Accounting**: Valid evidence count from ToolExists probes
+- **Execution Trace**: All ConfigureEditor paths include accurate probe stats
+- **Grounding Signals**: answer_grounded, probe_coverage based on valid evidence
+
+### HardwareAudio Parser (v0.0.61)
+- **Content-Based Detection**: Detects audio devices by output content, not command
+- **pactl Detection**: Detects cards by "Card #" blocks in output
+- **Evidence Merge**: Combines lspci + pactl evidence with deduplication
+
 ## Not Yet Implemented
 
 ### Future

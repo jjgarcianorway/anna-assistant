@@ -333,16 +333,36 @@ pub fn enforce_minimum_probes(
         }
     }
 
-    // Rule 6 (v0.45.7): Editor configuration queries need tool existence probes
-    // "enable syntax highlighting", "turn on line numbers", etc.
-    let is_editor_config = (lower.contains("enable") || lower.contains("turn on")
-        || lower.contains("activate") || lower.contains("set up") || lower.contains("configure"))
-        && (lower.contains("syntax") || lower.contains("highlight") || lower.contains("line number")
-            || lower.contains("word wrap") || lower.contains("auto indent") || lower.contains("theme"));
+    // Rule 6 (v0.45.7, v0.0.56 expanded): Editor configuration queries
+    // Match patterns like:
+    // - "enable syntax highlighting", "turn on syntax highlighting"
+    // - "enable line numbers", "set vim to show line numbers"
+    // - "configure editor theme"
+    // Avoid false positives for unrelated "enable" phrases
+    let editor_config_verbs = lower.contains("enable") || lower.contains("turn on")
+        || lower.contains("activate") || lower.contains("set up") || lower.contains("configure")
+        || lower.contains("show") || lower.contains("set ");
+
+    let editor_config_features = lower.contains("syntax") || lower.contains("highlight")
+        || lower.contains("line number") || lower.contains("word wrap")
+        || lower.contains("auto indent") || lower.contains("theme")
+        || lower.contains("colorscheme") || lower.contains("color scheme");
+
+    // Known editor names in query (more specific matching)
+    // v0.0.57: Added kate and gedit to known editors
+    let named_editor = lower.contains(" vim") || lower.contains(" nvim")
+        || lower.contains(" nano") || lower.contains(" emacs")
+        || lower.contains(" micro") || lower.contains(" helix")
+        || lower.contains(" code") || lower.contains("vscode")
+        || lower.contains(" kate") || lower.contains(" gedit");
+
+    let is_editor_config = (editor_config_verbs && editor_config_features)
+        || (named_editor && editor_config_features);
 
     if is_editor_config {
         // Add probes for common editors to detect which are installed
-        let editors = ["vim", "nvim", "nano", "emacs", "micro", "helix", "gedit", "kate"];
+        // v0.0.59: Added "hx" (helix binary name) to ensure we probe both names
+        let editors = ["code", "vim", "nvim", "nano", "emacs", "micro", "helix", "hx", "kate", "gedit"];
         for editor in editors {
             probes.push(ProbeId::CommandV(editor.to_string()));
         }
@@ -389,13 +409,16 @@ pub enum Urgency {
 }
 
 /// Reduce probes to minimal set based on route and urgency.
-/// Default: max 3 probes. System health: max 4. Never run both errors and warnings.
+/// Default: max 3 probes. System health: max 4. ConfigureEditor: 10. Never run both errors and warnings.
 pub fn reduce_probes(
     planned: Vec<ProbeId>,
     route_class: &str,
     urgency: Urgency,
 ) -> Vec<ProbeId> {
     let max_probes = match (route_class, urgency) {
+        // v0.0.60: ConfigureEditor needs to probe all editors (10 probes)
+        // This is cheap (command -v is fast) and necessary for grounded selection
+        ("configure_editor", _) | ("ConfigureEditor", _) => 10,
         // System health queries get 4 probes
         ("system_health_summary", _) | ("system_triage", _) => 4,
         // Quick urgency = 2 probes max

@@ -341,6 +341,11 @@ fn test_all_event_kinds_have_render_path() {
             TranscriptEventKind::FastPath { .. } => "fast_path",
             TranscriptEventKind::LlmTimeoutFallback { .. } => "llm_timeout_fallback",
             TranscriptEventKind::GracefulDegradation { .. } => "graceful_degradation",
+            // v0.0.63 Service Desk Theatre events
+            TranscriptEventKind::EvidenceSummary { .. } => "evidence_summary",
+            TranscriptEventKind::DeterministicPath { .. } => "deterministic_path",
+            TranscriptEventKind::ProposedAction { .. } => "proposed_action",
+            TranscriptEventKind::ActionConfirmationRequest { .. } => "action_confirmation_request",
             TranscriptEventKind::Unknown => "unknown",
         })
         .collect();
