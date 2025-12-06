@@ -191,9 +191,8 @@ impl NarrativeBuilder {
 
     /// Add junior review narration
     pub fn add_junior_review(&mut self, team: Team, approved: bool, score: u8) {
-        let person = person_for(team, Tier::Junior);
-
         if self.show_internal {
+            let person = person_for(team, Tier::Junior);
             let response = if approved {
                 format!(
                     "Got it, Anna. I've reviewed the data. Looks good, confidence {}%.",

@@ -12,9 +12,10 @@ use std::time::{Duration, Instant};
 
 use crate::client::{AnnadClient, StreamingClient};
 use crate::display::{
-    print_progress_event, print_repl_header, print_stats_display,
+    print_progress_event, print_stats_display,
     print_status_display_with_daemon_info, show_bootstrap_progress,
 };
+use crate::greeting;
 use crate::transcript_render;
 
 /// Pending clarification state for REPL mode
@@ -86,22 +87,26 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
 
 /// Handle REPL mode
 pub async fn handle_repl() -> Result<()> {
-    print_repl_header();
-
-    // Check daemon status and get debug mode
-    let debug_mode = {
+    // Get daemon status for greeting and debug mode
+    let (debug_mode, status) = {
         let status = match AnnadClient::connect().await {
             Ok(mut client) => client.status().await.ok(),
             Err(_) => None,
         };
 
-        if let Some(status) = &status {
-            if status.llm.state != LlmState::Ready {
-                show_bootstrap_progress().await?;
-            }
-        }
-        status.map(|s| s.debug_mode).unwrap_or(true)
+        let debug = status.as_ref().map(|s| s.debug_mode).unwrap_or(true);
+        (debug, status)
     };
+
+    // v0.0.82: Theatre-style greeting with status awareness
+    greeting::print_theatre_greeting(status.as_ref());
+
+    // Check if LLM needs bootstrap
+    if let Some(ref st) = status {
+        if st.llm.state != LlmState::Ready {
+            show_bootstrap_progress().await?;
+        }
+    }
 
     // Track pending clarification (local state only)
     let mut pending_clarification: Option<PendingClarification> = None;

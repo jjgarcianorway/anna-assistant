@@ -5,6 +5,7 @@
 
 use anna_shared::narrator::{it_confidence, it_domain_context};
 use anna_shared::roster::Tier;
+#[allow(unused_imports)]  // Used in build_narrative for team lookups
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::teams::Team;
 use anna_shared::theatre::{describe_check, NarrativeBuilder, NarrativeSegment, Speaker};

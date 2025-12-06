@@ -3,6 +3,7 @@
 mod client;
 mod commands;
 mod display;
+mod greeting;
 mod output;
 mod progress_display;
 mod report_cmd;

@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.82] - 2025-12-06
+
+### Added - Theatre REPL Greeting (Phase 2)
+
+**Personal, Aware REPL Greeting**
+
+Anna now greets users like a real IT support person who knows them and their system:
+
+```
+Anna Service Desk
+─────────────────────────────────────────────────────────────
+Hello lhoqvso!
+
+It's been about 1 day since you checked with me!
+
+Since the last time, a few things happened:
+
+  › Your boot time increased by 2 seconds.
+    This is normal variation, nothing to worry about.
+  › No warnings or errors detected - looking good!
+
+Systems ready. Translator: qwen3:1.7b, Specialist: qwen3:8b
+
+But I believe you want to ask me something, don't you?
+```
+
+**Features**
+- Personalized greeting based on time since last visit
+- Health delta report showing what changed
+- Boot time tracking with context
+- Failed service detection and reporting
+- Service recovery notifications
+- Disk/memory warning thresholds
+- LLM readiness status
+- Update availability notifications
+
+**New Module**
+- `annactl/src/greeting.rs`: Theatre-style REPL greeting
+  - `print_theatre_greeting()`: Main entry point
+  - `InteractionInfo`: Tracks user visit history
+  - Bullet-pointed change list (max 4 items)
+
+**Code Changes**
+- `commands.rs`: REPL now passes status to greeting
+- Greeting shows "Since last time" section with health deltas
+
 ## [0.0.81] - 2025-12-06
 
 ### Added - Service Desk Theatre (Phase 1)
