@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.98] - 2025-12-06
+
+### Added - Multi-file Transactions & Recipe Systems (Phase 18)
+
+**Multi-file Change Transactions**
+
+Atomic transactions for multi-file config changes:
+
+- `ChangeTransaction` - Groups multiple `ChangePlan` items
+- All-or-nothing: if any change fails, all are rolled back
+- Automatic rollback in reverse order
+- Transaction IDs for tracking
+
+```rust
+let mut tx = ChangeTransaction::new("Configure vim settings");
+tx.add(syntax_plan);
+tx.add(numbers_plan);
+let result = apply_transaction(&tx);
+// If numbers_plan fails, syntax_plan is rolled back
+```
+
+**Package Installation Recipes**
+
+Safe package installation with multi-manager support:
+
+- Supported managers: pacman, apt, dnf, flatpak, snap
+- Common package database (vim, git, htop, curl, etc.)
+- Cross-distro package name mapping
+- Confirmation prompts with install commands
+
+**Service Configuration Recipes**
+
+Safe systemd service management:
+
+- Service actions: start, stop, restart, enable, disable, reload
+- Risk levels: Low, Medium, High, Protected
+- Protected services cannot be modified (journald, dbus, udev)
+- Rollback commands for reversible actions
+- Service aliases (e.g., "ssh" -> "sshd.service")
+
+**New Modules**
+- `change_transaction.rs` - Multi-file atomic transactions
+- `package_recipes.rs` - Package installation recipes
+- `service_recipes.rs` - Service configuration recipes
+
 ## [0.0.97] - 2025-12-06
 
 ### Added - Change History and Undo (Phase 17)
