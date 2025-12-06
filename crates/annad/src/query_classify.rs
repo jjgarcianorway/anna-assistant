@@ -189,22 +189,26 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::PackageCount;
     }
 
-    // v0.0.45: MemoryFree - "free ram", "available ram"
+    // v0.0.45: MemoryFree - "free ram", "available ram", "free memory", "available memory"
+    // v0.0.80: B1 fix - "free memory" and "available memory" should be MemoryFree, not MemoryUsage
     // Check BEFORE MemoryUsage since it's more specific
     if (q.contains("free") && q.contains("ram"))
         || (q.contains("available") && q.contains("ram"))
         || q.contains("how much free ram")
         || q.contains("how much available ram")
+        || q.contains("free memory")
+        || q.contains("available memory")
+        || q.contains("how much free memory")
+        || q.contains("how much available memory")
     {
         return QueryClass::MemoryFree;
     }
 
     // Memory usage (dynamic): "memory usage", "how much memory used"
     // Check before RamInfo since these are more specific
+    // v0.0.80: Removed "free memory" and "available memory" - those are MemoryFree
     if (q.contains("memory") && q.contains("usage"))
         || (q.contains("memory") && q.contains("used"))
-        || q.contains("free memory")
-        || q.contains("available memory")
     {
         return QueryClass::MemoryUsage;
     }

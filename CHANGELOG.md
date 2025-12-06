@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.80] - 2025-12-06
+
+### Fixed - STABILIZE: Answer Minimality (B1)
+
+**Answer Minimality Enforcement (B1: Fixed)**
+- "free memory" and "available memory" now correctly route to `MemoryFree` class
+- Previously these queries incorrectly routed to `MemoryUsage`, returning broader data
+- B1 principle: Specific questions should get specific answers
+  - "free memory" → MemoryFree (just free/available RAM)
+  - "memory usage" → MemoryUsage (used + total)
+  - "how much ram" → RamInfo (general RAM info)
+
+**Code Changes**
+- `query_classify.rs`: Moved "free memory" and "available memory" patterns to MemoryFree block
+- `router_tests.rs`: Fixed outdated test assertions, added B1 minimality tests
+  - `test_free_memory_routes_to_memory_free()` - verifies B1 fix
+  - `test_memory_usage_distinct_from_memory_free()` - verifies separation
+
+**Tests Added**
+- Golden tests for answer minimality enforcement
+- Tests verify that "free memory" ≠ "memory usage" ≠ "how much ram"
+
 ## [0.0.79] - 2025-12-06
 
 ### Fixed - STABILIZE: Stats Tracking

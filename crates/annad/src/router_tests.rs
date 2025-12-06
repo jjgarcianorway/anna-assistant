@@ -106,8 +106,8 @@ mod tests {
     fn test_classify_memory_usage() {
         assert_eq!(classify_query("memory usage"), QueryClass::MemoryUsage);
         assert_eq!(classify_query("how much memory used"), QueryClass::MemoryUsage);
-        assert_eq!(classify_query("free memory"), QueryClass::MemoryUsage);
-        assert_eq!(classify_query("available memory"), QueryClass::MemoryUsage);
+        // v0.0.80: "free memory" and "available memory" now route to MemoryFree (B1 fix)
+        // See test_free_memory_routes_to_memory_free and test_memory_usage_distinct_from_memory_free
     }
 
     #[test]
@@ -193,5 +193,26 @@ mod tests {
         let route = get_route("where is vim config");
         assert!(route.probes.is_empty()); // No probes needed - known paths
         assert!(route.can_answer_deterministically());
+    }
+
+    // === v0.0.80: Answer minimality tests ===
+
+    #[test]
+    fn test_free_memory_routes_to_memory_free() {
+        // B1 fix: "free memory" should route to MemoryFree, not MemoryUsage
+        assert_eq!(classify_query("free memory"), QueryClass::MemoryFree);
+        assert_eq!(classify_query("available memory"), QueryClass::MemoryFree);
+        assert_eq!(classify_query("how much free memory"), QueryClass::MemoryFree);
+        assert_eq!(classify_query("how much available memory"), QueryClass::MemoryFree);
+    }
+
+    #[test]
+    fn test_memory_usage_distinct_from_memory_free() {
+        // B1 fix: Memory usage and memory free are distinct
+        assert_eq!(classify_query("memory usage"), QueryClass::MemoryUsage);
+        assert_eq!(classify_query("how much memory used"), QueryClass::MemoryUsage);
+        // But free/available goes to MemoryFree
+        assert_eq!(classify_query("free memory"), QueryClass::MemoryFree);
+        assert_eq!(classify_query("available memory"), QueryClass::MemoryFree);
     }
 }
