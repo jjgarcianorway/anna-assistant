@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use anna_shared::ledger::Ledger;
 use anna_shared::progress::ProgressEvent;
 use anna_shared::rpc::ProbeResult;
+use anna_shared::stats::GlobalStats;
 use anna_shared::status::{
     BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus, ModelInfo,
     OllamaStatus, ProgressInfo, UpdateStatus,
@@ -136,6 +137,8 @@ pub struct DaemonStateInner {
     pub config: Config,
     /// Per-stage latency statistics
     pub latency: PipelineLatency,
+    /// v0.0.79: Global statistics (requests, fast-path hits, etc.)
+    pub stats: GlobalStats,
 }
 
 /// Update state tracking
@@ -188,6 +191,7 @@ impl DaemonStateInner {
             progress_events: Vec::new(),
             config: Config::load(),
             latency: PipelineLatency::default(),
+            stats: GlobalStats::new(),
         }
     }
 
@@ -312,6 +316,21 @@ impl DaemonStateInner {
             size_bytes: size,
             pulled: true,
         });
+    }
+
+    /// v0.0.79: Record a completed request in stats
+    pub fn record_request(&mut self, fast_path: bool, translator_timeout: bool, specialist_timeout: bool) {
+        if fast_path {
+            self.stats.record_fast_path_hit();
+        } else {
+            self.stats.total_requests += 1;
+        }
+        if translator_timeout {
+            self.stats.record_translator_timeout();
+        }
+        if specialist_timeout {
+            self.stats.record_specialist_timeout();
+        }
     }
 
     /// Build comprehensive status snapshot (v0.0.29)

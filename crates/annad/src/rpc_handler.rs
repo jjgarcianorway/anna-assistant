@@ -552,7 +552,13 @@ async fn handle_llm_request_inner(
 
     // Record total request latency
     let total_ms = request_start.elapsed().as_millis() as u64;
-    { state.write().await.latency.total.add(total_ms); }
+    {
+        let mut state = state.write().await;
+        state.latency.total.add(total_ms);
+        // v0.0.79: Record stats
+        let specialist_timeout = matches!(outcome, SpecialistOutcome::Timeout);
+        state.record_request(used_deterministic, translator_timed_out, specialist_timeout);
+    }
 
     info!("Request completed: domain={}, reliability={}, deterministic={}, trace={}, latency={}ms",
           result.domain, result.reliability_score, used_deterministic,

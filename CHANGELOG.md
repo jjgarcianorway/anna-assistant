@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.79] - 2025-12-06
+
+### Fixed - STABILIZE: Stats Tracking
+
+Continuation of stabilization work.
+
+**Stats Consistency (B6: Fixed)**
+- Added `GlobalStats` field to `DaemonStateInner` in state.rs
+- Stats are now actually tracked and persisted in daemon state
+- `handle_stats` now returns actual tracked stats instead of empty `GlobalStats::new()`
+- Added `record_request()` method to track:
+  - Fast path hits (deterministic routes)
+  - Total requests
+  - Translator timeouts
+  - Specialist timeouts
+- Stats are recorded when each request completes in rpc_handler.rs
+
+**Code Changes**
+- `state.rs`: Added `stats: GlobalStats` field and `record_request()` method
+- `handlers.rs`: Updated `handle_stats` to read from daemon state
+- `rpc_handler.rs`: Call `record_request()` when request completes
+
+**Probe Accounting (B3: Verified)**
+- Reviewed probe accounting logic
+- `ticket_probes_planned` correctly captured from `ticket.needs_probes.len()`
+- `ProbeStats::from_results()` creates accurate stats from actual results
+- MetaSmallTalk and ConfigFileLocation correctly declare empty probes
+
 ## [0.0.78] - 2025-12-06
 
 ### Fixed - STABILIZE: Continued Hygiene

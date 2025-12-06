@@ -210,10 +210,10 @@ pub async fn handle_autofix(state: SharedState, id: String) -> RpcResponse {
 }
 
 /// Handle stats request (v0.0.27)
-pub async fn handle_stats(_state: SharedState, id: String) -> RpcResponse {
-    // TODO: Track stats in daemon state, for now return empty stats
-    let stats = GlobalStats::new();
-    RpcResponse::success(id, serde_json::to_value(stats).unwrap())
+/// v0.0.79: Now returns actual tracked stats from daemon state
+pub async fn handle_stats(state: SharedState, id: String) -> RpcResponse {
+    let state = state.read().await;
+    RpcResponse::success(id, serde_json::to_value(&state.stats).unwrap())
 }
 
 /// Handle status snapshot request (v0.0.29)
