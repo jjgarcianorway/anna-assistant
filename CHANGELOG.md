@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.76] - 2025-12-06
+
+### Added - Version Sanity + Model Registry + Correctness Fixes
+
+This release ensures version consistency across all components and adds config-driven model registry for future model upgrades.
+
+**Version Consistency (Single Source of Truth)**
+- Workspace `Cargo.toml` is the canonical version source
+- `anna_shared::VERSION` derived from `CARGO_PKG_VERSION`
+- All binaries (annactl, annad) use shared version constant
+- VERSION file kept in sync with workspace version
+- Hard gate tests fail CI if versions mismatch
+
+**Model Registry Configuration (config.rs)**
+- New `ModelRegistryConfig` struct for model selection:
+  - `translator`: Fast model for query classification
+  - `specialist_default`: Default model for all domains
+  - `specialist_overrides`: Domain-specific models (HashMap)
+  - `preferred_family`: Model family preference (qwen2.5, qwen3-vl, llama3.2)
+- `get_specialist(domain, tier)`: Lookup with fallback chain
+- Domain:tier format for granular control (e.g., "security:senior")
+- Qwen3-VL placeholders ready for future upgrade
+- TOML configuration support with safe defaults
+
+**Status Display Enhancements**
+- `annactl status` shows installed, daemon, and available versions
+- Update check timing: last_check_at, next_check_at, check_pace
+- available_version with check state indicator
+- Version mismatch warning in health section
+
+**Tests Added**
+- `test_model_registry_default`
+- `test_model_registry_get_specialist_default`
+- `test_model_registry_get_specialist_with_overrides`
+- `test_model_registry_all_models`
+- `test_model_registry_parse_toml`
+- `test_config_invalid_falls_back_safely`
+
 ## [0.0.75] - 2025-12-06
 
 ### Added - UX Realism + Stats/RPG + Recipes + Citations
