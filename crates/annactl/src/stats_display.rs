@@ -1,9 +1,10 @@
-//! Stats display module for annactl (v0.0.75, v0.0.84, v0.0.85, v0.0.90).
+//! Stats display module for annactl (v0.0.75, v0.0.84, v0.0.85, v0.0.90, v0.0.91).
 //!
 //! Provides RPG-style stats visualization with XP bars, levels, and titles.
 //! v0.0.84: Enhanced with per-team breakdown, fun stats.
 //! v0.0.85: Added installation date / tenure tracking.
 //! v0.0.90: Added achievement badges.
+//! v0.0.91: ASCII-style badges (no emojis) for Hollywood IT aesthetic.
 
 use anna_shared::achievements::{check_achievements, format_achievements};
 use anna_shared::event_log::{AggregatedEvents, EventLog};
@@ -323,15 +324,15 @@ fn print_achievements(agg: &AggregatedEvents) {
     println!();
     println!("{}Achievements{}", colors::BOLD, colors::RESET);
 
-    // Show emoji summary line
-    let emoji_line = format_achievements(&achievements, 10);
-    if !emoji_line.is_empty() {
-        println!("  {}", emoji_line);
+    // Show ASCII badge summary line
+    let badge_line = format_achievements(&achievements, 10);
+    if !badge_line.is_empty() {
+        println!("  {}", badge_line);
     }
 
     // Show notable achievements with descriptions
     for ach in unlocked.iter().filter(|a| is_notable(a.id)).take(3) {
-        println!("  {} {} - {}", ach.emoji, ach.name, ach.description);
+        println!("  {} {} - {}", ach.badge, ach.name, ach.description);
     }
 }
 

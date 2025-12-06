@@ -7,20 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.91] - 2025-12-06
+
+### Changed - ASCII-Style Achievement Badges (Phase 11)
+
+**Hollywood IT Aesthetic**
+
+Achievement badges now use ASCII art symbols instead of emojis, matching Anna's
+classic terminal style:
+
+```
+Achievements
+  [1] [10] <3d> (90+) {*}
+  [100] Power User - Complete 100 queries
+  <7d> Week Warrior - Maintain a 7-day streak
+```
+
+**Badge Styles by Category**
+
+- **Milestones**: `[1]` `[10]` `[50]` `[100]` `[500]`
+- **Streaks**: `<3d>` `<7d>` `<30d>`
+- **Quality**: `(90+)` `(ok)` `(<<)`
+- **Teams**: `{*}` `{df}` `{ip}` `{top}`
+- **Special**: `~00~` `~05~` `[rx]` `[!!]`
+- **Tenure**: `|7d|` `|30d|`
+
+**Technical Changes**
+- Renamed `emoji` field to `badge` in Achievement struct
+- Updated `format_achievements()` to use ASCII badges
+- Updated stats_display.rs to reference `badge` instead of `emoji`
+
 ## [0.0.90] - 2025-12-06
 
 ### Added - Achievement Badges (Phase 10)
 
 **Gamification Achievements**
 
-Anna now tracks and displays achievement badges in stats:
-
-```
-Achievements
-  🎯 ⭐ 🔥 💎 ⚡
-  💯 Power User - Complete 100 queries
-  🔥 On Fire - Maintain a 3-day streak
-```
+Anna now tracks and displays achievement badges in stats.
 
 **New Module: `achievements.rs`**
 
@@ -36,11 +59,11 @@ Achievements
 **Features**
 - `check_achievements()` - Check all achievements against stats
 - `unlocked_achievements()` - Get list of earned achievements
-- `format_achievements()` - Display emoji summary
+- `format_achievements()` - Display badge summary
 - `newly_unlocked()` - Detect new achievements for notifications
 
 **Stats Display Integration**
-- Achievements section shows emoji row and notable unlocks
+- Achievements section shows badge row and notable unlocks
 - Removed legacy RPG stats fallback (event log is now primary)
 - File reduced from 476 to 379 lines
 
