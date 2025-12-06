@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.105] - 2025-12-06
+
+### Added - Service Desk Foundation (Phase 25)
+
+**Theatre Foundation - Named IT Staff & Ticket Tracking**
+
+Major infrastructure for the "IT Department in Your Computer" vision.
+
+**New Systems**:
+- **Ticket Tracker** - Case numbers (CN-XXXX-DDMMYYYY), status tracking, history
+- **User Profile** - Preferences, patterns, learning, personalized greetings
+- **Enhanced Status** - IT department roster, user config display
+- **Enhanced Stats** - Recipe counts, ticket stats, per-staff metrics
+
+**IT Department Roster** (18 named staff):
+| Team | Junior | Senior |
+|------|--------|--------|
+| Desktop | Sofia | Erik |
+| Network | Michael | Ana |
+| Hardware | Nora | Jon |
+| Storage | Lars | Ines |
+| Performance | Kari | Mateo |
+| Security | Priya | Oskar |
+| Services | Hugo | Mina |
+| Logs | Daniel | Lea |
+| General | Tomas | Sara |
+
+**User Profile Features**:
+- Tool usage tracking (vim vs nano, bash vs zsh)
+- Topic interest tracking
+- Streak days and engagement
+- Configurable preferences (learning_mode, verbosity, show_internal)
+- Personality traits (formality, humor, technical_depth)
+
+**Ticket System**:
+- Case numbers: CN-0001-06122025 format
+- Status workflow: New → Assigned → InProgress → Resolved
+- Escalation tracking
+- Resolution time and reliability metrics
+
+**New Files**:
+- `ticket_tracker.rs` - Case management system
+- `user_profile.rs` - User preferences and patterns
+
+**Progress**: ~30% of full vision complete (foundation laid)
+
 ## [0.0.104] - 2025-12-06
 
 ### Added - SSH Key Management Recipes (Phase 24)

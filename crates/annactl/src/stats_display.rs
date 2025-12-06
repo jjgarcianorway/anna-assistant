@@ -1,14 +1,17 @@
-//! Stats display module for annactl (v0.0.75, v0.0.84, v0.0.85, v0.0.90, v0.0.91).
+//! Stats display module for annactl (v0.0.75, v0.0.84, v0.0.85, v0.0.90, v0.0.91, v0.0.105).
 //!
 //! Provides RPG-style stats visualization with XP bars, levels, and titles.
 //! v0.0.84: Enhanced with per-team breakdown, fun stats.
 //! v0.0.85: Added installation date / tenure tracking.
 //! v0.0.90: Added achievement badges.
 //! v0.0.91: ASCII-style badges (no emojis) for Hollywood IT aesthetic.
+//! v0.0.105: Added per-staff statistics, ticket tracking, recipe counts.
 
 use anna_shared::achievements::{check_achievements, format_achievements};
 use anna_shared::event_log::{AggregatedEvents, EventLog};
+use anna_shared::recipe_matcher::recipe_count;
 use anna_shared::stats::GlobalStats;
+use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::{colors, HR};
 use anna_shared::VERSION;
 
@@ -170,12 +173,25 @@ fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
         agg.avg_reliability
     );
 
-    // Recipes
-    if agg.recipes_learned > 0 || agg.recipes_used > 0 {
+    // Recipes - v0.0.105: Show actual recipe count from disk
+    let total_recipes = recipe_count();
+    if total_recipes > 0 || agg.recipes_learned > 0 || agg.recipes_used > 0 {
         println!(
-            "  Recipes: {} learned, {} used",
-            agg.recipes_learned, agg.recipes_used
+            "  Recipes: {} stored, {} learned this session, {} used",
+            total_recipes, agg.recipes_learned, agg.recipes_used
         );
+    }
+
+    // v0.0.105: Ticket tracking
+    if let Ok(ticket_stats) = TicketTracker::for_user().stats() {
+        if ticket_stats.total_tickets > 0 {
+            println!(
+                "  Tickets: {} total, {} resolved, {} escalated",
+                ticket_stats.total_tickets,
+                ticket_stats.resolved_tickets,
+                ticket_stats.escalated_tickets
+            );
+        }
     }
 
     // Escalations

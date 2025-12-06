@@ -101,6 +101,10 @@ pub mod greetings;
 // v0.0.90: Achievement badges for stats/RPG
 pub mod achievements;
 
+// v0.0.105: Service Desk Foundation - tickets and user profiles
+pub mod ticket_tracker;
+pub mod user_profile;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

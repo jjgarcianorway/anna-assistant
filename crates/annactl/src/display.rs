@@ -5,10 +5,14 @@
 //! v0.0.71: Version truth - shows installed (annactl), daemon (annad), available.
 //! v0.0.72: Restructured status with factual sections, REPL greeting baseline.
 //! v0.0.73: Single source of truth via version module, client/daemon mismatch warning.
+//! v0.0.105: Enhanced IT Department view with roster and config.
 
 use anna_shared::rpc::DaemonInfo;
+use anna_shared::roster::{all_persons, Tier};
 use anna_shared::status::{DaemonStatus, LlmState, UpdateCheckState};
+use anna_shared::teams::Team;
 use anna_shared::ui::{colors, HR};
+use anna_shared::user_profile::UserProfile;
 use anna_shared::version::{VersionInfo, PROTOCOL_VERSION, VERSION, GIT_SHA};
 use chrono::{DateTime, Local, Utc};
 
@@ -221,7 +225,75 @@ pub fn print_status_display_with_daemon_info(
         }
     }
 
+    // === IT DEPARTMENT SECTION (v0.0.105) ===
+    if show_debug {
+        print_it_department_section();
+    }
+
+    // === CONFIG SECTION (v0.0.105) ===
+    print_config_section();
+
     println!("{}", HR);
+}
+
+/// v0.0.105: Print IT Department roster
+fn print_it_department_section() {
+    print_section("it_department");
+
+    let all = all_persons();
+    let teams: Vec<Team> = vec![
+        Team::Desktop, Team::Network, Team::Hardware, Team::Storage,
+        Team::Performance, Team::Security, Team::Services, Team::Logs, Team::General,
+    ];
+
+    println!("  {:12} {:18} {:18}", "Team", "Junior", "Senior");
+    println!("  {}", "-".repeat(50));
+
+    for team in teams {
+        let jr = all.iter().find(|p| p.team == team && p.tier == Tier::Junior);
+        let sr = all.iter().find(|p| p.team == team && p.tier == Tier::Senior);
+
+        let jr_name = jr.map(|p| p.display_name).unwrap_or("-");
+        let sr_name = sr.map(|p| p.display_name).unwrap_or("-");
+
+        println!("  {:12} {:18} {:18}", format!("{:?}", team), jr_name, sr_name);
+    }
+
+    println!();
+    println!("  {}Total staff: {} members{}", colors::DIM, all.len(), colors::RESET);
+}
+
+/// v0.0.105: Print user config section
+fn print_config_section() {
+    print_section("config");
+
+    let profile = UserProfile::load();
+    let kw = 18;
+
+    print_kv("learning_mode", if profile.preferences.learning_mode { "ON" } else { "OFF" }, kw);
+    print_kv("show_internal", if profile.preferences.show_internal_comms { "ON" } else { "OFF" }, kw);
+    print_kv("auto_confirm", if profile.preferences.auto_confirm_low_risk { "ON" } else { "OFF" }, kw);
+    print_kv("verbosity", &profile.preferences.verbosity.to_string(), kw);
+
+    if let Some(ref editor) = profile.preferred_editor {
+        print_kv("preferred_editor", editor, kw);
+    }
+    if let Some(ref shell) = profile.preferred_shell {
+        print_kv("preferred_shell", shell, kw);
+    }
+
+    // Personality traits
+    let formality = match profile.preferences.personality.formality {
+        0 => "casual",
+        1 => "balanced",
+        _ => "formal",
+    };
+    let humor = match profile.preferences.personality.humor {
+        0 => "none",
+        1 => "subtle",
+        _ => "playful",
+    };
+    print_kv("personality", &format!("{}, {}", formality, humor), kw);
 }
 
 fn print_section(name: &str) {
