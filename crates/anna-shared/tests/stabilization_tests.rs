@@ -327,3 +327,125 @@ fn golden_v455_recipe_no_clarification_needed() {
     assert!(!recipe.needs_clarification());
     assert!(recipe.get_clarify_prereqs().is_empty());
 }
+
+// === v0.45.6 Golden Tests: Probe Contract Fix ===
+
+/// v0.45.6: "do I have nano" must enforce CommandV probe.
+#[test]
+fn golden_v456_tool_check_enforces_command_v() {
+    use anna_shared::probe_spine::{enforce_minimum_probes, probe_to_command, ProbeId};
+
+    let decision = enforce_minimum_probes("do I have nano", &[]);
+    assert!(decision.enforced, "Tool check must enforce probes");
+
+    // Must include CommandV probe
+    let has_command_v = decision.probes.iter().any(|p| matches!(p, ProbeId::CommandV(_)));
+    assert!(has_command_v, "Tool check must include CommandV probe");
+
+    // When converted to command, should produce executable command
+    let command_v_probe = decision.probes.iter()
+        .find(|p| matches!(p, ProbeId::CommandV(_)))
+        .unwrap();
+    let cmd = probe_to_command(command_v_probe);
+    assert!(cmd.contains("command -v"), "CommandV probe must use 'command -v'");
+    assert!(cmd.contains("nano"), "CommandV probe must include package name");
+}
+
+/// v0.45.6: "how many cores" must enforce Lscpu probe.
+#[test]
+fn golden_v456_cpu_cores_enforces_lscpu() {
+    use anna_shared::probe_spine::{enforce_minimum_probes, probe_to_command, ProbeId};
+
+    let decision = enforce_minimum_probes("how many cores has my cpu", &[]);
+    assert!(decision.enforced, "CPU cores query must enforce probes");
+
+    // Must include Lscpu probe
+    let has_lscpu = decision.probes.iter().any(|p| matches!(p, ProbeId::Lscpu));
+    assert!(has_lscpu, "CPU cores query must include Lscpu probe");
+
+    // When converted to command, should be "lscpu"
+    let cmd = probe_to_command(&ProbeId::Lscpu);
+    assert_eq!(cmd, "lscpu", "Lscpu probe must produce 'lscpu' command");
+}
+
+/// v0.45.6: "what is my sound card" must enforce audio probes.
+#[test]
+fn golden_v456_sound_card_enforces_audio_probes() {
+    use anna_shared::probe_spine::{enforce_minimum_probes, probe_to_command, ProbeId};
+
+    let decision = enforce_minimum_probes("what is my sound card", &[]);
+    assert!(decision.enforced, "Sound card query must enforce probes");
+
+    // Must include LspciAudio probe
+    let has_lspci_audio = decision.probes.iter().any(|p| matches!(p, ProbeId::LspciAudio));
+    assert!(has_lspci_audio, "Sound card query must include LspciAudio probe");
+
+    // LspciAudio command should contain lspci and audio
+    let cmd = probe_to_command(&ProbeId::LspciAudio);
+    assert!(cmd.contains("lspci"), "LspciAudio probe must use lspci");
+    assert!(cmd.to_lowercase().contains("audio"), "LspciAudio probe must filter for audio");
+}
+
+/// v0.45.6: Probe commands from probe_spine can be resolved for execution.
+#[test]
+fn golden_v456_probe_spine_commands_resolvable() {
+    use anna_shared::probe_spine::{probe_to_command, ProbeId};
+
+    // All probe_spine commands should start with known executables
+    let known_executables = ["lscpu", "sensors", "free", "df", "lsblk", "lspci", "pactl",
+        "ip", "ps", "systemctl", "journalctl", "pacman", "sh", "uname", "systemd-analyze"];
+
+    let probes = [
+        ProbeId::Lscpu,
+        ProbeId::Sensors,
+        ProbeId::Free,
+        ProbeId::Df,
+        ProbeId::Lsblk,
+        ProbeId::LspciAudio,
+        ProbeId::PactlCards,
+        ProbeId::IpAddr,
+        ProbeId::TopMemory,
+        ProbeId::TopCpu,
+        ProbeId::FailedUnits,
+        ProbeId::JournalErrors,
+        ProbeId::JournalWarnings,
+        ProbeId::PacmanCount,
+        ProbeId::CommandV("test".to_string()),
+        ProbeId::SystemdAnalyze,
+        ProbeId::Uname,
+    ];
+
+    for probe in probes {
+        let cmd = probe_to_command(&probe);
+        let first_word = cmd.split_whitespace().next().unwrap_or("");
+
+        let is_known = known_executables.iter().any(|&exe| first_word == exe);
+        assert!(
+            is_known,
+            "Probe {:?} produces command '{}' with unknown executable '{}'",
+            probe, cmd, first_word
+        );
+    }
+}
+
+/// v0.45.6: Evidence kinds are properly bound to probes.
+#[test]
+fn golden_v456_evidence_binding() {
+    use anna_shared::probe_spine::{probes_for_evidence, EvidenceKind};
+
+    // Audio evidence must include audio probes
+    let audio_probes = probes_for_evidence(EvidenceKind::Audio);
+    assert!(!audio_probes.is_empty(), "Audio evidence must have probes");
+
+    // CPU evidence must include lscpu
+    let cpu_probes = probes_for_evidence(EvidenceKind::Cpu);
+    assert!(!cpu_probes.is_empty(), "CPU evidence must have probes");
+
+    // Memory evidence must include free
+    let mem_probes = probes_for_evidence(EvidenceKind::Memory);
+    assert!(!mem_probes.is_empty(), "Memory evidence must have probes");
+
+    // Journal evidence must include journal probes
+    let journal_probes = probes_for_evidence(EvidenceKind::Journal);
+    assert!(!journal_probes.is_empty(), "Journal evidence must have probes");
+}

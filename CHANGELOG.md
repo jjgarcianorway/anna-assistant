@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.52] - 2025-12-06
+
+### Fixed - v0.45.6 Probe Contract: No Silent No-Op
+
+- **Root Cause**: Probes were being "planned" but not executed due to a disconnect between:
+  - `probe_spine.rs` generating shell commands like `"sh -lc 'command -v nano'"`
+  - `probe_runner.rs` expecting translator probe IDs like `"free"` or `"cpu_info"`
+  - Unknown probe specs silently skipped (returned `None`, no log, 0 executed)
+
+- **Fixed Probe Resolution** (`probe_runner.rs`):
+  - New `resolve_probe_command()` function handles THREE formats:
+    1. Translator probe IDs: `"free"`, `"cpu_info"` → mapped to commands
+    2. Direct shell commands: `"lscpu"`, `"free -b"`, `"sh -lc '...'"` → executed as-is
+    3. Unknown: returns `None` and logs warning
+  - Unknown probes now create failed `ProbeResult` with `exit_code=-2` instead of silent skip
+  - Added logging: `"v0.45.6: Running N planned probes"`, execution summary
+
+- **Acceptance Criteria Met**:
+  - `"do I have nano?"` → `CommandV` probe executes (`sh -lc 'command -v nano'`)
+  - `"how many cores has my cpu?"` → `Lscpu` probe executes (`lscpu`)
+  - `"what is my sound card?"` → `LspciAudio` probe executes (`lspci | grep -i audio`)
+  - No more `[probes] ok` with 0 probes executed
+
+### Tests
+
+- **Probe Runner Unit Tests** (`probe_runner.rs`):
+  - `test_resolve_translator_probe_id`: `"free"` → `"free -h"`
+  - `test_resolve_direct_shell_command`: Shell commands executed as-is
+  - `test_resolve_unknown_probe`: Unknown probes return `None`
+  - `test_resolve_probe_spine_commands`: All probe_spine commands resolvable
+
+- **v0.45.6 Golden Tests** (`stabilization_tests.rs`):
+  - `golden_v456_tool_check_enforces_command_v`: Tool check includes CommandV
+  - `golden_v456_cpu_cores_enforces_lscpu`: CPU cores includes Lscpu
+  - `golden_v456_sound_card_enforces_audio_probes`: Sound card includes LspciAudio
+  - `golden_v456_probe_spine_commands_resolvable`: All probes start with known executables
+  - `golden_v456_evidence_binding`: Evidence kinds map to probes
+
 ## [0.0.51] - 2025-12-05
 
 ### Added - v0.45.5 Clarification System
