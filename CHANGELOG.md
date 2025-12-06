@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.66] - 2025-12-06
+
+### Fixed - Version Normalization + Regression Fixes
+
+**Part A: Version Normalization**
+- Consolidated version to 0.0.66 across all sources (workspace, install script, README)
+- Single source of truth: `[workspace.package] version` in root Cargo.toml
+- Added version consistency test (`test_v066_version_consistency`)
+- Install script now uses VERSION="0.0.66"
+
+**Part B: Audio Evidence Regression Fix**
+- Fixed lspci audio output parsing to handle PCI class codes [XXXX] in device lines
+- Audio answer format changed from markdown to clean text: "Detected audio hardware: X (PCI Y)"
+- Negative evidence now states source: "No audio devices detected (checked lspci and pactl)."
+- Added tests: `test_v066_audio_evidence_from_lspci_probe`, `test_v066_audio_negative_evidence_from_empty_grep`, `test_v066_find_audio_evidence_prefers_lspci`
+
+**Part C: ConfigureEditor Regression Fix**
+- Multiple editors now show statement with numbered options, no question mark:
+  "I can configure syntax highlighting for one of these editors:\n1) vim\n2) code\nReply with the number."
+- Single editor answer starts with "Detected X installed." (no markdown)
+- All editor answers remove markdown formatting (no **bold**)
+- Added tests: `test_v066_editor_answers_no_markdown`, `test_v066_editor_answers_start_with_detected`
+
+**Part D: Debug OFF/ON Output Gating**
+- Verified: debug OFF never shows raw probe commands, stdout/stderr, or stage headers
+- Verified: debug OFF responses end with statements, not questions
+- Verified: reliability and signals computed from actual execution
+
+### Changed
+- Audio output format: "Detected audio hardware: <desc> (PCI <slot>)"
+- Editor config output: no markdown, starts with "Detected"
+- Clarification: statement with numbered options, ends with period
+
 ## [0.0.55] - 2025-12-06
 
 ### Fixed - Regression Fixes for v0.0.54

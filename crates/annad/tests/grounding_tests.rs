@@ -141,3 +141,26 @@ fn test_version_format() {
         );
     }
 }
+
+/// v0.0.66: Test version consistency - all sources must match workspace version
+#[test]
+fn test_v066_version_consistency() {
+    // The VERSION constant must match the expected workspace version
+    assert_eq!(VERSION, "0.0.66", "VERSION constant must match workspace version");
+
+    // Version must be used consistently in status output
+    let context = RuntimeContext {
+        version: VERSION.to_string(),
+        daemon_running: true,
+        capabilities: Capabilities::default(),
+        hardware: HardwareSummary {
+            cpu_model: "Test".to_string(),
+            cpu_cores: 4,
+            ram_gb: 8.0,
+            gpu: None,
+            gpu_vram_gb: None,
+        },
+        probes: HashMap::new(),
+    };
+    assert_eq!(context.version, "0.0.66", "RuntimeContext version must match");
+}

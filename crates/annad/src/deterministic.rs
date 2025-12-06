@@ -272,12 +272,12 @@ fn extract_temperature(line: &str) -> Option<f32> {
     None
 }
 
-/// Answer hardware audio query using typed AudioDevices evidence (v0.0.58, v0.0.60)
-/// v0.0.60: Merges devices from all sources, deduplicates, improved messaging.
+/// Answer hardware audio query using typed AudioDevices evidence (v0.0.66)
+/// v0.0.66: Clean output format, no markdown in debug OFF mode.
 fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
     use anna_shared::parsers::{parse_probe_result, ParsedProbeData, find_audio_evidence};
 
-    // v0.0.60: Parse all probes to typed evidence
+    // Parse all probes to typed evidence
     let parsed: Vec<ParsedProbeData> = probes.iter()
         .map(|p| parse_probe_result(p))
         .collect();
@@ -290,39 +290,39 @@ fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<De
     // Find merged audio evidence from parsed probes
     if let Some(audio) = find_audio_evidence(&parsed) {
         if audio.devices.is_empty() {
-            // v0.0.60: Clearer message for grounded negative evidence
-            // Indicate which sources were checked
+            // v0.0.66: Grounded negative evidence - only say "No audio" when evidenced
             let source_msg = if audio.source.contains('+') {
-                "lspci/pactl"
+                "lspci and pactl"
             } else {
                 &audio.source
             };
             return Some(DeterministicResult {
-                answer: format!("No audio hardware detected by {}.", source_msg),
+                answer: format!("No audio devices detected (checked {}).", source_msg),
                 grounded: true,
-                parsed_data_count: audio_evidence_count.max(1), // We have evidence, it's just empty
+                parsed_data_count: audio_evidence_count.max(1),
                 route_class: route_class.to_string(),
             });
         }
 
-        // v0.0.60: Format answer with PCI slot when available
+        // v0.0.66: Clean format for debug OFF - "Detected audio hardware: <desc> (PCI <slot>)"
         let answer = if audio.devices.len() == 1 {
             let dev = &audio.devices[0];
             let pci_info = dev.pci_slot.as_ref()
                 .map(|s| format!(" (PCI {})", s))
                 .unwrap_or_default();
-            format!("**Audio device:** {}{}", dev.description, pci_info)
+            format!("Detected audio hardware: {}{}", dev.description, pci_info)
         } else {
+            // Multiple devices: one per line, no markdown
             let devices_list: Vec<String> = audio.devices.iter()
                 .enumerate()
                 .map(|(i, d)| {
                     let pci_info = d.pci_slot.as_ref()
                         .map(|s| format!(" (PCI {})", s))
                         .unwrap_or_default();
-                    format!("{}. {}{}", i + 1, d.description, pci_info)
+                    format!("  {}. {}{}", i + 1, d.description, pci_info)
                 })
                 .collect();
-            format!("**Audio devices ({}):**\n{}", audio.devices.len(), devices_list.join("\n"))
+            format!("Detected {} audio devices:\n{}", audio.devices.len(), devices_list.join("\n"))
         };
 
         return Some(DeterministicResult {
@@ -333,7 +333,7 @@ fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<De
         });
     }
 
-    // Fallback: no audio evidence found
+    // Fallback: no audio evidence found - should not happen with proper probes
     None
 }
 

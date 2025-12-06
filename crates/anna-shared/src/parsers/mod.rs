@@ -1321,4 +1321,78 @@ Model name: Intel Core i7
         assert!(desc.contains("Intel"), "Description '{}' should contain Intel", desc);
         assert!(!desc.contains("[0403]"), "Description should not contain class code");
     }
+
+    // v0.0.66: Full audio evidence flow tests
+    #[test]
+    fn test_v066_audio_evidence_from_lspci_probe() {
+        use crate::rpc::ProbeResult;
+
+        // Simulate lspci | grep -i audio probe with exit_code=0
+        let probe = ProbeResult {
+            command: "lspci | grep -i audio".to_string(),
+            exit_code: 0,
+            stdout: "00:1f.3 Multimedia audio controller [0403]: Intel Corporation Cannon Lake PCH cAVS (rev 10)".to_string(),
+            stderr: String::new(),
+            timing_ms: 10,
+        };
+
+        let parsed = parse_probe_result(&probe);
+        assert!(parsed.as_audio().is_some(), "Should parse as Audio evidence");
+
+        let audio = parsed.as_audio().unwrap();
+        assert_eq!(audio.devices.len(), 1, "Should have one device");
+        assert!(audio.devices[0].description.contains("Intel"), "Description should contain Intel");
+        assert_eq!(audio.devices[0].pci_slot, Some("00:1f.3".to_string()));
+    }
+
+    #[test]
+    fn test_v066_audio_negative_evidence_from_empty_grep() {
+        use crate::rpc::ProbeResult;
+
+        // Simulate lspci | grep -i audio with no matches (exit_code=1, empty stdout)
+        let probe = ProbeResult {
+            command: "lspci | grep -i audio".to_string(),
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: String::new(),
+            timing_ms: 5,
+        };
+
+        let parsed = parse_probe_result(&probe);
+        assert!(parsed.as_audio().is_some(), "Should parse as Audio evidence (negative)");
+
+        let audio = parsed.as_audio().unwrap();
+        assert!(audio.devices.is_empty(), "Should have zero devices (valid negative evidence)");
+    }
+
+    #[test]
+    fn test_v066_find_audio_evidence_prefers_lspci() {
+        // When both lspci and pactl have devices, lspci should be preferred
+        let lspci = ParsedProbeData::Audio(AudioDevices {
+            devices: vec![AudioDevice {
+                description: "Intel Cannon Lake".to_string(),
+                pci_slot: Some("00:1f.3".to_string()),
+                vendor: Some("Intel".to_string()),
+            }],
+            source: "lspci".to_string(),
+        });
+
+        let pactl = ParsedProbeData::Audio(AudioDevices {
+            devices: vec![AudioDevice {
+                description: "alsa_card.pci-0000_00_1f.3".to_string(),
+                pci_slot: None,
+                vendor: None,
+            }],
+            source: "pactl".to_string(),
+        });
+
+        let parsed = vec![lspci, pactl];
+        let merged = find_audio_evidence(&parsed);
+        assert!(merged.is_some());
+
+        let audio = merged.unwrap();
+        assert!(!audio.devices.is_empty(), "Should have devices");
+        // lspci device should be present (has PCI slot)
+        assert!(audio.devices.iter().any(|d| d.pci_slot.is_some()));
+    }
 }

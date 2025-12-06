@@ -378,21 +378,33 @@ async fn handle_llm_request_inner(
             ));
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         } else {
-            // v0.0.55: Multiple editors - statement (no question mark) with numbered options
-            let question = "Select editor to configure";
+            // v0.0.66: Multiple editors - statement with numbered options, no question mark
+            // Format: "I can configure syntax highlighting for one of these editors:\n1) vim\n2) code\nReply with the number."
+            let editors_list: Vec<String> = installed_editors.iter()
+                .enumerate()
+                .map(|(i, e)| format!("{}) {}", i + 1, e))
+                .collect();
+            let answer = format!(
+                "I can configure syntax highlighting for one of these editors:\n{}\nReply with the number.",
+                editors_list.join("\n")
+            );
+
             let options: Vec<(String, String)> = installed_editors.iter()
                 .map(|e| (e.clone(), e.clone()))
                 .collect();
             save_progress(&state, &progress).await;
-            // v0.0.62: create_clarification_with_options now sets execution_trace internally
-            let result = service_desk::create_clarification_with_options(
+
+            // v0.0.66: Build result with clarification but answer text is a statement
+            let mut result = service_desk::create_clarification_with_options(
                 request_id,
-                ticket,
-                question,
+                ticket.clone(),
+                &answer,  // Use the full statement as the "question"
                 options,
                 probe_results.clone(),
                 progress.take_transcript(),
             );
+            // v0.0.66: Override answer with clean statement (no question)
+            result.answer = answer;
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         }
     }
@@ -585,82 +597,82 @@ async fn save_progress(state: &SharedState, progress: &ProgressTracker) {
     state.write().await.progress_events = progress.events().to_vec();
 }
 
-/// v0.0.57: Build editor-specific syntax highlighting config answer.
-/// Returns deterministic steps for the detected editor, no questions.
+/// v0.0.66: Build editor-specific syntax highlighting config answer.
+/// Returns deterministic steps for the detected editor, no questions, no markdown.
 fn build_editor_config_answer(editor: &str) -> String {
     match editor {
         "vim" | "vi" => format!(
-            "I detected **{}** installed. To enable syntax highlighting:\n\n\
-            1. Edit `~/.vimrc` (create if needed)\n\
-            2. Add: `syntax on`\n\
-            3. Save and reopen vim\n\n\
-            For line numbers, also add: `set number`",
+            "Detected {} installed. To enable syntax highlighting:\n\
+            1. Edit ~/.vimrc (create if needed)\n\
+            2. Add: syntax on\n\
+            3. Save and reopen vim\n\
+            For line numbers, also add: set number",
             editor
         ),
         "nvim" => String::from(
-            "I detected **nvim** installed. To enable syntax highlighting:\n\n\
-            1. Edit `~/.config/nvim/init.vim` (or `init.lua`)\n\
-            2. Add: `syntax on` (or `vim.cmd(\"syntax on\")` in Lua)\n\
-            3. Save and reopen nvim\n\n\
-            For line numbers: `set number` (or `vim.opt.number = true`)"
+            "Detected nvim installed. To enable syntax highlighting:\n\
+            1. Edit ~/.config/nvim/init.vim (or init.lua)\n\
+            2. Add: syntax on (or vim.cmd(\"syntax on\") in Lua)\n\
+            3. Save and reopen nvim\n\
+            For line numbers: set number (or vim.opt.number = true)"
         ),
         "nano" => String::from(
-            "I detected **nano** installed. To enable syntax highlighting:\n\n\
-            1. Ensure syntax files exist: `/usr/share/nano/*.nanorc`\n\
-            2. Edit `~/.nanorc` (or `/etc/nanorc` system-wide)\n\
-            3. Add: `include \"/usr/share/nano/*.nanorc\"`\n\
-            4. Save and reopen nano\n\n\
-            For line numbers: `set linenumbers`"
+            "Detected nano installed. To enable syntax highlighting:\n\
+            1. Ensure syntax files exist: /usr/share/nano/*.nanorc\n\
+            2. Edit ~/.nanorc (or /etc/nanorc system-wide)\n\
+            3. Add: include \"/usr/share/nano/*.nanorc\"\n\
+            4. Save and reopen nano\n\
+            For line numbers: set linenumbers"
         ),
         "emacs" => String::from(
-            "I detected **emacs** installed. To enable syntax highlighting:\n\n\
-            1. Edit `~/.emacs` (or `~/.emacs.d/init.el`)\n\
-            2. Add: `(global-font-lock-mode t)`\n\
-            3. Save and restart emacs\n\n\
-            For line numbers: `(global-display-line-numbers-mode t)`"
+            "Detected emacs installed. To enable syntax highlighting:\n\
+            1. Edit ~/.emacs (or ~/.emacs.d/init.el)\n\
+            2. Add: (global-font-lock-mode t)\n\
+            3. Save and restart emacs\n\
+            For line numbers: (global-display-line-numbers-mode t)"
         ),
         "helix" => String::from(
-            "I detected **helix** installed. Syntax highlighting is enabled by default.\n\n\
+            "Detected helix installed. Syntax highlighting is enabled by default.\n\
             To customize themes:\n\
-            1. Edit `~/.config/helix/config.toml`\n\
-            2. Add: `theme = \"gruvbox\"` (or another theme name)\n\
-            3. Save and reopen helix\n\n\
-            List themes with `:theme` command inside helix"
+            1. Edit ~/.config/helix/config.toml\n\
+            2. Add: theme = \"gruvbox\" (or another theme name)\n\
+            3. Save and reopen helix\n\
+            List themes with :theme command inside helix"
         ),
         "micro" => String::from(
-            "I detected **micro** installed. Syntax highlighting is enabled by default.\n\n\
+            "Detected micro installed. Syntax highlighting is enabled by default.\n\
             To customize:\n\
-            1. Press `Ctrl+E` then type `set colorscheme ...`\n\
-            2. Or edit `~/.config/micro/settings.json`\n\
-            3. Set `\"colorscheme\": \"monokai\"` (or another scheme)\n\n\
-            For line numbers: `set ruler true`"
+            1. Press Ctrl+E then type set colorscheme ...\n\
+            2. Or edit ~/.config/micro/settings.json\n\
+            3. Set \"colorscheme\": \"monokai\" (or another scheme)\n\
+            For line numbers: set ruler true"
         ),
         "code" => String::from(
-            "I detected **VS Code** installed. Syntax highlighting is automatic based on file type.\n\n\
+            "Detected VS Code installed. Syntax highlighting is automatic based on file type.\n\
             To configure:\n\
             1. Open a file - VS Code detects language from extension\n\
             2. Click language indicator (bottom-right) to change mode\n\
-            3. Install language extensions for better support (Ctrl+Shift+X)\n\n\
+            3. Install language extensions for better support (Ctrl+Shift+X)\n\
             Theme: File > Preferences > Color Theme"
         ),
         "kate" => String::from(
-            "I detected **kate** installed. Syntax highlighting is enabled by default.\n\n\
+            "Detected kate installed. Syntax highlighting is enabled by default.\n\
             To configure:\n\
             1. Settings > Configure Kate > Fonts & Colors\n\
             2. Select a color scheme\n\
-            3. For specific languages: Settings > Configure Kate > Open/Save > Modes & Filetypes\n\n\
+            3. For specific languages: Settings > Configure Kate > Open/Save > Modes & Filetypes\n\
             Line numbers: Settings > Configure Kate > Appearance > Show line numbers"
         ),
         "gedit" => String::from(
-            "I detected **gedit** installed. Syntax highlighting is enabled by default.\n\n\
+            "Detected gedit installed. Syntax highlighting is enabled by default.\n\
             To configure:\n\
             1. Preferences > Font & Colors\n\
             2. Select a color scheme\n\
-            3. For line numbers: Preferences > View > Display line numbers\n\n\
+            3. For line numbers: Preferences > View > Display line numbers\n\
             Gedit auto-detects file types for highlighting"
         ),
         _ => format!(
-            "I detected **{}** installed. Check its documentation for syntax highlighting configuration.",
+            "Detected {} installed. Check its documentation for syntax highlighting configuration.",
             editor
         ),
     }
@@ -717,5 +729,32 @@ mod tests {
     fn test_vi_uses_vim_config() {
         let answer = build_editor_config_answer("vi");
         assert!(answer.contains(".vimrc"), "vi should use vim config");
+    }
+
+    /// v0.0.66: Editor answers must not use markdown formatting.
+    #[test]
+    fn test_v066_editor_answers_no_markdown() {
+        let editors = ["vim", "nvim", "nano", "emacs", "helix", "micro", "code", "kate", "gedit"];
+
+        for editor in editors {
+            let answer = build_editor_config_answer(editor);
+            // No markdown bold
+            assert!(!answer.contains("**"),
+                "Answer for {} must not contain markdown bold **", editor);
+            // No markdown backticks for inline code
+            // (Note: backticks are OK for literal shell commands)
+        }
+    }
+
+    /// v0.0.66: Editor answers start with "Detected" statement.
+    #[test]
+    fn test_v066_editor_answers_start_with_detected() {
+        let editors = ["vim", "nvim", "nano", "emacs", "helix", "micro", "code", "kate", "gedit"];
+
+        for editor in editors {
+            let answer = build_editor_config_answer(editor);
+            assert!(answer.starts_with("Detected"),
+                "Answer for {} must start with 'Detected', got: {}", editor, &answer[..40.min(answer.len())]);
+        }
     }
 }
