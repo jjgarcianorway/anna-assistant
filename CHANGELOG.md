@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.87] - 2025-12-06
+
+### Added - Enhanced Theatre Dialogue (Phase 7)
+
+**Dialogue Variety System**
+
+Internal IT communications now feel more natural with varied dialogue:
+
+```
+--- Internal ---
+Anna: Michael, got a ticket coming your way. Case abc12345
+
+Michael (Network Engineer): Looking at it now.
+Michael (Network Engineer): Looks solid, confidence 85%. Good to go.
+
+--- OR ---
+
+Anna: Hey Lars! I have a case for you. xyz98765
+
+Lars (Storage Engineer): On it.
+Lars (Storage Engineer): I've reviewed the data. 90% confident.
+```
+
+**Features**
+- Multiple phrase variations for each dialogue type
+- Deterministic selection based on case ID (same case = same dialogue)
+- Junior approval phrases vary by confidence level (90%+, 80%+, <80%)
+- Junior escalation requests with named senior mentions
+- Senior response variations
+- Anna post-review phrases (different for escalated vs non-escalated)
+- Team-specific checking phrases
+
+**New Module**
+- `dialogue.rs`: Centralized dialogue variety system
+  - `anna_dispatch_greeting()`: Varied greetings to team members
+  - `junior_approval()`: Approval phrases by confidence tier
+  - `junior_escalation_request()`: Escalation to senior
+  - `senior_response()`: Senior feedback
+  - `anna_after_review()`: Post-review phrases
+  - `team_checking_phrase()`: Team-specific progress messages
+
+**Code Quality**
+- Extracted dialogue functions to keep theatre.rs under 400 lines
+- Uses deterministic hashing for consistent dialogue per case
+
 ## [0.0.86] - 2025-12-06
 
 ### Added - Usage Streaks & Achievements (Phase 6)

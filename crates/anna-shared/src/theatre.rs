@@ -1,4 +1,4 @@
-//! Service Desk Theatre - Cinematic narrative rendering (v0.0.81).
+//! Service Desk Theatre - Cinematic narrative rendering (v0.0.81, v0.0.87).
 //!
 //! Transforms technical pipeline events into natural dialogue between
 //! named IT department personas. Makes users feel like they're watching
@@ -7,7 +7,13 @@
 //! Two modes:
 //! - Normal: Cinematic narrative with named personas
 //! - Debug: Full technical pipeline visibility
+//!
+//! v0.0.87: Enhanced dialogue variety and internal communications.
 
+use crate::dialogue::{
+    anna_dispatch_greeting, anna_after_review, junior_approval,
+    junior_escalation_request, seed_from_str, senior_response,
+};
 use crate::roster::{person_for, Tier};
 use crate::teams::Team;
 
@@ -137,11 +143,18 @@ pub struct NarrativeBuilder {
     segments: Vec<NarrativeSegment>,
     current_team: Option<Team>,
     show_internal: bool,
+    seed: u64, // For dialogue variety
 }
 
 impl NarrativeBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Create with a seed for consistent dialogue variety
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
     }
 
     /// Enable showing internal IT communications
@@ -173,67 +186,60 @@ impl NarrativeBuilder {
         ));
     }
 
-    /// Add Anna dispatching to a team
+    /// Add Anna dispatching to a team (v0.0.87: varied dialogue)
     pub fn add_dispatch(&mut self, team: Team, case_id: &str) {
         self.current_team = Some(team);
+        // Update seed based on case_id for this conversation
+        self.seed = seed_from_str(case_id);
 
         if self.show_internal {
-            let person = person_for(team, Tier::Junior);
-            self.segments.push(NarrativeSegment::anna_internal(
-                format!(
-                    "Hey {}! I have a case for you. {}",
-                    person.display_name,
-                    &case_id[..8.min(case_id.len())]
-                )
-            ));
+            let greeting = anna_dispatch_greeting(team, case_id);
+            self.segments.push(NarrativeSegment::anna_internal(greeting));
         }
     }
 
-    /// Add junior review narration
+    /// Add junior review narration (v0.0.87: varied dialogue)
     pub fn add_junior_review(&mut self, team: Team, approved: bool, score: u8) {
         if self.show_internal {
-            let person = person_for(team, Tier::Junior);
             let response = if approved {
-                format!(
-                    "Got it, Anna. I've reviewed the data. Looks good, confidence {}%.",
-                    score
-                )
+                junior_approval(score, self.seed)
             } else {
-                format!(
-                    "Anna, I need to escalate this one. Score is {}%, not confident enough.",
-                    score
-                )
+                junior_escalation_request(team, score, self.seed)
             };
             self.segments.push(NarrativeSegment::team_member(team, Tier::Junior, response));
         }
     }
 
-    /// Add senior escalation narration
+    /// Add senior escalation narration (v0.0.87: varied dialogue)
     pub fn add_escalation(&mut self, team: Team, reason: &str) {
         if self.show_internal {
-            let senior = person_for(team, Tier::Senior);
+            let request = junior_escalation_request(team, 0, self.seed);
+            // Include reason if substantial
+            let full_msg = if reason.len() > 5 {
+                format!("{} {}", request, reason)
+            } else {
+                request
+            };
             self.segments.push(NarrativeSegment::team_member(
-                team, Tier::Junior,
-                format!("{}, can you take a look? {}", senior.display_name, reason)
+                team, Tier::Junior, full_msg
             ));
         }
     }
 
-    /// Add senior response
-    pub fn add_senior_response(&mut self, team: Team, guidance: &str) {
+    /// Add senior response (v0.0.87: varied dialogue)
+    pub fn add_senior_response(&mut self, team: Team, _guidance: &str) {
         if self.show_internal {
+            let response = senior_response(true, self.seed);
             self.segments.push(NarrativeSegment::team_member(
-                team, Tier::Senior,
-                guidance.to_string()
+                team, Tier::Senior, response
             ));
         }
     }
 
-    /// Add Anna's apology for wait time
+    /// Add Anna's apology for wait time (v0.0.87: varied dialogue)
     pub fn add_wait_apology(&mut self) {
-        self.segments.push(NarrativeSegment::anna(
-            "Apologies for the wait. I've consulted with the team."
-        ));
+        let apology = anna_after_review(true, self.seed);
+        self.segments.push(NarrativeSegment::anna(apology));
     }
 
     /// Add Anna presenting the answer

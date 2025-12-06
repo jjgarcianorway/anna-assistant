@@ -81,6 +81,9 @@ pub mod theatre;
 // v0.0.86: Streak calculations for stats/RPG
 pub mod streaks;
 
+// v0.0.87: Dialogue variety for theatre
+pub mod dialogue;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
