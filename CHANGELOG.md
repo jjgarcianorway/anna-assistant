@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.78] - 2025-12-06
+
+### Fixed - STABILIZE: Continued Hygiene
+
+Continuation of v0.0.77 stabilization work.
+
+**Reliability Score Alignment (B4: In Progress)**
+- Reviewed reliability scoring flow through service_desk.rs
+- Deterministic answers correctly set `answer_grounded=true` when `parsed_data_count > 0`
+- Evidence required flag properly propagated from route capability
+- Score penalties only apply when conditions warrant
+
+**Updater Integrity (B7: Verified)**
+- Verified asset verification before reporting available version
+- Checksum verification (SHA256SUMS) for all downloads
+- Binary version verification before installation
+- Atomic pair update with rollback on failure
+- Pair consistency check post-installation
+- No code changes needed - updater is solid since v0.0.73
+
+**Version Bump**
+- Workspace version: 0.0.78
+- All tests passing
+
 ## [0.0.77] - 2025-12-06
 
 ### Fixed - STABILIZE: Routing, Determinism, and Consistency
