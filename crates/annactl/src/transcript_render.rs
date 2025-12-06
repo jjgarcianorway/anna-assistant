@@ -338,10 +338,10 @@ fn reliability_color(score: u8) -> &'static str {
     }
 }
 
-/// Truncate text with ellipsis
+/// Shorten text for debug display (internal transcript events only)
 fn truncate(s: &str, max: usize) -> String {
     let s = s.lines().next().unwrap_or(s);
-    if s.len() > max { format!("{}...", &s[..max.saturating_sub(3)]) } else { s.to_string() }
+    if s.len() > max { format!("{}~", &s[..max - 1]) } else { s.to_string() }
 }
 
 #[cfg(test)]
@@ -359,7 +359,7 @@ mod tests {
     #[test]
     fn test_truncate() {
         assert_eq!(truncate("short", 10), "short");
-        assert_eq!(truncate("this is a very long string", 10), "this is...");
+        assert_eq!(truncate("this is a very long string", 10), "this is a~");
     }
 
     #[test]

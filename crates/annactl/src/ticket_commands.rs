@@ -76,9 +76,9 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
                         TicketStatus::PendingUser => colors::WARN,
                         _ => colors::DIM,
                     };
-                    println!("  {} [{}{}{}] {}",
-                        t.case_number, status_color, t.status, colors::RESET,
-                        truncate(&t.query, 40));
+                    println!("  {} [{}{}{}]",
+                        t.case_number, status_color, t.status, colors::RESET);
+                    println!("    {}", t.query);
                 }
             }
             return Ok(());
@@ -260,10 +260,11 @@ pub async fn handle_health() -> Result<()> {
         if !open.is_empty() {
             println!("{}Open Tickets:{}", colors::BOLD, colors::RESET);
             for t in open.iter().take(5) {
-                println!("  {} {} - {}", bullet(), t.case_number, truncate(&t.query, 40));
+                println!("  {} {} ({})", bullet(), t.case_number, t.status);
+                println!("    {}", t.query);
             }
             if open.len() > 5 {
-                println!("  {} ...and {} more", bullet(), open.len() - 5);
+                println!("  {} and {} more", bullet(), open.len() - 5);
             }
         }
     }
@@ -289,24 +290,4 @@ fn warn_symbol() -> &'static str {
 
 fn bullet() -> &'static str {
     "›"
-}
-
-/// Truncate a string with ellipsis
-fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_truncate() {
-        assert_eq!(truncate("hello", 10), "hello");
-        assert_eq!(truncate("hello world this is long", 10), "hello w...");
-    }
 }

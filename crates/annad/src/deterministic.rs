@@ -604,10 +604,11 @@ fn answer_ticket_history(route_class: &str) -> DeterministicResult {
     if !open_tickets.is_empty() {
         answer.push_str(&format!("**Open Tickets ({}):**\n", open_tickets.len()));
         for ticket in open_tickets.iter().take(5) {
-            answer.push_str(&format!("- {} - {} ({})\n",
+            // Show full query, no truncation
+            answer.push_str(&format!("- {} ({})\n  {}\n",
                 ticket.case_number,
-                truncate_str(&ticket.query, 40),
-                ticket.status));
+                ticket.status,
+                ticket.query));
         }
         answer.push('\n');
     }
@@ -627,10 +628,11 @@ fn answer_ticket_history(route_class: &str) -> DeterministicResult {
     if !recent_tickets.is_empty() && open_tickets.is_empty() {
         answer.push_str("**Recent Tickets:**\n");
         for ticket in recent_tickets.iter().take(3) {
-            answer.push_str(&format!("- {} - {} ({})\n",
+            // Show full query, no truncation
+            answer.push_str(&format!("- {} ({})\n  {}\n",
                 ticket.case_number,
-                truncate_str(&ticket.query, 35),
-                ticket.status));
+                ticket.status,
+                ticket.query));
         }
         answer.push('\n');
     }
@@ -647,15 +649,6 @@ fn answer_ticket_history(route_class: &str) -> DeterministicResult {
         grounded: true,
         parsed_data_count: open_tickets.len() + inbox_count,
         route_class: route_class.to_string(),
-    }
-}
-
-/// Truncate string helper
-fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
     }
 }
 

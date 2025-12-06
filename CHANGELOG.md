@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.117] - 2025-12-06
+
+### Fixed - No Message Truncation (Phase 36)
+
+**Full Messages Always**
+
+Removed all user-facing message truncation. Messages now wrap naturally
+instead of being cut off with "...".
+
+**Changes**:
+- Ticket queries now display in full (wrapped, not truncated)
+- Greeting ticket display shows full query on separate line
+- Removed dead truncate functions from codebase
+- Internal processing truncation kept (probe summaries, etc.)
+
 ## [0.0.116] - 2025-12-06
 
 ### Changed - Natural Language Only (Phase 35)

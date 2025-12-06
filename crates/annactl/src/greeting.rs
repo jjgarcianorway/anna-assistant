@@ -239,19 +239,15 @@ fn print_open_tickets() {
     println!();
     println!("{}Open Tickets:{}", colors::WARN, colors::RESET);
     for ticket in open_tickets.iter().take(3) {
-        let query_preview = if ticket.query.len() > 35 {
-            format!("{}...", &ticket.query[..32])
-        } else {
-            ticket.query.clone()
-        };
-        println!("  {} {} - {} ({})",
+        // Show full query, wrapped naturally by terminal
+        println!("  {} {} ({})",
             bullet(),
             ticket.case_number,
-            query_preview,
             ticket.status);
+        println!("    {}", ticket.query);
     }
     if open_tickets.len() > 3 {
-        println!("  {} ...and {} more", bullet(), open_tickets.len() - 3);
+        println!("  {} and {} more", bullet(), open_tickets.len() - 3);
     }
     println!();
     println!("{}To reply: annactl reply CN-XXXX \"message\"{}", colors::DIM, colors::RESET);

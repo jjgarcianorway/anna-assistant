@@ -267,11 +267,12 @@ fn classify_interface_type(name: &str) -> &'static str {
     }
 }
 
-/// Truncate string with ellipsis
-pub fn truncate(s: &str, max_len: usize) -> String {
+/// Shorten string for table columns (internal formatting only, not user messages)
+fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_len - 3])
+        // Use ~ to indicate shortened (not ... which implies cut-off content)
+        format!("{}~", &s[..max_len - 1])
     }
 }
