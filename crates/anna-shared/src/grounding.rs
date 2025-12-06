@@ -85,6 +85,8 @@ impl ParsedEvidence {
                 | ParsedProbeData::JournalErrors(_)
                 | ParsedProbeData::JournalWarnings(_)
                 | ParsedProbeData::BootTime(_)
+                | ParsedProbeData::Tool(_)      // v0.45.7
+                | ParsedProbeData::Package(_)   // v0.45.7
                 | ParsedProbeData::Error(_)
                 | ParsedProbeData::Unsupported => {}
             }

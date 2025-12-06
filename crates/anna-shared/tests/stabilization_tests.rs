@@ -473,7 +473,7 @@ fn golden_v457_tool_not_found_is_valid_evidence() {
     assert!(matches!(parsed, ParsedProbeData::Tool(_)),
         "exit_code=1 from command -v must parse as Tool, got {:?}", parsed);
 
-    if let ParsedProbeData::Tool(t) = parsed {
+    if let ParsedProbeData::Tool(ref t) = parsed {
         assert_eq!(t.name, "nano");
         assert!(!t.exists, "Tool with exit_code=1 must have exists=false");
         assert_eq!(t.method, ToolExistsMethod::CommandV);
@@ -502,7 +502,7 @@ fn golden_v457_tool_found_is_valid_evidence() {
     let parsed = parse_probe_result(&probe);
 
     assert!(matches!(parsed, ParsedProbeData::Tool(_)));
-    if let ParsedProbeData::Tool(t) = parsed {
+    if let ParsedProbeData::Tool(ref t) = parsed {
         assert_eq!(t.name, "vim");
         assert!(t.exists);
         assert_eq!(t.path, Some("/usr/bin/vim".to_string()));
@@ -529,7 +529,7 @@ fn golden_v457_package_not_installed_is_valid_evidence() {
     assert!(matches!(parsed, ParsedProbeData::Package(_)),
         "exit_code=1 from pacman -Q must parse as Package, got {:?}", parsed);
 
-    if let ParsedProbeData::Package(p) = parsed {
+    if let ParsedProbeData::Package(ref p) = parsed {
         assert_eq!(p.name, "nano");
         assert!(!p.installed, "Package with exit_code=1 must have installed=false");
         assert!(p.version.is_none());
@@ -556,7 +556,7 @@ fn golden_v457_package_installed_is_valid_evidence() {
     let parsed = parse_probe_result(&probe);
 
     assert!(matches!(parsed, ParsedProbeData::Package(_)));
-    if let ParsedProbeData::Package(p) = parsed {
+    if let ParsedProbeData::Package(ref p) = parsed {
         assert_eq!(p.name, "vim");
         assert!(p.installed);
         assert_eq!(p.version, Some("9.0.1897-1".to_string()));

@@ -601,7 +601,7 @@ Model name: Intel Core i7
         };
         let result = parse_probe_result(&probe);
         assert!(matches!(result, ParsedProbeData::Tool(_)));
-        if let ParsedProbeData::Tool(t) = result {
+        if let ParsedProbeData::Tool(ref t) = result {
             assert_eq!(t.name, "nano");
             assert!(t.exists);
             assert_eq!(t.method, ToolExistsMethod::CommandV);
@@ -621,7 +621,7 @@ Model name: Intel Core i7
         };
         let result = parse_probe_result(&probe);
         assert!(matches!(result, ParsedProbeData::Tool(_)));
-        if let ParsedProbeData::Tool(t) = result {
+        if let ParsedProbeData::Tool(ref t) = result {
             assert_eq!(t.name, "nano");
             assert!(!t.exists); // Negative evidence!
             assert!(t.path.is_none());
@@ -642,7 +642,7 @@ Model name: Intel Core i7
         };
         let result = parse_probe_result(&probe);
         assert!(matches!(result, ParsedProbeData::Package(_)));
-        if let ParsedProbeData::Package(p) = result {
+        if let ParsedProbeData::Package(ref p) = result {
             assert_eq!(p.name, "nano");
             assert!(p.installed);
             assert_eq!(p.version, Some("7.2-1".to_string()));
@@ -661,7 +661,7 @@ Model name: Intel Core i7
         };
         let result = parse_probe_result(&probe);
         assert!(matches!(result, ParsedProbeData::Package(_)));
-        if let ParsedProbeData::Package(p) = result {
+        if let ParsedProbeData::Package(ref p) = result {
             assert_eq!(p.name, "nano");
             assert!(!p.installed); // Negative evidence!
             assert!(p.version.is_none());
