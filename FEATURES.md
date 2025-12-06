@@ -136,6 +136,44 @@
 - **No Downgrade Guarantee**: Auto-update uses semantic version comparison
 - **Version Tests**: Consistency tests validate all sources match
 
+### RPG Stats System (v0.0.75)
+- **Event Logging**: JSONL append-only store for all queries
+- **XP Calculation**: Points earned based on query complexity and success
+- **Level Progression**: 10 levels from Trainee to Principal Engineer
+- **Title System**: Rank names based on experience level
+- **Stats Display**: Progress bars and level indicators
+
+### Service Desk Theatre (v0.0.81)
+- **Named Personas**: IT team members with distinct names and roles
+- **Cinematic Narrative**: "Checking disk space..." instead of raw probe output
+- **Internal Communications**: Optional -i flag shows team dialogue
+- **Varied Dialogue**: Different greetings, approvals, escalation phrases
+
+### Dialogue Variety (v0.0.87)
+- **Junior Approval Phrases**: Multiple variants for approval messages
+- **Escalation Requests**: Varied phrases for senior escalation
+- **Senior Responses**: Different response styles
+- **Seed-Based Variety**: Deterministic variety based on case ID
+
+### Personalized Greetings (v0.0.89)
+- **Time of Day**: Morning, Afternoon, Evening, Night awareness
+- **User Personalization**: Uses $USER environment variable
+- **Domain-Specific Prompts**: Follow-up suggestions match query domain
+- **Off-Hours Comments**: Friendly late-night and early-morning messages
+
+### Achievement Badges (v0.0.90-91)
+- **22 Achievements**: Across 6 categories
+- **ASCII-Style Badges**: `[1]` `<3d>` `(90+)` `{*}` `~00~` `|7d|`
+- **Categories**:
+  - Milestones: First Contact, Getting Started, Regular User, Power User, Anna Expert
+  - Streaks: On Fire (3d), Week Warrior (7d), Monthly Master (30d)
+  - Quality: Perfect 10, Flawless, Speed Demon
+  - Teams: Well-Rounded, Storage Savvy, Network Guru, Performance Junkie
+  - Special: Night Owl, Early Bird, Recipe Master, Solo Artist
+  - Tenure: One Week In, Month Veteran
+- **Unlock Detection**: Automatic tracking based on aggregated stats
+- **Notification System**: New achievement notifications
+
 ## Not Yet Implemented
 
 ### Future

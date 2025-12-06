@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.93] - 2025-12-06
+
+### Changed - Documentation Update (Phase 13)
+
+**Project Documentation Refresh**
+
+Updated all project documentation to reflect current version (v0.0.93):
+
+- **README.md**: Updated features, usage examples, output modes, achievement badges
+- **ROADMAP.md**: Reorganized with current focus and completed phases
+- **FEATURES.md**: Added RPG stats, Service Desk Theatre, greetings, achievements
+
+**Hollywood IT Aesthetic**
+
+Documentation now reflects Anna's cinematic terminal style:
+- ASCII-only design (no emojis)
+- Named IT personas and team system
+- RPG-style progression with achievements
+
 ## [0.0.92] - 2025-12-06
 
 ### Fixed - Codebase Hygiene (Phase 12)

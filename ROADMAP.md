@@ -1,37 +1,68 @@
 # Anna Roadmap
 
-## 0.45.x: Stabilization (ACTIVE - No new features until complete)
+## Current Focus (v0.0.92+)
 
-**Focus**: Truthfulness, UX, probe spine, timeouts, learning loop
+**Theme**: Hollywood IT Department Experience
 
-### Non-Negotiables
-1. **LLM-first reasoning**: Deterministic code selects tools and enforces safety, but does NOT invent answers
-2. **Probe spine**: Small deterministic mapping from evidence kinds to fast probes - no `probes=[]` for evidence-required queries
-3. **No evidence, no specific claims**: Cannot verify = cannot state as fact
-4. **Learning loop**: Recipes only persist on successful verified outcomes
-5. **UX consistency**: Stable transcript formatting, correct speaker labels, no username/Anna confusion
+Anna aims to provide a cinematic, old-school terminal experience with ASCII art styling,
+named IT personas, and RPG-style progression.
 
-### Checklist
-- [ ] Probe spine: enforce minimum probes when evidence required
-- [ ] Gate deterministic answers: only for explicitly allowed route capabilities
-- [ ] Timeout behavior: evidence summary not generic rephrase
-- [ ] Clarifications: installed-only options with escape hatches
-- [ ] Recipe commit: only on verified success
-- [ ] UX labels: [you], [anna], internal [translator], [probes], etc.
-- [ ] Snapshot tests for all UX regression scenarios
-
-### Test Scenarios (must pass before exiting stabilization)
-1. `how is my computer doing?` → relevant issues only
-2. `do I have nano?` → probes run, grounded yes/no
-3. `what is my sound card?` → probes run, grounded answer
-4. `how many cores has my cpu?` → lscpu probe, grounded answer
-5. `what temperature has my cpu?` → sensors probe, NOT cpu model
+### Active Development
+- [x] Service Desk Theatre with named personas
+- [x] ASCII-style achievement badges (no emojis)
+- [x] Time-aware personalized greetings
+- [x] RPG stats with XP, levels, and titles
+- [ ] Recipe system for config changes
+- [ ] Safe change engine with rollback
 
 ---
 
 ## Completed
 
-### v0.0.71 - Version Truth (Pure Hygiene) ✓
+### v0.0.92 - Codebase Hygiene (Phase 12) ✓
+- [x] Zero compiler warnings across entire workspace
+- [x] Fixed unused methods, variables, and imports
+- [x] Applied cargo fix to test files
+
+### v0.0.91 - ASCII-Style Achievement Badges (Phase 11) ✓
+- [x] Replaced emoji badges with ASCII art symbols
+- [x] Badge styles: `[1]` `<3d>` `(90+)` `{*}` `~00~` `|7d|`
+- [x] Hollywood IT aesthetic consistency
+
+### v0.0.90 - Achievement Badges (Phase 10) ✓
+- [x] 22 unique achievements across 6 categories
+- [x] Milestones, Streaks, Quality, Teams, Special, Tenure
+- [x] Integration with stats display
+
+### v0.0.89 - Personalized Greetings (Phase 9) ✓
+- [x] Time-of-day awareness (Morning, Afternoon, Evening, Night)
+- [x] User personalization from $USER
+- [x] Domain-specific follow-up prompts
+- [x] New greetings.rs module
+
+### v0.0.88 - Warning Cleanup (Phase 8) ✓
+- [x] Removed all compiler warnings
+- [x] Fixed unused imports across workspace
+
+### v0.0.87 - Dialogue Variety (Phase 7) ✓
+- [x] Varied junior approval phrases
+- [x] Varied escalation requests
+- [x] Varied senior responses
+- [x] Seed-based deterministic variety
+
+### v0.0.81-86 - Service Desk Theatre ✓
+- [x] Named IT personas with roles
+- [x] Cinematic narrative rendering
+- [x] Internal communications mode (-i flag)
+- [x] Streak tracking and XP system
+
+### v0.0.75 - RPG Stats System ✓
+- [x] Event logging with JSONL store
+- [x] XP calculation and level progression
+- [x] Titles from Trainee to Principal Engineer
+- [x] Stats display with progress bars
+
+### v0.0.71 - Version Truth ✓
 - [x] Single source of truth: workspace Cargo.toml version only
 - [x] Unified version display: annactl/annad --version format consistent
 - [x] Status shows: installed (annactl), daemon_ver (annad), available, last_check, next_check, auto_update

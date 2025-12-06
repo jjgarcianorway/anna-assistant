@@ -1,6 +1,7 @@
 # Anna
 
 A local AI assistant for Linux systems with grounded, accurate responses.
+Hollywood IT department aesthetic - classic ASCII terminal style.
 
 ## Requirements
 
@@ -26,8 +27,14 @@ annactl
 # Debug mode - show full pipeline (translator, probes, evidence, traces)
 annactl -d "what is my sound card?"
 
+# Show internal IT communications (team dialogue)
+annactl -i "check disk space"
+
 # Check status
 annactl status
+
+# View RPG-style stats with achievements
+annactl stats
 
 # Reset learned data
 annactl reset
@@ -43,10 +50,17 @@ annactl --version
 
 Anna has two display modes:
 
-**Normal mode** (default): Clean, IT department style output
-- Shows what was checked (e.g., "Checking audio hardware...")
-- Clean answer with reliability indicator
-- Evidence source in footer when grounded
+**Normal mode** (default): Cinematic IT department experience
+```
+[you] how much disk space?
+
+Checking disk space...
+
+[anna]
+Your root partition is 45% full (50GB used of 110GB).
+
+Storage Support | Confident answer | 90% | Verified from disk
+```
 
 **Debug mode** (`-d` or `--debug`): Full pipeline visibility
 - Shows translator intent and domain
@@ -56,22 +70,36 @@ Anna has two display modes:
 
 ## Features
 
+### Core
 - **Grounded responses**: Anna answers from actual system data, never invents facts
 - **Auto-probes**: Automatically runs system queries for memory/CPU/disk questions
 - **Hardware-aware**: Selects optimal model based on your CPU, RAM, and GPU
 - **Self-healing**: Auto-repairs Ollama and model issues
-- **Auto-update**: Checks for updates every 60 seconds, never downgrades
-- **Version truth**: Single source of truth from workspace Cargo.toml, all binaries report consistent versions
-- **Team-scoped specialists** (v0.0.26): Domain-specialized teams (Desktop, Storage, Network, Performance, Services, Security, Hardware) with junior/senior reviewer roles
-- **Deterministic review gate** (v0.0.26): Hybrid review system that uses deterministic logic first, only escalating to LLM when signals are unclear
-- **Execution traces** (v0.0.23): Full audit trail of pipeline execution for debugging
+- **Auto-update**: Checks for updates, never downgrades
 
-## What Works (v0.0.71)
+### Service Desk Theatre (v0.0.81+)
+- **Named personas**: IT team members with distinct roles (Michael from Network, Sofia from Desktop, etc.)
+- **Cinematic narrative**: "Checking disk space..." instead of raw probe output
+- **Varied dialogue**: Different greetings, approvals, and escalation phrases
+- **Time-aware greetings**: "Good morning!", "Good evening!" based on time of day
 
-- `annactl --version` and `annad --version` always show the same version
-- `annactl status` shows installed version, daemon version, available version (after check), last_check, next_check, auto_update state
-- Auto-update uses semantic version comparison (0.0.9 < 0.0.10), never downgrades
-- Version is derived from workspace Cargo.toml at compile time via `env!("CARGO_PKG_VERSION")`
+### RPG Stats System (v0.0.75+)
+- **XP and Levels**: Earn XP for queries, level up over time
+- **Titles**: Progress from "Trainee" to "Principal Engineer"
+- **Streaks**: Track consecutive days of usage
+- **Achievement Badges**: ASCII-style badges like `[100]` `<7d>` `{*}`
+
+### Achievement Categories
+- **Milestones**: `[1]` `[10]` `[50]` `[100]` `[500]`
+- **Streaks**: `<3d>` `<7d>` `<30d>`
+- **Quality**: `(90+)` `(ok)` `(<<)`
+- **Teams**: `{*}` `{df}` `{ip}` `{top}`
+- **Special**: `~00~` `~05~` `[rx]` `[!!]`
+
+### Team System (v0.0.26+)
+- **Domain specialists**: Desktop, Storage, Network, Performance, Services, Security, Hardware, Logs
+- **Junior/Senior reviewers**: Escalation path for complex queries
+- **Deterministic review gate**: Uses logic first, LLM only when needed
 
 ## Architecture
 
@@ -84,10 +112,12 @@ Anna consists of two components:
 
 - [SPEC.md](SPEC.md) - Authoritative specification
 - [CHANGELOG.md](CHANGELOG.md) - Version history
+- [FEATURES.md](FEATURES.md) - Feature details
+- [ROADMAP.md](ROADMAP.md) - Development roadmap
 
 ## Version
 
-v0.0.71
+v0.0.93
 
 ## License
 
