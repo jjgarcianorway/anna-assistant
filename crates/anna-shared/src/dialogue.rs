@@ -1,7 +1,9 @@
-//! Dialogue variety system for Service Desk Theatre (v0.0.88).
+//! Dialogue variety system for Service Desk Theatre (v0.0.89).
 //!
 //! Provides varied phrases for natural-feeling IT department conversations.
 //! Uses deterministic randomness based on case IDs for consistency.
+//!
+//! v0.0.89: Time-aware greetings moved to `greetings` module.
 
 use crate::roster::{person_for, Tier};
 use crate::teams::Team;

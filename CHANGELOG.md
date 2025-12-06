@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.89] - 2025-12-06
+
+### Added - Personalized Greetings (Phase 9)
+
+**Time-Aware Greetings**
+
+Anna now greets users based on time of day and remembers their name:
+
+```
+Good morning, john! How can I help you today?
+Good afternoon, john. What can I do for you?
+Good evening, john! Anna Service Desk at your service.
+```
+
+**New Module: `greetings.rs`**
+
+Context-aware dialogue for a more natural experience:
+
+- `TimeOfDay` enum with `Morning`, `Afternoon`, `Evening`, `Night`
+- `anna_session_greeting()` - personalized session start greeting
+- `anna_off_hours_comment()` - friendly late-night comments
+- `anna_welcome_back()` - greetings based on time away
+- `anna_followup_prompt()` - domain-specific follow-up suggestions
+- `anna_patience_phrase()` - team-specific "please wait" messages
+
+**Domain-Specific Context**
+
+Follow-up prompts now match the query domain:
+- Storage: "Need me to check anything else about your storage?"
+- Network: "Any other network questions?"
+- Services: "Should I check any other services?"
+
+**Late Night Personality**
+
+When working late, Anna might say:
+- "Burning the midnight oil, I see!"
+- "Late night debugging session?"
+
+**Code Quality**
+- Split into `dialogue.rs` (234 lines) and `greetings.rs` (257 lines)
+- Both files well under 400 line limit
+- Full test coverage for new functions
+
 ## [0.0.88] - 2025-12-06
 
 ### Changed - Codebase Cleanup (Phase 8)

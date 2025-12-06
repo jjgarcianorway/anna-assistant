@@ -84,6 +84,9 @@ pub mod streaks;
 // v0.0.87: Dialogue variety for theatre
 pub mod dialogue;
 
+// v0.0.89: Personalized greetings and context-aware dialogue
+pub mod greetings;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
