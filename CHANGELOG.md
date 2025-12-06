@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.90] - 2025-12-06
+
+### Added - Achievement Badges (Phase 10)
+
+**Gamification Achievements**
+
+Anna now tracks and displays achievement badges in stats:
+
+```
+Achievements
+  🎯 ⭐ 🔥 💎 ⚡
+  💯 Power User - Complete 100 queries
+  🔥 On Fire - Maintain a 3-day streak
+```
+
+**New Module: `achievements.rs`**
+
+22 unique achievements across categories:
+
+- **Milestones**: First Contact, Getting Started, Regular User, Power User, Anna Expert
+- **Streaks**: On Fire (3-day), Week Warrior (7-day), Monthly Master (30-day)
+- **Quality**: Perfect 10, Flawless, Speed Demon
+- **Teams**: Well-Rounded, Storage Savvy, Network Guru, Performance Junkie
+- **Special**: Night Owl, Early Bird, Recipe Master, Solo Artist
+- **Tenure**: One Week In, Month Veteran
+
+**Features**
+- `check_achievements()` - Check all achievements against stats
+- `unlocked_achievements()` - Get list of earned achievements
+- `format_achievements()` - Display emoji summary
+- `newly_unlocked()` - Detect new achievements for notifications
+
+**Stats Display Integration**
+- Achievements section shows emoji row and notable unlocks
+- Removed legacy RPG stats fallback (event log is now primary)
+- File reduced from 476 to 379 lines
+
 ## [0.0.89] - 2025-12-06
 
 ### Added - Personalized Greetings (Phase 9)

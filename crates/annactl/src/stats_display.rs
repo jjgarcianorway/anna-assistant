@@ -1,12 +1,13 @@
-//! Stats display module for annactl (v0.0.75, v0.0.84, v0.0.85).
+//! Stats display module for annactl (v0.0.75, v0.0.84, v0.0.85, v0.0.90).
 //!
 //! Provides RPG-style stats visualization with XP bars, levels, and titles.
 //! v0.0.84: Enhanced with per-team breakdown, fun stats.
 //! v0.0.85: Added installation date / tenure tracking.
+//! v0.0.90: Added achievement badges.
 
+use anna_shared::achievements::{check_achievements, format_achievements};
 use anna_shared::event_log::{AggregatedEvents, EventLog};
 use anna_shared::stats::GlobalStats;
-use anna_shared::stats_store::{AggregatedStats, StatsStore};
 use anna_shared::ui::{colors, HR};
 use anna_shared::VERSION;
 
@@ -22,18 +23,11 @@ pub fn print_stats_display(stats: &GlobalStats) {
     println!("\n{}annactl stats v{}{}", colors::HEADER, VERSION, colors::RESET);
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
-    // v0.0.75: Try event log first (new system)
+    // v0.0.75: Event log for RPG stats
     let event_log = EventLog::new(EventLog::default_path(), 10000);
     if let Ok(agg) = event_log.aggregate() {
         if agg.total_requests > 0 {
             print_enhanced_rpg_stats(&agg);
-            println!();
-        }
-    } else {
-        // Fallback to v0.0.67 stats store
-        let store = StatsStore::default_location();
-        if let Ok(agg) = store.aggregate() {
-            print_rpg_stats(&agg);
             println!();
         }
     }
@@ -104,49 +98,7 @@ pub fn print_stats_display(stats: &GlobalStats) {
     println!();
 }
 
-/// Print RPG-style stats (v0.0.67 - legacy)
-fn print_rpg_stats(agg: &AggregatedStats) {
-    if agg.total_requests == 0 {
-        return;
-    }
-
-    let xp = agg.calculate_xp();
-    let title = agg.xp_title();
-
-    // XP bar visualization
-    let bar_width = 30;
-    let filled = (xp as usize * bar_width) / 100;
-    let empty = bar_width - filled;
-    let bar = format!(
-        "[{}{}{}{}]",
-        colors::OK,
-        "=".repeat(filled),
-        colors::DIM,
-        "-".repeat(empty)
-    );
-
-    println!("{}Service Desk Profile{}", colors::BOLD, colors::RESET);
-    println!();
-    println!("  {} {}{}{}", bar, colors::OK, xp, colors::RESET);
-    println!("  {}{}{}", colors::CYAN, title, colors::RESET);
-    println!();
-    println!(
-        "  Cases: {}   Success: {:.0}%   Avg Reliability: {:.0}",
-        agg.total_requests,
-        agg.success_rate() * 100.0,
-        agg.average_reliability
-    );
-
-    if let Some(ref team) = agg.most_consulted_team {
-        println!("  Most consulted: {}", team);
-    }
-
-    if agg.escalated_count > 0 {
-        println!("  Escalations: {}", agg.escalated_count);
-    }
-}
-
-/// Print enhanced RPG-style stats (v0.0.75, v0.0.84)
+/// Print enhanced RPG-style stats (v0.0.75, v0.0.84, v0.0.90)
 fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
     println!("{}Service Desk Profile{}", colors::BOLD, colors::RESET);
     println!();
@@ -354,6 +306,38 @@ fn print_fun_stats(agg: &AggregatedEvents) {
             );
         }
     }
+
+    // v0.0.90: Achievements
+    print_achievements(agg);
+}
+
+/// v0.0.90: Print achievement badges
+fn print_achievements(agg: &AggregatedEvents) {
+    let achievements = check_achievements(agg);
+    let unlocked: Vec<_> = achievements.iter().filter(|a| a.unlocked).collect();
+
+    if unlocked.is_empty() {
+        return;
+    }
+
+    println!();
+    println!("{}Achievements{}", colors::BOLD, colors::RESET);
+
+    // Show emoji summary line
+    let emoji_line = format_achievements(&achievements, 10);
+    if !emoji_line.is_empty() {
+        println!("  {}", emoji_line);
+    }
+
+    // Show notable achievements with descriptions
+    for ach in unlocked.iter().filter(|a| is_notable(a.id)).take(3) {
+        println!("  {} {} - {}", ach.emoji, ach.name, ach.description);
+    }
+}
+
+fn is_notable(id: &str) -> bool {
+    matches!(id, "hundred_queries" | "five_hundred" | "streak_7" | "streak_30" |
+        "perfect_10" | "no_failures" | "all_teams" | "recipe_master" | "month_old")
 }
 
 fn bullet() -> &'static str {

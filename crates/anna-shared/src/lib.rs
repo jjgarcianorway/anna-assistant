@@ -87,6 +87,9 @@ pub mod dialogue;
 // v0.0.89: Personalized greetings and context-aware dialogue
 pub mod greetings;
 
+// v0.0.90: Achievement badges for stats/RPG
+pub mod achievements;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
