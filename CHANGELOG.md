@@ -11,28 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added - Recipe Feedback System (Phase 23)
 
-**User Feedback for Recipe Answers**
+**Anna Asks for Feedback When Uncertain**
 
-Users can now rate whether a recipe answer was helpful. Feedback adjusts
-recipe reliability scores, improving future matches.
+When Anna uses a recipe answer with borderline confidence or from a new pattern,
+she now asks the user for feedback. This is automatic - no separate CLI command.
+
+**When Anna Asks for Feedback**:
+- Recipe reliability score is 60-75 (borderline confidence)
+- Recipe has been used fewer than 3 times (new pattern)
+
+**How Feedback Works**:
+- Anna asks "Was this answer helpful? (y/n)" after showing the answer
+- User responds: y/n/partial (or skip to ignore)
+- Feedback adjusts recipe reliability score:
+  - Helpful: +1 score (max 99) and +1 success_count
+  - Not Helpful: -5 score (min 50)
+  - Partial: +1 success_count only
+- Feedback history logged to `~/.anna/feedback_history.jsonl`
 
 **Key Changes**:
-
-- `recipe_feedback.rs` - New module with FeedbackRating enum, RecipeFeedback struct
-- `FeedbackRating::Helpful` - Increases reliability_score (+1, max 99) and success_count
-- `FeedbackRating::NotHelpful` - Decreases reliability_score (-5, min 50)
-- `FeedbackRating::Partial` - Increases success_count only
-- `log_feedback()` - Appends all feedback to `~/.anna/feedback_history.jsonl`
-- `apply_feedback()` - Updates recipe file on disk
-
-**New CLI Command**:
-```
-annactl feedback <recipe_id> -r <rating> [-c "optional comment"]
-```
-
-Rating options: `helpful`, `partial`, `not-helpful` (aliases: good/yes, ok/meh, bad/no)
-
-**New RPC Method**: `RecipeFeedback`
+- `FeedbackRequest` struct - Anna's question with recipe ID and reason
+- `feedback_request` field in `ServiceDeskResult`
+- Interactive feedback handling in REPL and one-shot modes
+- No CLI command needed - feedback is part of natural conversation
 
 This closes the learning loop: Anna learns recipes from specialists,
 applies them instantly, and improves based on user feedback.

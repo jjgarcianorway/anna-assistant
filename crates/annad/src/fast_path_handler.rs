@@ -133,6 +133,7 @@ pub fn build_fast_path_result(
         transcript,
         execution_trace: Some(trace),
         proposed_change: None,
+        feedback_request: None,
     }
 }
 

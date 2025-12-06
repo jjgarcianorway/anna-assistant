@@ -1,11 +1,44 @@
 //! Recipe feedback system (v0.0.103).
-//! Allows users to rate whether a recipe answer was helpful.
+//! Anna can ask for feedback when she's uncertain about a recipe answer.
+//! Feedback adjusts recipe reliability scores for future matches.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
 use crate::recipe::Recipe;
+
+/// v0.0.103: Request for user feedback on a recipe answer
+/// Anna asks this when she's uncertain about her answer quality
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedbackRequest {
+    /// The recipe ID that produced this answer
+    pub recipe_id: String,
+    /// Why Anna is asking for feedback (e.g., "borderline confidence")
+    pub reason: String,
+    /// The question to ask the user
+    pub question: String,
+}
+
+impl FeedbackRequest {
+    /// Create feedback request for borderline confidence
+    pub fn borderline_confidence(recipe_id: &str, score: u8) -> Self {
+        Self {
+            recipe_id: recipe_id.to_string(),
+            reason: format!("confidence_score_{}", score),
+            question: "Was this answer helpful? (y/n)".to_string(),
+        }
+    }
+
+    /// Create feedback request when recipe is new/untested
+    pub fn new_recipe(recipe_id: &str) -> Self {
+        Self {
+            recipe_id: recipe_id.to_string(),
+            reason: "new_recipe".to_string(),
+            question: "This is from a newly learned pattern. Was it helpful? (y/n)".to_string(),
+        }
+    }
+}
 
 /// Feedback rating for a recipe answer
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

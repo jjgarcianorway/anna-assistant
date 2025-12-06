@@ -93,6 +93,7 @@ fn make_result(answer: String, score: u8, proposed_change: Option<ChangePlan>) -
         transcript: Transcript::default(),
         execution_trace: None,
         proposed_change,
+        feedback_request: None,
     }
 }
 

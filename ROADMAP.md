@@ -30,9 +30,10 @@ skip the slow LLM path for queries similar to ones she's seen before.
 ## Completed
 
 ### v0.0.103 - Recipe Feedback System (Phase 23) ✓
-- [x] `recipe_feedback.rs` module with FeedbackRating, RecipeFeedback
-- [x] `annactl feedback <recipe_id> -r <rating>` CLI command
-- [x] RecipeFeedback RPC method
+- [x] `FeedbackRequest` struct - Anna asks user for feedback when uncertain
+- [x] `feedback_request` field in ServiceDeskResult
+- [x] Anna asks for feedback on borderline confidence (60-75) or new recipes (<3 uses)
+- [x] Interactive feedback handling in REPL and one-shot modes
 - [x] Feedback adjusts recipe reliability_score (+1 helpful, -5 not-helpful)
 - [x] Feedback history logged to ~/.anna/feedback_history.jsonl
 

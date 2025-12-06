@@ -59,7 +59,6 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         RpcMethod::PlanChange => handlers::handle_plan_change(id, request.params).await,
         RpcMethod::ApplyChange => handlers::handle_apply_change(id, request.params).await,
         RpcMethod::RollbackChange => handlers::handle_rollback_change(id, request.params).await,
-        RpcMethod::RecipeFeedback => handlers::handle_recipe_feedback(id, request.params).await,
     }
 }
 
@@ -131,6 +130,7 @@ fn make_timeout_response(id: String, request_id: String, timeout_secs: u64, quer
         transcript: anna_shared::transcript::Transcript::default(),
         execution_trace: Some(anna_shared::trace::ExecutionTrace::global_timeout(timeout_secs)),
         proposed_change: None,
+        feedback_request: None,
     };
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
 }

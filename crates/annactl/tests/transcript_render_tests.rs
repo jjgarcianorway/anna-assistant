@@ -222,6 +222,7 @@ fn make_result(
         transcript,
         execution_trace: None,
         proposed_change: None,
+        feedback_request: None,
     }
 }
 

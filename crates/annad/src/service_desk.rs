@@ -170,6 +170,7 @@ pub fn create_no_evidence_response(
         transcript,
         execution_trace: None,
         proposed_change: None,
+        feedback_request: None,
     }
 }
 
@@ -233,6 +234,7 @@ pub fn create_clarification_response_grounded(
         transcript,
         execution_trace: None, // Clarification response - no trace needed
         proposed_change: None,
+        feedback_request: None,
     }
 }
 
@@ -320,6 +322,7 @@ pub fn create_clarification_with_options(
         transcript,
         execution_trace,
         proposed_change: None,
+        feedback_request: None,
     }
 }
 
@@ -377,6 +380,7 @@ pub fn create_timeout_response(
         transcript,
         execution_trace: None, // Populated by caller if needed
         proposed_change: None,
+        feedback_request: None,
     }
 }
 
@@ -465,6 +469,7 @@ pub fn create_no_data_response(
         transcript,
         execution_trace: None,
         proposed_change: None,
+        feedback_request: None,
     }
 }
 
@@ -596,6 +601,7 @@ pub fn build_result_with_flags(
         transcript,
         execution_trace: None, // Populated by caller
         proposed_change: None,
+        feedback_request: None,
     }
 }
 

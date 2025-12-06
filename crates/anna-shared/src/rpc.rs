@@ -2,6 +2,7 @@
 //! v0.0.73: Added GetDaemonInfo for version truth.
 
 use crate::clarify_v2::ClarifyRequest;
+use crate::recipe_feedback::FeedbackRequest;
 use crate::reliability::ReliabilityExplanation;
 use crate::trace::ExecutionTrace;
 use crate::transcript::Transcript;
@@ -32,8 +33,6 @@ pub enum RpcMethod {
     ApplyChange,
     /// v0.0.95: Rollback a change using backup
     RollbackChange,
-    /// v0.0.103: Submit feedback for a recipe answer
-    RecipeFeedback,
 }
 
 /// v0.0.73: Response from GetDaemonInfo RPC call
@@ -368,6 +367,9 @@ pub struct ServiceDeskResult {
     /// v0.0.96: Proposed config change requiring user confirmation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proposed_change: Option<crate::change::ChangePlan>,
+    /// v0.0.103: Anna asks for feedback when uncertain about recipe answer
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feedback_request: Option<FeedbackRequest>,
 }
 
 #[cfg(test)]

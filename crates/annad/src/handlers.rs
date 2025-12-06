@@ -323,39 +323,3 @@ pub async fn handle_rollback_change(id: String, params: Option<serde_json::Value
     RpcResponse::success(id, serde_json::to_value(&result).unwrap())
 }
 
-/// v0.0.103: Handle RecipeFeedback request - submit user feedback for a recipe
-pub async fn handle_recipe_feedback(id: String, params: Option<serde_json::Value>) -> RpcResponse {
-    use anna_shared::recipe_feedback::{apply_feedback, log_feedback, RecipeFeedback};
-
-    let feedback: RecipeFeedback = match params {
-        Some(p) => match serde_json::from_value(p) {
-            Ok(f) => f,
-            Err(e) => {
-                return RpcResponse::error(id, -32602, format!("Invalid params: {}", e));
-            }
-        },
-        None => {
-            return RpcResponse::error(id, -32602, "Missing params".to_string());
-        }
-    };
-
-    // Log feedback to history (always)
-    log_feedback(&feedback);
-
-    // Apply feedback to recipe (if recipe exists)
-    match apply_feedback(&feedback) {
-        Some(result) => {
-            info!("Recipe feedback applied: {} -> score {}", result.recipe_id, result.new_score);
-            RpcResponse::success(id, serde_json::to_value(&result).unwrap())
-        }
-        None => {
-            // Recipe might not exist (built-in recipe) - still log feedback
-            info!("Feedback logged for recipe {} (recipe not found on disk)", feedback.recipe_id);
-            RpcResponse::success(id, serde_json::json!({
-                "recipe_id": feedback.recipe_id,
-                "applied": false,
-                "message": "Feedback logged (recipe is built-in or not found)"
-            }))
-        }
-    }
-}

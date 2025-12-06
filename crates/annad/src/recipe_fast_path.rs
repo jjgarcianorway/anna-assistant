@@ -290,6 +290,18 @@ pub fn build_recipe_result(
         matched_tokens.join(", ")
     );
 
+    // v0.0.103: Ask for feedback if recipe confidence is borderline (60-75)
+    // or if recipe is new (success_count < 3)
+    let feedback_request = if recipe.reliability_score >= 60 && recipe.reliability_score <= 75 {
+        Some(anna_shared::recipe_feedback::FeedbackRequest::borderline_confidence(
+            &recipe.id, recipe.reliability_score
+        ))
+    } else if recipe.success_count < 3 {
+        Some(anna_shared::recipe_feedback::FeedbackRequest::new_recipe(&recipe.id))
+    } else {
+        None
+    };
+
     ServiceDeskResult {
         request_id,
         answer,
@@ -304,6 +316,7 @@ pub fn build_recipe_result(
         transcript,
         execution_trace: Some(trace),
         proposed_change: None,
+        feedback_request,
     }
 }
 
