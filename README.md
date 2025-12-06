@@ -60,10 +60,18 @@ Anna has two display modes:
 - **Auto-probes**: Automatically runs system queries for memory/CPU/disk questions
 - **Hardware-aware**: Selects optimal model based on your CPU, RAM, and GPU
 - **Self-healing**: Auto-repairs Ollama and model issues
-- **Auto-update**: Checks for updates every 60 seconds
+- **Auto-update**: Checks for updates every 60 seconds, never downgrades
+- **Version truth**: Single source of truth from workspace Cargo.toml, all binaries report consistent versions
 - **Team-scoped specialists** (v0.0.26): Domain-specialized teams (Desktop, Storage, Network, Performance, Services, Security, Hardware) with junior/senior reviewer roles
 - **Deterministic review gate** (v0.0.26): Hybrid review system that uses deterministic logic first, only escalating to LLM when signals are unclear
 - **Execution traces** (v0.0.23): Full audit trail of pipeline execution for debugging
+
+## What Works (v0.0.71)
+
+- `annactl --version` and `annad --version` always show the same version
+- `annactl status` shows installed version, daemon version, available version (after check), last_check, next_check, auto_update state
+- Auto-update uses semantic version comparison (0.0.9 < 0.0.10), never downgrades
+- Version is derived from workspace Cargo.toml at compile time via `env!("CARGO_PKG_VERSION")`
 
 ## Architecture
 
@@ -79,7 +87,7 @@ Anna consists of two components:
 
 ## Version
 
-v0.0.68
+v0.0.71
 
 ## License
 

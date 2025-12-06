@@ -120,14 +120,51 @@ pub struct LatencyStatus {
 }
 
 /// Update subsystem status
+/// v0.0.72: Renamed fields for clarity - never confuse installed vs latest
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateStatus {
+    /// Whether auto-update is enabled
     pub enabled: bool,
+    /// How often we check (seconds)
     pub check_interval_secs: u64,
-    pub last_check: Option<DateTime<Utc>>,
-    pub next_check: Option<DateTime<Utc>>,
-    pub available_version: Option<String>,
+    /// v0.0.72: When we last attempted a check (success or failure)
+    pub last_check_at: Option<DateTime<Utc>>,
+    /// When we'll next check
+    pub next_check_at: Option<DateTime<Utc>>,
+    /// v0.0.72: The latest version from GitHub (preserved on failure)
+    pub latest_version: Option<String>,
+    /// v0.0.72: When we last successfully fetched latest_version
+    pub latest_checked_at: Option<DateTime<Utc>>,
+    /// Whether latest_version > installed_version
     pub update_available: bool,
+    /// v0.0.72: State of last update check
+    pub check_state: UpdateCheckState,
+}
+
+/// v0.0.72: State of the update checker
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateCheckState {
+    /// Never checked yet
+    #[default]
+    NeverChecked,
+    /// Last check succeeded
+    Success,
+    /// Last check failed (but we keep last known version)
+    Failed,
+    /// Currently checking
+    Checking,
+}
+
+impl std::fmt::Display for UpdateCheckState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UpdateCheckState::NeverChecked => write!(f, "NEVER_CHECKED"),
+            UpdateCheckState::Success => write!(f, "OK"),
+            UpdateCheckState::Failed => write!(f, "FAILED"),
+            UpdateCheckState::Checking => write!(f, "CHECKING"),
+        }
+    }
 }
 
 /// LLM subsystem status
@@ -269,10 +306,12 @@ impl Default for UpdateStatus {
         Self {
             enabled: true,
             check_interval_secs: crate::DEFAULT_UPDATE_CHECK_INTERVAL,
-            last_check: None,
-            next_check: None,
-            available_version: None,
+            last_check_at: None,
+            next_check_at: None,
+            latest_version: None,
+            latest_checked_at: None,
             update_available: false,
+            check_state: UpdateCheckState::NeverChecked,
         }
     }
 }

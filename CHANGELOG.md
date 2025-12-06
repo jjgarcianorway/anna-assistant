@@ -7,6 +7,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.72] - 2025-12-06
+
+### Fixed - Status and Update Reality
+
+This release restructures the status display and fixes the update checker contract.
+
+**Restructured `annactl status`**
+- Organized into strict factual sections: daemon, version, update, system, llm, health
+- Daemon section: state (RUNNING/STARTING/ERROR), pid, uptime, debug_mode
+- Version section: annactl, annad (with mismatch warning), protocol version
+- Update section: auto_update, check_pace, last_check_at, next_check_at, available_version, available_checked_at
+- System section: cpu, ram, gpu
+- LLM section: state, provider, phase, progress, models
+- Health section: OK/ERROR/DEGRADED with error details if applicable
+
+**Update Checker Contract (No Lies)**
+- Renamed `UpdateStatus` fields for clarity:
+  - `last_check_at`: When we last attempted a check (success or failure)
+  - `next_check_at`: When we'll next check
+  - `latest_version`: The latest version from GitHub (preserved on failure)
+  - `latest_checked_at`: When we last successfully fetched latest_version
+  - `check_state`: UpdateCheckState enum (NeverChecked, Success, Failed, Checking)
+- On GitHub check failure: preserve last known version, mark check_state: FAILED
+- Never blank out known data on transient failures
+
+**REPL Greeting Baseline (Movie-IT Style)**
+- Shows greeting with last interaction time if >12 hours
+- Displays 0-2 notable deltas (boot time, service warnings)
+- Shows health status (all services running / N services failed)
+- Ends with "What can I do for you today?"
+- Saves snapshot for next session comparison
+
+**Version Comparison Edge Cases**
+- Empty or invalid versions now return false (never upgrade from invalid)
+- Fixed test_v070_version_parsing_edge_cases
+
+**Tests Added**
+- `test_v072_update_check_state_serialization`: Validates UpdateCheckState enum
+- `test_v072_version_preservation_contract`: Documents version preservation on failure
+
+## [0.0.71] - 2025-12-06
+
+### Fixed - Version Truth (Pure Hygiene Release)
+
+This release makes it impossible for annactl, annad, installer, and auto-update to disagree about the version.
+
+**Single Source of Truth**
+- Workspace Cargo.toml `version = "0.0.71"` is the ONLY authoritative version
+- All binaries display version via `env!("CARGO_PKG_VERSION")`
+- Removed all hardcoded version strings from Rust code, scripts, and docs output examples
+
+**Unified Version Display**
+- `annactl --version` prints exactly: `annactl vX.Y.Z`
+- `annad --version` prints exactly: `annad vX.Y.Z`
+- `annactl status` now shows:
+  - `installed`: annactl binary version
+  - `daemon_ver`: annad binary version (queried over RPC)
+  - `available`: from release checker (shows "unknown" until first check)
+  - `last_check`: timestamp of last update check
+  - `next_check`: countdown to next check
+  - `auto_update`: ENABLED/DISABLED state
+
+**Hard Gate Tests (Fail CI if broken)**
+- `hard_gate_annactl_version_equals_workspace`: annactl version must match workspace
+- `hard_gate_annad_version_equals_workspace`: annad version must match workspace
+- `hard_gate_no_conflicting_crate_versions`: No crate may have hardcoded version != workspace
+
+**Auto-Update Invariants**
+- Semantic version comparison (0.0.9 < 0.0.10), not string comparison
+- Tests for: installed < latest, installed == latest, installed > latest (no downgrade)
+
+## [0.0.70] - 2025-12-06
+
+### Fixed - Version Unification
+
+This release ensures it is impossible for annactl, annad, installer, uninstaller, and auto-update to disagree about the version.
+
+**A) Single Source of Truth**
+- Workspace Cargo.toml `version = "0.0.70"` is the ONLY authoritative version
+- All crates use `version.workspace = true` to inherit from workspace
+- `anna_shared::VERSION` uses `env!("CARGO_PKG_VERSION")` for compile-time resolution
+- Removed hardcoded version from install.sh - now fetches from GitHub releases API
+- VERSION file synchronized with workspace version
+
+**B) Version Consistency Tests**
+- `version_format_is_semver`: Validates X.Y.Z format
+- `version_matches_workspace_cargo_toml`: Reads root Cargo.toml and compares
+- `version_file_matches_workspace`: Ensures VERSION file is synchronized
+- `all_crates_use_shared_version_constant`: Documents the architecture contract
+
+**C) Status Output Contract**
+- Changed "version" to "installed" to clearly show THIS binary's version
+- "available" now shows "not checked yet" if no update check has been performed
+- Added "last_check" field showing when last update check occurred
+- "auto_update" now shows colored ENABLED/DISABLED status
+
+**D) Auto-Update Correctness Gate**
+- Added `test_v070_installed_older_than_latest`: Verifies update triggers correctly
+- Added `test_v070_installed_equals_latest`: Verifies no update when up-to-date
+- Added `test_v070_no_downgrade`: Critical test - never downgrade even if remote is older
+- Added `test_v070_semver_not_string`: Ensures semantic comparison (0.0.9 < 0.0.10)
+- Added `test_v070_version_parsing_edge_cases`: Handles empty/invalid versions
+
+**E) Install Script Improvements**
+- Removed hardcoded VERSION="X.X.X" from install.sh
+- Added `fetch_version()` function that queries GitHub releases API
+- Installer now always installs the latest published release
+
+### Changed
+- display.rs: Shows `installed` and `available` versions with proper status
+- display.rs: Uses `anna_shared::VERSION` directly instead of daemon status
+- install.sh: Dynamically fetches version from GitHub instead of hardcoding
+
+## [0.0.69] - 2025-12-06
+
+### Added - Unified Versioning + REPL Narrative Enhancements
+
+**Goal 1: Unified Versioning**
+- Single source of truth: workspace Cargo.toml `version = "0.0.69"`
+- All crates use `version.workspace = true`
+- VERSION constant uses `env!("CARGO_PKG_VERSION")` for compile-time resolution
+- Added version consistency tests in `tests/version_consistency.rs`
+- `annactl status` displays: installed version, available version, check_pace, next_check
+
+**Goal 2: REPL "Since Last Time" Summary**
+- REPL greeting now shows changes since last session from snapshot comparison
+- Tracks: failed services, disk usage changes, memory changes
+- Delta format: `[warn]`, `[crit]`, `[fail]`, `[ok]` prefixes (no emojis)
+- Persists snapshots to `~/.anna/snapshots/last.json`
+- Shows time since last interaction in greeting
+
+**Goal 3: Editor Config Flow (existing v0.0.68 behavior)**
+- Multiple editors → numbered list clarification
+- Single editor → deterministic config steps
+- No editors → grounded negative evidence
+
+**Goal 4: Progress UI (existing v0.0.67 behavior)**
+- ASCII spinner during bootstrap and requests
+- Stage updates in debug mode (translator, probes, deterministic, specialist, supervisor)
+
+**Goal 5: Documentation Updates**
+- README.md version updated to v0.0.69
+- VERSION file updated to 0.0.69
+- install.sh version updated to 0.0.69
+
+### Changed
+- display.rs: Added snapshot collection and delta display in print_repl_header()
+- format_delta_plain() outputs clean text with color prefixes, no emojis
+
 ## [0.0.68] - 2025-12-06
 
 ### Fixed - Audio Parse Correctness

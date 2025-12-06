@@ -2,11 +2,25 @@
 # Anna Installer
 # Usage: curl -sSL <url>/install.sh | bash
 # Note: sudo is NOT required for curl - installer will request it when needed
+#
+# v0.0.70: Version is fetched from GitHub releases API (single source of truth)
 
 set -e
 
-VERSION="0.0.68"
 REPO="jjgarcianorway/anna-assistant"
+
+# Fetch latest version from GitHub releases API (single source of truth)
+fetch_version() {
+    local version
+    version=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+    if [ -z "$version" ]; then
+        echo "Failed to fetch latest version from GitHub" >&2
+        exit 1
+    fi
+    echo "$version"
+}
+
+VERSION=$(fetch_version)
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/anna"
 STATE_DIR="/var/lib/anna"

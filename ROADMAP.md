@@ -31,6 +31,47 @@
 
 ## Completed
 
+### v0.0.71 - Version Truth (Pure Hygiene) ✓
+- [x] Single source of truth: workspace Cargo.toml version only
+- [x] Unified version display: annactl/annad --version format consistent
+- [x] Status shows: installed (annactl), daemon_ver (annad), available, last_check, next_check, auto_update
+- [x] Hard gate tests: CI fails if annactl/annad version != workspace version
+- [x] No hardcoded version strings in tests (compare against VERSION constant)
+- [x] Auto-update semantic comparison with no-downgrade guarantee
+
+### v0.0.70 - Version Unification + Release Hygiene ✓
+- [x] Single source of truth: workspace Cargo.toml version is authoritative
+- [x] All crates use version.workspace = true
+- [x] anna_shared::VERSION uses env!("CARGO_PKG_VERSION")
+- [x] install.sh fetches version from GitHub releases API (no hardcoding)
+- [x] Version consistency tests validate all sources
+- [x] Status output shows: installed, available, last_check, next_check, auto_update
+- [x] Auto-update uses semantic version comparison (no string comparison)
+- [x] No downgrade guarantee: newer installed version is never replaced
+
+### v0.0.69 - Unified Versioning + REPL Enhancements ✓
+- [x] Single source of truth for version (workspace Cargo.toml)
+- [x] REPL "since last time" summary with snapshot comparison
+- [x] Delta tracking for failed services, disk, memory changes
+- [x] Version consistency tests
+- [x] Documentation updates (CHANGELOG, FEATURES, README)
+
+### v0.0.68 - Audio Parse Correctness + ConfigureEditor Grounding ✓
+- [x] Audio deterministic answer handles "Multimedia audio controller"
+- [x] ConfigureEditor uses full router probe list (skip spine override)
+- [x] Clarification prompts end with period, not question mark
+
+### v0.0.67 - Service Desk Theatre UX ✓
+- [x] Service desk narrative renderer (render.rs)
+- [x] REPL narrative header with boot status, critical issues
+- [x] Stats RPG system with XP calculation
+- [x] Local citations system (citations.rs)
+
+### v0.0.66 - Version Normalization + Regressions ✓
+- [x] Version consolidation across all sources
+- [x] Audio evidence parsing for lspci PCI class codes
+- [x] ConfigureEditor numbered options without question marks
+
 ### v0.0.63 - Service Desk Theatre Renderer ✓
 - [x] Narrative flow in normal mode ("Checking X...")
 - [x] Evidence source in footer when grounded

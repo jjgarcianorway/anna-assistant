@@ -116,6 +116,26 @@
 - **pactl Detection**: Detects cards by "Card #" blocks in output
 - **Evidence Merge**: Combines lspci + pactl evidence with deduplication
 
+### Unified Versioning (v0.0.69)
+- **Single Source**: Workspace Cargo.toml version as only source of truth
+- **Compile-time Resolution**: `env!("CARGO_PKG_VERSION")` for VERSION constant
+- **Version Tests**: Consistency tests in version_consistency.rs
+- **Status Display**: Shows installed, available, check_pace, next_check
+
+### REPL "Since Last Time" Summary (v0.0.69)
+- **Snapshot Comparison**: Shows changes since last session
+- **Delta Tracking**: Failed services, disk changes, memory changes
+- **Clean Format**: `[warn]`, `[crit]`, `[fail]`, `[ok]` prefixes (no emojis)
+- **Persistence**: Snapshots saved to ~/.anna/snapshots/last.json
+
+### Version Unification (v0.0.70)
+- **Single Source of Truth**: Workspace Cargo.toml version is authoritative
+- **Compile-Time Resolution**: All binaries use env!("CARGO_PKG_VERSION")
+- **Dynamic Installer**: install.sh fetches version from GitHub releases API
+- **Status Output Contract**: Shows installed, available, last_check, next_check, auto_update
+- **No Downgrade Guarantee**: Auto-update uses semantic version comparison
+- **Version Tests**: Consistency tests validate all sources match
+
 ## Not Yet Implemented
 
 ### Future

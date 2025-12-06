@@ -301,7 +301,7 @@ async fn update_check_loop(state: SharedState) {
     // Set initial next_check time
     {
         let mut state = state.write().await;
-        state.update.next_check =
+        state.update.next_check_at =
             Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
     }
 
@@ -335,11 +335,14 @@ async fn update_check_loop(state: SharedState) {
 
                 {
                     let mut state = state.write().await;
-                    state.update.last_check = Some(Utc::now());
-                    state.update.next_check =
-                        Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
-                    state.update.available_version = Some(latest_version.clone());
+                    let now = Utc::now();
+                    state.update.last_check_at = Some(now);
+                    state.update.next_check_at =
+                        Some(now + chrono::Duration::seconds(check_interval as i64));
+                    state.update.latest_version = Some(latest_version.clone());
+                    state.update.latest_checked_at = Some(now);
                     state.update.update_available = should_update;
+                    state.update.check_state = anna_shared::status::UpdateCheckState::Success;
                 }
 
                 if should_update {
@@ -409,10 +412,14 @@ async fn update_check_loop(state: SharedState) {
                 ledger.push(entry);
                 let _ = save_update_ledger(&ledger);
 
+                // v0.0.72: On failure, preserve last known version but mark as failed
                 let mut state = state.write().await;
-                state.update.last_check = Some(Utc::now());
-                state.update.next_check =
-                    Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
+                let now = Utc::now();
+                state.update.last_check_at = Some(now);
+                state.update.next_check_at =
+                    Some(now + chrono::Duration::seconds(check_interval as i64));
+                state.update.check_state = anna_shared::status::UpdateCheckState::Failed;
+                // NOTE: We do NOT clear latest_version - preserve last known good value
             }
         }
     }

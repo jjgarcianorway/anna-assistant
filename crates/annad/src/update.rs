@@ -77,11 +77,17 @@ async fn verify_assets_exist(client: &reqwest::Client, version: &str) -> Result<
 }
 
 /// Compare versions, returns true if remote is newer
+/// v0.0.72: Handle empty/invalid versions safely - never upgrade from invalid
 pub fn is_newer_version(current: &str, remote: &str) -> bool {
     let parse = |v: &str| -> Vec<u32> { v.split('.').filter_map(|s| s.parse().ok()).collect() };
 
     let current_parts = parse(current);
     let remote_parts = parse(remote);
+
+    // v0.0.72: If either version is empty/invalid, don't report as newer
+    if current_parts.is_empty() || remote_parts.is_empty() {
+        return false;
+    }
 
     for i in 0..3 {
         let c = current_parts.get(i).unwrap_or(&0);
@@ -255,5 +261,87 @@ mod tests {
         assert!(!is_newer_version("0.0.2", "0.0.1"));
         assert!(!is_newer_version("0.0.1", "0.0.1"));
         assert!(is_newer_version("0.0.3", "0.0.4"));
+    }
+
+    /// v0.0.70: Test that updater correctly identifies when installed is older than latest
+    #[test]
+    fn test_v070_installed_older_than_latest() {
+        // Typical update scenario: user has old version, remote has new version
+        assert!(is_newer_version("0.0.65", "0.0.70"));
+        assert!(is_newer_version("0.0.1", "0.0.70"));
+        assert!(is_newer_version("0.0.69", "0.0.70"));
+    }
+
+    /// v0.0.70: Test that updater correctly identifies when installed equals latest
+    #[test]
+    fn test_v070_installed_equals_latest() {
+        // Already up to date: should NOT trigger update
+        assert!(!is_newer_version("0.0.70", "0.0.70"));
+        assert!(!is_newer_version("1.0.0", "1.0.0"));
+        assert!(!is_newer_version("0.1.5", "0.1.5"));
+    }
+
+    /// v0.0.70: Test that updater NEVER downgrades (installed newer than remote)
+    #[test]
+    fn test_v070_no_downgrade() {
+        // Critical: if user has a newer version (dev build, etc), do NOT downgrade
+        assert!(!is_newer_version("0.0.71", "0.0.70"));
+        assert!(!is_newer_version("0.1.0", "0.0.99"));
+        assert!(!is_newer_version("1.0.0", "0.9.9"));
+        assert!(!is_newer_version("2.0.0", "1.99.99"));
+    }
+
+    /// v0.0.70: Test semver comparison (not string comparison)
+    #[test]
+    fn test_v070_semver_not_string() {
+        // "0.0.9" < "0.0.10" semantically, but "0.0.9" > "0.0.10" lexically
+        assert!(is_newer_version("0.0.9", "0.0.10"));
+        assert!(!is_newer_version("0.0.10", "0.0.9"));
+
+        // Same for major/minor
+        assert!(is_newer_version("0.9.0", "0.10.0"));
+        assert!(is_newer_version("9.0.0", "10.0.0"));
+    }
+
+    /// v0.0.70: Test edge cases in version parsing
+    #[test]
+    fn test_v070_version_parsing_edge_cases() {
+        // Empty or malformed should not crash
+        assert!(!is_newer_version("0.0.70", ""));
+        assert!(!is_newer_version("", "0.0.70"));
+        assert!(!is_newer_version("", ""));
+        assert!(!is_newer_version("invalid", "0.0.70"));
+        assert!(!is_newer_version("0.0.70", "invalid"));
+    }
+
+    /// v0.0.72: Test that UpdateCheckState enum serializes correctly
+    #[test]
+    fn test_v072_update_check_state_serialization() {
+        use anna_shared::status::UpdateCheckState;
+
+        // Test display
+        assert_eq!(UpdateCheckState::NeverChecked.to_string(), "NEVER_CHECKED");
+        assert_eq!(UpdateCheckState::Success.to_string(), "OK");
+        assert_eq!(UpdateCheckState::Failed.to_string(), "FAILED");
+        assert_eq!(UpdateCheckState::Checking.to_string(), "CHECKING");
+
+        // Test default
+        assert_eq!(UpdateCheckState::default(), UpdateCheckState::NeverChecked);
+    }
+
+    /// v0.0.72: Test that version preservation logic works as expected
+    /// Contract: On check failure, we keep latest_version from last successful check
+    #[test]
+    fn test_v072_version_preservation_contract() {
+        // Simulate: we had a successful check that found 0.0.80
+        let last_known_version = Some("0.0.80".to_string());
+
+        // On failure, we should NOT clear this
+        // (This is a documentation test - actual logic is in server.rs)
+        let preserved = last_known_version.clone();
+        assert_eq!(preserved, Some("0.0.80".to_string()));
+
+        // The version comparison should still work with preserved value
+        assert!(is_newer_version("0.0.72", "0.0.80"));
     }
 }

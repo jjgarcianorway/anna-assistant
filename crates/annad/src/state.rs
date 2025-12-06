@@ -139,13 +139,22 @@ pub struct DaemonStateInner {
 }
 
 /// Update state tracking
+/// v0.0.72: Field names match UpdateStatus for clarity
 pub struct UpdateStateInner {
     pub enabled: bool,
     pub check_interval_secs: u64,
-    pub last_check: Option<DateTime<Utc>>,
-    pub next_check: Option<DateTime<Utc>>,
-    pub available_version: Option<String>,
+    /// When we last attempted a check (success or failure)
+    pub last_check_at: Option<DateTime<Utc>>,
+    /// When we'll next check
+    pub next_check_at: Option<DateTime<Utc>>,
+    /// The latest version from GitHub (preserved on failure)
+    pub latest_version: Option<String>,
+    /// When we last successfully fetched latest_version
+    pub latest_checked_at: Option<DateTime<Utc>>,
+    /// Whether latest_version > installed_version
     pub update_available: bool,
+    /// State of last update check
+    pub check_state: anna_shared::status::UpdateCheckState,
 }
 
 impl Default for UpdateStateInner {
@@ -153,10 +162,12 @@ impl Default for UpdateStateInner {
         Self {
             enabled: true,
             check_interval_secs: DEFAULT_UPDATE_CHECK_INTERVAL,
-            last_check: None,
-            next_check: None,
-            available_version: None,
+            last_check_at: None,
+            next_check_at: None,
+            latest_version: None,
+            latest_checked_at: None,
             update_available: false,
+            check_state: anna_shared::status::UpdateCheckState::NeverChecked,
         }
     }
 }
@@ -244,10 +255,12 @@ impl DaemonStateInner {
             update: UpdateStatus {
                 enabled: self.update.enabled,
                 check_interval_secs: self.update.check_interval_secs,
-                last_check: self.update.last_check,
-                next_check: self.update.next_check,
-                available_version: self.update.available_version.clone(),
+                last_check_at: self.update.last_check_at,
+                next_check_at: self.update.next_check_at,
+                latest_version: self.update.latest_version.clone(),
+                latest_checked_at: self.update.latest_checked_at,
                 update_available: self.update.update_available,
+                check_state: self.update.check_state.clone(),
             },
             llm: self.llm.clone(),
             hardware: self.hardware.clone(),
@@ -314,7 +327,7 @@ impl DaemonStateInner {
 
         // Version info
         let versions = VersionInfo::new(VERSION).with_remote(
-            self.update.available_version.clone(),
+            self.update.latest_version.clone(),
         );
 
         // Daemon info
@@ -329,13 +342,13 @@ impl DaemonStateInner {
         // Update info
         let update = UpdateInfo {
             interval_s: self.update.check_interval_secs,
-            last_check_ts: self.update.last_check.map(|dt| dt.timestamp() as u64),
-            next_check_ts: self.update.next_check.map(|dt| dt.timestamp() as u64),
+            last_check_ts: self.update.last_check_at.map(|dt| dt.timestamp() as u64),
+            next_check_ts: self.update.next_check_at.map(|dt| dt.timestamp() as u64),
             last_result: if self.update.update_available {
                 UpdateResult::UpdateAvailable {
-                    version: self.update.available_version.clone().unwrap_or_default(),
+                    version: self.update.latest_version.clone().unwrap_or_default(),
                 }
-            } else if self.update.last_check.is_some() {
+            } else if self.update.last_check_at.is_some() {
                 UpdateResult::UpToDate
             } else {
                 UpdateResult::NotChecked

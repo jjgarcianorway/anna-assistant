@@ -142,11 +142,13 @@ fn test_version_format() {
     }
 }
 
-/// v0.0.68: Test version consistency - all sources must match workspace version
+/// v0.0.71: Test version consistency - all sources must match workspace version
 #[test]
-fn test_v068_version_consistency() {
-    // The VERSION constant must match the expected workspace version
-    assert_eq!(VERSION, "0.0.68", "VERSION constant must match workspace version");
+fn test_v071_version_consistency() {
+    // v0.0.71: The VERSION constant must be non-empty and valid semver
+    assert!(!VERSION.is_empty(), "VERSION must not be empty");
+    let parts: Vec<&str> = VERSION.split('.').collect();
+    assert_eq!(parts.len(), 3, "VERSION must be X.Y.Z format");
 
     // Version must be used consistently in status output
     let context = RuntimeContext {
@@ -162,7 +164,8 @@ fn test_v068_version_consistency() {
         },
         probes: HashMap::new(),
     };
-    assert_eq!(context.version, "0.0.68", "RuntimeContext version must match");
+    // v0.0.71: Compare against VERSION constant, not hardcoded string
+    assert_eq!(context.version, VERSION, "RuntimeContext version must match VERSION constant");
 }
 
 /// v0.0.68: Test that audio parsing correctly handles Multimedia audio controller output
