@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.113] - 2025-12-06
+
+### Added - Async Ticket System with Email Notifications (Phase 32)
+
+**Real IT Helpdesk Experience**
+
+Just like a real IT department: queries that can't be answered immediately
+become tickets. Users get notified by email when there's an update or when
+IT needs clarification.
+
+**Ticket Lifecycle**:
+- Quick queries: resolved immediately (same as before)
+- Complex queries: become async tickets with case numbers (CN-XXXX-DDMMYYYY)
+- IT staff can ask for clarification (ticket status: PendingUser)
+- User replies via email or `annactl reply`
+- Email notification when ticket is resolved
+
+**New Commands**:
+- `annactl reply CN-0001-06122025 "your message"` - Reply to a ticket
+- `annactl ticket CN-0001-06122025` - Show ticket conversation
+- `annactl email user@example.com` - Configure email notifications
+- `annactl email off` - Disable email notifications
+
+**Ticket Features**:
+- Case numbers persist in ~/.anna/tickets.jsonl
+- Conversation history tracked in each ticket
+- Status: New → Assigned → InProgress → PendingUser → Resolved
+- Email notifications use system mail/sendmail
+
+**New Files**:
+- `email.rs` - Email notification system
+- `ticket_commands.rs` - Reply/ticket/email command handlers
+
+**Code Changes**:
+- `ticket_tracker.rs`: Added async ticket support, TicketMessage, conversation tracking
+- `router_tests.rs`: Added tests for TicketHistory and StaffRoster query classes
+- `main.rs`: Added Reply, Ticket, Email commands
+
+**Progress**: Full async ticket workflow with email notifications
+
 ## [0.0.112] - 2025-12-06
 
 ### Improved - Welcome Experience and Service Desk Explanations

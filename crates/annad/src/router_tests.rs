@@ -215,4 +215,44 @@ mod tests {
         assert_eq!(classify_query("free memory"), QueryClass::MemoryFree);
         assert_eq!(classify_query("available memory"), QueryClass::MemoryFree);
     }
+
+    // === v0.0.111: Ticket and Staff roster tests ===
+
+    #[test]
+    fn test_classify_ticket_history() {
+        assert_eq!(classify_query("show my tickets"), QueryClass::TicketHistory);
+        assert_eq!(classify_query("ticket history"), QueryClass::TicketHistory);
+        assert_eq!(classify_query("recent cases"), QueryClass::TicketHistory);
+        assert_eq!(classify_query("what have i asked before"), QueryClass::TicketHistory);
+        assert_eq!(classify_query("my cases"), QueryClass::TicketHistory);
+        assert_eq!(classify_query("support history"), QueryClass::TicketHistory);
+    }
+
+    #[test]
+    fn test_classify_staff_roster() {
+        assert_eq!(classify_query("who is on shift"), QueryClass::StaffRoster);
+        assert_eq!(classify_query("who's on shift"), QueryClass::StaffRoster);
+        assert_eq!(classify_query("show IT team"), QueryClass::StaffRoster);
+        assert_eq!(classify_query("IT department"), QueryClass::StaffRoster);
+        assert_eq!(classify_query("who works here"), QueryClass::StaffRoster);
+        assert_eq!(classify_query("team roster"), QueryClass::StaffRoster);
+        assert_eq!(classify_query("who is available"), QueryClass::StaffRoster);
+        assert_eq!(classify_query("support team"), QueryClass::StaffRoster);
+    }
+
+    #[test]
+    fn test_ticket_history_is_fast_path() {
+        assert!(QueryClass::TicketHistory.is_fast_path());
+        let route = get_route("show my tickets");
+        assert!(route.probes.is_empty()); // No probes - internal data
+        assert!(route.can_answer_deterministically());
+    }
+
+    #[test]
+    fn test_staff_roster_is_fast_path() {
+        assert!(QueryClass::StaffRoster.is_fast_path());
+        let route = get_route("who is on shift");
+        assert!(route.probes.is_empty()); // No probes - internal data
+        assert!(route.can_answer_deterministically());
+    }
 }

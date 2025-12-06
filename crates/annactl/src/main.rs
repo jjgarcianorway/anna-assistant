@@ -3,6 +3,7 @@
 //! v0.0.85: Added time_format module for date/tenure display.
 //! v0.0.97: Added change_commands module for history/undo.
 //! v0.0.111: Removed tickets/staff CLI commands - use natural language instead.
+//! v0.0.113: Added reply/ticket commands for async ticket workflow.
 
 mod change_commands;
 mod client;
@@ -14,6 +15,7 @@ mod progress_display;
 mod report_cmd;
 mod stats_display;
 mod theatre_render;
+mod ticket_commands; // v0.0.113
 mod time_format;
 mod transcript_render;
 
@@ -22,6 +24,7 @@ use clap::{Parser, Subcommand};
 
 use crate::commands::{handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
 use crate::report_cmd::handle_report;
+use crate::ticket_commands::{handle_email, handle_reply, handle_ticket};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -72,6 +75,23 @@ enum Command {
         /// Change ID to undo (from history)
         id: String,
     },
+    /// v0.0.113: Reply to an open ticket
+    Reply {
+        /// Case number (e.g., CN-0001-06122025)
+        case: String,
+        /// Your reply message
+        message: String,
+    },
+    /// v0.0.113: Show a ticket's conversation
+    Ticket {
+        /// Case number (e.g., CN-0001-06122025)
+        case: String,
+    },
+    /// v0.0.113: Configure your email for notifications
+    Email {
+        /// Your email address (or "off" to disable)
+        address: String,
+    },
 }
 
 #[tokio::main]
@@ -87,6 +107,9 @@ async fn main() -> Result<()> {
         Some(Command::Reset) => handle_reset().await,
         Some(Command::History) => handle_history().await,
         Some(Command::Undo { id }) => handle_undo(&id).await,
+        Some(Command::Reply { case, message }) => handle_reply(&case, &message).await,
+        Some(Command::Ticket { case }) => handle_ticket(&case).await,
+        Some(Command::Email { address }) => handle_email(&address).await,
         None => {
             if cli.request.is_empty() {
                 // No args - enter REPL mode

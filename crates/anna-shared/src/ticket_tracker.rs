@@ -1,11 +1,18 @@
 //! Ticket tracking system for Service Desk Theatre.
 //!
 //! v0.0.105: Case numbers, ticket lifecycle, and history.
+//! v0.0.113: Async tickets with email notifications and user replies.
 //!
 //! Ticket format: CN-XXXX-DDMMYYYY
 //! - CN: Case Number prefix
 //! - XXXX: Sequential number (resets daily)
 //! - DDMMYYYY: Date created
+//!
+//! Async Flow (v0.0.113):
+//! - Quick queries: resolved immediately (< 5 seconds)
+//! - Complex queries: become async tickets with PendingUser status
+//! - Email sent when ticket is created, updated, or needs user input
+//! - User replies via email or `annactl reply <case> <message>`
 
 use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
@@ -47,6 +54,29 @@ impl std::fmt::Display for TicketStatus {
     }
 }
 
+/// A message in ticket conversation (v0.0.113)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TicketMessage {
+    /// Who sent this message ("user", "anna", or staff ID)
+    pub sender: String,
+    /// Message content
+    pub content: String,
+    /// Timestamp
+    pub timestamp: DateTime<Utc>,
+}
+
+impl TicketMessage {
+    pub fn from_user(content: String) -> Self {
+        Self { sender: "user".to_string(), content, timestamp: Utc::now() }
+    }
+    pub fn from_anna(content: String) -> Self {
+        Self { sender: "anna".to_string(), content, timestamp: Utc::now() }
+    }
+    pub fn from_staff(staff_id: &str, content: String) -> Self {
+        Self { sender: staff_id.to_string(), content, timestamp: Utc::now() }
+    }
+}
+
 /// A single ticket in the Service Desk
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ticket {
@@ -74,6 +104,22 @@ pub struct Ticket {
     pub interaction_count: u32,
     /// Final answer (if resolved)
     pub resolution: Option<String>,
+    // === v0.0.113: Async ticket support ===
+    /// User's email for notifications (if provided)
+    #[serde(default)]
+    pub user_email: Option<String>,
+    /// Is this an async ticket (long-running)?
+    #[serde(default)]
+    pub is_async: bool,
+    /// Question/clarification pending from IT to user
+    #[serde(default)]
+    pub pending_question: Option<String>,
+    /// User's reply to pending question
+    #[serde(default)]
+    pub user_reply: Option<String>,
+    /// Conversation history for context
+    #[serde(default)]
+    pub messages: Vec<TicketMessage>,
 }
 
 impl Ticket {
@@ -82,7 +128,7 @@ impl Ticket {
         let now = Utc::now();
         Self {
             case_number,
-            query,
+            query: query.clone(),
             status: TicketStatus::New,
             team,
             assigned_to: None,
@@ -93,7 +139,20 @@ impl Ticket {
             was_escalated: false,
             interaction_count: 0,
             resolution: None,
+            user_email: None,
+            is_async: false,
+            pending_question: None,
+            user_reply: None,
+            messages: vec![TicketMessage::from_user(query)],
         }
+    }
+
+    /// Create an async ticket (v0.0.113)
+    pub fn new_async(case_number: String, query: String, team: String, email: Option<String>) -> Self {
+        let mut ticket = Self::new(case_number, query, team);
+        ticket.is_async = true;
+        ticket.user_email = email;
+        ticket
     }
 
     /// Assign to a person
@@ -131,6 +190,37 @@ impl Ticket {
     /// Check if ticket is still open
     pub fn is_open(&self) -> bool {
         !matches!(self.status, TicketStatus::Resolved | TicketStatus::Closed)
+    }
+
+    // === v0.0.113: Async ticket methods ===
+
+    /// Ask user a question (sets status to PendingUser)
+    pub fn ask_user(&mut self, question: String, staff_id: &str) {
+        self.pending_question = Some(question.clone());
+        self.status = TicketStatus::PendingUser;
+        self.messages.push(TicketMessage::from_staff(staff_id, question));
+        self.updated_at = Utc::now();
+    }
+
+    /// User replies to the pending question
+    pub fn add_user_reply(&mut self, reply: String) {
+        self.user_reply = Some(reply.clone());
+        self.pending_question = None;
+        self.status = TicketStatus::InProgress;
+        self.messages.push(TicketMessage::from_user(reply));
+        self.interaction_count += 1;
+        self.updated_at = Utc::now();
+    }
+
+    /// Add Anna's response to conversation
+    pub fn add_anna_message(&mut self, message: String) {
+        self.messages.push(TicketMessage::from_anna(message));
+        self.updated_at = Utc::now();
+    }
+
+    /// Get the ticket's email address if set
+    pub fn email(&self) -> Option<&str> {
+        self.user_email.as_deref()
     }
 }
 
@@ -265,6 +355,55 @@ impl TicketTracker {
         tickets.reverse();
         tickets.truncate(limit);
         Ok(tickets)
+    }
+
+    // === v0.0.113: Async ticket methods ===
+
+    /// Find a ticket by case number
+    pub fn find_by_case(&self, case_number: &str) -> std::io::Result<Option<Ticket>> {
+        let tickets = self.read_all()?;
+        Ok(tickets.into_iter().rev().find(|t| t.case_number == case_number))
+    }
+
+    /// Get all open tickets (not resolved/closed)
+    pub fn open_tickets(&self) -> std::io::Result<Vec<Ticket>> {
+        let tickets = self.read_all()?;
+        Ok(tickets.into_iter().filter(|t| t.is_open()).collect())
+    }
+
+    /// Get tickets pending user response
+    pub fn pending_user(&self) -> std::io::Result<Vec<Ticket>> {
+        let tickets = self.read_all()?;
+        Ok(tickets.into_iter()
+            .filter(|t| t.status == TicketStatus::PendingUser)
+            .collect())
+    }
+
+    /// Update a ticket (rewrites entire file - fine for small volumes)
+    pub fn update_ticket(&self, updated: &Ticket) -> std::io::Result<()> {
+        let mut tickets = self.read_all()?;
+
+        // Find and replace the ticket
+        for t in &mut tickets {
+            if t.case_number == updated.case_number {
+                *t = updated.clone();
+                break;
+            }
+        }
+
+        // Rewrite the entire file
+        if let Some(parent) = self.history_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let mut file = File::create(&self.history_path)?;
+        for ticket in &tickets {
+            let line = serde_json::to_string(ticket)?;
+            writeln!(file, "{}", line)?;
+        }
+        file.sync_all()?;
+
+        Ok(())
     }
 
     /// Count tickets by status

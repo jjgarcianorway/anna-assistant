@@ -16,6 +16,7 @@ pub mod clarify_v2;
 pub mod config_intent;
 pub mod editor_recipe_data;
 pub mod editor_recipes;
+pub mod email; // v0.0.113
 pub mod git_recipes;
 pub mod package_recipes;
 pub mod service_recipes;
