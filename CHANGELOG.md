@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.95] - 2025-12-06
+
+### Added - Safe Change Engine (Phase 15)
+
+**Config File Modifications with Backup/Rollback**
+
+Anna can now safely modify config files with automatic backup and rollback:
+
+- **Backup-first**: Creates backup before any modification
+- **Idempotent**: Safe to apply same change multiple times
+- **Rollback**: Can restore from backup if needed
+
+**New RPC Methods**
+
+- `PlanChange` - Creates a change plan for user confirmation
+- `ApplyChange` - Applies a confirmed change plan
+- `RollbackChange` - Rolls back a change using backup
+
+**Codebase Refactoring**
+
+- Extracted `editor_recipe_data.rs` from `editor_recipes.rs`
+- Both files now under 400 lines for better maintainability
+- All change operations require user confirmation
+
+**Change Engine Types**
+
+- `ChangePlan` - Describes planned change with risk level
+- `ChangeResult` - Result with applied/noop/error status
+- `ChangeOperation` - EnsureLine, AppendLine operations
+- `ChangeRisk` - Low/Medium/High risk classification
+
 ## [0.0.94] - 2025-12-06
 
 ### Added - Recipe Learning System (Phase 14)

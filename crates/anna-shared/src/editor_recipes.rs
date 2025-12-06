@@ -1,6 +1,6 @@
 //! Editor configuration recipes.
 //!
-//! v0.0.74: Generic, safe, idempotent recipes for editor configuration.
+//! v0.0.95: Refactored - recipe data moved to editor_recipe_data.rs.
 //!
 //! # Supported Editors
 //! - vim, neovim
@@ -18,6 +18,9 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+// Re-export get_recipe from data module
+pub use crate::editor_recipe_data::get_recipe;
 
 /// Supported editor types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -74,7 +77,7 @@ impl Editor {
     /// Parse from tool name
     pub fn from_tool_name(name: &str) -> Option<Self> {
         match name.to_lowercase().as_str() {
-            "vim" | "vi" => Some(Editor::Vim),  // vi uses vim config
+            "vim" | "vi" => Some(Editor::Vim),
             "nvim" | "neovim" => Some(Editor::Neovim),
             "nano" => Some(Editor::Nano),
             "emacs" => Some(Editor::Emacs),
@@ -157,202 +160,6 @@ pub struct EditorRecipe {
     pub rollback_hint: String,
 }
 
-/// Get recipe for a feature on an editor
-pub fn get_recipe(editor: Editor, feature: ConfigFeature) -> Option<EditorRecipe> {
-    let (lines, rollback) = match (editor, feature) {
-        // VIM recipes
-        (Editor::Vim, ConfigFeature::SyntaxHighlighting) => (
-            vec![ConfigLine {
-                line: "syntax on".to_string(),
-                comment: "Enable syntax highlighting".to_string(),
-                check_pattern: "^\\s*syntax\\s+(on|enable)".to_string(),
-            }],
-            "Remove 'syntax on' from ~/.vimrc",
-        ),
-        (Editor::Vim, ConfigFeature::LineNumbers) => (
-            vec![ConfigLine {
-                line: "set number".to_string(),
-                comment: "Show line numbers".to_string(),
-                check_pattern: "^\\s*set\\s+number".to_string(),
-            }],
-            "Remove 'set number' from ~/.vimrc",
-        ),
-        (Editor::Vim, ConfigFeature::WordWrap) => (
-            vec![ConfigLine {
-                line: "set wrap".to_string(),
-                comment: "Enable word wrap".to_string(),
-                check_pattern: "^\\s*set\\s+wrap".to_string(),
-            }],
-            "Change 'set wrap' to 'set nowrap' in ~/.vimrc",
-        ),
-        (Editor::Vim, ConfigFeature::AutoIndent) => (
-            vec![
-                ConfigLine {
-                    line: "set autoindent".to_string(),
-                    comment: "Enable auto-indent".to_string(),
-                    check_pattern: "^\\s*set\\s+autoindent".to_string(),
-                },
-                ConfigLine {
-                    line: "set smartindent".to_string(),
-                    comment: "Enable smart indent".to_string(),
-                    check_pattern: "^\\s*set\\s+smartindent".to_string(),
-                },
-            ],
-            "Remove 'set autoindent' and 'set smartindent' from ~/.vimrc",
-        ),
-
-        // NEOVIM recipes (same as vim but different config path)
-        (Editor::Neovim, ConfigFeature::SyntaxHighlighting) => (
-            vec![ConfigLine {
-                line: "syntax on".to_string(),
-                comment: "Enable syntax highlighting".to_string(),
-                check_pattern: "^\\s*syntax\\s+(on|enable)".to_string(),
-            }],
-            "Remove 'syntax on' from ~/.config/nvim/init.vim",
-        ),
-        (Editor::Neovim, ConfigFeature::LineNumbers) => (
-            vec![ConfigLine {
-                line: "set number".to_string(),
-                comment: "Show line numbers".to_string(),
-                check_pattern: "^\\s*set\\s+number".to_string(),
-            }],
-            "Remove 'set number' from ~/.config/nvim/init.vim",
-        ),
-        (Editor::Neovim, ConfigFeature::WordWrap) => (
-            vec![ConfigLine {
-                line: "set wrap".to_string(),
-                comment: "Enable word wrap".to_string(),
-                check_pattern: "^\\s*set\\s+wrap".to_string(),
-            }],
-            "Change 'set wrap' to 'set nowrap' in ~/.config/nvim/init.vim",
-        ),
-
-        // NANO recipes
-        (Editor::Nano, ConfigFeature::SyntaxHighlighting) => (
-            vec![ConfigLine {
-                line: "include /usr/share/nano/*.nanorc".to_string(),
-                comment: "Include syntax highlighting definitions".to_string(),
-                check_pattern: "^\\s*include.*/nano/".to_string(),
-            }],
-            "Remove 'include /usr/share/nano/*.nanorc' from ~/.nanorc",
-        ),
-        (Editor::Nano, ConfigFeature::LineNumbers) => (
-            vec![ConfigLine {
-                line: "set linenumbers".to_string(),
-                comment: "Show line numbers".to_string(),
-                check_pattern: "^\\s*set\\s+linenumbers".to_string(),
-            }],
-            "Remove 'set linenumbers' from ~/.nanorc",
-        ),
-        (Editor::Nano, ConfigFeature::WordWrap) => (
-            vec![ConfigLine {
-                line: "set softwrap".to_string(),
-                comment: "Enable soft word wrap".to_string(),
-                check_pattern: "^\\s*set\\s+softwrap".to_string(),
-            }],
-            "Remove 'set softwrap' from ~/.nanorc",
-        ),
-        (Editor::Nano, ConfigFeature::AutoIndent) => (
-            vec![ConfigLine {
-                line: "set autoindent".to_string(),
-                comment: "Enable auto-indent".to_string(),
-                check_pattern: "^\\s*set\\s+autoindent".to_string(),
-            }],
-            "Remove 'set autoindent' from ~/.nanorc",
-        ),
-
-        // EMACS recipes
-        (Editor::Emacs, ConfigFeature::SyntaxHighlighting) => (
-            vec![ConfigLine {
-                line: "(global-font-lock-mode t)".to_string(),
-                comment: "Enable syntax highlighting globally".to_string(),
-                check_pattern: "global-font-lock-mode".to_string(),
-            }],
-            "Remove '(global-font-lock-mode t)' from ~/.emacs",
-        ),
-        (Editor::Emacs, ConfigFeature::LineNumbers) => (
-            vec![ConfigLine {
-                line: "(global-display-line-numbers-mode t)".to_string(),
-                comment: "Show line numbers globally".to_string(),
-                check_pattern: "global-display-line-numbers-mode".to_string(),
-            }],
-            "Remove '(global-display-line-numbers-mode t)' from ~/.emacs",
-        ),
-        (Editor::Emacs, ConfigFeature::WordWrap) => (
-            vec![ConfigLine {
-                line: "(global-visual-line-mode t)".to_string(),
-                comment: "Enable word wrap globally".to_string(),
-                check_pattern: "global-visual-line-mode".to_string(),
-            }],
-            "Remove '(global-visual-line-mode t)' from ~/.emacs",
-        ),
-
-        // HELIX recipes (TOML config)
-        (Editor::Helix, ConfigFeature::LineNumbers) => (
-            vec![ConfigLine {
-                line: "[editor]\nline-number = \"absolute\"".to_string(),
-                comment: "Show absolute line numbers".to_string(),
-                check_pattern: "line-number".to_string(),
-            }],
-            "Set line-number = \"off\" in ~/.config/helix/config.toml",
-        ),
-        (Editor::Helix, ConfigFeature::WordWrap) => (
-            vec![ConfigLine {
-                line: "[editor.soft-wrap]\nenable = true".to_string(),
-                comment: "Enable soft word wrap".to_string(),
-                check_pattern: "soft-wrap".to_string(),
-            }],
-            "Set enable = false under [editor.soft-wrap] in config.toml",
-        ),
-
-        // MICRO recipes (JSON config)
-        (Editor::Micro, ConfigFeature::SyntaxHighlighting) => (
-            vec![ConfigLine {
-                line: "\"syntax\": true".to_string(),
-                comment: "Enable syntax highlighting".to_string(),
-                check_pattern: "\"syntax\"".to_string(),
-            }],
-            "Set \"syntax\": false in ~/.config/micro/settings.json",
-        ),
-        (Editor::Micro, ConfigFeature::LineNumbers) => (
-            vec![ConfigLine {
-                line: "\"ruler\": true".to_string(),
-                comment: "Show line numbers".to_string(),
-                check_pattern: "\"ruler\"".to_string(),
-            }],
-            "Set \"ruler\": false in ~/.config/micro/settings.json",
-        ),
-        (Editor::Micro, ConfigFeature::WordWrap) => (
-            vec![ConfigLine {
-                line: "\"softwrap\": true".to_string(),
-                comment: "Enable soft word wrap".to_string(),
-                check_pattern: "\"softwrap\"".to_string(),
-            }],
-            "Set \"softwrap\": false in ~/.config/micro/settings.json",
-        ),
-
-        // VS Code - limited support (suggest using GUI)
-        (Editor::VsCode, _) => {
-            return None; // VS Code settings are complex JSON, suggest GUI
-        }
-
-        // Kate and Gedit - limited support
-        (Editor::Kate, _) | (Editor::Gedit, _) => {
-            return None; // GUI editors, suggest using preferences
-        }
-
-        _ => return None,
-    };
-
-    Some(EditorRecipe {
-        editor,
-        feature,
-        lines,
-        needs_restart: false,
-        rollback_hint: rollback.to_string(),
-    })
-}
-
 /// Check if a line already exists in config (for idempotency)
 pub fn line_exists(content: &str, pattern: &str) -> bool {
     // Enable multiline mode so ^ matches start of any line
@@ -427,51 +234,4 @@ pub fn backup_path(editor: &Editor) -> PathBuf {
     config.parent().map(|p| p.join(backup_name)).unwrap_or_else(|| config.with_extension("backup"))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_editor_from_tool_name() {
-        assert_eq!(Editor::from_tool_name("vim"), Some(Editor::Vim));
-        assert_eq!(Editor::from_tool_name("nvim"), Some(Editor::Neovim));
-        assert_eq!(Editor::from_tool_name("hx"), Some(Editor::Helix));
-        assert_eq!(Editor::from_tool_name("unknown"), None);
-    }
-
-    #[test]
-    fn test_get_recipe_vim_syntax() {
-        let recipe = get_recipe(Editor::Vim, ConfigFeature::SyntaxHighlighting);
-        assert!(recipe.is_some());
-        let r = recipe.unwrap();
-        assert!(r.lines[0].line.contains("syntax on"));
-    }
-
-    #[test]
-    fn test_line_exists_vim() {
-        assert!(line_exists("syntax on\nset number", "^\\s*syntax\\s+(on|enable)"));
-        assert!(!line_exists("set number", "^\\s*syntax\\s+(on|enable)"));
-    }
-
-    #[test]
-    fn test_apply_recipe_idempotent() {
-        let recipe = get_recipe(Editor::Vim, ConfigFeature::SyntaxHighlighting).unwrap();
-        let content = "\" My vimrc\nsyntax on\n";
-
-        // Apply should not duplicate
-        let result = apply_recipe(content, &recipe);
-        let count = result.matches("syntax on").count();
-        assert_eq!(count, 1);
-    }
-
-    #[test]
-    fn test_describe_changes() {
-        let recipe = get_recipe(Editor::Vim, ConfigFeature::LineNumbers).unwrap();
-        let desc = describe_changes(&recipe, "\" empty");
-        assert!(desc.contains("[add]"));
-
-        // When all lines already present, returns "No changes needed"
-        let desc2 = describe_changes(&recipe, "set number");
-        assert!(desc2.contains("No changes needed"));
-    }
-}
+// Tests in tests/editor_recipes_tests.rs

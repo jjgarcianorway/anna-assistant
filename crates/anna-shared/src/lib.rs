@@ -12,6 +12,7 @@ pub mod claims;
 pub mod clarify;
 pub mod clarify_v2;
 pub mod config_intent;
+pub mod editor_recipe_data;
 pub mod editor_recipes;
 pub mod error;
 pub mod facts;

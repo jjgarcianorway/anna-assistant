@@ -26,6 +26,12 @@ pub enum RpcMethod {
     StatusSnapshot,
     /// v0.0.73: Get daemon version info (for client/daemon version comparison)
     GetDaemonInfo,
+    /// v0.0.95: Plan a config change (returns ChangePlan for user confirmation)
+    PlanChange,
+    /// v0.0.95: Apply a confirmed change plan
+    ApplyChange,
+    /// v0.0.95: Rollback a change using backup
+    RollbackChange,
 }
 
 /// v0.0.73: Response from GetDaemonInfo RPC call
@@ -124,6 +130,22 @@ pub enum ProbeType {
     TopCpu,
     DiskUsage,
     NetworkInterfaces,
+}
+
+/// v0.0.95: Parameters for PlanChange RPC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanChangeParams {
+    /// Path to the config file
+    pub config_path: String,
+    /// Line to ensure exists
+    pub line: String,
+}
+
+/// v0.0.95: Parameters for ApplyChange/RollbackChange RPC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChangeParams {
+    /// The change plan to apply/rollback
+    pub plan: crate::change::ChangePlan,
 }
 
 /// Runtime context injected into every LLM request
