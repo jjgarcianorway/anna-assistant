@@ -4,7 +4,8 @@ use anna_shared::probe_spine::{
     enforce_minimum_probes, enforce_spine_probes, probe_to_command, reduce_probes, Urgency,
 };
 use anna_shared::progress::RequestStage;
-use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::recipe_learning::try_learn_from_result;
+use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
 use anna_shared::status::LlmState;
 use anna_shared::trace::{
     evidence_kinds_from_probes, ExecutionTrace, ProbeStats, SpecialistOutcome,
@@ -12,7 +13,7 @@ use anna_shared::trace::{
 use anna_shared::transcript::TranscriptEvent;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::config::LlmConfig;
 use crate::deterministic;
@@ -26,6 +27,18 @@ use crate::specialist_handler::{try_specialist_llm, SpecialistResult};
 use crate::state::SharedState;
 use crate::triage::{self, TriageResult};
 use crate::translator::{self, TranslatorInput};
+
+/// Wrap result in response and try to learn from it (v0.0.94)
+fn success_with_learning(id: String, result: ServiceDeskResult) -> RpcResponse {
+    // Try to learn recipe from successful result
+    let learn_result = try_learn_from_result(&result);
+    if learn_result.learned {
+        if let Some(recipe_id) = &learn_result.recipe_id {
+            debug!("Learned recipe {} from result", recipe_id);
+        }
+    }
+    RpcResponse::success(id, serde_json::to_value(result).unwrap())
+}
 
 /// Handle an RPC request
 pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
@@ -565,7 +578,8 @@ async fn handle_llm_request_inner(
           result.execution_trace.as_ref().map(|t| t.to_string()).unwrap_or_default(), total_ms);
 
     save_progress(&state, &progress).await;
-    RpcResponse::success(id, serde_json::to_value(result).unwrap())
+    // v0.0.94: Try to learn recipe from successful result
+    success_with_learning(id, result)
 }
 
 /// Triage path for unknown queries - uses LLM translator with confidence threshold

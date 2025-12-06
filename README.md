@@ -117,7 +117,7 @@ Anna consists of two components:
 
 ## Version
 
-v0.0.93
+v0.0.94
 
 ## License
 

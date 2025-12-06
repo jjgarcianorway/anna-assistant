@@ -37,6 +37,7 @@ pub mod probe_spine;
 pub mod progress;
 pub mod recipe;
 pub mod recipe_index;
+pub mod recipe_learning;
 pub mod reliability;
 pub mod report;
 pub mod resource_limits;

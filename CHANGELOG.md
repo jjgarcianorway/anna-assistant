@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.94] - 2025-12-06
+
+### Added - Recipe Learning System (Phase 14)
+
+**Automatic Recipe Learning**
+
+Anna now learns from successful, high-reliability queries:
+
+- Recipes are saved when: `verified=true` AND `reliability_score >= 80`
+- Recipes include: query pattern, probes executed, answer template, domain
+- Existing recipes are updated with incremented success count
+- Stored in `~/.anna/recipes/{recipe_id}.json`
+
+**New Module: `recipe_learning.rs`**
+
+- `try_learn_from_result()` - Attempts to learn from a ServiceDeskResult
+- `LearnResult` - Tracks whether learning occurred and why
+- Automatic signature generation from query, domain, and probes
+- Team assignment from domain (Storage, Network, Desktop, etc.)
+- Intent tag extraction for future RAG-lite retrieval
+
+**Integration Points**
+- Main request handler calls `success_with_learning()` on completion
+- Debug logging when recipes are learned
+- Non-blocking - learning failures don't affect responses
+
+**Learning Criteria**
+- Must be verified (answer_grounded = true)
+- Must have reliability score >= 80
+- Must have answer text
+- Must have at least one probe executed
+- Clarification queries are not learned
+
 ## [0.0.93] - 2025-12-06
 
 ### Changed - Documentation Update (Phase 13)
