@@ -1,4 +1,5 @@
 //! Anna CLI - user interface to annad.
+//! v0.0.83: Added --internal flag for IT department communications view.
 
 mod client;
 mod commands;
@@ -24,11 +25,15 @@ use crate::report_cmd::handle_report;
 #[command(about = "Local AI assistant for Linux systems")]
 #[command(disable_help_subcommand = true)] // Prevent "help" from triggering clap help
 #[command(
-    after_help = "EXAMPLES:\n    annactl \"what processes are using the most memory?\"\n    annactl status\n    annactl  # Enter REPL mode\n    annactl help  # Ask Anna for help"
+    after_help = "EXAMPLES:\n    annactl \"what processes are using the most memory?\"\n    annactl status\n    annactl  # Enter REPL mode\n    annactl --internal  # Enter REPL with IT department view\n    annactl help  # Ask Anna for help"
 )]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
+
+    /// Show internal IT department communications (fly-on-the-wall view)
+    #[arg(short = 'i', long = "internal", global = true)]
+    show_internal: bool,
 
     /// Natural language request to send to Anna
     #[arg(trailing_var_arg = true)]
@@ -60,6 +65,7 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    let show_internal = cli.show_internal;
 
     match cli.command {
         Some(Command::Status { debug }) => handle_status(debug).await,
@@ -70,11 +76,11 @@ async fn main() -> Result<()> {
         None => {
             if cli.request.is_empty() {
                 // No args - enter REPL mode
-                handle_repl().await
+                handle_repl(show_internal).await
             } else {
                 // Join args as a request
                 let request = cli.request.join(" ");
-                handle_request(&request).await
+                handle_request(&request, show_internal).await
             }
         }
     }

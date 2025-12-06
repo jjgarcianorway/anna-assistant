@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.83] - 2025-12-06
+
+### Added - Internal IT Communications Toggle (Phase 3)
+
+**Fly-on-the-Wall View of IT Department**
+
+New `--internal` / `-i` flag lets users see the internal IT department communications:
+
+```bash
+# One-shot with internal view
+annactl --internal "what is my disk usage?"
+
+# REPL with internal view
+annactl -i
+```
+
+**What you see with --internal:**
+- Anna dispatching cases to team members
+- Junior specialists reviewing answers
+- Senior escalation conversations
+- Team collaboration dialogue
+
+**Example Internal Mode Output:**
+```
+[you] what is my disk usage?
+
+Checking disk space...
+
+--- Internal ---
+Anna: Hey Lars! I have a case for you. CN-ABC12345
+Lars (Storage Engineer): Got it, Anna. I've reviewed the data. Looks good, confidence 85%.
+
+[anna]
+Your disk usage:
+- /: 45% used
+
+Storage & Filesystems | Based on system data | 85%
+```
+
+**CLI Changes:**
+- Added `--internal` / `-i` global flag to annactl
+- Works with both REPL and one-shot modes
+- Shows `[internal mode]` indicator when active
+
+**Code Changes:**
+- `main.rs`: Added show_internal CLI argument
+- `commands.rs`: Pass show_internal through handlers
+- `transcript_render.rs`: Already had render_with_options, now used
+
 ## [0.0.82] - 2025-12-06
 
 ### Added - Theatre REPL Greeting (Phase 2)

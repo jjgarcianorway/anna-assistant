@@ -59,7 +59,8 @@ async fn send_request_with_progress(prompt: &str, debug_mode: bool) -> Result<Se
 }
 
 /// Handle a single request (one-shot mode)
-pub async fn handle_request(prompt: &str) -> Result<()> {
+/// v0.0.83: Added show_internal parameter for IT department view
+pub async fn handle_request(prompt: &str, show_internal: bool) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
     let status = client.status().await?;
     let debug_mode = status.debug_mode;
@@ -81,12 +82,14 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
         clear_spinner();
     }
 
-    transcript_render::render(&result, debug_mode);
+    // v0.0.83: Pass show_internal to renderer
+    transcript_render::render_with_options(&result, debug_mode, show_internal);
     Ok(())
 }
 
 /// Handle REPL mode
-pub async fn handle_repl() -> Result<()> {
+/// v0.0.83: Added show_internal parameter for IT department view
+pub async fn handle_repl(show_internal: bool) -> Result<()> {
     // Get daemon status for greeting and debug mode
     let (debug_mode, status) = {
         let status = match AnnadClient::connect().await {
@@ -100,6 +103,12 @@ pub async fn handle_repl() -> Result<()> {
 
     // v0.0.82: Theatre-style greeting with status awareness
     greeting::print_theatre_greeting(status.as_ref());
+
+    // v0.0.83: Show internal mode indicator
+    if show_internal {
+        println!("{}[internal mode]{} Showing IT department communications\n",
+            colors::WARN, colors::RESET);
+    }
 
     // Check if LLM needs bootstrap
     if let Some(ref st) = status {
@@ -206,7 +215,8 @@ pub async fn handle_repl() -> Result<()> {
                         if !debug_mode {
                             clear_spinner();
                         }
-                        transcript_render::render(&result, debug_mode);
+                        // v0.0.83: Pass show_internal to renderer
+                        transcript_render::render_with_options(&result, debug_mode, show_internal);
 
                         // Check for clarification request
                         if let Some(req) = &result.clarification_request {
