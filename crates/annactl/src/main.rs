@@ -19,7 +19,7 @@ mod transcript_render;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
+use crate::commands::{handle_feedback, handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
 use crate::report_cmd::handle_report;
 
 /// Anna - Local AI Assistant
@@ -71,6 +71,17 @@ enum Command {
         /// Change ID to undo (from history)
         id: String,
     },
+    /// v0.0.103: Submit feedback for a recipe answer
+    Feedback {
+        /// Recipe ID to give feedback for
+        recipe_id: String,
+        /// Rating: helpful, partial, or not-helpful
+        #[arg(long, short, default_value = "helpful")]
+        rating: String,
+        /// Optional comment
+        #[arg(long, short)]
+        comment: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -86,6 +97,9 @@ async fn main() -> Result<()> {
         Some(Command::Reset) => handle_reset().await,
         Some(Command::History) => handle_history().await,
         Some(Command::Undo { id }) => handle_undo(&id).await,
+        Some(Command::Feedback { recipe_id, rating, comment }) => {
+            handle_feedback(&recipe_id, &rating, comment).await
+        }
         None => {
             if cli.request.is_empty() {
                 // No args - enter REPL mode

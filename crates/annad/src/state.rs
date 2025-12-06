@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use anna_shared::ledger::Ledger;
 use anna_shared::progress::ProgressEvent;
+use anna_shared::recipe_index::RecipeIndex;
 use anna_shared::rpc::ProbeResult;
 use anna_shared::stats::GlobalStats;
 use anna_shared::status::{
@@ -139,6 +140,8 @@ pub struct DaemonStateInner {
     pub latency: PipelineLatency,
     /// v0.0.79: Global statistics (requests, fast-path hits, etc.)
     pub stats: GlobalStats,
+    /// v0.0.101: Recipe index for fast path recipe matching
+    pub recipe_index: RecipeIndex,
 }
 
 /// Update state tracking
@@ -192,6 +195,7 @@ impl DaemonStateInner {
             config: Config::load(),
             latency: PipelineLatency::default(),
             stats: GlobalStats::new(),
+            recipe_index: RecipeIndex::build_from_disk(),
         }
     }
 

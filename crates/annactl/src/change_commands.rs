@@ -192,3 +192,52 @@ pub async fn handle_undo(id: &str) -> Result<()> {
 
     Ok(())
 }
+
+/// v0.0.103: Handle feedback command - submit feedback for a recipe
+pub async fn handle_feedback(recipe_id: &str, rating: &str, comment: Option<String>) -> Result<()> {
+    use anna_shared::recipe_feedback::{FeedbackRating, RecipeFeedback};
+    use anna_shared::rpc::RpcMethod;
+    use crate::client::AnnadClient;
+
+    println!();
+
+    // Parse rating
+    let feedback_rating = match rating.to_lowercase().as_str() {
+        "helpful" | "good" | "yes" | "y" => FeedbackRating::Helpful,
+        "not-helpful" | "bad" | "no" | "n" => FeedbackRating::NotHelpful,
+        "partial" | "ok" | "meh" => FeedbackRating::Partial,
+        _ => {
+            println!("{}Error:{} Invalid rating '{}'. Use: helpful, partial, or not-helpful",
+                colors::ERR, colors::RESET, rating);
+            return Ok(());
+        }
+    };
+
+    // Create feedback
+    let mut feedback = RecipeFeedback::new(recipe_id, feedback_rating);
+    if let Some(c) = comment {
+        feedback = feedback.with_comment(c);
+    }
+
+    // Send to daemon
+    let mut client = AnnadClient::connect().await?;
+    let response = client
+        .call(RpcMethod::RecipeFeedback, Some(serde_json::to_value(&feedback)?))
+        .await?;
+
+    if response.error.is_none() {
+        println!(
+            "{}{}{}  Feedback submitted for recipe '{}'",
+            colors::OK, symbols::OK, colors::RESET, recipe_id
+        );
+        if let Some(result) = response.result {
+            if let Some(msg) = result.get("message").and_then(|m| m.as_str()) {
+                println!("    {}", msg);
+            }
+        }
+    } else if let Some(err) = response.error {
+        println!("{}Error:{} {}", colors::ERR, colors::RESET, err.message);
+    }
+
+    Ok(())
+}

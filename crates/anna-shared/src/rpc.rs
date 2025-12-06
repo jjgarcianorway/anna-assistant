@@ -32,6 +32,8 @@ pub enum RpcMethod {
     ApplyChange,
     /// v0.0.95: Rollback a change using backup
     RollbackChange,
+    /// v0.0.103: Submit feedback for a recipe answer
+    RecipeFeedback,
 }
 
 /// v0.0.73: Response from GetDaemonInfo RPC call

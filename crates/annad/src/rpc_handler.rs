@@ -21,6 +21,7 @@ use crate::fast_path_handler::{build_fast_path_result, force_fast_path_fallback,
 use crate::handlers;
 use crate::probe_runner;
 use crate::progress_tracker::ProgressTracker;
+use crate::recipe_fast_path;
 use crate::router;
 use crate::service_desk;
 use crate::specialist_handler::{try_specialist_llm, SpecialistResult};
@@ -58,6 +59,7 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         RpcMethod::PlanChange => handlers::handle_plan_change(id, request.params).await,
         RpcMethod::ApplyChange => handlers::handle_apply_change(id, request.params).await,
         RpcMethod::RollbackChange => handlers::handle_rollback_change(id, request.params).await,
+        RpcMethod::RecipeFeedback => handlers::handle_recipe_feedback(id, request.params).await,
     }
 }
 
@@ -203,10 +205,45 @@ async fn handle_llm_request_inner(
     let det_route = router::get_route(query);
     info!("Router: class={:?}, domain={}, probes={:?}", det_route.class, det_route.domain, det_route.probes);
 
-    // Step 2: Route based on query class
-    let (mut ticket, triage_result, translator_timed_out) = if det_route.class == router::QueryClass::Unknown {
-        // Unknown class -> use triage path with LLM translator
-        triage_path(&state, query, &llm_config, &translator_model, hw_cores, hw_ram_gb, has_gpu, &mut progress).await
+    // Step 2: Route based on query class (v0.0.101: check recipes first for Unknown)
+    // v0.0.102: Also check for ConfigureShell/ConfigureGit which are recipe-first
+    let should_check_recipes = det_route.class == router::QueryClass::Unknown
+        || det_route.class == router::QueryClass::ConfigureShell
+        || det_route.class == router::QueryClass::ConfigureGit;
+
+    let (mut ticket, triage_result, translator_timed_out) = if should_check_recipes {
+        // v0.0.101: Check recipe index BEFORE calling LLM translator
+        let recipe_index = &state.read().await.recipe_index;
+        let recipe_result = recipe_fast_path::check_recipe_fast_path(query, recipe_index);
+
+        // v0.0.102: If recipe can answer directly, return immediately!
+        if recipe_fast_path::can_answer_directly(&recipe_result) {
+            let recipe = recipe_result.recipe.as_ref().unwrap();
+            info!("Recipe direct answer: id={}, score={}", recipe.id, recipe_result.score);
+
+            progress.add_translator_message(
+                &format!("Recipe match: {} (score {})", recipe.id, recipe_result.score)
+            );
+
+            let result = recipe_fast_path::build_recipe_result(
+                request_id,
+                recipe,
+                &recipe_result.matched_tokens,
+                progress.take_transcript(),
+            );
+            return success_with_learning(id, result);
+        }
+
+        if recipe_result.skip_llm {
+            // Recipe matched but no direct answer - skip LLM, continue with probes
+            info!("Recipe fast path hit: score={}, tokens={:?}", recipe_result.score, recipe_result.matched_tokens);
+            let ticket = recipe_result.ticket.unwrap_or_else(|| router::apply_deterministic_routing(query, None));
+            (ticket, None, false)
+        } else {
+            // No recipe match or low confidence - fall back to LLM translator
+            let (ticket, triage, timeout) = triage_path(&state, query, &llm_config, &translator_model, hw_cores, hw_ram_gb, has_gpu, &mut progress).await;
+            (ticket, triage, timeout)
+        }
     } else {
         // Known class -> deterministic ticket
         let ticket = router::apply_deterministic_routing(query, None);

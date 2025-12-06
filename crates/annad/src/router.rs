@@ -79,6 +79,10 @@ pub enum QueryClass {
     InstallPackage,
     /// v0.0.99: Manage service: "restart docker", "start sshd"
     ManageService,
+    /// v0.0.101: Configure shell: "enable syntax highlighting in zsh", "colored prompt bash"
+    ConfigureShell,
+    /// v0.0.101: Configure git: "configure git aliases", "set git username"
+    ConfigureGit,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -115,6 +119,8 @@ impl std::fmt::Display for QueryClass {
             Self::ConfigFileLocation => "config_file_location",
             Self::InstallPackage => "install_package",
             Self::ManageService => "manage_service",
+            Self::ConfigureShell => "configure_shell",
+            Self::ConfigureGit => "configure_git",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -154,6 +160,8 @@ impl QueryClass {
             "config_file_location" => Some(Self::ConfigFileLocation),
             "install_package" => Some(Self::InstallPackage),
             "manage_service" => Some(Self::ManageService),
+            "configure_shell" => Some(Self::ConfigureShell),
+            "configure_git" => Some(Self::ConfigureGit),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -179,7 +187,13 @@ impl QueryClass {
     /// v0.0.99: Check if this class requires confirmation before action
     /// These modify the system (install, service control)
     pub fn needs_confirmation(&self) -> bool {
-        matches!(self, Self::InstallPackage | Self::ManageService | Self::ConfigureEditor)
+        matches!(self, Self::InstallPackage | Self::ManageService | Self::ConfigureEditor
+            | Self::ConfigureShell | Self::ConfigureGit)
+    }
+
+    /// v0.0.101: Check if this class is recipe-first (answered from recipes, skip LLM)
+    pub fn is_recipe_first(&self) -> bool {
+        matches!(self, Self::ConfigureShell | Self::ConfigureGit)
     }
 
     /// Get the fact key needed for clarification (v0.45.5)
@@ -631,6 +645,34 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
+        // v0.0.101: Configure shell - recipe-based, no LLM needed
+        QueryClass::ConfigureShell => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Request,
+            probes: vec![], // Recipe provides the answer
+            capability: RouteCapability {
+                can_answer_deterministically: true, // Recipe-based
+                evidence_required: false, // No probes needed
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.101: Configure git - recipe-based, no LLM needed
+        QueryClass::ConfigureGit => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Request,
+            probes: vec![], // Recipe provides the answer
+            capability: RouteCapability {
+                can_answer_deterministically: true, // Recipe-based
+                evidence_required: false, // No probes needed
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
         // Unknown - full LLM path
         QueryClass::Unknown => DeterministicRoute {
             class,
@@ -801,7 +843,8 @@ mod tests {
             QueryClass::InstalledToolCheck, QueryClass::AppAlternatives,
             QueryClass::ConfigureEditor, QueryClass::MetaSmallTalk,
             QueryClass::KernelVersion, QueryClass::ConfigFileLocation,
-            QueryClass::InstallPackage, QueryClass::ManageService, QueryClass::Unknown,
+            QueryClass::InstallPackage, QueryClass::ManageService,
+            QueryClass::ConfigureShell, QueryClass::ConfigureGit, QueryClass::Unknown,
         ];
 
         let mut failures = Vec::new();

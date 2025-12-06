@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.103] - 2025-12-06
+
+### Added - Recipe Feedback System (Phase 23)
+
+**User Feedback for Recipe Answers**
+
+Users can now rate whether a recipe answer was helpful. Feedback adjusts
+recipe reliability scores, improving future matches.
+
+**Key Changes**:
+
+- `recipe_feedback.rs` - New module with FeedbackRating enum, RecipeFeedback struct
+- `FeedbackRating::Helpful` - Increases reliability_score (+1, max 99) and success_count
+- `FeedbackRating::NotHelpful` - Decreases reliability_score (-5, min 50)
+- `FeedbackRating::Partial` - Increases success_count only
+- `log_feedback()` - Appends all feedback to `~/.anna/feedback_history.jsonl`
+- `apply_feedback()` - Updates recipe file on disk
+
+**New CLI Command**:
+```
+annactl feedback <recipe_id> -r <rating> [-c "optional comment"]
+```
+
+Rating options: `helpful`, `partial`, `not-helpful` (aliases: good/yes, ok/meh, bad/no)
+
+**New RPC Method**: `RecipeFeedback`
+
+This closes the learning loop: Anna learns recipes from specialists,
+applies them instantly, and improves based on user feedback.
+
+## [0.0.102] - 2025-12-06
+
+### Added - Recipe Direct Answers (Phase 22)
+
+**Recipe-Based Direct Answers - Skip Everything!**
+
+When a recipe matches with high confidence AND has an answer template,
+Anna now returns the answer immediately without running probes or calling
+specialists. This makes responses near-instant for learned patterns.
+
+**Key Changes**:
+
+- `build_recipe_result()` - Creates ServiceDeskResult directly from recipe
+- `can_answer_directly()` - Checks if recipe has an answer template
+- Early return in `rpc_handler.rs` when recipe can answer directly
+- Refactored `team_to_domain()` helper for cleaner code
+
+**Performance Impact**:
+
+For queries like "enable syntax highlighting in zsh":
+- Before: Router → Translator (LLM) → Probes → Specialist (LLM) → Answer
+- After: Router → Recipe Match → Answer (instant!)
+
+This completes the recipe learning vision: Anna learns from specialists,
+then applies learned recipes instantly without any LLM calls.
+
+## [0.0.101] - 2025-12-06
+
+### Added - Recipe Fast Path Integration (Phase 21)
+
+**Recipe Fast Path - Skip LLM for Learned Queries**
+
+Wired the recipe matcher into the main request handler:
+
+- `recipe_fast_path.rs` - Checks recipes BEFORE calling LLM translator
+- Recipe index is built from disk at daemon startup and stored in state
+- High-confidence recipe matches skip LLM entirely (score >= 70)
+
+**Key Flow**:
+1. User query comes in (e.g., "enable syntax highlighting in zsh")
+2. Router classifies as Unknown -> triggers recipe check
+3. Recipe fast path matches built-in zsh syntax highlighting recipe
+4. Ticket created from recipe, LLM translator skipped entirely
+5. User gets instant response with configuration instructions
+
+**New Query Classes**
+- `ConfigureShell` - Shell config queries (bash, zsh, fish)
+- `ConfigureGit` - Git config queries
+
+**Recipe Sources Checked (in order)**:
+1. Learned recipes from RecipeIndex (saved from previous successful results)
+2. Built-in shell recipes (colored prompt, git prompt, syntax highlighting, etc.)
+3. Built-in git recipes (user identity, aliases, editor, etc.)
+
+This implements the user's vision: Anna LEARNS from specialists and can
+apply learned recipes to SIMILAR queries without LLM, making responses
+near-instant for known patterns.
+
 ## [0.0.100] - 2025-12-06
 
 ### Added - Recipe Matcher & Config Recipes (Phase 20)

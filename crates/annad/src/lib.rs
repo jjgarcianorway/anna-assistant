@@ -1,6 +1,8 @@
 //! Anna daemon library - exposes modules for testing.
 //! v0.0.75: UX realism, stats integration, benchmark scheduler.
 //! v0.0.99: Package install and service management.
+//! v0.0.101: Recipe fast path - skip LLM for learned queries.
+//! v0.0.102: Recipe direct answers - skip probes too.
 
 pub mod action_handlers;
 pub mod answers;
@@ -24,6 +26,7 @@ pub mod progress_tracker;
 pub mod prompts;
 pub mod query_classify;
 pub mod rag_answerer;
+pub mod recipe_fast_path;
 pub mod redact;
 pub mod router;
 #[cfg(test)]

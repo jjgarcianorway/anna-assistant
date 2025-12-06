@@ -1,30 +1,66 @@
 # Anna Roadmap
 
-## Current Focus (v0.0.99+)
+## Current Focus (v0.0.103+)
 
-**Theme**: Hollywood IT Department Experience
+**Theme**: Hollywood IT Department Experience + Learning System
 
 Anna aims to provide a cinematic, old-school terminal experience with ASCII art styling,
-named IT personas, and RPG-style progression.
+named IT personas, and RPG-style progression. The learning system allows Anna to
+skip the slow LLM path for queries similar to ones she's seen before.
 
 ### Active Development
-- [x] Service Desk Theatre with named personas
-- [x] ASCII-style achievement badges (no emojis)
-- [x] Time-aware personalized greetings
-- [x] RPG stats with XP, levels, and titles
 - [x] Recipe learning system (v0.0.94)
 - [x] Safe change engine with rollback (v0.0.95)
 - [x] Desktop team flow with CLI confirmation (v0.0.96)
 - [x] Change history and undo (v0.0.97)
 - [x] Multi-file change transactions (v0.0.98)
-- [x] Package installation recipes (v0.0.98)
-- [x] Service configuration recipes (v0.0.98)
-- [ ] Package install via natural language
-- [ ] Service management via natural language
+- [x] Package/service recipes (v0.0.98)
+- [x] Natural language package install (v0.0.99)
+- [x] Natural language service management (v0.0.99)
+- [x] Recipe matcher for fast path (v0.0.100)
+- [x] Shell config recipes (v0.0.100)
+- [x] Git config recipes (v0.0.100)
+- [x] Recipe fast path integration (v0.0.101)
+- [x] Recipe-based direct answers (v0.0.102)
+- [x] Recipe success tracking and feedback (v0.0.103)
+- [x] User feedback improves recipe confidence (v0.0.103)
 
 ---
 
 ## Completed
+
+### v0.0.103 - Recipe Feedback System (Phase 23) ✓
+- [x] `recipe_feedback.rs` module with FeedbackRating, RecipeFeedback
+- [x] `annactl feedback <recipe_id> -r <rating>` CLI command
+- [x] RecipeFeedback RPC method
+- [x] Feedback adjusts recipe reliability_score (+1 helpful, -5 not-helpful)
+- [x] Feedback history logged to ~/.anna/feedback_history.jsonl
+
+### v0.0.102 - Recipe Direct Answers (Phase 22) ✓
+- [x] Direct answer from recipe template (skip probes too)
+- [x] `build_recipe_result()` creates ServiceDeskResult from recipe
+- [x] `can_answer_directly()` checks for answer template
+- [x] Instant responses for learned patterns
+
+### v0.0.101 - Recipe Fast Path Integration (Phase 21) ✓
+- [x] Recipe index built at daemon startup
+- [x] Recipe check BEFORE calling LLM translator
+- [x] High-confidence recipes skip LLM (score >= 70)
+- [x] ConfigureShell and ConfigureGit query classes
+- [x] Shell/git config query routing
+
+### v0.0.100 - Recipe Matcher & Config Recipes (Phase 20) ✓
+- [x] Recipe matcher for translator fast-path
+- [x] Shell configuration recipes (bash, zsh, fish)
+- [x] Git configuration recipes
+- [x] New RecipeKind variants (ShellConfig, GitConfig)
+
+### v0.0.99 - Natural Language Package & Service Management (Phase 19) ✓
+- [x] Package install via natural language ("install htop")
+- [x] Service management via natural language ("restart docker")
+- [x] Cross-distro package name mapping
+- [x] Protected service detection
+- [x] QueryClass: InstallPackage, ManageService
 
 ### v0.0.98 - Multi-file Transactions & Recipe Systems (Phase 18) ✓
 - [x] ChangeTransaction for atomic multi-file changes
@@ -190,9 +226,8 @@ named IT personas, and RPG-style progression.
 
 ## Planned
 
-### v0.0.99+ - Future
-- [ ] Package install via natural language ("install htop")
-- [ ] Service management via natural language ("restart docker")
-- [ ] Shell configuration recipes (.bashrc, .zshrc)
-- [ ] Git configuration recipes (.gitconfig)
-- [ ] SSH key management
+### v0.0.104+ - Future
+- [ ] SSH key management recipes
+- [ ] Systemd unit file recipes
+- [ ] Cron job recipes
+- [ ] Docker compose recipes

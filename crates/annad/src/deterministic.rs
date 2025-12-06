@@ -79,6 +79,10 @@ pub fn try_answer(
         QueryClass::InstallPackage => None,
         // v0.0.99: ManageService - needs user confirmation, handled in rpc_handler
         QueryClass::ManageService => None,
+        // v0.0.101: ConfigureShell - recipe-based, handled in recipe_fast_path
+        QueryClass::ConfigureShell => None,
+        // v0.0.101: ConfigureGit - recipe-based, handled in recipe_fast_path
+        QueryClass::ConfigureGit => None,
         QueryClass::Unknown => None,
     }
 }

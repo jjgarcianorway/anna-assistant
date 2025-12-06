@@ -43,6 +43,7 @@ pub mod person_stats;
 pub mod probe_spine;
 pub mod progress;
 pub mod recipe;
+pub mod recipe_feedback;
 pub mod recipe_index;
 pub mod recipe_learning;
 pub mod recipe_matcher;

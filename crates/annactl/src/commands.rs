@@ -287,7 +287,7 @@ fn print_repl_help() {
 
 // v0.0.97: Change management functions moved to change_commands.rs
 use crate::change_commands::handle_proposed_change;
-pub use crate::change_commands::{handle_history, handle_undo};
+pub use crate::change_commands::{handle_feedback, handle_history, handle_undo};
 
 /// Handle request error with recovery
 async fn handle_request_error(e: &anyhow::Error) -> Result<()> {

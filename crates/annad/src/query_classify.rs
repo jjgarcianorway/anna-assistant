@@ -380,5 +380,26 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::ManageService;
     }
 
+    // v0.0.101: Configure shell - "colored prompt in bash", "syntax highlighting zsh"
+    let is_shell_config = (q.contains("bash") || q.contains("zsh") || q.contains("fish")
+        || q.contains("bashrc") || q.contains("zshrc"))
+        && (q.contains("color") || q.contains("prompt") || q.contains("syntax")
+            || q.contains("highlight") || q.contains("history") || q.contains("alias")
+            || q.contains("auto") && q.contains("suggest"));
+    if is_shell_config {
+        return QueryClass::ConfigureShell;
+    }
+
+    // v0.0.101: Configure git - "configure git aliases", "git username", "git email"
+    let is_git_config = q.contains("git")
+        && (q.contains("config") || q.contains("alias") || q.contains("username")
+            || q.contains("user") || q.contains("email") || q.contains("editor")
+            || q.contains("default branch") || q.contains("color")
+            || q.contains("autocorrect") || q.contains("pull")
+            || q.contains("credential") || q.contains("gpg") || q.contains("sign"));
+    if is_git_config {
+        return QueryClass::ConfigureGit;
+    }
+
     QueryClass::Unknown
 }
