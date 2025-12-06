@@ -5,7 +5,6 @@ use anna_shared::progress::ProgressEvent;
 use anna_shared::rpc::{DaemonInfo, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
 use anna_shared::stats::GlobalStats;
 use anna_shared::status::DaemonStatus;
-use anna_shared::status_snapshot::StatusSnapshot;
 use anna_shared::SOCKET_PATH;
 use anyhow::{anyhow, Result};
 use std::path::Path;
@@ -118,21 +117,6 @@ impl AnnadClient {
             .ok_or_else(|| anyhow!("No result in response"))?;
         let status: DaemonStatus = serde_json::from_value(result)?;
         Ok(status)
-    }
-
-    /// Get comprehensive status snapshot (v0.0.29)
-    pub async fn status_snapshot(&mut self) -> Result<StatusSnapshot> {
-        let response = self.call(RpcMethod::StatusSnapshot, None).await?;
-
-        if let Some(error) = response.error {
-            return Err(anyhow!("Status snapshot error: {}", error.message));
-        }
-
-        let result = response
-            .result
-            .ok_or_else(|| anyhow!("No result in response"))?;
-        let snapshot: StatusSnapshot = serde_json::from_value(result)?;
-        Ok(snapshot)
     }
 
     /// Send a natural language request - returns full service desk result

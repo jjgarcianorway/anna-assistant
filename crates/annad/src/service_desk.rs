@@ -246,7 +246,7 @@ pub fn create_clarification_with_options(
     transcript: Transcript,
 ) -> ServiceDeskResult {
     use anna_shared::clarify_v2::{ClarifyRequest, ClarifyOption};
-    use anna_shared::trace::{ProbeStats, ExecutionTrace, EvidenceKind, evidence_kinds_from_probes};
+    use anna_shared::trace::{ProbeStats, ExecutionTrace, evidence_kinds_from_probes};
     use uuid::Uuid;
 
     // v0.0.62: Count valid evidence from probes
@@ -256,8 +256,6 @@ pub fn create_clarification_with_options(
             .filter(|p| parse_probe_result(p).is_valid_evidence())
             .count()
     };
-
-    let has_probes = !probe_results.is_empty();
     let has_valid_evidence = valid_evidence_count > 0;
 
     let signals = ReliabilitySignals {

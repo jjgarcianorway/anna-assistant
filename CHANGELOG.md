@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.88] - 2025-12-06
+
+### Changed - Codebase Cleanup (Phase 8)
+
+**Removed Unused Code**
+
+Cleaned up all compiler warnings across the workspace:
+
+- **annactl/theatre_render.rs**: Removed unused `Tier` import and `had_junior_review` variable
+- **annactl/client.rs**: Removed unused `status_snapshot()` method and `StatusSnapshot` import
+- **annactl/display.rs**: Removed unused `print_repl_greeting()`, `print_repl_header()`, and `format_delta_plain()` functions; cleaned up unused imports
+- **annactl/transcript_render.rs**: Changed `AnswerSource::Transcript` to unit variant (was storing unused string)
+- **annad/deterministic.rs**: Removed unused `find_tool_evidence` and `find_package_evidence` imports
+- **annad/handlers.rs**: Removed unused `GlobalStats` import
+- **annad/health_brief_builder.rs**: Moved types to test module where they're needed
+- **annad/rpc_handler.rs**: Removed unused `error` and `DeterministicResult` imports
+- **annad/service_desk.rs**: Removed unused `EvidenceKind` import and `has_probes` variable
+- **annad/verify_probes.rs**: Removed unused `VERIFY_PROBE_TIMEOUT_SECS` constant
+
+**Result**
+- Zero compiler warnings in the main codebase
+- Reduced binary size through dead code elimination
+- Cleaner, more maintainable code
+
 ## [0.0.87] - 2025-12-06
 
 ### Added - Enhanced Theatre Dialogue (Phase 7)

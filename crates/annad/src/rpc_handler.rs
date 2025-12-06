@@ -12,10 +12,10 @@ use anna_shared::trace::{
 use anna_shared::transcript::TranscriptEvent;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 use crate::config::LlmConfig;
-use crate::deterministic::{self, DeterministicResult};
+use crate::deterministic;
 use crate::fast_path_handler::{build_fast_path_result, force_fast_path_fallback, is_health_query, try_fast_path_answer};
 use crate::handlers;
 use crate::probe_runner;

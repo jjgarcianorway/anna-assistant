@@ -7,7 +7,6 @@ use anna_shared::pending::clear_pending;
 use anna_shared::recipe::clear_all_recipes;
 use anna_shared::rpc::{ProbeParams, RpcResponse};
 use anna_shared::snapshot::clear_snapshots;
-use anna_shared::stats::GlobalStats;
 use tracing::{error, info, warn};
 
 use crate::ollama;

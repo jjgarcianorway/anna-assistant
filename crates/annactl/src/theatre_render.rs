@@ -4,8 +4,6 @@
 //! Shows the IT department working like a fly on the wall.
 
 use anna_shared::narrator::{it_confidence, it_domain_context};
-use anna_shared::roster::Tier;
-#[allow(unused_imports)]  // Used in build_narrative for team lookups
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::teams::Team;
 use anna_shared::theatre::{describe_check, NarrativeBuilder, NarrativeSegment, Speaker};
@@ -76,13 +74,11 @@ fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<Narra
     }
 
     // Check for junior/senior review events
-    let mut had_junior_review = false;
     let mut had_escalation = false;
 
     for event in &result.transcript.events {
         match &event.kind {
             TranscriptEventKind::JuniorReview { score, verified, .. } => {
-                had_junior_review = true;
                 if show_internal {
                     builder.add_junior_review(team, *verified, *score);
                 }
@@ -98,7 +94,7 @@ fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<Narra
                     }
                 }
             }
-            TranscriptEventKind::TeamReview { team: t, reviewer, .. } => {
+            TranscriptEventKind::TeamReview { reviewer, .. } => {
                 if show_internal && reviewer == "senior" {
                     // Senior was involved
                     had_escalation = true;

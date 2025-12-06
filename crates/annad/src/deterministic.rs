@@ -373,7 +373,7 @@ fn answer_package_count(probes: &[ProbeResult], route_class: &str) -> Option<Det
 /// Handles both command_v probes AND pacman -Q probes.
 /// Exit code 1 is VALID NEGATIVE EVIDENCE, not an error!
 fn answer_installed_tool_check(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
-    use anna_shared::parsers::{parse_probe_result, ParsedProbeData, find_tool_evidence, find_package_evidence};
+    use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
 
     // v0.45.7: Parse all probes to typed evidence
     let parsed: Vec<ParsedProbeData> = probes.iter()

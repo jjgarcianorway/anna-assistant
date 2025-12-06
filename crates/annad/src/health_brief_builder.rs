@@ -2,7 +2,7 @@
 //!
 //! Uses existing parsers to extract actionable health items from probe outputs.
 
-use anna_shared::health_brief::{BriefItemKind, BriefSeverity, HealthBrief, BriefItem};
+use anna_shared::health_brief::HealthBrief;
 use anna_shared::rpc::ProbeResult;
 
 use crate::parsers::{find_probe, parse_df_h, parse_ps_aux};
@@ -167,6 +167,7 @@ pub fn build_health_answer(probes: &[ProbeResult]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anna_shared::health_brief::{BriefItemKind, BriefSeverity};
 
     fn mock_probe(cmd: &str, stdout: &str) -> ProbeResult {
         ProbeResult {

@@ -9,9 +9,6 @@ use anna_shared::rpc::ProbeResult;
 use std::process::Command;
 use tracing::{info, warn};
 
-/// Maximum timeout for verification probes (in seconds)
-const VERIFY_PROBE_TIMEOUT_SECS: u64 = 5;
-
 /// Run a verification probe and return the result
 pub fn run_verify_probe(plan: &VerifyPlan, user_answer: &str) -> VerificationResult {
     match plan {

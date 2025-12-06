@@ -1,4 +1,4 @@
-//! Dialogue variety system for Service Desk Theatre (v0.0.87).
+//! Dialogue variety system for Service Desk Theatre (v0.0.88).
 //!
 //! Provides varied phrases for natural-feeling IT department conversations.
 //! Uses deterministic randomness based on case IDs for consistency.

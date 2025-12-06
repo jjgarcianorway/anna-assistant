@@ -1,14 +1,12 @@
-//! Transcript rendering for consistent pipeline visibility.
+//! Transcript rendering for consistent pipeline visibility (v0.0.88).
 //!
-//! Three modes:
+//! Two modes:
 //! - debug OFF: Theatre mode - cinematic IT department experience (v0.0.81)
 //! - debug ON: Full troubleshooting view with stages and timings
-//! - internal ON: Theatre mode with internal IT communications visible
 //!
-//! INVARIANT: Exactly one [anna] block per request regardless of mode.
-//! The final answer source is determined by `get_final_answer()`.
+//! v0.0.88: Removed unused render_clean functions (theatre_render is used instead).
 
-use anna_shared::narrator::{it_confidence, it_domain_context, status_indicator};
+use anna_shared::narrator::status_indicator;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::transcript::{Actor, StageOutcome, TranscriptEventKind};
 use anna_shared::ui::colors;
@@ -18,7 +16,8 @@ use crate::theatre_render;
 
 /// Source of the final answer for display
 enum AnswerSource<'a> {
-    Transcript(&'a str),
+    /// Answer is in the transcript (FinalAnswer event)
+    Transcript,
     Clarification(&'a str),
     Answer(&'a str),
     Empty,
@@ -27,10 +26,10 @@ enum AnswerSource<'a> {
 /// INVARIANT: Single source of truth for the final answer.
 fn get_final_answer(result: &ServiceDeskResult) -> AnswerSource<'_> {
     for event in &result.transcript.events {
-        if let TranscriptEventKind::FinalAnswer { text } = &event.kind {
+        if let TranscriptEventKind::FinalAnswer { .. } = &event.kind {
             debug_assert!(event.from == Actor::Anna, "FinalAnswer should be from Anna");
             debug_assert!(event.to == Some(Actor::You), "FinalAnswer should be to You");
-            return AnswerSource::Transcript(text);
+            return AnswerSource::Transcript;
         }
     }
     if result.needs_clarification {
@@ -45,12 +44,6 @@ fn get_final_answer(result: &ServiceDeskResult) -> AnswerSource<'_> {
     AnswerSource::Empty
 }
 
-/// Render transcript based on debug mode setting
-/// v0.0.81: Clean mode now uses theatre rendering
-pub fn render(result: &ServiceDeskResult, debug_mode: bool) {
-    render_with_options(result, debug_mode, false)
-}
-
 /// Render with explicit internal communications option
 pub fn render_with_options(result: &ServiceDeskResult, debug_mode: bool, show_internal: bool) {
     if debug_mode {
@@ -62,200 +55,12 @@ pub fn render_with_options(result: &ServiceDeskResult, debug_mode: bool, show_in
     }
 }
 
-/// Render in clean mode (debug OFF) - user-facing IT department format (v0.0.28)
-/// v0.0.63: Service Desk Theatre with narrative flow
-fn render_clean(result: &ServiceDeskResult, output_mode: OutputMode) {
-    println!();
-
-    // Show user query (v0.45.x: bracketed labels [you]/[anna])
-    for event in &result.transcript.events {
-        if let TranscriptEventKind::Message { text } = &event.kind {
-            if event.from == Actor::You {
-                println!("{}[you]{} {}\n", colors::CYAN, colors::RESET, text);
-                break;
-            }
-        }
-    }
-
-    // v0.0.63: Show evidence summary (what we checked, not raw output)
-    render_evidence_summary_clean(&result.evidence);
-
-    // Show anna's response with IT department style (v0.45.x: bracketed label)
-    println!("{}[anna]{}", colors::OK, colors::RESET);
-    match get_final_answer(result) {
-        AnswerSource::Transcript(t) | AnswerSource::Answer(t) => {
-            println!("{}", format_for_output(t, output_mode));
-        }
-        AnswerSource::Clarification(t) => {
-            // v0.0.63: Show clarification options if available
-            println!("{}", format_for_output(t, output_mode));
-            render_clarification_options_clean(result);
-        }
-        AnswerSource::Empty => println!("I need more information to help with this request."),
-    }
-    println!();
-
-    // IT department style footer with v0.0.63 evidence source
-    let rel_color = reliability_color(result.reliability_score);
-    let confidence_note = it_confidence(result.reliability_score);
-    let domain_str = result.domain.to_string();
-    let domain_context = it_domain_context(&domain_str);
-
-    // v0.0.63: Add evidence source to footer if grounded
-    let evidence_source = if result.reliability_signals.answer_grounded {
-        format_evidence_source(&result.evidence, result.execution_trace.as_ref())
-    } else {
-        String::new()
-    };
-
-    if evidence_source.is_empty() {
-        println!(
-            "{}{} | {} | {}{}%{}",
-            colors::DIM, domain_context, confidence_note,
-            rel_color, result.reliability_score, colors::RESET
-        );
-    } else {
-        println!(
-            "{}{} | {} | {}{}%{} | {}{}",
-            colors::DIM, domain_context, confidence_note,
-            rel_color, result.reliability_score, colors::RESET,
-            colors::DIM, evidence_source
-        );
-    }
-}
-
-/// v0.0.63: Show brief evidence summary without raw probe output
-fn render_evidence_summary_clean(evidence: &anna_shared::rpc::EvidenceBlock) {
-    if evidence.probes_executed.is_empty() {
-        return;
-    }
-
-    let probe_count = evidence.probes_executed.len();
-    let success_count = evidence.probes_executed.iter().filter(|p| p.exit_code == 0).count();
-
-    // Describe what we checked based on probe commands
-    let check_description = describe_probes_checked(&evidence.probes_executed);
-
-    if !check_description.is_empty() {
-        println!("{}{}...{}\n", colors::DIM, check_description, colors::RESET);
-    } else if success_count > 0 {
-        println!(
-            "{}Checked {} data source{}...{}\n",
-            colors::DIM,
-            probe_count,
-            if probe_count == 1 { "" } else { "s" },
-            colors::RESET
-        );
-    }
-}
-
-/// v0.0.63: Describe what probes checked in human terms
-fn describe_probes_checked(probes: &[anna_shared::rpc::ProbeResult]) -> String {
-    // Categorize probes by what they check
-    let mut has_audio = false;
-    let mut has_editor = false;
-    let mut has_memory = false;
-    let mut has_disk = false;
-    let mut has_cpu = false;
-    let mut has_network = false;
-    let mut has_services = false;
-
-    for probe in probes {
-        let cmd = probe.command.to_lowercase();
-        if cmd.contains("audio") || cmd.contains("pactl") || cmd.contains("lspci") && cmd.contains("audio") {
-            has_audio = true;
-        }
-        if cmd.contains("command -v") {
-            has_editor = true;
-        }
-        if cmd.contains("free") {
-            has_memory = true;
-        }
-        if cmd.contains("df") || cmd.contains("lsblk") {
-            has_disk = true;
-        }
-        if cmd.contains("lscpu") || cmd.contains("sensors") {
-            has_cpu = true;
-        }
-        if cmd.contains("ip ") || cmd.contains("ss ") {
-            has_network = true;
-        }
-        if cmd.contains("systemctl") || cmd.contains("journalctl") {
-            has_services = true;
-        }
-    }
-
-    // Build description
-    let mut parts = Vec::new();
-    if has_audio { parts.push("audio hardware"); }
-    if has_editor { parts.push("installed editors"); }
-    if has_memory { parts.push("memory"); }
-    if has_disk { parts.push("disk"); }
-    if has_cpu { parts.push("CPU"); }
-    if has_network { parts.push("network"); }
-    if has_services { parts.push("services"); }
-
-    if parts.is_empty() {
-        return String::new();
-    }
-
-    format!("Checking {}", parts.join(", "))
-}
-
-/// v0.0.63: Show clarification options if available
-fn render_clarification_options_clean(result: &ServiceDeskResult) {
-    if let Some(ref clarify) = result.clarification_request {
-        if !clarify.options.is_empty() {
-            for (i, opt) in clarify.options.iter().enumerate() {
-                println!("  {}. {}", i + 1, opt.label);
-            }
-        }
-    }
-}
-
-/// v0.0.63: Format evidence source for footer
-fn format_evidence_source(
-    evidence: &anna_shared::rpc::EvidenceBlock,
-    trace: Option<&anna_shared::trace::ExecutionTrace>,
-) -> String {
-    // Get evidence kinds from trace if available
-    if let Some(t) = trace {
-        if !t.evidence_kinds.is_empty() {
-            let kinds: Vec<&str> = t.evidence_kinds.iter()
-                .map(|k| match k {
-                    anna_shared::trace::EvidenceKind::Audio => "lspci+pactl",
-                    anna_shared::trace::EvidenceKind::ToolExists => "command -v",
-                    anna_shared::trace::EvidenceKind::Memory => "free",
-                    anna_shared::trace::EvidenceKind::Disk => "df",
-                    anna_shared::trace::EvidenceKind::Cpu => "lscpu",
-                    anna_shared::trace::EvidenceKind::Processes => "ps",
-                    anna_shared::trace::EvidenceKind::Network => "ip",
-                    anna_shared::trace::EvidenceKind::Services => "systemctl",
-                    anna_shared::trace::EvidenceKind::Journal => "journalctl",
-                    _ => "probe",
-                })
-                .collect();
-            return format!("Verified from {}", kinds.join("+"));
-        }
-    }
-
-    // Fallback: just say verified if we have probes
-    if !evidence.probes_executed.is_empty() {
-        let success = evidence.probes_executed.iter().filter(|p| p.exit_code == 0).count();
-        if success > 0 {
-            return format!("Verified from {} probe{}", success, if success == 1 { "" } else { "s" });
-        }
-    }
-
-    String::new()
-}
-
 /// Render in debug mode - full troubleshooting view
 fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
     println!("\n{}[transcript]{} request_id={}\n", colors::DIM, colors::RESET, &result.request_id[..8]);
 
     let answer_source = get_final_answer(result);
-    let answer_in_transcript = matches!(answer_source, AnswerSource::Transcript(_));
+    let answer_in_transcript = matches!(answer_source, AnswerSource::Transcript);
     let mut last_actor: Option<Actor> = None;
 
     for event in &result.transcript.events {
@@ -466,7 +271,7 @@ fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
                 println!("{}", format_for_output(t, output_mode));
             }
             AnswerSource::Empty => println!("(no answer generated)"),
-            AnswerSource::Transcript(_) => unreachable!(),
+            AnswerSource::Transcript => unreachable!(),
         }
     }
 
