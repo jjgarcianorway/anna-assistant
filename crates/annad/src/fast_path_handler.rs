@@ -132,6 +132,7 @@ pub fn build_fast_path_result(
         clarification_request: None,
         transcript,
         execution_trace: Some(trace),
+        proposed_change: None,
     }
 }
 

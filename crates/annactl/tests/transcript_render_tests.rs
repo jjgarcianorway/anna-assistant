@@ -221,6 +221,7 @@ fn make_result(
         clarification_request: None,
         transcript,
         execution_trace: None,
+        proposed_change: None,
     }
 }
 

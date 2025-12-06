@@ -128,6 +128,7 @@ fn make_timeout_response(id: String, request_id: String, timeout_secs: u64, quer
         clarification_request: None,
         transcript: anna_shared::transcript::Transcript::default(),
         execution_trace: Some(anna_shared::trace::ExecutionTrace::global_timeout(timeout_secs)),
+        proposed_change: None,
     };
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
 }
@@ -382,9 +383,9 @@ async fn handle_llm_request_inner(
             ));
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         } else if installed_editors.len() == 1 {
-            // v0.0.59: Exactly one editor - deterministic answer, NO questions
+            // v0.0.96: Single editor - propose config change using Safe Change Engine
             let editor = &installed_editors[0];
-            let answer = build_editor_config_answer(editor);
+            let (answer, proposed_change) = build_editor_config_with_change(editor);
             save_progress(&state, &progress).await;
             // v0.0.62: Use valid_evidence_count for proper grounding
             let mut result = service_desk::build_result_with_flags(
@@ -398,6 +399,8 @@ async fn handle_llm_request_inner(
                 probe_stats,
                 evidence_kinds,
             ));
+            // v0.0.96: Set proposed change for CLI confirmation
+            result.proposed_change = proposed_change;
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         } else {
             // v0.0.66: Multiple editors - statement with numbered options, no question mark
@@ -698,6 +701,74 @@ fn build_editor_config_answer(editor: &str) -> String {
             editor
         ),
     }
+}
+
+/// v0.0.96: Build editor config answer WITH a proposed ChangePlan.
+/// Returns (answer_text, Option<ChangePlan>) for Safe Change Engine integration.
+fn build_editor_config_with_change(editor: &str) -> (String, Option<anna_shared::change::ChangePlan>) {
+    use anna_shared::editor_recipes::{ConfigFeature, Editor, get_recipe};
+    use anna_shared::change::plan_ensure_line;
+
+    // Try to get recipe from EditorRecipes module
+    if let Some(editor_enum) = Editor::from_tool_name(editor) {
+        if let Some(recipe) = get_recipe(editor_enum, ConfigFeature::SyntaxHighlighting) {
+            // Get the config file path
+            let config_file = editor_enum.config_file();
+
+            // Build the change plan for the first line in the recipe
+            // (most recipes have one key line to add)
+            let proposed_change = if !recipe.lines.is_empty() {
+                let first_line = &recipe.lines[0].line;
+                match plan_ensure_line(&config_file, first_line) {
+                    Ok(plan) => Some(plan),
+                    Err(e) => {
+                        tracing::warn!("Could not plan change for {}: {}", editor, e);
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+            // Build answer from recipe
+            let lines: Vec<String> = recipe.lines.iter()
+                .map(|l| format!("   {}", l.line))
+                .collect();
+
+            let answer = if proposed_change.is_some() {
+                format!(
+                    "I can enable syntax highlighting for {}.\n\n\
+                    This will add the following to ~/{}:\n{}\n\n\
+                    Reply 'yes' to apply this change, or 'no' to cancel.\n\
+                    To undo later: {}",
+                    editor_enum.display_name(),
+                    editor_enum.config_path(),
+                    lines.join("\n"),
+                    recipe.rollback_hint
+                )
+            } else {
+                // Fallback to manual instructions if change planning failed
+                format!(
+                    "Detected {} installed. To enable syntax highlighting:\n\
+                    1. Edit ~/{}\n\
+                    2. Add the following:\n{}\n\
+                    3. Save and reopen {}\n\n\
+                    To undo: {}",
+                    editor_enum.display_name(),
+                    editor_enum.config_path(),
+                    lines.join("\n"),
+                    editor,
+                    recipe.rollback_hint
+                )
+            };
+
+            return (answer, proposed_change);
+        }
+    }
+
+    // Fallback for GUI editors - no automated change possible
+    let answer = build_editor_config_answer(editor);
+    (answer, None)
 }
 
 #[cfg(test)]

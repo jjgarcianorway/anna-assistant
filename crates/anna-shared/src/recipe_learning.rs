@@ -255,6 +255,7 @@ mod tests {
             clarification_request: None,
             reliability_explanation: None,
             execution_trace: None,
+            proposed_change: None,
         }
     }
 

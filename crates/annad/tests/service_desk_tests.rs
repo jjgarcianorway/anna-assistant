@@ -216,6 +216,7 @@ fn test_service_desk_result_structure() {
         clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
+        proposed_change: None,
     };
 
     assert!(!result.answer.is_empty());
@@ -257,6 +258,7 @@ fn test_clarification_response_format() {
         clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
+        proposed_change: None,
     };
 
     assert!(result.needs_clarification);
@@ -361,6 +363,7 @@ fn test_response_has_all_required_fields() {
         clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
+        proposed_change: None,
     };
 
     // All required fields exist and are accessible
@@ -423,6 +426,7 @@ fn test_timeout_response_format() {
         clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
+        proposed_change: None,
     };
 
     // Timeout response must:
@@ -485,6 +489,7 @@ fn test_timeout_at_different_stages() {
             clarification_request: None,
             transcript: Transcript::new(),
             execution_trace: None,
+        proposed_change: None,
         };
 
         assert!(result.reliability_score <= 20);
@@ -533,6 +538,7 @@ fn test_evidence_includes_partial_probes_on_timeout() {
         clarification_request: None,
         transcript: Transcript::new(),
         execution_trace: None,
+        proposed_change: None,
     };
 
     // Should preserve partial probe results

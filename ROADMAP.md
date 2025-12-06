@@ -1,6 +1,6 @@
 # Anna Roadmap
 
-## Current Focus (v0.0.92+)
+## Current Focus (v0.0.96+)
 
 **Theme**: Hollywood IT Department Experience
 
@@ -12,12 +12,30 @@ named IT personas, and RPG-style progression.
 - [x] ASCII-style achievement badges (no emojis)
 - [x] Time-aware personalized greetings
 - [x] RPG stats with XP, levels, and titles
-- [ ] Recipe system for config changes
-- [ ] Safe change engine with rollback
+- [x] Recipe learning system (v0.0.94)
+- [x] Safe change engine with rollback (v0.0.95)
+- [ ] Desktop team flow: "enable syntax highlighting in vim"
+- [ ] CLI confirmation for config changes
 
 ---
 
 ## Completed
+
+### v0.0.95 - Safe Change Engine (Phase 15) ✓
+- [x] PlanChange, ApplyChange, RollbackChange RPC methods
+- [x] Backup-first, idempotent config modifications
+- [x] Extracted editor_recipe_data.rs module
+- [x] All files under 400 lines
+
+### v0.0.94 - Recipe Learning System (Phase 14) ✓
+- [x] Automatic recipe learning from successful queries
+- [x] Learning criteria: verified=true, reliability >= 80
+- [x] Recipe persistence in ~/.anna/recipes/
+- [x] Team assignment from domain
+
+### v0.0.93 - Documentation Update (Phase 13) ✓
+- [x] Updated README, ROADMAP, FEATURES for current version
+- [x] Hollywood IT aesthetic documentation
 
 ### v0.0.92 - Codebase Hygiene (Phase 12) ✓
 - [x] Zero compiler warnings across entire workspace
@@ -146,19 +164,11 @@ named IT personas, and RPG-style progression.
 - [x] Per-stage latency tracking
 - [x] Hardware-aware model selection
 
-## On Hold (until 0.45.x stabilization complete)
-
-### v0.0.27 - Recipes + Safe Change Engine
-- [ ] Recipe Learning Loop: Structured, team-tagged recipes
-- [ ] Safe Change Engine: Backup, apply, rollback for config edits
-- [ ] Desktop team flow: "enable syntax highlighting in vim"
-- [ ] Status/Stats UX: Team roster, per-team statistics
-- [ ] User confirmation for system changes
-
 ## Planned
 
-### v0.0.28+ - Future
-- [ ] Recipe persistence and replay
+### v0.0.96+ - Future
+- [ ] Desktop team flow: "enable syntax highlighting in vim"
+- [ ] CLI confirmation for config changes
 - [ ] Multi-file change transactions
 - [ ] Package installation recipes
 - [ ] Service configuration recipes

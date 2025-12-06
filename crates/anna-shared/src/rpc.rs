@@ -363,6 +363,9 @@ pub struct ServiceDeskResult {
     /// TRACE: Execution trace showing stages and paths (v0.0.23+)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub execution_trace: Option<ExecutionTrace>,
+    /// v0.0.96: Proposed config change requiring user confirmation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposed_change: Option<crate::change::ChangePlan>,
 }
 
 #[cfg(test)]

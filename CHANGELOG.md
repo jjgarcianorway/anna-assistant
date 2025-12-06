@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.96] - 2025-12-06
+
+### Added - Desktop Team Editor Config Flow (Phase 16)
+
+**Natural Language Editor Configuration**
+
+Users can now say "enable syntax highlighting" and Anna will:
+1. Detect installed editors (vim, nano, emacs, etc.)
+2. Show proposed config change with backup path
+3. Ask for confirmation before modifying files
+4. Apply change using Safe Change Engine
+
+**New ServiceDeskResult Field**
+
+- `proposed_change: Option<ChangePlan>` - Contains change plan for user confirmation
+- CLI automatically prompts user when proposed_change is present
+- Works in both one-shot mode and REPL mode
+
+**Integration Points**
+
+- `build_editor_config_with_change()` - Creates ChangePlan from EditorRecipe
+- `handle_proposed_change()` - CLI confirmation flow
+- Backup-first, idempotent config modifications
+
+**Example Flow**
+```
+anna> enable syntax highlighting
+Detected vim installed.
+This will add: syntax on to ~/.vimrc
+
+Proposed Change
+  File: ~/.vimrc
+  Risk: Low
+  Backup: ~/.vimrc.anna-backup-20251206-...
+
+Apply this change? [y/N] y
+  Change applied successfully.
+```
+
 ## [0.0.95] - 2025-12-06
 
 ### Added - Safe Change Engine (Phase 15)

@@ -84,6 +84,12 @@ pub async fn handle_request(prompt: &str, show_internal: bool) -> Result<()> {
 
     // v0.0.83: Pass show_internal to renderer
     transcript_render::render_with_options(&result, debug_mode, show_internal);
+
+    // v0.0.96: Handle proposed config changes
+    if let Some(ref plan) = result.proposed_change {
+        handle_proposed_change(plan).await?;
+    }
+
     Ok(())
 }
 
@@ -218,6 +224,13 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                         // v0.0.83: Pass show_internal to renderer
                         transcript_render::render_with_options(&result, debug_mode, show_internal);
 
+                        // v0.0.96: Handle proposed config changes
+                        if let Some(ref plan) = result.proposed_change {
+                            if let Err(e) = handle_proposed_change(plan).await {
+                                eprintln!("{}Error:{} {}", colors::ERR, colors::RESET, e);
+                            }
+                        }
+
                         // Check for clarification request
                         if let Some(req) = &result.clarification_request {
                             println!();
@@ -270,6 +283,65 @@ fn print_repl_help() {
     println!("  show disk usage");
     println!("  top memory processes");
     println!();
+}
+
+/// v0.0.96: Handle proposed config change with user confirmation
+async fn handle_proposed_change(plan: &anna_shared::change::ChangePlan) -> Result<()> {
+    use anna_shared::change::apply_change;
+
+    println!();
+    println!("{}Proposed Change{}", colors::BOLD, colors::RESET);
+    println!("  File: {}", plan.target_path.display());
+    println!("  Risk: {:?}", plan.risk);
+    println!("  Backup: {}", plan.backup_path.display());
+    println!();
+
+    // Ask for confirmation
+    print!("Apply this change? [y/N] ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    if !input.trim().eq_ignore_ascii_case("y") {
+        println!("Change cancelled.");
+        return Ok(());
+    }
+
+    // Apply the change
+    let result = apply_change(plan);
+
+    if result.applied {
+        println!();
+        println!(
+            "{}{}{}  Change applied successfully.",
+            colors::OK,
+            symbols::OK,
+            colors::RESET
+        );
+        if let Some(ref backup) = result.backup_path {
+            println!("    Backup: {}", backup.display());
+        }
+    } else if result.was_noop {
+        println!();
+        println!(
+            "{}{}{}  No changes needed - configuration already present.",
+            colors::OK,
+            symbols::OK,
+            colors::RESET
+        );
+    } else if let Some(ref err) = result.error {
+        println!();
+        println!(
+            "{}{}{}  Failed to apply change: {}",
+            colors::ERR,
+            symbols::ERR,
+            colors::RESET,
+            err
+        );
+    }
+
+    Ok(())
 }
 
 /// Handle request error with recovery
