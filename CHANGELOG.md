@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.86] - 2025-12-06
+
+### Added - Usage Streaks & Achievements (Phase 6)
+
+**Streak Tracking**
+
+Anna now tracks your usage streaks - consecutive days you've asked for help:
+
+```
+Fun Facts
+  › Anna since: Dec 1, 2025 (6 days)
+  › 🔥 5 day streak! Keep it going!
+  › Best streak: 5 days
+  › Active on 6 different days
+  › Lucky team: Storage & Filesystems (100% success rate)
+```
+
+**New Statistics**
+- Current streak (with 🔥 emoji for active streaks)
+- Best streak ever achieved
+- Total active days (unique days with activity)
+- Lucky team (team with highest success rate, ≥3 cases, ≥90%)
+
+**Code Changes**
+- `streaks.rs`: New module for streak/lucky team calculations
+- `event_log.rs`: Added `current_streak`, `best_streak`, `active_days`, `lucky_team`, `lucky_team_rate` fields
+- `stats_display.rs`: Shows streak and lucky team achievements
+- Modularized streak logic for maintainability
+
 ## [0.0.85] - 2025-12-06
 
 ### Added - Installation Date & Tenure Tracking (Phase 5)

@@ -322,6 +322,38 @@ fn print_fun_stats(agg: &AggregatedEvents) {
             bullet(), colors::OK, colors::RESET, agg.avg_reliability
         );
     }
+
+    // v0.0.86: Streaks
+    if agg.current_streak > 1 {
+        println!(
+            "  {} {}🔥 {} day streak!{} Keep it going!",
+            bullet(), colors::OK, agg.current_streak, colors::RESET
+        );
+    }
+    if agg.best_streak > agg.current_streak && agg.best_streak > 2 {
+        println!(
+            "  {} Best streak: {} days",
+            bullet(), agg.best_streak
+        );
+    }
+
+    // Active days
+    if agg.active_days > 1 {
+        println!(
+            "  {} Active on {} different days",
+            bullet(), agg.active_days
+        );
+    }
+
+    // Lucky team
+    if let Some(ref team) = agg.lucky_team {
+        if agg.lucky_team_rate >= 0.9 {
+            println!(
+                "  {} {}Lucky team:{} {} ({:.0}% success rate)",
+                bullet(), colors::OK, colors::RESET, team, agg.lucky_team_rate * 100.0
+            );
+        }
+    }
 }
 
 fn bullet() -> &'static str {

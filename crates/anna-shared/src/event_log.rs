@@ -1,11 +1,14 @@
-//! Event log store for stats/RPG system (v0.0.75).
+//! Event log store for stats/RPG system (v0.0.75, v0.0.86).
 //!
 //! Append-only JSONL store for request events with rotation.
+//! v0.0.86: Added streaks, active days, lucky team tracking.
 
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
+
+use crate::streaks::{calculate_lucky_team, calculate_streaks, TeamOutcome};
 
 /// Single event record for the log
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -247,6 +250,16 @@ pub struct AggregatedEvents {
     pub level: u32,
     /// Title (computed)
     pub title: String,
+    /// Current streak (consecutive days with activity)
+    pub current_streak: u32,
+    /// Best streak ever
+    pub best_streak: u32,
+    /// Unique days with activity
+    pub active_days: u32,
+    /// Team with highest success rate (lucky team)
+    pub lucky_team: Option<String>,
+    /// Lucky team success rate
+    pub lucky_team_rate: f32,
 }
 
 impl AggregatedEvents {
@@ -328,7 +341,34 @@ impl AggregatedEvents {
         // Compute XP and level
         agg.compute_xp();
 
+        // Compute streaks and lucky team
+        agg.compute_streaks(records);
+        agg.compute_lucky_team(records);
+
         agg
+    }
+
+    /// Compute usage streaks from records (delegates to streaks module)
+    fn compute_streaks(&mut self, records: &[EventRecord]) {
+        let timestamps: Vec<u64> = records.iter().map(|r| r.timestamp).collect();
+        let stats = calculate_streaks(&timestamps);
+        self.current_streak = stats.current_streak;
+        self.best_streak = stats.best_streak;
+        self.active_days = stats.active_days;
+    }
+
+    /// Find the lucky team (delegates to streaks module)
+    fn compute_lucky_team(&mut self, records: &[EventRecord]) {
+        let outcomes: Vec<TeamOutcome> = records
+            .iter()
+            .map(|r| TeamOutcome {
+                team: r.team.clone(),
+                success: r.outcome == "verified",
+            })
+            .collect();
+        let stats = calculate_lucky_team(&outcomes);
+        self.lucky_team = stats.team;
+        self.lucky_team_rate = stats.rate;
     }
 
     /// Compute XP using logistic curve

@@ -78,6 +78,9 @@ pub mod result_signals;
 // v0.0.81: Service Desk Theatre - cinematic narrative
 pub mod theatre;
 
+// v0.0.86: Streak calculations for stats/RPG
+pub mod streaks;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
