@@ -1,7 +1,8 @@
-//! Stats display module for annactl (v0.0.67).
+//! Stats display module for annactl (v0.0.75).
 //!
-//! Provides RPG-style stats visualization with XP bars and titles.
+//! Provides RPG-style stats visualization with XP bars, levels, and titles.
 
+use anna_shared::event_log::{AggregatedEvents, EventLog};
 use anna_shared::stats::GlobalStats;
 use anna_shared::stats_store::{AggregatedStats, StatsStore};
 use anna_shared::ui::{colors, HR};
@@ -12,16 +13,25 @@ fn print_kv(key: &str, value: &str, width: usize) {
     println!("{:width$} {}", key, value, width = width);
 }
 
-/// Print stats display (v0.0.27, v0.0.67: RPG system)
+/// Print stats display (v0.0.27, v0.0.67, v0.0.75: Enhanced RPG system)
 pub fn print_stats_display(stats: &GlobalStats) {
     println!("\n{}annactl stats v{}{}", colors::HEADER, VERSION, colors::RESET);
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
-    // v0.0.67: Try to load RPG stats from local store
-    let store = StatsStore::default_location();
-    if let Ok(agg) = store.aggregate() {
-        print_rpg_stats(&agg);
-        println!();
+    // v0.0.75: Try event log first (new system)
+    let event_log = EventLog::new(EventLog::default_path(), 10000);
+    if let Ok(agg) = event_log.aggregate() {
+        if agg.total_requests > 0 {
+            print_enhanced_rpg_stats(&agg);
+            println!();
+        }
+    } else {
+        // Fallback to v0.0.67 stats store
+        let store = StatsStore::default_location();
+        if let Ok(agg) = store.aggregate() {
+            print_rpg_stats(&agg);
+            println!();
+        }
     }
 
     let kw = 15; // key width
@@ -90,7 +100,7 @@ pub fn print_stats_display(stats: &GlobalStats) {
     println!();
 }
 
-/// Print RPG-style stats (v0.0.67)
+/// Print RPG-style stats (v0.0.67 - legacy)
 fn print_rpg_stats(agg: &AggregatedStats) {
     if agg.total_requests == 0 {
         return;
@@ -129,5 +139,141 @@ fn print_rpg_stats(agg: &AggregatedStats) {
 
     if agg.escalated_count > 0 {
         println!("  Escalations: {}", agg.escalated_count);
+    }
+}
+
+/// Print enhanced RPG-style stats (v0.0.75)
+fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
+    println!("{}Service Desk Profile{}", colors::BOLD, colors::RESET);
+    println!();
+
+    // Level and XP display
+    let xp_for_next = xp_for_next_level(agg.level);
+    let xp_at_level_start = xp_at_level_start(agg.level);
+    let progress = if xp_for_next > xp_at_level_start {
+        ((agg.xp.saturating_sub(xp_at_level_start)) as f32
+            / (xp_for_next - xp_at_level_start) as f32
+            * 100.0) as u8
+    } else {
+        100
+    };
+
+    // Progress bar for current level
+    let bar_width = 20;
+    let filled = (progress as usize * bar_width) / 100;
+    let empty = bar_width.saturating_sub(filled);
+    let bar = format!(
+        "[{}{}{}{}{}]",
+        colors::OK,
+        "█".repeat(filled),
+        colors::DIM,
+        "░".repeat(empty),
+        colors::RESET
+    );
+
+    println!(
+        "  {}Level {}{} {}",
+        colors::BOLD,
+        agg.level,
+        colors::RESET,
+        bar
+    );
+    println!("  {}{}{}", colors::CYAN, agg.title, colors::RESET);
+    println!(
+        "  {}XP: {}/{} to next level{}",
+        colors::DIM,
+        agg.xp,
+        xp_for_next,
+        colors::RESET
+    );
+    println!();
+
+    // Stats summary
+    let success_rate = if agg.total_requests > 0 {
+        agg.verified_count as f32 / agg.total_requests as f32 * 100.0
+    } else {
+        0.0
+    };
+
+    println!(
+        "  Cases: {}   Verified: {}   Failed: {}",
+        agg.total_requests, agg.verified_count, agg.failed_count
+    );
+    println!(
+        "  Success: {}{:.0}%{}   Avg Reliability: {:.0}",
+        if success_rate >= 80.0 {
+            colors::OK
+        } else if success_rate >= 60.0 {
+            colors::WARN
+        } else {
+            colors::ERR
+        },
+        success_rate,
+        colors::RESET,
+        agg.avg_reliability
+    );
+
+    // Recipes
+    if agg.recipes_learned > 0 || agg.recipes_used > 0 {
+        println!(
+            "  Recipes: {} learned, {} used",
+            agg.recipes_learned, agg.recipes_used
+        );
+    }
+
+    // Escalations
+    if agg.escalation_count > 0 {
+        print!("  Escalations: {}", agg.escalation_count);
+        if let Some(ref team) = agg.most_escalated_team {
+            print!(" (most: {})", team);
+        }
+        println!();
+    }
+
+    // Performance stats
+    if agg.total_requests > 0 {
+        println!();
+        println!(
+            "  {}Avg response: {:.0}ms   Min: {}ms   Max: {}ms{}",
+            colors::DIM,
+            agg.avg_duration_ms,
+            agg.min_duration_ms,
+            agg.max_duration_ms,
+            colors::RESET
+        );
+    }
+}
+
+/// Get XP required for next level
+fn xp_for_next_level(level: u32) -> u64 {
+    match level {
+        1 => 100,
+        2 => 300,
+        3 => 600,
+        4 => 1000,
+        5 => 2000,
+        6 => 4000,
+        7 => 8000,
+        8 => 16000,
+        9 => 32000,
+        10 => 64000,
+        _ => 100000,
+    }
+}
+
+/// Get XP at the start of a level
+fn xp_at_level_start(level: u32) -> u64 {
+    match level {
+        1 => 0,
+        2 => 100,
+        3 => 300,
+        4 => 600,
+        5 => 1000,
+        6 => 2000,
+        7 => 4000,
+        8 => 8000,
+        9 => 16000,
+        10 => 32000,
+        _ => 64000,
     }
 }

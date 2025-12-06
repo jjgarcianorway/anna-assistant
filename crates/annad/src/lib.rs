@@ -1,7 +1,9 @@
 //! Anna daemon library - exposes modules for testing.
+//! v0.0.75: UX realism, stats integration, benchmark scheduler.
 
 pub mod answers;
 pub mod benchmark;
+pub mod benchmark_scheduler;
 pub mod collectors;
 pub mod config;
 pub mod deterministic;

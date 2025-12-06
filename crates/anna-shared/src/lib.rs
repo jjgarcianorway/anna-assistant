@@ -1,6 +1,7 @@
 //! Shared types and utilities for Anna components.
 //! v0.0.73: Single source of truth for version via version module.
 //! v0.0.74: Model selector with Qwen3-VL preference.
+//! v0.0.75: UX realism, stats/RPG backend, recipes learned, citations.
 
 pub mod advice;
 pub mod answer_contract;
@@ -66,6 +67,13 @@ pub mod version;
 pub mod citations;
 pub mod render;
 pub mod stats_store;
+
+// v0.0.75: UX realism + stats/RPG + recipes + citations
+pub mod citation;
+pub mod event_log;
+pub mod presentation;
+pub mod recipe_store;
+pub mod result_signals;
 
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};

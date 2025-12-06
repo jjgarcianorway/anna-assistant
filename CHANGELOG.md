@@ -7,6 +7,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.75] - 2025-12-06
+
+### Added - UX Realism + Stats/RPG + Recipes + Citations
+
+This release adds foundation for UX realism, RPG-style stats progression, recipe learning, and local-only citations.
+
+**Streaming Presentation Protocol (presentation.rs)**
+- New `PresentationEvent` enum for UX updates:
+  - `RequestStarted`, `TicketCreated`, `StageStart`, `StageEnd`
+  - `CheckingSource`, `EvidenceGathered`, `ThinkingUpdate`
+  - `ActionProposed`, `ConfirmationNeeded`, `ActionComplete`
+  - `AnswerReady`, `ErrorOccurred`
+- `PresentationStage` enum: Routing, Probing, Analyzing, Drafting, Verifying
+- `Technician` struct with domain-specific personas:
+  - Network → Alex, Performance → Sam, Storage → Jordan
+  - Desktop → Taylor, Security → Casey
+- `TechnicianTier` enum: Frontline, Senior, Manager
+
+**Unified Result Signals (result_signals.rs)**
+- `ResultSignals` struct for reliability flag calculation
+- `Outcome` enum: Verified, Clarification, Failed, Timeout, Deterministic
+- `EvidenceSummary` with probe counts and evidence kinds
+- Centralized score calculation with penalties:
+  - Invention detection: hard penalty
+  - Ungrounded answers: score reduction
+  - Clarification: caps score at 70
+- Builder methods: `deterministic_with_evidence()`, `clarification_with_evidence()`, `timeout_with_evidence()`, `failed()`
+
+**Event Log Store (event_log.rs)**
+- JSONL-based append-only event log
+- `EventRecord` with request metadata:
+  - `request_id`, `timestamp`, `query_class`, `outcome`
+  - `reliability`, `team`, `escalated`, `escalation_tier`
+  - `duration_ms`, `interactions`
+  - `recipe_used`, `recipe_learned` (optional)
+- `EventLog` with rotation support
+- `AggregatedEvents` with XP/Level computation:
+  - 11 levels from "Apprentice Troubleshooter" to "Grandmaster of Uptime"
+  - XP from requests, success rate, reliability, recipes
+- `read_recent()` for time-filtered queries
+
+**Enhanced Stats Display (stats_display.rs)**
+- Level and XP progress bar visualization
+- Shows XP needed for next level
+- Success rate with color coding (green/yellow/red)
+- Recipes learned/used counts
+- Average response time with min/max
+- Escalation stats per team
+
+**Recipe Store (recipe_store.rs)**
+- `Recipe` struct with full metadata:
+  - `id`, `category`, `title`, `triggers`
+  - `required_evidence`, `risk`, `steps`, `citations`
+  - `learned_from_ticket`, `learned_reliability`
+  - `usage_count`, `last_used`
+- `RecipeRisk` enum: ReadOnly, ConfigChange, SystemChange, Destructive
+- `RecipeStep` with action templates and rollback
+- `RecipeStore` with persistence and trigger indexing
+- `should_learn_recipe()` with MIN_LEARN_RELIABILITY = 85
+- `find_matches()` for query+evidence matching
+
+**Local-Only Citations (citation.rs)**
+- `CitationSource` enum:
+  - `ManPage { command, section }`
+  - `HelpOutput { command }`
+  - `ArchWiki { article }`
+  - `Internal { topic }`
+- `Citation` with source, excerpt, relevance
+- `CitationSet` for teaching mode:
+  - `cite_man()`, `cite_help()`, `cite_wiki()`, `cite_internal()`
+  - `inline_refs()` for answer text
+  - `format_footer()` for sources section
+- `CitationStore` with wiki directory and caching
+
+**Idle-Only Benchmark Scheduler (benchmark_scheduler.rs)**
+- `BenchmarkScheduler` with atomics for lock-free state
+- Idle detection: MIN_IDLE_SECS = 30
+- Benchmark timeout: MAX_BENCHMARK_SECS = 60
+- Cooldown between runs: BENCHMARK_COOLDOWN_SECS = 300
+- `record_request()` resets idle timer and interrupts running benchmarks
+- `BenchmarkGuard` with RAII cleanup
+- `try_start()` with atomic lock acquisition
+- `wait_interruptible()` for async cancellation
+
+**Tests Added**
+- `test_event_record_builder`
+- `test_aggregated_events_xp_calculation`
+- `test_xp_to_level_progression`
+- `test_recipe_builder`
+- `test_recipe_matches`
+- `test_recipe_store_operations`
+- `test_should_learn_recipe`
+- `test_citation_source_display`
+- `test_citation_set_enabled`
+- `test_truncate_excerpt`
+- `test_scheduler_initial_state`
+- `test_interrupt_on_request`
+- `test_deterministic_with_evidence_is_grounded`
+- `test_clarification_with_evidence_is_grounded`
+
 ## [0.0.74] - 2025-12-06
 
 ### Added - Version Sanity + Model Upgrade + Answer Shaping
