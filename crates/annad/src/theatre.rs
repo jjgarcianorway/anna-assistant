@@ -86,10 +86,15 @@ impl TheatreContext {
     }
 
     /// v0.0.107: Record topic to user profile for personalization
+    /// v0.0.108: Also records tools mentioned in the query
     pub fn record_topic_to_profile(&self) {
         let topic = self.team.to_string().to_lowercase();
         let mut profile = UserProfile::load();
         profile.record_topic(&topic);
+
+        // v0.0.108: Extract tools from query
+        profile.record_tools_from_query(&self.ticket.query);
+
         let _ = profile.save();
     }
 

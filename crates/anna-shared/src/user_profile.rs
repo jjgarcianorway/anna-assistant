@@ -211,6 +211,35 @@ impl UserProfile {
         *self.topic_interests.entry(topic.to_string()).or_insert(0) += 1;
     }
 
+    /// v0.0.108: Extract and record tools mentioned in a query
+    pub fn record_tools_from_query(&mut self, query: &str) {
+        let query_lower = query.to_lowercase();
+
+        // Common tools to track
+        let tools = [
+            // Editors
+            "vim", "nvim", "neovim", "nano", "emacs", "helix", "micro", "code", "vscode",
+            // Shells
+            "bash", "zsh", "fish",
+            // Version control
+            "git", "github", "gitlab",
+            // Package managers
+            "pacman", "apt", "dnf", "yum", "brew", "npm", "cargo", "pip",
+            // System tools
+            "systemctl", "journalctl", "htop", "top", "docker", "podman",
+            // Network tools
+            "ssh", "curl", "wget", "ping", "traceroute", "netstat", "ss",
+            // File tools
+            "rsync", "tar", "zip", "grep", "find", "awk", "sed",
+        ];
+
+        for tool in tools {
+            if query_lower.contains(tool) {
+                self.record_tool_usage(tool);
+            }
+        }
+    }
+
     /// Get most interested topic
     pub fn top_topic(&self) -> Option<&String> {
         self.topic_interests

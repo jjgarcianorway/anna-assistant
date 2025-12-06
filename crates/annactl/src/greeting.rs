@@ -140,28 +140,38 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
 }
 
 /// v0.0.106: Print personalized patterns from user profile
+/// v0.0.108: Enhanced with streak fire, tool counts, and more patterns
 fn print_user_patterns(profile: &UserProfile) {
     // Only show if we have meaningful data
-    if profile.tool_usage.is_empty() && profile.topic_interests.is_empty() {
+    if profile.tool_usage.is_empty() && profile.topic_interests.is_empty() && profile.streak_days <= 1 {
         return;
     }
 
     let mut patterns = Vec::new();
 
-    // Streak info
+    // v0.0.108: Streak info with fire emoji for long streaks
     if profile.streak_days > 1 {
-        patterns.push(format!(
-            "{} {} day streak! Keep it going.",
-            bullet(), profile.streak_days
-        ));
+        let streak_msg = if profile.streak_days >= 7 {
+            format!(
+                "{} {}🔥 {} day streak!{} You're on fire!",
+                bullet(), colors::OK, profile.streak_days, colors::RESET
+            )
+        } else {
+            format!(
+                "{} {} day streak! Keep it going.",
+                bullet(), profile.streak_days
+            )
+        };
+        patterns.push(streak_msg);
     }
 
     // Preferred editor
     if let Some(ref editor) = profile.preferred_editor {
-        if profile.tool_usage.get(editor).copied().unwrap_or(0) > 3 {
+        let count = profile.tool_usage.get(editor).copied().unwrap_or(0);
+        if count > 2 {
             patterns.push(format!(
-                "{} I've noticed you prefer {}.",
-                bullet(), editor
+                "{} I've noticed you prefer {} ({} mentions).",
+                bullet(), editor, count
             ));
         }
     }
@@ -177,10 +187,24 @@ fn print_user_patterns(profile: &UserProfile) {
         }
     }
 
-    // Show patterns if we have any
+    // v0.0.108: Top tool if not an editor
+    let editors = ["vim", "nvim", "nano", "emacs", "helix", "micro", "code"];
+    if let Some((top_tool, count)) = profile.tool_usage.iter()
+        .filter(|(k, _)| !editors.contains(&k.as_str()))
+        .max_by_key(|(_, v)| *v)
+    {
+        if *count > 2 {
+            patterns.push(format!(
+                "{} You've been using {} ({} queries).",
+                bullet(), top_tool, count
+            ));
+        }
+    }
+
+    // Show patterns if we have any (limit to 3)
     if !patterns.is_empty() {
         println!();
-        for pattern in patterns.iter().take(2) {
+        for pattern in patterns.iter().take(3) {
             println!("{}{}{}", colors::DIM, pattern, colors::RESET);
         }
     }

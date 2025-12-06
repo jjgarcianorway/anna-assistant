@@ -651,6 +651,12 @@ async fn handle_llm_request_inner(
     // v0.0.106: Create theatre context for Service Desk Theatre
     let mut theatre = TheatreContext::new(query, classified_domain);
     theatre.start_work();
+
+    // v0.0.108: Escalate to senior if reliability is low
+    if result.reliability_score < 60 && !result.needs_clarification {
+        theatre.escalate();
+    }
+
     theatre.resolve(result.answer.clone(), result.reliability_score, total_ms);
 
     // v0.0.107: Record topic to user profile for personalized greetings

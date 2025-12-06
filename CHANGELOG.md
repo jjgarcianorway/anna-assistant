@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.108] - 2025-12-06
+
+### Added - Service Desk Theatre Polish (Phase 28)
+
+**Tool Tracking, Streaks, and Escalation**
+
+Further personalizes the IT department experience with usage insights
+and smart escalation.
+
+**Tool Usage Tracking**:
+- Queries now extract tool mentions (vim, git, docker, etc.)
+- Tools tracked in user profile for personalization
+- Greeting shows "You've been using docker (5 queries)"
+- 40+ tools recognized across editors, package managers, utilities
+
+**Streak Enhancements**:
+- Fire emoji 🔥 for 7+ day streaks ("You're on fire!")
+- Encouraging message for shorter streaks ("Keep it going")
+- Streak display in greeting patterns
+
+**Smart Escalation**:
+- Low reliability responses (< 60) auto-escalate to senior staff
+- Theatre context tracks escalation status
+- Staff stats record escalation metrics
+- Creates realistic "pass to senior" workflow
+
+**Code Changes**:
+- `user_profile.rs`: Added `record_tools_from_query()` method
+- `theatre.rs`: Records tools from queries, staff stats with escalation
+- `greeting.rs`: Enhanced patterns with streak fire, tool counts
+- `rpc_handler.rs`: Escalation logic for low reliability
+
+**Progress**: ~45% of full vision complete (personalization deepened)
+
 ## [0.0.107] - 2025-12-06
 
 ### Added - Service Desk Theatre Enhancements (Phase 27)
