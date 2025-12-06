@@ -1,5 +1,6 @@
 //! RPC request handlers with deterministic routing, triage, and fallback.
 
+use anna_shared::inventory::load_or_create_inventory;
 use anna_shared::probe_spine::{
     enforce_minimum_probes, enforce_spine_probes, probe_to_command, reduce_probes, Urgency,
 };
@@ -292,6 +293,45 @@ async fn handle_llm_request_inner(
             request_id, ticket, probe_results, progress.take_transcript(), classified_domain, &required_evidence,
         );
         return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+    }
+
+    // Step 5.5: v0.45.8 ConfigureEditor - clarification flow, never go to specialist
+    if det_route.class == router::QueryClass::ConfigureEditor {
+        let inventory = load_or_create_inventory();
+        let installed_editors: Vec<String> = inventory.installed_editors().iter().map(|s| s.to_string()).collect();
+        info!("v0.45.8: ConfigureEditor - found {} installed editors: {:?}", installed_editors.len(), installed_editors);
+
+        if installed_editors.is_empty() {
+            // No editors found - return error (no specialist)
+            let result = service_desk::create_clarification_response(
+                request_id, ticket, "No supported editors found. Please install vim, nano, or another editor.", progress.take_transcript(),
+            );
+            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+        } else if installed_editors.len() == 1 {
+            // Exactly one editor - auto-pick and return deterministic answer
+            let editor = &installed_editors[0];
+            let answer = format!(
+                "To configure **{}** for syntax highlighting, you can edit its configuration file.\n\n\
+                For {}, the typical approach is:\n\
+                - **vim/nvim**: Add `syntax on` to `~/.vimrc` or `~/.config/nvim/init.vim`\n\
+                - **nano**: Uncomment `include` lines in `/etc/nanorc` or `~/.nanorc`\n\
+                - **emacs**: Add `(global-font-lock-mode t)` to `~/.emacs`\n\n\
+                Would you like me to help configure {}?",
+                editor, editor, editor
+            );
+            save_progress(&state, &progress).await;
+            let result = service_desk::build_result_with_flags(
+                request_id, answer, query, ticket, probe_results.clone(), progress.transcript_clone(),
+                classified_domain, false, true, 1, false,
+                service_desk::FallbackContext { used_deterministic_fallback: false, fallback_route_class: "configure_editor".to_string(), evidence_kinds: vec!["tool_exists".to_string()], specialist_outcome: Some(SpecialistOutcome::Skipped), fallback_used: Some(anna_shared::trace::FallbackUsed::None), evidence_required: Some(true) },
+            );
+            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+        } else {
+            // Multiple editors - return ClarificationRequired
+            let question = format!("Which editor would you like to configure? Available: {}", installed_editors.join(", "));
+            let result = service_desk::create_clarification_response(request_id, ticket, &question, progress.take_transcript());
+            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+        }
     }
 
     // Step 6: Build context with summarized probes

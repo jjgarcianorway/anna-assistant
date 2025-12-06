@@ -65,6 +65,21 @@ pub fn has_evidence_for(parsed: &[ParsedProbeData], name: &str) -> bool {
     find_tool_evidence(parsed, name).is_some() || find_package_evidence(parsed, name).is_some()
 }
 
+/// Find audio devices evidence (v0.45.8)
+pub fn find_audio_evidence(parsed: &[ParsedProbeData]) -> Option<&AudioDevices> {
+    parsed.iter()
+        .filter_map(|p| p.as_audio())
+        .next()
+}
+
+/// Get all installed tools from evidence (v0.45.8)
+pub fn get_installed_tools(parsed: &[ParsedProbeData]) -> Vec<&ToolExists> {
+    parsed.iter()
+        .filter_map(|p| p.as_tool())
+        .filter(|t| t.exists)
+        .collect()
+}
+
 use crate::rpc::ProbeResult;
 use serde::{Deserialize, Serialize};
 
@@ -106,6 +121,26 @@ pub struct PackageInstalled {
     pub version: Option<String>,
 }
 
+/// Audio device from lspci or pactl (v0.45.8)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AudioDevice {
+    /// Device description (e.g., "Intel Corporation Cannon Lake PCH cAVS")
+    pub description: String,
+    /// PCI slot if from lspci (e.g., "00:1f.3")
+    pub pci_slot: Option<String>,
+    /// Vendor name extracted from description
+    pub vendor: Option<String>,
+}
+
+/// Audio devices evidence (v0.45.8)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AudioDevices {
+    /// List of detected audio devices
+    pub devices: Vec<AudioDevice>,
+    /// Source of the information (lspci, pactl)
+    pub source: String,
+}
+
 /// Parsed probe data or error.
 /// Used internally for enrichment; not serialized over the wire.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,6 +168,8 @@ pub enum ParsedProbeData {
     Tool(ToolExists),
     /// Package installation check (v0.45.7) - exit 1 = valid negative evidence
     Package(PackageInstalled),
+    /// Audio devices from lspci/pactl (v0.45.8)
+    Audio(AudioDevices),
     /// Parse error with diagnostic context
     Error(ParseError),
     /// Probe type not supported for structured parsing
@@ -217,6 +254,14 @@ impl ParsedProbeData {
         }
     }
 
+    /// Get audio devices if this is the Audio variant (v0.45.8).
+    pub fn as_audio(&self) -> Option<&AudioDevices> {
+        match self {
+            Self::Audio(a) => Some(a),
+            _ => None,
+        }
+    }
+
     /// Check if this represents valid evidence (not error/unsupported) (v0.45.7).
     pub fn is_valid_evidence(&self) -> bool {
         !matches!(self, Self::Error(_) | Self::Unsupported)
@@ -237,6 +282,7 @@ pub mod probe_ids {
 /// Parse a ProbeResult into structured data.
 /// Returns `ParsedProbeData::Unsupported` for probes we don't have parsers for.
 /// v0.45.7: Tool/package probes with exit code 1 are VALID NEGATIVE EVIDENCE, not errors!
+/// v0.45.8: Audio probes from lspci/pactl are now parsed.
 pub fn parse_probe_result(probe: &ProbeResult) -> ParsedProbeData {
     let cmd_lower = probe.command.to_lowercase();
 
@@ -247,6 +293,11 @@ pub fn parse_probe_result(probe: &ProbeResult) -> ParsedProbeData {
 
     // v0.45.7: Handle package probes - exit 1 = package not installed (valid evidence!)
     if let Some(parsed) = try_parse_package_installed(probe, &cmd_lower) {
+        return parsed;
+    }
+
+    // v0.45.8: Handle audio probes - lspci audio and pactl
+    if let Some(parsed) = try_parse_audio_devices(probe, &cmd_lower) {
         return parsed;
     }
 
@@ -323,6 +374,153 @@ fn try_parse_package_installed(probe: &ProbeResult, cmd_lower: &str) -> Option<P
             installed,
             version,
         }));
+    }
+
+    None
+}
+
+/// Try to parse audio devices from lspci or pactl (v0.45.8).
+/// Handles `lspci | grep -i audio` and `pactl list cards` commands.
+fn try_parse_audio_devices(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedProbeData> {
+    // Pattern: "lspci | grep -i audio" or just contains both "lspci" and "audio"
+    if cmd_lower.contains("lspci") && cmd_lower.contains("audio") {
+        // Only valid if exit code is 0
+        if probe.exit_code != 0 {
+            // No audio devices found - still valid evidence (empty list)
+            return Some(ParsedProbeData::Audio(AudioDevices {
+                devices: vec![],
+                source: "lspci".to_string(),
+            }));
+        }
+
+        let devices = parse_lspci_audio_output(&probe.stdout);
+        return Some(ParsedProbeData::Audio(AudioDevices {
+            devices,
+            source: "lspci".to_string(),
+        }));
+    }
+
+    // Pattern: "pactl list cards"
+    if cmd_lower.contains("pactl") && cmd_lower.contains("cards") {
+        // pactl may return empty or error if no pulseaudio - still valid evidence
+        if probe.exit_code != 0 || probe.stdout.trim().is_empty() {
+            return Some(ParsedProbeData::Audio(AudioDevices {
+                devices: vec![],
+                source: "pactl".to_string(),
+            }));
+        }
+
+        let devices = parse_pactl_cards_output(&probe.stdout);
+        return Some(ParsedProbeData::Audio(AudioDevices {
+            devices,
+            source: "pactl".to_string(),
+        }));
+    }
+
+    None
+}
+
+/// Parse lspci audio output (v0.45.8).
+/// Example line: "00:1f.3 Audio device: Intel Corporation Cannon Lake PCH cAVS (rev 10)"
+fn parse_lspci_audio_output(stdout: &str) -> Vec<AudioDevice> {
+    let mut devices = Vec::new();
+
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        // Parse format: "XX:XX.X Audio device: Description"
+        // or "XX:XX.X Multimedia audio controller: Description"
+        let pci_slot = line.split_whitespace().next()
+            .map(|s| s.to_string());
+
+        // Find the description after the colon
+        let description = if let Some(pos) = line.find(':') {
+            // Skip "Audio device:" or "Multimedia audio controller:" prefix
+            let after_first_colon = &line[pos + 1..];
+            if let Some(pos2) = after_first_colon.find(':') {
+                after_first_colon[pos2 + 1..].trim().to_string()
+            } else {
+                after_first_colon.trim().to_string()
+            }
+        } else {
+            line.to_string()
+        };
+
+        // Extract vendor from description (usually first word or two)
+        let vendor = extract_vendor_from_description(&description);
+
+        devices.push(AudioDevice {
+            description,
+            pci_slot,
+            vendor,
+        });
+    }
+
+    devices
+}
+
+/// Parse pactl list cards output (v0.45.8).
+fn parse_pactl_cards_output(stdout: &str) -> Vec<AudioDevice> {
+    let mut devices = Vec::new();
+    let mut current_name: Option<String> = None;
+
+    for line in stdout.lines() {
+        let line = line.trim();
+
+        // Look for "Name:" lines
+        if line.starts_with("Name:") {
+            current_name = Some(line.trim_start_matches("Name:").trim().to_string());
+        }
+        // Look for "alsa.card_name" or "device.description"
+        else if line.contains("alsa.card_name") || line.contains("device.description") {
+            if let Some(pos) = line.find('=') {
+                let value = line[pos + 1..].trim().trim_matches('"').to_string();
+                if !value.is_empty() {
+                    let vendor = extract_vendor_from_description(&value);
+                    devices.push(AudioDevice {
+                        description: value,
+                        pci_slot: None,
+                        vendor,
+                    });
+                }
+            }
+        }
+    }
+
+    // If we found a name but no description, use the name
+    if devices.is_empty() {
+        if let Some(name) = current_name {
+            devices.push(AudioDevice {
+                description: name,
+                pci_slot: None,
+                vendor: None,
+            });
+        }
+    }
+
+    devices
+}
+
+/// Extract vendor name from audio device description.
+fn extract_vendor_from_description(description: &str) -> Option<String> {
+    let known_vendors = [
+        "Intel", "NVIDIA", "AMD", "Realtek", "Creative", "C-Media",
+        "VIA", "SoundBlaster", "Logitech", "Corsair", "HyperX",
+    ];
+
+    for vendor in known_vendors {
+        if description.to_lowercase().contains(&vendor.to_lowercase()) {
+            return Some(vendor.to_string());
+        }
+    }
+
+    // Try to extract first word if it looks like a vendor (capitalized)
+    let first_word = description.split_whitespace().next()?;
+    if first_word.chars().next()?.is_uppercase() && first_word.len() > 2 {
+        return Some(first_word.to_string());
     }
 
     None

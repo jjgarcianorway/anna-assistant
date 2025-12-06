@@ -272,37 +272,54 @@ fn extract_temperature(line: &str) -> Option<f32> {
     None
 }
 
-/// Answer hardware audio query using lspci_audio probe
+/// Answer hardware audio query using typed AudioDevices evidence (v0.45.8)
 fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
-    let probe = find_probe(probes, "lspci")?;
-    if probe.exit_code != 0 {
-        return None;
-    }
+    use anna_shared::parsers::{parse_probe_result, ParsedProbeData, find_audio_evidence};
 
-    // Filter for audio devices
-    let audio_devices: Vec<&str> = probe.stdout.lines()
-        .filter(|l| l.to_lowercase().contains("audio") || l.to_lowercase().contains("sound"))
+    // v0.45.8: Parse all probes to typed evidence
+    let parsed: Vec<ParsedProbeData> = probes.iter()
+        .map(|p| parse_probe_result(p))
         .collect();
 
-    if audio_devices.is_empty() {
+    // Find audio evidence from parsed probes
+    if let Some(audio) = find_audio_evidence(&parsed) {
+        if audio.devices.is_empty() {
+            return Some(DeterministicResult {
+                answer: "No audio devices detected.".to_string(),
+                grounded: true,
+                parsed_data_count: 1, // We have evidence, it's just empty
+                route_class: route_class.to_string(),
+            });
+        }
+
+        let answer = if audio.devices.len() == 1 {
+            let dev = &audio.devices[0];
+            let vendor_info = dev.vendor.as_ref()
+                .map(|v| format!(" ({})", v))
+                .unwrap_or_default();
+            format!("**Audio device{}**: {}", vendor_info, dev.description)
+        } else {
+            let devices_list: Vec<String> = audio.devices.iter()
+                .map(|d| {
+                    let vendor_info = d.vendor.as_ref()
+                        .map(|v| format!(" [{}]", v))
+                        .unwrap_or_default();
+                    format!("• {}{}", d.description, vendor_info)
+                })
+                .collect();
+            format!("**Audio devices ({}):**\n{}", audio.devices.len(), devices_list.join("\n"))
+        };
+
         return Some(DeterministicResult {
-            answer: "No audio devices detected via lspci.".to_string(),
-            grounded: true, parsed_data_count: 0, route_class: route_class.to_string(),
+            answer,
+            grounded: true,
+            parsed_data_count: audio.devices.len(),
+            route_class: route_class.to_string(),
         });
     }
 
-    let answer = if audio_devices.len() == 1 {
-        format!("Audio device: {}", audio_devices[0].trim())
-    } else {
-        format!("Audio devices:\n{}", audio_devices.iter()
-            .map(|d| format!("• {}", d.trim()))
-            .collect::<Vec<_>>()
-            .join("\n"))
-    };
-
-    Some(DeterministicResult {
-        answer, grounded: true, parsed_data_count: audio_devices.len(), route_class: route_class.to_string(),
-    })
+    // Fallback: no audio evidence found
+    None
 }
 
 /// Answer memory free query using free probe

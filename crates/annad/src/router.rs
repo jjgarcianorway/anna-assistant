@@ -375,14 +375,14 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
-        // Audio hardware - needs lspci + pactl + LLM interpretation (v0.45.4: both probes)
+        // Audio hardware - deterministic with typed Audio evidence (v0.45.8)
         QueryClass::HardwareAudio => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["lspci_audio".to_string(), "pactl_cards".to_string()],
             capability: RouteCapability {
-                can_answer_deterministically: false, // NEVER deterministic
+                can_answer_deterministically: true, // v0.45.8: deterministic
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Audio],
                 spine_probes: vec![ProbeId::LspciAudio, ProbeId::PactlCards],
@@ -585,10 +585,13 @@ mod tests {
     }
 
     #[test]
-    fn test_sound_card_never_deterministic() {
+    fn test_sound_card_is_deterministic_v458() {
+        // v0.45.8: HardwareAudio IS deterministic with typed Audio evidence
         let route = get_route("what is my sound card");
-        assert!(!route.can_answer_deterministically(),
-            "HardwareAudio must NEVER be deterministic");
+        assert!(route.can_answer_deterministically(),
+            "v0.45.8: HardwareAudio should be deterministic with Audio evidence");
+        assert!(route.capability.evidence_required,
+            "HardwareAudio still requires evidence");
     }
 
     #[test]

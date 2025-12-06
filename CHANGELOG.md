@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.54] - 2025-12-06
+
+### Fixed - v0.45.8 Audio Evidence + Editor Config Flow
+
+**Bug A: Audio evidence parsing**
+- **Root Cause**: `parse_probe_result()` didn't recognize `lspci | grep -i audio` as Audio evidence.
+  Sound card queries showed probe output but said "missing evidence: audio".
+
+- **Evidence Type System** (`parsers/mod.rs`):
+  - New `AudioDevice` struct: `description`, `pci_slot`, `vendor`
+  - New `AudioDevices` struct: `devices: Vec<AudioDevice>`, `source: String`
+  - Added `ParsedProbeData::Audio(AudioDevices)` variant
+  - `try_parse_audio_devices()` handles `lspci | grep -i audio` and `pactl list cards`
+  - Exit code 1 (no audio devices) creates valid empty evidence
+
+- **Evidence Helpers** (`parsers/mod.rs`):
+  - `find_audio_evidence(parsed)` - find audio devices from parsed probes
+  - `get_installed_tools(parsed)` - get all ToolExists entries
+
+- **Deterministic Answers** (`deterministic.rs`):
+  - `answer_hardware_audio()` uses typed `ParsedProbeData::Audio` evidence
+  - Formats answer listing audio devices with vendor info
+
+- **Route Updates** (`router.rs`):
+  - `HardwareAudio`: Now `can_answer_deterministically: true` (v0.45.8)
+  - Sound card queries answered from typed evidence, no specialist needed
+
+**Bug B: Editor config flow**
+- **Root Cause**: "enable syntax highlighting" went to specialist LLM which dumped raw probe output.
+
+- **Clarification Flow** (`rpc_handler.rs`):
+  - ConfigureEditor now intercepts BEFORE specialist stage
+  - Uses `InventoryCache::installed_editors()` to find installed editors
+  - If exactly one editor: auto-pick and return deterministic answer
+  - If multiple editors: return `ClarificationRequired` with editor choices
+  - Never goes to specialist LLM for editor config
+
+### Acceptance Criteria
+
+- `"what is my sound card?"` → **Deterministic answer** from Audio evidence (no "missing evidence")
+- `"enable syntax highlighting"` → **ClarificationRequired** or auto-pick (never raw probe output)
+- HardwareAudio route is deterministic when Audio evidence exists
+
+### Tests
+
+- **v0.45.8 Golden Tests** (`stabilization_tests.rs`):
+  - `golden_v458_lspci_audio_parses_to_audio_devices`
+  - `golden_v458_lspci_audio_empty_is_valid_evidence`
+  - `golden_v458_find_audio_evidence`
+  - `golden_v458_hardware_audio_is_deterministic`
+  - `golden_v458_configure_editor_classifies_correctly`
+
 ## [0.0.53] - 2025-12-06
 
 ### Fixed - v0.45.7 Negative Evidence Binding

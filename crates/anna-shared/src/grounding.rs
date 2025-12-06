@@ -87,6 +87,7 @@ impl ParsedEvidence {
                 | ParsedProbeData::BootTime(_)
                 | ParsedProbeData::Tool(_)      // v0.45.7
                 | ParsedProbeData::Package(_)   // v0.45.7
+                | ParsedProbeData::Audio(_)     // v0.45.8
                 | ParsedProbeData::Error(_)
                 | ParsedProbeData::Unsupported => {}
             }
