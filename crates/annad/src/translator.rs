@@ -48,6 +48,9 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "journal_errors" => Some("journalctl -p 3 -b --no-pager"),
         "journal_warnings" => Some("journalctl -p 4 -b --no-pager"),
         "boot_time" => Some("systemd-analyze"),
+        // v0.45.8: Audio probes
+        "lspci_audio" => Some("lspci | grep -i audio"),
+        "pactl_cards" => Some("pactl list cards"),
         _ => None,
     }
 }

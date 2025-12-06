@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.55] - 2025-12-06
+
+### Fixed - v0.45.8 Regression Fixes
+
+**Bug A: Audio probes not resolving**
+- **Root Cause**: Router specified `probes: ["lspci_audio", "pactl_cards"]` but translator
+  didn't have mappings for these IDs, causing probes to be silently skipped.
+
+- **Fix** (`translator.rs`):
+  - Added `"lspci_audio" => Some("lspci | grep -i audio")` mapping
+  - Added `"pactl_cards" => Some("pactl list cards")` mapping
+  - Audio probes now execute correctly and produce typed evidence
+
+- **Parser confirmed working**: Both "Audio device:" and "Multimedia audio controller:"
+  lspci formats parse correctly to AudioDevices variant.
+
+**Bug B: Editor config using stale InventoryCache**
+- **Root Cause**: ConfigureEditor used `load_or_create_inventory().installed_editors()`
+  which reads from disk cache instead of current probe evidence.
+
+- **Fix** (`rpc_handler.rs`):
+  - Changed to parse `probe_results` into `ParsedProbeData`
+  - Extract installed editors from `ToolExists { exists: true }` evidence
+  - Only offer editors actually probed and found in current request
+  - Results go through `build_result_with_flags` which attaches probe evidence
+
+### Acceptance Criteria
+
+- `"what is my sound card?"` → Lists audio device from lspci (not "No audio devices")
+- `"enable syntax highlighting"` → Shows only editors found in probe evidence
+- Both fixes ground answers in current request evidence, not stale cache
+
 ## [0.0.54] - 2025-12-06
 
 ### Fixed - v0.45.8 Audio Evidence + Editor Config Flow

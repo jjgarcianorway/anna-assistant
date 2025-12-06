@@ -1,6 +1,5 @@
 //! RPC request handlers with deterministic routing, triage, and fallback.
 
-use anna_shared::inventory::load_or_create_inventory;
 use anna_shared::probe_spine::{
     enforce_minimum_probes, enforce_spine_probes, probe_to_command, reduce_probes, Urgency,
 };
@@ -295,16 +294,30 @@ async fn handle_llm_request_inner(
         return RpcResponse::success(id, serde_json::to_value(result).unwrap());
     }
 
-    // Step 5.5: v0.45.8 ConfigureEditor - clarification flow, never go to specialist
+    // Step 5.5: v0.45.8 ConfigureEditor - use probe evidence, never go to specialist
     if det_route.class == router::QueryClass::ConfigureEditor {
-        let inventory = load_or_create_inventory();
-        let installed_editors: Vec<String> = inventory.installed_editors().iter().map(|s| s.to_string()).collect();
-        info!("v0.45.8: ConfigureEditor - found {} installed editors: {:?}", installed_editors.len(), installed_editors);
+        use anna_shared::parsers::{parse_probe_result, get_installed_tools};
+
+        // Parse probe_results to get installed editors from ToolExists evidence
+        let parsed: Vec<_> = probe_results.iter().map(|p| parse_probe_result(p)).collect();
+        let tools = get_installed_tools(&parsed);
+        let editor_names = ["vim", "nvim", "nano", "emacs", "code", "micro", "vi"];
+        let installed_editors: Vec<String> = tools.iter()
+            .filter(|t| t.exists && editor_names.contains(&t.name.as_str()))
+            .map(|t| t.name.clone())
+            .collect();
+
+        info!("v0.45.8: ConfigureEditor - found {} installed editors from probes: {:?}", installed_editors.len(), installed_editors);
 
         if installed_editors.is_empty() {
-            // No editors found - return error (no specialist)
-            let result = service_desk::create_clarification_response(
-                request_id, ticket, "No supported editors found. Please install vim, nano, or another editor.", progress.take_transcript(),
+            // No editors found in probe evidence - deterministic "not found" answer
+            let answer = "No supported text editors were detected from the probes. \
+                Please ensure vim, nano, or another editor is installed.".to_string();
+            save_progress(&state, &progress).await;
+            let result = service_desk::build_result_with_flags(
+                request_id, answer, query, ticket, probe_results.clone(), progress.transcript_clone(),
+                classified_domain, false, true, 0, false,
+                service_desk::FallbackContext { used_deterministic_fallback: false, fallback_route_class: "configure_editor".to_string(), evidence_kinds: vec!["tool_exists".to_string()], specialist_outcome: Some(SpecialistOutcome::Skipped), fallback_used: Some(anna_shared::trace::FallbackUsed::None), evidence_required: Some(true) },
             );
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         } else if installed_editors.len() == 1 {
@@ -327,7 +340,7 @@ async fn handle_llm_request_inner(
             );
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         } else {
-            // Multiple editors - return ClarificationRequired
+            // Multiple editors - return ClarificationRequired with probes attached
             let question = format!("Which editor would you like to configure? Available: {}", installed_editors.join(", "));
             let result = service_desk::create_clarification_response(request_id, ticket, &question, progress.take_transcript());
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());

@@ -727,3 +727,31 @@ fn golden_v458_configure_editor_classifies_correctly() {
     let decision2 = enforce_minimum_probes("enable line numbers", &[]);
     assert!(decision2.enforced, "Editor config variant must also enforce probes");
 }
+
+/// v0.45.8: lspci with "Multimedia audio controller" parses correctly.
+#[test]
+fn golden_v458_lspci_multimedia_audio_controller() {
+    use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
+    use anna_shared::rpc::ProbeResult;
+
+    let probe = ProbeResult {
+        command: "lspci | grep -i audio".to_string(),
+        exit_code: 0,
+        stdout: "00:1f.3 Multimedia audio controller: Intel Corporation Cannon Lake PCH cAVS (rev 10)\n".to_string(),
+        stderr: String::new(),
+        timing_ms: 15,
+    };
+
+    let parsed = parse_probe_result(&probe);
+    println!("Parsed: {:?}", parsed);
+
+    assert!(matches!(parsed, ParsedProbeData::Audio(_)),
+        "Multimedia audio controller must parse as Audio variant, got {:?}", parsed);
+
+    if let ParsedProbeData::Audio(ref audio) = parsed {
+        println!("Devices: {:?}", audio.devices);
+        assert!(!audio.devices.is_empty(), "Must have at least one audio device");
+        assert!(audio.devices[0].description.contains("Intel"),
+            "Device description must contain Intel, got: {}", audio.devices[0].description);
+    }
+}
