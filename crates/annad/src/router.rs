@@ -83,6 +83,8 @@ pub enum QueryClass {
     ConfigureShell,
     /// v0.0.101: Configure git: "configure git aliases", "set git username"
     ConfigureGit,
+    /// v0.0.104: SSH key management: "generate ssh key", "copy ssh key"
+    SshKeyManagement,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -121,6 +123,7 @@ impl std::fmt::Display for QueryClass {
             Self::ManageService => "manage_service",
             Self::ConfigureShell => "configure_shell",
             Self::ConfigureGit => "configure_git",
+            Self::SshKeyManagement => "ssh_key_management",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -162,6 +165,7 @@ impl QueryClass {
             "manage_service" => Some(Self::ManageService),
             "configure_shell" => Some(Self::ConfigureShell),
             "configure_git" => Some(Self::ConfigureGit),
+            "ssh_key_management" => Some(Self::SshKeyManagement),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -663,6 +667,20 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
         QueryClass::ConfigureGit => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
+            intent: QueryIntent::Request,
+            probes: vec![], // Recipe provides the answer
+            capability: RouteCapability {
+                can_answer_deterministically: true, // Recipe-based
+                evidence_required: false, // No probes needed
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.104: SSH key management - recipe-based, no LLM needed
+        QueryClass::SshKeyManagement => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
             intent: QueryIntent::Request,
             probes: vec![], // Recipe provides the answer
             capability: RouteCapability {

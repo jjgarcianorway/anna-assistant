@@ -401,5 +401,15 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::ConfigureGit;
     }
 
+    // v0.0.104: SSH key management - "generate ssh key", "copy ssh key", "ssh config"
+    let is_ssh = q.contains("ssh")
+        && (q.contains("key") || q.contains("keygen") || q.contains("generate")
+            || q.contains("create") || q.contains("copy") || q.contains("ssh-copy")
+            || q.contains("config") || q.contains("agent") || q.contains("github")
+            || q.contains("gitlab") || q.contains("authorized") || q.contains("passphrase"));
+    if is_ssh {
+        return QueryClass::SshKeyManagement;
+    }
+
     QueryClass::Unknown
 }

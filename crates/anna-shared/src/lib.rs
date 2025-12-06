@@ -20,6 +20,7 @@ pub mod git_recipes;
 pub mod package_recipes;
 pub mod service_recipes;
 pub mod shell_recipes;
+pub mod ssh_recipes;
 pub mod error;
 pub mod facts;
 pub mod facts_types;

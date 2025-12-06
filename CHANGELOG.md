@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.104] - 2025-12-06
+
+### Added - SSH Key Management Recipes (Phase 24)
+
+**Built-in SSH Recipes - No LLM Needed!**
+
+Anna now has built-in recipes for common SSH tasks. Ask about SSH keys
+and get instant, accurate answers without any LLM calls.
+
+**Supported SSH Tasks**:
+- Generate SSH key (ed25519, rsa, ecdsa)
+- Copy key to server (ssh-copy-id)
+- Add SSH host alias (~/.ssh/config)
+- Configure SSH agent auto-start
+- Setup GitHub SSH authentication
+- Harden SSH client configuration
+
+**Example Queries**:
+- "how do I generate an ssh key"
+- "setup ssh for github"
+- "ssh copy key to server"
+- "configure ssh agent"
+
+**Key Changes**:
+- `ssh_recipes.rs` - 6 built-in SSH recipes with step-by-step guides
+- `SshKeyType` enum - Ed25519, Rsa4096, Ecdsa
+- `SshFeature` enum - GenerateKey, CopyKey, HostAlias, SshAgent, etc.
+- Integrated into recipe fast path for instant answers
+- `SshKeyManagement` query class for deterministic routing
+
+**Progress**: ~85% learning system complete
+
 ## [0.0.103] - 2025-12-06
 
 ### Added - Recipe Feedback System (Phase 23)

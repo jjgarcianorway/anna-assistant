@@ -35,6 +35,8 @@ pub enum RecipeKind {
     ShellConfig,
     /// v0.0.100: Git config edit (.gitconfig)
     GitConfig,
+    /// v0.0.104: SSH config edit (~/.ssh/config)
+    SshConfig,
     /// Unknown/future kinds
     #[serde(other)]
     Unknown,

@@ -83,6 +83,8 @@ pub fn try_answer(
         QueryClass::ConfigureShell => None,
         // v0.0.101: ConfigureGit - recipe-based, handled in recipe_fast_path
         QueryClass::ConfigureGit => None,
+        // v0.0.104: SshKeyManagement - recipe-based, handled in recipe_fast_path
+        QueryClass::SshKeyManagement => None,
         QueryClass::Unknown => None,
     }
 }

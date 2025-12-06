@@ -280,6 +280,11 @@ fn looks_like_target(token: &str) -> bool {
     looks_like_package_name(token) || looks_like_service_name(token) || looks_like_editor_name(token)
 }
 
+/// v0.0.104: Try to match an SSH-related query to builtin SSH recipes
+pub fn match_ssh_recipe(query: &str) -> Option<&'static crate::ssh_recipes::SshRecipe> {
+    crate::ssh_recipes::match_query(query)
+}
+
 /// Load recipe index from disk
 pub fn load_recipe_index() -> RecipeIndex {
     RecipeIndex::build_from_disk()

@@ -148,6 +148,10 @@ fn build_tags(recipe: &Recipe) -> Vec<String> {
             tags.push("git".to_string());
             tags.push("config".to_string());
         }
+        RecipeKind::SshConfig => {
+            tags.push("ssh".to_string());
+            tags.push("config".to_string());
+        }
         RecipeKind::Unknown => {}
     }
 

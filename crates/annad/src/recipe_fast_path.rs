@@ -7,6 +7,7 @@ use anna_shared::recipe_matcher::{match_recipe, MatchResult};
 use anna_shared::rpc::{EvidenceBlock, QueryIntent, ReliabilitySignals, ServiceDeskResult, SpecialistDomain, TranslatorTicket};
 use anna_shared::shell_recipes;
 use anna_shared::git_recipes;
+use anna_shared::ssh_recipes;
 use anna_shared::trace::{ExecutionTrace, ProbeStats};
 use anna_shared::transcript::Transcript;
 use tracing::info;
@@ -84,6 +85,12 @@ pub fn check_recipe_fast_path(query: &str, index: &RecipeIndex) -> RecipeFastPat
     // Third, check built-in git recipes
     if let Some(result) = check_git_recipes(query) {
         info!("Git recipe match found");
+        return result;
+    }
+
+    // Fourth, check built-in SSH recipes (v0.0.104)
+    if let Some(result) = check_ssh_recipes(query) {
+        info!("SSH recipe match found: {}", result.recipe.as_ref().map(|r| r.id.clone()).unwrap_or_default());
         return result;
     }
 
@@ -232,6 +239,51 @@ fn check_git_recipes(query: &str) -> Option<RecipeFastPathResult> {
         recipe: Some(synthetic_recipe),
         score: 90,
         matched_tokens: vec!["git".to_string(), feature.display_name().to_string()],
+        skip_llm: true,
+    })
+}
+
+/// Check query against built-in SSH recipes (v0.0.104)
+fn check_ssh_recipes(query: &str) -> Option<RecipeFastPathResult> {
+    // Use the SSH recipe matcher
+    let ssh_recipe = ssh_recipes::match_query(query)?;
+
+    // Build a synthetic Recipe from the SSH recipe
+    let synthetic_recipe = Recipe {
+        id: format!("ssh-{:?}", ssh_recipe.feature),
+        signature: anna_shared::recipe::RecipeSignature::new(
+            "system",
+            "request",
+            "ssh_config",
+            query,
+        ),
+        team: anna_shared::teams::Team::Security,
+        risk_level: anna_shared::ticket::RiskLevel::LowRiskChange,
+        required_evidence_kinds: vec![],
+        probe_sequence: vec![],
+        answer_template: ssh_recipe.answer_template.clone(),
+        created_at: 0,
+        success_count: 100, // Built-in = mature
+        reliability_score: 95,
+        kind: RecipeKind::SshConfig,
+        target: None,
+        action: RecipeAction::None,
+        rollback: None,
+        clarification_slots: vec![],
+        default_question_id: None,
+        populates_facts: vec![],
+        intent_tags: ssh_recipe.feature.keywords().iter().map(|s| s.to_string()).collect(),
+        targets: vec!["ssh".to_string()],
+        preconditions: vec![],
+        clarify_prereqs: vec![],
+    };
+
+    Some(RecipeFastPathResult {
+        matched: true,
+        ticket: Some(ticket_from_recipe(&synthetic_recipe)),
+        recipe: Some(synthetic_recipe),
+        score: 90,
+        matched_tokens: vec!["ssh".to_string(), ssh_recipe.feature.display_name().to_string()],
         skip_llm: true,
     })
 }
@@ -406,5 +458,32 @@ mod tests {
         assert!(service_result.execution_trace.is_some());
         // Recipe answers are deterministic
         assert!(service_result.execution_trace.as_ref().unwrap().answer_is_deterministic);
+    }
+
+    #[test]
+    fn test_ssh_recipe_match_generate_key() {
+        let index = RecipeIndex::new();
+        let result = check_recipe_fast_path("how do I generate an ssh key", &index);
+        assert!(result.matched);
+        assert!(result.skip_llm);
+        assert!(result.recipe.as_ref().unwrap().answer_template.contains("ssh-keygen"));
+    }
+
+    #[test]
+    fn test_ssh_recipe_match_github() {
+        let index = RecipeIndex::new();
+        let result = check_recipe_fast_path("setup ssh for github", &index);
+        assert!(result.matched);
+        assert!(result.skip_llm);
+        assert!(result.recipe.as_ref().unwrap().answer_template.contains("github"));
+    }
+
+    #[test]
+    fn test_ssh_recipe_match_copy_key() {
+        let index = RecipeIndex::new();
+        let result = check_recipe_fast_path("ssh copy key to server", &index);
+        assert!(result.matched);
+        assert!(result.skip_llm);
+        assert!(result.recipe.as_ref().unwrap().answer_template.contains("ssh-copy-id"));
     }
 }
