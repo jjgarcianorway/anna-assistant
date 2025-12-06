@@ -132,6 +132,22 @@ fn build_tags(recipe: &Recipe) -> Vec<String> {
             tags.push("edit".to_string());
         }
         RecipeKind::ClarificationTemplate => tags.push("clarification".to_string()),
+        RecipeKind::PackageInstall => {
+            tags.push("package".to_string());
+            tags.push("install".to_string());
+        }
+        RecipeKind::ServiceManage => {
+            tags.push("service".to_string());
+            tags.push("systemd".to_string());
+        }
+        RecipeKind::ShellConfig => {
+            tags.push("shell".to_string());
+            tags.push("config".to_string());
+        }
+        RecipeKind::GitConfig => {
+            tags.push("git".to_string());
+            tags.push("config".to_string());
+        }
         RecipeKind::Unknown => {}
     }
 

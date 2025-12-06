@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.100] - 2025-12-06
+
+### Added - Recipe Matcher & Config Recipes (Phase 20)
+
+**Recipe Matcher for Translator Fast-Path**
+
+The translator can now check for matching recipes BEFORE calling the specialist:
+
+- `match_recipe()` - finds similar recipes by tokenized query
+- `match_config_recipe()` - finds config recipes for intent+target
+- `match_action_recipe()` - finds package/service action recipes
+- Substitution extraction for adapting recipes to new targets
+- High-confidence matches skip LLM entirely
+
+**Key Insight**: Anna LEARNS from specialists, then the translator can apply
+learned recipes to SIMILAR queries without needing the slow LLM path.
+
+**Shell Configuration Recipes** (`shell_recipes.rs`)
+
+Built-in recipes for bash, zsh, and fish:
+
+- Colored prompt (PS1 customization)
+- Git branch in prompt
+- Syntax highlighting (zsh/fish)
+- Auto-suggestions (zsh/fish)
+- Colored ls output
+- History settings
+- Common aliases
+
+**Git Configuration Recipes** (`git_recipes.rs`)
+
+Built-in recipes for .gitconfig:
+
+- User identity (name, email) - with parameter prompts
+- Default branch (main)
+- Editor selection (vim, nano)
+- Colored output
+- Common aliases (st, co, br, ci, lg)
+- Push/pull defaults
+- Credential helpers
+- Merge/diff tools
+
+**New RecipeKind Variants**
+- `PackageInstall` - for package installation recipes
+- `ServiceManage` - for systemd service recipes
+- `ShellConfig` - for shell config recipes
+- `GitConfig` - for git config recipes
+
+**New Modules**
+- `recipe_matcher.rs` - Fast-path recipe matching
+- `shell_recipes.rs` - Shell configuration recipes
+- `git_recipes.rs` - Git configuration recipes
+
 ## [0.0.99] - 2025-12-06
 
 ### Added - Natural Language Package & Service Management (Phase 19)

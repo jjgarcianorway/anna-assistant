@@ -15,7 +15,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
-/// Kind of recipe action (v0.0.27)
+/// Kind of recipe action (v0.0.27, v0.0.100 added package/service)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RecipeKind {
@@ -27,7 +27,15 @@ pub enum RecipeKind {
     ConfigEnsureLine,
     /// Clarification template (v0.0.31) - learned pattern of what to ask
     ClarificationTemplate,
-    /// Install a package (future)
+    /// v0.0.100: Install a package
+    PackageInstall,
+    /// v0.0.100: Manage a systemd service
+    ServiceManage,
+    /// v0.0.100: Shell config edit (.bashrc, .zshrc)
+    ShellConfig,
+    /// v0.0.100: Git config edit (.gitconfig)
+    GitConfig,
+    /// Unknown/future kinds
     #[serde(other)]
     Unknown,
 }
