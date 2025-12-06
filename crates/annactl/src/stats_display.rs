@@ -1,13 +1,16 @@
-//! Stats display module for annactl (v0.0.75, v0.0.84).
+//! Stats display module for annactl (v0.0.75, v0.0.84, v0.0.85).
 //!
 //! Provides RPG-style stats visualization with XP bars, levels, and titles.
-//! v0.0.84: Enhanced with per-team breakdown, fun stats, installation date.
+//! v0.0.84: Enhanced with per-team breakdown, fun stats.
+//! v0.0.85: Added installation date / tenure tracking.
 
 use anna_shared::event_log::{AggregatedEvents, EventLog};
 use anna_shared::stats::GlobalStats;
 use anna_shared::stats_store::{AggregatedStats, StatsStore};
 use anna_shared::ui::{colors, HR};
 use anna_shared::VERSION;
+
+use crate::time_format::{format_date, format_tenure};
 
 /// Print key-value pair
 fn print_kv(key: &str, value: &str, width: usize) {
@@ -248,7 +251,7 @@ fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
     print_fun_stats(agg);
 }
 
-/// v0.0.84: Print fun/interesting statistics
+/// v0.0.84/85: Print fun/interesting statistics
 fn print_fun_stats(agg: &AggregatedEvents) {
     if agg.total_requests == 0 {
         return;
@@ -256,6 +259,16 @@ fn print_fun_stats(agg: &AggregatedEvents) {
 
     println!();
     println!("{}Fun Facts{}", colors::BOLD, colors::RESET);
+
+    // v0.0.85: Anna since (installation date from first event)
+    if agg.first_event_ts > 0 {
+        let tenure = format_tenure(agg.first_event_ts);
+        let since_date = format_date(agg.first_event_ts);
+        println!(
+            "  {} Anna since: {} ({})",
+            bullet(), since_date, tenure
+        );
+    }
 
     // Most consulted team
     if let Some((team, count)) = agg.by_team.iter().max_by_key(|(_, c)| *c) {

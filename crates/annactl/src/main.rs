@@ -1,5 +1,6 @@
 //! Anna CLI - user interface to annad.
 //! v0.0.83: Added --internal flag for IT department communications view.
+//! v0.0.85: Added time_format module for date/tenure display.
 
 mod client;
 mod commands;
@@ -10,6 +11,7 @@ mod progress_display;
 mod report_cmd;
 mod stats_display;
 mod theatre_render;
+mod time_format;
 mod transcript_render;
 
 use anyhow::Result;

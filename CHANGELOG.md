@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.85] - 2025-12-06
+
+### Added - Installation Date & Tenure Tracking (Phase 5)
+
+**Anna Since / Tenure Display**
+
+The stats display now shows when you first started using Anna and how long you've been together:
+
+```
+Fun Facts
+  › Anna since: Dec 1, 2025 (5 days)
+  › Most consulted: Storage & Filesystems (42% of cases)
+  ...
+```
+
+**Tenure Formatting**
+- Shows human-readable dates (e.g., "Dec 6, 2025")
+- Formats tenure as "today", "X days", "X weeks", "X months", or "X years, Y months"
+- Tracks first and last event timestamps in event log
+
+**Code Changes**
+- `event_log.rs`: Added `first_event_ts` and `last_event_ts` to AggregatedEvents
+- `time_format.rs`: New module for date/tenure formatting utilities
+- `stats_display.rs`: Now uses time_format module, shows "Anna since" in Fun Facts
+- Modularized to keep files under 400 lines
+
 ## [0.0.84] - 2025-12-06
 
 ### Added - Enhanced Stats Display (Phase 4)

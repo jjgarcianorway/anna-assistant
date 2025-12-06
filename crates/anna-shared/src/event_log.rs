@@ -211,6 +211,10 @@ impl EventLog {
 pub struct AggregatedEvents {
     /// Total requests
     pub total_requests: u64,
+    /// First event timestamp (installation date proxy)
+    pub first_event_ts: u64,
+    /// Last event timestamp
+    pub last_event_ts: u64,
     /// Successful (verified) requests
     pub verified_count: u64,
     /// Failed requests
@@ -256,6 +260,8 @@ impl AggregatedEvents {
 
         agg.total_requests = records.len() as u64;
         agg.min_duration_ms = u64::MAX;
+        agg.first_event_ts = u64::MAX;
+        agg.last_event_ts = 0;
 
         let mut total_reliability: u64 = 0;
         let mut total_duration: u64 = 0;
@@ -263,6 +269,9 @@ impl AggregatedEvents {
             std::collections::HashMap::new();
 
         for record in records {
+            // Track first and last timestamps
+            agg.first_event_ts = agg.first_event_ts.min(record.timestamp);
+            agg.last_event_ts = agg.last_event_ts.max(record.timestamp);
             // Count outcomes
             match record.outcome.as_str() {
                 "verified" => agg.verified_count += 1,
@@ -302,9 +311,12 @@ impl AggregatedEvents {
         agg.avg_reliability = total_reliability as f32 / agg.total_requests as f32;
         agg.avg_duration_ms = total_duration as f64 / agg.total_requests as f64;
 
-        // Fix min if no records
+        // Fix min values if needed
         if agg.min_duration_ms == u64::MAX {
             agg.min_duration_ms = 0;
+        }
+        if agg.first_event_ts == u64::MAX {
+            agg.first_event_ts = 0;
         }
 
         // Most escalated team
