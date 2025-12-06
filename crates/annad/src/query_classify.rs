@@ -32,6 +32,56 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::Help;
     }
 
+    // v0.0.77: Meta/small-talk - bypass LLM entirely
+    // "how are you", "what is your name", "are you using llm", "are you ok"
+    if q == "how are you"
+        || q == "how are you?"
+        || q.starts_with("how are you ")
+        || q.contains("what is your name")
+        || q.contains("what's your name")
+        || q.contains("who are you")
+        || q.contains("are you ok")
+        || q.contains("are you okay")
+        || q.contains("are you using llm")
+        || q.contains("are you an ai")
+        || q.contains("are you a bot")
+        || q.contains("are you human")
+        || q.contains("are you real")
+        || q == "hello"
+        || q == "hi"
+        || q == "hey"
+        || q == "thanks"
+        || q == "thank you"
+        || q == "good morning"
+        || q == "good afternoon"
+        || q == "good evening"
+    {
+        return QueryClass::MetaSmallTalk;
+    }
+
+    // v0.0.77: Kernel version - "kernel version", "uname", "linux version"
+    if q.contains("kernel version")
+        || q.contains("kernel release")
+        || q == "uname"
+        || q == "uname -a"
+        || q.contains("linux version")
+        || q.contains("what kernel")
+    {
+        return QueryClass::KernelVersion;
+    }
+
+    // v0.0.77: Config file location - "where is vim config", "hyprland config path"
+    let config_location_query = (q.contains("where is") || q.contains("where's")
+        || q.contains("path to") || q.contains("location of") || q.contains("find the"))
+        && q.contains("config");
+    let specific_config_query = (q.contains("vim") || q.contains("nvim") || q.contains("hyprland")
+        || q.contains("sway") || q.contains("alacritty") || q.contains("kitty")
+        || q.contains("bash") || q.contains("zsh") || q.contains("fish"))
+        && (q.contains("config") || q.contains("rc file") || q.contains("dotfile"));
+    if config_location_query || specific_config_query {
+        return QueryClass::ConfigFileLocation;
+    }
+
     // SystemTriage (FAST PATH): error/warning focused queries - check BEFORE SystemHealthSummary
     // v0.0.35: Must match: "how is my computer", "any errors", "any problems", "is everything ok",
     //          "warnings", "errors", "health", "status"

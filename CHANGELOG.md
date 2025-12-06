@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.77] - 2025-12-06
+
+### Fixed - STABILIZE: Routing, Determinism, and Consistency
+
+This is a stabilization release focused on correctness, truthfulness, and consistency.
+No new user-facing features; only bug fixes and hygiene improvements.
+
+**Meta/Small-Talk Classification (B2: Fixed)**
+- New `QueryClass::MetaSmallTalk` for greetings and meta questions
+- Pattern matching for: "how are you", "what is your name", "are you using llm", etc.
+- Bypasses LLM translator entirely - instant deterministic response
+- No longer routes to domain=security for meta questions
+
+**Deterministic Handlers for Common Safe Questions (B5: Fixed)**
+- New `QueryClass::KernelVersion` for "kernel version", "uname" queries
+- New `QueryClass::ConfigFileLocation` for "where is vim config", "hyprland config" etc.
+- Deterministic config path answers for 20+ common tools:
+  - Editors: vim, nvim, nano, emacs
+  - Shells: bash, zsh, fish
+  - WMs: hyprland, sway, i3
+  - Terminals: alacritty, kitty
+  - Utilities: tmux, git, ssh, rofi, waybar, dunst, picom, polybar
+- Added "uname" to translator probe mappings
+- All new handlers bypass LLM for instant, grounded responses
+
+**Query Classification Updates**
+- Added MetaSmallTalk, KernelVersion, ConfigFileLocation to `classify_query()`
+- Updated `is_fast_path()` to include MetaSmallTalk
+- Updated Display and from_str for new QueryClass variants
+- All query classes enumerated in evidence contract tests
+
+**Probe Mapping**
+- Added `uname` → `uname -a` in translator.rs
+
 ## [0.0.76] - 2025-12-06
 
 ### Added - Version Sanity + Model Registry + Correctness Fixes

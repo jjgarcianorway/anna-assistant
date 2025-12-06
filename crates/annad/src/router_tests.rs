@@ -137,4 +137,61 @@ mod tests {
         assert_eq!(route.probes, vec!["systemctl"]);
         assert!(route.can_answer_deterministically());
     }
+
+    // === v0.0.77: Meta/small-talk and config location tests ===
+
+    #[test]
+    fn test_classify_meta_small_talk() {
+        // Greetings
+        assert_eq!(classify_query("hello"), QueryClass::MetaSmallTalk);
+        assert_eq!(classify_query("hi"), QueryClass::MetaSmallTalk);
+        assert_eq!(classify_query("hey"), QueryClass::MetaSmallTalk);
+        assert_eq!(classify_query("thanks"), QueryClass::MetaSmallTalk);
+        assert_eq!(classify_query("thank you"), QueryClass::MetaSmallTalk);
+        // Meta questions
+        assert_eq!(classify_query("how are you"), QueryClass::MetaSmallTalk);
+        assert_eq!(classify_query("what is your name"), QueryClass::MetaSmallTalk);
+        assert_eq!(classify_query("are you using llm"), QueryClass::MetaSmallTalk);
+        assert_eq!(classify_query("are you an ai"), QueryClass::MetaSmallTalk);
+        assert_eq!(classify_query("are you ok"), QueryClass::MetaSmallTalk);
+    }
+
+    #[test]
+    fn test_meta_small_talk_is_fast_path() {
+        // MetaSmallTalk should be fast-path (no LLM)
+        assert!(QueryClass::MetaSmallTalk.is_fast_path());
+        let route = get_route("how are you");
+        assert!(route.probes.is_empty()); // No probes
+        assert!(route.can_answer_deterministically());
+    }
+
+    #[test]
+    fn test_classify_kernel_version() {
+        assert_eq!(classify_query("kernel version"), QueryClass::KernelVersion);
+        assert_eq!(classify_query("uname"), QueryClass::KernelVersion);
+        assert_eq!(classify_query("linux version"), QueryClass::KernelVersion);
+        assert_eq!(classify_query("what kernel am I running"), QueryClass::KernelVersion);
+    }
+
+    #[test]
+    fn test_kernel_version_route() {
+        let route = get_route("kernel version");
+        assert_eq!(route.probes, vec!["uname"]);
+        assert!(route.can_answer_deterministically());
+    }
+
+    #[test]
+    fn test_classify_config_file_location() {
+        assert_eq!(classify_query("where is vim config"), QueryClass::ConfigFileLocation);
+        assert_eq!(classify_query("hyprland config location"), QueryClass::ConfigFileLocation);
+        assert_eq!(classify_query("path to bash config"), QueryClass::ConfigFileLocation);
+        assert_eq!(classify_query("nvim config path"), QueryClass::ConfigFileLocation);
+    }
+
+    #[test]
+    fn test_config_file_location_is_deterministic() {
+        let route = get_route("where is vim config");
+        assert!(route.probes.is_empty()); // No probes needed - known paths
+        assert!(route.can_answer_deterministically());
+    }
 }

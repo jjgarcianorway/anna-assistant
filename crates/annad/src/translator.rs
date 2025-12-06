@@ -68,6 +68,8 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "command_v_code" => Some("sh -lc 'command -v code'"),
         "command_v_kate" => Some("sh -lc 'command -v kate'"),
         "command_v_gedit" => Some("sh -lc 'command -v gedit'"),
+        // v0.0.77: System probes
+        "uname" => Some("uname -a"),
         _ => None,
     }
 }

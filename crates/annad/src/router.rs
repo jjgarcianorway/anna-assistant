@@ -68,6 +68,13 @@ pub enum QueryClass {
     AppAlternatives,
     /// Configure editor: "enable syntax highlighting" => needs clarification + recipe (v0.45.5)
     ConfigureEditor,
+    /// v0.0.77: Meta/small-talk: "how are you", "what is your name", "are you using llm"
+    /// Deterministic, no probes, domain=general
+    MetaSmallTalk,
+    /// v0.0.77: Kernel version query: "kernel version", "uname"
+    KernelVersion,
+    /// v0.0.77: Config file location queries: "where is vim config", "hyprland config"
+    ConfigFileLocation,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -99,6 +106,9 @@ impl std::fmt::Display for QueryClass {
             Self::InstalledToolCheck => "installed_tool_check",
             Self::AppAlternatives => "app_alternatives",
             Self::ConfigureEditor => "configure_editor",
+            Self::MetaSmallTalk => "meta_small_talk",
+            Self::KernelVersion => "kernel_version",
+            Self::ConfigFileLocation => "config_file_location",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -133,6 +143,9 @@ impl QueryClass {
             "installed_tool_check" => Some(Self::InstalledToolCheck),
             "app_alternatives" => Some(Self::AppAlternatives),
             "configure_editor" => Some(Self::ConfigureEditor),
+            "meta_small_talk" => Some(Self::MetaSmallTalk),
+            "kernel_version" => Some(Self::KernelVersion),
+            "config_file_location" => Some(Self::ConfigFileLocation),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -144,8 +157,9 @@ impl QueryClass {
     }
 
     /// Check if this class is a fast-path (skip translator, no specialist)
+    /// v0.0.77: Added MetaSmallTalk - bypasses LLM entirely
     pub fn is_fast_path(&self) -> bool {
-        matches!(self, Self::SystemTriage | Self::Help)
+        matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -528,6 +542,51 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
+        // === v0.0.77: Meta/small-talk - bypass LLM entirely ===
+        // "how are you", "what is your name", "are you using llm"
+        // Returns stable domain=system, intent=question, no probes
+        QueryClass::MetaSmallTalk => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec![],
+            capability: RouteCapability {
+                can_answer_deterministically: true, // Static response
+                evidence_required: false,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.77: Kernel version - deterministic from uname probe
+        QueryClass::KernelVersion => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["uname".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::System],
+                spine_probes: vec![ProbeId::Uname],
+            },
+        },
+
+        // v0.0.77: Config file location - deterministic paths
+        // "where is vim config", "hyprland config path"
+        QueryClass::ConfigFileLocation => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec![], // No probes - answer from known paths
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: false, // Known config paths
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
         // Unknown - full LLM path
         QueryClass::Unknown => DeterministicRoute {
             class,
@@ -685,7 +744,7 @@ mod tests {
     fn test_evidence_required_routes_have_probes() {
         use anna_shared::probe_spine::EvidenceKind;
 
-        // All known query classes
+        // All known query classes (v0.0.77: added MetaSmallTalk, KernelVersion, ConfigFileLocation)
         let all_classes = [
             QueryClass::SystemTriage, QueryClass::CpuInfo, QueryClass::CpuCores,
             QueryClass::CpuTemp, QueryClass::RamInfo, QueryClass::GpuInfo,
@@ -696,7 +755,8 @@ mod tests {
             QueryClass::SystemHealthSummary, QueryClass::BootTimeStatus,
             QueryClass::InstalledPackagesOverview, QueryClass::PackageCount,
             QueryClass::InstalledToolCheck, QueryClass::AppAlternatives,
-            QueryClass::ConfigureEditor, QueryClass::Unknown,
+            QueryClass::ConfigureEditor, QueryClass::MetaSmallTalk,
+            QueryClass::KernelVersion, QueryClass::ConfigFileLocation, QueryClass::Unknown,
         ];
 
         let mut failures = Vec::new();
