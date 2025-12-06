@@ -3,6 +3,7 @@
 //! v0.0.99: Package install and service management.
 //! v0.0.101: Recipe fast path - skip LLM for learned queries.
 //! v0.0.102: Recipe direct answers - skip probes too.
+//! v0.0.115: File-based inbox for async queries.
 
 pub mod action_handlers;
 pub mod answers;
@@ -15,6 +16,7 @@ pub mod fast_path_handler;
 pub mod handlers;
 pub mod hardware;
 pub mod health;
+pub mod inbox;
 pub mod health_brief_builder;
 pub mod ollama;
 pub mod parsers;

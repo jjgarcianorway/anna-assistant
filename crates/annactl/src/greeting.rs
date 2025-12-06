@@ -115,7 +115,7 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
         println!("{}Ways to reach me:{}", colors::DIM, colors::RESET);
         println!("  {} annactl \"your question\"  (one-shot)", bullet());
         println!("  {} annactl                   (interactive REPL)", bullet());
-        println!("  {} email {}       (async tickets)", bullet(), anna_shared::email::ANNA_EMAIL);
+        println!("  {} ~/.anna/inbox             (async queries - I'll check it)", bullet());
         println!();
         println!("{}For detailed stats: annactl stats | For system status: annactl status{}", colors::DIM, colors::RESET);
     } else if let Some(days) = info.days_since_last {

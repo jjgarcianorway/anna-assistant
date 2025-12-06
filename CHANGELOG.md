@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.115] - 2025-12-06
+
+### Changed - File-Based Inbox for Async Queries (Phase 34)
+
+**No Email Server Needed**
+
+Replaced `anna@localhost` email with file-based inbox (`~/.anna/inbox`).
+Users can submit async queries without needing a mail server.
+
+**How It Works**:
+- Drop queries in `~/.anna/inbox` (one per line, prefix with `?`)
+- Anna checks the inbox periodically
+- Queries become tickets with case numbers
+- User gets email notification (outgoing only - no server needed)
+- Processed queries move to `~/.anna/inbox.done`
+
+**New Command**:
+- `annactl inbox` - View pending queries in inbox
+- `annactl inbox --add "question"` - Add query to inbox
+
+**Ways to Reach Anna**:
+1. `annactl "question"` - One-shot query (immediate)
+2. `annactl` - Interactive REPL (immediate)
+3. `~/.anna/inbox` - Async queries (creates tickets)
+
+**Email Clarification**:
+- Outgoing: Anna emails you (works with mail command)
+- Incoming: Use `annactl reply` or inbox file (no server needed)
+
+**Code Changes**:
+- `email.rs`: Added `inbox_path()`, removed anna_email field
+- `inbox.rs` (NEW): File-based inbox processing
+- `ticket_commands.rs`: Added `handle_inbox()`, updated health display
+- `greeting.rs`: Shows inbox instead of email address
+- `main.rs`: Added Inbox command
+
 ## [0.0.114] - 2025-12-06
 
 ### Added - Self-Healing Email & Contact Options (Phase 33)

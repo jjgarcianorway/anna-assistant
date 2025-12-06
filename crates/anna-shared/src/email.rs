@@ -9,6 +9,7 @@
 //! User can configure their email with `annactl config email user@example.com`
 //!
 //! v0.0.114: Added health check, auto-install, and Anna's email address.
+//! v0.0.115: Replaced email inbox with file-based inbox (~/.anna/inbox)
 
 use std::fs;
 use std::path::PathBuf;
@@ -16,8 +17,14 @@ use std::process::Command;
 
 use crate::ticket_tracker::Ticket;
 
-/// Anna's Service Desk email address (for incoming queries)
-/// Users can email questions directly to Anna
+/// Path to Anna's inbox file for async queries
+/// Users can write questions here and Anna will process them
+pub fn inbox_path() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(home).join(".anna").join("inbox")
+}
+
+/// Legacy constant for backwards compatibility
 pub const ANNA_EMAIL: &str = "anna@localhost";
 
 /// Check if email system is available
@@ -77,27 +84,51 @@ pub struct EmailHealth {
     pub install_cmd: String,
     /// User's configured email
     pub user_email: Option<String>,
-    /// Anna's email address
-    pub anna_email: &'static str,
+    /// Inbox path for async queries
+    pub inbox_path: PathBuf,
+    /// Does inbox exist?
+    pub inbox_exists: bool,
+    /// Pending queries in inbox
+    pub inbox_count: usize,
 }
 
 impl EmailHealth {
     /// Check email system health
     pub fn check() -> Self {
         let config = EmailConfig::load();
+        let inbox = inbox_path();
+        let inbox_exists = inbox.exists();
+        let inbox_count = if inbox_exists {
+            count_inbox_queries(&inbox)
+        } else {
+            0
+        };
         Self {
             can_send: is_email_available(),
             package_name: email_package_name(),
             install_cmd: install_email_command(),
             user_email: config.user_email,
-            anna_email: ANNA_EMAIL,
+            inbox_path: inbox,
+            inbox_exists,
+            inbox_count,
         }
     }
 
-    /// Is everything ready for email?
+    /// Is everything ready for email notifications?
     pub fn is_ready(&self) -> bool {
         self.can_send && self.user_email.is_some()
     }
+}
+
+/// Count queries in inbox file (lines starting with "?")
+fn count_inbox_queries(path: &PathBuf) -> usize {
+    fs::read_to_string(path)
+        .map(|content| {
+            content.lines()
+                .filter(|line| line.starts_with('?') || (!line.trim().is_empty() && !line.starts_with('#')))
+                .count()
+        })
+        .unwrap_or(0)
 }
 
 /// Email configuration

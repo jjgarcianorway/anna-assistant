@@ -5,8 +5,9 @@
 //! - annactl ticket <case> - Show ticket conversation
 //! - annactl email <address> - Configure email notifications
 //! - annactl health - Check Anna's health and dependencies (v0.0.114)
+//! - v0.0.115: Replaced email inbox with file-based inbox (~/.anna/inbox)
 
-use anna_shared::email::{EmailConfig, EmailHealth, ANNA_EMAIL};
+use anna_shared::email::{EmailConfig, EmailHealth};
 use anna_shared::ticket_tracker::{TicketTracker, TicketStatus};
 use anna_shared::ui::colors;
 use anyhow::Result;
@@ -231,12 +232,27 @@ pub async fn handle_health() -> Result<()> {
         println!("    Run: annactl email your@email.com");
     }
 
-    // Show Anna's email
+    // Show inbox status
+    println!();
+    println!("{}Async Inbox:{}", colors::BOLD, colors::RESET);
+    if email_health.inbox_exists {
+        println!("  {} Inbox: {}", ok_symbol(), email_health.inbox_path.display());
+        if email_health.inbox_count > 0 {
+            println!("  {} {} pending {}", warn_symbol(),
+                email_health.inbox_count,
+                if email_health.inbox_count == 1 { "query" } else { "queries" });
+        }
+    } else {
+        println!("  {} Inbox not created yet", warn_symbol());
+        println!("    To create: echo \"? your question\" >> ~/.anna/inbox");
+    }
+
+    // Show contact options
     println!();
     println!("{}Contact Anna:{}", colors::BOLD, colors::RESET);
-    println!("  {} annactl \"your question\"  (one-shot)", bullet());
-    println!("  {} annactl                   (interactive)", bullet());
-    println!("  {} email {}       (async ticket)", bullet(), ANNA_EMAIL);
+    println!("  {} annactl \"your question\"     (one-shot)", bullet());
+    println!("  {} annactl                      (interactive)", bullet());
+    println!("  {} ~/.anna/inbox                (async queries)", bullet());
 
     // Open tickets
     println!();
@@ -283,6 +299,79 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
     }
+}
+
+/// Handle inbox command - view/manage async query inbox (v0.0.115)
+pub async fn handle_inbox(add: Option<&str>) -> Result<()> {
+    use anna_shared::email::inbox_path;
+    use std::fs;
+    use std::io::Write as IoWrite;
+
+    let inbox = inbox_path();
+
+    // If adding a query
+    if let Some(query) = add {
+        // Ensure parent dir exists
+        if let Some(parent) = inbox.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        // Append query to inbox
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&inbox)?;
+        writeln!(file, "? {}", query)?;
+
+        println!();
+        println!("{}Query added to inbox:{}", colors::OK, colors::RESET);
+        println!("  {}", query);
+        println!();
+        println!("Anna will process it and create a ticket.");
+        println!("Check status with: annactl inbox");
+        return Ok(());
+    }
+
+    // Show inbox status
+    println!();
+    println!("{}Anna Inbox{}", colors::BOLD, colors::RESET);
+    println!();
+
+    if !inbox.exists() {
+        println!("{}No inbox file yet.{}", colors::DIM, colors::RESET);
+        println!();
+        println!("Add a query:");
+        println!("  annactl inbox --add \"your question here\"");
+        println!("  echo \"? your question\" >> {}", inbox.display());
+        return Ok(());
+    }
+
+    // Read and display inbox
+    let content = fs::read_to_string(&inbox)?;
+    let queries: Vec<&str> = content
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            !trimmed.is_empty() && !trimmed.starts_with('#')
+        })
+        .collect();
+
+    if queries.is_empty() {
+        println!("{}Inbox is empty.{}", colors::DIM, colors::RESET);
+    } else {
+        println!("{}Pending queries:{}", colors::BOLD, colors::RESET);
+        for (i, query) in queries.iter().enumerate() {
+            let display = query.trim().strip_prefix('?').unwrap_or(query).trim();
+            println!("  {}. {}", i + 1, display);
+        }
+    }
+
+    println!();
+    println!("{}Location:{} {}", colors::DIM, colors::RESET, inbox.display());
+    println!();
+    println!("{}Add a query:{} annactl inbox --add \"question\"", colors::DIM, colors::RESET);
+
+    Ok(())
 }
 
 #[cfg(test)]
