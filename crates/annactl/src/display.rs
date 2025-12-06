@@ -1,5 +1,5 @@
 //! Display helpers for annactl UI.
-//! v0.0.118: Clean, focused status display.
+//! v0.0.119: Clean, focused status display.
 
 use anna_shared::rpc::DaemonInfo;
 use anna_shared::status::{DaemonStatus, LlmState};

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.119] - 2025-12-06
+
+### Changed - UX Polish (Phase 38)
+
+**Cleaner Greetings**
+- First-time greeting condensed to 5 lines (was 15+)
+- Removed verbose examples - now just shows 2 sample queries
+- Removed emoji (🔥) - using ASCII symbols only
+
+**Professional Messages**
+- Bootstrap: "Setting up..." (was informal "Come back soon")
+- Errors: "Connection issue. Restarting..." (was "Oops!")
+- Streak display simplified: "7 day streak [*]"
+
+**Code Changes**:
+- `greeting.rs`: Condensed first-time greeting
+- `progress_display.rs`: Cleaner bootstrap message
+- `commands.rs`: Professional error messages
+
 ## [0.0.118] - 2025-12-06
 
 ### Changed - Clean UX Overhaul (Phase 37)

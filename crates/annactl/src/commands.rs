@@ -1,5 +1,5 @@
 //! Command handlers for annactl.
-//! v0.0.73: Uses version module and GetDaemonInfo for version truth.
+//! v0.0.119: Clean UX improvements.
 
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::rpc::ServiceDeskResult;
@@ -347,7 +347,7 @@ async fn handle_request_error(e: &anyhow::Error) -> Result<()> {
     if err_str.contains("LLM") || err_str.contains("connect") {
         println!();
         println!(
-            "{}Oops!{} Something went wrong. Let me fix that...",
+            "{}Connection issue.{} Restarting...",
             colors::WARN,
             colors::RESET
         );

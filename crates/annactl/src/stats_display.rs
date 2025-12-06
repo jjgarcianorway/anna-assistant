@@ -1,5 +1,5 @@
 //! Stats display module for annactl.
-//! v0.0.118: Clean, focused stats display.
+//! v0.0.119: Clean, focused stats display.
 
 use anna_shared::achievements::{check_achievements, format_achievements};
 use anna_shared::event_log::{AggregatedEvents, EventLog};

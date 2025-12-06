@@ -1,10 +1,5 @@
-//! Theatre-style REPL greeting for Service Desk experience (v0.0.82).
-//!
-//! Creates a personal, aware greeting that makes Anna feel like a real
-//! IT support person who knows the user and their system.
-//!
-//! v0.0.106: Integrates user profile for personalized patterns.
-//! v0.0.116: Shows open tickets in greeting.
+//! Theatre-style REPL greeting for Service Desk experience.
+//! v0.0.119: Clean, concise greetings.
 
 use anna_shared::snapshot::{self, DeltaItem, SystemSnapshot};
 use anna_shared::status::{DaemonStatus, LlmState};
@@ -109,19 +104,9 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
     if info.is_first_time {
         println!("Hello {}, welcome to Anna!", username);
         println!();
-        println!("I'm your local IT department - a team of specialists ready to help.");
+        println!("I'm your local IT department. Just ask me anything about your system.");
         println!();
-        println!("{}Try asking me:{}", colors::DIM, colors::RESET);
-        println!("  {} \"how much disk space do I have?\"", bullet());
-        println!("  {} \"what's using the most memory?\"", bullet());
-        println!("  {} \"is my system healthy?\"", bullet());
-        println!("  {} \"who is on shift?\" (meet the IT team)", bullet());
-        println!();
-        println!("{}Ways to reach me:{}", colors::DIM, colors::RESET);
-        println!("  {} annactl \"your question\"  (one-shot)", bullet());
-        println!("  {} annactl                   (interactive REPL)", bullet());
-        println!();
-        println!("{}For detailed stats: annactl stats | For system status: annactl status{}", colors::DIM, colors::RESET);
+        println!("{}Try: \"is my system healthy?\" or \"show disk usage\"{}", colors::DIM, colors::RESET);
     } else if let Some(days) = info.days_since_last {
         if days >= 1 {
             println!(
@@ -155,8 +140,7 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
     }
 }
 
-/// v0.0.106: Print personalized patterns from user profile
-/// v0.0.108: Enhanced with streak fire, tool counts, and more patterns
+/// Print personalized patterns from user profile
 fn print_user_patterns(profile: &UserProfile) {
     // Only show if we have meaningful data
     if profile.tool_usage.is_empty() && profile.topic_interests.is_empty() && profile.streak_days <= 1 {
@@ -165,19 +149,14 @@ fn print_user_patterns(profile: &UserProfile) {
 
     let mut patterns = Vec::new();
 
-    // v0.0.108: Streak info with fire emoji for long streaks
+    // Streak info
     if profile.streak_days > 1 {
-        let streak_msg = if profile.streak_days >= 7 {
-            format!(
-                "{} {}🔥 {} day streak!{} You're on fire!",
-                bullet(), colors::OK, profile.streak_days, colors::RESET
-            )
-        } else {
-            format!(
-                "{} {} day streak! Keep it going.",
-                bullet(), profile.streak_days
-            )
-        };
+        let streak_msg = format!(
+            "{} {} day streak{}",
+            bullet(),
+            profile.streak_days,
+            if profile.streak_days >= 7 { " [*]" } else { "" }
+        );
         patterns.push(streak_msg);
     }
 

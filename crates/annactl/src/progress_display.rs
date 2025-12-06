@@ -1,6 +1,5 @@
-//! Progress display module for annactl (v0.0.67).
-//!
-//! Handles progress event rendering and bootstrap progress display.
+//! Progress display module for annactl.
+//! v0.0.119: Clean progress messages.
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::status::LlmState;
@@ -16,12 +15,7 @@ pub async fn show_bootstrap_progress() -> Result<()> {
     println!();
     println!("{}anna (bootstrap){}", colors::HEADER, colors::RESET);
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!();
-    println!(
-        "{}Hello!{} I'm setting up my environment. Come back soon.",
-        colors::CYAN,
-        colors::RESET
-    );
+    println!("{}Setting up...{}", colors::DIM, colors::RESET);
     println!();
 
     let spinner = &symbols::SPINNER;
