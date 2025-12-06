@@ -742,7 +742,7 @@ mod tests {
     /// This prevents shipping a route that "requires evidence" but can't collect it.
     #[test]
     fn test_evidence_required_routes_have_probes() {
-        use anna_shared::probe_spine::EvidenceKind;
+        
 
         // All known query classes (v0.0.77: added MetaSmallTalk, KernelVersion, ConfigFileLocation)
         let all_classes = [
@@ -800,10 +800,10 @@ mod tests {
         );
 
         // Memory -> "how much free ram" should enforce Free
-        let mem_decision = enforce_minimum_probes("how much free ram", &[]);
+        let _mem_decision = enforce_minimum_probes("how much free ram", &[]);
         // Note: "free ram" might not trigger spine directly (it's handled by router)
         // But let's test a query that should trigger memory probes
-        let mem_decision2 = enforce_minimum_probes("memory usage", &[]);
+        let _mem_decision2 = enforce_minimum_probes("memory usage", &[]);
         // Memory usage by itself doesn't trigger keyword spine (router handles it)
 
         // Audio -> "what is my sound card" should enforce LspciAudio

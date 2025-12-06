@@ -26,6 +26,7 @@ impl Achievement {
         Self { id, badge, name, description: desc, unlocked: false }
     }
 
+    #[cfg(test)]
     fn unlock(mut self) -> Self {
         self.unlocked = true;
         self

@@ -791,7 +791,7 @@ fn golden_v056_audio_grep_exit_1_is_valid_negative_evidence() {
 /// v0.0.56: Audio devices found = valid evidence for HardwareAudio route.
 #[test]
 fn golden_v056_audio_device_found_is_valid_evidence() {
-    use anna_shared::parsers::{parse_probe_result, find_audio_evidence, ParsedProbeData};
+    use anna_shared::parsers::{parse_probe_result, find_audio_evidence};
     use anna_shared::rpc::ProbeResult;
 
     let probe = ProbeResult {
@@ -819,7 +819,7 @@ fn golden_v056_audio_device_found_is_valid_evidence() {
 /// v0.0.56: get_installed_tools extracts ToolExists from parsed probes.
 #[test]
 fn golden_v056_get_installed_tools_from_probes() {
-    use anna_shared::parsers::{parse_probe_result, get_installed_tools, ParsedProbeData};
+    use anna_shared::parsers::{parse_probe_result, get_installed_tools};
     use anna_shared::rpc::ProbeResult;
 
     // vim exists
@@ -1151,7 +1151,7 @@ fn golden_v057_pacman_q_exit_1_is_valid_evidence() {
 /// v0.0.57: Timeout probes (if represented) are NOT valid evidence.
 #[test]
 fn golden_v057_timeout_probe_is_not_evidence() {
-    use anna_shared::parsers::{parse_probe_result, is_probe_valid_evidence};
+    use anna_shared::parsers::is_probe_valid_evidence;
     use anna_shared::rpc::ProbeResult;
 
     // Simulated timeout - exit code non-standard (e.g., 124 from timeout command)
@@ -2102,7 +2102,7 @@ fn golden_v058_lspci_empty_output_is_valid_negative_evidence() {
 /// v0.0.58: grep exit_code 1 (no match) is also valid negative evidence for audio.
 #[test]
 fn golden_v058_lspci_grep_exit_1_is_valid_negative_evidence() {
-    use anna_shared::parsers::{parse_probe_result, find_audio_evidence, ParsedProbeData};
+    use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
     use anna_shared::rpc::ProbeResult;
 
     // grep -i audio returns exit 1 when no match

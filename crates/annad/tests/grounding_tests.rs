@@ -171,7 +171,7 @@ fn test_v071_version_consistency() {
 /// v0.0.68: Test that audio parsing correctly handles Multimedia audio controller output
 #[test]
 fn test_v068_audio_multimedia_controller_parsing() {
-    use anna_shared::parsers::{parse_probe_result, find_audio_evidence, ParsedProbeData};
+    use anna_shared::parsers::parse_probe_result;
     use anna_shared::rpc::ProbeResult;
 
     // Real-world lspci output: "Multimedia audio controller" (not "Audio device")
@@ -229,7 +229,7 @@ fn test_v068_audio_deterministic_answer_with_device() {
 /// v0.0.68: Test that audio grep exit_code=1 is valid negative evidence
 #[test]
 fn test_v068_audio_grep_exit1_is_valid_negative_evidence() {
-    use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
+    use anna_shared::parsers::parse_probe_result;
     use anna_shared::rpc::ProbeResult;
 
     // grep exit code 1 = no matches (valid evidence, not an error)
@@ -254,7 +254,7 @@ fn test_v068_audio_grep_exit1_is_valid_negative_evidence() {
 /// v0.0.68: Test ConfigureEditor only shows editors that are probed and found
 #[test]
 fn test_v068_configure_editor_grounded_to_probes() {
-    use anna_shared::parsers::{parse_probe_result, installed_editors_from_parsed, get_installed_tools};
+    use anna_shared::parsers::{parse_probe_result, installed_editors_from_parsed};
     use anna_shared::rpc::ProbeResult;
 
     // Simulated probe results: only vim and nano were probed

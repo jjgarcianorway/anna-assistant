@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.92] - 2025-12-06
+
+### Fixed - Codebase Hygiene (Phase 12)
+
+**Warning Cleanup**
+
+Zero compiler warnings across the entire workspace:
+
+- Fixed unused `unlock` method in achievements.rs (marked `#[cfg(test)]`)
+- Fixed unused variable warnings in router.rs tests
+- Fixed dead code warning for `line_num` field in test struct
+- Applied `cargo fix` to clean up unused imports in test files
+
+**Files Fixed**
+- `anna-shared/src/achievements.rs`: Test-only method
+- `annad/src/router.rs`: Prefixed unused test variables
+- `annad/tests/router_corpus_tests.rs`: Allow dead_code for debug field
+- Multiple test files: Removed unused imports via cargo fix
+
 ## [0.0.91] - 2025-12-06
 
 ### Changed - ASCII-Style Achievement Badges (Phase 11)

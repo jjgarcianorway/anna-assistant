@@ -11,12 +11,13 @@ use std::path::PathBuf;
 
 /// Parsed corpus entry
 #[derive(Debug)]
+#[allow(dead_code)]
 struct CorpusEntry {
     query: String,
     expected_class: String,
     expected_domain: String,
     expected_probes: Vec<String>,
-    line_num: usize,
+    line_num: usize,  // Kept for debugging corpus issues
 }
 
 /// Parse the query corpus TSV file

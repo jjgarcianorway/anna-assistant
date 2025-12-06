@@ -1,8 +1,7 @@
 //! Tests for ticket service with review gate integration.
 
-use anna_shared::reliability::{ProbeHealth, ReliabilityInput, ReliabilityOutput, ReliabilityReason};
+use anna_shared::reliability::ReliabilityInput;
 use anna_shared::review::ReviewDecision;
-use anna_shared::revision::RevisionIssue;
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
 use anna_shared::teams::Team;
 use anna_shared::ticket::{RiskLevel, Ticket};

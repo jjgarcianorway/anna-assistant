@@ -1,11 +1,10 @@
 //! Tests for ticket_packet.rs
 
-use anna_shared::budget::ProbeBudget;
 use anna_shared::facts::FactKey;
 use anna_shared::rpc::{ProbeResult, SpecialistDomain};
 use anna_shared::teams::Team;
 use anna_shared::ticket_packet::{
-    evidence_kinds_for_domain, policy_for_team, recommended_probes_for_domain, PacketPolicy,
+    policy_for_team, recommended_probes_for_domain, PacketPolicy,
     TicketPacket, TicketPacketBuilder,
 };
 use anna_shared::trace::EvidenceKind;

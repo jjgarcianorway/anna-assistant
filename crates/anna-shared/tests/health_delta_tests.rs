@@ -1,6 +1,6 @@
 //! Tests for health delta tracking (v0.0.41/v0.0.42).
 
-use anna_shared::health_delta::{HealthDelta, HealthSummary, SnapshotHistory};
+use anna_shared::health_delta::{HealthDelta, SnapshotHistory};
 use anna_shared::snapshot::SystemSnapshot;
 
 #[test]

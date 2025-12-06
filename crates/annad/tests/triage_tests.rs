@@ -18,7 +18,7 @@ mod triage {
         pub clarification_question: Option<String>,
     }
 
-    pub fn apply_triage_rules(mut ticket: TranslatorTicket) -> TriageResult {
+    pub fn apply_triage_rules(ticket: TranslatorTicket) -> TriageResult {
         let mut result = TriageResult {
             ticket: ticket.clone(),
             probe_cap_applied: false,
