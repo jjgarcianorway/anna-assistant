@@ -56,6 +56,11 @@ pub mod ui;
 pub mod update_ledger;
 pub mod verify;
 
+// v0.0.67: Service desk narrative modules
+pub mod citations;
+pub mod render;
+pub mod stats_store;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

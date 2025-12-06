@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.68] - 2025-12-06
+
+### Fixed - Audio Parse Correctness
+
+**Goal 1: Audio Evidence Parsing**
+- Audio deterministic answer now correctly reports devices when lspci shows "Multimedia audio controller"
+- Verified parsing handles all common patterns: "audio device", "multimedia audio controller", "audio controller", "hd audio"
+- Added tests for audio parsing with PCI slot extraction (00:1f.3 format)
+- Audio grep exit_code=1 is correctly treated as valid negative evidence (no devices found)
+
+**Goal 2: ConfigureEditor Grounding + Probe Accounting**
+- Fixed probe accounting for ConfigureEditor route - now uses all 10 router probes instead of spine-reduced subset
+- ConfigureEditor only shows editors that were actually probed AND found (exists=true)
+- Clarification prompt ends with period ("Reply with the number."), not question mark
+- Execution trace properly includes probe stats and evidence kinds
+- Added skip_spine_override for configure_editor to preserve router's complete probe list
+
+### Changed
+- rpc_handler.rs: Skip spine probe override for ConfigureEditor when router already provided probes
+- ConfigureEditor now logs "v0.0.68: ConfigureEditor using router probes:" for traceability
+
+### Tests Added
+- test_v068_audio_multimedia_controller_parsing - verifies "Multimedia audio controller" parsing
+- test_v068_audio_deterministic_answer_with_device - confirms no false "No audio" when device exists
+- test_v068_audio_grep_exit1_is_valid_negative_evidence - validates exit_code=1 handling
+- test_v068_configure_editor_grounded_to_probes - ensures only probed editors appear
+- test_v068_configure_editor_clarification_ends_with_period - no question marks in prompts
+- test_v068_version_consistency - version normalization check
+
+## [0.0.67] - 2025-12-06
+
+### Added - Service Desk Theatre UX Overhaul
+
+**Part A: Service Desk Narrative Renderer**
+- New `render.rs` module for debug OFF "movie-terminal" output
+- Header block: hostname, username, version, debug mode
+- Narrative greeting with time delta, boot status, critical issues
+- Case flow blocks: case ID (CN-YYYYMMDD-XXXX), domain dispatch, evidence summary
+- Clarification as numbered list ending with period (no question marks)
+- Risk/reliability line with evidence kinds
+- Spinner animation for async operations
+
+**Part B: REPL Narrative UI**
+- Updated REPL header to use narrative greeting
+- Shows critical issues count and boot delta
+- Clean help hint: "Type a question, or: status, help, exit"
+
+**Part C: annactl stats RPG System**
+- New `stats_store.rs` with JSONL-backed persistence
+- XP calculation using logistic curve (0-100 scale)
+- Titles from "Apprentice Troubleshooter" to "Grandmaster of Uptime"
+- RPG profile display with XP bar visualization
+- Aggregated metrics: cases, success rate, avg reliability, escalations
+
+**Part D: Local Citations System**
+- New `citations.rs` for grounded guidance references
+- KnowledgeCache for man pages and Arch Wiki snapshots
+- Citation sources: ManPage, HelpOutput, ArchWiki, LocalFile
+- find_citation() returns Cited or Uncited with verification ticket
+- Excerpt extraction for relevant topic matches
+
+### Changed
+- REPL greeting now uses Service Desk narrative style
+- Stats display includes RPG profile when data available
+- Modularized display.rs into stats_display.rs and progress_display.rs
+
+### Non-Negotiables Enforced
+- No icons or emojis in output
+- No raw probe output in debug OFF mode
+- No question marks in Anna's final text
+- No "would you like" phrasing
+- Citations required for factual guidance
+
 ## [0.0.66] - 2025-12-06
 
 ### Fixed - Version Normalization + Regression Fixes

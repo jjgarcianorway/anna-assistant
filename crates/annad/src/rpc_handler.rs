@@ -196,12 +196,15 @@ async fn handle_llm_request_inner(
     };
 
     // Step 2.5: Enforce probe spine (v0.45.2 - user text based)
+    // v0.0.68: ConfigureEditor already has correct probes from router - skip spine override
     // FIRST: Use keyword matching on user text to force probes (last line of defense)
+    let route_class = det_route.class.to_string();
+    let skip_spine_override = route_class == "configure_editor" && !ticket.needs_probes.is_empty();
+
     let spine_decision = enforce_minimum_probes(query, &ticket.needs_probes);
-    if spine_decision.enforced {
+    if spine_decision.enforced && !skip_spine_override {
         info!("Probe spine enforced from user text: {}", spine_decision.reason);
         // Apply minimal probe policy (v0.45.3) - max 3 default, 4 for system health
-        let route_class = det_route.class.to_string();
         let urgency = Urgency::Normal; // TODO: detect from query (e.g., "quick" -> Quick)
         let reduced = reduce_probes(spine_decision.probes.clone(), &route_class, urgency);
         if reduced.len() < spine_decision.probes.len() {
@@ -211,6 +214,8 @@ async fn handle_llm_request_inner(
         ticket.needs_probes = reduced.iter()
             .map(|p| probe_to_command(p))
             .collect();
+    } else if skip_spine_override {
+        info!("v0.0.68: ConfigureEditor using router probes: {:?}", ticket.needs_probes);
     } else {
         // FALLBACK: Try route-capability based enforcement
         let (enforced_probes, spine_reason) = enforce_spine_probes(&ticket.needs_probes, &det_route.capability);

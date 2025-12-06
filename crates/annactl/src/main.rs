@@ -4,7 +4,9 @@ mod client;
 mod commands;
 mod display;
 mod output;
+mod progress_display;
 mod report_cmd;
+mod stats_display;
 mod transcript_render;
 
 use anyhow::Result;

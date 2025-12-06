@@ -1,15 +1,14 @@
 //! Display helpers for annactl UI.
+//! v0.0.67: Service Desk narrative renderer integration.
 
-use anna_shared::progress::{ProgressEvent, ProgressEventType};
-use anna_shared::stats::GlobalStats;
+use anna_shared::render;
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::ui::{colors, symbols, HR};
 use anna_shared::VERSION;
-use anyhow::Result;
-use std::io::{self, Write};
-use std::time::Duration;
 
-use crate::client::AnnadClient;
+// Re-export from dedicated modules
+pub use crate::progress_display::{print_progress_event, show_bootstrap_progress};
+pub use crate::stats_display::print_stats_display;
 
 /// Print status display
 pub fn print_status_display(status: &DaemonStatus, show_debug: bool) {
@@ -221,18 +220,22 @@ fn print_kv(key: &str, value: &str, width: usize) {
     println!("{:width$} {}", key, value, width = width);
 }
 
-/// Print REPL header with optional telemetry (v0.0.34: relevant-only, no full report)
+/// Print REPL header with narrative greeting (v0.0.67: Service Desk Theatre)
 pub fn print_repl_header() {
     use anna_shared::telemetry::TelemetrySnapshot;
 
-    println!();
-    println!("{}annactl v{}{}", colors::HEADER, VERSION, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("Anna is a local Linux service desk living on your machine.");
+    // Get hostname and username for narrative header
+    let hostname = std::env::var("HOSTNAME")
+        .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_string()))
+        .unwrap_or_else(|_| "localhost".to_string());
+    let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
 
-    // v0.0.34: Show only relevant deltas - errors, failed units, boot changes
+    // Render header block (v0.0.67)
+    render::render_header(&hostname, &username, VERSION, false);
+
+    // Collect system status for greeting
     let telemetry = TelemetrySnapshot::collect();
-    let mut alerts = Vec::new();
+    let mut critical_issues = 0;
 
     // Check for failed units (fast, no LLM)
     if let Ok(output) = std::process::Command::new("systemctl")
@@ -241,285 +244,40 @@ pub fn print_repl_header() {
     {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            let failed_count = stdout.lines()
+            critical_issues += stdout.lines()
                 .filter(|l| l.contains(".service") || l.contains(".mount"))
                 .count();
-            if failed_count > 0 {
-                alerts.push(format!("{}{}failed units{}", colors::WARN, failed_count, colors::RESET));
-            }
         }
     }
 
-    // Check for recent errors this boot (journalctl -p 3 count, fast)
-    if let Ok(output) = std::process::Command::new("journalctl")
-        .args(["-p", "3", "-b", "--no-pager", "-q"])
-        .output()
-    {
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let error_count = stdout.lines().count();
-            if error_count > 0 {
-                alerts.push(format!("{} journal errors", error_count));
-            }
+    // Get boot time delta for narrative
+    let boot_time_delta = telemetry.boot_delta_ms.map(|ms| {
+        let secs = ms.unsigned_abs() / 1000;
+        if secs < 60 {
+            format!("{}s", secs)
+        } else {
+            format!("{}m {}s", secs / 60, secs % 60)
         }
-    }
+    });
 
-    // Boot time delta from telemetry
-    if let Some(delta_ms) = telemetry.boot_delta_ms {
-        let delta_secs = delta_ms.abs() as f64 / 1000.0;
-        if delta_ms.abs() > 500 { // Only show if > 0.5s change
-            if delta_ms < 0 {
-                alerts.push(format!("boot {:.1}s faster", delta_secs));
-            } else {
-                alerts.push(format!("boot {:.1}s slower", delta_secs));
-            }
-        }
-    }
+    // Get last interaction time (TODO: integrate with stats store)
+    let last_interaction = None; // Will be populated from stats
 
-    // Show alerts or "all clear"
-    if !alerts.is_empty() {
-        println!("{}[status]{} {}", colors::DIM, colors::RESET, alerts.join(" | "));
-    } else {
-        println!("{}[status]{} {}{} no issues{}", colors::DIM, colors::RESET, colors::OK, symbols::OK, colors::RESET);
-    }
-
-    println!(
-        "Public commands: {}annactl{} | {}annactl <request>{} | {}annactl status{} | {}annactl -V{} | {}annactl uninstall{}",
-        colors::BOLD, colors::RESET,
-        colors::BOLD, colors::RESET,
-        colors::BOLD, colors::RESET,
-        colors::BOLD, colors::RESET,
-        colors::BOLD, colors::RESET
+    // Render narrative greeting (v0.0.67)
+    render::render_greeting(
+        &username,
+        last_interaction,
+        boot_time_delta.as_deref(),
+        critical_issues,
     );
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!();
-}
 
-/// Show bootstrap progress with live updates
-pub async fn show_bootstrap_progress() -> Result<()> {
-    println!();
-    println!("{}anna (bootstrap){}", colors::HEADER, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!();
+    // Show help hint
     println!(
-        "{}Hello!{} I'm setting up my environment. Come back soon! ;)",
-        colors::CYAN,
+        "{}Type a question, or: status, help, exit{}",
+        colors::DIM,
         colors::RESET
     );
     println!();
-
-    let spinner = &symbols::SPINNER;
-    let mut spinner_idx = 0;
-
-    loop {
-        // Try to connect and get status
-        let status = match AnnadClient::connect().await {
-            Ok(mut client) => client.status().await.ok(),
-            Err(_) => None,
-        };
-
-        // Clear line and show current status
-        print!("\r\x1b[K");
-
-        if let Some(status) = &status {
-            if status.llm.state == LlmState::Ready {
-                println!(
-                    "{}{}{}  All set! Anna is ready.",
-                    colors::OK,
-                    symbols::OK,
-                    colors::RESET
-                );
-                println!();
-                println!("{}{}{}", colors::DIM, HR, colors::RESET);
-                println!();
-                return Ok(());
-            }
-
-            let phase = status.llm.phase.as_deref().unwrap_or("initializing");
-
-            if let Some(progress) = &status.llm.progress {
-                let bar = anna_shared::ui::progress_bar(progress.percent(), 25);
-                let eta = anna_shared::ui::format_duration(progress.eta_seconds);
-                print!(
-                    "{} {} {} {:.0}%  eta {}",
-                    spinner[spinner_idx],
-                    phase,
-                    bar,
-                    progress.percent() * 100.0,
-                    eta
-                );
-            } else {
-                print!("{} {}", spinner[spinner_idx], phase);
-            }
-        } else {
-            print!("{} waiting for daemon...", spinner[spinner_idx]);
-        }
-
-        io::stdout().flush()?;
-
-        spinner_idx = (spinner_idx + 1) % spinner.len();
-        tokio::time::sleep(Duration::from_millis(500)).await;
-    }
 }
 
-/// Print a progress event in debug mode
-pub fn print_progress_event(event: &ProgressEvent) {
-    let elapsed = format!("{:.1}s", event.elapsed_ms as f64 / 1000.0);
 
-    match &event.event {
-        ProgressEventType::Starting { timeout_secs } => {
-            println!(
-                "{}[anna->{}]{} starting (timeout {}s) [{}]",
-                colors::DIM,
-                event.stage,
-                colors::RESET,
-                timeout_secs,
-                elapsed
-            );
-        }
-        ProgressEventType::Complete => {
-            println!(
-                "{}[anna]{} {} {}complete{} [{}]",
-                colors::DIM,
-                colors::RESET,
-                event.stage,
-                colors::OK,
-                colors::RESET,
-                elapsed
-            );
-        }
-        ProgressEventType::Timeout => {
-            println!(
-                "{}[anna]{} {} {}TIMEOUT{} [{}]",
-                colors::DIM,
-                colors::RESET,
-                event.stage,
-                colors::ERR,
-                colors::RESET,
-                elapsed
-            );
-        }
-        ProgressEventType::Error { message } => {
-            println!(
-                "{}[anna]{} {} {}error:{} {} [{}]",
-                colors::DIM,
-                colors::RESET,
-                event.stage,
-                colors::ERR,
-                colors::RESET,
-                message,
-                elapsed
-            );
-        }
-        ProgressEventType::Heartbeat => {
-            let detail = event.detail.as_deref().unwrap_or("working");
-            println!(
-                "{}[anna]{} still working: {} [{}]",
-                colors::DIM,
-                colors::RESET,
-                detail,
-                elapsed
-            );
-        }
-        ProgressEventType::ProbeRunning { probe_id } => {
-            println!(
-                "{}[anna->probe]{} running {} [{}]",
-                colors::DIM,
-                colors::RESET,
-                probe_id,
-                elapsed
-            );
-        }
-        ProgressEventType::ProbeComplete {
-            probe_id,
-            exit_code,
-            timing_ms,
-        } => {
-            let status = if *exit_code == 0 {
-                format!("{}ok{}", colors::OK, colors::RESET)
-            } else {
-                format!("{}exit {}{}", colors::WARN, exit_code, colors::RESET)
-            };
-            println!(
-                "{}[anna]{} probe {} {} ({}ms) [{}]",
-                colors::DIM,
-                colors::RESET,
-                probe_id,
-                status,
-                timing_ms,
-                elapsed
-            );
-        }
-    }
-}
-
-/// Print stats display (v0.0.27)
-pub fn print_stats_display(stats: &GlobalStats) {
-    println!("\n{}annactl stats v{}{}", colors::HEADER, VERSION, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-
-    let kw = 15; // key width
-
-    // Global summary
-    print_kv("total_requests", &stats.total_requests.to_string(), kw);
-    print_kv(
-        "success_rate",
-        &format!("{:.1}%", stats.overall_success_rate() * 100.0),
-        kw,
-    );
-    print_kv(
-        "avg_reliability",
-        &format!("{:.0}", stats.overall_avg_score()),
-        kw,
-    );
-
-    if let Some(team) = stats.most_consulted_team {
-        print_kv("top_team", &team.to_string(), kw);
-    }
-
-    println!();
-    println!("{}Per-Team Statistics:{}", colors::BOLD, colors::RESET);
-    println!(
-        "  {:12} {:>8} {:>8} {:>8} {:>8} {:>8}",
-        "Team", "Total", "Success", "Failed", "AvgRnd", "AvgScore"
-    );
-    println!("{}{}{}", colors::DIM, "-".repeat(60), colors::RESET);
-
-    for ts in &stats.by_team {
-        if ts.tickets_total > 0 {
-            let success_color = if ts.success_rate() >= 0.8 {
-                colors::OK
-            } else if ts.success_rate() >= 0.5 {
-                colors::WARN
-            } else {
-                colors::ERR
-            };
-            println!(
-                "  {:12} {:>8} {}{:>8}{} {:>8} {:>8.1} {:>8.0}",
-                ts.team,
-                ts.tickets_total,
-                success_color,
-                ts.tickets_verified,
-                colors::RESET,
-                ts.tickets_failed,
-                ts.avg_rounds,
-                ts.avg_reliability_score,
-            );
-        }
-    }
-
-    // Show teams with no activity
-    let inactive: Vec<_> = stats.by_team.iter().filter(|ts| ts.tickets_total == 0).collect();
-    if !inactive.is_empty() {
-        println!();
-        println!(
-            "{}Inactive teams:{} {}",
-            colors::DIM,
-            colors::RESET,
-            inactive.iter().map(|t| t.team.to_string()).collect::<Vec<_>>().join(", ")
-        );
-    }
-
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!();
-}
