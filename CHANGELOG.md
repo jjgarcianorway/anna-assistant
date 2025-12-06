@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.84] - 2025-12-06
+
+### Added - Enhanced Stats Display (Phase 4)
+
+**Fun Facts Section**
+
+The `annactl stats` command now includes a "Fun Facts" section with interesting statistics:
+
+```
+Fun Facts
+  › Most consulted: Storage & Filesystems (42% of cases)
+  › Least consulted: Security (3 cases)
+  › Fastest answer: 124ms
+  › Longest research: 8.2s (that was a tough one!)
+  › Zero timeouts! Anna always came through.
+  › High performer! Avg reliability of 87%
+```
+
+**Statistics Tracked**
+- Most consulted team (with percentage of total cases)
+- Least consulted team (when multiple teams used)
+- Fastest answer time in milliseconds
+- Longest research time (shown for answers >5s)
+- Zero timeouts achievement badge
+- High performer badge (≥85% reliability, ≥10 cases)
+
+**Code Changes**
+- `stats_display.rs`: Added `print_fun_stats()` function
+- Enhanced RPG stats section with fun facts at the end
+- Uses bullet points (›) for visual consistency
+
 ## [0.0.83] - 2025-12-06
 
 ### Added - Internal IT Communications Toggle (Phase 3)

@@ -1,6 +1,7 @@
-//! Stats display module for annactl (v0.0.75).
+//! Stats display module for annactl (v0.0.75, v0.0.84).
 //!
 //! Provides RPG-style stats visualization with XP bars, levels, and titles.
+//! v0.0.84: Enhanced with per-team breakdown, fun stats, installation date.
 
 use anna_shared::event_log::{AggregatedEvents, EventLog};
 use anna_shared::stats::GlobalStats;
@@ -142,7 +143,7 @@ fn print_rpg_stats(agg: &AggregatedStats) {
     }
 }
 
-/// Print enhanced RPG-style stats (v0.0.75)
+/// Print enhanced RPG-style stats (v0.0.75, v0.0.84)
 fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
     println!("{}Service Desk Profile{}", colors::BOLD, colors::RESET);
     println!();
@@ -242,6 +243,76 @@ fn print_enhanced_rpg_stats(agg: &AggregatedEvents) {
             colors::RESET
         );
     }
+
+    // v0.0.84: Fun stats section
+    print_fun_stats(agg);
+}
+
+/// v0.0.84: Print fun/interesting statistics
+fn print_fun_stats(agg: &AggregatedEvents) {
+    if agg.total_requests == 0 {
+        return;
+    }
+
+    println!();
+    println!("{}Fun Facts{}", colors::BOLD, colors::RESET);
+
+    // Most consulted team
+    if let Some((team, count)) = agg.by_team.iter().max_by_key(|(_, c)| *c) {
+        let pct = (*count as f32 / agg.total_requests as f32 * 100.0) as u32;
+        println!(
+            "  {} Most consulted: {} ({}% of cases)",
+            bullet(), team, pct
+        );
+    }
+
+    // Least consulted team (if we have multiple teams)
+    if agg.by_team.len() > 1 {
+        if let Some((team, count)) = agg.by_team.iter()
+            .filter(|(_, c)| **c > 0)
+            .min_by_key(|(_, c)| *c)
+        {
+            println!(
+                "  {} Least consulted: {} ({} case{})",
+                bullet(), team, count, if *count == 1 { "" } else { "s" }
+            );
+        }
+    }
+
+    // Speed records
+    if agg.max_duration_ms > 0 && agg.min_duration_ms < u64::MAX {
+        println!(
+            "  {} Fastest answer: {}ms",
+            bullet(), agg.min_duration_ms
+        );
+        if agg.max_duration_ms > 5000 {
+            println!(
+                "  {} Longest research: {:.1}s (that was a tough one!)",
+                bullet(), agg.max_duration_ms as f64 / 1000.0
+            );
+        }
+    }
+
+    // Anna managed on her own (fast path)
+    // We'd need to track this separately, but we can estimate from timeouts
+    if agg.timeout_count == 0 && agg.total_requests > 5 {
+        println!(
+            "  {} {}Zero timeouts!{} Anna always came through.",
+            bullet(), colors::OK, colors::RESET
+        );
+    }
+
+    // High performer
+    if agg.avg_reliability >= 85.0 && agg.total_requests >= 10 {
+        println!(
+            "  {} {}High performer!{} Avg reliability of {:.0}%",
+            bullet(), colors::OK, colors::RESET, agg.avg_reliability
+        );
+    }
+}
+
+fn bullet() -> &'static str {
+    "›"
 }
 
 /// Get XP required for next level
