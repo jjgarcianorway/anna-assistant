@@ -93,10 +93,9 @@ pub fn try_answer(
     }
 }
 
-/// Help response describing available commands
+/// Help response describing available commands (v0.0.116: removed email, added inbox)
 fn answer_help(route_class: &str) -> DeterministicResult {
-    let anna_email = anna_shared::email::ANNA_EMAIL;
-    let answer = format!(r#"**Anna - Linux System Assistant**
+    let answer = r#"**Anna - Linux System Assistant**
 
 I can answer questions about your system:
 
@@ -109,19 +108,19 @@ I can answer questions about your system:
 
 **Service Desk:**
 - "Who is on shift?" - Meet the IT team
-- "How does this work?" - Learn about ticket workflow
+- "Show my tickets" - Check ticket history
 
 **Ways to reach me:**
-- `annactl "question"` - One-shot query
-- `annactl` - Interactive REPL
-- `email {}` - Async ticket (I'll reply!)
+- `annactl "question"` - One-shot query (immediate)
+- `annactl` - Interactive REPL (immediate)
+- `~/.anna/inbox` - Async queries (creates tickets)
 
 **Commands:**
 - `annactl status` - Daemon status
 - `annactl stats` - Team statistics
 - `annactl email you@example.com` - Get notified
 
-Ask a question to get started!"#, anna_email);
+Ask a question to get started!"#;
 
     DeterministicResult {
         answer: answer.to_string(),
@@ -572,28 +571,91 @@ fn answer_config_file_location(query: &str, route_class: &str) -> Option<Determi
 
 // === v0.0.111: Ticket and Staff query handlers ===
 
-/// Answer ticket history query - shows support desk activity summary
+/// Answer ticket history query - shows support desk activity summary (v0.0.116: includes inbox)
 fn answer_ticket_history(route_class: &str) -> DeterministicResult {
-    // v0.0.112: Natural explanation of how the Service Desk works
-    let answer = r#"When you ask me a question, here's what happens behind the scenes:
+    use anna_shared::ticket_tracker::TicketTracker;
+    use anna_shared::email::inbox_path;
 
-1. **Your question becomes a support case** - I create an internal ticket
-2. **The right team gets assigned** - Hardware, Network, Storage, or other specialists
-3. **A staff member investigates** - They run probes to gather system data
-4. **Quality check** - Another specialist reviews the answer for accuracy
-5. **You get a verified response** - With a reliability score
+    let tracker = TicketTracker::for_user();
+    let mut answer = String::new();
 
-This Service Desk model ensures every answer is grounded in real system data.
+    // Check for open tickets
+    let open_tickets = tracker.open_tickets().unwrap_or_default();
+    let recent_tickets = tracker.recent(5).unwrap_or_default();
 
-**Want to see the IT team?** Ask "who is on shift"
-**Want department stats?** Run `annactl stats`
-**Want system status?** Run `annactl status`"#;
+    // Check inbox
+    let inbox = inbox_path();
+    let inbox_count = if inbox.exists() {
+        std::fs::read_to_string(&inbox)
+            .map(|content| {
+                content.lines()
+                    .filter(|line| {
+                        let trimmed = line.trim();
+                        !trimmed.is_empty() && !trimmed.starts_with('#')
+                    })
+                    .count()
+            })
+            .unwrap_or(0)
+    } else {
+        0
+    };
+
+    // Build answer based on what we found
+    if !open_tickets.is_empty() {
+        answer.push_str(&format!("**Open Tickets ({}):**\n", open_tickets.len()));
+        for ticket in open_tickets.iter().take(5) {
+            answer.push_str(&format!("- {} - {} ({})\n",
+                ticket.case_number,
+                truncate_str(&ticket.query, 40),
+                ticket.status));
+        }
+        answer.push('\n');
+    }
+
+    if inbox_count > 0 {
+        answer.push_str(&format!("**Inbox:** {} pending {}\n",
+            inbox_count,
+            if inbox_count == 1 { "query" } else { "queries" }));
+        answer.push_str("  Location: ~/.anna/inbox\n\n");
+    }
+
+    if open_tickets.is_empty() && inbox_count == 0 {
+        answer.push_str("No open tickets or pending queries.\n\n");
+    }
+
+    // Add recent history if available
+    if !recent_tickets.is_empty() && open_tickets.is_empty() {
+        answer.push_str("**Recent Tickets:**\n");
+        for ticket in recent_tickets.iter().take(3) {
+            answer.push_str(&format!("- {} - {} ({})\n",
+                ticket.case_number,
+                truncate_str(&ticket.query, 35),
+                ticket.status));
+        }
+        answer.push('\n');
+    }
+
+    // Add workflow explanation
+    answer.push_str("**How it works:**\n");
+    answer.push_str("1. Ask me a question (immediate) or drop it in ~/.anna/inbox (async)\n");
+    answer.push_str("2. I create a support ticket and assign the right team\n");
+    answer.push_str("3. You get a verified answer with reliability score\n\n");
+    answer.push_str("To reply to a ticket: `annactl reply CN-XXXX \"your message\"`");
 
     DeterministicResult {
-        answer: answer.to_string(),
+        answer,
         grounded: true,
-        parsed_data_count: 1,
+        parsed_data_count: open_tickets.len() + inbox_count,
         route_class: route_class.to_string(),
+    }
+}
+
+/// Truncate string helper
+fn truncate_str(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
     }
 }
 

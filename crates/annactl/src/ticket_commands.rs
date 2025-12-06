@@ -5,7 +5,6 @@
 //! - annactl ticket <case> - Show ticket conversation
 //! - annactl email <address> - Configure email notifications
 //! - annactl health - Check Anna's health and dependencies (v0.0.114)
-//! - v0.0.115: Replaced email inbox with file-based inbox (~/.anna/inbox)
 
 use anna_shared::email::{EmailConfig, EmailHealth};
 use anna_shared::ticket_tracker::{TicketTracker, TicketStatus};
@@ -299,79 +298,6 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
     }
-}
-
-/// Handle inbox command - view/manage async query inbox (v0.0.115)
-pub async fn handle_inbox(add: Option<&str>) -> Result<()> {
-    use anna_shared::email::inbox_path;
-    use std::fs;
-    use std::io::Write as IoWrite;
-
-    let inbox = inbox_path();
-
-    // If adding a query
-    if let Some(query) = add {
-        // Ensure parent dir exists
-        if let Some(parent) = inbox.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        // Append query to inbox
-        let mut file = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&inbox)?;
-        writeln!(file, "? {}", query)?;
-
-        println!();
-        println!("{}Query added to inbox:{}", colors::OK, colors::RESET);
-        println!("  {}", query);
-        println!();
-        println!("Anna will process it and create a ticket.");
-        println!("Check status with: annactl inbox");
-        return Ok(());
-    }
-
-    // Show inbox status
-    println!();
-    println!("{}Anna Inbox{}", colors::BOLD, colors::RESET);
-    println!();
-
-    if !inbox.exists() {
-        println!("{}No inbox file yet.{}", colors::DIM, colors::RESET);
-        println!();
-        println!("Add a query:");
-        println!("  annactl inbox --add \"your question here\"");
-        println!("  echo \"? your question\" >> {}", inbox.display());
-        return Ok(());
-    }
-
-    // Read and display inbox
-    let content = fs::read_to_string(&inbox)?;
-    let queries: Vec<&str> = content
-        .lines()
-        .filter(|line| {
-            let trimmed = line.trim();
-            !trimmed.is_empty() && !trimmed.starts_with('#')
-        })
-        .collect();
-
-    if queries.is_empty() {
-        println!("{}Inbox is empty.{}", colors::DIM, colors::RESET);
-    } else {
-        println!("{}Pending queries:{}", colors::BOLD, colors::RESET);
-        for (i, query) in queries.iter().enumerate() {
-            let display = query.trim().strip_prefix('?').unwrap_or(query).trim();
-            println!("  {}. {}", i + 1, display);
-        }
-    }
-
-    println!();
-    println!("{}Location:{} {}", colors::DIM, colors::RESET, inbox.display());
-    println!();
-    println!("{}Add a query:{} annactl inbox --add \"question\"", colors::DIM, colors::RESET);
-
-    Ok(())
 }
 
 #[cfg(test)]

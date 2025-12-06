@@ -412,6 +412,7 @@ pub fn classify_query(query: &str) -> QueryClass {
     }
 
     // v0.0.111: Ticket history - "show my tickets", "recent cases", "ticket history"
+    // v0.0.116: Added inbox queries
     if q.contains("ticket")
         || q.contains("case number")
         || q.contains("my cases")
@@ -420,6 +421,10 @@ pub fn classify_query(query: &str) -> QueryClass {
         || q.contains("previous questions")
         || q.contains("what have i asked")
         || q.contains("support history")
+        || q.contains("inbox")
+        || q.contains("pending queries")
+        || q.contains("pending questions")
+        || q.contains("queued questions")
     {
         return QueryClass::TicketHistory;
     }

@@ -7,41 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.115] - 2025-12-06
+## [0.0.116] - 2025-12-06
 
-### Changed - File-Based Inbox for Async Queries (Phase 34)
+### Changed - Natural Language Only (Phase 35)
 
-**No Email Server Needed**
+**Everything Through Conversation**
 
-Replaced `anna@localhost` email with file-based inbox (`~/.anna/inbox`).
-Users can submit async queries without needing a mail server.
+Removed `annactl inbox` command. Everything is through natural language.
+Open tickets now show in Anna's greeting when you start a session.
 
-**How It Works**:
-- Drop queries in `~/.anna/inbox` (one per line, prefix with `?`)
-- Anna checks the inbox periodically
-- Queries become tickets with case numbers
-- User gets email notification (outgoing only - no server needed)
-- Processed queries move to `~/.anna/inbox.done`
+**Natural Language Queries**:
+- "show my tickets" - View ticket history and inbox
+- "show my inbox" - Same as above
+- "pending queries" - Check for queued items
 
-**New Command**:
-- `annactl inbox` - View pending queries in inbox
-- `annactl inbox --add "question"` - Add query to inbox
-
-**Ways to Reach Anna**:
-1. `annactl "question"` - One-shot query (immediate)
-2. `annactl` - Interactive REPL (immediate)
-3. `~/.anna/inbox` - Async queries (creates tickets)
-
-**Email Clarification**:
-- Outgoing: Anna emails you (works with mail command)
-- Incoming: Use `annactl reply` or inbox file (no server needed)
+**Greeting Shows Open Tickets**:
+When you start `annactl`, Anna now shows:
+- Any open tickets waiting for response
+- How to reply to tickets
 
 **Code Changes**:
-- `email.rs`: Added `inbox_path()`, removed anna_email field
+- `main.rs`: Removed Inbox command
+- `greeting.rs`: Added `print_open_tickets()` to greeting
+- `deterministic.rs`: Enhanced ticket history with real data
+- `query_classify.rs`: Added inbox patterns to TicketHistory
+
+## [0.0.115] - 2025-12-06
+
+### Added - File-Based Inbox System (Phase 34)
+
+**Async Query Support**
+
+Added file-based inbox (`~/.anna/inbox`) for async queries.
+Users can drop queries without needing an email server.
+
+**How It Works**:
+- `inbox.rs` module processes ~/.anna/inbox
+- Queries become tickets with case numbers
+- User gets email notification (outgoing only)
+
+**Code Changes**:
+- `email.rs`: Added `inbox_path()`
 - `inbox.rs` (NEW): File-based inbox processing
-- `ticket_commands.rs`: Added `handle_inbox()`, updated health display
-- `greeting.rs`: Shows inbox instead of email address
-- `main.rs`: Added Inbox command
 
 ## [0.0.114] - 2025-12-06
 

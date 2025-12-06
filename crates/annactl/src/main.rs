@@ -4,7 +4,7 @@
 //! v0.0.97: Added change_commands module for history/undo.
 //! v0.0.111: Removed tickets/staff CLI commands - use natural language instead.
 //! v0.0.113: Added reply/ticket commands for async ticket workflow.
-//! v0.0.115: Added inbox command for file-based async queries.
+//! v0.0.116: Removed inbox command - use natural language instead.
 
 mod change_commands;
 mod client;
@@ -25,7 +25,7 @@ use clap::{Parser, Subcommand};
 
 use crate::commands::{handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
 use crate::report_cmd::handle_report;
-use crate::ticket_commands::{handle_email, handle_health, handle_inbox, handle_reply, handle_ticket};
+use crate::ticket_commands::{handle_email, handle_health, handle_reply, handle_ticket};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -95,12 +95,6 @@ enum Command {
     },
     /// v0.0.114: Check Anna's health and dependencies
     Health,
-    /// v0.0.115: View/manage async query inbox
-    Inbox {
-        /// Optional: add a query to inbox
-        #[arg(short, long)]
-        add: Option<String>,
-    },
 }
 
 #[tokio::main]
@@ -120,7 +114,6 @@ async fn main() -> Result<()> {
         Some(Command::Ticket { case }) => handle_ticket(&case).await,
         Some(Command::Email { address }) => handle_email(&address).await,
         Some(Command::Health) => handle_health().await,
-        Some(Command::Inbox { add }) => handle_inbox(add.as_deref()).await,
         None => {
             if cli.request.is_empty() {
                 // No args - enter REPL mode

@@ -4,10 +4,12 @@
 //! IT support person who knows the user and their system.
 //!
 //! v0.0.106: Integrates user profile for personalized patterns.
+//! v0.0.116: Shows open tickets in greeting.
 
 use anna_shared::snapshot::{self, DeltaItem, SystemSnapshot};
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::telemetry::TelemetrySnapshot;
+use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::{colors, HR};
 use anna_shared::user_profile::UserProfile;
 
@@ -46,6 +48,9 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
 
     // v0.0.106: Show personalized patterns if we have history
     print_user_patterns(&profile);
+
+    // v0.0.116: Show open tickets if any
+    print_open_tickets();
 
     // "Since last time" section if we have history
     if last_snapshot.is_some() {
@@ -115,7 +120,6 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
         println!("{}Ways to reach me:{}", colors::DIM, colors::RESET);
         println!("  {} annactl \"your question\"  (one-shot)", bullet());
         println!("  {} annactl                   (interactive REPL)", bullet());
-        println!("  {} ~/.anna/inbox             (async queries - I'll check it)", bullet());
         println!();
         println!("{}For detailed stats: annactl stats | For system status: annactl status{}", colors::DIM, colors::RESET);
     } else if let Some(days) = info.days_since_last {
@@ -220,6 +224,37 @@ fn print_user_patterns(profile: &UserProfile) {
             println!("{}{}{}", colors::DIM, pattern, colors::RESET);
         }
     }
+}
+
+/// v0.0.116: Show open tickets if any
+fn print_open_tickets() {
+    let tracker = TicketTracker::for_user();
+
+    // Get open tickets
+    let open_tickets = match tracker.open_tickets() {
+        Ok(tickets) if !tickets.is_empty() => tickets,
+        _ => return, // No tickets, nothing to show
+    };
+
+    println!();
+    println!("{}Open Tickets:{}", colors::WARN, colors::RESET);
+    for ticket in open_tickets.iter().take(3) {
+        let query_preview = if ticket.query.len() > 35 {
+            format!("{}...", &ticket.query[..32])
+        } else {
+            ticket.query.clone()
+        };
+        println!("  {} {} - {} ({})",
+            bullet(),
+            ticket.case_number,
+            query_preview,
+            ticket.status);
+    }
+    if open_tickets.len() > 3 {
+        println!("  {} ...and {} more", bullet(), open_tickets.len() - 3);
+    }
+    println!();
+    println!("{}To reply: annactl reply CN-XXXX \"message\"{}", colors::DIM, colors::RESET);
 }
 
 fn print_since_last_time(
