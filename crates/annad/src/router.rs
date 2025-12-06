@@ -564,6 +564,7 @@ pub fn apply_deterministic_routing(query: &str, llm_ticket: Option<TranslatorTic
         needs_probes: route.probes,
         clarification_question: None,
         confidence: 1.0,
+        answer_contract: None, // v0.0.74: Deterministic routes don't need answer shaping
     }
 }
 
@@ -576,6 +577,7 @@ fn create_default_ticket(route: &DeterministicRoute) -> TranslatorTicket {
         needs_probes: route.probes.clone(),
         clarification_question: None,
         confidence: 0.5,
+        answer_contract: None, // v0.0.74
     }
 }
 

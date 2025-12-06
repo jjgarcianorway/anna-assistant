@@ -1,9 +1,11 @@
 //! JSON-RPC 2.0 types for annad communication.
+//! v0.0.73: Added GetDaemonInfo for version truth.
 
 use crate::clarify_v2::ClarifyRequest;
 use crate::reliability::ReliabilityExplanation;
 use crate::trace::ExecutionTrace;
 use crate::transcript::Transcript;
+use crate::version::VersionInfo;
 use serde::{Deserialize, Serialize};
 
 /// RPC methods supported by annad
@@ -22,6 +24,19 @@ pub enum RpcMethod {
     Stats,
     /// Get comprehensive status snapshot (v0.0.29)
     StatusSnapshot,
+    /// v0.0.73: Get daemon version info (for client/daemon version comparison)
+    GetDaemonInfo,
+}
+
+/// v0.0.73: Response from GetDaemonInfo RPC call
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DaemonInfo {
+    /// Daemon version info
+    pub version_info: VersionInfo,
+    /// Daemon process ID
+    pub pid: u32,
+    /// Daemon uptime in seconds
+    pub uptime_secs: u64,
 }
 
 /// JSON-RPC 2.0 request
@@ -216,6 +231,9 @@ pub struct TranslatorTicket {
     /// Translator confidence 0.0-1.0
     #[serde(default)]
     pub confidence: f32,
+    /// v0.0.74: Answer contract defining what the answer should contain
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answer_contract: Option<crate::answer_contract::AnswerContract>,
 }
 
 /// Structured probe result with metadata

@@ -1,7 +1,8 @@
 //! Unix socket client for communicating with annad.
+//! v0.0.73: Added get_daemon_info for version truth.
 
 use anna_shared::progress::ProgressEvent;
-use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
+use anna_shared::rpc::{DaemonInfo, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
 use anna_shared::stats::GlobalStats;
 use anna_shared::status::DaemonStatus;
 use anna_shared::status_snapshot::StatusSnapshot;
@@ -256,6 +257,21 @@ impl AnnadClient {
             .ok_or_else(|| anyhow!("No result in response"))?;
         let stats: GlobalStats = serde_json::from_value(result)?;
         Ok(stats)
+    }
+
+    /// v0.0.73: Get daemon version info
+    pub async fn get_daemon_info(&mut self) -> Result<DaemonInfo> {
+        let response = self.call(RpcMethod::GetDaemonInfo, None).await?;
+
+        if let Some(error) = response.error {
+            return Err(anyhow!("GetDaemonInfo error: {}", error.message));
+        }
+
+        let result = response
+            .result
+            .ok_or_else(|| anyhow!("No result in response"))?;
+        let info: DaemonInfo = serde_json::from_value(result)?;
+        Ok(info)
     }
 }
 

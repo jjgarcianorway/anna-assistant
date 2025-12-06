@@ -1,7 +1,9 @@
 //! LLM-based translator for query classification.
 //!
 //! Converts user text to structured TranslatorTicket JSON.
+//! v0.0.74: Now includes AnswerContract for answer shaping.
 
+use anna_shared::answer_contract::AnswerContract;
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -170,6 +172,7 @@ fn filter_valid_probes(probes: Vec<String>) -> Vec<String> {
 }
 
 /// Translate user query to structured ticket using LLM (with minimal input)
+/// v0.0.74: Now generates AnswerContract from query for answer shaping
 pub async fn translate_with_context(
     model: &str,
     input: &TranslatorInput,
@@ -186,7 +189,12 @@ pub async fn translate_with_context(
         .await
         .map_err(|e| format!("LLM error: {}", e))?;
 
-    parse_translator_response(&response)
+    let mut ticket = parse_translator_response(&response)?;
+
+    // v0.0.74: Generate answer contract from original query
+    ticket.answer_contract = Some(AnswerContract::from_query(&input.query));
+
+    Ok(ticket)
 }
 
 /// Legacy translate function (for compatibility/tests)
@@ -238,6 +246,7 @@ fn parse_translator_response(response: &str) -> Result<TranslatorTicket, String>
         needs_probes,
         clarification_question: output.clarification_question,
         confidence,
+        answer_contract: None, // v0.0.74: Set by caller with query context
     };
 
     info!(
@@ -313,6 +322,7 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
             needs_probes: vec!["memory_info".to_string(), "disk_usage".to_string(), "cpu_info".to_string(), "failed_services".to_string()],
             clarification_question: None,
             confidence: 0.8, // Higher confidence for health queries
+            answer_contract: Some(AnswerContract::from_query(query)), // v0.0.74
         };
     }
 
@@ -341,7 +351,15 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
     if q.contains("network") || q.contains("ip") { needs_probes.push("network_addrs".to_string()); }
     if q.contains("port") || q.contains("listen") { needs_probes.push("listening_ports".to_string()); }
 
-    TranslatorTicket { intent, domain, entities: Vec::new(), needs_probes, clarification_question: None, confidence: 0.3 }
+    TranslatorTicket {
+        intent,
+        domain,
+        entities: Vec::new(),
+        needs_probes,
+        clarification_question: None,
+        confidence: 0.3,
+        answer_contract: Some(AnswerContract::from_query(query)), // v0.0.74
+    }
 }
 
 /// Strip greetings for fallback translator

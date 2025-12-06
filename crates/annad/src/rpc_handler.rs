@@ -41,6 +41,7 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         RpcMethod::Progress => handlers::handle_progress(state, id).await,
         RpcMethod::Stats => handlers::handle_stats(state, id).await,
         RpcMethod::StatusSnapshot => handlers::handle_status_snapshot(state, id).await,
+        RpcMethod::GetDaemonInfo => handlers::handle_get_daemon_info(state, id).await,
     }
 }
 
@@ -602,56 +603,36 @@ async fn save_progress(state: &SharedState, progress: &ProgressTracker) {
     state.write().await.progress_events = progress.events().to_vec();
 }
 
-/// v0.0.66: Build editor-specific syntax highlighting config answer.
+/// v0.0.74: Build editor-specific syntax highlighting config answer using EditorRecipes.
 /// Returns deterministic steps for the detected editor, no questions, no markdown.
 fn build_editor_config_answer(editor: &str) -> String {
+    use anna_shared::editor_recipes::{ConfigFeature, Editor, get_recipe};
+
+    // Try to get recipe from EditorRecipes module
+    if let Some(editor_enum) = Editor::from_tool_name(editor) {
+        if let Some(recipe) = get_recipe(editor_enum, ConfigFeature::SyntaxHighlighting) {
+            // Build answer from recipe
+            let lines: Vec<String> = recipe.lines.iter()
+                .map(|l| format!("   {}", l.line))
+                .collect();
+
+            return format!(
+                "Detected {} installed. To enable syntax highlighting:\n\
+                1. Edit ~/{}\n\
+                2. Add the following:\n{}\n\
+                3. Save and reopen {}\n\n\
+                To undo: {}",
+                editor_enum.display_name(),
+                editor_enum.config_path(),
+                lines.join("\n"),
+                editor,
+                recipe.rollback_hint
+            );
+        }
+    }
+
+    // Fallback for GUI editors without recipes (VS Code, Kate, Gedit)
     match editor {
-        "vim" | "vi" => format!(
-            "Detected {} installed. To enable syntax highlighting:\n\
-            1. Edit ~/.vimrc (create if needed)\n\
-            2. Add: syntax on\n\
-            3. Save and reopen vim\n\
-            For line numbers, also add: set number",
-            editor
-        ),
-        "nvim" => String::from(
-            "Detected nvim installed. To enable syntax highlighting:\n\
-            1. Edit ~/.config/nvim/init.vim (or init.lua)\n\
-            2. Add: syntax on (or vim.cmd(\"syntax on\") in Lua)\n\
-            3. Save and reopen nvim\n\
-            For line numbers: set number (or vim.opt.number = true)"
-        ),
-        "nano" => String::from(
-            "Detected nano installed. To enable syntax highlighting:\n\
-            1. Ensure syntax files exist: /usr/share/nano/*.nanorc\n\
-            2. Edit ~/.nanorc (or /etc/nanorc system-wide)\n\
-            3. Add: include \"/usr/share/nano/*.nanorc\"\n\
-            4. Save and reopen nano\n\
-            For line numbers: set linenumbers"
-        ),
-        "emacs" => String::from(
-            "Detected emacs installed. To enable syntax highlighting:\n\
-            1. Edit ~/.emacs (or ~/.emacs.d/init.el)\n\
-            2. Add: (global-font-lock-mode t)\n\
-            3. Save and restart emacs\n\
-            For line numbers: (global-display-line-numbers-mode t)"
-        ),
-        "helix" => String::from(
-            "Detected helix installed. Syntax highlighting is enabled by default.\n\
-            To customize themes:\n\
-            1. Edit ~/.config/helix/config.toml\n\
-            2. Add: theme = \"gruvbox\" (or another theme name)\n\
-            3. Save and reopen helix\n\
-            List themes with :theme command inside helix"
-        ),
-        "micro" => String::from(
-            "Detected micro installed. Syntax highlighting is enabled by default.\n\
-            To customize:\n\
-            1. Press Ctrl+E then type set colorscheme ...\n\
-            2. Or edit ~/.config/micro/settings.json\n\
-            3. Set \"colorscheme\": \"monokai\" (or another scheme)\n\
-            For line numbers: set ruler true"
-        ),
         "code" => String::from(
             "Detected VS Code installed. Syntax highlighting is automatic based on file type.\n\
             To configure:\n\
@@ -661,11 +642,10 @@ fn build_editor_config_answer(editor: &str) -> String {
             Theme: File > Preferences > Color Theme"
         ),
         "kate" => String::from(
-            "Detected kate installed. Syntax highlighting is enabled by default.\n\
+            "Detected Kate installed. Syntax highlighting is enabled by default.\n\
             To configure:\n\
             1. Settings > Configure Kate > Fonts & Colors\n\
             2. Select a color scheme\n\
-            3. For specific languages: Settings > Configure Kate > Open/Save > Modes & Filetypes\n\
             Line numbers: Settings > Configure Kate > Appearance > Show line numbers"
         ),
         "gedit" => String::from(
@@ -673,8 +653,22 @@ fn build_editor_config_answer(editor: &str) -> String {
             To configure:\n\
             1. Preferences > Font & Colors\n\
             2. Select a color scheme\n\
-            3. For line numbers: Preferences > View > Display line numbers\n\
-            Gedit auto-detects file types for highlighting"
+            Line numbers: Preferences > View > Display line numbers"
+        ),
+        "helix" | "hx" => String::from(
+            "Detected Helix installed. Syntax highlighting is enabled by default.\n\
+            To customize themes:\n\
+            1. Edit ~/.config/helix/config.toml\n\
+            2. Add: theme = \"gruvbox\" (or another theme name)\n\
+            3. Save and reopen helix\n\
+            List themes with :theme command inside helix"
+        ),
+        "micro" => String::from(
+            "Detected micro installed. Syntax highlighting is enabled by default.\n\
+            To customize:\n\
+            1. Edit ~/.config/micro/settings.json\n\
+            2. Set \"colorscheme\": \"monokai\" (or another scheme)\n\
+            For line numbers: set \"ruler\": true"
         ),
         _ => format!(
             "Detected {} installed. Check its documentation for syntax highlighting configuration.",

@@ -2,7 +2,9 @@
 //!
 //! Handles queries that don't match deterministic classes using LLM translator
 //! with confidence thresholds and clarification fallback.
+//! v0.0.74: Now includes AnswerContract for answer shaping.
 
+use anna_shared::answer_contract::AnswerContract;
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
 use tracing::{info, warn};
 
@@ -145,6 +147,7 @@ pub fn create_fallback_ticket(query: &str) -> TranslatorTicket {
         needs_probes: vec![],
         clarification_question: Some(generate_heuristic_clarification(query)),
         confidence: 0.0,
+        answer_contract: Some(AnswerContract::from_query(query)), // v0.0.74
     }
 }
 
@@ -167,6 +170,7 @@ mod tests {
             ],
             clarification_question: None,
             confidence: 0.9,
+            answer_contract: None,
         };
 
         let result = apply_triage_rules(ticket);
@@ -183,6 +187,7 @@ mod tests {
             needs_probes: vec!["top_cpu".into()],
             clarification_question: None,
             confidence: 0.5,
+            answer_contract: None,
         };
 
         let result = apply_triage_rules(ticket);
@@ -199,6 +204,7 @@ mod tests {
             needs_probes: vec!["top_cpu".into()],
             clarification_question: None,
             confidence: 0.85,
+            answer_contract: None,
         };
 
         let result = apply_triage_rules(ticket);
@@ -214,6 +220,7 @@ mod tests {
             needs_probes: vec![],
             clarification_question: None,
             confidence: 0.3,
+            answer_contract: None,
         });
         assert!(network_q.contains("network"));
 
@@ -224,6 +231,7 @@ mod tests {
             needs_probes: vec![],
             clarification_question: None,
             confidence: 0.3,
+            answer_contract: None,
         });
         assert!(storage_q.contains("storage") || storage_q.contains("disk"));
     }

@@ -353,6 +353,7 @@ pub fn create_timeout_response(
         needs_probes: vec![],
         clarification_question: None,
         confidence: 0.0,
+        answer_contract: None, // v0.0.74
     });
 
     let evidence = build_evidence(

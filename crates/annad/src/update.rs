@@ -3,7 +3,7 @@
 use anna_shared::GITHUB_REPO;
 use anyhow::{anyhow, Result};
 use std::process::Command;
-use tracing::info;
+use tracing::{info, warn};
 
 /// GitHub API response for releases
 #[derive(Debug, serde::Deserialize)]
@@ -102,9 +102,10 @@ pub fn is_newer_version(current: &str, remote: &str) -> bool {
     false
 }
 
-/// Perform the update by downloading and replacing binaries
+/// v0.0.73: Perform atomic pair update of both annactl and annad
+/// Both binaries are updated together or neither is updated (rollback on failure)
 pub async fn perform_update(new_version: &str) -> Result<()> {
-    info!("Starting update to version {}", new_version);
+    info!("Starting atomic pair update to version {}", new_version);
 
     let arch = std::env::consts::ARCH;
     let arch_name = match arch {
@@ -121,7 +122,7 @@ pub async fn perform_update(new_version: &str) -> Result<()> {
     let tmp_dir = std::env::temp_dir().join("anna-update");
     std::fs::create_dir_all(&tmp_dir)?;
 
-    // Download new binaries
+    // Download both binaries before replacing anything
     info!("Downloading annactl...");
     let annactl_url = format!("{}/annactl-linux-{}", base_url, arch_name);
     let annactl_path = tmp_dir.join("annactl");
@@ -159,22 +160,112 @@ pub async fn perform_update(new_version: &str) -> Result<()> {
         std::os::unix::fs::PermissionsExt::from_mode(0o755),
     )?;
 
-    // Replace binaries (annactl first, then schedule annad restart)
-    info!("Installing new annactl...");
-    std::fs::copy(&annactl_path, "/usr/local/bin/annactl")?;
+    // v0.0.73: Verify downloaded binaries report correct version
+    info!("Verifying downloaded binary versions...");
+    verify_binary_version(&annactl_path, new_version, "annactl")?;
+    verify_binary_version(&annad_path, new_version, "annad")?;
 
-    info!("Installing new annad...");
-    // Copy to temp location, then use systemd to restart with new binary
-    std::fs::copy(&annad_path, "/usr/local/bin/annad.new")?;
+    // v0.0.73: Backup existing binaries for rollback
+    info!("Backing up existing binaries...");
+    let backup_annactl = tmp_dir.join("annactl.backup");
+    let backup_annad = tmp_dir.join("annad.backup");
+    std::fs::copy("/usr/local/bin/annactl", &backup_annactl).ok();
+    std::fs::copy("/usr/local/bin/annad", &backup_annad).ok();
 
-    // Atomic replace and restart via systemd
+    // v0.0.73: Atomic pair update - both or neither
+    info!("Installing new binaries as atomic pair...");
+    if let Err(e) = install_binary_pair(&annactl_path, &annad_path) {
+        // Rollback on failure
+        warn!("Update failed, rolling back: {}", e);
+        if backup_annactl.exists() {
+            std::fs::copy(&backup_annactl, "/usr/local/bin/annactl").ok();
+        }
+        if backup_annad.exists() {
+            std::fs::copy(&backup_annad, "/usr/local/bin/annad").ok();
+        }
+        std::fs::remove_dir_all(&tmp_dir).ok();
+        return Err(e);
+    }
+
+    // v0.0.73: Verify installed versions match
+    info!("Verifying pair consistency...");
+    if let Err(e) = verify_pair_consistency(new_version) {
+        warn!("Pair consistency check failed, rolling back: {}", e);
+        if backup_annactl.exists() {
+            std::fs::copy(&backup_annactl, "/usr/local/bin/annactl").ok();
+        }
+        if backup_annad.exists() {
+            std::fs::copy(&backup_annad, "/usr/local/bin/annad").ok();
+        }
+        std::fs::remove_dir_all(&tmp_dir).ok();
+        return Err(e);
+    }
+
+    // Schedule daemon restart
     info!("Scheduling daemon restart...");
     schedule_daemon_restart()?;
 
     // Cleanup
     std::fs::remove_dir_all(&tmp_dir).ok();
 
-    info!("Update to {} complete, daemon will restart", new_version);
+    info!("Atomic pair update to {} complete, daemon will restart", new_version);
+    Ok(())
+}
+
+/// v0.0.73: Verify binary reports expected version
+fn verify_binary_version(path: &std::path::Path, expected_version: &str, name: &str) -> Result<()> {
+    let output = Command::new(path)
+        .arg("--version")
+        .output()
+        .map_err(|e| anyhow!("{} --version failed: {}", name, e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !stdout.contains(expected_version) {
+        return Err(anyhow!(
+            "{} version mismatch: expected {} in output, got: {}",
+            name, expected_version, stdout.trim()
+        ));
+    }
+    Ok(())
+}
+
+/// v0.0.73: Install both binaries together
+fn install_binary_pair(annactl: &std::path::Path, annad: &std::path::Path) -> Result<()> {
+    // Install annactl first
+    std::fs::copy(annactl, "/usr/local/bin/annactl")
+        .map_err(|e| anyhow!("Failed to install annactl: {}", e))?;
+
+    // Install annad to staging location
+    std::fs::copy(annad, "/usr/local/bin/annad.new")
+        .map_err(|e| anyhow!("Failed to stage annad: {}", e))?;
+
+    Ok(())
+}
+
+/// v0.0.73: Verify both installed binaries report the same version
+fn verify_pair_consistency(expected_version: &str) -> Result<()> {
+    let annactl_output = Command::new("/usr/local/bin/annactl")
+        .arg("--version")
+        .output()
+        .map_err(|e| anyhow!("annactl --version failed: {}", e))?;
+
+    let annactl_ver = String::from_utf8_lossy(&annactl_output.stdout);
+    if !annactl_ver.contains(expected_version) {
+        return Err(anyhow!("annactl version check failed: {}", annactl_ver.trim()));
+    }
+
+    // annad.new should also have correct version
+    let annad_output = Command::new("/usr/local/bin/annad.new")
+        .arg("--version")
+        .output()
+        .map_err(|e| anyhow!("annad.new --version failed: {}", e))?;
+
+    let annad_ver = String::from_utf8_lossy(&annad_output.stdout);
+    if !annad_ver.contains(expected_version) {
+        return Err(anyhow!("annad version check failed: {}", annad_ver.trim()));
+    }
+
+    info!("Pair consistency verified: both binaries at {}", expected_version);
     Ok(())
 }
 
@@ -343,5 +434,57 @@ mod tests {
 
         // The version comparison should still work with preserved value
         assert!(is_newer_version("0.0.72", "0.0.80"));
+    }
+
+    /// v0.0.73: Test version module integration
+    #[test]
+    fn test_v073_version_module_integration() {
+        use anna_shared::version::{VERSION, VersionInfo, is_newer_version as version_is_newer};
+
+        // VERSION should be valid semver
+        let parts: Vec<&str> = VERSION.split('.').collect();
+        assert_eq!(parts.len(), 3);
+
+        // VersionInfo::current() should return valid info
+        let info = VersionInfo::current();
+        assert_eq!(info.version, VERSION);
+        assert!(info.protocol_version > 0);
+
+        // is_newer_version should be consistent between modules
+        assert_eq!(
+            is_newer_version("0.0.72", "0.0.73"),
+            version_is_newer("0.0.72", "0.0.73")
+        );
+    }
+
+    /// v0.0.73: Test version matching logic
+    #[test]
+    fn test_v073_version_matching() {
+        use anna_shared::version::VersionInfo;
+
+        let v1 = VersionInfo {
+            version: "0.0.73".to_string(),
+            git_sha: "abc1234".to_string(),
+            build_date: "2025-12-06".to_string(),
+            protocol_version: 2,
+        };
+
+        // Same version, different SHA should match
+        let v2 = VersionInfo {
+            version: "0.0.73".to_string(),
+            git_sha: "def5678".to_string(),
+            build_date: "2025-12-06".to_string(),
+            protocol_version: 2,
+        };
+        assert!(v1.matches(&v2));
+
+        // Different version should not match
+        let v3 = VersionInfo {
+            version: "0.0.74".to_string(),
+            git_sha: "abc1234".to_string(),
+            build_date: "2025-12-07".to_string(),
+            protocol_version: 2,
+        };
+        assert!(!v1.matches(&v3));
     }
 }

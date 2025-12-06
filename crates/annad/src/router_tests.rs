@@ -87,6 +87,7 @@ mod tests {
             entities: vec![],
             needs_probes: vec!["listening_ports".to_string()], // Wrong probes
             clarification_question: None,
+            answer_contract: None,
             confidence: 0.9,
         };
 

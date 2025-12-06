@@ -63,7 +63,8 @@ fn test_high_confidence_proceeds() {
         entities: vec![],
         needs_probes: vec!["top_cpu".to_string()],
         clarification_question: None,
-        confidence: 0.85,
+        answer_contract: None,
+            confidence: 0.85,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -79,7 +80,8 @@ fn test_low_confidence_triggers_clarification() {
         entities: vec![],
         needs_probes: vec!["top_cpu".to_string()],
         clarification_question: None,
-        confidence: 0.5,
+        answer_contract: None,
+            confidence: 0.5,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -96,7 +98,8 @@ fn test_threshold_boundary() {
         entities: vec![],
         needs_probes: vec![],
         clarification_question: None,
-        confidence: 0.7,
+        answer_contract: None,
+            confidence: 0.7,
     };
     let result = triage::apply_triage_rules(ticket);
     assert!(!result.needs_immediate_clarification);
@@ -108,7 +111,8 @@ fn test_threshold_boundary() {
         entities: vec![],
         needs_probes: vec![],
         clarification_question: None,
-        confidence: 0.69,
+        answer_contract: None,
+            confidence: 0.69,
     };
     let result = triage::apply_triage_rules(ticket);
     assert!(result.needs_immediate_clarification);
@@ -130,7 +134,8 @@ fn test_probe_cap_at_three() {
             "listening_ports".to_string(),
         ],
         clarification_question: None,
-        confidence: 0.9,
+        answer_contract: None,
+            confidence: 0.9,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -146,7 +151,8 @@ fn test_probe_cap_not_applied_under_limit() {
         entities: vec![],
         needs_probes: vec!["top_cpu".to_string(), "top_memory".to_string()],
         clarification_question: None,
-        confidence: 0.9,
+        answer_contract: None,
+            confidence: 0.9,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -166,7 +172,8 @@ fn test_probe_cap_exactly_three() {
             "disk_usage".to_string(),
         ],
         clarification_question: None,
-        confidence: 0.9,
+        answer_contract: None,
+            confidence: 0.9,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -191,6 +198,7 @@ fn test_fallback_clarification_by_domain() {
             entities: vec![],
             needs_probes: vec![],
             clarification_question: None,
+            answer_contract: None,
             confidence: 0.3,
         };
 
@@ -215,7 +223,8 @@ fn test_llm_clarification_preserved() {
         entities: vec![],
         needs_probes: vec![],
         clarification_question: Some("Which specific process are you asking about?".to_string()),
-        confidence: 0.4,
+        answer_contract: None,
+            confidence: 0.4,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -241,7 +250,8 @@ fn test_low_confidence_with_probe_cap() {
             "d".to_string(),
         ],
         clarification_question: None,
-        confidence: 0.3,
+        answer_contract: None,
+            confidence: 0.3,
     };
 
     let result = triage::apply_triage_rules(ticket);

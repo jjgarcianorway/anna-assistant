@@ -176,6 +176,15 @@ pub struct LlmStatus {
     pub progress: Option<ProgressInfo>,
     pub benchmark: Option<BenchmarkResult>,
     pub models: Vec<ModelInfo>,
+    /// v0.0.74: Selected model for translator role
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub translator_model: Option<String>,
+    /// v0.0.74: Selected model for specialist role
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub specialist_model: Option<String>,
+    /// v0.0.74: Model family preference used
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred_family: Option<String>,
 }
 
 /// LLM state
@@ -297,6 +306,9 @@ impl Default for LlmStatus {
             progress: None,
             benchmark: None,
             models: Vec::new(),
+            translator_model: None,
+            specialist_model: None,
+            preferred_family: None,
         }
     }
 }

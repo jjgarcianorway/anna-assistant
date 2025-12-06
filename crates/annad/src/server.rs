@@ -203,6 +203,12 @@ impl Server {
             if supervisor_model != translator_model && supervisor_model != specialist_model {
                 state.add_model(&supervisor_model, "supervisor", 0);
             }
+            // v0.0.74: Set selected model info for status display
+            state.llm.translator_model = Some(translator_model.clone());
+            state.llm.specialist_model = Some(specialist_model.clone());
+            // Detect preferred family from model names
+            let family = anna_shared::model_selector::detect_family(&specialist_model);
+            state.llm.preferred_family = Some(format!("{:?}", family));
         }
 
         // Run benchmark on specialist model (primary inference model)

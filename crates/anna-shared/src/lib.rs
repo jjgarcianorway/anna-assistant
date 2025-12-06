@@ -1,6 +1,9 @@
 //! Shared types and utilities for Anna components.
+//! v0.0.73: Single source of truth for version via version module.
+//! v0.0.74: Model selector with Qwen3-VL preference.
 
 pub mod advice;
+pub mod answer_contract;
 pub mod brief;
 pub mod budget;
 pub mod change;
@@ -8,6 +11,7 @@ pub mod claims;
 pub mod clarify;
 pub mod clarify_v2;
 pub mod config_intent;
+pub mod editor_recipes;
 pub mod error;
 pub mod facts;
 pub mod facts_types;
@@ -23,6 +27,7 @@ pub mod knowledge;
 pub mod intake;
 pub mod ledger;
 pub mod model_registry;
+pub mod model_selector;
 pub mod narrator;
 pub mod parsers;
 pub mod pending;
@@ -55,6 +60,7 @@ pub mod transcript_ext;
 pub mod ui;
 pub mod update_ledger;
 pub mod verify;
+pub mod version;
 
 // v0.0.67: Service desk narrative modules
 pub mod citations;
@@ -64,13 +70,15 @@ pub mod stats_store;
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
-    Capabilities, HardwareSummary, ProbeParams, ProbeType, RpcMethod, RpcRequest, RpcResponse,
-    RuntimeContext,
+    Capabilities, DaemonInfo, HardwareSummary, ProbeParams, ProbeType, RpcMethod, RpcRequest,
+    RpcResponse, RuntimeContext,
 };
 pub use status::{
     BenchmarkResult, DaemonState, DaemonStatus, HardwareInfo, LlmState, LlmStatus, ModelInfo,
     OllamaStatus, ProgressInfo, UpdateStatus,
 };
+// v0.0.73: Re-export version constants for backward compatibility
+pub use version::{VERSION, GIT_SHA, BUILD_DATE, PROTOCOL_VERSION, VersionInfo};
 
 /// Socket path for annad
 pub const SOCKET_PATH: &str = "/run/anna/anna.sock";
@@ -89,6 +97,3 @@ pub const DEFAULT_UPDATE_CHECK_INTERVAL: u64 = 60;
 
 /// GitHub repository for version checks
 pub const GITHUB_REPO: &str = "jjgarcianorway/anna-assistant";
-
-/// Anna version
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");

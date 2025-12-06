@@ -55,7 +55,8 @@ fn test_create_ticket_from_translator() {
         entities: vec!["memory".to_string()],
         needs_probes: vec!["free -h".to_string()],
         clarification_question: None,
-        confidence: 0.95,
+        answer_contract: None,
+            confidence: 0.95,
     };
 
     let ticket = create_ticket_from_translator(

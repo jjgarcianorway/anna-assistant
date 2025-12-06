@@ -4,27 +4,39 @@
 //! v0.0.70: Fixed status output contract with proper version display.
 //! v0.0.71: Version truth - shows installed (annactl), daemon (annad), available.
 //! v0.0.72: Restructured status with factual sections, REPL greeting baseline.
+//! v0.0.73: Single source of truth via version module, client/daemon mismatch warning.
 
+use anna_shared::rpc::DaemonInfo;
 use anna_shared::snapshot::{self, DeltaItem, SystemSnapshot};
 use anna_shared::status::{DaemonStatus, LlmState, UpdateCheckState};
 use anna_shared::ui::{colors, HR};
-use anna_shared::VERSION;
+use anna_shared::version::{VersionInfo, PROTOCOL_VERSION, VERSION, GIT_SHA};
 use chrono::{DateTime, Local, Utc};
 
 // Re-export from dedicated modules
 pub use crate::progress_display::{print_progress_event, show_bootstrap_progress};
 pub use crate::stats_display::print_stats_display;
 
-/// RPC protocol version (for status display)
-const RPC_PROTOCOL_VERSION: &str = "1";
-
 /// Print status display
 /// v0.0.72: Structured sections: daemon, version, update, system, llm, health
+/// v0.0.73: Uses daemon_info for accurate version comparison
+#[allow(dead_code)]
 pub fn print_status_display(status: &DaemonStatus, show_debug: bool) {
+    // For backward compatibility, call with None for daemon_info
+    print_status_display_with_daemon_info(status, None, show_debug);
+}
+
+/// v0.0.73: Print status with daemon info for accurate version comparison
+pub fn print_status_display_with_daemon_info(
+    status: &DaemonStatus,
+    daemon_info: Option<&DaemonInfo>,
+    show_debug: bool,
+) {
     println!("\n{}annactl status{}", colors::HEADER, colors::RESET);
     println!("{}", HR);
 
     let kw = 18; // key width
+    let client_version = VersionInfo::current();
 
     // === DAEMON SECTION ===
     print_section("daemon");
@@ -41,15 +53,39 @@ pub fn print_status_display(status: &DaemonStatus, show_debug: bool) {
     print_kv("debug_mode", if status.debug_mode { "ON" } else { "OFF" }, kw);
 
     // === VERSION SECTION ===
+    // v0.0.73: Show full version info with git SHA
     print_section("version");
-    print_kv("annactl", VERSION, kw);
-    let daemon_ver = &status.version;
-    if daemon_ver == VERSION {
-        print_kv("annad", daemon_ver, kw);
+    let client_display = if GIT_SHA != "unknown" {
+        format!("{} ({})", VERSION, GIT_SHA)
     } else {
-        println!("{:width$} {} {}[mismatch]{}", "annad", daemon_ver, colors::ERR, colors::RESET, width = kw);
+        VERSION.to_string()
+    };
+    print_kv("annactl", &client_display, kw);
+
+    // Show daemon version from DaemonInfo if available, otherwise from status
+    let (daemon_ver, daemon_sha, version_mismatch) = if let Some(info) = daemon_info {
+        let mismatch = !client_version.matches(&info.version_info);
+        let sha_str = if info.version_info.git_sha != "unknown" {
+            format!(" ({})", info.version_info.git_sha)
+        } else {
+            String::new()
+        };
+        (info.version_info.version.clone(), sha_str, mismatch)
+    } else {
+        let mismatch = status.version != VERSION;
+        (status.version.clone(), String::new(), mismatch)
+    };
+
+    if version_mismatch {
+        println!(
+            "  {:width$} {}{} {}[MISMATCH]{}",
+            "annad", daemon_ver, daemon_sha, colors::ERR, colors::RESET, width = kw
+        );
+    } else {
+        print_kv("annad", &format!("{}{}", daemon_ver, daemon_sha), kw);
     }
-    print_kv("protocol", RPC_PROTOCOL_VERSION, kw);
+
+    print_kv("protocol", &PROTOCOL_VERSION.to_string(), kw);
 
     // === UPDATE SECTION ===
     print_section("update");
@@ -133,8 +169,22 @@ pub fn print_status_display(status: &DaemonStatus, show_debug: bool) {
     }
 
     // === HEALTH SECTION ===
+    // v0.0.73: Include version mismatch warning in health
     print_section("health");
-    if status.llm.state == LlmState::Ready && status.last_error.is_none() {
+
+    // Determine health status considering version mismatch
+    let has_version_mismatch = if let Some(info) = daemon_info {
+        !client_version.matches(&info.version_info)
+    } else {
+        status.version != VERSION
+    };
+
+    if has_version_mismatch {
+        println!(
+            "{:width$} {}WARN{}: client/daemon version mismatch",
+            "status", colors::WARN, colors::RESET, width = kw
+        );
+    } else if status.llm.state == LlmState::Ready && status.last_error.is_none() {
         println!("{:width$} {}OK{}", "status", colors::OK, colors::RESET, width = kw);
     } else if let Some(err) = &status.last_error {
         println!("{:width$} {}ERROR{}: {}", "status", colors::ERR, colors::RESET, err, width = kw);

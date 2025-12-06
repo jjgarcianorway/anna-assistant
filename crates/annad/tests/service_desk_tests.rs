@@ -43,6 +43,7 @@ fn make_ticket(domain: SpecialistDomain, probes: Vec<&str>, confidence: f32) -> 
         needs_probes: probes.into_iter().map(String::from).collect(),
         clarification_question: None,
         confidence,
+        answer_contract: None,
     }
 }
 
@@ -141,6 +142,7 @@ fn test_translator_ticket_with_clarification() {
         needs_probes: vec![],
         clarification_question: Some("Could you provide more details?".to_string()),
         confidence: 0.3,
+        answer_contract: None,
     };
 
     assert!(ticket.clarification_question.is_some());
@@ -231,6 +233,7 @@ fn test_clarification_response_format() {
         needs_probes: vec![],
         clarification_question: Some("Could you provide more details?".to_string()),
         confidence: 0.2,
+        answer_contract: None,
     };
     let evidence = make_evidence(ticket, vec![]);
     let signals = ReliabilitySignals {
@@ -393,6 +396,7 @@ fn test_timeout_response_format() {
         entities: vec![],
         needs_probes: vec![],
         clarification_question: None,
+        answer_contract: None,
         confidence: 0.0,
     };
 

@@ -1,16 +1,20 @@
 //! Command handlers for annactl.
+//! v0.0.73: Uses version module and GetDaemonInfo for version truth.
 
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
 use anna_shared::ui::{colors, symbols};
-use anna_shared::VERSION;
+use anna_shared::version::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
 
 use crate::client::{AnnadClient, StreamingClient};
-use crate::display::{print_progress_event, print_repl_header, print_stats_display, print_status_display, show_bootstrap_progress};
+use crate::display::{
+    print_progress_event, print_repl_header, print_stats_display,
+    print_status_display_with_daemon_info, show_bootstrap_progress,
+};
 use crate::transcript_render;
 
 /// Pending clarification state for REPL mode
@@ -20,10 +24,15 @@ struct PendingClarification {
 }
 
 /// Handle status command
+/// v0.0.73: Now fetches daemon info for accurate version comparison
 pub async fn handle_status(debug: bool) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
+
+    // Fetch both status and daemon info for version comparison
     let status = client.status().await?;
-    print_status_display(&status, debug);
+    let daemon_info = client.get_daemon_info().await.ok();
+
+    print_status_display_with_daemon_info(&status, daemon_info.as_ref(), debug);
     Ok(())
 }
 

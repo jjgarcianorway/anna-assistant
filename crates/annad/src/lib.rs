@@ -1,6 +1,7 @@
 //! Anna daemon library - exposes modules for testing.
 
 pub mod answers;
+pub mod benchmark;
 pub mod collectors;
 pub mod config;
 pub mod deterministic;

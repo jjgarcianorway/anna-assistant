@@ -222,3 +222,17 @@ pub async fn handle_status_snapshot(state: SharedState, id: String) -> RpcRespon
     let snapshot = state.to_status_snapshot();
     RpcResponse::success(id, serde_json::to_value(snapshot).unwrap())
 }
+
+/// v0.0.73: Handle GetDaemonInfo request - returns daemon version info
+pub async fn handle_get_daemon_info(state: SharedState, id: String) -> RpcResponse {
+    use anna_shared::rpc::DaemonInfo;
+    use anna_shared::version::VersionInfo;
+
+    let state = state.read().await;
+    let daemon_info = DaemonInfo {
+        version_info: VersionInfo::current(),
+        pid: state.pid,
+        uptime_secs: state.started_at.elapsed().as_secs(),
+    };
+    RpcResponse::success(id, serde_json::to_value(daemon_info).unwrap())
+}

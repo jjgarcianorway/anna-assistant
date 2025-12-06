@@ -264,6 +264,7 @@ mod tests {
             entities: vec!["memory".to_string()],
             needs_probes: vec!["free -h".to_string()],
             clarification_question: None,
+            answer_contract: None,
             confidence: 0.9,
         }
     }

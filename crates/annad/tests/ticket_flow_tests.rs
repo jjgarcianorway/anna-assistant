@@ -27,6 +27,7 @@ fn make_translator_ticket(
         needs_probes: probes.iter().map(|s| s.to_string()).collect(),
         clarification_question: None,
         confidence,
+        answer_contract: None,
     }
 }
 

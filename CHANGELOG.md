@@ -7,6 +7,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.74] - 2025-12-06
+
+### Added - Version Sanity + Model Upgrade + Answer Shaping
+
+This release adds model selection preferences, answer shaping contracts, and editor configuration recipes.
+
+**Model Selector with Qwen3-VL Preference (model_selector.rs)**
+- New `ModelSelector` module for intelligent model selection
+- Prefers Qwen3-VL family when available (4B for specialist, 2B for translator)
+- Falls back to Qwen2.5 → Llama3.2 → Other when preferred models unavailable
+- `ModelFamily` enum: Qwen3VL, Qwen25, Llama32, Other
+- `ModelRole` enum: Translator, Specialist
+- `ModelCandidate`, `ModelSelection`, `ModelBenchmark` types
+- `select_model()` function with catalog-based selection
+- `detect_family()` helper for model name classification
+- Optional benchmark integration for data-driven selection
+
+**Answer Contract Module (answer_contract.rs)**
+- Enforces answer shaping to prevent over-sharing facts
+- `Verbosity` enum: Minimal, Normal, Teach
+- `RequestedField` enum with 17+ specific field types:
+  - CpuCores, CpuModel, CpuTemp, RamTotal, RamFree, RamUsed
+  - DiskUsage, DiskFree, SoundCard, GpuInfo, NetworkInterfaces
+  - ServiceStatus, ProcessList, PackageCount, ToolExists, Generic
+- `AnswerContract::from_query()` parses user intent
+- `validate_answer()` checks for missing/extra fields
+- `trim_answer()` attempts to extract only requested info
+- Teaching mode and minimal verbosity detection
+
+**Editor Configuration Recipes (editor_recipes.rs)**
+- Safe, idempotent editor configuration
+- `Editor` enum: Vim, Neovim, Nano, Emacs, Helix, Micro, VsCode, Kate, Gedit
+- `ConfigFeature` enum: SyntaxHighlighting, LineNumbers, WordWrap, Indentation, AutoIndent, ShowWhitespace
+- `EditorRecipe` with typed config lines and rollback hints
+- `get_recipe()` returns recipe for editor+feature combination
+- `line_exists()` with multiline regex for idempotency
+- `apply_recipe()` applies changes without duplication
+- `describe_changes()` shows [add]/[skip] status
+- `confirmation_prompt()` for user approval
+- `backup_path()` for safe backups
+
+**Status Model Selection Display**
+- `LlmStatus` now includes:
+  - `translator_model`: Selected translator model
+  - `specialist_model`: Selected specialist model
+  - `preferred_family`: Detected model family
+
+**Micro-Benchmark Support (benchmark.rs)**
+- New `benchmark.rs` module in annad for model performance testing
+- `run_micro_benchmark()` measures tokens/sec and time-to-first-token
+- `benchmark_models()` benchmarks multiple models in sequence
+- `parse_benchmark_response()` parses ollama timing response
+- Short classification prompt for quick benchmarking
+
+**ConfigureEditor Uses Recipes**
+- `build_editor_config_answer()` now uses EditorRecipes module
+- Dynamic recipe lookup for supported editors (vim, nvim, nano, emacs)
+- Falls back to static answers for GUI editors (VS Code, Kate, Gedit)
+- Rollback instructions included in answers
+
+**Tests Added**
+- `golden_v074_model_selector_prefers_qwen3_vl`
+- `golden_v074_model_selector_fallback`
+- `golden_v074_answer_contract_from_query`
+- `golden_v074_answer_contract_teaching_mode`
+- `golden_v074_editor_recipe_vim_syntax`
+- `golden_v074_editor_recipe_idempotent`
+- `golden_v074_editor_from_tool_name`
+- `golden_v074_version_sanity`
+
+## [0.0.73] - 2025-12-06
+
+### Fixed - Version Truth and Single Source of Reality
+
+This release permanently fixes version inconsistencies with a centralized version module and atomic pair updates.
+
+**Single Source of Truth via version.rs**
+- New `crates/anna-shared/src/version.rs` module with:
+  - `VERSION`: From `env!("CARGO_PKG_VERSION")` (Cargo.toml workspace)
+  - `GIT_SHA`: Build-time injection from `git rev-parse --short HEAD`
+  - `BUILD_DATE`: Build-time injection in YYYY-MM-DD format
+  - `PROTOCOL_VERSION`: RPC compatibility version (currently 2)
+  - `VersionInfo` struct for RPC responses
+- New `crates/anna-shared/build.rs` for build-time injection
+
+**RPC GetDaemonInfo Method**
+- New `GetDaemonInfo` RPC method returns `DaemonInfo`:
+  - `version_info`: VersionInfo with version, git_sha, build_date, protocol_version
+  - `pid`: Daemon process ID
+  - `uptime_secs`: Time since daemon started
+- Client uses this for accurate version comparison
+
+**Enhanced Status Display**
+- `annactl status` version section now shows:
+  - `annactl X.Y.Z (gitsha)`: Client version with git SHA
+  - `annad X.Y.Z (gitsha)`: Daemon version with git SHA
+  - `[MISMATCH]` warning if client/daemon versions differ
+  - `protocol N`: RPC protocol version
+- Health section warns on client/daemon version mismatch
+
+**Atomic Pair Update for annactl + annad**
+- Auto-update now updates both binaries together
+- Download phase: Both binaries downloaded to temp directory
+- Verify phase: Checksums validated, `--version` output checked
+- Backup phase: Existing binaries backed up for rollback
+- Install phase: Both binaries installed atomically
+- Consistency phase: Installed versions verified to match
+- Rollback: On any failure, original binaries restored
+
+**Installer Version Verification**
+- `scripts/install.sh` now verifies both binaries after install
+- Queries `annactl --version` and `annad --version`
+- Warns if base versions don't match
+
+**Documentation**
+- New `VERSIONING.md` documents the version system
+- Explains version flow, verification, and troubleshooting
+
+**Tests Added**
+- `test_v073_version_module_integration`: VERSION is valid semver, VersionInfo works
+- `test_v073_version_matching`: Same version/different SHA matches
+
 ## [0.0.72] - 2025-12-06
 
 ### Fixed - Status and Update Reality

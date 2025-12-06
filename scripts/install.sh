@@ -346,6 +346,41 @@ EOF
     echo ""
 }
 
+# v0.0.73: Verify installed binaries respond and versions match
+verify_binaries() {
+    print_section "verify" "installed binaries"
+
+    # Query annactl version
+    local annactl_ver
+    annactl_ver=$("${INSTALL_DIR}/annactl" --version 2>/dev/null | head -1)
+    if [ -n "$annactl_ver" ]; then
+        printf "  annactl  ${C_OK}${annactl_ver}${C_RESET}\n"
+    else
+        fail "annactl --version failed"
+    fi
+
+    # Query annad version
+    local annad_ver
+    annad_ver=$("${INSTALL_DIR}/annad" --version 2>/dev/null | head -1)
+    if [ -n "$annad_ver" ]; then
+        printf "  annad    ${C_OK}${annad_ver}${C_RESET}\n"
+    else
+        fail "annad --version failed"
+    fi
+
+    # v0.0.73: Check versions match (compare base version without git SHA)
+    local annactl_base=$(echo "$annactl_ver" | sed 's/annactl //' | cut -d' ' -f1)
+    local annad_base=$(echo "$annad_ver" | sed 's/annad //' | cut -d' ' -f1)
+
+    if [ "$annactl_base" = "$annad_base" ]; then
+        print_ok "versions match: ${annactl_base}"
+    else
+        print_err "version mismatch: annactl=${annactl_base} annad=${annad_base}"
+        echo "  ${C_ERR}Warning: Client and daemon versions should match${C_RESET}"
+    fi
+    echo ""
+}
+
 # Handoff message
 print_handoff() {
     print_section "handoff" "annad will bootstrap the required local LLM (ollama + models)"
@@ -368,6 +403,7 @@ main() {
     request_sudo
     stop_existing_service
     install_binaries
+    verify_binaries  # v0.0.73: Verify binaries respond and match
     setup_group
     install_directories
     install_config
