@@ -89,6 +89,14 @@ pub enum QueryClass {
     TicketHistory,
     /// v0.0.111: Staff roster queries: "who is on shift", "show IT team"
     StaffRoster,
+    /// v0.0.122: Package updates: "any updates", "check for updates"
+    PackageUpdates,
+    /// v0.0.122: Swap info: "swap usage", "show swap"
+    SwapInfo,
+    /// v0.0.122: Timezone/locale: "what timezone", "show locale"
+    TimezoneInfo,
+    /// v0.0.122: System uptime: "uptime", "how long running"
+    SystemUptime,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -130,6 +138,10 @@ impl std::fmt::Display for QueryClass {
             Self::SshKeyManagement => "ssh_key_management",
             Self::TicketHistory => "ticket_history",
             Self::StaffRoster => "staff_roster",
+            Self::PackageUpdates => "package_updates",
+            Self::SwapInfo => "swap_info",
+            Self::TimezoneInfo => "timezone_info",
+            Self::SystemUptime => "system_uptime",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -174,6 +186,10 @@ impl QueryClass {
             "ssh_key_management" => Some(Self::SshKeyManagement),
             "ticket_history" => Some(Self::TicketHistory),
             "staff_roster" => Some(Self::StaffRoster),
+            "package_updates" => Some(Self::PackageUpdates),
+            "swap_info" => Some(Self::SwapInfo),
+            "timezone_info" => Some(Self::TimezoneInfo),
+            "system_uptime" => Some(Self::SystemUptime),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -187,9 +203,11 @@ impl QueryClass {
     /// Check if this class is a fast-path (skip translator, no specialist)
     /// v0.0.77: Added MetaSmallTalk - bypasses LLM entirely
     /// v0.0.111: Added TicketHistory, StaffRoster - internal data
+    /// v0.0.122: Added PackageUpdates, SwapInfo, TimezoneInfo, SystemUptime
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
-            | Self::TicketHistory | Self::StaffRoster)
+            | Self::TicketHistory | Self::StaffRoster
+            | Self::PackageUpdates | Self::SwapInfo | Self::TimezoneInfo | Self::SystemUptime)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -724,6 +742,62 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             capability: RouteCapability {
                 can_answer_deterministically: true, // Static from roster
                 evidence_required: false,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.122: Package updates - deterministic from package manager
+        QueryClass::PackageUpdates => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["package_updates".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Packages],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.122: Swap info - deterministic from free
+        QueryClass::SwapInfo => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["free".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Memory],
+                spine_probes: vec![ProbeId::Free],
+            },
+        },
+
+        // v0.0.122: Timezone info - deterministic from timedatectl
+        QueryClass::TimezoneInfo => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["timedatectl".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.122: System uptime - deterministic from uptime command
+        QueryClass::SystemUptime => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["uptime".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
                 required_evidence: vec![],
                 spine_probes: vec![],
             },

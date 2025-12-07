@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.122] - 2025-12-07
+
+### Added - New Query Types (Phase 41)
+
+**4 New Fast-Path Queries**
+- `PackageUpdates`: "any updates?", "check for updates" → shows available package updates
+- `SwapInfo`: "swap usage", "show swap" → displays swap memory status
+- `TimezoneInfo`: "what timezone?", "show locale" → shows timezone and local time
+- `SystemUptime`: "uptime", "how long running?" → displays system uptime
+
+**Code Changes**
+- `router.rs`: Added 4 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (checkupdates, timedatectl, uptime -p)
+- `deterministic.rs`: Delegated to det_extended.rs for modularization
+- `det_extended.rs`: New module with v0.0.77+ answer functions (415 lines)
+
+**Modularization**
+- Split deterministic.rs from 867 → 465 lines
+- Created det_extended.rs for extended answer functions
+- All files within 400-line guideline range
+
 ## [0.0.121] - 2025-12-07
 
 ### Changed - Documentation & License (Phase 40)

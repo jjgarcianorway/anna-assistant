@@ -444,5 +444,51 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::StaffRoster;
     }
 
+    // v0.0.122: Package updates - "any updates", "check for updates"
+    if q.contains("updates available")
+        || q.contains("any updates")
+        || q.contains("check for updates")
+        || q.contains("pending updates")
+        || q.contains("upgradable")
+        || q.contains("need to update")
+        || (q.contains("package") && q.contains("update"))
+        || q.contains("checkupdates")
+    {
+        return QueryClass::PackageUpdates;
+    }
+
+    // v0.0.122: Swap info - "swap usage", "show swap"
+    if q.contains("swap usage")
+        || q.contains("swap space")
+        || q.contains("show swap")
+        || q.contains("how much swap")
+        || q.contains("swap status")
+        || q.trim() == "swap"
+    {
+        return QueryClass::SwapInfo;
+    }
+
+    // v0.0.122: Timezone info - "what timezone", "show locale"
+    if q.contains("timezone")
+        || q.contains("time zone")
+        || q.contains("locale")
+        || q.contains("what time is it")
+        || q.contains("current time")
+        || q.contains("system time")
+        || q.contains("timedatectl")
+    {
+        return QueryClass::TimezoneInfo;
+    }
+
+    // v0.0.122: System uptime - "uptime", "how long running"
+    if q.trim() == "uptime"
+        || q.contains("how long")
+        && (q.contains("running") || q.contains("been on") || q.contains("up"))
+        || q.contains("system uptime")
+        || q.contains("uptime?")
+    {
+        return QueryClass::SystemUptime;
+    }
+
     QueryClass::Unknown
 }

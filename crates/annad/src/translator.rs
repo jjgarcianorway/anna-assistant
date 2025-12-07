@@ -70,6 +70,10 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "command_v_gedit" => Some("sh -lc 'command -v gedit'"),
         // v0.0.77: System probes
         "uname" => Some("uname -a"),
+        // v0.0.122: New system probes
+        "package_updates" => Some("checkupdates 2>/dev/null || pacman -Qu 2>/dev/null"),
+        "timedatectl" => Some("timedatectl"),
+        "uptime" => Some("uptime -p"),
         _ => None,
     }
 }

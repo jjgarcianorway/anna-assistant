@@ -11,6 +11,7 @@ pub mod benchmark;
 pub mod benchmark_scheduler;
 pub mod collectors;
 pub mod config;
+pub mod det_extended;
 pub mod deterministic;
 pub mod fast_path_handler;
 pub mod handlers;
