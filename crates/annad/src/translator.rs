@@ -144,6 +144,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "sensors_temp" => Some("sensors 2>/dev/null || echo 'lm-sensors not installed'"),
         "gpu_memory" => Some("nvidia-smi --query-gpu=memory.total,memory.used,memory.free --format=csv 2>/dev/null || echo 'nvidia-smi not available'"),
         "xorg_log" => Some("tail -50 /var/log/Xorg.0.log 2>/dev/null | grep -iE 'error|warn|EE|WW' | head -20 || echo 'Xorg log not found'"),
+        // v0.0.135: Peripheral and audio probes
+        "bluetooth_devices" => Some("bluetoothctl devices 2>/dev/null || echo 'Bluetooth not available'"),
+        "wireless_networks" => Some("nmcli device wifi list 2>/dev/null | head -20 || iwlist scan 2>/dev/null | grep -E 'ESSID|Quality' | head -20 || echo 'WiFi scanning not available'"),
+        "printer_status" => Some("lpstat -p -d 2>/dev/null || echo 'No printers configured'"),
+        "audio_devices" => Some("pactl list sinks short 2>/dev/null && pactl list sources short 2>/dev/null || aplay -l 2>/dev/null || echo 'Audio devices not available'"),
+        "systemd_paths" => Some("systemctl list-units --type=path --no-pager --no-legend | head -20"),
         _ => None,
     }
 }

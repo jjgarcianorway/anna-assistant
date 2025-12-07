@@ -217,6 +217,16 @@ pub enum QueryClass {
     GpuMemory,
     /// v0.0.134: Xorg log: "xorg log", "x11 errors"
     XorgLog,
+    /// v0.0.135: Bluetooth devices: "bluetooth", "paired devices"
+    BluetoothDevices,
+    /// v0.0.135: Wireless networks: "wifi networks", "available networks"
+    WirelessNetworks,
+    /// v0.0.135: Printer status: "printers", "cups status"
+    PrinterStatus,
+    /// v0.0.135: Audio devices: "audio devices", "sound cards"
+    AudioDevices,
+    /// v0.0.135: Systemd paths: "systemd paths", "path units"
+    SystemdPaths,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -322,6 +332,11 @@ impl std::fmt::Display for QueryClass {
             Self::SensorsTemp => "sensors_temp",
             Self::GpuMemory => "gpu_memory",
             Self::XorgLog => "xorg_log",
+            Self::BluetoothDevices => "bluetooth_devices",
+            Self::WirelessNetworks => "wireless_networks",
+            Self::PrinterStatus => "printer_status",
+            Self::AudioDevices => "audio_devices",
+            Self::SystemdPaths => "systemd_paths",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -430,6 +445,11 @@ impl QueryClass {
             "sensors_temp" => Some(Self::SensorsTemp),
             "gpu_memory" => Some(Self::GpuMemory),
             "xorg_log" => Some(Self::XorgLog),
+            "bluetooth_devices" => Some(Self::BluetoothDevices),
+            "wireless_networks" => Some(Self::WirelessNetworks),
+            "printer_status" => Some(Self::PrinterStatus),
+            "audio_devices" => Some(Self::AudioDevices),
+            "systemd_paths" => Some(Self::SystemdPaths),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -456,6 +476,7 @@ impl QueryClass {
     /// v0.0.132: Added KernelModules, SystemdTargets, IpRoutes, ArpTable, IptablesRules
     /// v0.0.133: Added PciDevices, DmesgErrors, SystemdSockets, TmpFiles, UserGroups
     /// v0.0.134: Added LvmStatus, RaidStatus, NtpStatus, SensorsTemp, GpuMemory, XorgLog
+    /// v0.0.135: Added BluetoothDevices, WirelessNetworks, PrinterStatus, AudioDevices, SystemdPaths
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -482,7 +503,9 @@ impl QueryClass {
             | Self::PciDevices | Self::DmesgErrors | Self::SystemdSockets
             | Self::TmpFiles | Self::UserGroups
             | Self::LvmStatus | Self::RaidStatus | Self::NtpStatus
-            | Self::SensorsTemp | Self::GpuMemory | Self::XorgLog)
+            | Self::SensorsTemp | Self::GpuMemory | Self::XorgLog
+            | Self::BluetoothDevices | Self::WirelessNetworks | Self::PrinterStatus
+            | Self::AudioDevices | Self::SystemdPaths)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1914,6 +1937,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Journal],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.135: Bluetooth devices - deterministic from bluetoothctl
+        QueryClass::BluetoothDevices => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["bluetooth_devices".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.135: Wireless networks - deterministic from nmcli/iwlist
+        QueryClass::WirelessNetworks => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["wireless_networks".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.135: Printer status - deterministic from lpstat
+        QueryClass::PrinterStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["printer_status".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.135: Audio devices - deterministic from pactl/aplay
+        QueryClass::AudioDevices => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["audio_devices".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.135: Systemd paths - deterministic from systemctl list-units
+        QueryClass::SystemdPaths => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_paths".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
                 spine_probes: vec![],
             },
         },

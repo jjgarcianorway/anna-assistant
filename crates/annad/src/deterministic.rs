@@ -220,6 +220,16 @@ pub fn try_answer(
         QueryClass::GpuMemory => det_extended::answer_gpu_memory(probe_results, &route_class),
         // v0.0.134: XorgLog - deterministic from Xorg.log
         QueryClass::XorgLog => det_extended::answer_xorg_log(probe_results, &route_class),
+        // v0.0.135: BluetoothDevices - deterministic from bluetoothctl
+        QueryClass::BluetoothDevices => det_extended::answer_bluetooth_devices(probe_results, &route_class),
+        // v0.0.135: WirelessNetworks - deterministic from nmcli
+        QueryClass::WirelessNetworks => det_extended::answer_wireless_networks(probe_results, &route_class),
+        // v0.0.135: PrinterStatus - deterministic from lpstat
+        QueryClass::PrinterStatus => det_extended::answer_printer_status(probe_results, &route_class),
+        // v0.0.135: AudioDevices - deterministic from pactl
+        QueryClass::AudioDevices => det_extended::answer_audio_devices(probe_results, &route_class),
+        // v0.0.135: SystemdPaths - deterministic from systemctl
+        QueryClass::SystemdPaths => det_extended::answer_systemd_paths(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

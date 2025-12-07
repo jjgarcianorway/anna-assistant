@@ -2267,3 +2267,129 @@ pub fn answer_xorg_log(probes: &[ProbeResult], route_class: &str) -> Option<Dete
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.135: Peripheral and audio answer functions ===
+
+/// Answer bluetooth devices query
+pub fn answer_bluetooth_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "bluetooth_devices")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Bluetooth not available or no devices paired.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let device_count = output.lines().count();
+    let answer = format!("Bluetooth devices ({}):\n```\n{}\n```", device_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: device_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer wireless networks query
+pub fn answer_wireless_networks(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "wireless_networks")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "WiFi scanning not available or no wireless interface found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let network_count = output.lines().count().saturating_sub(1); // Subtract header
+    let answer = format!("Available wireless networks ({}):\n```\n{}\n```", network_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: network_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer printer status query
+pub fn answer_printer_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "printer_status")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("No printers") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No printers configured on this system.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("Printer status:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer audio devices query
+pub fn answer_audio_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "audio_devices")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No audio devices found or audio system not available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let device_count = output.lines().count();
+    let answer = format!("Audio devices ({}):\n```\n{}\n```", device_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: device_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemd paths query
+pub fn answer_systemd_paths(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_paths")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No systemd path units found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let path_count = output.lines().count();
+    let answer = format!("Systemd path units ({}):\n```\n{}\n```", path_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: path_count,
+        route_class: route_class.to_string(),
+    })
+}

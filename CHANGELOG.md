@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.135] - 2025-12-07
+
+### Added - Peripheral & Audio Queries (Phase 54)
+
+**5 New Query Types**
+- `BluetoothDevices`: "bluetooth", "paired devices" → lists Bluetooth devices
+- `WirelessNetworks`: "wifi networks", "available networks" → scans available WiFi networks
+- `PrinterStatus`: "printers", "cups status" → shows printer status
+- `AudioDevices`: "audio devices", "sound cards" → lists audio sinks/sources
+- `SystemdPaths`: "systemd paths", "path units" → lists systemd path units
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (bluetooth_devices, wireless_networks, printer_status, audio_devices, systemd_paths)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 105 QueryClass variants now supported
+
 ## [0.0.134] - 2025-12-07
 
 ### Added - Storage & Hardware Queries (Phase 53) 🎉 100 QUERY TYPES!

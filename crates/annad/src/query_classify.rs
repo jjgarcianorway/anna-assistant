@@ -1118,5 +1118,53 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::XorgLog;
     }
 
+    // v0.0.135: Bluetooth devices - "bluetooth", "paired devices"
+    if q.contains("bluetooth")
+        || q.contains("paired device")
+        || q.trim() == "bluetoothctl"
+        || (q.contains("bt") && q.contains("device"))
+    {
+        return QueryClass::BluetoothDevices;
+    }
+
+    // v0.0.135: Wireless networks - "wifi networks", "available networks"
+    if q.contains("wifi network")
+        || q.contains("wireless network")
+        || q.contains("available network")
+        || q.contains("wifi scan")
+        || (q.contains("show") && q.contains("wifi"))
+    {
+        return QueryClass::WirelessNetworks;
+    }
+
+    // v0.0.135: Printer status - "printers", "cups status"
+    if q.contains("printer")
+        || q.contains("cups")
+        || q.trim() == "lpstat"
+        || q.contains("print queue")
+        || (q.contains("print") && q.contains("status"))
+    {
+        return QueryClass::PrinterStatus;
+    }
+
+    // v0.0.135: Audio devices - "audio devices", "sound cards"
+    if q.contains("audio device")
+        || q.contains("sound card")
+        || q.contains("audio sink")
+        || q.contains("audio source")
+        || q.trim() == "pactl"
+        || q.trim() == "aplay -l"
+    {
+        return QueryClass::AudioDevices;
+    }
+
+    // v0.0.135: Systemd paths - "systemd paths", "path units"
+    if q.contains("systemd path")
+        || q.contains("path unit")
+        || (q.contains("list") && q.contains("path") && q.contains("systemd"))
+    {
+        return QueryClass::SystemdPaths;
+    }
+
     QueryClass::Unknown
 }
