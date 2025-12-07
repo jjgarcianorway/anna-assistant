@@ -1009,5 +1009,54 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::IptablesRules;
     }
 
+    // v0.0.133: PCI devices - "lspci", "pci devices"
+    if q.trim() == "lspci"
+        || q.contains("pci device")
+        || q.contains("pci card")
+        || (q.contains("list") && q.contains("pci"))
+        || (q.contains("show") && q.contains("pci"))
+    {
+        return QueryClass::PciDevices;
+    }
+
+    // v0.0.133: Dmesg errors - "dmesg errors", "kernel errors"
+    if q.contains("dmesg error")
+        || q.contains("kernel error")
+        || q.contains("dmesg warn")
+        || q.trim() == "dmesg"
+        || (q.contains("kernel") && q.contains("log"))
+    {
+        return QueryClass::DmesgErrors;
+    }
+
+    // v0.0.133: Systemd sockets - "systemd sockets", "listening sockets"
+    if q.contains("systemd socket")
+        || q.contains("listening socket")
+        || q.contains("list-sockets")
+        || (q.contains("socket") && q.contains("unit"))
+    {
+        return QueryClass::SystemdSockets;
+    }
+
+    // v0.0.133: Tmp files - "tmp files", "temp files", "/tmp"
+    if q.contains("tmp file")
+        || q.contains("temp file")
+        || q.contains("/tmp")
+        || q.contains("temporary file")
+        || (q.contains("what") && q.contains("tmp"))
+    {
+        return QueryClass::TmpFiles;
+    }
+
+    // v0.0.133: User groups - "my groups", "user groups"
+    if q.contains("my group")
+        || q.contains("user group")
+        || q.trim() == "groups"
+        || (q.contains("what") && q.contains("group") && q.contains("am i"))
+        || (q.contains("which") && q.contains("group"))
+    {
+        return QueryClass::UserGroups;
+    }
+
     QueryClass::Unknown
 }

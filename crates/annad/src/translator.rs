@@ -131,6 +131,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "ip_routes" => Some("ip route show 2>/dev/null || route -n 2>/dev/null"),
         "arp_table" => Some("ip neigh show 2>/dev/null || arp -a 2>/dev/null"),
         "iptables_rules" => Some("iptables -L -n --line-numbers 2>/dev/null | head -40 || echo 'iptables not available or requires root'"),
+        // v0.0.133: System and user probes
+        "pci_devices" => Some("lspci 2>/dev/null | head -30"),
+        "dmesg_errors" => Some("dmesg --level=err,warn 2>/dev/null | tail -20 || dmesg | grep -iE 'error|warn|fail' | tail -20"),
+        "systemd_sockets" => Some("systemctl list-sockets --no-pager --no-legend | head -20"),
+        "tmp_files" => Some("ls -la /tmp 2>/dev/null | head -30"),
+        "user_groups" => Some("groups && id"),
         _ => None,
     }
 }

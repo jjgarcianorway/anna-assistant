@@ -195,6 +195,16 @@ pub enum QueryClass {
     ArpTable,
     /// v0.0.132: Iptables rules: "iptables rules", "netfilter"
     IptablesRules,
+    /// v0.0.133: PCI devices: "lspci", "pci devices"
+    PciDevices,
+    /// v0.0.133: Dmesg errors: "dmesg errors", "kernel errors"
+    DmesgErrors,
+    /// v0.0.133: Systemd sockets: "systemd sockets", "listening sockets"
+    SystemdSockets,
+    /// v0.0.133: Tmp files: "tmp files", "temp files", "/tmp"
+    TmpFiles,
+    /// v0.0.133: User groups: "my groups", "user groups"
+    UserGroups,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -289,6 +299,11 @@ impl std::fmt::Display for QueryClass {
             Self::IpRoutes => "ip_routes",
             Self::ArpTable => "arp_table",
             Self::IptablesRules => "iptables_rules",
+            Self::PciDevices => "pci_devices",
+            Self::DmesgErrors => "dmesg_errors",
+            Self::SystemdSockets => "systemd_sockets",
+            Self::TmpFiles => "tmp_files",
+            Self::UserGroups => "user_groups",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -386,6 +401,11 @@ impl QueryClass {
             "ip_routes" => Some(Self::IpRoutes),
             "arp_table" => Some(Self::ArpTable),
             "iptables_rules" => Some(Self::IptablesRules),
+            "pci_devices" => Some(Self::PciDevices),
+            "dmesg_errors" => Some(Self::DmesgErrors),
+            "systemd_sockets" => Some(Self::SystemdSockets),
+            "tmp_files" => Some(Self::TmpFiles),
+            "user_groups" => Some(Self::UserGroups),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -410,6 +430,7 @@ impl QueryClass {
     /// v0.0.130: Added SystemdJournal, NetworkNamespaces, AvailableShells, SudoersInfo, InstalledDesktops
     /// v0.0.131: Added VirtualizationInfo, SelinuxStatus, AppArmorStatus, SystemdSlices, CoredumpList
     /// v0.0.132: Added KernelModules, SystemdTargets, IpRoutes, ArpTable, IptablesRules
+    /// v0.0.133: Added PciDevices, DmesgErrors, SystemdSockets, TmpFiles, UserGroups
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -432,7 +453,9 @@ impl QueryClass {
             | Self::VirtualizationInfo | Self::SelinuxStatus | Self::AppArmorStatus
             | Self::SystemdSlices | Self::CoredumpList
             | Self::KernelModules | Self::SystemdTargets | Self::IpRoutes
-            | Self::ArpTable | Self::IptablesRules)
+            | Self::ArpTable | Self::IptablesRules
+            | Self::PciDevices | Self::DmesgErrors | Self::SystemdSockets
+            | Self::TmpFiles | Self::UserGroups)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1706,6 +1729,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             domain: SpecialistDomain::Security,
             intent: QueryIntent::Question,
             probes: vec!["iptables_rules".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.133: PCI devices - deterministic from lspci
+        QueryClass::PciDevices => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["pci_devices".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.133: Dmesg errors - deterministic from dmesg
+        QueryClass::DmesgErrors => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["dmesg_errors".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Journal],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.133: Systemd sockets - deterministic from systemctl list-sockets
+        QueryClass::SystemdSockets => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_sockets".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.133: Tmp files - deterministic from ls /tmp
+        QueryClass::TmpFiles => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["tmp_files".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.133: User groups - deterministic from groups/id
+        QueryClass::UserGroups => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["user_groups".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: true,
                 evidence_required: true,

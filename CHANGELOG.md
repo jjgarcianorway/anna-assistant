@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.133] - 2025-12-07
+
+### Added - System & User Queries (Phase 52)
+
+**5 New Query Types**
+- `PciDevices`: "lspci", "pci devices" → lists PCI devices
+- `DmesgErrors`: "dmesg errors", "kernel errors" → shows kernel error/warning messages
+- `SystemdSockets`: "systemd sockets", "listening sockets" → lists systemd socket units
+- `TmpFiles`: "tmp files", "/tmp" → shows files in /tmp directory
+- `UserGroups`: "my groups", "user groups" → shows user's group membership
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (pci_devices, dmesg_errors, systemd_sockets, tmp_files, user_groups)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 94 QueryClass variants now supported
+
 ## [0.0.132] - 2025-12-07
 
 ### Added - Kernel & Network Queries (Phase 51)

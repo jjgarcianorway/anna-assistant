@@ -198,6 +198,16 @@ pub fn try_answer(
         QueryClass::ArpTable => det_extended::answer_arp_table(probe_results, &route_class),
         // v0.0.132: IptablesRules - deterministic from iptables
         QueryClass::IptablesRules => det_extended::answer_iptables_rules(probe_results, &route_class),
+        // v0.0.133: PciDevices - deterministic from lspci
+        QueryClass::PciDevices => det_extended::answer_pci_devices(probe_results, &route_class),
+        // v0.0.133: DmesgErrors - deterministic from dmesg
+        QueryClass::DmesgErrors => det_extended::answer_dmesg_errors(probe_results, &route_class),
+        // v0.0.133: SystemdSockets - deterministic from systemctl
+        QueryClass::SystemdSockets => det_extended::answer_systemd_sockets(probe_results, &route_class),
+        // v0.0.133: TmpFiles - deterministic from ls /tmp
+        QueryClass::TmpFiles => det_extended::answer_tmp_files(probe_results, &route_class),
+        // v0.0.133: UserGroups - deterministic from groups
+        QueryClass::UserGroups => det_extended::answer_user_groups(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

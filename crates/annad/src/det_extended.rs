@@ -1994,3 +1994,129 @@ pub fn answer_iptables_rules(probes: &[ProbeResult], route_class: &str) -> Optio
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.133: System and user answer functions ===
+
+/// Answer PCI devices query
+pub fn answer_pci_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "pci_devices")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No PCI devices found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let device_count = output.lines().count();
+    let answer = format!("PCI devices ({}):\n```\n{}\n```", device_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: device_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer dmesg errors query
+pub fn answer_dmesg_errors(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "dmesg_errors")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No kernel errors or warnings found in dmesg.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let error_count = output.lines().count();
+    let answer = format!("Kernel errors/warnings ({} messages):\n```\n{}\n```", error_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: error_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemd sockets query
+pub fn answer_systemd_sockets(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_sockets")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No systemd sockets found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let socket_count = output.lines().count();
+    let answer = format!("Systemd sockets ({}):\n```\n{}\n```", socket_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: socket_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer tmp files query
+pub fn answer_tmp_files(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "tmp_files")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "/tmp directory is empty.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let file_count = output.lines().count().saturating_sub(1); // Subtract "total" line
+    let answer = format!("Files in /tmp ({}):\n```\n{}\n```", file_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: file_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer user groups query
+pub fn answer_user_groups(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "user_groups")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Unable to determine user groups.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("User group membership:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
