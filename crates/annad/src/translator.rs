@@ -119,6 +119,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "available_shells" => Some("cat /etc/shells 2>/dev/null || echo 'Shell list not available'"),
         "sudoers_info" => Some("sudo -l 2>/dev/null || echo 'Sudo access not available'"),
         "installed_desktops" => Some("pacman -Qs 'gnome-shell\\|plasma-desktop\\|xfce4-session\\|cinnamon\\|mate-session\\|budgie-desktop\\|lxqt-session\\|sway\\|hyprland' 2>/dev/null | grep -E '^local/' | head -10 || echo 'Desktop info not available'"),
+        // v0.0.131: Virtualization and security probes
+        "virtualization_info" => Some("systemd-detect-virt 2>/dev/null || echo 'none'"),
+        "selinux_status" => Some("sestatus 2>/dev/null || echo 'SELinux not installed'"),
+        "apparmor_status" => Some("aa-status 2>/dev/null || cat /sys/module/apparmor/parameters/enabled 2>/dev/null || echo 'AppArmor not installed'"),
+        "systemd_slices" => Some("systemd-cgls --no-pager 2>/dev/null | head -40 || echo 'Cgroups not available'"),
+        "coredump_list" => Some("coredumpctl list --no-pager 2>/dev/null | head -20 || echo 'No coredumps or coredumpctl not available'"),
         _ => None,
     }
 }

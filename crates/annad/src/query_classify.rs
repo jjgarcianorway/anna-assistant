@@ -914,5 +914,51 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::InstalledDesktops;
     }
 
+    // v0.0.131: Virtualization info - "virtualization", "vm", "container"
+    if q.contains("virtualization")
+        || q.contains("systemd-detect-virt")
+        || (q.contains("running") && (q.contains("vm") || q.contains("container")))
+        || (q.contains("inside") && (q.contains("vm") || q.contains("container") || q.contains("virtual")))
+        || (q.contains("is this") && (q.contains("vm") || q.contains("virtual") || q.contains("container")))
+    {
+        return QueryClass::VirtualizationInfo;
+    }
+
+    // v0.0.131: SELinux status - "selinux", "selinux status"
+    if q.contains("selinux")
+        || q.trim() == "sestatus"
+        || q.contains("security enhanced linux")
+    {
+        return QueryClass::SelinuxStatus;
+    }
+
+    // v0.0.131: AppArmor status - "apparmor", "apparmor status"
+    if q.contains("apparmor")
+        || q.trim() == "aa-status"
+        || q.contains("app armor")
+    {
+        return QueryClass::AppArmorStatus;
+    }
+
+    // v0.0.131: Systemd slices - "systemd slices", "cgroup slices"
+    if q.contains("systemd slice")
+        || q.contains("cgroup slice")
+        || q.contains("systemd-cgls")
+        || q.trim() == "cgls"
+        || (q.contains("cgroup") && q.contains("list"))
+    {
+        return QueryClass::SystemdSlices;
+    }
+
+    // v0.0.131: Coredump list - "coredumps", "crash dumps"
+    if q.contains("coredump")
+        || q.contains("core dump")
+        || q.contains("crash dump")
+        || q.trim() == "coredumpctl"
+        || (q.contains("crash") && q.contains("list"))
+    {
+        return QueryClass::CoredumpList;
+    }
+
     QueryClass::Unknown
 }

@@ -175,6 +175,16 @@ pub enum QueryClass {
     SudoersInfo,
     /// v0.0.130: Installed desktops: "installed desktops", "desktop environments"
     InstalledDesktops,
+    /// v0.0.131: Virtualization info: "virtualization", "vm", "container"
+    VirtualizationInfo,
+    /// v0.0.131: SELinux status: "selinux", "selinux status"
+    SelinuxStatus,
+    /// v0.0.131: AppArmor status: "apparmor", "apparmor status"
+    AppArmorStatus,
+    /// v0.0.131: Systemd slices: "systemd slices", "cgroup slices"
+    SystemdSlices,
+    /// v0.0.131: Coredump list: "coredumps", "crash dumps"
+    CoredumpList,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -259,6 +269,11 @@ impl std::fmt::Display for QueryClass {
             Self::AvailableShells => "available_shells",
             Self::SudoersInfo => "sudoers_info",
             Self::InstalledDesktops => "installed_desktops",
+            Self::VirtualizationInfo => "virtualization_info",
+            Self::SelinuxStatus => "selinux_status",
+            Self::AppArmorStatus => "apparmor_status",
+            Self::SystemdSlices => "systemd_slices",
+            Self::CoredumpList => "coredump_list",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -346,6 +361,11 @@ impl QueryClass {
             "available_shells" => Some(Self::AvailableShells),
             "sudoers_info" => Some(Self::SudoersInfo),
             "installed_desktops" => Some(Self::InstalledDesktops),
+            "virtualization_info" => Some(Self::VirtualizationInfo),
+            "selinux_status" => Some(Self::SelinuxStatus),
+            "apparmor_status" => Some(Self::AppArmorStatus),
+            "systemd_slices" => Some(Self::SystemdSlices),
+            "coredump_list" => Some(Self::CoredumpList),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -368,6 +388,7 @@ impl QueryClass {
     /// v0.0.128: Added BootLoader, FirewallStatus, SystemdUnits, Crontabs, SshConnections
     /// v0.0.129: Added DockerContainers, DockerImages, SystemdTimers, LastLogins, FailedLogins
     /// v0.0.130: Added SystemdJournal, NetworkNamespaces, AvailableShells, SudoersInfo, InstalledDesktops
+    /// v0.0.131: Added VirtualizationInfo, SelinuxStatus, AppArmorStatus, SystemdSlices, CoredumpList
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -386,7 +407,9 @@ impl QueryClass {
             | Self::DockerContainers | Self::DockerImages | Self::SystemdTimers
             | Self::LastLogins | Self::FailedLogins
             | Self::SystemdJournal | Self::NetworkNamespaces | Self::AvailableShells
-            | Self::SudoersInfo | Self::InstalledDesktops)
+            | Self::SudoersInfo | Self::InstalledDesktops
+            | Self::VirtualizationInfo | Self::SelinuxStatus | Self::AppArmorStatus
+            | Self::SystemdSlices | Self::CoredumpList)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1524,6 +1547,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Packages],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.131: Virtualization info - deterministic from systemd-detect-virt
+        QueryClass::VirtualizationInfo => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["virtualization_info".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.131: SELinux status - deterministic from sestatus
+        QueryClass::SelinuxStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
+            intent: QueryIntent::Question,
+            probes: vec!["selinux_status".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.131: AppArmor status - deterministic from aa-status
+        QueryClass::AppArmorStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
+            intent: QueryIntent::Question,
+            probes: vec!["apparmor_status".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.131: Systemd slices - deterministic from systemd-cgls
+        QueryClass::SystemdSlices => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_slices".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.131: Coredump list - deterministic from coredumpctl
+        QueryClass::CoredumpList => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["coredump_list".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
                 spine_probes: vec![],
             },
         },

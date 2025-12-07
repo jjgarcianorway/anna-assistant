@@ -178,6 +178,16 @@ pub fn try_answer(
         QueryClass::SudoersInfo => det_extended::answer_sudoers_info(probe_results, &route_class),
         // v0.0.130: InstalledDesktops - deterministic from package query
         QueryClass::InstalledDesktops => det_extended::answer_installed_desktops(probe_results, &route_class),
+        // v0.0.131: VirtualizationInfo - deterministic from systemd-detect-virt
+        QueryClass::VirtualizationInfo => det_extended::answer_virtualization_info(probe_results, &route_class),
+        // v0.0.131: SelinuxStatus - deterministic from sestatus
+        QueryClass::SelinuxStatus => det_extended::answer_selinux_status(probe_results, &route_class),
+        // v0.0.131: AppArmorStatus - deterministic from aa-status
+        QueryClass::AppArmorStatus => det_extended::answer_apparmor_status(probe_results, &route_class),
+        // v0.0.131: SystemdSlices - deterministic from systemd-cgls
+        QueryClass::SystemdSlices => det_extended::answer_systemd_slices(probe_results, &route_class),
+        // v0.0.131: CoredumpList - deterministic from coredumpctl
+        QueryClass::CoredumpList => det_extended::answer_coredump_list(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

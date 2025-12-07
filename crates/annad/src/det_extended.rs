@@ -1741,3 +1741,130 @@ pub fn answer_installed_desktops(probes: &[ProbeResult], route_class: &str) -> O
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.131: Virtualization and security answer functions ===
+
+/// Answer virtualization info query
+pub fn answer_virtualization_info(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "virtualization_info")?;
+
+    let output = probe.stdout.trim();
+    let answer = if output == "none" || output.is_empty() {
+        "Running on bare metal (no virtualization detected).".to_string()
+    } else {
+        format!("Virtualization: **{}**", output)
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer SELinux status query
+pub fn answer_selinux_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "selinux_status")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not installed") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "SELinux is not installed on this system.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("SELinux status:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer AppArmor status query
+pub fn answer_apparmor_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "apparmor_status")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not installed") || output.is_empty() || output == "N" {
+        return Some(DeterministicResult {
+            answer: "AppArmor is not installed or not enabled on this system.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    if output == "Y" {
+        return Some(DeterministicResult {
+            answer: "AppArmor is **enabled** on this system.".to_string(),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("AppArmor status:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemd slices query
+pub fn answer_systemd_slices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_slices")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Cgroup slice information not available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("Systemd cgroup slices:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer coredump list query
+pub fn answer_coredump_list(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "coredump_list")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.contains("No coredumps") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No coredumps found on this system.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let dump_count = output.lines().count().saturating_sub(1); // Subtract header line
+    let answer = format!("Coredumps ({} found):\n```\n{}\n```", dump_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: dump_count,
+        route_class: route_class.to_string(),
+    })
+}

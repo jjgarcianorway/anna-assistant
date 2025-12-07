@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.131] - 2025-12-07
+
+### Added - Virtualization & Security Queries (Phase 50)
+
+**5 New Query Types**
+- `VirtualizationInfo`: "virtualization", "am I in a VM" → detects virtualization type
+- `SelinuxStatus`: "selinux", "sestatus" → shows SELinux status
+- `AppArmorStatus`: "apparmor", "aa-status" → shows AppArmor status
+- `SystemdSlices`: "systemd slices", "cgroup slices" → shows systemd cgroup slices
+- `CoredumpList`: "coredumps", "crash dumps" → lists core dumps
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (virtualization_info, selinux_status, apparmor_status, systemd_slices, coredump_list)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 84 QueryClass variants now supported
+
 ## [0.0.130] - 2025-12-07
 
 ### Added - System & Security Queries (Phase 49)
