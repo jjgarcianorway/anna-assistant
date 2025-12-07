@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.127] - 2025-12-07
+
+### Added - Hardware & Storage Queries (Phase 46)
+
+**5 New Query Types**
+- `BlockDevices`: "lsblk", "block devices", "partitions" → shows block device layout via lsblk
+- `InstalledKernels`: "installed kernels", "available kernels" → shows installed Linux kernels
+- `CpuFrequency`: "cpu frequency", "clock speed" → shows CPU frequency in GHz/MHz
+- `MemorySlots`: "memory slots", "ram slots", "dimm" → shows memory slot info (requires root)
+- `ZfsStatus`: "zfs status", "zpool status" → shows ZFS pool status if installed
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (installed_kernels, cpu_frequency, memory_slots, zfs_status)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 64 QueryClass variants now supported
+
 ## [0.0.126] - 2025-12-07
 
 ### Added - More System & Network Queries (Phase 45)

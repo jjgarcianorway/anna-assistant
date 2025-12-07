@@ -135,6 +135,16 @@ pub enum QueryClass {
     OpenFiles,
     /// v0.0.126: System locale: "locale", "language settings"
     SystemLocale,
+    /// v0.0.127: Block devices detailed: "block devices", "lsblk", "partitions"
+    BlockDevices,
+    /// v0.0.127: Installed kernels: "installed kernels", "available kernels"
+    InstalledKernels,
+    /// v0.0.127: CPU frequency: "cpu frequency", "clock speed"
+    CpuFrequency,
+    /// v0.0.127: Memory slots: "memory slots", "ram slots", "dimm"
+    MemorySlots,
+    /// v0.0.127: ZFS status: "zfs status", "zpool status"
+    ZfsStatus,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -199,6 +209,11 @@ impl std::fmt::Display for QueryClass {
             Self::DefaultGateway => "default_gateway",
             Self::OpenFiles => "open_files",
             Self::SystemLocale => "system_locale",
+            Self::BlockDevices => "block_devices",
+            Self::InstalledKernels => "installed_kernels",
+            Self::CpuFrequency => "cpu_frequency",
+            Self::MemorySlots => "memory_slots",
+            Self::ZfsStatus => "zfs_status",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -266,6 +281,11 @@ impl QueryClass {
             "default_gateway" => Some(Self::DefaultGateway),
             "open_files" => Some(Self::OpenFiles),
             "system_locale" => Some(Self::SystemLocale),
+            "block_devices" => Some(Self::BlockDevices),
+            "installed_kernels" => Some(Self::InstalledKernels),
+            "cpu_frequency" => Some(Self::CpuFrequency),
+            "memory_slots" => Some(Self::MemorySlots),
+            "zfs_status" => Some(Self::ZfsStatus),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -284,6 +304,7 @@ impl QueryClass {
     /// v0.0.124: Added Hostname, OsInfo, NetworkConnectivity, MountedFilesystems, UsbDevices
     /// v0.0.125: Added ListeningPorts, RunningServices, CurrentUser, SystemArchitecture, EnvironmentVars
     /// v0.0.126: Added ProcessTree, DnsServers, DefaultGateway, OpenFiles, SystemLocale
+    /// v0.0.127: Added BlockDevices, InstalledKernels, CpuFrequency, MemorySlots, ZfsStatus
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -294,7 +315,9 @@ impl QueryClass {
             | Self::ListeningPorts | Self::RunningServices | Self::CurrentUser
             | Self::SystemArchitecture | Self::EnvironmentVars
             | Self::ProcessTree | Self::DnsServers | Self::DefaultGateway
-            | Self::OpenFiles | Self::SystemLocale)
+            | Self::OpenFiles | Self::SystemLocale
+            | Self::BlockDevices | Self::InstalledKernels | Self::CpuFrequency
+            | Self::MemorySlots | Self::ZfsStatus)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1152,6 +1175,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.127: Block devices - deterministic from lsblk
+        QueryClass::BlockDevices => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["block_devices".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![ProbeId::Lsblk],
+            },
+        },
+
+        // v0.0.127: Installed kernels - deterministic from package manager
+        QueryClass::InstalledKernels => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["installed_kernels".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Packages],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.127: CPU frequency - deterministic from cpufreq
+        QueryClass::CpuFrequency => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["cpu_frequency".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Cpu],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.127: Memory slots - deterministic from dmidecode
+        QueryClass::MemorySlots => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["memory_slots".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Memory],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.127: ZFS status - deterministic from zpool
+        QueryClass::ZfsStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["zfs_status".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
                 spine_probes: vec![],
             },
         },

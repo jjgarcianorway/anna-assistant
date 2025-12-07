@@ -1157,3 +1157,166 @@ pub fn answer_system_locale(probes: &[ProbeResult], route_class: &str) -> Option
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.127: Hardware & Storage Queries ===
+
+/// Answer block devices query
+pub fn answer_block_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "block_devices")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No block devices found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let device_count = output.lines().count().saturating_sub(1); // Minus header
+    let answer = format!("Block devices ({}):\n```\n{}\n```", device_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: device_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer installed kernels query
+pub fn answer_installed_kernels(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "installed_kernels")?;
+    if probe.exit_code != 0 && probe.stdout.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Could not determine installed kernels.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No kernels found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let kernel_count = output.lines().count();
+    let answer = format!("Installed kernels ({}):\n{}", kernel_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: kernel_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer CPU frequency query
+pub fn answer_cpu_frequency(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "cpu_frequency")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "CPU frequency information not available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Parse MHz from output like "cpu MHz		: 3600.000"
+    let freq = if let Some(mhz_line) = output.lines().find(|l| l.contains("MHz")) {
+        if let Some(value) = mhz_line.split(':').nth(1) {
+            let mhz: f64 = value.trim().parse().unwrap_or(0.0);
+            if mhz > 1000.0 {
+                format!("{:.2} GHz", mhz / 1000.0)
+            } else {
+                format!("{:.0} MHz", mhz)
+            }
+        } else {
+            output.to_string()
+        }
+    } else {
+        output.to_string()
+    };
+
+    let answer = format!("CPU frequency: {}", freq);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer memory slots query
+pub fn answer_memory_slots(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "memory_slots")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("Requires root") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Memory slot information requires root access (sudo dmidecode).".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("Memory slots:\n{}", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: output.lines().count(),
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer ZFS status query
+pub fn answer_zfs_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "zfs_status")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not installed") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "ZFS is not installed on this system.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    if output.contains("no pools available") {
+        return Some(DeterministicResult {
+            answer: "ZFS is installed but no pools are configured.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("ZFS pool status:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}

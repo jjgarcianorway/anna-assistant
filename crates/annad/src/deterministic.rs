@@ -138,6 +138,16 @@ pub fn try_answer(
         QueryClass::OpenFiles => det_extended::answer_open_files(probe_results, &route_class),
         // v0.0.126: SystemLocale - deterministic from locale
         QueryClass::SystemLocale => det_extended::answer_system_locale(probe_results, &route_class),
+        // v0.0.127: BlockDevices - deterministic from lsblk
+        QueryClass::BlockDevices => det_extended::answer_block_devices(probe_results, &route_class),
+        // v0.0.127: InstalledKernels - deterministic from package manager
+        QueryClass::InstalledKernels => det_extended::answer_installed_kernels(probe_results, &route_class),
+        // v0.0.127: CpuFrequency - deterministic from cpufreq
+        QueryClass::CpuFrequency => det_extended::answer_cpu_frequency(probe_results, &route_class),
+        // v0.0.127: MemorySlots - deterministic from dmidecode
+        QueryClass::MemorySlots => det_extended::answer_memory_slots(probe_results, &route_class),
+        // v0.0.127: ZfsStatus - deterministic from zpool
+        QueryClass::ZfsStatus => det_extended::answer_zfs_status(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

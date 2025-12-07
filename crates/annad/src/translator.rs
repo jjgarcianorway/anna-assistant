@@ -96,6 +96,11 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "default_gateway" => Some("ip route | grep default | head -1"),
         "open_files" => Some("lsof 2>/dev/null | wc -l"),
         "locale" => Some("locale"),
+        // v0.0.127: Hardware and storage probes
+        "installed_kernels" => Some("pacman -Q linux linux-lts linux-zen linux-hardened 2>/dev/null || ls /boot/vmlinuz-* 2>/dev/null"),
+        "cpu_frequency" => Some("cat /proc/cpuinfo | grep 'cpu MHz' | head -1 || lscpu | grep 'CPU MHz'"),
+        "memory_slots" => Some("sudo dmidecode -t memory 2>/dev/null | grep -E 'Size:|Locator:|Type:' | head -20 || echo 'Requires root access'"),
+        "zfs_status" => Some("zpool status 2>/dev/null || echo 'ZFS not installed'"),
         _ => None,
     }
 }

@@ -712,5 +712,56 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::SystemLocale;
     }
 
+    // v0.0.127: Block devices - "lsblk", "block devices", "partitions"
+    if q.trim() == "lsblk"
+        || q.contains("block device")
+        || q.contains("partition")
+        || q.contains("show disk")
+        || q.contains("list disk")
+        || (q.contains("disk") && q.contains("layout"))
+    {
+        return QueryClass::BlockDevices;
+    }
+
+    // v0.0.127: Installed kernels - "installed kernels", "available kernels"
+    if q.contains("installed kernel")
+        || q.contains("available kernel")
+        || q.contains("linux kernel")
+        || (q.contains("what") && q.contains("kernel") && q.contains("install"))
+        || (q.contains("list") && q.contains("kernel"))
+    {
+        return QueryClass::InstalledKernels;
+    }
+
+    // v0.0.127: CPU frequency - "cpu frequency", "clock speed"
+    if q.contains("cpu freq")
+        || q.contains("clock speed")
+        || q.contains("cpu speed")
+        || q.contains("processor speed")
+        || q.contains("cpu mhz")
+        || q.contains("cpu ghz")
+        || (q.contains("how fast") && q.contains("cpu"))
+    {
+        return QueryClass::CpuFrequency;
+    }
+
+    // v0.0.127: Memory slots - "memory slots", "ram slots", "dimm"
+    if q.contains("memory slot")
+        || q.contains("ram slot")
+        || q.contains("dimm")
+        || q.contains("memory stick")
+        || (q.contains("how many") && q.contains("ram") && q.contains("slot"))
+    {
+        return QueryClass::MemorySlots;
+    }
+
+    // v0.0.127: ZFS status - "zfs status", "zpool status"
+    if q.contains("zfs")
+        || q.contains("zpool")
+        || (q.contains("storage pool") && (q.contains("status") || q.contains("health")))
+    {
+        return QueryClass::ZfsStatus;
+    }
+
     QueryClass::Unknown
 }
