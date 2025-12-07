@@ -122,7 +122,6 @@ pub struct Ticket {
     pub review_artifacts: Vec<ReviewArtifact>,
 
     // === v0.0.31: Clarification support ===
-
     /// Pending clarification question ID (if awaiting clarification)
     #[serde(default)]
     pub pending_clarification_id: Option<String>,
@@ -204,7 +203,9 @@ impl Ticket {
 
     /// Check if latest review allows publishing
     pub fn can_publish(&self) -> bool {
-        self.latest_review().map(|r| r.allow_publish).unwrap_or(false)
+        self.latest_review()
+            .map(|r| r.allow_publish)
+            .unwrap_or(false)
     }
 
     /// Check if more junior rounds are allowed

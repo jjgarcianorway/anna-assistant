@@ -208,7 +208,10 @@ pub async fn perform_update(new_version: &str) -> Result<()> {
     // Cleanup
     std::fs::remove_dir_all(&tmp_dir).ok();
 
-    info!("Atomic pair update to {} complete, daemon will restart", new_version);
+    info!(
+        "Atomic pair update to {} complete, daemon will restart",
+        new_version
+    );
     Ok(())
 }
 
@@ -223,7 +226,9 @@ fn verify_binary_version(path: &std::path::Path, expected_version: &str, name: &
     if !stdout.contains(expected_version) {
         return Err(anyhow!(
             "{} version mismatch: expected {} in output, got: {}",
-            name, expected_version, stdout.trim()
+            name,
+            expected_version,
+            stdout.trim()
         ));
     }
     Ok(())
@@ -251,7 +256,10 @@ fn verify_pair_consistency(expected_version: &str) -> Result<()> {
 
     let annactl_ver = String::from_utf8_lossy(&annactl_output.stdout);
     if !annactl_ver.contains(expected_version) {
-        return Err(anyhow!("annactl version check failed: {}", annactl_ver.trim()));
+        return Err(anyhow!(
+            "annactl version check failed: {}",
+            annactl_ver.trim()
+        ));
     }
 
     // annad.new should also have correct version
@@ -265,7 +273,10 @@ fn verify_pair_consistency(expected_version: &str) -> Result<()> {
         return Err(anyhow!("annad version check failed: {}", annad_ver.trim()));
     }
 
-    info!("Pair consistency verified: both binaries at {}", expected_version);
+    info!(
+        "Pair consistency verified: both binaries at {}",
+        expected_version
+    );
     Ok(())
 }
 
@@ -439,7 +450,7 @@ mod tests {
     /// v0.0.73: Test version module integration
     #[test]
     fn test_v073_version_module_integration() {
-        use anna_shared::version::{VERSION, VersionInfo, is_newer_version as version_is_newer};
+        use anna_shared::version::{is_newer_version as version_is_newer, VersionInfo, VERSION};
 
         // VERSION should be valid semver
         let parts: Vec<&str> = VERSION.split('.').collect();

@@ -249,7 +249,10 @@ fn golden_inventory_cpu_and_memory() {
     let report = SystemReport::from_evidence(&evidence, None, 100, None);
 
     assert_eq!(report.inventory.cpu_cores, Some(16));
-    assert_eq!(report.inventory.memory_total_bytes, Some(32 * 1024 * 1024 * 1024));
+    assert_eq!(
+        report.inventory.memory_total_bytes,
+        Some(32 * 1024 * 1024 * 1024)
+    );
 }
 
 #[test]
@@ -270,7 +273,10 @@ fn golden_inventory_block_devices() {
 
     assert_eq!(report.inventory.block_device_count, 3);
     assert!(report.inventory.block_device_summary.contains("1 disk"));
-    assert!(report.inventory.block_device_summary.contains("2 partition"));
+    assert!(report
+        .inventory
+        .block_device_summary
+        .contains("2 partition"));
 }
 
 // =============================================================================
@@ -310,9 +316,9 @@ fn golden_health_checks_sorted_by_severity() {
     let evidence = ReportEvidence {
         memory: Some(make_memory(16, 8)), // OK
         disks: vec![
-            make_disk("/", 100, 95),      // Critical
-            make_disk("/home", 200, 85),  // Warning
-            make_disk("/var", 50, 50),    // OK
+            make_disk("/", 100, 95),     // Critical
+            make_disk("/home", 200, 85), // Warning
+            make_disk("/var", 50, 50),   // OK
         ],
         block_devices: vec![],
         cpu: None,
@@ -327,8 +333,14 @@ fn golden_health_checks_sorted_by_severity() {
     expected.sort_by(|a, b| b.cmp(a)); // Descending by severity
 
     // Check that critical comes before warning, warning before ok
-    let critical_idx = report.health_checks.iter().position(|c| c.severity == HealthSeverity::Critical);
-    let warning_idx = report.health_checks.iter().position(|c| c.severity == HealthSeverity::Warning);
+    let critical_idx = report
+        .health_checks
+        .iter()
+        .position(|c| c.severity == HealthSeverity::Critical);
+    let warning_idx = report
+        .health_checks
+        .iter()
+        .position(|c| c.severity == HealthSeverity::Warning);
 
     if let (Some(c), Some(w)) = (critical_idx, warning_idx) {
         assert!(c < w, "Critical should come before Warning");

@@ -73,7 +73,9 @@ pub fn parse_lsblk(probe_id: &str, output: &str) -> Result<Vec<BlockDevice>, Par
     }
 
     // Find header line and column positions
-    let header_idx = lines.iter().position(|l| l.contains("NAME") && l.contains("TYPE"));
+    let header_idx = lines
+        .iter()
+        .position(|l| l.contains("NAME") && l.contains("TYPE"));
     let header = match header_idx {
         Some(idx) => lines[idx],
         None => {
@@ -90,7 +92,9 @@ pub fn parse_lsblk(probe_id: &str, output: &str) -> Result<Vec<BlockDevice>, Par
     let size_col = header.find("SIZE");
     let ro_col = header.find("RO");
     let type_col = header.find("TYPE");
-    let mount_col = header.find("MOUNTPOINTS").or_else(|| header.find("MOUNTPOINT"));
+    let mount_col = header
+        .find("MOUNTPOINTS")
+        .or_else(|| header.find("MOUNTPOINT"));
 
     // Parse data lines
     for (line_num, line) in lines.iter().enumerate().skip(header_idx.unwrap_or(0) + 1) {
@@ -109,7 +113,15 @@ pub fn parse_lsblk(probe_id: &str, output: &str) -> Result<Vec<BlockDevice>, Par
         }
 
         // Parse device entry
-        match parse_device_line(line, name_col, size_col, ro_col, type_col, mount_col, &current_parent) {
+        match parse_device_line(
+            line,
+            name_col,
+            size_col,
+            ro_col,
+            type_col,
+            mount_col,
+            &current_parent,
+        ) {
             Ok(device) => {
                 // Update parent tracking for tree structure
                 if device.device_type == BlockDeviceType::Disk {
@@ -201,7 +213,9 @@ fn parse_device_line(
 
 /// Find root filesystem device
 pub fn find_root_device(devices: &[BlockDevice]) -> Option<&BlockDevice> {
-    devices.iter().find(|d| d.mountpoints.contains(&"/".to_string()))
+    devices
+        .iter()
+        .find(|d| d.mountpoints.contains(&"/".to_string()))
 }
 
 /// Get total disk size (sum of all disk-type devices)

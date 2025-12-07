@@ -140,7 +140,12 @@ pub fn parse_ip_addr(output: &str) -> Vec<InterfaceInfo> {
 
     for line in output.lines() {
         // New interface line: "2: eth0: <...> state UP"
-        if line.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+        if line
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_digit())
+            .unwrap_or(false)
+        {
             if let Some(iface) = current.take() {
                 interfaces.push(iface);
             }

@@ -142,7 +142,10 @@ fn test_person_stats_tracker_record_escalation() {
         1
     );
     assert_eq!(
-        tracker.get_person("network_sr").unwrap().escalations_received,
+        tracker
+            .get_person("network_sr")
+            .unwrap()
+            .escalations_received,
         1
     );
 }

@@ -48,7 +48,9 @@ pub fn email_package_name() -> &'static str {
         return "mailutils";
     }
     // Check for Fedora/RHEL
-    if PathBuf::from("/etc/fedora-release").exists() || PathBuf::from("/etc/redhat-release").exists() {
+    if PathBuf::from("/etc/fedora-release").exists()
+        || PathBuf::from("/etc/redhat-release").exists()
+    {
         return "mailx";
     }
     // Default
@@ -124,8 +126,11 @@ impl EmailHealth {
 fn count_inbox_queries(path: &PathBuf) -> usize {
     fs::read_to_string(path)
         .map(|content| {
-            content.lines()
-                .filter(|line| line.starts_with('?') || (!line.trim().is_empty() && !line.starts_with('#')))
+            content
+                .lines()
+                .filter(|line| {
+                    line.starts_with('?') || (!line.trim().is_empty() && !line.starts_with('#'))
+                })
                 .count()
         })
         .unwrap_or(0)
@@ -266,7 +271,10 @@ Your local IT department
         }
 
         EmailNotification::NeedsClarification(ticket) => {
-            let question = ticket.pending_question.as_deref().unwrap_or("We need more information.");
+            let question = ticket
+                .pending_question
+                .as_deref()
+                .unwrap_or("We need more information.");
             let subject = format!("[Anna] {} - Clarification needed", ticket.case_number);
             let body = format!(
                 r#"Hi there,
@@ -283,10 +291,7 @@ Or simply reply to this email.
 --
 Anna Service Desk
 "#,
-                ticket.case_number,
-                ticket.query,
-                question,
-                ticket.case_number
+                ticket.case_number, ticket.query, question, ticket.case_number
             );
             (subject, body)
         }
@@ -312,10 +317,7 @@ If you have follow-up questions, just ask Anna directly.
 --
 Anna Service Desk
 "#,
-                ticket.case_number,
-                ticket.query,
-                answer,
-                reliability
+                ticket.case_number, ticket.query, answer, reliability
             );
             (subject, body)
         }
@@ -334,9 +336,7 @@ To reply: annactl reply {} "your message"
 --
 Anna Service Desk
 "#,
-                ticket.case_number,
-                message,
-                ticket.case_number
+                ticket.case_number, message, ticket.case_number
             );
             (subject, body)
         }

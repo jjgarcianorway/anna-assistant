@@ -33,11 +33,7 @@ impl TheatreContext {
         let team = domain_to_team(domain);
         let staff = person_for(team, Tier::Junior);
 
-        let ticket = Ticket::new(
-            case_number.clone(),
-            query.to_string(),
-            team.to_string(),
-        );
+        let ticket = Ticket::new(case_number.clone(), query.to_string(), team.to_string());
 
         Self {
             case_number,

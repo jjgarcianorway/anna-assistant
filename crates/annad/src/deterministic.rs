@@ -34,38 +34,61 @@ pub fn try_answer(
         // FAST PATH: SystemTriage - errors/warnings only, no specialist
         QueryClass::SystemTriage => crate::triage_answer::generate_triage_answer(probe_results),
         QueryClass::CpuInfo => probe_answers::answer_cpu_info(&context.hardware, probe_results)
-            .map(|mut r| { r.route_class = route_class; r }),
+            .map(|mut r| {
+                r.route_class = route_class;
+                r
+            }),
         // v0.0.45: CpuCores - uses lscpu probe
         QueryClass::CpuCores => answer_cpu_cores(probe_results, &route_class),
         // v0.0.45: CpuTemp - uses sensors probe
         QueryClass::CpuTemp => answer_cpu_temp(probe_results, &route_class),
         QueryClass::RamInfo => probe_answers::answer_ram_info(&context.hardware, probe_results)
-            .map(|mut r| { r.route_class = route_class; r }),
-        QueryClass::GpuInfo => probe_answers::answer_gpu_info(&context.hardware)
-            .map(|mut r| { r.route_class = route_class; r }),
+            .map(|mut r| {
+                r.route_class = route_class;
+                r
+            }),
+        QueryClass::GpuInfo => probe_answers::answer_gpu_info(&context.hardware).map(|mut r| {
+            r.route_class = route_class;
+            r
+        }),
         // v0.0.45: HardwareAudio - uses lspci_audio probe
         QueryClass::HardwareAudio => answer_hardware_audio(probe_results, &route_class),
-        QueryClass::TopMemoryProcesses => probe_answers::answer_top_memory(probe_results)
-            .map(|mut r| { r.route_class = route_class; r }),
-        QueryClass::TopCpuProcesses => probe_answers::answer_top_cpu(probe_results)
-            .map(|mut r| { r.route_class = route_class; r }),
-        QueryClass::DiskSpace => probe_answers::answer_disk_space(probe_results)
-            .map(|mut r| { r.route_class = route_class; r }),
+        QueryClass::TopMemoryProcesses => {
+            probe_answers::answer_top_memory(probe_results).map(|mut r| {
+                r.route_class = route_class;
+                r
+            })
+        }
+        QueryClass::TopCpuProcesses => probe_answers::answer_top_cpu(probe_results).map(|mut r| {
+            r.route_class = route_class;
+            r
+        }),
+        QueryClass::DiskSpace => probe_answers::answer_disk_space(probe_results).map(|mut r| {
+            r.route_class = route_class;
+            r
+        }),
         QueryClass::NetworkInterfaces => probe_answers::answer_network_interfaces(probe_results)
-            .map(|mut r| { r.route_class = route_class; r }),
+            .map(|mut r| {
+                r.route_class = route_class;
+                r
+            }),
         QueryClass::Help => Some(answer_help(&route_class)),
-        QueryClass::SystemSlow => probe_answers::answer_system_slow(probe_results)
-            .map(|mut r| { r.route_class = route_class; r }),
+        QueryClass::SystemSlow => probe_answers::answer_system_slow(probe_results).map(|mut r| {
+            r.route_class = route_class;
+            r
+        }),
         QueryClass::MemoryUsage => answer_memory_usage(probe_results, &route_class),
         // v0.0.45: MemoryFree - uses free probe (same as MemoryUsage)
         QueryClass::MemoryFree => answer_memory_free(probe_results, &route_class),
         QueryClass::DiskUsage => answer_disk_usage(probe_results, &route_class),
         QueryClass::ServiceStatus => answer_service_status(probe_results, &route_class),
-        QueryClass::SystemHealthSummary => answer_system_health_summary(probe_results, &route_class),
+        QueryClass::SystemHealthSummary => {
+            answer_system_health_summary(probe_results, &route_class)
+        }
         // RAG-first classes - handled by rag_answerer, not here
-        QueryClass::BootTimeStatus |
-        QueryClass::InstalledPackagesOverview |
-        QueryClass::AppAlternatives => None,
+        QueryClass::BootTimeStatus
+        | QueryClass::InstalledPackagesOverview
+        | QueryClass::AppAlternatives => None,
         // v0.0.45: PackageCount - uses pacman_count probe
         QueryClass::PackageCount => answer_package_count(probe_results, &route_class),
         // v0.0.45: InstalledToolCheck - uses command_v probe
@@ -73,11 +96,17 @@ pub fn try_answer(
         // v0.45.5: ConfigureEditor - needs clarification, cannot be answered deterministically
         QueryClass::ConfigureEditor => None,
         // v0.0.77: MetaSmallTalk - deterministic static response
-        QueryClass::MetaSmallTalk => Some(det_extended::answer_meta_small_talk(query, &route_class)),
+        QueryClass::MetaSmallTalk => {
+            Some(det_extended::answer_meta_small_talk(query, &route_class))
+        }
         // v0.0.77: KernelVersion - deterministic from uname probe
-        QueryClass::KernelVersion => det_extended::answer_kernel_version(probe_results, &route_class),
+        QueryClass::KernelVersion => {
+            det_extended::answer_kernel_version(probe_results, &route_class)
+        }
         // v0.0.77: ConfigFileLocation - deterministic from known paths
-        QueryClass::ConfigFileLocation => det_extended::answer_config_file_location(query, &route_class),
+        QueryClass::ConfigFileLocation => {
+            det_extended::answer_config_file_location(query, &route_class)
+        }
         // v0.0.99: InstallPackage - needs user confirmation, handled in rpc_handler
         QueryClass::InstallPackage => None,
         // v0.0.99: ManageService - needs user confirmation, handled in rpc_handler
@@ -93,7 +122,9 @@ pub fn try_answer(
         // v0.0.111: StaffRoster - deterministic from roster data
         QueryClass::StaffRoster => Some(det_extended::answer_staff_roster(&route_class)),
         // v0.0.122: PackageUpdates - deterministic from checkupdates
-        QueryClass::PackageUpdates => det_extended::answer_package_updates(probe_results, &route_class),
+        QueryClass::PackageUpdates => {
+            det_extended::answer_package_updates(probe_results, &route_class)
+        }
         // v0.0.122: SwapInfo - deterministic from free
         QueryClass::SwapInfo => det_extended::answer_swap_info(probe_results, &route_class),
         // v0.0.122: TimezoneInfo - deterministic from timedatectl
@@ -101,9 +132,13 @@ pub fn try_answer(
         // v0.0.122: SystemUptime - deterministic from uptime
         QueryClass::SystemUptime => det_extended::answer_system_uptime(probe_results, &route_class),
         // v0.0.123: LoggedInUsers - deterministic from who command
-        QueryClass::LoggedInUsers => det_extended::answer_logged_in_users(probe_results, &route_class),
+        QueryClass::LoggedInUsers => {
+            det_extended::answer_logged_in_users(probe_results, &route_class)
+        }
         // v0.0.123: BatteryStatus - deterministic from upower/acpi
-        QueryClass::BatteryStatus => det_extended::answer_battery_status(probe_results, &route_class),
+        QueryClass::BatteryStatus => {
+            det_extended::answer_battery_status(probe_results, &route_class)
+        }
         // v0.0.123: SystemLoad - deterministic from /proc/loadavg
         QueryClass::SystemLoad => det_extended::answer_system_load(probe_results, &route_class),
         // v0.0.123: LastBoot - deterministic from who -b
@@ -113,27 +148,41 @@ pub fn try_answer(
         // v0.0.124: OsInfo - deterministic from /etc/os-release
         QueryClass::OsInfo => det_extended::answer_os_info(probe_results, &route_class),
         // v0.0.124: NetworkConnectivity - deterministic from ping
-        QueryClass::NetworkConnectivity => det_extended::answer_network_connectivity(probe_results, &route_class),
+        QueryClass::NetworkConnectivity => {
+            det_extended::answer_network_connectivity(probe_results, &route_class)
+        }
         // v0.0.124: MountedFilesystems - deterministic from findmnt
-        QueryClass::MountedFilesystems => det_extended::answer_mounted_filesystems(probe_results, &route_class),
+        QueryClass::MountedFilesystems => {
+            det_extended::answer_mounted_filesystems(probe_results, &route_class)
+        }
         // v0.0.124: UsbDevices - deterministic from lsusb
         QueryClass::UsbDevices => det_extended::answer_usb_devices(probe_results, &route_class),
         // v0.0.125: ListeningPorts - deterministic from ss
-        QueryClass::ListeningPorts => det_extended::answer_listening_ports(probe_results, &route_class),
+        QueryClass::ListeningPorts => {
+            det_extended::answer_listening_ports(probe_results, &route_class)
+        }
         // v0.0.125: RunningServices - deterministic from systemctl
-        QueryClass::RunningServices => det_extended::answer_running_services(probe_results, &route_class),
+        QueryClass::RunningServices => {
+            det_extended::answer_running_services(probe_results, &route_class)
+        }
         // v0.0.125: CurrentUser - deterministic from id
         QueryClass::CurrentUser => det_extended::answer_current_user(probe_results, &route_class),
         // v0.0.125: SystemArchitecture - deterministic from uname -m
-        QueryClass::SystemArchitecture => det_extended::answer_system_architecture(probe_results, &route_class),
+        QueryClass::SystemArchitecture => {
+            det_extended::answer_system_architecture(probe_results, &route_class)
+        }
         // v0.0.125: EnvironmentVars - deterministic from env
-        QueryClass::EnvironmentVars => det_extended::answer_environment_vars(probe_results, &route_class),
+        QueryClass::EnvironmentVars => {
+            det_extended::answer_environment_vars(probe_results, &route_class)
+        }
         // v0.0.126: ProcessTree - deterministic from pstree
         QueryClass::ProcessTree => det_extended::answer_process_tree(probe_results, &route_class),
         // v0.0.126: DnsServers - deterministic from /etc/resolv.conf
         QueryClass::DnsServers => det_extended::answer_dns_servers(probe_results, &route_class),
         // v0.0.126: DefaultGateway - deterministic from ip route
-        QueryClass::DefaultGateway => det_extended::answer_default_gateway(probe_results, &route_class),
+        QueryClass::DefaultGateway => {
+            det_extended::answer_default_gateway(probe_results, &route_class)
+        }
         // v0.0.126: OpenFiles - deterministic from lsof
         QueryClass::OpenFiles => det_extended::answer_open_files(probe_results, &route_class),
         // v0.0.126: SystemLocale - deterministic from locale
@@ -141,7 +190,9 @@ pub fn try_answer(
         // v0.0.127: BlockDevices - deterministic from lsblk
         QueryClass::BlockDevices => det_extended::answer_block_devices(probe_results, &route_class),
         // v0.0.127: InstalledKernels - deterministic from package manager
-        QueryClass::InstalledKernels => det_extended::answer_installed_kernels(probe_results, &route_class),
+        QueryClass::InstalledKernels => {
+            det_extended::answer_installed_kernels(probe_results, &route_class)
+        }
         // v0.0.127: CpuFrequency - deterministic from cpufreq
         QueryClass::CpuFrequency => det_extended::answer_cpu_frequency(probe_results, &route_class),
         // v0.0.127: MemorySlots - deterministic from dmidecode
@@ -151,59 +202,91 @@ pub fn try_answer(
         // v0.0.128: BootLoader - deterministic from bootctl/grub
         QueryClass::BootLoader => det_extended::answer_boot_loader(probe_results, &route_class),
         // v0.0.128: FirewallStatus - deterministic from iptables/nftables
-        QueryClass::FirewallStatus => det_extended::answer_firewall_status(probe_results, &route_class),
+        QueryClass::FirewallStatus => {
+            det_extended::answer_firewall_status(probe_results, &route_class)
+        }
         // v0.0.128: SystemdUnits - deterministic from systemctl
         QueryClass::SystemdUnits => det_extended::answer_systemd_units(probe_results, &route_class),
         // v0.0.128: Crontabs - deterministic from crontab
         QueryClass::Crontabs => det_extended::answer_crontabs(probe_results, &route_class),
         // v0.0.128: SshConnections - deterministic from who/ss
-        QueryClass::SshConnections => det_extended::answer_ssh_connections(probe_results, &route_class),
+        QueryClass::SshConnections => {
+            det_extended::answer_ssh_connections(probe_results, &route_class)
+        }
         // v0.0.129: DockerContainers - deterministic from docker ps
-        QueryClass::DockerContainers => det_extended::answer_docker_containers(probe_results, &route_class),
+        QueryClass::DockerContainers => {
+            det_extended::answer_docker_containers(probe_results, &route_class)
+        }
         // v0.0.129: DockerImages - deterministic from docker images
         QueryClass::DockerImages => det_extended::answer_docker_images(probe_results, &route_class),
         // v0.0.129: SystemdTimers - deterministic from systemctl list-timers
-        QueryClass::SystemdTimers => det_extended::answer_systemd_timers(probe_results, &route_class),
+        QueryClass::SystemdTimers => {
+            det_extended::answer_systemd_timers(probe_results, &route_class)
+        }
         // v0.0.129: LastLogins - deterministic from last
         QueryClass::LastLogins => det_extended::answer_last_logins(probe_results, &route_class),
         // v0.0.129: FailedLogins - deterministic from lastb/journalctl
         QueryClass::FailedLogins => det_extended::answer_failed_logins(probe_results, &route_class),
         // v0.0.130: SystemdJournal - deterministic from journalctl
-        QueryClass::SystemdJournal => det_extended::answer_systemd_journal(probe_results, &route_class),
+        QueryClass::SystemdJournal => {
+            det_extended::answer_systemd_journal(probe_results, &route_class)
+        }
         // v0.0.130: NetworkNamespaces - deterministic from ip netns
-        QueryClass::NetworkNamespaces => det_extended::answer_network_namespaces(probe_results, &route_class),
+        QueryClass::NetworkNamespaces => {
+            det_extended::answer_network_namespaces(probe_results, &route_class)
+        }
         // v0.0.130: AvailableShells - deterministic from /etc/shells
-        QueryClass::AvailableShells => det_extended::answer_available_shells(probe_results, &route_class),
+        QueryClass::AvailableShells => {
+            det_extended::answer_available_shells(probe_results, &route_class)
+        }
         // v0.0.130: SudoersInfo - deterministic from sudo -l
         QueryClass::SudoersInfo => det_extended::answer_sudoers_info(probe_results, &route_class),
         // v0.0.130: InstalledDesktops - deterministic from package query
-        QueryClass::InstalledDesktops => det_extended::answer_installed_desktops(probe_results, &route_class),
+        QueryClass::InstalledDesktops => {
+            det_extended::answer_installed_desktops(probe_results, &route_class)
+        }
         // v0.0.131: VirtualizationInfo - deterministic from systemd-detect-virt
-        QueryClass::VirtualizationInfo => det_extended::answer_virtualization_info(probe_results, &route_class),
+        QueryClass::VirtualizationInfo => {
+            det_extended::answer_virtualization_info(probe_results, &route_class)
+        }
         // v0.0.131: SelinuxStatus - deterministic from sestatus
-        QueryClass::SelinuxStatus => det_extended::answer_selinux_status(probe_results, &route_class),
+        QueryClass::SelinuxStatus => {
+            det_extended::answer_selinux_status(probe_results, &route_class)
+        }
         // v0.0.131: AppArmorStatus - deterministic from aa-status
-        QueryClass::AppArmorStatus => det_extended::answer_apparmor_status(probe_results, &route_class),
+        QueryClass::AppArmorStatus => {
+            det_extended::answer_apparmor_status(probe_results, &route_class)
+        }
         // v0.0.131: SystemdSlices - deterministic from systemd-cgls
-        QueryClass::SystemdSlices => det_extended::answer_systemd_slices(probe_results, &route_class),
+        QueryClass::SystemdSlices => {
+            det_extended::answer_systemd_slices(probe_results, &route_class)
+        }
         // v0.0.131: CoredumpList - deterministic from coredumpctl
         QueryClass::CoredumpList => det_extended::answer_coredump_list(probe_results, &route_class),
         // v0.0.132: KernelModules - deterministic from lsmod
-        QueryClass::KernelModules => det_extended::answer_kernel_modules(probe_results, &route_class),
+        QueryClass::KernelModules => {
+            det_extended::answer_kernel_modules(probe_results, &route_class)
+        }
         // v0.0.132: SystemdTargets - deterministic from systemctl
-        QueryClass::SystemdTargets => det_extended::answer_systemd_targets(probe_results, &route_class),
+        QueryClass::SystemdTargets => {
+            det_extended::answer_systemd_targets(probe_results, &route_class)
+        }
         // v0.0.132: IpRoutes - deterministic from ip route
         QueryClass::IpRoutes => det_extended::answer_ip_routes(probe_results, &route_class),
         // v0.0.132: ArpTable - deterministic from ip neigh
         QueryClass::ArpTable => det_extended::answer_arp_table(probe_results, &route_class),
         // v0.0.132: IptablesRules - deterministic from iptables
-        QueryClass::IptablesRules => det_extended::answer_iptables_rules(probe_results, &route_class),
+        QueryClass::IptablesRules => {
+            det_extended::answer_iptables_rules(probe_results, &route_class)
+        }
         // v0.0.133: PciDevices - deterministic from lspci
         QueryClass::PciDevices => det_extended::answer_pci_devices(probe_results, &route_class),
         // v0.0.133: DmesgErrors - deterministic from dmesg
         QueryClass::DmesgErrors => det_extended::answer_dmesg_errors(probe_results, &route_class),
         // v0.0.133: SystemdSockets - deterministic from systemctl
-        QueryClass::SystemdSockets => det_extended::answer_systemd_sockets(probe_results, &route_class),
+        QueryClass::SystemdSockets => {
+            det_extended::answer_systemd_sockets(probe_results, &route_class)
+        }
         // v0.0.133: TmpFiles - deterministic from ls /tmp
         QueryClass::TmpFiles => det_extended::answer_tmp_files(probe_results, &route_class),
         // v0.0.133: UserGroups - deterministic from groups
@@ -221,15 +304,37 @@ pub fn try_answer(
         // v0.0.134: XorgLog - deterministic from Xorg.log
         QueryClass::XorgLog => det_extended::answer_xorg_log(probe_results, &route_class),
         // v0.0.135: BluetoothDevices - deterministic from bluetoothctl
-        QueryClass::BluetoothDevices => det_extended::answer_bluetooth_devices(probe_results, &route_class),
+        QueryClass::BluetoothDevices => {
+            det_extended::answer_bluetooth_devices(probe_results, &route_class)
+        }
         // v0.0.135: WirelessNetworks - deterministic from nmcli
-        QueryClass::WirelessNetworks => det_extended::answer_wireless_networks(probe_results, &route_class),
+        QueryClass::WirelessNetworks => {
+            det_extended::answer_wireless_networks(probe_results, &route_class)
+        }
         // v0.0.135: PrinterStatus - deterministic from lpstat
-        QueryClass::PrinterStatus => det_extended::answer_printer_status(probe_results, &route_class),
+        QueryClass::PrinterStatus => {
+            det_extended::answer_printer_status(probe_results, &route_class)
+        }
         // v0.0.135: AudioDevices - deterministic from pactl
         QueryClass::AudioDevices => det_extended::answer_audio_devices(probe_results, &route_class),
         // v0.0.135: SystemdPaths - deterministic from systemctl
         QueryClass::SystemdPaths => det_extended::answer_systemd_paths(probe_results, &route_class),
+        // v0.0.136: SystemctlMask - deterministic from systemctl list-unit-files
+        QueryClass::SystemctlMask => {
+            det_extended::answer_systemctl_mask(probe_results, &route_class)
+        }
+        // v0.0.136: HostsFile - deterministic from /etc/hosts
+        QueryClass::HostsFile => det_extended::answer_hosts_file(probe_results, &route_class),
+        // v0.0.136: FstabEntries - deterministic from /etc/fstab
+        QueryClass::FstabEntries => det_extended::answer_fstab_entries(probe_results, &route_class),
+        // v0.0.136: SysctlSettings - deterministic from sysctl
+        QueryClass::SysctlSettings => {
+            det_extended::answer_sysctl_settings(probe_results, &route_class)
+        }
+        // v0.0.136: LoginctlSessions - deterministic from loginctl
+        QueryClass::LoginctlSessions => {
+            det_extended::answer_loginctl_sessions(probe_results, &route_class)
+        }
         QueryClass::Unknown => None,
     }
 }
@@ -279,7 +384,10 @@ fn answer_memory_usage(probes: &[ProbeResult], route_class: &str) -> Option<Dete
     let probe = find_probe(probes, "free")?;
     let answer = crate::answers::answer_from_free_probe(probe)?;
     Some(DeterministicResult {
-        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
     })
 }
 
@@ -288,7 +396,10 @@ fn answer_disk_usage(probes: &[ProbeResult], route_class: &str) -> Option<Determ
     let probe = find_probe(probes, "df")?;
     let answer = crate::answers::answer_from_df_probe(probe)?;
     Some(DeterministicResult {
-        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
     })
 }
 
@@ -296,10 +407,16 @@ fn answer_disk_usage(probes: &[ProbeResult], route_class: &str) -> Option<Determ
 fn answer_service_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
     // Try is-active probe first
     if let Some(probe) = find_probe(probes, "systemctl is-active") {
-        let service_name = probe.command.strip_prefix("systemctl is-active ").unwrap_or("service");
+        let service_name = probe
+            .command
+            .strip_prefix("systemctl is-active ")
+            .unwrap_or("service");
         if let Some(answer) = crate::answers::answer_from_is_active_probe(probe, service_name) {
             return Some(DeterministicResult {
-                answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+                answer,
+                grounded: true,
+                parsed_data_count: 1,
+                route_class: route_class.to_string(),
             });
         }
     }
@@ -307,7 +424,10 @@ fn answer_service_status(probes: &[ProbeResult], route_class: &str) -> Option<De
     if let Some(probe) = find_probe(probes, "systemctl --failed") {
         if let Some(answer) = crate::answers::answer_from_failed_units_probe(probe) {
             return Some(DeterministicResult {
-                answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+                answer,
+                grounded: true,
+                parsed_data_count: 1,
+                route_class: route_class.to_string(),
             });
         }
     }
@@ -315,7 +435,10 @@ fn answer_service_status(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer system health summary using health brief (v0.0.32: relevant-only, not full report)
-fn answer_system_health_summary(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+fn answer_system_health_summary(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     use crate::health_brief_builder::build_health_brief;
 
     // Build health brief from probes (only shows warnings/errors)
@@ -323,7 +446,11 @@ fn answer_system_health_summary(probes: &[ProbeResult], route_class: &str) -> Op
 
     // Always return an answer - even if healthy
     let answer = brief.format_answer();
-    let count = if brief.all_healthy { 1 } else { brief.items.len() };
+    let count = if brief.all_healthy {
+        1
+    } else {
+        brief.items.len()
+    };
 
     Some(DeterministicResult {
         answer,
@@ -350,11 +477,19 @@ fn answer_cpu_cores(probes: &[ProbeResult], route_class: &str) -> Option<Determi
         if line.starts_with("CPU(s):") {
             threads = line.split(':').nth(1).and_then(|s| s.trim().parse().ok());
         } else if line.starts_with("Core(s) per socket:") {
-            if let Some(c) = line.split(':').nth(1).and_then(|s| s.trim().parse::<u32>().ok()) {
+            if let Some(c) = line
+                .split(':')
+                .nth(1)
+                .and_then(|s| s.trim().parse::<u32>().ok())
+            {
                 cores = Some(cores.unwrap_or(0) + c);
             }
         } else if line.starts_with("Socket(s):") {
-            if let Some(s) = line.split(':').nth(1).and_then(|s| s.trim().parse::<u32>().ok()) {
+            if let Some(s) = line
+                .split(':')
+                .nth(1)
+                .and_then(|s| s.trim().parse::<u32>().ok())
+            {
                 if let Some(c) = cores {
                     cores = Some(c * s);
                 }
@@ -370,7 +505,10 @@ fn answer_cpu_cores(probes: &[ProbeResult], route_class: &str) -> Option<Determi
     };
 
     Some(DeterministicResult {
-        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
     })
 }
 
@@ -410,11 +548,16 @@ fn answer_cpu_temp(probes: &[ProbeResult], route_class: &str) -> Option<Determin
 
     let answer = format!(
         "CPU temperature: {:.1}°C average, {:.1}°C max across {} sensors.",
-        avg_temp, max_temp, cpu_temps.len()
+        avg_temp,
+        max_temp,
+        cpu_temps.len()
     );
 
     Some(DeterministicResult {
-        answer, grounded: true, parsed_data_count: cpu_temps.len(), route_class: route_class.to_string(),
+        answer,
+        grounded: true,
+        parsed_data_count: cpu_temps.len(),
+        route_class: route_class.to_string(),
     })
 }
 
@@ -422,7 +565,10 @@ fn answer_cpu_temp(probes: &[ProbeResult], route_class: &str) -> Option<Determin
 fn extract_temperature(line: &str) -> Option<f32> {
     // Look for patterns like "+45.0°C" or "45.0 C"
     for part in line.split_whitespace() {
-        let cleaned = part.trim_start_matches('+').trim_end_matches('°').trim_end_matches('C');
+        let cleaned = part
+            .trim_start_matches('+')
+            .trim_end_matches('°')
+            .trim_end_matches('C');
         if let Ok(temp) = cleaned.parse::<f32>() {
             if temp > 0.0 && temp < 150.0 {
                 return Some(temp);
@@ -435,17 +581,13 @@ fn extract_temperature(line: &str) -> Option<f32> {
 /// Answer hardware audio query using typed AudioDevices evidence (v0.0.66)
 /// v0.0.66: Clean output format, no markdown in debug OFF mode.
 fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
-    use anna_shared::parsers::{parse_probe_result, ParsedProbeData, find_audio_evidence};
+    use anna_shared::parsers::{find_audio_evidence, parse_probe_result, ParsedProbeData};
 
     // Parse all probes to typed evidence
-    let parsed: Vec<ParsedProbeData> = probes.iter()
-        .map(|p| parse_probe_result(p))
-        .collect();
+    let parsed: Vec<ParsedProbeData> = probes.iter().map(|p| parse_probe_result(p)).collect();
 
     // Count how many audio evidence sources we have
-    let audio_evidence_count = parsed.iter()
-        .filter(|p| p.as_audio().is_some())
-        .count();
+    let audio_evidence_count = parsed.iter().filter(|p| p.as_audio().is_some()).count();
 
     // Find merged audio evidence from parsed probes
     if let Some(audio) = find_audio_evidence(&parsed) {
@@ -467,22 +609,32 @@ fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<De
         // v0.0.66: Clean format for debug OFF - "Detected audio hardware: <desc> (PCI <slot>)"
         let answer = if audio.devices.len() == 1 {
             let dev = &audio.devices[0];
-            let pci_info = dev.pci_slot.as_ref()
+            let pci_info = dev
+                .pci_slot
+                .as_ref()
                 .map(|s| format!(" (PCI {})", s))
                 .unwrap_or_default();
             format!("Detected audio hardware: {}{}", dev.description, pci_info)
         } else {
             // Multiple devices: one per line, no markdown
-            let devices_list: Vec<String> = audio.devices.iter()
+            let devices_list: Vec<String> = audio
+                .devices
+                .iter()
                 .enumerate()
                 .map(|(i, d)| {
-                    let pci_info = d.pci_slot.as_ref()
+                    let pci_info = d
+                        .pci_slot
+                        .as_ref()
                         .map(|s| format!(" (PCI {})", s))
                         .unwrap_or_default();
                     format!("  {}. {}{}", i + 1, d.description, pci_info)
                 })
                 .collect();
-            format!("Detected {} audio devices:\n{}", audio.devices.len(), devices_list.join("\n"))
+            format!(
+                "Detected {} audio devices:\n{}",
+                audio.devices.len(),
+                devices_list.join("\n")
+            )
         };
 
         return Some(DeterministicResult {
@@ -502,7 +654,10 @@ fn answer_memory_free(probes: &[ProbeResult], route_class: &str) -> Option<Deter
     let probe = find_probe(probes, "free")?;
     let answer = crate::answers::answer_from_free_probe_available(probe)?;
     Some(DeterministicResult {
-        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
     })
 }
 
@@ -519,30 +674,30 @@ fn answer_package_count(probes: &[ProbeResult], route_class: &str) -> Option<Det
     let answer = format!("You have {} packages installed.", count);
 
     Some(DeterministicResult {
-        answer, grounded: true, parsed_data_count: 1, route_class: route_class.to_string(),
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
     })
 }
 
 /// Answer installed tool check query using typed evidence (v0.45.7)
 /// Handles both command_v probes AND pacman -Q probes.
 /// Exit code 1 is VALID NEGATIVE EVIDENCE, not an error!
-fn answer_installed_tool_check(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+fn answer_installed_tool_check(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
 
     // v0.45.7: Parse all probes to typed evidence
-    let parsed: Vec<ParsedProbeData> = probes.iter()
-        .map(|p| parse_probe_result(p))
-        .collect();
+    let parsed: Vec<ParsedProbeData> = probes.iter().map(|p| parse_probe_result(p)).collect();
 
     // Find tool existence evidence (from command -v, which, etc.)
-    let tool_evidence: Vec<_> = parsed.iter()
-        .filter_map(|p| p.as_tool())
-        .collect();
+    let tool_evidence: Vec<_> = parsed.iter().filter_map(|p| p.as_tool()).collect();
 
     // Find package evidence (from pacman -Q, etc.)
-    let package_evidence: Vec<_> = parsed.iter()
-        .filter_map(|p| p.as_package())
-        .collect();
+    let package_evidence: Vec<_> = parsed.iter().filter_map(|p| p.as_package()).collect();
 
     // If we have any tool or package evidence, we can answer
     if tool_evidence.is_empty() && package_evidence.is_empty() {
@@ -555,7 +710,9 @@ fn answer_installed_tool_check(probes: &[ProbeResult], route_class: &str) -> Opt
     // Report tool evidence first (prefer this over package evidence)
     for tool in &tool_evidence {
         if tool.exists {
-            let path_info = tool.path.as_ref()
+            let path_info = tool
+                .path
+                .as_ref()
                 .map(|p| format!(" at `{}`", p))
                 .unwrap_or_default();
             answer_parts.push(format!("Yes, **{}** is installed{}", tool.name, path_info));
@@ -567,7 +724,9 @@ fn answer_installed_tool_check(probes: &[ProbeResult], route_class: &str) -> Opt
     // Report package evidence
     for pkg in &package_evidence {
         if pkg.installed {
-            let version_info = pkg.version.as_ref()
+            let version_info = pkg
+                .version
+                .as_ref()
                 .map(|v| format!(" (version {})", v))
                 .unwrap_or_default();
             answer_parts.push(format!("**{}** is installed{}", pkg.name, version_info));

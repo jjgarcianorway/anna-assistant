@@ -136,18 +136,30 @@ impl DeltaItem {
             Self::ServiceRecovered { unit } => {
                 format!("✅ Service {} recovered", unit)
             }
-            Self::MemoryHigh { prev_percent, curr_percent } => {
+            Self::MemoryHigh {
+                prev_percent,
+                curr_percent,
+            } => {
                 format!("⚠ Memory high at {}% (was {}%)", curr_percent, prev_percent)
             }
-            Self::MemoryIncreased { prev_percent, curr_percent } => {
-                format!("📈 Memory increased to {}% (was {}%)", curr_percent, prev_percent)
+            Self::MemoryIncreased {
+                prev_percent,
+                curr_percent,
+            } => {
+                format!(
+                    "📈 Memory increased to {}% (was {}%)",
+                    curr_percent, prev_percent
+                )
             }
         }
     }
 
     /// Check if this is an error-level delta
     pub fn is_error(&self) -> bool {
-        matches!(self, Self::DiskCritical { .. } | Self::NewFailedService { .. })
+        matches!(
+            self,
+            Self::DiskCritical { .. } | Self::NewFailedService { .. }
+        )
     }
 
     /// Check if this is a warning-level delta
@@ -287,8 +299,12 @@ fn parse_df_into_snapshot(output: &str, snapshot: &mut SystemSnapshot) {
             let mount = parts[5];
 
             // Only track relevant mounts
-            if mount == "/" || mount == "/home" || mount == "/var" || mount == "/tmp"
-                || mount.starts_with("/mnt") || mount.starts_with("/media")
+            if mount == "/"
+                || mount == "/home"
+                || mount == "/var"
+                || mount == "/tmp"
+                || mount.starts_with("/mnt")
+                || mount.starts_with("/media")
             {
                 if let Ok(pct) = use_percent.parse::<u8>() {
                     snapshot.add_disk(mount, pct);
@@ -306,10 +322,7 @@ fn parse_free_into_snapshot(output: &str, snapshot: &mut SystemSnapshot) {
             let parts: Vec<&str> = line.split_whitespace().collect();
             if parts.len() >= 3 {
                 // Format: Mem: total used free...
-                if let (Ok(total), Ok(used)) = (
-                    parts[1].parse::<u64>(),
-                    parts[2].parse::<u64>(),
-                ) {
+                if let (Ok(total), Ok(used)) = (parts[1].parse::<u64>(), parts[2].parse::<u64>()) {
                     snapshot.set_memory(total, used);
                     return;
                 }

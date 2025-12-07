@@ -46,7 +46,12 @@ impl PersonStats {
     /// Create stats from roster entry
     pub fn from_roster(team: Team, tier: Tier) -> Self {
         let person = person_for(team, tier);
-        Self::new(person.person_id, person.display_name, team, &tier.to_string())
+        Self::new(
+            person.person_id,
+            person.display_name,
+            team,
+            &tier.to_string(),
+        )
     }
 
     /// Record a ticket closure
@@ -126,7 +131,11 @@ impl PersonStatsTracker {
 
     /// Get top performers by tickets closed
     pub fn top_closers(&self, limit: usize) -> Vec<&PersonStats> {
-        let mut sorted: Vec<_> = self.by_person.values().filter(|s| s.tickets_closed > 0).collect();
+        let mut sorted: Vec<_> = self
+            .by_person
+            .values()
+            .filter(|s| s.tickets_closed > 0)
+            .collect();
         sorted.sort_by(|a, b| b.tickets_closed.cmp(&a.tickets_closed));
         sorted.truncate(limit);
         sorted
@@ -134,7 +143,11 @@ impl PersonStatsTracker {
 
     /// Get persons who escalated most (juniors)
     pub fn top_escalators(&self, limit: usize) -> Vec<&PersonStats> {
-        let mut sorted: Vec<_> = self.by_person.values().filter(|s| s.escalations_sent > 0).collect();
+        let mut sorted: Vec<_> = self
+            .by_person
+            .values()
+            .filter(|s| s.escalations_sent > 0)
+            .collect();
         sorted.sort_by(|a, b| b.escalations_sent.cmp(&a.escalations_sent));
         sorted.truncate(limit);
         sorted
@@ -142,7 +155,11 @@ impl PersonStatsTracker {
 
     /// Get persons with best average score
     pub fn top_by_score(&self, limit: usize) -> Vec<&PersonStats> {
-        let mut sorted: Vec<_> = self.by_person.values().filter(|s| s.tickets_closed > 0).collect();
+        let mut sorted: Vec<_> = self
+            .by_person
+            .values()
+            .filter(|s| s.tickets_closed > 0)
+            .collect();
         sorted.sort_by(|a, b| {
             b.avg_score
                 .partial_cmp(&a.avg_score)

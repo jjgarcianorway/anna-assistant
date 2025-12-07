@@ -8,9 +8,9 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelFamily {
-    Qwen3VL,  // Preferred
-    Qwen25,   // Fallback
-    Llama32,  // Fallback
+    Qwen3VL, // Preferred
+    Qwen25,  // Fallback
+    Llama32, // Fallback
     Other,
 }
 
@@ -18,17 +18,17 @@ pub enum ModelFamily {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelRole {
-    Translator,  // Query classification (small)
-    Specialist,  // Domain expert (capable)
+    Translator, // Query classification (small)
+    Specialist, // Domain expert (capable)
 }
 
 /// Model candidate with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelCandidate {
-    pub name: String,          // Full model name (e.g., "qwen3-vl:4b")
+    pub name: String, // Full model name (e.g., "qwen3-vl:4b")
     pub family: ModelFamily,
-    pub size_gb: f32,          // Estimated VRAM/RAM needed (GB)
-    pub priority: u32,         // Lower = better for role
+    pub size_gb: f32,  // Estimated VRAM/RAM needed (GB)
+    pub priority: u32, // Lower = better for role
     pub roles: Vec<ModelRole>,
 }
 
@@ -63,8 +63,13 @@ pub struct ModelSelectorConfig {
 
 impl Default for ModelSelectorConfig {
     fn default() -> Self {
-        Self { prefer_qwen3_vl: true, min_translator_tps: 10.0, min_specialist_tps: 5.0,
-               enable_benchmark: true, benchmark_interval_secs: 604800 }
+        Self {
+            prefer_qwen3_vl: true,
+            min_translator_tps: 10.0,
+            min_specialist_tps: 5.0,
+            enable_benchmark: true,
+            benchmark_interval_secs: 604800,
+        }
     }
 }
 
@@ -155,7 +160,8 @@ pub fn select_model(
     let catalog = model_catalog();
 
     // Filter to models that are available and support the role
-    let mut candidates: Vec<&ModelCandidate> = catalog.iter()
+    let mut candidates: Vec<&ModelCandidate> = catalog
+        .iter()
         .filter(|c| c.roles.contains(&role))
         .filter(|c| available.iter().any(|a| model_matches(&c.name, a)))
         .collect();
@@ -183,12 +189,20 @@ pub fn select_model(
         }
 
         // Same family: check benchmark if available
-        let a_tps = benchmarks.get(&a.name).map(|b| b.tokens_per_sec).unwrap_or(0.0);
-        let b_tps = benchmarks.get(&b.name).map(|b| b.tokens_per_sec).unwrap_or(0.0);
+        let a_tps = benchmarks
+            .get(&a.name)
+            .map(|b| b.tokens_per_sec)
+            .unwrap_or(0.0);
+        let b_tps = benchmarks
+            .get(&b.name)
+            .map(|b| b.tokens_per_sec)
+            .unwrap_or(0.0);
 
         if a_tps > 0.0 && b_tps > 0.0 {
             // Higher TPS is better
-            return b_tps.partial_cmp(&a_tps).unwrap_or(std::cmp::Ordering::Equal);
+            return b_tps
+                .partial_cmp(&a_tps)
+                .unwrap_or(std::cmp::Ordering::Equal);
         }
 
         // Fallback to priority
@@ -202,7 +216,10 @@ pub fn select_model(
     let reason = if is_preferred {
         format!("preferred: {} available", selected.family_display())
     } else if is_fallback {
-        format!("fallback: {} (Qwen3-VL not available)", selected.family_display())
+        format!(
+            "fallback: {} (Qwen3-VL not available)",
+            selected.family_display()
+        )
     } else {
         format!("selected: {}", selected.family_display())
     };
@@ -252,7 +269,8 @@ impl ModelCandidate {
 
 /// Micro-benchmark prompt for quick performance measurement
 /// Short enough to measure quickly, long enough to be meaningful
-pub const BENCHMARK_PROMPT: &str = "Classify: 'how much RAM do I have?' Reply: system/network/storage";
+pub const BENCHMARK_PROMPT: &str =
+    "Classify: 'how much RAM do I have?' Reply: system/network/storage";
 
 /// Expected response length for benchmark (tokens)
 pub const BENCHMARK_EXPECTED_TOKENS: u32 = 10;
@@ -347,10 +365,7 @@ mod tests {
 
     #[test]
     fn test_select_model_fallback() {
-        let available = vec![
-            "qwen2.5:3b".to_string(),
-            "llama3.2:3b".to_string(),
-        ];
+        let available = vec!["qwen2.5:3b".to_string(), "llama3.2:3b".to_string()];
         let config = ModelSelectorConfig::default();
         let benchmarks = HashMap::new();
 

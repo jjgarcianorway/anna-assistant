@@ -32,31 +32,88 @@ pub fn print_stats_display(stats: &GlobalStats) {
     println!();
     println!("{}Activity{}", colors::BOLD, colors::RESET);
 
-    println!("  Cases handled: {}", stats.total_requests);
-    println!("  Success rate: {}{:.0}%{}",
-        if stats.overall_success_rate() >= 0.8 { colors::OK }
-        else if stats.overall_success_rate() >= 0.5 { colors::WARN }
-        else { colors::ERR },
+    let total_requests = agg
+        .as_ref()
+        .map(|a| a.total_requests)
+        .unwrap_or(stats.total_requests);
+    let verified = agg.as_ref().map(|a| a.verified_count).unwrap_or(0);
+    let failed = agg.as_ref().map(|a| a.failed_count).unwrap_or(0);
+    let timeouts = agg.as_ref().map(|a| a.timeout_count).unwrap_or(0);
+    println!(
+        "  Requests: {} (ok {}, failed {}, timeout {})",
+        total_requests, verified, failed, timeouts
+    );
+
+    println!(
+        "  Success rate: {}{:.0}%{}",
+        if stats.overall_success_rate() >= 0.8 {
+            colors::OK
+        } else if stats.overall_success_rate() >= 0.5 {
+            colors::WARN
+        } else {
+            colors::ERR
+        },
         stats.overall_success_rate() * 100.0,
-        colors::RESET);
+        colors::RESET
+    );
     println!("  Avg reliability: {:.0}", stats.overall_avg_score());
 
-    // Recipes
+    if let Some(ref agg) = agg {
+        println!("  Escalations: {}", agg.escalation_count);
+        println!("  Clarifications: {}", agg.clarification_count);
+        if agg.avg_duration_ms > 0.0 {
+            println!(
+                "  Duration: avg {:.0}ms (fastest {}ms, slowest {}ms)",
+                agg.avg_duration_ms, agg.min_duration_ms, agg.max_duration_ms
+            );
+        }
+        if agg.total_interactions > 0 {
+            println!(
+                "  Interactions: avg {:.1}, max {}",
+                agg.avg_interactions, agg.max_interactions
+            );
+        }
+    }
+
+    // === LEARNING & AUTONOMY ===
+    println!();
+    println!("{}Learning & Autonomy{}", colors::BOLD, colors::RESET);
     let total_recipes = recipe_count();
+    if let Some(ref agg) = agg {
+        println!(
+            "  Recipes: {} learned, {} used",
+            agg.recipes_learned, agg.recipes_used
+        );
+    }
     if total_recipes > 0 {
-        println!("  Learned recipes: {}", total_recipes);
+        println!("  Library size: {}", total_recipes);
+    }
+    println!(
+        "  Fast-path answers: {} ({:.0}%)",
+        stats.fast_path_hits,
+        stats.fast_path_percentage()
+    );
+    if stats.knowledge_pack_hits > 0 || stats.recipe_hits > 0 {
+        println!(
+            "  Knowledge hits: packs {}, recipes {}",
+            stats.knowledge_pack_hits, stats.recipe_hits
+        );
     }
 
     // Tickets
     if let Ok(ticket_stats) = TicketTracker::for_user().stats() {
         if ticket_stats.total_tickets > 0 {
-            println!("  Tickets: {} total, {} resolved",
-                ticket_stats.total_tickets, ticket_stats.resolved_tickets);
+            println!(
+                "  Tickets: {} total, {} resolved",
+                ticket_stats.total_tickets, ticket_stats.resolved_tickets
+            );
         }
     }
 
     // === TEAMS ===
-    let active_teams: Vec<_> = stats.by_team.iter()
+    let active_teams: Vec<_> = stats
+        .by_team
+        .iter()
         .filter(|ts| ts.tickets_total > 0)
         .collect();
 
@@ -67,14 +124,22 @@ pub fn print_stats_display(stats: &GlobalStats) {
         println!("  {}", "-".repeat(36));
 
         for ts in active_teams.iter().take(6) {
-            let color = if ts.success_rate() >= 0.8 { colors::OK }
-                else if ts.success_rate() >= 0.5 { colors::WARN }
-                else { colors::ERR };
-            println!("  {:12} {:>6} {}{:>6}{} {:>7.0}",
+            let color = if ts.success_rate() >= 0.8 {
+                colors::OK
+            } else if ts.success_rate() >= 0.5 {
+                colors::WARN
+            } else {
+                colors::ERR
+            };
+            println!(
+                "  {:12} {:>6} {}{:>6}{} {:>7.0}",
                 ts.team,
                 ts.tickets_total,
-                color, ts.tickets_verified, colors::RESET,
-                ts.avg_reliability_score);
+                color,
+                ts.tickets_verified,
+                colors::RESET,
+                ts.avg_reliability_score
+            );
         }
     }
 
@@ -101,21 +166,38 @@ fn print_profile(agg: &AggregatedEvents) {
     let xp_for_next = xp_for_level(agg.level + 1);
     let xp_at_start = xp_for_level(agg.level);
     let progress = if xp_for_next > xp_at_start {
-        ((agg.xp.saturating_sub(xp_at_start)) as f32 / (xp_for_next - xp_at_start) as f32 * 100.0) as u8
+        ((agg.xp.saturating_sub(xp_at_start)) as f32 / (xp_for_next - xp_at_start) as f32 * 100.0)
+            as u8
     } else {
         100
     };
 
     let bar_width = 20;
     let filled = (progress as usize * bar_width) / 100;
-    let bar = format!("[{}{}{}{}]",
-        colors::OK, "█".repeat(filled),
-        colors::DIM, "░".repeat(bar_width - filled));
+    let bar = format!(
+        "[{}{}{}{}]",
+        colors::OK,
+        "█".repeat(filled),
+        colors::DIM,
+        "░".repeat(bar_width - filled)
+    );
 
     println!();
-    println!("  {}Level {}{} {}", colors::BOLD, agg.level, colors::RESET, bar);
+    println!(
+        "  {}Level {}{} {}",
+        colors::BOLD,
+        agg.level,
+        colors::RESET,
+        bar
+    );
     println!("  {}{}{}", colors::CYAN, agg.title, colors::RESET);
-    println!("  {}XP: {}/{}{}", colors::DIM, agg.xp, xp_for_next, colors::RESET);
+    println!(
+        "  {}XP: {}/{}{}",
+        colors::DIM,
+        agg.xp,
+        xp_for_next,
+        colors::RESET
+    );
 }
 
 /// Print top performers
@@ -134,10 +216,14 @@ fn print_top_performers() {
     println!("{}Top Performers{}", colors::BOLD, colors::RESET);
 
     for (i, (person_id, metrics)) in top.iter().enumerate() {
-        let name = person_id.split('_').last()
+        let name = person_id
+            .split('_')
+            .last()
             .map(|s| {
                 let mut c = s.chars();
-                c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+                c.next()
+                    .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+                    .unwrap_or_default()
             })
             .unwrap_or_else(|| person_id.to_string());
 
@@ -148,8 +234,13 @@ fn print_top_performers() {
             _ => "   ",
         };
 
-        println!("  {} {} ({} cases, {:.0}% success)",
-            medal, name, metrics.tickets_handled, metrics.success_rate());
+        println!(
+            "  {} {} ({} cases, {:.0}% success)",
+            medal,
+            name,
+            metrics.tickets_handled,
+            metrics.success_rate()
+        );
     }
 }
 
@@ -178,7 +269,11 @@ fn print_fun_facts(agg: &AggregatedEvents) {
 
     // Installation date
     if agg.first_event_ts > 0 {
-        println!("  Anna since: {} ({})", format_date(agg.first_event_ts), format_tenure(agg.first_event_ts));
+        println!(
+            "  Anna since: {} ({})",
+            format_date(agg.first_event_ts),
+            format_tenure(agg.first_event_ts)
+        );
     }
 
     // Streak

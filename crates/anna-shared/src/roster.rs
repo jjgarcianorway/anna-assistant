@@ -148,50 +148,176 @@ struct RosterEntry {
 /// v0.0.110: Added shift preferences for realistic scheduling.
 const ROSTER: &[RosterEntry] = &[
     // Network team - Michael works mornings, Ana is flexible (senior)
-    RosterEntry { team: Team::Network, tier: Tier::Junior, id: "network_jr", name: "Michael",
-        role: "Network Engineer", specs: &["TCP/IP", "DNS", "DHCP"], shift: Shift::Morning },
-    RosterEntry { team: Team::Network, tier: Tier::Senior, id: "network_sr", name: "Ana",
-        role: "Network Architect", specs: &["routing", "VPN", "firewall"], shift: Shift::Flexible },
+    RosterEntry {
+        team: Team::Network,
+        tier: Tier::Junior,
+        id: "network_jr",
+        name: "Michael",
+        role: "Network Engineer",
+        specs: &["TCP/IP", "DNS", "DHCP"],
+        shift: Shift::Morning,
+    },
+    RosterEntry {
+        team: Team::Network,
+        tier: Tier::Senior,
+        id: "network_sr",
+        name: "Ana",
+        role: "Network Architect",
+        specs: &["routing", "VPN", "firewall"],
+        shift: Shift::Flexible,
+    },
     // Desktop team - Sofia works days, Erik evenings
-    RosterEntry { team: Team::Desktop, tier: Tier::Junior, id: "desktop_jr", name: "Sofia",
-        role: "Desktop Administrator", specs: &["vim", "bash", "dotfiles"], shift: Shift::Day },
-    RosterEntry { team: Team::Desktop, tier: Tier::Senior, id: "desktop_sr", name: "Erik",
-        role: "Desktop Specialist", specs: &["X11", "Wayland", "DE config"], shift: Shift::Evening },
+    RosterEntry {
+        team: Team::Desktop,
+        tier: Tier::Junior,
+        id: "desktop_jr",
+        name: "Sofia",
+        role: "Desktop Administrator",
+        specs: &["vim", "bash", "dotfiles"],
+        shift: Shift::Day,
+    },
+    RosterEntry {
+        team: Team::Desktop,
+        tier: Tier::Senior,
+        id: "desktop_sr",
+        name: "Erik",
+        role: "Desktop Specialist",
+        specs: &["X11", "Wayland", "DE config"],
+        shift: Shift::Evening,
+    },
     // Hardware team - Nora mornings, Jon flexible
-    RosterEntry { team: Team::Hardware, tier: Tier::Junior, id: "hardware_jr", name: "Nora",
-        role: "Hardware Technician", specs: &["PCI", "USB", "audio"], shift: Shift::Morning },
-    RosterEntry { team: Team::Hardware, tier: Tier::Senior, id: "hardware_sr", name: "Jon",
-        role: "Hardware Engineer", specs: &["drivers", "firmware", "BIOS"], shift: Shift::Flexible },
+    RosterEntry {
+        team: Team::Hardware,
+        tier: Tier::Junior,
+        id: "hardware_jr",
+        name: "Nora",
+        role: "Hardware Technician",
+        specs: &["PCI", "USB", "audio"],
+        shift: Shift::Morning,
+    },
+    RosterEntry {
+        team: Team::Hardware,
+        tier: Tier::Senior,
+        id: "hardware_sr",
+        name: "Jon",
+        role: "Hardware Engineer",
+        specs: &["drivers", "firmware", "BIOS"],
+        shift: Shift::Flexible,
+    },
     // Storage team - Lars days, Ines evenings
-    RosterEntry { team: Team::Storage, tier: Tier::Junior, id: "storage_jr", name: "Lars",
-        role: "Storage Engineer", specs: &["ext4", "btrfs", "mount"], shift: Shift::Day },
-    RosterEntry { team: Team::Storage, tier: Tier::Senior, id: "storage_sr", name: "Ines",
-        role: "Storage Architect", specs: &["RAID", "LVM", "ZFS"], shift: Shift::Evening },
+    RosterEntry {
+        team: Team::Storage,
+        tier: Tier::Junior,
+        id: "storage_jr",
+        name: "Lars",
+        role: "Storage Engineer",
+        specs: &["ext4", "btrfs", "mount"],
+        shift: Shift::Day,
+    },
+    RosterEntry {
+        team: Team::Storage,
+        tier: Tier::Senior,
+        id: "storage_sr",
+        name: "Ines",
+        role: "Storage Architect",
+        specs: &["RAID", "LVM", "ZFS"],
+        shift: Shift::Evening,
+    },
     // Performance team - Kari evenings, Mateo flexible
-    RosterEntry { team: Team::Performance, tier: Tier::Junior, id: "perf_jr", name: "Kari",
-        role: "Performance Analyst", specs: &["htop", "memory", "CPU"], shift: Shift::Evening },
-    RosterEntry { team: Team::Performance, tier: Tier::Senior, id: "perf_sr", name: "Mateo",
-        role: "Performance Engineer", specs: &["profiling", "tuning", "cgroups"], shift: Shift::Flexible },
+    RosterEntry {
+        team: Team::Performance,
+        tier: Tier::Junior,
+        id: "perf_jr",
+        name: "Kari",
+        role: "Performance Analyst",
+        specs: &["htop", "memory", "CPU"],
+        shift: Shift::Evening,
+    },
+    RosterEntry {
+        team: Team::Performance,
+        tier: Tier::Senior,
+        id: "perf_sr",
+        name: "Mateo",
+        role: "Performance Engineer",
+        specs: &["profiling", "tuning", "cgroups"],
+        shift: Shift::Flexible,
+    },
     // Security team - Priya days, Oskar nights (security needs 24/7)
-    RosterEntry { team: Team::Security, tier: Tier::Junior, id: "security_jr", name: "Priya",
-        role: "Security Analyst", specs: &["permissions", "audit", "SELinux"], shift: Shift::Day },
-    RosterEntry { team: Team::Security, tier: Tier::Senior, id: "security_sr", name: "Oskar",
-        role: "Security Engineer", specs: &["encryption", "hardening", "CVE"], shift: Shift::Night },
+    RosterEntry {
+        team: Team::Security,
+        tier: Tier::Junior,
+        id: "security_jr",
+        name: "Priya",
+        role: "Security Analyst",
+        specs: &["permissions", "audit", "SELinux"],
+        shift: Shift::Day,
+    },
+    RosterEntry {
+        team: Team::Security,
+        tier: Tier::Senior,
+        id: "security_sr",
+        name: "Oskar",
+        role: "Security Engineer",
+        specs: &["encryption", "hardening", "CVE"],
+        shift: Shift::Night,
+    },
     // Services team - Hugo mornings, Mina flexible
-    RosterEntry { team: Team::Services, tier: Tier::Junior, id: "services_jr", name: "Hugo",
-        role: "Services Administrator", specs: &["systemd", "services", "cron"], shift: Shift::Morning },
-    RosterEntry { team: Team::Services, tier: Tier::Senior, id: "services_sr", name: "Mina",
-        role: "Services Architect", specs: &["containers", "orchestration", "init"], shift: Shift::Flexible },
+    RosterEntry {
+        team: Team::Services,
+        tier: Tier::Junior,
+        id: "services_jr",
+        name: "Hugo",
+        role: "Services Administrator",
+        specs: &["systemd", "services", "cron"],
+        shift: Shift::Morning,
+    },
+    RosterEntry {
+        team: Team::Services,
+        tier: Tier::Senior,
+        id: "services_sr",
+        name: "Mina",
+        role: "Services Architect",
+        specs: &["containers", "orchestration", "init"],
+        shift: Shift::Flexible,
+    },
     // Logs team - Daniel nights, Lea days
-    RosterEntry { team: Team::Logs, tier: Tier::Junior, id: "logs_jr", name: "Daniel",
-        role: "Logs Analyst", specs: &["journalctl", "syslog", "dmesg"], shift: Shift::Night },
-    RosterEntry { team: Team::Logs, tier: Tier::Senior, id: "logs_sr", name: "Lea",
-        role: "Logs Engineer", specs: &["log rotation", "ELK", "aggregation"], shift: Shift::Day },
+    RosterEntry {
+        team: Team::Logs,
+        tier: Tier::Junior,
+        id: "logs_jr",
+        name: "Daniel",
+        role: "Logs Analyst",
+        specs: &["journalctl", "syslog", "dmesg"],
+        shift: Shift::Night,
+    },
+    RosterEntry {
+        team: Team::Logs,
+        tier: Tier::Senior,
+        id: "logs_sr",
+        name: "Lea",
+        role: "Logs Engineer",
+        specs: &["log rotation", "ELK", "aggregation"],
+        shift: Shift::Day,
+    },
     // General team - always available for overflow
-    RosterEntry { team: Team::General, tier: Tier::Junior, id: "general_jr", name: "Tomas",
-        role: "Support Analyst", specs: &["triage", "documentation"], shift: Shift::Flexible },
-    RosterEntry { team: Team::General, tier: Tier::Senior, id: "general_sr", name: "Sara",
-        role: "Support Specialist", specs: &["escalation", "coordination"], shift: Shift::Flexible },
+    RosterEntry {
+        team: Team::General,
+        tier: Tier::Junior,
+        id: "general_jr",
+        name: "Tomas",
+        role: "Support Analyst",
+        specs: &["triage", "documentation"],
+        shift: Shift::Flexible,
+    },
+    RosterEntry {
+        team: Team::General,
+        tier: Tier::Senior,
+        id: "general_sr",
+        name: "Sara",
+        role: "Support Specialist",
+        specs: &["escalation", "coordination"],
+        shift: Shift::Flexible,
+    },
 ];
 
 /// Get the person profile for a given team and tier.
@@ -242,7 +368,8 @@ pub fn person_by_id(person_id: &str) -> Option<PersonProfile> {
 
 /// Get all persons for a team
 pub fn team_roster(team: Team) -> Vec<PersonProfile> {
-    ROSTER.iter()
+    ROSTER
+        .iter()
         .filter(|e| e.team == team)
         .map(|e| PersonProfile {
             person_id: e.id,
@@ -258,7 +385,8 @@ pub fn team_roster(team: Team) -> Vec<PersonProfile> {
 
 /// Get all persons in the roster
 pub fn all_persons() -> Vec<PersonProfile> {
-    ROSTER.iter()
+    ROSTER
+        .iter()
         .map(|e| PersonProfile {
             person_id: e.id,
             display_name: e.name,
@@ -286,8 +414,17 @@ mod tests {
 
     #[test]
     fn test_person_for_all_teams() {
-        for team in [Team::Desktop, Team::Storage, Team::Network, Team::Performance,
-                     Team::Services, Team::Security, Team::Hardware, Team::Logs, Team::General] {
+        for team in [
+            Team::Desktop,
+            Team::Storage,
+            Team::Network,
+            Team::Performance,
+            Team::Services,
+            Team::Security,
+            Team::Hardware,
+            Team::Logs,
+            Team::General,
+        ] {
             let jr = person_for(team, Tier::Junior);
             let sr = person_for(team, Tier::Senior);
             assert_ne!(jr.person_id, sr.person_id);
@@ -380,23 +517,53 @@ mod tests {
     #[test]
     fn golden_all_pinned_names() {
         // v0.0.42: Verify all pinned names
-        assert_eq!(person_for(Team::Network, Tier::Junior).display_name, "Michael");
+        assert_eq!(
+            person_for(Team::Network, Tier::Junior).display_name,
+            "Michael"
+        );
         assert_eq!(person_for(Team::Network, Tier::Senior).display_name, "Ana");
-        assert_eq!(person_for(Team::Desktop, Tier::Junior).display_name, "Sofia");
+        assert_eq!(
+            person_for(Team::Desktop, Tier::Junior).display_name,
+            "Sofia"
+        );
         assert_eq!(person_for(Team::Desktop, Tier::Senior).display_name, "Erik");
-        assert_eq!(person_for(Team::Hardware, Tier::Junior).display_name, "Nora");
+        assert_eq!(
+            person_for(Team::Hardware, Tier::Junior).display_name,
+            "Nora"
+        );
         assert_eq!(person_for(Team::Hardware, Tier::Senior).display_name, "Jon");
         assert_eq!(person_for(Team::Storage, Tier::Junior).display_name, "Lars");
         assert_eq!(person_for(Team::Storage, Tier::Senior).display_name, "Ines");
-        assert_eq!(person_for(Team::Performance, Tier::Junior).display_name, "Kari");
-        assert_eq!(person_for(Team::Performance, Tier::Senior).display_name, "Mateo");
-        assert_eq!(person_for(Team::Security, Tier::Junior).display_name, "Priya");
-        assert_eq!(person_for(Team::Security, Tier::Senior).display_name, "Oskar");
-        assert_eq!(person_for(Team::Services, Tier::Junior).display_name, "Hugo");
-        assert_eq!(person_for(Team::Services, Tier::Senior).display_name, "Mina");
+        assert_eq!(
+            person_for(Team::Performance, Tier::Junior).display_name,
+            "Kari"
+        );
+        assert_eq!(
+            person_for(Team::Performance, Tier::Senior).display_name,
+            "Mateo"
+        );
+        assert_eq!(
+            person_for(Team::Security, Tier::Junior).display_name,
+            "Priya"
+        );
+        assert_eq!(
+            person_for(Team::Security, Tier::Senior).display_name,
+            "Oskar"
+        );
+        assert_eq!(
+            person_for(Team::Services, Tier::Junior).display_name,
+            "Hugo"
+        );
+        assert_eq!(
+            person_for(Team::Services, Tier::Senior).display_name,
+            "Mina"
+        );
         assert_eq!(person_for(Team::Logs, Tier::Junior).display_name, "Daniel");
         assert_eq!(person_for(Team::Logs, Tier::Senior).display_name, "Lea");
-        assert_eq!(person_for(Team::General, Tier::Junior).display_name, "Tomas");
+        assert_eq!(
+            person_for(Team::General, Tier::Junior).display_name,
+            "Tomas"
+        );
         assert_eq!(person_for(Team::General, Tier::Senior).display_name, "Sara");
     }
 }

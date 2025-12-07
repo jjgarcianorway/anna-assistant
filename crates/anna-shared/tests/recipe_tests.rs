@@ -1,8 +1,8 @@
 //! Tests for recipe module including v0.0.27 config edit recipes.
 
 use anna_shared::recipe::{
-    compute_recipe_id, recipe_filename, should_persist_recipe, Recipe, RecipeAction,
-    RecipeKind, RecipeSignature, RecipeTarget, RollbackInfo,
+    compute_recipe_id, recipe_filename, should_persist_recipe, Recipe, RecipeAction, RecipeKind,
+    RecipeSignature, RecipeTarget, RollbackInfo,
 };
 use anna_shared::teams::Team;
 use anna_shared::ticket::RiskLevel;
@@ -150,7 +150,12 @@ fn test_recipe_target_expand_path() {
 
 #[test]
 fn test_config_edit_recipe_creation() {
-    let sig = RecipeSignature::new("desktop", "request", "VimConfig", "enable syntax highlighting");
+    let sig = RecipeSignature::new(
+        "desktop",
+        "request",
+        "VimConfig",
+        "enable syntax highlighting",
+    );
     let target = RecipeTarget::new("vim", "$HOME/.vimrc");
     let action = RecipeAction::EnsureLine {
         line: "syntax on".to_string(),
@@ -177,8 +182,8 @@ fn test_config_edit_recipe_with_rollback() {
         "Restore original .vimrc from backup",
     );
 
-    let recipe = Recipe::config_edit(sig, Team::Desktop, target, action, 90)
-        .with_rollback(rollback);
+    let recipe =
+        Recipe::config_edit(sig, Team::Desktop, target, action, 90).with_rollback(rollback);
 
     assert!(recipe.rollback.is_some());
     let rb = recipe.rollback.unwrap();
@@ -241,10 +246,7 @@ fn test_recipe_action_serialization() {
 
 #[test]
 fn test_rollback_info_creation() {
-    let rollback = RollbackInfo::new(
-        PathBuf::from("/backup/file.bak"),
-        "Restore from backup",
-    );
+    let rollback = RollbackInfo::new(PathBuf::from("/backup/file.bak"), "Restore from backup");
 
     assert_eq!(rollback.backup_path, PathBuf::from("/backup/file.bak"));
     assert_eq!(rollback.description, "Restore from backup");

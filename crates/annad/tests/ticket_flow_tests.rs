@@ -65,13 +65,13 @@ fn high_reliability_input() -> ReliabilityInput {
 fn low_reliability_input() -> ReliabilityInput {
     ReliabilityInput {
         planned_probes: 2,
-        succeeded_probes: 0,  // No probes succeeded
+        succeeded_probes: 0, // No probes succeeded
         failed_probes: 2,
         timed_out_probes: 0,
-        translator_confidence: 0.5,  // Low confidence
+        translator_confidence: 0.5, // Low confidence
         translator_used: true,
-        answer_grounded: false,  // Not grounded
-        no_invention: false,  // Invention detected (hard cap at 40)
+        answer_grounded: false, // Not grounded
+        no_invention: false,    // Invention detected (hard cap at 40)
         grounding_ratio: 0.0,
         total_claims: 0,
         evidence_required: true,
@@ -120,10 +120,19 @@ fn test_ticket_flow_high_reliability_verified_first_attempt() {
     );
 
     // ASSERT: Verified on first junior attempt
-    assert!(result.verified, "High-reliability answer should be verified");
+    assert!(
+        result.verified,
+        "High-reliability answer should be verified"
+    );
     assert_eq!(result.ticket.status, TicketStatus::Verified);
-    assert_eq!(result.ticket.junior_attempt, 1, "Should verify on first attempt");
-    assert_eq!(result.ticket.senior_attempt, 0, "Should not escalate to senior");
+    assert_eq!(
+        result.ticket.junior_attempt, 1,
+        "Should verify on first attempt"
+    );
+    assert_eq!(
+        result.ticket.senior_attempt, 0,
+        "Should not escalate to senior"
+    );
     assert!(result.score >= 80, "Score should be >= 80");
 }
 
@@ -163,10 +172,19 @@ fn test_ticket_flow_low_reliability_exhausts_junior() {
     );
 
     // ASSERT: Exhausted all rounds, escalated, and failed
-    assert!(!result.verified, "Low-reliability answer should not be verified");
+    assert!(
+        !result.verified,
+        "Low-reliability answer should not be verified"
+    );
     assert_eq!(result.ticket.status, TicketStatus::Failed);
-    assert_eq!(result.ticket.junior_attempt, 3, "Should exhaust all junior rounds");
-    assert_eq!(result.ticket.senior_attempt, 1, "Should attempt senior escalation");
+    assert_eq!(
+        result.ticket.junior_attempt, 3,
+        "Should exhaust all junior rounds"
+    );
+    assert_eq!(
+        result.ticket.senior_attempt, 1,
+        "Should attempt senior escalation"
+    );
 }
 
 // =============================================================================
@@ -200,19 +218,31 @@ fn test_ticket_flow_transcript_events() {
     );
 
     // ASSERT: Transcript contains ticket events
-    let has_ticket_created = transcript.events.iter().any(|e| {
-        matches!(&e.kind, TranscriptEventKind::TicketCreated { .. })
-    });
-    let has_junior_review = transcript.events.iter().any(|e| {
-        matches!(&e.kind, TranscriptEventKind::JuniorReview { .. })
-    });
-    let has_status_change = transcript.events.iter().any(|e| {
-        matches!(&e.kind, TranscriptEventKind::TicketStatusChanged { .. })
-    });
+    let has_ticket_created = transcript
+        .events
+        .iter()
+        .any(|e| matches!(&e.kind, TranscriptEventKind::TicketCreated { .. }));
+    let has_junior_review = transcript
+        .events
+        .iter()
+        .any(|e| matches!(&e.kind, TranscriptEventKind::JuniorReview { .. }));
+    let has_status_change = transcript
+        .events
+        .iter()
+        .any(|e| matches!(&e.kind, TranscriptEventKind::TicketStatusChanged { .. }));
 
-    assert!(has_ticket_created, "Transcript should have TicketCreated event");
-    assert!(has_junior_review, "Transcript should have JuniorReview event");
-    assert!(has_status_change, "Transcript should have status change event");
+    assert!(
+        has_ticket_created,
+        "Transcript should have TicketCreated event"
+    );
+    assert!(
+        has_junior_review,
+        "Transcript should have JuniorReview event"
+    );
+    assert!(
+        has_status_change,
+        "Transcript should have status change event"
+    );
 }
 
 // =============================================================================
@@ -256,20 +286,16 @@ fn test_ticket_evidence_kinds_populated() {
 
 #[test]
 fn test_ticket_bounded_iteration() {
-    let ticket = make_translator_ticket(
-        SpecialistDomain::System,
-        QueryIntent::Question,
-        0.5,
-        vec![],
-    );
+    let ticket =
+        make_translator_ticket(SpecialistDomain::System, QueryIntent::Question, 0.5, vec![]);
     let reliability = low_reliability_input();
     let mut transcript = Transcript::new();
 
     // Test with custom limits
     let config = TicketServiceConfig {
         reliability_threshold: 80,
-        junior_rounds_max: 2,  // Only 2 junior rounds
-        senior_rounds_max: 0,  // No senior escalation
+        junior_rounds_max: 2, // Only 2 junior rounds
+        senior_rounds_max: 0, // No senior escalation
     };
 
     let result = run_ticket_loop(
@@ -286,8 +312,14 @@ fn test_ticket_bounded_iteration() {
     );
 
     // ASSERT: Bounded by config limits
-    assert_eq!(result.ticket.junior_attempt, 2, "Should stop at junior_rounds_max");
-    assert_eq!(result.ticket.senior_attempt, 0, "Should not escalate when senior_rounds_max=0");
+    assert_eq!(
+        result.ticket.junior_attempt, 2,
+        "Should stop at junior_rounds_max"
+    );
+    assert_eq!(
+        result.ticket.senior_attempt, 0,
+        "Should not escalate when senior_rounds_max=0"
+    );
     assert_eq!(result.ticket.status, TicketStatus::Failed);
 }
 

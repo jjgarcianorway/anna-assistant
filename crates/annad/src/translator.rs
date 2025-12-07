@@ -12,17 +12,17 @@ use crate::ollama;
 
 /// Probe IDs for translator to select from
 pub const PROBE_IDS: &[&str] = &[
-    "top_memory",       // ps aux --sort=-%mem
-    "top_cpu",          // ps aux --sort=-%cpu
-    "cpu_info",         // lscpu
-    "memory_info",      // free -h
-    "disk_usage",       // df -h
-    "block_devices",    // lsblk
-    "network_addrs",    // ip addr show
-    "network_routes",   // ip route
-    "listening_ports",  // ss -tulpn
-    "failed_services",  // systemctl --failed
-    "system_logs",      // journalctl -p warning..alert -n 200 --no-pager
+    "top_memory",      // ps aux --sort=-%mem
+    "top_cpu",         // ps aux --sort=-%cpu
+    "cpu_info",        // lscpu
+    "memory_info",     // free -h
+    "disk_usage",      // df -h
+    "block_devices",   // lsblk
+    "network_addrs",   // ip addr show
+    "network_routes",  // ip route
+    "listening_ports", // ss -tulpn
+    "failed_services", // systemctl --failed
+    "system_logs",     // journalctl -p warning..alert -n 200 --no-pager
     // v0.0.35: SystemTriage fast-path probes
     "journal_errors",   // journalctl -p 3 -b --no-pager (errors only)
     "journal_warnings", // journalctl -p 4 -b --no-pager (warnings only)
@@ -150,6 +150,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "printer_status" => Some("lpstat -p -d 2>/dev/null || echo 'No printers configured'"),
         "audio_devices" => Some("pactl list sinks short 2>/dev/null && pactl list sources short 2>/dev/null || aplay -l 2>/dev/null || echo 'Audio devices not available'"),
         "systemd_paths" => Some("systemctl list-units --type=path --no-pager --no-legend | head -20"),
+        // v0.0.136: System configuration probes
+        "systemctl_mask" => Some("systemctl list-unit-files --state=masked --no-pager --no-legend | head -20"),
+        "hosts_file" => Some("cat /etc/hosts 2>/dev/null | grep -v '^#' | grep -v '^$' | head -30"),
+        "fstab_entries" => Some("cat /etc/fstab 2>/dev/null | grep -v '^#' | grep -v '^$'"),
+        "sysctl_settings" => Some("sysctl -a 2>/dev/null | head -40 || cat /etc/sysctl.conf 2>/dev/null"),
+        "loginctl_sessions" => Some("loginctl list-sessions --no-pager --no-legend 2>/dev/null || echo 'loginctl not available'"),
         _ => None,
     }
 }
@@ -182,7 +188,10 @@ impl TranslatorInput {
     /// Create minimal input for translator
     pub fn new(query: &str, cpu_cores: u32, ram_gb: f64, has_gpu: bool) -> Self {
         let gpu_str = if has_gpu { "yes" } else { "none" };
-        let hw_summary = format!("CPU cores: {}, RAM: {:.0}GB, GPU: {}", cpu_cores, ram_gb, gpu_str);
+        let hw_summary = format!(
+            "CPU cores: {}, RAM: {:.0}GB, GPU: {}",
+            cpu_cores, ram_gb, gpu_str
+        );
         Self {
             query: query.to_string(),
             hw_summary,
@@ -220,7 +229,10 @@ Output raw JSON only. No markdown. No explanation."#,
 /// Build minimal translator request (< 2KB)
 pub fn build_translator_request(input: &TranslatorInput) -> String {
     let prompt = build_translator_prompt();
-    format!("{}\nHW: {}\nQuery: {}", prompt, input.hw_summary, input.query)
+    format!(
+        "{}\nHW: {}\nQuery: {}",
+        prompt, input.hw_summary, input.query
+    )
 }
 
 /// Parse intent string to enum
@@ -346,26 +358,37 @@ fn parse_translator_response(response: &str) -> Result<TranslatorTicket, String>
 fn extract_json(response: &str) -> Result<String, String> {
     let t = response.trim();
     // Direct JSON
-    if t.starts_with('{') && t.ends_with('}') { return Ok(t.to_string()); }
+    if t.starts_with('{') && t.ends_with('}') {
+        return Ok(t.to_string());
+    }
     // Markdown code block
     if let Some(s) = t.find("```json") {
         if let Some(e) = t[s..].find("```\n").or(t[s..].rfind("```")) {
-            let js = s + 7; let je = s + e;
-            if js < je { return Ok(t[js..je].trim().to_string()); }
+            let js = s + 7;
+            let je = s + e;
+            if js < je {
+                return Ok(t[js..je].trim().to_string());
+            }
         }
     }
     // Plain code block
     if let Some(s) = t.find("```") {
-        if let Some(e) = t[s+3..].find("```") {
-            let json_str = t[s+3..s+3+e].lines()
+        if let Some(e) = t[s + 3..].find("```") {
+            let json_str = t[s + 3..s + 3 + e]
+                .lines()
                 .skip_while(|l| !l.trim().starts_with('{'))
-                .collect::<Vec<_>>().join("\n");
-            if !json_str.is_empty() { return Ok(json_str); }
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !json_str.is_empty() {
+                return Ok(json_str);
+            }
         }
     }
     // Find JSON anywhere
     if let (Some(s), Some(e)) = (t.find('{'), t.rfind('}')) {
-        if s < e { return Ok(t[s..=e].to_string()); }
+        if s < e {
+            return Ok(t[s..=e].to_string());
+        }
     }
     Err("No valid JSON found".to_string())
 }
@@ -401,37 +424,77 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
             intent: QueryIntent::Question,
             domain: SpecialistDomain::System,
             entities: vec![],
-            needs_probes: vec!["memory_info".to_string(), "disk_usage".to_string(), "cpu_info".to_string(), "failed_services".to_string()],
+            needs_probes: vec![
+                "memory_info".to_string(),
+                "disk_usage".to_string(),
+                "cpu_info".to_string(),
+                "failed_services".to_string(),
+            ],
             clarification_question: None,
             confidence: 0.8, // Higher confidence for health queries
             answer_contract: Some(AnswerContract::from_query(query)), // v0.0.74
         };
     }
 
-    let domain = if q.contains("network") || q.contains("ip ") || q.contains("interface") || q.contains("dns") || q.contains("port") || q.contains("route") {
+    let domain = if q.contains("network")
+        || q.contains("ip ")
+        || q.contains("interface")
+        || q.contains("dns")
+        || q.contains("port")
+        || q.contains("route")
+    {
         SpecialistDomain::Network
-    } else if q.contains("disk") || q.contains("storage") || q.contains("space") || q.contains("mount") || q.contains("partition") {
+    } else if q.contains("disk")
+        || q.contains("storage")
+        || q.contains("space")
+        || q.contains("mount")
+        || q.contains("partition")
+    {
         SpecialistDomain::Storage
-    } else if q.contains("security") || q.contains("firewall") || q.contains("permission") || q.contains("ssh") {
+    } else if q.contains("security")
+        || q.contains("firewall")
+        || q.contains("permission")
+        || q.contains("ssh")
+    {
         SpecialistDomain::Security
-    } else if q.contains("package") || q.contains("install") || q.contains("pacman") || q.contains("apt") {
+    } else if q.contains("package")
+        || q.contains("install")
+        || q.contains("pacman")
+        || q.contains("apt")
+    {
         SpecialistDomain::Packages
     } else {
         SpecialistDomain::System
     };
 
-    let intent = if q.contains("install") || q.contains("start") || q.contains("stop") || q.contains("configure") {
+    let intent = if q.contains("install")
+        || q.contains("start")
+        || q.contains("stop")
+        || q.contains("configure")
+    {
         QueryIntent::Request
     } else if q.contains("why") || q.contains("debug") || q.contains("fix") {
         QueryIntent::Investigate
-    } else { QueryIntent::Question };
+    } else {
+        QueryIntent::Question
+    };
 
     let mut needs_probes = Vec::new();
-    if q.contains("memory") || q.contains("ram") { needs_probes.extend(["top_memory", "memory_info"].map(String::from)); }
-    if q.contains("cpu") { needs_probes.extend(["top_cpu", "cpu_info"].map(String::from)); }
-    if q.contains("disk") || q.contains("space") { needs_probes.push("disk_usage".to_string()); }
-    if q.contains("network") || q.contains("ip") { needs_probes.push("network_addrs".to_string()); }
-    if q.contains("port") || q.contains("listen") { needs_probes.push("listening_ports".to_string()); }
+    if q.contains("memory") || q.contains("ram") {
+        needs_probes.extend(["top_memory", "memory_info"].map(String::from));
+    }
+    if q.contains("cpu") {
+        needs_probes.extend(["top_cpu", "cpu_info"].map(String::from));
+    }
+    if q.contains("disk") || q.contains("space") {
+        needs_probes.push("disk_usage".to_string());
+    }
+    if q.contains("network") || q.contains("ip") {
+        needs_probes.push("network_addrs".to_string());
+    }
+    if q.contains("port") || q.contains("listen") {
+        needs_probes.push("listening_ports".to_string());
+    }
 
     TranslatorTicket {
         intent,
@@ -446,8 +509,24 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
 
 /// Strip greetings for fallback translator
 fn strip_greetings_for_fallback(q: &str) -> String {
-    let patterns = ["hello", "hi ", "hey ", "good morning", "good afternoon", "good evening",
-        "anna", ":)", ":(", ";)", ":d", ":p", "!", "?", "…", "..."];
+    let patterns = [
+        "hello",
+        "hi ",
+        "hey ",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "anna",
+        ":)",
+        ":(",
+        ";)",
+        ":d",
+        ":p",
+        "!",
+        "?",
+        "…",
+        "...",
+    ];
     let mut result = q.to_string();
     for p in patterns {
         result = result.replace(p, " ");

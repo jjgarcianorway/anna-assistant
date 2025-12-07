@@ -111,7 +111,12 @@ impl TransactionResult {
         }
     }
 
-    fn failed(tx_id: String, results: Vec<ChangeResult>, rolled_back: usize, error: String) -> Self {
+    fn failed(
+        tx_id: String,
+        results: Vec<ChangeResult>,
+        rolled_back: usize,
+        error: String,
+    ) -> Self {
         Self {
             tx_id,
             success: false,
@@ -132,9 +137,7 @@ pub fn apply_transaction(tx: &ChangeTransaction) -> TransactionResult {
     }
 
     if tx.is_noop() {
-        let results: Vec<ChangeResult> = tx.changes.iter()
-            .map(|_| ChangeResult::noop())
-            .collect();
+        let results: Vec<ChangeResult> = tx.changes.iter().map(|_| ChangeResult::noop()).collect();
         return TransactionResult::success(tx.id.clone(), results);
     }
 

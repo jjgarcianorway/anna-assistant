@@ -57,12 +57,19 @@ pub struct RecipeTarget {
 
 impl RecipeTarget {
     pub fn new(app_id: impl Into<String>, config_path: impl Into<String>) -> Self {
-        Self { app_id: app_id.into(), config_path_template: config_path.into() }
+        Self {
+            app_id: app_id.into(),
+            config_path_template: config_path.into(),
+        }
     }
     /// Expand config path template with environment variables
     pub fn expand_path(&self) -> PathBuf {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        PathBuf::from(self.config_path_template.replace("$HOME", &home).replace("~", &home))
+        PathBuf::from(
+            self.config_path_template
+                .replace("$HOME", &home)
+                .replace("~", &home),
+        )
     }
 }
 
@@ -95,7 +102,11 @@ pub struct RollbackInfo {
 
 impl RollbackInfo {
     pub fn new(backup_path: PathBuf, description: impl Into<String>) -> Self {
-        Self { backup_path, description: description.into(), tested: false }
+        Self {
+            backup_path,
+            description: description.into(),
+            tested: false,
+        }
     }
 }
 
@@ -109,8 +120,18 @@ pub struct RecipeSignature {
 }
 
 impl RecipeSignature {
-    pub fn new(domain: impl Into<String>, intent: impl Into<String>, route_class: impl Into<String>, query: &str) -> Self {
-        Self { domain: domain.into(), intent: intent.into(), route_class: route_class.into(), query_pattern: query.to_lowercase().trim().to_string() }
+    pub fn new(
+        domain: impl Into<String>,
+        intent: impl Into<String>,
+        route_class: impl Into<String>,
+        query: &str,
+    ) -> Self {
+        Self {
+            domain: domain.into(),
+            intent: intent.into(),
+            route_class: route_class.into(),
+            query_pattern: query.to_lowercase().trim().to_string(),
+        }
     }
     pub fn hash_id(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
@@ -213,16 +234,22 @@ impl ClarifyPrereq {
 
     /// Create prereq for editor selection
     pub fn editor() -> Self {
-        Self::new("preferred_editor", "editor_select")
-            .with_verify("command -v {}")
+        Self::new("preferred_editor", "editor_select").with_verify("command -v {}")
     }
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 impl RecipeSlot {
     pub fn new(name: &str, question_id: &str) -> Self {
-        Self { name: name.to_string(), question_id: question_id.to_string(), required: true, verify_type: String::new() }
+        Self {
+            name: name.to_string(),
+            question_id: question_id.to_string(),
+            required: true,
+            verify_type: String::new(),
+        }
     }
 
     pub fn with_verify(mut self, verify_type: &str) -> Self {
@@ -546,7 +573,9 @@ pub fn search_recipes_by_keywords(keywords: &[&str], limit: usize) -> Vec<Recipe
 
     // Sort by score desc, then by id asc for determinism
     matches.sort_by(|a, b| {
-        b.score.cmp(&a.score).then_with(|| a.recipe.id.cmp(&b.recipe.id))
+        b.score
+            .cmp(&a.score)
+            .then_with(|| a.recipe.id.cmp(&b.recipe.id))
     });
 
     matches.truncate(limit);
@@ -565,7 +594,8 @@ fn score_recipe(recipe: &Recipe, keywords: &[&str]) -> Option<RecipeMatch> {
         recipe.signature.domain,
         recipe.signature.route_class,
         recipe.answer_template
-    ).to_lowercase();
+    )
+    .to_lowercase();
 
     // Score each keyword
     for &kw in keywords {
@@ -594,7 +624,11 @@ fn score_recipe(recipe: &Recipe, keywords: &[&str]) -> Option<RecipeMatch> {
     }
 
     if score > 0 && !matched.is_empty() {
-        Some(RecipeMatch { recipe: recipe.clone(), score, matched_keywords: matched })
+        Some(RecipeMatch {
+            recipe: recipe.clone(),
+            score,
+            matched_keywords: matched,
+        })
     } else {
         None
     }

@@ -376,6 +376,9 @@ pub struct ServiceDeskResult {
     /// v0.0.96: Proposed config change requiring user confirmation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proposed_change: Option<crate::change::ChangePlan>,
+    /// v0.0.136+: Proposed config changes (supports multi-line/multi-step)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proposed_changes: Vec<crate::change::ChangePlan>,
     /// v0.0.103: Anna asks for feedback when uncertain about recipe answer
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_request: Option<FeedbackRequest>,

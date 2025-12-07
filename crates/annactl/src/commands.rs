@@ -12,8 +12,8 @@ use std::time::{Duration, Instant};
 
 use crate::client::{AnnadClient, StreamingClient};
 use crate::display::{
-    print_progress_event, print_stats_display,
-    print_status_display_with_daemon_info, show_bootstrap_progress,
+    print_progress_event, print_stats_display, print_status_display_with_daemon_info,
+    show_bootstrap_progress,
 };
 use crate::greeting;
 use crate::transcript_render;
@@ -31,9 +31,10 @@ pub async fn handle_status(debug: bool) -> Result<()> {
 
     // Fetch both status and daemon info for version comparison
     let status = client.status().await?;
+    let snapshot = client.status_snapshot().await.ok();
     let daemon_info = client.get_daemon_info().await.ok();
 
-    print_status_display_with_daemon_info(&status, daemon_info.as_ref(), debug);
+    print_status_display_with_daemon_info(&status, snapshot.as_ref(), daemon_info.as_ref(), debug);
     Ok(())
 }
 
@@ -86,8 +87,35 @@ pub async fn handle_request(prompt: &str, show_internal: bool) -> Result<()> {
     transcript_render::render_with_options(&result, debug_mode, show_internal);
 
     // v0.0.96: Handle proposed config changes
-    if let Some(ref plan) = result.proposed_change {
-        handle_proposed_change(plan).await?;
+    let proposed: Vec<_> = if !result.proposed_changes.is_empty() {
+        result.proposed_changes.clone()
+    } else {
+        result.proposed_change.iter().cloned().collect()
+    };
+    if !proposed.is_empty() {
+        let summary = handle_proposed_change(&proposed).await?;
+        if summary.failed {
+            println!(
+                "{}Anna: config application hit errors; review details above.{}",
+                colors::ERR,
+                colors::RESET
+            );
+        } else if summary.applied > 0 {
+            println!(
+                "{}Anna: config applied ({} step{}, {} noop).{}",
+                colors::OK,
+                summary.applied,
+                if summary.applied == 1 { "" } else { "s" },
+                summary.noop,
+                colors::RESET
+            );
+        } else {
+            println!(
+                "{}Anna: nothing to change; already configured.{}",
+                colors::DIM,
+                colors::RESET
+            );
+        }
     }
 
     // v0.0.103: Handle feedback request from Anna
@@ -117,8 +145,11 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
 
     // v0.0.83: Show internal mode indicator
     if show_internal {
-        println!("{}[internal mode]{} Showing IT department communications\n",
-            colors::WARN, colors::RESET);
+        println!(
+            "{}[internal mode]{} Showing IT department communications\n",
+            colors::WARN,
+            colors::RESET
+        );
     }
 
     // Check if LLM needs bootstrap
@@ -189,7 +220,11 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                 // For now, clear state
                 pending_clarification = None;
             } else {
-                println!("{}Invalid selection. Try again or type 'cancel'.{}", colors::WARN, colors::RESET);
+                println!(
+                    "{}Invalid selection. Try again or type 'cancel'.{}",
+                    colors::WARN,
+                    colors::RESET
+                );
             }
             continue;
         }
@@ -230,9 +265,40 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                         transcript_render::render_with_options(&result, debug_mode, show_internal);
 
                         // v0.0.96: Handle proposed config changes
-                        if let Some(ref plan) = result.proposed_change {
-                            if let Err(e) = handle_proposed_change(plan).await {
-                                eprintln!("{}Error:{} {}", colors::ERR, colors::RESET, e);
+                        let proposed: Vec<_> = if !result.proposed_changes.is_empty() {
+                            result.proposed_changes.clone()
+                        } else {
+                            result.proposed_change.iter().cloned().collect()
+                        };
+                        if !proposed.is_empty() {
+                            match handle_proposed_change(&proposed).await {
+                                Ok(summary) => {
+                                    if summary.failed {
+                                        println!(
+                                            "{}Anna: config application hit errors; review details above.{}",
+                                            colors::ERR,
+                                            colors::RESET
+                                        );
+                                    } else if summary.applied > 0 {
+                                        println!(
+                                            "{}Anna: config applied ({} step{}, {} noop).{}",
+                                            colors::OK,
+                                            summary.applied,
+                                            if summary.applied == 1 { "" } else { "s" },
+                                            summary.noop,
+                                            colors::RESET
+                                        );
+                                    } else {
+                                        println!(
+                                            "{}Anna: nothing to change; already configured.{}",
+                                            colors::DIM,
+                                            colors::RESET
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("{}Error:{} {}", colors::ERR, colors::RESET, e);
+                                }
                             }
                         }
 
@@ -282,7 +348,11 @@ fn clear_spinner() {
 /// Print REPL help
 fn print_repl_help() {
     println!();
-    println!("{}Just ask me anything about your system!{}", colors::DIM, colors::RESET);
+    println!(
+        "{}Just ask me anything about your system!{}",
+        colors::DIM,
+        colors::RESET
+    );
     println!();
     println!("{}Examples:{}", colors::BOLD, colors::RESET);
     println!("  what cpu do i have?");
@@ -291,7 +361,11 @@ fn print_repl_help() {
     println!("  who is on shift?");
     println!("  show my tickets");
     println!();
-    println!("{}Commands:{} exit, status, help", colors::DIM, colors::RESET);
+    println!(
+        "{}Commands:{} exit, status, help",
+        colors::DIM,
+        colors::RESET
+    );
     println!();
 }
 
@@ -302,10 +376,17 @@ pub use crate::change_commands::{handle_history, handle_undo};
 /// v0.0.103: Handle feedback request from Anna
 /// When Anna is uncertain about a recipe answer, she asks the user for feedback
 async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback::FeedbackRequest) {
-    use anna_shared::recipe_feedback::{apply_feedback, log_feedback, FeedbackRating, RecipeFeedback};
+    use anna_shared::recipe_feedback::{
+        apply_feedback, log_feedback, FeedbackRating, RecipeFeedback,
+    };
 
     println!();
-    println!("{}[feedback]{} {}", colors::DIM, colors::RESET, feedback_req.question);
+    println!(
+        "{}[feedback]{} {}",
+        colors::DIM,
+        colors::RESET,
+        feedback_req.question
+    );
     print!("> ");
     let _ = io::stdout().flush();
 
@@ -321,7 +402,11 @@ async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback::Fe
         "partial" | "meh" | "ok" => Some(FeedbackRating::Partial),
         "" | "skip" => None, // User skipped feedback
         _ => {
-            println!("{}Skipping feedback (unrecognized input){}", colors::DIM, colors::RESET);
+            println!(
+                "{}Skipping feedback (unrecognized input){}",
+                colors::DIM,
+                colors::RESET
+            );
             None
         }
     };
@@ -333,7 +418,10 @@ async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback::Fe
         if let Some(result) = apply_feedback(&feedback) {
             println!(
                 "{}Thanks!{} Recipe confidence adjusted ({} → {})",
-                colors::OK, colors::RESET, result.previous_score, result.new_score
+                colors::OK,
+                colors::RESET,
+                result.previous_score,
+                result.new_score
             );
         } else {
             println!("{}Thanks for the feedback!{}", colors::OK, colors::RESET);
@@ -366,7 +454,10 @@ pub async fn handle_reset() -> Result<()> {
     println!("This will clear all learned data:");
     println!("  {} Ledger (installation history)", symbols::ARROW);
     println!("  {} Recipes (learned query patterns)", symbols::ARROW);
-    println!("  {} Helpers tracking (installed dependencies)", symbols::ARROW);
+    println!(
+        "  {} Helpers tracking (installed dependencies)",
+        symbols::ARROW
+    );
     println!();
     print!("Continue? [y/N] ");
     io::stdout().flush()?;
@@ -412,16 +503,30 @@ pub async fn handle_uninstall() -> Result<()> {
 
     println!("{}Plan:{}", colors::BOLD, colors::RESET);
     println!("  {} stop + disable: annad.service", symbols::ARROW);
-    println!("  {} remove: /usr/local/bin/annactl, /usr/local/bin/annad", symbols::ARROW);
-    println!("  {} remove: /etc/anna, /var/lib/anna, /var/log/anna", symbols::ARROW);
+    println!(
+        "  {} remove: /usr/local/bin/annactl, /usr/local/bin/annad",
+        symbols::ARROW
+    );
+    println!(
+        "  {} remove: /etc/anna, /var/lib/anna, /var/log/anna",
+        symbols::ARROW
+    );
     println!();
 
     if !uninstall_info.models.is_empty() {
-        println!("{}Helpers installed by Anna:{}", colors::BOLD, colors::RESET);
+        println!(
+            "{}Helpers installed by Anna:{}",
+            colors::BOLD,
+            colors::RESET
+        );
         if uninstall_info.ollama_installed {
             println!("  {} ollama", symbols::ARROW);
         }
-        println!("  {} models: {}", symbols::ARROW, uninstall_info.models.join(", "));
+        println!(
+            "  {} models: {}",
+            symbols::ARROW,
+            uninstall_info.models.join(", ")
+        );
         println!();
     }
 
@@ -459,7 +564,12 @@ pub async fn handle_uninstall() -> Result<()> {
                 println!("    {}{}{}", colors::OK, symbols::OK, colors::RESET);
             }
             Ok(s) => {
-                println!("    {}Warning: exited with {}{}", colors::WARN, s, colors::RESET);
+                println!(
+                    "    {}Warning: exited with {}{}",
+                    colors::WARN,
+                    s,
+                    colors::RESET
+                );
             }
             Err(e) => {
                 println!("    {}Error: {}{}", colors::ERR, e, colors::RESET);

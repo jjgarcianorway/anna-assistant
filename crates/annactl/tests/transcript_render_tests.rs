@@ -4,7 +4,9 @@
 //! the unified answer source logic using FinalAnswer as the contract.
 
 use anna_shared::rpc::{EvidenceBlock, ReliabilitySignals, ServiceDeskResult, SpecialistDomain};
-use anna_shared::transcript::{Actor, StageOutcome, Transcript, TranscriptEvent, TranscriptEventKind};
+use anna_shared::transcript::{
+    Actor, StageOutcome, Transcript, TranscriptEvent, TranscriptEventKind,
+};
 
 /// GUARDRAIL: Exactly one [anna] block per request in debug mode.
 /// FinalAnswer kind is THE contract for answer source.
@@ -12,7 +14,12 @@ use anna_shared::transcript::{Actor, StageOutcome, Transcript, TranscriptEvent, 
 fn test_single_anna_output_with_final_answer_in_transcript() {
     // Simulate transcript with FinalAnswer event present
     let mut transcript = Transcript::new();
-    transcript.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "test query"));
+    transcript.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "test query",
+    ));
     transcript.push(TranscriptEvent::final_answer(100, "test answer"));
 
     // Count FinalAnswer events in transcript
@@ -23,7 +30,11 @@ fn test_single_anna_output_with_final_answer_in_transcript() {
         .collect();
 
     // If transcript has FinalAnswer, render_debug should NOT print fallback block
-    assert_eq!(final_answers.len(), 1, "Should have exactly one FinalAnswer");
+    assert_eq!(
+        final_answers.len(),
+        1,
+        "Should have exactly one FinalAnswer"
+    );
 }
 
 /// GUARDRAIL: Exactly one [anna] block when no FinalAnswer in transcript.
@@ -31,9 +42,18 @@ fn test_single_anna_output_with_final_answer_in_transcript() {
 fn test_single_anna_output_without_final_answer_in_transcript() {
     // Simulate transcript without FinalAnswer (fallback case)
     let mut transcript = Transcript::new();
-    transcript.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "test query"));
+    transcript.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "test query",
+    ));
     transcript.push(TranscriptEvent::stage_start(10, "translator"));
-    transcript.push(TranscriptEvent::stage_end(50, "translator", StageOutcome::Ok));
+    transcript.push(TranscriptEvent::stage_end(
+        50,
+        "translator",
+        StageOutcome::Ok,
+    ));
 
     // Count FinalAnswer events in transcript
     let final_answers: Vec<_> = transcript
@@ -61,15 +81,21 @@ fn test_anna_output_invariant_all_paths() {
 
     for (desc, has_final_answer) in test_cases {
         let mut transcript = Transcript::new();
-        transcript.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "query"));
+        transcript.push(TranscriptEvent::message(
+            0,
+            Actor::You,
+            Actor::Anna,
+            "query",
+        ));
 
         if has_final_answer {
             transcript.push(TranscriptEvent::final_answer(100, "answer"));
         }
 
-        let final_answer_in_transcript = transcript.events.iter().any(|e| {
-            matches!(&e.kind, TranscriptEventKind::FinalAnswer { .. })
-        });
+        let final_answer_in_transcript = transcript
+            .events
+            .iter()
+            .any(|e| matches!(&e.kind, TranscriptEventKind::FinalAnswer { .. }));
 
         // Invariant: total Anna outputs = 1
         // Either from transcript FinalAnswer OR from fallback, never both
@@ -89,19 +115,50 @@ fn test_render_handles_mixed_event_types_gracefully() {
     let mut transcript = Transcript::new();
 
     // User message
-    transcript.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "query"));
+    transcript.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "query",
+    ));
 
     // Stage events
     transcript.push(TranscriptEvent::stage_start(10, "translator"));
-    transcript.push(TranscriptEvent::stage_end(50, "translator", StageOutcome::Ok));
-    transcript.push(TranscriptEvent::stage_end(60, "specialist", StageOutcome::Deterministic));
-    transcript.push(TranscriptEvent::stage_end(70, "probes", StageOutcome::Timeout));
-    transcript.push(TranscriptEvent::stage_end(80, "supervisor", StageOutcome::Error));
-    transcript.push(TranscriptEvent::stage_end(90, "unknown_stage", StageOutcome::Skipped));
+    transcript.push(TranscriptEvent::stage_end(
+        50,
+        "translator",
+        StageOutcome::Ok,
+    ));
+    transcript.push(TranscriptEvent::stage_end(
+        60,
+        "specialist",
+        StageOutcome::Deterministic,
+    ));
+    transcript.push(TranscriptEvent::stage_end(
+        70,
+        "probes",
+        StageOutcome::Timeout,
+    ));
+    transcript.push(TranscriptEvent::stage_end(
+        80,
+        "supervisor",
+        StageOutcome::Error,
+    ));
+    transcript.push(TranscriptEvent::stage_end(
+        90,
+        "unknown_stage",
+        StageOutcome::Skipped,
+    ));
 
     // Probe events
     transcript.push(TranscriptEvent::probe_start(100, "test_probe", "echo test"));
-    transcript.push(TranscriptEvent::probe_end(150, "test_probe", 0, 50, Some("output".into())));
+    transcript.push(TranscriptEvent::probe_end(
+        150,
+        "test_probe",
+        0,
+        50,
+        Some("output".into()),
+    ));
     transcript.push(TranscriptEvent::probe_end(160, "failed_probe", 1, 30, None));
 
     // Notes
@@ -153,7 +210,13 @@ fn test_render_handles_mixed_event_types_gracefully() {
         .any(|e| matches!(&e.kind, TranscriptEventKind::Note { .. }));
 
     assert!(
-        has_message && has_final_answer && has_stage_start && has_stage_end && has_probe_start && has_probe_end && has_note,
+        has_message
+            && has_final_answer
+            && has_stage_start
+            && has_stage_end
+            && has_probe_start
+            && has_probe_end
+            && has_note,
         "Test should cover all TranscriptEventKind variants (except Unknown)"
     );
 }
@@ -225,6 +288,7 @@ fn make_result(
         transcript,
         execution_trace: None,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }
@@ -235,7 +299,12 @@ fn make_result(
 fn test_answer_source_priority_transcript_first() {
     // Case 1: FinalAnswer in transcript takes priority over result.answer
     let mut t = Transcript::new();
-    t.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "query"));
+    t.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "query",
+    ));
     t.push(TranscriptEvent::final_answer(100, "transcript answer"));
     let r = make_result(t, "result.answer", None, false);
 
@@ -247,25 +316,41 @@ fn test_answer_source_priority_transcript_first() {
             false
         }
     });
-    assert!(has_final_answer_in_transcript, "FinalAnswer in transcript should take priority");
+    assert!(
+        has_final_answer_in_transcript,
+        "FinalAnswer in transcript should take priority"
+    );
 }
 
 /// GUARDRAIL: Clarification takes priority when needs_clarification=true
 #[test]
 fn test_answer_source_priority_clarification() {
     let mut t = Transcript::new();
-    t.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "query"));
+    t.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "query",
+    ));
     let r = make_result(t, "", Some("What do you mean?"), true);
 
     assert!(r.needs_clarification);
-    assert_eq!(r.clarification_question.as_deref(), Some("What do you mean?"));
+    assert_eq!(
+        r.clarification_question.as_deref(),
+        Some("What do you mean?")
+    );
 }
 
 /// GUARDRAIL: Direct answer used when no transcript answer and no clarification
 #[test]
 fn test_answer_source_priority_direct_answer() {
     let mut t = Transcript::new();
-    t.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "query"));
+    t.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "query",
+    ));
     let r = make_result(t, "the answer", None, false);
 
     assert!(!r.needs_clarification);
@@ -276,7 +361,12 @@ fn test_answer_source_priority_direct_answer() {
 #[test]
 fn test_answer_source_priority_empty() {
     let mut t = Transcript::new();
-    t.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "query"));
+    t.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "query",
+    ));
     let r = make_result(t, "", None, false);
 
     assert!(!r.needs_clarification);
@@ -297,7 +387,10 @@ fn test_deterministic_stage_outcome_distinct_from_ok() {
     // Their Display implementations should differ
     let det_str = format!("{}", det);
     let ok_str = format!("{}", ok);
-    assert_ne!(det_str, ok_str, "Deterministic display should differ from Ok");
+    assert_ne!(
+        det_str, ok_str,
+        "Deterministic display should differ from Ok"
+    );
     assert!(
         det_str.contains("deterministic"),
         "Deterministic display should contain 'deterministic'"
@@ -311,10 +404,19 @@ fn test_all_event_kinds_have_render_path() {
     let mut transcript = Transcript::new();
 
     // Add each event kind (except Unknown which is synthetic)
-    transcript.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "query"));
+    transcript.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "query",
+    ));
     transcript.push(TranscriptEvent::stage_start(10, "test"));
     transcript.push(TranscriptEvent::stage_end(20, "test", StageOutcome::Ok));
-    transcript.push(TranscriptEvent::stage_end(30, "test2", StageOutcome::Deterministic));
+    transcript.push(TranscriptEvent::stage_end(
+        30,
+        "test2",
+        StageOutcome::Deterministic,
+    ));
     transcript.push(TranscriptEvent::probe_start(40, "probe1", "cmd"));
     transcript.push(TranscriptEvent::probe_end(50, "probe1", 0, 10, None));
     transcript.push(TranscriptEvent::note(60, "debug"));

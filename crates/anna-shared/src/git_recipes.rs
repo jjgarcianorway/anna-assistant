@@ -158,13 +158,16 @@ impl GitRecipe {
 
     /// Apply parameters to commands
     pub fn apply_params(&self, values: &[(String, String)]) -> Vec<String> {
-        self.commands.iter().map(|cmd| {
-            let mut result = cmd.clone();
-            for (name, value) in values {
-                result = result.replace(&format!("{{{}}}", name), value);
-            }
-            result
-        }).collect()
+        self.commands
+            .iter()
+            .map(|cmd| {
+                let mut result = cmd.clone();
+                for (name, value) in values {
+                    result = result.replace(&format!("{{{}}}", name), value);
+                }
+                result
+            })
+            .collect()
     }
 }
 
@@ -183,8 +186,9 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
         )
         .with_param("name", "Your full name", None)
         .with_param("email", "Your email address", None)
-        .with_rollback("git config --global --unset user.name && git config --global --unset user.email"),
-
+        .with_rollback(
+            "git config --global --unset user.name && git config --global --unset user.email",
+        ),
         // Default branch
         GitRecipe::new(
             GitFeature::DefaultBranch,
@@ -193,7 +197,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             vec!["git config --global init.defaultBranch main"],
         )
         .with_rollback("git config --global init.defaultBranch master"),
-
         // Editor - vim
         GitRecipe::new(
             GitFeature::Editor,
@@ -202,7 +205,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             vec!["git config --global core.editor vim"],
         )
         .with_rollback("git config --global --unset core.editor"),
-
         // Editor - nano
         GitRecipe::new(
             GitFeature::Editor,
@@ -211,7 +213,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             vec!["git config --global core.editor nano"],
         )
         .with_rollback("git config --global --unset core.editor"),
-
         // Colors
         GitRecipe::new(
             GitFeature::Colors,
@@ -225,7 +226,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             ],
         )
         .with_rollback("git config --global color.ui false"),
-
         // Common aliases
         GitRecipe::new(
             GitFeature::Aliases,
@@ -242,7 +242,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             ],
         )
         .with_rollback("git config --global --remove-section alias"),
-
         // Push defaults
         GitRecipe::new(
             GitFeature::PushDefaults,
@@ -254,7 +253,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             ],
         )
         .with_rollback("git config --global push.default simple"),
-
         // Pull defaults - rebase
         GitRecipe::new(
             GitFeature::PullDefaults,
@@ -263,7 +261,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             vec!["git config --global pull.rebase true"],
         )
         .with_rollback("git config --global pull.rebase false"),
-
         // Credential helper - cache
         GitRecipe::new(
             GitFeature::CredentialHelper,
@@ -272,7 +269,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             vec!["git config --global credential.helper 'cache --timeout=3600'"],
         )
         .with_rollback("git config --global --unset credential.helper"),
-
         // Credential helper - store (less secure)
         GitRecipe::new(
             GitFeature::CredentialHelper,
@@ -281,7 +277,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             vec!["git config --global credential.helper store"],
         )
         .with_rollback("git config --global --unset credential.helper"),
-
         // Merge tool - vimdiff
         GitRecipe::new(
             GitFeature::MergeTool,
@@ -293,7 +288,6 @@ pub fn builtin_recipes() -> Vec<GitRecipe> {
             ],
         )
         .with_rollback("git config --global --unset merge.tool"),
-
         // Diff tool - vimdiff
         GitRecipe::new(
             GitFeature::DiffTool,
@@ -324,7 +318,9 @@ pub fn find_recipes_by_keywords(keywords: &[&str]) -> Vec<GitRecipe> {
             let feature_keywords = r.feature.keywords();
             keywords.iter().any(|kw| {
                 let kw_lower = kw.to_lowercase();
-                feature_keywords.iter().any(|fk| fk.contains(&kw_lower) || kw_lower.contains(fk))
+                feature_keywords
+                    .iter()
+                    .any(|fk| fk.contains(&kw_lower) || kw_lower.contains(fk))
             })
         })
         .collect()
@@ -380,14 +376,23 @@ mod tests {
         let recipes = find_recipe(GitFeature::UserIdentity);
         assert!(!recipes.is_empty());
         assert!(recipes[0].needs_parameters());
-        assert_eq!(detect_feature("set git name"), Some(GitFeature::UserIdentity));
-        assert_eq!(detect_feature("change default branch"), Some(GitFeature::DefaultBranch));
+        assert_eq!(
+            detect_feature("set git name"),
+            Some(GitFeature::UserIdentity)
+        );
+        assert_eq!(
+            detect_feature("change default branch"),
+            Some(GitFeature::DefaultBranch)
+        );
         assert!(builtin_recipes().len() >= 10);
     }
 
     #[test]
     fn test_apply_params() {
-        let recipe = find_recipe(GitFeature::UserIdentity).into_iter().next().unwrap();
+        let recipe = find_recipe(GitFeature::UserIdentity)
+            .into_iter()
+            .next()
+            .unwrap();
         let commands = recipe.apply_params(&[
             ("name".to_string(), "John".to_string()),
             ("email".to_string(), "j@x.com".to_string()),

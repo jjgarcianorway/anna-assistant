@@ -52,7 +52,10 @@ fn test_route_capability_evidence_required() {
         evidence_required: true,
     };
 
-    assert!(cap.evidence_required, "RouteCapability should track evidence requirement");
+    assert!(
+        cap.evidence_required,
+        "RouteCapability should track evidence requirement"
+    );
 }
 
 #[test]
@@ -89,7 +92,10 @@ fn test_enforce_spine_probes_no_change_when_probes_exist() {
     let (enforced, reason) = enforce_spine_probes(&existing_probes, &cap);
 
     // Should not change when probes already exist
-    assert_eq!(enforced, existing_probes, "Should not change existing probes");
+    assert_eq!(
+        enforced, existing_probes,
+        "Should not change existing probes"
+    );
     assert!(reason.is_none(), "Should not provide reason when no change");
 }
 
@@ -100,10 +106,22 @@ fn test_recipe_persist_requires_verified() {
     use anna_shared::recipe::should_persist_recipe;
 
     // Must be verified AND score >= 80
-    assert!(!should_persist_recipe(false, 90), "Unverified should not persist");
-    assert!(!should_persist_recipe(true, 70), "Low score should not persist");
-    assert!(should_persist_recipe(true, 80), "Verified + 80 should persist");
-    assert!(should_persist_recipe(true, 100), "Verified + 100 should persist");
+    assert!(
+        !should_persist_recipe(false, 90),
+        "Unverified should not persist"
+    );
+    assert!(
+        !should_persist_recipe(true, 70),
+        "Low score should not persist"
+    );
+    assert!(
+        should_persist_recipe(true, 80),
+        "Verified + 80 should persist"
+    );
+    assert!(
+        should_persist_recipe(true, 100),
+        "Verified + 100 should persist"
+    );
 }
 
 #[test]

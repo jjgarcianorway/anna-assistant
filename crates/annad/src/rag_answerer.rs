@@ -239,10 +239,22 @@ mod tests {
 
     #[test]
     fn test_extract_app_name() {
-        assert_eq!(extract_app_name("alternative to vim"), Some("vim".to_string()));
-        assert_eq!(extract_app_name("alternatives to vim?"), Some("vim".to_string()));
-        assert_eq!(extract_app_name("instead of firefox"), Some("firefox".to_string()));
-        assert_eq!(extract_app_name("replacement for vscode"), Some("vscode".to_string()));
+        assert_eq!(
+            extract_app_name("alternative to vim"),
+            Some("vim".to_string())
+        );
+        assert_eq!(
+            extract_app_name("alternatives to vim?"),
+            Some("vim".to_string())
+        );
+        assert_eq!(
+            extract_app_name("instead of firefox"),
+            Some("firefox".to_string())
+        );
+        assert_eq!(
+            extract_app_name("replacement for vscode"),
+            Some("vscode".to_string())
+        );
     }
 
     #[test]
@@ -267,20 +279,15 @@ mod tests {
 
     #[test]
     fn test_rag_answer_result_complete() {
-        let result = RagAnswerResult::complete(
-            "Test answer".to_string(),
-            vec!["doc1".to_string()],
-        );
+        let result = RagAnswerResult::complete("Test answer".to_string(), vec!["doc1".to_string()]);
         assert!(result.is_complete);
         assert!(!result.collected_fresh);
     }
 
     #[test]
     fn test_rag_answer_result_with_fresh() {
-        let result = RagAnswerResult::complete(
-            "Test answer".to_string(),
-            vec!["doc1".to_string()],
-        ).with_fresh_collection();
+        let result = RagAnswerResult::complete("Test answer".to_string(), vec!["doc1".to_string()])
+            .with_fresh_collection();
         assert!(result.is_complete);
         assert!(result.collected_fresh);
     }

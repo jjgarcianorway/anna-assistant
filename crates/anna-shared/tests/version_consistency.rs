@@ -10,14 +10,19 @@ use std::path::PathBuf;
 fn workspace_root() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     // crates/anna-shared -> workspace root
-    manifest_dir.parent().unwrap().parent().unwrap().to_path_buf()
+    manifest_dir
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf()
 }
 
 /// Extract version from workspace Cargo.toml
 fn read_workspace_version() -> String {
     let cargo_toml = workspace_root().join("Cargo.toml");
-    let content = std::fs::read_to_string(&cargo_toml)
-        .expect("Failed to read workspace Cargo.toml");
+    let content =
+        std::fs::read_to_string(&cargo_toml).expect("Failed to read workspace Cargo.toml");
 
     // Find [workspace.package] section and extract version
     let mut in_workspace_package = false;
@@ -45,13 +50,17 @@ fn read_workspace_version() -> String {
 
 /// Read a crate's Cargo.toml and check for version conflicts
 fn check_crate_cargo_toml(crate_name: &str) -> Option<String> {
-    let cargo_toml = workspace_root().join("crates").join(crate_name).join("Cargo.toml");
+    let cargo_toml = workspace_root()
+        .join("crates")
+        .join(crate_name)
+        .join("Cargo.toml");
     let content = std::fs::read_to_string(&cargo_toml).ok()?;
 
     // Look for version = "X.Y.Z" (NOT version.workspace = true)
     for line in content.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("version") && trimmed.contains('"') && !trimmed.contains("workspace") {
+        if trimmed.starts_with("version") && trimmed.contains('"') && !trimmed.contains("workspace")
+        {
             // Found a hardcoded version
             if let Some(start) = line.find('"') {
                 if let Some(end) = line.rfind('"') {
@@ -76,12 +85,22 @@ fn version_format_is_semver() {
 
     // Must be valid semver (X.Y.Z format)
     let parts: Vec<&str> = version.split('.').collect();
-    assert_eq!(parts.len(), 3, "VERSION must be X.Y.Z format, got: {}", version);
+    assert_eq!(
+        parts.len(),
+        3,
+        "VERSION must be X.Y.Z format, got: {}",
+        version
+    );
 
     // Each part must be numeric
     for (i, part) in parts.iter().enumerate() {
         let parsed: Result<u32, _> = part.parse();
-        assert!(parsed.is_ok(), "VERSION part {} ('{}') must be numeric", i, part);
+        assert!(
+            parsed.is_ok(),
+            "VERSION part {} ('{}') must be numeric",
+            i,
+            part
+        );
     }
 }
 
@@ -184,7 +203,9 @@ fn all_crates_use_shared_version_constant() {
     let version = anna_shared::VERSION;
     let workspace_version = read_workspace_version();
 
-    assert_eq!(version, workspace_version,
+    assert_eq!(
+        version, workspace_version,
         "VERSION constant ({}) does not match workspace ({}). Did you update all version sources?",
-        version, workspace_version);
+        version, workspace_version
+    );
 }

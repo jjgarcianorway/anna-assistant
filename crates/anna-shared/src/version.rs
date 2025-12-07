@@ -101,11 +101,7 @@ impl VersionInfo {
 /// Compare two version strings semantically
 /// Returns true if `remote` is newer than `current`
 pub fn is_newer_version(current: &str, remote: &str) -> bool {
-    let parse = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|s| s.parse().ok())
-            .collect()
-    };
+    let parse = |v: &str| -> Vec<u32> { v.split('.').filter_map(|s| s.parse().ok()).collect() };
 
     let current_parts = parse(current);
     let remote_parts = parse(remote);

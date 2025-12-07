@@ -227,6 +227,16 @@ pub enum QueryClass {
     AudioDevices,
     /// v0.0.135: Systemd paths: "systemd paths", "path units"
     SystemdPaths,
+    /// v0.0.136: Systemctl masked units: "masked units", "systemctl mask"
+    SystemctlMask,
+    /// v0.0.136: Hosts file: "/etc/hosts", "hosts file"
+    HostsFile,
+    /// v0.0.136: Fstab entries: "fstab", "mount table"
+    FstabEntries,
+    /// v0.0.136: Sysctl settings: "sysctl", "kernel parameters"
+    SysctlSettings,
+    /// v0.0.136: Loginctl sessions: "loginctl", "user sessions"
+    LoginctlSessions,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -337,6 +347,11 @@ impl std::fmt::Display for QueryClass {
             Self::PrinterStatus => "printer_status",
             Self::AudioDevices => "audio_devices",
             Self::SystemdPaths => "systemd_paths",
+            Self::SystemctlMask => "systemctl_mask",
+            Self::HostsFile => "hosts_file",
+            Self::FstabEntries => "fstab_entries",
+            Self::SysctlSettings => "sysctl_settings",
+            Self::LoginctlSessions => "loginctl_sessions",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -450,6 +465,11 @@ impl QueryClass {
             "printer_status" => Some(Self::PrinterStatus),
             "audio_devices" => Some(Self::AudioDevices),
             "systemd_paths" => Some(Self::SystemdPaths),
+            "systemctl_mask" => Some(Self::SystemctlMask),
+            "hosts_file" => Some(Self::HostsFile),
+            "fstab_entries" => Some(Self::FstabEntries),
+            "sysctl_settings" => Some(Self::SysctlSettings),
+            "loginctl_sessions" => Some(Self::LoginctlSessions),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -457,7 +477,10 @@ impl QueryClass {
 
     /// Check if this class is RAG-first (answered from knowledge store)
     pub fn is_rag_first(&self) -> bool {
-        matches!(self, Self::BootTimeStatus | Self::InstalledPackagesOverview | Self::AppAlternatives)
+        matches!(
+            self,
+            Self::BootTimeStatus | Self::InstalledPackagesOverview | Self::AppAlternatives
+        )
     }
 
     /// Check if this class is a fast-path (skip translator, no specialist)
@@ -478,34 +501,88 @@ impl QueryClass {
     /// v0.0.134: Added LvmStatus, RaidStatus, NtpStatus, SensorsTemp, GpuMemory, XorgLog
     /// v0.0.135: Added BluetoothDevices, WirelessNetworks, PrinterStatus, AudioDevices, SystemdPaths
     pub fn is_fast_path(&self) -> bool {
-        matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
-            | Self::TicketHistory | Self::StaffRoster
-            | Self::PackageUpdates | Self::SwapInfo | Self::TimezoneInfo | Self::SystemUptime
-            | Self::LoggedInUsers | Self::BatteryStatus | Self::SystemLoad | Self::LastBoot
-            | Self::Hostname | Self::OsInfo | Self::NetworkConnectivity
-            | Self::MountedFilesystems | Self::UsbDevices
-            | Self::ListeningPorts | Self::RunningServices | Self::CurrentUser
-            | Self::SystemArchitecture | Self::EnvironmentVars
-            | Self::ProcessTree | Self::DnsServers | Self::DefaultGateway
-            | Self::OpenFiles | Self::SystemLocale
-            | Self::BlockDevices | Self::InstalledKernels | Self::CpuFrequency
-            | Self::MemorySlots | Self::ZfsStatus
-            | Self::BootLoader | Self::FirewallStatus | Self::SystemdUnits
-            | Self::Crontabs | Self::SshConnections
-            | Self::DockerContainers | Self::DockerImages | Self::SystemdTimers
-            | Self::LastLogins | Self::FailedLogins
-            | Self::SystemdJournal | Self::NetworkNamespaces | Self::AvailableShells
-            | Self::SudoersInfo | Self::InstalledDesktops
-            | Self::VirtualizationInfo | Self::SelinuxStatus | Self::AppArmorStatus
-            | Self::SystemdSlices | Self::CoredumpList
-            | Self::KernelModules | Self::SystemdTargets | Self::IpRoutes
-            | Self::ArpTable | Self::IptablesRules
-            | Self::PciDevices | Self::DmesgErrors | Self::SystemdSockets
-            | Self::TmpFiles | Self::UserGroups
-            | Self::LvmStatus | Self::RaidStatus | Self::NtpStatus
-            | Self::SensorsTemp | Self::GpuMemory | Self::XorgLog
-            | Self::BluetoothDevices | Self::WirelessNetworks | Self::PrinterStatus
-            | Self::AudioDevices | Self::SystemdPaths)
+        matches!(
+            self,
+            Self::SystemTriage
+                | Self::Help
+                | Self::MetaSmallTalk
+                | Self::TicketHistory
+                | Self::StaffRoster
+                | Self::PackageUpdates
+                | Self::SwapInfo
+                | Self::TimezoneInfo
+                | Self::SystemUptime
+                | Self::LoggedInUsers
+                | Self::BatteryStatus
+                | Self::SystemLoad
+                | Self::LastBoot
+                | Self::Hostname
+                | Self::OsInfo
+                | Self::NetworkConnectivity
+                | Self::MountedFilesystems
+                | Self::UsbDevices
+                | Self::ListeningPorts
+                | Self::RunningServices
+                | Self::CurrentUser
+                | Self::SystemArchitecture
+                | Self::EnvironmentVars
+                | Self::ProcessTree
+                | Self::DnsServers
+                | Self::DefaultGateway
+                | Self::OpenFiles
+                | Self::SystemLocale
+                | Self::BlockDevices
+                | Self::InstalledKernels
+                | Self::CpuFrequency
+                | Self::MemorySlots
+                | Self::ZfsStatus
+                | Self::BootLoader
+                | Self::FirewallStatus
+                | Self::SystemdUnits
+                | Self::Crontabs
+                | Self::SshConnections
+                | Self::DockerContainers
+                | Self::DockerImages
+                | Self::SystemdTimers
+                | Self::LastLogins
+                | Self::FailedLogins
+                | Self::SystemdJournal
+                | Self::NetworkNamespaces
+                | Self::AvailableShells
+                | Self::SudoersInfo
+                | Self::InstalledDesktops
+                | Self::VirtualizationInfo
+                | Self::SelinuxStatus
+                | Self::AppArmorStatus
+                | Self::SystemdSlices
+                | Self::CoredumpList
+                | Self::KernelModules
+                | Self::SystemdTargets
+                | Self::IpRoutes
+                | Self::ArpTable
+                | Self::IptablesRules
+                | Self::PciDevices
+                | Self::DmesgErrors
+                | Self::SystemdSockets
+                | Self::TmpFiles
+                | Self::UserGroups
+                | Self::LvmStatus
+                | Self::RaidStatus
+                | Self::NtpStatus
+                | Self::SensorsTemp
+                | Self::GpuMemory
+                | Self::XorgLog
+                | Self::BluetoothDevices
+                | Self::WirelessNetworks
+                | Self::PrinterStatus
+                | Self::AudioDevices
+                | Self::SystemdPaths
+                | Self::SystemctlMask
+                | Self::HostsFile
+                | Self::FstabEntries
+                | Self::SysctlSettings
+                | Self::LoginctlSessions
+        )
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -517,8 +594,14 @@ impl QueryClass {
     /// v0.0.99: Check if this class requires confirmation before action
     /// These modify the system (install, service control)
     pub fn needs_confirmation(&self) -> bool {
-        matches!(self, Self::InstallPackage | Self::ManageService | Self::ConfigureEditor
-            | Self::ConfigureShell | Self::ConfigureGit)
+        matches!(
+            self,
+            Self::InstallPackage
+                | Self::ManageService
+                | Self::ConfigureEditor
+                | Self::ConfigureShell
+                | Self::ConfigureGit
+        )
     }
 
     /// v0.0.101: Check if this class is recipe-first (answered from recipes, skip LLM)
@@ -597,7 +680,6 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
         },
 
         // === NARROW TYPED QUERIES: Deterministic from probe data ===
-
         QueryClass::MemoryUsage | QueryClass::MemoryFree => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
@@ -794,8 +876,10 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: false,
                 evidence_required: true,
                 required_evidence: vec![
-                    EvidenceKind::Disk, EvidenceKind::Memory,
-                    EvidenceKind::Services, EvidenceKind::Processes,
+                    EvidenceKind::Disk,
+                    EvidenceKind::Memory,
+                    EvidenceKind::Services,
+                    EvidenceKind::Processes,
                 ],
                 spine_probes: vec![ProbeId::Df, ProbeId::Free, ProbeId::FailedUnits],
             },
@@ -831,7 +915,6 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
         },
 
         // === RAG-FIRST: Knowledge store + LLM ===
-
         QueryClass::BootTimeStatus => DeterministicRoute {
             class,
             domain: SpecialistDomain::System,
@@ -878,7 +961,7 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
         QueryClass::ConfigureEditor => DeterministicRoute {
             class,
             domain: SpecialistDomain::System, // Editor config is system-level
-            intent: QueryIntent::Request, // Requesting a configuration change
+            intent: QueryIntent::Request,     // Requesting a configuration change
             probes: vec![
                 // v0.0.55: Probe all supported editors (must match parser's EDITOR_MAP)
                 "command_v_vim".to_string(),
@@ -887,14 +970,14 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 "command_v_emacs".to_string(),
                 "command_v_micro".to_string(),
                 "command_v_helix".to_string(),
-                "command_v_hx".to_string(),     // v0.0.55: helix binary name
+                "command_v_hx".to_string(), // v0.0.55: helix binary name
                 "command_v_code".to_string(),
                 "command_v_kate".to_string(),
                 "command_v_gedit".to_string(),
             ],
             capability: RouteCapability {
                 can_answer_deterministically: true, // v0.0.57: YES with evidence
-                evidence_required: true, // Must verify editor is installed
+                evidence_required: true,            // Must verify editor is installed
                 required_evidence: vec![EvidenceKind::ToolExists],
                 spine_probes: vec![], // Probes are in the probes list above
             },
@@ -954,7 +1037,7 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             probes: vec![], // Package manager detection is done in handler
             capability: RouteCapability {
                 can_answer_deterministically: true, // We know what to do
-                evidence_required: false, // No probes needed
+                evidence_required: false,           // No probes needed
                 required_evidence: vec![],
                 spine_probes: vec![],
             },
@@ -969,7 +1052,7 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             probes: vec![], // Service management is done in handler
             capability: RouteCapability {
                 can_answer_deterministically: true, // We know what to do
-                evidence_required: false, // No probes needed
+                evidence_required: false,           // No probes needed
                 required_evidence: vec![],
                 spine_probes: vec![],
             },
@@ -983,7 +1066,7 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             probes: vec![], // Recipe provides the answer
             capability: RouteCapability {
                 can_answer_deterministically: true, // Recipe-based
-                evidence_required: false, // No probes needed
+                evidence_required: false,           // No probes needed
                 required_evidence: vec![],
                 spine_probes: vec![],
             },
@@ -997,7 +1080,7 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             probes: vec![], // Recipe provides the answer
             capability: RouteCapability {
                 can_answer_deterministically: true, // Recipe-based
-                evidence_required: false, // No probes needed
+                evidence_required: false,           // No probes needed
                 required_evidence: vec![],
                 spine_probes: vec![],
             },
@@ -1011,7 +1094,7 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             probes: vec![], // Recipe provides the answer
             capability: RouteCapability {
                 can_answer_deterministically: true, // Recipe-based
-                evidence_required: false, // No probes needed
+                evidence_required: false,           // No probes needed
                 required_evidence: vec![],
                 spine_probes: vec![],
             },
@@ -2011,6 +2094,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             },
         },
 
+        // v0.0.136: Systemctl masked units - deterministic from systemctl list-unit-files
+        QueryClass::SystemctlMask => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemctl_mask".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.136: Hosts file - deterministic from /etc/hosts
+        QueryClass::HostsFile => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["hosts_file".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.136: Fstab entries - deterministic from /etc/fstab
+        QueryClass::FstabEntries => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["fstab_entries".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.136: Sysctl settings - deterministic from sysctl -a
+        QueryClass::SysctlSettings => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["sysctl_settings".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.136: Loginctl sessions - deterministic from loginctl
+        QueryClass::LoginctlSessions => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["loginctl_sessions".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
         // Unknown - full LLM path
         QueryClass::Unknown => DeterministicRoute {
             class,
@@ -2028,7 +2181,10 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
 }
 
 /// Apply deterministic router, overriding LLM ticket for known classes
-pub fn apply_deterministic_routing(query: &str, llm_ticket: Option<TranslatorTicket>) -> TranslatorTicket {
+pub fn apply_deterministic_routing(
+    query: &str,
+    llm_ticket: Option<TranslatorTicket>,
+) -> TranslatorTicket {
     let route = get_route(query);
 
     if route.class == QueryClass::Unknown {
@@ -2037,7 +2193,10 @@ pub fn apply_deterministic_routing(query: &str, llm_ticket: Option<TranslatorTic
 
     info!(
         "Deterministic router: class={:?}, domain={}, probes={:?}, can_det={}",
-        route.class, route.domain, route.probes, route.can_answer_deterministically()
+        route.class,
+        route.domain,
+        route.probes,
+        route.can_answer_deterministically()
     );
 
     TranslatorTicket {
@@ -2077,37 +2236,48 @@ mod tests {
     #[test]
     fn test_cpu_temp_never_deterministic() {
         let route = get_route("cpu temperature");
-        assert!(!route.can_answer_deterministically(),
-            "CpuTemp must NEVER be deterministic");
-        assert!(!route.probes.is_empty(),
-            "CpuTemp must have sensors probe");
+        assert!(
+            !route.can_answer_deterministically(),
+            "CpuTemp must NEVER be deterministic"
+        );
+        assert!(!route.probes.is_empty(), "CpuTemp must have sensors probe");
     }
 
     #[test]
     fn test_sound_card_is_deterministic_v458() {
         // v0.45.8: HardwareAudio IS deterministic with typed Audio evidence
         let route = get_route("what is my sound card");
-        assert!(route.can_answer_deterministically(),
-            "v0.45.8: HardwareAudio should be deterministic with Audio evidence");
-        assert!(route.capability.evidence_required,
-            "HardwareAudio still requires evidence");
+        assert!(
+            route.can_answer_deterministically(),
+            "v0.45.8: HardwareAudio should be deterministic with Audio evidence"
+        );
+        assert!(
+            route.capability.evidence_required,
+            "HardwareAudio still requires evidence"
+        );
     }
 
     #[test]
     fn test_installed_tool_deterministic_with_evidence() {
         // v0.45.7: InstalledToolCheck CAN be deterministic when we have evidence
         let route = get_route("do I have nano");
-        assert!(route.can_answer_deterministically(),
-            "InstalledToolCheck should be deterministic with tool evidence");
-        assert!(route.capability.evidence_required,
-            "InstalledToolCheck still requires evidence");
+        assert!(
+            route.can_answer_deterministically(),
+            "InstalledToolCheck should be deterministic with tool evidence"
+        );
+        assert!(
+            route.capability.evidence_required,
+            "InstalledToolCheck still requires evidence"
+        );
     }
 
     #[test]
     fn test_memory_usage_is_deterministic() {
         let route = get_route("memory usage");
-        assert!(route.can_answer_deterministically(),
-            "MemoryUsage CAN be deterministic from probe data");
+        assert!(
+            route.can_answer_deterministically(),
+            "MemoryUsage CAN be deterministic from probe data"
+        );
     }
 
     /// v0.0.56: Verify ALL static probe IDs in router map to commands in translator.
@@ -2118,12 +2288,26 @@ mod tests {
 
         // Sample queries to exercise all query classes
         let test_queries = [
-            "memory usage", "disk usage", "top memory", "top cpu",
-            "network info", "is nginx running", "how many cores",
-            "cpu info", "cpu temperature", "free ram", "gpu info",
-            "sound card", "why is slow", "how is my computer",
-            "package count", "do I have nano", "boot time",
-            "installed packages", "help me", "enable syntax highlighting",
+            "memory usage",
+            "disk usage",
+            "top memory",
+            "top cpu",
+            "network info",
+            "is nginx running",
+            "how many cores",
+            "cpu info",
+            "cpu temperature",
+            "free ram",
+            "gpu info",
+            "sound card",
+            "why is slow",
+            "how is my computer",
+            "package count",
+            "do I have nano",
+            "boot time",
+            "installed packages",
+            "help me",
+            "enable syntax highlighting",
             "random unknown query xyz",
         ];
 
@@ -2152,9 +2336,11 @@ mod tests {
             }
         }
 
-        assert!(failures.is_empty(),
+        assert!(
+            failures.is_empty(),
             "Probe ID mapping failures:\n{}",
-            failures.join("\n"));
+            failures.join("\n")
+        );
     }
 
     // ========================================================================
@@ -2166,24 +2352,42 @@ mod tests {
     /// This prevents shipping a route that "requires evidence" but can't collect it.
     #[test]
     fn test_evidence_required_routes_have_probes() {
-        
-
         // All known query classes (v0.0.111: added TicketHistory, StaffRoster)
         let all_classes = [
-            QueryClass::SystemTriage, QueryClass::CpuInfo, QueryClass::CpuCores,
-            QueryClass::CpuTemp, QueryClass::RamInfo, QueryClass::GpuInfo,
-            QueryClass::HardwareAudio, QueryClass::TopMemoryProcesses,
-            QueryClass::TopCpuProcesses, QueryClass::DiskSpace, QueryClass::NetworkInterfaces,
-            QueryClass::Help, QueryClass::SystemSlow, QueryClass::MemoryUsage,
-            QueryClass::MemoryFree, QueryClass::DiskUsage, QueryClass::ServiceStatus,
-            QueryClass::SystemHealthSummary, QueryClass::BootTimeStatus,
-            QueryClass::InstalledPackagesOverview, QueryClass::PackageCount,
-            QueryClass::InstalledToolCheck, QueryClass::AppAlternatives,
-            QueryClass::ConfigureEditor, QueryClass::MetaSmallTalk,
-            QueryClass::KernelVersion, QueryClass::ConfigFileLocation,
-            QueryClass::InstallPackage, QueryClass::ManageService,
-            QueryClass::ConfigureShell, QueryClass::ConfigureGit,
-            QueryClass::SshKeyManagement, QueryClass::TicketHistory, QueryClass::StaffRoster,
+            QueryClass::SystemTriage,
+            QueryClass::CpuInfo,
+            QueryClass::CpuCores,
+            QueryClass::CpuTemp,
+            QueryClass::RamInfo,
+            QueryClass::GpuInfo,
+            QueryClass::HardwareAudio,
+            QueryClass::TopMemoryProcesses,
+            QueryClass::TopCpuProcesses,
+            QueryClass::DiskSpace,
+            QueryClass::NetworkInterfaces,
+            QueryClass::Help,
+            QueryClass::SystemSlow,
+            QueryClass::MemoryUsage,
+            QueryClass::MemoryFree,
+            QueryClass::DiskUsage,
+            QueryClass::ServiceStatus,
+            QueryClass::SystemHealthSummary,
+            QueryClass::BootTimeStatus,
+            QueryClass::InstalledPackagesOverview,
+            QueryClass::PackageCount,
+            QueryClass::InstalledToolCheck,
+            QueryClass::AppAlternatives,
+            QueryClass::ConfigureEditor,
+            QueryClass::MetaSmallTalk,
+            QueryClass::KernelVersion,
+            QueryClass::ConfigFileLocation,
+            QueryClass::InstallPackage,
+            QueryClass::ManageService,
+            QueryClass::ConfigureShell,
+            QueryClass::ConfigureGit,
+            QueryClass::SshKeyManagement,
+            QueryClass::TicketHistory,
+            QueryClass::StaffRoster,
             QueryClass::Unknown,
         ];
 
@@ -2207,24 +2411,34 @@ mod tests {
             }
         }
 
-        assert!(failures.is_empty(),
+        assert!(
+            failures.is_empty(),
             "Evidence requirement contract violations:\n{}",
-            failures.join("\n"));
+            failures.join("\n")
+        );
     }
 
     /// v0.0.57: enforce_minimum_probes must return expected ProbeIds for typical user queries.
     /// Tests that the probe spine correctly enforces evidence collection.
     #[test]
     fn test_probe_spine_enforces_required_evidence() {
-        use anna_shared::probe_spine::{enforce_minimum_probes, ProbeId, probe_to_command};
+        use anna_shared::probe_spine::{enforce_minimum_probes, probe_to_command, ProbeId};
 
         // CPU -> "how many cores" should enforce Lscpu
         let cpu_decision = enforce_minimum_probes("how many cores", &[]);
         assert!(cpu_decision.enforced, "CPU query should enforce probes");
-        let cpu_cmds: Vec<String> = cpu_decision.probes.iter().map(|p| probe_to_command(p)).collect();
+        let cpu_cmds: Vec<String> = cpu_decision
+            .probes
+            .iter()
+            .map(|p| probe_to_command(p))
+            .collect();
         assert!(
-            cpu_decision.probes.iter().any(|p| matches!(p, ProbeId::Lscpu)),
-            "CPU cores query should include Lscpu probe, got: {:?}", cpu_cmds
+            cpu_decision
+                .probes
+                .iter()
+                .any(|p| matches!(p, ProbeId::Lscpu)),
+            "CPU cores query should include Lscpu probe, got: {:?}",
+            cpu_cmds
         );
 
         // Memory -> "how much free ram" should enforce Free
@@ -2238,7 +2452,10 @@ mod tests {
         let audio_decision = enforce_minimum_probes("what is my sound card", &[]);
         assert!(audio_decision.enforced, "Audio query should enforce probes");
         assert!(
-            audio_decision.probes.iter().any(|p| matches!(p, ProbeId::LspciAudio)),
+            audio_decision
+                .probes
+                .iter()
+                .any(|p| matches!(p, ProbeId::LspciAudio)),
             "Audio query should include LspciAudio probe"
         );
 
@@ -2246,7 +2463,10 @@ mod tests {
         let tool_decision = enforce_minimum_probes("do I have nano", &[]);
         assert!(tool_decision.enforced, "Tool check should enforce probes");
         assert!(
-            tool_decision.probes.iter().any(|p| matches!(p, ProbeId::CommandV(_))),
+            tool_decision
+                .probes
+                .iter()
+                .any(|p| matches!(p, ProbeId::CommandV(_))),
             "Tool check should include CommandV probe"
         );
         // Verify the tool name is extracted
@@ -2257,7 +2477,10 @@ mod tests {
                 false
             }
         });
-        assert!(has_nano, "Tool check should extract 'nano' as the tool name");
+        assert!(
+            has_nano,
+            "Tool check should extract 'nano' as the tool name"
+        );
     }
 
     /// v0.0.57: Required evidence kinds map to probes via probes_for_evidence.
@@ -2293,9 +2516,13 @@ mod tests {
 
         // ToolExists and Gpu are special cases (runtime-specific or snapshot-based)
         // These are allowed to have empty probe lists
-        assert!(probes_for_evidence(EvidenceKind::ToolExists).is_empty(),
-            "ToolExists probes are runtime-specific");
-        assert!(probes_for_evidence(EvidenceKind::Gpu).is_empty(),
-            "Gpu relies on hardware snapshot");
+        assert!(
+            probes_for_evidence(EvidenceKind::ToolExists).is_empty(),
+            "ToolExists probes are runtime-specific"
+        );
+        assert!(
+            probes_for_evidence(EvidenceKind::Gpu).is_empty(),
+            "Gpu relies on hardware snapshot"
+        );
     }
 }

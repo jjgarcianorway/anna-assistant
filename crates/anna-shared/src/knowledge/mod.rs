@@ -74,37 +74,42 @@ mod integration_tests {
         let mut store = KnowledgeStore::new();
 
         // Add docs from different sources
-        store.upsert(KnowledgeDoc::new(
-            KnowledgeSource::SystemFact,
-            "CPU Info",
-            "AMD Ryzen 5 3600 6-core processor",
-            vec!["cpu".to_string()],
-            Provenance::from_command("annad", "lscpu", 100),
-        )).unwrap();
+        store
+            .upsert(KnowledgeDoc::new(
+                KnowledgeSource::SystemFact,
+                "CPU Info",
+                "AMD Ryzen 5 3600 6-core processor",
+                vec!["cpu".to_string()],
+                Provenance::from_command("annad", "lscpu", 100),
+            ))
+            .unwrap();
 
-        store.upsert(KnowledgeDoc::new(
-            KnowledgeSource::PackageFact,
-            "Installed Packages",
-            "vim 9.0, neovim 0.9, emacs 28",
-            vec!["packages".to_string()],
-            Provenance::from_command("annad", "pacman -Q", 100),
-        )).unwrap();
+        store
+            .upsert(KnowledgeDoc::new(
+                KnowledgeSource::PackageFact,
+                "Installed Packages",
+                "vim 9.0, neovim 0.9, emacs 28",
+                vec!["packages".to_string()],
+                Provenance::from_command("annad", "pacman -Q", 100),
+            ))
+            .unwrap();
 
-        store.upsert(KnowledgeDoc::new(
-            KnowledgeSource::Recipe,
-            "Configure Vim",
-            "Edit ~/.vimrc to configure vim",
-            vec!["vim".to_string()],
-            Provenance::computed("annad", 90),
-        )).unwrap();
+        store
+            .upsert(KnowledgeDoc::new(
+                KnowledgeSource::Recipe,
+                "Configure Vim",
+                "Edit ~/.vimrc to configure vim",
+                vec!["vim".to_string()],
+                Provenance::computed("annad", 90),
+            ))
+            .unwrap();
 
         // Query all sources
         assert_eq!(store.len(), 3);
 
         // Query specific source
         let system_facts = store.query(
-            &RetrievalQuery::new("processor")
-                .with_sources(vec![KnowledgeSource::SystemFact])
+            &RetrievalQuery::new("processor").with_sources(vec![KnowledgeSource::SystemFact]),
         );
         assert_eq!(system_facts.len(), 1);
         assert_eq!(system_facts[0].source, KnowledgeSource::SystemFact);

@@ -56,7 +56,11 @@ pub struct UpdateCheckEntry {
 
 impl UpdateCheckEntry {
     /// Create a new entry with current timestamp
-    pub fn new(local_version: impl Into<String>, result: UpdateCheckResult, duration_ms: u64) -> Self {
+    pub fn new(
+        local_version: impl Into<String>,
+        result: UpdateCheckResult,
+        duration_ms: u64,
+    ) -> Self {
         let checked_at_ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
@@ -88,7 +92,9 @@ pub struct UpdateLedger {
 impl UpdateLedger {
     /// Create a new empty ledger
     pub fn new() -> Self {
-        Self { entries: Vec::new() }
+        Self {
+            entries: Vec::new(),
+        }
     }
 
     /// Add an entry, maintaining max size
@@ -213,7 +219,11 @@ mod tests {
         let mut ledger = UpdateLedger::new();
         assert!(ledger.is_empty());
 
-        ledger.push(UpdateCheckEntry::new("0.0.28", UpdateCheckResult::UpToDate, 100));
+        ledger.push(UpdateCheckEntry::new(
+            "0.0.28",
+            UpdateCheckResult::UpToDate,
+            100,
+        ));
         assert_eq!(ledger.len(), 1);
 
         ledger.push(UpdateCheckEntry::new(
@@ -247,7 +257,11 @@ mod tests {
     #[test]
     fn test_update_ledger_last() {
         let mut ledger = UpdateLedger::new();
-        ledger.push(UpdateCheckEntry::new("0.0.28", UpdateCheckResult::UpToDate, 100));
+        ledger.push(UpdateCheckEntry::new(
+            "0.0.28",
+            UpdateCheckResult::UpToDate,
+            100,
+        ));
         ledger.push(UpdateCheckEntry::new(
             "0.0.29",
             UpdateCheckResult::UpdateAvailable {
@@ -263,7 +277,11 @@ mod tests {
     #[test]
     fn test_update_ledger_counts() {
         let mut ledger = UpdateLedger::new();
-        ledger.push(UpdateCheckEntry::new("0.0.28", UpdateCheckResult::UpToDate, 100));
+        ledger.push(UpdateCheckEntry::new(
+            "0.0.28",
+            UpdateCheckResult::UpToDate,
+            100,
+        ));
         ledger.push(UpdateCheckEntry::new(
             "0.0.28",
             UpdateCheckResult::Failed {
@@ -271,7 +289,11 @@ mod tests {
             },
             50,
         ));
-        ledger.push(UpdateCheckEntry::new("0.0.28", UpdateCheckResult::UpToDate, 100));
+        ledger.push(UpdateCheckEntry::new(
+            "0.0.28",
+            UpdateCheckResult::UpToDate,
+            100,
+        ));
 
         assert_eq!(ledger.success_count(), 2);
         assert_eq!(ledger.failure_count(), 1);
@@ -301,6 +323,9 @@ mod tests {
         let parsed: UpdateLedger = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed.len(), 1);
-        assert_eq!(parsed.last().unwrap().remote_tag, Some("v0.0.29".to_string()));
+        assert_eq!(
+            parsed.last().unwrap().remote_tag,
+            Some("v0.0.29".to_string())
+        );
     }
 }

@@ -91,19 +91,17 @@ fn parse_memory_row(probe_id: &str, line: &str, line_num: usize) -> Result<Vec<u
     // First part is "Mem:", rest are values
     if parts.len() < 7 {
         return Err(
-            ParseError::new(probe_id, ParseErrorReason::MalformedRow, line).with_line(line_num)
+            ParseError::new(probe_id, ParseErrorReason::MalformedRow, line).with_line(line_num),
         );
     }
 
     let mut values = Vec::new();
     for part in parts.iter().skip(1) {
-        let bytes = parse_size(part).map_err(|reason| {
-            ParseError {
-                probe_id: probe_id.to_string(),
-                line_num: Some(line_num),
-                raw: part.to_string(),
-                reason,
-            }
+        let bytes = parse_size(part).map_err(|reason| ParseError {
+            probe_id: probe_id.to_string(),
+            line_num: Some(line_num),
+            raw: part.to_string(),
+            reason,
         })?;
         values.push(bytes);
     }
@@ -118,7 +116,7 @@ fn parse_swap_row(probe_id: &str, line: &str, line_num: usize) -> Result<Vec<u64
     // First part is "Swap:", rest are values (total, used, free)
     if parts.len() < 4 {
         return Err(
-            ParseError::new(probe_id, ParseErrorReason::MalformedRow, line).with_line(line_num)
+            ParseError::new(probe_id, ParseErrorReason::MalformedRow, line).with_line(line_num),
         );
     }
 

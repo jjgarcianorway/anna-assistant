@@ -60,8 +60,8 @@ pub struct ProbeBudget {
 impl Default for ProbeBudget {
     fn default() -> Self {
         Self {
-            max_probes: 4,              // Match fast path probe count
-            max_output_bytes: 64_000,   // 64KB total
+            max_probes: 4,               // Match fast path probe count
+            max_output_bytes: 64_000,    // 64KB total
             per_probe_cap_bytes: 16_000, // 16KB per probe
         }
     }
@@ -102,8 +102,11 @@ impl ProbeBudget {
             output.to_string()
         } else {
             let truncated = &output[..self.per_probe_cap_bytes];
-            format!("{}... [truncated, {} bytes exceeded cap]",
-                truncated, output.len() - self.per_probe_cap_bytes)
+            format!(
+                "{}... [truncated, {} bytes exceeded cap]",
+                truncated,
+                output.len() - self.per_probe_cap_bytes
+            )
         }
     }
 }
@@ -186,10 +189,7 @@ pub enum BudgetCheck {
         elapsed_ms: u64,
     },
     /// Total request budget exceeded
-    TotalExceeded {
-        budget_ms: u64,
-        elapsed_ms: u64,
-    },
+    TotalExceeded { budget_ms: u64, elapsed_ms: u64 },
 }
 
 impl BudgetCheck {
@@ -209,11 +209,7 @@ impl BudgetCheck {
 
 /// Pure function: check if stage elapsed time exceeds budget.
 /// Does NOT check total budget - use check_total for that.
-pub fn check_stage_budget(
-    stage: Stage,
-    elapsed_ms: u64,
-    budget: &StageBudget,
-) -> BudgetCheck {
+pub fn check_stage_budget(stage: Stage, elapsed_ms: u64, budget: &StageBudget) -> BudgetCheck {
     let stage_budget = budget.get(stage);
     if elapsed_ms > stage_budget {
         BudgetCheck::StageExceeded {
@@ -227,10 +223,7 @@ pub fn check_stage_budget(
 }
 
 /// Pure function: check if total request time exceeds budget.
-pub fn check_total_budget(
-    elapsed_ms: u64,
-    budget: &StageBudget,
-) -> BudgetCheck {
+pub fn check_total_budget(elapsed_ms: u64, budget: &StageBudget) -> BudgetCheck {
     let effective = budget.effective_total();
     if elapsed_ms > effective {
         BudgetCheck::TotalExceeded {
@@ -313,9 +306,9 @@ impl BudgetEnforcer {
 
     /// Get current stage elapsed time in milliseconds.
     pub fn stage_elapsed_ms(&self) -> Option<u64> {
-        self.stage_start.as_ref().map(|(_, start)| {
-            start.elapsed().as_millis() as u64
-        })
+        self.stage_start
+            .as_ref()
+            .map(|(_, start)| start.elapsed().as_millis() as u64)
     }
 
     /// Get the budget configuration.
@@ -468,11 +461,7 @@ impl LlmFallback {
 }
 
 /// Check if should fall back based on elapsed time (v0.0.41)
-pub fn check_llm_fallback(
-    stage: Stage,
-    elapsed_secs: u64,
-    budget: &LlmBudget,
-) -> LlmFallback {
+pub fn check_llm_fallback(stage: Stage, elapsed_secs: u64, budget: &LlmBudget) -> LlmFallback {
     match stage {
         Stage::Translator => {
             if budget.is_translator_timeout(elapsed_secs) {

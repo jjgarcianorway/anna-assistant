@@ -11,7 +11,7 @@
 //! - Target (what they want to do it to)
 //! - Action verbs (enable, install, configure, etc.)
 
-use crate::recipe::{Recipe, RecipeKind, RecipeAction, recipe_dir};
+use crate::recipe::{recipe_dir, Recipe, RecipeAction, RecipeKind};
 use crate::recipe_index::{tokenize, RecipeIndex};
 use std::collections::BTreeSet;
 
@@ -93,9 +93,8 @@ pub fn match_recipe(query: &str, index: &RecipeIndex) -> Option<MatchResult> {
     }
 
     // Determine high confidence
-    let high_confidence = score >= MATCH_THRESHOLD
-        && matched_tokens.len() >= 3
-        && recipe.is_mature();
+    let high_confidence =
+        score >= MATCH_THRESHOLD && matched_tokens.len() >= 3 && recipe.is_mature();
 
     // Extract substitutions (e.g., different package name, different editor)
     let substitutions = extract_substitutions(query, &recipe);
@@ -115,8 +114,8 @@ pub fn match_recipe(query: &str, index: &RecipeIndex) -> Option<MatchResult> {
 /// E.g., "enable syntax highlighting in nano" can use vim syntax recipe
 /// with path/command substitutions.
 pub fn match_config_recipe(
-    intent: &str,      // e.g., "enable syntax highlighting"
-    target: &str,      // e.g., "nano"
+    intent: &str, // e.g., "enable syntax highlighting"
+    target: &str, // e.g., "nano"
     index: &RecipeIndex,
 ) -> Option<MatchResult> {
     // Build search query from intent + target
@@ -127,7 +126,11 @@ pub fn match_config_recipe(
 
     for (recipe, score) in &matches {
         // Check if recipe applies to this target
-        if recipe.targets.iter().any(|t| t.to_lowercase() == target.to_lowercase()) {
+        if recipe
+            .targets
+            .iter()
+            .any(|t| t.to_lowercase() == target.to_lowercase())
+        {
             return Some(MatchResult {
                 recipe: recipe.clone(),
                 score: *score,
@@ -142,9 +145,7 @@ pub fn match_config_recipe(
     for (recipe, score) in matches {
         if recipe.is_config_edit() && score >= MATCH_THRESHOLD / 2 {
             // Can adapt this recipe for different target
-            let substitutions = vec![
-                ("target".to_string(), target.to_string()),
-            ];
+            let substitutions = vec![("target".to_string(), target.to_string())];
 
             return Some(MatchResult {
                 recipe,
@@ -164,8 +165,8 @@ pub fn match_config_recipe(
 /// Looks for recipes that can be adapted for similar package operations.
 /// E.g., "install htop" can use "install vim" recipe with package substitution.
 pub fn match_action_recipe(
-    action: &str,      // e.g., "install", "restart"
-    target: &str,      // e.g., "htop", "docker"
+    action: &str, // e.g., "install", "restart"
+    target: &str, // e.g., "htop", "docker"
     index: &RecipeIndex,
 ) -> Option<MatchResult> {
     // Search for similar action recipes
@@ -234,7 +235,11 @@ fn extract_substitutions(query: &str, recipe: &Recipe) -> Vec<(String, String)> 
 }
 
 /// Extract substitutions for action recipes
-fn extract_action_substitutions(action: &str, target: &str, recipe: &Recipe) -> Vec<(String, String)> {
+fn extract_action_substitutions(
+    action: &str,
+    target: &str,
+    recipe: &Recipe,
+) -> Vec<(String, String)> {
     let mut subs = Vec::new();
 
     // Extract original target from recipe
@@ -254,9 +259,13 @@ fn extract_action_substitutions(action: &str, target: &str, recipe: &Recipe) -> 
 /// Check if token looks like a package name
 fn looks_like_package_name(token: &str) -> bool {
     // Common package patterns
-    let patterns = ["vim", "htop", "git", "nano", "curl", "wget", "docker", "nginx"];
+    let patterns = [
+        "vim", "htop", "git", "nano", "curl", "wget", "docker", "nginx",
+    ];
     // Must be at least 2 chars, not a common word
-    let common_words = ["the", "and", "for", "you", "can", "how", "what", "this", "that", "with"];
+    let common_words = [
+        "the", "and", "for", "you", "can", "how", "what", "this", "that", "with",
+    ];
     if token.len() < 2 || common_words.contains(&token) {
         return false;
     }
@@ -272,12 +281,17 @@ fn looks_like_service_name(token: &str) -> bool {
 
 /// Check if token looks like an editor name
 fn looks_like_editor_name(token: &str) -> bool {
-    ["vim", "nvim", "nano", "emacs", "helix", "micro", "code", "kate", "gedit"].contains(&token)
+    [
+        "vim", "nvim", "nano", "emacs", "helix", "micro", "code", "kate", "gedit",
+    ]
+    .contains(&token)
 }
 
 /// Check if token looks like a target (package, service, editor)
 fn looks_like_target(token: &str) -> bool {
-    looks_like_package_name(token) || looks_like_service_name(token) || looks_like_editor_name(token)
+    looks_like_package_name(token)
+        || looks_like_service_name(token)
+        || looks_like_editor_name(token)
 }
 
 /// v0.0.104: Try to match an SSH-related query to builtin SSH recipes

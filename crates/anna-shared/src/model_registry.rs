@@ -186,9 +186,7 @@ impl ModelRegistry {
         let mut bindings = Vec::new();
         for team in teams {
             for role in roles {
-                bindings.push(
-                    RoleBinding::new(team, role, model.clone()).with_reason(&reason),
-                );
+                bindings.push(RoleBinding::new(team, role, model.clone()).with_reason(&reason));
             }
         }
 
@@ -244,12 +242,18 @@ impl ModelRegistry {
 
     /// Check if model is present
     pub fn is_model_present(&self, model_name: &str) -> bool {
-        self.get_state(model_name).map(|s| s.present).unwrap_or(false)
+        self.get_state(model_name)
+            .map(|s| s.present)
+            .unwrap_or(false)
     }
 
     /// Get all unique model names from bindings
     pub fn required_models(&self) -> Vec<&str> {
-        let mut models: Vec<&str> = self.bindings.iter().map(|b| b.model.name.as_str()).collect();
+        let mut models: Vec<&str> = self
+            .bindings
+            .iter()
+            .map(|b| b.model.name.as_str())
+            .collect();
         models.sort();
         models.dedup();
         models
@@ -280,7 +284,9 @@ impl ModelRegistry {
 /// Path to model registry file
 pub fn model_registry_path() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    PathBuf::from(home).join(".anna").join("model_registry.json")
+    PathBuf::from(home)
+        .join(".anna")
+        .join("model_registry.json")
 }
 
 /// Load model registry from disk
@@ -355,7 +361,10 @@ fn parse_size_string(s: &str) -> Option<u64> {
         return None;
     };
 
-    num_str.parse::<f64>().ok().map(|n| (n * multiplier as f64) as u64)
+    num_str
+        .parse::<f64>()
+        .ok()
+        .map(|n| (n * multiplier as f64) as u64)
 }
 
 #[cfg(test)]
@@ -364,7 +373,9 @@ mod tests {
 
     #[test]
     fn test_model_spec_new() {
-        let spec = ModelSpec::new("llama3.2:3b").with_size(2.0).with_quant("Q4_K_M");
+        let spec = ModelSpec::new("llama3.2:3b")
+            .with_size(2.0)
+            .with_quant("Q4_K_M");
         assert_eq!(spec.name, "llama3.2:3b");
         assert_eq!(spec.size_hint_gb, Some(2.0));
         assert_eq!(spec.quant, Some("Q4_K_M".to_string()));
@@ -373,9 +384,15 @@ mod tests {
     #[test]
     fn test_hardware_tier_from_specs() {
         assert_eq!(HardwareTier::from_specs(2.0, 2, false), HardwareTier::Low);
-        assert_eq!(HardwareTier::from_specs(4.0, 4, false), HardwareTier::Medium);
+        assert_eq!(
+            HardwareTier::from_specs(4.0, 4, false),
+            HardwareTier::Medium
+        );
         assert_eq!(HardwareTier::from_specs(8.0, 8, false), HardwareTier::High);
-        assert_eq!(HardwareTier::from_specs(16.0, 8, true), HardwareTier::VeryHigh);
+        assert_eq!(
+            HardwareTier::from_specs(16.0, 8, true),
+            HardwareTier::VeryHigh
+        );
     }
 
     #[test]
@@ -397,13 +414,18 @@ mod tests {
 
         // All bindings should use the same model
         let model_name = &registry.bindings[0].model.name;
-        assert!(registry.bindings.iter().all(|b| &b.model.name == model_name));
+        assert!(registry
+            .bindings
+            .iter()
+            .all(|b| &b.model.name == model_name));
     }
 
     #[test]
     fn test_registry_get_binding() {
         let registry = ModelRegistry::with_defaults(HardwareTier::High);
-        let binding = registry.get_binding(Team::Storage, SpecialistRole::Junior).unwrap();
+        let binding = registry
+            .get_binding(Team::Storage, SpecialistRole::Junior)
+            .unwrap();
         assert_eq!(binding.team, Team::Storage);
         assert_eq!(binding.role, SpecialistRole::Junior);
     }
@@ -448,7 +470,10 @@ mod tests {
     #[test]
     fn test_parse_size_string() {
         assert_eq!(parse_size_string("2.0 GB"), Some(2 * 1024 * 1024 * 1024));
-        assert_eq!(parse_size_string("1.5GB"), Some((1.5 * 1024.0 * 1024.0 * 1024.0) as u64));
+        assert_eq!(
+            parse_size_string("1.5GB"),
+            Some((1.5 * 1024.0 * 1024.0 * 1024.0) as u64)
+        );
         assert_eq!(parse_size_string("512 MB"), Some(512 * 1024 * 1024));
         assert_eq!(parse_size_string("invalid"), None);
     }

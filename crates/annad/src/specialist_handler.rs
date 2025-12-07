@@ -46,7 +46,8 @@ pub async fn try_specialist_llm(
 
     // Use summarized probe context (not raw output)
     let probe_context = summarizer::build_probe_context(probe_results);
-    let prompt_result = service_desk::build_specialist_prompt(ticket.domain, context, probe_results);
+    let prompt_result =
+        service_desk::build_specialist_prompt(ticket.domain, context, probe_results);
 
     // COST: Log if prompt was truncated
     if prompt_result.was_truncated {
@@ -57,17 +58,24 @@ pub async fn try_specialist_llm(
 
     // Only include raw output if debug mode AND explicitly requested
     let full_prompt = if debug_mode && query.to_lowercase().contains("show raw") {
-        format!("{}\n\nProbe Output:\n{}\n\nUser: {}", prompt_result.prompt, probe_context, query)
+        format!(
+            "{}\n\nProbe Output:\n{}\n\nUser: {}",
+            prompt_result.prompt, probe_context, query
+        )
     } else {
         format!("{}\n\nUser: {}", prompt_result.prompt, query)
     };
 
     // v0.0.30: Enforce prompt size cap - skip to fallback if prompt too large
     if full_prompt.len() > config.max_specialist_prompt_bytes {
-        warn!("Specialist prompt exceeds cap ({}B > {}B), using fallback",
-            full_prompt.len(), config.max_specialist_prompt_bytes);
+        warn!(
+            "Specialist prompt exceeds cap ({}B > {}B), using fallback",
+            full_prompt.len(),
+            config.max_specialist_prompt_bytes
+        );
         progress.skip_stage_deterministic(RequestStage::Specialist);
-        let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
+        let (ans, used_det, det) =
+            try_deterministic_fallback(query, context, probe_results, progress);
         let route_class = det.as_ref().map(|d| d.route_class.clone());
         return SpecialistResult {
             answer: ans,
@@ -82,7 +90,9 @@ pub async fn try_specialist_llm(
     let (answer, used_deterministic, det_result, outcome, fallback_route_class) = match timeout(
         Duration::from_secs(config.specialist_timeout_secs),
         ollama::chat_with_timeout(model, &full_prompt, config.specialist_timeout_secs),
-    ).await {
+    )
+    .await
+    {
         Ok(Ok(response)) => {
             progress.complete_stage(RequestStage::Specialist);
             // Redact sensitive content from response
@@ -93,21 +103,30 @@ pub async fn try_specialist_llm(
         Ok(Err(e)) => {
             error!("Specialist LLM error: {}", e);
             progress.error_stage(RequestStage::Specialist, &e.to_string());
-            let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
+            let (ans, used_det, det) =
+                try_deterministic_fallback(query, context, probe_results, progress);
             let route_class = det.as_ref().map(|d| d.route_class.clone());
             (ans, used_det, det, SpecialistOutcome::Error, route_class)
         }
         Err(_) => {
             warn!("Specialist timeout, trying deterministic fallback");
             progress.timeout_stage(RequestStage::Specialist);
-            let (ans, used_det, det) = try_deterministic_fallback(query, context, probe_results, progress);
+            let (ans, used_det, det) =
+                try_deterministic_fallback(query, context, probe_results, progress);
             let route_class = det.as_ref().map(|d| d.route_class.clone());
             (ans, used_det, det, SpecialistOutcome::Timeout, route_class)
         }
     };
 
     // Record specialist latency
-    { state.write().await.latency.specialist.add(stage_start.elapsed().as_millis() as u64); }
+    {
+        state
+            .write()
+            .await
+            .latency
+            .specialist
+            .add(stage_start.elapsed().as_millis() as u64);
+    }
 
     SpecialistResult {
         answer,
@@ -138,8 +157,13 @@ pub fn try_deterministic_fallback(
     }
 
     // v0.0.30: If query-based fallback fails, try best-effort summary from evidence
-    if let Some((answer, parsed_count)) = crate::answers::generate_best_effort_summary(probe_results) {
-        info!("Best-effort summary produced from {} evidence pieces", parsed_count);
+    if let Some((answer, parsed_count)) =
+        crate::answers::generate_best_effort_summary(probe_results)
+    {
+        info!(
+            "Best-effort summary produced from {} evidence pieces",
+            parsed_count
+        );
         progress.add_specialist_message("[best-effort fallback]");
         let det = DeterministicResult {
             answer: answer.clone(),

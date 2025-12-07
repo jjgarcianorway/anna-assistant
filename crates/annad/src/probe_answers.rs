@@ -11,11 +11,17 @@ use crate::parsers::{
 };
 
 /// Answer CPU info from hardware snapshot or lscpu probe
-pub fn answer_cpu_info(hardware: &HardwareSummary, probes: &[ProbeResult]) -> Option<DeterministicResult> {
+pub fn answer_cpu_info(
+    hardware: &HardwareSummary,
+    probes: &[ProbeResult],
+) -> Option<DeterministicResult> {
     // Try hardware snapshot first
     if !hardware.cpu_model.is_empty() && hardware.cpu_model != "Unknown" {
         return Some(DeterministicResult {
-            answer: format!("**CPU:** {} ({} cores)", hardware.cpu_model, hardware.cpu_cores),
+            answer: format!(
+                "**CPU:** {} ({} cores)",
+                hardware.cpu_model, hardware.cpu_cores
+            ),
             grounded: true,
             parsed_data_count: 1,
             route_class: String::new(),
@@ -37,7 +43,10 @@ pub fn answer_cpu_info(hardware: &HardwareSummary, probes: &[ProbeResult]) -> Op
 }
 
 /// Answer RAM info from hardware snapshot or free -h probe
-pub fn answer_ram_info(hardware: &HardwareSummary, probes: &[ProbeResult]) -> Option<DeterministicResult> {
+pub fn answer_ram_info(
+    hardware: &HardwareSummary,
+    probes: &[ProbeResult],
+) -> Option<DeterministicResult> {
     // Try hardware snapshot first
     if hardware.ram_gb > 0.0 {
         return Some(DeterministicResult {
@@ -70,7 +79,12 @@ pub fn answer_gpu_info(hardware: &HardwareSummary) -> Option<DeterministicResult
         (None, _) => "**GPU:** No dedicated GPU detected".to_string(),
     };
 
-    Some(DeterministicResult { answer, grounded: true, parsed_data_count: 1, route_class: String::new() })
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: String::new(),
+    })
 }
 
 /// Answer top memory processes from ps aux probe
@@ -90,11 +104,20 @@ pub fn answer_top_memory(probes: &[ProbeResult]) -> Option<DeterministicResult> 
         let rss_display = proc.rss.as_deref().unwrap_or("-");
         answer.push_str(&format!(
             "| {} | {} | {}% | {} | {} |\n",
-            proc.pid, truncate(&proc.command, 30), proc.mem_percent, rss_display, truncate(&proc.user, 10)
+            proc.pid,
+            truncate(&proc.command, 30),
+            proc.mem_percent,
+            rss_display,
+            truncate(&proc.user, 10)
         ));
     }
 
-    Some(DeterministicResult { answer, grounded: true, parsed_data_count: processes.len(), route_class: String::new() })
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: processes.len(),
+        route_class: String::new(),
+    })
 }
 
 /// Answer top CPU processes
@@ -113,11 +136,19 @@ pub fn answer_top_cpu(probes: &[ProbeResult]) -> Option<DeterministicResult> {
     for proc in &processes {
         answer.push_str(&format!(
             "| {} | {} | {}% | {} |\n",
-            proc.pid, truncate(&proc.command, 30), proc.cpu_percent, truncate(&proc.user, 10)
+            proc.pid,
+            truncate(&proc.command, 30),
+            proc.cpu_percent,
+            truncate(&proc.user, 10)
         ));
     }
 
-    Some(DeterministicResult { answer, grounded: true, parsed_data_count: processes.len(), route_class: String::new() })
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: processes.len(),
+        route_class: String::new(),
+    })
 }
 
 /// Answer disk space from df -h probe
@@ -144,22 +175,42 @@ pub fn answer_disk_space(probes: &[ProbeResult]) -> Option<DeterministicResult> 
 
         answer.push_str(&format!(
             "| {} | {} | {} | {} | {}%{} | {} |\n",
-            truncate(&fs.filesystem, 15), fs.size, fs.used, fs.avail, fs.use_percent, status, fs.mount
+            truncate(&fs.filesystem, 15),
+            fs.size,
+            fs.used,
+            fs.avail,
+            fs.use_percent,
+            status,
+            fs.mount
         ));
     }
 
     // Summary
     let critical: Vec<_> = filesystems.iter().filter(|f| f.use_percent >= 95).collect();
-    let warning: Vec<_> = filesystems.iter().filter(|f| f.use_percent >= 85 && f.use_percent < 95).collect();
+    let warning: Vec<_> = filesystems
+        .iter()
+        .filter(|f| f.use_percent >= 85 && f.use_percent < 95)
+        .collect();
 
     if !critical.is_empty() {
-        answer.push_str(&format!("\n**Critical:** {} filesystem(s) at >=95%", critical.len()));
+        answer.push_str(&format!(
+            "\n**Critical:** {} filesystem(s) at >=95%",
+            critical.len()
+        ));
     }
     if !warning.is_empty() {
-        answer.push_str(&format!("\n**Warning:** {} filesystem(s) at >=85%", warning.len()));
+        answer.push_str(&format!(
+            "\n**Warning:** {} filesystem(s) at >=85%",
+            warning.len()
+        ));
     }
 
-    Some(DeterministicResult { answer, grounded: true, parsed_data_count: filesystems.len(), route_class: String::new() })
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: filesystems.len(),
+        route_class: String::new(),
+    })
 }
 
 /// Answer network interfaces from ip addr show probe
@@ -172,7 +223,9 @@ pub fn answer_network_interfaces(probes: &[ProbeResult]) -> Option<Deterministic
     }
 
     // Find active interface (UP, has IPv4, not loopback)
-    let active = interfaces.iter().find(|i| i.state == "UP" && i.ipv4.is_some() && i.name != "lo");
+    let active = interfaces
+        .iter()
+        .find(|i| i.state == "UP" && i.ipv4.is_some() && i.name != "lo");
 
     let mut answer = String::new();
 
@@ -180,7 +233,10 @@ pub fn answer_network_interfaces(probes: &[ProbeResult]) -> Option<Deterministic
     if let Some(iface) = active {
         let iface_type = classify_interface_type(&iface.name);
         let ip = iface.ipv4.as_deref().unwrap_or("-");
-        answer.push_str(&format!("**Active: {} ({})** - {}\n\n", iface_type, iface.name, ip));
+        answer.push_str(&format!(
+            "**Active: {} ({})** - {}\n\n",
+            iface_type, iface.name, ip
+        ));
     }
 
     answer.push_str("**All interfaces:**\n\n");
@@ -190,11 +246,23 @@ pub fn answer_network_interfaces(probes: &[ProbeResult]) -> Option<Deterministic
     for iface in &interfaces {
         let iface_type = classify_interface_type(&iface.name);
         let ipv4 = iface.ipv4.as_deref().unwrap_or("-");
-        let state_display = if iface.state == "UP" { "UP ✓" } else { &iface.state };
-        answer.push_str(&format!("| {} | {} | {} | {} |\n", iface.name, iface_type, ipv4, state_display));
+        let state_display = if iface.state == "UP" {
+            "UP ✓"
+        } else {
+            &iface.state
+        };
+        answer.push_str(&format!(
+            "| {} | {} | {} | {} |\n",
+            iface.name, iface_type, ipv4, state_display
+        ));
     }
 
-    Some(DeterministicResult { answer, grounded: true, parsed_data_count: interfaces.len(), route_class: String::new() })
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: interfaces.len(),
+        route_class: String::new(),
+    })
 }
 
 /// Answer system slow diagnostic
@@ -208,7 +276,11 @@ pub fn answer_system_slow(probes: &[ProbeResult]) -> Option<DeterministicResult>
         if !processes.is_empty() {
             let mut s = String::from("**Top CPU consumers:**\n");
             for proc in &processes {
-                s.push_str(&format!("- {} ({}% CPU)\n", truncate(&proc.command, 30), proc.cpu_percent));
+                s.push_str(&format!(
+                    "- {} ({}% CPU)\n",
+                    truncate(&proc.command, 30),
+                    proc.cpu_percent
+                ));
             }
             sections.push(s);
             total_parsed += processes.len();
@@ -221,7 +293,11 @@ pub fn answer_system_slow(probes: &[ProbeResult]) -> Option<DeterministicResult>
         if !processes.is_empty() {
             let mut s = String::from("**Top memory consumers:**\n");
             for proc in &processes {
-                s.push_str(&format!("- {} ({}% RAM)\n", truncate(&proc.command, 30), proc.mem_percent));
+                s.push_str(&format!(
+                    "- {} ({}% RAM)\n",
+                    truncate(&proc.command, 30),
+                    proc.mem_percent
+                ));
             }
             sections.push(s);
             total_parsed += processes.len();
@@ -235,7 +311,10 @@ pub fn answer_system_slow(probes: &[ProbeResult]) -> Option<DeterministicResult>
         if !critical.is_empty() {
             let mut s = String::from("**Disk warnings:**\n");
             for fs in &critical {
-                s.push_str(&format!("- {} at {}% ({} free)\n", fs.mount, fs.use_percent, fs.avail));
+                s.push_str(&format!(
+                    "- {} at {}% ({} free)\n",
+                    fs.mount, fs.use_percent, fs.avail
+                ));
             }
             sections.push(s);
             total_parsed += critical.len();

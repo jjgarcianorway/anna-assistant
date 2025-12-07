@@ -112,11 +112,24 @@ impl std::fmt::Display for StageOutcome {
             Self::Error => write!(f, "error"),
             Self::Skipped => write!(f, "skipped"),
             Self::Deterministic => write!(f, "deterministic"),
-            Self::BudgetExceeded { stage, budget_ms, elapsed_ms } => {
-                write!(f, "budget_exceeded({}: {}ms > {}ms)", stage, elapsed_ms, budget_ms)
+            Self::BudgetExceeded {
+                stage,
+                budget_ms,
+                elapsed_ms,
+            } => {
+                write!(
+                    f,
+                    "budget_exceeded({}: {}ms > {}ms)",
+                    stage, elapsed_ms, budget_ms
+                )
             }
             Self::ClarificationRequired { question, choices } => {
-                write!(f, "clarification_required({}, {} choices)", question, choices.len())
+                write!(
+                    f,
+                    "clarification_required({}, {} choices)",
+                    question,
+                    choices.len()
+                )
             }
         }
     }
@@ -155,7 +168,6 @@ pub enum TranscriptEventKind {
     Note { text: String },
 
     // === Ticket lifecycle events (v0.0.25) ===
-
     /// Ticket created from user request
     TicketCreated {
         ticket_id: String,
@@ -182,12 +194,9 @@ pub enum TranscriptEventKind {
         reason: Option<String>,
     },
     /// Revision applied based on instruction
-    RevisionApplied {
-        changes_made: Vec<String>,
-    },
+    RevisionApplied { changes_made: Vec<String> },
 
     // === Review gate events (v0.0.26) ===
-
     /// Review gate decision
     ReviewGateDecision {
         /// Decision made by the gate
@@ -210,7 +219,6 @@ pub enum TranscriptEventKind {
     },
 
     // === Clarification events (v0.0.31) ===
-
     /// Clarification question asked
     ClarificationAsked {
         /// Question ID
@@ -251,7 +259,6 @@ pub enum TranscriptEventKind {
     },
 
     // === Fast path events (v0.0.39) ===
-
     /// Fast path evaluation result
     FastPath {
         /// Whether fast path handled the query
@@ -265,7 +272,6 @@ pub enum TranscriptEventKind {
     },
 
     // === Timeout fallback events (v0.0.41) ===
-
     /// LLM timeout triggered fallback (v0.0.41)
     LlmTimeoutFallback {
         /// Stage that timed out ("translator" or "specialist")
@@ -288,7 +294,6 @@ pub enum TranscriptEventKind {
     },
 
     // === Service Desk Theatre events (v0.0.63) ===
-
     /// Evidence summary - what probes found without raw output (v0.0.63)
     /// Used in clean mode to show "Checking X data sources..." without leaking probe output
     EvidenceSummary {

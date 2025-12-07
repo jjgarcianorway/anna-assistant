@@ -126,8 +126,11 @@ pub fn run_ticket_loop(
 
         // Apply revision if instruction has changes
         if verification.instruction.has_changes() {
-            let (revised, changes) =
-                ticket_service::apply_revision(&current_answer, &verification.instruction, probe_results);
+            let (revised, changes) = ticket_service::apply_revision(
+                &current_answer,
+                &verification.instruction,
+                probe_results,
+            );
 
             if !changes.is_empty() {
                 add_revision_event(transcript, elapsed_ms, changes);
@@ -159,15 +162,22 @@ pub fn run_ticket_loop(
     while ticket.senior_attempt < ticket.senior_rounds_max {
         ticket.senior_attempt += 1;
 
-        let escalation =
-            ticket_service::senior_escalate(&current_answer, &ticket, &junior_history, probe_results);
+        let escalation = ticket_service::senior_escalate(
+            &current_answer,
+            &ticket,
+            &junior_history,
+            probe_results,
+        );
 
         add_senior_escalation_event(transcript, elapsed_ms, &escalation);
 
         if escalation.successful && escalation.instruction.has_changes() {
             // Apply senior revision
-            let (revised, changes) =
-                ticket_service::apply_revision(&current_answer, &escalation.instruction, probe_results);
+            let (revised, changes) = ticket_service::apply_revision(
+                &current_answer,
+                &escalation.instruction,
+                probe_results,
+            );
 
             if !changes.is_empty() {
                 add_revision_event(transcript, elapsed_ms, changes);
@@ -243,11 +253,9 @@ fn evidence_kinds_from_route(route_class: &str) -> Vec<EvidenceKind> {
         "CpuInfo" | "CpuUsage" | "cpu_info" => vec![EvidenceKind::Cpu],
         "SystemServices" | "ServiceStatus" | "service_status" => vec![EvidenceKind::Services],
         "BlockDevices" | "lsblk" => vec![EvidenceKind::BlockDevices],
-        "SystemHealth" | "system_health_summary" => vec![
-            EvidenceKind::Memory,
-            EvidenceKind::Disk,
-            EvidenceKind::Cpu,
-        ],
+        "SystemHealth" | "system_health_summary" => {
+            vec![EvidenceKind::Memory, EvidenceKind::Disk, EvidenceKind::Cpu]
+        }
         _ => vec![],
     }
 }

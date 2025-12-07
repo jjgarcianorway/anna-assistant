@@ -33,10 +33,22 @@ pub fn anna_dispatch_greeting(team: Team, case_id: &str) -> String {
     let short_id = &case_id[..8.min(case_id.len())];
 
     let greetings = [
-        format!("Hey {}! I have a case for you. {}", person.display_name, short_id),
-        format!("{}, got a ticket coming your way. Case {}", person.display_name, short_id),
-        format!("{}, when you have a moment - new request in. {}", person.display_name, short_id),
-        format!("Quick one for you, {}. Case number {}", person.display_name, short_id),
+        format!(
+            "Hey {}! I have a case for you. {}",
+            person.display_name, short_id
+        ),
+        format!(
+            "{}, got a ticket coming your way. Case {}",
+            person.display_name, short_id
+        ),
+        format!(
+            "{}, when you have a moment - new request in. {}",
+            person.display_name, short_id
+        ),
+        format!(
+            "Quick one for you, {}. Case number {}",
+            person.display_name, short_id
+        ),
     ];
 
     greetings[(seed as usize) % greetings.len()].clone()
@@ -84,10 +96,22 @@ pub fn junior_escalation_request(team: Team, score: u8, seed: u64) -> String {
     let senior = person_for(team, Tier::Senior);
 
     let phrases = [
-        format!("{}, can you take a look? Only {}% confident.", senior.display_name, score),
-        format!("Need a second opinion, {}. Score's at {}%.", senior.display_name, score),
-        format!("Escalating to {}. {}% isn't enough.", senior.display_name, score),
-        format!("{}, I'm not sure about this one. {}%.", senior.display_name, score),
+        format!(
+            "{}, can you take a look? Only {}% confident.",
+            senior.display_name, score
+        ),
+        format!(
+            "Need a second opinion, {}. Score's at {}%.",
+            senior.display_name, score
+        ),
+        format!(
+            "Escalating to {}. {}% isn't enough.",
+            senior.display_name, score
+        ),
+        format!(
+            "{}, I'm not sure about this one. {}%.",
+            senior.display_name, score
+        ),
     ];
 
     phrases[(seed as usize) % phrases.len()].clone()
@@ -182,7 +206,8 @@ pub fn anna_domain_greeting(domain: &str) -> String {
         "hardware" | "audio" => "Let me gather the hardware details.",
         "desktop" | "editor" => "I'll check that for you.",
         _ => "Let me look into that for you.",
-    }.to_string()
+    }
+    .to_string()
 }
 
 #[cfg(test)]

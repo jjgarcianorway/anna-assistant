@@ -3,7 +3,7 @@
 //! Determines what clarifications are needed and how to verify them.
 //! Supports the "research first, ask second, verify always" philosophy.
 
-use crate::facts::{FactKey, FactsStore, FactStatus};
+use crate::facts::{FactKey, FactStatus, FactsStore};
 use crate::rpc::{QueryIntent, SpecialistDomain};
 use serde::{Deserialize, Serialize};
 
@@ -350,7 +350,14 @@ fn needs_editor_clarification(query: &str, intent: &QueryIntent, entities: &[Str
 
 /// Check if query needs network clarification
 fn needs_network_clarification(query: &str, intent: &QueryIntent) -> bool {
-    let network_terms = ["internet", "connection", "network", "wifi", "ethernet", "broken"];
+    let network_terms = [
+        "internet",
+        "connection",
+        "network",
+        "wifi",
+        "ethernet",
+        "broken",
+    ];
     let matches_network = network_terms.iter().any(|t| query.contains(t));
 
     if !matches_network {
@@ -375,7 +382,9 @@ fn needs_service_clarification(query: &str, entities: &[String]) -> bool {
     }
 
     // Check for common service names in query
-    let common_services = ["nginx", "apache", "docker", "ssh", "postgres", "mysql", "redis"];
+    let common_services = [
+        "nginx", "apache", "docker", "ssh", "postgres", "mysql", "redis",
+    ];
     for svc in common_services {
         if query.contains(svc) {
             return false;
@@ -442,7 +451,9 @@ mod tests {
 
     #[test]
     fn test_verify_plan_probe_command() {
-        let plan = VerifyPlan::BinaryExists { binary: "vim".to_string() };
+        let plan = VerifyPlan::BinaryExists {
+            binary: "vim".to_string(),
+        };
         assert_eq!(plan.probe_command(), Some("command -v vim".to_string()));
 
         let plan = VerifyPlan::None;
@@ -453,7 +464,9 @@ mod tests {
     fn test_clarification_question_builder() {
         let q = ClarificationQuestion::new("test", "Test question?", "testing")
             .with_choices(vec!["a", "b"])
-            .with_verify(VerifyPlan::BinaryExists { binary: "test".to_string() })
+            .with_verify(VerifyPlan::BinaryExists {
+                binary: "test".to_string(),
+            })
             .with_priority(5);
 
         assert_eq!(q.id, "test");
@@ -464,7 +477,11 @@ mod tests {
     #[test]
     fn test_analyze_intake_editor_with_known_fact() {
         let mut facts = FactsStore::new();
-        facts.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
+        facts.set_verified(
+            FactKey::PreferredEditor,
+            "vim".to_string(),
+            "test".to_string(),
+        );
         facts.set_verified(
             FactKey::BinaryAvailable("vim".to_string()),
             "/usr/bin/vim".to_string(),
@@ -514,7 +531,10 @@ mod tests {
         );
 
         assert!(!result.can_proceed);
-        assert!(result.clarifications_needed.iter().any(|c| c.id == "network_interface"));
+        assert!(result
+            .clarifications_needed
+            .iter()
+            .any(|c| c.id == "network_interface"));
     }
 
     #[test]
@@ -538,7 +558,11 @@ mod tests {
     #[test]
     fn test_check_slot_satisfied() {
         let mut facts = FactsStore::new();
-        facts.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
+        facts.set_verified(
+            FactKey::PreferredEditor,
+            "vim".to_string(),
+            "test".to_string(),
+        );
 
         let result = check_slot_satisfied(ClarificationSlot::EditorName, &facts);
         assert_eq!(result, Some("vim".to_string()));

@@ -3,8 +3,8 @@
 //! Converts verified recipes into knowledge documents for RAG retrieval.
 //! This allows successful solutions to be served without LLM calls.
 
-use crate::recipe::{Recipe, RecipeAction, RecipeKind};
 use super::sources::{KnowledgeDoc, KnowledgeSource, Provenance};
+use crate::recipe::{Recipe, RecipeAction, RecipeKind};
 
 /// Convert a verified recipe into a KnowledgeDoc for the knowledge store.
 ///
@@ -66,7 +66,10 @@ fn build_body(recipe: &Recipe) -> String {
     if let Some(target) = &recipe.target {
         body.push_str("## Configuration\n\n");
         body.push_str(&format!("**Application:** {}\n", target.app_id));
-        body.push_str(&format!("**Config file:** `{}`\n\n", target.config_path_template));
+        body.push_str(&format!(
+            "**Config file:** `{}`\n\n",
+            target.config_path_template
+        ));
     }
 
     // Add the specific action
@@ -86,15 +89,20 @@ fn build_body(recipe: &Recipe) -> String {
     if let Some(rollback) = &recipe.rollback {
         body.push_str("## Rollback\n\n");
         body.push_str(&format!("{}\n", rollback.description));
-        body.push_str(&format!("Backup at: `{}`\n\n", rollback.backup_path.display()));
+        body.push_str(&format!(
+            "Backup at: `{}`\n\n",
+            rollback.backup_path.display()
+        ));
     }
 
     // Add risk level
     body.push_str(&format!("**Risk level:** {:?}\n", recipe.risk_level));
 
     // Add reliability info
-    body.push_str(&format!("**Reliability:** {}% (verified {} times)\n",
-        recipe.reliability_score, recipe.success_count));
+    body.push_str(&format!(
+        "**Reliability:** {}% (verified {} times)\n",
+        recipe.reliability_score, recipe.success_count
+    ));
 
     body
 }
@@ -202,7 +210,12 @@ mod tests {
 
     fn test_recipe() -> Recipe {
         Recipe::new(
-            RecipeSignature::new("vim", "enable syntax", "ConfigChange", "how to enable syntax highlighting in vim"),
+            RecipeSignature::new(
+                "vim",
+                "enable syntax",
+                "ConfigChange",
+                "how to enable syntax highlighting in vim",
+            ),
             Team::Desktop,
             RiskLevel::LowRiskChange,
             vec![],
@@ -229,7 +242,9 @@ mod tests {
             RecipeSignature::new("vim", "syntax", "ConfigChange", "enable vim syntax"),
             Team::Desktop,
             RecipeTarget::new("vim", "$HOME/.vimrc"),
-            RecipeAction::EnsureLine { line: "syntax on".to_string() },
+            RecipeAction::EnsureLine {
+                line: "syntax on".to_string(),
+            },
             90,
         );
 

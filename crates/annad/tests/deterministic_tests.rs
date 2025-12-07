@@ -126,14 +126,18 @@ mod deterministic_answerer {
             if parts.len() >= 11 {
                 // RSS in KB, format human-readable
                 let rss_kb: u64 = parts[5].parse().unwrap_or(0);
-                let rss = if rss_kb >= 1024 { format!("{}M", rss_kb / 1024) } else { format!("{}K", rss_kb) };
+                let rss = if rss_kb >= 1024 {
+                    format!("{}M", rss_kb / 1024)
+                } else {
+                    format!("{}K", rss_kb)
+                };
                 answer.push_str(&format!(
                     "| {} | {} | {}% | {} | {} |\n",
-                    parts[1], // PID
+                    parts[1],              // PID
                     parts[10..].join(" "), // COMMAND
-                    parts[3], // %MEM
+                    parts[3],              // %MEM
                     rss,
-                    parts[0]  // USER
+                    parts[0] // USER
                 ));
             }
         }
@@ -185,7 +189,12 @@ mod deterministic_answerer {
         let mut current_ipv4 = String::new();
 
         for line in probe.stdout.lines() {
-            if line.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+            if line
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_digit())
+                .unwrap_or(false)
+            {
                 // Flush previous interface
                 if !current_iface.is_empty() {
                     let ipv4 = if current_ipv4.is_empty() {
@@ -383,16 +392,19 @@ fn test_deterministic_scoring_with_probes() {
     // When probes succeed and deterministic answer is generated,
     // reliability score should be > 20 even if translator timed out
     let signals = ReliabilitySignals {
-        translator_confident: false, // Translator timed out
-        probe_coverage: true,        // All probes succeeded
-        answer_grounded: true,       // Deterministic = always grounded
-        no_invention: true,          // Deterministic = never invents
+        translator_confident: false,    // Translator timed out
+        probe_coverage: true,           // All probes succeeded
+        answer_grounded: true,          // Deterministic = always grounded
+        no_invention: true,             // Deterministic = never invents
         clarification_not_needed: true, // We produced an answer
     };
 
     // Score should be 80 (4 signals * 20)
     assert_eq!(signals.score(), 80);
-    assert!(signals.score() > 20, "Score should be > 20 when probes succeed");
+    assert!(
+        signals.score() > 20,
+        "Score should be > 20 when probes succeed"
+    );
 }
 
 #[test]
@@ -517,11 +529,8 @@ fn test_network_shows_interface_state() {
     let context = make_context();
     let probes = vec![make_ip_addr_output()];
 
-    let answer = deterministic_answerer::try_answer(
-        "what are my network interfaces?",
-        &context,
-        &probes,
-    );
+    let answer =
+        deterministic_answerer::try_answer("what are my network interfaces?", &context, &probes);
 
     assert!(answer.is_some());
     let answer = answer.unwrap();

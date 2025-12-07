@@ -212,8 +212,22 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
 fn strip_greetings(query: &str) -> String {
     let q = query.to_lowercase();
     let patterns = [
-        "hello", "hi ", "hey ", "good morning", "good afternoon", "good evening",
-        "anna", ":)", ":(", ";)", ":d", ":p", "!", "?", "…", "...",
+        "hello",
+        "hi ",
+        "hey ",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "anna",
+        ":)",
+        ":(",
+        ";)",
+        ":d",
+        ":p",
+        "!",
+        "?",
+        "…",
+        "...",
     ];
     let mut result = q;
     for p in patterns {
@@ -445,7 +459,11 @@ fn answer_what_changed(current: &SystemSnapshot) -> FastPathAnswer {
     }
 
     let answer = format_deltas_text(&deltas);
-    let reliability = if has_actionable_deltas(&deltas) { 85 } else { 80 };
+    let reliability = if has_actionable_deltas(&deltas) {
+        85
+    } else {
+        80
+    };
 
     FastPathAnswer::handled(
         FastPathClass::WhatChanged,
@@ -502,10 +520,7 @@ mod tests {
 
     #[test]
     fn test_classify_disk_usage() {
-        assert_eq!(
-            classify_fast_path("disk usage"),
-            FastPathClass::DiskUsage
-        );
+        assert_eq!(classify_fast_path("disk usage"), FastPathClass::DiskUsage);
     }
 
     #[test]

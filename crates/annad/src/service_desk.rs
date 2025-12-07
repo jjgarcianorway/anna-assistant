@@ -146,7 +146,7 @@ pub fn create_no_evidence_response(
         translator_confident: false,
         probe_coverage: false,
         answer_grounded: false,
-        no_invention: true, // No claims made = no invention
+        no_invention: true,             // No claims made = no invention
         clarification_not_needed: true, // We gave a clear answer
     };
 
@@ -173,6 +173,7 @@ pub fn create_no_evidence_response(
         transcript,
         execution_trace: None,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }
@@ -240,6 +241,7 @@ pub fn create_clarification_response_grounded(
         transcript,
         execution_trace: None, // Clarification response - no trace needed
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }
@@ -255,14 +257,15 @@ pub fn create_clarification_with_options(
     probe_results: Vec<ProbeResult>,
     transcript: Transcript,
 ) -> ServiceDeskResult {
-    use anna_shared::clarify_v2::{ClarifyRequest, ClarifyOption};
-    use anna_shared::trace::{ProbeStats, ExecutionTrace, evidence_kinds_from_probes};
+    use anna_shared::clarify_v2::{ClarifyOption, ClarifyRequest};
+    use anna_shared::trace::{evidence_kinds_from_probes, ExecutionTrace, ProbeStats};
     use uuid::Uuid;
 
     // v0.0.62: Count valid evidence from probes
     let valid_evidence_count = {
         use anna_shared::parsers::parse_probe_result;
-        probe_results.iter()
+        probe_results
+            .iter()
             .filter(|p| parse_probe_result(p).is_valid_evidence())
             .count()
     };
@@ -278,7 +281,8 @@ pub fn create_clarification_with_options(
     let score = signals.score().min(CLARIFICATION_MAX_RELIABILITY);
 
     // Build structured ClarifyRequest with options
-    let clarify_options: Vec<ClarifyOption> = options.iter()
+    let clarify_options: Vec<ClarifyOption> = options
+        .iter()
         .enumerate()
         .map(|(i, (label, value))| ClarifyOption::new((i + 1) as u8, label, value))
         .collect();
@@ -331,6 +335,7 @@ pub fn create_clarification_with_options(
         transcript,
         execution_trace,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }
@@ -348,8 +353,7 @@ pub fn create_timeout_response(
     // v0.45.x: Build evidence summary from available probe data
     let answer = build_timeout_evidence_summary(stage, &probe_results);
 
-    let has_evidence = !probe_results.is_empty()
-        && probe_results.iter().any(|p| p.exit_code == 0);
+    let has_evidence = !probe_results.is_empty() && probe_results.iter().any(|p| p.exit_code == 0);
 
     let signals = ReliabilitySignals {
         translator_confident: false,
@@ -386,12 +390,13 @@ pub fn create_timeout_response(
         reliability_explanation: None,
         domain,
         evidence,
-        needs_clarification: false, // Never ask to rephrase
+        needs_clarification: false,   // Never ask to rephrase
         clarification_question: None, // v0.45.x: No clarification - we provide status
         clarification_request: None,
         transcript,
         execution_trace: None, // Populated by caller if needed
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }
@@ -410,13 +415,13 @@ fn build_timeout_evidence_summary(stage: &str, probe_results: &[ProbeResult]) ->
             answer.push_str("**Evidence gathered before timeout:**\n\n");
             for probe in &successful {
                 // Extract meaningful output (first 3 lines)
-                let output: String = probe.stdout
-                    .lines()
-                    .take(3)
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                let output: String = probe.stdout.lines().take(3).collect::<Vec<_>>().join("\n");
                 if !output.trim().is_empty() {
-                    let truncated = if probe.stdout.lines().count() > 3 { "..." } else { "" };
+                    let truncated = if probe.stdout.lines().count() > 3 {
+                        "..."
+                    } else {
+                        ""
+                    };
                     answer.push_str(&format!(
                         "- `{}`: {}{}\n",
                         probe.command,
@@ -484,6 +489,7 @@ pub fn create_no_data_response(
         transcript,
         execution_trace: None,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }
@@ -619,6 +625,7 @@ pub fn build_result_with_flags(
         transcript,
         execution_trace: None, // Populated by caller
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }
@@ -675,19 +682,19 @@ fn calculate_reliability_v2(
         .count();
 
     // Evidence requirement: prefer route capability (v0.45.x probe spine), fall back to heuristic
-    let evidence_required = fallback_ctx.evidence_required
+    let evidence_required = fallback_ctx
+        .evidence_required
         .unwrap_or_else(|| query_requires_evidence(query));
 
     // v0.45.4: Parse probes and compute grounding via claim extraction
     use anna_shared::claims::extract_claims;
-    use anna_shared::grounding::{compute_grounding, ParsedEvidence, is_answer_grounded as grounding_check};
+    use anna_shared::grounding::{
+        compute_grounding, is_answer_grounded as grounding_check, ParsedEvidence,
+    };
     use anna_shared::parsers::parse_probe_result;
 
     // Parse probe results into structured data
-    let parsed_probes: Vec<_> = probe_results
-        .iter()
-        .map(parse_probe_result)
-        .collect();
+    let parsed_probes: Vec<_> = probe_results.iter().map(parse_probe_result).collect();
 
     // Build evidence from parsed probes
     let evidence = ParsedEvidence::from_probes(&parsed_probes);

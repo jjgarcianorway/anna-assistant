@@ -56,12 +56,18 @@ fn parse_free_usage(output: &str) -> Option<(u8, String)> {
             if parts.len() >= 4 {
                 // free -h format: Mem: total used free shared buff/cache available
                 // free format: Mem: total used free shared buff/cache available (KB)
-                let total: u64 = parts[1].trim_end_matches(|c: char| !c.is_ascii_digit())
+                let total: u64 = parts[1]
+                    .trim_end_matches(|c: char| !c.is_ascii_digit())
                     .parse()
                     .ok()
                     .or_else(|| parse_human_size(parts[1]))?;
-                let available: u64 = parts.get(6)
-                    .and_then(|s| s.trim_end_matches(|c: char| !c.is_ascii_digit()).parse().ok())
+                let available: u64 = parts
+                    .get(6)
+                    .and_then(|s| {
+                        s.trim_end_matches(|c: char| !c.is_ascii_digit())
+                            .parse()
+                            .ok()
+                    })
                     .or_else(|| parts.get(6).and_then(|s| parse_human_size(s)))?;
 
                 if total > 0 {
@@ -181,11 +187,12 @@ mod tests {
 
     #[test]
     fn test_healthy_system() {
-        let probes = vec![
-            mock_probe("df -h", "Filesystem      Size  Used Avail Use% Mounted on
+        let probes = vec![mock_probe(
+            "df -h",
+            "Filesystem      Size  Used Avail Use% Mounted on
 /dev/sda1       100G   50G   50G  50% /
-/dev/sdb1        50G   20G   30G  40% /home"),
-        ];
+/dev/sdb1        50G   20G   30G  40% /home",
+        )];
 
         let brief = build_health_brief(&probes);
         assert!(brief.all_healthy);
@@ -194,10 +201,11 @@ mod tests {
 
     #[test]
     fn test_disk_warning() {
-        let probes = vec![
-            mock_probe("df -h", "Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda1       100G   87G   13G  87% /"),
-        ];
+        let probes = vec![mock_probe(
+            "df -h",
+            "Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1       100G   87G   13G  87% /",
+        )];
 
         let brief = build_health_brief(&probes);
         assert!(!brief.all_healthy);
@@ -208,10 +216,11 @@ mod tests {
 
     #[test]
     fn test_disk_critical() {
-        let probes = vec![
-            mock_probe("df -h", "Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda1       100G   96G    4G  96% /"),
-        ];
+        let probes = vec![mock_probe(
+            "df -h",
+            "Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1       100G   96G    4G  96% /",
+        )];
 
         let brief = build_health_brief(&probes);
         assert_eq!(brief.overall, BriefSeverity::Error);
@@ -219,10 +228,11 @@ mod tests {
 
     #[test]
     fn test_failed_services() {
-        let probes = vec![
-            mock_probe("systemctl --failed", "UNIT           LOAD   ACTIVE SUB    DESCRIPTION
-● nginx.service loaded failed failed A high performance web server"),
-        ];
+        let probes = vec![mock_probe(
+            "systemctl --failed",
+            "UNIT           LOAD   ACTIVE SUB    DESCRIPTION
+● nginx.service loaded failed failed A high performance web server",
+        )];
 
         let brief = build_health_brief(&probes);
         assert!(!brief.all_healthy);
@@ -259,10 +269,11 @@ mod tests {
     // Golden test: health answer format
     #[test]
     fn golden_healthy_answer() {
-        let probes = vec![
-            mock_probe("df -h", "Filesystem Size Used Avail Use% Mounted on
-/dev/sda1 100G 50G 50G 50% /"),
-        ];
+        let probes = vec![mock_probe(
+            "df -h",
+            "Filesystem Size Used Avail Use% Mounted on
+/dev/sda1 100G 50G 50G 50% /",
+        )];
         let answer = build_health_answer(&probes);
         assert_eq!(answer, "Your system is healthy. No issues detected.");
     }

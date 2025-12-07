@@ -14,7 +14,10 @@ use std::path::PathBuf;
 #[serde(rename_all = "snake_case")]
 pub enum CitationSource {
     /// man page (e.g., man free)
-    ManPage { command: String, section: Option<u8> },
+    ManPage {
+        command: String,
+        section: Option<u8>,
+    },
     /// --help output
     HelpOutput { command: String },
     /// Local Arch Wiki snapshot
@@ -134,7 +137,11 @@ impl CitationSet {
     pub fn add(&mut self, citation: Citation) {
         // Avoid duplicates
         let ref_str = citation.source.reference();
-        if !self.citations.iter().any(|c| c.source.reference() == ref_str) {
+        if !self
+            .citations
+            .iter()
+            .any(|c| c.source.reference() == ref_str)
+        {
             self.citations.push(citation);
         }
     }

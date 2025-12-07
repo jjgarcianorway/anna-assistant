@@ -136,7 +136,11 @@ impl SpecialistsRegistry {
 
         let profiles: Vec<SpecialistProfile> = teams
             .iter()
-            .flat_map(|&team| roles.iter().map(move |&role| SpecialistProfile::new(team, role)))
+            .flat_map(|&team| {
+                roles
+                    .iter()
+                    .map(move |&role| SpecialistProfile::new(team, role))
+            })
             .collect();
 
         Self { profiles }

@@ -37,11 +37,7 @@ fn generate_memory_answer(data: &ParsedProbeData) -> Option<String> {
 
     Some(format!(
         "Memory: {}B used of {}B total ({}% used). {}B available ({}% available).",
-        mem.used_bytes,
-        mem.total_bytes,
-        used_pct,
-        mem.available_bytes,
-        avail_pct
+        mem.used_bytes, mem.total_bytes, used_pct, mem.available_bytes, avail_pct
     ))
 }
 
@@ -126,7 +122,10 @@ pub fn generate_health_summary(probes: &[ParsedProbeData]) -> Option<String> {
             cpu_lines.push(format!("  Physical cores: {}", cores));
         }
         if let Some(ht) = c.hyperthreading() {
-            cpu_lines.push(format!("  Hyperthreading: {}", if ht { "yes" } else { "no" }));
+            cpu_lines.push(format!(
+                "  Hyperthreading: {}",
+                if ht { "yes" } else { "no" }
+            ));
         }
         sections.push(cpu_lines.join("\n"));
     }
@@ -171,7 +170,10 @@ pub fn generate_health_summary(probes: &[ParsedProbeData]) -> Option<String> {
         ));
 
         // List disks
-        for dev in block_devices.iter().filter(|d| d.device_type == BlockDeviceType::Disk) {
+        for dev in block_devices
+            .iter()
+            .filter(|d| d.device_type == BlockDeviceType::Disk)
+        {
             storage_lines.push(format!(
                 "  {} - {}",
                 dev.name,
@@ -204,7 +206,11 @@ pub fn generate_health_summary(probes: &[ParsedProbeData]) -> Option<String> {
         return None;
     }
 
-    Some(format!("System Health Summary\n{}\n{}", "=".repeat(20), sections.join("\n\n")))
+    Some(format!(
+        "System Health Summary\n{}\n{}",
+        "=".repeat(20),
+        sections.join("\n\n")
+    ))
 }
 
 /// Format bytes in short human-readable form.
@@ -229,7 +235,9 @@ fn format_bytes_short(bytes: u64) -> String {
 
 // === Probe-to-answer helpers (used by deterministic.rs) ===
 
-use anna_shared::parsers::{parse_df, parse_failed_units, parse_free, parse_is_active, parse_lsblk, parse_lscpu};
+use anna_shared::parsers::{
+    parse_df, parse_failed_units, parse_free, parse_is_active, parse_lsblk, parse_lscpu,
+};
 use anna_shared::rpc::ProbeResult;
 
 /// Try to generate memory answer from probe output.
@@ -298,7 +306,7 @@ pub fn format_bytes_human(bytes: u64) -> String {
 
 // === v0.0.30: Best-effort summary from ANY evidence ===
 
-use crate::parsers::{parse_ip_addr, parse_ps_aux, parse_df_h};
+use crate::parsers::{parse_df_h, parse_ip_addr, parse_ps_aux};
 
 /// Generate best-effort summary from whatever probe results exist.
 /// This is used when specialist times out but we have evidence.
@@ -331,11 +339,16 @@ pub fn generate_best_effort_summary(probe_results: &[ProbeResult]) -> Option<(St
         if probe.command.starts_with("df") {
             if let Ok(disks) = parse_df("df", &probe.stdout) {
                 if !disks.is_empty() {
-                    let disk_lines: Vec<String> = disks.iter()
+                    let disk_lines: Vec<String> = disks
+                        .iter()
                         .map(|d| {
-                            let status = if d.percent_used >= 90 { " [CRITICAL]" }
-                                else if d.percent_used >= 80 { " [WARNING]" }
-                                else { "" };
+                            let status = if d.percent_used >= 90 {
+                                " [CRITICAL]"
+                            } else if d.percent_used >= 80 {
+                                " [WARNING]"
+                            } else {
+                                ""
+                            };
                             format!("  {} is {}% full{}", d.mount, d.percent_used, status)
                         })
                         .collect();
@@ -346,11 +359,16 @@ pub fn generate_best_effort_summary(probe_results: &[ProbeResult]) -> Option<(St
                 // Fallback to simpler parser
                 let disks = parse_df_h(&probe.stdout);
                 if !disks.is_empty() {
-                    let disk_lines: Vec<String> = disks.iter()
+                    let disk_lines: Vec<String> = disks
+                        .iter()
                         .map(|d| {
-                            let status = if d.use_percent >= 90 { " [CRITICAL]" }
-                                else if d.use_percent >= 80 { " [WARNING]" }
-                                else { "" };
+                            let status = if d.use_percent >= 90 {
+                                " [CRITICAL]"
+                            } else if d.use_percent >= 80 {
+                                " [WARNING]"
+                            } else {
+                                ""
+                            };
                             format!("  {} is {}% full{}", d.mount, d.use_percent, status)
                         })
                         .collect();
@@ -363,7 +381,8 @@ pub fn generate_best_effort_summary(probe_results: &[ProbeResult]) -> Option<(St
         // Block devices from lsblk
         if probe.command.starts_with("lsblk") {
             if let Ok(devices) = parse_lsblk("lsblk", &probe.stdout) {
-                let total: u64 = devices.iter()
+                let total: u64 = devices
+                    .iter()
                     .filter(|d| d.device_type == BlockDeviceType::Disk)
                     .map(|d| d.size_bytes)
                     .sum();
@@ -387,13 +406,17 @@ pub fn generate_best_effort_summary(probe_results: &[ProbeResult]) -> Option<(St
             let ifaces = parse_ip_addr(&probe.stdout);
             let up_ifaces: Vec<_> = ifaces.iter().filter(|i| i.state == "UP").collect();
             if !up_ifaces.is_empty() {
-                let iface_lines: Vec<String> = up_ifaces.iter()
+                let iface_lines: Vec<String> = up_ifaces
+                    .iter()
                     .map(|i| {
                         let addr = i.ipv4.as_deref().unwrap_or("no IPv4");
                         format!("  {}: {}", i.name, addr)
                     })
                     .collect();
-                sections.push(format!("Network Interfaces (UP):\n{}", iface_lines.join("\n")));
+                sections.push(format!(
+                    "Network Interfaces (UP):\n{}",
+                    iface_lines.join("\n")
+                ));
                 parsed_count += 1;
             }
         }
@@ -404,10 +427,15 @@ pub fn generate_best_effort_summary(probe_results: &[ProbeResult]) -> Option<(St
             if !procs.is_empty() {
                 let is_mem_sort = probe.command.contains("-%mem") || probe.command.contains("-rss");
                 let label = if is_mem_sort { "Top Memory" } else { "Top CPU" };
-                let proc_lines: Vec<String> = procs.iter().take(3)
+                let proc_lines: Vec<String> = procs
+                    .iter()
+                    .take(3)
                     .map(|p| {
                         let rss = p.rss.as_deref().unwrap_or("?");
-                        format!("  {} - {}% CPU, {}% MEM, {}", p.command, p.cpu_percent, p.mem_percent, rss)
+                        format!(
+                            "  {} - {}% CPU, {}% MEM, {}",
+                            p.command, p.cpu_percent, p.mem_percent, rss
+                        )
                     })
                     .collect();
                 sections.push(format!("{} Processes:\n{}", label, proc_lines.join("\n")));
@@ -425,5 +453,8 @@ pub fn generate_best_effort_summary(probe_results: &[ProbeResult]) -> Option<(St
     let body = sections.join("\n\n");
     let footer = "\nNote: This summary was generated from available probe data. Some information may be incomplete.";
 
-    Some((format!("{}\n{}\n{}{}", header, "=".repeat(40), body, footer), parsed_count))
+    Some((
+        format!("{}\n{}\n{}{}", header, "=".repeat(40), body, footer),
+        parsed_count,
+    ))
 }

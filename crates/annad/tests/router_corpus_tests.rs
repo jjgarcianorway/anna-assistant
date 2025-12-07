@@ -17,7 +17,7 @@ struct CorpusEntry {
     expected_class: String,
     expected_domain: String,
     expected_probes: Vec<String>,
-    line_num: usize,  // Kept for debugging corpus issues
+    line_num: usize, // Kept for debugging corpus issues
 }
 
 /// Parse the query corpus TSV file
@@ -51,7 +51,11 @@ fn parse_corpus() -> Vec<CorpusEntry> {
 
         let parts: Vec<&str> = line.split('\t').collect();
         if parts.len() < 3 {
-            panic!("Line {}: expected at least 3 columns, got {}", line_num, parts.len());
+            panic!(
+                "Line {}: expected at least 3 columns, got {}",
+                line_num,
+                parts.len()
+            );
         }
 
         let query = parts[0].to_string();

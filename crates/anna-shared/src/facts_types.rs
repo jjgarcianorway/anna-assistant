@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum FactSource {
     /// Observed from running a probe
-    ObservedProbe { probe_id: String, output_hash: String },
+    ObservedProbe {
+        probe_id: String,
+        output_hash: String,
+    },
     /// Confirmed by user interaction
     UserConfirmed { transcript_id: String },
     /// Derived from other facts
@@ -20,7 +23,9 @@ pub enum FactSource {
 
 impl Default for FactSource {
     fn default() -> Self {
-        Self::Legacy { source: "unknown".to_string() }
+        Self::Legacy {
+            source: "unknown".to_string(),
+        }
     }
 }
 
@@ -32,7 +37,9 @@ impl From<String> for FactSource {
 
 impl From<&str> for FactSource {
     fn from(s: &str) -> Self {
-        Self::Legacy { source: s.to_string() }
+        Self::Legacy {
+            source: s.to_string(),
+        }
     }
 }
 

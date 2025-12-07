@@ -196,7 +196,10 @@ mod tests {
         assert_eq!(event.from, Actor::Translator);
         assert!(matches!(
             event.kind,
-            TranscriptEventKind::TicketCreated { evidence_required: true, .. }
+            TranscriptEventKind::TicketCreated {
+                evidence_required: true,
+                ..
+            }
         ));
     }
 
@@ -207,7 +210,10 @@ mod tests {
         assert_eq!(event.from, Actor::System);
         assert!(matches!(
             event.kind,
-            TranscriptEventKind::ReviewGateDecision { requires_llm: false, .. }
+            TranscriptEventKind::ReviewGateDecision {
+                requires_llm: false,
+                ..
+            }
         ));
     }
 
@@ -217,7 +223,10 @@ mod tests {
         assert_eq!(event.elapsed_ms, 300);
         assert!(matches!(
             event.kind,
-            TranscriptEventKind::TeamReview { issues_count: 2, .. }
+            TranscriptEventKind::TeamReview {
+                issues_count: 2,
+                ..
+            }
         ));
     }
 }

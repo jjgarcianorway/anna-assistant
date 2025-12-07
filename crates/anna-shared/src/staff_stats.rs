@@ -28,7 +28,13 @@ pub struct StaffMetrics {
 
 impl StaffMetrics {
     /// Record a ticket completion
-    pub fn record_ticket(&mut self, resolved: bool, escalated: bool, reliability: u8, duration_ms: u64) {
+    pub fn record_ticket(
+        &mut self,
+        resolved: bool,
+        escalated: bool,
+        reliability: u8,
+        duration_ms: u64,
+    ) {
         let old_total = self.tickets_handled;
         self.tickets_handled += 1;
 
@@ -180,7 +186,14 @@ mod tests {
         stats.record_ticket("network_jr_michael", true, false, 85, 700);
 
         assert_eq!(stats.by_staff.len(), 2);
-        assert_eq!(stats.by_staff.get("desktop_jr_sofia").unwrap().tickets_handled, 2);
+        assert_eq!(
+            stats
+                .by_staff
+                .get("desktop_jr_sofia")
+                .unwrap()
+                .tickets_handled,
+            2
+        );
     }
 
     #[test]

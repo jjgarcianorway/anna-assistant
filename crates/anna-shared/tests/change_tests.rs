@@ -1,7 +1,7 @@
 //! Tests for the safe change engine (v0.0.27).
 
 use anna_shared::change::{
-    apply_change, plan_ensure_line, rollback, ChangeResult,
+    apply_change, plan_ensure_line, plan_ensure_line_with_pattern, rollback, ChangeResult,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -24,6 +24,20 @@ fn test_ensure_line_appends_when_missing() {
 
     let content = fs::read_to_string(&path).unwrap();
     assert!(content.contains("new line"));
+}
+
+#[test]
+fn test_ensure_line_with_pattern_noop_on_pattern_match() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("test.conf");
+
+    // Existing variant that should satisfy the pattern
+    fs::write(&path, "syntax enable\n").unwrap();
+
+    let plan =
+        plan_ensure_line_with_pattern(&path, "syntax on", "^\\s*syntax\\s+(on|enable)").unwrap();
+    assert!(plan.is_noop);
+    assert!(plan.target_exists);
 }
 
 #[test]
@@ -118,7 +132,10 @@ fn test_change_result_types() {
 #[test]
 fn test_change_result_diagnostics() {
     let result = ChangeResult::noop().with_diagnostic("test diagnostic");
-    assert_eq!(result.diagnostics, vec!["Line already present, no change needed", "test diagnostic"]);
+    assert_eq!(
+        result.diagnostics,
+        vec!["Line already present, no change needed", "test diagnostic"]
+    );
 }
 
 #[test]

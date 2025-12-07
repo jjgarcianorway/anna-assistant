@@ -66,8 +66,8 @@ fn make_cpu(cores: u32) -> CpuInfo {
 #[test]
 fn golden_no_recommendations_when_healthy() {
     let evidence = ReportEvidence {
-        memory: Some(make_memory(16, 8)),      // 50% - OK
-        disks: vec![make_disk("/", 100, 50)],  // 50% - OK
+        memory: Some(make_memory(16, 8)),     // 50% - OK
+        disks: vec![make_disk("/", 100, 50)], // 50% - OK
         block_devices: vec![],
         cpu: Some(make_cpu(8)),
         failed_services: vec![],
@@ -161,13 +161,11 @@ fn golden_failed_services_recommendation() {
         disks: vec![],
         block_devices: vec![],
         cpu: None,
-        failed_services: vec![
-            ServiceStatus {
-                name: "nginx.service".to_string(),
-                state: ServiceState::Failed,
-                description: Some("Web server".to_string()),
-            },
-        ],
+        failed_services: vec![ServiceStatus {
+            name: "nginx.service".to_string(),
+            state: ServiceState::Failed,
+            description: Some("Web server".to_string()),
+        }],
     };
 
     let report = SystemReport::from_evidence(&evidence, None, 100, None);
@@ -281,10 +279,7 @@ fn golden_markdown_format_with_recommendations() {
 fn golden_recommendations_deterministic() {
     let evidence = ReportEvidence {
         memory: Some(make_memory(16, 15)),
-        disks: vec![
-            make_disk("/", 100, 95),
-            make_disk("/home", 200, 85),
-        ],
+        disks: vec![make_disk("/", 100, 95), make_disk("/home", 200, 85)],
         block_devices: vec![],
         cpu: Some(make_cpu(8)),
         failed_services: vec![ServiceStatus {
@@ -333,10 +328,10 @@ fn golden_empty_evidence() {
 #[test]
 fn golden_all_systems_critical() {
     let evidence = ReportEvidence {
-        memory: Some(make_memory(16, 15)),     // ~94% - Warning
+        memory: Some(make_memory(16, 15)), // ~94% - Warning
         disks: vec![
-            make_disk("/", 100, 96),           // Critical
-            make_disk("/home", 200, 97),       // Critical
+            make_disk("/", 100, 96),     // Critical
+            make_disk("/home", 200, 97), // Critical
         ],
         block_devices: vec![],
         cpu: None,

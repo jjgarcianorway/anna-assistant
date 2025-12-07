@@ -50,9 +50,7 @@ fn test_version_flag() {
         env!("CARGO_MANIFEST_DIR").replace("/crates/annactl", "")
     );
 
-    let output = Command::new(&binary)
-        .args(["--version"])
-        .output();
+    let output = Command::new(&binary).args(["--version"]).output();
 
     if let Ok(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -72,9 +70,7 @@ fn test_status_subcommand_recognized() {
     );
 
     // Just check that status is a valid subcommand (it will fail to connect but won't show help)
-    let output = Command::new(&binary)
-        .args(["status", "--help"])
-        .output();
+    let output = Command::new(&binary).args(["status", "--help"]).output();
 
     if let Ok(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);

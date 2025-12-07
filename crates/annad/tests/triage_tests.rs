@@ -35,7 +35,10 @@ mod triage {
         // Rule 2: Low confidence triggers clarification
         if result.ticket.confidence < MIN_CONFIDENCE_THRESHOLD {
             result.needs_immediate_clarification = true;
-            result.clarification_question = result.ticket.clarification_question.clone()
+            result.clarification_question = result
+                .ticket
+                .clarification_question
+                .clone()
                 .or_else(|| Some(generate_fallback_clarification(&result.ticket)));
         }
 
@@ -44,10 +47,18 @@ mod triage {
 
     pub fn generate_fallback_clarification(ticket: &TranslatorTicket) -> String {
         match ticket.domain {
-            SpecialistDomain::Network => "Could you clarify what network information you need?".to_string(),
-            SpecialistDomain::Storage => "What storage information are you looking for?".to_string(),
-            SpecialistDomain::Security => "What security aspect are you concerned about?".to_string(),
-            SpecialistDomain::Packages => "What package operation do you need help with?".to_string(),
+            SpecialistDomain::Network => {
+                "Could you clarify what network information you need?".to_string()
+            }
+            SpecialistDomain::Storage => {
+                "What storage information are you looking for?".to_string()
+            }
+            SpecialistDomain::Security => {
+                "What security aspect are you concerned about?".to_string()
+            }
+            SpecialistDomain::Packages => {
+                "What package operation do you need help with?".to_string()
+            }
             SpecialistDomain::System => "Could you provide more details?".to_string(),
         }
     }
@@ -64,7 +75,7 @@ fn test_high_confidence_proceeds() {
         needs_probes: vec!["top_cpu".to_string()],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.85,
+        confidence: 0.85,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -81,7 +92,7 @@ fn test_low_confidence_triggers_clarification() {
         needs_probes: vec!["top_cpu".to_string()],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.5,
+        confidence: 0.5,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -99,7 +110,7 @@ fn test_threshold_boundary() {
         needs_probes: vec![],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.7,
+        confidence: 0.7,
     };
     let result = triage::apply_triage_rules(ticket);
     assert!(!result.needs_immediate_clarification);
@@ -112,7 +123,7 @@ fn test_threshold_boundary() {
         needs_probes: vec![],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.69,
+        confidence: 0.69,
     };
     let result = triage::apply_triage_rules(ticket);
     assert!(result.needs_immediate_clarification);
@@ -135,7 +146,7 @@ fn test_probe_cap_at_three() {
         ],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.9,
+        confidence: 0.9,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -152,7 +163,7 @@ fn test_probe_cap_not_applied_under_limit() {
         needs_probes: vec!["top_cpu".to_string(), "top_memory".to_string()],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.9,
+        confidence: 0.9,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -173,7 +184,7 @@ fn test_probe_cap_exactly_three() {
         ],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.9,
+        confidence: 0.9,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -224,7 +235,7 @@ fn test_llm_clarification_preserved() {
         needs_probes: vec![],
         clarification_question: Some("Which specific process are you asking about?".to_string()),
         answer_contract: None,
-            confidence: 0.4,
+        confidence: 0.4,
     };
 
     let result = triage::apply_triage_rules(ticket);
@@ -251,7 +262,7 @@ fn test_low_confidence_with_probe_cap() {
         ],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.3,
+        confidence: 0.3,
     };
 
     let result = triage::apply_triage_rules(ticket);

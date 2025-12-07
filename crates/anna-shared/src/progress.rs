@@ -148,13 +148,19 @@ impl ProgressEvent {
     pub fn error(stage: RequestStage, message: impl Into<DiagnosticText>, elapsed_ms: u64) -> Self {
         Self {
             stage,
-            event: ProgressEventType::Error { message: message.into() },
+            event: ProgressEventType::Error {
+                message: message.into(),
+            },
             detail: None,
             elapsed_ms,
         }
     }
 
-    pub fn heartbeat(stage: RequestStage, detail: impl Into<DiagnosticText>, elapsed_ms: u64) -> Self {
+    pub fn heartbeat(
+        stage: RequestStage,
+        detail: impl Into<DiagnosticText>,
+        elapsed_ms: u64,
+    ) -> Self {
         Self {
             stage,
             event: ProgressEventType::Heartbeat,
@@ -206,7 +212,11 @@ impl ProgressEvent {
                 format!("[anna] {} error: {}", self.stage, message.as_str())
             }
             ProgressEventType::Heartbeat => {
-                let detail = self.detail.as_ref().map(|d| d.as_str()).unwrap_or("working");
+                let detail = self
+                    .detail
+                    .as_ref()
+                    .map(|d| d.as_str())
+                    .unwrap_or("working");
                 format!(
                     "[anna] still working: {} ({:.1}s)",
                     detail,
@@ -281,20 +291,40 @@ mod tests {
             ProgressEventType::Starting { timeout_secs: 10 },
             ProgressEventType::Complete,
             ProgressEventType::Timeout,
-            ProgressEventType::Error { message: DiagnosticText::new("test error") },
+            ProgressEventType::Error {
+                message: DiagnosticText::new("test error"),
+            },
             ProgressEventType::Heartbeat,
-            ProgressEventType::ProbeRunning { probe_id: "test".into() },
-            ProgressEventType::ProbeComplete { probe_id: "test".into(), exit_code: 0, timing_ms: 100 },
+            ProgressEventType::ProbeRunning {
+                probe_id: "test".into(),
+            },
+            ProgressEventType::ProbeComplete {
+                probe_id: "test".into(),
+                exit_code: 0,
+                timing_ms: 100,
+            },
         ];
 
         for event in events {
             let json = serde_json::to_string(&event).unwrap();
             // These fields should NEVER appear in progress events
-            assert!(!json.contains("\"answer\""), "Progress event must not contain 'answer' field");
-            assert!(!json.contains("\"content\""), "Progress event must not contain 'content' field");
-            assert!(!json.contains("\"response\""), "Progress event must not contain 'response' field");
+            assert!(
+                !json.contains("\"answer\""),
+                "Progress event must not contain 'answer' field"
+            );
+            assert!(
+                !json.contains("\"content\""),
+                "Progress event must not contain 'content' field"
+            );
+            assert!(
+                !json.contains("\"response\""),
+                "Progress event must not contain 'response' field"
+            );
             // String payloads should be short diagnostics only (< 256 bytes)
-            assert!(json.len() < 256, "Progress event JSON should be small (telemetry only)");
+            assert!(
+                json.len() < 256,
+                "Progress event JSON should be small (telemetry only)"
+            );
         }
     }
 
@@ -304,7 +334,9 @@ mod tests {
         let event = ProgressEvent::heartbeat(RequestStage::Specialist, "still thinking", 5000);
         let json = serde_json::to_string(&event).unwrap();
         // Detail should be short diagnostic text (DiagnosticText enforces this)
-        assert!(event.detail.as_ref().map(|d| d.as_str().len()).unwrap_or(0) <= MAX_DIAGNOSTIC_LENGTH);
+        assert!(
+            event.detail.as_ref().map(|d| d.as_str().len()).unwrap_or(0) <= MAX_DIAGNOSTIC_LENGTH
+        );
         assert!(json.len() < 256);
     }
 

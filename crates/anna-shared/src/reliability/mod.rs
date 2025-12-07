@@ -142,7 +142,8 @@ pub fn compute_reliability(input: &ReliabilityInput) -> ReliabilityOutput {
             reasons.push(ReliabilityReason::EvidenceMissing);
         }
     } else {
-        let coverage_penalty = ((1.0 - probe_coverage_ratio) * MAX_PROBE_COVERAGE_PENALTY).round() as i8;
+        let coverage_penalty =
+            ((1.0 - probe_coverage_ratio) * MAX_PROBE_COVERAGE_PENALTY).round() as i8;
         if coverage_penalty > 0 {
             score -= coverage_penalty as i16;
             breakdown.push(ScoreComponent {
@@ -264,11 +265,28 @@ pub fn query_requires_evidence(query: &str) -> bool {
     let query_lower = query.to_lowercase();
 
     let evidence_keywords = [
-        "what process", "which process", "how much memory", "how much ram",
-        "how much disk", "how much cpu", "disk space", "disk usage",
-        "memory usage", "cpu usage", "top process", "using the most",
-        "consuming", "running", "listening", "what port", "network",
-        "interface", "ip address", "current", "right now", "at the moment",
+        "what process",
+        "which process",
+        "how much memory",
+        "how much ram",
+        "how much disk",
+        "how much cpu",
+        "disk space",
+        "disk usage",
+        "memory usage",
+        "cpu usage",
+        "top process",
+        "using the most",
+        "consuming",
+        "running",
+        "listening",
+        "what port",
+        "network",
+        "interface",
+        "ip address",
+        "current",
+        "right now",
+        "at the moment",
     ];
 
     evidence_keywords.iter().any(|kw| query_lower.contains(kw))

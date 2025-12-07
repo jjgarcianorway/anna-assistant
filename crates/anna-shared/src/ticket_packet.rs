@@ -117,7 +117,9 @@ impl TicketPacket {
 
     /// Find a probe result by command substring
     pub fn find_probe(&self, command_contains: &str) -> Option<&ProbeResult> {
-        self.probes.iter().find(|p| p.command.contains(command_contains))
+        self.probes
+            .iter()
+            .find(|p| p.command.contains(command_contains))
     }
 
     /// Get all successful probes
@@ -147,7 +149,8 @@ impl TicketPacket {
         }
 
         // Truncate probe outputs proportionally
-        let target = MAX_PACKET_BYTES.saturating_sub(self.summary.len() + self.route_class.len() + 256);
+        let target =
+            MAX_PACKET_BYTES.saturating_sub(self.summary.len() + self.route_class.len() + 256);
         let per_probe = if self.probes.is_empty() {
             0
         } else {
@@ -215,7 +218,8 @@ impl TicketPacketBuilder {
 
     /// Plan probes for collection
     pub fn plan_probes(mut self, count: usize) -> Self {
-        self.packet.set_budget_plan(count.min(self.budget.max_probes));
+        self.packet
+            .set_budget_plan(count.min(self.budget.max_probes));
         self
     }
 
@@ -234,7 +238,10 @@ impl TicketPacketBuilder {
         }
 
         let new_bytes = result.stdout.len() + result.stderr.len();
-        if self.budget.would_exceed(self.packet.budget.bytes_collected, new_bytes) {
+        if self
+            .budget
+            .would_exceed(self.packet.budget.bytes_collected, new_bytes)
+        {
             self.packet.mark_budget_exceeded();
             return self;
         }
@@ -266,7 +273,11 @@ pub fn recommended_probes_for_domain(domain: SpecialistDomain) -> Vec<&'static s
 /// Recommended evidence kinds for each domain
 pub fn evidence_kinds_for_domain(domain: SpecialistDomain) -> Vec<EvidenceKind> {
     match domain {
-        SpecialistDomain::System => vec![EvidenceKind::Memory, EvidenceKind::Cpu, EvidenceKind::Services],
+        SpecialistDomain::System => vec![
+            EvidenceKind::Memory,
+            EvidenceKind::Cpu,
+            EvidenceKind::Services,
+        ],
         SpecialistDomain::Storage => vec![EvidenceKind::Disk, EvidenceKind::BlockDevices],
         SpecialistDomain::Network => vec![], // Network evidence kind not defined yet
         SpecialistDomain::Security => vec![EvidenceKind::Services],
@@ -389,7 +400,11 @@ impl PacketPolicy {
             .collect();
         let omit_count = summary.lines().count() - (self.max_summary_lines - 1);
 
-        format!("{}\n({} more lines omitted)", truncated.join("\n"), omit_count)
+        format!(
+            "{}\n({} more lines omitted)",
+            truncated.join("\n"),
+            omit_count
+        )
     }
 
     /// Check if a fact key is allowed for this team

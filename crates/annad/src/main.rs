@@ -1,7 +1,7 @@
 //! Anna daemon - manages system state, Ollama, and models.
 //! v0.0.73: Uses version module for consistent version reporting.
 
-use anna_shared::version::{VERSION, GIT_SHA};
+use anna_shared::version::{GIT_SHA, VERSION};
 use anyhow::Result;
 use clap::Parser;
 use tracing::{info, Level};

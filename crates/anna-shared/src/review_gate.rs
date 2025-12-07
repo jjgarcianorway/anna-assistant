@@ -41,7 +41,10 @@ pub struct ReviewContext {
 impl ReviewContext {
     /// Create new context with score
     pub fn new(reliability_score: u8) -> Self {
-        Self { reliability_score, ..Default::default() }
+        Self {
+            reliability_score,
+            ..Default::default()
+        }
     }
 
     /// Set grounding info
@@ -320,11 +323,11 @@ mod tests {
 
     #[test]
     fn test_gate_accept_deterministic_fallback() {
-        let ctx = ReviewContext::new(75)
-            .with_grounding(0.8, 2)
-            .with_fallback(FallbackUsed::Deterministic {
+        let ctx = ReviewContext::new(75).with_grounding(0.8, 2).with_fallback(
+            FallbackUsed::Deterministic {
                 route_class: "MemoryUsage".to_string(),
-            });
+            },
+        );
 
         let outcome = deterministic_review_gate(&ctx);
 

@@ -100,12 +100,18 @@ mod router {
 
     pub fn get_probes(class: &QueryClass) -> Vec<String> {
         match class {
-            QueryClass::CpuInfo | QueryClass::RamInfo | QueryClass::GpuInfo | QueryClass::Help => vec![],
+            QueryClass::CpuInfo | QueryClass::RamInfo | QueryClass::GpuInfo | QueryClass::Help => {
+                vec![]
+            }
             QueryClass::TopMemoryProcesses => vec!["top_memory".to_string()],
             QueryClass::TopCpuProcesses => vec!["top_cpu".to_string()],
             QueryClass::DiskSpace => vec!["disk_usage".to_string()],
             QueryClass::NetworkInterfaces => vec!["network_addrs".to_string()],
-            QueryClass::SystemSlow => vec!["top_cpu".to_string(), "top_memory".to_string(), "disk_usage".to_string()],
+            QueryClass::SystemSlow => vec![
+                "top_cpu".to_string(),
+                "top_memory".to_string(),
+                "disk_usage".to_string(),
+            ],
             QueryClass::Unknown => vec![],
         }
     }
@@ -123,10 +129,22 @@ mod router {
 
 #[test]
 fn test_cpu_query_routing() {
-    let queries = ["what cpu do i have?", "show processor info", "how many cores"];
+    let queries = [
+        "what cpu do i have?",
+        "show processor info",
+        "how many cores",
+    ];
     for q in queries {
-        assert_eq!(router::classify_query(q), router::QueryClass::CpuInfo, "Query: {}", q);
-        assert_eq!(router::get_domain(&router::QueryClass::CpuInfo), SpecialistDomain::System);
+        assert_eq!(
+            router::classify_query(q),
+            router::QueryClass::CpuInfo,
+            "Query: {}",
+            q
+        );
+        assert_eq!(
+            router::get_domain(&router::QueryClass::CpuInfo),
+            SpecialistDomain::System
+        );
         assert!(router::get_probes(&router::QueryClass::CpuInfo).is_empty());
     }
 }
@@ -135,7 +153,12 @@ fn test_cpu_query_routing() {
 fn test_ram_query_routing() {
     let queries = ["how much ram", "show memory", "total memory"];
     for q in queries {
-        assert_eq!(router::classify_query(q), router::QueryClass::RamInfo, "Query: {}", q);
+        assert_eq!(
+            router::classify_query(q),
+            router::QueryClass::RamInfo,
+            "Query: {}",
+            q
+        );
         assert!(router::get_probes(&router::QueryClass::RamInfo).is_empty());
     }
 }
@@ -144,7 +167,12 @@ fn test_ram_query_routing() {
 fn test_gpu_query_routing() {
     let queries = ["what gpu do i have", "show graphics card", "check vram"];
     for q in queries {
-        assert_eq!(router::classify_query(q), router::QueryClass::GpuInfo, "Query: {}", q);
+        assert_eq!(
+            router::classify_query(q),
+            router::QueryClass::GpuInfo,
+            "Query: {}",
+            q
+        );
     }
 }
 
@@ -152,8 +180,16 @@ fn test_gpu_query_routing() {
 fn test_top_memory_routing() {
     let queries = ["top memory processes", "memory hogs", "what's using memory"];
     for q in queries {
-        assert_eq!(router::classify_query(q), router::QueryClass::TopMemoryProcesses, "Query: {}", q);
-        assert_eq!(router::get_probes(&router::QueryClass::TopMemoryProcesses), vec!["top_memory"]);
+        assert_eq!(
+            router::classify_query(q),
+            router::QueryClass::TopMemoryProcesses,
+            "Query: {}",
+            q
+        );
+        assert_eq!(
+            router::get_probes(&router::QueryClass::TopMemoryProcesses),
+            vec!["top_memory"]
+        );
     }
 }
 
@@ -161,8 +197,16 @@ fn test_top_memory_routing() {
 fn test_top_cpu_routing() {
     let queries = ["top cpu processes", "cpu hogs", "what's using cpu"];
     for q in queries {
-        assert_eq!(router::classify_query(q), router::QueryClass::TopCpuProcesses, "Query: {}", q);
-        assert_eq!(router::get_probes(&router::QueryClass::TopCpuProcesses), vec!["top_cpu"]);
+        assert_eq!(
+            router::classify_query(q),
+            router::QueryClass::TopCpuProcesses,
+            "Query: {}",
+            q
+        );
+        assert_eq!(
+            router::get_probes(&router::QueryClass::TopCpuProcesses),
+            vec!["top_cpu"]
+        );
     }
 }
 
@@ -170,9 +214,20 @@ fn test_top_cpu_routing() {
 fn test_disk_space_routing() {
     let queries = ["disk space", "storage full", "filesystem usage"];
     for q in queries {
-        assert_eq!(router::classify_query(q), router::QueryClass::DiskSpace, "Query: {}", q);
-        assert_eq!(router::get_domain(&router::QueryClass::DiskSpace), SpecialistDomain::Storage);
-        assert_eq!(router::get_probes(&router::QueryClass::DiskSpace), vec!["disk_usage"]);
+        assert_eq!(
+            router::classify_query(q),
+            router::QueryClass::DiskSpace,
+            "Query: {}",
+            q
+        );
+        assert_eq!(
+            router::get_domain(&router::QueryClass::DiskSpace),
+            SpecialistDomain::Storage
+        );
+        assert_eq!(
+            router::get_probes(&router::QueryClass::DiskSpace),
+            vec!["disk_usage"]
+        );
     }
 }
 
@@ -180,23 +235,42 @@ fn test_disk_space_routing() {
 fn test_network_routing() {
     let queries = ["network interfaces", "show ip ", "wifi status"];
     for q in queries {
-        assert_eq!(router::classify_query(q), router::QueryClass::NetworkInterfaces, "Query: {}", q);
-        assert_eq!(router::get_domain(&router::QueryClass::NetworkInterfaces), SpecialistDomain::Network);
-        assert_eq!(router::get_probes(&router::QueryClass::NetworkInterfaces), vec!["network_addrs"]);
+        assert_eq!(
+            router::classify_query(q),
+            router::QueryClass::NetworkInterfaces,
+            "Query: {}",
+            q
+        );
+        assert_eq!(
+            router::get_domain(&router::QueryClass::NetworkInterfaces),
+            SpecialistDomain::Network
+        );
+        assert_eq!(
+            router::get_probes(&router::QueryClass::NetworkInterfaces),
+            vec!["network_addrs"]
+        );
     }
 }
 
 #[test]
 fn test_help_routing() {
     assert_eq!(router::classify_query("help"), router::QueryClass::Help);
-    assert_eq!(router::classify_query("what can you do"), router::QueryClass::Help);
+    assert_eq!(
+        router::classify_query("what can you do"),
+        router::QueryClass::Help
+    );
 }
 
 #[test]
 fn test_system_slow_routing() {
     let queries = ["it's slow", "system is sluggish"];
     for q in queries {
-        assert_eq!(router::classify_query(q), router::QueryClass::SystemSlow, "Query: {}", q);
+        assert_eq!(
+            router::classify_query(q),
+            router::QueryClass::SystemSlow,
+            "Query: {}",
+            q
+        );
         let probes = router::get_probes(&router::QueryClass::SystemSlow);
         assert!(probes.contains(&"top_cpu".to_string()));
         assert!(probes.contains(&"top_memory".to_string()));
@@ -267,7 +341,7 @@ fn test_deterministic_scoring_timeout() {
     use anna_shared::rpc::ReliabilitySignals;
 
     let signals = ReliabilitySignals {
-        translator_confident: false,  // Timed out
+        translator_confident: false, // Timed out
         probe_coverage: true,
         answer_grounded: true,
         no_invention: true,
@@ -284,11 +358,11 @@ fn test_empty_parser_result_scoring() {
     let signals = ReliabilitySignals {
         translator_confident: true,
         probe_coverage: true,
-        answer_grounded: false,  // Empty result
-        no_invention: false,     // Empty result
-        clarification_not_needed: false,  // Empty result
+        answer_grounded: false,          // Empty result
+        no_invention: false,             // Empty result
+        clarification_not_needed: false, // Empty result
     };
-    assert_eq!(signals.score(), 40);  // Only translator + coverage
+    assert_eq!(signals.score(), 40); // Only translator + coverage
 }
 
 // === Domain Consistency Tests ===
@@ -298,13 +372,28 @@ fn test_domain_matches_classification() {
     use router::QueryClass;
 
     // Storage queries should route to Storage domain
-    assert_eq!(router::get_domain(&QueryClass::DiskSpace), SpecialistDomain::Storage);
+    assert_eq!(
+        router::get_domain(&QueryClass::DiskSpace),
+        SpecialistDomain::Storage
+    );
 
     // Network queries should route to Network domain
-    assert_eq!(router::get_domain(&QueryClass::NetworkInterfaces), SpecialistDomain::Network);
+    assert_eq!(
+        router::get_domain(&QueryClass::NetworkInterfaces),
+        SpecialistDomain::Network
+    );
 
     // System queries should route to System domain
-    assert_eq!(router::get_domain(&QueryClass::CpuInfo), SpecialistDomain::System);
-    assert_eq!(router::get_domain(&QueryClass::RamInfo), SpecialistDomain::System);
-    assert_eq!(router::get_domain(&QueryClass::TopMemoryProcesses), SpecialistDomain::System);
+    assert_eq!(
+        router::get_domain(&QueryClass::CpuInfo),
+        SpecialistDomain::System
+    );
+    assert_eq!(
+        router::get_domain(&QueryClass::RamInfo),
+        SpecialistDomain::System
+    );
+    assert_eq!(
+        router::get_domain(&QueryClass::TopMemoryProcesses),
+        SpecialistDomain::System
+    );
 }

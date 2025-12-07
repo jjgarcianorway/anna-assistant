@@ -260,6 +260,12 @@ pub struct AggregatedEvents {
     pub lucky_team: Option<String>,
     /// Lucky team success rate
     pub lucky_team_rate: f32,
+    /// Total interactions across tickets
+    pub total_interactions: u64,
+    /// Average interactions per ticket
+    pub avg_interactions: f32,
+    /// Maximum interactions on a ticket
+    pub max_interactions: u32,
 }
 
 impl AggregatedEvents {
@@ -308,6 +314,10 @@ impl AggregatedEvents {
             agg.min_duration_ms = agg.min_duration_ms.min(record.duration_ms);
             agg.max_duration_ms = agg.max_duration_ms.max(record.duration_ms);
 
+            // Interactions
+            agg.total_interactions += record.interactions as u64;
+            agg.max_interactions = agg.max_interactions.max(record.interactions);
+
             // By team
             *agg.by_team.entry(record.team.clone()).or_insert(0) += 1;
 
@@ -323,6 +333,7 @@ impl AggregatedEvents {
         // Averages
         agg.avg_reliability = total_reliability as f32 / agg.total_requests as f32;
         agg.avg_duration_ms = total_duration as f64 / agg.total_requests as f64;
+        agg.avg_interactions = agg.total_interactions as f32 / agg.total_requests as f32;
 
         // Fix min values if needed
         if agg.min_duration_ms == u64::MAX {
@@ -460,9 +471,15 @@ mod tests {
     #[test]
     fn test_aggregated_events_xp_calculation() {
         let records = vec![
-            EventRecord::new("1", "memory").verified(90).with_team("Performance"),
-            EventRecord::new("2", "disk").verified(85).with_team("Storage"),
-            EventRecord::new("3", "network").failed().with_team("Network"),
+            EventRecord::new("1", "memory")
+                .verified(90)
+                .with_team("Performance"),
+            EventRecord::new("2", "disk")
+                .verified(85)
+                .with_team("Storage"),
+            EventRecord::new("3", "network")
+                .failed()
+                .with_team("Network"),
         ];
 
         let agg = AggregatedEvents::from_records(&records);

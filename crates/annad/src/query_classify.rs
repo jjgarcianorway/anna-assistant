@@ -11,8 +11,22 @@ fn strip_greetings(query: &str) -> String {
     let q = query.to_lowercase();
     // Remove common greetings and emoticons
     let patterns = [
-        "hello", "hi ", "hey ", "good morning", "good afternoon", "good evening",
-        "anna", ":)", ":(", ";)", ":d", ":p", "!", "?", "…", "...",
+        "hello",
+        "hi ",
+        "hey ",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "anna",
+        ":)",
+        ":(",
+        ";)",
+        ":d",
+        ":p",
+        "!",
+        "?",
+        "…",
+        "...",
     ];
     let mut result = q;
     for p in patterns {
@@ -71,12 +85,21 @@ pub fn classify_query(query: &str) -> QueryClass {
     }
 
     // v0.0.77: Config file location - "where is vim config", "hyprland config path"
-    let config_location_query = (q.contains("where is") || q.contains("where's")
-        || q.contains("path to") || q.contains("location of") || q.contains("find the"))
+    let config_location_query = (q.contains("where is")
+        || q.contains("where's")
+        || q.contains("path to")
+        || q.contains("location of")
+        || q.contains("find the"))
         && q.contains("config");
-    let specific_config_query = (q.contains("vim") || q.contains("nvim") || q.contains("hyprland")
-        || q.contains("sway") || q.contains("alacritty") || q.contains("kitty")
-        || q.contains("bash") || q.contains("zsh") || q.contains("fish"))
+    let specific_config_query = (q.contains("vim")
+        || q.contains("nvim")
+        || q.contains("hyprland")
+        || q.contains("sway")
+        || q.contains("alacritty")
+        || q.contains("kitty")
+        || q.contains("bash")
+        || q.contains("zsh")
+        || q.contains("fish"))
         && (q.contains("config") || q.contains("rc file") || q.contains("dotfile"));
     if config_location_query || specific_config_query {
         return QueryClass::ConfigFileLocation;
@@ -137,8 +160,12 @@ pub fn classify_query(query: &str) -> QueryClass {
     // Check BEFORE ServiceStatus to avoid "is X running" collision
     // Exclude hardware queries (cpu, ram, memory, gpu, disk)
     // Generic pattern: any "do I have <word>" is a tool check
-    let is_hardware_query = q.contains("cpu") || q.contains("ram") || q.contains("memory")
-        || q.contains("gpu") || q.contains("disk") || q.contains("core");
+    let is_hardware_query = q.contains("cpu")
+        || q.contains("ram")
+        || q.contains("memory")
+        || q.contains("gpu")
+        || q.contains("disk")
+        || q.contains("core");
     let is_tool_check_query = q.contains("do i have")
         || q.contains("do you have")
         || q.contains("have i got")
@@ -207,8 +234,7 @@ pub fn classify_query(query: &str) -> QueryClass {
     // Memory usage (dynamic): "memory usage", "how much memory used"
     // Check before RamInfo since these are more specific
     // v0.0.80: Removed "free memory" and "available memory" - those are MemoryFree
-    if (q.contains("memory") && q.contains("usage"))
-        || (q.contains("memory") && q.contains("used"))
+    if (q.contains("memory") && q.contains("usage")) || (q.contains("memory") && q.contains("used"))
     {
         return QueryClass::MemoryUsage;
     }
@@ -329,7 +355,10 @@ pub fn classify_query(query: &str) -> QueryClass {
 
     // v0.45.5: Configure editor - "enable syntax highlighting", "turn on line numbers"
     // Requires clarification about which editor before action
-    if (q.contains("enable") || q.contains("turn on") || q.contains("activate") || q.contains("set up"))
+    if (q.contains("enable")
+        || q.contains("turn on")
+        || q.contains("activate")
+        || q.contains("set up"))
         && (q.contains("syntax highlight")
             || q.contains("line number")
             || q.contains("word wrap")
@@ -344,8 +373,11 @@ pub fn classify_query(query: &str) -> QueryClass {
     // Also match "how do I enable X in vim/nano/etc"
     if (q.contains("how") || q.contains("configure") || q.contains("setup"))
         && (q.contains("vim") || q.contains("nvim") || q.contains("nano") || q.contains("emacs"))
-        && (q.contains("syntax") || q.contains("highlight") || q.contains("line number")
-            || q.contains("color") || q.contains("theme"))
+        && (q.contains("syntax")
+            || q.contains("highlight")
+            || q.contains("line number")
+            || q.contains("color")
+            || q.contains("theme"))
     {
         return QueryClass::ConfigureEditor;
     }
@@ -366,7 +398,9 @@ pub fn classify_query(query: &str) -> QueryClass {
 
     // v0.0.99: Manage service - "restart docker", "start sshd", "stop nginx"
     // Common service control verbs at the start of query
-    let service_verbs = ["start ", "stop ", "restart ", "enable ", "disable ", "reload "];
+    let service_verbs = [
+        "start ", "stop ", "restart ", "enable ", "disable ", "reload ",
+    ];
     for verb in &service_verbs {
         if q.starts_with(verb) {
             return QueryClass::ManageService;
@@ -374,17 +408,27 @@ pub fn classify_query(query: &str) -> QueryClass {
     }
     // Also match "can you restart X", "please start X"
     if (q.contains("can you") || q.contains("please") || q.contains("could you"))
-        && (q.contains("start ") || q.contains("stop ") || q.contains("restart ")
-            || q.contains("enable ") || q.contains("disable "))
+        && (q.contains("start ")
+            || q.contains("stop ")
+            || q.contains("restart ")
+            || q.contains("enable ")
+            || q.contains("disable "))
     {
         return QueryClass::ManageService;
     }
 
     // v0.0.101: Configure shell - "colored prompt in bash", "syntax highlighting zsh"
-    let is_shell_config = (q.contains("bash") || q.contains("zsh") || q.contains("fish")
-        || q.contains("bashrc") || q.contains("zshrc"))
-        && (q.contains("color") || q.contains("prompt") || q.contains("syntax")
-            || q.contains("highlight") || q.contains("history") || q.contains("alias")
+    let is_shell_config = (q.contains("bash")
+        || q.contains("zsh")
+        || q.contains("fish")
+        || q.contains("bashrc")
+        || q.contains("zshrc"))
+        && (q.contains("color")
+            || q.contains("prompt")
+            || q.contains("syntax")
+            || q.contains("highlight")
+            || q.contains("history")
+            || q.contains("alias")
             || q.contains("auto") && q.contains("suggest"));
     if is_shell_config {
         return QueryClass::ConfigureShell;
@@ -392,21 +436,37 @@ pub fn classify_query(query: &str) -> QueryClass {
 
     // v0.0.101: Configure git - "configure git aliases", "git username", "git email"
     let is_git_config = q.contains("git")
-        && (q.contains("config") || q.contains("alias") || q.contains("username")
-            || q.contains("user") || q.contains("email") || q.contains("editor")
-            || q.contains("default branch") || q.contains("color")
-            || q.contains("autocorrect") || q.contains("pull")
-            || q.contains("credential") || q.contains("gpg") || q.contains("sign"));
+        && (q.contains("config")
+            || q.contains("alias")
+            || q.contains("username")
+            || q.contains("user")
+            || q.contains("email")
+            || q.contains("editor")
+            || q.contains("default branch")
+            || q.contains("color")
+            || q.contains("autocorrect")
+            || q.contains("pull")
+            || q.contains("credential")
+            || q.contains("gpg")
+            || q.contains("sign"));
     if is_git_config {
         return QueryClass::ConfigureGit;
     }
 
     // v0.0.104: SSH key management - "generate ssh key", "copy ssh key", "ssh config"
     let is_ssh = q.contains("ssh")
-        && (q.contains("key") || q.contains("keygen") || q.contains("generate")
-            || q.contains("create") || q.contains("copy") || q.contains("ssh-copy")
-            || q.contains("config") || q.contains("agent") || q.contains("github")
-            || q.contains("gitlab") || q.contains("authorized") || q.contains("passphrase"));
+        && (q.contains("key")
+            || q.contains("keygen")
+            || q.contains("generate")
+            || q.contains("create")
+            || q.contains("copy")
+            || q.contains("ssh-copy")
+            || q.contains("config")
+            || q.contains("agent")
+            || q.contains("github")
+            || q.contains("gitlab")
+            || q.contains("authorized")
+            || q.contains("passphrase"));
     if is_ssh {
         return QueryClass::SshKeyManagement;
     }
@@ -483,7 +543,7 @@ pub fn classify_query(query: &str) -> QueryClass {
     // v0.0.122: System uptime - "uptime", "how long running"
     if q.trim() == "uptime"
         || q.contains("how long")
-        && (q.contains("running") || q.contains("been on") || q.contains("up"))
+            && (q.contains("running") || q.contains("been on") || q.contains("up"))
         || q.contains("system uptime")
         || q.contains("uptime?")
     {
@@ -528,7 +588,8 @@ pub fn classify_query(query: &str) -> QueryClass {
     // v0.0.123: Last boot - "when did system start", "last reboot"
     if q.contains("last boot")
         || q.contains("last reboot")
-        || q.contains("when did") && (q.contains("boot") || q.contains("start") || q.contains("reboot"))
+        || q.contains("when did")
+            && (q.contains("boot") || q.contains("start") || q.contains("reboot"))
         || q.contains("when was") && (q.contains("boot") || q.contains("reboot"))
         || q.contains("boot time")
         || q.contains("reboot time")
@@ -918,25 +979,21 @@ pub fn classify_query(query: &str) -> QueryClass {
     if q.contains("virtualization")
         || q.contains("systemd-detect-virt")
         || (q.contains("running") && (q.contains("vm") || q.contains("container")))
-        || (q.contains("inside") && (q.contains("vm") || q.contains("container") || q.contains("virtual")))
-        || (q.contains("is this") && (q.contains("vm") || q.contains("virtual") || q.contains("container")))
+        || (q.contains("inside")
+            && (q.contains("vm") || q.contains("container") || q.contains("virtual")))
+        || (q.contains("is this")
+            && (q.contains("vm") || q.contains("virtual") || q.contains("container")))
     {
         return QueryClass::VirtualizationInfo;
     }
 
     // v0.0.131: SELinux status - "selinux", "selinux status"
-    if q.contains("selinux")
-        || q.trim() == "sestatus"
-        || q.contains("security enhanced linux")
-    {
+    if q.contains("selinux") || q.trim() == "sestatus" || q.contains("security enhanced linux") {
         return QueryClass::SelinuxStatus;
     }
 
     // v0.0.131: AppArmor status - "apparmor", "apparmor status"
-    if q.contains("apparmor")
-        || q.trim() == "aa-status"
-        || q.contains("app armor")
-    {
+    if q.contains("apparmor") || q.trim() == "aa-status" || q.contains("app armor") {
         return QueryClass::AppArmorStatus;
     }
 
@@ -1164,6 +1221,56 @@ pub fn classify_query(query: &str) -> QueryClass {
         || (q.contains("list") && q.contains("path") && q.contains("systemd"))
     {
         return QueryClass::SystemdPaths;
+    }
+
+    // v0.0.136: Systemctl masked units - "masked units", "systemctl mask"
+    if q.contains("masked unit")
+        || q.contains("masked service")
+        || (q.contains("systemctl") && q.contains("mask"))
+        || (q.contains("list") && q.contains("masked"))
+        || (q.contains("show") && q.contains("masked"))
+    {
+        return QueryClass::SystemctlMask;
+    }
+
+    // v0.0.136: Hosts file - "/etc/hosts", "hosts file"
+    if q.contains("/etc/hosts")
+        || q.contains("hosts file")
+        || q.contains("host entry")
+        || q.contains("host entries")
+        || (q.contains("show") && q.contains("hosts"))
+    {
+        return QueryClass::HostsFile;
+    }
+
+    // v0.0.136: Fstab entries - "fstab", "mount table"
+    if q.contains("fstab")
+        || q.contains("/etc/fstab")
+        || q.contains("mount table")
+        || q.contains("mount entry")
+        || (q.contains("show") && q.contains("fstab"))
+    {
+        return QueryClass::FstabEntries;
+    }
+
+    // v0.0.136: Sysctl settings - "sysctl", "kernel parameters"
+    if q.contains("sysctl")
+        || q.contains("kernel parameter")
+        || q.contains("kernel setting")
+        || (q.contains("show") && q.contains("kernel") && q.contains("param"))
+        || q.contains("/proc/sys")
+    {
+        return QueryClass::SysctlSettings;
+    }
+
+    // v0.0.136: Loginctl sessions - "loginctl", "user sessions"
+    if q.trim() == "loginctl"
+        || q.contains("loginctl session")
+        || q.contains("user session")
+        || q.contains("active session")
+        || (q.contains("list") && q.contains("session"))
+    {
+        return QueryClass::LoginctlSessions;
     }
 
     QueryClass::Unknown

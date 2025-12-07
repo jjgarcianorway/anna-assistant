@@ -11,8 +11,8 @@
 //! v0.0.87: Enhanced dialogue variety and internal communications.
 
 use crate::dialogue::{
-    anna_dispatch_greeting, anna_after_review, junior_approval,
-    junior_escalation_request, seed_from_str, senior_response,
+    anna_after_review, anna_dispatch_greeting, junior_approval, junior_escalation_request,
+    seed_from_str, senior_response,
 };
 use crate::roster::{person_for, Tier};
 use crate::teams::Team;
@@ -181,9 +181,10 @@ impl NarrativeBuilder {
 
     /// Add probe activity narration
     pub fn add_checking(&mut self, description: &str) {
-        self.segments.push(NarrativeSegment::narrator(
-            format!("Checking {}...", description)
-        ));
+        self.segments.push(NarrativeSegment::narrator(format!(
+            "Checking {}...",
+            description
+        )));
     }
 
     /// Add Anna dispatching to a team (v0.0.87: varied dialogue)
@@ -194,7 +195,8 @@ impl NarrativeBuilder {
 
         if self.show_internal {
             let greeting = anna_dispatch_greeting(team, case_id);
-            self.segments.push(NarrativeSegment::anna_internal(greeting));
+            self.segments
+                .push(NarrativeSegment::anna_internal(greeting));
         }
     }
 
@@ -206,7 +208,8 @@ impl NarrativeBuilder {
             } else {
                 junior_escalation_request(team, score, self.seed)
             };
-            self.segments.push(NarrativeSegment::team_member(team, Tier::Junior, response));
+            self.segments
+                .push(NarrativeSegment::team_member(team, Tier::Junior, response));
         }
     }
 
@@ -220,9 +223,8 @@ impl NarrativeBuilder {
             } else {
                 request
             };
-            self.segments.push(NarrativeSegment::team_member(
-                team, Tier::Junior, full_msg
-            ));
+            self.segments
+                .push(NarrativeSegment::team_member(team, Tier::Junior, full_msg));
         }
     }
 
@@ -230,9 +232,8 @@ impl NarrativeBuilder {
     pub fn add_senior_response(&mut self, team: Team, _guidance: &str) {
         if self.show_internal {
             let response = senior_response(true, self.seed);
-            self.segments.push(NarrativeSegment::team_member(
-                team, Tier::Senior, response
-            ));
+            self.segments
+                .push(NarrativeSegment::team_member(team, Tier::Senior, response));
         }
     }
 
@@ -255,7 +256,8 @@ impl NarrativeBuilder {
 
     /// Add clarification request narration
     pub fn add_clarification(&mut self, question: &str) {
-        self.segments.push(NarrativeSegment::anna(question.to_string()));
+        self.segments
+            .push(NarrativeSegment::anna(question.to_string()));
     }
 
     /// Build the final narrative

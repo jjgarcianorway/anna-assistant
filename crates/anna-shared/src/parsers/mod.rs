@@ -34,12 +34,15 @@ pub use atoms::{
 pub use df::{find_by_mount, parse_df, resolve_mount_alias, DiskUsage};
 pub use free::{parse_free, MemoryInfo};
 pub use journalctl::{
-    parse_journalctl_priority, parse_boot_time,
-    JournalSummary, JournalTopItem, BootTimeInfo,
-    FailedUnit as JournalFailedUnit, // Alias to avoid conflict with systemctl
+    parse_boot_time,
     parse_failed_units as parse_journal_failed_units,
+    parse_journalctl_priority,
+    BootTimeInfo,
+    FailedUnit as JournalFailedUnit, // Alias to avoid conflict with systemctl
+    JournalSummary,
+    JournalTopItem,
 };
-pub use lsblk::{parse_lsblk, find_root_device, total_disk_size, BlockDevice, BlockDeviceType};
+pub use lsblk::{find_root_device, parse_lsblk, total_disk_size, BlockDevice, BlockDeviceType};
 pub use lscpu::{parse_lscpu, CpuInfo};
 pub use systemctl::{
     parse_failed_units, parse_is_active, parse_status_verbose, ServiceState, ServiceStatus,
@@ -48,14 +51,19 @@ pub use systemctl::{
 // v0.45.7: Tool/package evidence helper functions
 /// Find tool existence evidence for a given tool name
 pub fn find_tool_evidence<'a>(parsed: &'a [ParsedProbeData], name: &str) -> Option<&'a ToolExists> {
-    parsed.iter()
+    parsed
+        .iter()
         .filter_map(|p| p.as_tool())
         .find(|t| t.name.to_lowercase() == name.to_lowercase())
 }
 
 /// Find package installation evidence for a given package name
-pub fn find_package_evidence<'a>(parsed: &'a [ParsedProbeData], name: &str) -> Option<&'a PackageInstalled> {
-    parsed.iter()
+pub fn find_package_evidence<'a>(
+    parsed: &'a [ParsedProbeData],
+    name: &str,
+) -> Option<&'a PackageInstalled> {
+    parsed
+        .iter()
         .filter_map(|p| p.as_package())
         .find(|p| p.name.to_lowercase() == name.to_lowercase())
 }
@@ -72,9 +80,7 @@ pub fn has_evidence_for(parsed: &[ParsedProbeData], name: &str) -> bool {
 /// Never return "No audio" if either source has devices.
 /// v0.0.60: Improved merging with deduplication by (pci_slot, description).
 pub fn find_audio_evidence(parsed: &[ParsedProbeData]) -> Option<AudioDevices> {
-    let all_audio: Vec<&AudioDevices> = parsed.iter()
-        .filter_map(|p| p.as_audio())
-        .collect();
+    let all_audio: Vec<&AudioDevices> = parsed.iter().filter_map(|p| p.as_audio()).collect();
 
     if all_audio.is_empty() {
         return None;
@@ -105,12 +111,13 @@ pub fn find_audio_evidence(parsed: &[ParsedProbeData]) -> Option<AudioDevices> {
                     source: "lspci+pactl".to_string(),
                 })
             }
-        },
+        }
         (Some(lspci), None) => Some((*lspci).clone()),
         (None, Some(pactl)) => Some((*pactl).clone()),
         (None, None) => {
             // Unknown sources - return first with devices, or first
-            all_audio.iter()
+            all_audio
+                .iter()
                 .find(|a| !a.devices.is_empty())
                 .or(all_audio.first())
                 .map(|a| (*a).clone())
@@ -149,18 +156,14 @@ fn merge_audio_devices(lspci: &[AudioDevice], pactl: &[AudioDevice]) -> Vec<Audi
 
 /// Find audio devices evidence returning a reference (v0.45.8 legacy)
 pub fn find_audio_evidence_ref(parsed: &[ParsedProbeData]) -> Option<&AudioDevices> {
-    parsed.iter()
-        .filter_map(|p| p.as_audio())
-        .next()
+    parsed.iter().filter_map(|p| p.as_audio()).next()
 }
 
 /// Get all tool evidence from parsed probes (v0.45.8, v0.0.56 fix).
 /// Returns both positive (exists=true) and negative (exists=false) evidence.
 /// Caller should filter by `.exists` if only installed tools are needed.
 pub fn get_installed_tools(parsed: &[ParsedProbeData]) -> Vec<&ToolExists> {
-    parsed.iter()
-        .filter_map(|p| p.as_tool())
-        .collect()
+    parsed.iter().filter_map(|p| p.as_tool()).collect()
 }
 
 /// v0.0.59: Extract installed editor names from parsed probe evidence.
@@ -183,10 +186,12 @@ pub fn installed_editors_from_parsed(parsed: &[ParsedProbeData]) -> Vec<String> 
     ];
 
     let tools = get_installed_tools(parsed);
-    let mut editors: Vec<String> = tools.iter()
+    let mut editors: Vec<String> = tools
+        .iter()
         .filter(|t| t.exists)
         .filter_map(|t| {
-            EDITOR_MAP.iter()
+            EDITOR_MAP
+                .iter()
                 .find(|(tool, _)| *tool == t.name.as_str())
                 .map(|(_, canonical)| canonical.to_string())
         })
@@ -204,7 +209,8 @@ use crate::rpc::ProbeResult;
 /// A probe produces valid evidence if parse_probe_result returns is_valid_evidence().
 /// This is used for reliability scoring - exit_code=1 for tool checks is valid negative evidence!
 pub fn count_valid_evidence_probes(probes: &[ProbeResult]) -> usize {
-    probes.iter()
+    probes
+        .iter()
         .filter(|p| parse_probe_result(p).is_valid_evidence())
         .count()
 }
@@ -490,8 +496,12 @@ fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedP
             )));
         }
 
-        let name = probe.command.split_whitespace().nth(1)
-            .unwrap_or("unknown").to_string();
+        let name = probe
+            .command
+            .split_whitespace()
+            .nth(1)
+            .unwrap_or("unknown")
+            .to_string();
         let exists = probe.exit_code == 0;
         let path = if exists && !probe.stdout.trim().is_empty() {
             Some(probe.stdout.trim().to_string())
@@ -519,7 +529,11 @@ fn try_parse_package_installed(probe: &ProbeResult, cmd_lower: &str) -> Option<P
         let installed = probe.exit_code == 0;
         let version = if installed {
             // pacman -Q outputs: "<name> <version>"
-            probe.stdout.split_whitespace().nth(1).map(|v| v.to_string())
+            probe
+                .stdout
+                .split_whitespace()
+                .nth(1)
+                .map(|v| v.to_string())
         } else {
             None
         };
@@ -558,10 +572,10 @@ fn stdout_contains_audio_device(stdout: &str) -> bool {
     let lower = stdout.to_lowercase();
     // Check for common lspci audio device class patterns
     // Note: lspci may show "[0403]" PCI class code between name and colon
-    lower.contains("audio device") ||
-    lower.contains("multimedia audio controller") ||
-    lower.contains("audio controller") ||
-    (lower.contains("multimedia controller") && lower.contains("audio"))
+    lower.contains("audio device")
+        || lower.contains("multimedia audio controller")
+        || lower.contains("audio controller")
+        || (lower.contains("multimedia controller") && lower.contains("audio"))
 }
 
 /// Try to parse audio devices from lspci or pactl (v0.45.8, v0.0.60, v0.0.61 expanded).
@@ -804,8 +818,10 @@ fn parse_pactl_cards_output(stdout: &str) -> Vec<AudioDevice> {
             current_card_name = Some(line.trim_start_matches("Name:").trim().to_string());
         }
         // Look for card description properties
-        else if line.contains("alsa.card_name") || line.contains("device.description")
-            || line.contains("card.name") || line.contains("device.product.name")
+        else if line.contains("alsa.card_name")
+            || line.contains("device.description")
+            || line.contains("card.name")
+            || line.contains("device.product.name")
         {
             if let Some(pos) = line.find('=') {
                 let value = line[pos + 1..].trim().trim_matches('"').to_string();
@@ -845,8 +861,17 @@ fn parse_pactl_cards_output(stdout: &str) -> Vec<AudioDevice> {
 /// Extract vendor name from audio device description.
 fn extract_vendor_from_description(description: &str) -> Option<String> {
     let known_vendors = [
-        "Intel", "NVIDIA", "AMD", "Realtek", "Creative", "C-Media",
-        "VIA", "SoundBlaster", "Logitech", "Corsair", "HyperX",
+        "Intel",
+        "NVIDIA",
+        "AMD",
+        "Realtek",
+        "Creative",
+        "C-Media",
+        "VIA",
+        "SoundBlaster",
+        "Logitech",
+        "Corsair",
+        "HyperX",
     ];
 
     for vendor in known_vendors {
@@ -871,7 +896,8 @@ fn extract_tool_name_from_command_v(cmd: &str) -> String {
         let rest = &cmd[pos + "command -v".len()..];
         let trimmed = rest.trim();
         // Extract the tool name (first alphanumeric word, stop at quotes/pipes)
-        let name: String = trimmed.chars()
+        let name: String = trimmed
+            .chars()
             .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
             .collect();
         if !name.is_empty() {
@@ -890,7 +916,8 @@ fn extract_package_name_from_pacman(cmd: &str) -> String {
             let rest = &cmd[pos + pattern.len()..];
             let trimmed = rest.trim();
             // Extract package name (stop at whitespace or redirection)
-            let name: String = trimmed.chars()
+            let name: String = trimmed
+                .chars()
                 .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
                 .collect();
             if !name.is_empty() {
@@ -1019,11 +1046,12 @@ Swap:         4.0Gi       256Mi       3.8Gi
         let probe = ProbeResult {
             command: "free -h".to_string(),
             exit_code: 0,
-            stdout: r#"              total        used        free      shared  buff/cache   available
+            stdout:
+                r#"              total        used        free      shared  buff/cache   available
 Mem:           15Gi       8.2Gi       1.5Gi       512Mi       5.8Gi       6.5Gi
 Swap:         4.0Gi       256Mi       3.8Gi
 "#
-            .to_string(),
+                .to_string(),
             stderr: String::new(),
             timing_ms: 10,
         };
@@ -1262,14 +1290,12 @@ Model name: Intel Core i7
 
     #[test]
     fn test_has_evidence_for() {
-        let parsed = vec![
-            ParsedProbeData::Tool(ToolExists {
-                name: "nano".to_string(),
-                exists: false,
-                method: ToolExistsMethod::CommandV,
-                path: None,
-            }),
-        ];
+        let parsed = vec![ParsedProbeData::Tool(ToolExists {
+            name: "nano".to_string(),
+            exists: false,
+            method: ToolExistsMethod::CommandV,
+            path: None,
+        })];
 
         assert!(has_evidence_for(&parsed, "nano"));
         assert!(!has_evidence_for(&parsed, "vim"));
@@ -1282,8 +1308,14 @@ Model name: Intel Core i7
         let output = "00:1f.3 Multimedia audio controller [0403]: Intel Corporation Cannon Lake PCH cAVS (rev 10)";
         let devices = parse_lspci_audio_output(output);
         assert_eq!(devices.len(), 1, "Should find one audio device");
-        assert!(devices[0].description.contains("Intel"), "Description should contain Intel");
-        assert!(devices[0].description.contains("Cannon Lake"), "Description should contain Cannon Lake");
+        assert!(
+            devices[0].description.contains("Intel"),
+            "Description should contain Intel"
+        );
+        assert!(
+            devices[0].description.contains("Cannon Lake"),
+            "Description should contain Cannon Lake"
+        );
         assert_eq!(devices[0].pci_slot, Some("00:1f.3".to_string()));
     }
 
@@ -1306,7 +1338,8 @@ Model name: Intel Core i7
 
     #[test]
     fn test_v055_lspci_audio_multiple_devices() {
-        let output = "00:1f.3 Multimedia audio controller [0403]: Intel Corporation Cannon Lake PCH cAVS\n\
+        let output =
+            "00:1f.3 Multimedia audio controller [0403]: Intel Corporation Cannon Lake PCH cAVS\n\
                       01:00.1 Audio device: NVIDIA Corporation TU104 HD Audio Controller";
         let devices = parse_lspci_audio_output(output);
         assert_eq!(devices.len(), 2, "Should find two audio devices");
@@ -1318,8 +1351,15 @@ Model name: Intel Core i7
     fn test_v055_extract_description_with_class_code() {
         let line = "00:1f.3 Multimedia audio controller [0403]: Intel Corporation Cannon Lake PCH cAVS (rev 10)";
         let desc = extract_lspci_description_v055(line);
-        assert!(desc.contains("Intel"), "Description '{}' should contain Intel", desc);
-        assert!(!desc.contains("[0403]"), "Description should not contain class code");
+        assert!(
+            desc.contains("Intel"),
+            "Description '{}' should contain Intel",
+            desc
+        );
+        assert!(
+            !desc.contains("[0403]"),
+            "Description should not contain class code"
+        );
     }
 
     // v0.0.66: Full audio evidence flow tests
@@ -1337,11 +1377,17 @@ Model name: Intel Core i7
         };
 
         let parsed = parse_probe_result(&probe);
-        assert!(parsed.as_audio().is_some(), "Should parse as Audio evidence");
+        assert!(
+            parsed.as_audio().is_some(),
+            "Should parse as Audio evidence"
+        );
 
         let audio = parsed.as_audio().unwrap();
         assert_eq!(audio.devices.len(), 1, "Should have one device");
-        assert!(audio.devices[0].description.contains("Intel"), "Description should contain Intel");
+        assert!(
+            audio.devices[0].description.contains("Intel"),
+            "Description should contain Intel"
+        );
         assert_eq!(audio.devices[0].pci_slot, Some("00:1f.3".to_string()));
     }
 
@@ -1359,10 +1405,16 @@ Model name: Intel Core i7
         };
 
         let parsed = parse_probe_result(&probe);
-        assert!(parsed.as_audio().is_some(), "Should parse as Audio evidence (negative)");
+        assert!(
+            parsed.as_audio().is_some(),
+            "Should parse as Audio evidence (negative)"
+        );
 
         let audio = parsed.as_audio().unwrap();
-        assert!(audio.devices.is_empty(), "Should have zero devices (valid negative evidence)");
+        assert!(
+            audio.devices.is_empty(),
+            "Should have zero devices (valid negative evidence)"
+        );
     }
 
     #[test]

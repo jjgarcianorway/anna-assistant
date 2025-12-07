@@ -5,13 +5,13 @@
 //!
 //! v0.0.35: Uses anna_shared::parsers for consistent parsing across crates.
 
+use crate::deterministic::DeterministicResult;
+use crate::parsers::find_probe;
 use anna_shared::parsers::{
-    parse_journalctl_priority, parse_boot_time, parse_journal_failed_units,
-    JournalSummary, BootTimeInfo, JournalFailedUnit,
+    parse_boot_time, parse_journal_failed_units, parse_journalctl_priority, BootTimeInfo,
+    JournalFailedUnit, JournalSummary,
 };
 use anna_shared::rpc::ProbeResult;
-use crate::parsers::find_probe;
-use crate::deterministic::DeterministicResult;
 
 /// System triage evidence collected from probes
 #[derive(Debug, Default)]
@@ -117,7 +117,10 @@ fn format_triage_answer(evidence: &TriageEvidence) -> String {
         // Show warnings if present (top 3 keys)
         if evidence.warnings.count_total > 0 {
             lines.push(String::new());
-            lines.push(format!("Warnings detected: {}", evidence.warnings.count_total));
+            lines.push(format!(
+                "Warnings detected: {}",
+                evidence.warnings.count_total
+            ));
             for item in evidence.warnings.top.iter().take(3) {
                 lines.push(format!("- `{}`: {} occurrences", item.key, item.count));
             }
@@ -204,10 +207,12 @@ mod tests {
     #[test]
     fn test_system_with_errors() {
         let probes = vec![
-            mock_probe("journalctl -p 3 -b --no-pager",
+            mock_probe(
+                "journalctl -p 3 -b --no-pager",
                 "Dec 05 10:00:00 host systemd[1]: Failed to start nginx.service
 Dec 05 10:01:00 host systemd[1]: Another error
-Dec 05 10:02:00 host kernel: disk error"),
+Dec 05 10:02:00 host kernel: disk error",
+            ),
             mock_probe("journalctl -p 4 -b --no-pager", ""),
             mock_probe("systemctl --failed --no-pager", "0 loaded units listed."),
         ];
@@ -222,9 +227,11 @@ Dec 05 10:02:00 host kernel: disk error"),
         let probes = vec![
             mock_probe("journalctl -p 3 -b --no-pager", ""),
             mock_probe("journalctl -p 4 -b --no-pager", ""),
-            mock_probe("systemctl --failed --no-pager",
+            mock_probe(
+                "systemctl --failed --no-pager",
                 "  UNIT                   LOAD   ACTIVE SUB    DESCRIPTION
-● nginx.service         loaded failed failed Nginx Web Server"),
+● nginx.service         loaded failed failed Nginx Web Server",
+            ),
         ];
 
         let result = generate_triage_answer(&probes).unwrap();
@@ -236,9 +243,11 @@ Dec 05 10:02:00 host kernel: disk error"),
     fn test_warnings_shown_when_healthy() {
         let probes = vec![
             mock_probe("journalctl -p 3 -b --no-pager", ""),
-            mock_probe("journalctl -p 4 -b --no-pager",
+            mock_probe(
+                "journalctl -p 4 -b --no-pager",
                 "Dec 05 10:00:00 host systemd[1]: Some warning
-Dec 05 10:01:00 host systemd[1]: Another warning"),
+Dec 05 10:01:00 host systemd[1]: Another warning",
+            ),
             mock_probe("systemctl --failed --no-pager", "0 loaded units listed."),
         ];
 
@@ -253,7 +262,10 @@ Dec 05 10:01:00 host systemd[1]: Another warning"),
             mock_probe("journalctl -p 3 -b --no-pager", ""),
             mock_probe("journalctl -p 4 -b --no-pager", ""),
             mock_probe("systemctl --failed --no-pager", "0 loaded units listed."),
-            mock_probe("systemd-analyze", "Startup finished in 2.5s (kernel) + 5.3s (userspace) = 7.8s"),
+            mock_probe(
+                "systemd-analyze",
+                "Startup finished in 2.5s (kernel) + 5.3s (userspace) = 7.8s",
+            ),
         ];
 
         let result = generate_triage_answer(&probes).unwrap();
@@ -278,8 +290,10 @@ Dec 05 10:01:00 host systemd[1]: Another warning"),
     #[test]
     fn golden_triage_deterministic() {
         let probes = vec![
-            mock_probe("journalctl -p 3 -b --no-pager",
-                "Dec 05 10:00:00 host nginx[1234]: connection refused"),
+            mock_probe(
+                "journalctl -p 3 -b --no-pager",
+                "Dec 05 10:00:00 host nginx[1234]: connection refused",
+            ),
             mock_probe("journalctl -p 4 -b --no-pager", ""),
             mock_probe("systemctl --failed --no-pager", "0 loaded units listed."),
         ];
@@ -308,8 +322,10 @@ Dec 05 10:01:00 host systemd[1]: Another warning"),
     fn test_warnings_only() {
         let probes = vec![
             mock_probe("journalctl -p 3 -b --no-pager", ""),
-            mock_probe("journalctl -p 4 -b --no-pager",
-                "Dec 05 10:00:00 host systemd[1]: warn1"),
+            mock_probe(
+                "journalctl -p 4 -b --no-pager",
+                "Dec 05 10:00:00 host systemd[1]: warn1",
+            ),
             mock_probe("systemctl --failed --no-pager", "0 loaded units listed."),
         ];
         let result = generate_triage_answer(&probes).unwrap();
@@ -320,8 +336,10 @@ Dec 05 10:01:00 host systemd[1]: Another warning"),
     #[test]
     fn test_errors_only() {
         let probes = vec![
-            mock_probe("journalctl -p 3 -b --no-pager",
-                "Dec 05 10:00:00 host kernel: error"),
+            mock_probe(
+                "journalctl -p 3 -b --no-pager",
+                "Dec 05 10:00:00 host kernel: error",
+            ),
             mock_probe("journalctl -p 4 -b --no-pager", ""),
             mock_probe("systemctl --failed --no-pager", "0 loaded units listed."),
         ];
@@ -334,8 +352,10 @@ Dec 05 10:01:00 host systemd[1]: Another warning"),
         let probes = vec![
             mock_probe("journalctl -p 3 -b --no-pager", ""),
             mock_probe("journalctl -p 4 -b --no-pager", ""),
-            mock_probe("systemctl --failed --no-pager",
-                "● test.service loaded failed failed Test"),
+            mock_probe(
+                "systemctl --failed --no-pager",
+                "● test.service loaded failed failed Test",
+            ),
         ];
         let result = generate_triage_answer(&probes).unwrap();
         assert!(result.answer.contains("Failed Service"));
@@ -345,13 +365,19 @@ Dec 05 10:01:00 host systemd[1]: Another warning"),
     #[test]
     fn test_mixed_errors_warnings_failed() {
         let probes = vec![
-            mock_probe("journalctl -p 3 -b --no-pager",
+            mock_probe(
+                "journalctl -p 3 -b --no-pager",
                 "Dec 05 10:00:00 host systemd[1]: error1
-Dec 05 10:01:00 host systemd[1]: error2"),
-            mock_probe("journalctl -p 4 -b --no-pager",
-                "Dec 05 10:00:00 host kernel: warn1"),
-            mock_probe("systemctl --failed --no-pager",
-                "● nginx.service loaded failed failed Nginx"),
+Dec 05 10:01:00 host systemd[1]: error2",
+            ),
+            mock_probe(
+                "journalctl -p 4 -b --no-pager",
+                "Dec 05 10:00:00 host kernel: warn1",
+            ),
+            mock_probe(
+                "systemctl --failed --no-pager",
+                "● nginx.service loaded failed failed Nginx",
+            ),
         ];
         let result = generate_triage_answer(&probes).unwrap();
         assert!(result.answer.contains("Critical issues detected: 2 error"));

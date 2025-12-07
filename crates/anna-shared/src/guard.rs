@@ -105,8 +105,8 @@ pub fn run_guard(
     // Invention detection rules:
     // 1. Contradictions always flag invention
     // 2. Unverifiable specifics only flag when evidence_required
-    let invention_detected = contradictions > 0
-        || (unverifiable_specifics > 0 && evidence_required);
+    let invention_detected =
+        contradictions > 0 || (unverifiable_specifics > 0 && evidence_required);
 
     GuardReport {
         total_specific_claims: claims.len() as u32,
@@ -372,7 +372,10 @@ mod tests {
         assert_eq!(report.details.len(), 3);
 
         // First: firefox (numeric) - unverifiable
-        assert!(matches!(report.details[0].result, VerifyResult::Unverifiable));
+        assert!(matches!(
+            report.details[0].result,
+            VerifyResult::Unverifiable
+        ));
 
         // Second: disk (percent) - contradiction
         assert!(report.details[1].result.is_contradiction());

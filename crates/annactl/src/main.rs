@@ -23,7 +23,10 @@ mod transcript_render;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_undo, handle_uninstall};
+use crate::commands::{
+    handle_history, handle_repl, handle_request, handle_reset, handle_stats, handle_status,
+    handle_undo, handle_uninstall,
+};
 use crate::report_cmd::handle_report;
 use crate::ticket_commands::{handle_email, handle_health, handle_reply, handle_ticket};
 

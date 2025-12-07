@@ -195,9 +195,13 @@ impl Spinner {
         let frame = symbols::SPINNER[self.frame % symbols::SPINNER.len()];
         print!(
             "\r{}{}{} {} {}({}s){}",
-            colors::CYAN, frame, colors::RESET,
+            colors::CYAN,
+            frame,
+            colors::RESET,
             self.message,
-            colors::DIM, elapsed, colors::RESET
+            colors::DIM,
+            elapsed,
+            colors::RESET
         );
         io::stdout().flush().ok();
     }
@@ -209,9 +213,13 @@ impl Spinner {
         let elapsed = self.start.elapsed().as_millis();
         println!(
             "{}{}{} {} {}({}ms){}",
-            colors::OK, symbols::OK, colors::RESET,
+            colors::OK,
+            symbols::OK,
+            colors::RESET,
             msg,
-            colors::DIM, elapsed, colors::RESET
+            colors::DIM,
+            elapsed,
+            colors::RESET
         );
     }
 
@@ -222,9 +230,13 @@ impl Spinner {
         let elapsed = self.start.elapsed().as_millis();
         println!(
             "{}{}{} {} {}({}ms){}",
-            colors::ERR, symbols::ERR, colors::RESET,
+            colors::ERR,
+            symbols::ERR,
+            colors::RESET,
             msg,
-            colors::DIM, elapsed, colors::RESET
+            colors::DIM,
+            elapsed,
+            colors::RESET
         );
     }
 
@@ -233,9 +245,12 @@ impl Spinner {
         clear_line();
         println!(
             "{}-{} {} {}({}){}",
-            colors::DIM, colors::RESET,
+            colors::DIM,
+            colors::RESET,
             self.message,
-            colors::DIM, reason, colors::RESET
+            colors::DIM,
+            reason,
+            colors::RESET
         );
     }
 
@@ -256,22 +271,38 @@ impl Spinner {
 }
 
 /// Stage progress tracker for pipeline visualization
-pub struct StageProgress { stages: Vec<StageInfo>, current: Option<usize> }
+pub struct StageProgress {
+    stages: Vec<StageInfo>,
+    current: Option<usize>,
+}
 
-struct StageInfo { name: String, status: StageStatus, duration_ms: Option<u64> }
+struct StageInfo {
+    name: String,
+    status: StageStatus,
+    duration_ms: Option<u64>,
+}
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum StageStatus { Pending, Running, Complete, Skipped, Error }
+pub enum StageStatus {
+    Pending,
+    Running,
+    Complete,
+    Skipped,
+    Error,
+}
 
 impl StageProgress {
     /// Create with stage names
     pub fn new(stage_names: &[&str]) -> Self {
         Self {
-            stages: stage_names.iter().map(|n| StageInfo {
-                name: n.to_string(),
-                status: StageStatus::Pending,
-                duration_ms: None,
-            }).collect(),
+            stages: stage_names
+                .iter()
+                .map(|n| StageInfo {
+                    name: n.to_string(),
+                    status: StageStatus::Pending,
+                    duration_ms: None,
+                })
+                .collect(),
             current: None,
         }
     }
@@ -309,20 +340,26 @@ impl StageProgress {
 
     /// Render progress line
     pub fn render_line(&self) -> String {
-        self.stages.iter().map(|s| {
-            match s.status {
+        self.stages
+            .iter()
+            .map(|s| match s.status {
                 StageStatus::Pending => format!("{}○{}", colors::DIM, colors::RESET),
                 StageStatus::Running => format!("{}◉{}", colors::CYAN, colors::RESET),
                 StageStatus::Complete => format!("{}●{}", colors::OK, colors::RESET),
                 StageStatus::Skipped => format!("{}-{}", colors::DIM, colors::RESET),
                 StageStatus::Error => format!("{}●{}", colors::ERR, colors::RESET),
-            }
-        }).collect::<Vec<_>>().join(" ")
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// Get summary string
     pub fn summary(&self) -> String {
-        let completed = self.stages.iter().filter(|s| s.status == StageStatus::Complete).count();
+        let completed = self
+            .stages
+            .iter()
+            .filter(|s| s.status == StageStatus::Complete)
+            .count();
         let total = self.stages.len();
         let total_ms: u64 = self.stages.iter().filter_map(|s| s.duration_ms).sum();
         format!("{}/{} stages ({}ms)", completed, total, total_ms)

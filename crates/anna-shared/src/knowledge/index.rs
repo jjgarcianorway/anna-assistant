@@ -151,9 +151,7 @@ impl KeywordIndex {
             .collect();
 
         // Deterministic sort: score desc, then id asc
-        results.sort_by(|a, b| {
-            b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0))
-        });
+        results.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
         results.truncate(limit);
         results
@@ -213,10 +211,14 @@ mod tests {
 
         assert_eq!(results1, results2);
         // With same scores, should be sorted by id asc
-        assert!(results1.iter().map(|(id, _)| id).collect::<Vec<_>>()
+        assert!(results1
+            .iter()
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>()
             .windows(2)
-            .all(|w| w[0] <= w[1] || results1.iter().find(|(id, _)| id == w[0]).unwrap().1
-                > results1.iter().find(|(id, _)| id == w[1]).unwrap().1));
+            .all(|w| w[0] <= w[1]
+                || results1.iter().find(|(id, _)| id == w[0]).unwrap().1
+                    > results1.iter().find(|(id, _)| id == w[1]).unwrap().1));
     }
 
     #[test]

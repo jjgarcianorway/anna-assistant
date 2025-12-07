@@ -13,9 +13,9 @@ use serde::{Deserialize, Serialize};
 
 // Re-export v0.0.44 types from clarify_v2
 pub use crate::clarify_v2::{
-    ClarifyOption as ClarifyOptionV2, ClarifyRequest, ClarifyResponse, ClarifyResult,
-    VerifyFailureTracker, editor_request, find_installed_alternatives, invalidate_on_uninstall,
-    process_response, should_skip, store_fact, KEY_CANCEL, KEY_OTHER,
+    editor_request, find_installed_alternatives, invalidate_on_uninstall, process_response,
+    should_skip, store_fact, ClarifyOption as ClarifyOptionV2, ClarifyRequest, ClarifyResponse,
+    ClarifyResult, VerifyFailureTracker, KEY_CANCEL, KEY_OTHER,
 };
 
 /// Menu-based clarification prompt (v0.0.42)
@@ -46,7 +46,13 @@ pub struct MenuOption {
 
 impl MenuOption {
     pub fn new(key: u8, label: impl Into<String>) -> Self {
-        Self { key, label: label.into(), fact_key: None, fact_value: None, verify_cmd: None }
+        Self {
+            key,
+            label: label.into(),
+            fact_key: None,
+            fact_value: None,
+            verify_cmd: None,
+        }
     }
 
     pub fn with_fact(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
@@ -60,21 +66,33 @@ impl MenuOption {
         self
     }
 
-    pub fn cancel() -> Self { Self::new(KEY_CANCEL, "Cancel") }
-    pub fn other() -> Self { Self::new(KEY_OTHER, "Other (specify)") }
+    pub fn cancel() -> Self {
+        Self::new(KEY_CANCEL, "Cancel")
+    }
+    pub fn other() -> Self {
+        Self::new(KEY_OTHER, "Other (specify)")
+    }
 }
 
 impl ClarifyPrompt {
-    pub fn new(id: impl Into<String>, title: impl Into<String>, question: impl Into<String>) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        title: impl Into<String>,
+        question: impl Into<String>,
+    ) -> Self {
         Self {
-            id: id.into(), title: title.into(), question: question.into(),
+            id: id.into(),
+            title: title.into(),
+            question: question.into(),
             options: vec![MenuOption::cancel(), MenuOption::other()],
-            default_key: None, reason: String::new(),
+            default_key: None,
+            reason: String::new(),
         }
     }
 
     pub fn add_option(mut self, opt: MenuOption) -> Self {
-        self.options.retain(|o| o.key != KEY_CANCEL && o.key != KEY_OTHER);
+        self.options
+            .retain(|o| o.key != KEY_CANCEL && o.key != KEY_OTHER);
         self.options.push(opt);
         self.options.sort_by_key(|o| o.key);
         self.options.push(MenuOption::cancel());
@@ -88,14 +106,26 @@ impl ClarifyPrompt {
         self
     }
 
-    pub fn with_default(mut self, key: u8) -> Self { self.default_key = Some(key); self }
-    pub fn with_reason(mut self, reason: impl Into<String>) -> Self { self.reason = reason.into(); self }
+    pub fn with_default(mut self, key: u8) -> Self {
+        self.default_key = Some(key);
+        self
+    }
+    pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = reason.into();
+        self
+    }
 
     fn ensure_escape_options(&mut self) {
-        if !self.options.iter().any(|o| o.key == KEY_CANCEL) { self.options.push(MenuOption::cancel()); }
-        if !self.options.iter().any(|o| o.key == KEY_OTHER) { self.options.push(MenuOption::other()); }
+        if !self.options.iter().any(|o| o.key == KEY_CANCEL) {
+            self.options.push(MenuOption::cancel());
+        }
+        if !self.options.iter().any(|o| o.key == KEY_OTHER) {
+            self.options.push(MenuOption::other());
+        }
         self.options.sort_by_key(|o| match o.key {
-            KEY_CANCEL => 100, KEY_OTHER => 101, k => k,
+            KEY_CANCEL => 100,
+            KEY_OTHER => 101,
+            k => k,
         });
     }
 
@@ -104,9 +134,17 @@ impl ClarifyPrompt {
     }
 
     pub fn format_menu(&self) -> String {
-        let mut lines = vec![format!("╭─ {} ─╮", self.title), self.question.clone(), String::new()];
+        let mut lines = vec![
+            format!("╭─ {} ─╮", self.title),
+            self.question.clone(),
+            String::new(),
+        ];
         for opt in &self.options {
-            let marker = if self.default_key == Some(opt.key) { " ←" } else { "" };
+            let marker = if self.default_key == Some(opt.key) {
+                " ←"
+            } else {
+                ""
+            };
             lines.push(format!("  [{}] {}{}", opt.key, opt.label, marker));
         }
         if !self.reason.is_empty() {
@@ -121,14 +159,26 @@ impl ClarifyPrompt {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClarifyOutcome {
-    Answered { key: u8, label: String, prompt_id: String },
+    Answered {
+        key: u8,
+        label: String,
+        prompt_id: String,
+    },
     Cancelled,
-    Other { text: String },
-    VerificationFailed { selected: String, reason: String, alternative: Option<String> },
+    Other {
+        text: String,
+    },
+    VerificationFailed {
+        selected: String,
+        reason: String,
+        alternative: Option<String>,
+    },
 }
 
 impl ClarifyOutcome {
-    pub fn is_success(&self) -> bool { matches!(self, Self::Answered { .. } | Self::Other { .. }) }
+    pub fn is_success(&self) -> bool {
+        matches!(self, Self::Answered { .. } | Self::Other { .. })
+    }
     pub fn selected_text(&self) -> Option<&str> {
         match self {
             Self::Answered { label, .. } => Some(label),
@@ -141,8 +191,12 @@ impl ClarifyOutcome {
 /// Generate editor menu prompt from inventory (v0.0.42)
 pub fn editor_menu_prompt(cache: &InventoryCache) -> ClarifyPrompt {
     let editors = [
-        ("vim", "Vim"), ("nvim", "Neovim"), ("nano", "Nano"),
-        ("emacs", "Emacs"), ("code", "VS Code"), ("micro", "Micro"),
+        ("vim", "Vim"),
+        ("nvim", "Neovim"),
+        ("nano", "Nano"),
+        ("emacs", "Emacs"),
+        ("code", "VS Code"),
+        ("micro", "Micro"),
     ];
 
     let mut opts = Vec::new();
@@ -150,29 +204,40 @@ pub fn editor_menu_prompt(cache: &InventoryCache) -> ClarifyPrompt {
 
     for (cmd, label) in &editors {
         if cache.is_installed(cmd).unwrap_or(false) && key < KEY_OTHER {
-            opts.push(MenuOption::new(key, *label).with_fact("preferred_editor", *cmd)
-                .with_verify(format!("command -v {}", cmd)));
+            opts.push(
+                MenuOption::new(key, *label)
+                    .with_fact("preferred_editor", *cmd)
+                    .with_verify(format!("command -v {}", cmd)),
+            );
             key += 1;
         }
     }
 
-    ClarifyPrompt::new("editor_select", "Editor Selection", "Which editor do you prefer?")
-        .with_options(opts)
-        .with_reason("I need to know your editor to configure it")
+    ClarifyPrompt::new(
+        "editor_select",
+        "Editor Selection",
+        "Which editor do you prefer?",
+    )
+    .with_options(opts)
+    .with_reason("I need to know your editor to configure it")
 }
 
 /// Find installed alternative when verification fails (v0.0.42)
 pub fn find_installed_alternative(tool: &str, cache: &InventoryCache) -> Option<String> {
     let alts: &[(&str, &[&str])] = &[
-        ("vim", &["nvim", "vi", "nano"]), ("nvim", &["vim", "vi", "nano"]),
-        ("emacs", &["vim", "nano", "code"]), ("code", &["vim", "nano", "nvim"]),
+        ("vim", &["nvim", "vi", "nano"]),
+        ("nvim", &["vim", "vi", "nano"]),
+        ("emacs", &["vim", "nano", "code"]),
+        ("code", &["vim", "nano", "nvim"]),
         ("nano", &["vim", "micro", "vi"]),
     ];
 
     for (t, alternatives) in alts {
         if *t == tool {
             for alt in *alternatives {
-                if cache.is_installed(alt).unwrap_or(false) { return Some(alt.to_string()); }
+                if cache.is_installed(alt).unwrap_or(false) {
+                    return Some(alt.to_string());
+                }
             }
         }
     }
@@ -184,7 +249,12 @@ pub fn find_installed_alternative(tool: &str, cache: &InventoryCache) -> Option<
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClarifyKind {
-    PreferredEditor, ServiceName, MountPoint, NetworkInterface, ProcessName, Custom(String),
+    PreferredEditor,
+    ServiceName,
+    MountPoint,
+    NetworkInterface,
+    ProcessName,
+    Custom(String),
 }
 
 impl std::fmt::Display for ClarifyKind {
@@ -211,11 +281,26 @@ pub struct ClarifyQuestion {
 
 impl ClarifyQuestion {
     pub fn new(kind: ClarifyKind, question: impl Into<String>) -> Self {
-        Self { kind, question: question.into(), verify_probe: None, hint: None, default: None }
+        Self {
+            kind,
+            question: question.into(),
+            verify_probe: None,
+            hint: None,
+            default: None,
+        }
     }
-    pub fn with_verify(mut self, probe: impl Into<String>) -> Self { self.verify_probe = Some(probe.into()); self }
-    pub fn with_hint(mut self, hint: impl Into<String>) -> Self { self.hint = Some(hint.into()); self }
-    pub fn with_default(mut self, default: impl Into<String>) -> Self { self.default = Some(default.into()); self }
+    pub fn with_verify(mut self, probe: impl Into<String>) -> Self {
+        self.verify_probe = Some(probe.into());
+        self
+    }
+    pub fn with_hint(mut self, hint: impl Into<String>) -> Self {
+        self.hint = Some(hint.into());
+        self
+    }
+    pub fn with_default(mut self, default: impl Into<String>) -> Self {
+        self.default = Some(default.into());
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -227,43 +312,71 @@ pub struct ClarifyOption {
 
 impl ClarifyOption {
     pub fn new(key: impl Into<String>, label: impl Into<String>) -> Self {
-        Self { key: key.into(), label: label.into(), evidence: vec![] }
+        Self {
+            key: key.into(),
+            label: label.into(),
+            evidence: vec![],
+        }
     }
-    pub fn with_evidence(mut self, ev: impl Into<String>) -> Self { self.evidence.push(ev.into()); self }
+    pub fn with_evidence(mut self, ev: impl Into<String>) -> Self {
+        self.evidence.push(ev.into());
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClarifyAnswer { pub question_id: String, pub selected_key: String }
+pub struct ClarifyAnswer {
+    pub question_id: String,
+    pub selected_key: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClarifyResultLegacy {
-    Verified { kind: ClarifyKind, value: String, probe_output: Option<String> },
-    Unverified { kind: ClarifyKind, value: String, reason: String },
+    Verified {
+        kind: ClarifyKind,
+        value: String,
+        probe_output: Option<String>,
+    },
+    Unverified {
+        kind: ClarifyKind,
+        value: String,
+        reason: String,
+    },
     Declined,
 }
 
 pub fn generate_question(kind: ClarifyKind, facts: &FactsStore) -> ClarifyQuestion {
     match &kind {
         ClarifyKind::PreferredEditor => {
-            let default = facts.get_verified(&FactKey::PreferredEditor).map(|s| s.to_string());
+            let default = facts
+                .get_verified(&FactKey::PreferredEditor)
+                .map(|s| s.to_string());
             ClarifyQuestion::new(kind, "What text editor do you prefer?")
                 .with_verify("which {}")
                 .with_hint("vim, nano, emacs, code, nvim")
                 .with_default(default.unwrap_or_default())
         }
         ClarifyKind::ServiceName => ClarifyQuestion::new(kind, "Which service?")
-            .with_verify("systemctl is-active {}").with_hint("nginx, docker, sshd"),
+            .with_verify("systemctl is-active {}")
+            .with_hint("nginx, docker, sshd"),
         ClarifyKind::MountPoint => ClarifyQuestion::new(kind, "Which mount point?")
-            .with_verify("df {}").with_hint("/, /home, /var"),
+            .with_verify("df {}")
+            .with_hint("/, /home, /var"),
         ClarifyKind::NetworkInterface => {
-            let default = facts.get_verified(&FactKey::NetworkPrimaryInterface).map(|s| s.to_string());
+            let default = facts
+                .get_verified(&FactKey::NetworkPrimaryInterface)
+                .map(|s| s.to_string());
             ClarifyQuestion::new(kind, "Which network interface?")
-                .with_verify("ip addr show {}").with_hint("eth0, wlan0")
+                .with_verify("ip addr show {}")
+                .with_hint("eth0, wlan0")
                 .with_default(default.unwrap_or_default())
         }
         ClarifyKind::ProcessName => ClarifyQuestion::new(kind, "Which process?")
-            .with_verify("pgrep -x {}").with_hint("firefox, chrome"),
-        ClarifyKind::Custom(desc) => ClarifyQuestion::new(kind.clone(), format!("Please specify: {}", desc)),
+            .with_verify("pgrep -x {}")
+            .with_hint("firefox, chrome"),
+        ClarifyKind::Custom(desc) => {
+            ClarifyQuestion::new(kind.clone(), format!("Please specify: {}", desc))
+        }
     }
 }
 
@@ -278,16 +391,25 @@ pub fn kind_to_fact_key(kind: &ClarifyKind, value: &str) -> Option<FactKey> {
     }
 }
 
-pub fn build_verify_command(template: &str, value: &str) -> String { template.replace("{}", value) }
+pub fn build_verify_command(template: &str, value: &str) -> String {
+    template.replace("{}", value)
+}
 
 pub fn needs_clarification(query: &str, facts: &FactsStore) -> Option<ClarifyKind> {
     let q = query.to_lowercase();
-    if (q.contains("edit") || q.contains("editor")) && !q.contains("vim") && !q.contains("nano")
-        && !q.contains("emacs") && !q.contains("code") && !facts.has_verified(&FactKey::PreferredEditor) {
+    if (q.contains("edit") || q.contains("editor"))
+        && !q.contains("vim")
+        && !q.contains("nano")
+        && !q.contains("emacs")
+        && !q.contains("code")
+        && !facts.has_verified(&FactKey::PreferredEditor)
+    {
         return Some(ClarifyKind::PreferredEditor);
     }
-    if (q.contains("service") || q.contains("systemctl")) && !q.contains("--failed")
-        && extract_service_name(&q).is_none() {
+    if (q.contains("service") || q.contains("systemctl"))
+        && !q.contains("--failed")
+        && extract_service_name(&q).is_none()
+    {
         return Some(ClarifyKind::ServiceName);
     }
     if (q.contains("mount") || q.contains("partition")) && !q.contains("/") {
@@ -297,11 +419,25 @@ pub fn needs_clarification(query: &str, facts: &FactsStore) -> Option<ClarifyKin
 }
 
 fn extract_service_name(query: &str) -> Option<String> {
-    let patterns = ["nginx", "docker", "sshd", "apache", "mysql", "postgresql", "redis"];
-    for p in patterns { if query.contains(p) { return Some(p.to_string()); } }
+    let patterns = [
+        "nginx",
+        "docker",
+        "sshd",
+        "apache",
+        "mysql",
+        "postgresql",
+        "redis",
+    ];
+    for p in patterns {
+        if query.contains(p) {
+            return Some(p.to_string());
+        }
+    }
     if let Some(idx) = query.find(".service") {
         let before = &query[..idx];
-        if let Some(start) = before.rfind(' ') { return Some(before[start+1..].to_string()); }
+        if let Some(start) = before.rfind(' ') {
+            return Some(before[start + 1..].to_string());
+        }
     }
     None
 }
@@ -340,18 +476,32 @@ pub fn generate_editor_options_with_cache(cache: &InventoryCache) -> Vec<Clarify
     options
 }
 
-pub fn is_cancel_selection(key: &str) -> bool { key == CLARIFY_CANCEL_KEY }
-pub fn is_other_selection(key: &str) -> bool { key == CLARIFY_OTHER_KEY }
+pub fn is_cancel_selection(key: &str) -> bool {
+    key == CLARIFY_CANCEL_KEY
+}
+pub fn is_other_selection(key: &str) -> bool {
+    key == CLARIFY_OTHER_KEY
+}
 
 pub fn verify_editor_installed(editor: &str) -> bool {
-    std::process::Command::new("which").arg(editor).output().map(|o| o.status.success()).unwrap_or(false)
+    std::process::Command::new("which")
+        .arg(editor)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 pub fn generate_editor_clarification(facts: &FactsStore) -> (ClarifyQuestion, Vec<ClarifyOption>) {
-    let default = facts.get_verified(&FactKey::PreferredEditor).map(|s| s.to_string());
-    let question = ClarifyQuestion::new(ClarifyKind::PreferredEditor, "Which text editor do you prefer?")
-        .with_verify("which {}").with_hint("Select from installed editors")
-        .with_default(default.unwrap_or_default());
+    let default = facts
+        .get_verified(&FactKey::PreferredEditor)
+        .map(|s| s.to_string());
+    let question = ClarifyQuestion::new(
+        ClarifyKind::PreferredEditor,
+        "Which text editor do you prefer?",
+    )
+    .with_verify("which {}")
+    .with_hint("Select from installed editors")
+    .with_default(default.unwrap_or_default());
     let options = generate_editor_options_sync();
     (question, options)
 }

@@ -49,7 +49,12 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
 
     // "Since last time" section if we have history
     if last_snapshot.is_some() {
-        print_since_last_time(&telemetry, &health_deltas, failed_services, &interaction_info);
+        print_since_last_time(
+            &telemetry,
+            &health_deltas,
+            failed_services,
+            &interaction_info,
+        );
     }
 
     // System readiness (LLM state)
@@ -106,18 +111,22 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
         println!();
         println!("I'm your local IT department. Just ask me anything about your system.");
         println!();
-        println!("{}Try: \"is my system healthy?\" or \"show disk usage\"{}", colors::DIM, colors::RESET);
+        println!(
+            "{}Try: \"is my system healthy?\" or \"show disk usage\"{}",
+            colors::DIM,
+            colors::RESET
+        );
     } else if let Some(days) = info.days_since_last {
         if days >= 1 {
-            println!(
-                "Hello {}!",
-                username
-            );
+            println!("Hello {}!", username);
             println!();
             let day_word = if days == 1 { "day" } else { "days" };
             println!(
                 "{}It's been about {} {} since you checked with me!{}",
-                colors::DIM, days, day_word, colors::RESET
+                colors::DIM,
+                days,
+                day_word,
+                colors::RESET
             );
         } else {
             println!("Hello {}, welcome back.", username);
@@ -128,7 +137,9 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
             println!();
             println!(
                 "{}It's been about {} hours since we last spoke.{}",
-                colors::DIM, hours, colors::RESET
+                colors::DIM,
+                hours,
+                colors::RESET
             );
         } else if hours > 1 {
             println!("Hello {}, welcome back.", username);
@@ -143,7 +154,10 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
 /// Print personalized patterns from user profile
 fn print_user_patterns(profile: &UserProfile) {
     // Only show if we have meaningful data
-    if profile.tool_usage.is_empty() && profile.topic_interests.is_empty() && profile.streak_days <= 1 {
+    if profile.tool_usage.is_empty()
+        && profile.topic_interests.is_empty()
+        && profile.streak_days <= 1
+    {
         return;
     }
 
@@ -166,7 +180,9 @@ fn print_user_patterns(profile: &UserProfile) {
         if count > 2 {
             patterns.push(format!(
                 "{} I've noticed you prefer {} ({} mentions).",
-                bullet(), editor, count
+                bullet(),
+                editor,
+                count
             ));
         }
     }
@@ -177,21 +193,27 @@ fn print_user_patterns(profile: &UserProfile) {
         if count > 2 {
             patterns.push(format!(
                 "{} You ask about {} a lot ({} times).",
-                bullet(), topic, count
+                bullet(),
+                topic,
+                count
             ));
         }
     }
 
     // v0.0.108: Top tool if not an editor
     let editors = ["vim", "nvim", "nano", "emacs", "helix", "micro", "code"];
-    if let Some((top_tool, count)) = profile.tool_usage.iter()
+    if let Some((top_tool, count)) = profile
+        .tool_usage
+        .iter()
         .filter(|(k, _)| !editors.contains(&k.as_str()))
         .max_by_key(|(_, v)| *v)
     {
         if *count > 2 {
             patterns.push(format!(
                 "{} You've been using {} ({} queries).",
-                bullet(), top_tool, count
+                bullet(),
+                top_tool,
+                count
             ));
         }
     }
@@ -219,17 +241,18 @@ fn print_open_tickets() {
     println!("{}Open Tickets:{}", colors::WARN, colors::RESET);
     for ticket in open_tickets.iter().take(3) {
         // Show full query, wrapped naturally by terminal
-        println!("  {} {} ({})",
-            bullet(),
-            ticket.case_number,
-            ticket.status);
+        println!("  {} {} ({})", bullet(), ticket.case_number, ticket.status);
         println!("    {}", ticket.query);
     }
     if open_tickets.len() > 3 {
         println!("  {} and {} more", bullet(), open_tickets.len() - 3);
     }
     println!();
-    println!("{}To reply: annactl reply CN-XXXX \"message\"{}", colors::DIM, colors::RESET);
+    println!(
+        "{}To reply: annactl reply CN-XXXX \"message\"{}",
+        colors::DIM,
+        colors::RESET
+    );
 }
 
 fn print_since_last_time(
@@ -245,7 +268,11 @@ fn print_since_last_time(
     }
 
     println!();
-    println!("{}Since the last time, a few things happened:{}", colors::DIM, colors::RESET);
+    println!(
+        "{}Since the last time, a few things happened:{}",
+        colors::DIM,
+        colors::RESET
+    );
     println!();
 
     let mut items_shown = 0;
@@ -258,19 +285,24 @@ fn print_since_last_time(
             if boot_ms > 0 {
                 println!(
                     "  {} Your boot time increased by {} seconds.",
-                    bullet(), secs
+                    bullet(),
+                    secs
                 );
                 // Add context if it's small
                 if secs < 10 {
                     println!(
                         "    {}This is normal variation, nothing to worry about.{}",
-                        colors::DIM, colors::RESET
+                        colors::DIM,
+                        colors::RESET
                     );
                 }
             } else {
                 println!(
                     "  {} {}Your boot time improved by {} seconds!{}",
-                    bullet(), colors::OK, secs, colors::RESET
+                    bullet(),
+                    colors::OK,
+                    secs,
+                    colors::RESET
                 );
             }
             items_shown += 1;
@@ -283,43 +315,68 @@ fn print_since_last_time(
             DeltaItem::DiskWarning { mount, curr, .. } => {
                 println!(
                     "  {} {}[warn]{} Disk {} is at {}% - getting full.",
-                    bullet(), colors::WARN, colors::RESET, mount, curr
+                    bullet(),
+                    colors::WARN,
+                    colors::RESET,
+                    mount,
+                    curr
                 );
             }
             DeltaItem::DiskCritical { mount, curr, .. } => {
                 println!(
                     "  {} {}[critical]{} Disk {} is at {}% - needs attention!",
-                    bullet(), colors::ERR, colors::RESET, mount, curr
+                    bullet(),
+                    colors::ERR,
+                    colors::RESET,
+                    mount,
+                    curr
                 );
             }
             DeltaItem::DiskIncreased { mount, prev, curr } => {
                 println!(
                     "  {} Disk {} increased from {}% to {}%.",
-                    bullet(), mount, prev, curr
+                    bullet(),
+                    mount,
+                    prev,
+                    curr
                 );
             }
             DeltaItem::NewFailedService { unit } => {
                 println!(
                     "  {} {}[fail]{} Service {} has failed.",
-                    bullet(), colors::ERR, colors::RESET, unit
+                    bullet(),
+                    colors::ERR,
+                    colors::RESET,
+                    unit
                 );
             }
             DeltaItem::ServiceRecovered { unit } => {
                 println!(
                     "  {} {}[recovered]{} Service {} is back up!",
-                    bullet(), colors::OK, colors::RESET, unit
+                    bullet(),
+                    colors::OK,
+                    colors::RESET,
+                    unit
                 );
             }
             DeltaItem::MemoryHigh { curr_percent, .. } => {
                 println!(
                     "  {} {}[warn]{} Memory usage is high at {}%.",
-                    bullet(), colors::WARN, colors::RESET, curr_percent
+                    bullet(),
+                    colors::WARN,
+                    colors::RESET,
+                    curr_percent
                 );
             }
-            DeltaItem::MemoryIncreased { prev_percent, curr_percent } => {
+            DeltaItem::MemoryIncreased {
+                prev_percent,
+                curr_percent,
+            } => {
                 println!(
                     "  {} Memory usage increased from {}% to {}%.",
-                    bullet(), prev_percent, curr_percent
+                    bullet(),
+                    prev_percent,
+                    curr_percent
                 );
             }
         }
@@ -331,12 +388,16 @@ fn print_since_last_time(
         if failed_services > 0 {
             println!(
                 "  {} {} service{} currently in failed state.",
-                bullet(), failed_services, if failed_services == 1 { "" } else { "s" }
+                bullet(),
+                failed_services,
+                if failed_services == 1 { "" } else { "s" }
             );
         } else if health_deltas.is_empty() {
             println!(
                 "  {} {}No warnings or errors detected - looking good!{}",
-                bullet(), colors::OK, colors::RESET
+                bullet(),
+                colors::OK,
+                colors::RESET
             );
         }
     }
@@ -348,10 +409,15 @@ fn print_system_readiness(status: &DaemonStatus) {
     match status.llm.state {
         LlmState::Ready => {
             // Show which models are ready
-            if let (Some(trans), Some(spec)) = (&status.llm.translator_model, &status.llm.specialist_model) {
+            if let (Some(trans), Some(spec)) =
+                (&status.llm.translator_model, &status.llm.specialist_model)
+            {
                 println!(
                     "{}Systems ready. Translator: {}, Specialist: {}{}",
-                    colors::DIM, trans, spec, colors::RESET
+                    colors::DIM,
+                    trans,
+                    spec,
+                    colors::RESET
                 );
             } else {
                 println!("{}All systems ready.{}", colors::DIM, colors::RESET);
@@ -359,14 +425,12 @@ fn print_system_readiness(status: &DaemonStatus) {
         }
         LlmState::Bootstrapping => {
             if let Some(phase) = &status.llm.phase {
-                println!(
-                    "{}[starting]{} {}...",
-                    colors::WARN, colors::RESET, phase
-                );
+                println!("{}[starting]{} {}...", colors::WARN, colors::RESET, phase);
             } else {
                 println!(
                     "{}[starting]{} Preparing AI models...",
-                    colors::WARN, colors::RESET
+                    colors::WARN,
+                    colors::RESET
                 );
             }
             // Show progress if available
@@ -378,7 +442,8 @@ fn print_system_readiness(status: &DaemonStatus) {
         LlmState::Error => {
             println!(
                 "{}[error]{} AI models not available. Some features may be limited.",
-                colors::ERR, colors::RESET
+                colors::ERR,
+                colors::RESET
             );
             if let Some(err) = &status.last_error {
                 println!("  {}{}{}", colors::DIM, err, colors::RESET);
@@ -392,7 +457,9 @@ fn print_system_readiness(status: &DaemonStatus) {
             println!();
             println!(
                 "{}[update]{} Version {} is available. I'll update automatically.",
-                colors::CYAN, colors::RESET, ver
+                colors::CYAN,
+                colors::RESET,
+                ver
             );
         }
     }
@@ -410,9 +477,10 @@ fn collect_failed_services(snapshot: &mut SystemSnapshot) -> usize {
             for line in stdout.lines() {
                 if line.contains(".service") || line.contains(".mount") {
                     count += 1;
-                    if let Some(unit) = line.split_whitespace().find(|p|
-                        p.ends_with(".service") || p.ends_with(".mount")
-                    ) {
+                    if let Some(unit) = line
+                        .split_whitespace()
+                        .find(|p| p.ends_with(".service") || p.ends_with(".mount"))
+                    {
                         snapshot.add_failed_service(unit);
                     }
                 }

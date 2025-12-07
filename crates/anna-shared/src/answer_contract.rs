@@ -164,10 +164,16 @@ impl AnswerContract {
         }
 
         // Detect verbosity hints
-        if query_lower.contains("just") || query_lower.contains("only") || query_lower.contains("exactly") {
+        if query_lower.contains("just")
+            || query_lower.contains("only")
+            || query_lower.contains("exactly")
+        {
             verbosity = Verbosity::Minimal;
         }
-        if query_lower.contains("explain") || query_lower.contains("teach") || query_lower.contains("why") {
+        if query_lower.contains("explain")
+            || query_lower.contains("teach")
+            || query_lower.contains("why")
+        {
             verbosity = Verbosity::Teach;
         }
 
@@ -244,7 +250,8 @@ pub fn validate_answer(answer: &str, contract: &AnswerContract) -> AnswerValidat
         }
     }
 
-    let valid = missing_fields.is_empty() && (contract.verbosity != Verbosity::Minimal || extra_fields.is_empty());
+    let valid = missing_fields.is_empty()
+        && (contract.verbosity != Verbosity::Minimal || extra_fields.is_empty());
 
     AnswerValidation {
         valid,
@@ -258,23 +265,41 @@ pub fn validate_answer(answer: &str, contract: &AnswerContract) -> AnswerValidat
 fn field_present_in_answer(answer: &str, field: &RequestedField) -> bool {
     match field {
         RequestedField::CpuCores => {
-            answer.contains("core") || answer.contains("thread") ||
-            answer.chars().any(|c| c.is_ascii_digit())
+            answer.contains("core")
+                || answer.contains("thread")
+                || answer.chars().any(|c| c.is_ascii_digit())
         }
-        RequestedField::CpuModel => answer.contains("intel") || answer.contains("amd") || answer.contains("cpu"),
+        RequestedField::CpuModel => {
+            answer.contains("intel") || answer.contains("amd") || answer.contains("cpu")
+        }
         RequestedField::CpuTemp => answer.contains("°") || answer.contains("temp"),
         RequestedField::RamFree => answer.contains("free") || answer.contains("available"),
-        RequestedField::RamTotal => answer.contains("total") || answer.contains("gb") || answer.contains("mb"),
+        RequestedField::RamTotal => {
+            answer.contains("total") || answer.contains("gb") || answer.contains("mb")
+        }
         RequestedField::RamUsed => answer.contains("used"),
         RequestedField::DiskUsage(_) => answer.contains("%") || answer.contains("used"),
         RequestedField::DiskFree(_) => answer.contains("free") || answer.contains("available"),
         RequestedField::SoundCard => answer.contains("audio") || answer.contains("sound"),
-        RequestedField::GpuInfo => answer.contains("gpu") || answer.contains("graphics") || answer.contains("nvidia") || answer.contains("amd"),
-        RequestedField::NetworkInterfaces => answer.contains("eth") || answer.contains("wlan") || answer.contains("interface"),
-        RequestedField::ServiceStatus(_) => answer.contains("running") || answer.contains("stopped") || answer.contains("active"),
+        RequestedField::GpuInfo => {
+            answer.contains("gpu")
+                || answer.contains("graphics")
+                || answer.contains("nvidia")
+                || answer.contains("amd")
+        }
+        RequestedField::NetworkInterfaces => {
+            answer.contains("eth") || answer.contains("wlan") || answer.contains("interface")
+        }
+        RequestedField::ServiceStatus(_) => {
+            answer.contains("running") || answer.contains("stopped") || answer.contains("active")
+        }
         RequestedField::ProcessList => answer.contains("process") || answer.contains("pid"),
-        RequestedField::PackageCount => answer.chars().any(|c| c.is_ascii_digit()) && answer.contains("package"),
-        RequestedField::ToolExists(_) => answer.contains("installed") || answer.contains("found") || answer.contains("not found"),
+        RequestedField::PackageCount => {
+            answer.chars().any(|c| c.is_ascii_digit()) && answer.contains("package")
+        }
+        RequestedField::ToolExists(_) => {
+            answer.contains("installed") || answer.contains("found") || answer.contains("not found")
+        }
         RequestedField::Generic => true, // Generic always passes
     }
 }
@@ -312,12 +337,18 @@ fn extract_number_with_context(text: &str, contexts: &[&str]) -> Option<String> 
 
             // Try to extract number from nearby
             for word in before.split_whitespace().rev().take(3) {
-                if let Ok(n) = word.trim_matches(|c: char| !c.is_ascii_digit()).parse::<u32>() {
+                if let Ok(n) = word
+                    .trim_matches(|c: char| !c.is_ascii_digit())
+                    .parse::<u32>()
+                {
                     return Some(format!("{} {}", n, context));
                 }
             }
             for word in after.split_whitespace().take(5) {
-                if let Ok(n) = word.trim_matches(|c: char| !c.is_ascii_digit()).parse::<u32>() {
+                if let Ok(n) = word
+                    .trim_matches(|c: char| !c.is_ascii_digit())
+                    .parse::<u32>()
+                {
                     return Some(format!("{} {}", n, context));
                 }
             }
@@ -353,8 +384,12 @@ mod tests {
     #[test]
     fn test_contract_from_query_cores() {
         let contract = AnswerContract::from_query("how many cores does my cpu have?");
-        assert!(contract.requested_fields.contains(&RequestedField::CpuCores));
-        assert!(!contract.requested_fields.contains(&RequestedField::CpuModel));
+        assert!(contract
+            .requested_fields
+            .contains(&RequestedField::CpuCores));
+        assert!(!contract
+            .requested_fields
+            .contains(&RequestedField::CpuModel));
     }
 
     #[test]

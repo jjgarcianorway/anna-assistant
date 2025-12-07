@@ -182,8 +182,14 @@ mod tests {
     fn test_lucky_team_needs_minimum() {
         // Only 2 cases, should not qualify
         let outcomes = vec![
-            TeamOutcome { team: "A".to_string(), success: true },
-            TeamOutcome { team: "A".to_string(), success: true },
+            TeamOutcome {
+                team: "A".to_string(),
+                success: true,
+            },
+            TeamOutcome {
+                team: "A".to_string(),
+                success: true,
+            },
         ];
         let stats = calculate_lucky_team(&outcomes);
         assert!(stats.team.is_none());
@@ -192,12 +198,30 @@ mod tests {
     #[test]
     fn test_lucky_team_selection() {
         let outcomes = vec![
-            TeamOutcome { team: "A".to_string(), success: true },
-            TeamOutcome { team: "A".to_string(), success: true },
-            TeamOutcome { team: "A".to_string(), success: true },
-            TeamOutcome { team: "B".to_string(), success: true },
-            TeamOutcome { team: "B".to_string(), success: false },
-            TeamOutcome { team: "B".to_string(), success: false },
+            TeamOutcome {
+                team: "A".to_string(),
+                success: true,
+            },
+            TeamOutcome {
+                team: "A".to_string(),
+                success: true,
+            },
+            TeamOutcome {
+                team: "A".to_string(),
+                success: true,
+            },
+            TeamOutcome {
+                team: "B".to_string(),
+                success: true,
+            },
+            TeamOutcome {
+                team: "B".to_string(),
+                success: false,
+            },
+            TeamOutcome {
+                team: "B".to_string(),
+                success: false,
+            },
         ];
         let stats = calculate_lucky_team(&outcomes);
         assert_eq!(stats.team, Some("A".to_string()));

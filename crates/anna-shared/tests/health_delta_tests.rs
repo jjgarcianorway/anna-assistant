@@ -24,7 +24,7 @@ fn test_history_rotation() {
     }
 
     assert_eq!(history.len(), 5); // MAX_HISTORY_SIZE
-    // Latest should be the last one added (i=9)
+                                  // Latest should be the last one added (i=9)
     let latest = history.latest().unwrap();
     assert_eq!(latest.memory_used_bytes, 900);
 }
@@ -140,7 +140,7 @@ fn test_one_liner_healthy() {
 fn test_issue_and_warning_counts() {
     let mut snap = SystemSnapshot::now();
     snap.set_memory(100, 92); // Issue: >90
-    snap.add_disk("/", 96);   // Issue: >95
+    snap.add_disk("/", 96); // Issue: >95
     snap.add_disk("/home", 85); // Warning: 80-95
 
     let mut history = SnapshotHistory::new();

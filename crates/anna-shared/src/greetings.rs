@@ -51,7 +51,9 @@ impl TimeOfDay {
 
 /// Get current username from environment
 pub fn current_user() -> Option<String> {
-    std::env::var("USER").ok().or_else(|| std::env::var("USERNAME").ok())
+    std::env::var("USER")
+        .ok()
+        .or_else(|| std::env::var("USERNAME").ok())
 }
 
 /// Personalized Anna greeting for REPL/session start

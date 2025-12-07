@@ -6,13 +6,23 @@ use tempfile::tempdir;
 #[test]
 fn test_fact_key_display() {
     assert_eq!(FactKey::PreferredEditor.to_string(), "preferred_editor");
-    assert_eq!(FactKey::EditorInstalled("vim".to_string()).to_string(), "editor_installed:vim");
-    assert_eq!(FactKey::BinaryAvailable("nvim".to_string()).to_string(), "binary_available:nvim");
+    assert_eq!(
+        FactKey::EditorInstalled("vim".to_string()).to_string(),
+        "editor_installed:vim"
+    );
+    assert_eq!(
+        FactKey::BinaryAvailable("nvim".to_string()).to_string(),
+        "binary_available:nvim"
+    );
 }
 
 #[test]
 fn test_fact_creation() {
-    let fact = Fact::verified(FactKey::PreferredEditor, "vim".to_string(), "probe:which vim".to_string());
+    let fact = Fact::verified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "probe:which vim".to_string(),
+    );
     assert!(fact.verified);
     assert_eq!(fact.value, "vim");
     assert_eq!(fact.source, "probe:which vim");
@@ -22,7 +32,11 @@ fn test_fact_creation() {
 #[test]
 fn test_facts_store_set_get() {
     let mut store = FactsStore::new();
-    store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "user+verify".to_string());
+    store.set_verified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "user+verify".to_string(),
+    );
     assert!(store.has_verified(&FactKey::PreferredEditor));
     assert_eq!(store.get_verified(&FactKey::PreferredEditor), Some("vim"));
 }
@@ -30,7 +44,11 @@ fn test_facts_store_set_get() {
 #[test]
 fn test_facts_store_unverified_not_returned_as_verified() {
     let mut store = FactsStore::new();
-    store.set_unverified(FactKey::PreferredEditor, "vim".to_string(), "user_claim".to_string());
+    store.set_unverified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "user_claim".to_string(),
+    );
     assert!(!store.has_verified(&FactKey::PreferredEditor));
     assert_eq!(store.get_verified(&FactKey::PreferredEditor), None);
     assert!(store.get(&FactKey::PreferredEditor).is_some());
@@ -39,7 +57,11 @@ fn test_facts_store_unverified_not_returned_as_verified() {
 #[test]
 fn test_facts_store_verify() {
     let mut store = FactsStore::new();
-    store.set_unverified(FactKey::PreferredEditor, "vim".to_string(), "user_claim".to_string());
+    store.set_unverified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "user_claim".to_string(),
+    );
     assert!(!store.has_verified(&FactKey::PreferredEditor));
     store.verify(&FactKey::PreferredEditor, "probe:which vim".to_string());
     assert!(store.has_verified(&FactKey::PreferredEditor));
@@ -50,7 +72,11 @@ fn test_facts_store_save_load() {
     let dir = tempdir().unwrap();
     let path = dir.path().join("facts.json");
     let mut store = FactsStore::new();
-    store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
+    store.set_verified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "test".to_string(),
+    );
     store.save_to_path(&path).unwrap();
     let loaded = FactsStore::load_from_path(&path);
     assert_eq!(loaded.get_verified(&FactKey::PreferredEditor), Some("vim"));
@@ -60,10 +86,20 @@ fn test_facts_store_save_load() {
 fn test_fact_status() {
     let mut store = FactsStore::new();
     assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Unknown);
-    store.set_unverified(FactKey::PreferredEditor, "vim".to_string(), "claim".to_string());
-    assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Unverified("vim".to_string()));
+    store.set_unverified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "claim".to_string(),
+    );
+    assert_eq!(
+        store.status(&FactKey::PreferredEditor),
+        FactStatus::Unverified("vim".to_string())
+    );
     store.verify(&FactKey::PreferredEditor, "probe".to_string());
-    assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Known("vim".to_string()));
+    assert_eq!(
+        store.status(&FactKey::PreferredEditor),
+        FactStatus::Known("vim".to_string())
+    );
 }
 
 // === Lifecycle tests (v0.0.32) ===
@@ -80,20 +116,28 @@ fn test_staleness_policy_defaults() {
 
 #[test]
 fn test_fact_is_stale_with_ttl() {
-    let mut fact = Fact::verified(FactKey::BinaryAvailable("vim".to_string()), "/usr/bin/vim".to_string(), "test".to_string());
+    let mut fact = Fact::verified(
+        FactKey::BinaryAvailable("vim".to_string()),
+        "/usr/bin/vim".to_string(),
+        "test".to_string(),
+    );
     // Force a specific policy and timestamp for testing
     fact.policy = StalenessPolicy::TTLSeconds(3600); // 1 hour
     fact.last_verified_at = 1000;
 
     // Not stale if within TTL
     assert!(!fact.is_stale(1000 + 1800)); // 30 min later
-    // Stale if beyond TTL
+                                          // Stale if beyond TTL
     assert!(fact.is_stale(1000 + 7200)); // 2 hours later
 }
 
 #[test]
 fn test_fact_never_stale() {
-    let mut fact = Fact::verified(FactKey::InitSystem, "systemd".to_string(), "test".to_string());
+    let mut fact = Fact::verified(
+        FactKey::InitSystem,
+        "systemd".to_string(),
+        "test".to_string(),
+    );
     fact.policy = StalenessPolicy::Never;
     fact.last_verified_at = 1000;
     // Never becomes stale
@@ -103,7 +147,11 @@ fn test_fact_never_stale() {
 #[test]
 fn test_lifecycle_transitions() {
     let mut store = FactsStore::new();
-    store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
+    store.set_verified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "test".to_string(),
+    );
 
     // Force policy and timestamp
     if let Some(fact) = store.facts_mut().get_mut(&FactKey::PreferredEditor) {
@@ -112,11 +160,17 @@ fn test_lifecycle_transitions() {
     }
 
     // Initially active
-    assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Known("vim".to_string()));
+    assert_eq!(
+        store.status(&FactKey::PreferredEditor),
+        FactStatus::Known("vim".to_string())
+    );
 
     // Apply lifecycle with future time -> should become stale
     store.apply_lifecycle(1000 + 7200);
-    assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Stale("vim".to_string()));
+    assert_eq!(
+        store.status(&FactKey::PreferredEditor),
+        FactStatus::Stale("vim".to_string())
+    );
 
     // Apply lifecycle with 2x TTL -> should archive
     store.apply_lifecycle(1000 + 3600 * 3);
@@ -127,7 +181,11 @@ fn test_lifecycle_transitions() {
 #[test]
 fn test_invalidate_fact() {
     let mut store = FactsStore::new();
-    store.set_verified(FactKey::BinaryAvailable("vim".to_string()), "/usr/bin/vim".to_string(), "test".to_string());
+    store.set_verified(
+        FactKey::BinaryAvailable("vim".to_string()),
+        "/usr/bin/vim".to_string(),
+        "test".to_string(),
+    );
     assert!(store.has_verified(&FactKey::BinaryAvailable("vim".to_string())));
 
     // Invalidate (failed re-verification)
@@ -135,28 +193,45 @@ fn test_invalidate_fact() {
 
     // No longer usable
     assert!(!store.has_verified(&FactKey::BinaryAvailable("vim".to_string())));
-    assert_eq!(store.status(&FactKey::BinaryAvailable("vim".to_string())),
-               FactStatus::Stale("/usr/bin/vim".to_string()));
+    assert_eq!(
+        store.status(&FactKey::BinaryAvailable("vim".to_string())),
+        FactStatus::Stale("/usr/bin/vim".to_string())
+    );
 }
 
 #[test]
 fn test_reverify_fact() {
     let mut store = FactsStore::new();
-    store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
+    store.set_verified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "test".to_string(),
+    );
     store.invalidate(&FactKey::PreferredEditor);
     assert!(!store.has_verified(&FactKey::PreferredEditor));
 
     // Re-verify
     store.reverify(&FactKey::PreferredEditor, "probe:which vim".to_string());
     assert!(store.has_verified(&FactKey::PreferredEditor));
-    assert_eq!(store.status(&FactKey::PreferredEditor), FactStatus::Known("vim".to_string()));
+    assert_eq!(
+        store.status(&FactKey::PreferredEditor),
+        FactStatus::Known("vim".to_string())
+    );
 }
 
 #[test]
 fn test_stale_facts_list() {
     let mut store = FactsStore::new();
-    store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
-    store.set_verified(FactKey::PreferredShell, "zsh".to_string(), "test".to_string());
+    store.set_verified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "test".to_string(),
+    );
+    store.set_verified(
+        FactKey::PreferredShell,
+        "zsh".to_string(),
+        "test".to_string(),
+    );
     store.invalidate(&FactKey::PreferredEditor);
 
     let stale = store.stale_facts();
@@ -167,8 +242,16 @@ fn test_stale_facts_list() {
 #[test]
 fn test_prune_archived() {
     let mut store = FactsStore::new();
-    store.set_verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
-    store.set_verified(FactKey::PreferredShell, "zsh".to_string(), "test".to_string());
+    store.set_verified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "test".to_string(),
+    );
+    store.set_verified(
+        FactKey::PreferredShell,
+        "zsh".to_string(),
+        "test".to_string(),
+    );
 
     // Archive one
     if let Some(fact) = store.facts_mut().get_mut(&FactKey::PreferredEditor) {
@@ -183,7 +266,11 @@ fn test_prune_archived() {
 
 #[test]
 fn test_is_usable() {
-    let fact = Fact::verified(FactKey::PreferredEditor, "vim".to_string(), "test".to_string());
+    let fact = Fact::verified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "test".to_string(),
+    );
     assert!(fact.is_usable());
 
     let mut stale_fact = fact.clone();
@@ -194,6 +281,10 @@ fn test_is_usable() {
     archived_fact.archive();
     assert!(!archived_fact.is_usable());
 
-    let unverified = Fact::unverified(FactKey::PreferredEditor, "vim".to_string(), "claim".to_string());
+    let unverified = Fact::unverified(
+        FactKey::PreferredEditor,
+        "vim".to_string(),
+        "claim".to_string(),
+    );
     assert!(!unverified.is_usable());
 }

@@ -168,7 +168,14 @@ impl GlobalStats {
     }
 
     /// Record a ticket result
-    pub fn record_ticket(&mut self, team: Team, verified: bool, rounds: u8, score: u8, escalated: bool) {
+    pub fn record_ticket(
+        &mut self,
+        team: Team,
+        verified: bool,
+        rounds: u8,
+        score: u8,
+        escalated: bool,
+    ) {
         self.total_requests += 1;
         let team_stats = self.get_team_mut(team);
         if verified {
@@ -192,16 +199,27 @@ impl GlobalStats {
     pub fn overall_success_rate(&self) -> f32 {
         let total: u64 = self.by_team.iter().map(|s| s.tickets_total).sum();
         let verified: u64 = self.by_team.iter().map(|s| s.tickets_verified).sum();
-        if total == 0 { 0.0 } else { verified as f32 / total as f32 }
+        if total == 0 {
+            0.0
+        } else {
+            verified as f32 / total as f32
+        }
     }
 
     /// Get overall average reliability score
     pub fn overall_avg_score(&self) -> f32 {
-        let active: Vec<_> = self.by_team.iter().filter(|s| s.tickets_total > 0).collect();
+        let active: Vec<_> = self
+            .by_team
+            .iter()
+            .filter(|s| s.tickets_total > 0)
+            .collect();
         if active.is_empty() {
             0.0
         } else {
-            active.iter().map(|s| s.avg_reliability_score * s.tickets_total as f32).sum::<f32>()
+            active
+                .iter()
+                .map(|s| s.avg_reliability_score * s.tickets_total as f32)
+                .sum::<f32>()
                 / active.iter().map(|s| s.tickets_total as f32).sum::<f32>()
         }
     }

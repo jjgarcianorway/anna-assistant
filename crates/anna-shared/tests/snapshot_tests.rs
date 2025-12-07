@@ -238,8 +238,10 @@ fn test_capture_no_failed_services() {
 
 #[test]
 fn test_capture_combined_probes() {
-    let df_output = "Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/sda1 100000 70000 30000 70% /";
-    let free_output = "              total        used        free\nMem:    16000000000  12000000000  4000000000";
+    let df_output =
+        "Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/sda1 100000 70000 30000 70% /";
+    let free_output =
+        "              total        used        free\nMem:    16000000000  12000000000  4000000000";
     let failed_output = "● nginx.service loaded failed failed nginx";
 
     let probes = vec![
@@ -259,7 +261,8 @@ fn test_capture_ignores_failed_probes() {
     let probes = vec![ProbeResult {
         command: "df -h".to_string(),
         exit_code: 1, // Failed
-        stdout: "Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/sda1 100 90 10 90% /".to_string(),
+        stdout: "Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/sda1 100 90 10 90% /"
+            .to_string(),
         stderr: "Error".to_string(),
         timing_ms: 10,
     }];
@@ -289,7 +292,7 @@ fn test_multiple_deltas_ordered() {
     prev.add_disk("/home", 70);
 
     let mut curr = SystemSnapshot::new();
-    curr.add_disk("/", 90);  // Warning
+    curr.add_disk("/", 90); // Warning
     curr.add_disk("/home", 96); // Critical
     curr.add_failed_service("nginx.service");
 

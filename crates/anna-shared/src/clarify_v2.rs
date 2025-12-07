@@ -52,7 +52,12 @@ pub struct ClarifyOption {
 
 impl ClarifyOption {
     pub fn new(key: u8, label: impl Into<String>, value: impl Into<String>) -> Self {
-        Self { key, label: label.into(), value: value.into(), verify: None }
+        Self {
+            key,
+            label: label.into(),
+            value: value.into(),
+            verify: None,
+        }
     }
 
     pub fn with_verify(mut self, verify: VerifyExpectation) -> Self {
@@ -81,15 +86,27 @@ pub struct ClarifyResponse {
 
 impl ClarifyResponse {
     pub fn selected(key: u8) -> Self {
-        Self { selected: Some(key), free_text: None, cancelled: false }
+        Self {
+            selected: Some(key),
+            free_text: None,
+            cancelled: false,
+        }
     }
 
     pub fn other(text: impl Into<String>) -> Self {
-        Self { selected: None, free_text: Some(text.into()), cancelled: false }
+        Self {
+            selected: None,
+            free_text: Some(text.into()),
+            cancelled: false,
+        }
     }
 
     pub fn cancel() -> Self {
-        Self { selected: None, free_text: None, cancelled: true }
+        Self {
+            selected: None,
+            free_text: None,
+            cancelled: true,
+        }
     }
 
     /// Parse user input into response
@@ -211,13 +228,20 @@ impl ClarifyRequest {
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ClarifyResult {
     /// User selected a verified option
-    Verified { value: String, fact_key: Option<String> },
+    Verified {
+        value: String,
+        fact_key: Option<String>,
+    },
     /// Auto-selected (only one option)
     AutoSelected { value: String },
     /// User provided other input (needs verification)
     NeedsVerification { value: String },
     /// Verification failed (offer alternatives)
-    VerificationFailed { value: String, error: String, alternatives: Vec<String> },
+    VerificationFailed {
+        value: String,
+        error: String,
+        alternatives: Vec<String>,
+    },
     /// User cancelled
     Cancelled,
 }
@@ -225,9 +249,9 @@ pub enum ClarifyResult {
 impl ClarifyResult {
     pub fn value(&self) -> Option<&str> {
         match self {
-            Self::Verified { value, .. } |
-            Self::AutoSelected { value } |
-            Self::NeedsVerification { value } => Some(value),
+            Self::Verified { value, .. }
+            | Self::AutoSelected { value }
+            | Self::NeedsVerification { value } => Some(value),
             _ => None,
         }
     }
@@ -337,8 +361,13 @@ pub fn find_installed_alternatives(tool: &str, cache: &InventoryCache) -> Vec<St
 /// Generate installed-only editor request (v0.45.x: shows only installed editors)
 pub fn editor_request(cache: &InventoryCache) -> ClarifyRequest {
     let editors = [
-        ("vim", "Vim"), ("nvim", "Neovim"), ("nano", "Nano"),
-        ("emacs", "Emacs"), ("code", "VS Code"), ("micro", "Micro"), ("vi", "Vi"),
+        ("vim", "Vim"),
+        ("nvim", "Neovim"),
+        ("nano", "Nano"),
+        ("emacs", "Emacs"),
+        ("code", "VS Code"),
+        ("micro", "Micro"),
+        ("vi", "Vi"),
     ];
 
     let mut opts = Vec::new();
@@ -347,8 +376,11 @@ pub fn editor_request(cache: &InventoryCache) -> ClarifyRequest {
     for (cmd, label) in &editors {
         if cache.is_installed(cmd).unwrap_or(false) && key < KEY_OTHER {
             // Use friendly label for display, command for value
-            opts.push(ClarifyOption::new(key, *label, *cmd)
-                .with_verify(VerifyExpectation::CommandExists { name: cmd.to_string() }));
+            opts.push(ClarifyOption::new(key, *label, *cmd).with_verify(
+                VerifyExpectation::CommandExists {
+                    name: cmd.to_string(),
+                },
+            ));
             key += 1;
         }
     }
@@ -394,26 +426,19 @@ pub fn should_skip(
 }
 
 /// Store verified fact from clarification
-pub fn store_fact(
-    fact_key: FactKey,
-    value: &str,
-    facts: &mut FactsStore,
-    transcript_id: &str,
-) {
+pub fn store_fact(fact_key: FactKey, value: &str, facts: &mut FactsStore, transcript_id: &str) {
     facts.upsert_verified(
         fact_key,
         FactValue::String(value.to_string()),
-        FactSource::UserConfirmed { transcript_id: transcript_id.to_string() },
+        FactSource::UserConfirmed {
+            transcript_id: transcript_id.to_string(),
+        },
         90, // User-confirmed confidence
     );
 }
 
 /// Invalidate fact when tool is uninstalled
-pub fn invalidate_on_uninstall(
-    tool: &str,
-    facts: &mut FactsStore,
-    cache: &InventoryCache,
-) -> bool {
+pub fn invalidate_on_uninstall(tool: &str, facts: &mut FactsStore, cache: &InventoryCache) -> bool {
     // Check if tool still exists
     if cache.is_installed(tool).unwrap_or(false) {
         return false; // Still installed
@@ -438,7 +463,9 @@ pub struct VerifyFailureTracker {
 }
 
 impl VerifyFailureTracker {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Record a verification failure
     pub fn record_failure(&mut self, key: &str) {

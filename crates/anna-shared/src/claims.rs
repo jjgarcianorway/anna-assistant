@@ -16,7 +16,9 @@
 //! - Time-based claims ("was running", "will start")
 //! - Comparative claims ("faster than", "bigger than")
 
-use crate::parsers::{normalize_service_name, parse_display_size, resolve_mount_alias, ServiceState};
+use crate::parsers::{
+    normalize_service_name, parse_display_size, resolve_mount_alias, ServiceState,
+};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
@@ -344,9 +346,8 @@ mod tests {
     #[test]
     fn golden_extract_vague_statements() {
         // None of these should produce claims
-        let claims = extract_claims(
-            "Memory is low. Disk is almost full. The service might be down.",
-        );
+        let claims =
+            extract_claims("Memory is low. Disk is almost full. The service might be down.");
         assert!(claims.is_empty());
     }
 }

@@ -254,7 +254,6 @@ impl ResultSignals {
 
         parts.join(", ")
     }
-
 }
 
 /// Builder for common scenarios
@@ -286,8 +285,7 @@ mod tests {
 
     #[test]
     fn test_deterministic_with_evidence_is_grounded() {
-        let evidence = EvidenceSummary::new()
-            .with_evidence_kinds(vec![EvidenceKind::ToolExists]);
+        let evidence = EvidenceSummary::new().with_evidence_kinds(vec![EvidenceKind::ToolExists]);
 
         let signals = ResultSignals::deterministic_with_evidence(&evidence);
 

@@ -215,12 +215,10 @@ mod tests {
     #[test]
     fn test_doc_matches_source_filter() {
         let doc = test_doc("Test", "body", KnowledgeSource::Recipe);
-        let query = RetrievalQuery::new("test")
-            .with_sources(vec![KnowledgeSource::Recipe]);
+        let query = RetrievalQuery::new("test").with_sources(vec![KnowledgeSource::Recipe]);
         assert!(doc_matches_filters(&doc, &query));
 
-        let query2 = RetrievalQuery::new("test")
-            .with_sources(vec![KnowledgeSource::ArchWiki]);
+        let query2 = RetrievalQuery::new("test").with_sources(vec![KnowledgeSource::ArchWiki]);
         assert!(!doc_matches_filters(&doc, &query2));
     }
 
@@ -229,12 +227,10 @@ mod tests {
         let mut doc = test_doc("Test", "body", KnowledgeSource::Recipe);
         doc.tags = vec!["vim".to_string(), "editor".to_string()];
 
-        let query = RetrievalQuery::new("test")
-            .with_tags(vec!["vim".to_string()]);
+        let query = RetrievalQuery::new("test").with_tags(vec!["vim".to_string()]);
         assert!(doc_matches_filters(&doc, &query));
 
-        let query2 = RetrievalQuery::new("test")
-            .with_tags(vec!["emacs".to_string()]);
+        let query2 = RetrievalQuery::new("test").with_tags(vec!["emacs".to_string()]);
         assert!(!doc_matches_filters(&doc, &query2));
     }
 

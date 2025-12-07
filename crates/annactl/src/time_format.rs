@@ -10,9 +10,18 @@ pub fn format_date(ts: u64) -> String {
         let days_since_epoch = since_epoch.as_secs() / 86400;
         let (year, month, day) = days_to_date(days_since_epoch);
         let month_name = match month {
-            1 => "Jan", 2 => "Feb", 3 => "Mar", 4 => "Apr",
-            5 => "May", 6 => "Jun", 7 => "Jul", 8 => "Aug",
-            9 => "Sep", 10 => "Oct", 11 => "Nov", 12 => "Dec",
+            1 => "Jan",
+            2 => "Feb",
+            3 => "Mar",
+            4 => "Apr",
+            5 => "May",
+            6 => "Jun",
+            7 => "Jul",
+            8 => "Aug",
+            9 => "Sep",
+            10 => "Oct",
+            11 => "Nov",
+            12 => "Dec",
             _ => "???",
         };
         format!("{} {}, {}", month_name, day, year)

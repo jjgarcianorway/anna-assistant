@@ -4,8 +4,7 @@
 //! Only persists when: verified AND reliability_score >= 80.
 
 use crate::recipe::{
-    compute_recipe_id, should_persist_recipe, Recipe, RecipeAction, RecipeKind,
-    RecipeSignature,
+    compute_recipe_id, should_persist_recipe, Recipe, RecipeAction, RecipeKind, RecipeSignature,
 };
 use crate::rpc::ServiceDeskResult;
 use crate::teams::Team;
@@ -139,10 +138,7 @@ fn extract_user_query(result: &ServiceDeskResult) -> String {
 
 /// Normalize query to a matchable pattern
 fn normalize_query(query: &str) -> String {
-    query
-        .to_lowercase()
-        .trim()
-        .to_string()
+    query.to_lowercase().trim().to_string()
 }
 
 /// Map domain string to Team
@@ -259,6 +255,7 @@ mod tests {
             reliability_explanation: None,
             execution_trace: None,
             proposed_change: None,
+            proposed_changes: Vec::new(),
             feedback_request: None,
         }
     }

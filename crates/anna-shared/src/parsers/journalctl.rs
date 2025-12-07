@@ -72,9 +72,7 @@ pub fn parse_journalctl_json(output: &str) -> JournalSummary {
 
     // Sort by count desc, then key asc (deterministic)
     let mut sorted: Vec<_> = by_key.into_iter().collect();
-    sorted.sort_by(|a, b| {
-        b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0))
-    });
+    sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
     let top: Vec<JournalTopItem> = sorted
         .into_iter()
@@ -139,9 +137,7 @@ pub fn parse_journalctl_priority(output: &str) -> JournalSummary {
 
     // Sort by count desc, then key asc (deterministic)
     let mut sorted: Vec<_> = by_key.into_iter().collect();
-    sorted.sort_by(|a, b| {
-        b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0))
-    });
+    sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
     let top: Vec<JournalTopItem> = sorted
         .into_iter()

@@ -51,7 +51,8 @@ fn test_deterministic_route_system_health() {
     };
     let evidence = evidence_kinds_from_route("system_health_summary");
 
-    let trace = ExecutionTrace::deterministic_route("system_health_summary", probe_stats, evidence.clone());
+    let trace =
+        ExecutionTrace::deterministic_route("system_health_summary", probe_stats, evidence.clone());
 
     assert_eq!(trace.specialist_outcome, SpecialistOutcome::Skipped);
     assert!(trace.answer_is_deterministic);
@@ -126,7 +127,8 @@ fn test_specialist_timeout_with_fallback() {
     };
     let evidence = evidence_kinds_from_route("disk_usage");
 
-    let trace = ExecutionTrace::specialist_timeout_with_fallback("disk_usage", probe_stats, evidence);
+    let trace =
+        ExecutionTrace::specialist_timeout_with_fallback("disk_usage", probe_stats, evidence);
 
     assert_eq!(trace.specialist_outcome, SpecialistOutcome::Timeout);
     assert!(matches!(
@@ -154,7 +156,8 @@ fn test_specialist_error_with_fallback() {
     };
     let evidence = evidence_kinds_from_route("service_status");
 
-    let trace = ExecutionTrace::specialist_error_with_fallback("service_status", probe_stats, evidence);
+    let trace =
+        ExecutionTrace::specialist_error_with_fallback("service_status", probe_stats, evidence);
 
     assert_eq!(trace.specialist_outcome, SpecialistOutcome::Error);
     assert!(matches!(
@@ -251,7 +254,7 @@ fn test_probe_stats_from_results() {
         },
         ProbeResult {
             command: "lscpu".to_string(),
-            exit_code: 1,  // Non-zero exit code for timeout
+            exit_code: 1, // Non-zero exit code for timeout
             stdout: String::new(),
             stderr: "timeout".to_string(),
             timing_ms: 5000,

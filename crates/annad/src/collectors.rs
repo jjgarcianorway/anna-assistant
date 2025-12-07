@@ -77,19 +77,22 @@ fn parse_boot_time(output: &str) -> Option<KnowledgeDoc> {
         line.to_string()
     };
 
-    let body = format!(
-        "Boot time: {}\nFull output: {}",
-        total_time,
-        line
-    );
+    let body = format!("Boot time: {}\nFull output: {}", total_time, line);
 
-    Some(KnowledgeDoc::new(
-        KnowledgeSource::SystemFact,
-        format!("Boot Time: {}", total_time),
-        body,
-        vec!["boot".to_string(), "startup".to_string(), "performance".to_string()],
-        Provenance::from_command("annad:collector", "systemd-analyze", 100),
-    ).with_ttl(1)) // 1 day TTL - boot time changes on reboot
+    Some(
+        KnowledgeDoc::new(
+            KnowledgeSource::SystemFact,
+            format!("Boot Time: {}", total_time),
+            body,
+            vec![
+                "boot".to_string(),
+                "startup".to_string(),
+                "performance".to_string(),
+            ],
+            Provenance::from_command("annad:collector", "systemd-analyze", 100),
+        )
+        .with_ttl(1),
+    ) // 1 day TTL - boot time changes on reboot
 }
 
 /// Collect installed packages from pacman
@@ -140,7 +143,12 @@ fn parse_packages(output: &str) -> KnowledgeDoc {
     let body = format!(
         "Total packages installed: {}\n\nSample packages:\n{}",
         count,
-        lines.iter().take(20).cloned().collect::<Vec<_>>().join("\n")
+        lines
+            .iter()
+            .take(20)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 
     KnowledgeDoc::new(
@@ -149,12 +157,16 @@ fn parse_packages(output: &str) -> KnowledgeDoc {
         body,
         tags,
         Provenance::from_command("annad:collector", "pacman -Q", 100),
-    ).with_ttl(7) // 7 day TTL
+    )
+    .with_ttl(7) // 7 day TTL
 }
 
 /// Try dpkg for Debian-based systems
 fn try_dpkg_packages() -> Option<KnowledgeDoc> {
-    let output = Command::new("dpkg").args(["--get-selections"]).output().ok()?;
+    let output = Command::new("dpkg")
+        .args(["--get-selections"])
+        .output()
+        .ok()?;
 
     if !output.status.success() {
         return None;
@@ -174,16 +186,24 @@ fn try_dpkg_packages() -> Option<KnowledgeDoc> {
     let body = format!(
         "Total packages installed: {}\n\nSample packages:\n{}",
         count,
-        lines.iter().take(20).cloned().collect::<Vec<_>>().join("\n")
+        lines
+            .iter()
+            .take(20)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 
-    Some(KnowledgeDoc::new(
-        KnowledgeSource::PackageFact,
-        format!("Installed Packages: {} total", count),
-        body,
-        tags,
-        Provenance::from_command("annad:collector", "dpkg --get-selections", 100),
-    ).with_ttl(7))
+    Some(
+        KnowledgeDoc::new(
+            KnowledgeSource::PackageFact,
+            format!("Installed Packages: {} total", count),
+            body,
+            tags,
+            Provenance::from_command("annad:collector", "dpkg --get-selections", 100),
+        )
+        .with_ttl(7),
+    )
 }
 
 /// Collect recent journal errors
@@ -239,16 +259,24 @@ fn parse_journal_errors(output: &str) -> Option<KnowledgeDoc> {
     let body = format!(
         "Recent errors this boot: {} entries\n\n{}",
         count,
-        lines.iter().take(30).cloned().collect::<Vec<_>>().join("\n")
+        lines
+            .iter()
+            .take(30)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 
-    Some(KnowledgeDoc::new(
-        KnowledgeSource::Journal,
-        format!("Journal Errors: {} entries this boot", count),
-        body,
-        tags,
-        Provenance::from_command("annad:collector", "journalctl -p 3 -b", 90),
-    ).with_ttl(1)) // 1 day TTL - changes on reboot or new errors
+    Some(
+        KnowledgeDoc::new(
+            KnowledgeSource::Journal,
+            format!("Journal Errors: {} entries this boot", count),
+            body,
+            tags,
+            Provenance::from_command("annad:collector", "journalctl -p 3 -b", 90),
+        )
+        .with_ttl(1),
+    ) // 1 day TTL - changes on reboot or new errors
 }
 
 /// Run all collectors and return combined results
@@ -270,7 +298,11 @@ pub fn collect_all() -> CollectorResult {
     result.docs.extend(journal.docs);
     result.errors.extend(journal.errors);
 
-    info!("Collected {} documents with {} errors", result.docs.len(), result.errors.len());
+    info!(
+        "Collected {} documents with {} errors",
+        result.docs.len(),
+        result.errors.len()
+    );
     result
 }
 

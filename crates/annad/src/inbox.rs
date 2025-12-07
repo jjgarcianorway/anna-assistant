@@ -13,7 +13,7 @@
 //!   - Processed queries are moved to ~/.anna/inbox.done
 
 use anna_shared::email::{inbox_path, send_notification, EmailConfig, EmailNotification};
-use anna_shared::ticket_tracker::{Ticket, TicketTracker, TicketStatus};
+use anna_shared::ticket_tracker::{Ticket, TicketStatus, TicketTracker};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -112,7 +112,9 @@ pub fn process_inbox() -> InboxResult {
                 processed_queries.push(query_line.to_string());
             }
             Err(e) => {
-                result.errors.push(format!("Failed to create ticket: {}", e));
+                result
+                    .errors
+                    .push(format!("Failed to create ticket: {}", e));
             }
         }
     }
@@ -129,7 +131,9 @@ pub fn process_inbox() -> InboxResult {
             .lines()
             .filter(|line| {
                 let trimmed = line.trim();
-                trimmed.is_empty() || trimmed.starts_with('#') || !processed_queries.contains(&line.to_string())
+                trimmed.is_empty()
+                    || trimmed.starts_with('#')
+                    || !processed_queries.contains(&line.to_string())
             })
             .collect::<Vec<_>>()
             .join("\n");

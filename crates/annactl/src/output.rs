@@ -60,7 +60,10 @@ fn convert_markdown_tables(text: &str) -> String {
         // Detect table row (starts and ends with |)
         if trimmed.starts_with('|') && trimmed.ends_with('|') {
             // Skip separator rows (|---|---|)
-            if trimmed.chars().all(|c| c == '|' || c == '-' || c == ':' || c.is_whitespace()) {
+            if trimmed
+                .chars()
+                .all(|c| c == '|' || c == '-' || c == ':' || c.is_whitespace())
+            {
                 continue;
             }
 

@@ -104,7 +104,8 @@ pub fn generate_heuristic_clarification(query: &str) -> String {
     }
 
     if q.contains("disk") || q.contains("storage") || q.contains("space") {
-        return "Are you asking about disk space, mount points, or storage performance?".to_string();
+        return "Are you asking about disk space, mount points, or storage performance?"
+            .to_string();
     }
 
     if q.contains("slow") || q.contains("performance") || q.contains("fast") {

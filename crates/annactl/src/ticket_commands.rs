@@ -7,7 +7,7 @@
 //! - annactl health - Check Anna's health and dependencies (v0.0.114)
 
 use anna_shared::email::{EmailConfig, EmailHealth};
-use anna_shared::ticket_tracker::{TicketTracker, TicketStatus};
+use anna_shared::ticket_tracker::{TicketStatus, TicketTracker};
 use anna_shared::ui::colors;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -20,7 +20,12 @@ pub async fn handle_reply(case: &str, message: &str) -> Result<()> {
     let ticket = match tracker.find_by_case(case)? {
         Some(t) => t,
         None => {
-            println!("{}Error:{} Ticket {} not found.", colors::ERR, colors::RESET, case);
+            println!(
+                "{}Error:{} Ticket {} not found.",
+                colors::ERR,
+                colors::RESET,
+                case
+            );
             println!();
             println!("To see open tickets, ask Anna: \"show my tickets\"");
             return Ok(());
@@ -29,7 +34,13 @@ pub async fn handle_reply(case: &str, message: &str) -> Result<()> {
 
     // Check if ticket is open
     if !ticket.is_open() {
-        println!("{}Note:{} Ticket {} is already {}.", colors::WARN, colors::RESET, case, ticket.status);
+        println!(
+            "{}Note:{} Ticket {} is already {}.",
+            colors::WARN,
+            colors::RESET,
+            case,
+            ticket.status
+        );
         println!();
         println!("To ask a new question, just talk to Anna directly.");
         return Ok(());
@@ -43,7 +54,7 @@ pub async fn handle_reply(case: &str, message: &str) -> Result<()> {
     tracker.update_ticket(&updated)?;
 
     println!();
-    println!("{}Reply added to {}{}",colors::OK, case, colors::RESET);
+    println!("{}Reply added to {}{}", colors::OK, case, colors::RESET);
     println!();
     println!("Your message: {}", message);
     println!();
@@ -51,7 +62,12 @@ pub async fn handle_reply(case: &str, message: &str) -> Result<()> {
     println!();
 
     // Show how to check status
-    println!("{}To check status:{} annactl ticket {}", colors::DIM, colors::RESET, case);
+    println!(
+        "{}To check status:{} annactl ticket {}",
+        colors::DIM,
+        colors::RESET,
+        case
+    );
 
     Ok(())
 }
@@ -64,7 +80,12 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
     let ticket = match tracker.find_by_case(case)? {
         Some(t) => t,
         None => {
-            println!("{}Error:{} Ticket {} not found.", colors::ERR, colors::RESET, case);
+            println!(
+                "{}Error:{} Ticket {} not found.",
+                colors::ERR,
+                colors::RESET,
+                case
+            );
             println!();
             // Show recent tickets
             let recent = tracker.recent(5)?;
@@ -76,8 +97,13 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
                         TicketStatus::PendingUser => colors::WARN,
                         _ => colors::DIM,
                     };
-                    println!("  {} [{}{}{}]",
-                        t.case_number, status_color, t.status, colors::RESET);
+                    println!(
+                        "  {} [{}{}{}]",
+                        t.case_number,
+                        status_color,
+                        t.status,
+                        colors::RESET
+                    );
                     println!("    {}", t.query);
                 }
             }
@@ -87,7 +113,12 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
 
     // Display ticket header
     println!();
-    println!("{}Ticket {}{}", colors::BOLD, ticket.case_number, colors::RESET);
+    println!(
+        "{}Ticket {}{}",
+        colors::BOLD,
+        ticket.case_number,
+        colors::RESET
+    );
     println!();
 
     // Status line
@@ -122,7 +153,12 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
             _ => ("[staff]", colors::DIM),
         };
         println!("{}{}{} {}", color, prefix, colors::RESET, msg.content);
-        println!("  {}{}{}",colors::DIM, msg.timestamp.format("%H:%M"), colors::RESET);
+        println!(
+            "  {}{}{}",
+            colors::DIM,
+            msg.timestamp.format("%H:%M"),
+            colors::RESET
+        );
         println!();
     }
 
@@ -132,8 +168,12 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
             println!("{}Waiting for your reply:{}", colors::WARN, colors::RESET);
             println!("  {}", question);
             println!();
-            println!("{}To reply:{} annactl reply {} \"your answer\"",
-                colors::DIM, colors::RESET, ticket.case_number);
+            println!(
+                "{}To reply:{} annactl reply {} \"your answer\"",
+                colors::DIM,
+                colors::RESET,
+                ticket.case_number
+            );
         }
     }
 
@@ -148,14 +188,23 @@ pub async fn handle_email(address: &str) -> Result<()> {
         config.clear();
         config.save()?;
         println!();
-        println!("{}Email notifications disabled.{}", colors::DIM, colors::RESET);
+        println!(
+            "{}Email notifications disabled.{}",
+            colors::DIM,
+            colors::RESET
+        );
         println!();
         return Ok(());
     }
 
     // Basic email validation
     if !address.contains('@') || !address.contains('.') {
-        println!("{}Error:{} Invalid email address: {}", colors::ERR, colors::RESET, address);
+        println!(
+            "{}Error:{} Invalid email address: {}",
+            colors::ERR,
+            colors::RESET,
+            address
+        );
         println!();
         println!("Usage:");
         println!("  annactl email user@example.com  # Set email");
@@ -167,14 +216,23 @@ pub async fn handle_email(address: &str) -> Result<()> {
     config.save()?;
 
     println!();
-    println!("{}Email configured:{} {}", colors::OK, colors::RESET, address);
+    println!(
+        "{}Email configured:{} {}",
+        colors::OK,
+        colors::RESET,
+        address
+    );
     println!();
     println!("You'll receive notifications when:");
     println!("  › A ticket is created");
     println!("  › IT staff needs clarification");
     println!("  › A ticket is resolved");
     println!();
-    println!("{}To disable:{} annactl email off", colors::DIM, colors::RESET);
+    println!(
+        "{}To disable:{} annactl email off",
+        colors::DIM,
+        colors::RESET
+    );
 
     Ok(())
 }
@@ -235,11 +293,22 @@ pub async fn handle_health() -> Result<()> {
     println!();
     println!("{}Async Inbox:{}", colors::BOLD, colors::RESET);
     if email_health.inbox_exists {
-        println!("  {} Inbox: {}", ok_symbol(), email_health.inbox_path.display());
+        println!(
+            "  {} Inbox: {}",
+            ok_symbol(),
+            email_health.inbox_path.display()
+        );
         if email_health.inbox_count > 0 {
-            println!("  {} {} pending {}", warn_symbol(),
+            println!(
+                "  {} {} pending {}",
+                warn_symbol(),
                 email_health.inbox_count,
-                if email_health.inbox_count == 1 { "query" } else { "queries" });
+                if email_health.inbox_count == 1 {
+                    "query"
+                } else {
+                    "queries"
+                }
+            );
         }
     } else {
         println!("  {} Inbox not created yet", warn_symbol());
@@ -251,7 +320,10 @@ pub async fn handle_health() -> Result<()> {
     println!("{}Contact Anna:{}", colors::BOLD, colors::RESET);
     println!("  {} annactl \"your question\"     (one-shot)", bullet());
     println!("  {} annactl                      (interactive)", bullet());
-    println!("  {} ~/.anna/inbox                (async queries)", bullet());
+    println!(
+        "  {} ~/.anna/inbox                (async queries)",
+        bullet()
+    );
 
     // Open tickets
     println!();
@@ -274,7 +346,11 @@ pub async fn handle_health() -> Result<()> {
     if email_health.is_ready() {
         println!("{}All systems ready!{}", colors::OK, colors::RESET);
     } else {
-        println!("{}Setup needed for full email support.{}", colors::WARN, colors::RESET);
+        println!(
+            "{}Setup needed for full email support.{}",
+            colors::WARN,
+            colors::RESET
+        );
     }
 
     Ok(())

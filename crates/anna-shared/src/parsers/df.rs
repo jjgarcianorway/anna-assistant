@@ -109,7 +109,7 @@ fn parse_df_row(probe_id: &str, line: &str, line_num: usize) -> Result<DiskUsage
     // But "Mounted on" can contain spaces, so we need at least 6 parts
     if parts.len() < 6 {
         return Err(
-            ParseError::new(probe_id, ParseErrorReason::MalformedRow, line).with_line(line_num)
+            ParseError::new(probe_id, ParseErrorReason::MalformedRow, line).with_line(line_num),
         );
     }
 

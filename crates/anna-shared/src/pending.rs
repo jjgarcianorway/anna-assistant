@@ -143,7 +143,10 @@ pub enum VerifyResult {
     /// Answer verified successfully
     Verified { value: String },
     /// Answer not verified, but close alternative exists
-    AlternativeFound { requested: String, available: String },
+    AlternativeFound {
+        requested: String,
+        available: String,
+    },
     /// Answer could not be verified
     NotVerified { value: String, reason: String },
 }
@@ -287,8 +290,14 @@ mod tests {
             "test",
         );
 
-        assert_eq!(pending.parse_input("1"), ParseResult::Selected("vim".to_string()));
-        assert_eq!(pending.parse_input("2"), ParseResult::Selected("nano".to_string()));
+        assert_eq!(
+            pending.parse_input("1"),
+            ParseResult::Selected("vim".to_string())
+        );
+        assert_eq!(
+            pending.parse_input("2"),
+            ParseResult::Selected("nano".to_string())
+        );
     }
 
     #[test]
@@ -301,8 +310,14 @@ mod tests {
             "test",
         );
 
-        assert_eq!(pending.parse_input("vim"), ParseResult::Selected("vim".to_string()));
-        assert_eq!(pending.parse_input("VIM"), ParseResult::Selected("vim".to_string()));
+        assert_eq!(
+            pending.parse_input("vim"),
+            ParseResult::Selected("vim".to_string())
+        );
+        assert_eq!(
+            pending.parse_input("VIM"),
+            ParseResult::Selected("vim".to_string())
+        );
     }
 
     #[test]
@@ -330,7 +345,10 @@ mod tests {
             "test",
         );
 
-        assert_eq!(pending.parse_input("emacs"), ParseResult::Custom("emacs".to_string()));
+        assert_eq!(
+            pending.parse_input("emacs"),
+            ParseResult::Custom("emacs".to_string())
+        );
     }
 
     #[test]

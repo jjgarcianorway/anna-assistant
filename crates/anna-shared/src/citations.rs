@@ -271,7 +271,12 @@ mod tests {
         let cache = KnowledgeCache::new(dir.path());
 
         // Store man page
-        cache.store_man("vim", "NAME\n    vim - Vi IMproved\n\nSYNTAX\n    syntax on enables highlighting").unwrap();
+        cache
+            .store_man(
+                "vim",
+                "NAME\n    vim - Vi IMproved\n\nSYNTAX\n    syntax on enables highlighting",
+            )
+            .unwrap();
 
         // Cite with topic
         let citation = cache.cite_man("vim", Some("syntax")).unwrap();
@@ -287,7 +292,12 @@ mod tests {
         let dir = tempdir().unwrap();
         let cache = KnowledgeCache::new(dir.path());
 
-        cache.store_archwiki("Vim", "# Vim\n\nVim is a text editor.\n\n## Syntax highlighting\nTo enable...").unwrap();
+        cache
+            .store_archwiki(
+                "Vim",
+                "# Vim\n\nVim is a text editor.\n\n## Syntax highlighting\nTo enable...",
+            )
+            .unwrap();
 
         let citation = cache.cite_archwiki("Vim", Some("highlighting")).unwrap();
         assert!(matches!(citation.source, CitationSource::ArchWiki { .. }));

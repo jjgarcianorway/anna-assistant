@@ -7,16 +7,49 @@ use std::io::{self, Write};
 
 use anna_shared::ui::{colors, symbols};
 
+/// Outcome summary for applying proposed changes
+pub struct ChangeSummary {
+    pub applied: usize,
+    pub noop: usize,
+    pub failed: bool,
+}
+
 /// Handle proposed config change with user confirmation
-pub async fn handle_proposed_change(plan: &anna_shared::change::ChangePlan) -> Result<()> {
+pub async fn handle_proposed_change(
+    plans: &[anna_shared::change::ChangePlan],
+) -> Result<ChangeSummary> {
     use anna_shared::change::apply_change;
+
+    if plans.is_empty() {
+        println!("{}No changes proposed.{}", colors::WARN, colors::RESET);
+        return Ok(ChangeSummary {
+            applied: 0,
+            noop: 0,
+            failed: false,
+        });
+    }
 
     println!();
     println!("{}Proposed Change{}", colors::BOLD, colors::RESET);
-    println!("  File: {}", plan.target_path.display());
-    println!("  Risk: {:?}", plan.risk);
-    println!("  Backup: {}", plan.backup_path.display());
+    for (idx, plan) in plans.iter().enumerate() {
+        println!("  [{}] File: {}", idx + 1, plan.target_path.display());
+        println!("      {}", plan.description);
+        println!("      Risk: {:?}", plan.risk);
+        println!("      Backup: {}", plan.backup_path.display());
+        let op = match &plan.operation {
+            anna_shared::change::ChangeOperation::EnsureLine { line } => {
+                format!("Ensure line exists: \"{}\"", line)
+            }
+            anna_shared::change::ChangeOperation::AppendLine { line } => {
+                format!("Append line: \"{}\"", line)
+            }
+        };
+        println!("      Action: {}", op);
+    }
     println!();
+    if plans.len() > 1 {
+        println!("{}{} steps to apply (idempotent).{}", colors::DIM, plans.len(), colors::RESET);
+    }
 
     // Ask for confirmation
     print!("Apply this change? [y/N] ");
@@ -27,56 +60,94 @@ pub async fn handle_proposed_change(plan: &anna_shared::change::ChangePlan) -> R
 
     if !input.trim().eq_ignore_ascii_case("y") {
         println!("Change cancelled.");
-        return Ok(());
+        return Ok(ChangeSummary {
+            applied: 0,
+            noop: 0,
+            failed: false,
+        });
     }
 
     // Apply the change
-    let result = apply_change(plan);
+    let mut applied_count = 0usize;
+    let mut noop_count = 0usize;
+    let mut failed = false;
 
-    if result.applied {
-        // Record to history
-        if let Ok(Some(id)) = anna_shared::change_history::record_change(plan, &result) {
+    for (idx, plan) in plans.iter().enumerate() {
+        let result = apply_change(plan);
+
+        if result.applied {
+            // Record to history
+            if let Ok(Some(id)) = anna_shared::change_history::record_change(plan, &result) {
+                println!();
+                println!(
+                    "{}{}{}  Step {} applied. (ID: {})",
+                    colors::OK,
+                    symbols::OK,
+                    colors::RESET,
+                    idx + 1,
+                    id
+                );
+            } else {
+                println!();
+                println!(
+                    "{}{}{}  Step {} applied.",
+                    colors::OK,
+                    symbols::OK,
+                    colors::RESET,
+                    idx + 1
+                );
+            }
+            if let Some(ref backup) = result.backup_path {
+                println!("    Backup: {}", backup.display());
+                println!("    To undo: annactl undo <id>");
+            }
+            applied_count += 1;
+        } else if result.was_noop {
             println!();
             println!(
-                "{}{}{}  Change applied successfully. (ID: {})",
+                "{}{}{}  Step {}: No changes needed - configuration already present.",
                 colors::OK,
                 symbols::OK,
                 colors::RESET,
-                id
+                idx + 1
             );
-        } else {
+            noop_count += 1;
+        } else if let Some(ref err) = result.error {
             println!();
             println!(
-                "{}{}{}  Change applied successfully.",
-                colors::OK,
-                symbols::OK,
-                colors::RESET
+                "{}{}{}  Step {} failed: {}",
+                colors::ERR,
+                symbols::ERR,
+                colors::RESET,
+                idx + 1,
+                err
             );
+            failed = true;
         }
-        if let Some(ref backup) = result.backup_path {
-            println!("    Backup: {}", backup.display());
-            println!("    To undo: annactl undo <id>");
-        }
-    } else if result.was_noop {
-        println!();
+    }
+
+    if failed {
         println!(
-            "{}{}{}  No changes needed - configuration already present.",
-            colors::OK,
-            symbols::OK,
+            "{}One or more steps failed.{} See above for details.",
+            colors::ERR,
             colors::RESET
         );
-    } else if let Some(ref err) = result.error {
+    } else {
         println!();
         println!(
-            "{}{}{}  Failed to apply change: {}",
-            colors::ERR,
-            symbols::ERR,
+            "{}Change summary:{} applied={}, noop={}",
+            colors::BOLD,
             colors::RESET,
-            err
+            applied_count,
+            noop_count
         );
     }
 
-    Ok(())
+    Ok(ChangeSummary {
+        applied: applied_count,
+        noop: noop_count,
+        failed,
+    })
 }
 
 /// Handle history command - show recent config changes
@@ -107,7 +178,13 @@ pub async fn handle_history() -> Result<()> {
                     entry.id,
                     colors::RESET,
                     entry.timestamp,
-                    if entry.undone { "[undone]" } else if entry.can_undo { "" } else { "[no backup]" }
+                    if entry.undone {
+                        "[undone]"
+                    } else if entry.can_undo {
+                        ""
+                    } else {
+                        "[no backup]"
+                    }
                 );
                 println!("      {}", entry.description);
                 println!("      File: {}", entry.target_path.display());
@@ -116,7 +193,12 @@ pub async fn handle_history() -> Result<()> {
             println!("To undo a change: annactl undo <id>");
         }
         Err(e) => {
-            eprintln!("{}Error:{} Failed to read history: {}", colors::ERR, colors::RESET, e);
+            eprintln!(
+                "{}Error:{} Failed to read history: {}",
+                colors::ERR,
+                colors::RESET,
+                e
+            );
         }
     }
 
@@ -132,16 +214,31 @@ pub async fn handle_undo(id: &str) -> Result<()> {
     // First show what we're about to undo
     match find_change(id)? {
         None => {
-            println!("{}Error:{} Change '{}' not found in history.", colors::ERR, colors::RESET, id);
+            println!(
+                "{}Error:{} Change '{}' not found in history.",
+                colors::ERR,
+                colors::RESET,
+                id
+            );
             println!("Use 'annactl history' to see available changes.");
             return Ok(());
         }
         Some(entry) if entry.undone => {
-            println!("{}Error:{} Change '{}' has already been undone.", colors::WARN, colors::RESET, id);
+            println!(
+                "{}Error:{} Change '{}' has already been undone.",
+                colors::WARN,
+                colors::RESET,
+                id
+            );
             return Ok(());
         }
         Some(entry) if !entry.can_undo => {
-            println!("{}Error:{} Cannot undo '{}' - backup file not found.", colors::ERR, colors::RESET, id);
+            println!(
+                "{}Error:{} Cannot undo '{}' - backup file not found.",
+                colors::ERR,
+                colors::RESET,
+                id
+            );
             println!("Backup was: {}", entry.backup_path.display());
             return Ok(());
         }
@@ -168,7 +265,10 @@ pub async fn handle_undo(id: &str) -> Result<()> {
 
     // Perform the undo
     match undo_change(id)? {
-        UndoResult::Success { restored_from, restored_to } => {
+        UndoResult::Success {
+            restored_from,
+            restored_to,
+        } => {
             println!();
             println!(
                 "{}{}{}  File restored successfully.",
@@ -186,7 +286,11 @@ pub async fn handle_undo(id: &str) -> Result<()> {
             println!("{}Error:{} Already undone.", colors::WARN, colors::RESET);
         }
         UndoResult::NoBackup => {
-            println!("{}Error:{} Backup file not found.", colors::ERR, colors::RESET);
+            println!(
+                "{}Error:{} Backup file not found.",
+                colors::ERR,
+                colors::RESET
+            );
         }
     }
 

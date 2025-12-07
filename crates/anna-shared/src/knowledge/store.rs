@@ -228,9 +228,7 @@ impl KnowledgeStoreTrait for KnowledgeStore {
             .collect();
 
         // Ensure deterministic ordering (already sorted by index, but re-sort for safety)
-        hits.sort_by(|a, b| {
-            b.score.cmp(&a.score).then_with(|| a.doc_id.cmp(&b.doc_id))
-        });
+        hits.sort_by(|a, b| b.score.cmp(&a.score).then_with(|| a.doc_id.cmp(&b.doc_id)));
 
         hits.truncate(q.limit);
         hits
@@ -279,7 +277,10 @@ mod tests {
     fn test_upsert_and_query() {
         let mut store = KnowledgeStore::new();
 
-        let doc = test_doc("Vim Configuration", "How to configure vim editor with plugins");
+        let doc = test_doc(
+            "Vim Configuration",
+            "How to configure vim editor with plugins",
+        );
         store.upsert(doc).unwrap();
 
         let results = store.query(&RetrievalQuery::new("vim").with_limit(10));
@@ -291,21 +292,25 @@ mod tests {
     fn test_query_filters() {
         let mut store = KnowledgeStore::new();
 
-        store.upsert(KnowledgeDoc::new(
-            KnowledgeSource::Recipe,
-            "Recipe Doc",
-            "vim recipe",
-            vec!["vim".to_string()],
-            Provenance::computed("test", 100),
-        )).unwrap();
+        store
+            .upsert(KnowledgeDoc::new(
+                KnowledgeSource::Recipe,
+                "Recipe Doc",
+                "vim recipe",
+                vec!["vim".to_string()],
+                Provenance::computed("test", 100),
+            ))
+            .unwrap();
 
-        store.upsert(KnowledgeDoc::new(
-            KnowledgeSource::ArchWiki,
-            "Wiki Doc",
-            "vim wiki",
-            vec!["vim".to_string()],
-            Provenance::computed("test", 100),
-        )).unwrap();
+        store
+            .upsert(KnowledgeDoc::new(
+                KnowledgeSource::ArchWiki,
+                "Wiki Doc",
+                "vim wiki",
+                vec!["vim".to_string()],
+                Provenance::computed("test", 100),
+            ))
+            .unwrap();
 
         // Query all
         let all = store.query(&RetrievalQuery::new("vim").with_limit(10));
@@ -315,7 +320,7 @@ mod tests {
         let recipes = store.query(
             &RetrievalQuery::new("vim")
                 .with_sources(vec![KnowledgeSource::Recipe])
-                .with_limit(10)
+                .with_limit(10),
         );
         assert_eq!(recipes.len(), 1);
         assert_eq!(recipes[0].source, KnowledgeSource::Recipe);

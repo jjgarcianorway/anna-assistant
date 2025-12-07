@@ -1,12 +1,15 @@
 //! Recipe-based fast path for queries (v0.0.101, v0.0.102: direct answers).
 //! Checks recipe index BEFORE LLM translator. High-confidence matches skip LLM entirely.
 
-use anna_shared::recipe::{Recipe, RecipeKind, RecipeAction};
+use anna_shared::git_recipes;
+use anna_shared::recipe::{Recipe, RecipeAction, RecipeKind};
 use anna_shared::recipe_index::RecipeIndex;
 use anna_shared::recipe_matcher::{match_recipe, MatchResult};
-use anna_shared::rpc::{EvidenceBlock, QueryIntent, ReliabilitySignals, ServiceDeskResult, SpecialistDomain, TranslatorTicket};
+use anna_shared::rpc::{
+    EvidenceBlock, QueryIntent, ReliabilitySignals, ServiceDeskResult, SpecialistDomain,
+    TranslatorTicket,
+};
 use anna_shared::shell_recipes;
-use anna_shared::git_recipes;
 use anna_shared::ssh_recipes;
 use anna_shared::trace::{ExecutionTrace, ProbeStats};
 use anna_shared::transcript::Transcript;
@@ -78,7 +81,14 @@ pub fn check_recipe_fast_path(query: &str, index: &RecipeIndex) -> RecipeFastPat
 
     // Second, check built-in shell recipes
     if let Some(result) = check_shell_recipes(query) {
-        info!("Shell recipe match found: {}", result.recipe.as_ref().map(|r| r.id.clone()).unwrap_or_default());
+        info!(
+            "Shell recipe match found: {}",
+            result
+                .recipe
+                .as_ref()
+                .map(|r| r.id.clone())
+                .unwrap_or_default()
+        );
         return result;
     }
 
@@ -90,7 +100,14 @@ pub fn check_recipe_fast_path(query: &str, index: &RecipeIndex) -> RecipeFastPat
 
     // Fourth, check built-in SSH recipes (v0.0.104)
     if let Some(result) = check_ssh_recipes(query) {
-        info!("SSH recipe match found: {}", result.recipe.as_ref().map(|r| r.id.clone()).unwrap_or_default());
+        info!(
+            "SSH recipe match found: {}",
+            result
+                .recipe
+                .as_ref()
+                .map(|r| r.id.clone())
+                .unwrap_or_default()
+        );
         return result;
     }
 
@@ -138,14 +155,19 @@ fn check_shell_recipes(query: &str) -> Option<RecipeFastPathResult> {
             shell.display_name(),
             shell.config_path().display(),
             recipe.lines.join("\n"),
-            recipe.rollback_hint.as_deref().unwrap_or("To undo: remove the added lines")
+            recipe
+                .rollback_hint
+                .as_deref()
+                .unwrap_or("To undo: remove the added lines")
         ),
         created_at: 0,
         success_count: 100, // Built-in = mature
         reliability_score: 95,
         kind: RecipeKind::ShellConfig,
         target: None,
-        action: RecipeAction::EnsureLine { line: recipe.lines.join("\n") },
+        action: RecipeAction::EnsureLine {
+            line: recipe.lines.join("\n"),
+        },
         rollback: None,
         clarification_slots: vec![],
         default_question_id: None,
@@ -161,7 +183,10 @@ fn check_shell_recipes(query: &str) -> Option<RecipeFastPathResult> {
         ticket: Some(ticket_from_recipe(&synthetic_recipe)),
         recipe: Some(synthetic_recipe),
         score: 90,
-        matched_tokens: vec![shell.display_name().to_lowercase(), feature.display_name().to_string()],
+        matched_tokens: vec![
+            shell.display_name().to_lowercase(),
+            feature.display_name().to_string(),
+        ],
         skip_llm: true,
     })
 }
@@ -198,7 +223,12 @@ fn check_git_recipes(query: &str) -> Option<RecipeFastPathResult> {
         format!(
             "To configure {}:\n\nRun:\n{}\n\n{}",
             feature.display_name(),
-            recipe.commands.iter().map(|c| format!("  {}", c)).collect::<Vec<_>>().join("\n"),
+            recipe
+                .commands
+                .iter()
+                .map(|c| format!("  {}", c))
+                .collect::<Vec<_>>()
+                .join("\n"),
             recipe.rollback_hint.as_deref().unwrap_or("")
         )
     };
@@ -272,7 +302,12 @@ fn check_ssh_recipes(query: &str) -> Option<RecipeFastPathResult> {
         clarification_slots: vec![],
         default_question_id: None,
         populates_facts: vec![],
-        intent_tags: ssh_recipe.feature.keywords().iter().map(|s| s.to_string()).collect(),
+        intent_tags: ssh_recipe
+            .feature
+            .keywords()
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
         targets: vec!["ssh".to_string()],
         preconditions: vec![],
         clarify_prereqs: vec![],
@@ -283,7 +318,10 @@ fn check_ssh_recipes(query: &str) -> Option<RecipeFastPathResult> {
         ticket: Some(ticket_from_recipe(&synthetic_recipe)),
         recipe: Some(synthetic_recipe),
         score: 90,
-        matched_tokens: vec!["ssh".to_string(), ssh_recipe.feature.display_name().to_string()],
+        matched_tokens: vec![
+            "ssh".to_string(),
+            ssh_recipe.feature.display_name().to_string(),
+        ],
         skip_llm: true,
     })
 }
@@ -345,11 +383,16 @@ pub fn build_recipe_result(
     // v0.0.103: Ask for feedback if recipe confidence is borderline (60-75)
     // or if recipe is new (success_count < 3)
     let feedback_request = if recipe.reliability_score >= 60 && recipe.reliability_score <= 75 {
-        Some(anna_shared::recipe_feedback::FeedbackRequest::borderline_confidence(
-            &recipe.id, recipe.reliability_score
-        ))
+        Some(
+            anna_shared::recipe_feedback::FeedbackRequest::borderline_confidence(
+                &recipe.id,
+                recipe.reliability_score,
+            ),
+        )
     } else if recipe.success_count < 3 {
-        Some(anna_shared::recipe_feedback::FeedbackRequest::new_recipe(&recipe.id))
+        Some(anna_shared::recipe_feedback::FeedbackRequest::new_recipe(
+            &recipe.id,
+        ))
     } else {
         None
     };
@@ -371,15 +414,19 @@ pub fn build_recipe_result(
         transcript,
         execution_trace: Some(trace),
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request,
     }
 }
 
 /// Check if a recipe result can provide a direct answer (has answer_template)
 pub fn can_answer_directly(result: &RecipeFastPathResult) -> bool {
-    result.skip_llm && result.recipe.as_ref()
-        .map(|r| !r.answer_template.is_empty())
-        .unwrap_or(false)
+    result.skip_llm
+        && result
+            .recipe
+            .as_ref()
+            .map(|r| !r.answer_template.is_empty())
+            .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -427,7 +474,11 @@ mod tests {
         // Should not match git recipes without "git" in query
         // (might match other recipes though)
         if result.matched {
-            assert!(result.recipe.as_ref().map(|r| !r.id.starts_with("git")).unwrap_or(true));
+            assert!(result
+                .recipe
+                .as_ref()
+                .map(|r| !r.id.starts_with("git"))
+                .unwrap_or(true));
         }
     }
 
@@ -460,7 +511,13 @@ mod tests {
         assert!(service_result.reliability_score >= 90);
         assert!(service_result.execution_trace.is_some());
         // Recipe answers are deterministic
-        assert!(service_result.execution_trace.as_ref().unwrap().answer_is_deterministic);
+        assert!(
+            service_result
+                .execution_trace
+                .as_ref()
+                .unwrap()
+                .answer_is_deterministic
+        );
     }
 
     #[test]
@@ -469,7 +526,12 @@ mod tests {
         let result = check_recipe_fast_path("how do I generate an ssh key", &index);
         assert!(result.matched);
         assert!(result.skip_llm);
-        assert!(result.recipe.as_ref().unwrap().answer_template.contains("ssh-keygen"));
+        assert!(result
+            .recipe
+            .as_ref()
+            .unwrap()
+            .answer_template
+            .contains("ssh-keygen"));
     }
 
     #[test]
@@ -478,7 +540,12 @@ mod tests {
         let result = check_recipe_fast_path("setup ssh for github", &index);
         assert!(result.matched);
         assert!(result.skip_llm);
-        assert!(result.recipe.as_ref().unwrap().answer_template.contains("github"));
+        assert!(result
+            .recipe
+            .as_ref()
+            .unwrap()
+            .answer_template
+            .contains("github"));
     }
 
     #[test]
@@ -487,6 +554,11 @@ mod tests {
         let result = check_recipe_fast_path("ssh copy key to server", &index);
         assert!(result.matched);
         assert!(result.skip_llm);
-        assert!(result.recipe.as_ref().unwrap().answer_template.contains("ssh-copy-id"));
+        assert!(result
+            .recipe
+            .as_ref()
+            .unwrap()
+            .answer_template
+            .contains("ssh-copy-id"));
     }
 }

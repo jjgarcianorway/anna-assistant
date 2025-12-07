@@ -220,6 +220,7 @@ fn test_service_desk_result_structure() {
         transcript: Transcript::new(),
         execution_trace: None,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     };
 
@@ -266,6 +267,7 @@ fn test_clarification_response_format() {
         transcript: Transcript::new(),
         execution_trace: None,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     };
 
@@ -375,6 +377,7 @@ fn test_response_has_all_required_fields() {
         transcript: Transcript::new(),
         execution_trace: None,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     };
 
@@ -442,6 +445,7 @@ fn test_timeout_response_format() {
         transcript: Transcript::new(),
         execution_trace: None,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     };
 
@@ -493,7 +497,7 @@ fn test_timeout_at_different_stages() {
             request_id: "test-id".to_string(),
             case_number: None,
             assigned_staff: None,
-        staff_id: None,
+            staff_id: None,
             answer: String::new(),
             reliability_score: signals.score().min(20),
             reliability_signals: signals,
@@ -508,8 +512,9 @@ fn test_timeout_at_different_stages() {
             clarification_request: None,
             transcript: Transcript::new(),
             execution_trace: None,
-        proposed_change: None,
-        feedback_request: None,
+            proposed_change: None,
+            proposed_changes: Vec::new(),
+            feedback_request: None,
         };
 
         assert!(result.reliability_score <= 20);
@@ -562,6 +567,7 @@ fn test_evidence_includes_partial_probes_on_timeout() {
         transcript: Transcript::new(),
         execution_trace: None,
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     };
 

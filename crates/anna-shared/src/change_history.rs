@@ -36,14 +36,19 @@ impl ChangeEntry {
         }
 
         let id = format!("{:08x}", rand_id());
-        let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+        let timestamp = chrono::Utc::now()
+            .format("%Y-%m-%d %H:%M:%S UTC")
+            .to_string();
 
         Some(Self {
             id,
             timestamp,
             description: plan.description.clone(),
             target_path: plan.target_path.clone(),
-            backup_path: result.backup_path.clone().unwrap_or_else(|| plan.backup_path.clone()),
+            backup_path: result
+                .backup_path
+                .clone()
+                .unwrap_or_else(|| plan.backup_path.clone()),
             can_undo: result.backup_path.is_some(),
             undone: false,
         })
@@ -78,7 +83,9 @@ fn rand_id() -> u32 {
 /// Get the change history file path
 pub fn history_file() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    PathBuf::from(home).join(".anna").join("change_history.jsonl")
+    PathBuf::from(home)
+        .join(".anna")
+        .join("change_history.jsonl")
 }
 
 /// Record a change to history

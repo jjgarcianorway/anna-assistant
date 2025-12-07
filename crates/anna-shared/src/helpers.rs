@@ -118,7 +118,9 @@ pub struct HelpersRegistry {
 impl HelpersRegistry {
     /// Create a new empty registry
     pub fn new() -> Self {
-        Self { packages: Vec::new() }
+        Self {
+            packages: Vec::new(),
+        }
     }
 
     /// Add or update a package
@@ -151,7 +153,10 @@ impl HelpersRegistry {
 
     /// Get all packages installed by Anna
     pub fn anna_installed(&self) -> Vec<&HelperPackage> {
-        self.packages.iter().filter(|p| p.installed_by_anna()).collect()
+        self.packages
+            .iter()
+            .filter(|p| p.installed_by_anna())
+            .collect()
     }
 
     /// Get all required packages
@@ -166,12 +171,18 @@ impl HelpersRegistry {
 
     /// Get all unavailable required packages
     pub fn missing_required(&self) -> Vec<&HelperPackage> {
-        self.packages.iter().filter(|p| p.required && !p.available).collect()
+        self.packages
+            .iter()
+            .filter(|p| p.required && !p.available)
+            .collect()
     }
 
     /// Check if all required packages are available
     pub fn all_required_available(&self) -> bool {
-        self.packages.iter().filter(|p| p.required).all(|p| p.available)
+        self.packages
+            .iter()
+            .filter(|p| p.required)
+            .all(|p| p.available)
     }
 
     /// Get count of packages
@@ -196,10 +207,7 @@ pub fn known_helpers() -> HelpersRegistry {
     let mut registry = HelpersRegistry::new();
 
     // Ollama - LLM backend
-    registry.register(
-        HelperPackage::new("ollama", "Ollama")
-            .required()
-    );
+    registry.register(HelperPackage::new("ollama", "Ollama").required());
 
     registry
 }
@@ -230,7 +238,7 @@ fn detect_ollama() -> Option<HelperPackage> {
                     .required()
                     .with_available(true)
                     .with_binary_path(p)
-                    .with_source(InstallSource::User) // Assume user if found
+                    .with_source(InstallSource::User), // Assume user if found
             );
         }
     }
@@ -335,9 +343,7 @@ mod tests {
         registry.register(HelperPackage::new("test", "Test"));
         assert!(!registry.get("test").unwrap().available);
 
-        registry.register(
-            HelperPackage::new("test", "Test Updated").with_available(true)
-        );
+        registry.register(HelperPackage::new("test", "Test Updated").with_available(true));
         assert!(registry.get("test").unwrap().available);
         assert_eq!(registry.len(), 1); // Still one package
     }
@@ -350,17 +356,17 @@ mod tests {
             HelperPackage::new("anna-installed", "Anna Installed")
                 .with_source(InstallSource::Anna)
                 .with_available(true)
-                .required()
+                .required(),
         );
         registry.register(
             HelperPackage::new("user-installed", "User Installed")
                 .with_source(InstallSource::User)
-                .with_available(true)
+                .with_available(true),
         );
         registry.register(
             HelperPackage::new("missing", "Missing")
                 .with_source(InstallSource::Unknown)
-                .required()
+                .required(),
         );
 
         assert_eq!(registry.anna_installed().len(), 1);
@@ -392,7 +398,7 @@ mod tests {
         registry.register(
             HelperPackage::new("test", "Test")
                 .with_version("1.0")
-                .with_source(InstallSource::Anna)
+                .with_source(InstallSource::Anna),
         );
 
         let json = serde_json::to_string(&registry).unwrap();

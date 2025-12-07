@@ -21,7 +21,10 @@ pub enum VerifyExpectation {
     /// Package is installed (pacman -Q or similar)
     PackageInstalled { package: String },
     /// Systemd service is in expected state
-    ServiceState { service: String, expected: ServiceExpectedState },
+    ServiceState {
+        service: String,
+        expected: ServiceExpectedState,
+    },
     /// Output contains pattern
     OutputContains { command: String, pattern: String },
 }
@@ -82,7 +85,9 @@ impl VerificationStep {
         Self::new(
             format!("verify_{}_installed", editor),
             format!("Verify {} is installed", editor),
-            VerifyExpectation::CommandExists { name: editor.to_string() },
+            VerifyExpectation::CommandExists {
+                name: editor.to_string(),
+            },
         )
     }
 
@@ -126,7 +131,12 @@ pub struct VerifyResult {
 
 impl VerifyResult {
     pub fn pass(step_id: &str, actual: impl Into<String>) -> Self {
-        Self { step_id: step_id.to_string(), passed: true, actual: actual.into(), error: None }
+        Self {
+            step_id: step_id.to_string(),
+            passed: true,
+            actual: actual.into(),
+            error: None,
+        }
     }
 
     pub fn fail(step_id: &str, actual: impl Into<String>, err: impl Into<String>) -> Self {
@@ -187,8 +197,11 @@ fn verify_exit_code(step_id: &str, command: &str, expected: i32) -> VerifyResult
             if code == expected {
                 VerifyResult::pass(step_id, format!("exit code {}", code))
             } else {
-                VerifyResult::fail(step_id, format!("exit code {}", code),
-                    format!("Expected exit code {}, got {}", expected, code))
+                VerifyResult::fail(
+                    step_id,
+                    format!("exit code {}", code),
+                    format!("Expected exit code {}, got {}", expected, code),
+                )
             }
         }
         Err(e) => VerifyResult::fail(step_id, "", format!("Failed to run: {}", e)),
@@ -201,7 +214,11 @@ fn verify_file_exists(step_id: &str, path: &str) -> VerifyResult {
     if std::path::Path::new(&expanded).exists() {
         VerifyResult::pass(step_id, expanded)
     } else {
-        VerifyResult::fail(step_id, "not found", format!("File {} does not exist", path))
+        VerifyResult::fail(
+            step_id,
+            "not found",
+            format!("File {} does not exist", path),
+        )
     }
 }
 
@@ -212,8 +229,11 @@ fn verify_file_contains(step_id: &str, path: &str, pattern: &str) -> VerifyResul
             if content.contains(pattern) {
                 VerifyResult::pass(step_id, "pattern found")
             } else {
-                VerifyResult::fail(step_id, "pattern not found",
-                    format!("File does not contain: {}", pattern))
+                VerifyResult::fail(
+                    step_id,
+                    "pattern not found",
+                    format!("File does not contain: {}", pattern),
+                )
             }
         }
         Err(e) => VerifyResult::fail(step_id, "", format!("Cannot read file: {}", e)),
@@ -229,8 +249,11 @@ fn verify_package_installed(step_id: &str, package: &str) -> VerifyResult {
             let info = String::from_utf8_lossy(&out.stdout).trim().to_string();
             VerifyResult::pass(step_id, info)
         }
-        Ok(_) => VerifyResult::fail(step_id, "not installed",
-            format!("Package {} is not installed", package)),
+        Ok(_) => VerifyResult::fail(
+            step_id,
+            "not installed",
+            format!("Package {} is not installed", package),
+        ),
         Err(_) => {
             // Try dpkg (Debian/Ubuntu)
             let dpkg = Command::new("dpkg").arg("-s").arg(package).output();
@@ -242,13 +265,20 @@ fn verify_package_installed(step_id: &str, package: &str) -> VerifyResult {
     }
 }
 
-fn verify_service_state(step_id: &str, service: &str, expected: ServiceExpectedState) -> VerifyResult {
+fn verify_service_state(
+    step_id: &str,
+    service: &str,
+    expected: ServiceExpectedState,
+) -> VerifyResult {
     let check_cmd = match expected {
         ServiceExpectedState::Active | ServiceExpectedState::Inactive => "is-active",
         ServiceExpectedState::Enabled | ServiceExpectedState::Disabled => "is-enabled",
     };
 
-    let output = Command::new("systemctl").arg(check_cmd).arg(service).output();
+    let output = Command::new("systemctl")
+        .arg(check_cmd)
+        .arg(service)
+        .output();
 
     match output {
         Ok(out) => {
@@ -262,8 +292,11 @@ fn verify_service_state(step_id: &str, service: &str, expected: ServiceExpectedS
             if matches {
                 VerifyResult::pass(step_id, state)
             } else {
-                VerifyResult::fail(step_id, &state,
-                    format!("Expected {}, got {}", expected, state))
+                VerifyResult::fail(
+                    step_id,
+                    &state,
+                    format!("Expected {}, got {}", expected, state),
+                )
             }
         }
         Err(e) => VerifyResult::fail(step_id, "", format!("Failed to check: {}", e)),
@@ -279,8 +312,11 @@ fn verify_output_contains(step_id: &str, command: &str, pattern: &str) -> Verify
             if stdout.contains(pattern) {
                 VerifyResult::pass(step_id, "pattern found in output")
             } else {
-                VerifyResult::fail(step_id, "pattern not found",
-                    format!("Output does not contain: {}", pattern))
+                VerifyResult::fail(
+                    step_id,
+                    "pattern not found",
+                    format!("Output does not contain: {}", pattern),
+                )
             }
         }
         Err(e) => VerifyResult::fail(step_id, "", format!("Failed to run: {}", e)),
@@ -306,7 +342,9 @@ pub struct PreActionVerify {
 }
 
 impl PreActionVerify {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn add(mut self, step: VerificationStep) -> Self {
         self.steps.push(step);
@@ -316,7 +354,9 @@ impl PreActionVerify {
     /// Run all verification steps
     pub fn run(mut self) -> Self {
         self.results = self.steps.iter().map(run_verification).collect();
-        self.all_passed = self.results.iter()
+        self.all_passed = self
+            .results
+            .iter()
             .zip(&self.steps)
             .all(|(r, s)| r.passed || !s.mandatory);
         self
@@ -324,7 +364,9 @@ impl PreActionVerify {
 
     /// Get failed mandatory steps
     pub fn failed_mandatory(&self) -> Vec<(&VerificationStep, &VerifyResult)> {
-        self.steps.iter().zip(&self.results)
+        self.steps
+            .iter()
+            .zip(&self.results)
             .filter(|(s, r)| s.mandatory && !r.passed)
             .collect()
     }
@@ -336,9 +378,16 @@ impl PreActionVerify {
         if self.all_passed {
             format!("Verified {}/{} checks passed", passed, total)
         } else {
-            let failed: Vec<_> = self.failed_mandatory()
+            let failed: Vec<_> = self
+                .failed_mandatory()
                 .iter()
-                .map(|(s, r)| format!("{}: {}", s.description, r.error.as_deref().unwrap_or("failed")))
+                .map(|(s, r)| {
+                    format!(
+                        "{}: {}",
+                        s.description,
+                        r.error.as_deref().unwrap_or("failed")
+                    )
+                })
                 .collect();
             format!("Verification failed: {}", failed.join("; "))
         }
@@ -354,7 +403,9 @@ pub struct PostActionVerify {
 }
 
 impl PostActionVerify {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn add(mut self, step: VerificationStep) -> Self {
         self.steps.push(step);
@@ -373,7 +424,9 @@ impl PostActionVerify {
         if self.success {
             "Change verified successfully".to_string()
         } else {
-            let failed: Vec<_> = self.results.iter()
+            let failed: Vec<_> = self
+                .results
+                .iter()
                 .filter(|r| !r.passed)
                 .map(|r| r.error.as_deref().unwrap_or("unknown"))
                 .collect();

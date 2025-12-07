@@ -3,11 +3,13 @@
 //! Generates a deterministic system health report from probe data.
 //! Runs probes directly (not through daemon) for independence.
 
-use anyhow::{anyhow, Result};
-use anna_shared::advice::{format_recommendations_markdown, format_recommendations_text, generate_recommendations};
+use anna_shared::advice::{
+    format_recommendations_markdown, format_recommendations_text, generate_recommendations,
+};
 use anna_shared::parsers::{parse_probe_output, ParsedProbeData};
 use anna_shared::report::{format_markdown, format_text, ReportEvidence, SystemReport};
 use anna_shared::trace::{EvidenceKind, ExecutionTrace, ProbeStats};
+use anyhow::{anyhow, Result};
 use std::process::Command;
 
 /// Probes to run for report generation
@@ -41,11 +43,8 @@ pub async fn handle_report(format: &str) -> Result<()> {
     let evidence_kinds = build_evidence_kinds(&evidence);
 
     // Build execution trace
-    let trace = ExecutionTrace::deterministic_route(
-        "system_health_report",
-        probe_stats,
-        evidence_kinds,
-    );
+    let trace =
+        ExecutionTrace::deterministic_route("system_health_report", probe_stats, evidence_kinds);
 
     // Generate report
     let report = SystemReport::from_evidence(&evidence, Some(&trace), 100, None);

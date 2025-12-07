@@ -19,8 +19,7 @@ fn test_clarify_request_format() {
 
 #[test]
 fn test_parse_numeric_response() {
-    let req = ClarifyRequest::new("test", "Which?")
-        .add_option(ClarifyOption::tool(1, "vim"));
+    let req = ClarifyRequest::new("test", "Which?").add_option(ClarifyOption::tool(1, "vim"));
 
     let resp = ClarifyResponse::parse("1", &req);
     assert_eq!(resp.selected, Some(1));
@@ -48,8 +47,7 @@ fn test_parse_free_text() {
 
 #[test]
 fn test_single_option() {
-    let req = ClarifyRequest::new("test", "Which?")
-        .add_option(ClarifyOption::tool(1, "vim"));
+    let req = ClarifyRequest::new("test", "Which?").add_option(ClarifyOption::tool(1, "vim"));
 
     assert!(req.is_single_option());
     assert_eq!(req.single_option_value(), Some("vim"));
@@ -101,7 +99,10 @@ fn test_allow_custom_disabled() {
 
     // Menu should not show "Something else" option
     let menu = req.format_menu();
-    assert!(!menu.contains("[9] Something else"), "Menu should hide 'Other' when allow_custom=false");
+    assert!(
+        !menu.contains("[9] Something else"),
+        "Menu should hide 'Other' when allow_custom=false"
+    );
 }
 
 #[test]
@@ -112,5 +113,8 @@ fn test_free_text_rejected_when_no_custom() {
 
     // Free text should be treated as cancel when allow_custom=false
     let resp = ClarifyResponse::parse("emacs", &req);
-    assert!(resp.cancelled, "Free text should cancel when allow_custom=false");
+    assert!(
+        resp.cancelled,
+        "Free text should cancel when allow_custom=false"
+    );
 }

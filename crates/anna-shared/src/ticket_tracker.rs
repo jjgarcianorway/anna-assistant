@@ -67,13 +67,25 @@ pub struct TicketMessage {
 
 impl TicketMessage {
     pub fn from_user(content: String) -> Self {
-        Self { sender: "user".to_string(), content, timestamp: Utc::now() }
+        Self {
+            sender: "user".to_string(),
+            content,
+            timestamp: Utc::now(),
+        }
     }
     pub fn from_anna(content: String) -> Self {
-        Self { sender: "anna".to_string(), content, timestamp: Utc::now() }
+        Self {
+            sender: "anna".to_string(),
+            content,
+            timestamp: Utc::now(),
+        }
     }
     pub fn from_staff(staff_id: &str, content: String) -> Self {
-        Self { sender: staff_id.to_string(), content, timestamp: Utc::now() }
+        Self {
+            sender: staff_id.to_string(),
+            content,
+            timestamp: Utc::now(),
+        }
     }
 }
 
@@ -148,7 +160,12 @@ impl Ticket {
     }
 
     /// Create an async ticket (v0.0.113)
-    pub fn new_async(case_number: String, query: String, team: String, email: Option<String>) -> Self {
+    pub fn new_async(
+        case_number: String,
+        query: String,
+        team: String,
+        email: Option<String>,
+    ) -> Self {
         let mut ticket = Self::new(case_number, query, team);
         ticket.is_async = true;
         ticket.user_email = email;
@@ -198,7 +215,8 @@ impl Ticket {
     pub fn ask_user(&mut self, question: String, staff_id: &str) {
         self.pending_question = Some(question.clone());
         self.status = TicketStatus::PendingUser;
-        self.messages.push(TicketMessage::from_staff(staff_id, question));
+        self.messages
+            .push(TicketMessage::from_staff(staff_id, question));
         self.updated_at = Utc::now();
     }
 
@@ -362,7 +380,10 @@ impl TicketTracker {
     /// Find a ticket by case number
     pub fn find_by_case(&self, case_number: &str) -> std::io::Result<Option<Ticket>> {
         let tickets = self.read_all()?;
-        Ok(tickets.into_iter().rev().find(|t| t.case_number == case_number))
+        Ok(tickets
+            .into_iter()
+            .rev()
+            .find(|t| t.case_number == case_number))
     }
 
     /// Get all open tickets (not resolved/closed)
@@ -374,7 +395,8 @@ impl TicketTracker {
     /// Get tickets pending user response
     pub fn pending_user(&self) -> std::io::Result<Vec<Ticket>> {
         let tickets = self.read_all()?;
-        Ok(tickets.into_iter()
+        Ok(tickets
+            .into_iter()
             .filter(|t| t.status == TicketStatus::PendingUser)
             .collect())
     }
@@ -425,14 +447,14 @@ impl TicketTracker {
         let tickets = self.read_all()?;
 
         let total = tickets.len() as u64;
-        let resolved = tickets.iter().filter(|t| t.status == TicketStatus::Resolved).count() as u64;
+        let resolved = tickets
+            .iter()
+            .filter(|t| t.status == TicketStatus::Resolved)
+            .count() as u64;
         let escalated = tickets.iter().filter(|t| t.was_escalated).count() as u64;
 
         let avg_resolution_ms = if resolved > 0 {
-            tickets
-                .iter()
-                .filter_map(|t| t.resolution_ms)
-                .sum::<u64>() / resolved
+            tickets.iter().filter_map(|t| t.resolution_ms).sum::<u64>() / resolved
         } else {
             0
         };
@@ -442,13 +464,18 @@ impl TicketTracker {
                 .iter()
                 .filter_map(|t| t.reliability)
                 .map(|r| r as f64)
-                .sum::<f64>() / resolved as f64
+                .sum::<f64>()
+                / resolved as f64
         } else {
             0.0
         };
 
         let avg_interactions = if total > 0 {
-            tickets.iter().map(|t| t.interaction_count as f64).sum::<f64>() / total as f64
+            tickets
+                .iter()
+                .map(|t| t.interaction_count as f64)
+                .sum::<f64>()
+                / total as f64
         } else {
             0.0
         };

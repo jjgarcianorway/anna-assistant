@@ -85,7 +85,7 @@ Data stored in `~/.anna/` (user) and `/var/lib/anna/` (system).
 
 ## Version
 
-v0.0.124
+v0.0.136
 
 ## License
 

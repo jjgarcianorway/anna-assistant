@@ -3,10 +3,10 @@
 //! v0.0.99: Handles InstallPackage and ManageService query classes.
 //! All actions require user confirmation via proposed_change.
 
-use anna_shared::change::{ChangePlan, ChangeOperation, ChangeRisk};
+use anna_shared::change::{ChangeOperation, ChangePlan, ChangeRisk};
 use anna_shared::package_recipes::{self, PackageManager};
+use anna_shared::rpc::{EvidenceBlock, ReliabilitySignals, ServiceDeskResult, SpecialistDomain};
 use anna_shared::service_recipes::{self, ServiceAction};
-use anna_shared::rpc::{ServiceDeskResult, SpecialistDomain, EvidenceBlock, ReliabilitySignals};
 use anna_shared::transcript::Transcript;
 use std::path::PathBuf;
 
@@ -78,7 +78,11 @@ pub fn extract_service_info(query: &str) -> Option<(String, ServiceAction)> {
 }
 
 /// Create a minimal ServiceDeskResult for action handlers
-fn make_result(answer: String, score: u8, proposed_change: Option<ChangePlan>) -> ServiceDeskResult {
+fn make_result(
+    answer: String,
+    score: u8,
+    proposed_change: Option<ChangePlan>,
+) -> ServiceDeskResult {
     ServiceDeskResult {
         request_id: uuid::Uuid::new_v4().to_string(),
         case_number: None,
@@ -96,6 +100,7 @@ fn make_result(answer: String, score: u8, proposed_change: Option<ChangePlan>) -
         transcript: Transcript::default(),
         execution_trace: None,
         proposed_change,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }
@@ -122,9 +127,9 @@ pub fn handle_install_package(query: &str) -> ServiceDeskResult {
 
     let (install_cmd, description) = match &recipe {
         Some(r) => {
-            let cmd = r.install_command(&manager).unwrap_or_else(|| {
-                format!("{} {}", manager.install_cmd(), package_name)
-            });
+            let cmd = r
+                .install_command(&manager)
+                .unwrap_or_else(|| format!("{} {}", manager.install_cmd(), package_name));
             (cmd, r.description.clone())
         }
         None => {
@@ -139,7 +144,9 @@ pub fn handle_install_package(query: &str) -> ServiceDeskResult {
         description: format!("Install package: {} (sudo {})", package_name, install_cmd),
         target_path: PathBuf::from(format!("/usr/bin/{}", package_name)),
         backup_path: PathBuf::new(), // No backup for package install
-        operation: ChangeOperation::EnsureLine { line: install_cmd.clone() },
+        operation: ChangeOperation::EnsureLine {
+            line: install_cmd.clone(),
+        },
         risk: ChangeRisk::Medium,
         target_exists: false,
         is_noop: false,
@@ -194,7 +201,12 @@ pub fn handle_manage_service(query: &str) -> ServiceDeskResult {
                 service_recipes::ServiceRisk::Protected => ChangeRisk::High,
             };
 
-            (r.command_for(action), r.description.clone(), risk, r.name.clone())
+            (
+                r.command_for(action),
+                r.description.clone(),
+                risk,
+                r.name.clone(),
+            )
         }
         None => {
             // Unknown service - use generic systemctl command
@@ -204,13 +216,23 @@ pub fn handle_manage_service(query: &str) -> ServiceDeskResult {
                 format!("{}.service", service_name)
             };
             let cmd = action.systemctl_cmd(&unit);
-            (cmd, format!("Manage {} service", service_name), ChangeRisk::Medium, unit)
+            (
+                cmd,
+                format!("Manage {} service", service_name),
+                ChangeRisk::Medium,
+                unit,
+            )
         }
     };
 
     // Create a change plan for the service action
     let plan = ChangePlan {
-        description: format!("{} service: {} (sudo {})", capitalize_first(action.display_name()), service_unit, cmd),
+        description: format!(
+            "{} service: {} (sudo {})",
+            capitalize_first(action.display_name()),
+            service_unit,
+            cmd
+        ),
         target_path: PathBuf::from(format!("/etc/systemd/system/{}", service_unit)),
         backup_path: PathBuf::new(), // No backup for service action
         operation: ChangeOperation::EnsureLine { line: cmd.clone() },
@@ -229,7 +251,10 @@ pub fn handle_manage_service(query: &str) -> ServiceDeskResult {
 
     // Add rollback info if available
     if let Some(opposite) = action.opposite() {
-        answer.push_str(&format!("\n\nTo undo: `sudo {}`", opposite.systemctl_cmd(&service_unit)));
+        answer.push_str(&format!(
+            "\n\nTo undo: `sudo {}`",
+            opposite.systemctl_cmd(&service_unit)
+        ));
     }
 
     make_result(answer, 90, Some(plan))
@@ -250,10 +275,16 @@ mod tests {
 
     #[test]
     fn test_extract_package_name() {
-        assert_eq!(extract_package_name("install htop"), Some("htop".to_string()));
+        assert_eq!(
+            extract_package_name("install htop"),
+            Some("htop".to_string())
+        );
         assert_eq!(extract_package_name("install vim"), Some("vim".to_string()));
         assert_eq!(extract_package_name("add nano"), Some("nano".to_string()));
-        assert_eq!(extract_package_name("can you install git"), Some("git".to_string()));
+        assert_eq!(
+            extract_package_name("can you install git"),
+            Some("git".to_string())
+        );
         assert_eq!(extract_package_name("random query"), None);
     }
 

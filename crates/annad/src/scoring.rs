@@ -118,7 +118,6 @@ pub fn check_no_invention_guard(
     !report.invention_detected
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

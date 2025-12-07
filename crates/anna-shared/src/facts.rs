@@ -49,7 +49,9 @@ pub enum StalenessPolicy {
 }
 
 impl Default for StalenessPolicy {
-    fn default() -> Self { Self::TTLSeconds(30 * 24 * 3600) } // 30 days
+    fn default() -> Self {
+        Self::TTLSeconds(30 * 24 * 3600)
+    } // 30 days
 }
 
 /// Pinned TTL constants for v0.0.41
@@ -157,7 +159,10 @@ pub struct Fact {
 }
 
 fn now_epoch() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 impl Fact {
@@ -165,10 +170,18 @@ impl Fact {
         let now = now_epoch();
         let policy = default_policy(&key);
         Self {
-            key, value, typed_value: None, verified: true, source,
-            fact_source: None, confidence: 80, // Verified but legacy source
-            lifecycle: FactLifecycle::Active, policy,
-            created_at: now, last_verified_at: now, timestamp_compat: now
+            key,
+            value,
+            typed_value: None,
+            verified: true,
+            source,
+            fact_source: None,
+            confidence: 80, // Verified but legacy source
+            lifecycle: FactLifecycle::Active,
+            policy,
+            created_at: now,
+            last_verified_at: now,
+            timestamp_compat: now,
         }
     }
 
@@ -176,15 +189,28 @@ impl Fact {
         let now = now_epoch();
         let policy = default_policy(&key);
         Self {
-            key, value, typed_value: None, verified: false, source,
-            fact_source: None, confidence: 0, // Unverified
-            lifecycle: FactLifecycle::Active, policy,
-            created_at: now, last_verified_at: 0, timestamp_compat: now
+            key,
+            value,
+            typed_value: None,
+            verified: false,
+            source,
+            fact_source: None,
+            confidence: 0, // Unverified
+            lifecycle: FactLifecycle::Active,
+            policy,
+            created_at: now,
+            last_verified_at: 0,
+            timestamp_compat: now,
         }
     }
 
     /// Create a verified fact with typed source (v0.0.41)
-    pub fn verified_with_source(key: FactKey, value: FactValue, source: FactSource, confidence: u8) -> Self {
+    pub fn verified_with_source(
+        key: FactKey,
+        value: FactValue,
+        source: FactSource,
+        confidence: u8,
+    ) -> Self {
         let now = now_epoch();
         let policy = default_policy(&key);
         Self {
@@ -221,7 +247,9 @@ impl Fact {
         Self::verified_with_source(
             key,
             value,
-            FactSource::UserConfirmed { transcript_id: transcript_id.to_string() },
+            FactSource::UserConfirmed {
+                transcript_id: transcript_id.to_string(),
+            },
             90, // User-confirmed = high confidence
         )
     }
@@ -232,7 +260,9 @@ impl Fact {
             StalenessPolicy::Never => false,
             StalenessPolicy::SessionOnly => true, // Always stale for persistence purposes
             StalenessPolicy::TTLSeconds(ttl) => {
-                if self.last_verified_at == 0 { return !self.verified; }
+                if self.last_verified_at == 0 {
+                    return !self.verified;
+                }
                 now.saturating_sub(self.last_verified_at) > ttl
             }
         }
@@ -242,7 +272,9 @@ impl Fact {
     pub fn should_archive(&self, now: u64) -> bool {
         match self.policy {
             StalenessPolicy::TTLSeconds(ttl) => {
-                if self.last_verified_at == 0 { return false; }
+                if self.last_verified_at == 0 {
+                    return false;
+                }
                 now.saturating_sub(self.last_verified_at) > ttl * 2
             }
             _ => false,
@@ -258,13 +290,19 @@ impl Fact {
     }
 
     /// Mark as stale (failed re-verification)
-    pub fn mark_stale(&mut self) { self.lifecycle = FactLifecycle::Stale; }
+    pub fn mark_stale(&mut self) {
+        self.lifecycle = FactLifecycle::Stale;
+    }
 
     /// Archive this fact
-    pub fn archive(&mut self) { self.lifecycle = FactLifecycle::Archived; }
+    pub fn archive(&mut self) {
+        self.lifecycle = FactLifecycle::Archived;
+    }
 
     /// Check if usable for decisions (verified and active)
-    pub fn is_usable(&self) -> bool { self.verified && self.lifecycle == FactLifecycle::Active }
+    pub fn is_usable(&self) -> bool {
+        self.verified && self.lifecycle == FactLifecycle::Active
+    }
 }
 
 /// Persistent store for verified facts (serializes as Vec for JSON compatibility)
@@ -298,7 +336,10 @@ impl<'de> Deserialize<'de> for FactsStore {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let wire = FactsStoreWire::deserialize(deserializer)?;
         let facts = wire.facts.into_iter().map(|f| (f.key.clone(), f)).collect();
-        Ok(Self { facts, version: wire.version })
+        Ok(Self {
+            facts,
+            version: wire.version,
+        })
     }
 }
 
@@ -340,7 +381,9 @@ impl FactsStore {
     /// Save facts store to specific path
     pub fn save_to_path(&self, path: &PathBuf) -> Result<(), std::io::Error> {
         // Only save verified facts, sorted for deterministic output
-        let mut verified: Vec<Fact> = self.facts.values()
+        let mut verified: Vec<Fact> = self
+            .facts
+            .values()
             .filter(|f| f.verified)
             .cloned()
             .collect();
@@ -350,7 +393,10 @@ impl FactsStore {
             fs::create_dir_all(parent)?;
         }
 
-        let wire = FactsStoreWire { facts: verified, version: self.version };
+        let wire = FactsStoreWire {
+            facts: verified,
+            version: self.version,
+        };
         let json = serde_json::to_string_pretty(&wire)?;
         fs::write(path, json)
     }
@@ -362,7 +408,8 @@ impl FactsStore {
 
     /// Get a verified fact value by key (must be usable: verified + active)
     pub fn get_verified(&self, key: &FactKey) -> Option<&str> {
-        self.facts.get(key)
+        self.facts
+            .get(key)
             .filter(|f| f.is_usable())
             .map(|f| f.value.as_str())
     }
@@ -370,11 +417,19 @@ impl FactsStore {
     /// Get a fresh fact (v0.0.41) - returns None if stale
     /// Use this for decisions that require current data
     pub fn get_fresh(&self, key: &FactKey, now: u64) -> Option<&Fact> {
-        self.facts.get(key).filter(|f| f.is_usable() && !f.is_stale(now))
+        self.facts
+            .get(key)
+            .filter(|f| f.is_usable() && !f.is_stale(now))
     }
 
     /// Upsert verified fact (v0.0.41) - updates last_verified on successful verification
-    pub fn upsert_verified(&mut self, key: FactKey, value: FactValue, source: FactSource, confidence: u8) {
+    pub fn upsert_verified(
+        &mut self,
+        key: FactKey,
+        value: FactValue,
+        source: FactSource,
+        confidence: u8,
+    ) {
         let fact = Fact::verified_with_source(key.clone(), value, source, confidence);
         self.facts.insert(key, fact);
     }
@@ -386,7 +441,8 @@ impl FactsStore {
 
     /// Check if fact is fresh (not stale) at given time (v0.0.41)
     pub fn is_fresh(&self, key: &FactKey, now: u64) -> bool {
-        self.facts.get(key)
+        self.facts
+            .get(key)
             .map(|f| f.is_usable() && !f.is_stale(now))
             .unwrap_or(false)
     }
@@ -432,7 +488,9 @@ impl FactsStore {
     }
 
     /// Clear all facts
-    pub fn clear(&mut self) { self.facts.clear(); }
+    pub fn clear(&mut self) {
+        self.facts.clear();
+    }
 
     // === Lifecycle management (v0.0.32) ===
 
@@ -460,18 +518,24 @@ impl FactsStore {
         if let Some(fact) = self.facts.get_mut(key) {
             fact.reverify(source);
             true
-        } else { false }
+        } else {
+            false
+        }
     }
 
     /// Get stale facts that need re-verification
     pub fn stale_facts(&self) -> Vec<&Fact> {
-        self.facts.values().filter(|f| f.lifecycle == FactLifecycle::Stale).collect()
+        self.facts
+            .values()
+            .filter(|f| f.lifecycle == FactLifecycle::Stale)
+            .collect()
     }
 
     /// Remove archived facts
     pub fn prune_archived(&mut self) -> usize {
         let before = self.facts.len();
-        self.facts.retain(|_, f| f.lifecycle != FactLifecycle::Archived);
+        self.facts
+            .retain(|_, f| f.lifecycle != FactLifecycle::Archived);
         before - self.facts.len()
     }
 

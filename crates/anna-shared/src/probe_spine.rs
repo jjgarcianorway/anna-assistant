@@ -158,7 +158,9 @@ pub fn probe_to_command(probe: &ProbeId) -> String {
         ProbeId::IsActive(s) => format!("systemctl is-active {}", s),
         // v0.45.4: Use JSON output for proper SYSLOG_IDENTIFIER attribution
         ProbeId::JournalErrors => "journalctl -p err -b --no-pager -o json | head -50".to_string(),
-        ProbeId::JournalWarnings => "journalctl -p warning -b --no-pager -o json | head -50".to_string(),
+        ProbeId::JournalWarnings => {
+            "journalctl -p warning -b --no-pager -o json | head -50".to_string()
+        }
         ProbeId::PacmanQ(p) => format!("pacman -Q {} 2>/dev/null", p),
         ProbeId::PacmanCount => "pacman -Qe | wc -l".to_string(),
         // v0.45.4: Use login shell to get full PATH (e.g., ~/.bashrc exports)
@@ -188,7 +190,8 @@ pub fn enforce_spine_probes(
     }
 
     // Build probe list from spine_probes and required_evidence
-    let mut probes: Vec<String> = capability.spine_probes
+    let mut probes: Vec<String> = capability
+        .spine_probes
         .iter()
         .map(|p| probe_to_command(p))
         .collect();
@@ -231,17 +234,22 @@ fn extract_package_name(text: &str) -> Option<String> {
     let patterns = [
         ("do i have ", true),
         ("do you have ", true),
-        ("is ", false),  // "is nano installed"
+        ("is ", false), // "is nano installed"
         ("have i got ", true),
         ("got ", true),
     ];
 
     for (pattern, after) in patterns {
         if let Some(idx) = lower.find(pattern) {
-            let start = if after { idx + pattern.len() } else { idx + pattern.len() };
+            let start = if after {
+                idx + pattern.len()
+            } else {
+                idx + pattern.len()
+            };
             let rest = &text[start..];
             // Extract first word as package name
-            let pkg: String = rest.chars()
+            let pkg: String = rest
+                .chars()
                 .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
                 .collect();
             if !pkg.is_empty() && pkg.len() > 1 {
@@ -257,18 +265,17 @@ fn extract_package_name(text: &str) -> Option<String> {
 }
 
 /// Enforce minimum probes based on USER TEXT keywords (last line of defense).
-pub fn enforce_minimum_probes(
-    user_text: &str,
-    translator_probes: &[String],
-) -> ProbeSpineDecision {
+pub fn enforce_minimum_probes(user_text: &str, translator_probes: &[String]) -> ProbeSpineDecision {
     let lower = user_text.to_lowercase();
     let mut probes: Vec<ProbeId> = Vec::new();
     let mut evidence_kinds: Vec<EvidenceKind> = Vec::new();
     let mut reasons: Vec<&str> = Vec::new();
 
     // Rule 1: Package/tool check
-    if lower.contains("do i have") || lower.contains("is installed")
-        || lower.contains("have i got") || lower.contains("installed?")
+    if lower.contains("do i have")
+        || lower.contains("is installed")
+        || lower.contains("have i got")
+        || lower.contains("installed?")
     {
         if let Some(pkg) = extract_package_name(user_text) {
             probes.push(ProbeId::PacmanQ(pkg.clone()));
@@ -280,8 +287,10 @@ pub fn enforce_minimum_probes(
     }
 
     // Rule 2: Sound/audio
-    if lower.contains("sound card") || lower.contains("audio device")
-        || lower.contains("audio card") || lower.contains("sound device")
+    if lower.contains("sound card")
+        || lower.contains("audio device")
+        || lower.contains("audio card")
+        || lower.contains("sound device")
         || (lower.contains("sound") && lower.contains("hardware"))
         || (lower.contains("audio") && lower.contains("hardware"))
     {
@@ -294,8 +303,10 @@ pub fn enforce_minimum_probes(
     }
 
     // Rule 3: Temperature
-    if lower.contains("temperature") || lower.contains(" temp ")
-        || lower.contains("thermal") || lower.contains("temps?")
+    if lower.contains("temperature")
+        || lower.contains(" temp ")
+        || lower.contains("thermal")
+        || lower.contains("temps?")
         || lower.contains("how hot")
     {
         if !probes.iter().any(|p| matches!(p, ProbeId::Sensors)) {
@@ -306,8 +317,10 @@ pub fn enforce_minimum_probes(
     }
 
     // Rule 4: CPU cores/model/architecture
-    if lower.contains("cores") || lower.contains("cpu model")
-        || lower.contains("architecture") || lower.contains("processor")
+    if lower.contains("cores")
+        || lower.contains("cpu model")
+        || lower.contains("architecture")
+        || lower.contains("processor")
         || lower.contains("how many cpu")
     {
         if !probes.iter().any(|p| matches!(p, ProbeId::Lscpu)) {
@@ -318,9 +331,12 @@ pub fn enforce_minimum_probes(
     }
 
     // Rule 5: System health / errors / problems
-    if lower.contains("how is my computer") || lower.contains("errors")
-        || lower.contains("problems") || lower.contains("system health")
-        || lower.contains("what's wrong") || lower.contains("issues")
+    if lower.contains("how is my computer")
+        || lower.contains("errors")
+        || lower.contains("problems")
+        || lower.contains("system health")
+        || lower.contains("what's wrong")
+        || lower.contains("issues")
     {
         if !probes.iter().any(|p| matches!(p, ProbeId::JournalErrors)) {
             probes.push(ProbeId::JournalErrors);
@@ -339,30 +355,45 @@ pub fn enforce_minimum_probes(
     // - "enable line numbers", "set vim to show line numbers"
     // - "configure editor theme"
     // Avoid false positives for unrelated "enable" phrases
-    let editor_config_verbs = lower.contains("enable") || lower.contains("turn on")
-        || lower.contains("activate") || lower.contains("set up") || lower.contains("configure")
-        || lower.contains("show") || lower.contains("set ");
+    let editor_config_verbs = lower.contains("enable")
+        || lower.contains("turn on")
+        || lower.contains("activate")
+        || lower.contains("set up")
+        || lower.contains("configure")
+        || lower.contains("show")
+        || lower.contains("set ");
 
-    let editor_config_features = lower.contains("syntax") || lower.contains("highlight")
-        || lower.contains("line number") || lower.contains("word wrap")
-        || lower.contains("auto indent") || lower.contains("theme")
-        || lower.contains("colorscheme") || lower.contains("color scheme");
+    let editor_config_features = lower.contains("syntax")
+        || lower.contains("highlight")
+        || lower.contains("line number")
+        || lower.contains("word wrap")
+        || lower.contains("auto indent")
+        || lower.contains("theme")
+        || lower.contains("colorscheme")
+        || lower.contains("color scheme");
 
     // Known editor names in query (more specific matching)
     // v0.0.57: Added kate and gedit to known editors
-    let named_editor = lower.contains(" vim") || lower.contains(" nvim")
-        || lower.contains(" nano") || lower.contains(" emacs")
-        || lower.contains(" micro") || lower.contains(" helix")
-        || lower.contains(" code") || lower.contains("vscode")
-        || lower.contains(" kate") || lower.contains(" gedit");
+    let named_editor = lower.contains(" vim")
+        || lower.contains(" nvim")
+        || lower.contains(" nano")
+        || lower.contains(" emacs")
+        || lower.contains(" micro")
+        || lower.contains(" helix")
+        || lower.contains(" code")
+        || lower.contains("vscode")
+        || lower.contains(" kate")
+        || lower.contains(" gedit");
 
-    let is_editor_config = (editor_config_verbs && editor_config_features)
-        || (named_editor && editor_config_features);
+    let is_editor_config =
+        (editor_config_verbs && editor_config_features) || (named_editor && editor_config_features);
 
     if is_editor_config {
         // Add probes for common editors to detect which are installed
         // v0.0.59: Added "hx" (helix binary name) to ensure we probe both names
-        let editors = ["code", "vim", "nvim", "nano", "emacs", "micro", "helix", "hx", "kate", "gedit"];
+        let editors = [
+            "code", "vim", "nvim", "nano", "emacs", "micro", "helix", "hx", "kate", "gedit",
+        ];
         for editor in editors {
             probes.push(ProbeId::CommandV(editor.to_string()));
         }
@@ -410,11 +441,7 @@ pub enum Urgency {
 
 /// Reduce probes to minimal set based on route and urgency.
 /// Default: max 3 probes. System health: max 4. ConfigureEditor: 10. Never run both errors and warnings.
-pub fn reduce_probes(
-    planned: Vec<ProbeId>,
-    route_class: &str,
-    urgency: Urgency,
-) -> Vec<ProbeId> {
+pub fn reduce_probes(planned: Vec<ProbeId>, route_class: &str, urgency: Urgency) -> Vec<ProbeId> {
     let max_probes = match (route_class, urgency) {
         // v0.0.60: ConfigureEditor needs to probe all editors (10 probes)
         // This is cheap (command -v is fast) and necessary for grounded selection

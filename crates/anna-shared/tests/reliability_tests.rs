@@ -125,7 +125,9 @@ fn golden_invention_ceiling() {
     let output = compute_reliability(&input);
 
     assert_eq!(output.score, 40, "Invention caps at 40");
-    assert!(output.reasons.contains(&ReliabilityReason::InventionDetected));
+    assert!(output
+        .reasons
+        .contains(&ReliabilityReason::InventionDetected));
 }
 
 /// GOLDEN: low_confidence_translator
@@ -275,7 +277,9 @@ fn golden_resource_caps() {
     // -10 for prompt_truncated, -5 for transcript_capped
     assert_eq!(output.score, 85, "Expected score 85");
     assert!(output.reasons.contains(&ReliabilityReason::PromptTruncated));
-    assert!(output.reasons.contains(&ReliabilityReason::TranscriptCapped));
+    assert!(output
+        .reasons
+        .contains(&ReliabilityReason::TranscriptCapped));
 }
 
 /// GOLDEN: all failures combined
@@ -301,7 +305,9 @@ fn golden_worst_case() {
     // Invention ceiling caps at 40, then clamp to 0
     // But we still track all reasons
     assert!(output.score <= 40, "Should be capped by invention ceiling");
-    assert!(output.reasons.contains(&ReliabilityReason::InventionDetected));
+    assert!(output
+        .reasons
+        .contains(&ReliabilityReason::InventionDetected));
 }
 
 /// GOLDEN: translator_probe_conflict
@@ -324,11 +330,11 @@ fn golden_translator_probe_conflict() {
     // Simulate what happens when translator doesn't request probes
     // but the answer still tries to respond (not grounded)
     let input = ReliabilityInput {
-        planned_probes: 0,         // translator said none
+        planned_probes: 0, // translator said none
         succeeded_probes: 0,
-        answer_grounded: false,    // can't be grounded without probes
-        no_invention: true,        // didn't invent, just couldn't answer
-        evidence_required: true,   // heuristic detected this
+        answer_grounded: false,  // can't be grounded without probes
+        no_invention: true,      // didn't invent, just couldn't answer
+        evidence_required: true, // heuristic detected this
         translator_used: true,
         translator_confidence: 0.6, // mediocre confidence
         ..Default::default()
@@ -341,7 +347,10 @@ fn golden_translator_probe_conflict() {
     // - evidence_missing (no probes, evidence_required): -25
     // - low_confidence (< 0.7): -20
     // total = 100 - 30 - 25 - 20 = 25
-    assert_eq!(output.score, 25, "Translator/probe conflict should heavily degrade score");
+    assert_eq!(
+        output.score, 25,
+        "Translator/probe conflict should heavily degrade score"
+    );
     assert!(output.reasons.contains(&ReliabilityReason::NotGrounded));
     assert!(output.reasons.contains(&ReliabilityReason::EvidenceMissing));
     assert!(output.reasons.contains(&ReliabilityReason::LowConfidence));
@@ -356,7 +365,7 @@ fn golden_translator_probe_conflict_with_invention() {
         planned_probes: 0,
         succeeded_probes: 0,
         answer_grounded: false,
-        no_invention: false,       // LLM invented an answer
+        no_invention: false, // LLM invented an answer
         evidence_required: true,
         translator_used: true,
         translator_confidence: 0.6,
@@ -379,7 +388,9 @@ fn golden_translator_probe_conflict_with_invention() {
         "Invention should be primary reason (highest priority)"
     );
     // All reasons should be tracked
-    assert!(output.reasons.contains(&ReliabilityReason::InventionDetected));
+    assert!(output
+        .reasons
+        .contains(&ReliabilityReason::InventionDetected));
     assert!(output.reasons.contains(&ReliabilityReason::NotGrounded));
     assert!(output.reasons.contains(&ReliabilityReason::EvidenceMissing));
     assert!(output.reasons.contains(&ReliabilityReason::LowConfidence));
@@ -422,7 +433,10 @@ fn golden_trust_exact_threshold_no_explanation() {
     assert_eq!(output.score, EXPLANATION_THRESHOLD); // 80
 
     let explanation = ReliabilityExplanation::build(&output, &input, vec![]);
-    assert!(explanation.is_none(), "Score exactly at threshold should yield None");
+    assert!(
+        explanation.is_none(),
+        "Score exactly at threshold should yield None"
+    );
 }
 
 /// GOLDEN: single reason explanation
@@ -435,8 +449,8 @@ fn golden_trust_single_reason() {
         no_invention: true,
         translator_used: true,
         translator_confidence: 0.75, // -10 → score 90, then another -10 needed
-        prompt_truncated: true,       // -10 → score 80, still at threshold
-        transcript_capped: true,      // -5 → score 75
+        prompt_truncated: true,      // -10 → score 80, still at threshold
+        transcript_capped: true,     // -5 → score 75
         ..Default::default()
     };
 
@@ -588,12 +602,18 @@ fn golden_trust_templated_details() {
     let exp = explanation.unwrap();
 
     // Find the timeout reason
-    let timeout_reason = exp.reasons.iter().find(|r| r.code == ReliabilityReason::ProbeTimeout);
+    let timeout_reason = exp
+        .reasons
+        .iter()
+        .find(|r| r.code == ReliabilityReason::ProbeTimeout);
     assert!(timeout_reason.is_some());
     let tr = timeout_reason.unwrap();
 
     // Details should follow template: "{timed_out} of {planned} probes timed out"
-    assert!(tr.details.contains("2 of 5"), "Should have templated probe counts");
+    assert!(
+        tr.details.contains("2 of 5"),
+        "Should have templated probe counts"
+    );
 }
 
 /// GOLDEN: deduplication of reasons
@@ -665,7 +685,10 @@ fn golden_meter_within_budget_no_penalty() {
     let output = compute_reliability(&input);
 
     // Expected: 100 (no penalties)
-    assert_eq!(output.score, 100, "No budget exceeded should mean no penalty");
+    assert_eq!(
+        output.score, 100,
+        "No budget exceeded should mean no penalty"
+    );
     assert!(!output.reasons.contains(&ReliabilityReason::BudgetExceeded));
 }
 
@@ -713,7 +736,10 @@ fn golden_meter_budget_subsumes_timeout() {
 
     // Expected: 100 - 15 (budget_exceeded) - 10 (coverage) = 75
     // ProbeTimeout penalty (-10) is NOT applied due to subsumption
-    assert_eq!(output.score, 75, "Budget exceeded should subsume probe timeout");
+    assert_eq!(
+        output.score, 75,
+        "Budget exceeded should subsume probe timeout"
+    );
     assert!(
         output.reasons.contains(&ReliabilityReason::BudgetExceeded),
         "BudgetExceeded should be present"
@@ -753,7 +779,10 @@ fn golden_meter_trust_explanation() {
     };
 
     let output = compute_reliability(&input);
-    assert!(output.score < EXPLANATION_THRESHOLD, "Score should be below 80 for explanation");
+    assert!(
+        output.score < EXPLANATION_THRESHOLD,
+        "Score should be below 80 for explanation"
+    );
 
     let explanation = ReliabilityExplanation::build(&output, &input, vec![]);
     assert!(explanation.is_some(), "Explanation should be generated");
@@ -761,8 +790,14 @@ fn golden_meter_trust_explanation() {
     let exp = explanation.unwrap();
 
     // Find the budget exceeded reason
-    let budget_reason = exp.reasons.iter().find(|r| r.code == ReliabilityReason::BudgetExceeded);
-    assert!(budget_reason.is_some(), "BudgetExceeded reason should be present");
+    let budget_reason = exp
+        .reasons
+        .iter()
+        .find(|r| r.code == ReliabilityReason::BudgetExceeded);
+    assert!(
+        budget_reason.is_some(),
+        "BudgetExceeded reason should be present"
+    );
 
     let br = budget_reason.unwrap();
     // Template: "{stage} stage exceeded budget ({elapsed}ms > {budget}ms)"
@@ -841,7 +876,10 @@ fn golden_fallback_timeout_with_fallback() {
     );
 
     // Score should be 100 - 5 = 95
-    assert_eq!(output.score, 95, "Timeout with fallback should apply -5 penalty");
+    assert_eq!(
+        output.score, 95,
+        "Timeout with fallback should apply -5 penalty"
+    );
 }
 
 /// Timeout + no fallback → No FallbackUsed penalty (only probe timeout)
@@ -918,7 +956,10 @@ fn golden_fallback_deterministic_route_not_penalized() {
     );
 
     // Should be perfect score
-    assert_eq!(output.score, 100, "Deterministic routing should not be penalized");
+    assert_eq!(
+        output.score, 100,
+        "Deterministic routing should not be penalized"
+    );
 }
 
 /// Error + fallback → FallbackUsed penalty applies
@@ -997,15 +1038,28 @@ fn golden_fallback_explanation_with_evidence() {
     let output = compute_reliability(&input);
     let explanation = ReliabilityExplanation::build(&output, &input, vec![]);
 
-    assert!(explanation.is_some(), "Should have explanation when score < 80");
+    assert!(
+        explanation.is_some(),
+        "Should have explanation when score < 80"
+    );
     let explanation = explanation.unwrap();
 
     // Find FallbackUsed reason
-    let fallback_reason = explanation.reasons.iter()
+    let fallback_reason = explanation
+        .reasons
+        .iter()
         .find(|r| r.code == ReliabilityReason::FallbackUsed);
     assert!(fallback_reason.is_some());
 
     let details = &fallback_reason.unwrap().details;
-    assert!(details.contains("memory"), "Should mention evidence kind: {}", details);
-    assert!(details.contains("memory_usage"), "Should mention route class: {}", details);
+    assert!(
+        details.contains("memory"),
+        "Should mention evidence kind: {}",
+        details
+    );
+    assert!(
+        details.contains("memory_usage"),
+        "Should mention route class: {}",
+        details
+    );
 }

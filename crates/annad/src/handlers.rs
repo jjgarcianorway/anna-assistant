@@ -112,10 +112,13 @@ pub async fn handle_reset(state: SharedState, id: String) -> RpcResponse {
     }
 
     info!("Reset completed - all learned data cleared");
-    RpcResponse::success(id, serde_json::json!({
-        "status": "reset_complete",
-        "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending", "inventory"]
-    }))
+    RpcResponse::success(
+        id,
+        serde_json::json!({
+            "status": "reset_complete",
+            "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending", "inventory"]
+        }),
+    )
 }
 
 /// Handle uninstall request
@@ -322,4 +325,3 @@ pub async fn handle_rollback_change(id: String, params: Option<serde_json::Value
     }
     RpcResponse::success(id, serde_json::to_value(&result).unwrap())
 }
-

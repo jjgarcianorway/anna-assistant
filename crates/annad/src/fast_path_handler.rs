@@ -3,7 +3,9 @@
 //! Answers common queries without LLM using cached snapshot data.
 //! v0.0.40: Added force_fast_path_fallback for timeout scenarios.
 
-use anna_shared::fastpath::{classify_fast_path, try_fast_path, FastPathClass, FastPathInput, FastPathPolicy};
+use anna_shared::fastpath::{
+    classify_fast_path, try_fast_path, FastPathClass, FastPathInput, FastPathPolicy,
+};
 use anna_shared::health_view::build_health_summary;
 use anna_shared::rpc::{EvidenceBlock, ReliabilitySignals, ServiceDeskResult, SpecialistDomain};
 use anna_shared::snapshot::load_last_snapshot;
@@ -116,7 +118,7 @@ pub fn build_fast_path_result(
     let trace = ExecutionTrace::deterministic_route(
         &class.to_string(),
         ProbeStats::default(), // No probes run
-        vec![], // Evidence kinds already in snapshot
+        vec![],                // Evidence kinds already in snapshot
     );
 
     ServiceDeskResult {
@@ -136,6 +138,7 @@ pub fn build_fast_path_result(
         transcript,
         execution_trace: Some(trace),
         proposed_change: None,
+        proposed_changes: Vec::new(),
         feedback_request: None,
     }
 }

@@ -142,9 +142,10 @@ fn test_editor_options_always_have_cancel_and_other() {
 fn test_editor_options_with_cache() {
     let mut cache = InventoryCache::new();
     // Manually add vim as installed
-    cache
-        .items
-        .insert("vim".to_string(), InventoryItem::installed("vim", "/usr/bin/vim"));
+    cache.items.insert(
+        "vim".to_string(),
+        InventoryItem::installed("vim", "/usr/bin/vim"),
+    );
     cache
         .items
         .insert("nano".to_string(), InventoryItem::not_installed("nano"));
@@ -157,7 +158,11 @@ fn test_editor_options_with_cache() {
     // Check vim is present with installed evidence
     let vim_opt = options.iter().find(|o| o.key == "vim");
     assert!(vim_opt.is_some());
-    assert!(vim_opt.unwrap().evidence.iter().any(|e| e.contains("installed")));
+    assert!(vim_opt
+        .unwrap()
+        .evidence
+        .iter()
+        .any(|e| e.contains("installed")));
 
     // Check nano is NOT present (not installed)
     let nano_opt = options.iter().find(|o| o.key == "nano");

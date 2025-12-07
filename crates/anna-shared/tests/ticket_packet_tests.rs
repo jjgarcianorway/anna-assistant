@@ -4,8 +4,7 @@ use anna_shared::facts::FactKey;
 use anna_shared::rpc::{ProbeResult, SpecialistDomain};
 use anna_shared::teams::Team;
 use anna_shared::ticket_packet::{
-    policy_for_team, recommended_probes_for_domain, PacketPolicy,
-    TicketPacket, TicketPacketBuilder,
+    policy_for_team, recommended_probes_for_domain, PacketPolicy, TicketPacket, TicketPacketBuilder,
 };
 use anna_shared::trace::EvidenceKind;
 
@@ -111,7 +110,9 @@ fn test_policy_for_storage() {
 #[test]
 fn test_policy_for_network() {
     let policy = PacketPolicy::for_team(Team::Network);
-    assert!(policy.allowed_facts.contains(&FactKey::NetworkPrimaryInterface));
+    assert!(policy
+        .allowed_facts
+        .contains(&FactKey::NetworkPrimaryInterface));
     assert!(policy.required_probes.contains(&"network_addrs"));
 }
 

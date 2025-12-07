@@ -4,7 +4,9 @@
 //! and COST resource caps.
 
 use anna_shared::resource_limits::MAX_TRANSCRIPT_EVENTS;
-use anna_shared::transcript::{Actor, StageOutcome, Transcript, TranscriptEvent, TranscriptEventKind};
+use anna_shared::transcript::{
+    Actor, StageOutcome, Transcript, TranscriptEvent, TranscriptEventKind,
+};
 
 #[test]
 fn test_actor_display() {
@@ -125,7 +127,10 @@ fn test_final_answer_serialization() {
 
     // Round-trip
     let parsed: TranscriptEvent = serde_json::from_str(&json).unwrap();
-    assert!(matches!(parsed.kind, TranscriptEventKind::FinalAnswer { .. }));
+    assert!(matches!(
+        parsed.kind,
+        TranscriptEventKind::FinalAnswer { .. }
+    ));
 }
 
 /// GUARDRAIL: Unknown event kinds deserialize safely (wire compatibility)
@@ -152,13 +157,28 @@ fn test_final_answer_distinct_from_message() {
     let mut transcript = Transcript::new();
 
     // User query
-    transcript.push(TranscriptEvent::message(0, Actor::You, Actor::Anna, "query"));
+    transcript.push(TranscriptEvent::message(
+        0,
+        Actor::You,
+        Actor::Anna,
+        "query",
+    ));
     // Some internal Anna message (NOT the final answer)
-    transcript.push(TranscriptEvent::message(50, Actor::Anna, Actor::System, "thinking..."));
+    transcript.push(TranscriptEvent::message(
+        50,
+        Actor::Anna,
+        Actor::System,
+        "thinking...",
+    ));
     // The actual final answer
     transcript.push(TranscriptEvent::final_answer(100, "the answer"));
     // Another Anna message after (should be ignored)
-    transcript.push(TranscriptEvent::message(150, Actor::Anna, Actor::You, "follow-up"));
+    transcript.push(TranscriptEvent::message(
+        150,
+        Actor::Anna,
+        Actor::You,
+        "follow-up",
+    ));
 
     // Count FinalAnswer events
     let final_answers: Vec<_> = transcript
@@ -167,7 +187,11 @@ fn test_final_answer_distinct_from_message() {
         .filter(|e| matches!(e.kind, TranscriptEventKind::FinalAnswer { .. }))
         .collect();
 
-    assert_eq!(final_answers.len(), 1, "Should have exactly one FinalAnswer");
+    assert_eq!(
+        final_answers.len(),
+        1,
+        "Should have exactly one FinalAnswer"
+    );
 
     // Count Anna messages (not FinalAnswer)
     let anna_messages: Vec<_> = transcript

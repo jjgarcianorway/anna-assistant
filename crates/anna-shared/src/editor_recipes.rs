@@ -204,7 +204,11 @@ pub fn describe_changes(recipe: &EditorRecipe, existing_content: &str) -> String
     if changes.iter().all(|c| c.contains("[skip]")) {
         "No changes needed - configuration already present.".to_string()
     } else {
-        format!("Changes to {}:\n{}", recipe.editor.config_path(), changes.join("\n"))
+        format!(
+            "Changes to {}:\n{}",
+            recipe.editor.config_path(),
+            changes.join("\n")
+        )
     }
 }
 
@@ -231,7 +235,10 @@ pub fn backup_path(editor: &Editor) -> PathBuf {
         config.file_name().unwrap_or_default().to_string_lossy(),
         chrono::Utc::now().format("%Y%m%d-%H%M%S")
     );
-    config.parent().map(|p| p.join(backup_name)).unwrap_or_else(|| config.with_extension("backup"))
+    config
+        .parent()
+        .map(|p| p.join(backup_name))
+        .unwrap_or_else(|| config.with_extension("backup"))
 }
 
 // Tests in tests/editor_recipes_tests.rs

@@ -180,9 +180,7 @@ pub fn parse_display_size(s: &str) -> Result<u64, ParseErrorReason> {
 /// Contract: input is already trimmed. Neither part contains whitespace.
 fn split_numeric_suffix(s: &str) -> Result<(&str, &str), ParseErrorReason> {
     // Find where digits/decimal end and suffix begins
-    let suffix_start = s
-        .find(|c: char| c.is_ascii_alphabetic())
-        .unwrap_or(s.len());
+    let suffix_start = s.find(|c: char| c.is_ascii_alphabetic()).unwrap_or(s.len());
 
     let num_part = &s[..suffix_start];
     let suffix_part = &s[suffix_start..];
@@ -267,8 +265,17 @@ pub fn parse_percent(s: &str) -> Result<u8, ParseErrorReason> {
 
 /// Known systemd unit suffixes.
 const KNOWN_UNIT_SUFFIXES: &[&str] = &[
-    ".service", ".socket", ".timer", ".mount", ".target", ".path", ".slice", ".scope", ".device",
-    ".automount", ".swap",
+    ".service",
+    ".socket",
+    ".timer",
+    ".mount",
+    ".target",
+    ".path",
+    ".slice",
+    ".scope",
+    ".device",
+    ".automount",
+    ".swap",
 ];
 
 /// Normalize a service name to canonical form.
@@ -426,6 +433,9 @@ mod tests {
             parse_display_size("5GB/s"),
             Err(ParseErrorReason::UnknownSuffix("GB/s".to_string()))
         );
-        assert_eq!(parse_display_size("-5GB"), Err(ParseErrorReason::NegativeValue));
+        assert_eq!(
+            parse_display_size("-5GB"),
+            Err(ParseErrorReason::NegativeValue)
+        );
     }
 }

@@ -157,10 +157,14 @@ impl RelevantHealthSummary {
     /// Sort items deterministically (category order, then by sort_key descending)
     pub fn sort(&mut self) {
         self.critical.sort_by(|a, b| {
-            a.category.cmp(&b.category).then_with(|| b.sort_key.cmp(&a.sort_key))
+            a.category
+                .cmp(&b.category)
+                .then_with(|| b.sort_key.cmp(&a.sort_key))
         });
         self.warnings.sort_by(|a, b| {
-            a.category.cmp(&b.category).then_with(|| b.sort_key.cmp(&a.sort_key))
+            a.category
+                .cmp(&b.category)
+                .then_with(|| b.sort_key.cmp(&a.sort_key))
         });
     }
 
@@ -288,7 +292,10 @@ pub fn build_health_summary(
             if let Some(&prev_pct) = prev.disk.get(mount) {
                 if curr_pct >= prev_pct + 5 && curr_pct >= DISK_WARN_THRESHOLD {
                     summary.add_change(HealthChange {
-                        description: format!("Disk {} increased from {}% to {}%", mount, prev_pct, curr_pct),
+                        description: format!(
+                            "Disk {} increased from {}% to {}%",
+                            mount, prev_pct, curr_pct
+                        ),
                         positive: false,
                     });
                 }
@@ -335,7 +342,10 @@ mod tests {
         assert!(summary.nothing_to_report);
         assert!(summary.critical.is_empty());
         assert!(summary.warnings.is_empty());
-        assert_eq!(summary.format(), "No critical issues detected. No warnings detected.");
+        assert_eq!(
+            summary.format(),
+            "No critical issues detected. No warnings detected."
+        );
     }
 
     #[test]

@@ -289,7 +289,9 @@ pub fn find_recipes_by_keywords(keywords: &[&str], shell: Option<Shell>) -> Vec<
             let feature_keywords = r.feature.keywords();
             keywords.iter().any(|kw| {
                 let kw_lower = kw.to_lowercase();
-                feature_keywords.iter().any(|fk| fk.contains(&kw_lower) || kw_lower.contains(fk))
+                feature_keywords
+                    .iter()
+                    .any(|fk| fk.contains(&kw_lower) || kw_lower.contains(fk))
             })
         })
         .collect()
@@ -334,8 +336,14 @@ mod tests {
     #[test]
     fn test_shell_config_path() {
         // Just test that paths end with expected filenames
-        assert!(Shell::Bash.config_path().to_string_lossy().ends_with(".bashrc"));
-        assert!(Shell::Zsh.config_path().to_string_lossy().ends_with(".zshrc"));
+        assert!(Shell::Bash
+            .config_path()
+            .to_string_lossy()
+            .ends_with(".bashrc"));
+        assert!(Shell::Zsh
+            .config_path()
+            .to_string_lossy()
+            .ends_with(".zshrc"));
     }
 
     #[test]
@@ -347,8 +355,14 @@ mod tests {
 
     #[test]
     fn test_detect_feature() {
-        assert_eq!(detect_feature("show git branch in prompt"), Some(ShellFeature::GitPrompt));
-        assert_eq!(detect_feature("enable syntax highlighting"), Some(ShellFeature::SyntaxHighlighting));
+        assert_eq!(
+            detect_feature("show git branch in prompt"),
+            Some(ShellFeature::GitPrompt)
+        );
+        assert_eq!(
+            detect_feature("enable syntax highlighting"),
+            Some(ShellFeature::SyntaxHighlighting)
+        );
         assert_eq!(detect_feature("colored ls"), Some(ShellFeature::ColoredLs));
     }
 

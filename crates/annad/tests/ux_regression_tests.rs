@@ -21,7 +21,10 @@ fn test_timeout_response_has_answer() {
     );
 
     // v0.45.x: Timeout response MUST have non-empty answer
-    assert!(!result.answer.is_empty(), "Timeout response must have answer");
+    assert!(
+        !result.answer.is_empty(),
+        "Timeout response must have answer"
+    );
     assert!(
         result.answer.contains("Timeout"),
         "Answer should mention timeout"
@@ -42,7 +45,10 @@ fn test_timeout_response_never_asks_rephrase() {
     );
 
     // v0.45.x: NEVER ask to rephrase
-    assert!(!result.needs_clarification, "Timeout should not need clarification");
+    assert!(
+        !result.needs_clarification,
+        "Timeout should not need clarification"
+    );
     assert!(
         result.clarification_question.is_none(),
         "Timeout should not have clarification question"
@@ -77,7 +83,10 @@ fn test_timeout_response_with_evidence() {
         "Answer should summarize available evidence"
     );
     // Higher reliability when evidence exists
-    assert!(result.reliability_score > 20, "Should have higher score with evidence");
+    assert!(
+        result.reliability_score > 20,
+        "Should have higher score with evidence"
+    );
 }
 
 #[test]
@@ -94,7 +103,10 @@ fn test_timeout_response_low_reliability_without_evidence() {
     );
 
     // Without evidence, reliability should be low (but not zero)
-    assert!(result.reliability_score <= 40, "Should have low score without evidence");
+    assert!(
+        result.reliability_score <= 40,
+        "Should have low score without evidence"
+    );
     assert!(result.reliability_score > 0, "Should have non-zero score");
 }
 

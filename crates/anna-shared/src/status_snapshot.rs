@@ -206,8 +206,16 @@ impl HelpersInfo {
         Self {
             total: registry.len(),
             anna_installed: registry.anna_installed().len(),
-            user_installed: registry.packages.iter().filter(|p| p.install_source == InstallSource::User).count(),
-            bundled: registry.packages.iter().filter(|p| p.install_source == InstallSource::Bundled).count(),
+            user_installed: registry
+                .packages
+                .iter()
+                .filter(|p| p.install_source == InstallSource::User)
+                .count(),
+            bundled: registry
+                .packages
+                .iter()
+                .filter(|p| p.install_source == InstallSource::Bundled)
+                .count(),
             list,
         }
     }
@@ -318,7 +326,10 @@ impl StatusSnapshot {
 
     /// Check if update is available
     pub fn update_available(&self) -> bool {
-        matches!(self.update.last_result, UpdateResult::UpdateAvailable { .. })
+        matches!(
+            self.update.last_result,
+            UpdateResult::UpdateAvailable { .. }
+        )
     }
 
     /// Get overall health status string

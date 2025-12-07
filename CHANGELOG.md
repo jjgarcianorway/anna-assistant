@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.137] - 2025-12-07
+
+### Added - Config Change UX Polish
+- Theatre view now surfaces proposed config changes (single or multi-step) inline so users see exactly what will be edited before approving.
+- Config apply flow prints step details (description, exact ensure/append action) and summarizes applied/no-op/failed counts in REPL/one-shot mode.
+- Lays groundwork for richer multi-line recipe application by standardizing change summaries across the CLI.
+
+## [0.0.136] - 2025-12-07
+
+### Added - Snapshot-Driven Status & Richer Stats
+- annactl status now consumes the daemon status snapshot and renders sections for versions/updates, daemon+LLM health, permissions/groups/socket/data dir, helpers (with source) and role→model bindings, plus config flags.
+- Daemon snapshot now populates real permissions, helper availability/source (including ollama), and maps LLM roles for bindings.
+- Stats view shows escalations/clarifications, durations, interaction counts, fast-path/knowledge/recipe hits, and recipe library size to align with the RPG/service-desk experience.
+- Kept files under 400 lines by moving state helper types into a dedicated module.
+
 ## [0.0.135] - 2025-12-07
 
 ### Added - Peripheral & Audio Queries (Phase 54)

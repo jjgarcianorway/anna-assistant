@@ -174,7 +174,11 @@ pub struct ReviewIssue {
 
 impl ReviewIssue {
     /// Create a new review issue
-    pub fn new(severity: ReviewSeverity, kind: ReviewIssueKind, message: impl Into<String>) -> Self {
+    pub fn new(
+        severity: ReviewSeverity,
+        kind: ReviewIssueKind,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             severity,
             kind,
@@ -352,12 +356,17 @@ impl ReviewArtifact {
 
     /// Check if any issues are blockers
     pub fn has_blockers(&self) -> bool {
-        self.issues.iter().any(|i| i.severity == ReviewSeverity::Blocker)
+        self.issues
+            .iter()
+            .any(|i| i.severity == ReviewSeverity::Blocker)
     }
 
     /// Get count of issues by severity
     pub fn issue_count(&self, severity: ReviewSeverity) -> usize {
-        self.issues.iter().filter(|i| i.severity == severity).count()
+        self.issues
+            .iter()
+            .filter(|i| i.severity == severity)
+            .count()
     }
 
     /// Get a summary of issues for transcript
@@ -380,7 +389,12 @@ impl Default for ReviewArtifact {
 impl ReviewInputsSummary {
     /// Create summary from values
     pub fn new(score: u8, grounding_ratio: f32, total_claims: u32) -> Self {
-        Self { score, grounding_ratio, total_claims, ..Default::default() }
+        Self {
+            score,
+            grounding_ratio,
+            total_claims,
+            ..Default::default()
+        }
     }
 
     /// Set invention_detected

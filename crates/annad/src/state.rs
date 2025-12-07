@@ -1,8 +1,10 @@
 //! Daemon state management.
 
 use std::collections::HashMap;
+use std::path::Path;
+use std::process::Command;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anna_shared::ledger::Ledger;
 use anna_shared::progress::ProgressEvent;
@@ -21,103 +23,9 @@ use anna_shared::{DEFAULT_UPDATE_CHECK_INTERVAL, VERSION};
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
+use crate::state_types::{CachedProbe, PipelineLatency};
+
 use crate::config::Config;
-
-/// Probe cache TTL (30 seconds)
-pub const PROBE_CACHE_TTL: Duration = Duration::from_secs(30);
-
-/// Max number of latency records to keep per stage
-pub const MAX_LATENCY_RECORDS: usize = 20;
-
-/// Cached probe result with timestamp
-#[derive(Debug, Clone)]
-pub struct CachedProbe {
-    pub result: ProbeResult,
-    pub cached_at: Instant,
-}
-
-impl CachedProbe {
-    pub fn is_valid(&self) -> bool {
-        self.cached_at.elapsed() < PROBE_CACHE_TTL
-    }
-}
-
-/// Latency stats for a pipeline stage
-#[derive(Debug, Clone, Default)]
-pub struct LatencyStats {
-    /// Last N latency samples in milliseconds
-    pub samples: Vec<u64>,
-}
-
-impl LatencyStats {
-    /// Add a latency sample
-    pub fn add(&mut self, ms: u64) {
-        self.samples.push(ms);
-        if self.samples.len() > MAX_LATENCY_RECORDS {
-            self.samples.remove(0);
-        }
-    }
-
-    /// Average latency in ms
-    pub fn avg_ms(&self) -> Option<u64> {
-        if self.samples.is_empty() {
-            None
-        } else {
-            Some(self.samples.iter().sum::<u64>() / self.samples.len() as u64)
-        }
-    }
-
-    /// P50 (median) latency in ms (v0.0.36)
-    pub fn p50_ms(&self) -> Option<u64> {
-        self.percentile_ms(0.50)
-    }
-
-    /// P90 latency in ms (v0.0.36)
-    pub fn p90_ms(&self) -> Option<u64> {
-        self.percentile_ms(0.90)
-    }
-
-    /// P95 latency in ms
-    pub fn p95_ms(&self) -> Option<u64> {
-        self.percentile_ms(0.95)
-    }
-
-    /// Calculate percentile latency (v0.0.36)
-    fn percentile_ms(&self, p: f64) -> Option<u64> {
-        if self.samples.is_empty() {
-            None
-        } else {
-            let mut sorted = self.samples.clone();
-            sorted.sort_unstable();
-            let idx = (sorted.len() as f64 * p).ceil() as usize - 1;
-            Some(sorted[idx.min(sorted.len() - 1)])
-        }
-    }
-
-    /// Min latency in ms (v0.0.36)
-    pub fn min_ms(&self) -> Option<u64> {
-        self.samples.iter().min().copied()
-    }
-
-    /// Max latency in ms (v0.0.36)
-    pub fn max_ms(&self) -> Option<u64> {
-        self.samples.iter().max().copied()
-    }
-
-    /// Number of samples collected
-    pub fn sample_count(&self) -> usize {
-        self.samples.len()
-    }
-}
-
-/// Per-stage latency tracking
-#[derive(Debug, Clone, Default)]
-pub struct PipelineLatency {
-    pub translator: LatencyStats,
-    pub probes: LatencyStats,
-    pub specialist: LatencyStats,
-    pub total: LatencyStats,
-}
 
 /// Shared daemon state
 pub struct DaemonStateInner {
@@ -323,7 +231,12 @@ impl DaemonStateInner {
     }
 
     /// v0.0.79: Record a completed request in stats
-    pub fn record_request(&mut self, fast_path: bool, translator_timeout: bool, specialist_timeout: bool) {
+    pub fn record_request(
+        &mut self,
+        fast_path: bool,
+        translator_timeout: bool,
+        specialist_timeout: bool,
+    ) {
         if fast_path {
             self.stats.record_fast_path_hit();
         } else {
@@ -339,7 +252,7 @@ impl DaemonStateInner {
 
     /// Build comprehensive status snapshot (v0.0.29)
     pub fn to_status_snapshot(&self) -> StatusSnapshot {
-        use anna_shared::helpers::load_helpers;
+        use anna_shared::helpers::{known_helpers, load_helpers, HelperPackage, InstallSource};
         use anna_shared::specialists::SpecialistRole;
         use anna_shared::teams::Team;
 
@@ -349,18 +262,21 @@ impl DaemonStateInner {
             .unwrap_or(0);
 
         // Version info
-        let versions = VersionInfo::new(VERSION).with_remote(
-            self.update.latest_version.clone(),
-        );
+        let versions = VersionInfo::new(VERSION).with_remote(self.update.latest_version.clone());
 
         // Daemon info
-        let daemon = DaemonInfo::running(self.pid, self.started_at.elapsed().as_secs())
-            .with_error(self.last_error.clone().unwrap_or_default());
+        let mut daemon = DaemonInfo::running(self.pid, self.started_at.elapsed().as_secs());
+        if let Some(err) = &self.last_error {
+            daemon = daemon.with_error(err.clone());
+        }
 
         // Permissions info (basic - can be enhanced)
-        let perms = PermissionsInfo::current()
-            .with_daemon_access(true)
-            .with_data_dir_ok(true);
+        let (user, groups) = current_user_and_groups();
+        let mut perms = PermissionsInfo::current()
+            .with_groups(groups)
+            .with_daemon_access(Path::new(anna_shared::SOCKET_PATH).exists())
+            .with_data_dir_ok(Path::new("/var/lib/anna").is_dir());
+        perms.user = user;
 
         // Update info
         let update = UpdateInfo {
@@ -379,7 +295,27 @@ impl DaemonStateInner {
         };
 
         // Helpers info
-        let helpers_registry = load_helpers();
+        let mut helpers_registry = load_helpers();
+        for pkg in known_helpers().packages {
+            if helpers_registry.get(&pkg.id).is_none() {
+                helpers_registry.register(pkg);
+            }
+        }
+        if let Some(ollama_pkg) = helpers_registry.get_mut("ollama") {
+            ollama_pkg.available = self.ollama.installed;
+            if ollama_pkg.install_source == InstallSource::Unknown && self.ollama.installed {
+                ollama_pkg.install_source = InstallSource::User;
+            }
+        } else {
+            let mut pkg = HelperPackage::new("ollama", "Ollama").required();
+            pkg.available = self.ollama.installed;
+            pkg.install_source = if self.ollama.installed {
+                InstallSource::User
+            } else {
+                InstallSource::Unknown
+            };
+            helpers_registry.register(pkg);
+        }
         let helpers = HelpersInfo::from_registry(&helpers_registry);
 
         // Models info
@@ -387,12 +323,21 @@ impl DaemonStateInner {
             ollama_present: self.ollama.installed,
             ollama_running: self.ollama.running,
             ollama_version: self.ollama.version.clone(),
-            roles: self.llm.models.iter().map(|m| RoleModelBinding {
-                team: Team::General,
-                role: SpecialistRole::Junior,
-                model_name: m.name.clone(),
-                model_present: m.pulled,
-            }).collect(),
+            roles: self
+                .llm
+                .models
+                .iter()
+                .map(|m| RoleModelBinding {
+                    team: Team::General,
+                    role: match m.role.as_str() {
+                        "translator" => SpecialistRole::Translator,
+                        "supervisor" => SpecialistRole::Senior,
+                        _ => SpecialistRole::Junior,
+                    },
+                    model_name: m.name.clone(),
+                    model_present: m.pulled,
+                })
+                .collect(),
             downloads: Vec::new(),
         };
 
@@ -414,6 +359,26 @@ impl DaemonStateInner {
             config,
         }
     }
+}
+
+fn current_user_and_groups() -> (String, Vec<String>) {
+    let user = std::env::var("SUDO_USER")
+        .or_else(|_| std::env::var("USER"))
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let groups = Command::new("id")
+        .args(["-Gn", &user])
+        .output()
+        .ok()
+        .map(|out| {
+            String::from_utf8_lossy(&out.stdout)
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    (user, groups)
 }
 
 /// Thread-safe shared state handle

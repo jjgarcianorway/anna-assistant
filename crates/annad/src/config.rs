@@ -473,30 +473,51 @@ translator_timeout_secs = 5
     #[test]
     fn test_model_registry_get_specialist_default() {
         let registry = ModelRegistryConfig::default();
-        assert_eq!(registry.get_specialist("network", None), "qwen2.5:7b-instruct");
-        assert_eq!(registry.get_specialist("performance", Some("senior")), "qwen2.5:7b-instruct");
+        assert_eq!(
+            registry.get_specialist("network", None),
+            "qwen2.5:7b-instruct"
+        );
+        assert_eq!(
+            registry.get_specialist("performance", Some("senior")),
+            "qwen2.5:7b-instruct"
+        );
     }
 
     #[test]
     fn test_model_registry_get_specialist_with_overrides() {
         let mut registry = ModelRegistryConfig::default();
-        registry.specialist_overrides.insert("network".to_string(), "qwen3-vl:4b".to_string());
-        registry.specialist_overrides.insert("security:senior".to_string(), "qwen3-vl:8b".to_string());
+        registry
+            .specialist_overrides
+            .insert("network".to_string(), "qwen3-vl:4b".to_string());
+        registry
+            .specialist_overrides
+            .insert("security:senior".to_string(), "qwen3-vl:8b".to_string());
 
         // Domain override
         assert_eq!(registry.get_specialist("network", None), "qwen3-vl:4b");
-        assert_eq!(registry.get_specialist("network", Some("frontline")), "qwen3-vl:4b");
+        assert_eq!(
+            registry.get_specialist("network", Some("frontline")),
+            "qwen3-vl:4b"
+        );
 
         // Domain:tier override
-        assert_eq!(registry.get_specialist("security", Some("senior")), "qwen3-vl:8b");
+        assert_eq!(
+            registry.get_specialist("security", Some("senior")),
+            "qwen3-vl:8b"
+        );
         // Fall back to default for security without tier match
-        assert_eq!(registry.get_specialist("security", Some("frontline")), "qwen2.5:7b-instruct");
+        assert_eq!(
+            registry.get_specialist("security", Some("frontline")),
+            "qwen2.5:7b-instruct"
+        );
     }
 
     #[test]
     fn test_model_registry_all_models() {
         let mut registry = ModelRegistryConfig::default();
-        registry.specialist_overrides.insert("network".to_string(), "custom:4b".to_string());
+        registry
+            .specialist_overrides
+            .insert("network".to_string(), "custom:4b".to_string());
 
         let models = registry.all_models();
         assert!(models.contains(&"qwen2.5:0.5b-instruct".to_string()));
@@ -520,7 +541,10 @@ network = "qwen3-vl:8b"
         assert_eq!(config.model_registry.translator, "qwen3-vl:2b");
         assert_eq!(config.model_registry.specialist_default, "qwen3-vl:4b");
         assert!(config.model_registry.prefers_qwen3_vl());
-        assert_eq!(config.model_registry.get_specialist("network", None), "qwen3-vl:8b");
+        assert_eq!(
+            config.model_registry.get_specialist("network", None),
+            "qwen3-vl:8b"
+        );
     }
 
     #[test]

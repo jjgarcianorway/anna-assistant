@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{INVENTION_CEILING, ReliabilityInput, ReliabilityOutput};
+use super::{ReliabilityInput, ReliabilityOutput, INVENTION_CEILING};
 use crate::resource_limits::ResourceDiagnostic;
 
 /// Reason codes for reliability degradation.
@@ -71,7 +71,10 @@ impl ReliabilityReason {
     pub fn detail_template(&self, context: &ReasonContext) -> String {
         match self {
             Self::InventionDetected => {
-                format!("score capped at {} due to detected assumptions", INVENTION_CEILING)
+                format!(
+                    "score capped at {} due to detected assumptions",
+                    INVENTION_CEILING
+                )
             }
             Self::EvidenceMissing => {
                 format!(
@@ -82,9 +85,7 @@ impl ReliabilityReason {
             Self::BudgetExceeded => {
                 format!(
                     "{} stage exceeded budget ({}ms > {}ms)",
-                    context.exceeded_stage,
-                    context.stage_elapsed_ms,
-                    context.stage_budget_ms
+                    context.exceeded_stage, context.stage_elapsed_ms, context.stage_budget_ms
                 )
             }
             Self::ProbeTimeout => {
@@ -247,10 +248,15 @@ impl ReliabilityExplanation {
 /// Build a 1-2 sentence summary from the explanation data
 fn build_summary(output: &ReliabilityOutput, reasons: &[ReasonItem]) -> String {
     if reasons.is_empty() {
-        return format!("Reliability score {} (no specific issues identified).", output.score);
+        return format!(
+            "Reliability score {} (no specific issues identified).",
+            output.score
+        );
     }
 
-    let has_invention = reasons.iter().any(|r| r.code == ReliabilityReason::InventionDetected);
+    let has_invention = reasons
+        .iter()
+        .any(|r| r.code == ReliabilityReason::InventionDetected);
 
     if has_invention {
         let other_count = reasons.len() - 1;

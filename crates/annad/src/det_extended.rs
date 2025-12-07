@@ -16,11 +16,17 @@ pub fn answer_meta_small_talk(query: &str, route_class: &str) -> DeterministicRe
 
     let answer = if q.contains("how are you") {
         "I'm functioning well! Ready to help with your Linux system questions."
-    } else if q.contains("what is your name") || q.contains("what's your name") || q.contains("who are you") {
+    } else if q.contains("what is your name")
+        || q.contains("what's your name")
+        || q.contains("who are you")
+    {
         "I'm Anna, your Linux system assistant. I help answer questions about your computer's hardware, software, and configuration."
     } else if q.contains("are you ok") || q.contains("are you okay") {
         "Yes, I'm operational and ready to assist with your system questions."
-    } else if q.contains("are you using llm") || q.contains("are you an ai") || q.contains("are you a bot") {
+    } else if q.contains("are you using llm")
+        || q.contains("are you an ai")
+        || q.contains("are you a bot")
+    {
         "Yes, I use an LLM (Large Language Model) to understand questions and generate responses. I combine this with deterministic probes to gather accurate system information."
     } else if q.contains("are you human") || q.contains("are you real") {
         "I'm an AI assistant - not human, but designed to help you with Linux system administration tasks."
@@ -28,7 +34,10 @@ pub fn answer_meta_small_talk(query: &str, route_class: &str) -> DeterministicRe
         "Hello! I'm Anna, your Linux system assistant. How can I help you today?"
     } else if q == "thanks" || q == "thank you" {
         "You're welcome! Let me know if you have more questions."
-    } else if q.starts_with("good morning") || q.starts_with("good afternoon") || q.starts_with("good evening") {
+    } else if q.starts_with("good morning")
+        || q.starts_with("good afternoon")
+        || q.starts_with("good evening")
+    {
         "Hello! How can I help you with your system today?"
     } else {
         "Hello! I'm Anna, ready to help with your Linux system questions."
@@ -43,7 +52,10 @@ pub fn answer_meta_small_talk(query: &str, route_class: &str) -> DeterministicRe
 }
 
 /// Answer kernel version query using uname probe
-pub fn answer_kernel_version(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_kernel_version(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "uname")?;
     if probe.exit_code != 0 {
         return None;
@@ -131,8 +143,8 @@ pub fn answer_config_file_location(query: &str, route_class: &str) -> Option<Det
 
 /// Answer ticket history query - shows support desk activity summary (v0.0.116: includes inbox)
 pub fn answer_ticket_history(route_class: &str) -> DeterministicResult {
-    use anna_shared::ticket_tracker::TicketTracker;
     use anna_shared::email::inbox_path;
+    use anna_shared::ticket_tracker::TicketTracker;
 
     let tracker = TicketTracker::for_user();
     let mut answer = String::new();
@@ -146,7 +158,8 @@ pub fn answer_ticket_history(route_class: &str) -> DeterministicResult {
     let inbox_count = if inbox.exists() {
         std::fs::read_to_string(&inbox)
             .map(|content| {
-                content.lines()
+                content
+                    .lines()
                     .filter(|line| {
                         let trimmed = line.trim();
                         !trimmed.is_empty() && !trimmed.starts_with('#')
@@ -163,18 +176,20 @@ pub fn answer_ticket_history(route_class: &str) -> DeterministicResult {
         answer.push_str(&format!("**Open Tickets ({}):**\n", open_tickets.len()));
         for ticket in open_tickets.iter().take(5) {
             // Show full query, no truncation
-            answer.push_str(&format!("- {} ({})\n  {}\n",
-                ticket.case_number,
-                ticket.status,
-                ticket.query));
+            answer.push_str(&format!(
+                "- {} ({})\n  {}\n",
+                ticket.case_number, ticket.status, ticket.query
+            ));
         }
         answer.push('\n');
     }
 
     if inbox_count > 0 {
-        answer.push_str(&format!("**Inbox:** {} pending {}\n",
+        answer.push_str(&format!(
+            "**Inbox:** {} pending {}\n",
             inbox_count,
-            if inbox_count == 1 { "query" } else { "queries" }));
+            if inbox_count == 1 { "query" } else { "queries" }
+        ));
         answer.push_str("  Location: ~/.anna/inbox\n\n");
     }
 
@@ -187,10 +202,10 @@ pub fn answer_ticket_history(route_class: &str) -> DeterministicResult {
         answer.push_str("**Recent Tickets:**\n");
         for ticket in recent_tickets.iter().take(3) {
             // Show full query, no truncation
-            answer.push_str(&format!("- {} ({})\n  {}\n",
-                ticket.case_number,
-                ticket.status,
-                ticket.query));
+            answer.push_str(&format!(
+                "- {} ({})\n  {}\n",
+                ticket.case_number, ticket.status, ticket.query
+            ));
         }
         answer.push('\n');
     }
@@ -224,7 +239,8 @@ pub fn answer_staff_roster(route_class: &str) -> DeterministicResult {
     // Group by team for cleaner display
     let mut teams: std::collections::HashMap<String, Vec<_>> = std::collections::HashMap::new();
     for person in &on_shift {
-        teams.entry(person.team.to_string())
+        teams
+            .entry(person.team.to_string())
             .or_default()
             .push(person);
     }
@@ -242,14 +258,19 @@ pub fn answer_staff_roster(route_class: &str) -> DeterministicResult {
                 } else {
                     format!(" - {}", person.specializations.join(", "))
                 };
-                answer.push_str(&format!("  {} ({}){}\n",
-                    person.display_name, person.role_title, specs));
+                answer.push_str(&format!(
+                    "  {} ({}){}\n",
+                    person.display_name, person.role_title, specs
+                ));
             }
         }
     }
 
     if off_shift_count > 0 {
-        answer.push_str(&format!("\n{} staff members are currently off shift.", off_shift_count));
+        answer.push_str(&format!(
+            "\n{} staff members are currently off shift.",
+            off_shift_count
+        ));
     }
 
     DeterministicResult {
@@ -263,9 +284,11 @@ pub fn answer_staff_roster(route_class: &str) -> DeterministicResult {
 // === v0.0.122: New query class handlers ===
 
 /// Answer package updates query using checkupdates probe
-pub fn answer_package_updates(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
-    let probe = find_probe(probes, "checkupdates")
-        .or_else(|| find_probe(probes, "pacman"));
+pub fn answer_package_updates(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "checkupdates").or_else(|| find_probe(probes, "pacman"));
 
     // No probe result - can't answer
     let probe = probe?;
@@ -292,10 +315,17 @@ pub fn answer_package_updates(probes: &[ProbeResult], route_class: &str) -> Opti
     let answer = if update_count == 1 {
         format!("1 package update available:\n  {}", preview_str)
     } else if update_count <= 5 {
-        format!("{} package updates available:\n  {}", update_count, preview_str)
+        format!(
+            "{} package updates available:\n  {}",
+            update_count, preview_str
+        )
     } else {
-        format!("{} package updates available:\n  {}\n  ...and {} more",
-            update_count, preview_str, update_count - 5)
+        format!(
+            "{} package updates available:\n  {}\n  ...and {} more",
+            update_count,
+            preview_str,
+            update_count - 5
+        )
     };
 
     Some(DeterministicResult {
@@ -322,10 +352,7 @@ pub fn answer_swap_info(probes: &[ProbeResult], route_class: &str) -> Option<Det
                 let used = parts[2];
                 let free = parts[3];
 
-                let answer = format!(
-                    "Swap: {} total, {} used, {} free",
-                    total, used, free
-                );
+                let answer = format!("Swap: {} total, {} used, {} free", total, used, free);
 
                 return Some(DeterministicResult {
                     answer,
@@ -347,7 +374,10 @@ pub fn answer_swap_info(probes: &[ProbeResult], route_class: &str) -> Option<Det
 }
 
 /// Answer timezone info query using timedatectl probe
-pub fn answer_timezone_info(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_timezone_info(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "timedatectl")?;
     if probe.exit_code != 0 {
         return None;
@@ -360,10 +390,19 @@ pub fn answer_timezone_info(probes: &[ProbeResult], route_class: &str) -> Option
     for line in probe.stdout.lines() {
         let line = line.trim();
         if line.starts_with("Time zone:") {
-            timezone = line.strip_prefix("Time zone:").unwrap_or("").trim().to_string();
+            timezone = line
+                .strip_prefix("Time zone:")
+                .unwrap_or("")
+                .trim()
+                .to_string();
         } else if line.starts_with("Local time:") {
-            local_time = line.strip_prefix("Local time:").unwrap_or("").trim().to_string();
-        } else if line.starts_with("NTP service:") || line.starts_with("System clock synchronized:") {
+            local_time = line
+                .strip_prefix("Local time:")
+                .unwrap_or("")
+                .trim()
+                .to_string();
+        } else if line.starts_with("NTP service:") || line.starts_with("System clock synchronized:")
+        {
             ntp_status = line.to_string();
         }
     }
@@ -392,7 +431,10 @@ pub fn answer_timezone_info(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer system uptime query using uptime probe
-pub fn answer_system_uptime(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_system_uptime(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "uptime")?;
     if probe.exit_code != 0 {
         return None;
@@ -417,7 +459,10 @@ pub fn answer_system_uptime(probes: &[ProbeResult], route_class: &str) -> Option
 // === v0.0.123: New query class handlers ===
 
 /// Answer logged in users query using who command
-pub fn answer_logged_in_users(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_logged_in_users(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "who")?;
     if probe.exit_code != 0 {
         return None;
@@ -438,19 +483,29 @@ pub fn answer_logged_in_users(probes: &[ProbeResult], route_class: &str) -> Opti
     let user_count = sessions.len();
 
     // Get unique users
-    let unique_users: std::collections::HashSet<&str> = sessions.iter()
+    let unique_users: std::collections::HashSet<&str> = sessions
+        .iter()
         .filter_map(|line| line.split_whitespace().next())
         .collect();
 
     let answer = if unique_users.len() == 1 && user_count == 1 {
-        format!("1 user logged in: {}", unique_users.iter().next().unwrap_or(&"unknown"))
+        format!(
+            "1 user logged in: {}",
+            unique_users.iter().next().unwrap_or(&"unknown")
+        )
     } else if unique_users.len() == 1 {
-        format!("{} sessions for user: {}", user_count, unique_users.iter().next().unwrap_or(&"unknown"))
+        format!(
+            "{} sessions for user: {}",
+            user_count,
+            unique_users.iter().next().unwrap_or(&"unknown")
+        )
     } else {
-        format!("{} users logged in ({} sessions): {}",
+        format!(
+            "{} users logged in ({} sessions): {}",
             unique_users.len(),
             user_count,
-            unique_users.into_iter().collect::<Vec<_>>().join(", "))
+            unique_users.into_iter().collect::<Vec<_>>().join(", ")
+        )
     };
 
     Some(DeterministicResult {
@@ -462,7 +517,10 @@ pub fn answer_logged_in_users(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer battery status query using upower or /sys
-pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_battery_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "battery")?;
 
     let output = probe.stdout.trim();
@@ -487,13 +545,25 @@ pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Optio
         for line in output.lines() {
             let line = line.trim();
             if line.starts_with("percentage:") {
-                percentage = line.strip_prefix("percentage:").unwrap_or("").trim().to_string();
+                percentage = line
+                    .strip_prefix("percentage:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             } else if line.starts_with("state:") {
                 state = line.strip_prefix("state:").unwrap_or("").trim().to_string();
             } else if line.starts_with("time to empty:") {
-                time_to_empty = line.strip_prefix("time to empty:").unwrap_or("").trim().to_string();
+                time_to_empty = line
+                    .strip_prefix("time to empty:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             } else if line.starts_with("time to full:") {
-                time_to_full = line.strip_prefix("time to full:").unwrap_or("").trim().to_string();
+                time_to_full = line
+                    .strip_prefix("time to full:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             }
         }
 
@@ -518,7 +588,13 @@ pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Optio
 
     // Fallback: raw percentage from /sys
     if let Ok(pct) = output.parse::<u32>() {
-        let status = if pct > 80 { "Good" } else if pct > 20 { "OK" } else { "Low" };
+        let status = if pct > 80 {
+            "Good"
+        } else if pct > 20 {
+            "OK"
+        } else {
+            "Low"
+        };
         return Some(DeterministicResult {
             answer: format!("Battery: {}% ({})", pct, status),
             grounded: true,
@@ -537,7 +613,10 @@ pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer system load query using /proc/loadavg
-pub fn answer_system_load(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_system_load(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "load_average")?;
     if probe.exit_code != 0 {
         return None;
@@ -642,17 +721,20 @@ pub fn answer_os_info(probes: &[ProbeResult], route_class: &str) -> Option<Deter
 
     for line in output.lines() {
         if line.starts_with("PRETTY_NAME=") {
-            pretty_name = line.strip_prefix("PRETTY_NAME=")
+            pretty_name = line
+                .strip_prefix("PRETTY_NAME=")
                 .unwrap_or("")
                 .trim_matches('"')
                 .to_string();
         } else if line.starts_with("NAME=") {
-            name = line.strip_prefix("NAME=")
+            name = line
+                .strip_prefix("NAME=")
                 .unwrap_or("")
                 .trim_matches('"')
                 .to_string();
         } else if line.starts_with("VERSION=") {
-            version = line.strip_prefix("VERSION=")
+            version = line
+                .strip_prefix("VERSION=")
                 .unwrap_or("")
                 .trim_matches('"')
                 .to_string();
@@ -678,16 +760,21 @@ pub fn answer_os_info(probes: &[ProbeResult], route_class: &str) -> Option<Deter
 }
 
 /// Answer network connectivity query using ping
-pub fn answer_network_connectivity(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_network_connectivity(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "ping_check")?;
 
     let answer = if probe.exit_code == 0 {
         // Parse ping output for latency
         let output = probe.stdout.trim();
-        let latency = output.lines()
+        let latency = output
+            .lines()
             .find(|line| line.contains("time="))
             .and_then(|line| {
-                line.split("time=").nth(1)
+                line.split("time=")
+                    .nth(1)
                     .and_then(|s| s.split_whitespace().next())
             });
 
@@ -709,7 +796,10 @@ pub fn answer_network_connectivity(probes: &[ProbeResult], route_class: &str) ->
 }
 
 /// Answer mounted filesystems query using findmnt
-pub fn answer_mounted_filesystems(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_mounted_filesystems(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "findmnt")?;
     if probe.exit_code != 0 {
         return None;
@@ -739,7 +829,10 @@ pub fn answer_mounted_filesystems(probes: &[ProbeResult], route_class: &str) -> 
 }
 
 /// Answer USB devices query using lsusb
-pub fn answer_usb_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_usb_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "lsusb")?;
     if probe.exit_code != 0 {
         return None;
@@ -758,13 +851,14 @@ pub fn answer_usb_devices(probes: &[ProbeResult], route_class: &str) -> Option<D
     let device_count = output.lines().count();
 
     // Simplify output - extract just device names
-    let devices: Vec<String> = output.lines()
+    let devices: Vec<String> = output
+        .lines()
         .filter_map(|line| {
             // lsusb format: "Bus 001 Device 002: ID 1234:5678 Device Name"
             line.split(": ").nth(1).map(|s| {
                 // Remove ID prefix
                 if let Some(pos) = s.find(' ') {
-                    s[pos+1..].trim().to_string()
+                    s[pos + 1..].trim().to_string()
                 } else {
                     s.to_string()
                 }
@@ -773,11 +867,19 @@ pub fn answer_usb_devices(probes: &[ProbeResult], route_class: &str) -> Option<D
         .collect();
 
     let answer = if device_count <= 10 {
-        format!("USB devices ({}):\n  {}", device_count, devices.join("\n  "))
+        format!(
+            "USB devices ({}):\n  {}",
+            device_count,
+            devices.join("\n  ")
+        )
     } else {
         let preview: Vec<&str> = devices.iter().take(8).map(|s| s.as_str()).collect();
-        format!("USB devices ({}):\n  {}\n  ...and {} more",
-            device_count, preview.join("\n  "), device_count - 8)
+        format!(
+            "USB devices ({}):\n  {}\n  ...and {} more",
+            device_count,
+            preview.join("\n  "),
+            device_count - 8
+        )
     };
 
     Some(DeterministicResult {
@@ -791,7 +893,10 @@ pub fn answer_usb_devices(probes: &[ProbeResult], route_class: &str) -> Option<D
 // === v0.0.125: New query class handlers ===
 
 /// Answer listening ports query using ss
-pub fn answer_listening_ports(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_listening_ports(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "listening_ports")?;
     if probe.exit_code != 0 {
         return None;
@@ -821,7 +926,10 @@ pub fn answer_listening_ports(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer running services query using systemctl
-pub fn answer_running_services(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_running_services(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "running_services")?;
     if probe.exit_code != 0 {
         return None;
@@ -840,16 +948,25 @@ pub fn answer_running_services(probes: &[ProbeResult], route_class: &str) -> Opt
     let service_count = output.lines().count();
 
     // Extract just the service names
-    let services: Vec<&str> = output.lines()
+    let services: Vec<&str> = output
+        .lines()
         .filter_map(|line| line.split_whitespace().next())
         .collect();
 
     let answer = if service_count <= 15 {
-        format!("Running services ({}):\n  {}", service_count, services.join("\n  "))
+        format!(
+            "Running services ({}):\n  {}",
+            service_count,
+            services.join("\n  ")
+        )
     } else {
         let preview: Vec<&str> = services.iter().take(12).copied().collect();
-        format!("Running services ({}):\n  {}\n  ...and {} more",
-            service_count, preview.join("\n  "), service_count - 12)
+        format!(
+            "Running services ({}):\n  {}\n  ...and {} more",
+            service_count,
+            preview.join("\n  "),
+            service_count - 12
+        )
     };
 
     Some(DeterministicResult {
@@ -861,7 +978,10 @@ pub fn answer_running_services(probes: &[ProbeResult], route_class: &str) -> Opt
 }
 
 /// Answer current user query using id
-pub fn answer_current_user(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_current_user(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "current_user")?;
     if probe.exit_code != 0 {
         return None;
@@ -895,7 +1015,12 @@ pub fn answer_current_user(probes: &[ProbeResult], route_class: &str) -> Option<
         }
     }
 
-    let answer = format!("User: {} (uid={})\nGroups: {}", username, uid, groups.join(", "));
+    let answer = format!(
+        "User: {} (uid={})\nGroups: {}",
+        username,
+        uid,
+        groups.join(", ")
+    );
 
     Some(DeterministicResult {
         answer,
@@ -906,7 +1031,10 @@ pub fn answer_current_user(probes: &[ProbeResult], route_class: &str) -> Option<
 }
 
 /// Answer system architecture query using uname -m
-pub fn answer_system_architecture(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_system_architecture(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "arch")?;
     if probe.exit_code != 0 {
         return None;
@@ -937,7 +1065,10 @@ pub fn answer_system_architecture(probes: &[ProbeResult], route_class: &str) -> 
 }
 
 /// Answer environment variables query
-pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_environment_vars(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "env_vars")?;
     if probe.exit_code != 0 {
         return None;
@@ -956,7 +1087,15 @@ pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Opt
     let var_count = output.lines().count();
 
     // Show key variables first if present
-    let important_vars = ["PATH", "HOME", "USER", "SHELL", "TERM", "DISPLAY", "XDG_SESSION_TYPE"];
+    let important_vars = [
+        "PATH",
+        "HOME",
+        "USER",
+        "SHELL",
+        "TERM",
+        "DISPLAY",
+        "XDG_SESSION_TYPE",
+    ];
     let mut key_vars = Vec::new();
     let mut other_count = 0;
 
@@ -970,8 +1109,12 @@ pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Opt
     }
 
     let answer = if !key_vars.is_empty() {
-        format!("Environment variables ({}):\n  {}\n  ...and {} others",
-            var_count, key_vars.join("\n  "), other_count)
+        format!(
+            "Environment variables ({}):\n  {}\n  ...and {} others",
+            var_count,
+            key_vars.join("\n  "),
+            other_count
+        )
     } else {
         format!("Environment variables ({}):\n{}", var_count, output)
     };
@@ -987,7 +1130,10 @@ pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Opt
 // === v0.0.126: New System & Network Queries ===
 
 /// Answer process tree query
-pub fn answer_process_tree(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_process_tree(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "pstree")?;
     if probe.exit_code != 0 {
         return Some(DeterministicResult {
@@ -1020,7 +1166,10 @@ pub fn answer_process_tree(probes: &[ProbeResult], route_class: &str) -> Option<
 }
 
 /// Answer DNS servers query
-pub fn answer_dns_servers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_dns_servers(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "dns_servers")?;
     if probe.exit_code != 0 {
         return None;
@@ -1058,7 +1207,10 @@ pub fn answer_dns_servers(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer default gateway query
-pub fn answer_default_gateway(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_default_gateway(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "default_gateway")?;
     if probe.exit_code != 0 {
         return None;
@@ -1077,7 +1229,8 @@ pub fn answer_default_gateway(probes: &[ProbeResult], route_class: &str) -> Opti
     // Parse: "default via 192.168.1.1 dev eth0 proto dhcp metric 100"
     let parts: Vec<&str> = output.split_whitespace().collect();
     let gateway = parts.get(2).unwrap_or(&"unknown");
-    let interface = parts.iter()
+    let interface = parts
+        .iter()
         .position(|&p| p == "dev")
         .and_then(|i| parts.get(i + 1))
         .unwrap_or(&"unknown");
@@ -1118,7 +1271,10 @@ pub fn answer_open_files(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer system locale query
-pub fn answer_system_locale(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_system_locale(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "locale")?;
     if probe.exit_code != 0 {
         return None;
@@ -1161,7 +1317,10 @@ pub fn answer_system_locale(probes: &[ProbeResult], route_class: &str) -> Option
 // === v0.0.127: Hardware & Storage Queries ===
 
 /// Answer block devices query
-pub fn answer_block_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_block_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "block_devices")?;
     if probe.exit_code != 0 {
         return None;
@@ -1189,7 +1348,10 @@ pub fn answer_block_devices(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer installed kernels query
-pub fn answer_installed_kernels(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_installed_kernels(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "installed_kernels")?;
     if probe.exit_code != 0 && probe.stdout.is_empty() {
         return Some(DeterministicResult {
@@ -1222,7 +1384,10 @@ pub fn answer_installed_kernels(probes: &[ProbeResult], route_class: &str) -> Op
 }
 
 /// Answer CPU frequency query
-pub fn answer_cpu_frequency(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_cpu_frequency(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "cpu_frequency")?;
     if probe.exit_code != 0 {
         return None;
@@ -1265,7 +1430,10 @@ pub fn answer_cpu_frequency(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer memory slots query
-pub fn answer_memory_slots(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_memory_slots(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "memory_slots")?;
 
     let output = probe.stdout.trim();
@@ -1324,7 +1492,10 @@ pub fn answer_zfs_status(probes: &[ProbeResult], route_class: &str) -> Option<De
 // === v0.0.128: Security & Admin Queries ===
 
 /// Answer boot loader query
-pub fn answer_boot_loader(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_boot_loader(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "boot_loader")?;
 
     let output = probe.stdout.trim();
@@ -1338,13 +1509,14 @@ pub fn answer_boot_loader(probes: &[ProbeResult], route_class: &str) -> Option<D
     }
 
     // Detect boot loader type
-    let loader_type = if output.contains("systemd-boot") || output.contains("Boot Loader Specification") {
-        "systemd-boot"
-    } else if output.contains("GRUB") || output.contains("grub") {
-        "GRUB"
-    } else {
-        "Unknown"
-    };
+    let loader_type =
+        if output.contains("systemd-boot") || output.contains("Boot Loader Specification") {
+            "systemd-boot"
+        } else if output.contains("GRUB") || output.contains("grub") {
+            "GRUB"
+        } else {
+            "Unknown"
+        };
 
     let answer = format!("Boot loader: {}\n```\n{}\n```", loader_type, output);
 
@@ -1357,7 +1529,10 @@ pub fn answer_boot_loader(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer firewall status query
-pub fn answer_firewall_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_firewall_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "firewall_status")?;
 
     let output = probe.stdout.trim();
@@ -1392,7 +1567,10 @@ pub fn answer_firewall_status(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer systemd units query
-pub fn answer_systemd_units(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_units(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_units")?;
     if probe.exit_code != 0 {
         return None;
@@ -1433,7 +1611,10 @@ pub fn answer_crontabs(probes: &[ProbeResult], route_class: &str) -> Option<Dete
         });
     }
 
-    let job_count = output.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).count();
+    let job_count = output
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+        .count();
     let answer = format!("Crontab ({} jobs):\n```\n{}\n```", job_count, output);
 
     Some(DeterministicResult {
@@ -1445,7 +1626,10 @@ pub fn answer_crontabs(probes: &[ProbeResult], route_class: &str) -> Option<Dete
 }
 
 /// Answer SSH connections query
-pub fn answer_ssh_connections(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_ssh_connections(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "ssh_connections")?;
 
     let output = probe.stdout.trim();
@@ -1472,7 +1656,10 @@ pub fn answer_ssh_connections(probes: &[ProbeResult], route_class: &str) -> Opti
 // === v0.0.129: Docker & Logging Queries ===
 
 /// Answer Docker containers query
-pub fn answer_docker_containers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_docker_containers(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "docker_containers")?;
 
     let output = probe.stdout.trim();
@@ -1495,7 +1682,10 @@ pub fn answer_docker_containers(probes: &[ProbeResult], route_class: &str) -> Op
     let answer = if container_count == 0 {
         status.to_string()
     } else {
-        format!("Docker containers ({}):\n```\n{}\n```", container_count, output)
+        format!(
+            "Docker containers ({}):\n```\n{}\n```",
+            container_count, output
+        )
     };
 
     Some(DeterministicResult {
@@ -1507,7 +1697,10 @@ pub fn answer_docker_containers(probes: &[ProbeResult], route_class: &str) -> Op
 }
 
 /// Answer Docker images query
-pub fn answer_docker_images(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_docker_images(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "docker_images")?;
 
     let output = probe.stdout.trim();
@@ -1536,7 +1729,10 @@ pub fn answer_docker_images(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer systemd timers query
-pub fn answer_systemd_timers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_timers(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_timers")?;
     if probe.exit_code != 0 {
         return None;
@@ -1564,7 +1760,10 @@ pub fn answer_systemd_timers(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer last logins query
-pub fn answer_last_logins(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_last_logins(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "last_logins")?;
 
     let output = probe.stdout.trim();
@@ -1577,7 +1776,10 @@ pub fn answer_last_logins(probes: &[ProbeResult], route_class: &str) -> Option<D
         });
     }
 
-    let login_count = output.lines().filter(|l| !l.is_empty() && !l.starts_with("wtmp")).count();
+    let login_count = output
+        .lines()
+        .filter(|l| !l.is_empty() && !l.starts_with("wtmp"))
+        .count();
     let answer = format!("Recent logins ({}):\n```\n{}\n```", login_count, output);
 
     Some(DeterministicResult {
@@ -1589,7 +1791,10 @@ pub fn answer_last_logins(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer failed logins query
-pub fn answer_failed_logins(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_failed_logins(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "failed_logins")?;
 
     let output = probe.stdout.trim();
@@ -1603,7 +1808,10 @@ pub fn answer_failed_logins(probes: &[ProbeResult], route_class: &str) -> Option
     }
 
     let failure_count = output.lines().count();
-    let answer = format!("Failed login attempts ({}):\n```\n{}\n```", failure_count, output);
+    let answer = format!(
+        "Failed login attempts ({}):\n```\n{}\n```",
+        failure_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -1616,7 +1824,10 @@ pub fn answer_failed_logins(probes: &[ProbeResult], route_class: &str) -> Option
 // === v0.0.130: System & Security Queries ===
 
 /// Answer systemd journal query
-pub fn answer_systemd_journal(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_journal(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_journal")?;
 
     let output = probe.stdout.trim();
@@ -1630,7 +1841,10 @@ pub fn answer_systemd_journal(probes: &[ProbeResult], route_class: &str) -> Opti
     }
 
     let line_count = output.lines().count();
-    let answer = format!("Recent system logs ({} entries):\n```\n{}\n```", line_count, output);
+    let answer = format!(
+        "Recent system logs ({} entries):\n```\n{}\n```",
+        line_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -1641,7 +1855,10 @@ pub fn answer_systemd_journal(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer network namespaces query
-pub fn answer_network_namespaces(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_network_namespaces(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "network_namespaces")?;
 
     let output = probe.stdout.trim();
@@ -1666,7 +1883,10 @@ pub fn answer_network_namespaces(probes: &[ProbeResult], route_class: &str) -> O
 }
 
 /// Answer available shells query
-pub fn answer_available_shells(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_available_shells(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "available_shells")?;
 
     let output = probe.stdout.trim();
@@ -1679,11 +1899,16 @@ pub fn answer_available_shells(probes: &[ProbeResult], route_class: &str) -> Opt
         });
     }
 
-    let shells: Vec<&str> = output.lines()
+    let shells: Vec<&str> = output
+        .lines()
         .filter(|l| !l.starts_with('#') && !l.is_empty())
         .collect();
 
-    let answer = format!("Available shells ({}):\n{}", shells.len(), shells.join("\n"));
+    let answer = format!(
+        "Available shells ({}):\n{}",
+        shells.len(),
+        shells.join("\n")
+    );
 
     Some(DeterministicResult {
         answer,
@@ -1694,11 +1919,17 @@ pub fn answer_available_shells(probes: &[ProbeResult], route_class: &str) -> Opt
 }
 
 /// Answer sudoers info query
-pub fn answer_sudoers_info(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_sudoers_info(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "sudoers_info")?;
 
     let output = probe.stdout.trim();
-    if output.contains("not available") || output.is_empty() || output.contains("password is required") {
+    if output.contains("not available")
+        || output.is_empty()
+        || output.contains("password is required")
+    {
         return Some(DeterministicResult {
             answer: "Sudo access information not available (may require password).".to_string(),
             grounded: true,
@@ -1718,7 +1949,10 @@ pub fn answer_sudoers_info(probes: &[ProbeResult], route_class: &str) -> Option<
 }
 
 /// Answer installed desktops query
-pub fn answer_installed_desktops(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_installed_desktops(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "installed_desktops")?;
 
     let output = probe.stdout.trim();
@@ -1745,7 +1979,10 @@ pub fn answer_installed_desktops(probes: &[ProbeResult], route_class: &str) -> O
 // === v0.0.131: Virtualization and security answer functions ===
 
 /// Answer virtualization info query
-pub fn answer_virtualization_info(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_virtualization_info(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "virtualization_info")?;
 
     let output = probe.stdout.trim();
@@ -1764,7 +2001,10 @@ pub fn answer_virtualization_info(probes: &[ProbeResult], route_class: &str) -> 
 }
 
 /// Answer SELinux status query
-pub fn answer_selinux_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_selinux_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "selinux_status")?;
 
     let output = probe.stdout.trim();
@@ -1788,7 +2028,10 @@ pub fn answer_selinux_status(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer AppArmor status query
-pub fn answer_apparmor_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_apparmor_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "apparmor_status")?;
 
     let output = probe.stdout.trim();
@@ -1821,7 +2064,10 @@ pub fn answer_apparmor_status(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer systemd slices query
-pub fn answer_systemd_slices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_slices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_slices")?;
 
     let output = probe.stdout.trim();
@@ -1845,7 +2091,10 @@ pub fn answer_systemd_slices(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer coredump list query
-pub fn answer_coredump_list(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_coredump_list(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "coredump_list")?;
 
     let output = probe.stdout.trim();
@@ -1872,7 +2121,10 @@ pub fn answer_coredump_list(probes: &[ProbeResult], route_class: &str) -> Option
 // === v0.0.132: Kernel and network answer functions ===
 
 /// Answer kernel modules query
-pub fn answer_kernel_modules(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_kernel_modules(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "kernel_modules")?;
 
     let output = probe.stdout.trim();
@@ -1886,7 +2138,10 @@ pub fn answer_kernel_modules(probes: &[ProbeResult], route_class: &str) -> Optio
     }
 
     let module_count = output.lines().count().saturating_sub(1); // Subtract header line
-    let answer = format!("Loaded kernel modules ({}):\n```\n{}\n```", module_count, output);
+    let answer = format!(
+        "Loaded kernel modules ({}):\n```\n{}\n```",
+        module_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -1897,7 +2152,10 @@ pub fn answer_kernel_modules(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer systemd targets query
-pub fn answer_systemd_targets(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_targets(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_targets")?;
 
     let output = probe.stdout.trim();
@@ -1911,7 +2169,10 @@ pub fn answer_systemd_targets(probes: &[ProbeResult], route_class: &str) -> Opti
     }
 
     let target_count = output.lines().count();
-    let answer = format!("Active systemd targets ({}):\n```\n{}\n```", target_count, output);
+    let answer = format!(
+        "Active systemd targets ({}):\n```\n{}\n```",
+        target_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -1936,7 +2197,10 @@ pub fn answer_ip_routes(probes: &[ProbeResult], route_class: &str) -> Option<Det
     }
 
     let route_count = output.lines().count();
-    let answer = format!("IP routing table ({} routes):\n```\n{}\n```", route_count, output);
+    let answer = format!(
+        "IP routing table ({} routes):\n```\n{}\n```",
+        route_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -1972,7 +2236,10 @@ pub fn answer_arp_table(probes: &[ProbeResult], route_class: &str) -> Option<Det
 }
 
 /// Answer iptables rules query
-pub fn answer_iptables_rules(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_iptables_rules(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "iptables_rules")?;
 
     let output = probe.stdout.trim();
@@ -1998,7 +2265,10 @@ pub fn answer_iptables_rules(probes: &[ProbeResult], route_class: &str) -> Optio
 // === v0.0.133: System and user answer functions ===
 
 /// Answer PCI devices query
-pub fn answer_pci_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_pci_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "pci_devices")?;
 
     let output = probe.stdout.trim();
@@ -2023,7 +2293,10 @@ pub fn answer_pci_devices(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer dmesg errors query
-pub fn answer_dmesg_errors(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_dmesg_errors(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "dmesg_errors")?;
 
     let output = probe.stdout.trim();
@@ -2037,7 +2310,10 @@ pub fn answer_dmesg_errors(probes: &[ProbeResult], route_class: &str) -> Option<
     }
 
     let error_count = output.lines().count();
-    let answer = format!("Kernel errors/warnings ({} messages):\n```\n{}\n```", error_count, output);
+    let answer = format!(
+        "Kernel errors/warnings ({} messages):\n```\n{}\n```",
+        error_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -2048,7 +2324,10 @@ pub fn answer_dmesg_errors(probes: &[ProbeResult], route_class: &str) -> Option<
 }
 
 /// Answer systemd sockets query
-pub fn answer_systemd_sockets(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_sockets(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_sockets")?;
 
     let output = probe.stdout.trim();
@@ -2098,7 +2377,10 @@ pub fn answer_tmp_files(probes: &[ProbeResult], route_class: &str) -> Option<Det
 }
 
 /// Answer user groups query
-pub fn answer_user_groups(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_user_groups(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "user_groups")?;
 
     let output = probe.stdout.trim();
@@ -2148,7 +2430,10 @@ pub fn answer_lvm_status(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer RAID status query
-pub fn answer_raid_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_raid_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "raid_status")?;
 
     let output = probe.stdout.trim();
@@ -2196,7 +2481,10 @@ pub fn answer_ntp_status(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer sensors temperature query
-pub fn answer_sensors_temp(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_sensors_temp(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "sensors_temp")?;
 
     let output = probe.stdout.trim();
@@ -2226,7 +2514,8 @@ pub fn answer_gpu_memory(probes: &[ProbeResult], route_class: &str) -> Option<De
     let output = probe.stdout.trim();
     if output.contains("not available") || output.is_empty() {
         return Some(DeterministicResult {
-            answer: "nvidia-smi not available. This requires NVIDIA drivers to be installed.".to_string(),
+            answer: "nvidia-smi not available. This requires NVIDIA drivers to be installed."
+                .to_string(),
             grounded: true,
             parsed_data_count: 0,
             route_class: route_class.to_string(),
@@ -2258,7 +2547,10 @@ pub fn answer_xorg_log(probes: &[ProbeResult], route_class: &str) -> Option<Dete
     }
 
     let error_count = output.lines().count();
-    let answer = format!("Xorg log errors/warnings ({}):\n```\n{}\n```", error_count, output);
+    let answer = format!(
+        "Xorg log errors/warnings ({}):\n```\n{}\n```",
+        error_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -2271,7 +2563,10 @@ pub fn answer_xorg_log(probes: &[ProbeResult], route_class: &str) -> Option<Dete
 // === v0.0.135: Peripheral and audio answer functions ===
 
 /// Answer bluetooth devices query
-pub fn answer_bluetooth_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_bluetooth_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "bluetooth_devices")?;
 
     let output = probe.stdout.trim();
@@ -2285,7 +2580,10 @@ pub fn answer_bluetooth_devices(probes: &[ProbeResult], route_class: &str) -> Op
     }
 
     let device_count = output.lines().count();
-    let answer = format!("Bluetooth devices ({}):\n```\n{}\n```", device_count, output);
+    let answer = format!(
+        "Bluetooth devices ({}):\n```\n{}\n```",
+        device_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -2296,7 +2594,10 @@ pub fn answer_bluetooth_devices(probes: &[ProbeResult], route_class: &str) -> Op
 }
 
 /// Answer wireless networks query
-pub fn answer_wireless_networks(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_wireless_networks(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "wireless_networks")?;
 
     let output = probe.stdout.trim();
@@ -2310,7 +2611,10 @@ pub fn answer_wireless_networks(probes: &[ProbeResult], route_class: &str) -> Op
     }
 
     let network_count = output.lines().count().saturating_sub(1); // Subtract header
-    let answer = format!("Available wireless networks ({}):\n```\n{}\n```", network_count, output);
+    let answer = format!(
+        "Available wireless networks ({}):\n```\n{}\n```",
+        network_count, output
+    );
 
     Some(DeterministicResult {
         answer,
@@ -2321,7 +2625,10 @@ pub fn answer_wireless_networks(probes: &[ProbeResult], route_class: &str) -> Op
 }
 
 /// Answer printer status query
-pub fn answer_printer_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_printer_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "printer_status")?;
 
     let output = probe.stdout.trim();
@@ -2345,7 +2652,10 @@ pub fn answer_printer_status(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer audio devices query
-pub fn answer_audio_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_audio_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "audio_devices")?;
 
     let output = probe.stdout.trim();
@@ -2370,7 +2680,10 @@ pub fn answer_audio_devices(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer systemd paths query
-pub fn answer_systemd_paths(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_paths(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_paths")?;
 
     let output = probe.stdout.trim();
@@ -2390,6 +2703,136 @@ pub fn answer_systemd_paths(probes: &[ProbeResult], route_class: &str) -> Option
         answer,
         grounded: true,
         parsed_data_count: path_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemctl mask query
+pub fn answer_systemctl_mask(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemctl_mask")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("No masked systemd units found.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!("Masked units ({}):\n```\n{}\n```", count, output),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer hosts file query
+pub fn answer_hosts_file(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "hosts_file")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("No non-comment entries found in /etc/hosts.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!("/etc/hosts ({} entries):\n```\n{}\n```", count, output),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer fstab entries query
+pub fn answer_fstab_entries(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "fstab_entries")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("No entries found in /etc/fstab.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!("/etc/fstab ({} entries):\n```\n{}\n```", count, output),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer sysctl settings query
+pub fn answer_sysctl_settings(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "sysctl_settings")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("No sysctl output available.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!(
+                "Sysctl settings ({} lines shown):\n```\n{}\n```",
+                count, output
+            ),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer loginctl sessions query
+pub fn answer_loginctl_sessions(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "loginctl_sessions")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() || output.contains("not available") {
+        ("No login sessions found.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!("Login sessions ({}):\n```\n{}\n```", count, output),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
         route_class: route_class.to_string(),
     })
 }

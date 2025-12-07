@@ -17,28 +17,25 @@ pub mod config_intent;
 pub mod editor_recipe_data;
 pub mod editor_recipes;
 pub mod email; // v0.0.113
-pub mod git_recipes;
-pub mod package_recipes;
-pub mod service_recipes;
-pub mod shell_recipes;
-pub mod ssh_recipes;
 pub mod error;
 pub mod facts;
 pub mod facts_types;
 pub mod fastpath;
+pub mod git_recipes;
 pub mod grounding;
 pub mod guard;
 pub mod health_brief;
 pub mod health_delta;
 pub mod health_view;
 pub mod helpers;
+pub mod intake;
 pub mod inventory;
 pub mod knowledge;
-pub mod intake;
 pub mod ledger;
 pub mod model_registry;
 pub mod model_selector;
 pub mod narrator;
+pub mod package_recipes;
 pub mod parsers;
 pub mod pending;
 pub mod person_stats;
@@ -58,8 +55,11 @@ pub mod review_prompts;
 pub mod revision;
 pub mod roster;
 pub mod rpc;
+pub mod service_recipes;
+pub mod shell_recipes;
 pub mod snapshot;
 pub mod specialists;
+pub mod ssh_recipes;
 pub mod stats;
 pub mod status;
 pub mod status_snapshot;
@@ -120,7 +120,7 @@ pub use status::{
     OllamaStatus, ProgressInfo, UpdateStatus,
 };
 // v0.0.73: Re-export version constants for backward compatibility
-pub use version::{VERSION, GIT_SHA, BUILD_DATE, PROTOCOL_VERSION, VersionInfo};
+pub use version::{VersionInfo, BUILD_DATE, GIT_SHA, PROTOCOL_VERSION, VERSION};
 
 /// Socket path for annad
 pub const SOCKET_PATH: &str = "/run/anna/anna.sock";

@@ -5,6 +5,7 @@
 
 use anna_shared::narrator::{it_confidence, it_domain_context};
 use anna_shared::roster::person_by_id;
+use anna_shared::change::ChangePlan;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::teams::Team;
 use anna_shared::theatre::{describe_check, NarrativeBuilder, NarrativeSegment, Speaker};
@@ -32,6 +33,9 @@ pub fn render_theatre(result: &ServiceDeskResult, show_internal: bool) {
 
     // 4. Show Anna's final answer
     print_final_answer(result, output_mode);
+
+    // 4b. Summarize any pending config changes
+    print_change_summary(result);
 
     // 5. Show footer
     print_footer(result);
@@ -71,7 +75,9 @@ fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<Narra
 
     // Check if we have probes
     let has_probes = !result.evidence.probes_executed.is_empty();
-    let probe_ids: Vec<String> = result.evidence.probes_executed
+    let probe_ids: Vec<String> = result
+        .evidence
+        .probes_executed
         .iter()
         .map(|p| probe_id_from_command(&p.command))
         .collect();
@@ -87,7 +93,9 @@ fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<Narra
 
     for event in &result.transcript.events {
         match &event.kind {
-            TranscriptEventKind::JuniorReview { score, verified, .. } => {
+            TranscriptEventKind::JuniorReview {
+                score, verified, ..
+            } => {
                 if show_internal {
                     builder.add_junior_review(team, *verified, *score);
                 }
@@ -127,34 +135,26 @@ fn print_segment(segment: &NarrativeSegment, _output_mode: OutputMode) {
         Speaker::Anna => {
             if segment.internal {
                 // Internal comms shown in dim
-                println!(
-                    "{}--- Internal ---{}",
-                    colors::DIM, colors::RESET
-                );
-                println!(
-                    "{}Anna:{} {}",
-                    colors::OK, colors::RESET, segment.text
-                );
+                println!("{}--- Internal ---{}", colors::DIM, colors::RESET);
+                println!("{}Anna:{} {}", colors::OK, colors::RESET, segment.text);
             }
             // External Anna dialogue shown with answer
         }
         Speaker::You => {
-            println!(
-                "{}You:{} {}",
-                colors::CYAN, colors::RESET, segment.text
-            );
+            println!("{}You:{} {}", colors::CYAN, colors::RESET, segment.text);
         }
         Speaker::TeamMember { name, role, .. } => {
             println!(
                 "{}{} ({}):{} {}",
-                colors::WARN, name, role, colors::RESET, segment.text
+                colors::WARN,
+                name,
+                role,
+                colors::RESET,
+                segment.text
             );
         }
         Speaker::Narrator => {
-            println!(
-                "{}{}...{}",
-                colors::DIM, segment.text, colors::RESET
-            );
+            println!("{}{}...{}", colors::DIM, segment.text, colors::RESET);
         }
     }
 }
@@ -207,6 +207,39 @@ fn get_final_answer_text(result: &ServiceDeskResult) -> String {
     String::new()
 }
 
+/// Summarize proposed configuration changes (if any)
+fn print_change_summary(result: &ServiceDeskResult) {
+    let changes: Vec<ChangePlan> = if !result.proposed_changes.is_empty() {
+        result.proposed_changes.clone()
+    } else {
+        result.proposed_change.iter().cloned().collect()
+    };
+
+    if changes.is_empty() {
+        return;
+    }
+
+    println!("{}[anna: config change proposal]{}", colors::HEADER, colors::RESET);
+    for (idx, change) in changes.iter().enumerate() {
+        let status = if change.is_noop {
+            format!("{}noop{}", colors::DIM, colors::RESET)
+        } else {
+            format!("{}apply{}", colors::OK, colors::RESET)
+        };
+        println!(
+            "  {}. {}  {}",
+            idx + 1,
+            change.summary(),
+            status
+        );
+        println!(
+            "     file: {}",
+            change.target_path.display()
+        );
+    }
+    println!();
+}
+
 /// Print the footer
 /// v0.0.106: Shows case number and assigned staff when available
 /// v0.0.109: Shows staff specializations
@@ -219,12 +252,18 @@ fn print_footer(result: &ServiceDeskResult) {
     // v0.0.106: Case number header with staff info
     // v0.0.109: Enhanced with specializations
     if let Some(ref case_num) = result.case_number {
-        let staff_info = result.assigned_staff.as_ref()
+        let staff_info = result
+            .assigned_staff
+            .as_ref()
             .map(|s| format!(" ({})", s))
             .unwrap_or_default();
         println!(
             "{}{}{}{} {}",
-            colors::CYAN, case_num, colors::RESET, colors::DIM, staff_info
+            colors::CYAN,
+            case_num,
+            colors::RESET,
+            colors::DIM,
+            staff_info
         );
 
         // v0.0.109: Show specializations if we have staff_id
@@ -234,7 +273,9 @@ fn print_footer(result: &ServiceDeskResult) {
                     let specs = person.specialization_str();
                     println!(
                         "{}  Specializes in: {}{}",
-                        colors::DIM, specs, colors::RESET
+                        colors::DIM,
+                        specs,
+                        colors::RESET
                     );
                 }
             }
@@ -251,15 +292,24 @@ fn print_footer(result: &ServiceDeskResult) {
     if evidence_source.is_empty() {
         println!(
             "{}{} | {} | {}{}%{}",
-            colors::DIM, domain_context, confidence_note,
-            rel_color, result.reliability_score, colors::RESET
+            colors::DIM,
+            domain_context,
+            confidence_note,
+            rel_color,
+            result.reliability_score,
+            colors::RESET
         );
     } else {
         println!(
             "{}{} | {} | {}{}%{} | {}{}",
-            colors::DIM, domain_context, confidence_note,
-            rel_color, result.reliability_score, colors::RESET,
-            colors::DIM, evidence_source
+            colors::DIM,
+            domain_context,
+            confidence_note,
+            rel_color,
+            result.reliability_score,
+            colors::RESET,
+            colors::DIM,
+            evidence_source
         );
     }
 }
@@ -268,7 +318,9 @@ fn print_footer(result: &ServiceDeskResult) {
 fn format_evidence_source(result: &ServiceDeskResult) -> String {
     if let Some(trace) = &result.execution_trace {
         if !trace.evidence_kinds.is_empty() {
-            let kinds: Vec<&str> = trace.evidence_kinds.iter()
+            let kinds: Vec<&str> = trace
+                .evidence_kinds
+                .iter()
                 .map(|k| match k {
                     anna_shared::trace::EvidenceKind::Audio => "audio",
                     anna_shared::trace::EvidenceKind::ToolExists => "tools",
@@ -286,9 +338,18 @@ fn format_evidence_source(result: &ServiceDeskResult) -> String {
         }
     }
 
-    let success = result.evidence.probes_executed.iter().filter(|p| p.exit_code == 0).count();
+    let success = result
+        .evidence
+        .probes_executed
+        .iter()
+        .filter(|p| p.exit_code == 0)
+        .count();
     if success > 0 {
-        format!("Verified from {} probe{}", success, if success == 1 { "" } else { "s" })
+        format!(
+            "Verified from {} probe{}",
+            success,
+            if success == 1 { "" } else { "s" }
+        )
     } else {
         String::new()
     }
@@ -322,18 +383,42 @@ fn team_from_domain(domain: &str) -> Team {
 /// Extract probe ID from command
 fn probe_id_from_command(command: &str) -> String {
     let cmd = command.to_lowercase();
-    if cmd.starts_with("df ") || cmd == "df" { return "df".to_string(); }
-    if cmd.starts_with("free ") || cmd == "free" { return "free".to_string(); }
-    if cmd.starts_with("lscpu") { return "lscpu".to_string(); }
-    if cmd.contains("sensors") { return "sensors".to_string(); }
-    if cmd.starts_with("systemctl") { return "systemctl".to_string(); }
-    if cmd.contains("journalctl") { return "journalctl".to_string(); }
-    if cmd.starts_with("ip ") { return "ip".to_string(); }
-    if cmd.contains("lspci") && cmd.contains("audio") { return "lspci_audio".to_string(); }
-    if cmd.contains("pactl") { return "pactl_cards".to_string(); }
-    if cmd.starts_with("lsblk") { return "lsblk".to_string(); }
-    if cmd.starts_with("uname") { return "uname".to_string(); }
-    if cmd.contains("command -v") { return "command_v".to_string(); }
+    if cmd.starts_with("df ") || cmd == "df" {
+        return "df".to_string();
+    }
+    if cmd.starts_with("free ") || cmd == "free" {
+        return "free".to_string();
+    }
+    if cmd.starts_with("lscpu") {
+        return "lscpu".to_string();
+    }
+    if cmd.contains("sensors") {
+        return "sensors".to_string();
+    }
+    if cmd.starts_with("systemctl") {
+        return "systemctl".to_string();
+    }
+    if cmd.contains("journalctl") {
+        return "journalctl".to_string();
+    }
+    if cmd.starts_with("ip ") {
+        return "ip".to_string();
+    }
+    if cmd.contains("lspci") && cmd.contains("audio") {
+        return "lspci_audio".to_string();
+    }
+    if cmd.contains("pactl") {
+        return "pactl_cards".to_string();
+    }
+    if cmd.starts_with("lsblk") {
+        return "lsblk".to_string();
+    }
+    if cmd.starts_with("uname") {
+        return "uname".to_string();
+    }
+    if cmd.contains("command -v") {
+        return "command_v".to_string();
+    }
     "probe".to_string()
 }
 
@@ -352,7 +437,10 @@ mod tests {
     fn test_probe_id_from_command() {
         assert_eq!(probe_id_from_command("df -h"), "df");
         assert_eq!(probe_id_from_command("free -h"), "free");
-        assert_eq!(probe_id_from_command("lspci | grep -i audio"), "lspci_audio");
+        assert_eq!(
+            probe_id_from_command("lspci | grep -i audio"),
+            "lspci_audio"
+        );
     }
 
     #[test]

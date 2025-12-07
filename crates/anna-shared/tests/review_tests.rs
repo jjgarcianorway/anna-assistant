@@ -71,9 +71,12 @@ fn test_review_artifact_pass() {
 
 #[test]
 fn test_review_artifact_with_blocker() {
-    let artifact = ReviewArtifact::new(Team::Storage, "junior").with_score(65).with_issue(
-        ReviewIssue::blocker(ReviewIssueKind::MissingEvidence, "Disk usage data required"),
-    );
+    let artifact = ReviewArtifact::new(Team::Storage, "junior")
+        .with_score(65)
+        .with_issue(ReviewIssue::blocker(
+            ReviewIssueKind::MissingEvidence,
+            "Disk usage data required",
+        ));
 
     assert!(!artifact.allow_publish);
     assert!(artifact.has_blockers());

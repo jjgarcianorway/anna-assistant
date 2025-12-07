@@ -96,9 +96,7 @@ impl SystemReport {
         let mut health_checks = build_health_checks(evidence);
 
         // Sort health checks: severity desc, then id asc (stable ordering)
-        health_checks.sort_by(|a, b| {
-            b.severity.cmp(&a.severity).then_with(|| a.id.cmp(&b.id))
-        });
+        health_checks.sort_by(|a, b| b.severity.cmp(&a.severity).then_with(|| a.id.cmp(&b.id)));
 
         let (probe_stats, evidence_kinds, execution_trace_summary) = match trace {
             Some(t) => (
@@ -282,11 +280,20 @@ fn build_executive_summary(checks: &[HealthItem], inventory: &SystemInventory) -
             issues.push(format!("{} critical", critical_count));
         }
         if warning_count > 0 {
-            issues.push(format!("{} warning{}", warning_count, if warning_count == 1 { "" } else { "s" }));
+            issues.push(format!(
+                "{} warning{}",
+                warning_count,
+                if warning_count == 1 { "" } else { "s" }
+            ));
         }
-        summary.push(format!("{} issue{} detected: {}",
+        summary.push(format!(
+            "{} issue{} detected: {}",
             critical_count + warning_count,
-            if critical_count + warning_count == 1 { "" } else { "s" },
+            if critical_count + warning_count == 1 {
+                ""
+            } else {
+                "s"
+            },
             issues.join(", ")
         ));
     }
@@ -377,8 +384,19 @@ pub fn format_text(report: &SystemReport) -> String {
     // Execution
     out.push_str("EXECUTION\n");
     out.push_str(&format!("  Probes: {}\n", report.probe_stats));
-    let evidence_str: Vec<_> = report.evidence_kinds.iter().map(|k| k.to_string()).collect();
-    out.push_str(&format!("  Evidence: {}\n", if evidence_str.is_empty() { "none".to_string() } else { evidence_str.join(", ") }));
+    let evidence_str: Vec<_> = report
+        .evidence_kinds
+        .iter()
+        .map(|k| k.to_string())
+        .collect();
+    out.push_str(&format!(
+        "  Evidence: {}\n",
+        if evidence_str.is_empty() {
+            "none".to_string()
+        } else {
+            evidence_str.join(", ")
+        }
+    ));
     out.push_str(&format!("  Path: {}\n", report.execution_trace_summary));
     out.push('\n');
 
@@ -440,8 +458,19 @@ pub fn format_markdown(report: &SystemReport) -> String {
     // Execution
     out.push_str("## Execution\n\n");
     out.push_str(&format!("- **Probes**: {}\n", report.probe_stats));
-    let evidence_str: Vec<_> = report.evidence_kinds.iter().map(|k| k.to_string()).collect();
-    out.push_str(&format!("- **Evidence**: {}\n", if evidence_str.is_empty() { "none".to_string() } else { evidence_str.join(", ") }));
+    let evidence_str: Vec<_> = report
+        .evidence_kinds
+        .iter()
+        .map(|k| k.to_string())
+        .collect();
+    out.push_str(&format!(
+        "- **Evidence**: {}\n",
+        if evidence_str.is_empty() {
+            "none".to_string()
+        } else {
+            evidence_str.join(", ")
+        }
+    ));
     out.push_str(&format!("- **Path**: {}\n", report.execution_trace_summary));
     out.push('\n');
 

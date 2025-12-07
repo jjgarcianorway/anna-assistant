@@ -5,7 +5,10 @@
 fn redact(text: &str) -> String {
     let patterns = [
         // Private keys
-        (r"-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----", "[REDACTED: private key]"),
+        (
+            r"-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----",
+            "[REDACTED: private key]",
+        ),
         // AWS access keys (AKIA...)
         (r"AKIA[0-9A-Z]{16}", "[REDACTED: AWS key]"),
         // Password patterns

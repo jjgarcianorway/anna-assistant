@@ -183,9 +183,7 @@ impl RecipeIndex {
     pub fn search_recipes(&self, query: &str, limit: usize) -> Vec<(Recipe, u32)> {
         self.search(query, limit)
             .into_iter()
-            .filter_map(|m| {
-                self.recipes.get(&m.recipe_id).map(|r| (r.clone(), m.score))
-            })
+            .filter_map(|m| self.recipes.get(&m.recipe_id).map(|r| (r.clone(), m.score)))
             .collect()
     }
 
@@ -241,11 +239,8 @@ impl RecipeIndex {
         let mut score: u32 = 0;
 
         // Score target matches (boosted)
-        let target_tokens: BTreeSet<String> = recipe
-            .targets
-            .iter()
-            .flat_map(|s| tokenize(s))
-            .collect();
+        let target_tokens: BTreeSet<String> =
+            recipe.targets.iter().flat_map(|s| tokenize(s)).collect();
         for token in query_tokens {
             if target_tokens.contains(token) {
                 score += TARGET_BOOST;
@@ -265,8 +260,9 @@ impl RecipeIndex {
         }
 
         // Score query_pattern matches (base)
-        let pattern_tokens: BTreeSet<String> =
-            tokenize(&recipe.signature.query_pattern).into_iter().collect();
+        let pattern_tokens: BTreeSet<String> = tokenize(&recipe.signature.query_pattern)
+            .into_iter()
+            .collect();
         for token in query_tokens {
             if pattern_tokens.contains(token) {
                 score += BASE_MATCH;

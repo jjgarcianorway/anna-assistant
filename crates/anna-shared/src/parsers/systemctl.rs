@@ -136,8 +136,7 @@ fn parse_failed_unit_line(
     _line_num: usize,
 ) -> Result<Option<ServiceStatus>, ParseError> {
     // Remove leading status markers (●, ○, etc.)
-    let line = line
-        .trim_start_matches(|c: char| !c.is_ascii_alphanumeric());
+    let line = line.trim_start_matches(|c: char| !c.is_ascii_alphanumeric());
     let line = line.trim();
 
     if line.is_empty() {
@@ -274,7 +273,11 @@ SUB    = The low-level unit activation state, values depend on unit type.
 
         assert_eq!(units[0].name, "nginx.service");
         assert_eq!(units[0].state, ServiceState::Failed);
-        assert!(units[0].description.as_ref().unwrap().contains("web server"));
+        assert!(units[0]
+            .description
+            .as_ref()
+            .unwrap()
+            .contains("web server"));
 
         assert_eq!(units[1].name, "postgresql.service");
         assert_eq!(units[1].state, ServiceState::Failed);

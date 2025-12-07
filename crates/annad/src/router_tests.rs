@@ -82,7 +82,7 @@ mod tests {
     #[test]
     fn test_apply_routing_overrides_llm() {
         let llm_ticket = TranslatorTicket {
-            intent: QueryIntent::Request, // LLM got it wrong
+            intent: QueryIntent::Request,       // LLM got it wrong
             domain: SpecialistDomain::Security, // LLM got it wrong
             entities: vec![],
             needs_probes: vec!["listening_ports".to_string()], // Wrong probes
@@ -105,7 +105,10 @@ mod tests {
     #[test]
     fn test_classify_memory_usage() {
         assert_eq!(classify_query("memory usage"), QueryClass::MemoryUsage);
-        assert_eq!(classify_query("how much memory used"), QueryClass::MemoryUsage);
+        assert_eq!(
+            classify_query("how much memory used"),
+            QueryClass::MemoryUsage
+        );
         // v0.0.80: "free memory" and "available memory" now route to MemoryFree (B1 fix)
         // See test_free_memory_routes_to_memory_free and test_memory_usage_distinct_from_memory_free
     }
@@ -118,7 +121,10 @@ mod tests {
 
     #[test]
     fn test_classify_service_status() {
-        assert_eq!(classify_query("is nginx running"), QueryClass::ServiceStatus);
+        assert_eq!(
+            classify_query("is nginx running"),
+            QueryClass::ServiceStatus
+        );
         assert_eq!(classify_query("service status"), QueryClass::ServiceStatus);
         assert_eq!(classify_query("systemd units"), QueryClass::ServiceStatus);
     }
@@ -150,8 +156,14 @@ mod tests {
         assert_eq!(classify_query("thank you"), QueryClass::MetaSmallTalk);
         // Meta questions
         assert_eq!(classify_query("how are you"), QueryClass::MetaSmallTalk);
-        assert_eq!(classify_query("what is your name"), QueryClass::MetaSmallTalk);
-        assert_eq!(classify_query("are you using llm"), QueryClass::MetaSmallTalk);
+        assert_eq!(
+            classify_query("what is your name"),
+            QueryClass::MetaSmallTalk
+        );
+        assert_eq!(
+            classify_query("are you using llm"),
+            QueryClass::MetaSmallTalk
+        );
         assert_eq!(classify_query("are you an ai"), QueryClass::MetaSmallTalk);
         assert_eq!(classify_query("are you ok"), QueryClass::MetaSmallTalk);
     }
@@ -170,7 +182,10 @@ mod tests {
         assert_eq!(classify_query("kernel version"), QueryClass::KernelVersion);
         assert_eq!(classify_query("uname"), QueryClass::KernelVersion);
         assert_eq!(classify_query("linux version"), QueryClass::KernelVersion);
-        assert_eq!(classify_query("what kernel am I running"), QueryClass::KernelVersion);
+        assert_eq!(
+            classify_query("what kernel am I running"),
+            QueryClass::KernelVersion
+        );
     }
 
     #[test]
@@ -182,10 +197,22 @@ mod tests {
 
     #[test]
     fn test_classify_config_file_location() {
-        assert_eq!(classify_query("where is vim config"), QueryClass::ConfigFileLocation);
-        assert_eq!(classify_query("hyprland config location"), QueryClass::ConfigFileLocation);
-        assert_eq!(classify_query("path to bash config"), QueryClass::ConfigFileLocation);
-        assert_eq!(classify_query("nvim config path"), QueryClass::ConfigFileLocation);
+        assert_eq!(
+            classify_query("where is vim config"),
+            QueryClass::ConfigFileLocation
+        );
+        assert_eq!(
+            classify_query("hyprland config location"),
+            QueryClass::ConfigFileLocation
+        );
+        assert_eq!(
+            classify_query("path to bash config"),
+            QueryClass::ConfigFileLocation
+        );
+        assert_eq!(
+            classify_query("nvim config path"),
+            QueryClass::ConfigFileLocation
+        );
     }
 
     #[test]
@@ -202,15 +229,24 @@ mod tests {
         // B1 fix: "free memory" should route to MemoryFree, not MemoryUsage
         assert_eq!(classify_query("free memory"), QueryClass::MemoryFree);
         assert_eq!(classify_query("available memory"), QueryClass::MemoryFree);
-        assert_eq!(classify_query("how much free memory"), QueryClass::MemoryFree);
-        assert_eq!(classify_query("how much available memory"), QueryClass::MemoryFree);
+        assert_eq!(
+            classify_query("how much free memory"),
+            QueryClass::MemoryFree
+        );
+        assert_eq!(
+            classify_query("how much available memory"),
+            QueryClass::MemoryFree
+        );
     }
 
     #[test]
     fn test_memory_usage_distinct_from_memory_free() {
         // B1 fix: Memory usage and memory free are distinct
         assert_eq!(classify_query("memory usage"), QueryClass::MemoryUsage);
-        assert_eq!(classify_query("how much memory used"), QueryClass::MemoryUsage);
+        assert_eq!(
+            classify_query("how much memory used"),
+            QueryClass::MemoryUsage
+        );
         // But free/available goes to MemoryFree
         assert_eq!(classify_query("free memory"), QueryClass::MemoryFree);
         assert_eq!(classify_query("available memory"), QueryClass::MemoryFree);
@@ -223,7 +259,10 @@ mod tests {
         assert_eq!(classify_query("show my tickets"), QueryClass::TicketHistory);
         assert_eq!(classify_query("ticket history"), QueryClass::TicketHistory);
         assert_eq!(classify_query("recent cases"), QueryClass::TicketHistory);
-        assert_eq!(classify_query("what have i asked before"), QueryClass::TicketHistory);
+        assert_eq!(
+            classify_query("what have i asked before"),
+            QueryClass::TicketHistory
+        );
         assert_eq!(classify_query("my cases"), QueryClass::TicketHistory);
         assert_eq!(classify_query("support history"), QueryClass::TicketHistory);
     }

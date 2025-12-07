@@ -4,7 +4,7 @@
 //! Uses roster.rs for humanized person profiles (v0.0.32).
 
 use crate::review::{ReviewArtifact, ReviewSeverity};
-use crate::roster::{person_for, Tier, PersonProfile};
+use crate::roster::{person_for, PersonProfile, Tier};
 use crate::teams::Team;
 
 /// Get the display name for a team + reviewer combination.
@@ -114,11 +114,7 @@ pub fn narrate_ticket_assignment(team: Team, ticket_id: &str) -> String {
     } else {
         ticket_id
     };
-    format!(
-        "Ticket {} assigned to {} team",
-        short_id,
-        team_tag(team)
-    )
+    format!("Ticket {} assigned to {} team", short_id, team_tag(team))
 }
 
 /// Format reviewer badge for debug display.
@@ -131,7 +127,11 @@ pub fn reviewer_badge(team: Team, reviewer: &str) -> String {
 
 /// Get person profile for a reviewer tier string
 fn tier_from_str(reviewer: &str) -> Tier {
-    if reviewer.to_lowercase().contains("senior") { Tier::Senior } else { Tier::Junior }
+    if reviewer.to_lowercase().contains("senior") {
+        Tier::Senior
+    } else {
+        Tier::Junior
+    }
 }
 
 /// Get the person profile for a team + reviewer.
@@ -154,13 +154,23 @@ pub fn narrate_person_review(artifact: &ReviewArtifact) -> String {
             format!("{}: approved (score {})", person.display(), artifact.score)
         } else {
             let warning_count = artifact.issue_count(ReviewSeverity::Warning);
-            format!("{}: approved with {} note{} (score {})", person.display(),
-                warning_count, if warning_count == 1 { "" } else { "s" }, artifact.score)
+            format!(
+                "{}: approved with {} note{} (score {})",
+                person.display(),
+                warning_count,
+                if warning_count == 1 { "" } else { "s" },
+                artifact.score
+            )
         }
     } else {
         let blocker_count = artifact.issue_count(ReviewSeverity::Blocker);
-        format!("{}: needs revision - {} issue{} (score {})", person.display(),
-            blocker_count, if blocker_count == 1 { "" } else { "s" }, artifact.score)
+        format!(
+            "{}: needs revision - {} issue{} (score {})",
+            person.display(),
+            blocker_count,
+            if blocker_count == 1 { "" } else { "s" },
+            artifact.score
+        )
     }
 }
 
@@ -240,8 +250,14 @@ mod tests {
     fn test_team_role_names() {
         assert_eq!(team_role_name(Team::Storage, "junior"), "Storage Engineer");
         assert_eq!(team_role_name(Team::Storage, "senior"), "Storage Architect");
-        assert_eq!(team_role_name(Team::Desktop, "junior"), "Desktop Administrator");
-        assert_eq!(team_role_name(Team::Security, "senior"), "Security Engineer");
+        assert_eq!(
+            team_role_name(Team::Desktop, "junior"),
+            "Desktop Administrator"
+        );
+        assert_eq!(
+            team_role_name(Team::Security, "senior"),
+            "Security Engineer"
+        );
     }
 
     #[test]
@@ -280,7 +296,10 @@ mod tests {
     fn test_narrate_review_result_needs_revision() {
         let artifact = ReviewArtifact::new(Team::Storage, "junior")
             .with_score(65)
-            .with_issue(ReviewIssue::blocker(ReviewIssueKind::MissingEvidence, "need disk data"));
+            .with_issue(ReviewIssue::blocker(
+                ReviewIssueKind::MissingEvidence,
+                "need disk data",
+            ));
         let result = narrate_review_result(&artifact);
         assert!(result.contains("Storage Engineer"));
         assert!(result.contains("needs revision"));
@@ -310,8 +329,14 @@ mod tests {
     #[test]
     fn test_format_issues_list() {
         let artifact = ReviewArtifact::new(Team::General, "junior")
-            .with_issue(ReviewIssue::warning(ReviewIssueKind::TooVague, "needs detail"))
-            .with_issue(ReviewIssue::blocker(ReviewIssueKind::MissingEvidence, "no data"));
+            .with_issue(ReviewIssue::warning(
+                ReviewIssueKind::TooVague,
+                "needs detail",
+            ))
+            .with_issue(ReviewIssue::blocker(
+                ReviewIssueKind::MissingEvidence,
+                "no data",
+            ));
 
         let issues = format_issues_list(&artifact);
         assert_eq!(issues.len(), 2);
@@ -363,13 +388,19 @@ mod tests {
     #[test]
     fn golden_person_action_network_junior() {
         let result = narrate_person_action(Team::Network, "junior", "is reviewing connectivity");
-        assert_eq!(result, "Michael (Network Engineer) is reviewing connectivity");
+        assert_eq!(
+            result,
+            "Michael (Network Engineer) is reviewing connectivity"
+        );
     }
 
     #[test]
     fn golden_person_escalation_storage() {
         let result = narrate_person_escalation(Team::Storage, "disk verification failed");
-        assert_eq!(result, "Escalating to Ines (Storage Architect) - disk verification failed");
+        assert_eq!(
+            result,
+            "Escalating to Ines (Storage Architect) - disk verification failed"
+        );
     }
 
     #[test]

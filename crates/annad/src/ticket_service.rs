@@ -182,7 +182,8 @@ fn build_revision_instruction(
                 // Recommend re-running probes that didn't produce valid evidence
                 // v0.0.56: exit_code=1 for tool checks is valid negative evidence, not failure
                 for probe in &ticket.planned_probes {
-                    let has_valid_evidence = probe_results.iter()
+                    let has_valid_evidence = probe_results
+                        .iter()
                         .filter(|p| p.command == *probe)
                         .any(|p| parse_probe_result(p).is_valid_evidence());
                     if !has_valid_evidence {
@@ -248,7 +249,8 @@ pub fn senior_escalate(
 
         // Be more specific about required evidence
         for kind in &ticket.evidence_kinds {
-            inst = inst.with_required_claim(format!("auditable {} claim with specific values", kind));
+            inst =
+                inst.with_required_claim(format!("auditable {} claim with specific values", kind));
         }
     }
 
@@ -265,7 +267,10 @@ pub fn senior_escalate(
     }
 
     if inst.has_changes() {
-        info!("Senior escalation successful with {} issues", inst.issues.len());
+        info!(
+            "Senior escalation successful with {} issues",
+            inst.issues.len()
+        );
         SeniorEscalation::success(inst)
     } else {
         warn!("Senior escalation could not provide guidance");
@@ -307,11 +312,7 @@ pub fn apply_revision(
 }
 
 /// Add ticket lifecycle events to transcript
-pub fn add_ticket_created_event(
-    transcript: &mut Transcript,
-    elapsed_ms: u64,
-    ticket: &Ticket,
-) {
+pub fn add_ticket_created_event(transcript: &mut Transcript, elapsed_ms: u64, ticket: &Ticket) {
     transcript.push(TranscriptEvent::ticket_created(
         elapsed_ms,
         &ticket.ticket_id,
@@ -374,11 +375,7 @@ pub fn add_senior_escalation_event(
 }
 
 /// Add revision applied event to transcript
-pub fn add_revision_event(
-    transcript: &mut Transcript,
-    elapsed_ms: u64,
-    changes: Vec<String>,
-) {
+pub fn add_revision_event(transcript: &mut Transcript, elapsed_ms: u64, changes: Vec<String>) {
     transcript.push(TranscriptEvent::revision_applied(elapsed_ms, changes));
 }
 

@@ -54,18 +54,14 @@ fn test_do_i_have_nano_enforces_probes() {
     // FAILURE 1: "Do I have nano?" ran zero probes, timed out
     let decision = enforce_minimum_probes("Do I have nano?", &[]);
     assert!(decision.enforced, "Must enforce probes for package check");
-    assert!(
-        decision
-            .probes
-            .iter()
-            .any(|p| matches!(p, ProbeId::PacmanQ(pkg) if pkg == "nano"))
-    );
-    assert!(
-        decision
-            .probes
-            .iter()
-            .any(|p| matches!(p, ProbeId::CommandV(cmd) if cmd == "nano"))
-    );
+    assert!(decision
+        .probes
+        .iter()
+        .any(|p| matches!(p, ProbeId::PacmanQ(pkg) if pkg == "nano")));
+    assert!(decision
+        .probes
+        .iter()
+        .any(|p| matches!(p, ProbeId::CommandV(cmd) if cmd == "nano")));
     assert!(decision.evidence_kinds.contains(&EvidenceKind::Packages));
 }
 
@@ -100,10 +96,7 @@ fn test_how_many_cores_enforces_lscpu() {
     // FAILURE 4: "How many cores?" returned CPU model with 0 probes
     let decision = enforce_minimum_probes("How many cores?", &[]);
     assert!(decision.enforced, "Must enforce lscpu for core count");
-    assert!(decision
-        .probes
-        .iter()
-        .any(|p| matches!(p, ProbeId::Lscpu)));
+    assert!(decision.probes.iter().any(|p| matches!(p, ProbeId::Lscpu)));
     assert!(decision.evidence_kinds.contains(&EvidenceKind::Cpu));
 }
 
@@ -185,8 +178,13 @@ fn test_reduce_probes_no_duplicate_journal() {
     let reduced = reduce_probes(probes, "system_triage", Urgency::Normal);
     // Should not have both errors and warnings (unless Detailed)
     let has_errors = reduced.iter().any(|p| matches!(p, ProbeId::JournalErrors));
-    let has_warnings = reduced.iter().any(|p| matches!(p, ProbeId::JournalWarnings));
-    assert!(!(has_errors && has_warnings), "Should not have both errors and warnings");
+    let has_warnings = reduced
+        .iter()
+        .any(|p| matches!(p, ProbeId::JournalWarnings));
+    assert!(
+        !(has_errors && has_warnings),
+        "Should not have both errors and warnings"
+    );
 }
 
 #[test]

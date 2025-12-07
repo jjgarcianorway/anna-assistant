@@ -117,12 +117,14 @@ fn test_all_teams_have_junior_and_senior() {
 fn test_registry_set() {
     let mut registry = SpecialistsRegistry::with_defaults();
 
-    let custom = SpecialistProfile::new(Team::Security, SpecialistRole::Junior)
-        .with_model("security-model");
+    let custom =
+        SpecialistProfile::new(Team::Security, SpecialistRole::Junior).with_model("security-model");
 
     registry.set(custom);
 
-    let profile = registry.get(Team::Security, SpecialistRole::Junior).unwrap();
+    let profile = registry
+        .get(Team::Security, SpecialistRole::Junior)
+        .unwrap();
     assert_eq!(profile.model_id, "security-model");
 
     // Count should not change (updated existing)

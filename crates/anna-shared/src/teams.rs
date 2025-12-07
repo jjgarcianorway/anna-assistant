@@ -165,7 +165,7 @@ pub fn required_evidence_for_team(team: Team) -> Vec<EvidenceKind> {
         Team::Services => vec![EvidenceKind::Services],
         Team::Security => vec![], // Security evidence kinds not yet defined
         Team::Hardware => vec![EvidenceKind::Cpu, EvidenceKind::Memory],
-        Team::Logs => vec![], // Logs team reviews log analysis (v0.0.42)
+        Team::Logs => vec![],    // Logs team reviews log analysis (v0.0.42)
         Team::General => vec![], // General team has no specific requirements
     }
 }
@@ -220,18 +220,9 @@ mod tests {
 
     #[test]
     fn test_team_from_route_class_storage() {
-        assert_eq!(
-            team_from_domain_intent("", "", "DiskUsage"),
-            Team::Storage
-        );
-        assert_eq!(
-            team_from_domain_intent("", "", "disk_space"),
-            Team::Storage
-        );
-        assert_eq!(
-            team_from_domain_intent("", "", "lsblk"),
-            Team::Storage
-        );
+        assert_eq!(team_from_domain_intent("", "", "DiskUsage"), Team::Storage);
+        assert_eq!(team_from_domain_intent("", "", "disk_space"), Team::Storage);
+        assert_eq!(team_from_domain_intent("", "", "lsblk"), Team::Storage);
     }
 
     #[test]
@@ -298,9 +289,18 @@ mod tests {
 
     #[test]
     fn test_team_display_names() {
-        assert_eq!(team_display_name(Team::Storage, "junior"), "Storage Engineer");
-        assert_eq!(team_display_name(Team::Storage, "senior"), "Storage Architect");
-        assert_eq!(team_display_name(Team::Desktop, "junior"), "Desktop Administrator");
+        assert_eq!(
+            team_display_name(Team::Storage, "junior"),
+            "Storage Engineer"
+        );
+        assert_eq!(
+            team_display_name(Team::Storage, "senior"),
+            "Storage Architect"
+        );
+        assert_eq!(
+            team_display_name(Team::Desktop, "junior"),
+            "Desktop Administrator"
+        );
     }
 
     #[test]

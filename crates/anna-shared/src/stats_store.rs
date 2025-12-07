@@ -155,7 +155,10 @@ impl StatsStore {
         let total = records.len() as u64;
         let successful = records.iter().filter(|r| r.success).count() as u64;
         let avg_rel = records.iter().map(|r| r.reliability as f64).sum::<f64>() / total as f64;
-        let escalated = records.iter().filter(|r| r.specialist_used.is_some()).count() as u64;
+        let escalated = records
+            .iter()
+            .filter(|r| r.specialist_used.is_some())
+            .count() as u64;
 
         let longest = records.iter().map(|r| r.duration_ms).max().unwrap_or(0);
         let shortest = records.iter().map(|r| r.duration_ms).min().unwrap_or(0);
@@ -227,7 +230,11 @@ mod tests {
                 query_class: "test".to_string(),
                 route_used: "deterministic".to_string(),
                 probes_count: 1,
-                specialist_used: if i % 2 == 0 { Some("system".to_string()) } else { None },
+                specialist_used: if i % 2 == 0 {
+                    Some("system".to_string())
+                } else {
+                    None
+                },
                 reliability: 80 + i * 2,
                 duration_ms: 100 + i as u64 * 50,
                 evidence_kinds: vec![],

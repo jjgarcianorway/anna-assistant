@@ -55,7 +55,7 @@ fn test_create_ticket_from_translator() {
         needs_probes: vec!["free -h".to_string()],
         clarification_question: None,
         answer_contract: None,
-            confidence: 0.95,
+        confidence: 0.95,
     };
 
     let ticket = create_ticket_from_translator(

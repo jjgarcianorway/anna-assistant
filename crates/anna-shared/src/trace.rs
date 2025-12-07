@@ -62,7 +62,10 @@ impl std::fmt::Display for FallbackUsed {
             Self::Deterministic { route_class } => {
                 write!(f, "deterministic ({})", route_class)
             }
-            Self::Timeout { route_class, timeout_ms } => {
+            Self::Timeout {
+                route_class,
+                timeout_ms,
+            } => {
                 write!(f, "timeout ({}ms, {})", timeout_ms, route_class)
             }
         }
@@ -133,17 +136,18 @@ impl ProbeStats {
             .filter(|p| p.exit_code != 0 && !p.stderr.to_lowercase().contains("timeout"))
             .count();
 
-        Self { planned, succeeded, failed, timed_out }
+        Self {
+            planned,
+            succeeded,
+            failed,
+            timed_out,
+        }
     }
 }
 
 impl std::fmt::Display for ProbeStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}/{} probes succeeded",
-            self.succeeded, self.planned
-        )?;
+        write!(f, "{}/{} probes succeeded", self.succeeded, self.planned)?;
         if self.failed > 0 {
             write!(f, ", {} failed", self.failed)?;
         }
@@ -221,10 +225,7 @@ pub fn evidence_kinds_from_route(route_class: &str) -> Vec<EvidenceKind> {
             EvidenceKind::BlockDevices,
             EvidenceKind::Cpu,
         ],
-        "system_triage" => vec![
-            EvidenceKind::Journal,
-            EvidenceKind::FailedUnits,
-        ],
+        "system_triage" => vec![EvidenceKind::Journal, EvidenceKind::FailedUnits],
         _ => vec![],
     }
 }
@@ -233,36 +234,70 @@ pub fn evidence_kinds_from_route(route_class: &str) -> Vec<EvidenceKind> {
 pub fn evidence_kinds_from_probes(probe_results: &[crate::rpc::ProbeResult]) -> Vec<EvidenceKind> {
     let mut kinds = Vec::new();
     for probe in probe_results {
-        if probe.exit_code != 0 { continue; }
+        if probe.exit_code != 0 {
+            continue;
+        }
         let cmd = probe.command.to_lowercase();
         // Memory probes
-        if cmd.contains("free") { kinds.push(EvidenceKind::Memory); }
+        if cmd.contains("free") {
+            kinds.push(EvidenceKind::Memory);
+        }
         // Disk probes
-        if cmd.contains("df ") || cmd.starts_with("df") { kinds.push(EvidenceKind::Disk); }
-        if cmd.contains("lsblk") { kinds.push(EvidenceKind::BlockDevices); }
+        if cmd.contains("df ") || cmd.starts_with("df") {
+            kinds.push(EvidenceKind::Disk);
+        }
+        if cmd.contains("lsblk") {
+            kinds.push(EvidenceKind::BlockDevices);
+        }
         // CPU probes
-        if cmd.contains("lscpu") { kinds.push(EvidenceKind::Cpu); }
-        if cmd.contains("sensors") { kinds.push(EvidenceKind::CpuTemperature); }
+        if cmd.contains("lscpu") {
+            kinds.push(EvidenceKind::Cpu);
+        }
+        if cmd.contains("sensors") {
+            kinds.push(EvidenceKind::CpuTemperature);
+        }
         // Service probes
-        if cmd.contains("systemctl") && !cmd.contains("--failed") { kinds.push(EvidenceKind::Services); }
-        if cmd.contains("--failed") { kinds.push(EvidenceKind::FailedUnits); }
+        if cmd.contains("systemctl") && !cmd.contains("--failed") {
+            kinds.push(EvidenceKind::Services);
+        }
+        if cmd.contains("--failed") {
+            kinds.push(EvidenceKind::FailedUnits);
+        }
         // Journal probes
-        if cmd.contains("journalctl") { kinds.push(EvidenceKind::Journal); }
+        if cmd.contains("journalctl") {
+            kinds.push(EvidenceKind::Journal);
+        }
         // Audio probes (v0.45.4)
-        if cmd.contains("lspci") && cmd.contains("audio") { kinds.push(EvidenceKind::Audio); }
-        if cmd.contains("pactl") { kinds.push(EvidenceKind::Audio); }
+        if cmd.contains("lspci") && cmd.contains("audio") {
+            kinds.push(EvidenceKind::Audio);
+        }
+        if cmd.contains("pactl") {
+            kinds.push(EvidenceKind::Audio);
+        }
         // Network probes (v0.45.4)
-        if cmd.contains("ip addr") || cmd.contains("ip route") { kinds.push(EvidenceKind::Network); }
+        if cmd.contains("ip addr") || cmd.contains("ip route") {
+            kinds.push(EvidenceKind::Network);
+        }
         // Process probes (v0.45.4)
-        if cmd.contains("ps aux") { kinds.push(EvidenceKind::Processes); }
+        if cmd.contains("ps aux") {
+            kinds.push(EvidenceKind::Processes);
+        }
         // Package probes (v0.45.4)
-        if cmd.contains("pacman") { kinds.push(EvidenceKind::Packages); }
+        if cmd.contains("pacman") {
+            kinds.push(EvidenceKind::Packages);
+        }
         // Tool existence probes (v0.45.4)
-        if cmd.contains("command -v") || cmd.contains("which ") { kinds.push(EvidenceKind::ToolExists); }
+        if cmd.contains("command -v") || cmd.contains("which ") {
+            kinds.push(EvidenceKind::ToolExists);
+        }
         // Boot time probes (v0.45.4)
-        if cmd.contains("systemd-analyze") { kinds.push(EvidenceKind::BootTime); }
+        if cmd.contains("systemd-analyze") {
+            kinds.push(EvidenceKind::BootTime);
+        }
         // System info probes (v0.45.4)
-        if cmd.contains("uname") { kinds.push(EvidenceKind::System); }
+        if cmd.contains("uname") {
+            kinds.push(EvidenceKind::System);
+        }
     }
     kinds.sort_by_key(|k| format!("{:?}", k));
     kinds.dedup();
@@ -301,7 +336,11 @@ impl ExecutionTrace {
     }
 
     /// Create a trace for skipped specialist (deterministic route)
-    pub fn deterministic_route(_route_class: &str, probe_stats: ProbeStats, evidence_kinds: Vec<EvidenceKind>) -> Self {
+    pub fn deterministic_route(
+        _route_class: &str,
+        probe_stats: ProbeStats,
+        evidence_kinds: Vec<EvidenceKind>,
+    ) -> Self {
         Self {
             specialist_outcome: SpecialistOutcome::Skipped,
             fallback_used: FallbackUsed::None,
@@ -313,10 +352,16 @@ impl ExecutionTrace {
     }
 
     /// Create a trace for specialist timeout with fallback
-    pub fn specialist_timeout_with_fallback(route_class: &str, probe_stats: ProbeStats, evidence_kinds: Vec<EvidenceKind>) -> Self {
+    pub fn specialist_timeout_with_fallback(
+        route_class: &str,
+        probe_stats: ProbeStats,
+        evidence_kinds: Vec<EvidenceKind>,
+    ) -> Self {
         Self {
             specialist_outcome: SpecialistOutcome::Timeout,
-            fallback_used: FallbackUsed::Deterministic { route_class: route_class.to_string() },
+            fallback_used: FallbackUsed::Deterministic {
+                route_class: route_class.to_string(),
+            },
             probe_stats,
             evidence_kinds,
             answer_is_deterministic: true,
@@ -325,10 +370,16 @@ impl ExecutionTrace {
     }
 
     /// Create a trace for specialist error with fallback
-    pub fn specialist_error_with_fallback(route_class: &str, probe_stats: ProbeStats, evidence_kinds: Vec<EvidenceKind>) -> Self {
+    pub fn specialist_error_with_fallback(
+        route_class: &str,
+        probe_stats: ProbeStats,
+        evidence_kinds: Vec<EvidenceKind>,
+    ) -> Self {
         Self {
             specialist_outcome: SpecialistOutcome::Error,
-            fallback_used: FallbackUsed::Deterministic { route_class: route_class.to_string() },
+            fallback_used: FallbackUsed::Deterministic {
+                route_class: route_class.to_string(),
+            },
             probe_stats,
             evidence_kinds,
             answer_is_deterministic: true,
@@ -379,9 +430,10 @@ impl std::fmt::Display for ExecutionTrace {
                 FallbackUsed::Deterministic { route_class } => {
                     write!(f, "deterministic fallback ({})", route_class)?
                 }
-                FallbackUsed::Timeout { route_class, timeout_ms } => {
-                    write!(f, "timeout fallback ({}ms, {})", timeout_ms, route_class)?
-                }
+                FallbackUsed::Timeout {
+                    route_class,
+                    timeout_ms,
+                } => write!(f, "timeout fallback ({}ms, {})", timeout_ms, route_class)?,
             }
         } else {
             write!(f, "specialist")?;
@@ -417,7 +469,12 @@ mod tests {
     fn test_deterministic_route_display() {
         let trace = ExecutionTrace::deterministic_route(
             "memory_usage",
-            ProbeStats { planned: 1, succeeded: 1, failed: 0, timed_out: 0 },
+            ProbeStats {
+                planned: 1,
+                succeeded: 1,
+                failed: 0,
+                timed_out: 0,
+            },
             vec![EvidenceKind::Memory],
         );
         assert_eq!(
@@ -430,7 +487,12 @@ mod tests {
     fn test_timeout_with_fallback_display() {
         let trace = ExecutionTrace::specialist_timeout_with_fallback(
             "system_health_summary",
-            ProbeStats { planned: 4, succeeded: 3, failed: 0, timed_out: 1 },
+            ProbeStats {
+                planned: 4,
+                succeeded: 3,
+                failed: 0,
+                timed_out: 1,
+            },
             vec![EvidenceKind::Memory, EvidenceKind::Disk, EvidenceKind::Cpu],
         );
         assert_eq!(
@@ -441,21 +503,39 @@ mod tests {
 
     #[test]
     fn test_probe_stats_display() {
-        let stats = ProbeStats { planned: 4, succeeded: 3, failed: 0, timed_out: 1 };
+        let stats = ProbeStats {
+            planned: 4,
+            succeeded: 3,
+            failed: 0,
+            timed_out: 1,
+        };
         assert_eq!(stats.to_string(), "3/4 probes succeeded, 1 timed out");
     }
 
     #[test]
     fn test_probe_stats_with_failures() {
-        let stats = ProbeStats { planned: 5, succeeded: 2, failed: 2, timed_out: 1 };
-        assert_eq!(stats.to_string(), "2/5 probes succeeded, 2 failed, 1 timed out");
+        let stats = ProbeStats {
+            planned: 5,
+            succeeded: 2,
+            failed: 2,
+            timed_out: 1,
+        };
+        assert_eq!(
+            stats.to_string(),
+            "2/5 probes succeeded, 2 failed, 1 timed out"
+        );
     }
 
     #[test]
     fn test_execution_trace_serialization() {
         let trace = ExecutionTrace::specialist_timeout_with_fallback(
             "disk_usage",
-            ProbeStats { planned: 1, succeeded: 1, failed: 0, timed_out: 0 },
+            ProbeStats {
+                planned: 1,
+                succeeded: 1,
+                failed: 0,
+                timed_out: 0,
+            },
             vec![EvidenceKind::Disk],
         );
         let json = serde_json::to_string(&trace).unwrap();

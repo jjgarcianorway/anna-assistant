@@ -147,26 +147,24 @@ fn test_health_summary_format() {
 
 #[test]
 fn test_health_summary_with_block_devices() {
-    let probes = vec![
-        ParsedProbeData::BlockDevices(vec![
-            BlockDevice {
-                name: "nvme0n1".to_string(),
-                size_bytes: 1_000_000_000_000,
-                device_type: BlockDeviceType::Disk,
-                mountpoints: vec![],
-                parent: None,
-                read_only: false,
-            },
-            BlockDevice {
-                name: "sda".to_string(),
-                size_bytes: 500_000_000_000,
-                device_type: BlockDeviceType::Disk,
-                mountpoints: vec![],
-                parent: None,
-                read_only: false,
-            },
-        ]),
-    ];
+    let probes = vec![ParsedProbeData::BlockDevices(vec![
+        BlockDevice {
+            name: "nvme0n1".to_string(),
+            size_bytes: 1_000_000_000_000,
+            device_type: BlockDeviceType::Disk,
+            mountpoints: vec![],
+            parent: None,
+            read_only: false,
+        },
+        BlockDevice {
+            name: "sda".to_string(),
+            size_bytes: 500_000_000_000,
+            device_type: BlockDeviceType::Disk,
+            mountpoints: vec![],
+            parent: None,
+            read_only: false,
+        },
+    ])];
 
     let summary = generate_health_summary(&probes).unwrap();
     assert!(summary.contains("Storage:"));
@@ -182,26 +180,24 @@ fn test_health_summary_empty_returns_none() {
 
 #[test]
 fn test_health_summary_disk_warnings() {
-    let probes = vec![
-        ParsedProbeData::Disk(vec![
-            DiskUsage {
-                filesystem: "/dev/sda1".to_string(),
-                mount: "/".to_string(),
-                size_bytes: 100_000_000_000,
-                used_bytes: 95_000_000_000,
-                available_bytes: 5_000_000_000,
-                percent_used: 95, // Critical
-            },
-            DiskUsage {
-                filesystem: "/dev/sdb1".to_string(),
-                mount: "/home".to_string(),
-                size_bytes: 500_000_000_000,
-                used_bytes: 425_000_000_000,
-                available_bytes: 75_000_000_000,
-                percent_used: 85, // Warning
-            },
-        ]),
-    ];
+    let probes = vec![ParsedProbeData::Disk(vec![
+        DiskUsage {
+            filesystem: "/dev/sda1".to_string(),
+            mount: "/".to_string(),
+            size_bytes: 100_000_000_000,
+            used_bytes: 95_000_000_000,
+            available_bytes: 5_000_000_000,
+            percent_used: 95, // Critical
+        },
+        DiskUsage {
+            filesystem: "/dev/sdb1".to_string(),
+            mount: "/home".to_string(),
+            size_bytes: 500_000_000_000,
+            used_bytes: 425_000_000_000,
+            available_bytes: 75_000_000_000,
+            percent_used: 85, // Warning
+        },
+    ])];
 
     let summary = generate_health_summary(&probes).unwrap();
     assert!(summary.contains("[CRITICAL]"));
@@ -221,20 +217,38 @@ fn test_system_health_summary_routing_health() {
 
 #[test]
 fn test_system_health_summary_routing_summary() {
-    assert_eq!(classify_query("system summary"), QueryClass::SystemHealthSummary);
-    assert_eq!(classify_query("show summary"), QueryClass::SystemHealthSummary);
+    assert_eq!(
+        classify_query("system summary"),
+        QueryClass::SystemHealthSummary
+    );
+    assert_eq!(
+        classify_query("show summary"),
+        QueryClass::SystemHealthSummary
+    );
 }
 
 #[test]
 fn test_system_health_summary_routing_status_report() {
-    assert_eq!(classify_query("status report"), QueryClass::SystemHealthSummary);
-    assert_eq!(classify_query("system status"), QueryClass::SystemHealthSummary);
+    assert_eq!(
+        classify_query("status report"),
+        QueryClass::SystemHealthSummary
+    );
+    assert_eq!(
+        classify_query("system status"),
+        QueryClass::SystemHealthSummary
+    );
 }
 
 #[test]
 fn test_system_health_summary_routing_overview() {
-    assert_eq!(classify_query("system overview"), QueryClass::SystemHealthSummary);
-    assert_eq!(classify_query("show overview"), QueryClass::SystemHealthSummary);
+    assert_eq!(
+        classify_query("system overview"),
+        QueryClass::SystemHealthSummary
+    );
+    assert_eq!(
+        classify_query("show overview"),
+        QueryClass::SystemHealthSummary
+    );
 }
 
 #[test]

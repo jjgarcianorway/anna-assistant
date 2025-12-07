@@ -24,7 +24,11 @@ pub enum RenderPolicy {
 
 impl RenderPolicy {
     pub fn from_debug_mode(debug: bool) -> Self {
-        if debug { Self::Debug } else { Self::Narrative }
+        if debug {
+            Self::Debug
+        } else {
+            Self::Narrative
+        }
     }
 }
 
@@ -68,9 +72,9 @@ impl Default for UiConfig {
 /// Risk level for actions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RiskLevel {
-    Low,     // Read-only operations
-    Medium,  // Config edits
-    High,    // Package installs, system changes
+    Low,    // Read-only operations
+    Medium, // Config edits
+    High,   // Package installs, system changes
 }
 
 impl RiskLevel {
@@ -110,7 +114,13 @@ pub fn format_time_delta(duration: Duration) -> String {
 pub fn render_header(hostname: &str, username: &str, version: &str, debug_mode: bool) {
     let mode = if debug_mode { " [debug]" } else { "" };
     println!();
-    println!("{}anna v{}{}{}", colors::HEADER, version, mode, colors::RESET);
+    println!(
+        "{}anna v{}{}{}",
+        colors::HEADER,
+        version,
+        mode,
+        colors::RESET
+    );
     println!("{}{}@{}{}", colors::DIM, username, hostname, colors::RESET);
     println!();
 }
@@ -203,11 +213,7 @@ pub fn render_clarification(prompt: &str, options: &[(String, String)]) {
 }
 
 /// Render risk and reliability line
-pub fn render_reliability_line(
-    reliability: u8,
-    risk: RiskLevel,
-    evidence_kinds: &[String],
-) {
+pub fn render_reliability_line(reliability: u8, risk: RiskLevel, evidence_kinds: &[String]) {
     let evidence_str = if evidence_kinds.is_empty() {
         "none".to_string()
     } else {
@@ -231,7 +237,11 @@ pub fn render_citation(source: &str, _topic: &str) {
 
 /// Render uncited warning
 pub fn render_uncited() {
-    println!("{}[uncited - verification ticket created]{}", colors::WARN, colors::RESET);
+    println!(
+        "{}[uncited - verification ticket created]{}",
+        colors::WARN,
+        colors::RESET
+    );
 }
 
 /// Spinner animation state
@@ -340,7 +350,9 @@ pub fn render_narrative(result: &ServiceDeskResult, case_seq: u32) {
     // Clarification if needed (ends with period, not question)
     if result.needs_clarification {
         if let Some(ref req) = result.clarification_request {
-            let options: Vec<(String, String)> = req.options.iter()
+            let options: Vec<(String, String)> = req
+                .options
+                .iter()
                 .map(|o| (o.key.to_string(), o.label.clone()))
                 .collect();
             if !options.is_empty() {
@@ -356,7 +368,11 @@ pub fn render_narrative(result: &ServiceDeskResult, case_seq: u32) {
 
     // Evidence kinds
     let evidence_kinds: Vec<String> = if let Some(trace) = &result.execution_trace {
-        trace.evidence_kinds.iter().map(|k| format!("{:?}", k)).collect()
+        trace
+            .evidence_kinds
+            .iter()
+            .map(|k| format!("{:?}", k))
+            .collect()
     } else {
         vec![]
     };
@@ -375,7 +391,10 @@ fn get_answer_text(result: &ServiceDeskResult) -> String {
 
     // Fall back to clarification or answer
     if result.needs_clarification {
-        result.clarification_question.clone().unwrap_or_else(|| result.answer.clone())
+        result
+            .clarification_question
+            .clone()
+            .unwrap_or_else(|| result.answer.clone())
     } else {
         result.answer.clone()
     }
@@ -386,16 +405,22 @@ fn determine_risk_level(answer: &str) -> RiskLevel {
     let lower = answer.to_lowercase();
 
     // High risk indicators
-    if lower.contains("install") || lower.contains("remove") ||
-       lower.contains("pacman") || lower.contains("systemctl enable") ||
-       lower.contains("systemctl disable") {
+    if lower.contains("install")
+        || lower.contains("remove")
+        || lower.contains("pacman")
+        || lower.contains("systemctl enable")
+        || lower.contains("systemctl disable")
+    {
         return RiskLevel::High;
     }
 
     // Medium risk indicators
-    if lower.contains("edit") || lower.contains("modify") ||
-       lower.contains("config") || lower.contains("~/.") ||
-       lower.contains("/etc/") {
+    if lower.contains("edit")
+        || lower.contains("modify")
+        || lower.contains("config")
+        || lower.contains("~/.")
+        || lower.contains("/etc/")
+    {
         return RiskLevel::Medium;
     }
 

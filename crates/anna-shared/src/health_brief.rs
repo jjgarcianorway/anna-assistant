@@ -159,9 +159,14 @@ impl HealthBrief {
         if severity != BriefSeverity::Ok {
             let msg = format!("{}% used, {} available", use_percent, avail);
             self.add_item(
-                BriefItem::new(BriefItemKind::DiskSpace, severity, msg, format!("{}%", use_percent))
-                    .with_threshold(if use_percent >= 95 { "95%" } else { "85%" })
-                    .with_context(mount),
+                BriefItem::new(
+                    BriefItemKind::DiskSpace,
+                    severity,
+                    msg,
+                    format!("{}%", use_percent),
+                )
+                .with_threshold(if use_percent >= 95 { "95%" } else { "85%" })
+                .with_context(mount),
             );
         }
     }
@@ -172,8 +177,13 @@ impl HealthBrief {
         if severity != BriefSeverity::Ok {
             let msg = format!("{}% used, {} available", used_percent, available);
             self.add_item(
-                BriefItem::new(BriefItemKind::Memory, severity, msg, format!("{}%", used_percent))
-                    .with_threshold(if used_percent >= 95 { "95%" } else { "90%" }),
+                BriefItem::new(
+                    BriefItemKind::Memory,
+                    severity,
+                    msg,
+                    format!("{}%", used_percent),
+                )
+                .with_threshold(if used_percent >= 95 { "95%" } else { "90%" }),
             );
         }
     }
@@ -201,9 +211,14 @@ impl HealthBrief {
             };
             let msg = format!("using {:.1}% CPU", cpu_percent);
             self.add_item(
-                BriefItem::new(BriefItemKind::CpuUsage, severity, msg, format!("{:.1}%", cpu_percent))
-                    .with_threshold("80%")
-                    .with_context(process),
+                BriefItem::new(
+                    BriefItemKind::CpuUsage,
+                    severity,
+                    msg,
+                    format!("{:.1}%", cpu_percent),
+                )
+                .with_threshold("80%")
+                .with_context(process),
             );
         }
     }
@@ -217,12 +232,24 @@ impl HealthBrief {
         if self.all_healthy {
             self.summary = "Your system is healthy. No issues detected.".to_string();
         } else {
-            let errors = self.items.iter().filter(|i| i.severity == BriefSeverity::Error).count();
-            let warnings = self.items.iter().filter(|i| i.severity == BriefSeverity::Warning).count();
+            let errors = self
+                .items
+                .iter()
+                .filter(|i| i.severity == BriefSeverity::Error)
+                .count();
+            let warnings = self
+                .items
+                .iter()
+                .filter(|i| i.severity == BriefSeverity::Warning)
+                .count();
 
             self.summary = match (errors, warnings) {
                 (0, w) => format!("{} warning{} found.", w, if w == 1 { "" } else { "s" }),
-                (e, 0) => format!("{} critical issue{} found.", e, if e == 1 { "" } else { "s" }),
+                (e, 0) => format!(
+                    "{} critical issue{} found.",
+                    e,
+                    if e == 1 { "" } else { "s" }
+                ),
                 (e, w) => format!(
                     "{} critical issue{} and {} warning{} found.",
                     e,

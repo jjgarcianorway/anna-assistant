@@ -11,9 +11,9 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SshKeyType {
-    Ed25519,  // Modern, recommended
-    Rsa4096,  // Widely compatible
-    Ecdsa,    // NIST curves
+    Ed25519, // Modern, recommended
+    Rsa4096, // Widely compatible
+    Ecdsa,   // NIST curves
 }
 
 impl SshKeyType {
@@ -432,7 +432,10 @@ pub fn match_query(query: &str) -> Option<&'static SshRecipe> {
     let mut best_match: Option<(usize, &SshRecipe)> = None;
 
     for recipe in recipes {
-        let score = recipe.feature.keywords().iter()
+        let score = recipe
+            .feature
+            .keywords()
+            .iter()
             .filter(|kw| query_lower.contains(*kw))
             .count();
 

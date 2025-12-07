@@ -129,15 +129,24 @@ impl RevisionInstruction {
         }
 
         if !self.required_claims.is_empty() {
-            parts.push(format!("required_claims=[{}]", self.required_claims.join(", ")));
+            parts.push(format!(
+                "required_claims=[{}]",
+                self.required_claims.join(", ")
+            ));
         }
 
         if !self.forbidden_claims.is_empty() {
-            parts.push(format!("forbidden_claims=[{}]", self.forbidden_claims.join(", ")));
+            parts.push(format!(
+                "forbidden_claims=[{}]",
+                self.forbidden_claims.join(", ")
+            ));
         }
 
         if !self.recommended_probes.is_empty() {
-            parts.push(format!("recommended_probes=[{}]", self.recommended_probes.join(", ")));
+            parts.push(format!(
+                "recommended_probes=[{}]",
+                self.recommended_probes.join(", ")
+            ));
         }
 
         parts.join(" ")
@@ -227,15 +236,17 @@ pub fn junior_to_review_artifact(verification: &JuniorVerification, team: Team) 
                 (ReviewIssueKind::Contradiction, ReviewSeverity::Blocker)
             }
             RevisionIssue::TooVague => (ReviewIssueKind::TooVague, ReviewSeverity::Warning),
-            RevisionIssue::UnverifiableClaims => {
-                (ReviewIssueKind::UnverifiableSpecifics, ReviewSeverity::Blocker)
-            }
+            RevisionIssue::UnverifiableClaims => (
+                ReviewIssueKind::UnverifiableSpecifics,
+                ReviewSeverity::Blocker,
+            ),
             RevisionIssue::MissingProbes => {
                 (ReviewIssueKind::MissingEvidence, ReviewSeverity::Warning)
             }
-            RevisionIssue::OverConfident => {
-                (ReviewIssueKind::NonDeterministicClaim, ReviewSeverity::Warning)
-            }
+            RevisionIssue::OverConfident => (
+                ReviewIssueKind::NonDeterministicClaim,
+                ReviewSeverity::Warning,
+            ),
             RevisionIssue::FormatIssue => (ReviewIssueKind::FormatIssue, ReviewSeverity::Info),
         };
         artifact = artifact.with_issue(ReviewIssue::new(severity, kind, issue.to_string()));
@@ -276,9 +287,10 @@ pub fn senior_to_review_artifact(escalation: &SeniorEscalation, team: Team) -> R
                 (ReviewIssueKind::Contradiction, ReviewSeverity::Warning)
             }
             RevisionIssue::TooVague => (ReviewIssueKind::TooVague, ReviewSeverity::Info),
-            RevisionIssue::UnverifiableClaims => {
-                (ReviewIssueKind::UnverifiableSpecifics, ReviewSeverity::Warning)
-            }
+            RevisionIssue::UnverifiableClaims => (
+                ReviewIssueKind::UnverifiableSpecifics,
+                ReviewSeverity::Warning,
+            ),
             RevisionIssue::MissingProbes => {
                 (ReviewIssueKind::MissingEvidence, ReviewSeverity::Info)
             }
@@ -315,7 +327,10 @@ mod tests {
 
     #[test]
     fn test_revision_issue_display() {
-        assert_eq!(RevisionIssue::MissingEvidence.to_string(), "missing evidence");
+        assert_eq!(
+            RevisionIssue::MissingEvidence.to_string(),
+            "missing evidence"
+        );
         assert_eq!(RevisionIssue::Contradiction.to_string(), "contradiction");
         assert_eq!(RevisionIssue::TooVague.to_string(), "too vague");
     }
@@ -348,8 +363,7 @@ mod tests {
 
     #[test]
     fn test_junior_verification_needs_revision() {
-        let inst = RevisionInstruction::none()
-            .with_issue(RevisionIssue::MissingEvidence);
+        let inst = RevisionInstruction::none().with_issue(RevisionIssue::MissingEvidence);
         let v = JuniorVerification::needs_revision(65, inst);
         assert!(!v.verified);
         assert_eq!(v.score, 65);
@@ -358,8 +372,7 @@ mod tests {
 
     #[test]
     fn test_senior_escalation_success() {
-        let inst = RevisionInstruction::none()
-            .with_required_claim("add specific memory usage");
+        let inst = RevisionInstruction::none().with_required_claim("add specific memory usage");
         let e = SeniorEscalation::success(inst);
         assert!(e.successful);
         assert!(e.instruction.has_changes());
@@ -408,8 +421,7 @@ mod tests {
 
     #[test]
     fn test_senior_to_review_artifact_successful() {
-        let inst = RevisionInstruction::none()
-            .with_required_claim("include memory usage");
+        let inst = RevisionInstruction::none().with_required_claim("include memory usage");
         let senior = SeniorEscalation::success(inst);
         let artifact = senior_to_review_artifact(&senior, Team::Performance);
 

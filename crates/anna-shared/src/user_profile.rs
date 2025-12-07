@@ -218,19 +218,55 @@ impl UserProfile {
         // Common tools to track
         let tools = [
             // Editors
-            "vim", "nvim", "neovim", "nano", "emacs", "helix", "micro", "code", "vscode",
+            "vim",
+            "nvim",
+            "neovim",
+            "nano",
+            "emacs",
+            "helix",
+            "micro",
+            "code",
+            "vscode",
             // Shells
-            "bash", "zsh", "fish",
+            "bash",
+            "zsh",
+            "fish",
             // Version control
-            "git", "github", "gitlab",
+            "git",
+            "github",
+            "gitlab",
             // Package managers
-            "pacman", "apt", "dnf", "yum", "brew", "npm", "cargo", "pip",
+            "pacman",
+            "apt",
+            "dnf",
+            "yum",
+            "brew",
+            "npm",
+            "cargo",
+            "pip",
             // System tools
-            "systemctl", "journalctl", "htop", "top", "docker", "podman",
+            "systemctl",
+            "journalctl",
+            "htop",
+            "top",
+            "docker",
+            "podman",
             // Network tools
-            "ssh", "curl", "wget", "ping", "traceroute", "netstat", "ss",
+            "ssh",
+            "curl",
+            "wget",
+            "ping",
+            "traceroute",
+            "netstat",
+            "ss",
             // File tools
-            "rsync", "tar", "zip", "grep", "find", "awk", "sed",
+            "rsync",
+            "tar",
+            "zip",
+            "grep",
+            "find",
+            "awk",
+            "sed",
         ];
 
         for tool in tools {
@@ -305,8 +341,14 @@ impl GreetingContext {
         let time_part = match self.days_away {
             0 => "Good to see you again!".to_string(),
             1 => "Back again today! That's great.".to_string(),
-            2..=6 => format!("It's been {} days. I hope everything is running smoothly!", self.days_away),
-            _ => format!("It's been a while ({} days)! Let me check if anything happened.", self.days_away),
+            2..=6 => format!(
+                "It's been {} days. I hope everything is running smoothly!",
+                self.days_away
+            ),
+            _ => format!(
+                "It's been a while ({} days)! Let me check if anything happened.",
+                self.days_away
+            ),
         };
 
         let streak_part = if self.streak_days > 1 {

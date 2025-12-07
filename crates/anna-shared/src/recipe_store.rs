@@ -322,10 +322,14 @@ mod tests {
 
     #[test]
     fn test_recipe_builder() {
-        let recipe = Recipe::new("vim-syntax", "editor_config", "Enable Vim Syntax Highlighting")
-            .with_trigger("configure_editor")
-            .with_evidence("tool_exists")
-            .with_risk(RecipeRisk::ConfigChange);
+        let recipe = Recipe::new(
+            "vim-syntax",
+            "editor_config",
+            "Enable Vim Syntax Highlighting",
+        )
+        .with_trigger("configure_editor")
+        .with_evidence("tool_exists")
+        .with_risk(RecipeRisk::ConfigChange);
 
         assert_eq!(recipe.triggers, vec!["configure_editor"]);
         assert_eq!(recipe.risk, RecipeRisk::ConfigChange);
@@ -346,8 +350,7 @@ mod tests {
     fn test_recipe_store_operations() {
         let mut store = RecipeStore::new();
 
-        let recipe = Recipe::new("test-1", "test", "Test Recipe")
-            .with_trigger("test_query");
+        let recipe = Recipe::new("test-1", "test", "Test Recipe").with_trigger("test_query");
 
         store.add(recipe);
 

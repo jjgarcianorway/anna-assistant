@@ -58,7 +58,7 @@ pub fn relevant_evidence_for_team(team: Team) -> Vec<EvidenceKind> {
             EvidenceKind::Memory,
             EvidenceKind::BlockDevices,
         ],
-        Team::Logs => vec![], // Logs team reviews log output (v0.0.42)
+        Team::Logs => vec![],    // Logs team reviews log output (v0.0.42)
         Team::General => vec![], // General sees all
     }
 }
@@ -148,10 +148,7 @@ impl TicketBrief {
     pub fn summary(&self) -> String {
         let kinds: Vec<_> = self.evidence_kinds.iter().map(|k| k.to_string()).collect();
         if kinds.is_empty() {
-            format!(
-                "{} probes (none classified)",
-                self.relevant_probes.len()
-            )
+            format!("{} probes (none classified)", self.relevant_probes.len())
         } else {
             format!(
                 "{} probes ({}), {} filtered",

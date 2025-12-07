@@ -5,6 +5,7 @@
 //!
 //! v0.0.27: Initial implementation with ensure_line operation.
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, BufRead, Write};
@@ -156,6 +157,55 @@ pub fn plan_ensure_line(config_path: &Path, line: &str) -> io::Result<ChangePlan
     })
 }
 
+/// Plan an ensure_line operation with a regex-based idempotency check.
+/// If any line matches the check_pattern, the plan is treated as a no-op.
+pub fn plan_ensure_line_with_pattern(
+    config_path: &Path,
+    line: &str,
+    check_pattern: &str,
+) -> io::Result<ChangePlan> {
+    let target_exists = config_path.exists();
+    let mut is_noop = false;
+
+    if target_exists {
+        // Exact match check
+        if line_exists_in_file(config_path, line)? {
+            is_noop = true;
+        } else {
+            // Pattern match check (e.g., syntax on|enable)
+            if let Ok(regex) = Regex::new(check_pattern) {
+                let file = fs::File::open(config_path)?;
+                let reader = io::BufReader::new(file);
+                for file_line in reader.lines() {
+                    let fl = file_line?;
+                    if regex.is_match(fl.trim()) {
+                        is_noop = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    let backup_path = compute_backup_path(config_path);
+
+    Ok(ChangePlan {
+        description: format!(
+            "Ensure line '{}' in {}",
+            truncate_line(line, 30),
+            config_path.display()
+        ),
+        target_path: config_path.to_path_buf(),
+        backup_path,
+        operation: ChangeOperation::EnsureLine {
+            line: line.to_string(),
+        },
+        risk: ChangeRisk::Low,
+        target_exists,
+        is_noop,
+    })
+}
+
 /// Apply a change plan
 pub fn apply_change(plan: &ChangePlan) -> ChangeResult {
     // If no-op, return early
@@ -164,9 +214,13 @@ pub fn apply_change(plan: &ChangePlan) -> ChangeResult {
     }
 
     // Create backup if target exists
+    let mut backup_used = plan.backup_path.clone();
     if plan.target_exists {
-        if let Err(e) = create_backup(&plan.target_path, &plan.backup_path) {
-            return ChangeResult::failed(format!("Failed to create backup: {}", e));
+        match create_backup(&plan.target_path, &plan.backup_path) {
+            Ok(actual) => backup_used = actual,
+            Err(e) => {
+                return ChangeResult::failed(format!("Failed to create backup: {}", e));
+            }
         }
     }
 
@@ -179,23 +233,28 @@ pub fn apply_change(plan: &ChangePlan) -> ChangeResult {
     };
 
     match result {
-        Ok(()) => ChangeResult::success(plan.backup_path.clone()),
+        Ok(()) => ChangeResult::success(backup_used),
         Err(e) => ChangeResult::failed(format!("Failed to apply change: {}", e)),
     }
 }
 
 /// Rollback a change using the backup
 pub fn rollback(plan: &ChangePlan) -> ChangeResult {
-    if !plan.backup_path.exists() {
-        return ChangeResult::failed("Backup file not found");
+    let mut backup = plan.backup_path.clone();
+    if !backup.exists() {
+        let fallback = plan.target_path.with_extension("bak");
+        if fallback.exists() {
+            backup = fallback;
+        } else {
+            return ChangeResult::failed("Backup file not found");
+        }
     }
 
-    match fs::copy(&plan.backup_path, &plan.target_path) {
+    match fs::copy(&backup, &plan.target_path) {
         Ok(_) => {
             // Optionally remove backup after successful rollback
-            let _ = fs::remove_file(&plan.backup_path);
-            ChangeResult::success(plan.backup_path.clone())
-                .with_diagnostic("Restored from backup")
+            let _ = fs::remove_file(&backup);
+            ChangeResult::success(backup).with_diagnostic("Restored from backup")
         }
         Err(e) => ChangeResult::failed(format!("Failed to restore from backup: {}", e)),
     }
@@ -216,13 +275,20 @@ fn line_exists_in_file(path: &Path, line: &str) -> io::Result<bool> {
 }
 
 /// Create a backup of a file
-fn create_backup(source: &Path, backup: &Path) -> io::Result<()> {
-    // Ensure backup directory exists
-    if let Some(parent) = backup.parent() {
-        fs::create_dir_all(parent)?;
+fn create_backup(source: &Path, preferred: &Path) -> io::Result<PathBuf> {
+    // Try preferred backup location
+    if let Some(parent) = preferred.parent() {
+        if fs::create_dir_all(parent).is_ok() {
+            if fs::copy(source, preferred).is_ok() {
+                return Ok(preferred.to_path_buf());
+            }
+        }
     }
-    fs::copy(source, backup)?;
-    Ok(())
+
+    // Fallback to sibling .bak next to source
+    let fallback = source.with_extension("bak");
+    fs::copy(source, &fallback)?;
+    Ok(fallback)
 }
 
 /// Apply ensure_line operation (idempotent)

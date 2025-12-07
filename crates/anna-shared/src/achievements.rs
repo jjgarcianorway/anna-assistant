@@ -22,8 +22,19 @@ pub struct Achievement {
 }
 
 impl Achievement {
-    const fn new(id: &'static str, badge: &'static str, name: &'static str, desc: &'static str) -> Self {
-        Self { id, badge, name, description: desc, unlocked: false }
+    const fn new(
+        id: &'static str,
+        badge: &'static str,
+        name: &'static str,
+        desc: &'static str,
+    ) -> Self {
+        Self {
+            id,
+            badge,
+            name,
+            description: desc,
+            unlocked: false,
+        }
     }
 
     #[cfg(test)]
@@ -37,37 +48,112 @@ impl Achievement {
 pub fn all_achievements() -> Vec<Achievement> {
     vec![
         // Milestone achievements
-        Achievement::new("first_query", "[1]", "First Contact", "Complete your first query"),
-        Achievement::new("ten_queries", "[10]", "Getting Started", "Complete 10 queries"),
-        Achievement::new("fifty_queries", "[50]", "Regular User", "Complete 50 queries"),
-        Achievement::new("hundred_queries", "[100]", "Power User", "Complete 100 queries"),
-        Achievement::new("five_hundred", "[500]", "Anna Expert", "Complete 500 queries"),
-
+        Achievement::new(
+            "first_query",
+            "[1]",
+            "First Contact",
+            "Complete your first query",
+        ),
+        Achievement::new(
+            "ten_queries",
+            "[10]",
+            "Getting Started",
+            "Complete 10 queries",
+        ),
+        Achievement::new(
+            "fifty_queries",
+            "[50]",
+            "Regular User",
+            "Complete 50 queries",
+        ),
+        Achievement::new(
+            "hundred_queries",
+            "[100]",
+            "Power User",
+            "Complete 100 queries",
+        ),
+        Achievement::new(
+            "five_hundred",
+            "[500]",
+            "Anna Expert",
+            "Complete 500 queries",
+        ),
         // Streak achievements
         Achievement::new("streak_3", "<3d>", "On Fire", "Maintain a 3-day streak"),
-        Achievement::new("streak_7", "<7d>", "Week Warrior", "Maintain a 7-day streak"),
-        Achievement::new("streak_30", "<30d>", "Monthly Master", "Maintain a 30-day streak"),
-
+        Achievement::new(
+            "streak_7",
+            "<7d>",
+            "Week Warrior",
+            "Maintain a 7-day streak",
+        ),
+        Achievement::new(
+            "streak_30",
+            "<30d>",
+            "Monthly Master",
+            "Maintain a 30-day streak",
+        ),
         // Quality achievements
-        Achievement::new("perfect_10", "(90+)", "Perfect 10", "Get 10 queries with 90%+ reliability"),
-        Achievement::new("no_failures", "(ok)", "Flawless", "Complete 20+ queries with no failures"),
-        Achievement::new("speed_demon", "(<<)", "Speed Demon", "Get an answer in under 500ms"),
-
+        Achievement::new(
+            "perfect_10",
+            "(90+)",
+            "Perfect 10",
+            "Get 10 queries with 90%+ reliability",
+        ),
+        Achievement::new(
+            "no_failures",
+            "(ok)",
+            "Flawless",
+            "Complete 20+ queries with no failures",
+        ),
+        Achievement::new(
+            "speed_demon",
+            "(<<)",
+            "Speed Demon",
+            "Get an answer in under 500ms",
+        ),
         // Team achievements
-        Achievement::new("all_teams", "{*}", "Well-Rounded", "Consult all 8 teams at least once"),
-        Achievement::new("storage_fan", "{df}", "Storage Savvy", "Ask 20+ storage questions"),
-        Achievement::new("network_guru", "{ip}", "Network Guru", "Ask 20+ network questions"),
-        Achievement::new("perf_junkie", "{top}", "Performance Junkie", "Ask 20+ performance questions"),
-
+        Achievement::new(
+            "all_teams",
+            "{*}",
+            "Well-Rounded",
+            "Consult all 8 teams at least once",
+        ),
+        Achievement::new(
+            "storage_fan",
+            "{df}",
+            "Storage Savvy",
+            "Ask 20+ storage questions",
+        ),
+        Achievement::new(
+            "network_guru",
+            "{ip}",
+            "Network Guru",
+            "Ask 20+ network questions",
+        ),
+        Achievement::new(
+            "perf_junkie",
+            "{top}",
+            "Performance Junkie",
+            "Ask 20+ performance questions",
+        ),
         // Special achievements
         Achievement::new("night_owl", "~00~", "Night Owl", "Use Anna after midnight"),
         Achievement::new("early_bird", "~05~", "Early Bird", "Use Anna before 6 AM"),
         Achievement::new("recipe_master", "[rx]", "Recipe Master", "Learn 5+ recipes"),
-        Achievement::new("escalation_free", "[!!]", "Solo Artist", "Complete 10+ queries without escalation"),
-
+        Achievement::new(
+            "escalation_free",
+            "[!!]",
+            "Solo Artist",
+            "Complete 10+ queries without escalation",
+        ),
         // Tenure achievements
         Achievement::new("week_old", "|7d|", "One Week In", "Use Anna for a week"),
-        Achievement::new("month_old", "|30d|", "Month Veteran", "Use Anna for a month"),
+        Achievement::new(
+            "month_old",
+            "|30d|",
+            "Month Veteran",
+            "Use Anna for a month",
+        ),
     ]
 }
 
@@ -82,7 +168,10 @@ pub fn check_achievements(agg: &AggregatedEvents) -> Vec<Achievement> {
 
 /// Get only unlocked achievements
 pub fn unlocked_achievements(agg: &AggregatedEvents) -> Vec<Achievement> {
-    check_achievements(agg).into_iter().filter(|a| a.unlocked).collect()
+    check_achievements(agg)
+        .into_iter()
+        .filter(|a| a.unlocked)
+        .collect()
 }
 
 /// Get newly unlockable achievements (for notifications)
@@ -149,13 +238,17 @@ fn team_count(agg: &AggregatedEvents, team: &str) -> u64 {
 }
 
 fn check_hour_range(agg: &AggregatedEvents, start_hour: u8, end_hour: u8) -> bool {
-    if agg.last_event_ts == 0 { return false; }
+    if agg.last_event_ts == 0 {
+        return false;
+    }
     let hour = ((agg.last_event_ts / 3600) % 24) as u8;
     hour >= start_hour && hour < end_hour
 }
 
 fn tenure_days(agg: &AggregatedEvents) -> u64 {
-    if agg.first_event_ts == 0 { return 0; }
+    if agg.first_event_ts == 0 {
+        return 0;
+    }
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -166,10 +259,16 @@ fn tenure_days(agg: &AggregatedEvents) -> u64 {
 /// Format achievements for display (ASCII style)
 pub fn format_achievements(achievements: &[Achievement], max_display: usize) -> String {
     let unlocked: Vec<_> = achievements.iter().filter(|a| a.unlocked).collect();
-    if unlocked.is_empty() { return String::new(); }
+    if unlocked.is_empty() {
+        return String::new();
+    }
 
     let display: Vec<_> = unlocked.iter().take(max_display).collect();
-    let badges: String = display.iter().map(|a| a.badge).collect::<Vec<_>>().join(" ");
+    let badges: String = display
+        .iter()
+        .map(|a| a.badge)
+        .collect::<Vec<_>>()
+        .join(" ");
 
     if unlocked.len() > max_display {
         format!("{} +{} more", badges, unlocked.len() - max_display)
@@ -180,7 +279,10 @@ pub fn format_achievements(achievements: &[Achievement], max_display: usize) -> 
 
 /// Format a single achievement for notification (ASCII style)
 pub fn format_achievement_unlock(ach: &Achievement) -> String {
-    format!("{} Achievement unlocked: {} - {}", ach.badge, ach.name, ach.description)
+    format!(
+        "{} Achievement unlocked: {} - {}",
+        ach.badge, ach.name, ach.description
+    )
 }
 
 #[cfg(test)]

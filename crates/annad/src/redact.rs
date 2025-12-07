@@ -11,7 +11,10 @@ static REDACTION_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(
     vec![
         // Private keys
         (
-            Regex::new(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----").unwrap(),
+            Regex::new(
+                r"-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----",
+            )
+            .unwrap(),
             "[REDACTED: private key]",
         ),
         // SSH private key file paths
@@ -36,7 +39,8 @@ static REDACTION_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(
         ),
         // AWS secret keys (40 char base64)
         (
-            Regex::new(r"(?i)(aws_secret_access_key|secret_key)\s*[=:]\s*[a-zA-Z0-9/+=]{40}").unwrap(),
+            Regex::new(r"(?i)(aws_secret_access_key|secret_key)\s*[=:]\s*[a-zA-Z0-9/+=]{40}")
+                .unwrap(),
             "[REDACTED: AWS secret]",
         ),
         // Generic API keys
@@ -60,10 +64,7 @@ static REDACTION_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(
             "[REDACTED: password]",
         ),
         // /etc/shadow file path mentions
-        (
-            Regex::new(r"/etc/shadow").unwrap(),
-            "/etc/[REDACTED]",
-        ),
+        (Regex::new(r"/etc/shadow").unwrap(), "/etc/[REDACTED]"),
     ]
 });
 

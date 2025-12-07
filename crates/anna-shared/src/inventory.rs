@@ -18,20 +18,48 @@ pub const INVENTORY_TTL_SECS: u64 = 600;
 
 /// VIP tools to check on inventory refresh
 pub const VIP_TOOLS: &[&str] = &[
-    "vim", "vi", "nano", "emacs", "nvim", "code", "micro", // Editors
-    "git", "hg", "svn",                                     // VCS
-    "pacman", "yay", "paru",                                // Arch package managers
-    "systemctl", "journalctl",                              // Systemd
-    "ip", "nmcli", "iwctl", "ping",                         // Network
-    "docker", "podman",                                     // Containers
-    "ssh", "rsync",                                         // Remote
-    "python", "python3", "node", "npm", "cargo", "rustc",   // Languages
+    "vim",
+    "vi",
+    "nano",
+    "emacs",
+    "nvim",
+    "code",
+    "micro", // Editors
+    "git",
+    "hg",
+    "svn", // VCS
+    "pacman",
+    "yay",
+    "paru", // Arch package managers
+    "systemctl",
+    "journalctl", // Systemd
+    "ip",
+    "nmcli",
+    "iwctl",
+    "ping", // Network
+    "docker",
+    "podman", // Containers
+    "ssh",
+    "rsync", // Remote
+    "python",
+    "python3",
+    "node",
+    "npm",
+    "cargo",
+    "rustc", // Languages
 ];
 
 /// Desktop environment packages to detect
 pub const DESKTOP_PACKAGES: &[&str] = &[
-    "gnome-shell", "plasma-desktop", "xfce4-session", "cinnamon",
-    "mate-session-manager", "budgie-desktop", "lxqt-session", "sway", "i3",
+    "gnome-shell",
+    "plasma-desktop",
+    "xfce4-session",
+    "cinnamon",
+    "mate-session-manager",
+    "budgie-desktop",
+    "lxqt-session",
+    "sway",
+    "i3",
 ];
 
 /// State of an inventory item
@@ -132,8 +160,7 @@ impl SystemInfo {
         let kernel = run_command("uname -r").unwrap_or_else(|| "unknown".to_string());
 
         // Package count (Arch Linux)
-        let package_count = run_command("pacman -Qq")
-            .map(|out| out.lines().count() as u32);
+        let package_count = run_command("pacman -Qq").map(|out| out.lines().count() as u32);
 
         // Detect desktops
         let desktops = detect_desktops();
@@ -182,9 +209,9 @@ impl InventoryCache {
 
     /// Check if a tool is installed (from cache)
     pub fn is_installed(&self, name: &str) -> Option<bool> {
-        self.items.get(name).map(|item| {
-            item.state == InventoryState::Installed && !item.is_stale()
-        })
+        self.items
+            .get(name)
+            .map(|item| item.state == InventoryState::Installed && !item.is_stale())
     }
 
     /// Get all installed tools
@@ -213,10 +240,12 @@ impl InventoryCache {
     /// Verify and update a single tool
     pub fn verify_tool(&mut self, name: &str) -> bool {
         if let Some(path) = check_tool_installed(name) {
-            self.items.insert(name.to_string(), InventoryItem::installed(name, &path));
+            self.items
+                .insert(name.to_string(), InventoryItem::installed(name, &path));
             true
         } else {
-            self.items.insert(name.to_string(), InventoryItem::not_installed(name));
+            self.items
+                .insert(name.to_string(), InventoryItem::not_installed(name));
             false
         }
     }
@@ -365,10 +394,7 @@ fn run_command(cmd: &str) -> Option<String> {
     if parts.is_empty() {
         return None;
     }
-    let output = Command::new(parts[0])
-        .args(&parts[1..])
-        .output()
-        .ok()?;
+    let output = Command::new(parts[0]).args(&parts[1..]).output().ok()?;
 
     if output.status.success() {
         Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -393,7 +419,10 @@ fn detect_desktops() -> Vec<String> {
     // Check for DE packages
     for &pkg in DESKTOP_PACKAGES {
         if check_tool_installed(pkg).is_some() {
-            if !desktops.iter().any(|d| d.to_lowercase().contains(&pkg.to_lowercase())) {
+            if !desktops
+                .iter()
+                .any(|d| d.to_lowercase().contains(&pkg.to_lowercase()))
+            {
                 desktops.push(pkg.to_string());
             }
         }
@@ -409,7 +438,10 @@ fn detect_gpu() -> (Option<bool>, Option<String>) {
     // Try lspci for GPU detection
     if let Some(output) = run_command("lspci") {
         let lower = output.to_lowercase();
-        if lower.contains("vga") || lower.contains("3d controller") || lower.contains("display controller") {
+        if lower.contains("vga")
+            || lower.contains("3d controller")
+            || lower.contains("display controller")
+        {
             // Determine vendor
             let vendor = if lower.contains("nvidia") {
                 Some("NVIDIA".to_string())
@@ -471,8 +503,13 @@ mod tests {
     #[test]
     fn test_installed_editors_filter() {
         let mut cache = InventoryCache::new();
-        cache.items.insert("vim".to_string(), InventoryItem::installed("vim", "/usr/bin/vim"));
-        cache.items.insert("nano".to_string(), InventoryItem::not_installed("nano"));
+        cache.items.insert(
+            "vim".to_string(),
+            InventoryItem::installed("vim", "/usr/bin/vim"),
+        );
+        cache
+            .items
+            .insert("nano".to_string(), InventoryItem::not_installed("nano"));
 
         let editors = cache.installed_editors();
         assert!(editors.contains(&"vim"));

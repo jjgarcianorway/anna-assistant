@@ -48,10 +48,8 @@ impl HealthDelta {
         }
 
         // Track failed services changes
-        let prev_failed: std::collections::BTreeSet<_> =
-            prev.failed_services.iter().collect();
-        let curr_failed: std::collections::BTreeSet<_> =
-            curr.failed_services.iter().collect();
+        let prev_failed: std::collections::BTreeSet<_> = prev.failed_services.iter().collect();
+        let curr_failed: std::collections::BTreeSet<_> = curr.failed_services.iter().collect();
 
         let new_failed: Vec<_> = curr_failed.difference(&prev_failed).collect();
         let recovered: Vec<_> = prev_failed.difference(&curr_failed).collect();
@@ -87,7 +85,9 @@ impl HealthDelta {
 
     /// Check if there are actionable items (errors/warnings)
     pub fn has_actionable(&self) -> bool {
-        self.delta_items.iter().any(|d| d.is_error() || d.is_warning())
+        self.delta_items
+            .iter()
+            .any(|d| d.is_error() || d.is_warning())
     }
 
     /// Get count of errors
@@ -108,14 +108,22 @@ pub struct SnapshotHistory {
 }
 
 impl SnapshotHistory {
-    pub fn new() -> Self { Self { snapshots: Vec::new() } }
+    pub fn new() -> Self {
+        Self {
+            snapshots: Vec::new(),
+        }
+    }
 
     pub fn push(&mut self, snapshot: SystemSnapshot) {
         self.snapshots.push(snapshot);
-        while self.snapshots.len() > MAX_HISTORY_SIZE { self.snapshots.remove(0); }
+        while self.snapshots.len() > MAX_HISTORY_SIZE {
+            self.snapshots.remove(0);
+        }
     }
 
-    pub fn latest(&self) -> Option<&SystemSnapshot> { self.snapshots.last() }
+    pub fn latest(&self) -> Option<&SystemSnapshot> {
+        self.snapshots.last()
+    }
 
     pub fn previous(&self) -> Option<&SystemSnapshot> {
         (self.snapshots.len() >= 2).then(|| &self.snapshots[self.snapshots.len() - 2])
@@ -125,12 +133,21 @@ impl SnapshotHistory {
         (n < self.snapshots.len()).then(|| &self.snapshots[self.snapshots.len() - 1 - n])
     }
 
-    pub fn all(&self) -> &[SystemSnapshot] { &self.snapshots }
-    pub fn len(&self) -> usize { self.snapshots.len() }
-    pub fn is_empty(&self) -> bool { self.snapshots.is_empty() }
+    pub fn all(&self) -> &[SystemSnapshot] {
+        &self.snapshots
+    }
+    pub fn len(&self) -> usize {
+        self.snapshots.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.snapshots.is_empty()
+    }
 
     pub fn latest_delta(&self) -> Option<HealthDelta> {
-        Some(HealthDelta::from_snapshots(self.previous()?, self.latest()?))
+        Some(HealthDelta::from_snapshots(
+            self.previous()?,
+            self.latest()?,
+        ))
     }
 
     pub fn health_summary(&self) -> HealthSummary {
@@ -164,10 +181,7 @@ impl HealthSummary {
                 let disk_summary = format_disk_summary(&snap.disk);
                 let failed = snap.failed_services.len();
 
-                let mut parts = vec![
-                    format!("Memory: {}%", mem),
-                    disk_summary,
-                ];
+                let mut parts = vec![format!("Memory: {}%", mem), disk_summary];
 
                 if failed > 0 {
                     parts.push(format!("Failed services: {}", failed));
@@ -257,7 +271,10 @@ impl HealthSummary {
                     lines.push(format!("    - {}", svc));
                 }
                 if snap.failed_services.len() > 3 {
-                    lines.push(format!("    ... and {} more", snap.failed_services.len() - 3));
+                    lines.push(format!(
+                        "    ... and {} more",
+                        snap.failed_services.len() - 3
+                    ));
                 }
             }
         }
@@ -288,7 +305,9 @@ impl HealthSummary {
             if snap.memory_percent() >= 90 {
                 issues.push(format!("high memory ({}%)", snap.memory_percent()));
             }
-            let crit_disks: Vec<_> = snap.disk.iter()
+            let crit_disks: Vec<_> = snap
+                .disk
+                .iter()
                 .filter(|(_, &pct)| pct >= 95)
                 .map(|(m, p)| format!("{} {}%", m, p))
                 .collect();
@@ -327,7 +346,11 @@ impl HealthSummary {
             if (80..90).contains(&snap.memory_percent()) {
                 count += 1;
             }
-            count += snap.disk.values().filter(|&&pct| (80..95).contains(&pct)).count();
+            count += snap
+                .disk
+                .values()
+                .filter(|&&pct| (80..95).contains(&pct))
+                .count();
         }
         count
     }
@@ -338,10 +361,7 @@ fn generate_summary(items: &[DeltaItem], curr: &SystemSnapshot) -> String {
     if items.is_empty() {
         let mem = curr.memory_percent();
         let max_disk = curr.disk.values().copied().max().unwrap_or(0);
-        return format!(
-            "System healthy. Memory {}%, max disk {}%.",
-            mem, max_disk
-        );
+        return format!("System healthy. Memory {}%, max disk {}%.", mem, max_disk);
     }
 
     let errors = items.iter().filter(|d| d.is_error()).count();
