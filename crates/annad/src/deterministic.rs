@@ -148,6 +148,16 @@ pub fn try_answer(
         QueryClass::MemorySlots => det_extended::answer_memory_slots(probe_results, &route_class),
         // v0.0.127: ZfsStatus - deterministic from zpool
         QueryClass::ZfsStatus => det_extended::answer_zfs_status(probe_results, &route_class),
+        // v0.0.128: BootLoader - deterministic from bootctl/grub
+        QueryClass::BootLoader => det_extended::answer_boot_loader(probe_results, &route_class),
+        // v0.0.128: FirewallStatus - deterministic from iptables/nftables
+        QueryClass::FirewallStatus => det_extended::answer_firewall_status(probe_results, &route_class),
+        // v0.0.128: SystemdUnits - deterministic from systemctl
+        QueryClass::SystemdUnits => det_extended::answer_systemd_units(probe_results, &route_class),
+        // v0.0.128: Crontabs - deterministic from crontab
+        QueryClass::Crontabs => det_extended::answer_crontabs(probe_results, &route_class),
+        // v0.0.128: SshConnections - deterministic from who/ss
+        QueryClass::SshConnections => det_extended::answer_ssh_connections(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

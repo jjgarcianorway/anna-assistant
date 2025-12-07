@@ -145,6 +145,16 @@ pub enum QueryClass {
     MemorySlots,
     /// v0.0.127: ZFS status: "zfs status", "zpool status"
     ZfsStatus,
+    /// v0.0.128: Boot loader: "bootloader", "grub", "systemd-boot"
+    BootLoader,
+    /// v0.0.128: Firewall status: "firewall", "iptables", "nftables"
+    FirewallStatus,
+    /// v0.0.128: Systemd units: "systemd units", "list units"
+    SystemdUnits,
+    /// v0.0.128: Crontabs: "crontab", "scheduled tasks", "cron jobs"
+    Crontabs,
+    /// v0.0.128: SSH connections: "ssh connections", "who is connected"
+    SshConnections,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -214,6 +224,11 @@ impl std::fmt::Display for QueryClass {
             Self::CpuFrequency => "cpu_frequency",
             Self::MemorySlots => "memory_slots",
             Self::ZfsStatus => "zfs_status",
+            Self::BootLoader => "boot_loader",
+            Self::FirewallStatus => "firewall_status",
+            Self::SystemdUnits => "systemd_units",
+            Self::Crontabs => "crontabs",
+            Self::SshConnections => "ssh_connections",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -286,6 +301,11 @@ impl QueryClass {
             "cpu_frequency" => Some(Self::CpuFrequency),
             "memory_slots" => Some(Self::MemorySlots),
             "zfs_status" => Some(Self::ZfsStatus),
+            "boot_loader" => Some(Self::BootLoader),
+            "firewall_status" => Some(Self::FirewallStatus),
+            "systemd_units" => Some(Self::SystemdUnits),
+            "crontabs" => Some(Self::Crontabs),
+            "ssh_connections" => Some(Self::SshConnections),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -305,6 +325,7 @@ impl QueryClass {
     /// v0.0.125: Added ListeningPorts, RunningServices, CurrentUser, SystemArchitecture, EnvironmentVars
     /// v0.0.126: Added ProcessTree, DnsServers, DefaultGateway, OpenFiles, SystemLocale
     /// v0.0.127: Added BlockDevices, InstalledKernels, CpuFrequency, MemorySlots, ZfsStatus
+    /// v0.0.128: Added BootLoader, FirewallStatus, SystemdUnits, Crontabs, SshConnections
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -317,7 +338,9 @@ impl QueryClass {
             | Self::ProcessTree | Self::DnsServers | Self::DefaultGateway
             | Self::OpenFiles | Self::SystemLocale
             | Self::BlockDevices | Self::InstalledKernels | Self::CpuFrequency
-            | Self::MemorySlots | Self::ZfsStatus)
+            | Self::MemorySlots | Self::ZfsStatus
+            | Self::BootLoader | Self::FirewallStatus | Self::SystemdUnits
+            | Self::Crontabs | Self::SshConnections)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1245,6 +1268,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.128: Boot loader - deterministic from bootctl/grub
+        QueryClass::BootLoader => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["boot_loader".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.128: Firewall status - deterministic from iptables/nftables
+        QueryClass::FirewallStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
+            intent: QueryIntent::Question,
+            probes: vec!["firewall_status".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.128: Systemd units - deterministic from systemctl
+        QueryClass::SystemdUnits => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_units".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.128: Crontabs - deterministic from crontab
+        QueryClass::Crontabs => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["crontabs".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.128: SSH connections - deterministic from who/ss
+        QueryClass::SshConnections => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
+            intent: QueryIntent::Question,
+            probes: vec!["ssh_connections".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
                 spine_probes: vec![],
             },
         },

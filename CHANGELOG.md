@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.128] - 2025-12-07
+
+### Added - Security & Admin Queries (Phase 47)
+
+**5 New Query Types**
+- `BootLoader`: "bootloader", "grub", "systemd-boot" → detects and shows boot loader config
+- `FirewallStatus`: "firewall", "iptables", "nftables", "ufw" → shows firewall rules
+- `SystemdUnits`: "systemd units", "list units" → lists all systemd units
+- `Crontabs`: "crontab", "cron jobs", "scheduled tasks" → shows user crontab
+- `SshConnections`: "ssh connections", "who is connected via ssh" → shows active SSH sessions
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (boot_loader, firewall_status, systemd_units, crontabs, ssh_connections)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 69 QueryClass variants now supported
+
 ## [0.0.127] - 2025-12-07
 
 ### Added - Hardware & Storage Queries (Phase 46)

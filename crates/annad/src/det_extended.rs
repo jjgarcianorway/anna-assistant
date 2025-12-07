@@ -1320,3 +1320,151 @@ pub fn answer_zfs_status(probes: &[ProbeResult], route_class: &str) -> Option<De
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.128: Security & Admin Queries ===
+
+/// Answer boot loader query
+pub fn answer_boot_loader(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "boot_loader")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not detected") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Could not detect boot loader configuration.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Detect boot loader type
+    let loader_type = if output.contains("systemd-boot") || output.contains("Boot Loader Specification") {
+        "systemd-boot"
+    } else if output.contains("GRUB") || output.contains("grub") {
+        "GRUB"
+    } else {
+        "Unknown"
+    };
+
+    let answer = format!("Boot loader: {}\n```\n{}\n```", loader_type, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer firewall status query
+pub fn answer_firewall_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "firewall_status")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("No firewall detected") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No active firewall detected (iptables, nftables, or ufw).".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Detect firewall type
+    let fw_type = if output.contains("Chain") {
+        "iptables"
+    } else if output.contains("table") && output.contains("chain") {
+        "nftables"
+    } else if output.contains("Status:") {
+        "ufw"
+    } else {
+        "Unknown"
+    };
+
+    let answer = format!("Firewall ({}): Active\n```\n{}\n```", fw_type, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemd units query
+pub fn answer_systemd_units(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_units")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No systemd units found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let unit_count = output.lines().count();
+    let answer = format!("Systemd units ({}):\n```\n{}\n```", unit_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: unit_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer crontabs query
+pub fn answer_crontabs(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "crontabs")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("No crontab") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No crontab entries for current user.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let job_count = output.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).count();
+    let answer = format!("Crontab ({} jobs):\n```\n{}\n```", job_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: job_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer SSH connections query
+pub fn answer_ssh_connections(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "ssh_connections")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No active SSH connections.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let conn_count = output.lines().count();
+    let answer = format!("SSH connections ({}):\n```\n{}\n```", conn_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: conn_count,
+        route_class: route_class.to_string(),
+    })
+}

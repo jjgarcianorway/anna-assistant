@@ -101,6 +101,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "cpu_frequency" => Some("cat /proc/cpuinfo | grep 'cpu MHz' | head -1 || lscpu | grep 'CPU MHz'"),
         "memory_slots" => Some("sudo dmidecode -t memory 2>/dev/null | grep -E 'Size:|Locator:|Type:' | head -20 || echo 'Requires root access'"),
         "zfs_status" => Some("zpool status 2>/dev/null || echo 'ZFS not installed'"),
+        // v0.0.128: Security and admin probes
+        "boot_loader" => Some("bootctl status 2>/dev/null || cat /boot/grub/grub.cfg 2>/dev/null | head -10 || echo 'Boot loader not detected'"),
+        "firewall_status" => Some("iptables -L -n 2>/dev/null | head -20 || nft list ruleset 2>/dev/null | head -20 || ufw status 2>/dev/null || echo 'No firewall detected'"),
+        "systemd_units" => Some("systemctl list-units --no-pager --no-legend | head -30"),
+        "crontabs" => Some("crontab -l 2>/dev/null || echo 'No crontab for current user'"),
+        "ssh_connections" => Some("who | grep -E 'pts|tty' 2>/dev/null || ss -tn state established '( dport = :22 or sport = :22 )' 2>/dev/null | head -10"),
         _ => None,
     }
 }

@@ -763,5 +763,57 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::ZfsStatus;
     }
 
+    // v0.0.128: Boot loader - "bootloader", "grub", "systemd-boot"
+    if q.contains("bootloader")
+        || q.contains("boot loader")
+        || q.contains("grub")
+        || q.contains("systemd-boot")
+        || q.contains("bootctl")
+        || (q.contains("what") && q.contains("boot") && !q.contains("last boot"))
+    {
+        return QueryClass::BootLoader;
+    }
+
+    // v0.0.128: Firewall status - "firewall", "iptables", "nftables"
+    if q.contains("firewall")
+        || q.contains("iptables")
+        || q.contains("nftables")
+        || q.contains("ufw")
+        || (q.contains("port") && q.contains("block"))
+    {
+        return QueryClass::FirewallStatus;
+    }
+
+    // v0.0.128: Systemd units - "systemd units", "list units"
+    if q.contains("systemd unit")
+        || q.contains("list unit")
+        || q.contains("all unit")
+        || q.contains("enabled unit")
+        || (q.contains("show") && q.contains("unit"))
+    {
+        return QueryClass::SystemdUnits;
+    }
+
+    // v0.0.128: Crontabs - "crontab", "scheduled tasks", "cron jobs"
+    if q.contains("crontab")
+        || q.contains("cron job")
+        || q.contains("scheduled task")
+        || q.contains("scheduled job")
+        || q.trim() == "cron"
+        || (q.contains("show") && q.contains("cron"))
+    {
+        return QueryClass::Crontabs;
+    }
+
+    // v0.0.128: SSH connections - "ssh connections", "who is connected via ssh"
+    if q.contains("ssh connection")
+        || q.contains("ssh session")
+        || (q.contains("who") && q.contains("ssh"))
+        || (q.contains("connected") && q.contains("ssh"))
+        || q.contains("remote connection")
+    {
+        return QueryClass::SshConnections;
+    }
+
     QueryClass::Unknown
 }
