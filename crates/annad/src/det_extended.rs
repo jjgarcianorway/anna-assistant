@@ -1612,3 +1612,132 @@ pub fn answer_failed_logins(probes: &[ProbeResult], route_class: &str) -> Option
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.130: System & Security Queries ===
+
+/// Answer systemd journal query
+pub fn answer_systemd_journal(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_journal")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Systemd journal not available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let line_count = output.lines().count();
+    let answer = format!("Recent system logs ({} entries):\n```\n{}\n```", line_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: line_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer network namespaces query
+pub fn answer_network_namespaces(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "network_namespaces")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("No network namespaces") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No network namespaces configured.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let ns_count = output.lines().count();
+    let answer = format!("Network namespaces ({}):\n{}", ns_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: ns_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer available shells query
+pub fn answer_available_shells(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "available_shells")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Shell list not available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let shells: Vec<&str> = output.lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+        .collect();
+
+    let answer = format!("Available shells ({}):\n{}", shells.len(), shells.join("\n"));
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: shells.len(),
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer sudoers info query
+pub fn answer_sudoers_info(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "sudoers_info")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() || output.contains("password is required") {
+        return Some(DeterministicResult {
+            answer: "Sudo access information not available (may require password).".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("Sudo access:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer installed desktops query
+pub fn answer_installed_desktops(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "installed_desktops")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No desktop environments detected.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let de_count = output.lines().count();
+    let answer = format!("Installed desktop environments ({}):\n{}", de_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: de_count,
+        route_class: route_class.to_string(),
+    })
+}

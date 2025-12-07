@@ -168,6 +168,16 @@ pub fn try_answer(
         QueryClass::LastLogins => det_extended::answer_last_logins(probe_results, &route_class),
         // v0.0.129: FailedLogins - deterministic from lastb/journalctl
         QueryClass::FailedLogins => det_extended::answer_failed_logins(probe_results, &route_class),
+        // v0.0.130: SystemdJournal - deterministic from journalctl
+        QueryClass::SystemdJournal => det_extended::answer_systemd_journal(probe_results, &route_class),
+        // v0.0.130: NetworkNamespaces - deterministic from ip netns
+        QueryClass::NetworkNamespaces => det_extended::answer_network_namespaces(probe_results, &route_class),
+        // v0.0.130: AvailableShells - deterministic from /etc/shells
+        QueryClass::AvailableShells => det_extended::answer_available_shells(probe_results, &route_class),
+        // v0.0.130: SudoersInfo - deterministic from sudo -l
+        QueryClass::SudoersInfo => det_extended::answer_sudoers_info(probe_results, &route_class),
+        // v0.0.130: InstalledDesktops - deterministic from package query
+        QueryClass::InstalledDesktops => det_extended::answer_installed_desktops(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

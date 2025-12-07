@@ -165,6 +165,16 @@ pub enum QueryClass {
     LastLogins,
     /// v0.0.129: Failed logins: "failed logins", "login failures"
     FailedLogins,
+    /// v0.0.130: Systemd journal: "journalctl", "system logs", "journal"
+    SystemdJournal,
+    /// v0.0.130: Network namespaces: "network namespaces", "ip netns"
+    NetworkNamespaces,
+    /// v0.0.130: Available shells: "available shells", "installed shells"
+    AvailableShells,
+    /// v0.0.130: Sudoers info: "sudo access", "sudoers"
+    SudoersInfo,
+    /// v0.0.130: Installed desktops: "installed desktops", "desktop environments"
+    InstalledDesktops,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -244,6 +254,11 @@ impl std::fmt::Display for QueryClass {
             Self::SystemdTimers => "systemd_timers",
             Self::LastLogins => "last_logins",
             Self::FailedLogins => "failed_logins",
+            Self::SystemdJournal => "systemd_journal",
+            Self::NetworkNamespaces => "network_namespaces",
+            Self::AvailableShells => "available_shells",
+            Self::SudoersInfo => "sudoers_info",
+            Self::InstalledDesktops => "installed_desktops",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -326,6 +341,11 @@ impl QueryClass {
             "systemd_timers" => Some(Self::SystemdTimers),
             "last_logins" => Some(Self::LastLogins),
             "failed_logins" => Some(Self::FailedLogins),
+            "systemd_journal" => Some(Self::SystemdJournal),
+            "network_namespaces" => Some(Self::NetworkNamespaces),
+            "available_shells" => Some(Self::AvailableShells),
+            "sudoers_info" => Some(Self::SudoersInfo),
+            "installed_desktops" => Some(Self::InstalledDesktops),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -347,6 +367,7 @@ impl QueryClass {
     /// v0.0.127: Added BlockDevices, InstalledKernels, CpuFrequency, MemorySlots, ZfsStatus
     /// v0.0.128: Added BootLoader, FirewallStatus, SystemdUnits, Crontabs, SshConnections
     /// v0.0.129: Added DockerContainers, DockerImages, SystemdTimers, LastLogins, FailedLogins
+    /// v0.0.130: Added SystemdJournal, NetworkNamespaces, AvailableShells, SudoersInfo, InstalledDesktops
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -363,7 +384,9 @@ impl QueryClass {
             | Self::BootLoader | Self::FirewallStatus | Self::SystemdUnits
             | Self::Crontabs | Self::SshConnections
             | Self::DockerContainers | Self::DockerImages | Self::SystemdTimers
-            | Self::LastLogins | Self::FailedLogins)
+            | Self::LastLogins | Self::FailedLogins
+            | Self::SystemdJournal | Self::NetworkNamespaces | Self::AvailableShells
+            | Self::SudoersInfo | Self::InstalledDesktops)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1431,6 +1454,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.130: Systemd journal - deterministic from journalctl
+        QueryClass::SystemdJournal => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_journal".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Journal],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.130: Network namespaces - deterministic from ip netns
+        QueryClass::NetworkNamespaces => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["network_namespaces".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.130: Available shells - deterministic from /etc/shells
+        QueryClass::AvailableShells => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["available_shells".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.130: Sudoers info - deterministic from sudo -l
+        QueryClass::SudoersInfo => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
+            intent: QueryIntent::Question,
+            probes: vec!["sudoers_info".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.130: Installed desktops - deterministic from package query
+        QueryClass::InstalledDesktops => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["installed_desktops".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Packages],
                 spine_probes: vec![],
             },
         },

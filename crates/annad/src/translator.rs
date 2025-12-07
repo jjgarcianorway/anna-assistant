@@ -113,6 +113,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "systemd_timers" => Some("systemctl list-timers --no-pager --no-legend | head -20"),
         "last_logins" => Some("last -n 10 2>/dev/null || echo 'Login history not available'"),
         "failed_logins" => Some("journalctl -u sshd --no-pager -n 20 2>/dev/null | grep -i 'failed\\|invalid' | head -10 || lastb -n 10 2>/dev/null || echo 'Failed login data not available'"),
+        // v0.0.130: System and security probes
+        "systemd_journal" => Some("journalctl -n 30 --no-pager 2>/dev/null || echo 'Journal not available'"),
+        "network_namespaces" => Some("ip netns list 2>/dev/null || echo 'No network namespaces'"),
+        "available_shells" => Some("cat /etc/shells 2>/dev/null || echo 'Shell list not available'"),
+        "sudoers_info" => Some("sudo -l 2>/dev/null || echo 'Sudo access not available'"),
+        "installed_desktops" => Some("pacman -Qs 'gnome-shell\\|plasma-desktop\\|xfce4-session\\|cinnamon\\|mate-session\\|budgie-desktop\\|lxqt-session\\|sway\\|hyprland' 2>/dev/null | grep -E '^local/' | head -10 || echo 'Desktop info not available'"),
         _ => None,
     }
 }

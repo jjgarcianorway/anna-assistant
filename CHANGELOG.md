@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.130] - 2025-12-07
+
+### Added - System & Security Queries (Phase 49)
+
+**5 New Query Types**
+- `SystemdJournal`: "journalctl", "system logs", "journal" → shows recent systemd journal entries
+- `NetworkNamespaces`: "network namespaces", "ip netns" → lists network namespaces
+- `AvailableShells`: "available shells", "installed shells" → shows shells from /etc/shells
+- `SudoersInfo`: "sudo access", "sudoers", "sudo privileges" → shows user's sudo permissions
+- `InstalledDesktops`: "installed desktops", "desktop environments" → lists installed desktop environments
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (systemd_journal, network_namespaces, available_shells, sudoers_info, installed_desktops)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 79 QueryClass variants now supported
+
 ## [0.0.129] - 2025-12-07
 
 ### Added - Docker & Logging Queries (Phase 48)

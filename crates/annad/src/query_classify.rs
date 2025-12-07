@@ -862,5 +862,57 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::FailedLogins;
     }
 
+    // v0.0.130: Systemd journal - "journalctl", "system logs", "journal"
+    if q.trim() == "journalctl"
+        || q.contains("system log")
+        || q.contains("journal log")
+        || q.contains("recent log")
+        || (q.contains("show") && q.contains("log") && !q.contains("login"))
+    {
+        return QueryClass::SystemdJournal;
+    }
+
+    // v0.0.130: Network namespaces - "network namespaces", "ip netns"
+    if q.contains("network namespace")
+        || q.contains("netns")
+        || q.trim() == "ip netns"
+        || (q.contains("namespace") && q.contains("network"))
+    {
+        return QueryClass::NetworkNamespaces;
+    }
+
+    // v0.0.130: Available shells - "available shells", "installed shells"
+    if q.contains("available shell")
+        || q.contains("installed shell")
+        || q.contains("list shell")
+        || q.contains("/etc/shells")
+        || (q.contains("what") && q.contains("shell") && q.contains("available"))
+    {
+        return QueryClass::AvailableShells;
+    }
+
+    // v0.0.130: Sudoers info - "sudo access", "sudoers"
+    if q.contains("sudo access")
+        || q.contains("sudoers")
+        || q.contains("sudo privilege")
+        || q.contains("sudo permission")
+        || (q.contains("can i") && q.contains("sudo"))
+        || q.trim() == "sudo -l"
+    {
+        return QueryClass::SudoersInfo;
+    }
+
+    // v0.0.130: Installed desktops - "installed desktops", "desktop environments"
+    if q.contains("installed desktop")
+        || q.contains("desktop environment")
+        || q.contains("which de")
+        || q.contains("what de")
+        || (q.contains("gnome") && q.contains("install"))
+        || (q.contains("kde") && q.contains("install"))
+        || (q.contains("xfce") && q.contains("install"))
+    {
+        return QueryClass::InstalledDesktops;
+    }
+
     QueryClass::Unknown
 }
