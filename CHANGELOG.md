@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.129] - 2025-12-07
+
+### Added - Docker & Logging Queries (Phase 48)
+
+**5 New Query Types**
+- `DockerContainers`: "docker ps", "running containers" → shows running Docker containers
+- `DockerImages`: "docker images", "list images" → shows Docker images
+- `SystemdTimers`: "systemd timers", "scheduled timers" → lists systemd timer units
+- `LastLogins`: "last logins", "login history" → shows recent login history
+- `FailedLogins`: "failed logins", "login failures" → shows failed login attempts
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (docker_containers, docker_images, systemd_timers, last_logins, failed_logins)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 74 QueryClass variants now supported
+
 ## [0.0.128] - 2025-12-07
 
 ### Added - Security & Admin Queries (Phase 47)

@@ -155,6 +155,16 @@ pub enum QueryClass {
     Crontabs,
     /// v0.0.128: SSH connections: "ssh connections", "who is connected"
     SshConnections,
+    /// v0.0.129: Docker containers: "docker ps", "running containers"
+    DockerContainers,
+    /// v0.0.129: Docker images: "docker images", "list images"
+    DockerImages,
+    /// v0.0.129: Systemd timers: "systemd timers", "scheduled timers"
+    SystemdTimers,
+    /// v0.0.129: Last logins: "last logins", "login history"
+    LastLogins,
+    /// v0.0.129: Failed logins: "failed logins", "login failures"
+    FailedLogins,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -229,6 +239,11 @@ impl std::fmt::Display for QueryClass {
             Self::SystemdUnits => "systemd_units",
             Self::Crontabs => "crontabs",
             Self::SshConnections => "ssh_connections",
+            Self::DockerContainers => "docker_containers",
+            Self::DockerImages => "docker_images",
+            Self::SystemdTimers => "systemd_timers",
+            Self::LastLogins => "last_logins",
+            Self::FailedLogins => "failed_logins",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -306,6 +321,11 @@ impl QueryClass {
             "systemd_units" => Some(Self::SystemdUnits),
             "crontabs" => Some(Self::Crontabs),
             "ssh_connections" => Some(Self::SshConnections),
+            "docker_containers" => Some(Self::DockerContainers),
+            "docker_images" => Some(Self::DockerImages),
+            "systemd_timers" => Some(Self::SystemdTimers),
+            "last_logins" => Some(Self::LastLogins),
+            "failed_logins" => Some(Self::FailedLogins),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -326,6 +346,7 @@ impl QueryClass {
     /// v0.0.126: Added ProcessTree, DnsServers, DefaultGateway, OpenFiles, SystemLocale
     /// v0.0.127: Added BlockDevices, InstalledKernels, CpuFrequency, MemorySlots, ZfsStatus
     /// v0.0.128: Added BootLoader, FirewallStatus, SystemdUnits, Crontabs, SshConnections
+    /// v0.0.129: Added DockerContainers, DockerImages, SystemdTimers, LastLogins, FailedLogins
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -340,7 +361,9 @@ impl QueryClass {
             | Self::BlockDevices | Self::InstalledKernels | Self::CpuFrequency
             | Self::MemorySlots | Self::ZfsStatus
             | Self::BootLoader | Self::FirewallStatus | Self::SystemdUnits
-            | Self::Crontabs | Self::SshConnections)
+            | Self::Crontabs | Self::SshConnections
+            | Self::DockerContainers | Self::DockerImages | Self::SystemdTimers
+            | Self::LastLogins | Self::FailedLogins)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1338,6 +1361,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.129: Docker containers - deterministic from docker ps
+        QueryClass::DockerContainers => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["docker_containers".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.129: Docker images - deterministic from docker images
+        QueryClass::DockerImages => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["docker_images".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.129: Systemd timers - deterministic from systemctl list-timers
+        QueryClass::SystemdTimers => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_timers".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.129: Last logins - deterministic from last
+        QueryClass::LastLogins => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
+            intent: QueryIntent::Question,
+            probes: vec!["last_logins".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.129: Failed logins - deterministic from lastb/journalctl
+        QueryClass::FailedLogins => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
+            intent: QueryIntent::Question,
+            probes: vec!["failed_logins".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
                 spine_probes: vec![],
             },
         },

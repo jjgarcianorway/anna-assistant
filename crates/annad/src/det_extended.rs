@@ -1468,3 +1468,147 @@ pub fn answer_ssh_connections(probes: &[ProbeResult], route_class: &str) -> Opti
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.129: Docker & Logging Queries ===
+
+/// Answer Docker containers query
+pub fn answer_docker_containers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "docker_containers")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Docker is not installed or not running.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let container_count = output.lines().count().saturating_sub(1); // Minus header
+    let status = if container_count == 0 {
+        "No running containers."
+    } else {
+        ""
+    };
+
+    let answer = if container_count == 0 {
+        status.to_string()
+    } else {
+        format!("Docker containers ({}):\n```\n{}\n```", container_count, output)
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: container_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer Docker images query
+pub fn answer_docker_images(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "docker_images")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Docker is not installed or not running.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let image_count = output.lines().count().saturating_sub(1); // Minus header
+    let answer = if image_count == 0 {
+        "No Docker images found.".to_string()
+    } else {
+        format!("Docker images ({}):\n```\n{}\n```", image_count, output)
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: image_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemd timers query
+pub fn answer_systemd_timers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_timers")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No systemd timers found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let timer_count = output.lines().count();
+    let answer = format!("Systemd timers ({}):\n```\n{}\n```", timer_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: timer_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer last logins query
+pub fn answer_last_logins(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "last_logins")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Login history not available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let login_count = output.lines().filter(|l| !l.is_empty() && !l.starts_with("wtmp")).count();
+    let answer = format!("Recent logins ({}):\n```\n{}\n```", login_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: login_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer failed logins query
+pub fn answer_failed_logins(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "failed_logins")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No failed login attempts found (or data not available).".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let failure_count = output.lines().count();
+    let answer = format!("Failed login attempts ({}):\n```\n{}\n```", failure_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: failure_count,
+        route_class: route_class.to_string(),
+    })
+}

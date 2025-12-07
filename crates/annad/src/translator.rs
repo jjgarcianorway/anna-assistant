@@ -107,6 +107,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "systemd_units" => Some("systemctl list-units --no-pager --no-legend | head -30"),
         "crontabs" => Some("crontab -l 2>/dev/null || echo 'No crontab for current user'"),
         "ssh_connections" => Some("who | grep -E 'pts|tty' 2>/dev/null || ss -tn state established '( dport = :22 or sport = :22 )' 2>/dev/null | head -10"),
+        // v0.0.129: Docker and logging probes
+        "docker_containers" => Some("docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null || echo 'Docker not available'"),
+        "docker_images" => Some("docker images --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}' 2>/dev/null | head -20 || echo 'Docker not available'"),
+        "systemd_timers" => Some("systemctl list-timers --no-pager --no-legend | head -20"),
+        "last_logins" => Some("last -n 10 2>/dev/null || echo 'Login history not available'"),
+        "failed_logins" => Some("journalctl -u sshd --no-pager -n 20 2>/dev/null | grep -i 'failed\\|invalid' | head -10 || lastb -n 10 2>/dev/null || echo 'Failed login data not available'"),
         _ => None,
     }
 }

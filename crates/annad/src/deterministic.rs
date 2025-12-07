@@ -158,6 +158,16 @@ pub fn try_answer(
         QueryClass::Crontabs => det_extended::answer_crontabs(probe_results, &route_class),
         // v0.0.128: SshConnections - deterministic from who/ss
         QueryClass::SshConnections => det_extended::answer_ssh_connections(probe_results, &route_class),
+        // v0.0.129: DockerContainers - deterministic from docker ps
+        QueryClass::DockerContainers => det_extended::answer_docker_containers(probe_results, &route_class),
+        // v0.0.129: DockerImages - deterministic from docker images
+        QueryClass::DockerImages => det_extended::answer_docker_images(probe_results, &route_class),
+        // v0.0.129: SystemdTimers - deterministic from systemctl list-timers
+        QueryClass::SystemdTimers => det_extended::answer_systemd_timers(probe_results, &route_class),
+        // v0.0.129: LastLogins - deterministic from last
+        QueryClass::LastLogins => det_extended::answer_last_logins(probe_results, &route_class),
+        // v0.0.129: FailedLogins - deterministic from lastb/journalctl
+        QueryClass::FailedLogins => det_extended::answer_failed_logins(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

@@ -815,5 +815,52 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::SshConnections;
     }
 
+    // v0.0.129: Docker containers - "docker ps", "running containers"
+    if q.contains("docker container")
+        || q.contains("docker ps")
+        || q.contains("running container")
+        || (q.contains("container") && q.contains("running"))
+        || (q.contains("list") && q.contains("container"))
+    {
+        return QueryClass::DockerContainers;
+    }
+
+    // v0.0.129: Docker images - "docker images", "list images"
+    if q.contains("docker image")
+        || (q.contains("list") && q.contains("image") && !q.contains("disk"))
+        || (q.contains("show") && q.contains("image") && q.contains("docker"))
+    {
+        return QueryClass::DockerImages;
+    }
+
+    // v0.0.129: Systemd timers - "systemd timers", "scheduled timers"
+    if q.contains("systemd timer")
+        || q.contains("list timer")
+        || q.contains("scheduled timer")
+        || (q.contains("timer") && q.contains("systemd"))
+    {
+        return QueryClass::SystemdTimers;
+    }
+
+    // v0.0.129: Last logins - "last logins", "login history"
+    if q.contains("last login")
+        || q.contains("login history")
+        || q.contains("recent login")
+        || q.contains("who logged in")
+        || q.trim() == "last"
+    {
+        return QueryClass::LastLogins;
+    }
+
+    // v0.0.129: Failed logins - "failed logins", "login failures"
+    if q.contains("failed login")
+        || q.contains("login failure")
+        || q.contains("unsuccessful login")
+        || q.contains("bad login")
+        || q.trim() == "lastb"
+    {
+        return QueryClass::FailedLogins;
+    }
+
     QueryClass::Unknown
 }
