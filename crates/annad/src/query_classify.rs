@@ -597,5 +597,67 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::UsbDevices;
     }
 
+    // v0.0.125: Listening ports - "open ports", "listening ports"
+    if q.contains("listening port")
+        || q.contains("open port")
+        || q.contains("port listen")
+        || q.contains("network port")
+        || q.contains("what ports")
+        || q.trim() == "ss"
+        || q.trim() == "netstat"
+        || (q.contains("port") && q.contains("open"))
+    {
+        return QueryClass::ListeningPorts;
+    }
+
+    // v0.0.125: Running services - "running services", "active services"
+    if q.contains("running service")
+        || q.contains("active service")
+        || q.contains("started service")
+        || q.contains("enabled service")
+        || (q.contains("service") && q.contains("running"))
+        || (q.contains("service") && q.contains("active"))
+        || q.contains("list services")
+    {
+        return QueryClass::RunningServices;
+    }
+
+    // v0.0.125: Current user - "whoami", "current user"
+    if q.trim() == "whoami"
+        || q.trim() == "id"
+        || q.contains("current user")
+        || q.contains("logged in as")
+        || q.contains("my user")
+        || q.contains("who am i")
+        || (q.contains("what") && q.contains("user") && q.contains("am"))
+    {
+        return QueryClass::CurrentUser;
+    }
+
+    // v0.0.125: System architecture - "architecture", "32 or 64 bit"
+    if q.contains("architecture")
+        || q.contains("32 bit")
+        || q.contains("64 bit")
+        || q.contains("x86_64")
+        || q.contains("arm64")
+        || q.contains("aarch64")
+        || q.trim() == "arch"
+        || (q.contains("what") && q.contains("arch"))
+    {
+        return QueryClass::SystemArchitecture;
+    }
+
+    // v0.0.125: Environment variables - "env vars", "environment"
+    if q.contains("environment variable")
+        || q.contains("env var")
+        || q.trim() == "env"
+        || q.trim() == "printenv"
+        || q.contains("show env")
+        || q.contains("list env")
+        || (q.contains("what") && q.contains("env"))
+    {
+        return QueryClass::EnvironmentVars;
+    }
+
     QueryClass::Unknown
 }

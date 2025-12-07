@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.125] - 2025-12-07
+
+### Added - System & Network Queries (Phase 44)
+
+**5 New Query Types**
+- `ListeningPorts`: "open ports", "listening ports", "ss" → shows listening TCP ports via ss -tulpn
+- `RunningServices`: "running services", "active services" → lists running systemd services
+- `CurrentUser`: "whoami", "current user", "who am I" → displays current user info via id
+- `SystemArchitecture`: "architecture", "32 or 64 bit", "uname -m" → shows CPU architecture
+- `EnvironmentVars`: "env vars", "environment", "show env" → lists environment variables
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (running_services, current_user, arch, env_vars)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 54 QueryClass variants now supported
+
 ## [0.0.124] - 2025-12-07
 
 ### Added - System Info Queries (Phase 43)

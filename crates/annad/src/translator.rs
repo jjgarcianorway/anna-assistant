@@ -85,6 +85,11 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "ping_check" => Some("ping -c 1 -W 2 8.8.8.8 2>/dev/null"),
         "findmnt" => Some("findmnt -l -o TARGET,SOURCE,FSTYPE,SIZE,USED -t notmpfs,nodevtmpfs,nosquashfs"),
         "lsusb" => Some("lsusb"),
+        // v0.0.125: New system probes
+        "running_services" => Some("systemctl list-units --type=service --state=running --no-pager --no-legend | head -30"),
+        "current_user" => Some("id"),
+        "arch" => Some("uname -m"),
+        "env_vars" => Some("env | head -30"),
         _ => None,
     }
 }

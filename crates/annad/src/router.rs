@@ -115,6 +115,16 @@ pub enum QueryClass {
     MountedFilesystems,
     /// v0.0.124: USB devices: "usb devices", "what's plugged in"
     UsbDevices,
+    /// v0.0.125: Listening ports: "open ports", "listening ports"
+    ListeningPorts,
+    /// v0.0.125: Running services: "running services", "active services"
+    RunningServices,
+    /// v0.0.125: Current user: "whoami", "current user"
+    CurrentUser,
+    /// v0.0.125: System architecture: "architecture", "32 or 64 bit"
+    SystemArchitecture,
+    /// v0.0.125: Environment variables: "env vars", "environment"
+    EnvironmentVars,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -169,6 +179,11 @@ impl std::fmt::Display for QueryClass {
             Self::NetworkConnectivity => "network_connectivity",
             Self::MountedFilesystems => "mounted_filesystems",
             Self::UsbDevices => "usb_devices",
+            Self::ListeningPorts => "listening_ports",
+            Self::RunningServices => "running_services",
+            Self::CurrentUser => "current_user",
+            Self::SystemArchitecture => "system_architecture",
+            Self::EnvironmentVars => "environment_vars",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -226,6 +241,11 @@ impl QueryClass {
             "network_connectivity" => Some(Self::NetworkConnectivity),
             "mounted_filesystems" => Some(Self::MountedFilesystems),
             "usb_devices" => Some(Self::UsbDevices),
+            "listening_ports" => Some(Self::ListeningPorts),
+            "running_services" => Some(Self::RunningServices),
+            "current_user" => Some(Self::CurrentUser),
+            "system_architecture" => Some(Self::SystemArchitecture),
+            "environment_vars" => Some(Self::EnvironmentVars),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -242,13 +262,16 @@ impl QueryClass {
     /// v0.0.122: Added PackageUpdates, SwapInfo, TimezoneInfo, SystemUptime
     /// v0.0.123: Added LoggedInUsers, BatteryStatus, SystemLoad, LastBoot
     /// v0.0.124: Added Hostname, OsInfo, NetworkConnectivity, MountedFilesystems, UsbDevices
+    /// v0.0.125: Added ListeningPorts, RunningServices, CurrentUser, SystemArchitecture, EnvironmentVars
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
             | Self::PackageUpdates | Self::SwapInfo | Self::TimezoneInfo | Self::SystemUptime
             | Self::LoggedInUsers | Self::BatteryStatus | Self::SystemLoad | Self::LastBoot
             | Self::Hostname | Self::OsInfo | Self::NetworkConnectivity
-            | Self::MountedFilesystems | Self::UsbDevices)
+            | Self::MountedFilesystems | Self::UsbDevices
+            | Self::ListeningPorts | Self::RunningServices | Self::CurrentUser
+            | Self::SystemArchitecture | Self::EnvironmentVars)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -962,6 +985,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["lsusb".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.125: Listening ports - deterministic from ss
+        QueryClass::ListeningPorts => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["listening_ports".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.125: Running services - deterministic from systemctl
+        QueryClass::RunningServices => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["running_services".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.125: Current user - deterministic from id
+        QueryClass::CurrentUser => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["current_user".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.125: System architecture - deterministic from uname -m
+        QueryClass::SystemArchitecture => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["arch".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.125: Environment variables - deterministic from env
+        QueryClass::EnvironmentVars => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["env_vars".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: true,
                 evidence_required: true,

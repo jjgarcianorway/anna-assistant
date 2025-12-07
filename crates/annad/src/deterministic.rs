@@ -118,6 +118,16 @@ pub fn try_answer(
         QueryClass::MountedFilesystems => det_extended::answer_mounted_filesystems(probe_results, &route_class),
         // v0.0.124: UsbDevices - deterministic from lsusb
         QueryClass::UsbDevices => det_extended::answer_usb_devices(probe_results, &route_class),
+        // v0.0.125: ListeningPorts - deterministic from ss
+        QueryClass::ListeningPorts => det_extended::answer_listening_ports(probe_results, &route_class),
+        // v0.0.125: RunningServices - deterministic from systemctl
+        QueryClass::RunningServices => det_extended::answer_running_services(probe_results, &route_class),
+        // v0.0.125: CurrentUser - deterministic from id
+        QueryClass::CurrentUser => det_extended::answer_current_user(probe_results, &route_class),
+        // v0.0.125: SystemArchitecture - deterministic from uname -m
+        QueryClass::SystemArchitecture => det_extended::answer_system_architecture(probe_results, &route_class),
+        // v0.0.125: EnvironmentVars - deterministic from env
+        QueryClass::EnvironmentVars => det_extended::answer_environment_vars(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }
