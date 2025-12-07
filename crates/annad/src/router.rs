@@ -185,6 +185,16 @@ pub enum QueryClass {
     SystemdSlices,
     /// v0.0.131: Coredump list: "coredumps", "crash dumps"
     CoredumpList,
+    /// v0.0.132: Kernel modules: "lsmod", "kernel modules"
+    KernelModules,
+    /// v0.0.132: Systemd targets: "systemd targets", "runlevel"
+    SystemdTargets,
+    /// v0.0.132: IP routes: "ip routes", "routing table"
+    IpRoutes,
+    /// v0.0.132: ARP table: "arp table", "arp cache"
+    ArpTable,
+    /// v0.0.132: Iptables rules: "iptables rules", "netfilter"
+    IptablesRules,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -274,6 +284,11 @@ impl std::fmt::Display for QueryClass {
             Self::AppArmorStatus => "apparmor_status",
             Self::SystemdSlices => "systemd_slices",
             Self::CoredumpList => "coredump_list",
+            Self::KernelModules => "kernel_modules",
+            Self::SystemdTargets => "systemd_targets",
+            Self::IpRoutes => "ip_routes",
+            Self::ArpTable => "arp_table",
+            Self::IptablesRules => "iptables_rules",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -366,6 +381,11 @@ impl QueryClass {
             "apparmor_status" => Some(Self::AppArmorStatus),
             "systemd_slices" => Some(Self::SystemdSlices),
             "coredump_list" => Some(Self::CoredumpList),
+            "kernel_modules" => Some(Self::KernelModules),
+            "systemd_targets" => Some(Self::SystemdTargets),
+            "ip_routes" => Some(Self::IpRoutes),
+            "arp_table" => Some(Self::ArpTable),
+            "iptables_rules" => Some(Self::IptablesRules),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -389,6 +409,7 @@ impl QueryClass {
     /// v0.0.129: Added DockerContainers, DockerImages, SystemdTimers, LastLogins, FailedLogins
     /// v0.0.130: Added SystemdJournal, NetworkNamespaces, AvailableShells, SudoersInfo, InstalledDesktops
     /// v0.0.131: Added VirtualizationInfo, SelinuxStatus, AppArmorStatus, SystemdSlices, CoredumpList
+    /// v0.0.132: Added KernelModules, SystemdTargets, IpRoutes, ArpTable, IptablesRules
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -409,7 +430,9 @@ impl QueryClass {
             | Self::SystemdJournal | Self::NetworkNamespaces | Self::AvailableShells
             | Self::SudoersInfo | Self::InstalledDesktops
             | Self::VirtualizationInfo | Self::SelinuxStatus | Self::AppArmorStatus
-            | Self::SystemdSlices | Self::CoredumpList)
+            | Self::SystemdSlices | Self::CoredumpList
+            | Self::KernelModules | Self::SystemdTargets | Self::IpRoutes
+            | Self::ArpTable | Self::IptablesRules)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1613,6 +1636,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["coredump_list".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.132: Kernel modules - deterministic from lsmod
+        QueryClass::KernelModules => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["kernel_modules".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.132: Systemd targets - deterministic from systemctl list-units
+        QueryClass::SystemdTargets => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_targets".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.132: IP routes - deterministic from ip route
+        QueryClass::IpRoutes => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["ip_routes".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.132: ARP table - deterministic from ip neigh
+        QueryClass::ArpTable => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["arp_table".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.132: Iptables rules - deterministic from iptables -L
+        QueryClass::IptablesRules => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Security,
+            intent: QueryIntent::Question,
+            probes: vec!["iptables_rules".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: true,
                 evidence_required: true,

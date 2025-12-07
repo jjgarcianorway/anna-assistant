@@ -1868,3 +1868,129 @@ pub fn answer_coredump_list(probes: &[ProbeResult], route_class: &str) -> Option
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.132: Kernel and network answer functions ===
+
+/// Answer kernel modules query
+pub fn answer_kernel_modules(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "kernel_modules")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No kernel modules information available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let module_count = output.lines().count().saturating_sub(1); // Subtract header line
+    let answer = format!("Loaded kernel modules ({}):\n```\n{}\n```", module_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: module_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemd targets query
+pub fn answer_systemd_targets(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_targets")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No systemd targets found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let target_count = output.lines().count();
+    let answer = format!("Active systemd targets ({}):\n```\n{}\n```", target_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: target_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer IP routes query
+pub fn answer_ip_routes(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "ip_routes")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No IP routes found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let route_count = output.lines().count();
+    let answer = format!("IP routing table ({} routes):\n```\n{}\n```", route_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: route_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer ARP table query
+pub fn answer_arp_table(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "arp_table")?;
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No ARP entries found.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let entry_count = output.lines().count();
+    let answer = format!("ARP table ({} entries):\n```\n{}\n```", entry_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: entry_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer iptables rules query
+pub fn answer_iptables_rules(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "iptables_rules")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.contains("requires root") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "iptables rules not available (may require root privileges).".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("iptables rules:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}

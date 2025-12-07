@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.132] - 2025-12-07
+
+### Added - Kernel & Network Queries (Phase 51)
+
+**5 New Query Types**
+- `KernelModules`: "lsmod", "kernel modules" → lists loaded kernel modules
+- `SystemdTargets`: "systemd targets", "runlevel" → shows active systemd targets
+- `IpRoutes`: "ip routes", "routing table" → shows IP routing table
+- `ArpTable`: "arp table", "arp cache" → shows ARP neighbor table
+- `IptablesRules`: "iptables rules", "netfilter" → shows iptables firewall rules
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (kernel_modules, systemd_targets, ip_routes, arp_table, iptables_rules)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 89 QueryClass variants now supported
+
 ## [0.0.131] - 2025-12-07
 
 ### Added - Virtualization & Security Queries (Phase 50)

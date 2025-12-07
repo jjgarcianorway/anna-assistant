@@ -960,5 +960,54 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::CoredumpList;
     }
 
+    // v0.0.132: Kernel modules - "lsmod", "kernel modules"
+    if q.trim() == "lsmod"
+        || q.contains("kernel module")
+        || q.contains("loaded module")
+        || (q.contains("what") && q.contains("module") && q.contains("load"))
+        || (q.contains("list") && q.contains("module"))
+    {
+        return QueryClass::KernelModules;
+    }
+
+    // v0.0.132: Systemd targets - "systemd targets", "runlevel"
+    if q.contains("systemd target")
+        || q.contains("runlevel")
+        || (q.contains("target") && q.contains("active"))
+        || (q.contains("list") && q.contains("target"))
+    {
+        return QueryClass::SystemdTargets;
+    }
+
+    // v0.0.132: IP routes - "ip routes", "routing table"
+    if q.contains("ip route")
+        || q.contains("routing table")
+        || q.trim() == "route"
+        || (q.contains("show") && q.contains("route"))
+        || (q.contains("list") && q.contains("route"))
+    {
+        return QueryClass::IpRoutes;
+    }
+
+    // v0.0.132: ARP table - "arp table", "arp cache"
+    if q.contains("arp table")
+        || q.contains("arp cache")
+        || q.trim() == "arp"
+        || q.contains("ip neigh")
+        || (q.contains("neighbor") && q.contains("cache"))
+    {
+        return QueryClass::ArpTable;
+    }
+
+    // v0.0.132: Iptables rules - "iptables rules", "netfilter"
+    if q.contains("iptables rule")
+        || q.contains("netfilter")
+        || q.trim() == "iptables"
+        || q.contains("iptables -l")
+        || (q.contains("firewall") && q.contains("rule"))
+    {
+        return QueryClass::IptablesRules;
+    }
+
     QueryClass::Unknown
 }

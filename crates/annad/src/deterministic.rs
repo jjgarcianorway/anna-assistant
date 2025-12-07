@@ -188,6 +188,16 @@ pub fn try_answer(
         QueryClass::SystemdSlices => det_extended::answer_systemd_slices(probe_results, &route_class),
         // v0.0.131: CoredumpList - deterministic from coredumpctl
         QueryClass::CoredumpList => det_extended::answer_coredump_list(probe_results, &route_class),
+        // v0.0.132: KernelModules - deterministic from lsmod
+        QueryClass::KernelModules => det_extended::answer_kernel_modules(probe_results, &route_class),
+        // v0.0.132: SystemdTargets - deterministic from systemctl
+        QueryClass::SystemdTargets => det_extended::answer_systemd_targets(probe_results, &route_class),
+        // v0.0.132: IpRoutes - deterministic from ip route
+        QueryClass::IpRoutes => det_extended::answer_ip_routes(probe_results, &route_class),
+        // v0.0.132: ArpTable - deterministic from ip neigh
+        QueryClass::ArpTable => det_extended::answer_arp_table(probe_results, &route_class),
+        // v0.0.132: IptablesRules - deterministic from iptables
+        QueryClass::IptablesRules => det_extended::answer_iptables_rules(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

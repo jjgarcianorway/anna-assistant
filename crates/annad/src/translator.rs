@@ -125,6 +125,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "apparmor_status" => Some("aa-status 2>/dev/null || cat /sys/module/apparmor/parameters/enabled 2>/dev/null || echo 'AppArmor not installed'"),
         "systemd_slices" => Some("systemd-cgls --no-pager 2>/dev/null | head -40 || echo 'Cgroups not available'"),
         "coredump_list" => Some("coredumpctl list --no-pager 2>/dev/null | head -20 || echo 'No coredumps or coredumpctl not available'"),
+        // v0.0.132: Kernel and network probes
+        "kernel_modules" => Some("lsmod | head -30"),
+        "systemd_targets" => Some("systemctl list-units --type=target --no-pager --no-legend | head -20"),
+        "ip_routes" => Some("ip route show 2>/dev/null || route -n 2>/dev/null"),
+        "arp_table" => Some("ip neigh show 2>/dev/null || arp -a 2>/dev/null"),
+        "iptables_rules" => Some("iptables -L -n --line-numbers 2>/dev/null | head -40 || echo 'iptables not available or requires root'"),
         _ => None,
     }
 }
