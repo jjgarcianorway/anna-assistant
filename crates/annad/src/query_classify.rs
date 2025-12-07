@@ -1058,5 +1058,65 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::UserGroups;
     }
 
+    // v0.0.134: LVM status - "lvm", "logical volumes"
+    if q.contains("lvm")
+        || q.contains("logical volume")
+        || q.contains("volume group")
+        || q.trim() == "lvs"
+        || q.trim() == "vgs"
+        || q.trim() == "pvs"
+    {
+        return QueryClass::LvmStatus;
+    }
+
+    // v0.0.134: RAID status - "raid status", "mdadm"
+    if q.contains("raid")
+        || q.contains("mdadm")
+        || q.contains("software raid")
+        || q.contains("md status")
+    {
+        return QueryClass::RaidStatus;
+    }
+
+    // v0.0.134: NTP status - "ntp status", "time sync"
+    if q.contains("ntp")
+        || q.contains("time sync")
+        || q.contains("chrony")
+        || (q.contains("clock") && q.contains("sync"))
+        || (q.contains("time") && q.contains("server"))
+    {
+        return QueryClass::NtpStatus;
+    }
+
+    // v0.0.134: Sensors temperature - "sensors", "temperature"
+    if q.trim() == "sensors"
+        || (q.contains("sensor") && q.contains("temp"))
+        || (q.contains("hardware") && q.contains("temp"))
+        || q.contains("fan speed")
+        || q.contains("thermal")
+    {
+        return QueryClass::SensorsTemp;
+    }
+
+    // v0.0.134: GPU memory - "gpu memory", "vram usage"
+    if q.contains("gpu memory")
+        || q.contains("vram")
+        || q.contains("nvidia-smi")
+        || (q.contains("gpu") && q.contains("usage"))
+        || (q.contains("graphics") && q.contains("memory"))
+    {
+        return QueryClass::GpuMemory;
+    }
+
+    // v0.0.134: Xorg log - "xorg log", "x11 errors"
+    if q.contains("xorg")
+        || q.contains("x11 error")
+        || q.contains("x server")
+        || q.contains("xorg.log")
+        || (q.contains("display") && q.contains("error"))
+    {
+        return QueryClass::XorgLog;
+    }
+
     QueryClass::Unknown
 }

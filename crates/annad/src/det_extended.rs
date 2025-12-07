@@ -2120,3 +2120,150 @@ pub fn answer_user_groups(probes: &[ProbeResult], route_class: &str) -> Option<D
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.134: Storage and hardware answer functions ===
+
+/// Answer LVM status query
+pub fn answer_lvm_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "lvm_status")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not installed") || output.contains("no volumes") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "LVM is not installed or no logical volumes configured.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("LVM status:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer RAID status query
+pub fn answer_raid_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "raid_status")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("No RAID") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No software RAID (mdadm) detected on this system.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("RAID status:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer NTP status query
+pub fn answer_ntp_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "ntp_status")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "NTP/time synchronization status not available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("Time synchronization status:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer sensors temperature query
+pub fn answer_sensors_temp(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "sensors_temp")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not installed") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "lm-sensors is not installed. Run `sudo sensors-detect` to set up hardware monitoring.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("Hardware sensors:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer GPU memory query
+pub fn answer_gpu_memory(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "gpu_memory")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not available") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "nvidia-smi not available. This requires NVIDIA drivers to be installed.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = format!("GPU memory usage:\n```\n{}\n```", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer Xorg log query
+pub fn answer_xorg_log(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "xorg_log")?;
+
+    let output = probe.stdout.trim();
+    if output.contains("not found") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Xorg log not found. X11 may not be installed or using Wayland.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let error_count = output.lines().count();
+    let answer = format!("Xorg log errors/warnings ({}):\n```\n{}\n```", error_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: error_count,
+        route_class: route_class.to_string(),
+    })
+}

@@ -205,6 +205,18 @@ pub enum QueryClass {
     TmpFiles,
     /// v0.0.133: User groups: "my groups", "user groups"
     UserGroups,
+    /// v0.0.134: LVM status: "lvm", "logical volumes"
+    LvmStatus,
+    /// v0.0.134: RAID status: "raid status", "mdadm"
+    RaidStatus,
+    /// v0.0.134: NTP status: "ntp status", "time sync"
+    NtpStatus,
+    /// v0.0.134: Sensors temperature: "sensors", "temperature"
+    SensorsTemp,
+    /// v0.0.134: GPU memory: "gpu memory", "vram usage"
+    GpuMemory,
+    /// v0.0.134: Xorg log: "xorg log", "x11 errors"
+    XorgLog,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -304,6 +316,12 @@ impl std::fmt::Display for QueryClass {
             Self::SystemdSockets => "systemd_sockets",
             Self::TmpFiles => "tmp_files",
             Self::UserGroups => "user_groups",
+            Self::LvmStatus => "lvm_status",
+            Self::RaidStatus => "raid_status",
+            Self::NtpStatus => "ntp_status",
+            Self::SensorsTemp => "sensors_temp",
+            Self::GpuMemory => "gpu_memory",
+            Self::XorgLog => "xorg_log",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -406,6 +424,12 @@ impl QueryClass {
             "systemd_sockets" => Some(Self::SystemdSockets),
             "tmp_files" => Some(Self::TmpFiles),
             "user_groups" => Some(Self::UserGroups),
+            "lvm_status" => Some(Self::LvmStatus),
+            "raid_status" => Some(Self::RaidStatus),
+            "ntp_status" => Some(Self::NtpStatus),
+            "sensors_temp" => Some(Self::SensorsTemp),
+            "gpu_memory" => Some(Self::GpuMemory),
+            "xorg_log" => Some(Self::XorgLog),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -431,6 +455,7 @@ impl QueryClass {
     /// v0.0.131: Added VirtualizationInfo, SelinuxStatus, AppArmorStatus, SystemdSlices, CoredumpList
     /// v0.0.132: Added KernelModules, SystemdTargets, IpRoutes, ArpTable, IptablesRules
     /// v0.0.133: Added PciDevices, DmesgErrors, SystemdSockets, TmpFiles, UserGroups
+    /// v0.0.134: Added LvmStatus, RaidStatus, NtpStatus, SensorsTemp, GpuMemory, XorgLog
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -455,7 +480,9 @@ impl QueryClass {
             | Self::KernelModules | Self::SystemdTargets | Self::IpRoutes
             | Self::ArpTable | Self::IptablesRules
             | Self::PciDevices | Self::DmesgErrors | Self::SystemdSockets
-            | Self::TmpFiles | Self::UserGroups)
+            | Self::TmpFiles | Self::UserGroups
+            | Self::LvmStatus | Self::RaidStatus | Self::NtpStatus
+            | Self::SensorsTemp | Self::GpuMemory | Self::XorgLog)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1803,6 +1830,90 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.134: LVM status - deterministic from lvs/vgs
+        QueryClass::LvmStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["lvm_status".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.134: RAID status - deterministic from mdadm
+        QueryClass::RaidStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["raid_status".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.134: NTP status - deterministic from timedatectl
+        QueryClass::NtpStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["ntp_status".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.134: Sensors temperature - deterministic from sensors
+        QueryClass::SensorsTemp => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["sensors_temp".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.134: GPU memory - deterministic from nvidia-smi
+        QueryClass::GpuMemory => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["gpu_memory".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.134: Xorg log - deterministic from Xorg.log
+        QueryClass::XorgLog => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["xorg_log".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Journal],
                 spine_probes: vec![],
             },
         },

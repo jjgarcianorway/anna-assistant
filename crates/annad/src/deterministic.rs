@@ -208,6 +208,18 @@ pub fn try_answer(
         QueryClass::TmpFiles => det_extended::answer_tmp_files(probe_results, &route_class),
         // v0.0.133: UserGroups - deterministic from groups
         QueryClass::UserGroups => det_extended::answer_user_groups(probe_results, &route_class),
+        // v0.0.134: LvmStatus - deterministic from lvs/vgs
+        QueryClass::LvmStatus => det_extended::answer_lvm_status(probe_results, &route_class),
+        // v0.0.134: RaidStatus - deterministic from mdstat
+        QueryClass::RaidStatus => det_extended::answer_raid_status(probe_results, &route_class),
+        // v0.0.134: NtpStatus - deterministic from timedatectl
+        QueryClass::NtpStatus => det_extended::answer_ntp_status(probe_results, &route_class),
+        // v0.0.134: SensorsTemp - deterministic from sensors
+        QueryClass::SensorsTemp => det_extended::answer_sensors_temp(probe_results, &route_class),
+        // v0.0.134: GpuMemory - deterministic from nvidia-smi
+        QueryClass::GpuMemory => det_extended::answer_gpu_memory(probe_results, &route_class),
+        // v0.0.134: XorgLog - deterministic from Xorg.log
+        QueryClass::XorgLog => det_extended::answer_xorg_log(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

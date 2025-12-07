@@ -137,6 +137,13 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "systemd_sockets" => Some("systemctl list-sockets --no-pager --no-legend | head -20"),
         "tmp_files" => Some("ls -la /tmp 2>/dev/null | head -30"),
         "user_groups" => Some("groups && id"),
+        // v0.0.134: Storage and hardware probes
+        "lvm_status" => Some("lvs 2>/dev/null && vgs 2>/dev/null || echo 'LVM not installed or no volumes'"),
+        "raid_status" => Some("cat /proc/mdstat 2>/dev/null || mdadm --detail --scan 2>/dev/null || echo 'No RAID detected'"),
+        "ntp_status" => Some("timedatectl show 2>/dev/null || chronyc tracking 2>/dev/null || ntpq -p 2>/dev/null || echo 'NTP status not available'"),
+        "sensors_temp" => Some("sensors 2>/dev/null || echo 'lm-sensors not installed'"),
+        "gpu_memory" => Some("nvidia-smi --query-gpu=memory.total,memory.used,memory.free --format=csv 2>/dev/null || echo 'nvidia-smi not available'"),
+        "xorg_log" => Some("tail -50 /var/log/Xorg.0.log 2>/dev/null | grep -iE 'error|warn|EE|WW' | head -20 || echo 'Xorg log not found'"),
         _ => None,
     }
 }

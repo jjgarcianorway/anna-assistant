@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.134] - 2025-12-07
+
+### Added - Storage & Hardware Queries (Phase 53) 🎉 100 QUERY TYPES!
+
+**6 New Query Types**
+- `LvmStatus`: "lvm", "logical volumes" → shows LVM volume group and logical volume status
+- `RaidStatus`: "raid status", "mdadm" → shows software RAID status from /proc/mdstat
+- `NtpStatus`: "ntp status", "time sync" → shows NTP/time synchronization status
+- `SensorsTemp`: "sensors", "temperature" → shows hardware sensor readings
+- `GpuMemory`: "gpu memory", "vram" → shows NVIDIA GPU memory usage
+- `XorgLog`: "xorg log", "x11 errors" → shows errors/warnings from Xorg log
+
+**Code Changes**
+- `router.rs`: Added 6 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (lvm_status, raid_status, ntp_status, sensors_temp, gpu_memory, xorg_log)
+- `det_extended.rs`: Added 6 new answer functions
+
+**Total Query Types**: 100 QueryClass variants now supported! 🎉
+
 ## [0.0.133] - 2025-12-07
 
 ### Added - System & User Queries (Phase 52)
