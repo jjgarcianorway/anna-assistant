@@ -74,6 +74,11 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "package_updates" => Some("checkupdates 2>/dev/null || pacman -Qu 2>/dev/null"),
         "timedatectl" => Some("timedatectl"),
         "uptime" => Some("uptime -p"),
+        // v0.0.123: New system probes
+        "who" => Some("who"),
+        "battery" => Some("upower -i $(upower -e | grep battery) 2>/dev/null || cat /sys/class/power_supply/BAT*/capacity 2>/dev/null"),
+        "load_average" => Some("cat /proc/loadavg"),
+        "last_boot" => Some("who -b"),
         _ => None,
     }
 }

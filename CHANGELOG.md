@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.123] - 2025-12-07
+
+### Added - More Fast-Path Queries (Phase 42)
+
+**4 New Query Types**
+- `LoggedInUsers`: "who is logged in", "show users", "who" → shows active user sessions
+- `BatteryStatus`: "battery", "power status" → displays battery level and charging state
+- `SystemLoad`: "load average", "system load" → shows 1/5/15 minute load averages
+- `LastBoot`: "last boot", "when did system start" → displays last boot time
+
+**Code Changes**
+- `router.rs`: Added 4 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (who, battery via upower, /proc/loadavg, who -b)
+- `det_extended.rs`: Added 4 new answer functions
+
+**Total Query Types**: 44 QueryClass variants now supported
+
 ## [0.0.122] - 2025-12-07
 
 ### Added - New Query Types (Phase 41)

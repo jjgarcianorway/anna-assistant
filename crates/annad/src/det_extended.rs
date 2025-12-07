@@ -413,3 +413,189 @@ pub fn answer_system_uptime(probes: &[ProbeResult], route_class: &str) -> Option
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.123: New query class handlers ===
+
+/// Answer logged in users query using who command
+pub fn answer_logged_in_users(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "who")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No users currently logged in.".to_string(),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Parse who output - each line is a user session
+    let sessions: Vec<&str> = output.lines().collect();
+    let user_count = sessions.len();
+
+    // Get unique users
+    let unique_users: std::collections::HashSet<&str> = sessions.iter()
+        .filter_map(|line| line.split_whitespace().next())
+        .collect();
+
+    let answer = if unique_users.len() == 1 && user_count == 1 {
+        format!("1 user logged in: {}", unique_users.iter().next().unwrap_or(&"unknown"))
+    } else if unique_users.len() == 1 {
+        format!("{} sessions for user: {}", user_count, unique_users.iter().next().unwrap_or(&"unknown"))
+    } else {
+        format!("{} users logged in ({} sessions): {}",
+            unique_users.len(),
+            user_count,
+            unique_users.into_iter().collect::<Vec<_>>().join(", "))
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: user_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer battery status query using upower or /sys
+pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "battery")?;
+
+    let output = probe.stdout.trim();
+
+    // Check if no battery (command failed or empty output)
+    if output.is_empty() || probe.exit_code != 0 {
+        return Some(DeterministicResult {
+            answer: "No battery detected. This may be a desktop system.".to_string(),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Try to parse upower output first
+    if output.contains("percentage:") {
+        let mut percentage = String::new();
+        let mut state = String::new();
+        let mut time_to_empty = String::new();
+        let mut time_to_full = String::new();
+
+        for line in output.lines() {
+            let line = line.trim();
+            if line.starts_with("percentage:") {
+                percentage = line.strip_prefix("percentage:").unwrap_or("").trim().to_string();
+            } else if line.starts_with("state:") {
+                state = line.strip_prefix("state:").unwrap_or("").trim().to_string();
+            } else if line.starts_with("time to empty:") {
+                time_to_empty = line.strip_prefix("time to empty:").unwrap_or("").trim().to_string();
+            } else if line.starts_with("time to full:") {
+                time_to_full = line.strip_prefix("time to full:").unwrap_or("").trim().to_string();
+            }
+        }
+
+        let mut answer = format!("Battery: {}", percentage);
+        if !state.is_empty() {
+            answer.push_str(&format!(" ({})", state));
+        }
+        if !time_to_empty.is_empty() {
+            answer.push_str(&format!("\nTime remaining: {}", time_to_empty));
+        }
+        if !time_to_full.is_empty() {
+            answer.push_str(&format!("\nTime to full: {}", time_to_full));
+        }
+
+        return Some(DeterministicResult {
+            answer,
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Fallback: raw percentage from /sys
+    if let Ok(pct) = output.parse::<u32>() {
+        let status = if pct > 80 { "Good" } else if pct > 20 { "OK" } else { "Low" };
+        return Some(DeterministicResult {
+            answer: format!("Battery: {}% ({})", pct, status),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Unknown format
+    Some(DeterministicResult {
+        answer: format!("Battery info: {}", output),
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer system load query using /proc/loadavg
+pub fn answer_system_load(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "load_average")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return None;
+    }
+
+    // /proc/loadavg format: "0.23 0.42 0.35 1/234 12345"
+    let parts: Vec<&str> = output.split_whitespace().collect();
+    if parts.len() >= 3 {
+        let load1 = parts[0];
+        let load5 = parts[1];
+        let load15 = parts[2];
+
+        let answer = format!(
+            "System load averages:\n  1 min:  {}\n  5 min:  {}\n  15 min: {}",
+            load1, load5, load15
+        );
+
+        return Some(DeterministicResult {
+            answer,
+            grounded: true,
+            parsed_data_count: 3,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    None
+}
+
+/// Answer last boot query using who -b
+pub fn answer_last_boot(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "last_boot")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return None;
+    }
+
+    // who -b output: "         system boot  2024-01-15 10:30"
+    let boot_time = output
+        .strip_prefix("system boot")
+        .or_else(|| output.split("system boot").nth(1))
+        .map(|s| s.trim())
+        .unwrap_or(output);
+
+    let answer = format!("System last booted: {}", boot_time);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}

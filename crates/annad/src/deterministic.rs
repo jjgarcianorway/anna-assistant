@@ -100,6 +100,14 @@ pub fn try_answer(
         QueryClass::TimezoneInfo => det_extended::answer_timezone_info(probe_results, &route_class),
         // v0.0.122: SystemUptime - deterministic from uptime
         QueryClass::SystemUptime => det_extended::answer_system_uptime(probe_results, &route_class),
+        // v0.0.123: LoggedInUsers - deterministic from who command
+        QueryClass::LoggedInUsers => det_extended::answer_logged_in_users(probe_results, &route_class),
+        // v0.0.123: BatteryStatus - deterministic from upower/acpi
+        QueryClass::BatteryStatus => det_extended::answer_battery_status(probe_results, &route_class),
+        // v0.0.123: SystemLoad - deterministic from /proc/loadavg
+        QueryClass::SystemLoad => det_extended::answer_system_load(probe_results, &route_class),
+        // v0.0.123: LastBoot - deterministic from who -b
+        QueryClass::LastBoot => det_extended::answer_last_boot(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

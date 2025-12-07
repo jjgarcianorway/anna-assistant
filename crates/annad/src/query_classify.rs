@@ -490,5 +490,51 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::SystemUptime;
     }
 
+    // v0.0.123: Logged in users - "who is logged in", "show users"
+    if q.contains("logged in")
+        || q.contains("who is on")
+        || q.contains("active users")
+        || q.contains("current users")
+        || q.contains("show users")
+        || q.contains("list users")
+        || (q.contains("who") && q.contains("logged"))
+        || q.trim() == "who"
+        || q.trim() == "w"
+    {
+        return QueryClass::LoggedInUsers;
+    }
+
+    // v0.0.123: Battery status - "battery", "power status"
+    if q.contains("battery")
+        || q.contains("power status")
+        || q.contains("charge level")
+        || q.contains("charging")
+        || q.contains("power level")
+        || (q.contains("laptop") && q.contains("power"))
+    {
+        return QueryClass::BatteryStatus;
+    }
+
+    // v0.0.123: System load - "load average", "system load"
+    if q.contains("load average")
+        || q.contains("system load")
+        || q.contains("cpu load")
+        || q.trim() == "load"
+        || (q.contains("how busy") && q.contains("system"))
+    {
+        return QueryClass::SystemLoad;
+    }
+
+    // v0.0.123: Last boot - "when did system start", "last reboot"
+    if q.contains("last boot")
+        || q.contains("last reboot")
+        || q.contains("when did") && (q.contains("boot") || q.contains("start") || q.contains("reboot"))
+        || q.contains("when was") && (q.contains("boot") || q.contains("reboot"))
+        || q.contains("boot time")
+        || q.contains("reboot time")
+    {
+        return QueryClass::LastBoot;
+    }
+
     QueryClass::Unknown
 }

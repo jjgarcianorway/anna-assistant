@@ -97,6 +97,14 @@ pub enum QueryClass {
     TimezoneInfo,
     /// v0.0.122: System uptime: "uptime", "how long running"
     SystemUptime,
+    /// v0.0.123: Logged in users: "who is logged in", "show users"
+    LoggedInUsers,
+    /// v0.0.123: Battery status: "battery", "power status"
+    BatteryStatus,
+    /// v0.0.123: System load: "load average", "system load"
+    SystemLoad,
+    /// v0.0.123: Last boot time: "when did system start", "last reboot"
+    LastBoot,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -142,6 +150,10 @@ impl std::fmt::Display for QueryClass {
             Self::SwapInfo => "swap_info",
             Self::TimezoneInfo => "timezone_info",
             Self::SystemUptime => "system_uptime",
+            Self::LoggedInUsers => "logged_in_users",
+            Self::BatteryStatus => "battery_status",
+            Self::SystemLoad => "system_load",
+            Self::LastBoot => "last_boot",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -190,6 +202,10 @@ impl QueryClass {
             "swap_info" => Some(Self::SwapInfo),
             "timezone_info" => Some(Self::TimezoneInfo),
             "system_uptime" => Some(Self::SystemUptime),
+            "logged_in_users" => Some(Self::LoggedInUsers),
+            "battery_status" => Some(Self::BatteryStatus),
+            "system_load" => Some(Self::SystemLoad),
+            "last_boot" => Some(Self::LastBoot),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -204,10 +220,12 @@ impl QueryClass {
     /// v0.0.77: Added MetaSmallTalk - bypasses LLM entirely
     /// v0.0.111: Added TicketHistory, StaffRoster - internal data
     /// v0.0.122: Added PackageUpdates, SwapInfo, TimezoneInfo, SystemUptime
+    /// v0.0.123: Added LoggedInUsers, BatteryStatus, SystemLoad, LastBoot
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
-            | Self::PackageUpdates | Self::SwapInfo | Self::TimezoneInfo | Self::SystemUptime)
+            | Self::PackageUpdates | Self::SwapInfo | Self::TimezoneInfo | Self::SystemUptime
+            | Self::LoggedInUsers | Self::BatteryStatus | Self::SystemLoad | Self::LastBoot)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -795,6 +813,62 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["uptime".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.123: Logged in users - deterministic from who command
+        QueryClass::LoggedInUsers => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["who".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.123: Battery status - deterministic from upower/acpi
+        QueryClass::BatteryStatus => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["battery".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.123: System load - deterministic from uptime
+        QueryClass::SystemLoad => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["load_average".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.123: Last boot - deterministic from who -b
+        QueryClass::LastBoot => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["last_boot".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: true,
                 evidence_required: true,
