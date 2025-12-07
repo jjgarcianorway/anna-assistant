@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.126] - 2025-12-07
+
+### Added - More System & Network Queries (Phase 45)
+
+**5 New Query Types**
+- `ProcessTree`: "pstree", "process tree", "process hierarchy" → shows process tree via pstree
+- `DnsServers`: "dns servers", "nameservers", "resolv.conf" → shows configured DNS servers
+- `DefaultGateway`: "default gateway", "gateway" → shows default route gateway and interface
+- `OpenFiles`: "open files", "lsof" → shows system-wide open file descriptor count
+- `SystemLocale`: "locale", "language settings" → shows system locale configuration
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (pstree, dns_servers, default_gateway, open_files, locale)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 59 QueryClass variants now supported
+
 ## [0.0.125] - 2025-12-07
 
 ### Added - System & Network Queries (Phase 44)

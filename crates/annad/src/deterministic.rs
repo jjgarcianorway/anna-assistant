@@ -128,6 +128,16 @@ pub fn try_answer(
         QueryClass::SystemArchitecture => det_extended::answer_system_architecture(probe_results, &route_class),
         // v0.0.125: EnvironmentVars - deterministic from env
         QueryClass::EnvironmentVars => det_extended::answer_environment_vars(probe_results, &route_class),
+        // v0.0.126: ProcessTree - deterministic from pstree
+        QueryClass::ProcessTree => det_extended::answer_process_tree(probe_results, &route_class),
+        // v0.0.126: DnsServers - deterministic from /etc/resolv.conf
+        QueryClass::DnsServers => det_extended::answer_dns_servers(probe_results, &route_class),
+        // v0.0.126: DefaultGateway - deterministic from ip route
+        QueryClass::DefaultGateway => det_extended::answer_default_gateway(probe_results, &route_class),
+        // v0.0.126: OpenFiles - deterministic from lsof
+        QueryClass::OpenFiles => det_extended::answer_open_files(probe_results, &route_class),
+        // v0.0.126: SystemLocale - deterministic from locale
+        QueryClass::SystemLocale => det_extended::answer_system_locale(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

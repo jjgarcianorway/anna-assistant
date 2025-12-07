@@ -659,5 +659,58 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::EnvironmentVars;
     }
 
+    // v0.0.126: Process tree - "pstree", "process tree"
+    if q.trim() == "pstree"
+        || q.contains("process tree")
+        || q.contains("process hierarchy")
+        || q.contains("parent process")
+        || (q.contains("show") && q.contains("process") && q.contains("tree"))
+    {
+        return QueryClass::ProcessTree;
+    }
+
+    // v0.0.126: DNS servers - "dns servers", "nameservers", "resolv.conf"
+    if q.contains("dns server")
+        || q.contains("nameserver")
+        || q.contains("resolv.conf")
+        || q.contains("dns config")
+        || (q.contains("what") && q.contains("dns"))
+        || (q.contains("which") && q.contains("dns"))
+    {
+        return QueryClass::DnsServers;
+    }
+
+    // v0.0.126: Default gateway - "default gateway", "gateway", "default route"
+    if q.contains("default gateway")
+        || q.contains("gateway ip")
+        || q.contains("default route")
+        || (q.contains("what") && q.contains("gateway"))
+        || (q.contains("my") && q.contains("gateway"))
+        || q.trim() == "gateway"
+    {
+        return QueryClass::DefaultGateway;
+    }
+
+    // v0.0.126: Open files - "open files", "lsof count"
+    if q.contains("open file")
+        || q.contains("file handle")
+        || q.contains("file descriptor")
+        || q.trim() == "lsof"
+        || (q.contains("how many") && q.contains("file") && q.contains("open"))
+    {
+        return QueryClass::OpenFiles;
+    }
+
+    // v0.0.126: System locale - "locale", "language settings"
+    if q.trim() == "locale"
+        || q.contains("system locale")
+        || q.contains("language setting")
+        || q.contains("character set")
+        || q.contains("encoding")
+        || (q.contains("what") && q.contains("locale"))
+    {
+        return QueryClass::SystemLocale;
+    }
+
     QueryClass::Unknown
 }

@@ -90,6 +90,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "current_user" => Some("id"),
         "arch" => Some("uname -m"),
         "env_vars" => Some("env | head -30"),
+        // v0.0.126: New system and network probes
+        "pstree" => Some("pstree -p 2>/dev/null | head -40"),
+        "dns_servers" => Some("cat /etc/resolv.conf 2>/dev/null | grep -E '^nameserver'"),
+        "default_gateway" => Some("ip route | grep default | head -1"),
+        "open_files" => Some("lsof 2>/dev/null | wc -l"),
+        "locale" => Some("locale"),
         _ => None,
     }
 }

@@ -125,6 +125,16 @@ pub enum QueryClass {
     SystemArchitecture,
     /// v0.0.125: Environment variables: "env vars", "environment"
     EnvironmentVars,
+    /// v0.0.126: Process tree: "pstree", "process tree"
+    ProcessTree,
+    /// v0.0.126: DNS servers: "dns servers", "nameservers", "resolv.conf"
+    DnsServers,
+    /// v0.0.126: Default gateway: "default gateway", "gateway", "default route"
+    DefaultGateway,
+    /// v0.0.126: Open files count: "open files", "lsof count"
+    OpenFiles,
+    /// v0.0.126: System locale: "locale", "language settings"
+    SystemLocale,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -184,6 +194,11 @@ impl std::fmt::Display for QueryClass {
             Self::CurrentUser => "current_user",
             Self::SystemArchitecture => "system_architecture",
             Self::EnvironmentVars => "environment_vars",
+            Self::ProcessTree => "process_tree",
+            Self::DnsServers => "dns_servers",
+            Self::DefaultGateway => "default_gateway",
+            Self::OpenFiles => "open_files",
+            Self::SystemLocale => "system_locale",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -246,6 +261,11 @@ impl QueryClass {
             "current_user" => Some(Self::CurrentUser),
             "system_architecture" => Some(Self::SystemArchitecture),
             "environment_vars" => Some(Self::EnvironmentVars),
+            "process_tree" => Some(Self::ProcessTree),
+            "dns_servers" => Some(Self::DnsServers),
+            "default_gateway" => Some(Self::DefaultGateway),
+            "open_files" => Some(Self::OpenFiles),
+            "system_locale" => Some(Self::SystemLocale),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -263,6 +283,7 @@ impl QueryClass {
     /// v0.0.123: Added LoggedInUsers, BatteryStatus, SystemLoad, LastBoot
     /// v0.0.124: Added Hostname, OsInfo, NetworkConnectivity, MountedFilesystems, UsbDevices
     /// v0.0.125: Added ListeningPorts, RunningServices, CurrentUser, SystemArchitecture, EnvironmentVars
+    /// v0.0.126: Added ProcessTree, DnsServers, DefaultGateway, OpenFiles, SystemLocale
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
@@ -271,7 +292,9 @@ impl QueryClass {
             | Self::Hostname | Self::OsInfo | Self::NetworkConnectivity
             | Self::MountedFilesystems | Self::UsbDevices
             | Self::ListeningPorts | Self::RunningServices | Self::CurrentUser
-            | Self::SystemArchitecture | Self::EnvironmentVars)
+            | Self::SystemArchitecture | Self::EnvironmentVars
+            | Self::ProcessTree | Self::DnsServers | Self::DefaultGateway
+            | Self::OpenFiles | Self::SystemLocale)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -1055,6 +1078,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["env_vars".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.126: Process tree - deterministic from pstree
+        QueryClass::ProcessTree => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["pstree".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Processes],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.126: DNS servers - deterministic from resolv.conf
+        QueryClass::DnsServers => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["dns_servers".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.126: Default gateway - deterministic from ip route
+        QueryClass::DefaultGateway => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["default_gateway".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.126: Open files count - deterministic from lsof
+        QueryClass::OpenFiles => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["open_files".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.126: System locale - deterministic from locale
+        QueryClass::SystemLocale => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["locale".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: true,
                 evidence_required: true,

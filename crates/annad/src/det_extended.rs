@@ -983,3 +983,177 @@ pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Opt
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.126: New System & Network Queries ===
+
+/// Answer process tree query
+pub fn answer_process_tree(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "pstree")?;
+    if probe.exit_code != 0 {
+        return Some(DeterministicResult {
+            answer: "pstree not available (install psmisc package)".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No process tree available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let line_count = output.lines().count();
+    let answer = format!("Process tree ({} lines):\n```\n{}\n```", line_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: line_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer DNS servers query
+pub fn answer_dns_servers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "dns_servers")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No DNS servers configured in /etc/resolv.conf".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let mut servers = Vec::new();
+    for line in output.lines() {
+        if let Some(ip) = line.strip_prefix("nameserver ") {
+            servers.push(ip.trim());
+        }
+    }
+
+    let answer = if servers.is_empty() {
+        "No DNS servers configured.".to_string()
+    } else {
+        format!("DNS servers: {}", servers.join(", "))
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: servers.len(),
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer default gateway query
+pub fn answer_default_gateway(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "default_gateway")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No default gateway configured.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Parse: "default via 192.168.1.1 dev eth0 proto dhcp metric 100"
+    let parts: Vec<&str> = output.split_whitespace().collect();
+    let gateway = parts.get(2).unwrap_or(&"unknown");
+    let interface = parts.iter()
+        .position(|&p| p == "dev")
+        .and_then(|i| parts.get(i + 1))
+        .unwrap_or(&"unknown");
+
+    let answer = format!("Default gateway: {} (via {})", gateway, interface);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer open files count query
+pub fn answer_open_files(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "open_files")?;
+    if probe.exit_code != 0 {
+        return Some(DeterministicResult {
+            answer: "lsof not available or requires elevated permissions".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let count_str = probe.stdout.trim();
+    let count: usize = count_str.parse().unwrap_or(0);
+
+    let answer = format!("Open files: {} file descriptors system-wide", count);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer system locale query
+pub fn answer_system_locale(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "locale")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No locale settings available.".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Extract key locale values
+    let mut lang = None;
+    let mut lc_all = None;
+
+    for line in output.lines() {
+        if let Some(val) = line.strip_prefix("LANG=") {
+            lang = Some(val.trim_matches('"'));
+        }
+        if let Some(val) = line.strip_prefix("LC_ALL=") {
+            lc_all = Some(val.trim_matches('"'));
+        }
+    }
+
+    let primary = lc_all.unwrap_or_else(|| lang.unwrap_or("not set"));
+    let answer = format!("System locale: {}\n\nFull output:\n{}", primary, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: output.lines().count(),
+        route_class: route_class.to_string(),
+    })
+}
