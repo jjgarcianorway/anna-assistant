@@ -105,6 +105,16 @@ pub enum QueryClass {
     SystemLoad,
     /// v0.0.123: Last boot time: "when did system start", "last reboot"
     LastBoot,
+    /// v0.0.124: Hostname: "hostname", "what is my hostname"
+    Hostname,
+    /// v0.0.124: OS/Distro info: "what distro", "which linux"
+    OsInfo,
+    /// v0.0.124: Network connectivity: "am I online", "check internet"
+    NetworkConnectivity,
+    /// v0.0.124: Mounted filesystems: "mounted drives", "show mounts"
+    MountedFilesystems,
+    /// v0.0.124: USB devices: "usb devices", "what's plugged in"
+    UsbDevices,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -154,6 +164,11 @@ impl std::fmt::Display for QueryClass {
             Self::BatteryStatus => "battery_status",
             Self::SystemLoad => "system_load",
             Self::LastBoot => "last_boot",
+            Self::Hostname => "hostname",
+            Self::OsInfo => "os_info",
+            Self::NetworkConnectivity => "network_connectivity",
+            Self::MountedFilesystems => "mounted_filesystems",
+            Self::UsbDevices => "usb_devices",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -206,6 +221,11 @@ impl QueryClass {
             "battery_status" => Some(Self::BatteryStatus),
             "system_load" => Some(Self::SystemLoad),
             "last_boot" => Some(Self::LastBoot),
+            "hostname" => Some(Self::Hostname),
+            "os_info" => Some(Self::OsInfo),
+            "network_connectivity" => Some(Self::NetworkConnectivity),
+            "mounted_filesystems" => Some(Self::MountedFilesystems),
+            "usb_devices" => Some(Self::UsbDevices),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -221,11 +241,14 @@ impl QueryClass {
     /// v0.0.111: Added TicketHistory, StaffRoster - internal data
     /// v0.0.122: Added PackageUpdates, SwapInfo, TimezoneInfo, SystemUptime
     /// v0.0.123: Added LoggedInUsers, BatteryStatus, SystemLoad, LastBoot
+    /// v0.0.124: Added Hostname, OsInfo, NetworkConnectivity, MountedFilesystems, UsbDevices
     pub fn is_fast_path(&self) -> bool {
         matches!(self, Self::SystemTriage | Self::Help | Self::MetaSmallTalk
             | Self::TicketHistory | Self::StaffRoster
             | Self::PackageUpdates | Self::SwapInfo | Self::TimezoneInfo | Self::SystemUptime
-            | Self::LoggedInUsers | Self::BatteryStatus | Self::SystemLoad | Self::LastBoot)
+            | Self::LoggedInUsers | Self::BatteryStatus | Self::SystemLoad | Self::LastBoot
+            | Self::Hostname | Self::OsInfo | Self::NetworkConnectivity
+            | Self::MountedFilesystems | Self::UsbDevices)
     }
 
     /// Check if this class needs clarification before proceeding (v0.45.5)
@@ -869,6 +892,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["last_boot".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.124: Hostname - deterministic from hostname command
+        QueryClass::Hostname => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["hostname".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.124: OS info - deterministic from /etc/os-release
+        QueryClass::OsInfo => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["os_release".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.124: Network connectivity - deterministic from ping
+        QueryClass::NetworkConnectivity => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["ping_check".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.124: Mounted filesystems - deterministic from mount/findmnt
+        QueryClass::MountedFilesystems => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["findmnt".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.124: USB devices - deterministic from lsusb
+        QueryClass::UsbDevices => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["lsusb".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: true,
                 evidence_required: true,

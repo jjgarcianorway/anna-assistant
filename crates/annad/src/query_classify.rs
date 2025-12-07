@@ -536,5 +536,66 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::LastBoot;
     }
 
+    // v0.0.124: Hostname - "hostname", "what is my hostname"
+    if q.trim() == "hostname"
+        || q.contains("my hostname")
+        || q.contains("computer name")
+        || q.contains("machine name")
+        || (q.contains("what") && q.contains("hostname"))
+    {
+        return QueryClass::Hostname;
+    }
+
+    // v0.0.124: OS info - "what distro", "which linux"
+    if q.contains("what distro")
+        || q.contains("which distro")
+        || q.contains("which linux")
+        || q.contains("what linux")
+        || q.contains("os version")
+        || q.contains("what os")
+        || q.contains("which os")
+        || q.contains("os-release")
+        || q.contains("linux version")
+        || (q.contains("running") && (q.contains("distro") || q.contains("linux")))
+    {
+        return QueryClass::OsInfo;
+    }
+
+    // v0.0.124: Network connectivity - "am I online", "check internet"
+    if q.contains("am i online")
+        || q.contains("internet connection")
+        || q.contains("check internet")
+        || q.contains("network connectivity")
+        || q.contains("connected to internet")
+        || q.contains("online?")
+        || q.contains("can i reach")
+        || (q.contains("ping") && !q.contains("pinging"))
+    {
+        return QueryClass::NetworkConnectivity;
+    }
+
+    // v0.0.124: Mounted filesystems - "mounted drives", "show mounts"
+    if q.contains("mounted")
+        || q.contains("mount points")
+        || q.contains("show mounts")
+        || q.contains("list mounts")
+        || q.contains("filesystems")
+        || q.trim() == "mounts"
+        || q.trim() == "findmnt"
+    {
+        return QueryClass::MountedFilesystems;
+    }
+
+    // v0.0.124: USB devices - "usb devices", "what's plugged in"
+    if q.contains("usb device")
+        || q.contains("usb")
+        || q.contains("plugged in")
+        || q.contains("connected device")
+        || q.trim() == "lsusb"
+        || (q.contains("what") && q.contains("plugged"))
+    {
+        return QueryClass::UsbDevices;
+    }
+
     QueryClass::Unknown
 }

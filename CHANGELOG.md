@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.124] - 2025-12-07
+
+### Added - System Info Queries (Phase 43)
+
+**5 New Query Types**
+- `Hostname`: "hostname", "what is my hostname" → shows system hostname
+- `OsInfo`: "what distro", "which linux" → shows OS name and version from /etc/os-release
+- `NetworkConnectivity`: "am I online", "check internet" → pings 8.8.8.8 with latency
+- `MountedFilesystems`: "show mounts", "mounted drives" → lists mounted filesystems via findmnt
+- `UsbDevices`: "usb devices", "what's plugged in" → lists USB devices via lsusb
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (hostname, os-release, ping, findmnt, lsusb)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 49 QueryClass variants now supported
+
 ## [0.0.123] - 2025-12-07
 
 ### Added - More Fast-Path Queries (Phase 42)

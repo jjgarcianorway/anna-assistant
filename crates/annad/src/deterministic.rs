@@ -108,6 +108,16 @@ pub fn try_answer(
         QueryClass::SystemLoad => det_extended::answer_system_load(probe_results, &route_class),
         // v0.0.123: LastBoot - deterministic from who -b
         QueryClass::LastBoot => det_extended::answer_last_boot(probe_results, &route_class),
+        // v0.0.124: Hostname - deterministic from hostname command
+        QueryClass::Hostname => det_extended::answer_hostname(probe_results, &route_class),
+        // v0.0.124: OsInfo - deterministic from /etc/os-release
+        QueryClass::OsInfo => det_extended::answer_os_info(probe_results, &route_class),
+        // v0.0.124: NetworkConnectivity - deterministic from ping
+        QueryClass::NetworkConnectivity => det_extended::answer_network_connectivity(probe_results, &route_class),
+        // v0.0.124: MountedFilesystems - deterministic from findmnt
+        QueryClass::MountedFilesystems => det_extended::answer_mounted_filesystems(probe_results, &route_class),
+        // v0.0.124: UsbDevices - deterministic from lsusb
+        QueryClass::UsbDevices => det_extended::answer_usb_devices(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

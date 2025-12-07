@@ -599,3 +599,191 @@ pub fn answer_last_boot(probes: &[ProbeResult], route_class: &str) -> Option<Det
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.124: New query class handlers ===
+
+/// Answer hostname query using hostname command
+pub fn answer_hostname(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "hostname")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return None;
+    }
+
+    let answer = format!("Hostname: {}", output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer OS info query using /etc/os-release
+pub fn answer_os_info(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "os_release")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return None;
+    }
+
+    let mut name = String::new();
+    let mut version = String::new();
+    let mut pretty_name = String::new();
+
+    for line in output.lines() {
+        if line.starts_with("PRETTY_NAME=") {
+            pretty_name = line.strip_prefix("PRETTY_NAME=")
+                .unwrap_or("")
+                .trim_matches('"')
+                .to_string();
+        } else if line.starts_with("NAME=") {
+            name = line.strip_prefix("NAME=")
+                .unwrap_or("")
+                .trim_matches('"')
+                .to_string();
+        } else if line.starts_with("VERSION=") {
+            version = line.strip_prefix("VERSION=")
+                .unwrap_or("")
+                .trim_matches('"')
+                .to_string();
+        }
+    }
+
+    let answer = if !pretty_name.is_empty() {
+        format!("OS: {}", pretty_name)
+    } else if !name.is_empty() && !version.is_empty() {
+        format!("OS: {} {}", name, version)
+    } else if !name.is_empty() {
+        format!("OS: {}", name)
+    } else {
+        return None;
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer network connectivity query using ping
+pub fn answer_network_connectivity(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "ping_check")?;
+
+    let answer = if probe.exit_code == 0 {
+        // Parse ping output for latency
+        let output = probe.stdout.trim();
+        let latency = output.lines()
+            .find(|line| line.contains("time="))
+            .and_then(|line| {
+                line.split("time=").nth(1)
+                    .and_then(|s| s.split_whitespace().next())
+            });
+
+        if let Some(lat) = latency {
+            format!("Online - ping to 8.8.8.8: {} ms", lat)
+        } else {
+            "Online - network connectivity confirmed".to_string()
+        }
+    } else {
+        "Offline - cannot reach 8.8.8.8 (Google DNS)".to_string()
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: 1,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer mounted filesystems query using findmnt
+pub fn answer_mounted_filesystems(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "findmnt")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No mounted filesystems found.".to_string(),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let lines: Vec<&str> = output.lines().collect();
+    let mount_count = lines.len().saturating_sub(1); // Subtract header
+
+    let answer = format!("Mounted filesystems ({}):\n{}", mount_count, output);
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: mount_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer USB devices query using lsusb
+pub fn answer_usb_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "lsusb")?;
+    if probe.exit_code != 0 {
+        return None;
+    }
+
+    let output = probe.stdout.trim();
+    if output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "No USB devices detected.".to_string(),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let device_count = output.lines().count();
+
+    // Simplify output - extract just device names
+    let devices: Vec<String> = output.lines()
+        .filter_map(|line| {
+            // lsusb format: "Bus 001 Device 002: ID 1234:5678 Device Name"
+            line.split(": ").nth(1).map(|s| {
+                // Remove ID prefix
+                if let Some(pos) = s.find(' ') {
+                    s[pos+1..].trim().to_string()
+                } else {
+                    s.to_string()
+                }
+            })
+        })
+        .collect();
+
+    let answer = if device_count <= 10 {
+        format!("USB devices ({}):\n  {}", device_count, devices.join("\n  "))
+    } else {
+        let preview: Vec<&str> = devices.iter().take(8).map(|s| s.as_str()).collect();
+        format!("USB devices ({}):\n  {}\n  ...and {} more",
+            device_count, preview.join("\n  "), device_count - 8)
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: device_count,
+        route_class: route_class.to_string(),
+    })
+}

@@ -79,6 +79,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "battery" => Some("upower -i $(upower -e | grep battery) 2>/dev/null || cat /sys/class/power_supply/BAT*/capacity 2>/dev/null"),
         "load_average" => Some("cat /proc/loadavg"),
         "last_boot" => Some("who -b"),
+        // v0.0.124: New system probes
+        "hostname" => Some("hostname"),
+        "os_release" => Some("cat /etc/os-release"),
+        "ping_check" => Some("ping -c 1 -W 2 8.8.8.8 2>/dev/null"),
+        "findmnt" => Some("findmnt -l -o TARGET,SOURCE,FSTYPE,SIZE,USED -t notmpfs,nodevtmpfs,nosquashfs"),
+        "lsusb" => Some("lsusb"),
         _ => None,
     }
 }
