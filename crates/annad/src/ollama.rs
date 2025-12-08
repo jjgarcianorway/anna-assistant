@@ -222,8 +222,34 @@ pub async fn chat(model: &str, prompt: &str) -> Result<String> {
     chat_with_timeout(model, prompt, 120).await
 }
 
-/// Send a chat request to Ollama with explicit timeout
+/// Send a chat request to Ollama with explicit timeout and retry logic
+/// v0.0.140: Added retry with exponential backoff for reliability
 pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
+    const MAX_RETRIES: u32 = 2;
+    let mut last_error = None;
+
+    for attempt in 0..=MAX_RETRIES {
+        if attempt > 0 {
+            // Exponential backoff: 500ms, 1000ms
+            let delay_ms = 500 * (1 << (attempt - 1));
+            info!("LLM retry {} after {}ms delay", attempt, delay_ms);
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+        }
+
+        match chat_single_attempt(model, prompt, timeout_secs).await {
+            Ok(response) => return Ok(response),
+            Err(e) => {
+                warn!("LLM attempt {} failed: {}", attempt + 1, e);
+                last_error = Some(e);
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| anyhow!("LLM request failed after {} retries", MAX_RETRIES)))
+}
+
+/// Single LLM request attempt (internal)
+async fn chat_single_attempt(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_secs))
         .build()?;

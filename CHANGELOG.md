@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.140] - 2025-12-08
+
+### Fixed - LLM Reliability Improvements
+
+**Critical timeout and retry fixes to reduce LLM failures:**
+
+- **Translator timeout**: Increased from 2s to 5s - allows proper model loading and inference
+- **Specialist timeout**: Increased from 6s to 12s - gives LLM proper time to generate responses
+- **Global request timeout**: Increased from 20s to 40s - accommodates retries and slower inference
+- **Added retry logic**: LLM calls now retry up to 2 times with exponential backoff (500ms, 1000ms)
+- **Updated budget config**: All stage budgets increased to match new timeout values
+  - Translator budget: 1.5s → 6s
+  - Specialist budget: 6s → 15s
+  - Total budget: 18s → 35s
+
+**Impact**: Significantly reduced LLM timeout failures, especially on systems with slower inference or when models need to load into memory.
+
 ## [0.0.139] - 2025-12-08
 
 ### Added - System & Network Queries (Phase 57)
