@@ -162,6 +162,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "kernel_cmdline" => Some("cat /proc/cmdline"),
         "module_params" => Some("lsmod | head -20 | awk 'NR>1 {print $1}' | xargs -I{} sh -c 'echo \"=== {} ===\"; modinfo {} 2>/dev/null | grep -E \"^(parm|description):\" | head -5'"),
         "network_bonding" => Some("cat /proc/net/bonding/* 2>/dev/null || echo 'No network bonding configured'"),
+        // v0.0.141: System and network probes
+        "swap_files" => Some("cat /proc/swaps"),
+        "cpu_governor" => Some("cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>/dev/null | sort | uniq -c || echo 'CPU frequency scaling not available'"),
+        "systemd_mounts" => Some("systemctl list-units --type=mount --no-pager --no-legend | head -20"),
+        "loaded_firmware" => Some("dmesg 2>/dev/null | grep -i 'firmware\\|microcode' | tail -20 || echo 'Firmware info not available'"),
+        "network_stats" => Some("cat /proc/net/dev"),
         _ => None,
     }
 }

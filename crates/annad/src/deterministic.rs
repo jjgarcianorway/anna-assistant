@@ -355,6 +355,20 @@ pub fn try_answer(
         QueryClass::NetworkBonding => {
             det_extended::answer_network_bonding(probe_results, &route_class)
         }
+        // v0.0.141: SwapFiles - deterministic from /proc/swaps
+        QueryClass::SwapFiles => det_extended::answer_swap_files(probe_results, &route_class),
+        // v0.0.141: CpuGovernor - deterministic from cpufreq
+        QueryClass::CpuGovernor => det_extended::answer_cpu_governor(probe_results, &route_class),
+        // v0.0.141: SystemdMounts - deterministic from systemctl
+        QueryClass::SystemdMounts => {
+            det_extended::answer_systemd_mounts(probe_results, &route_class)
+        }
+        // v0.0.141: LoadedFirmware - deterministic from dmesg
+        QueryClass::LoadedFirmware => {
+            det_extended::answer_loaded_firmware(probe_results, &route_class)
+        }
+        // v0.0.141: NetworkStats - deterministic from /proc/net/dev
+        QueryClass::NetworkStats => det_extended::answer_network_stats(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

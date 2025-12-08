@@ -247,6 +247,16 @@ pub enum QueryClass {
     ModuleParams,
     /// v0.0.139: Network bonding: "network bonding", "bond interfaces"
     NetworkBonding,
+    /// v0.0.141: Swap files: "swap files", "swapfiles"
+    SwapFiles,
+    /// v0.0.141: CPU governor: "cpu governor", "scaling governor"
+    CpuGovernor,
+    /// v0.0.141: Systemd mounts: "systemd mounts", "mount units"
+    SystemdMounts,
+    /// v0.0.141: Loaded firmware: "firmware", "loaded firmware"
+    LoadedFirmware,
+    /// v0.0.141: Network statistics: "network stats", "rx/tx bytes"
+    NetworkStats,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -367,6 +377,11 @@ impl std::fmt::Display for QueryClass {
             Self::KernelCmdline => "kernel_cmdline",
             Self::ModuleParams => "module_params",
             Self::NetworkBonding => "network_bonding",
+            Self::SwapFiles => "swap_files",
+            Self::CpuGovernor => "cpu_governor",
+            Self::SystemdMounts => "systemd_mounts",
+            Self::LoadedFirmware => "loaded_firmware",
+            Self::NetworkStats => "network_stats",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -490,6 +505,11 @@ impl QueryClass {
             "kernel_cmdline" => Some(Self::KernelCmdline),
             "module_params" => Some(Self::ModuleParams),
             "network_bonding" => Some(Self::NetworkBonding),
+            "swap_files" => Some(Self::SwapFiles),
+            "cpu_governor" => Some(Self::CpuGovernor),
+            "systemd_mounts" => Some(Self::SystemdMounts),
+            "loaded_firmware" => Some(Self::LoadedFirmware),
+            "network_stats" => Some(Self::NetworkStats),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -607,6 +627,11 @@ impl QueryClass {
                 | Self::KernelCmdline
                 | Self::ModuleParams
                 | Self::NetworkBonding
+                | Self::SwapFiles
+                | Self::CpuGovernor
+                | Self::SystemdMounts
+                | Self::LoadedFirmware
+                | Self::NetworkStats
         )
     }
 
@@ -2251,6 +2276,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
             domain: SpecialistDomain::Network,
             intent: QueryIntent::Question,
             probes: vec!["network_bonding".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.141: Swap files - deterministic from /proc/swaps
+        QueryClass::SwapFiles => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["swap_files".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.141: CPU governor - deterministic from /sys/devices/system/cpu
+        QueryClass::CpuGovernor => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["cpu_governor".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Cpu],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.141: Systemd mounts - deterministic from systemctl list-units
+        QueryClass::SystemdMounts => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_mounts".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.141: Loaded firmware - deterministic from dmesg
+        QueryClass::LoadedFirmware => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["loaded_firmware".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.141: Network stats - deterministic from /proc/net/dev
+        QueryClass::NetworkStats => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["network_stats".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: true,
                 evidence_required: true,

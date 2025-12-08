@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.141] - 2025-12-08
+
+### Added - System & Hardware Queries (Phase 58)
+
+**5 New Query Types**
+- `SwapFiles`: "swap files", "swapfiles" → shows swap configuration from /proc/swaps
+- `CpuGovernor`: "cpu governor", "scaling governor" → shows CPU frequency scaling governors
+- `SystemdMounts`: "systemd mounts", "mount units" → lists systemd mount units
+- `LoadedFirmware`: "firmware", "loaded firmware" → shows firmware/microcode loading logs
+- `NetworkStats`: "network stats", "rx/tx bytes" → shows network interface statistics
+
+### Improved - User Experience
+
+**Better error/fallback messages when LLM fails:**
+- Improved timeout message with helpful suggestions for deterministic queries
+- Improved fallback answer formatting with friendlier section headers
+- Added `friendly_probe_name()` helper for better probe display names
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (swap_files, cpu_governor, systemd_mounts, loaded_firmware, network_stats)
+- `det_extended.rs`: Added 5 new answer functions
+- `deterministic.rs`: Added match arms for new query types
+- `rpc_handler.rs`: Improved timeout message with suggestions
+- `answers.rs`: Improved best-effort summary formatting
+- `service_desk.rs`: Added friendly_probe_name() helper, improved fallback messages
+
+**Total Query Types**: 120 QueryClass variants now supported
+
 ## [0.0.140] - 2025-12-08
 
 ### Fixed - LLM Reliability Improvements

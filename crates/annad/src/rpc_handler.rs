@@ -146,16 +146,17 @@ fn make_timeout_response(
         }
     }
 
-    // v0.0.34: Never ask to rephrase - provide a deterministic status answer
+    // v0.0.141: Friendlier timeout message with helpful suggestions
     let answer = format!(
-        "**Request Timeout**\n\n\
-         The request exceeded the {}s budget. This typically means:\n\n\
-         - The LLM backend is under load or unavailable\n\
-         - The query requires complex analysis\n\n\
-         **What you can do:**\n\
-         - Check `annactl status` to verify LLM availability\n\
-         - Try a more specific question (e.g., \"any errors?\" instead of broad queries)\n\n\
-         *Evidence: global timeout, no probes completed*",
+        "I'm taking longer than expected ({}s). Let me help you differently:\n\n\
+         **Try these quick queries instead:**\n\
+         - \"what cpu\" - CPU information\n\
+         - \"disk space\" - Storage usage\n\
+         - \"memory\" - RAM usage\n\
+         - \"running services\" - Active services\n\
+         - \"network interfaces\" - Network info\n\n\
+         These bypass the LLM and give instant answers.\n\n\
+         *Tip: Run `annactl status` to check LLM health.*",
         timeout_secs
     );
 

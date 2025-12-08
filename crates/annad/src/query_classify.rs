@@ -1324,5 +1324,55 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::NetworkBonding;
     }
 
+    // v0.0.141: Swap files - "swap files", "swapfiles"
+    if q.contains("swap file")
+        || q.contains("swapfile")
+        || q.contains("/proc/swaps")
+        || (q.contains("swap") && q.contains("partition"))
+        || (q.contains("list") && q.contains("swap"))
+    {
+        return QueryClass::SwapFiles;
+    }
+
+    // v0.0.141: CPU governor - "cpu governor", "scaling governor"
+    if q.contains("cpu governor")
+        || q.contains("scaling governor")
+        || q.contains("frequency scaling")
+        || q.contains("cpufreq")
+        || (q.contains("power") && q.contains("governor"))
+        || q.contains("performance mode")
+    {
+        return QueryClass::CpuGovernor;
+    }
+
+    // v0.0.141: Systemd mounts - "systemd mounts", "mount units"
+    if q.contains("systemd mount")
+        || q.contains("mount unit")
+        || (q.contains("list") && q.contains("mount") && q.contains("systemd"))
+        || (q.contains("automount") && q.contains("unit"))
+    {
+        return QueryClass::SystemdMounts;
+    }
+
+    // v0.0.141: Loaded firmware - "firmware", "loaded firmware"
+    if q.contains("firmware")
+        || q.contains("microcode")
+        || (q.contains("driver") && q.contains("load"))
+        || q.contains("kernel firmware")
+    {
+        return QueryClass::LoadedFirmware;
+    }
+
+    // v0.0.141: Network stats - "network stats", "network statistics"
+    if q.contains("network stat")
+        || q.contains("rx bytes")
+        || q.contains("tx bytes")
+        || q.contains("packet count")
+        || q.contains("network traffic")
+        || (q.contains("interface") && q.contains("statistic"))
+    {
+        return QueryClass::NetworkStats;
+    }
+
     QueryClass::Unknown
 }

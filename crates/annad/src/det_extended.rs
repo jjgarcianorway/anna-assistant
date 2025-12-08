@@ -2966,3 +2966,164 @@ pub fn answer_network_bonding(
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.141: New query class handlers ===
+
+/// Answer swap files query using /proc/swaps
+pub fn answer_swap_files(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "swap_files")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() || output.lines().count() <= 1 {
+        ("No swap files or partitions configured.".to_string(), 0)
+    } else {
+        let swap_count = output.lines().count() - 1; // Subtract header
+        (
+            format!("Swap configuration ({} entries):\n```\n{}\n```", swap_count, output),
+            swap_count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer CPU governor query using cpufreq
+pub fn answer_cpu_governor(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "cpu_governor")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.contains("not available") || output.is_empty() {
+        ("CPU frequency scaling not available on this system.".to_string(), 0)
+    } else {
+        // Parse output like "4 performance" (count + governor)
+        let governors: Vec<&str> = output.lines().collect();
+        let summary: Vec<String> = governors
+            .iter()
+            .map(|line| {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    format!("{} cores: {}", parts[0], parts[1])
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect();
+        (
+            format!("CPU scaling governors:\n  {}", summary.join("\n  ")),
+            governors.len(),
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemd mounts query using systemctl
+pub fn answer_systemd_mounts(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_mounts")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("No systemd mount units found.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!("Systemd mount units ({}):\n```\n{}\n```", count, output),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer loaded firmware query using dmesg
+pub fn answer_loaded_firmware(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "loaded_firmware")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.contains("not available") || output.is_empty() {
+        ("No firmware loading information available.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!("Firmware/microcode log ({} entries):\n```\n{}\n```", count, output),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer network statistics query using /proc/net/dev
+pub fn answer_network_stats(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "network_stats")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("Network statistics not available.".to_string(), 0)
+    } else {
+        // Parse /proc/net/dev format and make it readable
+        let mut interfaces: Vec<String> = Vec::new();
+        for line in output.lines().skip(2) {
+            // Skip header lines
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 10 {
+                let iface = parts[0].trim_end_matches(':');
+                let rx_bytes: u64 = parts[1].parse().unwrap_or(0);
+                let tx_bytes: u64 = parts[9].parse().unwrap_or(0);
+                let rx_mb = rx_bytes as f64 / 1_000_000.0;
+                let tx_mb = tx_bytes as f64 / 1_000_000.0;
+                interfaces.push(format!("  {}: RX {:.1}MB, TX {:.1}MB", iface, rx_mb, tx_mb));
+            }
+        }
+        if interfaces.is_empty() {
+            ("No network interface statistics found.".to_string(), 0)
+        } else {
+            (
+                format!("Network interface statistics:\n{}", interfaces.join("\n")),
+                interfaces.len(),
+            )
+        }
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}

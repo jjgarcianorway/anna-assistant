@@ -448,13 +448,10 @@ pub fn generate_best_effort_summary(probe_results: &[ProbeResult]) -> Option<(St
         return None;
     }
 
-    // Build final summary with limitation notice
-    let header = "Best-Effort Summary (specialist timed out)";
+    // v0.0.141: Build final summary with friendlier message
+    let header = "**System Information**";
     let body = sections.join("\n\n");
-    let footer = "\nNote: This summary was generated from available probe data. Some information may be incomplete.";
+    let footer = "\n---\n*Based on system probe data. For more details, try a specific question like \"what cpu\" or \"disk space\".*";
 
-    Some((
-        format!("{}\n{}\n{}{}", header, "=".repeat(40), body, footer),
-        parsed_count,
-    ))
+    Some((format!("{}\n\n{}{}", header, body, footer), parsed_count))
 }

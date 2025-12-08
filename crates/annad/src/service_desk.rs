@@ -494,14 +494,13 @@ pub fn create_no_data_response(
     }
 }
 
-/// Build a best-effort answer from available probe results (v0.0.32).
+/// Build a best-effort answer from available probe results (v0.0.141).
 /// Summarizes what data was gathered even if it's incomplete.
 fn build_best_effort_answer(probe_results: &[ProbeResult], domain: SpecialistDomain) -> String {
     if probe_results.is_empty() {
         return format!(
-            "I was unable to gather data for this {} query. \
-             The system probes didn't return results. \
-             Please ensure the relevant services are running and try again.",
+            "I couldn't gather {} information right now. \
+             Try asking a more specific question like \"what cpu\" or \"disk space\".",
             domain
         );
     }
@@ -512,26 +511,28 @@ fn build_best_effort_answer(probe_results: &[ProbeResult], domain: SpecialistDom
     let mut answer = String::new();
 
     if !successful.is_empty() {
-        answer.push_str("Based on the available system data:\n\n");
+        answer.push_str("**Here's what I found:**\n\n");
 
         for probe in &successful {
-            // Extract meaningful output (first 3 lines or 200 chars)
-            let output = probe.stdout.lines().take(3).collect::<Vec<_>>().join("\n");
-            let output = if output.len() > 200 {
-                format!("{}...", &output[..200])
+            // Extract meaningful output (first 5 lines or 300 chars)
+            let output = probe.stdout.lines().take(5).collect::<Vec<_>>().join("\n");
+            let output = if output.len() > 300 {
+                format!("{}...", &output[..300])
             } else {
                 output
             };
 
             if !output.trim().is_empty() {
-                answer.push_str(&format!("**{}**:\n```\n{}\n```\n\n", probe.command, output));
+                // Use friendlier probe names
+                let probe_name = friendly_probe_name(&probe.command);
+                answer.push_str(&format!("**{}**:\n```\n{}\n```\n\n", probe_name, output));
             }
         }
     }
 
-    if !failed.is_empty() {
+    if !failed.is_empty() && !successful.is_empty() {
         answer.push_str(&format!(
-            "\nNote: {} probe{} failed to return data.",
+            "*({} additional probe{} didn't return data)*",
             failed.len(),
             if failed.len() == 1 { "" } else { "s" }
         ));
@@ -539,13 +540,40 @@ fn build_best_effort_answer(probe_results: &[ProbeResult], domain: SpecialistDom
 
     if answer.is_empty() {
         format!(
-            "I ran {} probe{} but couldn't extract structured information. \
-             The raw data is available in the evidence block.",
-            probe_results.len(),
-            if probe_results.len() == 1 { "" } else { "s" }
+            "I gathered some {} data but couldn't format it clearly. \
+             Try a specific question for better results.",
+            domain
         )
     } else {
         answer
+    }
+}
+
+/// Convert probe command to friendlier display name (v0.0.141)
+fn friendly_probe_name(command: &str) -> &str {
+    // Extract first word of command for cleaner display
+    let first_word = command.split_whitespace().next().unwrap_or(command);
+    match first_word {
+        "free" => "Memory",
+        "df" => "Disk Space",
+        "lscpu" => "CPU Info",
+        "uname" => "System",
+        "uptime" => "Uptime",
+        "ip" => "Network",
+        "ps" => "Processes",
+        "systemctl" => "Services",
+        "cat" => {
+            if command.contains("/proc/cpuinfo") {
+                "CPU Details"
+            } else if command.contains("/etc/hosts") {
+                "Hosts File"
+            } else if command.contains("/proc/meminfo") {
+                "Memory Details"
+            } else {
+                "File Contents"
+            }
+        }
+        _ => first_word,
     }
 }
 
