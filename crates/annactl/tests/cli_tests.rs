@@ -74,10 +74,10 @@ fn test_status_subcommand_recognized() {
 
     if let Ok(output) = output {
         let stdout = String::from_utf8_lossy(&output.stdout);
-        // Status subcommand help should mention "debug" flag
+        // v0.0.144: Status help should describe the command (--debug removed)
         assert!(
-            stdout.contains("--debug") || stdout.contains("Anna status"),
-            "Status help should mention --debug flag or describe the command"
+            stdout.contains("status") || stdout.contains("health"),
+            "Status help should describe the command"
         );
     }
 }

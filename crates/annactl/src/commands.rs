@@ -1,6 +1,5 @@
 //! Command handlers for annactl.
-//! v0.0.119: Clean UX improvements.
-//! v0.0.142: Animated spinner during LLM calls.
+//! v0.0.144: Simplified - removed unnecessary flags, natural language for everything.
 
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::rpc::ServiceDeskResult;
@@ -11,11 +10,8 @@ use anyhow::Result;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
 
-use crate::client::{AnnadClient, StreamingClient};
-use crate::display::{
-    print_progress_event, print_stats_display, print_status_display_with_daemon_info,
-    show_bootstrap_progress,
-};
+use crate::client::AnnadClient;
+use crate::display::{print_stats_display, print_status_display, show_bootstrap_progress};
 use crate::greeting;
 use crate::spinner::AnimatedSpinner;
 use crate::transcript_render;
@@ -26,17 +22,14 @@ struct PendingClarification {
     started_at: Instant,
 }
 
-/// Handle status command
-/// v0.0.73: Now fetches daemon info for accurate version comparison
-pub async fn handle_status(debug: bool) -> Result<()> {
+/// Handle status command - shows Anna's health, config, and system info
+pub async fn handle_status() -> Result<()> {
     let mut client = AnnadClient::connect().await?;
-
-    // Fetch both status and daemon info for version comparison
     let status = client.status().await?;
     let snapshot = client.status_snapshot().await.ok();
     let daemon_info = client.get_daemon_info().await.ok();
 
-    print_status_display_with_daemon_info(&status, snapshot.as_ref(), daemon_info.as_ref(), debug);
+    print_status_display(&status, snapshot.as_ref(), daemon_info.as_ref());
     Ok(())
 }
 
@@ -48,47 +41,32 @@ pub async fn handle_stats() -> Result<()> {
     Ok(())
 }
 
-/// Core request function with progress streaming
-async fn send_request_with_progress(prompt: &str, debug_mode: bool) -> Result<ServiceDeskResult> {
-    if debug_mode {
-        StreamingClient::request_with_progress(prompt, |event| {
-            print_progress_event(event);
-        })
-        .await
-    } else {
-        let mut client = AnnadClient::connect().await?;
-        client.request(prompt).await
-    }
+/// Core request function
+async fn send_request(prompt: &str) -> Result<ServiceDeskResult> {
+    let mut client = AnnadClient::connect().await?;
+    client.request(prompt).await
 }
 
 /// Handle a single request (one-shot mode)
-/// v0.0.83: Added show_internal parameter for IT department view
-pub async fn handle_request(prompt: &str, show_internal: bool) -> Result<()> {
+pub async fn handle_request(prompt: &str) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
     let status = client.status().await?;
-    let debug_mode = status.debug_mode;
 
     if status.llm.state != LlmState::Ready {
         drop(client);
         show_bootstrap_progress().await?;
     }
 
-    // v0.0.142: Show animated spinner in non-debug mode
-    let spinner = if !debug_mode {
-        Some(AnimatedSpinner::start("Thinking"))
-    } else {
-        None
-    };
+    // Show animated spinner while thinking
+    let spinner = AnimatedSpinner::start("Thinking");
 
-    let result = send_request_with_progress(prompt, debug_mode).await?;
+    let result = send_request(prompt).await?;
 
-    // Stop spinner if shown
-    if let Some(s) = spinner {
-        s.stop();
-    }
+    // Stop spinner
+    spinner.stop();
 
-    // v0.0.83: Pass show_internal to renderer
-    transcript_render::render_with_options(&result, debug_mode, show_internal);
+    // Render the result
+    transcript_render::render(&result);
 
     // v0.0.96: Handle proposed config changes
     let proposed: Vec<_> = if !result.proposed_changes.is_empty() {
@@ -130,31 +108,16 @@ pub async fn handle_request(prompt: &str, show_internal: bool) -> Result<()> {
     Ok(())
 }
 
-/// Handle REPL mode
-/// v0.0.83: Added show_internal parameter for IT department view
-pub async fn handle_repl(show_internal: bool) -> Result<()> {
-    // Get daemon status for greeting and debug mode
-    let (debug_mode, status) = {
-        let status = match AnnadClient::connect().await {
-            Ok(mut client) => client.status().await.ok(),
-            Err(_) => None,
-        };
-
-        let debug = status.as_ref().map(|s| s.debug_mode).unwrap_or(true);
-        (debug, status)
+/// Handle REPL mode - main interactive interface
+pub async fn handle_repl() -> Result<()> {
+    // Get daemon status for greeting
+    let status = match AnnadClient::connect().await {
+        Ok(mut client) => client.status().await.ok(),
+        Err(_) => None,
     };
 
-    // v0.0.82: Theatre-style greeting with status awareness
+    // Theatre-style greeting with status awareness
     greeting::print_theatre_greeting(status.as_ref());
-
-    // v0.0.83: Show internal mode indicator
-    if show_internal {
-        println!(
-            "{}[internal mode]{} Showing IT department communications\n",
-            colors::WARN,
-            colors::RESET
-        );
-    }
 
     // Check if LLM needs bootstrap
     if let Some(ref st) = status {
@@ -171,7 +134,7 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
         if pending_clarification.is_some() {
             print!("{}[choice]> {}", colors::BOLD, colors::RESET);
         } else {
-            print!("{}anna> {}", colors::HEADER, colors::RESET);
+            print!("{}You: {}", colors::HEADER, colors::RESET);
         }
         io::stdout().flush()?;
 
@@ -192,7 +155,6 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
 
         // Handle pending clarification first
         if let Some(ref pending) = pending_clarification {
-            // Check if expired
             let elapsed = pending.started_at.elapsed();
             let ttl = Duration::from_secs(pending.request.ttl_seconds as u64);
 
@@ -202,7 +164,6 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                 continue;
             }
 
-            // Parse clarification response
             let response = ClarifyResponse::parse(input, &pending.request);
 
             if response.cancelled {
@@ -211,7 +172,6 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                 continue;
             }
 
-            // Get the selected value
             let value = if let Some(key) = response.selected {
                 pending.request.get_option(key).map(|o| o.value.clone())
             } else {
@@ -220,8 +180,6 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
 
             if let Some(val) = value {
                 println!("Selected: {}{}{}", colors::OK, val, colors::RESET);
-                // TODO: Send clarification response to daemon when RPC is ready
-                // For now, clear state
                 pending_clarification = None;
             } else {
                 println!(
@@ -233,17 +191,11 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
             continue;
         }
 
-        // Normal REPL commands
+        // Handle exit commands
         match input.to_lowercase().as_str() {
             "exit" | "quit" | "bye" | "q" | ":q" | ":wq" => {
                 println!("Goodbye! ;)");
                 break;
-            }
-            "status" => {
-                handle_status(false).await?;
-            }
-            "help" => {
-                print_repl_help();
             }
             _ => {
                 // Check LLM ready
@@ -255,22 +207,15 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                     }
                 }
 
-                // v0.0.142: Show animated spinner in non-debug mode
-                let spinner = if !debug_mode {
-                    Some(AnimatedSpinner::start("Thinking"))
-                } else {
-                    None
-                };
+                // Show animated spinner while thinking
+                let spinner = AnimatedSpinner::start("Thinking");
 
-                match send_request_with_progress(input, debug_mode).await {
+                match send_request(input).await {
                     Ok(result) => {
-                        if let Some(s) = spinner {
-                            s.stop();
-                        }
-                        // v0.0.83: Pass show_internal to renderer
-                        transcript_render::render_with_options(&result, debug_mode, show_internal);
+                        spinner.stop();
+                        transcript_render::render(&result);
 
-                        // v0.0.96: Handle proposed config changes
+                        // Handle proposed config changes
                         let proposed: Vec<_> = if !result.proposed_changes.is_empty() {
                             result.proposed_changes.clone()
                         } else {
@@ -281,23 +226,16 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                                 Ok(summary) => {
                                     if summary.failed {
                                         println!(
-                                            "{}Anna: config application hit errors; review details above.{}",
+                                            "{}Error applying config.{}",
                                             colors::ERR,
                                             colors::RESET
                                         );
                                     } else if summary.applied > 0 {
                                         println!(
-                                            "{}Anna: config applied ({} step{}, {} noop).{}",
+                                            "{}Done! Applied {} change{}.{}",
                                             colors::OK,
                                             summary.applied,
                                             if summary.applied == 1 { "" } else { "s" },
-                                            summary.noop,
-                                            colors::RESET
-                                        );
-                                    } else {
-                                        println!(
-                                            "{}Anna: nothing to change; already configured.{}",
-                                            colors::DIM,
                                             colors::RESET
                                         );
                                     }
@@ -308,12 +246,12 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                             }
                         }
 
-                        // v0.0.103: Handle feedback request from Anna
+                        // Handle feedback request
                         if let Some(ref feedback_req) = result.feedback_request {
                             handle_feedback_request(feedback_req).await;
                         }
 
-                        // Check for clarification request
+                        // Handle clarification request
                         if let Some(req) = &result.clarification_request {
                             println!();
                             println!("{}", req.format_menu());
@@ -323,10 +261,9 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                             });
                         }
 
-                        println!(); // Extra line for REPL readability
+                        println!();
                     }
                     Err(e) => {
-                        // Spinner is dropped automatically, clearing the line
                         handle_request_error(&e).await?;
                     }
                 }
@@ -337,33 +274,9 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
     Ok(())
 }
 
-/// Print REPL help
-fn print_repl_help() {
-    println!();
-    println!(
-        "{}Just ask me anything about your system!{}",
-        colors::DIM,
-        colors::RESET
-    );
-    println!();
-    println!("{}Examples:{}", colors::BOLD, colors::RESET);
-    println!("  what cpu do i have?");
-    println!("  show disk usage");
-    println!("  is my system healthy?");
-    println!("  who is on shift?");
-    println!("  show my tickets");
-    println!();
-    println!(
-        "{}Commands:{} exit, status, help",
-        colors::DIM,
-        colors::RESET
-    );
-    println!();
-}
 
-// v0.0.97: Change management functions moved to change_commands.rs
+// v0.0.97: Change management (handle_proposed_change still needed for config changes)
 use crate::change_commands::handle_proposed_change;
-pub use crate::change_commands::{handle_history, handle_undo};
 
 /// v0.0.103: Handle feedback request from Anna
 /// When Anna is uncertain about a recipe answer, she asks the user for feedback
@@ -438,42 +351,7 @@ async fn handle_request_error(e: &anyhow::Error) -> Result<()> {
     Ok(())
 }
 
-/// Handle reset command (v0.0.28: true state wipe)
-pub async fn handle_reset() -> Result<()> {
-    println!();
-    println!("{}Anna Reset{}", colors::BOLD, colors::RESET);
-    println!();
-    println!("This will clear all learned data:");
-    println!("  {} Ledger (installation history)", symbols::ARROW);
-    println!("  {} Recipes (learned query patterns)", symbols::ARROW);
-    println!(
-        "  {} Helpers tracking (installed dependencies)",
-        symbols::ARROW
-    );
-    println!();
-    print!("Continue? [y/N] ");
-    io::stdout().flush()?;
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    if !input.trim().eq_ignore_ascii_case("y") {
-        println!("Reset cancelled.");
-        return Ok(());
-    }
-
-    let mut client = AnnadClient::connect().await?;
-    client.reset().await?;
-    println!();
-    println!(
-        "{}{}{}  Reset complete. All learned data has been cleared.",
-        colors::OK,
-        symbols::OK,
-        colors::RESET
-    );
-    println!("    Anna is now in fresh install state.");
-    Ok(())
-}
+// v0.0.144: handle_reset removed - use natural language "reset anna" instead
 
 /// Handle uninstall command
 pub async fn handle_uninstall() -> Result<()> {

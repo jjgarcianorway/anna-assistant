@@ -117,6 +117,7 @@ pub struct StageSpinner {
     handle: Option<JoinHandle<()>>,
 }
 
+#[allow(dead_code)]
 impl StageSpinner {
     /// Start a stage-aware spinner
     pub fn start() -> Self {

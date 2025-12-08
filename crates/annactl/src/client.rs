@@ -152,7 +152,8 @@ impl AnnadClient {
         Ok(service_result)
     }
 
-    /// Reset learned data
+    /// Reset learned data (v0.0.144: kept for future natural language "reset anna")
+    #[allow(dead_code)]
     pub async fn reset(&mut self) -> Result<()> {
         let response = self.call(RpcMethod::Reset, None).await?;
 
@@ -229,7 +230,8 @@ impl AnnadClient {
         Ok(fixes)
     }
 
-    /// Get progress events for current/last request
+    /// Get progress events for current/last request (v0.0.144: kept for future streaming UI)
+    #[allow(dead_code)]
     pub async fn progress(&mut self) -> Result<Vec<ProgressEvent>> {
         let response = self.call(RpcMethod::Progress, None).await?;
 
@@ -275,9 +277,11 @@ impl AnnadClient {
     }
 }
 
-/// Client for streaming requests with progress polling
+/// Client for streaming requests with progress polling (v0.0.144: kept for future streaming UI)
+#[allow(dead_code)]
 pub struct StreamingClient;
 
+#[allow(dead_code)]
 impl StreamingClient {
     /// Send request with progress polling - returns (result, events)
     pub async fn request_with_progress(

@@ -72,7 +72,8 @@ pub async fn show_bootstrap_progress() -> Result<()> {
     }
 }
 
-/// Print a progress event in debug mode
+/// Print a progress event (v0.0.144: kept for future streaming UI)
+#[allow(dead_code)]
 pub fn print_progress_event(event: &ProgressEvent) {
     let elapsed = format!("{:.1}s", event.elapsed_ms as f64 / 1000.0);
 

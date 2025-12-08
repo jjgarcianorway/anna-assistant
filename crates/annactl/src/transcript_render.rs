@@ -46,7 +46,14 @@ fn get_final_answer(result: &ServiceDeskResult) -> AnswerSource<'_> {
     AnswerSource::Empty
 }
 
-/// Render with explicit internal communications option
+/// v0.0.144: Simple render - always theatre mode with internal comms
+pub fn render(result: &ServiceDeskResult) {
+    // Always use theatre renderer (cinematic experience) with internal comms visible
+    theatre_render::render_theatre(result, true);
+}
+
+/// Render with explicit internal communications option (kept for compatibility)
+#[allow(dead_code)]
 pub fn render_with_options(result: &ServiceDeskResult, debug_mode: bool, show_internal: bool) {
     if debug_mode {
         let output_mode = OutputMode::detect();

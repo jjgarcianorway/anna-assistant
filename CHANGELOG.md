@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.144] - 2025-12-08
+
+### Changed - Simplified CLI
+
+**Removed unnecessary commands and flags:**
+- Removed `--debug` flag from status command
+- Removed `--internal` flag from all commands
+- Removed `history` command (use natural language "show change history")
+- Removed `undo` command (use natural language "undo last change")
+- Removed `reset` command (use natural language "reset anna")
+- Removed `report` command (use natural language)
+- Removed `ticket` command (use natural language)
+- Removed `reply` command (use natural language)
+- Removed `email` command (use natural language)
+- Removed `health` command (use "annactl status" or ask Anna)
+
+**Kept essential commands:**
+- `annactl` - Enter REPL mode (interactive)
+- `annactl <request>` - One-shot natural language request
+- `annactl status` - Show Anna's status and health
+- `annactl stats` - Show RPG-style statistics
+- `annactl uninstall` - Uninstall Anna
+
+**Code cleanup:**
+- Simplified `display.rs` - removed debug parameter
+- Simplified `transcript_render.rs` - always show internal comms
+- Changed prompt from "anna>" to "You:" for cleaner UX
+- Removed unused exports from `change_commands.rs`
+- Added `#[allow(dead_code)]` to future-use streaming code
+
+**Philosophy:** Everything beyond the 5 essential commands should be done
+via natural language. This aligns with the Hollywood IT department experience
+where you talk to Anna naturally, not through CLI flags.
+
 ## [0.0.143] - 2025-12-08
 
 ### Added - Streaming LLM Support

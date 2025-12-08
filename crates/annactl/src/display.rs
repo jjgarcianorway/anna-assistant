@@ -11,26 +11,25 @@ use anna_shared::version::{VersionInfo, VERSION};
 use chrono::{DateTime, Local, TimeZone, Utc};
 
 // Re-export from dedicated modules
-pub use crate::progress_display::{print_progress_event, show_bootstrap_progress};
+pub use crate::progress_display::show_bootstrap_progress;
 pub use crate::stats_display::print_stats_display;
 
-/// Print status display
-#[allow(dead_code)]
+/// Print status display (v0.0.144: simplified, no debug param)
 pub fn print_status_display(
     status: &DaemonStatus,
     snapshot: Option<&StatusSnapshot>,
-    show_debug: bool,
+    daemon_info: Option<&DaemonInfo>,
 ) {
-    print_status_display_with_daemon_info(status, snapshot, None, show_debug);
+    print_status_display_internal(status, snapshot, daemon_info);
 }
 
-/// v0.0.118: Clean, focused status display
-pub fn print_status_display_with_daemon_info(
+/// v0.0.118: Clean, focused status display (internal)
+fn print_status_display_internal(
     status: &DaemonStatus,
     snapshot: Option<&StatusSnapshot>,
     daemon_info: Option<&DaemonInfo>,
-    show_debug: bool,
 ) {
+    let show_debug = false; // v0.0.144: Debug mode removed from CLI
     println!();
     println!("{}Anna Service Desk{}", colors::HEADER, colors::RESET);
     println!("{}", HR);
