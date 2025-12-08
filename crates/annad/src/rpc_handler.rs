@@ -17,8 +17,8 @@ use tracing::{debug, info, warn};
 
 use crate::comms::{team_from_domain, CommsGenerator};
 use crate::config::LlmConfig;
+use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
 use crate::deterministic;
-use crate::editor_config::build_editor_config_with_change;
 use crate::fast_path_handler::{
     build_fast_path_result, force_fast_path_fallback, is_health_query, try_fast_path_answer,
 };
@@ -509,150 +509,19 @@ async fn handle_llm_request_inner(
         return RpcResponse::success(id, serde_json::to_value(result).unwrap());
     }
 
-    // Step 5.5: v0.0.59 ConfigureEditor - use ONLY current probe evidence, no inventory
-    // v0.0.62: Fixed probe accounting and execution trace for grounded output
+    // Step 5.5: v0.0.149 ConfigureEditor - extracted to separate module
     if det_route.class == router::QueryClass::ConfigureEditor {
-        use anna_shared::parsers::{
-            get_installed_tools, installed_editors_from_parsed, parse_probe_result,
-        };
-        use anna_shared::trace::{EvidenceKind, ExecutionTrace, ProbeStats};
-
-        // v0.0.59: Parse probe_results to get installed editors from ToolExists evidence ONLY
-        let parsed: Vec<_> = probe_results
-            .iter()
-            .map(|p| parse_probe_result(p))
-            .collect();
-
-        // v0.0.59: Use dedicated helper for consistent editor extraction
-        let installed_editors = installed_editors_from_parsed(&parsed);
-
-        // Track what we checked (for no-editors-found message)
-        let tools = get_installed_tools(&parsed);
-        let checked_editors: Vec<String> = tools.iter().map(|t| t.name.clone()).collect();
-
-        // v0.0.62: Count valid evidence for proper grounding
-        let valid_evidence_count = parsed.iter().filter(|p| p.is_valid_evidence()).count();
-
-        info!(
-            "v0.0.62: ConfigureEditor - checked {:?}, found installed: {:?}, valid_evidence={}",
-            checked_editors, installed_editors, valid_evidence_count
+        let editor_result = handle_configure_editor(
+            request_id.clone(),
+            query,
+            ticket.clone(),
+            &probe_results,
+            progress.transcript_clone(),
+            classified_domain,
         );
 
-        // v0.0.62: Build execution trace for ConfigureEditor paths
-        let probe_stats = ProbeStats::from_results(ticket.needs_probes.len(), &probe_results);
-        let evidence_kinds = vec![EvidenceKind::ToolExists];
-
-        if installed_editors.is_empty() {
-            // v0.0.59: No editors found - grounded negative evidence (we checked, found none)
-            let checked_list = if checked_editors.is_empty() {
-                "vim, nano, emacs, code".to_string()
-            } else {
-                checked_editors.join(", ")
-            };
-            let answer = format!(
-                "No supported text editors were detected.\n\n\
-                Checked: {}\n\n\
-                Install vim, nano, or another editor and retry.",
-                checked_list
-            );
+        if let ConfigureEditorResult::Handled(result) = editor_result {
             save_progress(&state, &progress).await;
-            // v0.0.62: Use valid_evidence_count for proper grounding
-            let mut result = service_desk::build_result_with_flags(
-                request_id,
-                answer,
-                query,
-                ticket,
-                probe_results.clone(),
-                progress.transcript_clone(),
-                classified_domain,
-                false,
-                true,
-                valid_evidence_count,
-                false,
-                service_desk::FallbackContext {
-                    used_deterministic_fallback: false,
-                    fallback_route_class: "configure_editor".to_string(),
-                    evidence_kinds: vec!["tool_exists".to_string()],
-                    specialist_outcome: Some(SpecialistOutcome::Skipped),
-                    fallback_used: Some(anna_shared::trace::FallbackUsed::None),
-                    evidence_required: Some(true),
-                },
-            );
-            // v0.0.62: Set execution trace
-            result.execution_trace = Some(ExecutionTrace::deterministic_route(
-                "configure_editor",
-                probe_stats,
-                evidence_kinds,
-            ));
-            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
-        } else if installed_editors.len() == 1 {
-            // v0.0.96: Single editor - propose config change using Safe Change Engine
-            let editor = &installed_editors[0];
-            let (answer, proposed_change, proposed_changes) =
-                build_editor_config_with_change(editor);
-            save_progress(&state, &progress).await;
-            // v0.0.62: Use valid_evidence_count for proper grounding
-            let mut result = service_desk::build_result_with_flags(
-                request_id,
-                answer,
-                query,
-                ticket,
-                probe_results.clone(),
-                progress.transcript_clone(),
-                classified_domain,
-                false,
-                true,
-                valid_evidence_count,
-                false,
-                service_desk::FallbackContext {
-                    used_deterministic_fallback: false,
-                    fallback_route_class: "configure_editor".to_string(),
-                    evidence_kinds: vec!["tool_exists".to_string()],
-                    specialist_outcome: Some(SpecialistOutcome::Skipped),
-                    fallback_used: Some(anna_shared::trace::FallbackUsed::None),
-                    evidence_required: Some(true),
-                },
-            );
-            // v0.0.62: Set execution trace
-            result.execution_trace = Some(ExecutionTrace::deterministic_route(
-                "configure_editor",
-                probe_stats,
-                evidence_kinds,
-            ));
-            // v0.0.96: Set proposed change for CLI confirmation
-            result.proposed_change = proposed_change;
-            result.proposed_changes = proposed_changes;
-            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
-        } else {
-            // v0.0.66: Multiple editors - statement with numbered options, no question mark
-            // Format: "I can configure syntax highlighting for one of these editors:\n1) vim\n2) code\nReply with the number."
-            let editors_list: Vec<String> = installed_editors
-                .iter()
-                .enumerate()
-                .map(|(i, e)| format!("{}) {}", i + 1, e))
-                .collect();
-            let answer = format!(
-                "I can configure syntax highlighting for one of these editors:\n{}\nReply with the number.",
-                editors_list.join("\n")
-            );
-
-            let options: Vec<(String, String)> = installed_editors
-                .iter()
-                .map(|e| (e.clone(), e.clone()))
-                .collect();
-            save_progress(&state, &progress).await;
-
-            // v0.0.66: Build result with clarification but answer text is a statement
-            let mut result = service_desk::create_clarification_with_options(
-                request_id,
-                ticket.clone(),
-                &answer, // Use the full statement as the "question"
-                options,
-                probe_results.clone(),
-                progress.take_transcript(),
-            );
-            // v0.0.66: Override answer with clean statement (no question)
-            result.answer = answer;
             return RpcResponse::success(id, serde_json::to_value(result).unwrap());
         }
     }

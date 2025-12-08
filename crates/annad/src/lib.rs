@@ -5,9 +5,11 @@
 //! v0.0.102: Recipe direct answers - skip probes too.
 //! v0.0.115: File-based inbox for async queries.
 //! v0.0.146: Internal comms for fly-on-wall experience.
+//! v0.0.149: ConfigureEditor handler extracted to separate module.
 
 pub mod action_handlers;
 pub mod comms;
+pub mod configure_editor;
 pub mod editor_config;
 pub mod answers;
 pub mod benchmark;

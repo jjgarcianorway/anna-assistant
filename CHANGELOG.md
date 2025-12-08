@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.149] - 2025-12-08
+
+### Changed - ConfigureEditor Module Extraction
+
+**Continued modularization of rpc_handler.rs:**
+- Extracted ConfigureEditor handling into `configure_editor.rs` (~248 lines)
+- Reduced rpc_handler.rs from 1000 to 869 lines
+- Clean separation of editor configuration logic
+
+**New module (configure_editor.rs):**
+- `handle_configure_editor()` - main entry point
+- `ConfigureEditorResult` enum for control flow
+- Handles all three cases:
+  - No editors found → grounded negative evidence
+  - Single editor → propose config change with Safe Change Engine
+  - Multiple editors → numbered menu for user selection
+
+This is part of ongoing modularization to meet the 400-line file target.
+
 ## [0.0.148] - 2025-12-08
 
 ### Added - Fly-on-Wall Experience with Live Internal Comms
