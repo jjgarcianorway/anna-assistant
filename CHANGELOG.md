@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.138] - 2025-12-08
+
+### Added - System Config Queries (Phase 56)
+
+**5 New Query Types**
+- `SystemctlMask`: "masked units", "systemctl mask" → lists masked systemd units
+- `HostsFile`: "/etc/hosts", "hosts file" → shows non-comment entries from /etc/hosts
+- `FstabEntries`: "fstab", "mount table" → shows entries from /etc/fstab
+- `SysctlSettings`: "sysctl", "kernel parameters" → shows sysctl kernel parameters
+- `LoginctlSessions`: "loginctl", "user sessions" → lists active login sessions
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (systemctl_mask, hosts_file, fstab_entries, sysctl_settings, loginctl_sessions)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 110 QueryClass variants now supported
+
 ## [0.0.137] - 2025-12-07
 
 ### Added - Config Change UX Polish
