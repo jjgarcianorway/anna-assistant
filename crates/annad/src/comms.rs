@@ -64,6 +64,11 @@ impl CommsGenerator {
                 format!("{}, access/security question. {}", junior.display_name, short_id),
                 format!("{}, security ticket. {}", junior.display_name, short_id),
             ],
+            Team::Performance => vec![
+                format!("Hey {}! Performance question. Case {}", junior.display_name, short_id),
+                format!("{}, got a memory/CPU query. {}", junior.display_name, short_id),
+                format!("{}, resource usage ticket. {}", junior.display_name, short_id),
+            ],
             _ => vec![
                 format!("Hey {}! New case {} coming your way.", junior.display_name, short_id),
                 format!("{}, got a ticket for you. Case {}", junior.display_name, short_id),
@@ -98,6 +103,11 @@ impl CommsGenerator {
             Team::Network => vec![
                 format!("Testing connectivity... {} check{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
                 format!("Running network probes... {} query{}.", probe_count, if probe_count == 1 { "y" } else { "ies" }),
+            ],
+            Team::Performance => vec![
+                format!("Checking resource usage... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!("Running performance checks... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!("Gathering memory/CPU data... {} check{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
             ],
             _ => vec![
                 format!("Running {} check{}...", probe_count, if probe_count == 1 { "" } else { "s" }),
@@ -152,6 +162,11 @@ impl CommsGenerator {
                 "Checking connectivity results...",
                 "Verifying network data...",
                 "Looking at the interface info...",
+            ],
+            Team::Performance => vec![
+                "Checking memory/CPU numbers...",
+                "Verifying resource calculations...",
+                "Looking at the load data...",
             ],
             _ => vec![
                 "Checking the response...",
@@ -250,14 +265,17 @@ impl CommsGenerator {
 }
 
 /// Determine team from domain string
+/// v0.0.153: Added Performance team routing
 pub fn team_from_domain(domain: &str) -> Team {
     match domain.to_lowercase().as_str() {
         "storage" => Team::Storage,
         "network" => Team::Network,
         "security" => Team::Security,
-        "packages" => Team::Desktop, // Package management is desktop team
+        "performance" => Team::Performance,
+        "system" => Team::Performance, // System queries often about performance
+        "packages" => Team::Desktop,   // Package management is desktop team
         "desktop" => Team::Desktop,
-        _ => Team::Desktop, // Default to desktop for general system queries
+        _ => Team::Desktop, // Default to desktop for general queries
     }
 }
 
@@ -278,6 +296,8 @@ mod tests {
     fn test_team_from_domain() {
         assert_eq!(team_from_domain("storage"), Team::Storage);
         assert_eq!(team_from_domain("NETWORK"), Team::Network);
+        assert_eq!(team_from_domain("performance"), Team::Performance);
+        assert_eq!(team_from_domain("system"), Team::Performance);
         assert_eq!(team_from_domain("unknown"), Team::Desktop);
     }
 }

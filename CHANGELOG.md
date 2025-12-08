@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.153] - 2025-12-09
+
+### Added - Performance Team Support
+
+**Extended internal comms with Performance team:**
+- Added Performance team to dispatch messages ("Performance question coming in")
+- Added Performance team to probing messages ("Checking resource usage...")
+- Added Performance team to review messages ("Checking memory/CPU numbers...")
+- Updated `team_from_domain()` to route "performance" and "system" to Performance team
+
+**Performance team roster (Kari & Mateo):**
+- Kari (Junior) - Performance Analyst, specializes in htop, memory, CPU
+- Mateo (Senior) - Performance Engineer, specializes in profiling, tuning, cgroups
+
+**Sample output for memory query:**
+```
+  [Anna] Hey Kari! Performance question. Case abc12345
+  [Kari] On it.
+  [Kari] Checking resource usage... 2 probes.
+  [Kari] All 2 probes succeeded.
+  [Kari] Checking memory/CPU numbers...
+  [Kari] High confidence: 95%. Good to ship.
+  [Anna] Thanks Kari! I'll take it from here.
+```
+
 ## [0.0.152] - 2025-12-09
 
 ### Added - Enhanced Internal Comms Variety
