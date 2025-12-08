@@ -15,6 +15,7 @@ use std::time::Instant;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 
+use crate::comms::{team_from_domain, CommsGenerator};
 use crate::config::LlmConfig;
 use crate::deterministic;
 use crate::editor_config::build_editor_config_with_change;
@@ -402,6 +403,15 @@ async fn handle_llm_request_inner(
         ticket.domain, ticket.intent, ticket.needs_probes, ticket.confidence
     ));
 
+    // v0.0.148: Create comms generator for fly-on-wall experience
+    let team = team_from_domain(&classified_domain.to_string());
+    let comms = CommsGenerator::new(team, &request_id);
+
+    // v0.0.148: Anna dispatches to team and junior acknowledges
+    comms.dispatch(&mut progress);
+    comms.junior_ack(&mut progress);
+    save_progress(&state, &progress).await;
+
     // Step 3: Check if immediate clarification needed (from triage)
     if let Some(ref triage) = triage_result {
         if triage.needs_immediate_clarification {
@@ -422,6 +432,13 @@ async fn handle_llm_request_inner(
 
     // Step 4: Run probes with timeout
     progress.start_stage(RequestStage::Probes, llm_config.probes_total_timeout_secs);
+
+    // v0.0.148: Junior reports probe progress
+    if !ticket.needs_probes.is_empty() {
+        comms.junior_probing(&mut progress, ticket.needs_probes.len());
+        save_progress(&state, &progress).await;
+    }
+
     let probe_cap_warning = triage_result
         .as_ref()
         .map(|t| t.probe_cap_applied)
@@ -646,6 +663,10 @@ async fn handle_llm_request_inner(
         service_desk::build_context(&state.hardware, &probe_results)
     };
 
+    // v0.0.148: Junior reviewing the data
+    comms.junior_reviewing(&mut progress);
+    save_progress(&state, &progress).await;
+
     // Step 7: Try deterministic answer FIRST for known query classes
     let specialist_result = if det_route.can_answer_deterministically() {
         if let Some(det) = deterministic::try_answer(query, &context, &probe_results) {
@@ -733,6 +754,25 @@ async fn handle_llm_request_inner(
     // Step 9: Build final result with proper scoring
     progress.start_stage(RequestStage::Supervisor, llm_config.supervisor_timeout_secs);
     progress.add_final_answer(&answer);
+
+    // v0.0.148: Junior confirms answer or escalates based on outcome
+    match outcome {
+        SpecialistOutcome::Ok | SpecialistOutcome::Skipped => {
+            // Deterministic calculated reliability for comms
+            let approx_confidence = if used_deterministic { 85 } else { 75 };
+            comms.junior_done(&mut progress, approx_confidence);
+        }
+        SpecialistOutcome::Timeout | SpecialistOutcome::Error => {
+            comms.junior_escalate(&mut progress, "LLM had trouble, used fallback");
+            comms.senior_response(&mut progress, used_deterministic);
+        }
+        SpecialistOutcome::BudgetExceeded => {
+            comms.junior_escalate(&mut progress, "Query too complex");
+            comms.senior_response(&mut progress, false);
+        }
+    }
+    comms.anna_returning(&mut progress);
+    save_progress(&state, &progress).await;
 
     let parsed_data_count = det_result
         .as_ref()

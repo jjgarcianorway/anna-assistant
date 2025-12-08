@@ -6,6 +6,7 @@ mod client;
 mod commands;
 mod display;
 mod greeting;
+mod live_request;
 mod output;
 mod progress_display;
 mod spinner;

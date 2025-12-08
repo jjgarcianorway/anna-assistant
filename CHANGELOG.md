@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.148] - 2025-12-08
+
+### Added - Fly-on-Wall Experience with Live Internal Comms
+
+**Real-time IT department chatter during request processing:**
+- Users now see internal comms from named IT staff as Anna processes their request
+- Messages appear in real-time, creating the "fly on wall" experience from the vision
+
+**Daemon-side (rpc_handler.rs):**
+- Integrated `CommsGenerator` into the request pipeline
+- Emits internal comms at key stages:
+  - Anna dispatches case to team member (by name)
+  - Junior acknowledges and starts working
+  - Junior reports probe progress
+  - Junior reviews the data
+  - Junior confirms completion or escalates to senior
+  - Senior responds if escalated
+  - Anna returns with the answer
+
+**Client-side (live_request.rs):**
+- New `send_request_with_progress()` function
+- Polls daemon for progress events during request processing
+- Displays `InternalComms` events in cyan with `[staff_name]` prefix
+- Shows generation progress (token count)
+- Replaced spinner with live progress display
+
+**Example output during a request:**
+```
+  [Anna] Hey Michael! New case abc12345 coming your way.
+  [Michael] On it.
+  [Michael] Running 3 checks...
+  [Michael] Checking the response...
+  [Michael] All good! 85% confidence. Sending back to Anna.
+  [Anna] Thanks team! I'll take it from here.
+```
+
+**Hollywood IT Department Experience:**
+This release delivers the core "fly on wall" vision where users feel like
+they're watching a real IT department solve their problems in real-time.
+
 ## [0.0.147] - 2025-12-08
 
 ### Refactored - Extracted Editor Config Module

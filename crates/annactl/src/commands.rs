@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use crate::client::AnnadClient;
 use crate::display::{print_stats_display, print_status_display, show_bootstrap_progress};
 use crate::greeting;
-use crate::spinner::AnimatedSpinner;
+use crate::live_request::send_request_with_progress;
 use crate::transcript_render;
 
 /// Pending clarification state for REPL mode
@@ -41,7 +41,8 @@ pub async fn handle_stats() -> Result<()> {
     Ok(())
 }
 
-/// Core request function
+/// Core request function (v0.0.148: kept for fallback, use send_request_with_progress)
+#[allow(dead_code)]
 async fn send_request(prompt: &str) -> Result<ServiceDeskResult> {
     let mut client = AnnadClient::connect().await?;
     client.request(prompt).await
@@ -57,13 +58,10 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
         show_bootstrap_progress().await?;
     }
 
-    // Show animated spinner while thinking
-    let spinner = AnimatedSpinner::start("Thinking");
-
-    let result = send_request(prompt).await?;
-
-    // Stop spinner
-    spinner.stop();
+    // v0.0.148: Use live progress display for fly-on-wall experience
+    println!();
+    let result = send_request_with_progress(prompt).await?;
+    println!();
 
     // Render the result
     transcript_render::render(&result);
@@ -207,12 +205,11 @@ pub async fn handle_repl() -> Result<()> {
                     }
                 }
 
-                // Show animated spinner while thinking
-                let spinner = AnimatedSpinner::start("Thinking");
-
-                match send_request(input).await {
+                // v0.0.148: Use live progress display for fly-on-wall experience
+                println!();
+                match send_request_with_progress(input).await {
                     Ok(result) => {
-                        spinner.stop();
+                        println!();
                         transcript_render::render(&result);
 
                         // Handle proposed config changes

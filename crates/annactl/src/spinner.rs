@@ -17,6 +17,9 @@ pub struct AnimatedSpinner {
     handle: Option<JoinHandle<()>>,
 }
 
+// v0.0.148: Spinner unused now that live_request shows progress events
+// Kept for future use (e.g., non-interactive mode or fallback)
+#[allow(dead_code)]
 impl AnimatedSpinner {
     /// Start a new animated spinner with the given message
     pub fn start(message: impl Into<String>) -> Self {
