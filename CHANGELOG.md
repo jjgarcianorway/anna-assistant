@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.145] - 2025-12-08
+
+### Added - Progress Event Types for Future Streaming UI
+
+**New progress event types:**
+- `Generation { tokens }` - Track LLM token generation progress
+- `InternalComms { from, message }` - IT staff internal chatter
+
+**Progress tracker methods:**
+- `add_generation_event()` - Emit generation progress for client polling
+- `add_internal_comms()` - Emit internal comms messages
+
+**Client-side support:**
+- `print_progress_event()` now handles new event types
+- Generation shows token count with carriage return (same-line update)
+- Internal comms displayed with cyan `[staff_id]` prefix
+
+**Always show internal comms:**
+- Theatre render now always shows internal comms (fly-on-wall view)
+- Removed the show_internal toggle from transcript_render
+
+**Foundation for streaming UX:**
+These events provide the groundwork for real-time streaming display
+where users can see Anna "thinking" with internal IT department chatter.
+
 ## [0.0.144] - 2025-12-08
 
 ### Changed - Simplified CLI

@@ -115,6 +115,13 @@ pub enum ProgressEventType {
         exit_code: i32,
         timing_ms: u64,
     },
+    /// v0.0.145: LLM generation progress (token count, not content)
+    Generation { tokens: usize },
+    /// v0.0.145: Internal comms message (from IT department staff)
+    InternalComms {
+        from: String,
+        message: DiagnosticText,
+    },
 }
 
 impl ProgressEvent {
@@ -193,6 +200,34 @@ impl ProgressEvent {
         }
     }
 
+    /// v0.0.145: LLM generation progress (token count)
+    pub fn generation(stage: RequestStage, tokens: usize, elapsed_ms: u64) -> Self {
+        Self {
+            stage,
+            event: ProgressEventType::Generation { tokens },
+            detail: None,
+            elapsed_ms,
+        }
+    }
+
+    /// v0.0.145: Internal comms from IT staff
+    pub fn internal_comms(
+        stage: RequestStage,
+        from: impl Into<String>,
+        message: impl Into<DiagnosticText>,
+        elapsed_ms: u64,
+    ) -> Self {
+        Self {
+            stage,
+            event: ProgressEventType::InternalComms {
+                from: from.into(),
+                message: message.into(),
+            },
+            detail: None,
+            elapsed_ms,
+        }
+    }
+
     /// Format for debug display
     pub fn format_debug(&self) -> String {
         match &self.event {
@@ -235,6 +270,12 @@ impl ProgressEvent {
                     "[anna] probe {} complete exit={} time={}ms",
                     probe_id, exit_code, timing_ms
                 )
+            }
+            ProgressEventType::Generation { tokens } => {
+                format!("[anna] generating... {} tokens", tokens)
+            }
+            ProgressEventType::InternalComms { from, message } => {
+                format!("[{}] {}", from, message.as_str())
             }
         }
     }
@@ -302,6 +343,11 @@ mod tests {
                 probe_id: "test".into(),
                 exit_code: 0,
                 timing_ms: 100,
+            },
+            ProgressEventType::Generation { tokens: 42 },
+            ProgressEventType::InternalComms {
+                from: "desktop_jr".into(),
+                message: DiagnosticText::new("Looking at this now"),
             },
         ];
 

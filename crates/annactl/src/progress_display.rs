@@ -161,5 +161,26 @@ pub fn print_progress_event(event: &ProgressEvent) {
                 elapsed
             );
         }
+        // v0.0.145: LLM generation progress
+        ProgressEventType::Generation { tokens } => {
+            print!(
+                "\r{}[anna]{} generating... {} tokens [{}]",
+                colors::DIM,
+                colors::RESET,
+                tokens,
+                elapsed
+            );
+            let _ = io::stdout().flush();
+        }
+        // v0.0.145: Internal comms (fly on wall view)
+        ProgressEventType::InternalComms { from, message } => {
+            println!(
+                "{}[{}]{} {}",
+                colors::CYAN,
+                from,
+                colors::RESET,
+                message
+            );
+        }
     }
 }

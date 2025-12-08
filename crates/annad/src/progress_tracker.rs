@@ -150,6 +150,21 @@ impl ProgressTracker {
         ));
     }
 
+    /// v0.0.145: Add LLM generation progress event (for client polling)
+    pub fn add_generation_event(&mut self, stage: RequestStage, tokens: usize) {
+        self.add(ProgressEvent::generation(stage, tokens, self.elapsed_ms()));
+    }
+
+    /// v0.0.145: Add internal comms message (IT staff chatter)
+    pub fn add_internal_comms(&mut self, stage: RequestStage, from: &str, message: &str) {
+        self.add(ProgressEvent::internal_comms(
+            stage,
+            from,
+            message,
+            self.elapsed_ms(),
+        ));
+    }
+
     /// Record Anna's final answer (THE authoritative response to the user)
     /// Uses FinalAnswer kind, not Message, to ensure proper answer source detection.
     pub fn add_final_answer(&mut self, text: &str) {
