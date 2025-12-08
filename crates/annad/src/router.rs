@@ -237,6 +237,16 @@ pub enum QueryClass {
     SysctlSettings,
     /// v0.0.136: Loginctl sessions: "loginctl", "user sessions"
     LoginctlSessions,
+    /// v0.0.139: Environment variables: "env vars", "environment variables"
+    EnvironmentVariables,
+    /// v0.0.139: Systemd scopes: "systemd scopes", "scope units"
+    SystemdScopes,
+    /// v0.0.139: Kernel command line: "kernel cmdline", "boot parameters"
+    KernelCmdline,
+    /// v0.0.139: Kernel module parameters: "module parameters", "modinfo"
+    ModuleParams,
+    /// v0.0.139: Network bonding: "network bonding", "bond interfaces"
+    NetworkBonding,
     /// Unknown: defer to LLM translator
     Unknown,
 }
@@ -352,6 +362,11 @@ impl std::fmt::Display for QueryClass {
             Self::FstabEntries => "fstab_entries",
             Self::SysctlSettings => "sysctl_settings",
             Self::LoginctlSessions => "loginctl_sessions",
+            Self::EnvironmentVariables => "environment_variables",
+            Self::SystemdScopes => "systemd_scopes",
+            Self::KernelCmdline => "kernel_cmdline",
+            Self::ModuleParams => "module_params",
+            Self::NetworkBonding => "network_bonding",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)
@@ -470,6 +485,11 @@ impl QueryClass {
             "fstab_entries" => Some(Self::FstabEntries),
             "sysctl_settings" => Some(Self::SysctlSettings),
             "loginctl_sessions" => Some(Self::LoginctlSessions),
+            "environment_variables" => Some(Self::EnvironmentVariables),
+            "systemd_scopes" => Some(Self::SystemdScopes),
+            "kernel_cmdline" => Some(Self::KernelCmdline),
+            "module_params" => Some(Self::ModuleParams),
+            "network_bonding" => Some(Self::NetworkBonding),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -582,6 +602,11 @@ impl QueryClass {
                 | Self::FstabEntries
                 | Self::SysctlSettings
                 | Self::LoginctlSessions
+                | Self::EnvironmentVariables
+                | Self::SystemdScopes
+                | Self::KernelCmdline
+                | Self::ModuleParams
+                | Self::NetworkBonding
         )
     }
 
@@ -2160,6 +2185,76 @@ fn build_route(class: QueryClass) -> DeterministicRoute {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.139: Environment variables - deterministic from printenv
+        QueryClass::EnvironmentVariables => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["environment_variables".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.139: Systemd scopes - deterministic from systemctl list-units
+        QueryClass::SystemdScopes => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["systemd_scopes".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Services],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.139: Kernel command line - deterministic from /proc/cmdline
+        QueryClass::KernelCmdline => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["kernel_cmdline".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.139: Module parameters - deterministic from lsmod/modinfo
+        QueryClass::ModuleParams => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["module_params".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        },
+
+        // v0.0.139: Network bonding - deterministic from /proc/net/bonding
+        QueryClass::NetworkBonding => DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Network,
+            intent: QueryIntent::Question,
+            probes: vec!["network_bonding".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Network],
                 spine_probes: vec![],
             },
         },

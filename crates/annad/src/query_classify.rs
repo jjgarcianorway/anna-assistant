@@ -1273,5 +1273,56 @@ pub fn classify_query(query: &str) -> QueryClass {
         return QueryClass::LoginctlSessions;
     }
 
+    // v0.0.139: Environment variables - "env vars", "environment variables"
+    if q.contains("env var")
+        || q.contains("environment variable")
+        || q.trim() == "printenv"
+        || q.trim() == "env"
+        || (q.contains("show") && q.contains("environment"))
+        || (q.contains("list") && q.contains("env"))
+    {
+        return QueryClass::EnvironmentVariables;
+    }
+
+    // v0.0.139: Systemd scopes - "systemd scopes", "scope units"
+    if q.contains("systemd scope")
+        || q.contains("scope unit")
+        || (q.contains("list") && q.contains("scope"))
+        || (q.contains("show") && q.contains("scope"))
+    {
+        return QueryClass::SystemdScopes;
+    }
+
+    // v0.0.139: Kernel command line - "kernel cmdline", "boot parameters"
+    if q.contains("kernel cmdline")
+        || q.contains("boot param")
+        || q.contains("/proc/cmdline")
+        || q.contains("kernel command line")
+        || (q.contains("boot") && q.contains("option"))
+    {
+        return QueryClass::KernelCmdline;
+    }
+
+    // v0.0.139: Module parameters - "module parameters", "modinfo"
+    if q.contains("module param")
+        || q.trim() == "modinfo"
+        || q.contains("module option")
+        || (q.contains("kernel") && q.contains("module") && q.contains("param"))
+        || (q.contains("driver") && q.contains("param"))
+    {
+        return QueryClass::ModuleParams;
+    }
+
+    // v0.0.139: Network bonding - "network bonding", "bond interfaces"
+    if q.contains("network bond")
+        || q.contains("bond interface")
+        || q.contains("bond0")
+        || q.contains("link aggregation")
+        || q.contains("lacp")
+        || (q.contains("ethernet") && q.contains("bond"))
+    {
+        return QueryClass::NetworkBonding;
+    }
+
     QueryClass::Unknown
 }

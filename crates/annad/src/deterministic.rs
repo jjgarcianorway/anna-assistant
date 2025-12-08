@@ -335,6 +335,26 @@ pub fn try_answer(
         QueryClass::LoginctlSessions => {
             det_extended::answer_loginctl_sessions(probe_results, &route_class)
         }
+        // v0.0.139: EnvironmentVariables - deterministic from printenv
+        QueryClass::EnvironmentVariables => {
+            det_extended::answer_environment_variables(probe_results, &route_class)
+        }
+        // v0.0.139: SystemdScopes - deterministic from systemctl list-units
+        QueryClass::SystemdScopes => {
+            det_extended::answer_systemd_scopes(probe_results, &route_class)
+        }
+        // v0.0.139: KernelCmdline - deterministic from /proc/cmdline
+        QueryClass::KernelCmdline => {
+            det_extended::answer_kernel_cmdline(probe_results, &route_class)
+        }
+        // v0.0.139: ModuleParams - deterministic from modinfo
+        QueryClass::ModuleParams => {
+            det_extended::answer_module_params(probe_results, &route_class)
+        }
+        // v0.0.139: NetworkBonding - deterministic from /proc/net/bonding
+        QueryClass::NetworkBonding => {
+            det_extended::answer_network_bonding(probe_results, &route_class)
+        }
         QueryClass::Unknown => None,
     }
 }

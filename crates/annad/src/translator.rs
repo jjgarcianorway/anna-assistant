@@ -156,6 +156,12 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "fstab_entries" => Some("cat /etc/fstab 2>/dev/null | grep -v '^#' | grep -v '^$'"),
         "sysctl_settings" => Some("sysctl -a 2>/dev/null | head -40 || cat /etc/sysctl.conf 2>/dev/null"),
         "loginctl_sessions" => Some("loginctl list-sessions --no-pager --no-legend 2>/dev/null || echo 'loginctl not available'"),
+        // v0.0.139: System and network probes
+        "environment_variables" => Some("printenv | sort | head -50"),
+        "systemd_scopes" => Some("systemctl list-units --type=scope --no-pager --no-legend | head -20"),
+        "kernel_cmdline" => Some("cat /proc/cmdline"),
+        "module_params" => Some("lsmod | head -20 | awk 'NR>1 {print $1}' | xargs -I{} sh -c 'echo \"=== {} ===\"; modinfo {} 2>/dev/null | grep -E \"^(parm|description):\" | head -5'"),
+        "network_bonding" => Some("cat /proc/net/bonding/* 2>/dev/null || echo 'No network bonding configured'"),
         _ => None,
     }
 }

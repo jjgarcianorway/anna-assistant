@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.139] - 2025-12-08
+
+### Added - System & Network Queries (Phase 57)
+
+**5 New Query Types**
+- `EnvironmentVariables`: "env vars", "environment variables" → shows environment variables
+- `SystemdScopes`: "systemd scopes", "scope units" → lists systemd scope units
+- `KernelCmdline`: "kernel cmdline", "boot parameters" → shows kernel command line
+- `ModuleParams`: "module parameters", "modinfo" → shows kernel module parameters
+- `NetworkBonding`: "network bonding", "bond interfaces" → shows network bonding status
+
+**Code Changes**
+- `router.rs`: Added 5 new QueryClass variants with deterministic routes
+- `query_classify.rs`: Added pattern matching for new query types
+- `translator.rs`: Added probe commands (environment_variables, systemd_scopes, kernel_cmdline, module_params, network_bonding)
+- `det_extended.rs`: Added 5 new answer functions
+
+**Total Query Types**: 115 QueryClass variants now supported
+
 ## [0.0.138] - 2025-12-08
 
 ### Added - System Config Queries (Phase 56)

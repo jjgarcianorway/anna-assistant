@@ -2836,3 +2836,133 @@ pub fn answer_loginctl_sessions(
         route_class: route_class.to_string(),
     })
 }
+
+// === v0.0.139: System and network answer functions ===
+
+/// Answer environment variables query
+pub fn answer_environment_variables(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "environment_variables")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("No environment variables found.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!(
+                "Environment variables ({} shown):\n```\n{}\n```",
+                count, output
+            ),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer systemd scopes query
+pub fn answer_systemd_scopes(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "systemd_scopes")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("No systemd scope units found.".to_string(), 0)
+    } else {
+        let count = output.lines().count();
+        (
+            format!("Systemd scopes ({}):\n```\n{}\n```", count, output),
+            count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer kernel command line query
+pub fn answer_kernel_cmdline(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "kernel_cmdline")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("Kernel command line not available.".to_string(), 0)
+    } else {
+        (format!("Kernel command line:\n```\n{}\n```", output), 1)
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer module parameters query
+pub fn answer_module_params(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "module_params")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.is_empty() {
+        ("No kernel module information available.".to_string(), 0)
+    } else {
+        let module_count = output.matches("===").count();
+        (
+            format!(
+                "Kernel module parameters ({} modules):\n```\n{}\n```",
+                module_count, output
+            ),
+            module_count,
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// Answer network bonding query
+pub fn answer_network_bonding(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "network_bonding")?;
+    let output = probe.stdout.trim();
+
+    let (answer, parsed) = if output.contains("No network bonding") || output.is_empty() {
+        ("No network bonding configured on this system.".to_string(), 0)
+    } else {
+        (format!("Network bonding status:\n```\n{}\n```", output), 1)
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
