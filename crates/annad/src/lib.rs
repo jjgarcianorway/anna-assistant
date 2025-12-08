@@ -4,8 +4,10 @@
 //! v0.0.101: Recipe fast path - skip LLM for learned queries.
 //! v0.0.102: Recipe direct answers - skip probes too.
 //! v0.0.115: File-based inbox for async queries.
+//! v0.0.146: Internal comms for fly-on-wall experience.
 
 pub mod action_handlers;
+pub mod comms;
 pub mod answers;
 pub mod benchmark;
 pub mod benchmark_scheduler;

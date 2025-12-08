@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.146] - 2025-12-08
+
+### Added - Internal Comms Generator
+
+**New `comms` module for IT department chatter:**
+- `CommsGenerator` struct for generating contextual internal communications
+- `team_from_domain()` helper to map domains to teams
+- Message templates for key pipeline stages:
+  - `dispatch()` - Anna dispatching case to team member
+  - `junior_ack()` - Junior acknowledging the case
+  - `junior_probing()` - Junior reporting probe progress
+  - `junior_reviewing()` - Junior verifying the answer
+  - `junior_escalate()` - Junior escalating to senior
+  - `senior_response()` - Senior responding to escalation
+  - `junior_done()` - Junior confirming completion
+  - `anna_returning()` - Anna returning with answer
+
+**Uses existing systems:**
+- Integrates with roster for named personas (Michael, Sofia, etc.)
+- Uses dialogue module for varied phrases
+- Deterministic randomness from case IDs for consistency
+
+**Foundation for fly-on-wall experience:**
+This module provides the infrastructure for emitting internal comms
+progress events during request processing. Full integration pending
+rpc_handler refactor to meet 400-line limit.
+
 ## [0.0.145] - 2025-12-08
 
 ### Added - Progress Event Types for Future Streaming UI
