@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.152] - 2025-12-09
+
+### Added - Enhanced Internal Comms Variety
+
+**Fly-on-wall experience improvements:**
+
+- **Team-specific messages**: Each team (Storage, Network, Security, Desktop) now has
+  contextually relevant dialogue
+  - Storage: "Checking disk stats...", "Verifying storage calculations..."
+  - Network: "Testing connectivity...", "Looking at the interface info..."
+  - Security: "Security matter coming in...", etc.
+
+- **New probe completion reporting**: Junior staff now reports probe results
+  - "All 3 probes succeeded."
+  - "Got 2 of 3 probes returned data."
+  - "Probes didn't return much. Working with what we have."
+
+- **More message variety**: Each message type now has 3-5 variants
+  - Anna's dispatch: Team-specific greetings
+  - Junior's review: Domain-aware comments
+  - Completion messages: Confidence-tiered responses (90%+, 70%+, 50%+, <50%)
+  - Anna's return: Personalized thanks to junior staff
+
+**Sample output:**
+```
+  [Anna] Hey Michael! Disk question coming in. Case abc12345
+  [Michael] Looking at it now.
+  [Michael] Running storage checks... 2 commands.
+  [Michael] Got all the data. 2 checks complete.
+  [Michael] Verifying storage calculations...
+  [Michael] High confidence: 92%. Good to ship.
+  [Anna] Thanks Michael! I'll take it from here.
+```
+
 ## [0.0.151] - 2025-12-09
 
 ### Fixed - Code Quality Improvements

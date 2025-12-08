@@ -342,7 +342,7 @@ async fn handle_llm_request_inner(
 
     // v0.0.148: Create comms generator for fly-on-wall experience
     let team = team_from_domain(&classified_domain.to_string());
-    let comms = CommsGenerator::new(team, &request_id);
+    let mut comms = CommsGenerator::new(team, &request_id);
 
     // v0.0.148: Anna dispatches to team and junior acknowledges
     comms.dispatch(&mut progress);
@@ -399,6 +399,10 @@ async fn handle_llm_request_inner(
                     .probes
                     .add(probes_start.elapsed().as_millis() as u64);
             }
+            // v0.0.152: Report probe completion
+            let success_count = results.iter().filter(|p| p.exit_code == 0).count();
+            comms.junior_probes_done(&mut progress, success_count);
+            save_progress(&state, &progress).await;
             results
         }
         Err(_) => {
