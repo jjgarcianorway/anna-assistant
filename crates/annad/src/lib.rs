@@ -8,6 +8,7 @@
 
 pub mod action_handlers;
 pub mod comms;
+pub mod editor_config;
 pub mod answers;
 pub mod benchmark;
 pub mod benchmark_scheduler;

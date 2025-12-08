@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.147] - 2025-12-08
+
+### Refactored - Extracted Editor Config Module
+
+**New `editor_config` module (~230 lines):**
+- Extracted `build_editor_config_answer()` from rpc_handler.rs
+- Extracted `build_editor_config_with_change()` from rpc_handler.rs
+- Moved all editor config tests to the new module
+- Maintains full backward compatibility
+
+**Code reduction:**
+- rpc_handler.rs reduced from 1219 to 960 lines
+- Removed ~260 lines of editor-specific code
+- Still needs further refactoring (target: 400 lines)
+
+**Module organization:**
+- `editor_config.rs` handles all editor syntax highlighting queries
+- Uses `anna_shared::editor_recipes` for recipe-based configurations
+- Supports VS Code, Kate, Gedit, Helix, Micro, Vim, Nvim, Nano, Emacs
+
+**Part of ongoing modularization:**
+This is the first step in breaking down the large rpc_handler.rs file.
+Future releases will extract more components to meet the 400-line limit.
+
 ## [0.0.146] - 2025-12-08
 
 ### Added - Internal Comms Generator
