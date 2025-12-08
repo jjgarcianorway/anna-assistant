@@ -5,6 +5,7 @@
 //! v0.0.111: Removed tickets/staff CLI commands - use natural language instead.
 //! v0.0.113: Added reply/ticket commands for async ticket workflow.
 //! v0.0.116: Removed inbox command - use natural language instead.
+//! v0.0.142: Added animated spinner module for real-time feedback.
 
 mod change_commands;
 mod client;
@@ -14,6 +15,7 @@ mod greeting;
 mod output;
 mod progress_display;
 mod report_cmd;
+mod spinner; // v0.0.142
 mod stats_display;
 mod theatre_render;
 mod ticket_commands; // v0.0.113

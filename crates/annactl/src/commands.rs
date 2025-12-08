@@ -1,5 +1,6 @@
 //! Command handlers for annactl.
 //! v0.0.119: Clean UX improvements.
+//! v0.0.142: Animated spinner during LLM calls.
 
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::rpc::ServiceDeskResult;
@@ -16,6 +17,7 @@ use crate::display::{
     show_bootstrap_progress,
 };
 use crate::greeting;
+use crate::spinner::AnimatedSpinner;
 use crate::transcript_render;
 
 /// Pending clarification state for REPL mode
@@ -71,16 +73,18 @@ pub async fn handle_request(prompt: &str, show_internal: bool) -> Result<()> {
         show_bootstrap_progress().await?;
     }
 
-    // Show spinner only in non-debug mode
-    if !debug_mode {
-        show_spinner_start();
-    }
+    // v0.0.142: Show animated spinner in non-debug mode
+    let spinner = if !debug_mode {
+        Some(AnimatedSpinner::start("Thinking"))
+    } else {
+        None
+    };
 
     let result = send_request_with_progress(prompt, debug_mode).await?;
 
-    // Clear spinner if shown
-    if !debug_mode {
-        clear_spinner();
+    // Stop spinner if shown
+    if let Some(s) = spinner {
+        s.stop();
     }
 
     // v0.0.83: Pass show_internal to renderer
@@ -251,15 +255,17 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                     }
                 }
 
-                // Show spinner or stage transitions based on mode
-                if !debug_mode {
-                    show_spinner_start();
-                }
+                // v0.0.142: Show animated spinner in non-debug mode
+                let spinner = if !debug_mode {
+                    Some(AnimatedSpinner::start("Thinking"))
+                } else {
+                    None
+                };
 
                 match send_request_with_progress(input, debug_mode).await {
                     Ok(result) => {
-                        if !debug_mode {
-                            clear_spinner();
+                        if let Some(s) = spinner {
+                            s.stop();
                         }
                         // v0.0.83: Pass show_internal to renderer
                         transcript_render::render_with_options(&result, debug_mode, show_internal);
@@ -320,9 +326,7 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
                         println!(); // Extra line for REPL readability
                     }
                     Err(e) => {
-                        if !debug_mode {
-                            clear_spinner();
-                        }
+                        // Spinner is dropped automatically, clearing the line
                         handle_request_error(&e).await?;
                     }
                 }
@@ -331,18 +335,6 @@ pub async fn handle_repl(show_internal: bool) -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Show spinner for non-debug mode
-fn show_spinner_start() {
-    print!("{} thinking...", symbols::SPINNER[0]);
-    let _ = io::stdout().flush();
-}
-
-/// Clear spinner line
-fn clear_spinner() {
-    print!("\r\x1b[K");
-    let _ = io::stdout().flush();
 }
 
 /// Print REPL help

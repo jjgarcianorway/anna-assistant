@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.142] - 2025-12-08
+
+### Added - Conversational UX Foundation
+
+**Real-time animated spinner during LLM calls:**
+- New `spinner.rs` module with `AnimatedSpinner` struct
+- Braille animation (⠋⠙⠹⠸⠼⠴⠦⠧) with elapsed time display
+- Runs in background thread, automatically clears on completion
+- Replaces static "thinking..." text
+
+**More conversational greeting:**
+- Cleaner greeting format without redundant header
+- "It's been a while since you checked with me! (Almost X days)."
+- "Since the last time, a few things happened:" section
+- Contextual advice for warnings (e.g., "Consider cleaning up storage")
+- "On your patterns:" section with user observations
+- "If you want, I can suggest some [editor] tips!" offers
+- "But I believe you want to ask me something, isn't it?" closing
+
+**Improved delta messages:**
+- More natural language: "Disk grew from X% to Y%"
+- Helpful suggestions for failed services: "Ask me to check it with..."
+- Service grammar fix: "1 service is" vs "2 services are"
+
+**Code Changes**
+- `spinner.rs`: New animated spinner module
+- `greeting.rs`: Conversational greeting overhaul
+- `commands.rs`: Integrated AnimatedSpinner for requests
+- `main.rs`: Added spinner module
+
 ## [0.0.141] - 2025-12-08
 
 ### Added - System & Hardware Queries (Phase 58)

@@ -1,5 +1,6 @@
 //! Theatre-style REPL greeting for Service Desk experience.
 //! v0.0.119: Clean, concise greetings.
+//! v0.0.142: More conversational, personalized greetings.
 
 use anna_shared::snapshot::{self, DeltaItem, SystemSnapshot};
 use anna_shared::status::{DaemonStatus, LlmState};
@@ -11,6 +12,7 @@ use anna_shared::user_profile::UserProfile;
 /// Print the theatre-style REPL greeting
 /// Shows: personalized greeting, time since last visit, health deltas, patterns
 /// v0.0.106: Loads user profile for personalized patterns
+/// v0.0.142: More conversational style
 pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
 
@@ -33,21 +35,14 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
         Vec::new()
     };
 
-    // Print header
+    // v0.0.142: Clean header without redundant title
     println!();
-    println!("{}Anna Service Desk{}", colors::HEADER, colors::RESET);
-    println!("{}", HR);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
     // Personalized greeting based on interaction history
     print_personalized_greeting(&username, &interaction_info);
 
-    // v0.0.106: Show personalized patterns if we have history
-    print_user_patterns(&profile);
-
-    // v0.0.116: Show open tickets if any
-    print_open_tickets();
-
-    // "Since last time" section if we have history
+    // "Since last time" section if we have meaningful changes
     if last_snapshot.is_some() {
         print_since_last_time(
             &telemetry,
@@ -57,14 +52,20 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
         );
     }
 
+    // v0.0.106: Show personalized patterns if we have history
+    print_user_patterns(&profile);
+
+    // v0.0.116: Show open tickets if any
+    print_open_tickets();
+
     // System readiness (LLM state)
     if let Some(st) = status {
         print_system_readiness(st);
     }
 
-    // Closing
+    // v0.0.142: More conversational closing
     println!();
-    println!("{}How can I help you today?{}", colors::DIM, colors::RESET);
+    println!("{}But I believe you want to ask me something, isn't it?{}", colors::DIM, colors::RESET);
     println!();
 
     // v0.0.106: Update profile and save
@@ -106,40 +107,38 @@ fn calculate_interaction_info(last_snapshot: &Option<SystemSnapshot>) -> Interac
 }
 
 fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
+    println!();
+
     if info.is_first_time {
-        println!("Hello {}, welcome to Anna!", username);
+        println!("Hello {},", username);
         println!();
-        println!("I'm your local IT department. Just ask me anything about your system.");
+        println!("Welcome! I'm Anna, your local IT department.");
+        println!("Just ask me anything about your system - I'm here to help.");
         println!();
         println!(
-            "{}Try: \"is my system healthy?\" or \"show disk usage\"{}",
+            "{}Try asking: \"is my system healthy?\" or \"show disk usage\"{}",
             colors::DIM,
             colors::RESET
         );
     } else if let Some(days) = info.days_since_last {
         if days >= 1 {
-            println!("Hello {}!", username);
+            println!("Hello {},", username);
             println!();
             let day_word = if days == 1 { "day" } else { "days" };
             println!(
-                "{}It's been about {} {} since you checked with me!{}",
-                colors::DIM,
-                days,
-                day_word,
-                colors::RESET
+                "It's been a while since you checked with me! (Almost {} {}).",
+                days, day_word
             );
         } else {
             println!("Hello {}, welcome back.", username);
         }
     } else if let Some(hours) = info.hours_since_last {
         if hours > 12 {
-            println!("Hello {}!", username);
+            println!("Hello {},", username);
             println!();
             println!(
-                "{}It's been about {} hours since we last spoke.{}",
-                colors::DIM,
-                hours,
-                colors::RESET
+                "It's been about {} hours since we last spoke.",
+                hours
             );
         } else if hours > 1 {
             println!("Hello {}, welcome back.", username);
@@ -152,6 +151,7 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
 }
 
 /// Print personalized patterns from user profile
+/// v0.0.142: More conversational pattern observations
 fn print_user_patterns(profile: &UserProfile) {
     // Only show if we have meaningful data
     if profile.tool_usage.is_empty()
@@ -163,36 +163,52 @@ fn print_user_patterns(profile: &UserProfile) {
 
     let mut patterns = Vec::new();
 
-    // Streak info
+    // Streak info - conversational
     if profile.streak_days > 1 {
-        let streak_msg = format!(
-            "{} {} day streak{}",
-            bullet(),
-            profile.streak_days,
-            if profile.streak_days >= 7 { " [*]" } else { "" }
-        );
+        let streak_msg = if profile.streak_days >= 7 {
+            format!(
+                "{} You've been checking in for {} days straight - nice streak!",
+                bullet(),
+                profile.streak_days
+            )
+        } else {
+            format!(
+                "{} {} day streak so far.",
+                bullet(),
+                profile.streak_days
+            )
+        };
         patterns.push(streak_msg);
     }
 
-    // Preferred editor
+    // Preferred editor - conversational observation
     if let Some(ref editor) = profile.preferred_editor {
         let count = profile.tool_usage.get(editor).copied().unwrap_or(0);
         if count > 2 {
             patterns.push(format!(
-                "{} I've noticed you prefer {} ({} mentions).",
+                "{} I've noticed you prefer {} (mentioned {} times).",
                 bullet(),
                 editor,
                 count
             ));
+            // Offer help if it's an editor
+            if count > 5 {
+                patterns.push(format!(
+                    "    {}If you want, I can suggest some {} tips!{}",
+                    colors::DIM,
+                    editor,
+                    colors::RESET
+                ));
+            }
         }
     }
 
-    // Top topic
+    // Top topic - conversational
     if let Some(topic) = profile.top_topic() {
         let count = profile.topic_interests.get(topic).copied().unwrap_or(0);
         if count > 2 {
             patterns.push(format!(
-                "{} You ask about {} a lot ({} times).",
+                "{} You ask about {} frequently ({} times).",
                 bullet(),
                 topic,
                 count
@@ -210,7 +226,7 @@ fn print_user_patterns(profile: &UserProfile) {
     {
         if *count > 2 {
             patterns.push(format!(
-                "{} You've been using {} ({} queries).",
+                "{} You've been using {} quite a bit ({} queries).",
                 bullet(),
                 top_tool,
                 count
@@ -221,8 +237,9 @@ fn print_user_patterns(profile: &UserProfile) {
     // Show patterns if we have any (limit to 3)
     if !patterns.is_empty() {
         println!();
+        println!("{}On your patterns:{}", colors::DIM, colors::RESET);
         for pattern in patterns.iter().take(3) {
-            println!("{}{}{}", colors::DIM, pattern, colors::RESET);
+            println!("{}", pattern);
         }
     }
 }
@@ -267,18 +284,15 @@ fn print_since_last_time(
         return;
     }
 
+    // v0.0.142: More conversational header
     println!();
-    println!(
-        "{}Since the last time, a few things happened:{}",
-        colors::DIM,
-        colors::RESET
-    );
+    println!("Since the last time, a few things happened:");
     println!();
 
     let mut items_shown = 0;
     let max_items = 4;
 
-    // Boot time changes
+    // Boot time changes - with conversational explanation
     if let Some(boot_ms) = telemetry.boot_delta_ms {
         if boot_ms.abs() > 2000 && items_shown < max_items {
             let secs = boot_ms.unsigned_abs() / 1000;
@@ -288,10 +302,10 @@ fn print_since_last_time(
                     bullet(),
                     secs
                 );
-                // Add context if it's small
+                // v0.0.142: Add helpful context
                 if secs < 10 {
                     println!(
-                        "    {}This is normal variation, nothing to worry about.{}",
+                        "    {}Don't worry, small variations are normal.{}",
                         colors::DIM,
                         colors::RESET
                     );
@@ -309,7 +323,7 @@ fn print_since_last_time(
         }
     }
 
-    // Health deltas
+    // Health deltas with conversational messages
     for delta in health_deltas.iter().take(max_items - items_shown) {
         match delta {
             DeltaItem::DiskWarning { mount, curr, .. } => {
@@ -320,6 +334,11 @@ fn print_since_last_time(
                     colors::RESET,
                     mount,
                     curr
+                );
+                println!(
+                    "    {}Consider cleaning up or expanding storage.{}",
+                    colors::DIM,
+                    colors::RESET
                 );
             }
             DeltaItem::DiskCritical { mount, curr, .. } => {
@@ -334,7 +353,7 @@ fn print_since_last_time(
             }
             DeltaItem::DiskIncreased { mount, prev, curr } => {
                 println!(
-                    "  {} Disk {} increased from {}% to {}%.",
+                    "  {} Disk {} grew from {}% to {}%.",
                     bullet(),
                     mount,
                     prev,
@@ -348,6 +367,12 @@ fn print_since_last_time(
                     colors::ERR,
                     colors::RESET,
                     unit
+                );
+                println!(
+                    "    {}Ask me to check it with: \"what's wrong with {}\"{}",
+                    colors::DIM,
+                    unit,
+                    colors::RESET
                 );
             }
             DeltaItem::ServiceRecovered { unit } => {
@@ -373,7 +398,7 @@ fn print_since_last_time(
                 curr_percent,
             } => {
                 println!(
-                    "  {} Memory usage increased from {}% to {}%.",
+                    "  {} Memory usage went from {}% to {}%.",
                     bullet(),
                     prev_percent,
                     curr_percent
@@ -383,23 +408,30 @@ fn print_since_last_time(
         items_shown += 1;
     }
 
-    // Service status summary
-    if items_shown < max_items {
+    // Service status summary - conversational
+    if items_shown == 0 {
         if failed_services > 0 {
             println!(
-                "  {} {} service{} currently in failed state.",
+                "  {} {} service{} in failed state.",
                 bullet(),
                 failed_services,
-                if failed_services == 1 { "" } else { "s" }
+                if failed_services == 1 { " is" } else { "s are" }
             );
-        } else if health_deltas.is_empty() {
+        } else {
             println!(
-                "  {} {}No warnings or errors detected - looking good!{}",
+                "  {} {}No warnings or errors detected. Looking good!{}",
                 bullet(),
                 colors::OK,
                 colors::RESET
             );
         }
+    } else if failed_services > 0 && items_shown < max_items {
+        println!(
+            "  {} Also, {} service{} in failed state.",
+            bullet(),
+            failed_services,
+            if failed_services == 1 { " is" } else { "s are" }
+        );
     }
 }
 
