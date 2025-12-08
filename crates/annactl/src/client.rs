@@ -230,8 +230,7 @@ impl AnnadClient {
         Ok(fixes)
     }
 
-    /// Get progress events for current/last request (v0.0.144: kept for future streaming UI)
-    #[allow(dead_code)]
+    /// Get progress events for current/last request (v0.0.148: used by live_request)
     pub async fn progress(&mut self) -> Result<Vec<ProgressEvent>> {
         let response = self.call(RpcMethod::Progress, None).await?;
 

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.151] - 2025-12-09
+
+### Fixed - Code Quality Improvements
+
+**Minor fixes:**
+- Removed obsolete `#[allow(dead_code)]` from `AnnadClient::progress()` method
+  - This method is now actively used by `live_request.rs` for fly-on-wall experience
+- Updated doc comment to reflect current usage (v0.0.148)
+
+**Verification:**
+- All 525+ tests passing
+- No compiler warnings
+- Fly-on-wall experience pipeline verified end-to-end
+
 ## [0.0.150] - 2025-12-08
 
 ### Changed - Timeout Handler Module Extraction
