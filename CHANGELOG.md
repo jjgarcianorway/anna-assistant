@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.150] - 2025-12-08
+
+### Changed - Timeout Handler Module Extraction
+
+**Continued modularization of rpc_handler.rs:**
+- Extracted timeout response handling into `timeout_handler.rs` (~78 lines)
+- Reduced rpc_handler.rs from 869 to 806 lines
+- Clean separation of timeout/fallback logic
+
+**New module (timeout_handler.rs):**
+- `make_timeout_response()` - builds user-friendly timeout responses
+- Health query fast-path fallback on timeout
+- Helpful suggestions for quick queries that bypass LLM
+
+**Progress on modularization:**
+- v0.0.147: Extracted editor_config.rs (~230 lines)
+- v0.0.149: Extracted configure_editor.rs (~248 lines)
+- v0.0.150: Extracted timeout_handler.rs (~78 lines)
+- Total extracted: ~556 lines
+- rpc_handler.rs: 1219 → 806 lines (34% reduction)
+
 ## [0.0.149] - 2025-12-08
 
 ### Changed - ConfigureEditor Module Extraction

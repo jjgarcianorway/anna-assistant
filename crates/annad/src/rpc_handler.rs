@@ -19,9 +19,8 @@ use crate::comms::{team_from_domain, CommsGenerator};
 use crate::config::LlmConfig;
 use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
 use crate::deterministic;
-use crate::fast_path_handler::{
-    build_fast_path_result, force_fast_path_fallback, is_health_query, try_fast_path_answer,
-};
+use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
+use crate::timeout_handler::make_timeout_response;
 use crate::handlers;
 use crate::probe_runner;
 use crate::progress_tracker::ProgressTracker;
@@ -123,68 +122,6 @@ async fn handle_llm_request(
             )
         }
     }
-}
-
-fn make_timeout_response(
-    id: String,
-    request_id: String,
-    timeout_secs: u64,
-    query: Option<&str>,
-) -> RpcResponse {
-    // v0.0.40: For health queries, use fast path fallback instead of timeout message
-    if let Some(q) = query {
-        if is_health_query(q) {
-            if let Some(fallback) = force_fast_path_fallback(q) {
-                info!("Using fast path fallback for health query on timeout");
-                let result = build_fast_path_result(
-                    request_id,
-                    fallback.answer,
-                    fallback.class,
-                    fallback.reliability,
-                    anna_shared::transcript::Transcript::default(),
-                );
-                return RpcResponse::success(id, serde_json::to_value(result).unwrap());
-            }
-        }
-    }
-
-    // v0.0.141: Friendlier timeout message with helpful suggestions
-    let answer = format!(
-        "I'm taking longer than expected ({}s). Let me help you differently:\n\n\
-         **Try these quick queries instead:**\n\
-         - \"what cpu\" - CPU information\n\
-         - \"disk space\" - Storage usage\n\
-         - \"memory\" - RAM usage\n\
-         - \"running services\" - Active services\n\
-         - \"network interfaces\" - Network info\n\n\
-         These bypass the LLM and give instant answers.\n\n\
-         *Tip: Run `annactl status` to check LLM health.*",
-        timeout_secs
-    );
-
-    let result = anna_shared::rpc::ServiceDeskResult {
-        request_id,
-        case_number: None,
-        assigned_staff: None,
-        staff_id: None,
-        answer,
-        reliability_score: 20, // Low but not zero - we provided info
-        reliability_signals: anna_shared::rpc::ReliabilitySignals::default(),
-        reliability_explanation: None,
-        domain: anna_shared::rpc::SpecialistDomain::System,
-        evidence: anna_shared::rpc::EvidenceBlock::default(),
-        needs_clarification: false, // Never ask to rephrase
-        clarification_question: None,
-        clarification_request: None,
-        transcript: anna_shared::transcript::Transcript::default(),
-        execution_trace: Some(anna_shared::trace::ExecutionTrace::global_timeout(
-            timeout_secs,
-        )),
-        proposed_change: None,
-        proposed_changes: Vec::new(),
-        feedback_request: None,
-    };
-    RpcResponse::success(id, serde_json::to_value(result).unwrap())
 }
 
 /// Inner request handler (wrapped by global timeout)

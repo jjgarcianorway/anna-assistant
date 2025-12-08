@@ -6,6 +6,7 @@
 //! v0.0.115: File-based inbox for async queries.
 //! v0.0.146: Internal comms for fly-on-wall experience.
 //! v0.0.149: ConfigureEditor handler extracted to separate module.
+//! v0.0.150: Timeout handler extracted to separate module.
 
 pub mod action_handlers;
 pub mod comms;
@@ -50,6 +51,7 @@ pub mod summarizer;
 pub mod theatre;
 pub mod ticket_loop;
 pub mod ticket_service;
+pub mod timeout_handler;
 pub mod translator;
 pub mod triage;
 pub mod triage_answer;
