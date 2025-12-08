@@ -142,6 +142,14 @@ impl ProgressTracker {
         ));
     }
 
+    /// v0.0.143: Add streaming generation progress note
+    pub fn add_generation_progress(&mut self, tokens: usize) {
+        self.transcript.push(TranscriptEvent::note(
+            self.elapsed_ms(),
+            &format!("Generated {} tokens...", tokens),
+        ));
+    }
+
     /// Record Anna's final answer (THE authoritative response to the user)
     /// Uses FinalAnswer kind, not Message, to ensure proper answer source detection.
     pub fn add_final_answer(&mut self, text: &str) {

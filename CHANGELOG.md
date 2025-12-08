@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.143] - 2025-12-08
+
+### Added - Streaming LLM Support
+
+**Internal streaming for faster responses:**
+- New `chat_streaming()` function in ollama.rs
+- Processes LLM tokens as they arrive (not waiting for full response)
+- Token counting during generation (logged for debugging)
+- `chat_streaming_with_retry()` with exponential backoff
+
+**Dependencies:**
+- Added `futures-util` for async stream processing
+- Added `stream` feature to reqwest for HTTP streaming
+
+**Code Changes:**
+- `ollama.rs`: Added streaming functions with SSE parsing
+- `specialist_handler.rs`: Uses streaming for specialist LLM calls
+- `progress_tracker.rs`: Added `add_generation_progress()` method
+- `Cargo.toml`: Added stream feature to reqwest, futures-util dep
+
+**Note:** This is internal streaming - the daemon receives tokens in real-time,
+reducing perceived latency. Full client-side streaming (word-by-word display)
+requires RPC protocol changes planned for future release.
+
 ## [0.0.142] - 2025-12-08
 
 ### Added - Conversational UX Foundation

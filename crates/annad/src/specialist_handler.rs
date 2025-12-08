@@ -1,10 +1,13 @@
 //! Specialist LLM handler with fallback logic (v0.0.39).
+//! v0.0.143: Added streaming LLM support.
 //!
 //! Extracted from rpc_handler to keep file sizes manageable.
 
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{ProbeResult, RuntimeContext, TranslatorTicket};
 use anna_shared::trace::SpecialistOutcome;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::time::{timeout, Duration};
 use tracing::{error, info, warn};
 
@@ -87,13 +90,27 @@ pub async fn try_specialist_llm(
         };
     }
 
+    // v0.0.143: Use streaming LLM with token counting
+    let token_count = Arc::new(AtomicUsize::new(0));
+    let token_count_clone = Arc::clone(&token_count);
+
     let (answer, used_deterministic, det_result, outcome, fallback_route_class) = match timeout(
         Duration::from_secs(config.specialist_timeout_secs),
-        ollama::chat_with_timeout(model, &full_prompt, config.specialist_timeout_secs),
+        ollama::chat_streaming_with_retry(
+            model,
+            &full_prompt,
+            config.specialist_timeout_secs,
+            move |_token| {
+                // Count tokens as they stream in
+                token_count_clone.fetch_add(1, Ordering::Relaxed);
+            },
+        ),
     )
     .await
     {
         Ok(Ok(response)) => {
+            let final_tokens = token_count.load(Ordering::Relaxed);
+            info!("Specialist generated {} tokens", final_tokens);
             progress.complete_stage(RequestStage::Specialist);
             // Redact sensitive content from response
             let redacted = redact::redact(&response);
