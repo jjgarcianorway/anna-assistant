@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.237] - 2025-12-09
+
+### Added - Natural Language Settings & Enhanced UX
+
+**Config Command Handler (commands/config.rs):**
+- Natural language config changes in REPL
+- Type "config" or "settings" to see current preferences
+- Examples:
+  - "Anna, enable learning mode"
+  - "make Anna more casual"
+  - "hide internal communications"
+  - "be more playful"
+- show_config_status() displays all current settings
+- Config tips shown after changes
+
+**REPL Integration:**
+- Config commands handled locally (no daemon needed)
+- Fast path for settings changes
+- Respects show_internal_comms preference
+
+**Enhanced Internal Comms Display:**
+- Conversational dialogue format
+- Staff members show with team context
+- Spinner animation during LLM generation
+- Respects user preference for hiding/showing internal comms
+
 ## [0.0.236] - 2025-12-09
 
 ### Added - User Experience Enhancements

@@ -1,11 +1,14 @@
-//! Live request handling with real-time progress display (v0.0.148).
+//! Live request handling with real-time progress display (v0.0.237).
 //!
 //! Polls for progress events during request processing to show
 //! internal IT department chatter (fly-on-wall experience).
+//!
+//! v0.0.237: Enhanced display format with conversational headers.
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::ui::colors;
+use anna_shared::user_profile::UserProfile;
 use anyhow::Result;
 use std::collections::HashSet;
 use std::io::{self, Write};
@@ -65,18 +68,47 @@ fn format_event_key(event: &ProgressEvent) -> String {
 }
 
 /// Display a progress event in fly-on-wall style
+/// v0.0.237: Enhanced conversational format with better styling
 fn display_progress_event(event: &ProgressEvent) {
+    // Check user preference for internal comms
+    let profile = UserProfile::load();
+    let show_internal = profile.preferences.show_internal_comms;
+
     match &event.event {
         ProgressEventType::InternalComms { from, message } => {
-            // Show internal comms in cyan with staff name
-            println!("  {}[{}]{} {}", colors::CYAN, from, colors::RESET, message);
+            if !show_internal {
+                return;
+            }
+            // Show internal comms as dialogue
+            // Format: "Anna to Sofia:" or just "Sofia:" depending on context
+            if from == "Anna" {
+                println!(
+                    "  {}Anna:{} {}",
+                    colors::CYAN,
+                    colors::RESET,
+                    message.as_str()
+                );
+            } else {
+                println!(
+                    "  {}{} ({}team{}):{} {}",
+                    colors::HEADER,
+                    from,
+                    colors::DIM,
+                    colors::HEADER,
+                    colors::RESET,
+                    message.as_str()
+                );
+            }
             let _ = io::stdout().flush();
         }
         ProgressEventType::Generation { tokens } => {
-            // Show generation progress on same line
+            // Show generation progress on same line with spinner
+            let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"];
+            let frame = (*tokens / 5) % spinner.len();
             print!(
-                "\r  {}generating...{} {} tokens",
-                colors::DIM,
+                "\r  {}{}{} thinking... {} tokens",
+                colors::CYAN,
+                spinner[frame],
                 colors::RESET,
                 tokens
             );
@@ -87,7 +119,7 @@ fn display_progress_event(event: &ProgressEvent) {
         }
         ProgressEventType::Complete => {
             // Clear generation line if needed
-            print!("\r                                    \r");
+            print!("\r                                        \r");
             let _ = io::stdout().flush();
         }
         _ => {

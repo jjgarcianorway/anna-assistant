@@ -1,6 +1,9 @@
-//! REPL command handler (v0.0.205).
+//! REPL command handler (v0.0.237).
+//!
+//! v0.0.237: Added config command handling for natural language settings.
 
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
+use anna_shared::config_parser::is_config_request;
 use anna_shared::status::LlmState;
 use anna_shared::ui::colors;
 use anyhow::Result;
@@ -13,6 +16,7 @@ use crate::greeting;
 use crate::live_request::send_request_with_progress;
 use crate::transcript_render;
 
+use super::config::{show_config_status, try_handle_config, ConfigResult};
 use super::feedback::{handle_feedback_request, handle_request_error};
 
 // v0.0.97: Change management
@@ -117,7 +121,21 @@ pub async fn handle_repl() -> Result<()> {
                 println!("Goodbye! ;)");
                 break;
             }
+            // v0.0.237: Show config status
+            "config" | "settings" | "preferences" | "my settings" => {
+                show_config_status();
+                println!();
+                continue;
+            }
             _ => {
+                // v0.0.237: Try config commands first (fast path, no daemon needed)
+                if is_config_request(input) {
+                    if let ConfigResult::Handled = try_handle_config(input) {
+                        println!();
+                        continue;
+                    }
+                }
+
                 // Check LLM ready
                 if let Ok(mut client) = AnnadClient::connect().await {
                     if let Ok(status) = client.status().await {
