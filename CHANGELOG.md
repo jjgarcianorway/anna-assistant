@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.191] - 2025-12-09
+
+### Changed - clarify.rs Modularization
+
+**Split clarify.rs (509→35 lines) into 4 domain-specific modules:**
+- `menu.rs`: ClarifyPrompt, MenuOption, ClarifyOutcome (v0.0.42 menu types) (165 lines)
+- `legacy.rs`: ClarifyKind, ClarifyQuestion, ClarifyOption, ClarifyAnswer (v0.0.32-v0.0.39) (147 lines)
+- `detection.rs`: needs_clarification, extract_service_name (47 lines)
+- `editors.rs`: editor_menu_prompt, generate_editor_options, find_installed_alternative (124 lines)
+- `mod.rs`: Re-exports for backwards compatibility (35 lines)
+
+**All clarify/ files under 400-line limit.**
+
 ## [0.0.190] - 2025-12-09
 
 ### Changed - event_log.rs Modularization
