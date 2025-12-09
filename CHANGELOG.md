@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.173] - 2025-12-09
+
+### Changed - Parsers Modularization
+
+**Split parsers/mod.rs (1450→200 lines) with tests extracted:**
+- `evidence.rs`: ToolExists, PackageInstalled, AudioDevice, AudioDevices types (61 lines)
+- `parsed_data.rs`: ParsedProbeData enum and accessor methods (139 lines)
+- `tools.rs`: Tool/package parsing - try_parse_tool_exists, etc. (144 lines)
+- `audio.rs`: Audio device parsing from lspci/pactl (368 lines)
+- `helpers.rs`: Evidence lookup functions - find_tool_evidence, etc. (130 lines)
+- `tests.rs`: Main module tests extracted (236 lines)
+- `atoms_tests.rs`: Atoms module tests extracted (144 lines)
+- `journalctl_tests.rs`: Journalctl module tests extracted (133 lines)
+- `mod.rs`: Slimmed to probe_ids, parse_probe_result, parse_probe_output (200 lines)
+
+**All parsers/ files now under 400-line limit:**
+- atoms.rs: 295 lines (was 441)
+- journalctl.rs: 310 lines (was 461)
+- mod.rs: 200 lines (was 1450)
+
 ## [0.0.172] - 2025-12-09
 
 ### Changed - Router Modularization
