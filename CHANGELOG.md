@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.223] - 2025-12-09
+
+### Changed - model_selector.rs Modularization
+
+**Split model_selector.rs (402→21 lines) into 6 domain-specific modules:**
+- `types.rs`: ModelFamily, ModelRole, ModelCandidate, ModelSelection, ModelBenchmark (61 lines)
+- `config.rs`: ModelSelectorConfig, ModelSelectorState (39 lines)
+- `catalog.rs`: model_catalog function (69 lines)
+- `selection.rs`: select_model, model_matches, detect_family (128 lines)
+- `benchmark.rs`: BENCHMARK_PROMPT, parse_benchmark_response (56 lines)
+- `tests.rs`: Unit tests (71 lines)
+- `mod.rs`: Re-exports for backwards compatibility (21 lines)
+
+**All model_selector/ files under 400-line limit.**
+
 ## [0.0.222] - 2025-12-09
 
 ### Changed - review.rs Modularization
