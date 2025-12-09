@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.155] - 2025-12-09
+
+### Changed - Code Modularization
+
+**Extracted response builders to dedicated module:**
+
+- New `response_builders.rs` module (298 lines) containing:
+  - `create_no_evidence_response()` - deterministic failure when no evidence
+  - `create_timeout_response()` - evidence summary on timeout
+  - `create_no_data_response()` - best-effort answer from available data
+  - Helper functions: `build_timeout_evidence_summary()`, `build_best_effort_answer()`, `friendly_probe_name()`
+
+- Reduced `service_desk.rs` from 799 to 510 lines
+
+**Benefits:**
+- Better code organization for service desk response handling
+- Cleaner separation of concerns (response building vs reliability calculation)
+- Easier testing of individual response builders
+
 ## [0.0.154] - 2025-12-09
 
 ### Added - Complete Team Support in Internal Comms

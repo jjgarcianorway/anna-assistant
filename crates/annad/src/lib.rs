@@ -7,6 +7,7 @@
 //! v0.0.146: Internal comms for fly-on-wall experience.
 //! v0.0.149: ConfigureEditor handler extracted to separate module.
 //! v0.0.150: Timeout handler extracted to separate module.
+//! v0.0.155: Response builders extracted to separate module.
 
 pub mod action_handlers;
 pub mod comms;
@@ -37,6 +38,7 @@ pub mod query_classify;
 pub mod rag_answerer;
 pub mod recipe_fast_path;
 pub mod redact;
+pub mod response_builders;
 pub mod router;
 #[cfg(test)]
 pub mod router_tests;
