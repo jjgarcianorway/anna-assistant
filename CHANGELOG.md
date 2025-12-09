@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.193] - 2025-12-09
+
+### Changed - probe_spine.rs Modularization
+
+**Split probe_spine.rs (503→15 lines) into 4 domain-specific modules:**
+- `types.rs`: EvidenceKind, ProbeId, RouteCapability, Urgency enums/structs (120 lines)
+- `commands.rs`: probes_for_evidence, probe_to_command (53 lines)
+- `enforcement.rs`: enforce_spine_probes, enforce_minimum_probes, ProbeSpineDecision (200 lines)
+- `reduction.rs`: reduce_probes, query_wants_warnings, query_wants_errors (72 lines)
+- `mod.rs`: Re-exports for backwards compatibility (15 lines)
+
+**All probe_spine/ files under 400-line limit.**
+
 ## [0.0.192] - 2025-12-09
 
 ### Changed - comms.rs Modularization
