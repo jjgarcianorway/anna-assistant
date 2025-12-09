@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.228] - 2025-12-09
+
+### Changed - review_gate.rs Modularization
+
+**Split review_gate.rs (385→14 lines) into 3 domain-specific modules:**
+- `types.rs`: ReviewContext, GateOutcome, GateThresholds structs (158 lines)
+- `logic.rs`: deterministic_review_gate functions (87 lines)
+- `tests.rs`: Unit tests (114 lines)
+- `mod.rs`: Re-exports for backwards compatibility (14 lines)
+
+**All review_gate/ files under 400-line limit per CLAUDE.md policy.**
+
 ## [0.0.227] - 2025-12-09
 
 ### Changed - pending.rs Modularization
