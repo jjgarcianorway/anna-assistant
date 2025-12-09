@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.210] - 2025-12-09
+
+### Changed - health_view.rs Modularization
+
+**Split health_view.rs (438→14 lines) into 4 domain-specific modules:**
+- `types.rs`: HealthSeverity, HealthCategory, HealthItem, HealthChange (98 lines)
+- `summary.rs`: RelevantHealthSummary struct and methods (118 lines)
+- `builder.rs`: build_health_summary, has_health_issues (103 lines)
+- `tests.rs`: Unit tests (105 lines)
+- `mod.rs`: Re-exports for backwards compatibility (14 lines)
+
+**All health_view/ files under 400-line limit.**
+
 ## [0.0.209] - 2025-12-09
 
 ### Changed - answer_contract.rs Modularization
