@@ -1,4 +1,6 @@
-//! Theatre main rendering (v0.0.202).
+//! Theatre main rendering (v0.0.252).
+//!
+//! v0.0.252: Evidence bullets displayed with concise answers
 
 use anna_shared::change::ChangePlan;
 use anna_shared::rpc::ServiceDeskResult;
@@ -90,7 +92,7 @@ fn print_segment(segment: &NarrativeSegment, _output_mode: OutputMode) {
     }
 }
 
-/// Print Anna's final answer
+/// Print Anna's final answer with evidence bullets (v0.0.252)
 fn print_final_answer(result: &ServiceDeskResult, output_mode: OutputMode) {
     // Find the final answer
     let answer = get_final_answer_text(result);
@@ -99,8 +101,107 @@ fn print_final_answer(result: &ServiceDeskResult, output_mode: OutputMode) {
         println!();
         println!("{}[anna]{}", colors::OK, colors::RESET);
         println!("{}", format_for_output(&answer, output_mode));
+
+        // v0.0.252: Show evidence bullets if we have probe data
+        print_evidence_bullets(result);
+
         println!();
     }
+}
+
+/// v0.0.252: Print evidence bullets showing data sources
+fn print_evidence_bullets(result: &ServiceDeskResult) {
+    let evidence = &result.evidence;
+
+    // Collect evidence items
+    let mut items: Vec<String> = Vec::new();
+
+    // Add probe evidence (most valuable - shows actual data used)
+    for probe in &evidence.probes_executed {
+        if probe.exit_code == 0 && !probe.stdout.is_empty() {
+            // Summarize the probe output concisely
+            let summary = summarize_probe_output(&probe.command, &probe.stdout);
+            if !summary.is_empty() {
+                items.push(summary);
+            }
+        }
+    }
+
+    // Add hardware fields as evidence source (if no probes)
+    if items.is_empty() && !evidence.hardware_fields.is_empty() {
+        let fields = evidence.hardware_fields.join(", ");
+        items.push(format!("hardware snapshot: {}", fields));
+    }
+
+    // Print evidence bullets
+    if !items.is_empty() {
+        for item in items.iter().take(3) {
+            // Max 3 evidence lines
+            println!("{}• evidence:{} {}", colors::DIM, colors::RESET, item);
+        }
+    }
+}
+
+/// Summarize probe output for evidence display
+fn summarize_probe_output(command: &str, stdout: &str) -> String {
+    let first_line = stdout.lines().next().unwrap_or("").trim();
+
+    // Keep it concise - max 60 chars for the value
+    let value = if first_line.len() > 60 {
+        format!("{}...", &first_line[..57])
+    } else {
+        first_line.to_string()
+    };
+
+    if value.is_empty() {
+        return String::new();
+    }
+
+    // Map commands to human-readable evidence sources
+    if command.contains("/proc/meminfo") || command.contains("free") {
+        return format!("/proc/meminfo showed {}", value);
+    }
+    if command.contains("df ") {
+        return format!("disk usage: {}", value);
+    }
+    if command.contains("/proc/cpuinfo") || command.contains("model name") {
+        return format!("CPU: {}", value);
+    }
+    if command.contains("nproc") {
+        return format!("{} CPU cores", value);
+    }
+    if command.contains("os-release") || command.contains("lsb_release") {
+        return format!("OS: {}", value);
+    }
+    if command.contains("hostname") {
+        return format!("hostname: {}", value);
+    }
+    if command.contains("uptime") {
+        return format!("uptime: {}", value);
+    }
+    if command.contains("loadavg") {
+        return format!("load average: {}", value);
+    }
+    if command.contains("ip addr") || command.contains("ip a") {
+        return format!("network: {}", value);
+    }
+    if command.contains("resolv.conf") {
+        return format!("DNS config: {}", value);
+    }
+    if command.contains("systemctl") && command.contains("failed") {
+        return format!("failed services: {}", value);
+    }
+    if command.contains("journalctl") {
+        return format!("system logs: {}", value);
+    }
+
+    // For unknown commands, show a shortened command as source
+    let short_cmd = if command.len() > 30 {
+        format!("{}...", &command[..27])
+    } else {
+        command.to_string()
+    };
+    format!("{} → {}", short_cmd, value)
 }
 
 /// Get the final answer text

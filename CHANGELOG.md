@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.252] - 2025-12-09
+
+### Changed - Evidence Bullets in Query Responses
+
+**Anna's responses now show evidence bullets showing the data sources used.**
+
+After the answer, evidence items are displayed showing where the information came from:
+```
+[anna]
+Your system has 64 GB of RAM.
+• evidence: /proc/meminfo showed MemTotal: 67108864 kB
+```
+
+This makes responses more trustworthy by showing exactly what data supported the answer.
+
+**Changes:**
+- `theatre_render/render.rs`: Added `print_evidence_bullets()` function
+- `theatre_render/render.rs`: Added `summarize_probe_output()` for human-readable evidence
+- Evidence limited to 3 items max for conciseness
+- Maps common probe commands to readable descriptions (memory, disk, CPU, etc.)
+
 ## [0.0.251] - 2025-12-09
 
 ### Changed - Domain-Prefixed Case Numbers
