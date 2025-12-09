@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.182] - 2025-12-09
+
+### Changed - roster.rs Modularization
+
+**Split roster.rs (569→19 lines) into 5 domain-specific modules:**
+- `tier.rs`: Tier enum and Display impl (20 lines)
+- `shift.rs`: Shift enum with time-based availability (57 lines)
+- `profile.rs`: PersonProfile struct and methods (58 lines)
+- `data.rs`: ROSTER const and lookup functions (277 lines)
+- `tests.rs`: Unit and golden tests (171 lines)
+- `mod.rs`: Re-exports for backwards compatibility (19 lines)
+
+**All roster/ files under 400-line limit.**
+
 ## [0.0.181] - 2025-12-09
 
 ### Changed - facts.rs Modularization
