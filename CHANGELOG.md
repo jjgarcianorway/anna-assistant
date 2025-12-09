@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.215] - 2025-12-09
+
+### Changed - ticket.rs Modularization
+
+**Split ticket.rs (422→20 lines) into 4 domain-specific modules:**
+- `types.rs`: RiskLevel, TicketStatus enums, constants (78 lines)
+- `ticket_struct.rs`: Ticket struct and core methods (172 lines)
+- `clarification.rs`: Clarification-related methods (60 lines)
+- `tests.rs`: Unit tests (95 lines)
+- `mod.rs`: Re-exports for backwards compatibility (20 lines)
+
+**All ticket/ files under 400-line limit.**
+
 ## [0.0.214] - 2025-12-09
 
 ### Changed - service_recipes.rs Modularization
