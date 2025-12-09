@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.211] - 2025-12-09
+
+### Changed - status_snapshot.rs Modularization
+
+**Split status_snapshot.rs (435→24 lines) into 9 domain-specific modules:**
+- `version.rs`: VersionInfo (36 lines)
+- `daemon.rs`: DaemonInfo (42 lines)
+- `permissions.rs`: PermissionsInfo (44 lines)
+- `update.rs`: UpdateResult, UpdateInfo (48 lines)
+- `helpers_info.rs`: HelperPackageLite, HelpersInfo (52 lines)
+- `models.rs`: ModelDownloadStatus, RoleModelBinding, ModelsInfo (53 lines)
+- `config.rs`: ConfigInfo (14 lines)
+- `snapshot.rs`: StatusSnapshot struct and methods (79 lines)
+- `tests.rs`: Unit tests (82 lines)
+- `mod.rs`: Re-exports for backwards compatibility (24 lines)
+
+**All status_snapshot/ files under 400-line limit.**
+
 ## [0.0.210] - 2025-12-09
 
 ### Changed - health_view.rs Modularization
