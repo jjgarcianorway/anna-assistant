@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.233] - 2025-12-09
+
+### Added - Systemd Unit File Recipes
+
+**New systemd_recipes module with 8 built-in recipes:**
+- `CreateService`: Create a basic systemd service unit
+- `CreateTimer`: Create a systemd timer (cron replacement)
+- `CreateUserService`: Create a user-level service (~/.config/systemd/user)
+- `EnableService`: Enable and start a service
+- `ViewLogs`: View service logs with journalctl
+- `DebugService`: Debug a failing service
+- `SocketActivation`: Create a socket-activated service
+- `HardenService`: Harden a service with security options
+
+**Module structure:**
+- `types.rs`: UnitType, SystemdFeature, RestartPolicy, SystemdRecipe (161 lines)
+- `recipes.rs`: Built-in recipe definitions (260 lines)
+- `matcher.rs`: Query matching logic (70 lines)
+- `tests.rs`: Unit tests (62 lines)
+- `mod.rs`: Re-exports (14 lines)
+
+**Integration:**
+- Added RecipeKind::SystemdUnit variant
+- Integrated with recipe_fast_path for query matching
+- Added to knowledge/conversion.rs for tagging
+
 ## [0.0.232] - 2025-12-09
 
 ### Changed - recipe_store.rs Modularization

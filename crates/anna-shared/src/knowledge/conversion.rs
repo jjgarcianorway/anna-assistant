@@ -160,6 +160,11 @@ fn build_tags(recipe: &Recipe) -> Vec<String> {
             tags.push("ssh".to_string());
             tags.push("config".to_string());
         }
+        RecipeKind::SystemdUnit => {
+            tags.push("systemd".to_string());
+            tags.push("unit".to_string());
+            tags.push("service".to_string());
+        }
         RecipeKind::Unknown => {}
     }
 

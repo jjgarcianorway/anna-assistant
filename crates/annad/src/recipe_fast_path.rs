@@ -14,7 +14,9 @@ use anna_shared::transcript::Transcript;
 use tracing::info;
 
 // Re-export built-in recipe matchers
-pub use crate::recipe_builtins::{check_git_recipes, check_shell_recipes, check_ssh_recipes};
+pub use crate::recipe_builtins::{
+    check_git_recipes, check_shell_recipes, check_ssh_recipes, check_systemd_recipes,
+};
 
 /// Minimum score to skip LLM and use recipe directly
 const RECIPE_SKIP_LLM_THRESHOLD: u32 = 70;
@@ -103,6 +105,19 @@ pub fn check_recipe_fast_path(query: &str, index: &RecipeIndex) -> RecipeFastPat
     if let Some(result) = check_ssh_recipes(query) {
         info!(
             "SSH recipe match found: {}",
+            result
+                .recipe
+                .as_ref()
+                .map(|r| r.id.clone())
+                .unwrap_or_default()
+        );
+        return result;
+    }
+
+    // Fifth, check built-in systemd recipes (v0.0.233)
+    if let Some(result) = check_systemd_recipes(query) {
+        info!(
+            "Systemd recipe match found: {}",
             result
                 .recipe
                 .as_ref()

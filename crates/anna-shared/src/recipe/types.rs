@@ -1,4 +1,4 @@
-//! Recipe type enums (v0.0.177).
+//! Recipe type enums (v0.0.233).
 
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +26,8 @@ pub enum RecipeKind {
     GitConfig,
     /// v0.0.104: SSH config edit (~/.ssh/config)
     SshConfig,
+    /// v0.0.233: Systemd unit file recipes
+    SystemdUnit,
     /// Unknown/future kinds
     #[serde(other)]
     Unknown,
