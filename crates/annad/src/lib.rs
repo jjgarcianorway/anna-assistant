@@ -10,6 +10,7 @@
 //! v0.0.155: Response builders extracted to separate module.
 //! v0.0.156: Clarification builders extracted to separate module.
 //! v0.0.157: Best-effort summary extracted to separate module.
+//! v0.0.158: Ollama streaming extracted to separate module.
 
 pub mod action_handlers;
 pub mod best_effort_summary;
@@ -31,6 +32,7 @@ pub mod health;
 pub mod health_brief_builder;
 pub mod inbox;
 pub mod ollama;
+pub mod ollama_streaming;
 pub mod parsers;
 pub mod permissions;
 pub mod probe_answers;

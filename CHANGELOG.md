@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.158] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted Ollama streaming to dedicated module:**
+
+- New `ollama_streaming.rs` module (119 lines) containing:
+  - `chat_streaming()` - word-by-word streaming response
+  - `chat_streaming_with_retry()` - streaming with retry logic
+
+- Reduced `ollama.rs` from 409 to 304 lines (now well under 400-line limit)
+
+**Total modularization progress (v0.0.155-v0.0.158):**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `answers.rs`: 457 → 308 lines (-33%)
+- `ollama.rs`: 409 → 304 lines (-26%)
+- Created 5 new focused modules totaling 742 lines
+
 ## [0.0.157] - 2025-12-09
 
 ### Changed - Continued Code Modularization
