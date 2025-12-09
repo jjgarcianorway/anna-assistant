@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.221] - 2025-12-09
+
+### Changed - helpers.rs Modularization
+
+**Split helpers.rs (405→20 lines) into 5 domain-specific modules:**
+- `types.rs`: HelperPackage, InstallSource (100 lines)
+- `registry.rs`: HelpersRegistry struct and methods (98 lines)
+- `detection.rs`: known_helpers, detect_helper, detect_ollama (52 lines)
+- `persistence.rs`: helpers_store_path, load_helpers, save_helpers (43 lines)
+- `tests.rs`: Unit tests (126 lines)
+- `mod.rs`: Re-exports for backwards compatibility (20 lines)
+
+**All helpers/ files under 400-line limit.**
+
 ## [0.0.220] - 2025-12-09
 
 ### Changed - rpc.rs Modularization
