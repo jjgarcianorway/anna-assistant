@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.176] - 2025-12-09
+
+### Changed - deterministic.rs Modularization
+
+**Split deterministic.rs (787→29 lines) into 7 domain-specific modules:**
+- `types.rs`: DeterministicResult struct (10 lines)
+- `help.rs`: answer_help function (40 lines)
+- `memory.rs`: Memory, disk, service, health handlers (99 lines)
+- `cpu.rs`: CPU cores, temperature, extract_temperature (122 lines)
+- `audio.rs`: Hardware audio answer handler (76 lines)
+- `packages.rs`: Package count, installed tool check (95 lines)
+- `router.rs`: try_answer() query class router (363 lines)
+- `mod.rs`: Re-exports for backwards compatibility (29 lines)
+
+**All deterministic/ files under 400-line limit.**
+
 ## [0.0.175] - 2025-12-09
 
 ### Changed - det_extended Modularization
