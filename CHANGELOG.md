@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.194] - 2025-12-09
+
+### Changed - guard.rs Modularization
+
+**Split guard.rs (502→18 lines) into 3 domain-specific modules:**
+- `types.rs`: VerifyResult, GuardReport, GuardItem (56 lines)
+- `verify.rs`: run_guard, verify_claim, verify_numeric, verify_percent, verify_status (148 lines)
+- `tests.rs`: Unit tests (260 lines)
+- `mod.rs`: Re-exports for backwards compatibility (18 lines)
+
+**All guard/ files under 400-line limit.**
+
 ## [0.0.193] - 2025-12-09
 
 ### Changed - probe_spine.rs Modularization
