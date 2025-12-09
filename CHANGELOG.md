@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.241] - 2025-12-09
+
+### Added - Real-Time Streaming Token Output
+
+**Streaming Wiring Complete:**
+- LLM responses now stream word-by-word to the client in real-time
+- No more waiting for the full response - see Anna's thinking as it happens
+- StreamingSink provides thread-safe token push from async callbacks
+- Final token marker indicates when streaming is complete
+
+**Progress Tracker Enhancements:**
+- Added `streaming_sink()` to get thread-safe sink for callbacks
+- Events now merge main + streaming events with temporal ordering
+- StreamingSink.push_token() for lock-free event pushing
+
+**Specialist Handler Integration:**
+- Callback now emits each token via streaming_sink.push_token()
+- Final `is_final=true` token marks completion
+- Existing token counting preserved alongside streaming
+
+**Client-Side (already in v0.0.238):**
+- live_request.rs handles StreamingToken events
+- Clears spinner, prints tokens inline
+- Faster 50ms polling during streaming for smooth output
+
 ## [0.0.240] - 2025-12-09
 
 ### Added - Idle-Time Tips & Learning

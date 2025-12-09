@@ -1,8 +1,10 @@
 //! Progress tracker with transcript building for request handling.
+//!
+//! v0.0.241: Added shared events for streaming token support.
 
 use anna_shared::progress::{ProgressEvent, RequestStage};
 use anna_shared::transcript::{Actor, StageOutcome, Transcript, TranscriptEvent};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -10,6 +12,8 @@ use tracing::info;
 /// Progress tracker for request handling with transcript building
 pub struct ProgressTracker {
     events: Vec<ProgressEvent>,
+    /// Shared events from streaming (can be pushed to from callbacks)
+    streaming_events: Arc<Mutex<Vec<ProgressEvent>>>,
     transcript: Transcript,
     start_time: Instant,
     current_stage: Option<RequestStage>,
@@ -25,6 +29,7 @@ impl ProgressTracker {
     pub fn new() -> Self {
         Self {
             events: Vec::new(),
+            streaming_events: Arc::new(Mutex::new(Vec::new())),
             transcript: Transcript::new(),
             start_time: Instant::now(),
             current_stage: None,
@@ -182,6 +187,15 @@ impl ProgressTracker {
         ));
     }
 
+    /// v0.0.241: Get streaming sink for use in callbacks
+    /// Returns a clone of the shared events vector for thread-safe push access
+    pub fn streaming_sink(&self) -> StreamingSink {
+        StreamingSink {
+            events: Arc::clone(&self.streaming_events),
+            start_time: self.start_time,
+        }
+    }
+
     /// Record Anna's final answer (THE authoritative response to the user)
     /// Uses FinalAnswer kind, not Message, to ensure proper answer source detection.
     pub fn add_final_answer(&mut self, text: &str) {
@@ -189,8 +203,16 @@ impl ProgressTracker {
             .push(TranscriptEvent::final_answer(self.elapsed_ms(), text));
     }
 
-    pub fn events(&self) -> &[ProgressEvent] {
-        &self.events
+    /// v0.0.241: Get all events (including streaming events)
+    /// Merges main events with streaming events
+    pub fn events(&self) -> Vec<ProgressEvent> {
+        let mut all = self.events.clone();
+        if let Ok(streaming) = self.streaming_events.lock() {
+            all.extend(streaming.iter().cloned());
+        }
+        // Sort by elapsed_ms to maintain temporal order
+        all.sort_by_key(|e| e.elapsed_ms);
+        all
     }
 
     pub fn take_transcript(self) -> Transcript {
@@ -214,4 +236,22 @@ pub type SharedProgress = Arc<RwLock<ProgressTracker>>;
 #[allow(dead_code)]
 pub fn create_progress_tracker() -> SharedProgress {
     Arc::new(RwLock::new(ProgressTracker::new()))
+}
+
+/// v0.0.241: Thread-safe sink for streaming tokens
+/// Can be cloned and passed to callbacks without holding a mutable borrow
+#[derive(Clone)]
+pub struct StreamingSink {
+    events: Arc<Mutex<Vec<ProgressEvent>>>,
+    start_time: Instant,
+}
+
+impl StreamingSink {
+    /// Push a streaming token event
+    pub fn push_token(&self, stage: RequestStage, token: &str, is_final: bool) {
+        let elapsed = self.start_time.elapsed().as_millis() as u64;
+        if let Ok(mut events) = self.events.lock() {
+            events.push(ProgressEvent::streaming_token(stage, token, is_final, elapsed));
+        }
+    }
 }

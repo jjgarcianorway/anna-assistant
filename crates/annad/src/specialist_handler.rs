@@ -1,5 +1,6 @@
 //! Specialist LLM handler with fallback logic (v0.0.39).
 //! v0.0.143: Added streaming LLM support.
+//! v0.0.241: Added real-time streaming token output to client.
 //!
 //! Extracted from rpc_handler to keep file sizes manageable.
 
@@ -91,8 +92,10 @@ pub async fn try_specialist_llm(
     }
 
     // v0.0.143: Use streaming LLM with token counting
+    // v0.0.241: Also emit streaming tokens for real-time client display
     let token_count = Arc::new(AtomicUsize::new(0));
     let token_count_clone = Arc::clone(&token_count);
+    let streaming_sink = progress.streaming_sink();
 
     let (answer, used_deterministic, det_result, outcome, fallback_route_class) = match timeout(
         Duration::from_secs(config.specialist_timeout_secs),
@@ -100,9 +103,11 @@ pub async fn try_specialist_llm(
             model,
             &full_prompt,
             config.specialist_timeout_secs,
-            move |_token| {
+            move |token| {
                 // Count tokens as they stream in
                 token_count_clone.fetch_add(1, Ordering::Relaxed);
+                // v0.0.241: Push token to client for real-time display
+                streaming_sink.push_token(RequestStage::Specialist, token, false);
             },
         ),
     )
@@ -111,6 +116,8 @@ pub async fn try_specialist_llm(
         Ok(Ok(response)) => {
             let final_tokens = token_count.load(Ordering::Relaxed);
             info!("Specialist generated {} tokens", final_tokens);
+            // v0.0.241: Mark streaming as done
+            progress.add_streaming_token(RequestStage::Specialist, "", true);
             progress.complete_stage(RequestStage::Specialist);
             // Redact sensitive content from response
             let redacted = redact::redact(&response);
