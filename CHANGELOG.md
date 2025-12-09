@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.226] - 2025-12-09
+
+### Changed - theatre.rs Modularization
+
+**Split theatre.rs (388→20 lines) into 4 domain-specific modules:**
+- `types.rs`: Speaker enum, NarrativeSegment struct (114 lines)
+- `builder.rs`: NarrativeBuilder struct with all methods (142 lines)
+- `formatting.rs`: describe_check, format_case_id helpers (44 lines)
+- `tests.rs`: Unit tests (67 lines)
+- `mod.rs`: Re-exports for backwards compatibility (20 lines)
+
+**All theatre/ files under 400-line limit per CLAUDE.md policy.**
+
 ## [0.0.225] - 2025-12-09
 
 ### Changed - health_delta.rs Modularization
