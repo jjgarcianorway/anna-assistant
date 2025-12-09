@@ -14,6 +14,8 @@ pub mod claims;
 pub mod clarify;
 pub mod clarify_v2;
 pub mod config_intent;
+pub mod config_seed_recipes; // v0.0.264: Seed recipes for editor configs
+pub mod config_types; // v0.0.264: Config types (ConfigTarget, ConfigIntent)
 pub mod editor_recipe_data;
 pub mod editor_recipes;
 pub mod email; // v0.0.113

@@ -1,6 +1,7 @@
 //! Recipe-based fast path for queries (v0.0.101, v0.0.102: direct answers).
 //! Checks recipe index BEFORE LLM translator. High-confidence matches skip LLM entirely.
 //! v0.0.163: Built-in recipe matchers extracted to separate module.
+//! v0.0.264: Added config hint support for specialist context.
 
 use anna_shared::recipe::{Recipe, RecipeKind};
 use anna_shared::recipe_index::RecipeIndex;
@@ -258,6 +259,14 @@ pub fn can_answer_directly(result: &RecipeFastPathResult) -> bool {
             .as_ref()
             .map(|r| !r.answer_template.is_empty())
             .unwrap_or(false)
+}
+
+/// v0.0.264: Get config hint for specialist context if this is a config query.
+/// Returns Some(hint_text) if the query is about editor/app configuration.
+pub fn get_config_hint_for_specialist(query: &str) -> Option<String> {
+    use anna_shared::config_intent::ConfigHint;
+
+    ConfigHint::from_query(query).map(|hint| hint.to_specialist_context())
 }
 
 #[cfg(test)]

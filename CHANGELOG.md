@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.264] - 2025-12-09
+
+### Changed - Recipe Learning Architecture for Config Edits
+
+**Anna now learns config solutions from specialists instead of using hardcoded answers!**
+
+This is a fundamental architectural change to how Anna handles editor configuration requests
+(like "enable syntax highlighting in vim"). Instead of hardcoded answers, Anna now:
+
+1. **Checks for learned recipes first** - If Anna has previously learned how to do this, she uses that
+2. **Asks specialists for help** - If no learned recipe exists, Anna asks the Desktop team (Sofia)
+3. **Learns from the answer** - Once Sofia gives a verified answer, it becomes a learned recipe
+4. **Uses seed recipes as fallback** - Hardcoded patterns are now "seed recipes" with lower confidence (0.7)
+
+**New files:**
+- `config_types.rs` - ConfigTarget, ConfigEditAction, ConfigIntent types
+- `config_seed_recipes.rs` - Bootstrap/seed recipes for when Anna hasn't learned yet
+- `config_intent.rs` - Now focused on ConfigHint for specialist routing
+
+**New types:**
+- `ConfigHint` - Hint for specialists about what the user wants
+- `ConfigFeatureHint` - Feature categories (Syntax, LineNumbers, Theme, Indent, etc.)
+- `SeedRecipe` - Bootstrap recipe with lower confidence
+
+**Technical details:**
+- Seed recipes have confidence 0.5-0.7 (vs. 0.8+ for learned recipes)
+- `get_config_hint_for_specialist()` provides context to specialists
+- `ConfigHint::to_specialist_context()` formats hints for LLM prompts
+- Learned recipes take precedence over seed recipes
+
+**Why this matters:**
+Anna's goal is to learn from her interactions with specialists, building her own knowledge base.
+This change ensures config queries go through the learning pipeline instead of bypassing it.
+
 ## [0.0.260] - 2025-12-09
 
 ### Added - OS/Kernel Info in LLM Context
