@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.208] - 2025-12-09
+
+### Changed - revision.rs Modularization
+
+**Split revision.rs (442→21 lines) into 5 domain-specific modules:**
+- `types.rs`: RevisionIssue, RevisionInstruction (131 lines)
+- `junior.rs`: JuniorVerification (36 lines)
+- `senior.rs`: SeniorEscalation (41 lines)
+- `conversion.rs`: junior_to_review_artifact, senior_to_review_artifact (107 lines)
+- `tests.rs`: Unit tests (106 lines)
+- `mod.rs`: Re-exports for backwards compatibility (21 lines)
+
+**All revision/ files under 400-line limit.**
+
 ## [0.0.207] - 2025-12-09
 
 ### Changed - health_brief.rs Modularization
