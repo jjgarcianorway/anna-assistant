@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.164] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted probe registry and translator fallback to dedicated modules:**
+
+- New `probe_registry.rs` module (209 lines) containing:
+  - `PROBE_IDS` - list of valid probe identifiers
+  - `probe_id_to_command()` - map probe ID to shell command
+  - `filter_valid_probes()` - filter probe list to valid IDs only
+
+- New `translator_fallback.rs` module (190 lines) containing:
+  - `translate_fallback()` - keyword-based translation when LLM fails
+  - Domain, intent, and probe classification helpers
+
+- Reduced `translator.rs` from 637 to 301 lines (-53%)
+
+**Total modularization progress (v0.0.155-v0.0.164):**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `translator.rs`: 637 → 301 lines (-53%)
+- `verify_probes.rs`: 467 → 216 lines (-54%)
+- `recipe_fast_path.rs`: 564 → 353 lines (-37%)
+- `update.rs`: 501 → 319 lines (-36%)
+- `config.rs`: 561 → 400 lines (-29%)
+- `server.rs`: 432 → 292 lines (-32%)
+- `answers.rs`: 457 → 308 lines (-33%)
+- `ollama.rs`: 409 → 304 lines (-26%)
+- Created 12 new focused modules totaling 2,181 lines
+
 ## [0.0.163] - 2025-12-09
 
 ### Changed - Continued Code Modularization

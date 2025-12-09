@@ -16,6 +16,7 @@
 //! v0.0.161: Update operations extracted to separate module.
 //! v0.0.162: Model registry extracted to separate module.
 //! v0.0.163: Built-in recipe matchers extracted to separate module.
+//! v0.0.164: Probe registry and translator fallback extracted to separate modules.
 
 pub mod action_handlers;
 pub mod best_effort_summary;
@@ -42,6 +43,7 @@ pub mod ollama_streaming;
 pub mod parsers;
 pub mod permissions;
 pub mod probe_answers;
+pub mod probe_registry;
 pub mod probe_runner;
 pub mod probes;
 pub mod progress_tracker;
@@ -69,6 +71,7 @@ pub mod ticket_loop;
 pub mod ticket_service;
 pub mod timeout_handler;
 pub mod translator;
+pub mod translator_fallback;
 pub mod triage;
 pub mod triage_answer;
 pub mod update;
