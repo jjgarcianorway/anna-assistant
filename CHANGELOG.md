@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.183] - 2025-12-09
+
+### Changed - ticket_tracker.rs Modularization
+
+**Split ticket_tracker.rs (562→28 lines) into 5 domain-specific modules:**
+- `status.rs`: TicketStatus enum with serde support (37 lines)
+- `message.rs`: TicketMessage struct for conversation history (39 lines)
+- `ticket.rs`: Ticket struct and all methods (160 lines)
+- `tracker.rs`: TicketTracker and TicketStats (276 lines)
+- `tests.rs`: Unit tests for ticket lifecycle (54 lines)
+- `mod.rs`: Re-exports for backwards compatibility (28 lines)
+
+**All ticket_tracker/ files under 400-line limit.**
+
 ## [0.0.182] - 2025-12-09
 
 ### Changed - roster.rs Modularization
