@@ -1,10 +1,8 @@
 //! RPC request handlers with deterministic routing, triage, and fallback.
 //!
 //! v0.0.166: Integrated stage modules for modularization.
+//! v0.0.167: Integrated routing_stage module for further modularization.
 
-use anna_shared::probe_spine::{
-    enforce_minimum_probes, enforce_spine_probes, probe_to_command, reduce_probes, Urgency,
-};
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
@@ -15,23 +13,21 @@ use tokio::time::{timeout, Duration};
 use tracing::{info, warn};
 
 use crate::comms::{team_from_domain, CommsGenerator};
-use crate::config::LlmConfig;
 use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
-use crate::deterministic;
 use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
 use crate::handlers;
-use crate::probe_runner;
+use crate::probe_stage::{check_evidence_validity, execute_probe_stage};
 use crate::progress_tracker::ProgressTracker;
 use crate::recipe_fast_path;
 use crate::result_stage::{build_final_result, wrap_with_theatre};
 use crate::router;
+use crate::routing_stage::{enforce_probe_spine, route_query};
 use crate::service_desk;
-use crate::specialist_handler::{try_specialist_llm, SpecialistResult};
+use crate::specialist_stage::execute_specialist_stage;
 use crate::state::SharedState;
 use crate::theatre::TheatreContext;
 use crate::timeout_handler::make_timeout_response;
-use crate::translator::{self, TranslatorInput};
-use crate::triage::{self, TriageResult};
+use crate::triage;
 
 /// Handle an RPC request
 pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
@@ -176,30 +172,28 @@ async fn handle_llm_request_inner(
         det_route.class, det_route.domain, det_route.probes
     );
 
-    // Step 2: Route based on query class (v0.0.101: check recipes first for Unknown)
-    // v0.0.102: Also check for ConfigureShell/ConfigureGit which are recipe-first
-    let should_check_recipes = det_route.class == router::QueryClass::Unknown
-        || det_route.class == router::QueryClass::ConfigureShell
-        || det_route.class == router::QueryClass::ConfigureGit;
+    // Step 2: v0.0.167 - Route query through recipe check or LLM translator
+    let routing_result = route_query(
+        &state,
+        query,
+        &det_route,
+        &llm_config,
+        &translator_model,
+        hw_cores,
+        hw_ram_gb,
+        has_gpu,
+        &mut progress,
+    )
+    .await;
 
-    let (mut ticket, triage_result, translator_timed_out) = if should_check_recipes {
-        // v0.0.101: Check recipe index BEFORE calling LLM translator
-        let recipe_index = &state.read().await.recipe_index;
-        let recipe_result = recipe_fast_path::check_recipe_fast_path(query, recipe_index);
-
-        // v0.0.102: If recipe can answer directly, return immediately!
-        if recipe_fast_path::can_answer_directly(&recipe_result) {
+    // Handle recipe direct answer
+    if let Some(ref recipe_result) = routing_result.recipe_result {
+        if recipe_fast_path::can_answer_directly(recipe_result) {
             let recipe = recipe_result.recipe.as_ref().unwrap();
-            info!(
-                "Recipe direct answer: id={}, score={}",
-                recipe.id, recipe_result.score
-            );
-
             progress.add_translator_message(&format!(
                 "Recipe match: {} (score {})",
                 recipe.id, recipe_result.score
             ));
-
             let result = recipe_fast_path::build_recipe_result(
                 request_id,
                 recipe,
@@ -208,95 +202,14 @@ async fn handle_llm_request_inner(
             );
             return wrap_with_theatre(id, result, None);
         }
-
-        if recipe_result.skip_llm {
-            // Recipe matched but no direct answer - skip LLM, continue with probes
-            info!(
-                "Recipe fast path hit: score={}, tokens={:?}",
-                recipe_result.score, recipe_result.matched_tokens
-            );
-            let ticket = recipe_result
-                .ticket
-                .unwrap_or_else(|| router::apply_deterministic_routing(query, None));
-            (ticket, None, false)
-        } else {
-            // No recipe match or low confidence - fall back to LLM translator
-            let (ticket, triage, timeout) = triage_path(
-                &state,
-                query,
-                &llm_config,
-                &translator_model,
-                hw_cores,
-                hw_ram_gb,
-                has_gpu,
-                &mut progress,
-            )
-            .await;
-            (ticket, triage, timeout)
-        }
-    } else {
-        // Known class -> deterministic ticket
-        let ticket = router::apply_deterministic_routing(query, None);
-        (ticket, None, false)
-    };
-
-    // Step 2.5: Enforce probe spine (v0.45.2 - user text based)
-    // v0.0.68: ConfigureEditor already has correct probes from router - skip spine override
-    // FIRST: Use keyword matching on user text to force probes (last line of defense)
-    let route_class = det_route.class.to_string();
-    let skip_spine_override = route_class == "configure_editor" && !ticket.needs_probes.is_empty();
-
-    let spine_decision = enforce_minimum_probes(query, &ticket.needs_probes);
-    if spine_decision.enforced && !skip_spine_override {
-        info!(
-            "Probe spine enforced from user text: {}",
-            spine_decision.reason
-        );
-        // Apply minimal probe policy (v0.45.3) - max 3 default, 4 for system health
-        let urgency = Urgency::Normal; // TODO: detect from query (e.g., "quick" -> Quick)
-        let reduced = reduce_probes(spine_decision.probes.clone(), &route_class, urgency);
-        if reduced.len() < spine_decision.probes.len() {
-            info!(
-                "Reduced probes from {} to {} for route {}",
-                spine_decision.probes.len(),
-                reduced.len(),
-                route_class
-            );
-        }
-        // Convert ProbeId to command strings
-        ticket.needs_probes = reduced.iter().map(|p| probe_to_command(p)).collect();
-    } else if skip_spine_override {
-        info!(
-            "v0.0.68: ConfigureEditor using router probes: {:?}",
-            ticket.needs_probes
-        );
-    } else {
-        // FALLBACK: Try route-capability based enforcement
-        let (enforced_probes, spine_reason) =
-            enforce_spine_probes(&ticket.needs_probes, &det_route.capability);
-        if let Some(ref reason) = spine_reason {
-            info!("Probe spine enforced from route: {}", reason);
-            ticket.needs_probes = enforced_probes;
-        }
-        // Apply probe cap for non-spine-enforced probes too (v0.45.3)
-        // v0.0.60: ConfigureEditor needs 10 probes for all editors
-        let route_class = det_route.class.to_string();
-        let max_probes = if route_class.contains("health") {
-            4
-        } else if route_class == "configure_editor" {
-            10 // v0.0.60: Need all editor probes for grounded selection
-        } else {
-            3
-        };
-        if ticket.needs_probes.len() > max_probes {
-            info!(
-                "Capping probes from {} to {}",
-                ticket.needs_probes.len(),
-                max_probes
-            );
-            ticket.needs_probes.truncate(max_probes);
-        }
     }
+
+    let mut ticket = routing_result.ticket;
+    let triage_result = routing_result.triage_result;
+    let translator_timed_out = routing_result.translator_timed_out;
+
+    // Step 2.5: v0.0.167 - Enforce probe spine constraints
+    enforce_probe_spine(&mut ticket, query, &det_route);
 
     let classified_domain = ticket.domain;
     let ticket_probes_planned = ticket.needs_probes.len();
@@ -332,69 +245,38 @@ async fn handle_llm_request_inner(
         }
     }
 
-    // Step 4: Run probes with timeout
-    progress.start_stage(RequestStage::Probes, llm_config.probes_total_timeout_secs);
-
-    // v0.0.148: Junior reports probe progress
-    if !ticket.needs_probes.is_empty() {
-        comms.junior_probing(&mut progress, ticket.needs_probes.len());
-        save_progress(&state, &progress).await;
-    }
-
+    // Step 4: v0.0.167 - Run probes via probe_stage module
     let probe_cap_warning = triage_result
         .as_ref()
         .map(|t| t.probe_cap_applied)
         .unwrap_or(false);
-    let probes_start = Instant::now();
 
-    let probe_results = match timeout(
-        Duration::from_secs(llm_config.probes_total_timeout_secs),
-        probe_runner::run_probes(&state, &ticket, &llm_config, &mut progress),
+    let probe_stage_result = execute_probe_stage(
+        &state,
+        &ticket,
+        &llm_config,
+        &mut progress,
+        &mut comms,
     )
-    .await
-    {
-        Ok(results) => {
-            progress.complete_stage(RequestStage::Probes);
-            // Record probes latency
-            {
-                state
-                    .write()
-                    .await
-                    .latency
-                    .probes
-                    .add(probes_start.elapsed().as_millis() as u64);
-            }
-            // v0.0.152: Report probe completion
-            let success_count = results.iter().filter(|p| p.exit_code == 0).count();
-            comms.junior_probes_done(&mut progress, success_count);
-            save_progress(&state, &progress).await;
-            results
-        }
-        Err(_) => {
-            progress.timeout_stage(RequestStage::Probes);
-            save_progress(&state, &progress).await;
-            let result = service_desk::create_timeout_response(
-                request_id,
-                "probes",
-                Some(ticket),
-                vec![],
-                progress.take_transcript(),
-                classified_domain,
-            );
-            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
-        }
-    };
+    .await;
+
+    // Handle probe timeout
+    if probe_stage_result.timed_out {
+        let result = service_desk::create_timeout_response(
+            request_id,
+            "probes",
+            Some(ticket),
+            vec![],
+            progress.take_transcript(),
+            classified_domain,
+        );
+        return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+    }
+
+    let probe_results = probe_stage_result.results;
 
     // Step 5: v0.45.7 Evidence enforcement - "no evidence, no claims" rule
-    // NOTE: For tool/package checks, exit_code=1 is VALID negative evidence!
-    // Count probes that produced valid evidence (including negative evidence)
-    let valid_evidence_count = {
-        use anna_shared::parsers::parse_probe_result;
-        probe_results
-            .iter()
-            .filter(|p| parse_probe_result(p).is_valid_evidence())
-            .count()
-    };
+    let valid_evidence_count = check_evidence_validity(&probe_results);
     if det_route.capability.evidence_required && valid_evidence_count == 0 {
         info!("v0.45.7: No valid evidence collected but evidence required - returning deterministic failure");
         save_progress(&state, &progress).await;
@@ -442,68 +324,20 @@ async fn handle_llm_request_inner(
     comms.junior_reviewing(&mut progress);
     save_progress(&state, &progress).await;
 
-    // Step 7: Try deterministic answer FIRST for known query classes
-    let specialist_result = if det_route.can_answer_deterministically() {
-        if let Some(det) = deterministic::try_answer(query, &context, &probe_results) {
-            if det.parsed_data_count > 0 {
-                info!(
-                    "Deterministic answer produced ({} entries)",
-                    det.parsed_data_count
-                );
-                // Skip specialist stage - deterministic router answered
-                progress.skip_stage_deterministic(RequestStage::Specialist);
-                let route_class = det.route_class.clone();
-                SpecialistResult {
-                    answer: det.answer.clone(),
-                    used_deterministic: true,
-                    det_result: Some(det),
-                    prompt_truncated: false, // No prompt for deterministic path
-                    outcome: SpecialistOutcome::Skipped,
-                    fallback_route_class: Some(route_class),
-                }
-            } else {
-                warn!("Deterministic parser produced empty result");
-                try_specialist_llm(
-                    &state,
-                    query,
-                    &context,
-                    &probe_results,
-                    &ticket,
-                    &llm_config,
-                    &specialist_model,
-                    debug_mode,
-                    &mut progress,
-                )
-                .await
-            }
-        } else {
-            try_specialist_llm(
-                &state,
-                query,
-                &context,
-                &probe_results,
-                &ticket,
-                &llm_config,
-                &specialist_model,
-                debug_mode,
-                &mut progress,
-            )
-            .await
-        }
-    } else {
-        try_specialist_llm(
-            &state,
-            query,
-            &context,
-            &probe_results,
-            &ticket,
-            &llm_config,
-            &specialist_model,
-            debug_mode,
-            &mut progress,
-        )
-        .await
-    };
+    // Step 7: v0.0.167 - Execute specialist stage via module
+    let specialist_result = execute_specialist_stage(
+        &state,
+        query,
+        &context,
+        &probe_results,
+        &ticket,
+        &det_route,
+        &llm_config,
+        &specialist_model,
+        debug_mode,
+        &mut progress,
+    )
+    .await;
 
     // Step 8: Handle no answer case
     if specialist_result.answer.is_empty() {
@@ -605,74 +439,6 @@ async fn handle_llm_request_inner(
 
     // v0.0.166: Return with theatre context using result_stage module
     wrap_with_theatre(id, result, Some(theatre))
-}
-
-/// Triage path for unknown queries - uses LLM translator with confidence threshold
-async fn triage_path(
-    state: &SharedState,
-    query: &str,
-    config: &LlmConfig,
-    translator_model: &str,
-    hw_cores: u32,
-    hw_ram_gb: f64,
-    has_gpu: bool,
-    progress: &mut ProgressTracker,
-) -> (
-    anna_shared::rpc::TranslatorTicket,
-    Option<TriageResult>,
-    bool,
-) {
-    progress.start_stage(RequestStage::Translator, config.translator_timeout_secs);
-    let translator_input = TranslatorInput::new(query, hw_cores, hw_ram_gb, has_gpu);
-    let stage_start = Instant::now();
-
-    let (llm_ticket, translator_timed_out) = match timeout(
-        Duration::from_secs(config.translator_timeout_secs),
-        translator::translate_with_context(
-            translator_model,
-            &translator_input,
-            config.translator_timeout_secs,
-        ),
-    )
-    .await
-    {
-        Ok(Ok(t)) => {
-            progress.complete_stage(RequestStage::Translator);
-            (Some(t), false)
-        }
-        Ok(Err(e)) => {
-            warn!("Translator error: {}", e);
-            progress.error_stage(RequestStage::Translator, &e);
-            (None, false)
-        }
-        Err(_) => {
-            warn!("Translator timeout");
-            progress.timeout_stage(RequestStage::Translator);
-            (None, true)
-        }
-    };
-
-    // Record translator latency
-    {
-        state
-            .write()
-            .await
-            .latency
-            .translator
-            .add(stage_start.elapsed().as_millis() as u64);
-    }
-
-    // If translator failed completely, use fallback
-    let ticket = llm_ticket.unwrap_or_else(|| triage::create_fallback_ticket(query));
-
-    // Apply triage rules
-    let triage_result = triage::apply_triage_rules(ticket.clone());
-
-    (
-        triage_result.ticket.clone(),
-        Some(triage_result),
-        translator_timed_out,
-    )
 }
 
 /// Save progress events to state for polling

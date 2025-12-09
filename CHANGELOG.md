@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.167] - 2025-12-09
+
+### Changed - Full Stage Module Integration
+
+**Extracted routing_stage module and integrated all stage modules:**
+
+- New `routing_stage.rs` module (241 lines) containing:
+  - `route_query()` - handles recipe check and LLM translator routing
+  - `enforce_probe_spine()` - applies probe constraints
+  - Moved `triage_path()` from rpc_handler
+
+- Fully integrated existing stage modules:
+  - Now uses `execute_probe_stage()` from probe_stage module
+  - Now uses `execute_specialist_stage()` from specialist_stage module
+  - Now uses `check_evidence_validity()` from probe_stage module
+
+- **Reduced `rpc_handler.rs` from 811 to 447 lines (-45%)**
+
+This release completes the major modularization of the RPC handler pipeline,
+extracting routing, probe execution, specialist execution, and result building
+into dedicated reusable modules.
+
 ## [0.0.166] - 2025-12-09
 
 ### Changed - Integrated Stage Modules into RPC Handler
