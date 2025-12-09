@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.201] - 2025-12-09
+
+### Changed - model_registry.rs Modularization
+
+**Split model_registry.rs (479→20 lines) into 4 domain-specific modules:**
+- `types.rs`: ModelSpec, RoleBinding, ModelState, HardwareTier, recommended_model_for_tier (137 lines)
+- `registry.rs`: ModelRegistry struct and methods (148 lines)
+- `persistence.rs`: load/save functions, parse_ollama_list with tests (120 lines)
+- `tests.rs`: Unit tests for registry functionality (93 lines)
+- `mod.rs`: Re-exports for backwards compatibility (20 lines)
+
+**All model_registry/ files under 400-line limit.**
+
 ## [0.0.200] - 2025-12-09
 
 ### Changed - rpc_handler.rs Modularization
