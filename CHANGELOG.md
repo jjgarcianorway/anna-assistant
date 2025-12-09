@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.204] - 2025-12-09
+
+### Changed - progress.rs Modularization
+
+**Split progress.rs (459→14 lines) into 3 domain-specific modules:**
+- `types.rs`: DiagnosticText, RequestStage, TimeoutConfig (97 lines)
+- `event.rs`: ProgressEvent, ProgressEventType (196 lines)
+- `tests.rs`: Unit tests (148 lines)
+- `mod.rs`: Re-exports for backwards compatibility (14 lines)
+
+**All progress/ files under 400-line limit.**
+
 ## [0.0.203] - 2025-12-09
 
 ### Changed - render.rs Modularization
