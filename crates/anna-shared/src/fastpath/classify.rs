@@ -1,6 +1,7 @@
-//! Fast path query classification (v0.0.259).
+//! Fast path query classification (v0.0.261).
 //!
 //! v0.0.259: Added Uptime, CpuUsage, and NetworkStatus classification.
+//! v0.0.261: Added TopProcesses classification.
 
 use super::types::FastPathClass;
 
@@ -75,6 +76,25 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
         || stripped.contains("ethernet status")
     {
         return FastPathClass::NetworkStatus;
+    }
+
+    // v0.0.261: TopProcesses: "what's using my cpu", "top processes", "what's eating memory"
+    if stripped.contains("top process")
+        || stripped.contains("what's using")
+        || stripped.contains("whats using")
+        || stripped.contains("what is using")
+        || stripped.contains("using my cpu")
+        || stripped.contains("using my memory")
+        || stripped.contains("using my ram")
+        || stripped.contains("eating memory")
+        || stripped.contains("eating cpu")
+        || stripped.contains("hogging")
+        || stripped.contains("consuming cpu")
+        || stripped.contains("consuming memory")
+        || stripped.contains("heavy process")
+        || stripped.contains("resource hog")
+    {
+        return FastPathClass::TopProcesses;
     }
 
     // DiskUsage: "disk usage", "disk space", "how much disk"

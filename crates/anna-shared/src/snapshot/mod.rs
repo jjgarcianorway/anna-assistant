@@ -1,9 +1,10 @@
-//! System snapshot for "what changed since last time" detection (v0.0.219).
+//! System snapshot for "what changed since last time" detection (v0.0.261).
 //!
 //! Captures minimal system state for delta detection without spamming users.
 //! Only surfaces actionable changes that cross meaningful thresholds.
 //!
 //! v0.0.219: Modularized into domain-focused submodules.
+//! v0.0.261: Added ProcessInfo for top process tracking.
 
 mod capture;
 mod delta;
@@ -17,6 +18,6 @@ pub use persistence::{
     clear_snapshots, last_snapshot_path, load_last_snapshot, save_snapshot, snapshots_dir,
 };
 pub use types::{
-    SystemSnapshot, DISK_CHANGE_THRESHOLD, DISK_CRITICAL_THRESHOLD, DISK_WARN_THRESHOLD,
-    MEMORY_CHANGE_THRESHOLD, MEMORY_HIGH_THRESHOLD,
+    ProcessInfo, SystemSnapshot, DISK_CHANGE_THRESHOLD, DISK_CRITICAL_THRESHOLD,
+    DISK_WARN_THRESHOLD, MEMORY_CHANGE_THRESHOLD, MEMORY_HIGH_THRESHOLD,
 };

@@ -1,6 +1,7 @@
-//! System snapshot types and thresholds (v0.0.259).
+//! System snapshot types and thresholds (v0.0.261).
 //!
 //! v0.0.259: Added boot_time, load averages, and network fields.
+//! v0.0.261: Added top processes by CPU and memory.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -11,6 +12,16 @@ pub const DISK_CRITICAL_THRESHOLD: u8 = 95;
 pub const DISK_CHANGE_THRESHOLD: u8 = 5;
 pub const MEMORY_HIGH_THRESHOLD: u8 = 85;
 pub const MEMORY_CHANGE_THRESHOLD: u8 = 10;
+
+/// v0.0.261: Process info for top CPU/memory consumers
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProcessInfo {
+    pub pid: u32,
+    pub name: String,
+    pub cpu_percent: f32,
+    pub mem_percent: f32,
+    pub user: String,
+}
 
 /// System snapshot - minimal deterministic state capture
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -44,6 +55,12 @@ pub struct SystemSnapshot {
     /// v0.0.259: IP addresses
     #[serde(default)]
     pub ip_addresses: Vec<String>,
+    /// v0.0.261: Top 5 processes by CPU usage
+    #[serde(default)]
+    pub top_cpu_processes: Vec<ProcessInfo>,
+    /// v0.0.261: Top 5 processes by memory usage
+    #[serde(default)]
+    pub top_mem_processes: Vec<ProcessInfo>,
 }
 
 impl SystemSnapshot {

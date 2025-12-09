@@ -1,10 +1,11 @@
-//! Snapshot capture from probe results (v0.0.259).
+//! Snapshot capture from probe results (v0.0.261).
 //!
 //! v0.0.259: Added uptime and network capture.
+//! v0.0.261: Added process capture for top CPU/memory consumers.
 
 use crate::rpc::ProbeResult;
 
-use super::types::SystemSnapshot;
+use super::types::{ProcessInfo, SystemSnapshot};
 
 /// Capture snapshot from probe results
 pub fn capture_snapshot(probes: &[ProbeResult]) -> SystemSnapshot {
@@ -43,6 +44,16 @@ pub fn capture_snapshot(probes: &[ProbeResult]) -> SystemSnapshot {
         // v0.0.259: Parse ip addr for network info
         if probe.command.contains("ip addr") || probe.command.contains("ip a ") {
             parse_ip_addr_into_snapshot(&probe.stdout, &mut snapshot);
+        }
+
+        // v0.0.261: Parse ps aux for top processes
+        if probe.command.contains("ps aux") {
+            if probe.command.contains("--sort=-%cpu") || probe.command.contains("sort=-pcpu") {
+                parse_ps_cpu_into_snapshot(&probe.stdout, &mut snapshot);
+            } else if probe.command.contains("--sort=-%mem") || probe.command.contains("sort=-pmem")
+            {
+                parse_ps_mem_into_snapshot(&probe.stdout, &mut snapshot);
+            }
         }
     }
 
@@ -218,4 +229,59 @@ fn parse_ip_addr_into_snapshot(output: &str, snapshot: &mut SystemSnapshot) {
         }
     }
     snapshot.network_connected = has_carrier;
+}
+
+/// v0.0.261: Parse ps aux --sort=-%cpu output for top CPU processes
+fn parse_ps_cpu_into_snapshot(output: &str, snapshot: &mut SystemSnapshot) {
+    snapshot.top_cpu_processes = parse_ps_output(output, 5);
+}
+
+/// v0.0.261: Parse ps aux --sort=-%mem output for top memory processes
+fn parse_ps_mem_into_snapshot(output: &str, snapshot: &mut SystemSnapshot) {
+    snapshot.top_mem_processes = parse_ps_output(output, 5);
+}
+
+/// v0.0.261: Parse ps aux output into ProcessInfo list
+fn parse_ps_output(output: &str, limit: usize) -> Vec<ProcessInfo> {
+    // ps aux format: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
+    // Columns:        0    1   2    3    4   5   6   7     8     9    10+
+    let mut processes = Vec::new();
+
+    for line in output.lines().skip(1).take(limit) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 11 {
+            continue;
+        }
+
+        let user = parts[0].to_string();
+        let pid = parts[1].parse::<u32>().unwrap_or(0);
+        let cpu_percent = parts[2].parse::<f32>().unwrap_or(0.0);
+        let mem_percent = parts[3].parse::<f32>().unwrap_or(0.0);
+        // Command is everything from column 10 onward (may have spaces)
+        let name = parts[10..].join(" ");
+        // Truncate command to basename if it's a path
+        let name = name
+            .split_whitespace()
+            .next()
+            .unwrap_or(&name)
+            .rsplit('/')
+            .next()
+            .unwrap_or(&name)
+            .to_string();
+
+        // Skip kernel threads and idle processes
+        if name.starts_with('[') || cpu_percent == 0.0 && mem_percent == 0.0 {
+            continue;
+        }
+
+        processes.push(ProcessInfo {
+            pid,
+            name,
+            cpu_percent,
+            mem_percent,
+            user,
+        });
+    }
+
+    processes
 }

@@ -1,6 +1,7 @@
-//! Fast path answer generators (v0.0.259).
+//! Fast path answer generators (v0.0.261).
 //!
 //! v0.0.259: Added uptime, CPU usage, and network status answers.
+//! v0.0.261: Added top processes answer.
 
 use crate::health_view::{build_health_summary, has_health_issues};
 use crate::snapshot::{
@@ -308,6 +309,64 @@ pub fn answer_network_status(snapshot: &SystemSnapshot, is_fresh: bool) -> FastP
         vec![EvidenceKind::NetworkInfo],
         "answered from fresh snapshot",
         85,
+        false,
+    )
+}
+
+/// v0.0.261: Answer top processes from snapshot
+pub fn answer_top_processes(snapshot: &SystemSnapshot, is_fresh: bool) -> FastPathAnswer {
+    if !is_fresh {
+        return FastPathAnswer::not_handled("snapshot stale, probes needed");
+    }
+
+    // Check if we have process data
+    if snapshot.top_cpu_processes.is_empty() && snapshot.top_mem_processes.is_empty() {
+        return FastPathAnswer::not_handled("no process data in snapshot");
+    }
+
+    let mut answer = String::new();
+
+    // Show top CPU processes
+    if !snapshot.top_cpu_processes.is_empty() {
+        answer.push_str("**Top CPU Consumers:**\n");
+        for (i, proc) in snapshot.top_cpu_processes.iter().take(5).enumerate() {
+            answer.push_str(&format!(
+                "  {}. {} (PID {}) - {:.1}% CPU, {:.1}% MEM [{}]\n",
+                i + 1,
+                proc.name,
+                proc.pid,
+                proc.cpu_percent,
+                proc.mem_percent,
+                proc.user
+            ));
+        }
+    }
+
+    // Show top memory processes
+    if !snapshot.top_mem_processes.is_empty() {
+        if !answer.is_empty() {
+            answer.push('\n');
+        }
+        answer.push_str("**Top Memory Consumers:**\n");
+        for (i, proc) in snapshot.top_mem_processes.iter().take(5).enumerate() {
+            answer.push_str(&format!(
+                "  {}. {} (PID {}) - {:.1}% MEM, {:.1}% CPU [{}]\n",
+                i + 1,
+                proc.name,
+                proc.pid,
+                proc.mem_percent,
+                proc.cpu_percent,
+                proc.user
+            ));
+        }
+    }
+
+    FastPathAnswer::handled(
+        FastPathClass::TopProcesses,
+        answer.trim_end().to_string(),
+        vec![EvidenceKind::Processes],
+        "answered from fresh snapshot",
+        88,
         false,
     )
 }
