@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.225] - 2025-12-09
+
+### Changed - health_delta.rs Modularization
+
+**Split health_delta.rs (398→18 lines) into 4 domain-specific modules:**
+- `types.rs`: HealthDelta struct with comparison logic (98 lines)
+- `history.rs`: SnapshotHistory struct (69 lines)
+- `summary.rs`: HealthSummary struct with formatting (205 lines)
+- `helpers.rs`: generate_summary, format_disk_summary (44 lines)
+- `mod.rs`: Re-exports for backwards compatibility (18 lines)
+
+**All health_delta/ files under 400-line limit.**
+
 ## [0.0.224] - 2025-12-09
 
 ### Changed - git_recipes.rs Modularization
