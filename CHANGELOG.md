@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.257] - 2025-12-09
+
+### Added - Desktop Configuration Support
+
+**Anna can now change wallpaper, enable dark mode, and set themes!**
+
+Supports multiple desktop environments:
+- **GNOME** - Uses gsettings
+- **KDE Plasma** - Uses qdbus and lookandfeeltool
+- **Xfce** - Uses xfconf-query
+- **Cinnamon** - Uses gsettings
+- **MATE** - Uses gsettings
+
+**Example commands Anna now understands:**
+- "set my wallpaper to /home/user/pic.jpg"
+- "enable dark mode"
+- "switch to light mode"
+- "change theme to dracula"
+- "set arc-dark theme"
+
+**Features:**
+- Auto-detects desktop environment from XDG_CURRENT_DESKTOP
+- Generates correct command for each DE
+- Provides rollback commands where possible
+- Supports common themes (Adwaita, Arc, Dracula, Nord, Breeze, etc.)
+
+**Changes:**
+- `desktop_recipes.rs`: New module for desktop configuration
+
 ## [0.0.256] - 2025-12-09
 
 ### Added - Synonym Expansion for Smarter Recipe Matching

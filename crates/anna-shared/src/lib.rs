@@ -120,6 +120,9 @@ pub mod staff_stats;
 // v0.0.256: Synonym expansion for recipe matching
 pub mod synonyms;
 
+// v0.0.257: Desktop configuration recipes (wallpaper, themes)
+pub mod desktop_recipes;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
