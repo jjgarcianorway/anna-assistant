@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.258] - 2025-12-09
+
+### Added - Pending Ticket Retry Queue
+
+**Anna now keeps tickets open and retries them during idle time!**
+
+When Anna can't give a confident answer (reliability < 70), instead of closing
+the ticket, it's queued for retry. During idle time, Anna will:
+- Re-process pending tickets with fresh probes
+- Try different approaches if the first attempt failed
+- Improve reliability score through multiple attempts
+
+**Features:**
+- `PendingRetry` ticket status for retryable tickets
+- Configurable retry intervals (default: 5 minutes between attempts)
+- Maximum 3 retry attempts before giving up
+- Persists queue to `~/.anna/pending_queue.json`
+- Reasons tracked: low reliability, timeout, insufficient evidence, LLM unavailable
+
+**Example flow:**
+1. User asks "what's using my GPU?"
+2. Anna tries but gets 55% reliability (timeout on nvidia-smi)
+3. Ticket goes to PendingRetry instead of closed
+4. During idle time, Anna retries with more time
+5. Gets 85% reliability, ticket resolved
+
+**Changes:**
+- `pending_queue.rs`: New module for retry queue management
+- `ticket_tracker/status.rs`: Added PendingRetry status
+
 ## [0.0.257] - 2025-12-09
 
 ### Added - Desktop Configuration Support

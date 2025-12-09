@@ -123,6 +123,9 @@ pub mod synonyms;
 // v0.0.257: Desktop configuration recipes (wallpaper, themes)
 pub mod desktop_recipes;
 
+// v0.0.258: Pending ticket retry queue
+pub mod pending_queue;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
