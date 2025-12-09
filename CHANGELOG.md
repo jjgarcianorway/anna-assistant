@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.180] - 2025-12-09
+
+### Changed - intake.rs Modularization
+
+**Split intake.rs (573→20 lines) into 6 domain-specific modules:**
+- `verify_plan.rs`: VerifyPlan enum and implementation (46 lines)
+- `question.rs`: ClarificationQuestion struct and builder (65 lines)
+- `result.rs`: IntakeResult and VerificationResult types (105 lines)
+- `slot.rs`: ClarificationSlot enum and generate_clarification (103 lines)
+- `analyze.rs`: analyze_intake and helper functions (152 lines)
+- `tests.rs`: Unit tests (133 lines)
+- `mod.rs`: Re-exports for backwards compatibility (20 lines)
+
+**All intake/ files under 400-line limit.**
+
 ## [0.0.179] - 2025-12-09
 
 ### Changed - transcript_render.rs Modularization
