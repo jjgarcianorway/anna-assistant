@@ -82,6 +82,10 @@ pub fn build_context(
                 .gpu
                 .as_ref()
                 .map(|g| g.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0)),
+            // v0.0.260: Add OS info
+            os_name: hardware.os_name.clone(),
+            kernel: hardware.kernel.clone(),
+            distro: hardware.distro.clone(),
         },
         probes,
     }

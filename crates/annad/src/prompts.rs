@@ -1,5 +1,6 @@
-//! Specialist prompt building for service desk.
+//! Specialist prompt building for service desk (v0.0.260).
 //!
+//! v0.0.260: Added OS info to context.
 //! COST: Enforces prompt size cap with diagnostic surfacing.
 
 use anna_shared::resource_limits::{ResourceDiagnostic, MAX_PROMPT_CHARS};
@@ -79,7 +80,7 @@ fn build_prompt_with_budget(
         }
     };
 
-    // Build base prompt (intro + hardware)
+    // Build base prompt (intro + hardware + OS)
     let mut prompt = format!(
         r#"You are Anna, a local AI assistant running on this Linux machine.
 {specialist_intro}
@@ -88,14 +89,31 @@ fn build_prompt_with_budget(
 Version: {}
 Daemon: running
 
+System:
+  - OS: {}"#,
+        context.version,
+        if context.hardware.distro.is_empty() {
+            context.hardware.os_name.clone()
+        } else {
+            context.hardware.distro.clone()
+        },
+    );
+
+    // Add kernel if available
+    if !context.hardware.kernel.is_empty() {
+        prompt.push_str(&format!("\n  - Kernel: {}", context.hardware.kernel));
+    }
+
+    prompt.push_str(&format!(
+        r#"
+
 Hardware (from system probe):
   - CPU: {} ({} cores)
   - RAM: {:.1} GB"#,
-        context.version,
         context.hardware.cpu_model,
         context.hardware.cpu_cores,
         context.hardware.ram_gb,
-    );
+    ));
 
     if let Some(gpu) = &context.hardware.gpu {
         if let Some(vram) = context.hardware.gpu_vram_gb {

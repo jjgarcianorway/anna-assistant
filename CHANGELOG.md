@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.260] - 2025-12-09
+
+### Added - OS/Kernel Info in LLM Context
+
+**Anna now knows what OS and kernel version you're running!**
+
+The LLM specialist prompt now includes:
+- **OS/Distribution** - "Arch Linux", "Ubuntu 22.04", etc.
+- **Kernel version** - "6.17.9-arch1-1"
+
+**Benefits:**
+- More accurate package manager suggestions (apt vs pacman vs dnf)
+- Kernel-specific advice and troubleshooting
+- Better understanding of system capabilities
+
+**Technical changes:**
+- `HardwareInfo` extended with `os_name`, `kernel`, `distro` fields
+- `HardwareSummary` extended for LLM context
+- `probe_hardware()` now reads from `/proc/sys/kernel/` and `/etc/os-release`
+- Specialist prompt shows System section before Hardware
+
 ## [0.0.259] - 2025-12-09
 
 ### Added - More Fast Path Query Classes

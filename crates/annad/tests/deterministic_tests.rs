@@ -252,6 +252,7 @@ fn make_hardware() -> HardwareSummary {
         ram_gb: 31.0,
         gpu: Some("NVIDIA GeForce RTX 4060 Laptop GPU".to_string()),
         gpu_vram_gb: Some(8.0),
+        ..Default::default()
     }
 }
 
@@ -450,6 +451,7 @@ fn test_empty_hardware_returns_none() {
             ram_gb: 0.0,
             gpu: None,
             gpu_vram_gb: None,
+            ..Default::default()
         },
         probes: std::collections::HashMap::new(),
     };

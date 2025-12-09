@@ -269,13 +269,22 @@ pub struct ModelInfo {
     pub pulled: bool,
 }
 
-/// Hardware information from probe
+/// Hardware information from probe (v0.0.260: added OS info)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HardwareInfo {
     pub cpu_cores: u32,
     pub cpu_model: String,
     pub ram_bytes: u64,
     pub gpu: Option<GpuInfo>,
+    /// v0.0.260: Operating system info
+    #[serde(default)]
+    pub os_name: String,
+    /// v0.0.260: Kernel version
+    #[serde(default)]
+    pub kernel: String,
+    /// v0.0.260: Distribution (e.g., "Arch Linux", "Ubuntu 22.04")
+    #[serde(default)]
+    pub distro: String,
 }
 
 /// GPU information
@@ -293,6 +302,9 @@ impl Default for HardwareInfo {
             cpu_model: "Unknown".to_string(),
             ram_bytes: 0,
             gpu: None,
+            os_name: String::new(),
+            kernel: String::new(),
+            distro: String::new(),
         }
     }
 }

@@ -1,4 +1,6 @@
-//! Runtime context types (v0.0.220).
+//! Runtime context types (v0.0.260).
+//!
+//! v0.0.260: Added OS info to hardware summary.
 
 use serde::{Deserialize, Serialize};
 
@@ -32,12 +34,26 @@ impl Default for Capabilities {
     }
 }
 
-/// Hardware summary for context
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Hardware summary for context (v0.0.260: added OS info)
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HardwareSummary {
+    #[serde(default)]
     pub cpu_model: String,
+    #[serde(default)]
     pub cpu_cores: u32,
+    #[serde(default)]
     pub ram_gb: f64,
+    #[serde(default)]
     pub gpu: Option<String>,
+    #[serde(default)]
     pub gpu_vram_gb: Option<f64>,
+    /// v0.0.260: OS name (e.g., "Linux")
+    #[serde(default)]
+    pub os_name: String,
+    /// v0.0.260: Kernel version (e.g., "6.17.9-arch1-1")
+    #[serde(default)]
+    pub kernel: String,
+    /// v0.0.260: Distribution (e.g., "Arch Linux")
+    #[serde(default)]
+    pub distro: String,
 }

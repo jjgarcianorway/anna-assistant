@@ -20,6 +20,7 @@ fn test_runtime_context_version_matches() {
             ram_gb: 16.0,
             gpu: None,
             gpu_vram_gb: None,
+            ..Default::default()
         },
         probes: HashMap::new(),
     };
@@ -39,6 +40,7 @@ fn test_hardware_summary_populated() {
         ram_gb: 31.0,
         gpu: Some("NVIDIA GeForce RTX 4060".to_string()),
         gpu_vram_gb: Some(8.0),
+        ..Default::default()
     };
 
     // All fields should be properly set
@@ -77,6 +79,7 @@ fn test_system_prompt_grounding_format() {
             ram_gb: 16.0,
             gpu: None,
             gpu_vram_gb: None,
+            ..Default::default()
         },
         probes: HashMap::new(),
     };
@@ -116,6 +119,7 @@ fn test_probe_results_in_context() {
             ram_gb: 8.0,
             gpu: None,
             gpu_vram_gb: None,
+            ..Default::default()
         },
         probes,
     };
@@ -161,6 +165,7 @@ fn test_v071_version_consistency() {
             ram_gb: 8.0,
             gpu: None,
             gpu_vram_gb: None,
+            ..Default::default()
         },
         probes: HashMap::new(),
     };

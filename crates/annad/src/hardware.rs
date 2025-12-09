@@ -1,4 +1,6 @@
-//! Hardware probing for model selection.
+//! Hardware probing for model selection (v0.0.260).
+//!
+//! v0.0.260: Added OS/kernel detection.
 
 use anna_shared::status::{GpuInfo, HardwareInfo};
 use anyhow::Result;
@@ -11,22 +13,30 @@ pub fn probe_hardware() -> Result<HardwareInfo> {
     let cpu_model = cpu_model_name();
     let ram_bytes = total_ram();
     let gpu = detect_gpu();
+    // v0.0.260: OS info
+    let (os_name, kernel) = detect_os_kernel();
+    let distro = detect_distro();
 
     let info = HardwareInfo {
         cpu_cores,
         cpu_model,
         ram_bytes,
         gpu,
+        os_name,
+        kernel,
+        distro,
     };
 
     info!(
-        "Hardware: {} cores, {} RAM, GPU: {}",
+        "Hardware: {} cores, {} RAM, GPU: {}, OS: {} ({})",
         info.cpu_cores,
         format_bytes(info.ram_bytes),
         info.gpu
             .as_ref()
             .map(|g| g.model.as_str())
-            .unwrap_or("none")
+            .unwrap_or("none"),
+        if info.distro.is_empty() { &info.os_name } else { &info.distro },
+        &info.kernel
     );
 
     Ok(info)
@@ -66,6 +76,34 @@ fn total_ram() -> u64 {
                 .map(|kb| kb * 1024) // Convert to bytes
         })
         .unwrap_or(0)
+}
+
+/// v0.0.260: Detect OS name and kernel version using uname
+fn detect_os_kernel() -> (String, String) {
+    let os_name = std::fs::read_to_string("/proc/sys/kernel/ostype")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|_| "Linux".to_string());
+
+    let kernel = std::fs::read_to_string("/proc/sys/kernel/osrelease")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+
+    (os_name, kernel)
+}
+
+/// v0.0.260: Detect Linux distribution from /etc/os-release
+fn detect_distro() -> String {
+    std::fs::read_to_string("/etc/os-release")
+        .ok()
+        .and_then(|content| {
+            // Try PRETTY_NAME first (e.g., "Arch Linux")
+            content
+                .lines()
+                .find(|line| line.starts_with("PRETTY_NAME="))
+                .and_then(|line| line.split('=').nth(1))
+                .map(|s| s.trim_matches('"').to_string())
+        })
+        .unwrap_or_default()
 }
 
 fn detect_gpu() -> Option<GpuInfo> {
@@ -220,6 +258,7 @@ mod tests {
             cpu_model: "Test".to_string(),
             ram_bytes: 4 * 1024 * 1024 * 1024,
             gpu: None,
+            ..Default::default()
         };
         assert_eq!(select_model(&hw), "qwen2.5:0.5b-instruct");
     }
@@ -231,6 +270,7 @@ mod tests {
             cpu_model: "Test".to_string(),
             ram_bytes: 16 * 1024 * 1024 * 1024,
             gpu: None,
+            ..Default::default()
         };
         assert_eq!(select_model(&hw), "qwen2.5:3b-instruct");
     }
@@ -246,6 +286,7 @@ mod tests {
                 model: "RTX 4060".to_string(),
                 vram_bytes: 8 * 1024 * 1024 * 1024,
             }),
+            ..Default::default()
         };
         assert_eq!(select_model(&hw), "qwen2.5:7b-instruct");
     }
