@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.181] - 2025-12-09
+
+### Changed - facts.rs Modularization
+
+**Split facts.rs (572→23 lines) into 5 domain-specific modules:**
+- `key.rs`: FactKey enum and Display impl (54 lines)
+- `policy.rs`: StalenessPolicy, FactLifecycle, TTL constants (68 lines)
+- `fact.rs`: Fact struct and all methods (185 lines)
+- `store.rs`: FactsStore struct and lifecycle management (259 lines)
+- `status.rs`: FactStatus enum and status method (27 lines)
+- `mod.rs`: Re-exports for backwards compatibility (23 lines)
+
+**All facts/ files under 400-line limit.**
+
 ## [0.0.180] - 2025-12-09
 
 ### Changed - intake.rs Modularization
