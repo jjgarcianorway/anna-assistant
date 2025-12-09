@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.268"
+version = "0.0.269"
 edition = "2021"
 license = "GPL-3.0"
 repository = "https://github.com/jjgarcianorway/anna-assistant"

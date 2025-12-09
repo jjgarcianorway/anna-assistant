@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.269] - 2025-12-09
+
+### Added - Intelligent Model Auto-Selection with Benchmarking
+
+**Automatic model selection based on hardware:**
+- Anna now automatically selects the best models for each role (Translator, Specialist)
+- Uses hardware detection (RAM, GPU) to filter suitable models
+- Benchmarks available models to measure tokens/sec and TTFT
+- Prefers Qwen3-VL and DeepSeek-R1 families when available
+
+**New modules and functions:**
+- `auto_select.rs` - Intelligent model selection orchestrator
+- `ollama::list_models()` - Lists all locally available Ollama models
+- `auto_select_models(ram_gb, has_gpu)` - Full auto-selection with benchmarking
+- `quick_select_models(ram_gb)` - Fast selection without benchmarking (for quick startup)
+
+**Smart model pulling:**
+- Identifies which models are missing from the catalog
+- Automatically pulls best models for each role based on hardware constraints
+- Prefers larger/better models when RAM allows (DeepSeek-R1:7b, Qwen3-VL:4b)
+- Falls back to config defaults if auto-selection fails
+
+**Server initialization improvements:**
+- New "selecting_models" LLM phase during initialization
+- Benchmark results stored in state for each model
+- Models pulled by Anna marked in ledger for status display
+
+**Files changed:**
+- New: `annad/src/auto_select.rs` - Auto-selection module
+- `annad/src/ollama.rs` - Added `list_models()` function
+- `annad/src/server.rs` - Integrated auto-selection in initialization
+- `annad/src/lib.rs` - Export auto_select module
+
 ## [0.0.268] - 2025-12-09
 
 ### Added - Query Scenario Test Framework & Routing Improvements

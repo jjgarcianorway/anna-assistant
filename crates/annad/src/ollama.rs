@@ -302,3 +302,34 @@ pub async fn benchmark(model: &str) -> Result<f64> {
     info!("Benchmark: ~{:.1} tokens/sec", tokens_per_sec);
     Ok(tokens_per_sec)
 }
+
+/// List all locally available models from Ollama
+/// v0.0.269: Added for intelligent model auto-selection
+pub async fn list_models() -> Result<Vec<String>> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()?;
+
+    let response = client
+        .get(format!("{}/api/tags", OLLAMA_API))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(anyhow!("Failed to list models: HTTP {}", response.status()));
+    }
+
+    let json: serde_json::Value = response.json().await?;
+    let models = json
+        .get("models")
+        .and_then(|m| m.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("name").and_then(|n| n.as_str()))
+                .map(|s| s.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(models)
+}

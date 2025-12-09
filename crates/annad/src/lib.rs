@@ -24,6 +24,7 @@
 
 pub mod action_handlers;
 pub mod answers;
+pub mod auto_select;
 pub mod benchmark;
 pub mod benchmark_scheduler;
 pub mod best_effort_summary;

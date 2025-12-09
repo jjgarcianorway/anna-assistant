@@ -1,5 +1,6 @@
 //! Unix socket server for annad.
 //! v0.0.159: Update check loop extracted to update_loop.rs.
+//! v0.0.269: Intelligent model auto-selection with benchmarking.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -11,8 +12,9 @@ use anna_shared::{SOCKET_PATH, STATE_DIR};
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
+use crate::auto_select;
 use crate::hardware::probe_hardware;
 use crate::health::health_check_loop;
 use crate::ollama;
@@ -163,28 +165,69 @@ impl Server {
             state.set_benchmark_result(cpu_status, ram_status, gpu_status);
         }
 
-        // Get required models from config
-        let required_models = {
+        // Get hardware info for model selection
+        let (available_ram_gb, has_gpu) = {
             let state = self.state.read().await;
-            state.config.required_models()
+            let ram_gb = state.hardware.ram_bytes as f32 / (1024.0 * 1024.0 * 1024.0);
+            let has_gpu = state.hardware.gpu.is_some();
+            (ram_gb, has_gpu)
         };
 
-        // Get model roles from config
-        let (translator_model, specialist_model, supervisor_model) = {
-            let state = self.state.read().await;
-            (
-                state.config.llm.translator_model.clone(),
-                state.config.llm.specialist_model.clone(),
-                state.config.llm.supervisor_model.clone(),
-            )
-        };
+        // v0.0.269: Intelligent model auto-selection with benchmarking
+        {
+            let mut state = self.state.write().await;
+            state.set_llm_phase("selecting_models");
+        }
 
-        // Phase: Pulling models
+        // Try auto-selection first, fall back to config defaults
+        let (translator_model, specialist_model) =
+            match auto_select::auto_select_models(available_ram_gb, has_gpu).await {
+                Ok(result) => {
+                    // Record models pulled by Anna
+                    for model_name in &result.models_pulled {
+                        let mut state = self.state.write().await;
+                        state.ledger.add(LedgerEntry::new(
+                            LedgerEntryKind::ModelPulled,
+                            model_name.clone(),
+                            true, // Pulled by Anna (not pre-existing)
+                        ));
+                    }
+
+                    // Update state with benchmark results
+                    {
+                        let mut state = self.state.write().await;
+                        for (model, bench) in &result.benchmarks {
+                            state.add_model(
+                                model,
+                                "benchmarked",
+                                bench.tokens_per_sec as u64,
+                            );
+                        }
+                    }
+
+                    info!(
+                        "Auto-selected: translator={} specialist={}",
+                        result.translator.model, result.specialist.model
+                    );
+                    (result.translator.model, result.specialist.model)
+                }
+                Err(e) => {
+                    warn!("Auto-selection failed: {}, using config defaults", e);
+                    let state = self.state.read().await;
+                    (
+                        state.config.llm.translator_model.clone(),
+                        state.config.llm.specialist_model.clone(),
+                    )
+                }
+            };
+
+        // Phase: Pulling models (ensure selected models are available)
         {
             let mut state = self.state.write().await;
             state.set_llm_phase("pulling_models");
         }
 
+        let required_models = vec![translator_model.clone(), specialist_model.clone()];
         for model_name in &required_models {
             if !ollama::has_model(model_name).await {
                 info!("Pulling model: {}", model_name);
@@ -193,12 +236,15 @@ impl Server {
                 state.ledger.add(LedgerEntry::new(
                     LedgerEntryKind::ModelPulled,
                     model_name.clone(),
-                    false,
+                    true,
                 ));
             } else {
                 info!("Model already available: {}", model_name);
             }
         }
+
+        // Use translator as supervisor (fast model)
+        let supervisor_model = translator_model.clone();
 
         // Add models to status with their roles
         {
