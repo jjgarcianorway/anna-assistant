@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.178] - 2025-12-09
+
+### Changed - transcript.rs Modularization
+
+**Split transcript.rs (660→19 lines) into 5 domain-specific modules:**
+- `actor.rs`: Actor enum (38 lines)
+- `outcome.rs`: StageOutcome enum (97 lines)
+- `event_kind.rs`: TranscriptEventKind enum (210 lines)
+- `event.rs`: TranscriptEvent struct and constructors (265 lines)
+- `core.rs`: Transcript container struct (65 lines)
+- `mod.rs`: Re-exports for backwards compatibility (19 lines)
+
+**All transcript/ files under 400-line limit.**
+
 ## [0.0.177] - 2025-12-09
 
 ### Changed - recipe.rs Modularization
