@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.207] - 2025-12-09
+
+### Changed - health_brief.rs Modularization
+
+**Split health_brief.rs (449→18 lines) into 4 domain-specific modules:**
+- `types.rs`: BriefSeverity, BriefItemKind, BriefItem (102 lines)
+- `severity.rs`: disk_severity, memory_severity (25 lines)
+- `brief.rs`: HealthBrief struct and methods (176 lines)
+- `tests.rs`: Unit tests (113 lines)
+- `mod.rs`: Re-exports for backwards compatibility (18 lines)
+
+**All health_brief/ files under 400-line limit.**
+
 ## [0.0.206] - 2025-12-09
 
 ### Changed - email.rs Modularization
