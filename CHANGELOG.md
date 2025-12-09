@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.199] - 2025-12-09
+
+### Changed - budget.rs Modularization
+
+**Split budget.rs (484→23 lines) into 4 domain-specific modules:**
+- `types.rs`: Stage enum, StageTiming, constants (58 lines)
+- `probe.rs`: ProbeBudget, ProbeBudgetCheck (79 lines)
+- `stage.rs`: StageBudget, BudgetCheck, BudgetEnforcer (219 lines)
+- `llm.rs`: LlmBudget, LlmFallback, check_llm_fallback (121 lines)
+- `mod.rs`: Re-exports for backwards compatibility (23 lines)
+
+**All budget/ files under 400-line limit.**
+
 ## [0.0.198] - 2025-12-09
 
 ### Changed - verify.rs Modularization
