@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.250] - 2025-12-09
+
+### Changed - RPG-Style Stats Display
+
+**`annactl stats` now shows an RPG-style gamified dashboard.**
+
+New sectioned format with `[profile]`, `[throughput]`, `[quality]`, `[learning]`,
+`[team leaderboard]`, `[teams]`, `[achievements]` providing a gamified view of
+your Service Desk activity.
+
+**Sample output:**
+```
+──────────────────────────────────────────────────────────────────────────────
+Anna Service Desk  |  Junior Sysadmin  |  Level 3
+──────────────────────────────────────────────────────────────────────────────
+
+[profile]
+  title                 Junior Sysadmin
+  level                 3
+  xp                    450 / 600  [████████░░░░░░░░░░░░]
+  xp_to_next            150
+  tenure                2 weeks
+  current_streak        5 days
+
+[throughput]
+  total_cases           42
+  resolved_ok           38
+  failed                2
+  timeouts              2
+  ...
+```
+
+**Changes:**
+- `stats_display_v2.rs`: New module implementing RPG-style display
+- `stats_display.rs`: Simplified to delegate to v2 display
+- `main.rs`: Added stats_display_v2 module
+
 ## [0.0.249] - 2025-12-09
 
 ### Changed - Rich Status Display
