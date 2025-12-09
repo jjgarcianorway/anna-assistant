@@ -69,6 +69,21 @@ impl CommsGenerator {
                 format!("{}, got a memory/CPU query. {}", junior.display_name, short_id),
                 format!("{}, resource usage ticket. {}", junior.display_name, short_id),
             ],
+            Team::Services => vec![
+                format!("Hey {}! Service question. Case {}", junior.display_name, short_id),
+                format!("{}, systemd ticket for you. {}", junior.display_name, short_id),
+                format!("{}, got a services request. {}", junior.display_name, short_id),
+            ],
+            Team::Hardware => vec![
+                format!("Hey {}! Hardware question. Case {}", junior.display_name, short_id),
+                format!("{}, device ticket coming in. {}", junior.display_name, short_id),
+                format!("{}, got a hardware query. {}", junior.display_name, short_id),
+            ],
+            Team::Logs => vec![
+                format!("Hey {}! Logs question. Case {}", junior.display_name, short_id),
+                format!("{}, journal query for you. {}", junior.display_name, short_id),
+                format!("{}, got a logs request. {}", junior.display_name, short_id),
+            ],
             _ => vec![
                 format!("Hey {}! New case {} coming your way.", junior.display_name, short_id),
                 format!("{}, got a ticket for you. Case {}", junior.display_name, short_id),
@@ -108,6 +123,18 @@ impl CommsGenerator {
                 format!("Checking resource usage... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
                 format!("Running performance checks... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
                 format!("Gathering memory/CPU data... {} check{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+            ],
+            Team::Services => vec![
+                format!("Checking service status... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!("Querying systemd... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+            ],
+            Team::Hardware => vec![
+                format!("Scanning hardware... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!("Checking device info... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+            ],
+            Team::Logs => vec![
+                format!("Searching logs... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!("Querying journal... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
             ],
             _ => vec![
                 format!("Running {} check{}...", probe_count, if probe_count == 1 { "" } else { "s" }),
@@ -167,6 +194,21 @@ impl CommsGenerator {
                 "Checking memory/CPU numbers...",
                 "Verifying resource calculations...",
                 "Looking at the load data...",
+            ],
+            Team::Services => vec![
+                "Checking service states...",
+                "Verifying unit status...",
+                "Looking at systemd output...",
+            ],
+            Team::Hardware => vec![
+                "Checking device info...",
+                "Verifying hardware data...",
+                "Looking at the specs...",
+            ],
+            Team::Logs => vec![
+                "Checking log entries...",
+                "Verifying journal output...",
+                "Looking for patterns...",
             ],
             _ => vec![
                 "Checking the response...",
@@ -265,7 +307,7 @@ impl CommsGenerator {
 }
 
 /// Determine team from domain string
-/// v0.0.153: Added Performance team routing
+/// v0.0.154: Added Services, Hardware, Logs team routing
 pub fn team_from_domain(domain: &str) -> Team {
     match domain.to_lowercase().as_str() {
         "storage" => Team::Storage,
@@ -273,7 +315,10 @@ pub fn team_from_domain(domain: &str) -> Team {
         "security" => Team::Security,
         "performance" => Team::Performance,
         "system" => Team::Performance, // System queries often about performance
-        "packages" => Team::Desktop,   // Package management is desktop team
+        "services" => Team::Services,
+        "hardware" => Team::Hardware,
+        "logs" => Team::Logs,
+        "packages" => Team::Desktop, // Package management is desktop team
         "desktop" => Team::Desktop,
         _ => Team::Desktop, // Default to desktop for general queries
     }
@@ -298,6 +343,9 @@ mod tests {
         assert_eq!(team_from_domain("NETWORK"), Team::Network);
         assert_eq!(team_from_domain("performance"), Team::Performance);
         assert_eq!(team_from_domain("system"), Team::Performance);
+        assert_eq!(team_from_domain("services"), Team::Services);
+        assert_eq!(team_from_domain("hardware"), Team::Hardware);
+        assert_eq!(team_from_domain("logs"), Team::Logs);
         assert_eq!(team_from_domain("unknown"), Team::Desktop);
     }
 }

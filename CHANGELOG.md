@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.154] - 2025-12-09
+
+### Added - Complete Team Support in Internal Comms
+
+**Extended fly-on-wall experience to all teams:**
+
+- **Services team** (Jon & Daniel):
+  - Dispatch: "Service question coming in", "systemd ticket for you"
+  - Probing: "Checking service status...", "Querying systemd..."
+  - Review: "Checking service states...", "Verifying unit status..."
+
+- **Hardware team** (Nora & Victor):
+  - Dispatch: "Hardware question coming in", "device ticket for you"
+  - Probing: "Scanning hardware...", "Checking device info..."
+  - Review: "Checking device info...", "Verifying hardware data..."
+
+- **Logs team** (Mina & Ingrid):
+  - Dispatch: "Logs question coming in", "journal query for you"
+  - Probing: "Searching logs...", "Querying journal..."
+  - Review: "Checking log entries...", "Verifying journal output..."
+
+**Updated domain routing:**
+- `team_from_domain("services")` → Services team
+- `team_from_domain("hardware")` → Hardware team
+- `team_from_domain("logs")` → Logs team
+- `team_from_domain("packages")` → Desktop team (package management)
+
+**All 8 teams now fully supported:**
+Storage, Network, Security, Performance, Services, Hardware, Logs, Desktop
+
 ## [0.0.153] - 2025-12-09
 
 ### Added - Performance Team Support
