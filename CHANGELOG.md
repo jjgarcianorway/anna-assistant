@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.247] - 2025-12-09
+
+### Fixed - Real-Time LLM Streaming
+
+**Critical UX fix: You can now see tokens as they stream!**
+
+Previously, the user stared at a blank screen for 40+ seconds waiting for
+the LLM to respond. Now you see each token as it's generated.
+
+**Root Cause:**
+- `ProgressTracker` stored streaming tokens in its own Arc<Mutex>
+- Daemon's RPC handler read from a separate `progress_events` vector
+- These two were never synchronized during streaming - only after completion
+
+**The Fix:**
+- `ProgressTracker` now accepts shared streaming events from daemon state
+- `handle_progress` RPC merges live streaming events with stored events
+- Tokens pushed during LLM generation are immediately visible to polling client
+
+**Changes:**
+- `state.rs`: Added `streaming_events: Arc<Mutex<Vec<ProgressEvent>>>` to daemon state
+- `progress_tracker.rs`: Added `with_streaming_events()` constructor
+- `handlers.rs`: `handle_progress` now merges live streaming events
+- `llm_request.rs`: Creates ProgressTracker with shared streaming events
+
+**Result:**
+Users now see word-by-word output during LLM calls instead of waiting silently.
+
 ## [0.0.246] - 2025-12-09
 
 ### Added - Deeper Context Memory

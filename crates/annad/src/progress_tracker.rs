@@ -1,6 +1,7 @@
 //! Progress tracker with transcript building for request handling.
 //!
 //! v0.0.241: Added shared events for streaming token support.
+//! v0.0.247: Streaming events shared with daemon state for live polling.
 
 use anna_shared::progress::{ProgressEvent, RequestStage};
 use anna_shared::transcript::{Actor, StageOutcome, Transcript, TranscriptEvent};
@@ -13,6 +14,7 @@ use tracing::info;
 pub struct ProgressTracker {
     events: Vec<ProgressEvent>,
     /// Shared events from streaming (can be pushed to from callbacks)
+    /// v0.0.247: This Arc is shared with daemon state for live polling
     streaming_events: Arc<Mutex<Vec<ProgressEvent>>>,
     transcript: Transcript,
     start_time: Instant,
@@ -30,6 +32,22 @@ impl ProgressTracker {
         Self {
             events: Vec::new(),
             streaming_events: Arc::new(Mutex::new(Vec::new())),
+            transcript: Transcript::new(),
+            start_time: Instant::now(),
+            current_stage: None,
+        }
+    }
+
+    /// v0.0.247: Create with shared streaming events from daemon state
+    /// This allows RPC handler to poll streaming events in real-time
+    pub fn with_streaming_events(streaming_events: Arc<Mutex<Vec<ProgressEvent>>>) -> Self {
+        // Clear any stale events from previous request
+        if let Ok(mut events) = streaming_events.lock() {
+            events.clear();
+        }
+        Self {
+            events: Vec::new(),
+            streaming_events,
             transcript: Transcript::new(),
             start_time: Instant::now(),
             current_stage: None,

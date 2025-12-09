@@ -9,6 +9,7 @@ use std::time::Instant;
 use anna_shared::ledger::Ledger;
 use anna_shared::progress::ProgressEvent;
 use anna_shared::recipe_index::RecipeIndex;
+use std::sync::Mutex;
 use anna_shared::rpc::ProbeResult;
 use anna_shared::stats::GlobalStats;
 use anna_shared::status::{
@@ -42,6 +43,8 @@ pub struct DaemonStateInner {
     pub probe_cache: HashMap<String, CachedProbe>,
     /// Progress events for current/last request (for polling)
     pub progress_events: Vec<ProgressEvent>,
+    /// v0.0.247: Live streaming events (shared with ProgressTracker for real-time access)
+    pub streaming_events: Arc<Mutex<Vec<ProgressEvent>>>,
     /// Configuration loaded from file
     pub config: Config,
     /// Per-stage latency statistics
@@ -106,6 +109,7 @@ impl DaemonStateInner {
             last_error: None,
             probe_cache: HashMap::new(),
             progress_events: Vec::new(),
+            streaming_events: Arc::new(Mutex::new(Vec::new())),
             config: Config::load(),
             latency: PipelineLatency::default(),
             stats: GlobalStats::new(),

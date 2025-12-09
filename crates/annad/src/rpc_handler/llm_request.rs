@@ -1,10 +1,13 @@
 //! LLM request handling (v0.0.200).
+//!
+//! v0.0.247: Streaming events shared with daemon state for live polling.
 
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{RequestParams, RpcResponse};
 use anna_shared::status::LlmState;
 use anna_shared::trace::SpecialistOutcome;
 use anna_shared::transcript::TranscriptEvent;
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
 use tracing::{info, warn};
@@ -70,7 +73,13 @@ async fn handle_llm_request_inner(
     request_id: String,
 ) -> RpcResponse {
     let request_start = Instant::now();
-    let mut progress = ProgressTracker::new();
+
+    // v0.0.247: Get shared streaming events from state for live polling
+    let streaming_events = {
+        let state = state.read().await;
+        Arc::clone(&state.streaming_events)
+    };
+    let mut progress = ProgressTracker::with_streaming_events(streaming_events);
 
     // Get config, models, and hardware from state
     let (llm_config, translator_model, specialist_model, hw_cores, hw_ram_gb, has_gpu, debug_mode) = {
