@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.174] - 2025-12-09
+
+### Changed - Query Classify Modularization
+
+**Split query_classify.rs (1378→78 lines) into 10 domain-specific modules:**
+- `helpers.rs`: strip_greetings helper (31 lines)
+- `classify_core.rs`: Help, meta, triage, health summary (119 lines)
+- `classify_hardware.rs`: CPU, GPU, memory, disk, audio, sensors (241 lines)
+- `classify_network.rs`: Interfaces, ports, DNS, gateway (133 lines)
+- `classify_services.rs`: Systemd, docker, crontab, timers (174 lines)
+- `classify_system.rs`: Uptime, users, hostname, OS, architecture (294 lines)
+- `classify_storage.rs`: Block devices, LVM, RAID, ZFS, mounts (93 lines)
+- `classify_security.rs`: Firewall, SELinux, SSH, logins (121 lines)
+- `classify_config.rs`: Editor, shell, git, packages (218 lines)
+- `mod.rs`: Main dispatcher with priority-ordered classification (78 lines)
+
+**All query_classify/ files under 400-line limit.**
+
 ## [0.0.173] - 2025-12-09
 
 ### Changed - Parsers Modularization
