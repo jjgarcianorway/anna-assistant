@@ -14,7 +14,7 @@ use std::time::Instant;
 use tokio::time::{timeout, Duration};
 use tracing::{info, warn};
 
-use crate::comms::{team_from_domain, CommsGenerator};
+use crate::comms::{team_from_query_class, CommsGenerator};
 use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
 use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
 use crate::probe_stage::{check_evidence_validity, execute_probe_stage};
@@ -82,6 +82,12 @@ async fn handle_llm_request_inner(
 ) -> RpcResponse {
     let request_start = Instant::now();
 
+    // v0.0.266: Clear old progress events BEFORE creating new tracker to prevent leaking
+    // This fixes the bug where events from previous request appeared at start of new request
+    {
+        state.write().await.progress_events.clear();
+    }
+
     // v0.0.247: Get shared streaming events from state for live polling
     let streaming_events = {
         let state = state.read().await;
@@ -117,9 +123,7 @@ async fn handle_llm_request_inner(
 
     let query = &params.prompt;
     progress.add_user_message(query);
-    {
-        state.write().await.progress_events.clear();
-    }
+    // v0.0.266: progress_events.clear() moved to start of function to prevent context leaking
 
     // Step 0: Fast path check (v0.0.39) - answer health/status queries without LLM
     let fast_path_config = {
@@ -214,7 +218,8 @@ async fn handle_llm_request_inner(
 
     // v0.0.148: Create comms generator for fly-on-wall experience
     // v0.0.254: Enhanced with LLM-powered dialogue
-    let team = team_from_domain(&classified_domain.to_string());
+    // v0.0.266: Use query class for team routing (ConfigureEditor -> Desktop team)
+    let team = team_from_query_class(&det_route.class.to_string(), &classified_domain.to_string());
     let mut comms = CommsGenerator::new(team, &request_id)
         .with_query(query)
         .with_model(&translator_model);

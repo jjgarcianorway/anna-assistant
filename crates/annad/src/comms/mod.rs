@@ -15,4 +15,4 @@ mod tests;
 
 // Re-export main types and functions
 pub use generator::CommsGenerator;
-pub use routing::team_from_domain;
+pub use routing::{team_from_domain, team_from_query_class};

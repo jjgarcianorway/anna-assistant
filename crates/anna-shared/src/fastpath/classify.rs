@@ -59,10 +59,12 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
     }
 
     // v0.0.259: CpuUsage: "cpu usage", "cpu load", "processor"
+    // v0.0.266: Added "system load" pattern
     if stripped.contains("cpu usage")
         || stripped.contains("cpu load")
         || stripped.contains("processor usage")
         || stripped.contains("processor load")
+        || stripped.contains("system load")
         || stripped.contains("how busy is") && stripped.contains("cpu")
         || stripped.contains("load average")
     {

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.266] - 2025-12-09
 
-### Added - Daemon Snapshot Collection
+### Added - Daemon Snapshot Collection & Bug Fixes
 
 **Critical fix for fast path queries!**
 
@@ -23,10 +23,20 @@ The daemon now collects system snapshots every 60 seconds instead of relying on 
 - Load averages (1, 5, 15 min)
 - Network status (IP addresses, connection state)
 
+**Bug fixes:**
+1. **Fixed query context leaking between requests** - Internal comms from previous request no longer appear at start of new request. Progress events are now cleared at the very start of request handling.
+
+2. **Fixed team routing for config queries** - ConfigureEditor, ConfigureShell, ConfigureGit now correctly route to Desktop team (Sofia) instead of Performance team (Kari). New `team_from_query_class` function overrides domain-based routing for config classes.
+
+3. **Added "system load" to fast path patterns** - Queries like "what is the system load" now use fast path for instant answers.
+
 **Files changed:**
 - `annad/src/snapshot_loop.rs` - New module for periodic snapshot collection
 - `annad/src/server.rs` - Spawns snapshot loop on daemon start
 - `annad/src/lib.rs` - Exports snapshot_loop module
+- `annad/src/rpc_handler/llm_request.rs` - Clear progress events earlier to prevent leak
+- `annad/src/comms/routing.rs` - New `team_from_query_class` function for config routing
+- `anna-shared/src/fastpath/classify.rs` - Added "system load" pattern to CpuUsage
 
 ## [0.0.265] - 2025-12-09
 
