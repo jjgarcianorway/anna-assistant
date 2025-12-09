@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.230] - 2025-12-09
+
+### Changed - package_recipes.rs Modularization
+
+**Split package_recipes.rs (378→24 lines) into 4 domain-specific modules:**
+- `types.rs`: PackageManager, PackageCategory, PackageRecipe structs (181 lines)
+- `catalog.rs`: common_packages with built-in recipes (109 lines)
+- `search.rs`: find_recipe, confirmation_prompt (27 lines)
+- `tests.rs`: Unit tests (39 lines)
+- `mod.rs`: Re-exports for backwards compatibility (24 lines)
+
+**All package_recipes/ files under 400-line limit per CLAUDE.md policy.**
+
 ## [0.0.229] - 2025-12-09
 
 ### Changed - brief.rs Modularization
