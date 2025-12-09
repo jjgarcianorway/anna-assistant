@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.244] - 2025-12-09
+
+### Added - Proactive Health Monitoring Alerts
+
+**Health-based tips surface during REPL idle time:**
+- Staff personalities now deliver proactive alerts about system issues
+- Tips generated from actual health deltas (disk, memory, services)
+- Each alert comes from the appropriate team member with their personality
+
+**Alert Types:**
+- **Critical disk** (95%+): Senior Storage (Ines) alerts immediately
+- **Warning disk** (80%+): Junior Storage (Lars) gives heads-up
+- **Critical memory** (90%+): Senior Performance (Mateo) recommends action
+- **Warning memory** (80%+): Junior Performance (Kari) mentions htop
+- **Failed services**: Senior Services (Mina) reports container issues
+- **Service recovered**: Good news alerts with lower priority
+
+**Smart Filtering:**
+- Small changes (< 10%) don't generate tips (anti-spam)
+- Tips include actionable suggestions ("Ask me: ...")
+- Priority-based queue ensures critical issues surface first
+- History tracking prevents repetitive tips
+
+**New Module:**
+- `health_tips.rs` - Converts system state to personalized idle tips
+
 ## [0.0.243] - 2025-12-09
 
 ### Added - Staff Personality System
