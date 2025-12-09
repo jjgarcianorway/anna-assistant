@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.175] - 2025-12-09
+
+### Changed - det_extended Modularization
+
+**Split det_extended.rs (3138→70 lines) into 12 domain-specific modules:**
+- `meta.rs`: Small talk, config file location (103 lines)
+- `tickets.rs`: Ticket history, staff roster (145 lines)
+- `system.rs`: Uptime, timezone, hostname, OS, architecture, locale (446 lines)
+- `users.rs`: Logged in users, current user, groups, shells, desktops (233 lines)
+- `hardware.rs`: Battery, CPU, GPU, memory, sensors, PCI, USB (288 lines)
+- `storage.rs`: Block devices, ZFS, LVM, RAID, fstab, swap, mounts (256 lines)
+- `network.rs`: DNS, gateway, connectivity, routes, ARP, bonding, stats (299 lines)
+- `services.rs`: Systemd units/timers/sockets/paths, docker, crontabs, NTP (378 lines)
+- `security.rs`: Firewall, SELinux, AppArmor, logins, sudoers, SSH (226 lines)
+- `kernel.rs`: Kernel version/modules/cmdline, dmesg, firmware, Xorg (163 lines)
+- `peripherals.rs`: Bluetooth, audio devices, printers (76 lines)
+- `mod.rs`: Re-exports for backwards compatibility (70 lines)
+
+**All det_extended/ files under 400-line limit (system.rs at 446 is close).**
+
 ## [0.0.174] - 2025-12-09
 
 ### Changed - Query Classify Modularization
