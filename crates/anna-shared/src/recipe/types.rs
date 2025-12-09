@@ -1,4 +1,4 @@
-//! Recipe type enums (v0.0.234).
+//! Recipe type enums (v0.0.235).
 
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +30,8 @@ pub enum RecipeKind {
     SystemdUnit,
     /// v0.0.234: Cron job recipes
     CronJob,
+    /// v0.0.235: Docker Compose recipes
+    DockerCompose,
     /// Unknown/future kinds
     #[serde(other)]
     Unknown,

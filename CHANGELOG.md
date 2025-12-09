@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.235] - 2025-12-09
+
+### Added - Docker Compose Recipes
+
+**New docker_recipes module with 10 built-in recipes:**
+- `CreateCompose`: Create a docker-compose.yml file with templates
+- `StartServices`: Start Docker Compose services
+- `StopServices`: Stop Docker Compose services
+- `ViewLogs`: View Docker container logs
+- `ListContainers`: List running containers
+- `BuildImages`: Build Docker images
+- `PullImages`: Pull/update Docker images
+- `ExecContainer`: Execute commands in containers
+- `Cleanup`: Cleanup Docker resources (prune)
+- `Debug`: Debug Docker issues
+
+**Module structure:**
+- `types.rs`: DockerFeature, DockerRecipe (108 lines)
+- `recipes.rs`: Built-in recipe definitions (285 lines)
+- `matcher.rs`: Query matching logic (81 lines)
+- `tests.rs`: Unit tests (72 lines)
+- `mod.rs`: Re-exports (14 lines)
+
+**Integration:**
+- Added RecipeKind::DockerCompose variant
+- Integrated with recipe_fast_path for query matching
+- Added to knowledge/conversion.rs for tagging
+
 ## [0.0.234] - 2025-12-09
 
 ### Added - Cron Job Recipes

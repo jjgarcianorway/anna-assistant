@@ -1,10 +1,12 @@
-//! Built-in recipe matchers for shell, git, SSH, systemd, and cron configurations.
+//! Built-in recipe matchers for shell, git, SSH, systemd, cron, and Docker configurations.
 //!
 //! Extracted from recipe_fast_path.rs (v0.0.163) for modularization.
 //! v0.0.233: Added systemd unit file recipes.
 //! v0.0.234: Added cron job recipes.
+//! v0.0.235: Added Docker Compose recipes.
 
 use anna_shared::cron_recipes;
+use anna_shared::docker_recipes;
 use anna_shared::git_recipes;
 use anna_shared::recipe::{Recipe, RecipeAction, RecipeKind};
 use anna_shared::shell_recipes;
@@ -344,6 +346,64 @@ pub fn check_cron_recipes(query: &str) -> Option<RecipeFastPathResult> {
         matched_tokens: vec![
             "cron".to_string(),
             cron_recipe.feature.display_name().to_string(),
+        ],
+        skip_llm: true,
+    })
+}
+
+/// Check query against built-in Docker recipes (v0.0.235)
+pub fn check_docker_recipes(query: &str) -> Option<RecipeFastPathResult> {
+    // Use the Docker recipe matcher
+    let docker_recipe = docker_recipes::match_query(query)?;
+
+    // Build a synthetic Recipe from the Docker recipe
+    let synthetic_recipe = Recipe {
+        id: format!("docker-{:?}", docker_recipe.feature),
+        signature: anna_shared::recipe::RecipeSignature::new(
+            "system",
+            "request",
+            "docker_compose",
+            query,
+        ),
+        team: anna_shared::teams::Team::Services,
+        risk_level: anna_shared::ticket::RiskLevel::LowRiskChange,
+        required_evidence_kinds: vec![],
+        probe_sequence: vec![],
+        answer_template: docker_recipe.answer_template.clone(),
+        created_at: 0,
+        success_count: 100, // Built-in = mature
+        reliability_score: 95,
+        kind: RecipeKind::DockerCompose,
+        target: None,
+        action: RecipeAction::None,
+        rollback: None,
+        clarification_slots: vec![],
+        default_question_id: None,
+        populates_facts: vec![],
+        intent_tags: docker_recipe
+            .feature
+            .keywords()
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
+        targets: vec!["docker".to_string(), "compose".to_string()],
+        preconditions: vec![],
+        clarify_prereqs: vec![],
+    };
+
+    info!(
+        "Docker recipe match: {}",
+        docker_recipe.feature.display_name()
+    );
+
+    Some(RecipeFastPathResult {
+        matched: true,
+        ticket: Some(ticket_from_recipe(&synthetic_recipe)),
+        recipe: Some(synthetic_recipe),
+        score: 90,
+        matched_tokens: vec![
+            "docker".to_string(),
+            docker_recipe.feature.display_name().to_string(),
         ],
         skip_llm: true,
     })

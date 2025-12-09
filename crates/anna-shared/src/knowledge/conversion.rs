@@ -170,6 +170,11 @@ fn build_tags(recipe: &Recipe) -> Vec<String> {
             tags.push("schedule".to_string());
             tags.push("job".to_string());
         }
+        RecipeKind::DockerCompose => {
+            tags.push("docker".to_string());
+            tags.push("compose".to_string());
+            tags.push("container".to_string());
+        }
         RecipeKind::Unknown => {}
     }
 
