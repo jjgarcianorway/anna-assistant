@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.170] - 2025-12-09
+
+### Changed - Enhanced Staff Display in Theatre Mode
+
+**Staff name and position now displayed prominently:**
+- Footer now shows "Handled by: Name (Role)" prominently
+- Staff specializations shown on separate line for clarity
+- Case number moved to its own line
+- Colors improved for better visibility
+
+Example output:
+```
+Handled by: Sofia (Desktop Administrator)
+  Specializes in: vim, bash, dotfiles
+Case: CN-0001-09122025
+```
+
 ## [0.0.169] - 2025-12-09
 
 ### Fixed - Gamification Stats Persistence

@@ -249,43 +249,55 @@ fn print_change_summary(result: &ServiceDeskResult) {
 /// Print the footer
 /// v0.0.106: Shows case number and assigned staff when available
 /// v0.0.109: Shows staff specializations
+/// v0.0.170: Enhanced staff display with name and position prominently
 fn print_footer(result: &ServiceDeskResult) {
     let rel_color = reliability_color(result.reliability_score);
     let confidence_note = it_confidence(result.reliability_score);
     let domain_str = result.domain.to_string();
     let domain_context = it_domain_context(&domain_str);
 
-    // v0.0.106: Case number header with staff info
-    // v0.0.109: Enhanced with specializations
-    if let Some(ref case_num) = result.case_number {
-        let staff_info = result
-            .assigned_staff
-            .as_ref()
-            .map(|s| format!(" ({})", s))
-            .unwrap_or_default();
-        println!(
-            "{}{}{}{} {}",
-            colors::CYAN,
-            case_num,
-            colors::RESET,
-            colors::DIM,
-            staff_info
-        );
-
-        // v0.0.109: Show specializations if we have staff_id
-        if let Some(ref staff_id) = result.staff_id {
-            if let Some(person) = person_by_id(staff_id) {
-                if !person.specializations.is_empty() {
-                    let specs = person.specialization_str();
-                    println!(
-                        "{}  Specializes in: {}{}",
-                        colors::DIM,
-                        specs,
-                        colors::RESET
-                    );
-                }
+    // v0.0.170: Show staff member who handled the request with name and role prominently
+    if let Some(ref staff_id) = result.staff_id {
+        if let Some(person) = person_by_id(staff_id) {
+            println!(
+                "{}Handled by:{} {}{} ({}){}",
+                colors::DIM,
+                colors::RESET,
+                colors::WARN,
+                person.display_name,
+                person.role_title,
+                colors::RESET
+            );
+            if !person.specializations.is_empty() {
+                let specs = person.specialization_str();
+                println!(
+                    "{}  Specializes in: {}{}",
+                    colors::DIM,
+                    specs,
+                    colors::RESET
+                );
             }
         }
+    } else if let Some(ref assigned) = result.assigned_staff {
+        // Fallback to assigned_staff string if no staff_id
+        println!(
+            "{}Handled by:{} {}{}{}",
+            colors::DIM,
+            colors::RESET,
+            colors::WARN,
+            assigned,
+            colors::RESET
+        );
+    }
+
+    // v0.0.106: Case number on separate line
+    if let Some(ref case_num) = result.case_number {
+        println!(
+            "{}Case: {}{}",
+            colors::DIM,
+            case_num,
+            colors::RESET
+        );
     }
 
     // Evidence source
