@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.212] - 2025-12-09
+
+### Changed - det_extended/system.rs Modularization
+
+**Split det_extended/system.rs (445→21 lines) into 7 domain-specific modules:**
+- `packages.rs`: answer_package_updates (51 lines)
+- `time.rs`: answer_timezone_info, answer_system_uptime, answer_last_boot (99 lines)
+- `host.rs`: answer_hostname, answer_os_info, answer_system_architecture (102 lines)
+- `resources.rs`: answer_swap_info, answer_system_load, answer_open_files (83 lines)
+- `processes.rs`: answer_process_tree (41 lines)
+- `locale.rs`: answer_system_locale (50 lines)
+- `diagnostics.rs`: answer_virtualization_info, answer_coredump_list, answer_tmp_files (72 lines)
+- `mod.rs`: Re-exports for backwards compatibility (21 lines)
+
+**All system/ files under 400-line limit.**
+
 ## [0.0.211] - 2025-12-09
 
 ### Changed - status_snapshot.rs Modularization
