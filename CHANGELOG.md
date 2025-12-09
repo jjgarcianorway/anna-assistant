@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.243] - 2025-12-09
+
+### Added - Staff Personality System
+
+**Every IT staff member now has unique personality traits:**
+- 16 named staff members across 8 teams (Junior + Senior each)
+- Individual greetings, success phrases, and uncertainty phrases
+- Unique personality quirks that define each character
+
+**Staff Personalities:**
+- **Michael (Network Jr)**: Enthusiastic newbie, loves TCP/IP trivia
+- **Ana (Network Sr)**: Calm expert, speaks in networking metaphors
+- **Sofia (Desktop Jr)**: Vim enthusiast, everything reminds her of vim
+- **Erik (Desktop Sr)**: DE expert, slightly grumpy about Wayland
+- **Nora (Hardware Jr)**: Excited about hardware, makes beep boop sounds
+- **Jon (Hardware Sr)**: Firmware wizard, calls hardware "the metal"
+- **Lars (Storage Jr)**: Always worried about disk space
+- **Ines (Storage Sr)**: ZFS enthusiast, recommends it for everything
+- **Kari (Performance Jr)**: Always has htop running
+- **Mateo (Performance Sr)**: Speaks in percentages
+- **Priya (Security Jr)**: Checks everything twice
+- **Oskar (Security Sr)**: Night owl, cryptography nerd
+- **Hugo (Services Jr)**: Enthusiastic about systemd
+- **Mina (Services Sr)**: Container expert, cynical about microservices
+- **Daniel (Logs Jr)**: Night shift, drinks way too much coffee
+- **Lea (Logs Sr)**: Extremely organized log dashboards
+- **Tomas (General Jr)**: Takes detailed notes on everything
+- **Sara (General Sr)**: Knows everyone's schedule by heart
+
+**New Module:**
+- `roster/personality.rs` - Personality traits and dialogue selection
+- Deterministic phrase selection via seed-based indexing
+- Helper functions: `get_greeting()`, `get_success()`, `get_uncertain()`
+
 ## [0.0.242] - 2025-12-09
 
 ### Added - Comprehensive README Overhaul
