@@ -117,8 +117,16 @@ impl EventLog {
     }
 
     /// Default location in state directory
+    /// v0.0.169: Use user-writable path to ensure events are actually persisted
     pub fn default_path() -> std::path::PathBuf {
-        std::path::PathBuf::from("/var/lib/anna/events.jsonl")
+        // Try /var/lib/anna first (if daemon has access)
+        let var_path = std::path::PathBuf::from("/var/lib/anna");
+        if var_path.exists() && var_path.is_dir() {
+            return var_path.join("events.jsonl");
+        }
+        // Fallback to home directory
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        std::path::PathBuf::from(home).join(".anna").join("events.jsonl")
     }
 
     /// Append an event record
