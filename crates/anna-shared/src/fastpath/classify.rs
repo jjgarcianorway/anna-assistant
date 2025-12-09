@@ -60,6 +60,7 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
 
     // v0.0.259: CpuUsage: "cpu usage", "cpu load", "processor"
     // v0.0.266: Added "system load" pattern
+    // v0.0.268: Added CPU core count queries
     if stripped.contains("cpu usage")
         || stripped.contains("cpu load")
         || stripped.contains("processor usage")
@@ -67,11 +68,17 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
         || stripped.contains("system load")
         || stripped.contains("how busy is") && stripped.contains("cpu")
         || stripped.contains("load average")
+        || stripped.contains("cpu cores")
+        || stripped.contains("how many cores")
+        || stripped.contains("how many cpus")
+        || stripped.contains("number of cores")
+        || stripped.contains("processor info")
     {
         return FastPathClass::CpuUsage;
     }
 
     // v0.0.259: NetworkStatus: "network status", "connected", "internet"
+    // v0.0.268: Added IP address queries
     if stripped.contains("network status")
         || stripped.contains("am i connected")
         || stripped.contains("internet connection")
@@ -79,6 +86,9 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
         || stripped.contains("network connection")
         || stripped.contains("wifi status")
         || stripped.contains("ethernet status")
+        || stripped.contains("my ip")
+        || stripped.contains("ip address")
+        || stripped.contains("what is my ip")
     {
         return FastPathClass::NetworkStatus;
     }

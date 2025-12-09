@@ -128,6 +128,9 @@ pub mod desktop_recipes;
 // v0.0.258: Pending ticket retry queue
 pub mod pending_queue;
 
+// v0.0.268: Query scenario test corpus (100+ queries)
+pub mod query_scenarios;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

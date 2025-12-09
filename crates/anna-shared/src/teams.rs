@@ -119,14 +119,41 @@ fn team_from_route_class(route_class: &str) -> Option<Team> {
         s if s.contains("selinux") => Some(Team::Security),
 
         // Desktop routes (v0.0.27: expanded for editor config)
+        // v0.0.268: Expanded for DE, WM, terminals, and config
         s if s.contains("editor") => Some(Team::Desktop),
         s if s.contains("desktop") => Some(Team::Desktop),
         s if s.contains("gui") => Some(Team::Desktop),
         s if s.contains("vim") => Some(Team::Desktop),
         s if s.contains("nano") => Some(Team::Desktop),
         s if s.contains("emacs") => Some(Team::Desktop),
+        s if s.contains("helix") => Some(Team::Desktop),
+        s if s.contains("neovim") => Some(Team::Desktop),
         s if s.contains("syntax") => Some(Team::Desktop),
         s if s.contains("config_edit") => Some(Team::Desktop),
+        // Desktop environments and window managers
+        s if s.contains("gnome") => Some(Team::Desktop),
+        s if s.contains("kde") => Some(Team::Desktop),
+        s if s.contains("hyprland") => Some(Team::Desktop),
+        s if s.contains("sway") => Some(Team::Desktop),
+        s if s.contains("i3") => Some(Team::Desktop),
+        s if s.contains("wayland") => Some(Team::Desktop),
+        s if s.contains("x11") => Some(Team::Desktop),
+        s if s.contains("xorg") => Some(Team::Desktop),
+        // Theme and appearance
+        s if s.contains("gtk") => Some(Team::Desktop),
+        s if s.contains("theme") => Some(Team::Desktop),
+        s if s.contains("font") => Some(Team::Desktop),
+        s if s.contains("hidpi") => Some(Team::Desktop),
+        s if s.contains("dark mode") => Some(Team::Desktop),
+        // Terminal and shell config
+        s if s.contains("tmux") => Some(Team::Desktop),
+        s if s.contains("bash prompt") => Some(Team::Desktop),
+        s if s.contains("ps1") => Some(Team::Desktop),
+        s if s.contains("zsh") => Some(Team::Desktop),
+        s if s.contains("shell config") => Some(Team::Desktop),
+        // Keyboard and shortcuts
+        s if s.contains("shortcut") => Some(Team::Desktop),
+        s if s.contains("keybind") => Some(Team::Desktop),
 
         // Logs routes (v0.0.42)
         s if s.contains("log") => Some(Team::Logs),

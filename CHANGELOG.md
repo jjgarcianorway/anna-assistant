@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.268] - 2025-12-09
+
+### Added - Query Scenario Test Framework & Routing Improvements
+
+**New query scenario test corpus with 100+ queries:**
+- Comprehensive test coverage across all 9 teams (Storage, Network, Desktop, Services, Performance, Hardware, Security, Logs, General)
+- Tests grouped by difficulty (Simple, Medium, Complex)
+- Expected routing paths (FastPath, JuniorOnly, SeniorReview, LearnableRecipe)
+- Similar query matching for recipe recall testing
+- Statistics collector with summary reports
+
+**Routing improvements (from 65% to 79% accuracy):**
+- Added Desktop team routing for: GNOME, KDE, Hyprland, Sway, i3, Wayland, X11
+- Added Desktop team routing for: GTK, theme, font, HiDPI, dark mode
+- Added Desktop team routing for: tmux, bash prompt, PS1, shell config
+- Added Desktop team routing for: shortcuts, keybindings
+
+**Fast path improvements:**
+- Added IP address queries to NetworkStatus ("what is my IP", "IP address")
+- Added CPU core queries to CpuUsage ("how many cores", "CPU cores", "number of cores")
+
+**Files changed:**
+- New module: `anna-shared/src/query_scenarios/` (mod.rs, corpus.rs, stats.rs, tests.rs)
+- `anna-shared/src/teams.rs` - Expanded Desktop routing patterns
+- `anna-shared/src/fastpath/classify.rs` - Added IP and CPU core patterns
+- `anna-shared/src/lib.rs` - Export query_scenarios module
+
 ## [0.0.267] - 2025-12-09
 
 ### Added - DeepSeek-R1 Model Support & Status Improvements
