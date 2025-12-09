@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.232] - 2025-12-09
+
+### Changed - recipe_store.rs Modularization
+
+**Split recipe_store.rs (378→18 lines) into 4 domain-specific modules:**
+- `types.rs`: RecipeRisk, RecipeStep, Citation, Recipe structs (166 lines)
+- `store.rs`: RecipeStore struct with persistence (118 lines)
+- `learning.rs`: MIN_LEARN_RELIABILITY, should_learn_recipe (14 lines)
+- `tests.rs`: Unit tests (59 lines)
+- `mod.rs`: Re-exports for backwards compatibility (18 lines)
+
+**All recipe_store/ files under 400-line limit per CLAUDE.md policy.**
+
 ## [0.0.231] - 2025-12-09
 
 ### Changed - shell_recipes.rs Modularization
