@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.159] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted update check loop to dedicated module:**
+
+- New `update_loop.rs` module (184 lines) containing:
+  - `update_check_loop()` - background loop for version checking
+  - `handle_successful_check()` - processes new version info
+  - `try_auto_update()` - performs auto-update if enabled
+  - `handle_failed_check()` - handles check failures gracefully
+
+- Reduced `server.rs` from 432 to 292 lines (now well under 400-line limit)
+
+**Total modularization progress (v0.0.155-v0.0.159):**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `server.rs`: 432 → 292 lines (-32%)
+- `answers.rs`: 457 → 308 lines (-33%)
+- `ollama.rs`: 409 → 304 lines (-26%)
+- Created 6 new focused modules totaling 926 lines
+
 ## [0.0.158] - 2025-12-09
 
 ### Changed - Continued Code Modularization

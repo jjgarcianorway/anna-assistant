@@ -11,6 +11,7 @@
 //! v0.0.156: Clarification builders extracted to separate module.
 //! v0.0.157: Best-effort summary extracted to separate module.
 //! v0.0.158: Ollama streaming extracted to separate module.
+//! v0.0.159: Update check loop extracted to separate module.
 
 pub mod action_handlers;
 pub mod best_effort_summary;
@@ -64,4 +65,5 @@ pub mod translator;
 pub mod triage;
 pub mod triage_answer;
 pub mod update;
+pub mod update_loop;
 pub mod verify_probes;

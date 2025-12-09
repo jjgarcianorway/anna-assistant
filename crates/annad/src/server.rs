@@ -1,4 +1,5 @@
 //! Unix socket server for annad.
+//! v0.0.159: Update check loop extracted to update_loop.rs.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -6,20 +7,18 @@ use std::path::Path;
 
 use anna_shared::ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 use anna_shared::rpc::RpcRequest;
-use anna_shared::{SOCKET_PATH, STATE_DIR, VERSION};
+use anna_shared::{SOCKET_PATH, STATE_DIR};
 use anyhow::Result;
-use chrono::Utc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::time::{interval, Duration};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::hardware::probe_hardware;
 use crate::health::health_check_loop;
 use crate::ollama;
 use crate::rpc_handler::handle_request;
 use crate::state::{create_shared_state, SharedState};
-use crate::update::{check_latest_version, is_newer_version, perform_update};
+use crate::update_loop::update_check_loop;
 
 pub struct Server {
     state: SharedState,
@@ -290,143 +289,4 @@ async fn handle_connection(state: SharedState, stream: UnixStream) -> Result<()>
     Ok(())
 }
 
-async fn update_check_loop(state: SharedState) {
-    use anna_shared::update_ledger::{
-        load_update_ledger, save_update_ledger, UpdateCheckEntry, UpdateCheckResult,
-    };
-    use std::time::Instant;
-
-    // Get check interval from state
-    let check_interval = {
-        let state = state.read().await;
-        state.update.check_interval_secs
-    };
-
-    let mut interval = interval(Duration::from_secs(check_interval));
-
-    // Set initial next_check time
-    {
-        let mut state = state.write().await;
-        state.update.next_check_at =
-            Some(Utc::now() + chrono::Duration::seconds(check_interval as i64));
-    }
-
-    loop {
-        interval.tick().await;
-
-        info!("Checking for updates...");
-        let check_start = Instant::now();
-
-        // Check GitHub for latest version
-        match check_latest_version().await {
-            Ok(latest_version) => {
-                let duration_ms = check_start.elapsed().as_millis() as u64;
-                let should_update = is_newer_version(VERSION, &latest_version);
-
-                // Write to update ledger (v0.0.29)
-                let ledger_result = if should_update {
-                    UpdateCheckResult::UpdateAvailable {
-                        version: latest_version.clone(),
-                    }
-                } else {
-                    UpdateCheckResult::UpToDate
-                };
-                let entry = UpdateCheckEntry::new(VERSION, ledger_result, duration_ms)
-                    .with_remote_tag(format!("v{}", latest_version));
-                let mut ledger = load_update_ledger();
-                ledger.push(entry);
-                if let Err(e) = save_update_ledger(&ledger) {
-                    warn!("Failed to save update ledger: {}", e);
-                }
-
-                {
-                    let mut state = state.write().await;
-                    let now = Utc::now();
-                    state.update.last_check_at = Some(now);
-                    state.update.next_check_at =
-                        Some(now + chrono::Duration::seconds(check_interval as i64));
-                    state.update.latest_version = Some(latest_version.clone());
-                    state.update.latest_checked_at = Some(now);
-                    state.update.update_available = should_update;
-                    state.update.check_state = anna_shared::status::UpdateCheckState::Success;
-                }
-
-                if should_update {
-                    info!("New version available: {} -> {}", VERSION, latest_version);
-
-                    // Check if auto-update is enabled
-                    let auto_update_enabled = {
-                        let state = state.read().await;
-                        state.update.enabled
-                    };
-
-                    if auto_update_enabled {
-                        info!("Auto-update enabled, performing update...");
-                        match perform_update(&latest_version).await {
-                            Ok(()) => {
-                                info!("Update initiated, daemon will restart");
-                                // Record successful install in ledger
-                                let entry = UpdateCheckEntry::new(
-                                    VERSION,
-                                    UpdateCheckResult::Installed {
-                                        version: latest_version.clone(),
-                                    },
-                                    0,
-                                );
-                                let mut ledger = load_update_ledger();
-                                ledger.push(entry);
-                                let _ = save_update_ledger(&ledger);
-                            }
-                            Err(e) => {
-                                error!("Auto-update failed: {}", e);
-                                // Record failure in ledger
-                                let entry = UpdateCheckEntry::new(
-                                    VERSION,
-                                    UpdateCheckResult::Failed {
-                                        reason: e.to_string(),
-                                    },
-                                    0,
-                                );
-                                let mut ledger = load_update_ledger();
-                                ledger.push(entry);
-                                let _ = save_update_ledger(&ledger);
-
-                                let mut state = state.write().await;
-                                state.last_error = Some(format!("Auto-update failed: {}", e));
-                            }
-                        }
-                    } else {
-                        info!("Auto-update disabled, skipping");
-                    }
-                } else {
-                    info!("Already on latest version: {}", VERSION);
-                }
-            }
-            Err(e) => {
-                let duration_ms = check_start.elapsed().as_millis() as u64;
-                warn!("Failed to check for updates: {}", e);
-
-                // Record failure in ledger
-                let entry = UpdateCheckEntry::new(
-                    VERSION,
-                    UpdateCheckResult::Failed {
-                        reason: e.to_string(),
-                    },
-                    duration_ms,
-                );
-                let mut ledger = load_update_ledger();
-                ledger.push(entry);
-                let _ = save_update_ledger(&ledger);
-
-                // v0.0.72: On failure, preserve last known version but mark as failed
-                let mut state = state.write().await;
-                let now = Utc::now();
-                state.update.last_check_at = Some(now);
-                state.update.next_check_at =
-                    Some(now + chrono::Duration::seconds(check_interval as i64));
-                state.update.check_state = anna_shared::status::UpdateCheckState::Failed;
-                // NOTE: We do NOT clear latest_version - preserve last known good value
-            }
-        }
-    }
-}
+// v0.0.159: update_check_loop moved to update_loop.rs
