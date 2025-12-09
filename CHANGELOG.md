@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.168] - 2025-12-09
+
+### Changed - UX Improvements and CI Fixes
+
+**Personalized REPL prompt:**
+- Shows username instead of generic "You:" in REPL prompt
+- Shows username in theatre transcript rendering
+- More personal interaction experience
+
+**Fixed CI workflow:**
+- Updated version consistency check to handle dynamic version fetching in install.sh
+- Fixed CLI surface check (removed `reset` command, added `stats`)
+- Made 400-line limit check advisory (doesn't block CI while modularization is ongoing)
+
+**Updated README.md:**
+- Added Service Desk Theatre Experience section
+- Added Personalized Experience section
+- Updated commands list (removed deprecated `reset`)
+- Added Recent Updates section
+- Better documentation of data storage locations
+
 ## [0.0.167] - 2025-12-09
 
 ### Changed - Full Stage Module Integration

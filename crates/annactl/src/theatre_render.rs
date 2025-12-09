@@ -131,6 +131,9 @@ fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<Narra
 
 /// Print a narrative segment
 fn print_segment(segment: &NarrativeSegment, _output_mode: OutputMode) {
+    // v0.0.168: Get username for personalized display
+    let username = std::env::var("USER").unwrap_or_else(|_| "you".to_string());
+
     match &segment.speaker {
         Speaker::Anna => {
             if segment.internal {
@@ -141,7 +144,8 @@ fn print_segment(segment: &NarrativeSegment, _output_mode: OutputMode) {
             // External Anna dialogue shown with answer
         }
         Speaker::You => {
-            println!("{}You:{} {}", colors::CYAN, colors::RESET, segment.text);
+            // v0.0.168: Show username instead of "You"
+            println!("{}{}:{} {}", colors::CYAN, username, colors::RESET, segment.text);
         }
         Speaker::TeamMember { name, role, .. } => {
             println!(

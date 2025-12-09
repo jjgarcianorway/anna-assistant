@@ -124,6 +124,9 @@ pub async fn handle_repl() -> Result<()> {
         }
     }
 
+    // v0.0.168: Get username for personalized prompt
+    let username = std::env::var("USER").unwrap_or_else(|_| "you".to_string());
+
     // Track pending clarification (local state only)
     let mut pending_clarification: Option<PendingClarification> = None;
 
@@ -132,7 +135,8 @@ pub async fn handle_repl() -> Result<()> {
         if pending_clarification.is_some() {
             print!("{}[choice]> {}", colors::BOLD, colors::RESET);
         } else {
-            print!("{}You: {}", colors::HEADER, colors::RESET);
+            // v0.0.168: Show username instead of generic "You"
+            print!("{}{}: {}", colors::HEADER, username, colors::RESET);
         }
         io::stdout().flush()?;
 

@@ -38,36 +38,44 @@ annactl "show me failed services"
 ### Grounded Responses
 Every answer comes from actual system data. Anna never guesses or invents facts.
 
-### Service Desk Experience
-Anna presents as a virtual IT department with named specialists:
-- Storage team for disk questions
-- Network team for connectivity
-- Performance team for CPU/memory
-- Desktop team for configuration
+### Service Desk Theatre Experience
+Anna presents as a virtual IT department with named specialists who handle your requests:
+- **Desktop Team** - System configuration, editors, preferences
+- **Network Team** - Connectivity, DNS, routing issues
+- **Storage Team** - Disk usage, mounts, file systems
+- **Security Team** - Permissions, access, vulnerabilities
+- **Services Team** - Package management, systemd services
+
+Each request gets a case number and assigned staff member, creating a "fly-on-wall"
+experience of a real IT department.
+
+### Personalized Experience
+Anna remembers your patterns and preferences:
+- Tracks your preferred tools (editors, commands)
+- Notes frequently asked topics
+- Maintains usage streaks
+- Shows personalized greetings
+
+### Staff Performance Tracking
+Track team performance with gamification:
+```
+annactl stats
+```
+Shows XP, levels, achievements, and staff leaderboards.
 
 ### Async Tickets
 For complex issues, Anna creates tickets that persist across sessions:
 ```
 annactl "show my tickets"
-annactl reply CN-1234 "here's the info you requested"
-```
-
-### Stats & Achievements
-Track your usage with XP, levels, and achievement badges:
-```
-annactl stats
 ```
 
 ## Commands
 
 ```bash
 annactl "question"     # One-shot query
-annactl                # Interactive REPL
+annactl                # Interactive REPL (personalized prompt)
 annactl status         # System status
-annactl stats          # Usage statistics
-annactl -d "question"  # Debug mode (show pipeline)
-annactl -i "question"  # Internal mode (show IT dialogue)
-annactl reset          # Clear learned data
+annactl stats          # Usage statistics & achievements
 annactl uninstall      # Remove Anna
 ```
 
@@ -76,16 +84,24 @@ annactl uninstall      # Remove Anna
 - **annad**: Background service (manages AI models, runs probes)
 - **annactl**: CLI client (talks to annad via Unix socket)
 
-Data stored in `~/.anna/` (user) and `/var/lib/anna/` (system).
+Data stored in:
+- `~/.anna/` - User data (profiles, tickets, preferences)
+- `/var/lib/anna/` - System data (snapshots, telemetry)
+- `/etc/anna/` - Configuration and staff stats
+
+## Recent Updates (v0.0.168)
+
+- **Personalized REPL prompt**: Shows your username instead of generic "You:"
+- **Full stage module integration**: RPC handler reduced by 45%
+- **Fixed CI workflow**: Updated version checking and CLI surface tests
+- **Ongoing modularization**: Code quality improvements
+
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md) - Version history
 - [SPEC.md](SPEC.md) - Technical specification
-
-## Version
-
-v0.0.136
 
 ## License
 
