@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.224] - 2025-12-09
+
+### Changed - git_recipes.rs Modularization
+
+**Split git_recipes.rs (402→20 lines) into 5 domain-specific modules:**
+- `types.rs`: GitScope, GitFeature enums (100 lines)
+- `recipe.rs`: GitRecipe, GitParameter structs (72 lines)
+- `catalog.rs`: builtin_recipes function (135 lines)
+- `search.rs`: find_recipe, find_recipes_by_keywords, detect_feature (70 lines)
+- `tests.rs`: Unit tests (35 lines)
+- `mod.rs`: Re-exports for backwards compatibility (20 lines)
+
+**All git_recipes/ files under 400-line limit.**
+
 ## [0.0.223] - 2025-12-09
 
 ### Changed - model_selector.rs Modularization
