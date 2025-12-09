@@ -218,7 +218,7 @@ fn print_top_performers() {
     for (i, (person_id, metrics)) in top.iter().enumerate() {
         let name = person_id
             .split('_')
-            .last()
+            .next_back()
             .map(|s| {
                 let mut c = s.chars();
                 c.next()

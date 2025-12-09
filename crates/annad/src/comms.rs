@@ -448,16 +448,14 @@ impl CommsGenerator {
     pub fn anna_returning(&self, progress: &mut ProgressTracker) {
         let junior = self.junior();
 
-        let messages = vec![
-            format!("Thanks {}! I'll take it from here.", junior.display_name),
+        let messages = [format!("Thanks {}! I'll take it from here.", junior.display_name),
             "Got it. Passing this along now.".to_string(),
             "Perfect, sending the response.".to_string(),
             format!(
                 "Appreciate it, {}. Sending to the user.",
                 junior.display_name
             ),
-            "Response ready. Wrapping up.".to_string(),
-        ];
+            "Response ready. Wrapping up.".to_string()];
 
         let msg = &messages[(self.seed as usize) % messages.len()];
         progress.add_internal_comms(RequestStage::Supervisor, "Anna", msg);

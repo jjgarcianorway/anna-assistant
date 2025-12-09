@@ -295,7 +295,7 @@ fn format_uptime(seconds: u64) -> String {
 }
 
 fn format_optional_dt(dt: Option<&DateTime<Utc>>) -> String {
-    dt.map(|d| format_local_time(d))
+    dt.map(format_local_time)
         .unwrap_or_else(|| "-".to_string())
 }
 

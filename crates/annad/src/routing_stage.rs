@@ -143,7 +143,7 @@ pub fn enforce_probe_spine(
             );
         }
         // Convert ProbeId to command strings
-        ticket.needs_probes = reduced.iter().map(|p| probe_to_command(p)).collect();
+        ticket.needs_probes = reduced.iter().map(probe_to_command).collect();
     } else if skip_spine_override {
         info!(
             "v0.0.68: ConfigureEditor using router probes: {:?}",

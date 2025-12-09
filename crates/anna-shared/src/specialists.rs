@@ -12,10 +12,12 @@ use serde::{Deserialize, Serialize};
 /// Role within a team
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SpecialistRole {
     /// Translates user query to structured request
     Translator,
     /// First-line reviewer (deterministic + optional LLM)
+    #[default]
     Junior,
     /// Escalation reviewer (LLM-based)
     Senior,
@@ -31,11 +33,6 @@ impl std::fmt::Display for SpecialistRole {
     }
 }
 
-impl Default for SpecialistRole {
-    fn default() -> Self {
-        Self::Junior
-    }
-}
 
 /// Profile for a specialist (team + role combination)
 #[derive(Debug, Clone, Serialize, Deserialize)]

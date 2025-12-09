@@ -100,7 +100,7 @@ impl Shift {
             Shift::Morning => (6..14).contains(&hour),
             Shift::Day => (9..17).contains(&hour),
             Shift::Evening => (14..22).contains(&hour),
-            Shift::Night => hour >= 22 || hour < 6,
+            Shift::Night => !(6..22).contains(&hour),
             Shift::Flexible => true,
         }
     }

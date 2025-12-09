@@ -2403,8 +2403,8 @@ pub fn apply_deterministic_routing(
 /// Create default ticket from route
 fn create_default_ticket(route: &DeterministicRoute) -> TranslatorTicket {
     TranslatorTicket {
-        intent: route.intent.clone(),
-        domain: route.domain.clone(),
+        intent: route.intent,
+        domain: route.domain,
         entities: vec![],
         needs_probes: route.probes.clone(),
         clarification_question: None,

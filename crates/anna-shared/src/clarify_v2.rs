@@ -403,23 +403,20 @@ pub fn should_skip(
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    match fact_key {
-        FactKey::PreferredEditor => {
-            // Check if we have a verified editor fact
-            if let Some(fact) = facts.get_fresh(&FactKey::PreferredEditor, now) {
-                // Verify it's still installed
-                if cache.is_installed(&fact.value).unwrap_or(false) {
-                    return Some(fact.value.clone());
-                }
-            }
-
-            // Check if only one editor installed (auto-select)
-            let installed = cache.installed_editors();
-            if installed.len() == 1 {
-                return Some(installed[0].to_string());
+    if fact_key == &FactKey::PreferredEditor {
+        // Check if we have a verified editor fact
+        if let Some(fact) = facts.get_fresh(&FactKey::PreferredEditor, now) {
+            // Verify it's still installed
+            if cache.is_installed(&fact.value).unwrap_or(false) {
+                return Some(fact.value.clone());
             }
         }
-        _ => {}
+
+        // Check if only one editor installed (auto-select)
+        let installed = cache.installed_editors();
+        if installed.len() == 1 {
+            return Some(installed[0].to_string());
+        }
     }
 
     None

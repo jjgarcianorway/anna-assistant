@@ -193,7 +193,7 @@ pub fn enforce_spine_probes(
     let mut probes: Vec<String> = capability
         .spine_probes
         .iter()
-        .map(|p| probe_to_command(p))
+        .map(probe_to_command)
         .collect();
 
     for kind in &capability.required_evidence {
@@ -287,58 +287,51 @@ pub fn enforce_minimum_probes(user_text: &str, translator_probes: &[String]) -> 
     }
 
     // Rule 2: Sound/audio
-    if lower.contains("sound card")
+    if (lower.contains("sound card")
         || lower.contains("audio device")
         || lower.contains("audio card")
         || lower.contains("sound device")
         || (lower.contains("sound") && lower.contains("hardware"))
-        || (lower.contains("audio") && lower.contains("hardware"))
-    {
-        if !probes.iter().any(|p| matches!(p, ProbeId::LspciAudio)) {
+        || (lower.contains("audio") && lower.contains("hardware")))
+        && !probes.iter().any(|p| matches!(p, ProbeId::LspciAudio)) {
             probes.push(ProbeId::LspciAudio);
             probes.push(ProbeId::PactlCards);
             evidence_kinds.push(EvidenceKind::Audio);
             reasons.push("audio hardware query");
         }
-    }
 
     // Rule 3: Temperature
-    if lower.contains("temperature")
+    if (lower.contains("temperature")
         || lower.contains(" temp ")
         || lower.contains("thermal")
         || lower.contains("temps?")
-        || lower.contains("how hot")
-    {
-        if !probes.iter().any(|p| matches!(p, ProbeId::Sensors)) {
+        || lower.contains("how hot"))
+        && !probes.iter().any(|p| matches!(p, ProbeId::Sensors)) {
             probes.push(ProbeId::Sensors);
             evidence_kinds.push(EvidenceKind::CpuTemperature);
             reasons.push("temperature query");
         }
-    }
 
     // Rule 4: CPU cores/model/architecture
-    if lower.contains("cores")
+    if (lower.contains("cores")
         || lower.contains("cpu model")
         || lower.contains("architecture")
         || lower.contains("processor")
-        || lower.contains("how many cpu")
-    {
-        if !probes.iter().any(|p| matches!(p, ProbeId::Lscpu)) {
+        || lower.contains("how many cpu"))
+        && !probes.iter().any(|p| matches!(p, ProbeId::Lscpu)) {
             probes.push(ProbeId::Lscpu);
             evidence_kinds.push(EvidenceKind::Cpu);
             reasons.push("CPU info query");
         }
-    }
 
     // Rule 5: System health / errors / problems
-    if lower.contains("how is my computer")
+    if (lower.contains("how is my computer")
         || lower.contains("errors")
         || lower.contains("problems")
         || lower.contains("system health")
         || lower.contains("what's wrong")
-        || lower.contains("issues")
-    {
-        if !probes.iter().any(|p| matches!(p, ProbeId::JournalErrors)) {
+        || lower.contains("issues"))
+        && !probes.iter().any(|p| matches!(p, ProbeId::JournalErrors)) {
             probes.push(ProbeId::JournalErrors);
             probes.push(ProbeId::FailedUnits);
             probes.push(ProbeId::SystemdAnalyze);
@@ -347,7 +340,6 @@ pub fn enforce_minimum_probes(user_text: &str, translator_probes: &[String]) -> 
             evidence_kinds.push(EvidenceKind::BootTime);
             reasons.push("system health query");
         }
-    }
 
     // Rule 6 (v0.45.7, v0.0.56 expanded): Editor configuration queries
     // Match patterns like:

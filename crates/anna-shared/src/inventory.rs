@@ -65,20 +65,17 @@ pub const DESKTOP_PACKAGES: &[&str] = &[
 /// State of an inventory item
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum InventoryState {
     /// Tool is installed and verified
     Installed,
     /// Tool was installed but may have been removed
+    #[default]
     Stale,
     /// Tool is not installed
     NotInstalled,
 }
 
-impl Default for InventoryState {
-    fn default() -> Self {
-        Self::Stale
-    }
-}
 
 /// An item in the inventory
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -418,14 +415,13 @@ fn detect_desktops() -> Vec<String> {
 
     // Check for DE packages
     for &pkg in DESKTOP_PACKAGES {
-        if check_tool_installed(pkg).is_some() {
-            if !desktops
+        if check_tool_installed(pkg).is_some()
+            && !desktops
                 .iter()
                 .any(|d| d.to_lowercase().contains(&pkg.to_lowercase()))
             {
                 desktops.push(pkg.to_string());
             }
-        }
     }
 
     desktops.sort();

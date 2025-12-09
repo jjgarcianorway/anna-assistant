@@ -171,7 +171,7 @@ fn answer_app_alternatives(query: &str, store: &KnowledgeStore) -> Option<RagAns
     let app_name = extract_app_name(query)?;
 
     // Query for recipes and wiki docs mentioning this app
-    let search_query = RetrievalQuery::new(&format!("{} alternative", app_name))
+    let search_query = RetrievalQuery::new(format!("{} alternative", app_name))
         .with_sources(vec![
             KnowledgeSource::Recipe,
             KnowledgeSource::ArchWiki,

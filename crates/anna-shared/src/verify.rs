@@ -326,7 +326,7 @@ fn verify_output_contains(step_id: &str, command: &str, pattern: &str) -> Verify
 /// Expand ~ to home directory
 fn expand_path(path: &str) -> String {
     if path.starts_with("~/") {
-        if let Some(home) = std::env::var("HOME").ok() {
+        if let Ok(home) = std::env::var("HOME") {
             return format!("{}{}", home, &path[1..]);
         }
     }

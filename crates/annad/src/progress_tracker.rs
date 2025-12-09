@@ -15,6 +15,12 @@ pub struct ProgressTracker {
     current_stage: Option<RequestStage>,
 }
 
+impl Default for ProgressTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProgressTracker {
     pub fn new() -> Self {
         Self {
@@ -146,7 +152,7 @@ impl ProgressTracker {
     pub fn add_generation_progress(&mut self, tokens: usize) {
         self.transcript.push(TranscriptEvent::note(
             self.elapsed_ms(),
-            &format!("Generated {} tokens...", tokens),
+            format!("Generated {} tokens...", tokens),
         ));
     }
 

@@ -37,7 +37,7 @@ pub fn handle_configure_editor(
     // Parse probe_results to get installed editors from ToolExists evidence ONLY
     let parsed: Vec<_> = probe_results
         .iter()
-        .map(|p| parse_probe_result(p))
+        .map(parse_probe_result)
         .collect();
 
     // Use dedicated helper for consistent editor extraction

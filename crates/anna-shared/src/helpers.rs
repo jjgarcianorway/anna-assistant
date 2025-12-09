@@ -30,6 +30,7 @@ pub struct HelperPackage {
 /// How a helper package was installed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum InstallSource {
     /// Installed by Anna (auto-install)
     Anna,
@@ -38,14 +39,10 @@ pub enum InstallSource {
     /// Bundled with Anna
     Bundled,
     /// Unknown source
+    #[default]
     Unknown,
 }
 
-impl Default for InstallSource {
-    fn default() -> Self {
-        Self::Unknown
-    }
-}
 
 impl std::fmt::Display for InstallSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -273,7 +270,7 @@ pub fn save_helpers(registry: &HelpersRegistry) -> std::io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let content = serde_json::to_string_pretty(registry)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        .map_err(|e| std::io::Error::other(e))?;
     std::fs::write(&path, content)
 }
 

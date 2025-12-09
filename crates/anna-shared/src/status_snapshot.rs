@@ -123,6 +123,7 @@ impl PermissionsInfo {
 /// Update check result
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum UpdateResult {
     /// Up to date
     UpToDate,
@@ -135,14 +136,10 @@ pub enum UpdateResult {
     /// Check failed
     Failed { reason: String },
     /// Not checked yet
+    #[default]
     NotChecked,
 }
 
-impl Default for UpdateResult {
-    fn default() -> Self {
-        Self::NotChecked
-    }
-}
 
 /// Update subsystem information
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -198,7 +198,7 @@ fn get_final_answer_text(result: &ServiceDeskResult) -> String {
             // Add options if present
             if let Some(ref clarify) = result.clarification_request {
                 if !clarify.options.is_empty() {
-                    text.push_str("\n");
+                    text.push('\n');
                     for (i, opt) in clarify.options.iter().enumerate() {
                         text.push_str(&format!("\n  {}. {}", i + 1, opt.label));
                     }

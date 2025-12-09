@@ -189,7 +189,7 @@ pub fn save_update_ledger(ledger: &UpdateLedger) -> std::io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let content = serde_json::to_string_pretty(ledger)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        .map_err(|e| std::io::Error::other(e))?;
     std::fs::write(&path, content)
 }
 

@@ -86,6 +86,12 @@ impl Default for UpdateStateInner {
     }
 }
 
+impl Default for DaemonStateInner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DaemonStateInner {
     pub fn new() -> Self {
         Self {

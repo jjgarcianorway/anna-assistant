@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Parsed CPU information from lscpu
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CpuInfo {
     /// CPU architecture (e.g., "x86_64", "aarch64")
     pub architecture: String,
@@ -29,21 +30,6 @@ pub struct CpuInfo {
     pub model: Option<String>,
 }
 
-impl Default for CpuInfo {
-    fn default() -> Self {
-        Self {
-            architecture: String::new(),
-            model_name: String::new(),
-            cpu_count: 0,
-            cores_per_socket: None,
-            threads_per_core: None,
-            sockets: None,
-            vendor_id: None,
-            cpu_family: None,
-            model: None,
-        }
-    }
-}
 
 impl CpuInfo {
     /// Get the number of physical cores (if derivable)

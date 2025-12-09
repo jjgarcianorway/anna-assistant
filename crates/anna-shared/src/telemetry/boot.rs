@@ -147,7 +147,7 @@ pub fn save_boot_snapshot(snap: &BootSnapshot) -> std::io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let content = serde_json::to_string_pretty(snap)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        .map_err(|e| std::io::Error::other(e))?;
     std::fs::write(&path, content)
 }
 
@@ -172,7 +172,7 @@ pub fn capture_boot_time() -> Option<u64> {
 pub fn update_boot_snapshot() -> Option<BootSnapshot> {
     let boot_time = capture_boot_time()?;
 
-    let mut snap = load_boot_snapshot().unwrap_or_else(BootSnapshot::new);
+    let mut snap = load_boot_snapshot().unwrap_or_default();
     snap.update(boot_time);
 
     if save_boot_snapshot(&snap).is_ok() {

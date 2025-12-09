@@ -214,6 +214,7 @@ pub fn build_result_with_flags(
 }
 
 /// Fallback context for TRUST+ explanations and v0.0.24 trace-based scoring
+#[derive(Default)]
 pub struct FallbackContext {
     pub used_deterministic_fallback: bool,
     pub fallback_route_class: String,
@@ -225,18 +226,6 @@ pub struct FallbackContext {
     pub evidence_required: Option<bool>,
 }
 
-impl Default for FallbackContext {
-    fn default() -> Self {
-        Self {
-            used_deterministic_fallback: false,
-            fallback_route_class: String::new(),
-            evidence_kinds: Vec::new(),
-            specialist_outcome: None,
-            fallback_used: None,
-            evidence_required: None,
-        }
-    }
-}
 
 /// Calculate reliability using the new graduated scoring model.
 /// Returns (signals for backward compat, output, input) for explanation building.

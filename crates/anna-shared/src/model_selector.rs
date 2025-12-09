@@ -235,7 +235,7 @@ pub fn select_model(
 
 /// Check if a catalog model name matches an available model
 fn model_matches(catalog_name: &str, available_name: &str) -> bool {
-    let normalize = |s: &str| s.to_lowercase().replace('-', "").replace('_', "");
+    let normalize = |s: &str| s.to_lowercase().replace(['-', '_'], "");
     let c = normalize(catalog_name);
     let a = normalize(available_name);
 
@@ -315,7 +315,7 @@ pub fn parse_benchmark_response(
     ModelBenchmark {
         model: model.to_string(),
         tokens_per_sec,
-        ttft_ms: (ttft_ns / 1_000_000) as u64,
+        ttft_ms: (ttft_ns / 1_000_000),
         timestamp,
     }
 }

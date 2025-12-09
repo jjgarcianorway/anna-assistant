@@ -68,7 +68,7 @@ pub fn extract_service_info(query: &str) -> Option<(String, ServiceAction)> {
         if q.contains(verb_trimmed) {
             if let Some(pos) = q.find(verb_trimmed) {
                 let after = &q[pos + verb_trimmed.len()..];
-                let service = after.trim().split_whitespace().next()?.to_string();
+                let service = after.split_whitespace().next()?.to_string();
                 return Some((service, *action));
             }
         }

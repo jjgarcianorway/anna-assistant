@@ -18,8 +18,10 @@ use std::path::PathBuf;
 /// Kind of recipe action (v0.0.27, v0.0.100 added package/service)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RecipeKind {
     /// Read-only query (default, no system changes)
+    #[default]
     Query,
     /// Append a line to config file if not present
     ConfigEditLineAppend,
@@ -42,11 +44,6 @@ pub enum RecipeKind {
     Unknown,
 }
 
-impl Default for RecipeKind {
-    fn default() -> Self {
-        Self::Query
-    }
-}
 
 /// Target for a recipe action (v0.0.27)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,20 +73,17 @@ impl RecipeTarget {
 /// Action specification for config edit recipes (v0.0.27)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RecipeAction {
     /// Ensure a line exists in the config file
     EnsureLine { line: String },
     /// Append a line to the end of the config file
     AppendLine { line: String },
     /// No action (read-only query)
+    #[default]
     None,
 }
 
-impl Default for RecipeAction {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 /// Rollback information for reversible changes (v0.0.27)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

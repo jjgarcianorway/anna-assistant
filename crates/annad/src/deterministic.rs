@@ -616,7 +616,7 @@ fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<De
     use anna_shared::parsers::{find_audio_evidence, parse_probe_result, ParsedProbeData};
 
     // Parse all probes to typed evidence
-    let parsed: Vec<ParsedProbeData> = probes.iter().map(|p| parse_probe_result(p)).collect();
+    let parsed: Vec<ParsedProbeData> = probes.iter().map(parse_probe_result).collect();
 
     // Count how many audio evidence sources we have
     let audio_evidence_count = parsed.iter().filter(|p| p.as_audio().is_some()).count();
@@ -723,7 +723,7 @@ fn answer_installed_tool_check(
     use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
 
     // v0.45.7: Parse all probes to typed evidence
-    let parsed: Vec<ParsedProbeData> = probes.iter().map(|p| parse_probe_result(p)).collect();
+    let parsed: Vec<ParsedProbeData> = probes.iter().map(parse_probe_result).collect();
 
     // Find tool existence evidence (from command -v, which, etc.)
     let tool_evidence: Vec<_> = parsed.iter().filter_map(|p| p.as_tool()).collect();

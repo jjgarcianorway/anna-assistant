@@ -14,8 +14,10 @@ use std::path::{Path, PathBuf};
 /// Risk level for a planned change
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ChangeRisk {
     /// Low risk - easily reversible config change
+    #[default]
     Low,
     /// Medium risk - may affect application behavior
     Medium,
@@ -23,11 +25,6 @@ pub enum ChangeRisk {
     High,
 }
 
-impl Default for ChangeRisk {
-    fn default() -> Self {
-        Self::Low
-    }
-}
 
 /// A planned change before execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -278,11 +275,10 @@ fn line_exists_in_file(path: &Path, line: &str) -> io::Result<bool> {
 fn create_backup(source: &Path, preferred: &Path) -> io::Result<PathBuf> {
     // Try preferred backup location
     if let Some(parent) = preferred.parent() {
-        if fs::create_dir_all(parent).is_ok() {
-            if fs::copy(source, preferred).is_ok() {
+        if fs::create_dir_all(parent).is_ok()
+            && fs::copy(source, preferred).is_ok() {
                 return Ok(preferred.to_path_buf());
             }
-        }
     }
 
     // Fallback to sibling .bak next to source

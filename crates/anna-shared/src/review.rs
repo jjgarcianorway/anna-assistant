@@ -12,10 +12,12 @@ use serde::{Deserialize, Serialize};
 /// Decision from review gate
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ReviewDecision {
     /// Answer passes review, can publish
     Accept,
     /// Answer needs revision, generate correction
+    #[default]
     Revise,
     /// Escalate to senior reviewer
     EscalateToSenior,
@@ -23,11 +25,6 @@ pub enum ReviewDecision {
     ClarifyUser,
 }
 
-impl Default for ReviewDecision {
-    fn default() -> Self {
-        Self::Revise
-    }
-}
 
 impl std::fmt::Display for ReviewDecision {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -43,8 +40,10 @@ impl std::fmt::Display for ReviewDecision {
 /// Who performed the review
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ReviewerType {
     /// Pure deterministic logic (no LLM)
+    #[default]
     Deterministic,
     /// Team junior reviewer (LLM)
     Junior,
@@ -52,11 +51,6 @@ pub enum ReviewerType {
     Senior,
 }
 
-impl Default for ReviewerType {
-    fn default() -> Self {
-        Self::Deterministic
-    }
-}
 
 impl std::fmt::Display for ReviewerType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -92,8 +86,10 @@ pub struct ReviewInputsSummary {
 /// Pinned ordering: Info < Warning < Blocker
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ReviewSeverity {
     /// Informational note (does not block)
+    #[default]
     Info,
     /// Warning (should be addressed but doesn't block)
     Warning,
@@ -101,11 +97,6 @@ pub enum ReviewSeverity {
     Blocker,
 }
 
-impl Default for ReviewSeverity {
-    fn default() -> Self {
-        Self::Info
-    }
-}
 
 impl std::fmt::Display for ReviewSeverity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

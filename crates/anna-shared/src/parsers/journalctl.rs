@@ -252,7 +252,7 @@ fn parse_time_to_ms(s: &str) -> Option<u64> {
     if s.contains("min") {
         // Format: "Xmin Y.YYY"
         let parts: Vec<&str> = s.split("min").collect();
-        let mins: f64 = parts.get(0)?.trim().parse().ok()?;
+        let mins: f64 = parts.first()?.trim().parse().ok()?;
         let secs: f64 = parts.get(1)?.trim().parse().unwrap_or(0.0);
         Some(((mins * 60.0 + secs) * 1000.0) as u64)
     } else {

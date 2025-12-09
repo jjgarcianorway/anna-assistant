@@ -262,7 +262,7 @@ pub fn save_pacman_snapshot(snap: &PacmanSnapshot) -> std::io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let content = serde_json::to_string_pretty(snap)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        .map_err(|e| std::io::Error::other(e))?;
     std::fs::write(&path, content)
 }
 
@@ -275,7 +275,7 @@ pub fn update_pacman_snapshot() -> Option<PacmanSnapshot> {
         return None;
     }
 
-    let mut snap = load_pacman_snapshot().unwrap_or_else(PacmanSnapshot::new);
+    let mut snap = load_pacman_snapshot().unwrap_or_default();
 
     // Parse new entries from checkpoint
     if let Ok((events, new_offset)) = parse_pacman_log_from_offset(log_path, snap.checkpoint_offset)
