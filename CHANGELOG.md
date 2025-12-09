@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.205] - 2025-12-09
+
+### Changed - commands.rs Modularization
+
+**Split commands.rs (458→11 lines) into 3 domain-specific modules:**
+- `handlers.rs`: handle_status, handle_stats, handle_request, handle_uninstall (182 lines)
+- `repl.rs`: handle_repl, PendingClarification (193 lines)
+- `feedback.rs`: handle_feedback_request, handle_request_error (76 lines)
+- `mod.rs`: Re-exports for backwards compatibility (11 lines)
+
+**All commands/ files under 400-line limit.**
+
 ## [0.0.204] - 2025-12-09
 
 ### Changed - progress.rs Modularization
