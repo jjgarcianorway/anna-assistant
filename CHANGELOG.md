@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.222] - 2025-12-09
+
+### Changed - review.rs Modularization
+
+**Split review.rs (403→21 lines) into 4 domain-specific modules:**
+- `types.rs`: ReviewDecision, ReviewerType, ReviewSeverity, ReviewIssueKind enums (120 lines)
+- `issue.rs`: ReviewIssue, ReviewRevision structs (95 lines)
+- `inputs.rs`: ReviewInputsSummary struct (49 lines)
+- `artifact.rs`: ReviewArtifact struct (147 lines)
+- `mod.rs`: Re-exports for backwards compatibility (21 lines)
+
+**All review/ files under 400-line limit.**
+
 ## [0.0.221] - 2025-12-09
 
 ### Changed - helpers.rs Modularization
