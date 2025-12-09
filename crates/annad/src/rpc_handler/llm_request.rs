@@ -1,7 +1,8 @@
-//! LLM request handling (v0.0.200).
+//! LLM request handling (v0.0.254).
 //!
 //! v0.0.247: Streaming events shared with daemon state for live polling.
 //! v0.0.248: Fix stats tracking - record ALL requests at start, not just completed ones.
+//! v0.0.254: LLM-powered natural dialogue for specialist chatter.
 
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{RequestParams, RpcResponse};
@@ -212,12 +213,15 @@ async fn handle_llm_request_inner(
     ));
 
     // v0.0.148: Create comms generator for fly-on-wall experience
+    // v0.0.254: Enhanced with LLM-powered dialogue
     let team = team_from_domain(&classified_domain.to_string());
-    let mut comms = CommsGenerator::new(team, &request_id);
+    let mut comms = CommsGenerator::new(team, &request_id)
+        .with_query(query)
+        .with_model(&translator_model);
 
-    // v0.0.148: Anna dispatches to team and junior acknowledges
-    comms.dispatch(&mut progress);
-    comms.junior_ack(&mut progress);
+    // v0.0.254: Anna dispatches to team and junior acknowledges (async for LLM dialogue)
+    comms.dispatch_async(&mut progress).await;
+    comms.junior_ack_async(&mut progress).await;
     save_progress(&state, &progress).await;
 
     // Step 3: Check if immediate clarification needed (from triage)
@@ -308,7 +312,7 @@ async fn handle_llm_request_inner(
     };
 
     // v0.0.148: Junior reviewing the data
-    comms.junior_reviewing(&mut progress);
+    comms.junior_reviewing_async(&mut progress).await;
     save_progress(&state, &progress).await;
 
     // Step 7: v0.0.167 - Execute specialist stage via module
@@ -351,7 +355,7 @@ async fn handle_llm_request_inner(
             } else {
                 75
             };
-            comms.junior_done(&mut progress, approx_confidence);
+            comms.junior_done_async(&mut progress, approx_confidence).await;
         }
         SpecialistOutcome::Timeout | SpecialistOutcome::Error => {
             comms.junior_escalate(&mut progress, "LLM had trouble, used fallback");
@@ -362,7 +366,7 @@ async fn handle_llm_request_inner(
             comms.senior_response(&mut progress, false);
         }
     }
-    comms.anna_returning(&mut progress);
+    comms.anna_returning_async(&mut progress).await;
     save_progress(&state, &progress).await;
 
     // v0.0.166: Use result_stage module for final result building

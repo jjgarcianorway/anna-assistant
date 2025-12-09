@@ -1,7 +1,9 @@
-//! CommsGenerator struct (v0.0.192).
+//! CommsGenerator struct (v0.0.254).
 //!
 //! Internal communications helper for Service Desk Theatre.
 //! Uses roster and dialogue systems to create authentic messages.
+//!
+//! v0.0.254: Added query context and model for LLM-generated dialogue.
 
 use anna_shared::dialogue::seed_from_str;
 use anna_shared::roster::{person_for, PersonProfile, Tier};
@@ -14,6 +16,10 @@ pub struct CommsGenerator {
     pub(crate) seed: u64,
     /// Track how many probes were planned (for commentary)
     pub(crate) probes_planned: usize,
+    /// v0.0.254: User query for context
+    pub(crate) query: String,
+    /// v0.0.254: Model to use for dialogue generation (None = static only)
+    pub(crate) dialogue_model: Option<String>,
 }
 
 impl CommsGenerator {
@@ -24,7 +30,21 @@ impl CommsGenerator {
             case_id: case_id.to_string(),
             seed: seed_from_str(case_id),
             probes_planned: 0,
+            query: String::new(),
+            dialogue_model: None,
         }
+    }
+
+    /// v0.0.254: Set the query for context-aware dialogue
+    pub fn with_query(mut self, query: &str) -> Self {
+        self.query = query.to_string();
+        self
+    }
+
+    /// v0.0.254: Set the model for LLM-generated dialogue
+    pub fn with_model(mut self, model: &str) -> Self {
+        self.dialogue_model = Some(model.to_string());
+        self
     }
 
     /// Get the junior staff member for this team
