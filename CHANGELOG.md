@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.196] - 2025-12-09
+
+### Changed - ssh_recipes.rs Modularization
+
+**Split ssh_recipes.rs (491→17 lines) into 5 domain-specific modules:**
+- `types.rs`: SshKeyType, SshFeature, SshRecipe, SshStep (139 lines)
+- `paths.rs`: ssh_dir, ssh_config_path (14 lines)
+- `recipes.rs`: builtin_recipes with all SSH recipes (230 lines)
+- `matcher.rs`: match_query for query matching (39 lines)
+- `tests.rs`: Unit tests (38 lines)
+- `mod.rs`: Re-exports for backwards compatibility (17 lines)
+
+**All ssh_recipes/ files under 400-line limit.**
+
 ## [0.0.195] - 2025-12-09
 
 ### Changed - grounding.rs Modularization
