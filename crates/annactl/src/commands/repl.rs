@@ -1,14 +1,17 @@
-//! REPL command handler (v0.0.237).
+//! REPL command handler (v0.0.240).
 //!
 //! v0.0.237: Added config command handling for natural language settings.
+//! v0.0.240: Added idle-time tips during user inactivity.
 
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::config_parser::is_config_request;
+use anna_shared::idle_tips::{format_tip, get_contextual_tips, TipColors, TipQueue};
 use anna_shared::status::LlmState;
 use anna_shared::ui::colors;
 use anyhow::Result;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
+use tokio::io::AsyncBufReadExt;
 
 use crate::client::AnnadClient;
 use crate::display::show_bootstrap_progress;
@@ -27,6 +30,12 @@ struct PendingClarification {
     request: ClarifyRequest,
     started_at: Instant,
 }
+
+/// v0.0.240: Idle timeout for showing tips (30 seconds)
+const IDLE_TIP_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// v0.0.240: Max tips per session to avoid annoyance
+const MAX_TIPS_PER_SESSION: u32 = 3;
 
 /// Handle REPL mode - main interactive interface
 pub async fn handle_repl() -> Result<()> {
@@ -52,6 +61,16 @@ pub async fn handle_repl() -> Result<()> {
     // Track pending clarification (local state only)
     let mut pending_clarification: Option<PendingClarification> = None;
 
+    // v0.0.240: Initialize tip queue with contextual tips
+    let mut tip_queue = TipQueue::new();
+    for tip in get_contextual_tips() {
+        tip_queue.push(tip);
+    }
+
+    // v0.0.240: Use async stdin for timeout-based idle detection
+    let stdin = tokio::io::stdin();
+    let mut reader = tokio::io::BufReader::new(stdin);
+
     loop {
         // Show different prompt if clarification pending
         if pending_clarification.is_some() {
@@ -62,14 +81,24 @@ pub async fn handle_repl() -> Result<()> {
         }
         io::stdout().flush()?;
 
+        // v0.0.240: Read input with idle timeout for tips
         let mut input = String::new();
-        let bytes_read = io::stdin().read_line(&mut input)?;
+        let read_result = read_with_idle_tips(&mut reader, &mut input, &mut tip_queue).await;
 
-        // Handle Ctrl-D (EOF)
-        if bytes_read == 0 {
-            println!();
-            println!("Goodbye! ;)");
-            break;
+        match read_result {
+            ReadResult::Input(0) => {
+                // EOF (Ctrl-D)
+                println!();
+                println!("Goodbye! ;)");
+                break;
+            }
+            ReadResult::Input(_) => {
+                // Normal input, continue processing
+            }
+            ReadResult::Error(e) => {
+                eprintln!("{}Input error:{} {}", colors::ERR, colors::RESET, e);
+                continue;
+            }
         }
 
         let input = input.trim();
@@ -209,4 +238,63 @@ pub async fn handle_repl() -> Result<()> {
     }
 
     Ok(())
+}
+
+/// v0.0.240: Result of reading input with idle detection
+enum ReadResult {
+    /// Successfully read input (contains bytes read, 0 = EOF)
+    Input(usize),
+    /// Error reading input
+    Error(std::io::Error),
+}
+
+/// v0.0.240: Read a line with idle timeout for tips
+async fn read_with_idle_tips(
+    reader: &mut tokio::io::BufReader<tokio::io::Stdin>,
+    buffer: &mut String,
+    tip_queue: &mut TipQueue,
+) -> ReadResult {
+    let tip_colors = TipColors {
+        dim: colors::DIM,
+        reset: colors::RESET,
+    };
+
+    loop {
+        // Check if we should show tips (respect session limit)
+        let should_show_tips = tip_queue.has_tips()
+            && tip_queue.shown_count() < MAX_TIPS_PER_SESSION;
+
+        if should_show_tips {
+            // Use select with timeout to detect idle
+            tokio::select! {
+                result = reader.read_line(buffer) => {
+                    return match result {
+                        Ok(n) => ReadResult::Input(n),
+                        Err(e) => ReadResult::Error(e),
+                    };
+                }
+                _ = tokio::time::sleep(IDLE_TIP_TIMEOUT) => {
+                    // User is idle, show a tip
+                    if let Some(tip) = tip_queue.pop() {
+                        // Move to new line, show tip, re-show prompt
+                        println!();
+                        print!("{}", format_tip(&tip, &tip_colors));
+                        io::stdout().flush().ok();
+
+                        // Re-display the prompt
+                        let username = std::env::var("USER").unwrap_or_else(|_| "you".to_string());
+                        print!("{}{}: {}", colors::HEADER, username, colors::RESET);
+                        io::stdout().flush().ok();
+                    }
+                    // Continue waiting for input
+                }
+            }
+        } else {
+            // No tips to show, just wait for input normally
+            return match reader.read_line(buffer).await {
+                Ok(n) => ReadResult::Input(n),
+                Err(e) => ReadResult::Error(e),
+            };
+        }
+    }
 }

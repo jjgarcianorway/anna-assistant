@@ -64,6 +64,7 @@ pub mod systemd_recipes; // v0.0.233
 pub mod cron_recipes; // v0.0.234
 pub mod docker_recipes; // v0.0.235
 pub mod config_parser; // v0.0.236
+pub mod idle_tips; // v0.0.240
 pub mod stats;
 pub mod status;
 pub mod status_snapshot;

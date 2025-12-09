@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.240] - 2025-12-09
+
+### Added - Idle-Time Tips & Learning
+
+**Idle Detection in REPL:**
+- Anna notices when you're idle (30 seconds)
+- Shows helpful tips about features you haven't tried
+- Maximum 3 tips per session to avoid being annoying
+- Tips remember what's been shown (persisted to disk)
+
+**Contextual Tips System (idle_tips.rs):**
+- Tips based on your current config (suggests features not enabled)
+- Categories: Performance, Security, Storage, Services, Network, System, Patterns
+- TipQueue with priority-based ordering
+- TipHistory tracks shown tips for deduplication
+
+**Example Tips:**
+- If learning mode disabled: suggests enabling it
+- If email not set: mentions long-request notification feature
+- If internal comms hidden: suggests the "fly on wall" experience
+
+**Async REPL Input:**
+- Migrated to tokio async stdin for timeout-based idle detection
+- Uses tokio::select! to race input against idle timer
+- Smooth re-prompt after showing tip
+
 ## [0.0.239] - 2025-12-09
 
 ### Added - Natural Language Email Setup
