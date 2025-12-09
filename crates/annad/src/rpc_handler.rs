@@ -476,7 +476,7 @@ fn record_event_log(
     record.escalated = theatre.ticket.was_escalated;
     record.escalation_tier = if theatre.ticket.was_escalated { 2 } else { 0 };
     record.duration_ms = duration_ms;
-    record.interactions = result.clarification_count.unwrap_or(0) as u32;
+    record.interactions = if result.needs_clarification { 1 } else { 0 };
 
     // Save to event log (ignore errors - stats are not critical)
     let _ = event_log.append(&record);
