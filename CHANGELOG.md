@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.198] - 2025-12-09
+
+### Changed - verify.rs Modularization
+
+**Split verify.rs (485→15 lines) into 4 domain-specific modules:**
+- `types.rs`: VerifyExpectation, ServiceExpectedState, VerificationStep, VerifyResult (140 lines)
+- `runners.rs`: run_verification and all verify_* helpers (178 lines)
+- `batch.rs`: PreActionVerify, PostActionVerify (97 lines)
+- `tests.rs`: Unit tests (48 lines)
+- `mod.rs`: Re-exports for backwards compatibility (15 lines)
+
+**All verify/ files under 400-line limit.**
+
 ## [0.0.197] - 2025-12-09
 
 ### Changed - clarify_v2.rs Modularization
