@@ -11,6 +11,7 @@ mod output;
 mod progress_display;
 mod spinner;
 mod stats_display;
+mod status_display_v2;
 mod theatre_render;
 mod time_format;
 mod transcript_render;

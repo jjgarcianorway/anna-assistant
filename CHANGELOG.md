@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.249] - 2025-12-09
+
+### Changed - Rich Status Display
+
+**`annactl status` now shows a sectioned dashboard matching IT department style.**
+
+New format with bracketed sections `[core]`, `[updates]`, `[permissions]`, `[llm]`,
+`[helpers]`, `[tickets]`, `[annad logs]`, `[health]` providing a comprehensive
+system overview at a glance.
+
+**Sample output:**
+```
+──────────────────────────────────────────────────────────────────────────────
+Anna Service Desk (local)  |  status: OPERATIONAL  |  debug_mode: OFF
+──────────────────────────────────────────────────────────────────────────────
+
+[core]
+  annactl_version       0.0.249
+  annad_version         0.0.249
+  protocol              1
+  daemon                RUNNING  (pid 12345)
+  uptime                2h 15m
+  ...
+
+[llm]
+  provider              ollama
+  state                 READY
+  translator_model      qwen2.5-coder:7b
+  ...
+```
+
+**Changes:**
+- `status_display_v2.rs`: New module implementing rich sectioned display
+- `display.rs`: Simplified to delegate to v2 display
+- `main.rs`: Added status_display_v2 module
+
 ## [0.0.248] - 2025-12-09
 
 ### Fixed - Stats Tracking
