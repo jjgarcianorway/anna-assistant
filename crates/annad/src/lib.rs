@@ -8,8 +8,10 @@
 //! v0.0.149: ConfigureEditor handler extracted to separate module.
 //! v0.0.150: Timeout handler extracted to separate module.
 //! v0.0.155: Response builders extracted to separate module.
+//! v0.0.156: Clarification builders extracted to separate module.
 
 pub mod action_handlers;
+pub mod clarification_builders;
 pub mod comms;
 pub mod configure_editor;
 pub mod editor_config;

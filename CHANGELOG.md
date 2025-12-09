@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.156] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted clarification builders to dedicated module:**
+
+- New `clarification_builders.rs` module (169 lines) containing:
+  - `create_clarification_response()` - legacy clarification (no probes)
+  - `create_clarification_response_grounded()` - grounded clarification with probes
+  - `create_clarification_with_options()` - structured multiple-choice clarification
+
+- Reduced `service_desk.rs` from 510 to 354 lines (now under 400-line limit)
+
+**Module breakdown after v0.0.155-v0.0.156:**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `response_builders.rs`: 298 lines (new)
+- `clarification_builders.rs`: 169 lines (new)
+
 ## [0.0.155] - 2025-12-09
 
 ### Changed - Code Modularization
