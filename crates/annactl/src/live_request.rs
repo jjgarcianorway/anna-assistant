@@ -1,12 +1,14 @@
-//! Live request handling with real-time progress display (v0.0.238).
+//! Live request handling with real-time progress display (v0.0.253).
 //!
 //! Polls for progress events during request processing to show
 //! internal IT department chatter (fly-on-wall experience).
 //!
 //! v0.0.237: Enhanced display format with conversational headers.
 //! v0.0.238: Added streaming token support for word-by-word output.
+//! v0.0.253: Enhanced specialist dialogue with role titles and visual polish.
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
+use anna_shared::roster;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::ui::colors;
 use anna_shared::user_profile::UserProfile;
@@ -82,6 +84,8 @@ struct StreamingState {
     started_streaming: bool,
     /// Whether we're on a new line (for formatting)
     at_line_start: bool,
+    /// v0.0.253: Whether we've shown the internal comms header
+    shown_internal_header: bool,
 }
 
 impl Default for StreamingState {
@@ -89,6 +93,7 @@ impl Default for StreamingState {
         Self {
             started_streaming: false,
             at_line_start: true,
+            shown_internal_header: false,
         }
     }
 }
@@ -96,6 +101,7 @@ impl Default for StreamingState {
 /// Display a progress event in fly-on-wall style
 /// v0.0.237: Enhanced conversational format with better styling
 /// v0.0.238: Added streaming token support
+/// v0.0.253: Enhanced with role titles and internal comms header
 fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
     // Check user preference for internal comms
     let profile = UserProfile::load();
@@ -111,25 +117,13 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
                 println!();
                 state.at_line_start = true;
             }
-            // Show internal comms as dialogue
-            if from == "Anna" {
-                println!(
-                    "  {}Anna:{} {}",
-                    colors::CYAN,
-                    colors::RESET,
-                    message.as_str()
-                );
-            } else {
-                println!(
-                    "  {}{} ({}team{}):{} {}",
-                    colors::HEADER,
-                    from,
-                    colors::DIM,
-                    colors::HEADER,
-                    colors::RESET,
-                    message.as_str()
-                );
+            // v0.0.253: Show internal comms header on first message
+            if !state.shown_internal_header {
+                println!("{}--- internal ---{}", colors::DIM, colors::RESET);
+                state.shown_internal_header = true;
             }
+            // v0.0.253: Show internal comms with role titles from roster
+            display_internal_comms(from, message);
             let _ = io::stdout().flush();
         }
         ProgressEventType::Generation { tokens } => {
@@ -177,6 +171,39 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
         }
         _ => {
             // Other events are handled silently
+        }
+    }
+}
+
+/// v0.0.253: Display internal comms with role lookups
+fn display_internal_comms(from: &str, message: &str) {
+    if from == "Anna" {
+        println!(
+            "  {}Anna:{} {}",
+            colors::OK,
+            colors::RESET,
+            message
+        );
+    } else {
+        // Try to look up the person by display name
+        if let Some(person) = roster::person_by_display_name(from) {
+            println!(
+                "  {}{} ({}):{} {}",
+                colors::WARN,
+                person.display_name,
+                person.role_title,
+                colors::RESET,
+                message
+            );
+        } else {
+            // Fallback if name not in roster
+            println!(
+                "  {}{}:{} {}",
+                colors::WARN,
+                from,
+                colors::RESET,
+                message
+            );
         }
     }
 }

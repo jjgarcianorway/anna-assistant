@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.253] - 2025-12-09
+
+### Changed - Real-Time Specialist Dialogue Enhancement
+
+**Internal IT department chatter now displays with full role titles during request processing.**
+
+When you send a request, you'll see the "behind the scenes" dialogue with proper role titles:
+```
+--- internal ---
+  Anna: Hey Sofia! New case DSK-0042 coming your way.
+  Sofia (Desktop Administrator): On it, checking the system...
+  Sofia (Desktop Administrator): Running 2 probes...
+  Sofia (Desktop Administrator): All 2 probes succeeded.
+  Anna: Thanks Sofia! I'll take it from here.
+```
+
+**Changes:**
+- `live_request.rs`: Added "--- internal ---" header when internal comms begin
+- `live_request.rs`: Staff names now show role titles (e.g., "Sofia (Desktop Administrator)")
+- `roster/data.rs`: Added `person_by_display_name()` for looking up staff by name
+- `roster/mod.rs`: Exported new lookup function
+
 ## [0.0.252] - 2025-12-09
 
 ### Changed - Evidence Bullets in Query Responses

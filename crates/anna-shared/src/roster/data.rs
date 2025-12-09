@@ -243,6 +243,24 @@ pub fn person_by_id(person_id: &str) -> Option<PersonProfile> {
     None
 }
 
+/// v0.0.253: Get person by display name (for internal comms lookup)
+pub fn person_by_display_name(name: &str) -> Option<PersonProfile> {
+    for entry in ROSTER {
+        if entry.name == name {
+            return Some(PersonProfile {
+                person_id: entry.id,
+                display_name: entry.name,
+                role_title: entry.role,
+                team: entry.team,
+                tier: entry.tier,
+                specializations: entry.specs,
+                shift: entry.shift,
+            });
+        }
+    }
+    None
+}
+
 /// Get all persons for a team
 pub fn team_roster(team: Team) -> Vec<PersonProfile> {
     ROSTER
