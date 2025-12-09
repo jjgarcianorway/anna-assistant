@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.214] - 2025-12-09
+
+### Changed - service_recipes.rs Modularization
+
+**Split service_recipes.rs (428→25 lines) into 5 domain-specific modules:**
+- `types.rs`: ServiceAction, ServiceCategory, ServiceRisk enums (123 lines)
+- `recipe.rs`: ServiceRecipe struct and methods (56 lines)
+- `catalog.rs`: known_services, find_service (125 lines)
+- `prompt.rs`: confirmation_prompt (42 lines)
+- `tests.rs`: Unit tests (50 lines)
+- `mod.rs`: Re-exports for backwards compatibility (25 lines)
+
+**All service_recipes/ files under 400-line limit.**
+
 ## [0.0.213] - 2025-12-09
 
 ### Changed - ui.rs Modularization
