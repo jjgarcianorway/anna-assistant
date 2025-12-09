@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.234] - 2025-12-09
+
+### Added - Cron Job Recipes
+
+**New cron_recipes module with 8 built-in recipes:**
+- `AddJob`: Add a new cron job with schedule examples
+- `ListJobs`: List current cron jobs (user and system-wide)
+- `EditCrontab`: Edit crontab with editor options
+- `RemoveJob`: Remove cron jobs safely
+- `ViewLogs`: View cron job logs and output
+- `SyntaxHelp`: Comprehensive cron syntax explanation
+- `Environment`: Cron environment variables guide
+- `DebugJob`: Debug a failing cron job
+
+**Module structure:**
+- `types.rs`: CronPreset, CronFeature, CronRecipe (141 lines)
+- `recipes.rs`: Built-in recipe definitions (232 lines)
+- `matcher.rs`: Query matching logic (69 lines)
+- `tests.rs`: Unit tests (68 lines)
+- `mod.rs`: Re-exports (14 lines)
+
+**Integration:**
+- Added RecipeKind::CronJob variant
+- Integrated with recipe_fast_path for query matching
+- Added to knowledge/conversion.rs for tagging
+
 ## [0.0.233] - 2025-12-09
 
 ### Added - Systemd Unit File Recipes

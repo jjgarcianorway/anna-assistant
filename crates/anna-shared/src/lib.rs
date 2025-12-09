@@ -61,6 +61,7 @@ pub mod snapshot;
 pub mod specialists;
 pub mod ssh_recipes;
 pub mod systemd_recipes; // v0.0.233
+pub mod cron_recipes; // v0.0.234
 pub mod stats;
 pub mod status;
 pub mod status_snapshot;

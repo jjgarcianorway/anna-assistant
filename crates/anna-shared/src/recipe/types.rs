@@ -1,4 +1,4 @@
-//! Recipe type enums (v0.0.233).
+//! Recipe type enums (v0.0.234).
 
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +28,8 @@ pub enum RecipeKind {
     SshConfig,
     /// v0.0.233: Systemd unit file recipes
     SystemdUnit,
+    /// v0.0.234: Cron job recipes
+    CronJob,
     /// Unknown/future kinds
     #[serde(other)]
     Unknown,

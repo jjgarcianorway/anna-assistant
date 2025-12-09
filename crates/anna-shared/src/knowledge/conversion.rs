@@ -165,6 +165,11 @@ fn build_tags(recipe: &Recipe) -> Vec<String> {
             tags.push("unit".to_string());
             tags.push("service".to_string());
         }
+        RecipeKind::CronJob => {
+            tags.push("cron".to_string());
+            tags.push("schedule".to_string());
+            tags.push("job".to_string());
+        }
         RecipeKind::Unknown => {}
     }
 

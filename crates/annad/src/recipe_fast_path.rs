@@ -15,7 +15,8 @@ use tracing::info;
 
 // Re-export built-in recipe matchers
 pub use crate::recipe_builtins::{
-    check_git_recipes, check_shell_recipes, check_ssh_recipes, check_systemd_recipes,
+    check_cron_recipes, check_git_recipes, check_shell_recipes, check_ssh_recipes,
+    check_systemd_recipes,
 };
 
 /// Minimum score to skip LLM and use recipe directly
@@ -118,6 +119,19 @@ pub fn check_recipe_fast_path(query: &str, index: &RecipeIndex) -> RecipeFastPat
     if let Some(result) = check_systemd_recipes(query) {
         info!(
             "Systemd recipe match found: {}",
+            result
+                .recipe
+                .as_ref()
+                .map(|r| r.id.clone())
+                .unwrap_or_default()
+        );
+        return result;
+    }
+
+    // Sixth, check built-in cron recipes (v0.0.234)
+    if let Some(result) = check_cron_recipes(query) {
+        info!(
+            "Cron recipe match found: {}",
             result
                 .recipe
                 .as_ref()
