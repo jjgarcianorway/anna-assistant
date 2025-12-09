@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.255] - 2025-12-09
+
+### Changed - Personality Quirks in Dialogue
+
+**Staff dialogue now reflects unique personality traits for authentic character voices.**
+
+Each IT specialist now speaks with their own distinctive style:
+
+```
+--- internal ---
+  Anna: Hey Sofia! Config question incoming. Case DSK-0042
+  Sofia (Desktop Administrator): Just :wq'd my last task, on it!
+  Sofia (Desktop Administrator): Running 2 checks, like editing a buffer...
+  Sofia (Desktop Administrator): That's a clean config.
+  Anna: Thanks Sofia!
+```
+
+**Personality quirks include:**
+- Sofia: Everything reminds her of vim (`:wq`, `hjkl`, buffers)
+- Daniel: Drinks way too much coffee (`*sips coffee*`)
+- Lars: Always worried about disk space
+- Michael: Loves TCP/IP trivia
+- Nora: Makes beep boop sounds
+- And 10 more unique personalities!
+
+The LLM receives each character's quirk and subtly incorporates it into their dialogue,
+making conversations feel like a real IT department with distinct personalities.
+
+**Changes:**
+- `comms/dialogue_gen.rs`: Added personality_for() lookups to all dialogue generation prompts
+
 ## [0.0.254] - 2025-12-09
 
 ### Changed - LLM-Powered Natural Dialogue

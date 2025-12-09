@@ -1,9 +1,11 @@
-//! LLM-powered dialogue generation for natural specialist chatter (v0.0.254).
+//! LLM-powered dialogue generation for natural specialist chatter (v0.0.255).
 //!
 //! Uses the translator model to generate contextual, varied dialogue that
 //! reflects what staff members are actually doing.
+//!
+//! v0.0.255: Added personality quirks for unique character voices.
 
-use anna_shared::roster::PersonProfile;
+use anna_shared::roster::{personality_for, PersonProfile};
 use crate::ollama;
 use tracing::debug;
 
@@ -63,14 +65,18 @@ pub async fn gen_junior_ack(
     junior: &PersonProfile,
     _query: &str,
 ) -> Option<String> {
+    let personality = personality_for(&junior.person_id);
     let prompt = format!(
         r#"You are {name}, a {role} at an IT help desk. Generate a SINGLE short acknowledgment (max 10 words) that you're taking a case.
 
+Your personality quirk: {quirk}
+Let this quirk subtly influence your phrasing.
+
 Be natural, casual, like real workplace chat. Just the message, no quotes.
-Example style: "On it!" or "Got it, checking now" or "Yep, pulling it up"
 "#,
         name = junior.display_name,
         role = junior.role_title,
+        quirk = personality.quirk,
     );
 
     gen_dialogue_fast(model, &prompt).await
@@ -82,15 +88,19 @@ pub async fn gen_junior_probing(
     junior: &PersonProfile,
     probe_count: usize,
 ) -> Option<String> {
+    let personality = personality_for(&junior.person_id);
     let prompt = format!(
         r#"You are {name}, a {role}. Generate a SINGLE short line (max 12 words) about running {count} system check(s).
 
+Your personality quirk: {quirk}
+Let this quirk subtly influence your phrasing.
+
 Be technical but brief. Just the message, no quotes.
-Example: "Running {count} quick checks..." or "Pulling some diagnostics..."
 "#,
         name = junior.display_name,
         role = junior.role_title,
         count = probe_count,
+        quirk = personality.quirk,
     );
 
     gen_dialogue_fast(model, &prompt).await
@@ -103,6 +113,7 @@ pub async fn gen_junior_probes_done(
     success_count: usize,
     planned_count: usize,
 ) -> Option<String> {
+    let personality = personality_for(&junior.person_id);
     let status = if success_count == planned_count {
         "all succeeded"
     } else if success_count > 0 {
@@ -114,14 +125,15 @@ pub async fn gen_junior_probes_done(
     let prompt = format!(
         r#"You are {name}, a {role}. Generate a SINGLE short line (max 10 words) about probe results ({status}).
 
+Your personality quirk: {quirk}
+Let this quirk subtly influence your phrasing.
+
 Be brief and factual. Just the message, no quotes.
-Example: "Got the data" or "All checks done" or "{count} of {total} worked"
 "#,
         name = junior.display_name,
         role = junior.role_title,
         status = status,
-        count = success_count,
-        total = planned_count,
+        quirk = personality.quirk,
     );
 
     gen_dialogue_fast(model, &prompt).await
@@ -132,14 +144,18 @@ pub async fn gen_junior_reviewing(
     model: &str,
     junior: &PersonProfile,
 ) -> Option<String> {
+    let personality = personality_for(&junior.person_id);
     let prompt = format!(
         r#"You are {name}, a {role}. Generate a SINGLE short line (max 10 words) about checking/reviewing data.
 
+Your personality quirk: {quirk}
+Let this quirk subtly influence your phrasing.
+
 Be natural, brief. Just the message, no quotes.
-Example: "Looking at the numbers..." or "Checking this..."
 "#,
         name = junior.display_name,
         role = junior.role_title,
+        quirk = personality.quirk,
     );
 
     gen_dialogue_fast(model, &prompt).await
@@ -151,6 +167,7 @@ pub async fn gen_junior_done(
     junior: &PersonProfile,
     confidence: u8,
 ) -> Option<String> {
+    let personality = personality_for(&junior.person_id);
     let conf_desc = if confidence >= 90 {
         "high confidence"
     } else if confidence >= 70 {
@@ -162,13 +179,16 @@ pub async fn gen_junior_done(
     let prompt = format!(
         r#"You are {name}, a {role}. Generate a SINGLE short line (max 12 words) about finishing with {conf}% ({desc}).
 
+Your personality quirk: {quirk}
+Let this quirk subtly influence your phrasing.
+
 Be natural, mention the confidence level. Just the message, no quotes.
-Example: "Done, {conf}% sure" or "Looks good - {conf}%"
 "#,
         name = junior.display_name,
         role = junior.role_title,
         conf = confidence,
         desc = conf_desc,
+        quirk = personality.quirk,
     );
 
     gen_dialogue_fast(model, &prompt).await
