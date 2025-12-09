@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.239] - 2025-12-09
+
+### Added - Natural Language Email Setup
+
+**Email via Conversation:**
+- Set email with natural language: "my email is user@example.com"
+- Or: "notify me at user@example.com", "reach me at..."
+- Disable with: "disable email notifications", "stop emailing me"
+- Email shown in `config` / `settings` status display
+
+**Config Parser Improvements:**
+- Added email address extraction with regex
+- ConfigChange::Email and ConfigChange::ClearEmail variants
+- Email stored in both profile and email config for consistency
+
 ## [0.0.238] - 2025-12-09
 
 ### Added - Session History & "Since Last Time" Summary

@@ -1,11 +1,15 @@
-//! Configuration change handler for REPL (v0.0.237).
+//! Configuration change handler for REPL (v0.0.239).
 //!
 //! Handles natural language config requests like:
 //! - "Anna, enable learning mode"
 //! - "make Anna more casual"
 //! - "hide internal communications"
+//! - "my email is user@example.com"
+//!
+//! v0.0.239: Added natural language email setup.
 
 use anna_shared::config_parser::{parse_config_request, ConfigChange};
+use anna_shared::email::EmailConfig;
 use anna_shared::ui::colors;
 use anna_shared::user_profile::UserProfile;
 
@@ -31,6 +35,12 @@ pub fn try_handle_config(input: &str) -> ConfigResult {
 
 /// Apply a config change to the user's profile
 fn apply_config_change(change: &ConfigChange) {
+    // v0.0.239: Handle email changes separately
+    if change.is_email_change() {
+        apply_email_change(change);
+        return;
+    }
+
     // Load current profile
     let mut profile = UserProfile::load();
 
@@ -61,6 +71,52 @@ fn apply_config_change(change: &ConfigChange) {
     show_config_tip(change);
 }
 
+/// v0.0.239: Apply email-related config change
+fn apply_email_change(change: &ConfigChange) {
+    let mut config = EmailConfig::load();
+
+    match change {
+        ConfigChange::Email(addr) => {
+            config.set_email(addr);
+            // Also save to user profile for consistency
+            let mut profile = UserProfile::load();
+            profile.set_email(addr);
+            let _ = profile.save();
+        }
+        ConfigChange::ClearEmail => {
+            config.clear();
+        }
+        _ => return,
+    }
+
+    if let Err(e) = config.save() {
+        println!(
+            "{}Warning: Could not save email config: {}{}",
+            colors::WARN,
+            e,
+            colors::RESET
+        );
+        return;
+    }
+
+    println!();
+    println!(
+        "{}[config]{} {}",
+        colors::CYAN,
+        colors::RESET,
+        change.description()
+    );
+
+    // Show tip
+    if let ConfigChange::Email(_) = change {
+        println!(
+            "  {}When a request takes a long time, I'll email you the answer.{}",
+            colors::DIM,
+            colors::RESET
+        );
+    }
+}
+
 /// Show helpful tip related to the config change
 fn show_config_tip(change: &ConfigChange) {
     let tip = match change {
@@ -85,6 +141,8 @@ fn show_config_tip(change: &ConfigChange) {
         }
         ConfigChange::Verbosity(2) => Some("I'll provide comprehensive explanations."),
         ConfigChange::Verbosity(0) => Some("Short and sweet from now on."),
+        // Email tips are handled in apply_email_change
+        ConfigChange::Email(_) | ConfigChange::ClearEmail => None,
         _ => None,
     };
 
@@ -98,6 +156,7 @@ pub fn show_config_status() {
     let profile = UserProfile::load();
     let prefs = &profile.preferences;
     let pers = &prefs.personality;
+    let email_config = EmailConfig::load();
 
     println!();
     println!("{}Current Settings:{}", colors::HEADER, colors::RESET);
@@ -139,6 +198,16 @@ pub fn show_config_status() {
         }
     );
 
+    // v0.0.239: Email notifications
+    println!(
+        "  Email:            {}",
+        if let Some(ref email) = email_config.user_email {
+            format!("{}{}{}", colors::OK, email, colors::RESET)
+        } else {
+            format!("{}not set{}", colors::DIM, colors::RESET)
+        }
+    );
+
     // Personality
     println!();
     println!("{}Personality:{}", colors::HEADER, colors::RESET);
@@ -174,7 +243,7 @@ pub fn show_config_status() {
         colors::RESET
     );
     println!(
-        "{}  \"make Anna more casual\" or \"enable learning mode\"{}",
+        "{}  \"make Anna more casual\" or \"my email is user@example.com\"{}",
         colors::DIM,
         colors::RESET
     );

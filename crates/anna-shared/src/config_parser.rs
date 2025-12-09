@@ -1,4 +1,4 @@
-//! Natural language config command parser (v0.0.236).
+//! Natural language config command parser (v0.0.239).
 //!
 //! Parses user requests to change Anna's settings, like:
 //! - "disable learning mode"
@@ -6,8 +6,13 @@
 //! - "make Anna more casual"
 //! - "hide internal communications"
 //! - "set verbosity to detailed"
+//! - "my email is user@example.com"
+//! - "notify me at user@example.com"
+//!
+//! v0.0.239: Added email setup via natural language.
 
 use crate::user_profile::UserPreferences;
+use regex::Regex;
 
 /// A parsed config change request
 #[derive(Debug, Clone, PartialEq)]
@@ -26,10 +31,15 @@ pub enum ConfigChange {
     Humor(u8),
     /// Change technical depth (0=simple, 1=balanced, 2=expert)
     TechnicalDepth(u8),
+    /// v0.0.239: Set email address for notifications
+    Email(String),
+    /// v0.0.239: Clear email (disable notifications)
+    ClearEmail,
 }
 
 impl ConfigChange {
-    /// Apply this change to preferences
+    /// Apply this change to preferences (for preference-based settings only)
+    /// Email changes need to be handled separately via apply_email()
     pub fn apply(&self, prefs: &mut UserPreferences) {
         match self {
             ConfigChange::LearningMode(v) => prefs.learning_mode = *v,
@@ -39,6 +49,21 @@ impl ConfigChange {
             ConfigChange::Formality(v) => prefs.personality.formality = *v,
             ConfigChange::Humor(v) => prefs.personality.humor = *v,
             ConfigChange::TechnicalDepth(v) => prefs.personality.technical_depth = *v,
+            // Email changes are handled separately
+            ConfigChange::Email(_) | ConfigChange::ClearEmail => {}
+        }
+    }
+
+    /// Check if this is an email-related change
+    pub fn is_email_change(&self) -> bool {
+        matches!(self, ConfigChange::Email(_) | ConfigChange::ClearEmail)
+    }
+
+    /// Get email address if this is an email change
+    pub fn get_email(&self) -> Option<&str> {
+        match self {
+            ConfigChange::Email(e) => Some(e),
+            _ => None,
         }
     }
 
@@ -67,6 +92,8 @@ impl ConfigChange {
             ConfigChange::TechnicalDepth(1) => "Balanced technical depth.".to_string(),
             ConfigChange::TechnicalDepth(2) => "Expert mode - full technical details.".to_string(),
             ConfigChange::TechnicalDepth(_) => "Technical depth updated.".to_string(),
+            ConfigChange::Email(addr) => format!("Got it! I'll notify you at {} for long-running tickets.", addr),
+            ConfigChange::ClearEmail => "Email notifications disabled.".to_string(),
         }
     }
 }
@@ -74,6 +101,16 @@ impl ConfigChange {
 /// Try to parse a config change request from user query
 pub fn parse_config_request(query: &str) -> Option<ConfigChange> {
     let q = query.to_lowercase();
+
+    // v0.0.239: Email setup
+    if let Some(email) = extract_email(query) {
+        if matches_any(&q, &["my email", "email is", "notify me", "reach me", "contact me", "email me"]) {
+            return Some(ConfigChange::Email(email));
+        }
+    }
+    if matches_any(&q, &["disable email", "no email", "don't email", "stop email", "remove email", "clear email"]) {
+        return Some(ConfigChange::ClearEmail);
+    }
 
     // Learning mode
     if matches_any(&q, &["enable learning", "turn on learning", "explain commands", "teach me"]) {
@@ -151,9 +188,23 @@ fn matches_any(query: &str, patterns: &[&str]) -> bool {
     patterns.iter().any(|p| query.contains(p))
 }
 
+/// Extract email address from text using regex
+fn extract_email(text: &str) -> Option<String> {
+    let re = Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").ok()?;
+    re.find(text).map(|m| m.as_str().to_string())
+}
+
 /// Check if a query looks like a config request (for routing)
 pub fn is_config_request(query: &str) -> bool {
     let q = query.to_lowercase();
+
+    // v0.0.239: Check for email setup patterns (these are always config)
+    if extract_email(query).is_some() && matches_any(&q, &["my email", "email is", "notify me", "reach me", "contact me"]) {
+        return true;
+    }
+    if matches_any(&q, &["disable email", "no email", "don't email", "stop email", "remove email"]) {
+        return true;
+    }
 
     // Check for common config-related keywords
     let config_indicators = [
@@ -247,5 +298,35 @@ mod tests {
     fn test_not_config_request() {
         assert_eq!(parse_config_request("how much memory"), None);
         assert_eq!(parse_config_request("disk usage"), None);
+    }
+
+    #[test]
+    fn test_extract_email() {
+        assert_eq!(extract_email("my email is user@example.com"), Some("user@example.com".to_string()));
+        assert_eq!(extract_email("notify me at test@domain.org please"), Some("test@domain.org".to_string()));
+        assert_eq!(extract_email("no email here"), None);
+    }
+
+    #[test]
+    fn test_parse_email() {
+        assert_eq!(
+            parse_config_request("my email is user@example.com"),
+            Some(ConfigChange::Email("user@example.com".to_string()))
+        );
+        assert_eq!(
+            parse_config_request("notify me at test@domain.org"),
+            Some(ConfigChange::Email("test@domain.org".to_string()))
+        );
+        assert_eq!(
+            parse_config_request("disable email notifications"),
+            Some(ConfigChange::ClearEmail)
+        );
+    }
+
+    #[test]
+    fn test_is_email_config_request() {
+        assert!(is_config_request("my email is user@example.com"));
+        assert!(is_config_request("notify me at test@domain.org"));
+        assert!(is_config_request("disable email notifications"));
     }
 }
