@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.189] - 2025-12-09
+
+### Changed - report.rs Modularization
+
+**Split report.rs (511→19 lines) into 5 domain-specific modules:**
+- `types.rs`: HealthSeverity, HealthItem, SystemInventory, SystemReport, ReportEvidence (79 lines)
+- `helpers.rs`: sanitize_mount, format_bytes (23 lines)
+- `builders.rs`: build_inventory, build_health_checks, build_executive_summary, SystemReport::from_evidence (215 lines)
+- `formatters.rs`: format_text, format_markdown (147 lines)
+- `tests.rs`: Unit tests (25 lines)
+- `mod.rs`: Re-exports for backwards compatibility (19 lines)
+
+**All report/ files under 400-line limit.**
+
 ## [0.0.188] - 2025-12-09
 
 ### Changed - inventory.rs Modularization
