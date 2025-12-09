@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.220] - 2025-12-09
+
+### Changed - rpc.rs Modularization
+
+**Split rpc.rs (411→21 lines) into 7 domain-specific modules:**
+- `method.rs`: RpcMethod enum, DaemonInfo (42 lines)
+- `request_response.rs`: RpcRequest, RpcResponse, RpcError (70 lines)
+- `params.rs`: RequestParams, ProbeParams, ProbeType, PlanChangeParams, ChangeParams (41 lines)
+- `context.rs`: RuntimeContext, Capabilities, HardwareSummary (43 lines)
+- `routing.rs`: SpecialistDomain, QueryIntent, TranslatorTicket (73 lines)
+- `result.rs`: ProbeResult, EvidenceBlock, ReliabilitySignals, ServiceDeskResult (135 lines)
+- `tests.rs`: Unit tests (27 lines)
+- `mod.rs`: Re-exports for backwards compatibility (21 lines)
+
+**All rpc/ files under 400-line limit.**
+
 ## [0.0.219] - 2025-12-09
 
 ### Changed - snapshot.rs Modularization
