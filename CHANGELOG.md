@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.179] - 2025-12-09
+
+### Changed - transcript_render.rs Modularization
+
+**Split transcript_render.rs (652→24 lines) into 6 domain-specific modules:**
+- `answer_source.rs`: AnswerSource enum and get_final_answer helper (36 lines)
+- `helpers.rs`: Rendering helper functions - format_actor_tag, format_outcome, reliability_color, truncate (70 lines)
+- `render.rs`: Main render entry points - render, render_with_options (26 lines)
+- `debug_render.rs`: Debug mode rendering - full troubleshooting view (326 lines)
+- `event_renders.rs`: Individual event rendering helpers for transcript events (224 lines)
+- `tests.rs`: Unit tests for helpers (34 lines)
+- `mod.rs`: Re-exports for backwards compatibility (24 lines)
+
+**All transcript_render/ files under 400-line limit.**
+
 ## [0.0.178] - 2025-12-09
 
 ### Changed - transcript.rs Modularization
