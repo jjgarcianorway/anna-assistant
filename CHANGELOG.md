@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.206] - 2025-12-09
+
+### Changed - email.rs Modularization
+
+**Split email.rs (453→23 lines) into 4 domain-specific modules:**
+- `system.rs`: inbox_path, is_email_available, email_package_name (76 lines)
+- `config.rs`: EmailConfig, EmailHealth (113 lines)
+- `notifications.rs`: EmailNotification, send_notification, format_email (192 lines)
+- `tests.rs`: Unit tests (55 lines)
+- `mod.rs`: Re-exports for backwards compatibility (23 lines)
+
+**All email/ files under 400-line limit.**
+
 ## [0.0.205] - 2025-12-09
 
 ### Changed - commands.rs Modularization
