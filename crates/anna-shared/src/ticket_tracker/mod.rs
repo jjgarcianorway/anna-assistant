@@ -25,4 +25,4 @@ mod tracker;
 pub use message::TicketMessage;
 pub use status::TicketStatus;
 pub use ticket::Ticket;
-pub use tracker::{TicketStats, TicketTracker};
+pub use tracker::{TicketDomain, TicketStats, TicketTracker};

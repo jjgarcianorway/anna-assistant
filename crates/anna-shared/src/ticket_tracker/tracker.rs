@@ -1,6 +1,7 @@
-//! Ticket tracker and storage (v0.0.183).
+//! Ticket tracker and storage (v0.0.251).
+//!
+//! v0.0.251: Domain-based case number prefixes (NET-, STO-, SEC-, SVC-, DSK-)
 
-use chrono::{Datelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -9,11 +10,46 @@ use std::path::PathBuf;
 use super::status::TicketStatus;
 use super::ticket::Ticket;
 
+/// Domain prefixes for case numbers (v0.0.251)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum TicketDomain {
+    #[default]
+    Desktop,
+    Network,
+    Storage,
+    Security,
+    Services,
+}
+
+impl TicketDomain {
+    /// Get the short prefix for case numbers
+    pub fn prefix(&self) -> &'static str {
+        match self {
+            Self::Desktop => "DSK",
+            Self::Network => "NET",
+            Self::Storage => "STO",
+            Self::Security => "SEC",
+            Self::Services => "SVC",
+        }
+    }
+
+    /// Parse from team string
+    pub fn from_team(team: &str) -> Self {
+        match team.to_lowercase().as_str() {
+            "network" => Self::Network,
+            "storage" => Self::Storage,
+            "security" => Self::Security,
+            "services" => Self::Services,
+            _ => Self::Desktop,
+        }
+    }
+}
+
 /// Ticket tracker - generates case numbers and tracks history
 pub struct TicketTracker {
     /// Path to ticket history file
     history_path: PathBuf,
-    /// Path to counter file (for daily sequence)
+    /// Path to counter file (for sequence per domain)
     counter_path: PathBuf,
 }
 
@@ -37,59 +73,47 @@ impl TicketTracker {
         }
     }
 
-    /// Generate next case number
+    /// Generate next case number (legacy format for backwards compatibility)
     pub fn next_case_number(&self) -> String {
-        let now = Utc::now();
-        let date_str = format!("{:02}{:02}{}", now.day(), now.month(), now.year());
-
-        // Read counter
-        let (last_date, last_seq) = self.read_counter();
-
-        // Reset sequence if new day
-        let seq = if last_date == date_str {
-            last_seq + 1
-        } else {
-            1
-        };
-
-        // Write new counter
-        self.write_counter(&date_str, seq);
-
-        format!("CN-{:04}-{}", seq, date_str)
+        self.next_case_number_for_domain(TicketDomain::Desktop)
     }
 
-    fn read_counter(&self) -> (String, u32) {
-        if !self.counter_path.exists() {
-            return (String::new(), 0);
-        }
+    /// v0.0.251: Generate domain-prefixed case number (e.g., NET-0042)
+    pub fn next_case_number_for_domain(&self, domain: TicketDomain) -> String {
+        let prefix = domain.prefix();
+        let seq = self.next_seq_for_prefix(prefix);
+        format!("{}-{:04}", prefix, seq)
+    }
 
-        #[derive(Deserialize)]
-        struct Counter {
-            date: String,
-            seq: u32,
+    /// v0.0.251: Get next sequence number for a prefix
+    fn next_seq_for_prefix(&self, prefix: &str) -> u32 {
+        let counters = self.read_counters();
+        let seq = counters.get(prefix).copied().unwrap_or(0) + 1;
+        self.write_counter_for_prefix(prefix, seq);
+        seq
+    }
+
+    /// v0.0.251: Read all domain counters
+    fn read_counters(&self) -> std::collections::HashMap<String, u32> {
+        if !self.counter_path.exists() {
+            return std::collections::HashMap::new();
         }
 
         match fs::read_to_string(&self.counter_path) {
-            Ok(json) => match serde_json::from_str::<Counter>(&json) {
-                Ok(c) => (c.date, c.seq),
-                Err(_) => (String::new(), 0),
-            },
-            Err(_) => (String::new(), 0),
+            Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
+            Err(_) => std::collections::HashMap::new(),
         }
     }
 
-    fn write_counter(&self, date: &str, seq: u32) {
-        #[derive(Serialize)]
-        struct Counter<'a> {
-            date: &'a str,
-            seq: u32,
-        }
-
+    /// v0.0.251: Write counter for a specific prefix
+    fn write_counter_for_prefix(&self, prefix: &str, seq: u32) {
         if let Some(parent) = self.counter_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
 
-        let json = serde_json::to_string(&Counter { date, seq }).unwrap_or_default();
+        let mut counters = self.read_counters();
+        counters.insert(prefix.to_string(), seq);
+        let json = serde_json::to_string(&counters).unwrap_or_default();
         let _ = fs::write(&self.counter_path, json);
     }
 

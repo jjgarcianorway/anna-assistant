@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.251] - 2025-12-09
+
+### Changed - Domain-Prefixed Case Numbers
+
+**Ticket IDs now use domain-specific prefixes instead of generic "CN".**
+
+Case numbers now reflect the team handling the request:
+- `DSK-0001` - Desktop/System queries
+- `NET-0001` - Network queries
+- `STO-0001` - Storage queries
+- `SEC-0001` - Security queries
+- `SVC-0001` - Services/Packages queries
+
+Each domain has its own counter that persists across sessions.
+
+**Changes:**
+- `tracker.rs`: Added `TicketDomain` enum with domain prefixes
+- `tracker.rs`: Added `next_case_number_for_domain()` method
+- `theatre.rs`: Now generates domain-prefixed case numbers based on query domain
+- Counter format changed from date-based reset to persistent per-domain counters
+
 ## [0.0.250] - 2025-12-09
 
 ### Changed - RPG-Style Stats Display

@@ -9,7 +9,7 @@ use anna_shared::roster::{person_for, PersonProfile, Tier};
 use anna_shared::rpc::SpecialistDomain;
 use anna_shared::staff_stats::StaffStats;
 use anna_shared::teams::Team;
-use anna_shared::ticket_tracker::{Ticket, TicketTracker};
+use anna_shared::ticket_tracker::{Ticket, TicketDomain, TicketTracker};
 use anna_shared::user_profile::UserProfile;
 
 /// Theatre context for a single request
@@ -27,10 +27,12 @@ pub struct TheatreContext {
 
 impl TheatreContext {
     /// Create a new theatre context for a request
+    /// v0.0.251: Now generates domain-prefixed case numbers (e.g., NET-0042)
     pub fn new(query: &str, domain: SpecialistDomain) -> Self {
         let tracker = TicketTracker::new();
-        let case_number = tracker.next_case_number();
         let team = domain_to_team(domain);
+        let ticket_domain = team_to_ticket_domain(team);
+        let case_number = tracker.next_case_number_for_domain(ticket_domain);
         let staff = person_for(team, Tier::Junior);
 
         let ticket = Ticket::new(case_number.clone(), query.to_string(), team.to_string());
@@ -122,6 +124,17 @@ fn domain_to_team(domain: SpecialistDomain) -> Team {
     }
 }
 
+/// v0.0.251: Map Team to TicketDomain for case number prefixes
+fn team_to_ticket_domain(team: Team) -> TicketDomain {
+    match team {
+        Team::Desktop | Team::Hardware | Team::Performance => TicketDomain::Desktop,
+        Team::Network => TicketDomain::Network,
+        Team::Storage => TicketDomain::Storage,
+        Team::Security => TicketDomain::Security,
+        Team::Services | Team::Logs | Team::General => TicketDomain::Services,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,7 +143,8 @@ mod tests {
     #[test]
     fn test_theatre_context_creation() {
         let ctx = TheatreContext::new("how much RAM?", SpecialistDomain::System);
-        assert!(ctx.case_number.starts_with("CN-"));
+        // v0.0.251: Now uses domain prefix (DSK for Desktop/System)
+        assert!(ctx.case_number.starts_with("DSK-"));
         assert_eq!(ctx.team, Team::Desktop);
         assert!(!ctx.staff_name().is_empty());
     }

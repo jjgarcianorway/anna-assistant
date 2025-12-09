@@ -6,10 +6,21 @@ mod tests {
 
     #[test]
     fn test_case_number_format() {
+        use crate::ticket_tracker::TicketDomain;
+
         let tracker = TicketTracker::new();
+
+        // v0.0.251: next_case_number() now defaults to DSK- prefix
         let case = tracker.next_case_number();
-        assert!(case.starts_with("CN-"));
-        assert!(case.len() > 10);
+        assert!(case.starts_with("DSK-"));
+        assert_eq!(case.len(), 8); // DSK-NNNN
+
+        // Test domain-specific prefixes
+        let net_case = tracker.next_case_number_for_domain(TicketDomain::Network);
+        assert!(net_case.starts_with("NET-"));
+
+        let sec_case = tracker.next_case_number_for_domain(TicketDomain::Security);
+        assert!(sec_case.starts_with("SEC-"));
     }
 
     #[test]
