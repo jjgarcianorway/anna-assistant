@@ -1,4 +1,6 @@
-//! System snapshot types and thresholds (v0.0.219).
+//! System snapshot types and thresholds (v0.0.259).
+//!
+//! v0.0.259: Added boot_time, load averages, and network fields.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -11,7 +13,7 @@ pub const MEMORY_HIGH_THRESHOLD: u8 = 85;
 pub const MEMORY_CHANGE_THRESHOLD: u8 = 10;
 
 /// System snapshot - minimal deterministic state capture
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SystemSnapshot {
     /// Disk usage per mount point (mount -> percent_used)
     pub disk: BTreeMap<String, u8>,
@@ -24,6 +26,24 @@ pub struct SystemSnapshot {
     /// Capture timestamp (unix seconds, internal use only)
     #[serde(default)]
     pub captured_at: u64,
+    /// v0.0.259: Boot time (unix seconds)
+    #[serde(default)]
+    pub boot_time_secs: u64,
+    /// v0.0.259: 1-minute load average
+    #[serde(default)]
+    pub load_1min: f32,
+    /// v0.0.259: 5-minute load average
+    #[serde(default)]
+    pub load_5min: f32,
+    /// v0.0.259: 15-minute load average
+    #[serde(default)]
+    pub load_15min: f32,
+    /// v0.0.259: Network connected status
+    #[serde(default)]
+    pub network_connected: bool,
+    /// v0.0.259: IP addresses
+    #[serde(default)]
+    pub ip_addresses: Vec<String>,
 }
 
 impl SystemSnapshot {

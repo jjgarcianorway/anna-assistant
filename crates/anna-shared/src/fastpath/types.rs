@@ -1,4 +1,6 @@
-//! Fast path types (v0.0.185).
+//! Fast path types (v0.0.259).
+//!
+//! v0.0.259: Added Uptime, CpuUsage, and NetworkStatus fast path classes.
 
 use crate::facts::FactsStore;
 use crate::snapshot::SystemSnapshot;
@@ -22,6 +24,12 @@ pub enum FastPathClass {
     FailedServices,
     /// "what changed since last time"
     WhatChanged,
+    /// v0.0.259: "uptime", "how long has my computer been running"
+    Uptime,
+    /// v0.0.259: "cpu usage", "cpu load", "processor usage"
+    CpuUsage,
+    /// v0.0.259: "network status", "am I connected", "internet connection"
+    NetworkStatus,
     /// Not a fast path query
     NotFastPath,
 }
@@ -34,6 +42,9 @@ impl std::fmt::Display for FastPathClass {
             Self::MemoryUsage => "memory_usage",
             Self::FailedServices => "failed_services",
             Self::WhatChanged => "what_changed",
+            Self::Uptime => "uptime",
+            Self::CpuUsage => "cpu_usage",
+            Self::NetworkStatus => "network_status",
             Self::NotFastPath => "not_fast_path",
         };
         write!(f, "{}", s)

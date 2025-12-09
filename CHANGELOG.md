@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.259] - 2025-12-09
+
+### Added - More Fast Path Query Classes
+
+**Anna now answers uptime, CPU load, and network status instantly!**
+
+New fast path classes:
+- **Uptime** - "uptime", "how long has my computer been running", "when was last boot"
+- **CpuUsage** - "cpu usage", "cpu load", "load average"
+- **NetworkStatus** - "network status", "am I connected", "internet connection", "wifi status"
+
+**SystemSnapshot extended:**
+- `boot_time_secs` - Boot time as Unix timestamp
+- `load_1min`, `load_5min`, `load_15min` - Load averages
+- `network_connected` - Network connectivity status
+- `ip_addresses` - List of active IP addresses
+
+**New EvidenceKind variants:**
+- `LoadAverage` - For CPU load monitoring
+- `NetworkInfo` - For network status
+
+**Probe parsing:**
+- `uptime` output parsing for load averages
+- `uptime -s` output parsing for boot time
+- `ip addr` output parsing for network info
+
 ## [0.0.258] - 2025-12-09
 
 ### Added - Pending Ticket Retry Queue

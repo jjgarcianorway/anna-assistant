@@ -1,11 +1,13 @@
-//! Fast path engine (v0.0.185).
+//! Fast path engine (v0.0.259).
+//!
+//! v0.0.259: Added uptime, CPU usage, and network status fast paths.
 
 use crate::recipe::{search_recipes_by_keywords, RecipeMatch};
 use crate::snapshot::load_last_snapshot;
 
 use super::answers::{
-    answer_disk_usage, answer_failed_services, answer_memory_usage, answer_system_health,
-    answer_what_changed,
+    answer_cpu_usage, answer_disk_usage, answer_failed_services, answer_memory_usage,
+    answer_network_status, answer_system_health, answer_uptime, answer_what_changed,
 };
 use super::classify::classify_fast_path;
 use super::types::{FastPathAnswer, FastPathClass, FastPathInput};
@@ -46,6 +48,9 @@ pub fn try_fast_path(input: &FastPathInput) -> FastPathAnswer {
         FastPathClass::MemoryUsage => answer_memory_usage(snapshot, is_fresh),
         FastPathClass::FailedServices => answer_failed_services(snapshot, is_fresh),
         FastPathClass::WhatChanged => answer_what_changed(snapshot),
+        FastPathClass::Uptime => answer_uptime(snapshot, is_fresh),
+        FastPathClass::CpuUsage => answer_cpu_usage(snapshot, is_fresh),
+        FastPathClass::NetworkStatus => answer_network_status(snapshot, is_fresh),
         FastPathClass::NotFastPath => FastPathAnswer::not_handled("not fast path"),
     }
 }

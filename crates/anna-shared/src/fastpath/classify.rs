@@ -1,4 +1,6 @@
-//! Fast path query classification (v0.0.185).
+//! Fast path query classification (v0.0.259).
+//!
+//! v0.0.259: Added Uptime, CpuUsage, and NetworkStatus classification.
 
 use super::types::FastPathClass;
 
@@ -40,11 +42,48 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
         return FastPathClass::WhatChanged;
     }
 
+    // v0.0.259: Uptime: "uptime", "how long running", "when did I boot"
+    if stripped.contains("uptime")
+        || stripped.contains("how long has")
+        || stripped.contains("how long been running")
+        || stripped.contains("when did") && stripped.contains("boot")
+        || stripped.contains("last boot")
+        || stripped.contains("last reboot")
+        || stripped.contains("time since boot")
+    {
+        return FastPathClass::Uptime;
+    }
+
+    // v0.0.259: CpuUsage: "cpu usage", "cpu load", "processor"
+    if stripped.contains("cpu usage")
+        || stripped.contains("cpu load")
+        || stripped.contains("processor usage")
+        || stripped.contains("processor load")
+        || stripped.contains("how busy is") && stripped.contains("cpu")
+        || stripped.contains("load average")
+    {
+        return FastPathClass::CpuUsage;
+    }
+
+    // v0.0.259: NetworkStatus: "network status", "connected", "internet"
+    if stripped.contains("network status")
+        || stripped.contains("am i connected")
+        || stripped.contains("internet connection")
+        || stripped.contains("online")
+        || stripped.contains("network connection")
+        || stripped.contains("wifi status")
+        || stripped.contains("ethernet status")
+    {
+        return FastPathClass::NetworkStatus;
+    }
+
     // DiskUsage: "disk usage", "disk space", "how much disk"
     if stripped.contains("disk usage")
         || stripped.contains("disk space")
         || stripped.contains("how much disk")
         || stripped.contains("storage space")
+        || stripped.contains("free space")
+        || stripped.contains("space left")
     {
         return FastPathClass::DiskUsage;
     }
@@ -54,6 +93,8 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
         || stripped.contains("how much memory")
         || stripped.contains("ram usage")
         || stripped.contains("how much ram")
+        || stripped.contains("free memory")
+        || stripped.contains("memory free")
     {
         return FastPathClass::MemoryUsage;
     }

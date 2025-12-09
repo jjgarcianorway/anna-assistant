@@ -272,7 +272,7 @@ mod tests {
             failed_services: vec![],
             memory_total_bytes: 16_000_000_000,
             memory_used_bytes: 4_000_000_000,
-            captured_at: 0,
+            ..Default::default()
         };
 
         let insights = generate_insights(&snapshot, &[]);
@@ -291,7 +291,7 @@ mod tests {
             failed_services: vec![],
             memory_total_bytes: 16_000_000_000,
             memory_used_bytes: 2_000_000_000,
-            captured_at: 0,
+            ..Default::default()
         };
 
         let insights = generate_insights(&snapshot, &[]);
@@ -310,7 +310,7 @@ mod tests {
             failed_services: vec![],
             memory_total_bytes: 16_000_000_000,
             memory_used_bytes: 4_000_000_000,
-            captured_at: 0,
+            ..Default::default()
         };
 
         let status = quick_status_line(&snapshot);

@@ -1,4 +1,6 @@
-//! Fast path answer generators (v0.0.185).
+//! Fast path answer generators (v0.0.259).
+//!
+//! v0.0.259: Added uptime, CPU usage, and network status answers.
 
 use crate::health_view::{build_health_summary, has_health_issues};
 use crate::snapshot::{
@@ -204,6 +206,108 @@ pub fn answer_what_changed(current: &SystemSnapshot) -> FastPathAnswer {
         evidence,
         &format!("{} changes detected", deltas.len()),
         reliability,
+        false,
+    )
+}
+
+/// v0.0.259: Answer uptime from snapshot
+pub fn answer_uptime(snapshot: &SystemSnapshot, is_fresh: bool) -> FastPathAnswer {
+    if !is_fresh {
+        return FastPathAnswer::not_handled("snapshot stale, probes needed");
+    }
+
+    if snapshot.boot_time_secs == 0 {
+        return FastPathAnswer::not_handled("no boot time in snapshot");
+    }
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    let uptime_secs = now.saturating_sub(snapshot.boot_time_secs);
+    let days = uptime_secs / 86400;
+    let hours = (uptime_secs % 86400) / 3600;
+    let mins = (uptime_secs % 3600) / 60;
+
+    let uptime_str = if days > 0 {
+        format!("{} days, {} hours, {} minutes", days, hours, mins)
+    } else if hours > 0 {
+        format!("{} hours, {} minutes", hours, mins)
+    } else {
+        format!("{} minutes", mins)
+    };
+
+    FastPathAnswer::handled(
+        FastPathClass::Uptime,
+        format!("**Uptime:** {}", uptime_str),
+        vec![EvidenceKind::BootTime],
+        "answered from fresh snapshot",
+        90,
+        false,
+    )
+}
+
+/// v0.0.259: Answer CPU usage from snapshot
+pub fn answer_cpu_usage(snapshot: &SystemSnapshot, is_fresh: bool) -> FastPathAnswer {
+    if !is_fresh {
+        return FastPathAnswer::not_handled("snapshot stale, probes needed");
+    }
+
+    // Check if we have load average (stored in snapshot)
+    if snapshot.load_1min == 0.0 && snapshot.load_5min == 0.0 {
+        return FastPathAnswer::not_handled("no CPU load data in snapshot");
+    }
+
+    let status = if snapshot.load_1min > 4.0 {
+        "HIGH"
+    } else if snapshot.load_1min > 2.0 {
+        "MODERATE"
+    } else {
+        "LOW"
+    };
+
+    let answer = format!(
+        "**CPU Load:**\n  1 min: {:.2}  |  5 min: {:.2}  |  15 min: {:.2}  [{}]",
+        snapshot.load_1min, snapshot.load_5min, snapshot.load_15min, status
+    );
+
+    FastPathAnswer::handled(
+        FastPathClass::CpuUsage,
+        answer,
+        vec![EvidenceKind::LoadAverage],
+        "answered from fresh snapshot",
+        88,
+        false,
+    )
+}
+
+/// v0.0.259: Answer network status from snapshot
+pub fn answer_network_status(snapshot: &SystemSnapshot, is_fresh: bool) -> FastPathAnswer {
+    if !is_fresh {
+        return FastPathAnswer::not_handled("snapshot stale, probes needed");
+    }
+
+    // Simple network status based on available data
+    let connected = snapshot.network_connected;
+    let status = if connected { "Connected" } else { "Disconnected" };
+    let icon = if connected { "🟢" } else { "🔴" };
+
+    let mut answer = format!("**Network Status:** {} {}", icon, status);
+
+    if !snapshot.ip_addresses.is_empty() {
+        answer.push_str("\n**IP Addresses:**");
+        for ip in &snapshot.ip_addresses {
+            answer.push_str(&format!("\n  - {}", ip));
+        }
+    }
+
+    FastPathAnswer::handled(
+        FastPathClass::NetworkStatus,
+        answer,
+        vec![EvidenceKind::NetworkInfo],
+        "answered from fresh snapshot",
+        85,
         false,
     )
 }

@@ -1,4 +1,6 @@
-//! Evidence kinds and detection (v0.0.184).
+//! Evidence kinds and detection (v0.0.259).
+//!
+//! v0.0.259: Added LoadAverage and NetworkInfo for fast path.
 
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +33,10 @@ pub enum EvidenceKind {
     BootTime,
     /// System info (uname) (v0.45.4)
     System,
+    /// v0.0.259: Load average (uptime)
+    LoadAverage,
+    /// v0.0.259: Network connectivity info
+    NetworkInfo,
 }
 
 impl std::fmt::Display for EvidenceKind {
@@ -51,6 +57,8 @@ impl std::fmt::Display for EvidenceKind {
             Self::ToolExists => "tool_exists",
             Self::BootTime => "boot_time",
             Self::System => "system",
+            Self::LoadAverage => "load_average",
+            Self::NetworkInfo => "network_info",
         };
         write!(f, "{}", s)
     }

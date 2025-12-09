@@ -1,4 +1,6 @@
-//! Tests for fastpath module (v0.0.185).
+//! Tests for fastpath module (v0.0.259).
+//!
+//! v0.0.259: Added tests for Uptime, CpuUsage, and NetworkStatus.
 
 #[cfg(test)]
 mod tests {
@@ -33,6 +35,29 @@ mod tests {
     #[test]
     fn test_classify_disk_usage() {
         assert_eq!(classify_fast_path("disk usage"), FastPathClass::DiskUsage);
+        assert_eq!(classify_fast_path("how much free space"), FastPathClass::DiskUsage);
+        assert_eq!(classify_fast_path("space left on disk"), FastPathClass::DiskUsage);
+    }
+
+    #[test]
+    fn test_classify_uptime() {
+        assert_eq!(classify_fast_path("uptime"), FastPathClass::Uptime);
+        assert_eq!(classify_fast_path("how long has my computer been running"), FastPathClass::Uptime);
+        assert_eq!(classify_fast_path("when was last boot"), FastPathClass::Uptime);
+    }
+
+    #[test]
+    fn test_classify_cpu_usage() {
+        assert_eq!(classify_fast_path("cpu usage"), FastPathClass::CpuUsage);
+        assert_eq!(classify_fast_path("cpu load"), FastPathClass::CpuUsage);
+        assert_eq!(classify_fast_path("load average"), FastPathClass::CpuUsage);
+    }
+
+    #[test]
+    fn test_classify_network_status() {
+        assert_eq!(classify_fast_path("network status"), FastPathClass::NetworkStatus);
+        assert_eq!(classify_fast_path("am i connected to internet"), FastPathClass::NetworkStatus);
+        assert_eq!(classify_fast_path("wifi status"), FastPathClass::NetworkStatus);
     }
 
     #[test]
