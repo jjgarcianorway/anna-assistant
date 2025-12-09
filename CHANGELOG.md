@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.227] - 2025-12-09
+
+### Changed - pending.rs Modularization
+
+**Split pending.rs (386→18 lines) into 4 domain-specific modules:**
+- `types.rs`: PendingClarification struct, ParseResult, VerifyResult enums (136 lines)
+- `verification.rs`: verify_answer function (49 lines)
+- `persistence.rs`: File I/O functions (56 lines)
+- `tests.rs`: Unit tests (111 lines)
+- `mod.rs`: Re-exports for backwards compatibility (18 lines)
+
+**All pending/ files under 400-line limit per CLAUDE.md policy.**
+
 ## [0.0.226] - 2025-12-09
 
 ### Changed - theatre.rs Modularization
