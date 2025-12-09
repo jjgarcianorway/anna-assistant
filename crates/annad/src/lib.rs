@@ -12,6 +12,7 @@
 //! v0.0.157: Best-effort summary extracted to separate module.
 //! v0.0.158: Ollama streaming extracted to separate module.
 //! v0.0.159: Update check loop extracted to separate module.
+//! v0.0.160: System verifiers extracted to separate module.
 
 pub mod action_handlers;
 pub mod best_effort_summary;
@@ -57,6 +58,7 @@ pub mod specialist_handler;
 pub mod state;
 pub mod state_types;
 pub mod summarizer;
+pub mod system_verifiers;
 pub mod theatre;
 pub mod ticket_loop;
 pub mod ticket_service;

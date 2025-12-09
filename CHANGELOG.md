@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.160] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted system verifiers to dedicated module:**
+
+- New `system_verifiers.rs` module (259 lines) containing:
+  - `verify_binary_exists()` - check if binary exists on system
+  - `verify_unit_exists()` - check if systemd unit exists
+  - `verify_mount_exists()` - check if mount point exists
+  - `verify_interface_exists()` - check if network interface exists
+  - `verify_file_exists()` - check if file exists
+  - `verify_directory_exists()` - check if directory exists
+  - `binary_exists()` - quick binary check helper
+  - `is_safe_name()` - input sanitization helper
+
+- Reduced `verify_probes.rs` from 467 to 216 lines (-54%)
+
+**Total modularization progress (v0.0.155-v0.0.160):**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `verify_probes.rs`: 467 → 216 lines (-54%)
+- `server.rs`: 432 → 292 lines (-32%)
+- `answers.rs`: 457 → 308 lines (-33%)
+- `ollama.rs`: 409 → 304 lines (-26%)
+- Created 7 new focused modules totaling 1,185 lines
+
 ## [0.0.159] - 2025-12-09
 
 ### Changed - Continued Code Modularization
