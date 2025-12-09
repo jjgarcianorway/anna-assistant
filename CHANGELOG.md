@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.188] - 2025-12-09
+
+### Changed - inventory.rs Modularization
+
+**Split inventory.rs (513→30 lines) into 7 domain-specific modules:**
+- `constants.rs`: VIP_TOOLS, DESKTOP_PACKAGES, TTL (50 lines)
+- `types.rs`: InventoryState, InventoryItem (70 lines)
+- `system_info.rs`: SystemInfo struct and detection (112 lines)
+- `cache.rs`: InventoryCache struct and methods (130 lines)
+- `helpers.rs`: check_tool_installed, timestamps, run_command (43 lines)
+- `persistence.rs`: Load, save, filter functions (68 lines)
+- `tests.rs`: Unit tests (53 lines)
+- `mod.rs`: Re-exports for backwards compatibility (30 lines)
+
+**All inventory/ files under 400-line limit.**
+
 ## [0.0.187] - 2025-12-09
 
 ### Changed - det/system.rs Modularization
