@@ -19,6 +19,7 @@
 //! v0.0.164: Probe registry and translator fallback extracted to separate modules.
 //! v0.0.165: RPC handler stages extracted to separate modules.
 //! v0.0.167: Routing stage extracted to separate module.
+//! v0.0.171: Deterministic answer functions modularized into det/ submodules.
 
 pub mod action_handlers;
 pub mod answers;
@@ -31,6 +32,7 @@ pub mod comms;
 pub mod config;
 pub mod config_registry;
 pub mod configure_editor;
+pub mod det;
 pub mod det_extended;
 pub mod deterministic;
 pub mod editor_config;

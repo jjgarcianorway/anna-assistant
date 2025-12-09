@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.171] - 2025-12-09
+
+### Changed - Modularize Deterministic Answer Functions
+
+**New det/ module structure:**
+- Created `det/mod.rs` as central module for deterministic answer functions
+- Split functions from det_extended.rs into logical submodules:
+  - `det/meta.rs`: Meta/small-talk, config locations, ticket history, staff roster (275 lines)
+  - `det/system.rs`: System info, uptime, battery, load, hostname, OS, filesystems, USB (520 lines)
+  - `det/services.rs`: Listening ports, running services, current user, architecture, env vars (200 lines)
+
+**Migration in progress:**
+- 23 functions migrated to new det/ module
+- deterministic.rs now imports from both det and det_extended
+- Remaining 66 functions still in det_extended.rs for future migration
+
 ## [0.0.170] - 2025-12-09
 
 ### Changed - Enhanced Staff Display in Theatre Mode
