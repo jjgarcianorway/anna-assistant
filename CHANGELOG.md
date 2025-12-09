@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.229] - 2025-12-09
+
+### Changed - brief.rs Modularization
+
+**Split brief.rs (384→16 lines) into 3 domain-specific modules:**
+- `types.rs`: TicketBrief struct and build_brief_from_ticket (95 lines)
+- `filtering.rs`: PROBE_PATTERNS, evidence_kind_for_probe, is_probe_relevant (76 lines)
+- `tests.rs`: Unit tests (179 lines)
+- `mod.rs`: Re-exports for backwards compatibility (16 lines)
+
+**All brief/ files under 400-line limit per CLAUDE.md policy.**
+
 ## [0.0.228] - 2025-12-09
 
 ### Changed - review_gate.rs Modularization
