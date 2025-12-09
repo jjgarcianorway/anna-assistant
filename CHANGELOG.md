@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.163] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted built-in recipe matchers to dedicated module:**
+
+- New `recipe_builtins.rs` module (233 lines) containing:
+  - `check_shell_recipes()` - match shell config recipes (bash, zsh, fish)
+  - `check_git_recipes()` - match git configuration recipes
+  - `check_ssh_recipes()` - match SSH key/config recipes
+
+- Reduced `recipe_fast_path.rs` from 564 to 353 lines (-37%)
+
+**Total modularization progress (v0.0.155-v0.0.163):**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `verify_probes.rs`: 467 → 216 lines (-54%)
+- `recipe_fast_path.rs`: 564 → 353 lines (-37%)
+- `update.rs`: 501 → 319 lines (-36%)
+- `config.rs`: 561 → 400 lines (-29%)
+- `server.rs`: 432 → 292 lines (-32%)
+- `answers.rs`: 457 → 308 lines (-33%)
+- `ollama.rs`: 409 → 304 lines (-26%)
+- Created 10 new focused modules totaling 1,782 lines
+
 ## [0.0.162] - 2025-12-09
 
 ### Changed - Continued Code Modularization

@@ -1,19 +1,20 @@
 //! Recipe-based fast path for queries (v0.0.101, v0.0.102: direct answers).
 //! Checks recipe index BEFORE LLM translator. High-confidence matches skip LLM entirely.
+//! v0.0.163: Built-in recipe matchers extracted to separate module.
 
-use anna_shared::git_recipes;
-use anna_shared::recipe::{Recipe, RecipeAction, RecipeKind};
+use anna_shared::recipe::{Recipe, RecipeKind};
 use anna_shared::recipe_index::RecipeIndex;
 use anna_shared::recipe_matcher::{match_recipe, MatchResult};
 use anna_shared::rpc::{
     EvidenceBlock, QueryIntent, ReliabilitySignals, ServiceDeskResult, SpecialistDomain,
     TranslatorTicket,
 };
-use anna_shared::shell_recipes;
-use anna_shared::ssh_recipes;
 use anna_shared::trace::{ExecutionTrace, ProbeStats};
 use anna_shared::transcript::Transcript;
 use tracing::info;
+
+// Re-export built-in recipe matchers
+pub use crate::recipe_builtins::{check_git_recipes, check_shell_recipes, check_ssh_recipes};
 
 /// Minimum score to skip LLM and use recipe directly
 const RECIPE_SKIP_LLM_THRESHOLD: u32 = 70;
@@ -114,220 +115,8 @@ pub fn check_recipe_fast_path(query: &str, index: &RecipeIndex) -> RecipeFastPat
     RecipeFastPathResult::no_match()
 }
 
-/// Check query against built-in shell recipes
-fn check_shell_recipes(query: &str) -> Option<RecipeFastPathResult> {
-    let q = query.to_lowercase();
-
-    // Detect shell from query or environment
-    let shell = if q.contains("bash") || q.contains("bashrc") {
-        Some(shell_recipes::Shell::Bash)
-    } else if q.contains("zsh") || q.contains("zshrc") {
-        Some(shell_recipes::Shell::Zsh)
-    } else if q.contains("fish") {
-        Some(shell_recipes::Shell::Fish)
-    } else {
-        shell_recipes::Shell::detect()
-    };
-
-    // Detect feature from query
-    let feature = shell_recipes::detect_feature(&q)?;
-    let shell = shell?;
-
-    // Find matching recipe
-    let recipe = shell_recipes::find_recipe(shell, feature)?;
-
-    // Build a synthetic Recipe for the result
-    let synthetic_recipe = Recipe {
-        id: format!("shell-{}-{:?}", shell, feature),
-        signature: anna_shared::recipe::RecipeSignature::new(
-            "desktop",
-            "request",
-            "shell_config",
-            query,
-        ),
-        team: anna_shared::teams::Team::Desktop,
-        risk_level: anna_shared::ticket::RiskLevel::LowRiskChange,
-        required_evidence_kinds: vec![],
-        probe_sequence: vec![],
-        answer_template: format!(
-            "To {} in {}:\n\nAdd to ~/{}\n```\n{}\n```\n\n{}",
-            feature.display_name(),
-            shell.display_name(),
-            shell.config_path().display(),
-            recipe.lines.join("\n"),
-            recipe
-                .rollback_hint
-                .as_deref()
-                .unwrap_or("To undo: remove the added lines")
-        ),
-        created_at: 0,
-        success_count: 100, // Built-in = mature
-        reliability_score: 95,
-        kind: RecipeKind::ShellConfig,
-        target: None,
-        action: RecipeAction::EnsureLine {
-            line: recipe.lines.join("\n"),
-        },
-        rollback: None,
-        clarification_slots: vec![],
-        default_question_id: None,
-        populates_facts: vec![],
-        intent_tags: feature.keywords().iter().map(|s| s.to_string()).collect(),
-        targets: vec![shell.display_name().to_lowercase()],
-        preconditions: vec![],
-        clarify_prereqs: vec![],
-    };
-
-    Some(RecipeFastPathResult {
-        matched: true,
-        ticket: Some(ticket_from_recipe(&synthetic_recipe)),
-        recipe: Some(synthetic_recipe),
-        score: 90,
-        matched_tokens: vec![
-            shell.display_name().to_lowercase(),
-            feature.display_name().to_string(),
-        ],
-        skip_llm: true,
-    })
-}
-
-/// Check query against built-in git recipes
-fn check_git_recipes(query: &str) -> Option<RecipeFastPathResult> {
-    let q = query.to_lowercase();
-
-    // Must mention "git" to match git recipes
-    if !q.contains("git") {
-        return None;
-    }
-
-    // Detect feature from query
-    let feature = git_recipes::detect_feature(&q)?;
-
-    // Find matching recipes
-    let recipes = git_recipes::find_recipe(feature);
-    if recipes.is_empty() {
-        return None;
-    }
-
-    let recipe = &recipes[0];
-
-    // Build answer from recipe
-    let answer = if recipe.needs_parameters() {
-        format!(
-            "To configure {}:\n\nCommands:\n{}\n\nNote: Replace {{name}} and {{email}} with your values.\n\n{}",
-            feature.display_name(),
-            recipe.commands.iter().map(|c| format!("  {}", c)).collect::<Vec<_>>().join("\n"),
-            recipe.rollback_hint.as_deref().unwrap_or("")
-        )
-    } else {
-        format!(
-            "To configure {}:\n\nRun:\n{}\n\n{}",
-            feature.display_name(),
-            recipe
-                .commands
-                .iter()
-                .map(|c| format!("  {}", c))
-                .collect::<Vec<_>>()
-                .join("\n"),
-            recipe.rollback_hint.as_deref().unwrap_or("")
-        )
-    };
-
-    // Build a synthetic Recipe
-    let synthetic_recipe = Recipe {
-        id: format!("git-{:?}", feature),
-        signature: anna_shared::recipe::RecipeSignature::new(
-            "system",
-            "request",
-            "git_config",
-            query,
-        ),
-        team: anna_shared::teams::Team::General,
-        risk_level: anna_shared::ticket::RiskLevel::LowRiskChange,
-        required_evidence_kinds: vec![],
-        probe_sequence: vec![],
-        answer_template: answer,
-        created_at: 0,
-        success_count: 100,
-        reliability_score: 95,
-        kind: RecipeKind::GitConfig,
-        target: None,
-        action: RecipeAction::None,
-        rollback: None,
-        clarification_slots: vec![],
-        default_question_id: None,
-        populates_facts: vec![],
-        intent_tags: feature.keywords().iter().map(|s| s.to_string()).collect(),
-        targets: vec!["git".to_string()],
-        preconditions: vec![],
-        clarify_prereqs: vec![],
-    };
-
-    Some(RecipeFastPathResult {
-        matched: true,
-        ticket: Some(ticket_from_recipe(&synthetic_recipe)),
-        recipe: Some(synthetic_recipe),
-        score: 90,
-        matched_tokens: vec!["git".to_string(), feature.display_name().to_string()],
-        skip_llm: true,
-    })
-}
-
-/// Check query against built-in SSH recipes (v0.0.104)
-fn check_ssh_recipes(query: &str) -> Option<RecipeFastPathResult> {
-    // Use the SSH recipe matcher
-    let ssh_recipe = ssh_recipes::match_query(query)?;
-
-    // Build a synthetic Recipe from the SSH recipe
-    let synthetic_recipe = Recipe {
-        id: format!("ssh-{:?}", ssh_recipe.feature),
-        signature: anna_shared::recipe::RecipeSignature::new(
-            "system",
-            "request",
-            "ssh_config",
-            query,
-        ),
-        team: anna_shared::teams::Team::Security,
-        risk_level: anna_shared::ticket::RiskLevel::LowRiskChange,
-        required_evidence_kinds: vec![],
-        probe_sequence: vec![],
-        answer_template: ssh_recipe.answer_template.clone(),
-        created_at: 0,
-        success_count: 100, // Built-in = mature
-        reliability_score: 95,
-        kind: RecipeKind::SshConfig,
-        target: None,
-        action: RecipeAction::None,
-        rollback: None,
-        clarification_slots: vec![],
-        default_question_id: None,
-        populates_facts: vec![],
-        intent_tags: ssh_recipe
-            .feature
-            .keywords()
-            .iter()
-            .map(|s| s.to_string())
-            .collect(),
-        targets: vec!["ssh".to_string()],
-        preconditions: vec![],
-        clarify_prereqs: vec![],
-    };
-
-    Some(RecipeFastPathResult {
-        matched: true,
-        ticket: Some(ticket_from_recipe(&synthetic_recipe)),
-        recipe: Some(synthetic_recipe),
-        score: 90,
-        matched_tokens: vec![
-            "ssh".to_string(),
-            ssh_recipe.feature.display_name().to_string(),
-        ],
-        skip_llm: true,
-    })
-}
-
 /// Map recipe team to specialist domain
-fn team_to_domain(team: &anna_shared::teams::Team) -> SpecialistDomain {
+pub fn team_to_domain(team: &anna_shared::teams::Team) -> SpecialistDomain {
     match team {
         anna_shared::teams::Team::Network => SpecialistDomain::Network,
         anna_shared::teams::Team::Storage => SpecialistDomain::Storage,
@@ -337,7 +126,7 @@ fn team_to_domain(team: &anna_shared::teams::Team) -> SpecialistDomain {
 }
 
 /// Create a TranslatorTicket from a recipe
-fn ticket_from_recipe(recipe: &Recipe) -> TranslatorTicket {
+pub fn ticket_from_recipe(recipe: &Recipe) -> TranslatorTicket {
     let intent = match recipe.kind {
         RecipeKind::Query => QueryIntent::Question,
         _ => QueryIntent::Request,

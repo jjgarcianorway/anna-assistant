@@ -15,6 +15,7 @@
 //! v0.0.160: System verifiers extracted to separate module.
 //! v0.0.161: Update operations extracted to separate module.
 //! v0.0.162: Model registry extracted to separate module.
+//! v0.0.163: Built-in recipe matchers extracted to separate module.
 
 pub mod action_handlers;
 pub mod best_effort_summary;
@@ -47,6 +48,7 @@ pub mod progress_tracker;
 pub mod prompts;
 pub mod query_classify;
 pub mod rag_answerer;
+pub mod recipe_builtins;
 pub mod recipe_fast_path;
 pub mod redact;
 pub mod response_builders;
