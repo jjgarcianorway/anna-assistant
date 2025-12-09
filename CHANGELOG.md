@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.219] - 2025-12-09
+
+### Changed - snapshot.rs Modularization
+
+**Split snapshot.rs (412→22 lines) into 4 domain-specific modules:**
+- `types.rs`: SystemSnapshot struct, thresholds constants (95 lines)
+- `capture.rs`: capture_snapshot, parse_df/free/failed_services (109 lines)
+- `delta.rs`: DeltaItem, diff_snapshots, format_deltas_text (166 lines)
+- `persistence.rs`: load/save/clear snapshots (48 lines)
+- `mod.rs`: Re-exports for backwards compatibility (22 lines)
+
+**All snapshot/ files under 400-line limit.**
+
 ## [0.0.218] - 2025-12-09
 
 ### Changed - narrator.rs Modularization
