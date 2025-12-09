@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.177] - 2025-12-09
+
+### Changed - recipe.rs Modularization
+
+**Split recipe.rs (662→29 lines) into 7 domain-specific modules:**
+- `types.rs`: RecipeKind, RecipeAction enums (46 lines)
+- `target.rs`: RecipeTarget, RollbackInfo structs (49 lines)
+- `signature.rs`: RecipeSignature for unique identification (36 lines)
+- `slot.rs`: RecipeSlot, ClarifyPrereq types (81 lines)
+- `core.rs`: Recipe struct and implementation (288 lines)
+- `storage.rs`: recipe_dir, save/load, count, clear functions (49 lines)
+- `search.rs`: RAG-lite search_recipes_by_keywords (128 lines)
+- `mod.rs`: Re-exports for backwards compatibility (29 lines)
+
+**All recipe/ files under 400-line limit.**
+
 ## [0.0.176] - 2025-12-09
 
 ### Changed - deterministic.rs Modularization
