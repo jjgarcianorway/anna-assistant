@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.157] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted best-effort summary to dedicated module:**
+
+- New `best_effort_summary.rs` module (158 lines) containing:
+  - `generate_best_effort_summary()` - generates summary when specialist times out but evidence exists
+  - Parses memory, disk, CPU, network, and process data from probe results
+
+- Reduced `answers.rs` from 457 to 308 lines (now well under 400-line limit)
+
+**Total modularization progress (v0.0.155-v0.0.157):**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `answers.rs`: 457 → 308 lines (-33%)
+- Created 4 new focused modules totaling 623 lines
+
 ## [0.0.156] - 2025-12-09
 
 ### Changed - Continued Code Modularization
