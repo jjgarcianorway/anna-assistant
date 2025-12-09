@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.162] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted model registry to dedicated module:**
+
+- New `config_registry.rs` module (164 lines) containing:
+  - `ModelRegistryConfig` - domain-specific specialist model mapping
+  - `get_specialist()` - lookup model for domain/tier
+  - `prefers_qwen3_vl()` - check preferred model family
+  - `all_models()` - list all configured models
+
+- Reduced `config.rs` from 561 to 400 lines (-29%)
+
+**Total modularization progress (v0.0.155-v0.0.162):**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `verify_probes.rs`: 467 → 216 lines (-54%)
+- `update.rs`: 501 → 319 lines (-36%)
+- `config.rs`: 561 → 400 lines (-29%)
+- `server.rs`: 432 → 292 lines (-32%)
+- `answers.rs`: 457 → 308 lines (-33%)
+- `ollama.rs`: 409 → 304 lines (-26%)
+- Created 9 new focused modules totaling 1,549 lines
+
 ## [0.0.161] - 2025-12-09
 
 ### Changed - Continued Code Modularization

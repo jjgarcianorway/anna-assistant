@@ -2,13 +2,16 @@
 //!
 //! Loads settings from /etc/anna/config.toml or uses defaults.
 //! v0.0.76: Added model registry with domain-specific specialist support.
+//! v0.0.162: Model registry extracted to separate module.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use tracing::{info, warn};
+
+// Re-export ModelRegistryConfig for backwards compatibility
+pub use crate::config_registry::ModelRegistryConfig;
 
 /// Config file path
 pub const CONFIG_PATH: &str = "/etc/anna/config.toml";
@@ -186,94 +189,6 @@ impl BudgetConfig {
             total_ms: self.total_ms,
             margin_ms: self.margin_ms,
         }
-    }
-}
-
-/// Model registry configuration (v0.0.76)
-/// Maps domain and seniority tier to specific models.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelRegistryConfig {
-    /// Translator model (fast classification)
-    #[serde(default = "default_registry_translator")]
-    pub translator: String,
-
-    /// Default specialist model (fallback for all domains)
-    #[serde(default = "default_registry_specialist")]
-    pub specialist_default: String,
-
-    /// Domain-specific specialist overrides
-    /// Key format: "domain" or "domain:tier" (e.g., "network", "performance:senior")
-    #[serde(default)]
-    pub specialist_overrides: HashMap<String, String>,
-
-    /// Preferred model family (for auto-selection when multiple available)
-    /// Options: "qwen3-vl", "qwen2.5", "llama3.2", "auto"
-    #[serde(default = "default_preferred_family")]
-    pub preferred_family: String,
-}
-
-fn default_registry_translator() -> String {
-    "qwen2.5:0.5b-instruct".to_string()
-}
-
-fn default_registry_specialist() -> String {
-    "qwen2.5:7b-instruct".to_string()
-}
-
-fn default_preferred_family() -> String {
-    // v0.0.76: Prefer Qwen3-VL when available, but default to Qwen2.5 for now
-    "qwen2.5".to_string()
-}
-
-impl Default for ModelRegistryConfig {
-    fn default() -> Self {
-        Self {
-            translator: default_registry_translator(),
-            specialist_default: default_registry_specialist(),
-            specialist_overrides: HashMap::new(),
-            preferred_family: default_preferred_family(),
-        }
-    }
-}
-
-impl ModelRegistryConfig {
-    /// Get specialist model for a domain and tier
-    /// Lookup order: domain:tier -> domain -> specialist_default
-    pub fn get_specialist(&self, domain: &str, tier: Option<&str>) -> &str {
-        // Try domain:tier first
-        if let Some(t) = tier {
-            let key = format!("{}:{}", domain.to_lowercase(), t.to_lowercase());
-            if let Some(model) = self.specialist_overrides.get(&key) {
-                return model;
-            }
-        }
-
-        // Try domain only
-        let domain_key = domain.to_lowercase();
-        if let Some(model) = self.specialist_overrides.get(&domain_key) {
-            return model;
-        }
-
-        // Fall back to default
-        &self.specialist_default
-    }
-
-    /// Check if Qwen3-VL family is preferred
-    pub fn prefers_qwen3_vl(&self) -> bool {
-        self.preferred_family.to_lowercase() == "qwen3-vl"
-    }
-
-    /// Get list of all configured models (for pulling)
-    pub fn all_models(&self) -> Vec<String> {
-        let mut models = vec![self.translator.clone(), self.specialist_default.clone()];
-        for model in self.specialist_overrides.values() {
-            if !models.contains(model) {
-                models.push(model.clone());
-            }
-        }
-        models.sort();
-        models.dedup();
-        models
     }
 }
 
@@ -461,71 +376,6 @@ translator_timeout_secs = 8
         assert_eq!(config.llm.specialist_timeout_secs, 12);
     }
 
-    // v0.0.76: Model registry tests
-    #[test]
-    fn test_model_registry_default() {
-        let registry = ModelRegistryConfig::default();
-        assert_eq!(registry.translator, "qwen2.5:0.5b-instruct");
-        assert_eq!(registry.specialist_default, "qwen2.5:7b-instruct");
-        assert_eq!(registry.preferred_family, "qwen2.5");
-        assert!(registry.specialist_overrides.is_empty());
-    }
-
-    #[test]
-    fn test_model_registry_get_specialist_default() {
-        let registry = ModelRegistryConfig::default();
-        assert_eq!(
-            registry.get_specialist("network", None),
-            "qwen2.5:7b-instruct"
-        );
-        assert_eq!(
-            registry.get_specialist("performance", Some("senior")),
-            "qwen2.5:7b-instruct"
-        );
-    }
-
-    #[test]
-    fn test_model_registry_get_specialist_with_overrides() {
-        let mut registry = ModelRegistryConfig::default();
-        registry
-            .specialist_overrides
-            .insert("network".to_string(), "qwen3-vl:4b".to_string());
-        registry
-            .specialist_overrides
-            .insert("security:senior".to_string(), "qwen3-vl:8b".to_string());
-
-        // Domain override
-        assert_eq!(registry.get_specialist("network", None), "qwen3-vl:4b");
-        assert_eq!(
-            registry.get_specialist("network", Some("frontline")),
-            "qwen3-vl:4b"
-        );
-
-        // Domain:tier override
-        assert_eq!(
-            registry.get_specialist("security", Some("senior")),
-            "qwen3-vl:8b"
-        );
-        // Fall back to default for security without tier match
-        assert_eq!(
-            registry.get_specialist("security", Some("frontline")),
-            "qwen2.5:7b-instruct"
-        );
-    }
-
-    #[test]
-    fn test_model_registry_all_models() {
-        let mut registry = ModelRegistryConfig::default();
-        registry
-            .specialist_overrides
-            .insert("network".to_string(), "custom:4b".to_string());
-
-        let models = registry.all_models();
-        assert!(models.contains(&"qwen2.5:0.5b-instruct".to_string()));
-        assert!(models.contains(&"qwen2.5:7b-instruct".to_string()));
-        assert!(models.contains(&"custom:4b".to_string()));
-    }
-
     #[test]
     fn test_model_registry_parse_toml() {
         let toml_str = r#"
@@ -546,16 +396,5 @@ network = "qwen3-vl:8b"
             config.model_registry.get_specialist("network", None),
             "qwen3-vl:8b"
         );
-    }
-
-    #[test]
-    fn test_config_invalid_falls_back_safely() {
-        // Invalid config should fall back to defaults
-        let toml_str = r#"
-[model_registry]
-# Missing required fields - should use defaults
-"#;
-        let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.model_registry.translator, "qwen2.5:0.5b-instruct");
     }
 }

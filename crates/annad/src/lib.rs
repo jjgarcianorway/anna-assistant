@@ -14,11 +14,13 @@
 //! v0.0.159: Update check loop extracted to separate module.
 //! v0.0.160: System verifiers extracted to separate module.
 //! v0.0.161: Update operations extracted to separate module.
+//! v0.0.162: Model registry extracted to separate module.
 
 pub mod action_handlers;
 pub mod best_effort_summary;
 pub mod clarification_builders;
 pub mod comms;
+pub mod config_registry;
 pub mod configure_editor;
 pub mod editor_config;
 pub mod answers;
