@@ -240,7 +240,8 @@ impl DaemonStateInner {
         });
     }
 
-    /// v0.0.79: Record a completed request in stats
+    /// v0.0.79: Record request outcome details in stats
+    /// v0.0.248: No longer increments total_requests - that's done at start via record_request_received
     pub fn record_request(
         &mut self,
         fast_path: bool,
@@ -249,9 +250,8 @@ impl DaemonStateInner {
     ) {
         if fast_path {
             self.stats.record_fast_path_hit();
-        } else {
-            self.stats.total_requests += 1;
         }
+        // Note: total_requests is now incremented at request start, not here
         if translator_timeout {
             self.stats.record_translator_timeout();
         }

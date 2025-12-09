@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.248] - 2025-12-09
+
+### Fixed - Stats Tracking
+
+**All requests now counted, not just successful completions.**
+
+Previously, `stats` showed 0 requests because the counter was only incremented
+at the very end of request handling. Early returns for fast-path, clarification,
+timeout, no-evidence, etc. all bypassed the stats update.
+
+**The Fix:**
+- `record_request_received()` called at the START of `handle_llm_request`
+- Every request is counted, regardless of how it completes
+- Removed duplicate increment from `record_fast_path_hit()` and `record_request()`
+
+**Changes:**
+- `stats.rs`: Added `record_request_received()` method
+- `stats.rs`: `record_fast_path_hit()` no longer increments `total_requests`
+- `state.rs`: `record_request()` no longer increments `total_requests`
+- `llm_request.rs`: Calls `record_request_received()` at function entry
+
+### Fixed - Real-time Progress Events
+
+**Staff chatter and stage events now visible during request processing.**
+
+Previously, internal comms (staff messages) and stage start/complete events
+were only visible after `save_progress()` was called. Now they're pushed
+immediately to the shared streaming events for real-time polling.
+
+**Changes:**
+- `progress_tracker.rs`: `add_internal_comms()` also pushes to `streaming_events`
+- `progress_tracker.rs`: `start_stage()` and `complete_stage()` push to `streaming_events`
+- `handlers.rs`: Added debug logging for progress polling
+
 ## [0.0.247] - 2025-12-09
 
 ### Fixed - Real-Time LLM Streaming

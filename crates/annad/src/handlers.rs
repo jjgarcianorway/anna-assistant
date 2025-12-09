@@ -25,14 +25,29 @@ pub async fn handle_status(state: SharedState, id: String) -> RpcResponse {
 pub async fn handle_progress(state: SharedState, id: String) -> RpcResponse {
     let state = state.read().await;
     let mut events = state.progress_events.clone();
+    let progress_count = events.len();
 
     // v0.0.247: Merge in live streaming events (pushed during LLM call)
-    if let Ok(streaming) = state.streaming_events.lock() {
+    let streaming_count = if let Ok(streaming) = state.streaming_events.lock() {
+        let count = streaming.len();
         events.extend(streaming.iter().cloned());
-    }
+        count
+    } else {
+        0
+    };
 
     // Sort by timestamp to maintain temporal order
     events.sort_by_key(|e| e.elapsed_ms);
+
+    // v0.0.248: Debug logging for progress polling verification
+    if streaming_count > 0 || progress_count > 0 {
+        tracing::debug!(
+            "Progress poll: {} progress + {} streaming = {} total events",
+            progress_count,
+            streaming_count,
+            events.len()
+        );
+    }
 
     RpcResponse::success(id, serde_json::to_value(events).unwrap())
 }

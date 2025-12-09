@@ -1,6 +1,7 @@
 //! LLM request handling (v0.0.200).
 //!
 //! v0.0.247: Streaming events shared with daemon state for live polling.
+//! v0.0.248: Fix stats tracking - record ALL requests at start, not just completed ones.
 
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{RequestParams, RpcResponse};
@@ -37,6 +38,12 @@ pub async fn handle_llm_request(
     params: Option<serde_json::Value>,
 ) -> RpcResponse {
     let request_id = uuid::Uuid::new_v4().to_string();
+
+    // v0.0.248: Record request immediately to track ALL requests including failures
+    {
+        state.write().await.stats.record_request_received();
+    }
+
     let request_timeout = { state.read().await.config.daemon.request_timeout_secs };
 
     // Extract query for timeout fallback (v0.0.40)

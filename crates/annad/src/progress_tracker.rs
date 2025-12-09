@@ -2,6 +2,7 @@
 //!
 //! v0.0.241: Added shared events for streaming token support.
 //! v0.0.247: Streaming events shared with daemon state for live polling.
+//! v0.0.248: Push internal comms and stage events to streaming for real-time visibility.
 
 use anna_shared::progress::{ProgressEvent, RequestStage};
 use anna_shared::transcript::{Actor, StageOutcome, Transcript, TranscriptEvent};
@@ -65,18 +66,28 @@ impl ProgressTracker {
 
     pub fn start_stage(&mut self, stage: RequestStage, timeout_secs: u64) {
         self.current_stage = Some(stage);
-        self.add(ProgressEvent::starting(
+        let event = ProgressEvent::starting(
             stage,
             timeout_secs,
             self.elapsed_ms(),
-        ));
+        );
+        self.add(event.clone());
+        // v0.0.248: Push to streaming events for real-time client visibility
+        if let Ok(mut streaming) = self.streaming_events.lock() {
+            streaming.push(event);
+        }
         let stage_name = format!("{:?}", stage).to_lowercase();
         self.transcript
             .push(TranscriptEvent::stage_start(self.elapsed_ms(), stage_name));
     }
 
     pub fn complete_stage(&mut self, stage: RequestStage) {
-        self.add(ProgressEvent::complete(stage, self.elapsed_ms()));
+        let event = ProgressEvent::complete(stage, self.elapsed_ms());
+        self.add(event.clone());
+        // v0.0.248: Push to streaming events for real-time client visibility
+        if let Ok(mut streaming) = self.streaming_events.lock() {
+            streaming.push(event);
+        }
         let stage_name = format!("{:?}", stage).to_lowercase();
         self.transcript.push(TranscriptEvent::stage_end(
             self.elapsed_ms(),
@@ -185,13 +196,19 @@ impl ProgressTracker {
     }
 
     /// v0.0.145: Add internal comms message (IT staff chatter)
+    /// v0.0.248: Also push to streaming events for real-time visibility
     pub fn add_internal_comms(&mut self, stage: RequestStage, from: &str, message: &str) {
-        self.add(ProgressEvent::internal_comms(
+        let event = ProgressEvent::internal_comms(
             stage,
             from,
             message,
             self.elapsed_ms(),
-        ));
+        );
+        self.add(event.clone());
+        // v0.0.248: Push to streaming events for real-time client visibility
+        if let Ok(mut streaming) = self.streaming_events.lock() {
+            streaming.push(event);
+        }
     }
 
     /// v0.0.238: Add streaming token for real-time output
@@ -270,6 +287,10 @@ impl StreamingSink {
         let elapsed = self.start_time.elapsed().as_millis() as u64;
         if let Ok(mut events) = self.events.lock() {
             events.push(ProgressEvent::streaming_token(stage, token, is_final, elapsed));
+            // v0.0.248: Debug logging for streaming verification
+            if events.len() % 10 == 0 || is_final {
+                tracing::debug!("Streaming: {} tokens pushed, final={}", events.len(), is_final);
+            }
         }
     }
 }

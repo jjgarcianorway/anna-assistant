@@ -227,8 +227,8 @@ impl GlobalStats {
     // === v0.0.39 Performance Recording ===
 
     /// Record a fast path hit
+    /// v0.0.248: No longer increments total_requests - call record_request_received separately
     pub fn record_fast_path_hit(&mut self) {
-        self.total_requests += 1;
         self.fast_path_hits += 1;
     }
 
@@ -315,6 +315,12 @@ impl GlobalStats {
     /// Record a clarification cancelled by user
     pub fn record_clarification_cancelled(&mut self) {
         self.clarifications_cancelled += 1;
+    }
+
+    /// v0.0.248: Record that a request was received (for total count)
+    /// Should be called early in request handling to count ALL requests
+    pub fn record_request_received(&mut self) {
+        self.total_requests += 1;
     }
 
     /// Get clarification verification rate (0.0-100.0)
