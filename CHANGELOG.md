@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.218] - 2025-12-09
+
+### Changed - narrator.rs Modularization
+
+**Split narrator.rs (413→19 lines) into 5 domain-specific modules:**
+- `roles.rs`: team_role_name, team_tag, reviewer_badge (62 lines)
+- `narration.rs`: narrate_team_action, narrate_review_result, etc. (76 lines)
+- `person.rs`: Person-based narration functions (58 lines)
+- `it_dialog.rs`: IT department dialog style (44 lines)
+- `tests.rs`: Unit tests (160 lines)
+- `mod.rs`: Re-exports for backwards compatibility (19 lines)
+
+**All narrator/ files under 400-line limit.**
+
 ## [0.0.217] - 2025-12-09
 
 ### Changed - user_profile.rs Modularization
