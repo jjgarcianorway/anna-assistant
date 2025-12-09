@@ -1,10 +1,12 @@
-//! Message generation functions (v0.0.254).
+//! Message generation functions (v0.0.262).
 //!
 //! Team-specific message variants for dispatch, probing, reviewing, etc.
 //! v0.0.254: Added async LLM-powered dialogue with static fallback.
+//! v0.0.262: Added relationship-aware escalation dialogue.
 
 use anna_shared::dialogue::junior_acknowledgment;
 use anna_shared::progress::RequestStage;
+use anna_shared::roster::{escalation_phrase, senior_response_phrase};
 use anna_shared::teams::Team;
 
 use crate::progress_tracker::ProgressTracker;
@@ -194,34 +196,30 @@ impl CommsGenerator {
         progress.add_internal_comms(RequestStage::Specialist, junior.display_name, msg);
     }
 
-    /// Junior escalating to senior
+    /// Junior escalating to senior (v0.0.262: relationship-aware)
     pub fn junior_escalate(&self, progress: &mut ProgressTracker, reason: &str) {
         let junior = self.junior();
         let senior = self.senior();
 
-        let msg = format!("Hey {}, can you take a look at this? {}", senior.display_name, reason);
+        // Get relationship-aware escalation phrase
+        let phrase_template = escalation_phrase(junior.person_id, senior.person_id, self.seed);
+        let phrase = phrase_template.replace("{senior}", senior.display_name);
+
+        let msg = format!("{} {}", phrase, reason);
         progress.add_internal_comms(RequestStage::Supervisor, junior.display_name, &msg);
     }
 
-    /// Senior responding to escalation
+    /// Senior responding to escalation (v0.0.262: relationship-aware)
     pub fn senior_response(&self, progress: &mut ProgressTracker, helpful: bool) {
+        let junior = self.junior();
         let senior = self.senior();
-        let messages = if helpful {
-            vec![
-                "Let me see... Ah, I know this one.",
-                "Good catch bringing this to me.",
-                "I've seen this before. Here's what we do...",
-            ]
-        } else {
-            vec![
-                "Hmm, tricky one. Let me think...",
-                "That's unusual. Give me a moment.",
-                "Interesting edge case here...",
-            ]
-        };
 
-        let msg = messages[(self.seed as usize) % messages.len()];
-        progress.add_internal_comms(RequestStage::Supervisor, senior.display_name, msg);
+        // Get relationship-aware response phrase
+        let phrase_template =
+            senior_response_phrase(senior.person_id, junior.person_id, helpful, self.seed);
+        let phrase = phrase_template.replace("{junior}", junior.display_name);
+
+        progress.add_internal_comms(RequestStage::Supervisor, senior.display_name, &phrase);
     }
 
     /// Junior confirms answer is ready
