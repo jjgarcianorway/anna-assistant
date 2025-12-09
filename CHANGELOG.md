@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.187] - 2025-12-09
+
+### Changed - det/system.rs Modularization
+
+**Split det/system.rs (520→21 lines) into 6 domain-specific modules:**
+- `packages.rs`: Package updates answer function (48 lines)
+- `time.rs`: Timezone, uptime, last boot answers (107 lines)
+- `users.rs`: Logged-in users answer (55 lines)
+- `hardware.rs`: Swap, battery, load, USB answers (199 lines)
+- `info.rs`: Hostname, OS info answers (70 lines)
+- `network.rs`: Connectivity, filesystems answers (68 lines)
+- `mod.rs`: Re-exports for backwards compatibility (21 lines)
+
+**All det/system/ files under 400-line limit.**
+
 ## [0.0.186] - 2025-12-09
 
 ### Changed - greeting.rs Modularization
