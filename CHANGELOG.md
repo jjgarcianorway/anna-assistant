@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.213] - 2025-12-09
+
+### Changed - ui.rs Modularization
+
+**Split ui.rs (431→21 lines) into 7 domain-specific modules:**
+- `colors.rs`: ANSI color constants (10 lines)
+- `symbols.rs`: Unicode symbols (8 lines)
+- `formatting.rs`: format_bytes, format_duration, progress_bar (45 lines)
+- `printing.rs`: print_header, print_footer, print_section, print_ok, print_err, print_kv, print_kv_status (65 lines)
+- `terminal.rs`: print_inline, clear_line, cursor_up (20 lines)
+- `spinner.rs`: Spinner struct and methods (112 lines)
+- `stage.rs`: StageProgress, StageStatus (95 lines)
+- `tests.rs`: Unit tests (60 lines)
+- `mod.rs`: Re-exports for backwards compatibility (21 lines)
+
+**All ui/ files under 400-line limit.**
+
 ## [0.0.212] - 2025-12-09
 
 ### Changed - det_extended/system.rs Modularization
