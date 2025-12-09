@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.195] - 2025-12-09
+
+### Changed - grounding.rs Modularization
+
+**Split grounding.rs (496→21 lines) into 3 domain-specific modules:**
+- `types.rs`: GroundingReport, ClaimVerification, VerificationReason, ParsedEvidence (83 lines)
+- `verify.rs`: compute_grounding, verify_claim, verify_numeric, verify_percent, verify_status, is_answer_grounded (164 lines)
+- `tests.rs`: Unit tests (214 lines)
+- `mod.rs`: Re-exports for backwards compatibility (21 lines)
+
+**All grounding/ files under 400-line limit.**
+
 ## [0.0.194] - 2025-12-09
 
 ### Changed - guard.rs Modularization
