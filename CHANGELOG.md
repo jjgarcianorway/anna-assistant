@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.209] - 2025-12-09
+
+### Changed - answer_contract.rs Modularization
+
+**Split answer_contract.rs (442→18 lines) into 5 domain-specific modules:**
+- `types.rs`: Verbosity, RequestedField (94 lines)
+- `contract.rs`: AnswerContract struct and methods (103 lines)
+- `validation.rs`: AnswerValidation, validate_answer, field_present_in_answer (96 lines)
+- `trimming.rs`: trim_answer, extract helpers (76 lines)
+- `tests.rs`: Unit tests (59 lines)
+- `mod.rs`: Re-exports for backwards compatibility (18 lines)
+
+**All answer_contract/ files under 400-line limit.**
+
 ## [0.0.208] - 2025-12-09
 
 ### Changed - revision.rs Modularization
