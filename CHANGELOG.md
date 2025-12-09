@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.185] - 2025-12-09
+
+### Changed - fastpath.rs Modularization
+
+**Split fastpath.rs (554→24 lines) into 5 domain-specific modules:**
+- `types.rs`: FastPathClass, FastPathAnswer, FastPathPolicy, FastPathInput (128 lines)
+- `classify.rs`: classify_fast_path, strip_greetings (98 lines)
+- `answers.rs`: Answer generators for each query class (209 lines)
+- `engine.rs`: try_fast_path, find_matching_recipes (66 lines)
+- `tests.rs`: Unit tests (66 lines)
+- `mod.rs`: Re-exports for backwards compatibility (24 lines)
+
+**All fastpath/ files under 400-line limit.**
+
 ## [0.0.184] - 2025-12-09
 
 ### Changed - trace.rs Modularization
