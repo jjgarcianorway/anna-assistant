@@ -117,6 +117,9 @@ pub mod user_profile;
 // v0.0.107: Staff performance tracking
 pub mod staff_stats;
 
+// v0.0.256: Synonym expansion for recipe matching
+pub mod synonyms;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.256] - 2025-12-09
+
+### Added - Synonym Expansion for Smarter Recipe Matching
+
+**Anna now understands synonyms, so similar questions find learned recipes.**
+
+When Anna learns from a question like "how much disk space do I have", she can now
+also answer variations like:
+- "how much storage is free"
+- "show available drive space"
+- "check disk usage"
+
+**Synonym groups include:**
+- Storage: disk, storage, space, drive, volume
+- Memory: memory, ram, mem
+- Actions: enable/activate, check/show/view, install/setup
+- Services: service, daemon, unit
+- Network: network, internet, connection
+- And 30+ more synonym groups!
+
+**How it works:**
+1. When searching for recipes, query tokens are expanded to include synonyms
+2. Recipes indexed with "disk" now also match queries containing "storage" or "space"
+3. A synonym match bonus is added to the recipe score
+
+**Changes:**
+- `synonyms.rs`: New module with 35+ synonym groups
+- `recipe_index.rs`: Integrated synonym expansion into search and scoring
+
 ## [0.0.255] - 2025-12-09
 
 ### Changed - Personality Quirks in Dialogue

@@ -1,18 +1,23 @@
-//! In-memory recipe index for RAG-lite retrieval (v0.0.41).
+//! In-memory recipe index for RAG-lite retrieval (v0.0.256).
 //!
 //! Provides deterministic token-based recipe retrieval with zero LLM calls.
 //! Built at daemon start from recipes on disk, stored in daemon state.
+//!
+//! v0.0.256: Added synonym expansion for better matching of similar questions.
+//! E.g., "how much space" matches recipes learned from "disk usage".
 //!
 //! Retrieval: tokenize user request (lowercase, alnum, split), score = overlap
 //! count + boosted matches on targets, deterministic tie-breaker by recipe_id.
 
 use crate::recipe::{recipe_dir, Recipe};
+use crate::synonyms::{expand_query_tokens, synonym_match_count};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Token boost multipliers for scoring
 const TARGET_BOOST: u32 = 3;
 const INTENT_TAG_BOOST: u32 = 2;
 const BASE_MATCH: u32 = 1;
+const SYNONYM_BOOST: u32 = 1; // v0.0.256: Bonus for synonym matches
 
 /// In-memory token index for recipe retrieval (v0.0.41)
 /// Uses BTreeMap for deterministic iteration order.
@@ -135,16 +140,21 @@ impl RecipeIndex {
 
     /// Search for recipes matching a user query
     /// Returns matches sorted by score desc, then recipe_id asc for determinism.
+    /// v0.0.256: Now expands query tokens to include synonyms for better matching.
     pub fn search(&self, query: &str, limit: usize) -> Vec<RecipeIndexMatch> {
-        let query_tokens: BTreeSet<String> = tokenize(query).into_iter().collect();
+        let raw_tokens: Vec<String> = tokenize(query);
+        let query_tokens: BTreeSet<String> = raw_tokens.iter().cloned().collect();
 
         if query_tokens.is_empty() {
             return Vec::new();
         }
 
-        // Collect candidate recipe IDs
+        // v0.0.256: Expand tokens to include synonyms
+        let expanded_tokens = expand_query_tokens(&raw_tokens);
+
+        // Collect candidate recipe IDs (using expanded tokens)
         let mut candidates: BTreeSet<&str> = BTreeSet::new();
-        for token in &query_tokens {
+        for token in &expanded_tokens {
             if let Some(ids) = self.token_to_recipes.get(token) {
                 for id in ids {
                     candidates.insert(id);
@@ -235,6 +245,7 @@ impl RecipeIndex {
     }
 
     /// Score a recipe against query tokens
+    /// v0.0.256: Now includes synonym matching bonus
     fn score_recipe(&self, recipe: &Recipe, query_tokens: &BTreeSet<String>) -> u32 {
         let mut score: u32 = 0;
 
@@ -268,6 +279,15 @@ impl RecipeIndex {
                 score += BASE_MATCH;
             }
         }
+
+        // v0.0.256: Bonus for synonym matches (words that mean similar things)
+        let all_recipe_tokens: BTreeSet<String> = target_tokens
+            .iter()
+            .chain(intent_tokens.iter())
+            .chain(pattern_tokens.iter())
+            .cloned()
+            .collect();
+        score += synonym_match_count(query_tokens, &all_recipe_tokens) * SYNONYM_BOOST;
 
         // Bonus for maturity
         if recipe.is_mature() {
@@ -354,5 +374,17 @@ mod tests {
         let results1 = index.search("enable syntax vim", 10);
         let results2 = index.search("enable syntax vim", 10);
         assert_eq!(results1.len(), results2.len());
+    }
+
+    #[test]
+    fn test_synonym_expansion_in_search() {
+        // v0.0.256: "space" should find recipes indexed with "disk"
+        use crate::synonyms::expand_query_tokens;
+        let tokens = vec!["space".to_string(), "free".to_string()];
+        let expanded = expand_query_tokens(&tokens);
+        // Should include synonyms
+        assert!(expanded.contains("disk"));
+        assert!(expanded.contains("storage"));
+        assert!(expanded.contains("available"));
     }
 }
