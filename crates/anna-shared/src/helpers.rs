@@ -43,7 +43,6 @@ pub enum InstallSource {
     Unknown,
 }
 
-
 impl std::fmt::Display for InstallSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -269,8 +268,7 @@ pub fn save_helpers(registry: &HelpersRegistry) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let content = serde_json::to_string_pretty(registry)
-        .map_err(|e| std::io::Error::other(e))?;
+    let content = serde_json::to_string_pretty(registry).map_err(|e| std::io::Error::other(e))?;
     std::fs::write(&path, content)
 }
 

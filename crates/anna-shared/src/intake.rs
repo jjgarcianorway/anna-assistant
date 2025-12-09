@@ -329,9 +329,10 @@ pub fn analyze_intake(
 fn needs_editor_clarification(query: &str, intent: &QueryIntent, entities: &[String]) -> bool {
     // Editor config requests need clarification
     if (query.contains("editor") || query.contains("syntax") || query.contains("highlight"))
-        && matches!(intent, QueryIntent::Request) {
-            return true;
-        }
+        && matches!(intent, QueryIntent::Request)
+    {
+        return true;
+    }
 
     // Check entities for editor-related terms
     let editor_terms = ["vim", "nvim", "nano", "emacs", "vimrc", "config"];

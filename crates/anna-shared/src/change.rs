@@ -25,7 +25,6 @@ pub enum ChangeRisk {
     High,
 }
 
-
 /// A planned change before execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChangePlan {
@@ -275,10 +274,9 @@ fn line_exists_in_file(path: &Path, line: &str) -> io::Result<bool> {
 fn create_backup(source: &Path, preferred: &Path) -> io::Result<PathBuf> {
     // Try preferred backup location
     if let Some(parent) = preferred.parent() {
-        if fs::create_dir_all(parent).is_ok()
-            && fs::copy(source, preferred).is_ok() {
-                return Ok(preferred.to_path_buf());
-            }
+        if fs::create_dir_all(parent).is_ok() && fs::copy(source, preferred).is_ok() {
+            return Ok(preferred.to_path_buf());
+        }
     }
 
     // Fallback to sibling .bak next to source

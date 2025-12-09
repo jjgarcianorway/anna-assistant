@@ -7,8 +7,7 @@ use super::atoms::{ParseError, ParseErrorReason};
 use serde::{Deserialize, Serialize};
 
 /// Parsed CPU information from lscpu
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CpuInfo {
     /// CPU architecture (e.g., "x86_64", "aarch64")
     pub architecture: String,

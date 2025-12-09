@@ -76,7 +76,6 @@ pub enum InventoryState {
     NotInstalled,
 }
 
-
 /// An item in the inventory
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InventoryItem {
@@ -419,9 +418,9 @@ fn detect_desktops() -> Vec<String> {
             && !desktops
                 .iter()
                 .any(|d| d.to_lowercase().contains(&pkg.to_lowercase()))
-            {
-                desktops.push(pkg.to_string());
-            }
+        {
+            desktops.push(pkg.to_string());
+        }
     }
 
     desktops.sort();
