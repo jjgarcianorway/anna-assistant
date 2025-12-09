@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.267] - 2025-12-09
+
+### Added - DeepSeek-R1 Model Support & Status Improvements
+
+**New model family support:**
+- Added DeepSeek-R1 to the model catalog as an alternative to Qwen for reasoning tasks
+- `deepseek-r1:7b` for Specialist role (strong reasoning capability)
+- `deepseek-r1:1.5b` for Translator role (compact reasoning model)
+- DeepSeek-R1 models are based on Qwen but fine-tuned for reasoning
+
+**Status display improvements:**
+- `annactl status` now shows which models were downloaded by Anna
+- New `models_by_anna` field in [llm] section lists models from ledger
+- Shows up to 5 model names with count for more
+
+**Research findings (Qwen vs DeepSeek for local Linux troubleshooting):**
+- Qwen has more size options (0.5B to 72B+), better for constrained laptops
+- DeepSeek V3.2 is 671B (cloud only), but R1:1.5b works locally
+- For most laptops: Qwen remains the default choice
+- For systems with 16GB+ VRAM: DeepSeek-R1 provides stronger reasoning
+
+**Files changed:**
+- `anna-shared/src/model_selector/types.rs` - Added DeepSeekR1 to ModelFamily
+- `anna-shared/src/model_selector/catalog.rs` - Added DeepSeek-R1 models
+- `anna-shared/src/model_selector/selection.rs` - DeepSeek detection, family ordering
+- `anna-shared/src/ledger.rs` - Added models_pulled() method
+- `annactl/src/status_display_v2.rs` - Added models_by_anna display
+
 ## [0.0.266] - 2025-12-09
 
 ### Added - Daemon Snapshot Collection & Bug Fixes

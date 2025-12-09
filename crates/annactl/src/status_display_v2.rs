@@ -4,9 +4,11 @@
 //! - Header with status indicator
 //! - Bracketed sections like [core], [updates], [llm]
 //! - Consistent key-value alignment
+//! v0.0.267: Added models_downloaded_by_anna section.
 
 use anna_shared::event_log::EventLog;
 use anna_shared::helpers::InstallSource;
+use anna_shared::ledger::Ledger;
 use anna_shared::rpc::DaemonInfo;
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::status_snapshot::StatusSnapshot;
@@ -175,6 +177,25 @@ pub fn print_status_display_v2(
         "last_model_check",
         &format!("{}OK{}", colors::OK, colors::RESET),
     );
+
+    // v0.0.267: Show models downloaded by Anna from ledger
+    if let Ok(ledger) = Ledger::load() {
+        let models = ledger.models_pulled();
+        if !models.is_empty() {
+            kv("models_by_anna", &format!("{}", models.len()));
+            for model in models.iter().take(5) {
+                println!("    {}{}{}", colors::DIM, model, colors::RESET);
+            }
+            if models.len() > 5 {
+                println!(
+                    "    {}... and {} more{}",
+                    colors::DIM,
+                    models.len() - 5,
+                    colors::RESET
+                );
+            }
+        }
+    }
 
     // === [helpers] ===
     if let Some(snap) = snapshot {

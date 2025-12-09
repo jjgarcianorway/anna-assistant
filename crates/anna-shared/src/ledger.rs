@@ -112,6 +112,15 @@ impl Ledger {
         summary.total = self.entries.len();
         summary
     }
+
+    /// v0.0.267: Get list of models pulled by Anna
+    pub fn models_pulled(&self) -> Vec<String> {
+        self.entries
+            .iter()
+            .filter(|e| e.kind == LedgerEntryKind::ModelPulled)
+            .map(|e| e.target.clone())
+            .collect()
+    }
 }
 
 /// Summary of ledger contents

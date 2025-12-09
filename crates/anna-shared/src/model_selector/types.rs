@@ -1,4 +1,5 @@
 //! Model selector types (v0.0.223).
+//! v0.0.267: Added DeepSeekR1 family for reasoning-focused tasks.
 
 use serde::{Deserialize, Serialize};
 
@@ -6,9 +7,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelFamily {
-    Qwen3VL, // Preferred
-    Qwen25,  // Fallback
-    Llama32, // Fallback
+    Qwen3VL,    // Preferred for vision/multimodal
+    DeepSeekR1, // v0.0.267: Strong reasoning capability
+    Qwen25,     // General fallback
+    Llama32,    // Fallback
     Other,
 }
 
@@ -34,6 +36,7 @@ impl ModelCandidate {
     pub fn family_display(&self) -> &'static str {
         match self.family {
             ModelFamily::Qwen3VL => "Qwen3-VL",
+            ModelFamily::DeepSeekR1 => "DeepSeek-R1",
             ModelFamily::Qwen25 => "Qwen2.5",
             ModelFamily::Llama32 => "Llama3.2",
             ModelFamily::Other => "Other",

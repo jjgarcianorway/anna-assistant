@@ -28,13 +28,14 @@ pub fn select_model(
 
     // Sort by: family preference, then priority, then benchmark if available
     candidates.sort_by(|a, b| {
-        // Family preference: Qwen3VL > Qwen25 > Llama32 > Other
+        // Family preference: Qwen3VL > DeepSeekR1 > Qwen25 > Llama32 > Other
         let family_order = |f: &ModelFamily| match f {
             ModelFamily::Qwen3VL if config.prefer_qwen3_vl => 0,
-            ModelFamily::Qwen25 => 1,
-            ModelFamily::Llama32 => 2,
-            ModelFamily::Qwen3VL => 1,
-            ModelFamily::Other => 3,
+            ModelFamily::DeepSeekR1 => 1, // v0.0.267: Strong reasoning
+            ModelFamily::Qwen25 => 2,
+            ModelFamily::Llama32 => 3,
+            ModelFamily::Qwen3VL => 2,
+            ModelFamily::Other => 4,
         };
 
         let a_family = family_order(&a.family);
@@ -113,11 +114,14 @@ pub fn model_matches(catalog_name: &str, available_name: &str) -> bool {
 }
 
 /// Detect model family from model name
+/// v0.0.267: Added DeepSeek-R1 detection
 pub fn detect_family(model_name: &str) -> ModelFamily {
     let name_lower = model_name.to_lowercase();
 
     if name_lower.contains("qwen3-vl") || name_lower.contains("qwen3vl") {
         ModelFamily::Qwen3VL
+    } else if name_lower.contains("deepseek-r1") || name_lower.contains("deepseekr1") {
+        ModelFamily::DeepSeekR1
     } else if name_lower.contains("qwen2.5") || name_lower.contains("qwen25") {
         ModelFamily::Qwen25
     } else if name_lower.contains("llama3.2") || name_lower.contains("llama32") {
