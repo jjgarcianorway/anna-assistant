@@ -20,6 +20,7 @@
 //! v0.0.165: RPC handler stages extracted to separate modules.
 //! v0.0.167: Routing stage extracted to separate module.
 //! v0.0.171: Deterministic answer functions modularized into det/ submodules.
+//! v0.0.172: Router modularized into router/ submodules.
 
 pub mod action_handlers;
 pub mod answers;

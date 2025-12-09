@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.172] - 2025-12-09
+
+### Changed - Router Modularization
+
+**Router split into 13 submodules under router/:**
+- `query_class.rs`: QueryClass enum definition (257 lines)
+- `query_class_impl.rs`: QueryClass methods - from_str, is_fast_path, etc. (265 lines)
+- `route_types.rs`: DeterministicRoute struct (23 lines)
+- `routes_core.rs`: Core routes - triage, help, meta, memory, disk (187 lines)
+- `routes_hardware.rs`: Hardware routes - CPU, GPU, audio, sensors (234 lines)
+- `routes_system.rs`: System routes - uptime, users, shell, locale (260 lines)
+- `routes_network.rs`: Network routes - connectivity, DNS, gateway, ports (156 lines)
+- `routes_storage.rs`: Storage routes - filesystems, block devices, mounts (130 lines)
+- `routes_services.rs`: Service routes - systemd, docker, crontab (169 lines)
+- `routes_security.rs`: Security routes - firewall, logins, SSH, SELinux (130 lines)
+- `routes_packages.rs`: Package routes - updates, install, kernels (104 lines)
+- `routes_kernel.rs`: Kernel routes - modules, dmesg, journal, sysctl (156 lines)
+- `routes_config.rs`: Config routes - editor, shell, git, diagnostics (149 lines)
+- `mod.rs`: Central module with build_route() dispatcher (140 lines)
+
+**All router/ files under 400-line limit:**
+- Original router.rs was 2718 lines
+- Now split across 14 focused files, largest is 265 lines
+- Tests still in separate router_tests.rs
+
 ## [0.0.171] - 2025-12-09
 
 ### Changed - Modularize Deterministic Answer Functions
