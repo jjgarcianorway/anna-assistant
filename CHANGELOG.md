@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.200] - 2025-12-09
+
+### Changed - rpc_handler.rs Modularization
+
+**Split rpc_handler.rs (483→12 lines) into 3 domain-specific modules:**
+- `dispatcher.rs`: handle_request RPC dispatcher (28 lines)
+- `helpers.rs`: save_progress, record_event_log (46 lines)
+- `llm_request.rs`: handle_llm_request and inner pipeline (355 lines)
+- `mod.rs`: Re-exports for backwards compatibility (12 lines)
+
+**All rpc_handler/ files under 400-line limit.**
+
 ## [0.0.199] - 2025-12-09
 
 ### Changed - budget.rs Modularization

@@ -1,11 +1,7 @@
-//! RPC request handlers with deterministic routing, triage, and fallback.
-//!
-//! v0.0.166: Integrated stage modules for modularization.
-//! v0.0.167: Integrated routing_stage module for further modularization.
+//! LLM request handling (v0.0.200).
 
-use anna_shared::event_log::{EventLog, EventRecord};
 use anna_shared::progress::RequestStage;
-use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{RequestParams, RpcResponse};
 use anna_shared::status::LlmState;
 use anna_shared::trace::SpecialistOutcome;
 use anna_shared::transcript::TranscriptEvent;
@@ -16,7 +12,6 @@ use tracing::{info, warn};
 use crate::comms::{team_from_domain, CommsGenerator};
 use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
 use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
-use crate::handlers;
 use crate::probe_stage::{check_evidence_validity, execute_probe_stage};
 use crate::progress_tracker::ProgressTracker;
 use crate::recipe_fast_path;
@@ -30,29 +25,10 @@ use crate::theatre::TheatreContext;
 use crate::timeout_handler::make_timeout_response;
 use crate::triage;
 
-/// Handle an RPC request
-pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
-    let id = request.id.clone();
-
-    match request.method {
-        RpcMethod::Status => handlers::handle_status(state, id).await,
-        RpcMethod::Request => handle_llm_request(state, id, request.params).await,
-        RpcMethod::Reset => handlers::handle_reset(state, id).await,
-        RpcMethod::Uninstall => handlers::handle_uninstall(state, id).await,
-        RpcMethod::Autofix => handlers::handle_autofix(state, id).await,
-        RpcMethod::Probe => handlers::handle_probe(state, id, request.params).await,
-        RpcMethod::Progress => handlers::handle_progress(state, id).await,
-        RpcMethod::Stats => handlers::handle_stats(state, id).await,
-        RpcMethod::StatusSnapshot => handlers::handle_status_snapshot(state, id).await,
-        RpcMethod::GetDaemonInfo => handlers::handle_get_daemon_info(state, id).await,
-        RpcMethod::PlanChange => handlers::handle_plan_change(id, request.params).await,
-        RpcMethod::ApplyChange => handlers::handle_apply_change(id, request.params).await,
-        RpcMethod::RollbackChange => handlers::handle_rollback_change(id, request.params).await,
-    }
-}
+use super::helpers::{record_event_log, save_progress};
 
 /// Service desk pipeline with deterministic routing, triage, and fallback
-async fn handle_llm_request(
+pub async fn handle_llm_request(
     state: SharedState,
     id: String,
     params: Option<serde_json::Value>,
@@ -441,43 +417,4 @@ async fn handle_llm_request_inner(
 
     // v0.0.166: Return with theatre context using result_stage module
     wrap_with_theatre(id, result, Some(theatre))
-}
-
-/// Save progress events to state for polling
-async fn save_progress(state: &SharedState, progress: &ProgressTracker) {
-    state.write().await.progress_events = progress.events().to_vec();
-}
-
-/// v0.0.169: Record event to event log for gamification stats persistence
-fn record_event_log(
-    request_id: &str,
-    result: &anna_shared::rpc::ServiceDeskResult,
-    theatre: &TheatreContext,
-    duration_ms: u64,
-) {
-    let event_log = EventLog::new(EventLog::default_path(), 10000);
-
-    // Determine outcome based on result state
-    let outcome = if result.needs_clarification {
-        "clarification"
-    } else if result.reliability_score >= 60 {
-        "verified"
-    } else if result.reliability_score > 0 {
-        "failed"
-    } else {
-        "timeout"
-    };
-
-    // Build event record
-    let mut record = EventRecord::new(request_id, &result.domain.to_string());
-    record.outcome = outcome.to_string();
-    record.reliability = result.reliability_score;
-    record.team = theatre.team.to_string();
-    record.escalated = theatre.ticket.was_escalated;
-    record.escalation_tier = if theatre.ticket.was_escalated { 2 } else { 0 };
-    record.duration_ms = duration_ms;
-    record.interactions = if result.needs_clarification { 1 } else { 0 };
-
-    // Save to event log (ignore errors - stats are not critical)
-    let _ = event_log.append(&record);
 }
