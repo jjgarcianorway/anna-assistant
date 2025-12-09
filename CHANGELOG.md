@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.165] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Created reusable stage modules for RPC handler pipeline:**
+
+- New `probe_stage.rs` module (100 lines) containing:
+  - `execute_probe_stage()` - run probes with timeout and progress tracking
+  - `check_evidence_validity()` - verify probe evidence
+
+- New `specialist_stage.rs` module (68 lines) containing:
+  - `execute_specialist_stage()` - deterministic answer first, then LLM fallback
+
+- New `result_stage.rs` module (158 lines) containing:
+  - `build_final_result()` - construct ServiceDeskResult with execution trace
+  - `wrap_with_theatre()` - add theatre context and learning
+
+These modules prepare for future `rpc_handler.rs` refactoring and provide
+reusable components for the request processing pipeline.
+
+**Total modularization progress (v0.0.155-v0.0.165):**
+- 9 files brought to/under 400-line limit
+- 15 new focused modules created (2,507 lines total)
+
 ## [0.0.164] - 2025-12-09
 
 ### Changed - Continued Code Modularization

@@ -17,6 +17,7 @@
 //! v0.0.162: Model registry extracted to separate module.
 //! v0.0.163: Built-in recipe matchers extracted to separate module.
 //! v0.0.164: Probe registry and translator fallback extracted to separate modules.
+//! v0.0.165: RPC handler stages extracted to separate modules.
 
 pub mod action_handlers;
 pub mod best_effort_summary;
@@ -45,6 +46,7 @@ pub mod permissions;
 pub mod probe_answers;
 pub mod probe_registry;
 pub mod probe_runner;
+pub mod probe_stage;
 pub mod probes;
 pub mod progress_tracker;
 pub mod prompts;
@@ -54,6 +56,7 @@ pub mod recipe_builtins;
 pub mod recipe_fast_path;
 pub mod redact;
 pub mod response_builders;
+pub mod result_stage;
 pub mod router;
 #[cfg(test)]
 pub mod router_tests;
@@ -62,6 +65,7 @@ pub mod scoring;
 pub mod server;
 pub mod service_desk;
 pub mod specialist_handler;
+pub mod specialist_stage;
 pub mod state;
 pub mod state_types;
 pub mod summarizer;
