@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.197] - 2025-12-09
+
+### Changed - clarify_v2.rs Modularization
+
+**Split clarify_v2.rs (489→17 lines) into 3 domain-specific modules:**
+- `types.rs`: ClarifyRequest, ClarifyOption, ClarifyResponse, ClarifyResult, VerifyFailureTracker (263 lines)
+- `processing.rs`: process_response, find_installed_alternatives, editor_request (130 lines)
+- `facts.rs`: should_skip, store_fact, invalidate_on_uninstall (62 lines)
+- `mod.rs`: Re-exports for backwards compatibility (17 lines)
+
+**All clarify_v2/ files under 400-line limit.**
+
 ## [0.0.196] - 2025-12-09
 
 ### Changed - ssh_recipes.rs Modularization
