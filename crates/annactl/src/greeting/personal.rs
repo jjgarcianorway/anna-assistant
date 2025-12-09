@@ -1,4 +1,6 @@
-//! Personalized greeting sections (v0.0.186).
+//! Personalized greeting sections (v0.0.236).
+//!
+//! v0.0.236: Added editor trend insights to pattern display.
 
 use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::colors;
@@ -49,6 +51,7 @@ pub fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
 
 /// Print personalized patterns from user profile
 /// v0.0.142: More conversational pattern observations
+/// v0.0.236: Added editor trend insights
 pub fn print_user_patterns(profile: &UserProfile) {
     // Only show if we have meaningful data
     if profile.tool_usage.is_empty()
@@ -74,8 +77,11 @@ pub fn print_user_patterns(profile: &UserProfile) {
         patterns.push(streak_msg);
     }
 
-    // Preferred editor - conversational observation
-    if let Some(ref editor) = profile.preferred_editor {
+    // v0.0.236: Editor trend insight (learning new editor, switching)
+    if let Some(trend) = profile.editor_trend() {
+        patterns.push(format!("{} {}", bullet(), trend.to_message()));
+    } else if let Some(ref editor) = profile.preferred_editor {
+        // Fall back to simple preferred editor observation
         let count = profile.tool_usage.get(editor).copied().unwrap_or(0);
         if count > 2 {
             patterns.push(format!(
@@ -96,8 +102,11 @@ pub fn print_user_patterns(profile: &UserProfile) {
         }
     }
 
-    // Top topic - conversational
-    if let Some(topic) = profile.top_topic() {
+    // v0.0.236: Topic trend insight
+    if let Some(trend) = profile.topic_trend() {
+        patterns.push(format!("{} {}", bullet(), trend.to_message()));
+    } else if let Some(topic) = profile.top_topic() {
+        // Fall back to simple top topic observation
         let count = profile.topic_interests.get(topic).copied().unwrap_or(0);
         if count > 2 {
             patterns.push(format!(

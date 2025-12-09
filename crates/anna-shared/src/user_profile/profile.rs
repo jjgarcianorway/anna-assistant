@@ -1,10 +1,13 @@
-//! UserProfile implementation (v0.0.217).
+//! UserProfile implementation (v0.0.236).
+//!
+//! v0.0.236: Pattern history tracking for trend detection.
 
 use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 
 use super::greeting::GreetingContext;
+use super::patterns::{EditorTrendInsight, TopicTrendInsight};
 use super::types::UserProfile;
 
 impl UserProfile {
@@ -68,10 +71,21 @@ impl UserProfile {
     pub fn record_tool_usage(&mut self, tool: &str) {
         *self.tool_usage.entry(tool.to_string()).or_insert(0) += 1;
 
+        // v0.0.236: Track in pattern history for trends
+        self.pattern_history.record_tool(tool);
+
         // Update preferred editor if relevant
         let editors = ["vim", "nvim", "nano", "emacs", "helix", "micro", "code"];
         if editors.contains(&tool) {
+            let old_editor = self.preferred_editor.clone();
             self.update_preferred_editor();
+            // Track editor changes for trend detection
+            if old_editor != self.preferred_editor {
+                if let Some(ref new) = self.preferred_editor {
+                    self.pattern_history
+                        .record_editor_change(old_editor.as_deref(), new);
+                }
+            }
         }
 
         // Update preferred shell if relevant
@@ -110,6 +124,24 @@ impl UserProfile {
     /// Record topic interest (e.g., "network", "storage")
     pub fn record_topic(&mut self, topic: &str) {
         *self.topic_interests.entry(topic.to_string()).or_insert(0) += 1;
+        // v0.0.236: Track in pattern history for trends
+        self.pattern_history.record_topic(topic);
+    }
+
+    /// v0.0.236: Get editor trend insight (if any significant trend detected)
+    pub fn editor_trend(&self) -> Option<EditorTrendInsight> {
+        self.pattern_history
+            .editor_trend_insight(self.preferred_editor.as_deref(), &self.tool_usage)
+    }
+
+    /// v0.0.236: Get topic trend insight (if any significant trend detected)
+    pub fn topic_trend(&self) -> Option<TopicTrendInsight> {
+        self.pattern_history.topic_trend_insight(&self.topic_interests)
+    }
+
+    /// v0.0.236: Cleanup old pattern data
+    pub fn cleanup_patterns(&mut self) {
+        self.pattern_history.cleanup_old_data();
     }
 
     /// v0.0.108: Extract and record tools mentioned in a query

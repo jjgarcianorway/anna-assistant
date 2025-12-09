@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.236] - 2025-12-09
+
+### Added - User Experience Enhancements
+
+**Pattern History Tracking (user_profile/patterns.rs):**
+- Time-windowed tool usage tracking (weekly patterns)
+- Editor trend detection ("You're using vim more than nano lately")
+- Topic trend detection ("Your network questions increased this week")
+- EditorTrendInsight: RecentSwitch, LearningNew variants
+- TopicTrendInsight: Increasing, Dominant variants
+- Automatic cleanup of old data (12-week retention)
+
+**Natural Language Config Parser (config_parser.rs):**
+- Parse user requests to change Anna's settings
+- Support for settings:
+  - Learning mode: "enable/disable learning mode"
+  - Verbosity: "be more verbose", "brief answers"
+  - Auto-confirm: "auto confirm low risk", "always ask"
+  - Internal comms: "show/hide internal communications"
+  - Formality: "be more casual/formal"
+  - Humor: "be playful", "no jokes"
+  - Technical depth: "expert mode", "simpler terms"
+- ConfigChange enum with apply() method
+- is_config_request() for routing detection
+
+**Enhanced User Profile:**
+- Added pattern_history field to UserProfile
+- editor_trend() method for insight detection
+- topic_trend() method for topic pattern detection
+- cleanup_patterns() for maintenance
+
+**Updated Greeting System:**
+- Greeting now shows editor trend insights
+- Topic trend insights in pattern display
+
 ## [0.0.235] - 2025-12-09
 
 ### Added - Docker Compose Recipes

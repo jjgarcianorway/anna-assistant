@@ -225,10 +225,40 @@ skip the slow LLM path for queries similar to ones she's seen before.
 - [x] Per-stage latency tracking
 - [x] Hardware-aware model selection
 
+### v0.0.235 - Docker Compose Recipes (Phase 27) ✓
+- [x] DockerFeature enum (CreateCompose, StartServices, StopServices, ViewLogs, etc.)
+- [x] DockerRecipe with answer templates
+- [x] 10 built-in recipes for Docker Compose workflows
+- [x] Query matcher integration with recipe_fast_path
+- [x] RecipeKind::DockerCompose variant
+
+### v0.0.234 - Cron Job Recipes (Phase 26) ✓
+- [x] CronFeature enum (AddJob, ListJobs, EditCrontab, RemoveJob, etc.)
+- [x] CronPreset enum (Hourly, Daily, Weekly, Monthly, etc.)
+- [x] CronRecipe with syntax help and examples
+- [x] 8 built-in recipes for cron management
+- [x] Query matcher integration with recipe_fast_path
+- [x] RecipeKind::CronJob variant
+
+### v0.0.233 - Systemd Unit File Recipes (Phase 25) ✓
+- [x] SystemdFeature enum (CreateService, CreateTimer, EnableService, ViewLogs, etc.)
+- [x] UnitType, RestartPolicy enums
+- [x] SystemdRecipe with unit file templates
+- [x] 8 built-in recipes for systemd management
+- [x] Query matcher integration with recipe_fast_path
+- [x] RecipeKind::SystemdUnit variant
+
+### v0.0.104 - SSH Key Management Recipes (Phase 24) ✓
+- [x] SshFeature enum (GenerateKey, CopyKey, Config, Agent, GitHub, etc.)
+- [x] SshRecipe with answer templates
+- [x] 7 built-in recipes for SSH key management
+- [x] Query matcher for SSH-related queries
+- [x] RecipeKind::SshConfig variant
+
 ## Planned
 
-### v0.0.104+ - Future
-- [ ] SSH key management recipes
-- [ ] Systemd unit file recipes
-- [ ] Cron job recipes
-- [ ] Docker compose recipes
+### Future
+- [ ] Kubernetes pod/deployment recipes
+- [ ] Nginx/Apache configuration recipes
+- [ ] Database backup/restore recipes
+- [ ] Network troubleshooting recipes

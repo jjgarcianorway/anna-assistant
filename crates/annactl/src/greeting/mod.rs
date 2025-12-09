@@ -19,7 +19,8 @@ use personal::{print_open_tickets, print_personalized_greeting, print_user_patte
 use status::{collect_failed_services, print_since_last_time, print_system_readiness};
 use types::calculate_interaction_info;
 
-// Re-export for tests
+// Re-export for external use
+#[allow(unused_imports)]
 pub use types::{bullet, InteractionInfo};
 
 /// Print the theatre-style REPL greeting
