@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.245] - 2025-12-09
+
+### Added - Greeting Insights from System State
+
+**Anna now greets you with context-aware observations:**
+- Greeting includes quick system status from IT staff
+- Staff members deliver insights in their unique voice
+- Both problems and good news are surfaced appropriately
+
+**Insight Types:**
+- **Critical issues**: Storage/Performance seniors flag problems immediately
+- **Warnings**: Juniors give friendly heads-up on developing issues
+- **Good news**: "Plenty of space!" or "Numbers look good!" when healthy
+- **Changes**: Service recoveries or new failures since last session
+
+**Features:**
+- `generate_insights()` - Extracts insights from snapshot and deltas
+- `format_insights_for_greeting()` - Formats for display in welcome
+- `quick_status_line()` - One-liner: "disks ok • memory ok • services ok"
+- Priority-based ordering (critical first)
+- Limited to 2 insights per greeting (don't overwhelm)
+
+**New Module:**
+- `greeting_insights.rs` - Context-aware greeting enrichment
+
 ## [0.0.244] - 2025-12-09
 
 ### Added - Proactive Health Monitoring Alerts
