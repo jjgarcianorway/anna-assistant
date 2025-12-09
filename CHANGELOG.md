@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.186] - 2025-12-09
+
+### Changed - greeting.rs Modularization
+
+**Split greeting.rs (542→94 lines) into 4 domain-specific modules:**
+- `types.rs`: InteractionInfo struct and calculation (37 lines)
+- `personal.rs`: Personalized greeting, patterns, tickets (166 lines)
+- `status.rs`: Since-last-time, system readiness, failed services (259 lines)
+- `tests.rs`: Unit tests (18 lines)
+- `mod.rs`: Main entry point and re-exports (94 lines)
+
+**All greeting/ files under 400-line limit.**
+
 ## [0.0.185] - 2025-12-09
 
 ### Changed - fastpath.rs Modularization
