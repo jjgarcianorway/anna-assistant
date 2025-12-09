@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.184] - 2025-12-09
+
+### Changed - trace.rs Modularization
+
+**Split trace.rs (555→19 lines) into 5 domain-specific modules:**
+- `outcomes.rs`: SpecialistOutcome, FallbackUsed, ReviewerOutcome enums (107 lines)
+- `probe_stats.rs`: ProbeStats struct and methods (51 lines)
+- `evidence.rs`: EvidenceKind enum and detection functions (149 lines)
+- `execution.rs`: ExecutionTrace struct and constructors (153 lines)
+- `tests.rs`: Unit tests for trace functionality (107 lines)
+- `mod.rs`: Re-exports for backwards compatibility (19 lines)
+
+**All trace/ files under 400-line limit.**
+
 ## [0.0.183] - 2025-12-09
 
 ### Changed - ticket_tracker.rs Modularization
