@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.216] - 2025-12-09
+
+### Changed - ticket_packet.rs Modularization
+
+**Split ticket_packet.rs (421→18 lines) into 5 domain-specific modules:**
+- `types.rs`: PacketBudget, MAX_PACKET_BYTES constant (21 lines)
+- `packet.rs`: TicketPacket struct and methods (155 lines)
+- `builder.rs`: TicketPacketBuilder (78 lines)
+- `domain.rs`: recommended_probes_for_domain, evidence_kinds_for_domain (32 lines)
+- `policy.rs`: PacketPolicy, policy_for_team (122 lines)
+- `mod.rs`: Re-exports for backwards compatibility (18 lines)
+
+**All ticket_packet/ files under 400-line limit.**
+
 ## [0.0.215] - 2025-12-09
 
 ### Changed - ticket.rs Modularization
