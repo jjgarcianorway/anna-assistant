@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.190] - 2025-12-09
+
+### Changed - event_log.rs Modularization
+
+**Split event_log.rs (509→13 lines) into 4 domain-specific modules:**
+- `types.rs`: EventRecord struct and builder methods (87 lines)
+- `store.rs`: EventLog file store with rotation (117 lines)
+- `aggregation.rs`: AggregatedEvents, XP/level computation (211 lines)
+- `tests.rs`: Unit tests (54 lines)
+- `mod.rs`: Re-exports for backwards compatibility (13 lines)
+
+**All event_log/ files under 400-line limit.**
+
 ## [0.0.189] - 2025-12-09
 
 ### Changed - report.rs Modularization
