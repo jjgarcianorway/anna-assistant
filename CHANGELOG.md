@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.161] - 2025-12-09
+
+### Changed - Continued Code Modularization
+
+**Extracted update operations to dedicated module:**
+
+- New `update_ops.rs` module (200 lines) containing:
+  - `download_file()` - download file from URL
+  - `verify_checksum()` - verify SHA256 checksum
+  - `verify_binary_version()` - verify binary reports expected version
+  - `install_binary_pair()` - atomic pair installation
+  - `verify_pair_consistency()` - verify both binaries match
+  - `schedule_daemon_restart()` - schedule restart after update
+  - `verify_assets_exist()` - verify release assets are downloadable
+  - `rollback_binaries()` - rollback on update failure
+  - `get_arch_name()` - get architecture-specific name
+
+- Reduced `update.rs` from 501 to 319 lines (-36%)
+
+**Total modularization progress (v0.0.155-v0.0.161):**
+- `service_desk.rs`: 799 → 354 lines (-56%)
+- `verify_probes.rs`: 467 → 216 lines (-54%)
+- `update.rs`: 501 → 319 lines (-36%)
+- `server.rs`: 432 → 292 lines (-32%)
+- `answers.rs`: 457 → 308 lines (-33%)
+- `ollama.rs`: 409 → 304 lines (-26%)
+- Created 8 new focused modules totaling 1,385 lines
+
 ## [0.0.160] - 2025-12-09
 
 ### Changed - Continued Code Modularization

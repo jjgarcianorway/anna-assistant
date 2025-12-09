@@ -13,6 +13,7 @@
 //! v0.0.158: Ollama streaming extracted to separate module.
 //! v0.0.159: Update check loop extracted to separate module.
 //! v0.0.160: System verifiers extracted to separate module.
+//! v0.0.161: Update operations extracted to separate module.
 
 pub mod action_handlers;
 pub mod best_effort_summary;
@@ -68,4 +69,5 @@ pub mod triage;
 pub mod triage_answer;
 pub mod update;
 pub mod update_loop;
+pub mod update_ops;
 pub mod verify_probes;
