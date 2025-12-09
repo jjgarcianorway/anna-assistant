@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.270] - 2025-12-09
+
+### Added - Recipe Learning Verification Tests
+
+**New test suite for recipe learning quality:**
+- `test_similar_queries_have_token_overlap` - Verifies similar queries share tokens (22% currently)
+- `test_learnable_scenarios_have_good_tokens` - Ensures learnable queries have 3+ tokens
+- `test_paraphrase_matching_examples` - Tests canonical paraphrase pairs (40% match rate)
+- `test_action_verb_preservation` - Verifies action verbs like install/restart stay in tokens
+- `test_target_noun_preservation` - Verifies target nouns like docker/vim stay in tokens
+
+**Insights discovered:**
+- Current token matching rate for paraphrases is ~40% (without synonym expansion)
+- Similar query overlap is ~22% (many use completely different words)
+- Future improvement: Add synonym expansion to recipe_index (disk<->storage, check<->show)
+- Action verbs and target nouns are well-preserved for recipe learning
+
+**Files changed:**
+- `anna-shared/src/query_scenarios/tests.rs` - Added 5 recipe learning tests
+
 ## [0.0.269] - 2025-12-09
 
 ### Added - Intelligent Model Auto-Selection with Benchmarking
