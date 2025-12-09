@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.231] - 2025-12-09
+
+### Changed - shell_recipes.rs Modularization
+
+**Split shell_recipes.rs (374→17 lines) into 4 domain-specific modules:**
+- `types.rs`: Shell, ShellFeature enums, ShellRecipe struct (124 lines)
+- `catalog.rs`: builtin_recipes with shell configs (128 lines)
+- `search.rs`: find_recipe, find_recipes_by_keywords, detect_feature (68 lines)
+- `tests.rs`: Unit tests (44 lines)
+- `mod.rs`: Re-exports for backwards compatibility (17 lines)
+
+**All shell_recipes/ files under 400-line limit per CLAUDE.md policy.**
+
 ## [0.0.230] - 2025-12-09
 
 ### Changed - package_recipes.rs Modularization
