@@ -1,6 +1,7 @@
 //! Editor recipe data definitions.
 //!
 //! v0.0.95: Extracted from editor_recipes.rs for modularity.
+//! v0.0.263: Added Helix syntax highlighting and theme support.
 
 use crate::editor_recipes::{ConfigFeature, ConfigLine, Editor, EditorRecipe};
 
@@ -134,7 +135,15 @@ pub fn get_recipe(editor: Editor, feature: ConfigFeature) -> Option<EditorRecipe
             "Remove '(global-visual-line-mode t)' from ~/.emacs",
         ),
 
-        // HELIX recipes (TOML config)
+        // HELIX recipes (TOML config) - v0.0.263: added syntax highlighting
+        (Editor::Helix, ConfigFeature::SyntaxHighlighting) => (
+            vec![ConfigLine {
+                line: "theme = \"onedark\"".to_string(),
+                comment: "Set theme (Helix has syntax highlighting enabled by default)".to_string(),
+                check_pattern: "^theme\\s*=".to_string(),
+            }],
+            "Remove or change theme line in ~/.config/helix/config.toml",
+        ),
         (Editor::Helix, ConfigFeature::LineNumbers) => (
             vec![ConfigLine {
                 line: "[editor]\nline-number = \"absolute\"".to_string(),
@@ -150,6 +159,14 @@ pub fn get_recipe(editor: Editor, feature: ConfigFeature) -> Option<EditorRecipe
                 check_pattern: "soft-wrap".to_string(),
             }],
             "Set enable = false under [editor.soft-wrap] in config.toml",
+        ),
+        (Editor::Helix, ConfigFeature::AutoIndent) => (
+            vec![ConfigLine {
+                line: "[editor]\nauto-pairs = true".to_string(),
+                comment: "Enable auto-pairs for brackets".to_string(),
+                check_pattern: "auto-pairs".to_string(),
+            }],
+            "Set auto-pairs = false in config.toml",
         ),
 
         // MICRO recipes (JSON config)
