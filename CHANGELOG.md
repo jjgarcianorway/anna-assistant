@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.202] - 2025-12-09
+
+### Changed - theatre_render.rs Modularization
+
+**Split theatre_render.rs (471→15 lines) into 5 domain-specific modules:**
+- `helpers.rs`: Utility functions (reliability_color, team_from_domain, probe_id_from_command) (68 lines)
+- `narrative.rs`: build_narrative and related functions (84 lines)
+- `footer.rs`: Footer rendering and evidence formatting (117 lines)
+- `render.rs`: Main render_theatre function and segment printing (161 lines)
+- `tests.rs`: Unit tests (33 lines)
+- `mod.rs`: Re-exports for backwards compatibility (15 lines)
+
+**All theatre_render/ files under 400-line limit.**
+
 ## [0.0.201] - 2025-12-09
 
 ### Changed - model_registry.rs Modularization
