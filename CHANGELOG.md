@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.246] - 2025-12-09
+
+### Added - Deeper Context Memory
+
+**Anna now remembers you across sessions:**
+- Tracks interaction patterns by topic (frequency, timing, related queries)
+- Learns preferences from behavior (editor choice, shell preference)
+- Provides continuity messages ("You've been asking about X a lot...")
+- Remembers mastered commands (no re-explaining what you know)
+
+**Memory Features:**
+- `InteractionPattern` - Tracks topic frequency, timing, related queries
+- `LearnedPreference` - Stores inferred preferences with confidence
+- `ContinuityItem` - Remembers important things for next session
+- `response_hints()` - Context-aware response guidance
+
+**Smart Behaviors:**
+- `should_explain()` - Skip explanations for mastered commands
+- `continuity_greeting()` - Natural "last time we discussed..." messages
+- `frequent_topics()` / `recent_topics()` - Pattern recognition
+- Editor and shell preference detection
+
+**Persistence:**
+- Context saved to `~/.local/share/anna/context_memory.json`
+- Automatic loading on startup
+- Truncation to prevent unbounded growth
+
+**New Module:**
+- `context_memory.rs` - Cross-session user context tracking
+
 ## [0.0.245] - 2025-12-09
 
 ### Added - Greeting Insights from System State

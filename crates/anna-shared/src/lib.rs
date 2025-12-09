@@ -67,6 +67,7 @@ pub mod config_parser; // v0.0.236
 pub mod idle_tips; // v0.0.240
 pub mod health_tips; // v0.0.244
 pub mod greeting_insights; // v0.0.245
+pub mod context_memory; // v0.0.246
 pub mod stats;
 pub mod status;
 pub mod status_snapshot;
