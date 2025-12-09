@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.217] - 2025-12-09
+
+### Changed - user_profile.rs Modularization
+
+**Split user_profile.rs (416→14 lines) into 4 domain-specific modules:**
+- `types.rs`: UserProfile, UserPreferences, PersonalityTraits structs (96 lines)
+- `profile.rs`: UserProfile impl (load, save, record_*, greeting_context) (171 lines)
+- `greeting.rs`: GreetingContext and generate_greeting (45 lines)
+- `tests.rs`: Unit tests (60 lines)
+- `mod.rs`: Re-exports for backwards compatibility (14 lines)
+
+**All user_profile/ files under 400-line limit.**
+
 ## [0.0.216] - 2025-12-09
 
 ### Changed - ticket_packet.rs Modularization
