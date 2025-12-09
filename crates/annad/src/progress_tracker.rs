@@ -171,6 +171,17 @@ impl ProgressTracker {
         ));
     }
 
+    /// v0.0.238: Add streaming token for real-time output
+    pub fn add_streaming_token(&mut self, stage: RequestStage, token: &str, is_final: bool) {
+        // Don't log individual tokens to avoid noise
+        self.events.push(ProgressEvent::streaming_token(
+            stage,
+            token,
+            is_final,
+            self.elapsed_ms(),
+        ));
+    }
+
     /// Record Anna's final answer (THE authoritative response to the user)
     /// Uses FinalAnswer kind, not Message, to ensure proper answer source detection.
     pub fn add_final_answer(&mut self, text: &str) {

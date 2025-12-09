@@ -1,12 +1,14 @@
-//! User profile type definitions (v0.0.236).
+//! User profile type definitions (v0.0.238).
 //!
 //! v0.0.236: Added pattern history for trend detection.
+//! v0.0.238: Added session history for "since last time" summaries.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::patterns::PatternHistory;
+use super::session::{SessionHistory, SessionSummary};
 
 /// User profile with preferences and patterns
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +38,12 @@ pub struct UserProfile {
     /// v0.0.236: Pattern history for trend detection
     #[serde(default)]
     pub pattern_history: PatternHistory,
+    /// v0.0.238: Session history for "since last time" summaries
+    #[serde(default)]
+    pub session_history: SessionHistory,
+    /// v0.0.238: Current session (not persisted until session ends)
+    #[serde(skip)]
+    pub current_session: Option<SessionSummary>,
 }
 
 /// User preferences for Anna behavior
@@ -104,6 +112,8 @@ impl Default for UserProfile {
             topic_interests: HashMap::new(),
             learned_commands: Vec::new(),
             pattern_history: PatternHistory::default(),
+            session_history: SessionHistory::default(),
+            current_session: None,
         }
     }
 }

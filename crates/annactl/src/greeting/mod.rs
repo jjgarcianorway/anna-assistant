@@ -1,8 +1,9 @@
-//! Theatre-style REPL greeting for Service Desk experience (v0.0.186).
+//! Theatre-style REPL greeting for Service Desk experience (v0.0.238).
 //!
 //! v0.0.119: Clean, concise greetings.
 //! v0.0.142: More conversational, personalized greetings.
 //! v0.0.186: Modularized into domain-focused submodules.
+//! v0.0.238: Added session-based "since last time" summary.
 
 mod personal;
 mod status;
@@ -15,7 +16,10 @@ use anna_shared::telemetry::TelemetrySnapshot;
 use anna_shared::ui::{colors, HR};
 use anna_shared::user_profile::UserProfile;
 
-use personal::{print_open_tickets, print_personalized_greeting, print_user_patterns};
+use personal::{
+    print_open_tickets, print_personalized_greeting, print_since_last_time as print_session_summary,
+    print_user_patterns,
+};
 use status::{collect_failed_services, print_since_last_time, print_system_readiness};
 use types::calculate_interaction_info;
 
@@ -27,6 +31,7 @@ pub use types::{bullet, InteractionInfo};
 /// Shows: personalized greeting, time since last visit, health deltas, patterns
 /// v0.0.106: Loads user profile for personalized patterns
 /// v0.0.142: More conversational style
+/// v0.0.238: Added session-based "since last time" summary
 pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
 
@@ -56,7 +61,10 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     // Personalized greeting based on interaction history
     print_personalized_greeting(&username, &interaction_info);
 
-    // "Since last time" section if we have meaningful changes
+    // v0.0.238: Session-based "since last time" summary (what we did together)
+    print_session_summary(&profile);
+
+    // "Since last time" section for system health changes
     if last_snapshot.is_some() {
         print_since_last_time(
             &telemetry,
@@ -88,6 +96,8 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
 
     // v0.0.106: Update profile and save
     profile.record_session();
+    // v0.0.238: Start a new session for tracking
+    profile.start_session();
     let _ = profile.save();
 
     // Save snapshot for next time

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.238] - 2025-12-09
+
+### Added - Session History & "Since Last Time" Summary
+
+**Session History Tracking (user_profile/session.rs):**
+- Track what happens in each session (queries, topics, commands learned)
+- Store up to 5 recent sessions for context
+- SessionSummary: query_count, topics discussed, commands learned, recipes executed
+- SessionHistory: maintains recent session list with automatic truncation
+
+**"Since Last Time" Summary:**
+- Shows what you did together in the last session
+- Example: "Last time (2 hours ago): handled 5 queries, discussed vim (3 times), learned about nvim"
+- Appears in REPL greeting after the personalized hello
+- Only shown when there's meaningful history to share
+
+**Streaming Token Infrastructure:**
+- Added StreamingToken event type for future word-by-word output
+- Progress tracker support for streaming tokens
+- Client-side handling in live_request.rs (infrastructure ready)
+
 ## [0.0.237] - 2025-12-09
 
 ### Added - Natural Language Settings & Enhanced UX

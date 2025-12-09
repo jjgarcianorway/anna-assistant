@@ -1,6 +1,7 @@
-//! Personalized greeting sections (v0.0.236).
+//! Personalized greeting sections (v0.0.238).
 //!
 //! v0.0.236: Added editor trend insights to pattern display.
+//! v0.0.238: Added "since last time" summary display.
 
 use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::colors;
@@ -46,6 +47,19 @@ pub fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
         }
     } else {
         println!("Hello {}, welcome back.", username);
+    }
+}
+
+/// v0.0.238: Print "since last time" summary if available
+pub fn print_since_last_time(profile: &UserProfile) {
+    if let Some(summary) = profile.since_last_time() {
+        println!();
+        println!(
+            "{}📋 {}{}",
+            colors::DIM,
+            summary,
+            colors::RESET
+        );
     }
 }
 

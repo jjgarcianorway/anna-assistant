@@ -1,6 +1,7 @@
-//! UserProfile implementation (v0.0.236).
+//! UserProfile implementation (v0.0.238).
 //!
 //! v0.0.236: Pattern history tracking for trend detection.
+//! v0.0.238: Session history for "since last time" summaries.
 
 use chrono::Utc;
 use std::fs;
@@ -8,6 +9,7 @@ use std::path::PathBuf;
 
 use super::greeting::GreetingContext;
 use super::patterns::{EditorTrendInsight, TopicTrendInsight};
+use super::session::SessionSummary;
 use super::types::UserProfile;
 
 impl UserProfile {
@@ -209,5 +211,45 @@ impl UserProfile {
     /// Set email for notifications
     pub fn set_email(&mut self, email: &str) {
         self.email = Some(email.to_string());
+    }
+
+    // ==================== v0.0.238: Session Management ====================
+
+    /// Start a new session
+    pub fn start_session(&mut self) {
+        self.current_session = Some(SessionSummary::new());
+    }
+
+    /// End the current session and add to history
+    pub fn end_session(&mut self) {
+        if let Some(session) = self.current_session.take() {
+            self.session_history.add_session(session);
+        }
+    }
+
+    /// Record a query in the current session
+    pub fn record_session_query(&mut self, topic: Option<&str>) {
+        if let Some(ref mut session) = self.current_session {
+            session.record_query(topic);
+        }
+    }
+
+    /// Record a command learned in the current session
+    pub fn record_session_command(&mut self, command: &str) {
+        if let Some(ref mut session) = self.current_session {
+            session.record_command_learned(command);
+        }
+    }
+
+    /// Record a recipe executed in the current session
+    pub fn record_session_recipe(&mut self, recipe_id: &str) {
+        if let Some(ref mut session) = self.current_session {
+            session.record_recipe(recipe_id);
+        }
+    }
+
+    /// Get "since last time" summary message
+    pub fn since_last_time(&self) -> Option<String> {
+        self.session_history.since_last_time()
     }
 }

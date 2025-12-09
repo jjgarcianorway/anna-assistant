@@ -176,5 +176,9 @@ pub fn print_progress_event(event: &ProgressEvent) {
         ProgressEventType::InternalComms { from, message } => {
             println!("{}[{}]{} {}", colors::CYAN, from, colors::RESET, message);
         }
+        // v0.0.238: Streaming tokens (handled in live_request.rs)
+        ProgressEventType::StreamingToken { .. } => {
+            // Streaming tokens are handled separately in live_request.rs
+        }
     }
 }

@@ -1,4 +1,6 @@
-//! Progress event types (v0.0.204).
+//! Progress event types (v0.0.238).
+//!
+//! v0.0.238: Added StreamingToken for real-time word-by-word output.
 
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +47,13 @@ pub enum ProgressEventType {
     InternalComms {
         from: String,
         message: DiagnosticText,
+    },
+    /// v0.0.238: Streaming token for real-time output (actual token text)
+    StreamingToken {
+        /// The token text to display
+        token: String,
+        /// Whether this is the final token of the response
+        is_final: bool,
     },
 }
 
@@ -152,6 +161,24 @@ impl ProgressEvent {
         }
     }
 
+    /// v0.0.238: Streaming token for real-time output
+    pub fn streaming_token(
+        stage: RequestStage,
+        token: impl Into<String>,
+        is_final: bool,
+        elapsed_ms: u64,
+    ) -> Self {
+        Self {
+            stage,
+            event: ProgressEventType::StreamingToken {
+                token: token.into(),
+                is_final,
+            },
+            detail: None,
+            elapsed_ms,
+        }
+    }
+
     /// Format for debug display
     pub fn format_debug(&self) -> String {
         match &self.event {
@@ -200,6 +227,13 @@ impl ProgressEvent {
             }
             ProgressEventType::InternalComms { from, message } => {
                 format!("[{}] {}", from, message.as_str())
+            }
+            ProgressEventType::StreamingToken { token, is_final } => {
+                if *is_final {
+                    format!("[anna] streaming done: \"{}\"", token)
+                } else {
+                    format!("[anna] token: \"{}\"", token)
+                }
             }
         }
     }
