@@ -251,14 +251,8 @@ async fn handle_llm_request_inner(
         .map(|t| t.probe_cap_applied)
         .unwrap_or(false);
 
-    let probe_stage_result = execute_probe_stage(
-        &state,
-        &ticket,
-        &llm_config,
-        &mut progress,
-        &mut comms,
-    )
-    .await;
+    let probe_stage_result =
+        execute_probe_stage(&state, &ticket, &llm_config, &mut progress, &mut comms).await;
 
     // Handle probe timeout
     if probe_stage_result.timed_out {
@@ -359,7 +353,11 @@ async fn handle_llm_request_inner(
     // v0.0.148: Junior confirms answer or escalates based on outcome
     match specialist_result.outcome {
         SpecialistOutcome::Ok | SpecialistOutcome::Skipped => {
-            let approx_confidence = if specialist_result.used_deterministic { 85 } else { 75 };
+            let approx_confidence = if specialist_result.used_deterministic {
+                85
+            } else {
+                75
+            };
             comms.junior_done(&mut progress, approx_confidence);
         }
         SpecialistOutcome::Timeout | SpecialistOutcome::Error => {

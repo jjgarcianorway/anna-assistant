@@ -3,9 +3,9 @@
 //! Transforms ServiceDeskResult into cinematic narrative dialogue.
 //! Shows the IT department working like a fly on the wall.
 
+use anna_shared::change::ChangePlan;
 use anna_shared::narrator::{it_confidence, it_domain_context};
 use anna_shared::roster::person_by_id;
-use anna_shared::change::ChangePlan;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::teams::Team;
 use anna_shared::theatre::{describe_check, NarrativeBuilder, NarrativeSegment, Speaker};
@@ -145,7 +145,13 @@ fn print_segment(segment: &NarrativeSegment, _output_mode: OutputMode) {
         }
         Speaker::You => {
             // v0.0.168: Show username instead of "You"
-            println!("{}{}:{} {}", colors::CYAN, username, colors::RESET, segment.text);
+            println!(
+                "{}{}:{} {}",
+                colors::CYAN,
+                username,
+                colors::RESET,
+                segment.text
+            );
         }
         Speaker::TeamMember { name, role, .. } => {
             println!(
@@ -223,23 +229,19 @@ fn print_change_summary(result: &ServiceDeskResult) {
         return;
     }
 
-    println!("{}[anna: config change proposal]{}", colors::HEADER, colors::RESET);
+    println!(
+        "{}[anna: config change proposal]{}",
+        colors::HEADER,
+        colors::RESET
+    );
     for (idx, change) in changes.iter().enumerate() {
         let status = if change.is_noop {
             format!("{}noop{}", colors::DIM, colors::RESET)
         } else {
             format!("{}apply{}", colors::OK, colors::RESET)
         };
-        println!(
-            "  {}. {}  {}",
-            idx + 1,
-            change.summary(),
-            status
-        );
-        println!(
-            "     file: {}",
-            change.target_path.display()
-        );
+        println!("  {}. {}  {}", idx + 1, change.summary(), status);
+        println!("     file: {}", change.target_path.display());
     }
     println!();
 }

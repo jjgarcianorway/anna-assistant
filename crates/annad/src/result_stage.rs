@@ -2,8 +2,12 @@
 //!
 //! Extracted from rpc_handler.rs (v0.0.165) for modularization.
 
-use anna_shared::rpc::{ProbeResult, RpcResponse, ServiceDeskResult, SpecialistDomain, TranslatorTicket};
-use anna_shared::trace::{evidence_kinds_from_probes, ExecutionTrace, ProbeStats, SpecialistOutcome};
+use anna_shared::rpc::{
+    ProbeResult, RpcResponse, ServiceDeskResult, SpecialistDomain, TranslatorTicket,
+};
+use anna_shared::trace::{
+    evidence_kinds_from_probes, ExecutionTrace, ProbeStats, SpecialistOutcome,
+};
 use anna_shared::transcript::Transcript;
 use tracing::debug;
 
@@ -34,7 +38,10 @@ pub fn build_final_result(
         fallback_route_class,
     } = specialist_result;
 
-    let parsed_data_count = det_result.as_ref().map(|d| d.parsed_data_count).unwrap_or(0);
+    let parsed_data_count = det_result
+        .as_ref()
+        .map(|d| d.parsed_data_count)
+        .unwrap_or(0);
 
     // Build fallback context for TRUST+ explanations
     let used_deterministic_fallback = matches!(
@@ -86,13 +93,11 @@ pub fn build_final_result(
     let evidence_kinds = actual_evidence_kinds;
 
     result.execution_trace = Some(match outcome {
-        SpecialistOutcome::Skipped => {
-            ExecutionTrace::deterministic_route(
-                fallback_route_class.as_deref().unwrap_or("unknown"),
-                probe_stats,
-                evidence_kinds,
-            )
-        }
+        SpecialistOutcome::Skipped => ExecutionTrace::deterministic_route(
+            fallback_route_class.as_deref().unwrap_or("unknown"),
+            probe_stats,
+            evidence_kinds,
+        ),
         SpecialistOutcome::Ok => ExecutionTrace::specialist_ok(probe_stats),
         SpecialistOutcome::Timeout => {
             if *used_deterministic && parsed_data_count > 0 {

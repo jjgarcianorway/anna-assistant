@@ -174,13 +174,7 @@ pub fn print_progress_event(event: &ProgressEvent) {
         }
         // v0.0.145: Internal comms (fly on wall view)
         ProgressEventType::InternalComms { from, message } => {
-            println!(
-                "{}[{}]{} {}",
-                colors::CYAN,
-                from,
-                colors::RESET,
-                message
-            );
+            println!("{}[{}]{} {}", colors::CYAN, from, colors::RESET, message);
         }
     }
 }

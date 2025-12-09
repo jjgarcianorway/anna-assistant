@@ -50,45 +50,114 @@ impl CommsGenerator {
         // Team-specific dispatch messages
         let greetings = match self.team {
             Team::Storage => vec![
-                format!("Hey {}! Disk question coming in. Case {}", junior.display_name, short_id),
-                format!("{}, storage ticket for you. {}", junior.display_name, short_id),
-                format!("{}, got a disk/storage request. {}", junior.display_name, short_id),
+                format!(
+                    "Hey {}! Disk question coming in. Case {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, storage ticket for you. {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, got a disk/storage request. {}",
+                    junior.display_name, short_id
+                ),
             ],
             Team::Network => vec![
-                format!("Hey {}! Network query. Case {}", junior.display_name, short_id),
-                format!("{}, connectivity question. {}", junior.display_name, short_id),
-                format!("{}, network ticket incoming. {}", junior.display_name, short_id),
+                format!(
+                    "Hey {}! Network query. Case {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, connectivity question. {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, network ticket incoming. {}",
+                    junior.display_name, short_id
+                ),
             ],
             Team::Security => vec![
-                format!("Hey {}! Security matter. Case {}", junior.display_name, short_id),
-                format!("{}, access/security question. {}", junior.display_name, short_id),
+                format!(
+                    "Hey {}! Security matter. Case {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, access/security question. {}",
+                    junior.display_name, short_id
+                ),
                 format!("{}, security ticket. {}", junior.display_name, short_id),
             ],
             Team::Performance => vec![
-                format!("Hey {}! Performance question. Case {}", junior.display_name, short_id),
-                format!("{}, got a memory/CPU query. {}", junior.display_name, short_id),
-                format!("{}, resource usage ticket. {}", junior.display_name, short_id),
+                format!(
+                    "Hey {}! Performance question. Case {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, got a memory/CPU query. {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, resource usage ticket. {}",
+                    junior.display_name, short_id
+                ),
             ],
             Team::Services => vec![
-                format!("Hey {}! Service question. Case {}", junior.display_name, short_id),
-                format!("{}, systemd ticket for you. {}", junior.display_name, short_id),
-                format!("{}, got a services request. {}", junior.display_name, short_id),
+                format!(
+                    "Hey {}! Service question. Case {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, systemd ticket for you. {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, got a services request. {}",
+                    junior.display_name, short_id
+                ),
             ],
             Team::Hardware => vec![
-                format!("Hey {}! Hardware question. Case {}", junior.display_name, short_id),
-                format!("{}, device ticket coming in. {}", junior.display_name, short_id),
-                format!("{}, got a hardware query. {}", junior.display_name, short_id),
+                format!(
+                    "Hey {}! Hardware question. Case {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, device ticket coming in. {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, got a hardware query. {}",
+                    junior.display_name, short_id
+                ),
             ],
             Team::Logs => vec![
-                format!("Hey {}! Logs question. Case {}", junior.display_name, short_id),
-                format!("{}, journal query for you. {}", junior.display_name, short_id),
+                format!(
+                    "Hey {}! Logs question. Case {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, journal query for you. {}",
+                    junior.display_name, short_id
+                ),
                 format!("{}, got a logs request. {}", junior.display_name, short_id),
             ],
             _ => vec![
-                format!("Hey {}! New case {} coming your way.", junior.display_name, short_id),
-                format!("{}, got a ticket for you. Case {}", junior.display_name, short_id),
-                format!("{}, when you have a sec - new request. {}", junior.display_name, short_id),
-                format!("Quick one for you, {}. Case {}", junior.display_name, short_id),
+                format!(
+                    "Hey {}! New case {} coming your way.",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, got a ticket for you. Case {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "{}, when you have a sec - new request. {}",
+                    junior.display_name, short_id
+                ),
+                format!(
+                    "Quick one for you, {}. Case {}",
+                    junior.display_name, short_id
+                ),
                 format!("{}, incoming ticket. {}", junior.display_name, short_id),
             ],
         };
@@ -112,35 +181,103 @@ impl CommsGenerator {
         // Team-specific probing messages
         let messages = match self.team {
             Team::Storage => vec![
-                format!("Checking disk stats... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Running storage checks... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!(
+                    "Checking disk stats... {} probe{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Running storage checks... {} command{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
             ],
             Team::Network => vec![
-                format!("Testing connectivity... {} check{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Running network probes... {} query{}.", probe_count, if probe_count == 1 { "y" } else { "ies" }),
+                format!(
+                    "Testing connectivity... {} check{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Running network probes... {} query{}.",
+                    probe_count,
+                    if probe_count == 1 { "y" } else { "ies" }
+                ),
             ],
             Team::Performance => vec![
-                format!("Checking resource usage... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Running performance checks... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Gathering memory/CPU data... {} check{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!(
+                    "Checking resource usage... {} probe{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Running performance checks... {} command{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Gathering memory/CPU data... {} check{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
             ],
             Team::Services => vec![
-                format!("Checking service status... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Querying systemd... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!(
+                    "Checking service status... {} probe{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Querying systemd... {} command{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
             ],
             Team::Hardware => vec![
-                format!("Scanning hardware... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Checking device info... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!(
+                    "Scanning hardware... {} probe{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Checking device info... {} command{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
             ],
             Team::Logs => vec![
-                format!("Searching logs... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Querying journal... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!(
+                    "Searching logs... {} probe{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Querying journal... {} command{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
             ],
             _ => vec![
-                format!("Running {} check{}...", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Gathering data... {} probe{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Let me pull some numbers. {} check{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
-                format!("Collecting system info... {} command{}.", probe_count, if probe_count == 1 { "" } else { "s" }),
+                format!(
+                    "Running {} check{}...",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Gathering data... {} probe{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Let me pull some numbers. {} check{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Collecting system info... {} command{}.",
+                    probe_count,
+                    if probe_count == 1 { "" } else { "s" }
+                ),
             ],
         };
 
@@ -155,13 +292,28 @@ impl CommsGenerator {
         // Comment on how probes went
         let messages = if success_count == self.probes_planned && self.probes_planned > 0 {
             vec![
-                format!("All {} probe{} succeeded.", success_count, if success_count == 1 { "" } else { "s" }),
-                format!("Got all the data. {} check{} complete.", success_count, if success_count == 1 { "" } else { "s" }),
+                format!(
+                    "All {} probe{} succeeded.",
+                    success_count,
+                    if success_count == 1 { "" } else { "s" }
+                ),
+                format!(
+                    "Got all the data. {} check{} complete.",
+                    success_count,
+                    if success_count == 1 { "" } else { "s" }
+                ),
             ]
         } else if success_count > 0 {
             vec![
-                format!("{} of {} probes returned data.", success_count, self.probes_planned),
-                format!("Got partial data - {} probe{} worked.", success_count, if success_count == 1 { "" } else { "s" }),
+                format!(
+                    "{} of {} probes returned data.",
+                    success_count, self.probes_planned
+                ),
+                format!(
+                    "Got partial data - {} probe{} worked.",
+                    success_count,
+                    if success_count == 1 { "" } else { "s" }
+                ),
             ]
         } else {
             vec![
@@ -261,7 +413,10 @@ impl CommsGenerator {
         let junior = self.junior();
         let messages = if confidence >= 90 {
             vec![
-                format!("All good! {}% confidence. Sending back to Anna.", confidence),
+                format!(
+                    "All good! {}% confidence. Sending back to Anna.",
+                    confidence
+                ),
                 format!("Looks solid. {}% - ready to go.", confidence),
                 format!("High confidence: {}%. Good to ship.", confidence),
                 format!("Verified. {}% sure. Handing back.", confidence),
@@ -297,7 +452,10 @@ impl CommsGenerator {
             format!("Thanks {}! I'll take it from here.", junior.display_name),
             "Got it. Passing this along now.".to_string(),
             "Perfect, sending the response.".to_string(),
-            format!("Appreciate it, {}. Sending to the user.", junior.display_name),
+            format!(
+                "Appreciate it, {}. Sending to the user.",
+                junior.display_name
+            ),
             "Response ready. Wrapping up.".to_string(),
         ];
 

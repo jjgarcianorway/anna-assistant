@@ -99,10 +99,7 @@ fn classify_domain(q: &str) -> SpecialistDomain {
 
 /// Classify intent from keywords
 fn classify_intent(q: &str) -> QueryIntent {
-    if q.contains("install")
-        || q.contains("start")
-        || q.contains("stop")
-        || q.contains("configure")
+    if q.contains("install") || q.contains("start") || q.contains("stop") || q.contains("configure")
     {
         QueryIntent::Request
     } else if q.contains("why") || q.contains("debug") || q.contains("fix") {

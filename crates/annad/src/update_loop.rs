@@ -42,13 +42,7 @@ pub async fn update_check_loop(state: SharedState) {
         // Check GitHub for latest version
         match check_latest_version().await {
             Ok(latest_version) => {
-                handle_successful_check(
-                    &state,
-                    &latest_version,
-                    check_start,
-                    check_interval,
-                )
-                .await;
+                handle_successful_check(&state, &latest_version, check_start, check_interval).await;
             }
             Err(e) => {
                 handle_failed_check(&state, &e.to_string(), check_start, check_interval).await;
@@ -88,8 +82,7 @@ async fn handle_successful_check(
         let mut state = state.write().await;
         let now = Utc::now();
         state.update.last_check_at = Some(now);
-        state.update.next_check_at =
-            Some(now + chrono::Duration::seconds(check_interval as i64));
+        state.update.next_check_at = Some(now + chrono::Duration::seconds(check_interval as i64));
         state.update.latest_version = Some(latest_version.to_string());
         state.update.latest_checked_at = Some(now);
         state.update.update_available = should_update;

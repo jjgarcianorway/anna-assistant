@@ -348,9 +348,7 @@ pub fn try_answer(
             det_extended::answer_kernel_cmdline(probe_results, &route_class)
         }
         // v0.0.139: ModuleParams - deterministic from modinfo
-        QueryClass::ModuleParams => {
-            det_extended::answer_module_params(probe_results, &route_class)
-        }
+        QueryClass::ModuleParams => det_extended::answer_module_params(probe_results, &route_class),
         // v0.0.139: NetworkBonding - deterministic from /proc/net/bonding
         QueryClass::NetworkBonding => {
             det_extended::answer_network_bonding(probe_results, &route_class)

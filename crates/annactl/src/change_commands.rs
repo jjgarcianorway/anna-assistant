@@ -48,7 +48,12 @@ pub async fn handle_proposed_change(
     }
     println!();
     if plans.len() > 1 {
-        println!("{}{} steps to apply (idempotent).{}", colors::DIM, plans.len(), colors::RESET);
+        println!(
+            "{}{} steps to apply (idempotent).{}",
+            colors::DIM,
+            plans.len(),
+            colors::RESET
+        );
     }
 
     // Ask for confirmation

@@ -2954,7 +2954,10 @@ pub fn answer_network_bonding(
     let output = probe.stdout.trim();
 
     let (answer, parsed) = if output.contains("No network bonding") || output.is_empty() {
-        ("No network bonding configured on this system.".to_string(), 0)
+        (
+            "No network bonding configured on this system.".to_string(),
+            0,
+        )
     } else {
         (format!("Network bonding status:\n```\n{}\n```", output), 1)
     };
@@ -2970,10 +2973,7 @@ pub fn answer_network_bonding(
 // === v0.0.141: New query class handlers ===
 
 /// Answer swap files query using /proc/swaps
-pub fn answer_swap_files(
-    probes: &[ProbeResult],
-    route_class: &str,
-) -> Option<DeterministicResult> {
+pub fn answer_swap_files(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "swap_files")?;
     let output = probe.stdout.trim();
 
@@ -2982,7 +2982,10 @@ pub fn answer_swap_files(
     } else {
         let swap_count = output.lines().count() - 1; // Subtract header
         (
-            format!("Swap configuration ({} entries):\n```\n{}\n```", swap_count, output),
+            format!(
+                "Swap configuration ({} entries):\n```\n{}\n```",
+                swap_count, output
+            ),
             swap_count,
         )
     };
@@ -3004,7 +3007,10 @@ pub fn answer_cpu_governor(
     let output = probe.stdout.trim();
 
     let (answer, parsed) = if output.contains("not available") || output.is_empty() {
-        ("CPU frequency scaling not available on this system.".to_string(), 0)
+        (
+            "CPU frequency scaling not available on this system.".to_string(),
+            0,
+        )
     } else {
         // Parse output like "4 performance" (count + governor)
         let governors: Vec<&str> = output.lines().collect();
@@ -3072,7 +3078,10 @@ pub fn answer_loaded_firmware(
     } else {
         let count = output.lines().count();
         (
-            format!("Firmware/microcode log ({} entries):\n```\n{}\n```", count, output),
+            format!(
+                "Firmware/microcode log ({} entries):\n```\n{}\n```",
+                count, output
+            ),
             count,
         )
     };

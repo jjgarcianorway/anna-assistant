@@ -275,7 +275,6 @@ pub async fn handle_repl() -> Result<()> {
     Ok(())
 }
 
-
 // v0.0.97: Change management (handle_proposed_change still needed for config changes)
 use crate::change_commands::handle_proposed_change;
 

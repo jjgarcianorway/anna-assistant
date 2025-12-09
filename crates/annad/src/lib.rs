@@ -21,19 +21,19 @@
 //! v0.0.167: Routing stage extracted to separate module.
 
 pub mod action_handlers;
-pub mod best_effort_summary;
-pub mod clarification_builders;
-pub mod comms;
-pub mod config_registry;
-pub mod configure_editor;
-pub mod editor_config;
 pub mod answers;
 pub mod benchmark;
 pub mod benchmark_scheduler;
+pub mod best_effort_summary;
+pub mod clarification_builders;
 pub mod collectors;
+pub mod comms;
 pub mod config;
+pub mod config_registry;
+pub mod configure_editor;
 pub mod det_extended;
 pub mod deterministic;
+pub mod editor_config;
 pub mod fast_path_handler;
 pub mod handlers;
 pub mod hardware;
@@ -59,9 +59,9 @@ pub mod redact;
 pub mod response_builders;
 pub mod result_stage;
 pub mod router;
-pub mod routing_stage;
 #[cfg(test)]
 pub mod router_tests;
+pub mod routing_stage;
 pub mod rpc_handler;
 pub mod scoring;
 pub mod server;

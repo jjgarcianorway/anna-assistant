@@ -65,7 +65,11 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
 
     // v0.0.142: More conversational closing
     println!();
-    println!("{}But I believe you want to ask me something, isn't it?{}", colors::DIM, colors::RESET);
+    println!(
+        "{}But I believe you want to ask me something, isn't it?{}",
+        colors::DIM,
+        colors::RESET
+    );
     println!();
 
     // v0.0.106: Update profile and save
@@ -136,10 +140,7 @@ fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
         if hours > 12 {
             println!("Hello {},", username);
             println!();
-            println!(
-                "It's been about {} hours since we last spoke.",
-                hours
-            );
+            println!("It's been about {} hours since we last spoke.", hours);
         } else if hours > 1 {
             println!("Hello {}, welcome back.", username);
         } else {
@@ -172,11 +173,7 @@ fn print_user_patterns(profile: &UserProfile) {
                 profile.streak_days
             )
         } else {
-            format!(
-                "{} {} day streak so far.",
-                bullet(),
-                profile.streak_days
-            )
+            format!("{} {} day streak so far.", bullet(), profile.streak_days)
         };
         patterns.push(streak_msg);
     }

@@ -78,12 +78,7 @@ impl AnimatedSpinner {
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
-        println!(
-            "{}✓{} {}",
-            colors::OK,
-            colors::RESET,
-            message
-        );
+        println!("{}✓{} {}", colors::OK, colors::RESET, message);
     }
 
     /// Stop with an error message
@@ -93,12 +88,7 @@ impl AnimatedSpinner {
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
-        println!(
-            "{}✗{} {}",
-            colors::ERR,
-            colors::RESET,
-            message
-        );
+        println!("{}✗{} {}", colors::ERR, colors::RESET, message);
     }
 }
 

@@ -1,7 +1,9 @@
 //! ConfigureEditor query handler.
 //! v0.0.149: Extracted from rpc_handler.rs for modularization.
 
-use anna_shared::parsers::{get_installed_tools, installed_editors_from_parsed, parse_probe_result};
+use anna_shared::parsers::{
+    get_installed_tools, installed_editors_from_parsed, parse_probe_result,
+};
 use anna_shared::rpc::{ProbeResult, ServiceDeskResult, SpecialistDomain, TranslatorTicket};
 use anna_shared::trace::{EvidenceKind, ExecutionTrace, ProbeStats, SpecialistOutcome};
 use anna_shared::transcript::Transcript;
