@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.203] - 2025-12-09
+
+### Changed - render.rs Modularization
+
+**Split render.rs (465→25 lines) into 5 domain-specific modules:**
+- `types.rs`: RenderPolicy, Verbosity, UiConfig, RiskLevel (72 lines)
+- `formatting.rs`: generate_case_id, format_time_delta, determine_risk_level (56 lines)
+- `output.rs`: All render_* functions (209 lines)
+- `spinner.rs`: Spinner, ProgressRenderer (75 lines)
+- `tests.rs`: Unit tests (37 lines)
+- `mod.rs`: Re-exports for backwards compatibility (25 lines)
+
+**All render/ files under 400-line limit.**
+
 ## [0.0.202] - 2025-12-09
 
 ### Changed - theatre_render.rs Modularization
