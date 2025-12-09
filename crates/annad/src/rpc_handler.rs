@@ -1,72 +1,37 @@
 //! RPC request handlers with deterministic routing, triage, and fallback.
+//!
+//! v0.0.166: Integrated stage modules for modularization.
 
 use anna_shared::probe_spine::{
     enforce_minimum_probes, enforce_spine_probes, probe_to_command, reduce_probes, Urgency,
 };
 use anna_shared::progress::RequestStage;
-use anna_shared::recipe_learning::try_learn_from_result;
-use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
+use anna_shared::rpc::{RequestParams, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::status::LlmState;
-use anna_shared::trace::{
-    evidence_kinds_from_probes, ExecutionTrace, ProbeStats, SpecialistOutcome,
-};
+use anna_shared::trace::SpecialistOutcome;
 use anna_shared::transcript::TranscriptEvent;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use crate::comms::{team_from_domain, CommsGenerator};
 use crate::config::LlmConfig;
 use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
 use crate::deterministic;
 use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
-use crate::timeout_handler::make_timeout_response;
 use crate::handlers;
 use crate::probe_runner;
 use crate::progress_tracker::ProgressTracker;
 use crate::recipe_fast_path;
+use crate::result_stage::{build_final_result, wrap_with_theatre};
 use crate::router;
 use crate::service_desk;
 use crate::specialist_handler::{try_specialist_llm, SpecialistResult};
 use crate::state::SharedState;
 use crate::theatre::TheatreContext;
+use crate::timeout_handler::make_timeout_response;
 use crate::translator::{self, TranslatorInput};
 use crate::triage::{self, TriageResult};
-
-/// Wrap result in response and try to learn from it (v0.0.94)
-/// v0.0.106: Optionally populate case_number and assigned_staff from TheatreContext
-fn success_with_learning(id: String, result: ServiceDeskResult) -> RpcResponse {
-    // Try to learn recipe from successful result
-    let learn_result = try_learn_from_result(&result);
-    if learn_result.learned {
-        if let Some(recipe_id) = &learn_result.recipe_id {
-            debug!("Learned recipe {} from result", recipe_id);
-        }
-    }
-    RpcResponse::success(id, serde_json::to_value(result).unwrap())
-}
-
-/// v0.0.106: Wrap result with theatre context for Service Desk Theatre
-/// v0.0.109: Also populates staff_id for specialization lookup
-fn success_with_theatre(
-    id: String,
-    mut result: ServiceDeskResult,
-    theatre: Option<TheatreContext>,
-) -> RpcResponse {
-    // Populate case_number, assigned_staff, and staff_id from theatre context
-    if let Some(ctx) = theatre {
-        result.case_number = Some(ctx.case_number.clone());
-        result.assigned_staff = Some(ctx.staff_display());
-        result.staff_id = Some(ctx.staff.person_id.to_string());
-
-        // Save ticket to history (best effort - don't fail request on save error)
-        if let Err(e) = ctx.save() {
-            debug!("Failed to save ticket to history: {}", e);
-        }
-    }
-
-    success_with_learning(id, result)
-}
 
 /// Handle an RPC request
 pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
@@ -241,7 +206,7 @@ async fn handle_llm_request_inner(
                 &recipe_result.matched_tokens,
                 progress.take_transcript(),
             );
-            return success_with_learning(id, result);
+            return wrap_with_theatre(id, result, None);
         }
 
         if recipe_result.skip_llm {
@@ -539,17 +504,9 @@ async fn handle_llm_request_inner(
         )
         .await
     };
-    let SpecialistResult {
-        answer,
-        used_deterministic,
-        det_result,
-        prompt_truncated,
-        outcome,
-        fallback_route_class,
-    } = specialist_result;
 
     // Step 8: Handle no answer case
-    if answer.is_empty() {
+    if specialist_result.answer.is_empty() {
         save_progress(&state, &progress).await;
         let result = service_desk::create_no_data_response(
             request_id,
@@ -563,18 +520,17 @@ async fn handle_llm_request_inner(
 
     // Step 9: Build final result with proper scoring
     progress.start_stage(RequestStage::Supervisor, llm_config.supervisor_timeout_secs);
-    progress.add_final_answer(&answer);
+    progress.add_final_answer(&specialist_result.answer);
 
     // v0.0.148: Junior confirms answer or escalates based on outcome
-    match outcome {
+    match specialist_result.outcome {
         SpecialistOutcome::Ok | SpecialistOutcome::Skipped => {
-            // Deterministic calculated reliability for comms
-            let approx_confidence = if used_deterministic { 85 } else { 75 };
+            let approx_confidence = if specialist_result.used_deterministic { 85 } else { 75 };
             comms.junior_done(&mut progress, approx_confidence);
         }
         SpecialistOutcome::Timeout | SpecialistOutcome::Error => {
             comms.junior_escalate(&mut progress, "LLM had trouble, used fallback");
-            comms.senior_response(&mut progress, used_deterministic);
+            comms.senior_response(&mut progress, specialist_result.used_deterministic);
         }
         SpecialistOutcome::BudgetExceeded => {
             comms.junior_escalate(&mut progress, "Query too complex");
@@ -584,109 +540,20 @@ async fn handle_llm_request_inner(
     comms.anna_returning(&mut progress);
     save_progress(&state, &progress).await;
 
-    let parsed_data_count = det_result
-        .as_ref()
-        .map(|d| d.parsed_data_count)
-        .unwrap_or(0);
-
-    // Build fallback context for TRUST+ explanations and v0.0.24 trace-based scoring
-    let used_deterministic_fallback = matches!(
-        outcome,
-        SpecialistOutcome::Timeout | SpecialistOutcome::Error
-    ) && used_deterministic
-        && parsed_data_count > 0;
-    let fallback_used = if used_deterministic_fallback {
-        Some(anna_shared::trace::FallbackUsed::Deterministic {
-            route_class: fallback_route_class.clone().unwrap_or_default(),
-        })
-    } else {
-        Some(anna_shared::trace::FallbackUsed::None)
-    };
-
-    // v0.45.2: Derive evidence kinds from ACTUAL probes, not route class
-    let actual_evidence_kinds = evidence_kinds_from_probes(&probe_results);
-
-    let fallback_ctx = service_desk::FallbackContext {
-        used_deterministic_fallback,
-        fallback_route_class: fallback_route_class.clone().unwrap_or_default(),
-        evidence_kinds: actual_evidence_kinds
-            .iter()
-            .map(|k| k.to_string())
-            .collect(),
-        specialist_outcome: Some(outcome),
-        fallback_used,
-        // v0.45.x: Pass route capability's evidence_required for proper spine enforcement
-        evidence_required: Some(det_route.capability.evidence_required),
-    };
-
-    let mut result = service_desk::build_result_with_flags(
+    // v0.0.166: Use result_stage module for final result building
+    let result = build_final_result(
         request_id,
-        answer,
         query,
         ticket,
         probe_results.clone(),
         progress.transcript_clone(),
         classified_domain,
         translator_timed_out,
-        used_deterministic,
-        parsed_data_count,
-        prompt_truncated,
-        fallback_ctx,
+        &specialist_result,
+        det_route.capability.evidence_required,
+        ticket_probes_planned,
+        probe_cap_warning,
     );
-
-    // Step 10: Build execution trace
-    let probe_stats = ProbeStats::from_results(ticket_probes_planned, &probe_results);
-    let evidence_kinds = actual_evidence_kinds;
-
-    result.execution_trace = Some(match outcome {
-        SpecialistOutcome::Skipped => {
-            // Deterministic route answered directly
-            ExecutionTrace::deterministic_route(
-                fallback_route_class.as_deref().unwrap_or("unknown"),
-                probe_stats,
-                evidence_kinds,
-            )
-        }
-        SpecialistOutcome::Ok => {
-            // Specialist LLM answered successfully
-            ExecutionTrace::specialist_ok(probe_stats)
-        }
-        SpecialistOutcome::Timeout => {
-            if used_deterministic && parsed_data_count > 0 {
-                // Timeout with successful fallback
-                ExecutionTrace::specialist_timeout_with_fallback(
-                    fallback_route_class.as_deref().unwrap_or("unknown"),
-                    probe_stats,
-                    evidence_kinds,
-                )
-            } else {
-                // Timeout without successful fallback
-                ExecutionTrace::specialist_timeout_no_fallback(probe_stats)
-            }
-        }
-        SpecialistOutcome::Error => {
-            if used_deterministic && parsed_data_count > 0 {
-                // Error with successful fallback
-                ExecutionTrace::specialist_error_with_fallback(
-                    fallback_route_class.as_deref().unwrap_or("unknown"),
-                    probe_stats,
-                    evidence_kinds,
-                )
-            } else {
-                // Error without successful fallback - treat like timeout
-                ExecutionTrace::specialist_timeout_no_fallback(probe_stats)
-            }
-        }
-        SpecialistOutcome::BudgetExceeded => {
-            // Budget exceeded - similar to timeout
-            ExecutionTrace::specialist_timeout_no_fallback(probe_stats)
-        }
-    });
-
-    // Add probe cap warning to evidence
-    if probe_cap_warning {
-        result.evidence.last_error = Some("probe_cap_applied".to_string());
-    }
 
     progress.complete_stage(RequestStage::Supervisor);
 
@@ -696,15 +563,19 @@ async fn handle_llm_request_inner(
         let mut state = state.write().await;
         state.latency.total.add(total_ms);
         // v0.0.79: Record stats
-        let specialist_timeout = matches!(outcome, SpecialistOutcome::Timeout);
-        state.record_request(used_deterministic, translator_timed_out, specialist_timeout);
+        let specialist_timeout = matches!(specialist_result.outcome, SpecialistOutcome::Timeout);
+        state.record_request(
+            specialist_result.used_deterministic,
+            translator_timed_out,
+            specialist_timeout,
+        );
     }
 
     info!(
         "Request completed: domain={}, reliability={}, deterministic={}, trace={}, latency={}ms",
         result.domain,
         result.reliability_score,
-        used_deterministic,
+        specialist_result.used_deterministic,
         result
             .execution_trace
             .as_ref()
@@ -732,8 +603,8 @@ async fn handle_llm_request_inner(
     // v0.0.107: Record staff performance metrics
     theatre.record_staff_stats(result.reliability_score, total_ms);
 
-    // v0.0.106: Return with theatre context (case number, assigned staff)
-    success_with_theatre(id, result, Some(theatre))
+    // v0.0.166: Return with theatre context using result_stage module
+    wrap_with_theatre(id, result, Some(theatre))
 }
 
 /// Triage path for unknown queries - uses LLM translator with confidence threshold

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.166] - 2025-12-09
+
+### Changed - Integrated Stage Modules into RPC Handler
+
+**Integrated result_stage module into rpc_handler.rs:**
+
+- Now uses `build_final_result()` from result_stage module for result construction
+- Now uses `wrap_with_theatre()` from result_stage module for theatre context
+- Removed ~130 lines of duplicated result building code
+- Reduced `rpc_handler.rs` from 811 to 681 lines (-16%)
+
+This integration leverages the stage modules created in v0.0.165, demonstrating
+their reusability and continuing the modularization effort.
+
 ## [0.0.165] - 2025-12-09
 
 ### Changed - Continued Code Modularization
