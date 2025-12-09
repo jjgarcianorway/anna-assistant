@@ -175,10 +175,11 @@ impl HealthBrief {
         table.push_str("|--------|----------|-------|----------|\n");
 
         for item in &self.items {
+            // v0.0.265: ASCII icons instead of emojis
             let icon = match item.severity {
-                BriefSeverity::Ok => "✓",
-                BriefSeverity::Warning => "⚠️",
-                BriefSeverity::Error => "❌",
+                BriefSeverity::Ok => "[ok]",
+                BriefSeverity::Warning => "[!]",
+                BriefSeverity::Error => "[X]",
             };
             let ctx = item.context.as_deref().unwrap_or("-");
             table.push_str(&format!(

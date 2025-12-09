@@ -165,10 +165,11 @@ pub fn answer_disk_space(probes: &[ProbeResult]) -> Option<DeterministicResult> 
     answer.push_str("|------------|------|------|-------|------|-------|\n");
 
     for fs in &filesystems {
+        // v0.0.265: ASCII warnings instead of emojis
         let status = if fs.use_percent >= 95 {
-            " ⚠️ CRITICAL"
+            " [!!] CRITICAL"
         } else if fs.use_percent >= 85 {
-            " ⚠️"
+            " [!]"
         } else {
             ""
         };

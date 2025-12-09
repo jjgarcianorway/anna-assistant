@@ -17,6 +17,7 @@ use crate::hardware::probe_hardware;
 use crate::health::health_check_loop;
 use crate::ollama;
 use crate::rpc_handler::handle_request;
+use crate::snapshot_loop::snapshot_loop;
 use crate::state::{create_shared_state, SharedState};
 use crate::update_loop::update_check_loop;
 
@@ -48,6 +49,11 @@ impl Server {
         let state_clone = self.state.clone();
         tokio::spawn(async move {
             health_check_loop(state_clone).await;
+        });
+
+        // v0.0.266: Start snapshot collection loop
+        tokio::spawn(async move {
+            snapshot_loop().await;
         });
 
         // Start socket server

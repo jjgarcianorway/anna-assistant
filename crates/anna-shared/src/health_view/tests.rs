@@ -70,10 +70,10 @@ mod tests {
         assert_eq!(summary.critical.len(), 2); // disk critical + service
         assert_eq!(summary.warnings.len(), 2); // disk warning + memory
 
-        // Format should show critical first
+        // Format should show critical first (v0.0.265: ASCII icons)
         let formatted = summary.format();
         let critical_pos = formatted.find("CRITICAL").unwrap();
-        let warning_pos = formatted.find("⚠").unwrap();
+        let warning_pos = formatted.find("[!]").unwrap();
         assert!(critical_pos < warning_pos);
     }
 

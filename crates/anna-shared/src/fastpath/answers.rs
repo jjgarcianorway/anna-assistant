@@ -124,7 +124,8 @@ pub fn answer_failed_services(snapshot: &SystemSnapshot, is_fresh: bool) -> Fast
             snapshot.failed_services.len()
         )];
         for svc in &snapshot.failed_services {
-            lines.push(format!("  🔴 {}", svc));
+            // v0.0.265: ASCII instead of emoji
+            lines.push(format!("  [X] {}", svc));
         }
         lines.join("\n")
     };
@@ -289,10 +290,10 @@ pub fn answer_network_status(snapshot: &SystemSnapshot, is_fresh: bool) -> FastP
         return FastPathAnswer::not_handled("snapshot stale, probes needed");
     }
 
-    // Simple network status based on available data
+    // Simple network status based on available data (v0.0.265: ASCII icons)
     let connected = snapshot.network_connected;
     let status = if connected { "Connected" } else { "Disconnected" };
-    let icon = if connected { "🟢" } else { "🔴" };
+    let icon = if connected { "[ok]" } else { "[X]" };
 
     let mut answer = format!("**Network Status:** {} {}", icon, status);
 

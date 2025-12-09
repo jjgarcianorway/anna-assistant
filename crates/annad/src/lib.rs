@@ -72,6 +72,7 @@ pub mod service_desk;
 pub mod specialist_handler;
 pub mod specialist_stage;
 pub mod state;
+pub mod snapshot_loop;
 pub mod state_types;
 pub mod summarizer;
 pub mod system_verifiers;

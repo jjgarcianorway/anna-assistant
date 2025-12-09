@@ -44,6 +44,7 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
     }
 
     // v0.0.259: Uptime: "uptime", "how long running", "when did I boot"
+    // v0.0.265: Added "boot time" pattern
     if stripped.contains("uptime")
         || stripped.contains("how long has")
         || stripped.contains("how long been running")
@@ -51,6 +52,8 @@ pub fn classify_fast_path(query: &str) -> FastPathClass {
         || stripped.contains("last boot")
         || stripped.contains("last reboot")
         || stripped.contains("time since boot")
+        || stripped.contains("boot time")
+        || stripped.contains("boottime")
     {
         return FastPathClass::Uptime;
     }

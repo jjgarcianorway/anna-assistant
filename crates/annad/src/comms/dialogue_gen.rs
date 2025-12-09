@@ -1,12 +1,12 @@
-//! LLM-powered dialogue generation for natural specialist chatter (v0.0.255).
-//!
-//! Uses the translator model to generate contextual, varied dialogue that
-//! reflects what staff members are actually doing.
+//! LLM-powered dialogue generation for natural specialist chatter (v0.0.265).
 //!
 //! v0.0.255: Added personality quirks for unique character voices.
+//! v0.0.265: DISABLED LLM generation - small models produce nonsense.
+//!           All functions now return None immediately, using static fallbacks.
 
-use anna_shared::roster::{personality_for, PersonProfile};
-use crate::ollama;
+use anna_shared::roster::PersonProfile;
+// use anna_shared::roster::personality_for;
+// use crate::ollama;
 use tracing::debug;
 
 /// Context for dialogue generation
@@ -34,217 +34,76 @@ pub enum DialogueStage {
 }
 
 /// Generate Anna's dispatch message
+/// v0.0.265: DISABLED - returns None, uses static fallback
 pub async fn gen_dispatch(
-    model: &str,
-    junior: &PersonProfile,
-    case_id: &str,
-    query: &str,
+    _model: &str,
+    _junior: &PersonProfile,
+    _case_id: &str,
+    _query: &str,
 ) -> Option<String> {
-    let prompt = format!(
-        r#"You are Anna, an AI service desk coordinator. Generate a SINGLE short line (max 15 words) dispatching a case to {name}.
-
-Context: Case {case_id}, user asked about: "{query}"
-Team: {team:?}
-
-Generate a friendly, natural dispatch message. Just the message, no quotes.
-Example style: "Hey {name}! Quick one - user has a memory question. Case {short_id}"
-"#,
-        name = junior.display_name,
-        case_id = case_id,
-        query = truncate_query(query),
-        team = junior.team,
-        short_id = &case_id[..8.min(case_id.len())],
-    );
-
-    gen_dialogue_fast(model, &prompt).await
+    debug!("LLM dialogue disabled, using static fallback");
+    None
 }
 
 /// Generate junior's acknowledgment
+/// v0.0.265: DISABLED - returns None, uses static fallback
 pub async fn gen_junior_ack(
-    model: &str,
-    junior: &PersonProfile,
+    _model: &str,
+    _junior: &PersonProfile,
     _query: &str,
 ) -> Option<String> {
-    let personality = personality_for(&junior.person_id);
-    let prompt = format!(
-        r#"You are {name}, a {role} at an IT help desk. Generate a SINGLE short acknowledgment (max 10 words) that you're taking a case.
-
-Your personality quirk: {quirk}
-Let this quirk subtly influence your phrasing.
-
-Be natural, casual, like real workplace chat. Just the message, no quotes.
-"#,
-        name = junior.display_name,
-        role = junior.role_title,
-        quirk = personality.quirk,
-    );
-
-    gen_dialogue_fast(model, &prompt).await
+    None
 }
 
 /// Generate junior's probing message
+/// v0.0.265: DISABLED - returns None, uses static fallback
 pub async fn gen_junior_probing(
-    model: &str,
-    junior: &PersonProfile,
-    probe_count: usize,
+    _model: &str,
+    _junior: &PersonProfile,
+    _probe_count: usize,
 ) -> Option<String> {
-    let personality = personality_for(&junior.person_id);
-    let prompt = format!(
-        r#"You are {name}, a {role}. Generate a SINGLE short line (max 12 words) about running {count} system check(s).
-
-Your personality quirk: {quirk}
-Let this quirk subtly influence your phrasing.
-
-Be technical but brief. Just the message, no quotes.
-"#,
-        name = junior.display_name,
-        role = junior.role_title,
-        count = probe_count,
-        quirk = personality.quirk,
-    );
-
-    gen_dialogue_fast(model, &prompt).await
+    None
 }
 
 /// Generate junior's probes done message
+/// v0.0.265: DISABLED - returns None, uses static fallback
 pub async fn gen_junior_probes_done(
-    model: &str,
-    junior: &PersonProfile,
-    success_count: usize,
-    planned_count: usize,
+    _model: &str,
+    _junior: &PersonProfile,
+    _success_count: usize,
+    _planned_count: usize,
 ) -> Option<String> {
-    let personality = personality_for(&junior.person_id);
-    let status = if success_count == planned_count {
-        "all succeeded"
-    } else if success_count > 0 {
-        "partial data"
-    } else {
-        "limited results"
-    };
-
-    let prompt = format!(
-        r#"You are {name}, a {role}. Generate a SINGLE short line (max 10 words) about probe results ({status}).
-
-Your personality quirk: {quirk}
-Let this quirk subtly influence your phrasing.
-
-Be brief and factual. Just the message, no quotes.
-"#,
-        name = junior.display_name,
-        role = junior.role_title,
-        status = status,
-        quirk = personality.quirk,
-    );
-
-    gen_dialogue_fast(model, &prompt).await
+    None
 }
 
 /// Generate junior's reviewing message
+/// v0.0.265: DISABLED - returns None, uses static fallback
 pub async fn gen_junior_reviewing(
-    model: &str,
-    junior: &PersonProfile,
+    _model: &str,
+    _junior: &PersonProfile,
 ) -> Option<String> {
-    let personality = personality_for(&junior.person_id);
-    let prompt = format!(
-        r#"You are {name}, a {role}. Generate a SINGLE short line (max 10 words) about checking/reviewing data.
-
-Your personality quirk: {quirk}
-Let this quirk subtly influence your phrasing.
-
-Be natural, brief. Just the message, no quotes.
-"#,
-        name = junior.display_name,
-        role = junior.role_title,
-        quirk = personality.quirk,
-    );
-
-    gen_dialogue_fast(model, &prompt).await
+    None
 }
 
 /// Generate junior's done message
+/// v0.0.265: DISABLED - returns None, uses static fallback
 pub async fn gen_junior_done(
-    model: &str,
-    junior: &PersonProfile,
-    confidence: u8,
+    _model: &str,
+    _junior: &PersonProfile,
+    _confidence: u8,
 ) -> Option<String> {
-    let personality = personality_for(&junior.person_id);
-    let conf_desc = if confidence >= 90 {
-        "high confidence"
-    } else if confidence >= 70 {
-        "good confidence"
-    } else {
-        "moderate confidence"
-    };
-
-    let prompt = format!(
-        r#"You are {name}, a {role}. Generate a SINGLE short line (max 12 words) about finishing with {conf}% ({desc}).
-
-Your personality quirk: {quirk}
-Let this quirk subtly influence your phrasing.
-
-Be natural, mention the confidence level. Just the message, no quotes.
-"#,
-        name = junior.display_name,
-        role = junior.role_title,
-        conf = confidence,
-        desc = conf_desc,
-        quirk = personality.quirk,
-    );
-
-    gen_dialogue_fast(model, &prompt).await
+    None
 }
 
 /// Generate Anna's returning message
+/// v0.0.265: DISABLED - returns None, uses static fallback
 pub async fn gen_anna_returning(
-    model: &str,
-    junior: &PersonProfile,
+    _model: &str,
+    _junior: &PersonProfile,
 ) -> Option<String> {
-    let prompt = format!(
-        r#"You are Anna, an AI service desk coordinator. Generate a SINGLE short line (max 12 words) thanking {name} and taking the response back.
-
-Be friendly and brief. Just the message, no quotes.
-Example: "Thanks {name}!" or "Got it, sending to user"
-"#,
-        name = junior.display_name,
-    );
-
-    gen_dialogue_fast(model, &prompt).await
+    None
 }
 
-/// Fast dialogue generation with very short timeout
-/// Returns None if generation fails or times out - fallback to static messages
-async fn gen_dialogue_fast(model: &str, prompt: &str) -> Option<String> {
-    // Very short timeout - dialogue should be instant or fall back
-    match ollama::chat_with_timeout(model, prompt, 3).await {
-        Ok(response) => {
-            // Clean up the response - remove quotes, trim
-            let cleaned = response
-                .trim()
-                .trim_matches('"')
-                .trim_matches('\'')
-                .trim();
-
-            // Validate length - should be short
-            if cleaned.len() > 0 && cleaned.len() < 200 {
-                debug!("Generated dialogue: {}", cleaned);
-                Some(cleaned.to_string())
-            } else {
-                debug!("Dialogue too long or empty, using fallback");
-                None
-            }
-        }
-        Err(e) => {
-            debug!("Dialogue generation failed: {}, using fallback", e);
-            None
-        }
-    }
-}
-
-/// Truncate query for prompt context
-fn truncate_query(query: &str) -> &str {
-    if query.len() > 50 {
-        &query[..50]
-    } else {
-        query
-    }
-}
+// v0.0.265: All LLM dialogue generation disabled
+// The small translator models (qwen2.5:0.5b) produce nonsense
+// Static fallbacks in messages.rs are used instead

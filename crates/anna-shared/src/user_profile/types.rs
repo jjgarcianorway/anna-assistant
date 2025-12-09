@@ -67,7 +67,8 @@ impl Default for UserPreferences {
             learning_mode: true,
             verbosity: 1,
             auto_confirm_low_risk: false,
-            show_internal_comms: true,
+            // v0.0.265: Default to false - internal comms are confusing for most users
+            show_internal_comms: false,
             personality: PersonalityTraits::default(),
         }
     }

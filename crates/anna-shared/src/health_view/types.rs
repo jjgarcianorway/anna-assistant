@@ -82,12 +82,12 @@ impl HealthItem {
         }
     }
 
-    /// Format for display
+    /// Format for display (v0.0.265: ASCII icons)
     pub fn format(&self) -> String {
         let icon = match self.severity {
-            HealthSeverity::Critical => "🔴",
-            HealthSeverity::Warning => "⚠",
-            HealthSeverity::Note => "ℹ",
+            HealthSeverity::Critical => "[!!]",
+            HealthSeverity::Warning => "[!]",
+            HealthSeverity::Note => "[i]",
         };
         format!("{} {}", icon, self.message)
     }

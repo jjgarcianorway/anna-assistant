@@ -9,7 +9,8 @@ mod tests {
         let profile = UserProfile::default();
         assert!(!profile.username.is_empty());
         assert!(profile.preferences.learning_mode);
-        assert!(profile.preferences.show_internal_comms);
+        // v0.0.265: Default is now false - internal comms disabled by default
+        assert!(!profile.preferences.show_internal_comms);
     }
 
     #[test]
@@ -59,6 +60,7 @@ mod tests {
         assert!(prefs.learning_mode);
         assert_eq!(prefs.verbosity, 1);
         assert!(!prefs.auto_confirm_low_risk);
-        assert!(prefs.show_internal_comms);
+        // v0.0.265: Default is now false
+        assert!(!prefs.show_internal_comms);
     }
 }

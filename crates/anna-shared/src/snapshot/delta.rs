@@ -27,36 +27,36 @@ pub enum DeltaItem {
 }
 
 impl DeltaItem {
-    /// Format as single line for display
+    /// Format as single line for display (v0.0.265: ASCII instead of emojis)
     pub fn format(&self) -> String {
         match self {
             Self::DiskWarning { mount, prev, curr } => {
-                format!("⚠ Disk {} at {}% (was {}%)", mount, curr, prev)
+                format!("[!] Disk {} at {}% (was {}%)", mount, curr, prev)
             }
             Self::DiskCritical { mount, prev, curr } => {
-                format!("🔴 Disk {} CRITICAL at {}% (was {}%)", mount, curr, prev)
+                format!("[!!] Disk {} CRITICAL at {}% (was {}%)", mount, curr, prev)
             }
             Self::DiskIncreased { mount, prev, curr } => {
-                format!("📈 Disk {} increased to {}% (was {}%)", mount, curr, prev)
+                format!("[^] Disk {} increased to {}% (was {}%)", mount, curr, prev)
             }
             Self::NewFailedService { unit } => {
-                format!("🔴 Service {} failed", unit)
+                format!("[!!] Service {} failed", unit)
             }
             Self::ServiceRecovered { unit } => {
-                format!("✅ Service {} recovered", unit)
+                format!("[ok] Service {} recovered", unit)
             }
             Self::MemoryHigh {
                 prev_percent,
                 curr_percent,
             } => {
-                format!("⚠ Memory high at {}% (was {}%)", curr_percent, prev_percent)
+                format!("[!] Memory high at {}% (was {}%)", curr_percent, prev_percent)
             }
             Self::MemoryIncreased {
                 prev_percent,
                 curr_percent,
             } => {
                 format!(
-                    "📈 Memory increased to {}% (was {}%)",
+                    "[^] Memory increased to {}% (was {}%)",
                     curr_percent, prev_percent
                 )
             }

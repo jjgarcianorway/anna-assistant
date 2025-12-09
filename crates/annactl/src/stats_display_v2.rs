@@ -257,20 +257,20 @@ fn extract_name(person_id: &str) -> String {
 }
 
 fn format_achievement_icon(achievement: &Achievement) -> String {
-    // Use achievement ID to pick icon
+    // v0.0.265: ASCII icons instead of emojis
     let icon = match achievement.id {
-        "first_request" => "🎯",
-        "ten_requests" => "📊",
-        "hundred_requests" => "💯",
-        "first_verified" => "✅",
-        "fast_responder" => "⚡",
-        "no_timeouts" => "⏱️",
-        "recipe_learner" => "📚",
-        "escalation_master" => "🔝",
-        "streak_3" => "🔥",
-        "streak_7" => "🔥🔥",
-        "streak_30" => "🔥🔥🔥",
-        _ => "🏆",
+        "first_request" => "[1]",
+        "ten_requests" => "[10]",
+        "hundred_requests" => "[100]",
+        "first_verified" => "[v]",
+        "fast_responder" => "[*]",
+        "no_timeouts" => "[t]",
+        "recipe_learner" => "[r]",
+        "escalation_master" => "[^]",
+        "streak_3" => "[3d]",
+        "streak_7" => "[7d]",
+        "streak_30" => "[30d]",
+        _ => "[+]",
     };
     format!("{}{}{}", icon, colors::DIM, colors::RESET)
 }

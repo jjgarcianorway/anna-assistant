@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.266] - 2025-12-09
+
+### Added - Daemon Snapshot Collection
+
+**Critical fix for fast path queries!**
+
+The daemon now collects system snapshots every 60 seconds instead of relying on annactl greeting to capture them. This fixes fast path queries that were failing because the snapshot file was empty.
+
+**New snapshot_loop module collects:**
+- Disk usage (/, /home, /var, /tmp, /mnt/*, /media/*)
+- Memory usage (total and used)
+- Failed systemd services
+- Boot time (from uptime -s)
+- Load averages (1, 5, 15 min)
+- Network status (IP addresses, connection state)
+
+**Files changed:**
+- `annad/src/snapshot_loop.rs` - New module for periodic snapshot collection
+- `annad/src/server.rs` - Spawns snapshot loop on daemon start
+- `annad/src/lib.rs` - Exports snapshot_loop module
+
+## [0.0.265] - 2025-12-09
+
+### Changed - UX Cleanup Release
+
+**Major fixes to user experience:**
+
+1. **Disabled LLM dialogue generation** - The small translator model (qwen2.5:0.5b) was producing nonsensical internal dialogue. All dialogue now uses static fallbacks from `messages.rs`
+
+2. **Internal comms hidden by default** - `show_internal_comms` now defaults to `false`. Most users found the internal IT dialogue confusing. Can still be enabled with "show internal comms"
+
+3. **All emojis replaced with ASCII** - Replaced all Unicode emojis with ASCII equivalents for better terminal compatibility:
+   - `[ok]`, `[!]`, `[!!]`, `[X]` for status indicators
+   - `[+]`, `[*]`, `[^]`, `[i]` for other icons
+
+4. **Boot time fast path fixed** - "boot time" query now properly routes to fast path (was falling through to slow path)
+
+**Files changed:**
+- `dialogue_gen.rs` - All LLM generation functions now return None
+- `user_profile/types.rs` - `show_internal_comms` default changed to false
+- `fastpath/classify.rs` - Added "boot time" pattern
+- Multiple files: Replaced emojis with ASCII
+
 ## [0.0.264] - 2025-12-09
 
 ### Changed - Recipe Learning Architecture for Config Edits

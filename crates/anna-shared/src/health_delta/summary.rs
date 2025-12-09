@@ -69,18 +69,18 @@ impl HealthSummary {
         true
     }
 
-    /// Get status emoji
+    /// Get status icon (v0.0.265: ASCII instead of emoji)
     pub fn status_emoji(&self) -> &'static str {
         if self.is_healthy() {
-            "✅"
+            "[ok]"
         } else if let Some(delta) = &self.delta {
             if delta.error_count() > 0 {
-                "🔴"
+                "[!!]"
             } else {
-                "⚠️"
+                "[!]"
             }
         } else {
-            "⚠️"
+            "[!]"
         }
     }
 

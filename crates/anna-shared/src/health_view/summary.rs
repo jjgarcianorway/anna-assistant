@@ -98,7 +98,8 @@ impl RelevantHealthSummary {
             }
             lines.push("Changes since last check:".to_string());
             for change in &self.changed_since_last {
-                let icon = if change.positive { "✅" } else { "⚡" };
+                // v0.0.265: ASCII icons instead of emojis
+                let icon = if change.positive { "[+]" } else { "[*]" };
                 lines.push(format!("  {} {}", icon, change.description));
             }
         }
@@ -106,7 +107,7 @@ impl RelevantHealthSummary {
         // Notes only if we have other content
         if !self.notes.is_empty() && !lines.is_empty() {
             for note in &self.notes {
-                lines.push(format!("ℹ {}", note));
+                lines.push(format!("[i] {}", note));
             }
         }
 

@@ -232,20 +232,20 @@ pub fn get_contextual_tips() -> Vec<IdleTip> {
 pub fn format_tip(tip: &IdleTip, colors: &TipColors) -> String {
     let mut output = String::new();
 
-    // Category emoji
-    let emoji = match tip.category {
-        TipCategory::Performance => "⚡",
-        TipCategory::Security => "🔒",
-        TipCategory::Storage => "💾",
-        TipCategory::Services => "⚙️",
-        TipCategory::Network => "🌐",
-        TipCategory::System => "💡",
-        TipCategory::Patterns => "📊",
+    // v0.0.265: Use ASCII symbols instead of emojis
+    let icon = match tip.category {
+        TipCategory::Performance => "*",
+        TipCategory::Security => "#",
+        TipCategory::Storage => "@",
+        TipCategory::Services => "+",
+        TipCategory::Network => "~",
+        TipCategory::System => "i",
+        TipCategory::Patterns => "%",
     };
 
     output.push_str(&format!(
         "\n{}[tip]{} {} {}\n",
-        colors.dim, colors.reset, emoji, tip.message
+        colors.dim, colors.reset, icon, tip.message
     ));
 
     if let Some(ref hint) = tip.action_hint {
