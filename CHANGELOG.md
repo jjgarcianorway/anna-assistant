@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.334] - 2025-12-10
+
+### Added - Health Status in Learning Command
+
+**`annactl learning` now shows health status:**
+
+```
+Learning Health:
+  Status: good (45% confidence)
+  Trend: ↑ improving (was 3.8, now 4.2)
+  ✓ Learning is active - recommendations will be used
+```
+
+**`annactl learning --test` shows learning status:**
+
+```
+Query Analysis
+
+  Query: "how's my disk?"
+  Category: Storage
+  Learning: Active (45% confidence)
+```
+
+This makes it clear whether Anna is using learned recommendations or falling back to defaults for any given query.
+
 ## [0.0.333] - 2025-12-10
 
 ### Changed - Confidence-Gated Learning

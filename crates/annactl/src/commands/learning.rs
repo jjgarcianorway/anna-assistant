@@ -1,12 +1,13 @@
-//! Learning stats command (v0.0.328).
+//! Learning stats command (v0.0.334).
 //!
 //! Shows what Anna has learned from experience:
 //! - Probe effectiveness per category
 //! - Negative patterns (mistakes to avoid)
 //! - Keyword associations (v0.0.325)
 //! - Query recommendations test (v0.0.328)
+//! - Health status and confidence (v0.0.334)
 
-use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
+use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, QueryCategory, TrendDirection};
 use anna_shared::ui::colors;
 use anyhow::Result;
 
@@ -21,6 +22,7 @@ pub fn handle_learning_with_query(query: Option<&str>) -> Result<()> {
 }
 
 /// v0.0.328: Show what probes Anna would recommend for a query
+/// v0.0.334: Shows whether learning is active for this query
 fn show_query_recommendations(query: &str) -> Result<()> {
     let store = ProbeLearningStore::load_with_decay();
     let category = QueryCategory::from_query(query);
@@ -30,6 +32,20 @@ fn show_query_recommendations(query: &str) -> Result<()> {
     println!();
     println!("  {}Query:{} \"{}\"", colors::DIM, colors::RESET, query);
     println!("  {}Category:{} {:?}", colors::DIM, colors::RESET, category);
+
+    // v0.0.334: Show if learning would be used for this query
+    let confidence = store.confidence_factor();
+    if store.should_use_learning() {
+        println!(
+            "  {}Learning:{} {}Active{} ({:.0}% confidence)",
+            colors::DIM, colors::RESET, colors::OK, colors::RESET, confidence * 100.0
+        );
+    } else {
+        println!(
+            "  {}Learning:{} {}Inactive{} ({:.0}% confidence - need 30%)",
+            colors::DIM, colors::RESET, colors::WARN, colors::RESET, confidence * 100.0
+        );
+    }
     println!();
 
     // Get category-based recommendations
@@ -222,6 +238,48 @@ pub fn handle_learning() -> Result<()> {
         stats.successful_patterns,
         stats.negative_patterns
     );
+    println!();
+
+    // v0.0.334: Health status and confidence
+    let health = store.health_status();
+    let confidence = store.confidence_factor();
+    let health_color = match health {
+        LearningHealth::Excellent => colors::OK,
+        LearningHealth::Good => colors::OK,
+        LearningHealth::Developing => colors::WARN,
+        LearningHealth::NeedsAttention => colors::ERR,
+        LearningHealth::Insufficient => colors::DIM,
+    };
+
+    println!("{}Learning Health:{}", colors::BOLD, colors::RESET);
+    println!(
+        "  Status: {}{}{} ({:.0}% confidence)",
+        health_color, health, colors::RESET, confidence * 100.0
+    );
+
+    if let Some(trend) = store.quality_trend() {
+        let (trend_icon, trend_color) = match trend.trend {
+            TrendDirection::Improving => ("↑", colors::OK),
+            TrendDirection::Declining => ("↓", colors::ERR),
+            TrendDirection::Stable => ("→", colors::DIM),
+        };
+        println!(
+            "  Trend: {}{}{} {} (was {:.1}, now {:.1})",
+            trend_color, trend_icon, colors::RESET, trend.trend, trend.previous_avg, trend.current_avg
+        );
+    }
+
+    if store.should_use_learning() {
+        println!(
+            "  {}✓ Learning is active{} - recommendations will be used",
+            colors::OK, colors::RESET
+        );
+    } else {
+        println!(
+            "  {}○ Learning insufficient{} - Anna is using defaults",
+            colors::DIM, colors::RESET
+        );
+    }
     println!();
 
     Ok(())
