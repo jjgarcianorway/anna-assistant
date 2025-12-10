@@ -27,6 +27,12 @@ pub const PROBE_IDS: &[&str] = &[
     "nvim_config",      // cat ~/.config/nvim/init.lua
     "bashrc_content",   // cat ~/.bashrc (first 100 lines)
     "zshrc_content",    // cat ~/.zshrc (first 100 lines)
+    // v0.0.321: Hardware acceleration probes
+    "gpu_drivers",      // lspci -k | grep VGA + lsmod
+    "vaapi_status",     // vainfo
+    "vdpau_status",     // vdpauinfo
+    "vulkan_status",    // vulkaninfo --summary
+    "glxinfo_renderer", // glxinfo | grep renderer
 ];
 
 /// Map probe ID to actual command
@@ -207,6 +213,28 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         ),
         "zshrc_content" => Some(
             "cat ~/.zshrc 2>/dev/null | head -100 || echo 'NO_ZSHRC_FOUND'"
+        ),
+        // v0.0.321: Hardware acceleration probes (browser/video)
+        "vaapi_status" => Some(
+            "vainfo 2>/dev/null | head -30 || echo 'VA-API_NOT_AVAILABLE'"
+        ),
+        "vdpau_status" => Some(
+            "vdpauinfo 2>/dev/null | head -30 || echo 'VDPAU_NOT_AVAILABLE'"
+        ),
+        "vulkan_status" => Some(
+            "vulkaninfo --summary 2>/dev/null | head -20 || echo 'VULKAN_NOT_AVAILABLE'"
+        ),
+        "glxinfo_renderer" => Some(
+            "glxinfo 2>/dev/null | grep -E 'OpenGL renderer|OpenGL vendor|direct rendering' | head -5 || echo 'GLX_NOT_AVAILABLE'"
+        ),
+        "libva_driver" => Some(
+            "ls /usr/lib/dri/*_drv_video.so 2>/dev/null | xargs -I{} basename {} _drv_video.so || echo 'NO_VA_DRIVERS'"
+        ),
+        "firefox_hw_accel" => Some(
+            "cat ~/.mozilla/firefox/*/prefs.js 2>/dev/null | grep -E 'webrender|vaapi|gfx.webrender' | head -10 || echo 'FIREFOX_PREFS_NOT_FOUND'"
+        ),
+        "chromium_gpu_flags" => Some(
+            "cat ~/.config/chromium-flags.conf 2>/dev/null || cat ~/.config/chrome-flags.conf 2>/dev/null || echo 'NO_CHROMIUM_FLAGS'"
         ),
         _ => None,
     }

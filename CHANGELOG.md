@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.321] - 2025-12-10
+
+### Added - Hardware Acceleration Probes
+
+**New probes available for the translator to use:**
+- `gpu_drivers` - Shows GPU drivers and kernel modules (nvidia, amdgpu, i915)
+- `vaapi_status` - VA-API video acceleration status
+- `vdpau_status` - VDPAU video acceleration status
+- `vulkan_status` - Vulkan graphics support
+- `glxinfo_renderer` - OpenGL renderer and direct rendering status
+
+When users ask about hardware acceleration in browsers or video, the translator
+can now select appropriate probes. No hardcoded solutions - the LLM decides
+what information is needed and how to answer.
+
 ## [0.0.320] - 2025-12-10
 
 ### Fixed - Probe Visibility in Internal Comms

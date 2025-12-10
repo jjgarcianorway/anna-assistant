@@ -1,4 +1,6 @@
-//! Hardware routes: CPU, GPU, audio, sensors (v0.0.172).
+//! Hardware routes: CPU, GPU, audio, sensors (v0.0.321).
+//!
+//! v0.0.321: Added HardwareAcceleration route for browser/video queries.
 
 use anna_shared::probe_spine::{EvidenceKind, ProbeId, RouteCapability};
 use anna_shared::rpc::{QueryIntent, SpecialistDomain};
