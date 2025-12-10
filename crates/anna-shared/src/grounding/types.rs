@@ -80,6 +80,7 @@ impl ParsedEvidence {
                 | ParsedProbeData::Tool(_)
                 | ParsedProbeData::Package(_)
                 | ParsedProbeData::Audio(_)
+                | ParsedProbeData::RawText(_)
                 | ParsedProbeData::Error(_)
                 | ParsedProbeData::Unsupported => {}
             }

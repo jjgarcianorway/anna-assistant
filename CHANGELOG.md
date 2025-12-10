@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.308] - 2025-12-10
+
+### Fixed - Top Memory Processes Evidence Bug
+
+**Probes without structured parsers now count as valid evidence:**
+- Added `RawText(String)` variant to `ParsedProbeData` enum
+- Common probes (ps aux, systemctl list-units, ip, ss, who, uptime, uname, cat, sensors)
+  now return `RawText` instead of `Unsupported`
+- `is_valid_evidence()` returns true for `RawText` - the raw text IS the evidence
+- Root cause: `check_evidence_validity()` was returning 0 for probes that collected data
+  but had no structured parser, causing "I can't answer yet because I didn't collect evidence"
+
+**Impact:** "top memory processes" and similar queries now work correctly - evidence
+is collected and answers are generated instead of false "no evidence" responses.
+
 ## [0.0.307] - 2025-12-10
 
 ### Fixed - Service Query Classification

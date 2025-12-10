@@ -174,6 +174,19 @@ pub fn parse_probe_output(command: &str, stdout: &str) -> ParsedProbeData {
             Ok(status) => ParsedProbeData::Service(status),
             Err(e) => ParsedProbeData::Error(e),
         }
+    } else if cmd_lower.starts_with("ps aux")
+        || cmd_lower.contains("systemctl list-units")
+        || cmd_lower.starts_with("ip ")
+        || cmd_lower.starts_with("ss ")
+        || cmd_lower.starts_with("who")
+        || cmd_lower.starts_with("uptime")
+        || cmd_lower.starts_with("uname")
+        || cmd_lower.starts_with("cat /")
+        || cmd_lower.starts_with("sensors")
+    {
+        // v0.0.308: Treat common probes as valid raw evidence
+        // These don't need structured parsing - the raw text is valid evidence
+        ParsedProbeData::RawText(stdout.to_string())
     } else {
         ParsedProbeData::Unsupported
     }

@@ -40,6 +40,8 @@ pub enum ParsedProbeData {
     Package(PackageInstalled),
     /// Audio devices from lspci/pactl (v0.45.8)
     Audio(AudioDevices),
+    /// v0.0.308: Raw text output - valid evidence for probes without structured parsers
+    RawText(String),
     /// Parse error with diagnostic context
     Error(ParseError),
     /// Probe type not supported for structured parsing

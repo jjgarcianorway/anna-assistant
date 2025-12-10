@@ -42,8 +42,17 @@ fn test_parse_probe_output_systemctl_is_active() {
 }
 
 #[test]
-fn test_parse_probe_output_unsupported() {
+fn test_parse_probe_output_raw_text() {
+    // v0.0.308: ps aux is now RawText (valid evidence) not Unsupported
     let result = parse_probe_output("ps aux --sort=-%mem", "some output");
+    assert!(matches!(result, ParsedProbeData::RawText(_)));
+    assert!(result.is_valid_evidence());
+}
+
+#[test]
+fn test_parse_probe_output_unsupported() {
+    // Only truly unknown commands should be Unsupported
+    let result = parse_probe_output("some-unknown-command --flag", "some output");
     assert!(matches!(result, ParsedProbeData::Unsupported));
 }
 
