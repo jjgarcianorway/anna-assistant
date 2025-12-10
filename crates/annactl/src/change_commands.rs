@@ -158,7 +158,7 @@ pub async fn handle_proposed_change(
             }
             if let Some(ref backup) = result.backup_path {
                 print_hint(&format!("Backup: {}", backup.display()));
-                print_hint("To undo: annactl undo <id>");
+                print_hint("Ask me to undo this change if needed.");
             }
             applied_count += 1;
         } else if result.was_noop {

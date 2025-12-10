@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.367] - 2025-12-10
+
+### Fixed - Stale undo command reference
+
+Updated change_commands.rs to guide users toward natural language for undoing changes
+instead of referencing the non-existent `annactl undo` command.
+
 ## [0.0.366] - 2025-12-10
 
 ### UI Consistency - REPL and uninstall messages
