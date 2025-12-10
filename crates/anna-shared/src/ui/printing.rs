@@ -1,7 +1,8 @@
-//! Terminal print functions for styled output (v0.0.337).
+//! Terminal print functions for styled output (v0.0.344).
 //!
 //! v0.0.213: Initial implementation.
 //! v0.0.337: Enhanced with consistent section/label formatting.
+//! v0.0.344: Added print_title() for headers without version.
 
 use super::colors;
 use super::symbols;
@@ -17,6 +18,13 @@ pub const KEY_WIDTH: usize = 22;
 pub fn print_header(name: &str, version: &str) {
     println!();
     println!("{}{} v{}{}", colors::HEADER, name, version, colors::RESET);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+}
+
+/// Print a title bar (HR + title + HR) - use for headers without version
+pub fn print_title(title: &str) {
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    println!("{}{}{}", colors::HEADER, title, colors::RESET);
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
 }
 

@@ -1,11 +1,12 @@
-//! Command handlers (v0.0.339).
+//! Command handlers (v0.0.344).
 //! v0.0.330: Initial version.
 //! v0.0.339: Use centralized UI printing for consistency.
+//! v0.0.344: Use print_title() for header display.
 
 use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_label, print_ok, print_section_header, print_warn, symbols, HR};
+use anna_shared::ui::{colors, print_label, print_ok, print_section_header, print_title, print_warn, symbols};
 use anna_shared::version::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -101,9 +102,7 @@ pub async fn handle_uninstall() -> Result<()> {
     let uninstall_info = client.uninstall_info().await?;
 
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}anna uninstall{} v{}", colors::HEADER, colors::RESET, VERSION);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_title(&format!("anna uninstall v{}", VERSION));
     println!();
 
     println!("This will remove Anna binaries, service, configs, data, logs.");
@@ -187,9 +186,7 @@ pub async fn handle_reset() -> Result<()> {
     let mut client = AnnadClient::connect().await?;
 
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}anna reset{}", colors::HEADER, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_title("anna reset");
     println!();
 
     print_section_header("plan");

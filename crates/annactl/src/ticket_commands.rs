@@ -1,4 +1,4 @@
-//! Ticket command handlers for annactl (v0.0.340).
+//! Ticket command handlers for annactl (v0.0.344).
 //!
 //! Commands for async ticket workflow:
 //! - annactl reply <case> <message> - Reply to an open ticket
@@ -6,10 +6,11 @@
 //! - annactl email <address> - Configure email notifications
 //! - annactl health - Check Anna's health and dependencies (v0.0.114)
 //! v0.0.340: Use centralized UI helpers for consistency.
+//! v0.0.344: Use print_title() for header display.
 
 use anna_shared::email::{EmailConfig, EmailHealth};
 use anna_shared::ticket_tracker::{TicketStatus, TicketTracker};
-use anna_shared::ui::{colors, kv, print_hint, print_label, print_section_header, symbols, HR};
+use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_section_header, print_title, symbols};
 use anyhow::Result;
 use std::io::{self, Write};
 
@@ -85,9 +86,7 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
 
     // Display ticket header
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}Ticket {}{}", colors::HEADER, ticket.case_number, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_title(&format!("Ticket {}", ticket.case_number));
     println!();
 
     // Status info
@@ -134,7 +133,7 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
         }
     }
 
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_footer();
     Ok(())
 }
 
@@ -179,9 +178,7 @@ pub async fn handle_email(address: &str) -> Result<()> {
 /// Handle health command - check Anna's dependencies and offer to install
 pub async fn handle_health() -> Result<()> {
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}Anna Health Check{}", colors::HEADER, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_title("Anna Health Check");
     println!();
 
     // Check email system
@@ -279,6 +276,6 @@ pub async fn handle_health() -> Result<()> {
         print_label("health", "Setup needed for full email support", colors::WARN);
     }
 
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_footer();
     Ok(())
 }

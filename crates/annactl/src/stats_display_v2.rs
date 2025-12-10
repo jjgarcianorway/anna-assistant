@@ -1,4 +1,4 @@
-//! Stats display v2 - Service Desk Staff Performance Report (v0.0.338).
+//! Stats display v2 - Service Desk Staff Performance Report (v0.0.344).
 //!
 //! Clean, focused view of the service desk with real staff metrics:
 //! - Service desk summary (total tickets, resolved, escalated)
@@ -12,13 +12,14 @@
 //! v0.0.331: Added quality trend to learning section.
 //! v0.0.332: Added confidence factor and health status.
 //! v0.0.338: Use centralized UI helpers for consistency.
+//! v0.0.344: Use print_title() and print_footer() for consistency.
 
 use anna_shared::event_log::EventLog;
 use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, TrendDirection};
 use anna_shared::roster::{person_by_id, Tier};
 use anna_shared::staff_stats::{level_title, StaffStats};
 use anna_shared::stats::GlobalStats;
-use anna_shared::ui::{colors, kv, kv_colored, print_section_header, HR};
+use anna_shared::ui::{colors, kv, kv_colored, print_footer, print_section_header, print_title};
 
 /// Print the Service Desk staff performance report
 pub fn print_stats_display_v2(_stats: &GlobalStats) {
@@ -30,9 +31,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     let agg = event_log.aggregate().ok();
 
     // === HEADER ===
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}Anna Service Desk{} | Staff Performance Report", colors::HEADER, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_title("Anna Service Desk | Staff Performance Report");
 
     // === [service desk] ===
     println!();
@@ -206,7 +205,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     // === [learning] === v0.0.330: Probe learning stats
     print_learning_section();
 
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_footer();
 }
 
 /// v0.0.330: Print probe learning statistics section

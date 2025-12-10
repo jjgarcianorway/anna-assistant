@@ -1,4 +1,4 @@
-//! Learning stats command (v0.0.339).
+//! Learning stats command (v0.0.344).
 //!
 //! Shows what Anna has learned from experience:
 //! - Probe effectiveness per category
@@ -7,9 +7,10 @@
 //! - Query recommendations test (v0.0.328)
 //! - Health status and confidence (v0.0.334)
 //! - v0.0.339: Use centralized UI helpers for consistency.
+//! - v0.0.344: Use print_title() and print_footer() for consistency.
 
 use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, QueryCategory, TrendDirection};
-use anna_shared::ui::{colors, kv, print_hint, print_label, print_section_header, symbols, HR};
+use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_section_header, print_title, symbols};
 use anyhow::Result;
 
 /// Handle learning command - show what Anna has learned
@@ -29,9 +30,7 @@ fn show_query_recommendations(query: &str) -> Result<()> {
     let category = QueryCategory::from_query(query);
 
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}Query Analysis{}", colors::HEADER, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_title("Query Analysis");
     println!();
 
     print_section_header("input");
@@ -81,7 +80,7 @@ fn show_query_recommendations(query: &str) -> Result<()> {
         println!();
     }
 
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_footer();
     Ok(())
 }
 
@@ -90,9 +89,7 @@ pub fn handle_learning() -> Result<()> {
     let store = ProbeLearningStore::load_with_decay();
 
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}Anna Learning Stats{}", colors::HEADER, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_title("Anna Learning Stats");
     println!();
 
     if store.effectiveness.is_empty() && store.keyword_probes.is_empty() {
@@ -218,7 +215,7 @@ pub fn handle_learning() -> Result<()> {
     }
 
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_footer();
     Ok(())
 }
 

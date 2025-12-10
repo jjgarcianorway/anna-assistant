@@ -1,15 +1,16 @@
-//! Change management commands for annactl (v0.0.342).
+//! Change management commands for annactl (v0.0.344).
 //!
 //! v0.0.97: Extracted from commands.rs for modularity.
 //! v0.0.292: Added auto-confirm for low-risk operations.
 //! v0.0.312: Added RunCommand support for executing system commands.
 //! v0.0.342: Use centralized UI helpers for consistency.
+//! v0.0.344: Use print_title() for header display.
 
 use anyhow::Result;
 use std::io::{self, Write};
 
 use anna_shared::change::{ChangeOperation, ChangeRisk};
-use anna_shared::ui::{colors, kv, print_hint, print_label, print_section_header, symbols, HR};
+use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_section_header, print_title, symbols};
 use anna_shared::user_profile::UserProfile;
 
 /// Outcome summary for applying proposed changes
@@ -35,9 +36,7 @@ pub async fn handle_proposed_change(
     }
 
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
-    println!("{}Proposed Change{}", colors::HEADER, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_title("Proposed Change");
     println!();
 
     for (idx, plan) in plans.iter().enumerate() {
@@ -199,7 +198,7 @@ pub async fn handle_proposed_change(
         kv("applied", &format!("{}", applied_count));
         kv("noop", &format!("{}", noop_count));
     }
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_footer();
 
     Ok(ChangeSummary {
         applied: applied_count,

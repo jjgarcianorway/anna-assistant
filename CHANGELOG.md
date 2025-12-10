@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.344] - 2025-12-10
+
+### Improved - Centralized print_title() Helper
+
+Added `print_title()` helper for consistent title bars across all display commands:
+
+**New Helper (ui/printing.rs):**
+- `print_title(title)` - Prints HR + title + HR in one call
+- Reduces code duplication across display files
+
+**Updated Files:**
+- `change_commands.rs` - Proposed changes title
+- `ticket_commands.rs` - Ticket view and health check titles
+- `stats_display_v2.rs` - Service desk report title
+- `learning.rs` - Query analysis and learning stats titles
+- `handlers.rs` - Uninstall and reset titles
+
+Before:
+```rust
+println!("{}{}{}", colors::DIM, HR, colors::RESET);
+println!("{}Title{}", colors::HEADER, colors::RESET);
+println!("{}{}{}", colors::DIM, HR, colors::RESET);
+```
+
+After:
+```rust
+print_title("Title");
+```
+
+One helper call replaces 3 println! statements.
+
 ## [0.0.343] - 2025-12-10
 
 ### Improved - REPL & Spinner UI Consistency
