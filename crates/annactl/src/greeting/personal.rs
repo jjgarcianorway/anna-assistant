@@ -1,13 +1,14 @@
-//! Personalized greeting sections (v0.0.238).
+//! Personalized greeting sections (v0.0.347).
 //!
 //! v0.0.236: Added editor trend insights to pattern display.
 //! v0.0.238: Added "since last time" summary display.
 //! v0.0.275: Most functions now unused (LLM generates greetings), kept for fallback.
+//! v0.0.347: Use print_hint(), print_label(), print_section_header() for consistency.
 
 #![allow(dead_code)]
 
 use anna_shared::ticket_tracker::TicketTracker;
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, print_hint, print_label, print_section_header};
 use anna_shared::user_profile::UserProfile;
 
 use super::types::{bullet, InteractionInfo};
@@ -21,11 +22,7 @@ pub fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
         println!("Welcome! I'm Anna, your local IT department.");
         println!("Just ask me anything about your system - I'm here to help.");
         println!();
-        println!(
-            "{}Try asking: \"is my system healthy?\" or \"show disk usage\"{}",
-            colors::DIM,
-            colors::RESET
-        );
+        print_hint("Try asking: \"is my system healthy?\" or \"show disk usage\"");
     } else if let Some(days) = info.days_since_last {
         if days >= 1 {
             println!("Hello {},", username);
@@ -57,12 +54,7 @@ pub fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
 pub fn print_since_last_time(profile: &UserProfile) {
     if let Some(summary) = profile.since_last_time() {
         println!();
-        println!(
-            "{}📋 {}{}",
-            colors::DIM,
-            summary,
-            colors::RESET
-        );
+        print_hint(&format!("📋 {}", summary));
     }
 }
 
@@ -109,12 +101,13 @@ pub fn print_user_patterns(profile: &UserProfile) {
             ));
             // Offer help if it's an editor
             if count > 5 {
-                patterns.push(format!(
-                    "    {}If you want, I can suggest some {} tips!{}",
-                    colors::DIM,
-                    editor,
-                    colors::RESET
-                ));
+                // Note: Can't use print_hint here as we're building a string vec
+            patterns.push(format!(
+                "    {}If you want, I can suggest some {} tips!{}",
+                colors::DIM,
+                editor,
+                colors::RESET
+            ));
             }
         }
     }
@@ -156,7 +149,7 @@ pub fn print_user_patterns(profile: &UserProfile) {
     // Show patterns if we have any (limit to 3)
     if !patterns.is_empty() {
         println!();
-        println!("{}On your patterns:{}", colors::DIM, colors::RESET);
+        print_section_header("on your patterns");
         for pattern in patterns.iter().take(3) {
             println!("{}", pattern);
         }
@@ -174,7 +167,7 @@ pub fn print_open_tickets() {
     };
 
     println!();
-    println!("{}Open Tickets:{}", colors::WARN, colors::RESET);
+    print_label("open tickets", "", colors::WARN);
     for ticket in open_tickets.iter().take(3) {
         // Show full query, wrapped naturally by terminal
         println!("  {} {} ({})", bullet(), ticket.case_number, ticket.status);
@@ -184,9 +177,5 @@ pub fn print_open_tickets() {
         println!("  {} and {} more", bullet(), open_tickets.len() - 3);
     }
     println!();
-    println!(
-        "{}To reply: annactl reply CN-XXXX \"message\"{}",
-        colors::DIM,
-        colors::RESET
-    );
+    print_hint("To reply: annactl reply CN-XXXX \"message\"");
 }

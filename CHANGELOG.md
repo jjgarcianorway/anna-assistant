@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.347] - 2025-12-10
+
+### Improved - UI Consistency in greeting/personal.rs
+
+Extended centralized UI helpers to personalized greeting messages:
+
+**Updated File:**
+- `greeting/personal.rs` - Uses `print_hint()`, `print_label()`, `print_section_header()`
+
+**Changes:**
+- First-time user hint now uses `print_hint()`
+- "Since last time" summary uses `print_hint()`
+- "On your patterns" section uses `print_section_header()`
+- "Open Tickets" header uses `print_label()`
+- Reply instructions use `print_hint()`
+
+Consistent formatting across all greeting messages.
+
 ## [0.0.346] - 2025-12-10
 
 ### Improved - UI Consistency with print_hint() and print_label()
