@@ -1,4 +1,4 @@
-//! Live request handling with real-time progress display (v0.0.253).
+//! Live request handling with real-time progress display (v0.0.312).
 //!
 //! Polls for progress events during request processing to show
 //! internal IT department chatter (fly-on-wall experience).
@@ -9,6 +9,7 @@
 //! v0.0.278: Enhanced Hollywood-style stage indicators and spinners.
 //! v0.0.284: Added idle tips during wait times.
 //! v0.0.285: Integrated telemetry-based health tips.
+//! v0.0.312: Added timestamps to internal comms for dialogue rhythm visibility.
 
 use anna_shared::health_tips::generate_telemetry_tips;
 use anna_shared::idle_tips::{get_contextual_tips, TipColors, TipQueue};
@@ -187,8 +188,8 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
                 println!("{}--- internal comms ---{}", colors::DIM, colors::RESET);
                 state.shown_internal_header = true;
             }
-            // v0.0.253: Show internal comms with role titles from roster
-            display_internal_comms(from, message);
+            // v0.0.312: Show internal comms with timestamp and role titles
+            display_internal_comms(from, message, event.elapsed_ms);
             let _ = io::stdout().flush();
         }
         ProgressEventType::Generation { tokens } => {
@@ -242,11 +243,17 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
     }
 }
 
-/// v0.0.253: Display internal comms with role lookups
-fn display_internal_comms(from: &str, message: &str) {
+/// v0.0.312: Display internal comms with role lookups and timestamps
+fn display_internal_comms(from: &str, message: &str, elapsed_ms: u64) {
+    // Format timestamp as seconds with one decimal
+    let ts = format!("{:.1}s", elapsed_ms as f64 / 1000.0);
+
     if from == "Anna" {
         println!(
-            "  {}Anna:{} {}",
+            "  {}[{}]{} {}Anna:{} {}",
+            colors::DIM,
+            ts,
+            colors::RESET,
             colors::OK,
             colors::RESET,
             message
@@ -255,7 +262,10 @@ fn display_internal_comms(from: &str, message: &str) {
         // Try to look up the person by display name
         if let Some(person) = roster::person_by_display_name(from) {
             println!(
-                "  {}{} ({}):{} {}",
+                "  {}[{}]{} {}{} ({}):{} {}",
+                colors::DIM,
+                ts,
+                colors::RESET,
                 colors::WARN,
                 person.display_name,
                 person.role_title,
@@ -265,7 +275,10 @@ fn display_internal_comms(from: &str, message: &str) {
         } else {
             // Fallback if name not in roster
             println!(
-                "  {}{}:{} {}",
+                "  {}[{}]{} {}{}:{} {}",
+                colors::DIM,
+                ts,
+                colors::RESET,
                 colors::WARN,
                 from,
                 colors::RESET,

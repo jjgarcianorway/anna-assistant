@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.313] - 2025-12-10
+
+### Improved - Dialogue Rhythm Timestamps
+
+**Internal comms now show timestamps for dialogue rhythm visibility:**
+- Each message in the internal comms shows elapsed time: `[0.2s]`, `[1.4s]`, etc.
+- Helps users understand the pace and timing of Anna's processing
+- Example output: `[2.1s] Sofia (Desktop Jr): Found GNOME configuration`
+
 ## [0.0.312] - 2025-12-10
 
 ### Added - Command Execution with User Approval
