@@ -1,10 +1,11 @@
-//! User-friendly error presentation (v0.0.337).
+//! User-friendly error presentation (v0.0.346).
 //!
 //! Provides consistent, helpful error messages with recovery suggestions.
 //! v0.0.304: Initial implementation.
 //! v0.0.337: Use centralized UI printing for consistency.
+//! v0.0.346: Use print_hint() and print_section_header() for consistency.
 
-use anna_shared::ui::{colors, print_label, symbols};
+use anna_shared::ui::{colors, print_hint, print_label, print_section_header, symbols};
 
 /// Error categories for user-friendly presentation
 pub enum ErrorKind {
@@ -116,14 +117,14 @@ pub fn print_error(e: &anyhow::Error) {
 
     // Show technical detail for internal errors
     if let ErrorKind::Internal { detail } | ErrorKind::InvalidInput { detail } = &kind {
-        println!("  {}{}{}", colors::DIM, detail, colors::RESET);
+        print_hint(detail);
     }
 
     // Show recovery suggestions
     let suggestions = kind.suggestions();
     if !suggestions.is_empty() {
         println!();
-        println!("{}To fix this:{}", colors::DIM, colors::RESET);
+        print_section_header("to fix this");
         for suggestion in suggestions {
             println!("  {} {}", symbols::ARROW, suggestion);
         }

@@ -1,13 +1,14 @@
-//! Status display sections (v0.0.186).
+//! Status display sections (v0.0.346).
 //!
 //! v0.0.275: print_since_last_time now unused (LLM generates greetings), kept for fallback.
+//! v0.0.346: Use print_hint() and print_label() for consistency.
 
 #![allow(dead_code)]
 
 use anna_shared::snapshot::{DeltaItem, SystemSnapshot};
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::telemetry::TelemetrySnapshot;
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, print_hint, print_label};
 
 use super::types::{bullet, InteractionInfo};
 
@@ -43,11 +44,7 @@ pub fn print_since_last_time(
                 );
                 // v0.0.142: Add helpful context
                 if secs < 10 {
-                    println!(
-                        "    {}Don't worry, small variations are normal.{}",
-                        colors::DIM,
-                        colors::RESET
-                    );
+                    print_hint("Don't worry, small variations are normal.");
                 }
             } else {
                 println!(
@@ -74,11 +71,7 @@ pub fn print_since_last_time(
                     mount,
                     curr
                 );
-                println!(
-                    "    {}Consider cleaning up or expanding storage.{}",
-                    colors::DIM,
-                    colors::RESET
-                );
+                print_hint("Consider cleaning up or expanding storage.");
             }
             DeltaItem::DiskCritical { mount, curr, .. } => {
                 println!(
@@ -107,12 +100,7 @@ pub fn print_since_last_time(
                     colors::RESET,
                     unit
                 );
-                println!(
-                    "    {}Ask me to check it with: \"what's wrong with {}\"{}",
-                    colors::DIM,
-                    unit,
-                    colors::RESET
-                );
+                print_hint(&format!("Ask me to check it with: \"what's wrong with {}\"", unit));
             }
             DeltaItem::ServiceRecovered { unit } => {
                 println!(
@@ -183,26 +171,16 @@ pub fn print_system_readiness(status: &DaemonStatus) {
             if let (Some(trans), Some(spec)) =
                 (&status.llm.translator_model, &status.llm.specialist_model)
             {
-                println!(
-                    "{}Systems ready. Translator: {}, Specialist: {}{}",
-                    colors::DIM,
-                    trans,
-                    spec,
-                    colors::RESET
-                );
+                print_hint(&format!("Systems ready. Translator: {}, Specialist: {}", trans, spec));
             } else {
-                println!("{}All systems ready.{}", colors::DIM, colors::RESET);
+                print_hint("All systems ready.");
             }
         }
         LlmState::Bootstrapping => {
             if let Some(phase) = &status.llm.phase {
-                println!("{}[starting]{} {}...", colors::WARN, colors::RESET, phase);
+                print_label("starting", &format!("{}...", phase), colors::WARN);
             } else {
-                println!(
-                    "{}[starting]{} Preparing AI models...",
-                    colors::WARN,
-                    colors::RESET
-                );
+                print_label("starting", "Preparing AI models...", colors::WARN);
             }
             // Show progress if available
             if let Some(progress) = &status.llm.progress {
@@ -215,29 +193,15 @@ pub fn print_system_readiness(status: &DaemonStatus) {
             if let (Some(trans), Some(spec)) =
                 (&status.llm.translator_model, &status.llm.specialist_model)
             {
-                println!(
-                    "{}Systems ready (models loading). Translator: {}, Specialist: {}{}",
-                    colors::DIM,
-                    trans,
-                    spec,
-                    colors::RESET
-                );
+                print_hint(&format!("Systems ready (models loading). Translator: {}, Specialist: {}", trans, spec));
             } else {
-                println!(
-                    "{}Systems ready (downloading models in background)...{}",
-                    colors::DIM,
-                    colors::RESET
-                );
+                print_hint("Systems ready (downloading models in background)...");
             }
         }
         LlmState::Error => {
-            println!(
-                "{}[error]{} AI models not available. Some features may be limited.",
-                colors::ERR,
-                colors::RESET
-            );
+            print_label("error", "AI models not available. Some features may be limited.", colors::ERR);
             if let Some(err) = &status.last_error {
-                println!("  {}{}{}", colors::DIM, err, colors::RESET);
+                print_hint(err);
             }
         }
     }
@@ -246,12 +210,7 @@ pub fn print_system_readiness(status: &DaemonStatus) {
     if status.update.update_available {
         if let Some(ver) = &status.update.latest_version {
             println!();
-            println!(
-                "{}[update]{} Version {} is available. I'll update automatically.",
-                colors::CYAN,
-                colors::RESET,
-                ver
-            );
+            print_label("update", &format!("Version {} is available. I'll update automatically.", ver), colors::CYAN);
         }
     }
 }

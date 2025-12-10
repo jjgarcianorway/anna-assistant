@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.346] - 2025-12-10
+
+### Improved - UI Consistency with print_hint() and print_label()
+
+Extended use of centralized UI helpers to `errors.rs` and `greeting/status.rs`:
+
+**Updated Files:**
+- `errors.rs` - Error messages and recovery suggestions use `print_hint()`, `print_section_header()`, `print_label()`
+- `greeting/status.rs` - System readiness messages use `print_hint()` and `print_label()`
+
+**Changes:**
+- Replaced raw `println!` with DIM colors with `print_hint()`
+- Replaced raw `println!` with `[label]` patterns with `print_label()`
+- LLM state messages (Ready, Bootstrapping, PullingModels, Error) now use consistent formatting
+- Update notifications use `print_label("update", ...)`
+- Failed service hints use `print_hint()`
+
+Less manual color formatting, more consistent output across all displays.
+
 ## [0.0.345] - 2025-12-10
 
 ### Improved - print_hr() Helper Function
