@@ -1,9 +1,10 @@
-//! Probe effectiveness learning system (v0.0.322).
+//! Probe effectiveness learning system (v0.0.325).
 //!
 //! Tracks which probes work well for which query types, learning from:
 //! 1. User feedback (helpful/not helpful)
 //! 2. LLM self-assessment (answer quality rating)
 //! 3. Probe failure rates
+//! 4. Query keyword patterns (v0.0.325)
 //!
 //! This allows the translator to prefer better-performing probes over time.
 
@@ -156,8 +157,38 @@ pub struct ProbeLearningStore {
     pub effectiveness: HashMap<QueryCategory, HashMap<String, ProbeEffectiveness>>,
     /// Query patterns that led to poor answers (for negative learning)
     pub negative_patterns: Vec<NegativePattern>,
+    /// v0.0.325: Keyword to probe mapping (learned associations)
+    #[serde(default)]
+    pub keyword_probes: HashMap<String, KeywordProbeStats>,
+    /// v0.0.325: Successful query patterns (for positive learning)
+    #[serde(default)]
+    pub successful_patterns: Vec<SuccessfulPattern>,
     /// Version for migration
     pub version: u32,
+}
+
+/// v0.0.325: Stats for keyword-probe associations
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct KeywordProbeStats {
+    /// Probes that worked well for this keyword
+    pub effective_probes: HashMap<String, u32>,
+    /// Total times this keyword appeared in successful queries
+    pub success_count: u32,
+}
+
+/// v0.0.325: A successful query pattern for positive learning
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuccessfulPattern {
+    /// Keywords extracted from the query
+    pub keywords: Vec<String>,
+    /// Probes that were used successfully
+    pub probes: Vec<String>,
+    /// Quality score (1-5 or reliability-based)
+    pub quality: u8,
+    /// Category
+    pub category: QueryCategory,
+    /// Timestamp
+    pub timestamp: u64,
 }
 
 /// A pattern that led to a poor answer (for learning what NOT to do)
@@ -307,6 +338,121 @@ impl ProbeLearningStore {
             total_categories, total_probes, total_uses, negative_patterns
         )
     }
+
+    /// v0.0.325: Record a successful query pattern
+    pub fn record_success(&mut self, query: &str, probes: &[String], quality: u8, category: QueryCategory) {
+        // Extract keywords from query
+        let keywords = extract_keywords(query);
+
+        if keywords.is_empty() || probes.is_empty() {
+            return;
+        }
+
+        // Update keyword-probe associations
+        for keyword in &keywords {
+            let stats = self.keyword_probes.entry(keyword.clone()).or_default();
+            stats.success_count += 1;
+            for probe in probes {
+                *stats.effective_probes.entry(probe.clone()).or_insert(0) += 1;
+            }
+        }
+
+        // Store successful pattern
+        self.successful_patterns.push(SuccessfulPattern {
+            keywords,
+            probes: probes.to_vec(),
+            quality,
+            category,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+        });
+
+        // Keep only last 200 successful patterns
+        if self.successful_patterns.len() > 200 {
+            self.successful_patterns.remove(0);
+        }
+    }
+
+    /// v0.0.325: Get probe suggestions based on query keywords
+    pub fn suggest_probes_for_query(&self, query: &str) -> Vec<(String, u32)> {
+        let keywords = extract_keywords(query);
+
+        if keywords.is_empty() {
+            return vec![];
+        }
+
+        // Aggregate probe scores from matching keywords
+        let mut probe_scores: HashMap<String, u32> = HashMap::new();
+
+        for keyword in &keywords {
+            if let Some(stats) = self.keyword_probes.get(keyword) {
+                for (probe, count) in &stats.effective_probes {
+                    *probe_scores.entry(probe.clone()).or_insert(0) += count;
+                }
+            }
+        }
+
+        // Sort by score
+        let mut suggestions: Vec<_> = probe_scores.into_iter().collect();
+        suggestions.sort_by(|a, b| b.1.cmp(&a.1));
+        suggestions.truncate(5); // Top 5
+
+        suggestions
+    }
+
+    /// v0.0.325: Get learning stats for display
+    pub fn learning_stats(&self) -> LearningStats {
+        LearningStats {
+            total_queries: self.successful_patterns.len() + self.negative_patterns.len(),
+            successful_patterns: self.successful_patterns.len(),
+            negative_patterns: self.negative_patterns.len(),
+            keywords_learned: self.keyword_probes.len(),
+            categories_with_data: self.effectiveness.len(),
+            avg_quality: self.successful_patterns.iter()
+                .map(|p| p.quality as f32)
+                .sum::<f32>() / self.successful_patterns.len().max(1) as f32,
+        }
+    }
+}
+
+/// v0.0.325: Learning statistics for display
+#[derive(Debug, Clone)]
+pub struct LearningStats {
+    pub total_queries: usize,
+    pub successful_patterns: usize,
+    pub negative_patterns: usize,
+    pub keywords_learned: usize,
+    pub categories_with_data: usize,
+    pub avg_quality: f32,
+}
+
+/// v0.0.325: Extract meaningful keywords from a query
+fn extract_keywords(query: &str) -> Vec<String> {
+    // Stop words to filter out
+    const STOP_WORDS: &[&str] = &[
+        "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+        "have", "has", "had", "do", "does", "did", "will", "would", "could",
+        "should", "may", "might", "must", "shall", "can", "need", "dare",
+        "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
+        "into", "through", "during", "before", "after", "above", "below",
+        "between", "under", "again", "further", "then", "once", "here",
+        "there", "when", "where", "why", "how", "all", "each", "few",
+        "more", "most", "other", "some", "such", "no", "nor", "not",
+        "only", "own", "same", "so", "than", "too", "very", "just",
+        "i", "me", "my", "you", "your", "we", "our", "it", "its",
+        "what", "which", "who", "whom", "this", "that", "these", "those",
+        "am", "and", "but", "if", "or", "because", "until", "while",
+        "about", "show", "tell", "give", "get", "check", "see", "look",
+    ];
+
+    query
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() >= 3 && !STOP_WORDS.contains(w))
+        .map(|w| w.to_string())
+        .collect()
 }
 
 #[cfg(test)]

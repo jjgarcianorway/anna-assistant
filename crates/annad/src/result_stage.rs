@@ -169,6 +169,7 @@ pub fn wrap_with_theatre(
 
 /// v0.0.322: Record probe usage and effectiveness for learning
 /// v0.0.324: Enhanced with LLM self-assessment quality scores
+/// v0.0.325: Also records successful patterns for keyword learning
 fn record_probe_learning(result: &ServiceDeskResult) {
     // Extract user query from transcript
     let query = extract_query_from_transcript(result);
@@ -234,6 +235,16 @@ fn record_probe_learning(result: &ServiceDeskResult) {
             Some(&query),
             failure_reason,
         );
+
+        // v0.0.325: Record successful patterns for keyword learning
+        if helpful {
+            let quality = quality_score.unwrap_or(
+                if result.reliability_score >= 90 { 5 }
+                else if result.reliability_score >= 80 { 4 }
+                else { 3 }
+            );
+            store.record_success(&query, &probes, quality, category.clone());
+        }
     }
 
     // Save store (ignore errors - learning is best-effort)

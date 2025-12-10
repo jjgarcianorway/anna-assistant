@@ -123,16 +123,40 @@ pub fn build_translator_request(input: &TranslatorInput) -> String {
 }
 
 /// v0.0.322: Get probe recommendations from learning store
+/// v0.0.325: Also uses keyword-based suggestions
 fn get_probe_recommendations(query: &str) -> String {
     let store = ProbeLearningStore::load();
     let category = QueryCategory::from_query(query);
 
-    let recs = store.get_recommended_probes(&category);
+    // Get category-based recommendations
+    let category_recs = store.get_recommended_probes(&category);
 
-    // Only include probes with score > 0.6 and at least some usage
-    let good_probes: Vec<String> = recs
+    // v0.0.325: Get keyword-based suggestions
+    let keyword_suggestions = store.suggest_probes_for_query(query);
+
+    // Combine both sources, prioritizing keyword matches
+    let mut combined: std::collections::HashMap<String, f32> = std::collections::HashMap::new();
+
+    // Add category recommendations
+    for (probe_id, score) in &category_recs {
+        if *score > 0.6 {
+            combined.insert(probe_id.clone(), *score);
+        }
+    }
+
+    // Boost probes that also match keywords
+    for (probe_id, keyword_count) in &keyword_suggestions {
+        let boost = (*keyword_count as f32 * 0.1).min(0.3); // Max 30% boost
+        let entry = combined.entry(probe_id.clone()).or_insert(0.5);
+        *entry = (*entry + boost).min(1.0);
+    }
+
+    // Sort by score
+    let mut sorted: Vec<_> = combined.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    let good_probes: Vec<String> = sorted
         .into_iter()
-        .filter(|(_, score)| *score > 0.6)
         .take(5) // Top 5
         .map(|(probe_id, score)| format!("{} ({:.0}%)", probe_id, score * 100.0))
         .collect();

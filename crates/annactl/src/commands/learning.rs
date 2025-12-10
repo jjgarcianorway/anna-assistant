@@ -1,8 +1,9 @@
-//! Learning stats command (v0.0.323).
+//! Learning stats command (v0.0.325).
 //!
 //! Shows what Anna has learned from experience:
 //! - Probe effectiveness per category
 //! - Negative patterns (mistakes to avoid)
+//! - Keyword associations (v0.0.325)
 
 use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::ui::colors;
@@ -16,7 +17,7 @@ pub fn handle_learning() -> Result<()> {
     println!("{}Anna Learning Stats{}", colors::HEADER, colors::RESET);
     println!();
 
-    if store.effectiveness.is_empty() {
+    if store.effectiveness.is_empty() && store.keyword_probes.is_empty() {
         println!(
             "{}No learning data yet. Ask Anna some questions!{}",
             colors::DIM,
@@ -26,42 +27,84 @@ pub fn handle_learning() -> Result<()> {
     }
 
     // Show effectiveness per category
-    println!("{}Probe Effectiveness by Category:{}", colors::BOLD, colors::RESET);
-    println!();
+    if !store.effectiveness.is_empty() {
+        println!("{}Probe Effectiveness by Category:{}", colors::BOLD, colors::RESET);
+        println!();
 
-    for (category, probes) in &store.effectiveness {
-        if probes.is_empty() {
-            continue;
+        for (category, probes) in &store.effectiveness {
+            if probes.is_empty() {
+                continue;
+            }
+
+            println!("  {}{:?}:{}", colors::CYAN, category, colors::RESET);
+
+            // Sort by score descending
+            let mut sorted_probes: Vec<_> = probes.iter().collect();
+            sorted_probes.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+
+            for (probe_id, eff) in sorted_probes.iter().take(5) {
+                let score_color = if eff.score >= 0.7 {
+                    colors::OK
+                } else if eff.score >= 0.5 {
+                    colors::WARN
+                } else {
+                    colors::ERR
+                };
+
+                let bar = score_bar(eff.score, 10);
+                println!(
+                    "    {} {}{:.0}%{} [{}] uses:{} helpful:{} fails:{}",
+                    probe_id,
+                    score_color,
+                    eff.score * 100.0,
+                    colors::RESET,
+                    bar,
+                    eff.uses,
+                    eff.helpful,
+                    eff.failures
+                );
+            }
+            println!();
         }
+    }
 
-        println!("  {}{:?}:{}", colors::CYAN, category, colors::RESET);
+    // v0.0.325: Show learned keywords
+    if !store.keyword_probes.is_empty() {
+        println!("{}Learned Keywords:{} {}", colors::BOLD, colors::RESET, store.keyword_probes.len());
+        println!();
 
-        // Sort by score descending
-        let mut sorted_probes: Vec<_> = probes.iter().collect();
-        sorted_probes.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by success count
+        let mut sorted_keywords: Vec<_> = store.keyword_probes.iter().collect();
+        sorted_keywords.sort_by(|a, b| b.1.success_count.cmp(&a.1.success_count));
 
-        for (probe_id, eff) in sorted_probes.iter().take(5) {
-            let score_color = if eff.score >= 0.7 {
-                colors::OK
-            } else if eff.score >= 0.5 {
-                colors::WARN
-            } else {
-                colors::ERR
+        for (keyword, stats) in sorted_keywords.iter().take(10) {
+            let top_probes: String = {
+                let mut probes: Vec<_> = stats.effective_probes.iter().collect();
+                probes.sort_by(|a, b| b.1.cmp(a.1));
+                probes.iter().take(3).map(|(p, _)| p.as_str()).collect::<Vec<_>>().join(", ")
             };
-
-            let bar = score_bar(eff.score, 10);
             println!(
-                "    {} {}{:.0}%{} [{}] uses:{} helpful:{} fails:{}",
-                probe_id,
-                score_color,
-                eff.score * 100.0,
+                "  {}\"{}\"{}  →  {} (success: {})",
+                colors::CYAN,
+                keyword,
                 colors::RESET,
-                bar,
-                eff.uses,
-                eff.helpful,
-                eff.failures
+                top_probes,
+                stats.success_count
             );
         }
+        println!();
+    }
+
+    // v0.0.325: Show successful patterns count
+    if !store.successful_patterns.is_empty() {
+        let stats = store.learning_stats();
+        println!(
+            "{}Successful Patterns:{} {} (avg quality: {:.1}/5)",
+            colors::BOLD,
+            colors::RESET,
+            stats.successful_patterns,
+            stats.avg_quality
+        );
         println!();
     }
 
@@ -99,21 +142,17 @@ pub fn handle_learning() -> Result<()> {
     }
 
     // Summary
-    let total_probes: usize = store.effectiveness.values().map(|m| m.len()).sum();
-    let total_uses: u32 = store
-        .effectiveness
-        .values()
-        .flat_map(|m| m.values())
-        .map(|e| e.uses)
-        .sum();
-
+    let stats = store.learning_stats();
     println!("{}Summary:{}", colors::BOLD, colors::RESET);
     println!(
-        "  {} categories, {} probes tracked, {} total uses, {} negative patterns",
-        store.effectiveness.len(),
-        total_probes,
-        total_uses,
-        store.negative_patterns.len()
+        "  {} queries processed, {} keywords learned",
+        stats.total_queries,
+        stats.keywords_learned
+    );
+    println!(
+        "  {} successful patterns, {} negative patterns",
+        stats.successful_patterns,
+        stats.negative_patterns
     );
     println!();
 

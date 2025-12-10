@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.325] - 2025-12-10
+
+### Added - Keyword-Based Probe Learning
+
+**Anna now learns which keywords lead to successful probe selections:**
+
+- **Keyword extraction**: Automatically extracts meaningful keywords from queries
+  - Filters out stop words (the, is, are, what, etc.)
+  - Keeps words 3+ characters that represent the actual query intent
+  - Example: "how is my disk space?" → ["disk", "space"]
+
+- **Keyword-to-probe mapping**: When a query succeeds, Anna remembers:
+  - Which keywords were in the query
+  - Which probes were used
+  - The quality score of the answer
+  - This builds associations like: "disk" → disk_usage, "memory" → memory_info
+
+- **Successful pattern storage**: High-quality answers (4-5/5) are stored with:
+  - Keywords extracted from the query
+  - Probes that worked well
+  - Quality score and category
+  - Used for future probe recommendations
+
+- **Combined recommendations**: Translator now uses both:
+  - Category-based: "System health queries → memory_info, cpu_info"
+  - Keyword-based: "Queries with 'disk' → disk_usage"
+  - Keyword matches boost probe confidence by up to 30%
+
+- **Learning stats display**: `annactl learning` now shows:
+  - Learned keywords with their effective probes
+  - Successful pattern count with average quality
+  - Example: `"disk" → disk_usage, memory_info (success: 5)`
+
+**Technical changes:**
+- `probe_learning.rs`: Added `KeywordProbeStats`, `SuccessfulPattern`, keyword extraction
+- `translator.rs`: Uses `suggest_probes_for_query()` for keyword-based recommendations
+- `result_stage.rs`: Records successful patterns via `store.record_success()`
+- `learning.rs`: Updated display to show keywords and patterns
+
 ## [0.0.324] - 2025-12-10
 
 ### Added - LLM Self-Assessment for Learning
