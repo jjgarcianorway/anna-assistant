@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.323] - 2025-12-10
+
+### Added - Learning Stats Command
+
+**New command to view what Anna has learned:**
+
+```bash
+annactl learning
+```
+
+Shows:
+- **Probe effectiveness by category**: Which probes work best for System, Storage, Network, etc.
+- **Score visualization**: Color-coded bars showing effectiveness (green=good, yellow=moderate, red=poor)
+- **Usage stats**: How many times each probe has been used, helped, or failed
+- **Negative patterns**: Mistakes Anna has learned to avoid
+
+Example output:
+```
+Anna Learning Stats
+
+Probe Effectiveness by Category:
+
+  SystemHealth:
+    memory_info 85% [████████░░] uses:12 helpful:10 fails:1
+    cpu_info 78% [███████░░░] uses:8 helpful:6 fails:0
+
+  Graphics:
+    vaapi_status 72% [███████░░░] uses:5 helpful:3 fails:1
+
+Negative Patterns (mistakes to avoid): 2
+  Query: how to enable hardware accel...
+    Reason: low_reliability_score
+    Probes: gpu_info, memory_info
+
+Summary: 3 categories, 8 probes tracked, 25 total uses, 2 negative patterns
+```
+
 ## [0.0.322] - 2025-12-10
 
 ### Added - Probe Learning System
