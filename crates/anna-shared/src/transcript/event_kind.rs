@@ -203,6 +203,23 @@ pub enum TranscriptEventKind {
         options: Vec<String>,
     },
 
+    /// v0.0.302: LLM call event (debug mode only)
+    /// Shows the actual prompt sent to the LLM and its response
+    LlmCall {
+        /// Which stage made the call (e.g., "translator", "specialist", "validator")
+        stage: String,
+        /// Model used
+        model: String,
+        /// The prompt sent to the LLM (may be truncated)
+        prompt: String,
+        /// The raw LLM response
+        response: String,
+        /// Duration in milliseconds
+        duration_ms: u64,
+        /// Token count (if available)
+        tokens: Option<u32>,
+    },
+
     /// Unknown event kind (forward compatibility)
     /// Deserializes any unrecognized "type" value - old clients won't crash on new kinds.
     #[serde(other)]

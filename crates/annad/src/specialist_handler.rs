@@ -116,6 +116,7 @@ pub async fn try_specialist_llm(
     {
         Ok(Ok(response)) => {
             let final_tokens = token_count.load(Ordering::Relaxed);
+            let duration_ms = stage_start.elapsed().as_millis() as u64;
             info!("Specialist generated {} tokens", final_tokens);
             // v0.0.241: Mark streaming as done
             progress.add_streaming_token(RequestStage::Specialist, "", true);
@@ -123,6 +124,17 @@ pub async fn try_specialist_llm(
             // v0.0.290: Clean response (strip reasoning tags + redact sensitive content)
             let cleaned = redact::clean_llm_response(&response);
             progress.add_specialist_message(&cleaned);
+            // v0.0.302: Record LLM call details if debug mode
+            if debug_mode {
+                progress.add_llm_call(
+                    "specialist",
+                    model,
+                    &full_prompt,
+                    &response,
+                    duration_ms,
+                    Some(final_tokens as u32),
+                );
+            }
             (cleaned, false, None, SpecialistOutcome::Ok, None)
         }
         Ok(Err(e)) => {

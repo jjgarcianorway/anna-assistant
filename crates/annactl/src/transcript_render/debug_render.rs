@@ -256,6 +256,17 @@ pub fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
                 event_renders::render_action_confirmation(prompt, options);
                 last_actor = None;
             }
+            TranscriptEventKind::LlmCall {
+                stage,
+                model,
+                prompt,
+                response,
+                duration_ms,
+                tokens,
+            } => {
+                render_llm_call(stage, model, prompt, response, *duration_ms, *tokens);
+                last_actor = None;
+            }
             TranscriptEventKind::Unknown => {}
         }
     }
@@ -289,6 +300,49 @@ fn render_message(from: &Actor, text: &str, output_mode: OutputMode, last_actor:
     for line in formatted.lines().filter(|l| !l.trim().is_empty()) {
         println!("{}", line);
     }
+}
+
+/// v0.0.302: Render LLM call details (debug mode only)
+fn render_llm_call(
+    stage: &str,
+    model: &str,
+    prompt: &str,
+    response: &str,
+    duration_ms: u64,
+    tokens: Option<u32>,
+) {
+    println!(
+        "\n{}[llm:{}]{} model={} {}ms{}",
+        colors::CYAN,
+        stage,
+        colors::RESET,
+        model,
+        duration_ms,
+        tokens.map_or(String::new(), |t| format!(" tokens={}", t))
+    );
+
+    // Show truncated prompt (first 500 chars)
+    println!("{}--- prompt ---{}", colors::DIM, colors::RESET);
+    let prompt_preview = if prompt.len() > 500 {
+        format!("{}...\n[{} chars total]", &prompt[..500], prompt.len())
+    } else {
+        prompt.to_string()
+    };
+    for line in prompt_preview.lines().take(20) {
+        println!("{}{}{}", colors::DIM, line, colors::RESET);
+    }
+
+    // Show truncated response (first 500 chars)
+    println!("{}--- response ---{}", colors::DIM, colors::RESET);
+    let response_preview = if response.len() > 500 {
+        format!("{}...\n[{} chars total]", &response[..500], response.len())
+    } else {
+        response.to_string()
+    };
+    for line in response_preview.lines().take(20) {
+        println!("{}", line);
+    }
+    println!("{}--- end llm ---{}", colors::DIM, colors::RESET);
 }
 
 fn render_summary(result: &ServiceDeskResult) {

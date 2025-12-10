@@ -13,11 +13,7 @@ mod spinner;
 mod stats_display;
 mod stats_display_v2;
 mod status_display_v2;
-mod status_statistics;
-mod status_telemetry;
-mod status_learning;
 mod theatre_render;
-mod time_format;
 mod transcript_render;
 
 use anyhow::Result;

@@ -276,6 +276,7 @@ impl AnnadClient {
     }
 
     /// v0.0.275: Generate personalized greeting via LLM
+    #[allow(dead_code)]
     pub async fn generate_greeting(
         &mut self,
         ctx: &anna_shared::greeting_context::GreetingContext,

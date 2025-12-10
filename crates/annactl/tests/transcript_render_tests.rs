@@ -454,6 +454,7 @@ fn test_all_event_kinds_have_render_path() {
             TranscriptEventKind::DeterministicPath { .. } => "deterministic_path",
             TranscriptEventKind::ProposedAction { .. } => "proposed_action",
             TranscriptEventKind::ActionConfirmationRequest { .. } => "action_confirmation_request",
+            TranscriptEventKind::LlmCall { .. } => "llm_call",
             TranscriptEventKind::Unknown => "unknown",
         })
         .collect();

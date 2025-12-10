@@ -238,6 +238,27 @@ impl ProgressTracker {
             .push(TranscriptEvent::final_answer(self.elapsed_ms(), text));
     }
 
+    /// v0.0.302: Record LLM call details (debug mode only)
+    pub fn add_llm_call(
+        &mut self,
+        stage: &str,
+        model: &str,
+        prompt: &str,
+        response: &str,
+        duration_ms: u64,
+        tokens: Option<u32>,
+    ) {
+        self.transcript.push(TranscriptEvent::llm_call(
+            self.elapsed_ms(),
+            stage,
+            model,
+            prompt,
+            response,
+            duration_ms,
+            tokens,
+        ));
+    }
+
     /// v0.0.241: Get all events (including streaming events)
     /// Merges main events with streaming events
     pub fn events(&self) -> Vec<ProgressEvent> {

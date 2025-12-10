@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.302] - 2025-12-10
+
+### Added - Debug Mode: Real LLM Output
+
+**Debug mode now shows actual LLM prompts and responses:**
+- New `LlmCall` transcript event captures LLM calls in debug mode
+- Shows stage (specialist), model, prompt (truncated), response, duration, token count
+- "Fly on the wall" view of what Anna is actually sending to the LLM
+
+### Removed - Dead Code Cleanup
+
+**Removed unused status display modules:**
+- `status_statistics.rs`, `status_telemetry.rs`, `status_learning.rs`, `time_format.rs`
+- These were used by old stats display, now removed with redesign
+
 ## [0.0.301] - 2025-12-10
 
 ### Changed - Stats Redesign: Service Desk Staff Performance

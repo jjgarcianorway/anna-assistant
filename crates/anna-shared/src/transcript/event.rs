@@ -262,4 +262,29 @@ impl TranscriptEvent {
             },
         }
     }
+
+    /// v0.0.302: Create LLM call event (debug mode only)
+    pub fn llm_call(
+        elapsed_ms: u64,
+        stage: impl Into<String>,
+        model: impl Into<String>,
+        prompt: impl Into<String>,
+        response: impl Into<String>,
+        duration_ms: u64,
+        tokens: Option<u32>,
+    ) -> Self {
+        Self {
+            elapsed_ms,
+            from: Actor::System,
+            to: None,
+            kind: TranscriptEventKind::LlmCall {
+                stage: stage.into(),
+                model: model.into(),
+                prompt: prompt.into(),
+                response: response.into(),
+                duration_ms,
+                tokens,
+            },
+        }
+    }
 }
