@@ -470,7 +470,6 @@ async fn handle_llm_request_inner(
     // Step 9: v0.0.297 - Run verification stage with LLM self-healing
     let verification_input = VerificationInput {
         request_id: &request_id,
-        id: &id,
         query,
         specialist_result: &specialist_result,
         ticket: &ticket,

@@ -26,7 +26,6 @@ use super::helpers::record_event_log;
 /// Input for the verification stage
 pub struct VerificationInput<'a> {
     pub request_id: &'a str,
-    pub id: &'a str,
     pub query: &'a str,
     pub specialist_result: &'a SpecialistResult,
     pub ticket: &'a anna_shared::rpc::TranslatorTicket,
@@ -76,7 +75,6 @@ pub fn build_reliability_input(
 /// Verification loop result (v0.0.298: includes validated status)
 pub struct VerificationResult {
     pub answer: String,
-    pub score: u8,
     pub validated: bool,
 }
 
@@ -134,7 +132,6 @@ pub async fn run_verification(
     // v0.0.298: Return full verification result including validated status
     VerificationResult {
         answer: verification_result.answer,
-        score: verification_result.score,
         validated: verification_result.verified,
     }
 }

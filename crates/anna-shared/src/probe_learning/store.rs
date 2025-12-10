@@ -8,9 +8,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use super::types::{
-    DecayResult, KeywordProbeStats, LearningHealth, LearningStats, NegativePattern,
-    ProbeEffectiveness, QualityDataPoint, QualityTrend, QueryCategory, SuccessfulPattern,
-    TrendDirection,
+    KeywordProbeStats, LearningHealth, LearningStats, NegativePattern, ProbeEffectiveness,
+    QualityDataPoint, QualityTrend, QueryCategory, SuccessfulPattern, TrendDirection,
 };
 use super::utils::extract_keywords;
 

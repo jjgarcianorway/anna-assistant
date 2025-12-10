@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.350] - 2025-12-10
+
+### Fixed - Removed Unused Code and Warnings
+
+Cleaned up compiler warnings for better code quality:
+
+**Removed:**
+- Unused `DecayResult` import in `probe_learning/store.rs`
+- Unused `id` field from `VerificationInput` struct
+- Unused `score` field from `VerificationResult` struct
+
+Zero warnings in release build.
+
 ## [0.0.349] - 2025-12-10
 
 ### Added - print_step() Helper Function
