@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.337] - 2025-12-10
+
+### Improved - UI Consistency & Output Formatting
+
+Major refactor for consistent CLI output across all commands:
+
+**New UI Helpers:**
+- `print_section_header()` - Standard `[section]` format with HEADER color
+- `print_label()` - Contextual `[label] message` with custom color
+- `print_hint()` - Dim helper text for tips and secondary info
+- `kv()` / `kv_colored()` - Key-value pairs with 22-char alignment
+- Added `WARN`, `INFO`, `BULLET` symbols
+
+**Refactored Files:**
+- `errors.rs` - Unified error/warn/info label formatting
+- `config.rs` - Consistent settings display with proper alignment
+- `feedback.rs` - Standardized feedback prompts and responses
+- `transcript_render/event_renders.rs` - Consistent debug output
+
+**Before:**
+```
+[error] Title      (red brackets)
+[config] message   (cyan brackets)
+[feedback] prompt  (dim brackets)
+```
+
+**After:**
+```
+[error] Title      (all use print_label with contextual color)
+[config] message
+[feedback] prompt
+```
+
+All output now uses centralized formatting functions for maintainability.
+
 ## [0.0.336] - 2025-12-10
 
 ### Added - Feedback Recording to Learning

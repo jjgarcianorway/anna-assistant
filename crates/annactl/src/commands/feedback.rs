@@ -1,12 +1,13 @@
-//! Feedback handling (v0.0.336).
+//! Feedback handling (v0.0.337).
 //! v0.0.304: Uses centralized error presentation.
 //! v0.0.317: Also applies feedback to staff XP.
 //! v0.0.336: Also applies feedback to probe learning.
+//! v0.0.337: Use centralized UI printing for consistency.
 
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::staff_stats::StaffStats;
 use anna_shared::ticket_tracker::TicketTracker;
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, print_hint, print_label};
 use anyhow::Result;
 use std::io::{self, Write};
 
@@ -22,12 +23,7 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
     };
 
     println!();
-    println!(
-        "{}[feedback]{} {}",
-        colors::DIM,
-        colors::RESET,
-        feedback_req.question
-    );
+    print_label("feedback", &feedback_req.question, colors::DIM);
     print!("> ");
     let _ = io::stdout().flush();
 
@@ -43,11 +39,7 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
         "partial" | "meh" | "ok" => Some(FeedbackRating::Partial),
         "" | "skip" => None, // User skipped feedback
         _ => {
-            println!(
-                "{}Skipping feedback (unrecognized input){}",
-                colors::DIM,
-                colors::RESET
-            );
+            print_hint("Skipping feedback (unrecognized input)");
             None
         }
     };
@@ -61,15 +53,13 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
         log_feedback(&feedback);
 
         if let Some(result) = apply_feedback(&feedback) {
-            println!(
-                "{}Thanks!{} Recipe confidence adjusted ({} → {})",
+            print_label(
+                "ok",
+                &format!("Recipe confidence adjusted ({} → {})", result.previous_score, result.new_score),
                 colors::OK,
-                colors::RESET,
-                result.previous_score,
-                result.new_score
             );
         } else {
-            println!("{}Thanks for the feedback!{}", colors::OK, colors::RESET);
+            print_label("ok", "Thanks for the feedback!", colors::OK);
         }
 
         // v0.0.317: Also apply feedback to staff XP
@@ -114,14 +104,11 @@ fn apply_staff_feedback(helpful: bool) {
                 } else {
                     "leveled down"
                 };
-                println!(
-                    "{}[staff]{} {} {} (level {} → {})",
+                let staff_name = staff_id.split('_').last().unwrap_or(&staff_id);
+                print_label(
+                    "staff",
+                    &format!("{} {} (level {} → {})", staff_name, direction, result.old_level, result.new_level),
                     colors::DIM,
-                    colors::RESET,
-                    staff_id.split('_').last().unwrap_or(&staff_id),
-                    direction,
-                    result.old_level,
-                    result.new_level
                 );
             }
         }

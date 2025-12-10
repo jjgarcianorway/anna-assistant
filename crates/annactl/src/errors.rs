@@ -1,8 +1,10 @@
-//! User-friendly error presentation (v0.0.304).
+//! User-friendly error presentation (v0.0.337).
 //!
 //! Provides consistent, helpful error messages with recovery suggestions.
+//! v0.0.304: Initial implementation.
+//! v0.0.337: Use centralized UI printing for consistency.
 
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, print_label, symbols};
 
 /// Error categories for user-friendly presentation
 pub enum ErrorKind {
@@ -110,16 +112,11 @@ pub fn print_error(e: &anyhow::Error) {
     let kind = ErrorKind::from_error(e);
 
     println!();
-    println!(
-        "{}[error]{} {}",
-        colors::ERR,
-        colors::RESET,
-        kind.title()
-    );
+    print_label("error", kind.title(), colors::ERR);
 
     // Show technical detail for internal errors
     if let ErrorKind::Internal { detail } | ErrorKind::InvalidInput { detail } = &kind {
-        println!("{}  {}{}", colors::DIM, detail, colors::RESET);
+        println!("  {}{}{}", colors::DIM, detail, colors::RESET);
     }
 
     // Show recovery suggestions
@@ -128,7 +125,7 @@ pub fn print_error(e: &anyhow::Error) {
         println!();
         println!("{}To fix this:{}", colors::DIM, colors::RESET);
         for suggestion in suggestions {
-            println!("  {} {}", bullet(), suggestion);
+            println!("  {} {}", symbols::ARROW, suggestion);
         }
     }
     println!();
@@ -136,27 +133,13 @@ pub fn print_error(e: &anyhow::Error) {
 
 /// Print a simple warning (not a full error)
 pub fn print_warning(msg: &str) {
-    println!(
-        "{}[warn]{} {}",
-        colors::WARN,
-        colors::RESET,
-        msg
-    );
+    print_label("warn", msg, colors::WARN);
 }
 
 /// Print an info message
 #[allow(dead_code)]
 pub fn print_info(msg: &str) {
-    println!(
-        "{}[info]{} {}",
-        colors::CYAN,
-        colors::RESET,
-        msg
-    );
-}
-
-fn bullet() -> &'static str {
-    "›"
+    print_label("info", msg, colors::CYAN);
 }
 
 fn extract_timeout_secs(msg: &str) -> Option<u64> {

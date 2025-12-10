@@ -1,4 +1,4 @@
-//! Configuration change handler for REPL (v0.0.239).
+//! Configuration change handler for REPL (v0.0.337).
 //!
 //! Handles natural language config requests like:
 //! - "Anna, enable learning mode"
@@ -7,10 +7,11 @@
 //! - "my email is user@example.com"
 //!
 //! v0.0.239: Added natural language email setup.
+//! v0.0.337: Use centralized UI printing for consistent output.
 
 use anna_shared::config_parser::{parse_config_request, ConfigChange};
 use anna_shared::email::EmailConfig;
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, kv_colored, print_hint, print_label, print_section_header, kv};
 use anna_shared::user_profile::UserProfile;
 
 /// Result of attempting to handle a config request
@@ -49,23 +50,13 @@ fn apply_config_change(change: &ConfigChange) {
 
     // Save profile
     if let Err(e) = profile.save() {
-        println!(
-            "{}Warning: Could not save preferences: {}{}",
-            colors::WARN,
-            e,
-            colors::RESET
-        );
+        print_label("warn", &format!("Could not save preferences: {}", e), colors::WARN);
         return;
     }
 
     // Show confirmation
     println!();
-    println!(
-        "{}[config]{} {}",
-        colors::CYAN,
-        colors::RESET,
-        change.description()
-    );
+    print_label("config", &change.description(), colors::HEADER);
 
     // Show tip for related features
     show_config_tip(change);
@@ -90,30 +81,16 @@ fn apply_email_change(change: &ConfigChange) {
     }
 
     if let Err(e) = config.save() {
-        println!(
-            "{}Warning: Could not save email config: {}{}",
-            colors::WARN,
-            e,
-            colors::RESET
-        );
+        print_label("warn", &format!("Could not save email config: {}", e), colors::WARN);
         return;
     }
 
     println!();
-    println!(
-        "{}[config]{} {}",
-        colors::CYAN,
-        colors::RESET,
-        change.description()
-    );
+    print_label("config", &change.description(), colors::HEADER);
 
     // Show tip
     if let ConfigChange::Email(_) = change {
-        println!(
-            "  {}When a request takes a long time, I'll email you the answer.{}",
-            colors::DIM,
-            colors::RESET
-        );
+        print_hint("When a request takes a long time, I'll email you the answer.");
     }
 }
 
@@ -147,7 +124,7 @@ fn show_config_tip(change: &ConfigChange) {
     };
 
     if let Some(t) = tip {
-        println!("  {}{}{}", colors::DIM, t, colors::RESET);
+        print_hint(t);
     }
 }
 
@@ -159,94 +136,61 @@ pub fn show_config_status() {
     let email_config = EmailConfig::load();
 
     println!();
-    println!("{}Current Settings:{}", colors::HEADER, colors::RESET);
-    println!();
+    print_section_header("settings");
 
     // Learning & verbosity
-    println!(
-        "  Learning mode:    {}",
-        if prefs.learning_mode {
-            format!("{}enabled{}", colors::OK, colors::RESET)
-        } else {
-            format!("{}disabled{}", colors::DIM, colors::RESET)
-        }
-    );
-    println!(
-        "  Verbosity:        {}",
-        match prefs.verbosity {
-            0 => "minimal",
-            1 => "normal",
-            _ => "detailed",
-        }
-    );
+    if prefs.learning_mode {
+        kv_colored("learning_mode", "enabled", colors::OK);
+    } else {
+        kv_colored("learning_mode", "disabled", colors::DIM);
+    }
+    kv("verbosity", match prefs.verbosity {
+        0 => "minimal",
+        1 => "normal",
+        _ => "detailed",
+    });
 
     // Automation
-    println!(
-        "  Auto-confirm:     {}",
-        if prefs.auto_confirm_low_risk {
-            format!("{}low-risk{}", colors::OK, colors::RESET)
-        } else {
-            format!("{}ask always{}", colors::DIM, colors::RESET)
-        }
-    );
-    println!(
-        "  Internal comms:   {}",
-        if prefs.show_internal_comms {
-            format!("{}visible{}", colors::OK, colors::RESET)
-        } else {
-            format!("{}hidden{}", colors::DIM, colors::RESET)
-        }
-    );
+    if prefs.auto_confirm_low_risk {
+        kv_colored("auto_confirm", "low-risk", colors::OK);
+    } else {
+        kv_colored("auto_confirm", "ask always", colors::DIM);
+    }
+    if prefs.show_internal_comms {
+        kv_colored("internal_comms", "visible", colors::OK);
+    } else {
+        kv_colored("internal_comms", "hidden", colors::DIM);
+    }
 
     // v0.0.239: Email notifications
-    println!(
-        "  Email:            {}",
-        if let Some(ref email) = email_config.user_email {
-            format!("{}{}{}", colors::OK, email, colors::RESET)
-        } else {
-            format!("{}not set{}", colors::DIM, colors::RESET)
-        }
-    );
+    if let Some(ref email) = email_config.user_email {
+        kv_colored("email", email, colors::OK);
+    } else {
+        kv_colored("email", "not set", colors::DIM);
+    }
 
     // Personality
     println!();
-    println!("{}Personality:{}", colors::HEADER, colors::RESET);
-    println!(
-        "  Formality:        {}",
-        match pers.formality {
-            0 => "casual",
-            1 => "balanced",
-            _ => "formal",
-        }
-    );
-    println!(
-        "  Humor:            {}",
-        match pers.humor {
-            0 => "none",
-            1 => "subtle",
-            _ => "playful",
-        }
-    );
-    println!(
-        "  Technical depth:  {}",
-        match pers.technical_depth {
-            0 => "simple",
-            1 => "balanced",
-            _ => "expert",
-        }
-    );
+    print_section_header("personality");
+    kv("formality", match pers.formality {
+        0 => "casual",
+        1 => "balanced",
+        _ => "formal",
+    });
+    kv("humor", match pers.humor {
+        0 => "none",
+        1 => "subtle",
+        _ => "playful",
+    });
+    kv("technical_depth", match pers.technical_depth {
+        0 => "simple",
+        1 => "balanced",
+        _ => "expert",
+    });
 
     println!();
-    println!(
-        "{}Change settings with natural language, e.g.:{}",
-        colors::DIM,
-        colors::RESET
-    );
-    println!(
-        "{}  \"make Anna more casual\" or \"my email is user@example.com\"{}",
-        colors::DIM,
-        colors::RESET
-    );
+    print_hint("Change settings with natural language, e.g.:");
+    print_hint("\"make Anna more casual\" or \"my email is user@example.com\"");
 }
 
 #[cfg(test)]
