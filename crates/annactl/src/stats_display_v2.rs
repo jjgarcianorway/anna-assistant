@@ -1,4 +1,4 @@
-//! Stats display v2 - Service Desk Staff Performance Report (v0.0.330).
+//! Stats display v2 - Service Desk Staff Performance Report (v0.0.331).
 //!
 //! Clean, focused view of the service desk with real staff metrics:
 //! - Service desk summary (total tickets, resolved, escalated)
@@ -9,9 +9,10 @@
 //!
 //! v0.0.316: Improved formatting to match service desk vision.
 //! v0.0.330: Added probe learning stats section.
+//! v0.0.331: Added quality trend to learning section.
 
 use anna_shared::event_log::EventLog;
-use anna_shared::probe_learning::ProbeLearningStore;
+use anna_shared::probe_learning::{ProbeLearningStore, TrendDirection};
 use anna_shared::roster::{person_by_id, Tier};
 use anna_shared::staff_stats::{level_title, StaffStats};
 use anna_shared::stats::GlobalStats;
@@ -262,6 +263,22 @@ fn print_learning_section() {
         format!("{}Learning{}", colors::DIM, colors::RESET)
     };
     kv("stage", &stage);
+
+    // v0.0.331: Quality trend
+    if let Some(trend) = store.quality_trend() {
+        let (trend_icon, trend_color) = match trend.trend {
+            TrendDirection::Improving => ("^", colors::OK),
+            TrendDirection::Declining => ("v", colors::ERR),
+            TrendDirection::Stable => ("=", colors::DIM),
+        };
+        kv(
+            "trend",
+            &format!(
+                "{}{}{} {} (was {:.1}, now {:.1})",
+                trend_color, trend_icon, colors::RESET, trend.trend, trend.previous_avg, trend.current_avg
+            ),
+        );
+    }
 }
 
 fn kv(key: &str, value: &str) {

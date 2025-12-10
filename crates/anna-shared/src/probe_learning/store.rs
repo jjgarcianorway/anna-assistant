@@ -1,0 +1,350 @@
+//! Probe learning store (v0.0.331).
+//!
+//! Persistent storage and core operations for probe learning.
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+
+use super::types::*;
+use super::utils::extract_keywords;
+
+/// Probe learning store - persists probe effectiveness data
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProbeLearningStore {
+    /// Effectiveness scores by (category, probe_id)
+    pub effectiveness: HashMap<QueryCategory, HashMap<String, ProbeEffectiveness>>,
+    /// Query patterns that led to poor answers (for negative learning)
+    pub negative_patterns: Vec<NegativePattern>,
+    /// Keyword to probe mapping (learned associations)
+    #[serde(default)]
+    pub keyword_probes: HashMap<String, KeywordProbeStats>,
+    /// Successful query patterns (for positive learning)
+    #[serde(default)]
+    pub successful_patterns: Vec<SuccessfulPattern>,
+    /// Last decay timestamp (Unix seconds)
+    #[serde(default)]
+    pub last_decay_time: u64,
+    /// v0.0.331: Quality trend history (weekly averages)
+    #[serde(default)]
+    pub quality_history: Vec<QualityDataPoint>,
+    /// Version for migration
+    pub version: u32,
+}
+
+impl ProbeLearningStore {
+    /// Load from disk or create new
+    pub fn load() -> Self {
+        let path = Self::store_path();
+        if let Ok(content) = fs::read_to_string(&path) {
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            Self::default()
+        }
+    }
+
+    /// Save to disk
+    pub fn save(&self) -> Result<(), String> {
+        let path = Self::store_path();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let content = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        fs::write(&path, content).map_err(|e| e.to_string())
+    }
+
+    /// Store path
+    pub fn store_path() -> PathBuf {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        PathBuf::from(home).join(".anna").join("probe_learning.json")
+    }
+
+    /// Reset all learning data
+    pub fn reset() -> Result<(), String> {
+        let path = Self::store_path();
+        if path.exists() {
+            fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
+    /// Record probe usage for a query
+    pub fn record_usage(&mut self, category: QueryCategory, probe_id: &str, failed: bool) {
+        let category_map = self.effectiveness.entry(category).or_default();
+        let probe = category_map.entry(probe_id.to_string()).or_default();
+        probe.uses += 1;
+        if failed {
+            probe.failures += 1;
+        }
+        probe.compute_score();
+    }
+
+    /// Record feedback (helpful or not)
+    pub fn record_feedback(
+        &mut self,
+        category: QueryCategory,
+        probes: &[String],
+        helpful: bool,
+        query: Option<&str>,
+        failure_reason: Option<&str>,
+    ) {
+        let category_map = self.effectiveness.entry(category.clone()).or_default();
+
+        for probe_id in probes {
+            let probe = category_map.entry(probe_id.to_string()).or_default();
+            if helpful {
+                probe.helpful += 1;
+            } else {
+                probe.not_helpful += 1;
+            }
+            probe.compute_score();
+        }
+
+        // Record negative pattern for learning
+        if !helpful {
+            if let (Some(q), Some(reason)) = (query, failure_reason) {
+                self.negative_patterns.push(NegativePattern {
+                    query: q.to_string(),
+                    category,
+                    probes_used: probes.to_vec(),
+                    failure_reason: reason.to_string(),
+                    timestamp: now_secs(),
+                });
+
+                // Keep only last 100 negative patterns
+                if self.negative_patterns.len() > 100 {
+                    self.negative_patterns.remove(0);
+                }
+            }
+        }
+    }
+
+    /// Get probe recommendations for a category (sorted by effectiveness)
+    pub fn get_recommended_probes(&self, category: &QueryCategory) -> Vec<(String, f32)> {
+        let mut recommendations: Vec<(String, f32)> = self
+            .effectiveness
+            .get(category)
+            .map(|m| {
+                m.iter()
+                    .map(|(probe_id, eff)| (probe_id.clone(), eff.score))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        recommendations.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        recommendations
+    }
+
+    /// Check if a query+probe combo has been problematic before
+    pub fn is_known_bad_combo(&self, query: &str, probes: &[String]) -> Option<&str> {
+        let q_lower = query.to_lowercase();
+        for pattern in &self.negative_patterns {
+            let pattern_words: Vec<&str> = pattern.query.split_whitespace().collect();
+            let query_words: Vec<&str> = q_lower.split_whitespace().collect();
+            let overlap = pattern_words.iter()
+                .filter(|w| query_words.contains(w))
+                .count();
+
+            if overlap >= 2 && probes.iter().any(|p| pattern.probes_used.contains(p)) {
+                return Some(&pattern.failure_reason);
+            }
+        }
+        None
+    }
+
+    /// Get summary stats for display
+    pub fn summary(&self) -> String {
+        let total_categories = self.effectiveness.len();
+        let total_probes: usize = self.effectiveness.values().map(|m| m.len()).sum();
+        let total_uses: u32 = self.effectiveness.values()
+            .flat_map(|m| m.values())
+            .map(|e| e.uses)
+            .sum();
+        let negative_patterns = self.negative_patterns.len();
+
+        format!(
+            "{} categories, {} probes tracked, {} uses, {} negative patterns",
+            total_categories, total_probes, total_uses, negative_patterns
+        )
+    }
+
+    /// Record a successful query pattern
+    pub fn record_success(&mut self, query: &str, probes: &[String], quality: u8, category: QueryCategory) {
+        let keywords = extract_keywords(query);
+
+        if keywords.is_empty() || probes.is_empty() {
+            return;
+        }
+
+        // Update keyword-probe associations
+        for keyword in &keywords {
+            let stats = self.keyword_probes.entry(keyword.clone()).or_default();
+            stats.success_count += 1;
+            for probe in probes {
+                *stats.effective_probes.entry(probe.clone()).or_insert(0) += 1;
+            }
+        }
+
+        // Store successful pattern
+        self.successful_patterns.push(SuccessfulPattern {
+            keywords,
+            probes: probes.to_vec(),
+            quality,
+            category,
+            timestamp: now_secs(),
+        });
+
+        // Keep only last 200 successful patterns
+        if self.successful_patterns.len() > 200 {
+            self.successful_patterns.remove(0);
+        }
+
+        // v0.0.331: Update quality history
+        self.update_quality_history();
+    }
+
+    /// Get probe suggestions based on query keywords
+    pub fn suggest_probes_for_query(&self, query: &str) -> Vec<(String, u32)> {
+        let keywords = extract_keywords(query);
+
+        if keywords.is_empty() {
+            return vec![];
+        }
+
+        let mut probe_scores: HashMap<String, u32> = HashMap::new();
+
+        for keyword in &keywords {
+            if let Some(stats) = self.keyword_probes.get(keyword) {
+                for (probe, count) in &stats.effective_probes {
+                    *probe_scores.entry(probe.clone()).or_insert(0) += count;
+                }
+            }
+        }
+
+        let mut suggestions: Vec<_> = probe_scores.into_iter().collect();
+        suggestions.sort_by(|a, b| b.1.cmp(&a.1));
+        suggestions.truncate(5);
+
+        suggestions
+    }
+
+    /// Get learning stats for display
+    pub fn learning_stats(&self) -> LearningStats {
+        LearningStats {
+            total_queries: self.successful_patterns.len() + self.negative_patterns.len(),
+            successful_patterns: self.successful_patterns.len(),
+            negative_patterns: self.negative_patterns.len(),
+            keywords_learned: self.keyword_probes.len(),
+            categories_with_data: self.effectiveness.len(),
+            avg_quality: self.successful_patterns.iter()
+                .map(|p| p.quality as f32)
+                .sum::<f32>() / self.successful_patterns.len().max(1) as f32,
+        }
+    }
+
+    /// v0.0.331: Get quality trend (comparing recent vs previous period)
+    pub fn quality_trend(&self) -> Option<QualityTrend> {
+        let now = now_secs();
+        let week_secs = 7 * 24 * 60 * 60;
+
+        // Get patterns from last 7 days
+        let recent: Vec<_> = self.successful_patterns.iter()
+            .filter(|p| now - p.timestamp < week_secs)
+            .collect();
+
+        // Get patterns from 7-14 days ago
+        let previous: Vec<_> = self.successful_patterns.iter()
+            .filter(|p| {
+                let age = now - p.timestamp;
+                age >= week_secs && age < 2 * week_secs
+            })
+            .collect();
+
+        if recent.is_empty() && previous.is_empty() {
+            return None;
+        }
+
+        let current_avg = if recent.is_empty() {
+            0.0
+        } else {
+            recent.iter().map(|p| p.quality as f32).sum::<f32>() / recent.len() as f32
+        };
+
+        let previous_avg = if previous.is_empty() {
+            current_avg // No change if no previous data
+        } else {
+            previous.iter().map(|p| p.quality as f32).sum::<f32>() / previous.len() as f32
+        };
+
+        let change = current_avg - previous_avg;
+        let trend = if change > 0.3 {
+            TrendDirection::Improving
+        } else if change < -0.3 {
+            TrendDirection::Declining
+        } else {
+            TrendDirection::Stable
+        };
+
+        Some(QualityTrend {
+            current_avg,
+            previous_avg,
+            trend,
+            change,
+        })
+    }
+
+    /// v0.0.331: Update quality history (called after recording success)
+    fn update_quality_history(&mut self) {
+        let now = now_secs();
+        let day_secs = 24 * 60 * 60;
+
+        // Check if we need a new data point (daily granularity)
+        let needs_new_point = self.quality_history.last()
+            .map(|last| now - last.timestamp >= day_secs)
+            .unwrap_or(true);
+
+        if needs_new_point {
+            // Calculate today's average
+            let today_start = now - (now % day_secs);
+            let today_patterns: Vec<_> = self.successful_patterns.iter()
+                .filter(|p| p.timestamp >= today_start)
+                .collect();
+
+            if !today_patterns.is_empty() {
+                let avg = today_patterns.iter()
+                    .map(|p| p.quality as f32)
+                    .sum::<f32>() / today_patterns.len() as f32;
+
+                self.quality_history.push(QualityDataPoint {
+                    timestamp: today_start,
+                    avg_quality: avg,
+                    query_count: today_patterns.len() as u32,
+                });
+
+                // Keep only last 30 days
+                if self.quality_history.len() > 30 {
+                    self.quality_history.remove(0);
+                }
+            }
+        }
+    }
+
+    /// Apply decay if needed on load
+    pub fn load_with_decay() -> Self {
+        let mut store = Self::load();
+        let result = store.apply_decay();
+        if result.applied {
+            let _ = store.save();
+        }
+        store
+    }
+}
+
+/// Get current Unix timestamp in seconds
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}

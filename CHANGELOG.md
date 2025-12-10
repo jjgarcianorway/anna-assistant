@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.331] - 2025-12-10
+
+### Added - Quality Trends & Module Refactoring
+
+**Quality trend tracking in stats:**
+
+```
+[learning]
+  ...
+  trend                 ^ improving (was 3.8, now 4.2)
+```
+
+Shows whether Anna's answer quality is improving, stable, or declining by comparing the last 7 days vs the previous 7 days.
+
+**Modularized probe_learning:**
+
+Split the 658-line `probe_learning.rs` into organized modules:
+- `probe_learning/types.rs`: Data structures (255 lines)
+- `probe_learning/store.rs`: Core storage operations (350 lines)
+- `probe_learning/decay.rs`: Learning decay system (83 lines)
+- `probe_learning/utils.rs`: Keyword extraction (52 lines)
+- `probe_learning/mod.rs`: Public API (112 lines)
+
+All files now under 400 lines for better maintainability.
+
+**Technical changes:**
+- Added `QualityDataPoint`, `QualityTrend`, `TrendDirection` types
+- Added `quality_history` field to track daily averages
+- Added `quality_trend()` method for week-over-week comparison
+- Stats display shows trend with ^ (improving), = (stable), or v (declining)
+
 ## [0.0.330] - 2025-12-10
 
 ### Added - Learning Stats in Stats Display
