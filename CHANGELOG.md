@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.281] - 2025-12-10
+
+### Added - Proactive Health Alerts
+
+**Health Alerts System:**
+- New `health_alerts.rs` module for generating proactive alerts
+- Converts telemetry anomalies into user-friendly alerts
+- Three severity levels: Info, Warning, Critical
+- Contextual recommendations for each alert type
+- Trend-based alerts (e.g., "disk filling up")
+
+**Greeting Context Integration:**
+- `GreetingContext::with_telemetry()` populates health issues from telemetry
+- Critical and warning alerts shown in greetings
+- Low health score (<70%) mentioned proactively
+- Health summary generation for LLM context
+
+**Daemon Integration:**
+- Telemetry collector started at daemon boot
+- Health alerts available for greeting generation
+
+**Files changed:**
+- New: `anna-shared/src/health_alerts.rs` - Alert generation and formatting
+- `anna-shared/src/greeting_context.rs` - Telemetry integration methods
+- `annad/src/server.rs` - Telemetry collector startup
+
 ## [0.0.280] - 2025-12-10
 
 ### Added - System Telemetry and Learning Analytics

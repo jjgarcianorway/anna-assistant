@@ -1,17 +1,21 @@
 //! Unix socket server for annad.
 //! v0.0.159: Update check loop extracted to update_loop.rs.
 //! v0.0.269: Intelligent model auto-selection with benchmarking.
+//! v0.0.281: Telemetry collector integration.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use std::sync::Arc;
 
 use anna_shared::ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 use anna_shared::rpc::RpcRequest;
+use anna_shared::system_telemetry::TelemetryStore;
 use anna_shared::{SOCKET_PATH, STATE_DIR};
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
+use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
 use crate::auto_select;
@@ -21,6 +25,7 @@ use crate::ollama;
 use crate::rpc_handler::handle_request;
 use crate::snapshot_loop::snapshot_loop;
 use crate::state::{create_shared_state, SharedState};
+use crate::telemetry_collector;
 use crate::update_loop::update_check_loop;
 
 pub struct Server {
@@ -57,6 +62,11 @@ impl Server {
         tokio::spawn(async move {
             snapshot_loop().await;
         });
+
+        // v0.0.281: Start telemetry collector
+        let telemetry_store = Arc::new(RwLock::new(TelemetryStore::load()));
+        telemetry_collector::start_collector(telemetry_store);
+        info!("Telemetry collector started");
 
         // Start socket server
         self.run_socket_server().await

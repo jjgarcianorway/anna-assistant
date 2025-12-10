@@ -2,7 +2,10 @@
 //!
 //! Provides structured context for the translator LLM to generate
 //! personalized, varied greetings while maintaining consistent content.
+//! v0.0.281: Added telemetry-based health issue population.
 
+use crate::health_alerts::{generate_alerts, AlertSeverity};
+use crate::system_telemetry::TelemetryStore;
 use serde::{Deserialize, Serialize};
 
 /// Context for generating a personalized greeting
@@ -46,6 +49,53 @@ impl Default for GreetingContext {
             last_session_summary: None,
             health_issues: Vec::new(),
             llm_status: "ready".to_string(),
+        }
+    }
+}
+
+impl GreetingContext {
+    /// Populate health issues from telemetry store
+    pub fn with_telemetry(mut self, store: &TelemetryStore) -> Self {
+        let alerts = generate_alerts(store);
+
+        // Add critical and warning alerts to health issues
+        for alert in alerts.iter().filter(|a| !a.dismissed) {
+            let prefix = match alert.severity {
+                AlertSeverity::Critical => "[!]",
+                AlertSeverity::Warning => "[*]",
+                AlertSeverity::Info => continue, // Skip info in greetings
+            };
+            self.health_issues.push(format!("{} {}", prefix, alert.message));
+        }
+
+        // Add health score insight if low
+        let score = store.health_score();
+        if score < 70 {
+            self.health_issues.push(format!(
+                "System health score: {}% (below optimal)",
+                score
+            ));
+        }
+
+        self
+    }
+
+    /// Get a summary of health status for LLM context
+    pub fn health_summary(&self) -> Option<String> {
+        if self.health_issues.is_empty() {
+            return None;
+        }
+
+        let critical = self.health_issues.iter().filter(|s| s.starts_with("[!]")).count();
+        let warnings = self.health_issues.iter().filter(|s| s.starts_with("[*]")).count();
+
+        if critical > 0 || warnings > 0 {
+            Some(format!(
+                "{} critical, {} warnings detected",
+                critical, warnings
+            ))
+        } else {
+            Some(format!("{} system notices", self.health_issues.len()))
         }
     }
 }

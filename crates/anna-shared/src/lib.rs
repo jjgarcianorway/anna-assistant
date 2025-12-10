@@ -137,6 +137,9 @@ pub mod greeting_context;
 // v0.0.280: System telemetry tracking
 pub mod system_telemetry;
 
+// v0.0.281: Proactive health alerts
+pub mod health_alerts;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
