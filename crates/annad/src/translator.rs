@@ -1,12 +1,14 @@
-//! LLM-based translator for query classification (v0.0.290).
+//! LLM-based translator for query classification (v0.0.322).
 //!
 //! Converts user text to structured TranslatorTicket JSON.
 //! v0.0.74: Now includes AnswerContract for answer shaping.
 //! v0.0.164: Probe registry extracted to separate module.
 //! v0.0.290: Strip reasoning tags from translator responses.
 //! v0.0.318: Added TranslatorResult with debug info for LLM call visibility.
+//! v0.0.322: Integrated probe learning - recommends probes based on past effectiveness.
 
 use anna_shared::answer_contract::AnswerContract;
+use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
@@ -103,10 +105,43 @@ Output raw JSON only. No markdown. No explanation."#,
 /// Build minimal translator request (< 2KB)
 pub fn build_translator_request(input: &TranslatorInput) -> String {
     let prompt = build_translator_prompt();
-    format!(
-        "{}\nHW: {}\nQuery: {}",
-        prompt, input.hw_summary, input.query
-    )
+
+    // v0.0.322: Add learned probe recommendations if available
+    let recommendations = get_probe_recommendations(&input.query);
+
+    if recommendations.is_empty() {
+        format!(
+            "{}\nHW: {}\nQuery: {}",
+            prompt, input.hw_summary, input.query
+        )
+    } else {
+        format!(
+            "{}\nHW: {}\nLearned: For this type of query, effective probes have been: {}\nQuery: {}",
+            prompt, input.hw_summary, recommendations, input.query
+        )
+    }
+}
+
+/// v0.0.322: Get probe recommendations from learning store
+fn get_probe_recommendations(query: &str) -> String {
+    let store = ProbeLearningStore::load();
+    let category = QueryCategory::from_query(query);
+
+    let recs = store.get_recommended_probes(&category);
+
+    // Only include probes with score > 0.6 and at least some usage
+    let good_probes: Vec<String> = recs
+        .into_iter()
+        .filter(|(_, score)| *score > 0.6)
+        .take(5) // Top 5
+        .map(|(probe_id, score)| format!("{} ({:.0}%)", probe_id, score * 100.0))
+        .collect();
+
+    if good_probes.is_empty() {
+        String::new()
+    } else {
+        good_probes.join(", ")
+    }
 }
 
 /// Parse intent string to enum

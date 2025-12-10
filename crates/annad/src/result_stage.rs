@@ -1,7 +1,9 @@
 //! Result building stage for the RPC handler pipeline.
 //!
 //! Extracted from rpc_handler.rs (v0.0.165) for modularization.
+//! v0.0.322: Integrated probe learning to track effectiveness.
 
+use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::rpc::{
     ProbeResult, RpcResponse, ServiceDeskResult, SpecialistDomain, TranslatorTicket,
 };
@@ -159,5 +161,113 @@ pub fn wrap_with_theatre(
         }
     }
 
+    // v0.0.322: Record probe usage for learning
+    record_probe_learning(&result);
+
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
+}
+
+/// v0.0.322: Record probe usage and effectiveness for learning
+fn record_probe_learning(result: &ServiceDeskResult) {
+    // Extract user query from transcript
+    let query = extract_query_from_transcript(result);
+
+    // Determine query category
+    let category = QueryCategory::from_query(&query);
+
+    // Get probes used
+    let probes: Vec<String> = result
+        .evidence
+        .probes_executed
+        .iter()
+        .map(|p| extract_probe_id(&p.command))
+        .collect();
+
+    if probes.is_empty() {
+        return; // Nothing to learn from
+    }
+
+    // Load store, record usage, save
+    let mut store = ProbeLearningStore::load();
+
+    // Record each probe usage with failure status
+    for probe in result.evidence.probes_executed.iter() {
+        let probe_id = extract_probe_id(&probe.command);
+        let failed = probe.exit_code != 0;
+        store.record_usage(category.clone(), &probe_id, failed);
+    }
+
+    // Use reliability score as a proxy for answer quality
+    // High reliability (>=80) = helpful, low (<60) = not helpful
+    let helpful = result.reliability_score >= 80;
+    if result.reliability_score >= 80 || result.reliability_score < 60 {
+        // Only record feedback for clear signals
+        let failure_reason = if !helpful {
+            Some("low_reliability_score")
+        } else {
+            None
+        };
+
+        store.record_feedback(
+            category,
+            &probes,
+            helpful,
+            Some(&query),
+            failure_reason,
+        );
+    }
+
+    // Save store (ignore errors - learning is best-effort)
+    let _ = store.save();
+
+    debug!(
+        "Recorded probe learning: {} probes, helpful={}, category={:?}",
+        probes.len(),
+        helpful,
+        QueryCategory::from_query(&query)
+    );
+}
+
+/// Extract query from result transcript
+fn extract_query_from_transcript(result: &ServiceDeskResult) -> String {
+    use anna_shared::transcript::{Actor, TranscriptEventKind};
+
+    for event in &result.transcript.events {
+        if let TranscriptEventKind::Message { text } = &event.kind {
+            if event.from == Actor::You {
+                return text.clone();
+            }
+        }
+    }
+
+    // Fallback to request ID
+    result.request_id.clone()
+}
+
+/// Extract probe ID from command (e.g., "df -h" -> "disk_usage")
+fn extract_probe_id(command: &str) -> String {
+    // Try to match known probe commands to IDs
+    let cmd_start = command.split_whitespace().next().unwrap_or("");
+
+    match cmd_start {
+        "df" => "disk_usage".to_string(),
+        "free" => "memory_info".to_string(),
+        "lscpu" => "cpu_info".to_string(),
+        "lsusb" => "usb_devices".to_string(),
+        "lspci" => "pci_devices".to_string(),
+        "ip" => "network_interfaces".to_string(),
+        "sensors" => "sensors_temp".to_string(),
+        "vainfo" => "vaapi_status".to_string(),
+        "vdpauinfo" => "vdpau_status".to_string(),
+        "vulkaninfo" => "vulkan_status".to_string(),
+        "glxinfo" => "glxinfo_renderer".to_string(),
+        "systemctl" => "service_status".to_string(),
+        "journalctl" => "system_logs".to_string(),
+        "ps" => "process_list".to_string(),
+        "uname" => "kernel_info".to_string(),
+        "bluetoothctl" => "bluetooth_devices".to_string(),
+        "pactl" | "aplay" => "audio_devices".to_string(),
+        "nvidia-smi" => "gpu_memory".to_string(),
+        _ => command.to_string(), // Use command as-is if unknown
+    }
 }

@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.322] - 2025-12-10
+
+### Added - Probe Learning System
+
+**Anna now learns from experience which probes work best:**
+
+- **Probe effectiveness tracking**: Records which probes work well for each query category
+  - SystemHealth, Storage, Network, Hardware, Security, Packages, Services, Graphics
+  - Tracks: uses, helpful count, not helpful count, failure rate
+  - Computes effectiveness score (0.0 - 1.0) using Bayesian-style confidence
+
+- **Automatic feedback from reliability scores**:
+  - High reliability (≥80) = probe combination was helpful
+  - Low reliability (<60) = probe combination was not helpful
+  - Stores negative patterns to avoid repeating mistakes
+
+- **Translator uses learned knowledge**:
+  - When building prompts, includes "Learned: effective probes" hint
+  - Example: "Learned: For this type of query, effective probes have been: gpu_info (85%), vaapi_status (78%)"
+  - LLM can use this to make better probe selections over time
+
+- **Improved grounding rules** for specialist prompts:
+  - Stronger rules to prevent hallucination
+  - Explicit instruction: "Answer EXACTLY what they asked"
+  - "If the user asks about X, answer about X, not Y"
+
+**How it works:**
+1. User asks question → translator selects probes (may use learned hints)
+2. Probes run → specialist answers → reliability score computed
+3. Probe effectiveness updated based on score
+4. Next similar query benefits from learned knowledge
+
+**Data stored in:** `~/.anna/probe_learning.json`
+
 ## [0.0.321] - 2025-12-10
 
 ### Added - Hardware Acceleration Probes

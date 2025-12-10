@@ -1,6 +1,7 @@
-//! Specialist prompt building for service desk (v0.0.260).
+//! Specialist prompt building for service desk (v0.0.322).
 //!
 //! v0.0.260: Added OS info to context.
+//! v0.0.322: Improved grounding rules to prevent hallucination.
 //! COST: Enforces prompt size cap with diagnostic surfacing.
 
 use anna_shared::resource_limits::{ResourceDiagnostic, MAX_PROMPT_CHARS};
@@ -41,20 +42,21 @@ pub fn build_specialist_prompt(
 }
 
 /// Grounding rules suffix (constant size, always included)
+/// v0.0.322: Strengthened to prevent hallucination and off-topic answers
 const GROUNDING_RULES: &str = r#"
 
 === GROUNDING RULES (MANDATORY) ===
-1. NEVER invent or guess information not in the runtime context above.
-2. For hardware questions: Answer DIRECTLY from the hardware section above.
-3. For process/memory/disk questions: Use the probe results above if available.
-4. If data is missing: Say exactly what data is missing.
-5. NEVER suggest manual commands when you have the data above.
-6. Use the exact version shown above when discussing Anna's version.
-7. Reference the specific data you're using in your answer.
+1. Read the user's question CAREFULLY. Answer EXACTLY what they asked.
+2. Use ONLY the data in the RUNTIME CONTEXT and PROBE RESULTS above.
+3. NEVER invent information. If data is missing, say "I don't have that data."
+4. NEVER suggest commands unless the user explicitly asked how to do something.
+5. Be concise and direct. Don't over-explain.
+6. If probe results are empty or missing, acknowledge this honestly.
 
-=== END CONTEXT ===
+CRITICAL: Your answer must be RELEVANT to what the user asked.
+If the user asks about X, answer about X, not Y.
 
-Answer using ONLY the data provided above. Be concise and direct."#;
+=== END CONTEXT ==="#;
 
 /// Build prompt string, returning (prompt, chars_truncated)
 fn build_prompt_with_budget(

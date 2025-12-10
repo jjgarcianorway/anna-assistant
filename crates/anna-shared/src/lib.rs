@@ -155,6 +155,9 @@ pub mod learning_progress;
 // v0.0.289: Interesting facts for greetings
 pub mod interesting_facts;
 
+// v0.0.322: Probe effectiveness learning
+pub mod probe_learning;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

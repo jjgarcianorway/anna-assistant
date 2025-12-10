@@ -1,0 +1,357 @@
+//! Probe effectiveness learning system (v0.0.322).
+//!
+//! Tracks which probes work well for which query types, learning from:
+//! 1. User feedback (helpful/not helpful)
+//! 2. LLM self-assessment (answer quality rating)
+//! 3. Probe failure rates
+//!
+//! This allows the translator to prefer better-performing probes over time.
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+
+/// Probe effectiveness record for a specific query category
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProbeEffectiveness {
+    /// Number of times this probe was used for this category
+    pub uses: u32,
+    /// Number of times the answer was marked helpful
+    pub helpful: u32,
+    /// Number of times the answer was marked not helpful
+    pub not_helpful: u32,
+    /// Number of times the probe command failed (non-zero exit)
+    pub failures: u32,
+    /// Computed effectiveness score (0.0 - 1.0)
+    pub score: f32,
+}
+
+impl ProbeEffectiveness {
+    /// Calculate effectiveness score based on usage stats
+    pub fn compute_score(&mut self) {
+        if self.uses == 0 {
+            self.score = 0.5; // Neutral for unused probes
+            return;
+        }
+
+        // Base score from helpful/not helpful ratio
+        let total_feedback = self.helpful + self.not_helpful;
+        let feedback_score = if total_feedback > 0 {
+            self.helpful as f32 / total_feedback as f32
+        } else {
+            0.5 // Neutral if no feedback
+        };
+
+        // Penalty for failures
+        let failure_rate = self.failures as f32 / self.uses as f32;
+        let failure_penalty = 1.0 - (failure_rate * 0.5); // Max 50% penalty
+
+        // Confidence boost for more uses (bayesian-ish)
+        let confidence = (self.uses as f32 / 10.0).min(1.0);
+
+        // Blend neutral prior with observed score based on confidence
+        self.score = (0.5 * (1.0 - confidence) + feedback_score * confidence) * failure_penalty;
+    }
+}
+
+/// Query category for grouping probe effectiveness
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum QueryCategory {
+    /// System health (CPU, memory, processes)
+    SystemHealth,
+    /// Disk and storage
+    Storage,
+    /// Network and connectivity
+    Network,
+    /// Hardware info (GPU, USB, PCI)
+    Hardware,
+    /// Security and permissions
+    Security,
+    /// Packages and software
+    Packages,
+    /// Services and systemd
+    Services,
+    /// Graphics and display
+    Graphics,
+    /// General/other
+    General,
+}
+
+impl QueryCategory {
+    /// Infer category from domain string
+    pub fn from_domain(domain: &str) -> Self {
+        match domain.to_lowercase().as_str() {
+            "system" => Self::SystemHealth,
+            "storage" => Self::Storage,
+            "network" => Self::Network,
+            "security" => Self::Security,
+            "packages" => Self::Packages,
+            _ => Self::General,
+        }
+    }
+
+    /// Infer category from query keywords
+    pub fn from_query(query: &str) -> Self {
+        let q = query.to_lowercase();
+
+        // Graphics/display queries
+        if q.contains("gpu") || q.contains("graphics") || q.contains("display")
+            || q.contains("vaapi") || q.contains("vdpau") || q.contains("vulkan")
+            || q.contains("hardware acceleration") || q.contains("video acceleration")
+            || q.contains("render") {
+            return Self::Graphics;
+        }
+
+        // Hardware queries
+        if q.contains("usb") || q.contains("pci") || q.contains("bluetooth")
+            || q.contains("printer") || q.contains("audio") || q.contains("sound") {
+            return Self::Hardware;
+        }
+
+        // Network queries
+        if q.contains("network") || q.contains("wifi") || q.contains("ethernet")
+            || q.contains("ip address") || q.contains("dns") || q.contains("ping") {
+            return Self::Network;
+        }
+
+        // Storage queries
+        if q.contains("disk") || q.contains("storage") || q.contains("space")
+            || q.contains("mount") || q.contains("partition") {
+            return Self::Storage;
+        }
+
+        // Security queries
+        if q.contains("firewall") || q.contains("permission") || q.contains("security")
+            || q.contains("user") || q.contains("group") {
+            return Self::Security;
+        }
+
+        // Package queries
+        if q.contains("package") || q.contains("install") || q.contains("update")
+            || q.contains("pacman") || q.contains("apt") || q.contains("dnf") {
+            return Self::Packages;
+        }
+
+        // Service queries
+        if q.contains("service") || q.contains("systemd") || q.contains("daemon")
+            || q.contains("running") && q.contains("process") {
+            return Self::Services;
+        }
+
+        // System health queries
+        if q.contains("cpu") || q.contains("memory") || q.contains("ram")
+            || q.contains("process") || q.contains("load") || q.contains("uptime") {
+            return Self::SystemHealth;
+        }
+
+        Self::General
+    }
+}
+
+/// Probe learning store - persists probe effectiveness data
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProbeLearningStore {
+    /// Effectiveness scores by (category, probe_id)
+    pub effectiveness: HashMap<QueryCategory, HashMap<String, ProbeEffectiveness>>,
+    /// Query patterns that led to poor answers (for negative learning)
+    pub negative_patterns: Vec<NegativePattern>,
+    /// Version for migration
+    pub version: u32,
+}
+
+/// A pattern that led to a poor answer (for learning what NOT to do)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NegativePattern {
+    /// The query that got a bad answer
+    pub query: String,
+    /// The category it was assigned
+    pub category: QueryCategory,
+    /// Probes that were used
+    pub probes_used: Vec<String>,
+    /// Why the answer was bad (from user/LLM feedback)
+    pub failure_reason: String,
+    /// Timestamp
+    pub timestamp: u64,
+}
+
+impl ProbeLearningStore {
+    /// Load from disk or create new
+    pub fn load() -> Self {
+        let path = Self::store_path();
+        if let Ok(content) = fs::read_to_string(&path) {
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            Self::default()
+        }
+    }
+
+    /// Save to disk
+    pub fn save(&self) -> Result<(), String> {
+        let path = Self::store_path();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let content = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        fs::write(&path, content).map_err(|e| e.to_string())
+    }
+
+    /// Store path
+    fn store_path() -> PathBuf {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        PathBuf::from(home).join(".anna").join("probe_learning.json")
+    }
+
+    /// Record probe usage for a query
+    pub fn record_usage(&mut self, category: QueryCategory, probe_id: &str, failed: bool) {
+        let category_map = self.effectiveness.entry(category).or_default();
+        let probe = category_map.entry(probe_id.to_string()).or_default();
+        probe.uses += 1;
+        if failed {
+            probe.failures += 1;
+        }
+        probe.compute_score();
+    }
+
+    /// Record feedback (helpful or not)
+    pub fn record_feedback(
+        &mut self,
+        category: QueryCategory,
+        probes: &[String],
+        helpful: bool,
+        query: Option<&str>,
+        failure_reason: Option<&str>,
+    ) {
+        let category_map = self.effectiveness.entry(category.clone()).or_default();
+
+        for probe_id in probes {
+            let probe = category_map.entry(probe_id.to_string()).or_default();
+            if helpful {
+                probe.helpful += 1;
+            } else {
+                probe.not_helpful += 1;
+            }
+            probe.compute_score();
+        }
+
+        // Record negative pattern for learning
+        if !helpful {
+            if let (Some(q), Some(reason)) = (query, failure_reason) {
+                self.negative_patterns.push(NegativePattern {
+                    query: q.to_string(),
+                    category,
+                    probes_used: probes.to_vec(),
+                    failure_reason: reason.to_string(),
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0),
+                });
+
+                // Keep only last 100 negative patterns
+                if self.negative_patterns.len() > 100 {
+                    self.negative_patterns.remove(0);
+                }
+            }
+        }
+    }
+
+    /// Get probe recommendations for a category (sorted by effectiveness)
+    pub fn get_recommended_probes(&self, category: &QueryCategory) -> Vec<(String, f32)> {
+        let mut recommendations: Vec<(String, f32)> = self
+            .effectiveness
+            .get(category)
+            .map(|m| {
+                m.iter()
+                    .map(|(probe_id, eff)| (probe_id.clone(), eff.score))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Sort by score descending
+        recommendations.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        recommendations
+    }
+
+    /// Check if a query+probe combo has been problematic before
+    pub fn is_known_bad_combo(&self, query: &str, probes: &[String]) -> Option<&str> {
+        let q_lower = query.to_lowercase();
+        for pattern in &self.negative_patterns {
+            // Simple keyword overlap check
+            let pattern_words: Vec<&str> = pattern.query.split_whitespace().collect();
+            let query_words: Vec<&str> = q_lower.split_whitespace().collect();
+            let overlap = pattern_words.iter()
+                .filter(|w| query_words.contains(w))
+                .count();
+
+            // If high keyword overlap and same probes, flag it
+            if overlap >= 2 && probes.iter().any(|p| pattern.probes_used.contains(p)) {
+                return Some(&pattern.failure_reason);
+            }
+        }
+        None
+    }
+
+    /// Get summary stats for display
+    pub fn summary(&self) -> String {
+        let total_categories = self.effectiveness.len();
+        let total_probes: usize = self.effectiveness.values().map(|m| m.len()).sum();
+        let total_uses: u32 = self.effectiveness.values()
+            .flat_map(|m| m.values())
+            .map(|e| e.uses)
+            .sum();
+        let negative_patterns = self.negative_patterns.len();
+
+        format!(
+            "{} categories, {} probes tracked, {} uses, {} negative patterns",
+            total_categories, total_probes, total_uses, negative_patterns
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_category_from_query() {
+        assert_eq!(QueryCategory::from_query("what gpu do I have"), QueryCategory::Graphics);
+        assert_eq!(QueryCategory::from_query("check disk space"), QueryCategory::Storage);
+        assert_eq!(QueryCategory::from_query("list usb devices"), QueryCategory::Hardware);
+        assert_eq!(QueryCategory::from_query("how much ram"), QueryCategory::SystemHealth);
+        assert_eq!(QueryCategory::from_query("random question"), QueryCategory::General);
+    }
+
+    #[test]
+    fn test_effectiveness_score() {
+        let mut eff = ProbeEffectiveness::default();
+        eff.uses = 10;
+        eff.helpful = 8;
+        eff.not_helpful = 2;
+        eff.failures = 1;
+        eff.compute_score();
+
+        // Should be high but not perfect due to some failures
+        assert!(eff.score > 0.7);
+        assert!(eff.score < 0.95);
+    }
+
+    #[test]
+    fn test_record_feedback() {
+        let mut store = ProbeLearningStore::default();
+
+        // Record some positive feedback
+        store.record_usage(QueryCategory::Graphics, "gpu_info", false);
+        store.record_feedback(
+            QueryCategory::Graphics,
+            &["gpu_info".to_string()],
+            true,
+            None,
+            None,
+        );
+
+        let recs = store.get_recommended_probes(&QueryCategory::Graphics);
+        assert!(!recs.is_empty());
+        assert_eq!(recs[0].0, "gpu_info");
+    }
+}
