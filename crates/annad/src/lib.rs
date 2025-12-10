@@ -59,6 +59,7 @@ pub mod query_classify;
 pub mod rag_answerer;
 pub mod recipe_builtins;
 pub mod recipe_fast_path;
+pub mod recipe_similarity;
 pub mod redact;
 pub mod response_builders;
 pub mod result_stage;

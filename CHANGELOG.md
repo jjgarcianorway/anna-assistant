@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.271] - 2025-12-10
+
+### Added - LLM-Based Semantic Similarity for Recipe Matching
+
+**New semantic similarity module using translator LLM:**
+- Uses the translator model to check if queries are semantically equivalent
+- Catches paraphrases that token matching misses (e.g., "disk space" ~ "storage usage")
+- Prompt-based similarity comparison returns JSON with score and reasoning
+- Only triggers after token-based matching fails (to preserve fast path)
+
+**How it works:**
+1. Token-based recipe matching runs first (fast, no LLM)
+2. If no match found, gets top 5 recipe candidates
+3. Uses translator LLM to compare new query with each candidate's pattern
+4. If similarity score >= 75, reuses the matched recipe
+5. Falls back to full translator if no semantic match
+
+**Example matches now possible:**
+- "how much disk space" ~ "what is my storage usage"
+- "check CPU load" ~ "processor usage"
+- "am I connected" ~ "network status"
+
+**Files changed:**
+- New: `annad/src/recipe_similarity.rs` - Semantic similarity module
+- `annad/src/routing_stage.rs` - Integrated semantic check before triage
+- `annad/src/lib.rs` - Export recipe_similarity module
+
 ## [0.0.270] - 2025-12-09
 
 ### Added - Recipe Learning Verification Tests

@@ -1,6 +1,7 @@
 //! Routing stage for the RPC handler pipeline.
 //!
 //! v0.0.167: Extracted from rpc_handler.rs for modularization.
+//! v0.0.271: Added LLM-based semantic similarity for recipe matching.
 
 use anna_shared::probe_spine::{
     enforce_minimum_probes, enforce_spine_probes, probe_to_command, reduce_probes, Urgency,
@@ -9,11 +10,12 @@ use anna_shared::progress::RequestStage;
 use anna_shared::rpc::TranslatorTicket;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::config::LlmConfig;
 use crate::progress_tracker::ProgressTracker;
 use crate::recipe_fast_path::{self, RecipeFastPathResult};
+use crate::recipe_similarity;
 use crate::router::{self, DeterministicRoute};
 use crate::state::SharedState;
 use crate::translator::{self, TranslatorInput};
@@ -86,7 +88,47 @@ pub async fn route_query(
             };
         }
 
-        // No recipe match - fall back to LLM translator
+        // v0.0.271: Try LLM-based semantic similarity before falling back to full triage
+        // This catches paraphrases that token matching missed
+        if recipe_result.matched {
+            // We had a low-confidence token match - check if semantically similar
+            debug!("Low confidence recipe match (score={}), checking semantic similarity", recipe_result.score);
+        }
+
+        // Check semantic similarity with LLM (uses translator model)
+        let semantic_result = recipe_similarity::check_semantic_similarity(
+            query,
+            recipe_index,
+            translator_model,
+            llm_config.translator_timeout_secs,
+        )
+        .await;
+
+        if semantic_result.is_similar {
+            if let Some(ref recipe) = semantic_result.matched_recipe {
+                info!(
+                    "Semantic recipe match: \"{}\" ~ \"{}\" (score: {})",
+                    query, semantic_result.original_query, semantic_result.score
+                );
+                // Build result from semantically matched recipe
+                let ticket = recipe_fast_path::ticket_from_recipe(recipe);
+                return RoutingResult {
+                    ticket,
+                    triage_result: None,
+                    translator_timed_out: false,
+                    recipe_result: Some(RecipeFastPathResult {
+                        matched: true,
+                        ticket: Some(recipe_fast_path::ticket_from_recipe(recipe)),
+                        recipe: Some(recipe.clone()),
+                        score: semantic_result.score as u32,
+                        matched_tokens: vec![format!("semantic:{}", semantic_result.score)],
+                        skip_llm: true,
+                    }),
+                };
+            }
+        }
+
+        // No recipe match (token or semantic) - fall back to LLM translator
         let (ticket, triage, timeout) = triage_path(
             state,
             query,
