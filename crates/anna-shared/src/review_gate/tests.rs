@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::review::{ReviewDecision, ReviewIssueKind};
-    use crate::review_gate::{deterministic_review_gate, GateOutcome, ReviewContext};
+    use crate::review_gate::{deterministic_review_gate, ReviewContext};
     use crate::trace::FallbackUsed;
 
     #[test]

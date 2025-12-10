@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.357] - 2025-12-10
+
+### Improved - Zero Test Warnings
+
+Cleaned up unused imports and dead code in test files:
+
+**Fixed Files:**
+- `guard/tests.rs` - Removed unused `GuardReport` import
+- `review_gate/tests.rs` - Removed unused `GateOutcome` import
+- `query_scenarios/tests.rs` - Removed unused `RecipeIndex`, `are_synonyms` imports
+- `query_scenarios/tests.rs` - Removed unused `synonym_match_count` function
+
+Zero compiler warnings across entire codebase (library + tests).
+
 ## [0.0.356] - 2025-12-10
 
 ### Improved - UI Consistency in errors.rs and handlers.rs

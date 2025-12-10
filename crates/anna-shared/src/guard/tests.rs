@@ -4,7 +4,7 @@
 mod tests {
     use crate::claims::extract_claims;
     use crate::grounding::ParsedEvidence;
-    use crate::guard::{run_guard, GuardReport, VerifyResult};
+    use crate::guard::{run_guard, VerifyResult};
     use crate::parsers::{DiskUsage, MemoryInfo, ServiceState, ServiceStatus};
 
     // === A) Contradiction always flags, regardless of evidence_required ===

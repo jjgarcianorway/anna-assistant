@@ -410,8 +410,8 @@ mod tests {
     // These tests verify that similar queries would match a learned recipe,
     // enabling Anna to reuse previous successful answers.
 
-    use crate::recipe_index::{tokenize, RecipeIndex};
-    use crate::synonyms::{are_synonyms, expand_query_tokens};
+    use crate::recipe_index::tokenize;
+    use crate::synonyms::expand_query_tokens;
 
     /// Check if two queries have enough token overlap to potentially match
     /// v0.0.272: Now uses synonym expansion for better matching
@@ -427,23 +427,6 @@ mod tests {
 
         // Need at least 2 matching tokens (including synonyms) for recipe match
         overlap.len() >= 2
-    }
-
-    /// Check synonym-based matching between two queries
-    fn synonym_match_count(original: &str, similar: &str) -> usize {
-        let orig_tokens: Vec<String> = tokenize(original);
-        let sim_tokens: Vec<String> = tokenize(similar);
-
-        let mut count = 0;
-        for ot in &orig_tokens {
-            for st in &sim_tokens {
-                if are_synonyms(ot, st) {
-                    count += 1;
-                    break;
-                }
-            }
-        }
-        count
     }
 
     #[test]
