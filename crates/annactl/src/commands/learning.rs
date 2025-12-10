@@ -1,4 +1,4 @@
-//! Learning stats command (v0.0.334).
+//! Learning stats command (v0.0.339).
 //!
 //! Shows what Anna has learned from experience:
 //! - Probe effectiveness per category
@@ -6,9 +6,10 @@
 //! - Keyword associations (v0.0.325)
 //! - Query recommendations test (v0.0.328)
 //! - Health status and confidence (v0.0.334)
+//! - v0.0.339: Use centralized UI helpers for consistency.
 
 use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, QueryCategory, TrendDirection};
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, kv, print_hint, print_label, print_section_header, symbols, HR};
 use anyhow::Result;
 
 /// Handle learning command - show what Anna has learned
@@ -28,68 +29,59 @@ fn show_query_recommendations(query: &str) -> Result<()> {
     let category = QueryCategory::from_query(query);
 
     println!();
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!("{}Query Analysis{}", colors::HEADER, colors::RESET);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!();
-    println!("  {}Query:{} \"{}\"", colors::DIM, colors::RESET, query);
-    println!("  {}Category:{} {:?}", colors::DIM, colors::RESET, category);
+
+    print_section_header("input");
+    kv("query", &format!("\"{}\"", query));
+    kv("category", &format!("{:?}", category));
 
     // v0.0.334: Show if learning would be used for this query
     let confidence = store.confidence_factor();
     if store.should_use_learning() {
-        println!(
-            "  {}Learning:{} {}Active{} ({:.0}% confidence)",
-            colors::DIM, colors::RESET, colors::OK, colors::RESET, confidence * 100.0
-        );
+        kv("learning", &format!("{}Active{} ({:.0}% confidence)", colors::OK, colors::RESET, confidence * 100.0));
     } else {
-        println!(
-            "  {}Learning:{} {}Inactive{} ({:.0}% confidence - need 30%)",
-            colors::DIM, colors::RESET, colors::WARN, colors::RESET, confidence * 100.0
-        );
+        kv("learning", &format!("{}Inactive{} ({:.0}% - need 30%)", colors::WARN, colors::RESET, confidence * 100.0));
     }
     println!();
 
     // Get category-based recommendations
     let category_recs = store.get_recommended_probes(&category);
+    print_section_header("category recommendations");
     if !category_recs.is_empty() {
-        println!("{}Category-based Recommendations:{}", colors::BOLD, colors::RESET);
         for (probe_id, score) in category_recs.iter().take(5) {
             let score_color = if *score >= 0.7 { colors::OK }
                 else if *score >= 0.5 { colors::WARN }
                 else { colors::DIM };
-            println!(
-                "  {} {}{:.0}%{}",
-                probe_id, score_color, score * 100.0, colors::RESET
-            );
+            println!("  {} {} {}{:.0}%{}", symbols::ARROW, probe_id, score_color, score * 100.0, colors::RESET);
         }
-        println!();
     } else {
-        println!("{}No category-based recommendations yet{}", colors::DIM, colors::RESET);
-        println!();
+        print_hint("No category-based recommendations yet");
     }
+    println!();
 
     // Get keyword-based suggestions
     let keyword_suggestions = store.suggest_probes_for_query(query);
+    print_section_header("keyword suggestions");
     if !keyword_suggestions.is_empty() {
-        println!("{}Keyword-based Suggestions:{}", colors::BOLD, colors::RESET);
         for (probe_id, count) in keyword_suggestions.iter().take(5) {
-            println!("  {} (keyword matches: {})", probe_id, count);
+            println!("  {} {} (matches: {})", symbols::ARROW, probe_id, count);
         }
-        println!();
     } else {
-        println!("{}No keyword-based suggestions yet{}", colors::DIM, colors::RESET);
-        println!();
+        print_hint("No keyword-based suggestions yet");
     }
+    println!();
 
     // Check for known bad combinations
     let probes: Vec<String> = category_recs.iter().map(|(p, _)| p.clone()).collect();
     if let Some(reason) = store.is_known_bad_combo(query, &probes) {
-        println!(
-            "{}Warning:{} Similar query had issues before: {}",
-            colors::WARN, colors::RESET, reason
-        );
+        print_label("warn", &format!("Similar query had issues: {}", reason), colors::WARN);
         println!();
     }
 
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     Ok(())
 }
 
@@ -98,23 +90,20 @@ pub fn handle_learning() -> Result<()> {
     let store = ProbeLearningStore::load_with_decay();
 
     println!();
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!("{}Anna Learning Stats{}", colors::HEADER, colors::RESET);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!();
 
     if store.effectiveness.is_empty() && store.keyword_probes.is_empty() {
-        println!(
-            "{}No learning data yet. Ask Anna some questions!{}",
-            colors::DIM,
-            colors::RESET
-        );
+        print_hint("No learning data yet. Ask Anna some questions!");
+        println!();
         return Ok(());
     }
 
     // Show effectiveness per category
     if !store.effectiveness.is_empty() {
-        println!("{}Probe Effectiveness by Category:{}", colors::BOLD, colors::RESET);
-        println!();
-
+        print_section_header("probe effectiveness");
         for (category, probes) in &store.effectiveness {
             if probes.is_empty() {
                 continue;
@@ -137,24 +126,19 @@ pub fn handle_learning() -> Result<()> {
 
                 let bar = score_bar(eff.score, 10);
                 println!(
-                    "    {} {}{:.0}%{} [{}] uses:{} helpful:{} fails:{}",
-                    probe_id,
-                    score_color,
-                    eff.score * 100.0,
-                    colors::RESET,
-                    bar,
-                    eff.uses,
-                    eff.helpful,
-                    eff.failures
+                    "    {} {}{:.0}%{} [{}] uses:{} ok:{} fail:{}",
+                    probe_id, score_color, eff.score * 100.0, colors::RESET,
+                    bar, eff.uses, eff.helpful, eff.failures
                 );
             }
-            println!();
         }
+        println!();
     }
 
     // v0.0.325: Show learned keywords
     if !store.keyword_probes.is_empty() {
-        println!("{}Learned Keywords:{} {}", colors::BOLD, colors::RESET, store.keyword_probes.len());
+        print_section_header("learned keywords");
+        kv("total", &format!("{}", store.keyword_probes.len()));
         println!();
 
         // Sort by success count
@@ -168,12 +152,8 @@ pub fn handle_learning() -> Result<()> {
                 probes.iter().take(3).map(|(p, _)| p.as_str()).collect::<Vec<_>>().join(", ")
             };
             println!(
-                "  {}\"{}\"{}  →  {} (success: {})",
-                colors::CYAN,
-                keyword,
-                colors::RESET,
-                top_probes,
-                stats.success_count
+                "  {} \"{}\" {} {} (success: {})",
+                symbols::ARROW, keyword, symbols::ARROW, top_probes, stats.success_count
             );
         }
         println!();
@@ -182,62 +162,29 @@ pub fn handle_learning() -> Result<()> {
     // v0.0.325: Show successful patterns count
     if !store.successful_patterns.is_empty() {
         let stats = store.learning_stats();
-        println!(
-            "{}Successful Patterns:{} {} (avg quality: {:.1}/5)",
-            colors::BOLD,
-            colors::RESET,
-            stats.successful_patterns,
-            stats.avg_quality
-        );
-        println!();
+        print_section_header("patterns");
+        kv("successful", &format!("{} (avg quality: {:.1}/5)", stats.successful_patterns, stats.avg_quality));
     }
 
     // Show negative patterns
     if !store.negative_patterns.is_empty() {
-        println!(
-            "{}Negative Patterns (mistakes to avoid):{} {}",
-            colors::BOLD,
-            colors::RESET,
-            store.negative_patterns.len()
-        );
+        kv("negative", &format!("{}", store.negative_patterns.len()));
         println!();
 
-        for pattern in store.negative_patterns.iter().take(5) {
-            println!(
-                "  {}Query:{} {}",
-                colors::DIM,
-                colors::RESET,
-                truncate(&pattern.query, 50)
-            );
-            println!(
-                "    {}Reason:{} {}",
-                colors::DIM,
-                colors::RESET,
-                pattern.failure_reason
-            );
-            println!(
-                "    {}Probes:{} {}",
-                colors::DIM,
-                colors::RESET,
-                pattern.probes_used.join(", ")
-            );
-            println!();
+        for pattern in store.negative_patterns.iter().take(3) {
+            println!("  {} \"{}\"", symbols::ARROW, truncate(&pattern.query, 40));
+            println!("    {}reason:{} {}", colors::DIM, colors::RESET, pattern.failure_reason);
         }
+        println!();
     }
 
     // Summary
     let stats = store.learning_stats();
-    println!("{}Summary:{}", colors::BOLD, colors::RESET);
-    println!(
-        "  {} queries processed, {} keywords learned",
-        stats.total_queries,
-        stats.keywords_learned
-    );
-    println!(
-        "  {} successful patterns, {} negative patterns",
-        stats.successful_patterns,
-        stats.negative_patterns
-    );
+    print_section_header("summary");
+    kv("queries_processed", &format!("{}", stats.total_queries));
+    kv("keywords_learned", &format!("{}", stats.keywords_learned));
+    kv("successful_patterns", &format!("{}", stats.successful_patterns));
+    kv("negative_patterns", &format!("{}", stats.negative_patterns));
     println!();
 
     // v0.0.334: Health status and confidence
@@ -251,11 +198,8 @@ pub fn handle_learning() -> Result<()> {
         LearningHealth::Insufficient => colors::DIM,
     };
 
-    println!("{}Learning Health:{}", colors::BOLD, colors::RESET);
-    println!(
-        "  Status: {}{}{} ({:.0}% confidence)",
-        health_color, health, colors::RESET, confidence * 100.0
-    );
+    print_section_header("health");
+    kv("status", &format!("{}{}{} ({:.0}% confidence)", health_color, health, colors::RESET, confidence * 100.0));
 
     if let Some(trend) = store.quality_trend() {
         let (trend_icon, trend_color) = match trend.trend {
@@ -263,25 +207,18 @@ pub fn handle_learning() -> Result<()> {
             TrendDirection::Declining => ("↓", colors::ERR),
             TrendDirection::Stable => ("→", colors::DIM),
         };
-        println!(
-            "  Trend: {}{}{} {} (was {:.1}, now {:.1})",
-            trend_color, trend_icon, colors::RESET, trend.trend, trend.previous_avg, trend.current_avg
-        );
+        kv("trend", &format!("{}{}{} {} (was {:.1}, now {:.1})",
+            trend_color, trend_icon, colors::RESET, trend.trend, trend.previous_avg, trend.current_avg));
     }
 
     if store.should_use_learning() {
-        println!(
-            "  {}✓ Learning is active{} - recommendations will be used",
-            colors::OK, colors::RESET
-        );
+        kv("active", &format!("{}yes{} - recommendations will be used", colors::OK, colors::RESET));
     } else {
-        println!(
-            "  {}○ Learning insufficient{} - Anna is using defaults",
-            colors::DIM, colors::RESET
-        );
+        kv("active", &format!("{}no{} - using defaults", colors::DIM, colors::RESET));
     }
-    println!();
 
+    println!();
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     Ok(())
 }
 

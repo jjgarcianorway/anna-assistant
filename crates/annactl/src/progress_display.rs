@@ -4,7 +4,7 @@
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_label, print_ok, symbols, HR};
+use anna_shared::ui::{colors, print_label, symbols, HR};
 use anyhow::Result;
 use std::io::{self, Write};
 use std::time::Duration;

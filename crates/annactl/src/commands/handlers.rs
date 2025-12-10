@@ -1,9 +1,11 @@
-//! Command handlers (v0.0.330).
+//! Command handlers (v0.0.339).
+//! v0.0.330: Initial version.
+//! v0.0.339: Use centralized UI printing for consistency.
 
 use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, symbols};
+use anna_shared::ui::{colors, print_label, print_ok, print_section_header, print_warn, symbols, HR};
 use anna_shared::version::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -71,26 +73,17 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
     if !proposed.is_empty() {
         let summary = handle_proposed_change(&proposed).await?;
         if summary.failed {
-            println!(
-                "{}Anna: config application hit errors; review details above.{}",
-                colors::ERR,
-                colors::RESET
-            );
+            print_label("config", "Application hit errors; review details above", colors::ERR);
         } else if summary.applied > 0 {
-            println!(
-                "{}Anna: config applied ({} step{}, {} noop).{}",
-                colors::OK,
+            let msg = format!(
+                "Applied ({} step{}, {} noop)",
                 summary.applied,
                 if summary.applied == 1 { "" } else { "s" },
-                summary.noop,
-                colors::RESET
+                summary.noop
             );
+            print_label("config", &msg, colors::OK);
         } else {
-            println!(
-                "{}Anna: nothing to change; already configured.{}",
-                colors::DIM,
-                colors::RESET
-            );
+            print_label("config", "Nothing to change; already configured", colors::DIM);
         }
     }
 
@@ -108,50 +101,33 @@ pub async fn handle_uninstall() -> Result<()> {
     let uninstall_info = client.uninstall_info().await?;
 
     println!();
-    println!(
-        "{}anna uninstall v{}{}",
-        colors::HEADER,
-        VERSION,
-        colors::RESET
-    );
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    println!("{}anna uninstall{} v{}", colors::HEADER, colors::RESET, VERSION);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!();
 
     println!("This will remove Anna binaries, service, configs, data, logs.");
     println!("It can also remove helpers Anna installed (ollama + models).");
     println!();
 
-    println!("{}Plan:{}", colors::BOLD, colors::RESET);
+    print_section_header("plan");
     println!("  {} stop + disable: annad.service", symbols::ARROW);
-    println!(
-        "  {} remove: /usr/local/bin/annactl, /usr/local/bin/annad",
-        symbols::ARROW
-    );
-    println!(
-        "  {} remove: /etc/anna, /var/lib/anna, /var/log/anna",
-        symbols::ARROW
-    );
+    println!("  {} remove: /usr/local/bin/annactl, /usr/local/bin/annad", symbols::ARROW);
+    println!("  {} remove: /etc/anna, /var/lib/anna, /var/log/anna", symbols::ARROW);
     println!();
 
     if !uninstall_info.models.is_empty() {
-        println!(
-            "{}Helpers installed by Anna:{}",
-            colors::BOLD,
-            colors::RESET
-        );
+        print_section_header("helpers installed by anna");
         if uninstall_info.ollama_installed {
             println!("  {} ollama", symbols::ARROW);
         }
-        println!(
-            "  {} models: {}",
-            symbols::ARROW,
-            uninstall_info.models.join(", ")
-        );
+        println!("  {} models: {}", symbols::ARROW, uninstall_info.models.join(", "));
         println!();
     }
 
-    println!("{}Confirmation required{}", colors::BOLD, colors::RESET);
+    print_section_header("confirmation required");
     println!(
-        "Type exactly: {}I UNDERSTAND THIS REMOVES ANNA AND ITS DATA{}",
+        "  Type exactly: {}I UNDERSTAND THIS REMOVES ANNA AND ITS DATA{}",
         colors::WARN,
         colors::RESET
     );
@@ -211,23 +187,28 @@ pub async fn handle_reset() -> Result<()> {
     let mut client = AnnadClient::connect().await?;
 
     println!();
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!("{}anna reset{}", colors::HEADER, colors::RESET);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!();
-    println!("This will reset Anna's learned data:");
+
+    print_section_header("plan");
     println!("  {} Clear learned recipes", symbols::ARROW);
     println!("  {} Clear knowledge base", symbols::ARROW);
     println!("  {} Clear event log (stats)", symbols::ARROW);
-    println!("  {} Clear probe learning (v0.0.329)", symbols::ARROW);
+    println!("  {} Clear probe learning", symbols::ARROW);
     println!();
 
-    println!("{}Confirm reset?{} [y/N]: ", colors::WARN, colors::RESET);
+    print_section_header("confirmation required");
+    print!("  {}Confirm reset?{} [y/N]: ", colors::WARN, colors::RESET);
     io::stdout().flush()?;
 
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
 
     if !input.trim().eq_ignore_ascii_case("y") {
-        println!("Reset cancelled.");
+        println!();
+        print_label("cancelled", "Reset aborted by user", colors::DIM);
         return Ok(());
     }
 
@@ -235,19 +216,11 @@ pub async fn handle_reset() -> Result<()> {
 
     // v0.0.329: Also reset probe learning
     if let Err(e) = ProbeLearningStore::reset() {
-        eprintln!(
-            "{}Warning:{} Failed to reset probe learning: {}",
-            colors::WARN, colors::RESET, e
-        );
+        print_warn(&format!("Failed to reset probe learning: {}", e));
     }
 
     client.reset().await?;
 
-    println!(
-        "{}{}{}  Reset complete. Anna will start fresh.",
-        colors::OK,
-        symbols::OK,
-        colors::RESET
-    );
+    print_ok("Reset complete. Anna will start fresh.");
     Ok(())
 }

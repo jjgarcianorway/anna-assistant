@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.339] - 2025-12-10
+
+### Improved - Full UI Consistency Rollout
+
+Final wave of UI consistency refactoring across all remaining components:
+
+**Status Display:**
+- All section headers now use `print_section_header()` with HEADER color
+- Horizontal rules use consistent DIM styling
+- Removed local `kv()` function - uses centralized helper
+
+**Command Handlers:**
+- `handle_uninstall()` uses sectioned layout: `[plan]`, `[helpers]`, `[confirmation]`
+- `handle_reset()` now has proper header with HR and sectioned output
+- Config feedback messages use `print_label()` instead of raw println
+
+**Learning Command:**
+- Full refactor to use `print_section_header()`, `kv()`, `print_hint()`
+- Headers with HR for both main view and query analysis
+- Consistent `[section]` formatting throughout
+- Improved readability with standardized key-value alignment
+
+**Before:**
+```
+Anna Learning Stats
+Probe Effectiveness by Category:
+  Category:
+    probe 85%
+```
+
+**After:**
+```
+──────────────────────────────────────────────────────────────────────────────
+Anna Learning Stats
+──────────────────────────────────────────────────────────────────────────────
+
+[probe effectiveness]
+  Category:
+    probe 85%
+
+[summary]
+  queries_processed   15
+  keywords_learned    8
+```
+
+All CLI output now uses the same formatting functions for a polished, consistent UX.
+
 ## [0.0.338] - 2025-12-10
 
 ### Improved - More UI Consistency

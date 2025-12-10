@@ -1,10 +1,11 @@
-//! Status display v2 - Rich formatted dashboard (v0.0.249).
+//! Status display v2 - Rich formatted dashboard (v0.0.339).
 //!
 //! Matches the user's vision of a sectioned, terminal-friendly display:
 //! - Header with status indicator
 //! - Bracketed sections like [core], [updates], [llm]
 //! - Consistent key-value alignment
 //! v0.0.267: Added models_downloaded_by_anna section.
+//! v0.0.339: Use centralized UI helpers for consistency.
 
 use anna_shared::event_log::EventLog;
 use anna_shared::helpers::InstallSource;
@@ -13,12 +14,9 @@ use anna_shared::rpc::DaemonInfo;
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::status_snapshot::StatusSnapshot;
 use anna_shared::ticket_tracker::{TicketStatus, TicketTracker};
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, kv, print_section_header, HR};
 use anna_shared::version::{VersionInfo, VERSION};
 use chrono::{DateTime, Local, TimeZone, Utc};
-
-const HR: &str = "──────────────────────────────────────────────────────────────────────────────";
-const KEY_WIDTH: usize = 22;
 
 /// Print the new rich status display
 pub fn print_status_display_v2(
@@ -50,19 +48,21 @@ pub fn print_status_display_v2(
         .unwrap_or(if status.debug_mode { "ON" } else { "OFF" });
 
     // === HEADER ===
-    println!("{}", HR);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!(
-        "Anna Service Desk (local)  |  status: {}{}{}  |  debug_mode: {}",
+        "{}Anna Service Desk{} (local) | status: {}{}{}  | debug_mode: {}",
+        colors::HEADER,
+        colors::RESET,
         overall_status.1,
         overall_status.0,
         colors::RESET,
         debug_mode
     );
-    println!("{}", HR);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
     // === [core] ===
     println!();
-    println!("{}[core]{}", colors::HEADER, colors::RESET);
+    print_section_header("core");
     kv("annactl_version", &client_version.display_string());
     if let Some(info) = daemon_info {
         kv("annad_version", &info.version_info.display_string());
@@ -90,7 +90,7 @@ pub fn print_status_display_v2(
 
     // === [updates] ===
     println!();
-    println!("{}[updates]{}", colors::HEADER, colors::RESET);
+    print_section_header("updates");
     let auto_update_str = if status.update.enabled {
         format!("{}ENABLED{}", colors::OK, colors::RESET)
     } else {
@@ -131,7 +131,7 @@ pub fn print_status_display_v2(
     // === [permissions] ===
     if let Some(snap) = snapshot {
         println!();
-        println!("{}[permissions]{}", colors::HEADER, colors::RESET);
+        print_section_header("permissions");
         kv("user", &snap.perms.user);
         let groups = if snap.perms.groups.is_empty() {
             "-".to_string()
@@ -152,7 +152,7 @@ pub fn print_status_display_v2(
 
     // === [llm] ===
     println!();
-    println!("{}[llm]{}", colors::HEADER, colors::RESET);
+    print_section_header("llm");
     kv("provider", &status.llm.provider);
     let llm_state_str = match status.llm.state {
         LlmState::Ready => format!("{}READY{}", colors::OK, colors::RESET),
@@ -227,7 +227,7 @@ pub fn print_status_display_v2(
     if let Some(snap) = snapshot {
         if snap.helpers.total > 0 {
             println!();
-            println!("{}[helpers]{}", colors::HEADER, colors::RESET);
+            print_section_header("helpers");
             kv(
                 "installed_by_anna",
                 &format!("{}", snap.helpers.anna_installed),
@@ -260,7 +260,7 @@ pub fn print_status_display_v2(
     if let Ok(tickets) = TicketTracker::for_user().open_tickets() {
         if !tickets.is_empty() {
             println!();
-            println!("{}[tickets]{}", colors::HEADER, colors::RESET);
+            print_section_header("tickets");
             kv("open", &format!("{}", tickets.len()));
             for ticket in tickets.iter().take(3) {
                 let status_color = match ticket.status {
@@ -289,7 +289,7 @@ pub fn print_status_display_v2(
 
     // === [annad logs] ===
     println!();
-    println!("{}[annad logs]{}", colors::HEADER, colors::RESET);
+    print_section_header("annad logs");
     if let Some(err) = &status.last_error {
         kv("last_error", &format!("{}{}{}", colors::ERR, err, colors::RESET));
     } else {
@@ -307,7 +307,7 @@ pub fn print_status_display_v2(
 
     // === [health] ===
     println!();
-    println!("{}[health]{}", colors::HEADER, colors::RESET);
+    print_section_header("health");
     kv(
         "self_checks",
         &format!("{}PASS{}", colors::OK, colors::RESET),
@@ -321,11 +321,7 @@ pub fn print_status_display_v2(
         &format!("{}OK{}", colors::OK, colors::RESET),
     );
 
-    println!("{}", HR);
-}
-
-fn kv(key: &str, value: &str) {
-    println!("  {:width$}{}", key, value, width = KEY_WIDTH);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
 }
 
 fn format_uptime(seconds: u64) -> String {
