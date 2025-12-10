@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.277] - 2025-12-10
+
+### Added - Tiered Model Hierarchy
+
+**New three-tier model configuration:**
+- **Translator**: `qwen2.5:0.5b-instruct` - Fastest, for classification and formatting
+- **Junior**: `qwen2.5:3b-instruct` - Mid-size, for regular specialist work
+- **Senior**: `qwen2.5:7b-instruct` - Largest/smartest, for complex/escalated queries
+
+**Configuration changes:**
+- Added `junior_model` config option (defaults to 3b model)
+- Added `senior_model` config option (defaults to 7b model)
+- Legacy `specialist_model` maps to `junior_model` for backwards compatibility
+- `ModelRole` enum now includes `Junior` and `Senior` variants
+
+**Files changed:**
+- `anna-shared/src/model_selector/types.rs` - Added Junior/Senior model roles
+- `annad/src/config.rs` - Added junior_model and senior_model config options
+
 ## [0.0.276] - 2025-12-10
 
 ### Added - LLM Response Formatting

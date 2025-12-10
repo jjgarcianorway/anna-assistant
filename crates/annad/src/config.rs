@@ -20,13 +20,22 @@ pub const CONFIG_PATH: &str = "/etc/anna/config.toml";
 pub const DEFAULT_CONFIG_PATH: &str = "/var/lib/anna/config.toml";
 
 /// LLM configuration
+/// v0.0.277: Added junior_model and senior_model for tiered expertise
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmConfig {
-    /// Model for translator (query classification) - fast, small
+    /// Model for translator (query classification + formatting) - smallest, fastest
     #[serde(default = "default_translator_model")]
     pub translator_model: String,
 
-    /// Model for specialist (domain expert) - capable, accurate
+    /// Model for junior specialist (regular queries) - mid-size, capable
+    #[serde(default = "default_junior_model")]
+    pub junior_model: String,
+
+    /// Model for senior specialist (complex/escalated queries) - largest, smartest
+    #[serde(default = "default_senior_model")]
+    pub senior_model: String,
+
+    /// Legacy: Model for specialist - maps to junior_model
     #[serde(default = "default_specialist_model")]
     pub specialist_model: String,
 
@@ -64,8 +73,19 @@ fn default_translator_model() -> String {
     "qwen2.5:0.5b-instruct".to_string()
 }
 
-fn default_specialist_model() -> String {
+fn default_junior_model() -> String {
+    // v0.0.277: Junior uses 3b model - smarter than translator, faster than senior
+    "qwen2.5:3b-instruct".to_string()
+}
+
+fn default_senior_model() -> String {
+    // v0.0.277: Senior uses 7b model - smartest, for complex queries
     "qwen2.5:7b-instruct".to_string()
+}
+
+fn default_specialist_model() -> String {
+    // Legacy: maps to junior model for backwards compatibility
+    default_junior_model()
 }
 
 fn default_supervisor_model() -> String {
@@ -101,6 +121,8 @@ impl Default for LlmConfig {
     fn default() -> Self {
         Self {
             translator_model: default_translator_model(),
+            junior_model: default_junior_model(),
+            senior_model: default_senior_model(),
             specialist_model: default_specialist_model(),
             supervisor_model: default_supervisor_model(),
             translator_timeout_secs: default_translator_timeout(),
@@ -321,15 +343,15 @@ impl Config {
     }
 
     /// Get list of unique models needed (for pulling)
+    /// v0.0.277: Now includes junior and senior models
     pub fn required_models(&self) -> Vec<String> {
         let mut models = vec![
             self.llm.translator_model.clone(),
-            self.llm.specialist_model.clone(),
+            self.llm.junior_model.clone(),
+            self.llm.senior_model.clone(),
         ];
-        // Add supervisor only if different
-        if self.llm.supervisor_model != self.llm.translator_model
-            && self.llm.supervisor_model != self.llm.specialist_model
-        {
+        // Add supervisor only if different from others
+        if !models.contains(&self.llm.supervisor_model) {
             models.push(self.llm.supervisor_model.clone());
         }
         models.sort();
@@ -347,7 +369,11 @@ mod tests {
         let config = Config::default();
         // v0.0.32: fast translator with 0.5b model
         assert_eq!(config.llm.translator_model, "qwen2.5:0.5b-instruct");
-        assert_eq!(config.llm.specialist_model, "qwen2.5:7b-instruct");
+        // v0.0.277: tiered model hierarchy
+        assert_eq!(config.llm.junior_model, "qwen2.5:3b-instruct");
+        assert_eq!(config.llm.senior_model, "qwen2.5:7b-instruct");
+        // Legacy specialist maps to junior
+        assert_eq!(config.llm.specialist_model, "qwen2.5:3b-instruct");
         // v0.0.140: increased timeout for reliability
         assert_eq!(config.llm.translator_timeout_secs, 5);
     }
@@ -355,9 +381,9 @@ mod tests {
     #[test]
     fn test_required_models_dedup() {
         let config = Config::default();
-        // translator and supervisor are the same by default
+        // v0.0.277: translator/supervisor (same), junior, senior
         let models = config.required_models();
-        assert_eq!(models.len(), 2); // translator/supervisor (same) + specialist
+        assert_eq!(models.len(), 3); // translator/supervisor (0.5b), junior (3b), senior (7b)
     }
 
     #[test]

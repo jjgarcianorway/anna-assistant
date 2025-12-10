@@ -15,11 +15,14 @@ pub enum ModelFamily {
 }
 
 /// Model role for selection
+/// v0.0.277: Added Junior and Senior roles for tiered expertise
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelRole {
-    Translator, // Query classification (small)
-    Specialist, // Domain expert (capable)
+    Translator, // Query classification + formatting (smallest, fastest)
+    Junior,     // Regular specialist work (mid-size, capable)
+    Senior,     // Complex/escalated queries (largest, smartest)
+    Specialist, // Legacy: maps to Junior for backwards compatibility
 }
 
 /// Model candidate with metadata
