@@ -153,6 +153,18 @@ impl TelemetryStore {
         Self::load_from_path(&default_telemetry_path())
     }
 
+    /// Load from disk only if file exists, returns None if no data
+    pub fn load_if_exists() -> Option<Self> {
+        let path = default_telemetry_path();
+        if path.exists() {
+            let store = Self::load_from_path(&path);
+            if !store.samples.is_empty() {
+                return Some(store);
+            }
+        }
+        None
+    }
+
     /// Load from specific path
     pub fn load_from_path(path: &PathBuf) -> Self {
         if let Ok(content) = fs::read_to_string(path) {

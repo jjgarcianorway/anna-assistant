@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.283] - 2025-12-10
+
+### Enhanced - Stats Display with Suggestions
+
+**Stats Command Enhancements:**
+- New `[suggestions]` section in `annactl stats` display
+- Shows personalized learning suggestions based on recipe gaps
+- Displays health-related suggestions from telemetry data
+- Example queries to help users teach Anna new skills
+- Priority-based ordering (high priority = yellow, low = dim)
+- Category icons: [+] new domain, [>] deep dive, [?] gap, [^] improve, [!] health
+
+**Telemetry Improvements:**
+- New `TelemetryStore::load_if_exists()` method
+- Returns None when no telemetry data exists (avoids false empty state)
+
+**Files changed:**
+- `annactl/src/stats_display_v2.rs` - Added suggestions section
+- `anna-shared/src/system_telemetry.rs` - Added load_if_exists method
+
 ## [0.0.282] - 2025-12-10
 
 ### Added - Recipe Learning Enhancements

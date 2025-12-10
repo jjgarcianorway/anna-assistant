@@ -9,9 +9,12 @@
 
 use anna_shared::achievements::{check_achievements, Achievement};
 use anna_shared::event_log::EventLog;
+use anna_shared::learning_suggestions::{generate_suggestions, SuggestionCategory};
 use anna_shared::recipe_matcher::recipe_count;
+use anna_shared::recipe_store::RecipeStore;
 use anna_shared::staff_stats::StaffStats;
 use anna_shared::stats::GlobalStats;
+use anna_shared::system_telemetry::TelemetryStore;
 use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::colors;
 
@@ -208,7 +211,57 @@ pub fn print_stats_display_v2(stats: &GlobalStats) {
         }
     }
 
+    // === [suggestions] === v0.0.283
+    print_suggestions_section();
+
     println!("{}", HR);
+}
+
+/// Print learning suggestions section
+fn print_suggestions_section() {
+    // Load recipe store and telemetry if available
+    let recipe_store = RecipeStore::load(RecipeStore::default_path()).ok();
+    let telemetry = TelemetryStore::load_if_exists();
+
+    let suggestions = generate_suggestions(
+        recipe_store.as_ref(),
+        telemetry.as_ref(),
+    );
+
+    if suggestions.is_empty() {
+        return;
+    }
+
+    println!();
+    println!("{}[suggestions]{}", colors::HEADER, colors::RESET);
+
+    for (i, suggestion) in suggestions.iter().take(3).enumerate() {
+        let category_icon = match suggestion.category {
+            SuggestionCategory::NewDomain => "[+]",
+            SuggestionCategory::DeepDive => "[>]",
+            SuggestionCategory::KnowledgeGap => "[?]",
+            SuggestionCategory::Improvement => "[^]",
+            SuggestionCategory::SystemHealth => "[!]",
+        };
+
+        let priority_color = if suggestion.priority <= 2 { colors::WARN } else { colors::DIM };
+
+        println!(
+            "  {}. {}{}{} {}",
+            i + 1,
+            priority_color,
+            category_icon,
+            colors::RESET,
+            suggestion.title
+        );
+
+        if let Some(ref example) = suggestion.example_query {
+            println!(
+                "       {}Try: \"{}\"{}",
+                colors::DIM, example, colors::RESET
+            );
+        }
+    }
 }
 
 fn kv(key: &str, value: &str) {
