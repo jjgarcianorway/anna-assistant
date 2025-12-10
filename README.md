@@ -389,7 +389,7 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.367**
+Current: **v0.0.368**
 
 Recent highlights:
 - **Centralized UI system** with consistent formatting across all displays

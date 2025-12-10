@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.368] - 2025-12-10
+
+### Documentation - Updated ROADMAP.md and FEATURES.md
+
+- Updated ROADMAP.md: Current Focus → v0.0.367+, Recent Completions → v0.0.346-367
+- Updated FEATURES.md: UI Consistency → v0.0.341-367, Code Quality → v0.0.367
+- Added natural language guidance theme to documentation
+
 ## [0.0.367] - 2025-12-10
 
 ### Fixed - Stale undo command reference
