@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.356] - 2025-12-10
+
+### Improved - UI Consistency in errors.rs and handlers.rs
+
+Extended centralized UI helpers to error display and uninstall flow:
+
+**Updated Files:**
+- `errors.rs` - Uses `print_step()` for error recovery suggestions
+- `handlers.rs` - Uses `print_step()`, `print_ok()`, `print_warn()` for uninstall
+
+**Changes:**
+- Error recovery suggestions use `print_step()` instead of raw `symbols::ARROW`
+- Uninstall command execution uses `print_step()` for commands
+- Uninstall success/warning uses `print_ok()`/`print_warn()`/`print_label()`
+- Removed `symbols` import from handlers.rs
+
+Consistent formatting in error recovery and uninstall displays.
+
 ## [0.0.355] - 2025-12-10
 
 ### Improved - UI Consistency in change_commands.rs

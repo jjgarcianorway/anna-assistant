@@ -4,8 +4,9 @@
 //! v0.0.304: Initial implementation.
 //! v0.0.337: Use centralized UI printing for consistency.
 //! v0.0.346: Use print_hint() and print_section_header() for consistency.
+//! v0.0.356: Use print_step() for error suggestions.
 
-use anna_shared::ui::{colors, print_hint, print_label, print_section_header, symbols};
+use anna_shared::ui::{colors, print_hint, print_label, print_section_header, print_step};
 
 /// Error categories for user-friendly presentation
 pub enum ErrorKind {
@@ -126,7 +127,7 @@ pub fn print_error(e: &anyhow::Error) {
         println!();
         print_section_header("to fix this");
         for suggestion in suggestions {
-            println!("  {} {}", symbols::ARROW, suggestion);
+            print_step(suggestion);
         }
     }
     println!();

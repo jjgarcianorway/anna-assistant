@@ -1,13 +1,14 @@
-//! Command handlers (v0.0.349).
+//! Command handlers (v0.0.356).
 //! v0.0.330: Initial version.
 //! v0.0.339: Use centralized UI printing for consistency.
 //! v0.0.344: Use print_title() for header display.
 //! v0.0.349: Use print_step() for action steps.
+//! v0.0.356: Uninstall uses centralized UI helpers.
 
 use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_label, print_ok, print_section_header, print_step, print_title, print_warn, symbols};
+use anna_shared::ui::{colors, print_label, print_ok, print_section_header, print_step, print_title, print_warn};
 use anna_shared::version::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -149,36 +150,26 @@ pub async fn handle_uninstall() -> Result<()> {
     println!("Executing uninstall...");
 
     for cmd in &uninstall_info.commands {
-        println!("  {} {}", symbols::ARROW, cmd);
+        print_step(cmd);
         let status = std::process::Command::new("sudo")
             .args(["sh", "-c", cmd])
             .status();
 
         match status {
             Ok(s) if s.success() => {
-                println!("    {}{}{}", colors::OK, symbols::OK, colors::RESET);
+                print_ok("done");
             }
             Ok(s) => {
-                println!(
-                    "    {}Warning: exited with {}{}",
-                    colors::WARN,
-                    s,
-                    colors::RESET
-                );
+                print_warn(&format!("exited with {}", s));
             }
             Err(e) => {
-                println!("    {}Error: {}{}", colors::ERR, e, colors::RESET);
+                print_label("error", &e.to_string(), colors::ERR);
             }
         }
     }
 
     println!();
-    println!(
-        "{}{}{}  Uninstall complete.",
-        colors::OK,
-        symbols::OK,
-        colors::RESET
-    );
+    print_ok("Uninstall complete.");
     Ok(())
 }
 
