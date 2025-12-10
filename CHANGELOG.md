@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.349] - 2025-12-10
+
+### Added - print_step() Helper Function
+
+New centralized helper for action step display:
+
+**New Helper (ui/printing.rs):**
+- `print_step(message)` - Prints "  → message" format
+
+**Updated Files:**
+- `handlers.rs` - Uninstall and reset plans use `print_step()` instead of raw `symbols::ARROW`
+
+Consistent step formatting across all action displays.
+
 ## [0.0.348] - 2025-12-10
 
 ### Improved - Bootstrap Progress Uses print_hint()

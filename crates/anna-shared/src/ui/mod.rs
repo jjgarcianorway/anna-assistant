@@ -1,8 +1,9 @@
-//! Terminal UI helpers for consistent output styling (v0.0.344).
+//! Terminal UI helpers for consistent output styling (v0.0.349).
 //!
 //! v0.0.213: Modularized into domain-focused submodules.
 //! v0.0.337: Enhanced printing helpers for consistent output.
 //! v0.0.344: Added print_title() for headers without version.
+//! v0.0.349: Added print_step() for action step lines.
 
 pub mod colors;
 pub mod formatting;
@@ -19,8 +20,8 @@ mod tests;
 pub use formatting::{format_bytes, format_duration, progress_bar};
 pub use printing::{
     kv, kv_colored, print_err, print_footer, print_header, print_hint, print_hr, print_kv,
-    print_kv_status, print_label, print_ok, print_section, print_section_header, print_title,
-    print_warn, HR, KEY_WIDTH,
+    print_kv_status, print_label, print_ok, print_section, print_section_header, print_step,
+    print_title, print_warn, HR, KEY_WIDTH,
 };
 pub use spinner::Spinner;
 pub use stage::{StageProgress, StageStatus};

@@ -1,8 +1,9 @@
-//! Terminal print functions for styled output (v0.0.344).
+//! Terminal print functions for styled output (v0.0.349).
 //!
 //! v0.0.213: Initial implementation.
 //! v0.0.337: Enhanced with consistent section/label formatting.
 //! v0.0.344: Added print_title() for headers without version.
+//! v0.0.349: Added print_step() for action step lines.
 
 use super::colors;
 use super::symbols;
@@ -99,6 +100,11 @@ pub fn print_warn(message: &str) {
 /// Print a dim/hint line
 pub fn print_hint(message: &str) {
     println!("  {}{}{}", colors::DIM, message, colors::RESET);
+}
+
+/// Print an action step line with arrow
+pub fn print_step(message: &str) {
+    println!("  {} {}", symbols::ARROW, message);
 }
 
 /// Print a key-value pair with standard alignment

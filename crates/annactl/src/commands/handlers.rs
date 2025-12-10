@@ -1,12 +1,13 @@
-//! Command handlers (v0.0.344).
+//! Command handlers (v0.0.349).
 //! v0.0.330: Initial version.
 //! v0.0.339: Use centralized UI printing for consistency.
 //! v0.0.344: Use print_title() for header display.
+//! v0.0.349: Use print_step() for action steps.
 
 use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_label, print_ok, print_section_header, print_title, print_warn, symbols};
+use anna_shared::ui::{colors, print_label, print_ok, print_section_header, print_step, print_title, print_warn, symbols};
 use anna_shared::version::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -110,17 +111,17 @@ pub async fn handle_uninstall() -> Result<()> {
     println!();
 
     print_section_header("plan");
-    println!("  {} stop + disable: annad.service", symbols::ARROW);
-    println!("  {} remove: /usr/local/bin/annactl, /usr/local/bin/annad", symbols::ARROW);
-    println!("  {} remove: /etc/anna, /var/lib/anna, /var/log/anna", symbols::ARROW);
+    print_step("stop + disable: annad.service");
+    print_step("remove: /usr/local/bin/annactl, /usr/local/bin/annad");
+    print_step("remove: /etc/anna, /var/lib/anna, /var/log/anna");
     println!();
 
     if !uninstall_info.models.is_empty() {
         print_section_header("helpers installed by anna");
         if uninstall_info.ollama_installed {
-            println!("  {} ollama", symbols::ARROW);
+            print_step("ollama");
         }
-        println!("  {} models: {}", symbols::ARROW, uninstall_info.models.join(", "));
+        print_step(&format!("models: {}", uninstall_info.models.join(", ")));
         println!();
     }
 
@@ -190,10 +191,10 @@ pub async fn handle_reset() -> Result<()> {
     println!();
 
     print_section_header("plan");
-    println!("  {} Clear learned recipes", symbols::ARROW);
-    println!("  {} Clear knowledge base", symbols::ARROW);
-    println!("  {} Clear event log (stats)", symbols::ARROW);
-    println!("  {} Clear probe learning", symbols::ARROW);
+    print_step("Clear learned recipes");
+    print_step("Clear knowledge base");
+    print_step("Clear event log (stats)");
+    print_step("Clear probe learning");
     println!();
 
     print_section_header("confirmation required");
