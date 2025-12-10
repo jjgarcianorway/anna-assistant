@@ -3,6 +3,7 @@
 //! v0.0.304: Added user-friendly error presentation module.
 //! v0.0.323: Added learning command to show probe learning stats.
 //! v0.0.328: Added query test option to learning command.
+//! v0.0.361: Added report, health, email, ticket, reply commands.
 
 mod change_commands;
 mod client;
@@ -13,17 +14,21 @@ mod greeting;
 mod live_request;
 mod output;
 mod progress_display;
+mod report_cmd;
 mod spinner;
 mod stats_display;
 mod stats_display_v2;
 mod status_display_v2;
 mod theatre_render;
+mod ticket_commands;
 mod transcript_render;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use crate::commands::{handle_learning_with_query, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
+use crate::report_cmd::handle_report;
+use crate::ticket_commands::{handle_email, handle_health, handle_reply, handle_ticket};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -71,6 +76,31 @@ enum Command {
         #[arg(long, short = 't')]
         test: Option<String>,
     },
+    /// Generate system health report (text or md format)
+    Report {
+        /// Output format: text or md
+        #[arg(default_value = "text")]
+        format: String,
+    },
+    /// Check Anna's dependencies and health
+    Health,
+    /// Configure email notifications for tickets
+    Email {
+        /// Email address (or 'off' to disable)
+        address: String,
+    },
+    /// View ticket conversation
+    Ticket {
+        /// Case number (e.g., ANN-1234)
+        case: String,
+    },
+    /// Reply to an open ticket
+    Reply {
+        /// Case number
+        case: String,
+        /// Your reply message
+        message: String,
+    },
     /// Reset learned data and event history
     Reset,
     /// Remove Anna completely from the system
@@ -85,6 +115,11 @@ async fn main() -> Result<()> {
         Some(Command::Status) => handle_status().await,
         Some(Command::Stats) => handle_stats().await,
         Some(Command::Learning { test }) => handle_learning_with_query(test.as_deref()),
+        Some(Command::Report { format }) => handle_report(&format).await,
+        Some(Command::Health) => handle_health().await,
+        Some(Command::Email { address }) => handle_email(&address).await,
+        Some(Command::Ticket { case }) => handle_ticket(&case).await,
+        Some(Command::Reply { case, message }) => handle_reply(&case, &message).await,
         Some(Command::Reset) => handle_reset().await,
         Some(Command::Uninstall) => handle_uninstall().await,
         None => {

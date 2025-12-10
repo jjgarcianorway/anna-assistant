@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.361] - 2025-12-10
+
+### Added - New CLI Commands (report, health, email, ticket, reply)
+
+Wired up orphaned modules that were implemented but not exposed in CLI:
+
+**New Commands:**
+- `annactl report [format]` - Generate system health report (text or md)
+- `annactl health` - Check Anna's dependencies and email configuration
+- `annactl email <address>` - Configure email notifications for tickets
+- `annactl ticket <case>` - View ticket conversation
+- `annactl reply <case> <message>` - Reply to an open ticket
+
+**Fixed:**
+- `ticket_commands.rs` and `report_cmd.rs` were orphaned (not compiled)
+- Now properly declared as modules and wired to CLI
+
+CLI now has 10 commands (was 5). README updated with full command list.
+
 ## [0.0.360] - 2025-12-10
 
 ### Documentation - Updated ROADMAP.md

@@ -311,11 +311,24 @@ Anna comes with built-in recipes for common tasks:
 Anna keeps it simple:
 
 ```bash
+# Core
 annactl "question"     # Ask anything about your system
 annactl                # Interactive mode (REPL)
 annactl status         # Daemon health, versions, LLM status
 annactl stats          # Service desk performance report
+
+# Learning & Reports
 annactl learning       # What Anna has learned (probe effectiveness)
+annactl report         # Generate system health report (text format)
+annactl report md      # Generate system health report (markdown)
+
+# Tickets & Notifications
+annactl health         # Check Anna's dependencies
+annactl email user@x   # Configure email notifications
+annactl ticket ANN-123 # View ticket conversation
+annactl reply ANN-123 "message"  # Reply to a ticket
+
+# Maintenance
 annactl reset          # Clear learned data and start fresh
 annactl uninstall      # Remove Anna completely
 ```
@@ -389,7 +402,7 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.360**
+Current: **v0.0.361**
 
 Recent highlights:
 - **Centralized UI system** with consistent formatting across all displays
