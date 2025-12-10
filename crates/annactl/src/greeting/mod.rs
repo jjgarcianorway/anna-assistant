@@ -172,43 +172,11 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let _ = snapshot::save_snapshot(&current_snapshot);
 }
 
-/// Try to get LLM-generated greeting, fall back to deterministic if unavailable
+/// v0.0.300: Deterministic greeting (fast, reliable)
+/// LLM-generated greetings were causing hangs and empty output.
 fn try_llm_greeting(ctx: &GreetingContext) -> String {
     use anna_shared::greeting_context::GreetingResponse;
 
-    // Try async LLM call with tokio runtime
-    let result = tokio::runtime::Handle::try_current()
-        .ok()
-        .and_then(|_handle| {
-            // Already in async context, spawn blocking
-            std::thread::scope(|s| {
-                s.spawn(|| {
-                    let rt = tokio::runtime::Runtime::new().ok()?;
-                    rt.block_on(async {
-                        let mut client = crate::client::AnnadClient::connect().await.ok()?;
-                        client.generate_greeting(ctx).await.ok()
-                    })
-                })
-                .join()
-                .ok()
-                .flatten()
-            })
-        })
-        .or_else(|| {
-            // Not in async context, create new runtime
-            tokio::runtime::Runtime::new().ok().and_then(|rt| {
-                rt.block_on(async {
-                    let mut client = crate::client::AnnadClient::connect().await.ok()?;
-                    client.generate_greeting(ctx).await.ok()
-                })
-            })
-        });
-
-    match result {
-        Some(response) if response.is_llm_generated => response.greeting,
-        _ => {
-            // Fall back to deterministic greeting
-            GreetingResponse::fallback(ctx).greeting
-        }
-    }
+    // Always use deterministic fallback - it's fast and reliable
+    GreetingResponse::fallback(ctx).greeting
 }

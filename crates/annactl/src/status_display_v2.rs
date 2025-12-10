@@ -293,14 +293,9 @@ pub fn print_status_display_v2(
         &format!("{}OK{}  (journal clean)", colors::OK, colors::RESET),
     );
 
-    // === [statistics] v0.0.274 ===
-    crate::status_statistics::print_statistics_section();
-
-    // === [telemetry] v0.0.280 ===
-    crate::status_telemetry::print_telemetry_section();
-
-    // === [learning] v0.0.280 ===
-    crate::status_learning::print_learning_section();
+    // v0.0.300: Removed [statistics], [telemetry], [learning] from status
+    // These belong in "annactl stats" not "annactl status"
+    // Status should focus on system health and daemon state
 
     // === [health] ===
     println!();

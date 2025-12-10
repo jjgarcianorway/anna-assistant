@@ -109,18 +109,40 @@ fn print_top_staff(staff_stats: &StaffStats) {
     }
 }
 
-/// Extract display name from person_id (e.g., "desktop_jr_sofia" -> "Sofia")
+/// v0.0.300: Extract display name from person_id
+/// "desktop_jr" -> "Desktop Jr", "desktop_jr_sofia" -> "Sofia (Desktop)"
 fn extract_name(person_id: &str) -> String {
-    person_id
-        .split('_')
-        .next_back()
-        .map(|s| {
-            let mut c = s.chars();
-            c.next()
-                .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
-                .unwrap_or_default()
-        })
-        .unwrap_or_else(|| person_id.to_string())
+    let parts: Vec<&str> = person_id.split('_').collect();
+
+    match parts.len() {
+        0 => person_id.to_string(),
+        1 => capitalize(parts[0]),
+        2 => {
+            // "desktop_jr" -> "Desktop Jr"
+            let dept = capitalize(parts[0]);
+            let role = if parts[1] == "jr" {
+                "Jr".to_string()
+            } else if parts[1] == "sr" {
+                "Sr".to_string()
+            } else {
+                capitalize(parts[1])
+            };
+            format!("{} {}", dept, role)
+        }
+        _ => {
+            // "desktop_jr_sofia" -> "Sofia (Desktop)"
+            let name = capitalize(parts.last().unwrap_or(&""));
+            let dept = capitalize(parts[0]);
+            format!("{} ({})", name, dept)
+        }
+    }
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+        .unwrap_or_default()
 }
 
 fn kv(key: &str, value: &str) {

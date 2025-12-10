@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.300] - 2025-12-10
+
+### Fixed - UX Improvements
+
+**REPL greeting now works reliably:**
+- Removed LLM-generated greetings (caused hangs and empty output)
+- Now uses fast, reliable deterministic greetings
+
+**Status display cleaned up:**
+- Removed `[statistics]`, `[telemetry]`, `[learning]` sections from `annactl status`
+- These belong in `annactl stats`, not status
+- Status now focuses on system health and daemon state
+
+**Staff names display correctly:**
+- Fixed `extract_name` in status_statistics to show "Desktop Jr" not just "Jr"
+- Now matches the fixed version in stats_display_v2
+
 ## [0.0.299] - 2025-12-10
 
 ### Fixed - Installer Removes Stale Binaries
