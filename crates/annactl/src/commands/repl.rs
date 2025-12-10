@@ -8,7 +8,7 @@ use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::config_parser::is_config_request;
 use anna_shared::idle_tips::{format_tip, get_contextual_tips, TipColors, TipQueue};
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_label, print_warn};
+use anna_shared::ui::{colors, print_hint, print_label, print_warn};
 use anyhow::Result;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
@@ -90,7 +90,7 @@ pub async fn handle_repl() -> Result<()> {
             ReadResult::Input(0) => {
                 // EOF (Ctrl-D)
                 println!();
-                println!("Goodbye! ;)");
+                print_hint("Goodbye! ;)");
                 break;
             }
             ReadResult::Input(_) => {
@@ -121,7 +121,7 @@ pub async fn handle_repl() -> Result<()> {
             let response = ClarifyResponse::parse(input, &pending.request);
 
             if response.cancelled {
-                println!("Cancelled.");
+                print_hint("Cancelled.");
                 pending_clarification = None;
                 continue;
             }
@@ -144,7 +144,7 @@ pub async fn handle_repl() -> Result<()> {
         // Handle exit commands
         match input.to_lowercase().as_str() {
             "exit" | "quit" | "bye" | "q" | ":q" | ":wq" => {
-                println!("Goodbye! ;)");
+                print_hint("Goodbye! ;)");
                 break;
             }
             // v0.0.237: Show config status

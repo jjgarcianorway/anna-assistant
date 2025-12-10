@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.366] - 2025-12-10
+
+### UI Consistency - REPL and uninstall messages
+
+Updated more user-facing messages to use centralized UI helpers:
+
+**handlers.rs:**
+- Uninstall description now uses `print_hint()`
+- "Uninstall cancelled" now uses `print_warn()`
+- "Executing uninstall" now uses `print_label()`
+
+**repl.rs:**
+- "Goodbye! ;)" now uses `print_hint()`
+- "Cancelled." now uses `print_hint()`
+
 ## [0.0.365] - 2025-12-10
 
 ### Fixed - Stale CLI command references

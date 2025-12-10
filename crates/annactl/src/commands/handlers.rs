@@ -8,7 +8,7 @@
 use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_label, print_ok, print_section_header, print_step, print_title, print_warn};
+use anna_shared::ui::{colors, print_hint, print_label, print_ok, print_section_header, print_step, print_title, print_warn};
 use anna_shared::version::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -107,8 +107,8 @@ pub async fn handle_uninstall() -> Result<()> {
     print_title(&format!("anna uninstall v{}", VERSION));
     println!();
 
-    println!("This will remove Anna binaries, service, configs, data, logs.");
-    println!("It can also remove helpers Anna installed (ollama + models).");
+    print_hint("This will remove Anna binaries, service, configs, data, logs.");
+    print_hint("It can also remove helpers Anna installed (ollama + models).");
     println!();
 
     print_section_header("plan");
@@ -142,12 +142,12 @@ pub async fn handle_uninstall() -> Result<()> {
 
     if input.trim() != "I UNDERSTAND THIS REMOVES ANNA AND ITS DATA" {
         println!();
-        println!("Uninstall cancelled.");
+        print_warn("Uninstall cancelled.");
         return Ok(());
     }
 
     println!();
-    println!("Executing uninstall...");
+    print_label("info", "Executing uninstall...", colors::HEADER);
 
     for cmd in &uninstall_info.commands {
         print_step(cmd);
