@@ -92,3 +92,4 @@ pub mod update;
 pub mod update_loop;
 pub mod update_ops;
 pub mod verify_probes;
+pub mod telemetry_collector; // v0.0.280: System telemetry collection

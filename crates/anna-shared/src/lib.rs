@@ -134,6 +134,9 @@ pub mod query_scenarios;
 // v0.0.275: LLM-generated greeting context
 pub mod greeting_context;
 
+// v0.0.280: System telemetry tracking
+pub mod system_telemetry;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

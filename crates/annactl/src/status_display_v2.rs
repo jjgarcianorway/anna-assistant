@@ -296,6 +296,12 @@ pub fn print_status_display_v2(
     // === [statistics] v0.0.274 ===
     crate::status_statistics::print_statistics_section();
 
+    // === [telemetry] v0.0.280 ===
+    crate::status_telemetry::print_telemetry_section();
+
+    // === [learning] v0.0.280 ===
+    crate::status_learning::print_learning_section();
+
     // === [health] ===
     println!();
     println!("{}[health]{}", colors::HEADER, colors::RESET);

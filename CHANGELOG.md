@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.280] - 2025-12-10
+
+### Added - System Telemetry and Learning Analytics
+
+**System Telemetry Tracking:**
+- New `system_telemetry.rs` module for tracking system state over time
+- Tracks CPU, memory, disk, load, services, and network metrics
+- Anomaly detection for high CPU, memory, disk, load, and service failures
+- Trend analysis to detect increasing/decreasing resource usage
+- Health score calculation (0-100) based on anomalies
+- Insight generation with recommendations
+
+**Telemetry Collector:**
+- Background task collects system metrics every 5 minutes
+- Persists telemetry data to disk for historical analysis
+- Automatic anomaly detection and trend calculation
+
+**Status Display Enhancements:**
+- New `[telemetry]` section showing:
+  - Health score with color-coded status
+  - Sample count and tracking window
+  - Trends (CPU, memory, disk)
+  - Recent anomalies with severity
+  - Generated insights with recommendations
+- New `[learning]` section showing:
+  - Recipes learned count
+  - Total recipe uses
+  - Average reliability score
+  - Breakdown by category
+  - Top recipes by usage
+
+**Files changed:**
+- New: `anna-shared/src/system_telemetry.rs` - Telemetry types and analysis
+- New: `annad/src/telemetry_collector.rs` - Background metric collection
+- New: `annactl/src/status_telemetry.rs` - Telemetry display section
+- New: `annactl/src/status_learning.rs` - Learning stats display section
+- `annactl/src/status_display_v2.rs` - Integrated telemetry and learning sections
+
 ## [0.0.279] - 2025-12-10
 
 ### Enhanced - Hollywood-Style Progress Display
