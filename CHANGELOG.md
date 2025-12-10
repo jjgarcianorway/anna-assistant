@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.317] - 2025-12-10
+
+### Added - Staff Feedback System
+
+**User feedback now affects staff XP:**
+- When users rate answers (helpful/not helpful), the staff member who handled the ticket receives XP
+- Helpful feedback: +5 XP bonus
+- Not helpful feedback: -10 XP penalty
+- Level changes are shown to user: `[staff] sofia leveled up (level 2 → 3)`
+
+**New functionality:**
+- `StaffStats::apply_feedback()` - Apply user feedback to staff XP
+- `TicketTracker::most_recent_staff_id()` - Get staff who handled most recent ticket
+- Feedback flow now connects recipe feedback to staff performance
+
+**Impact:** Staff progression is now tied to user satisfaction. Good answers help
+staff level up faster, while poor answers cause XP loss. This creates a feedback
+loop that incentivizes quality routing decisions.
+
 ## [0.0.316] - 2025-12-10
 
 ### Improved - Stats Display Formatting

@@ -233,6 +233,18 @@ impl TicketTracker {
         Ok(result)
     }
 
+    /// v0.0.317: Get the most recent ticket (for feedback association)
+    pub fn most_recent(&self) -> std::io::Result<Option<Ticket>> {
+        let tickets = self.recent(1)?;
+        Ok(tickets.into_iter().next())
+    }
+
+    /// v0.0.317: Get the staff member who handled the most recent ticket
+    pub fn most_recent_staff_id(&self) -> std::io::Result<Option<String>> {
+        let ticket = self.most_recent()?;
+        Ok(ticket.and_then(|t| t.assigned_to))
+    }
+
     /// Get ticket statistics
     pub fn stats(&self) -> std::io::Result<TicketStats> {
         let tickets = self.read_all()?;

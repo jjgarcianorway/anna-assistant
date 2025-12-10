@@ -1,6 +1,9 @@
-//! Feedback handling (v0.0.205).
+//! Feedback handling (v0.0.317).
 //! v0.0.304: Uses centralized error presentation.
+//! v0.0.317: Also applies feedback to staff XP.
 
+use anna_shared::staff_stats::StaffStats;
+use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::colors;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -10,6 +13,7 @@ use crate::errors;
 
 /// v0.0.103: Handle feedback request from Anna
 /// When Anna is uncertain about a recipe answer, she asks the user for feedback
+/// v0.0.317: Also updates staff XP based on feedback
 pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback::FeedbackRequest) {
     use anna_shared::recipe_feedback::{
         apply_feedback, log_feedback, FeedbackRating, RecipeFeedback,
@@ -64,6 +68,38 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
             );
         } else {
             println!("{}Thanks for the feedback!{}", colors::OK, colors::RESET);
+        }
+
+        // v0.0.317: Also apply feedback to staff XP
+        let helpful = matches!(r, FeedbackRating::Helpful);
+        apply_staff_feedback(helpful);
+    }
+}
+
+/// v0.0.317: Apply feedback to the staff member who handled the most recent ticket
+fn apply_staff_feedback(helpful: bool) {
+    let tracker = TicketTracker::for_user();
+    if let Ok(Some(staff_id)) = tracker.most_recent_staff_id() {
+        let mut stats = StaffStats::load();
+        if let Some(result) = stats.apply_feedback(&staff_id, helpful) {
+            let _ = stats.save();
+            // Show staff XP change if significant
+            if result.old_level != result.new_level {
+                let direction = if result.new_level > result.old_level {
+                    "leveled up"
+                } else {
+                    "leveled down"
+                };
+                println!(
+                    "{}[staff]{} {} {} (level {} → {})",
+                    colors::DIM,
+                    colors::RESET,
+                    staff_id.split('_').last().unwrap_or(&staff_id),
+                    direction,
+                    result.old_level,
+                    result.new_level
+                );
+            }
         }
     }
 }

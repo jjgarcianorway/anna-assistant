@@ -244,6 +244,45 @@ impl StaffStats {
     pub fn total_escalated(&self) -> u32 {
         self.by_staff.values().map(|m| m.tickets_escalated).sum()
     }
+
+    /// v0.0.317: Apply user feedback to staff XP
+    /// Helpful feedback = +5 XP bonus, NotHelpful = -10 XP penalty
+    pub fn apply_feedback(&mut self, person_id: &str, helpful: bool) -> Option<FeedbackResult> {
+        let metrics = self.by_staff.get_mut(person_id)?;
+        let old_xp = metrics.xp;
+        let old_level = metrics.level;
+
+        if helpful {
+            // User liked the answer - bonus XP
+            metrics.xp += 5;
+        } else {
+            // User didn't like - penalty
+            metrics.xp = metrics.xp.saturating_sub(10);
+        }
+        metrics.level = xp_to_level(metrics.xp);
+
+        self.updated_at = chrono::Utc::now().timestamp();
+
+        Some(FeedbackResult {
+            person_id: person_id.to_string(),
+            old_xp,
+            new_xp: metrics.xp,
+            old_level,
+            new_level: metrics.level,
+            helpful,
+        })
+    }
+}
+
+/// v0.0.317: Result of applying user feedback to staff
+#[derive(Debug, Clone)]
+pub struct FeedbackResult {
+    pub person_id: String,
+    pub old_xp: u64,
+    pub new_xp: u64,
+    pub old_level: u8,
+    pub new_level: u8,
+    pub helpful: bool,
 }
 
 /// v0.0.301: Convert XP to level (1-6)
@@ -382,6 +421,32 @@ mod tests {
         let mut fresh = StaffMetrics::default();
         fresh.record_ticket(false, false, 20, 1000); // -15 but floor at 0
         assert_eq!(fresh.xp, 0);
+    }
+
+    #[test]
+    fn test_staff_feedback() {
+        let mut stats = StaffStats::default();
+        // First create a staff entry via record_ticket
+        stats.record_ticket("desktop_jr", true, false, 80, 1000);
+        let initial_xp = stats.by_staff.get("desktop_jr").unwrap().xp;
+
+        // Test positive feedback (+5 XP)
+        let result = stats.apply_feedback("desktop_jr", true);
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert_eq!(r.new_xp, initial_xp + 5);
+        assert!(r.helpful);
+
+        // Test negative feedback (-10 XP)
+        let before = stats.by_staff.get("desktop_jr").unwrap().xp;
+        let result = stats.apply_feedback("desktop_jr", false);
+        assert!(result.is_some());
+        let r = result.unwrap();
+        assert_eq!(r.new_xp, before.saturating_sub(10));
+        assert!(!r.helpful);
+
+        // Test feedback for non-existent staff returns None
+        assert!(stats.apply_feedback("unknown_person", true).is_none());
     }
 
     #[test]
