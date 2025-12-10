@@ -1,10 +1,12 @@
 //! Feedback handling (v0.0.205).
+//! v0.0.304: Uses centralized error presentation.
 
 use anna_shared::ui::colors;
 use anyhow::Result;
 use std::io::{self, Write};
 
 use crate::display::show_bootstrap_progress;
+use crate::errors;
 
 /// v0.0.103: Handle feedback request from Anna
 /// When Anna is uncertain about a recipe answer, she asks the user for feedback
@@ -63,18 +65,20 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
 }
 
 /// Handle request error with recovery
+/// v0.0.304: Uses centralized error presentation with recovery suggestions
 pub async fn handle_request_error(e: &anyhow::Error) -> Result<()> {
     let err_str = e.to_string();
-    if err_str.contains("LLM") || err_str.contains("connect") {
-        println!();
-        println!(
-            "{}Connection issue.{} Restarting...",
-            colors::WARN,
-            colors::RESET
-        );
-        show_bootstrap_progress().await?;
+
+    // For connection issues, try to show bootstrap progress
+    if err_str.contains("LLM") || err_str.contains("connect") || err_str.contains("daemon") {
+        errors::print_warning("Connection issue detected, attempting recovery...");
+        if let Err(_) = show_bootstrap_progress().await {
+            // Bootstrap failed - show full error with suggestions
+            errors::print_error(e);
+        }
     } else {
-        eprintln!("{}Error:{} {}", colors::ERR, colors::RESET, e);
+        // Use the new user-friendly error presentation
+        errors::print_error(e);
     }
     Ok(())
 }

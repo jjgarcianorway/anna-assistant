@@ -1,10 +1,12 @@
 //! Anna CLI - user interface to annad.
 //! v0.0.144: Simplified CLI - only essential commands, everything else via natural language.
+//! v0.0.304: Added user-friendly error presentation module.
 
 mod change_commands;
 mod client;
 mod commands;
 mod display;
+mod errors;
 mod greeting;
 mod live_request;
 mod output;
@@ -25,29 +27,45 @@ use crate::commands::{handle_repl, handle_request, handle_reset, handle_stats, h
 #[derive(Parser)]
 #[command(name = "annactl")]
 #[command(version = anna_shared::VERSION)]
-#[command(about = "Local AI assistant for Linux systems")]
+#[command(about = "Local AI assistant for Linux systems - ask questions in plain English")]
 #[command(disable_help_subcommand = true)]
 #[command(
-    after_help = "EXAMPLES:\n    annactl \"what processes are using the most memory?\"\n    annactl help\n    annactl status\n    annactl stats\n    annactl  # Enter REPL mode"
+    after_help = "EXAMPLES:
+    annactl \"what's using all my memory?\"
+    annactl \"show failed services\"
+    annactl \"what's my IP address?\"
+    annactl \"is my disk getting full?\"
+    annactl status              # Show daemon status and health
+    annactl stats               # Show staff performance report
+    annactl                     # Interactive mode (REPL)
+
+NATURAL LANGUAGE:
+    Anna understands plain English. Just ask what you want to know about your system.
+    Examples: disk space, memory usage, CPU load, network config, failed services, logs.
+
+INTERACTIVE MODE:
+    Run 'annactl' without arguments to enter interactive mode.
+    Type 'show internal comms' to see how Anna's team works on your request.
+    Type 'annactl help' to see what Anna can do for you."
 )]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
 
-    /// Natural language request to send to Anna
+    /// Natural language request (e.g., \"what's my disk usage?\")
     #[arg(trailing_var_arg = true)]
     request: Vec<String>,
 }
 
 #[derive(Subcommand)]
 enum Command {
-    /// Show Anna's status, health, and configuration
+    /// Show Anna's status, daemon health, and LLM models
     Status,
-    /// Show RPG-style statistics and achievements
+    /// Show Service Desk staff performance report
     Stats,
-    /// Reset learned data (recipes, knowledge, event log)
+    /// Reset learned data and event history
     Reset,
-    /// Uninstall Anna completely
+    /// Remove Anna completely from the system
     Uninstall,
 }
 

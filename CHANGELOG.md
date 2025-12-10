@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.304] - 2025-12-10
+
+### Added - User-Friendly Error Handling
+
+**New centralized error presentation module:**
+- All errors now show helpful context and recovery suggestions
+- Error categories: DaemonNotRunning, DaemonCrashed, Timeout, LlmUnavailable, NetworkError
+- Each error type has specific troubleshooting steps
+- Consistent formatting across all error displays
+
+### Improved - Help System
+
+**Enhanced help output with feature discovery:**
+- Better examples: disk space, failed services, IP address queries
+- Explains natural language support clearly
+- Documents interactive mode and "show internal comms" feature
+- More descriptive command descriptions
+
+### Added - Long Wait Progress Feedback
+
+**Checkpoint messages for long-running requests:**
+- At 15s: "Still working on your request..."
+- At 30s: "This is taking longer than usual. Anna is still analyzing..."
+- At 45s: "Almost there... complex queries take more time."
+- Users no longer see blank screen during long waits
+
 ## [0.0.303] - 2025-12-10
 
 ### Added - Unused Model Cleanup

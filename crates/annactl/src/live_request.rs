@@ -70,6 +70,9 @@ pub async fn send_request_with_progress(prompt: &str) -> Result<ServiceDeskResul
         // v0.0.284: Maybe show an idle tip if waiting long enough
         maybe_show_idle_tip(&mut streaming_state);
 
+        // v0.0.304: Show checkpoint messages for long waits
+        maybe_show_checkpoint(&mut streaming_state);
+
         // Use faster polling when streaming tokens for smoother output
         let poll_delay = if streaming_state.started_streaming {
             50 // 50ms for streaming
@@ -106,6 +109,8 @@ struct StreamingState {
     tip_queue: TipQueue,
     /// v0.0.284: Whether we've shown a tip this request
     shown_tip: bool,
+    /// v0.0.304: Last checkpoint shown (for long wait feedback)
+    last_checkpoint_secs: u64,
 }
 
 impl Default for StreamingState {
@@ -132,6 +137,7 @@ impl Default for StreamingState {
             start_time: Instant::now(),
             tip_queue,
             shown_tip: false,
+            last_checkpoint_secs: 0,
         }
     }
 }
@@ -306,6 +312,41 @@ fn maybe_show_idle_tip(state: &mut StreamingState) {
         print!("{}", formatted);
         let _ = io::stdout().flush();
         state.shown_tip = true;
+    }
+}
+
+/// v0.0.304: Show progress checkpoint for long-running requests
+/// Provides reassurance that Anna is still working
+fn maybe_show_checkpoint(state: &mut StreamingState) {
+    let elapsed = state.start_time.elapsed().as_secs();
+
+    // Show checkpoint every 15 seconds (at 15s, 30s, 45s, etc.)
+    let checkpoint_interval = 15;
+    let expected_checkpoint = (elapsed / checkpoint_interval) * checkpoint_interval;
+
+    // Only show if we've crossed a new checkpoint boundary and it's > 0
+    if expected_checkpoint > state.last_checkpoint_secs && expected_checkpoint > 0 {
+        // Clear spinner if active
+        if state.spinner_active {
+            print!("\r{}\r", " ".repeat(60));
+            state.spinner_active = false;
+        }
+
+        let message = match expected_checkpoint {
+            15 => "Still working on your request...",
+            30 => "This is taking longer than usual. Anna is still analyzing...",
+            45 => "Almost there... complex queries take more time.",
+            _ => "Still processing... please wait.",
+        };
+
+        println!(
+            "{}[{}s]{} {}",
+            colors::DIM,
+            elapsed,
+            colors::RESET,
+            message
+        );
+        state.last_checkpoint_secs = expected_checkpoint;
     }
 }
 
