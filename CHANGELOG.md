@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.343] - 2025-12-10
+
+### Improved - REPL & Spinner UI Consistency
+
+Centralized UI helpers in interactive components:
+
+**REPL (repl.rs):**
+- Uses `print_label()` for error, selection, and config messages
+- Uses `print_warn()` for timeout warnings
+- Consistent formatting with other commands
+
+**Spinner (spinner.rs):**
+- Uses `symbols::OK` and `symbols::ERR` from centralized symbols
+- Success/error methods match the visual style of other outputs
+
+All interactive components now use the same UI vocabulary.
+
 ## [0.0.342] - 2025-12-10
 
 ### Improved - Change Commands UI Consistency

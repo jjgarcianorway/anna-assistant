@@ -1,13 +1,14 @@
-//! REPL command handler (v0.0.240).
+//! REPL command handler (v0.0.343).
 //!
 //! v0.0.237: Added config command handling for natural language settings.
 //! v0.0.240: Added idle-time tips during user inactivity.
+//! v0.0.343: Use centralized UI helpers for consistency.
 
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::config_parser::is_config_request;
 use anna_shared::idle_tips::{format_tip, get_contextual_tips, TipColors, TipQueue};
 use anna_shared::status::LlmState;
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, print_label, print_warn};
 use anyhow::Result;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
@@ -96,7 +97,7 @@ pub async fn handle_repl() -> Result<()> {
                 // Normal input, continue processing
             }
             ReadResult::Error(e) => {
-                eprintln!("{}Input error:{} {}", colors::ERR, colors::RESET, e);
+                print_label("error", &format!("Input error: {}", e), colors::ERR);
                 continue;
             }
         }
@@ -112,7 +113,7 @@ pub async fn handle_repl() -> Result<()> {
             let ttl = Duration::from_secs(pending.request.ttl_seconds as u64);
 
             if elapsed > ttl && pending.request.ttl_seconds > 0 {
-                println!("{}Clarification timed out.{}", colors::WARN, colors::RESET);
+                print_warn("Clarification timed out");
                 pending_clarification = None;
                 continue;
             }
@@ -132,14 +133,10 @@ pub async fn handle_repl() -> Result<()> {
             };
 
             if let Some(val) = value {
-                println!("Selected: {}{}{}", colors::OK, val, colors::RESET);
+                print_label("selected", &val, colors::OK);
                 pending_clarification = None;
             } else {
-                println!(
-                    "{}Invalid selection. Try again or type 'cancel'.{}",
-                    colors::WARN,
-                    colors::RESET
-                );
+                print_warn("Invalid selection. Try again or type 'cancel'");
             }
             continue;
         }
@@ -191,23 +188,17 @@ pub async fn handle_repl() -> Result<()> {
                             match handle_proposed_change(&proposed).await {
                                 Ok(summary) => {
                                     if summary.failed {
-                                        println!(
-                                            "{}Error applying config.{}",
-                                            colors::ERR,
-                                            colors::RESET
-                                        );
+                                        print_label("config", "Error applying changes", colors::ERR);
                                     } else if summary.applied > 0 {
-                                        println!(
-                                            "{}Done! Applied {} change{}.{}",
-                                            colors::OK,
+                                        print_label("config", &format!(
+                                            "Applied {} change{}",
                                             summary.applied,
-                                            if summary.applied == 1 { "" } else { "s" },
-                                            colors::RESET
-                                        );
+                                            if summary.applied == 1 { "" } else { "s" }
+                                        ), colors::OK);
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("{}Error:{} {}", colors::ERR, colors::RESET, e);
+                                    print_label("error", &format!("{}", e), colors::ERR);
                                 }
                             }
                         }

@@ -1,7 +1,8 @@
 //! Animated spinner for async operations.
 //! v0.0.142: Real-time animated spinner during LLM calls.
+//! v0.0.343: Use centralized symbols for consistency.
 
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, symbols};
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -78,7 +79,7 @@ impl AnimatedSpinner {
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
-        println!("{}✓{} {}", colors::OK, colors::RESET, message);
+        println!("{}{}{} {}", colors::OK, symbols::OK, colors::RESET, message);
     }
 
     /// Stop with an error message
@@ -88,7 +89,7 @@ impl AnimatedSpinner {
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }
-        println!("{}✗{} {}", colors::ERR, colors::RESET, message);
+        println!("{}{}{} {}", colors::ERR, symbols::ERR, colors::RESET, message);
     }
 }
 
