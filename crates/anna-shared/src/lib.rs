@@ -140,6 +140,12 @@ pub mod system_telemetry;
 // v0.0.281: Proactive health alerts
 pub mod health_alerts;
 
+// v0.0.282: LLM-based recipe similarity scoring
+pub mod recipe_similarity;
+
+// v0.0.282: Idle-time learning suggestions
+pub mod learning_suggestions;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

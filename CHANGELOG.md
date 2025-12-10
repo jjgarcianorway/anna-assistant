@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.282] - 2025-12-10
+
+### Added - Recipe Learning Enhancements
+
+**LLM-Based Similarity Scoring:**
+- New `recipe_similarity.rs` module for semantic query matching
+- Uses translator LLM to score similarity between queries and recipes
+- `SimilarityScore` struct with score, intent match, target match
+- `quick_prefilter()` for efficient candidate selection before LLM
+- `build_similarity_prompt()` generates prompts for LLM scoring
+- Thresholds for skipping specialist LLM on high-confidence matches
+
+**Idle-Time Learning Suggestions:**
+- New `learning_suggestions.rs` module for proactive learning
+- Analyzes recipe coverage gaps by category
+- Identifies weak recipes needing improvement
+- Generates example queries to help users teach Anna
+- Health-related learning suggestions from telemetry
+- `format_suggestions_for_display()` for terminal output
+
+**Files changed:**
+- New: `anna-shared/src/recipe_similarity.rs` - LLM similarity scoring
+- New: `anna-shared/src/learning_suggestions.rs` - Learning suggestions
+
 ## [0.0.281] - 2025-12-10
 
 ### Added - Proactive Health Alerts
