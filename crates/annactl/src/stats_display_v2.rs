@@ -10,6 +10,8 @@
 use anna_shared::achievements::{check_achievements, Achievement};
 use anna_shared::event_log::EventLog;
 use anna_shared::learning_suggestions::{generate_suggestions, SuggestionCategory};
+use anna_shared::maintenance_actions::{generate_maintenance_actions, ActionCategory};
+use anna_shared::snapshot::SystemSnapshot;
 use anna_shared::recipe_matcher::recipe_count;
 use anna_shared::recipe_store::RecipeStore;
 use anna_shared::staff_stats::StaffStats;
@@ -214,6 +216,9 @@ pub fn print_stats_display_v2(stats: &GlobalStats) {
     // === [suggestions] === v0.0.283
     print_suggestions_section();
 
+    // === [maintenance] === v0.0.286
+    print_maintenance_section();
+
     println!("{}", HR);
 }
 
@@ -261,6 +266,55 @@ fn print_suggestions_section() {
                 colors::DIM, example, colors::RESET
             );
         }
+    }
+}
+
+/// v0.0.286: Print maintenance actions section
+fn print_maintenance_section() {
+    // Get current snapshot and telemetry
+    let snapshot = SystemSnapshot::now();
+    let telemetry = TelemetryStore::load_if_exists();
+
+    let actions = generate_maintenance_actions(&snapshot, telemetry.as_ref());
+
+    // Only show if there are urgent actions (urgency <= 3)
+    let urgent_actions: Vec<_> = actions.iter().filter(|a| a.urgency <= 3).collect();
+    if urgent_actions.is_empty() {
+        return;
+    }
+
+    println!();
+    println!("{}[maintenance]{}", colors::HEADER, colors::RESET);
+
+    for (i, action) in urgent_actions.iter().take(3).enumerate() {
+        let urgency_marker = match action.urgency {
+            1 => format!("{}[!!]{}", colors::ERR, colors::RESET),
+            2 => format!("{}[! ]{}", colors::WARN, colors::RESET),
+            _ => format!("{}[* ]{}", colors::DIM, colors::RESET),
+        };
+
+        let category_hint = match action.category {
+            ActionCategory::DiskCleanup => "disk",
+            ActionCategory::MemoryOptimize => "memory",
+            ActionCategory::ServiceRepair => "service",
+            ActionCategory::SecurityAudit => "security",
+            ActionCategory::PerformanceTune => "perf",
+            ActionCategory::SystemUpdate => "update",
+        };
+
+        println!(
+            "  {}. {} {}{} {}",
+            i + 1,
+            urgency_marker,
+            action.title,
+            format!(" {}({}){}", colors::DIM, category_hint, colors::RESET),
+            ""
+        );
+
+        println!(
+            "       {}Ask: \"{}\"{}",
+            colors::DIM, action.anna_query, colors::RESET
+        );
     }
 }
 

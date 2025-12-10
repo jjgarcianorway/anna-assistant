@@ -146,6 +146,9 @@ pub mod recipe_similarity;
 // v0.0.282: Idle-time learning suggestions
 pub mod learning_suggestions;
 
+// v0.0.286: Proactive maintenance actions
+pub mod maintenance_actions;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

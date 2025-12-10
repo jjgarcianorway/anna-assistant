@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.286] - 2025-12-10
+
+### Added - Proactive Maintenance Actions
+
+**Maintenance Actions Module:**
+- New `maintenance_actions.rs` module for actionable maintenance suggestions
+- Turns health observations into concrete actions Anna can help execute
+- Categories: DiskCleanup, MemoryOptimize, ServiceRepair, SecurityAudit, PerformanceTune, SystemUpdate
+- Urgency levels (1=critical, 5=optional) with visual markers
+
+**Stats Display Integration:**
+- New `[maintenance]` section in `annactl stats` display
+- Shows urgent actions (urgency <= 3) with action prompts
+- Each action includes a ready-to-use Anna query
+- Urgency markers: `[!!]` critical, `[! ]` warning, `[* ]` info
+
+**Action Generation:**
+- Disk cleanup actions from disk usage levels
+- Memory optimization from memory pressure
+- Service repair actions from failed services
+- Telemetry-based actions from health score and trends
+- Network health checks from detected anomalies
+
+**Files changed:**
+- `anna-shared/src/maintenance_actions.rs` - New maintenance action system
+- `anna-shared/src/lib.rs` - Added module export
+- `annactl/src/stats_display_v2.rs` - Integrated maintenance section
+
 ## [0.0.285] - 2025-12-10
 
 ### Enhanced - Telemetry-Based Health Tips
