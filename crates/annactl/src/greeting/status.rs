@@ -210,6 +210,26 @@ pub fn print_system_readiness(status: &DaemonStatus) {
                 println!("  {} {:.0}%", bar, progress.percent() * 100.0);
             }
         }
+        LlmState::PullingModels => {
+            // v0.0.310: Daemon is ready but models are loading in background
+            if let (Some(trans), Some(spec)) =
+                (&status.llm.translator_model, &status.llm.specialist_model)
+            {
+                println!(
+                    "{}Systems ready (models loading). Translator: {}, Specialist: {}{}",
+                    colors::DIM,
+                    trans,
+                    spec,
+                    colors::RESET
+                );
+            } else {
+                println!(
+                    "{}Systems ready (downloading models in background)...{}",
+                    colors::DIM,
+                    colors::RESET
+                );
+            }
+        }
         LlmState::Error => {
             println!(
                 "{}[error]{} AI models not available. Some features may be limited.",

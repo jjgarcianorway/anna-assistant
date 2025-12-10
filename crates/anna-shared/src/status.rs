@@ -199,6 +199,8 @@ pub struct LlmStatus {
 #[serde(rename_all = "snake_case")]
 pub enum LlmState {
     Bootstrapping,
+    /// v0.0.310: Models are being pulled in background - deterministic answers work
+    PullingModels,
     Ready,
     Error,
 }
@@ -207,9 +209,17 @@ impl std::fmt::Display for LlmState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LlmState::Bootstrapping => write!(f, "BOOTSTRAPPING"),
+            LlmState::PullingModels => write!(f, "PULLING_MODELS"),
             LlmState::Ready => write!(f, "READY"),
             LlmState::Error => write!(f, "ERROR"),
         }
+    }
+}
+
+impl LlmState {
+    /// v0.0.310: Check if LLM is available for inference (Ready or PullingModels with fallback)
+    pub fn can_handle_requests(&self) -> bool {
+        matches!(self, LlmState::Ready | LlmState::PullingModels)
     }
 }
 

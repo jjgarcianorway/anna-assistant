@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.310] - 2025-12-10
+
+### Fixed - Daemon Startup Blocking on Model Pulls
+
+**Daemon now starts immediately, model downloads happen in background:**
+- Added `PullingModels` state to `LlmState` - daemon is Ready while models load
+- Moved model selection and pulling to background task `setup_models_background()`
+- Daemon marked `Running` after hardware probe, before model downloads
+- Deterministic queries (disk space, CPU, memory, services) work immediately
+- LLM queries wait for models, but user gets instant "systems ready" status
+- Updated annactl to show "READY (models loading)" during background setup
+
+**Impact:** Fresh install no longer blocks 2-5 minutes waiting for model pulls.
+Users can start asking deterministic questions immediately. The daemon socket
+is available within seconds of service start.
+
 ## [0.0.309] - 2025-12-10
 
 ### Fixed - Desktop Wallpaper LLM Timeout

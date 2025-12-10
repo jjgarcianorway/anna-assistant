@@ -131,6 +131,7 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
         .map(|s| match s.llm.state {
             anna_shared::status::LlmState::Ready => "ready",
             anna_shared::status::LlmState::Bootstrapping => "starting",
+            anna_shared::status::LlmState::PullingModels => "ready", // v0.0.310: functional while loading
             anna_shared::status::LlmState::Error => "error",
         })
         .unwrap_or("unknown");

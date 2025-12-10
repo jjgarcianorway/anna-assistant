@@ -163,6 +163,10 @@ pub fn print_status_display_v2(
                 format!("{}STARTING...{}", colors::WARN, colors::RESET)
             }
         }
+        LlmState::PullingModels => {
+            // v0.0.310: Ready for queries, models loading in background
+            format!("{}READY{} (models loading)", colors::OK, colors::RESET)
+        }
         LlmState::Error => format!("{}ERROR{}", colors::ERR, colors::RESET),
     };
     kv("state", &llm_state_str);

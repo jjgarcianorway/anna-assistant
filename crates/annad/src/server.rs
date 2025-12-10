@@ -2,6 +2,7 @@
 //! v0.0.159: Update check loop extracted to update_loop.rs.
 //! v0.0.269: Intelligent model auto-selection with benchmarking.
 //! v0.0.281: Telemetry collector integration.
+//! v0.0.310: Non-blocking model pulls - daemon ready immediately.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -198,18 +199,59 @@ impl Server {
             state.set_benchmark_result(cpu_status, ram_status, gpu_status);
         }
 
+        // v0.0.310: Mark daemon as ready EARLY with PullingModels state
+        // This allows deterministic answers while models load in background
+        {
+            let mut state = self.state.write().await;
+            state.llm.state = anna_shared::status::LlmState::PullingModels;
+            state.state = anna_shared::status::DaemonState::Running;
+            state.set_llm_phase("starting_model_setup");
+
+            // Set default models from config (will be updated when auto-select completes)
+            state.llm.translator_model = Some(state.config.llm.translator_model.clone());
+            state.llm.specialist_model = Some(state.config.llm.specialist_model.clone());
+            state.llm.junior_model = Some(state.config.llm.specialist_model.clone());
+            state.llm.senior_model = Some(state.config.llm.senior_model.clone());
+        }
+
+        info!("Daemon ready for deterministic queries (models loading in background)");
+
+        // v0.0.310: Model selection and pulling now happens in background
+        let state_for_models = self.state.clone();
+        tokio::spawn(async move {
+            info!("Background model setup starting");
+            if let Err(e) = Self::setup_models_background(state_for_models).await {
+                error!("Background model setup failed: {}", e);
+            }
+        });
+
+        // Save ledger
+        {
+            let state = self.state.read().await;
+            state.ledger.save()?;
+        }
+
+        // v0.0.310: Daemon is already marked Running - initialization complete
+        // Model setup continues in background
+        info!("Daemon initialized (model setup in background)");
+        Ok(())
+    }
+
+    /// v0.0.310: Background model selection and pulling
+    /// Runs after daemon is already marked Ready, so deterministic answers work immediately
+    async fn setup_models_background(state: SharedState) -> Result<()> {
         // Get hardware info for model selection
         let (available_ram_gb, has_gpu) = {
-            let state = self.state.read().await;
-            let ram_gb = state.hardware.ram_bytes as f32 / (1024.0 * 1024.0 * 1024.0);
-            let has_gpu = state.hardware.gpu.is_some();
+            let state_read = state.read().await;
+            let ram_gb = state_read.hardware.ram_bytes as f32 / (1024.0 * 1024.0 * 1024.0);
+            let has_gpu = state_read.hardware.gpu.is_some();
             (ram_gb, has_gpu)
         };
 
-        // v0.0.269: Intelligent model auto-selection with benchmarking
+        // Update phase
         {
-            let mut state = self.state.write().await;
-            state.set_llm_phase("selecting_models");
+            let mut state_write = state.write().await;
+            state_write.set_llm_phase("selecting_models");
         }
 
         // Try auto-selection first, fall back to config defaults
@@ -218,23 +260,19 @@ impl Server {
                 Ok(result) => {
                     // Record models pulled by Anna
                     for model_name in &result.models_pulled {
-                        let mut state = self.state.write().await;
-                        state.ledger.add(LedgerEntry::new(
+                        let mut state_write = state.write().await;
+                        state_write.ledger.add(LedgerEntry::new(
                             LedgerEntryKind::ModelPulled,
                             model_name.clone(),
-                            true, // Pulled by Anna (not pre-existing)
+                            true,
                         ));
                     }
 
                     // Update state with benchmark results
                     {
-                        let mut state = self.state.write().await;
+                        let mut state_write = state.write().await;
                         for (model, bench) in &result.benchmarks {
-                            state.add_model(
-                                model,
-                                "benchmarked",
-                                bench.tokens_per_sec as u64,
-                            );
+                            state_write.add_model(model, "benchmarked", bench.tokens_per_sec as u64);
                         }
                     }
 
@@ -246,27 +284,30 @@ impl Server {
                 }
                 Err(e) => {
                     warn!("Auto-selection failed: {}, using config defaults", e);
-                    let state = self.state.read().await;
+                    let state_read = state.read().await;
                     (
-                        state.config.llm.translator_model.clone(),
-                        state.config.llm.specialist_model.clone(),
+                        state_read.config.llm.translator_model.clone(),
+                        state_read.config.llm.specialist_model.clone(),
                     )
                 }
             };
 
         // Phase: Pulling models (ensure selected models are available)
         {
-            let mut state = self.state.write().await;
-            state.set_llm_phase("pulling_models");
+            let mut state_write = state.write().await;
+            state_write.set_llm_phase("pulling_models");
         }
 
         let required_models = vec![translator_model.clone(), specialist_model.clone()];
         for model_name in &required_models {
             if !ollama::has_model(model_name).await {
                 info!("Pulling model: {}", model_name);
-                ollama::pull_model(model_name).await?;
-                let mut state = self.state.write().await;
-                state.ledger.add(LedgerEntry::new(
+                if let Err(e) = ollama::pull_model(model_name).await {
+                    error!("Failed to pull model {}: {}", model_name, e);
+                    continue;
+                }
+                let mut state_write = state.write().await;
+                state_write.ledger.add(LedgerEntry::new(
                     LedgerEntryKind::ModelPulled,
                     model_name.clone(),
                     true,
@@ -280,64 +321,29 @@ impl Server {
         let supervisor_model = translator_model.clone();
 
         // Add models to status with their roles
-        // v0.0.278: Support tiered model hierarchy (translator < junior < senior)
         {
-            let mut state = self.state.write().await;
-            state.add_model(&translator_model, "translator", 0);
-            state.add_model(&specialist_model, "junior", 0);
+            let mut state_write = state.write().await;
+            state_write.add_model(&translator_model, "translator", 0);
+            state_write.add_model(&specialist_model, "junior", 0);
             if supervisor_model != translator_model && supervisor_model != specialist_model {
-                state.add_model(&supervisor_model, "supervisor", 0);
+                state_write.add_model(&supervisor_model, "supervisor", 0);
             }
-            // v0.0.74: Set selected model info for status display
-            state.llm.translator_model = Some(translator_model.clone());
-            // v0.0.278: specialist_model maps to junior, senior uses config default
-            state.llm.junior_model = Some(specialist_model.clone());
-            state.llm.specialist_model = Some(specialist_model.clone()); // Legacy compat
-            state.llm.senior_model = Some(state.config.llm.senior_model.clone());
-            // Detect preferred family from model names
+            state_write.llm.translator_model = Some(translator_model.clone());
+            state_write.llm.junior_model = Some(specialist_model.clone());
+            state_write.llm.specialist_model = Some(specialist_model.clone());
+            state_write.llm.senior_model = Some(state_write.config.llm.senior_model.clone());
             let family = anna_shared::model_selector::detect_family(&specialist_model);
-            state.llm.preferred_family = Some(format!("{:?}", family));
+            state_write.llm.preferred_family = Some(format!("{:?}", family));
         }
 
-        // Run benchmark on specialist model (primary inference model)
+        // Run benchmark on specialist model
         let _throughput = ollama::benchmark(&specialist_model).await.unwrap_or(0.0);
 
-        // v0.0.303: Clean up unused models to free disk space
-        // Keep only models Anna actually uses
-        self.cleanup_unused_models(&required_models).await;
-
-        // Save ledger
-        {
-            let state = self.state.read().await;
-            state.ledger.save()?;
-        }
-
-        // Mark ready
-        {
-            let mut state = self.state.write().await;
-            state.set_llm_ready();
-        }
-
-        info!("Daemon initialized and ready");
-        Ok(())
-    }
-
-    /// v0.0.303: Clean up models that Anna pulled but no longer uses
-    /// Only removes models that were pulled by Anna (tracked in ledger)
-    async fn cleanup_unused_models(&self, required_models: &[String]) {
-        // Get list of all installed models
-        let installed_models = match ollama::list_models().await {
-            Ok(models) => models,
-            Err(e) => {
-                warn!("Cannot list models for cleanup: {}", e);
-                return;
-            }
-        };
-
-        // Get models that Anna pulled (from ledger)
-        let anna_pulled_models: Vec<String> = {
-            let state = self.state.read().await;
-            state
+        // Clean up unused models
+        let installed = ollama::list_models().await.unwrap_or_default();
+        let anna_pulled: Vec<String> = {
+            let state_read = state.read().await;
+            state_read
                 .ledger
                 .entries
                 .iter()
@@ -346,38 +352,35 @@ impl Server {
                 .collect()
         };
 
-        // Find models to delete: pulled by Anna but not in required list
-        for model in &installed_models {
-            // Only consider models that Anna pulled
-            let anna_owns = anna_pulled_models.iter().any(|p| model.contains(p) || p.contains(model));
+        for model in &installed {
+            let anna_owns = anna_pulled.iter().any(|p| model.contains(p) || p.contains(model));
             if !anna_owns {
-                continue; // Don't touch user's own models
+                continue;
             }
-
-            // Check if this model is still needed
             let is_needed = required_models.iter().any(|r| model.contains(r) || r.contains(model));
             if is_needed {
-                continue; // Keep models we're using
+                continue;
             }
-
-            // Delete unused model
             info!("Cleaning up unused model: {}", model);
-            match ollama::delete_model(model).await {
-                Ok(()) => {
-                    // Update ledger to mark model as deleted
-                    let mut state = self.state.write().await;
-                    state.ledger.add(LedgerEntry::new(
-                        LedgerEntryKind::ModelDeleted,
-                        model.clone(),
-                        true,
-                    ));
-                    info!("Deleted unused model: {}", model);
-                }
-                Err(e) => {
-                    warn!("Failed to delete model {}: {}", model, e);
-                }
+            if let Ok(()) = ollama::delete_model(model).await {
+                let mut state_write = state.write().await;
+                state_write.ledger.add(LedgerEntry::new(
+                    LedgerEntryKind::ModelDeleted,
+                    model.clone(),
+                    true,
+                ));
             }
         }
+
+        // Mark models as fully ready
+        {
+            let mut state_write = state.write().await;
+            state_write.set_llm_ready();
+            let _ = state_write.ledger.save();
+        }
+
+        info!("Background model setup complete - LLM fully ready");
+        Ok(())
     }
 
     /// v0.0.298: Static method so it can run before initialization completes

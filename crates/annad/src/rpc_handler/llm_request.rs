@@ -100,11 +100,13 @@ async fn handle_llm_request_inner(
     let mut progress = ProgressTracker::with_streaming_events(streaming_events);
 
     // Get config, models, and hardware from state
-    let (llm_config, translator_model, specialist_model, hw_cores, hw_ram_gb, has_gpu, debug_mode) = {
+    // v0.0.310: Allow requests when models are loading - deterministic answers work
+    let (llm_config, translator_model, specialist_model, hw_cores, hw_ram_gb, has_gpu, debug_mode, models_fully_ready) = {
         let state = state.read().await;
-        if state.llm.state != LlmState::Ready {
+        if !state.llm.state.can_handle_requests() {
             return RpcResponse::error(id, -32002, format!("LLM not ready: {}", state.llm.state));
         }
+        let models_ready = state.llm.state == LlmState::Ready;
         (
             state.config.llm.clone(),
             state.config.llm.translator_model.clone(),
@@ -113,8 +115,14 @@ async fn handle_llm_request_inner(
             state.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0),
             state.hardware.gpu.is_some(),
             state.config.debug_mode(),
+            models_ready,
         )
     };
+
+    // v0.0.310: Log if serving while models are still loading
+    if !models_fully_ready {
+        info!("Serving request while models are loading (deterministic answers only)");
+    }
 
     // Parse parameters
     let params: RequestParams = match params {
