@@ -24,6 +24,16 @@ pub struct StaffMetrics {
     pub total_time_ms: u64,
     /// Last activity timestamp
     pub last_active: i64,
+    /// v0.0.301: Staff XP (experience points)
+    #[serde(default)]
+    pub xp: u64,
+    /// v0.0.301: Staff level (1-6)
+    #[serde(default = "default_level")]
+    pub level: u8,
+}
+
+fn default_level() -> u8 {
+    1
 }
 
 impl StaffMetrics {
@@ -55,6 +65,28 @@ impl StaffMetrics {
 
         self.total_time_ms += duration_ms;
         self.last_active = chrono::Utc::now().timestamp();
+
+        // v0.0.301: Compute XP and level
+        self.update_xp(resolved, reliability);
+    }
+
+    /// v0.0.301: Update XP based on ticket outcome
+    fn update_xp(&mut self, resolved: bool, reliability: u8) {
+        // Base XP: 10 per ticket
+        let mut ticket_xp: u64 = 10;
+
+        // Bonus for resolved: +20
+        if resolved {
+            ticket_xp += 20;
+        }
+
+        // Bonus for reliability above 60: +5 per point
+        if reliability > 60 {
+            ticket_xp += (reliability - 60) as u64 * 2;
+        }
+
+        self.xp += ticket_xp;
+        self.level = xp_to_level(self.xp);
     }
 
     /// Get success rate as percentage
@@ -150,6 +182,66 @@ impl StaffStats {
     /// v0.0.110: Get metrics for a specific staff member
     pub fn get(&self, person_id: &str) -> Option<&StaffMetrics> {
         self.by_staff.get(person_id)
+    }
+
+    /// v0.0.301: Get staff grouped by department
+    pub fn by_department(&self) -> HashMap<String, Vec<(&String, &StaffMetrics)>> {
+        let mut departments: HashMap<String, Vec<(&String, &StaffMetrics)>> = HashMap::new();
+
+        for (person_id, metrics) in &self.by_staff {
+            let dept = person_id.split('_').next().unwrap_or("unknown").to_string();
+            departments.entry(dept).or_default().push((person_id, metrics));
+        }
+
+        // Sort each department by tickets handled (descending)
+        for staff in departments.values_mut() {
+            staff.sort_by(|a, b| b.1.tickets_handled.cmp(&a.1.tickets_handled));
+        }
+
+        departments
+    }
+
+    /// v0.0.301: Get total resolved tickets across all staff
+    pub fn total_resolved(&self) -> u32 {
+        self.by_staff.values().map(|m| m.tickets_resolved).sum()
+    }
+
+    /// v0.0.301: Get total escalated tickets across all staff
+    pub fn total_escalated(&self) -> u32 {
+        self.by_staff.values().map(|m| m.tickets_escalated).sum()
+    }
+}
+
+/// v0.0.301: Convert XP to level (1-6)
+/// Progression is slower - meaningful growth over time
+pub fn xp_to_level(xp: u64) -> u8 {
+    match xp {
+        0..=99 => 1,      // Novice
+        100..=299 => 2,   // Apprentice
+        300..=699 => 3,   // Competent
+        700..=1499 => 4,  // Expert
+        1500..=2999 => 5, // Master
+        _ => 6,           // Principal
+    }
+}
+
+/// v0.0.301: Get title for level (for juniors and seniors)
+pub fn level_title(level: u8, is_senior: bool) -> &'static str {
+    if is_senior {
+        match level {
+            1..=3 => "Expert",
+            4..=5 => "Master",
+            _ => "Principal",
+        }
+    } else {
+        match level {
+            1 => "Novice",
+            2 => "Apprentice",
+            3 => "Competent",
+            4 => "Skilled",
+            5 => "Proficient",
+            _ => "Expert",
+        }
     }
 }
 

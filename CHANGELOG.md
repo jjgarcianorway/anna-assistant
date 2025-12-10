@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.301] - 2025-12-10
+
+### Changed - Stats Redesign: Service Desk Staff Performance
+
+**Complete rewrite of `annactl stats` with Service Desk vision:**
+
+- **[service desk]**: Total tickets, resolved, escalated, avg response time
+- **[departments]**: Breakdown by department (Desktop, Network, Storage, etc.) with metrics
+- **[staff roster]**: Real staff names (Sofia, Michael, Lars) with tier (Jr/Sr), XP, success rate, and level
+- **[recent activity]**: Summary of recent work
+- **[quick stats]**: Overall summary
+
+**Staff now have XP and progression:**
+- Added `xp: u64` and `level: u8` to StaffMetrics
+- XP formula: 10 per ticket + 20 bonus for resolved + 2 per reliability point above 60
+- Level progression: Novice (1) -> Apprentice (2) -> Competent (3) -> Skilled (4) -> Proficient (5) -> Expert (6)
+- Seniors have different titles: Expert (1-3) -> Master (4-5) -> Principal (6)
+
+**Removed gamification bloat:**
+- No more "Anna XP" or achievements
+- No more suggestions or maintenance actions
+- Focus on real, meaningful staff performance data
+
 ## [0.0.300] - 2025-12-10
 
 ### Fixed - UX Improvements

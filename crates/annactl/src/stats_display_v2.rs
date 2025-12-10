@@ -1,437 +1,205 @@
-//! Stats display v2 - RPG-style gamified dashboard (v0.0.250).
+//! Stats display v2 - Service Desk Staff Performance Report (v0.0.301).
 //!
-//! Matches the user's vision of RPG gamification:
-//! - Level/XP with progress bar
-//! - Case throughput metrics
-//! - Quality scores
-//! - Team leaderboard
-//! - Achievements
+//! Clean, focused view of the service desk with real staff metrics:
+//! - Service desk summary (total tickets, resolved, escalated)
+//! - Department breakdown
+//! - Staff roster with names, XP, levels
+//! - Recent activity
 
-use anna_shared::achievements::{check_achievements, Achievement};
 use anna_shared::event_log::EventLog;
-use anna_shared::learning_progress::compute_learning_progress;
-use anna_shared::learning_suggestions::{generate_suggestions, SuggestionCategory};
-use anna_shared::maintenance_actions::{generate_maintenance_actions, ActionCategory};
-use anna_shared::snapshot::SystemSnapshot;
-use anna_shared::recipe_matcher::recipe_count;
-use anna_shared::recipe_store::RecipeStore;
-use anna_shared::staff_stats::StaffStats;
+use anna_shared::roster::{person_by_id, Tier};
+use anna_shared::staff_stats::{level_title, StaffStats};
 use anna_shared::stats::GlobalStats;
-use anna_shared::system_telemetry::TelemetryStore;
-use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::colors;
 
-use crate::time_format::format_tenure;
-
 const HR: &str = "──────────────────────────────────────────────────────────────────────────────";
-const KEY_WIDTH: usize = 22;
 
-/// Print the new RPG-style stats display
-pub fn print_stats_display_v2(stats: &GlobalStats) {
-    // Load event log for profile stats
+/// Print the Service Desk staff performance report
+pub fn print_stats_display_v2(_stats: &GlobalStats) {
+    // Load staff stats (the real source of truth)
+    let staff_stats = StaffStats::load();
+
+    // Load event log for recent activity
     let event_log = EventLog::new(EventLog::default_path(), 10000);
     let agg = event_log.aggregate().ok();
 
     // === HEADER ===
     println!("{}", HR);
-    let title = agg.as_ref().map(|a| a.title.as_str()).unwrap_or("IT Newcomer");
-    let level = agg.as_ref().map(|a| a.level).unwrap_or(1);
-    println!(
-        "Anna Service Desk  |  {}{}{}  |  Level {}",
-        colors::CYAN, title, colors::RESET, level
-    );
+    println!("Anna Service Desk  |  Staff Performance Report");
     println!("{}", HR);
 
-    // === [profile] ===
+    // === [service desk] ===
     println!();
-    println!("{}[profile]{}", colors::HEADER, colors::RESET);
+    println!("{}[service desk]{}", colors::HEADER, colors::RESET);
 
-    if let Some(ref agg) = agg {
-        kv("title", &format!("{}{}{}", colors::CYAN, agg.title, colors::RESET));
-        kv("level", &format!("{}", agg.level));
+    let total_tickets = staff_stats.total_tickets();
+    let resolved = staff_stats.total_resolved();
+    let escalated = staff_stats.total_escalated();
 
-        // XP progress bar
-        let xp_for_next = xp_for_level(agg.level + 1);
-        let xp_at_start = xp_for_level(agg.level);
-        let xp_in_level = agg.xp.saturating_sub(xp_at_start);
-        let xp_needed = xp_for_next.saturating_sub(xp_at_start);
-        let progress = if xp_needed > 0 {
-            (xp_in_level as f32 / xp_needed as f32 * 100.0) as u8
-        } else {
-            100
-        };
+    // Get average response time from event log if available
+    let avg_response = agg.as_ref().map(|a| a.avg_duration_ms).unwrap_or(0.0);
 
-        let bar = make_progress_bar(progress, 20);
-        kv("xp", &format!("{} / {}  {}", agg.xp, xp_for_next, bar));
-        kv("xp_to_next", &format!("{}", xp_needed.saturating_sub(xp_in_level)));
-
-        if agg.first_event_ts > 0 {
-            kv("tenure", &format_tenure(agg.first_event_ts));
-        }
-        if agg.current_streak > 0 {
-            kv("current_streak", &format!("{} days", agg.current_streak));
-        }
-    } else {
-        kv("title", "IT Newcomer");
-        kv("level", "1");
-        kv("xp", &format!("0 / 100  {}", make_progress_bar(0, 20)));
+    kv("total_tickets", &format!("{}", total_tickets));
+    kv("resolved", &format!("{}{}{}", colors::OK, resolved, colors::RESET));
+    kv("escalated", &format!("{}", escalated));
+    if avg_response > 0.0 {
+        kv("avg_response", &format!("{:.1}s", avg_response / 1000.0));
     }
 
-    // === [throughput] ===
-    println!();
-    println!("{}[throughput]{}", colors::HEADER, colors::RESET);
-
-    // v0.0.298: Use consistent data source - prefer event log, fallback to daemon stats
-    // This fixes the bug where throughput and quality showed inconsistent numbers
-    let (total_requests, verified, failed, timeouts, avg_reliability_val, escalations, clarifications) =
-        if let Some(ref agg) = agg {
-            (
-                agg.total_requests,
-                agg.verified_count,
-                agg.failed_count,
-                agg.timeout_count,
-                agg.avg_reliability,
-                agg.escalation_count,
-                agg.clarification_count,
-            )
-        } else {
-            // Fallback to daemon stats if event log not available
-            let total = stats.total_requests;
-            let verified_teams: u64 = stats.by_team.iter().map(|t| t.tickets_verified).sum();
-            let failed_teams: u64 = stats.by_team.iter().map(|t| t.tickets_total.saturating_sub(t.tickets_verified)).sum();
-            (
-                total,
-                verified_teams,
-                failed_teams,
-                0u64, // timeouts not tracked in daemon stats
-                stats.overall_avg_score(),
-                0u64, // escalations not tracked in daemon stats
-                0u64, // clarifications not tracked in daemon stats
-            )
-        };
-
-    kv("total_cases", &format!("{}", total_requests));
-    kv("resolved_ok", &format!("{}{}{}", colors::OK, verified, colors::RESET));
-    kv("failed", &format!("{}{}{}", if failed > 0 { colors::ERR } else { colors::DIM }, failed, colors::RESET));
-    kv("timeouts", &format!("{}", timeouts));
-    if escalations > 0 || clarifications > 0 {
-        kv("escalations", &format!("{}", escalations));
-        kv("clarifications", &format!("{}", clarifications));
-    }
-
-    // === [quality] ===
-    println!();
-    println!("{}[quality]{}", colors::HEADER, colors::RESET);
-
-    // v0.0.298: Success rate uses same verified/total from above for consistency
-    let success_rate = if total_requests > 0 {
-        verified as f32 / total_requests as f32
-    } else {
-        0.0
-    };
-    let success_color = if success_rate >= 0.8 { colors::OK }
-        else if success_rate >= 0.5 { colors::WARN }
-        else { colors::ERR };
-    kv("success_rate", &format!("{}{:.0}%{}", success_color, success_rate * 100.0, colors::RESET));
-
-    // v0.0.298: Use the same avg_reliability for consistency
-    let avg_reliability = avg_reliability_val;
-    kv("avg_reliability", &format!("{:.0}", avg_reliability));
-
-    if let Some(ref agg) = agg {
-        if agg.avg_duration_ms > 0.0 {
-            kv("avg_response_time", &format!("{:.0}ms", agg.avg_duration_ms));
-            kv("fastest_ever", &format!("{}ms", agg.min_duration_ms));
-            kv("slowest_ever", &format!("{}ms", agg.max_duration_ms));
-        }
-    }
-
-    kv("fast_path_hits", &format!("{} ({:.0}%)", stats.fast_path_hits, stats.fast_path_percentage()));
-
-    // === [learning] === v0.0.288: Now shows Anna's growth
-    println!();
-    println!("{}[learning]{}", colors::HEADER, colors::RESET);
-
-    // v0.0.288: Show learning progress (data-driven)
-    let progress = compute_learning_progress();
-
-    let total_recipes = recipe_count();
-    kv("recipes_learned", &format!("{}", total_recipes));
-
-    // Self-sufficiency shows how much Anna handles on her own
-    if stats.total_requests > 0 {
-        let self_pct = ((stats.fast_path_hits + stats.recipe_hits) as f32
-            / stats.total_requests as f32
-            * 100.0) as u8;
-        let color = if self_pct >= 50 {
-            colors::OK
-        } else if self_pct >= 20 {
-            colors::WARN
-        } else {
-            colors::DIM
-        };
-        kv("self_sufficiency", &format!("{}{}%{}", color, self_pct, colors::RESET));
-    }
-
-    // Show strong areas (from actual data)
-    if !progress.strong_areas.is_empty() {
-        kv("strong_in", &progress.strong_areas.join(", "));
-    }
-
-    // Show growing areas
-    if !progress.growing_areas.is_empty() && progress.growing_areas.len() <= 3 {
-        kv("learning", &progress.growing_areas.join(", "));
-    }
-
-    if stats.knowledge_pack_hits > 0 {
-        kv("knowledge_pack_hits", &format!("{}", stats.knowledge_pack_hits));
-    }
-    if stats.recipe_hits > 0 {
-        kv("recipe_cache_hits", &format!("{}", stats.recipe_hits));
-    }
-
-    // Tickets
-    if let Ok(ticket_stats) = TicketTracker::for_user().stats() {
-        if ticket_stats.total_tickets > 0 {
-            kv("tickets_tracked", &format!("{} total, {} resolved",
-                ticket_stats.total_tickets, ticket_stats.resolved_tickets));
-        }
-    }
-
-    // === [team leaderboard] ===
-    let staff_stats = StaffStats::load();
-    if staff_stats.total_tickets() > 0 {
+    // === [departments] ===
+    let by_dept = staff_stats.by_department();
+    if !by_dept.is_empty() {
         println!();
-        println!("{}[team leaderboard]{}", colors::HEADER, colors::RESET);
+        println!("{}[departments]{}", colors::HEADER, colors::RESET);
 
-        let top = staff_stats.top_performers(5);
-        for (i, (person_id, metrics)) in top.iter().enumerate() {
-            let name = extract_name(person_id);
-            let medal = match i {
-                0 => format!("{}[1]{}", colors::OK, colors::RESET),
-                1 => format!("{}[2]{}", colors::CYAN, colors::RESET),
-                2 => format!("{}[3]{}", colors::WARN, colors::RESET),
-                _ => format!("{}[{}]{}", colors::DIM, i + 1, colors::RESET),
+        // Sort departments by ticket count
+        let mut depts: Vec<_> = by_dept.iter().collect();
+        depts.sort_by(|a, b| {
+            let a_tickets: u32 = a.1.iter().map(|(_, m)| m.tickets_handled).sum();
+            let b_tickets: u32 = b.1.iter().map(|(_, m)| m.tickets_handled).sum();
+            b_tickets.cmp(&a_tickets)
+        });
+
+        for (dept_name, staff) in depts.iter().take(6) {
+            let dept_tickets: u32 = staff.iter().map(|(_, m)| m.tickets_handled).sum();
+            let dept_resolved: u32 = staff.iter().map(|(_, m)| m.tickets_resolved).sum();
+            let dept_time: u64 = staff.iter().map(|(_, m)| m.total_time_ms).sum();
+            let avg_time = if dept_tickets > 0 {
+                dept_time as f64 / dept_tickets as f64 / 1000.0
+            } else {
+                0.0
             };
+
+            let dept_display = capitalize(dept_name);
             println!(
-                "    {} {:12}  cases: {:>3}  success: {}{:>5.0}%{}",
-                medal,
-                name,
-                metrics.tickets_handled,
-                if metrics.success_rate() >= 80.0 { colors::OK } else { colors::DIM },
-                metrics.success_rate(),
-                colors::RESET
+                "  {:12}  tickets: {:>3}   resolved: {:>3}   avg: {:.1}s",
+                dept_display, dept_tickets, dept_resolved, avg_time
             );
         }
     }
 
-    // === [teams] ===
-    let active_teams: Vec<_> = stats.by_team.iter()
-        .filter(|ts| ts.tickets_total > 0)
-        .collect();
-
-    if !active_teams.is_empty() {
+    // === [staff roster] ===
+    if !by_dept.is_empty() {
         println!();
-        println!("{}[teams]{}", colors::HEADER, colors::RESET);
+        println!("{}[staff roster]{}", colors::HEADER, colors::RESET);
 
-        for ts in active_teams.iter().take(6) {
-            let color = if ts.success_rate() >= 0.8 { colors::OK }
-                else if ts.success_rate() >= 0.5 { colors::WARN }
-                else { colors::ERR };
-            println!(
-                "    {:12}  cases: {:>3}  ok: {}{:>3}{}  score: {:>5.0}",
-                ts.team, ts.tickets_total, color, ts.tickets_verified, colors::RESET, ts.avg_reliability_score
-            );
+        // Sort departments alphabetically for roster display
+        let mut depts: Vec<_> = by_dept.iter().collect();
+        depts.sort_by(|a, b| a.0.cmp(b.0));
+
+        for (dept_name, staff) in depts {
+            if staff.is_empty() {
+                continue;
+            }
+
+            // Department header
+            println!("  {}", dept_name.to_uppercase());
+
+            // Sort staff by tickets handled (descending)
+            let mut sorted_staff = staff.clone();
+            sorted_staff.sort_by(|a, b| b.1.tickets_handled.cmp(&a.1.tickets_handled));
+
+            for (person_id, metrics) in sorted_staff {
+                // Look up real name from roster
+                let (name, tier_label) = if let Some(profile) = person_by_id(person_id) {
+                    let tier = match profile.tier {
+                        Tier::Junior => "Jr",
+                        Tier::Senior => "Sr",
+                    };
+                    (profile.display_name.to_string(), tier)
+                } else {
+                    // Fallback: extract from person_id
+                    let parts: Vec<&str> = person_id.split('_').collect();
+                    let name = if parts.len() >= 3 {
+                        capitalize(parts[2])
+                    } else {
+                        capitalize(parts.last().unwrap_or(&"Unknown"))
+                    };
+                    let tier = if person_id.contains("_sr") { "Sr" } else { "Jr" };
+                    (name, tier)
+                };
+
+                let success_rate = metrics.success_rate();
+                let rate_color = if success_rate >= 80.0 {
+                    colors::OK
+                } else if success_rate >= 50.0 {
+                    colors::WARN
+                } else {
+                    colors::DIM
+                };
+
+                // Get level title based on tier
+                let is_senior = tier_label == "Sr";
+                let level_name = level_title(metrics.level, is_senior);
+
+                println!(
+                    "    {} ({})        tickets: {:>3}   xp: {:>4}   rate: {}{:>3.0}%{}   level: {}",
+                    name,
+                    tier_label,
+                    metrics.tickets_handled,
+                    metrics.xp,
+                    rate_color,
+                    success_rate,
+                    colors::RESET,
+                    level_name
+                );
+            }
         }
     }
 
-    // === [achievements] ===
+    // === [recent activity] ===
     if let Some(ref agg) = agg {
-        let achievements = check_achievements(agg);
-        let unlocked: Vec<_> = achievements.iter().filter(|a| a.unlocked).collect();
-        let locked_count = achievements.len() - unlocked.len();
-
-        if !unlocked.is_empty() || locked_count > 0 {
+        if agg.total_requests > 0 {
             println!();
-            println!("{}[achievements]{}", colors::HEADER, colors::RESET);
-            kv("unlocked", &format!("{} / {}", unlocked.len(), achievements.len()));
+            println!("{}[recent activity]{}", colors::HEADER, colors::RESET);
 
-            // Show unlocked achievements as icons
-            if !unlocked.is_empty() {
-                let icons: String = unlocked.iter().map(|a| format_achievement_icon(a)).collect::<Vec<_>>().join(" ");
-                println!("    {}", icons);
+            // Show summary of recent work
+            let resolved_pct = if agg.total_requests > 0 {
+                (agg.verified_count as f32 / agg.total_requests as f32 * 100.0) as u8
+            } else {
+                0
+            };
+
+            println!(
+                "  {} total requests, {}% resolved successfully",
+                agg.total_requests, resolved_pct
+            );
+
+            if agg.escalation_count > 0 {
+                println!("  {} escalations to senior staff", agg.escalation_count);
             }
 
-            // Show next achievement to unlock
-            if let Some(next) = achievements.iter().find(|a| !a.unlocked) {
-                kv("next_unlock", &format!("{}{}{}", colors::DIM, next.name, colors::RESET));
+            if agg.current_streak > 0 {
+                println!("  {} day streak of activity", agg.current_streak);
             }
         }
     }
 
-    // === [suggestions] === v0.0.283
-    print_suggestions_section();
+    // === [quick stats] === Summary line
+    if total_tickets > 0 {
+        println!();
+        println!("{}[quick stats]{}", colors::HEADER, colors::RESET);
 
-    // === [maintenance] === v0.0.286
-    print_maintenance_section();
+        let overall_rate = if total_tickets > 0 {
+            (resolved as f32 / total_tickets as f32 * 100.0) as u8
+        } else {
+            0
+        };
+
+        let staff_count = staff_stats.by_staff.len();
+        let dept_count = by_dept.len();
+
+        println!(
+            "  {} staff across {} departments, {}% overall success rate",
+            staff_count, dept_count, overall_rate
+        );
+    }
 
     println!("{}", HR);
-}
-
-/// Print learning suggestions section
-fn print_suggestions_section() {
-    // Load recipe store and telemetry if available
-    let recipe_store = RecipeStore::load(RecipeStore::default_path()).ok();
-    let telemetry = TelemetryStore::load_if_exists();
-
-    let suggestions = generate_suggestions(
-        recipe_store.as_ref(),
-        telemetry.as_ref(),
-    );
-
-    if suggestions.is_empty() {
-        return;
-    }
-
-    println!();
-    println!("{}[suggestions]{}", colors::HEADER, colors::RESET);
-
-    for (i, suggestion) in suggestions.iter().take(3).enumerate() {
-        let category_icon = match suggestion.category {
-            SuggestionCategory::NewDomain => "[+]",
-            SuggestionCategory::DeepDive => "[>]",
-            SuggestionCategory::KnowledgeGap => "[?]",
-            SuggestionCategory::Improvement => "[^]",
-            SuggestionCategory::SystemHealth => "[!]",
-        };
-
-        let priority_color = if suggestion.priority <= 2 { colors::WARN } else { colors::DIM };
-
-        println!(
-            "  {}. {}{}{} {}",
-            i + 1,
-            priority_color,
-            category_icon,
-            colors::RESET,
-            suggestion.title
-        );
-
-        if let Some(ref example) = suggestion.example_query {
-            println!(
-                "       {}Try: \"{}\"{}",
-                colors::DIM, example, colors::RESET
-            );
-        }
-    }
-}
-
-/// v0.0.286: Print maintenance actions section
-fn print_maintenance_section() {
-    // Get current snapshot and telemetry
-    let snapshot = SystemSnapshot::now();
-    let telemetry = TelemetryStore::load_if_exists();
-
-    let actions = generate_maintenance_actions(&snapshot, telemetry.as_ref());
-
-    // Only show if there are urgent actions (urgency <= 3)
-    let urgent_actions: Vec<_> = actions.iter().filter(|a| a.urgency <= 3).collect();
-    if urgent_actions.is_empty() {
-        return;
-    }
-
-    println!();
-    println!("{}[maintenance]{}", colors::HEADER, colors::RESET);
-
-    for (i, action) in urgent_actions.iter().take(3).enumerate() {
-        let urgency_marker = match action.urgency {
-            1 => format!("{}[!!]{}", colors::ERR, colors::RESET),
-            2 => format!("{}[! ]{}", colors::WARN, colors::RESET),
-            _ => format!("{}[* ]{}", colors::DIM, colors::RESET),
-        };
-
-        let category_hint = match action.category {
-            ActionCategory::DiskCleanup => "disk",
-            ActionCategory::MemoryOptimize => "memory",
-            ActionCategory::ServiceRepair => "service",
-            ActionCategory::SecurityAudit => "security",
-            ActionCategory::PerformanceTune => "perf",
-            ActionCategory::SystemUpdate => "update",
-        };
-
-        println!(
-            "  {}. {} {}{} {}",
-            i + 1,
-            urgency_marker,
-            action.title,
-            format!(" {}({}){}", colors::DIM, category_hint, colors::RESET),
-            ""
-        );
-
-        println!(
-            "       {}Ask: \"{}\"{}",
-            colors::DIM, action.anna_query, colors::RESET
-        );
-    }
 }
 
 fn kv(key: &str, value: &str) {
-    println!("  {:width$}{}", key, value, width = KEY_WIDTH);
-}
-
-fn make_progress_bar(percent: u8, width: usize) -> String {
-    let filled = (percent as usize * width) / 100;
-    format!(
-        "[{}{}{}{}{}]",
-        colors::OK,
-        "█".repeat(filled),
-        colors::DIM,
-        "░".repeat(width.saturating_sub(filled)),
-        colors::RESET
-    )
-}
-
-fn xp_for_level(level: u32) -> u64 {
-    match level {
-        1 => 0,
-        2 => 100,
-        3 => 300,
-        4 => 600,
-        5 => 1000,
-        6 => 2000,
-        7 => 4000,
-        8 => 8000,
-        9 => 16000,
-        10 => 32000,
-        _ => 64000,
-    }
-}
-
-/// v0.0.290: Better formatting of staff IDs like "desktop_jr" or "desktop_jr_sofia"
-fn extract_name(person_id: &str) -> String {
-    let parts: Vec<&str> = person_id.split('_').collect();
-
-    match parts.len() {
-        0 => person_id.to_string(),
-        1 => capitalize(parts[0]),
-        2 => {
-            // "desktop_jr" -> "Desktop Jr"
-            let dept = capitalize(parts[0]);
-            let role = if parts[1] == "jr" {
-                "Jr".to_string()
-            } else if parts[1] == "sr" {
-                "Sr".to_string()
-            } else {
-                capitalize(parts[1])
-            };
-            format!("{} {}", dept, role)
-        }
-        _ => {
-            // "desktop_jr_sofia" -> "Sofia (Desktop)"
-            let name = capitalize(parts.last().unwrap_or(&""));
-            let dept = capitalize(parts[0]);
-            format!("{} ({})", name, dept)
-        }
-    }
+    println!("  {:22}{}", key, value);
 }
 
 fn capitalize(s: &str) -> String {
@@ -439,23 +207,4 @@ fn capitalize(s: &str) -> String {
     c.next()
         .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
         .unwrap_or_default()
-}
-
-fn format_achievement_icon(achievement: &Achievement) -> String {
-    // v0.0.265: ASCII icons instead of emojis
-    let icon = match achievement.id {
-        "first_request" => "[1]",
-        "ten_requests" => "[10]",
-        "hundred_requests" => "[100]",
-        "first_verified" => "[v]",
-        "fast_responder" => "[*]",
-        "no_timeouts" => "[t]",
-        "recipe_learner" => "[r]",
-        "escalation_master" => "[^]",
-        "streak_3" => "[3d]",
-        "streak_7" => "[7d]",
-        "streak_30" => "[30d]",
-        _ => "[+]",
-    };
-    format!("{}{}{}", icon, colors::DIM, colors::RESET)
 }
