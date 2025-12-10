@@ -193,9 +193,9 @@
 - **Progress Bar**: `progress_bar(percent, width)` for visual progress
 - **Duration Format**: `format_duration(seconds)` for human-readable time
 
-### UI Consistency Updates (v0.0.341-367)
-- **greeting/status.rs**: LLM state messages use `print_hint()` and `print_label()`
-- **greeting/personal.rs**: Personalized greetings use centralized helpers
+### UI Consistency Updates (v0.0.341-369)
+- **greeting/status.rs**: LLM state messages use `print_hint()` and `print_label()`, unified `symbols::BULLET`
+- **greeting/personal.rs**: Personalized greetings use centralized helpers, unified `symbols::BULLET`
 - **errors.rs**: Error display with recovery suggestions via `print_step()`
 - **handlers.rs**: Uninstall/reset plans use `print_step()`, `print_ok()`, `print_warn()`, `print_hint()`
 - **progress_display.rs**: Bootstrap progress uses consistent formatting
@@ -205,10 +205,11 @@
 - **repl.rs**: Goodbye/cancelled messages use `print_hint()` (v0.0.366)
 - **Email notifications**: Natural language guidance instead of CLI commands (v0.0.365)
 
-### Code Quality (v0.0.367)
+### Code Quality (v0.0.369)
 - **Zero Warnings**: Clean release build with no compiler warnings (library + tests)
 - **Unused Code Cleanup**: Removed dead fields, imports, functions, and orphaned files
 - **Natural Language**: All user guidance points to natural language (no stale CLI refs)
+- **Unified Symbols**: All UI uses centralized `symbols::` constants (v0.0.369)
 - **Modular Design**: Files kept under 400 lines for maintainability
 
 ## Not Yet Implemented

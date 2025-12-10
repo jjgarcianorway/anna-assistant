@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.370] - 2025-12-10
+
+### Documentation - Updated for v0.0.369 changes
+
+- Updated FEATURES.md: UI Consistency → v0.0.341-369, Code Quality → v0.0.369
+- Updated ROADMAP.md: Current Focus → v0.0.369+, Recent Completions → v0.0.346-369
+- Added "Unified Symbols" to Code Quality achievements
+
 ## [0.0.369] - 2025-12-10
 
 ### UI Consistency - Unified bullet symbol

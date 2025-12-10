@@ -1,17 +1,20 @@
 # Anna Roadmap
 
-## Current Focus (v0.0.367+)
+## Current Focus (v0.0.369+)
 
 **Theme**: UI Consistency + Code Quality + Reliability
 
-Anna v0.0.367 focuses on:
+Anna v0.0.369 focuses on:
 - Centralized UI system for consistent terminal output
 - Zero compiler warnings for cleaner builds (library + tests)
 - Modular code design (all files under 400 lines)
 - Enhanced user experience across all displays
 - Natural language guidance (no non-existent CLI references)
+- Unified symbols across all UI components
 
-### Recent Completions (v0.0.346-367)
+### Recent Completions (v0.0.346-369)
+- [x] Unified bullet symbol to symbols::BULLET (v0.0.369)
+- [x] Documentation updates (v0.0.368)
 - [x] Fixed stale CLI command references in 7 files (v0.0.365)
 - [x] UI consistency in REPL/uninstall messages (v0.0.366)
 - [x] Fixed undo command reference → natural language (v0.0.367)
