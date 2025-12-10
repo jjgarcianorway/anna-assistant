@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.307] - 2025-12-10
+
+### Fixed - Service Query Classification
+
+**"running services" now correctly routes to RunningServices class:**
+- Moved RunningServices check BEFORE generic ServiceStatus check in classifier
+- Added more patterns: "services running", "what services are running", "services are running"
+- ServiceStatus now excludes generic "running" to avoid false matches
+- Queries like "what services are running?" now use correct `systemctl list-units` probe
+
+**Impact:** User asks "running services" -> Gets list of running services, not failed units
+
 ## [0.0.306] - 2025-12-10
 
 ### Fixed - Reset Bug

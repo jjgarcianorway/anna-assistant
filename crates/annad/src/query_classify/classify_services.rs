@@ -7,12 +7,30 @@ use crate::router::QueryClass;
 /// Classify service queries.
 /// Returns Some if matched, None otherwise.
 pub fn classify_services(q: &str) -> Option<QueryClass> {
-    // Service status: "is X running", "status of X"
-    if q.contains("running")
-        || q.contains("service status")
+    // v0.0.307: Running services - check first (more specific than ServiceStatus)
+    // Queries like "running services", "what services are running"
+    if q.contains("running service")
+        || q.contains("active service")
+        || q.contains("started service")
+        || q.contains("enabled service")
+        || (q.contains("service") && q.contains("running"))
+        || (q.contains("service") && q.contains("active"))
+        || q.contains("list services")
+        || q == "running services"
+        || q == "services running"
+        || q.contains("what services are running")
+        || q.contains("services are running")
+    {
+        return Some(QueryClass::RunningServices);
+    }
+
+    // Service status: "is X running", "status of X" - specific service questions
+    // v0.0.307: Exclude generic "running" to avoid matching "running services"
+    if q.contains("service status")
         || q.contains("systemd")
         || (q.contains("status") && q.contains("service"))
         || (q.contains("is") && (q.contains("active") || q.contains("enabled")))
+        || (q.contains("is") && q.contains("running") && !q.contains("services"))
     {
         return Some(QueryClass::ServiceStatus);
     }
@@ -34,18 +52,6 @@ pub fn classify_services(q: &str) -> Option<QueryClass> {
             || q.contains("disable "))
     {
         return Some(QueryClass::ManageService);
-    }
-
-    // v0.0.125: Running services
-    if q.contains("running service")
-        || q.contains("active service")
-        || q.contains("started service")
-        || q.contains("enabled service")
-        || (q.contains("service") && q.contains("running"))
-        || (q.contains("service") && q.contains("active"))
-        || q.contains("list services")
-    {
-        return Some(QueryClass::RunningServices);
     }
 
     // v0.0.128: Systemd units
