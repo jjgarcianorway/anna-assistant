@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.340] - 2025-12-10
+
+### Improved - Ticket Commands UI Consistency
+
+Complete UI refactor for ticket-related commands:
+
+**Ticket Commands:**
+- `handle_reply()` - Uses `print_label()`, `print_hint()`, `kv()` for replies
+- `handle_ticket()` - Full header with HR, sectioned layout: `[details]`, `[conversation]`
+- `handle_email()` - Uses `print_label()`, `print_section_header()`, `print_hint()`
+- `handle_health()` - Full header with HR, sectioned layout for all health checks
+
+**Code Cleanup:**
+- Removed local `ok_symbol()`, `warn_symbol()`, `bullet()` functions
+- Now uses centralized `symbols::OK`, `symbols::WARN`, `symbols::ARROW`
+- All error messages use `print_label("error", ...)` pattern
+- All hints use `print_hint()` for consistent dim styling
+
+**Before:**
+```
+Error: Ticket NET-0042 not found.
+
+To see open tickets, ask Anna: "show my tickets"
+```
+
+**After:**
+```
+[error] Ticket NET-0042 not found
+  To see open tickets, ask Anna: "show my tickets"
+```
+
+All ticket workflows now match the polished look of status/stats/learning commands.
+
 ## [0.0.339] - 2025-12-10
 
 ### Improved - Full UI Consistency Rollout
