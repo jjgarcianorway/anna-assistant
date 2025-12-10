@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.303] - 2025-12-10
+
+### Added - Unused Model Cleanup
+
+**Anna now automatically cleans up models she no longer uses:**
+- Tracks models pulled by Anna in the ledger
+- At startup, removes models that Anna pulled but no longer needs
+- Never touches user's own models (only deletes what Anna added)
+- New `ModelDeleted` ledger entry type for tracking cleanup
+
+### Changed - No Truncation in User Output
+
+**Full output in all user-facing displays:**
+- Status display: ticket queries shown in full
+- Theatre mode: full evidence commands and output
+- Debug mode: full LLM prompts and responses (not truncated to 500 chars)
+- Probe output: full commands in evidence
+
+### Improved - UX Review
+
+**Better user experience overall:**
+- Removed all "..." truncation from user-visible output
+- Users see complete information, not cut-off text
+- Debug mode truly shows "fly on the wall" view
+
 ## [0.0.302] - 2025-12-10
 
 ### Added - Debug Mode: Real LLM Output

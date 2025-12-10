@@ -14,6 +14,7 @@ use crate::LEDGER_PATH;
 pub enum LedgerEntryKind {
     PackageInstalled,
     ModelPulled,
+    ModelDeleted, // v0.0.303: Track model cleanup
     FileCreated,
     DirectoryCreated,
     ConfigChanged,
@@ -103,6 +104,7 @@ impl Ledger {
             match entry.kind {
                 LedgerEntryKind::PackageInstalled => summary.packages += 1,
                 LedgerEntryKind::ModelPulled => summary.models += 1,
+                LedgerEntryKind::ModelDeleted => summary.models_deleted += 1,
                 LedgerEntryKind::FileCreated => summary.files += 1,
                 LedgerEntryKind::DirectoryCreated => summary.directories += 1,
                 LedgerEntryKind::ConfigChanged => summary.configs += 1,
@@ -129,6 +131,7 @@ pub struct LedgerSummary {
     pub total: usize,
     pub packages: usize,
     pub models: usize,
+    pub models_deleted: usize, // v0.0.303
     pub files: usize,
     pub directories: usize,
     pub configs: usize,

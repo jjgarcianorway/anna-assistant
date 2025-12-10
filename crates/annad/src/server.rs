@@ -302,6 +302,10 @@ impl Server {
         // Run benchmark on specialist model (primary inference model)
         let _throughput = ollama::benchmark(&specialist_model).await.unwrap_or(0.0);
 
+        // v0.0.303: Clean up unused models to free disk space
+        // Keep only models Anna actually uses
+        self.cleanup_unused_models(&required_models).await;
+
         // Save ledger
         {
             let state = self.state.read().await;
@@ -316,6 +320,64 @@ impl Server {
 
         info!("Daemon initialized and ready");
         Ok(())
+    }
+
+    /// v0.0.303: Clean up models that Anna pulled but no longer uses
+    /// Only removes models that were pulled by Anna (tracked in ledger)
+    async fn cleanup_unused_models(&self, required_models: &[String]) {
+        // Get list of all installed models
+        let installed_models = match ollama::list_models().await {
+            Ok(models) => models,
+            Err(e) => {
+                warn!("Cannot list models for cleanup: {}", e);
+                return;
+            }
+        };
+
+        // Get models that Anna pulled (from ledger)
+        let anna_pulled_models: Vec<String> = {
+            let state = self.state.read().await;
+            state
+                .ledger
+                .entries
+                .iter()
+                .filter(|e| matches!(e.kind, LedgerEntryKind::ModelPulled))
+                .map(|e| e.target.clone())
+                .collect()
+        };
+
+        // Find models to delete: pulled by Anna but not in required list
+        for model in &installed_models {
+            // Only consider models that Anna pulled
+            let anna_owns = anna_pulled_models.iter().any(|p| model.contains(p) || p.contains(model));
+            if !anna_owns {
+                continue; // Don't touch user's own models
+            }
+
+            // Check if this model is still needed
+            let is_needed = required_models.iter().any(|r| model.contains(r) || r.contains(model));
+            if is_needed {
+                continue; // Keep models we're using
+            }
+
+            // Delete unused model
+            info!("Cleaning up unused model: {}", model);
+            match ollama::delete_model(model).await {
+                Ok(()) => {
+                    // Update ledger to mark model as deleted
+                    let mut state = self.state.write().await;
+                    state.ledger.add(LedgerEntry::new(
+                        LedgerEntryKind::ModelDeleted,
+                        model.clone(),
+                        true,
+                    ));
+                    info!("Deleted unused model: {}", model);
+                }
+                Err(e) => {
+                    warn!("Failed to delete model {}: {}", model, e);
+                }
+            }
+        }
     }
 
     /// v0.0.298: Static method so it can run before initialization completes

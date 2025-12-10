@@ -9,7 +9,7 @@ use crate::output::{format_for_output, OutputMode};
 
 use super::answer_source::{get_final_answer, AnswerSource};
 use super::event_renders;
-use super::helpers::{format_actor_tag, format_outcome, reliability_color, truncate};
+use super::helpers::{format_actor_tag, format_outcome, reliability_color};
 
 /// Render in debug mode - full troubleshooting view
 /// v0.0.106: Shows case number and assigned staff
@@ -57,12 +57,13 @@ pub fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
                 );
             }
             TranscriptEventKind::ProbeStart { probe_id, command } => {
+                // v0.0.303: Show full command - no truncation in debug mode
                 println!(
                     "\n{}[probe]{}\n{} -> {}",
                     colors::DIM,
                     colors::RESET,
                     probe_id,
-                    truncate(command, 50)
+                    command
                 );
                 last_actor = Some(Actor::Probe);
             }
@@ -321,25 +322,14 @@ fn render_llm_call(
         tokens.map_or(String::new(), |t| format!(" tokens={}", t))
     );
 
-    // Show truncated prompt (first 500 chars)
-    println!("{}--- prompt ---{}", colors::DIM, colors::RESET);
-    let prompt_preview = if prompt.len() > 500 {
-        format!("{}...\n[{} chars total]", &prompt[..500], prompt.len())
-    } else {
-        prompt.to_string()
-    };
-    for line in prompt_preview.lines().take(20) {
+    // v0.0.303: Show full prompt/response in debug mode - no truncation
+    println!("{}--- prompt ({} chars) ---{}", colors::DIM, prompt.len(), colors::RESET);
+    for line in prompt.lines() {
         println!("{}{}{}", colors::DIM, line, colors::RESET);
     }
 
-    // Show truncated response (first 500 chars)
-    println!("{}--- response ---{}", colors::DIM, colors::RESET);
-    let response_preview = if response.len() > 500 {
-        format!("{}...\n[{} chars total]", &response[..500], response.len())
-    } else {
-        response.to_string()
-    };
-    for line in response_preview.lines().take(20) {
+    println!("{}--- response ({} chars) ---{}", colors::DIM, response.len(), colors::RESET);
+    for line in response.lines() {
         println!("{}", line);
     }
     println!("{}--- end llm ---{}", colors::DIM, colors::RESET);

@@ -338,6 +338,22 @@ pub async fn benchmark(model: &str) -> Result<f64> {
     Ok(tokens_per_sec)
 }
 
+/// v0.0.303: Delete a model from Ollama
+/// Used to clean up unused models and free disk space
+pub async fn delete_model(model: &str) -> Result<()> {
+    info!("Deleting model: {}", model);
+
+    let output = ollama_cmd().args(["rm", model]).output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("Failed to delete model {}: {}", model, stderr));
+    }
+
+    info!("Model {} deleted successfully", model);
+    Ok(())
+}
+
 /// List all locally available models from Ollama
 /// v0.0.269: Added for intelligent model auto-selection
 pub async fn list_models() -> Result<Vec<String>> {

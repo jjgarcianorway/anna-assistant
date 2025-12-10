@@ -60,6 +60,8 @@ pub fn reliability_color(score: u8) -> &'static str {
 }
 
 /// Shorten text for debug display (internal transcript events only)
+/// v0.0.303: Kept for tests but no longer used in user-facing output
+#[allow(dead_code)]
 pub fn truncate(s: &str, max: usize) -> String {
     let s = s.lines().next().unwrap_or(s);
     if s.len() > max {

@@ -1,8 +1,7 @@
 //! Individual event rendering helpers (v0.0.179).
+//! v0.0.303: Removed truncation - show full output in debug mode.
 
 use anna_shared::ui::colors;
-
-use super::helpers::truncate;
 
 pub fn render_probe_end(probe_id: &str, exit_code: i32, timing_ms: u64, stdout_preview: Option<&str>) {
     let status = if exit_code == 0 {
@@ -10,8 +9,9 @@ pub fn render_probe_end(probe_id: &str, exit_code: i32, timing_ms: u64, stdout_p
     } else {
         format!("{}exit {}{}", colors::WARN, exit_code, colors::RESET)
     };
+    // v0.0.303: Show full output - no truncation in debug mode
     let preview = stdout_preview
-        .map(|s| format!(" \"{}\"", truncate(s, 40)))
+        .map(|s| format!(" \"{}\"", s))
         .unwrap_or_default();
     println!("{} {} ({}ms){}", probe_id, status, timing_ms, preview);
 }

@@ -265,11 +265,15 @@ pub fn print_status_display_v2(
                     TicketStatus::InProgress => colors::CYAN,
                     _ => colors::DIM,
                 };
+                // v0.0.303: Show full query - no truncation for better UX
                 println!(
-                    "    {}  {}  \"{}\"          status: {}{}{}",
+                    "    {}  {}  \"{}\"",
                     ticket.case_number,
                     ticket.team,
-                    truncate(&ticket.query, 30),
+                    ticket.query
+                );
+                println!(
+                    "                    status: {}{}{}",
                     status_color,
                     ticket.status.to_string().to_uppercase(),
                     colors::RESET
@@ -347,14 +351,6 @@ fn format_optional_ts(ts: Option<u64>) -> String {
             local.format("%Y-%m-%d %H:%M:%S").to_string()
         })
         .unwrap_or_else(|| "-".to_string())
-}
-
-fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len - 3])
-    }
 }
 
 /// Load XP and title from event log

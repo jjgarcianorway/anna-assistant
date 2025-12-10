@@ -144,14 +144,9 @@ fn print_evidence_bullets(result: &ServiceDeskResult) {
 
 /// Summarize probe output for evidence display
 fn summarize_probe_output(command: &str, stdout: &str) -> String {
+    // v0.0.303: Show full first line - no truncation for better UX
     let first_line = stdout.lines().next().unwrap_or("").trim();
-
-    // Keep it concise - max 60 chars for the value
-    let value = if first_line.len() > 60 {
-        format!("{}...", &first_line[..57])
-    } else {
-        first_line.to_string()
-    };
+    let value = first_line.to_string();
 
     if value.is_empty() {
         return String::new();
@@ -195,13 +190,8 @@ fn summarize_probe_output(command: &str, stdout: &str) -> String {
         return format!("system logs: {}", value);
     }
 
-    // For unknown commands, show a shortened command as source
-    let short_cmd = if command.len() > 30 {
-        format!("{}...", &command[..27])
-    } else {
-        command.to_string()
-    };
-    format!("{} → {}", short_cmd, value)
+    // v0.0.303: Show full command - no truncation
+    format!("{} → {}", command, value)
 }
 
 /// Get the final answer text
