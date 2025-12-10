@@ -153,6 +153,15 @@ impl StaffStats {
         fs::write(path, json)
     }
 
+    /// v0.0.306: Clear all staff stats (for reset)
+    pub fn clear() -> std::io::Result<()> {
+        let path = Self::stats_path();
+        if path.exists() {
+            fs::remove_file(path)?;
+        }
+        Ok(())
+    }
+
     /// Record a ticket for a staff member
     pub fn record_ticket(
         &mut self,

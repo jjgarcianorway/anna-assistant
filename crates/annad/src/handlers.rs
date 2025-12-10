@@ -7,6 +7,7 @@ use anna_shared::pending::clear_pending;
 use anna_shared::recipe::clear_all_recipes;
 use anna_shared::rpc::{ProbeParams, RpcResponse};
 use anna_shared::snapshot::clear_snapshots;
+use anna_shared::staff_stats::StaffStats;
 use tracing::{error, info, warn};
 
 use crate::ollama;
@@ -136,12 +137,20 @@ pub async fn handle_reset(state: SharedState, id: String) -> RpcResponse {
         info!("Inventory cache cleared");
     }
 
+    // 7. Clear staff stats (v0.0.306)
+    if let Err(e) = StaffStats::clear() {
+        warn!("Failed to clear staff stats: {}", e);
+        // Not fatal, continue with reset
+    } else {
+        info!("Staff stats cleared");
+    }
+
     info!("Reset completed - all learned data cleared");
     RpcResponse::success(
         id,
         serde_json::json!({
             "status": "reset_complete",
-            "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending", "inventory"]
+            "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending", "inventory", "staff_stats"]
         }),
     )
 }

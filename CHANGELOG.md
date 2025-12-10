@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.306] - 2025-12-10
+
+### Fixed - Reset Bug
+
+**Reset now clears staff_stats.json:**
+- Added StaffStats::clear() method to remove stats file
+- handle_reset() now includes staff_stats in clear sequence
+- Running `annactl reset` properly clears all staff metrics, XP, and levels
+- Response JSON confirms "staff_stats" in cleared list
+
 ## [0.0.305] - 2025-12-10
 
 ### Fixed - Critical Bug Fixes
