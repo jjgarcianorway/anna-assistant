@@ -1,10 +1,12 @@
-//! Context-aware greeting insights from system state (v0.0.245).
+//! Context-aware greeting insights from system state (v0.0.326).
 //!
 //! Enriches Anna's greetings with observations about the system state,
 //! making her feel more aware and proactive without being annoying.
 //!
 //! v0.0.245: Initial implementation.
+//! v0.0.326: Added learning progress insights.
 
+use crate::probe_learning::ProbeLearningStore;
 use crate::roster::{person_for, Tier};
 use crate::snapshot::{DeltaItem, SystemSnapshot};
 use crate::teams::Team;
@@ -37,6 +39,9 @@ pub fn generate_insights(
     add_service_insights(snapshot, &mut insights);
     add_delta_insights(deltas, &mut insights);
 
+    // v0.0.326: Add learning progress (low priority - only shows if no issues)
+    add_learning_insights(&mut insights);
+
     // Sort by priority (highest first)
     insights.sort_by(|a, b| b.priority.cmp(&a.priority));
 
@@ -44,6 +49,63 @@ pub fn generate_insights(
     insights.truncate(2);
 
     insights
+}
+
+/// v0.0.326: Add learning progress insight
+fn add_learning_insights(insights: &mut Vec<GreetingInsight>) {
+    let store = ProbeLearningStore::load();
+    let stats = store.learning_stats();
+
+    // Only show if we have meaningful learning data
+    if stats.total_queries < 3 {
+        return; // Too early to mention learning
+    }
+
+    // Show different messages based on learning stage
+    let (message, priority) = if stats.total_queries >= 50 && stats.avg_quality >= 4.0 {
+        // Expert level
+        (
+            format!(
+                "I've learned {} patterns with {:.1}/5 avg quality",
+                stats.successful_patterns, stats.avg_quality
+            ),
+            25, // Low priority - only show if no issues
+        )
+    } else if stats.keywords_learned >= 10 {
+        // Good progress
+        (
+            format!(
+                "picked up {} keywords from {} queries",
+                stats.keywords_learned, stats.total_queries
+            ),
+            20,
+        )
+    } else if stats.total_queries >= 10 {
+        // Early learning
+        (
+            format!(
+                "learning from {} queries so far",
+                stats.total_queries
+            ),
+            15,
+        )
+    } else {
+        // Very early - just started
+        (
+            "still getting to know your system".to_string(),
+            10,
+        )
+    };
+
+    // Use Sofia (Desktop Jr) for learning insights - she's the learner
+    let person = person_for(Team::Desktop, Tier::Junior);
+    insights.push(GreetingInsight {
+        staff_name: person.display_name,
+        team: Team::Desktop,
+        message,
+        priority,
+        positive: true,
+    });
 }
 
 fn add_disk_insights(snapshot: &SystemSnapshot, insights: &mut Vec<GreetingInsight>) {
@@ -330,5 +392,19 @@ mod tests {
         let formatted = format_insights_for_greeting(&insights);
         assert!(formatted.is_some());
         assert!(formatted.unwrap().contains("Lars"));
+    }
+
+    #[test]
+    fn test_learning_insight_priority_is_low() {
+        // Learning insights should have low priority (< 30)
+        // so they don't override system issues
+        let mut insights = Vec::new();
+        add_learning_insights(&mut insights);
+        // If we have no learning data, no insight is added
+        // If we have data, priority should be low
+        for insight in &insights {
+            assert!(insight.priority < 30, "Learning insight should have low priority");
+            assert!(insight.positive, "Learning insight should be positive");
+        }
     }
 }

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.326] - 2025-12-10
+
+### Added - Learning Progress in Greetings
+
+**Anna now shares her learning progress in greetings:**
+
+When you start a session, Anna may mention how her learning is going (low priority - only shows if no system issues):
+
+- **Early stage (3-10 queries)**: "still getting to know your system"
+- **Learning stage (10+ queries)**: "learning from X queries so far"
+- **Good progress (10+ keywords)**: "picked up X keywords from Y queries"
+- **Expert level (50+ queries, 4+/5 quality)**: "I've learned X patterns with Y/5 avg quality"
+
+Example greeting insight:
+```
+Quick note from Sofia: picked up 15 keywords from 42 queries
+```
+
+Learning insights are delivered by Sofia (Desktop Jr) - the staff member who represents Anna's learning journey. They have the lowest priority (10-25) so system health insights always take precedence.
+
+**Technical changes:**
+- `greeting_insights.rs`: Added `add_learning_insights()` function
+- Uses `ProbeLearningStore::learning_stats()` for data
+
 ## [0.0.325] - 2025-12-10
 
 ### Added - Keyword-Based Probe Learning
