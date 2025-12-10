@@ -173,7 +173,10 @@ fn team_from_domain(domain: &str) -> Option<Team> {
         "services" => Some(Team::Services),
         "security" => Some(Team::Security),
         "hardware" => Some(Team::Hardware),
-        "system" => Some(Team::Performance), // System queries often about performance
+        "performance" => Some(Team::Performance), // v0.0.273: Direct performance mapping
+        "desktop" => Some(Team::Desktop), // v0.0.273: Direct desktop mapping
+        "logs" => Some(Team::Logs), // v0.0.273: Direct logs mapping
+        // v0.0.273: "system" no longer auto-maps to Performance - use General for generic queries
         _ => None,
     }
 }

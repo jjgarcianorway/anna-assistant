@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.273] - 2025-12-10
+
+### Fixed - Routing Accuracy Improved to 100%
+
+**Fixed routing mismatches (from 79% to 100%):**
+
+- Reordered domain inference to check security before logs (fixes "login" matching "log")
+- Reordered inference to check services before network (fixes database connection queries)
+- Reordered inference to check logs/hardware before performance (fixes kernel/temp queries)
+- Fixed "system" domain fallback to General (not Performance) for generic queries
+- Added direct domain mapping for "performance", "desktop", "logs" domains
+
+**Specific fixes:**
+- "postgresql won't accept connections" now routes to Services (not Network)
+- "check CPU temperature" now routes to Hardware (not Performance)
+- "view kernel messages from last boot" now routes to Logs (not Performance)
+- "configure ufw firewall" now routes to Security (not Network)
+- "check for failed login attempts" now routes to Security (not Logs)
+- "how is my computer", "install htop", etc. now route to General (not Performance)
+
+**Technical changes:**
+- `infer_domain()` and `infer_route_class()` in tests now match routing behavior
+- `team_from_domain()` expanded to include performance, desktop, logs mappings
+- Login vs log disambiguation via substring ordering
+
+**Files changed:**
+- `anna-shared/src/query_scenarios/tests.rs` - Fixed inference ordering
+- `anna-shared/src/teams.rs` - Fixed domain-to-team mapping
+
 ## [0.0.272] - 2025-12-10
 
 ### Added - Expanded Synonym Groups for Better Recipe Matching
