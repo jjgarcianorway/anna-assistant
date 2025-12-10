@@ -321,7 +321,7 @@ async fn handle_llm_request_inner(
     save_progress(&state, &progress).await;
 
     // Step 7: v0.0.167 - Execute specialist stage via module
-    let specialist_result = execute_specialist_stage(
+    let mut specialist_result = execute_specialist_stage(
         &state,
         query,
         &context,
@@ -334,6 +334,17 @@ async fn handle_llm_request_inner(
         &mut progress,
     )
     .await;
+
+    // Step 7.5: v0.0.276 - Format deterministic answers via translator LLM
+    if specialist_result.used_deterministic && !specialist_result.answer.is_empty() {
+        specialist_result.answer = crate::response_formatter::format_response(
+            &translator_model,
+            &specialist_result.answer,
+            query,
+            8, // 8 second timeout for formatting
+        )
+        .await;
+    }
 
     // Step 8: Handle no answer case
     if specialist_result.answer.is_empty() {

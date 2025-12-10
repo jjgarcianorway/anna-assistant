@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.276] - 2025-12-10
+
+### Added - LLM Response Formatting
+
+**Deterministic answers now formatted via translator LLM:**
+- Deterministic/static answers are rephrased by the translator LLM for variety
+- Original facts, numbers, paths, and commands are preserved
+- Validation ensures formatted response maintains key information
+- Falls back to original answer if formatting fails or validation fails
+- Only applies to deterministic answers (LLM answers already varied)
+
+**Files changed:**
+- New: `annad/src/response_formatter.rs` - Response formatting module
+- `annad/src/rpc_handler/llm_request.rs` - Integrated formatting after specialist stage
+- `annad/src/lib.rs` - Added response_formatter module
+
 ## [0.0.275] - 2025-12-10
 
 ### Added - LLM-Generated Greetings

@@ -63,6 +63,7 @@ pub mod recipe_fast_path;
 pub mod recipe_similarity;
 pub mod redact;
 pub mod response_builders;
+pub mod response_formatter;
 pub mod result_stage;
 pub mod router;
 #[cfg(test)]
