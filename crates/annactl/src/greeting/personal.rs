@@ -8,10 +8,10 @@
 #![allow(dead_code)]
 
 use anna_shared::ticket_tracker::TicketTracker;
-use anna_shared::ui::{colors, print_hint, print_label, print_section_header};
+use anna_shared::ui::{colors, print_hint, print_label, print_section_header, symbols};
 use anna_shared::user_profile::UserProfile;
 
-use super::types::{bullet, InteractionInfo};
+use super::types::InteractionInfo;
 
 pub fn print_personalized_greeting(username: &str, info: &InteractionInfo) {
     println!();
@@ -77,25 +77,25 @@ pub fn print_user_patterns(profile: &UserProfile) {
         let streak_msg = if profile.streak_days >= 7 {
             format!(
                 "{} You've been checking in for {} days straight - nice streak!",
-                bullet(),
+                symbols::BULLET,
                 profile.streak_days
             )
         } else {
-            format!("{} {} day streak so far.", bullet(), profile.streak_days)
+            format!("{} {} day streak so far.", symbols::BULLET, profile.streak_days)
         };
         patterns.push(streak_msg);
     }
 
     // v0.0.236: Editor trend insight (learning new editor, switching)
     if let Some(trend) = profile.editor_trend() {
-        patterns.push(format!("{} {}", bullet(), trend.to_message()));
+        patterns.push(format!("{} {}", symbols::BULLET, trend.to_message()));
     } else if let Some(ref editor) = profile.preferred_editor {
         // Fall back to simple preferred editor observation
         let count = profile.tool_usage.get(editor).copied().unwrap_or(0);
         if count > 2 {
             patterns.push(format!(
                 "{} I've noticed you prefer {} (mentioned {} times).",
-                bullet(),
+                symbols::BULLET,
                 editor,
                 count
             ));
@@ -114,14 +114,14 @@ pub fn print_user_patterns(profile: &UserProfile) {
 
     // v0.0.236: Topic trend insight
     if let Some(trend) = profile.topic_trend() {
-        patterns.push(format!("{} {}", bullet(), trend.to_message()));
+        patterns.push(format!("{} {}", symbols::BULLET, trend.to_message()));
     } else if let Some(topic) = profile.top_topic() {
         // Fall back to simple top topic observation
         let count = profile.topic_interests.get(topic).copied().unwrap_or(0);
         if count > 2 {
             patterns.push(format!(
                 "{} You ask about {} frequently ({} times).",
-                bullet(),
+                symbols::BULLET,
                 topic,
                 count
             ));
@@ -139,7 +139,7 @@ pub fn print_user_patterns(profile: &UserProfile) {
         if *count > 2 {
             patterns.push(format!(
                 "{} You've been using {} quite a bit ({} queries).",
-                bullet(),
+                symbols::BULLET,
                 top_tool,
                 count
             ));
@@ -170,11 +170,11 @@ pub fn print_open_tickets() {
     print_label("open tickets", "", colors::WARN);
     for ticket in open_tickets.iter().take(3) {
         // Show full query, wrapped naturally by terminal
-        println!("  {} {} ({})", bullet(), ticket.case_number, ticket.status);
+        println!("  {} {} ({})", symbols::BULLET, ticket.case_number, ticket.status);
         println!("    {}", ticket.query);
     }
     if open_tickets.len() > 3 {
-        println!("  {} and {} more", bullet(), open_tickets.len() - 3);
+        println!("  {} and {} more", symbols::BULLET, open_tickets.len() - 3);
     }
     println!();
     print_hint("Ask me about any ticket to continue the conversation.");

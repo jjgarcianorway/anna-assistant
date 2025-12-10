@@ -8,9 +8,9 @@
 use anna_shared::snapshot::{DeltaItem, SystemSnapshot};
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::telemetry::TelemetrySnapshot;
-use anna_shared::ui::{colors, print_hint, print_label};
+use anna_shared::ui::{colors, print_hint, print_label, symbols};
 
-use super::types::{bullet, InteractionInfo};
+use super::types::InteractionInfo;
 
 pub fn print_since_last_time(
     telemetry: &TelemetrySnapshot,
@@ -39,7 +39,7 @@ pub fn print_since_last_time(
             if boot_ms > 0 {
                 println!(
                     "  {} Your boot time increased by {} seconds.",
-                    bullet(),
+                    symbols::BULLET,
                     secs
                 );
                 // v0.0.142: Add helpful context
@@ -49,7 +49,7 @@ pub fn print_since_last_time(
             } else {
                 println!(
                     "  {} {}Your boot time improved by {} seconds!{}",
-                    bullet(),
+                    symbols::BULLET,
                     colors::OK,
                     secs,
                     colors::RESET
@@ -65,7 +65,7 @@ pub fn print_since_last_time(
             DeltaItem::DiskWarning { mount, curr, .. } => {
                 println!(
                     "  {} {}[warn]{} Disk {} is at {}% - getting full.",
-                    bullet(),
+                    symbols::BULLET,
                     colors::WARN,
                     colors::RESET,
                     mount,
@@ -76,7 +76,7 @@ pub fn print_since_last_time(
             DeltaItem::DiskCritical { mount, curr, .. } => {
                 println!(
                     "  {} {}[critical]{} Disk {} is at {}% - needs attention!",
-                    bullet(),
+                    symbols::BULLET,
                     colors::ERR,
                     colors::RESET,
                     mount,
@@ -86,7 +86,7 @@ pub fn print_since_last_time(
             DeltaItem::DiskIncreased { mount, prev, curr } => {
                 println!(
                     "  {} Disk {} grew from {}% to {}%.",
-                    bullet(),
+                    symbols::BULLET,
                     mount,
                     prev,
                     curr
@@ -95,7 +95,7 @@ pub fn print_since_last_time(
             DeltaItem::NewFailedService { unit } => {
                 println!(
                     "  {} {}[fail]{} Service {} has failed.",
-                    bullet(),
+                    symbols::BULLET,
                     colors::ERR,
                     colors::RESET,
                     unit
@@ -105,7 +105,7 @@ pub fn print_since_last_time(
             DeltaItem::ServiceRecovered { unit } => {
                 println!(
                     "  {} {}[recovered]{} Service {} is back up!",
-                    bullet(),
+                    symbols::BULLET,
                     colors::OK,
                     colors::RESET,
                     unit
@@ -114,7 +114,7 @@ pub fn print_since_last_time(
             DeltaItem::MemoryHigh { curr_percent, .. } => {
                 println!(
                     "  {} {}[warn]{} Memory usage is high at {}%.",
-                    bullet(),
+                    symbols::BULLET,
                     colors::WARN,
                     colors::RESET,
                     curr_percent
@@ -126,7 +126,7 @@ pub fn print_since_last_time(
             } => {
                 println!(
                     "  {} Memory usage went from {}% to {}%.",
-                    bullet(),
+                    symbols::BULLET,
                     prev_percent,
                     curr_percent
                 );
@@ -140,14 +140,14 @@ pub fn print_since_last_time(
         if failed_services > 0 {
             println!(
                 "  {} {} service{} in failed state.",
-                bullet(),
+                symbols::BULLET,
                 failed_services,
                 if failed_services == 1 { " is" } else { "s are" }
             );
         } else {
             println!(
                 "  {} {}No warnings or errors detected. Looking good!{}",
-                bullet(),
+                symbols::BULLET,
                 colors::OK,
                 colors::RESET
             );
@@ -155,7 +155,7 @@ pub fn print_since_last_time(
     } else if failed_services > 0 && items_shown < max_items {
         println!(
             "  {} Also, {} service{} in failed state.",
-            bullet(),
+            symbols::BULLET,
             failed_services,
             if failed_services == 1 { " is" } else { "s are" }
         );

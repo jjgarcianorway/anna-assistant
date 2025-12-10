@@ -27,7 +27,7 @@ use types::calculate_interaction_info;
 
 // Re-export for external use
 #[allow(unused_imports)]
-pub use types::{bullet, InteractionInfo};
+pub use types::InteractionInfo;
 
 /// Build greeting context from current system state
 /// v0.0.287: Added maintenance prompt support

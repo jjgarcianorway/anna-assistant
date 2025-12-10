@@ -1,6 +1,7 @@
-//! Greeting types (v0.0.186).
+//! Greeting types (v0.0.369).
 //!
 //! v0.0.275: bullet() now unused (LLM generates greetings), kept for fallback.
+//! v0.0.369: Removed bullet() - use symbols::BULLET from centralized UI instead.
 
 #![allow(dead_code)]
 
@@ -34,8 +35,4 @@ pub fn calculate_interaction_info(last_snapshot: &Option<SystemSnapshot>) -> Int
             is_first_time: true,
         },
     }
-}
-
-pub fn bullet() -> &'static str {
-    "›"
 }

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.369] - 2025-12-10
+
+### UI Consistency - Unified bullet symbol
+
+Updated greeting module to use centralized `symbols::BULLET` (•) instead of custom `bullet()` function (›):
+
+**Files updated:**
+- greeting/status.rs - uses `symbols::BULLET`
+- greeting/personal.rs - uses `symbols::BULLET`
+- greeting/types.rs - removed `bullet()` function
+- greeting/tests.rs - removed bullet test
+- greeting/mod.rs - removed `bullet` re-export
+
+Now all bullet points across the UI use the same symbol from `anna_shared::ui::symbols`.
+
 ## [0.0.368] - 2025-12-10
 
 ### Documentation - Updated ROADMAP.md and FEATURES.md
