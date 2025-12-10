@@ -1,27 +1,29 @@
 # Anna Roadmap
 
-## Current Focus (v0.0.350+)
+## Current Focus (v0.0.359+)
 
 **Theme**: UI Consistency + Code Quality + Reliability
 
-Anna v0.0.350 focuses on:
+Anna v0.0.359 extends the UI consistency work:
 - Centralized UI system for consistent terminal output
-- Zero compiler warnings for cleaner builds
+- Zero compiler warnings for cleaner builds (library + tests)
 - Modular code design (all files under 400 lines)
 - Enhanced user experience across all displays
 
-### Recent Completions (v0.0.337-350)
-- [x] Centralized UI printing system (v0.0.337-344)
-- [x] print_title(), print_hr(), print_step() helpers (v0.0.344-349)
-- [x] UI consistency across greeting, errors, status displays (v0.0.341-348)
-- [x] Zero compiler warnings in release build (v0.0.350)
-- [x] Unused code cleanup (v0.0.350)
+### Recent Completions (v0.0.346-359)
+- [x] UI consistency in errors.rs - print_step() for recovery suggestions (v0.0.356)
+- [x] UI consistency in handlers.rs - print_ok/warn for uninstall flow (v0.0.356)
+- [x] Zero test warnings - cleaned unused imports/functions (v0.0.357)
+- [x] UI consistency in report_cmd.rs - print_warn() for probe failures (v0.0.358)
+- [x] Documentation update - FEATURES.md and README.md (v0.0.359)
+- [x] learning.rs uses print_step() for list items (v0.0.354)
+- [x] change_commands.rs uses print_ok/err/hint (v0.0.355)
 
 ---
 
 ## Completed
 
-### v0.0.337-350 - Centralized UI System (Phase 28) ✓
+### v0.0.337-359 - Centralized UI System (Phase 28) ✓
 - [x] `anna_shared::ui::printing` module with consistent helpers
 - [x] print_header, print_title, print_footer, print_hr
 - [x] print_section_header, print_label, print_hint, print_step
@@ -31,10 +33,12 @@ Anna v0.0.350 focuses on:
 - [x] Updated greeting/status.rs, greeting/personal.rs
 - [x] Updated errors.rs, handlers.rs, progress_display.rs
 - [x] Updated change_commands.rs, ticket_commands.rs
-- [x] Zero compiler warnings in release build
+- [x] Updated learning.rs, report_cmd.rs (v0.0.354-358)
+- [x] Zero compiler warnings in release build + tests (v0.0.357)
 - [x] Removed unused DecayResult import
 - [x] Removed unused VerificationInput.id field
 - [x] Removed unused VerificationResult.score field
+- [x] Removed unused test imports and functions (v0.0.357)
 
 ### v0.0.103 - Recipe Feedback System (Phase 23) ✓
 - [x] `FeedbackRequest` struct - Anna asks user for feedback when uncertain

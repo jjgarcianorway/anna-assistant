@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.360] - 2025-12-10
+
+### Documentation - Updated ROADMAP.md
+
+Updated roadmap to reflect v0.0.346-359 UI consistency improvements:
+
+**ROADMAP.md:**
+- Current Focus updated to v0.0.359+
+- Recent Completions section now covers v0.0.346-359
+- Phase 28 extended to include learning.rs, report_cmd.rs updates
+- Zero warnings now covers library + tests (v0.0.357)
+
 ## [0.0.359] - 2025-12-10
 
 ### Documentation - Updated FEATURES.md and README.md
