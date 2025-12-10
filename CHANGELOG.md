@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.362] - 2025-12-10
+
+### Documentation - Updated for v0.0.361 New Commands
+
+Updated all documentation to reflect the 5 new CLI commands:
+
+**FEATURES.md:**
+- Added "CLI Commands (v0.0.361)" section with full command list
+
+**ROADMAP.md:**
+- Current Focus updated to v0.0.361+
+- Theme now includes "CLI Completeness"
+- Recent Completions includes new commands and orphaned module fixes
+
 ## [0.0.361] - 2025-12-10
 
 ### Added - New CLI Commands (report, health, email, ticket, reply)
