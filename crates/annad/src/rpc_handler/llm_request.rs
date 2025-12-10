@@ -199,11 +199,13 @@ async fn handle_llm_request_inner(
                 "Recipe match: {} (score {})",
                 recipe.id, recipe_result.score
             ));
+            // v0.0.305: Pass query for negative feedback learning
             let result = recipe_fast_path::build_recipe_result(
                 request_id,
                 recipe,
                 &recipe_result.matched_tokens,
                 progress.take_transcript(),
+                query,
             );
             return wrap_with_theatre(id, result, None);
         }

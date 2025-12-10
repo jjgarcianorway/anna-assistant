@@ -111,19 +111,18 @@ pub async fn run_verification(
     .await;
 
     // Update comms based on verification result
+    // v0.0.305: Escalation messages are already in transcript from ticket_loop,
+    // only add senior response for Escalated/Failed status (avoid duplicates)
     match verification_result.ticket.status {
         TicketStatus::Verified => {
             comms.junior_done_async(progress, verification_result.score).await;
         }
         TicketStatus::Escalated => {
-            comms.junior_escalate(progress, &format!(
-                "Score {} below threshold, escalating to senior",
-                verification_result.score
-            ));
+            // Escalation message already in transcript from ticket_loop
             comms.senior_response(progress, verification_result.verified);
         }
         TicketStatus::Failed => {
-            comms.junior_escalate(progress, "Unable to verify answer quality");
+            // Escalation message already in transcript from ticket_loop
             comms.senior_response(progress, false);
         }
         _ => {

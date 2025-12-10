@@ -47,7 +47,11 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
     };
 
     if let Some(r) = rating {
-        let feedback = RecipeFeedback::new(&feedback_req.recipe_id, r);
+        // v0.0.305: Pass original query for negative feedback learning
+        let mut feedback = RecipeFeedback::new(&feedback_req.recipe_id, r);
+        if let Some(ref query) = feedback_req.original_query {
+            feedback = feedback.with_query(query);
+        }
         log_feedback(&feedback);
 
         if let Some(result) = apply_feedback(&feedback) {

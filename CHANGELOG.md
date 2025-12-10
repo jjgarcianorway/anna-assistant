@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.305] - 2025-12-10
+
+### Fixed - Critical Bug Fixes
+
+**Recipe matching domain guard expansion:**
+- Added comprehensive domain detection for cross-domain protection
+- Desktop/UI: wallpaper, hyprland, wayland, gnome, kde, window, display, etc.
+- Editors: nano, vim, emacs, vscode
+- Services: systemd, systemctl, daemon
+- Plus: processes, files, logs, users, audio, time domains
+- Prevents false recipe matches across unrelated query domains
+
+**Negative feedback now properly records query:**
+- FeedbackRequest struct now includes original_query field
+- When user says "n" (not helpful), query is stored in recipe's negative_match_patterns
+- Same query will now be rejected on future matches to that recipe
+
+**Fixed repeated escalation messages:**
+- Removed duplicate escalation comms from verification_stage (already in transcript)
+- Added tracking flag in ticket_loop to prevent multiple escalation events
+- Users now see single, clean escalation message
+
+### Fixed - Debug Mode LLM Output
+
+**Raw LLM prompts/responses now visible in debug mode:**
+- Render function auto-detects debug mode from LLM call presence in transcript
+- When debug_mode=ON, shows full LLM prompts and responses with stage/model info
+- No truncation - see complete prompt engineering and LLM responses
+- Works automatically when daemon has debug_mode enabled
+
+### Added - Staff XP Tests
+
+**Comprehensive XP calculation tests:**
+- test_xp_calculation: verifies base + resolved + reliability bonuses
+- test_xp_level_progression: tracks multi-ticket level advancement
+- test_xp_to_level: validates all level thresholds (Novice to Principal)
+
 ## [0.0.304] - 2025-12-10
 
 ### Added - User-Friendly Error Handling

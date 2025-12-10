@@ -243,6 +243,8 @@ pub async fn run_ticket_loop(
     }
 
     // Step 4b: Deterministic senior escalation fallback
+    // v0.0.305: Track if we've already added escalation event to avoid duplicates
+    let mut escalation_event_added = false;
     while ticket.senior_attempt < ticket.senior_rounds_max {
         ticket.senior_attempt += 1;
 
@@ -253,7 +255,11 @@ pub async fn run_ticket_loop(
             probe_results,
         );
 
-        add_senior_escalation_event(transcript, elapsed_ms, &escalation);
+        // v0.0.305: Only add first escalation event to transcript
+        if !escalation_event_added {
+            add_senior_escalation_event(transcript, elapsed_ms, &escalation);
+            escalation_event_added = true;
+        }
 
         if escalation.successful && escalation.instruction.has_changes() {
             // Apply senior revision

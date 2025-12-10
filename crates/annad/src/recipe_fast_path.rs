@@ -187,11 +187,13 @@ pub fn ticket_from_recipe(recipe: &Recipe) -> TranslatorTicket {
 }
 
 /// v0.0.102: Build a ServiceDeskResult directly from a recipe
+/// v0.0.305: Added query parameter for negative feedback learning
 pub fn build_recipe_result(
     request_id: String,
     recipe: &Recipe,
     matched_tokens: &[String],
     transcript: Transcript,
+    query: &str,
 ) -> ServiceDeskResult {
     let signals = ReliabilitySignals {
         translator_confident: true,
@@ -214,16 +216,19 @@ pub fn build_recipe_result(
 
     // v0.0.103: Ask for feedback if recipe confidence is borderline (60-75)
     // or if recipe is new (success_count < 3)
+    // v0.0.305: Pass query for negative feedback learning
     let feedback_request = if recipe.reliability_score >= 60 && recipe.reliability_score <= 75 {
         Some(
             anna_shared::recipe_feedback::FeedbackRequest::borderline_confidence(
                 &recipe.id,
                 recipe.reliability_score,
+                query,
             ),
         )
     } else if recipe.success_count < 3 {
         Some(anna_shared::recipe_feedback::FeedbackRequest::new_recipe(
             &recipe.id,
+            query,
         ))
     } else {
         None
@@ -335,7 +340,8 @@ mod tests {
     #[test]
     fn test_build_recipe_result() {
         let index = RecipeIndex::new();
-        let result = check_recipe_fast_path("enable colored prompt in bash", &index);
+        let query = "enable colored prompt in bash";
+        let result = check_recipe_fast_path(query, &index);
         assert!(result.matched);
 
         let recipe = result.recipe.as_ref().unwrap();
@@ -345,6 +351,7 @@ mod tests {
             recipe,
             &result.matched_tokens,
             transcript,
+            query,
         );
 
         // Verify the result

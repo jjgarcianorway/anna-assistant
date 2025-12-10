@@ -13,6 +13,7 @@ use crate::recipe::Recipe;
 
 /// v0.0.103: Request for user feedback on a recipe answer
 /// Anna asks this when she's uncertain about her answer quality
+/// v0.0.305: Added original_query for negative feedback learning
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeedbackRequest {
     /// The recipe ID that produced this answer
@@ -21,25 +22,39 @@ pub struct FeedbackRequest {
     pub reason: String,
     /// The question to ask the user
     pub question: String,
+    /// The original user query that triggered this recipe
+    /// v0.0.305: Added for negative feedback learning
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_query: Option<String>,
 }
 
 impl FeedbackRequest {
     /// Create feedback request for borderline confidence
-    pub fn borderline_confidence(recipe_id: &str, score: u8) -> Self {
+    /// v0.0.305: Now takes query for negative feedback learning
+    pub fn borderline_confidence(recipe_id: &str, score: u8, query: &str) -> Self {
         Self {
             recipe_id: recipe_id.to_string(),
             reason: format!("confidence_score_{}", score),
             question: "Was this answer helpful? (y/n)".to_string(),
+            original_query: Some(query.to_string()),
         }
     }
 
     /// Create feedback request when recipe is new/untested
-    pub fn new_recipe(recipe_id: &str) -> Self {
+    /// v0.0.305: Now takes query for negative feedback learning
+    pub fn new_recipe(recipe_id: &str, query: &str) -> Self {
         Self {
             recipe_id: recipe_id.to_string(),
             reason: "new_recipe".to_string(),
             question: "This is from a newly learned pattern. Was it helpful? (y/n)".to_string(),
+            original_query: Some(query.to_string()),
         }
+    }
+
+    /// Add method for setting query (builder pattern)
+    pub fn with_query(mut self, query: &str) -> Self {
+        self.original_query = Some(query.to_string());
+        self
     }
 }
 

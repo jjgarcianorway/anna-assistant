@@ -303,4 +303,38 @@ mod tests {
         assert_eq!(top[0].0, "c");
         assert_eq!(top[1].0, "b");
     }
+
+    #[test]
+    fn test_xp_calculation() {
+        let mut metrics = StaffMetrics::default();
+        // Base: 10xp + resolved bonus: 20xp + reliability bonus: (85-60)*2 = 50xp
+        metrics.record_ticket(true, false, 85, 1000);
+        assert_eq!(metrics.xp, 80); // 10 + 20 + 50
+        assert_eq!(metrics.level, 1); // < 100 = Novice
+    }
+
+    #[test]
+    fn test_xp_level_progression() {
+        let mut metrics = StaffMetrics::default();
+        // Simulate 5 high-reliability resolved tickets
+        for _ in 0..5 {
+            metrics.record_ticket(true, false, 90, 1000);
+        }
+        // Each ticket: 10 + 20 + 60 = 90 xp, total = 450 xp
+        assert_eq!(metrics.xp, 450);
+        assert_eq!(metrics.level, 3); // 300-699 = Competent
+    }
+
+    #[test]
+    fn test_xp_to_level() {
+        assert_eq!(xp_to_level(0), 1);   // Novice
+        assert_eq!(xp_to_level(99), 1);  // Novice
+        assert_eq!(xp_to_level(100), 2); // Apprentice
+        assert_eq!(xp_to_level(299), 2); // Apprentice
+        assert_eq!(xp_to_level(300), 3); // Competent
+        assert_eq!(xp_to_level(699), 3); // Competent
+        assert_eq!(xp_to_level(700), 4); // Expert
+        assert_eq!(xp_to_level(1500), 5); // Master
+        assert_eq!(xp_to_level(3000), 6); // Principal
+    }
 }
