@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.299] - 2025-12-10
+
+### Fixed - Installer Removes Stale Binaries
+
+**Install script now removes old binaries from `~/.local/bin`:**
+- Old `annactl` or `annad` in `~/.local/bin` would shadow `/usr/local/bin` binaries
+- This caused version mismatch where `annactl --version` showed old version
+- Install script now cleans up stale binaries before requesting sudo
+
 ## [0.0.298] - 2025-12-10
 
 ### Fixed - Critical Stability and Validator Integration

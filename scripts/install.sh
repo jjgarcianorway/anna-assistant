@@ -230,6 +230,34 @@ stop_existing_service() {
     fi
 }
 
+# v0.0.299: Remove stale binaries from user-local paths that shadow /usr/local/bin
+cleanup_stale_binaries() {
+    local user_local_bin="${HOME}/.local/bin"
+    local stale_found=false
+
+    # Check for old annactl in ~/.local/bin
+    if [ -x "${user_local_bin}/annactl" ]; then
+        stale_found=true
+        print_section "cleanup" "removing stale binaries"
+        rm -f "${user_local_bin}/annactl"
+        print_ok "removed ${user_local_bin}/annactl (shadowing /usr/local/bin)"
+    fi
+
+    # Check for old annad in ~/.local/bin
+    if [ -x "${user_local_bin}/annad" ]; then
+        stale_found=true
+        if [ "$stale_found" = false ]; then
+            print_section "cleanup" "removing stale binaries"
+        fi
+        rm -f "${user_local_bin}/annad"
+        print_ok "removed ${user_local_bin}/annad (shadowing /usr/local/bin)"
+    fi
+
+    if [ "$stale_found" = true ]; then
+        echo ""
+    fi
+}
+
 # Install binaries
 install_binaries() {
     print_section "install" "binaries"
@@ -400,6 +428,7 @@ main() {
     preflight
     fetch_artifacts
     verify_checksums
+    cleanup_stale_binaries  # v0.0.299: Remove old binaries from ~/.local/bin before sudo
     request_sudo
     stop_existing_service
     install_binaries
