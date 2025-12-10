@@ -1,9 +1,10 @@
-//! Theatre footer rendering (v0.0.202).
+//! Theatre footer rendering (v0.0.341).
+//! v0.0.341: Use centralized kv() for consistent key-value display.
 
 use anna_shared::narrator::{it_confidence, it_domain_context};
 use anna_shared::roster::person_by_id;
 use anna_shared::rpc::ServiceDeskResult;
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, kv};
 
 use super::helpers::reliability_color;
 
@@ -20,40 +21,22 @@ pub fn print_footer(result: &ServiceDeskResult) {
     // v0.0.170: Show staff member who handled the request with name and role prominently
     if let Some(ref staff_id) = result.staff_id {
         if let Some(person) = person_by_id(staff_id) {
-            println!(
-                "{}Handled by:{} {}{} ({}){}",
-                colors::DIM,
-                colors::RESET,
-                colors::WARN,
-                person.display_name,
-                person.role_title,
-                colors::RESET
-            );
+            kv("handled_by", &format!(
+                "{}{} ({}){}",
+                colors::WARN, person.display_name, person.role_title, colors::RESET
+            ));
             if !person.specializations.is_empty() {
-                let specs = person.specialization_str();
-                println!(
-                    "{}  Specializes in: {}{}",
-                    colors::DIM,
-                    specs,
-                    colors::RESET
-                );
+                kv("specializes_in", &person.specialization_str());
             }
         }
     } else if let Some(ref assigned) = result.assigned_staff {
         // Fallback to assigned_staff string if no staff_id
-        println!(
-            "{}Handled by:{} {}{}{}",
-            colors::DIM,
-            colors::RESET,
-            colors::WARN,
-            assigned,
-            colors::RESET
-        );
+        kv("handled_by", &format!("{}{}{}", colors::WARN, assigned, colors::RESET));
     }
 
     // v0.0.106: Case number on separate line
     if let Some(ref case_num) = result.case_number {
-        println!("{}Case: {}{}", colors::DIM, case_num, colors::RESET);
+        kv("case", case_num);
     }
 
     // Evidence source

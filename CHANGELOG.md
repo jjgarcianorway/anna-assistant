@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.341] - 2025-12-10
+
+### Improved - Theatre Render UI Consistency
+
+Refinements to Anna's main response rendering:
+
+**Theatre Render:**
+- Evidence bullets now use `symbols::BULLET` instead of hardcoded "•"
+- Footer uses `kv()` for "handled_by", "specializes_in", "case" fields
+- Consistent 22-char alignment for footer metadata
+
+**Before:**
+```
+Handled by: Sofia (Desktop Support Jr)
+  Specializes in: vim, config files
+Case: DSK-0042
+```
+
+**After:**
+```
+  handled_by            Sofia (Desktop Support Jr)
+  specializes_in        vim, config files
+  case                  DSK-0042
+```
+
+Minor change but completes the UI consistency across all annactl output.
+
 ## [0.0.340] - 2025-12-10
 
 ### Improved - Ticket Commands UI Consistency

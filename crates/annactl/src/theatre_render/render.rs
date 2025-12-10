@@ -1,12 +1,13 @@
-//! Theatre main rendering (v0.0.252).
+//! Theatre main rendering (v0.0.341).
 //!
 //! v0.0.252: Evidence bullets displayed with concise answers
+//! v0.0.341: Use centralized symbols for evidence bullets
 
 use anna_shared::change::ChangePlan;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::theatre::{NarrativeSegment, Speaker};
 use anna_shared::transcript::{Actor, TranscriptEventKind};
-use anna_shared::ui::colors;
+use anna_shared::ui::{colors, symbols};
 
 use crate::output::{format_for_output, OutputMode};
 
@@ -137,7 +138,7 @@ fn print_evidence_bullets(result: &ServiceDeskResult) {
     if !items.is_empty() {
         for item in items.iter().take(3) {
             // Max 3 evidence lines
-            println!("{}• evidence:{} {}", colors::DIM, colors::RESET, item);
+            println!("{}{} evidence:{} {}", colors::DIM, symbols::BULLET, colors::RESET, item);
         }
     }
 }
