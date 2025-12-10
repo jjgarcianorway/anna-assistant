@@ -1,9 +1,10 @@
-//! Recipe feedback system (v0.0.295).
+//! Recipe feedback system (v0.0.371).
 //! Anna can ask for feedback when she's uncertain about a recipe answer.
 //! Feedback adjusts recipe reliability scores for future matches.
 //!
 //! v0.0.295: "Not helpful" feedback now adds query to recipe's negative_match_patterns,
 //! preventing the same query from matching this recipe via semantic similarity in the future.
+//! v0.0.371: Adaptive feedback scoring - adjustments vary based on recipe maturity.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -124,7 +125,20 @@ pub struct FeedbackResult {
     pub message: String,
 }
 
+/// v0.0.371: Calculate adaptive score adjustment based on recipe maturity
+/// New recipes get larger adjustments to learn faster
+/// Mature recipes get smaller adjustments for stability
+fn adaptive_adjustment(success_count: u32, base_amount: u8) -> u8 {
+    match success_count {
+        0..=2 => base_amount * 3,      // New: 3x adjustment (learn fast)
+        3..=10 => base_amount * 2,     // Young: 2x adjustment
+        11..=30 => base_amount,        // Maturing: normal adjustment
+        _ => base_amount.saturating_sub(1).max(1), // Mature: slightly reduced
+    }
+}
+
 /// Apply feedback to a recipe, updating its scores
+/// v0.0.371: Uses adaptive scoring based on recipe maturity
 pub fn apply_feedback(feedback: &RecipeFeedback) -> Option<FeedbackResult> {
     let recipe_path = recipe_path(&feedback.recipe_id);
 
@@ -140,15 +154,19 @@ pub fn apply_feedback(feedback: &RecipeFeedback) -> Option<FeedbackResult> {
         FeedbackRating::Helpful => {
             // Increase success count
             recipe.success_count = recipe.success_count.saturating_add(1);
-            // Boost reliability score slightly (max 99)
+            // v0.0.371: Adaptive boost - new recipes learn faster
+            let boost = adaptive_adjustment(previous_success_count, 2);
             if recipe.reliability_score < 99 {
-                recipe.reliability_score = (recipe.reliability_score + 1).min(99);
+                recipe.reliability_score = (recipe.reliability_score + boost).min(99);
             }
         }
         FeedbackRating::NotHelpful => {
-            // Decrease reliability score (min 50 to avoid complete discard)
+            // v0.0.371: Adaptive penalty - new recipes get penalized more
+            let penalty = adaptive_adjustment(previous_success_count, 5);
             if recipe.reliability_score > 50 {
-                recipe.reliability_score = recipe.reliability_score.saturating_sub(5);
+                recipe.reliability_score = recipe.reliability_score.saturating_sub(penalty);
+                // Floor at 50 to avoid complete discard
+                recipe.reliability_score = recipe.reliability_score.max(50);
             }
             // v0.0.295: Add query to negative match patterns
             // This prevents this query from matching this recipe via semantic similarity
@@ -157,8 +175,13 @@ pub fn apply_feedback(feedback: &RecipeFeedback) -> Option<FeedbackResult> {
             }
         }
         FeedbackRating::Partial => {
-            // Slight increase in success count, no score change
+            // Slight increase in success count
             recipe.success_count = recipe.success_count.saturating_add(1);
+            // v0.0.371: Small boost for partial feedback
+            let boost = adaptive_adjustment(previous_success_count, 1);
+            if recipe.reliability_score < 95 {
+                recipe.reliability_score = (recipe.reliability_score + boost).min(95);
+            }
         }
     }
 
@@ -237,5 +260,24 @@ mod tests {
 
         let not_helpful = serde_json::to_string(&FeedbackRating::NotHelpful).unwrap();
         assert_eq!(not_helpful, "\"not_helpful\"");
+    }
+
+    #[test]
+    fn test_adaptive_adjustment() {
+        // New recipes (0-2) get 3x adjustment
+        assert_eq!(adaptive_adjustment(0, 2), 6);
+        assert_eq!(adaptive_adjustment(2, 5), 15);
+
+        // Young recipes (3-10) get 2x adjustment
+        assert_eq!(adaptive_adjustment(5, 2), 4);
+        assert_eq!(adaptive_adjustment(10, 5), 10);
+
+        // Maturing recipes (11-30) get normal adjustment
+        assert_eq!(adaptive_adjustment(15, 2), 2);
+        assert_eq!(adaptive_adjustment(30, 5), 5);
+
+        // Mature recipes (31+) get reduced adjustment
+        assert_eq!(adaptive_adjustment(50, 2), 1);
+        assert_eq!(adaptive_adjustment(100, 5), 4);
     }
 }

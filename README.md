@@ -389,7 +389,7 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.371**
+Current: **v0.0.372**
 
 Recent highlights:
 - **Smarter learning** with domain synonyms and semantic matching

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.372] - 2025-12-10
+
+### Intelligence - Adaptive feedback scoring
+
+Anna now learns faster from user feedback with **adaptive scoring**:
+
+**How it works:**
+- **New recipes (0-2 uses)**: 3x adjustment - learn fast from early feedback
+- **Young recipes (3-10 uses)**: 2x adjustment - still learning
+- **Maturing recipes (11-30 uses)**: Normal adjustment - stabilizing
+- **Mature recipes (31+ uses)**: Reduced adjustment - preserve proven patterns
+
+**Impact:**
+- Helpful feedback on new recipes: +6 score (was +1)
+- Not helpful on new recipes: -15 score (was -5)
+- Partial feedback now also boosts score slightly (previously no change)
+
+This means Anna quickly adapts to bad patterns while protecting good ones.
+
 ## [0.0.371] - 2025-12-10
 
 ### Intelligence - Enhanced probe learning with semantic matching
