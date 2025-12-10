@@ -1,4 +1,4 @@
-//! System routes: uptime, users, processes, shell, locale (v0.0.172).
+//! System routes: uptime, users, processes, shell, locale, desktop (v0.0.309).
 
 use anna_shared::probe_spine::{EvidenceKind, RouteCapability};
 use anna_shared::rpc::{QueryIntent, SpecialistDomain};
@@ -251,6 +251,20 @@ pub fn build_system_route(class: QueryClass) -> Option<DeterministicRoute> {
                 can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Packages],
+                spine_probes: vec![],
+            },
+        }),
+
+        // v0.0.309: Desktop wallpaper - checks facts first, asks user if unknown
+        QueryClass::DesktopWallpaper => Some(DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["desktop_wallpaper".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: false, // We check facts first, not probes
+                required_evidence: vec![],
                 spine_probes: vec![],
             },
         }),

@@ -35,6 +35,7 @@ pub mod comms;
 pub mod config;
 pub mod config_registry;
 pub mod configure_editor;
+pub mod desktop_wallpaper;
 pub mod det;
 pub mod det_extended;
 pub mod deterministic;

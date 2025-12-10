@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.309] - 2025-12-10
+
+### Fixed - Desktop Wallpaper LLM Timeout
+
+**Desktop wallpaper queries now have a deterministic fast-path:**
+- Added `DesktopWallpaper` query class for wallpaper-related questions
+- New handler checks DE settings (GNOME, KDE, XFCE, Cinnamon, MATE, Hyprland)
+- If wallpaper found, returns path immediately (<1 second)
+- If DE not detected, asks user where they keep wallpapers (for learning)
+- Avoids 40+ second LLM timeouts on simple desktop questions
+
+**Impact:** "where is my wallpaper" or "what is my desktop background" now responds
+instantly instead of timing out waiting for LLM.
+
 ## [0.0.308] - 2025-12-10
 
 ### Fixed - Top Memory Processes Evidence Bug

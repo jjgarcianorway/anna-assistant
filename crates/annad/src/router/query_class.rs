@@ -126,6 +126,8 @@ pub enum QueryClass {
     SystemdMounts,
     LoadedFirmware,
     NetworkStats,
+    /// v0.0.309: Desktop wallpaper info
+    DesktopWallpaper,
     Unknown,
 }
 
@@ -250,6 +252,7 @@ impl std::fmt::Display for QueryClass {
             Self::SystemdMounts => "systemd_mounts",
             Self::LoadedFirmware => "loaded_firmware",
             Self::NetworkStats => "network_stats",
+            Self::DesktopWallpaper => "desktop_wallpaper",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)

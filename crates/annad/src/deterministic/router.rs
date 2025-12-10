@@ -358,6 +358,8 @@ pub fn try_answer(
         }
         // v0.0.141: NetworkStats - deterministic from /proc/net/dev
         QueryClass::NetworkStats => det_extended::answer_network_stats(probe_results, &route_class),
+        // v0.0.309: DesktopWallpaper - handled in llm_request.rs
+        QueryClass::DesktopWallpaper => None,
         QueryClass::Unknown => None,
     }
 }

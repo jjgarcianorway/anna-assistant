@@ -18,6 +18,7 @@ use tracing::{info, warn};
 
 use crate::comms::{team_from_query_class, CommsGenerator};
 use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
+use crate::desktop_wallpaper::{handle_desktop_wallpaper, DesktopWallpaperResult};
 use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
 use crate::probe_stage::{check_evidence_validity, execute_probe_stage};
 use crate::progress_tracker::ProgressTracker;
@@ -335,6 +336,25 @@ async fn handle_llm_request_inner(
         if let ConfigureEditorResult::Handled(result) = editor_result {
             save_progress(&state, &progress).await;
             // v0.0.291: Safe JSON serialization
+            return match serde_json::to_value(result) {
+                Ok(v) => RpcResponse::success(id, v),
+                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+            };
+        }
+    }
+
+    // Step 5.6: v0.0.309 DesktopWallpaper - fast path for wallpaper queries
+    if det_route.class == router::QueryClass::DesktopWallpaper {
+        let wallpaper_result = handle_desktop_wallpaper(
+            request_id.clone(),
+            query,
+            ticket.clone(),
+            &probe_results,
+            progress.transcript_clone(),
+        );
+
+        if let DesktopWallpaperResult::Handled(result) = wallpaper_result {
+            save_progress(&state, &progress).await;
             return match serde_json::to_value(result) {
                 Ok(v) => RpcResponse::success(id, v),
                 Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),

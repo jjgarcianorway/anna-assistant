@@ -160,6 +160,15 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "systemd_mounts" => Some("systemctl list-units --type=mount --no-pager --no-legend | head -20"),
         "loaded_firmware" => Some("dmesg 2>/dev/null | grep -i 'firmware\\|microcode' | tail -20 || echo 'Firmware info not available'"),
         "network_stats" => Some("cat /proc/net/dev"),
+        // v0.0.309: Desktop wallpaper probe - tries multiple desktop environments
+        "desktop_wallpaper" => Some(
+            "gsettings get org.gnome.desktop.background picture-uri 2>/dev/null || \
+             gsettings get org.cinnamon.desktop.background picture-uri 2>/dev/null || \
+             gsettings get org.mate.background picture-filename 2>/dev/null || \
+             qdbus org.kde.plasmashell /PlasmaShell evaluateScript 'print(desktops()[0].wallpaperPlugin)' 2>/dev/null || \
+             cat ~/.config/hypr/hyprpaper.conf 2>/dev/null | grep -E '^wallpaper' || \
+             echo 'UNKNOWN_DE'"
+        ),
         _ => None,
     }
 }

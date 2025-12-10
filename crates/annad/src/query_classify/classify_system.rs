@@ -1,6 +1,6 @@
-//! System query classification patterns (v0.0.174).
+//! System query classification patterns (v0.0.309).
 //!
-//! Uptime, load, boot, users, hostname, OS, architecture, locale, kernel.
+//! Uptime, load, boot, users, hostname, OS, architecture, locale, kernel, desktop.
 
 use crate::router::QueryClass;
 
@@ -203,6 +203,15 @@ pub fn classify_system(q: &str) -> Option<QueryClass> {
         || (q.contains("what") && q.contains("shell") && q.contains("available"))
     {
         return Some(QueryClass::AvailableShells);
+    }
+
+    // v0.0.309: Desktop wallpaper - MUST come before InstalledDesktops
+    if q.contains("wallpaper")
+        || q.contains("desktop background")
+        || (q.contains("background") && q.contains("image"))
+        || (q.contains("what") && q.contains("background") && !q.contains("process"))
+    {
+        return Some(QueryClass::DesktopWallpaper);
     }
 
     // v0.0.130: Installed desktops
