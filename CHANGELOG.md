@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.295] - 2025-12-10
+
+### Added - Learning from Negative Feedback
+
+**Anna Now Learns from "Not Helpful" Feedback:**
+
+When users give negative feedback on a semantic recipe match, that query pattern is added to the recipe's `negative_match_patterns` list. Future queries matching that pattern will skip this recipe.
+
+**How It Works:**
+1. User asks "how do I undo my git commit?"
+2. Anna incorrectly matches to disk space recipe via semantic similarity
+3. User says "n" (not helpful)
+4. Anna adds "how do I undo my git commit?" to recipe's negative_match_patterns
+5. Next time, that exact query skips this recipe entirely
+
+**Why This Matters:**
+- Anna learns from mistakes without hardcoding
+- Each recipe becomes smarter over time
+- False positive semantic matches become self-correcting
+
+**Files Changed:**
+- `anna-shared/src/recipe/core.rs` - Added negative_match_patterns field
+- `anna-shared/src/recipe_feedback.rs` - Store query on "not helpful" feedback
+- `annad/src/recipe_similarity.rs` - Skip recipes with matching negative patterns
+
 ## [0.0.294] - 2025-12-10
 
 ### Fixed - Stricter Domain Guard

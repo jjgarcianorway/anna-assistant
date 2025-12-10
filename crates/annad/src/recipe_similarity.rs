@@ -9,6 +9,7 @@
 //!
 //! v0.0.293: Added domain guard to prevent cross-domain false matches.
 //! v0.0.294: Stricter domain guard - domain-specific queries only match same-domain recipes.
+//! v0.0.295: Skip recipes where query is in negative_match_patterns (learned from feedback).
 
 use anna_shared::recipe::Recipe;
 use anna_shared::recipe_index::RecipeIndex;
@@ -157,6 +158,15 @@ pub async fn check_semantic_similarity(
 
         // Skip if queries are identical (already matched by tokens)
         if original_query.to_lowercase() == new_query.to_lowercase() {
+            continue;
+        }
+
+        // v0.0.295: Skip if query is in negative match patterns (learned from "not helpful" feedback)
+        if recipe.is_negative_match(new_query) {
+            warn!(
+                "Query in negative match list, skipping: {} vs recipe {}",
+                new_query, recipe.id
+            );
             continue;
         }
 

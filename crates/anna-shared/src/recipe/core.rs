@@ -1,4 +1,5 @@
-//! Recipe struct and implementation (v0.0.177).
+//! Recipe struct and implementation (v0.0.295).
+//! v0.0.295: Added negative_match_patterns for learning from "not helpful" feedback.
 
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
@@ -57,6 +58,10 @@ pub struct Recipe {
     /// v0.45.5: Clarification prerequisites - facts that must be known before execution
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub clarify_prereqs: Vec<ClarifyPrereq>,
+    /// v0.0.295: Query patterns that received "not helpful" feedback
+    /// These patterns are excluded from future semantic matching
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub negative_match_patterns: Vec<String>,
 }
 
 /// Compute deterministic recipe ID from signature and team
@@ -107,6 +112,7 @@ impl Recipe {
             targets: Vec::new(),
             preconditions: Vec::new(),
             clarify_prereqs: Vec::new(),
+            negative_match_patterns: Vec::new(),
         }
     }
 
@@ -152,6 +158,7 @@ impl Recipe {
             targets: Vec::new(),
             preconditions: Vec::new(),
             clarify_prereqs: Vec::new(),
+            negative_match_patterns: Vec::new(),
         }
     }
 
@@ -192,6 +199,7 @@ impl Recipe {
             targets: Vec::new(),
             preconditions: Vec::new(),
             clarify_prereqs: Vec::new(),
+            negative_match_patterns: Vec::new(),
         }
     }
 
@@ -284,5 +292,23 @@ impl Recipe {
         let json = std::fs::read_to_string(path)?;
         serde_json::from_str(&json)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+
+    /// v0.0.295: Check if a query is in the negative match list
+    /// Returns true if this query pattern was previously marked "not helpful"
+    pub fn is_negative_match(&self, query: &str) -> bool {
+        let q_lower = query.to_lowercase();
+        self.negative_match_patterns
+            .iter()
+            .any(|p| p.to_lowercase() == q_lower)
+    }
+
+    /// v0.0.295: Add a query pattern to negative matches
+    /// Called when user gives "not helpful" feedback on a semantic match
+    pub fn add_negative_match(&mut self, query: &str) {
+        let q_lower = query.to_lowercase();
+        if !self.negative_match_patterns.iter().any(|p| p.to_lowercase() == q_lower) {
+            self.negative_match_patterns.push(query.to_string());
+        }
     }
 }

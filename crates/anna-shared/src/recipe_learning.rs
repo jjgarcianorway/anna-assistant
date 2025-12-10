@@ -273,6 +273,7 @@ fn build_recipe(
         targets: vec![],
         preconditions: vec![],
         clarify_prereqs: vec![],
+        negative_match_patterns: vec![],
     }
 }
 

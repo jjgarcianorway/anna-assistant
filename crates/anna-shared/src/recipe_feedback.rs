@@ -1,6 +1,9 @@
-//! Recipe feedback system (v0.0.103).
+//! Recipe feedback system (v0.0.295).
 //! Anna can ask for feedback when she's uncertain about a recipe answer.
 //! Feedback adjusts recipe reliability scores for future matches.
+//!
+//! v0.0.295: "Not helpful" feedback now adds query to recipe's negative_match_patterns,
+//! preventing the same query from matching this recipe via semantic similarity in the future.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -131,6 +134,11 @@ pub fn apply_feedback(feedback: &RecipeFeedback) -> Option<FeedbackResult> {
             // Decrease reliability score (min 50 to avoid complete discard)
             if recipe.reliability_score > 50 {
                 recipe.reliability_score = recipe.reliability_score.saturating_sub(5);
+            }
+            // v0.0.295: Add query to negative match patterns
+            // This prevents this query from matching this recipe via semantic similarity
+            if let Some(ref query) = feedback.query {
+                recipe.add_negative_match(query);
             }
         }
         FeedbackRating::Partial => {

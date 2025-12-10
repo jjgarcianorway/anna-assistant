@@ -78,6 +78,7 @@ pub fn check_shell_recipes(query: &str) -> Option<RecipeFastPathResult> {
         targets: vec![shell.display_name().to_lowercase()],
         preconditions: vec![],
         clarify_prereqs: vec![],
+        negative_match_patterns: vec![],
     };
 
     info!(
@@ -169,6 +170,7 @@ pub fn check_git_recipes(query: &str) -> Option<RecipeFastPathResult> {
         targets: vec!["git".to_string()],
         preconditions: vec![],
         clarify_prereqs: vec![],
+        negative_match_patterns: vec![],
     };
 
     info!("Git recipe match: {}", feature.display_name());
@@ -221,6 +223,7 @@ pub fn check_ssh_recipes(query: &str) -> Option<RecipeFastPathResult> {
         targets: vec!["ssh".to_string()],
         preconditions: vec![],
         clarify_prereqs: vec![],
+        negative_match_patterns: vec![],
     };
 
     info!("SSH recipe match: {}", ssh_recipe.feature.display_name());
@@ -276,6 +279,7 @@ pub fn check_systemd_recipes(query: &str) -> Option<RecipeFastPathResult> {
         targets: vec!["systemd".to_string(), "service".to_string()],
         preconditions: vec![],
         clarify_prereqs: vec![],
+        negative_match_patterns: vec![],
     };
 
     info!(
@@ -334,6 +338,7 @@ pub fn check_cron_recipes(query: &str) -> Option<RecipeFastPathResult> {
         targets: vec!["cron".to_string(), "crontab".to_string()],
         preconditions: vec![],
         clarify_prereqs: vec![],
+        negative_match_patterns: vec![],
     };
 
     info!("Cron recipe match: {}", cron_recipe.feature.display_name());
@@ -389,6 +394,7 @@ pub fn check_docker_recipes(query: &str) -> Option<RecipeFastPathResult> {
         targets: vec!["docker".to_string(), "compose".to_string()],
         preconditions: vec![],
         clarify_prereqs: vec![],
+        negative_match_patterns: vec![],
     };
 
     info!(
