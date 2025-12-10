@@ -1,6 +1,7 @@
 //! Statistics section for status display (v0.0.274).
 //!
 //! Shows department and staff performance metrics in annactl status.
+//! v0.0.278: Enhanced RPG stats with XP and title display.
 
 use anna_shared::event_log::EventLog;
 use anna_shared::staff_stats::StaffStats;
@@ -19,6 +20,10 @@ pub fn print_statistics_section() {
 
     println!();
     println!("{}[statistics]{}", colors::HEADER, colors::RESET);
+
+    // v0.0.278: Show XP and title prominently (RPG gamification)
+    kv("xp", &format!("{}{}{}", colors::CYAN, agg.xp, colors::RESET));
+    kv("title", &format!("{}{}{}", colors::OK, agg.title, colors::RESET));
 
     let success_rate = (agg.verified_count as f32 / agg.total_requests as f32) * 100.0;
     let rate_color = if success_rate >= 80.0 { colors::OK }

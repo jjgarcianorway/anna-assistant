@@ -166,12 +166,34 @@ pub fn print_status_display_v2(
         LlmState::Error => format!("{}ERROR{}", colors::ERR, colors::RESET),
     };
     kv("state", &llm_state_str);
+
+    // v0.0.278: Show full model hierarchy (translator < junior < senior)
+    kv("model_hierarchy", "");
     if let Some(model) = &status.llm.translator_model {
-        kv("translator_model", model);
+        println!(
+            "    {}translator{}  {}  (query classification, fastest)",
+            colors::DIM, colors::RESET, model
+        );
     }
-    if let Some(model) = &status.llm.specialist_model {
-        kv("specialist_model", model);
+    if let Some(model) = &status.llm.junior_model {
+        println!(
+            "    {}junior{}      {}  (regular queries)",
+            colors::DIM, colors::RESET, model
+        );
+    } else if let Some(model) = &status.llm.specialist_model {
+        // Fallback to legacy specialist_model
+        println!(
+            "    {}junior{}      {}  (regular queries)",
+            colors::DIM, colors::RESET, model
+        );
     }
+    if let Some(model) = &status.llm.senior_model {
+        println!(
+            "    {}senior{}      {}  (complex/escalated)",
+            colors::DIM, colors::RESET, model
+        );
+    }
+
     kv("routing_policy", "hardware-aware  (local)");
     kv(
         "last_model_check",

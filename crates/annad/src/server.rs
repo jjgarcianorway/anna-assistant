@@ -247,16 +247,20 @@ impl Server {
         let supervisor_model = translator_model.clone();
 
         // Add models to status with their roles
+        // v0.0.278: Support tiered model hierarchy (translator < junior < senior)
         {
             let mut state = self.state.write().await;
             state.add_model(&translator_model, "translator", 0);
-            state.add_model(&specialist_model, "specialist", 0);
+            state.add_model(&specialist_model, "junior", 0);
             if supervisor_model != translator_model && supervisor_model != specialist_model {
                 state.add_model(&supervisor_model, "supervisor", 0);
             }
             // v0.0.74: Set selected model info for status display
             state.llm.translator_model = Some(translator_model.clone());
-            state.llm.specialist_model = Some(specialist_model.clone());
+            // v0.0.278: specialist_model maps to junior, senior uses config default
+            state.llm.junior_model = Some(specialist_model.clone());
+            state.llm.specialist_model = Some(specialist_model.clone()); // Legacy compat
+            state.llm.senior_model = Some(state.config.llm.senior_model.clone());
             // Detect preferred family from model names
             let family = anna_shared::model_selector::detect_family(&specialist_model);
             state.llm.preferred_family = Some(format!("{:?}", family));

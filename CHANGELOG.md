@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.278] - 2025-12-10
+
+### Enhanced - Status Display with Model Hierarchy
+
+**LLM section now shows full model hierarchy:**
+- Displays translator, junior, and senior models with their roles
+- Shows descriptions: "query classification, fastest", "regular queries", "complex/escalated"
+- Junior and senior models added to `LlmStatus` struct
+
+**Statistics section enhanced with RPG gamification:**
+- XP and title now displayed prominently in statistics section
+- Colored output for better visibility (cyan for XP, green for title)
+
+**Files changed:**
+- `anna-shared/src/status.rs` - Added junior_model and senior_model to LlmStatus
+- `annactl/src/status_display_v2.rs` - Enhanced [llm] section with model hierarchy
+- `annactl/src/status_statistics.rs` - Added XP and title display
+- `annad/src/server.rs` - Populate junior_model and senior_model in status
+
 ## [0.0.277] - 2025-12-10
 
 ### Added - Tiered Model Hierarchy

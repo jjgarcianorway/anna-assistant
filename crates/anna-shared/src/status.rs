@@ -168,6 +168,7 @@ impl std::fmt::Display for UpdateCheckState {
 }
 
 /// LLM subsystem status
+/// v0.0.278: Added junior_model and senior_model for tiered hierarchy
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmStatus {
     pub state: LlmState,
@@ -176,10 +177,16 @@ pub struct LlmStatus {
     pub progress: Option<ProgressInfo>,
     pub benchmark: Option<BenchmarkResult>,
     pub models: Vec<ModelInfo>,
-    /// v0.0.74: Selected model for translator role
+    /// v0.0.74: Selected model for translator role (smallest, fastest)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub translator_model: Option<String>,
-    /// v0.0.74: Selected model for specialist role
+    /// v0.0.278: Selected model for junior specialist role (mid-size, capable)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub junior_model: Option<String>,
+    /// v0.0.278: Selected model for senior specialist role (largest, smartest)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub senior_model: Option<String>,
+    /// v0.0.74: Selected model for specialist role (legacy, maps to junior)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub specialist_model: Option<String>,
     /// v0.0.74: Model family preference used
@@ -319,6 +326,8 @@ impl Default for LlmStatus {
             benchmark: None,
             models: Vec::new(),
             translator_model: None,
+            junior_model: None,
+            senior_model: None,
             specialist_model: None,
             preferred_family: None,
         }
