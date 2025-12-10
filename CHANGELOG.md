@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.348] - 2025-12-10
+
+### Improved - Bootstrap Progress Uses print_hint()
+
+Small consistency improvement in progress display:
+
+**Updated File:**
+- `progress_display.rs` - "Setting up..." message uses `print_hint()`
+
+Continues the UI consistency refactoring across all display modules.
+
 ## [0.0.347] - 2025-12-10
 
 ### Improved - UI Consistency in greeting/personal.rs

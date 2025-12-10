@@ -1,11 +1,12 @@
-//! Progress display module for annactl (v0.0.345).
+//! Progress display module for annactl (v0.0.348).
 //! v0.0.119: Clean progress messages.
 //! v0.0.338: Use centralized UI printing for consistency.
 //! v0.0.345: Use print_hr() for horizontal rules.
+//! v0.0.348: Use print_hint() for consistency.
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_hr, print_label, symbols};
+use anna_shared::ui::{colors, print_hint, print_hr, print_label, symbols};
 use anyhow::Result;
 use std::io::{self, Write};
 use std::time::Duration;
@@ -17,7 +18,7 @@ pub async fn show_bootstrap_progress() -> Result<()> {
     println!();
     println!("{}anna (bootstrap){}", colors::HEADER, colors::RESET);
     print_hr();
-    println!("{}Setting up...{}", colors::DIM, colors::RESET);
+    print_hint("Setting up...");
     println!();
 
     let spinner = &symbols::SPINNER;
