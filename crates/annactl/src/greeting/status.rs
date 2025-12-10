@@ -1,4 +1,8 @@
 //! Status display sections (v0.0.186).
+//!
+//! v0.0.275: print_since_last_time now unused (LLM generates greetings), kept for fallback.
+
+#![allow(dead_code)]
 
 use anna_shared::snapshot::{DeltaItem, SystemSnapshot};
 use anna_shared::status::{DaemonStatus, LlmState};

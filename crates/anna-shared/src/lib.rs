@@ -131,6 +131,9 @@ pub mod pending_queue;
 // v0.0.268: Query scenario test corpus (100+ queries)
 pub mod query_scenarios;
 
+// v0.0.275: LLM-generated greeting context
+pub mod greeting_context;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

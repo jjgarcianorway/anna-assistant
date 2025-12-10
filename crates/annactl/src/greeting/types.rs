@@ -1,4 +1,8 @@
 //! Greeting types (v0.0.186).
+//!
+//! v0.0.275: bullet() now unused (LLM generates greetings), kept for fallback.
+
+#![allow(dead_code)]
 
 use anna_shared::snapshot::SystemSnapshot;
 

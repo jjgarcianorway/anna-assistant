@@ -1,37 +1,62 @@
-//! Theatre-style REPL greeting for Service Desk experience (v0.0.238).
+//! Theatre-style REPL greeting for Service Desk experience (v0.0.275).
 //!
 //! v0.0.119: Clean, concise greetings.
 //! v0.0.142: More conversational, personalized greetings.
 //! v0.0.186: Modularized into domain-focused submodules.
 //! v0.0.238: Added session-based "since last time" summary.
+//! v0.0.275: LLM-generated greetings via translator for varied, natural text.
 
 mod personal;
 mod status;
 mod tests;
 mod types;
 
+use anna_shared::greeting_context::GreetingContext;
 use anna_shared::snapshot::{self, SystemSnapshot};
 use anna_shared::status::DaemonStatus;
-use anna_shared::telemetry::TelemetrySnapshot;
+use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::{colors, HR};
 use anna_shared::user_profile::UserProfile;
 
-use personal::{
-    print_open_tickets, print_personalized_greeting, print_since_last_time as print_session_summary,
-    print_user_patterns,
-};
-use status::{collect_failed_services, print_since_last_time, print_system_readiness};
+use status::{collect_failed_services, print_system_readiness};
 use types::calculate_interaction_info;
 
 // Re-export for external use
 #[allow(unused_imports)]
 pub use types::{bullet, InteractionInfo};
 
+/// Build greeting context from current system state
+fn build_greeting_context(
+    username: &str,
+    profile: &UserProfile,
+    interaction_info: &types::InteractionInfo,
+    health_issues: Vec<String>,
+    llm_status: &str,
+) -> GreetingContext {
+    // Get open tickets count
+    let tracker = TicketTracker::for_user();
+    let open_tickets = tracker.open_tickets().map(|t| t.len() as u32).unwrap_or(0);
+
+    // Get last session summary
+    let last_session_summary = profile.since_last_time();
+
+    GreetingContext {
+        username: username.to_string(),
+        hours_since_last: interaction_info.hours_since_last,
+        days_since_last: interaction_info.days_since_last,
+        is_first_time: interaction_info.is_first_time,
+        streak_days: profile.streak_days,
+        preferred_editor: profile.preferred_editor.clone(),
+        top_topic: profile.top_topic().map(|s| s.to_string()),
+        open_tickets,
+        last_session_summary,
+        health_issues,
+        llm_status: llm_status.to_string(),
+    }
+}
+
 /// Print the theatre-style REPL greeting
-/// Shows: personalized greeting, time since last visit, health deltas, patterns
-/// v0.0.106: Loads user profile for personalized patterns
-/// v0.0.142: More conversational style
-/// v0.0.238: Added session-based "since last time" summary
+/// v0.0.275: Now uses LLM-generated greetings via translator
 pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
 
@@ -43,55 +68,47 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let interaction_info = calculate_interaction_info(&last_snapshot);
 
     // Collect current state
-    let telemetry = TelemetrySnapshot::collect();
     let mut current_snapshot = SystemSnapshot::now();
     let failed_services = collect_failed_services(&mut current_snapshot);
 
-    // Calculate health delta if we have a previous snapshot
-    let health_deltas = if let Some(ref prev) = last_snapshot {
-        snapshot::diff_snapshots(prev, &current_snapshot)
-    } else {
-        Vec::new()
-    };
+    // Collect health issues
+    let mut health_issues = Vec::new();
+    if failed_services > 0 {
+        health_issues.push(format!("{} failed services", failed_services));
+    }
+
+    // Get LLM status string
+    let llm_status = status
+        .map(|s| match s.llm.state {
+            anna_shared::status::LlmState::Ready => "ready",
+            anna_shared::status::LlmState::Bootstrapping => "starting",
+            anna_shared::status::LlmState::Error => "error",
+        })
+        .unwrap_or("unknown");
+
+    // Build greeting context
+    let ctx = build_greeting_context(
+        &username,
+        &profile,
+        &interaction_info,
+        health_issues,
+        llm_status,
+    );
 
     // v0.0.142: Clean header without redundant title
     println!();
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
-    // Personalized greeting based on interaction history
-    print_personalized_greeting(&username, &interaction_info);
-
-    // v0.0.238: Session-based "since last time" summary (what we did together)
-    print_session_summary(&profile);
-
-    // "Since last time" section for system health changes
-    if last_snapshot.is_some() {
-        print_since_last_time(
-            &telemetry,
-            &health_deltas,
-            failed_services,
-            &interaction_info,
-        );
-    }
-
-    // v0.0.106: Show personalized patterns if we have history
-    print_user_patterns(&profile);
-
-    // v0.0.116: Show open tickets if any
-    print_open_tickets();
+    // v0.0.275: Try LLM-generated greeting, fall back to deterministic
+    let greeting_text = try_llm_greeting(&ctx);
+    println!();
+    println!("{}", greeting_text);
 
     // System readiness (LLM state)
     if let Some(st) = status {
         print_system_readiness(st);
     }
 
-    // v0.0.142: More conversational closing
-    println!();
-    println!(
-        "{}But I believe you want to ask me something, isn't it?{}",
-        colors::DIM,
-        colors::RESET
-    );
     println!();
 
     // v0.0.106: Update profile and save
@@ -102,4 +119,45 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
 
     // Save snapshot for next time
     let _ = snapshot::save_snapshot(&current_snapshot);
+}
+
+/// Try to get LLM-generated greeting, fall back to deterministic if unavailable
+fn try_llm_greeting(ctx: &GreetingContext) -> String {
+    use anna_shared::greeting_context::GreetingResponse;
+
+    // Try async LLM call with tokio runtime
+    let result = tokio::runtime::Handle::try_current()
+        .ok()
+        .and_then(|_handle| {
+            // Already in async context, spawn blocking
+            std::thread::scope(|s| {
+                s.spawn(|| {
+                    let rt = tokio::runtime::Runtime::new().ok()?;
+                    rt.block_on(async {
+                        let mut client = crate::client::AnnadClient::connect().await.ok()?;
+                        client.generate_greeting(ctx).await.ok()
+                    })
+                })
+                .join()
+                .ok()
+                .flatten()
+            })
+        })
+        .or_else(|| {
+            // Not in async context, create new runtime
+            tokio::runtime::Runtime::new().ok().and_then(|rt| {
+                rt.block_on(async {
+                    let mut client = crate::client::AnnadClient::connect().await.ok()?;
+                    client.generate_greeting(ctx).await.ok()
+                })
+            })
+        });
+
+    match result {
+        Some(response) if response.is_llm_generated => response.greeting,
+        _ => {
+            // Fall back to deterministic greeting
+            GreetingResponse::fallback(ctx).greeting
+        }
+    }
 }

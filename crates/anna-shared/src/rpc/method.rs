@@ -28,6 +28,8 @@ pub enum RpcMethod {
     ApplyChange,
     /// v0.0.95: Rollback a change using backup
     RollbackChange,
+    /// v0.0.275: Generate personalized greeting via translator LLM
+    GenerateGreeting,
 }
 
 /// v0.0.73: Response from GetDaemonInfo RPC call

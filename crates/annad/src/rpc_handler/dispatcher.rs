@@ -25,5 +25,8 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         RpcMethod::PlanChange => handlers::handle_plan_change(id, request.params).await,
         RpcMethod::ApplyChange => handlers::handle_apply_change(id, request.params).await,
         RpcMethod::RollbackChange => handlers::handle_rollback_change(id, request.params).await,
+        RpcMethod::GenerateGreeting => {
+            handlers::handle_generate_greeting(state, id, request.params).await
+        }
     }
 }

@@ -2,6 +2,9 @@
 //!
 //! v0.0.236: Added editor trend insights to pattern display.
 //! v0.0.238: Added "since last time" summary display.
+//! v0.0.275: Most functions now unused (LLM generates greetings), kept for fallback.
+
+#![allow(dead_code)]
 
 use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::colors;

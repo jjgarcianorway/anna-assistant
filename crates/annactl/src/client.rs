@@ -274,6 +274,26 @@ impl AnnadClient {
         let info: DaemonInfo = serde_json::from_value(result)?;
         Ok(info)
     }
+
+    /// v0.0.275: Generate personalized greeting via LLM
+    pub async fn generate_greeting(
+        &mut self,
+        ctx: &anna_shared::greeting_context::GreetingContext,
+    ) -> Result<anna_shared::greeting_context::GreetingResponse> {
+        let params = serde_json::to_value(ctx)?;
+        let response = self.call(RpcMethod::GenerateGreeting, Some(params)).await?;
+
+        if let Some(error) = response.error {
+            return Err(anyhow!("GenerateGreeting error: {}", error.message));
+        }
+
+        let result = response
+            .result
+            .ok_or_else(|| anyhow!("No result in response"))?;
+        let greeting: anna_shared::greeting_context::GreetingResponse =
+            serde_json::from_value(result)?;
+        Ok(greeting)
+    }
 }
 
 /// Client for streaming requests with progress polling (v0.0.144: kept for future streaming UI)

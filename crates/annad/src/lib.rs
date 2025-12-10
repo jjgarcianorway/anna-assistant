@@ -39,6 +39,7 @@ pub mod det_extended;
 pub mod deterministic;
 pub mod editor_config;
 pub mod fast_path_handler;
+pub mod greeting_generator;
 pub mod handlers;
 pub mod hardware;
 pub mod health;
