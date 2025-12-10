@@ -9,51 +9,80 @@
 use std::collections::BTreeSet;
 
 /// Synonym groups - words within each group are interchangeable
+/// v0.0.272: Expanded synonym groups for better recipe matching
 const SYNONYM_GROUPS: &[&[&str]] = &[
     // Storage/disk related
-    &["disk", "storage", "space", "drive", "volume"],
-    &["free", "available", "remaining", "left"],
-    &["full", "used", "occupied", "consumed"],
+    &["disk", "storage", "space", "drive", "volume", "partition"],
+    &["free", "available", "remaining", "left", "unused"],
+    &["full", "used", "occupied", "consumed", "taken"],
+    &["much", "how", "what", "amount"],
     // Memory related
     &["memory", "ram", "mem"],
     &["swap", "swapfile", "swapspace"],
     // CPU/performance related
-    &["cpu", "processor", "cores"],
-    &["load", "usage", "utilization"],
-    &["slow", "sluggish", "laggy", "unresponsive"],
+    &["cpu", "processor", "cores", "core"],
+    &["load", "usage", "utilization", "busy"],
+    &["slow", "sluggish", "laggy", "unresponsive", "hanging"],
     &["fast", "quick", "speedy", "responsive"],
+    &["performance", "speed", "efficiency"],
     // Network related
-    &["network", "internet", "connection", "connectivity"],
+    &["network", "internet", "connection", "connectivity", "online", "connected"],
     &["ip", "address", "ipaddress"],
     &["wifi", "wireless", "wlan"],
+    &["ethernet", "wired", "lan"],
     // Services/processes
-    &["service", "daemon", "unit"],
+    &["service", "daemon", "unit", "systemd"],
     &["process", "program", "application", "app"],
-    &["running", "active", "started"],
-    &["stopped", "inactive", "dead", "failed"],
+    &["running", "active", "started", "up"],
+    &["stopped", "inactive", "dead", "failed", "down"],
+    &["status", "state", "condition"],
     // Actions
-    &["enable", "activate", "turn", "switch"],
-    &["disable", "deactivate"],
-    &["install", "setup", "add"],
-    &["remove", "uninstall", "delete"],
-    &["restart", "reboot", "reload"],
-    &["check", "show", "display", "view", "see", "list"],
-    &["fix", "repair", "solve", "resolve"],
+    &["enable", "activate", "turn", "switch", "start"],
+    &["disable", "deactivate", "stop"],
+    &["install", "setup", "add", "get"],
+    &["remove", "uninstall", "delete", "purge"],
+    &["restart", "reboot", "reload", "reset"],
+    &["check", "show", "display", "view", "see", "list", "get"],
+    &["fix", "repair", "solve", "resolve", "troubleshoot"],
+    &["configure", "config", "set", "change", "modify", "edit"],
     // Config related
-    &["config", "configuration", "settings", "preferences"],
+    &["config", "configuration", "settings", "preferences", "options"],
     &["syntax", "highlighting", "colors", "coloring"],
-    &["theme", "appearance", "style"],
+    &["theme", "appearance", "style", "colorscheme"],
+    &["line", "lines", "number", "numbers"],
     // System
-    &["system", "machine", "computer", "pc"],
-    &["boot", "startup", "bootup"],
+    &["system", "machine", "computer", "pc", "laptop", "desktop"],
+    &["boot", "startup", "bootup", "reboot"],
     &["update", "upgrade", "patch"],
+    &["health", "healthy", "ok", "okay", "fine", "good"],
+    &["error", "errors", "problem", "problems", "issue", "issues", "warning", "warnings"],
     // Files
     &["file", "document"],
     &["folder", "directory", "dir"],
     &["path", "location"],
     // Editors
     &["vim", "vi", "nvim", "neovim"],
+    &["nano", "pico"],
     &["editor", "text"],
+    // Desktop/GUI
+    &["gnome", "gtk"],
+    &["kde", "plasma", "qt"],
+    &["window", "windows", "wm"],
+    &["desktop", "de", "environment"],
+    // Docker/containers
+    &["docker", "container", "containers"],
+    &["image", "images"],
+    // Package managers
+    &["package", "packages", "pkg"],
+    &["pacman", "apt", "dnf", "yum"],
+    // Hardware
+    &["gpu", "graphics", "video", "nvidia", "amd"],
+    &["audio", "sound", "speaker", "speakers"],
+    &["bluetooth", "bt"],
+    // Security
+    &["permission", "permissions", "perms", "access"],
+    &["ssh", "secure", "key", "keys"],
+    &["firewall", "ufw", "iptables"],
 ];
 
 /// Expand a single token to include its synonyms

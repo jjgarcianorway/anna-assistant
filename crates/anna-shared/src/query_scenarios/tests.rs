@@ -382,18 +382,39 @@ mod tests {
     // enabling Anna to reuse previous successful answers.
 
     use crate::recipe_index::{tokenize, RecipeIndex};
+    use crate::synonyms::{are_synonyms, expand_query_tokens};
 
     /// Check if two queries have enough token overlap to potentially match
+    /// v0.0.272: Now uses synonym expansion for better matching
     fn queries_would_match(original: &str, similar: &str) -> bool {
-        let orig_tokens: std::collections::BTreeSet<String> =
-            tokenize(original).into_iter().collect();
-        let sim_tokens: std::collections::BTreeSet<String> =
-            tokenize(similar).into_iter().collect();
+        let orig_tokens: Vec<String> = tokenize(original);
+        let sim_tokens: Vec<String> = tokenize(similar);
 
-        let overlap: Vec<_> = orig_tokens.intersection(&sim_tokens).collect();
+        // Expand both with synonyms
+        let orig_expanded = expand_query_tokens(&orig_tokens);
+        let sim_expanded = expand_query_tokens(&sim_tokens);
 
-        // Need at least 2 matching tokens for recipe match
+        let overlap: Vec<_> = orig_expanded.intersection(&sim_expanded).collect();
+
+        // Need at least 2 matching tokens (including synonyms) for recipe match
         overlap.len() >= 2
+    }
+
+    /// Check synonym-based matching between two queries
+    fn synonym_match_count(original: &str, similar: &str) -> usize {
+        let orig_tokens: Vec<String> = tokenize(original);
+        let sim_tokens: Vec<String> = tokenize(similar);
+
+        let mut count = 0;
+        for ot in &orig_tokens {
+            for st in &sim_tokens {
+                if are_synonyms(ot, st) {
+                    count += 1;
+                    break;
+                }
+            }
+        }
+        count
     }
 
     #[test]

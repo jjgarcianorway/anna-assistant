@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.272] - 2025-12-10
+
+### Added - Expanded Synonym Groups for Better Recipe Matching
+
+**Extended synonym dictionary (from ~40 to ~70 synonym groups):**
+
+New synonym groups added:
+- Storage: partition, unused, taken, amount/much/how/what
+- CPU/Performance: core, busy, hanging, performance/speed/efficiency
+- Network: online, connected, ethernet/wired/lan
+- Services: systemd, up/down, status/state/condition
+- Actions: start, stop, get, configure/modify/edit, troubleshoot
+- Config: options, colorscheme, line/lines/number/numbers
+- System: laptop/desktop, healthy/ok/okay/fine/good, error/problem/issue/warning
+- Editors: nano/pico
+- Desktop: gnome/gtk, kde/plasma/qt, window/wm, desktop/de/environment
+- Docker: container/containers, image/images
+- Packages: pkg, pacman/apt/dnf/yum
+- Hardware: gpu/graphics/video/nvidia/amd, audio/sound/speaker, bluetooth/bt
+- Security: permission/perms/access, ssh/secure/key, firewall/ufw/iptables
+
+**Test improvements:**
+- Updated query_scenarios tests to use synonym expansion
+- `queries_would_match()` now expands tokens with synonyms before comparison
+
+**Files changed:**
+- `anna-shared/src/synonyms.rs` - Expanded synonym groups
+- `anna-shared/src/query_scenarios/tests.rs` - Updated to use synonym expansion
+
 ## [0.0.271] - 2025-12-10
 
 ### Added - LLM-Based Semantic Similarity for Recipe Matching
