@@ -46,21 +46,29 @@ impl Server {
         // Initialize daemon
         self.initialize().await?;
 
+        // v0.0.291: Enhanced background loop lifecycle logging
         // Start update check loop
         let state_clone = self.state.clone();
         tokio::spawn(async move {
+            info!("Background loop started: update_check");
             update_check_loop(state_clone).await;
+            // This should never be reached unless loop panics/returns
+            error!("Background loop terminated unexpectedly: update_check");
         });
 
         // Start health check loop
         let state_clone = self.state.clone();
         tokio::spawn(async move {
+            info!("Background loop started: health_check");
             health_check_loop(state_clone).await;
+            error!("Background loop terminated unexpectedly: health_check");
         });
 
         // v0.0.266: Start snapshot collection loop
         tokio::spawn(async move {
+            info!("Background loop started: snapshot_collector");
             snapshot_loop().await;
+            error!("Background loop terminated unexpectedly: snapshot_collector");
         });
 
         // v0.0.281: Start telemetry collector
@@ -77,7 +85,10 @@ impl Server {
         fs::create_dir_all(STATE_DIR)?;
 
         // Create run directory for socket
-        let socket_dir = Path::new(SOCKET_PATH).parent().unwrap();
+        // v0.0.291: Safe path handling - avoid panic on malformed paths
+        let socket_dir = Path::new(SOCKET_PATH)
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Invalid socket path: {}", SOCKET_PATH))?;
         fs::create_dir_all(socket_dir)?;
 
         // Remove stale socket

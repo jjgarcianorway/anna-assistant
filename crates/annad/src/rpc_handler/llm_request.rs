@@ -1,8 +1,10 @@
-//! LLM request handling (v0.0.254).
+//! LLM request handling (v0.0.291).
 //!
 //! v0.0.247: Streaming events shared with daemon state for live polling.
 //! v0.0.248: Fix stats tracking - record ALL requests at start, not just completed ones.
 //! v0.0.254: LLM-powered natural dialogue for specialist chatter.
+//! v0.0.290: Integrated ticket verification loop for proper Junior->Senior escalation.
+//! v0.0.291: Extracted verification_stage for modularization.
 
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{RequestParams, RpcResponse};
@@ -20,7 +22,7 @@ use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
 use crate::probe_stage::{check_evidence_validity, execute_probe_stage};
 use crate::progress_tracker::ProgressTracker;
 use crate::recipe_fast_path;
-use crate::result_stage::{build_final_result, wrap_with_theatre};
+use crate::result_stage::wrap_with_theatre;
 use crate::router;
 use crate::routing_stage::{enforce_probe_spine, route_query};
 use crate::service_desk;
@@ -30,7 +32,8 @@ use crate::theatre::TheatreContext;
 use crate::timeout_handler::make_timeout_response;
 use crate::triage;
 
-use super::helpers::{record_event_log, save_progress};
+use super::helpers::save_progress;
+use super::verification_stage::{self, VerificationInput};
 
 /// Service desk pipeline with deterministic routing, triage, and fallback
 pub async fn handle_llm_request(
@@ -159,7 +162,11 @@ async fn handle_llm_request_inner(
                 result.reliability,
                 progress.take_transcript(),
             );
-            return RpcResponse::success(id, serde_json::to_value(fast_result).unwrap());
+            // v0.0.291: Safe JSON serialization
+            return match serde_json::to_value(fast_result) {
+                Ok(v) => RpcResponse::success(id, v),
+                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+            };
         }
     }
 
@@ -237,13 +244,24 @@ async fn handle_llm_request_inner(
                 .clarification_question
                 .clone()
                 .unwrap_or_else(|| triage::generate_heuristic_clarification(query));
+
+            // v0.0.290: Create theatre and notify for clarification request
+            let mut theatre = TheatreContext::new(query, classified_domain);
+            theatre.ticket.pending_question = Some(question.clone());
+            theatre.notify_needs_clarification();
+            let _ = theatre.save();
+
             let result = service_desk::create_clarification_response(
                 request_id,
                 ticket,
                 &question,
                 progress.take_transcript(),
             );
-            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+            // v0.0.291: Safe JSON serialization
+            return match serde_json::to_value(result) {
+                Ok(v) => RpcResponse::success(id, v),
+                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+            };
         }
     }
 
@@ -266,7 +284,11 @@ async fn handle_llm_request_inner(
             progress.take_transcript(),
             classified_domain,
         );
-        return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+        // v0.0.291: Safe JSON serialization
+        return match serde_json::to_value(result) {
+            Ok(v) => RpcResponse::success(id, v),
+            Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+        };
     }
 
     let probe_results = probe_stage_result.results;
@@ -290,7 +312,11 @@ async fn handle_llm_request_inner(
             classified_domain,
             &required_evidence,
         );
-        return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+        // v0.0.291: Safe JSON serialization
+        return match serde_json::to_value(result) {
+            Ok(v) => RpcResponse::success(id, v),
+            Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+        };
     }
 
     // Step 5.5: v0.0.149 ConfigureEditor - extracted to separate module
@@ -306,7 +332,11 @@ async fn handle_llm_request_inner(
 
         if let ConfigureEditorResult::Handled(result) = editor_result {
             save_progress(&state, &progress).await;
-            return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+            // v0.0.291: Safe JSON serialization
+            return match serde_json::to_value(result) {
+                Ok(v) => RpcResponse::success(id, v),
+                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+            };
         }
     }
 
@@ -356,48 +386,40 @@ async fn handle_llm_request_inner(
             progress.take_transcript(),
             classified_domain,
         );
-        return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+        // v0.0.291: Safe JSON serialization
+        return match serde_json::to_value(result) {
+            Ok(v) => RpcResponse::success(id, v),
+            Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+        };
     }
 
-    // Step 9: Build final result with proper scoring
-    progress.start_stage(RequestStage::Supervisor, llm_config.supervisor_timeout_secs);
-    progress.add_final_answer(&specialist_result.answer);
-
-    // v0.0.148: Junior confirms answer or escalates based on outcome
-    match specialist_result.outcome {
-        SpecialistOutcome::Ok | SpecialistOutcome::Skipped => {
-            let approx_confidence = if specialist_result.used_deterministic {
-                85
-            } else {
-                75
-            };
-            comms.junior_done_async(&mut progress, approx_confidence).await;
-        }
-        SpecialistOutcome::Timeout | SpecialistOutcome::Error => {
-            comms.junior_escalate(&mut progress, "LLM had trouble, used fallback");
-            comms.senior_response(&mut progress, specialist_result.used_deterministic);
-        }
-        SpecialistOutcome::BudgetExceeded => {
-            comms.junior_escalate(&mut progress, "Query too complex");
-            comms.senior_response(&mut progress, false);
-        }
-    }
-    comms.anna_returning_async(&mut progress).await;
-    save_progress(&state, &progress).await;
-
-    // v0.0.166: Use result_stage module for final result building
-    let result = build_final_result(
-        request_id,
+    // Step 9: v0.0.291 - Run verification stage (extracted module)
+    let verification_input = VerificationInput {
+        request_id: &request_id,
+        id: &id,
         query,
-        ticket,
-        probe_results.clone(),
-        progress.transcript_clone(),
+        specialist_result: &specialist_result,
+        ticket: &ticket,
+        probe_results: &probe_results,
+        det_route: &det_route,
         classified_domain,
         translator_timed_out,
-        &specialist_result,
-        det_route.capability.evidence_required,
         ticket_probes_planned,
         probe_cap_warning,
+        supervisor_timeout_secs: llm_config.supervisor_timeout_secs,
+    };
+
+    let (final_answer, _score) =
+        verification_stage::run_verification(&verification_input, &mut progress, &mut comms).await;
+    save_progress(&state, &progress).await;
+
+    progress.add_final_answer(&final_answer);
+
+    // Build final result with verified answer
+    let result = verification_stage::build_verified_result(
+        &verification_input,
+        final_answer.clone(),
+        progress.transcript_clone(),
     );
 
     progress.complete_stage(RequestStage::Supervisor);
@@ -407,7 +429,6 @@ async fn handle_llm_request_inner(
     {
         let mut state = state.write().await;
         state.latency.total.add(total_ms);
-        // v0.0.79: Record stats
         let specialist_timeout = matches!(specialist_result.outcome, SpecialistOutcome::Timeout);
         state.record_request(
             specialist_result.used_deterministic,
@@ -431,26 +452,9 @@ async fn handle_llm_request_inner(
 
     save_progress(&state, &progress).await;
 
-    // v0.0.106: Create theatre context for Service Desk Theatre
-    let mut theatre = TheatreContext::new(query, classified_domain);
-    theatre.start_work();
+    // v0.0.291: Handle theatre recording via extracted module
+    let theatre = verification_stage::handle_theatre(query, classified_domain, &result, &id, total_ms);
 
-    // v0.0.108: Escalate to senior if reliability is low
-    if result.reliability_score < 60 && !result.needs_clarification {
-        theatre.escalate();
-    }
-
-    theatre.resolve(result.answer.clone(), result.reliability_score, total_ms);
-
-    // v0.0.107: Record topic to user profile for personalized greetings
-    theatre.record_topic_to_profile();
-
-    // v0.0.107: Record staff performance metrics
-    theatre.record_staff_stats(result.reliability_score, total_ms);
-
-    // v0.0.169: Record event to event log for gamification stats persistence
-    record_event_log(&id, &result, &theatre, total_ms);
-
-    // v0.0.166: Return with theatre context using result_stage module
+    // Return with theatre context
     wrap_with_theatre(id, result, Some(theatre))
 }

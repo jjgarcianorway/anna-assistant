@@ -335,7 +335,10 @@ impl Config {
     pub fn save_default(path: &str) -> Result<()> {
         let config = Config::default();
         let content = toml::to_string_pretty(&config)?;
-        let parent = Path::new(path).parent().unwrap();
+        // v0.0.291: Safe path handling - avoid panic on malformed paths
+        let parent = Path::new(path)
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Invalid config path: {}", path))?;
         fs::create_dir_all(parent)?;
         fs::write(path, content)?;
         info!("Saved default config to {}", path);

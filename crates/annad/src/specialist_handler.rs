@@ -1,6 +1,7 @@
-//! Specialist LLM handler with fallback logic (v0.0.39).
+//! Specialist LLM handler with fallback logic (v0.0.290).
 //! v0.0.143: Added streaming LLM support.
 //! v0.0.241: Added real-time streaming token output to client.
+//! v0.0.290: Use clean_llm_response to strip reasoning tags.
 //!
 //! Extracted from rpc_handler to keep file sizes manageable.
 
@@ -119,10 +120,10 @@ pub async fn try_specialist_llm(
             // v0.0.241: Mark streaming as done
             progress.add_streaming_token(RequestStage::Specialist, "", true);
             progress.complete_stage(RequestStage::Specialist);
-            // Redact sensitive content from response
-            let redacted = redact::redact(&response);
-            progress.add_specialist_message(&redacted);
-            (redacted, false, None, SpecialistOutcome::Ok, None)
+            // v0.0.290: Clean response (strip reasoning tags + redact sensitive content)
+            let cleaned = redact::clean_llm_response(&response);
+            progress.add_specialist_message(&cleaned);
+            (cleaned, false, None, SpecialistOutcome::Ok, None)
         }
         Ok(Err(e)) => {
             error!("Specialist LLM error: {}", e);

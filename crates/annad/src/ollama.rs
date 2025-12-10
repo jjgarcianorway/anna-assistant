@@ -183,8 +183,43 @@ pub async fn get_status() -> OllamaStatus {
     }
 }
 
-/// Pull a model
+/// Pull a model with retry logic for network resilience
+/// v0.0.291: Added exponential backoff retry for transient network failures
 pub async fn pull_model(model: &str) -> Result<()> {
+    const MAX_RETRIES: u32 = 3;
+    let mut last_error = None;
+
+    for attempt in 0..=MAX_RETRIES {
+        if attempt > 0 {
+            // Exponential backoff: 2s, 4s, 8s
+            let delay_secs = 2 * (1 << (attempt - 1));
+            info!(
+                "Model pull retry {} for {} after {}s delay",
+                attempt, model, delay_secs
+            );
+            tokio::time::sleep(Duration::from_secs(delay_secs)).await;
+        }
+
+        match pull_model_single_attempt(model) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                warn!("Model pull attempt {} failed for {}: {}", attempt + 1, model, e);
+                last_error = Some(e);
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        anyhow!(
+            "Failed to pull model {} after {} retries",
+            model,
+            MAX_RETRIES
+        )
+    }))
+}
+
+/// Single model pull attempt (internal helper)
+fn pull_model_single_attempt(model: &str) -> Result<()> {
     info!("Pulling model: {}", model);
 
     let output = ollama_cmd().args(["pull", model]).output()?;

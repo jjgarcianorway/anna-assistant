@@ -22,13 +22,17 @@ pub fn make_timeout_response(
             if let Some(fallback) = force_fast_path_fallback(q) {
                 info!("Using fast path fallback for health query on timeout");
                 let result = build_fast_path_result(
-                    request_id,
+                    request_id.clone(),
                     fallback.answer,
                     fallback.class,
                     fallback.reliability,
                     Transcript::default(),
                 );
-                return RpcResponse::success(id, serde_json::to_value(result).unwrap());
+                // v0.0.291: Safe JSON serialization - handle unlikely serialization failures
+                return match serde_json::to_value(result) {
+                    Ok(v) => RpcResponse::success(id, v),
+                    Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+                };
             }
         }
     }
@@ -58,7 +62,11 @@ pub fn make_timeout_response(
         proposed_changes: Vec::new(),
         feedback_request: None,
     };
-    RpcResponse::success(id, serde_json::to_value(result).unwrap())
+    // v0.0.291: Safe JSON serialization - handle unlikely serialization failures
+    match serde_json::to_value(result) {
+        Ok(v) => RpcResponse::success(id, v),
+        Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+    }
 }
 
 /// Build a user-friendly timeout message with suggestions.

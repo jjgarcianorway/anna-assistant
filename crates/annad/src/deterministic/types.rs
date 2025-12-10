@@ -1,6 +1,7 @@
-//! Deterministic answer types (v0.0.176).
+//! Deterministic answer types (v0.0.290).
 
 /// Result from deterministic answerer with metadata
+#[derive(Clone)]
 pub struct DeterministicResult {
     pub answer: String,
     #[allow(dead_code)]

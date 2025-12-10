@@ -1,18 +1,35 @@
-//! LLM-based response formatter (v0.0.276).
+//! LLM-based response formatter (v0.0.292).
 //!
 //! Uses the translator model to rephrase responses for variety
 //! while maintaining consistent content and facts.
+//!
+//! v0.0.292: Added preference-aware formatting with learning mode,
+//! verbosity, personality traits integration.
 
+use anna_shared::user_profile::ResponsePreferences;
 use tracing::{info, warn};
 
 use crate::ollama;
 
 /// Format a response using the translator LLM for varied phrasing
+/// Uses default preferences (loaded from user profile)
 pub async fn format_response(
     model: &str,
     original_response: &str,
     query: &str,
     timeout_secs: u64,
+) -> String {
+    let prefs = ResponsePreferences::load();
+    format_response_with_prefs(model, original_response, query, timeout_secs, &prefs).await
+}
+
+/// Format a response with explicit preferences
+pub async fn format_response_with_prefs(
+    model: &str,
+    original_response: &str,
+    query: &str,
+    timeout_secs: u64,
+    prefs: &ResponsePreferences,
 ) -> String {
     // Skip empty or very short responses
     if original_response.len() < 20 {
@@ -24,7 +41,7 @@ pub async fn format_response(
         return original_response.to_string();
     }
 
-    let prompt = build_format_prompt(original_response, query);
+    let prompt = build_format_prompt_with_prefs(original_response, query, prefs);
 
     match ollama::chat_with_timeout(model, &prompt, timeout_secs).await {
         Ok(response) => {
@@ -33,9 +50,11 @@ pub async fn format_response(
             // Validate the response maintains key facts
             if validate_formatted_response(original_response, &formatted) {
                 info!(
-                    "Response formatted: {} -> {} chars",
+                    "Response formatted: {} -> {} chars (learning={}, verbosity={})",
                     original_response.len(),
-                    formatted.len()
+                    formatted.len(),
+                    prefs.learning_mode,
+                    prefs.verbosity
                 );
                 formatted
             } else {
@@ -73,28 +92,70 @@ fn looks_naturally_varied(response: &str) -> bool {
         .any(|p| response.to_lowercase().contains(&p.to_lowercase()))
 }
 
-/// Build the formatting prompt
-fn build_format_prompt(original: &str, query: &str) -> String {
+/// Build the formatting prompt with user preferences
+fn build_format_prompt_with_prefs(original: &str, query: &str, prefs: &ResponsePreferences) -> String {
+    let mut rules = vec![
+        "Keep ALL factual information intact (numbers, paths, commands, settings)".to_string(),
+        "Keep technical accuracy - don't change the meaning".to_string(),
+        "Make it sound conversational and friendly".to_string(),
+        "Vary the sentence structure".to_string(),
+        "Don't add new information".to_string(),
+        "Don't remove important details".to_string(),
+        "NO markdown unless it was in the original".to_string(),
+    ];
+
+    // Add verbosity rule
+    match prefs.verbosity {
+        0 => rules.push("Be VERY brief - minimum words, just essential info".to_string()),
+        2 => rules.push("Be detailed - include full explanations and helpful context".to_string()),
+        _ => rules.push("Keep it concise but complete".to_string()),
+    }
+
+    // Add learning mode rule
+    if prefs.learning_mode {
+        rules.push("Include a brief 'why this works' explanation if relevant".to_string());
+    }
+
+    // Add formality rule
+    match prefs.formality {
+        0 => rules.push("Use casual, relaxed language".to_string()),
+        2 => rules.push("Use professional, formal language".to_string()),
+        _ => rules.push("Use friendly but professional tone".to_string()),
+    }
+
+    // Add humor rule
+    match prefs.humor {
+        0 => {} // No humor - don't mention it
+        2 => rules.push("Include light humor if appropriate".to_string()),
+        _ => rules.push("A subtle touch of warmth is welcome".to_string()),
+    }
+
+    // Add technical depth rule
+    match prefs.technical_depth {
+        0 => rules.push("Avoid jargon, explain any technical terms".to_string()),
+        2 => rules.push("Assume technical knowledge, use precise terms".to_string()),
+        _ => {} // Balanced - no special rule needed
+    }
+
+    let rules_text = rules.iter()
+        .enumerate()
+        .map(|(i, r)| format!("{}. {}", i + 1, r))
+        .collect::<Vec<_>>()
+        .join("\n");
+
     format!(
-        r#"Rephrase this IT support response to sound more natural and varied.
+        r#"Rephrase this IT support response according to the user's preferences.
 
 USER QUERY: {}
 
 ORIGINAL RESPONSE:
 {}
 
-RULES:
-- Keep ALL factual information intact (numbers, paths, commands, settings)
-- Keep technical accuracy - don't change the meaning
-- Make it sound conversational and friendly
-- Vary the sentence structure
-- Don't add new information
-- Don't remove important details
-- Keep it concise
-- NO markdown unless it was in the original
+FORMATTING RULES:
+{}
 
 Output ONLY the rephrased response, nothing else."#,
-        query, original
+        query, original, rules_text
     )
 }
 

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.292] - 2025-12-10
+
+### Added - Preference-Aware Response Formatting
+
+**Conversational Settings Now Actually Work:**
+User preferences are now wired into the LLM response generation pipeline:
+
+- **Learning Mode**: When enabled, responses include brief "why this works" explanations
+- **Verbosity**: 0=minimal (essential info only), 1=normal, 2=detailed (full explanations)
+- **Personality Traits**: Formality, humor, and technical depth now affect response tone
+- **Auto-Confirm**: Low-risk changes are automatically applied when user enables this setting
+
+**New `ResponsePreferences` Type:**
+- Extracts formatting-relevant preferences from UserProfile
+- Provides LLM-friendly descriptions for each setting level
+- Loaded once per request for efficient preference checking
+
+**Greeting Personalization:**
+- Greetings now use personality traits for tone-appropriate language
+- PersonalityContext added to GreetingContext for LLM prompts
+- Casual users get relaxed greetings; formal users get professional ones
+
+**Files Changed:**
+- `anna-shared/src/user_profile/types.rs` - Added ResponsePreferences
+- `anna-shared/src/greeting_context.rs` - Added PersonalityContext
+- `annad/src/response_formatter.rs` - Preference-aware formatting
+- `annad/src/greeting_generator.rs` - Personality-aware prompts
+- `annactl/src/greeting/mod.rs` - Wire personality into context
+- `annactl/src/change_commands.rs` - Auto-confirm for low-risk changes
+
 ## [0.0.289] - 2025-12-10
 
 ### Added - Interesting Facts in Greetings

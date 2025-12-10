@@ -1,16 +1,19 @@
-//! Service Desk Theatre integration for v0.0.106.
+//! Service Desk Theatre integration (v0.0.290).
 //!
 //! Handles ticket creation, staff assignment, and case numbers for requests.
 //! Named IT staff create the feeling of "an IT department inside the computer."
 //!
 //! v0.0.107: Added topic tracking for user profile personalization.
+//! v0.0.290: Added email notifications for long-running tickets.
 
+use anna_shared::email::{send_notification, EmailNotification};
 use anna_shared::roster::{person_for, PersonProfile, Tier};
 use anna_shared::rpc::SpecialistDomain;
 use anna_shared::staff_stats::StaffStats;
 use anna_shared::teams::Team;
 use anna_shared::ticket_tracker::{Ticket, TicketDomain, TicketTracker};
 use anna_shared::user_profile::UserProfile;
+use tracing::debug;
 
 /// Theatre context for a single request
 #[derive(Debug, Clone)]
@@ -110,6 +113,35 @@ impl TheatreContext {
             duration_ms,
         );
         let _ = stats.save();
+    }
+
+    /// v0.0.290: Send email notification for ticket creation (long-running queries)
+    /// Called when a query takes too long or requires follow-up
+    pub fn notify_ticket_created(&self) {
+        if let Err(e) = send_notification(EmailNotification::TicketCreated(&self.ticket)) {
+            debug!("Email notification skipped: {}", e);
+        }
+    }
+
+    /// v0.0.290: Send email notification for ticket resolution
+    pub fn notify_ticket_resolved(&self) {
+        if let Err(e) = send_notification(EmailNotification::TicketResolved(&self.ticket)) {
+            debug!("Email notification skipped: {}", e);
+        }
+    }
+
+    /// v0.0.290: Send email notification when clarification is needed
+    pub fn notify_needs_clarification(&self) {
+        if let Err(e) = send_notification(EmailNotification::NeedsClarification(&self.ticket)) {
+            debug!("Email notification skipped: {}", e);
+        }
+    }
+
+    /// v0.0.290: Check if request took long enough to warrant ticket notification
+    /// Threshold is 10 seconds - fast queries don't need email notification
+    pub fn should_notify(&self, duration_ms: u64) -> bool {
+        const NOTIFICATION_THRESHOLD_MS: u64 = 10_000; // 10 seconds
+        duration_ms >= NOTIFICATION_THRESHOLD_MS
     }
 }
 

@@ -1,11 +1,14 @@
-//! Change management commands for annactl.
+//! Change management commands for annactl (v0.0.292).
 //!
 //! v0.0.97: Extracted from commands.rs for modularity.
+//! v0.0.292: Added auto-confirm for low-risk operations.
 
 use anyhow::Result;
 use std::io::{self, Write};
 
+use anna_shared::change::ChangeRisk;
 use anna_shared::ui::{colors, symbols};
+use anna_shared::user_profile::UserProfile;
 
 /// Outcome summary for applying proposed changes
 pub struct ChangeSummary {
@@ -56,20 +59,33 @@ pub async fn handle_proposed_change(
         );
     }
 
-    // Ask for confirmation
-    print!("Apply this change? [y/N] ");
-    io::stdout().flush()?;
+    // v0.0.292: Check if we can auto-confirm low-risk changes
+    let profile = UserProfile::load();
+    let all_low_risk = plans.iter().all(|p| matches!(p.risk, ChangeRisk::Low));
+    let auto_confirm = profile.preferences.auto_confirm_low_risk && all_low_risk;
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
+    if auto_confirm {
+        println!(
+            "{}Auto-confirming low-risk change (per user settings){}",
+            colors::DIM,
+            colors::RESET
+        );
+    } else {
+        // Ask for confirmation
+        print!("Apply this change? [y/N] ");
+        io::stdout().flush()?;
 
-    if !input.trim().eq_ignore_ascii_case("y") {
-        println!("Change cancelled.");
-        return Ok(ChangeSummary {
-            applied: 0,
-            noop: 0,
-            failed: false,
-        });
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Change cancelled.");
+            return Ok(ChangeSummary {
+                applied: 0,
+                noop: 0,
+                failed: false,
+            });
+        }
     }
 
     // Apply the change

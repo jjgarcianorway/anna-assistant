@@ -1,7 +1,10 @@
-//! Evidence redaction rules.
+//! Evidence redaction rules (v0.0.290).
 //!
 //! Removes sensitive data patterns from probe outputs before display.
 //! Applied even in debug mode for security.
+//!
+//! v0.0.290: Added LLM reasoning tag stripping (<think>, etc.) to prevent
+//!           internal model dialog from leaking into user-facing answers.
 
 use regex::Regex;
 use std::sync::LazyLock;
@@ -68,6 +71,25 @@ static REDACTION_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(
     ]
 });
 
+/// v0.0.290: Patterns for stripping LLM reasoning/thinking tags
+/// These are used by models like DeepSeek-R1 that expose internal reasoning
+static LLM_REASONING_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+    vec![
+        // DeepSeek-R1 style <think>...</think> tags
+        Regex::new(r"(?s)<think>.*?</think>").unwrap(),
+        // Alternative thinking tags
+        Regex::new(r"(?s)<thinking>.*?</thinking>").unwrap(),
+        // Internal reasoning blocks
+        Regex::new(r"(?s)<reasoning>.*?</reasoning>").unwrap(),
+        // Scratchpad blocks
+        Regex::new(r"(?s)<scratchpad>.*?</scratchpad>").unwrap(),
+        // Internal monologue
+        Regex::new(r"(?s)<internal>.*?</internal>").unwrap(),
+        // Reflection blocks
+        Regex::new(r"(?s)<reflection>.*?</reflection>").unwrap(),
+    ]
+});
+
 /// Redact sensitive patterns from text
 pub fn redact(text: &str) -> String {
     let mut result = text.to_string();
@@ -77,6 +99,32 @@ pub fn redact(text: &str) -> String {
     }
 
     result
+}
+
+/// v0.0.290: Strip LLM reasoning/thinking tags from responses
+/// This prevents internal model dialog from leaking into user-facing answers
+pub fn strip_reasoning_tags(text: &str) -> String {
+    let mut result = text.to_string();
+
+    for pattern in LLM_REASONING_PATTERNS.iter() {
+        result = pattern.replace_all(&result, "").to_string();
+    }
+
+    // Clean up any extra whitespace left behind
+    result = result.trim().to_string();
+    // Collapse multiple newlines
+    while result.contains("\n\n\n") {
+        result = result.replace("\n\n\n", "\n\n");
+    }
+
+    result
+}
+
+/// v0.0.290: Combined redaction and reasoning tag stripping
+/// Use this for LLM responses to ensure both security and clean output
+pub fn clean_llm_response(text: &str) -> String {
+    let stripped = strip_reasoning_tags(text);
+    redact(&stripped)
 }
 
 /// Redact sensitive patterns from probe output
@@ -155,5 +203,58 @@ Done."#;
     fn test_contains_sensitive() {
         assert!(contains_sensitive("password=secret123456"));
         assert!(!contains_sensitive("hello world"));
+    }
+
+    // v0.0.290: Tests for LLM reasoning tag stripping
+
+    #[test]
+    fn test_strip_think_tags() {
+        let text = "<think>Let me analyze this query...</think>Your disk is 50% full.";
+        let stripped = strip_reasoning_tags(text);
+        assert_eq!(stripped, "Your disk is 50% full.");
+        assert!(!stripped.contains("<think>"));
+    }
+
+    #[test]
+    fn test_strip_thinking_tags() {
+        let text = "<thinking>I should check the memory...</thinking>You have 8GB RAM.";
+        let stripped = strip_reasoning_tags(text);
+        assert_eq!(stripped, "You have 8GB RAM.");
+    }
+
+    #[test]
+    fn test_strip_multiline_thinking() {
+        let text = r#"<think>
+First, I need to understand what the user wants.
+They're asking about disk space.
+Let me check the df output.
+</think>
+
+Your /home partition is 75% full with 50GB available."#;
+        let stripped = strip_reasoning_tags(text);
+        assert!(stripped.contains("Your /home partition"));
+        assert!(!stripped.contains("understand what the user wants"));
+    }
+
+    #[test]
+    fn test_strip_multiple_thinking_blocks() {
+        let text = "<think>First thought</think>Answer part 1. <think>Second thought</think>Answer part 2.";
+        let stripped = strip_reasoning_tags(text);
+        assert_eq!(stripped, "Answer part 1. Answer part 2.");
+    }
+
+    #[test]
+    fn test_clean_llm_response() {
+        let text = "<think>Check if there are secrets...</think>password=secret123456 is unsafe";
+        let cleaned = clean_llm_response(text);
+        assert!(!cleaned.contains("<think>"));
+        assert!(cleaned.contains("[REDACTED: password]"));
+    }
+
+    #[test]
+    fn test_no_reasoning_tags_unchanged() {
+        let text = "Your system has 16GB RAM and 500GB SSD.";
+        let stripped = strip_reasoning_tags(text);
+        assert_eq!(text, stripped);
     }
 }

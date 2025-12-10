@@ -14,7 +14,8 @@ use tracing::{debug, info};
 use crate::ollama;
 
 /// Minimum similarity score (0-100) to consider queries equivalent
-const SIMILARITY_THRESHOLD: u8 = 75;
+/// v0.0.290: Increased from 75 to 85 to reduce false positives
+const SIMILARITY_THRESHOLD: u8 = 85;
 
 /// Maximum number of recipe candidates to check with LLM
 const MAX_CANDIDATES: usize = 5;
@@ -42,19 +43,26 @@ impl SimilarityResult {
 /// Build prompt to check semantic similarity between two queries
 fn build_similarity_prompt(new_query: &str, recipe_query: &str) -> String {
     format!(
-        r#"Are these two Linux system administration queries asking for the same thing?
+        r#"Are these two Linux queries asking for EXACTLY the same thing?
 
 Query A: "{}"
 Query B: "{}"
 
 Reply with ONLY a JSON object: {{"similar": true/false, "score": 0-100, "reason": "brief explanation"}}
 
-Rules:
-- "similar" = true if both queries would have the SAME answer
-- "score" = confidence 0-100 (100 = definitely same question)
-- Consider synonyms: disk=storage, check=show, memory=RAM, CPU=processor
-- Consider paraphrases: "how much X" = "what is X usage" = "X status"
-- Ignore greetings and filler words
+STRICT RULES (be very conservative):
+- "similar" = true ONLY if both queries would have the EXACT SAME answer
+- "score" = confidence 0-100 (100 = identical question)
+- If queries are about DIFFERENT topics (e.g., wallpaper vs disk), score must be 0
+- If Query B looks like test data (e.g., "test-123"), score must be 0
+- Different domains = NOT similar (network vs storage vs desktop)
+- Only match if intent + subject are BOTH the same
+- When in doubt, return similar=false and low score
+
+Examples of NOT similar:
+- "how is my wallpaper loaded" vs "disk usage" → different topics
+- "install nano" vs "memory usage" → different topics
+- "network speed" vs "disk space" → different domains
 
 Output raw JSON only."#,
         new_query, recipe_query

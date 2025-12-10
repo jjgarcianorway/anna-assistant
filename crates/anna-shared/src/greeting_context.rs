@@ -1,16 +1,18 @@
-//! Greeting context for LLM-based greeting generation (v0.0.275).
+//! Greeting context for LLM-based greeting generation (v0.0.292).
 //!
 //! Provides structured context for the translator LLM to generate
 //! personalized, varied greetings while maintaining consistent content.
 //! v0.0.281: Added telemetry-based health issue population.
 //! v0.0.287: Added maintenance prompts for proactive suggestions.
 //! v0.0.289: Added interesting facts about system, patterns, and Anna's growth.
+//! v0.0.292: Added personality traits for tone-aware greetings.
 
 use crate::health_alerts::{generate_alerts, AlertSeverity};
 use crate::interesting_facts::InterestingFacts;
 use crate::maintenance_actions::generate_maintenance_actions;
 use crate::snapshot::SystemSnapshot;
 use crate::system_telemetry::TelemetryStore;
+use crate::user_profile::{ResponsePreferences, UserProfile};
 use serde::{Deserialize, Serialize};
 
 /// Context for generating a personalized greeting
@@ -44,6 +46,20 @@ pub struct GreetingContext {
     /// v0.0.289: Interesting facts about system/patterns/growth
     #[serde(default)]
     pub interesting_facts: Vec<String>,
+    /// v0.0.292: Personality settings for tone
+    #[serde(default)]
+    pub personality: PersonalityContext,
+}
+
+/// v0.0.292: Personality context for LLM greeting generation
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PersonalityContext {
+    /// Formality description (e.g., "casual", "balanced", "formal")
+    pub formality: String,
+    /// Humor description (e.g., "none", "subtle", "playful")
+    pub humor: String,
+    /// Technical depth description
+    pub technical_depth: String,
 }
 
 impl Default for GreetingContext {
@@ -62,6 +78,7 @@ impl Default for GreetingContext {
             llm_status: "ready".to_string(),
             maintenance_prompts: Vec::new(),
             interesting_facts: Vec::new(),
+            personality: PersonalityContext::default(),
         }
     }
 }
@@ -147,6 +164,22 @@ impl GreetingContext {
     /// Check if there are interesting facts to share
     pub fn has_interesting_facts(&self) -> bool {
         !self.interesting_facts.is_empty()
+    }
+
+    /// v0.0.292: Add personality context from user profile
+    pub fn with_personality(mut self, profile: &UserProfile) -> Self {
+        let prefs = ResponsePreferences::from_profile(profile);
+        self.personality = PersonalityContext {
+            formality: prefs.formality_desc().to_string(),
+            humor: prefs.humor_desc().to_string(),
+            technical_depth: prefs.technical_depth_desc().to_string(),
+        };
+        self
+    }
+
+    /// v0.0.292: Check if personality has been configured
+    pub fn has_personality(&self) -> bool {
+        !self.personality.formality.is_empty()
     }
 }
 

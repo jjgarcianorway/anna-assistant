@@ -1,7 +1,9 @@
-//! LLM-based greeting generator (v0.0.275).
+//! LLM-based greeting generator (v0.0.292).
 //!
 //! Uses the translator model to generate personalized, varied greetings
 //! while maintaining consistent content structure.
+//!
+//! v0.0.292: Added personality-aware greeting generation.
 
 use anna_shared::greeting_context::{GreetingContext, GreetingResponse};
 use tracing::{info, warn};
@@ -59,13 +61,19 @@ fn build_greeting_prompt(ctx: &GreetingContext) -> String {
         facts.push(format!("LLM status: {}", ctx.llm_status));
     }
 
+    // v0.0.292: Personality-specific tone rules
+    let personality_rules = build_personality_rules(ctx);
+
     format!(
-        r#"Generate a friendly IT service desk greeting for a user. Be conversational and warm.
+        r#"Generate a friendly IT service desk greeting for a user.
 
 USER FACTS:
 {}
 
-RULES:
+TONE & STYLE:
+{}
+
+CONTENT RULES:
 - Start with "Hello" or similar greeting using their username
 - If first time: Welcome them, introduce yourself as Anna (their local IT department)
 - If returning after days: Acknowledge the time gap warmly
@@ -78,8 +86,35 @@ RULES:
 - Vary your phrasing - don't be repetitive between greetings
 
 Output ONLY the greeting text, nothing else."#,
-        facts.join("\n")
+        facts.join("\n"),
+        personality_rules
     )
+}
+
+/// v0.0.292: Build personality-specific tone rules
+fn build_personality_rules(ctx: &GreetingContext) -> String {
+    let mut rules = Vec::new();
+
+    // Formality
+    if !ctx.personality.formality.is_empty() {
+        rules.push(format!("Formality: {}", ctx.personality.formality));
+    } else {
+        rules.push("Formality: balanced - friendly but professional".to_string());
+    }
+
+    // Humor
+    if !ctx.personality.humor.is_empty() {
+        rules.push(format!("Humor: {}", ctx.personality.humor));
+    } else {
+        rules.push("Humor: subtle - occasional light touch".to_string());
+    }
+
+    // Technical depth
+    if !ctx.personality.technical_depth.is_empty() {
+        rules.push(format!("Technical style: {}", ctx.personality.technical_depth));
+    }
+
+    rules.join("\n")
 }
 
 /// Generate a personalized greeting using the translator LLM

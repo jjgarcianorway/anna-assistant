@@ -45,6 +45,7 @@ impl LearnResult {
 /// - answer_grounded is true (verified)
 /// - reliability_score >= 80
 /// - There's a meaningful pattern to learn
+/// v0.0.290: Added query validation to prevent garbage recipes
 pub fn try_learn_from_result(result: &ServiceDeskResult) -> LearnResult {
     // Check persistence gate
     let verified = result.reliability_signals.answer_grounded;
@@ -70,6 +71,15 @@ pub fn try_learn_from_result(result: &ServiceDeskResult) -> LearnResult {
     // Skip if no probes were executed (nothing to learn)
     if result.evidence.probes_executed.is_empty() {
         return LearnResult::skipped("No probes executed");
+    }
+
+    // v0.0.290: Validate the user query before learning
+    let user_query = extract_user_query(result);
+    if !is_valid_learnable_query(&user_query) {
+        return LearnResult::skipped(format!(
+            "Invalid query pattern: '{}'",
+            user_query
+        ));
     }
 
     // Build signature from result
@@ -139,6 +149,57 @@ fn extract_user_query(result: &ServiceDeskResult) -> String {
 /// Normalize query to a matchable pattern
 fn normalize_query(query: &str) -> String {
     query.to_lowercase().trim().to_string()
+}
+
+/// v0.0.290: Check if a query is valid for learning
+/// Rejects test data, UUIDs, and too-short patterns
+fn is_valid_learnable_query(query: &str) -> bool {
+    let q = query.trim().to_lowercase();
+
+    // Minimum length check (at least 8 chars)
+    if q.len() < 8 {
+        return false;
+    }
+
+    // Minimum word count (at least 2 words)
+    let word_count = q.split_whitespace().count();
+    if word_count < 2 {
+        return false;
+    }
+
+    // Reject test-like patterns
+    let test_patterns = [
+        "test-", "test_", "test123", "test 123",
+        "abc", "foo", "bar", "baz", "qux",
+        "asdf", "lorem", "ipsum",
+    ];
+    for pattern in test_patterns {
+        if q.contains(pattern) {
+            return false;
+        }
+    }
+
+    // Reject if looks like a UUID or request ID
+    if q.chars().filter(|c| c.is_ascii_hexdigit()).count() > q.len() / 2
+        && q.len() > 10 {
+        return false;
+    }
+
+    // Reject if starts with common non-question patterns
+    let non_question_starts = [
+        "req-", "req_", "id:", "id=",
+    ];
+    for pattern in non_question_starts {
+        if q.starts_with(pattern) {
+            return false;
+        }
+    }
+
+    // Must contain at least one real word (>3 chars, not all digits)
+    let has_real_word = q.split_whitespace()
+        .any(|word| word.len() > 3 && !word.chars().all(|c| c.is_ascii_digit()));
+
+    has_real_word
 }
 
 /// Map domain string to Team
@@ -262,10 +323,34 @@ mod tests {
 
     #[test]
     fn test_learn_verified_high_score() {
-        let result = mock_result(true, 85);
+        use crate::transcript::{Actor, TranscriptEvent};
+
+        // v0.0.290: Use a valid query pattern, not test-123
+        let mut result = mock_result(true, 85);
+        // Add a real user message to the transcript
+        result.transcript = {
+            let mut t = Transcript::new();
+            let event = TranscriptEvent::message(
+                0,
+                Actor::You,
+                Actor::Anna,
+                "how much disk space do I have",
+            );
+            t.push(event);
+            t
+        };
         let learn = try_learn_from_result(&result);
-        assert!(learn.learned);
+        assert!(learn.learned, "Should learn: {:?}", learn.reason);
         assert!(learn.recipe_id.is_some());
+    }
+
+    #[test]
+    fn test_skip_invalid_query_pattern() {
+        let result = mock_result(true, 85);
+        // This will use request_id "test-123" since no user message
+        let learn = try_learn_from_result(&result);
+        assert!(!learn.learned, "Should NOT learn test patterns");
+        assert!(learn.reason.unwrap().contains("Invalid query"));
     }
 
     #[test]
@@ -290,5 +375,30 @@ mod tests {
         assert_eq!(team_from_domain("network"), Team::Network);
         assert_eq!(team_from_domain("desktop"), Team::Desktop);
         assert_eq!(team_from_domain("unknown"), Team::General);
+    }
+
+    #[test]
+    fn test_valid_learnable_query() {
+        // Valid queries
+        assert!(is_valid_learnable_query("how much disk space"));
+        assert!(is_valid_learnable_query("what is my memory usage"));
+        assert!(is_valid_learnable_query("show running services"));
+        assert!(is_valid_learnable_query("check network interfaces"));
+
+        // Invalid - too short
+        assert!(!is_valid_learnable_query("disk"));
+        assert!(!is_valid_learnable_query("mem"));
+
+        // Invalid - test patterns
+        assert!(!is_valid_learnable_query("test-123"));
+        assert!(!is_valid_learnable_query("test_query here"));
+        assert!(!is_valid_learnable_query("foo bar baz"));
+
+        // Invalid - UUID-like
+        assert!(!is_valid_learnable_query("abc123def456"));
+        assert!(!is_valid_learnable_query("59eefd2d49a0e2dd"));
+
+        // Invalid - single word
+        assert!(!is_valid_learnable_query("storage"));
     }
 }

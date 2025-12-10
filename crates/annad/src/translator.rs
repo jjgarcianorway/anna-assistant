@@ -1,8 +1,9 @@
-//! LLM-based translator for query classification.
+//! LLM-based translator for query classification (v0.0.290).
 //!
 //! Converts user text to structured TranslatorTicket JSON.
 //! v0.0.74: Now includes AnswerContract for answer shaping.
 //! v0.0.164: Probe registry extracted to separate module.
+//! v0.0.290: Strip reasoning tags from translator responses.
 
 use anna_shared::answer_contract::AnswerContract;
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::ollama;
+use crate::redact;
 
 // Re-export probe registry for backwards compatibility
 pub use crate::probe_registry::{filter_valid_probes, probe_id_to_command, PROBE_IDS};
@@ -158,16 +160,19 @@ pub async fn translate(model: &str, query: &str) -> Result<TranslatorTicket, Str
 
 /// Parse translator LLM response into ticket (tolerant of missing/invalid fields)
 fn parse_translator_response(response: &str) -> Result<TranslatorTicket, String> {
+    // v0.0.290: Strip reasoning tags before parsing
+    let cleaned = redact::strip_reasoning_tags(response);
+
     // Log raw response in debug (truncated for safety)
-    let truncated = if response.len() > 500 {
-        format!("{}... [truncated]", &response[..500])
+    let truncated = if cleaned.len() > 500 {
+        format!("{}... [truncated]", &cleaned[..500])
     } else {
-        response.to_string()
+        cleaned.clone()
     };
     tracing::debug!("Translator raw response: {}", truncated);
 
     // Try to extract JSON from response (handle markdown code blocks)
-    let json_str = extract_json(response)?;
+    let json_str = extract_json(&cleaned)?;
 
     // Parse JSON with tolerant structure - use default for any parse errors
     let output: TranslatorOutput = serde_json::from_str(&json_str).unwrap_or_else(|e| {

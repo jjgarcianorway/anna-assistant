@@ -1,4 +1,4 @@
-//! Theatre-style REPL greeting for Service Desk experience (v0.0.275).
+//! Theatre-style REPL greeting for Service Desk experience (v0.0.292).
 //!
 //! v0.0.119: Clean, concise greetings.
 //! v0.0.142: More conversational, personalized greetings.
@@ -6,6 +6,7 @@
 //! v0.0.238: Added session-based "since last time" summary.
 //! v0.0.275: LLM-generated greetings via translator for varied, natural text.
 //! v0.0.284: Integrated telemetry-based health alerts.
+//! v0.0.292: Added personality traits for tone-aware greetings.
 
 mod personal;
 mod status;
@@ -31,6 +32,7 @@ pub use types::{bullet, InteractionInfo};
 /// Build greeting context from current system state
 /// v0.0.287: Added maintenance prompt support
 /// v0.0.289: Added interesting facts
+/// v0.0.292: Added personality traits
 fn build_greeting_context(
     username: &str,
     profile: &UserProfile,
@@ -62,12 +64,15 @@ fn build_greeting_context(
         llm_status: llm_status.to_string(),
         maintenance_prompts: Vec::new(),
         interesting_facts: Vec::new(),
+        personality: Default::default(),
     };
 
     // v0.0.287: Add maintenance prompts
     // v0.0.289: Add interesting facts
+    // v0.0.292: Add personality traits
     ctx.with_maintenance(snapshot, telemetry)
         .with_interesting_facts(snapshot)
+        .with_personality(profile)
 }
 
 /// Print the theatre-style REPL greeting

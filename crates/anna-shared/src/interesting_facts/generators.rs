@@ -1,117 +1,16 @@
-//! Interesting facts for greeting personalization (v0.0.289).
+//! Fact generators (v0.0.291).
 //!
-//! Generates data-driven facts about system, hardware, user patterns,
-//! and performance for the LLM translator to naturalize into greetings.
-//!
-//! Key principle: All facts derived from actual data, no hardcoded content.
+//! Functions that generate facts from various data sources.
 
-use crate::event_log::{AggregatedEvents, EventLog};
-use crate::learning_progress::{compute_learning_progress, LearningProgress};
+use crate::event_log::AggregatedEvents;
+use crate::learning_progress::LearningProgress;
 use crate::snapshot::SystemSnapshot;
 use crate::system_telemetry::TelemetryStore;
-use serde::{Deserialize, Serialize};
 
-/// Categories of interesting facts
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FactCategory {
-    /// System performance (CPU, memory, disk trends)
-    Performance,
-    /// Hardware information (uptime, specs)
-    Hardware,
-    /// User patterns (usage times, favorite topics)
-    UserPattern,
-    /// Anna's growth (recipes learned, success rates)
-    Growth,
-    /// Historical milestones
-    Milestone,
-}
-
-/// A single interesting fact
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InterestingFact {
-    /// Category of the fact
-    pub category: FactCategory,
-    /// The fact text (for LLM to naturalize)
-    pub fact: String,
-    /// Priority (1=most interesting, 5=least)
-    pub priority: u8,
-}
-
-/// Collection of interesting facts
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct InterestingFacts {
-    pub facts: Vec<InterestingFact>,
-}
-
-impl InterestingFacts {
-    /// Generate facts from all available data sources
-    pub fn generate(
-        snapshot: Option<&SystemSnapshot>,
-        telemetry: Option<&TelemetryStore>,
-        events: Option<&AggregatedEvents>,
-        progress: Option<&LearningProgress>,
-    ) -> Self {
-        let mut facts = Vec::new();
-
-        // Hardware/uptime facts
-        if let Some(snap) = snapshot {
-            facts.extend(hardware_facts(snap));
-        }
-
-        // Performance trend facts
-        if let Some(tel) = telemetry {
-            facts.extend(performance_facts(tel));
-        }
-
-        // User pattern facts
-        if let Some(agg) = events {
-            facts.extend(user_pattern_facts(agg));
-        }
-
-        // Anna's growth facts
-        if let Some(prog) = progress {
-            facts.extend(growth_facts(prog));
-        }
-
-        // Sort by priority
-        facts.sort_by_key(|f| f.priority);
-
-        Self { facts }
-    }
-
-    /// Load all data and generate facts
-    pub fn from_current_state(snapshot: &SystemSnapshot) -> Self {
-        let event_log = EventLog::new(EventLog::default_path(), 10000);
-        let events = event_log.aggregate().ok();
-        let telemetry = TelemetryStore::load_if_exists();
-        let progress = compute_learning_progress();
-
-        Self::generate(
-            Some(snapshot),
-            telemetry.as_ref(),
-            events.as_ref(),
-            Some(&progress),
-        )
-    }
-
-    /// Get top N facts for greeting
-    pub fn top(&self, n: usize) -> Vec<&InterestingFact> {
-        self.facts.iter().take(n).collect()
-    }
-
-    /// Get facts as strings for LLM context
-    pub fn as_strings(&self, max: usize) -> Vec<String> {
-        self.facts
-            .iter()
-            .take(max)
-            .map(|f| f.fact.clone())
-            .collect()
-    }
-}
+use super::types::{FactCategory, InterestingFact};
 
 /// Generate hardware-related facts from system snapshot
-fn hardware_facts(snapshot: &SystemSnapshot) -> Vec<InterestingFact> {
+pub fn hardware_facts(snapshot: &SystemSnapshot) -> Vec<InterestingFact> {
     let mut facts = Vec::new();
 
     // Uptime fact
@@ -128,16 +27,16 @@ fn hardware_facts(snapshot: &SystemSnapshot) -> Vec<InterestingFact> {
         if uptime_days >= 30 {
             facts.push(InterestingFact {
                 category: FactCategory::Hardware,
-                fact: format!(
-                    "System uptime: {} days - impressive stability",
-                    uptime_days
-                ),
+                fact: format!("System uptime: {} days - impressive stability", uptime_days),
                 priority: 2,
             });
         } else if uptime_days >= 7 {
             facts.push(InterestingFact {
                 category: FactCategory::Hardware,
-                fact: format!("System running for {} days, {} hours", uptime_days, uptime_hours),
+                fact: format!(
+                    "System running for {} days, {} hours",
+                    uptime_days, uptime_hours
+                ),
                 priority: 3,
             });
         } else if uptime_days >= 1 {
@@ -157,10 +56,7 @@ fn hardware_facts(snapshot: &SystemSnapshot) -> Vec<InterestingFact> {
         if used_pct < 50 {
             facts.push(InterestingFact {
                 category: FactCategory::Hardware,
-                fact: format!(
-                    "Memory usage healthy at {}% of {:.1}GB",
-                    used_pct, total_gb
-                ),
+                fact: format!("Memory usage healthy at {}% of {:.1}GB", used_pct, total_gb),
                 priority: 4,
             });
         }
@@ -199,7 +95,7 @@ fn hardware_facts(snapshot: &SystemSnapshot) -> Vec<InterestingFact> {
 }
 
 /// Generate performance trend facts from telemetry
-fn performance_facts(telemetry: &TelemetryStore) -> Vec<InterestingFact> {
+pub fn performance_facts(telemetry: &TelemetryStore) -> Vec<InterestingFact> {
     let mut facts = Vec::new();
 
     let trends = &telemetry.trends;
@@ -218,10 +114,7 @@ fn performance_facts(telemetry: &TelemetryStore) -> Vec<InterestingFact> {
     } else if trends.cpu_trend > 10.0 && trends.sample_count >= 10 {
         facts.push(InterestingFact {
             category: FactCategory::Performance,
-            fact: format!(
-                "CPU usage trending up {:.0}% recently",
-                trends.cpu_trend
-            ),
+            fact: format!("CPU usage trending up {:.0}% recently", trends.cpu_trend),
             priority: 2,
         });
     }
@@ -239,10 +132,7 @@ fn performance_facts(telemetry: &TelemetryStore) -> Vec<InterestingFact> {
     if trends.disk_trend > 2.0 && trends.sample_count >= 10 {
         facts.push(InterestingFact {
             category: FactCategory::Performance,
-            fact: format!(
-                "Disk usage grew {:.1}% recently",
-                trends.disk_trend
-            ),
+            fact: format!("Disk usage grew {:.1}% recently", trends.disk_trend),
             priority: 3,
         });
     }
@@ -274,7 +164,7 @@ fn performance_facts(telemetry: &TelemetryStore) -> Vec<InterestingFact> {
 }
 
 /// Generate user pattern facts from event aggregation
-fn user_pattern_facts(events: &AggregatedEvents) -> Vec<InterestingFact> {
+pub fn user_pattern_facts(events: &AggregatedEvents) -> Vec<InterestingFact> {
     let mut facts = Vec::new();
 
     // Total requests milestone
@@ -309,10 +199,7 @@ fn user_pattern_facts(events: &AggregatedEvents) -> Vec<InterestingFact> {
     if events.current_streak >= 7 {
         facts.push(InterestingFact {
             category: FactCategory::UserPattern,
-            fact: format!(
-                "On a {}-day streak - consistent usage",
-                events.current_streak
-            ),
+            fact: format!("On a {}-day streak - consistent usage", events.current_streak),
             priority: 2,
         });
     } else if events.current_streak >= 3 {
@@ -358,7 +245,10 @@ fn user_pattern_facts(events: &AggregatedEvents) -> Vec<InterestingFact> {
         } else if events.avg_duration_ms < 2000.0 {
             facts.push(InterestingFact {
                 category: FactCategory::Performance,
-                fact: format!("Average response: {:.1}s", events.avg_duration_ms / 1000.0),
+                fact: format!(
+                    "Average response: {:.1}s",
+                    events.avg_duration_ms / 1000.0
+                ),
                 priority: 5,
             });
         }
@@ -384,7 +274,7 @@ fn user_pattern_facts(events: &AggregatedEvents) -> Vec<InterestingFact> {
 }
 
 /// Generate Anna's growth facts from learning progress
-fn growth_facts(progress: &LearningProgress) -> Vec<InterestingFact> {
+pub fn growth_facts(progress: &LearningProgress) -> Vec<InterestingFact> {
     let mut facts = Vec::new();
 
     // Recipes learned milestones
@@ -435,10 +325,7 @@ fn growth_facts(progress: &LearningProgress) -> Vec<InterestingFact> {
     if progress.avg_reliability >= 80 && progress.recipes_total >= 10 {
         facts.push(InterestingFact {
             category: FactCategory::Growth,
-            fact: format!(
-                "Recipe reliability at {}%",
-                progress.avg_reliability
-            ),
+            fact: format!("Recipe reliability at {}%", progress.avg_reliability),
             priority: 4,
         });
     }
@@ -454,71 +341,4 @@ fn growth_facts(progress: &LearningProgress) -> Vec<InterestingFact> {
     }
 
     facts
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_empty_facts() {
-        let facts = InterestingFacts::generate(None, None, None, None);
-        assert!(facts.facts.is_empty());
-    }
-
-    #[test]
-    fn test_hardware_uptime_fact() {
-        let mut snapshot = SystemSnapshot::default();
-        // Set boot time to 8 days ago
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        snapshot.boot_time_secs = now - (8 * 86400);
-
-        let facts = hardware_facts(&snapshot);
-        assert!(!facts.is_empty());
-        assert!(facts.iter().any(|f| f.fact.contains("8 days")));
-    }
-
-    #[test]
-    fn test_milestone_detection() {
-        let mut events = AggregatedEvents::default();
-        events.total_requests = 100;
-        events.verified_count = 95;
-
-        let facts = user_pattern_facts(&events);
-        assert!(facts.iter().any(|f| f.fact.contains("100 requests")));
-    }
-
-    #[test]
-    fn test_growth_facts() {
-        let mut progress = LearningProgress::default();
-        progress.recipes_total = 50;
-        progress.self_sufficiency = 0.6;
-        progress.strong_areas = vec!["storage".to_string(), "network".to_string()];
-
-        let facts = growth_facts(&progress);
-        assert!(!facts.is_empty());
-        assert!(facts.iter().any(|f| f.fact.contains("50 recipes")));
-    }
-
-    #[test]
-    fn test_facts_sorted_by_priority() {
-        let mut snapshot = SystemSnapshot::default();
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        snapshot.boot_time_secs = now - (8 * 86400);
-        snapshot.memory_total_bytes = 16 * 1024 * 1024 * 1024;
-        snapshot.memory_used_bytes = 4 * 1024 * 1024 * 1024;
-
-        let facts = InterestingFacts::generate(Some(&snapshot), None, None, None);
-
-        // Check facts are sorted by priority (ascending)
-        for window in facts.facts.windows(2) {
-            assert!(window[0].priority <= window[1].priority);
-        }
-    }
 }

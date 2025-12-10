@@ -100,12 +100,24 @@ pub fn print_stats_display_v2(stats: &GlobalStats) {
     println!();
     println!("{}[quality]{}", colors::HEADER, colors::RESET);
 
-    let success_rate = stats.overall_success_rate();
+    // v0.0.290: Calculate success rate from event log for consistency with throughput
+    let success_rate = if let Some(ref agg) = agg {
+        if agg.total_requests > 0 {
+            agg.verified_count as f32 / agg.total_requests as f32
+        } else {
+            0.0
+        }
+    } else {
+        stats.overall_success_rate()
+    };
     let success_color = if success_rate >= 0.8 { colors::OK }
         else if success_rate >= 0.5 { colors::WARN }
         else { colors::ERR };
     kv("success_rate", &format!("{}{:.0}%{}", success_color, success_rate * 100.0, colors::RESET));
-    kv("avg_reliability", &format!("{:.0}", stats.overall_avg_score()));
+
+    // v0.0.290: Use event log avg_reliability if available
+    let avg_reliability = agg.as_ref().map(|a| a.avg_reliability).unwrap_or(stats.overall_avg_score());
+    kv("avg_reliability", &format!("{:.0}", avg_reliability));
 
     if let Some(ref agg) = agg {
         if agg.avg_duration_ms > 0.0 {
@@ -375,17 +387,39 @@ fn xp_for_level(level: u32) -> u64 {
     }
 }
 
+/// v0.0.290: Better formatting of staff IDs like "desktop_jr" or "desktop_jr_sofia"
 fn extract_name(person_id: &str) -> String {
-    person_id
-        .split('_')
-        .next_back()
-        .map(|s| {
-            let mut c = s.chars();
-            c.next()
-                .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
-                .unwrap_or_default()
-        })
-        .unwrap_or_else(|| person_id.to_string())
+    let parts: Vec<&str> = person_id.split('_').collect();
+
+    match parts.len() {
+        0 => person_id.to_string(),
+        1 => capitalize(parts[0]),
+        2 => {
+            // "desktop_jr" -> "Desktop Jr"
+            let dept = capitalize(parts[0]);
+            let role = if parts[1] == "jr" {
+                "Jr".to_string()
+            } else if parts[1] == "sr" {
+                "Sr".to_string()
+            } else {
+                capitalize(parts[1])
+            };
+            format!("{} {}", dept, role)
+        }
+        _ => {
+            // "desktop_jr_sofia" -> "Sofia (Desktop)"
+            let name = capitalize(parts.last().unwrap_or(&""));
+            let dept = capitalize(parts[0]);
+            format!("{} ({})", name, dept)
+        }
+    }
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+        .unwrap_or_default()
 }
 
 fn format_achievement_icon(achievement: &Achievement) -> String {

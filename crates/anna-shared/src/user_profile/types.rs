@@ -1,7 +1,8 @@
-//! User profile type definitions (v0.0.238).
+//! User profile type definitions (v0.0.292).
 //!
 //! v0.0.236: Added pattern history for trend detection.
 //! v0.0.238: Added session history for "since last time" summaries.
+//! v0.0.292: Added ResponsePreferences for preference-aware formatting.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -115,6 +116,89 @@ impl Default for UserProfile {
             pattern_history: PatternHistory::default(),
             session_history: SessionHistory::default(),
             current_session: None,
+        }
+    }
+}
+
+/// v0.0.292: Response preferences for LLM formatting
+/// Extracted from UserPreferences for easy serialization to JSON context
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponsePreferences {
+    /// Show learning explanations (why commands work)
+    pub learning_mode: bool,
+    /// Verbosity level (0=minimal, 1=normal, 2=detailed)
+    pub verbosity: u8,
+    /// Formality level (0=casual, 1=balanced, 2=formal)
+    pub formality: u8,
+    /// Humor level (0=none, 1=subtle, 2=playful)
+    pub humor: u8,
+    /// Technical depth (0=simple, 1=balanced, 2=expert)
+    pub technical_depth: u8,
+}
+
+impl Default for ResponsePreferences {
+    fn default() -> Self {
+        Self {
+            learning_mode: true,
+            verbosity: 1,
+            formality: 1,
+            humor: 1,
+            technical_depth: 1,
+        }
+    }
+}
+
+impl ResponsePreferences {
+    /// Load from user profile
+    pub fn from_profile(profile: &UserProfile) -> Self {
+        Self {
+            learning_mode: profile.preferences.learning_mode,
+            verbosity: profile.preferences.verbosity,
+            formality: profile.preferences.personality.formality,
+            humor: profile.preferences.personality.humor,
+            technical_depth: profile.preferences.personality.technical_depth,
+        }
+    }
+
+    /// Load from disk (convenience method)
+    pub fn load() -> Self {
+        let profile = UserProfile::load();
+        Self::from_profile(&profile)
+    }
+
+    /// Get verbosity description for LLM context
+    pub fn verbosity_desc(&self) -> &'static str {
+        match self.verbosity {
+            0 => "minimal - be very brief, just essential info",
+            2 => "detailed - include full explanations and context",
+            _ => "normal - balanced detail level",
+        }
+    }
+
+    /// Get formality description for LLM context
+    pub fn formality_desc(&self) -> &'static str {
+        match self.formality {
+            0 => "casual - relaxed, conversational tone",
+            2 => "formal - professional, precise language",
+            _ => "balanced - friendly but professional",
+        }
+    }
+
+    /// Get humor description for LLM context
+    pub fn humor_desc(&self) -> &'static str {
+        match self.humor {
+            0 => "none - stick to facts only",
+            2 => "playful - include light humor when appropriate",
+            _ => "subtle - occasional light touch",
+        }
+    }
+
+    /// Get technical depth description for LLM context
+    pub fn technical_depth_desc(&self) -> &'static str {
+        match self.technical_depth {
+            0 => "simple - avoid jargon, explain basics",
+            2 => "expert - assume technical knowledge, use precise terms",
+            _ => "balanced - explain concepts but don't over-simplify",
         }
     }
 }
