@@ -1,4 +1,4 @@
-//! LLM-based semantic similarity for recipe matching (v0.0.271).
+//! LLM-based semantic similarity for recipe matching (v0.0.293).
 //!
 //! Uses the translator model to determine if a new query is semantically
 //! similar to queries with learned recipes. This enables Anna to reuse
@@ -6,16 +6,19 @@
 //!
 //! Example: "how much disk space" and "what's my storage usage" are semantically
 //! similar but share no common tokens.
+//!
+//! v0.0.293: Added domain guard to prevent cross-domain false matches.
 
 use anna_shared::recipe::Recipe;
 use anna_shared::recipe_index::RecipeIndex;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::ollama;
 
 /// Minimum similarity score (0-100) to consider queries equivalent
 /// v0.0.290: Increased from 75 to 85 to reduce false positives
-const SIMILARITY_THRESHOLD: u8 = 85;
+/// v0.0.293: Increased to 90 - small models are unreliable at semantic judgment
+const SIMILARITY_THRESHOLD: u8 = 90;
 
 /// Maximum number of recipe candidates to check with LLM
 const MAX_CANDIDATES: usize = 5;
@@ -87,6 +90,45 @@ fn parse_similarity_response(response: &str) -> Option<(bool, u8)> {
     Some((similar, score.min(100)))
 }
 
+/// v0.0.293: Domain keywords to detect query domain for cross-domain guard
+fn detect_query_domain(query: &str) -> Option<&'static str> {
+    let q = query.to_lowercase();
+
+    // Git/version control
+    if q.contains("git") || q.contains("commit") || q.contains("push") || q.contains("pull")
+        || q.contains("branch") || q.contains("merge") || q.contains("rebase") {
+        return Some("git");
+    }
+
+    // Storage/disk
+    if q.contains("disk") || q.contains("storage") || q.contains("space") || q.contains("df") {
+        return Some("storage");
+    }
+
+    // Network
+    if q.contains("network") || q.contains("wifi") || q.contains("internet") || q.contains("ip")
+        || q.contains("dns") || q.contains("ping") {
+        return Some("network");
+    }
+
+    // CPU/performance
+    if q.contains("cpu") || q.contains("core") || q.contains("processor") || q.contains("load") {
+        return Some("cpu");
+    }
+
+    // Memory
+    if q.contains("memory") || q.contains("ram") || q.contains("swap") {
+        return Some("memory");
+    }
+
+    // Packages
+    if q.contains("install") || q.contains("package") || q.contains("pacman") || q.contains("apt") {
+        return Some("packages");
+    }
+
+    None
+}
+
 /// Check if a new query is semantically similar to any recipe in the index.
 /// Uses the translator LLM for semantic comparison.
 ///
@@ -105,6 +147,9 @@ pub async fn check_semantic_similarity(
         return SimilarityResult::no_match();
     }
 
+    // v0.0.293: Detect query domain for cross-domain guard
+    let new_domain = detect_query_domain(new_query);
+
     // Check each candidate with LLM
     for (recipe, _token_score) in candidates {
         let original_query = recipe.signature.query_pattern.clone();
@@ -112,6 +157,18 @@ pub async fn check_semantic_similarity(
         // Skip if queries are identical (already matched by tokens)
         if original_query.to_lowercase() == new_query.to_lowercase() {
             continue;
+        }
+
+        // v0.0.293: Domain guard - reject matches between different domains
+        let recipe_domain = detect_query_domain(&original_query);
+        if let (Some(nd), Some(rd)) = (new_domain, recipe_domain) {
+            if nd != rd {
+                warn!(
+                    "Domain mismatch, skipping semantic check: {} ({}) vs {} ({})",
+                    new_query, nd, original_query, rd
+                );
+                continue;
+            }
         }
 
         let prompt = build_similarity_prompt(new_query, &original_query);

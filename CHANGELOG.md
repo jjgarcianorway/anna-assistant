@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.293] - 2025-12-10
+
+### Fixed - Semantic Similarity Domain Guard
+
+**Prevents Cross-Domain False Matches:**
+Semantic similarity was matching unrelated queries (e.g., "how do I undo my git commit" → disk space recipe). Added domain guard to prevent this:
+
+- **Domain Detection**: Queries are classified into domains (git, storage, network, cpu, memory, packages)
+- **Cross-Domain Guard**: Semantic similarity check is skipped if query domains don't match
+- **Threshold Increase**: Raised from 85 to 90 (small models unreliable at semantic judgment)
+
+**Example Fixed:**
+- Before: "how do I undo my git commit" → matched disk space recipe (95% confidence!) → WRONG
+- After: Domain guard detects git vs storage mismatch → skips semantic check → routes correctly
+
+**Files Changed:**
+- `annad/src/recipe_similarity.rs` - Added `detect_query_domain()` and domain guard logic
+
 ## [0.0.292] - 2025-12-10
 
 ### Added - Preference-Aware Response Formatting
